@@ -1,6 +1,7 @@
 // The API clients tab of Manage users: a client's name and API scopes, and every key of every user
-// and client (made, listed and revoked with the Advanced Settings PIN). Names and scopes save with the
-// users' Save; keys act at once. A factory taking hooks, so nothing imports users.js back.
+// and client. A person needs the Advanced Settings PIN to make, list or revoke a key. Names and
+// scopes save with the users' Save; keys act at once. A factory that gets hooks, so nothing imports
+// users.js back.
 
 import { el, onMsg, wsSend, sentence } from './core.js';
 import { SCOPES } from './apirules.js';
@@ -166,7 +167,7 @@ export function makeClientsTab({ users, touched, adopt }) {
     el(
       'p',
       'sode__hint',
-      'An API client is an app or panel with its own name in History. It has its own API scopes (here) and its own Rights (Rights tab). Renaming a client ends its keys. A wall panel that must outlive PIN changes should use a client key, since a user key ends when that user changes their PIN.',
+      'An API client is an app or panel with its own name in History. It has its own API scopes (here) and its own Rights (Rights tab). If you rename a client, its keys end. A user key ends when that user changes their PIN. If a wall panel must work after PIN changes, give it a client key.',
     ),
     rows,
     el(
@@ -179,7 +180,7 @@ export function makeClientsTab({ users, touched, adopt }) {
       }),
     ),
     el('h3', 'sode__profiles-h', 'Keys'),
-    el('p', 'sode__hint', 'Every key of every user and API client. A key is shown once when it is made, and Sode keeps only a hash of it.'),
+    el('p', 'sode__hint', 'Every key of every user and API client. Sode shows a key one time, when it makes the key, and keeps only a hash of it.'),
     keyHost,
     el('h3', 'sode__profiles-h', 'Make a key'),
     el(

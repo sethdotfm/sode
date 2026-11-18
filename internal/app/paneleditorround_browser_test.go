@@ -41,8 +41,8 @@ func TestChromeEditorSaveKeyAndSteadyToolbar(t *testing.T) {
 	b.check()
 }
 
-// A square given a kind but nothing chosen opens Find on that kind; when nothing of it matches, a row offers every
-// kind, keeping the typed text.
+// A square given a kind but nothing chosen opens Find on that kind. When nothing of that kind matches, a row offers
+// every kind and keeps the typed text.
 func TestChromeEditorFindStartsOnTheKind(t *testing.T) {
 	b, _, _, _ := editorTab(t, `{"name":"Wall","rows":2,"cols":4,"cells":[{"r":1,"c":1,"kind":"destination"},{"r":1,"c":2,"kind":"preset"},{"r":1,"c":3,"kind":"source","n":1}]}`)
 	b.waitFor("grid drawn", `document.querySelectorAll('#ed-grid .sode-ed__sq').length >= 7`)
@@ -66,8 +66,8 @@ func TestChromeEditorFindStartsOnTheKind(t *testing.T) {
 	b.check()
 }
 
-// An uploaded image fills a merged square with contain and Icon B draws over it as a corner badge, in the square and
-// the sidebar preview, with the picker's Icon B column still there. A vendored icon puts Icon B back in the row.
+// An uploaded image fills a merged square with contain, and Icon B draws over it as a corner badge. This holds in the
+// square and the sidebar preview, and the picker's Icon B column is still there. A vendored icon puts Icon B back in the row.
 func TestChromeEditorImageIconBBadge(t *testing.T) {
 	var art string
 	b, a, ana, id := editorTabPrep(t, `{"name":"Wall","rows":2,"cols":2,"cells":[]}`, func(b *tab, a *App, ana, id string) {
@@ -108,7 +108,7 @@ func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 	bens := makePanel(t, a, userKey(t, a, "Ben"), `{"name":"Bens"}`)
 	note := `(document.getElementById('panels-note') || {})`
 	signin := `document.getElementById('panels-signin')`
@@ -165,7 +165,7 @@ func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	}
 }
 
-// Stands in for Sode refusing the session key while window.sodeRefuse is set: the socket's sessionKey request gets a
+// Acts as Sode when it refuses the session key, while window.sodeRefuse is set. The socket's sessionKey request gets a
 // sessionKeyResult with ok false, as the server sends for a refusal. It also keeps the page's sockets so a check can
 // close them.
 const refuseSessionKey = `(() => {

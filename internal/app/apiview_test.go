@@ -9,7 +9,7 @@ import (
 )
 
 // view* helpers: a client PanelsBot whose rights allow source 1 and destination 2 only,
-// hidden or read-only, over a router that also has source 5 and destination 7.
+// hidden or read-only. The router also has source 5 and destination 7.
 
 func viewRights(vis string) config.Rights {
 	return config.Rights{Sources: &[]int{1}, Dsts: &[]int{2}, Presets: &[]string{"Studio A"}, Visibility: vis}
@@ -61,7 +61,7 @@ func TestHiddenRightsDropNamesTallyAndProtected(t *testing.T) {
 	if got := viewGet(t, a, key, "/api/v1/protected")["protected"].([]any); len(got) != 0 {
 		t.Errorf("protected %v", got) // dst 3 and 7 are both outside the rights
 	}
-	// The value in protect is a device, not a source: device 5 must not hide a visible
+	// The value in protect is a device, not a source. Device 5 must not hide a visible
 	// destination, and the row carries only dst and level.
 	a.mu.Lock()
 	a.router.protect[2] = map[int]int{1: 5}
@@ -77,7 +77,7 @@ func TestHiddenRightsDropNamesTallyAndProtected(t *testing.T) {
 	}
 }
 
-// A preset the caller may see by name still names sources and destinations; one that names
+// A preset the caller can see by name still names sources and destinations. One that names
 // anything hidden is not listed, so /presets teaches no hidden number.
 func TestHiddenRightsDropPresetsNamingHiddenNumbers(t *testing.T) {
 	setup := func(vis string) (*App, string) {
@@ -145,7 +145,7 @@ func TestHiddenRightsDropHistoryEntries(t *testing.T) {
 	}
 }
 
-// The view check that Undo, Redo and Retry planning uses: a hidden caller gets the entry as
+// The view check that Undo, Redo and Retry planning uses. A hidden caller gets the entry as
 // it sees it, or false when it is not theirs to see.
 func TestViewEntryIsTheCheckForUndoPlans(t *testing.T) {
 	hid := apiView{viewRights(config.VisHidden)}

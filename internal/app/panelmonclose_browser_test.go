@@ -11,8 +11,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A closed tab, on the real clock: the page holds its stream, then goes away, and the panel is
-// offline for its watcher in under 15 seconds (8 s grace plus the sweep), not after the 45 s miss.
+// A closed tab, on the real clock: the page holds its stream, then goes away. The panel is offline
+// for its watcher in under 15 seconds (8 s grace plus the sweep), not after the 45 s miss.
 func TestChromeClosedPanelTabIsLostInsideFifteenSeconds(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -22,7 +22,7 @@ func TestChromeClosedPanelTabIsLostInsideFifteenSeconds(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","acts":"api"}`)

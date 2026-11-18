@@ -12,6 +12,7 @@ import { initTemplates } from './editortemplates.js';
 import { initSidebar } from './editorside.js';
 import { initNameEdit } from './editorname.js';
 import { initGrip } from './editorgrip.js';
+import { bigScrollAll } from './bigscroll.js';
 
 const id = panelIdFrom(location.pathname);
 
@@ -21,14 +22,16 @@ on('brand', ({ text }) => {
   if (!id) document.title = title.textContent;
 });
 
+// The run page leaves its scrolling to the Grid's own code.
+if (!id) bigScrollAll();
+
 if (id) runPanel(id);
 else if (document.getElementById('ed-grid'))
   runEditor().then((editor) => {
     initArtTool(editor, initFind(editor));
-    initNameEdit();
     initTemplates(editor);
     initGrip(editor);
-    initSidebar(editor);
+    initNameEdit(initSidebar(editor).renameField);
   });
 else runPanelsList();
 

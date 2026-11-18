@@ -45,7 +45,7 @@ test('compact resolves this browser, then Me, then Everyone, then off', async ()
 
 test('the toggle writes only this browser, the explicit opposite, and History follows', async () => {
   const { toggleCompact, compactOn, emit } = await import('./all.mjs');
-  // Everyone has it on: a toggle must still turn it off, so it can't write '' and follow Everyone.
+  // Everyone has it on: a toggle must still turn it off, so it cannot write '' and follow Everyone.
   emit('helloCfg', { deviceDefaults: { compact: true } });
   assert.equal(compactOn(), true);
   assert.equal(attrs.has('data-compact'), true);

@@ -1,6 +1,7 @@
 // The panels page (/panels): a list on the left, the chosen panel on the right. Calls go over /api/v1
-// with the user's session key. The server decides what a user may see and change (canEdit).
+// with the user's session key. The server decides what a user can see and change (canEdit).
 import { $, el, icon, on } from './core.js';
+import { sizeText } from './gridmodel.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { paintOnline, paintOpenNow, openNow, watchBox, MON_POLL_MS } from './panelsmon.js';
 import {
@@ -8,6 +9,8 @@ import {
   actionsFor,
   deleteStep,
   thumbCells,
+  gridThumb,
+  gridSize,
   actsLabel,
   actsShort,
   launchNote,
@@ -24,6 +27,7 @@ import { openPush } from './panelpush.js';
 import { artLeftOut } from './panelrules.js';
 import { openAssign, askName } from './panelassign.js';
 import { clashOf, renameRefusal } from './panelassignrules.js';
+import { isGridPanel } from './gridpaneledges.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
@@ -40,20 +44,36 @@ const api = jsonCall(sessionFetch, { failed: (s) => `Sode answered ${s}` });
 function thumb(p, small) {
   const box = el('div', `sode-ov__thumb${small ? ' sode-ov__thumb--sm' : ''}`);
   box.setAttribute('aria-hidden', 'true');
-  box.style.gridTemplate = `repeat(${p.rows}, 1fr) / repeat(${p.cols}, 1fr)`;
-  box.style.aspectRatio = `${p.cols} / ${p.rows}`;
-  for (let r = 1; r <= p.rows; r++) {
-    for (let c = 1; c <= p.cols; c++) {
+  const grid = isGridPanel(p);
+  const g = grid ? gridThumb(p) : null;
+  const { rows, cols } = g || p;
+  box.style.gridTemplate = `repeat(${rows}, 1fr) / repeat(${cols}, 1fr)`;
+  box.style.aspectRatio = `${cols} / ${rows}`;
+  if (grid) {
+    box.classList.add('sode-ov__thumb--grid');
+    box.dataset.size = g.size;
+  }
+  for (let r = 1; r <= rows; r++) {
+    for (let c = 1; c <= cols; c++) {
+      if (grid && r === 1 && c === 1) continue;
       const i = el('i');
       i.style.gridArea = `${r} / ${c}`;
       box.append(i);
     }
   }
-  for (const c of thumbCells(p)) {
+  for (const c of g ? g.cells : thumbCells(p)) {
     const i = el('i', `sode-ov__k-${c.kind}`);
     i.style.gridArea = `${c.r} / ${c.c} / span ${c.rs} / span ${c.cs}`;
     box.append(i);
   }
+  // A Grid panel's counts are tiles in its two bars. A Buttons panel's picture has no bars, so its count is text on the picture.
+  if (g) {
+    for (const t of g.tiles) {
+      const i = el('i', `sode-ov__k-${t.kind} sode-ov__tile sode-ov__tile--${t.kind}${t.half ? ' sode-ov__tile--half' : ''}`, t.label);
+      i.style.gridArea = `${t.r} / ${t.c} / span ${t.rs} / span ${t.cs}`;
+      box.append(i);
+    }
+  } else box.append(el('span', 'sode-ov__count', `${p.cols} \u00d7 ${p.rows}`));
   return box;
 }
 
@@ -129,7 +149,7 @@ function detail(p) {
     el(
       'div',
       'sode-ov__big',
-      el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)),
+      el('div', '', thumb(p), el('p', 'pb-hint', isGridPanel(p) ? gridSize(p) : sizeText(p.rows, p.cols))),
       el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p, { setWatch, setHide, rename })),
     ),
   );
@@ -176,8 +196,8 @@ async function setHide(id, instance, on) {
   }
 }
 
-// Renames the instance's device name: the page hears it down its stream (POST .../instances/rename). Answers null once
-// sent, or once a clash is handed to the name dialog, else renameRefusal's {why, pin}.
+// Renames the instance's device name: the page hears it down its stream (POST .../instances/rename). Answers null after
+// it is sent, or after a clash is handed to the name dialog, else renameRefusal's {why, pin}.
 async function rename(id, instance, name, pin = '') {
   const p = S.panels.find((x) => x.id === id);
   try {
@@ -198,7 +218,7 @@ async function rename(id, instance, name, pin = '') {
   }
 }
 
-// Online marks and the Open now list change without a redraw, so a button being pressed is not rebuilt.
+// Online marks and the Open now list change without a redraw, so a button that a person presses is not rebuilt.
 async function refreshOnline() {
   if (!S.loaded || document.hidden) return;
   try {

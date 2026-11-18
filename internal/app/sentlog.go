@@ -252,7 +252,7 @@ func (l *SentLog) Total() int64 {
 }
 
 // Page: n entries older than before (< 0 = newest), newest first. Lines are decoded after
-// the lock is released so Append isn't held up; undecodable lines are logged and skipped.
+// the lock is released so Append is not held up; undecodable lines are logged and skipped.
 func (l *SentLog) Page(before int64, n int) ([]Sent, bool, error) {
 	l.mu.Lock()
 	if before < 0 || before > l.next {

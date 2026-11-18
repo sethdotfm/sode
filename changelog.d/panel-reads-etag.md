@@ -1,0 +1,1 @@
+- Panel pages ask Sode again only for what changed. The tally, protected, names and panel reads of `/api/v1` send an `ETag`, and a repeat with `If-None-Match` gets 304 and no body when nothing changed.

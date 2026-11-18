@@ -26,7 +26,7 @@ func TestUnknownPrefSurvivesLoadAndSave(t *testing.T) {
 	}
 	ana := watched(t, a, "10.0.0.1", "1234")
 	profiles(ana)
-	// A browser can't add an unknown pref, only keep the one the file has.
+	// A browser cannot add an unknown pref, only keep the one the file has.
 	req := profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light", "browserPref": "y", "futurePref": "z"}}
 	if _, err := a.ProfileSave(ana, req); err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ users:
 
 var listIndex = regexp.MustCompile(`\[\d+\]`)
 
-// unindexed drops list positions, so a reorder doesn't count as a change.
+// unindexed drops list positions, so a reorder does not count as a change.
 func unindexed(keys []string) []string {
 	out := make([]string, len(keys))
 	for i, k := range keys {

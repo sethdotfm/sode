@@ -1,5 +1,5 @@
 // Monitoring on the panels page: the status of each row, the Watch checkbox and the Open now list of the
-// chosen panel, each instance with its uptime strip and Hide. Kept out of panelslist.js so that file only calls a few functions.
+// chosen panel. Each instance has its uptime strip and Hide. Kept out of panelslist.js so that file only calls a few functions.
 import { el, icon } from './core.js';
 import { askNotifyPermission, notifyPermission } from './panelwatch.js';
 import { durationText, permissionText } from './panelwatchrules.js';
@@ -57,15 +57,15 @@ function hideButton(p, i, setHide) {
   return b;
 }
 
-// The instance's name with its rename pencil. A click turns the name into a field: Enter saves, Escape or leaving drops
-// the edit. rename(id, device, name, pin) answers null when sent (or handed to the clash dialog), else {why, pin}; pin
-// shows the Advanced Settings PIN field, as the Assign to modal does.
+// The instance's name with its Rename icon. A click turns the name into a field: Enter saves, and Escape or a move away
+// drops the edit. rename(id, device, name, pin) answers null when sent (or handed to the clash dialog), else {why, pin}.
+// pin shows the Advanced Settings PIN field, as the Assign to modal does.
 function nameSlot(p, i, rename) {
   const slot = el('span', 'sode-ov__name');
   const state = rename ? renameState(i) : '';
   const show = () => {
     if (!state) return slot.replaceChildren(el('strong', '', i.device));
-    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('pencil'));
+    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('text-cursor-input'));
     b.type = 'button';
     b.dataset.renameInstance = i.device;
     b.disabled = state === 'offline';
@@ -120,7 +120,7 @@ function nameSlot(p, i, rename) {
         pin.focus();
       }
     };
-    // Moving between the name and the PIN field keeps the edit open.
+    // A move between the name and the PIN field keeps the edit open.
     const blur = (e) => {
       if (!busy && slot.contains(input) && !slot.contains(e.relatedTarget)) show();
     };
@@ -194,7 +194,7 @@ export function openNow(p, { setWatch, setHide, rename } = {}, now = Date.now())
   return box;
 }
 
-// Watch is offered where the server says the user may edit: the owner, or any panel for a Trusted user.
+// Watch is offered where the server says the user can edit: the owner, or any panel for a Trusted user.
 export function watchBox(p, setWatch) {
   if (!p.canEdit) return el('span');
   const input = el('input', 'pb-check__input');
@@ -227,8 +227,8 @@ export function watchBox(p, setWatch) {
   );
 }
 
-// Replaces the Open now list in place, so a refresh does not rebuild the detail pane under a hand.
-// A checkbox under a hand is left alone until the next refresh.
+// Replaces the Open now list in place, so a poll does not rebuild the detail pane under a hand.
+// A checkbox under a hand is left alone until the next poll.
 export function paintOpenNow(p, handlers) {
   const old = document.getElementById('panels-open');
   if (!old || !p || old.dataset.for !== p.id || old.contains(document.activeElement)) return;

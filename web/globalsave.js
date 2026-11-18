@@ -25,7 +25,7 @@ function onResult(resultT, fn) {
   list.push(fn);
 }
 
-// how.send returns false if the request couldn't go out, else calls settle(result).
+// how.send returns false if the request could not go out, else calls settle(result).
 function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote = '' }) {
   const { pin } = how;
   let pending = null; // { run, done, sent }
@@ -135,7 +135,8 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
     change,
     cancel,
     busy: () => pending != null,
-    // Closing: true when a sent save is still to be answered (a PIN saver relocks after it); else drop anything waiting for the PIN and relock.
+    // Closing: true when a sent save is still to be answered (a PIN saver relocks after it). Else it drops anything
+    // that waits for the PIN, and relocks.
     close() {
       if (pin) pin.row.hidden = true;
       if (pending?.sent) return true;
@@ -180,17 +181,17 @@ export function profileSaver({ target, ...opts }) {
 
 // Save or delete a named item in a scope's list. Sets and presets share the flow, and so does editing another
 // user's profile: with target() set, every scope goes to that profile's saver.
-//   key: payload key for the whole list (profile saver, and the global one unless globalKey differs)
-//   listOf(scope): the scope's current list as it is sent
-//   same(a, b): do two names mean one item   dropLocal(name): delete from localStorage
+//   key: payload key for the whole list (profile saver, and the global one unless globalKey differs).
+//   listOf(scope): the scope's current list as it is sent.
+//   same(a, b): do two names mean one item?   dropLocal(name): delete from localStorage.
 export function scopeWriter({ global, user, target, key, globalKey = key, listOf, same, dropLocal }) {
-  // The whole next list into a remote scope; done() runs once it has landed. Local scopes are written by the caller.
+  // The whole next list into a remote scope; done() runs after it has landed. Local scopes are written by the caller.
   function saveIn(scope, list, done) {
     const t = target?.();
     const [saver, k] = t ? [t, key] : scope === 'user' ? [user, key] : [global, globalKey];
     saver.change({ [k]: list }, done);
   }
-  // Without the item; local deletes at once. done() runs once it is gone.
+  // Without the item; local deletes immediately. done() runs after it is gone.
   function removeIn(scope, name, done) {
     if (scope === 'local') {
       dropLocal(name);

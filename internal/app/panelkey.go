@@ -18,8 +18,8 @@ import (
 
 // A panel that acts as an API client holds one key per named instance (docs/panels-design.md).
 // The key's name is the instance's device name, unique on the panel ignoring case. Making a link
-// for a name that already holds one rotates that instance only. A key is shown once, in the
-// response, and the link carries it in the URL fragment so it never reaches a request line, a
+// for a name that already holds one rotates that instance only. A key is shown one time, in the
+// response. The link carries it in the URL fragment so it never reaches a request line, a
 // proxy log or a Referer.
 
 const (
@@ -71,7 +71,7 @@ type instanceMade struct {
 }
 
 // replaceInstance ends the owner's key and pending setup link named name and makes the new
-// one under one lock, so two requests cannot both leave a key behind. At the cap it changes
+// one under one lock. So two requests cannot both leave a key behind. At the cap it changes
 // nothing.
 func (s *keyStore) replaceInstance(o keyOwner, name string, setup bool, now time.Time) (instanceMade, error) {
 	var m instanceMade

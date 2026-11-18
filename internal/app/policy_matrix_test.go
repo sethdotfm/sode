@@ -115,7 +115,7 @@ func TestPolicyMatrix(t *testing.T) {
 }
 
 // The branches that depend on the message body: config turns admin-only when it sets or
-// clears the PIN, and profileSave passes for the signed-in user's own name.
+// clears the PIN. profileSave passes for the signed-in user's own name.
 func TestPolicyMatrixMessageBranches(t *testing.T) {
 	for _, r := range []struct {
 		name string

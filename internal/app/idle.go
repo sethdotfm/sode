@@ -12,7 +12,7 @@ import (
 
 const defaultIdleEvery = 10 * time.Second
 
-// idleLimit: how long u may go without activity, 0 = never.
+// idleLimit: how long u is allowed to go without activity, 0 = never.
 func idleLimit(cfg config.Config, u config.User) time.Duration {
 	if cfg.AutoLockMinutes <= 0 || u.NoAutoLock {
 		return 0

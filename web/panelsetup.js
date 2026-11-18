@@ -68,7 +68,7 @@ export async function exchangeSetup(id, token) {
 
 // An Assign: keep the target's key under the address the page will open, then open it. A full load drops the staged
 // routes and every timer of the old panel, and a reload lands on the same address and key. With no key the target
-// signs in a user, and a key stored earlier for that address would open it as its client instead, so it goes.
+// signs in a user. A key stored earlier for that address would open it as its client instead, so that key goes.
 export function followAssign(msg) {
   const { seg } = assignAddress(msg, location, true);
   let stored = !msg.key;

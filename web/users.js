@@ -1,4 +1,5 @@
-// Users: the directory (users, longest PIN) is edited in its own dialog that saves on its own (`users` message, settings-PIN guarded), never with the main Save.
+// Users: the directory (users, longest PIN) has its own dialog with its own save (`users` message, guarded by the Advanced
+// Settings PIN). It never saves with the main Save.
 // Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a trusted user without the PIN. The server holds every rule.
 // Imported by settings.js before it builds its table of contents.
 
@@ -66,7 +67,7 @@ const modeField = el(
   el(
     'span',
     'sode__hint',
-    'Username and PIN: each user has a username, and two users may share a PIN. Switching back to PIN only needs a new, different PIN for every user.',
+    'Username and PIN: each user has a username, and two users can share a PIN. A switch back to PIN only needs a new, different PIN for every user.',
   ),
 );
 const fillBtn = btn('pb-btn--outline pb-btn--sm', 'Fill empty usernames', () => {
@@ -75,7 +76,7 @@ const fillBtn = btn('pb-btn--outline pb-btn--sm', 'Fill empty usernames', () => 
   for (const [i, row] of [...rows.children].entries()) row.querySelector('input[data-field="username"]').value = names[i];
   touched();
 });
-fillBtn.dataset.pbTip = 'Sets each empty username to the Name without spaces. You can edit them before saving.';
+fillBtn.dataset.pbTip = 'Sets each empty username to the Name without spaces. You can edit them before you save.';
 const usernameHead = el('span', null, 'Username');
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
 
@@ -140,15 +141,15 @@ usersPanel.addEventListener('keydown', (e) => {
   }
 });
 
-let edited = false; // changed in the dialog since it filled
-let discard = false; // warned once; the next close discards
+let edited = false; // changed in the dialog since it filled.
+let discard = false; // warned one time; the next close discards.
 let back = null;
 let seq = 0;
 let outSeq = 0;
 let listSeq = 0;
-let listedMode = 'pin'; // the saved sign-in mode, what the server keeps when none is sent
-let listed = []; // the directory the server sent; empty until it does
-let extras = { apiClients: [], guestRights: {}, guestScopes: [] }; // clients and Guest, sent with it
+let listedMode = 'pin'; // the saved sign-in mode, what the server keeps when none is sent.
+let listed = []; // the directory the server sent; empty until it does.
+let extras = { apiClients: [], guestRights: {}, guestScopes: [] }; // clients and Guest, sent with it.
 let loaded = false;
 const signing = new Map();
 
@@ -216,7 +217,7 @@ function addRow(u = { name: '', len: 0 }) {
   trust.input.dataset.flag = 'trusted';
   const never = check('Never sign out', { checked: !!u.persistent });
   never.input.dataset.flag = 'persistent';
-  // A saved user takes two clicks and the Advanced Settings PIN; a row never saved has nothing to lose.
+  // A saved user needs two clicks and the Advanced Settings PIN; a row never saved has nothing to lose.
   const disarm = () => {
     rm.dataset.armed = '';
     rm.textContent = 'Remove';
@@ -232,7 +233,7 @@ function addRow(u = { name: '', len: 0 }) {
       rm.dataset.armed = '1';
       rm.textContent = 'Confirm remove';
       rm.classList.replace('pb-btn--ghost', 'pb-btn--danger');
-      setNote(`Remove "${row.dataset.was}"? Once saved, this can't be undone: their PIN and profile are deleted.`);
+      setNote(`Remove "${row.dataset.was}"? After you save, this cannot be undone: their PIN and profile are deleted.`);
       return;
     }
     if (S.pinSet && !(await askPin('Removing a user needs the Advanced Settings PIN.'))) return disarm();
@@ -337,7 +338,7 @@ function paintPeople() {
 
 const paintSummary = paintPeople;
 
-// The directory is not in the hello (a locked page gets that too): the settings PIN holder asks for it.
+// The directory is not in the hello (a locked page gets that too): the holder of the Advanced Settings PIN asks for it.
 const load = () => {
   wsSend({ t: 'usersList', id: ++listSeq });
 };
@@ -375,7 +376,7 @@ on('hello', () => {
 
 // ---- open / close / save
 async function openUsers() {
-  // A trusted user may not have the PIN entered: a popup asks instead of an editor with no users.
+  // It is possible that a trusted user has not entered the PIN: a popup asks instead of an editor with no users.
   const opener = document.activeElement;
   if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) {
     opener?.focus?.();

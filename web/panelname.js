@@ -1,4 +1,4 @@
-// The instance name in the panel header. A click turns it into a field; Enter or leaving saves, Escape drops the edit.
+// The instance name in the panel header. A click turns it into a field; Enter or a move away saves, and Escape drops the edit.
 import { el, icon } from './core.js';
 
 // box is the header slot; rename(name) returns true when the name changed. Returns show(name, editable).
@@ -6,7 +6,7 @@ export function initName(box, rename) {
   const draw = (name, editable) => {
     box.hidden = false;
     if (!editable) return box.replaceChildren(el('span', 'sode-panels__device', name));
-    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-panels__device', name, icon('pencil'));
+    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-panels__device', name, icon('text-cursor-input'));
     b.type = 'button';
     b.dataset.pbTip = 'Rename this instance';
     b.setAttribute('aria-label', `Instance name ${name}. Rename`);

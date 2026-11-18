@@ -13,10 +13,10 @@ import (
 )
 
 // Secure mode: a one-time setup link for a named instance, in place of a named instance link
-// whose key is readable once. The tablet opens panels/<id>?instance=<name>#setup=<token>, the page
-// posts the token to /panels/{id}/setup and keeps the key it gets in its own storage, so the link
-// is spent. A setup link is a record in the key store flagged Setup, named for its instance: it
-// ends with that instance's key (rotate, revoke, a newer link) and never authenticates a request.
+// whose key is readable one time. The tablet opens panels/<id>?instance=<name>#setup=<token>. The
+// page posts the token to /panels/{id}/setup and keeps the key it gets in its own storage, so the
+// link is spent. A setup link is a record in the key store flagged Setup, named for its instance.
+// It ends with that instance's key (rotate, revoke, a newer link) and never authenticates a request.
 // It lives in keys.json, so it survives a restart. Making one is panelkey.go.
 
 const (

@@ -1,0 +1,3 @@
+- Sode serves the IBM Plex fonts itself. Pages no longer load anything from Google Fonts, and they draw on a network with no internet connection.
+- Web files have an `ETag` and go gzip-compressed. A second load of a page downloads only what changed.
+- Panel pages show a route change from the WebSocket at once and no longer read the full tally every 2 seconds. While the WebSocket is down, they read it every 2 seconds as before.

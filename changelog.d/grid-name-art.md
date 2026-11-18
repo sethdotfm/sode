@@ -1,0 +1,1 @@
+- A name on a Grid panel shows its own artwork, or its item's Default artwork, beside the name. The name always shows as text. The editor's Sources and Destinations rows have an Artwork button.

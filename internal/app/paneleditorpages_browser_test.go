@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// The editor's Pages bar on a 3-Page panel: Add Page twice, Cmd-click and a Mac Ctrl-click (contextmenu) open all
-// three side by side, a copy on Page 1 pastes onto Page 2 and Page 3, Copy to over the used Page 3 asks before it
-// replaces, and an undo pressed on Page 1 takes back the Copy to on Page 3. The save stores every Page, and the copied
-// Go to Page cell keeps its target. The Info cell copied to Page 3 names Page 3, and Test it live opens on Page 3.
+// The editor's Pages bar on a 3-Page panel. The check presses Add Page twice. Cmd-click and a Mac Ctrl-click
+// (contextmenu) open all three side by side. A copy on Page 1 pastes onto Page 2 and Page 3. Copy to over the used
+// Page 3 asks before it replaces. An undo pressed on Page 1 takes back the Copy to on Page 3. The save stores every Page, and the copied
+// Go to Page cell keeps its target. The Info cell copied to Page 3 names Page 3, and the Live Editor opens on Page 3.
 func TestChromeEditorPages(t *testing.T) {
 	b, a, ana, id := editorTab(t, `{"name":"Paged","rows":2,"cols":4,"pages":[{"id":"p1","enabled":true,"cells":[
 		{"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":1},
@@ -108,10 +108,33 @@ func TestChromeEditorPages(t *testing.T) {
 		t.Fatalf("stored Pages:\n got %q\nwant %q", got, want)
 	}
 
-	// Test it live opens on the Page being edited, and the Info cell there names that Page.
+	// The Live Editor opens on the Page being edited, and the Info cell there names that Page.
 	b.eval(`pressSq(3, 1, 4)`)
 	b.waitFor("Page 3 focused", `row(3).classList.contains('is-focus')`)
 	b.eval(`document.getElementById('ed-live').click()`)
 	b.waitFor("live on Page 3", `[...document.querySelectorAll('#ed-live-view button')].some((x) => x.textContent.includes('Paged') && x.textContent.includes('Page 3') && x.disabled)`)
+
+	// A drop puts the row at the place of the row under it, in both directions.
+	// Move up and Move down stop at the ends.
+	b.eval(`window.order = () => [...document.querySelectorAll('#ed-pages .sode-pages__row')].map((r) => r.dataset.id);
+		window.first = order();
+		window.drag = (from, to) => {
+			const dt = new DataTransfer();
+			row(from).dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+			row(to).dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+			row(to).dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+			row(from)?.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
+		};
+		window.ids = (...n) => n.map((i) => first[i - 1]).join();
+		true`)
+	b.eval(`drag(1, 3)`)
+	b.waitFor("Page 1 dragged down onto Page 3", `order().join() === ids(2, 3, 1)`)
+	b.eval(`drag(3, 1)`)
+	b.waitFor("Page 3 dragged up onto Page 1", `order().join() === ids(1, 2, 3)`)
+	b.eval(`row(2).querySelector('[data-act="up"]').click()`)
+	b.waitFor("Move up", `order().join() === ids(2, 1, 3)`)
+	b.eval(`row(2).querySelector('[data-act="down"]').click()`)
+	b.waitFor("Move down", `order().join() === ids(2, 3, 1)`)
+	b.waitFor("no Move up on the first row, no Move down on the last", `row(1).querySelector('[data-act="up"]').disabled && row(3).querySelector('[data-act="down"]').disabled && !row(2).querySelector('[data-act="up"]').disabled && !row(2).querySelector('[data-act="down"]').disabled`)
 	b.check()
 }

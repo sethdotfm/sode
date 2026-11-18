@@ -11,8 +11,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The editor's corner grip extends numbering with a tip, the fill order picker changes the preview, the toolbar
-// counts an unassigned cell, and Test it live saves and opens a panel that leaves that cell out.
+// The editor's corner grip extends numbering with a tip, and the fill order picker changes the preview. The toolbar
+// counts an unassigned cell, and the Live Editor saves and opens a panel that leaves that cell out.
 func TestChromeEditorGripOrderLive(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -23,7 +23,7 @@ func TestChromeEditorGripOrderLive(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Grip panel","rows":4,"cols":8,"cells":[
@@ -72,7 +72,7 @@ func TestChromeEditorGripOrderLive(t *testing.T) {
 	b.waitFor("down order previewed", `sq(4, 1)?.textContent.includes('Zoom 2') && !sq(3, 2)?.textContent.includes('Zoom 2') && !!document.querySelector('.sode-find__orders [data-order="down"][aria-pressed="true"]')`)
 	b.shot("order")
 
-	// Test it live saves the edits, then runs the saved panel in the editor; the unassigned cell is not on it.
+	// The Live Editor saves the edits, then runs the saved panel in the editor; the unassigned cell is not on it.
 	b.eval(`window.opened = ''; window.open = (u) => { window.opened = u; return null }; document.getElementById('ed-live').click()`)
 	b.waitSaved("saved before the live view")
 	b.waitFor("live shown after saving", `!document.getElementById('ed-live-view').hidden`)

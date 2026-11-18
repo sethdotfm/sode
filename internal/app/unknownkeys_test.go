@@ -35,7 +35,7 @@ func TestUnknownKeysLogged(t *testing.T) {
 			errs = append(errs, e.Err)
 		}
 	}
-	want := "config.yaml has keys this release doesn't know, kept as is: futureKey, locks.futureLock"
+	want := "config.yaml has keys this release does not know, kept as is: futureKey, locks.futureLock"
 	if len(errs) != 1 || errs[0] != want {
 		t.Fatalf("server row errors = %q, want [%q]", errs, want)
 	}

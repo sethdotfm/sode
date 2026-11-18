@@ -1,7 +1,7 @@
 // Uploaded artwork is shrunk in the browser before it is sent, so neither side passes ART_EDGE px (the server refuses
 // more, panelArtSide in internal/app/panelstore.go). PNG stays PNG for transparency and JPEG stays JPEG. GIF and SVG
-// are sent as they are (a canvas would drop the animation or turn a vector into pixels), so an oversize GIF is
-// refused here. What is sent must fit ART_MAX_BYTES (sidebarrules.js).
+// are sent as they are, because a canvas would drop the animation or turn a vector into pixels. So an oversize GIF
+// is refused here. What is sent must fit ART_MAX_BYTES (sidebarrules.js).
 import { artProblem, ART_TYPES, ART_MAX_BYTES } from './sidebarrules.js';
 
 export const ART_EDGE = 1024;
@@ -53,7 +53,7 @@ async function compressImage(file, doc = document) {
   }
 }
 
-// What the editor uploads for a chosen file: { blob, problem: '' }, or { problem } when nothing may be sent.
+// What the editor uploads for a chosen file: { blob, problem: '' }, or { problem } when the editor must not send anything.
 export async function prepareArt(file, doc = document) {
   if (!ART_TYPES.includes(file.type)) return { problem: artProblem(file) };
   if (file.type === 'image/gif') {

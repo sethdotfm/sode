@@ -33,7 +33,7 @@ func loadConfig(path string) config.Config {
 			log.Fatalf("config: %v", err)
 		}
 		if exists && c.SettingsPin != "" && !config.ValidPinHash(c.SettingsPin) {
-			log.Fatalf("config: settingsPin in %s isn't a PIN hash (set PINs from Settings, not by hand); run sode -reset-pin", path)
+			log.Fatalf("config: settingsPin in %s is not a PIN hash (set PINs from Settings, not by hand); run sode -reset-pin", path)
 		}
 		if exists {
 			backupBeforeRelease(path)

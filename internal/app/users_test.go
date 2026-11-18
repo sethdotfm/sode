@@ -28,10 +28,10 @@ func mkUser(t *testing.T, name, pin string) config.User {
 
 // userApp is an app with users ana (1234) and bo (567890) and, if locks, the
 // main and log locks on.
-// settledTempDir is t.TempDir for a directory the app may still be writing to
-// (tokens.json is saved off the lock, so a save can land just as the test
-// ends and make a plain RemoveAll fail with "directory not empty", which
-// failed the release image build once). Removal is retried briefly.
+// settledTempDir is t.TempDir for a directory. It is possible that the app still writes to it.
+// tokens.json is saved off the lock, so a save can land at the moment the test
+// ends. That makes a plain RemoveAll fail with "directory not empty", which
+// failed the release image build once. Removal is retried briefly.
 func settledTempDir(t *testing.T) string {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "sode-test-")
@@ -169,7 +169,7 @@ func TestUserUnlock(t *testing.T) {
 	if err := a.UserUnlock(c, "567890"); err != nil {
 		t.Fatalf("right PIN: %v", err)
 	}
-	// A right PIN does not reset the count: it says who typed it, so it
+	// A right PIN does not reset the count. It says who typed it, so a reset
 	// would hand its holder fresh guesses at the other users' PINs.
 	if a.userPin.n != 2 || c.who() != "Bo" || !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
 		t.Fatalf("not unlocked as Bo: %q", c.who())

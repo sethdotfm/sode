@@ -12,8 +12,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Secure mode on the panel page: a setup link opens the panel once, the page keeps its own key and
-// drops the token from the address, a reload still works and the link does not. Rotating the key
+// Secure mode on the panel page: a setup link opens the panel one time. The page keeps its own key and
+// drops the token from the address. A reload still works and the link does not. Rotating the key
 // from elsewhere ends the open page, which says so.
 func TestChromePanelSetupLink(t *testing.T) {
 	b := startBrowser(t)
@@ -59,7 +59,7 @@ func TestChromePanelSetupLink(t *testing.T) {
 }
 
 // The Link with key tab of the Share modal: Ana (Trusted) makes a link that stays masked until
-// shown, rotates it behind a Confirm, then revokes it with the letter key and limits the networks.
+// shown and rotates it behind a Confirm. Then she revokes it with the letter key and limits the networks.
 // The server is asked each time, since only it knows whether a key is alive.
 func TestChromeShareModalKeyTab(t *testing.T) {
 	b := startBrowser(t)
@@ -70,7 +70,7 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","acts":"api"}`)
@@ -213,8 +213,8 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	b.check()
 }
 
-// A plain key link: once the key works the page keeps it in the browser and the address loses it, keeping
-// ?instance= and the rest of the fragment. A reload runs on the kept key, a rotate ends it, and with storage
+// A plain key link: after the key works, the page keeps it in the browser and the address loses it. The address
+// keeps ?instance= and the rest of the fragment. A reload runs on the kept key, a rotate ends it, and with storage
 // blocked the key stays in the address.
 func TestChromePanelLinkKeyLeavesAddress(t *testing.T) {
 	b := startBrowser(t)

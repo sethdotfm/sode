@@ -104,7 +104,7 @@ func TestKeepaliveNeedsADeviceAndAPanelTheCallerMayUse(t *testing.T) {
 	if c := keepalive(a, "p-00000000", ana, "Desk"); c != 404 {
 		t.Errorf("no such panel: %d", c)
 	}
-	// A use-only reader is an instance too: a wall tablet may be signed in as a shared user.
+	// A use-only reader is an instance too: it is possible that a wall tablet is signed in as a shared user.
 	apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Wall","share":{"mode":"everyone"}}`)
 	if c := keepalive(a, id, bo, "Desk"); c != 200 {
 		t.Errorf("shared reader: %d", c)

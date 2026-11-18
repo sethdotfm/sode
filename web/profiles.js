@@ -1,6 +1,6 @@
 // Profile dialog: the editor of one user's profile, opened by bus 'openProfile' {name}. Edit/Add open the Filters dialog or preset editor
 // aimed at this profile (they save through saveProfile; 'profileSaved' refreshes this dialog). The own profile reads profile.js's cache;
-// anyone else's goes through fetchProfile (trusted user or settings PIN).
+// anyone else's goes through fetchProfile (trusted user or Advanced Settings PIN).
 
 import { el, S, on, emit, sentence } from './core.js';
 import { trusted, unlocked } from './pin.js';
@@ -44,10 +44,10 @@ document.body.append(root);
 
 let isOpen = false;
 let back = null;
-let who = ''; // the user shown
-let prof = null; // their profile, as last read
-let token = 0; // answers to an older read are ignored
-let removing = null; // { kind, i } waiting for its confirm
+let who = ''; // the user shown.
+let prof = null; // their profile, as last read.
+let token = 0; // answers to an older read are ignored.
+let removing = null; // { kind, i } waiting for its confirm.
 let saving = 0; // this dialog's own saves in flight
 
 const own = () => !!who && who === profileName();

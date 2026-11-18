@@ -7,7 +7,7 @@ import { hiToken, tokenHome } from './lockrules.js';
 // localStorage rather than a cookie: the socket's `hi` carries it, no HTTP endpoint is needed,
 // and a cookie would be JS-readable anyway (see docs/agents/users-locks.md).
 const TOKEN_KEY = 'sode-session';
-// A no-lock sign-in's token: this tab only (sessionStorage), so closing the tab signs out while a
+// A no-lock sign-in's token: this tab only (sessionStorage), so a closed tab signs out while a
 // reload stays in.
 const TAB_KEY = 'sode-tab-session';
 // Whose Lock this tab shows: this tab's sessionStorage, so a reload still names them. The
@@ -24,7 +24,7 @@ export const keepHeldUser = (name) => writeTab(HELD_KEY, name || null);
 export const lastUser = () => readStr(LAST_KEY);
 export const keepLastUser = (name) => writeStr(LAST_KEY, name || null);
 
-// Sends `hi` once per socket, as the page type says.
+// Sends `hi` one time per socket, as the page type says.
 export function startHandshake(page) {
   let hiFor = null;
   on('conn', () => {

@@ -17,6 +17,8 @@ func fillRouterDerived(a *App) {
 	a.router.srcNames[7] = "CAM 7"
 	a.router.dstNames[5] = "MON 5"
 	a.router.tally[5] = map[int]int{1: 7}
+	a.router.tallyGen = 1
+	a.router.namesGen = 1
 	a.router.protect[5] = map[int]int{1: 9}
 	a.router.seenAt[[2]int{5, 1}] = time.Now()
 	a.router.pend = []routeChange{{5, 1, 7}}
@@ -34,7 +36,7 @@ func fillRouterDerived(a *App) {
 }
 
 // noZeroFields fails for any field of the struct v points to that is still its
-// zero value, so a field added to routerState or extTracker must be filled by
+// zero value. So a field added to routerState or extTracker must be filled by
 // fillRouterDerived (and so is checked to be cleared).
 func noZeroFields(t *testing.T, v any) {
 	t.Helper()

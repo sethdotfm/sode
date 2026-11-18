@@ -149,7 +149,7 @@ func TestSentLogBadMiddleLine(t *testing.T) {
 	}
 }
 
-// A failed write doesn't give out its seq: the next entry gets it, so
+// A failed write does not give out its seq: the next entry gets it, so
 // seqs stay unique and the file stays gapless.
 func TestSentLogWriteFailure(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sent.jsonl")

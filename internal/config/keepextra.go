@@ -8,8 +8,8 @@ import (
 
 // The With*Extras helpers back the list saves in docs/agents/settings-saves.md (Unknown keys).
 
-// Names compare trimmed and in any case, as the validators compare them. Each saved item
-// matches at most once, so duplicate names can't share one item's Extra.
+// Names compare trimmed and in any letter case, as the validators compare them. Each saved item
+// matches at most one time, so duplicate names cannot share one item's Extra.
 func savedMatch[T any](in, saved []T, key func(T) string) []int {
 	out := make([]int, len(in))
 	used := make([]bool, len(saved))

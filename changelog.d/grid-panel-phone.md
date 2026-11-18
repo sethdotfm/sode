@@ -1,0 +1,2 @@
+- A Grid panel in Take mode has a Take button beside the Levels box, with the number of staged routes. It opens the same confirm as Enter.
+- On a phone, a Grid panel works by touch. Tap names to pick them and long-press a name to pick a range. Double-tap a name to jump, and tap a crosspoint to stage. Crosspoints are larger, the numbered targets show while names are picked, and there is no key list.

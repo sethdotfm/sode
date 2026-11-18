@@ -32,7 +32,7 @@ type iconKey struct {
 
 var iconCache sync.Map // iconKey → []byte
 
-// Glyph in 24-unit space, stroke 2, mirroring Lucide "route" (M9 19h8.5a3.5 3.5 0 0 0
+// Glyph in 24-unit space, stroke 2. It mirrors Lucide "route" (M9 19h8.5a3.5 3.5 0 0 0
 // 0-7h-11a3.5 3.5 0 0 1 0-7H15 plus circles at (6,19) and (18,5), r=3). Drawn at 56% of
 // the tile, inside the maskable safe zone.
 type seg struct{ x1, y1, x2, y2 float64 }

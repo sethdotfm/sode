@@ -12,7 +12,7 @@ import (
 // or goroutine itself: unlock and userUnlock stay inline so a following lock wins.
 // Locks cover actions, not data: hello, names, tally, History stream to a locked
 // browser (the lock screen is not a secret). Settings changes need the Advanced Settings PIN
-// (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock: a
+// (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock. A
 // locked wall panel must still save with the PIN. Locks require an Advanced Settings PIN (Validate).
 //
 //	open: hi userUnlock userLock userSignOut userSetPin unlock lock history activity
@@ -45,12 +45,12 @@ type rule struct {
 	// forMsg fills self.
 	selfOf func(m *inMsg) string
 	self   string
-	// admitted runs under mu on admit, so a lock can't slip between check and effect.
+	// admitted runs under mu on admit, so a lock cannot slip between check and effect.
 	admitted func(c *client)
 	// handle runs after admit passed; connCtx is the read loop's per-connection state.
 	handle func(a *App, c *client, m *inMsg, cc *connCtx)
 	// write: a take or save. The read loop counts it so shutdown waits for it, and refuses it
-	// once shutdown began; its handler calls m.finish when done, on every path.
+	// after shutdown began; its handler calls m.finish when done, on every path.
 	write bool
 	// onRefuse: extra replies after a refusal is logged (a take fails each route).
 	onRefuse func(a *App, c *client, m *inMsg, err error)
@@ -128,7 +128,7 @@ var policy = map[string]rule{
 			}
 		}},
 
-	// Admitting sent subscribes to the feed in the same step, so a lock can't slip in.
+	// Admitting sent subscribes to the feed in the same step, so a lock cannot slip in.
 	"sent": {need: needLog, admitted: func(c *client) { c.sent = true },
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.sentHistory(c, int64(m.Before), m.N) }},
 	"uptime": {need: needLog, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
@@ -167,7 +167,7 @@ var policy = map[string]rule{
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.serveConfigExport(c, m) }},
 	"configImportBegin": {need: needAdmin, op: "configImportBegin", handle: func(a *App, c *client, m *inMsg, cc *connCtx) {
 		if cc.budget.Grant(m.Size) {
-			// Answered either way after the limit is raised: the page sends the file
+			// Answered either way after the limit is raised. The page sends the file
 			// only after this, so a refusal is a normal result, not a too-big message.
 			a.reply(c, opResult{T: "configImportBeginResult", OK: true, ID: &m.ID})
 		} else {
@@ -245,8 +245,8 @@ func (a *App) admit(c *client, r rule) error {
 	return nil
 }
 
-// refuse: logs a "locked" command; a page lock answers with the lock state, a PIN with
-// "locked"; a result type also gets a failed result so the page isn't left waiting.
+// refuse: logs a "locked" command. A page lock answers with the lock state, and a PIN with
+// "locked". A result type also gets a failed result so the page is not left waiting.
 func (a *App) refuse(c *client, t string, r rule, m *inMsg, err error) {
 	why := r.why
 	if why == "" {

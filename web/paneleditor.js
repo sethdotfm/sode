@@ -50,11 +50,14 @@ import { writeClip, createPasteReader } from './editorclip.js';
 import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restorePages, rekeySaved } from './gridundo.js';
 import { edgeChoices, edgeNote } from './gridedge.js';
 import { askPasteEdge } from './editorpasteedge.js';
-import { pagesOf, pageView, fitPages } from './panelpages.js';
+import { pagesAfterSave, pagesOf, pageView, fitPages } from './panelpages.js';
 import { addPage, movePage, renamePage, enablePage, deletePage, copyPage, openClick } from './editorpagerules.js';
 import { createPageBar } from './editorpagebar.js';
 import { createPageView } from './editorpageview.js';
 import { askCopyTo } from './editorpagecopy.js';
+import { isGridPanel } from './gridpaneledges.js';
+
+const GRID_EDGE = Object.freeze({ members: 'all' });
 
 const say = (id, text) => {
   const n = $(id);
@@ -75,16 +78,19 @@ export async function runEditor() {
   let open = [''];
   let list = [];
   let names = namesFrom({});
-  let discardAsked = ''; // the panel the user tried to leave unsaved; asking again discards
-  const menuSections = []; // (grid) => items: where Find and later actions plug in
-  const keyHooks = []; // (event) => true when a grid key was handled (Find takes typing and Enter)
+  let routerNames = {}; // GET /names as read, for the Grid panel's list tabs
+  let discardAsked = ''; // the panel the user tried to leave unsaved; a second try discards.
+  const menuSections = []; // (grid) => items: where Find and later actions plug in.
+  const keyHooks = []; // (event) => true when a grid key was handled (Find handles typed text and Enter).
   const changeWatchers = [];
   const fieldWatchers = [];
-  let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork
-  let defaults = new Map(); // Default artwork by item (defaultsBy): drawn only, never put into g
-  let trusted = false; // only a Trusted user can make a client, so a new panel starts as Both for them and Session for the rest
+  let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork.
+  let defaults = new Map(); // Default artwork by item (defaultsBy): drawn only, never put into g.
+  let trusted = false; // only a Trusted user can make a client, so a new panel starts as Both for them and Session for the rest.
   on('access', (a) => (trusted = !!a.trusted && !!a.user));
-  let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each once edited
+  let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each after its first edit.
+  // The save's state for the toolbar: busy while a save runs, failed holds why the last save failed until one works.
+  const saveState = { busy: false, failed: '' };
   const paintWatchers = []; // (grid, selection box) after every repaint, for things that sit over the squares
   const readOnly = () => !!loaded && !loaded.canEdit;
   const fields = () => ({
@@ -92,6 +98,10 @@ export async function runEditor() {
     acts: edits.acts ?? loaded?.acts ?? (trusted ? 'both' : 'session'),
     slug: edits.slug ?? loaded?.slug ?? '',
     clientRights: edits.clientRights,
+    // A Grid panel's type is chosen once, before the first save; the server keeps a stored one.
+    type: edits.type ?? loaded?.type ?? 'buttons',
+    sources: edits.sources ?? loaded?.sources ?? GRID_EDGE,
+    destinations: edits.destinations ?? loaded?.destinations ?? GRID_EDGE,
   });
   const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());
 
@@ -135,7 +145,7 @@ export async function runEditor() {
   const dirty = () => isDirty(loaded, nameBox.value, firstGrid(), edits, livePages());
 
   // Every cell edit, on any Page, passes here, so this is where undo records (gridundo.js): one stack for the
-  // panel. what names the step on the status line, join makes a run of edits one step, list marks a step that
+  // panel. what names the step on the status line. join makes a run of edits one step. list marks a step that
   // replaces the Page list (a template). A selection move or a Page op changes no cells, so it records nothing.
   let steps = emptyUndo();
   const snap = (list = false) => pageSnap(livePages(), g.rows, g.cols, { list, focus, sel: g.sel });
@@ -275,7 +285,18 @@ export async function runEditor() {
     },
     key: onKey,
   });
-  const live = createLive($('ed-live-view'), document.querySelector('.sode-ed__body'), $('ed-live'));
+  let cellTab = null; // the sidebar's Cell tab, { node, openPicker } (editorside.js)
+  let edgeLists = null; // the Sources and Destinations lists, { srcs, dsts } (editorgridlist.js)
+  const live = createLive($('ed-live-view'), document.querySelector('.sode-ed__body'), $('ed-live'), {
+    save: () => save(),
+    dirty: () => !readOnly() && dirty(),
+    readOnly,
+    edges: () => ({ sources: fields().sources, destinations: fields().destinations, rev: loaded?.rev }),
+    lists: () => [$('ed-sources-col'), $('ed-destinations-col')],
+    cellTab: () => cellTab,
+    edgeLists: () => edgeLists,
+  });
+  fieldWatchers.push(() => live.changed());
   // The menu and its flyouts keep off the sidebar when it sits beside the grid (menuArea).
   const menu = createSmartMenu($('ed-grid'), {
     onEscape: () => $('ed-grid').focus(),
@@ -289,16 +310,16 @@ export async function runEditor() {
 
   // The menu goes with the selection when a click or Tab lands outside the grid, the menu and the sidebar. The
   // sidebar edits the selected cell, so a click there keeps the selection and only puts the menu away (it sat over
-  // the sidebar's fields); the next grid click or key brings it back. Not a blur: the menu rebuilds itself on every
+  // the sidebar's fields). The next grid click or key brings it back. Not a blur: the menu rebuilds itself on every
   // change and drops focus for a moment. The event path, not the target: a click on a square repaints the grid,
   // which detaches that target.
   let menuAway = false;
   const leave = (e) => {
     if (!g.sel) return;
     const path = e.composedPath();
-    // The paste past the edge dialog answers for the selection, so focus in it is not leaving the grid.
-    // A press on another open Page moves the selection there itself.
-    if ([$('ed-open-pages'), menu.root].some((n) => path.includes(n)) || path.some((n) => n.id === 'ed-edge')) return;
+    // The paste past the edge dialog and the Icon library dialog act on the selection. So focus in them does not
+    // leave the grid. A press on another open Page moves the selection there itself.
+    if ([$('ed-open-pages'), menu.root].some((n) => path.includes(n)) || path.some((n) => n.id === 'ed-edge' || n.id === 'ed-lib-dialog')) return;
     if (path.includes($('ed-side'))) {
       if (menuAway) return;
       menuAway = true;
@@ -336,7 +357,7 @@ export async function runEditor() {
     const block = readBlock(text);
     if (!block) return say('ed-status', 'Nothing pasted: the clipboard holds no valid Sode cells.');
     const plan = pastePlan(g, block, { panel: loaded?.id, fixed: fixedOn() });
-    if (!plan) return say('ed-status', 'Nothing pasted: select the square to paste at first.');
+    if (!plan) return say('ed-status', 'Nothing pasted: first select the square to paste at.');
     if (!plan.fits) return void pasteOverflow(plan);
     const dropped = setGrid(applyPaste(g, plan.placed), { what: 'paste' });
     say('ed-status', `${pasteNote(plan)} ${droppedNote(dropped)}`.trim());
@@ -438,13 +459,16 @@ export async function runEditor() {
   // A key without the panels scope, or a failed read, leaves the defaults as they were.
   async function loadDefaults() {
     const r = await sessionFetch('api/v1/default-artwork').catch(() => null);
-    if (!r?.ok) return;
-    defaults = defaultsBy((await r.json()).defaults);
+    const got = r?.ok ? await r.json().catch(() => null) : null;
+    if (!got) return;
+    defaults = defaultsBy(got.defaults);
     refresh();
   }
 
   function refresh() {
     const ro = readOnly();
+    // Grid panels have no cells, size or Pages: CSS hides the grid, the Pages bar and Templates.
+    document.querySelector('.sode-ed').dataset.type = isGridPanel(fields()) ? 'grid' : 'buttons';
     const live = livePages();
     grid.paint(g, names, { readOnly: ro, art, defaults, pages: live, page: focus });
     openView.paint(live, open, focus, { rows: g.rows, cols: g.cols, names, fixed: fixedOn(), readOnly: ro, art, defaults });
@@ -453,14 +477,20 @@ export async function runEditor() {
     menu.show(menuAway ? null : box, menuItems());
     for (const fn of paintWatchers) fn(g, box);
     nameBox.disabled = ro;
-    $('ed-save').disabled = ro || !dirty();
+    const saveBtn = $('ed-save');
+    const failed = !ro && !!saveState.failed;
+    saveBtn.disabled = ro || saveState.busy || (!dirty() && !failed);
+    saveBtn.textContent = failed ? 'Retry save' : 'Save';
+    saveBtn.classList.toggle('pb-btn--ok', !failed);
+    saveBtn.classList.toggle('pb-btn--danger', failed);
     $('ed-banner').hidden = !ro;
     // Not say(): the slot keeps its size whatever it holds, so the toolbar never re-wraps (panels.css).
-    $('ed-state').textContent = ro ? '' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '';
+    $('ed-state').textContent = ro ? '' : saveState.busy ? 'Saving' : failed ? 'Not saved' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '';
     const link = $('ed-open');
     link.hidden = !loaded;
     if (loaded) link.href = `panels/${loaded.id}`;
-    // A panel that only acts as its API client has no link without its key (Share, Link with key); a Both panel's plain link opens in Session mode, a Public panel's for anyone.
+    // A panel that only acts as its API client has no link without its key (Share, Link with key).
+    // A Both panel's plain link opens in Session mode, and a Public panel's opens for anyone.
     const copy = $('ed-copylink');
     copy.hidden = !loaded || loaded.acts === 'api';
   }
@@ -544,7 +574,10 @@ export async function runEditor() {
     fieldsChanged();
   }
 
+  // Only the newest open counts: a slow answer for a panel picked earlier must not replace a later pick.
+  let opening = 0;
   async function openPanel(id, push) {
+    const mine = ++opening;
     if (!id) {
       if (push) history.pushState(null, '', 'panels/editor?new');
       return show(null);
@@ -553,11 +586,13 @@ export async function runEditor() {
     try {
       panel = await edCall('The panel could not be opened', '')(`api/v1/panels/${id}`);
     } catch (e) {
+      if (mine !== opening) return;
       if (e.status === undefined) throw e;
       say('ed-status', openFailNote(e));
       drawPicker();
       return;
     }
+    if (mine !== opening) return;
     if (push) history.pushState(null, '', `panels/editor?panel=${id}`);
     show(panel);
   }
@@ -587,42 +622,69 @@ export async function runEditor() {
     if (!readOnly() && dirty()) e.preventDefault();
   });
 
-  async function save() {
-    $('ed-save').disabled = true;
-    say('ed-status', 'Saving.');
-    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, firstGrid(), edits, livePages()));
-    const at = { focus: fi(), open: open.map((id) => pages.findIndex((p) => p.id === id)), ids: pages.map((p) => p.id) };
+  // One save at a time. A second Save, Ctrl+S or Live Editor press during a save gets the same answer. So a new panel is
+  // never made twice.
+  let saving = null;
+  function save() {
+    saving ??= saveNow().finally(() => {
+      saving = null;
+    });
+    return saving;
+  }
+
+  // A PUT that got no answer or a server error tries once more by itself. A PUT sends the whole panel, so a second
+  // one is safe. A POST does not try again: a lost answer can hide a panel that it made.
+  const RETRY_MS = 1000;
+  async function saveNow() {
+    saveState.busy = true;
+    refresh();
+    const sentEdits = edits;
+    const sentName = nameBox.value;
+    const sentPages = livePages();
+    const body = JSON.stringify(saveBody(loaded || newPanel(), sentName, firstGrid(), edits, sentPages));
+    const send = () =>
+      edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
+        method: loaded ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
     let stored;
     try {
-      stored = await edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(
-        loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels',
-        {
-          method: loaded ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body,
-        },
-      );
+      stored = await send().catch(async (e) => {
+        if (!loaded || (e.status !== 0 && !(e.status >= 500))) throw e;
+        await new Promise((ok) => setTimeout(ok, RETRY_MS));
+        return send();
+      });
     } catch (e) {
-      say('ed-status', e.message);
+      saveState.busy = false;
+      saveState.failed = e.message;
+      say('ed-status', `${e.message} Your changes are still here. Press Retry save.`);
       refresh();
       return e.message;
     }
     const made = !loaded;
     loaded = stored;
-    // The first save gives an unsaved Page 1 its id; the place in the list is what stays.
-    pages = pagesOf(stored);
-    focus = pages[at.focus]?.id ?? pages[0].id;
+    // Pages edited during the save stay as they are now; the rest take the stored copy. The first save gives an
+    // unsaved Page 1 its id.
+    const after = pagesAfterSave(sentPages, livePages(), pagesOf(stored));
+    pages = after.pages;
+    const rekey = (id) => after.ids[id] ?? id;
+    focus = rekey(focus);
+    if (!pages.some((p) => p.id === focus)) focus = pages[0].id;
     steps = rekeySaved(
       steps,
-      at.ids,
-      pages.map((p) => p.id),
+      sentPages.map((p) => p.id),
+      sentPages.map((p) => rekey(p.id)),
     );
-    open = at.open.map((i) => pages[i]?.id).filter((id) => id !== undefined);
+    open = open.map(rekey).filter((id) => pages.some((p) => p.id === id));
     if (!open.includes(focus)) open = [focus];
-    edits = {};
+    // A field changed while the save was in flight is a newer edit: it stays, and the editor says Unsaved changes.
+    edits = Object.fromEntries(Object.entries(edits).filter(([k, v]) => v !== sentEdits[k]));
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
-    nameBox.value = loaded.name;
-    say('ed-status', 'Saved.');
+    if (nameBox.value === sentName) nameBox.value = loaded.name;
+    if (saveState.failed) say('ed-status', '');
+    saveState.busy = false;
+    saveState.failed = '';
     await loadList().catch(() => {});
     refresh();
     fieldsChanged();
@@ -644,8 +706,9 @@ export async function runEditor() {
   // edits are saved first. Open panels follow a save by themselves.
   $('ed-live').addEventListener('click', async () => {
     if (live.on()) return live.stop();
-    if (!readOnly() && dirty()) await save();
-    if (loaded && !dirty()) live.start(loaded.id, focus);
+    // A second click while the save runs waits for the same save.
+    if (!readOnly() && (saving || dirty())) await save();
+    if (loaded && !dirty() && !live.on()) live.start(loaded.id, focus, isGridPanel(loaded));
   });
 
   $('ed-copylink').addEventListener('click', async () => {
@@ -687,14 +750,34 @@ export async function runEditor() {
   $('panels-signin').addEventListener('click', () => signInFix());
   onSessionKey((k, step, err) => note(k ? 'ready' : step, err));
   on('wsclose', () => note('offline'));
+  // Names come from the REST read, which applies the user's Rights. The socket says when the router's names change,
+  // so the cells and the Grid lists show a rename at once, as an open panel does.
+  // Returns false when the read was refused; the names already shown stay.
+  async function readNames() {
+    const next = await sessionFetch('api/v1/names').then((r) => (r.ok ? r.json() : null));
+    if (!next) return false;
+    routerNames = next;
+    names = namesFrom(routerNames);
+    return true;
+  }
+  const namesFailed = () => say('ed-status', 'The new router names did not load. The editor shows the names it had.');
+  on('names', () =>
+    readNames()
+      .then((ok) => {
+        if (!ok) return namesFailed();
+        refresh();
+        fieldsChanged();
+      })
+      .catch(namesFailed),
+  );
   startSession();
   show(null);
-  // Not awaited: the seams below must exist while the page still waits for a sign-in, so the sidebar and Find are
-  // built and nothing is left half drawn.
+  // Not awaited: the seams below must exist while the page still waits for a sign-in. Then the sidebar and Find
+  // get built, and nothing is left half drawn.
   (async () => {
     try {
       await loadList();
-      names = namesFrom(await sessionFetch('api/v1/names').then((r) => (r.ok ? r.json() : {})));
+      await readNames();
       await loadDefaults();
       await openPanel(editorTarget(location.search).id, false);
     } catch (err) {
@@ -736,10 +819,16 @@ export async function runEditor() {
     // Saves now; answers '' when stored, else the refusal text.
     save,
     names: () => names,
+    routerNames: () => routerNames,
     addMenuSection: (fn) => menuSections.push(fn),
     addKeyHook: (fn) => keyHooks.push(fn),
     // Find's fill order, which Wrap follows.
     useFillOrder: (fn) => (fillOrder = fn),
+    fillOrder: () => fillOrder(),
+    // The sidebar's Cell tab, which the Live Editor shows in its drawer; openArt is true when the drawer showed it.
+    useCellTab: (t) => (cellTab = t),
+    useEdgeLists: (l) => (edgeLists = l),
+    openArt: () => live.openArt(),
     onChange: (fn) => changeWatchers.push(fn),
     // The sidebar's panel fields. onFields runs when the panel loads, saves or a field changes.
     fields,

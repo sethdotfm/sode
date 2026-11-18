@@ -1,10 +1,12 @@
-// The Choose icon picker's Uploaded section: the Icon library's icons and its Upload. Any editor picks; adding needs a
-// Trusted user or the Advanced Settings PIN, asked for after the first refusal as Default artwork does. Tiles draw
-// through the panel's createArt, so their blob URLs go when the panel does. Manage (rename and delete) shows only to a
-// Trusted user, as does Rescan (the drop-in directory, docs/reference.md); the server also takes the PIN, but only
-// from the API.
+// The Choose icon picker's Uploaded icons section. It has the Icon library's icons, and an Icon library button that
+// opens the dialog with Upload, Rename, Delete and Rescan. The sidebar is for choosing; the library is changed in the dialog.
+// Any editor picks; adding needs a Trusted user or the Advanced Settings PIN, asked for after the first refusal as
+// Default artwork does. Tiles draw through the panel's createArt, so their blob URLs go when the panel does. Rename,
+// Delete and Rescan (the drop-in directory, docs/reference.md) show only to a Trusted user. The server also accepts
+// the PIN, but only from the API.
 import { el, on, S } from './core.js';
 import { btn } from './formbits.js';
+import { trapDialog } from './dialogkeys.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { pinNeeded } from './templaterules.js';
 import { prepareArt } from './artcompress.js';
@@ -46,6 +48,11 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   grid.id = 'ed-lib-icons';
   grid.setAttribute('role', 'group');
   grid.setAttribute('aria-label', 'Uploaded icons');
+  // The dialog's own tiles choose the icon to rename or delete.
+  const chooseGrid = el('div', 'sode-side__icons sode-side__lib');
+  chooseGrid.id = 'ed-lib-manage-icons';
+  chooseGrid.setAttribute('role', 'group');
+  chooseGrid.setAttribute('aria-label', 'Icons to rename or delete');
   const empty = el('p', 'sode__hint', 'No uploaded icons yet.');
   const note = el('p', 'sode__hint');
   note.setAttribute('role', 'status');
@@ -68,17 +75,8 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   const pinRow = el('label', 'sode-side__pin', 'Adding to the Icon library needs a Trusted user or the Advanced Settings PIN', pin);
   pinRow.hidden = true;
 
-  // Manage: a tile click chooses the icon to rename or delete instead of picking it for the cell.
-  let managing = false;
-  let chosen = ''; // the icon id Manage acts on
+  let chosen = ''; // the icon id Rename and Delete act on
   let confirming = null; // {key, ready, lock, go}
-  const manage = btn('pb-btn--ghost pb-btn--sm', 'Manage', () => {
-    managing = !managing;
-    chosen = '';
-    cancelAsk();
-    paint();
-  });
-  manage.id = 'ed-lib-manage';
   const rescan = btn('pb-btn--ghost pb-btn--sm', 'Rescan', () => doRescan());
   rescan.id = 'ed-lib-rescan';
   rescan.dataset.pbTip = 'Add the files in icons/drop-in beside the config';
@@ -92,6 +90,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   del.id = 'ed-lib-delete';
   const manageRow = el('div', 'sode-side__row', rename, renameBtn, del);
   const manageHint = el('p', 'sode__hint', 'Choose an icon to rename or delete.');
+  const manageSec = el('div', 'sode-side__lib-sec', el('span', 'sode-side__col-h', 'Rename or delete'), chooseGrid, manageHint, manageRow);
   const confirmBox = el('div', 'sode-side__lib-confirm');
   confirmBox.id = 'ed-lib-confirm';
   confirmBox.tabIndex = -1;
@@ -106,31 +105,66 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     e.stopPropagation();
   });
 
-  const node = el(
-    'div',
-    'sode-side__lib-sec',
-    el('div', 'sode-side__lib-head', el('span', 'sode-side__col-h', 'Uploaded'), el('span', 'sode-side__row', rescan, manage)),
-    grid,
-    empty,
-    el('div', 'sode-side__row', name, up),
-    manageHint,
-    manageRow,
-    confirmBox,
-    pinRow,
-    note,
-    file,
+  // At the picker's right edge, so its tip opens leftward.
+  const open = btn('pb-btn--ghost pb-btn--sm pb-tip--end', 'Icon library', () => openDialog());
+  open.id = 'ed-lib-open';
+  open.setAttribute('aria-haspopup', 'dialog');
+  open.dataset.pbTip = 'Upload, rename or delete the icons every panel can use';
+  const node = el('div', 'sode-side__lib-sec', el('div', 'sode-side__lib-head', el('span', 'sode-side__picker-h', 'Uploaded icons'), open), grid, empty);
+
+  const root = el('div', 'pb-modal-backdrop sode__scrim');
+  root.id = 'ed-lib-dialog';
+  root.hidden = true;
+  const dialog = el('div', 'pb-modal');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'ed-lib-title');
+  dialog.tabIndex = -1;
+  const close = btn('pb-btn--outline', 'Close', () => closeDialog());
+  close.id = 'ed-lib-close';
+  dialog.append(
+    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Icon library'), { id: 'ed-lib-title' }), rescan),
+    el(
+      'div',
+      'pb-modal__body sode-side__lib-sec',
+      el('p', 'sode__hint', 'Every panel can use these icons. A new upload also goes on the selection.'),
+      el('div', 'sode-side__row', name, up),
+      pinRow,
+      manageSec,
+      confirmBox,
+      note,
+      file,
+    ),
+    el('div', 'pb-modal__footer', close),
   );
+  root.append(dialog);
+  document.body.append(root);
+  const dlg = trapDialog(root, dialog, () => closeDialog());
+  let back = null; // focus goes back here on close
+  function openDialog() {
+    back = document.activeElement;
+    chosen = '';
+    note.textContent = '';
+    dlg.show();
+    paint();
+    name.focus();
+  }
+  function closeDialog() {
+    if (root.hidden) return;
+    cancelAsk();
+    dlg.hide();
+    if (back?.isConnected) back.focus({ preventScroll: true });
+  }
+  on('locking', closeDialog);
 
   function paint() {
     const art = ed.art();
     drawnWith = art;
-    if (!trusted) managing = false;
     if (!icons.some((ic) => ic.id === chosen)) chosen = '';
-    grid.replaceChildren();
     const tiles = pickerSections(icons, [], text)[0].tiles;
-    for (const t of tiles) {
+    const tile = (t, choose) => {
       const b = btn('pb-btn--ghost pb-btn--icon pb-btn--sm', '', () => {
-        if (!managing) return set(t.value);
+        if (!choose) return set(t.value);
         chosen = t.id;
         rename.value = t.name;
         cancelAsk();
@@ -139,19 +173,21 @@ export function createLibSection({ ed, set, gone = () => {} }) {
       b.dataset.lib = t.id;
       b.dataset.pbTip = t.name;
       b.setAttribute('aria-label', t.name);
-      b.setAttribute('aria-pressed', String(managing ? chosen === t.id : value === t.value));
-      b.disabled = !managing && ed.readOnly();
+      b.setAttribute('aria-pressed', String(choose ? chosen === t.id : value === t.value));
+      b.disabled = !choose && ed.readOnly();
       b.append(art ? artImage('sode-side__lib-img', art, t.value, true) : el('span', 'sode-side__glyph', [...t.name][0]));
-      grid.append(b);
-    }
+      return b;
+    };
+    grid.replaceChildren(...tiles.map((t) => tile(t, false)));
     grid.hidden = !tiles.length;
     empty.hidden = !!tiles.length;
     empty.textContent = icons.length ? 'No uploaded icon matches.' : 'No uploaded icons yet.';
-    manage.hidden = !trusted || !icons.length;
+    // The dialog lists every icon: the picker's search does not apply there.
+    chooseGrid.replaceChildren(...(trusted && !root.hidden ? pickerSections(icons, [], '')[0].tiles.map((t) => tile(t, true)) : []));
+    manageSec.hidden = !trusted || !icons.length;
     rescan.hidden = !trusted;
-    manage.setAttribute('aria-pressed', String(managing));
-    manageHint.hidden = !managing || !!chosen;
-    manageRow.hidden = !managing || !chosen;
+    manageHint.hidden = !!chosen;
+    manageRow.hidden = !chosen;
   }
   repaints.add(paint);
 
@@ -186,7 +222,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: n }),
       });
-      note.textContent = got.name === n ? `Renamed to ${got.name}.` : `Renamed to ${got.name}, since ${n} is taken.`;
+      note.textContent = got.name === n ? `Renamed to ${got.name}.` : `Renamed to ${got.name}, since ${n} is already in use.`;
       await load();
     } catch (e) {
       note.textContent = e.message;
@@ -199,7 +235,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     if (!ic) return;
     cancelAsk();
     const uses = await change(`api/v1/icon-library/${ic.id}/uses`).catch(() => null);
-    if (chosen !== ic.id || !managing) return;
+    if (chosen !== ic.id || root.hidden) return;
     const key = churnKey();
     const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
     const ok = btn('pb-btn--danger pb-btn--sm', `Delete (${key.toUpperCase()})`, () => c.go());
@@ -269,7 +305,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
       pin.value = '';
       pinRow.hidden = true;
       name.value = '';
-      note.textContent = ic.name === n ? `Added ${ic.name}.` : `Added as ${ic.name}, since ${n} is taken.`;
+      note.textContent = ic.name === n ? `Added ${ic.name}.` : `Added as ${ic.name}, since ${n} is already in use.`;
       await load();
       set(`lib:${ic.id}`);
     } catch (e) {
@@ -293,7 +329,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
       up.disabled = ro;
       name.disabled = ro;
       if (v === value && drawnWith === ed.art()) {
-        for (const b of grid.children) b.disabled = !managing && ro;
+        for (const b of grid.children) b.disabled = ro;
         return;
       }
       value = v;

@@ -348,12 +348,6 @@
 .sode-m__bar[data-step="dst"] .sode-m__step {
   background: var(--pb-dest);
 }
-.sode-m__bar[data-step="src"] .sode-m__input {
-  border-left: var(--sode-side-w) solid var(--pb-source);
-}
-.sode-m__bar[data-step="dst"] .sode-m__input {
-  border-left: var(--sode-side-w) solid var(--pb-dest);
-}
 .sode-m__bar-head {
   align-items: center;
   display: flex;

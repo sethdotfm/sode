@@ -8,7 +8,7 @@ export const FONT_MAX = 200;
 export const ART_MAX_BYTES = 2 << 20; // keep in step with panelArtBytes in internal/app/panelstore.go and docs/api.md
 export const ART_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
 
-// Each panel setting's default. A value equal to it is dropped from the stored settings, as the panel page
+// Each panel setting's default. A value equal to it is dropped from the stored settings. The panel page
 // reads a missing key as the default (panelmodel.js createState and panellook.js lookOf). askInstanceName is left out:
 // the server sends a missing one as true, so it is stored as chosen.
 const DEFAULTS = {
@@ -77,7 +77,7 @@ export function levelsShown(all, stored) {
   return pick.length ? pick : all;
 }
 
-// The patch after ticking or unticking one level. Unticking the last one is refused by the boxes (levelLocked), as
+// The patch after a tick or untick of one level. The boxes refuse an untick of the last one (levelLocked), as
 // nothing ticked would store the same as every level.
 export function levelsToggle(all, stored, level, on) {
   const now = levelsShown(all, stored);

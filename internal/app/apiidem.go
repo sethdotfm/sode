@@ -96,7 +96,7 @@ func (s *apiState) idemBegin(ctx context.Context, subject, key, fp string, now t
 }
 
 // idemPruneLocked drops expired slots, then the oldest committed one if the map is still
-// full. A slot in flight stays, so the map may pass idemMax by the requests running now.
+// full. A slot in flight stays, so it is possible that the map passes idemMax by the requests running now.
 // Caller holds s.mu.
 func (s *apiState) idemPruneLocked(now time.Time) {
 	var oldest string

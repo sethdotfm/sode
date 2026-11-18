@@ -1,10 +1,10 @@
 package swp08
 
-// Group salvos: SW-P-88 Issue 4b 8.1.4 (120), 8.1.5 (121), 8.2.5 (122), 8.2.6 (123), standard layout (4-bit matrix and level,
-// 10-bit numbers, group 0-127). Verified on a Ross Ultrix (2026-11-02): 120 is answered by 122 echoing its data, 121 by 123, in 5-7 ms.
-// A Go's crosspoints are sometimes announced as ordinary Connecteds (~4 ms apart, from ~100 ms after the Go), sometimes not.
-// Extended stage 248 (layout F8 matrix level dstH dstL srcH srcL group, answered by 250 echoing it) is fired by the same Go; a
-// Go-clear clears both kinds. It carries levels past 15 and numbers past 1023.
+// Group salvos: SW-P-88 Issue 4b 8.1.4 (120), 8.1.5 (121), 8.2.5 (122), 8.2.6 (123). They use the standard layout (4-bit
+// matrix and level, 10-bit numbers, group 0-127). Verified on a Ross Ultrix (2026-11-02): 120 is answered by 122 echoing its
+// data, 121 by 123, in 5-7 ms. A Go's crosspoints are sometimes announced as ordinary Connecteds (about 4 ms apart, from about
+// 100 ms after the Go), sometimes not. Extended stage 248 (layout F8 matrix level dstH dstL srcH srcL group, answered by 250
+// echoing it) is fired by the same Go. A Go-clear clears both kinds. It carries levels past 15 and numbers past 1023.
 const (
 	CmdConnectOnGo    = 120
 	CmdGoSalvo        = 121

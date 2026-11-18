@@ -78,7 +78,7 @@ func TestStartupKeepsClientKeysWhenUserPinsChange(t *testing.T) {
 	}
 }
 
-// A keys.json from before the fingerprint has none: those keys are kept and stamped at the
+// A keys.json from before the fingerprint has none. Those keys are kept and stamped at the
 // first startup, so a PIN change after that ends them.
 func TestStartupStampsLegacyUserKeys(t *testing.T) {
 	a := userApp(t, false)

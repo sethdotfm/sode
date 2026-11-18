@@ -1,0 +1,1 @@
+- Big scroll bars that always show, in every browser. They are on the match lists, the main page, Settings and dialogs. They are also on the Communication Log and the panel editor's lists. Drag the thumb, or press the track to page. Firefox and macOS overlay bars no longer hide them. The phone layout keeps the usual bars.

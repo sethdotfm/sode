@@ -152,7 +152,7 @@ func TestPanelOwnershipAndUseOnlySharing(t *testing.T) {
 	wantErr(t, apiDo(a, "GET", "/api/v1/panels/"+id, bo, nil), 404, "not_found")
 	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, bo, `{"name":"mine now"}`), 404, "not_found")
 
-	// Named: Bo may read, never change.
+	// Named: Bo can read, never change.
 	apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Ana's","share":{"mode":"named","users":["bo"]}}`)
 	p := apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, bo, nil))
 	if p["canEdit"] != false || p["name"] != "Ana's" {

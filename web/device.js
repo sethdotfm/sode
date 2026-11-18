@@ -79,11 +79,11 @@ function applyPrefs() {
     timeFmt = null;
     emit('namesChecked');
   }
-  if (changed('clock') || changed('searchFilters') || changed('setStack') || changed('nextMode')) emit('history');
+  if (changed('clock') || changed('searchFilters') || changed('setStack') || changed('stackGap') || changed('nextMode')) emit('history');
   emit('prefs');
 }
 
-// 'locale' follows the browser language; pages can't read the OS 12/24-hour switch.
+// 'locale' follows the browser language; pages cannot read the OS 12/24-hour switch.
 export const clockPref = () => pref('clock');
 
 export const flipped = () => pref('flip') === 'on';

@@ -109,8 +109,8 @@ func TestStreamSlowDropSaysWhy(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
 	s := lifeTally(t, a, "tally")
-	// The writer drains the queue without mu, so no fixed burst is sure to outrun it (under -race
-	// it kept up with 5000): send bursts until the stream is dropped.
+	// The writer drains the queue without mu, so no fixed burst is sure to outrun it. Under -race
+	// it kept up with 5000. So the test sends bursts until the stream is dropped.
 	deadline := time.Now().Add(5 * time.Second * raceSlowdown)
 	for dropped := false; !dropped; {
 		if time.Now().After(deadline) {

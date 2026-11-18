@@ -7,7 +7,7 @@ const RETRY_MAX_MS = 10000;
 // The held connection that lets Sode see a closed page at once (the keepalive stays as the fallback).
 export const streamPath = (id, device) => `api/v1/panels/${id}/instances/stream?device=${encodeURIComponent(deviceFrom(device))}`;
 
-// Wait before reopening it after n failed or ended tries in a row.
+// Wait before it reopens after n failed or ended tries in a row.
 export const retryMs = (n) => Math.min(RETRY_MAX_MS, RETRY_MIN_MS * 2 ** Math.max(0, n));
 const DEVICE_MAX = 40;
 

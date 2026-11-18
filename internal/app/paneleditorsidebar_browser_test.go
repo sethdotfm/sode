@@ -12,7 +12,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The editor's sidebar: it opens on Panel, a selected square switches it to Cell, and what is set in the
+// The editor's sidebar: it opens on Panel, and a selected square switches it to Cell. What is set in the
 // three tabs is what the panel stores.
 func TestChromeEditorSidebar(t *testing.T) {
 	b := startBrowser(t)
@@ -24,7 +24,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Side panel","rows":2,"cols":2,"cells":[{"r":1,"c":1,"rs":1,"cs":1,"kind":"take"}]}`)
@@ -54,7 +54,12 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.waitFor("Hide text appears with an icon", `[...document.querySelectorAll('#panel-ed-cell .pb-btn')].some((x) => x.textContent === 'Hide text' && !x.hidden)`)
 	b.waitFor("the square shows Icon A", `!!document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a')`)
 	// Icon B: the glyph column beside Icon A's, both shown at once, each with its own None; the square shows "[tv] 2".
-	// The columns' tops line up; Icon A's vendored grid sits lower, under the Uploaded section.
+	// Under "Default icons" the two lists start level; "Uploaded icons" comes under both.
+	b.waitFor("the Icon A and Icon B lists start at one height, under Default icons, with Uploaded icons below both", `(() => {
+		const a = document.querySelector('.sode-side__icons[aria-label="Icon A"]').getBoundingClientRect(), b = document.querySelector('.sode-side__icons[aria-label="Icon B"]').getBoundingClientRect();
+		const hs = [...document.querySelectorAll('#panel-ed-cell .sode-side__picker-h')], up = document.getElementById('ed-lib-open').getBoundingClientRect();
+		return Math.abs(a.top - b.top) < 2 && hs.map((h) => h.textContent).join() === 'Default icons,Uploaded icons' && hs[0].getBoundingClientRect().bottom <= a.top && up.top >= Math.max(a.bottom, b.bottom);
+	})()`)
 	b.waitFor("Icon A and Icon B sit side by side, each with None in its header", `(() => { const a = document.querySelector('.sode-side__icons[aria-label="Icon A"]'); const b = document.querySelector('.sode-side__icons[aria-label="Icon B"]'); const ra = a.getBoundingClientRect(); const rb = b.getBoundingClientRect(); const ta = a.parentNode.getBoundingClientRect().top; const tb = b.parentNode.getBoundingClientRect().top; return ra.width > 0 && rb.width > 0 && rb.left >= ra.right && Math.abs(tb - ta) < 2 && a.parentNode.querySelector('.sode-side__col-top').textContent.includes('None') && b.parentNode.querySelector('.sode-side__col-top').textContent.includes('None') && getComputedStyle(a).overflowY === 'scroll' && getComputedStyle(b).overflowY === 'scroll'; })()`)
 	b.waitFor("Icon A and Icon B columns are the same width", `(() => { const w = (l) => document.querySelector('.sode-side__icons[aria-label="' + l + '"]').parentNode.getBoundingClientRect().width; return w('Icon A') > 0 && Math.abs(w('Icon A') - w('Icon B')) < 2; })()`)
 	b.waitFor("the Icon B column lists digits and letters", `!!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="16"]') && !!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="Z"]')`)
@@ -66,8 +71,8 @@ func TestChromeEditorSidebar(t *testing.T) {
 
 	b.eval(`document.getElementById('tab-ed-panel').click(); document.getElementById('ed-set-titleBar').click(); true`)
 	b.waitFor("Rows and Columns are in the Panel tab, not the toolbar", `!!document.querySelector('#panel-ed-panel #ed-rows') && !!document.querySelector('#panel-ed-panel #ed-cols') && !document.querySelector('.sode-ed__bar #ed-rows')`)
-	b.waitFor("Rows and Columns share one line", `(() => { const q = (id) => document.getElementById(id).getBoundingClientRect(); return Math.abs(q('ed-rows').top - q('ed-cols').top) < 2 && q('ed-cols').left > q('ed-rows-inc').right; })()`)
-	b.waitFor("Tab from Rows reaches Columns: the step buttons are out of the Tab order", `[...document.querySelectorAll('#panel-ed-panel .sode-side__step button')].every((x) => x.tabIndex === -1) && (() => { const f = [...document.querySelectorAll('#panel-ed-panel input, #panel-ed-panel button, #panel-ed-panel select')].filter((x) => x.tabIndex >= 0 && !x.disabled && x.offsetParent); return f[f.indexOf(document.getElementById('ed-rows')) + 1] === document.getElementById('ed-cols'); })()`)
+	b.waitFor("Columns and Rows share one line, Columns first", `(() => { const q = (id) => document.getElementById(id).getBoundingClientRect(); return Math.abs(q('ed-rows').top - q('ed-cols').top) < 2 && q('ed-rows').left > q('ed-cols-inc').right; })()`)
+	b.waitFor("Tab from Columns reaches Rows: the step buttons are out of the Tab order", `[...document.querySelectorAll('#panel-ed-panel .sode-side__step button')].every((x) => x.tabIndex === -1) && (() => { const f = [...document.querySelectorAll('#panel-ed-panel input, #panel-ed-panel button, #panel-ed-panel select')].filter((x) => x.tabIndex >= 0 && !x.disabled && x.offsetParent); return f[f.indexOf(document.getElementById('ed-cols')) + 1] === document.getElementById('ed-rows'); })()`)
 	b.waitFor("an unset panel font size shows 100, so the arrows start there", `(() => { const f = document.getElementById('ed-set-font'); f.stepUp(); const up = f.value; f.stepDown(); return up === '101' && f.value === '100'; })()`)
 	b.eval(`const r = document.getElementById('ed-rows'); r.value = '3'; r.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('ed-cols-inc').click(); true`)
 	b.waitFor("the grid took the new size", `document.getElementById('ed-rows').value === '3' && document.getElementById('ed-cols').value === '3'`)
@@ -121,8 +126,8 @@ func TestChromeEditorSidebar(t *testing.T) {
 		t.Errorf("API to Both did not save Both with the same client: %s", body)
 	}
 
-	// A short window: the sidebar is never wider than its column, scrolls inside itself, and fits the window whole once
-	// the page is scrolled to it, whatever height the toolbar above it takes.
+	// A short window: the sidebar is never wider than its column and scrolls inside itself. It fits the window whole
+	// after the page is scrolled to it, whatever height the toolbar above it takes.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1600, "height": 600, "deviceScaleFactor": 1, "mobile": false})
 	b.waitFor("the sidebar is beside the grid", `document.getElementById('ed-side').getBoundingClientRect().left >= document.getElementById('ed-grid').getBoundingClientRect().right`)
 	side := `document.getElementById('ed-side')`

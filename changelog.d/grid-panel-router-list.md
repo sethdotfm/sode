@@ -1,0 +1,1 @@
+- The Sources and Destinations tabs of the Grid panel editor show the router list beside the panel's list. Find narrows it, a range such as `101-140` uses the numbers as shown, and Enter selects every row shown. Click, Shift-click and Cmd-click select, and Add puts the selection at the end in router order and skips items the panel has.

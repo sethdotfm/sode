@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// A key that was real and then ended answers `key_revoked` (or `key_expired`) and never counts toward
+// A key that was real and then ended answers `key_revoked` (or `key_expired`). It never counts toward
 // the per-address throttle, so a stale page cannot lock out the other pages at its address.
 
 func failCount(a *App, ip string) int {

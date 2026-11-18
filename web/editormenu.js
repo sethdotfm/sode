@@ -59,7 +59,7 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
     if (x || y) sub.style.translate = `${x}px ${y}px`;
   }
 
-  // Builds the item opening right; placeSubs turns a flyout to the left once the menu is placed and measured.
+  // Builds the item opening right; placeSubs turns a flyout to the left after the menu is placed and measured.
   function item(it) {
     const li = el('li');
     const b = el('button', 'pb-menu__item');

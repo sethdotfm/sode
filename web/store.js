@@ -1,4 +1,4 @@
-// Never throws (localStorage may be missing, blocked or full): reads give the default, writes are dropped; null removes the key.
+// Never throws: if localStorage is missing, blocked or full, reads give the default and writes are dropped. null removes the key.
 // Writes return whether they landed.
 
 export const readStr = (k) => {

@@ -69,7 +69,7 @@ func TestPanelClientTakeRowNamesPanelAndInstance(t *testing.T) {
 	}
 }
 
-// The router messages of a panel's take carry the panel tag too, and its History entry names the panel and the
+// The router messages of a panel's take carry the panel tag too. Its History entry names the panel and the
 // instance, with a panel key and with a Session-mode page's headers alike.
 func TestPanelTakeWireRowsAndHistoryNameInstance(t *testing.T) {
 	a, f := clientApp(t)

@@ -6,7 +6,7 @@
 // level subset. Settings: { mode: 'take' | 'instant', multi: bool, levels: [UI levels] | null, guard: 'none' | 'hold' | 'double' }.
 // A Preset cell is { kind: 'preset', scope, name }; env.presets maps presetKey(scope, name) to the
 // preset's items [{ src, dsts, levels }], where levels [] means every level.
-// settings.fixedDests (Fixed destination) makes the list the panel's destinations for the life of the page: the
+// settings.fixedDests (Fixed destination) makes the list the panel's destinations for the life of the page. The
 // first one is the view, so Current Source and the Source states read it, and Clear keeps it.
 // page is the current Page's id (panelnav.js). The plan is panel-wide, so a Page change leaves the view and staged alone.
 import { presetKey, rightsAllow, fixedDestsOf } from './panelrules.js';
@@ -35,7 +35,7 @@ export function createState(settings = {}) {
     busy: false,
     results: {}, // dst -> { result, at }
     error: null,
-    undone: null, // the Undo cell's last finished undo: { routes, failed, at }
+    undone: null, // the Undo cell's last finished undo: { routes, failed, at }.
     undoId: null, // set while the plan is a staged undo: the id GET /panels/<id>/undo answered, which Take sends back
     page: '',
   };
@@ -81,7 +81,7 @@ const routed = (env, x) => x.levels.every((l) => env.tally.get(x.dst)?.get(l) ==
 const fail = (st, error, now) => ({ ...st, error: { ...error, at: now } });
 
 // The server plans a staged undo itself from the take, so it cannot send part of one or one merged with other
-// routes; sent through /takes its routes would leave the take undoable. A press that changes routes drops it whole.
+// routes. Sent through /takes, its routes would leave the take undoable. A press that changes routes drops it whole.
 const dropUndo = (st) => (st.undoId === null ? st : { ...st, staged: [], undoId: null });
 
 // A refused press leaves a staged undo as it was.
@@ -125,7 +125,7 @@ function pressSourceOne(st, cell, env, now) {
   if (denied) return fail(st, denied, now);
   const levels = shared(st, env, cell.levels, st.view.levels);
   if (!levels.length) return fail(st, { code: 'no-common-levels', src: cell.n, dst }, now);
-  // Instant mode takes on the press, so only a failed route can still be staged: a new press replaces it.
+  // Instant mode sends the take on the press, so only a failed route can still be staged: a new press replaces it.
   const others = st.multi && st.mode === 'take' ? st.staged.filter((x) => x.dst !== dst) : [];
   const staged = cell.n === currentSource(env, st) ? others : [...others, { dst, src: cell.n, levels }];
   return { ...st, staged, error: null };
@@ -221,20 +221,21 @@ const resultsOf = (st, reply, now) => {
 
 // Connected and Already routes leave the plan; a Failed one stays staged.
 export function finishTake(st, reply, now) {
-  const gone = new Set((reply.results || []).filter((r) => r.result !== 'failed').map((r) => r.dst));
-  return { ...st, busy: false, results: resultsOf(st, reply, now), staged: st.staged.filter((x) => !gone.has(x.dst)) };
+  // By destination and source: a press while the POST was out staged a new route to a destination the take sent.
+  const gone = new Set((reply.results || []).filter((r) => r.result !== 'failed').map((r) => `${r.dst}:${r.src}`));
+  return { ...st, busy: false, results: resultsOf(st, reply, now), staged: st.staged.filter((x) => !gone.has(`${x.dst}:${x.src}`)) };
 }
 
-// A refused or unanswered undo leaves no plan behind: its id may be stale, and pressing Undo again asks afresh.
+// A refused or unanswered undo leaves no plan behind: it is possible that its id is stale, and another Undo press asks afresh.
 export const failTake = (st, reason, message, now) => ({ ...dropUndo(st), busy: false, error: { code: 'refused', reason, message, at: now } });
 
-// The Undo cell. next is GET /panels/<id>/undo's `undo`: null when this instance has nothing left to undo, undefined
-// before an answer or when the key lacks the take scope.
+// The Undo cell. next is GET /panels/<id>/undo's `undo`. It is null when this instance has nothing left to undo, and
+// undefined before an answer or when the key lacks the take scope.
 export const undoReady = (st, next) => !st.busy && !!next?.allowed;
 
 // An Undo press stages the reverse of the take GET answered, whole and as the server will send it, in place of the
-// plan; the Take cell or, in instant mode, the press itself sends it. Pressed again before a Take, it stages the same
-// take, since the server marks a take undone only once its undo is sent.
+// plan. The Take cell or, in instant mode, the press itself sends it. Pressed again before a Take, it stages the same
+// take, since the server marks a take undone only after its undo is sent.
 export function pressUndo(st, next, env, now) {
   if (!next) return fail(st, { code: 'nothing-to-undo' }, now);
   if (!next.allowed) return fail(st, { code: 'refused', message: next.reason }, now);
@@ -257,7 +258,7 @@ export function finishUndo(st, reply, now) {
 
 export const undoneOf = (st, now) => (st.undone && now - st.undone.at <= ERROR_MS ? st.undone : null);
 
-// The router moved: a stage it now satisfies has nothing left to take. A staged undo stays whole, as the server sends
+// The router moved: a stage it now satisfies has nothing left to send. A staged undo stays whole, as the server sends
 // it whole (a satisfied route comes back Already).
 export function applyTally(st, env) {
   if (st.undoId !== null) return st;
@@ -300,7 +301,7 @@ export function resultShown(st, dst, now) {
 
 export const errorOf = (st, now) => (st.error && now - st.error.at <= ERROR_MS ? st.error : null);
 
-// A live update builds a fresh state; the destination being viewed survives it when the new copy still has that cell.
+// A live update builds a fresh state; the viewed destination survives it when the new copy still has that cell.
 // A fixed list in the new copy is its own view.
 export function carryView(next, prev, cells) {
   if (!prev.view || next.fixed) return next;

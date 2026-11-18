@@ -1,0 +1,1 @@
+- A panel Undo pressed immediately after a Take no longer stages the undo of the take before it. The Undo cell stays grey until Sode names the newest take.

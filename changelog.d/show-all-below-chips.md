@@ -1,0 +1,2 @@
+- "Show all destinations" now stays at one place, the bottom right of the Destination box. The destinations that you add with + show below it and never move it.
+- The router and server status at the top right of the main page now scrolls away with the page.

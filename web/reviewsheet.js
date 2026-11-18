@@ -1,5 +1,5 @@
 // Review sheet: what an import file or share link would change, shown before anything is saved. Used by transfer.js and share links.
-// Saving goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
+// A save goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
 import { el, S, on, off, sentence } from './core.js';
 import { trapDialog } from './widgets.js';
@@ -91,7 +91,7 @@ let open = false,
   busy = false;
 // doc: the export document; rows: one per filter set / preset in it.
 let st = null;
-let fetched = null; // another user's profile while reviewing for them: { state: 'wait' | 'ok' | 'err', profile, err }
+let fetched = null; // another user's profile during a review for them: { state: 'wait' | 'ok' | 'err', profile, err }
 
 const gsave = globalSaver({
   t: 'filterSets',
@@ -259,7 +259,9 @@ function matchLines(r) {
     }
   }
   if (m.count.ambiguous)
-    lines.push(status('warn', 'Ambiguous names are not guessed: this preset is skipped until you change the choice, and then keeps those numbers as written'));
+    lines.push(
+      status('warn', 'Sode does not guess ambiguous names. It skips this preset until you change the choice. Then the preset keeps those numbers as written.'),
+    );
   if (m.levelsOver.length) lines.push(status('warn', `Level ${m.levelsOver.join(', ')} is above this router’s ${S.levels.length}`));
   return lines;
 }
@@ -431,7 +433,7 @@ function render() {
     }),
   );
   noteTop.textContent = st.rows.some((r) => r.kind === 'filter')
-    ? 'Filter expressions are copied as written. Source and destination numbers in them may differ on this router; check them after.'
+    ? 'Filter expressions are copied as written. It is possible that source and destination numbers in them differ on this router. Check them after the import.'
     : '';
   const pn = prefsNode();
   prefsBox.replaceChildren(...(pn ? [pn] : []));
@@ -501,7 +503,7 @@ function apply() {
   const sc = scope();
   const done = () => finish(p);
   if (!Object.keys(p.parts).length) return done();
-  // Settings going to my profile while the lists go elsewhere are their own save, after the lists.
+  // Settings that go to my profile while the lists go elsewhere are their own save, after the lists.
   const withPrefs = (next) => {
     if (!p.parts.prefs || sc === 'user') return next();
     busy = true;

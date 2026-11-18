@@ -66,7 +66,7 @@ func (a *App) apiHistory(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 }
 
 // apiLastGroup returns the newest take Group the caller can see, entries in take order
-// (oldest id first). Externals are not takes, so their groups don't count. A hidden caller
+// (oldest id first). Externals are not takes, so their groups do not count. A hidden caller
 // gets only the visible routes, and a Group with none is skipped for an older one.
 func (a *App) apiLastGroup(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	v := cl.view()

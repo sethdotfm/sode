@@ -1,0 +1,1 @@
+- Push, Copy, checkpoints and Checkpoint sets carry a Grid panel's lists, hidden items, pins and item artwork. A Push or Checkpoint set of the other panel type is refused with 409. Default artwork shows for a Grid panel's items, and the Icon library use count includes them.

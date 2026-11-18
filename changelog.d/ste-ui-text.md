@@ -1,0 +1,1 @@
+- UI text now follows Sode's writing standard (docs/ste.md, based on ASD-STE100). Sentences are shorter, instructions are commands, and permission, prohibition and possibility use separate words. For example, a name conflict says the name is already in use, and the Advanced Settings PIN prompt says "Enter the Advanced Settings PIN".

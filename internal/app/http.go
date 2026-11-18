@@ -47,20 +47,26 @@ const wsReadLimit = 64 << 10
 func (a *App) Handler(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	files := http.FileServerFS(static)
+	cached := &staticFiles{fsys: static}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
-		files.ServeHTTP(w, r)
-	})
-	mux.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
-		http.ServeFileFS(w, r, static, "log.html")
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		if name == "" {
+			name = "index.html"
+		}
+		// FileServer keeps its redirects (/index.html to /) and folder answers.
+		if r.URL.Path == "/index.html" || !fs.ValidPath(name) || !cached.serve(w, r, name) {
+			w.Header().Set("Cache-Control", "no-cache")
+			files.ServeHTTP(w, r)
+		}
 	})
 	page := func(name string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Cache-Control", "no-cache")
-			http.ServeFileFS(w, r, static, name)
+			if !cached.serve(w, r, name) {
+				http.NotFound(w, r)
+			}
 		}
 	}
+	mux.HandleFunc("/log", page("log.html"))
 	// {id} is any segment; the editor's pattern is more specific, so it wins.
 	mux.HandleFunc("/panels", page("panels.html"))
 	mux.HandleFunc("/panels/{$}", page("panels.html"))
@@ -93,8 +99,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 
 // csp: same-origin scripts only (no inline bodies or on*= handlers; a test keeps it so);
 // 'unsafe-inline' for styles only.
-const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-	"img-src 'self' data: blob:;connect-src 'self' ws: wss:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; " +
+const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data: blob:;connect-src 'self' ws: wss:; font-src 'self'; object-src 'none'; " +
 	"base-uri 'self'; frame-ancestors 'none'"
 
 func secureHeaders(next http.Handler) http.Handler {
@@ -137,7 +143,7 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(healthMsg{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
 }
 
-// clientIP: a hop that isn't an address ends the search at the peer rather than trusting
+// clientIP: a hop that is not an address ends the search at the peer rather than trusting
 // what lies beyond.
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	host, ok := trustedPeer(r, trusted)
@@ -167,7 +173,7 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	return host
 }
 
-// wsHeartbeat: browsers can't see ping frames, so a silently dropped socket would stay
+// wsHeartbeat: browsers cannot see ping frames, so a silently dropped socket would stay
 // OPEN on the page. A var so tests can shorten it.
 var wsHeartbeat = 5 * time.Second
 

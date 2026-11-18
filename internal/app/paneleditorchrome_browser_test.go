@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// Toolbar and sidebar chrome: the state sits beside Save, Copy link shows for a user panel, the sidebar
-// shows the link, the unassigned count says what it counts, and bare letters work inside the smart menu.
+// Toolbar and sidebar chrome: the state sits beside Save, Copy link shows for a user panel, and the sidebar
+// shows the link. The unassigned count says what it counts, and bare letters work inside the smart menu.
 func TestChromeEditorChrome(t *testing.T) {
 	b, _, _, id := editorTab(t, `{"name":"Wall","rows":4,"cols":8,"cells":[{"r":1,"c":1,"kind":"source","n":1},{"r":1,"c":2,"kind":"source","n":2},{"r":2,"c":1,"kind":"destination"}]}`)
 	b.waitFor("state beside Save", `document.getElementById('ed-state').parentNode === document.getElementById('ed-save').parentNode`)
@@ -48,8 +48,8 @@ func TestChromeEditorChrome(t *testing.T) {
 	b.check()
 }
 
-// A click in the sidebar puts the smart menu away without dropping the selection, so the Cell tab keeps its cell and
-// the menu no longer sits over the fields; the next grid click brings it back.
+// A click in the sidebar puts the smart menu away but keeps the selection. So the Cell tab keeps its cell and
+// the menu no longer sits over the fields. The next grid click brings the menu back.
 func TestChromeEditorMenuLeavesSidebar(t *testing.T) {
 	b, _, _, _ := editorTab(t, `{"name":"Wall","rows":2,"cols":2,"cells":[{"r":1,"c":1,"kind":"take"}]}`)
 	b.waitFor("sidebar built", `!!document.querySelector('#ed-side .pb-tab')`)
@@ -76,7 +76,7 @@ func TestChromeEditorMenuLeavesSidebar(t *testing.T) {
 func TestChromeEditorFindFitsViewport(t *testing.T) {
 	b, _, _, _ := editorTab(t, `{"name":"Tall","rows":12,"cols":8,"cells":[]}`)
 	b.waitFor("grid drawn", `document.querySelectorAll('#ed-grid .sode-ed__sq').length === 96`)
-	// Bootstrap's reboot scrolls smoothly, so the square is pressed only once it has arrived in view.
+	// Bootstrap's reboot scrolls smoothly, so the square is pressed only after it has arrived in view.
 	b.eval(`window.sq = document.querySelector('.sode-ed__sq[data-r="12"][data-c="8"]'); window.scrollTo(0, 1e6); true`)
 	b.waitFor("bottom right square in view", `(() => { const r = sq.getBoundingClientRect(); return r.top >= 0 && r.bottom <= document.documentElement.clientHeight + 1; })()`)
 	b.eval(`const r = sq.getBoundingClientRect(); sq.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 })); true`)
@@ -89,7 +89,7 @@ func TestChromeEditorFindFitsViewport(t *testing.T) {
 }
 
 // With the sidebar beside the grid, the smart menu and its flyouts (Type, Find) keep off it and inside the viewport
-// from every column: the menu flips to the left of a selection in the last column, and a flyout flips to the other
+// from every column. The menu flips to the left of a selection in the last column. A flyout flips to the other
 // side of the menu when its own side has no room.
 func TestChromeEditorMenuFlipsOffSidebar(t *testing.T) {
 	b, _, _, _ := editorTabPrep(t, `{"name":"Wide","rows":4,"cols":8,"cells":[]}`, func(b *tab, _ *App, _, _ string) {

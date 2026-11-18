@@ -21,7 +21,7 @@ export function buildChip(api) {
   lockBtn.dataset.pbTip = 'Lock (Ctrl+L)';
   lockBtn.setAttribute('aria-label', 'Lock');
   lockBtn.addEventListener('click', () => api.lock());
-  // Status with words, cross-faded with the button (is-hand) so the icon doesn't snap against the lock screen's border.
+  // Status with words, cross-faded with the button (is-hand) so the icon does not snap against the lock screen's border.
   const ico = el('span', 'sode-lock__who-ico', icon('lock'));
   const slot = el('div', 'sode-lock__who-slot', lockBtn, ico);
   const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', slot, name));

@@ -23,9 +23,9 @@ export async function writeClip(text) {
   }
 }
 
-// Paste reads the browser's own paste event, which asks no permission and works over plain HTTP, so the paste chord
+// Paste reads the browser's own paste event, which asks no permission and works over plain HTTP. So the paste chord
 // leaves its key to the browser and calls key(). When no paste event follows in that task (Safari on an element that
-// takes no typing, a synthetic key), readText asks instead. onText gets the text, or null when the browser refused.
+// accepts no typing, a synthetic key), readText asks instead. onText gets the text, or null when the browser refused.
 export function createPasteReader(root, onText) {
   let waiting = 0;
   let seq = 0;

@@ -120,7 +120,7 @@ func TestPanelArtworkRefusals(t *testing.T) {
 			t.Errorf("%s %dx%d: %d %s", c.kind, c.w, c.h, rec.Code, rec.Body.String())
 		}
 	}
-	// A user of a shared panel may fetch artwork but not add it.
+	// A user of a shared panel can fetch artwork but not add it.
 	ok := apiSendRaw(a, "POST", up, ana, b64(t, tinyPNG))
 	art := apiBody(t, ok)["id"].(string)
 	if apiDo(a, "GET", up+"/"+art, bo, nil).Code != 200 {
@@ -135,8 +135,8 @@ func TestPanelArtworkRefusals(t *testing.T) {
 	wantErr(t, apiDo(a, "GET", up+"/"+art, ana, nil), 404, "not_found")
 }
 
-// An SVG with a script is only ever served as an image under a sandbox that blocks scripts,
-// with no sniffing, so opening the URL directly runs nothing.
+// Sode serves an SVG with a script only as an image, with no sniffing, under a sandbox that
+// blocks scripts. Opening the URL directly runs nothing.
 func TestPanelArtworkSVGWithScriptNeverRuns(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

@@ -7,14 +7,13 @@ import (
 )
 
 // Externals (a hardware panel, Companion) arrive as Connecteds no take asked for. An
-// External arrives as one message per level, so changes are collected until quiet and written as
-// one entry per destination and source; a burst over several destinations shares a history
-// group.
+// External arrives as one message per level. So changes are collected until quiet and written as
+// one entry per destination and source. A burst over several destinations shares a history group.
 // The router also re-routes destinations itself (a multiviewer PiP following a DSM). The
 // same source moved to another destination right after one of our takes is written as a
-// follow of it (Entry.Follow), not a take. Changes made elsewhere aren't followed: a
+// follow of it (Entry.Follow), not a take. Changes made elsewhere are not followed: a
 // group send from a panel stays one burst.
-// The router doesn't announce every change (2026-10-23: KiPro 4 moved with no Connected).
+// The router does not announce every change (2026-10-23: KiPro 4 moved with no Connected).
 // Those surface as a tally differing from the cache (periodic dump, interrogate) and are
 // written as found entries, never follows (time unknown).
 
@@ -27,13 +26,13 @@ const (
 
 	followAfter  = 500 * time.Millisecond // a follow comes this soon after its take's last change
 	followBefore = 50 * time.Millisecond  // or this much before its first (messages race)
-	// A burst that may follow an in-flight take waits for it to be recorded, up to this
-	// long after the burst began. A take still queued holds nothing (cause.sent).
+	// If it is possible that a burst follows an in-flight take, the burst waits for that take
+	// to be recorded. It waits up to this long after the burst began. A take still queued holds nothing (cause.sent).
 	extHold   = defaultRouteTimeout + defaultRouteGrace + 2*time.Second
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 
-// extTracker: burst, own connects, causes/leaders (takes changes may follow), and
+// extTracker: burst, own connects, causes/leaders (our takes, which changes elsewhere sometimes follow), and
 // late/lateRoute/lateHits (takes that gave up). Replaced on a router change; the pointer is
 // the router's generation, so an older holder is cut. Guarded by App.mu; callers hold it.
 type extTracker struct {
@@ -64,10 +63,10 @@ const (
 )
 
 // classify: a Connected answering our connect is ours (key used up, so the same route
-// later elsewhere still counts); a route a take gave up on is claimed late (flushLate
-// amends; a tally confirms too); a tally of a route a take in flight or just given up
-// asked for is ours (ignore), as is one the cache had no value for (known false); else
-// made elsewhere (ext). Caller holds mu.
+// later elsewhere still counts). A route a take gave up on is claimed late (flushLate
+// amends; a tally confirms too). A tally of a route that a take in flight or recently given
+// up asked for is ours (ignore). So is a tally the cache had no value for (known false).
+// Anything else is made elsewhere (ext). Caller holds mu.
 func (a *App) classify(xp swp08.Crosspoint, ui int, known bool) verdict {
 	k := ownKey{xp.Dst, xp.Level, xp.Src}
 	if xp.Changed() {

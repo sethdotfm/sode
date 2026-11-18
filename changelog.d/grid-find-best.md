@@ -1,0 +1,1 @@
+- Grid panel Find goes to the best match first, ranked as on the main page, and steps from best to worst. The grid scrolls smoothly until the match is in the middle, and the name flashes. Arrow buttons beside each search box step to the next or previous match. Ctrl+N and Ctrl+P in the box do the same. Chrome on Windows and Linux keeps Ctrl+N.

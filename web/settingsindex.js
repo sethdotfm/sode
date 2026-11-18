@@ -1,6 +1,6 @@
 // Settings search: pure, no imports (Node-tested), own scorer because core.js `search` needs the DOM.
 // RULE: a new settings section needs an entry in DICT under its slug (see `slug`); settingsindex.test.mjs fails otherwise.
-// Settings are keyed by their control's id; DICT ids that don't exist (yet) are ignored.
+// Settings are keyed by their control's id; DICT ids that do not exist (yet) are ignored.
 
 export const slug = (s) =>
   String(s)
@@ -189,7 +189,7 @@ export const DICT = {
     'filter sets',
   ],
   'transfer-open': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share link', 'review', 'transfer', 'copy to another site'],
-  // Sections other branches may add; ignored until they exist.
+  // Sections for other branches to add later; ignored until they exist.
   salvos: ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
   'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
   grids: ['grid', 'grids', 'panel', 'panels', 'tablet', 'buttons'],
@@ -202,6 +202,7 @@ export const DICT = {
   ...both('scrolltop', ['scroll', 'top', 'jump', 'focus', 'page', 'scroll to top']),
   ...both('search-filters', ['quick search', 'search', 'filter', 'filters', 'hidden', 'respect', 'history search']),
   ...both('set-stack', ['stack', 'stacked', 'filter sets', 'sets', 'and', 'or', 'combine', 'all', 'any', 'filter']),
+  ...both('stack-gap', ['stack', 'stacked', 'rows', 'gap', 'merge', 'quick changes', 'seconds', 'history', 'off', 'time']),
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
   ...both('compact', [
     'compact',
@@ -220,7 +221,7 @@ export const DICT = {
 
   // ---- My defaults (per-row buttons shown while signed in)
   ...Object.fromEntries(
-    ['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode', 'compact'].flatMap((n) => [
+    ['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'stackGap', 'nextMode', 'compact'].flatMap((n) => [
       ['my-default-' + n, ['my default', 'save as my default', 'set as my default', 'profile', 'personal', 'follow me', 'account']],
       ['my-default-clear-' + n, ['my default', 'clear my default', 'remove', 'profile', 'personal', 'account']],
     ]),

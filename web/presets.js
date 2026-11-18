@@ -1,4 +1,4 @@
-// Presets in the page: the buttons above Recent (both layouts) and the editor dialog. Storage
+// Presets in the page: the buttons above History (both layouts) and the editor dialog. Storage
 // and pure parts are presetstore.js, the plan is plans.js.
 
 import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem, icon } from './core.js';
@@ -60,12 +60,12 @@ const askPopup = () => emit('presetPopup');
 
 // Shift-click (or Shift+Enter in the popup) fills the boxes and sends nothing. They hold one
 // source, so a multi-take preset fills the first take that still exists, and says so, and
-// what's missing.
+// what is missing.
 export function fillBoxes(scope, name) {
   const s = findPreset(scope, name);
   const host = shown();
   if (!s || !host) return;
-  if (!host.fill) return showResult('info', `Preset ${s.name}`, 'Filling the boxes from a preset works on the desktop layout.');
+  if (!host.fill) return showResult('info', `Preset ${s.name}`, 'A preset fills the boxes only on the desktop layout.');
   if (!S.srcBy.size) return showResult('warn', 'Preset not filled', 'The router’s names have not loaded yet.');
   const r = fillFrom(s, { src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u) }, parseLevels('') || []);
   if (!r.fill) return showResult('error', `Preset ${s.name} not filled`, 'Nothing in it exists on the router now.');
@@ -109,7 +109,7 @@ function renderStrips() {
       b.addEventListener('click', (e) => (e.shiftKey ? fillBoxes(s.scope, s.name) : fire(s.scope, s.name)));
       return b;
     });
-    // A plain chip (not the selected style: it opens a list, it isn't a state), so it is the
+    // A plain chip, not the selected style: it opens a list, it is not a state. So it is the
     // first stop for the arrow keys.
     const more = all.length ? el('button', 'pb-chip sode__set sode__presets-all', icon('list'), 'Show all') : null;
     if (more) {
@@ -313,8 +313,8 @@ const profSaver = profileSaver({
 });
 
 // Bus 'openPresetEditor' swaps in a profile target (editortargets.js): the editor on one preset
-// of that user's profile, with picker, scope, Save as, Share, Delete and Export hidden; the save
-// goes to that profile.
+// of that user's profile. Picker, scope, Save as, Share, Delete and Export are hidden, and the
+// save goes to that profile.
 const browser = browserPresets({
   list: (scope) => presetsIn(scope),
   note: (c) => (c.old ? scopeLabel(c.from) : ''),
@@ -471,8 +471,8 @@ function renderHead(keep = false) {
   organizerBtn.hidden = !own;
 }
 
-// keepEdit: the lists changed under us; only the picker refreshes, never the rows or name being
-// typed.
+// keepEdit: the lists changed under us; only the picker redraws, never the rows or the name that
+// the person types.
 function renderEditor(keepEdit = false) {
   if (keepEdit && cur?.old && !findPreset(cur.from, cur.old) && !dirty) return load(null);
   renderHead(keepEdit);
@@ -564,7 +564,7 @@ function addRows(items, note) {
   setNote(note);
 }
 
-// The preset the editor holds as name, in list: { s, next } or { err }. dupes: names it may not take; replace: the entry it overwrites.
+// The preset the editor holds as name, in list: { s, next } or { err }. dupes: names it must not have; replace: the entry it overwrites.
 function build(name, list, { dupes, old, replace }) {
   const items = [];
   for (const r of cur.items.filter((x) => !isBlankRow(x))) {
@@ -593,7 +593,7 @@ function save() {
   target.save(b, moving);
 }
 
-// Saves the built preset into This browser, everyone's or Me, moving it when the scope changed.
+// Saves the built preset into This browser, everyone's or Me, and moves it when the scope changed.
 function saveHere(b, moving) {
   const from = cur.from,
     was = cur.old,

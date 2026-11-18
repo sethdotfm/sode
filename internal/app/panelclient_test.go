@@ -177,7 +177,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 	admin := adminClient(t, a)
 	widened := *shown
 	widened.Rights = config.Rights{Sources: ints(1, 50)}
-	// The page may drop the panel link; the save still treats the client as the panel's, and
+	// It is possible that the page drops the panel link. The save still treats the client as the panel's, and
 	// leaving a panel client out never removes it.
 	widened.Panel = ""
 	clients := []config.APIClient{widened}

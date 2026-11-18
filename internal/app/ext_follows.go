@@ -2,11 +2,11 @@ package app
 
 import "time"
 
-// cause: one of our takes that changes elsewhere may follow (id -1 until recorded).
+// cause: one of our takes, which changes elsewhere sometimes follow (id -1 until recorded).
 type cause struct {
 	src, dst    int
 	first, last time.Time // its changes as the router reported them; zero = none yet
-	sent        time.Time // when its connects had gone out; zero while they're queued
+	sent        time.Time // when its connects had gone out; zero while they are queued
 	id          int
 	done        bool
 	group       string // history group of the multi-take confirm it belongs to, "" if alone
@@ -60,9 +60,9 @@ func (f *follows) awaitsRoute(pending map[int]map[int]*extLevel) bool {
 	return false
 }
 
-// followed: a salvo of one source leaves several fits timing can't separate; a destination
+// followed: a salvo of one source leaves several fits that timing cannot separate. A destination
 // follows the same take each time (a PiP its DSM), so a lone fit is remembered and a salvo
-// goes by it; else the take whose last change came latest. Caller holds mu.
+// goes by it. Otherwise it is the take whose last change came latest. Caller holds mu.
 func (f *follows) followed(src, dst int, t time.Time) *cause {
 	var fits []*cause
 	for _, c := range f.causes {

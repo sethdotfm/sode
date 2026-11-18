@@ -46,8 +46,8 @@ func rescanBody(t *testing.T, a *App, key, body string) (added []LibIcon, skippe
 	return got.Added, got.Skipped
 }
 
-// Files in the drop-in directory are taken at start: the file name is the icon name, a clash is "Name 2", a file over
-// the artwork limits is reported and stays, and a taken file leaves the directory.
+// Files in the drop-in directory are imported at start. The file name is the icon name, and a clash is "Name 2". A file
+// over the artwork limits is reported and stays, and an imported file leaves the directory.
 func TestIconLibraryDropInAtStart(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")

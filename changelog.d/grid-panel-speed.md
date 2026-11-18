@@ -1,0 +1,1 @@
+- A large Grid panel is faster. While a route is staged, only the staged crosspoints pulse, so the page no longer restyles the whole grid on each frame. In the panel editor, the Sources and Destinations lists draw only the rows in view. A Pin, Remove or Move on a list of thousands now takes milliseconds, not about a second.

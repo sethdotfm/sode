@@ -33,7 +33,7 @@ const (
 )
 
 var (
-	// A default's image id comes from its content, so the same image set twice is stored once.
+	// A default's image id comes from its content, so the same image set twice is stored one time.
 	artDefaultIDRe = regexp.MustCompile(`^d-[0-9a-f]{8}$`)
 	artIconRe      = regexp.MustCompile(`^icon:[a-z0-9-]+$`)
 	// Icon B choices, as ART_B_CHOICES in web/panellook.js.
@@ -45,8 +45,8 @@ var (
 )
 
 // ArtDefault is one item's Default artwork. N is the router number of a Source or Destination; a
-// Preset is keyed by Scope and Name. For a Source or Destination Name is the router name when the
-// default was set, so the editor can warn when the number now names something else.
+// Preset is keyed by Scope and Name. For a Source or Destination, Name is the router name when the
+// default was set. Then the editor can warn when the number now names something else.
 type ArtDefault struct {
 	Kind     string `yaml:"kind" json:"kind"`
 	N        *int   `yaml:"n,omitempty" json:"n,omitempty"`

@@ -13,8 +13,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The panel page: the Current cell names the viewed destination, Full width drops the width cap,
-// and Offline blurs the grid and says so while Sode or the router is unreachable, then clears.
+// The panel page: the Current cell names the viewed destination, and Full width drops the width cap.
+// Offline blurs the grid and says so while Sode or the router is unreachable, then clears.
 func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	b := startBrowser(t)
 	sim, stopSim := startSimStoppable(t)
@@ -32,7 +32,7 @@ func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 		}
 		h.ServeHTTP(w, r)
 	}))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Offline panel","rows":4,"cols":8,"cells":[

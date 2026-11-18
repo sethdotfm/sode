@@ -54,7 +54,7 @@ func (g *PanelPage) UnmarshalYAML(n *yaml.Node) error {
 
 func newPageID() string { return newShortID("") }
 
-// legacyPageID names the Page an old one-grid record becomes after the record's own id, so a restart before the first
+// legacyPageID names the Page an old one-grid record becomes after the record's own id. So a restart before the first
 // save gives it the same id. A record with no id yet gets a random one.
 func legacyPageID(owner string) string {
 	if _, rest, ok := strings.Cut(owner, "-"); ok && pageIDRe.MatchString(rest) {
@@ -64,7 +64,7 @@ func legacyPageID(owner string) string {
 }
 
 // normalPages fills defaults and never fails; checkPages judges the result. Pages win over legacy cells, so a file an
-// older Sode saved with both keeps its Pages. The list is a copy: pages may be shared with a stored panel.
+// older Sode saved with both keeps its Pages. The list is a copy: it is possible that pages are shared with a stored panel.
 func normalPages(pages []PanelPage, legacy []map[string]any, owner string) []PanelPage {
 	if len(pages) == 0 {
 		if legacy == nil {
@@ -122,7 +122,7 @@ func checkPages(pages []PanelPage, rows, cols int) ([]PanelPage, error) {
 	return out, nil
 }
 
-// cellShowParts is what a Page Name or Info cell's `show` may name; keep in step with SHOW_PARTS in web/pagecells.js.
+// cellShowParts is what a Page Name or Info cell's `show` can name; keep in step with SHOW_PARTS in web/pagecells.js.
 // No `show` field is the kind's default, and an empty list shows nothing.
 var cellShowParts = map[string][]string{"pageName": {"number", "name"}, "info": {"panel", "number", "page", "instance"}}
 
@@ -151,7 +151,7 @@ func checkShowParts(pages []PanelPage) error {
 }
 
 // checkPageTargets judges each Go to Page cell's `page`, a Page id. A target that is missing is stored as is and read as
-// unassigned (web/panelnav.js goToState), so only a malformed one is refused; "" or no field is unassigned.
+// unassigned (web/panelnav.js goToState). So only a malformed one is refused. "" or no field is unassigned.
 func checkPageTargets(pages []PanelPage) error {
 	for c := range allCells(pages) {
 		v, has := c["page"]

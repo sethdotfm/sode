@@ -1,0 +1,3 @@
+- A Grid panel's Take button is amber while routes are staged. A Clear button and a note with the picks or the staged count are beside it.
+- A Grid panel's destination with a staged route says "staged" under its name, and a line marks the end of each pinned band.
+- A Grid panel's search boxes name the mode ("Find sources", "Filter sources") and show their keys. One mode button beside the Destinations word serves both boxes. The V level pick is two picks wide.

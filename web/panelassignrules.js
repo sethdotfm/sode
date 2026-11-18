@@ -15,7 +15,7 @@ export function assignWays(panel) {
   return hasClient(panel) ? ['client'] : ['user'];
 }
 
-// Whether user may open the panel through a sign-in, as panelReach in internal/app/apipanels.go decides; keep in step.
+// Whether user can open the panel through a sign-in, as panelReach in internal/app/apipanels.go decides; keep in step.
 function opens(panel, user, trusted) {
   const same = (n) => String(n || '').toLowerCase() === String(user || '').toLowerCase();
   const share = panel?.share || {};
@@ -33,11 +33,11 @@ export function signInText(i) {
 // Whole minutes: the list redraws only when a row's text changes, and it is read every MON_POLL_MS.
 export const uptimeText = (secs) => (secs < 60 ? 'under a minute' : durationText(Math.floor(secs / 60) * 60));
 
-// The Sode panel pages (page: they held the instance stream) of the panels the page can read with instances, sorted
-// by their current panel's name, then the instance name. here marks the ones already on the target; timedOut the ones
+// The Sode panel pages (page: they held the instance stream) of the panels the page can read with instances. The
+// sort is by their current panel's name, then the instance name. here marks the ones already on the target; timedOut the ones
 // with no stream now, which have nothing to send on. The server keeps an instance 24 hours after it was last heard.
-// bySignIn is an Assign that sends the device to the target's sign-in, where a signed-in user keeps their session:
-// notShared marks a user who cannot open the target, so the page would show that no panel there is theirs.
+// bySignIn is an Assign that sends the device to the target's sign-in, where a signed-in user keeps their session.
+// With it, notShared marks a user who cannot open the target, so the page would show that no panel there is theirs.
 export function assignRows(panels, targetId, now, bySignIn = false) {
   const target = panels.find((p) => p.id === targetId);
   const rows = [];
@@ -63,7 +63,7 @@ export function assignRows(panels, targetId, now, bySignIn = false) {
         keyless: '',
       });
     }
-    // A keyless page is never here: assigning it to the panel it shows is how it gets a key.
+    // A keyless page is never here: an Assign to the panel it shows is how it gets a key.
     for (const i of p.keyless || []) {
       const timedOut = !i.stream;
       rows.push({
@@ -88,7 +88,7 @@ export function assignRows(panels, targetId, now, bySignIn = false) {
 }
 
 // Find over the list: the panel Find's scoring (wordScore) on each row's name, current panel, address and sign-in
-// state, a name hit outranking the rest. Every word must hit some field. Best first; the stable sort keeps the list's
+// state. A name hit ranks above the rest. Every word must hit some field. Best first; the stable sort keeps the list's
 // own order for equal scores and for an empty query.
 export function rankAssign(rows, q) {
   const words = String(q || '')
@@ -116,7 +116,7 @@ export function rankAssign(rows, q) {
 // The row key the highlight sits on: cur while it is still listed, else the first row.
 export const curRow = (rows, cur) => (rows.some((r) => r.key === cur) ? cur : rows[0]?.key || '');
 
-// Ctrl/Cmd+J, K (as the panels list) move the highlight, stopping at the ends.
+// Ctrl/Cmd+J, K (as the panels list) move the highlight and stop at the ends.
 export const stepRow = (rows, cur, step) =>
   stepPanel(
     rows.map((r) => r.key),
@@ -130,7 +130,7 @@ export const enterRow = (rows, cur) => {
   return r?.assignable ? r : null;
 };
 
-// The stream answers JSON lines that may arrive split across chunks; rest waits for the next one.
+// The stream answers JSON lines, and it is possible that a line arrives split across chunks; rest waits for the next one.
 export function splitLines(rest, chunk) {
   const parts = (rest + chunk).split('\n');
   return { lines: parts.slice(0, -1).filter((l) => l.trim()), rest: parts.at(-1) };
@@ -159,7 +159,7 @@ export function assignOf(line) {
 }
 
 // The target's address, built as linkFor builds one: the short name when there is one, the page's own ?instance=, and
-// the fragment with its kiosk part and without an old key or setup token. seg is what the page stores the key under,
+// the fragment. The fragment keeps its kiosk part and drops an old key or setup token. seg is what the page stores the key under,
 // since it reads the stored key by its address. stored false puts the key in the fragment instead.
 export function assignAddress(msg, { search, hash }, stored) {
   const seg = msg.slug || msg.panel;
@@ -175,8 +175,8 @@ export function assignAddress(msg, { search, hash }, stored) {
   return { seg, href: `panels/${seg}${qs ? `?${qs}` : ''}${frag ? `#${frag}` : ''}` };
 }
 
-// A name clash answers 409 name_taken with the server's suggestion (its name plus 2, or the next free number); null
-// for any other failure, which has no name to offer.
+// A name clash answers 409 name_taken with the server's suggestion (its name plus 2, or the next free number). Any
+// other failure gives null, since it has no name to offer.
 export const clashOf = (err) => (err?.code === 'name_taken' ? err.suggest || '' : null);
 
 // What is wrong with a name typed in the clash dialog, or ''. A name the server still finds taken comes back as
@@ -189,8 +189,8 @@ export function assignNameProblem(text, clashed) {
   return '';
 }
 
-// The Open now row's rename control (POST /api/v1/panels/{id}/instances/rename): '' for none, since only a Sode panel
-// page (page) hears the name, and 'offline' when its stream is gone and nothing would hear it.
+// The Open now row's rename control (POST /api/v1/panels/{id}/instances/rename). It is '' for none, since only a Sode
+// panel page (page) hears the name. It is 'offline' when its stream is gone and nothing would hear it.
 export const renameState = (i) => (!i?.page ? '' : i.stream ? 'ready' : 'offline');
 
 // A refused rename: the reason to show beside the field, and whether to ask for the Advanced Settings PIN.
@@ -215,7 +215,7 @@ export function renameOf(line) {
   }
 }
 
-// The address query of a page named by its link, carrying the new name so a reload keeps it.
+// The address query of a page named by its link, which carries the new name so a reload keeps it.
 export function renamedSearch(search, name) {
   const q = new URLSearchParams(search || '');
   q.set('instance', name);

@@ -104,8 +104,8 @@ func (m *panelMon) unhideLocked(id, device string) {
 	}
 }
 
-// counts is how many of the panel's instances are online and how many the user is shown: the known
-// ones and the watched ones not heard since Sode started, less the ones the user hid.
+// counts is how many of the panel's instances are online and how many the user is shown. The user is
+// shown the known ones and the watched ones not heard since Sode started, less the ones the user hid.
 func (m *panelMon) counts(user, id string) (online, known int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

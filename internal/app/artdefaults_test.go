@@ -151,8 +151,8 @@ func TestArtDefaultStoresTheSniffedType(t *testing.T) {
 	}
 }
 
-// A hand-edited artdefaults.yaml: an image whose type is not an allowed image type, a default whose art is not one
-// of the stored forms, a bad Icon B and a Me scope preset are each dropped.
+// A hand-edited artdefaults.yaml. Sode drops an image whose type is not an allowed image type. It also drops a
+// default whose art is not one of the stored forms, a bad Icon B and a Me scope preset.
 func TestArtDefaultLoadDropsBadEntries(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")

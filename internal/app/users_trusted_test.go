@@ -430,8 +430,8 @@ func sessionSent(c *client) string {
 }
 
 // Ticking Never log out for someone already logged in gives their open
-// connection a token at once (only the PIN did before), so a reload keeps
-// them in; a connection that is not logged in gets nothing.
+// connection a token at once (only the PIN did before). So a reload keeps
+// them in. A connection that is not logged in gets nothing.
 func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	a := userApp(t, true)
 	ana := watched(t, a, "10.0.0.1", "1234")
@@ -468,7 +468,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	}
 }
 
-// Changing your own PIN ends your old tokens; the connection that changed it
+// Changing your own PIN ends your old tokens. The connection that changed it
 // is given a new one, or the next reload would ask for the new PIN.
 func TestChangedPinKeepsSessionLoggedIn(t *testing.T) {
 	a := userApp(t, true)

@@ -1,10 +1,26 @@
 // Desktop layout: three boxes, Tab between them, churning-key confirm.
 
-import { $, el, S, on, connState, routerTitle, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
-import { levelBar, allLevels } from './levelview.js';
+import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
+import { paintConn } from './connview.js';
+import { levelBar, allLevels, levelSource } from './levelview.js';
+import { levelBox } from './levelbox.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
-import { resultNode, showResult, patchPlan, planBlocked, rightsOff, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
+import {
+  resultNode,
+  showResult,
+  patchPlan,
+  planBlocked,
+  rightsOff,
+  sendTakes,
+  lastTake,
+  nextTake,
+  boxPatch,
+  lastChip,
+  VERBS,
+  planVerb,
+  planSummary,
+} from './plans.js';
 import { layout } from './layout.js';
 import { presetHost } from './presets.js';
 import { lastFill } from './historyrows.js';
@@ -12,7 +28,7 @@ import { boxPicking, addPatch } from './historypick.js';
 import { keyConfirm } from './keyconfirm.js';
 import { showAll } from './showall.js';
 import { shortcutList } from './shortcuts.js';
-import { levelBox, combobox } from './widgets.js';
+import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
@@ -37,21 +53,21 @@ for (const k of ['src', 'dst']) {
   });
 }
 const lvlInput = $('lvl');
-const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { onChange: () => renderTally() });
+const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onChange: () => renderTally() });
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
 
 // ---- connection
 
 function renderConn() {
-  const c = connState();
-  setDot($('conn-srv-dot'), $('conn-srv-text'), [c.ws[0], 'Server']);
-  setDot($('conn-rt-dot'), $('conn-rt-text'), [c.rt[0], 'Router']);
-  const [label, isName] = routerTitle();
-  $('conn-addr').textContent = label;
-  $('conn-addr').classList.toggle('sode__conn-addr--name', isName);
-  $('conn').classList.toggle('sode__conn--ok', c.ok);
-  $('conn').title = [c.ws[1], `${c.rt[1]} ${S.routerAddr}`, S.router !== 'up' && S.routerLastErr].filter(Boolean).join('\n');
+  const c = paintConn({
+    root: $('conn'),
+    srvDot: $('conn-srv-dot'),
+    srvText: $('conn-srv-text'),
+    rtDot: $('conn-rt-dot'),
+    rtText: $('conn-rt-text'),
+    addr: $('conn-addr'),
+  });
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';
   renderDown($('conn-down'), c);
 }
@@ -102,6 +118,19 @@ function addDst(pick) {
   renderChips();
   renderTally();
   showList('dst', b.list().find((d) => d.n > added)?.n);
+}
+
+// Ctrl-click on a destination elsewhere on the page: it joins the chips, with the box's own pick.
+function addEnd(it) {
+  const have = allDsts();
+  dsts = have.some((x) => x.n === it.n) ? have : [...have, it];
+  if (sel.dst) {
+    sel.dst = null;
+    boxes.dst.input.value = '';
+  }
+  boxes.dst.cb.close();
+  renderChips();
+  renderTally();
 }
 
 function renderChips() {
@@ -184,7 +213,7 @@ on('last', renderLast);
 // next: use nextTake() and remember it so a repeat goes on.
 function useLast(k, next = false) {
   const fill = lastFill(k, next, boxState());
-  if (fill?.none) return showResult('info', 'No take yet', "There's no earlier take to reuse.");
+  if (fill?.none) return showResult('info', 'No take yet', 'There is no earlier take to reuse.');
   if (!fill) return;
   const t = fill.t;
   if (k === 'src') {
@@ -208,7 +237,7 @@ function useLast(k, next = false) {
 
 // ---- tally display
 
-// Both lists show at once, on their own row (the flip swaps them).
+// Both lists show at the same time, on their own row (the flip swaps them).
 function underHead(text, up) {
   return el('div', 'sode__under-head', el('span', up ? 'sode__down-arrow sode__down-arrow--up' : 'sode__down-arrow'), el('span', 'sode__label', text));
 }
@@ -266,7 +295,7 @@ function renderTally() {
 
 // ---- history
 
-const historyView = desktopHistory({ select, focusBox, openConfirm, focusSearch, openKeys: () => keys.open(), boxes, active });
+const historyView = desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys: () => keys.open(), boxes, active });
 const { renderHistory, enterKeys, keyMode, histList, histArea, pager } = historyView;
 
 // ---- flip order (per browser; index.html applies it before first paint)
@@ -299,6 +328,9 @@ let confirmKeys = false;
 let confirmFromHist = false; // decided at open: rows get redrawn
 
 const confirm = keyConfirm({
+  verb: planVerb,
+  summary: planSummary,
+  enter: () => !!S.cfg?.confirmEnter,
   spaceHint: true,
   prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'],
   onTake: (p, viaKeys) => {
@@ -437,12 +469,19 @@ on('names', () => {
   renderTally();
 });
 on('tally', renderTally);
-// Done (or Cancel) in a pick bar: no match list may stay open over the page.
+// Done (or Cancel) in a pick bar: a match list must not stay open over the page.
 on('pick', () => {
   if (!boxPicking()) for (const k of ['src', 'dst']) boxes[k].cb.close();
 });
 on('conn', renderConn);
-on('history', renderHistory);
+// A burst of takes sends one recent each, and a redraw rebuilds every row: one redraw per frame is enough.
+let histFrame = 0;
+on('history', () => {
+  histFrame ||= requestAnimationFrame(() => {
+    histFrame = 0;
+    renderHistory();
+  });
+});
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
 
 presetHost({

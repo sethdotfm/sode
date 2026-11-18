@@ -16,8 +16,8 @@ import (
 )
 
 // The stream: GET /api/v1/stream upgrades to a WebSocket that only sends. The caller names
-// its topics in ?topics=a,b at connect; every frame but hello and ping is {"t","topic","data"?}, so a client can match on
-// topic alone. Keep docs in step: docs/api.md, openapi.yaml.
+// its topics in ?topics=a,b at connect. Every frame but hello and ping is {"t","topic","data"?},
+// so a client can match on topic alone. Keep docs in step: docs/api.md, openapi.yaml.
 //
 //	hello          {v, topics, numberOffset}, always first
 //	snapshot       one per names, tally and status topic, topic set, data as the REST read
@@ -25,17 +25,17 @@ import (
 //	tally          {routes:[{dst,level,src}]} changed routes only
 //	status         {router, routerUp, error}, plus address and err for a caller with the log scope
 //	entry          a new History entry (topic history)
-//	entryUpdate    a changed entry, such as a Late Result (sent once; topic history, or results when history was not chosen)
+//	entryUpdate    a changed entry, such as a Late Result (sent one time; topic history, or results when history was not chosen)
 //	historyCleared (topic history)
 //	ping           heartbeat, ignore
 //
 // Visibility (apiView) filters every frame, so a hidden caller never sees an out-of-rights
 // route or entry. A tally change whose Source is hidden is left out, as the REST read
-// leaves it out, so a client never sees -1 for a route that has a hidden source. Frames go
+// leaves it out. So a client never sees -1 for a route that has a hidden source. Frames go
 // out in the order the server saw the changes.
 //
-// refreshStreams re-resolves each open stream on a config commit: a rights change filters the
-// next frame only, and losing the API, Guest, a topic scope or the log scope ends the stream.
+// refreshStreams re-resolves each open stream on a config commit. A rights change filters the
+// next frame only. Loss of the API, Guest, a topic scope or the log scope ends the stream.
 // Liveness is the text ping frame alone; the per-key and per-address caps are below.
 
 func init() {
@@ -142,7 +142,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			perAddr++
 		}
 	}
-	// A panel's kiosks share one key and often one address, so its streams get a higher cap of
+	// A panel's kiosks share one key and often one address. So its streams get a higher cap of
 	// their own and do not count against an address's.
 	keyMax, addrMax := apiStreamMaxPerKey, apiStreamMaxPerAddr
 	if st.panel = cl.Panel != ""; st.panel {
@@ -248,7 +248,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 }
 
-// dropStream unregisters st and closes its queue once. Takes mu.
+// dropStream unregisters st and closes its queue one time. Acquires mu.
 func (a *App) dropStream(st *apiStream) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -258,8 +258,8 @@ func (a *App) dropStream(st *apiStream) {
 	}
 }
 
-// endStreams closes the open streams of keys that just ended, so a stream cannot outlive its
-// key. Each closes through its own disconnect row, which carries why. Takes mu.
+// endStreams closes the open streams of keys that ended, so a stream cannot outlive its
+// key. Each closes through its own disconnect row, which carries why. Acquires mu.
 func (a *App) endStreams(keys []apiKey, why string) {
 	if len(keys) == 0 {
 		return
@@ -281,8 +281,8 @@ func (a *App) endStreams(keys []apiKey, why string) {
 }
 
 // refreshStreams applies a config commit to the open streams as the next REST call would see
-// it: a changed view takes effect at once, and a stream ends when its caller lost the API,
-// Guest, a scope it uses or its log detail. Caller holds mu.
+// it. A changed view applies at once. A stream ends when its caller lost the API, Guest, a
+// scope it uses or its log detail. Caller holds mu.
 func (a *App) refreshStreams(cfg config.Config) {
 	for st := range a.streams {
 		if st.ended != "" {
@@ -318,7 +318,7 @@ func (a *App) refreshStreams(cfg config.Config) {
 	}
 }
 
-// streamQueue drops the stream if it can't keep up. Caller holds mu.
+// streamQueue drops the stream if it cannot keep up. Caller holds mu.
 func (a *App) streamQueue(st *apiStream, m streamMsg) {
 	b, err := json.Marshal(m)
 	if err != nil {

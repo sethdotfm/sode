@@ -1,0 +1,1 @@
+- The OpenAPI spec at `/api/v1/openapi.yaml` no longer cuts 35 field descriptions short at a comma. It gives the correct start scopes for a panel's API client. It names every route that accepts a panel's short name, and it no longer says that the undo route accepts one.

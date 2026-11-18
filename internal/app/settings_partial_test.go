@@ -35,7 +35,7 @@ func TestSaveOmittingKeysKeepsLiveValues(t *testing.T) {
 	admin := adminClient(t, a)
 	w := a.r().cfg
 	w.AutoLockMinutes = 7
-	w.DeviceDefaults = config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, SetStack: "or", NextMode: "fuzzy"}
+	w.DeviceDefaults = config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
 	if err := a.SaveSettings(admin, w, "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestSaveWithNullLocksKeepsThem(t *testing.T) {
 func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
-	dd := config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "locale", ScrollTop: true, SetStack: "or", NextMode: "fuzzy"}
+	dd := config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "locale", ScrollTop: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
 	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": dd}); err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 	// Booleans in a full object turn off too.
-	off := config.DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", SetStack: "and", NextMode: "number"}
+	off := config.DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", SetStack: "and", NextMode: "number", StackGap: "30"}
 	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": off}); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 func TestSavePartialDeviceDefaultsMerges(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
-	live := config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, ScrollTop: true, SetStack: "or", NextMode: "fuzzy"}
+	live := config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, ScrollTop: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
 	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": live}); err != nil {
 		t.Fatal(err)
 	}

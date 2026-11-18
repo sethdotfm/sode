@@ -115,3 +115,21 @@ test('a time range keeps reading regardless of the cap', () => {
   }
   assert.equal(n, 50);
 });
+
+test('live entries past the cap drop the oldest and Load older raises the cap', () => {
+  const p = P.newPager();
+  const srv = server(100_000);
+  p.receive(srv(p.open()));
+  let seq = 100_001;
+  const add = (n) => ({
+    entries: Array.from({ length: n }, () => ({ seq: seq++, time: '2026-10-29T10:00:00Z', kind: 'connect' })),
+  });
+  let r = p.live(add(600));
+  assert.equal(p.list.length, P.LIVE_CAP);
+  assert.equal(r.dropped.length, 200);
+  assert.equal(p.more, true);
+  p.receive(srv(p.older(0)));
+  assert.equal(p.list.length, P.LIVE_CAP + P.PAGE);
+  r = p.live(add(10));
+  assert.equal(p.list.length, P.LIVE_CAP + P.PAGE);
+});

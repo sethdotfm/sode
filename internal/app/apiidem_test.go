@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A slot still in flight is never evicted, and a repeat that waited gets the committed answer
+// A slot still in flight is never evicted. A repeat that waited gets the committed answer
 // even when the map dropped the slot meanwhile; otherwise the repeat runs the take again.
 func TestIdemEvictionKeepsInFlightSlot(t *testing.T) {
 	a := &App{}

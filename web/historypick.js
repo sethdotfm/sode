@@ -1,7 +1,7 @@
 // Pick mode for History (the preset editor's "Add from History..."): rows get check boxes, a bar says what the next click does.
 // "Include external follow entries" also adds changes made right after (probably following the take).
 // Mode 'boxes' ("Add from Patch Boxes...") uses the same bar and state but keeps the patch boxes live: Add turns the patch into a row, Done ends it.
-// Each layout asks picking()/pickBox() while building rows, redraws on 'pick' and calls bindPick(list) once.
+// Each layout asks picking()/pickBox() while building rows, redraws on 'pick' and calls bindPick(list) one time.
 import { el, on, emit, S } from './core.js';
 import { histRows } from './history.js';
 
@@ -27,7 +27,7 @@ export function indexRows(rows) {
   return m;
 }
 
-// Picked keys as takes, oldest first, each entry once; ok(e): a real source and an existing level.
+// Picked keys as takes, oldest first, each entry one time; ok(e): a real source and an existing level.
 export function pickedEntries(index, keys, withFollows, ok = () => true) {
   const seen = new Map();
   for (const k of keys) {
@@ -45,7 +45,7 @@ export function pickedEntries(index, keys, withFollows, ok = () => true) {
 // ---- the two modes
 
 const plural = (n) => `${n} take${n === 1 ? '' : 's'}`;
-// count/addText/canAdd take the state and, in Recent, the takes ticked now (taken), worked out once per redraw.
+// count/addText/canAdd accept the state and, in History, the takes ticked now (taken), worked out one time per redraw.
 export const MODES = {
   history: {
     msg: (name) => `Choose takes for ${name}`,

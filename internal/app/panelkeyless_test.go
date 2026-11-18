@@ -80,7 +80,7 @@ func silent(t *testing.T, ch <-chan map[string]any) {
 	}
 }
 
-// An editor's read carries keyless rows and the monitoring fields; saving that read back must not store them,
+// An editor's read carries keyless rows and the monitoring fields. A save of that read must not store them,
 // or a non-editor's read and Push would hand out a frozen device row.
 func TestKeylessRowsAreNeverStoredFromASavedRead(t *testing.T) {
 	a := panelsApp(t)

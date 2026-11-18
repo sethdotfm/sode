@@ -11,8 +11,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A saved three-Page panel with wrap off: Go to Page, Next Page and Previous Page move between Pages, a route staged
-// from a Destination on Page 1 and a Source on Page 2 is taken from Page 2, a reload reopens Page 2, and a saved edit
+// A saved three-Page panel with wrap off: Go to Page, Next Page and Previous Page move between Pages. A route staged
+// from a Destination on Page 1 and a Source on Page 2 is taken from Page 2. A reload reopens Page 2. A saved edit
 // that disables Page 2 moves the page to the first enabled Page.
 func TestChromePanelPages(t *testing.T) {
 	b := startBrowser(t)
@@ -23,7 +23,7 @@ func TestChromePanelPages(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	body := func(twoOn bool) string {
@@ -85,7 +85,7 @@ func TestChromePanelPages(t *testing.T) {
 	waitRouted(t, a, ana, simDst, simSrc)
 	b.waitFor("nothing left staged", `document.querySelector('.sode-panel__take').disabled`)
 
-	// The page before the reload is on Page 2 too, so the wait must see the new page; a save that lands before the
+	// The page before the reload is on Page 2 too, so the wait must see the new page. A save that lands before the
 	// new page reads the panel brings no banner.
 	b.eval(`window.beforeReload = true; location.reload(); true`)
 	onPage("a reload reopens Page 2", `!window.beforeReload && !!`+cell("source")+` && localStorage.getItem('sode-panel-page-`+id+`') === 'two'`)

@@ -12,7 +12,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A panel page whose key was revoked shows the ended-key note, is listed as a Keyless instance with Key ended, and a
+// A panel page whose key was revoked shows the ended-key note and is listed as a Keyless instance with Key ended. A
 // Trusted user assigns it from the panels page: it switches with no prompt, runs the target and opens it again.
 func TestChromeKeylessPageIsAssignedAndRuns(t *testing.T) {
 	b := startBrowser(t)

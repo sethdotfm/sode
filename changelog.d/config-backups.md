@@ -1,1 +1,1 @@
-- Sode keeps the previous settings file as config.yaml.prev on every save and once per release as config.yaml.before-<version>, so a bad save or a rollback can be undone by copying one back.
+- Sode keeps the previous settings file as config.yaml.prev on every save, and one time per release as config.yaml.before-<version>. To undo a bad save or a rollback, copy one back.

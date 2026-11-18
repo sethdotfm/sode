@@ -11,7 +11,7 @@ import (
 )
 
 // A Public panel (`acts: public`) hands a short-lived key for its own client to any page that
-// asks with the panel id alone, so the plain URL opens it. The client's long-lived keys never
+// asks with the panel id alone. So the plain URL opens it. The client's long-lived keys never
 // reach that request. Why the route has this shape: ADR 0008.
 
 const (
@@ -41,7 +41,7 @@ type publicRec struct {
 	addr string // the address that asked, so past the cap it loses its own key first
 }
 
-// publicKeys holds the Public panels' keys in memory only: an unauthenticated request must not
+// publicKeys holds the Public panels' keys in memory only. An unauthenticated request must not
 // cost a disk write, and keys.json, the instance cap and the key lists never see them.
 type publicKeys struct {
 	mu      sync.Mutex
@@ -156,7 +156,7 @@ func (s *publicKeys) expire(now time.Time) []apiKey {
 	return s.dropWhere(func(r keyRec) bool { return !now.Before(r.Expires) }, true)
 }
 
-// endPublicKeys ends the panel's public keys and the streams they hold: the panel left Public
+// endPublicKeys ends the panel's public keys and the streams they hold. The panel left Public
 // or went, and a key it handed out must not live out its TTL.
 func (a *App) endPublicKeys(id string) {
 	o := keyOwner{Kind: actorClient, Name: panelClientName(id)}
@@ -164,8 +164,8 @@ func (a *App) endPublicKeys(id string) {
 }
 
 // apiPanelPublic answers a keyless page. Every keyless open of any panel asks here first (the page
-// cannot read the mode without a key), so nothing here counts as a failed key. Every answer but a
-// key is the same whatever the id, and the cap counts every ask, so the route says nothing about
+// cannot read the mode without a key). So nothing here counts as a failed key. Every answer but a
+// key is the same whatever the id, and the cap counts every ask. So the route says nothing about
 // which ids exist.
 func (a *App) apiPanelPublic(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	rt := a.r()

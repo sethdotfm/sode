@@ -4,68 +4,78 @@ info:
   version: "1"
   description: |
     Read and command access to one SW-P-08 router through Sode. The API is off until an administrator
-    turns it on in Settings. Served at /api/v1/openapi.yaml, always open. The guide with worked
+    turns it on in Settings. Sode serves this document at /api/v1/openapi.yaml, always open. The guide with worked
     examples is docs/api.md in the Sode repository.
 
     Auth. Send a key as `Authorization: Bearer <key>` (`sode_` plus 43 URL-safe characters; treat it
-    as opaque). A key is never accepted in a query string. A call with no Authorization header is
-    a Guest call, allowed only while the Guest API switch is on, and only for the scopes Guest
-    has been given. A 401 carries `WWW-Authenticate: Bearer`.
+    as opaque). Sode never accepts a key in a query string. A call with no Authorization header is
+    a Guest call. Sode allows it only while the Guest API switch is on, and only for the scopes
+    that Guest has. A 401 carries `WWW-Authenticate: Bearer`.
 
     Numbers. Sources and destinations are the router's own numbers, 0-based. Add `numberOffset`
     (from /names) to show the number a person sees; with an offset of 1, send `src: 0` for the
     source a person calls 1. Levels are UI levels from 1, never offset, the same numbers the
-    rights lists use. A source of -1 means nothing is routed. A route that omits `levels`, or sends `[]`, uses
-    the server's Default levels setting, which no endpoint reports, so always send `levels`.
+    rights lists use. A source of -1 means nothing is routed. If a route omits `levels` or sends `[]`, Sode uses
+    the server's Default levels setting. `GET /tally` reports it as `defaultLevels`, but send `levels` anyway.
 
-    Via note. Any request may carry `X-Sode-Via`, free text (32 printable characters at most)
-    that Sode records beside the key name in the Communication Log, marked unverified. The key
-    name itself is set when the key is made, so it is verified. A panel page also sends
+    `X-Sode-Via`. Any request can carry `X-Sode-Via`, free text (32 printable characters at most).
+    Sode records it beside the key name in the Communication Log, marked unverified. The key name is
+    fixed when the key is made, so the key name is verified. A panel page also sends
     `X-Sode-Panel` (the panel id) and `X-Sode-Instance` (its instance name, 40 characters at
-    most), so its rows name the panel's short name and the instance; with a user's key the
-    panel is the page's word and is marked unverified.
+    most). Its rows then name the panel's short name and the instance. With a user's key, the
+    panel is the page's word only, and Sode marks it unverified.
 
-    Throttles. Each key has a rate limit per minute (the API settings default 600). A keyless
-    call is limited per source address. Ten bad keys from one address in a minute make that
+    Throttles. Each key has a rate limit per minute (the API settings default 600). Sode limits a keyless
+    call per source address. Ten bad keys from one address in a minute make that
     address wait. Both answer 429 `rate_limited` with `Retry-After` in seconds; wait that long
-    before the next call. A key that worked and then ended (revoked, rotated, its session
-    ended, its owner or the owner's PIN changed) is 401 `key_revoked`, and one past its expiry
+    before the next call.
+
+    A key that worked and then ended is 401 `key_revoked`. Such a key was
+    revoked or rotated, its session ended, or its owner or the owner's PIN changed. A key past its expiry
     is 401 `key_expired`. Both are final: stop using the key. They do not count as bad keys,
-    so a forgotten page still sending one does not make its address wait. CORS is off: no
-    cross-origin headers are sent.
+    so a forgotten page that still sends one does not make its address wait. CORS is off: Sode sends no
+    cross-origin headers.
+
+    Conditional reads. `GET /names`, `/tally`, `/protected` and `/panels/{id}` send an `ETag`, a hash of
+    the body that caller gets. Send it back as `If-None-Match` and an unchanged answer is 304 with no
+    body. A change of the caller's Rights or of a Default artwork changes the body, so it changes the tag.
 
     Writes. A take request is its own Confirm: nothing asks a person, so guard the button on
-    your side. The request is synchronous and returns when the router has answered or timed out
-    every route, always 200 once the take ran, with a result per route and the History entry
-    ids. One route can take about 35 seconds in the worst case (check 1 s, send queue up to
-    30 s, route 3 s, grace 1 s); more than 8 routes run 8 at a time and take longer. Common
-    proxies cut a request at 60 seconds, so raise the proxy's read timeout for `/api/v1`. A
-    route the router did not confirm in time is `failed` and may be confirmed later: the entry
-    then updates on the stream (match by `id`).
+    your side. The request is synchronous. It returns when the router has answered or timed out
+    every route. After the take ran, the answer is always 200, with a result per route and the
+    History entry ids.
 
-    Idempotency. `Idempotency-Key` (1 to 128 printable characters, no spaces) makes a repeat of
-    the same request from the same API key return the first answer with `Idempotent-Replay:
-    true` for 10 minutes. The same key with a different request is 422
-    `idempotency_mismatch`. A request that did nothing (bad input, rate limit, take cap) is not
-    remembered, except an `outside_rights` refusal, which is replayed. A keyless Guest cannot
+    In the worst case, one route can last about 35 seconds. That is check
+    1 s, send queue up to 30 s, route 3 s and grace 1 s. Sode runs more than 8 routes 8 at a
+    time, so they need more time. Common proxies cut a request at 60 seconds, so raise the proxy's read timeout for `/api/v1`. A
+    route that the router did not confirm in time is `failed`. If the router confirms it later,
+    the entry updates on the stream (match by `id`).
+
+    Idempotency. Send `Idempotency-Key` (1 to 128 printable characters, no spaces). Then, for 10
+    minutes, a repeat of the same request from the same API key returns the first answer with
+    `Idempotent-Replay: true`. The same key with a different request is 422
+    `idempotency_mismatch`. Sode does not remember a request that did nothing (bad input, rate
+    limit, take cap). The exception is an `outside_rights` refusal, which Sode replays. A keyless Guest must not
     send the header (400 `bad_request`), because guests behind one address would share answers.
 
-    Limits. Takes in flight across all callers are capped (default 4, because the router
-    answers one message at a time): over it, 429 `take_cap`, with no `Retry-After`. A request
+    Limits. Sode caps the takes in flight across all callers (default 4), because the router
+    answers one message at a time. Over the cap, the answer is 429 `take_cap`, with no `Retry-After`. A request
     holds 1 to 200 routes and a body of at most 64 KiB. A take of 6 or more routes does not
-    read each destination first, to spare the router, and says `checkSkipped: true`; Prev then
-    comes from Sode's cache, so a later Undo may restore less accurately.
+    read each destination first, to spare the router, and says `checkSkipped: true`. Prev then
+    comes from Sode's cache, so it is possible that a later Undo restores less accurately.
 
-    Rights. A take with any route outside the key's rights is refused whole, before anything is
-    sent: 403 `outside_rights`, no results, no History entry, an `api` row in the Communication
-    Log. Undo checks the destination and level but not the source it restores.
+    Rights. If any route in a take is outside the key's rights, Sode refuses the whole take
+    before it sends anything. The answer is 403 `outside_rights`, with no results and no History
+    entry, and Sode writes an `api` row in the Communication Log. Undo checks the destination
+    and level but not the source it restores.
 
-    Panels. Panels need the API switch: they use the same switch, scopes, rate limit and error
-    shape as the rest of v1, and nothing under `/panels` answers while the API is off. A user's
-    key has both panel scopes. An API client or Guest has them only if set. A panel belongs to
-    a user. Its owner, or a Trusted user for anyone's, may change, delete and add artwork to it.
-    Everyone else it is shared with, by name or as Everyone, may only read it and Save a copy.
-    A panel the caller may not use is 404, never 403.
+    Panels. Panels need the API switch. They use the same switch, scopes, rate limit and error
+    shape as the rest of v1. Nothing under `/panels` answers while the API is off. A user's
+    key has both panel scopes. An API client or Guest has them only if set.
+
+    A panel belongs to a user. Its owner, or a Trusted user for anyone's, can change, delete and add artwork to it.
+    Everyone else it is shared with, by name or as Everyone, is allowed only to read it and Save a copy.
+    A panel the caller is not allowed to use is 404, never 403.
 servers:
   - url: /api/v1
 security:
@@ -98,9 +108,13 @@ paths:
       tags: [reads]
       summary: Source and destination names
       description: Scope `names`.
+      parameters:
+        - { $ref: "#/components/parameters/IfNoneMatch" }
       responses:
         "200":
           description: Names as the router last reported them
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema:
@@ -110,12 +124,13 @@ paths:
                   numberOffset: { type: integer, description: Add to a router number to show it }
                   sources: { type: array, items: { $ref: "#/components/schemas/Name" } }
                   destinations: { type: array, items: { $ref: "#/components/schemas/Name" } }
-                  namesAt: { type: string, format: date-time, description: When the names were last read, zero if never }
+                  namesAt: { type: string, format: date-time, description: "When the names were last read, zero if never" }
               example:
                 numberOffset: 1
                 sources: [{ n: 0, name: CAM 1 }, { n: 1, name: CAM 2 }]
                 destinations: [{ n: 0, name: MON A }]
                 namesAt: "2026-11-08T09:30:00Z"
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -126,27 +141,38 @@ paths:
       tags: [reads]
       summary: What each destination is routed from, per level
       description: Scope `tally`.
+      parameters:
+        - { $ref: "#/components/parameters/IfNoneMatch" }
       responses:
         "200":
           description: Levels and routes
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema:
                 type: object
-                required: [levels, routes]
+                required: [levels, levelNumbering, defaultLevels, routes]
                 properties:
                   levels:
                     type: array
                     items:
                       type: object
-                      required: [level, label]
+                      required: [level, label, swatch]
                       properties:
-                        level: { type: integer, description: UI level, from 1 }
+                        level: { type: integer, description: "UI level, from 1" }
                         label: { type: string, description: How a person writes the level }
+                        swatch: { type: string, description: "Name of the theme color: `video` or `01` to `16`" }
+                        color: { type: string, description: "A #rrggbb color. When present it replaces the swatch" }
+                  levelNumbering: { type: string, enum: ["1", "0", "va"], description: "Level numbering: `1` is 1 to 17, `0` is 0 to 16, `va` is V, then 1 to 16" }
+                  defaultLevels: { type: string, description: "The Default levels setting, typed in the Level numbering" }
                   routes: { type: array, items: { $ref: "#/components/schemas/Route" } }
               example:
-                levels: [{ level: 1, label: "1" }]
+                levels: [{ level: 1, label: "1", swatch: video, color: "#7ae85a" }]
+                levelNumbering: "1"
+                defaultLevels: "1-17"
                 routes: [{ dst: 0, level: 1, src: 3 }]
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -157,9 +183,13 @@ paths:
       tags: [reads]
       summary: Protected destinations
       description: Scope `protected`. A take to one is refused before anything is sent.
+      parameters:
+        - { $ref: "#/components/parameters/IfNoneMatch" }
       responses:
         "200":
           description: Protected destination and level pairs
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema:
@@ -167,6 +197,7 @@ paths:
                 required: [protected]
                 properties:
                   protected: { type: array, items: { $ref: "#/components/schemas/ProtectedRow" } }
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -213,7 +244,7 @@ paths:
                 type: object
                 required: [before, entries, more]
                 properties:
-                  before: { type: integer, description: The page asked for, -1 for the newest }
+                  before: { type: integer, description: "The page asked for, -1 for the newest" }
                   entries: { type: array, items: { $ref: "#/components/schemas/Entry" } }
                   more: { type: boolean }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -230,8 +261,8 @@ paths:
         calling `/history/{id}/undo` for each returned entry. A take of one route is not a
         Group and is never returned here, and neither are External entries. The response is
         the newest Group that has a route the caller can see, entries oldest id first. For a
-        caller with hidden visibility the entries are only the visible routes and `groupN` is
-        absent; a Group with no visible route is skipped for the next older one. 404
+        caller with hidden visibility, the entries are only the visible routes and `groupN` is
+        absent. Sode skips a Group with no visible route and returns the next older one. 404
         `not_found` when History has no such Group.
       responses:
         "200":
@@ -242,7 +273,7 @@ paths:
                 type: object
                 required: [group, entries]
                 properties:
-                  group: { type: string, description: The Group id, as `group` on each entry }
+                  group: { type: string, description: "The Group id, as `group` on each entry" }
                   entries: { type: array, items: { $ref: "#/components/schemas/Entry" } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -255,8 +286,8 @@ paths:
       summary: Server link and Router link
       description: |
         Scope `status`. The same facts as `/api/health`, which stays open without a key. The
-        router address and the error text name the router, so only a caller that also has
-        the scope `log` gets `address` and `err`; everyone else gets the `error` flag.
+        router address and the error text name the router. So only a caller that also has
+        the scope `log` gets `address` and `err`. Every other caller gets the `error` flag.
       responses:
         "200":
           description: Link state
@@ -332,7 +363,7 @@ paths:
       tags: [writes]
       summary: Take by routes
       description: |
-        Scope `take`. Synchronous, see Writes above. Always 200 once the take ran, even when a
+        Scope `take`. Synchronous, see Writes above. Always 200 after the take ran, even when a
         route failed: read each result. Refusals before anything is sent are errors.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -450,11 +481,11 @@ paths:
     get:
       operationId: listPanels
       tags: [panels]
-      summary: Panels this key may use
+      summary: Panels this key can use
       description: |
         Scope `panels`. The panels the caller owns, the ones shared with it by name or with
         Everyone, and, for a Trusted user, every panel. A client also sees the panel it is the
-        API client of. `canEdit` is false for a panel the caller may only use.
+        API client of. `canEdit` is false for a panel the caller is allowed only to use.
       responses:
         "200":
           description: Panels, by name
@@ -485,12 +516,13 @@ paths:
         is 400 `bad_request`.
 
         `acts: api` makes the panel an API client of its own, named `Panel <id>` and made with
-        the panel; `acts: both` does the same and the page falls back to Session mode (a
-        sign-in) when opened without a key, and `acts: public` does the same and hands any page a
-        short-lived key for it (`POST /panels/{id}/public`). Only a Trusted user may (403 `trusted_required`). `clientRights` are its
-        rights and default to the creator's; any list wider than the creator's own is 403
-        `outside_rights`, and nothing is created. Its scopes start as names, tally, protected,
-        status, presets, history, layouts, take and panels. Its keys are made elsewhere. It
+        the panel. `acts: both` does the same, and the page falls back to Session mode (a
+        sign-in) when it opens without a key. `acts: public` does the same and hands any page a
+        short-lived key for it (`POST /panels/{id}/public`). Only a Trusted user can make a panel
+        act as an API client (403 `trusted_required`). `clientRights` are its rights and default
+        to the creator's. The panel's rights must not be wider than the creator's own (403
+        `outside_rights`), and Sode creates nothing. Its scopes start as names, tally, protected,
+        status, presets, layouts, take and panels, never history, log or panelsmanage. Its keys are made elsewhere. It
         shows in the administrator's client list and does not count toward the limit of API
         clients.
       requestBody:
@@ -516,7 +548,7 @@ paths:
     get:
       operationId: listPanelPeople
       tags: [panels]
-      summary: Users a panel may be shared with
+      summary: Users you can share a panel with
       description: |
         Scope `panels`. Needs a user's key (403 `user_required` for an API client or Guest). The
         names of Sode's users, for the Share picker and nothing else: no PINs, flags or Rights.
@@ -570,10 +602,10 @@ paths:
       description: |
         Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
         Advanced Settings PIN as `pin` (403 `trusted_required`, a wrong PIN counts toward its
-        lockout). Replaces any default for the same item. Needs Icon A or Icon B. A panel's
-        artwork id is copied from `panel`, which the caller must be able to read (404
-        `not_found`), and comes back as a `d-` id; the copy passes the same 2 MB and 1024 by 1024
-        checks as an upload, and all Default artwork images together stay under 64 MB (409
+        lockout). Replaces any default for the same item. Needs Icon A or Icon B. Sode copies a
+        panel's artwork id from `panel`, which the caller must be able to read (404
+        `not_found`). The copy comes back as a `d-` id. It passes the same 2 MB and 1024 by 1024
+        checks as an upload. All Default artwork images together stay under 64 MB (409
         `conflict`). An item a Hidden key cannot see is 403 `outside_rights`. Every open panel
         showing the item updates with no panel save.
       requestBody:
@@ -626,7 +658,7 @@ paths:
       summary: A Default artwork image
       description: |
         Scope `panels`. Served with the same headers as a panel's artwork. 404 `not_found` unless a
-        default the caller may see names it.
+        default that the caller can see names it.
       responses:
         "200":
           description: The image, in its stored type
@@ -672,9 +704,9 @@ paths:
         lockout). The file rides base64 in `data` and its type is read from its content: PNG or SVG
         only (415 `unsupported_type`). The artwork limits apply: 2 MB (413 `too_large`) and, for a
         PNG, 1024 by 1024 pixels (400 `bad_request`). All icons together stay under 64 MB (409
-        `conflict`). The name is trimmed and is 1 to 40 characters (400 `bad_request`); one another
-        icon has, ignoring case, is stored as "Name 2", "Name 3" and so on, so read the stored name
-        from the answer.
+        `conflict`). Sode trims the name, which is 1 to 40 characters (400 `bad_request`). If another
+        icon has the name, ignoring case, Sode stores it as "Name 2", "Name 3" and so on. So read the
+        stored name from the answer.
       requestBody:
         required: true
         content:
@@ -684,8 +716,8 @@ paths:
               required: [name, data]
               properties:
                 name: { type: string, maxLength: 40 }
-                data: { type: string, format: byte, description: The PNG or SVG file, base64 }
-                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+                data: { type: string, format: byte, description: "The PNG or SVG file, base64" }
+                pin: { type: string, description: "The Advanced Settings PIN, for a user who is not Trusted. Never stored" }
             example: { name: Station logo, data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }
       responses:
         "201":
@@ -709,9 +741,10 @@ paths:
       description: |
         Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
         Advanced Settings PIN as `pin` in an optional JSON body (403 `trusted_required`). Reads
-        `icons/drop-in/` beside the config, as Sode does at start. Each PNG or SVG file there is
-        checked as an upload is (2 MB, 1024 by 1024 for a PNG, the 64 MB total), named after its
-        file name without the extension ("Name 2" on a clash), added and removed from the directory.
+        `icons/drop-in/` beside the config, as Sode does at start. Sode checks each PNG or SVG file
+        there as it checks an upload (2 MB, 1024 by 1024 for a PNG, the 64 MB total). It names the
+        icon after the file name without the extension ("Name 2" on a clash). Then it adds the icon
+        and removes the file from the directory.
         A file that fails is left there and listed in `skipped` with the reason; links and directories
         are never followed. Answers 200 even when nothing was added.
       requestBody:
@@ -721,7 +754,7 @@ paths:
             schema:
               type: object
               properties:
-                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+                pin: { type: string, description: "The Advanced Settings PIN, for a user who is not Trusted. Never stored" }
       responses:
         "200":
           description: What was added and what was skipped
@@ -777,7 +810,7 @@ paths:
         Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
         Advanced Settings PIN as `pin` (403 `trusted_required`). The id stays, so every cell naming
         it keeps it. The name follows the upload's rules: trimmed, 1 to 40 characters (400
-        `bad_request`), and one another icon has, ignoring case, is stored as "Name 2" and so on.
+        `bad_request`). If another icon has the name, ignoring case, Sode stores it as "Name 2" and so on.
       requestBody:
         required: true
         content:
@@ -787,7 +820,7 @@ paths:
               required: [name]
               properties:
                 name: { type: string, maxLength: 40 }
-                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+                pin: { type: string, description: "The Advanced Settings PIN, for a user who is not Trusted. Never stored" }
             example: { name: Studio logo }
       responses:
         "200":
@@ -817,7 +850,7 @@ paths:
             schema:
               type: object
               properties:
-                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+                pin: { type: string, description: "The Advanced Settings PIN, for a user who is not Trusted. Never stored" }
       responses:
         "204": { description: Deleted }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -856,7 +889,7 @@ paths:
     get:
       operationId: listPanelTemplates
       tags: [panels]
-      summary: Templates this key may use
+      summary: Templates this key can use
       description: |
         Scope `panels`. The Everyone templates, plus the caller's own Me templates for a user's
         key. By name.
@@ -881,16 +914,16 @@ paths:
       description: |
         Scope `panelsmanage`. Needs a user's key (403 `user_required`). Saves a layout: rows,
         columns and each cell's type, levels and look. Cell contents (`n`, `scope`, `name`,
-        `caption`) are dropped unless asked for: `sources` keeps those of Source and Preset cells,
-        `dests` those of Destination cells, so by default every cell comes back unassigned. The
+        `caption`) are dropped unless asked for. `sources` keeps those of Source and Preset cells,
+        and `dests` keeps those of Destination cells. By default, every cell comes back unassigned. The
         older `contents: true` still works and means both. `settings` are kept when sent, except
         `settings.fixedDests`, which is kept only with `dests`. Artwork ids are never kept, since artwork
         belongs to one panel. A name is unique within Everyone, or within one user's Me
         templates, ignoring case (409 `conflict`); at most 200 templates exist.
 
         Scope `everyone` needs a Trusted user, or the Advanced Settings PIN sent as `pin` in the
-        body (403 `trusted_required`, also for a wrong PIN, which counts toward the PIN's
-        lockout). The PIN is never stored. The body is at most 4 MB. A template carries every Page
+        body. Without them, the answer is 403 `trusted_required`. A wrong PIN also gets this
+        answer and counts toward the PIN's lockout. The PIN is never stored. The body is at most 4 MB. A template carries every Page
         with its id, as a panel does; `cells` alone makes one Page.
       requestBody:
         required: true
@@ -952,15 +985,20 @@ paths:
       tags: [panels]
       summary: Read a panel
       description: |
-        Scope `panels`. `{id}` may also be the panel's short name (`slug`) on this route and on the
-        setup route only; every other route takes the id. A panel the caller may not use is 404
-        `not_found`, as if it did not exist, and an unknown short name answers the same way.
+        Scope `panels`. `{id}` can also be the panel's short name (`slug`) on this route and on
+        `/panels/{id}/setup`, `/panels/{id}/public` and `/panels/{id}/instances/keyless`. Every
+        other route accepts only the id. A panel the caller is not allowed to use is 404
+        `not_found`, as if it did not exist. An unknown short name answers the same way.
+        - { $ref: "#/components/parameters/IfNoneMatch" }
       responses:
         "200":
           description: The panel
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Panel" }
+        "304": { $ref: "#/components/responses/NotModified" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
@@ -972,17 +1010,18 @@ paths:
       summary: Update a panel
       description: |
         Scope `panelsmanage`. Replaces the panel with the body. Only the owner, or a Trusted user
-        for anyone's, may (403 `not_owner` for a panel the caller may only use). Id, owner, API
-        client and artwork cannot be changed here. A field Sode does not know that is stored on
+        for anyone's, can change it (403 `not_owner` for a panel the caller is allowed only to use). Sode keeps
+        the stored id, owner, API client and artwork and ignores those fields in the body. A field Sode does not know that is stored on
         the panel and left out of the body is kept.
 
-        `acts` decides the API client: `api`, `both` or `public` makes one if the panel has none (and
-        switching between them keeps it), and `session` removes it with its keys. Switching to
-        `public` checks the caller as a new client would (Trusted, Rights within the caller's) even
-        when `clientRights` stay as stored, and leaving `public` ends every key it handed out. `clientRights` left out, or equal to the stored ones, change
+        `acts` decides the API client. `api`, `both` or `public` makes one if the panel has none, and
+        a switch between them keeps it. `session` removes it with its keys. A switch to
+        `public` checks the caller as a new client would (Trusted, Rights within the caller's).
+        Sode does this even when `clientRights` stay as stored. If the panel leaves `public`, every
+        key it handed out ends. `clientRights` left out, or equal to the stored ones, change
         nothing. Any other value needs a Trusted caller and must be within the caller's own
-        rights (403 `trusted_required`, `outside_rights`), and the panel is left as it was when
-        refused. Only the Advanced Settings PIN widens a client past its creator.
+        rights (403 `trusted_required`, `outside_rights`). If Sode refuses it, the panel stays as
+        it was. Only the Advanced Settings PIN widens a client past its creator.
 
         A body with `cells` and no `pages` changes only Page 1's cells and keeps the other Pages.
       requestBody:
@@ -1023,7 +1062,7 @@ paths:
       tags: [panels]
       summary: Save a copy
       description: |
-        Scopes `panelsmanage` and `panels`. Needs a user's key and a panel the caller may use.
+        Scopes `panelsmanage` and `panels`. Needs a user's key and a panel the caller can use.
         Makes a panel the caller owns: private, acting as a session user, with the grid,
         settings and artwork of the source. The body is optional, `{"name":"..."}`; the default
         name is the source's name plus " copy".
@@ -1058,11 +1097,13 @@ paths:
       description: |
         Scope `panelsmanage`. Copies the grid (`rows`, `cols`, and `pages`, every Page with its id), `settings` and unknown
         fields of the saved panel onto each target. Each target keeps its own `name`, `id`, `owner`,
-        `share` and `settings.fixedDests`. `acts`, the API client and its rights are never copied, so a Push cannot
-        make a session panel act as an API client or widen a client; artwork the target lacks is
-        copied. A checkpoint of each target is kept first. The caller must be able to change the
-        source and every target (the owner, or a Trusted user for anybody's); if any target is
-        refused, none is changed. Open panels update like a saved edit.
+        `share` and `settings.fixedDests`. Sode never copies `acts`, the API client or its rights.
+        So a Push cannot make a session panel act as an API client or widen a client. Sode copies
+        artwork that the target lacks. It keeps a checkpoint of each target first. The caller must
+        be able to change the source and every target (the owner, or a Trusted user for anybody's).
+        If Sode refuses any target, it changes none. A Grid panel's `sources` and `destinations` (lists,
+        `hide` and `items`) go with the layout. A target of the other panel type is 409 `conflict`.
+        Open panels update like a saved edit.
       requestBody:
         required: true
         content:
@@ -1161,8 +1202,8 @@ paths:
       description: |
         Scope `panelsmanage`. Saves the listed panels' current saved layouts, one each. The caller
         must be able to change every panel listed. A set for `everyone` needs a Trusted user, or
-        the Advanced Settings PIN sent as `pin` in the body (403 `trusted_required`, also for a
-        wrong PIN, which counts toward the PIN's lockout). The PIN is never stored.
+        the Advanced Settings PIN sent as `pin` in the body. Without them, the answer is 403
+        `trusted_required`. A wrong PIN also gets this answer and counts toward the PIN's lockout. The PIN is never stored.
       requestBody:
         required: true
         content:
@@ -1197,9 +1238,9 @@ paths:
       summary: Rename a checkpoint set or save its layouts again
       description: |
         Scope `panelsmanage`. `name` renames it. `panels` replaces its entries with those panels'
-        current saved layouts. The owner, or a Trusted user for an Everyone set, or anyone who sends
-        the Advanced Settings PIN as `pin` for an Everyone set (403 `trusted_required` for a wrong
-        one). The PIN is never stored.
+        current saved layouts. The owner can change a set. For an Everyone set, a Trusted user or
+        anyone who sends the Advanced Settings PIN as `pin` can too. A wrong PIN is 403
+        `trusted_required`. The PIN is never stored.
       requestBody:
         required: true
         content:
@@ -1227,9 +1268,9 @@ paths:
       tags: [panels]
       summary: Delete a checkpoint set
       description: |
-        Scope `panelsmanage`. The owner, or a Trusted user for an Everyone set, or anyone who sends
-        the Advanced Settings PIN as `pin` in a JSON body for an Everyone set (403
-        `trusted_required` for a wrong one).
+        Scope `panelsmanage`. The owner can delete a set. For an Everyone set, a Trusted user or
+        anyone who sends the Advanced Settings PIN as `pin` in a JSON body can too. A wrong PIN is
+        403 `trusted_required`.
       requestBody:
         required: false
         content:
@@ -1256,7 +1297,8 @@ paths:
         Scope `panelsmanage`. Gives each panel in the set its own saved layout, keeping a
         checkpoint of each first, with the same rules as pushing a panel. The caller must be able
         to change every panel pushed to. `targets` narrows it to some of the set's panels. A panel
-        that no longer exists is skipped and listed in `skipped`. The body may be empty.
+        that no longer exists is skipped and listed in `skipped`. The body can be empty.
+        A panel whose type differs from its entry is 409 `conflict`, and no panel changes.
       requestBody:
         required: false
         content:
@@ -1289,18 +1331,18 @@ paths:
         a panel that acts as an API client (409 `conflict` otherwise). A panel holds one key per
         named instance, at most 20 (keys and pending setup links together; 409 `conflict` past
         that). `instance` is required (400 `bad_request`) and is also the instance's device name.
-        Names are unique on the panel ignoring case, so a name that already holds a key rotates
-        that instance only: its old key and open streams end and the other instances keep theirs.
-        The new secret is shown this once and stored only as a hash. The key never expires. `link`
-        is relative to Sode's root and carries the name in the query and the key in the URL
-        fragment (`#key=`), so the key never reaches a request line, a proxy log or a Referer.
+        Names are unique on the panel ignoring case. So a name that already holds a key rotates
+        that instance only. Its old key and open streams end, and the other instances keep theirs.
+        Sode shows the new secret only this one time and stores only a hash. The key never expires.
+        `link` is relative to Sode's root. It carries the name in the query and the key in the URL
+        fragment (`#key=`). So the key never reaches a request line, a proxy log or a Referer.
         Opening it runs the panel as its API client with no sign-in. A key in a query string is
         not a credential.
 
         With `{"setup": true}` in the body (secure mode) it ends that instance's key the same way
         and returns a one-time setup link instead of a key. The panel page posts the token to
         `POST /panels/{id}/setup` and keeps the key it gets in the browser, named for the
-        instance, so the link works once and for one hour. A newer link or key for the same name,
+        instance. So the link works one time, for one hour. A newer link or key for the same name,
         a revoke of it or deleting the panel ends it.
       requestBody:
         required: true
@@ -1310,8 +1352,8 @@ paths:
               type: object
               required: [instance]
               properties:
-                instance: { type: string, maxLength: 40, description: The instance's name, also its device name }
-                setup: { type: boolean, description: Make a one-time setup link, not a key }
+                instance: { type: string, maxLength: 40, description: "The instance's name, also its device name" }
+                setup: { type: boolean, description: "Make a one-time setup link, not a key" }
       responses:
         "201":
           description: The new key, or with `setup` the new setup link
@@ -1320,12 +1362,12 @@ paths:
               schema:
                 type: object
                 properties:
-                  key: { type: string, description: The secret, shown once. Not in a setup answer }
+                  key: { type: string, description: "The secret, shown once. Not in a setup answer" }
                   id: { type: string, description: The key's id in the key list. Not in a setup answer }
                   instance: { type: string, description: The instance's name as stored }
                   rotated: { type: boolean, description: True when this instance's older key was ended }
                   link: { type: string, description: "`panels/<id>?instance=<name>#key=<secret>`, or with `setup` `panels/<id>?instance=<name>#setup=<token>`, relative to Sode's root. Sode's own pages build a shorter link: the short name when there is one, and the secret without its `sode_` or `sode_setup_` prefix" }
-                  setup: { type: string, description: The one-time token, shown once. Only in a setup answer }
+                  setup: { type: string, description: "The one-time token, shown once. Only in a setup answer" }
                   expires: { type: string, format: date-time, description: When the setup link stops working. Only in a setup answer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1342,7 +1384,7 @@ paths:
         pending setup link for it and its open streams. The panel, its API client and the other
         instances stay. Revoking an instance that has none is a 204 too.
       parameters:
-        - { name: instance, in: query, required: true, schema: { type: string, maxLength: 40 }, description: The instance's name, ignoring case }
+        - { name: instance, in: query, required: true, schema: { type: string, maxLength: 40 }, description: "The instance's name, ignoring case" }
       responses:
         "204": { description: Revoked }
         "400": { $ref: "#/components/responses/Error" }
@@ -1362,8 +1404,8 @@ paths:
       description: |
         Scope `panelsmanage`, owner or Trusted, a user's key, a panel that acts as an API client
         (409 `conflict` otherwise). One row per named instance: a key, or a one-time setup link
-        that has not been used. Never a secret. `online` is true while a screen with that device
-        name counts as online.
+        that has not been used. Never a secret. `online` is true while an open panel page with that
+        device name counts as online.
       responses:
         "200":
           description: The instances, by name, and the limit
@@ -1386,7 +1428,7 @@ paths:
                         online: { type: boolean }
                         setup: { type: boolean, description: True when only a one-time setup link is pending }
                         expires: { type: string, format: date-time, description: When a pending setup link stops working }
-                  max: { type: integer, description: The most instances a panel may hold }
+                  max: { type: integer, description: The most instances a panel can hold }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
@@ -1402,8 +1444,8 @@ paths:
       summary: Trade a one-time setup link for an instance's key
       security: []
       description: |
-        Needs no key (route scope `none`): the token is the credential. It works once, for an hour.
-        The answer is a new key for the instance the link was made for, shown this once. A token that was used,
+        Needs no key (route scope `none`): the token is the credential. It works one time, for an hour.
+        The answer is a new key for the instance the link was made for, shown only this one time. A token that was used,
         expired or replaced is 401 `invalid_setup`. Wrong tokens count against the same
         per-address limit as wrong keys (429 `rate_limited`). From outside the panel's allowed
         networks it is 403 `network_not_allowed` and the link stays usable.
@@ -1427,7 +1469,7 @@ paths:
                 properties:
                   key: { type: string }
                   id: { type: string }
-                  instance: { type: string, description: The instance's name, which is also the key's name }
+                  instance: { type: string, description: "The instance's name, which is also the key's name" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -1444,13 +1486,13 @@ paths:
       description: |
         Needs no key (route scope `none`): the panel page asks here when it has no key, since it
         cannot read the panel's mode without one. A panel with `acts: public` answers 201 with a
-        new key for its own client, with the client's Rights and scopes, that ends 15 minutes on
-        (`expires`); the page asks again when a call answers `key_expired` or `key_revoked`. The
-        key is held in memory only, so a restart ends it, and at most 64 are live per panel (past
-        that the asking address's oldest ends, else the panel's oldest). It never shows in the
-        panel's instance list. Any other panel, an id or short name that names no panel, and a
-        Public panel asked from outside its client's allowed networks all answer 200
-        `{"public": false}`. Each address may ask 128 times a minute, whatever the id (fewer when
+        new key for its own client, with the client's Rights and scopes. The key ends 15 minutes
+        later (`expires`). The page asks again when a call answers `key_expired` or `key_revoked`.
+        Sode holds the key in memory only, so a restart ends it. At most 64 are live per panel.
+        Past that, the oldest key of the address that asks ends, or else the oldest key of the
+        panel. The key never shows in the panel's instance list. Any other panel answers 200
+        `{"public": false}`. So does an id or short name that names no panel, and a Public panel
+        asked from outside its client's allowed networks. Each address can ask 128 times a minute, whatever the id (fewer when
         the API rate limit is lower), then gets 429 `rate_limited`. Leaving `public` or deleting
         the panel ends every key it handed out.
       responses:
@@ -1484,7 +1526,7 @@ paths:
     put:
       operationId: setPanelNetworks
       tags: [panels]
-      summary: Set the networks a panel's key may be used from
+      summary: Set the networks a panel's key can be used from
       description: |
         Scope `panelsmanage`, owner or Trusted, a user's key, a panel that acts as an API client
         (409 `conflict` otherwise). Replaces the list on the panel's API client. Each entry is a
@@ -1524,12 +1566,13 @@ paths:
       tags: [panels]
       summary: Report an open panel page (keepalive)
       description: |
-        Scope `panels`. Anyone who may use the panel counts. Each open panel page is an
+        Scope `panels`. Anyone who can use the panel counts. Each open panel page is an
         instance named by its device, and sends this every 15 seconds. A panel is online while
         any device was heard in the last 45 seconds (8 seconds after a device closed its
-        stream, see `/panels/{id}/instances/stream`). A device that is silent for longer raises a notice for the panel's watchers, and a second one when it returns
-        (see the `panelNotice` frame of the Sode socket in docs/api.md). Devices are kept in
-        memory only and told apart by name, ignoring case, so two screens that share a name are
+        stream, see `/panels/{id}/instances/stream`). A device that is silent for longer raises a
+        notice for the panel's watchers. It raises a second notice when it returns (see the
+        `panelNotice` frame of the Sode socket in docs/api.md). Sode keeps devices in memory only
+        and tells them apart by name, ignoring case. So two open panel pages that share a name are
         one instance. A panel holds at most 100 devices (409 `conflict`). Deleting the panel, and
         making, rotating or revoking its key, forgets its devices without a notice. A blank or
         missing `device` is 400 `bad_request` while the panel's `askInstanceName` is on. With it
@@ -1553,7 +1596,7 @@ paths:
                 properties:
                   online: { type: boolean }
                   keepaliveSeconds: { type: integer, description: How often to send this }
-                  missSeconds: { type: integer, description: How long a silence may last }
+                  missSeconds: { type: integer, description: How long a silence can last }
                   graceSeconds: { type: integer, description: How long after a closed stream the device counts as online }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -1572,14 +1615,14 @@ paths:
       description: |
         Scope `panels`. Read it with `fetch` and the Authorization header (an EventSource cannot
         send one). The answer stays open and carries a line every 10 seconds, so Sode sees the
-        page close at once. A device that held a stream and closed it is lost after 8 seconds,
-        not the 45 of the keepalive, and a reopen with the same name inside that time raises
+        page close immediately. A device that held a stream and closed it is lost after 8 seconds,
+        not the 45 of the keepalive. A reopen with the same name inside that time raises
         nothing. Keep sending the keepalive: it is the fallback when the stream cannot stay open.
       parameters:
         - { name: device, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "A name for this instance. Blank is 400 while askInstanceName is on, else names it by the caller's address" }
       responses:
         "200":
-          description: Held; one JSON line at once and one every 10 seconds
+          description: Held; one JSON line immediately and one every 10 seconds
           content:
             application/x-ndjson:
               schema:
@@ -1618,17 +1661,17 @@ paths:
       summary: Announce a panel page that has no working key
       security: []
       description: |
-        Needs no key (route scope `none`): a panel page with no working key, a Keyless instance
-        (ADR 0009), holds it so a Trusted user can find and assign it. It grants nothing and the
-        answer is the same whether or not the panel exists. Sode records the address it sees and
+        Needs no key (route scope `none`). A panel page with no working key, a Keyless instance
+        (ADR 0009), holds it, so that a Trusted user can find and assign the page. It grants nothing,
+        and the answer is the same if the panel exists or not. Sode records the address it sees and
         keeps at most 1000 such pages in memory for 24 hours, the oldest dropped. Only an Assign
         (`POST /panels/{id}/assign` with `keyless`) sends anything on it but the beat.
       parameters:
-        - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: The device name the page holds, if any }
+        - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "The device name the page holds, if any" }
         - { name: ended, in: query, required: false, schema: { type: string, enum: ["1"] }, description: "The page's key answered `key_revoked` or `key_expired`" }
       responses:
         "200":
-          description: Held; one JSON line at once and one every 10 seconds
+          description: Held; one JSON line immediately and one every 10 seconds
           content:
             application/x-ndjson:
               schema:
@@ -1649,16 +1692,16 @@ paths:
         default: { $ref: "#/components/responses/Error" }
   /panels/{id}/undo:
     parameters:
-      - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" } }
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
     get:
       operationId: nextPanelUndo
       tags: [panels]
       summary: The take a panel instance's Undo cell would undo
       description: |
-        Scope `take`, a caller who may use the panel. The caller is the instance: a panel key's
+        Scope `take`, a caller who can use the panel. The caller is the instance: a panel key's
         instance, or `X-Sode-Panel` naming this panel and `X-Sode-Instance` with a user's key. The take
         is the newest one in History from this panel (`panelId`) and instance, ignoring case, that no
-        undo has taken back, among the newest 1000 entries; a take of several routes is one Group.
+        undo has reversed. Sode looks among the newest 1000 entries. A take of several routes is one Group.
         `undo` is null when there is none. `allowed` is false, with the reason, when a route to restore
         is outside the caller's Rights.
       responses:
@@ -1676,7 +1719,7 @@ paths:
                     required: [id, entries, routes, allowed]
                     properties:
                       id: { type: integer, description: "The take's newest History entry, to send back to POST" }
-                      entries: { type: array, items: { $ref: "#/components/schemas/Entry" }, description: The History entries to undo, oldest first }
+                      entries: { type: array, items: { $ref: "#/components/schemas/Entry" }, description: "The History entries to undo, oldest first" }
                       routes:
                         type: array
                         description: What the undo would send, one route per source to restore
@@ -1688,7 +1731,7 @@ paths:
                             dst: { type: integer }
                             levels: { type: array, items: { type: integer } }
                       allowed: { type: boolean }
-                      reason: { type: string, description: Why not, when allowed is false }
+                      reason: { type: string, description: "Why not, when allowed is false" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
@@ -1732,27 +1775,30 @@ paths:
       summary: Assign an open instance to another panel
       description: |
         Scope `panelsmanage`. Needs a user's key, and a Trusted user or the Advanced Settings PIN in
-        `pin` (403 `trusted_required`; a wrong PIN counts toward the same lockout as the Settings
-        dialog). `from` and `instance` name an instance that holds `/panels/{id}/instances/stream`
-        now, so only Sode's own panel pages can be assigned (409 `conflict` otherwise). `as` says
-        how the instance opens the target: `client`, with a key, or `user`, with the device's own
-        sign-in. Left out it is `client` for a panel with an API client and `user` for one that acts
-        as the signed-in user; the other choice on a panel that does not act as both is 409
-        `conflict`. For `user` Sode makes no key and checks no name or instance count: the last
-        line carries `"signIn":"user"` and no key, and the person at the device types their own
-        PIN (a device already signed in as a user who cannot open the target says so). For
-        `client` the target must not be at its 20 instances (409 `conflict`, checked first). A target that already
-        holds an instance of that name answers 409 `name_taken` with `error.suggest`, a free name;
-        send it, or another, as `name` and the instance takes it as its device name on the target.
-        The held name's key is never rotated. Sode makes a key for the target's client named for
-        the instance, so it carries the
-        target's rights, and sends it as the last line of that instance's stream only; the answer
-        never carries it. The page stores the key, rewrites its address and opens the target with
+        `pin`. Without them, the answer is 403 `trusted_required`. A wrong PIN counts toward the same
+        lockout as the Settings dialog. `from` and `instance` name an instance that holds
+        `/panels/{id}/instances/stream` now. So only Sode's own panel pages can be assigned (409
+        `conflict` otherwise). `as` says how the instance opens the target: `client`, with a key,
+        or `user`, with the device's own sign-in. If `as` is left out, it is `client` for a panel
+        with an API client. It is `user` for a panel that acts as the signed-in user. On a panel
+        that does not act as both, the other choice is 409 `conflict`.
+
+        For `user`, Sode makes no key and checks no name or instance count. The last line carries
+        `"signIn":"user"` and no key, and the person at the device types their own PIN. A device
+        already signed in as a user who cannot open the target says so. For `client`, the target
+        must not be at its 20 instances (409 `conflict`, checked first). If a target already holds
+        an instance of that name, it answers 409 `name_taken` with `error.suggest`, a free
+        name. Send that name or another as `name`, and the instance uses it as its device name on
+        the target. Sode never rotates the key of the held name.
+
+        Sode makes a key for the target's client named for the instance, so the key carries the
+        target's rights. Sode sends the key as the last line of that instance's stream only. The
+        answer never carries it. The page stores the key, rewrites its address and opens the target with
         no prompt. The instance's key for the old panel stays valid, and the old panel forgets the
-        instance without a lost notice. The target panel is not changed. One `api` row `assign`
-        names the user, the instance and both panels. A keyless instance is named by `keyless`
-        in place of `from` and `instance`; it may be assigned to the panel it shows, and it gets a
-        key only from an address inside the target client's allowed networks (403
+        instance without a lost notice. Sode does not change the target panel. One `api` row `assign`
+        names the user, the instance and both panels. `keyless` names a keyless instance in place
+        of `from` and `instance`. A keyless instance can be assigned to the panel it shows. It gets
+        a key only from an address inside the target client's allowed networks (403
         `network_not_allowed`; an empty list allows any address).
       requestBody:
         required: true
@@ -1765,7 +1811,7 @@ paths:
                 keyless: { type: string, description: "A keyless instance's id from a panel read's `keyless` rows, in place of `from` and `instance`" }
                 instance: { type: string, maxLength: 40, description: "The instance's device name, ignoring case; required unless `keyless` is sent" }
                 name: { type: string, maxLength: 40, description: "Its name on the target, after a `name_taken`; left out, it keeps its own" }
-                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted }
+                pin: { type: string, description: "The Advanced Settings PIN, for a user who is not Trusted" }
                 as: { type: string, enum: [client, user], description: "A key for the target's API client, or the device's own sign-in; left out, the client where the target has one" }
       responses:
         "200":
@@ -1795,17 +1841,19 @@ paths:
       summary: Rename an open instance
       description: |
         Scope `panelsmanage`. Needs a user's key: the panel's owner, a Trusted user, or anyone with
-        the Advanced Settings PIN in `pin` (403 `trusted_required`; a wrong PIN counts toward the
-        same lockout as the Settings dialog). The instance must hold
+        the Advanced Settings PIN in `pin`. Without them, the answer is 403 `trusted_required`. A
+        wrong PIN counts toward the same lockout as the Settings dialog. The instance must hold
         `/panels/{id}/instances/stream` now (409 `conflict` for one that timed out, since nothing
-        would hear the name). The new name is its device name, not a label: up to 40 characters
-        and unique on the panel ignoring case, counting key names and every instance Sode holds,
-        offline ones included. A held name answers 409 `name_taken` with `error.suggest`, a free
-        name. A change of case alone is allowed; the same name is 400 `bad_request`. Sode renames
-        the instance's key (or pending setup link) of that name, moves per-instance watches to
-        the new name and sends `{"t":"rename","instance":"<new name>"}` as the stream's last
-        line; the page takes the name, rewrites its `?instance=` when its address has one, and
-        reopens its stream under it. The old name leaves the list without a lost notice. Writes
+        would hear the name). The new name is its device name, not a label. It has up to 40
+        characters and is unique on the panel ignoring case. The check counts key names and every
+        instance Sode holds, offline ones included. A held name answers 409 `name_taken` with
+        `error.suggest`, a free name. A change of case alone is allowed; the same name is 400
+        `bad_request`.
+
+        Sode renames the instance's key (or pending setup link) of that name. It moves
+        per-instance watches to the new name. It sends `{"t":"rename","instance":"<new name>"}` as
+        the stream's last line. The page then uses the name and rewrites its `?instance=` when its
+        address has one. Then it reopens its stream under the new name. The old name leaves the list without a lost notice. Writes
         one `api` row `rename` naming the user, the old name and the new one.
       requestBody:
         required: true
@@ -1846,14 +1894,15 @@ paths:
       summary: Watch a panel
       description: |
         Scope `panels`. Needs a user's key (403 `user_required`). A user watches the panels they
-        own and a Trusted user any panel (403 `not_owner` for a use-only panel). A watcher is
-        told when a device of the panel is lost (a closed page after 8 seconds, a silent one
-        after 45) and when it returns, through the Sode socket as a toast, a banner and, if the
-        browser allows, a notification. The list lives in `panelwatch.yaml` beside the config. Watching twice is a
-        204 too. With `instance` the watch is for that one device (compared ignoring case) and the user
-        hears only about it, as a lost or back notice that never calls the whole panel offline. A
-        user may hold the panel watch and any number of instance watches at once. The device need not
-        have been seen yet.
+        own and a Trusted user any panel (403 `not_owner` for a use-only panel). Sode tells a
+        watcher when a device of the panel is lost and when it returns. A closed page is lost after
+        8 seconds, and a silent one after 45. The notice comes through the Sode socket as a toast, a
+        banner and, if the browser allows, a notification. The list lives in `panelwatch.yaml`
+        beside the config. Watching twice is a 204 too. With `instance`, the watch is for that one
+        device (compared ignoring case). The user then hears only about that device, as a lost or
+        back notice that never calls the whole panel offline. A user can hold the panel watch and
+        any number of instance watches at the same time. Sode does not need to have seen the
+        device yet.
       parameters:
         - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "A device name. Blank is 400 `bad_request`" }
       responses:
@@ -1889,7 +1938,7 @@ paths:
       summary: Hide an instance from the caller's panels page
       description: |
         Scope `panels`. Same caller rules as watching. The instance leaves the caller's
-        `instances` view and the `instancesOnline` and `instancesKnown` counts; it ends no key and
+        `instances` view and the `instancesOnline` and `instancesKnown` counts. It ends no key and
         no watch, and other users still see it. Kept in memory only, and lifted for everyone when the
         device is next heard after it was lost or forgotten. Hiding twice is a 204 too.
       responses:
@@ -1927,7 +1976,7 @@ paths:
         artwork stored earlier is kept as it is. The type is decided by the bytes, never by the
         request's Content-Type or a file name; anything else is 415 `unsupported_type`. A panel
         holds at most 64 MB of artwork in all, whatever the file count; an upload that would pass
-        it is 409 `conflict`. An image used by many cells is stored once, by id.
+        it is 409 `conflict`. Sode stores one copy of an image that many cells use, by id.
       requestBody:
         required: true
         content:
@@ -2005,8 +2054,8 @@ paths:
         match on it alone. `ping` is a heartbeat every 5 seconds, ignore it.
 
         - `hello`: first frame. `data` has `v` (1), `topics` and `numberOffset`.
-        - `snapshot`: one each for `names`, `tally` and `status`, with `topic` set and `data`
-          shaped like the REST read, so a client starts from a full state. There is none for
+        - `snapshot`: one each for `names`, `tally` and `status`, with `topic` set. `data` has
+          the shape of the REST read, so a client starts from a full state. There is none for
           `history`: read `GET /history` first and bridge by id.
         - `names` (topic `names`): the full names again, after a refresh.
         - `tally` (topic `tally`): `data.routes`, only the routes that changed.
@@ -2014,7 +2063,7 @@ paths:
           caller with the scope `log`.
         - `entry`: a new History entry (topic `history`). `data` is an Entry.
         - `entryUpdate`: an entry changed after it was sent, for example a Late Result (a route
-          confirmed after the take gave up). `data` is the whole Entry. Sent once for a
+          confirmed after the take gave up). `data` is the whole Entry. Sent one time for a
           connection with `history`, `results` or both. Its topic is `history` when the client chose
           it, otherwise `results`; `results` alone suits a client that
           fires takes and wants only Late Results. Match updates by `id`.
@@ -2023,21 +2072,21 @@ paths:
         Example frames:
 
             {"t":"hello","data":{"v":1,"topics":["tally"],"numberOffset":1}}
-            {"t":"snapshot","topic":"tally","data":{"levels":[{"level":1,"label":"1"}],"routes":[{"dst":0,"level":1,"src":3}]}}
+            {"t":"snapshot","topic":"tally","data":{"levels":[{"level":1,"label":"1","swatch":"video","color":"#7ae85a"}],"levelNumbering":"1","defaultLevels":"1-17","routes":[{"dst":0,"level":1,"src":3}]}}
             {"t":"tally","topic":"tally","data":{"routes":[{"dst":0,"level":1,"src":1}]}}
 
         Visibility. Under hidden rights nothing about an out-of-rights source or destination
         arrives: not in names, not in tally, not in an entry or update. A tally change whose
         source is hidden from the caller is left out, as `GET /tally` leaves that route out. A
         hidden entry never arrives, so ids can skip. A rights or scope change applies to an
-        open stream at once, to later frames only: the client keeps what it holds until it
+        open stream immediately, to later frames only: the client keeps what it holds until it
         reconnects. A stream whose key lost a topic's scope, or whose API switch went off, is
         closed.
 
         Lifetime. A key or an address can hold 8 streams at a time, and a ninth is refused
-        with 429 `too_many_streams`. A panel's own API client key may hold 64, since its
-        kiosks share it, and those streams do not count toward an address's 8. A client is dropped when a frame write stalls for 5
-        seconds or 256 frames are queued. Connects and disconnects are `api` rows in the
+        with 429 `too_many_streams`. A panel's own API client key can hold 64, since its
+        kiosks share it, and those streams do not count toward an address's 8. Sode drops a client
+        when a frame write stalls for 5 seconds or 256 frames are queued. Connects and disconnects are `api` rows in the
         Communication Log with the key name and, for a disconnect, the reason.
       parameters:
         - name: topics
@@ -2045,7 +2094,7 @@ paths:
           required: true
           schema: { type: string, example: "names,tally,results" }
       responses:
-        "101": { description: Switching protocols, the stream follows }
+        "101": { description: "Switching protocols, the stream follows" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -2056,8 +2105,14 @@ components:
     bearer:
       type: http
       scheme: bearer
-      description: An API key, shown once when it is made.
+      description: An API key, shown one time when it is made.
   parameters:
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      required: false
+      schema: { type: string }
+      description: An `ETag` from an earlier read of this path. An unchanged answer is 304 with no body.
     Before:
       name: before
       in: query
@@ -2080,7 +2135,15 @@ components:
       required: false
       schema: { type: string, minLength: 1, maxLength: 128 }
       description: A repeat with the same key and request returns the first answer, see Idempotency above
+  headers:
+    ETag:
+      schema: { type: string }
+      description: A hash of the body. Send it back as `If-None-Match`.
   responses:
+    NotModified:
+      description: The body has not changed since the `ETag` the request sent. No body.
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
     TakeResult:
       description: The take ran. Each route has its own result.
       headers:
@@ -2102,7 +2165,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
-      description: "`scope` (the key lacks the scope), `outside_rights` (a route or preset is outside the rights, nothing was sent), `https_required`, `not_owner` (a panel the caller may only use), `user_required` (a panel needs a user's key to own it) or `trusted_required` (only a Trusted user may make a panel an API client or change its rights, or save a template to Everyone without the Advanced Settings PIN)"
+      description: "`scope`: the key lacks the scope. `outside_rights`: a route or preset is outside the rights, and nothing was sent. `https_required`. `not_owner`: a panel the caller is allowed only to use. `user_required`: a panel needs a user's key to own it. `trusted_required`: only a Trusted user can make a panel act as an API client or change its rights. A user who is not Trusted also gets it when they save a template to Everyone without the Advanced Settings PIN"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -2124,7 +2187,7 @@ components:
       required: [ok, checkSkipped, results]
       properties:
         ok: { type: boolean, description: Every route succeeded }
-        checkSkipped: { type: boolean, description: "The destinations were not read from the router first (6 or more routes), so Prev may be stale" }
+        checkSkipped: { type: boolean, description: "The destinations were not read from the router first (6 or more routes), so it is possible that Prev is stale" }
         results:
           type: array
           items:
@@ -2182,20 +2245,21 @@ components:
                 - internal
               description: |
                 503 api_off (the API switch is off). 401 key_required, invalid_key, key_revoked
-                (the key worked once and was ended; stop using it), key_expired,
+                (the key worked before and was ended; stop using it), key_expired,
                 invalid_setup (a setup link that was used, expired or replaced).
-                403 network_not_allowed (the key's address is outside the panel's allowed networks),
-                scope, outside_rights, https_required, not_owner (a panel the caller may only
-                use), user_required (a panel needs a user's key), trusted_required (only a Trusted
-                user may make a panel an API client or change its rights). 400 bad_request. 413 too_large
-                (body over 64 KiB for a take, 4 MB for a panel or template, 2 MB for artwork). 415
-                unsupported_type (artwork that is not a JPEG, PNG, GIF or SVG). 404 not_found (no
-                such path, entry, visible preset, or a panel or artwork the caller may not use).
-                405 method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of
-                a successful one, or a full panel or artwork limit), name_taken (an Assign's target, or
-                a renamed instance's panel, already has an instance of that name; `suggest` is a free one). 422 nothing_to_do
+                403 network_not_allowed (the key's address is outside the panel's allowed networks).
+                403 scope, outside_rights, https_required, not_owner (a panel the caller is allowed
+                only to use), user_required (a panel needs a user's key). 403 trusted_required (only
+                a Trusted user can make a panel act as an API client or change its rights). 400
+                bad_request. 413 too_large (body over 64 KiB for a take, 4 MB for a panel or
+                template, 2 MB for artwork). 415 unsupported_type (artwork that is not a JPEG, PNG,
+                GIF or SVG). 404 not_found (no such path, entry, visible preset, or a panel or
+                artwork the caller is not allowed to use). 405 method_not_allowed (see `Allow`).
+                409 conflict (Redo of a failed entry, Retry of a successful one, or a full panel or
+                artwork limit). 409 name_taken (an Assign's target, or a renamed instance's panel,
+                already has an instance of that name; `suggest` is a free one). 422 nothing_to_do
                 (no route left to run), idempotency_mismatch. 429 rate_limited, take_cap,
-                too_many_streams. 500 internal (a panel could not be written to disk).
+                too_many_streams. 500 internal (Sode could not write a panel to disk).
             message: { type: string }
             suggest: { type: string, description: "With `name_taken` only: a free name for the instance on that panel, its name plus 2 or the next free number" }
     PanelShare:
@@ -2228,12 +2292,49 @@ components:
           maxItems: 576
           items: { type: object, additionalProperties: true }
           description: |
-            The Page's cells. A `goToPage` cell names its target in `page`, a Page id of this panel: one
-            that is not a string or not shaped like an id is 400 `bad_request`, and one that names no Page
-            is kept and reads as unassigned. `nextPage`, `previousPage` and `undo` cells have no target. A
-            `pageName` or `info` cell may hold `show`, a list without repeats of what it shows: `number`
-            and `name` for `pageName` (absent means `name`), `panel`, `number`, `page` and `instance`
-            for `info` (absent means all but `number`); anything else is 400 `bad_request`.
+            The Page's cells. A `goToPage` cell names its target in `page`, a Page id of this panel.
+            A target that is not a string or not shaped like an id is 400 `bad_request`. Sode keeps a
+            target that names no Page, and the cell reads as unassigned. `nextPage`, `previousPage`
+            and `undo` cells have no target. A `pageName` or `info` cell can hold `show`, a list
+            without repeats of what it shows. For `pageName`, that is `number` and `name` (absent
+            means `name`). For `info`, it is `panel`, `number`, `page` and `instance` (absent means
+            all but `number`). Anything else is 400 `bad_request`.
+    GridEdge:
+      type: object
+      description: |
+        A Grid panel's sources or destinations. Left out, it is `"all"`. Sent on a Buttons panel, it is 400 `bad_request`.
+      required: [members]
+      properties:
+        members:
+          description: |
+            `all`: every item the router reports, in router order, less `hide`, following the router as it changes.
+            A list: these router numbers in this order, without repeats. A pin or artwork in `items` never changes `all` into a list.
+          oneOf:
+            - { type: string, enum: [all] }
+            - type: array
+              uniqueItems: true
+              items: { type: integer, minimum: 0, maximum: 65535 }
+        hide:
+          type: array
+          uniqueItems: true
+          items: { type: integer, minimum: 0, maximum: 65535 }
+          description: Router numbers that an `all` edge leaves out. With a list, it is 400 `bad_request`.
+        items:
+          type: object
+          propertyNames: { pattern: "^(0|[1-9][0-9]*)$" }
+          additionalProperties: { $ref: "#/components/schemas/GridItem" }
+          description: |
+            Settings for each item, keyed by router number. An entry for an item that is not shown stays.
+            Any number of items can be pinned.
+    GridItem:
+      type: object
+      properties:
+        pinned: { type: boolean, description: "The item shows first, at the edge of the grid, before the items that are not pinned" }
+        art: { type: string, description: "Artwork in the form of a cell's `art`" }
+        artB: { type: string, description: "Icon B in the form of a cell's `artB`: a number 0 to 16 or a letter A to Z" }
+        hideText:
+          type: boolean
+          description: As a cell's `hideText`. True hides the name under the artwork, false shows it against a Default artwork that hides it, and absent follows the default.
     PanelIn:
       type: object
       description: |
@@ -2251,20 +2352,30 @@ components:
           description: |
             Optional short name. The panel also opens at `/panels/<slug>` and is read at
             `GET /panels/<slug>`. Unique across panels (409 `conflict`), never `editor` or shaped
-            like an id. Leaving it out of a save clears it, and changing or clearing it stops every
-            link that used the old one; links by id keep working. A copy starts without one.
+            like an id. Leaving it out of a save clears it. A change or a clear stops every link
+            that used the old one; links by id keep working. A copy starts without one.
+        type:
+          type: string
+          enum: [buttons, grid]
+          default: buttons
+          description: |
+            Fixed when the panel is made (ADR 0011). A Buttons panel has Pages of cells; a Grid panel has
+            `sources` and `destinations`. A read always has it. A save with a different type is 409
+            `conflict`, and a save with no type keeps the stored one.
+        sources: { $ref: "#/components/schemas/GridEdge" }
+        destinations: { $ref: "#/components/schemas/GridEdge" }
         acts: { type: string, enum: [session, api, both, public], default: session }
         share: { $ref: "#/components/schemas/PanelShare" }
-        rows: { type: integer, minimum: 1, maximum: 24, default: 4 }
-        cols: { type: integer, minimum: 1, maximum: 24, default: 8 }
+        rows: { type: integer, minimum: 0, maximum: 24, default: 4, description: "1 to 24 on a Buttons panel; a Grid panel reads 0 and ignores it" }
+        cols: { type: integer, minimum: 0, maximum: 24, default: 8, description: "1 to 24 on a Buttons panel; a Grid panel reads 0 and ignores it" }
         pages:
           type: array
-          minItems: 1
           maxItems: 16
           items: { $ref: "#/components/schemas/PanelPage" }
           description: |
             The Pages in order; the number of a Page is its place. Cells that no longer fit `rows`
             by `cols` are dropped from every Page on a save. Left out, the panel has one empty Page.
+            A Buttons panel has at least one. A Grid panel reads `[]`, and a non-empty list is 400 `bad_request`.
         cells:
           type: array
           writeOnly: true
@@ -2275,7 +2386,7 @@ components:
         settings:
           type: object
           additionalProperties: true
-          description: Free-form settings for the panel page and editor. Sode checks only `fixedDests` and `askInstanceName`.
+          description: Free-form settings for the panel page and editor. Sode checks only `fixedDests`, `askInstanceName` and `mode` (`take`, `takeOnly` or `instant`).
           properties:
             askInstanceName:
               type: boolean
@@ -2301,7 +2412,7 @@ components:
           type: object
           description: |
             Rights of the panel's API client. An unset list means everything, an empty one
-            nothing. Returned only to a caller who may edit the panel.
+            nothing. Returned only to a caller who can edit the panel.
           properties:
             sources: { type: array, items: { type: integer } }
             dsts: { type: array, items: { type: integer } }
@@ -2340,7 +2451,7 @@ components:
           properties:
             id: { type: string, pattern: "^t-[0-9a-f]{8}$" }
             owner: { type: string, description: The user who saved it }
-            canEdit: { type: boolean, description: True when the caller may delete it }
+            canEdit: { type: boolean, description: True when the caller can delete it }
     ArtDefault:
       type: object
       required: [kind, name]
@@ -2352,7 +2463,7 @@ components:
         n: { type: integer, minimum: 0, maximum: 65535, description: The router's number of a Source or Destination }
         scope: { type: string, enum: [everyone], description: A Preset's scope. Only Everyone presets have Default artwork }
         name: { type: string }
-        art: { type: string, description: "Icon A: `icon:<name>`, an Icon library icon (`lib:<id>`, drawing nothing once the library lacks it) or a Default artwork image id (`d-` and 8 hex digits)" }
+        art: { type: string, description: "Icon A: `icon:<name>`, an Icon library icon (`lib:<id>`, drawing nothing when the library lacks it) or a Default artwork image id (`d-` and 8 hex digits)" }
         artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$", description: Icon B }
         hideText: { type: boolean }
     LibIcon:
@@ -2370,12 +2481,12 @@ components:
         kind: { type: string, enum: [source, destination, preset] }
         n: { type: integer, minimum: 0, maximum: 65535 }
         scope: { type: string, enum: [everyone], description: "`me` is refused (400): Default artwork is one shared set" }
-        name: { type: string, description: A Preset's name; ignored for a Source or Destination, whose name Sode reads from the router }
+        name: { type: string, description: "A Preset's name; ignored for a Source or Destination, whose name Sode reads from the router" }
         art: { type: string, description: "`icon:<name>`, an Icon library icon (`lib:<id>`, kept as the reference; 404 when the library lacks it), a panel's artwork id (`a-`, with `panel`) or a Default artwork image id (`d-`)" }
         artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$" }
         hideText: { type: boolean }
         panel: { type: string, description: The panel an `a-` artwork id is on. Its image is copied }
-        pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+        pin: { type: string, description: "The Advanced Settings PIN, for a user who is not Trusted. Never stored" }
     Panel:
       allOf:
         - $ref: "#/components/schemas/PanelIn"
@@ -2397,14 +2508,22 @@ components:
               items: { $ref: "#/components/schemas/ArtDefault" }
               description: |
                 Output only, on `GET /panels/{id}`. The Default artwork of the items the panel's cells show,
-                as the caller may see it. Never stored in a cell; an open page compares it as it does `rev`.
-            canEdit: { type: boolean, description: False when the caller may only use the panel }
+                as the caller can see it. Never stored in a cell; an open page compares it as it does `rev`.
+            confirm:
+              type: object
+              description: |
+                Output only, on `GET /panels/{id}`. The server's take confirm settings, for a panel page
+                whose socket hello is late or never comes. `lockoutMs` is the time before the confirm key works; `enter` lets Enter confirm.
+              properties:
+                lockoutMs: { type: integer }
+                enter: { type: boolean }
+            canEdit: { type: boolean, description: False when the caller is allowed only to use the panel }
             hasKey: { type: boolean, description: "For an editor of an API panel: the client holds a key now. A pending setup link is not a key. The secret itself is never returned." }
             clientNetworks:
               type: array
               items: { type: string }
               description: "For an editor of an API panel: the allowed networks as CIDRs, empty = anywhere"
-            online: { type: boolean, description: Output only. A device was heard in the last 45 seconds, on a list or a read }
+            online: { type: boolean, description: "Output only. A device was heard in the last 45 seconds, on a list or a read" }
             watching: { type: boolean, description: Output only. The calling user watches the whole panel; never a list of watchers }
             watchingInstances: { type: array, items: { type: string }, description: Output only. The devices (lowercase) the calling user watches one by one }
             hiddenInstances: { type: array, items: { type: string }, description: "Output only. The devices (lowercase) the calling user hid on the panels page" }
@@ -2429,14 +2548,14 @@ components:
                   page: { type: boolean, description: "It has held `/panels/{id}/instances/stream` since Sode started. Only then are the fields below sent, from the last stream it opened" }
                   addr: { type: string, description: The address the stream came from }
                   signIn: { type: string, enum: [client, user, none], description: "Who opened it: the panel's API client, a user, or nobody signed in" }
-                  user: { type: string, description: The user's name, when `signIn` is `user` }
-                  trusted: { type: boolean, description: "That user is Trusted now, so they may open every panel. Sent only when true" }
+                  user: { type: string, description: "The user's name, when `signIn` is `user`" }
+                  trusted: { type: boolean, description: "That user is Trusted now, so they can open every panel. Sent only when true" }
                   streamSince: { type: string, format: date-time, description: When its current stream connected. Sent only while `stream` is true }
                   uptime:
                     type: object
                     description: |
-                      The last 24 hours of this device, in memory only. Times are Unix milliseconds;
-                      `start` is the state at `from` ("" before the device was first heard) and `trans`
+                      The last 24 hours of this device, in memory only. Times are Unix milliseconds.
+                      `start` is the state at `from` ("" before the device was first heard). `trans` is
                       the changes after it, `up` or `down`, oldest first
                     required: [from, to, start, trans]
                     properties:
@@ -2514,7 +2633,7 @@ components:
         why: { type: string }
         rows: { type: integer }
         cols: { type: integer }
-        cells: { type: integer, description: How many cells the layout has, over every Page }
+        cells: { type: integer, description: "How many cells the layout has, over every Page" }
         pages: { type: integer, description: How many Pages the layout has }
     CheckpointSet:
       type: object
@@ -2535,7 +2654,7 @@ components:
               name: { type: string, description: The panel's name when saved }
               rows: { type: integer }
               cols: { type: integer }
-              cells: { type: integer, description: How many cells, over every Page }
+              cells: { type: integer, description: "How many cells, over every Page" }
               pages: { type: integer }
     Name:
       type: object
@@ -2577,9 +2696,9 @@ components:
       properties:
         kind: { type: string, enum: [user, client, guest] }
         name: { type: string }
-        key: { type: string, description: The key name, verified }
+        key: { type: string, description: "The key name, verified" }
         owner: { type: string, description: "For a panel's own API client, the user who made it; `client` then reads \"Seth (Panel p-1a2b3c4d)\"" }
-        via: { type: string, description: The caller's own note, unverified }
+        via: { type: string, description: "The caller's own note, unverified" }
     Entry:
       type: object
       description: One route of a take. Optional fields appear only when they apply.
@@ -2587,7 +2706,7 @@ components:
       properties:
         id: { type: integer }
         time: { type: string, format: date-time }
-        client: { type: string, description: Who did it, a user, an API actor with key name, or an address }
+        client: { type: string, description: "Who did it, a user, an API actor with key name, or an address" }
         actor: { $ref: "#/components/schemas/Actor" }
         src: { type: integer }
         srcName: { type: string }
@@ -2597,13 +2716,13 @@ components:
         prev: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 }, description: "[UI level, src] before the take, -1 = nothing routed" }
         ok: { type: boolean }
         err: { type: string }
-        failed: { type: array, items: { type: integer }, description: Levels the router never confirmed, or that were not sent }
+        failed: { type: array, items: { type: integer }, description: "Levels the router never confirmed, or that were not sent" }
         now: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 }, description: "[UI level, src] the router reported for the failed levels afterwards, -1 = nothing routed; absent when it gave no answer" }
         already: { type: array, items: { type: integer }, description: Levels that were already on src }
         late: { type: array, items: { type: integer }, description: Levels that were failed until the router confirmed them after the take gave up }
         unsent: { type: array, items: { type: integer }, description: Levels never sent }
         sendErr: { type: string, description: Why a level was not sent }
-        cut: { type: boolean, description: The router changed under the take, so its failed levels just got no answer }
+        cut: { type: boolean, description: "The router changed under the take, so its failed levels just got no answer" }
         undo: { type: integer, description: The id of the entry this one undid }
         retry: { type: integer, description: The id of the failed entry this one retries }
         group: { type: string, description: Entries of one take of several routes share it }
@@ -2611,11 +2730,11 @@ components:
         preset: { type: string, description: The preset this take was fired from }
         panel: { type: string, description: "The panel whose page made the take: its name, else its short name. A Session-mode page names itself" }
         panelId: { type: string, description: "That panel's id, which a rename leaves; the Undo cell matches by it" }
-        instance: { type: string, description: The instance of that panel, its device name }
+        instance: { type: string, description: "The instance of that panel, its device name" }
         ext: { type: boolean, description: An External change }
-        found: { type: boolean, description: External only, changed without a Connected and seen when Sode re-read the router }
-        follow: { type: integer, description: External only, the id of the take this seems to follow }
-        followGroup: { type: string, description: External only, the Group of that take }
+        found: { type: boolean, description: "External only, changed without a Connected and seen when Sode re-read the router" }
+        follow: { type: integer, description: "External only, the id of the take this seems to follow" }
+        followGroup: { type: string, description: "External only, the Group of that take" }
     LogRow:
       type: object
       description: One Communication Log row, a router message or an event such as an `api` row.
@@ -2638,4 +2757,4 @@ components:
         err: { type: string }
         note: { type: string }
         hex: { type: string, description: Empty for an event }
-        ackMs: { type: number, description: How long the router took to ACK }
+        ackMs: { type: number, description: How long the router needed to ACK }

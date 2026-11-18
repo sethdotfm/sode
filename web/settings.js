@@ -1,5 +1,5 @@
 // Settings view, shared by both layouts. Lives at #settings so Back and reload work. Server
-// settings save together and the view stays open; This device choices are per browser and apply
+// settings save together and the view stays open; This browser choices are per browser and apply
 // at once.
 
 import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
@@ -33,7 +33,7 @@ const form = $('settings-view');
 const fields = () => form.querySelectorAll('[data-key]');
 const isOpen = () => root.dataset.view === 'settings';
 // A save is in flight: its own hello / locked arrive before configResult closes the view, so
-// don't flip to the PIN prompt for them.
+// do not flip to the PIN prompt for them.
 const saving = () => $('settings-save').disabled;
 
 const formMode = () => form.querySelector('input[name="lvlnum"]:checked')?.value || '1';
@@ -49,7 +49,7 @@ function showView() {
   }
 }
 
-// ---- unsaved changes: the form against the last opened or saved state. data-apart blocks save apart from the form and aren't counted.
+// ---- unsaved changes: the form against the last opened or saved state. data-apart blocks save apart from the form and are not counted.
 
 let clean = '';
 let savedAt = null;
@@ -89,7 +89,7 @@ function exitSettings() {
 }
 
 // Bus 'settingsClose' {discard}: another module closes Settings when the form would be stale
-// (e.g. after a config import).
+// (for example, after a config import).
 on('settingsClose', (m) => {
   if (!isOpen()) return;
   if (m?.discard) {
@@ -149,7 +149,7 @@ function openSettings() {
   $('cfg-lock-log').checked = !!S.cfg.locks?.log;
   $('cfg-lock-panel').checked = !!S.cfg.locks?.panel;
   // What the form showed: only a change from it is sent, so a form opened before someone else
-  // changed the locks can't undo their change.
+  // changed the locks cannot undo their change.
   shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, panel: !!S.cfg.locks?.panel, auto: S.cfg.autoLockMinutes ?? 0 };
   resetPinFields();
   relock(); // opens locked; a reply to an unlock sent before is dropped
@@ -248,7 +248,8 @@ function renderNumbering() {
 }
 
 // Rewrite the default levels box in the new numbering (if it parsed in the old one) and relabel
-// previews. Not limited to the level count, which may be mid-edit: Save checks that.
+// previews. Not limited to the level count, since it is possible that the count is mid-edit:
+// Save checks that.
 function numberingChanged() {
   const f = $('cfg-default');
   const list = f.value.trim() && parseLevelsAs(f.value, shownMode, Infinity);
@@ -403,9 +404,9 @@ $('clear-history').addEventListener('click', () => {
   $('clear-cancel').focus();
 });
 $('clear-cancel').addEventListener('click', resetClear);
-// The banner comes with the server's `historyCleared`, not when the request goes out (it may be
-// refused). `clearing` is when the request went out (0: none); an answer older than the grace
-// below isn't ours.
+// The banner comes with the server's `historyCleared`, not when the request goes out (it is possible
+// that the server refuses it). `clearing` is when the request went out (0: none); an answer older than the grace
+// below is not ours.
 let clearing = 0;
 const CLEAR_GRACE_MS = 5000;
 const clearPending = () => Date.now() - clearing < CLEAR_GRACE_MS;
@@ -428,7 +429,7 @@ on('historyCleared', () => {
   clearing = 0;
   showResult('ok', 'History cleared', 'History is empty for everyone.');
 });
-// Only a refusal with nothing to re-ask (Sode shutting down) answers this way.
+// Only a refusal with nothing to re-ask (Sode shuts down) answers this way.
 onMsg('clearHistoryResult', (m) => {
   if (m.ok || !clearPending()) return;
   clearing = 0;
@@ -509,7 +510,7 @@ form.addEventListener('submit', (e) => {
     return;
   }
   if (c.defaultLevels === null) {
-    $('settings-err').textContent = `Default levels: "${$('cfg-default').value.trim()}" isn't a level or range here.`;
+    $('settings-err').textContent = `Default levels: "${$('cfg-default').value.trim()}" is not a level or range here.`;
     $('settings-err').hidden = false;
     focusField($('cfg-default'));
     return;
@@ -536,7 +537,7 @@ form.addEventListener('submit', (e) => {
     return;
   }
   if (pin !== $('cfg-pin2').value) {
-    $('settings-err').textContent = "The two PINs don't match.";
+    $('settings-err').textContent = 'The two PINs do not match.';
     $('settings-err').hidden = false;
     showPinFields(true);
     reveal($('cfg-pin2'));
@@ -583,7 +584,7 @@ on('access', () => {
   if (isOpen() && !saving()) renderLock();
 });
 // A bare `locked`: this connection's unlock is gone (PIN changed elsewhere, or a clear-history
-// was refused). A request of ours waiting on it asks again in the popup; otherwise only a
+// was refused). A request of ours that waits on it asks again in the popup. Otherwise only a
 // connection that needs the PIN for Settings drops to the PIN prompt.
 on('locked', () => {
   if (clearPending()) {
@@ -591,11 +592,11 @@ on('locked', () => {
     reask('Clearing history needs the Advanced Settings PIN.').then((ok) => {
       if (ok) sendClear();
     });
-  } else if (isOpen() && !saving() && needsPin()) showLockErr('Settings are locked; enter the PIN again.');
+  } else if (isOpen() && !saving() && needsPin()) showLockErr('Settings are locked. Enter the PIN again.');
 });
 on('configResult', configResult);
 
-// ---- settings search. Picking a hit scrolls to it, focuses a control and outlines it with a pulse. Esc clears the box first; a second Esc leaves Settings.
+// ---- settings search. A pick of a hit scrolls to it, focuses a control and outlines it with a pulse. Esc clears the box first; a second Esc leaves Settings.
 
 const findBox = $('settings-find');
 const foundList = $('settings-found');
@@ -712,7 +713,7 @@ function pickHit(h) {
   else findBox.blur();
 }
 
-// Typing here isn't editing the settings: the form must not see it (it would dismiss the
+// Typed text here is not a settings edit: the form must not see it (it would dismiss the
 // unsaved-changes warning).
 for (const ev of ['input', 'change'])
   findBox.addEventListener(ev, (e) => {

@@ -5,7 +5,7 @@ import { whenText, ago, keyFacts, expiryFrom, keyNameProblem, createReq, ownerTe
 const NOW = Date.parse('2026-11-07T12:00:00Z');
 
 test('ago says how long since, in the largest whole unit', () => {
-  assert.equal(ago(NOW - 20_000, NOW), 'just now');
+  assert.equal(ago(NOW - 20_000, NOW), 'less than a minute ago');
   assert.equal(ago(NOW - 5 * 60_000, NOW), '5 minutes ago');
   assert.equal(ago(NOW - 60_000, NOW), '1 minute ago');
   assert.equal(ago(NOW - 3 * 3_600_000, NOW), '3 hours ago');

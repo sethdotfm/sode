@@ -1,0 +1,5 @@
+- In Instant mode a Grid panel never asks first: a press, a Diagonal and a Drawn line each send at once. The banner names any protected destinations it skipped.
+- On the Grid page a result that went well no longer hides a failure. The banner's corner counts the messages it held back, and a second failure of the same kind joins the first ("2 takes failed"). Screen readers announce each banner.
+- The Grid page's banner is as tall as the Find box, with a rule between them. Rules also follow "Signed in as" and the instance name.
+- Every Rename button in Sode now has its own Rename icon in place of the pencil.
+- A pinned band on the Grid page glides with each mouse wheel step, as the grid does. A move past a whole pin does much less work.

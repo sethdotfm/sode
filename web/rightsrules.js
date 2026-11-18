@@ -87,8 +87,8 @@ export function rightsOf(d, off, levels) {
   return { rights };
 }
 
-// ---- the Rights tab's entries. Rows are keyed by a number that never changes, not by the name being
-// edited, so a rename keeps the selection.
+// ---- the Rights tab's entries. Rows are keyed by a number that never changes, not by the name under
+// edit, so a rename keeps the selection.
 
 export const entryKeys = (users, clients) => [...users.map((u) => `user:${u.rid}`), ...clients.map((c) => `client:${c.rid}`), 'guest'];
 
@@ -99,7 +99,7 @@ export const rightsTab = (id) => ({ tab: 'rights', pick: `user:${id}` });
 // An entry is {orig, draft, dirty}: what loaded, the editor's draft, and which fields the draft
 // changed ('rights', 'noAutoLock', 'scopes'). extra holds noAutoLock (a user) or scopes (Guest).
 // orig.rights is undefined for a row that never loaded. Untouched fields go back as loaded, so a save
-// never rewrites rights through the editor's text (and a number offset change can't shift them).
+// never rewrites rights through the editor's text (and a number offset change cannot shift them).
 export const newEntry = (rights, off, extra = {}) => ({
   orig: { rights, ...extra },
   draft: { ...draftOf(rights, off), ...extra },
@@ -114,7 +114,7 @@ function entryRights(e, off, levels) {
 
 // The rights part of a `users` save: {users: [{rights?, noAutoLock?}] in row order, apiClients,
 // guestRights?, guestScopes?} or {error}. A missing field tells the server to keep what it has.
-// No auto-lock and Guest scopes go only once edited.
+// No auto-lock and Guest scopes go only after an edit.
 export function accessReq({ entries, users, clients, off, levels }) {
   const out = { users: [], apiClients: [] };
   for (const u of users) {
@@ -138,8 +138,8 @@ export function accessReq({ entries, users, clients, off, levels }) {
   return out;
 }
 
-// req is usersReq's output. Rights go on each user; clients and Guest ride along only once the
-// directory has loaded them, so a page that never did can't erase them.
+// req is usersReq's output. Rights go on each user; clients and Guest go along only after the
+// directory has loaded them. So a page that never did cannot erase them.
 export function mergeAccess(req, acc, loaded) {
   const out = { ...req, users: req.users.map((u, i) => ({ ...u, ...acc.users[i] })) };
   if (!loaded) return out;

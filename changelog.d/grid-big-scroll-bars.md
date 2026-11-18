@@ -1,0 +1,1 @@
+- The Grid page has Sode's own big scroll bars on both axes, the same size, in Chrome and Firefox. A vertical wheel over the bottom bar still scrolls the grid across. The phone layout keeps its thin bars.

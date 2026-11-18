@@ -40,7 +40,7 @@ const dialog = el(
     el(
       'p',
       'sode__hint',
-      'A key lets another app act as you, with your rights and your Me presets. It stops working when you change your PIN, so a wall panel that must outlive PIN changes should use an API client key (Settings > Manage users, API clients).',
+      'A key lets another app act as you, with your rights and your Me presets. It stops working when you change your PIN. If a wall panel must work after PIN changes, give it an API client key (Settings > Manage users, API clients).',
     ),
     list,
     shown,

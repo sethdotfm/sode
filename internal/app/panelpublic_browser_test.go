@@ -12,8 +12,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A Public panel's plain URL opens with no sign-in and no PIN pad, even with a stale key in the
-// fragment and the panel page lock on. A take inside the client's Rights works; one outside is
+// A Public panel's plain URL opens with no sign-in and no PIN pad. This holds even with a stale key
+// in the fragment and the panel page lock on. A take inside the client's Rights works; one outside is
 // refused with the reason. The idle letter Lock still covers it, and a User or keyed API panel
 // behind the same lock still shows the PIN pad (docs/panels-design.md).
 const padShown = `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`
@@ -58,7 +58,7 @@ func TestChromePublicPanel(t *testing.T) {
 	}
 	b.waitFor("the plain URL opened the panel", `document.getElementById('panel-title')?.textContent === 'Lobby' && document.querySelectorAll('.sode-panel__cell').length === 4`)
 	b.waitFor("destination named", cell("destination", 0)+`?.querySelector('span')?.textContent === 'DSM1'`)
-	// .sode-lock exists once a lockState arrived, so the pad is not just still to come.
+	// .sode-lock exists after a lockState arrived, so a missing pad does not mean it is still to come.
 	b.waitFor("without a PIN pad or a sign-in", `document.querySelector('.sode-lock') && !document.documentElement.dataset.sodeLock && !`+padShown+` && document.getElementById('panels-signin').hidden`)
 	b.waitFor("the stale key left the address", `!location.hash.includes('key=')`)
 	b.shot("public")
@@ -99,7 +99,7 @@ func TestChromePublicPanel(t *testing.T) {
 	b.waitFor("the keyed API panel opened", `document.getElementById('panel-title')?.textContent === 'Wall'`)
 	b.waitFor("a keyed API panel still asks for the PIN", padShown)
 
-	// The stale key's one refusal is the only error the page may log.
+	// The stale key's one refusal is the only error the page is allowed to log.
 	for _, e := range b.problems() {
 		if !strings.Contains(e, "status of 401") {
 			t.Errorf("page error: %s", e)
@@ -107,7 +107,7 @@ func TestChromePublicPanel(t *testing.T) {
 	}
 }
 
-// Public from the editor: the Access tab saves it at once with its note and warning, the Share
+// Public from the editor: the Access tab saves it at once with its note and warning. The Share
 // modal mutes Link with key and shows the plain link, and that link opens with no sign-in.
 func TestChromeEditorPublic(t *testing.T) {
 	b := startBrowser(t)
@@ -142,7 +142,7 @@ func TestChromeEditorPublic(t *testing.T) {
 	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ` + box + `.querySelector('.sode__key').textContent.toLowerCase(), bubbles: true })); true`)
 	b.waitSaved("Public saves after the Confirm")
 	b.waitFor("the Public note shows", access+`.includes('Anyone with the link can use the panel')`)
-	b.waitFor("the Access tab warns about sharing", access+`.includes('Its sharing does not limit who may open it') && `+access+`.includes('Listed on the panels page for:') && !`+access+`.includes('Who may use it')`)
+	b.waitFor("the Access tab warns about sharing", access+`.includes('Its sharing does not limit who can open it') && `+access+`.includes('Listed on the panels page for:') && !`+access+`.includes('Who can use it')`)
 	b.waitFor("the toolbar offers Copy link", `!document.getElementById('ed-copylink').hidden`)
 	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"acts":"public"`) || !strings.Contains(body, `"client":"Panel `+id+`"`) {
 		t.Errorf("the saved panel is not Public with a client: %s", body)

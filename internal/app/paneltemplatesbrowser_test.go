@@ -11,8 +11,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Templates in the panel editor: a layout saved to Me comes back through REST without cell contents, applying it
-// leaves the cells unassigned and the panel unsaved, and Everyone asks a user who is not Trusted for the PIN.
+// Templates in the panel editor: a layout saved to Me comes back through REST without cell contents. Applying it
+// leaves the cells unassigned and the panel unsaved. Everyone asks a user who is not Trusted for the PIN.
 func TestChromeEditorTemplates(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -23,7 +23,7 @@ func TestChromeEditorTemplates(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Show panel","rows":2,"cols":2,"cells":[
@@ -68,8 +68,8 @@ func TestChromeEditorTemplates(t *testing.T) {
 	}
 }
 
-// A template stored with Sources keeps the Sources and leaves the Destinations unassigned when applied to another panel,
-// storing with both brings both back, and the toolbar counts empty squares with the unassigned cells. The Panel tab's theme
+// A template stored with Sources keeps the Sources and leaves the Destinations unassigned when applied to another panel.
+// A template stored with both brings both back. The toolbar counts empty squares with the unassigned cells. The Panel tab's theme
 // reaches the editor's preview and the stored settings.
 func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b, a, ana, id := editorTab(t, `{"name":"Full","rows":2,"cols":3,"cells":[

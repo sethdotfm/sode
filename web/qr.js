@@ -1,5 +1,5 @@
-// A small QR encoder for the one-time API key display: byte mode, error correction level M,
-// versions 1-6 (up to 106 bytes), which is plenty for a key. Pure, no imports, so Node tests it.
+// A small QR encoder for the one-time API key display. It uses byte mode, error correction level M
+// and versions 1-6 (up to 106 bytes), which is plenty for a key. Pure, no imports, so Node tests it.
 // Layout follows ISO/IEC 18004; web/test/qr.test.mjs reads codes back with a separate reader.
 
 // Per version: [data codewords per block, error codewords per block, blocks]. Level M.
@@ -143,7 +143,7 @@ function build(words, v, mask) {
   return { size, get: (x, y) => mod[y][x], mod };
 }
 
-// Chooses among the masks as the standard's four penalty rules do, roughly: the choice only
+// Chooses among the masks roughly as the standard's four penalty rules do. The choice only
 // affects how well a camera reads the code, never whether it is valid.
 function penalty(m) {
   const { size, mod } = m;

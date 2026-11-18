@@ -19,7 +19,7 @@ const span = (ms) => {
 
 export function ago(ms, now) {
   const s = span(now - ms);
-  return s ? `${s} ago` : 'just now';
+  return s ? `${s} ago` : 'less than a minute ago';
 }
 
 export const whenText = (iso, now, never) => (UNSET(iso) ? never : ago(Date.parse(iso), now));

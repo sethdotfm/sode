@@ -31,7 +31,7 @@ type strmMsg struct {
 
 func strmServer(t *testing.T, a *App) *httptest.Server {
 	srv := httptest.NewServer(a.Handler(fstest.MapFS{}))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 	return srv
 }
 

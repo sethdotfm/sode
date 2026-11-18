@@ -13,6 +13,7 @@ export const PREF_LABELS = {
   clock: 'Clock',
   flip: 'Destination before Source',
   scrollTop: 'Scroll to top on focus',
+  stackGap: 'Stacked rows gap',
   searchFilters: 'Search respects filters',
   setStack: 'Stacked filter sets',
   nextMode: 'Next means',
@@ -241,7 +242,7 @@ export function renameProblem(name, taken) {
   const n = String(name).trim();
   if (!n) return 'Name required.';
   if (runes(n) > NAME_MAX) return `Names are at most ${NAME_MAX} characters.`;
-  if (conflict(n, taken)) return `“${n}” is taken.`;
+  if (conflict(n, taken)) return `“${n}” is already in use.`;
   return '';
 }
 
@@ -349,9 +350,9 @@ export function readLink(search, hash) {
   return out;
 }
 
-// Only once the router's names are in, the lock state is known (`L` from lock.js's `access`;
-// null until then) and the page is not covered (PIN lock or hand lock). A link waits, in the
-// address, until then.
+// The sheet opens only after the router's names are in and the lock state is known (`L` from lock.js's
+// `access`, null until then). The page must also not be covered (PIN lock, or the page's own local
+// Lock). A link waits, in the address, until then.
 export const mayOpenSheet = (L, pageLocked = false, namesLoaded = true) =>
   !!L && namesLoaded && !(L.locked && (L.enforced || L.held)) && !(pageLocked && !L.enforced);
 

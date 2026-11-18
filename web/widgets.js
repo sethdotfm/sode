@@ -2,78 +2,13 @@
 
 import { byText } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
-import { mac, listStep } from './keys.js';
-import { levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels } from './levelview.js';
+import { mac, listStep, addClick, pickOrAdd } from './keys.js';
+import { levelBar, levelText } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
 import { fmtClock } from './device.js';
 import { windowAround, growEdge } from './listwindow.js';
-import { beforeGroups, failureGroups } from './history.js';
+import { beforeGroups, failureGroups, stackBefore } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
-
-// ---- level box: typed levels plus a picker of toggles and All/None
-
-// hold: the event whose default is stopped so the picker and All don't take focus ('mousedown'
-// on desktop, 'pointerdown' on a phone, to keep the keyboard up).
-export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholder = defaultLevelsHint, onChange = () => {} } = {}) {
-  let none = false; // none: picker cleared to no levels (a blank box would mean default)
-  const levels = () => parseLevels(input.value, none);
-
-  function render() {
-    if (!S.cfg) return;
-    const list = levels();
-    const on = new Set(list || []);
-    input.classList.toggle('pb-input--invalid', !list);
-    input.placeholder = none ? 'none' : placeholder();
-    for (const b of picker.children) b.setAttribute('aria-pressed', String(on.has(+b.dataset.ui)));
-    const full = on.size === S.levels.length;
-    allBtn.replaceChildren(el('span', null, 'Select'), el('span', null, full ? 'None' : 'All'));
-    const def = parseLevels('') || [];
-    const isDefault = !none && !!list && list.length === def.length && list.every((u, i) => u === def[i]);
-    input.closest('.sode__keyed')?.classList.toggle('sode__keyed--default', isDefault);
-  }
-
-  function set(list) {
-    none = list.length === 0;
-    input.value = levelInput(list);
-    render();
-    onChange();
-  }
-
-  function toggle(ui) {
-    const on = new Set(levels() || []);
-    if (on.has(ui)) on.delete(ui);
-    else on.add(ui);
-    set([...on].sort((x, y) => x - y));
-  }
-
-  input.addEventListener('input', () => {
-    none = false;
-    render();
-    onChange();
-  });
-  for (const n of [picker, allBtn]) n.addEventListener(hold, (e) => e.preventDefault());
-  allBtn.addEventListener('click', () => set((levels() || []).length === S.levels.length ? [] : allLevels()));
-
-  return {
-    levels,
-    set,
-    render,
-    empty: () => !input.value && !none,
-    clear() {
-      input.value = '';
-      none = false;
-      render();
-    },
-    reset() {
-      input.value = relabelLevels(input.value);
-      picker.replaceChildren(...pickButtons(toggle));
-      const odd = S.levels.length % 2;
-      picker.classList.toggle('sode__levels--odd', !!odd);
-      picker.style.setProperty('--sode-bar-cols', Math.floor(S.levels.length / 2) + odd);
-      render();
-    },
-  };
-}
 
 // ---- combobox: a list of matches under a text box
 
@@ -81,8 +16,8 @@ const PAGE = 8;
 let boxSeq = 0;
 
 // input: the text box, or a function giving it for a list shared by several. press: 'mousedown'
-// picks keeping focus; 'click' stops pointerdown (keeps a phone's keyboard up) and picks on
-// click so a scroll doesn't pick. reverse: drawn bottom-up, ↑ moves to the next match. foot:
+// picks and keeps focus; 'click' stops pointerdown (keeps a phone's keyboard up) and picks on
+// click so a scroll does not pick. reverse: drawn bottom-up, ↑ moves to the next match. foot:
 // hidden element for the count line. add: + button on every row; canAdd() says whether the list
 // has them now.
 export function combobox(
@@ -107,8 +42,8 @@ export function combobox(
   let matches = [];
   let hi = 0;
   let last = null;
-  // A list opened by focus (browse): Enter and Tab must not take its first row. Cleared by
-  // typing, a row click, or moving the highlight.
+  // A list opened by focus (browse): Enter and Tab must not pick its first row. Typed text,
+  // a row click or a highlight move clears this flag.
   let browsing = false;
   // Opened by browse() at all: such a list is long, so only a window of it is drawn
   // (listwindow.js).
@@ -208,8 +143,14 @@ export function combobox(
       const i = rowOf(e);
       if (i >= 0) {
         e.preventDefault();
-        choose(i);
+        // Ctrl-click on a row does what its + does.
+        if (add && canAdd() && addClick(e)) add(matches[i]);
+        else choose(i);
       }
+    });
+    // A Mac's Ctrl-click also opens the context menu.
+    menu.addEventListener('contextmenu', (e) => {
+      if (add && canAdd() && rowOf(e) >= 0 && addClick(e)) e.preventDefault();
     });
   }
   menu.addEventListener('scroll', () => {
@@ -264,7 +205,7 @@ export function combobox(
   }
 
   // keepMoved: a browse list replaced by a fresh one (names changed) that the user already
-  // moved through stays one Enter may take from.
+  // moved through stays one that Enter can pick from.
   function show(items, at, isBrowse, keepMoved = false) {
     matches = items;
     browsed = isBrowse && items.length > 0;
@@ -332,11 +273,11 @@ export function disclosure(open, label, controls, onToggle) {
   return b;
 }
 
-// The label wraps the control, so clicking the words focuses it.
+// The label wraps the control, so a click on the words focuses it.
 export const labeled = (text, control, cls = '') => el('label', `sode__fld ${cls}`.trim(), el('span', 'sode__label', text), control);
 
 // A click anywhere on row (not a control, nor inside skip, nor a different row) works toggle,
-// as does one that selected text not. data-no-tap (a swipe just ended) skips one click.
+// as does one that selected text not. data-no-tap (a swipe has ended) skips one click.
 export function clickToToggle(row, toggle, skip) {
   row.addEventListener('click', (e) => {
     if (row.dataset.noTap) {
@@ -391,7 +332,7 @@ export function againButton(plan, label, onClick, { placeholder = true, cls = 'p
   return b;
 }
 
-// A live entry (S.newId) animates in once; one per layout, since each draws its own rows.
+// A live entry (S.newId) animates in one time; one per layout, since each draws its own rows.
 export function arrivals() {
   const seen = new Set();
   return {
@@ -400,8 +341,8 @@ export function arrivals() {
       seen.add(e.id);
       return true;
     },
-    // A folder animates if closed; either way it uses up the arrival of the take inside, so
-    // opening it doesn't replay it.
+    // A group animates if closed; either way it uses up the arrival of the take inside, so
+    // when it opens, it does not replay it.
     group(f, open) {
       const has = f.entries.some((e) => e.id === S.newId);
       const fresh = has && !seen.has(`g${f.group}`);
@@ -420,11 +361,20 @@ export function failureRows(e) {
   return [el('div', 'sode__label', 'Not confirmed'), ...why.map((g) => srcRow(g.levels, g.text))];
 }
 
+// A stacked row's face: what the destination had before its first change, then "to" before the
+// row's own source (after the last change). Several sources across levels show as a count.
+export function stackFrom(e, onPickSrc) {
+  const before = stackBefore(e);
+  const chip = srcEnd(before.src, before.text, onPickSrc);
+  chip.classList.add('sode__end--before');
+  return [chip, el('span', 'sode__hist-note sode__stack-to', 'to')];
+}
+
 // Stacked row timeline, newest first. Every change but the newest has Restore. restore(plan)
 // confirms; pickSrc(n) / pickDst(item), if given, make each source / followed destination a
-// button.
+// button. addDst(item) is the Ctrl-click on a followed destination.
 
-export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst: onPickDst }) {
+export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst: onPickDst, addDst: onAddDst }) {
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
   const step = (time, levels, text, btn, follows = null, src = null) =>
     el(
@@ -457,6 +407,7 @@ export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst:
           (e.follows || []).filter((f) => f.follow === c.id),
           c.levels,
           onPickDst,
+          onAddDst,
         ),
         c.src,
       ),
@@ -466,8 +417,8 @@ export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst:
 }
 
 // "Followed by:" with each follow's destination, levels shown where they differ. Null if none.
-// onPickDst(item) makes each fill the Destination box.
-export function followBoxes(follows, levels, onPickDst) {
+// onPickDst(item) makes each fill the Destination box; onAddDst(item) is the Ctrl-click that adds it.
+export function followBoxes(follows, levels, onPickDst, onAddDst) {
   if (!follows?.length) return null;
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
   const same = (ls) => lv(ls).join() === lv(levels).join();
@@ -484,14 +435,14 @@ export function followBoxes(follows, levels, onPickDst) {
       b.tabIndex = -1;
       b.dataset.pbTip = 'Use as destination';
       b.addEventListener('mousedown', (e) => e.preventDefault());
-      b.addEventListener('click', () => onPickDst(it));
+      pickOrAdd(b, () => onPickDst(it), onAddDst && (() => onAddDst(it)));
       return b;
     }),
   );
 }
 
-// Pulling past the end of scroller presses Load more: a touch dragged PULL px up and let go, or
-// WHEEL of wheel scrolling at the bottom in one go (a pause starts over). box's --sode-pull
+// A pull past the end of scroller presses Load more. That is a touch dragged PULL px up and let go,
+// or WHEEL of wheel scroll at the bottom in one go. A pause starts over. box's --sode-pull
 // runs 0..1. when(): this layout is the one showing.
 const PULL = 140,
   WHEEL = 700,
@@ -570,7 +521,7 @@ export function pullToLoad(scroller, box, pager, when) {
   });
 }
 
-// First two as chips, all once open, toggle for the rest. onPick(d) uses one as the destination.
+// First two as chips, all when open, toggle for the rest. onPick(d) uses one as the destination.
 export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty = 'Not feeding any destination' }) {
   if (!fed.length) return el('div', 'sode__hint', empty);
   const chip = (d) => {

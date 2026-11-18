@@ -1,11 +1,13 @@
 // The editor's Pages bar, left of the grid: a card per Page. Its title row holds the number, name and the On switch
-// (asked for by the user, though the change still waits for Save); one row of icons below holds rename, Copy to,
-// Move up, Move down and Delete Page. Cards are dragged to reorder, and Add Page ends the list. Rules are editorpagerules.js; paneleditor.js holds the list and does each act.
+// (asked for by the user, though the change still waits for Save). One row of icons below holds rename, Copy to,
+// Move up, Move down and Delete Page. Cards are dragged to reorder, and Add Page ends the list. Rules are editorpagerules.js;
+// orderedlist.js draws the rows' order controls; paneleditor.js holds the list and does each act.
 import { el, icon } from './core.js';
 import { btn } from './formbits.js';
 import { confirmBox } from './confirmbox.js';
 import { pageLabel, PAGE_MAX, PAGE_NAME_MAX } from './panelpages.js';
 import { leadsTo } from './editorpagerules.js';
+import { createOrderedList } from './orderedlist.js';
 
 // act: open(id, multi), rename(i, text), enable(i, on), move(i, to), copyTo(i), remove(i), add().
 export function createPageBar(host, act) {
@@ -19,16 +21,13 @@ export function createPageBar(host, act) {
   let renaming = -1;
   let drawn = '';
   let last = null;
-  let dragFrom = -1;
-
-  const iconBtn = (name, tip, data, fn) => {
-    const b = btn('pb-btn--ghost pb-btn--icon pb-btn--sm', '', fn);
-    b.append(icon(name));
-    b.setAttribute('aria-label', tip);
-    b.dataset.pbTip = tip;
-    b.dataset.act = data;
-    return b;
-  };
+  const rows = createOrderedList({
+    rowClass: 'sode-pages__row',
+    toolsClass: 'sode-pages__tools',
+    move: (from, to) => act.move(from, to),
+    remove: (i) => remove(last.pages, i),
+    removeTip: 'Delete Page',
+  });
 
   function nameField(p, i) {
     const input = el('input', 'pb-input sode-pages__rename');
@@ -85,58 +84,35 @@ export function createPageBar(host, act) {
     on.disabled = s.readOnly;
     on.dataset.act = 'enable';
     on.setAttribute('aria-label', `Page ${i + 1} enabled`);
-    // A refused change (the last enabled Page) may not repaint the bar, so the switch is put back here.
+    // A refused change (the last enabled Page) does not always repaint the bar, so the switch is put back here.
     on.addEventListener('change', () => {
       if (act.enable(i, on.checked) === false) on.checked = true;
     });
-    const tools = el(
-      'div',
-      'sode-pages__tools',
-      iconBtn('pencil', 'Rename', 'rename', () => {
-        renaming = i;
-        paint(last, true);
-      }),
-      iconBtn('copy', 'Copy to', 'copy', () => act.copyTo(i)),
-      iconBtn('arrow-up', 'Move up', 'up', () => act.move(i, i - 1)),
-      iconBtn('arrow-down', 'Move down', 'down', () => act.move(i, i + 1)),
-      iconBtn('trash-2', 'Delete Page', 'delete', () => remove(s.pages, i)),
-    );
-    for (const b of tools.querySelectorAll('button')) {
-      b.dataset.i = String(i);
-      const d = b.dataset.act;
-      b.disabled = s.readOnly || (d === 'up' && i === 0) || (d === 'down' && i === n - 1) || ((d === 'delete' || d === 'copy') && n < 2);
-    }
     const head = el('div', 'sode-pages__head', open, el('label', 'pb-check sode-pages__on', on, el('span', 'pb-check__label', 'On')));
-    const li = el('li', 'sode-pages__row', head, renaming === i ? nameField(p, i) : null, tools);
-    li.dataset.id = p.id;
+    const li = rows.row({
+      i,
+      n,
+      id: p.id,
+      readOnly: s.readOnly,
+      body: [head, renaming === i ? nameField(p, i) : null],
+      actions: [
+        {
+          icon: 'text-cursor-input',
+          tip: 'Rename',
+          act: 'rename',
+          run: () => {
+            renaming = i;
+            paint(last, true);
+          },
+        },
+        { icon: 'copy', tip: 'Copy to', act: 'copy', run: () => act.copyTo(i), off: n < 2 },
+      ],
+      removeOff: n < 2,
+    });
     li.classList.toggle('is-open', isOpen);
     li.classList.toggle('is-focus', p.id === s.focus);
     li.classList.toggle('is-off', p.enabled === false);
-    if (!s.readOnly) dragRow(li, i);
     return li;
-  }
-
-  // Drag a row onto another to put it there.
-  function dragRow(li, i) {
-    li.draggable = true;
-    li.addEventListener('dragstart', (e) => {
-      dragFrom = i;
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', String(i + 1));
-    });
-    li.addEventListener('dragover', (e) => {
-      if (dragFrom < 0) return;
-      e.preventDefault();
-      li.classList.add('is-drop');
-    });
-    li.addEventListener('dragleave', () => li.classList.remove('is-drop'));
-    li.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const from = dragFrom;
-      dragFrom = -1;
-      if (from >= 0) act.move(from, i);
-    });
-    li.addEventListener('dragend', () => (dragFrom = -1));
   }
 
   async function remove(pages, i) {

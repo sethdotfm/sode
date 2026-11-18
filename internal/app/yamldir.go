@@ -11,8 +11,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// yamlDir is what the panel, template and Checkpoint set stores share: a mutex, a directory
-// ("" means memory only), the records by id, and the file work. File names, id formats and
+// yamlDir is what the panel, template and Checkpoint set stores share. That is a mutex, a
+// directory ("" means memory only), the records by id, and the file work. File names, id formats and
 // which files are skipped stay with each store. Methods ending in Locked need mu held.
 type yamlDir[T any] struct {
 	mu  sync.Mutex
@@ -82,8 +82,8 @@ func (d *yamlDir[T]) newIDLocked() string {
 	}
 }
 
-// insert checks the cap, then vet, gives v a new id and calls save (which must write the file
-// and may change v) before keeping it.
+// insert checks the cap, then vet, gives v a new id and calls save before keeping it. save
+// must write the file and can change v.
 func (d *yamlDir[T]) insert(v T, limit int, full error, vet func(T) error, save func(*T) error) (T, error) {
 	var zero T
 	d.mu.Lock()

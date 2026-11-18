@@ -43,7 +43,7 @@ func (l Locks) Any() bool { return l.Main || l.Log || l.Panel }
 // Sign-in modes. Wire and file values.
 const (
 	SignInPin      = "pin"      // the PIN alone says who; every PIN is unique
-	SignInUsername = "username" // username and PIN together; PINs may repeat
+	SignInUsername = "username" // username and PIN together; PINs can repeat
 )
 
 const (
@@ -88,24 +88,24 @@ func (c Config) FindUsername(username string) (User, bool) {
 	return User{}, false
 }
 
-// KeepPins is c with PIN hashes it lacks taken from live (a user's hash and length together).
-// Hashes must look like hashes so a file can't stop the next start; a user with neither is an error.
+// KeepPins is c with PIN hashes it lacks copied from live (a user's hash and length together).
+// Hashes must look like hashes so a file cannot stop the next start; a user with neither is an error.
 func (c Config) KeepPins(live Config) (Config, error) {
 	if c.SettingsPin == "" {
 		c.SettingsPin = live.SettingsPin
 	} else if !ValidPinHash(c.SettingsPin) {
-		return c, fmt.Errorf("settingsPin in the file isn't a PIN hash (a PIN can't be typed into a file; set it in Settings)")
+		return c, fmt.Errorf("settingsPin in the file is not a PIN hash. A PIN cannot be typed into a file. Set it in Settings")
 	}
 	users := make([]User, len(c.Users))
 	for i, u := range c.Users {
 		if u.Pin != "" {
 			if !ValidPinHash(u.Pin) {
-				return c, fmt.Errorf("the PIN of user %q in the file isn't a PIN hash", u.Name)
+				return c, fmt.Errorf("the PIN of user %q in the file is not a PIN hash", u.Name)
 			}
 		} else {
 			keep, ok := live.FindUser(u.Name)
 			if !ok || keep.Pin == "" {
-				return c, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep: export with PINs included, or add the user in Settings first", u.Name)
+				return c, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep. Export with PINs included, or add the user in Settings first", u.Name)
 			}
 			u.Pin, u.Len = keep.Pin, keep.Len
 		}

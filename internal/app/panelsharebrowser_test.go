@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Share modal on /panels: Ana names Bo, Bo can use the panel and not change it, then Ana
+// The Share modal on /panels: Ana names Bo, and Bo can use the panel and not change it. Then Ana
 // goes back to Only me and Bo loses it. The router is the simulator, which the page never uses here.
 func TestChromeShareModalPeople(t *testing.T) {
 	b := startBrowser(t)
@@ -30,7 +30,7 @@ func TestChromeShareModalPeople(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana, bo := userKey(t, a, "Ana"), userKey(t, a, "Bo")
 	id := makePanel(t, a, ana, `{"name":"Shared wall"}`)
@@ -55,7 +55,7 @@ func TestChromeShareModalPeople(t *testing.T) {
 	b.waitFor("modal closed", `!document.querySelector('.sode-ov__share')`)
 	b.waitFor("detail shows who it is shared with", `[...document.querySelectorAll('.sode-ov__kv dd')].some(d => d.textContent === 'Bo')`)
 
-	// The server, not the page, says what Bo may do.
+	// The server, not the page, says what Bo can do.
 	p := apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, bo, nil))
 	if p["canEdit"] != false || p["name"] != "Shared wall" {
 		t.Fatalf("Bo's view %v", p)

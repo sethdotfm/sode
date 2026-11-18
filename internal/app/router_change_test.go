@@ -115,8 +115,8 @@ func TestRouterChangeDuringCheck(t *testing.T) {
 	}
 }
 
-// A route an old take gave up on is no longer ours after the router changes:
-// the new router's tally of it is a change made elsewhere.
+// A route that an old take gave up on is no longer ours after the router changes.
+// The new router's tally of it is a change made elsewhere.
 func TestRouterChangeClearsLate(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)

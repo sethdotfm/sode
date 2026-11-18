@@ -7,7 +7,7 @@ const (
 	Version = "1.8.3"
 )
 
-// Commit: set by the image build via -ldflags -X; empty for plain go build. An rc and its
+// Commit: set by the image build with -ldflags -X; empty for plain go build. An rc and its
 // promoted release are the same image, so this identifies the build.
 var Commit = ""
 

@@ -102,7 +102,7 @@ func (c Config) validatePresets() []error {
 			total += len(it.Dsts)
 		}
 		if total > MaxPresetTotal {
-			bad("preset %q: a preset can take at most %d destinations in total", s.Name, MaxPresetTotal)
+			bad("preset %q: a preset can hold at most %d destinations in total", s.Name, MaxPresetTotal)
 		}
 		if err := presetConflict(s); err != nil {
 			errs = append(errs, err)
@@ -145,7 +145,7 @@ func presetConflict(s Preset) error {
 			}
 			for _, d := range a.Dsts {
 				if slices.Contains(b.Dsts, d) {
-					return fmt.Errorf("preset %q: destination %d is taken from both source %d and source %d on the same levels", s.Name, d, a.Src, b.Src)
+					return fmt.Errorf("preset %q: destination %d gets both source %d and source %d on the same levels", s.Name, d, a.Src, b.Src)
 				}
 			}
 		}

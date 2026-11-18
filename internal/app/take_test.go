@@ -706,7 +706,7 @@ func TestTakeBigSkipsCheck(t *testing.T) {
 	}
 }
 
-// A take queued behind a long queue isn't failed for the queue's delay.
+// A take queued behind a long queue is not failed for the queue's delay.
 func TestTakeWaitsForQueue(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)

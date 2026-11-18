@@ -12,7 +12,7 @@ import (
 
 // User profiles: a user's This-device prefs, filter sets and presets, kept on config.User.
 // Never in a hello: pushed as a profile message only to connections unlocked as that user,
-// when access changes (pushAccessMu) and after a save. Who may save is in policy.go;
+// when access changes (pushAccessMu) and after a save. Who can save is in policy.go;
 // guardProfile repeats it under cfgMu.
 
 var errNoSuchUser = errors.New("no such user")
@@ -49,7 +49,7 @@ func (a *App) signedInAsMu(c *client, name string) bool {
 	return strings.EqualFold(c.u.user.Load().Name, name)
 }
 
-// Caller holds cfgMu, so users can't change between check and save.
+// Caller holds cfgMu, so users cannot change between check and save.
 func (a *App) guardProfile(c *client, name string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()

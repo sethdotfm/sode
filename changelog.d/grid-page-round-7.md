@@ -1,0 +1,5 @@
+- On the Grid page, take results, refusals and the "This panel was changed" banner show as one banner. It is the main page's banner, in the gap between the search boxes and Clear. A success fades with its countdown bar. The grid never moves.
+- A pinned band that scrolls on its own now moves with the wheel px by px, as the grid does.
+- The Grid page's Settings button shows with the title bar off too; only kiosk mode hides it. In kiosk mode the grid moves up into the empty top row.
+- Beside the panel name: Edit when you can change the panel, or Save a copy when you can only use it. The buttons are Settings, Panels, Edit, then Full screen after a rule. A rule also divides the panel name and the instance name.
+- The panel name and "Signed in as" are on one centre line.

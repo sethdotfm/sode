@@ -12,9 +12,9 @@ export function padKey(pin, key, lens, maxLen = 0) {
 
 export const sendable = (pin, lens) => lens.includes(pin.length);
 
-// The pad auto-sends only at the LONGEST length in use: a shorter PIN may be the start of a
-// longer one, and a pause after four digits must never send the 4-digit PIN of someone whose
-// PIN has five. Shorter PINs go with the check key or Enter (sendable).
+// The pad auto-sends only at the LONGEST length in use. A shorter PIN can be the start of a
+// longer one. A pause after four digits must never send the 4-digit PIN of someone whose PIN
+// has five. Shorter PINs go with the check key or Enter (sendable).
 export function sendDelay(pin, lens) {
   if (!lens.length) return null;
   return pin.length === Math.max(...lens) ? 0 : null;
@@ -109,8 +109,8 @@ export function liftFrom(from, to) {
   };
 }
 
-// Not when the page is scrolled or the logo isn't fully in view: a flight from or to off screen
-// would look broken, so the overlay just fades.
+// Not when the page is scrolled or the logo is not fully in view. A flight from or to off screen
+// would look broken, so the overlay only fades.
 export function shouldFly(rect, scrollY, innerHeight) {
   if (!rect || !rect.width || scrollY > 0) return false;
   return rect.top >= 0 && rect.bottom <= innerHeight;
@@ -161,7 +161,7 @@ export function lockoutMs(cfg) {
   return ms <= LOCKOUT_MAX_MS ? ms : LOCKOUT_MAX_MS;
 }
 
-// Random key never equal to the one before, so the answer can't be a habit. No i or l (easy to
+// Random key never equal to the one before, so the answer cannot be a habit. No i or l (easy to
 // confuse), no o.
 const CHURN_KEYS = 'abcdefghjkmnpqrstuvwxyz';
 export function churnKey(last = '', rnd = Math.random) {
@@ -180,13 +180,14 @@ export const signInOffered = (s) => !s.enforced && !s.user && (s.lens?.length ||
 export const wantsTab = (s) => !s.enforced;
 
 // This tab's own (sessionStorage) wins over the browser's persistent one (localStorage); either
-// may be empty.
+// can be empty.
 export const hiToken = (tab, persistent) => tab || persistent || '';
 
 export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
 // Username and PIN mode asks for the username too, except where the held Lock of a signed-in
-// session resumes: the server knows whose it is and a `user` naming someone else is a wrong try.
+// session resumes. There the server knows whose it is, and a `user` that names someone else is a
+// wrong try.
 export const asksUsername = (s) => s.mode === 'username' && !s.held;
 
 export const canSend = (s, pin, username) => sendable(pin, s.lens || []) && (!asksUsername(s) || username.trim() !== '');
@@ -204,9 +205,9 @@ export const signInMsg = (s, { pin, id, username }) => ({
 
 export const signInAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
-// One value {mode, back}. mode is one of MODE: PAGE (a lock from the server may still cover
-// it, see viewBody), LOCK (Lock with nobody signed in) or SIGN_IN (pad by request, dismissable). back: where
-// Cancel / Esc of a sign-in returns to ('page' or 'lock'). Pure; lock.js does the DOM.
+// One value {mode, back}. mode is one of MODE. PAGE: a lock from the server can still cover it
+// (see viewBody). LOCK: the Lock with nobody signed in. SIGN_IN: a pad by request, dismissable.
+// back: where Cancel / Esc of a sign-in returns to ('page' or 'lock'). Pure; lock.js does the DOM.
 export const MODE = Object.freeze({ PAGE: 'page', LOCK: 'lock', SIGN_IN: 'signIn' });
 export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
 
@@ -242,19 +243,19 @@ export const signInCancelled = (v) => (v.mode === MODE.SIGN_IN ? PAGE_VIEW : v);
 // covered: a lock from the server is up (lockCovers).
 export const lockArrived = (v, covered) => (covered && v.mode === MODE.LOCK ? PAGE_VIEW : v);
 
-// A sign-in ends only with an enforced lock or a real unlock; any other state (someone else saved
+// A sign-in ends only with an enforced lock or a real unlock. Any other state (someone else saved
 // settings, a token catch-up) says nothing about the pad.
 export const signInWon = (v, { enforced, unlocked, user }) => (v.mode === MODE.SIGN_IN && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
 
 // heldUser: whose held Lock this tab shows (the server's held state carries no name).
 export const chipShown = ({ covered, letter, user, heldUser = '' }) => (letter ? !!user : !covered || !!heldUser);
 
-// The server fills `user` only for a session that is signed in and not locked, so a held Lock that
-// ends with no user ended by sign out, a removed user or a changed PIN; with a user it was resumed.
+// The server fills `user` only for a session that is signed in and not locked. So if a held Lock
+// ends with no user, a sign out, a removed user or a changed PIN ended it. With a user, it was resumed.
 export const heldEnded = (prev, next) => !!prev.held && !next.held && !next.user;
 
-// This tab's own memory of whose Lock is up: from the user it had when the Lock came, kept
-// across reloads in sessionStorage, and forgotten once the Lock is gone.
+// This tab's own memory of whose Lock is up. It starts from the user the tab had when the Lock
+// came. sessionStorage keeps it across reloads, and the tab forgets it when the Lock is gone.
 export const heldWho = (kept, prev, next) => (next.held ? prev.user || kept : '');
 
 // A username is kept for the next sign-in unless a browser-wide token already signs them in.
@@ -262,5 +263,5 @@ export const remembers = (m) => !m.token || !!m.tab;
 
 export const prefillName = (s, last) => (asksUsername(s) ? last || '' : '');
 
-// The pad takes the keys once the box already holds a name.
+// The pad gets the keys when the box already holds a name.
 export const focusName = (s, name) => asksUsername(s) && !name.trim();

@@ -265,7 +265,7 @@ func TestIconLibraryDeleteAndUses(t *testing.T) {
 }
 
 // A hand-edited icons.yaml: an entry whose type is not PNG or SVG, or whose name is empty, too long or holds control
-// characters, is dropped, since the type becomes the Content-Type and the name reaches every page.
+// characters, is dropped. The type becomes the Content-Type, and the name reaches every page.
 func TestIconLibraryLoadDropsBadEntries(t *testing.T) {
 	dir := t.TempDir()
 	file := "rev: 2\nicons:\n" +

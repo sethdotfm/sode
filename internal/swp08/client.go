@@ -49,7 +49,7 @@ type Why struct {
 	By     string
 	// Note goes in the Communication Log row's Note, after any of its own (a panel page's tag).
 	Note string
-	// Done, if set, is closed once the message's fate is known, so callers count timeouts from when the router could have seen it.
+	// Done, if set, is closed when the message's fate is known, so callers count timeouts from when the router could have seen it.
 	Done chan struct{}
 }
 
@@ -217,7 +217,7 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 		if wdone != nil {
 			<-wdone
 		}
-		// Whatever the writer didn't get to is never sent.
+		// Whatever the writer did not get to is never sent.
 		for q != nil {
 			select {
 			case m := <-q:
@@ -304,7 +304,7 @@ func (c *Client) write(conn net.Conn, b []byte) error {
 	return err
 }
 
-// Monotonic offset from the session's start, so a wall-clock step can't fake or hide a reply.
+// Monotonic offset from the session's start, so a wall-clock step cannot fake or hide a reply.
 type lastRx struct {
 	start time.Time
 	at    atomic.Int64
@@ -391,7 +391,7 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan out, acks cha
 		case <-ctx.Done():
 			return ctx.Err()
 		case m := <-q:
-			if ctx.Err() != nil { // picked over Done: it won't be written
+			if ctx.Err() != nil { // picked over Done: it will not be written
 				c.tx(TxEvent{Msg: m.msg, Why: m.why, At: m.at, Result: TxDropped})
 				return ctx.Err()
 			}

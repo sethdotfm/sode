@@ -1,4 +1,4 @@
-// Pure parts of the server config file (file name, what a picked file may be); the server holds the real rules (internal/app/configfile.go).
+// Pure parts of the server config file (file name, what a picked file is allowed to be); the server holds the real rules (internal/app/configfile.go).
 
 import { dateStamp } from './exportfmt.js';
 
@@ -21,7 +21,7 @@ export function fileName({ now = new Date(), site = '' } = {}) {
 
 export function fileProblem(bytes, text) {
   if (!bytes || !String(text).trim()) return 'That file is empty.';
-  if (bytes > MAX_BYTES) return `That file is over ${MAX_BYTES >> 20} MiB; it isn't a Sode configuration.`;
+  if (bytes > MAX_BYTES) return `That file is over ${MAX_BYTES >> 20} MiB; it is not a Sode configuration.`;
   return '';
 }
 

@@ -1,0 +1,1 @@
+- The Live Editor on a Grid panel has a bar over it that says Preview. The bar has Edit lists and Back to editing, and Save while there are unsaved changes. Edit lists opens a drawer with the Sources and Destinations lists. A move, pin, add or remove there shows on the live grid at once.

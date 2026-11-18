@@ -1,0 +1,1 @@
+- A Grid panel stages a block of routes with a Drawn line. Drag across the crosspoints, or long-press and drag on touch. From the keys, press `v` and move the cursor. With no names picked, the line snaps to evenly spaced targets. Protected rows are skipped, and a line of more than one route always opens the confirm.

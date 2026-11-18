@@ -1,0 +1,1 @@
+- A saved change or a Default artwork change reaches an open Grid panel by the live update. It keeps the search, the picks and the cursor. Snooze and Apply now drop the staged routes, as on a Buttons panel.

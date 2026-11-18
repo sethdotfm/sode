@@ -1,0 +1,4 @@
+- Grid panel: in Take mode a Drawn line now stages its routes and does not open the confirm. Enter or Take sends them. Instant mode is the same as before.
+- Grid panel: a Drawn line no longer stays on the grid after its release, Clear or Esc.
+- Grid panel: a mouse drag along the Source bar or the Destination bar picks the names it passes. Hold Cmd or Ctrl to add them to the picks.
+- Grid panel: after a Shift range pick on a bar, a move into the crosspoints goes to the start of the range, not its end.

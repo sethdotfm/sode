@@ -41,7 +41,7 @@ func browserTest(t *testing.T) {
 }
 
 // browserSkip skips a browser check that cannot run here, or fails it under SODE_REQUIRE_BROWSER
-// (set in CI), so a job never passes having run no browser checks.
+// (set in CI). So a job never passes after it ran no browser checks.
 func browserSkip(t *testing.T, why string) {
 	t.Helper()
 	if os.Getenv("SODE_REQUIRE_BROWSER") != "" {

@@ -6,8 +6,8 @@ import (
 )
 
 // These pin the session paths (sign in, Lock, resume, sign out, sign out all, token
-// file) through the same calls the policy handlers make, so the session struct refactor
-// can move code without changing what a page sees.
+// file) through the same calls the policy handlers make. So the session struct refactor
+// can move code without a change to what a page sees.
 
 func heldState(t *testing.T, read func() []map[string]any) bool {
 	t.Helper()

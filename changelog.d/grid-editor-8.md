@@ -1,0 +1,5 @@
+- Panel editor: "Test it live" is now "Live Editor". Its bar has the title "Panel Live Editor". The bar no longer shows edit buttons for names picked on the grid, or the line "A take here changes the router". Use the Edit lists drawer for picked names. The run has no Settings link, and the panel title is at the left.
+- Panel editor: the header has the Panels logo link and Back to Sode again. A save no longer writes "Saved." on a line under the toolbar. The state beside Save says Saving, then Saved.
+- Panel editor: edits made on other Pages while a save runs are kept, and show as Unsaved changes. If a save fails, Sode tries one more time. If that also fails, the Save button says Retry save in red until a save works.
+- Panels page: a Grid panel's picture has squares of one size for Small, Medium and Large. The picture grows with its squares, in the list and in the large preview.
+- Panels: Sode refuses to save a panel whose take flow (`settings.mode`) is not take, takeOnly or instant. Old panel files load as before.

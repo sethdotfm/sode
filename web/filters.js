@@ -39,8 +39,8 @@ const dialog = $('filters-dialog');
 const MODE_KEY = 'sode-filter-mode';
 let mode = readStr(MODE_KEY) === 'code' ? 'code' : 'visual';
 
-// Bus 'openFilterEditor' swaps in a profile target (editortargets.js): the filter is a draft
-// (never the browser's own filter or active set); a name and Save replace the set bar and a save
+// Bus 'openFilterEditor' swaps in a profile target (editortargets.js). The filter is then a draft
+// (never the browser's own filter or active set). A name and Save replace the set bar, and a save
 // goes to that user's profile.
 const browser = browserFilters({
   read: filterState,
@@ -252,7 +252,7 @@ on('openFilterEditor', (m) => {
 
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
 $('flt-done').addEventListener('click', cancelFilters);
-// Save closes once the write has landed (the server's answer for everyone or Me; stays open for
+// Save closes after the write has landed (the server's answer for everyone or Me; stays open for
 // a PIN or an error).
 $('flt-save').addEventListener('click', () =>
   saveSet(() => {
@@ -281,7 +281,8 @@ $('flt-clear').addEventListener('click', () => {
   reload();
 });
 
-// ---- the set bar. A saved set is renamed by editing its name and pressing Save; sets for everyone are settings saved on the server, so with a PIN they ask first.
+// ---- the set bar. A saved set gets its new name when you edit the name and press Save. Sets for everyone are
+// settings saved on the server, so with a PIN they ask first.
 
 const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false;
@@ -414,8 +415,8 @@ function removeSet(scope, name, done = () => {}) {
   });
 }
 
-// A move copies to the other scope first, then removes here. done() runs once everything is
-// written (or at once if nothing to write); a refusal never calls it.
+// A move copies to the other scope first, then removes here. done() runs after everything is
+// written (or immediately if there is nothing to write); a refusal never calls it.
 function saveSet(done = () => {}) {
   flushEds(); // edits apply 150 ms after typing: a.edited must see them
   const a = activeSet();

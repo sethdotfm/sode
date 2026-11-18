@@ -1,6 +1,6 @@
-// Icons draw from symbols copied into the page, never from a <use> of the external sprite: Chrome loads and lays out
-// its own copy of lucide.svg (370 KB, about 16,700 nodes) for every <use> made against it, freed only at a major GC,
-// so a panel that redrew a tick each second climbed past 4 GB (TestChromeRunPageHoldsNoMemory). Imports nothing.
+// Icons draw from symbols copied into the page, never from a <use> of the external sprite. For every <use> made against
+// it, Chrome loads and lays out its own copy of lucide.svg (370 KB, about 16,700 nodes). It frees that copy only at a
+// major GC. So a panel that redrew a tick each second climbed past 4 GB (TestChromeRunPageHoldsNoMemory). Imports nothing.
 
 const SPRITE = 'vendor/patchbay/icons/lucide.svg';
 const NS = 'http://www.w3.org/2000/svg';
@@ -16,11 +16,11 @@ export function symbolMarkup(sprite, name) {
   return m ? `<symbol id="${PREFIX}${name}"${m[1]}` : '';
 }
 
-let text = null; // Promise<string> of the sprite, read once
+let text = null; // Promise<string> of the sprite, read one time
 let defs = null;
 const asked = new Set();
 
-// The href for a <use>; the symbol joins the page once the sprite is read, and the <use> draws it then.
+// The href for a <use>; the symbol joins the page after the sprite is read, and the <use> draws it then.
 export function iconHref(name, doc = document) {
   if (!asked.has(name)) {
     asked.add(name);

@@ -82,11 +82,14 @@ test('the list groups Me and Everyone, by name', () => {
 });
 
 test('the note says what a template carries', () => {
-  assert.equal(templateNote({ rows: 4, cols: 8 }), '4 x 8, cells unassigned');
-  assert.equal(templateNote({ rows: 2, cols: 3, sources: true, dests: true, settings: {} }), '2 x 3, with settings, with Sources and Destinations');
-  assert.equal(templateNote({ rows: 2, cols: 3, sources: true }), '2 x 3, with Sources, Destinations unassigned');
-  assert.equal(templateNote({ rows: 2, cols: 3, dests: true }), '2 x 3, with Destinations, Sources unassigned');
-  assert.equal(templateNote({ rows: 2, cols: 3, settings: {} }), '2 x 3, with settings, cells unassigned');
+  assert.equal(templateNote({ rows: 4, cols: 8 }), '8 columns by 4 rows, cells unassigned');
+  assert.equal(
+    templateNote({ rows: 2, cols: 3, sources: true, dests: true, settings: {} }),
+    '3 columns by 2 rows, with settings, with Sources and Destinations',
+  );
+  assert.equal(templateNote({ rows: 2, cols: 3, sources: true }), '3 columns by 2 rows, with Sources, Destinations unassigned');
+  assert.equal(templateNote({ rows: 2, cols: 3, dests: true }), '3 columns by 2 rows, with Destinations, Sources unassigned');
+  assert.equal(templateNote({ rows: 2, cols: 3, settings: {} }), '3 columns by 2 rows, with settings, cells unassigned');
 });
 
 test('a PIN field is asked for only after the server refuses Everyone', () => {

@@ -1,6 +1,6 @@
 // The Rights tab of Manage users: one entry at a time (a user, an API client or Guest), each list
 // "All" or "Only these", plus Visibility. Keeps its own drafts; users.js reads them on save through
-// rightsrules.accessReq. A factory taking hooks, so nothing imports users.js back.
+// rightsrules.accessReq. A factory that gets hooks, so nothing imports users.js back.
 
 import { el, S } from './core.js';
 import { SCOPES } from './apirules.js';
@@ -143,7 +143,7 @@ export function makeRightsTab({ users, clients, touched }) {
             }).label,
         ),
       ),
-      el('span', 'sode__hint', 'What an API call with no key may use, when Guest API is on in Settings.'),
+      el('span', 'sode__hint', 'What an API call with no key can use, when Guest API is on in Settings.'),
     );
 
   // Names and rows change under the tab: rebuild the list, keep the pick if its row is still there.

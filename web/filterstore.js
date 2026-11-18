@@ -56,7 +56,9 @@ export function setFilter(next) {
   applyFilter(next);
 }
 
-// ---- named sets: built-in All, global (cfg.filterSets) and this browser's own. The active set is remembered with the filter it had when picked (base), so a global set changed in Settings carries browsers along unless they edited it since.
+// ---- named sets: built-in All, global (cfg.filterSets) and this browser's own. The active set is
+// remembered with the filter it had when picked (base). So a global set changed in Settings carries browsers along,
+// unless they edited it since.
 
 const SETS_KEY = 'sode-filter-sets';
 const ACTIVE_KEY = 'sode-filter-active';
@@ -75,17 +77,17 @@ export const userSets = () =>
 export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_DEFAULT) }, ...globalSets(), ...userSets(), ...localSets()];
 const SET_LISTS = { global: globalSets, user: userSets, local: localSets };
 export const setsIn = (scope) => (SET_LISTS[scope] || (() => []))();
-// A user's set carries the user, so another user logging in never picks up a same-named set of
+// A user's set carries the user, so another user who signs in never picks up a same-named set of
 // theirs.
 export const setRef = (scope, name) => (scope === 'user' ? { scope, user: profileName(), name } : { scope, name });
-// Names are unique per scope whatever the case, so a set renamed only in case is the same set.
+// Names are unique per scope whatever the case, so a set renamed only in letter case is the same set.
 const findSet = (scope, name, user) =>
   allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase() && (scope !== 'user' || s.user === user));
 const saveLocals = (list) => writeJSON(SETS_KEY, list.length ? list.map(({ name, f }) => ({ name, f })) : null);
 
-// The active set { scope, name, base }, or null (unsaved); or a stack of two or more [{ scope,
-// name }] (none `active`): `filter` is then the first one's, and filterAllows combines them via
-// stackAllows. The stack has its own key, since it can't be edited.
+// The active set { scope, name, base }, or null (unsaved). Or a stack of two or more [{ scope,
+// name }] (none `active`): `filter` is then the first one's, and filterAllows combines them with
+// stackAllows. The stack has its own key, since it cannot be edited.
 const STACK_KEY = 'sode-filter-stack';
 const isRef = (r) => r && typeof r.scope === 'string' && typeof r.name === 'string';
 const sameRef = (a, b) => a.scope === b.scope && a.name.toLowerCase() === b.name.toLowerCase() && (a.user ?? '') === (b.user ?? '');
@@ -200,7 +202,7 @@ export function deleteLocalSet(name) {
 }
 
 // Follow a global set that changed in Settings unless this browser changed the filter since. A
-// stack can't have been edited, so it follows (and loses sets that are gone).
+// stack cannot have been edited, so it follows (and loses sets that are gone).
 function followGlobal() {
   if (stack.length) return useSets(stack);
   const s = active?.scope === 'global' && findSet('global', active.name);
@@ -209,7 +211,7 @@ function followGlobal() {
   setFilter(s.f);
 }
 
-// The same for the user's sets, edited on another device. A set of another user can't be used
+// The same for the user's sets, edited on another device. A set of another user cannot be used
 // here: it drops out for good. `was` is who the last profile was, so a page loading before its
 // profile arrives keeps what it stored.
 let was = '';
@@ -242,7 +244,7 @@ export function filterSummary(f) {
   return parts.join(', ') || 'Everything';
 }
 
-// Compiled once per expression. Blank (or unparsable) hides nothing.
+// Compiled one time per expression. Blank (or unparsable) hides nothing.
 let hiddenText = null,
   hiddenFn = null;
 function globallyHidden(num, name) {
@@ -255,7 +257,7 @@ function globallyHidden(num, name) {
 }
 
 // Quick search is history.js's. With a stack, each set's saved filter judges it and pref
-// setStack says whether all must allow or any may.
+// setStack says whether all must allow, or one is enough.
 export function filterAllows(e) {
   const s = srcItem(e.src, e.srcName),
     d = dstItem(e.dst, e.dstName);

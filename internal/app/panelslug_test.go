@@ -69,7 +69,7 @@ func TestPanelReadBySlug(t *testing.T) {
 	if c := apiSend(a, "GET", "/api/v1/panels/"+id, ana, "").Code; c != 200 {
 		t.Errorf("by id: %d", c)
 	}
-	// Bo may not read it, and the answer is the one for a slug nobody has.
+	// Bo is not allowed to read it, and the answer is the one for a slug nobody has.
 	hidden := apiSend(a, "GET", "/api/v1/panels/lobby", bo, "")
 	none := apiSend(a, "GET", "/api/v1/panels/nothing-here", bo, "")
 	if hidden.Code != 404 || none.Code != 404 {
@@ -117,8 +117,8 @@ func TestPanelPageRouteShape(t *testing.T) {
 	}
 }
 
-// A panel key and a setup token carry 128 random bits: enough for a secret that is throttled and
-// revocable, and half the characters in the link.
+// A panel key and a setup token carry 128 random bits. That is enough for a secret that is throttled
+// and revocable, and half the characters in the link.
 func TestPanelLinkSecretsAreShort(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	secret, _ := mintKey(t, a, cy, id)

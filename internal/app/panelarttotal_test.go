@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// bigSVG is just under the 2 MB file limit, so 32 of them fit the 64 MB total and a 33rd does not.
+// bigSVG is slightly under the 2 MB file limit, so 32 of them fit the 64 MB total and a 33rd does not.
 func bigSVG() []byte {
 	return []byte(`<svg xmlns="http://www.w3.org/2000/svg">` + strings.Repeat(" ", panelArtBytes-100) + `</svg>`)
 }

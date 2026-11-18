@@ -1,0 +1,1 @@
+- A Buttons panel draws its cells and a greyed Take before the first answer from Sode, so Take does not look ready too early. A press made while a take is sent now stays staged after the take ends.

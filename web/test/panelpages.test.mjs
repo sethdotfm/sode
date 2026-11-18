@@ -2,7 +2,7 @@
 // Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pagesOf, pageCells, pageView, pageLabel, newPageId, fitCells, fitPages, storedPages, PAGE_MAX, PAGE_NAME_MAX } from '../panelpages.js';
+import { pagesOf, pageCells, pageView, pageLabel, newPageId, fitCells, fitPages, storedPages, pagesAfterSave, PAGE_MAX, PAGE_NAME_MAX } from '../panelpages.js';
 import { cellsIn, drawnCells } from '../panelrules.js';
 import { thumbCells } from '../panelsrules.js';
 import { createGrid, select, setKind } from '../gridmodel.js';
@@ -127,4 +127,27 @@ test('a template carries every Page with its id', () => {
     ['aa', 'bb'],
   );
   assert.equal(saveTemplateBody({ name: 'Show', scope: 'me', grid: g }).pages.length, 1);
+});
+
+test('pagesAfterSave keeps the Pages edited during the save', () => {
+  const sent = [
+    { id: '', enabled: true, cells: [take(1, 1)] },
+    { id: 'bb', enabled: true, cells: [] },
+  ];
+  const stored = [
+    { id: 'p1', enabled: true, cells: [take(1, 1)] },
+    { id: 'bb', enabled: true, cells: [], name: '' },
+  ];
+  // Nothing changed: the stored copies.
+  assert.deepEqual(pagesAfterSave(sent, sent, stored).pages, stored);
+  // Page 2 edited and a Page added while the save ran: both stay, and Page 1 takes its new id.
+  const now = [sent[0], { id: 'bb', enabled: true, cells: [take(2, 2)] }, { id: 'cc', enabled: true, cells: [] }];
+  const after = pagesAfterSave(sent, now, stored);
+  assert.deepEqual(after.pages, [stored[0], now[1], now[2]]);
+  assert.equal(after.ids[''], 'p1');
+  // Page 1 edited: it keeps its cells under the new id.
+  const edited = [{ id: '', enabled: true, cells: [] }, sent[1]];
+  assert.deepEqual(pagesAfterSave(sent, edited, stored).pages, [{ id: 'p1', enabled: true, cells: [] }, stored[1]]);
+  // Moved during the save: the order stays as it is now.
+  assert.deepEqual(pagesAfterSave(sent, [sent[1], sent[0]], stored).pages, [stored[1], stored[0]]);
 });

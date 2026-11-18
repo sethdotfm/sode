@@ -1,6 +1,6 @@
 // This browser section of Settings and the Everyone defaults selects: the same choices (prefs.js). A browser
 // one starts at "Everyone's default (value)" ("My" with their own), which follows the default, and
-// applies at once. A default one is saved with the form. Also the signed-in user block.
+// applies immediately. A default one is saved with the form. Also the signed-in user block.
 
 import { $, el, on, emit } from './core.js';
 import { ownPref, globalPref, defaultPref, myPref, setPref, pref } from './device.js';

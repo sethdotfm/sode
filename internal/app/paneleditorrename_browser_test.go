@@ -2,36 +2,33 @@ package app
 
 import "testing"
 
-// The toolbar shows the panel name once, beside a Rename button that opens the name field; Enter keeps the edit and
-// Escape throws it away.
+// The toolbar shows the panel name once, in the panel picker, with the Rename icon beside it. It opens the Panel
+// tab with the Name field focused, and a name typed there reaches the hidden toolbar field.
 func TestChromeEditorRenameButton(t *testing.T) {
 	b, _, _, _ := editorTab(t, `{"name":"Wall","rows":2,"cols":2,"cells":[]}`)
 	b.waitFor("panel loaded", `document.getElementById('ed-name').value === 'Wall'`)
-	b.waitFor("Rename button shown", `document.getElementById('ed-name-btn')?.textContent === 'Rename' && !document.getElementById('ed-name-btn').querySelector('svg')`)
+	b.waitFor("the Rename icon shown", `!!document.getElementById('ed-name-btn')?.querySelector('svg') && document.getElementById('ed-name-btn').getAttribute('aria-label') === 'Rename'`)
 	if tip := b.eval(`document.getElementById('ed-name-btn').dataset.pbTip`); tip != "Rename this panel" {
-		t.Errorf("the Rename button's tip is %v", tip)
+		t.Errorf("the Rename icon's tip is %v", tip)
 	}
-	if n := b.eval(`document.querySelector('.sode-ed__bar').innerText.split('Wall').length - 1`); n != float64(1) {
-		t.Errorf("the toolbar's text holds the name %v times, want once", n)
+	// The picker's option is the one place: nothing else in the toolbar holds the name.
+	if n := b.eval(`(() => { const c = document.querySelector('.sode-ed__bar').cloneNode(true); c.querySelector('#ed-pick').remove(); return c.textContent.split('Wall').length - 1 + (document.getElementById('ed-pick').selectedOptions[0]?.text === 'Wall' ? 1 : 0); })()`); n != float64(1) {
+		t.Errorf("the toolbar shows the name %v times, want once", n)
 	}
 	if v := b.eval(`document.getElementById('ed-name').closest('label').hidden`); v != true {
-		t.Errorf("the name field is open before Rename, hidden = %v", v)
+		t.Errorf("the toolbar's name field shows, hidden = %v", v)
 	}
 
-	// A real Tab (a script KeyboardEvent moves no focus) goes from the panel picker to Rename.
+	// A real Tab (a script KeyboardEvent moves no focus) goes from the panel picker to the Rename icon.
 	b.eval(`document.getElementById('ed-pick').focus(); true`)
 	for _, typ := range []string{"keyDown", "keyUp"} {
 		b.call("Input.dispatchKeyEvent", map[string]any{"type": typ, "key": "Tab", "code": "Tab", "windowsVirtualKeyCode": 9})
 	}
-	b.waitFor("Tab reaches Rename", `document.activeElement === document.getElementById('ed-name-btn')`)
+	b.waitFor("Tab reaches the Rename icon", `document.activeElement === document.getElementById('ed-name-btn')`)
 
-	b.eval(`document.getElementById('ed-name-btn').click(); true`)
-	b.waitFor("field open and focused", `!document.getElementById('ed-name').closest('label').hidden && document.activeElement === document.getElementById('ed-name')`)
-	b.eval(`{ const n = document.getElementById('ed-name'); n.value = 'Typed'; n.dispatchEvent(new Event('input', { bubbles: true })); n.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); } true`)
-	b.waitFor("Escape closed the field and focus returned", `document.getElementById('ed-name').closest('label').hidden && document.activeElement === document.getElementById('ed-name-btn')`)
-	b.waitFor("Escape threw the typed name away", `document.getElementById('ed-name').value === 'Wall' && document.querySelector('.sode-ed__name-text').textContent === 'Wall' && document.getElementById('ed-side-name').value === 'Wall'`)
-
-	b.eval(`document.getElementById('ed-name-btn').click(); { const n = document.getElementById('ed-name'); n.value = 'Wall two'; n.dispatchEvent(new Event('input', { bubbles: true })); n.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); } true`)
-	b.waitFor("Enter shows the new name once", `document.querySelector('.sode-ed__name-text').textContent === 'Wall two' && document.querySelector('.sode-ed__bar').innerText.split('Wall two').length === 2`)
+	b.eval(`document.getElementById('tab-ed-cell').click(); document.getElementById('ed-name-btn').click(); true`)
+	b.waitFor("the Panel tab opens with Name focused", `document.getElementById('tab-ed-panel').getAttribute('aria-selected') === 'true' && document.activeElement === document.getElementById('ed-side-name')`)
+	b.eval(`{ const n = document.getElementById('ed-side-name'); n.value = 'Wall two'; n.dispatchEvent(new Event('input', { bubbles: true })); } true`)
+	b.waitFor("the name reaches the editor", `document.getElementById('ed-name').value === 'Wall two' && document.getElementById('ed-state').textContent === 'Unsaved changes'`)
 	b.check()
 }

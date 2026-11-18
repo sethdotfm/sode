@@ -6,8 +6,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// An Everyone Checkpoint set takes the Advanced Settings PIN in the body like an Everyone
-// template does: a wrong PIN is 403 trusted_required, no PIN set opens nothing.
+// An Everyone Checkpoint set reads the Advanced Settings PIN from the body, as an Everyone
+// template does. A wrong PIN is 403 trusted_required, and no PIN set opens nothing.
 func TestCheckpointSetEveryoneTakesThePin(t *testing.T) {
 	a := panelsApp(t)
 	ana, bo := userKey(t, a, "Ana"), userKey(t, a, "Bo")

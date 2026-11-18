@@ -1,0 +1,3 @@
+- On a wide window, the Grid panel editor shows Sources and Destinations side by side, with the Cell, Panel and Access sidebar on the right. A narrow window stacks them.
+- In a Grid panel's list in the editor, click, Shift-click and Ctrl-click (Cmd-click on a Mac) select rows. From the keyboard, use the arrow keys, Shift+arrows, Space, Ctrl+A and Esc. Pin, Unpin, Move and Remove act on all the selected rows together.
+- Drag the selected rows to a new place in the list, or move them with Alt+Up, Alt+Down, Alt+Home and Alt+End.

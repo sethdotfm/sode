@@ -1,14 +1,23 @@
 /* Sode page layout. Tokens only; components come from patchbay. */
 
-/* Whole-UI scale: sizes are rem, so the root font size scales everything (never zoom); the phone layout stays at 100%. */
+/* Whole-UI scale: sizes are rem, so the root font size scales everything (never zoom); the phone layout stays at 100%.
+   A Grid panel's page and its Live Editor preview are 112.5%: the owner asked for the size of 125% at 90% zoom. The
+   :not() keeps this rule from winning over the phone's 100%. */
 html {
   font-size: 125%;
 }
 [data-layout="phone"] {
   font-size: 100%;
 }
+:root:not([data-layout="phone"]):has(.sode-gridpanel) {
+  font-size: 112.5%;
+}
 :root {
   --sode-side-w: 0.3125rem;
+  --sode-bigscroll-w: 1.4rem;
+  --sode-littlescroll-w: 0.7rem;
+  /* The page's big scroll bar width while it shows, so fixed items at the right edge keep clear of it. */
+  --sode-page-bar: 0rem;
   --sode-motion-enter: 400ms;
   --sode-motion-found: 600ms;
   --sode-motion-reveal: 250ms;
@@ -51,8 +60,8 @@ html {
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-4);
   padding: var(--pb-space-2) var(--pb-space-3);
-  position: fixed;
-  right: var(--pb-space-5);
+  position: absolute;
+  right: calc(var(--pb-space-5) + var(--sode-page-bar));
   top: var(--pb-space-4);
   z-index: var(--pb-z-sticky);
 }
@@ -208,6 +217,11 @@ html {
   color: var(--sode-ink, var(--pb-text-on-accent));
 }
 
+/* The main page's Source, Destination and Levels boxes; a Grid panel's Levels box is the same box (gridpanel.css). */
+.pb-input.sode__input {
+  font-size: var(--pb-text-xl);
+  height: calc(var(--pb-control-h-lg) * 1.6);
+}
 /* The level picker: the main page and the panel editor use it. */
 .sode__levels {
   align-items: center;
@@ -256,10 +270,35 @@ html {
   font-size: var(--pb-text-md);
   gap: var(--pb-space-4);
 }
+/* Every text box with a role colour edge: the main page's Source and Destination boxes, the phone's one box and a
+   Grid panel's search boxes. The edge is a background strip inside the border, so the border and the focus ring run
+   all the way round. Not patchbay's pb-rolebar, whose edge replaces the left border. */
+.sode__box--src .sode__input,
+.sode__box--dst .sode__input,
+.sode-m__bar:is([data-step="src"], [data-step="dst"]) .sode-m__input,
+.sode-gridpanel__find-input {
+  background-repeat: no-repeat;
+  background-size: var(--sode-side-w) 100%;
+  padding-left: calc(var(--pb-space-3) + var(--sode-side-w) - var(--pb-border-w));
+}
+.sode__box--src .sode__input,
+.sode-m__bar[data-step="src"] .sode-m__input,
+.sode-gridpanel__find[data-kind="srcs"] .sode-gridpanel__find-input {
+  background-image: linear-gradient(var(--pb-source), var(--pb-source));
+}
+.sode__box--dst .sode__input,
+.sode-m__bar[data-step="dst"] .sode-m__input,
+.sode-gridpanel__find[data-kind="dsts"] .sode-gridpanel__find-input {
+  background-image: linear-gradient(var(--pb-dest), var(--pb-dest));
+}
+/* One size for every source and destination chip, buttons (sode__end--pick) included: the height of
+   patchbay's .pb-chip under the Destination box. Its edge is 2px, this one is 1px, so the padding takes the other px. */
 .sode__end {
   border: var(--pb-border-w) solid var(--pb-edge);
   color: var(--pb-text-strong);
-  padding: var(--pb-space-2) var(--pb-space-4);
+  font-size: var(--pb-text-sm);
+  line-height: 0.875rem;
+  padding: calc(var(--pb-space-1) + var(--pb-border-w)) var(--pb-space-4);
 }
 .sode__end--src {
   border-left: var(--sode-side-w) solid var(--pb-source);
@@ -296,6 +335,36 @@ html {
   flex-direction: column;
   font-size: var(--pb-text-md);
   gap: var(--pb-space-5);
+}
+/* A plan item in the take confirm; a Grid panel's confirm uses them too. */
+.sode__plan-item {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  border-left: var(--sode-side-w) solid var(--pb-dest);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4) var(--pb-space-5);
+}
+.sode__plan-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--pb-space-4);
+}
+.sode__plan-before {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding-top: var(--pb-space-3);
+}
+.sode__plan-item .sode__plan-before .sode__end {
+  color: var(--pb-text-muted);
+}
+.sode__plan-n {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-xs);
 }
 .sode__prompt {
   align-items: center;
@@ -434,7 +503,7 @@ html {
   .sode__toc {
     border-bottom: 0;
     flex-direction: column;
-    left: calc(50% - 20rem - 12.5rem - var(--pb-space-8));
+    left: calc(50% - var(--sode-page-bar) / 2 - 20rem - 12.5rem - var(--pb-space-8));
     overflow-x: hidden;
     position: fixed;
     top: calc(10vh + var(--sode-down-h, 0px));
@@ -751,12 +820,19 @@ html {
   gap: var(--pb-space-5);
   min-width: 0;
 }
+/* The edge of the destination chips under the Destination box (pb-chip--static). On the desktop also their text size and
+   padding; the phone keeps the smaller chip, so Last and Next fit beside its box name. */
 .pb-chip.sode__last {
+  border-color: var(--pb-edge-light);
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-2);
   max-width: 100%;
   min-width: 0;
   padding: 0 var(--pb-space-2);
+}
+:root:not([data-layout="phone"]) .pb-chip.sode__last {
+  font-size: var(--pb-text-sm);
+  padding: var(--pb-space-1) var(--pb-space-4);
 }
 .sode__last-text {
   min-width: 0;
@@ -994,10 +1070,14 @@ html[data-shift] .sode__next > .sode__next-open {
   padding-top: var(--pb-space-5);
 }
 
-/* An open dialog keeps the page behind it still: wheel and touch over the scrim must not scroll Settings. */
+/* An open dialog keeps the page behind it still: wheel and touch over the scrim must not scroll Settings.
+   The lock goes on body, which passes it to the viewport. Overflow on html would stop that, and body (height:100% in
+   patchbay) would scroll on its own, so the page's scroll range would shrink and Settings would jump up. */
 html:has(.sode__scrim:not([hidden])) {
-  overflow: hidden;
   scrollbar-gutter: stable;
+}
+html:has(.sode__scrim:not([hidden])) > body {
+  overflow-y: hidden;
 }
 .sode__scrim .pb-modal__body {
   overscroll-behavior: contain;
@@ -1138,4 +1218,113 @@ button.sode-up__bar:not(:disabled):hover,
   display: inline-block;
   height: var(--pb-space-4);
   width: var(--pb-space-4);
+}
+
+/* ---- Key list (? and Ctrl+?): the main page and a Grid panel */
+.sode__keys {
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-6);
+  grid-template-columns: auto 1fr;
+}
+.sode__keys > .sode__label {
+  grid-column: 1 / -1;
+}
+.sode__keys > .sode__label + dl > dt:first-child,
+.sode__keys > .sode__label + dl > dt:first-child + dd {
+  margin-top: var(--pb-space-2);
+}
+.sode__keys > dl + .sode__label {
+  margin-top: var(--pb-space-6);
+}
+.sode__keys dl {
+  display: contents;
+}
+.sode__keys dt {
+  font-weight: var(--pb-weight-normal);
+}
+.sode__keys dd {
+  margin: 0;
+}
+
+/* Big scroll bars (bigscroll.js): drawn by Sode, oversized and always shown where a user needs to scroll.
+   The phone layout keeps the native bars, since a touch screen scrolls the content itself. */
+/* The page's scroller is html itself, so :root needs its own selector beside the descendant one. */
+:root:not([data-layout="phone"])[data-bigscroll],
+:root:not([data-layout="phone"]) [data-bigscroll] {
+  scrollbar-width: none;
+}
+:root:not([data-layout="phone"])[data-bigscroll]::-webkit-scrollbar,
+:root:not([data-layout="phone"]) [data-bigscroll]::-webkit-scrollbar {
+  display: none;
+}
+:root[data-bigscroll-on]:not([data-layout="phone"]) {
+  --sode-page-bar: var(--sode-bigscroll-w);
+  padding-right: var(--sode-bigscroll-w);
+}
+.sode-bigscroll-host {
+  position: relative;
+}
+.sode-bigscroll {
+  background: var(--pb-surface-control);
+  position: absolute;
+  touch-action: none;
+  user-select: none;
+  z-index: 2;
+}
+.sode-bigscroll--y {
+  width: var(--sode-bigscroll-w);
+}
+.sode-bigscroll--x {
+  height: var(--sode-bigscroll-w);
+}
+.sode-bigscroll--little.sode-bigscroll--y {
+  width: var(--sode-littlescroll-w);
+}
+.sode-bigscroll--little.sode-bigscroll--x {
+  height: var(--sode-littlescroll-w);
+}
+.sode-bigscroll--page {
+  bottom: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: var(--pb-z-sticky);
+}
+/* Where two bars meet (axis 'xy'), so what scrolls under them does not show between their ends. */
+.sode-bigscroll__corner {
+  background: var(--pb-surface-control);
+  position: absolute;
+  z-index: 2;
+}
+.sode-bigscroll__corner[hidden],
+.sode-bigscroll[hidden],
+:root[data-layout="phone"] .sode-bigscroll {
+  display: none;
+}
+.sode-bigscroll__thumb {
+  background-color: color-mix(in oklab, var(--pb-text) 40%, var(--pb-surface-control));
+  border: 0.15rem solid var(--pb-surface-control);
+  cursor: grab;
+  min-height: 3rem;
+  min-width: 3rem;
+}
+.sode-bigscroll--little > .sode-bigscroll__thumb {
+  border-width: 0.1rem;
+  min-height: 1.5rem;
+  min-width: 1.5rem;
+}
+.sode-bigscroll--y > .sode-bigscroll__thumb {
+  min-width: 0;
+  width: 100%;
+}
+.sode-bigscroll--x > .sode-bigscroll__thumb {
+  height: 100%;
+  min-height: 0;
+}
+.sode-bigscroll__thumb:hover,
+.sode-bigscroll--drag > .sode-bigscroll__thumb {
+  background-color: var(--pb-text-muted);
+}
+.sode-bigscroll--drag > .sode-bigscroll__thumb {
+  cursor: grabbing;
 }

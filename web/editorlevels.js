@@ -1,5 +1,5 @@
-// The level picker of the Panel and Cell tabs: the Sode main page's own look (base.css .sode__pick, desktop.css
-// .sode__picker) built by levelview.js pickButtons, so labels, colors and numbering follow Settings. No stored
+// The level picker of the Panel and Cell tabs has the Sode main page's own look (base.css .sode__pick, desktop.css
+// .sode__picker). levelview.js pickButtons builds it, so labels, colors and numbering follow Settings. No stored
 // subset lights every level, so the state shows instead of being explained, and the last lit level stays on
 // (sidebarrules.js levelLocked).
 import { el, S } from './core.js';

@@ -40,11 +40,13 @@ func legacyHello(a *App, p helloPage) []byte {
 	return b
 }
 
-// legacyTriples is the bare [dst, level, value] arrays routeChanges replaced.
+// legacyTriples is the bare [dst, level, value] arrays a hello carries.
 func legacyTriples(m map[int]map[int]int) [][3]int {
 	out := [][3]int{}
-	for _, c := range routeChanges(m) {
-		out = append(out, [3]int{c.Dst, c.Level, c.Src})
+	for d, t := range m {
+		for l, v := range t {
+			out = append(out, [3]int{d, l, v})
+		}
 	}
 	return out
 }

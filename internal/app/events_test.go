@@ -206,7 +206,7 @@ func TestBrowserAndCommandRows(t *testing.T) {
 	send(map[string]any{"t": "clearHistory"})
 	send(map[string]any{"t": "refreshNames"})
 	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 1, "src": 1, "dst": 2, "levels": []int{1}}, {"id": 2, "src": 1, "dst": 3, "levels": []int{1}}}})
-	send(map[string]any{"t": "sent", "before": -1}) // reads aren't commands
+	send(map[string]any{"t": "sent", "before": -1}) // reads are not commands
 	rows := waitLogged(t, a, 8)
 	c.Close(websocket.StatusNormalClosure, "")
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {

@@ -8,7 +8,7 @@ import (
 	"unicode/utf8"
 )
 
-// API scopes say which API areas a caller may use; Rights say which routes it may command.
+// API scopes say which API areas a caller can use; Rights say which routes it can command.
 const (
 	ScopeNames     = "names"
 	ScopeTally     = "tally"
@@ -19,7 +19,7 @@ const (
 	ScopeLayouts   = "layouts"
 	ScopeLog       = "log"
 	ScopeTake      = "take"
-	// Panels: reading is for any panel the caller may use; managing is create, update, delete,
+	// Panels: reading is for any panel the caller can use. Managing is create, update, delete,
 	// Save a copy and artwork uploads, and needs a user's key to own what it makes.
 	ScopePanels       = "panels"
 	ScopePanelsManage = "panelsmanage"
@@ -27,7 +27,7 @@ const (
 
 var AllScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeHistory, ScopeLayouts, ScopeLog, ScopeTake, ScopePanels, ScopePanelsManage}
 
-// DefaultGuestScopes is what a call with no key may read until an administrator widens it.
+// DefaultGuestScopes is what a call with no key can read until an administrator widens it.
 var DefaultGuestScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus}
 
 // Visibility values; "" means read-only.
@@ -44,7 +44,7 @@ const (
 	DefaultMaxClientKeys = 20
 )
 
-// Rights is an allowlist per kind; a nil list means all and an empty one means none, so the
+// Rights is an allowlist per kind. A nil list means all and an empty one means none, so the
 // lists are pointers (omitempty would turn "none" back into "all" on reload). Never sent
 // before the PIN: the hello blanks Users and the owning Config fields carry json:"-".
 type Rights struct {
@@ -112,8 +112,8 @@ func (r Rights) Clone() Rights {
 var PanelClientScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeLayouts, ScopeTake, ScopePanels}
 
 // APIClient is a non-person actor. Its keys live in the key store, not here. Panel is the id of
-// the panel that owns a panel's own client (ADR 0006): such a client is made and removed with
-// its panel and does not count toward MaxAPIClients, which bounds the administrator's own.
+// the panel that owns a panel's own client (ADR 0006). Such a client is made and removed with
+// its panel. It does not count toward MaxAPIClients, which bounds the administrator's own.
 type APIClient struct {
 	Name   string   `yaml:"name" json:"name"`
 	Scopes []string `yaml:"scopes" json:"scopes"`
@@ -174,7 +174,7 @@ func (r Rights) validate(who string, levels int, bad func(string, ...any)) {
 	}
 	for _, l := range []*[]int{r.Sources, r.Dsts} {
 		if l != nil && slices.ContainsFunc(*l, func(n int) bool { return n < 0 }) {
-			bad("%s: sources and destinations can't be negative", who)
+			bad("%s: sources and destinations cannot be negative", who)
 		}
 	}
 	if r.Levels != nil && slices.ContainsFunc(*r.Levels, func(n int) bool { return n < 1 || n > levels }) {

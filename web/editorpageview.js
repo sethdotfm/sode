@@ -1,5 +1,5 @@
 // The open Pages side by side, up to four. #ed-grid always draws the focused Page, so Find, the grip, the menu and
-// the paste reader keep working on one node; the other open Pages draw in a fixed pool of grids made once (each
+// the paste reader keep working on one node. The other open Pages draw in a fixed pool of grids made one time (each
 // createEditorGrid adds document listeners). CSS order puts every frame at its Page's place, so a focus change
 // moves no node.
 import { el } from './core.js';
@@ -20,7 +20,7 @@ export function createPageView(frame, title, on) {
     host.append(node);
     const slot = { node, head, grid, id: null };
     slot.view = createEditorGrid(grid, {
-      // A drag that began here carries on over #ed-grid once it holds this Page, so only the press counts.
+      // A drag that began here carries on over #ed-grid after it holds this Page, so only the press counts.
       select: (r, c, extend) => !extend && slot.id !== null && on.focus(slot.id, r, c),
       key: (e) => slot.id !== null && on.key(slot.id, e),
     });

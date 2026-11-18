@@ -121,7 +121,7 @@ export function namesFrom(reply) {
 }
 
 // The cells that are whole, known and inside the grid. Where two overlap the first one stays. A stored panel gives
-// Page i's (pageCells).
+// the cells of Page i (pageCells).
 export function cellsIn(panel, i = 0) {
   const used = new Set();
   const out = [];
@@ -186,8 +186,8 @@ export function errorText(err, names) {
   }
 }
 
-// Whether a destination the Undo cell would restore moved between two envs: History's own Undo or another tab of the
-// instance may have changed the target. next is GET /panels/<id>/undo's `undo`.
+// Whether a destination the Undo cell would restore moved between two envs. It is possible that History's own
+// Undo or another tab of the instance changed the target. next is GET /panels/<id>/undo's `undo`.
 export function undoMoved(was, env, next) {
   const row = (e, dst) => JSON.stringify([...(e.tally.get(dst) || [])].sort((x, y) => x[0] - y[0]));
   return !!next?.routes.some((r) => row(was, r.dst) !== row(env, r.dst));
@@ -202,7 +202,7 @@ export function undoneText(u, names) {
   return `Undone: ${dsts.map(names.destination).join(', ')}${back}`;
 }
 
-// Offline is what the page shows over a blurred grid. Sode not answering wins: with no answer the router link is unknown.
+// Offline is what the page shows over a blurred grid. No answer from Sode wins: with no answer the router link is unknown.
 export function offlineOf({ failed, routerUp }) {
   if (failed) return { title: 'Offline', detail: 'This page lost contact with Sode. Nothing you press will reach the router until it is back.' };
   if (!routerUp) return { title: 'Offline', detail: 'Sode lost contact with the router. Nothing you press will reach it until it is back.' };
@@ -210,7 +210,7 @@ export function offlineOf({ failed, routerUp }) {
 }
 
 // What a Panel Name or Instance Name cell shows: the name, with the caption as a line above it. A page with no
-// instance yet (still naming itself, or Test it live) shows the kind's own words.
+// instance yet (still naming itself, or the Live Editor) shows the kind's own words.
 export function nameCellText(cell, { panelName = '', instance = '' } = {}) {
   const value = cell.kind === 'panelName' ? panelName || 'Panel Name' : instance || 'Instance Name';
   return { caption: cell.caption || '', value };

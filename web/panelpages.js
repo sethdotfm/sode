@@ -10,7 +10,7 @@ export function pagesOf(panel) {
   return [{ id: '', enabled: true, cells: panel?.cells || [] }];
 }
 
-// The cells shown for a panel or a grid: its own cells when it has them (a grid, or a pageView), else Page i's.
+// The cells shown for a panel or a grid. It is its own cells when it has them (a grid, or a pageView), else the cells of Page i.
 export const pageCells = (panel, i = 0) => (Array.isArray(panel?.cells) ? panel.cells : pagesOf(panel)[i]?.cells || []);
 
 // The panel with cells as a view onto Page i, for code that reads a panel's cells.
@@ -45,7 +45,23 @@ export function fitPages(pages, rows, cols) {
   return { pages: pages.map((p) => ({ ...p, cells: fitCells(p.cells, rows, cols) })), lost };
 }
 
-// The Page list as a save sends it: Page 1 holds cells (Page 1 as stored, which already has the focused Page's edits
-// folded in) and every other Page is fitted to rows by cols, ids, names and enabled kept. A Page with no id gets one
+// The Page list as a save sends it. Page 1 holds cells (Page 1 as stored, which already has the focused Page's edits
+// folded in). Every other Page is fitted to rows by cols, with ids, names and enabled kept. A Page with no id gets one
 // from the server.
 export const storedPages = (pages, cells, rows, cols) => pages.map((p, i) => ({ ...p, cells: i === 0 ? cells : fitCells(p.cells, rows, cols) }));
+
+// The Page list after a save answers. sent is the list as the save sent it, now the list as it is, stored the
+// server's answer, in sent's order. A Page that has not changed since the send takes the stored copy. A Page edited,
+// added, moved or renamed during the save stays as it is, so the dirty check counts it. The unsaved Page 1 ('') takes
+// its new id. ids maps each sent id to its stored id.
+export function pagesAfterSave(sent, now, stored) {
+  if (stored.length !== sent.length) return { pages: stored, ids: {} };
+  const ids = Object.fromEntries(sent.map((p, i) => [p.id, stored[i].id]));
+  const at = new Map(sent.map((p, i) => [p.id, i]));
+  const pages = now.map((p) => {
+    const i = at.get(p.id);
+    if (i !== undefined && JSON.stringify(sent[i]) === JSON.stringify(p)) return stored[i];
+    return p.id in ids ? { ...p, id: ids[p.id] } : p;
+  });
+  return { pages, ids };
+}

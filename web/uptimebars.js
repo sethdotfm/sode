@@ -2,8 +2,8 @@
 import { el } from './core.js';
 import { slots, slotText } from './uptime.js';
 
-// data is what slots() takes. With pick the bars are buttons (the /log strip opens a slot); without, plain marks,
-// since the panels page rebuilds its list every poll and a focused button would hold that rebuild off.
+// data is what slots() reads. With pick, the bars are buttons (the /log strip opens a slot). Without it they are plain
+// marks, since the panels page rebuilds its list every poll and a focused button would hold that rebuild off.
 export function uptimeBars(data, { fmt, words, pick, sel } = {}) {
   return slots(data).map((s) => {
     const bar = el(pick ? 'button' : 'span', `sode-up__bar sode-up__bar--${s.colour}`);

@@ -14,7 +14,7 @@ import (
 const defaultDrainLimit = 6 * time.Second
 
 //lint:ignore ST1005 op replies and Communication Log rows show this as is
-var errShuttingDown = errors.New("Sode is shutting down; try again once it is back")
+var errShuttingDown = errors.New("Sode is shutting down; try again when it is back")
 
 // inflight counts the writes started from browser messages (takes and saves), so shutdown
 // can wait for them. Adding and closing share mu, so no Add can race the Wait.
@@ -25,7 +25,7 @@ type inflight struct {
 	kinds map[string]int
 }
 
-// start counts one write of kind; false once shutdown began. done may be called more than once.
+// start counts one write of kind; false after shutdown began. done can be called more than one time.
 func (f *inflight) start(kind string) (done func(), ok bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

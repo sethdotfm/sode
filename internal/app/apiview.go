@@ -9,8 +9,8 @@ import (
 // apiView is the one place a caller's visibility applies (ADR 0004). Read-only rights show
 // everything; hidden rights drop out-of-rights sources, destinations and presets, and what
 // names them. Every read handler and the stream ask it. Undo, Redo and Retry planning asks
-// Entry: it returns the entry as the caller sees it, so a plan built from the result covers
-// visible routes only, and false when the caller may not know the entry exists.
+// Entry. Entry returns the entry as the caller sees it, so a plan built from the result covers
+// visible routes only. It returns false when the caller is not allowed to know the entry exists.
 // Levels are not hidden: a rights list of levels only refuses commands.
 type apiView struct{ rights config.Rights }
 
@@ -41,10 +41,10 @@ func (v apiView) Route(dst, level, src int) bool {
 	return v.Destination(dst) && (src < 0 || v.Source(src))
 }
 
-// Entry returns the History entry as this caller may see it, or false to drop it. The
-// entry's own route must be visible. A level whose Before source (Prev) is hidden is taken
-// out of the entry, so neither the entry nor an Undo built from it names that source. A
-// Group's size would count hidden routes, so it is cleared for a hidden caller.
+// Entry returns the History entry as this caller can see it, or false to drop it. The
+// entry's own route must be visible. A level whose Before source (Prev) is hidden is removed
+// from the entry. So neither the entry nor an Undo built from it names that source. A Group's
+// size would count hidden routes, so it is cleared for a hidden caller.
 func (v apiView) Entry(e Entry) (Entry, bool) {
 	if !v.Hidden() {
 		return e, true

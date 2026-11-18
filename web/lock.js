@@ -1,9 +1,9 @@
 // The lock screen. The server decides everything (`lockState`) and refuses what a locked
-// connection asks for; this module shows the pad and locks again when idle or on Ctrl+L. A
-// persistent user gets a session token kept here and sent in `hi`, so a reload doesn't log them
-// out; the Lock keeps it, signing out revokes it. Off unless the server says this page type is locked. With no PIN
-// lock a Lock with nobody signed in (churning letter, behind the confirm lockout) can still be put up as a guard
-// against keyboard mashing: page-local state, a reload clears it.
+// connection asks for. This module shows the pad and locks again when idle or on Ctrl+L. A
+// persistent user gets a session token kept here and sent in `hi`, so a reload does not sign them
+// out. The Lock keeps the token, and a sign-out revokes it. Off unless the server says this page type is locked.
+// With no PIN lock, a Lock with nobody signed in (churning letter, behind the confirm lockout) can still go up. It
+// guards against keyboard mashing. It is page-local state, and a reload clears it.
 
 import { el, S, on, emit, onMsg, wsSend } from './core.js';
 import { heldUserKept, keepHeldUser, lastUser, keepLastUser, startHandshake, keepSignInToken, forgetTokens, forgetSignIn, onSessionToken } from './signin.js';
@@ -76,7 +76,7 @@ let brand, dotsEl, msg, state, chip, checkKey;
 let nameField, nameInput;
 let padBody, letterBody, letterKey, letterBtn, letterNote, signInAsBtn, signOutBtn, letterFoot;
 const owed = createOwed(wsSend); // a Lock the server has not got yet
-let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a sign-in
+let unlocked = false; // set when a userUnlock succeeds: the lockState that follows ends a sign-in
 let V = PAGE_VIEW;
 let covering = false;
 let cancelBtn;
@@ -160,7 +160,7 @@ function build() {
   letterBody.hidden = true;
   letterFoot = el('div', 'sode-lock__foot', signOutBtn, signInAsBtn);
   letterFoot.hidden = true;
-  // The foot is the last row, in flow, so it can't land on the pad.
+  // The foot is the last row, in flow, so it cannot land on the pad.
   root = el('div', 'sode-lock', el('div', 'sode-lock__main', brand, padBody, letterBody), letterFoot);
   root.hidden = true;
   root.tabIndex = -1;
@@ -205,8 +205,8 @@ const logo = () =>
 const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const motionMs = () => (calmMotion.matches ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0);
 
-// Every run starts from the brand at rest with its own keyframes, so it restarts reliably (a
-// CSS transition measured while the last run was going did not). Flies only when shouldFly,
+// Every run starts from the brand at rest with its own keyframes, so it restarts reliably. A
+// CSS transition measured while the last run was in progress did not. Flies only when shouldFly,
 // else the logo fades with the overlay.
 function moveBrand(dir) {
   for (const a of brand.getAnimations()) a.cancel();
@@ -337,7 +337,7 @@ function hideLock() {
   delete document.documentElement.dataset.sodeLockOn;
   chip?.setLocked(false);
   pin = '';
-  // The way out is slower (--sode-lock-out in lock.css = OUT_FACTOR); the root is hidden once
+  // The way out is slower (--sode-lock-out in lock.css = OUT_FACTOR); the root is hidden after
   // the longest transition is over.
   const ms = motionMs();
   const out = ms * OUT_FACTOR;
@@ -421,8 +421,8 @@ function press(k) {
   pin = padKey(pin, k, lens(), S.cfg?.maxPinLen || 0);
   paint();
   if (k !== 'clear' && k !== 'back') say('');
-  // Only the longest length goes on its own: a pause after a shorter PIN may be the start of a
-  // longer one.
+  // Only the longest length goes on its own: it is possible that a pause after a shorter PIN is
+  // the start of a longer one.
   const wait = padDelay(L, pin, nameValue());
   if (wait == null) return;
   timer = setTimeout(sendPin, wait);
@@ -625,7 +625,7 @@ document.addEventListener(
   'keydown',
   (e) => {
     if (V.mode === MODE.LOCK) {
-      // The page behind must not see a key (not a take, not Ctrl+Z); a shortcut chord is kept
+      // The page behind must not see a key (not a take, not Ctrl+Z). A shortcut chord is kept
       // from the page but left to the browser.
       e.stopImmediatePropagation();
       if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;

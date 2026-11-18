@@ -9,7 +9,7 @@ let seq = 0;
 export function setResult(r) {
   const res = (S.result = { ...r, id: ++seq });
   const ms = dismissMs(res.kind, S.cfg?.resultDismissSeconds || 0);
-  if (ms) setTimeout(() => dismiss(res), ms);
+  if (ms) setTimeout(() => dismissResult(res), ms);
   emit('result', res);
 }
 
@@ -17,7 +17,8 @@ export const showResult = (kind, title, text, track = null) => setResult({ kind,
 
 export const dismissMs = (kind, secs) => (kind === 'ok' && secs > 0 ? secs * 1000 : 0);
 
-function dismiss(r) {
+// Also the Grid panel page's banner (gridpanelheadview.js), for a result whose cause has cleared.
+export function dismissResult(r) {
   if (S.result === r) S.result = null;
   for (const wrap of document.querySelectorAll(`.sode__banner[data-rid="${r.id}"]`)) {
     // .sode__banner--out collapses it so what is below slides up.
@@ -41,7 +42,7 @@ export function resultNode(r) {
   close.type = 'button';
   close.setAttribute('aria-label', 'Dismiss');
   close.dataset.pbTip = 'Dismiss';
-  close.addEventListener('click', () => dismiss(r));
+  close.addEventListener('click', () => dismissResult(r));
   const inner = el(
     'div',
     'sode__banner-in',

@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// Default artwork end to end: the editor's Cell tab sets a cell's artwork as its Source's default and another cell
-// of that Source draws it; a default set under another router name warns; on the panel page a changed and then a
-// cleared default arrive through the update banner with no panel save.
+// Default artwork end to end. The editor's Cell tab sets a cell's artwork as its Source's default, and another
+// cell of that Source draws it. A default set under another router name warns. On the panel page, a changed and
+// then a cleared default arrive through the update banner with no panel save.
 func TestChromeArtDefaultEditorAndLiveUpdate(t *testing.T) {
 	const moved = 11
 	b, a, ana, id := editorTabPrep(t, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":4,"cells":[

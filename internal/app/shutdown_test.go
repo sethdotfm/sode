@@ -60,7 +60,7 @@ func newShutdownRig(t *testing.T, hold time.Duration) *shutdownRig {
 	run, r.cancel = context.WithCancel(context.Background())
 	go func() { a.Run(run); close(r.ran) }()
 	srv := httptest.NewServer(a.Handler(fstest.MapFS{}))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 	var done context.CancelFunc
 	r.ctx, done = context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(done)
@@ -163,7 +163,7 @@ func (r *shutdownRig) readResult(t *testing.T, id int) routeResult {
 	}
 }
 
-// A take still waiting at the limit doesn't hold shutdown, and the log names it.
+// A take still waiting at the limit does not hold shutdown, and the log names it.
 func TestShutdownStopsAtTheLimit(t *testing.T) {
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
@@ -184,7 +184,7 @@ func TestShutdownStopsAtTheLimit(t *testing.T) {
 	if len(takeEntries(r.a)) != 0 {
 		t.Fatal("the take finished before the limit, so this proves nothing")
 	}
-	// The take ends on its own timer; wait so it doesn't outlive the test.
+	// The take ends on its own timer; wait so it does not outlive the test.
 	if res := r.readResult(t, 1); res.Err == "" {
 		t.Fatalf("an unanswered take succeeded: %+v", res)
 	}
@@ -194,7 +194,7 @@ func TestShutdownStopsAtTheLimit(t *testing.T) {
 	}
 }
 
-// A take sent once shutdown began is refused with a failed result and never reaches the router.
+// A take sent after shutdown began is refused with a failed result and never reaches the router.
 func TestShutdownRefusesNewTakes(t *testing.T) {
 	r := newShutdownRig(t, 0)
 	r.stop(t, 5*time.Second)
@@ -210,7 +210,7 @@ func TestShutdownRefusesNewTakes(t *testing.T) {
 	}
 }
 
-// A save that starts nothing (no config in it) still ends its count, so shutdown doesn't
+// A save that starts nothing (no config in it) still ends its count, so shutdown does not
 // wait the limit for it.
 func TestShutdownNotHeldByEmptySave(t *testing.T) {
 	r := newShutdownRig(t, 0)

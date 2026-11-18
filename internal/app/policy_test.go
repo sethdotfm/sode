@@ -19,7 +19,7 @@ import (
 	"github.com/coder/websocket"
 )
 
-// The table is the dispatch: every rule has a handler, and the read loop has no switch
+// The table is the dispatch: every rule has a handler. The read loop has no switch
 // on the message type left to fall out of step with it.
 func TestPolicyCoversEveryMessage(t *testing.T) {
 	files, err := filepath.Glob("*.go")

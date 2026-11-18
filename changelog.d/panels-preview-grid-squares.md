@@ -1,0 +1,1 @@
+- On the panels page, the large picture of a Grid panel shows each character of a count in its own square.

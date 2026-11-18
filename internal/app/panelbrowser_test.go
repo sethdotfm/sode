@@ -19,9 +19,10 @@ import (
 )
 
 // startSim builds cmd/swp08sim and runs it on a free port, returning its address. Never a
-// live Ultrix: the only router a browser check may reach is this one.
-func startSim(t *testing.T) string {
-	addr, _ := startSimStoppable(t)
+// live Ultrix: the only router a browser check is allowed to reach is this one. env adds SIM_* settings
+// ("SIM_SOURCES=2500"; docs/reference.md lists them).
+func startSim(t *testing.T, env ...string) string {
+	addr, _ := startSimStoppable(t, env...)
 	return addr
 }
 
@@ -51,17 +52,17 @@ func simBinary(t *testing.T) string {
 }
 
 // startSimStoppable also returns a func that kills the simulator mid-test.
-func startSimStoppable(t *testing.T) (string, func()) {
+func startSimStoppable(t *testing.T, env ...string) (string, func()) {
 	t.Helper()
 	browserTest(t)
 	if _, err := exec.LookPath("go"); err != nil {
 		browserSkip(t, "browser checks skipped: go is not on PATH, so swp08sim cannot be built")
 	}
 	bin := simBinary(t)
-	// The port is free when picked but another agent's simulator can take it before ours binds, so
-	// ready means our own "swp08sim on" line, and an early exit retries on a new port.
+	// The port is free when picked, but another agent's simulator can get it before ours binds.
+	// So ready means our own "swp08sim on" line, and an early exit retries on a new port.
 	for try := 0; try < 3; try++ {
-		if addr, stop, ok := runSim(t, bin); ok {
+		if addr, stop, ok := runSim(t, bin, env); ok {
 			return addr, stop
 		}
 	}
@@ -69,7 +70,7 @@ func startSimStoppable(t *testing.T) (string, func()) {
 	return "", nil
 }
 
-func runSim(t *testing.T, bin string) (addr string, stop func(), ok bool) {
+func runSim(t *testing.T, bin string, env []string) (addr string, stop func(), ok bool) {
 	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -79,7 +80,7 @@ func runSim(t *testing.T, bin string) (addr string, stop func(), ok bool) {
 	l.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, bin)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("SIM_PORT=%d", port))
+	cmd.Env = append(append(os.Environ(), env...), fmt.Sprintf("SIM_PORT=%d", port))
 	logs, err := cmd.StderrPipe()
 	if err != nil {
 		cancel()
@@ -113,7 +114,7 @@ func runSim(t *testing.T, bin string) (addr string, stop func(), ok bool) {
 	}
 }
 
-// simApp is an app with user Ana (PIN 1234) and the API on, connected to the simulator through
+// simApp is an app with user Ana (PIN 1234) and the API on. It connects to the simulator through
 // the real SW-P-08 client (apiTestApp swaps in a fake router).
 func simApp(t *testing.T, router string, edit ...func(*config.Config)) *App {
 	t.Helper()
@@ -144,8 +145,8 @@ const (
 	simSrcName = "Zoom 1"
 )
 
-// Panel launch in Session mode: the page asks for a PIN, the signed-in user's key reads the
-// panel, and stage plus Take switch a destination on the simulated router.
+// Panel launch in Session mode: the page asks for a PIN, and the signed-in user's key reads the
+// panel. Stage plus Take switch a destination on the simulated router.
 func TestChromePanelSessionTake(t *testing.T) {
 	b := startBrowser(t) // first: a box with no Chrome skips before building the simulator
 	sim := startSim(t)
@@ -166,7 +167,7 @@ func TestChromePanelSessionTake(t *testing.T) {
 		{"r":1,"c":3,"kind":"take"}],"settings":{"mode":"take"}}`, simDst, simSrc))
 
 	// Names and tally arrive after the router connects; the page only re-reads names every 30 s,
-	// so open it once they are there.
+	// so open it after they are there.
 	for deadline := time.Now().Add(15 * time.Second); ; time.Sleep(50 * time.Millisecond) {
 		if strings.Contains(apiDo(a, "GET", "/api/v1/names", ana, nil).Body.String(), "DSM1") &&
 			strings.Contains(apiDo(a, "GET", "/api/v1/tally", ana, nil).Body.String(), `"routes":[{`) {

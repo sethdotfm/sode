@@ -7,8 +7,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// guardSave repeats the policy check because a PIN can change before cfgMu is ours; it is
-// the only guard (the main lock doesn't cover settings). Caller holds cfgMu.
+// guardSave repeats the policy check because a PIN can change before cfgMu is ours. It is
+// the only guard (the main lock does not cover settings). Caller holds cfgMu.
 func (a *App) guardSave(c *client, trusted bool) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -23,7 +23,7 @@ func (a *App) guardSave(c *client, trusted bool) error {
 }
 
 // saveShared: mutate edits a copy, then update. broadcast builds one message from the new
-// config (nil: none), not a full snapshot, so History isn't reset.
+// config (nil: none), not a full snapshot, so History is not reset.
 func (a *App) saveShared(c *client, mutate func(*config.Config) error, broadcast func(config.Config) any) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

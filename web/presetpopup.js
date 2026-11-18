@@ -1,5 +1,5 @@
-// Presets popup (Ctrl+G / Cmd+G): every preset with search; Enter fires via presets.js.
-// Pins here are per browser or in the user's profile; pinning for everyone is in the editor.
+// Presets popup (Ctrl+G / Cmd+G): every preset with search; Enter fires through presets.js.
+// Pins here are per browser or in the user's profile; a pin for everyone is set in the editor.
 
 import { el, on, emit, icon, sentence } from './core.js';
 import { chord, mac } from './keys.js';
@@ -54,8 +54,8 @@ dialog.append(
       'span',
       'sode__hint sode__pop-help',
       mac
-        ? 'Navigate with ↑ ↓ or ⌘j/k, use ⌥↑ ⌥↓ or ⌥⌘j/k to reorder, ⌥p to pin, and ⇧Enter or ⇧click to fill the boxes without taking.'
-        : 'Navigate with ↑ ↓ or Ctrl+j/k, use Alt+↑ Alt+↓ or Ctrl+Alt+j/k to reorder, Alt+p to pin, and Shift+Enter or Shift+click to fill the boxes without taking.',
+        ? 'Navigate with ↑ ↓ or ⌘j/k. Reorder with ⌥↑ ⌥↓ or ⌥⌘j/k. Pin with ⌥p. To fill the boxes without a take, use ⇧Enter or ⇧click.'
+        : 'Navigate with ↑ ↓ or Ctrl+j/k. Reorder with Alt+↑ Alt+↓ or Ctrl+Alt+j/k. Pin with Alt+p. To fill the boxes without a take, use Shift+Enter or Shift+click.',
     ),
   ),
   el('div', 'pb-modal__footer', done),
@@ -156,7 +156,7 @@ function togglePin(s) {
   else setLocalPin(s, !pinned);
 }
 
-// ---- reordering the pinned presets: drag a row, or Alt+↑/↓ on the highlighted one
+// ---- reorder the pinned presets: drag a row, or Alt+↑/↓ on the highlighted one
 let dragKey = '';
 // The order shows at once; a failed save restores the real order and says why.
 function reorder(saved) {
@@ -220,7 +220,7 @@ input.addEventListener('input', () => {
   setNote('');
   draw();
 });
-// A click on empty space must not steal focus from the search box; a draggable row is left alone on mousedown so its drag still starts.
+// A click on empty space must not steal focus from the search box. A draggable row is left alone on mousedown so its drag still starts.
 dialog.addEventListener('mousedown', (e) => {
   if (e.target.closest('button, input, [draggable="true"]')) return;
   e.preventDefault();

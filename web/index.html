@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#080808">
 <meta name="apple-mobile-web-app-title" content="Sode">
 <script src="prepaint.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/fonts/plex.css">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
@@ -53,7 +53,8 @@
             <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
             <kbd class="sode__key-note" aria-hidden="true">d</kbd>
           </span>
-          <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div><div class="sode__menu-all" id="dst-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div></div>
+          <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div></div>
+          <div class="sode__menu-all" id="dst-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div>
         </div>
         <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to take to" hidden></div>
       </div>
@@ -138,7 +139,7 @@
       <div class="sode__field">
         <label for="lock-pin">Advanced Settings</label>
         <div class="sode__pinrow">
-          <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false" placeholder="Please enter the administrator PIN">
+          <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false" placeholder="Enter the Advanced Settings PIN">
           <button type="submit" class="pb-btn" id="lock-unlock">Open</button>
         </div>
         <div class="sode__pinhelp">
@@ -179,6 +180,10 @@
         <div class="sode__field">
           <label for="cfg-set-stack">Stacked filters behavior</label>
           <span class="pb-select-wrap"><select id="cfg-set-stack" class="pb-select" data-pref="setStack"></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-stack-gap">Stack quick changes to one destination</label>
+          <span class="pb-select-wrap"><select id="cfg-stack-gap" class="pb-select" data-pref="stackGap"></select></span>
         </div>
         <div class="sode__field">
           <label for="cfg-next-mode">Next match behavior</label>
@@ -238,6 +243,10 @@
         <div class="sode__field">
           <label for="gcfg-set-stack">Stacked filters behavior</label>
           <span class="pb-select-wrap"><select id="gcfg-set-stack" class="pb-select" data-gpref="setStack"></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="gcfg-stack-gap">Stack quick changes to one destination</label>
+          <span class="pb-select-wrap"><select id="gcfg-stack-gap" class="pb-select" data-gpref="stackGap"></select></span>
         </div>
         <div class="sode__field">
           <label for="gcfg-next-mode">Next match behavior</label>
@@ -311,25 +320,25 @@
           <span class="sode__hint">Used if the Levels input is blank.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-lockout" data-pb-tip="Mandatory wait time before taking.">Confirm lockout (ms)</label>
+          <label for="cfg-lockout" data-pb-tip="The wait before the Confirm letter key and OK work.">Confirm lockout (ms)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
         </div>
         <div class="sode__field">
           <label for="cfg-dismiss">Success banner closes after (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
-          <span class="sode__hint">0s will keep it until dismissed.<br>Failures always stay until dismissed.</span>
+          <span class="sode__hint">At 0s, it stays until you close it.<br>Failures always stay until you close them.</span>
         </div>
         <div class="sode__field">
           <label for="cfg-resync">Re-read routes every (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
-          <span class="sode__hint">0s will never poll.</span>
+          <span class="sode__hint">At 0s, Sode does not re-read routes.</span>
         </div>
       </div>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-firemode">Multi destination behavior (advanced)</label>
           <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">Sequential</option><option value="native">Native salvo</option></select></span>
-          <span class="sode__hint">Native stages changes on the router followed by a "Take all" command.<br>Sequential takes each individually in quick succession.</span>
+          <span class="sode__hint">Native stages the changes on the router, then sends a "Take all" command.<br>Sequential sends the routes one after another, in quick succession.</span>
         </div>
         <div class="sode__field">
           <label for="cfg-salvogroup">Router salvo group (advanced)</label>
@@ -353,7 +362,7 @@
         <div class="sode__field">
           <label for="cfg-namerefresh">Re-read every (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRefreshSeconds" data-type="int" min="0"></span>
-          <span class="sode__hint">Setting 0s will never re-read.</span>
+          <span class="sode__hint">At 0s, Sode does not re-read names.</span>
         </div>
         <div class="sode__field">
           <label for="cfg-namelen">Name character limit (advanced)</label>
@@ -387,7 +396,7 @@
         <div class="sode__field">
           <label for="cfg-brandborder">Accent Color</label>
           <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"></select></span>
-          <span class="sode__hint">Adds a colored border to all pages for easy identification</span>
+          <span class="sode__hint">Adds a colored border to all pages, so they are easy to identify.</span>
           <span class="sode__brand-preview" id="brand-preview">
             <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
             <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
@@ -447,7 +456,7 @@
         <span class="sode__hint" id="cfg-hidden-note"></span>
       </div>
       <div class="sode__field" data-find="clear-history" data-label="Clear History">
-        <span>Advanced setting. Clears History for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect Logs.</span>
+        <span>Advanced setting. Clears History for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect the Communication Log.</span>
         <div class="sode__names" id="clear-step1">
           <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
         </div>
@@ -480,7 +489,7 @@
         <div class="sode__names">
           <button type="button" class="pb-btn pb-btn--outline" id="transfer-open">Export & import</button>
         </div>
-        <span class="sode__hint">Export and import settings, filter sets, and presets to and from files.<br>Quick sharing links for one filter set or preset are in Filters and Presets.</span>
+        <span class="sode__hint">Export and import settings, filter sets, and presets to and from files.<br>Share links for one filter set or preset are in Filters and Presets.</span>
       </div>
     </fieldset>
 
@@ -491,7 +500,7 @@
       <!-- Server config file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
       <div class="sode__field" id="config-file" data-apart data-find="config-file" data-label="Server backup">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include Secrets (private backup)</span></label>
-        <span class="sode__hint">If enabled, the file includes the Advanced Settings PIN and every user's PIN hash. Without them, a new server can't restore the users.</span>
+        <span class="sode__hint">If enabled, the file includes the Advanced Settings PIN and every user's PIN hash. Without them, a new server cannot restore the users.</span>
         <div class="sode__names">
           <span>
             <button type="button" class="pb-btn pb-btn--outline" id="config-export" data-find="config-export" data-label="Export server configuration">Export</button>
@@ -684,6 +693,7 @@
       <dl>
         <dt><kbd>Tab</kbd></dt><dd>Next box</dd>
         <dt><kbd>+</kbd> <kbd data-mac="⌘Enter">Ctrl+Enter</kbd> <kbd data-mac="⌃Enter" hidden></kbd></dt><dd>Add destination</dd>
+        <dt><kbd data-mac="⌘click">Ctrl+click</kbd> <kbd data-mac="⌃click" hidden></kbd></dt><dd>Add a destination from History or the match list</dd>
         <dt><kbd data-mac="⌃s">Ctrl+s</kbd> <kbd data-mac="⌃d">Ctrl+d</kbd> <kbd data-mac="⌃f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
         <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Last take's source, destination, the next one (repeat for more)</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
@@ -699,16 +709,16 @@
       <div class="sode__label">Presets</div>
       <dl>
         <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Fire the first nine pinned presets (hold Option or Alt to see the keys on the buttons)</dd>
-        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the patch boxes from one of them without taking (like Shift+click)</dd>
+        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the patch boxes from one of them, without a take (like Shift+click)</dd>
         <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Open the Presets popup (every preset, searchable)</dd>
-        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the patch boxes from a preset without taking (a preset of several takes fills its first)</dd>
+        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the patch boxes from a preset, without a take (a preset of several takes fills its first)</dd>
         <dt><kbd>p</kbd></dt><dd>In keyboard mode: the pinned presets (← → to move, Enter fires, Esc back)</dd>
       </dl>
       <div class="sode__label">Presets popup</div>
       <dl>
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move</dd>
         <dt><kbd>Enter</kbd></dt><dd>Fire (opens the usual confirm)</dd>
-        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the patch boxes instead, without taking</dd>
+        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the patch boxes instead, without a take</dd>
         <dt><kbd data-mac="⌥p">Alt+p</kbd></dt><dd>Pin or unpin</dd>
         <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd> <kbd data-mac="⌥⌘j">Ctrl+Alt+j</kbd> <kbd data-mac="⌥⌘k">Ctrl+Alt+k</kbd></dt><dd>Move a pinned preset up or down</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>

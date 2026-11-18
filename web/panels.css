@@ -447,7 +447,7 @@ body {
   }
 }
 .sode-ov__list {
-  border-right: 1px solid var(--pb-border);
+  border-right: var(--pb-border-w) solid var(--pb-border);
   min-width: 0;
 }
 .sode-ov__find {
@@ -467,7 +467,7 @@ body {
   align-items: center;
   background: none;
   border: 0;
-  border-bottom: 1px solid var(--pb-border);
+  border-bottom: var(--pb-border-w) solid var(--pb-border);
   color: inherit;
   cursor: pointer;
   display: grid;
@@ -577,7 +577,7 @@ body {
 }
 .sode-ov__thumb {
   background: var(--pb-surface-base);
-  border: 1px solid var(--pb-border);
+  border: var(--pb-border-w) solid var(--pb-border);
   display: grid;
   gap: var(--pb-space-1);
   padding: var(--pb-space-2);
@@ -587,8 +587,45 @@ body {
   padding: var(--pb-space-1);
   width: 6rem;
 }
+.sode-ov__thumb {
+  position: relative;
+}
 .sode-ov__thumb i {
   background: var(--pb-surface-control);
+}
+/* The count sits over the picture on its own plate so it stays legible on any squares. */
+.sode-ov__count {
+  background: var(--pb-surface-base);
+  border: var(--pb-border-w) solid var(--pb-border);
+  color: var(--pb-text-strong);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-sm);
+  left: 50%;
+  line-height: 1;
+  padding: var(--pb-space-1) var(--pb-space-2);
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+.sode-ov__thumb--sm .sode-ov__count {
+  font-size: var(--pb-text-xs);
+  padding: 0 var(--pb-space-1);
+}
+/* A Grid panel's picture has three sizes with one square size (--sode-ov-sq): the picture grows with its squares
+   (--sode-ov-cols). The width counts the gaps, padding and border (border-box). In the list the Large picture is 6rem
+   and a margin pads the others to it, so the names line up. */
+.sode-ov__thumb--grid {
+  --sode-ov-sq: 2rem;
+  --sode-ov-gap: var(--pb-space-1);
+  --sode-ov-pad: var(--pb-space-2);
+  --sode-ov-w: calc(var(--sode-ov-cols) * var(--sode-ov-sq) + (var(--sode-ov-cols) - 1) * var(--sode-ov-gap) + 2 * var(--sode-ov-pad) + 2 * var(--pb-border-w));
+  width: var(--sode-ov-w);
+}
+.sode-ov__thumb--sm.sode-ov__thumb--grid {
+  --sode-ov-pad: var(--pb-space-1);
+  --sode-ov-sq: calc((6rem - 10 * var(--pb-space-1) - 2 * var(--pb-border-w)) / 9);
+  margin-inline-end: calc(6rem - var(--sode-ov-w));
 }
 .sode-ov__thumb .sode-ov__k-source {
   background: var(--pb-current-idle);
@@ -939,7 +976,7 @@ body {
   height: auto;
   width: 12rem;
 }
-/* Test it live: the panel runs in the editor's page, in place of the grid and sidebar (paneleditor.js, panelmount.js). */
+/* The Live Editor: the panel runs in the editor's page, in place of the grid and sidebar (paneleditor.js, panelmount.js). */
 .sode-live {
   display: flex;
   flex-direction: column;
@@ -953,6 +990,127 @@ body {
 .sode-live .sode-panel__offline-title {
   font-size: 3rem;
 }
+/* A Grid panel runs as on /panels/<id>: the editor's own bars hide and the run fills the window. gridpanel.css lays
+   out .sode-panels:has(.sode-gridpanel), which is the editor's main here. */
+.sode-ed:has(> #ed-live-view .sode-gridpanel) {
+  padding-bottom: 0;
+}
+.sode-ed:has(> #ed-live-view .sode-gridpanel) > :not(#ed-live-view) {
+  display: none;
+}
+:is(#ed-live-view, .sode-live):has(.sode-gridpanel) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+/* A Grid panel's Live Editor (editorlive.js): a bar over the panel says it is a preview and holds the way back.
+   The list drawer opens beside the grid, under the band, and the grid narrows (panelmount.js liveUi). The drawer's
+   body does not scroll, so each list scrolls inside its own share of the height, as in the editor. */
+.sode-live__row {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* gridpanel.css gives the grid flex: 1 1 auto; it shrinks past its content to the room the drawer leaves. */
+.sode-live__row > .sode-panel__grid {
+  min-width: 0;
+}
+/* In the flow, not over the grid; patchbay's drawer is absolute. No width transition: each frame of it would lay the
+   grid out again. */
+.sode-live__row > .sode-live__drawer {
+  flex: none;
+  position: relative;
+  transition: none;
+}
+.sode-live__bar {
+  flex-wrap: wrap;
+  position: static;
+}
+/* The Lock bar sits at the window's top left, so the bar clears its width as the header does above. The panel's own
+   header is under the bar, so its title goes back to the left corner. */
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-live__bar {
+  padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-5));
+}
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) #ed-live-view .sode-panels__head {
+  padding-inline-start: 0;
+}
+.sode-live__title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+/* The run's Settings link leaves the editor for the main page, so the Live Editor does not show it. */
+#ed-live-view .sode-gridpanel__settings {
+  display: none;
+}
+.sode-live__state {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-normal);
+}
+.sode-live__drawer .pb-drawer__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+  overflow: hidden;
+}
+.sode-live__drawer-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+.sode-live__drawer-h {
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+/* The Artwork panel (editorliveart.js) lies over the whole drawer and scrolls on its own. Its z-index is the big scroll
+   bars' (base.css): it comes after the lists, so it covers their bars, and its own bar comes after it. */
+.sode-live__art {
+  background: var(--pb-surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--pb-space-5);
+  position: absolute;
+  z-index: 2;
+}
+.sode-live__art[hidden] {
+  display: none;
+}
+.sode-live__art-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+/* Over patchbay's .pb-tabpanel.active display: block. */
+.sode-live__drawer .sode-live__tab.active {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.sode-live__tab > .sode-edge {
+  flex: 1 1 0;
+}
+.sode-live__tab .sode-edge__on {
+  flex: 3 1 0;
+}
+.sode-live__tab .sode-edge__add {
+  flex: 2 1 0;
+}
+.sode-live__tab :is(.sode-edge__list, .sode-rlist) {
+  flex: 1 1 0;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+}
 /* The editor's sidebar (editorside.js). Artwork in a square sits dimmed behind its caption, as on the panel page. */
 .sode-ed__body {
   align-items: start;
@@ -964,6 +1122,275 @@ body {
   .sode-ed__body {
     grid-template-columns: 1fr;
   }
+}
+/* A Grid panel has no cells, size or Pages (paneleditor.js sets data-type). Its Sources and Destinations lists take
+   the place of the Pages, side by side, and the sidebar keeps the right third (editorside.js). */
+.sode-ed__lists {
+  display: none;
+}
+.sode-ed[data-type="grid"] .sode-ed__body {
+  grid-template-columns: minmax(0, 2fr) minmax(22rem, 1fr);
+}
+.sode-ed[data-type="grid"] .sode-ed__lists {
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-7);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+@media (max-width: 64rem) {
+  .sode-ed[data-type="grid"] .sode-ed__body,
+  .sode-ed[data-type="grid"] .sode-ed__lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* On a desktop the Grid editor is one window high and the page does not scroll. Each list column has fixed shares
+   for the panel's list and Add from the router, each scrolling inside, so an add never moves the rows under the
+   pointer. The status line keeps its height for the same reason. */
+@media (min-width: 64.0625rem) {
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] {
+    box-sizing: border-box;
+    height: 100dvh;
+    padding-bottom: var(--pb-space-5);
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] > #ed-status {
+    min-height: 1lh;
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] > #ed-status[hidden] {
+    display: block;
+    visibility: hidden;
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__body {
+    align-items: stretch;
+    flex: 1 1 0;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__lists {
+    align-items: stretch;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__side {
+    align-self: start;
+    max-height: min(85dvh, 100%);
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__on {
+    flex: 3 1 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__add {
+    flex: 2 1 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] :is(.sode-edge__list, .sode-rlist) {
+    flex: 1 1 0;
+    height: auto;
+    max-height: none;
+  }
+}
+/* One list (editorgridlist.js): its head, the panel's items with their bar, and Add from the router. */
+.sode-edge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  min-height: 0;
+  min-width: 0;
+}
+.sode-edge__head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-4);
+  min-height: var(--pb-control-h);
+}
+.sode-edge__h,
+.sode-edge__h3 {
+  align-items: baseline;
+  display: flex;
+  gap: var(--pb-space-3);
+  margin: 0;
+}
+.sode-edge__h {
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-edge__h3 {
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-edge__count {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-normal);
+}
+.sode-edge__part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  min-height: 0;
+}
+.sode-edge__add {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  padding-top: var(--pb-space-4);
+}
+/* The bar over the panel's list: the selection count, then icon buttons that act on the selection. */
+.sode-edge__acts {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-1);
+}
+.sode-edge__sel {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-sm);
+}
+.sode-edge__sep {
+  align-self: stretch;
+  border-left: var(--pb-border-w) solid var(--pb-edge-soft);
+  margin-inline: var(--pb-space-1);
+}
+.sode-edge__empty {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  flex: 1 1 auto;
+  justify-content: center;
+  text-align: center;
+}
+.sode-edge__empty > p {
+  margin: 0;
+}
+:is(.sode-edge__acts, .sode-edge__list, .sode-edge__empty)[hidden] {
+  display: none;
+}
+.sode-rlist__bar {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-rlist__find {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sode-rlist,
+.sode-edge__list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sode-edge__list {
+  gap: var(--pb-border-w);
+  max-height: 24rem;
+}
+.sode-rlist {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  height: 16rem;
+}
+.sode-rlist__field {
+  height: calc(var(--sode-rows, 0) * 2rem);
+  position: relative;
+}
+/* Rows are placed by --sode-i; 2rem is ROW_REM in editorrouterlist.js. */
+.sode-rlist__row {
+  align-items: center;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  gap: var(--pb-space-2);
+  height: 2rem;
+  left: 0;
+  padding-inline: var(--pb-space-2);
+  position: absolute;
+  right: 0;
+  top: calc(var(--sode-i, 0) * 2rem);
+  user-select: none;
+}
+.sode-rlist__row:hover {
+  background: var(--pb-surface-hover);
+}
+/* Selected rows are what + adds, marked as in the panel's list. */
+.sode-rlist__row[aria-selected="true"] {
+  background: color-mix(in oklab, var(--pb-accent) 35%, var(--pb-surface-raised));
+}
+/* The highlight is what Enter adds, so it shows only while Find or the list has focus. */
+.sode-edge__add:focus-within .sode-rlist__row.is-cur {
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
+}
+.sode-edge__add:focus-within .sode-rlist__row.is-cur:not([aria-selected="true"]) {
+  background: var(--pb-surface-hover);
+}
+/* Follow the router is on: nothing is added (editorgridlist.js FOLLOWING). */
+.sode-edge__add[data-off] .sode-rlist {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.sode-rlist__row .sode-pages__name {
+  flex: 1;
+}
+.sode-ed[data-type="grid"] .sode-ed__main,
+.sode-ed[data-type="grid"] #ed-templates {
+  display: none;
+}
+/* A row is one line, as in the prototype: grip, number, artwork, name, then Pin, Move and Remove. */
+.sode-pages__row.sode-edge__row {
+  align-items: center;
+  border: 0;
+  flex-direction: row;
+  gap: var(--pb-space-2);
+  padding: 0 var(--pb-space-1) 0 var(--pb-space-2);
+}
+.sode-edge__row .sode-pages__head {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sode-edge__row .sode-pages__name {
+  flex: 1 1 auto;
+}
+/* A row's artwork is the cell's artwork row (panelview.js artNode) in a small box, at full strength. */
+.sode-edge__art {
+  flex: 0 0 auto;
+  height: 1.25rem;
+  isolation: isolate;
+  position: relative;
+  width: 2.5rem;
+}
+.sode-edge__art > .sode-panel__art {
+  opacity: 1;
+  padding: 0;
+  z-index: 0;
+}
+.sode-edge__row[data-dragged] {
+  opacity: 0.4;
+}
+.sode-grip {
+  color: var(--pb-text-muted);
+  cursor: grab;
+  display: inline-flex;
+}
+.sode-grip:hover {
+  color: var(--pb-text-strong);
+}
+.sode-grip.is-off {
+  cursor: default;
+  opacity: 0.4;
+}
+/* The drag image (orderedlist.js): under the pointer for one moment, since the browser copies it at dragstart. */
+.sode-drag-chip {
+  gap: var(--pb-space-2);
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+/* Selected rows of a panel's list (editorgridlist.js), marked as in the router list. */
+.sode-edge__row {
+  cursor: pointer;
+  user-select: none;
+}
+.sode-edge__row[data-selected] {
+  background: color-mix(in oklab, var(--pb-accent) 35%, var(--pb-surface-raised));
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
+}
+.sode-edge__list:focus-visible .sode-edge__row.is-cur {
+  outline: calc(var(--pb-border-w) * 2) solid var(--pb-accent);
+  outline-offset: calc(var(--pb-border-w) * -2);
 }
 .sode-ed__main {
   align-items: start;
@@ -1016,6 +1443,13 @@ body {
 }
 .sode-pages__row.is-drop {
   outline: var(--pb-accent-bar-w) solid var(--pb-accent);
+}
+/* A Grid list drop goes before or after the row by the pointer's half (orderedlist.js drop). */
+.sode-pages__row.is-drop-before {
+  box-shadow: inset 0 var(--pb-accent-bar-w) 0 var(--pb-accent);
+}
+.sode-pages__row.is-drop-after {
+  box-shadow: inset 0 calc(-1 * var(--pb-accent-bar-w)) 0 var(--pb-accent);
 }
 .sode-pages__row.is-off .sode-pages__name {
   color: var(--pb-text-disabled);
@@ -1088,8 +1522,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-7);
-  /* The toolbar above wraps to any height, so the sidebar pins near the top of the window as the page scrolls. */
-  max-height: calc(100dvh - 2 * var(--pb-space-5));
+  /* The toolbar above wraps to any height, so the sidebar pins near the top of the window as the page scrolls. It
+     scrolls inside itself, not the page. */
+  max-height: 85dvh;
+  overscroll-behavior: contain;
   min-width: 0;
   overflow: hidden auto;
   padding: var(--pb-space-9) var(--pb-space-5);
@@ -1196,11 +1632,25 @@ body {
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
 }
-/* The icon picker: Icon A and Icon B side by side, half each, each scrolling on its own. */
+/* The icon picker: Default icons, with Icon A and Icon B side by side, half each, each scrolling on its own; then
+   Uploaded icons across both. */
 .sode-side__picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-side__picker[hidden] {
+  display: none;
+}
+.sode-side__cols {
   display: grid;
   gap: var(--pb-space-1);
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.sode-side__picker-h {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-bold);
 }
 .sode-side__col {
   display: flex;
@@ -1228,7 +1678,7 @@ body {
   font-family: var(--pb-font-num);
   font-weight: var(--pb-weight-bold);
 }
-/* Uploaded (the Icon library) above the vendored icons in Icon A's column. */
+/* Uploaded icons (the Icon library), under the Default icons. */
 .sode-side__lib-sec {
   display: flex;
   flex-direction: column;
@@ -1298,6 +1748,13 @@ body {
   margin-right: var(--pb-space-4);
   vertical-align: middle;
 }
+.sode-panels__home {
+  margin-inline-end: var(--pb-space-3);
+  vertical-align: middle;
+}
+.sode-panels__home .sode-panels__logo {
+  margin: 0;
+}
 
 /* Sidebar additions */
 .sode-side__head {
@@ -1338,6 +1795,18 @@ body {
 .sode-ed__side .sode__tabs {
   gap: var(--pb-space-4);
 }
+/* The level picker as in the main page's Levels box (desktop.css .sode__box--levels): when the sidebar is too narrow
+   for every level, the picks scroll sideways and Select All keeps its size beside them. */
+.sode-ed__side .sode__picker .sode__levels {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--pb-space-1);
+}
+.sode-ed__side .sode__picker > .sode__all {
+  flex: none;
+}
 .sode-side__col-top {
   align-items: center;
   min-height: 2.5rem;
@@ -1365,30 +1834,60 @@ body {
 .sode-side__icons::-webkit-scrollbar-thumb {
   background: var(--pb-edge-hard);
 }
-/* Panel picker and Name in the toolbar: equal width, and a rule left of Name. */
+/* Panel picker in the toolbar, with the Rename icon (editorname.js) beside it. The Name field stays hidden. */
 .sode-ed__pick {
   padding-inline-start: var(--pb-space-3);
 }
-#ed-name {
-  padding-inline-start: var(--pb-space-3);
-  width: 14rem;
+/* A count has one tile per character. The Destination bar reads from the bottom up, as the Grid page's Sources label does.
+   The text scales with the square. In the list it never goes below 0.55rem, so it still reads; a character may then
+   pass its square. --sode-ov-cols is GRID_SQUARES + 1 (panelsrules.js). */
+.sode-ov__thumb--grid {
+  --sode-ov-cols: 9;
 }
-.sode-ed__grp--pick > .sode-ed__field + .sode-ed__field,
-.sode-ed__grp--pick > .sode-ed__name {
-  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
-  padding-inline-start: var(--pb-space-5);
+.sode-ov__thumb--grid[data-size="small"] {
+  --sode-ov-cols: 4;
 }
-
-.sode-ed__name {
-  display: inline-flex;
+.sode-ov__thumb--grid[data-size="medium"] {
+  --sode-ov-cols: 6;
+}
+.sode-ov__thumb--grid .sode-ov__tile {
   align-items: center;
-  gap: var(--pb-space-3);
-  min-width: 14rem;
-  justify-content: space-between;
+  color: var(--pb-text-strong);
+  display: flex;
+  font-family: var(--pb-font-num);
+  font-size: calc(0.6 * var(--sode-ov-sq));
+  font-style: normal;
+  justify-content: center;
+  line-height: 1;
+  overflow: visible;
 }
-.sode-ed__name[hidden] {
-  display: none;
+.sode-ov__thumb--sm.sode-ov__thumb--grid .sode-ov__tile {
+  font-size: max(calc(0.6 * var(--sode-ov-sq)), 0.55rem);
 }
-.sode-ed__name-text {
-  font-size: var(--pb-text-md);
+.sode-ov__thumb--grid .sode-ov__tile--destination {
+  rotate: -90deg;
+}
+/* An odd number of spare squares: move half a square to stay centred. */
+.sode-ov__thumb--grid .sode-ov__tile--source.sode-ov__tile--half {
+  translate: 50% 0;
+}
+.sode-ov__thumb--grid .sode-ov__tile--destination.sode-ov__tile--half {
+  translate: 0 50%;
+}
+/* The large preview has wide gaps, so a half-square move would merge neighbouring tiles. Each character stays in its own square. */
+.sode-ov__thumb--grid:not(.sode-ov__thumb--sm) .sode-ov__tile--half {
+  translate: none;
+}
+/* A Grid panel's picture (panelsrules.js gridThumb): the role colours of the grid's bars, a field and routes. */
+.sode-ov__thumb--grid .sode-ov__k-source {
+  background: var(--pb-source);
+}
+.sode-ov__thumb--grid .sode-ov__k-destination {
+  background: var(--pb-dest);
+}
+.sode-ov__thumb--grid i {
+  background: var(--pb-surface-sunken);
+}
+.sode-ov__thumb--grid .sode-ov__k-on {
+  background: radial-gradient(circle closest-side, var(--pb-text-muted) 70%, var(--pb-surface-sunken) 75%);
 }

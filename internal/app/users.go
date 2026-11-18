@@ -128,8 +128,8 @@ type lockStateMsg struct {
 	Lens []int `json:"lens,omitempty"`
 	// Names: for "by Ana" in history; not sent to locked pages.
 	Names []string `json:"names,omitempty"`
-	// Hi: answer to the page's own hi; an unsolicited state may arrive first and says
-	// nothing about the token.
+	// Hi: answer to the page's own hi; it is possible that an unsolicited state arrives
+	// first, and it says nothing about the token.
 	Hi bool `json:"hi,omitempty"`
 	// Trusted: low-risk settings without the Advanced Settings PIN; the server decides.
 	Trusted    bool `json:"trusted,omitempty"`
@@ -162,7 +162,7 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	return m
 }
 
-// Queues c's lock state and stops the sent-log feed if c may no longer read it. Caller
+// Queues c's lock state and stops the sent-log feed if c can no longer read it. Caller
 // holds mu.
 func (a *App) syncAccessMu(c *client) { a.pushAccessMu(c, false) }
 
@@ -219,7 +219,7 @@ func (a *App) Hi(c *client, page, token string) {
 }
 
 // dummyPinHash gives a wrong username the same PBKDF2 cost as a right one, so timing
-// can't reveal which usernames exist.
+// cannot reveal which usernames exist.
 var dummyPinHash = sync.OnceValue(func() string {
 	h, _ := config.HashPin("0000")
 	return h
@@ -229,7 +229,7 @@ func burnPinCheck(pin string) { config.CheckPin(dummyPinHash(), pin) }
 
 // matchPin finds the user a PIN signs in, or nil. Pure: it reads only cfg. Candidates are
 // the holder of a Lock (only their PIN counts), the user a username names, or in PIN only
-// mode everyone; exactly one must match, so a PIN several users hold (left over from
+// mode everyone. Exactly one must match, so a PIN several users hold (left over from
 // Username and PIN mode) signs nobody in. A username that names nobody, or someone other
 // than the holder, burns a check so it costs what a right one does.
 func matchPin(cfg config.Config, holder *config.User, username, pin string) *config.User {
@@ -293,7 +293,7 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 		return err
 	}
 	a.mu.Lock()
-	cfg = a.r().cfg // the PIN check can wait minutes: the user may have changed since
+	cfg = a.r().cfg // the PIN check can wait minutes: it is possible that the user changed since
 	if u, ok := cfg.FindUser(hit.Name); !ok || u.Pin != hit.Pin {
 		a.mu.Unlock()
 		return errors.New("that PIN changed; try again")
@@ -340,7 +340,7 @@ func (a *App) SignOutAll(c *client, name string) error {
 	return nil
 }
 
-// backToPinRefusal: salted hashes hide whether saved users share a PIN, so going back to PIN only
+// backToPinRefusal: salted hashes hide whether saved users share a PIN. So a change back to PIN only
 // needs a new PIN typed for every user, all different. Compares plaintext within the request.
 func backToPinRefusal(users []userEdit) error {
 	var missing []string
@@ -354,7 +354,7 @@ func backToPinRefusal(users []userEdit) error {
 		}
 	}
 	if len(missing) > 0 {
-		return errors.New("PIN only needs every PIN different, and Sode can't tell whether saved PINs match: give a new PIN to " + strings.Join(missing, ", "))
+		return errors.New("PIN only needs every PIN different, and Sode cannot tell whether saved PINs match: give a new PIN to " + strings.Join(missing, ", "))
 	}
 	var clash []string
 	for _, e := range users {
@@ -377,8 +377,8 @@ type userEdit struct {
 	Pin        string  `json:"pin"`
 	Trusted    bool    `json:"trusted"`
 	Persistent bool    `json:"persistent"`
-	// Rights and NoAutoLock: nil keeps the user's current value, so a page that doesn't
-	// know them can't erase them.
+	// Rights and NoAutoLock: nil keeps the user's current value, so a page that does not
+	// know them cannot erase them.
 	Rights     *config.Rights `json:"rights"`
 	NoAutoLock *bool          `json:"noAutoLock"`
 }
@@ -496,7 +496,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 					continue
 				}
 				if p2, isNew := fresh[u.Name]; isNew && p2 == pin || !isNew && config.CheckPin(u.Pin, pin) {
-					return errors.New("that PIN can't be used")
+					return errors.New("that PIN cannot be used")
 				}
 			}
 		}
@@ -677,7 +677,7 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 			}
 			for j, o := range cfg.Users {
 				if cfg.SignInMode == config.SignInPin && j != i && o.Len == len(newPin) && config.CheckPin(o.Pin, newPin) {
-					return errors.New("that PIN can't be used")
+					return errors.New("that PIN cannot be used")
 				}
 			}
 			cfg.Users[i].Pin, cfg.Users[i].Len = h, len(newPin)

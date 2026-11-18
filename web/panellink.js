@@ -1,6 +1,6 @@
 // The one place a panel link is built (the editor's Copy link and the Share modal's Link with key tab). Pure.
 // Shape: panels/<slug or id>[?instance=<name>]#[key=<k>|setup=<t>][&kiosk=1]. The secret stays in the fragment, which
-// never reaches a request line or a proxy log; the name is no secret, so it may ride the query.
+// never reaches a request line or a proxy log. The name is no secret, so it can go in the query.
 
 const KEY_PREFIX = 'sode_';
 const SETUP_PREFIX = 'sode_setup_';
@@ -14,8 +14,8 @@ export const fullSetup = (s) => (s && !s.startsWith(SETUP_PREFIX) ? SETUP_PREFIX
 // The short name when the panel has one, else the id. A slug change breaks the old link, so a link is built fresh.
 export const pathFor = (panel) => `panels/${panel.slug || panel.id}`;
 
-// opts: kiosk, instance (device name), key or setup (the secret as the server sent it), base (document.baseURI, to
-// make the link absolute; the pages set <base href>, so a page gets an absolute link without passing it).
+// opts: kiosk, instance (device name), key or setup (the secret as the server sent it) and base. base is
+// document.baseURI, to make the link absolute. The pages set <base href>, so a page gets an absolute link without it.
 export function linkFor(panel, { kiosk = false, instance = '', key = '', setup = '', base = globalThis.document?.baseURI } = {}) {
   const name = String(instance || '').trim();
   const frag = [key && `key=${shortSecret(key)}`, !key && setup && `setup=${shortSecret(setup)}`, kiosk && 'kiosk=1'].filter(Boolean).join('&');

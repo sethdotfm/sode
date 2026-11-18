@@ -17,7 +17,7 @@ import (
 )
 
 // tokenStore: persistent users' session tokens, in memory and in a file beside the config.
-// A token is bound to user name and PIN hash and lookups re-read the live user, so a PIN
+// A token is bound to user name and PIN hash, and lookups re-read the live user. So a PIN
 // change, removal or unticking Persistent kills it whatever the file holds. Only sha256 of
 // a token is stored.
 type tokenStore struct {
@@ -44,7 +44,7 @@ type tokenRec struct {
 // perUserTokens: one per browser; the oldest goes.
 const perUserTokens = 8
 
-// tokenMaxAge: unused tokens die so a forgotten browser isn't signed in forever. Use is a
+// tokenMaxAge: unused tokens die so a forgotten browser is not signed in forever. Use is a
 // hi or an open connection (touch). Rewritten only past tokenTouchAfter: about one write a
 // day.
 const (
@@ -82,8 +82,8 @@ func loadTokens(cfgPath string) *tokenStore {
 	return s
 }
 
-// save writes the file. Never with mu held: it takes mu to snapshot and releases it before
-// the write, so a slow disk doesn't block lookups.
+// save writes the file. Never with mu held: it locks mu to snapshot and releases it before
+// the write, so a slow disk does not block lookups.
 func (s *tokenStore) save() {
 	if s.path == "" {
 		return
@@ -104,9 +104,9 @@ func (s *tokenStore) save() {
 	}
 }
 
-// valid: prune deletes invalid tokens so one can't revive when the user is made persistent
+// valid: prune deletes invalid tokens so one cannot revive when the user is made persistent
 // again, renamed back or given the old PIN. A tab token is valid only while its user is
-// NOT persistent, and for tabTokenMaxAge, so ticking Never sign out can't turn it into a
+// NOT persistent, and for tabTokenMaxAge. So ticking Never sign out cannot turn it into a
 // persistent one that skips a lock.
 func valid(r tokenRec, cfg config.Config) (config.User, bool) {
 	u, ok := cfg.FindUser(r.User)
@@ -152,7 +152,7 @@ func (s *tokenStore) dropWhere(gone func(tokenRec) bool) {
 }
 
 // heldOnly: under a PIN lock a non-persistent user's token only carries a held Lock, never
-// a sign-in. Hi refuses it once the Lock has ended, issueToken gives none for a sign-in, a resume drops it.
+// a sign-in. Hi refuses it after the Lock has ended, issueToken gives none for a sign-in, a resume drops it.
 func heldOnly(u config.User, page string, locks config.Locks) bool {
 	return !u.Persistent && pageGates[page].on(locks)
 }

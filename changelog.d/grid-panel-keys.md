@@ -1,0 +1,1 @@
+- Grid panel keys for picks. On a bar, Space picks the name at the cursor and `x` adds or removes one name. Shift with a move along the bar picks a range. A focused header button keeps its own Space and Enter. `?` and Ctrl+? open a key list in the main page's style.

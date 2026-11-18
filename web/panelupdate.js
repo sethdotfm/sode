@@ -1,5 +1,5 @@
-// When an open panel takes a changed copy of itself. The server moves the panel's rev on every stored
-// change (a saved edit, a Push); the page polls it and asks this module what to do. No DOM and no
+// When an open panel accepts a changed copy of itself. The server moves the panel's rev on every stored
+// change (a saved edit, a Push). The page polls it and asks this module what to do. No DOM and no
 // clock, so the rules test directly (test/panelupdate.test.mjs). Every function returns a new state.
 export const COUNT_MS = 10000;
 export const SNOOZE_MS = 60000;
@@ -19,8 +19,8 @@ export function noticeRev(u, rev, now) {
   return u.since ? u : { ...u, since: now, from: now, deadline: now + COUNT_MS };
 }
 
-// Snooze leaves the banner up and counts 60 s down. Pressing it is the person's word that the copy may come
-// then, staged routes or not. An open page snoozes once; applying starts a fresh state, so the next update gets one again.
+// Snooze leaves the banner up and counts 60 s down. A press of it is the person's word that the copy can come
+// then, staged routes or not. An open page snoozes one time; an apply starts a fresh state, so the next update gets one again.
 export const canSnooze = (u) => !u.snoozed;
 export const snooze = (u, now) => (u.snoozed ? u : { ...u, from: now, deadline: now + SNOOZE_MS, force: true, snoozed: true });
 
@@ -30,9 +30,9 @@ export const applied = (u, rev) => createUpdate(rev);
 
 // state: { staged: routes are staged, busy: a take is in flight }. Staged routes belong to the old copy and are
 // lost on apply, so the plain countdown holds for them; a forced one does not. A take in flight is never cut
-// short: the copy comes once it answers. A viewed destination alone is carried over (panelmodel.carryView).
-// Steps: none, banner (leftMs and totalMs for the bar, deadline keys the bar, wait names what holds it at 0,
-// drops says staged routes go when it applies) or apply.
+// short: the copy comes after it answers. A viewed destination alone is carried over (panelmodel.carryView).
+// Steps: none, banner or apply. A banner has leftMs and totalMs for the bar, and deadline keys the bar. wait names
+// what holds it at 0, and drops says staged routes go when it applies.
 export function updateStep(u, state, now) {
   if (!u.since) return { step: 'none' };
   const leftMs = Math.max(0, u.deadline - now);
@@ -46,7 +46,7 @@ export function updateStep(u, state, now) {
 // The banner's line for a banner step.
 export function bannerLine(s) {
   if (s.wait === 'busy') return 'It refreshes after the take.';
-  if (s.wait === 'staged') return 'It refreshes once you take or clear your staged routes.';
+  if (s.wait === 'staged') return 'It refreshes after you take or clear your staged routes.';
   const secs = Math.ceil(s.leftMs / 1000);
-  return s.drops ? `Refreshing in ${secs} s, dropping the staged routes.` : `Refreshing in ${secs} s.`;
+  return s.drops ? `Refreshing in ${secs} s. It drops the staged routes.` : `Refreshing in ${secs} s.`;
 }

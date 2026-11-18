@@ -1,10 +1,10 @@
 // The editor's clipboard block: what Cmd or Ctrl+C writes and Cmd or Ctrl+V reads. Pure (test/gridclip.test.mjs);
 // editorclip.js moves the text in and out of the system clipboard.
 //
-// A block is { sode: CLIP_MARK, version, panel, rows, cols, cells }: the copied rectangle's size and its cells as
-// stored (gridmodel.js), with r and c counted from the rectangle's top left. panel is the panel copied from ('' when
+// A block is { sode: CLIP_MARK, version, panel, rows, cols, cells }. It holds the copied rectangle's size and its
+// cells as stored (gridmodel.js), with r and c counted from the rectangle's top left. panel is the panel copied from ('' when
 // unsaved), since an uploaded image belongs to that panel's artwork store.
-import { rectOf, selCells, ROWS_MAX, COLS_MAX } from './gridmodel.js';
+import { rectOf, selCells, plural, ROWS_MAX, COLS_MAX } from './gridmodel.js';
 import { KINDS, PRESET_SCOPES } from './panelrules.js';
 import { artOf, ART_B_CHOICES } from './panellook.js';
 import { SHOW_PARTS } from './pagecells.js';
@@ -16,7 +16,8 @@ const TEXT_MAX = 1_000_000;
 
 const posInt = (v) => Number.isInteger(v) && v >= 1;
 export const overlap = (a, b) => !(a.r + a.rs - 1 < b.r || b.r + b.rs - 1 < a.r || a.c + a.cs - 1 < b.c || b.c + b.cs - 1 < a.c);
-export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+// The editor modules import plural from here.
+export { plural };
 
 // A clipboard is text anyone can write, so each field is checked as the Cell tab and the server would make it.
 // Keep in step with CAPTION_MAX (editorcell.js), FONT_MIN and FONT_MAX (sidebarrules.js), pageIDRe
@@ -98,10 +99,10 @@ export function readBlock(text) {
 }
 
 // Where a paste would land and what it would place, before anything changes. at is the selection's top left.
-// Uploaded images (artOf gives an id that is not a library icon) stay with the panel they were uploaded to, so they
-// are dropped across panels; an unsaved panel has none of its own. A Go to Page target is a Page id of the panel copied
-// from (ADR 0007), so across panels it is dropped and the cell arrives unassigned; an unsaved panel's Pages already
-// have their ids, so it counts as the same panel. Destination cells are skipped while Fixed
+// Uploaded images (artOf gives an id that is not a library icon) stay with the panel they were uploaded to. So they
+// are dropped across panels; an unsaved panel has none of its own. A Go to Page target is a Page id of the panel
+// copied from (ADR 0007). So across panels it is dropped and the cell arrives unassigned. An unsaved panel's Pages
+// already have their ids, so it counts as the same panel. Destination cells are skipped while Fixed
 // destination is on (fixed), so they never reach the editor's held cells. fits false: some placed cell runs past
 // the grid's edge (outside counts them) and the grid must not change.
 export function pastePlan(g, block, { panel = '', fixed = false } = {}) {
@@ -134,8 +135,8 @@ export function pastePlan(g, block, { panel = '', fixed = false } = {}) {
   return { at, rows: block.rows, cols: block.cols, placed, fits: outside === 0, outside, lostArt, lostTargets, skippedDests };
 }
 
-// One paste as one new grid, so an undo step can wrap it. placed holds absolute cells inside the grid; a cell
-// already there that shares a square with one of them goes whole, and the rest stay, so a blank square in the
+// One paste as one new grid, so an undo step can wrap it. placed holds absolute cells inside the grid. A cell
+// already there that shares a square with one of them goes whole, and the rest stay. So a blank square in the
 // block leaves the grid's square as it was. The selection becomes the area the placed cells cover.
 export function applyPaste(g, placed) {
   if (!placed.length) return g;

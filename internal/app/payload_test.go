@@ -16,8 +16,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// maxOwned is a config with every owned list as big as it is allowed to be
-// (worst case: every character escaped to six bytes in JSON).
+// maxOwned is a config with every owned list as big as it is allowed to be.
+// Each list is the worst case: every character escaped to six bytes in JSON.
 func maxOwned(t *testing.T) config.Config {
 	t.Helper()
 	cfg := config.Defaults()
@@ -68,9 +68,9 @@ func maxOwned(t *testing.T) config.Config {
 	return cfg
 }
 
-// The messages that carry the big lists stay under the 64 KiB read limit; the
-// whole config with all of them does not, which is why a Settings save must
-// leave the owned lists out (and why the server ignores them if it doesn't).
+// The messages that carry the big lists stay under the 64 KiB read limit. The
+// whole config with all of them does not. That is why a Settings save must
+// leave the owned lists out, and why the server ignores them if a save does not.
 func TestMessageSizes(t *testing.T) {
 	cfg := maxOwned(t)
 	size := func(v any) int { b, _ := json.Marshal(v); return len(b) }
@@ -139,7 +139,7 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 	}
 }
 
-// The same over the socket: a config message just under the read limit with
+// The same over the socket: a config message slightly under the read limit with
 // big owned lists is answered ok and changes none of them.
 func TestSocketConfig(t *testing.T) {
 	a := pinApp(t)

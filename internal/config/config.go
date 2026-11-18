@@ -133,6 +133,7 @@ type DeviceDefaults struct {
 	SearchFilters bool           `yaml:"searchFilters" json:"searchFilters"`
 	SetStack      string         `yaml:"setStack" json:"setStack"`
 	NextMode      string         `yaml:"nextMode" json:"nextMode"`
+	StackGap      string         `yaml:"stackGap" json:"stackGap"`
 	Compact       bool           `yaml:"compact" json:"compact"`
 	Extra         map[string]any `yaml:",inline" json:"-"`
 }
@@ -170,7 +171,7 @@ func Defaults() Config {
 		SignInMode:           SignInPin,
 		API:                  DefaultAPISettings(),
 		GuestAPIScopes:       slices.Clone(DefaultGuestScopes),
-		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
+		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30"},
 	}
 }
 
@@ -230,7 +231,7 @@ func FromEnv(c Config) (Config, error) {
 	return c, errors.Join(errs...)
 }
 
-// Clone shares no slices, so Normalize can't touch a config others read.
+// Clone shares no slices, so Normalize cannot touch a config others read.
 func (c Config) Clone() Config {
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
@@ -287,6 +288,7 @@ func (c *Config) Normalize() {
 	d.Clock = strings.ToLower(strings.TrimSpace(d.Clock))
 	d.SetStack = strings.ToLower(strings.TrimSpace(d.SetStack))
 	d.NextMode = strings.ToLower(strings.TrimSpace(d.NextMode))
+	d.StackGap = strings.TrimSpace(d.StackGap)
 	if d.Theme == "" {
 		d.Theme = "system"
 	}
@@ -301,6 +303,9 @@ func (c *Config) Normalize() {
 	}
 	if d.NextMode == "" {
 		d.NextMode = "number"
+	}
+	if d.StackGap == "" {
+		d.StackGap = "30"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
 	c.LegacyGrids, c.LegacyGridConfirm, c.Locks.LegacyGrid = nil, nil, nil
@@ -340,7 +345,7 @@ func (c Config) Validate() error {
 	if c.Router != "" {
 		host, port, err := net.SplitHostPort(c.Router)
 		if p, perr := strconv.Atoi(port); err != nil || host == "" || perr != nil || p < 1 || p > 65535 {
-			bad("router must be host:port, e.g. 10.0.0.50:8910")
+			bad("router must be host:port, for example 10.0.0.50:8910")
 		}
 	}
 	switch c.NameRequests {
@@ -442,6 +447,11 @@ func (c Config) Validate() error {
 	case "number", "fuzzy":
 	default:
 		bad("default next must be number or fuzzy")
+	}
+	switch c.DeviceDefaults.StackGap {
+	case "0", "10", "30", "60", "120", "300":
+	default:
+		bad("default stacked rows gap must be 0, 10, 30, 60, 120 or 300 seconds")
 	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
@@ -577,8 +587,8 @@ func Load(path string) (c Config, exists bool, err error) {
 	return c, true, nil
 }
 
-// Parse is Load's decoder (also config import): unknown keys are kept (see UnknownKeys), legacy
-// keys load, no Validate so a caller can merge PIN hashes first.
+// Parse is Load's decoder (also config import). Unknown keys are kept (see UnknownKeys) and legacy
+// keys load. It does not Validate, so a caller can merge PIN hashes first.
 func Parse(b []byte) (Config, error) {
 	c := Defaults()
 	dec := yaml.NewDecoder(bytes.NewReader(b))
@@ -597,7 +607,7 @@ func (c Config) UnknownKeysProblem() string {
 	if len(keys) == 0 {
 		return ""
 	}
-	return "config.yaml has keys this release doesn't know, kept as is: " + NameKeys(keys)
+	return "config.yaml has keys this release does not know, kept as is: " + NameKeys(keys)
 }
 
 // maxNamedKeys bounds key lists in the startup row and the import reply.
@@ -693,7 +703,7 @@ func BackupOnce(path, label string) error {
 }
 
 // After a rollback .before-<version> often exists already and .prev lasts
-// one save. A copy equal to the newest one is skipped, so a restart loop doesn't fill the disk.
+// one save. A copy equal to the newest one is skipped, so a restart loop does not fill the disk.
 func BackupUnknown(path string, now time.Time) error {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {

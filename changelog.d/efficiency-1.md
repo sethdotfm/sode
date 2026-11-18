@@ -1,0 +1,1 @@
+- On a large router, panel pages and the main page use less CPU and memory. Sode builds `GET /api/v1/tally` one time for each change, so a panel's 2 s poll costs almost nothing on the server. An idle panel page does not parse the tally again or build its route map again. The main page does not draw the phone layout while it shows the desktop layout.

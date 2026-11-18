@@ -1,4 +1,4 @@
-// The Copy to dialog: pick the Page to copy onto by number. An empty Page takes the copy at once; one with cells
+// The Copy to dialog: pick the Page to copy onto by number. An empty Page gets the copy immediately; one with cells
 // asks first. A plain dialog, not the churning-letter Confirm, since undo reverses a Copy to (as editorpasteedge.js).
 import { el, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';

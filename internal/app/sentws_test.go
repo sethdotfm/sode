@@ -15,9 +15,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// /log pages over a real WebSocket, from a persisted, rotated log: the
-// newest 100, then Load older until the start, each reply echoing its
-// request's before.
+// /log pages over a real WebSocket, from a persisted, rotated log. The
+// newest 100 come first, then Load older until the start. Each reply echoes
+// its request's before.
 func TestSentPagesOverWebSocket(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Normalize()
@@ -86,8 +86,8 @@ func TestSentPagesOverWebSocket(t *testing.T) {
 	}
 }
 
-// An uptime request is answered with the echoed id and the range as used:
-// a start too long ago is cut to what is kept, so the slots the server
+// An uptime request is answered with the echoed id and the range as used.
+// A start too long ago is cut to what is kept. So the slots the server
 // counted match the start the page draws from.
 func TestUptimeOverWebSocket(t *testing.T) {
 	cfg := config.Defaults()

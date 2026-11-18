@@ -23,15 +23,15 @@ export const libNameOf = (fileName) =>
     .join('')
     .trim();
 
-// uses is {cells, panels} from GET /icon-library/{id}/uses, or null when it could not be read. Cells keep `lib:<id>`
-// after a delete and draw no Icon A (apiIconDelete).
+// uses is {cells, panels} from GET /icon-library/{id}/uses, or null when it could not be read. `cells` also counts a
+// Grid panel's names. Both keep `lib:<id>` after a delete and draw no Icon A (apiIconDelete).
 export function libDeleteText(name, uses) {
   const ask = `Delete ${name} from the Icon library?`;
-  if (!uses) return `${ask} Cells that use it will draw no Icon A; their Icon B and text stay.`;
+  if (!uses) return `${ask} Cells and names that use it will draw no Icon A; their Icon B and text stay.`;
   const { cells, panels } = uses;
-  if (!cells) return `${ask} No cell uses it.`;
+  if (!cells) return `${ask} No cell or name uses it.`;
   const one = cells === 1;
-  return `${ask} ${cells} ${one ? 'cell' : 'cells'} on ${panels} ${panels === 1 ? 'panel' : 'panels'} ${one ? 'uses' : 'use'} it and will draw no Icon A; ${one ? 'its' : 'their'} Icon B and text stay.`;
+  return `${ask} ${cells} ${one ? 'cell or name' : 'cells or names'} on ${panels} ${panels === 1 ? 'panel' : 'panels'} ${one ? 'uses' : 'use'} it and will draw no Icon A; ${one ? 'its' : 'their'} Icon B and text stay.`;
 }
 
 // res is {added, skipped} from POST /icon-library/rescan; a skipped file stays in icons/drop-in until it is fixed.

@@ -1,7 +1,7 @@
 // The Share modal on the panels page: tabs, with People first. Sharing is only the share field of
 // PUT /api/v1/panels/{id}, which the server enforces for open lists and launches.
-// Another tab joins by pushing a function onto shareTabs that returns {id, text, panel}, or
-// null when it does not apply to that panel (ctx: {panel, api, close}).
+// Another tab joins with a function pushed onto shareTabs. The function returns {id, text, panel},
+// or null when it does not apply to that panel (ctx: {panel, api, close}).
 import { el, on } from './core.js';
 import { check } from './formbits.js';
 import { linkRow } from './panellinkrow.js';
@@ -42,7 +42,7 @@ export function openShare(panel, ctx) {
   cancelBtn.type = 'button';
   const modes = el('div', 'pb-btn-group');
   modes.setAttribute('role', 'radiogroup');
-  modes.setAttribute('aria-label', 'Who may use this panel');
+  modes.setAttribute('aria-label', 'Who can use this panel');
   const hint = el('p', 'sode__hint');
   const picker = el('div', 'sode-ov__people');
   const peopleTab = el('div', 'sode-ov__sharebody', modes, hint, picker, linkRow(panel));
@@ -130,8 +130,8 @@ export function openShare(panel, ctx) {
     sync();
     note.textContent = '';
     try {
-      // PUT replaces the whole panel, so it starts from the stored copy: the one this modal opened with may be older
-      // than an edit or an Authentication mode switch saved since.
+      // PUT replaces the whole panel, so it starts from the stored copy. It is possible that the one this modal opened
+      // with is older than an edit or an Authentication mode switch saved since.
       const fresh = await ctx.api(`api/v1/panels/${panel.id}`);
       const saved = await ctx.api(`api/v1/panels/${panel.id}`, {
         method: 'PUT',

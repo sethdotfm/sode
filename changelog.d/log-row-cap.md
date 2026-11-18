@@ -1,0 +1,1 @@
+- The Communication Log keeps at most 500 live rows on the page. When new rows arrive, the oldest leave the page, not the log file. Pull past the end of the page, or press Load older, to get 100 older rows.

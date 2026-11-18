@@ -17,7 +17,7 @@ import (
 
 const (
 	iconDropDir = "drop-in"
-	// A file name may hold control characters, and an os error quotes it, so reports carry both cut and cleaned.
+	// A file name can hold control characters, and an os error quotes it, so reports carry both cut and cleaned.
 	dropFileMax = 255
 	dropWhyMax  = 600
 )
@@ -51,7 +51,7 @@ func dropName(file string) string {
 }
 
 // rescan adds the drop-in directory's files. Links are never followed: a linked directory is refused and a linked file is
-// skipped, and reads go through an os.Root so nothing outside the directory opens.
+// skipped. Reads go through an os.Root, so nothing outside the directory opens.
 func (s *iconLib) rescan() iconRescanResult {
 	out := iconRescanResult{Added: []LibIcon{}, Skipped: []iconSkip{}}
 	if s.path == "" {

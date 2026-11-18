@@ -1,4 +1,4 @@
-// Shortcut list (? or Ctrl+?) dialog. Closing from the keyboard returns to keyboard mode if it was on; closing with the mouse never does.
+// Shortcut list (? or Ctrl+?) dialog. A close from the keyboard returns to keyboard mode if it was on; a close with the mouse never does.
 
 import { $ } from './core.js';
 import { mac } from './keys.js';

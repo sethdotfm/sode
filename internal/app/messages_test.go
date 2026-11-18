@@ -28,9 +28,9 @@ func keys(t *testing.T, v any) []string {
 }
 
 // TestMessageKeys pins the key set of every server -> browser message to
-// what the map[string]any versions sent before they were typed (the browser
-// reads these by name, and treats a missing key and a zero one differently
-// in places).
+// what the map[string]any versions sent before they were typed. The browser
+// reads these by name, and in places it treats a missing key and a zero one
+// differently.
 func TestMessageKeys(t *testing.T) {
 	zero, one := 0, 1
 	yes, no := true, false
@@ -78,7 +78,7 @@ func TestMessageValues(t *testing.T) {
 	if string(b) != `{"t":"filterSetsResult","ok":false,"id":1,"err":"x","locked":false}` {
 		t.Errorf("failed op result: %s", b)
 	}
-	// A failed save that wasn't the PIN still says locked:false.
+	// A failed save that was not the PIN still says locked:false.
 	if l := locked(nil); *l {
 		t.Error("locked(nil) = true")
 	}

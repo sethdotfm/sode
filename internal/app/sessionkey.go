@@ -35,7 +35,7 @@ func (a *App) SessionKey(c *client, keyName string) (string, apiKey, error) {
 	if keyName == "" {
 		keyName = sessionKeyName
 	}
-	// cfgMu: a PIN change prunes keys under it, so the check and the insert can't straddle one.
+	// cfgMu: a PIN change prunes keys under it, so the check and the insert cannot straddle one.
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	cur := a.r().cfg

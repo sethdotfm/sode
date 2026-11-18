@@ -19,7 +19,7 @@ func unwritten(t *testing.T, a *App, id, key string) string {
 	return fmt.Sprint(p["rev"], p["acts"], p["settings"].(map[string]any)["fixedDests"])
 }
 
-// A panel with fixed destinations sends an instance to another one: neither panel is written, and the key the
+// A panel with fixed destinations sends an instance to another one. Neither panel is written. The key the
 // instance hears patches the target's fixed destinations, within the target's client rights only.
 func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 	a, f := apiTestApp(t, func(c *config.Config) {
@@ -66,7 +66,7 @@ func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 	}
 }
 
-// An Assign of a keyless page writes neither panel either, by key or by sign-in, so it never changes acts and the
+// An Assign of a keyless page writes neither panel either, by key or by sign-in. So it never changes acts, and the
 // editor's Authentication mode Confirm has nothing to guard.
 func TestSeamKeylessAssignNeverWritesActs(t *testing.T) {
 	a := panelsApp(t)
@@ -93,8 +93,8 @@ func TestSeamKeylessAssignNeverWritesActs(t *testing.T) {
 }
 
 // A panel with an Icon library icon, a Default artwork cell and its own images is Pushed, Copied and saved as a
-// Template: library icons go as references, Default artwork is never frozen into a cell, the 64 MB total holds on
-// the target and no new bytes past 2 MB or 1024 by 1024 get in by any path.
+// Template. Library icons go as references, and Default artwork is never frozen into a cell. The 64 MB total holds
+// on the target. No new bytes past 2 MB or 1024 by 1024 get in by any path.
 func TestSeamArtworkLimitsHoldAcrossPushCopyTemplateAndDefaults(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
@@ -158,7 +158,7 @@ func TestSeamArtworkLimitsHoldAcrossPushCopyTemplateAndDefaults(t *testing.T) {
 
 // The idle Lock reaches a panel page signed in over its page socket, as an assigned-to-sign-in or keyless page is.
 // Known limit (docs/agents/users-locks.md): the Session-mode panel's session key still answers while the Lock is
-// up, since apiAuth checks only tokens.live; the page itself drops the key on the Lock (sessionkey.js).
+// up, since apiAuth checks only tokens.live. The page itself drops the key on the Lock (sessionkey.js).
 func TestIdleLockCoversAPanelPageSessionKeyStillAnswers(t *testing.T) {
 	for _, panelLock := range []bool{false, true} {
 		a := sessionKeyApp(t)

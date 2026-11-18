@@ -8,8 +8,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Auto-lock: the page's timer sends the same userLock as the lock button (idleLock), and
-// the server's idle sweep locks a session whose browser is gone or asleep (fake clock).
+// Auto-lock: the page's timer sends the same userLock as the lock button (idleLock). The
+// server's idle sweep locks a session whose browser is gone or asleep (fake clock).
 
 func idleLock(t *testing.T, a *App, c *client) {
 	t.Helper()
@@ -164,7 +164,7 @@ func TestServerIdleLockPushesAndPingsKeepSiblings(t *testing.T) {
 	}
 }
 
-// periodic is what runs the sweep: due once idleEvery has passed since the last one.
+// periodic is what runs the sweep: due when idleEvery has passed since the last one.
 func TestPeriodicRunsIdleSweepWhenDue(t *testing.T) {
 	a, c, _ := persistentApp(t)
 	clk := useFakeClock(a)

@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// leakProbe runs before the page's own scripts and counts what a leak leaves behind: live intervals,
-// listeners on the document and window, object URLs and fetches, so a round of use can be compared with the last.
+// leakProbe runs before the page's own scripts and counts what a leak leaves behind. That is live intervals,
+// listeners on the document and window, object URLs and fetches. A round of use can then be compared with the last.
 const leakProbe = `(() => {
   const m = (window.__leak = { intervals: new Set(), docListeners: {}, urls: 0, revoked: 0, fetches: 0 });
   const si = window.setInterval, ci = window.clearInterval;
@@ -72,8 +72,8 @@ func (b *tab) measure() leakSample {
 	return leakSample{heap: heap.UsedSize, documents: dom.Documents, attached: num("attached"), nodes: dom.Nodes, listeners: dom.JsEventListeners, intervals: num("intervals"), docL: num("docL"), urls: num("urls"), fetches: num("fetches")}
 }
 
-// The editor must not grow while it sits open or is used: a round of selecting, the menu, Find, the modals, Save and
-// Test it live, repeated, ends with the same intervals, listeners, nodes and object URLs as the round before.
+// The editor must not grow while it sits open or is used. The rounds repeat selecting, the menu, Find, the modals, Save
+// and the Live Editor. Each round ends with the same intervals, listeners, nodes and object URLs as the round before.
 func TestChromeEditorHoldsNoMemory(t *testing.T) {
 	var art string
 	b, _, _, _ := editorTabPrep(t, fmt.Sprintf(`{"name":"Wall","rows":4,"cols":8,"cells":[
@@ -149,7 +149,7 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		b.eval(`document.getElementById('ed-save').click()`)
 		b.waitSaved("saved")
 		step("save")
-		// Test it live, a poll and some ticks, Back to editing.
+		// The Live Editor, a poll and some ticks, Back to editing.
 		b.eval(`document.getElementById('ed-live').click()`)
 		b.waitFor("live cells", `document.querySelectorAll('#ed-live-view .sode-panel__cell').length === 3`)
 		b.waitFor("live art shown", `!document.querySelector('#ed-live-view .sode-panel__art-a')?.hidden`)
@@ -169,7 +169,7 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		samples = append(samples, s)
 		t.Logf("round %d: %s", i, s)
 	}
-	// The first round warms caches (names, presets, the templates list); from the second on nothing may grow.
+	// The first round warms caches (names, presets, the templates list); from the second on, the counts must not grow.
 	base, last := samples[1], samples[rounds-1]
 	var bad []string
 	if last.intervals != base.intervals {
@@ -181,9 +181,9 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 	if last.urls != base.urls {
 		bad = append(bad, fmt.Sprintf("object URLs %.0f -> %.0f", base.urls, last.urls))
 	}
-	// Nodes still in the document are exact. Detached nodes and the listeners on them wait for a GC that a loaded
-	// runner can delay by a few rounds (+374 nodes and +36 listeners seen, attached unchanged), so those compare the
-	// lowest of the last two rounds with the lowest of the first two measured; a leaked modal or sprite copy is
+	// Nodes still in the document are exact. Detached nodes and the listeners on them wait for a GC. A loaded runner
+	// can delay it by a few rounds (+374 nodes and +36 listeners seen, attached unchanged). So those compare the
+	// lowest of the last two rounds with the lowest of the first two measured. A leaked modal or sprite copy is
 	// thousands of nodes every round and lifts both.
 	if last.attached != base.attached {
 		bad = append(bad, fmt.Sprintf("attached DOM nodes %.0f -> %.0f", base.attached, last.attached))
@@ -203,7 +203,7 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		t.Errorf("the editor grew over %d rounds: %s", rounds-2, strings.Join(bad, "; "))
 	}
 
-	// Back to editing before the panel has loaded: nothing started afterwards may stay behind.
+	// Back to editing before the panel has loaded: anything started afterwards must not stay behind.
 	b.eval(`document.getElementById('ed-live').click(); document.getElementById('ed-live-back').click()`)
 	time.Sleep(1500 * time.Millisecond)
 	if s := b.measure(); s.intervals != base.intervals {

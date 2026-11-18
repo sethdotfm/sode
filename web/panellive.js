@@ -1,4 +1,4 @@
-// Keeps an open panel current: polls the panel's rev and Default artwork (revOf), shows the banner while an update waits and calls
+// Keeps an open panel current. It polls the panel's rev and Default artwork (revOf), shows the banner while an update waits and calls
 // apply(panel) when panelupdate.js says so. Polled because a browser cannot send Bearer on an event stream.
 import { el } from './core.js';
 import { createUpdate, noticeRev, snooze, canSnooze, applyNow, updateStep, applied, bannerLine, revOf } from './panelupdate.js';
@@ -6,7 +6,7 @@ import { createUpdate, noticeRev, snooze, canSnooze, applyNow, updateStep, appli
 const CHECK_MS = 5000;
 
 // get(path) reads JSON with the panel's key; state() is { staged, busy }; ui is { update, updateText, snooze, applyNow, bar }.
-// Returns a function that stops the watch.
+// Returns a function that stops the watch; its seen(panel) marks a copy as shown.
 export function watchPanel({ id, panel, get, state, apply, ui }) {
   let u = createUpdate(revOf(panel));
   let checking = false;
@@ -39,6 +39,7 @@ export function watchPanel({ id, panel, get, state, apply, ui }) {
   };
 
   let latest = null; // the changed copy fetched, applied when the rules allow
+  let floor = -Infinity; // the rev of a copy marked seen; an older one is ignored
 
   function tick() {
     if (!latest) return;
@@ -57,8 +58,10 @@ export function watchPanel({ id, panel, get, state, apply, ui }) {
     checking = true;
     try {
       const p = await get(`api/v1/panels/${id}`);
-      u = noticeRev(u, revOf(p), Date.now());
-      latest = u.since ? p : null;
+      if (!(p?.rev < floor)) {
+        u = noticeRev(u, revOf(p), Date.now());
+        latest = u.since ? p : null;
+      }
     } catch {
       // A failed read leaves the panel as it is; the next check tries again.
     }
@@ -75,5 +78,16 @@ export function watchPanel({ id, panel, get, state, apply, ui }) {
     tick();
   });
   const timers = [setInterval(check, CHECK_MS), setInterval(tick, 1000)];
-  return () => timers.forEach(clearInterval);
+  const stop = () => timers.forEach(clearInterval);
+  // The editor's live test saved this copy itself and already shows it, so no banner asks for it. A read that left
+  // before the save can still bring the older rev, which is not news either.
+  stop.seen = (p) => {
+    const rev = revOf(p);
+    if (rev === undefined) return;
+    u = applied(u, rev);
+    floor = p.rev;
+    latest = null;
+    show(updateStep(u, state(), Date.now()));
+  };
+  return stop;
 }

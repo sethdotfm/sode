@@ -24,7 +24,7 @@ func init() {
 // undoScan bounds the History walk in entries: each is a read from the file.
 const undoScan = 1000
 
-// undoInterleave is how many entries of other takes a Group's own may be spread across.
+// undoInterleave is how many entries of other takes a Group's own can be spread across.
 const undoInterleave = 16
 
 type undoRoute struct {
@@ -34,7 +34,7 @@ type undoRoute struct {
 }
 
 // undoTarget is the take to undo, as the caller sees its entries, and the plan that restores it. ID is the
-// take's newest History entry, which GET hands out and POST may send back to undo only that take.
+// take's newest History entry, which GET hands out and POST can send back to undo only that take.
 type undoTarget struct {
 	ID      int
 	Entries []Entry
@@ -75,8 +75,8 @@ func (a *App) panelUndoTarget(cl *apiCtx, panelID string) *undoTarget {
 				skip = e.Group
 				rest := page[i+1:]
 				if n := 1 + groupCount(rest, e.Group); n < e.GroupN {
-					// A take running at the same time interleaved its entries, and Page keeps only an unbroken
-					// Group whole, so the rest is on a later page: read it from here, with room for the other take's.
+					// A take that ran at the same time interleaved its entries. Page keeps only an unbroken Group
+					// whole, so the rest is on a later page. This reads it from here, with room for the other take's.
 					if rest, err = a.hist.Page(e.ID, 2*e.GroupN+undoInterleave); err != nil {
 						log.Printf("panel undo: %v", err)
 					}

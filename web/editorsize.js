@@ -1,4 +1,4 @@
-// Rows and Columns steppers of the Panel tab. ed.setSize clamps and says what no longer fits (paneleditor.js).
+// Columns and Rows steppers of the Panel tab. ed.setSize clamps and says what no longer fits (paneleditor.js).
 import { el, icon } from './core.js';
 import { btn } from './formbits.js';
 import { ROWS_MAX, COLS_MAX } from './gridmodel.js';
@@ -35,5 +35,5 @@ function stepper(ed, which, text, max) {
 export function createSizeFields(ed) {
   const rows = stepper(ed, 'rows', 'rows', ROWS_MAX);
   const cols = stepper(ed, 'cols', 'columns', COLS_MAX);
-  return { node: el('div', 'sode-side__steps', rows.node, cols.node), update: () => (rows.update(), cols.update()) };
+  return { node: el('div', 'sode-side__steps', cols.node, rows.node), update: () => (cols.update(), rows.update()) };
 }

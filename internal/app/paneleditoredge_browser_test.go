@@ -11,7 +11,7 @@ import (
 )
 
 // A paste past the edge of the grid asks Clip, Wrap or Cancel. Escape and Cancel change nothing and give focus
-// back to the grid; Clip and Wrap are one undo step each; Wrap follows the fill order picked in Find.
+// back to the grid. Clip and Wrap are one undo step each. Wrap follows the fill order picked in Find.
 func TestChromeEditorPasteEdge(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -22,7 +22,7 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Edge one","rows":4,"cols":8,"cells":[

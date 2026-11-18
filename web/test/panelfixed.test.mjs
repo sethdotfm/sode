@@ -55,7 +55,7 @@ test('a fixed destination that already has the source is left out', () => {
   assert.deepEqual(plan(st), [{ src: 5, dst: 1, levels: [1, 2] }]);
 });
 
-// Destination 3 has source 5 on Level 1 and 6 on Level 2; destination 4 has source 5 on Level 1 and nothing known on Level 2.
+// Destination 3 has source 5 on Level 1 and 6 on Level 2. Destination 4 has source 5 on Level 1 and nothing known on Level 2.
 const split = (over = {}) => env({ tally: tally({ 3: { 1: 5, 2: 6 }, 4: { 1: 5 } }), ...over });
 
 test('a panel limited to Level 1 leaves out a fixed destination that has the source on Level 1 only', () => {

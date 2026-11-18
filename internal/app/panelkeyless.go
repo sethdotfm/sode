@@ -30,7 +30,7 @@ func init() {
 // finds its row again.
 type keylessInst struct {
 	id     string // names it in an Assign
-	ref    string // the panel id or short name in the page's address, whether or not it exists
+	ref    string // the panel id or short name in the page's address, if it exists or not
 	device string // the name the page holds; "" for none
 	addr   string
 	ended  bool // the page's key was ended (key_revoked or key_expired)
@@ -212,7 +212,7 @@ func (m *panelMon) keylessLive(id string) (ref string, row keylessOut, ok bool) 
 	return "", keylessOut{}, false
 }
 
-// sendKeyless offers b to the entry's newest stream only: the streams are unauthenticated, so two that share an
+// sendKeyless offers b to the entry's newest stream only. The streams are unauthenticated, so two that share an
 // address and name are not known to be one device. nil when none holds it.
 func (m *panelMon) sendKeyless(id string, b []byte) <-chan bool {
 	m.mu.Lock()
@@ -225,7 +225,7 @@ func (m *panelMon) sendKeyless(id string, b []byte) <-chan bool {
 	return nil
 }
 
-// dropKeyless forgets an entry once its page has left for the target.
+// dropKeyless forgets an entry after its page has left for the target.
 func (m *panelMon) dropKeyless(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -236,8 +236,8 @@ func (m *panelMon) dropKeyless(id string) {
 	}
 }
 
-// apiPanelKeyless: GET ?instance=Lobby&ended=1 with no key. The answer is the same whether or not the panel exists,
-// so the route tells a stranger nothing; only a well-formed id or short name gets through.
+// apiPanelKeyless: GET ?instance=Lobby&ended=1 with no key. The answer is the same if the panel exists or not,
+// so the route tells a stranger nothing. Only a well-formed id or short name gets through.
 func (a *App) apiPanelKeyless(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	ref := r.PathValue("id")
 	if len(ref) > keylessRef || !(validPanelID(ref) || validPanelSlug(ref)) {

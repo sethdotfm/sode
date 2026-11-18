@@ -11,9 +11,9 @@ export const MODES = [
 ];
 
 export const MODE_HINT = {
-  key: 'Makes a key for this instance. The link shows once, so copy it when it appears. Anyone with the link can use the panel as this instance. To get a link again, rotate the instance.',
+  key: 'Makes a key for this instance. The link shows one time, so copy it when it appears. Anyone with the link can use the panel as this instance. To get a link again, rotate the instance.',
   setup:
-    "Makes a link that works once, for one hour. The device opens it and keeps its own key, so the link cannot be reused. This instance's old key ends now.",
+    "Makes a link that works one time, for one hour. The device opens it and keeps its own key, so the link cannot be reused. This instance's old key ends now.",
 };
 
 // The instance name is required and becomes the device name (the page's ?instance=), so it has the monitor's limits.
@@ -30,14 +30,14 @@ export function instanceCheck(text, keys, max) {
   return { name, held, error: '' };
 }
 
-// The server answers a link relative to Sode's root. Resolving against the page's base URL keeps it right at
+// The server answers a link relative to Sode's root. A resolve against the page's base URL keeps it right at
 // /panels and /panels/ and behind a path prefix, since both pages set <base href="../">.
 export const absoluteLink = (link, base) => new URL(link, base).href;
 
 // The secret in the fragment, hidden until the owner asks to see it.
 export const maskLink = (href) => href.replace(/(#(?:key|setup)=)[^&]+/, '$1••••••••');
 
-// What the make button says and whether it needs a Confirm first. Making a link for a name that holds a key or a
+// What the make button says and whether it needs a Confirm first. A new link for a name that holds a key or a
 // pending link ends that instance's, so it asks then.
 export function makeAction(mode, held) {
   if (mode === 'setup') return { label: held ? 'Replace with setup link' : 'Make setup link', confirm: !!held, verb: 'Replace the key' };
@@ -47,7 +47,7 @@ export function makeAction(mode, held) {
 export const CONFIRM_TEXT = {
   rotate: "Rotating ends this instance's key. That instance signs out and its old link stops working. Other instances are not affected.",
   setup: "A setup link replaces this instance's key. That instance signs out and its old link stops working. Other instances are not affected.",
-  revoke: 'Revoking ends this instance. It signs out and its link stops working. Other instances are not affected.',
+  revoke: 'Revoke ends this instance. It signs out and its link stops working. Other instances are not affected.',
 };
 
 export const confirmKind = (mode, which) => (which === 'revoke' ? 'revoke' : mode === 'setup' ? 'setup' : 'rotate');
@@ -61,21 +61,21 @@ function whenUntil(iso, now) {
 export function keyRow(k, now) {
   const state = k.setup ? { kind: 'idle', text: 'Setup link waiting' } : k.online ? { kind: 'ok', text: 'Online' } : { kind: 'idle', text: 'Offline' };
   const used = k.setup ? `Expires ${whenUntil(k.expires, now)}` : `Last used ${whenText(k.lastUsed, now, 'never')}`;
-  return { id: k.id, name: k.name, state, created: `Made ${whenText(k.created, now, 'just now')}`, used };
+  return { id: k.id, name: k.name, state, created: `Made ${whenText(k.created, now, 'less than a minute ago')}`, used };
 }
 
-// The Link with key tab on a panel that acts as the signed-in user: no key exists, and a link opened in another
+// The Link with key tab on a panel that acts as the signed-in user. No key exists, and a link opened in another
 // tab asks for a sign-in. Said plainly, and the key actions are not offered.
 export const SESSION_WARNING =
-  'This panel acts as the signed-in user, so it has no key. A link to it asks for a sign-in in any tab or on any device that is not already signed in to Sode.';
+  'This panel acts as the signed-in user, so it has no key. A link to it asks for a sign-in in any tab or device not already signed in to Sode.';
 export const SESSION_NEXT =
-  'For a link that opens without a sign-in, set Authentication mode to API, Both or Public on the Access tab. That saves the panel at once.';
+  'For a link that opens without a sign-in, set Authentication mode to API, Both or Public on the Access tab. That saves the panel immediately.';
 
 // A Public panel has a client, but its plain link already opens it, so keyed links add nothing.
 export const keyTabMuted = (panel) => !hasClient(panel) || isPublic(panel);
 
 export const PUBLIC_KEY_NOTE = 'This is a Public panel, so it needs no key. Anyone with the link below can use it, with no sign-in.';
-export const PUBLIC_NEXT = 'To limit who may open it, set Authentication mode to User, Both or API on the Access tab.';
+export const PUBLIC_NEXT = 'To limit who can open it, set Authentication mode to User, Both or API on the Access tab.';
 
 // The Share modal's first tab: the one that fits how the panel acts.
 export const firstShareTab = (panel) => (keyTabMuted(panel) ? 'people' : 'key');
@@ -110,8 +110,8 @@ function withoutPart(hash, name) {
 // The hash without its setup part, so a reload or a copied address no longer carries the spent token.
 export const withoutSetup = (hash) => withoutPart(hash, 'setup');
 
-// The hash without its link key: one the browser stored, or a stale one on a Public panel, which then runs on its own
-// short-lived key. The address, history and a copied URL hold no key.
+// The hash without its link key: one the browser stored, or a stale one on a Public panel. That panel then runs on its
+// own short-lived key. The address, history and a copied URL hold no key.
 export const withoutKey = (hash) => withoutPart(hash, 'key');
 
 export function setupFailText(status, message) {
@@ -121,16 +121,16 @@ export function setupFailText(status, message) {
 }
 
 // What a polling failure says. A key the server no longer knows ends the page: only a new link helps. Without a
-// key the page runs on a session, which sessionkey.js renews; an ended answer that still reaches the page means
+// key the page runs on a session, which sessionkey.js renews. An ended answer that still reaches the page means
 // the renewal could not help. A 429 is not lost contact: the fetcher already waits out Retry-After.
-// forget: only a 401 ends a stored key. A refused network leaves it, since the key still works once the list is fixed.
+// forget: only a 401 ends a stored key. A refused network leaves it, since the key still works after the list is fixed.
 export function pollFail(status, code, message, hadKey) {
   if (status === 401 && hadKey) return { stop: true, forget: true, text: "This link's key no longer works. It was rotated or revoked, so ask for a new link." };
   if (status === 401 && (code === 'key_revoked' || code === 'key_expired'))
     return { stop: true, forget: true, text: "This page's sign-in key was ended. Reload the page to sign in again." };
-  if (status === 403 && code === 'network_not_allowed') return { stop: true, forget: false, text: message || 'This panel may not be used from this network.' };
+  if (status === 403 && code === 'network_not_allowed') return { stop: true, forget: false, text: message || 'This panel is not allowed on this network.' };
   if (status === 429) return { stop: false, text: 'Sode asked this page to wait before it tries again.' };
-  return { stop: false, text: 'Lost contact with Sode. Retrying.' };
+  return { stop: false, text: 'Lost contact with Sode. The page will try again.' };
 }
 
 const codeOf = (res) =>
@@ -141,8 +141,8 @@ const codeOf = (res) =>
     .catch(() => undefined);
 
 // A Public panel's page key lives 15 minutes (internal/app/panelpublic.go). send(path, init, key) makes the call and
-// ask() gets a new key, '' when the panel is no longer Public. A call refused as ended asks once and goes again;
-// calls refused together share that one ask, and a call that went out with an old key just uses the new one.
+// ask() gets a new key, '' when the panel is no longer Public. A call refused as ended asks one time and goes again.
+// Calls refused together share that one ask. A call that went out with an old key uses the new one.
 export function publicFetch(first, { ask, send }) {
   let key = first;
   let asking = null;

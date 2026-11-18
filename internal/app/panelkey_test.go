@@ -149,8 +149,8 @@ func TestPanelKeyNeverInALogLineAndNotAQueryCredential(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	secret, _ := mintKey(t, a, cy, id)
 	apiSend(a, "GET", "/api/v1/tally", secret, "")
-	// A key in the query string is not a credential, so a link built that way would not work
-	// and its request line would be the leak the fragment avoids.
+	// A key in the query string is not a credential, so a link built that way would not work.
+	// Its request line would also be the leak the fragment avoids.
 	wantErr(t, apiDo(a, "GET", "/api/v1/tally?key="+secret, "", nil), 401, "key_required")
 	if strings.Contains(buf.String(), secret) {
 		t.Fatalf("log has the key: %s", buf.String())

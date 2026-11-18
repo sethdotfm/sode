@@ -1,0 +1,1 @@
+- Scroll bars have two sizes. The big bar stays the default. A thinner little bar is on the History filter lists, the filter sets row and the key lists. The bar no longer covers the filters.

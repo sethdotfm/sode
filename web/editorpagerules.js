@@ -2,6 +2,7 @@
 // open. Pure; editorpagebar.js draws them and paneleditor.js holds the list. None of these is an undo step except
 // Copy to (docs/panels-design.md). Pages are named by id, which never changes, so Go to Page cells keep their target.
 import { PAGE_MAX, PAGE_NAME_MAX, newPageId } from './panelpages.js';
+import { moveItem } from './orderedlistrules.js';
 
 // Pages open side by side at most.
 export const OPEN_MAX = 4;
@@ -9,13 +10,7 @@ export const OPEN_MAX = 4;
 export const addPage = (pages, id = newPageId()) => (pages.length >= PAGE_MAX ? pages : [...pages, { id, enabled: true, cells: [] }]);
 
 // to out of range (Move up on the first Page, Move down on the last) changes nothing.
-export function movePage(pages, from, to) {
-  if (to < 0 || to >= pages.length || from === to) return pages;
-  const out = [...pages];
-  const [p] = out.splice(from, 1);
-  out.splice(to, 0, p);
-  return out;
-}
+export const movePage = moveItem;
 
 export function renamePage(pages, i, text) {
   const name = String(text ?? '')

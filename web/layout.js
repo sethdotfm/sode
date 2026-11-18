@@ -10,8 +10,13 @@ const listeners = [];
 const layoutPref = () => pref('layout');
 
 export const layout = () => root.dataset.layout;
+// Returns a function that removes fn.
 export const onLayout = (fn) => {
   listeners.push(fn);
+  return () => {
+    const i = listeners.indexOf(fn);
+    if (i >= 0) listeners.splice(i, 1);
+  };
 };
 
 function applyLayout() {

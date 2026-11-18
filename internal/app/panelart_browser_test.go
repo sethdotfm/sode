@@ -11,10 +11,10 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A cell's artwork is one DOM node for the life of the grid: the poll and the one-second redraw must not detach and
-// re-attach it (a re-attached <use> re-resolves its sprite and blinks), nor touch an idle cell's children at all.
+// A cell's artwork is one DOM node for the life of the grid. The poll and the one-second redraw must not detach and
+// re-attach it (a re-attached <use> re-resolves its sprite and blinks). They must not touch an idle cell's children.
 // Side by side, Icon A takes 40% of the row and Icon B 60%, and hidden text shows the artwork at full strength.
-// badgeIn(row) is true once the row's image fills its content box with contain and Icon B is a small badge in its top
+// badgeIn(row) is true when the row's image fills its content box with contain and Icon B is a small badge in its top
 // end corner. The panel page and editor checks share it.
 const badgeIn = `window.badgeIn = (row) => {
 	const r = row.getBoundingClientRect(), p = parseFloat(getComputedStyle(row).paddingTop);
@@ -36,7 +36,7 @@ func TestChromePanelArtHolds(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Art","rows":2,"cols":4,"cells":[
@@ -78,7 +78,7 @@ func TestChromePanelArtHolds(t *testing.T) {
 	// change, not a redraw.
 	b.waitFor("cells named from the router", `document.querySelectorAll('.sode-panel__cell--source')[1].querySelector('.sode-panel__text')?.textContent === 'Zoom 1'`)
 
-	// Watch the first cell and its artwork once the names are in, across several poll (2 s) and redraw (1 s) ticks.
+	// Watch the first cell and its artwork after the names are in, across several poll (2 s) and redraw (1 s) ticks.
 	b.eval(`window.cell = document.querySelectorAll('.sode-panel__cell--source')[0];
 		window.art = cell.querySelector('.sode-panel__art');
 		window.seen = [];

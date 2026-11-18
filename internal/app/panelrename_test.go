@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// REST and stream seam for renaming an instance from the panels page: the rename line goes down the instance's
+// REST and stream seam for renaming an instance from the panels page. The rename line goes down the instance's
 // held stream, its key is renamed, and the page reopens under the new name.
 
 func renameBody(instance, name, pin string) string {

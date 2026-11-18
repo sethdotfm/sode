@@ -22,10 +22,6 @@
   gap: var(--pb-space-2);
   position: relative;
 }
-.pb-input.sode__input {
-  font-size: var(--pb-text-xl);
-  height: calc(var(--pb-control-h-lg) * 1.6);
-}
 .sode__entry {
   display: flex;
   gap: var(--pb-space-2);
@@ -77,19 +73,6 @@
 .sode__chips[hidden] {
   display: none;
 }
-/* The colour edge is a background strip, so the border and focus ring run unbroken. */
-.sode__box--src .sode__input,
-.sode__box--dst .sode__input {
-  background-repeat: no-repeat;
-  background-size: var(--sode-side-w) 100%;
-  padding-left: calc(var(--pb-space-3) + var(--sode-side-w) - var(--pb-border-w));
-}
-.sode__box--src .sode__input {
-  background-image: linear-gradient(var(--pb-source), var(--pb-source));
-}
-.sode__box--dst .sode__input {
-  background-image: linear-gradient(var(--pb-dest), var(--pb-dest));
-}
 /* The count sits under what scrolls, so a very long list still shows it. */
 .sode__menu-pop {
   left: 0;
@@ -132,12 +115,29 @@
 .sode__menu-count[hidden] {
   display: none;
 }
+/* Room for the Show all button: its xs line, its padding and the gap above it. */
+.sode__box {
+  --sode-all-h: calc(var(--pb-text-xs) * 1.5 + var(--pb-space-1) * 3);
+}
 .sode__menu-all {
   display: flex;
   padding-top: var(--pb-space-1);
 }
 .sode__menu-all[hidden] {
   display: none;
+}
+/* Destination's hangs off the input row, so its place never depends on the chips. The chips start below its row. */
+.sode__entry > .sode__menu-all {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: var(--pb-z-dropdown, 10);
+}
+/* Chips add nothing to the box's width (width 0, then fill), so the button's right edge stays put. */
+.sode__entry ~ .sode__chips:not([hidden]) {
+  min-width: 100%;
+  width: 0;
+  margin-top: calc(var(--sode-all-h) - var(--pb-space-2));
 }
 .sode__menu-all .pb-btn {
   color: var(--pb-text-muted);
@@ -228,7 +228,6 @@
 .sode__down-arrow--up::before {
   content: "↑";
 }
-/* Visible scrollbar (styled, so macOS doesn't overlay and hide it). */
 .sode__scroll {
   display: flex;
   flex-direction: column;
@@ -237,29 +236,16 @@
   overflow-y: scroll;
   padding-right: var(--pb-space-2);
 }
-.sode__scroll::-webkit-scrollbar,
-.sode__sets-run::-webkit-scrollbar,
-.sode__bar::-webkit-scrollbar,
-.sode__box--levels .sode__levels::-webkit-scrollbar {
+/* The levels bar keeps a styled native bar; the other scrollers here get big ones (bigscroll.js). */
+.sode__bar::-webkit-scrollbar {
   height: var(--pb-space-2);
   width: var(--pb-space-2);
 }
-.sode__scroll::-webkit-scrollbar-track,
-.sode__menu::-webkit-scrollbar-track,
-.sode__sets-run::-webkit-scrollbar-track,
-.sode__bar::-webkit-scrollbar-track,
-.sode__box--levels .sode__levels::-webkit-scrollbar-track {
+.sode__bar::-webkit-scrollbar-track {
   background: var(--pb-edge-soft);
 }
-.sode__scroll::-webkit-scrollbar-thumb,
-.sode__menu::-webkit-scrollbar-thumb,
-.sode__sets-run::-webkit-scrollbar-thumb,
-.sode__bar::-webkit-scrollbar-thumb,
-.sode__box--levels .sode__levels::-webkit-scrollbar-thumb {
+.sode__bar::-webkit-scrollbar-thumb {
   background: var(--pb-text-muted);
-}
-.sode__menu::-webkit-scrollbar {
-  width: calc(var(--pb-space-2) * 2);
 }
 .sode__feed {
   display: flex;

@@ -45,7 +45,7 @@ func chromePath() string {
 	return ""
 }
 
-// watchChrome kills Chrome once this test binary is gone. t.Cleanup never runs after a -timeout panic or
+// watchChrome kills Chrome when this test binary is gone. t.Cleanup never runs after a -timeout panic or
 // a kill, and macOS has no parent-death signal. The returned func ends the watch; call it after Chrome
 // has exited so a reused pid is never killed.
 func watchChrome(pid int) (stop func()) {
@@ -95,7 +95,7 @@ func startBrowser(t *testing.T) *tab {
 	var ctx context.Context
 	var cancel context.CancelFunc
 	for try := 0; try < 3 && port == ""; try++ {
-		// Chrome's helper processes can still write to the profile after the main one exits, which makes
+		// Chrome's helper processes can still write to the profile after the main one exits. That makes
 		// t.TempDir's single RemoveAll fail with "directory not empty" on a slow runner.
 		dir := settledTempDir(t)
 		ctx, cancel = context.WithCancel(context.Background())
@@ -214,8 +214,7 @@ func (b *tab) event(method string, params json.RawMessage) {
 		}
 		msg = "console.error: " + strings.Join(parts, " ")
 	case "Log.entryAdded":
-		// The pages link Google Fonts, which a CI box without internet cannot load.
-		if p.Entry.Level != "error" || strings.Contains(p.Entry.URL, "fonts.g") {
+		if p.Entry.Level != "error" {
 			return
 		}
 		msg = "log: " + p.Entry.Text + " " + p.Entry.URL
@@ -228,6 +227,16 @@ func (b *tab) event(method string, params json.RawMessage) {
 }
 
 func (b *tab) call(method string, params any) json.RawMessage {
+	b.t.Helper()
+	r, err := b.send(method, params)
+	if err != "" {
+		b.t.Fatalf("%s: %s", method, err)
+	}
+	return r
+}
+
+// send reports a CDP error as a string instead of failing the test.
+func (b *tab) send(method string, params any) (json.RawMessage, string) {
 	b.t.Helper()
 	b.mu.Lock()
 	b.next++
@@ -244,13 +253,13 @@ func (b *tab) call(method string, params any) json.RawMessage {
 	select {
 	case r := <-ch:
 		if r.Error != nil {
-			b.t.Fatalf("%s: %s", method, r.Error.Message)
+			return nil, r.Error.Message
 		}
-		return r.Result
+		return r.Result, ""
 	case <-ctx.Done():
 		b.t.Fatalf("%s: no answer", method)
 	}
-	return nil
+	return nil, ""
 }
 
 func (b *tab) open(url string) {
@@ -268,10 +277,14 @@ func (b *tab) eval(expr string) any {
 	return v
 }
 
-// evalTry reports a page exception as a string instead of failing the test.
+// evalTry reports a page exception or a CDP error as a string instead of failing the test. Page.navigate answers
+// before the old document goes, so an evaluate right after it can get "Inspected target navigated or closed".
 func (b *tab) evalTry(expr string) (any, string) {
 	b.t.Helper()
-	raw := b.call("Runtime.evaluate", map[string]any{"expression": expr, "returnByValue": true, "awaitPromise": true})
+	raw, err := b.send("Runtime.evaluate", map[string]any{"expression": expr, "returnByValue": true, "awaitPromise": true})
+	if err != "" {
+		return nil, err
+	}
 	var r struct {
 		Result           struct{ Value any }
 		ExceptionDetails *struct{ Text string }
@@ -289,7 +302,7 @@ func (b *tab) waitFor(what, expr string) {
 	b.t.Helper()
 	var last string
 	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
-		// A poll that lands mid-reload throws because the page has no DOM yet; keep polling.
+		// A poll that lands mid-navigation throws or gets a CDP error; keep polling.
 		v, exc := b.evalTry(expr)
 		if exc != "" {
 			last = exc
@@ -334,4 +347,20 @@ func (b *tab) shot(name string) {
 	_ = json.Unmarshal(b.call("Page.captureScreenshot", map[string]any{"format": "png"}), &r)
 	_ = os.MkdirAll(dir, 0o755)
 	_ = os.WriteFile(filepath.Join(dir, strings.ReplaceAll(b.t.Name(), "/", "_")+"-"+name+".png"), r.Data, 0o644)
+}
+
+// metrics reads CDP Performance.getMetrics by name (call Performance.enable first). Durations are in seconds.
+func (b *tab) metrics() map[string]float64 {
+	var r struct {
+		Metrics []struct {
+			Name  string
+			Value float64
+		}
+	}
+	_ = json.Unmarshal(b.call("Performance.getMetrics", nil), &r)
+	m := map[string]float64{}
+	for _, x := range r.Metrics {
+		m[x.Name] = x.Value
+	}
+	return m
 }

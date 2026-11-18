@@ -1,7 +1,7 @@
 // The one place that knows scopes, their order and labels. Pure, no imports.
-//   global: everyone's, in the server config (settings PIN to change)
-//   user:   the logged-in user's profile
-//   local:  this browser's localStorage
+//   global: everyone's, in the server config (Advanced Settings PIN to change).
+//   user:   the signed-in user's profile.
+//   local:  this browser's localStorage.
 // Filter sets also have 'all', the built-in Default.
 
 export const SCOPES = [

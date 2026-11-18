@@ -140,7 +140,7 @@ test('conflicts ignore case; renames are unique and at most 32 runes', () => {
   assert.equal(defaultChoice(null), 'import');
   assert.match(renameProblem('', []), /required/);
   assert.match(renameProblem('a'.repeat(33), []), /at most 32/);
-  assert.match(renameProblem('Show', ['SHOW']), /taken/);
+  assert.match(renameProblem('Show', ['SHOW']), /already in use/);
   assert.equal(renameProblem('Show 2', ['Show']), '');
 });
 

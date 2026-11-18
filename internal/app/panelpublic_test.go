@@ -13,7 +13,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST seam for a Public panel: anyone with its URL gets a short-lived key for the panel's own
+// REST seam for a Public panel. Anyone with its URL gets a short-lived key for the panel's own
 // client, asked for with the panel id alone.
 
 const publicPanel = `{"name":"Lobby","acts":"public"`
@@ -32,8 +32,8 @@ func TestPublicNeedsATrustedUserWithinTheirRights(t *testing.T) {
 	}
 }
 
-// An administrator may widen an API panel's client past Cy's Rights; Cy may still save it as
-// API, but opening it to anyone checks Cy's Rights again.
+// An administrator can widen an API panel's client past Cy's Rights. Cy can still save it as
+// API, but a change that opens it to anyone checks Cy's Rights again.
 func TestSwitchingToPublicChecksTheCallerAgain(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -128,8 +128,8 @@ func TestAskingANonPublicPanelIsNotCountedAsAFailedKey(t *testing.T) {
 	}
 }
 
-// Asks are capped per address whatever the id, and an unknown id, a panel that is not Public and a
-// Public panel asked from outside its networks get the same answers, so no run of asks says which
+// Asks are capped per address whatever the id. An unknown id, a panel that is not Public and a
+// Public panel asked from outside its networks get the same answers. So no run of asks says which
 // ids exist.
 func TestAskingSaysNothingAboutWhichIdsExist(t *testing.T) {
 	seq := func(mk func(a *App, cy string) string) []string {
@@ -182,8 +182,8 @@ func TestAskingIsCappedWithTheRateLimitOff(t *testing.T) {
 	}
 }
 
-// Past the cap an address loses its own oldest key first, so one caller looping the route cannot
-// push every other page's key out; the key that ends takes its streams with it.
+// Past the cap an address loses its own oldest key first. So one caller that loops the route cannot
+// push every other page's key out. The key that ends takes its streams with it.
 func TestPastTheCapAnAddressLosesItsOwnKeyFirst(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -235,7 +235,7 @@ func TestDeletingAPublicPanelEndsItsKeys(t *testing.T) {
 	wantErr(t, apiSend(a, "GET", "/api/v1/panels/"+id, key, ""), 401, "key_revoked")
 }
 
-// A key this Sode no longer holds (a restart forgets them) must read as ended, so a wall of
+// A key this Sode no longer holds (a restart forgets them) must read as ended. Then a wall of
 // tablets behind one address asks again instead of locking itself out.
 func TestAForgottenPublicKeyReadsAsEnded(t *testing.T) {
 	a, _ := clientApp(t)
@@ -245,8 +245,8 @@ func TestAForgottenPublicKeyReadsAsEnded(t *testing.T) {
 	}
 }
 
-// Once the start is longer ago than a key lives, a key of that shape this Sode never handed out is
-// a guess and counts toward the failed-key throttle. It still reads as ended, so a page that slept
+// When the start is longer ago than a key lives, a key of that shape that this Sode never handed out
+// is a guess. It counts toward the failed-key throttle. It still reads as ended, so a page that slept
 // through a restart asks again.
 func TestAnUnknownPublicShapedKeyCountsOnceNoKeyCanPredateTheStart(t *testing.T) {
 	a, _ := clientApp(t)
@@ -258,8 +258,8 @@ func TestAnUnknownPublicShapedKeyCountsOnceNoKeyCanPredateTheStart(t *testing.T)
 	wantErr(t, apiSend(a, "GET", "/api/v1/tally", cy, ""), 429, "rate_limited")
 }
 
-// A key Sode handed out and then dropped (expired and swept, pushed out past the cap, or ended when
-// the panel left Public) still reads as ended and is never counted.
+// Sode can hand out a key and then drop it (expired and swept, pushed out past the cap, or ended
+// when the panel left Public). That key still reads as ended and is never counted.
 func TestADroppedPublicKeyIsNeverCounted(t *testing.T) {
 	a, _ := clientApp(t)
 	a.started = time.Now().Add(-publicKeyTTL - time.Minute)
@@ -333,7 +333,7 @@ func TestPublicKeyOnlyFromTheClientsNetworks(t *testing.T) {
 	}
 }
 
-// Every page holds a key named Public, so an unnamed page is told apart by its address, as the
+// Every page holds a key named Public. So an unnamed page is told apart by its address, as the
 // monitor does, not by the key's name.
 func TestAnUnnamedPublicPageIsLoggedByItsAddress(t *testing.T) {
 	a, f := clientApp(t)

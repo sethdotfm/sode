@@ -10,8 +10,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Lock bar floats over the panel page on the desktop layout: with it present the page is no taller, the grid,
-// the Panels link and the status line keep their place, and the bar covers no cell or header control.
+// The Lock bar floats over the panel page on the desktop layout. With it present the page is no taller, and the grid,
+// the Panels link and the status line keep their place. The bar covers no cell or header control.
 func TestChromePanelLockBarFloats(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -21,7 +21,7 @@ func TestChromePanelLockBarFloats(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 	t.Cleanup(srv.CloseClientConnections)
 
 	ana := userKey(t, a, "Ana")
@@ -56,8 +56,8 @@ func TestChromePanelLockBarFloats(t *testing.T) {
 	})()`)
 	b.shot("lockbar")
 
-	// A real sign-out and sign-in leave the header row where it was. Signing out ends the page's session key, so the
-	// page's own note may push the grid down; that is the page, not the bar.
+	// A real sign-out and sign-in leave the header row where it was. Signing out ends the page's session key, so it is
+	// possible that the page's own note pushes the grid down. That is the page, not the bar.
 	const head = `(() => { const x = document.querySelector('.sode-panels__head').getBoundingClientRect(); return [x.top, x.height].map(Math.round).join(','); })()`
 	headIn := b.eval(head).(string)
 	b.eval(`import('./core.js').then((m) => m.emit('logout')), 0`)

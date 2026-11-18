@@ -1,0 +1,1 @@
+- A Grid panel's `sources` and `destinations` can be an ordered list of router numbers, or `all` with `hide` to leave items out. `items` holds a pin and artwork for each router number. Pinned items show first on the grid. A pin never stops an `all` edge from following the router. An edge pins any number of items. The API refuses a router number given two times.

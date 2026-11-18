@@ -1,5 +1,5 @@
 // The Push modal on the panels page: push a panel's saved layout to other panels, keep and push
-// checkpoint sets, and restore a checkpoint. The server decides who may push to what and keeps a
+// checkpoint sets, and restore a checkpoint. The server decides who can push to what and keeps a
 // checkpoint of every target first. Calls: POST /panels/{id}/push, /panel-sets, /panels/{id}/checkpoints.
 import { el, icon, on } from './core.js';
 import { check, opt } from './formbits.js';
@@ -60,7 +60,7 @@ export function openPush(panel, ctx) {
     el(
       'p',
       'sode__hint',
-      `Copies the saved layout of ${panel.name} to the panels you tick. Each keeps its own name, id and sharing, and a checkpoint of it is kept first. Open panels update like a saved edit.`,
+      `Copies the saved layout of ${panel.name} to the panels you tick. Each keeps its own name, id and sharing. Sode keeps a checkpoint of each first. Open panels update like a saved edit.`,
     ),
     targets,
     el('div', 'sode-ov__acts', pushBtn),
@@ -108,7 +108,7 @@ export function openPush(panel, ctx) {
   nameIn.placeholder = 'Name of the set';
   nameIn.autocomplete = 'off';
   const scopeSel = el('select', 'pb-select');
-  scopeSel.setAttribute('aria-label', 'Who may use the set');
+  scopeSel.setAttribute('aria-label', 'Who can use the set');
   scopeSel.append(opt('me', 'Me'), ...(ctx.trusted ? [opt('everyone', 'Everyone')] : []));
   const incl = check(`Include ${panel.name}`, { checked: true });
   const saveSet = button('Save as a set', 'copy-plus', 'pb-btn--outline');
@@ -149,7 +149,7 @@ export function openPush(panel, ctx) {
   const restoreTab = el(
     'div',
     null,
-    el('p', 'sode__hint', 'Each Push and restore keeps what it replaced, up to 10 per panel. Restoring puts a layout back and keeps the one it replaces.'),
+    el('p', 'sode__hint', 'Each Push and restore keeps what it replaced, up to 10 per panel. A restore puts a layout back and keeps the one it replaces.'),
     el('div', 'sode-ov__acts', el('span', 'pb-select-wrap', restoreSel)),
     cpList,
   );

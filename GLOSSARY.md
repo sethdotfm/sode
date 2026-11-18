@@ -1,6 +1,6 @@
 # Sode
 
-Sode is a keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It exists to make patching about 1000 times faster and simpler for the people doing it. Today it drives one router. Multiple routers and tie lines are plausible later, after the core product is excellent.
+Sode is a keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It exists to make patching about 1000 times faster and simpler for the people who do it. Today it drives one router. Multiple routers and tie lines are plausible later, after the core product is excellent.
 
 ## Language
 
@@ -19,20 +19,29 @@ One of the parallel signal types (such as video or audio) that a source can be c
 _Avoid_: wire level, layer
 
 **Router name**:
-The name the router gives a source or destination. Sode cannot change it, and re-reads names from the router on a timer. Keep it apart from a user's name, a preset's name and a filter set's name.
+The name the router gives a source or destination. Sode cannot change it, and re-reads names from the router on a timer. Keep it apart from a user's name, a preset's name, a filter set's name and the router title.
 _Avoid_: label, refresh (for the re-read)
+
+**Router title**:
+The name a person gives a router in Sode, such as "Studio Ultrix". It is the router's own name, not the name of one of its sources or destinations.
+
+**Router prefix**:
+The one letter, A to Z, that names a router when you type or read a source or destination. B.69 is number 69 on router B. Each router on a server has its own. Sode hides it while there is only one router.
+
+**Router UID**:
+The hidden identity Sode gives a router when it is added. It never changes, never shows in the UI, and is what stored items and export files use to say which router they mean.
 
 **Route**:
 One source connected to one destination on a set of levels. A take sends one or more routes.
 
 **Protected**:
-Describes a destination that the router will not change because something has protected it. Sode refuses a plan that includes a protected destination before sending anything.
+Describes a destination that the router will not change because something has protected it. Sode refuses a plan that includes a protected destination before it sends anything.
 _Avoid_: protect (as a noun), locked
 
 ### Actions
 
 **Command**:
-Anything a person or an API client fires that Sode acts on, such as a take, an undo, a retry, a router name re-read, clearing History or saving settings. Every command is logged.
+Anything that a person or an API client fires and that Sode acts on. Examples are a take, an undo, a retry, a router name re-read, clearing History or saving settings. Sode logs every command.
 
 **Confirm**:
 The deliberate step that turns a plan into a take. In a browser it is the churning letter key and its short lockout. Over the API it is the take request itself, which the API client is responsible for guarding. No take happens without one.
@@ -42,11 +51,11 @@ A kind of command that executes a change on the router hardware by sending one o
 _Avoid_: batch, using "take" for any other command, a plan or saved entry, or as an ordinary verb meaning "accept" or "interpret literally"
 
 **Plan**:
-What Sode intends to send but has not yet sent. A plan becomes a take when a person confirms it. Undo, Redo and Retry are plans: each one prepares a plan that does nothing until confirmed.
+What Sode intends to send but has not yet sent. A plan becomes a take when a person confirms it. Undo, Redo and Retry are plans: each one prepares a plan that does nothing until a person confirms it.
 _Avoid_: pending take
 
 **Preset**:
-A saved plan that can be fired in one confirm, pinned and shared. It is Sode's own feature.
+A saved plan that can be fired in one confirm and pinned. It is Sode's own feature.
 _Avoid_: salvo
 
 **Salvo**:
@@ -65,8 +74,11 @@ _Avoid_: batch, folder
 **Entry**:
 One row in History: a route from a take, or an External.
 
+**Stacked row**:
+One row in History for several changes to one destination on the same levels, each within a set time of the one before. The time is 30 seconds unless This browser says otherwise. The changes can come from any browser, panel or router panel. The row shows the source before the first change and the source after the last. Open it to see each change.
+
 **Before**:
-What the router had on a destination just before a take. Undo restores it.
+What the router had on a destination immediately before a take. Undo restores it.
 
 **Result**:
 What the router did with one destination in a take. It connected the source, it already had it (Already), or it did not confirm (Failed). A Result can arrive Late.
@@ -78,7 +90,7 @@ A Result where the router already had that source on that destination, so nothin
 A Result where the router did not confirm the change, or refused it. Retry prepares a plan for the Failed destinations.
 
 **Late**:
-A Result that the router confirmed after Sode had stopped waiting. Sode amends the Entry when it arrives.
+A Result that the router confirmed after Sode had stopped waiting. Sode amends the Entry when the Result arrives.
 
 **Filter**:
 One rule on Source or Destination that limits which entries History shows.
@@ -97,7 +109,7 @@ A change on the router that Sode did not make, such as one from a hardware panel
 _Avoid_: external change, panel change, outside change
 
 **Found**:
-A kind of External the router made without announcing it, noticed by Sode only later.
+A kind of External that the router made without an announcement, and that Sode noticed only later.
 
 **External follow**:
 An External on a destination that probably followed another destination's change, such as a multiviewer PiP following a DSM. Sode cannot tell a follow from other automatic behavior, so this is always a suspicion.
@@ -114,16 +126,16 @@ Sign in is how a user identifies themself. Sign out ends that session. Whether a
 _Avoid_: log in, log out, unlock (for a user's session)
 
 **Sign-in mode**:
-How a user signs in. PIN only is the default, where the PIN alone says who is signing in, so every PIN is unique. Username and PIN is an optional mode for deployments that want it, where the username is separate from the name History shows.
+How a user signs in. PIN only is the default, where the PIN alone says who signs in, so every PIN is unique. Username and PIN is an optional mode for deployments that want it, where the username is separate from the name History shows.
 
 **API client**:
 A named, non-person actor that uses Sode's API with an API key, such as a button panel app. Its name is what History shows in place of a user's name. Managing API clients is an advanced setting.
 
 **API key**:
-The secret an API client or a user sends over the API to prove who it is. Sode shows it once when it is created and keeps only a hash. Each key has a key name, such as "Panel 21", and History shows the actor with it, like "Seth (Panel 21)". A user's key dies with their PIN. A session token is a different thing: it belongs to a user's sign-in.
+The secret an API client or a user sends over the API to prove who it is. Sode shows it one time, when it is created, and keeps only a hash. Each key has a key name, such as "Panel 21", and History shows the actor with it, like "Seth (Panel 21)". A user's key dies with their PIN. A session token is a different thing: it belongs to a user's sign-in.
 
 **Rights**:
-What a user, API client or Guest may command: allowed sources, destinations, levels and presets, where an unset list means all. A take with any route outside the rights is refused whole before anything is sent. Rights are an advanced setting.
+What a user, API client or Guest can command: allowed sources, destinations, levels and presets, where an unset list means all. If any route in a take is outside the rights, Sode refuses the whole take before it sends anything. Rights are an advanced setting.
 
 **Visibility**:
 Set on each rights entry. Read-only, the default, shows everything and refuses commands outside the rights. Hidden also removes what is outside the rights from what that actor sees over the API. Browsers always see everything.
@@ -139,7 +151,7 @@ _Avoid_: Settings PIN, admin PIN
 A user with a flag that lets them save shared settings without the Advanced Settings PIN. It never covers advanced settings.
 
 **Lock**:
-A cover over the page that stops every key from reaching it until it is dismissed. With nobody signed in, pressing the shown letter dismisses it, which guards against mashing the keyboard and nothing more. With a user signed in, the Lock is held by the server for that session, so a reload or reconnect still shows it, and only that user's PIN resumes it. They can also sign out from it.
+A cover over the page that stops every key from reaching it until it is dismissed. With nobody signed in, pressing the shown letter dismisses it, which guards against mashing the keyboard and nothing more. With a user signed in, the server holds the Lock for that session. A reload or reconnect still shows it, and only that user's PIN resumes it. They can also sign out from it.
 _Avoid_: hand lock, soft lock, screen lock
 
 **Auto-lock**:
@@ -161,7 +173,7 @@ Someone who is not signed in. A guest sees This browser and Everyone values and 
 These terms come with the v2 auth model (ADR 0010). When v2 ships they replace the Advanced Settings PIN, the trusted flag and Sign-in mode, and the rows above change with them.
 
 **Role**:
-The one level of control each user holds: Standard, Trusted or Administrator. Rights still limit what any role may route. API clients hold no role.
+The one level of control each user holds: Standard, Trusted or Administrator. Rights still limit what any role can route. API clients hold no role.
 
 **Standard user**:
 A user whose role is Standard: patching within their Rights, their own Profile and their own panels. Always say Standard user, never bare Standard.
@@ -170,41 +182,123 @@ A user whose role is Standard: patching within their Rights, their own Profile a
 A user whose role lets them change advanced settings. There is always at least one, and every Administrator has a PIN.
 
 **User without a PIN**:
-A user who signs in by picking their name. Such a user is never Administrator, takes Guest role when it is Trusted, opens no page lock, and acts with Rights no wider than Guest Rights. They exist to keep people's preferences apart.
+A user who signs in by picking their name. Such a user is never Administrator and opens no page lock. It gets Guest role when it is Trusted, and acts with Rights no wider than Guest Rights. Users without a PIN exist to keep people's preferences apart.
 _Avoid_: PIN-less user
 
 **Critical action**:
-An advanced setting change that can't be undone or that changes who may do what, such as the router connection, a role or a destructive import. Each one asks a signed-in Administrator for their PIN again.
+An advanced setting change that cannot be undone or that changes who can do what. Examples are a change to the router connection or to a role, and a Replace import. Each one asks a signed-in Administrator for their PIN again.
 
 **PIN recheck**:
 An Administrator typing their own PIN again before a critical action. It holds for one minute on that connection.
 
 **Approval**:
-A qualified user's name and PIN, typed in someone else's browser, that lets one browser do one action that needs a higher role than its own sign-in has. The browser then goes back to its own sign-in. History names both people.
+A qualified user's name and PIN, typed in someone else's browser. It lets one browser do one action that needs a higher role than its own sign-in has. The browser then goes back to its own sign-in. History names both people.
 
 **Request approval**:
-Sending an Approval request to the browsers of signed-in Administrators, who approve or deny it there.
+Sending an Approval request to the browsers of signed-in users whose Role and Rights let them approve the action. One of them approves or denies it there.
 
 **Guest role**:
-The role a Guest acts with in a browser: Standard or Trusted, never Administrator. An API call with no key never takes it.
+The role a Guest acts with in a browser: Standard or Trusted, never Administrator. An API call with no key never gets it.
 
 **Access preset**:
-A named set of defaults for who may do what without signing in, such as page locks and the keyless API, written once by the setup wizard or from Settings. Nothing remembers which preset was applied, and every setting it writes can be changed afterwards.
+A named set of defaults for who can do what without sign-in, such as page locks and the keyless API. The setup wizard or Settings writes it one time. Nothing remembers which preset was applied, and every setting it writes can be changed afterwards.
 _Avoid_: security preset, access position
 
 **Open access** / **Standard access** / **Secured access**:
-The three Access presets, from loosest to strictest. Under Open access a Guest is Trusted. Under Standard access a Guest patches as a Standard user. Under Secured access people sign in to patch, and no panel can be Public. Write the full name, since bare Standard is the role. The preset picker may show the short names.
+The three Access presets, from loosest to strictest. Under Open access a Guest is Trusted. Under Standard access a Guest patches as a Standard user. Under Secured access people sign in to patch, and no panel can be Public. Write the full name, since bare Standard is the role. The preset picker is allowed to show the short names.
 
 **Public panels allowed**:
 The install-wide switch that lets panel owners make a panel Public. On by default.
 
+**PIN needed**:
+A user that an import made from a file with no PIN hashes. The user keeps their Role but must set a new PIN at the next sign-in. Until then the user acts as a User without a PIN, so an Administrator in this state cannot act as one.
+
+**Add import**:
+An import that adds and updates the ticked items and deletes nothing. For each item that clashes with one already here, a person picks Use new, Use current, Skip or Rename.
+
+**Replace import**:
+An import that empties each ticked category and then imports it. Only an Administrator can do it, and it is a Critical action.
+_Avoid_: reset import, merge import
+
+**Broken**:
+Describes a preset, filter set or panel that refers to something that is not there. Examples are a user, a preset, artwork, or a source, destination, level or router that is gone from the router. A router name change alone never makes an item Broken. Sode shows the word Broken beside it.
+
+**Name moved**:
+Describes a preset, filter set or panel whose stored source or destination name now sits at a different number on the router. The item still fires on its stored number. Sode shows the words Name moved beside it.
+
+**Swap**:
+To replace one source or one destination with another in every preset, filter set and panel that uses it, in one Settings save. Swap source and Swap destination are the two actions. The name keeps it apart from Replace import.
+
+**Share**:
+To let other users open or use a panel. It is about access and never makes a copy.
+
+**Send a copy**:
+To give a copy of a preset, filter set or panel to another user, who accepts or declines it in their Inbox.
+
+**Inbox**:
+The list of copies that other users sent to a user and that the user has not accepted or declined. One send is one card, however many items it holds.
+
+**Item link**:
+A link to one preset or one panel on this install, also shown as a QR code. It works only on the install that made it.
+_Avoid_: share link
+
+**Review**:
+The step that Save in Settings opens before anything is written. It shows each change with its old and new value, the Interruptions, and which changes will stay unsaved and why. Write "the review".
+
+**Step in** / **Step out**:
+Step in is a user typing their name and PIN in a browser where another person works. They then act as themself in that one tab for a short time. Step out returns the tab to the person it belongs to. A step-in also ends by itself after 5 minutes with no activity, at any Lock, or when the page closes.
+
+**Interruptions**:
+The live panels, streams, sessions and browsers that a Settings save ends or narrows. The review lists them before Save, and the record of the save keeps them, since they do not come back. The exception is a Public panel page, which comes back by itself when its panel is Public again.
+_Avoid_: What this stops
+
 ### Panels
 
 **Panel**:
-A saved grid of tappable cells that patches the router from its own page, made for a wall tablet or a phone. It has an id, a display name and an owner. A panel acts as a user, with that user's Rights; as an API client of its own, with Rights no wider than its creator's; as both, the client when the page has a key, else the user who opens it; or as a Public panel.
+A saved page that patches the router, made for a wall tablet, a phone or a desktop. It is a Buttons panel or a Grid panel, chosen when it is made. It has an id, a display name and an owner. A panel acts in one of four ways. It acts as a user, with that user's Rights. It acts as an API client of its own, with Rights no wider than its creator's. It acts as both: as the client when the page has a key, and otherwise as the user who opens it. Or it acts as a Public panel.
+
+**Buttons panel**:
+A panel made of cells on one or more Pages. It is the panel type that existed first, and a panel with no type is a Buttons panel.
+
+**Grid panel**:
+A panel that shows its sources across the top and its destinations down the side, with one crosspoint for each pair. It holds an ordered list of sources and an ordered list of destinations, each from any part of the router. It has no cells and no Pages.
+
+**Crosspoint**:
+One square of a Grid panel, where one source and one destination meet. It shows which levels of that destination now have that source. A Grid panel has crosspoints, not cells.
+
+**Pinned source** / **Pinned destination**:
+A source or destination that a Grid panel keeps at the edge of the grid while the rest scrolls. Pins are part of the panel, set in the editor.
+
+**Source bar** / **Destination bar**:
+The edges of a Grid panel that show the names. The Source bar is across the top and the Destination bar is down the side. Each bar's search box is in the band over the grid, and the corner where the bars meet shows what is pinned on both.
+
+**Picked**:
+Describes a source or destination that a person chose on a Grid panel's Source bar or Destination bar. Picking stages nothing. It tells the next crosspoint press which routes to stage.
+
+**Diagonal**:
+The routes that a Grid panel stages when a person presses a crosspoint while names are picked. It pairs the picked sources with the picked destinations in order, from that crosspoint.
+
+**Drawn line**:
+A straight line that a person drags across a Grid panel's crosspoints to stage routes, one for each destination row that it crosses.
+
+**Levels box**:
+The Level box (see Patch boxes) as a Grid panel shows it, in the band over the grid. A crosspoint press stages its routes on the levels in it.
+
+**Find** / **Filter** (Grid panel):
+The two modes of a Grid panel's search boxes. Find marks the names that match and moves to them; Filter shows only the names that match. A switch beside the boxes changes the mode. Not the same as a History Filter.
+
+**Currently**:
+The source that a destination has now, as the take confirm and the Current Source cell show it.
+
+**Follow the router**:
+An editor setting for each edge of a Grid panel. While it is on, the edge holds every source or destination the router reports, in router order. The editor then changes only its pins and artwork. Turning it off makes the edge a list.
+
+**Live Editor**:
+The editor's button and view that runs the saved panel in the editor, as its page does. Takes made there change the router. Unsaved edits are saved first.
+_Avoid_: Test it live
 
 **Public panel**:
-A panel anyone with its URL may use, with no sign-in, PIN or key in the link. It acts as its own API client, with that client's Rights, which a Trusted user sets within their own. History names the client.
+A panel that anyone with its URL can use, with no sign-in, PIN or key in the link. It acts as its own API client, with that client's Rights, which a Trusted user sets within their own. History names the client.
 _Avoid_: anonymous panel, open panel (for a Public panel; an open panel page is any panel page that is open)
 
 **Authentication mode**:
@@ -214,14 +308,14 @@ Which of those a panel uses: User (Session mode), API, Both or Public. The edito
 A physical router panel. Sode does not make these. Changes from one arrive as an External.
 
 **Instance**:
-One open page of a panel, named once in its browser (its device name) or by the link's `?instance=`. An instance with no name, on a panel with Ask for an instance name off, goes by its address. A panel is online while at least one instance is. A key, a watch and a Lost notice can each be for one instance.
+One open page of a panel, named one time in its browser (its device name) or by the link's `?instance=`. An instance with no name, on a panel with Ask for an instance name off, goes by its address. A panel is online while at least one instance is. A key, a watch and a Lost notice can each be for one instance.
 _Avoid_: screen (for an open panel page)
 
 **Ask for an instance name**:
-A panel setting, on by default, shown as "Ask users to set an instance name". Off, the panel's page never asks for a device name and shows none in its header. A link's `?instance=` and a name the browser already stored still apply, and an instance with neither goes by its address.
+A panel setting, on by default, shown as "Ask users to set an instance name". When it is off, the panel's page never asks for a device name and shows none in its header. A link's `?instance=` and a name the browser already stored still apply, and an instance with neither goes by its address.
 
 **Cell**:
-One square of a panel's grid. It has a cell kind and may be a merged cell.
+One square of a Buttons panel. It has a cell kind and can be a merged cell.
 
 **Cell kind**:
 What a cell does: Source, Destination, Preset, Take, Clear, Current Source, Panel Name, Instance Name, Page Name, Info, Go to Page, Next Page or Previous Page. A Source or Destination cell is bound to a router number and shows the Router name.
@@ -233,7 +327,7 @@ A cell that shows, under the caption "Currently", the source now on the viewed d
 A cell that shows the panel's name. It cannot be pressed. A caption is a line above the name.
 
 **Assign**:
-A trusted user sends one instance to a different panel from the panels page (Assign to). The instance's page switches at once with no prompt on the device. A panel that acts as an API client gives the instance a new key for it; a panel that acts as a user makes the device show the sign-in, where the person at the device types their own PIN. An instance that is online but has no valid key can be assigned too.
+A trusted user sends one instance to a different panel from the panels page (Assign to). The instance's page switches immediately with no prompt on the device. A panel that acts as an API client gives the instance a new key for it. A panel that acts as a user makes the device show the sign-in. There, the person at the device types their own PIN. An instance that is online but has no valid key can be assigned too.
 
 **Keyless instance**:
 A panel page, open in a browser, with no valid key. It still reports its device name, or else its address, so a trusted user can see it and Assign it.
@@ -263,7 +357,7 @@ A cell that shows another Page of the panel. It is bound to that Page itself, so
 Cells that show the Page one after or one before the current one, skipping disabled Pages. Past the last or first Page they go to the other end, unless the panel's wrap setting is off.
 
 **Fill cascade**:
-What a paste's Wrap choice does when it runs past the last square of a Page: it continues on the later enabled Pages that hold no cells, skipping Pages that have cells, and stops at the last Page without returning to the first.
+What a paste's Wrap choice does when it runs past the last square of a Page. The paste continues on the later enabled Pages that hold no cells, and skips Pages that have cells. It stops at the last Page and does not return to the first.
 
 **Page Name** (cell kind):
 A cell that shows the name, the number or both of the Page it sits on. It cannot be pressed.
@@ -272,16 +366,16 @@ A cell that shows the name, the number or both of the Page it sits on. It cannot
 A cell that combines the panel's name, its Page's number, its Page's name and the instance's name, each switched on or off. It cannot be pressed.
 
 **Armed**:
-Describes a Take cell once a Source and a Destination are selected. It lights or blinks until pressed, and pressing it is the Confirm.
+Describes a Take cell after a Source and a Destination are selected. It lights or blinks until a person presses it, and pressing it is the Confirm.
 
 **Take mode** / **Instant mode**:
-The panel setting that decides when a panel's plan is confirmed. In Take mode the armed Take cell must be pressed. In Instant mode pressing the Source is the Confirm. A panel can add a hold or a double press to guard the confirm.
+The panel setting that decides when a panel's plan is confirmed. In Take mode the armed Take cell must be pressed. In Instant mode pressing the Source is the Confirm. A panel can add a hold or a double press to guard the confirm. A Grid panel names its modes Instant, Stage + Take and Stage + Take + Confirm. Stage + Take + Confirm is Take mode with the take confirm box; Stage + Take sends on Take with no box. In Instant mode every press sends at once with no take confirm box, a Diagonal and a Drawn line too. Only Undo still asks.
 
 **Clear** (cell kind):
 Cancels the plan the panel has pending. It never changes the router.
 
 **Undo** (cell kind):
-Stages the routes that undo the newest take this instance of the panel made that nothing has undone yet, as a Preset press stages its routes; once taken, the next press steps one take further back. Takes from other instances and from the Sode page are left alone. It is greyed when there is nothing left to undo or the route to restore is outside the panel's Rights.
+Stages the routes that undo the newest take that this instance of the panel made and that nothing has undone yet. It stages them as a Preset press stages its routes. After a take sends them, the next press steps one take further back. Takes from other instances and from the Sode page are left alone. It is greyed when there is nothing left to undo or the route to restore is outside the panel's Rights.
 
 **Fixed destination**:
 A panel setting that holds a list of destinations the panel always patches to, at most 16. A panel with it set has no viewed destination to choose: a Source press stages a route to each one. An empty list turns it off.
@@ -298,14 +392,20 @@ The icon or image on a panel cell. A cell has Icon A (an icon or uploaded image)
 **Icon library**:
 The install-wide set of SVG and PNG icons that trusted users add, which any cell's Icon A can use. An SVG draws in the cell's text colour and a PNG keeps its colours. It is separate from the vendored icons and from a panel's own pictures.
 
+**Default icons**:
+The icons that come with Sode, as the Choose icon picker names them: Icon A's vendored icons and Icon B's numbers and letters. Not the same as Default artwork.
+
+**Uploaded icons**:
+The Icon library's icons, as the Choose icon picker names them, under the Default icons.
+
 **Rescan**:
 Adds the SVG and PNG files in the Icon library's drop-in directory (`icons/drop-in/`), as Sode does at start. Needs a trusted user or the Advanced Settings PIN. A file it skips stays and is reported.
 
 **Default artwork**:
-Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell showing it that sets none of its own. One shared set for everyone; setting or clearing one needs a trusted user or the Advanced Settings PIN.
+Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell that shows it and sets none of its own. One shared set for everyone; setting or clearing one needs a trusted user or the Advanced Settings PIN.
 
 **Push**:
-Copies a panel's saved config to other panels. Each target keeps its own name, id, sharing and fixed destinations, and a checkpoint of it is kept first so the Push can be put back.
+Copies a panel's saved config to other panels. Each target keeps its own name, id, sharing and fixed destinations. Sode keeps a checkpoint of each target first, so the Push can be put back.
 
 **Checkpoint set**:
 One saved layout per panel in a group, so a single Push gives each panel in the group its own layout.
@@ -319,13 +419,25 @@ The Source box, the Destination box and the Level box, where a plan is typed. Wh
 The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser and kept across reloads, and the chip is hidden until this browser has made a take.
 
 **Next**:
-The chip in a patch box that fills it with the value after Last, either the number plus one or the next router name match, as the browser's Next match behavior says. Pressing it again keeps stepping. It is per browser.
+The chip in a patch box that fills it with the value after Last. That value is the number plus one or the next router name match, as the browser's Next match behavior says. Pressing it again keeps stepping. It is per browser.
 
 **Keyboard mode**:
 The state where keys act on History entries instead of the patch boxes. Esc from empty patch boxes starts it and any click ends it. Compact view has none.
 
 **Compact view**:
-The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused; the status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
+The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
+
+**Topic**:
+A top-level group of Settings sections, with a heading band on the page and a branch in the sidebar tree. With v2, Settings has five topics: Preferences, Look and feel, Routers, Access and Server.
+
+**Preferences**:
+The Settings topic for a person's own choices, saved to This browser or Me. It holds This browser and My user. Every role sees it.
+
+**Look and feel**:
+The Settings topic for how Sode looks and acts on every browser: Everyone's defaults, Branding, History, Level colors and Confirm and results.
+
+**Routers** / **Access** / **Server**:
+The other three Settings topics. Routers holds the Routers list and one block of sections for each router. Access holds the locks, users, API and panel sign-in. Server holds the proxy, Export & Import and the setup wizard.
 
 **Server link**:
 The connection between a browser and the Sode server.

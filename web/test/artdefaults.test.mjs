@@ -109,7 +109,10 @@ test("the Cell tab says whether the cell shows its item's default, and warns whe
   assert.match(defaultNote(d, false, 'CAM 3').text, /shows the Default artwork of its source/);
   assert.match(defaultNote(d, true, 'CAM 3').text, /own artwork shows instead/);
   assert.equal(defaultNote(d, false, 'CAM 3').warn, '');
-  assert.match(defaultNote(d, false, 'CAM 9').warn, /default may be for another item: it was set for CAM 3, and the router now names this source CAM 9/);
+  assert.match(
+    defaultNote(d, false, 'CAM 9').warn,
+    /It is possible that this default is for another item: it was set for CAM 3, and the router now names this source CAM 9/,
+  );
 });
 
 test("Set as default sends the cell's item, its own artwork and Hide text, and the panel its image is on", () => {

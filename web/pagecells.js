@@ -15,7 +15,7 @@ export function showOf(cell) {
 }
 
 // page is the id of the Page the cell sits on, so a copy on another Page names that Page. A page with no instance yet
-// (still naming itself, or Test it live) shows the kind's words, as nameCellText does.
+// (still naming itself, or the Live Editor) shows the kind's words, as nameCellText does.
 export function pageCellText(cell, { panelName = '', instance = '', pages = [], page = '' } = {}) {
   const i = pageIndex(pages, page);
   const parts = showOf(cell);

@@ -49,7 +49,7 @@ function toast(n) {
   };
   close.addEventListener('click', drop);
   host().append(node);
-  // A loss stays until dismissed, since the person may be away from the screen; a return fades.
+  // A loss stays until dismissed, since it is possible that the person is away from the screen; a return fades.
   if (n.state === 'back') {
     close.classList.add('sode__toast-timed');
     close.style.setProperty('--toast-ms', `${TOAST_MS}ms`);

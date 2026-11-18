@@ -1,4 +1,4 @@
-// The Cell tab's Page picker for a Go to Page cell: the panel's Pages by number and name, and a warning when the
+// The Cell tab's Page picker for a Go to Page cell: the panel's Pages by number and name. A warning shows when the
 // target was deleted, is disabled or has no cells. Rules are targetChoices and targetWarning (panelnav.js).
 import { el } from './core.js';
 import { opt } from './formbits.js';
@@ -22,7 +22,7 @@ export function createPageTarget({ ed, patch }) {
       const pages = ed.pages();
       const choices = targetChoices(pages);
       const known = choices.some((x) => x.value && x.value === c.page);
-      // A deleted target stays chosen under its own line, so the cell is not changed by just looking at it.
+      // A deleted target stays chosen under its own line, so the cell does not change when you only look at it.
       const lost = c.page && !known ? [{ value: c.page, text: 'A deleted Page', disabled: true }] : [];
       select.replaceChildren(opt('', 'Choose a Page'), ...[...lost, ...choices].map((x) => Object.assign(opt(x.value, x.text), { disabled: x.disabled })));
       select.value = c.page || '';

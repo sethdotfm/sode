@@ -24,9 +24,9 @@ export function clipPaste(g, plan) {
   return { placed, dropped, shrunk };
 }
 
-// The block's cells in reading order on successive squares of the whole grid in fill order, from the paste square
-// to the order's last square, never back to the first. A merged cell goes whole when it stays inside and covers no
-// square already placed, else it shrinks to one square; squares a placed cell covers are stepped over. Cells left
+// The block's cells in reading order on successive squares of the whole grid in fill order. They go from the paste
+// square to the order's last square, never back to the first. A merged cell goes whole when it stays inside and
+// covers no square already placed, else it shrinks to one square. Squares that a placed cell covers are stepped over. Cells left
 // when the squares run out are dropped and listed in left, for cascadeWrap.
 export function wrapPaste(g, plan, order) {
   const walk = squareOrder({ r1: 1, c1: 1, r2: g.rows, c2: g.cols }, order);
@@ -53,8 +53,8 @@ export function wrapPaste(g, plan, order) {
   return { placed, moved, shrunk, dropped: left.length, left };
 }
 
-// Fill cascade (GLOSSARY.md): cells left past the last square of Page from go on to the later enabled Pages that hold
-// no cells, each from its first square in fill order. Used and disabled Pages are skipped so their cells stay; it
+// Fill cascade (GLOSSARY.md): cells left past the last square of Page from go on to later Pages. Each of those
+// Pages is enabled and holds no cells, and it fills from its first square in fill order. Used and disabled Pages are skipped so their cells stay; it
 // never goes back to Page 1. onto is { index, cells } per Page used; left counts the cells cut off.
 export function cascadeWrap(pages, from, left, order, { rows, cols }) {
   const [r, c] = squareOrder({ r1: 1, c1: 1, r2: rows, c2: cols }, order)[0];
@@ -114,7 +114,7 @@ export function edgeChoices(g, plan, order, cascade = null) {
   return { orderName: name, clip: { ...clip, text: clipText(clip) }, wrap: { ...wrap, text: wrapText(wrap, name) } };
 }
 
-// The status line once a choice is applied: what a paste that fits would say, then what the choice did.
+// The status line after a choice is applied: what a paste that fits would say, then what the choice did.
 export function edgeNote(plan, choice) {
   const did = choice.kind === 'wrap' ? wrapText(choice, choice.orderName, true) : clipText(choice, true);
   const placed = [...choice.placed, ...(choice.onto || []).flatMap((o) => o.cells)];

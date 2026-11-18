@@ -12,10 +12,10 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The run page must hold steady while it sits open for hours: the poll and the one-second redraw may not add nodes,
+// The run page must hold steady while it sits open for hours. The poll and the one-second redraw must not add nodes,
 // documents, listeners, timers or object URLs. A <use> of the external sprite made Chrome load its own copy of the
-// sprite document for each tick icon the redraw built, about 16,700 nodes each until a major GC: renderer memory
-// climbed from 0.4 to 4 GB in two minutes with one destination viewed.
+// sprite document for each tick icon the redraw built. Each copy was about 16,700 nodes until a major GC. Renderer
+// memory climbed from 0.4 to 4 GB in two minutes with one destination viewed.
 func TestChromeRunPageHoldsNoMemory(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

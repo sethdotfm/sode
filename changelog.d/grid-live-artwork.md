@@ -1,0 +1,3 @@
+- The Live Editor on a Grid panel: Edit lists is a large button. Each list's bar has an Artwork button that opens the Cell tab's artwork editor over the drawer, for the selected rows. Shift-click a range, choose an icon and a first number, and the live grid shows them at once.
+- Grid panels have Hide text on their sources and destinations, as Buttons cells have. A Default artwork that hides text now hides the name on a Grid panel too, unless the item shows it.
+- Choose icon: the Icon A and Icon B lists start at one height under Default icons, and Uploaded icons (the Icon library) is under both.

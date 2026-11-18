@@ -1,0 +1,3 @@
+- A Grid panel's header shows the Router, Mode and Signed in boxes. A line under the title says whose panel it is and its size, and Full screen shows its words. The Panels link is in the header, so the grid goes to the bottom of the window. A Grid panel is always full width.
+- A Grid panel names its Sources row and its Destinations. Picked rows and columns get a wash of their role colours. A staged route shows a ring in the staged levels' colours. The Take button has the prototype's size at the right of the Levels band.
+- The panels page shows a picture of a Grid panel and says how many sources and destinations it holds.

@@ -1,14 +1,15 @@
 // Settings table of contents: pinned beside the column (wide), a strip (narrow), or the phone's list page; Ctrl+J/K steps sections.
-// initToc runs once, after every section is added.
+// initToc runs one time, after every section is added.
 
 import { el } from './core.js';
 import { layout } from './layout.js';
 import { mac, chord } from './keys.js';
 
 export function initToc({ form, sections, toc, isOpen }) {
-  // A clicked section stays marked until the scroll ends or the user scrolls, since near the bottom it may stop short.
+  // A clicked section stays marked until the scroll ends or the user scrolls, since near the bottom it is possible that it stops short.
   let picked = -1;
-  // Set while Ctrl+J/K steps: those scroll instantly and keep `picked`, so a held or spammed key walks one section per press instead of re-reading the stale scroll position.
+  // Set while Ctrl+J/K steps. Those scroll instantly and keep `picked`, so a held or spammed key walks one section per
+  // press. It does not re-read the stale scroll position.
   let stepping = false;
 
   // Phone: one section at a time; the page is the list, Back returns. Only CSS keyed on data-page hides (base.css).
@@ -54,7 +55,8 @@ export function initToc({ form, sections, toc, isOpen }) {
   function markSection() {
     tocTick = false;
     if (!isOpen() || picked >= 0) return;
-    // Last section whose top reached the window top (its scroll margin down); at the very bottom the last, which may be too short to reach it.
+    // Last section whose top reached the window top (its scroll margin down). At the very bottom, the
+    // last section, since it is possible that it is too short to reach it.
     const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
     const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
     mark(Math.max(atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));

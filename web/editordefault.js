@@ -1,5 +1,5 @@
-// The Cell tab's Default artwork row: make the cell's artwork and Hide text its item's default, clear that default,
-// or put the cell back on it. Wording is defaultNote in editorrules.js. A user who is not Trusted is asked for the
+// The Cell tab's Default artwork row. It makes the cell's artwork and Hide text its item's default, clears that
+// default, or puts the cell back on it. Wording is defaultNote in editorrules.js. A user who is not Trusted is asked for the
 // Advanced Settings PIN after the first refusal, as an Everyone template save does.
 import { el } from './core.js';
 import { btn } from './formbits.js';
@@ -13,7 +13,7 @@ const send = jsonCall(sessionFetch, {
   failed: (s) => `The Default artwork was not changed (${s}).`,
 });
 
-// patch(fields) changes the selected cell; done() repaints the Cell tab once the defaults are read again.
+// patch(fields) changes the selected cell; done() repaints the Cell tab after the defaults are read again.
 export function createDefaultRow({ ed, patch, done }) {
   const text = el('p', 'sode__hint');
   const warn = el('div', 'pb-note pb-note--warn');

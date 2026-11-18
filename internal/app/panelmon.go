@@ -21,12 +21,12 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Panel monitoring (docs/panels-design.md). An open panel page is an instance named by its device
-// and sends a keepalive and holds a stream open; a panel is online while any instance has a stream
-// and was heard within monMiss, or was heard within monGrace of its last stream closing. Instances
-// live in memory only: after a restart nothing is known, so nothing is alerted. Watches are a
-// user's list of panel ids in panelwatch.yaml beside the config, never part of a panel file, so a
-// save of the panel cannot drop another user's watch.
+// Panel monitoring (docs/panels-design.md). An open panel page is an instance named by its device.
+// It sends a keepalive and holds a stream open. A panel is online while any instance has a stream
+// and was heard within monMiss. It is also online if it was heard within monGrace after its last
+// stream closed. Instances live in memory only: after a restart nothing is known, so nothing is
+// alerted. Watches are a user's list of panel ids in panelwatch.yaml beside the config. They are
+// never part of a panel file, so a save of the panel cannot drop another user's watch.
 
 const (
 	monKeepalive = 15 * time.Second // what the panel page sends; documented, not enforced
@@ -73,7 +73,7 @@ type streamWho struct {
 	addr, signIn, user string
 }
 
-// limit is how long after seen the instance still counts: short once its stream is gone, since a
+// limit is how long after seen the instance still counts: short when its stream is gone, since a
 // closed page sends no more keepalives.
 func (in *monInst) limit() time.Duration {
 	if in.streamed && len(in.conns) == 0 {
@@ -277,8 +277,8 @@ func (m *panelMon) watchersOf(id, device string) map[string]bool {
 	return out
 }
 
-// forget drops a panel's instances and every watch of it: it was deleted, or its key was ended on
-// purpose, so the silence that follows is no alert.
+// forget drops a panel's instances and every watch of it. The panel was deleted, or its key was ended
+// on purpose, so the silence that follows is no alert.
 func (m *panelMon) forget(id string, watches bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -405,7 +405,7 @@ type instOut struct {
 	Addr        string     `json:"addr,omitempty"`
 	SignIn      string     `json:"signIn,omitempty"`
 	User        string     `json:"user,omitempty"`
-	Trusted     bool       `json:"trusted,omitempty"` // User's flag, live: a Trusted user may open every panel
+	Trusted     bool       `json:"trusted,omitempty"` // User's flag, live: a Trusted user can open every panel
 	StreamSince *time.Time `json:"streamSince,omitempty"`
 }
 
@@ -539,8 +539,8 @@ type offlineRow struct {
 }
 
 // offlineKeys turns a user's uncleared watch keys into rows. A whole-panel watch is offline when no
-// device counts and one was lost, with the latest lost device; an instance watch when that device
-// was lost and does not count.
+// device counts and one was lost, with the latest lost device. An instance watch is offline when that
+// device was lost and does not count.
 func (m *panelMon) offlineKeys(user string) []offlineRow {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -573,7 +573,7 @@ func (m *panelMon) offlineKeys(user string) []offlineRow {
 	return rows
 }
 
-// mayWatch: the owner, or a Trusted user (read live), may watch a panel.
+// mayWatch: the owner, or a Trusted user (read live), can watch a panel.
 func (a *App) mayWatch(user string, p Panel) bool {
 	if strings.EqualFold(p.Owner, user) {
 		return true
@@ -647,7 +647,7 @@ func (a *App) pushPanelsOfflineMu(c *client) {
 	a.deliver(c, []byte(msg))
 }
 
-// monNotify tells every watcher who may still watch the panel, as a notice and a refreshed badge.
+// monNotify tells every watcher who can still watch the panel, as a notice and a refreshed badge.
 func (a *App) monNotify(ev monEvent) {
 	p, ok := a.panels.get(ev.panel)
 	if !ok {
@@ -727,7 +727,7 @@ func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 
 // serveAlarm is the banner's Clear menu: {"t":"panelAlarm","panel":id,"instance":device,"action":"clear"|"stop"}.
 // instance is empty for a whole-panel alarm. clear hides that outage from the user's banner until the
-// panel's next notice; stop ends that watch. A signed-in user, not under the Lock, and only a panel they may watch.
+// panel's next notice; stop ends that watch. A signed-in user, not under the Lock, and only a panel they can watch.
 func (a *App) serveAlarm(c *client, m *inMsg) {
 	u, err := a.ownUser(c)
 	if err != nil {
@@ -852,8 +852,8 @@ func streamWhoOf(cl *apiCtx) streamWho {
 
 func cleanDevice(s string) string { return cleanText(strings.TrimSpace(s), monDeviceMax) }
 
-// deviceOf names the instance, or answers 400 and false. With askInstanceName on the page always
-// names itself; with it off an unnamed instance goes by its address, so monitoring, watches and
+// deviceOf names the instance, or answers 400 and false. With askInstanceName on, the page always
+// names itself. With it off, an unnamed instance goes by its address, so monitoring, watches and
 // notices still tell it apart.
 func deviceOf(w http.ResponseWriter, s string, p Panel, cl *apiCtx) (string, bool) {
 	if d := cleanDevice(s); d != "" {
@@ -866,7 +866,7 @@ func deviceOf(w http.ResponseWriter, s string, p Panel, cl *apiCtx) (string, boo
 	return cleanDevice(cl.IP), true
 }
 
-// apiPanelKeepalive: {"device": "Lobby"}. Anyone who may use the panel counts, so a tablet signed
+// apiPanelKeepalive: {"device": "Lobby"}. Anyone who can use the panel counts, so a tablet signed
 // in as a shared user is an instance too.
 func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, ok := a.panelFor(w, r, cl, false)
@@ -895,7 +895,7 @@ func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiC
 	apiJSON(w, map[string]any{"online": true, "keepaliveSeconds": int(monKeepalive.Seconds()), "missSeconds": int(monMiss.Seconds()), "graceSeconds": int(monGrace.Seconds())})
 }
 
-// watchFor is panelFor for a user who may watch the panel: its owner, or a Trusted user.
+// watchFor is panelFor for a user who can watch the panel: its owner, or a Trusted user.
 func (a *App) watchFor(w http.ResponseWriter, r *http.Request, cl *apiCtx) (Panel, bool) {
 	if cl.Actor.Kind != actorUser {
 		apiFail(w, http.StatusForbidden, "user_required", "watching belongs to a user: use a user's key")
@@ -935,9 +935,9 @@ func (a *App) setWatch(w http.ResponseWriter, r *http.Request, cl *apiCtx, on bo
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// KeepAliveListener probes an idle connection after 2 s, every 1 s, and drops it after 3 misses, so a
-// peer that vanished without a FIN (power cut, lost Wi-Fi) ends its stream in about 5 s instead of
-// the kernel default of 2 hours. A proxy in front only gets this on its own leg of the connection.
+// KeepAliveListener probes an idle connection after 2 s, every 1 s, and drops it after 3 misses. So a
+// peer that vanished without a FIN (power cut, lost Wi-Fi) ends its stream in about 5 s. The kernel
+// default is 2 hours. A proxy in front only gets this on its own leg of the connection.
 func KeepAliveListener(ln net.Listener) net.Listener { return keepAliveLn{ln} }
 
 type keepAliveLn struct{ net.Listener }

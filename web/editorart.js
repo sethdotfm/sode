@@ -1,5 +1,5 @@
-// The artwork control of the Cell tab. Icon A is `art` (a vendored icon, an Icon library icon or an upload), Icon B is `artB` (a digit or
-// letter glyph beside an icon or a corner badge on an image, panellook.js ART_B_CHOICES). An upload is resized and
+// The artwork control of the Cell tab. Icon A is `art`: a vendored icon, an Icon library icon or an upload. Icon B is
+// `artB`: a digit or letter glyph beside an icon or a corner badge on an image (panellook.js ART_B_CHOICES). An upload is resized and
 // checked before sending (artcompress.js prepareArt); the server checks again by content.
 import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
@@ -41,8 +41,9 @@ export function artPane(name, choices, draw, pick) {
   return { grid, none };
 }
 
-// opts: {ed, icons, set(value), setB(glyph), setHideText(on)}. update(value, caption, hideText, artB) repaints; the
-// preview shows the artwork row dimmed behind the caption. Hide text shows only once the cell has Icon A or B.
+// opts: {ed, icons, set(value), setB(glyph), setHideText(on)}. update repaints; the preview shows the artwork row dimmed
+// behind the caption. Hide text shows only when the cell has Icon A or B. A target with no text (text: false, a Grid
+// panel's row) never shows it.
 export function createArtControl({ ed, icons = false, set, setB, setHideText }) {
   const preview = el('div', 'sode-side__art');
   const note = el('p', 'sode__hint');
@@ -61,7 +62,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   const picker = el('div', 'sode-side__picker');
   picker.hidden = true;
   // gone: a library icon was deleted, so the preview draws again even though the cell's value is the same.
-  const lib = icons ? createLibSection({ ed, set, gone: () => ((shown = ''), last && control.update(...last)) }) : null;
+  const lib = icons ? createLibSection({ ed, set, gone: () => ((shown = ''), last && control.update(last)) }) : null;
   const choose = btn('pb-btn--outline pb-btn--sm', 'Choose icon', () => {
     picker.hidden = !picker.hidden;
     if (!picker.hidden) lib?.load();
@@ -69,7 +70,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   });
   choose.setAttribute('aria-expanded', 'false');
 
-  // Two columns shown at once, each with its own None and its own scroll: Icon A is the sprite, Icon B the glyphs.
+  // Two columns shown at the same time, each with its own None and its own scroll: Icon A is the sprite, Icon B the glyphs.
   // Choosing keeps the picker open, so "[camera] 2" is two clicks.
   const column = (text, p, extra) =>
     el('div', 'sode-side__col', el('div', 'sode-side__col-top', el('span', 'sode-side__col-h', text), ...(extra ? [extra] : []), p.none), p.grid);
@@ -109,9 +110,10 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
     lib?.filter(find.value);
   });
   for (const p of panes) p.col = column(p.id === 'a' ? 'Icon A' : 'Icon B', p, p.id === 'a' ? find : null);
-  // Uploaded (the Icon library) sits above the vendored icons in Icon A's column.
-  if (lib) panes[0].grid.before(lib.node, el('span', 'sode-side__col-h', 'Icons'));
-  picker.append(...panes.map((p) => p.col));
+  // Default icons (the vendored set and the glyphs) come first, so the Icon A and Icon B lists start level. Uploaded
+  // icons (the Icon library, Icon A only) go under both.
+  const defaults = el('div', 'sode-side__cols', ...panes.map((p) => p.col));
+  picker.append(el('span', 'sode-side__picker-h', 'Default icons'), defaults, ...(lib ? [lib.node] : []));
 
   let hidden = false;
   const hide = btn('pb-btn--outline pb-btn--sm', 'Hide text', () => setHideText(!hidden));
@@ -143,9 +145,13 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   let last = null; // update's arguments, so a library delete can draw the preview again
   const control = {
     node,
+    openPicker() {
+      if (picker.hidden && !choose.disabled) choose.click();
+    },
     // drawn: the cell shows artwork, its own or its item's default, so Hide text applies.
-    update(value, caption = '', hideText = false, artB = '', drawn = false) {
-      last = [value, caption, hideText, artB, drawn];
+    update(o) {
+      last = o;
+      const { value, caption = '', hideText = false, artB = '', drawn = false, text = true } = o;
       const ro = ed.readOnly();
       const saved = !!ed.panel();
       const shownB = artBOf({ art: value, artB });
@@ -156,8 +162,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       const upload = panelImage(value);
       clearImage.disabled = ro || !upload;
       clearIcon.disabled = ro || !(shownB || (value && !upload));
-      hidden = hideText;
-      hide.hidden = !any && !drawn;
+      hidden = !!hideText;
+      hide.hidden = !text || (!any && !drawn);
       hide.disabled = ro;
       hide.textContent = hideText ? 'Show text' : 'Hide text';
       for (const p of panes) for (const b of [p.none, ...p.grid.querySelectorAll('button')]) b.disabled = ro;
@@ -166,17 +172,17 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       for (const b of panes[1]?.grid.querySelectorAll('[aria-label]') || []) b.setAttribute('aria-pressed', String(artB === b.getAttribute('aria-label')));
       if (!saved && !note.textContent) note.textContent = 'Save the panel before uploading an image.';
       else if (saved && note.textContent === 'Save the panel before uploading an image.') note.textContent = '';
-      const key = `${value}|${shownB}|${caption}|${hideText}`;
+      const key = `${value}|${shownB}|${caption}|${hideText}|${text}`;
       if (shown === key) return;
       shown = key;
       preview.replaceChildren();
       preview.hidden = !any;
-      preview.toggleAttribute('data-hide-text', hideText); // full strength, as the cell (panels.css)
+      preview.toggleAttribute('data-hide-text', !!hideText); // full strength, as the cell (panels.css)
       if (!any) return;
       const row = artNode({ art: value, artB: shownB }, ed.art());
       if (!row) return;
       preview.append(row);
-      if (!hideText)
+      if (text && !hideText)
         preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon || artOf({ art: value })?.lib || shownB ? 'Caption' : '')));
     },
   };

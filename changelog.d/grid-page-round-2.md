@@ -1,0 +1,5 @@
+- A Grid panel's Take button is red, as on the main page. A second click on a staged crosspoint, or on a crosspoint of a staged Diagonal or line, opens the take confirm.
+- On a Grid panel the panel name, its status and the header buttons share one band with the Levels box and the search boxes. Find and Filter are two large buttons, and Select none is beside Clear and Take. The help words are gone.
+- The Grid panel's Levels box looks like the main page's, at half its old width.
+- The cursor ring, the staged crosspoints and the Take button pulse together.
+- The Grid panel's scroll bars are much bigger, and a mouse wheel or trackball turned over the bottom scroll bar moves the grid across.

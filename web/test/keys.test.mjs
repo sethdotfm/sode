@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chord, mac, listStep, resultStep } from '../keys.js';
+import { chord, mac, listStep, resultStep, addClick } from '../keys.js';
 
 const k = (key, code, mods = {}) => ({ key, code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -39,4 +39,13 @@ test('search results take the arrows and Ctrl+J/K, and only when there are resul
   // No results: the key falls through, so Settings steps sections.
   assert.equal(resultStep(k('j', 'KeyJ', { ctrlKey: true }), false), 0);
   assert.equal(resultStep(k('ArrowDown', 'ArrowDown'), false), 0);
+});
+
+test('Ctrl-click adds a destination; Cmd-click only on a Mac; Shift and Alt do not', () => {
+  assert.equal(addClick(k('', '', { ctrlKey: true })), true);
+  assert.equal(addClick(k('', '')), false);
+  assert.equal(addClick(k('', '', { ctrlKey: true, shiftKey: true })), false);
+  assert.equal(addClick(k('', '', { ctrlKey: true, altKey: true })), false);
+  assert.equal(addClick(k('', '', { ctrlKey: true, metaKey: true })), false);
+  assert.equal(addClick(k('', '', { metaKey: true })), mac);
 });

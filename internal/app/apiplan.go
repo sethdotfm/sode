@@ -10,8 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The server-side planner: what the browser builds in web/plans.js (undoItem, againItem,
-// resolvePreset) and sends as plain routes, built here from a History entry or a preset.
+// The server-side planner. From a History entry or a preset, it builds what the browser builds
+// in web/plans.js (undoItem, againItem, resolvePreset) and sends as plain routes.
 // Keep the rules in step with plans.js.
 
 // takePlan is routes ready for a.take plus what the plan left out, for the response.
@@ -54,10 +54,10 @@ func (h *History) Get(id int) (Entry, bool) {
 	return e, true
 }
 
-// planUndo restores Prev. Levels the take did not change (a failed take the router answered
-// for, unless the answer came late) and levels with nothing routed or no answer before stay
-// as they are. Rights skip the Before source (rights.go); visibility drops routes the
-// caller may not see.
+// planUndo restores Prev. Levels the take did not change stay as they are (a failed take the
+// router answered for, unless the answer came late). Levels with nothing routed or no answer
+// before also stay as they are. Rights skip the Before source (rights.go); visibility drops
+// routes the caller is not allowed to see.
 func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 	untouched := map[int]bool{}
 	if !e.OK {
@@ -140,9 +140,8 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 	return &takePlan{Items: []routeReq{req}}, nil
 }
 
-// planPreset resolves a preset the way resolvePreset does: parts the router lacks are left
-// out and listed, one route per source and destination with levels merged. Order follows the
-// preset.
+// planPreset resolves a preset the way resolvePreset does: one route per source and destination,
+// with levels merged. Parts the router lacks are left out and listed. Order follows the preset.
 func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	defaults, _ := config.ParseLevels(r.cfg.DefaultLevels, r.cfg.Levels)
 	a.mu.Lock()

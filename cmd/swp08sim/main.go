@@ -1,9 +1,9 @@
 // Command swp08sim is a fake SW-P-08 router for development: name requests, tally dumps, interrogates,
 // extended connects, Connected broadcast. SIM_PANEL_SECONDS makes routes of its own; SIM_PANEL_SILENT=1
 // leaves them unannounced, as the Ultrix sometimes does.
-// Group salvos (120-123; extended stage 248/250) mimic the Ultrix: one staged list per group shared by
-// every client, 122 echoes each stage, 123 per Go (00 set, 01 cleared, 02 nothing), replies after ~6 ms,
-// no Connected after a Go set unless SIM_SALVO_ANNOUNCE=1 (one per changed crosspoint, ~110 ms on, 4 ms
+// Group salvos (120-123; extended stage 248/250) mimic the Ultrix. All clients share one staged list per group.
+// 122 echoes each stage, and 123 answers each Go (00 set, 01 cleared, 02 nothing). Replies come after about 6 ms.
+// A Go set sends no Connected unless SIM_SALVO_ANNOUNCE=1 (one per changed crosspoint, about 110 ms on, 4 ms
 // apart). SIM_NO_SALVO=1 ignores 120, 248 and 121.
 package main
 
@@ -389,9 +389,9 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 		s.later(c, swp08.GoDoneAck(swp08.GoNothing, g))
 		return
 	}
-	// The Ultrix sometimes announces a Go's crosspoints and sometimes not: by default nobody (followers follow
-	// silently); SIM_SALVO_ANNOUNCE=1 gives each changed one a Connected in dst and level order, 4 ms apart from
-	// ~110 ms after the Go (measured).
+	// The Ultrix sometimes announces a Go's crosspoints and sometimes not. By default none is announced (followers
+	// follow silently). SIM_SALVO_ANNOUNCE=1 gives each changed one a Connected in dst and level order, 4 ms apart,
+	// from about 110 ms after the Go (measured).
 	var changed []swp08.Staged
 	s.mu.Lock()
 	for _, x := range xs {

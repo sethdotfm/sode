@@ -24,7 +24,7 @@ func sessionToken(c *client) string {
 	}
 }
 
-// A non-persistent user has no session token to hold the Lock, so the Lock hands them a
+// A non-persistent user has no session token to hold the Lock. So the Lock hands them a
 // tab token that a reload presents (ADR 0001: every signed-in user's Lock is held).
 func TestLockOfNonPersistentUserSurvivesReload(t *testing.T) {
 	for _, enforced := range []bool{false, true} {

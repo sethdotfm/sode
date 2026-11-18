@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The Icon library over REST. List and read need `panels`, so any panel page or editor draws its icons; upload
+// The Icon library over REST. List and read need `panels`, so any panel page or editor draws its icons. Upload
 // needs `panelsmanage`, a user's key, and a Trusted user or the Advanced Settings PIN. Not under /panels/, whose
 // {id} routes would conflict.
 
@@ -26,7 +26,7 @@ func init() {
 	)
 }
 
-// readIconChange reads {name?, pin?} and checks the caller may change the library. A DELETE may send no body.
+// readIconChange reads {name?, pin?} and checks that the caller is allowed to change the library. A DELETE can send no body.
 func (a *App) readIconChange(w http.ResponseWriter, r *http.Request, cl *apiCtx) (iconIn, bool) {
 	var in iconIn
 	if cl.Actor.Kind != actorUser {
@@ -43,7 +43,7 @@ func (a *App) readIconChange(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return in, false
 		}
 	}
-	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, may change the Icon library"); err != nil {
+	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can change the Icon library"); err != nil {
 		failWith(w, err)
 		return in, false
 	}
@@ -106,6 +106,16 @@ func (a *App) apiIconUses(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 				n++
 			}
 		}
+		for _, e := range []*GridEdge{p.Sources, p.Destinations} {
+			if e == nil {
+				continue
+			}
+			for _, it := range e.Items {
+				if it.Art == ref {
+					n++
+				}
+			}
+		}
 		cells += n
 		if n > 0 {
 			panels++
@@ -142,7 +152,7 @@ func (a *App) apiIconUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"name", "data" as base64} as JSON: `+err.Error())
 		return
 	}
-	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, may add to the Icon library"); err != nil {
+	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can add to the Icon library"); err != nil {
 		failWith(w, err)
 		return
 	}

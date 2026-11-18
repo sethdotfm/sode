@@ -1,6 +1,6 @@
-// Page rules on the panel page (panelnav.js, panelmodel.js): the current Page, Go to Page, Next Page and Previous
-// Page with and without wrap, disabled and deleted targets, the plan across Pages and the fallback to the first
-// enabled Page. Pure.
+// Page rules on the panel page (panelnav.js, panelmodel.js). They cover the current Page, Go to Page, and Next Page
+// and Previous Page with and without wrap. They also cover disabled and deleted targets, the plan across Pages and
+// the fallback to the first enabled Page. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { landingPage, pageIndex, stepPage, goToState, navTarget, navText, wrapOf, targetChoices, targetWarning } from '../panelnav.js';

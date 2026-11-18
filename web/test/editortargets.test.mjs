@@ -111,7 +111,7 @@ test('profile filters: build replaces the edited entry, adds a new one, refuses 
   );
   assert.equal(r.list[0].src, 'q');
   assert.match(t.build('two').err, /already a filter set named/);
-  assert.match(t.build('All').err, /taken/);
+  assert.match(t.build('All').err, /already in use/);
   assert.equal(t.build('').err, 'Name required.');
   assert.equal(t.build('one').list[0].name, 'one');
 });

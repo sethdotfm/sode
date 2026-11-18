@@ -1,0 +1,1467 @@
+/* A Grid panel's crosspoint field (gridpanelview.js). Sizes in rem, colours from tokens. Only the items that show
+   have nodes. Each is placed by --sode-i (row) and --sode-j (column), display order indices. The layers share one
+   grid cell: the body scrolls, the top and side bands are sticky and hold the names and pinned crosspoints, and the
+   corner holds what is pinned on both axes. */
+.sode-panel__grid.sode-gridpanel {
+  display: block;
+  /* At the Grid page's 112.5% root (base.css): 72 px crosspoints, a 202 by 108 px corner. The scroll bars are Sode's
+     own big ones (bigscroll.js), the same on both axes; the phone scrolls by touch and keeps thin native ones. */
+  --sode-xp: 4rem;
+  --sode-name-w: 11.2rem;
+  --sode-name-h: 6rem;
+  --sode-line: color-mix(in oklab, var(--pb-text) 22%, transparent);
+  /* The patch field: light in a light theme, dark in a dark one, with no per-theme CSS. */
+  --sode-patch-field: var(--pb-surface-sunken);
+  /* A drag across names or crosspoints never selects text; Safari still needs the prefix. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* The phone layout: 56 px crosspoints, over the 44 pt touch minimum, and narrow names so more of them show. */
+:root[data-layout="phone"] .sode-panel__grid.sode-gridpanel {
+  --sode-xp: 3.5rem;
+  --sode-name-w: 6rem;
+  --sode-name-h: 4.5rem;
+}
+/* A double-tap on a name is a jump, not a zoom (gridpanelgesture.js). */
+.sode-gridpanel__src,
+.sode-gridpanel__dst {
+  touch-action: manipulation;
+}
+/* No rubber-band and no swipe-back on a trackpad, at the grid or at the page. */
+html:has(.sode-gridpanel) {
+  overscroll-behavior: none;
+}
+.sode-gridpanel__frame {
+  max-height: calc(100dvh - 12rem);
+}
+/* On both layouts the page is one viewport high: the header and the Levels box are bands, the grid fills the rest
+   edge to edge, and the page does not scroll. The bottom padding stays clear for the Panels link; the phone's
+   band holds it (gridpanelphone.css). */
+.sode-panels:has(.sode-gridpanel) {
+  box-sizing: border-box;
+  gap: 0;
+  height: 100dvh;
+  padding-inline: 0;
+  padding-top: 0;
+}
+.sode-panel__grid.sode-gridpanel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.sode-gridpanel .sode-gridpanel__frame {
+  border-inline: 0;
+  max-height: none;
+}
+.sode-gridpanel__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Lines and boxes between the bands have no padding of their own. A kiosk fixes the foot to the bottom instead. */
+.sode-panels:has(.sode-gridpanel) > :is(.sode__hint, .sode-panel__device, .pb-btn),
+:root:not([data-sode-kiosk]) .sode-panels:has(.sode-gridpanel) > .sode-panel__foot {
+  margin: var(--pb-space-4) var(--pb-space-5);
+}
+:root:not([data-layout="phone"]):has(.sode-gridpanel) .sode-lock__who {
+  background: transparent;
+}
+:root:not([data-layout="phone"]) .sode-panels:has(.sode-gridpanel) .sode-panels__title {
+  font-size: calc(2 * var(--pb-text-md));
+  line-height: 1.1;
+}
+.sode-gridpanel__scroll {
+  overscroll-behavior: none;
+  position: relative;
+}
+/* The sticky bands stack inside the scroller, so they never paint over its scroll bars (siblings at z-index 2). */
+:root:not([data-layout="phone"]) .sode-gridpanel__scroll {
+  isolation: isolate;
+}
+/* A pinned band's own scroller (gridpanelpins.js): only its little bar shows, over the edge of the pinned names next to
+   the crosspoints. The script sets its place and length; its width is the bar's, so the bar's room leaves it empty. */
+.sode-gridpanel__pins {
+  box-sizing: border-box;
+  overflow: auto;
+  position: absolute;
+}
+.sode-gridpanel__pins--y {
+  overflow-x: hidden;
+  width: var(--sode-littlescroll-w);
+}
+.sode-gridpanel__pins--x {
+  height: var(--sode-littlescroll-w);
+  overflow-y: hidden;
+}
+.sode-gridpanel__pins-fill {
+  min-height: 1px;
+  min-width: 1px;
+}
+.sode-gridpanel__pins[hidden],
+:root[data-layout="phone"] .sode-gridpanel__pins {
+  display: none;
+}
+/* The phone keeps thin native bars, always shown: auto here lets the ::-webkit-scrollbar rules apply (Chrome ignores
+   them when either property is set). */
+:root[data-layout="phone"] .sode-gridpanel__scroll {
+  scrollbar-color: auto;
+  scrollbar-width: auto;
+}
+:root[data-layout="phone"] .sode-gridpanel__scroll::-webkit-scrollbar {
+  height: 0.88rem;
+  width: 0.88rem;
+}
+:root[data-layout="phone"] .sode-gridpanel__scroll::-webkit-scrollbar-track,
+:root[data-layout="phone"] .sode-gridpanel__scroll::-webkit-scrollbar-corner {
+  background: var(--pb-surface-control);
+}
+:root[data-layout="phone"] .sode-gridpanel__scroll::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--pb-text) 40%, var(--pb-surface-control));
+  border: 0.15rem solid var(--pb-surface-control);
+}
+/* With 2500 sources a thumb in scale would be a few px; Chrome and Safari read its least length from these. */
+:root[data-layout="phone"] .sode-gridpanel__scroll::-webkit-scrollbar-thumb:horizontal {
+  min-width: 6rem;
+}
+:root[data-layout="phone"] .sode-gridpanel__scroll::-webkit-scrollbar-thumb:vertical {
+  min-height: 6rem;
+}
+:root[data-layout="phone"] .sode-gridpanel__scroll::-webkit-scrollbar-thumb:hover,
+:root[data-layout="phone"] .sode-gridpanel__scroll::-webkit-scrollbar-thumb:active {
+  background-color: var(--pb-text-muted);
+}
+@supports not selector(::-webkit-scrollbar) {
+  :root[data-layout="phone"] .sode-gridpanel__scroll {
+    scrollbar-color: color-mix(in oklab, var(--pb-text) 40%, var(--pb-surface-control)) var(--pb-surface-control);
+  }
+}
+.sode-gridpanel__field {
+  display: grid;
+  grid-template: 100% / 100%;
+  height: calc(var(--sode-name-h) + var(--sode-rows) * var(--sode-xp));
+  width: calc(var(--sode-name-w) + var(--sode-cols) * var(--sode-xp));
+}
+.sode-gridpanel__layer {
+  grid-area: 1 / 1;
+}
+/* One crosshair per crosspoint, drawn once on the body under transparent crosspoints, so a fast scroll past the
+   drawn window still shows the lines. The tiles start where the bars end. */
+.sode-gridpanel__body {
+  background-color: var(--sode-patch-field);
+  background-image: linear-gradient(
+      to right,
+      transparent 50%,
+      var(--sode-line) 50%,
+      var(--sode-line) calc(50% + var(--pb-border-w)),
+      transparent calc(50% + var(--pb-border-w))
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 50%,
+      var(--sode-line) 50%,
+      var(--sode-line) calc(50% + var(--pb-border-w)),
+      transparent calc(50% + var(--pb-border-w))
+    );
+  background-position: var(--sode-name-w) var(--sode-name-h);
+  background-size: var(--sode-xp) var(--sode-xp);
+  position: relative;
+}
+/* The Drawn line layer: content coordinates, under the sticky bands. The cursor is apart (below). */
+.sode-gridpanel__overlay {
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+.sode-gridpanel__top {
+  align-self: start;
+  height: calc(var(--sode-name-h) + var(--sode-row-pins) * var(--sode-xp));
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.sode-gridpanel__side {
+  justify-self: start;
+  left: 0;
+  position: sticky;
+  width: calc(var(--sode-name-w) + var(--sode-col-pins) * var(--sode-xp));
+  z-index: 2;
+}
+.sode-gridpanel__corner {
+  align-self: start;
+  background: var(--pb-surface-base);
+  height: calc(var(--sode-name-h) + var(--sode-row-pins) * var(--sode-xp));
+  justify-self: start;
+  left: 0;
+  position: sticky;
+  top: 0;
+  width: calc(var(--sode-name-w) + var(--sode-col-pins) * var(--sode-xp));
+  z-index: 4;
+}
+/* The bands hide what scrolls under them only where they draw: a name bar is opaque, crosspoints are. */
+.sode-gridpanel__top::before,
+.sode-gridpanel__side::before {
+  background: var(--pb-surface-base);
+  content: "";
+  left: 0;
+  position: absolute;
+  top: 0;
+}
+.sode-gridpanel__top::before {
+  height: var(--sode-name-h);
+  width: 100%;
+}
+.sode-gridpanel__side::before {
+  height: 100%;
+  width: var(--sode-name-w);
+}
+/* A line marks the end of the pinned rows and of the pinned columns. With no pins it has no size. */
+.sode-gridpanel__top::after,
+.sode-gridpanel__side::after,
+.sode-gridpanel__corner::before,
+.sode-gridpanel__corner::after {
+  background: var(--pb-text-muted);
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+.sode-gridpanel__top::after,
+.sode-gridpanel__corner::after {
+  height: calc(min(var(--sode-row-pins), 1) * var(--pb-state-border-w));
+  left: 0;
+  top: calc(var(--sode-name-h) + var(--sode-row-pins) * var(--sode-xp) - var(--pb-state-border-w));
+  width: 100%;
+}
+.sode-gridpanel__side::after,
+.sode-gridpanel__corner::before {
+  height: 100%;
+  left: calc(var(--sode-name-w) + var(--sode-col-pins) * var(--sode-xp) - var(--pb-state-border-w));
+  top: 0;
+  width: calc(min(var(--sode-col-pins), 1) * var(--pb-state-border-w));
+}
+/* A pinned band's box and the box in it that moves by the part of a pin (gridpanelview.js bandBox). Each is the size
+   of its layer, so a pin is placed as it is in the layer. The boxes take no press; the pins do. A band that scrolls
+   clips at its edges: the name bar on the near edge, the layer's end on the far edge, where the part pin is. */
+.sode-gridpanel__clip,
+.sode-gridpanel__shift {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.sode-gridpanel__shift > * {
+  pointer-events: auto;
+}
+.sode-gridpanel__field[data-band-y] .sode-gridpanel__clip--y {
+  clip-path: inset(var(--sode-name-h) 0 0 0);
+}
+.sode-gridpanel__field[data-band-x] .sode-gridpanel__clip--x {
+  clip-path: inset(0 0 0 var(--sode-name-w));
+}
+.sode-gridpanel__field:is([data-band-x], [data-band-y]) .sode-gridpanel__clip--xy {
+  clip-path: inset(var(--sode-name-h) 0 0 var(--sode-name-w));
+}
+.sode-gridpanel__field[data-band-x] :is(.sode-gridpanel__side, .sode-gridpanel__corner) .sode-gridpanel__shift,
+.sode-gridpanel__field[data-band-y] :is(.sode-gridpanel__top, .sode-gridpanel__corner) .sode-gridpanel__shift {
+  will-change: transform;
+}
+.sode-gridpanel__probe {
+  height: var(--sode-name-h);
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  width: var(--sode-name-w);
+}
+.sode-gridpanel__probe-xp {
+  width: var(--sode-xp);
+}
+.sode-gridpanel__xp,
+.sode-gridpanel__src,
+.sode-gridpanel__dst {
+  left: 0;
+  position: absolute;
+  top: 0;
+}
+/* Names look like patchbay buttons: medium weight, button tracking, the role colour mixed into a control with a role
+   bar at the grid edge. */
+.sode-gridpanel__src,
+.sode-gridpanel__dst {
+  align-items: center;
+  border: var(--pb-border-w) solid var(--pb-surface-base);
+  color: var(--pb-text-strong);
+  display: flex;
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-medium);
+  justify-content: center;
+  letter-spacing: var(--pb-tracking-button);
+  line-height: var(--pb-leading-tight);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  padding: var(--pb-space-1);
+  text-align: center;
+}
+/* 13 px: text-xs at the desktop root, text-sm at the phone's. The names stay text-sm on the desktop, 16 px. */
+:root:not([data-layout="phone"]) .sode-gridpanel__find-input {
+  font-size: var(--pb-text-xs);
+}
+.sode-gridpanel__src,
+.sode-gridpanel__src:hover {
+  background-color: color-mix(in oklab, var(--pb-source) 45%, var(--pb-surface-control));
+  box-shadow: inset 0 calc(var(--pb-rolebar-w) * -1) 0 var(--pb-source);
+}
+.sode-gridpanel__dst,
+.sode-gridpanel__dst:hover {
+  background-color: color-mix(in oklab, var(--pb-dest) 45%, var(--pb-surface-control));
+  box-shadow: inset var(--pb-rolebar-w) 0 0 var(--pb-dest);
+}
+.sode-gridpanel__src {
+  height: var(--sode-name-h);
+  transform: translateX(calc(var(--sode-name-w) + var(--sode-j) * var(--sode-xp)));
+  width: var(--sode-xp);
+}
+.sode-gridpanel__dst {
+  flex-direction: column;
+  height: var(--sode-xp);
+  justify-content: center;
+  transform: translateY(calc(var(--sode-name-h) + var(--sode-i) * var(--sode-xp)));
+  width: var(--sode-name-w);
+}
+/* The router number before the name (gridpanelview.js paintSrc, paintDst), as numbers show in the main page's lists
+   (.sode__num). A pseudo-element, so the name's text is the name alone. The phone layout is the phone session's, so
+   it shows no number yet. On a destination the name is in rows that wrap, so the number shares its line; the artwork
+   and each mark take a line. A source name is one crosspoint wide, so its number takes a line over the name. */
+:root:not([data-layout="phone"]) .sode-gridpanel__dst {
+  align-content: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__dst > :is(.sode-gridpanel__art, .sode-gridpanel__prot, .sode-gridpanel__held, .sode-gridpanel__other) {
+  flex-basis: 100%;
+  justify-content: center;
+}
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-num]::before {
+  color: var(--pb-text-muted);
+  content: attr(data-num);
+  flex: none;
+  font-family: var(--pb-font-num);
+  font-weight: var(--pb-weight-normal);
+  letter-spacing: normal;
+  margin-inline-end: var(--pb-space-1);
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__src {
+  align-content: center;
+  flex-wrap: wrap;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__src[data-num]::before {
+  flex-basis: 100%;
+  margin: 0;
+}
+/* Hide text hides the whole name, its number too; the artwork stands for it. */
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-num][data-hide-text]::before {
+  content: none;
+}
+/* Protected, or the current sources the grid does not show (gridpanelview.js paintDstMarks). */
+.sode-gridpanel__prot,
+.sode-gridpanel__other {
+  align-items: center;
+  color: var(--pb-text);
+  display: flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1);
+}
+.sode-gridpanel__prot[hidden],
+.sode-gridpanel__held[hidden],
+.sode-gridpanel__other[hidden] {
+  display: none;
+}
+/* The word under a destination with a staged route, in the Buttons panel's staged colour. A pick's wash keeps it. */
+.sode-gridpanel__held {
+  color: var(--pb-view);
+  font-size: var(--pb-text-xs);
+}
+.sode-gridpanel__dst[data-picked] > .sode-gridpanel__held {
+  color: inherit;
+}
+/* Artwork beside a name (gridpanelview.js makeArt). It is the last child but reads first. */
+.sode-gridpanel__art {
+  align-items: center;
+  color: var(--pb-text-strong);
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--pb-space-1);
+  height: 1.5rem;
+  order: -1;
+}
+.sode-gridpanel__art [hidden] {
+  display: none;
+}
+.sode-gridpanel__art-a {
+  height: 100%;
+  object-fit: contain;
+  width: 1.5rem;
+}
+.sode-gridpanel__art-mask {
+  background-color: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+.sode-gridpanel__art-b {
+  font-family: var(--pb-font-num);
+  font-weight: var(--pb-weight-bold);
+  line-height: 1;
+}
+/* Hide text (gridpanelview.js paintArt): the name's Text child has no box of its own, so it goes to no size and stays
+   for screen readers. The artwork grows into the room; the marks keep their size. */
+:is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-hide-text] {
+  font-size: 0;
+}
+[data-hide-text] > .sode-gridpanel__art {
+  font-size: var(--pb-text-lg);
+  height: 2.25rem;
+}
+[data-hide-text] > .sode-gridpanel__art .sode-gridpanel__art-a {
+  width: 2.25rem;
+}
+.sode-gridpanel__xp {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  height: var(--sode-xp);
+  padding: 0;
+  place-items: center;
+  transform: translate(calc(var(--sode-name-w) + var(--sode-j) * var(--sode-xp)), calc(var(--sode-name-h) + var(--sode-i) * var(--sode-xp)));
+  width: var(--sode-xp);
+}
+/* No hover wash on a crosspoint: the cursor ring already marks the one under the pointer. */
+/* A pinned crosspoint sits in a sticky band over what scrolls, so it draws the field and its own crosshair. */
+:is(.sode-gridpanel__top, .sode-gridpanel__side, .sode-gridpanel__corner) .sode-gridpanel__xp {
+  background-color: var(--sode-patch-field);
+  background-image: linear-gradient(var(--sode-line), var(--sode-line)), linear-gradient(var(--sode-line), var(--sode-line));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size:
+    var(--pb-border-w) 100%,
+    100% var(--pb-border-w);
+}
+/* 48 px in a 72 px crosspoint. */
+.sode-gridpanel__pie {
+  clip-path: circle(50%);
+  height: calc(100% * 2 / 3);
+  width: calc(100% * 2 / 3);
+}
+/* A staged crosspoint: a round ring past the pie that pulses on the panel clock (panels.css --pulse). The grid does
+   not run the clock itself: with thousands of nodes under it, an inherited property animated there restyles all of
+   them every frame. So each staged crosspoint runs it, kept in step from time zero (gridpanelview.js joinPulse). */
+.sode-panel__grid.sode-gridpanel {
+  animation: none;
+}
+.sode-gridpanel__xp[data-s="staged"] {
+  animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
+}
+/* The ring is a pie of the staged levels (gridpanelview.js), 80% of the crosspoint, over the outer part of the pie.
+   It reads the crosspoint's --pulse and runs no animation of its own. */
+.sode-gridpanel__stage {
+  display: none;
+  height: 80%;
+  mask: radial-gradient(circle closest-side, transparent 60%, var(--pb-text-strong) 61%, var(--pb-text-strong) 100%, transparent 100%);
+  opacity: calc(0.25 + var(--pulse) * 0.75);
+  width: 80%;
+}
+.sode-gridpanel__xp[data-s="staged"] > .sode-gridpanel__stage {
+  display: block;
+}
+.sode-gridpanel__pie,
+.sode-gridpanel__stage {
+  grid-area: 1 / 1;
+}
+/* A protected destination's crosspoints refuse a press. */
+.sode-gridpanel__xp[aria-disabled="true"] {
+  background: var(--pb-surface-base);
+  cursor: not-allowed;
+}
+/* A staged route left out of the take (gridpanelrights.js): a still dashed ring, no pulse. */
+.sode-gridpanel__xp[data-s="left-out"] {
+  outline: var(--pb-border-w) dashed var(--pb-text-strong);
+  outline-offset: calc(var(--pb-space-2) * -1);
+}
+/* The cursor (gridpanelcursor.js): one node moved by transform, never eased. On a crosspoint it is a ring that grows
+   and shrinks; on a bar it is an outline. With the overlay it is under the sticky bands; on a bar or pinned item it is
+   above them. */
+.sode-gridpanel__cursor {
+  display: grid;
+  left: 0;
+  pointer-events: none;
+  place-items: center;
+  position: absolute;
+  top: 0;
+  z-index: 1;
+}
+.sode-gridpanel__cursor[data-band] {
+  z-index: 5;
+}
+/* The box on a bar shows only after a key move (data-keys, gridpanelrun.js setCursor), never for the pointer. */
+.sode-gridpanel__cursor[data-keys][data-bar] {
+  outline: calc(var(--pb-border-w) * 3) solid var(--pb-accent);
+  outline-offset: calc(var(--pb-border-w) * -3);
+}
+/* The ring runs the panel pulse itself, so it grows and shrinks in one phase with the staged rings and the armed
+   Take (gridpanelview.js joinPulse). */
+.sode-gridpanel__ring {
+  animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
+  background: radial-gradient(closest-side, transparent calc(100% - 0.25rem), var(--pb-accent) calc(100% - 0.25rem));
+  clip-path: circle(50%);
+  height: 92%;
+  scale: calc(0.82 + var(--pulse) * 0.18);
+  width: 92%;
+}
+.sode-gridpanel__cursor[data-bar] .sode-gridpanel__ring {
+  display: none;
+}
+/* No cursor on touch: a finger has no hover, and the sticky-placed node jumped under momentum scroll. */
+:root[data-layout="phone"] .sode-gridpanel__cursor,
+.sode-gridpanel__field[data-touch] .sode-gridpanel__cursor {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sode-gridpanel__ring,
+  .sode-gridpanel__xp[data-s="staged"] {
+    animation: none;
+  }
+}
+/* Picked names (gridpanelpick.js): a wash and a bar, so a pick reads apart from a target outline. */
+.sode-gridpanel__src,
+.sode-gridpanel__dst {
+  cursor: pointer;
+}
+.sode-gridpanel__src[data-picked] {
+  background-color: var(--pb-source);
+  box-shadow: inset 0 0 0 calc(var(--pb-border-w) * 2) var(--pb-text-strong);
+}
+.sode-gridpanel__dst[data-picked] {
+  background-color: var(--pb-dest);
+  box-shadow: inset 0 0 0 calc(var(--pb-border-w) * 2) var(--pb-text-strong);
+}
+/* Find matches (gridpanelfind.js): an amber wash and bar, apart from a pick's accent. Picked wins where both apply. */
+.sode-gridpanel__src[data-found]:not([data-picked]),
+.sode-gridpanel__dst[data-found]:not([data-picked]) {
+  background-color: color-mix(in oklab, var(--pb-status-warn-fill) 35%, var(--pb-surface-raised));
+  box-shadow: inset 0 calc(var(--pb-border-w) * -4) 0 var(--pb-status-warn-fill);
+}
+.sode-gridpanel__dst[data-found]:not([data-picked]) {
+  box-shadow: inset calc(var(--pb-border-w) * 4) 0 0 var(--pb-status-warn-fill);
+}
+/* What Find or a jump went to pulses (gridpanelview.js goTo; HIT_MS there is 3 x 0.45s): a ring in the strong text
+   colour round each name and round the crosspoint, with no change to their own colours. Two equal animations, so a
+   new hit restarts the pulse on a node that has the last one. All parts get the attribute at once, so one phase. */
+.sode-gridpanel__src[data-hit],
+.sode-gridpanel__dst[data-hit] {
+  outline: calc(var(--pb-border-w) * 3) solid transparent;
+  outline-offset: calc(var(--pb-border-w) * -3);
+}
+.sode-gridpanel__src[data-hit="0"],
+.sode-gridpanel__dst[data-hit="0"] {
+  animation: sode-gridpanel-hit-a 0.45s ease-out 3;
+}
+.sode-gridpanel__src[data-hit="1"],
+.sode-gridpanel__dst[data-hit="1"] {
+  animation: sode-gridpanel-hit-b 0.45s ease-out 3;
+}
+@keyframes sode-gridpanel-hit-a {
+  50% {
+    outline-color: var(--pb-text-strong);
+  }
+}
+@keyframes sode-gridpanel-hit-b {
+  50% {
+    outline-color: var(--pb-text-strong);
+  }
+}
+/* On the crosspoint the ring is the staged ring's shape (.sode-gridpanel__stage), in the strong text colour. */
+.sode-gridpanel__xp[data-hit] > .sode-gridpanel__stage {
+  background: var(--pb-text-strong);
+  display: block;
+  opacity: 0;
+}
+.sode-gridpanel__xp[data-hit="0"] > .sode-gridpanel__stage {
+  animation: sode-gridpanel-hit-ring-a 0.45s ease-out 3;
+}
+.sode-gridpanel__xp[data-hit="1"] > .sode-gridpanel__stage {
+  animation: sode-gridpanel-hit-ring-b 0.45s ease-out 3;
+}
+@keyframes sode-gridpanel-hit-ring-a {
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes sode-gridpanel-hit-ring-b {
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sode-gridpanel__src[data-hit],
+  .sode-gridpanel__dst[data-hit] {
+    animation: none;
+    outline-color: var(--pb-text-strong);
+  }
+  .sode-gridpanel__xp[data-hit] > .sode-gridpanel__stage {
+    animation: none;
+    opacity: 1;
+  }
+}
+/* The corner where the bars meet: the Destinations word along its bottom, next to the Destination bar, the Sources
+   word on its side down its right edge, next to the Source bar, and the search boxes in the editor's live test
+   (gridpanelfindbox.js). Each word is centred in its colour bar. */
+.sode-gridpanel__head {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--pb-space-1);
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-rows: 1fr auto auto;
+  height: var(--sode-name-h);
+  left: 0;
+  padding: var(--pb-space-1);
+  position: absolute;
+  top: 0;
+  width: var(--sode-name-w);
+}
+.sode-gridpanel__find {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-1);
+  grid-column: 1 / 3;
+}
+.sode-gridpanel__head > .sode-gridpanel__label {
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.sode-gridpanel__head > .sode-gridpanel__label--dst {
+  grid-column: 1 / 3;
+  grid-row: 3;
+}
+/* The Destinations word gives way to the mode switch where the corner is narrow. */
+.sode-gridpanel__head:has(> .sode-gridpanel__find-mode) > .sode-gridpanel__label--dst {
+  grid-column: 1;
+}
+/* Read from the bottom up, as a spine label is. */
+.sode-gridpanel__head > .sode-gridpanel__label--src {
+  grid-column: 3;
+  grid-row: 1 / -1;
+  min-height: 0;
+  rotate: 180deg;
+  writing-mode: vertical-rl;
+}
+.sode-gridpanel__find-field {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.sode-gridpanel__find-input {
+  font-size: var(--pb-text-sm);
+  height: 1.8rem;
+  padding-inline-end: var(--pb-space-9);
+  text-overflow: ellipsis;
+  -webkit-user-select: text;
+  user-select: text;
+  width: 100%;
+}
+/* The key hint at the box's end, with the count before it. */
+.sode-gridpanel__find-count,
+.sode-gridpanel__find-key {
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.sode-gridpanel__find-key {
+  opacity: 0.7;
+  right: var(--pb-space-2);
+}
+.sode-gridpanel__find-count {
+  color: var(--pb-text);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-xs);
+  right: var(--pb-space-9);
+}
+.sode-gridpanel__find[data-counted] .sode-gridpanel__find-input {
+  padding-inline-end: calc(var(--pb-space-10) * 2 + var(--pb-space-5));
+}
+/* Previous and next match, beside the box, as tall as it. */
+.sode-gridpanel__find-step {
+  flex: none;
+  height: 1.8rem;
+  min-height: 0;
+  padding: 0;
+  width: 1.5rem;
+}
+.sode-gridpanel__find-step[hidden] {
+  display: none;
+}
+/* The Filter switch (gridpanelfindbox.js), in the corner of the editor's live test; the deck and the phone place it
+   themselves. Its words never change, so the band does not move as the mode changes. */
+.sode-gridpanel__find-mode {
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-2);
+  grid-column: 2;
+  grid-row: 3;
+  min-height: 0;
+}
+.sode-gridpanel__find-mode > .pb-check__label {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.sode-gridpanel__find-word {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+/* A phone has no keys to show. */
+:root[data-layout="phone"] .sode-gridpanel__find-key {
+  display: none;
+}
+:root[data-layout="phone"] .sode-gridpanel__find-input {
+  padding-inline-end: var(--pb-space-3);
+}
+/* The cursor shows where focus is; the scroller takes focus only so an embedded run gets its keys back. A clicked
+   crosspoint or name keeps focus, and Chrome gives it :focus-visible at the next key (Delete, say), which drew a
+   second, box-shaped cursor. */
+.sode-gridpanel__scroll:focus,
+.sode-gridpanel__field :focus-visible {
+  outline: none;
+}
+/* The names and numbered crosspoints that the press under the pointer stages. A crosspoint is absolute, so its
+   number needs no position of its own. */
+.sode-gridpanel__src[data-target],
+.sode-gridpanel__dst[data-target] {
+  outline: calc(var(--pb-border-w) * 3) solid var(--pb-text-strong);
+  outline-offset: calc(var(--pb-border-w) * -3);
+}
+/* The names of the crosspoint under the cursor, while no press preview outlines targets (gridpanelview.js). */
+:root:not([data-layout="phone"]) .sode-gridpanel__field:not([data-marked], [data-touch]) :is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-cue] {
+  outline: calc(var(--pb-border-w) * 3) solid var(--pb-text-strong);
+  outline-offset: calc(var(--pb-border-w) * -3);
+}
+/* A target crosspoint is a round mark over the pie, with its number top left. */
+.sode-gridpanel__xp[data-n]::before {
+  --sode-mark: var(--pb-text-strong);
+  background: radial-gradient(
+    circle closest-side,
+    color-mix(in oklab, var(--pb-text-strong) 12%, transparent) calc(100% - 0.2rem),
+    var(--sode-mark) calc(100% - 0.2rem) 100%,
+    transparent 100%
+  );
+  content: "";
+  inset: var(--pb-space-3);
+  position: absolute;
+}
+.sode-gridpanel__xp[data-n]::after {
+  color: var(--pb-text-strong);
+  content: attr(data-n);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+  inset: var(--pb-space-1) auto auto var(--pb-space-2);
+  line-height: 1;
+  position: absolute;
+  z-index: 1;
+}
+/* Past the 128 cap the press stages nothing, so its targets show in the error colour. */
+.sode-gridpanel__field[data-over] .sode-gridpanel__xp[data-n]::before {
+  --sode-mark: var(--pb-status-error);
+}
+.sode-gridpanel__field[data-over] [data-target] {
+  outline-color: var(--pb-status-error);
+}
+.sode-gridpanel__field[data-over] .sode-gridpanel__xp[data-n]::after {
+  color: var(--pb-status-error);
+}
+/* A previewed name carries its crosspoint's number in the same look (gridpanelview.js pairNumbers). */
+:is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-n]::after {
+  color: var(--pb-text-strong);
+  content: attr(data-n);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+  inset: var(--pb-space-1) auto auto var(--pb-space-2);
+  letter-spacing: normal;
+  line-height: 1;
+  position: absolute;
+}
+.sode-gridpanel__field[data-over] :is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-n]::after {
+  color: var(--pb-status-error);
+}
+/* A Drawn line (gridpanelline.js), in content px over the crosspoints and under the sticky bands. */
+.sode-gridpanel__lines {
+  height: 100%;
+  inset: 0;
+  overflow: visible;
+  position: absolute;
+  width: 100%;
+}
+.sode-gridpanel__lines[hidden] {
+  display: none;
+}
+.sode-gridpanel__line {
+  stroke: var(--pb-accent);
+  stroke-linecap: round;
+  stroke-width: 0.25rem;
+}
+.sode-gridpanel__field[data-over] .sode-gridpanel__line {
+  stroke: var(--pb-status-error);
+}
+/* A protected row that a line passes over: skipped, with the word, as a mark alone could read as a target. */
+.sode-gridpanel__xp[data-skip] {
+  outline: calc(var(--pb-border-w) * 2) dashed var(--pb-status-warn);
+  outline-offset: calc(var(--pb-border-w) * -3);
+}
+.sode-gridpanel__xp[data-skip]::after {
+  color: var(--pb-status-warn);
+  content: "Skip";
+  font-size: var(--pb-text-xs);
+  inset: auto auto var(--pb-space-1) var(--pb-space-1);
+  line-height: 1;
+  position: absolute;
+}
+/* A long-press on touch starts a line, so no callout or magnifier. */
+.sode-gridpanel__scroll {
+  -webkit-touch-callout: none;
+}
+
+/* The Levels box (levelbox.js): input above, chips in two rows with V two rows high as on the main page (base.css). */
+/* Level picks are 42.5 px with 17 px numbers. On the desktop layout the box is a band with the input beside All, so it
+   is no taller than the picks. */
+.sode-gridpanel__levels {
+  /* The height of the two rows of picks. All, Clear and Take use it, so they line up with the picks. */
+  --sode-pick: calc(var(--pb-space-10) + var(--pb-space-1));
+  --sode-picks-h: calc(2 * var(--sode-pick) + var(--pb-space-1));
+  align-items: start;
+  column-gap: var(--pb-space-2);
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  margin-bottom: var(--pb-space-3);
+  row-gap: var(--pb-space-1);
+}
+.sode-gridpanel__levels .sode__pick {
+  font-size: var(--pb-text-md);
+  height: var(--sode-pick);
+  min-width: var(--sode-pick);
+}
+.sode-gridpanel__levels .pb-btn.sode__all {
+  height: var(--sode-picks-h);
+  padding: 0 var(--pb-space-3);
+}
+/* A narrow mouse window keeps the main page's pick sizes, so the picks fit. */
+@media (max-width: 48rem) {
+  .sode-gridpanel__levels .sode__pick {
+    font-size: var(--pb-text-xs);
+    height: calc(var(--pb-space-8) + var(--pb-space-1));
+    min-width: calc(var(--pb-space-8) + var(--pb-space-1));
+  }
+  .sode-gridpanel__levels {
+    --sode-picks-h: calc(2 * (var(--pb-space-8) + var(--pb-space-1)) + var(--pb-space-1));
+  }
+}
+.sode-gridpanel__levels[hidden] {
+  display: none;
+}
+.sode-gridpanel__levels > .sode__box-head,
+.sode-gridpanel__levels > .sode__input {
+  grid-column: 1 / 3;
+}
+/* Rows: the head, the typed levels, the picks, then the note with Clear. Take spans the first three. */
+.sode-gridpanel__levels > .sode__input {
+  grid-row: 2;
+}
+.sode-gridpanel__levels :is(.sode__levels, .sode__all) {
+  grid-row: 3;
+}
+/* The Take button (gridpanelphone.js) at the far end of the Levels box row. */
+.sode-gridpanel__levels:has(> .sode-gridpanel__take:not([hidden])) {
+  grid-template-columns: auto auto 1fr;
+}
+.sode-gridpanel__take {
+  align-self: end;
+  grid-column: 3;
+  grid-row: 1 / 4;
+  justify-self: end;
+  min-height: 4rem;
+  min-width: 12rem;
+}
+/* Clear and the note beside Take (gridpanelnote.js). Clear drops what Esc drops. */
+.sode-gridpanel__clear {
+  align-self: start;
+  grid-column: 3;
+  grid-row: 4;
+  justify-self: end;
+}
+.sode-gridpanel__note {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1);
+  grid-column: 1 / 3;
+  grid-row: 4;
+  min-width: 0;
+}
+.sode-gridpanel__chip {
+  align-self: start;
+  font-size: var(--pb-text-xs);
+}
+/* The note keeps its height as its words change, so the grid below does not move: one line, and an empty chip
+   keeps its room. */
+.sode-gridpanel__note > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-gridpanel__chip[hidden] {
+  display: inline-flex;
+  visibility: hidden;
+}
+/* A zero-width space gives an empty chip its line height. */
+.sode-gridpanel__chip::before {
+  content: "\200b";
+}
+.sode-gridpanel__take[hidden] {
+  display: none;
+}
+/* Outside the grid, so it runs the pulse itself, kept in step with the staged crosspoints (gridpanelrun.js). */
+.sode-gridpanel__take.sode-panel__take--armed {
+  animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
+}
+/* Take is the main page's red Take (pb-btn--danger); staged routes make it glow on the pulse. */
+.sode-gridpanel__take.sode-panel__take--armed {
+  background-color: color-mix(in oklab, var(--pb-danger-hover) calc(var(--pulse) * 100%), var(--pb-status-error));
+  box-shadow: none;
+  color: var(--pb-text-on-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sode-gridpanel__take.sode-panel__take--armed {
+    animation: none;
+    --pulse: 0.6;
+  }
+}
+:root[data-layout="phone"] .sode-gridpanel__take {
+  /* The column beside the picks is what is left of a narrow phone, so Take fills it and does not cover All. */
+  justify-self: stretch;
+  min-width: 0;
+  padding-inline: var(--pb-space-3);
+}
+/* The phone keeps a plain one-line Levels box, as its main page does. */
+:root[data-layout="phone"] .sode-gridpanel__levels > .sode__input {
+  font-size: var(--pb-text-sm);
+  height: var(--pb-control-h);
+}
+.sode-gridpanel__levels > .sode__input {
+  max-width: 20rem;
+}
+.sode-gridpanel__levels > .sode__picker {
+  display: contents;
+}
+
+/* The header (gridpanelheadview.js): the title and instance name, then Settings, Full screen and the Panels link. The
+   main page's Server and Router status and the status slot are beside it, in the header row. */
+.sode-gridpanel__id {
+  align-items: baseline;
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--pb-space-5);
+  min-width: 0;
+}
+.sode-gridpanel__name {
+  align-items: baseline;
+  display: flex;
+  gap: var(--pb-space-4);
+  min-width: 0;
+}
+/* The note beside Take counts the staged routes, so the header leaves the count out. */
+.sode-panels:has(#panel-clear) .sode-gridpanel__id > #panel-staged,
+.sode-gridpanel__id > [hidden] {
+  display: none;
+}
+/* A Grid panel is always full width (the lead's decision), so it has no Full width toggle. Kiosk mode is a panel
+   setting, so the header has no Kiosk mode button. */
+.sode-panels:has(.sode-gridpanel) {
+  max-width: none;
+}
+.sode-panels:has(.sode-gridpanel) :is(#panel-full, #panel-kiosk) {
+  display: none;
+}
+/* The main page's status block, at the header row's right end here and not fixed at the window's top right. It goes
+   with the header in kiosk mode, as before. */
+.sode-gridpanel__headrow > .sode__conn {
+  background: none;
+  flex: none;
+  padding: 0;
+  position: static;
+}
+.sode-panels__head[hidden] ~ .sode__conn {
+  display: none;
+}
+/* The phone keeps its band (gridpanelphone.css): the header is a cell of it, with no status block or Settings. */
+:root[data-layout="phone"] .sode-gridpanel__headrow {
+  display: contents;
+}
+:root[data-layout="phone"] :is(.sode-gridpanel__headrow > .sode__conn, .sode-gridpanel__slot, .sode-gridpanel__settings) {
+  display: none;
+}
+/* In the header buttons (panelfull.js), the Panels link is a header button, not the fixed footer, so the page needs no strip. */
+:root:not([data-layout="phone"]) :is(.sode-panels__head, .sode-gridpanel__tools) .sode-panels__home {
+  background: none;
+  padding: 0;
+  position: static;
+}
+:root:not([data-layout="phone"]) .sode-panels:has(.sode-gridpanel__deck .sode-panels__home) {
+  padding-bottom: 0;
+}
+/* At the top of the deck the link's tip opens below it, not above the window. */
+.sode-gridpanel__tools .sode-panels__home .pb-tip--top[data-pb-tip]::after {
+  bottom: auto;
+  top: calc(100% + var(--pb-space-2));
+}
+
+/* The Sources and Destinations words in the corner, in the role colours. */
+.sode-gridpanel__label {
+  align-items: center;
+  color: var(--pb-text-strong);
+  display: inline-flex;
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+  gap: var(--pb-space-2);
+  letter-spacing: var(--pb-tracking-label);
+  padding: calc(var(--pb-space-1) / 2) var(--pb-space-2);
+  text-transform: uppercase;
+}
+.sode-gridpanel__label--src {
+  background: var(--pb-source);
+}
+.sode-gridpanel__label--dst {
+  background: var(--pb-dest);
+}
+/* The phone layout is the phone session's: its Sources word keeps no arrow. */
+:root[data-layout="phone"] .sode-gridpanel__label--src > svg {
+  display: none;
+}
+
+/* Picked rows and columns (gridpanelview.js paintXp): a role colour wash, translucent so the crosshairs still show. */
+.sode-gridpanel__xp[data-row] {
+  background-color: color-mix(in oklab, var(--pb-dest) 30%, transparent);
+}
+.sode-gridpanel__xp[data-col] {
+  background-color: color-mix(in oklab, var(--pb-source) 30%, transparent);
+}
+.sode-gridpanel__xp[data-row][data-col] {
+  background-color: color-mix(in oklab, var(--pb-text) 18%, transparent);
+}
+:is(.sode-gridpanel__top, .sode-gridpanel__side, .sode-gridpanel__corner) .sode-gridpanel__xp[data-row] {
+  background-color: color-mix(in oklab, var(--pb-dest) 30%, var(--sode-patch-field));
+}
+:is(.sode-gridpanel__top, .sode-gridpanel__side, .sode-gridpanel__corner) .sode-gridpanel__xp[data-col] {
+  background-color: color-mix(in oklab, var(--pb-source) 30%, var(--sode-patch-field));
+}
+:is(.sode-gridpanel__top, .sode-gridpanel__side, .sode-gridpanel__corner) .sode-gridpanel__xp[data-row][data-col] {
+  background-color: color-mix(in oklab, var(--pb-text) 18%, var(--sode-patch-field));
+}
+/* A protected crosspoint keeps its own look in a picked row or column. */
+.sode-gridpanel__xp[aria-disabled="true"]:is([data-row], [data-col]) {
+  background-color: var(--pb-surface-base);
+}
+/* The deck (gridpanelheadview.js): the header, the Levels box and the search boxes in one raised band over the grid.
+   The header row is on top with a line under it: the header on the left, then the status slot and the Server and
+   Router status in the top right corner, as on the main page. Under it are three groups with a rule between them: the Levels box,
+   the search boxes with the Filter switch, then Clear and Take with the note over them. The Levels box and the search
+   slot are display: contents in it, so their parts are cells of one grid. Each column whose words change has a fixed
+   width, so nothing moves. The phone layout keeps the page's own order. */
+.sode-gridpanel__deck {
+  display: contents;
+}
+.sode-gridpanel__rule {
+  display: none;
+}
+/* The phone: the two boxes one over the other, with the Filter switch beside them. */
+.sode-gridpanel__finds {
+  display: grid;
+  gap: var(--pb-space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: var(--pb-space-3);
+}
+.sode-gridpanel__finds > .sode-gridpanel__find-mode {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+.sode-gridpanel__finds > .sode-gridpanel__find {
+  grid-column: 1;
+}
+.sode-gridpanel__tools {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: var(--pb-space-2);
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck {
+  /* One pick (--sode-pick): the picks, the search boxes, Clear and Take line up with it. The Levels box is four
+     picks wide, with Select all under it. */
+  --sode-pick: calc(var(--pb-space-10) + var(--pb-space-1));
+  --sode-lvl-w: calc(4 * var(--sode-pick) + 3 * var(--pb-space-1));
+  --sode-all-h: var(--pb-control-h-sm);
+  align-items: stretch;
+  background: var(--pb-surface-raised);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-light);
+  column-gap: var(--pb-space-2);
+  display: grid;
+  grid-template-areas:
+    "top   top   top  top  top  top  top  top   top"
+    "lab   lab   .    .    .    .    note note  note"
+    "picks input r1   fsrc mode .    r2   clear take"
+    "picks input r1   fdst mode .    r2   clear take";
+  /* The search boxes are as wide as their words need; the room left is the empty column before Clear and Take. */
+  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) 4.5rem 1fr auto 5rem 7rem;
+  grid-template-rows: auto auto var(--sode-pick) var(--sode-pick);
+  /* The top matches the Lock chip's, so the title lines up with the chip's button. */
+  padding: var(--pb-space-4) var(--pb-space-5) var(--pb-space-3);
+  row-gap: var(--pb-space-1);
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck :is(.sode-gridpanel__levels:not([hidden]), .sode-gridpanel__finds) {
+  display: contents;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-panels__spacer {
+  display: none;
+}
+/* The header row: the header and the status block, with a line under it. In the Live Editor the slot between them sets
+   its height, so a message that shows or goes moves nothing. */
+:root:not([data-layout="phone"]) .sode-gridpanel__headrow {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  gap: var(--pb-space-5);
+  grid-area: top;
+  margin-bottom: var(--pb-space-2);
+  min-width: 0;
+  padding-bottom: var(--pb-space-2);
+}
+/* The title block and the buttons after it, at the left; the room past them goes to the slot. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-panels__head:not([hidden]) {
+  align-items: center;
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  gap: var(--pb-space-4);
+  min-width: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__id {
+  flex: 0 1 auto;
+}
+/* The status slot (gridpanelheadview.js): the result line or the "This panel was changed" banner, at the right, next
+   to the status block. One fixed height, a little more than the header's, so the banner's two lines fit and nothing it
+   shows moves the grid. A long result line is cut with an ellipsis. */
+:root:not([data-layout="phone"]) .sode-gridpanel__slot {
+  align-items: center;
+  display: flex;
+  flex: 1 1 0;
+  height: calc(var(--pb-control-h-sm) + var(--pb-space-3) * 2);
+  justify-content: end;
+  min-width: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__slot > .sode-panel__status {
+  font-size: var(--pb-text-sm);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The banner in the slot: the main page's banner (base.css .sode__banner), the title over the line, with the buttons
+   beside them and the countdown under it. */
+:root:not([data-layout="phone"]) .sode-gridpanel__slot > .sode-panel__update {
+  max-width: 48rem;
+  min-width: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__slot > .sode-panel__update > .pb-alert {
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-1) var(--pb-space-3);
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__slot .sode__banner-body {
+  font-size: var(--pb-text-xs);
+  line-height: var(--pb-leading-tight);
+  white-space: nowrap;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__slot .sode__banner-body > .pb-alert__title {
+  margin: 0;
+}
+/* As tall as the Lock chip's bar (lock.css), so the title is level with its button. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__name {
+  align-items: center;
+  min-height: calc(var(--pb-control-h-sm) + var(--pb-space-2) * 2);
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__name > .sode-panels__title {
+  font-size: var(--pb-text-xl);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A rule apart from the cells beside it, so each group reads on its own. */
+:root:not([data-layout="phone"]) .sode-gridpanel__rule {
+  display: block;
+  margin: 0 var(--pb-space-3);
+}
+.sode-gridpanel__rule--1 {
+  grid-area: r1;
+}
+.sode-gridpanel__rule--2 {
+  grid-area: r2;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels > .sode__box-head {
+  align-self: end;
+  grid-area: lab;
+  min-height: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels .sode__levels {
+  grid-area: picks;
+}
+/* As on the main page: a tall box with large words, here with Select all under it, both in the picks' height. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels > .sode__input {
+  align-self: start;
+  grid-area: input;
+  height: calc(100% - var(--sode-all-h) - var(--pb-space-1));
+  max-width: none;
+  min-width: 0;
+  width: auto;
+}
+/* A short, quiet button under the Levels box, as wide as it. Its words change, so its width is the column's. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels .sode__all {
+  align-self: end;
+  flex-direction: row;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-2);
+  grid-area: input;
+  height: var(--sode-all-h);
+  min-width: 0;
+  white-space: nowrap;
+}
+/* The note over Clear and Take, at Take's end. width 0 and min-width 100%, so long words are cut and widen no column. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__note > .sode-gridpanel__chip {
+  align-self: end;
+}
+/* One badge high whether the chip shows or not, so its row never grows. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__note {
+  align-items: end;
+  align-self: end;
+  height: calc(var(--pb-text-xs) + 2 * var(--pb-space-2) + 2 * var(--pb-border-w));
+  justify-content: end;
+  grid-area: note;
+  min-width: 100%;
+  width: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__clear {
+  align-self: stretch;
+  grid-area: clear;
+  height: auto;
+  justify-self: stretch;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__take {
+  align-self: stretch;
+  font-size: var(--pb-text-lg);
+  grid-area: take;
+  height: auto;
+  justify-self: stretch;
+  letter-spacing: var(--pb-tracking-label);
+  min-height: 0;
+  min-width: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find[data-kind="srcs"] {
+  grid-area: fsrc;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find[data-kind="dsts"] {
+  grid-area: fdst;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find {
+  align-items: stretch;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck :is(.sode-gridpanel__find-input, .sode-gridpanel__find-step) {
+  height: 100%;
+}
+/* The word over the switch. The column is as wide as "Filter", so the band does not move as the word changes. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find-mode {
+  align-items: center;
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  flex-direction: column-reverse;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-2);
+  grid-area: mode;
+  justify-content: center;
+  padding: 0 var(--pb-space-2);
+}
+/* On, the switch's box takes the accent edge, so the mode shows from across the room. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find-mode:has(> :checked) {
+  border-color: var(--pb-accent);
+}
+/* The panel page (gridpanelheadview.js): results, refusals and the "This panel was changed" banner fill the gap
+   between the search boxes and Clear, as tall as the Find box, with a rule (r3) after the Find box. The gap keeps room
+   for the banner (10rem) before the search boxes grow to 14rem. The box takes the gap's size and never sets it
+   (contain: size), so a message that shows or goes never moves the grid. A result shows over the "This panel was
+   changed" banner. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck:has(> .sode-gridpanel__msg) {
+  grid-template-areas:
+    "top   top   top  top  top  top  top  top  top   top"
+    "lab   lab   .    .    .    .    .    note note  note"
+    "picks input r1   fsrc mode r3   msg  r2   clear take"
+    "picks input r1   fdst mode r3   msg  r2   clear take";
+  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) 4.5rem auto minmax(10rem, 1fr) auto 5rem 7rem;
+}
+.sode-gridpanel__rule--3 {
+  grid-area: r3;
+}
+/* The column gap spaces this rule, so the banner keeps room for Snooze and Apply now side by side at 1280 px. */
+:root:not([data-layout="phone"]) .sode-gridpanel__rule--3 {
+  margin: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__msg {
+  align-items: stretch;
+  contain: size;
+  display: grid;
+  grid-area: msg;
+  min-width: 0;
+  overflow: hidden;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__msg > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+/* A result fills the box, top to bottom. */
+:root:not([data-layout="phone"]) .sode-gridpanel__res > .sode__banner {
+  height: 100%;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__res .sode__banner-in {
+  display: flex;
+  flex-direction: column;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__res .pb-alert {
+  align-items: center;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__msg > .sode-panel__update {
+  align-self: center;
+}
+/* The count of messages held back (bannerStep), in the box's bottom corner, over the result. */
+.sode-gridpanel__held {
+  align-self: end;
+  font-size: var(--pb-text-xs);
+  justify-self: end;
+  margin: var(--pb-space-1);
+  z-index: 1;
+}
+.sode-gridpanel__held[hidden] {
+  display: none;
+}
+.sode-gridpanel__msg:has(.sode__banner:not(.sode__banner--out)) > .sode-panel__update {
+  visibility: hidden;
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__msg .pb-alert {
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1) var(--pb-space-2);
+  line-height: var(--pb-leading-tight);
+  margin: 0;
+  padding: var(--pb-space-2);
+}
+/* Snooze and Apply now side by side in the narrowest gap (1280 px). */
+:root:not([data-layout="phone"]) .sode-gridpanel__msg .pb-btn {
+  padding-inline: var(--pb-space-2);
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__msg .pb-alert__title {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+/* The banner's words take the first line, Snooze and Apply now the next. */
+:root:not([data-layout="phone"]) .sode-gridpanel__msg > .sode-panel__update .sode__banner-body {
+  flex: 1 1 100%;
+}
+/* Less room above and below, so the words and the buttons fit in the Find box's height. */
+:root:not([data-layout="phone"]) .sode-gridpanel__msg > .sode-panel__update .pb-alert {
+  padding-block: var(--pb-space-1);
+}
+/* The header row on the panel page: the header, the buttons out of it, then the status block at the right end. Kiosk
+   mode has no header row, so the grid moves up. */
+:root:not([data-layout="phone"]) .sode-gridpanel__headrow > .sode__conn {
+  margin-left: auto;
+}
+:root[data-sode-kiosk]:not([data-layout="phone"]) .sode-gridpanel__headrow {
+  display: none;
+}
+.sode-gridpanel__home {
+  display: contents;
+}
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__namerule, .sode-gridpanel__toolrule) {
+  margin: var(--pb-space-2) var(--pb-space-1);
+}
+/* A rule right of the Lock chip's "Signed in as". The chip floats (lock.css), so the rule takes the clearance that the
+   header and the buttons have on the other pages (panels.css). */
+.sode-gridpanel__whorule {
+  display: none;
+}
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-gridpanel__whorule {
+  display: block;
+  flex: none;
+  margin: var(--pb-space-2) 0 var(--pb-space-2) calc(var(--sode-who-w, 0px) + var(--pb-space-2));
+}
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-gridpanel__whorule ~ .sode-panels__head {
+  padding-inline-start: 0;
+}
+.sode-gridpanel__tools:has(> #panel-screen[hidden]) > .sode-gridpanel__toolrule,
+:root[data-layout="phone"] :is(.sode-gridpanel__namerule, .sode-gridpanel__toolrule, .sode-gridpanel__edit, .sode-gridpanel__copy, .sode-gridpanel__msg) {
+  display: none;
+}
+/* Below 1280 px the controls row is tight: a smaller gap and Take, and a Levels box that gives way past the search
+   boxes' least width (5rem), with smaller words so the placeholder still fits. */
+@media (max-width: 79.9rem) {
+  :root:not([data-layout="phone"]) .sode-gridpanel__deck {
+    column-gap: var(--pb-space-1);
+    grid-template-columns: auto minmax(5rem, var(--sode-lvl-w)) auto minmax(5rem, 14rem) 4.5rem 1fr auto 5rem 6.4rem;
+  }
+  :root:not([data-layout="phone"]) .sode-gridpanel__deck:has(> .sode-gridpanel__msg) {
+    grid-template-columns: auto minmax(5rem, var(--sode-lvl-w)) auto minmax(5rem, 14rem) 4.5rem auto minmax(6rem, 1fr) auto 5rem 6.4rem;
+  }
+  :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels > .sode__input {
+    font-size: var(--pb-text-lg);
+  }
+  :root:not([data-layout="phone"]) .sode-gridpanel__rule {
+    margin: 0 var(--pb-space-2);
+  }
+}
+/* Below 1152 px the status shows only its dots and the router: the main page's words do not fit beside the title. */
+@media (max-width: 71.9rem) {
+  :root:not([data-layout="phone"]) .sode-gridpanel__headrow > .sode__conn .pb-status > :not(.pb-dot) {
+    display: none;
+  }
+}
+/* A panel with no sources or no destinations (gridpanelrun.js paintEmpty): the note is in the flow under the corner.
+   No :has() on the scroller: a scroll toggles hidden on spare nodes, and each toggle would test it again. */
+.sode-gridpanel__empty {
+  justify-content: center;
+  min-height: calc(var(--sode-name-h) * 2);
+}
+.sode-gridpanel__empty[hidden] {
+  display: none;
+}
+/* With the Title bar setting off, the buttons start the header row, so they clear the Lock bar as the header does
+   (panels.css). */
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels__head[hidden] + .sode-gridpanel__tools {
+  margin-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-4));
+}
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-gridpanel__whorule ~ .sode-panels__head[hidden] + .sode-gridpanel__tools {
+  margin-inline-start: 0;
+}

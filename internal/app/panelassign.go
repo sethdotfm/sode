@@ -21,7 +21,7 @@ func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/assign", config.ScopePanelsManage, (*App).apiPanelAssign})
 }
 
-const assignMsg = "only a Trusted user, or the Advanced Settings PIN, may assign an instance to another panel"
+const assignMsg = "only a Trusted user, or the Advanced Settings PIN, can assign an instance to another panel"
 
 // assignLine is the stream's last line to the instance. Slug lets the page keep a short address.
 type assignLine struct {
@@ -60,8 +60,8 @@ func (m *panelMon) streamDevice(id, device string) (string, bool) {
 	return in.device, true
 }
 
-// sendNewest offers b to the device's newest stream only: anyone who may use the panel can hold a stream under
-// any device name, so the others are not known to be the instance that was picked. nil when none is held.
+// sendNewest offers b to the device's newest stream only. Anyone who can use the panel can hold a stream under
+// any device name. So the others are not known to be the picked instance. nil when none is held.
 func (m *panelMon) sendNewest(id, device string, b []byte) <-chan bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -90,8 +90,8 @@ func (m *panelMon) sendEvery(id, device string, b []byte) int {
 	return n
 }
 
-// heldNames is every name a panel's instances go by: devs (the monitor's deviceNames, read before cfgMu) and the
-// keys and setup links of owner, the panel's client. Caller holds cfgMu.
+// heldNames is every name a panel's instances go by. That is devs (the monitor's deviceNames, read before cfgMu)
+// and the keys and setup links of owner, the panel's client. Caller holds cfgMu.
 func (a *App) heldNames(devs []string, owner keyOwner, has bool) []string {
 	held := slices.Clone(devs)
 	if has {
@@ -153,7 +153,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			apiFail(w, http.StatusConflict, "conflict", "that keyless instance is not open now")
 			return
 		}
-		// A keyless page may be assigned to the panel it shows: that is how it gets a key.
+		// A keyless page can be assigned to the panel it shows: that is how it gets a key.
 		if from, ok = a.panels.get(a.panelIDOf(ref)); !ok {
 			from = Panel{ID: ref}
 		}
@@ -215,7 +215,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	// An empty list allows any address, as it does for the key itself.
 	if addr != "" && !networkAllowed(c.Networks, addr) {
-		apiFail(w, http.StatusForbidden, "network_not_allowed", name+" is at "+addr+", outside the allowed networks of "+to.Name+", so it may not get a key for it")
+		apiFail(w, http.StatusForbidden, "network_not_allowed", name+" is at "+addr+", outside the allowed networks of "+to.Name+". It is not allowed to get a key for it")
 		return
 	}
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
@@ -244,7 +244,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	line, _ := json.Marshal(assignLine{T: "assign", Panel: to.ID, Slug: to.Slug, Instance: as, Key: made.secret})
 	if !send(line) {
-		// No stream wrote the line: it closed first or its write failed, so no key may outlive it.
+		// No stream wrote the line: it closed first or its write failed, so a key must not outlive it.
 		a.cfgMu.Lock()
 		a.keys.dropLive(func(r keyRec) bool { return r.ID == made.id })
 		a.cfgMu.Unlock()

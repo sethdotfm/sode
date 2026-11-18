@@ -254,6 +254,18 @@ test('an already result clears the stage too', () => {
   assert.equal(done.staged.length, 0);
 });
 
+test('a press while the take is out stays staged after its answer, on the same destination too', () => {
+  const e = env();
+  const { state } = startTake(pressSource(pressDestination(createState(), D(0), e, T0), S(4), e, T0), e, T0);
+  const pressed = pressSource(state, S(3), e, T0);
+  const done = finishTake(pressed, { ok: true, results: [{ src: 4, dst: 0, result: 'connected' }] }, T0);
+  assert.deepEqual(
+    done.staged.map((x) => [x.dst, x.src]),
+    [[0, 3]],
+  );
+  assert.equal(armed(done, e), true);
+});
+
 test('a failed route stays staged so Take can be pressed again', () => {
   const e = env();
   let st = pressDestination(createState(), D(0), e, T0);

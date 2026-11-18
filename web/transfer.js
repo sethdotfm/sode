@@ -1,5 +1,6 @@
-// Settings > Export & import dialog, and share links. Export writes YAML (the server only converts: POST api/yaml); import reads a file or
-// pasted text into the review sheet (reviewsheet.js), which a share link also opens. Names ride beside numbers so another router's numbers can still be matched.
+// Settings > Export & import dialog, and share links. Export writes YAML (the server only converts: POST api/yaml). Import reads a
+// file or pasted text into the review sheet (reviewsheet.js), which a share link also opens. Names go beside numbers so another
+// router's numbers can still be matched.
 // Pure rules are in exportfmt.js. Other modules open this with emit('openTransfer', { scope, user }).
 
 import { $, el, S, on, sentence } from './core.js';
@@ -83,7 +84,7 @@ export async function copyLink(ui) {
 
 export const sharePresetDoc = (p) => fmt.presetShare(p, srcName, dstName);
 
-// onLocked: a lock closed the sheet; the link waits to be shown again after unlocking.
+// onLocked: a lock closed the sheet; the link waits to be shown again after the unlock.
 function reviewShare(share, source = '', onLocked = null) {
   openReview({
     doc: fmt.docOfShare(share),
@@ -104,11 +105,11 @@ function applyNow(f, name) {
   showResult('info', name ? `Shared filter “${name}” applied` : 'Shared filter applied', () => el('span', 'sode__filters-empty', undo));
 }
 
-// A link in the address (#share=, or the old ?f=) stays PENDING until the sheet can show: names are in and no lock covers the page
-// (a new browser with the main lock on gets `hello` before the lock screen, so the sheet would open and be closed again).
-// The address is cleaned only once the sheet is up, so a reload while locked keeps the link. A hashchange link goes the same way.
+// A link in the address (#share=, or the old ?f=) stays PENDING until the sheet can show. The sheet can
+// show when names are in and no lock covers the page. A new browser with the main lock on gets `hello` before the lock
+// screen, so the sheet would open and be closed again. The address is cleaned only after the sheet is up, so a reload while locked keeps the link. A hashchange link goes the same way.
 let pending = null; // the share document waiting to be shown
-let access = null; // lock.js's lock state, once it has said
+let access = null; // lock.js's lock state, after it has said
 let namesIn = false;
 
 let lockUp = false; // lock.js's overlay is up (its 'lockcover' event)
@@ -191,7 +192,7 @@ const setNote = (t, error = false) => {
 
 let open = false,
   back = null;
-// user: a profile named by openTransfer (someone else's, read by name; the logged-in user's own is just 'user').
+// user: a profile named by openTransfer (someone else's, read by name; the signed-in user's own is 'user').
 let ex = null;
 let other = null; // { name, state: 'wait' | 'ok' | 'err', profile, err }
 

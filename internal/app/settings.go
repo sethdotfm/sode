@@ -14,7 +14,7 @@ import (
 
 // saveSettings: browsers never see the PIN hash, so the current one is kept unless pin
 // sets a new one or clearPin drops it. Saves are serialized. The message decodes over a
-// copy of the live config, so a key it lacks (an old page) keeps its live value; lists
+// copy of the live config, so a key it lacks (an old page) keeps its live value. Lists
 // in it replace, and null clears a list.
 func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin bool) error {
 	a.cfgMu.Lock()
@@ -22,12 +22,12 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 	if err := a.guardSave(c, pin == "" && !clearPin); err != nil {
 		return err
 	}
-	// A trusted user may not weaken what the admin guards through plain fields.
+	// A trusted user must not weaken what the admin guards through plain fields.
 	admin := a.settingsUnlocked(c)
 	toggled, now := false, false
 	err := a.applyConfig(func(cur *config.Config) error {
 		// cur is a copy of live; fields saved apart (owned) stay as is, so a stale browser
-		// copy can't undo them.
+		// copy cannot undo them.
 		live := *cur
 		cfg := live.Clone()
 		if err := json.Unmarshal(msg, &cfg); err != nil {
@@ -67,7 +67,7 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 	return err
 }
 
-var errInsecureSave = errors.New("turning on Require HTTPS needs a request that arrived over HTTPS through a trusted proxy, so you can't lock yourself out; open Sode through your HTTPS address and save again")
+var errInsecureSave = errors.New("to turn on Require HTTPS, save from a request that came over HTTPS through a trusted proxy. This stops a lock-out. Open Sode through your HTTPS address and save again")
 
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	return a.saveShared(c, func(cur *config.Config) error {
@@ -97,7 +97,7 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}
 	}
-	// Revocation is durable: invalidated tokens are deleted so undoing the change can't
+	// Revocation is durable: invalidated tokens are deleted so undoing the change cannot
 	// revive them.
 	a.tokens.prune(cfg)
 	a.pruneKeys(old.cfg, cfg)
@@ -160,7 +160,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 			a.status.Router = string(swp08.StateConnecting)
 			a.status.Addr = c.Router
 			a.status.Err = ""
-			// SetTarget doesn't report down: tell the link log and uptime here; the next up is
+			// SetTarget does not report down, so this tells the link log and uptime. The next up is
 			// logged again.
 			a.up.State(false)
 			a.linkSeen, a.linkErr = "", ""
@@ -172,7 +172,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		for cl := range a.clients {
 			a.deliver(cl, hello)
 		}
-		a.syncAccessAllMu() // locks, users or the Advanced Settings PIN may have changed
+		a.syncAccessAllMu() // it is possible that locks, users or the Advanced Settings PIN changed
 		locked, _ := json.Marshal(simpleMsg{T: "locked"})
 		for cl := range a.clients {
 			if cl.pin != "" && cl.pin != c.SettingsPin {
@@ -187,7 +187,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	if err != nil {
 		return err
 	}
-	a.catchUpSessions() // Never sign out may have just been ticked
+	a.catchUpSessions() // it is possible that this save ticked Never sign out
 	if reconnect {
 		a.sw.SetTarget(c.Router, applied.probe())
 	}
@@ -199,14 +199,14 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
-	return "changing the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit or the locks needs the Advanced Settings PIN"
+	return "a change to these settings needs the Advanced Settings PIN: the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit and the locks"
 }
 func (guardedErr) Is(target error) bool { return target == errLocked }
 
-// trustedMayNotChange: fields a trusted user can't change (guard roles "router" and
-// "pin"): the router and how it is read (reconnects, cuts takes), and what would weaken
-// admin guards: trustedProxies (forge addresses in logs), pinMaxTries (disable permanent
-// lockout), how confirms are fired. next is compared normalized.
+// trustedMayNotChange: fields a trusted user cannot change (guard roles "router" and
+// "pin"). One group is the router and how it is read (reconnects, cuts takes). The other is
+// what would weaken admin guards: trustedProxies (forge addresses in logs), pinMaxTries
+// (disable permanent lockout) and how confirms are fired. next is compared normalized.
 func trustedMayNotChange(live, next config.Config) error {
 	n := next.Clone()
 	n.Normalize()

@@ -18,6 +18,7 @@ import {
   typeLabel,
 } from '../editorrules.js';
 import { createGrid, merge, select } from '../gridmodel.js';
+import { pageView } from '../panelpages.js';
 
 test('the editor opens the panel in ?panel=, and anything else starts a new one', () => {
   assert.deepEqual(editorTarget('?panel=p-1a2b'), { id: 'p-1a2b' });
@@ -84,6 +85,37 @@ test('dirty means the name or the grid differs from what was loaded', () => {
   assert.equal(isDirty(null, 'New panel', createGrid()), false);
 });
 
+test('a new Grid panel has no sources, no destinations and no Pages', () => {
+  const p = newPanel('grid');
+  assert.deepEqual([p.type, p.sources, p.destinations, p.pages, p.acts], ['grid', { members: [] }, { members: [] }, [], 'session']);
+  assert.equal(newPanel().type, undefined);
+});
+
+test('a Grid panel saves its type and edges with no size and no Pages, whatever the Buttons grid holds', () => {
+  const g = merge(select(select(createGrid({ rows: 2, cols: 2 }), 1, 1), 2, 2, true));
+  const sources = { members: [3, 1], items: { 1: { pinned: true } } };
+  const fresh = saveBody(newPanel(), 'Wall', g, { type: 'grid', sources });
+  assert.deepEqual([fresh.type, fresh.sources, fresh.destinations, fresh.pages], ['grid', sources, { members: [] }, []]);
+  assert.ok(!('rows' in fresh) && !('cols' in fresh));
+  const loaded = { ...newPanel('grid'), id: 'p-1', name: 'Wall', canEdit: true, rows: 0, cols: 0, future: 1 };
+  const b = saveBody(loaded, 'Wall', g, { destinations: { members: [2] } });
+  assert.deepEqual([b.type, b.sources, b.destinations, b.pages, b.future], ['grid', { members: [] }, { members: [2] }, [], 1]);
+});
+
+test('a Grid panel is dirty on a type or edge change, and not on an empty items or hide left by an undone edit', () => {
+  const loaded = { ...newPanel('grid'), id: 'p-1', name: 'Wall', rows: 0, cols: 0, sources: { members: 'all' }, destinations: { members: 'all' } };
+  const g = createGrid(pageView(loaded));
+  assert.equal(isDirty(loaded, 'Wall', g, {}), false);
+  assert.equal(isDirty(loaded, 'Wall', g, { sources: { members: 'all', items: {}, hide: [] } }), false);
+  assert.equal(isDirty(loaded, 'Wall', g, { sources: { members: 'all', items: { 2: { pinned: true } } } }), true);
+  assert.equal(isDirty(null, 'New panel', createGrid(), { type: 'grid' }), true);
+  assert.equal(isDirty(null, 'New panel', createGrid(), { type: 'buttons' }), false);
+  // A read carries the client's Rights; only an edit of them is a change.
+  assert.equal(isDirty({ ...loaded, clientRights: { levels: [1] } }, 'Wall', g, {}), false);
+  // A Grid panel made from a new panel: the editor's Buttons grid is still the new panel's 4 by 8.
+  assert.equal(isDirty(loaded, 'Wall', createGrid(), {}), false);
+});
+
 test('the menu goes right of the selection, else left, else below, and stays inside its area', () => {
   const vp = { left: 0, top: 0, right: 1000, bottom: 600 };
   const menu = { w: 200, h: 120 };
@@ -97,7 +129,7 @@ test('the menu goes right of the selection, else left, else below, and stays ins
   assert.equal(placeMenu({ left: 20, top: 50, right: 680, bottom: 100 }, menu, area, 8).side, 'below');
 });
 
-// The sidebar edits the selected cell, so the menu must not sit over it: beside the grid it bounds the menu's area,
+// The sidebar edits the selected cell, so the menu must not sit over it. Beside the grid it bounds the menu's area;
 // under the grid (the narrow layout) it does not.
 test('the menu area is the viewport, cut at the sidebar when the sidebar is beside the grid', async () => {
   const { menuArea } = await import('../editorrules.js');
@@ -108,8 +140,8 @@ test('the menu area is the viewport, cut at the sidebar when the sidebar is besi
   assert.deepEqual(menuArea(vp, null, grid), { left: 0, top: 0, right: 1600, bottom: 900 });
 });
 
-// A flyout (Type, Find) opens away from the selection, so on the menu's own side; when that side has no room it
-// flips to the other, and when neither fits it takes the side with more room.
+// A flyout (Type, Find) opens away from the selection, so on the menu's own side. When that side has no room it
+// flips to the other, and when neither fits it picks the side with more room.
 test('a flyout opens on the menu side when it fits there, else on the other side', async () => {
   const { subSide } = await import('../editorrules.js');
   const area = { left: 0, top: 0, right: 1000, bottom: 600 };
@@ -124,7 +156,7 @@ test('a flyout opens on the menu side when it fits there, else on the other side
 });
 
 // The Find flyout sits beside its menu item and is pulled back inside the viewport when it would run off the bottom or
-// the right; it never moves when it already fits.
+// the right. It never moves when it already fits.
 test('a flyout that runs off the viewport is shifted back inside, and one that fits stays put', async () => {
   const { flyoutShift } = await import('../editorrules.js');
   const vp = { w: 1000, h: 600 };

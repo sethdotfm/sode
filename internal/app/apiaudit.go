@@ -17,7 +17,7 @@ const (
 )
 
 // Actor is who did something over the API or a user's key. Key is the key name, set when
-// the key was made, so it is verified. Via is the caller's own free text: unverified.
+// the key was made, so it is verified. `Via` is the caller's own free text: unverified.
 type Actor struct {
 	Kind string `json:"kind"`
 	Name string `json:"name"`
@@ -55,7 +55,8 @@ func panelTag(p Panel, instance string) string {
 }
 
 // panelNames is what History shows for a take from a panel page: the panel's name (its short name when it has
-// none) and the instance, both "" for a call no panel page made. Taken at the take, so a later rename leaves it.
+// none) and the instance. Both are "" for a call no panel page made. They are recorded at the take, so a later
+// rename leaves them.
 func (a *App) panelNames(act Actor) (panel, instance string) {
 	if act.panel == "" {
 		return "", ""
@@ -115,8 +116,8 @@ var keyShape = regexp.MustCompile(keyPrefix + `(?:ses\.)?[A-Za-z0-9_-]{20,}`)
 
 func redactKeys(s string) string { return keyShape.ReplaceAllString(s, "[key]") }
 
-// apiEvent is the one writer of `api` rows: By is the actor and key name, Note the detail, then
-// the panel tag, then the via text. Callers never pass a key, hash or PIN; keys are redacted anyway.
+// apiEvent is the one writer of `api` rows. By is the actor and key name. Note is the detail, then
+// the panel tag, then the `Via` text. Callers never pass a key, hash or PIN; keys are redacted anyway.
 func (a *App) apiEvent(act Actor, why, result, note string, err error) {
 	e := event(kindAPI, why, redactKeys(act.String()), result)
 	e.Note = redactKeys(note)

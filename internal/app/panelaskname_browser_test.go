@@ -12,8 +12,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// With "Ask users to set an instance name" off the page never asks and shows no name in the header, yet it
-// still beats under its address, and ?instance= or a stored name still apply. On, the question is back.
+// With "Ask users to set an instance name" off, the page never asks and shows no name in the header. It still
+// beats under its address, and ?instance= or a stored name still apply. On, the question is back.
 func TestChromePanelAskInstanceNameOff(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -23,7 +23,7 @@ func TestChromePanelAskInstanceNameOff(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","acts":"api","cells":[{"r":1,"c":1,"kind":"instanceName"}],"settings":{"askInstanceName":false}}`)

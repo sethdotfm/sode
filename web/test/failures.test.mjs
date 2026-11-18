@@ -54,14 +54,14 @@ test('failed takes: reasons, undo and changedSince', async () => {
   );
   assert.equal(failureGroups({ ...e, ok: true }).length, 0);
   assert.equal(failureGroups({ ...e, failed: undefined }).length, 0);
-  // Undo restores the levels that may have changed: 3 (unknown) and 4.
+  // Undo restores the levels with a possible change: 3 (unknown) and 4.
   const item = undoPlan(e).items[0];
   assert.deepEqual(
     item.groups.map((g) => g.levels),
     [[3, 4]],
   );
   assert.deepEqual(item.untouched, [1, 2]);
-  // Level 4 moved on since; level 3 can't tell (it never confirmed).
+  // Level 4 moved on since; level 3 cannot tell (it never confirmed).
   S.tally = new Map([
     [
       5,
@@ -121,7 +121,7 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
   );
   assert.equal(S.hist[2].fixed, true);
   assert.notEqual(S.hist, before);
-  // An amendment of an entry that isn't loaded is dropped, not added as new.
+  // An amendment of an entry that is not loaded is dropped, not added as new.
   const loaded = S.hist;
   assert.equal(putEntry({ id: 40, fixed: true }, S, true), 'skipped');
   assert.equal(S.hist, loaded);
@@ -219,7 +219,7 @@ test('histRows: followers of a confirm go in its folder', async () => {
     [8, 5],
   );
   setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '' });
-  // Sode takes hidden: the folder doesn't show, so a follower that passes
+  // Sode takes hidden: the group does not show, so a follower that passes
   // stands on its own rather than vanishing with it.
   setFilter({ sode: false, ext: true, hidden: true, src: '', dst: '' });
   rows = histRows([ext(8, 7, { followGroup: 'g' }), ext(7, 7, { followGroup: 'g' }), ...takes]);

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// A key a read adds that panelKnown lacks lands in Extra when an editor saves the read back, and is then
+// A key a read adds that panelKnown lacks lands in Extra when an editor saves the read back. It is then
 // stored and shown to non-editors (it happened with artDefaults, then keyless).
 func TestPanelReadsAddOnlyPanelKnownKeys(t *testing.T) {
 	a, _ := clientApp(t)

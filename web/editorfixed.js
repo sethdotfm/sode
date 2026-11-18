@@ -1,5 +1,5 @@
 // The Panel tab's Fixed destination field: the chosen Destinations by name, each with a remove button, and a
-// picker over Find's search (findrules.js fixedPick) that honours the signed-in user's Rights and Visibility.
+// picker over Find's search (findrules.js fixedPick). The picker honours the signed-in user's Rights and Visibility.
 // Rules are findrules.js and sidebarrules.js (addFixed, dropFixed); this file is the DOM.
 import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';

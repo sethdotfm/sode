@@ -15,13 +15,14 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Panels over REST (docs/panels-design.md). They ride the API switch, scopes, rate limit and
 // error shape of the rest of v1. Read is `panels`, change is `panelsmanage`. A panel the
-// caller may not use is answered 404, as if it did not exist.
+// caller is not allowed to use is answered 404, as if it did not exist.
 
 func init() {
 	const read, manage = config.ScopePanels, config.ScopePanelsManage
@@ -45,7 +46,7 @@ func (a *App) trusted(name string) bool {
 	return ok && u.Trusted
 }
 
-// panelReach is what cl may do with p. A user owns a panel by name; a Trusted user (read
+// panelReach is what cl can do with p. A user owns a panel by name; a Trusted user (read
 // live from the config) reaches all. A client reaches the panel it is the API client of. The Assign to warning
 // repeats the user part (opens in web/panelassignrules.js); keep in step.
 func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
@@ -93,7 +94,7 @@ func (a *App) panelOut(p Panel, edit bool) map[string]any {
 	return m
 }
 
-// hideNamesFromPublic: a Public panel's key is anyone's, and user names never reach a caller who
+// hideNamesFromPublic: a Public panel's key is anyone's. User names never reach a caller who
 // entered no PIN (AGENTS.md), so its reads carry no owner or named users.
 func hideNamesFromPublic(m map[string]any, cl *apiCtx) {
 	if cl.Key == nil || !cl.Key.public {
@@ -105,19 +106,19 @@ func hideNamesFromPublic(m map[string]any, cl *apiCtx) {
 	}
 }
 
-// panelFor loads {id} for cl, answering 404 for a missing id or one cl cannot read and 403
-// not_owner when needEdit and cl may only use it.
+// panelFor loads {id} for cl. It answers 404 for a missing id or one cl cannot read, and 403
+// not_owner when needEdit and cl is allowed only to use it.
 func (a *App) panelFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needEdit bool) (Panel, bool) {
 	id := r.PathValue("id")
 	p, read, edit := a.reachPanel(cl, id)
-	if refuseReach(w, read, edit, needEdit, "no panel "+id+" that this key may use",
-		"this panel is use only for this key: only its owner or a Trusted user may change it") {
+	if refuseReach(w, read, edit, needEdit, "no panel "+id+" that this key can use",
+		"this panel is use only for this key: only its owner or a Trusted user can change it") {
 		return Panel{}, false
 	}
 	return p, true
 }
 
-// reachPanel loads panel id and what cl may do with it. A missing or malformed id reaches nothing.
+// reachPanel loads panel id and what cl can do with it. A missing or malformed id reaches nothing.
 func (a *App) reachPanel(cl *apiCtx, id string) (p Panel, read, edit bool) {
 	p, ok := a.panels.get(id)
 	if !ok || !validPanelID(id) {
@@ -127,8 +128,9 @@ func (a *App) reachPanel(cl *apiCtx, id string) (p Panel, read, edit bool) {
 	return p, read, edit
 }
 
-// refuseReach writes the refusal for a record cl may not use (404, so it does not say the record
-// exists) or, when needEdit, may only use (403 not_owner), and reports whether it refused.
+// refuseReach writes the refusal for a record cl is not allowed to use (404, so it does not say the record
+// exists). When needEdit, it also refuses a record cl is allowed only to use (403 not_owner). It reports
+// whether it refused.
 func refuseReach(w http.ResponseWriter, read, edit, needEdit bool, noRead, noEdit string) bool {
 	switch {
 	case !read:
@@ -184,8 +186,8 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	apiJSON(w, map[string]any{"panels": out})
 }
 
-// apiPanelPeople is the Share picker's list: names only, never PINs or flags, and only for a
-// user's key so an API client or Guest cannot enumerate people. "people" is not a panel id
+// apiPanelPeople is the Share picker's list: names only, never PINs or flags. It is only for a
+// user's key, so an API client or Guest cannot enumerate people. "people" is not a panel id
 // (validPanelID), so this route hides no panel.
 func (a *App) apiPanelPeople(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	if cl.Actor.Kind != actorUser {
@@ -203,7 +205,7 @@ func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	// The refusal names the segment as sent, never the id a short name resolved to.
 	seg := r.PathValue("id")
 	p, read, edit := a.reachPanel(cl, a.panelIDOf(seg))
-	if refuseReach(w, read, edit, false, "no panel "+seg+" that this key may use", "") {
+	if refuseReach(w, read, edit, false, "no panel "+seg+" that this key can use", "") {
 		return
 	}
 	out := a.panelOut(p, edit)
@@ -212,11 +214,37 @@ func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	// The page mirrors these before arming a take; the server still enforces them.
 	out["rights"] = cl.Rights.Clone()
 	out["artDefaults"] = a.panelArtDefaults(cl, p)
-	apiJSON(w, out)
+	// A panel page's take confirm reads these here, since its socket hello can be late or never come.
+	cfg := a.r().cfg
+	out["confirm"] = map[string]any{"lockoutMs": cfg.ConfirmLockoutMs, "enter": cfg.ConfirmEnter}
+	apiJSONTaggedBy(w, r, out, readTagOf(out))
+}
+
+// readTagOf is the panel read without the fields that move with the clock. Seen moves on each keepalive, and a held
+// stream counts as now. The uptime window ends now. Online and uptime changes still move the tag.
+func readTagOf(out map[string]any) map[string]any {
+	tag := maps.Clone(out)
+	if rows, ok := out["instances"].([]instOut); ok {
+		still := make([]instOut, len(rows))
+		for i, o := range rows {
+			o.Seen, o.Uptime.From, o.Uptime.To = time.Time{}, 0, 0
+			still[i] = o
+		}
+		tag["instances"] = still
+	}
+	if rows, ok := out["keyless"].([]keylessOut); ok {
+		still := make([]keylessOut, len(rows))
+		for i, o := range rows {
+			o.Seen = time.Time{}
+			still[i] = o
+		}
+		tag["keyless"] = still
+	}
+	return tag
 }
 
 // panelIDOf turns a short name into its panel's id. Anything else comes back as given, so an unknown
-// name fails the same way as an id nobody may use.
+// name fails the same way as an id nobody is allowed to use.
 func (a *App) panelIDOf(seg string) string {
 	if validPanelID(seg) {
 		return seg
@@ -295,7 +323,15 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	want := p.ClientRights
 	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
-	if p.Pages == nil && p.LegacyCells != nil {
+	// ADR 0011: a body with no type is an older client's, so it keeps the stored one.
+	if p.Type == "" {
+		p.Type = old.Type
+	}
+	if p.Type != old.Type {
+		apiFail(w, http.StatusConflict, "conflict", "a panel's type is fixed when the panel is made")
+		return
+	}
+	if p.Type == panelTypeButtons && p.Pages == nil && p.LegacyCells != nil {
 		// A client from before Pages: its cells are Page 1's, and the other Pages stay.
 		p.Pages = slices.Clone(old.Pages)
 		p.Pages[0].Cells, p.LegacyCells = p.LegacyCells, nil
@@ -382,8 +418,8 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// apiPanelCopy is Save a copy: a new panel the caller owns, private, acting as a session
-// user, with the source's grid, settings, unknown fields and artwork. The body may name it.
+// apiPanelCopy is Save a copy: a new private panel the caller owns, acting as a session user.
+// It gets the copied panel's grid, settings, unknown fields and artwork. The body can name it.
 func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ownerOnly(w, cl) {
 		return

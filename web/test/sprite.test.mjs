@@ -24,8 +24,8 @@ test('local hrefs read back as the icon name', () => {
   assert.equal(nameOfHref('#settings'), '');
 });
 
-// Chrome loads and lays out its own copy of the external sprite (about 16,700 nodes) for every <use> made against it,
-// freed only at a major GC, so a page that makes icons as it redraws grows by gigabytes (TestChromeRunPageHoldsNoMemory).
+// For every <use> made against it, Chrome loads and lays out its own copy of the external sprite (about 16,700
+// nodes). It frees that copy only at a major GC. So a page that makes icons as it redraws grows by gigabytes (TestChromeRunPageHoldsNoMemory).
 test('no page or module points a <use> at the external sprite', () => {
   const bad = readdirSync(web)
     .filter((f) => /\.(js|html)$/.test(f))

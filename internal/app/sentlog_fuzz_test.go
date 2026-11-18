@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// Every Page(before, n) must return exactly the n entries just below
-// before (or what's left), whatever the rotation state or reopen.
+// Every Page(before, n) must return exactly the n entries immediately below
+// before (or what is left), whatever the rotation state or reopen.
 func TestSentLogPageAllStates(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sent.jsonl")

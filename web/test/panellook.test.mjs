@@ -124,7 +124,7 @@ test('one animated grid property drives every pulse, so no cell has an animation
 });
 
 // An inherited registered property animated on :root restyles the whole document every frame, on every page that
-// loads panels.css (the editor idled at 27% CPU with renderer memory rising). The pulse runs on the grid, and only
+// loads panels.css. The editor idled at 27% CPU, and renderer memory rose. The pulse runs on the grid, and only
 // while a cell is in a pulsing state.
 test('the pulse runs on a panel grid with a pulsing cell, never on the root', () => {
   assert.doesNotMatch(css, /:root\s*\{[^}]*animation/);
@@ -200,7 +200,7 @@ test('Icon B is one of the fixed glyphs, and anything else is dropped', async ()
   assert.equal(textHidden({ hideText: true, artB: 'bogus' }), false);
 });
 
-// An uploaded image fills the cell and Icon B draws as a corner badge over it; beside a vendored icon Icon B keeps
+// An uploaded image fills the cell and Icon B draws as a corner badge over it. Beside a vendored icon, Icon B keeps
 // its place in the row.
 test('Icon B is a corner badge over an image and sits in the row beside an icon', async () => {
   const { artBOf, artBBadge } = await import('../panellook.js');
@@ -233,7 +233,7 @@ test('Icon A and Icon B share the row 40 to 60, and each alone fills it', () => 
   assert.match(css, /\.sode-panel__art-b--wide \{[^}]*font-size: min\(/);
 });
 
-// With the text hidden nothing sits over the artwork, so it is drawn at full strength in the cell, the editor square
+// With the text hidden nothing sits over the artwork. So it is drawn at full strength in the cell, the editor square
 // and the sidebar preview alike.
 test('artwork is dimmed under text and at full strength when the text is hidden', () => {
   assert.match(css, /\.sode-panel__art \{[^}]*opacity: 0\.3/);

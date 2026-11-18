@@ -27,7 +27,7 @@ const keyWriteEvery = time.Minute
 
 func newKeySecret() string { return newSecret(32) }
 
-// newShortSecret is 128 bits, for a panel's link key: the key is throttled, revocable and one panel's
+// newShortSecret is 128 bits, for a panel's link key. The key is throttled, revocable and one panel's
 // own, and every character of it is in the link.
 // Its body never starts with the prefix, so the page can tell a link that left the prefix off from one that kept it.
 func newShortSecret() string {
@@ -90,7 +90,7 @@ func (o keyOwner) is(p keyOwner) bool { return o.Kind == p.Kind && strings.Equal
 type apiKey struct {
 	ID       string    `json:"id"`
 	Owner    keyOwner  `json:"owner"`
-	Name     string    `json:"name"` // the key name, e.g. "Panel 21"
+	Name     string    `json:"name"` // the key name, for example "Panel 21"
 	Created  time.Time `json:"created"`
 	LastUsed time.Time `json:"lastUsed,omitzero"`
 	Count    int       `json:"count"`
@@ -104,7 +104,7 @@ func (k *apiKey) subject() string { return "key:" + k.ID }
 type keyRec struct {
 	apiKey
 	Hash string `json:"hash"`
-	// PinFP fingerprints the owner's PIN hash at creation, for user keys only, so a PIN
+	// PinFP fingerprints the owner's PIN hash at creation, for user keys only. Then a PIN
 	// edited in config.yaml while Sode was down still ends the key. Empty in a keys.json
 	// from before it existed; reconcile stamps those.
 	PinFP string `json:"pinFp,omitempty"`
@@ -163,7 +163,7 @@ func setAsideDamaged(path, prefix, what string, perr error) {
 	log.Printf("%s: %s is damaged, %s forgotten; the file is kept as %s: %v", prefix, path, what, aside, perr)
 }
 
-// loadKeys: once, from New. A damaged file is set aside and the store starts empty, as for tokens.
+// loadKeys: one time, from New. A damaged file is set aside and the store starts empty, as for tokens.
 func loadKeys(cfgPath string) *keyStore {
 	s := &keyStore{}
 	if cfgPath == "" {
@@ -279,7 +279,7 @@ func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max 
 // again must not end another tab's key; past the bound the oldest ends.
 const sessionKeyMax = 16
 
-// create is createCapped for a key that may ride a session (sess set), which gets the session shape.
+// create is createCapped for a key that rides a session when sess is set; such a key gets the session shape.
 func (s *keyStore) create(o keyOwner, name string, expires time.Time, max int, fp, sess string) (string, apiKey, error) {
 	secret := newKeySecret()
 	if sess != "" {
@@ -430,7 +430,7 @@ func (s *keyStore) dropWhere(gone func(keyRec) bool) []apiKey {
 	return out
 }
 
-// reconcile runs once at startup against the loaded config and returns the keys it ended:
+// reconcile runs one time at startup against the loaded config. It returns the keys it ended:
 // owner gone, or a user whose PIN hash no longer matches the stamp. A key with no stamp
 // (older keys.json) is kept and stamped now; a PIN edited while down before this version
 // ran cannot be told.

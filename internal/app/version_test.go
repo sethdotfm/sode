@@ -9,9 +9,9 @@ import (
 )
 
 // The version lives in version.go and is noted in README.md. A release
-// that bumps only one of them fails here, and with SODE_RELEASE_TAG set
-// (the tag about to be pushed: v1.5.0, or a candidate v1.5.0-rc.1) so does a
-// tag that names a version the code doesn't carry. A candidate and the
+// that bumps only one of them fails here. SODE_RELEASE_TAG is the tag about
+// to be pushed: v1.5.0, or a candidate v1.5.0-rc.1. With it set, a tag that
+// names a version the code does not carry also fails. A candidate and the
 // release promoted from it are the same commit, so both refuse an
 // "(unreleased)" heading.
 var releaseTag = regexp.MustCompile(`^v\d+\.\d+\.\d+(-rc\.\d+)?$`)

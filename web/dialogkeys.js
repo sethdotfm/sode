@@ -30,7 +30,7 @@ export function bringToFront(root) {
 function listen() {
   if (listening) return;
   listening = true;
-  // Capture, so it runs before page key handlers. Only keys outside the top dialog are taken;
+  // Capture, so it runs before page key handlers. Only keys outside the top dialog are captured;
   // inside, a field's own Esc still comes first.
   document.addEventListener(
     'keydown',
@@ -49,8 +49,8 @@ function listen() {
 // How many dialogs the Esc stack holds, for the tests.
 export const heldDialogs = () => stack.length;
 
-// Stopped at root so the layouts' own keys don't act behind it. The stack holds a dialog only while it is shown:
-// a modal built per open is removed from the page on close, and a held root would keep its whole tree alive.
+// Stopped at root so the layouts' own keys do not act behind it. The stack holds a dialog only while it is shown.
+// A modal built per open is removed from the page on close, and a held root would keep its whole tree alive.
 export function trapDialog(root, dialog, onEsc) {
   const entry = { root, onEsc, order: 0 };
   stack.push(entry);

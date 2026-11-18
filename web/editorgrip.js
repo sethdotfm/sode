@@ -1,6 +1,6 @@
 // The grip at the selection's bottom right corner: drag it to continue the selection's numbering. The rules are
 // gridmodel.js (dragRect, extendPlan, applyExtend) and editorrules.js (gripTip); this file is the pointer and the
-// preview, which marks real grid squares in place like Find's and is wiped by the next repaint.
+// preview. The preview marks real grid squares in place like Find's, and the next repaint wipes it.
 import { el, icon, $ } from './core.js';
 import { dragRect, extendPlan, applyExtend } from './gridmodel.js';
 import { gripTip } from './editorrules.js';

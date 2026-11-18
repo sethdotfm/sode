@@ -4,15 +4,16 @@ import { saved, createGrid, DEFAULT_ROWS, DEFAULT_COLS } from './gridmodel.js';
 import { pagesOf, pageView, storedPages } from './panelpages.js';
 import { chord } from './keys.js';
 import { nameMismatch } from './panellook.js';
+import { isGridPanel } from './gridpaneledges.js';
 
-// The Cell tab's lines about Default artwork. d is the item's default or null, own whether the cell sets artwork of
-// its own, routerName the router's name for the cell's number now ('' when not known).
+// The Cell tab's lines about Default artwork. d is the item's default or null, and own is whether the cell sets
+// artwork of its own. routerName is the router's name for the cell's number now ('' when not known).
 export function defaultNote(d, own, routerName) {
   if (!d) return { text: '', warn: '' };
   const what = d.kind === 'preset' ? 'preset' : d.kind;
   const text = own ? `This cell's own artwork shows instead of the Default artwork of its ${what}.` : `This cell shows the Default artwork of its ${what}.`;
   const warn = nameMismatch(d, routerName)
-    ? `This default may be for another item: it was set for ${d.name}, and the router now names this ${what} ${routerName}.`
+    ? `It is possible that this default is for another item: it was set for ${d.name}, and the router now names this ${what} ${routerName}.`
     : '';
   return { text, warn };
 }
@@ -37,34 +38,67 @@ export function editorTarget(search) {
 
 const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
 
-// canEdit is the server's word for what the user may change (an owner, or a Trusted user for any panel).
+// canEdit is the server's word for what the user is allowed to change (an owner, or a Trusted user for any panel).
 export function groupPanels(list) {
   const all = [...(list || [])].sort(byName);
   return { mine: all.filter((p) => p.canEdit), shared: all.filter((p) => !p.canEdit) };
 }
 
-// The server gives the Page its id on the first save.
-export const newPanel = () => ({
-  name: 'New panel',
-  acts: 'session',
-  share: { mode: 'me' },
-  rows: DEFAULT_ROWS,
-  cols: DEFAULT_COLS,
-  pages: [{ id: '', enabled: true, cells: [] }],
-  settings: {},
-});
+// The server gives the Page its id on the first save. A Grid panel has no size and no Pages, and starts with no
+// sources and no destinations, as a Buttons panel starts with no buttons.
+export const newPanel = (type) =>
+  isGridPanel({ type })
+    ? {
+        name: 'New panel',
+        type,
+        acts: 'session',
+        share: { mode: 'me' },
+        pages: [],
+        settings: {},
+        sources: { members: [] },
+        destinations: { members: [] },
+      }
+    : {
+        name: 'New panel',
+        acts: 'session',
+        share: { mode: 'me' },
+        rows: DEFAULT_ROWS,
+        cols: DEFAULT_COLS,
+        pages: [{ id: '', enabled: true, cells: [] }],
+        settings: {},
+      };
+
+// The editor's own fields of a panel, beside the grid. type is sent only for a new panel; the server keeps a stored one.
+const OWN_FIELDS = ['settings', 'acts', 'slug', 'clientRights', 'type', 'sources', 'destinations'];
+
+// One form for an edge, so an edit that left an empty items or hide reads as no change.
+const edgeKey = (e) => {
+  const x = e || { members: 'all' };
+  const items = Object.entries(x.items || {})
+    .filter(([, it]) => it && Object.keys(it).length)
+    .map(([n, it]) => [Number(n), sorted(it)])
+    .sort((a, b) => a[0] - b[0]);
+  return [x.members, x.hide?.length ? x.hide : [], items];
+};
 
 // PUT replaces the panel, so what the editor does not own goes back as it came (settings, sharing, unknown fields).
-// fields is the sidebar's edits: {settings, acts, clientRights}, each present only once edited. clientRights is
-// left out otherwise so the server keeps the stored Rights (an administrator may have widened them). grid is Page 1 as stored,
-// whichever Page has focus; pages is the Page list with every Page's edits, and the server refuses a body with both pages and cells.
+// fields is the sidebar's edits: {settings, acts, clientRights}, each present only after an edit. clientRights is
+// left out otherwise so the server keeps the stored Rights (it is possible that an administrator widened them). grid is Page 1 as
+// stored, whichever Page has focus. pages is the Page list with every Page's edits, and the server refuses a body
+// with both pages and cells.
 export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {
   const rest = { ...loaded };
   delete rest.canEdit;
   delete rest.clientRights;
   delete rest.cells;
   const edits = {};
-  for (const k of ['settings', 'acts', 'slug', 'clientRights']) if (fields[k] !== undefined) edits[k] = fields[k];
+  for (const k of OWN_FIELDS) if (fields[k] !== undefined) edits[k] = fields[k];
+  if (isGridPanel({ type: edits.type ?? rest.type })) {
+    delete rest.rows;
+    delete rest.cols;
+    const base = newPanel('grid');
+    return { ...rest, name: name.trim(), pages: [], sources: rest.sources ?? base.sources, destinations: rest.destinations ?? base.destinations, ...edits };
+  }
   const { rows, cols, cells } = saved(grid);
   return { ...rest, name: name.trim(), rows, cols, pages: storedPages(pages, cells, rows, cols), ...edits };
 }
@@ -73,40 +107,30 @@ export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded
 // server stores cells with their keys in another order.
 const sorted = (c) => Object.fromEntries(Object.entries(c).sort(([a], [b]) => (a < b ? -1 : 1)));
 // Page 1's cells come from the grid; the other Pages and every Page's id, name and enabled from pages. Each Page goes
-// through the grid model, so one the editor once showed (reading order, its own key order) is no change.
+// through the grid model, so one the editor showed before (reading order, its own key order) is no change.
+// A Grid panel saves no cells, so its edges stand in for the grid and Pages.
+const layoutShape = (g, f, pages) =>
+  isGridPanel(f)
+    ? ['grid', edgeKey(f.sources), edgeKey(f.destinations)]
+    : [
+        g.rows,
+        g.cols,
+        saved(g).cells.map(sorted),
+        storedPages(pages, [], g.rows, g.cols).map((p) => [
+          p.id,
+          p.name || '',
+          p.enabled !== false,
+          saved(createGrid({ rows: g.rows, cols: g.cols, cells: p.cells })).cells.map(sorted),
+        ]),
+      ];
 const shape = (name, g, f, pages) =>
-  JSON.stringify([
-    name.trim(),
-    g.rows,
-    g.cols,
-    saved(g).cells.map(sorted),
-    storedPages(pages, [], g.rows, g.cols).map((p) => [
-      p.id,
-      p.name || '',
-      p.enabled !== false,
-      saved(createGrid({ rows: g.rows, cols: g.cols, cells: p.cells })).cells.map(sorted),
-    ]),
-    sorted(f.settings || {}),
-    f.acts || 'session',
-    f.slug || '',
-    f.clientRights ?? null,
-  ]);
+  JSON.stringify([name.trim(), layoutShape(g, f, pages), sorted(f.settings || {}), f.acts || 'session', f.slug || '', f.clientRights ?? null]);
 
 // A field not edited counts as what was loaded. clientRights has no loaded side here: any edit is a change.
 export function isDirty(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {
   const base = loaded || newPanel();
-  const was = shape(base.name, createGrid(pageView(base)), { settings: base.settings, acts: base.acts, slug: base.slug }, pagesOf(base));
-  const now = shape(
-    name,
-    grid,
-    {
-      settings: fields.settings ?? base.settings,
-      acts: fields.acts ?? base.acts,
-      slug: fields.slug ?? base.slug,
-      clientRights: fields.clientRights,
-    },
-    pages,
-  );
+  const was = shape(base.name, createGrid(pageView(base)), { ...base, clientRights: undefined }, pagesOf(base));
+  const now = shape(name, grid, { ...base, ...Object.fromEntries(OWN_FIELDS.map((k) => [k, fields[k] ?? base[k]])), clientRights: fields.clientRights }, pages);
   return was !== now;
 }
 
@@ -120,16 +144,16 @@ export function placeMenu(rect, menu, area, gap) {
 }
 
 // The box the menu and its flyouts stay inside: the viewport, cut at the sidebar when the sidebar sits beside the
-// grid (it edits the selected cell, so the menu must not cover it). Under the grid, in the narrow layout, it does
-// not bound them. side and grid are screen rects; side may be null.
+// grid. The sidebar edits the selected cell, so the menu must not cover it. Under the grid, in the narrow layout, it does
+// not bound them. side and grid are screen rects, or side is null.
 export function menuArea(vp, side, grid) {
   const area = { left: 0, top: 0, right: vp.w, bottom: vp.h };
   if (side && grid && side.left >= grid.right) area.right = Math.min(area.right, side.left);
   return area;
 }
 
-// Which side of the menu a flyout (Type, Find) opens on: the menu's own side, away from the selection, when it fits
-// there (below counts as right); else the other side when that fits; else whichever has more room. at is placeMenu's
+// Which side of the menu a flyout (Type, Find) opens on. It is the menu's own side, away from the selection, when it
+// fits there (below counts as right). Else it is the other side when that fits, else whichever has more room. at is placeMenu's
 // answer and menuW the menu's width.
 export function subSide(at, menuW, subW, area, gap) {
   const roomRight = area.right - gap - (at.left + menuW);
@@ -178,7 +202,7 @@ export function signInNote(step, err = '') {
     case 'refused':
       return { text: `Sode would not open the editor for this sign-in${err ? `: ${err}` : ''}. Sign in again.`, button: 'Sign in again' };
     case 'offline':
-      return { text: 'Sode is not answering. The page keeps trying; check the network if this stays.', button: '' };
+      return { text: 'Sode is not answering. The page keeps trying. If this continues, check the network.', button: '' };
     default:
       return { text: '', button: '' };
   }

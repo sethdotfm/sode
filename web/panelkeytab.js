@@ -1,6 +1,6 @@
 // The Link with key tab of the Share modal (panelshare.js shareTabs). A panel that acts as an API client holds one key
-// per named instance. The tab lists them, rotates or revokes one at a time, and makes a link for a name. A link is
-// shown once, when it is made. Rotate, Revoke and any make that replaces a key each ask for a Confirm first (the
+// per named instance. The tab lists them, rotates or revokes one at a time, and makes a link for a name. A link shows
+// one time, when it is made. Rotate, Revoke and any make that replaces a key each ask for a Confirm first (the
 // churning letter and the short lockout). Server side: internal/app/panelkey.go.
 import { el, icon, on } from './core.js';
 import { btn, check, field } from './formbits.js';
@@ -128,7 +128,7 @@ shareTabs.push(({ panel, api }) => {
     status.replaceChildren(
       dot(keys.length ? 'ok' : 'idle'),
       keys.length
-        ? ` ${keys.length} of ${max} instances. A link shows once, when it is made. Rotate makes a new one for that instance.`
+        ? ` ${keys.length} of ${max} instances. A link shows one time, when it is made. Rotate makes a new one for that instance.`
         : ' This panel has no instances.',
     );
     modes.replaceChildren(
@@ -217,7 +217,7 @@ shareTabs.push(({ panel, api }) => {
     if (!setup) showKey(made.name, res.key);
     say(
       setup
-        ? `${made.name}: the old key is ended. Open the link once on that device to set it up.`
+        ? `${made.name}: the old key is ended. Open the link one time on that device to set it up.`
         : res.rotated
           ? `${made.name} rotated. That instance signed out and its old link stopped working.`
           : `Link made for ${made.name}.`,
@@ -231,8 +231,8 @@ shareTabs.push(({ panel, api }) => {
     say(`Revoked ${name}. Other instances are not affected.`);
   }
 
-  // The key itself, for a client that takes it apart from the link (a Bearer header). Built per make and removed on
-  // close, so the secret lives no longer than the modal; trapDialog drops it from the Esc stack once hidden.
+  // The key itself, for a client that needs it apart from the link (a Bearer header). Built per make and removed on
+  // close, so the secret lives no longer than the modal. trapDialog drops it from the Esc stack after it is hidden.
   function showKey(name, secret) {
     const back = document.activeElement;
     const keyRoot = el('div', 'pb-modal-backdrop sode__scrim');
@@ -327,7 +327,7 @@ shareTabs.push(({ panel, api }) => {
       paintLink();
     });
     linkBox.append(
-      el('p', 'sode__hint', `Link for ${made.name}. It is shown only now. Closing this window loses it.`),
+      el('p', 'sode__hint', `Link for ${made.name}. It is shown only now. If you close this window, the link is lost.`),
       el('div', 'sode__secret-row', input, reveal.label),
       view,
       el('div', 'sode-ov__keyrow', copy),

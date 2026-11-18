@@ -37,7 +37,7 @@ test('normPreset cleans numbers (shared cases)', async () => {
   for (const c of cases.norm) assert.deepEqual(normPreset(c.in), c.out);
 });
 
-// The cases the Go side can share: a preset as sent, and whether it may be saved.
+// The cases the Go side can share: a preset as sent, and whether it can be saved.
 const build = (c) => {
   if (!c.gen) return c;
   const { items, perItem } = c.gen;
@@ -222,7 +222,7 @@ test('conflicts: different sources, one destination, overlapping levels', async 
   const { presetProblem } = await setup();
   const s = (...items) => ({ name: 'x', items });
   const it = (src, dsts, levels = []) => ({ src, dsts, levels });
-  assert.match(presetProblem(s(it(0, [1]), it(2, [1], [1]))), /Destination 2 is taken from both source 1 and source 3/);
+  assert.match(presetProblem(s(it(0, [1]), it(2, [1], [1]))), /Destination 2 gets both source 1 and source 3/);
   assert.ok(presetProblem(s(it(0, [1], [1, 2]), it(2, [1], [2, 3]))));
   assert.equal(presetProblem(s(it(0, [1], [1, 2]), it(2, [1], [3, 4]))), '');
   assert.equal(presetProblem(s(it(0, [1]), it(2, [3]))), '');

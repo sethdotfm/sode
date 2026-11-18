@@ -19,7 +19,7 @@ type fakeSalvo struct {
 	loseStage     bool // stages, but never answers with 122
 	loseExt       bool // stages with 248, but never answers with 250
 	noGoAck       bool // carries out a Go set, but never answers it
-	wipe          bool // the group is emptied (someone else's clear) just before each Go set
+	wipe          bool // the group is emptied (someone else's clear) immediately before each Go set
 	announce      int
 	announceAfter time.Duration
 	pending       sync.WaitGroup

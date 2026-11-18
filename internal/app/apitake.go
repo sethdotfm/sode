@@ -18,7 +18,7 @@ import (
 )
 
 // REST writes: a take by routes or by preset, and Undo, Redo and Retry of a History entry.
-// Each request is synchronous: it returns once the router has answered or timed out every
+// Each request is synchronous. It returns after the router has answered or timed out every
 // route, with a Result per route and the History entry ids. Late Results reach the stream
 // as updates to those entries. Per ADR 0002 the request is its own Confirm.
 
@@ -39,7 +39,7 @@ const (
 	takeMargin = 10 * time.Second
 )
 
-// apiAnswer is a finished JSON answer. It is marshaled once so Idempotency-Key can store and
+// apiAnswer is a finished JSON answer. It is marshaled one time so Idempotency-Key can store and
 // replay the same bytes.
 type apiAnswer struct {
 	Status int
@@ -64,8 +64,8 @@ func (x apiAnswer) write(w http.ResponseWriter, replay bool) {
 	w.Write(x.Body)
 }
 
-// takeDeadline is the worst case of n routes: per route check, queue wait, route and grace
-// (about 35 s by default), repeated for each wave of routeLimit routes. It becomes this
+// takeDeadline is the worst case of n routes. Each wave of routeLimit routes adds a per route
+// check, queue wait, route and grace (about 35 s by default). It becomes this
 // request's write deadline, so no server-wide WriteTimeout is needed (and none must be set:
 // it would cut /ws and the stream).
 func (a *App) takeDeadline(n int) time.Duration {
@@ -177,8 +177,8 @@ type apiRouteOut struct {
 type apiTakeOut struct {
 	OK bool `json:"ok"` // every route succeeded
 	// CheckSkipped: the take had bigTake or more routes, so Sode did not read each destination
-	// from the router first. Entries then take Prev from the cache, which an unannounced change
-	// can make stale, so a later Undo may restore less accurately.
+	// from the router first. Entries then get Prev from the cache. An unannounced change can make
+	// the cache stale. Then it is possible that a later Undo restores less accurately.
 	CheckSkipped bool          `json:"checkSkipped"`
 	Results      []apiRouteOut `json:"results"`
 	LeftOut      []string      `json:"leftOut,omitempty"`

@@ -1,4 +1,4 @@
-// Settings PIN unlock shared by Settings and Filters; one flag follows the server's per-connection unlock (until lock, PIN change or socket drop).
+// Advanced Settings PIN unlock shared by Settings and Filters; one flag follows the server's per-connection unlock (until lock, PIN change or socket drop).
 
 import { S, on, wsSend, sentence } from './core.js';
 import { needsPin as needsPinRule } from './lockrules.js';
@@ -7,8 +7,8 @@ let seq = 0;
 let waiting = null; // the unlock in flight: { id, resolve }
 let isUnlocked = false;
 
-// unlocked() is the settings PIN only; a trusted user may make low-risk saves without it (needsPin).
-// Destructive controls are PIN-only: ask via pinprompt.js before, or after a refusal.
+// unlocked() is the Advanced Settings PIN only. A trusted user can make low-risk saves without it (needsPin).
+// Destructive controls are PIN-only: ask through pinprompt.js before, or after a refusal.
 let trustedUser = false;
 
 export const unlocked = () => isUnlocked;
@@ -59,7 +59,7 @@ on('conn', () => {
   trustedUser = false;
   settle({ ok: false, stale: true, err: 'Not connected to Sode.' });
 });
-// With no PIN now, one set later (even while disconnected) needs entering.
+// With no PIN now, one set later (even while disconnected) must be entered.
 on('hello', () => {
   if (!S.pinSet) isUnlocked = false;
 });

@@ -74,8 +74,8 @@ func TestIconLibraryRefsSurvivePushCopyAndTemplate(t *testing.T) {
 	}
 }
 
-// A Default artwork names a library icon by reference: nothing is copied into artdefaults.art, so the 64 MB
-// cap is not spent on it, and a delete from the library leaves the default drawing nothing.
+// A Default artwork names a library icon by reference. Nothing is copied into artdefaults.art, so the 64 MB
+// cap is not spent on it. A delete from the library leaves the default drawing nothing.
 func TestArtDefaultMayBeLibraryIcon(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")

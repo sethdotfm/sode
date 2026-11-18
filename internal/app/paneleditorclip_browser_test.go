@@ -12,8 +12,9 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Cmd or Ctrl+X cuts them. Cmd or Ctrl+C copies cells, Cmd or Ctrl+V pastes them elsewhere on the same panel (through readText, as a synthetic
-// key fires no paste event) and into a second panel (through the browser's paste event), where the uploaded image goes.
+// Cmd or Ctrl+C copies cells, and Cmd or Ctrl+X cuts them. Cmd or Ctrl+V pastes them elsewhere on the same panel (through
+// readText, as a synthetic key fires no paste event). It also pastes them into a second panel (through the browser's
+// paste event), where the uploaded image goes.
 func TestChromeEditorCopyPaste(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -24,7 +25,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Clip one"}`)

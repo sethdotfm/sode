@@ -12,8 +12,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Find in the panel editor: typing opens it, the preview shows in the grid before anything changes, a click
-// on one square fills it and moves on, and Read-only Rights grey a result and refuse it.
+// Find in the panel editor: typing opens it, and the preview shows in the grid before anything changes. A click
+// on one square fills it and moves on. Read-only Rights grey a result and refuse it.
 func TestChromeEditorFind(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -27,7 +27,7 @@ func TestChromeEditorFind(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Find panel","rows":4,"cols":8,"cells":[]}`)

@@ -18,7 +18,7 @@ test('terms', () => {
     '!name:CAM 1',
     '!name:MV',
   ]);
-  // "not" only before a number, quote or regex; otherwise it's part of a name.
+  // "not" only before a number, quote or regex; otherwise it is part of a name.
   assert.deepEqual(kinds("not 65, not 'MV', not /x/, NOT USED, 'NOT USED', 'it''s'"), [
     '!num:65',
     '!name:MV',
@@ -31,7 +31,7 @@ test('terms', () => {
   assert.deepEqual(kinds(' , ,'), []);
   assert.deepEqual(kinds('"a ""b"", c"'), ['exact:a "b", c']);
   assert.deepEqual(kinds('/a,b/'), ['re:a,b']);
-  // Single letters aren't words here: names keep them.
+  // Single letters are not words here: names keep them.
   assert.deepEqual(kinds('TX 1, 1 t 5'), ['name:TX 1', 'name:1 t 5']);
 });
 
@@ -107,7 +107,7 @@ test('histRows', async () => {
     e({ id: 8, ext: true, dst: 2, src: 4, time: T(40), prev: [[1, 2]] }),
     e({ id: 7, ext: true, dst: 8, src: 1, time: T(35), dstName: 'MON 1' }), // globally hidden
     e({ id: 6, ext: true, dst: 2, src: 2, time: T(30), prev: [[1, 0]] }),
-    e({ id: 5, dst: 2, src: 0, time: T(20), srcName: 'BARS' }), // a Sode take breaks the chain
+    e({ id: 5, dst: 2, src: 0, time: T(20), srcName: 'BARS', ok: false }), // a failed take breaks the chain
     e({ id: 4, ext: true, dst: 2, src: 7, time: T(10) }),
     e({ id: 3, dst: 0, src: 1, time: T(5), dstName: 'PGM', group: 'g', groupN: 2 }),
     e({ id: 2, dst: 1, src: 1, time: T(5), dstName: 'PVW', group: 'g', groupN: 2 }),
@@ -130,6 +130,81 @@ test('histRows', async () => {
   assert.equal(filterCount(), 2);
   setFilter({ ...FILTER_DEFAULT, dst: '"open' }); // bad text keeps the last good matcher
   assert.equal(show(), '9x3 5 4 f3,2/2');
+});
+
+test('rapid changes to one destination stack, from any instance', async () => {
+  const { histRows, S, setFilter, stackBefore, tallyText, stackGapMs, setPref, FILTER_DEFAULT } = await import('./all.mjs');
+  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.levelBy = new Map([
+    [1, {}],
+    [2, {}],
+  ]);
+  setFilter(FILTER_DEFAULT);
+  assert.equal(stackGapMs(), 30000);
+  const T = (s) => new Date(Date.UTC(2026, 9, 24, 12, 0, 0) + s * 1000).toISOString();
+  const L = [1, 2];
+  const e = (o) => ({ levels: L, ok: true, srcName: 'CAM', dstName: 'SHADE', dst: 3, ...o });
+  const on = (src) => [
+    [1, src],
+    [2, src],
+  ];
+  const hist = [
+    e({ id: 20, src: 2, time: T(200), prev: on(1) }), // 40 s after 19: a new row
+    e({ id: 19, src: 1, time: T(160), prev: on(2), by: 'Panel A' }),
+    e({ id: 18, src: 2, time: T(140), prev: on(1), ext: true }),
+    e({ id: 17, src: 1, time: T(120), prev: on(2), by: 'Ana' }),
+    e({ id: 16, src: 2, time: T(100), prev: on(7), retry: 3 }),
+    e({ id: 21, src: 7, time: T(95), prev: on(1), undo: 3 }), // an undo stays apart
+    e({ id: 15, src: 7, time: T(90), prev: on(1), levels: [1] }), // other levels: a new row
+    e({ id: 14, src: 1, time: T(80), prev: on(2), group: 'g', groupN: 2 }), // a Group never stacks
+    e({ id: 13, src: 1, time: T(80), prev: on(2), dst: 4, group: 'g', groupN: 2 }),
+    e({ id: 12, src: 2, time: T(70), prev: on(1) }),
+    e({ id: 11, src: 1, time: T(60), prev: on(5), ok: false }), // failed: alone, for its Retry
+    e({
+      id: 10,
+      src: 5,
+      time: T(50),
+      prev: [
+        [1, 8],
+        [2, 9],
+      ],
+    }),
+  ];
+  const show = (h) =>
+    histRows(h)
+      .map((r) => (r.f ? `f${r.f.entries.map((x) => x.id)}` : `${r.e.id}${r.e.chain ? '<' + r.e.chain.map((c) => c.id).join(',') : ''}`))
+      .join(' ');
+  assert.equal(show(hist), '20 19<19,18,17,16 21 15 f14,13 12 11 10');
+  const stack = histRows(hist)[1].e;
+  assert.deepEqual([stack.merged, stack.prev], [4, on(7)]);
+  assert.deepEqual(stackBefore(stack), { src: 7, text: tallyText(7) });
+  assert.deepEqual(stackBefore({ ...stack, prev: hist[11].prev }).src, null);
+  assert.equal(stackBefore({ ...stack, prev: hist[11].prev }).text, '2 sources');
+
+  // Hide Sode's takes: an External still stands, and the hidden takes around it break the row.
+  setFilter({ ...FILTER_DEFAULT, sode: false });
+  assert.equal(show([...hist]), '18');
+  // Hide Externals: the takes on each side of one do not join over it.
+  setFilter({ ...FILTER_DEFAULT, ext: false });
+  assert.equal(show([...hist]), '20 19 17<17,16 21 15 f14,13 12 11 10');
+  setFilter(FILTER_DEFAULT);
+
+  // The gap is a This browser pref. The takes are 20 s apart, so 10 s and Off stack nothing.
+  try {
+    setPref('stackGap', '10');
+    assert.equal(stackGapMs(), 10000);
+    assert.equal(show(hist), '20 19 18 17 16 21 15 f14,13 12 11 10');
+    setPref('stackGap', '300');
+    assert.equal(show(hist), '20<20,19,18,17,16 21 15 f14,13 12 11 10');
+    // A take exactly the gap after the one before still stacks.
+    setPref('stackGap', '10');
+    assert.equal(show([e({ id: 31, src: 2, time: T(10), prev: on(1) }), e({ id: 30, src: 1, time: T(0), prev: on(2) })]), '31<31,30');
+    setPref('stackGap', '0');
+    assert.equal(stackGapMs(), 0);
+    assert.equal(show(hist), '20 19 18 17 16 21 15 f14,13 12 11 10');
+  } finally {
+    setPref('stackGap', '');
+  }
 });
 
 test('filter sets', async () => {
@@ -291,8 +366,8 @@ test('quick search', async () => {
       .join(' ');
   setFilter({ ...FILTER_DEFAULT, ext: false });
   assert.equal(ids(), '4');
-  // Searching ignores the filters, finds takes by their follows, and
-  // doesn't merge.
+  // A search ignores the filters, finds takes by their follows, and
+  // does not merge.
   setSearch({ src: '', dst: 'MON' });
   assert.equal(ids(), '3 2');
   setSearch({ src: '', dst: 'MV 28' });
@@ -330,7 +405,7 @@ test('follows whose take is hidden, and trimming after a search', async () => {
       .join(' ');
   setFilter(FILTER_DEFAULT);
   assert.equal(rows(), '1+1');
-  // Watching multiviewers only: the DSM take is hidden, its MV follow isn't.
+  // Watching multiviewers only: the DSM take is hidden, its MV follow is not.
   setFilter({ ...FILTER_DEFAULT, dst: 'MV' });
   assert.equal(rows(), '2');
   setFilter(FILTER_DEFAULT);
@@ -343,6 +418,25 @@ test('follows whose take is hidden, and trimming after a search', async () => {
   setSearch({ src: '', dst: '' });
   assert.equal(S.hist.length, 203);
   assert.equal(S.histMore, true);
+});
+
+test('live takes trim History back to the newest while nothing reads far back', async () => {
+  const { S, liveEntry, historyPager } = await import('./all.mjs');
+  const ent = (id) => ({ id, levels: [1], prev: [], ok: true, src: 0, dst: 0, time: new Date(0).toISOString() });
+  S.hist = Array.from({ length: 1000 }, (_, i) => ent(1000 - i));
+  S.histMore = false;
+  const pg = historyPager(10, () => false);
+  liveEntry({ e: ent(1001) });
+  assert.equal(S.hist.length, 200);
+  assert.equal(S.hist[0].id, 1001);
+  assert.equal(S.histMore, true);
+  // A pager shown past the kept entries holds them all.
+  S.hist = Array.from({ length: 1000 }, (_, i) => ent(1001 - i));
+  pg.shown = 300;
+  liveEntry({ e: ent(1002) });
+  assert.equal(S.hist.length, 1001);
+  pg.shown = 10;
+  S.hist = [];
 });
 
 test('history pages', async () => {

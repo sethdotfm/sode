@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// The smart menu's Artwork tool over a 2x3 block with one empty square: Esc after a preview changes nothing, Icon A
-// goes on every cell, Icon B runs on in the fill order, and a save stores both, read back over REST.
+// The smart menu's Artwork tool over a 2x3 block with one empty square. Esc after a preview changes nothing. Icon A
+// goes on every cell, and Icon B runs on in the fill order. A save stores both, read back over REST.
 func TestChromeEditorArtTool(t *testing.T) {
 	b, a, ana, id := editorTab(t, `{"name":"Art tool","rows":2,"cols":3,"cells":[
 		{"r":1,"c":1,"kind":"take"},{"r":1,"c":2,"kind":"clear"},{"r":1,"c":3,"kind":"source"},

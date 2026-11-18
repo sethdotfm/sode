@@ -6,19 +6,21 @@ import (
 	"testing"
 )
 
-// The Icon library end to end: Upload in the Choose icon picker's Uploaded section adds a PNG, its tile picks it for
-// a cell, the save stores `lib:<id>`, and the panel page draws it as a picture with Icon B as its corner badge.
+// The Icon library end to end. The Choose icon picker's Uploaded section opens the Icon library dialog. Upload there
+// adds a PNG, and its tile in the picker picks it for a cell. The save stores `lib:<id>`, and the panel page draws it as a picture with Icon B as its corner badge.
 func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	b, a, _, id := editorTabPrep(t, `{"name":"Lib","rows":2,"cols":2,"cells":[{"r":1,"c":1,"kind":"source","n":1,"artB":"2"}]}`, nil)
 	sq := `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]')`
 	b.eval(`(() => { const s = ` + sq + `; const r = s.getBoundingClientRect(); s.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 })); })()`)
 	b.waitFor("the Cell tab", `document.querySelector('#ed-side .pb-tab[aria-selected="true"]')?.textContent === 'Cell'`)
 	b.eval(`[...document.querySelectorAll('#panel-ed-cell .pb-btn')].find((x) => x.textContent === 'Choose icon').click(); true`)
-	b.waitFor("the Uploaded section, empty", `!!document.getElementById('ed-lib-upload')?.offsetParent && document.getElementById('ed-lib-icons').hidden`)
+	b.waitFor("the Uploaded section, empty, with no upload in the sidebar", `!!document.getElementById('ed-lib-open')?.offsetParent && document.getElementById('ed-lib-icons').hidden && !document.getElementById('ed-lib-upload').offsetParent && !document.getElementById('ed-side').contains(document.getElementById('ed-lib-upload'))`)
+	b.eval(`document.getElementById('ed-lib-open').click(); true`)
+	b.waitFor("the Icon library dialog opens on the name", `!document.getElementById('ed-lib-dialog').hidden && !!document.getElementById('ed-lib-upload').offsetParent && document.activeElement === document.getElementById('ed-lib-name')`)
 
 	// The name is typed; the file is a 1024 by 1024 PNG drawn on a canvas.
 	b.eval(`document.getElementById('ed-lib-name').value = 'Station logo'; true`)
-	b.eval(`(async () => { const c = document.createElement('canvas'); c.width = 1024; c.height = 1024; const x = c.getContext('2d'); x.fillStyle = '#c00'; x.fillRect(0, 0, 1024, 1024); const blob = await new Promise((r) => c.toBlob(r, 'image/png')); const dt = new DataTransfer(); dt.items.add(new File([blob], 'logo.png', { type: 'image/png' })); const f = document.querySelector('.sode-side__lib-sec input[type=file]'); f.files = dt.files; f.dispatchEvent(new Event('change')); return true; })()`)
+	b.eval(`(async () => { const c = document.createElement('canvas'); c.width = 1024; c.height = 1024; const x = c.getContext('2d'); x.fillStyle = '#c00'; x.fillRect(0, 0, 1024, 1024); const blob = await new Promise((r) => c.toBlob(r, 'image/png')); const dt = new DataTransfer(); dt.items.add(new File([blob], 'logo.png', { type: 'image/png' })); const f = document.querySelector('#ed-lib-dialog input[type=file]'); f.files = dt.files; f.dispatchEvent(new Event('change')); return true; })()`)
 	b.waitFor("the icon is added and its tile drawn", `(() => { const i = document.querySelector('#ed-lib-icons [data-lib] img'); return !!i && !i.hidden && i.complete && i.naturalWidth === 1024; })()`)
 	icons := a.icons.list()
 	if len(icons) != 1 || icons[0].Name != "Station logo" || icons[0].Type != "image/png" {
@@ -28,6 +30,8 @@ func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 
 	// The upload picks it; picking None and then the tile shows the tile does it too.
 	b.waitFor("the upload picked it for the cell", sq+`.querySelector('img.sode-panel__art-a') !== null`)
+	b.eval(`document.getElementById('ed-lib-close').click(); true`)
+	b.waitFor("Close shuts the dialog", `document.getElementById('ed-lib-dialog').hidden`)
 	b.eval(`[...document.querySelector('#panel-ed-cell .sode-side__col-top').querySelectorAll('.pb-btn')].find((x) => x.textContent === 'None').click(); true`)
 	b.waitFor("None cleared it", sq+`.querySelector('img.sode-panel__art-a') === null`)
 	b.eval(`document.querySelector('#ed-lib-icons [data-lib]').click(); true`)
@@ -55,8 +59,8 @@ func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	b.check()
 }
 
-// A Trusted user renames and deletes from a tile under Manage. Delete asks the churning-letter Confirm with the use
-// count; after it the cells that used the icon draw no Icon A, on the editor canvas and on the panel page, and keep
+// A Trusted user renames and deletes from a tile in the Icon library dialog. Delete asks the churning-letter Confirm with the use
+// count. After it, the cells that used the icon draw no Icon A, on the editor canvas and on the panel page. They keep
 // their Icon B and text.
 func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 	var ic LibIcon
@@ -78,9 +82,11 @@ func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 	b.eval(`(() => { const s = ` + sq + `; const r = s.getBoundingClientRect(); s.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 })); })()`)
 	b.waitFor("the Cell tab", `document.querySelector('#ed-side .pb-tab[aria-selected="true"]')?.textContent === 'Cell'`)
 	b.eval(`[...document.querySelectorAll('#panel-ed-cell .pb-btn')].find((x) => x.textContent === 'Choose icon').click(); true`)
-	b.waitFor("Manage, for a Trusted user", `!!document.getElementById('ed-lib-manage')?.offsetParent && !!document.querySelector('#ed-lib-icons [data-lib]')`)
+	b.waitFor("the picker's tile", `!!document.querySelector('#ed-lib-icons [data-lib]')`)
+	b.eval(`document.getElementById('ed-lib-open').click(); true`)
+	b.waitFor("Rename or delete, for a Trusted user", `!!document.querySelector('#ed-lib-manage-icons [data-lib]')?.offsetParent`)
 
-	b.eval(`document.getElementById('ed-lib-manage').click(); document.querySelector('#ed-lib-icons [data-lib]').click(); true`)
+	b.eval(`document.querySelector('#ed-lib-manage-icons [data-lib]').click(); true`)
 	b.waitFor("the tile is chosen, not picked", `!!document.getElementById('ed-lib-delete')?.offsetParent && document.getElementById('ed-lib-rename-name').value === 'Logo'`)
 	b.eval(`document.getElementById('ed-lib-rename-name').value = 'Station'; document.getElementById('ed-lib-rename').click(); true`)
 	b.waitFor("renamed", `document.querySelector('#ed-lib-icons [data-lib]')?.getAttribute('aria-label') === 'Station'`)
@@ -89,12 +95,12 @@ func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 	}
 	b.waitFor("the renamed icon still draws", drawn(sq))
 
-	b.eval(`document.querySelector('#ed-lib-icons [data-lib]').click(); document.getElementById('ed-lib-delete').click(); true`)
+	b.eval(`document.querySelector('#ed-lib-manage-icons [data-lib]').click(); document.getElementById('ed-lib-delete').click(); true`)
 	// One read: a second call after the text shows can land after the 500 ms lockout under load.
-	b.waitFor("the Confirm with the count, locked out at first", `/2 cells on 1 panel use it/.test(document.getElementById('ed-lib-confirm')?.textContent || '') && document.getElementById('ed-lib-delete-ok').disabled`)
+	b.waitFor("the Confirm with the count, locked out at first", `/2 cells or names on 1 panel use it/.test(document.getElementById('ed-lib-confirm')?.textContent || '') && document.getElementById('ed-lib-delete-ok').disabled`)
 	b.waitFor("the lockout ends", `!document.getElementById('ed-lib-delete-ok').disabled`)
 	b.eval(`(() => { const k = /\((.)\)/.exec(document.getElementById('ed-lib-delete-ok').textContent)[1].toLowerCase(); document.getElementById('ed-lib-confirm').dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true })); return true; })()`)
-	b.waitFor("deleted", `/Deleted Station/.test(document.querySelector('.sode-side__lib-sec [role=status]').textContent)`)
+	b.waitFor("deleted", `/Deleted Station/.test(document.querySelector('#ed-lib-dialog [role=status]').textContent)`)
 	if n := len(a.icons.list()); n != 0 {
 		t.Fatalf("library still has %d", n)
 	}
@@ -122,7 +128,7 @@ func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 	}
 }
 
-// A library SVG draws as a mask in the art row's text colour, so a red and blue file shows one colour that follows the
+// A library SVG draws as a mask in the art row's text colour. So a red and blue file shows one colour that follows the
 // theme. It is never an <img> with its own colours, and the editor's canvas and picker tile draw it the same way.
 func TestChromeIconLibrarySVGTakesTheTextColour(t *testing.T) {
 	b, _, _, id := editorTabPrep(t, `{"name":"Lib","rows":2,"cols":2}`, func(b *tab, a *App, ana, id string) {

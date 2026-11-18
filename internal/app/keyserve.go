@@ -67,7 +67,7 @@ func (a *App) ownUser(c *client) (config.User, error) {
 }
 
 // CreateOwnKey makes a key that acts as c's user. It asks the user's own PIN in the
-// change-PIN pool, so an unattended signed-in browser can't mint a lasting key.
+// change-PIN pool, so an unattended signed-in browser cannot mint a lasting key.
 func (a *App) CreateOwnKey(c *client, pin, keyName string, expiresMs int64) (string, apiKey, error) {
 	u, err := a.ownUser(c)
 	if err != nil {
@@ -80,7 +80,7 @@ func (a *App) CreateOwnKey(c *client, pin, keyName string, expiresMs int64) (str
 	if err != nil {
 		return "", apiKey{}, err
 	}
-	// cfgMu: a PIN change prunes keys under it, so the check and the insert can't straddle one.
+	// cfgMu: a PIN change prunes keys under it, so the check and the insert cannot straddle one.
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	cur := a.r().cfg

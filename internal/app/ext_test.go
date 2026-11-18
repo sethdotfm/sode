@@ -253,8 +253,8 @@ func TestExtFollows(t *testing.T) {
 	}
 }
 
-// A take still queued behind others' messages (not sent yet) can't have
-// caused a change that's already here, so it doesn't hold the burst.
+// A take still queued behind others' messages (not sent yet) cannot have
+// caused a change that is already here. So it does not hold the burst.
 func TestExtNotHeldByQueuedTake(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()

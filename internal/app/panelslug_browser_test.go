@@ -11,8 +11,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A short link: /panels/<slug>#key=<key without its prefix>&kiosk=1 opens the panel, ?instance= names the
-// session so the device question is skipped, and an unknown short name says only that nothing is there.
+// A short link: /panels/<slug>#key=<key without its prefix>&kiosk=1 opens the panel. ?instance= names the
+// session so the device question is skipped. An unknown short name says only that nothing is there.
 func TestChromePanelShortLink(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -22,7 +22,7 @@ func TestChromePanelShortLink(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","acts":"api","slug":"wall"}`)

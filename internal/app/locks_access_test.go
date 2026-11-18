@@ -9,9 +9,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A Settings save whose message has no locks / autoLockMinutes key (a page
-// from before they were form fields) must keep the live values, not decode to
-// "every lock off".
+// A Settings save whose message has no locks / autoLockMinutes key must keep
+// the live values, not decode to "every lock off". Such a message comes from a
+// page from before they were form fields.
 func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	a := userApp(t, true)
 	admin := &client{ip: "10.0.0.9"}
@@ -42,8 +42,8 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	}
 }
 
-// Changing the locks or the idle time needs the Advanced Settings PIN; a trusted user
-// is refused with guardedErr (which counts as errLocked), the PIN holder saves.
+// Changing the locks or the idle time needs the Advanced Settings PIN. A trusted user
+// is refused with guardedErr (which counts as errLocked), and the PIN holder saves.
 func TestLocksNeedSettingsPin(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", true, false)
@@ -117,8 +117,8 @@ func TestRemoveLastUserWhileLockedSaysWhy(t *testing.T) {
 	}
 }
 
-// The guard leaves the users alone when it refuses, and does not fire when no
-// lock is on (the last user may go then).
+// The guard leaves the users alone when it refuses. It does not fire when no
+// lock is on (the last user is allowed to go then).
 func TestRemoveLastUserGuardScope(t *testing.T) {
 	a := userApp(t, true)
 	admin := &client{ip: "10.0.0.9"}

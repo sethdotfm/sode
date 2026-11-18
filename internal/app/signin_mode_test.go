@@ -130,7 +130,7 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 	if err := a.SaveUsers(ana, req); err == nil {
 		t.Fatal("SaveUsers took the mode without the PIN")
 	}
-	// The Settings form can't change it either.
+	// The Settings form cannot change it either.
 	cfg := a.r().cfg
 	cfg.SignInMode = config.SignInUsername
 	if err := a.SaveSettings(adminClient(t, a), cfg, "", false); err != nil {
@@ -194,7 +194,7 @@ func TestUsernameModeBackToPinOnlyWithNewUniquePins(t *testing.T) {
 
 func TestUsernameModeBackToPinOnlyRefusesUsersWithoutNewPin(t *testing.T) {
 	a := usernameApp(t)
-	// Ana and Bo share 1234, but the server can't see that: any user without a typed PIN is refused.
+	// Ana and Bo share 1234, but the server cannot see that: any user without a typed PIN is refused.
 	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo"}))
 	if err == nil || !strings.Contains(err.Error(), "Bo") || strings.Contains(err.Error(), "Ana") {
 		t.Fatalf("want a refusal naming only Bo, got %v", err)
@@ -260,7 +260,7 @@ func TestHeldLockResumesWithThePinInUsernameMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.UserLock(c)
-	// Bo shares Ana's PIN; neither name nor PIN may switch a held session to Bo.
+	// Bo shares Ana's PIN; the name and the PIN must not switch a held session to Bo.
 	if err := a.UserUnlockAs(c, "bobby", "1234"); err == nil {
 		t.Fatal("another user's username resumed a held Lock")
 	}
@@ -334,11 +334,7 @@ func TestUserUnlockMessageCarriesUsername(t *testing.T) {
 func TestUnknownUsernameCostsAsMuchAsAKnownOne(t *testing.T) {
 	a := usernameApp(t)
 	try := func(user string) time.Duration {
-		start := time.Now()
-		if err := a.UserUnlockAs(&client{ip: "10.0.0.9"}, user, "9999"); err == nil {
-			t.Fatalf("%s: a wrong PIN was accepted", user)
-		}
-		return time.Since(start)
+		return fastestOf(t, a, func() error { return a.UserUnlockAs(&client{ip: "10.0.0.9"}, user, "9999") })
 	}
 	known, unknown := try("ana.k"), try("nobody")
 	if unknown < known/2 {
@@ -346,21 +342,36 @@ func TestUnknownUsernameCostsAsMuchAsAKnownOne(t *testing.T) {
 	}
 }
 
-// PIN lengths are public (lockState.lens), so a wrong-length PIN for a known username must
+// PIN lengths are public (lockState.lens). So a wrong-length PIN for a known username must
 // still pay the hash cost, or a fast answer says the username exists.
 func TestWrongLengthPinCostsAsMuchAsARightLengthOne(t *testing.T) {
 	a := usernameApp(t)
 	try := func(user, pin string) time.Duration {
-		start := time.Now()
-		if err := a.UserUnlockAs(&client{ip: "10.0.0.9"}, user, pin); err == nil {
-			t.Fatalf("%s: a wrong PIN was accepted", user)
-		}
-		return time.Since(start)
+		return fastestOf(t, a, func() error { return a.UserUnlockAs(&client{ip: "10.0.0.9"}, user, pin) })
 	}
 	short, unknown := try("ana.k", "99"), try("nobody", "9999")
 	if short < unknown/2 {
 		t.Fatalf("a wrong-length PIN answered in %v, an unknown username in %v", short, unknown)
 	}
+}
+
+// fastestOf times a refused sign-in several times and keeps the fastest try. Test hash
+// costs make one try well under a millisecond, so one slow schedule would decide a single try.
+func fastestOf(t *testing.T, a *App, signIn func() error) time.Duration {
+	t.Helper()
+	best := time.Duration(1<<63 - 1)
+	for range 15 {
+		// Wrong PINs lock the pool after a few tries, and a locked pool answers before any hash.
+		a.mu.Lock()
+		a.userPin.pinState = pinState{}
+		a.mu.Unlock()
+		start := time.Now()
+		if signIn() == nil {
+			t.Fatal("a wrong PIN was accepted")
+		}
+		best = min(best, time.Since(start))
+	}
+	return best
 }
 
 func TestEmptySignInModeKeepsTheCurrent(t *testing.T) {

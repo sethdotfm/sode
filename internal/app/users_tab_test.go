@@ -56,7 +56,7 @@ func TestTabSessionRefusedWhenLocked(t *testing.T) {
 }
 
 // A lock switched on after a no-lock login: the tab token no longer brings a
-// reload back in, so the PIN pad (and the Auto-lock) apply.
+// reload back in. So the PIN pad (and the Auto-lock) apply.
 func TestTabTokenIgnoredOnceLocked(t *testing.T) {
 	a := userApp(t, false)
 	c := &client{ip: "10.0.0.1"}
@@ -87,8 +87,8 @@ func TestTabTokenIgnoredOnceLocked(t *testing.T) {
 	}
 }
 
-// A tab token is not a persistent one: ticking Never log out afterwards must
-// not turn it into a token that skips a lock; it is pruned.
+// A tab token is not a persistent one. If Never log out is ticked afterwards, the
+// token must not turn into one that skips a lock; it is pruned.
 func TestTabTokenDiesWhenUserBecomesPersistent(t *testing.T) {
 	a := userApp(t, false)
 	c := &client{ip: "10.0.0.1"}

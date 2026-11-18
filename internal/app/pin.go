@@ -24,7 +24,7 @@ type pinState struct {
 type pinPool struct {
 	pinState
 	wait func(tries int) time.Duration // the wait after this many wrong PINs in a row
-	// resetOnOK: not for the users' pool: a PIN there identifies the user, so one valid
+	// resetOnOK: not for the users' pool. A PIN there identifies the user, so one valid
 	// PIN would let a stranger reset the count and guess the rest. That pool forgets after
 	// quiet instead.
 	resetOnOK bool
@@ -58,7 +58,7 @@ func settingsPool() pinPool {
 	return pinPool{what: "settings", wait: pinWait, resetOnOK: true, maxTries: func(c config.Config) int { return c.PinMaxTries }}
 }
 
-// userPool: waits stop growing at userPinMaxWait; no permanent lock, so a stranger can't
+// userPool: waits stop growing at userPinMaxWait; no permanent lock, so a stranger cannot
 // shut out operators.
 func userPool() pinPool {
 	return pinPool{what: "users", wait: func(n int) time.Duration { return min(pinWait(n), userPinMaxWait) }, forget: pinMaxWait}

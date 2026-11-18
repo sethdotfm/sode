@@ -170,9 +170,9 @@ onMsg('configImportResult', (m) => {
   reset();
   setBusy(null);
   say('');
-  // New settings arrived: close Settings (discarding the form) so it can't be saved back over them.
+  // New settings arrived: close Settings (discarding the form) so it cannot be saved back over them.
   emit('settingsClose', { discard: true });
-  const kept = m.kept ? ` It also holds settings this release doesn't know, kept as they are: ${m.kept}.` : '';
+  const kept = m.kept ? ` It also holds settings that this release does not know, kept as they are: ${m.kept}.` : '';
   showResult('ok', 'Configuration imported', `Everyone now has the settings from ${name}.${kept}`);
 });
 

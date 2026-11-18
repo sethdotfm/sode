@@ -73,7 +73,7 @@ func TestConfigImportKeepsLivePins(t *testing.T) {
 	text, _ := exportOf(t, a, false)
 	live := a.r().cfg
 	// Edit: Bo's file length is a lie that must not be believed; Ana renamed
-	// in case only; a setting changes.
+	// with a change of letter case only; a setting changes.
 	file, _ := config.Parse([]byte(text))
 	file.BrandText = "Studio B"
 	file.Users[0].Name = "ANA"
@@ -230,7 +230,7 @@ func TestImportReadLimit(t *testing.T) {
 	}
 }
 
-// The big read is for a settings-PIN connection that asks, once. Everyone
+// The big read is for a settings-PIN connection that asks, one time. Everyone
 // else keeps 64 KiB, and the limit is back after the one message.
 func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	a := userApp(t, false)
@@ -266,8 +266,8 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 		return ws, send, until
 	}
 	big := "# " + strings.Repeat("x", 200<<10) + "\nrouter: " + strconv.Quote(a.r().cfg.Router) + "\nbrandText: Big\n"
-	// An oversize message is cut off by the server mid-write, so the client
-	// may see the 1009 close or, if the reset wins, a failed write or read.
+	// The server cuts off an oversize message mid-write. So it is possible that the
+	// client sees the 1009 close or, if the reset wins, a failed write or read.
 	// Either way the connection ends; a completed write must show the 1009.
 	tooBig := func(ws *websocket.Conn, m map[string]any, what string) {
 		t.Helper()
@@ -362,7 +362,7 @@ func TestConfigExportOverWebSocket(t *testing.T) {
 	}
 }
 
-// The export re-checks the Advanced Settings PIN when it runs: a lock (or a changed
+// The export re-checks the Advanced Settings PIN when it runs. A lock (or a changed
 // PIN) between admit and the export refuses it and returns no YAML.
 func TestConfigExportRechecksPin(t *testing.T) {
 	a := userApp(t, false)
@@ -380,10 +380,10 @@ func TestConfigExportRechecksPin(t *testing.T) {
 	}
 }
 
-// A blank install (no Advanced Settings PIN, no users) importing a multiuser file that
-// carries no PINs (an export without PINs): refused with a plain message, the
-// live config untouched, nothing half-applied. A file with no users, or with
-// PIN hashes, goes in.
+// A blank install (no Advanced Settings PIN, no users) imports a multiuser file that
+// carries no PINs (an export without PINs). It is refused with a plain message. The
+// live config stays untouched, and nothing is half-applied. A file with no users, or
+// with PIN hashes, goes in.
 func TestConfigImportIntoBlankInstall(t *testing.T) {
 	src := userApp(t, true) // users, locks on, an Advanced Settings PIN
 	text, _ := exportOf(t, src, false)

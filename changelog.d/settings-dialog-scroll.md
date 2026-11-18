@@ -1,0 +1,1 @@
+- Settings stays at the same position when you open and close a dialog, such as Manage users. Before, it jumped up and did not go back.

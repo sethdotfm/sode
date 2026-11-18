@@ -1,7 +1,9 @@
-// What the Push modal on the panels page offers and sends. Pure. The server decides who may push to
+// What the Push modal on the panels page offers and sends. Pure. The server decides who can push to
 // what (a panel's canEdit), and refuses the whole Push if any target is not allowed.
 
 import { artLeftOut } from './panelrules.js';
+import { sizeText } from './gridmodel.js';
+import { plural } from './gridclip.js';
 
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
@@ -11,7 +13,7 @@ export const groupKey = (name) =>
     .replace(/[\s_-]*\d+\s*$/, '')
     .trim() || String(name).trim();
 
-// Panels the caller may push to: changeable, and not the one being pushed.
+// Panels the caller can push to: changeable, and not the panel that is pushed.
 export const pushCandidates = (panels, srcId) => panels.filter((p) => p.canEdit && p.id !== srcId);
 
 // Groups of two or more, by name, each with its panels in number order; every panel that stands
@@ -34,8 +36,8 @@ export function pushGroups(candidates) {
   return { groups, single };
 }
 
-// The ids to push to: every panel of a ticked group plus the panels ticked one by one, once each,
-// in the order of the list, never the source and never a panel the caller cannot change.
+// The ids to push to: every panel of a ticked group plus the panels ticked one by one. Each id comes
+// one time, in list order. The list never holds the source or a panel the caller cannot change.
 export function pushTargets(panels, srcId, { groups = [], ids = [] } = {}) {
   const cand = pushCandidates(panels, srcId);
   const keys = new Set(groups.map((g) => String(g).toLowerCase()));
@@ -57,8 +59,8 @@ export function setGroup(selected, group, on) {
 
 export const pushBody = (ids) => ({ targets: [...ids] });
 
-// Which of a set's panels a Push goes to: the ticked ones that the set holds, or all of them when
-// none of its panels is ticked.
+// Which of a set's panels a Push goes to. It is the ticked ones that the set holds, or all of them
+// when none of its panels is ticked.
 export function setTargets(set, selected) {
   const held = set.entries.map((e) => e.panel);
   const ticked = held.filter((id) => selected.has(id));
@@ -85,12 +87,12 @@ export function checkpointLabel(cp) {
   const when = String(cp.at || '')
     .replace('T', ' ')
     .slice(0, 16);
-  return `${when}, ${cp.by}, ${cp.rows} by ${cp.cols}, ${cp.cells} ${cp.cells === 1 ? 'cell' : 'cells'}`;
+  return `${when}, ${cp.by}, ${sizeText(cp.rows, cp.cols)}, ${plural(cp.cells, 'cell')}`;
 }
 
 export const scopeLabel = (scope) => (scope === 'everyone' ? 'Everyone' : 'Me');
 
-export const setLabel = (set) => `${set.name} (${scopeLabel(set.scope)}, ${set.entries.length} ${set.entries.length === 1 ? 'panel' : 'panels'})`;
+export const setLabel = (set) => `${set.name} (${scopeLabel(set.scope)}, ${plural(set.entries.length, 'panel')})`;
 
 export const canSaveSet = (name, selected) => String(name).trim() !== '' && selected.size > 0;
 

@@ -86,10 +86,10 @@ func (t *apiTap) len() int {
 	return len(t.rows)
 }
 
-// The user's failure: open pages kept polling with keys Sode had ended, every call counted as a failed key,
-// and the address (every tab and the editor on that machine) was locked out. Two tabs sharing one session
-// also ended each other's key on every renewal. Now: tabs keep their own keys, an ended session key is
-// renewed once, an ended link key stops its page, and the address is never locked.
+// The user's failure: open pages kept polling with keys Sode had ended, and every call counted as a failed key.
+// So the address (every tab and the editor on that machine) was locked out. Two tabs that shared one session
+// also ended each other's key on every renewal. Now tabs keep their own keys, and an ended session key is
+// renewed one time. An ended link key stops its page, and the address is never locked.
 func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

@@ -22,7 +22,7 @@ export function usersReq(rows, maxPinLen, mode, savedMode) {
   return { users, maxPinLen, ...(mode !== savedMode ? { signInMode: mode } : {}) };
 }
 
-// Salted hashes hide whether saved users share a PIN, so going back to PIN only needs a new PIN
+// Salted hashes hide whether saved users share a PIN. So a switch back to PIN only needs a new PIN
 // typed for every user, all different. The server refuses the save otherwise.
 export const needsNewPins = (mode, savedMode) => mode === 'pin' && savedMode === 'username';
 
@@ -42,7 +42,7 @@ const nameList = (names) => (names.length > 1 ? `${names.slice(0, -1).join(', ')
 
 export function clashNotice({ missing, same }) {
   const out = [];
-  if (missing.length) out.push(`Give ${nameList(missing)} a new PIN to switch to PIN only. Sode can't tell whether saved PINs match.`);
+  if (missing.length) out.push(`Give ${nameList(missing)} a new PIN to switch to PIN only. Sode cannot tell whether saved PINs match.`);
   if (same.length) out.push(`${nameList(same)} have the same new PIN. Each needs a different one.`);
   return out.join(' ');
 }
@@ -50,11 +50,11 @@ export function clashNotice({ missing, same }) {
 // Saved users whose name was edited. A rename ends the user's sessions on every browser (ADR 0001).
 export const renamed = (rows) => rows.filter((r) => r.was && r.name.trim() !== r.was);
 
-export const RENAME_HINT = 'Renaming a user signs them out everywhere. Their Profile and PIN stay.';
+export const RENAME_HINT = 'A rename signs the user out everywhere. Their Profile and PIN stay.';
 
 export function renameNotice(rows) {
   const names = renamed(rows).map((r) => `${r.was} to ${r.name.trim() || '(no name)'}`);
-  return names.length ? `Renaming ${names.join(', ')} signs that user out everywhere. Their Profile and PIN stay.` : '';
+  return names.length ? `A rename of ${names.join(', ')} signs that user out everywhere. Their Profile and PIN stay.` : '';
 }
 
 // Usernames for rows that have none: the Name without spaces. Keep in step with config.Normalize's

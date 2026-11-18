@@ -1,6 +1,8 @@
 package app
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +23,7 @@ import (
 
 const apiBase = "/api/v1"
 
-// apiCtx is who a request is, resolved once by apiAuth. Writes and the stream reuse it:
+// apiCtx is who a request is, resolved one time by apiAuth. Writes and the stream reuse it:
 // Actor goes in History and the log, and the take path reads Rights through client().
 type apiCtx struct {
 	Actor  Actor
@@ -31,7 +33,7 @@ type apiCtx struct {
 	Panel  string  // the panel whose own API client this is, else ""
 	IP     string
 
-	// sink takes every reply of a take run for this request instead of a.clients: a REST
+	// sink gets every reply of a take run for this request instead of a.clients. A REST
 	// request is not a registered connection and must not see broadcasts.
 	sink func([]byte)
 }
@@ -63,8 +65,8 @@ type apiRoute struct {
 }
 
 // scopeOpen as a route's Scope skips the key check: the handler gets a nil apiCtx. Only the setup-link
-// exchange, which is how a tablet gets its key and throttles with authWait, and the keyless announcement
-// (panelkeyless.go), which grants nothing and is bounded only by keylessMax.
+// exchange and the keyless announcement (panelkeyless.go) use it. The exchange is how a tablet gets its
+// key, and it throttles with authWait. The announcement grants nothing and is bounded only by keylessMax.
 const scopeOpen = "none"
 
 var apiRoutes []apiRoute
@@ -89,6 +91,59 @@ func apiJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(v)
+}
+
+// apiJSONTagged is apiJSON for a read a page repeats. The ETag hashes the body the caller would get, so a Rights or Default artwork
+// change moves it. A match answers 304 with no body.
+func apiJSONTagged(w http.ResponseWriter, r *http.Request, v any) {
+	apiJSONTaggedBy(w, r, v, nil)
+}
+
+// apiJSONTaggedBy tags v by the JSON of tagOf, when tagOf is not nil. tagOf leaves out a field that moves
+// with time alone, so an unchanged read still gets 304.
+func apiJSONTaggedBy(w http.ResponseWriter, r *http.Request, v, tagOf any) {
+	body, err := json.Marshal(v)
+	if err != nil {
+		apiFail(w, http.StatusInternalServerError, "internal", "the answer could not be built")
+		return
+	}
+	tagged := body
+	if tagOf != nil {
+		if tagged, err = json.Marshal(tagOf); err != nil {
+			apiFail(w, http.StatusInternalServerError, "internal", "the answer could not be built")
+			return
+		}
+	}
+	apiWriteTagged(w, r, body, etagOf(tagged))
+}
+
+func etagOf(b []byte) string {
+	sum := sha256.Sum256(b)
+	return `"` + hex.EncodeToString(sum[:16]) + `"`
+}
+
+// apiWriteTagged writes a body already built and tagged, or 304 when the caller has it.
+func apiWriteTagged(w http.ResponseWriter, r *http.Request, body []byte, tag string) {
+	w.Header().Set("ETag", tag)
+	w.Header().Set("Cache-Control", "no-store")
+	if tagMatches(r.Header.Get("If-None-Match"), tag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(body)
+	w.Write([]byte{'\n'})
+}
+
+// tagMatches: a weak tag compares equal to its strong form, as RFC 9110 says for If-None-Match.
+func tagMatches(header, tag string) bool {
+	for _, t := range strings.Split(header, ",") {
+		t = strings.TrimPrefix(strings.TrimSpace(t), "W/")
+		if t == "*" || t == tag {
+			return true
+		}
+	}
+	return false
 }
 
 // apiCreated is apiJSON with status 201; headers must precede the status line.

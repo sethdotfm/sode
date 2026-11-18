@@ -1,0 +1,11 @@
+- A Grid panel's header shows only the title, the instance name, the main page's Server and Router status, Full screen and the Panels link. The Lock chip says who is signed in, as on the main page. Kiosk mode is a panel setting, so the page has no Kiosk mode button.
+- A Grid panel's band has a line under the header and more room round its rules. Take always says only Take, with the count of staged routes over it. Select all is a short button under the Levels box. The level 1 pick is one pick wide, as on the main page. Nothing in the band moves when a button's words change.
+- Filter is a switch on a Grid panel, so it reads as a mode.
+- A right-click on a staged crosspoint unstages it. A right-click jump, `g` and `G` scroll smoothly until the crosspoint is in the middle, then the crosspoint and its two names flash.
+- Find and a jump flash a ring round the name and no longer change its colour.
+- Each name of a numbered Diagonal or Drawn line pair shows the same number as its crosspoint.
+- On a crosspoint, Shift with a move picks the names it crosses.
+- A Grid panel shows no box cursor after a click, a Delete or a mouse line. The box on a bar is for the keys only.
+- Pinned sources and destinations take at most half of a small window, so the rest still scrolls.
+- The Grid panel's corner shows "Sources" on its side beside "Destinations".
+- Every text box with a role colour has its border all the way round, the Grid panel's search boxes and the phone's box included.

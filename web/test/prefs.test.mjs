@@ -37,6 +37,7 @@ test('built-in defaults match the old behaviour', () => {
     scrollTop: 'on',
     searchFilters: 'off',
     setStack: 'and',
+    stackGap: '30',
     nextMode: 'number',
     compact: 'off',
   });

@@ -96,7 +96,7 @@ test('the summary names the panels and says what was kept', () => {
 });
 
 test('a checkpoint line gives when, who and what it holds', () => {
-  assert.equal(checkpointLabel({ at: '2026-11-08T18:11:29Z', by: 'Ana', rows: 4, cols: 8, cells: 1 }), '2026-11-08 18:11, Ana, 4 by 8, 1 cell');
+  assert.equal(checkpointLabel({ at: '2026-11-08T18:11:29Z', by: 'Ana', rows: 4, cols: 8, cells: 1 }), '2026-11-08 18:11, Ana, 8 columns by 4 rows, 1 cell');
 });
 
 test('a set needs a name and at least one ticked panel', () => {

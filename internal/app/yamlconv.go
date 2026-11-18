@@ -58,8 +58,8 @@ func (a *App) serveYAML(w http.ResponseWriter, r *http.Request) {
 
 var errNotMapping = errors.New("the top level must be a mapping")
 
-// Keeps key order via a node tree; scalars keep their tags ("24" stays quoted, 24
-// doesn't).
+// Keeps key order with a node tree; scalars keep their tags ("24" stays quoted, 24
+// does not).
 func jsonToYAML(body []byte) ([]byte, error) {
 	if !json.Valid(body) {
 		return nil, errors.New("not valid JSON")

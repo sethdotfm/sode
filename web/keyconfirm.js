@@ -1,20 +1,28 @@
 // Desktop confirm dialog (#confirm): churning key, lockout, Esc. The page wires its keys and decides what a close or send does.
+// The caller supplies the plan with its wording and summary, so a page without the plan module can use it.
 
-import { $, el, S } from './core.js';
-import { planSummary, planVerb } from './plans.js';
+import { $, el } from './core.js';
 import { lockout } from './lockout.js';
 import { churnKey } from './lockrules.js';
 
-// spaceHint: the undo's follows box says Space ticks it. viaKeys: answered from the keyboard.
-export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
+// verb(plan) is the word for the title and button; summary(plan, { prot, spaceHint }) the body nodes. spaceHint: the
+// undo's follows box says Space ticks it. enter(): Enter also confirms. cfg(): settings with confirmLockoutMs, else
+// S.cfg. viaKeys: answered from the keyboard. refocus: a close puts focus back where it was.
+export function keyConfirm({ prompt, verb: verbOf, summary, enter = () => false, cfg = () => undefined, spaceHint = false, refocus = false, onTake, onClose }) {
   let cur = null; // { plan, prot, key, lock }
   let lastKey = '';
+  let back = null; // what had focus before the dialog opened
 
   function end() {
     const c = cur;
     c?.lock.cancel();
     cur = null;
+    const a = document.activeElement;
+    const inside = !a || a === document.body || $('confirm').contains(a);
     $('confirm').hidden = true;
+    // A hidden dialog drops focus to body; the caller's onTake or onClose can still move it.
+    if (refocus && inside && back?.isConnected) back.focus({ preventScroll: true });
+    back = null;
     return c;
   }
 
@@ -22,13 +30,15 @@ export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
     isOpen: () => cur != null,
 
     open(plan, prot) {
-      cur?.lock.cancel(); // one replaced: its lockout mustn't unlock this one
+      cur?.lock.cancel(); // one replaced: its lockout must not unlock this one
+      const a = document.activeElement;
+      if (!cur && a && a !== document.body && !$('confirm').contains(a)) back = a;
       const key = churnKey(lastKey);
       lastKey = key;
       const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
-      const verb = planVerb(plan);
+      const verb = verbOf(plan);
       $('confirm-title').textContent = `Confirm ${verb}`;
-      $('confirm-body').replaceChildren(...planSummary(plan, { prot, spaceHint }), el('div', 'sode__prompt', ...prompt(keyEl)));
+      $('confirm-body').replaceChildren(...summary(plan, { prot, spaceHint }), el('div', 'sode__prompt', ...prompt(keyEl)));
       $('confirm-ok').textContent = `${verb[0].toUpperCase()}${verb.slice(1)} (${key.toUpperCase()})`;
       $('confirm-ok').disabled = true;
       $('confirm').hidden = false;
@@ -40,7 +50,7 @@ export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
         lock: lockout(() => {
           keyEl.classList.remove('sode__key--locked');
           $('confirm-ok').disabled = false;
-        }),
+        }, cfg()),
       };
     },
 
@@ -65,7 +75,7 @@ export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
         $('confirm-body').querySelector('.sode__plan-extra input')?.click();
         return;
       }
-      if (e.key.toLowerCase() === cur.key || (S.cfg.confirmEnter && e.key === 'Enter')) api.take(true);
+      if (e.key.toLowerCase() === cur.key || (e.key === 'Enter' && enter())) api.take(true);
     },
   };
 

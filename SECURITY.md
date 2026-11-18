@@ -2,13 +2,13 @@ DISCLOSURE: This was written by an LLM.
 
 # Security policy
 
-Sode drives a broadcast router, so please report a vulnerability privately and not in a public issue.
+Sode drives a broadcast router, so report a vulnerability privately and not in a public issue.
 
 ## Reporting a vulnerability
 
-Use GitHub's private vulnerability reporting: open the repository's **Security** tab and choose **Report a vulnerability**. The report reaches the maintainer as a private advisory, where the fix and the published advisory are worked out with you. There is no email address for reports.
+Use GitHub's private vulnerability reporting: open the repository's **Security** tab and choose **Report a vulnerability**. The report reaches the maintainer as a private advisory. There, the maintainer works out the fix and the published advisory with you. There is no email address for reports.
 
-Please include the Sode version, which Settings shows, how to reproduce the problem, and what an attacker gains.
+Include the Sode version, which Settings shows, how to reproduce the problem, and what an attacker gains.
 
 ## Supported versions
 

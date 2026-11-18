@@ -1,8 +1,9 @@
-// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js and sprite.js: nothing may
-// cycle.
+// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js, sprite.js and fuzzy.js: an
+// import cycle must not occur.
 
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
+import { fuzzyScore } from './fuzzy.js';
 
 export const $ = (id) => document.getElementById(id);
 
@@ -64,8 +65,14 @@ export function keepSearch(read) {
 }
 
 const listeners = {};
+// Returns a function that removes fn, for a module that can stop (a panel run).
 export const on = (ev, fn) => {
   (listeners[ev] ||= []).push(fn);
+  return () => {
+    const l = listeners[ev];
+    const i = l.indexOf(fn);
+    if (i >= 0) l.splice(i, 1);
+  };
 };
 // Runs before earlier listeners: for a module that must refresh its memo before views read it.
 export const onFirst = (ev, fn) => {
@@ -91,7 +98,7 @@ export function item(n, name) {
 export const srcItem = (n, name = '') => S.srcBy.get(n) || item(n, name);
 export const dstItem = (n, name = '') => S.dstBy.get(n) || item(n, name);
 export const srcLabel = (n) => srcItem(n).label;
-// Number is muted and fixed-width so it can't run into a name starting with a digit.
+// Number is muted and fixed-width so it cannot run into a name starting with a digit.
 export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', it.num), ...(it.name ? [' ', it.name] : []));
 export const dstLabel = (n) => dstItem(n).label;
 export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
@@ -100,14 +107,14 @@ export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : src
 
 let retry = 1000;
 
-// Browsers can't see ping frames; the server sends {"t":"ping"} every ~5s. A socket quiet for
+// Browsers cannot see ping frames; the server sends {"t":"ping"} about every 5s. A socket quiet for
 // STALE_MS is dead even if OPEN; nothing is sent into one quiet for FRESH_MS.
 // ws.lastRx is when anything last arrived.
 const STALE_MS = 15000;
 const FRESH_MS = 7000;
 const quiet = (ws) => Date.now() - ws.lastRx;
 
-// A dead link's close event can be long in coming, so report the loss now, once.
+// A dead link's close event can be long in coming, so report the loss now, one time.
 function drop(ws) {
   const lost = ws.onclose;
   ws.onclose = ws.onmessage = null;
@@ -187,7 +194,7 @@ function handle(m) {
       S.hist = m.recent || [];
       S.histMore = m.more;
       // A page asked for before this snapshot is for a replaced list and is ignored (takePage):
-      // don't wait for it.
+      // do not wait for it.
       S.histLoading = false;
       emit('helloData');
       emit('hello');
@@ -204,10 +211,12 @@ function handle(m) {
       break;
     case 'tally':
       applyTally(m.u);
+      emit('tallyRows', m.u);
       emit('tally');
       break;
     case 'protect':
       applyProtect(m.u);
+      emit('protectedRows');
       emit('tally');
       break;
     case 'configResult':
@@ -294,7 +303,7 @@ export function connState() {
       links: [true, false],
     };
   }
-  // ok: both links up, the only state Compact view may hide the status for.
+  // ok: both links up, the only state that Compact view is allowed to hide the status for.
   return { ws, rt: [dot, `Router ${word}`], down, ok: ws[0] === 'ok' && dot === 'ok' && !down };
 }
 
@@ -356,13 +365,13 @@ export const sentence = (t) => {
   return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
 };
 
-// names: names already taken (any case); old: the name being edited, may change case; reserved:
-// a name nothing may take.
+// names: names already in use (any case). old: the name being edited, which is allowed to change case.
+// reserved: a name that no item is allowed to have.
 export function nameProblem(name, names, { noun = 'item', old = '', max = 32, reserved = '' } = {}) {
   const n = name.trim();
   if (!n) return 'Name required.';
   if ([...n].length > max) return `Names are at most ${max} characters.`;
-  if (reserved && n.toLowerCase() === reserved.toLowerCase()) return `“${n}” is taken.`;
+  if (reserved && n.toLowerCase() === reserved.toLowerCase()) return `“${n}” is already in use.`;
   if (names.some((x) => x.toLowerCase() === n.toLowerCase() && x.toLowerCase() !== old.toLowerCase())) {
     return `There is already a ${noun} named “${n}”.`;
   }
@@ -371,7 +380,7 @@ export function nameProblem(name, names, { noun = 'item', old = '', max = 32, re
 
 export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
 
-// needsLink buttons look disabled via class and aria-disabled, not the disabled attribute, so a
+// needsLink buttons look disabled through a class and aria-disabled, not the disabled attribute, so a
 // focused button keeps focus; a press still goes through planBlocked.
 export function setLinkDisabled(b, off) {
   b.classList.toggle('disabled', off);
@@ -398,36 +407,14 @@ export function protectedOn(dst, levels) {
   const hit = t ? levels.filter((u) => t.has(u)) : [];
   return { levels: hit, devices: [...new Set(hit.map((u) => t.get(u)))].sort((a, b) => a - b) };
 }
-// ---- fuzzy finder
-
-function score(it, q) {
-  if (it.num === q) return 1000;
-  if (/^\d+$/.test(q) && it.num.startsWith(q)) return 800 - it.num.length;
-  if (it.lname === q) return 900;
-  if (it.lname.startsWith(q)) return 700 - it.lname.length;
-  const idx = it.lname.indexOf(q);
-  if (idx >= 0) return 600 - idx;
-  // Subsequence over "num name", rewarding runs and word starts.
-  const t = it.num + ' ' + it.lname;
-  const qq = q.replace(/\s+/g, '');
-  let qi = 0,
-    pts = 0,
-    prev = -2;
-  for (let i = 0; i < t.length && qi < qq.length; i++) {
-    if (t[i] !== qq[qi]) continue;
-    pts += (i === prev + 1 ? 3 : 1) + (i === 0 || t[i - 1] === ' ' ? 2 : 0);
-    prev = i;
-    qi++;
-  }
-  return qi < qq.length ? -1 : 100 + pts - t.length / 100;
-}
+// ---- fuzzy finder (scoring in fuzzy.js)
 
 export function search(list, q, n = 8) {
   q = q.trim().toLowerCase();
   if (!q) return [];
   const out = [];
   for (const it of list) {
-    const s = score(it, q);
+    const s = fuzzyScore(it, q);
     if (s >= 0) out.push([s, it]);
   }
   out.sort((a, b) => b[0] - a[0] || a[1].n - b[1].n);

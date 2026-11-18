@@ -1,5 +1,5 @@
-// Find in the panel editor, pure: what can be searched, which of it the signed-in user's Rights allow,
-// how results rank, and how a chosen result fills the selection. The page side is editorfind.js.
+// Find in the panel editor, pure. It holds what can be searched and which of it the signed-in user's Rights
+// allow. It also holds how results rank and how a chosen result fills the selection. The page side is editorfind.js.
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned, cellAt } from './gridmodel.js';
 
@@ -127,8 +127,8 @@ export function findScope(cells) {
   return cells.every((c) => c.kind === kind && isUnassigned({ r: 1, c: 1, rs: 1, cs: 1, ...c })) ? kind : '';
 }
 
-// The entries a choice places, in order. With picks (a set chosen in the list) those, of the first pick's
-// category; otherwise start and every later one of its category in the order findEntries gave. Entries the
+// The entries a choice places, in order. With picks (a set chosen in the list), it is those of the first
+// pick's category. Otherwise it is start and every later one of its category, in the order findEntries gave. Entries the
 // Rights grey out are never placed: a cell for one could not be used.
 export function fillRun(entries, start, picks) {
   if (!start || start.off) return [];
@@ -147,8 +147,8 @@ export function findPlan(g, run, order = 'across') {
   return { ...plan, slots: plan.slots.map((s) => ({ r: s.r, c: s.c, replace: s.replace, entry: run[s.n] })) };
 }
 
-// Two units in the selection, a unit being a cell (merged ones included) or an empty square: side by side they take
-// Previous Page then Next Page, left to right; one above the other, Previous on top. Chosen with either kind. null for
+// Two units in the selection, a unit being a cell (merged ones included) or an empty square. Side by side, they get
+// Previous Page then Next Page, left to right. One above the other, Previous is on top. Chosen with either kind. null for
 // any other selection.
 export function pairPlan(g, start, all) {
   if (!start || start.off || !['nextPage', 'previousPage'].includes(start.category)) return null;

@@ -1,5 +1,5 @@
-// Popup for the settings PIN when something asks mid-session (users, config file, clear history, refused save).
-// askPin() resolves true once accepted, false if cancelled or closed.
+// Popup for the Advanced Settings PIN when something asks mid-session (users, config file, clear history, refused save).
+// askPin() resolves true after it is accepted, false if cancelled or closed.
 
 import { el, S, on } from './core.js';
 import { unlock, lostUnlock } from './pin.js';
@@ -47,7 +47,7 @@ function build() {
   input.id = 'pinprompt-pin';
   input.autocomplete = 'current-password';
   input.spellcheck = false;
-  input.placeholder = 'Please enter the administrator PIN';
+  input.placeholder = 'Enter the Advanced Settings PIN';
   input.setAttribute('aria-label', 'Advanced Settings PIN');
   const why = el('p', 'sode__hint');
   const err = el('div', 'pb-note pb-note--error');
@@ -95,7 +95,7 @@ export function askPin(text = '') {
   });
 }
 
-// Refused for want of the PIN: ask again; true once entered so the caller retries.
+// Refused for want of the PIN: ask again; true after it is entered, so the caller retries.
 export function reask(text) {
   lostUnlock();
   return askPin(text);

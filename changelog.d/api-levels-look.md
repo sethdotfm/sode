@@ -1,0 +1,1 @@
+- `GET /api/v1/tally` and its stream snapshot now report each level's `swatch` and `color`, the Level numbering as `levelNumbering` and the Default levels as `defaultLevels`.

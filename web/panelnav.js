@@ -1,4 +1,4 @@
-// Moving between a panel's Pages (GLOSSARY.md Go to Page, Next Page / Previous Page). Pure. Pages are named by id,
+// Movement between a panel's Pages (GLOSSARY.md Go to Page, Next Page / Previous Page). Pure. Pages are named by id,
 // never by number, so a reorder in a live update keeps the current Page and every Go to Page target.
 import { pageLabel } from './panelpages.js';
 
@@ -24,8 +24,8 @@ export const pageIndex = (pages, id) =>
     pages.findIndex((p) => p.id === id),
   );
 
-// The next enabled Page one way (dir 1 or -1), or null when there is none other: past an end without wrap, or the only
-// enabled Page.
+// The next enabled Page one way (dir 1 or -1). It is null when there is no other: past an end without wrap, or
+// the only enabled Page.
 export function stepPage(pages, id, dir, wrap) {
   const n = pages.length;
   const i = pageIndex(pages, id);

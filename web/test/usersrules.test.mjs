@@ -77,10 +77,10 @@ test('needsNewPins is true only when switching from Username and PIN to PIN only
 
 test('clashNotice names the users and what to do', () => {
   assert.equal(clashNotice({ missing: [], same: [] }), '');
-  assert.equal(clashNotice({ missing: ['Ann'], same: [] }), "Give Ann a new PIN to switch to PIN only. Sode can't tell whether saved PINs match.");
+  assert.equal(clashNotice({ missing: ['Ann'], same: [] }), 'Give Ann a new PIN to switch to PIN only. Sode cannot tell whether saved PINs match.');
   assert.equal(
     clashNotice({ missing: ['Ann', 'Bob', 'Cy'], same: [] }),
-    "Give Ann, Bob and Cy a new PIN to switch to PIN only. Sode can't tell whether saved PINs match.",
+    'Give Ann, Bob and Cy a new PIN to switch to PIN only. Sode cannot tell whether saved PINs match.',
   );
   assert.equal(clashNotice({ missing: [], same: ['Ann', 'Bob'] }), 'Ann and Bob have the same new PIN. Each needs a different one.');
   assert.match(clashNotice({ missing: ['Cy'], same: ['Ann', 'Bob'] }), /^Give Cy a new PIN.* Ann and Bob have the same new PIN/);
@@ -93,7 +93,7 @@ test('renameNotice names each renamed saved user and stays quiet otherwise', () 
       { name: ' Anna ', was: 'Ann' },
       { name: 'Bob', was: '' },
     ]),
-    'Renaming Ann to Anna signs that user out everywhere. Their Profile and PIN stay.',
+    'A rename of Ann to Anna signs that user out everywhere. Their Profile and PIN stay.',
   );
   assert.match(
     renameNotice([

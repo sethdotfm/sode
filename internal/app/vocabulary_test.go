@@ -57,6 +57,8 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"sent log"}, Re: wordRe(`(?i)sent[ -]logs?`)},
 	{Terms: []string{"panel change"}, Re: wordRe(`(?i)panel[ -](?:changes?|entr(?:y|ies)|rows?)|changes? (?:from|on) (?:a |the )?(?:hardware )?panel`)},
 	{Terms: []string{"external change"}, Re: wordRe(`(?i)external changes?`)},
+	{Terms: []string{"reset import", "merge import"}, Re: wordRe(`(?i)(?:reset|merge) imports?`)},
+	{Terms: []string{"share link"}, Re: wordRe(`(?i)share links?`), Docs: "#375", UI: "#375", Ident: "#375"},
 	{Terms: []string{"outside change"}, Re: wordRe(`(?i)outside changes?`)},
 	{Terms: []string{"follows"}, Re: wordRe(`(?i)follows`)},
 	{Terms: []string{"automation"}, Re: wordRe(`(?i)automation`)},
@@ -73,7 +75,9 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"This device"}, Re: wordRe(`(?i)this device`)},
 	// Only the panel sense: "lock the screen", "screen readers" and "home screen" stay.
 	{Terms: []string{"screen"}, Re: wordRe(`(?i)(?:this|that|one|each|every|per|no|watched|named|lost an?) screens?|screens?(?:'s)? (?:names?|offline|drops|signs? out|signed out|has opened|of (?:one|a|the) panel)|panels? (?:and|or) screens?`)},
+	{Terms: []string{"What this stops"}, Re: wordRe(`(?i)what this (?:save )?stops`)},
 	{Terms: []string{"anonymous panel"}, Re: wordRe(`(?i)anonymous panels?`)},
+	{Terms: []string{"Test it live"}, Re: wordRe(`(?i)test it live`)},
 	{Terms: []string{"open panel"}, Why: "an open panel page is any panel page that is open, so a scan cannot tell it from a Public panel; a reviewer judges it by hand"},
 }
 
@@ -179,8 +183,8 @@ func vocabTerms(glossary string) []string {
 	return out
 }
 
-// termRe matches a glossary term as written, folding only the first letter of a lowercase
-// term so "Input" at a sentence start still counts while "recent" never matches "Recent".
+// termRe matches a glossary term as written. It folds only the first letter of a lowercase
+// term, so "Input" at a sentence start still counts while "recent" never matches "Recent".
 func termRe(term string) *regexp.Regexp {
 	first := term[:1]
 	expr := regexp.QuoteMeta(term)
@@ -210,8 +214,8 @@ func allowKey(kind string, a allowEntry) string {
 	return kind + "|" + a.Term + "|" + a.File + "|" + a.Line
 }
 
-// matchAllow reports whether any entry exempts the line and marks every entry that does,
-// so an entry is not called unused because an earlier one matched first.
+// matchAllow reports whether any entry exempts the line, and marks every entry that does.
+// So an entry is not called unused because an earlier one matched first.
 func matchAllow(kind string, list []allowEntry, exactTerm bool, term, file, line string) bool {
 	found := false
 	for _, a := range list {
@@ -440,8 +444,8 @@ func TestGlossaryAvoidsItsOwnTerms(t *testing.T) {
 	}
 }
 
-// checkScope fails on a hit in an enforced scope, and on a pending scope with no hits left,
-// so a finished sweep has to clear its ticket and the pending list only shrinks.
+// checkScope fails on a hit in an enforced scope, and on a pending scope with no hits left.
+// So a finished sweep has to clear its ticket, and the pending list only shrinks.
 func checkScope(t *testing.T, scope string, ticket func(retiredWord) string, texts map[string]string) {
 	t.Helper()
 	files := make([]string, 0, len(texts))

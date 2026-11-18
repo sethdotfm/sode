@@ -225,8 +225,8 @@ test('only a panel that may sign in says so after how it acts', () => {
   assert.equal(launchNote({ acts: 'public' }), '');
 });
 
-// Each switch of Authentication mode as apiPanelUpdate does it: making a client makes no key, going to User ends the
-// client (pruneKeys then ends its keys and setup links), and API to Both or back keeps the client and its keys.
+// Each switch of Authentication mode as apiPanelUpdate does it. A new client gets no key. A switch to User ends the
+// client (pruneKeys then ends its keys and setup links). API to Both or back keeps the client and its keys.
 test('each Authentication mode switch says what it does to keys, and only those that touch the client ask for a Confirm', () => {
   const s2a = actsSwitch('session', 'api');
   assert.equal(s2a.confirm, true);
@@ -273,4 +273,78 @@ test('each Authentication mode switch says what it does to keys, and only those 
   assert.match(actsSwitch('both', 'public').text, /anyone with the plain link/);
   assert.match(actsSwitch('public', 'api').text, /lose their Public key/);
   assert.equal(actsSwitch('public', 'session').confirm, true);
+});
+
+test('a Grid panel on the list says how many sources and destinations it holds, or all', async () => {
+  const { gridSize, gridThumb, GRID_MEDIUM_FROM, GRID_LARGE_FROM, GRID_SQUARES } = await import('../panelsrules.js');
+  assert.equal(gridSize({ type: 'grid', sources: { members: [1, 2, 3] }, destinations: { members: [4] } }), 'Grid, 3 sources by 1 destination');
+  assert.equal(gridSize({ type: 'grid', sources: { members: 'all', hide: [2] } }), 'Grid, all sources by all destinations');
+  // The picture: a Source bar across the top, a Destination bar down the side and a diagonal of routes, in one of three sizes.
+  const edge = (n) => ({ members: Array.from({ length: n }, (_, i) => i + 1) });
+  const t = (s, d) => gridThumb({ sources: edge(s), destinations: edge(d) });
+  assert.equal(t(3, 2).size, 'small');
+  assert.equal(t(GRID_MEDIUM_FROM - 1, 1).size, 'small');
+  assert.equal(t(1, GRID_MEDIUM_FROM).size, 'medium');
+  assert.equal(t(GRID_LARGE_FROM - 1, 2).size, 'medium');
+  assert.equal(t(2, GRID_LARGE_FROM).size, 'large');
+  assert.deepEqual(
+    t(40, 12).tiles.map((x) => x.label),
+    ['4', '0', '1', '2'],
+  );
+  const all = gridThumb({ sources: { members: 'all' }, destinations: edge(4) });
+  assert.equal(all.size, 'large');
+  assert.deepEqual(
+    all.tiles.map((x) => x.label),
+    ['A', 'L', 'L', '4'],
+  );
+  // One character per square, centred. Large has 8 squares, so "750" leaves 5 spare and takes a half square; "40" in Medium leaves 3 and does too.
+  const s750 = gridThumb({ sources: edge(750), destinations: edge(2) });
+  assert.deepEqual(
+    s750.tiles.filter((x) => x.kind === 'source').map((x) => [x.label, x.c, x.cs, x.half]),
+    [
+      ['7', 4, 1, true],
+      ['5', 5, 1, true],
+      ['0', 6, 1, true],
+    ],
+  );
+  assert.deepEqual(
+    t(40, 12)
+      .tiles.filter((x) => x.kind === 'source')
+      .map((x) => [x.label, x.c, x.half]),
+    [
+      ['4', 3, true],
+      ['0', 4, true],
+    ],
+  );
+  // The Destination bar reads from the bottom up, so its first character takes the lowest square.
+  assert.deepEqual(
+    t(40, 12)
+      .tiles.filter((x) => x.kind === 'destination')
+      .map((x) => [x.label, x.r]),
+    [
+      ['1', 4],
+      ['2', 3],
+    ],
+  );
+  for (const k of ['small', 'medium', 'large']) {
+    const g = k === 'small' ? t(3, 2) : k === 'medium' ? t(20, 20) : t(200, 8);
+    assert.equal(g.cols, GRID_SQUARES[k] + 1);
+    assert.equal(g.cells.filter((c) => c.kind === 'source').length, g.cols - 1);
+    assert.equal(g.cells.filter((c) => c.kind === 'destination').length, g.rows - 1);
+    // Each character has its own square, centred in its bar. Spare squares are even on both sides, or differ by a half square.
+    for (const kind of ['source', 'destination']) {
+      const ts = g.tiles.filter((x) => x.kind === kind);
+      const at = (x) => (kind === 'source' ? x.c : x.r);
+      const len = (x) => (kind === 'source' ? x.cs : x.rs);
+      const lo = Math.min(...ts.map(at));
+      const hi = Math.max(...ts.map((x) => at(x) + len(x) - 1));
+      const gap = lo - 2 - (g.cols - hi);
+      assert.ok(Math.abs(gap) <= 1, `${k} ${kind}`);
+      assert.equal(
+        ts.every((x) => x.half),
+        Math.abs(gap) === 1,
+      );
+    }
+    assert.ok(g.cells.filter((c) => c.kind === 'on').every((c) => c.c >= 2 && c.c <= g.cols && c.r >= 2 && c.r <= g.rows));
+  }
 });

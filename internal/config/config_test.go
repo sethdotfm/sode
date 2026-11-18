@@ -41,6 +41,7 @@ func TestValidate(t *testing.T) {
 		"bad clock":         func(c *Config) { c.DeviceDefaults.Clock = "13" },
 		"bad set stack":     func(c *Config) { c.DeviceDefaults.SetStack = "xor" },
 		"bad next":          func(c *Config) { c.DeviceDefaults.NextMode = "random" },
+		"bad stack gap":     func(c *Config) { c.DeviceDefaults.StackGap = "45" },
 		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
 		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
 		"bad fire mode":     func(c *Config) { c.FireMode = "parallel" },
@@ -119,13 +120,13 @@ func TestDeviceDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\n"), 0o644)
 	c, _, err := Load(path)
-	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"}
+	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30"}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
 	c, _, err = Load(path)
-	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number", Compact: true}
+	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", Compact: true}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("partial block: %+v %v", c.DeviceDefaults, err)
 	}
@@ -135,7 +136,7 @@ func TestDeviceDefaults(t *testing.T) {
 		t.Fatalf("blank block: %+v %v", c.DeviceDefaults, err)
 	}
 	b, _ := json.Marshal(Defaults())
-	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number","compact":false}`) {
+	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number","stackGap":"30","compact":false}`) {
 		t.Fatalf("json: %s", b)
 	}
 }

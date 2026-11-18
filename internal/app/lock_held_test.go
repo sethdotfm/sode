@@ -8,7 +8,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The Lock of a signed-in user is state of their session: it survives a reload, keeps
+// The Lock of a signed-in user is state of their session. It survives a reload and keeps
 // the session, and only that user's PIN resumes it (docs/adr/0001-server-held-lock.md).
 
 func canTake(a *App, c *client) error { return admitMsg(a, c, inMsg{T: "batch"}) }
@@ -233,8 +233,8 @@ func TestHeldLockBlocksTrustedSavesEvenWithAdvancedSettingsPin(t *testing.T) {
 	}
 }
 
-// A Lock raised (by another tab of the session) while a PIN is being checked still binds:
-// another user's PIN must not swap the session out from under it.
+// A Lock raised (by another tab of the session) while a PIN is being checked still binds.
+// Another user's PIN must not swap the session out from under it.
 func TestLockRaisedDuringPinCheckBlocksOtherUsersPin(t *testing.T) {
 	a := userApp(t, true)
 	// TestMain's cheap PIN cost would finish the check before the Lock, so Bo keeps a full-cost hash of 567890.

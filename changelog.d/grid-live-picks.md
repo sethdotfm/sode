@@ -1,0 +1,3 @@
+- The Live Editor on a Grid panel: the band shows one Find/Filter switch and one Sources arrow, as on the panel page. The phone's Find and Filter choice no longer has a line under it.
+- Live Editor: Edit lists is at the right end of the Preview bar and shows as pressed while its drawer is open. Back to editing is to its left.
+- Live Editor: pick sources or destinations on the live grid with click, Shift-click, or Cmd- or Ctrl-click. They are the selection in the Edit lists drawer, where you move or pin them or give them artwork.

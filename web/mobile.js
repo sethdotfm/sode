@@ -1,5 +1,5 @@
-// Phone layout: one input steps Source → Destination → Levels; a bottom sheet with a slider
-// confirms. A blank Source or Destination goes to the other first (to see what's on it) and
+// Phone layout: one text field steps Source → Destination → Levels; a bottom sheet with a slider
+// confirms. A blank Source or Destination goes to the other first (to see what is on it) and
 // comes back.
 
 import {
@@ -20,10 +20,11 @@ import {
   toggle,
   keepSearch,
 } from './core.js';
-import { defaultLevelsWord, levelBar, allLevels, levelText } from './levelview.js';
+import { defaultLevelsWord, levelBar, allLevels, levelText, levelSource } from './levelview.js';
+import { levelBox } from './levelbox.js';
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, groupTitle, groupLevels } from './history.js';
+import { entryNote, historyPager, statusNode, groupTitle, groupLevels, stackBefore } from './history.js';
 import {
   planVerb,
   resultNode,
@@ -45,20 +46,7 @@ import { emptyNote } from './searchbox.js';
 import { presetHost } from './presets.js';
 import { rowActions, disclosureAria, followersHead, lastFill } from './historyrows.js';
 import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './historypick.js';
-import {
-  byLabel,
-  levelBox,
-  combobox,
-  disclosure,
-  undoButton,
-  againButton,
-  arrivals,
-  feeding,
-  lockout,
-  stackSteps,
-  clickToToggle,
-  pullToLoad,
-} from './widgets.js';
+import { byLabel, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -88,7 +76,7 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
   hiCls: 'sode-m__match--hi',
   reverse: true,
 });
-const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), {
+const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), levelSource, {
   hold: 'pointerdown',
   onChange: () => renderThread(),
 });
@@ -379,8 +367,9 @@ function renderThread() {
   if (end) scrollThread();
 }
 
-// Redraws keep the thread's end in view only if it was in view, so reading back through Recent
-// isn't interrupted. While typing the summary is pinned at the top and nothing scrolls.
+// Redraws keep the thread's end in view only if it was in view, so a person who reads back
+// through History is not interrupted. While the person types, the summary stays pinned at the
+// top and nothing scrolls.
 function atEnd() {
   const t = $('m-thread');
   return t.scrollHeight - t.scrollTop - t.clientHeight < 24;
@@ -438,7 +427,16 @@ function historyRow(e) {
       el('span', 'sode__hist-time', fmtTime(e.time)),
       el('span', 'sode-m__recent-status', status, ...(picking() ? [pickBox(`e${e.id}`)] : []), disc),
     ),
-    el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e), byLabel(e)),
+    el(
+      'div',
+      'sode-m__recent-route',
+      ...(e.chain ? [el('span', 'sode__hist-note', stackBefore(e).text), ' to '] : []),
+      el('strong', null, labelNode(src)),
+      ' → ',
+      el('strong', null, labelNode(dst)),
+      entryNote(e),
+      byLabel(e),
+    ),
     changes,
     e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))),
@@ -533,7 +531,7 @@ function swipeable(row, face, canRedo = false) {
     y0 = e.clientY;
     dx = 0;
     horiz = null;
-    delete face.dataset.noTap; // a drag doesn't always end in a click
+    delete face.dataset.noTap; // a drag does not always end in a click
     base = rest();
   });
   face.addEventListener('pointermove', (e) => {
@@ -608,7 +606,7 @@ let pending = null;
 function openSheet(plan) {
   const { block, prot } = planBlocked(plan);
   if (block) return showResult(block.kind, block.title, block.text);
-  pending?.lock.cancel(); // one replaced: its lockout mustn't unlock this one
+  pending?.lock.cancel(); // one replaced: its lockout must not unlock this one
   $('m-sheet-title').textContent = `Confirm ${planVerb(plan)}`;
   $('m-sheet-body').replaceChildren(...planSummary(plan, { prot }));
   $('m-slide-label').textContent = `Slide to ${planVerb(plan)}`;
@@ -789,7 +787,7 @@ for (const k of STEPS) {
 
 // ---- keyboard overlap (iOS)
 
-// iOS Safari doesn't shrink the layout viewport for the keyboard: size the phone view to the
+// iOS Safari does not shrink the layout viewport for the keyboard: size the phone view to the
 // visual viewport. Android Chrome resizes itself (interactive-widget).
 const vv = window.visualViewport;
 if (vv) {
@@ -812,13 +810,17 @@ on('hello', () => {
   setStep(M.step, false);
   renderHistory();
 });
+// The thread and History are hidden on the other layouts, and a tally or History message on a busy router
+// rebuilt them on every take. onLayout draws them when the phone layout comes back.
+const phone = () => layout() === 'phone';
 on('names', () => {
   matches.refresh();
-  renderThread();
+  if (phone()) renderThread();
 });
-on('tally', renderThread);
+on('tally', () => phone() && renderThread());
 on('conn', renderConn);
 on('history', () => {
+  if (!phone()) return;
   renderHistory();
   renderLast();
 });
@@ -838,10 +840,11 @@ onLayout((l) => {
   else {
     renderThread();
     renderHistory();
+    renderLast();
   }
 });
 
-// Start on the right step so a Destination-first browser doesn't show Source until hello.
+// Start on the right step so a Destination-first browser does not show Source until hello.
 setStep(order()[0], false);
 
 presetHost({

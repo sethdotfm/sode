@@ -1,4 +1,4 @@
-// Idle is per browser: activity in any tab resets every tab's timer, or a background tab would lock the
+// Idle is per browser: activity in any tab resets every tab's timer. If not, a background tab would lock the
 // shared session (the server holds the Lock for all of it) under someone who is typing. channel is a
 // BroadcastChannel or null; tests pass a fake.
 

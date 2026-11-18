@@ -7,8 +7,8 @@ import (
 
 type ownKey struct{ dst, wire, src int }
 
-// ownership: connects our takes sent (own) and routes of takes that gave up, which a late
-// answer may claim (late, lateRoute, lateHits). Guarded by App.mu.
+// ownership: connects our takes sent (own) and routes of takes that gave up. If a late
+// answer arrives for such a route, it claims it (late, lateRoute, lateHits). Guarded by App.mu.
 type ownership struct {
 	own       map[ownKey]time.Time   // our takes' connects → when to stop treating them as ours
 	late      map[ownKey]time.Time   // finished takes' unconfirmed routes → until when a tally of one is ours

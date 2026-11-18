@@ -78,8 +78,8 @@ test('bringToFront: moves a scrim to the end of its parent, keeps focus', () => 
 
 import { trapDialog, heldDialogs } from '../dialogkeys.js';
 
-// A modal that is built per open (Share, Templates) is removed from the page on close; the Esc stack must let go of
-// it too, or every open keeps a whole modal tree (and the icon sprite its <use> elements reference) alive.
+// A modal that is built per open (Share, Templates) is removed from the page on close. The Esc stack must let go of
+// it too. If not, every open keeps a whole modal tree alive, and with it the icon sprite its <use> elements reference.
 test('trapDialog: hide drops the dialog from the Esc stack, show puts it back', () => {
   globalThis.document ??= { addEventListener() {} };
   const node = () => ({ hidden: false, isConnected: true, addEventListener() {}, querySelectorAll: () => [] });

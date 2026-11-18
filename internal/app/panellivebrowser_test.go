@@ -23,7 +23,7 @@ func TestChromePanelLiveUpdate(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	body := func(name string) string {
@@ -89,7 +89,7 @@ func TestChromePanelLiveUpdate(t *testing.T) {
 	}
 	b.waitFor("second banner", `!document.getElementById('panel-update').hidden`)
 	b.eval(`document.getElementById('panel-snooze').click()`)
-	b.waitFor("snooze keeps the banner up and says the staged routes go", `!document.getElementById('panel-update').hidden && /Refreshing in (?:60|59|58) s, dropping the staged routes\./.test(`+text+`)`)
+	b.waitFor("snooze keeps the banner up and says the staged routes go", `!document.getElementById('panel-update').hidden && /Refreshing in (?:60|59|58) s\. It drops the staged routes\./.test(`+text+`)`)
 	b.waitFor("the bar counts the snooze", `!document.getElementById('panel-update-bar').hidden && parseFloat(getComputedStyle(`+bar+`).animationDuration) === 60`)
 	b.waitFor("the old panel stays for now", `document.getElementById('panel-title').textContent === 'After' && document.querySelector('.sode-panel__cell--destination').dataset.s === 'staged'`)
 	b.waitFor("one Snooze per instance: the button is gone, Apply now stays", `document.getElementById('panel-snooze').getClientRects().length === 0 && document.getElementById('panel-apply').getClientRects().length > 0`)

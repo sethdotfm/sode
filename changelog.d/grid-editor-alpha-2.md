@@ -1,0 +1,6 @@
+- The panel editor's Panel type is a Buttons or Grid switch. A new Grid panel starts with no sources and no destinations; add them from the router or use All (follow router).
+- A Grid panel's editor keeps the same Cell, Panel and Access sidebar as a Buttons panel. Each list has a heading and a grip on each row to drag from. Add from the router, under each list, shows only what the panel does not have. A click there adds an item.
+- In a Grid panel's list, Cmd+Shift+Up and Cmd+Shift+Down (Ctrl+Shift on other systems) also move the selected rows. A row's Pin and Remove act on the whole selection.
+- The Cell tab edits every selected cell of a Buttons panel at once: text, font size, levels, artwork and Hide text. Icon B runs one glyph per cell in Find's fill order. On a Grid panel the Cell tab sets the artwork of the selected rows the same way, Icon B in list order.
+- The panel editor's sidebar is at most 85% of the window high and scrolls inside itself. Columns come before Rows, and panel sizes read columns first, for example 8 columns by 4 rows.
+- A router rename reaches an open panel editor at once, in its cells and its Grid lists.

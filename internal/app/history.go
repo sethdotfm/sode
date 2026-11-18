@@ -30,7 +30,7 @@ type Entry struct {
 	Err         string    `json:"err,omitempty"`
 	Undo        *int      `json:"undo,omitempty"`
 	Retry       *int      `json:"retry,omitempty"`
-	Failed      []int     `json:"failed,omitempty"`  // levels the router never confirmed or that weren't sent
+	Failed      []int     `json:"failed,omitempty"`  // levels the router never confirmed or that were not sent
 	Now         [][2]int  `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
 	Already     []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 	Group       string    `json:"group,omitempty"`
@@ -43,7 +43,7 @@ type Entry struct {
 	Late        []int     `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
 	Unsent      []int     `json:"unsent,omitempty"`
 	SendErr     string    `json:"sendErr,omitempty"`
-	Cut         bool      `json:"cut,omitempty"` // the router changed under the take, so its Failed levels just got no answer
+	Cut         bool      `json:"cut,omitempty"` // the router changed under the take, so its Failed levels only got no answer
 	// Panel and Instance name the panel page that made the take (panelNames). With a user's key they are the
 	// page's own word, which the log marks unverified. PanelID is the panel's id, which a rename leaves, so the
 	// Undo cell (panelundo.go) matches by it.
@@ -205,7 +205,7 @@ func (h *History) rewrite(id int, line []byte) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name()) // a no-op once renamed
+	defer os.Remove(tmp.Name()) // a no-op after the rename
 	tmp.Chmod(0o644)            // CreateTemp makes it 0600
 	_, err = io.Copy(tmp, io.NewSectionReader(h.f, 0, start))
 	if err == nil {

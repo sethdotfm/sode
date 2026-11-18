@@ -47,7 +47,12 @@ const (
 
 	// panelAskNameKey is "Ask users to set an instance name"; missing means on, so old files keep asking.
 	panelAskNameKey = "askInstanceName"
+	// panelModeKey is the take flow. Keep in step with modeOptions in web/editorpanel.js.
+	panelModeKey = "mode"
 )
+
+// panelModes are the take flow values the pages know; missing or "" reads as take (web/panelmodel.js).
+var panelModes = []string{"", "take", "takeOnly", "instant"}
 
 var (
 	panelIDRe = regexp.MustCompile(`^p-[0-9a-f]{8}$`)
@@ -61,7 +66,7 @@ var (
 )
 
 // PanelShare: Mode is panelShareMe, panelShareNamed (Users) or panelShareAll. Everyone it
-// reaches may use the panel, never change it.
+// reaches can use the panel, never change it.
 type PanelShare struct {
 	Mode  string   `yaml:"mode" json:"mode"`
 	Users []string `yaml:"users,omitempty" json:"users,omitempty"`
@@ -75,11 +80,13 @@ type PanelArt struct {
 }
 
 // Panel is a file's content. Cells and Settings stay free-form here: their shape belongs to
-// the panel page and editor, and Extra keeps any field this version does not know, so an
+// the panel page and editor. Extra keeps any field this version does not know, so an
 // older Sode never drops what a newer one wrote.
 type Panel struct {
-	ID     string `yaml:"id" json:"id"`
-	Name   string `yaml:"name" json:"name"`
+	ID   string `yaml:"id" json:"id"`
+	Name string `yaml:"name" json:"name"`
+	// Type is panelTypeButtons or panelTypeGrid, fixed when the panel is made (ADR 0011).
+	Type   string `yaml:"type,omitempty" json:"type"`
 	Owner  string `yaml:"owner" json:"owner"`
 	Acts   string `yaml:"acts" json:"acts"`
 	Client string `yaml:"client,omitempty" json:"client,omitempty"` // the API client of an api panel
@@ -96,6 +103,9 @@ type Panel struct {
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings" json:"settings"`
 	Art         []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
+	// Sources and Destinations are a Grid panel's edges, nil on a Buttons panel.
+	Sources      *GridEdge `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Destinations *GridEdge `yaml:"destinations,omitempty" json:"destinations,omitempty"`
 	// Rev is the server's: it counts stored changes, and an open panel updates when it moves.
 	Rev int `yaml:"rev,omitempty" json:"rev"`
 
@@ -103,11 +113,12 @@ type Panel struct {
 }
 
 // panelKnown are the JSON names the struct owns plus every output-only field a read adds (panelOut, monFields,
-// apiPanelRead), so a client that echoes a read back does not plant one in Extra. Keep in step with those.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped"}
+// apiPanelRead). So a client that echoes a read back does not plant one in Extra. Keep in step with those.
+var panelKnown = []string{"id", "name", "type", "sources", "destinations", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped", "confirm"}
 
-// extraOwnFields is extra without panelKnown names. Files, checkpoints and sets saved before panelKnown listed every
-// output-only field may hold one. A copy, since extra may be shared with a stored panel.
+// extraOwnFields is extra without panelKnown names. It is possible that files, checkpoints and sets saved
+// before panelKnown listed every output-only field hold one. A copy, since it is possible that extra is shared with a
+// stored panel.
 func extraOwnFields(extra map[string]any) map[string]any {
 	out := map[string]any{}
 	for k, v := range extra {
@@ -158,11 +169,8 @@ func (p *Panel) UnmarshalJSON(b []byte) error {
 
 // normalize fills defaults; it never fails, validatePanel judges the result.
 func (p *Panel) normalize() {
-	if p.Rows == 0 {
-		p.Rows = 4
-	}
-	if p.Cols == 0 {
-		p.Cols = 8
+	if p.Type == "" {
+		p.Type = panelTypeButtons
 	}
 	if p.Acts == "" {
 		p.Acts = panelActsSession
@@ -170,11 +178,21 @@ func (p *Panel) normalize() {
 	if p.Share.Mode == "" {
 		p.Share.Mode = panelShareMe
 	}
-	p.Pages = normalPages(p.Pages, p.LegacyCells, p.ID)
-	p.LegacyCells = nil
 	if p.Settings == nil {
 		p.Settings = map[string]any{}
 	}
+	if p.Type == panelTypeGrid {
+		p.normalGrid()
+		return
+	}
+	if p.Rows == 0 {
+		p.Rows = 4
+	}
+	if p.Cols == 0 {
+		p.Cols = 8
+	}
+	p.Pages = normalPages(p.Pages, p.LegacyCells, p.ID)
+	p.LegacyCells = nil
 }
 
 func validatePanel(p *Panel) error {
@@ -183,8 +201,8 @@ func validatePanel(p *Panel) error {
 	case p.Name == "":
 		return errors.New("a panel needs a name")
 	case p.Slug != "" && !validPanelSlug(p.Slug):
-		return errors.New("a short name is 1 to 32 lowercase letters, digits and dashes, and starts and ends with a letter or digit")
-	case p.Rows < 1 || p.Rows > panelRowsMax || p.Cols < 1 || p.Cols > panelColsMax:
+		return errors.New("a short name has 1 to 32 lowercase letters, digits and dashes. It starts and ends with a letter or digit")
+	case p.Type != panelTypeGrid && (p.Rows < 1 || p.Rows > panelRowsMax || p.Cols < 1 || p.Cols > panelColsMax):
 		return fmt.Errorf("rows and columns are 1 to %d and 1 to %d", panelRowsMax, panelColsMax)
 	case p.Acts != panelActsSession && !actsHasClient(p.Acts):
 		return fmt.Errorf("acts is %q, %q, %q or %q", panelActsSession, panelActsAPI, panelActsBoth, panelActsPublic)
@@ -193,11 +211,16 @@ func validatePanel(p *Panel) error {
 	case len(p.Share.Users) > config.MaxUsers:
 		return errors.New("too many named users")
 	}
-	pages, err := checkPages(p.Pages, p.Rows, p.Cols)
-	if err != nil {
+	if err := checkGrid(p); err != nil {
 		return err
 	}
-	p.Pages = pages
+	if p.Type != panelTypeGrid {
+		pages, err := checkPages(p.Pages, p.Rows, p.Cols)
+		if err != nil {
+			return err
+		}
+		p.Pages = pages
+	}
 	settings, err := cleanSettings(p.Settings)
 	if err != nil {
 		return err
@@ -214,6 +237,11 @@ func cleanSettings(settings map[string]any) (map[string]any, error) {
 	if v, ok := settings[panelAskNameKey]; ok {
 		if _, isBool := v.(bool); !isBool {
 			return nil, errors.New(panelAskNameKey + " is true or false")
+		}
+	}
+	if v, ok := settings[panelModeKey]; ok && v != nil {
+		if m, isText := v.(string); !isText || !slices.Contains(panelModes, m) {
+			return nil, errors.New("the take flow (settings.mode) is take, takeOnly or instant")
 		}
 	}
 	return cleanFixedDests(settings)
@@ -369,8 +397,8 @@ func (s *panelStore) replace(p Panel) (bool, error) {
 	return s.replaceLocked(p)
 }
 
-// replaceBody stores an editor's save. Artwork, owner and Rev come from the stored copy under the lock,
-// so an upload, a Push or a Users rename that landed after the caller read the panel is kept.
+// replaceBody stores an editor's save. Artwork, owner and Rev come from the stored copy under the lock.
+// So an upload, a Push or a Users rename that landed after the caller read the panel is kept.
 func (s *panelStore) replaceBody(p Panel) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -568,7 +596,7 @@ func (s *panelStore) copyArt(src Panel, dst string) []string {
 	return left
 }
 
-// putArtAs checks the total under the lock, since an upload or another copy may land between
+// putArtAs checks the total under the lock, since it is possible that an upload or another copy lands between
 // copyArt's reads. Only the total: older artwork past 2 MB or 1024 by 1024 still copies.
 func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) bool {
 	s.mu.Lock()

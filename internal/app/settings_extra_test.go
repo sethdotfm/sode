@@ -11,7 +11,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// futureApp starts from a file a newer release wrote: keys this release doesn't know,
+// futureApp starts from a file a newer release wrote: keys this release does not know,
 // users Ana (1234) and Bo (567890), Advanced Settings PIN 2468.
 func futureApp(t *testing.T, yamlText string) *App {
 	t.Helper()

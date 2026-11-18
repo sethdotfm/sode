@@ -20,7 +20,7 @@ func TestChromePushFlow(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	src := makePanel(t, a, ana, `{"name":"EVS 1","cells":[{"r":1,"c":1,"kind":"take"},{"r":1,"c":2,"kind":"clear"}]}`)

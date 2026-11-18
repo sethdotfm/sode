@@ -10,8 +10,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A panel Undo press stages the reverse of this instance's newest take and Take sends it; the next press goes one take
-// further back, skips another instance's takes, and the cell greys once none are left.
+// A panel Undo press stages the reverse of this instance's newest take and Take sends it. The next press goes one take
+// further back and skips another instance's takes. The cell greys when none are left.
 func TestChromePanelUndoStepsBackThisInstance(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

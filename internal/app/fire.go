@@ -9,22 +9,22 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// Native fire mode: a confirm's takes are staged in a SW-P-08 group salvo (120, answered
-// 122) and set with one Go (121, answered 123). On the Ultrix (2026-11-02) a Go's
-// crosspoints are announced ~4 ms apart vs ~16 ms for ordinary connects; true simultaneity
-// is unproven.
-// The Ultrix sometimes announces a Go's crosspoints (0x84), sometimes not: a staged level
-// has an own key and is confirmed by its Connected, else by the tally of the interrogate
-// each take sends after the Go; failure and late handling are the sequential take's. A
+// Native fire mode: Sode stages a confirm's takes in a SW-P-08 group salvo (120, answered
+// 122) and sets them with one Go (121, answered 123). On the Ultrix (2026-11-02) the router
+// announces a Go's crosspoints about 4 ms apart, compared with about 16 ms for ordinary
+// connects. True simultaneity is unproven.
+// The Ultrix sometimes announces a Go's crosspoints (0x84), sometimes not. So a staged level
+// has an own key. Its Connected confirms it, else the tally of the interrogate that each take
+// sends after the Go. Failure and late handling are those of the sequential take. A
 // tally-confirmed key lives salvoAnnounceFor after the Go.
 // Staging: levels the standard layout carries (wire level 0-15, numbers 0-1023) use 120,
-// the rest 248 (extended). A destination level taken twice in a take is not staged. Fewer
+// the rest 248 (extended). A destination level used twice in a take is not staged. Fewer
 // than two staged takes: sequential throughout.
-// The staged list is shared by all clients: fire holds fireMu first clear to last, one
-// salvo command at a time, and clears the group before staging and after every fire. A
+// All clients share the staged list. So fire holds fireMu from the first clear to the last,
+// one salvo command at a time. It clears the group before it stages and after every fire. A
 // failure before the Go (no 122, no 123 for the first clear, link refusal) clears the
-// group and sends the take as ordinary connects. After the Go is sent it is never re-sent
-// and never followed by connects; the takes' interrogates say what happened.
+// group and sends the take as ordinary connects. After Sode sends the Go, it never sends it
+// again and never follows it with connects; the takes' interrogates say what happened.
 
 // salvoReply: acknowledge wait after the command was ACKed; the Ultrix answers in 5-7 ms.
 const salvoReply = time.Second
@@ -33,7 +33,7 @@ const salvoReply = time.Second
 // after the Go (Ultrix: 100-340 ms for ~50 crosspoints).
 const salvoAnnounceFor = 2 * time.Second
 
-// stageChunk: caps queued stage messages so a big salvo doesn't fill the send queue.
+// stageChunk: caps queued stage messages so a big salvo does not fill the send queue.
 const stageChunk = 64
 
 // fireState collects acknowledges for the fire in progress (a.fire, guarded by mu); others
@@ -69,8 +69,8 @@ func (fs *fireState) await(d time.Duration, ok func(swp08.SalvoAck) bool) (swp08
 	}
 }
 
-// markStages sets Stage per item (a destination level taken twice is staged in neither:
-// order would be up to the router) and returns how many items stage something.
+// markStages sets Stage per item and returns how many items stage something. A destination
+// level used twice is staged in neither, since the order would be up to the router.
 func markStages(r *runtime, items []routeReq) int {
 	type dl struct{ dst, wire int }
 	uses := map[dl]int{}
@@ -218,8 +218,8 @@ var (
 	errNoGo    = errors.New("the router did not acknowledge the Go (no 123)")
 )
 
-// fireSalvo: sent reports whether the Go was sent (if not, takes may go as connects); err
-// with sent means the Go's acknowledge was missing or odd.
+// fireSalvo: sent reports whether the Go was sent. If not, the takes can go as connects. err
+// with sent means that the Go's acknowledge was missing or odd.
 func (a *App) fireSalvo(r *runtime, staged []*routeRun) (sent bool, err error) {
 	a.fireMu.Lock()
 	defer a.fireMu.Unlock()
@@ -240,11 +240,11 @@ func (a *App) fireSalvo(r *runtime, staged []*routeRun) (sent bool, err error) {
 	ext := staged[0].w.ext
 	why := staged[0].w.why
 
-	// Clear anything staged that isn't ours; this also proves group salvos work.
+	// Clear anything staged that is not ours; this also proves group salvos work.
 	if err := a.clearSalvo(ext, fs, g, why); err != nil {
 		return false, err
 	}
-	// Cleared after every fire; on failure the router may still hold some of ours.
+	// Cleared after every fire; on failure, it is possible that the router still holds some of ours.
 	defer func() {
 		if err := a.clearSalvo(ext, fs, g, why); err != nil {
 			log.Printf("salvo: clearing group %d after the fire: %v", g, err)
@@ -296,7 +296,7 @@ func (a *App) fireSalvo(r *runtime, staged []*routeRun) (sent bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("go: %w", err)
 	}
-	// From here the routes may have changed: never again as connects.
+	// From here, it is possible that the routes changed: never again as connects.
 	a.leftQueue(done)
 	wrote := time.Now() // the Go is written and ACKed
 	x, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool { return x.Cmd == swp08.CmdGoDoneAck && x.Group == g })

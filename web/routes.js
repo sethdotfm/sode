@@ -41,7 +41,7 @@ export function routeRow(levels, srcText, dstText) {
 }
 
 export function pickEnd(side, text, title, onPick) {
-  const b = el('button', `pb-btn pb-btn--ghost pb-btn--sm sode__end sode__end--${side}`, text);
+  const b = el('button', `sode__end sode__end--${side} sode__end--pick`, text);
   b.type = 'button';
   b.tabIndex = -1;
   b.title = title;

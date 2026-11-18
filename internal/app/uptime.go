@@ -32,7 +32,7 @@ type UptimeTrans struct {
 
 type UptimeSlot struct {
 	I    int `json:"i"`
-	Bad  int `json:"bad"`  // messages the router didn't ACK, or only after a retry
+	Bad  int `json:"bad"`  // messages the router did not ACK, or only after a retry
 	Slow int `json:"slow"` // ACKs slower than slowAckMs
 }
 
@@ -54,7 +54,7 @@ type uptimeLine struct {
 }
 
 // Uptime: router link history for /log: state changes and per-minute bad-message counts.
-// JSONL at path plus path.alive, a stamp rewritten each minute so time Sode wasn't running
+// JSONL at path plus path.alive, a stamp rewritten each minute so time Sode was not running
 // shows as down. No path = memory only. Nothing waits on disk except Run and Close, so it
 // is safe under App.mu.
 type Uptime struct {

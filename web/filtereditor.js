@@ -1,6 +1,6 @@
 // One filter's rule editor (Sources or Destinations) in the Filters dialog: rows or code, with a
 // preview. read() gives the filter being edited, write(next) stores it, mode() is 'visual' or
-// 'code'; filters.js decides where those point (the browser's own filter or a profile draft).
+// 'code'. filters.js decides where those point (the browser's own filter or a profile draft).
 
 import { $, el, S, off } from './core.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';

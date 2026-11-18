@@ -1,6 +1,6 @@
 // A panel's link as a read-only field with a Copy link button, for the editor's Identity section and the Share
-// modal. The text comes from linkFor only. A panel that only acts as its API client has no link without its key; a
-// Both panel's plain link opens in Session mode, with the keyed links under Share; a Public panel's opens for anyone.
+// modal. The text comes from linkFor only. A panel that only acts as its API client has no link without its key. A
+// Both panel's plain link opens in Session mode, with the keyed links under Share. A Public panel's opens for anyone.
 import { el, icon } from './core.js';
 import { linkFor } from './panellink.js';
 import { isPublic } from './panelsrules.js';

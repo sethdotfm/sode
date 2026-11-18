@@ -10,7 +10,7 @@ Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, b
 
 ## Features
 
-- Sode is a single static Go binary in a small distroless image, serving plain HTTP on :8080.
+- Sode is a single static Go binary in a small distroless image that serves plain HTTP on :8080.
 - It always uses extended SW-P-08 commands with 16-bit source and destination numbers, honors protected destinations and reconnects on its own.
 - Names come from the router and are re-read every 60 seconds by default.
 - The desktop layout is keyboard-first, with a shortcut list on `?`, and phones get a text-message style layout.
@@ -18,7 +18,7 @@ Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, b
 - Presets fire a saved set of takes in one confirm, sequentially or as a native fire mode group send.
 - Filters and named filter sets limit what History shows, and you can share them with everyone or as a link.
 - Optional users, PIN locks and per-user profiles cover shared wall panels and several users.
-- A communication log at `/log` shows every message sent to the router and a router uptime graph.
+- A Communication Log at `/log` shows every message sent to the router and a router uptime graph.
 - An optional authenticated API (`/api/v1`, off by default) with keys, rights and a live stream lets other apps read state and fire takes. See [docs/api.md](docs/api.md).
 - `/api/health` reports the server and the router separately for monitors such as Uptime Kuma.
 
@@ -57,18 +57,18 @@ Sode serves plain HTTP, so put your own TLS proxy in front. Behind a proxy, set 
 
 ## Configuration
 
-You change settings in the page, with the **Settings** button at the bottom. Sode stores them in `/data/config.yaml` and applies a save at once. On first start, with no config file yet, Sode seeds the file from `SODE_*` variables such as `SODE_ROUTER`. After that the file wins.
+You change settings in the page, with the **Settings** button at the bottom. Sode stores them in `/data/config.yaml` and applies a save immediately. On first start, with no config file yet, Sode seeds the file from `SODE_*` variables such as `SODE_ROUTER`. After that the file wins.
 
-A few process settings stay in the environment: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
+A few process settings stay in the environment. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true`, which hex-dumps all SW-P-08 traffic.
 
-The Icon library lives beside the config: `/data/icons.yaml` and the `/data/icons/` directory. To back it up or move it, copy both with `config.yaml`. To add many icons at once, put SVG and PNG files in `/data/icons/drop-in/`; Sode adds them at start and when a Trusted user presses **Rescan**. See [docs/reference.md](docs/reference.md#icon-library-files).
+The Icon library lives beside the config: `/data/icons.yaml` and the `/data/icons/` directory. To back it up or move it, copy both with `config.yaml`. To add many icons in one step, put SVG and PNG files in `/data/icons/drop-in/`. Sode adds them at start and when a Trusted user presses **Rescan**. See [docs/reference.md](docs/reference.md#icon-library-files).
 
 If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -reset-pin && docker compose restart sode`.
 
 ## More documentation
 
 - [docs/api.md](docs/api.md) is the guide to the API: keys, scopes, rights, endpoints, the stream and timeouts.
-- [docs/reference.md](docs/reference.md) has the full settings table, the SW-P-08 protocol notes, proxy and app-install notes, and details on levels, presets, History, filters, users and locks, profiles, monitoring, the communication log, the simulator and image tags.
+- [docs/reference.md](docs/reference.md) has the full settings table, the SW-P-08 protocol notes, and proxy and app-install notes. It also has details on levels, presets, History, filters, users and locks, profiles, monitoring, the Communication Log, the simulator and image tags.
 - [RELEASING.md](RELEASING.md) has the release steps, and [CHANGELOG.md](CHANGELOG.md) lists what changed in each release.
 
 ## Development
@@ -79,7 +79,7 @@ go test ./...                                        # everything, Chrome checks
 node --test 'web/test/*.test.mjs'                    # browser-side tests
 ```
 
-The web UI is embedded, so restart after frontend edits. The simulator takes `SIM_*` variables to fake misbehaving routers. See `cmd/swp08sim`.
+The web UI is embedded, so restart after frontend edits. The simulator reads `SIM_*` variables to fake misbehaving routers. See `cmd/swp08sim`.
 
 ## Releasing
 
@@ -87,7 +87,7 @@ You cut releases by tag and promote them without a rebuild. Bump `Version` in `i
 
 ## AI disclosure
 
-Sode is written with AI assistance. Claude (Anthropic), through Claude Code, produces much of the code, tests and documentation, working from issues and direction written by the maintainer. The maintainer reviews it and tests it against a real router. Commits made this way carry a `Co-Authored-By: Claude` trailer. Treat Sode like any software that has not been audited. Read it, and try it on a non-critical router first.
+Sode is written with AI assistance. Claude (Anthropic), through Claude Code, produces much of the code, tests and documentation. It works from issues and direction that the maintainer writes. The maintainer reviews it and tests it against a real router. Commits made this way carry a `Co-Authored-By: Claude` trailer. Treat Sode like any software that has not been audited. Read it, and try it on a non-critical router first.
 
 ## License
 

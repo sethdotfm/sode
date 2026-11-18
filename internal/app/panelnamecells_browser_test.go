@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Panel Name and Instance Name cells show the panel's and the instance's names and cannot be pressed, and no
+// Panel Name and Instance Name cells show the panel's and the instance's names and cannot be pressed. No
 // cell's text runs past its square: a long unbroken caption wraps and shrinks inside it.
 func TestChromePanelNameCellsAndTextFit(t *testing.T) {
 	b := startBrowser(t)
@@ -20,7 +20,7 @@ func TestChromePanelNameCellsAndTextFit(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Lobby Wall","acts":"api","rows":1,"cols":4,"cells":[`+

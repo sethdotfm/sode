@@ -17,6 +17,7 @@ import {
   single,
   setKind,
   setCell,
+  setCells,
   clearSelection,
   canMerge,
   merge,
@@ -442,5 +443,29 @@ test('the held Destination cells that still fit are the ones putBack keeps, so t
       ),
     ),
     [3],
+  );
+});
+
+test('setCells patches each listed cell in one copy and skips a null patch', () => {
+  const g = createGrid({ rows: 1, cols: 3, cells: [1, 2, 3].map((c) => ({ r: 1, c, rs: 1, cs: 1, kind: 'source', n: c, art: 'icon:mic' })) });
+  const out = setCells(
+    g,
+    [
+      { r: 1, c: 1 },
+      { r: 1, c: 3 },
+    ],
+    (x) => (x.n === 3 ? { art: undefined } : { artB: '1' }),
+  );
+  assert.deepEqual(
+    out.cells.map((x) => [x.art ?? '-', x.artB ?? '-']),
+    [
+      ['icon:mic', '1'],
+      ['icon:mic', '-'],
+      ['-', '-'],
+    ],
+  );
+  assert.equal(
+    setCells(g, [{ r: 1, c: 2 }], () => null),
+    g,
   );
 });

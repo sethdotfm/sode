@@ -289,7 +289,7 @@ func TestProfileRenameKeepsAndDeleteDrops(t *testing.T) {
 	}
 }
 
-// A rename relocks nothing it shouldn't and the renamed user's connection
+// A rename relocks nothing it should not and the renamed user's connection
 // is told the new name's profile; a removed user's connection is cleared.
 func TestProfilePushOnAccessChange(t *testing.T) {
 	a := userApp(t, false)
@@ -324,7 +324,7 @@ func TestProfilePushOnAccessChange(t *testing.T) {
 }
 
 // Never in a hello, and a profile's contents never reach a connection that
-// isn't that user's (nor the config JSON).
+// is not that user's (nor the config JSON).
 func TestProfileNeverInHello(t *testing.T) {
 	a := userApp(t, false)
 	ana := watched(t, a, "10.0.0.1", "1234")
@@ -414,8 +414,8 @@ func TestProfileSaveLogsCommand(t *testing.T) {
 	}
 }
 
-// Removing a user and adding a new one of the same name in one save gives the
-// new one an empty profile: only a row with a Was (or one keeping its PIN)
+// A save that removes a user and adds a new one of the same name gives the
+// new one an empty profile. Only a row with a Was (or one that keeps its PIN)
 // carries a profile over.
 func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
 	a := userApp(t, false)
@@ -436,7 +436,7 @@ func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
 	}
 }
 
-// The pinned presets' order is part of the profile: saved by the user, kept
+// The pinned presets' order is part of the profile. It is saved by the user, kept
 // when other parts are saved, and cleaned (no repeats; keys kept as sent).
 func TestProfileSavePinOrder(t *testing.T) {
 	a := userApp(t, false)

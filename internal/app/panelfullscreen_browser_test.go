@@ -11,7 +11,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Fullscreen turned off stops presses asking for it, after a reload and after a live update, while
+// Fullscreen turned off stops presses that ask for it, after a reload and after a live update.
 // Enforce landscape orientation keeps asking, since Chrome locks the turn only in fullscreen.
 func TestChromePanelFullscreenFollowsSettings(t *testing.T) {
 	b := startBrowser(t)
@@ -23,7 +23,7 @@ func TestChromePanelFullscreenFollowsSettings(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	body := func(name string, full, land bool) string {

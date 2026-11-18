@@ -1,6 +1,6 @@
 // The /log page: every message Sode wrote to the router, plus browser connects, commands and
-// router link changes, newest first, live, with this browser's filters and the router uptime
-// graph.
+// router link changes. It is newest first and live, with this browser's filters and the router
+// uptime graph.
 import { $, el, S, on, connect, wsSend, connState, routerTitle, setDot, item, labelNode } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
@@ -12,6 +12,8 @@ import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summ
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
 import './lock.js';
+import { bigScrollAll } from './bigscroll.js';
+import { pullToLoad } from './widgets.js';
 
 on('brand', ({ text }) => {
   document.querySelector('.sode-log__title').textContent = `${text} Communication Log`;
@@ -19,7 +21,7 @@ on('brand', ({ text }) => {
 });
 
 // Entries are kept in finish order but stamped with when first sent (or queued), so the log
-// isn't strictly in time order (a retried message can finish after later ones). Reading back
+// is not strictly in time order. A retried message can finish after later ones. Reading back
 // for a range goes this much past its start to catch those.
 const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
@@ -65,7 +67,7 @@ const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.incl
 const problem = (e) => (isEvent(e) ? eventProblem(e) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
-// Not kept: a range far back means reading the log back to it, which shouldn't happen on every
+// Not kept: a range far back means reading the log back to it, which should not happen on every
 // open.
 const range = { from: null, to: null };
 
@@ -209,12 +211,12 @@ on('sentPage', (m) => {
   const r = pager.receive(m);
   if (!r) return;
   showCounts(m);
-  // Older entries go at the end newest first; in any other order the table is drawn once when
+  // Older entries go at the end newest first. In any other order the table is drawn one time when
   // reading back stops, not after every page.
   if (r.newest) render();
   else if (newestFirst()) appendRows(r.fresh.filter(passes));
-  // Read on while a range isn't covered or the filters leave fewer than a page: opening or Load
-  // older shouldn't look like nothing happened.
+  // Read on while a range is not covered or the filters leave fewer than a page. Opening or Load
+  // older should not look like nothing happened.
   const req = rangeNeedsMore() ? pager.back() : pager.next(pager.list.filter(passes).length);
   if (req) return send(req);
   if (!r.newest && !newestFirst()) render();
@@ -224,7 +226,7 @@ on('sentPage', (m) => {
 on('sentAdd', (m) => {
   if (!pager.started) return;
   showCounts(m);
-  const fresh = pager.live(m);
+  const { fresh, dropped } = pager.live(m);
   if (!fresh.length) return;
   const pass = fresh.filter(passes);
   if (newestFirst()) {
@@ -233,15 +235,27 @@ on('sentAdd', (m) => {
   } else {
     for (const e of pass) insertRow(e);
   }
+  dropRows(dropped);
   renderMore();
 });
+
+// shown and tbody's rows stay in step, so an entry's row sits at its index in shown.
+function dropRows(es) {
+  if (!es.length) return;
+  const gone = new Set(es.map((e) => e.seq));
+  for (let i = shown.length - 1; i >= 0; i--) {
+    if (!gone.has(shown[i].seq)) continue;
+    tbody.children[i].remove();
+    shown.splice(i, 1);
+  }
+}
 
 function showCounts(m) {
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
   note.textContent = n
-    ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'wasn’t' : 'weren’t'} saved to this log. The server log has details.`
+    ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'was not' : 'were not'} saved to this log. The server log has details.`
     : '';
 }
 
@@ -474,7 +488,7 @@ const CSV_COLS = [
   ['bytes', (e) => e.hex],
 ];
 
-// A leading = + - @ is defused so a spreadsheet doesn't run a router-supplied name as a formula.
+// A leading = + - @ is defused so a spreadsheet does not run a router-supplied name as a formula.
 function csvCell(v) {
   let s = String(v);
   if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
@@ -494,9 +508,10 @@ $('log-csv').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
-$('log-older').addEventListener('click', () => {
-  send(pager.older(pager.list.filter(passes).length));
-});
+const loadOlder = () => send(pager.older(pager.list.filter(passes).length));
+$('log-older').addEventListener('click', loadOlder);
+// The home page's auto-expand: a wheel or touch pull past the end presses Load older.
+pullToLoad(window, $('log-older').parentElement, { hasMore: () => !$('log-older').hidden && !pager.loading, more: loadOlder }, () => true);
 
 const fmtDay = (t) => {
   const d = new Date(t);
@@ -518,11 +533,11 @@ on('conn', () => {
   }
 });
 // ---- uptime graph. One strip whose toggles set the log's time range (From = that long ago, no To)
-// and keep rolling with the clock; with no times set it shows the last 24 hours. Only the
+// and keep rolling with the clock. With no times set, it shows the last 24 hours. Only the
 // newest reply is drawn.
 
 let chipOn = null;
-// Slot mode: a bar was clicked and the log shows just its slot. The strip keeps its window (view)
+// Slot mode: a bar was clicked and the log shows only its slot. The strip keeps its window (view)
 // so neighbouring bars stay clickable; what was set before (prev) comes back with Back.
 let slotMode = null;
 let upLast = null;
@@ -642,4 +657,5 @@ setInterval(refreshUptime, 60_000);
 
 initFilters();
 initUptime();
+bigScrollAll();
 connect();

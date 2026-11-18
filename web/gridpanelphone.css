@@ -1,0 +1,220 @@
+/* A Grid panel page on the phone layout (docs/panels-design.md): the grid comes first. One band holds More, the
+   levels in words, the note, Clear and Take (gridpanelheadview.js), under the title, which always shows. More opens
+   the header's buttons, the Levels box and the search boxes under the band; they push the grid down while open. */
+.sode-gridpanel__more,
+.sode-gridpanel__lv {
+  display: none;
+}
+:root[data-layout="phone"] .sode-panels:has(.sode-gridpanel) {
+  padding: 0;
+}
+:root[data-layout="phone"] .sode-gridpanel .sode-gridpanel__frame {
+  border: 0;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck {
+  align-items: center;
+  background: var(--pb-surface-raised);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-light);
+  column-gap: var(--pb-space-2);
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  /* viewport-fit=cover (panel.html): a Home Screen copy draws under the status bar. */
+  padding: max(var(--pb-space-2), env(safe-area-inset-top)) var(--pb-space-2) var(--pb-space-2);
+  row-gap: var(--pb-space-2);
+}
+:root[data-layout="phone"] .sode-gridpanel__deck > .sode-gridpanel__levels:not([hidden]) {
+  display: contents;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck :is(.sode-gridpanel__more, .sode-gridpanel__lv) {
+  display: inline-flex;
+}
+/* Row 1 is the title, row 2 the band. Rows 3 on show only while More is open. */
+:root[data-layout="phone"]
+  .sode-gridpanel__deck
+  :is(.sode-gridpanel__more, .sode-gridpanel__lv, .sode-gridpanel__note, .sode-gridpanel__clear, .sode-gridpanel__take) {
+  grid-row: 2;
+}
+:root[data-layout="phone"] .sode-gridpanel__more {
+  grid-column: 1;
+}
+:root[data-layout="phone"] .sode-gridpanel__lv {
+  font-family: var(--pb-font-num);
+  gap: var(--pb-space-1);
+  grid-column: 2;
+  max-width: 7rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+:root[data-layout="phone"] .sode-gridpanel__lv-word {
+  font-family: inherit;
+  font-size: var(--pb-text-xs);
+  text-transform: uppercase;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck .sode-gridpanel__note {
+  grid-column: 3;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck .sode-gridpanel__clear {
+  align-self: center;
+  grid-column: 4;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck .sode-gridpanel__take {
+  align-self: center;
+  grid-column: 5;
+  min-height: var(--pb-control-h);
+  min-width: 5.5rem;
+}
+/* The title row: one line, cut off with an ellipsis. Its buttons wait for More. */
+:root[data-layout="phone"] .sode-gridpanel__deck .sode-panels__head {
+  flex-wrap: nowrap;
+  gap: var(--pb-space-3);
+  grid-column: 1 / -1;
+  grid-row: 1;
+  margin: 0;
+  min-width: 0;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck .sode-gridpanel__id {
+  overflow: hidden;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck .sode-gridpanel__name {
+  align-items: baseline;
+  gap: var(--pb-space-3);
+  min-width: 0;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck .sode-panels__title {
+  font-size: var(--pb-text-lg);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Closed: the title and the band. */
+:root[data-layout="phone"]
+  .sode-gridpanel__deck:not([data-open])
+  :is(.sode-gridpanel__tools, .sode__box-head, .sode__input, .sode__levels, .sode__all, .sode-gridpanel__finds) {
+  display: none;
+}
+/* Open: the Levels box and the search boxes, each a row under the band. Wide parts scroll or cut off rather than
+   widen the band's columns. */
+:root[data-layout="phone"] .sode-gridpanel__deck[data-open] :is(.sode__box-head, .sode__input, .sode__levels, .sode-gridpanel__finds) {
+  grid-column: 1 / -1;
+  margin: 0;
+  max-width: none;
+  min-width: 0;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck[data-open] .sode__box-head {
+  grid-row: 3;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck[data-open] .sode__input {
+  grid-row: 4;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck[data-open] .sode__levels {
+  grid-column: 1 / 5;
+  grid-row: 5;
+  overflow-x: auto;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck[data-open] .sode__all {
+  grid-column: 5;
+  grid-row: 5;
+}
+:root[data-layout="phone"] .sode-gridpanel__deck[data-open] .sode-gridpanel__finds {
+  grid-row: 6;
+}
+/* iOS zooms in when a field under 16 px takes focus and does not zoom back out. This page has no mobile.css, which
+   holds the same rule for the main page. */
+:root[data-layout="phone"] .sode-gridpanel__deck :is(.sode__input, .sode-gridpanel__find-input) {
+  font-size: max(16px, 1rem);
+  height: var(--pb-control-h);
+}
+/* The position strips and the corner ranges (gridpanelpos.js): the phone layout only. */
+.sode-gridpanel__pos,
+.sode-gridpanel__range {
+  display: none;
+}
+:root[data-layout="phone"] .sode-gridpanel__frame {
+  position: relative;
+}
+:root[data-layout="phone"] .sode-gridpanel__pos:not([hidden]) {
+  --sode-pos-w: 0.25rem;
+  display: block;
+  pointer-events: none;
+  position: absolute;
+  z-index: 6;
+}
+:root[data-layout="phone"] .sode-gridpanel__pos--x {
+  height: var(--sode-pos-w);
+  translate: 0 -100%;
+}
+:root[data-layout="phone"] .sode-gridpanel__pos--y {
+  translate: -100% 0;
+  width: var(--sode-pos-w);
+}
+.sode-gridpanel__pos-thumb {
+  background: color-mix(in oklab, var(--pb-text-strong) 55%, transparent);
+  height: 100%;
+  width: 100%;
+}
+.sode-gridpanel__pos--x > .sode-gridpanel__pos-thumb {
+  width: auto;
+}
+.sode-gridpanel__pos--y > .sode-gridpanel__pos-thumb {
+  height: auto;
+}
+/* The corner on the phone: each word over its range, both read across, since the corner is narrow. */
+:root[data-layout="phone"] .sode-gridpanel__head {
+  align-content: center;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(4, auto);
+}
+:root[data-layout="phone"] .sode-gridpanel__head > .sode-gridpanel__label {
+  justify-content: start;
+  letter-spacing: normal;
+  padding-inline: var(--pb-space-1);
+}
+:root[data-layout="phone"] .sode-gridpanel__head > .sode-gridpanel__label > .pb-icon {
+  display: none;
+}
+:root[data-layout="phone"] .sode-gridpanel__head > .sode-gridpanel__label--src {
+  grid-column: 1;
+  grid-row: 1;
+  rotate: none;
+  writing-mode: horizontal-tb;
+}
+:root[data-layout="phone"] .sode-gridpanel__head > .sode-gridpanel__label--dst {
+  grid-column: 1;
+  grid-row: 3;
+}
+:root[data-layout="phone"] .sode-gridpanel__range {
+  align-items: center;
+  display: inline-flex;
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-2xs);
+  gap: var(--pb-space-1);
+  padding-inline: var(--pb-space-1);
+  white-space: nowrap;
+}
+:root[data-layout="phone"] .sode-gridpanel__range--src {
+  grid-row: 2;
+}
+:root[data-layout="phone"] .sode-gridpanel__range--dst {
+  grid-row: 4;
+}
+/* Find or Filter (gridpanelfindbox.js): on the phone, two named choices over the two boxes, in place of the switch. */
+.sode-gridpanel__find-choice {
+  display: none;
+}
+:root[data-layout="phone"] .sode-gridpanel__finds {
+  grid-template-columns: minmax(0, 1fr);
+}
+:root[data-layout="phone"] .sode-gridpanel__finds > .sode-gridpanel__find-mode {
+  display: none;
+}
+:root[data-layout="phone"] .sode-gridpanel__finds > .sode-gridpanel__find-choice {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  margin-bottom: var(--pb-space-1);
+}
+:root[data-layout="phone"] .sode-gridpanel__find-choice > .pb-btn-group {
+  flex: none;
+}

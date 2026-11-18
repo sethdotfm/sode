@@ -1,6 +1,6 @@
-// The Artwork item in the panel editor's smart menu, below Find: one Icon A for every selected cell, Icon B one
-// glyph per cell in Find's fill order, or Clear artwork. The plan is arttoolrules.js; this file is the DOM.
-// initArtTool(editor, find) takes what runEditor and initFind return.
+// The Artwork item in the panel editor's smart menu, below Find. It sets one Icon A for every selected cell, or Icon
+// B as one glyph per cell in Find's fill order. Or it does Clear artwork. The plan is arttoolrules.js; this file is the DOM.
+// initArtTool(editor, find) accepts what runEditor and initFind return.
 import { el, icon, $ } from './core.js';
 import { btn } from './formbits.js';
 import { artPane, uploadArt } from './editorart.js';
@@ -11,12 +11,11 @@ import { prepareArt } from './artcompress.js';
 import { cellAt } from './gridmodel.js';
 import { createOrderPicker } from './editororder.js';
 import { flyoutShift } from './editorrules.js';
-import { artToolPlan, applyArtTool } from './arttoolrules.js';
+import { artToolPlan, applyArtTool, leftNote } from './arttoolrules.js';
+import { plural } from './gridclip.js';
 
 const EDGE_GAP = 8; // keep in step with GAP in editormenu.js and EDGE_GAP in editorfind.js
 const UNSAVED = 'Save the panel before uploading an image.';
-
-const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 // What a plan does, said before (preview) or after (done) it runs.
 function describe(plan, choice, done) {
@@ -24,14 +23,14 @@ function describe(plan, choice, done) {
   const n = plan.slots.length;
   const cells = plural(n, 'cell');
   let text;
-  if (!n) text = 'No cell in the selection can take it.';
+  if (!n) text = 'No cell in the selection can accept it.';
   else if (choice.clear) text = `${done ? 'Cleared' : 'Clears'} the artwork of ${cells}.`;
   else if ('b' in choice) {
     const first = plan.slots[0].patch.artB;
     const last = plan.slots[n - 1].patch.artB;
     text = `${done ? 'Set' : 'Sets'} Icon B ${n > 1 ? `${first} to ${last}` : first} on ${cells}.`;
   } else text = `${done ? 'Set' : 'Sets'} Icon A on ${cells}.`;
-  if (plan.left) text += ` ${plural(plan.left, 'cell')} left without Icon B.`;
+  if (plan.left) text += ` ${leftNote(plan.left, 'cell')}`;
   if (plan.empty) text += ` ${plural(plan.empty, 'empty square')} skipped.`;
   return text;
 }
@@ -39,7 +38,7 @@ function describe(plan, choice, done) {
 export function initArtTool(editor, find) {
   let preview = [];
   let shown = null; // the choice the preview or the last change is for
-  let quiet = false; // a change just landed, so no preview of it again until the choice changes
+  let quiet = false; // the last change landed, so no preview of it again until the choice changes
   let hovered = false;
   let rebuilding = false;
 
@@ -82,7 +81,7 @@ export function initArtTool(editor, find) {
   clear.dataset.choice = 'clear';
 
   const column = (head, p, ...extra) => el('div', 'sode-side__col', el('div', 'sode-side__col-top', el('span', 'sode-side__col-h', head), ...extra), p.grid);
-  const picker = el('div', 'sode-side__picker', column('Icon A', a, search), column('Icon B', b));
+  const picker = el('div', 'sode-side__cols', column('Icon A', a, search), column('Icon B', b));
   const orders = createOrderPicker(find.order(), (id) => find.setOrder(id, { focus: false }));
   find.onOrder((id) => {
     orders.set(id);
@@ -168,7 +167,7 @@ export function initArtTool(editor, find) {
     try {
       const { blob, problem } = await prepareArt(f);
       if (problem) return void (note.textContent = problem);
-      // One upload, one id on every cell: the panel stores the image once.
+      // One upload, one id on every cell: the panel stores the image one time.
       const id = await uploadArt(editor.panel().id, f, blob);
       if (id) apply({ a: id });
     } catch (e) {

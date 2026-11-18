@@ -3,7 +3,7 @@ import { el } from './core.js';
 import { SHOW_PARTS, PART_WORDS, showOf } from './pagecells.js';
 
 // patch(fields) changes the selected cell. Every box is stored as the full list, so a cell never falls back to a default
-// once it was set.
+// after it was set.
 export function createShowBoxes({ ed, patch }) {
   const list = el('div', 'sode-side__checks');
   const node = el('fieldset', 'sode__field', el('legend', 'sode__field-label', 'Show'), list);

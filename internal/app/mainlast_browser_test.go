@@ -8,7 +8,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A patch made through the page is stored per browser: after a reload the Last chips show it, the
+// A patch made through the page is stored per browser. After a reload the Last chips show it, the
 // Next chips step from it, and Ctrl+S and Ctrl+Shift+S fill Source from them.
 func TestChromeMainLastSurvivesReload(t *testing.T) {
 	b := startBrowser(t)

@@ -53,7 +53,7 @@ import { prefFields, prefsWith, withParts, upsertEntry, filterEntry, findByName 
 
 test('prefFields: one per pref, Not set first, saved value chosen', () => {
   const f = prefFields({ theme: 'dark', flip: true, clock: 'bogus' });
-  assert.equal(f.length, 9);
+  assert.equal(f.length, 10);
   assert.equal(f.find((x) => x.key === 'compact').label, 'Compact view');
   assert.equal(f.find((x) => x.key === 'theme').value, 'dark');
   assert.equal(f.find((x) => x.key === 'flip').value, 'on');

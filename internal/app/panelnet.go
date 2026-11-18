@@ -70,11 +70,11 @@ func networkAllowed(nets []string, ip string) bool {
 }
 
 func refuseNetwork(w http.ResponseWriter, ip string) {
-	apiFail(w, http.StatusForbidden, "network_not_allowed", "this key may not be used from "+ip+": the panel's allowed networks do not include it")
+	apiFail(w, http.StatusForbidden, "network_not_allowed", "this key is not allowed to be used from "+ip+": the panel's allowed networks do not include it")
 }
 
 // apiPanelNetworks replaces the list; an empty one lifts the limit. The caller's own address is
-// not checked: the owner may be setting this from elsewhere.
+// not checked: it is possible that the owner sets this from elsewhere.
 func (a *App) apiPanelNetworks(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, _, ok := a.panelKeyFor(w, r, cl)
 	if !ok {

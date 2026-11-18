@@ -165,7 +165,7 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 			l.seen, l.now = true, xp.Src
 			return false
 		}
-		// A Go may or may not be announced: confirmed by Connected or tally, "already
+		// The router does not always announce a Go: confirmed by Connected or tally, "already
 		// there" only if the cache said so.
 		l.by, l.at = byConnected, time.Now()
 		if !xp.Changed() {
@@ -180,7 +180,7 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 	return false
 }
 
-// awaited: a take in flight (or just given up) asked for xp, so its tally is ours without
+// awaited: a take in flight (or recently given up) asked for xp, so its tally is ours without
 // a Connected. Caller holds mu.
 func (a *App) awaited(xp swp08.Crosspoint) bool {
 	if until, ok := a.ext.late[ownKey{xp.Dst, xp.Level, xp.Src}]; ok && time.Now().Before(until) {
@@ -210,15 +210,15 @@ func (w *waiter) finish() {
 
 // register: own keys keep the take's answers out of changes made elsewhere. Only levels
 // answered with a Connected get one (a level already on src would swallow a real change
-// back to it); staged levels too, as the Ultrix sometimes announces a Go's crosspoints
-// (fire.go). Nothing for a replaced router. Caller holds mu.
+// back to it). Staged levels get one too, as the Ultrix sometimes announces a Go's
+// crosspoints (fire.go). Nothing for a replaced router. Caller holds mu.
 func (w *waiter) register(a *App) {
 	if a.ext != w.ext {
 		return
 	}
 	a.waiters[w] = struct{}{}
 	a.ext.causes = append(a.ext.causes, w.cause)
-	// Connects may queue up to a.queueMax; sendRoute shortens the keys to ownFor once sent.
+	// Connects can queue up to a.queueMax; sendRoute shortens the keys to ownFor after they are sent.
 	w.ownKeys(a)
 }
 
@@ -247,15 +247,15 @@ func (w *waiter) unregister(a *App, id int) {
 		if !l.confirmed() || l.unsent || l.already() {
 			delete(a.ext.own, k)
 		} else if until, ok := a.ext.own[k]; ok && l.native && l.tallied() && !w.goAt.IsZero() && w.goAt.Add(salvoAnnounceFor).Before(until) {
-			// Set by a Go and confirmed by a tally: a Connected may follow up to ~340 ms
-			// later or never, so the key waits salvoAnnounceFor.
+			// Set by a Go and confirmed by a tally. It is possible that a Connected follows up to
+			// about 340 ms later, or never, so the key waits salvoAnnounceFor.
 			a.ext.own[k] = w.goAt.Add(salvoAnnounceFor)
 		}
 		// A late interrogate answer or slow Connected is still ours; the entry gets amended.
 		if !l.confirmed() && !l.unsent {
 			until := time.Now().Add(lateFor)
 			a.ext.late[k] = until
-			// Only a level the router said nothing about may be answered late; retries of
+			// Only a level the router said nothing about can be answered late; retries of
 			// one route each wait for the answer.
 			if !l.seen {
 				a.ext.lateRoute[k] = append(a.ext.lateRoute[k], lateRoute{id: id, until: until, cause: w.cause})
@@ -410,7 +410,7 @@ func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 }
 
 func (a *App) checkPhase(r *runtime, w *waiter, e *Entry, noCheck bool) {
-	// Prev from the router, not a cache that may have missed a change; differing answers
+	// Prev from the router, not a cache, since it is possible that the cache missed a change; differing answers
 	// are logged as found.
 	if !noCheck && !a.checkTally(r, w) {
 		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", w.dst, a.checkTimeout)
@@ -439,7 +439,7 @@ func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*routeLeve
 	if sendErr != nil {
 		e.SendErr = sendErr.Error()
 	}
-	names := maps.Clone(a.router.srcNames)
+	names := a.nowNames(e)
 	a.mu.Unlock()
 	sort.Ints(e.Already)
 	if msg := entryErr(r, names, e); msg != "" {
@@ -533,7 +533,7 @@ func (a *App) claimLate(k ownKey, ui int) bool {
 		}
 		claimed = true
 		a.ext.lateHits = append(a.ext.lateHits, lateHit{lt.id, ui})
-		// Followers of this destination change with it now; the cause may be dropped.
+		// Followers of this destination change with it now; it is possible that the cause was dropped.
 		lt.cause.saw(time.Now())
 		if !slices.Contains(a.ext.causes, lt.cause) {
 			a.ext.causes = append(a.ext.causes, lt.cause)
@@ -547,7 +547,7 @@ type lateJob struct {
 	uis []int
 }
 
-// flushLate hands late entries to the worker so the 100ms tick doesn't wait on a history
+// flushLate hands late entries to the worker so the 100ms tick does not wait on a history
 // rewrite; without a worker (tests) it runs inline.
 func (a *App) flushLate() {
 	a.mu.Lock()
@@ -584,8 +584,8 @@ func (a *App) lateWorker(ctx context.Context) {
 }
 
 // lateConfirm: levels uis confirmed after the give-up leave Failed/Now, join Late; entry
-// turns OK when nothing fails. Caller doesn't hold mu; source names are copied first
-// because the update runs under the history lock and must not take mu.
+// turns OK when nothing fails. Caller does not hold mu. Source names are copied first
+// because the update runs under the history lock and must not lock mu.
 func (a *App) lateConfirm(id int, uis []int) {
 	r := a.r()
 	a.mu.Lock()
@@ -633,6 +633,21 @@ func (a *App) whyMissing(e *Entry, missing []*routeLevel) {
 			e.Now = append(e.Now, [2]int{l.ui, l.now})
 		}
 	}
+}
+
+// nowNames copies the names entryErr can read: the sources in e.Now. A whole copy of a large
+// router's names on every take was most of a take's garbage. Caller holds mu.
+func (a *App) nowNames(e *Entry) map[int]string {
+	if len(e.Now) == 0 {
+		return nil
+	}
+	names := make(map[int]string, len(e.Now))
+	for _, p := range e.Now {
+		if n, ok := a.router.srcNames[p[1]]; ok {
+			names[p[1]] = n
+		}
+	}
+	return names
 }
 
 // entryErr renders the level part of the error from e's fields; "" when nothing fails.
@@ -721,7 +736,7 @@ func (a *App) sendRoute(r *runtime, w *waiter) error {
 	if done, _ := a.interrogate(r, w, w.filter(func(l *routeLevel) bool { return (l.same || l.native) && !l.unsent }), swp08.ReasonConfirm); done != nil {
 		last = done
 	}
-	// Confirm wait and own keys start once our messages have gone out.
+	// Confirm wait and own keys start after our messages have gone out.
 	a.leftQueue(last)
 	a.mu.Lock()
 	w.cause.sent = time.Now()
@@ -738,7 +753,7 @@ func (a *App) sendRoute(r *runtime, w *waiter) error {
 	return sendErr
 }
 
-// sendTracked refuses once the router changed: applyConfig swaps a.ext under mu before
+// sendTracked refuses after the router changed: applyConfig swaps a.ext under mu before
 // retargeting, so an earlier send would land in the old session's queue. Holding mu across
 // Send is fine (Send and onTx never block or take it).
 func (a *App) sendTracked(ext *extTracker, m []byte, why swp08.Why) (<-chan struct{}, error) {

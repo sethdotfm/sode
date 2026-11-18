@@ -1,7 +1,7 @@
 // Templates in the panel editor: what a save sends, how an apply fills the grid, and how the list reads. Pure.
-// The server keeps a Source's or Preset's contents only when `sources` is true and a Destination's only when `dests` is
-// (internal/app/paneltemplates.go), so a stored template is already unassigned; nothing here strips it again.
-import { createGrid, saved } from './gridmodel.js';
+// The server keeps a Source's or Preset's contents only when `sources` is true, and a Destination's only when `dests` is
+// (internal/app/paneltemplates.go). So a stored template is already unassigned; nothing here strips it again.
+import { createGrid, saved, sizeText } from './gridmodel.js';
 import { pagesOf, pageCells, storedPages } from './panelpages.js';
 
 // grid is Page 1 and pages the panel's Page list: a template carries every Page with its id.
@@ -13,7 +13,7 @@ export function saveTemplateBody({ name, scope, grid, pages = pagesOf({}), setti
   return body;
 }
 
-// Page 1 as a grid with no selection. Rows and columns come from the template, so applying resizes the panel.
+// Page 1 as a grid with no selection. Rows and columns come from the template, so an apply resizes the panel.
 export const templateGrid = (t) => createGrid({ rows: t.rows, cols: t.cols, cells: pageCells(t) });
 
 const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
@@ -24,7 +24,7 @@ export function groupTemplates(list) {
 }
 
 export function templateNote(t) {
-  const parts = [`${t.rows} x ${t.cols}`];
+  const parts = [sizeText(t.rows, t.cols)];
   if (t.settings) parts.push('with settings');
   if (t.sources && t.dests) parts.push('with Sources and Destinations');
   else if (t.sources) parts.push('with Sources, Destinations unassigned');

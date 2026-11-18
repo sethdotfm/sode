@@ -1,56 +1,38 @@
-// Runs one panel (the page /panels/<id>, or the editor's live test): loads the panel, polls the router over
-// /api/v1, keeps the state model and draws it. Every call goes out with the panel's key: the user's session
-// key, the key in the URL fragment for a panel that acts as its API client, or a Public panel's short-lived key
-// (panelpublic.go). The editor's live test passes its own ui and call, and is not an instance of the panel: no
+// Runs one panel (the page /panels/<id>, or the editor's live test). It loads the panel, polls the router over
+// /api/v1, keeps the state model and draws it. Every call goes out with the panel's key. That key is the user's
+// session key or, for a panel that acts as its API client, the key in the URL fragment. The third kind is a Public
+// panel's short-lived key (panelpublic.go). The editor's live test passes its own ui and call, and is not an instance of the panel: no
 // keepalive, no device name.
-import { emit } from './core.js';
+import { emit, on, S } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
 import { startKeepalive, announceKeyless } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
-import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, undoneText, undoMoved, offlineOf } from './panelrules.js';
+import { keyFromHash, kioskOf, openFailText, sessionNote, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail, publicFetch, withoutKey } from './panelkeyrules.js';
 import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen, keepLinkKey, followAssign } from './panelsetup.js';
-import {
-  createState,
-  pressDestination,
-  pressSource,
-  pressPreset,
-  clear,
-  startTake,
-  startInstant,
-  finishTake,
-  failTake,
-  pressUndo,
-  finishUndo,
-  applyTally,
-  carryView,
-  showPage,
-  pressPage,
-  errorOf,
-  undoneOf,
-  guardDown,
-  guardHeld,
-  guardCancel,
-  GUARD_HOLD_MS,
-} from './panelmodel.js';
-import { buildGrid, paintGrid } from './panelview.js';
-import { lookOf, withDefault, defaultsBy } from './panellook.js';
+import { buttonsBody } from './panelbuttons.js';
+import { gridBody } from './gridpanelrun.js';
+import { isGridPanel } from './gridpaneledges.js';
+import { lookOf } from './panellook.js';
 import { createArt } from './panelart.js';
 import { createWake, enterFullscreen, featureNotes, wantsFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
+import { withEtag } from './etagfetch.js';
+import { withRoutes, framesApply, sameRoutes } from './paneltally.js';
 import { instanceFrom } from './panellink.js';
 import { isPublic } from './panelsrules.js';
 import { initChrome } from './panelfull.js';
 import { initName } from './panelname.js';
-import { pagesOf } from './panelpages.js';
-import { NAV_KINDS, landingPage, pageIndex, wrapOf } from './panelnav.js';
-import { savedPage, keepPage } from './pagekeep.js';
 
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
-const UNDO_MOVED = 'What Undo would undo has changed; press it again';
+// While the WebSocket is up, its frames carry the tally, and the tally is read only this often, as a check. The 2 s
+// poll of the small reads stays: it finds a revoked key or a lost Sode API, which the socket does not show.
+const CHECK_MS = 60000;
+// Frames that come close together (a Group or a Preset) are drawn as one.
+const FRAME_MS = 30;
 const ID_BYTES = 8;
 
 const say = (n, text) => {
@@ -58,15 +40,20 @@ const say = (n, text) => {
   n.hidden = !text;
 };
 
-// A random key per press: a retry of the same request replays its answer instead of taking twice.
+// A random key per press: a retry of the same request replays its answer instead of a second take.
 function takeKey() {
   const b = crypto.getRandomValues(new Uint8Array(ID_BYTES));
   return `panel-${Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')}`;
 }
 
-// Returns { stop } at once; stop ends every timer, for an embedded run that goes away.
+// Returns { stop, show } at once; stop ends every timer, for an embedded run that goes away. show(patch) draws the
+// panel with those fields changed (the editor's unsaved lists), and a patch with rev marks that saved copy as seen.
 export function runPanel(seg, opts = {}) {
-  const run = { stop: () => {} };
+  // Before the panel is read, a show waits in early.
+  const run = {
+    stop: () => {},
+    show: (patch) => (run.early = { ...run.early, ...patch }),
+  };
   start(seg, opts, run);
   return run;
 }
@@ -75,9 +62,10 @@ export function runPanel(seg, opts = {}) {
 async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page = '' } = {}, run) {
   const timers = [];
   let stopWatch = () => {};
+  let offFrames = () => {};
   let ended = false; // the key is gone or refused, or an embedded run was stopped: only a new link or start helps
-  let holdTimer = 0;
   let art = null;
+  let body = null; // panelbuttons.js or gridpanelrun.js, by the panel's type
   let wake = null;
   // While the page has no working key it is a Keyless instance: listed for an Assign, never sent anything else.
   let keyless = null;
@@ -89,7 +77,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     ended = true;
     timers.forEach(clearInterval);
     stopWatch();
-    clearTimeout(holdTimer);
+    offFrames();
+    body?.stop();
     art?.revoke();
     unannounce();
   };
@@ -107,7 +96,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     };
   };
   const endedCode = (code) => code === 'key_revoked' || code === 'key_expired';
-  let id = seg; // the id once the panel is read: the address may hold its short name
+  let id = seg; // the id after the panel is read: it is possible that the address holds its short name
   let key = embedded ? null : keyFromHash(location.hash);
   const setup = embedded ? '' : setupFromHash(location.hash);
   if (!key && setup) {
@@ -131,7 +120,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     keyIsPublic = !!key;
     if (keyIsPublic) tellLock(true);
   }
-  // Before the first read: a Session-mode page waits there for a sign-in that may never come.
+  // Before the first read: a Session-mode page waits there for a sign-in. It is possible that the sign-in never comes.
   if (!key) announce(false);
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
@@ -143,7 +132,9 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     });
   let keyed = key && keyFetch(key, keyIsPublic);
   const call = given || (key ? (path, init = {}) => keyed(path, init) : (path, init = {}) => sessionFetch(path, tag(init)));
-  const callJSON = jsonCall(call);
+  // Only the reads that carry an ETag are kept and sent with If-None-Match; a 304 gives the same body again. The
+  // tally, protected and names replies are only read, so a 304 gives the same object too.
+  const callJSON = jsonCall(withEtag(call, (p) => p === 'api/v1/tally' || p === 'api/v1/protected' || p === 'api/v1/names'));
 
   if (!key && !embedded) {
     ui.signin.addEventListener('click', signInAgain);
@@ -182,9 +173,9 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       return;
     }
   }
-  // Back to editing came before the panel did: nothing below may start a timer or a watch.
+  // Back to editing came before the panel did: nothing below is allowed to start a timer or a watch.
   if (ended) return;
-  // Kept only once it worked, so a mistyped or ended key never replaces a stored one.
+  // Kept only after it worked, so a mistyped or ended key never replaces a stored one.
   if (linked) stored = keepLinkKey(seg, key);
   if (panel.acts === 'api' && !key && !embedded) {
     say(ui.note, 'This panel acts as its own API client. Open its link with the key.');
@@ -211,7 +202,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
   const applyLook = (p) => {
     const look = lookOf(p.settings || {});
     if (!embedded) {
-      chrome.show(kioskOf(location.hash, p), look.titleBar);
+      chrome.show(kioskOf(location.hash, p), look.titleBar, isGridPanel(p));
       document.title = p.name;
       document.documentElement.toggleAttribute('data-sode-landscape', look.landscape);
     }
@@ -230,77 +221,80 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     if (notes.length) say(ui.note, notes.join(' '));
   }
 
-  // The current Page's cells; a live update or a Page change makes them again.
-  const cellsOf = (p, page) => drawnCells(p, pageIndex(pagesOf(p), page)).map((c) => withDefault(c, defaultsBy(p.artDefaults)));
-  // Every Page's cells, so a live update keeps a Destination viewed on another Page.
-  const everyCell = (p) => pagesOf(p).flatMap((_, i) => drawnCells(p, i));
-  const stateOf = (p) => {
-    const set = p.settings || {};
-    return createState({
-      mode: set.mode,
-      multi: set.multi,
-      guard: set.guard,
-      resultText: set.resultText,
-      levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null,
-      fixedDests: set.fixedDests,
-    });
-  };
-  // The Test it live run is no instance, so it neither reads nor writes the browser's saved Page.
-  let st = showPage(stateOf(panel), landingPage(pagesOf(panel), embedded ? page : savedPage(id)));
-  let cells = cellsOf(panel, st.page);
-  const notePage = () => {
-    if (!embedded) keepPage(id, st.page);
-  };
-  notePage();
-  let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
-  let names = namesFrom({});
-  let presets = {};
-  let namesAt = 0;
   let ready = false;
-  // The take this instance's Undo cell would undo (GET /panels/<id>/undo), asked for only while a Page has the cell.
-  let undoNext;
-  const hasUndo = (p) => pagesOf(p).some((_, i) => drawnCells(p, i).some((c) => c.kind === 'undo'));
-  let undoCells = hasUndo(panel);
-
-  const render = () => {
-    const now = Date.now();
-    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance, pages: pagesOf(panel), wrap: wrapOf(panel), undo: undoNext });
-    const err = errorOf(st, now);
-    const undone = err ? null : undoneOf(st, now);
-    say(ui.status, err ? errorText(err, names) : undoneText(undone, names));
-    ui.status.classList.toggle('sode-panel__status--ok', !!undone && !undone.failed.length);
+  // Each confirm sends one POST with one Idempotency-Key.
+  const post = (path, sent) =>
+    callJSON(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': takeKey() },
+      body: JSON.stringify(sent),
+      noWait: true,
+    });
+  // The adapter a body gets from the run. A panel's type never changes, so a live update keeps its body.
+  const ctx = {
+    ui,
+    art,
+    // The editor's live test gives a Grid panel the page's header parts (panelmount.js liveUi), so the grid runs as
+    // on its own page. The run stays embedded all the same: no key, no instance, no keepalive.
+    embedded: embedded && !(isGridPanel(panel) && ui.name),
+    page,
+    id,
+    call,
+    callJSON,
+    post,
+    poll: () => poll(),
+    ready: () => ready,
+    instance: () => instance,
+    keyed: () => !!key,
+    touched() {
+      wake?.retry();
+      if (wantsFullscreen(look) && !embedded) enterFullscreen(document, look.landscape);
+    },
   };
-  let grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
+  body = (isGridPanel(panel) ? gridBody : buttonsBody)(ctx, panel);
 
-  // Blur the whole panel and say Offline, so nobody takes a stale grid for a working one.
+  // Blur the whole panel and say Offline, so nobody mistakes a stale grid for a working one.
   const showOffline = (o) => {
     ui.main.classList.toggle('sode-panels--offline', !!o);
     ui.offline.hidden = !o;
     if (o) ui.offlineDetail.textContent = o.detail;
   };
 
-  async function askUndo() {
-    if (!undoCells || ended) return;
-    try {
-      undoNext = (await callJSON(`api/v1/panels/${id}/undo`)).undo;
-      // History's own Undo, another tab or a rename moved the target: Take would only get 409.
-      if (st.undoId !== null && !st.busy && undoNext?.id !== st.undoId) st = failTake(st, 'conflict', UNDO_MOVED, Date.now());
-    } catch (e) {
-      // A refusal (a key without the take scope) greys the cell; a lost link keeps what it knew.
-      if (e.status !== undefined) undoNext = undefined;
-    }
-    render();
-  }
-
+  let namesAt = 0;
   let polling = false;
+  // A take's answer asks for a poll; one already in flight can carry the tally from before the take.
+  let again = false;
+  // live: the WebSocket sent a hello since it last closed, so its tally frames hold every change since then. A check
+  // that finds the kept tally wrong stops trusting frames until the next hello.
+  let live = S.wsState === 'up' && !!S.cfg;
+  let trusted = true;
+  let rights = panel.rights;
+  let shown = null; // the tally the body has: the last read, with every frame since put in.
+  let stale = false; // after a hello, frames from before it can have gaps, so the next poll reads the tally.
+  let helloCount = 0;
+  let late = null; // frames that came while a tally read was in flight, put into its answer
+  let rows = []; // frames waiting for their draw
+  let rowsTimer = 0;
+  let prot = null;
+  let link = null;
+  let checkedAt = 0;
   async function poll() {
-    if (polling || ended) return;
+    if (ended) return;
+    if (polling) {
+      again = true;
+      return;
+    }
     polling = true;
+    again = false;
+    const check = Date.now() - checkedAt >= CHECK_MS;
+    const readTally = !live || !trusted || !shown || stale || check || !framesApply(rights);
+    late = readTally ? [] : null;
+    const hellos = helloCount;
     try {
       const wantNames = Date.now() - namesAt > NAMES_MS;
       // A key without the presets scope gets 403: its Preset cells then show as unavailable.
-      const [tally, prot, nm, pr, link] = await Promise.all([
-        callJSON('api/v1/tally'),
+      const [tally, p, nm, pr, l] = await Promise.all([
+        readTally ? callJSON('api/v1/tally') : null,
         callJSON('api/v1/protected'),
         wantNames ? callJSON('api/v1/names') : null,
         wantNames ? callJSON('api/v1/presets').catch(() => ({})) : null,
@@ -310,18 +304,20 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
           return null;
         }),
       ]);
-      if (nm) {
-        names = namesFrom(nm);
-        presets = pr;
-        namesAt = Date.now();
+      if (nm) namesAt = Date.now();
+      [prot, link] = [p, l];
+      if (tally) {
+        const read = late.length ? withRoutes(tally, late) : tally;
+        // Frames still waiting for their draw are part of what the page holds.
+        const kept = shown && rows.length ? withRoutes(shown, rows) : shown;
+        if (live && kept && !stale && trusted && !sameRoutes(kept, read)) trusted = false;
+        shown = read;
+        checkedAt = Date.now();
+        if (hellos === helloCount) stale = false;
       }
-      const was = env;
-      env = envFrom(tally, prot, presets, panel.rights);
-      st = applyTally(st, env);
       const off = offlineOf({ failed: false, routerUp: link ? link.routerUp : true });
       showOffline(off);
-      // Each ask walks History, so none runs on a timer; History may have moved while Sode was out of reach.
-      if (undoMoved(was, env, undoNext) || (!ready && !off)) askUndo();
+      body.data({ tally: shown, prot, nm, pr, link, first: !ready && !off });
       ready = !off;
       say(ui.note, '');
     } catch (e) {
@@ -337,106 +333,75 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
         ready = false;
         tellLock(false);
         if (stored && f.forget) forgetKey(seg);
-        // Nothing may call Sode again: not the polls, the update check or the keepalive.
+        // Nothing is allowed to call Sode again: not the polls, the update check or the keepalive.
         timers.forEach(clearInterval);
         stopWatch();
+        offFrames();
+        body.stop();
         keep?.stop();
         // Only the keyless announcement, which carries no key.
         if (e.status === 401) announce(endedCode(e.code));
       }
     }
     polling = false;
-    render();
+    late = null;
+    body.render();
+    if (again) poll();
   }
 
-  // A staged undo goes to its own route with the id it was staged from, so the server marks that take undone.
-  const takeOpts = (started) =>
-    started.undoId !== null
-      ? { path: `api/v1/panels/${id}/undo`, body: { id: started.undoId }, finish: finishUndo, word: 'undo', onConflict: UNDO_MOVED }
-      : { path: 'api/v1/takes', body: { routes: started.routes }, finish: finishTake, word: 'take' };
-
-  async function send(started) {
-    if (!started) return;
-    const { path, body, finish, word, onConflict } = takeOpts(started);
-    st = started.state;
-    render();
-    try {
-      const reply = await callJSON(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': takeKey() },
-        body: JSON.stringify(body),
-        noWait: true,
-      });
-      st = finish(st, reply || {}, Date.now());
-    } catch (e) {
-      const why = (e.code === 'conflict' && onConflict) || e.message;
-      st =
-        e.status === undefined
-          ? failTake(st, 'network', `Sode did not answer, so the ${word} may not have been sent`, Date.now())
-          : failTake(st, e.code || String(e.status), why || `The ${word} was refused`, Date.now());
-    }
-    render();
-    poll();
-    askUndo();
-  }
-
-  function holdCancel() {
-    clearTimeout(holdTimer);
-    st = guardCancel(st);
-    render();
-  }
-  function holdDown() {
-    if (!ready || st.guard !== 'hold' || !startTake(st, env)) return;
-    st = guardDown(st, Date.now()).state;
-    clearTimeout(holdTimer);
-    holdTimer = setTimeout(() => {
-      const held = guardHeld(st, Date.now());
-      st = held.state;
-      if (held.go) send(startTake(st, env));
-      render();
-    }, GUARD_HOLD_MS);
-    render();
-  }
-
-  function onPress(cell) {
-    // A Page change sends nothing, so it works while the router or Sode is away.
-    const nav = NAV_KINDS.includes(cell.kind);
-    if (!ready && !nav) return;
-    wake?.retry();
-    if (wantsFullscreen(look) && !embedded) enterFullscreen(document, look.landscape);
-    if (nav) return showNewPage(pressPage(st, cell, pagesOf(panel), wrapOf(panel)));
-    const now = Date.now();
-    if (cell.kind === 'take') {
-      if (st.guard === 'hold' || !startTake(st, env)) return;
-      const down = guardDown(st, now);
-      st = down.state;
-      if (down.go) send(startTake(st, env));
-      return render();
-    }
-    if (cell.kind === 'undo') st = pressUndo(st, undoNext, env, now);
-    else if (cell.kind === 'destination') st = pressDestination(st, cell);
-    else if (cell.kind === 'source') st = pressSource(st, cell, env, now);
-    else if (cell.kind === 'preset') st = pressPreset(st, cell, env, now);
-    else if (cell.kind === 'clear') st = clear(st);
-    else return;
-    // Instant mode: a Source, Preset or Undo press is the Confirm.
-    if (cell.kind === 'source' || cell.kind === 'preset' || cell.kind === 'undo') {
-      const started = startInstant(st, env);
-      if (started) return void send(started);
-    }
-    render();
-  }
-
-  // A Page change keeps the plan and rebuilds the grid from the new Page's cells.
-  function showNewPage(next) {
-    if (next === st) return;
-    clearTimeout(holdTimer);
-    st = next;
-    notePage();
-    cells = cellsOf(panel, st.page);
-    grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
-    render();
-  }
+  // A tally read under Hidden leaves routes out, so frames on it after the Rights widen would never bring them back.
+  const setRights = (r) => {
+    if (framesApply(r) !== framesApply(rights)) stale = true;
+    rights = r;
+  };
+  const putRows = () => {
+    rowsTimer = 0;
+    const u = rows;
+    rows = [];
+    if (ended || !shown || !u.length) return;
+    shown = withRoutes(shown, u);
+    body.data({ tally: shown, prot, nm: null, pr: null, link, first: false });
+    body.render();
+  };
+  const offs = [
+    on('tallyRows', (u) => {
+      if (ended) return;
+      late?.push(...u);
+      if (!framesApply(rights)) return poll();
+      if (!live || !trusted) return;
+      if (!shown) return late || poll();
+      rows.push(...u);
+      rowsTimer ||= setTimeout(putRows, FRAME_MS);
+    }),
+    // A hello after a (re)connect: frames from now on are whole only from a full read made after it.
+    on('hello', () => {
+      live = true;
+      trusted = true;
+      stale = true;
+      helloCount++;
+      poll();
+    }),
+    on('wsclose', () => {
+      live = false;
+    }),
+    on('protectedRows', () => poll()),
+    on('names', () => {
+      namesAt = 0;
+      poll();
+    }),
+  ];
+  let router = S.router;
+  offs.push(
+    on('conn', () => {
+      if (S.router === router) return;
+      router = S.router;
+      if (live) poll();
+    }),
+  );
+  offFrames = () => {
+    offs.forEach((off) => off());
+    clearTimeout(rowsTimer);
+  };
 
   let keep = null;
   if (!embedded) {
@@ -453,8 +418,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
         const renamed = name !== instance;
         instance = name;
         if (ask) showName(name, editable);
-        render();
-        if (renamed) askUndo();
+        body.renamed(renamed);
       },
       (msg) => {
         run.stop();
@@ -463,29 +427,40 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       ask,
     );
   }
-  // A newer saved copy: rebuild the grid and the state from it, keeping the viewed destination. The watcher counts down and waits out staged routes first.
-  stopWatch = watchPanel({
+  // A newer saved copy. The watcher counts down and waits out staged routes first.
+  const watch = watchPanel({
     ui,
     id,
     panel,
-    get: callJSON,
-    state: () => ({ staged: st.staged.length > 0, busy: st.busy }),
+    // Every read carries the caller's Rights and the confirm settings, which a layout update waiting on staged
+    // routes must not hold back.
+    get: async (path) => {
+      const p = await callJSON(path);
+      if (p) setRights(p.rights);
+      if (p) body.read?.(p);
+      return p;
+    },
+    state: () => body.pending(),
     apply(p) {
-      clearTimeout(holdTimer);
       panel = p;
+      setRights(p.rights);
       tellLock(isPublic(p));
-      // The current Page stays unless the edit disabled or deleted it, then the first enabled Page shows.
-      st = showPage(carryView(stateOf(p), st, everyCell(p)), landingPage(pagesOf(p), st.page));
-      notePage();
-      cells = cellsOf(p, st.page);
-      undoCells = hasUndo(p);
-      askUndo();
       look = applyLook(p);
-      grid = buildGrid(ui.grid, p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
-      render();
+      body.apply(p);
     },
   });
-  // Results and errors fade on their own clocks (RESULT_MS, ERROR_MS), so the grid is redrawn every second.
-  timers.push(setInterval(poll, POLL_MS), setInterval(render, 1000));
+  stopWatch = watch;
+  run.show = (patch) => {
+    if (ended) return;
+    panel = { ...panel, ...patch };
+    body.apply(panel);
+    if (patch.rev !== undefined) watch.seen(panel);
+  };
+  if (run.early) run.show(run.early);
+  // Results and errors fade on their own clocks, so the body is redrawn every second.
+  timers.push(
+    setInterval(poll, POLL_MS),
+    setInterval(() => body.render(), 1000),
+  );
   poll();
 }

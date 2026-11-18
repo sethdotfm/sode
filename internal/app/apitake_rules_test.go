@@ -190,7 +190,7 @@ func TestAPIWHiddenCallerCannotFirePresetListHides(t *testing.T) {
 	if f.sends() != n {
 		t.Fatal("sent for a preset that names a hidden destination")
 	}
-	// Destination 99 is in rights but not on the router, so the 422 may name it.
+	// Destination 99 is in rights but not on the router, so the 422 is allowed to name it.
 	rec := apiPost(a, "/api/v1/presets/everyone/Gone", key, ``, nil)
 	wantErr(t, rec, 422, "nothing_to_do")
 	if !strings.Contains(rec.Body.String(), "destination 100") {

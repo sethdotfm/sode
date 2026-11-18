@@ -63,7 +63,7 @@ func (a *App) logSent(ctx context.Context) {
 		a.pendSent = append(a.pendSent, e)
 		a.mu.Unlock()
 	}
-	// Counted before the append so a failing disk doesn't lose the graph's data.
+	// Counted before the append so a failing disk does not lose the graph's data.
 	tx := func(ev swp08.TxEvent) {
 		e := a.describe(ev)
 		a.up.Note(e)

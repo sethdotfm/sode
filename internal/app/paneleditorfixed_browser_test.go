@@ -13,8 +13,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Fixed destination from the editor to the router: the Panel tab's picker sets the list, which sets aside the
-// Destination cell, greys Destination in Type and turns off Stage several Destinations; clearing the list brings
+// Fixed destination from the editor to the router: the Panel tab's picker sets the list. The list sets aside the
+// Destination cell, greys Destination in Type and turns off Stage several Destinations. A cleared list brings
 // them back. Saved, the panel page patches a Source press and a Preset press to the fixed destinations only.
 func TestChromeEditorFixedDests(t *testing.T) {
 	b := startBrowser(t)
@@ -29,7 +29,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":4,"cells":[
@@ -130,7 +130,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	}
 
 	b.eval(`document.getElementById('ed-live').click()`)
-	b.waitFor("Test it live draws the panel without Destination cells", `!!document.querySelector('#ed-live-view .sode-panel__cell--source') && !document.querySelector('#ed-live-view .sode-panel__cell--destination')`)
+	b.waitFor("The Live Editor draws the panel without Destination cells", `!!document.querySelector('#ed-live-view .sode-panel__cell--source') && !document.querySelector('#ed-live-view .sode-panel__cell--destination')`)
 	b.eval(`document.getElementById('ed-live').click()`)
 
 	b.open(srv.URL + "/panels/" + id)
@@ -143,6 +143,8 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	}
 	b.waitFor("the panel is drawn", `!!document.querySelector('.sode-panel__cell--source')`)
 	take := `document.querySelector('.sode-panel__take')`
+	// A press before the first poll answers is dropped; the router's name comes with that poll.
+	b.waitFor("the first poll answered", `document.querySelector('.sode-panel__cell--source .sode-panel__text')?.textContent === 'Zoom 1'`)
 
 	b.eval(`document.querySelector('.sode-panel__cell--source').click()`)
 	b.waitFor("Take armed for the Source", `!`+take+`.disabled`)
@@ -162,7 +164,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 }
 
 // A Destination cell set aside by Fixed destination is dropped when the grid shrinks past it or a merge covers its
-// square, and the status note counts it, so a save never loses a cell without a word.
+// square. The status note counts it, so a save never loses a cell without a word.
 func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -172,7 +174,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":3,"cells":[

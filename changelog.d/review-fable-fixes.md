@@ -1,0 +1,7 @@
+- Grid panels: a press or a Drawn line that skips protected destinations names them in the banner. This is also true when Instant mode sends the rest at once.
+- Grid panels: after a take, the grid shows the new source at once, even when a poll was already in flight.
+- Grid panels: Esc in the Levels box only leaves the box, and focus goes back where it was when the take confirm closes.
+- Panel editor: a second Save or Live Editor press during a save no longer makes a second new panel. Edits made during a save are kept.
+- Panel editor: a slow open of a panel picked earlier no longer replaces a later pick.
+- Main page: History stays fast and bounded on a busy router.
+- `GET /api/v1/names` answers a 304 without building the whole read.

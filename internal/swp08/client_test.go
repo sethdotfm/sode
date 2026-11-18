@@ -151,8 +151,8 @@ func TestIgnoredCommandKeepsLink(t *testing.T) {
 	}
 }
 
-// Until the router first answers, Send refuses rather than queueing behind
-// a probe that may never be answered.
+// Until the router first answers, Send refuses. It does not queue behind a
+// probe, since it is possible that the probe is never answered.
 func TestSendRefusedUntilHeard(t *testing.T) {
 	addr, accepted := fakeRouterAccepted(t, func([]byte) bool { return false })
 	c, _, start := fastClient(t, addr)
@@ -184,7 +184,7 @@ func TestRetargetIsNotDown(t *testing.T) {
 }
 
 // New settings saved while a dial is still running (a wrong address that
-// hasn't timed out yet) are a reconnect too, not a failure.
+// has not timed out yet) are a reconnect too, not a failure.
 func TestRetargetMidDialIsNotDown(t *testing.T) {
 	good := fakeRouter(t, func([]byte) bool { return true })
 	c, log, start := fastClient(t, "hangs:8910")
@@ -264,7 +264,7 @@ func (l *txLog) find(cmd byte) (TxEvent, bool) {
 	return TxEvent{}, false
 }
 
-// OnTx reports each message once, with how many writes it took and how it
+// OnTx reports each message one time, with how many writes it took and how it
 // ended, and the probe as a keepalive.
 func TestOnTx(t *testing.T) {
 	var mu sync.Mutex

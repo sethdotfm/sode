@@ -1,2 +1,2 @@
-- Panels have an Undo cell: a press stages the routes that undo the newest take this instance of the panel made, and Take sends them (in Instant mode the press does), one take further back each time. Other instances' takes are left alone. It works with a panel's own key, which needs only the take scope.
+- Panels have an Undo cell. A press stages the routes that undo the newest take this instance of the panel made. Take sends them (in Instant mode, the press does), and each press goes one take further back. Other instances' takes are left alone. It works with a panel's own key, which needs only the take scope.
 - The icon picker lists the Undo icon beside Clear's, with the other cell icons, instead of beside Redo.

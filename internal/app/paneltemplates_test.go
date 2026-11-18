@@ -116,7 +116,7 @@ func TestTemplateSourcesAndDestsAreStoredApart(t *testing.T) {
 	}
 }
 
-// Undo is layout as Clear is: its caption goes once either option is on, and nothing else of it changes.
+// Undo is layout as Clear is: its caption goes when either option is on, and nothing else of it changes.
 func TestTemplateTreatsUndoAsClear(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

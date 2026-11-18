@@ -1,5 +1,5 @@
-// The logged-in user's profile (This device prefs, filter sets, presets), pushed to every connection unlocked as that user (name '' clears it).
-// The ONLY module handling `profile` and `profileSaveResult` (onMsg allows one handler per type); others use the 'profile' bus event.
+// The signed-in user's profile (This browser prefs, filter sets, presets). Sode pushes it to every connection signed in as that
+// user (name '' clears it). The ONLY module that handles `profile` and `profileSaveResult` (onMsg allows one handler per type); others use the 'profile' bus event.
 // Never in the hello, so empty for a locked or anonymous page.
 
 import { on, onMsg, emit, wsSend } from './core.js';
@@ -68,12 +68,13 @@ on('wsclose', () => {
   reading.clear();
 });
 
-// Saves go one at a time: the server may handle one connection's messages out of order and each save replaces whole parts.
+// Saves go one at a time. It is possible that the server handles one connection's messages out of order, and each
+// save replaces whole parts.
 let chain = Promise.resolve();
 
 // Saves some parts ({prefs}, {filterSets}, {presets}, {pinOrder}); a part left out is kept, a part sent replaces the whole list/map.
-// `name` defaults to the logged-in user; a trusted user may name another. No PIN is asked here: the server decides.
-// The own profile's local copy takes the parts at once so the next save builds on them; a failed save puts it back.
+// `name` defaults to the signed-in user; a trusted user can name another. No PIN is asked here: the server decides.
+// The own profile's local copy gets the parts at once so the next save builds on them; a failed save puts it back.
 export function saveProfile(parts, name = cur.name) {
   if (!name) return Promise.resolve({ ok: false, err: 'Not signed in.', locked: false });
   // At call time, not when the queued send runs: the next caller reads it now.
@@ -99,7 +100,7 @@ export function saveProfile(parts, name = cur.name) {
   return p;
 }
 
-// Any user's profile (trusted user or settings PIN; others get locked: true).
+// Any user's profile (trusted user or Advanced Settings PIN; others get locked: true).
 export function fetchProfile(name) {
   return new Promise((resolve) => {
     const id = ++seq;

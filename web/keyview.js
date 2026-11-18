@@ -7,7 +7,7 @@ import { qrMatrix, qrPath } from './qr.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 
-// Black on white in both themes, set as attributes and not tokens: a camera needs the contrast,
+// Black on white in both themes, set as attributes and not tokens. A camera needs the contrast,
 // and the quiet zone must stay light under a dark page.
 export function qrNode(text) {
   let m;
@@ -51,7 +51,7 @@ async function copyText(text, field) {
   }
 }
 
-// The key, shown once. Nothing keeps it: drop the node and it is gone.
+// The key, shown one time. Nothing keeps it: drop the node and it is gone.
 export function secretNode(secret) {
   const field = el('input', 'pb-input sode__secret-key');
   field.readOnly = true;
@@ -70,7 +70,7 @@ export function secretNode(secret) {
   return el(
     'div',
     'sode__secret',
-    el('p', 'sode__hint', 'Copy this key now. Sode shows it once and keeps only a hash of it.'),
+    el('p', 'sode__hint', 'Copy this key now. Sode shows it one time and keeps only a hash of it.'),
     el('div', 'sode__secret-row', field, copy, say),
     ...(qr ? [qr] : []),
   );

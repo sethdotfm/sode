@@ -1,5 +1,5 @@
 // The sidebar's Access tab: who the panel acts as, the Rights limits of its own API client, and sharing.
-// The server decides who may set up a client (ADR 0006): a Trusted user, within their own Rights.
+// The server decides who is allowed to set up a client (ADR 0006): a Trusted user, within their own Rights.
 // Sharing is the Share modal's job (panelshare.js), opened from the toolbar's Share button.
 import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
@@ -56,7 +56,7 @@ export function createAccessTab(ed, ctx) {
         acts.set(ed.fields().acts);
         return;
       }
-      // Authentication mode makes or removes the panel's API client, so it is saved at once and never left as an unsaved edit. The
+      // Authentication mode makes or removes the panel's API client, so it is saved immediately and never left as an unsaved edit. The
       // save carries the panel's other unsaved changes with it. A refusal puts the choice back and says why.
       acts.disable(true);
       actsNote.textContent = 'Saving.';
@@ -91,7 +91,7 @@ export function createAccessTab(ed, ctx) {
     return { kind, only: all.input, text, node: el('div', 'sode__field', all.label, text) };
   });
   let draft = draftOf(null, 0); // the Rights lists as typed; read back into clientRights on each change
-  const hidden = check('Hide what the client may not use', { id: 'ed-rl-hidden' });
+  const hidden = check('Hide what the client is not allowed to use', { id: 'ed-rl-hidden' });
   const limits = el('div', 'sode-side__form', ...lists.map((l) => l.node), hidden.label);
   limits.hidden = true;
   clientBox.append(current, table, limit.label, limits, note);
@@ -168,9 +168,9 @@ export function createAccessTab(ed, ctx) {
         hidden.input.disabled = ro;
       }
       const stored = !!p && !ro;
-      // Sharing still decides who sees a Public panel on the panels page, not who may open its link.
+      // Sharing still decides who sees a Public panel on the panels page, not who is allowed to open its link.
       const listedOnly = isPublic(p);
-      shareLine.textContent = !p ? 'Save the panel first, then choose who may use it.' : listedOnly ? 'Listed on the panels page for:' : 'Who may use it:';
+      shareLine.textContent = !p ? 'Save the panel first, then choose who can use it.' : listedOnly ? 'Listed on the panels page for:' : 'Who can use it:';
       const who = p?.share?.mode === 'named' && p.share.users?.length ? p.share.users : p ? [shareLabel(p.share)] : [];
       shareList.replaceChildren(...who.map((u) => el('li', null, u)));
       shareBtn.disabled = !stored;

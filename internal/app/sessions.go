@@ -45,8 +45,8 @@ func (a *App) adoptMu(c *client, tok string, locked bool) {
 	c.u.sess = &session{token: tok, locked: locked}
 }
 
-// eachOnSessionMu runs fn for every connection on c's session, c last (c may not be
-// registered). The one loop over connections sharing a token. Caller holds mu.
+// eachOnSessionMu runs fn for every connection on c's session, c last (it is possible
+// that c is not registered). The one loop over connections sharing a token. Caller holds mu.
 func (a *App) eachOnSessionMu(c *client, fn func(*client)) {
 	s := c.sessMu()
 	for cl := range a.clients {
@@ -73,7 +73,7 @@ func (a *App) issueToken(c *client, wantTab bool) string {
 	return a.issueTokenFor(c, wantTab, false)
 }
 
-// issueTokenFor: forKey also gives a held-only user a tab token, which Hi still refuses
+// issueTokenFor: forKey also gives a held-only user a tab token. Hi still refuses that token
 // after the Lock ends, so only a session key rides on it (sessionkey.go).
 func (a *App) issueTokenFor(c *client, wantTab, forKey bool) string {
 	a.mu.Lock()
@@ -162,8 +162,9 @@ func (a *App) touchSessions() {
 	a.keys.flush()
 }
 
-// Issues tokens to persistent-user connections holding none or a dead one (tokens are
-// otherwise issued only at PIN entry, e.g. after Never sign out is ticked or a PIN change).
+// Issues tokens to persistent-user connections that hold none or a dead one. Tokens are
+// otherwise issued only at PIN entry. This covers, for example, the time after Never sign out
+// is ticked or after a PIN change.
 // Off mu: writes the token file.
 func (a *App) catchUpSessions() {
 	a.mu.Lock()
@@ -184,7 +185,7 @@ func (a *App) catchUpSessions() {
 	}
 }
 
-// setHeld raises (on) or ends the Lock of c's session for every connection on it; the flag
+// setHeld raises (on) or ends the Lock of c's session for every connection on it. The flag
 // rides the token (ADR 0001), so a reload comes back locked. Ending it is a resume.
 func (a *App) setHeld(c *client, on bool) {
 	a.mu.Lock()
@@ -214,7 +215,7 @@ func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
 	}
 	s.locked = on
 	if drop {
-		// The token dies, so the connections sharing it part: each keeps its own
+		// The token dies, so the connections that share it part. Each keeps its own
 		// tokenless session, and a later Lock or sign-out of one cannot reach the rest.
 		a.eachOnSessionMu(c, func(cl *client) {
 			cl.u.sess = &session{locked: on, seen: s.seen}

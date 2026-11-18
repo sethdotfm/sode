@@ -11,7 +11,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Both: a link with the key opens the panel as its API client with no sign-in, and the plain link runs it in
+// Both: a link with the key opens the panel as its API client with no sign-in. The plain link runs it in
 // Session mode behind the page lock's PIN pad.
 func TestChromePanelBothMode(t *testing.T) {
 	b := startBrowser(t)
@@ -22,7 +22,7 @@ func TestChromePanelBothMode(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","acts":"both","cells":[{"r":1,"c":1,"kind":"take"}]}`)

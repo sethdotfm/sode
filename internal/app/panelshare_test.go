@@ -53,7 +53,7 @@ func TestPanelSharingSettingsAndRemoval(t *testing.T) {
 		t.Fatal("a Trusted user lost it")
 	}
 
-	// A named user may use the panel but not change who shares it.
+	// A named user can use the panel but not change who shares it.
 	put(ana, `{"mode":"named","users":["Bo"]}`)
 	if c := put(bo, `{"mode":"everyone"}`); c != 403 {
 		t.Fatalf("a named user changed sharing: %d", c)

@@ -1,10 +1,11 @@
 // Recent filter language for sources and destinations. No imports (Node tests).
 // Comma-separated terms are OR'd, then ! terms remove; only ! terms means everything but those.
-// Terms: 65, 1-50 (also "1 thru 50", "through", "to"), PIP (name contains), 'NOT USED' ('' = quote), "CAM 1" (exact), /re/ (flags optional), !term ("not" works before a number, quote or regex).
+// Terms: 65, 1-50 (also "1 thru 50", "through", "to"), PIP (name contains), 'NOT USED' ('' = quote), "CAM 1" (exact).
+// Also /re/ (flags optional) and !term ("not" works before a number, quote or regex).
 // Rule: { not, kind: 'num' | 'range' | 'name' | 'exact' | 're', a, b, text, flags, quoted }.
 
 const NUM = /^\d+$/;
-// "not" as a word, only where what follows can't be part of a name.
+// "not" as a word, only where what follows cannot be part of a name.
 const NOT_WORD = /^not\s+(?=['"/\d])/i;
 // Flags that make a regex remember where it stopped, so the same name
 // would match one time and not the next.

@@ -45,7 +45,7 @@ func TestPanelRevMovesOnEveryStoredChange(t *testing.T) {
 
 	// A copy is a new panel with its own count.
 	c := apiBody(t, apiSend(a, "POST", "/api/v1/panels/"+id+"/copy", bo, ``))
-	if r, _ := c["rev"].(float64); r < 1 || r > 2 { // artwork copies may add one
+	if r, _ := c["rev"].(float64); r < 1 || r > 2 { // it is possible that artwork copies add one
 		t.Fatalf("copy rev %v", c["rev"])
 	}
 }

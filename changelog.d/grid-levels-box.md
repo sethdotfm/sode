@@ -1,0 +1,1 @@
+- A Grid panel shows the Levels box, filled from its levels setting and limited to its Rights.

@@ -12,8 +12,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Rename from the panels page: the running panel page, named by its link, takes the new name in its header and its
-// address, and a reload keeps it. Two browsers, since one tab runs the panel page and the other the panels page.
+// Rename from the panels page: the running panel page, named by its link, gets the new name in its header and its
+// address. A reload keeps it. Two browsers, since one tab runs the panel page and the other the panels page.
 func TestChromeRenameARunningPanelPageFromThePanelsPage(t *testing.T) {
 	page := startBrowser(t)
 	b := startBrowser(t)
@@ -61,9 +61,9 @@ func TestChromeRenameARunningPanelPageFromThePanelsPage(t *testing.T) {
 	b.waitFor("Lock overlay gone", `!document.documentElement.hasAttribute('data-sode-lock')`)
 	b.waitFor("row of the panel", `!!document.querySelector('[data-id="`+id+`"].sode-ov__item')`)
 	b.eval(`document.querySelector('[data-id="` + id + `"].sode-ov__item').click()`)
-	pencil := `document.querySelector('#panels-open [data-rename-instance="Lobby"]')`
-	b.waitFor("the pencil on the open instance", `!!`+pencil+` && !`+pencil+`.disabled`)
-	b.eval(pencil + `.click()`)
+	renameBtn := `document.querySelector('#panels-open [data-rename-instance="Lobby"]')`
+	b.waitFor("the Rename icon on the open instance", `!!`+renameBtn+` && !`+renameBtn+`.disabled`)
+	b.eval(renameBtn + `.click()`)
 	b.waitFor("the name field", `document.activeElement?.dataset.renameField === 'Lobby'`)
 	b.eval(`(() => { const f = document.activeElement; f.value = 'Front desk'; f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()`)
 

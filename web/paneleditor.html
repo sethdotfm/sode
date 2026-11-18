@@ -9,21 +9,26 @@
 <link rel="icon" type="image/svg+xml" href="panels-logo.svg">
 <link rel="icon" type="image/png" href="icon.png?s=192">
 <script src="prepaint.js" data-only="theme"></script>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/fonts/plex.css">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
 <link rel="stylesheet" href="base.css">
 <link rel="stylesheet" href="panels.css">
+<!-- The Live Editor runs a Grid panel here too. Keep in step with panel.html: gridpanelphone.css hides the phone-only parts on the desktop. -->
+<link rel="stylesheet" href="gridpanel.css">
+<link rel="stylesheet" href="gridpanelphone.css">
 <link rel="stylesheet" href="touch.css">
 </head>
 <body>
 
 <main class="sode-panels sode-ed">
   <header class="sode-panels__head">
+    <!-- Outside the h1: the brand event (panelpage.js) rewrites the title's text. -->
+    <a class="pb-btn pb-btn--ghost pb-btn--icon sode-panels__home" href="panels" id="ed-home" data-pb-tip="Panels" aria-label="Panels"><span class="sode-logo sode-panels__logo" aria-hidden="true"></span></a>
     <h1 class="sode-panels__title">Sode Panel Editor</h1>
     <span class="sode-panels__spacer"></span>
-    <a class="pb-btn pb-btn--outline pb-btn--sm" href="panels">Panels</a>
+    <a class="pb-btn pb-btn--outline pb-btn--sm" href="./" id="ed-back-sode">Back to Sode</a>
   </header>
   <p class="sode__hint" id="panels-note"></p>
   <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
@@ -47,7 +52,7 @@
       <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-share" type="button" disabled>Share</button>
       <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-copylink" type="button" hidden>Copy link</button>
       <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" hidden>Open panel</a>
-      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Runs the saved panel here, without unassigned squares. Saves first.">Test it live</button>
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Runs the saved panel here, without unassigned squares. Saves first.">Live Editor</button>
     </div>
     <div class="sode-ed__grp">
       <span class="sode-ed__state" id="ed-state" role="status"></span>
@@ -68,6 +73,8 @@
         </section>
       </div>
     </div>
+    <!-- A Grid panel's Sources and Destinations lists, in place of the Pages (editorside.js) -->
+    <div class="sode-ed__lists" id="ed-lists"></div>
     <aside class="sode-ed__side" id="ed-side" aria-label="Panel settings"></aside>
   </div>
 </main>

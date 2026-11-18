@@ -11,7 +11,7 @@ import (
 const actorGuest = "guest" // a browser with nobody signed in
 
 // callerOf is who a take acts as. An API caller brings its own (client.api). A browser is its signed-in user (rights read live from the
-// config, so an edit applies at once), or Guest when nobody is signed in or the Lock is on.
+// config, so an edit applies at once). It is Guest when nobody is signed in or the Lock is on.
 func (a *App) callerOf(c *client) (Actor, config.Rights) {
 	if c.api != nil {
 		return c.api.Actor, c.api.Rights
@@ -72,8 +72,8 @@ func takeWhy(items []routeReq) string {
 	return why
 }
 
-// undoMatches reports whether an undo route restores what its History entry had before: the
-// same destination, each level inside the entry, and the Before source for that level. The
+// undoMatches reports whether an undo route restores what its History entry had before. That is
+// the same destination, each level inside the entry, and the Before source for that level. The
 // tag comes from the browser, so only a match earns the skip of the source check.
 func (a *App) undoMatches(it routeReq) bool {
 	if it.Undo == nil {

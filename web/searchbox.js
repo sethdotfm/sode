@@ -1,4 +1,4 @@
-// Recent's quick search boxes (kept in step across layouts) and the note under an empty list.
+// History's quick search boxes (kept in step across layouts) and the note under an empty list.
 
 import { el, S, on, search, item, labelNode } from './core.js';
 import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
@@ -6,8 +6,8 @@ import { parseFilter } from './filter.js';
 import { pickSet, activeStack } from './filterstore.js';
 import { combobox } from './widgets.js';
 
-// While searching: still reading back through the log, or nothing found (the filters may not
-// even apply).
+// During a search: Sode still reads back through the log, or nothing was found (it is possible
+// that the filters do not even apply).
 export function emptyNote(rows, fetching) {
   if (rows.length) return null;
   if (!S.hist.length) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'No history yet'));
@@ -24,7 +24,7 @@ export function emptyNote(rows, fetching) {
   );
 }
 
-// ---- quick search boxes above Recent, kept in step across layouts. Names logged in history count too, so a renamed source is still found. Text that's an expression applies as typed instead.
+// ---- quick search boxes above History, kept in step across layouts. Names logged in history count too, so a renamed source is still found. Text that is an expression applies as typed instead.
 
 const looksLikeExpr = (t) => /[,!/"']/.test(t) || /^\s*\d+\s*(-|\s(thru|through|to)\s)\s*\d+\s*$/i.test(t) || /^\s*not\s+['"/\d]/i.test(t);
 const MENU = 50;
@@ -147,7 +147,7 @@ for (const b of searchBoxes) {
 function renderSearch() {
   const on = searchActive();
   const n = on ? histRows(S.hist).length : 0;
-  const note = !on ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ', ignoring filters'}`;
+  const note = !on ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ', filters ignored'}`;
   for (const b of searchBoxes) {
     for (const k of ['src', 'dst']) {
       const st = sb[k];

@@ -59,10 +59,17 @@ export function initChrome(ui) {
   let override = null;
   let base = false;
   let titleBar = true;
+  let grid = false;
   const apply = () => {
     const kiosk = kioskNow(override, base);
     ui.head.hidden = headHidden(kiosk, titleBar);
     ui.home.hidden = kiosk;
+    // A Grid panel reaches the bottom of the window, so its Panels link goes in the header while the header shows.
+    // It goes in the tools group (ui.tools, gridpanelheadview.js) while there is one. ui.toolsShown is set where the
+    // group can show with the header hidden.
+    const box = ui.tools || ui.head;
+    const inHead = grid && (ui.toolsShown ? ui.toolsShown(kiosk) : !ui.head.hidden);
+    if (inHead !== box.contains(ui.home)) (inHead ? box : ui.main).append(ui.home);
     document.documentElement.toggleAttribute('data-sode-kiosk', kiosk); // hides the Lock bar too (panels.css)
     setIcon(ui.kiosk, kioskWords(kiosk));
     ui.kiosk.setAttribute('aria-pressed', String(kiosk));
@@ -78,9 +85,10 @@ export function initChrome(ui) {
   });
   return {
     // runPanel calls this each time it reads the panel's look, so a live update keeps a pressed Kiosk button's choice.
-    show(baseKiosk, titleBarOn) {
+    show(baseKiosk, titleBarOn, gridPanel = false) {
       base = baseKiosk;
       titleBar = titleBarOn;
+      grid = gridPanel;
       return apply();
     },
   };

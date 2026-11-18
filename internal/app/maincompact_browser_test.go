@@ -10,10 +10,11 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Compact view hides History, fades the footer, the Lock bar and the status while both links are
-// up (hover or focus brings each back), and centres the block, which neither the match list nor a
-// failed take moves. After a reload the Last chips fill from the stored Last, a failed take and a
-// lost link still show, Alt+Shift+C toggles it from a box, and Settings shows it under This browser.
+// Compact view hides History. While both links are up, it fades the footer, the Lock bar and the
+// status (hover or focus brings each back). It centres the block, and neither the match list nor a
+// failed take moves the block. After a reload the Last chips fill from the stored Last, and a failed
+// take and a lost link still show. Alt+Shift+C toggles Compact view from a box, and Settings shows
+// it under This browser.
 func TestChromeMainCompact(t *testing.T) {
 	b := startBrowser(t)
 	// The simulator ACKs connects to DSM1 but never routes it, so a take there fails.
@@ -98,7 +99,7 @@ func TestChromeMainCompact(t *testing.T) {
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{}})
 
 	// Centred: the span from Source's left edge to Levels' right edge, at the height of the boxes,
-	// sits at the viewport's centre; the title and Presets fall where they may.
+	// sits at the viewport's centre. This check ignores where the title and Presets fall.
 	const boxes = `(() => { const a = document.getElementById('src').getBoundingClientRect(), z = document.getElementById('lvl').getBoundingClientRect(); return [(a.left + z.right) / 2 - innerWidth / 2, (a.top + a.bottom) / 2 - innerHeight / 2]; })()`
 	b.waitFor("boxes at the viewport centre", `(() => { const [x, y] = `+boxes+`; return Math.abs(x) <= 1 && Math.abs(y) <= 1; })()`)
 	const presets = `(() => { const p = document.querySelector('#patch-view [data-presets]'), k = [...p.children].filter((c) => c.getBoundingClientRect().width > 0).map((c) => c.getBoundingClientRect()); return (Math.min(...k.map((r) => r.left)) + Math.max(...k.map((r) => r.right))) / 2 - innerWidth / 2; })()`

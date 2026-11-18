@@ -1,5 +1,5 @@
-// An open panel page is an instance of the panel (docs/panels-design.md, Monitoring). The device name is asked
-// once per browser, then a keepalive goes out every 15 seconds so Sode knows the instance is alive. A held stream
+// An open panel page is an instance of the panel (docs/panels-design.md, Monitoring). The page asks for the device
+// name one time per browser. Then a keepalive goes out every 15 seconds so Sode knows the instance is alive. A held stream
 // tells Sode at once when the page closes; the keepalive is the fallback when a proxy or browser will not hold it.
 import { readStr, writeStr } from './store.js';
 import { KEEPALIVE_MS, deviceFrom, keepaliveBody, streamPath, retryMs, renameTo } from './panelwatchrules.js';
@@ -8,7 +8,7 @@ import { instanceFrom } from './panellink.js';
 
 export const DEVICE_KEY = 'sode-panel-device';
 
-// fetch with the Authorization header can stream where EventSource cannot; the server writes a line every 10 s,
+// fetch with the Authorization header can stream where EventSource cannot. The server writes a line every 10 s,
 // and an Assign or a rename from the panels page as its last. Ends when gate.stop aborts it (a rename opens a new
 // hold under the new name). open(signal) answers the fetch.
 async function hold(open, gate, onAssign, onRename = () => {}) {
@@ -52,8 +52,8 @@ export function announceKeyless(seg, ended, onAssign) {
 }
 
 // call(path, init) is the page's keyed fetch; form holds the name input and its Save button. preset is the link's
-// ?instance= name: it stands in for the stored name and the question, and is never stored, so the link stays the authority.
-// onName(device, editable) hears the name once it is known and after a rename. onAssign(msg) hears an Assign, after
+// ?instance= name. It stands in for the stored name and the question. It is never stored, so the link stays the authority.
+// onName(device, editable) hears the name after it is known and after a rename. onAssign(msg) hears an Assign, after
 // which nothing is held or sent. Returns { rename(name), stop() }; a preset name is renamed only from the panels page. The old name's
 // instance goes quiet and is lost after the usual grace, as any closed page is.
 // ask false (settings.askInstanceName) never shows the form: an unnamed page beats with '' and Sode names it by address.
@@ -90,8 +90,8 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}, o
     run();
     return true;
   };
-  // Renamed from the panels page. A link's name lives in the address, so the address carries the new one for a reload;
-  // its #key= is left alone, since one still there is one the browser could not store.
+  // Renamed from the panels page. A link's name lives in the address, so the address carries the new one for a reload.
+  // Its #key= is left alone, since one still there is one the browser could not store.
   function renamed(name) {
     if (preset) {
       preset = name;

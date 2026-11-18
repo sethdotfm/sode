@@ -64,7 +64,7 @@ func NamesPerMsg(code byte) int {
 type Crosspoint struct {
 	Matrix, Level int
 	Dst, Src      int
-	Cmd           byte // message it came from: Connected means it just changed
+	Cmd           byte // message it came from: Connected means it is a new change
 }
 
 func (x Crosspoint) Changed() bool { return x.Cmd == CmdConnected || x.Cmd == CmdExtConnected }
@@ -142,7 +142,7 @@ func NamesReq(dest, ext bool, matrix, level int, lenCode byte) []byte {
 	return []byte{cmd, byte(matrix<<4 | level&0x0f), lenCode}
 }
 
-// Fields a message doesn't carry are -1.
+// Fields a message does not carry are -1.
 type Request struct {
 	Kind          string
 	Matrix, Level int
@@ -175,7 +175,7 @@ func DescribeTx(m []byte) Request {
 		r = Request{Kind: "tallyDump", Matrix: int(d[0]), Level: int(d[1]), Dst: -1, Src: -1, Group: -1}
 	case m[0] == CmdExtProtectDumpReq && len(d) >= 4:
 		r = Request{Kind: "protectDump", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1, Group: -1}
-	// Names aren't per level, whatever the request's level byte says.
+	// Names are not per level, whatever the request's level byte says.
 	case (m[0] == CmdExtSrcNamesReq || m[0] == CmdExtDstNamesReq) && len(d) >= 2:
 		r = Request{Kind: "srcNames", Matrix: int(d[0]), Level: -1, Dst: -1, Src: -1, Group: -1}
 		if m[0] == CmdExtDstNamesReq {

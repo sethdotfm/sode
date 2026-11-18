@@ -11,7 +11,7 @@ import (
 )
 
 // A panel that acts as an API client has one in the config (ADR 0006), found by its Panel id.
-// It is made and removed with the panel and keeps the panel's name for life, so History rows
+// It is made and removed with the panel. It keeps the panel's name for life, so History rows
 // and keys never point at a renamed client. Docs: docs/panels-design.md.
 
 func panelClientName(id string) string { return "Panel " + id }
@@ -73,14 +73,14 @@ func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Right
 		return *cur, false, nil
 	}
 	if !a.trusted(cl.Actor.Name) {
-		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "trusted_required", "only a Trusted user may make a panel act as an API client or change its rights"}
+		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "trusted_required", "only a Trusted user can make a panel act as an API client or change its rights"}
 	}
 	r := cl.Rights.Clone()
 	if want != nil {
 		r = clean(*want)
 	}
 	if !r.Within(cl.Rights) {
-		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "outside_rights", "the panel's rights may not be wider than your own"}
+		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "outside_rights", "the panel's rights must not be wider than your own"}
 	}
 	return r, true, nil
 }
@@ -116,9 +116,10 @@ func (a *App) setPanelClient(id string, rights *config.Rights) error {
 }
 
 // dropOrphanPanelClients removes clients of panels that no longer exist (a panel file deleted
-// by hand, or a config imported without its panels) and clients a loaded panel no longer names.
-// A panel file that is on disk but failed to load keeps its client, so repairing the file
-// brings the panel back still signed in; key reconcile would otherwise end its keys.
+// by hand, or a config imported without its panels). It also removes clients that a loaded
+// panel no longer names. A panel file that is on disk but failed to load keeps its client.
+// A repair of the file then brings the panel back still signed in. Without this, key reconcile
+// would end its keys.
 func dropOrphanPanelClients(cfg *config.Config, panels *panelStore) {
 	if panels.dirFailed {
 		return
@@ -134,9 +135,9 @@ func dropOrphanPanelClients(cfg *config.Config, panels *panelStore) {
 	})
 }
 
-// keepPanelClients folds an administrator's client list into the config's: a panel client in
-// the request takes its Rights and Scopes (the Advanced Settings PIN is what widens them) but
-// keeps its panel link and name, and one left out stays. Plain clients replace the old ones.
+// keepPanelClients folds an administrator's client list into the config's. A panel client in
+// the request gets its Rights and Scopes but keeps its panel link and name. The Advanced Settings
+// PIN is what widens them. A panel client left out stays. Plain clients replace the old ones.
 func keepPanelClients(cur []config.APIClient, req []config.APIClient) []config.APIClient {
 	var out []config.APIClient
 	seen := map[string]bool{}

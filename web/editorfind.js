@@ -1,7 +1,7 @@
-// Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets and the one-entry kinds), with a preview of
-// the fill in the grid before anything changes. Ranking, Rights and the fill itself are findrules.js; this file is
-// the DOM. initFind(editor) takes what runEditor returns.
-import { el, icon, $ } from './core.js';
+// Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets
+// and the one-entry kinds). It shows a preview of the fill in the grid before anything changes. Ranking, Rights and the fill itself are findrules.js; this file is
+// the DOM. initFind(editor) accepts what runEditor returns.
+import { el, icon, $, on } from './core.js';
 import { myRights, onMyRights } from './editorrights.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { resultStep } from './keys.js';
@@ -35,17 +35,17 @@ export function initFind(editor) {
   let data = { names: null, presets: null, at: 0, loading: false };
   let entries = [];
   let results = [];
-  let chip = ''; // '' is all categories
-  let hi = 0; // index into results
-  let anchor = -1; // where Shift started a picked set
-  let picked = []; // result keys picked with Shift, in list order
+  let chip = ''; // '' is all categories.
+  let hi = 0; // index into results.
+  let anchor = -1; // where Shift started a picked set.
+  let picked = []; // result keys picked with Shift, in list order.
   let order = 'across'; // one of gridmodel's FILL_ORDERS; the order picker sets it
   let hovered = false;
   let moved = false; // the pointer really moved since the list was last drawn
   let at = null;
   let rebuilding = false;
   let preview = [];
-  let quiet = false; // a group fill just landed, so no preview of filling it again until the user moves
+  let quiet = false; // the last group fill landed, so no preview of filling it again until the user moves
 
   const input = el('input', 'pb-input');
   input.type = 'search';
@@ -80,8 +80,8 @@ export function initFind(editor) {
     rebuild();
   });
 
-  // The flyout sits beside its menu item (patchbay's pb-menu__sub), which can hang off the bottom or the right when
-  // the selection is low or far right. Measured where CSS put it, then pulled back inside the viewport.
+  // The flyout sits beside its menu item (patchbay's pb-menu__sub). The flyout can hang off the bottom or the right
+  // when the selection is low or far right. Measured where CSS put it, then pulled back inside the viewport.
   function fit() {
     if (!panel.isConnected) return;
     panel.style.translate = '';
@@ -95,6 +95,12 @@ export function initFind(editor) {
     entries = findEntries(data.names, data.presets, rights, { fixed: editor.fixedOn() });
     draw();
   }
+
+  // A rename on the router goes out on the socket, so Find reads the names again then, and not only after STALE_MS.
+  on('names', () => {
+    data.at = 0;
+    if (active()) load(true);
+  });
 
   async function load(force = false) {
     if (data.loading || (!force && Date.now() - data.at < STALE_MS)) return;
@@ -239,8 +245,8 @@ export function initFind(editor) {
 
   // ---- choosing
 
-  // A fill moves the selection, so the menu redraws and its new Find item takes the box out of the page: focus is
-  // lost and with it data-open. Hover cannot hold the flyout, since the menu moves away from the pointer.
+  // A fill moves the selection, so the menu redraws and its new Find item removes the box from the page. Then focus
+  // is lost and with it data-open. Hover cannot hold the flyout, since the menu moves away from the pointer.
   function keepOpen() {
     if (panel.contains(document.activeElement)) return;
     panel.dataset.open = '1'; // a hidden box cannot take focus
@@ -342,8 +348,8 @@ export function initFind(editor) {
     note.textContent = '';
   };
   // Each opening starts on the kind the selection was given and not yet filled, so a Preset square lists Presets.
-  // Typing on the grid or choosing Find in the menu is an opening even if the flyout never closed (fresh); a fill
-  // that steps the selection on keeps focus in the box and is not, so a row of clicks keeps walking the list.
+  // Typing on the grid or choosing Find in the menu is an opening even if the flyout never closed (fresh). A fill
+  // that steps the selection on keeps focus in the box and is not an opening. So a row of clicks keeps walking the list.
   const scope = (fresh = false) => {
     if (active() && !fresh) return;
     chip = findScope(selCells(editor.grid()));

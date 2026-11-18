@@ -1,0 +1,2 @@
+- A Grid panel's take confirm shows Currently: the source each destination has on the take's levels before the take.
+- A Grid panel's Mode in the editor's Panel tab has three choices: Instant, Stage + Take and Stage + Take + Confirm. Stage + Take sends on Take with no confirm box. Existing panels keep Stage + Take + Confirm.

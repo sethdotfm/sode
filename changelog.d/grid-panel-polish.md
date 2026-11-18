@@ -1,0 +1,1 @@
+- A Grid panel page fills the window, and the grid goes to the edges. Crosspoints have crosshairs. Names, level picks, marks and scroll bars have the sizes of the Grid panel prototype.

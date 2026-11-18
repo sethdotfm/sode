@@ -33,8 +33,8 @@ test('a refused or failed fetch gives null so the cell shows no artwork', async 
   );
 });
 
-// A blob URL holds its bytes until it is revoked or the page unloads, so every Test it live and every panel switch
-// would otherwise keep one more copy of each image.
+// A blob URL holds its bytes until it is revoked or the page unloads. Without a revoke, every Live Editor run and every
+// panel switch would keep one more copy of each image.
 test('revoke lets go of every blob URL made, and a later url() fetches afresh', async () => {
   const made = [];
   const gone = [];

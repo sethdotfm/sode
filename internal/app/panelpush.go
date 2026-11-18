@@ -26,9 +26,13 @@ const panelCheckpointMax = 10 // per panel, oldest dropped first
 var (
 	errNoPanel   = errors.New("no such panel")
 	errBadLayout = errors.New("the layout does not fit the panel")
+	// errLayoutType guards every way in, so a layout of the other type never blanks a panel's cells or lists.
+	errLayoutType = errors.New("the layout is of the other panel type")
 )
 
 type panelLayout struct {
+	// Type is empty in a checkpoint or set entry saved before Grid panels; that is a Buttons panel.
+	Type  string      `yaml:"type,omitempty" json:"type,omitempty"`
 	Rows  int         `yaml:"rows" json:"rows"`
 	Cols  int         `yaml:"cols" json:"cols"`
 	Pages []PanelPage `yaml:"pages,omitempty" json:"pages,omitempty"`
@@ -36,16 +40,28 @@ type panelLayout struct {
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings" json:"settings"`
 	Extra       map[string]any   `yaml:"extra,omitempty" json:"extra,omitempty"`
+	// Sources and Destinations are a Grid panel's edges with their hidden items, pins and item artwork.
+	Sources      *GridEdge `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Destinations *GridEdge `yaml:"destinations,omitempty" json:"destinations,omitempty"`
 }
 
 func layoutOf(p Panel) panelLayout {
-	return panelLayout{Rows: p.Rows, Cols: p.Cols, Pages: p.Pages, Settings: p.Settings, Extra: p.Extra}
+	return panelLayout{Type: p.Type, Rows: p.Rows, Cols: p.Cols, Pages: p.Pages, Settings: p.Settings, Extra: p.Extra,
+		Sources: p.Sources, Destinations: p.Destinations}
+}
+
+func layoutType(t string) string {
+	if t == "" {
+		return panelTypeButtons
+	}
+	return t
 }
 
 // withLayout is p with the layout swapped in. Stored values are never mutated, so sharing
 // the layout's slices and maps between panels is safe.
 func (p Panel) withLayout(l panelLayout) Panel {
 	p.Rows, p.Cols, p.Pages, p.LegacyCells, p.Settings, p.Extra = l.Rows, l.Cols, l.Pages, l.LegacyCells, l.Settings, l.Extra
+	p.Sources, p.Destinations = l.Sources, l.Destinations
 	return p
 }
 
@@ -103,6 +119,9 @@ func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string) (Pa
 	p, ok := s.by[id]
 	if !ok {
 		return Panel{}, panelCheckpoint{}, errNoPanel
+	}
+	if layoutType(lay.Type) != layoutType(p.Type) {
+		return Panel{}, panelCheckpoint{}, errLayoutType
 	}
 	q := p.withLayout(lay)
 	q.normalize()
@@ -187,7 +206,7 @@ type PanelSetEntry struct {
 	panelLayout `yaml:",inline"`
 }
 
-// PanelSet: Scope is panelShareMe (Owner only) or panelShareAll (every user may push it).
+// PanelSet: Scope is panelShareMe (Owner only) or panelShareAll (every user can push it).
 type PanelSet struct {
 	ID      string          `yaml:"id" json:"id"`
 	Name    string          `yaml:"name" json:"name"`
@@ -289,7 +308,7 @@ func (s *panelSetStore) putLocked(set PanelSet) error {
 	return nil
 }
 
-// followUsers renames set owners. A Me set's file is named for its owner, so the set moves to the new
+// followUsers renames set owners. A Me set's file is named for its owner. So the set moves to the new
 // name's file and the old file is rewritten without it.
 func (s *panelSetStore) followUsers(renames map[string]string) {
 	s.mu.Lock()
