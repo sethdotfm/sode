@@ -81,11 +81,10 @@ const L = {
   noAutoLock: false,
   pinNeeded: false,
   lens: [],
-  // The holder of a held Lock has no PIN: their name again resumes it (asksName).
-  get heldNoPin() {
-    return this.held && listedUser(S.users, heldUser)?.len === 0;
-  },
 };
+// The holder of a held Lock has no PIN: their name again resumes it (asksName). Not enumerable,
+// so the {...L} copies that go back through Object.assign(L, ...) do not hit a getter-only prop.
+Object.defineProperty(L, 'heldNoPin', { get: () => L.held && listedUser(S.users, heldUser)?.len === 0 });
 export const lockState = () => ({ ...L });
 
 startHandshake(page);
