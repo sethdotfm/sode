@@ -71,7 +71,7 @@ export function createDefaultRow({ ed, patch, done }) {
     node,
     // c is the stored cell, never one drawn with its default.
     update(c) {
-      if (c !== cell && (c?.kind !== cell?.kind || c?.n !== cell?.n || c?.name !== cell?.name)) said.textContent = '';
+      if (c !== cell && (c?.kind !== cell?.kind || c?.n !== cell?.n || c?.id !== cell?.id || c?.name !== cell?.name)) said.textContent = '';
       cell = c;
       const item = takesDefault(c);
       node.hidden = !item;

@@ -242,7 +242,7 @@ func TestPagesOldTemplateAndCheckpointLoadAsOnePage(t *testing.T) {
 	s := loadPanels(filepath.Join(dir, "config.yaml"))
 	p, _ := s.create(Panel{Name: "A", Owner: "Ana", Rows: 1, Cols: 1})
 	lay := panelLayout{Rows: 1, Cols: 1, LegacyCells: []map[string]any{{"r": 1, "c": 1, "kind": "take"}}}
-	q, _, err := s.applyLayout(p.ID, lay, "Ana", "test")
+	q, _, err := s.applyLayout(p.ID, lay, "Ana", "test", nil)
 	if err != nil || len(q.Pages) != 1 || len(q.Pages[0].Cells) != 1 || q.LegacyCells != nil {
 		t.Fatalf("old layout %+v %v", q, err)
 	}

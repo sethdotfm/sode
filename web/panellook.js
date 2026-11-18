@@ -63,12 +63,21 @@ export function artUrlPath(panelId, artId) {
 // The item a cell shows, keyed as Default artwork is (cellItem and ArtDefault.key in artdefaults.go); '' for none.
 export function itemKey(cell) {
   if ((cell?.kind === 'source' || cell?.kind === 'destination') && Number.isInteger(cell.n)) return `${cell.kind}/${cell.n}`;
+  if (cell?.kind === 'preset' && cell.id) return `preset/${cell.id}`;
   if (cell?.kind === 'preset' && cell.name) return `preset/${cell.scope}/${cell.name}`;
   return '';
 }
 
-// A list of defaults (GET /default-artwork, or a panel read's artDefaults) as a Map by item.
-export const defaultsBy = (list) => new Map((Array.isArray(list) ? list : []).map((d) => [itemKey(d), d]));
+// A list of defaults (GET /default-artwork, or a panel read's artDefaults) as a Map by item. A preset's default is
+// also kept under the preset's name now, for a Preset cell that has no id yet.
+export function defaultsBy(list) {
+  const out = new Map();
+  for (const d of Array.isArray(list) ? list : []) {
+    out.set(itemKey(d), d);
+    if (d.kind === 'preset' && d.id && d.name) out.set(itemKey({ ...d, id: '' }), d);
+  }
+  return out;
+}
 
 export const defaultFor = (cell, defaults) => defaults?.get(itemKey(cell)) || null;
 

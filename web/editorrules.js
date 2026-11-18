@@ -20,12 +20,13 @@ export function defaultNote(d, own, routerName) {
 
 // Whether a cell's item can carry Default artwork. Me presets cannot: the set is shared, so the server refuses them.
 export const takesDefault = (c) =>
-  !!c && (c.kind === 'preset' ? c.scope === 'everyone' && !!c.name : (c.kind === 'source' || c.kind === 'destination') && Number.isInteger(c.n));
+  !!c && (c.kind === 'preset' ? c.scope === 'everyone' && (!!c.id || !!c.name) : (c.kind === 'source' || c.kind === 'destination') && Number.isInteger(c.n));
 
 // The body of PUT (set) or DELETE (clear) /default-artwork for a cell's item. Set sends the cell's own artwork and
-// Hide text, and the panel an uploaded image is on, which the server copies.
+// Hide text, and the panel an uploaded image is on, which the server copies. The server finds a preset by id first.
 export function defaultBody(cell, panelId, set) {
-  const item = cell.kind === 'preset' ? { kind: cell.kind, scope: cell.scope, name: cell.name } : { kind: cell.kind, n: cell.n };
+  const item =
+    cell.kind === 'preset' ? { kind: cell.kind, scope: cell.scope, ...(cell.id ? { id: cell.id } : {}), name: cell.name } : { kind: cell.kind, n: cell.n };
   if (!set) return item;
   return { ...item, art: cell.art || '', artB: cell.artB || '', hideText: cell.hideText === true, panel: panelId };
 }
