@@ -1,0 +1,12 @@
+branding:
+  brandText: Truck B
+  brandBorder: red
+confirm:
+  confirmLockoutMs: 700
+  resultDismissSeconds: 5
+  confirmEnter: true
+  confirmSound: true
+history:
+  hiddenDsts: "9"
+weather:
+  sunny: true

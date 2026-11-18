@@ -1,0 +1,5 @@
+filterSets:
+  - name: Cams
+    src: CAM
+    sode: true
+    ext: false

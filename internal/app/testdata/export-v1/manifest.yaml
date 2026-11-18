@@ -1,0 +1,15 @@
+# Export format 1 as released. Written by hand: never regenerate it from the exporter.
+format: 1
+sode: v2.0.0
+install: 0123456789abcdef0123456789abcdef
+made: 2026-11-18T10:00:00Z
+categories: [settings, routers, users, presets, filterSets, panels, artwork, apiClients, browser]
+routers:
+  - uid: 5f3a9c1e7b2d4a60
+    prefix: A
+    title: Studio Ultrix
+    matrix: 0
+    levels: 3
+    levelOffset: 0
+    levelNumbering: "1"
+    namesHash: 9b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e

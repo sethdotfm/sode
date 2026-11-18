@@ -1,0 +1,20 @@
+users:
+  - id: u-0001
+    name: Ada
+    pin: pbkdf2-sha256$1000$c2FsdA$aGFzaA
+    len: 4
+    role: administrator
+    shoeSize: 42
+    profile:
+      prefs: {theme: dark}
+      presets:
+        - id: pr-me1
+          name: Mine
+          items:
+            - src: {n: 1, shown: "2", name: CAM 2}
+              dsts: [{n: 0, shown: "1", name: MON 1}]
+  - id: u-0002
+    name: Bo
+    role: standard
+    rights:
+      dsts: [{router: A, n: 0, name: MON 1}]
