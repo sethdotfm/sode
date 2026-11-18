@@ -14,8 +14,7 @@ import (
 func TestChromeSettingsTopics(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	// No users: the page acts as an Administrator, so Settings shows the Access and Server topics.
-	a := simApp(t, sim, func(c *config.Config) { c.Users = nil })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -25,6 +24,8 @@ func TestChromeSettingsTopics(t *testing.T) {
 
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
+	// Access and Server show only to an Administrator.
+	signInSettings(b)
 	b.waitFor("Users shown", `!!document.getElementById('users-manage')?.offsetParent`)
 
 	b.waitFor("five banded topics", `(() => {
