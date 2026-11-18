@@ -31,9 +31,8 @@ func setRole(t *testing.T, a *App, name, role string) {
 }
 
 // saveUsers is SaveUsers for a test that lists only the users it is about. It keeps the row
-// of Ada, the fixture Administrator, when a list that is not empty leaves her out. A switch
-// back to PIN only types her PIN again. Tests of the refusal for no Administrator call
-// SaveUsers.
+// of Ada, the fixture Administrator, when a list that is not empty leaves her out. Tests of
+// the refusal for no Administrator call SaveUsers.
 func saveUsers(a *App, c *client, req usersReq) error {
 	if ada, ok := a.r().cfg.FindUserByName("Ada"); ok && ada.Role == config.RoleAdministrator && len(req.Users) > 0 {
 		listed := false
@@ -42,9 +41,6 @@ func saveUsers(a *App, c *client, req usersReq) error {
 		}
 		if !listed {
 			row := userEdit{ID: ada.ID, Name: ada.Name, Role: ada.Role, Persistent: ada.Persistent}
-			if req.SignInMode == config.SignInPin {
-				row.Pin = "2468"
-			}
 			req.Users = append(slices.Clone(req.Users), row)
 		}
 	}
@@ -108,9 +104,9 @@ func (p *wsPeer) until(typ string) map[string]any {
 	return nil
 }
 
-func (p *wsPeer) signIn(pin string) {
+func (p *wsPeer) signIn(name, pin string) {
 	p.t.Helper()
-	p.send(map[string]any{"t": "userUnlock", "pin": pin, "id": 1})
+	p.send(map[string]any{"t": "userUnlock", "user": name, "pin": pin, "id": 1})
 	if m := p.until("userUnlockResult"); m["ok"] != true {
 		p.t.Fatalf("sign-in: %v", m)
 	}
@@ -148,7 +144,7 @@ func refusedForRole(t *testing.T, what string, r map[string]any, role string) {
 func TestStandardUserIsRefusedATrustedAction(t *testing.T) {
 	a := userApp(t, false) // Ana is a Standard user
 	p := dialPeer(t, a)
-	p.signIn("1234")
+	p.signIn("Ana", "1234")
 	refusedForRole(t, "presets", p.ask("presets", 3, map[string]any{"presets": []any{}}), config.RoleTrusted)
 	if r := p.ask("profileSave", 4, map[string]any{"name": "Ana", "profile": map[string]any{}}); r["ok"] != true {
 		t.Fatalf("own profile: %v", r)
@@ -160,7 +156,7 @@ func TestTrustedUserIsRefusedAnAdministratorAction(t *testing.T) {
 	a := userApp(t, false)
 	setRole(t, a, "Ana", config.RoleTrusted)
 	p := dialPeer(t, a)
-	p.signIn("1234")
+	p.signIn("Ana", "1234")
 	if r := p.ask("presets", 3, map[string]any{"presets": []any{}}); r["ok"] != true {
 		t.Fatalf("Trusted user presets: %v", r)
 	}
@@ -170,7 +166,7 @@ func TestTrustedUserIsRefusedAnAdministratorAction(t *testing.T) {
 	refusedForRole(t, "router change", p.until("configResult"), config.RoleAdministrator)
 
 	q := dialPeer(t, a)
-	q.signIn("2468") // Ada, the Administrator
+	q.signIn("Ada", "2468") // Ada, the Administrator
 	if r := q.ask("usersList", 6, nil); r["ok"] != true {
 		t.Fatalf("Administrator usersList: %v", r)
 	}
@@ -204,7 +200,7 @@ func TestNoUsersActsAsAdministrator(t *testing.T) {
 func TestManageUsersSetsRoles(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
-	p.signIn("2468")
+	p.signIn("Ada", "2468")
 	list := p.ask("usersList", 3, nil)
 	var rows []map[string]any
 	for _, u := range list["users"].([]any) {

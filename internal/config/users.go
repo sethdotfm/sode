@@ -84,14 +84,8 @@ func (c Config) HasAdministrator() bool {
 	return false
 }
 
-// Sign-in modes. Wire and file values.
 const (
-	SignInPin      = "pin"      // the PIN alone says who; every PIN is unique
-	SignInUsername = "username" // the user's Name and PIN together; PINs can repeat
-)
-
-const (
-	MaxUsers         = 12 // a PIN is checked against each user of its length
+	MaxUsers         = 12
 	MaxUserName      = 24
 	UserPinMin       = 4
 	UserPinMax       = 12
@@ -190,9 +184,6 @@ func (c *Config) normalizeUsers() {
 			c.MaxPinLen = max(c.MaxPinLen, u.Len)
 		}
 	}
-	if c.SignInMode == "" {
-		c.SignInMode = SignInPin
-	}
 	if c.GuestRole == "" {
 		c.GuestRole = RoleStandard
 	}
@@ -213,9 +204,6 @@ func (c Config) validateUsers() []error {
 	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
 	if len(c.Users) > MaxUsers {
 		bad("at most %d users", MaxUsers)
-	}
-	if c.SignInMode != SignInPin && c.SignInMode != SignInUsername {
-		bad("sign-in mode must be %q or %q", SignInPin, SignInUsername)
 	}
 	seen := map[string]bool{}
 	seenID := map[string]bool{}

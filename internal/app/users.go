@@ -143,12 +143,9 @@ type lockStateMsg struct {
 	// that user's PIN resumes it.
 	Held bool   `json:"held,omitempty"`
 	User string `json:"user,omitempty"`
-	// Mode: sign-in mode, so the sign-in screen knows whether to ask for a username.
-	Mode string `json:"mode"`
-	// Lens: PIN lengths in use; rides every lock state so a pad is never stale.
+	// Lens: PIN lengths in use; rides every lock state so a pad is never stale. Names and each
+	// user's length ride the hello.
 	Lens []int `json:"lens,omitempty"`
-	// Names: for "by Ana" in history; not sent to locked pages.
-	Names []string `json:"names,omitempty"`
 	// Hi: answer to the page's own hi; it is possible that an unsolicited state arrives
 	// first, and it says nothing about the token.
 	Hi bool `json:"hi,omitempty"`
@@ -170,7 +167,6 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	}
 	m := lockStateMsg{T: "lockState", Page: page, Enforced: pageGates[page].on(cfg.Locks)}
 	m.Held = a.heldMu(c, cfg)
-	m.Mode = cfg.SignInMode
 	if a.userOKMu(c, cfg) {
 		u, _ := cfg.FindUserByID(c.u.user.Load().ID) // live flags, not the sign-in copy
 		m.User, m.Persistent, m.NoAutoLock = u.Name, u.Persistent, u.NoAutoLock
@@ -179,11 +175,6 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	m.Trusted = config.RoleAtLeast(m.Role, config.RoleTrusted)
 	m.Locked = m.Held || m.Enforced && m.User == ""
 	m.Lens = cfg.PinLens()
-	if !m.Locked {
-		for _, u := range cfg.Users {
-			m.Names = append(m.Names, u.Name)
-		}
-	}
 	return m
 }
 
@@ -252,55 +243,33 @@ var dummyPinHash = sync.OnceValue(func() string {
 
 func burnPinCheck(pin string) { config.CheckPin(dummyPinHash(), pin) }
 
-// matchPin finds the user a PIN signs in, or nil. Pure: it reads only cfg. Candidates are
-// the holder of a Lock (only their PIN counts), the user a name names, or in PIN only
-// mode everyone. Exactly one must match, so a PIN several users hold (left over from
-// name and PIN mode) signs nobody in. A name that names nobody, or someone other
-// than the holder, burns a check so it costs what a right one does.
+// matchPin finds the user a PIN signs in, or nil. Pure: it reads only cfg. The one candidate
+// is the holder of a Lock (an empty name, or the holder's own), else the named user. No
+// candidate burns a check so it costs what a right one does.
 func matchPin(cfg config.Config, holder *config.User, name, pin string) *config.User {
-	byName := cfg.SignInMode == config.SignInUsername
-	var cands []config.User
-	switch {
-	case holder != nil:
-		if named, ok := cfg.FindUserByName(name); byName && name != "" && (!ok || named.ID != holder.ID) {
-			break
+	var cand config.User
+	ok := false
+	if holder != nil {
+		if named, found := cfg.FindUserByName(name); name == "" || found && named.ID == holder.ID {
+			cand, ok = cfg.FindUserByID(holder.ID) // the live hash, not the sign-in copy
 		}
-		if u, ok := cfg.FindUserByID(holder.ID); ok { // the live hash, not the sign-in copy
-			cands = []config.User{u}
-		}
-	case byName:
-		if u, ok := cfg.FindUserByName(name); ok {
-			cands = []config.User{u}
-		}
-	default:
-		cands = cfg.Users
+	} else if name != "" {
+		cand, ok = cfg.FindUserByName(name)
 	}
-	if len(cands) == 0 {
+	if !ok {
 		burnPinCheck(pin)
 		return nil
 	}
-	n := utf8.RuneCountInString(pin)
-	var found []config.User
-	for _, u := range cands {
-		// Name and PIN mode hashes whatever the length: PIN lengths are public, so skipping it
-		// would tell a known name from an unknown one.
-		if !byName && u.Len != n {
-			continue
-		}
-		if config.CheckPin(u.Pin, pin) && u.Len == n {
-			found = append(found, u)
-		}
-	}
-	if len(found) != 1 {
+	// Hashed whatever the length: PIN lengths are public, so skipping it would tell a known name
+	// from an unknown one.
+	if !config.CheckPin(cand.Pin, pin) || cand.Len != utf8.RuneCountInString(pin) {
 		return nil
 	}
-	return &found[0]
+	return &cand
 }
 
-// UserUnlockAs: PIN only mode ignores name and finds the user by PIN. Name and PIN
-// mode compares the PIN with the named user's hash only. A held Lock resumes with its own
-// user's PIN whatever the mode, and a name there must be that user's. Every try
-// counts in the users' pool, like an Advanced Settings PIN.
+// UserUnlockAs compares the PIN with the named user's hash only. A held Lock resumes with its
+// own user's PIN, and a name there must be that user's. Every try counts in the users' pool.
 func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	cfg := a.r().cfg
 	a.mu.Lock()
@@ -366,34 +335,6 @@ func (a *App) SignOutAll(c *client, name string) error {
 	return nil
 }
 
-// backToPinRefusal: salted hashes hide whether saved users share a PIN. So a change back to PIN only
-// needs a new PIN typed for every user, all different. Compares plaintext within the request.
-func backToPinRefusal(users []userEdit) error {
-	var missing []string
-	byPin := map[string][]string{}
-	for _, e := range users {
-		name := strings.TrimSpace(e.Name)
-		if e.Pin == "" {
-			missing = append(missing, name)
-		} else {
-			byPin[e.Pin] = append(byPin[e.Pin], name)
-		}
-	}
-	if len(missing) > 0 {
-		return errors.New("PIN only needs every PIN different, and Sode cannot tell whether saved PINs match: give a new PIN to " + strings.Join(missing, ", "))
-	}
-	var clash []string
-	for _, e := range users {
-		if names := byPin[e.Pin]; len(names) > 1 {
-			clash = append(clash, strings.TrimSpace(e.Name))
-		}
-	}
-	if len(clash) > 0 {
-		return errors.New("PIN only needs every PIN different, and these users got the same new PIN: " + strings.Join(clash, ", "))
-	}
-	return nil
-}
-
 // userEdit: ID names a saved user (a rename keeps everything of theirs); "" adds one. Pin is a
 // new PIN ("" keeps).
 type userEdit struct {
@@ -411,8 +352,6 @@ type userEdit struct {
 type usersReq struct {
 	Users  []userEdit `json:"users"`
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// SignInMode: "" keeps the current one. Saved here so it needs an Administrator.
-	SignInMode string `json:"signInMode"`
 	// GuestRole: "" keeps the current one.
 	GuestRole string `json:"guestRole"`
 	// API clients, Guest rights and Guest scopes: nil keeps the current ones. They ride this
@@ -425,7 +364,7 @@ type usersReq struct {
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
 }
 
-// SaveUsers needs an Administrator (not the main lock). PINs unique across users.
+// SaveUsers needs an Administrator (not the main lock). PINs need not be unique.
 func (a *App) SaveUsers(c *client, req usersReq) error {
 	if present(req.Locks) || present(req.AutoLock) {
 		return errors.New("the lock settings moved to Settings > Access: reload this page")
@@ -441,10 +380,6 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			cur.MaxPinLen = req.MaxPin
 		}
 		maxLen := cur.MaxPinLen
-		wasUsername := cur.SignInMode == config.SignInUsername
-		if req.SignInMode != "" {
-			cur.SignInMode = req.SignInMode
-		}
 		if req.GuestRole != "" {
 			cur.GuestRole = req.GuestRole
 		}
@@ -452,8 +387,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
 		}
 		var out []config.User
-		fresh := map[string]string{} // new PINs by user name
-		kept := map[string]bool{}    // one row per saved user
+		kept := map[string]bool{} // one row per saved user
 		for _, e := range req.Users {
 			u := config.User{ID: config.NewUserID(), Name: strings.TrimSpace(e.Name), Role: e.Role, Persistent: e.Persistent}
 			if err := userNameRefusal(u.Name); err != nil {
@@ -490,29 +424,10 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 					return err
 				}
 				u.Pin, u.Len = h, len(e.Pin)
-				fresh[u.Name] = e.Pin
 			} else if e.ID == "" {
 				return errors.New("give " + u.Name + " a PIN")
 			}
 			out = append(out, u)
-		}
-		if wasUsername && cur.SignInMode == config.SignInPin {
-			if err := backToPinRefusal(req.Users); err != nil {
-				return err
-			}
-		}
-		for name, pin := range fresh {
-			if cur.SignInMode == config.SignInUsername {
-				break // the username says whose PIN it is
-			}
-			for _, u := range out {
-				if u.Name == name || u.Len != len(pin) {
-					continue
-				}
-				if p2, isNew := fresh[u.Name]; isNew && p2 == pin || !isNew && config.CheckPin(u.Pin, pin) {
-					return errors.New("that PIN cannot be used")
-				}
-			}
 		}
 		cur.Users = out
 		if req.APIClients != nil {
@@ -622,7 +537,6 @@ type usersListMsg struct {
 	ID        int        `json:"id"`
 	OK        bool       `json:"ok"`
 	Users     []userView `json:"users"`
-	Mode      string     `json:"signInMode"`
 	GuestRole string     `json:"guestRole"`
 	// Rights and API clients: Administrator only, never before the PIN.
 	APIClients  []config.APIClient `json:"apiClients"`
@@ -652,7 +566,7 @@ type presetNote struct {
 
 func (a *App) usersList(id int) usersListMsg {
 	cfg := a.r().cfg.Clone()
-	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode, GuestRole: cfg.GuestRole,
+	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, GuestRole: cfg.GuestRole,
 		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes}
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}
@@ -709,11 +623,6 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 			}
 			if cfg.Users[i].Pin != u.Pin {
 				return errors.New("your PIN changed; unlock again")
-			}
-			for j, o := range cfg.Users {
-				if cfg.SignInMode == config.SignInPin && j != i && o.Len == len(newPin) && config.CheckPin(o.Pin, newPin) {
-					return errors.New("that PIN cannot be used")
-				}
 			}
 			cfg.Users[i].Pin, cfg.Users[i].Len = h, len(newPin)
 			return nil

@@ -24,7 +24,6 @@ func TestUserSetPin(t *testing.T) {
 		"short":     {"1234", "123"},
 		"letters":   {"1234", "12a4"},
 		"too long":  {"1234", "123456789"},
-		"another's": {"1234", "567890"},
 		"same":      {"1234", "1234"},
 	} {
 		if err := a.UserSetPin(c, pins[0], pins[1]); err == nil {

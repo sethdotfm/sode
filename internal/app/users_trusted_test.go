@@ -380,7 +380,7 @@ func TestSessionOverWebSocket(t *testing.T) {
 	send, until := dial()
 	send(map[string]any{"t": "hi", "page": "main"})
 	until("lockState")
-	send(map[string]any{"t": "userUnlock", "pin": "1234", "id": 1})
+	send(map[string]any{"t": "userUnlock", "user": "Ana", "pin": "1234", "id": 1})
 	res := until("userUnlockResult")
 	tok, _ := res["token"].(string)
 	if res["ok"] != true || tok == "" {

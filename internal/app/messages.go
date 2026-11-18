@@ -58,6 +58,9 @@ type helloMsg struct {
 	Levels        []config.Level  `json:"levels"`
 	LevelDefaults []string        `json:"levelDefaults"`
 	Cfg           config.Config   `json:"cfg"`
+	// Users: the sign-in list. It reaches locked pages, so it holds each name and PIN length (0 for
+	// none) and never more; cfg.users stays empty.
+	Users []helloUser `json:"users"`
 	// PinSet stays false: no PIN opens anything since Roles, so the page never asks for one.
 	PinSet      bool                `json:"pinSet"`
 	ConfigPath  string              `json:"configPath"`
@@ -69,6 +72,11 @@ type helloMsg struct {
 	InstallUID string `json:"installUid"`
 	// Prefix is the router prefix, so typing accepts A.23. Not in cfg, which hides it.
 	Prefix string `json:"prefix"`
+}
+
+type helloUser struct {
+	Name string `json:"name"`
+	Len  int    `json:"len"`
 }
 
 type namesCheckedMsg struct {

@@ -667,15 +667,18 @@ func (a *App) readHello() helloPage {
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
-	// No user directory in a hello (reaches locked pages): names ride the lock state, the
-	// editor asks usersList.
+	// A hello reaches locked pages: only names and PIN lengths go (Users); the editor asks usersList.
 	cfg := r.cfg
+	users := make([]helloUser, 0, len(cfg.Users))
+	for _, u := range cfg.Users {
+		users = append(users, helloUser{u.Name, u.Len})
+	}
 	cfg.Users = nil
 	m := helloMsg{
 		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: a.router.savedAt,
 		Tally: routeTriples(a.router.tally), Protect: routeTriples(a.router.protect),
 		Status: a.status, Recent: p.recent, More: p.more,
-		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg,
+		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Users: users,
 		ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
 		InstallUID: r.cfg.InstallUID,
