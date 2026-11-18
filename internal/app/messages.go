@@ -62,6 +62,8 @@ type helloMsg struct {
 	ConfigPath    string              `json:"configPath"`
 	Version       string              `json:"version"`
 	BrandColors   []config.BrandColor `json:"brandColors"`
+	// Prefix is the router prefix, so typing accepts A.23. Not in cfg, which hides it.
+	Prefix string `json:"prefix"`
 }
 
 type namesCheckedMsg struct {

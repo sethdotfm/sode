@@ -1,9 +1,10 @@
-// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js, sprite.js and fuzzy.js: an
-// import cycle must not occur.
+// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js
+// and routerprefix.js: an import cycle must not occur.
 
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
+import { searchText } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
 
 export const $ = (id) => document.getElementById(id);
@@ -22,6 +23,7 @@ export const S = {
   configPath: '',
   version: '',
   brandColors: [],
+  prefix: '', // the router prefix, from the hello
   srcs: [],
   dsts: [],
   srcBy: new Map(),
@@ -181,6 +183,11 @@ function handle(m) {
         globalThis.location?.reload();
         return;
       }
+      // The prefix changed while this socket was down, so the reload message never came.
+      if (S.prefix && m.prefix && S.prefix !== m.prefix) {
+        globalThis.location?.reload();
+        return;
+      }
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
       emit('helloCfg', m.cfg);
@@ -188,6 +195,7 @@ function handle(m) {
       S.configPath = m.configPath;
       S.version = m.version || '';
       S.brandColors = m.brandColors || [];
+      S.prefix = m.prefix || '';
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];
@@ -241,6 +249,10 @@ function handle(m) {
       emit('conn');
       break;
     case 'ping':
+      break;
+    // The router prefix changed: typed text and stored items on this page name the old one.
+    case 'reload':
+      globalThis.location?.reload();
       break;
     case 'sentPage':
     case 'uptimeResult':
@@ -417,8 +429,10 @@ export function protectedOn(dst, levels) {
 }
 // ---- fuzzy finder (scoring in fuzzy.js)
 
+// One router, so no other field can pin the route elsewhere; A.23 searches 23.
 export function search(list, q, n = 8) {
-  q = q.trim().toLowerCase();
+  q = searchText(q, S.prefix, [], [S.prefix]);
+  q = q?.trim().toLowerCase();
   if (!q) return [];
   const out = [];
   for (const it of list) {
