@@ -47,7 +47,7 @@ type Config struct {
 	LevelColors    []string       `yaml:"levelColors" json:"levelColors" guard:"open"`
 	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
 	PinMaxTries    int            `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
-	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
+	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults" owned:"true"`
 	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (saveSettings).
 	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
 	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
@@ -193,7 +193,7 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_NUM_OFFSET", &c.NumberOffset)
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
 	num("SODE_RESULT_DISMISS_S", &c.ResultDismissSeconds)
-	num("SODE_NAME_REFRESH_S", &c.NameRefreshSeconds)
+	num("SODE_NAME_REREAD_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
 	num("SODE_PIN_MAX_TRIES", &c.PinMaxTries)

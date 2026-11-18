@@ -1,4 +1,4 @@
-// Per-browser prefs (prefs.js): follow cfg.deviceDefaults (cached here for the next load) until this browser picks its own.
+// Per-browser prefs (prefs.js): follow cfg.browserDefaults (cached here for the next load) until this browser picks its own.
 // applyPrefs tells the views ('prefs', 'flip'); layout.js follows.
 
 import { el, on, emit } from './core.js';
@@ -45,7 +45,7 @@ function setGlobals(d) {
   writeJSON(CACHE_KEY, globals);
   applyPrefs();
 }
-on('helloCfg', (cfg) => setGlobals(cfg.deviceDefaults));
+on('helloCfg', (cfg) => setGlobals(cfg.browserDefaults));
 
 // View Transition where available, else patchbay's fade class.
 function setTheme(next) {

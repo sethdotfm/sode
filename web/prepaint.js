@@ -23,7 +23,7 @@
     }
   };
   try {
-    g = JSON.parse(get('sode-device-defaults')) || {};
+    g = JSON.parse(get('sode-browser-defaults')) || {};
   } catch {}
   let mine = {};
   try {
