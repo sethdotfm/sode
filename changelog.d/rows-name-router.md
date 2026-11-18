@@ -1,0 +1,1 @@
+- History entries now carry `router` (the router UID) and `routerTitle` (the router title when Sode wrote the entry). Communication Log rows for router messages and the Router link carry them too. `GET /api/v1/history`, `GET /api/v1/log` and the stream show them.

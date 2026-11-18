@@ -50,6 +50,10 @@ type Entry struct {
 	Panel    string `json:"panel,omitempty"`
 	PanelID  string `json:"panelId,omitempty"`
 	Instance string `json:"instance,omitempty"`
+	// Router is the router UID and RouterTitle its title when the entry was made. They keep
+	// the entry readable after a rename or a delete.
+	Router      string `json:"router,omitempty"`
+	RouterTitle string `json:"routerTitle,omitempty"`
 }
 
 // logLine: off turns 0-based numbers into the router's display numbers.
