@@ -24,27 +24,14 @@ import (
 // Config is everything editable from the settings dialog. Process-level
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
-	Router string `yaml:"router" json:"router" guard:"router"`
+	// Router is the one router v2.0 drives; the file holds it as the only entry of routers (router.go).
+	Router `yaml:"-"`
 	// Brand fields are display only.
-	BrandText       string `yaml:"brandText,omitempty" json:"brandText" guard:"open"`
-	BrandBorder     string `yaml:"brandBorder,omitempty" json:"brandBorder" guard:"open"`
-	RouterName      string `yaml:"routerName" json:"routerName" guard:"open"`
-	RouterShow      string `yaml:"routerShow" json:"routerShow" guard:"open"`
-	Matrix          int    `yaml:"matrix" json:"matrix" guard:"router"`
-	Levels          int    `yaml:"levels" json:"levels" guard:"router"`
-	LevelWireOffset int    `yaml:"levelWireOffset" json:"levelWireOffset" guard:"router"`
-	DefaultLevels   string `yaml:"defaultLevels" json:"defaultLevels" guard:"open"`
-	NameLength      int    `yaml:"nameLength" json:"nameLength" guard:"router"`
-	NameRequests    string `yaml:"nameRequests" json:"nameRequests" guard:"router"`
-	// SalvoGroup (0-127): the router's list is shared by every client, so use one only Sode uses.
-	FireMode             string   `yaml:"fireMode" json:"fireMode" guard:"pin"`
-	SalvoGroup           int      `yaml:"salvoGroup" json:"salvoGroup" guard:"pin"`
-	NumberOffset         int      `yaml:"numberOffset" json:"numberOffset" guard:"open"`
+	BrandText            string   `yaml:"brandText,omitempty" json:"brandText" guard:"open"`
+	BrandBorder          string   `yaml:"brandBorder,omitempty" json:"brandBorder" guard:"open"`
 	ConfirmLockoutMs     int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs" guard:"open"`
 	ResultDismissSeconds int      `yaml:"resultDismissSeconds" json:"resultDismissSeconds" guard:"open"`
 	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter" guard:"open"`
-	NameRefreshSeconds   int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds" guard:"open"`
-	TallyResyncSeconds   int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds" guard:"open"`
 	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
 	// HiddenDsts is a History filter expression (web/filter.js) hiding Externals on these destinations; still recorded.
 	HiddenDsts string      `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
@@ -59,8 +46,6 @@ type Config struct {
 	HideDsts []int `yaml:"hideDsts,omitempty" json:"-" guard:"open"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
-	// LevelNumbering: "1" (1-17), "0" (0-16) or "va" (V, 1-16).
-	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering" guard:"open"`
 	// LevelTypedBase: unused; kept so old files load.
 	LevelTypedBase int            `yaml:"levelTypedBase,omitempty" json:"-" guard:"open"`
 	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
@@ -150,22 +135,25 @@ type FilterSet struct {
 
 func Defaults() Config {
 	return Config{
-		RouterShow:           "address",
-		Matrix:               0,
-		Levels:               17,
-		LevelWireOffset:      -1,
-		NameLength:           12,
-		NameRequests:         "std",
-		FireMode:             "sequential",
-		SalvoGroup:           127,
-		NumberOffset:         1,
+		Router: Router{
+			Prefix:             "A",
+			RouterShow:         "address",
+			Matrix:             0,
+			Levels:             17,
+			LevelWireOffset:    -1,
+			NameLength:         12,
+			NameRequests:       "std",
+			FireMode:           "sequential",
+			SalvoGroup:         127,
+			NumberOffset:       1,
+			NameRefreshSeconds: 60,
+			TallyResyncSeconds: 300,
+			LevelNumbering:     "1",
+		},
 		ConfirmLockoutMs:     500,
 		ResultDismissSeconds: 8,
-		NameRefreshSeconds:   60,
-		TallyResyncSeconds:   300,
 		TrustedProxies:       []string{},
 		LevelColors:          []string{},
-		LevelNumbering:       "1",
 		PinMaxTries:          10,
 		MaxPinLen:            DefaultMaxPinLen,
 		SignInMode:           SignInPin,
@@ -193,7 +181,7 @@ func FromEnv(c Config) (Config, error) {
 			*dst = n
 		}
 	}
-	str("SODE_ROUTER", &c.Router)
+	str("SODE_ROUTER", &c.Address)
 	num("SODE_MATRIX", &c.Matrix)
 	num("SODE_LEVEL_COUNT", &c.Levels)
 	num("SODE_LEVEL_WIRE_OFFSET", &c.LevelWireOffset)
@@ -254,8 +242,15 @@ func (c Config) Clone() Config {
 }
 
 func (c *Config) Normalize() {
-	c.Router = strings.TrimSpace(c.Router)
-	c.RouterName = strings.TrimSpace(c.RouterName)
+	c.Address = strings.TrimSpace(c.Address)
+	c.Title = strings.TrimSpace(c.Title)
+	if c.UID == "" {
+		c.UID = newRouterUID()
+	}
+	c.Prefix = strings.ToUpper(strings.TrimSpace(c.Prefix))
+	if c.Prefix == "" {
+		c.Prefix = "A"
+	}
 	c.BrandText = strings.TrimSpace(c.BrandText)
 	c.normalizeUsers()
 	c.normalizeAPI()
@@ -342,8 +337,8 @@ func (c Config) Validate() error {
 	var errs []error
 	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
 
-	if c.Router != "" {
-		host, port, err := net.SplitHostPort(c.Router)
+	if c.Address != "" {
+		host, port, err := net.SplitHostPort(c.Address)
 		if p, perr := strconv.Atoi(port); err != nil || host == "" || perr != nil || p < 1 || p > 65535 {
 			bad("router must be host:port, for example 10.0.0.50:8910")
 		}
@@ -411,7 +406,10 @@ func (c Config) Validate() error {
 	default:
 		bad("router status must show address, name or none")
 	}
-	if n := len([]rune(c.RouterName)); n > 32 {
+	if len(c.Prefix) != 1 || c.Prefix[0] < 'A' || c.Prefix[0] > 'Z' {
+		bad("router prefix must be one letter, A to Z")
+	}
+	if n := len([]rune(c.Title)); n > 32 {
 		bad("router name must be at most 32 characters")
 	}
 	if n := len([]rune(c.BrandText)); n > 24 {
@@ -567,7 +565,8 @@ func ParseLevels(s string, max int) ([]int, error) {
 	return out, nil
 }
 
-// Load reads path over the defaults. exists is false if there is no file.
+// Load reads path over the defaults. exists is false if there is no file. A router UID made
+// here is written back, so the file keeps it; callers back the file up before Load.
 func Load(path string) (c Config, exists bool, err error) {
 	c = Defaults()
 	b, err := os.ReadFile(path)
@@ -583,6 +582,11 @@ func Load(path string) (c Config, exists bool, err error) {
 	}
 	if err := c.Validate(); err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
+	}
+	if !bytes.Contains(b, []byte(c.UID)) {
+		if err := Save(path, c); err != nil {
+			return c, true, fmt.Errorf("%s: keeping the new router UID: %w", path, err)
+		}
 	}
 	return c, true, nil
 }
@@ -647,6 +651,10 @@ func (c Config) UnknownKeys() []string {
 					continue
 				}
 				name, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")
+				if f.Anonymous && f.Type == reflect.TypeOf(Router{}) {
+					walk(v.Field(i), joinKey(path, "routers[0]"))
+					continue
+				}
 				if f.Name == "Extra" {
 					for k := range v.Field(i).Interface().(map[string]any) {
 						out = append(out, joinKey(path, k))

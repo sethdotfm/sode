@@ -158,14 +158,14 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 			a.ext = newExtTracker()
 			a.cutRoutes()
 			a.status.Router = string(swp08.StateConnecting)
-			a.status.Addr = c.Router
+			a.status.Addr = c.Address
 			a.status.Err = ""
 			// SetTarget does not report down, so this tells the link log and uptime. The next up is
 			// logged again.
 			a.up.State(false)
 			a.linkSeen, a.linkErr = "", ""
 			ch := event(kindLink, "", "", "changed")
-			ch.Note = c.Router
+			ch.Note = c.Address
 			a.logEvent(ch)
 		}
 		hello := a.hello(page)
@@ -189,7 +189,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	}
 	a.catchUpSessions() // it is possible that this save ticked Never sign out
 	if reconnect {
-		a.sw.SetTarget(c.Router, applied.probe())
+		a.sw.SetTarget(c.Address, applied.probe())
 	}
 	log.Printf("config: applied (reconnect=%v)", reconnect)
 	return nil

@@ -120,7 +120,7 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes := map[string]func(*config.Config){
-		"router":          func(x *config.Config) { x.Router = "10.9.9.9:8910" },
+		"router":          func(x *config.Config) { x.Address = "10.9.9.9:8910" },
 		"pinMaxTries":     func(x *config.Config) { x.PinMaxTries = 0 },
 		"trustedProxies":  func(x *config.Config) { x.TrustedProxies = []string{"0.0.0.0/0"} },
 		"matrix":          func(x *config.Config) { x.Matrix = 5 },
@@ -139,11 +139,11 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 			t.Errorf("trusted changed %s: %v", name, err)
 		}
 	}
-	if a.r().cfg.Router != before.Router || a.r().cfg.PinMaxTries != before.PinMaxTries || len(a.r().cfg.TrustedProxies) != 0 {
+	if a.r().cfg.Address != before.Address || a.r().cfg.PinMaxTries != before.PinMaxTries || len(a.r().cfg.TrustedProxies) != 0 {
 		t.Fatal("a refused save changed the config")
 	}
 	pad := a.r().cfg.Clone()
-	pad.Router = " " + pad.Router + " "
+	pad.Address = " " + pad.Address + " "
 	if err := a.SaveSettings(c, pad, "", false); err != nil {
 		t.Fatalf("padded but unchanged router refused: %v", err)
 	}
@@ -158,12 +158,12 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	cfg = a.r().cfg.Clone()
 	cfg.PinMaxTries = 0
 	cfg.TrustedProxies = []string{"10.0.0.2"}
-	cfg.Router = "127.0.0.1:9999"
+	cfg.Address = "127.0.0.1:9999"
 	if err := a.SaveSettings(c, cfg, "", false); err != nil {
 		t.Fatalf("admin save: %v", err)
 	}
-	if got := a.r().cfg; got.PinMaxTries != 0 || got.Router != "127.0.0.1:9999" || len(got.TrustedProxies) != 1 {
-		t.Fatalf("admin changes lost: %+v", got.Router)
+	if got := a.r().cfg; got.PinMaxTries != 0 || got.Address != "127.0.0.1:9999" || len(got.TrustedProxies) != 1 {
+		t.Fatalf("admin changes lost: %+v", got.Address)
 	}
 }
 

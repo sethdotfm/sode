@@ -200,7 +200,7 @@ func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 
 	cfg = a.r().cfg
 	cfg.APIClients[0].Rights = config.Rights{}
-	cfg.Router = "192.0.2.1:8910"
+	cfg.Address = "192.0.2.1:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +251,7 @@ func TestTallyETagMovesWithRouteLevelsAndRouter(t *testing.T) {
 
 	cfg = a.r().cfg
 	cfg.APIClients[0].Rights = config.Rights{}
-	cfg.Router = "192.0.2.1:8910"
+	cfg.Address = "192.0.2.1:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
