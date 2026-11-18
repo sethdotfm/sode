@@ -39,7 +39,7 @@ func TestInstanceWatchIsToldOnlyAboutItsDevice(t *testing.T) {
 	if n := notices(next(), "panelNotice"); len(n) != 0 {
 		t.Fatalf("told about an instance not watched: %v", n)
 	}
-	if rows := a.offlineFor("Ana"); len(rows) != 0 {
+	if rows := a.offlineFor(idOf(a, "Ana")); len(rows) != 0 {
 		t.Fatalf("badge rows for an instance not watched: %v", rows)
 	}
 
@@ -50,7 +50,7 @@ func TestInstanceWatchIsToldOnlyAboutItsDevice(t *testing.T) {
 	if len(got) != 1 || got[0]["device"] != "Studio A" || got[0]["state"] != "lost" || got[0]["offline"] != false {
 		t.Fatalf("want one lost notice for Studio A that does not call the panel offline, got %v", got)
 	}
-	rows := a.offlineFor("Ana")
+	rows := a.offlineFor(idOf(a, "Ana"))
 	if len(rows) != 1 || rows[0].Device != "Studio A" || rows[0].Instance != "studio a" {
 		t.Fatalf("rows %v", rows)
 	}
@@ -60,7 +60,7 @@ func TestInstanceWatchIsToldOnlyAboutItsDevice(t *testing.T) {
 	if len(back) != 1 || back[0]["state"] != "back" || back[0]["device"] != "Studio A" {
 		t.Fatalf("return notice %v", back)
 	}
-	if rows := a.offlineFor("Ana"); len(rows) != 0 {
+	if rows := a.offlineFor(idOf(a, "Ana")); len(rows) != 0 {
 		t.Fatalf("still listed after returning: %v", rows)
 	}
 }
@@ -126,19 +126,19 @@ func TestInstanceWatchIsStoredWithThePanelIDAndLoadsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "ana:\n    - " + id + "\n    - " + id + "/studio a\n"
+	want := idOf(a, "Ana") + ":\n    - " + id + "\n    - " + id + "/studio a\n"
 	if string(b) != want {
 		t.Fatalf("file %q, want %q", b, want)
 	}
 	m := loadPanelMon(filepath.Join(dir, "config.yaml"))
-	if !m.watching("Ana", id) || !m.watchingInst("Ana", id, "STUDIO A") {
+	if !m.watching(idOf(a, "Ana"), id) || !m.watchingInst(idOf(a, "Ana"), id, "STUDIO A") {
 		t.Fatalf("not loaded: %v", m.watch)
 	}
 	// A file from before instances held plain panel ids and still loads.
-	if err := os.WriteFile(a.mon.path, []byte("ana:\n    - "+id+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(a.mon.path, []byte(idOf(a, "Ana")+":\n    - "+id+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if m := loadPanelMon(filepath.Join(dir, "config.yaml")); !m.watching("Ana", id) {
+	if m := loadPanelMon(filepath.Join(dir, "config.yaml")); !m.watching(idOf(a, "Ana"), id) {
 		t.Fatal("old file did not load")
 	}
 }
@@ -157,11 +157,11 @@ func TestAlarmClearAndStopFollowTheInstance(t *testing.T) {
 	if len(r["offline"].([]any)) != 0 {
 		t.Fatalf("badge after clear %v", r)
 	}
-	if !a.mon.watchingInst("Ana", id, "lobby") {
+	if !a.mon.watchingInst(idOf(a, "Ana"), id, "lobby") {
 		t.Fatal("clear ended the watch")
 	}
 	a.serveAlarm(c, &inMsg{T: "panelAlarm", Panel: id, Instance: "lobby", Action: "stop"})
-	if a.mon.watchingInst("Ana", id, "lobby") {
+	if a.mon.watchingInst(idOf(a, "Ana"), id, "lobby") {
 		t.Fatal("stop kept the instance watch")
 	}
 }
@@ -172,7 +172,7 @@ func TestDeletingAPanelForgetsItsInstanceWatches(t *testing.T) {
 	id := makePanel(t, a, ana, `{"name":"Wall"}`)
 	watchInst(t, a, id, ana, "Lobby", 204)
 	a.mon.forget(id, true)
-	if a.mon.watchingInst("Ana", id, "Lobby") {
+	if a.mon.watchingInst(idOf(a, "Ana"), id, "Lobby") {
 		t.Fatal("instance watch outlived the panel")
 	}
 }

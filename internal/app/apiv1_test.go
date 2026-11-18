@@ -228,7 +228,7 @@ func TestAPIUserKeyActsAsUser(t *testing.T) {
 			}
 		}
 	})
-	key := apiTestKey(t, a, keyOwner{Kind: actorUser, Name: "Ana"}, "Desk", time.Time{})
+	key := apiTestKey(t, a, ownerOf(a, "Ana"), "Desk", time.Time{})
 	var got []string
 	for _, p := range apiBody(t, apiDo(a, "GET", "/api/v1/presets", key, nil))["presets"].([]any) {
 		m := p.(map[string]any)

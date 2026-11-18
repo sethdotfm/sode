@@ -117,7 +117,7 @@ func (a *App) apiTakePreset(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		case scope == "everyone":
 			list = cfg.Presets
 		case scope == "me" && cl.Actor.Kind == actorUser:
-			if u, ok := cfg.FindUser(cl.Actor.Name); ok {
+			if u, ok := cfg.FindUserByID(cl.Actor.User); ok {
 				list = u.Profile.Presets
 			}
 		default:

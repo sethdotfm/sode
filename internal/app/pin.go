@@ -174,6 +174,6 @@ func (a *App) trustedMu(c *client) bool {
 	if !a.userOKMu(c, cfg) {
 		return false
 	}
-	u, _ := cfg.FindUser(c.u.user.Load().Name)
+	u, _ := cfg.FindUserByID(c.u.user.Load().ID)
 	return u.Trusted
 }

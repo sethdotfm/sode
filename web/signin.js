@@ -11,7 +11,7 @@ const TOKEN_KEY = 'sode-session';
 // reload stays in.
 const TAB_KEY = 'sode-tab-session';
 // Whose Lock this tab shows: this tab's sessionStorage, so a reload still names them. The
-// username box's prefill is the browser's (localStorage); no name ever comes from the server.
+// name box's prefill is the browser's (localStorage); no name ever comes from the server.
 const HELD_KEY = 'sode-held-user';
 const LAST_KEY = 'sode-last-user';
 

@@ -7,13 +7,13 @@ import (
 	"testing"
 )
 
-func modeUser(t *testing.T, name, username, pin string) User {
+func modeUser(t *testing.T, name, pin string) User {
 	t.Helper()
 	h, err := HashPin(pin)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return User{Name: name, Username: username, Pin: h, Len: len(pin)}
+	return User{Name: name, Pin: h, Len: len(pin)}
 }
 
 func TestSignInModeDefaultsToPinOnly(t *testing.T) {
@@ -24,78 +24,92 @@ func TestSignInModeDefaultsToPinOnly(t *testing.T) {
 	}
 }
 
-// An older file has no signInMode and no usernames: it loads as PIN only and stays valid.
-func TestOldFileLoadsAsPinOnly(t *testing.T) {
-	h, err := HashPin("1234")
-	if err != nil {
-		t.Fatal(err)
+func TestSignInModeValidation(t *testing.T) {
+	base := Defaults()
+	base.Users = []User{modeUser(t, "Ana", "1234"), modeUser(t, "Bo", "5678")}
+	base.Normalize()
+	for _, mode := range []string{SignInPin, SignInUsername} {
+		c := base.Clone()
+		c.SignInMode = mode
+		if err := c.Validate(); err != nil {
+			t.Fatalf("%s: %v", mode, err)
+		}
 	}
-	old := "format: 2\nusers:\n  - name: Ana\n    pin: " + h + "\n    len: 4\nmaxPinLen: 8\n"
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	c, exists, err := Load(path)
-	if err != nil || !exists {
-		t.Fatalf("load: %v %v", exists, err)
-	}
-	if c.SignInMode != SignInPin || c.Users[0].Username != "" {
-		t.Fatalf("mode %q username %q", c.SignInMode, c.Users[0].Username)
-	}
-	if err := c.Validate(); err != nil {
-		t.Fatal(err)
+	c := base.Clone()
+	c.SignInMode = "token"
+	if c.Validate() == nil {
+		t.Fatal("unknown mode accepted")
 	}
 }
 
-func TestSignInModeValidation(t *testing.T) {
-	ana, bo := modeUser(t, "Ana", "ana.k", "1234"), modeUser(t, "Bo", "bobby", "5678")
+// Name rules: trimmed, printable, at most MaxUserName runes, unique ignoring case. Spaces are fine.
+func TestUserNameRules(t *testing.T) {
 	base := Defaults()
-	base.Users = []User{ana, bo}
+	base.Users = []User{modeUser(t, "Ana Kis", "1234"), modeUser(t, "Bo", "5678")}
 	base.Normalize()
 	if err := base.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	for name, mut := range map[string]func(*Config){
-		"unknown mode":               func(c *Config) { c.SignInMode = "token" },
-		"username mode without name": func(c *Config) { c.SignInMode = SignInUsername; c.Users[1].Username = "" },
-		"duplicate ignoring case":    func(c *Config) { c.Users[1].Username = "ANA.K" },
-		"duplicate in username mode": func(c *Config) { c.SignInMode = SignInUsername; c.Users[1].Username = "Ana.K" },
-		"too long":                   func(c *Config) { c.Users[0].Username = strings.Repeat("a", MaxUserName+1) },
-		"control character":          func(c *Config) { c.Users[0].Username = "a\nb" },
-		"space inside":               func(c *Config) { c.Users[0].Username = "ana k" },
+	for name, tc := range map[string]struct {
+		set  string
+		want string
+	}{
+		"too long":           {strings.Repeat("é", MaxUserName+1), "at most 24"},
+		"control character":  {"a\nb", "printable"},
+		"same ignoring case": {"BO", "two users are named"},
+		"blank":              {"   ", "needs a name"},
 	} {
 		c := base.Clone()
-		mut(&c)
+		c.Users[0].Name = tc.set
 		c.Normalize()
-		if c.Validate() == nil {
-			t.Errorf("%s accepted", name)
+		err := c.Validate()
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: %v, want %q", name, err, tc.want)
 		}
 	}
-	// A username is independent of the displayed name, and PIN only ignores a missing one.
 	c := base.Clone()
-	c.Users[0].Username = "bo"
-	c.Users[1].Username = ""
+	c.Users[0].Name = "  " + strings.Repeat("é", MaxUserName) + " "
 	c.Normalize()
-	if err := c.Validate(); err != nil {
-		t.Fatalf("username equal to another user's name: %v", err)
-	}
-	c.SignInMode = SignInUsername
-	c.Users[1].Username = "ana"
-	if err := c.Validate(); err != nil {
-		t.Fatalf("username mode: %v", err)
+	if err := c.Validate(); err != nil || c.Users[0].Name != strings.Repeat("é", MaxUserName) {
+		t.Fatalf("24 runes after trim: %q %v", c.Users[0].Name, err)
 	}
 }
 
-func TestFindUsername(t *testing.T) {
-	c := Defaults()
-	c.Users = []User{modeUser(t, "Ana", "ana.k", "1234")}
-	if u, ok := c.FindUsername("ANA.K"); !ok || u.Name != "Ana" {
-		t.Fatalf("%v %v", u, ok)
+// Every user gets a hidden id that a rename leaves alone; a file without them is filled once.
+func TestUserIDsFilledAndKept(t *testing.T) {
+	h, err := HashPin("1234")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, ok := c.FindUsername("Ana"); ok {
-		t.Fatal("the displayed name is not a username")
+	file := "format: 2\nusers:\n  - name: Ana\n    pin: " + h + "\n    len: 4\n  - name: Bo\n    pin: " + h + "\n    len: 4\nmaxPinLen: 8\n"
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(file), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	if _, ok := c.FindUsername(""); ok {
-		t.Fatal("empty username matched")
+	c, _, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := c.Users[0].ID, c.Users[1].ID
+	if a == "" || b == "" || a == b {
+		t.Fatalf("ids %q %q", a, b)
+	}
+	// Load wrote them back, so the next start reads the same ids.
+	again, _, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Users[0].ID != a || again.Users[1].ID != b || again.idsFilled {
+		t.Fatalf("ids not kept: %q %q filled %v", again.Users[0].ID, again.Users[1].ID, again.idsFilled)
+	}
+	again.Users[0].Name = "Anna"
+	again.Normalize()
+	if u, ok := again.FindUserByID(a); !ok || u.Name != "Anna" {
+		t.Fatalf("by id after rename: %v %v", u, ok)
+	}
+	dup := again.Clone()
+	dup.Users[1].ID = a
+	if err := dup.Validate(); err == nil || !strings.Contains(err.Error(), "id") {
+		t.Fatalf("duplicate id: %v", err)
 	}
 }

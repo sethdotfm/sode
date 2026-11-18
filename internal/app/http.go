@@ -348,7 +348,7 @@ type inMsg struct {
 	Slot       int64              `json:"slot"`   // ...and its slot length, ms
 	Config     json.RawMessage    `json:"config"` // decoded in saveSettings, over the live config
 	Pin        string             `json:"pin"`
-	User       string             `json:"user"` // userUnlock: the username (Username and PIN mode)
+	User       string             `json:"user"` // userUnlock: the user's name (name and PIN mode)
 	ClearPin   bool               `json:"clearPin"`
 	ID         int                `json:"id"` // echoed by unlock and save replies
 	Items      []routeReq         `json:"items"`

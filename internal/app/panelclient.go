@@ -37,7 +37,7 @@ type panelClientNote struct {
 func (a *App) panelClientsOf(cfg config.Config, u config.User) []panelClientNote {
 	var out []panelClientNote
 	for _, p := range a.panels.list() {
-		if !strings.EqualFold(p.Owner, u.Name) {
+		if p.Owner != u.ID {
 			continue
 		}
 		if c, ok := clientOfPanel(cfg, p); ok {
@@ -72,7 +72,7 @@ func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Right
 	if cur != nil && (want == nil || reflect.DeepEqual(clean(*want), *cur)) {
 		return *cur, false, nil
 	}
-	if !a.trusted(cl.Actor.Name) {
+	if !a.trusted(cl.Actor.User) {
 		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "trusted_required", "only a Trusted user can make a panel act as an API client or change its rights"}
 	}
 	r := cl.Rights.Clone()

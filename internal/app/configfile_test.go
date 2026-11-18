@@ -118,7 +118,7 @@ func TestConfigImportNewUserWithoutPin(t *testing.T) {
 	if err := a.ImportConfig(adminClient(t, a), string(b)); err != nil {
 		t.Fatal(err)
 	}
-	if u, ok := a.r().cfg.FindUser("Cy"); !ok || u.Len != 5 {
+	if u, ok := a.r().cfg.FindUserByName("Cy"); !ok || u.Len != 5 {
 		t.Fatalf("Cy: %+v", u)
 	}
 }

@@ -65,7 +65,7 @@ func (a *App) pushProfileMu(c *client) {
 	cfg := rt.cfg
 	var b []byte
 	if a.userOKMu(c, cfg) {
-		u, _ := cfg.FindUser(c.u.user.Load().Name)
+		u, _ := cfg.FindUserByID(c.u.user.Load().ID)
 		if a.profMemoRT != rt || a.profMemo == nil {
 			a.profMemoRT, a.profMemo = rt, map[string]string{}
 		}
@@ -138,7 +138,7 @@ func (a *App) serveProfileSave(c *client, m *inMsg) {
 }
 
 func (a *App) serveProfileGet(c *client, m *inMsg) {
-	u, ok := a.r().cfg.FindUser(strings.TrimSpace(m.Name))
+	u, ok := a.r().cfg.FindUserByName(strings.TrimSpace(m.Name))
 	if !ok {
 		a.replyOp(c, "profileGet", m.ID, 0, "", errNoSuchUser)
 		return

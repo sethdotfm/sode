@@ -86,7 +86,7 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 		}
 		if found {
 			cl = a.resolveKey(cfg, k, ip)
-			if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.Name, cfg) {
+			if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.User, cfg) {
 				cl = nil // its session ended; endSessionKeys has not yet swept the record
 			}
 			ended = cl == nil // a real key whose owner or session went, not yet swept
@@ -172,11 +172,11 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 	kc := k
 	switch k.Owner.Kind {
 	case actorUser:
-		u, ok := cfg.FindUser(k.Owner.Name)
+		u, ok := cfg.FindUserByID(k.Owner.User)
 		if !ok {
 			return nil
 		}
-		return &apiCtx{Actor: Actor{Kind: actorUser, Name: u.Name, Key: k.Name}, Rights: u.Rights, Scopes: userKeyScopes, Key: &kc, IP: ip}
+		return &apiCtx{Actor: Actor{Kind: actorUser, Name: u.Name, User: u.ID, Key: k.Name}, Rights: u.Rights, Scopes: userKeyScopes, Key: &kc, IP: ip}
 	case actorClient:
 		c, ok := cfg.FindAPIClient(k.Owner.Name)
 		if !ok {
@@ -184,7 +184,7 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 		}
 		act := Actor{Kind: actorClient, Name: c.Name, Key: k.Name}
 		if p, ok := a.panels.get(c.Panel); ok && c.Panel != "" {
-			act.Owner = p.Owner
+			act.Owner = cfg.UserName(p.Owner)
 		}
 		return &apiCtx{Actor: act, Rights: c.Rights, Scopes: c.Scopes, Key: &kc, IP: ip, Panel: c.Panel}
 	}

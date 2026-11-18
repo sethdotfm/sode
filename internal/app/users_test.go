@@ -97,6 +97,7 @@ func TestUsersConfigValidation(t *testing.T) {
 		}
 	}
 	c := cfg.Clone()
+	good.ID = config.NewUserID()
 	c.Users, c.Locks, c.AutoLockMinutes = []config.User{good}, config.Locks{Main: true}, 5
 	if c.Validate() == nil {
 		t.Fatal("lock without an Advanced Settings PIN accepted")
@@ -232,7 +233,7 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}}}); err == nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {
 		t.Fatal("user without a PIN accepted")
 	}
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "12ab"}}}); err == nil {
@@ -269,25 +270,25 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "1234"}}}); err == nil {
 		t.Fatal("two new users with one PIN")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Cy", Pin: "1234"}}}); err == nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Cy", Pin: "1234"}}}); err == nil {
 		t.Fatal("new PIN equal to a kept user's")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Robert"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if u, ok := a.r().cfg.FindUser("robert"); !ok || !config.ValidPinHash(u.Pin) {
+	if u, ok := a.r().cfg.FindUserByName("robert"); !ok || !config.ValidPinHash(u.Pin) {
 		t.Fatal("rename lost the PIN")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "ana", Pin: "9999"}}}); err == nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "ana", Pin: "9999"}}}); err == nil {
 		t.Fatal("names differing in case accepted")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana2", Was: "Ana"}, {Name: "Ana"}, {Name: "Robert"}}}); err == nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana2"}, {ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Robert"), Name: "Robert"}}}); err == nil {
 		t.Fatal("two rows inherited one user's PIN")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Robert", Was: "Ana"}, {Name: "Ana", Was: "Ana"}}}); err == nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Robert"}, {ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {
 		t.Fatal("duplicate was accepted")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Pin: "1234"}}}); err == nil || strings.Contains(err.Error(), "Ana") {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Robert", Pin: "1234"}}}); err == nil || strings.Contains(err.Error(), "Ana") {
 		t.Fatalf("colliding PIN: %v (must not name the other user)", err)
 	}
 	if err := pageSave(t, a, c, map[string]any{"users": nil}, "locks", "autoLockMinutes"); err != nil {

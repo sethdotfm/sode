@@ -1,0 +1,2 @@
+- A user rename keeps their sign-ins, API keys, panels, templates, Checkpoint sets and panel watches. Each user has a hidden id that does not change.
+- Username is gone. In Name and PIN mode (the old Username and PIN), a user signs in with their name. A name has at most 24 characters, uses only printable characters and is unique ignoring case. A save with a bad name is refused and says why.
