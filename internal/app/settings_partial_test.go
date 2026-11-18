@@ -41,10 +41,10 @@ func TestSaveOmittingKeysKeepsLiveValues(t *testing.T) {
 	}
 	live := a.r().cfg
 	cases := map[string][]string{
-		"deviceDefaults": {"deviceDefaults"},
-		"locks":          {"locks"},
-		"autoLock":       {"autoLockMinutes"},
-		"all three":      {"deviceDefaults", "locks", "autoLockMinutes"},
+		"browserDefaults": {"browserDefaults"},
+		"locks":           {"locks"},
+		"autoLock":        {"autoLockMinutes"},
+		"all three":       {"browserDefaults", "locks", "autoLockMinutes"},
 	}
 	for name, drop := range cases {
 		if err := pageSave(t, a, admin, map[string]any{"levelColors": []string{"#abcdef"}}, drop...); err != nil {
@@ -75,7 +75,7 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
 	dd := config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "locale", ScrollTop: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
-	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": dd}); err != nil {
+	if err := pageSave(t, a, admin, map[string]any{"browserDefaults": dd}); err != nil {
 		t.Fatal(err)
 	}
 	if got := a.r().cfg.DeviceDefaults; !reflect.DeepEqual(got, dd) {
@@ -83,7 +83,7 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	}
 	// Booleans in a full object turn off too.
 	off := config.DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", SetStack: "and", NextMode: "number", StackGap: "30"}
-	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": off}); err != nil {
+	if err := pageSave(t, a, admin, map[string]any{"browserDefaults": off}); err != nil {
 		t.Fatal(err)
 	}
 	if got := a.r().cfg.DeviceDefaults; !reflect.DeepEqual(got, off) {
@@ -91,15 +91,15 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	}
 }
 
-// A partial deviceDefaults object merges over the live values, key by key.
+// A partial browserDefaults object merges over the live values, key by key.
 func TestSavePartialDeviceDefaultsMerges(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
 	live := config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, ScrollTop: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
-	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": live}); err != nil {
+	if err := pageSave(t, a, admin, map[string]any{"browserDefaults": live}); err != nil {
 		t.Fatal(err)
 	}
-	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": map[string]any{"theme": "light"}}); err != nil {
+	if err := pageSave(t, a, admin, map[string]any{"browserDefaults": map[string]any{"theme": "light"}}); err != nil {
 		t.Fatal(err)
 	}
 	want := live

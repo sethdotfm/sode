@@ -90,7 +90,7 @@ func TestUserPinBackoffCapped(t *testing.T) {
 	}
 }
 
-// uptime and refreshNames are refused over a locked connection, too.
+// uptime and rereadNames are refused over a locked connection, too.
 func TestLockGatesMoreOverWebSocket(t *testing.T) {
 	a := userApp(t, true)
 	srv := httptest.NewServer(a.Handler(fstest.MapFS{}))
@@ -105,7 +105,7 @@ func TestLockGatesMoreOverWebSocket(t *testing.T) {
 	ws.SetReadLimit(1 << 24)
 	for _, m := range []map[string]any{
 		{"t": "uptime", "id": 1},
-		{"t": "refreshNames"},
+		{"t": "rereadNames"},
 	} {
 		b, _ := json.Marshal(m)
 		ws.Write(ctx, websocket.MessageText, b)

@@ -104,8 +104,7 @@ var vocabAllow = []allowEntry{
 	{"", ".js", `^(?:login|logout|unlock|unlocked)$`, "bus and wire event names, which do not change"},
 	{"unlock", "", "`unlock(?:ed)?`", "wire message and bus event names keep this name"},
 	{"log in", "", "`[^`]*log-?(?:in|out)[^`]*`", "bus event names keep this name"},
-	{"batch", "", "`batch`", "the wire message type and command kind keep this name"},
-	{"batch", "web/plans.js", `^batch$`, "the wire message type keeps this name"},
+	{"batch", "", "`batch`", "the v1 wire message name, quoted where docs list the v2 renames"},
 	{"batch", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"salvo", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"operator", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
@@ -117,13 +116,11 @@ var vocabAllow = []allowEntry{
 // identAllow exempts web identifiers only, so a UI string or a doc line gets no pass. Wire message
 // types and `sode-*` keys are strings and never reach that scan; these names hold a wire or logged value.
 var identAllow = []allowEntry{
-	{"Recent", "web/core.js", `m\.recent`, "the `recent` message carries its entries under this field"},
-	{"refresh", "web/logkinds.js", `^\s*refreshNames:`, "`log` command kind, as the server logs it"},
 	{"salvo", "web/log.js", `^\s*salvos?(?:Stage|Go)?:`, "`log` command kinds and the router's own salvo"},
 	{"salvo", "web/logkinds.js", `^\s*salvos?:`, "`log` command kinds, as the server logs them"},
 	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
-	{"unlock", "web/logkinds.js", `^\s*(?:unlock|userUnlock|adminUnlock):`, "`log` command kinds, as the server logs them"},
-	{"unlock", "", `\b(?:unlock|unlocked|isUnlocked|lostUnlock|sendUnlock)\b`, "names for the `unlock` and `userUnlock` messages and the access they grant (pin.js, lock.js); they hold a wire value, not a UI word"},
+	{"unlock", "web/logkinds.js", `^\s*(?:unlock|adminUnlock):`, "`log` command kinds, as the server logs them"},
+	{"unlock", "", `\b(?:unlock|unlocked|isUnlocked|lostUnlock|sendUnlock)\b`, "names for the `unlock` and `userSignIn` messages and the access they grant (pin.js, lock.js); they hold a wire value, not a UI word"},
 	{"follows", ".js", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 	{"follows", ".mjs", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 }

@@ -113,7 +113,7 @@ func TestDeviceDefaults(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
-	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\nbrowserDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
 	c, _, err = Load(path)
 	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", Compact: true}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
@@ -125,7 +125,7 @@ func TestDeviceDefaults(t *testing.T) {
 		t.Fatalf("blank block: %+v %v", c.DeviceDefaults, err)
 	}
 	b, _ := json.Marshal(Defaults())
-	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number","stackGap":"30","compact":false}`) {
+	if !strings.Contains(string(b), `"browserDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number","stackGap":"30","compact":false}`) {
 		t.Fatalf("json: %s", b)
 	}
 }
@@ -205,5 +205,16 @@ func TestFireModeFromEnv(t *testing.T) {
 	c, err := FromEnv(Defaults())
 	if err != nil || c.FireMode != "native" || c.SalvoGroup != 12 {
 		t.Fatalf("%q %d %v", c.FireMode, c.SalvoGroup, err)
+	}
+}
+
+func TestNameRereadFromEnv(t *testing.T) {
+	t.Setenv("SODE_NAME_REREAD_S", "90")
+	c, err := FromEnv(Defaults())
+	if err != nil || c.NameRefreshSeconds != 90 {
+		t.Fatalf("%d %v", c.NameRefreshSeconds, err)
+	}
+	if b, _ := json.Marshal(c); !strings.Contains(string(b), `"nameRereadSeconds":90`) {
+		t.Fatalf("json: %s", b)
 	}
 }

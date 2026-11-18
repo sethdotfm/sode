@@ -546,13 +546,13 @@ type userResult struct {
 
 // Sign-ins run inline like the Advanced Settings PIN entry, so a later lock is handled after.
 func (a *App) serveUserUnlock(c *client, m *inMsg) {
-	res := userResult{T: "userUnlockResult", OK: true, ID: m.ID}
+	res := userResult{T: "userSignInResult", OK: true, ID: m.ID}
 	err := a.UserUnlockAs(c, m.User, m.Pin)
 	if err != nil {
 		res.OK, res.Err = false, err.Error()
-		a.command(c, "userUnlock", "refused", "", err)
+		a.command(c, "userSignIn", "refused", "", err)
 	} else {
-		a.command(c, "userUnlock", "ok", "", nil)
+		a.command(c, "userSignIn", "ok", "", nil)
 		if res.Token = a.issueToken(c, m.Tab); res.Token != "" {
 			if us, _ := a.r().cfg.FindUserByID(c.userID()); !us.Persistent {
 				res.Tab = true

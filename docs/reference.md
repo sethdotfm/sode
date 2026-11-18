@@ -112,7 +112,7 @@ routers:
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | How long the confirm key is ignored after the dialog opens |
 | `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 keeps it open). Failures always stay until closed |
 | `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
-| `SODE_NAME_REFRESH_S` | `nameRereadSeconds` (router) | `60` | Re-read names this often (0 turns it off) |
+| `SODE_NAME_REREAD_S` | `nameRereadSeconds` (router) | `60` | Re-read names this often (0 turns it off) |
 | `SODE_TALLY_RESYNC_S` | `routeRereadSeconds` (router) | `300` | Re-read all routes and which destinations are protected this often (0 turns it off) |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` Sode believes (your proxy) |
 | `SODE_MAX_PIN_LEN` | `maxPinLen` | `8` | Longest user PIN (4-12 digits). The lock pad stops there and submits on its own only at the longest length in use. Shorter PINs are sent with the check key or Enter. Also set in Settings > Users |
@@ -126,10 +126,10 @@ Settings-only keys (no seed var):
 - `levelColors`
 - `filterSets`
 - `hiddenDsts`
-- `deviceDefaults`: what a browser uses until it chooses its own under Settings > This browser. It holds theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`), stackGap and compact. The stackGap field is a number of seconds written as text: `0` (off), `10`, `30` (the default), `60`, `120` or `300`. The compact field is Compact view, off by default (see Compact view above).
+- `browserDefaults`: what a browser uses until it chooses its own under Settings > This browser. It holds theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`), stackGap and compact. The stackGap field is a number of seconds written as text: `0` (off), `10`, `30` (the default), `60`, `120` or `300`. The compact field is Compact view, off by default (see Compact view above).
 - `settingsPin`
 
-Process settings stay in env. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true`, which hex-dumps all SW-P-08 traffic. Without `SODE_UPTIME`, the router uptime is kept in memory only.
+Process settings stay in env. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_COMMLOG` (`/data/sent.jsonl`), `SODE_COMMLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true`, which hex-dumps all SW-P-08 traffic. Without `SODE_UPTIME`, the router uptime is kept in memory only.
 
 ### Advanced Settings PIN
 
@@ -207,7 +207,7 @@ Sode checks each file as it checks an upload. It must be PNG or SVG, at most 2 M
 
 ## Communication log
 
-`/log` lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. Open it with **View Logs** in Settings > History, which shows even while Settings are locked. The page is read-only. Settings has a search box above its section list that finds sections and single settings by name or by common words ("password", "dark", "proxy"). Sode writes the log to `SODE_SENTLOG` up to `SODE_SENTLOG_MB`. Without that file, the last 20,000 messages stay in memory.
+`/log` lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. Open it with **View Logs** in Settings > History, which shows even while Settings are locked. The page is read-only. Settings has a search box above its section list that finds sections and single settings by name or by common words ("password", "dark", "proxy"). Sode writes the log to `SODE_COMMLOG` up to `SODE_COMMLOG_MB`. Without that file, the last 20,000 messages stay in memory.
 
 Besides messages to the router, the log has event rows. They show in the default view and have their own filter chips:
 
@@ -229,7 +229,7 @@ Crosspoints use extended commands: 0x82 connect, 0x84 connected and 0x95/0x97 ta
 
 ## Simulator
 
-The simulator (`go run ./cmd/swp08sim`, on :8910) has 200 sources, 120 destinations and 17 levels. `SIM_SOURCES`, `SIM_DESTS` and `SIM_LEVELS` change these sizes, for example `SIM_SOURCES=2500 SIM_DESTS=750` for a large router. It also reads `SIM_*` variables to fake misbehaving routers: `SIM_IGNORE_DSTS`, `SIM_SILENT_DSTS`, `SIM_SLOW_DSTS`, `SIM_FOLLOWS`, `SIM_PANEL_SECONDS` and `SIM_PANEL_SILENT`. `SIM_NO_SALVO=1` fakes a router that lacks the group send commands. `SIM_SALVO_ANNOUNCE=1` announces a group Go's routes with Connected, as the Ultrix sometimes does. See `cmd/swp08sim`.
+The simulator (`go run ./cmd/swp08sim`, on :8910) has 200 sources, 120 destinations and 17 levels. `SIM_SOURCES`, `SIM_DESTS` and `SIM_LEVELS` change these sizes, for example `SIM_SOURCES=2500 SIM_DESTS=750` for a large router. It also reads `SIM_*` variables to fake misbehaving routers: `SIM_IGNORE_DSTS`, `SIM_SILENT_DSTS`, `SIM_SLOW_DSTS`, `SIM_EXTERNAL_FOLLOW`, `SIM_EXTERNAL_SECONDS` and `SIM_EXTERNAL_SILENT`. `SIM_NO_SALVO=1` fakes a router that lacks the group send commands. `SIM_SALVO_ANNOUNCE=1` announces a group Go's routes with Connected, as the Ultrix sometimes does. See `cmd/swp08sim`.
 
 ## Releases and image tags
 

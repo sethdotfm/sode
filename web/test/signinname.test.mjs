@@ -69,7 +69,7 @@ test('nothing sends, by hand or by itself, without a listed name; at its own len
   assert.equal(padDelay(s, '123456', bo), 0);
   // Ada's PIN is the shortest in use, but her own: no wait for a longer one.
   assert.equal(padDelay(s, '1234', ada), 0);
-  assert.deepEqual(signInMsg(s, { pin: '1234', id: 4, user: ada }), { t: 'userUnlock', user: 'Ada', pin: '1234', id: 4, tab: false });
+  assert.deepEqual(signInMsg(s, { pin: '1234', id: 4, user: ada }), { t: 'userSignIn', user: 'Ada', pin: '1234', id: 4, tab: false });
 });
 
 test('a held Lock resumes with the PIN alone at the holder length', () => {
@@ -78,7 +78,7 @@ test('a held Lock resumes with the PIN alone at the holder length', () => {
   assert.equal(canSend(held, '1234', ana), true);
   assert.equal(canSend(held, '1234', null), true);
   assert.equal(padDelay(held, '1234', ana), 0);
-  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, user: ana }), { t: 'userUnlock', pin: '1234', id: 5, tab: true });
+  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, user: ana }), { t: 'userSignIn', pin: '1234', id: 5, tab: true });
 });
 
 test('prefillName: the remembered name, only while it is still listed; then the pad takes the keys', () => {

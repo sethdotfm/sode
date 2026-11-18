@@ -61,7 +61,7 @@ export function fillForm() {
 
 // After renderPrefs (devicesettings.js), which draws the This browser section.
 export function fillGlobalDefaults() {
-  for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, null, S.cfg.deviceDefaults);
+  for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, null, S.cfg.browserDefaults);
 }
 
 export function readSettings() {
@@ -86,7 +86,7 @@ export function readSettings() {
   if (shownAccess && c.autoLockMinutes === shownAccess.auto) delete c.autoLockMinutes;
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
-  c.deviceDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));
+  c.browserDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));
 
   const def = $('cfg-default').value.trim();
   const list = def ? parseLevelsAs(def, c.levelNumbering, formLevels()) : [];
@@ -224,7 +224,7 @@ $('cfg-levels').addEventListener('input', () => {
 });
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
 $('names-refresh').addEventListener('click', () => {
-  if (wsSend({ t: 'refreshNames' })) {
+  if (wsSend({ t: 'rereadNames' })) {
     $('names-refresh').disabled = true;
     $('names-refresh').textContent = 'Refreshing…';
   }

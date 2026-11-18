@@ -1,5 +1,5 @@
 // Command swp08sim is a fake SW-P-08 router for development: name requests, tally dumps, interrogates,
-// extended connects, Connected broadcast. SIM_PANEL_SECONDS makes routes of its own; SIM_PANEL_SILENT=1
+// extended connects, Connected broadcast. SIM_EXTERNAL_SECONDS makes routes of its own; SIM_EXTERNAL_SILENT=1
 // leaves them unannounced, as the Ultrix sometimes does.
 // Group salvos (120-123; extended stage 248/250) mimic the Ultrix. All clients share one staged list per group.
 // 122 echoes each stage, and 123 answers each Go (00 set, 01 cleared, 02 nothing). Replies come after about 6 ms.
@@ -75,8 +75,8 @@ func main() {
 			s.slow[n] = time.Duration(d) * time.Millisecond
 		}
 	}
-	// SIM_FOLLOWS=2>40,3>41 (0-based): dst 40 follows dst 2 to the same source a moment later.
-	for _, f := range strings.Split(os.Getenv("SIM_FOLLOWS"), ",") {
+	// SIM_EXTERNAL_FOLLOW=2>40,3>41 (0-based): dst 40 follows dst 2 to the same source a moment later.
+	for _, f := range strings.Split(os.Getenv("SIM_EXTERNAL_FOLLOW"), ",") {
 		from, to, ok := strings.Cut(strings.TrimSpace(f), ">")
 		a, err1 := strconv.Atoi(from)
 		b, err2 := strconv.Atoi(to)
@@ -111,9 +111,9 @@ func main() {
 		s.tally[l] = t
 	}
 
-	// SIM_PANEL_SECONDS=5 routes every 5s as from a panel; SIM_PANEL_DST (0-based, default 3) gets every other punch.
-	if n := envInt("SIM_PANEL_SECONDS", 0); n > 0 {
-		go s.panel(time.Duration(n)*time.Second, envInt("SIM_PANEL_DST", 3), nl+1, envInt("SIM_PANEL_SILENT", 0) == 1)
+	// SIM_EXTERNAL_SECONDS=5 routes every 5s as from a panel; SIM_EXTERNAL_DST (0-based, default 3) gets every other punch.
+	if n := envInt("SIM_EXTERNAL_SECONDS", 0); n > 0 {
+		go s.panel(time.Duration(n)*time.Second, envInt("SIM_EXTERNAL_DST", 3), nl+1, envInt("SIM_EXTERNAL_SILENT", 0) == 1)
 	}
 
 	ln, err := net.Listen("tcp", addr)

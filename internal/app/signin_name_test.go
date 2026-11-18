@@ -171,16 +171,16 @@ func TestUsersListCarriesIDs(t *testing.T) {
 	}
 }
 
-// userUnlock carries user next to pin; the policy keeps it open.
+// userSignIn carries user next to pin; the policy keeps it open.
 func TestUserUnlockMessageCarriesName(t *testing.T) {
 	a := sharedPinApp(t)
 	c := &client{ip: "10.0.0.1"}
 	read := register(a, c)
-	if err := admitMsg(a, c, inMsg{T: "userUnlock"}); err != nil {
-		t.Fatalf("userUnlock needs no access: %v", err)
+	if err := admitMsg(a, c, inMsg{T: "userSignIn"}); err != nil {
+		t.Fatalf("userSignIn needs no access: %v", err)
 	}
 	var m inMsg
-	if err := json.Unmarshal([]byte(`{"t":"userUnlock","user":"bo","pin":"1234","id":4}`), &m); err != nil {
+	if err := json.Unmarshal([]byte(`{"t":"userSignIn","user":"bo","pin":"1234","id":4}`), &m); err != nil {
 		t.Fatal(err)
 	}
 	a.serveUserUnlock(c, &m)

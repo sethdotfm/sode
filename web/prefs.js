@@ -1,4 +1,4 @@
-// Resolves a pref: this browser's value (localStorage), else the global default (deviceDefaults), else built-in; missing or unknown means follow global.
+// Resolves a pref: this browser's value (localStorage), else the global default (browserDefaults), else built-in; missing or unknown means follow global.
 // Pure; device.js does storage. prepaint.js repeats the lookup inline; prepaint.test.mjs checks they agree.
 
 // Stored as strings; the on/off ones are booleans in the config.
@@ -20,7 +20,7 @@ export const PREFS = {
 // The Browser language option says what it gives (still one table entry, as the Go test reads it).
 Object.defineProperty(PREFS.clock.values, 'locale', { get: () => `Browser language (${browserClock()})`, enumerable: true });
 
-export const CACHE_KEY = 'sode-device-defaults';
+export const CACHE_KEY = 'sode-browser-defaults';
 
 const valid = (name, v) => typeof v === 'string' && Object.hasOwn(PREFS[name].values, v);
 

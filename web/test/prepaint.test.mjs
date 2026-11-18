@@ -14,7 +14,7 @@ const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'pr
 function run({ own = {}, profile, global, session, tab, phoneMedia = false, only }) {
   const store = new Map(Object.entries({ 'sode-format': '2', ...own }));
   if (profile !== undefined) store.set('sode-profile-prefs', JSON.stringify(profile));
-  if (global !== undefined) store.set('sode-device-defaults', JSON.stringify(global));
+  if (global !== undefined) store.set('sode-browser-defaults', JSON.stringify(global));
   if (session) store.set('sode-session', 'tok');
   const dataset = {};
   const document = { documentElement: { dataset }, currentScript: { dataset: only ? { only } : {} } };

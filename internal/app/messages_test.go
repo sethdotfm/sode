@@ -41,19 +41,19 @@ func TestMessageKeys(t *testing.T) {
 		want []string
 	}{
 		{"tally", deltaMsg{T: "tally"}, []string{"t", "u"}},
-		{"protect", deltaMsg{T: "protect"}, []string{"t", "u"}},
+		{"protected", deltaMsg{T: "protected"}, []string{"t", "u"}},
 		{"namesChecked", namesCheckedMsg{T: "namesChecked", At: time.Now()}, []string{"at", "t"}},
 		{"names", namesMsg{T: "names"}, []string{"at", "dsts", "srcs", "t"}},
 		{"filterSets", filterSetsMsg{T: "filterSets"}, []string{"sets", "t"}},
-		{"locked", simpleMsg{T: "locked"}, []string{"t"}},
+		{"pinNeeded", simpleMsg{T: "pinNeeded"}, []string{"t"}},
 		{"historyCleared", simpleMsg{T: "historyCleared"}, []string{"t"}},
 		{"reload", simpleMsg{T: "reload"}, []string{"t"}},
 		{"takeResult bare", routeResult{T: "takeResult"}, []string{"id", "ok", "t"}},
 		{"takeResult planned fail", routeResult{T: "takeResult", Err: "x"}, []string{"err", "id", "ok", "t"}},
 		{"takeResult done", routeResult{T: "takeResult", OK: true, Entry: &zero}, []string{"entry", "id", "ok", "t"}},
 		{"takeResult full", routeResult{T: "takeResult", Err: "x", Already: []int{1}, Entry: &one}, []string{"already", "entry", "err", "id", "ok", "t"}},
-		{"recent", recentMsg{T: "recent", E: e}, []string{"e", "t"}},
-		{"recent update", recentMsg{T: "recent", E: e, Update: true}, []string{"e", "t", "update"}},
+		{"entry", recentMsg{T: "entry", E: e}, []string{"e", "t"}},
+		{"entry update", recentMsg{T: "entry", E: e, Update: true}, []string{"e", "t", "update"}},
 		{"history", historyMsg{T: "history"}, []string{"before", "entries", "more", "t"}},
 		{"unlockResult ok", opResult{T: "unlockResult", OK: true, ID: &zero}, []string{"id", "ok", "t"}},
 		{"unlockResult fail", opResult{T: "unlockResult", Err: "x", ID: &one}, []string{"err", "id", "ok", "t"}},
@@ -62,8 +62,8 @@ func TestMessageKeys(t *testing.T) {
 		{"configResult ok", opResult{T: "configResult", OK: true}, []string{"ok", "t"}},
 		{"configResult fail", opResult{T: "configResult", Err: "x", Locked: &yes}, []string{"err", "locked", "ok", "t"}},
 		{"configImportResult kept", opResult{T: "configImportResult", OK: true, ID: &zero, Kept: "futureKey"}, []string{"id", "kept", "ok", "t"}},
-		{"sentAdd", sentAddMsg{T: "sentAdd"}, []string{"entries", "lost", "t", "total"}},
-		{"sentPage", sentPageMsg{T: "sentPage"}, []string{"before", "entries", "lost", "more", "t", "total"}},
+		{"logAdd", sentAddMsg{T: "logAdd"}, []string{"entries", "lost", "t", "total"}},
+		{"logPage", sentPageMsg{T: "logPage"}, []string{"before", "entries", "lost", "more", "t", "total"}},
 	}
 	for _, c := range cases {
 		if got := keys(t, c.v); !reflect.DeepEqual(got, c.want) {

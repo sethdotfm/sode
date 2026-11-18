@@ -51,9 +51,9 @@ type helloMsg struct {
 	At            time.Time       `json:"at"`
 	SavedAt       time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
 	Tally         json.RawMessage `json:"tally"`            // routeTriples
-	Protect       json.RawMessage `json:"protect"`          // routeTriples
+	Protect       json.RawMessage `json:"protected"`        // routeTriples
 	Status        statusMsg       `json:"status"`
-	Recent        []Entry         `json:"recent"`
+	Recent        []Entry         `json:"history"`
 	More          bool            `json:"more"`
 	Levels        []config.Level  `json:"levels"`
 	LevelDefaults []string        `json:"levelDefaults"`
@@ -119,7 +119,7 @@ type routeResult struct {
 }
 
 type recentMsg struct {
-	T      string `json:"t"` // "recent"
+	T      string `json:"t"` // "entry"
 	E      *Entry `json:"e"`
 	Update bool   `json:"update,omitempty"`
 }
@@ -144,14 +144,14 @@ type opResult struct {
 }
 
 type sentAddMsg struct {
-	T       string `json:"t"` // "sentAdd"
+	T       string `json:"t"` // "logAdd"
 	Entries []Sent `json:"entries"`
 	Total   int64  `json:"total"`
 	Lost    int64  `json:"lost"`
 }
 
 type sentPageMsg struct {
-	T       string `json:"t"` // "sentPage"
+	T       string `json:"t"` // "logPage"
 	Before  int64  `json:"before"`
 	Entries []Sent `json:"entries"`
 	More    bool   `json:"more"`

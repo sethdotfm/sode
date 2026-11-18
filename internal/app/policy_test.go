@@ -135,7 +135,7 @@ func TestRefusalReplies(t *testing.T) {
 	until("lockState")
 
 	send(map[string]any{"t": "nonsense"}) // dropped, never dispatched
-	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 7, "src": 1, "dst": 1, "levels": []int{1}}}})
+	send(map[string]any{"t": "take", "items": []map[string]any{{"id": 7, "src": 1, "dst": 1, "levels": []int{1}}}})
 	if m := until("takeResult"); m["ok"] == true || m["id"] != float64(7) || m["err"] == "" {
 		t.Fatalf("refused batch: %v", m)
 	}
@@ -159,7 +159,7 @@ func TestRefusalReplies(t *testing.T) {
 	if m := until("presetsResult"); m["ok"] == true {
 		t.Fatalf("presets with the Advanced Settings PIN: %v", m)
 	}
-	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 8}}})
+	send(map[string]any{"t": "take", "items": []map[string]any{{"id": 8}}})
 	if m := until("takeResult"); m["ok"] == true {
 		t.Fatalf("a take got through on the Advanced Settings PIN: %v", m)
 	}

@@ -21,11 +21,11 @@ services:
     ports: ["8910:8910"]
     environment:
       # Seconds between routes made by the simulator itself, like a panel; 0 = off.
-      SIM_PANEL_SECONDS: ${SIM_PANEL_SECONDS:-0}
+      SIM_EXTERNAL_SECONDS: ${SIM_EXTERNAL_SECONDS:-0}
       # 1 = those routes send no Connected, so Sode only finds them in a resync.
-      SIM_PANEL_SILENT: ${SIM_PANEL_SILENT:-0}
+      SIM_EXTERNAL_SILENT: ${SIM_EXTERNAL_SILENT:-0}
       # Destination follows, 0-based dst>dst, e.g. 2>40,3>41.
-      SIM_FOLLOWS: ${SIM_FOLLOWS:-}
+      SIM_EXTERNAL_FOLLOW: ${SIM_EXTERNAL_FOLLOW:-}
 
 volumes:
   sode-data:

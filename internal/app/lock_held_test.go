@@ -11,7 +11,7 @@ import (
 // The Lock of a signed-in user is state of their session. It survives a reload and keeps
 // the session, and only that user's PIN resumes it (docs/adr/0001-server-held-lock.md).
 
-func canTake(a *App, c *client) error { return admitMsg(a, c, inMsg{T: "batch"}) }
+func canTake(a *App, c *client) error { return admitMsg(a, c, inMsg{T: "take"}) }
 
 func lastLockState(t *testing.T, read func() []map[string]any) map[string]any {
 	t.Helper()
@@ -40,7 +40,7 @@ func TestLockKeepsSessionAndRefusesActions(t *testing.T) {
 		if !tokenAlive(a, tok) {
 			t.Fatalf("enforced=%v: the Lock ended the session", enforced)
 		}
-		for _, m := range []inMsg{{T: "batch"}, {T: "refreshNames"}, {T: "sent"}, {T: "uptime"}} {
+		for _, m := range []inMsg{{T: "take"}, {T: "rereadNames"}, {T: "log"}, {T: "uptime"}} {
 			if err := admitMsg(a, c, m); !errors.Is(err, errPageLocked) {
 				t.Errorf("enforced=%v: %s from a locked session: %v", enforced, m.T, err)
 			}
