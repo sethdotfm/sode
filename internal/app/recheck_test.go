@@ -30,7 +30,7 @@ func TestPolicyClassifiesEveryMessageCritical(t *testing.T) {
 	if want := []string{"clearHistory", "configImport", "keyRevokeAll", "userSignOutAll"}; !slices.Equal(always, want) {
 		t.Errorf("always Critical: %v, want %v", always, want)
 	}
-	if want := []string{"apiSettings", "config", "users"}; !slices.Equal(byFields, want) {
+	if want := []string{"apiSettings", "config", "settingsSave", "users"}; !slices.Equal(byFields, want) {
 		t.Errorf("Critical by fields: %v, want %v", byFields, want)
 	}
 }
