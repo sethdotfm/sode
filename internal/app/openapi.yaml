@@ -18,6 +18,10 @@ info:
     rights lists use. A source of -1 means nothing is routed. If a route omits `levels` or sends `[]`, Sode uses
     the server's Default levels setting. `GET /tally` reports it as `defaultLevels`, but send `levels` anyway.
 
+    Routers. Any call can carry the query parameter `router`, a router UID from `GET /routers`.
+    It is optional while Sode has one router. A value that is not a router UID is 404
+    `unknown_router`. The router prefix is for people and can change, so Sode does not accept it here.
+
     `X-Sode-Via`. Any request can carry `X-Sode-Via`, free text (32 printable characters at most).
     Sode records it beside the key name in the Communication Log, marked unverified. The key name is
     fixed when the key is made, so the key name is verified. A panel page also sends
@@ -307,6 +311,39 @@ paths:
                   uptimeSeconds: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /routers:
+    get:
+      operationId: listRouters
+      tags: [reads]
+      summary: The routers
+      description: |
+        Any key or Guest call. `uid` is fixed for the life of the router; send it as `router`.
+        `prefix` (A to Z) is how a person names the router in typing, and an administrator can
+        change it. `title` is the router title from Settings.
+      parameters:
+        - { $ref: "#/components/parameters/IfNoneMatch" }
+      responses:
+        "200":
+          description: Routers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [routers]
+                properties:
+                  routers:
+                    type: array
+                    items:
+                      type: object
+                      required: [uid, prefix, title]
+                      properties:
+                        uid: { type: string }
+                        prefix: { type: string, pattern: "^[A-Z]$" }
+                        title: { type: string }
+        "304": { description: Not modified }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
   /layouts:
@@ -2235,6 +2272,7 @@ components:
                 - nothing_to_do
                 - idempotency_mismatch
                 - not_found
+                - unknown_router
                 - method_not_allowed
                 - not_owner
                 - user_required
@@ -2254,7 +2292,8 @@ components:
                 bad_request. 413 too_large (body over 64 KiB for a take, 4 MB for a panel or
                 template, 2 MB for artwork). 415 unsupported_type (artwork that is not a JPEG, PNG,
                 GIF or SVG). 404 not_found (no such path, entry, visible preset, or a panel or
-                artwork the caller is not allowed to use). 405 method_not_allowed (see `Allow`).
+                artwork the caller is not allowed to use). 404 unknown_router (the `router` parameter
+                names no router UID). 405 method_not_allowed (see `Allow`).
                 409 conflict (Redo of a failed entry, Retry of a successful one, or a full panel or
                 artwork limit). 409 name_taken (an Assign's target, or a renamed instance's panel,
                 already has an instance of that name; `suggest` is a free one). 422 nothing_to_do

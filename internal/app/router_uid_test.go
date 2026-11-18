@@ -53,3 +53,67 @@ func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 		t.Errorf("config JSON holds the UID")
 	}
 }
+
+// The hello carries the prefix for typing (A.23) and never the UID, which no page needs.
+func TestHelloCarriesPrefixNotUID(t *testing.T) {
+	a := newTestApp(t)
+	a.mu.Lock()
+	b := a.hello(helloPage{})
+	a.mu.Unlock()
+	var m map[string]any
+	json.Unmarshal(b, &m)
+	if m["prefix"] != "A" {
+		t.Errorf("hello prefix %v", m["prefix"])
+	}
+	if strings.Contains(string(b), a.r().cfg.UID) {
+		t.Error("hello holds the router UID")
+	}
+}
+
+// A prefix change sends every open page the reload message; a save that keeps the prefix
+// sends none. Today an administrator changes the prefix through an import.
+func TestPrefixChangeReloadsEveryPage(t *testing.T) {
+	a := userApp(t, false)
+	text, _ := exportOf(t, a, true)
+	pages := []*client{{ip: "10.0.0.1", send: make(chan []byte, 64)}, {ip: "10.0.0.2", send: make(chan []byte, 64)}}
+	a.mu.Lock()
+	for _, c := range pages {
+		a.clients[c] = struct{}{}
+	}
+	a.mu.Unlock()
+	reloads := func(c *client) int {
+		n := 0
+		for {
+			select {
+			case b := <-c.send:
+				if strings.Contains(string(b), `"t":"reload"`) {
+					n++
+				}
+			default:
+				return n
+			}
+		}
+	}
+	if _, err := a.importConfig(adminClient(t, a), text); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range pages {
+		if n := reloads(c); n != 0 {
+			t.Fatalf("%s got %d reloads from a save that kept the prefix", c.ip, n)
+		}
+	}
+	if !strings.Contains(text, "prefix: A\n") {
+		t.Fatalf("export has no prefix: A line:\n%s", text)
+	}
+	if _, err := a.importConfig(adminClient(t, a), strings.Replace(text, "prefix: A\n", "prefix: C\n", 1)); err != nil {
+		t.Fatal(err)
+	}
+	if a.r().cfg.Prefix != "C" {
+		t.Fatalf("prefix %q after the import", a.r().cfg.Prefix)
+	}
+	for _, c := range pages {
+		if n := reloads(c); n != 1 {
+			t.Errorf("%s got %d reload messages, want 1", c.ip, n)
+		}
+	}
+}

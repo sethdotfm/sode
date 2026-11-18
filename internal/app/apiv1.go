@@ -57,7 +57,7 @@ func (c *apiCtx) client() *client { return &client{ip: c.IP, api: c} }
 // apiHandler runs after auth, rate limit and scope checks passed.
 type apiHandler func(a *App, w http.ResponseWriter, r *http.Request, cl *apiCtx)
 
-// apiRoute: Scope "" means any authenticated caller (none today); several scopes are
+// apiRoute: Scope "" means any authenticated caller (the stream, /routers); several scopes are
 // separated by spaces and the caller needs all of them. Path includes apiBase.
 type apiRoute struct {
 	Method, Path, Scope string
@@ -194,6 +194,17 @@ func (a *App) mountAPI(mux *http.ServeMux) {
 	})
 }
 
+// routerOK refuses a router parameter that names no router. It takes the router UID, never a
+// prefix, since a prefix can change. Optional while there is one router.
+func (a *App) routerOK(w http.ResponseWriter, r *http.Request) bool {
+	uid := r.URL.Query().Get("router")
+	if uid == "" || uid == a.r().cfg.UID {
+		return true
+	}
+	apiFail(w, http.StatusNotFound, "unknown_router", fmt.Sprintf("no router with UID %q; GET %s/routers lists them", uid, apiBase))
+	return false
+}
+
 // pathMatches compares a route path with a request path; a {name} segment matches any one segment.
 func pathMatches(pattern, path string) bool {
 	ps, qs := strings.Split(pattern, "/"), strings.Split(path, "/")
@@ -215,11 +226,13 @@ func (a *App) apiWrap(rt apiRoute) http.HandlerFunc {
 				apiFail(w, http.StatusServiceUnavailable, "api_off", "the API is off; an administrator turns it on in Settings")
 				return
 			}
-			rt.Handle(a, w, r, nil)
+			if a.routerOK(w, r) {
+				rt.Handle(a, w, r, nil)
+			}
 			return
 		}
 		cl, ok := a.apiAuth(w, r)
-		if !ok {
+		if !ok || !a.routerOK(w, r) {
 			return
 		}
 		if missing := cl.missing(rt.Scope); missing != "" {
