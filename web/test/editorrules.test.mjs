@@ -95,11 +95,13 @@ test('a Grid panel saves its type and edges with no size and no Pages, whatever 
   const g = merge(select(select(createGrid({ rows: 2, cols: 2 }), 1, 1), 2, 2, true));
   const sources = { members: [3, 1], items: { 1: { pinned: true } } };
   const fresh = saveBody(newPanel(), 'Wall', g, { type: 'grid', sources });
-  assert.deepEqual([fresh.type, fresh.sources, fresh.destinations, fresh.pages], ['grid', sources, { members: [] }, []]);
+  // Sent as references with only n; the server fills router and name.
+  const sent = { members: [{ n: 3 }, { n: 1 }], items: [{ n: 1, pinned: true }] };
+  assert.deepEqual([fresh.type, fresh.sources, fresh.destinations, fresh.pages], ['grid', sent, { members: [] }, []]);
   assert.ok(!('rows' in fresh) && !('cols' in fresh));
   const loaded = { ...newPanel('grid'), id: 'p-1', name: 'Wall', canEdit: true, rows: 0, cols: 0, future: 1 };
   const b = saveBody(loaded, 'Wall', g, { destinations: { members: [2] } });
-  assert.deepEqual([b.type, b.sources, b.destinations, b.pages, b.future], ['grid', { members: [] }, { members: [2] }, [], 1]);
+  assert.deepEqual([b.type, b.sources, b.destinations, b.pages, b.future], ['grid', { members: [] }, { members: [{ n: 2 }] }, [], 1]);
 });
 
 test('a Grid panel is dirty on a type or edge change, and not on an empty items or hide left by an undone edit', () => {

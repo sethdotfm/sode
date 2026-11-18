@@ -15,6 +15,7 @@ import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen, keepLi
 import { buttonsBody } from './panelbuttons.js';
 import { gridBody } from './gridpanelrun.js';
 import { isGridPanel } from './gridpaneledges.js';
+import { edgesIn } from './gridedgerefs.js';
 import { lookOf } from './panellook.js';
 import { createArt } from './panelart.js';
 import { createWake, enterFullscreen, featureNotes, wantsFullscreen } from './panelfeel.js';
@@ -152,7 +153,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
   let panel;
   for (;;) {
     try {
-      panel = await callJSON(`api/v1/panels/${seg}`);
+      panel = edgesIn(await callJSON(`api/v1/panels/${seg}`));
       break;
     } catch (e) {
       if (e.status === undefined) throw e;
@@ -435,7 +436,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     // Every read carries the caller's Rights and the confirm settings, which a layout update waiting on staged
     // routes must not hold back.
     get: async (path) => {
-      const p = await callJSON(path);
+      const p = edgesIn(await callJSON(path));
       if (p) setRights(p.rights);
       if (p) body.read?.(p);
       return p;

@@ -123,7 +123,7 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 	b.eval(`document.getElementById('ed-live-save').click(); true`)
 	b.waitFor("Save stores the lists, and Save goes from the bar", `document.getElementById('ed-live-save').hidden && document.getElementById('ed-live-state').textContent === ''`)
 	p := readPanel(t, a, ana, id)
-	srcs, _ := p["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, p, "sources")
 	members, _ := srcs["members"].([]any)
 	if len(members) < 2 || members[0] != float64(3) || members[1] != float64(0) {
 		t.Errorf("saved sources %v", srcs["members"])

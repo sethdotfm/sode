@@ -145,7 +145,7 @@ func TestChromeGridPanelEditorChunk(t *testing.T) {
 	b.eval(`document.getElementById('ed-name').value = 'Chunk grid'; document.getElementById('ed-name').dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('ed-save').click(); true`)
 	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved' && location.search.startsWith('?panel=')`)
 	id := regexp.MustCompile(`panel=([\w-]+)`).FindStringSubmatch(b.eval(`location.search`).(string))[1]
-	srcs, _ := readPanel(t, a, ana, id)["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, readPanel(t, a, ana, id), "sources")
 	got, _ := json.Marshal(srcs["members"])
 	if want := "[" + span(100, 149) + ",1,12,22,13,14,15,17]"; string(got) != want {
 		t.Errorf("members %s, want %s", got, want)

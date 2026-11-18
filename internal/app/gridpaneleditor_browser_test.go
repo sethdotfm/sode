@@ -52,7 +52,7 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	if p["type"] != "grid" {
 		t.Fatalf("type %v", p["type"])
 	}
-	srcs, _ := p["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, p, "sources")
 	hide, _ := json.Marshal(srcs["hide"])
 	items, _ := json.Marshal(srcs["items"])
 	if srcs["members"] != "all" || string(hide) != `null` || string(items) != `{"5":{"pinned":true}}` {
@@ -67,7 +67,7 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	b.waitFor("a second pin is an unsaved change", `document.getElementById('ed-state').textContent === 'Unsaved changes'`)
 	b.eval(`document.getElementById('ed-save').click(); true`)
 	b.waitFor("saved again", `document.getElementById('ed-state').textContent === 'Saved'`)
-	srcs, _ = readPanel(t, a, ana, id)["sources"].(map[string]any)
+	srcs = gridEdgeNums(t, readPanel(t, a, ana, id), "sources")
 	hide, _ = json.Marshal(srcs["hide"])
 	items, _ = json.Marshal(srcs["items"])
 	if srcs["members"] != "all" || string(hide) != `null` || string(items) != `{"5":{"pinned":true},"7":{"pinned":true}}` {

@@ -1,0 +1,1 @@
+- Grid panels keep the router and the router's name for each source and destination they list, hide or pin.

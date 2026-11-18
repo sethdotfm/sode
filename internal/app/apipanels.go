@@ -276,6 +276,9 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	want := p.ClientRights
 	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = "", cl.Actor.User, "", nil, nil, 0
 	p.normalize()
+	if p.Type == panelTypeGrid {
+		a.refEdges(&p, nil)
+	}
 	if err := validatePanel(&p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
@@ -349,6 +352,9 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		p.Extra = nil
 	}
 	p.normalize()
+	if p.Type == panelTypeGrid {
+		a.refEdges(&p, &old)
+	}
 	if err := validatePanel(&p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return

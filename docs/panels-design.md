@@ -56,9 +56,9 @@ A Grid panel is a patch field: sources across the top, destinations down the sid
 ### What it stores
 
 - A Grid panel has `type: grid`, a `sources` list and a `destinations` list. It has no `rows`, `cols`, `cells` or Pages. The server refuses a body with a non-empty `cells` or `pages`, so a client can send a read back unchanged. A change of `type` is 409 `conflict`.
-- An edge (the sources, or the destinations) keeps its members apart from its per-item settings. Members are `all`, which tracks the router in router order, or an ordered list of router numbers. `hide` leaves items out of an `all` edge. A list with `hide` is refused.
-- `items` holds one entry for each router number, keyed by the plain decimal number. An entry has `pinned`, `art`, `artB` and `hideText`. A pin does not stop an `all` edge from following the router. While Follow the router is on for an edge, the editor changes only its pins and artwork. Follow the router off turns `all` into a list.
-- An edge pins any number of items. The API refuses a number given two times in a list or in `hide`. Items for numbers that are not members stay stored.
+- An edge (the sources, or the destinations) keeps its members apart from its per-item settings. Members are `all`, which tracks the router in router order, or an ordered list of router references (`{router, n, name}`). `hide` leaves items out of an `all` edge. A list with `hide` is refused.
+- `items` is a list with one entry for each item: its router reference with `pinned`, `art`, `artB` and `hideText`. The server fills a blank `router` with this router and stores the router's name now, else the name the save or the stored panel had. A pin does not stop an `all` edge from following the router. While Follow the router is on for an edge, the editor changes only its pins and artwork. Follow the router off turns `all` into a list.
+- An edge pins any number of items. The API refuses two entries for one item in a list, in `hide` or in `items`. Items for numbers that are not members stay stored.
 - The Rights are the only limit that the server applies. A Grid panel draws only the items that the router reports and the viewer's Rights allow. A list number that the router does not report, or that the Rights exclude, stays stored and is not drawn.
 - Push, Copy, Checkpoint sets and restores carry the lists, hidden items, pins and item artwork. A Push or a Checkpoint set of the other type is 409 `conflict`. Default artwork shows on a Grid panel's names, and the Icon library use count includes them.
 

@@ -85,7 +85,7 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 	b.eval(`document.getElementById('ed-live-save').click(); true`)
 	b.waitFor("saved", `document.getElementById('ed-live-save').hidden`)
 	p := readPanel(t, a, ana, id)
-	srcs, _ := p["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, p, "sources")
 	members, _ := srcs["members"].([]any)
 	items, _ := srcs["items"].(map[string]any)
 	if len(members) < 3 || members[0] != float64(3) || members[1] != float64(5) || members[2] != float64(4) {
@@ -96,7 +96,7 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 			t.Errorf("source %s saved %v, want pinned", n, it)
 		}
 	}
-	dsts, _ := p["destinations"].(map[string]any)
+	dsts := gridEdgeNums(t, p, "destinations")
 	ditems, _ := dsts["items"].(map[string]any)
 	if it, _ := ditems["2"].(map[string]any); it["art"] != "icon:camera" {
 		t.Errorf("destination 2 saved %v, want the camera", it)
