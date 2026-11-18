@@ -362,7 +362,7 @@ func (a *App) SignOutAll(c *client, name string) error {
 			st.ended = true
 		}
 		if st := cl.u.step; st != nil && cl.userID() == who.ID {
-			a.stepOutMu(cl, "out")
+			a.stepOutMu(cl, "signOut")
 		}
 	}
 	for cl := range a.clients {

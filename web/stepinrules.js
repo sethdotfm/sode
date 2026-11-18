@@ -6,6 +6,9 @@ export function stepInOffered({ locked, phone, stepped, user, users }) {
   return (users || []).some((u) => u.len > 0 && u.name !== user);
 }
 
+// While stepped in, only this tab's own input counts as activity: other tabs are the original's.
+export const stepActive = (stepped, shared, own) => (stepped ? own : shared);
+
 // A link that leaves this page in this tab ends the step-in, so the page asks first.
 export function stepsOut(href, here, target = '') {
   if (target && target !== '_self') return false;

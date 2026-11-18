@@ -27,7 +27,7 @@ type stepIn struct {
 
 type stepEndedMsg struct {
 	T string `json:"t"` // "stepEnded"
-	// Why: "out", "idle", "lock" or "save".
+	// Why: "out", "idle", "lock", "save" or "signOut" (Sign out everywhere of the stepped-in user).
 	Why  string `json:"why"`
 	Note string `json:"note,omitempty"` // a status text when the original sign-in ended meanwhile
 }

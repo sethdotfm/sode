@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stepInOffered, stepsOut } from '../stepinrules.js';
+import { stepInOffered, stepsOut, stepActive } from '../stepinrules.js';
 
 const users = [
   { name: 'Ana', len: 4 },
@@ -25,4 +25,9 @@ test('only a link to another page of Sode steps out', () => {
   assert.equal(stepsOut('https://sode.test/#settings', here), false);
   assert.equal(stepsOut('https://example.com/log', here), false);
   assert.equal(stepsOut('https://sode.test/log', here, '_blank'), false);
+});
+
+test("a step-in's activity is this tab's own input, not the original's other tabs", () => {
+  assert.equal(stepActive(true, 900, 100), 100);
+  assert.equal(stepActive(false, 900, 100), 900);
 });

@@ -447,6 +447,38 @@ func TestStepInFromAGuestBrowser(t *testing.T) {
 	noTokenFor(t, a, "Bo")
 }
 
+func TestStepInFromAUserWithoutAPin(t *testing.T) {
+	a := userApp(t, false)
+	a.cfgMu.Lock()
+	_, nr, err := a.update(func(cfg *config.Config) error {
+		for i := range cfg.Users {
+			if cfg.Users[i].Name == "Ana" {
+				cfg.Users[i].Pin, cfg.Users[i].Len, cfg.Users[i].Role = "", 0, config.RoleStandard
+			}
+		}
+		return nil
+	})
+	a.cfgMu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.rt.Store(nr)
+	c := &client{ip: "10.0.0.1"}
+	read := peerOf(a, c)
+	a.Hi(c, "main", "")
+	if err := a.UserUnlockAs(c, "Ana", ""); err != nil {
+		t.Fatal(err)
+	}
+	mustStepIn(t, a, c, read, "Bo", "567890")
+	read()
+	if err := sendMsg(a, c, inMsg{T: "stepOut"}); err != nil {
+		t.Fatal(err)
+	}
+	if e := lastOf(read(), "stepEnded"); c.who() != "Ana" || e == nil || e["note"] != nil {
+		t.Fatalf("Step out returned to %q with %v", c.who(), e)
+	}
+}
+
 // Reload, page close and a dropped connection end the step-in with the connection: the next
 // connection says hi with Ana's token and is Ana.
 func TestStepInEndsWithTheConnection(t *testing.T) {
