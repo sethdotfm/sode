@@ -80,7 +80,8 @@ func TestSaveWritesOneRouterWithUIDAndPrefixA(t *testing.T) {
 		t.Fatalf("routers = %v, want one router\n%s", raw["routers"], b)
 	}
 	r := rs[0].(map[string]any)
-	if uid, _ := r["uid"].(string); len(uid) < 16 || r["prefix"] != "A" || r["address"] != "10.0.0.50:8910" {
+	uid, _ := r["uid"].(string)
+	if _, title := r["title"]; len(uid) < 16 || !title || r["prefix"] != "A" || r["address"] != "10.0.0.50:8910" {
 		t.Errorf("router in file = %v", r)
 	}
 	got, _, err := Load(path)

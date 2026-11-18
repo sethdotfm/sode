@@ -16,7 +16,7 @@ type Router struct {
 	UID string `yaml:"uid" json:"-" owned:"true"`
 	// Prefix is A-Z, hidden while there is one router.
 	Prefix  string `yaml:"prefix" json:"-" owned:"true"`
-	Title   string `yaml:"title,omitempty" json:"routerName" guard:"open"`
+	Title   string `yaml:"title" json:"routerName" guard:"open"`
 	Address string `yaml:"address" json:"router" guard:"router"`
 	// RouterShow: what the status label shows (address, name or none).
 	RouterShow      string `yaml:"statusLabel" json:"routerShow" guard:"open"`
