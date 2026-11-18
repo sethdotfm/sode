@@ -67,3 +67,33 @@ func TestArtDefaultSurvivesPresetAndUserRename(t *testing.T) {
 		t.Fatalf("clear by id: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+// A preset default stored by name with no id still reaches a Preset cell, and a set or clear by id replaces it.
+func TestArtDefaultStoredByNameStillApplies(t *testing.T) {
+	a := panelsApp(t)
+	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
+	pid := a.r().cfg.Presets[0].ID
+	if _, err := a.artDefaults.set(ArtDefault{Kind: artKindPreset, Scope: "everyone", Name: "Studio A", ArtB: "L"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	id := makePanel(t, a, ana, `{"name":"Wall","cells":[{"kind":"preset","scope":"everyone","name":"Studio A","r":1,"c":1}]}`)
+	ds := apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil))["artDefaults"].([]any)
+	if len(ds) != 1 || ds[0].(map[string]any)["id"] != pid || ds[0].(map[string]any)["artB"] != "L" {
+		t.Fatalf("panel read %v", ds)
+	}
+	if rec := apiSend(a, "PUT", "/api/v1/default-artwork", cy, `{"kind":"preset","scope":"everyone","id":"`+pid+`","artB":"B"}`); rec.Code != 200 {
+		t.Fatalf("set: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := a.artDefaults.list(); len(got) != 1 || got[0].ID != pid || got[0].ArtB != "B" {
+		t.Fatalf("stored %+v", got)
+	}
+	if _, err := a.artDefaults.set(ArtDefault{Kind: artKindPreset, Scope: "everyone", Name: "Studio A", ArtB: "L"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if rec := apiSend(a, "DELETE", "/api/v1/default-artwork", cy, `{"kind":"preset","scope":"everyone","id":"`+pid+`"}`); rec.Code != 204 {
+		t.Fatalf("clear: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := a.artDefaults.list(); len(got) != 0 {
+		t.Fatalf("after clear %+v", got)
+	}
+}

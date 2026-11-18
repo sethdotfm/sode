@@ -245,8 +245,8 @@ func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 	} else if artDefaultIDRe.MatchString(d.Art) && !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == d.Art }) {
 		return d, errNoArtDefaultFile
 	}
-	i := slices.IndexFunc(s.data.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
-	next.Defaults = slices.Clone(s.data.Defaults)
+	next.Defaults = slices.DeleteFunc(slices.Clone(s.data.Defaults), func(x ArtDefault) bool { return d.replaces(x) })
+	i := slices.IndexFunc(next.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
 	if i >= 0 {
 		next.Defaults[i] = d
 	} else {
@@ -262,13 +262,18 @@ func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 func (s *artDefaultStore) clear(d ArtDefault) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	i := slices.IndexFunc(s.data.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
-	if i < 0 {
+	kept := slices.DeleteFunc(slices.Clone(s.data.Defaults), func(x ArtDefault) bool { return x.key() == d.key() || d.replaces(x) })
+	if len(kept) == len(s.data.Defaults) {
 		return false, nil
 	}
 	next := s.data
-	next.Defaults = slices.Delete(slices.Clone(s.data.Defaults), i, i+1)
+	next.Defaults = kept
 	return true, s.writeLocked(next)
+}
+
+// replaces: x is a preset default stored by name before ids, for the preset d names by id.
+func (d ArtDefault) replaces(x ArtDefault) bool {
+	return d.Kind == artKindPreset && d.ID != "" && x.Kind == artKindPreset && x.ID == "" && strings.EqualFold(x.Name, d.Name)
 }
 
 func (s *artDefaultStore) image(id string) ([]byte, PanelArt, bool) {

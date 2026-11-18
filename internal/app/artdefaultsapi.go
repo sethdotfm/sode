@@ -62,16 +62,17 @@ func everyonePreset(cfg config.Config, id, name string) (config.Preset, bool) {
 	return config.Preset{}, false
 }
 
-// liveArtDefaults is the stored list with each preset's name now. A default of a deleted preset keeps its last name.
+// liveArtDefaults is the stored list with each preset's id and name now. A default stored with no id is found by
+// name. A default of a deleted preset keeps what it has.
 func (a *App) liveArtDefaults() []ArtDefault {
 	cfg := a.r().cfg
 	list := a.artDefaults.list()
 	for i, d := range list {
-		if d.Kind != artKindPreset || d.ID == "" {
+		if d.Kind != artKindPreset {
 			continue
 		}
-		if p, ok := everyonePreset(cfg, d.ID, ""); ok {
-			list[i].Name = p.Name
+		if p, ok := everyonePreset(cfg, d.ID, d.Name); ok {
+			list[i].ID, list[i].Name = p.ID, p.Name
 		}
 	}
 	return list
