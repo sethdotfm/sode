@@ -1,5 +1,5 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
-// previews beside the fields. data-apart sections (users.js, apisettings.js, configfile.js) own their own fields.
+// previews beside the fields. data-apart sections (users.js, apisettings.js) own their own fields.
 
 import { $, el, S, wsSend } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';

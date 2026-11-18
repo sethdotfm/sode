@@ -862,6 +862,53 @@ html[data-alt] .sode__chip-key {
 .sode__scrim > .sode__tr {
   width: 38rem;
 }
+/* Export & Import (exportdialog.js): Sode's default dialog size. */
+.sode__scrim > .sode__xi {
+  width: min(37.5rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode__xi .pb-modal__footer {
+  gap: var(--pb-space-3);
+}
+.sode__xi .pb-modal__footer > .sode__hint {
+  flex: 1;
+  min-width: 0;
+}
+.sode__xi-acts {
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__xi-cats {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  margin-top: var(--pb-space-3);
+}
+.sode__xi-head {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: 2rem minmax(0, 1fr) auto auto;
+  padding: var(--pb-space-2) 0;
+}
+.sode__xi-items {
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  padding: 0 0 var(--pb-space-2) calc(2rem + var(--pb-space-3));
+}
+.sode__xi-item {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-3);
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: var(--pb-space-1) 0;
+}
+.sode__xi-sub {
+  grid-column: 1 / -1;
+}
+.sode__xi-size {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-sm);
+  white-space: nowrap;
+}
 .sode__scrim > .sode__rv {
   width: 56rem;
 }

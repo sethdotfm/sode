@@ -573,33 +573,11 @@
 
     <fieldset class="sode__group" data-section="export-import" data-topic="server">
       <legend>Export & Import</legend>
-      <div class="sode__field" data-find="transfer-open" data-label="Export & import">
+      <div class="sode__field" data-find="xi-open" data-label="Export & Import">
         <div class="sode__names">
-          <button type="button" class="pb-btn pb-btn--outline" id="transfer-open">Export & import</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="xi-open">Export & Import…</button>
         </div>
-        <span class="sode__hint">Export and import settings, filter sets, and presets to and from files.<br>An Item link for one preset is in the preset editor.</span>
-      </div>
-      <span class="sode__hint">Server backup: everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the Advanced Settings PIN.</span>
-      <!-- Server config file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
-      <div class="sode__field" id="config-file" data-apart data-find="config-file" data-label="Server backup">
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include Secrets (private backup)</span></label>
-        <span class="sode__hint">If enabled, the file includes the Advanced Settings PIN and every user's PIN hash. Without them, a new server cannot restore the users.</span>
-        <div class="sode__names">
-          <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="config-export" data-find="config-export" data-label="Export server configuration">Export</button>
-            <button type="button" class="pb-btn pb-btn--outline" id="config-import" data-find="config-import" data-label="Import server configuration">Import</button>
-          </span>
-        </div>
-        <input type="file" id="config-pick" accept=".yaml,.yml,text/yaml,text/plain" hidden>
-        <div class="sode__field" id="config-confirm" hidden>
-          <div class="pb-note pb-note--warn" id="config-confirm-text" role="alert"></div>
-          <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="config-keep">Keep it</button>
-            <button type="button" class="pb-btn pb-btn--danger" id="config-replace">Replace everything</button>
-          </span>
-        </div>
-        <div class="pb-note pb-note--error" id="config-err" role="alert" hidden></div>
-        <span class="sode__hint" id="config-status" role="status" aria-live="polite"></span>
+        <span class="sode__hint">Export Sode to a zip file, item by item: settings, users, presets, panels, artwork and more. Back up everything exports all of it with PINs. An Item link for one preset is in the preset editor.</span>
       </div>
     </fieldset>
 

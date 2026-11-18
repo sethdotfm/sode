@@ -93,6 +93,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("/api/health", a.serveHealth)
 	mux.HandleFunc("/api/yaml", a.serveYAML)
 	mux.HandleFunc("POST /api/export", a.serveExport)
+	mux.HandleFunc("POST /api/export/size", a.serveExportSize)
+	mux.HandleFunc("GET /api/export/items", a.serveExportItems)
 	mux.HandleFunc("POST /api/import", a.serveImportCheck)
 	a.mountAPI(mux)
 	return a.httpsGate(secureHeaders(mux))
@@ -186,8 +188,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.CloseNow()
-	budget := newReadBudget(conn.SetReadLimit)
-	cc := &connCtx{budget: budget}
+	conn.SetReadLimit(wsReadLimit)
 
 	c := &client{ip: clientIP(r, a.r().proxies), secure: secureRequest(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
@@ -269,7 +270,6 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		_, data, err := conn.Read(ctx)
-		budget.Reset()
 		if err != nil {
 			gone = err
 			return
@@ -295,7 +295,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			}
 			m.done = done
 		}
-		rl.handle(a, c, &m, cc)
+		rl.handle(a, c, &m)
 	}
 }
 
@@ -371,9 +371,6 @@ type inMsg struct {
 	New        string               `json:"new"`
 	Remove     bool                 `json:"remove"` // userSetPin: remove my PIN
 	UsersReq   *usersReq            `json:"usersReq"`
-	Pins       bool                 `json:"pins"`    // configExport: include the PIN hashes
-	YAML       string               `json:"yaml"`    // configImport: the file
-	Size       int                  `json:"size"`    // configImportBegin: the file's size in bytes
 	KeyName    string               `json:"keyName"` // keyCreate, keyCreateFor
 	KeyID      string               `json:"keyId"`   // keyRevoke, keyRevokeAny
 	Expires    int64                `json:"expires"` // key expiry, unix ms; 0 = never
