@@ -1,7 +1,8 @@
 // What a panel page reads from its URL and from /api/v1, and the text it shows. Pure.
 // A stored panel's cells are { r, c, rs?, cs?, kind, n?, scope?, name?, caption?, levels? } with r and c
 // counted from 1 and kind one of KINDS (docs/panels-design.md, Panel page). A Preset cell holds
-// scope ('everyone' | 'me') and name instead of n. A Go to Page cell holds page, its target Page's id (panelnav.js).
+// scope ('everyone' | 'me'), id and name instead of n. Source and Destination cells are router references
+// (router, n, name), filled by the server on save (internal/app/panelrefs.go). A Go to Page cell holds page, its target Page's id (panelnav.js).
 
 import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
@@ -30,6 +31,8 @@ export const PRESET_SCOPES = ['everyone', 'me'];
 
 // The scope is a fixed word, so a colon in the name cannot make two presets collide.
 export const presetKey = (scope, name) => `${scope}:${name}`;
+// The preset's name now: the cell's id wins, so a renamed preset is still found. A cell with no id keeps its own name.
+export const presetName = (env, cell) => (cell.id && env.presetNames?.get(presetKey(cell.scope, cell.id))) || cell.name;
 const hasPreset = (c) => PRESET_SCOPES.includes(c.scope) && typeof c.name === 'string' && c.name !== '';
 // A target whose Page was deleted still counts, so the panel page can draw it greyed (panelnav.js goToState).
 const hasTarget = (c) => typeof c.page === 'string' && c.page !== '';
@@ -86,6 +89,7 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),
     rights: rights || null,
     presets: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), (p.items || []).map(itemPlain)])),
+    presetNames: new Map((presetsReply.presets || []).filter((p) => p.id).map((p) => [presetKey(p.scope, p.id), p.name])),
   };
 }
 

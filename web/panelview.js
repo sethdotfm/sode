@@ -2,7 +2,7 @@
 // every change, with the model state, the router env and the names.
 import { el, icon } from './core.js';
 import { artOf, artBOf, artBBadge, cellScale, textHidden } from './panellook.js';
-import { currentLabel, nameCellText, SHOW_KINDS } from './panelrules.js';
+import { currentLabel, nameCellText, presetKey, presetName, SHOW_KINDS } from './panelrules.js';
 import { PAGE_KINDS, pageCellText } from './pagecells.js';
 import {
   sourceState,
@@ -142,7 +142,7 @@ function paintDestination(b, cell, { st, env, names, now }) {
 function paintPreset(b, cell, { st, env, names }) {
   b.dataset.s = presetState(st, cell, env);
   fill(b, el('span', 'sode-panel__text', names.of(cell)));
-  b.disabled = !env.presets?.has(`${cell.scope}:${cell.name}`);
+  b.disabled = !env.presets?.has(presetKey(cell.scope, presetName(env, cell)));
 }
 
 // Not pressable: it only reads the viewed destination.
