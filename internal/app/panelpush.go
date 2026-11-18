@@ -113,8 +113,9 @@ func (s *panelStore) checkpoints(id string) ([]panelCheckpoint, bool) {
 }
 
 // applyLocked stores lay over panel id after keeping a checkpoint of what is there. A checkpoint
-// that cannot be written stops the change, so a Push is never unrecoverable.
-func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string) (Panel, panelCheckpoint, error) {
+// that cannot be written stops the change, so a Push is never unrecoverable. refer, when given, makes the
+// checkpoint's cells router references, so a panel stored with bare numbers is kept as references.
+func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	p, ok := s.by[id]
 	if !ok {
 		return Panel{}, panelCheckpoint{}, errNoPanel
@@ -127,7 +128,11 @@ func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string) (Pa
 	if err := validatePanel(&q); err != nil {
 		return Panel{}, panelCheckpoint{}, fmt.Errorf("%w: %v", errBadLayout, err)
 	}
-	cp := panelCheckpoint{ID: newShortID("c-"), At: time.Now().UTC().Truncate(time.Second), By: by, Why: why, Layout: layoutOf(p)}
+	before := layoutOf(p)
+	if refer != nil {
+		before = refer(before, p.Owner)
+	}
+	cp := panelCheckpoint{ID: newShortID("c-"), At: time.Now().UTC().Truncate(time.Second), By: by, Why: why, Layout: before}
 	cps := append(slices.Clone(s.cpsLocked(id)), cp)
 	if len(cps) > panelCheckpointMax {
 		cps = cps[len(cps)-panelCheckpointMax:]
@@ -153,22 +158,22 @@ func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string) (Pa
 }
 
 // pushLayout is a Push to one panel. The target keeps its own fixed destinations.
-func (s *panelStore) pushLayout(id string, lay panelLayout, by, why string) (Panel, panelCheckpoint, error) {
+func (s *panelStore) pushLayout(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.applyLocked(id, keepFixedDests(lay, s.by[id]), by, why)
+	return s.applyLocked(id, keepFixedDests(lay, s.by[id]), by, why, refer)
 }
 
 // applyLayout puts a whole layout on one panel, as a Checkpoint set does.
-func (s *panelStore) applyLayout(id string, lay panelLayout, by, why string) (Panel, panelCheckpoint, error) {
+func (s *panelStore) applyLayout(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.applyLocked(id, lay, by, why)
+	return s.applyLocked(id, lay, by, why, refer)
 }
 
 // restoreCheckpoint puts checkpoint cp back on panel id; ok is false for an unknown one. What
 // it replaces is itself kept as a checkpoint.
-func (s *panelStore) restoreCheckpoint(id, cp, by string) (p Panel, ok bool, err error) {
+func (s *panelStore) restoreCheckpoint(id, cp, by string, refer layoutRefer) (p Panel, ok bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, found := s.by[id]; !found {
@@ -178,7 +183,7 @@ func (s *panelStore) restoreCheckpoint(id, cp, by string) (p Panel, ok bool, err
 	if i < 0 {
 		return Panel{}, false, nil
 	}
-	p, _, err = s.applyLocked(id, s.cps[id][i].Layout, by, "before restoring "+cp)
+	p, _, err = s.applyLocked(id, s.cps[id][i].Layout, by, "before restoring "+cp, refer)
 	return p, true, err
 }
 
