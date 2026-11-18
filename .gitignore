@@ -12,3 +12,6 @@
 .DS_Store
 .idea/
 .vscode/
+
+# local hook config written by the impeccable skill installer
+/.github/hooks/impeccable.json
