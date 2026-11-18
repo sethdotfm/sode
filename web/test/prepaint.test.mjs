@@ -12,7 +12,7 @@ const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'pr
 
 // Returns the page's dataset after the script ran: theme (unset for system), layout, and flip and compact (present when on).
 function run({ own = {}, profile, global, session, tab, phoneMedia = false, only }) {
-  const store = new Map(Object.entries(own));
+  const store = new Map(Object.entries({ 'sode-format': '2', ...own }));
   if (profile !== undefined) store.set('sode-profile-prefs', JSON.stringify(profile));
   if (global !== undefined) store.set('sode-device-defaults', JSON.stringify(global));
   if (session) store.set('sode-session', 'tok');

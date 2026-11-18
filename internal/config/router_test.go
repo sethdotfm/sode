@@ -11,6 +11,7 @@ import (
 )
 
 const routersYAML = `
+format: 2
 routers:
   - uid: 7f3c9a1e2b4d5f60
     prefix: A
@@ -111,7 +112,7 @@ func TestNormalizeMakesUIDOnce(t *testing.T) {
 // A file without a router UID gets one at Load, written back so it holds across restarts.
 func TestLoadKeepsAMadeUID(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("routers:\n  - address: 10.0.0.50:8910\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("format: 2\nrouters:\n  - address: 10.0.0.50:8910\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	a, _, err := Load(path)
@@ -128,7 +129,7 @@ func TestLoadKeepsAMadeUID(t *testing.T) {
 }
 
 func TestOneRouterOnly(t *testing.T) {
-	_, err := Parse([]byte("routers:\n  - uid: a1\n  - uid: b2\n"))
+	_, err := Parse([]byte("format: 2\nrouters:\n  - uid: a1\n  - uid: b2\n"))
 	if err == nil || !strings.Contains(err.Error(), "one router") {
 		t.Errorf("two routers: %v", err)
 	}

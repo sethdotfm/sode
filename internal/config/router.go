@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
@@ -72,6 +73,7 @@ type configFile Config
 
 // Two steps, since yaml.v3 ignores an inline map (Extra) inside an inline struct.
 func (c Config) MarshalYAML() (any, error) {
+	c.Format = Format
 	var top, routers yaml.Node
 	if err := top.Encode(configFile(c)); err != nil {
 		return nil, err
@@ -79,8 +81,9 @@ func (c Config) MarshalYAML() (any, error) {
 	if err := routers.Encode([]Router{c.Router}); err != nil {
 		return nil, err
 	}
+	// After format (Config's first field), so the marker stays the file's first key.
 	key := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "routers"}
-	top.Content = append([]*yaml.Node{key, &routers}, top.Content...)
+	top.Content = slices.Insert(top.Content, 2, key, &routers)
 	return &top, nil
 }
 
