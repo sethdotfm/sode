@@ -148,7 +148,7 @@ func TestWholeListSavesKeepUnknownKeys(t *testing.T) {
 		},
 		"users editor": func(t *testing.T, a *App) error {
 			planted := map[string]any{"browserKey": 1}
-			src := []int{1, 2}
+			src := *config.Nums(1, 2)
 			rights := config.Rights{Sources: &src, Extra: planted}
 			clients := []config.APIClient{
 				{Name: "other", Scopes: []string{"names", "tally"}, Extra: planted},

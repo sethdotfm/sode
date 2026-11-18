@@ -70,7 +70,7 @@ func allFailed(t *testing.T, rs []routeResult, n int, want string) {
 }
 
 func TestRightsRefuseWholeTake(t *testing.T) {
-	a, f, c := rightsApp(t, config.Rights{Dsts: ints(5)})
+	a, f, c := rightsApp(t, config.Rights{Dsts: config.Nums(5)})
 	defer startLog(t, a)()
 	f.seed(5, 1, 0, 1, 2)
 	n := f.sends()
@@ -94,7 +94,7 @@ func TestRightsRefuseWholeTake(t *testing.T) {
 }
 
 func TestRightsAllowInside(t *testing.T) {
-	a, f, c := rightsApp(t, config.Rights{Sources: ints(7), Dsts: ints(5), Levels: ints(1)})
+	a, f, c := rightsApp(t, config.Rights{Sources: config.Nums(7), Dsts: config.Nums(5), Levels: ints(1)})
 	f.seed(5, 1, 0)
 	rs := takeResults(t, a, c, []routeReq{{ID: 1, Src: 7, Dst: 5, Levels: []int{1}}})
 	if len(rs) != 1 || !rs[0].OK {
@@ -107,9 +107,9 @@ func TestRightsEachKind(t *testing.T) {
 		r    config.Rights
 		want string
 	}{
-		"source": {config.Rights{Sources: ints(1)}, "source 8"},
+		"source": {config.Rights{Sources: config.Nums(1)}, "source 8"},
 		"level":  {config.Rights{Levels: ints(1)}, "level"},
-		"none":   {config.Rights{Dsts: ints()}, "destination 6"},
+		"none":   {config.Rights{Dsts: config.Nums()}, "destination 6"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			a, f, c := rightsApp(t, tc.r)
@@ -125,9 +125,9 @@ func TestRightsEachKind(t *testing.T) {
 
 func TestRightsPreset(t *testing.T) {
 	items := func(preset string, dst int) []routeReq {
-		return []routeReq{{ID: 1, Src: 7, Dst: dst, Levels: []int{1}, Preset: preset}}
+		return []routeReq{{ID: 1, Src: 7, Dst: dst, Levels: []int{1}, Preset: preset, PresetID: "id-" + preset}}
 	}
-	a, f, c := rightsApp(t, config.Rights{Dsts: ints(5), Presets: &[]string{"Show"}})
+	a, f, c := rightsApp(t, config.Rights{Dsts: config.Nums(5), Presets: &[]string{"id-Show"}})
 	f.seed(5, 1, 0)
 	allFailed(t, takeResults(t, a, c, items("Other", 5)), 1, `preset "Other"`)
 	allFailed(t, takeResults(t, a, c, items("Show", 6)), 1, "destination 7")
@@ -137,7 +137,7 @@ func TestRightsPreset(t *testing.T) {
 }
 
 func TestRightsUndoSkipsBeforeSource(t *testing.T) {
-	a, f, c := rightsApp(t, config.Rights{Sources: ints(7), Dsts: ints(5)})
+	a, f, c := rightsApp(t, config.Rights{Sources: config.Nums(7), Dsts: config.Nums(5)})
 	f.seed(5, 1, 0)
 	a.record(&Entry{Src: 7, Dst: 5, Levels: []int{1}, Prev: [][2]int{{1, 1}}, OK: true})
 	undo := 0
@@ -155,7 +155,7 @@ func TestRightsUndoSkipsBeforeSource(t *testing.T) {
 // The undo tag comes from the browser, so it only skips the source check for the route the
 // entry really had before.
 func TestRightsForgedUndoTagStillChecksSource(t *testing.T) {
-	a, f, c := rightsApp(t, config.Rights{Sources: ints(7), Dsts: ints(5)})
+	a, f, c := rightsApp(t, config.Rights{Sources: config.Nums(7), Dsts: config.Nums(5)})
 	f.seed(5, 1, 0)
 	a.record(&Entry{Src: 7, Dst: 5, Levels: []int{1}, Prev: [][2]int{{1, 1}}, OK: true})
 	id, missing := 0, 12345
@@ -182,7 +182,7 @@ func TestRightsForgedUndoTagStillChecksSource(t *testing.T) {
 func TestRightsGuestApplyToSignedOutBrowser(t *testing.T) {
 	a, f, _ := rightsApp(t, config.Rights{})
 	cfg := a.r().cfg
-	cfg.GuestRights = config.Rights{Dsts: ints(5)}
+	cfg.GuestRights = config.Rights{Dsts: config.Nums(5)}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestRightsGuestApplyToSignedOutBrowser(t *testing.T) {
 func TestRightsNativeFireRefusedBeforeStaging(t *testing.T) {
 	a, f := nativeApp(t, 3)
 	cfg := a.r().cfg
-	cfg.GuestRights = config.Rights{Dsts: ints(1, 2)}
+	cfg.GuestRights = config.Rights{Dsts: config.Nums(1, 2)}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestRightsAPICaller(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0)
 	act := Actor{Kind: actorClient, Name: "PanelsBot", Key: "Panel 43"}
-	c := &client{ip: "10.0.0.3", send: make(chan []byte, 8), api: &apiCtx{Actor: act, Rights: config.Rights{Dsts: ints(5)}}}
+	c := &client{ip: "10.0.0.3", send: make(chan []byte, 8), api: &apiCtx{Actor: act, Rights: config.Rights{Dsts: config.Nums(5)}}}
 	register(a, c)
 	allFailed(t, takeResults(t, a, c, []routeReq{{ID: 1, Src: 7, Dst: 6, Levels: []int{1}}}), 1, "destination 7")
 	rs := takeResults(t, a, c, []routeReq{{ID: 2, Src: 7, Dst: 5, Levels: []int{1}}})
@@ -235,7 +235,7 @@ func TestRightsAPICaller(t *testing.T) {
 
 // A browser batch takes the same path as the API: same failed result per item, same row.
 func TestRightsBrowserBatchParity(t *testing.T) {
-	a, f, c := rightsApp(t, config.Rights{Dsts: ints(5)})
+	a, f, c := rightsApp(t, config.Rights{Dsts: config.Nums(5)})
 	defer startLog(t, a)()
 	n := f.sends()
 	a.serveTake(c, &inMsg{Items: []routeReq{
@@ -273,7 +273,7 @@ func TestRightsBrowserBatchParity(t *testing.T) {
 func TestRightsRefusalHidesNumbersFromHiddenCaller(t *testing.T) {
 	a, _, _ := rightsApp(t, config.Rights{})
 	rt := a.r()
-	hidden := config.Rights{Sources: ints(1), Dsts: ints(5), Presets: &[]string{"Show"}, Visibility: config.VisHidden}
+	hidden := config.Rights{Sources: config.Nums(1), Dsts: config.Nums(5), Presets: &[]string{"id-Show"}, Visibility: config.VisHidden}
 	for name, it := range map[string]routeReq{
 		"source":      {Src: 42, Dst: 5, Levels: []int{1}},
 		"destination": {Src: 1, Dst: 41, Levels: []int{1}},

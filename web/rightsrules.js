@@ -1,14 +1,18 @@
 // Rights rules, pure (no imports) so Node tests them. Rights on the wire: {sources, dsts, levels, presets, visibility}.
-// A missing list means all and [] means none. Sources and dsts are the router's own numbers (no
-// numberOffset, as in plan items' .n); levels are UI levels 1..N. Keep in step with config.Rights.
+// A missing list means all and [] means none. Sources and dsts are router references {router, n, name}.
+// n is the router's own number, with no numberOffset, as in plan items' .n. The server also takes bare numbers.
+// Levels are UI levels 1..N. Presets are preset ids. Keep in step with config.Rights.
 
-export const allowed = (rights, kind, v) => !rights || !Array.isArray(rights[kind]) || rights[kind].includes(v);
+// refN: a list entry's router number. v2.0 drives one router, so the router is not compared.
+export const refN = (x) => (x && typeof x === 'object' ? x.n : x);
+
+export const allowed = (rights, kind, v) => !rights || !Array.isArray(rights[kind]) || rights[kind].some((x) => refN(x) === v);
 
 // The reason the server would refuse the plan whole, or ''. Same order and words as outsideRights in
 // internal/app/rights.go. Undo restores what the router had, so it skips the Before source.
 export function planOutside(rights, plan, off, levelName = String) {
   if (!rights) return '';
-  if (plan.preset && !allowed(rights, 'presets', plan.preset)) return `preset "${plan.preset}" is outside your rights`;
+  if ((plan.preset || plan.presetId) && !allowed(rights, 'presets', plan.presetId)) return `preset "${plan.preset}" is outside your rights`;
   for (const it of plan.items) {
     if (!it.groups.length) continue;
     if (!allowed(rights, 'dsts', it.dst.n)) return `destination ${it.dst.n + off} is outside your rights`;
@@ -23,7 +27,7 @@ export function planOutside(rights, plan, off, levelName = String) {
 // ---- the editor: a list is "all" or "only these", typed as shown numbers
 
 export function listText(list, off) {
-  const shown = [...new Set(list.map((n) => n + off))].sort((a, b) => a - b);
+  const shown = [...new Set(list.map((x) => refN(x) + off))].sort((a, b) => a - b);
   const out = [];
   for (let i = 0; i < shown.length; ) {
     let j = i;
@@ -63,17 +67,39 @@ const NUMBERED = [
   ['levels', 'Levels', false],
 ];
 
-export function draftOf(rights, off) {
+// presets: [{id, name}] the editor can name. The draft shows names. An id it cannot name stays in keep
+// and goes back on save: a deleted preset, or one it does not list.
+export function draftOf(rights, off, presets = []) {
   const r = rights || {};
   const d = { visibility: r.visibility === 'hidden' ? 'hidden' : 'readonly' };
   for (const [kind, , shifted] of NUMBERED)
     d[kind] = { all: !Array.isArray(r[kind]), text: Array.isArray(r[kind]) ? listText(r[kind], shifted ? off : 0) : '' };
-  d.presets = { all: !Array.isArray(r.presets), text: Array.isArray(r.presets) ? r.presets.join('\n') : '' };
+  const ids = Array.isArray(r.presets) ? r.presets : [];
+  const nameOf = new Map(presets.map((p) => [p.id, p.name]));
+  d.presets = {
+    all: !Array.isArray(r.presets),
+    text: ids
+      .filter((id) => nameOf.has(id))
+      .map((id) => nameOf.get(id))
+      .join('\n'),
+    keep: ids.filter((id) => !nameOf.has(id)),
+  };
   return d;
 }
 
+// Typed names to ids, ignoring case, or {error} for a name no preset has.
+function presetIds(text, keep, presets) {
+  const out = [];
+  for (const name of parseNames(text)) {
+    const p = presets.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    if (!p) return { error: `Presets: no preset is named "${name}"` };
+    if (!out.includes(p.id)) out.push(p.id);
+  }
+  return { ids: [...out, ...(keep || []).filter((id) => !out.includes(id))] };
+}
+
 // {rights} for the wire, or {error} naming the first bad list. levels: how many exist.
-export function rightsOf(d, off, levels) {
+export function rightsOf(d, off, levels, presets = []) {
   const rights = {};
   for (const [kind, name, shifted] of NUMBERED) {
     if (d[kind].all) continue;
@@ -82,7 +108,11 @@ export function rightsOf(d, off, levels) {
     if (kind === 'levels' && p.list.some((u) => u < 1 || u > levels)) return { error: `Levels: use 1-${levels}` };
     rights[kind] = p.list;
   }
-  if (!d.presets.all) rights.presets = parseNames(d.presets.text);
+  if (!d.presets.all) {
+    const p = presetIds(d.presets.text, d.presets.keep, presets);
+    if (p.error) return p;
+    rights.presets = p.ids;
+  }
   if (d.visibility === 'hidden') rights.visibility = 'hidden';
   return { rights };
 }
@@ -100,16 +130,18 @@ export const rightsTab = (id) => ({ tab: 'rights', pick: `user:${id}` });
 // changed ('rights', 'noAutoLock', 'scopes'). extra holds noAutoLock (a user) or scopes (Guest).
 // orig.rights is undefined for a row that never loaded. Untouched fields go back as loaded, so a save
 // never rewrites rights through the editor's text (and a number offset change cannot shift them).
-export const newEntry = (rights, off, extra = {}) => ({
+// presets: the [{id, name}] this entry can name, kept for the save.
+export const newEntry = (rights, off, extra = {}, presets = []) => ({
   orig: { rights, ...extra },
-  draft: { ...draftOf(rights, off), ...extra },
+  draft: { ...draftOf(rights, off, presets), ...extra },
   dirty: new Set(),
+  presets,
 });
 
 function entryRights(e, off, levels) {
   if (!e) return {};
   if (!e.dirty.has('rights')) return e.orig.rights ? { rights: e.orig.rights } : {};
-  return rightsOf(e.draft, off, levels);
+  return rightsOf(e.draft, off, levels, e.presets);
 }
 
 // The rights part of a `users` save: {users: [{rights?, noAutoLock?}] in row order, apiClients,

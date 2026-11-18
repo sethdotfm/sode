@@ -143,7 +143,7 @@ func TestGridSaveKeepsItemsOutsideTheEditorsRights(t *testing.T) {
 	cfg := a.r().cfg
 	for i := range cfg.Users {
 		if cfg.Users[i].Name == "Ana" {
-			cfg.Users[i].Rights = config.Rights{Sources: &[]int{0, 1, 2}, Dsts: &[]int{0, 1, 2}}
+			cfg.Users[i].Rights = config.Rights{Sources: config.Nums(0, 1, 2), Dsts: config.Nums(0, 1, 2)}
 		}
 	}
 	if err := a.ApplyConfig(cfg); err != nil {

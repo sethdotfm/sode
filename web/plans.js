@@ -88,6 +88,7 @@ export function presetPlan(preset, defaults) {
   return {
     verb: 'preset',
     preset: preset.name,
+    presetId: preset.id,
     title: `Preset: ${preset.name}`,
     warnings,
     items: r.routes.map((t) =>
@@ -548,7 +549,7 @@ export function sendTakes(p) {
     }
   }
   const out = { t: 'batch', items };
-  if (p.verb === 'preset' && p.preset) out.preset = p.preset;
+  if (p.verb === 'preset' && p.preset) Object.assign(out, { preset: p.preset, presetId: p.presetId });
   if (!wsSend(out)) {
     showResult(
       'error',

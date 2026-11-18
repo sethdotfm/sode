@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -49,6 +50,24 @@ type Ref struct {
 	Shown  string         `yaml:"shown,omitempty" json:"shown,omitempty"`
 	Name   string         `yaml:"name,omitempty" json:"name,omitempty"`
 	Extra  map[string]any `yaml:",inline" json:"-"`
+}
+
+type refPlain Ref
+
+// UnmarshalJSON also takes a bare number, the one router's source or destination: older pages
+// and API callers send those.
+func (f *Ref) UnmarshalJSON(b []byte) error {
+	var n int
+	if err := json.Unmarshal(b, &n); err == nil {
+		*f = Ref{N: n}
+		return nil
+	}
+	var p refPlain
+	if err := json.Unmarshal(b, &p); err != nil {
+		return err
+	}
+	*f = Ref(p)
+	return nil
 }
 
 // Shown carries no prefix: with one router it is hidden.

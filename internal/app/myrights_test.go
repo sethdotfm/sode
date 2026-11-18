@@ -31,8 +31,8 @@ func mrJSON(m map[string]any) string {
 
 func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	a := keyTestApp(t)
-	srcs := []int{7}
-	none := []int{}
+	srcs := *config.Nums(7)
+	none := *config.Nums()
 	mrSet(t, a, []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Sources: &srcs, Dsts: &none, Visibility: config.VisHidden}},
 		{ID: idOf(a, "Bo"), Name: "Bo"},
@@ -50,7 +50,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if m == nil {
 		t.Fatal("Ana got no myRights after sign-in")
 	}
-	if got := mrJSON(m); got != `{"dsts":[],"sources":[7],"visibility":"hidden"}` {
+	if got := mrJSON(m); got != `{"dsts":[],"sources":[{"n":7,"router":"`+a.r().cfg.UID+`"}],"visibility":"hidden"}` {
 		t.Fatalf("Ana's rights %s", got)
 	}
 
@@ -64,13 +64,13 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	}
 
 	// An administrator's edit reaches the open page at once.
-	dsts := []int{3}
+	dsts := *config.Nums(3)
 	mrSet(t, a, []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Dsts: &dsts}}, {ID: idOf(a, "Bo"), Name: "Bo"}})
 	m = mrLast(anext(), "myRights")
 	if m == nil {
 		t.Fatal("no myRights after the edit")
 	}
-	if got := mrJSON(m); got != `{"dsts":[3]}` {
+	if got := mrJSON(m); got != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}]}` {
 		t.Fatalf("Ana's rights after the edit %s", got)
 	}
 

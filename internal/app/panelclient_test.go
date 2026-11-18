@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +16,7 @@ func clientApp(t *testing.T) (*App, *fakeRouter) {
 	return apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
 		cy.Trusted = true
-		cy.Rights = config.Rights{Sources: ints(1, 2, 3), Dsts: ints(2, 4)}
+		cy.Rights = config.Rights{Sources: config.Nums(1, 2, 3), Dsts: config.Nums(2, 4)}
 		c.Users = append(c.Users, cy)
 	})
 }
@@ -42,7 +41,7 @@ func TestPanelClientCreatedWithinRights(t *testing.T) {
 		t.Fatalf("client %q for %s", name, id)
 	}
 	cl, ok := clientOf(t, a, name)
-	if !ok || cl.Panel != id || !reflect.DeepEqual(cl.Rights.Sources, ints(1, 2)) || !reflect.DeepEqual(cl.Rights.Dsts, ints(2)) {
+	if !ok || cl.Panel != id || !refsAre(cl.Rights.Sources, 1, 2) || !refsAre(cl.Rights.Dsts, 2) {
 		t.Fatalf("client %+v %v", cl, ok)
 	}
 	if cl.Rights.Levels != nil || slicesHas(cl.Scopes, config.ScopePanelsManage) || !slicesHas(cl.Scopes, config.ScopePanels) {
@@ -57,7 +56,7 @@ func TestPanelClientCreatedWithinRights(t *testing.T) {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	cl, _ = clientOf(t, a, apiBody(t, rec)["client"].(string))
-	if !reflect.DeepEqual(cl.Rights.Sources, ints(1, 2, 3)) || !reflect.DeepEqual(cl.Rights.Dsts, ints(2, 4)) {
+	if !refsAre(cl.Rights.Sources, 1, 2, 3) || !refsAre(cl.Rights.Dsts, 2, 4) {
 		t.Fatalf("default rights %+v", cl.Rights)
 	}
 }
@@ -129,13 +128,13 @@ func TestPanelClientCheckedOnSave(t *testing.T) {
 	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[1,2],"dsts":[2]}}`); rec.Code != 200 {
 		t.Fatalf("narrower or equal change refused: %d %s", rec.Code, rec.Body.String())
 	}
-	if cl, _ := clientOf(t, a, name); !reflect.DeepEqual(cl.Rights.Sources, ints(1, 2)) {
+	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
 		t.Fatalf("not saved: %+v", cl.Rights)
 	}
 	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[1,2,8],"dsts":[2]}}`); rec.Code != 403 || apiErrCode(t, rec) != "outside_rights" {
 		t.Fatalf("widening on save: %d %s", rec.Code, rec.Body.String())
 	}
-	if cl, _ := clientOf(t, a, name); !reflect.DeepEqual(cl.Rights.Sources, ints(1, 2)) {
+	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
 		t.Fatalf("refused save changed rights: %+v", cl.Rights)
 	}
 	// A save that leaves clientRights out keeps them, and the client keeps its name.
@@ -143,7 +142,7 @@ func TestPanelClientCheckedOnSave(t *testing.T) {
 	if rec.Code != 200 || apiBody(t, rec)["client"] != name {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
-	if cl, _ := clientOf(t, a, name); !reflect.DeepEqual(cl.Rights.Sources, ints(1, 2)) {
+	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
 		t.Fatalf("rights lost: %+v", cl.Rights)
 	}
 	// Losing Trusted ends the right to change them, not to save the panel.
@@ -176,7 +175,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 
 	admin := adminClient(t, a)
 	widened := *shown
-	widened.Rights = config.Rights{Sources: ints(1, 50)}
+	widened.Rights = config.Rights{Sources: config.Nums(1, 50)}
 	// It is possible that the page drops the panel link. The save still treats the client as the panel's, and
 	// leaving a panel client out never removes it.
 	widened.Panel = ""
@@ -191,7 +190,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 		t.Fatal(err)
 	}
 	cl, _ := clientOf(t, a, name)
-	if cl.Panel != id || !reflect.DeepEqual(cl.Rights.Sources, ints(1, 50)) {
+	if cl.Panel != id || !refsAre(cl.Rights.Sources, 1, 50) {
 		t.Fatalf("after widening: %+v", cl)
 	}
 	none := []config.APIClient{}
@@ -373,7 +372,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 	}
 
 	admin := adminClient(t, a)
-	narrow := config.Rights{Sources: ints(1), Dsts: ints(2, 4)}
+	narrow := config.Rights{Sources: config.Nums(1), Dsts: config.Nums(2, 4)}
 	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true, Rights: &narrow}}
 	if err := a.SaveUsers(admin, usersReq{Users: users}); err != nil {
 		t.Fatal(err)

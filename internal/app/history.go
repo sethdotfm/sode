@@ -35,7 +35,8 @@ type Entry struct {
 	Already     []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 	Group       string    `json:"group,omitempty"`
 	GroupN      int       `json:"groupN,omitempty"`
-	Preset      string    `json:"preset,omitempty"` // name of the preset this take was fired from (browser-supplied, cleaned)
+	Preset      string    `json:"preset,omitempty"`   // name of the preset this take was fired from (browser-supplied, cleaned)
+	PresetID    string    `json:"presetId,omitempty"` // its hidden id, for Rights
 	Ext         bool      `json:"ext,omitempty"`
 	FollowGroup string    `json:"followGroup,omitempty"`
 	Follow      *int      `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
