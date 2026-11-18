@@ -1,0 +1,1 @@
+- The new export file is one zip with a manifest, a YAML file per category, each router's names table and plain image files. `POST /api/export` makes it and `POST /api/import` checks an uploaded one; both need an Administrator. A file from a newer Sode is refused.
