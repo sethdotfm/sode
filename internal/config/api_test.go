@@ -24,10 +24,10 @@ func TestOldFileLoadsWithAPIOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.API.Enabled || c.API.GuestEnabled || c.API.LogReads || c.RequireHTTPS {
+	if c.API.GuestEnabled || c.API.LogReads || c.RequireHTTPS {
 		t.Errorf("API or Require HTTPS on: %+v", c.API)
 	}
-	if c.API.RateLimit <= 0 || c.API.TakeCap <= 0 || c.API.MaxUserKeys <= 0 || c.API.MaxClientKeys <= 0 {
+	if c.API.RateLimit <= 0 || c.API.TakeCap <= 0 {
 		t.Errorf("limits not defaulted: %+v", c.API)
 	}
 	if !reflect.DeepEqual(c.GuestAPIScopes, DefaultGuestScopes) {

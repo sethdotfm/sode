@@ -64,7 +64,6 @@ func TestImportWritesAPIAuditRows(t *testing.T) {
 	text := fixImportText(t, a, func(c *config.Config) {
 		c.TrustedProxies = []string{"10.0.0.2"}
 		c.RequireHTTPS = true
-		c.API.Enabled = true
 		c.API.GuestEnabled = true
 		c.API.RateLimit = 77
 		c.APIClients = []config.APIClient{{Name: "ImpBot", Scopes: []string{config.ScopeNames}}}
@@ -77,7 +76,7 @@ func TestImportWritesAPIAuditRows(t *testing.T) {
 	if err := a.ImportConfig(c, text); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"requireHttps", "apiEnabled", "guestApi", "apiLimits", "clientEdit", "rightsEdit", "noAutoLockEdit"}
+	want := []string{"requireHttps", "keylessScopes", "guestApi", "apiLimits", "clientEdit", "rightsEdit", "noAutoLockEdit"}
 	var got map[string]bool
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
 		got = map[string]bool{}

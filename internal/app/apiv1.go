@@ -16,7 +16,7 @@ import (
 
 // REST under /api/v1. Every route is one apiRoute in apiRoutes, added by registerAPI from
 // the init of its area's file (apireads.go, apihistory.go, ...). mountAPI turns the table
-// into mux patterns, each wrapped in the same steps: API switch, Bearer auth (apiAuth),
+// into mux patterns, each wrapped in the same steps: Bearer auth (apiAuth),
 // rate limit, scope, optional read row. A handler then receives the resolved caller.
 // Numbers on the wire are the router's own (0-based, add numberOffset to display them) and
 // levels are UI levels, the same as the rights lists. Keep docs in step: openapi.yaml.
@@ -222,10 +222,6 @@ func pathMatches(pattern, path string) bool {
 func (a *App) apiWrap(rt apiRoute) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if rt.Scope == scopeOpen {
-			if !a.r().cfg.API.Enabled {
-				apiFail(w, http.StatusServiceUnavailable, "api_off", "the API is off; an administrator turns it on in Settings")
-				return
-			}
 			if a.routerOK(w, r) {
 				rt.Handle(a, w, r, nil)
 			}

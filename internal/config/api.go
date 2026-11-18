@@ -38,11 +38,9 @@ const (
 )
 
 const (
-	MaxAPIClients        = 12
-	DefaultRateLimit     = 600 // requests per minute per key
-	DefaultTakeCap       = 4   // API takes in flight; the router answers one message per ACK
-	DefaultMaxUserKeys   = 8
-	DefaultMaxClientKeys = 20
+	MaxAPIClients    = 12
+	DefaultRateLimit = 600 // requests per minute per key
+	DefaultTakeCap   = 4   // API takes in flight; the router answers one message per ACK
 )
 
 // Rights is an allowlist per kind. A nil list means all and an empty one means none, so the
@@ -177,18 +175,15 @@ type APIClient struct {
 
 // APISettings: advanced settings, saved apart from the Settings form (owned).
 type APISettings struct {
-	Enabled       bool           `yaml:"enabled" json:"enabled"`
-	RateLimit     int            `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
-	TakeCap       int            `yaml:"takeCap" json:"takeCap"`
-	GuestEnabled  bool           `yaml:"guestEnabled" json:"guestEnabled"`
-	LogReads      bool           `yaml:"logReads" json:"logReads"`
-	MaxUserKeys   int            `yaml:"maxUserKeys" json:"maxUserKeys"`
-	MaxClientKeys int            `yaml:"maxClientKeys" json:"maxClientKeys"`
-	Extra         map[string]any `yaml:",inline" json:"-"`
+	RateLimit    int            `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
+	TakeCap      int            `yaml:"takeCap" json:"takeCap"`
+	GuestEnabled bool           `yaml:"guestEnabled" json:"guestEnabled"`
+	LogReads     bool           `yaml:"logReads" json:"logReads"`
+	Extra        map[string]any `yaml:",inline" json:"-"`
 }
 
 func DefaultAPISettings() APISettings {
-	return APISettings{RateLimit: DefaultRateLimit, TakeCap: DefaultTakeCap, MaxUserKeys: DefaultMaxUserKeys, MaxClientKeys: DefaultMaxClientKeys}
+	return APISettings{RateLimit: DefaultRateLimit, TakeCap: DefaultTakeCap}
 }
 
 func (c Config) FindAPIClient(name string) (APIClient, bool) {
@@ -269,9 +264,6 @@ func (c Config) validateAPI() []error {
 	}
 	if a.TakeCap < 1 || a.TakeCap > 64 {
 		bad("API take cap must be 1-64")
-	}
-	if a.MaxUserKeys < 1 || a.MaxUserKeys > 100 || a.MaxClientKeys < 1 || a.MaxClientKeys > 100 {
-		bad("key caps must be 1-100")
 	}
 	if c.RequireHTTPS && len(c.TrustedProxies) == 0 {
 		bad("Require HTTPS needs at least one trusted proxy: only a trusted proxy can say a request was secure")

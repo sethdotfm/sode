@@ -257,8 +257,8 @@ func TestUsersSaveCriticalFields(t *testing.T) {
 	}
 }
 
-// Manage users sends the loaded API clients, Guest Rights and keyless scopes back as they
-// came. Untouched, they are no Critical change, even in another order.
+// Manage users sends the loaded API clients and Guest Rights back as they came, and Settings > API the
+// keyless scopes. Untouched, they are no Critical change, even in another order.
 func TestUsersSaveEchoNeedsNoRecheck(t *testing.T) {
 	a := newTestApp(t, withAdministrator, func(c *config.Config) {
 		two := []config.Ref{{N: 1}, {N: 2}}
@@ -276,8 +276,9 @@ func TestUsersSaveEchoNeedsNoRecheck(t *testing.T) {
 		users = append(users, map[string]any{"id": row["id"], "name": row["name"], "role": row["role"],
 			"persistent": row["persistent"], "rights": row["rights"], "noAutoLock": row["noAutoLock"]})
 	}
+	passed(t, "the loaded lists sent back", p.ask("users", 2, map[string]any{"usersReq": map[string]any{
+		"users": users, "apiClients": list["apiClients"], "guestRights": list["guestRights"]}}))
 	scopes := list["guestScopes"].([]any)
 	slices.Reverse(scopes)
-	passed(t, "the loaded lists sent back", p.ask("users", 2, map[string]any{"usersReq": map[string]any{
-		"users": users, "apiClients": list["apiClients"], "guestRights": list["guestRights"], "guestScopes": scopes}}))
+	passed(t, "the keyless scopes in another order", p.ask("apiSettings", 3, map[string]any{"apiSettings": map[string]any{"guestScopes": scopes}}))
 }

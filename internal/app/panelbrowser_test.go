@@ -120,7 +120,6 @@ func simApp(t *testing.T, router string, edit ...func(*config.Config)) *App {
 	t.Helper()
 	cfg := config.Defaults()
 	cfg.Address = router
-	cfg.API.Enabled = true
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234")}
 	for _, fn := range edit {
 		fn(&cfg)
