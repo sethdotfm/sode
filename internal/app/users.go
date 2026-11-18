@@ -657,6 +657,9 @@ func (a *App) usersList(id int) usersListMsg {
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}
 	}
+	for i := range m.APIClients {
+		m.APIClients[i].OwnerName = cfg.UserName(m.APIClients[i].Owner)
+	}
 	for _, u := range cfg.Users {
 		pc := a.panelClientsOf(cfg, u)
 		if pc == nil {

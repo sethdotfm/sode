@@ -88,6 +88,7 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 	if err := mutate(&cfg); err != nil {
 		return nil, nil, err
 	}
+	dropOwnerless(&cfg)
 	a.nameRights(&cfg, old.cfg)
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {

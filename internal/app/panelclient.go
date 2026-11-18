@@ -141,15 +141,16 @@ func dropOrphanPanelClients(cfg *config.Config, panels *panelStore) {
 	})
 }
 
-// keepPanelClients folds an administrator's client list into the config's. A panel client in
-// the request gets its Rights and Scopes but keeps its panel link and name. The Advanced Settings
-// PIN is what widens them. A panel client left out stays. Plain clients replace the old ones.
+// keepPanelClients folds an Administrator's client list into the config's. A panel client or a
+// user's own client (ownclients.go) in the request gets its Rights and Scopes but keeps its panel
+// link or owner and its name; one left out stays. Plain clients replace the old ones.
 func keepPanelClients(cur []config.APIClient, req []config.APIClient) []config.APIClient {
+	kept := func(c config.APIClient) bool { return c.Panel != "" || c.Owner != "" }
 	var out []config.APIClient
 	seen := map[string]bool{}
 	for _, c := range req {
 		key := strings.ToLower(strings.TrimSpace(c.Name))
-		if i := slices.IndexFunc(cur, func(o config.APIClient) bool { return o.Panel != "" && strings.EqualFold(o.Name, c.Name) }); i >= 0 {
+		if i := slices.IndexFunc(cur, func(o config.APIClient) bool { return kept(o) && strings.EqualFold(o.Name, c.Name) }); i >= 0 {
 			if seen[key] {
 				continue
 			}
@@ -159,11 +160,11 @@ func keepPanelClients(cur []config.APIClient, req []config.APIClient) []config.A
 			out = append(out, o)
 			continue
 		}
-		c.Panel, c.Rights = "", c.Rights.Clone()
+		c.Panel, c.Owner, c.OwnerName, c.Rights = "", "", "", c.Rights.Clone()
 		out = append(out, c)
 	}
 	for _, o := range cur {
-		if o.Panel != "" && !seen[strings.ToLower(o.Name)] {
+		if kept(o) && !seen[strings.ToLower(o.Name)] {
 			out = append(out, o)
 		}
 	}
