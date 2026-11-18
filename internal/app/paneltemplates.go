@@ -36,7 +36,7 @@ var (
 
 	// contentKeys are what fills a cell after its type is set. A template leaves them out unless
 	// asked, so a new show's Sources and Destinations are chosen afresh.
-	contentKeys = []string{"n", "scope", "name", "caption"}
+	contentKeys = []string{"n", "router", "scope", "id", "name", "caption"}
 )
 
 // Template is a file's content. Owner is the id of the user a Me template belongs to. For an
@@ -312,6 +312,7 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+	t.Pages = a.refPages(t.Pages, cl.Actor.User)
 	if t.Scope == templateEveryone {
 		if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can save a template to Everyone"); err != nil {
 			failWith(w, err)

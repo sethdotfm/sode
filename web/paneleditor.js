@@ -678,6 +678,13 @@ export async function runEditor() {
     );
     open = open.map(rekey).filter((id) => pages.some((p) => p.id === id));
     if (!open.includes(focus)) open = [focus];
+    // The server fills router references (internal/app/panelrefs.go). A focused Page not edited during the save takes
+    // them, or it reads as Unsaved changes.
+    if (pagesOf(stored).includes(pages[fi()])) {
+      const sel = g.sel;
+      showFocused();
+      g = { ...g, sel };
+    }
     // A field changed while the save was in flight is a newer edit: it stays, and the editor says Unsaved changes.
     edits = Object.fromEntries(Object.entries(edits).filter(([k, v]) => v !== sentEdits[k]));
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
