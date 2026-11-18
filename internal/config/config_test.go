@@ -12,7 +12,7 @@ import (
 
 func TestValidate(t *testing.T) {
 	ok := Defaults()
-	ok.Router = "10.0.0.5:8910"
+	ok.Address = "10.0.0.5:8910"
 	ok.Normalize()
 	if err := ok.Validate(); err != nil {
 		t.Fatalf("defaults: %v", err)
@@ -22,7 +22,7 @@ func TestValidate(t *testing.T) {
 		"negative levels":   func(c *Config) { c.Levels = -1 },
 		"std matrix 16":     func(c *Config) { c.Matrix = 16 },
 		"offset below wire": func(c *Config) { c.LevelWireOffset = -2 },
-		"bad router":        func(c *Config) { c.Router = "10.0.0.5" },
+		"bad router":        func(c *Config) { c.Address = "10.0.0.5" },
 		"bad default":       func(c *Config) { c.DefaultLevels = "1-99" },
 		"bad name len":      func(c *Config) { c.NameLength = 10 },
 		"bad proxy":         func(c *Config) { c.TrustedProxies = []string{"caddy"} },
@@ -30,7 +30,7 @@ func TestValidate(t *testing.T) {
 		"bad color":         func(c *Config) { c.LevelColors = []string{"#12345g"} },
 		"bad numbering":     func(c *Config) { c.LevelNumbering = "2" },
 		"bad router show":   func(c *Config) { c.RouterShow = "ip" },
-		"long router name":  func(c *Config) { c.RouterName = strings.Repeat("x", 33) },
+		"long router name":  func(c *Config) { c.Title = strings.Repeat("x", 33) },
 		"long brand text":   func(c *Config) { c.BrandText = strings.Repeat("x", 25) },
 		"bad brand border":  func(c *Config) { c.BrandBorder = "red" },
 		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
@@ -87,7 +87,7 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatalf("missing file: exists=%v err=%v", exists, err)
 	}
 	c := Defaults()
-	c.Router = "10.0.0.5:8910"
+	c.Address = "10.0.0.5:8910"
 	c.TrustedProxies = []string{"10.0.0.2", "172.18.0.0/16"}
 	c.LevelNumbering, c.PinMaxTries = "va", 3
 	c.HiddenDsts = "MV, !1-5"
@@ -101,7 +101,7 @@ func TestSaveLoad(t *testing.T) {
 	if err != nil || !exists || !reflect.DeepEqual(got, c) {
 		t.Fatalf("round trip: %+v exists=%v err=%v", got, exists, err)
 	}
-	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\nlevelz: 3\n"), 0o644)
 	if got, _, err := Load(path); err != nil || !slices.Equal(got.UnknownKeys(), []string{"levelz"}) || got.Extra["levelz"] != 3 {
 		t.Fatalf("unknown key: %v %v", err, got.Extra)
 	}
@@ -109,13 +109,13 @@ func TestSaveLoad(t *testing.T) {
 
 func TestDeviceDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\n"), 0o644)
 	c, _, err := Load(path)
 	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30"}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
-	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
 	c, _, err = Load(path)
 	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", Compact: true}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {

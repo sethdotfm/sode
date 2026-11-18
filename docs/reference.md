@@ -78,26 +78,41 @@ Commas separate terms. A name matches if it fits any plain term and no `!` term.
 
 ## Settings
 
-Open Settings with the **Settings** button at the bottom of the page. Sode stores them in `/data/config.yaml`. A save applies immediately. Changes to the router, matrix, levels or name options reconnect and re-read names and routes. When there is no config file yet, Sode seeds it from these variables, and after that the file wins:
+Open Settings with the **Settings** button at the bottom of the page. Sode stores them in `/data/config.yaml`. A save applies immediately. Changes to the router, matrix, levels or name options reconnect and re-read names and routes. When there is no config file yet, Sode seeds it from these variables, and after that the file wins.
+
+The router's keys sit under `routers`, a list that holds one router. Each router also has a `uid`, which Sode makes when it adds the router and never changes, not even with the address. It has a `prefix`, one letter A to Z (`A` for the first router), hidden while there is one router. Rows marked "router" below are keys of that router. The others are top-level keys. The first key is `format: 2`. A file without it is from v1, and on start Sode moves the v1 files into `/data/v1/` and starts as a fresh install:
+
+```yaml
+format: 2
+routers:
+  - uid: 7f3c9a1e2b4d5f60
+    prefix: A
+    title: Studio Ultrix
+    address: 10.0.0.50:8910
+    statusLabel: address
+    matrix: 0
+    levels: 17
+```
+
 
 | Seed var | YAML key | Default | Meaning |
 |---|---|---|---|
-| `SODE_ROUTER` | `router` | | Router `host:port`. When empty, Sode stays idle until you set it in Settings |
-| `SODE_MATRIX` | `matrix` | `0` | SW-P-08 matrix (0-15 with standard name requests) |
-| `SODE_LEVEL_COUNT` | `levels` | `17` | Number of levels. Level 1 gets the video swatch, the rest audio |
-| `SODE_LEVEL_WIRE_OFFSET` | `levelWireOffset` | `-1` | The router's level number = level + offset. `-1` puts level 1 on the router's level 0 |
-| `SODE_DEFAULT_LEVELS` | `defaultLevels` | `1-<levels>` | Used when the levels box is blank. Always 1-based in the file |
-| `SODE_LEVEL_NUMBERING` | `levelNumbering` | `1` | How levels are shown and typed: `1` (1-17), `0` (0-16) or `va` (V, 1-16) |
-| `SODE_NAME_LEN` | `nameLength` | `12` | Name length to request: 4, 8, 12 or 16 |
-| `SODE_NAMES` | `nameRequests` | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
-| `SODE_FIRE_MODE` | `fireMode` | `sequential` | How Sode sends a confirm of several takes: `sequential` (one connect after another, about 16 ms per crosspoint on the Ultrix) or `native` (the router's own salvos: a SW-P-08 group send, cmd 120/248 and 121, which needs a router that supports them; verified on the Ross Ultrix). Measured on the Ultrix on 2026-11-02, a group Go announces its crosspoints about 4 ms apart (51 in about 210 ms), against about 16 ms each for ordinary connects (51 in about 840 ms). Whether the switch itself is simultaneous is unproven. Level 17 and numbers past 1023 are staged with the extended stage command (248) in the same group send. If the router does not acknowledge it, Sode clears the router's own salvo group and sends the takes one after another as before |
-| `SODE_SALVO_GROUP` | `salvoGroup` | `127` | The router's salvo group (0-127) that native salvos use. Every controller shares the router's staged list, so pick a group nothing else uses |
-| `SODE_NUM_OFFSET` | `numberOffset` | `1` | Added to router numbers for display (Ultrix shows 1-based) |
+| `SODE_ROUTER` | `address` (router) | | Router `host:port`. When empty, Sode stays idle until you set it in Settings |
+| `SODE_MATRIX` | `matrix` (router) | `0` | SW-P-08 matrix (0-15 with standard name requests) |
+| `SODE_LEVEL_COUNT` | `levels` (router) | `17` | Number of levels. Level 1 gets the video swatch, the rest audio |
+| `SODE_LEVEL_WIRE_OFFSET` | `levelOffset` (router) | `-1` | The router's level number = level + offset. `-1` puts level 1 on the router's level 0 |
+| `SODE_DEFAULT_LEVELS` | `defaultLevels` (router) | `1-<levels>` | Used when the levels box is blank. Always 1-based in the file |
+| `SODE_LEVEL_NUMBERING` | `levelNumbering` (router) | `1` | How levels are shown and typed: `1` (1-17), `0` (0-16) or `va` (V, 1-16) |
+| `SODE_NAME_LEN` | `nameLength` (router) | `12` | Name length to request: 4, 8, 12 or 16 |
+| `SODE_NAMES` | `nameRequests` (router) | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
+| `SODE_FIRE_MODE` | `fireMode` (router) | `sequential` | How Sode sends a confirm of several takes: `sequential` (one connect after another, about 16 ms per crosspoint on the Ultrix) or `native` (the router's own salvos: a SW-P-08 group send, cmd 120/248 and 121, which needs a router that supports them; verified on the Ross Ultrix). Measured on the Ultrix on 2026-11-02, a group Go announces its crosspoints about 4 ms apart (51 in about 210 ms), against about 16 ms each for ordinary connects (51 in about 840 ms). Whether the switch itself is simultaneous is unproven. Level 17 and numbers past 1023 are staged with the extended stage command (248) in the same group send. If the router does not acknowledge it, Sode clears the router's own salvo group and sends the takes one after another as before |
+| `SODE_SALVO_GROUP` | `salvoGroup` (router) | `127` | The router's salvo group (0-127) that native salvos use. Every controller shares the router's staged list, so pick a group nothing else uses |
+| `SODE_NUM_OFFSET` | `numberOffset` (router) | `1` | Added to router numbers for display (Ultrix shows 1-based) |
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | How long the confirm key is ignored after the dialog opens |
 | `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 keeps it open). Failures always stay until closed |
 | `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
-| `SODE_NAME_REFRESH_S` | `nameRefreshSeconds` | `60` | Re-read names this often (0 turns it off) |
-| `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and which destinations are protected this often (0 turns it off) |
+| `SODE_NAME_REFRESH_S` | `nameRereadSeconds` (router) | `60` | Re-read names this often (0 turns it off) |
+| `SODE_TALLY_RESYNC_S` | `routeRereadSeconds` (router) | `300` | Re-read all routes and which destinations are protected this often (0 turns it off) |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` Sode believes (your proxy) |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong Advanced Settings PINs in a row before settings lock until reset or restart. `0` means never |
 | `SODE_MAX_PIN_LEN` | `maxPinLen` | `8` | Longest user PIN (4-12 digits). The lock pad stops there and submits on its own only at the longest length in use. Shorter PINs are sent with the check key or Enter. Also set in Settings > Users |
@@ -106,8 +121,8 @@ Settings-only keys (no seed var):
 
 - `brandText`: replaces "Sode" in the header and page title, up to 24 characters.
 - `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`): a border round the window, off by default.
-- `routerName`
-- `routerShow` (`address`, `name`, `none`)
+- `title` (router): the router title, up to 32 characters.
+- `statusLabel` (router: `address`, `name` or `none`): what the Router status shows.
 - `levelColors`
 - `filterSets`
 - `hiddenDsts`

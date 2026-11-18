@@ -11,12 +11,12 @@ import (
 
 func TestV2ConfigLoadsUnchanged(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
-	os.WriteFile(p, []byte("format: 2\nrouter: 10.0.0.5:8910\nlevels: 4\nbrandText: Studio\n"), 0o600)
+	os.WriteFile(p, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910, levels: 4}]\nbrandText: Studio\n"), 0o600)
 	c, exists, err := Load(p)
 	if err != nil || !exists {
 		t.Fatalf("load: exists=%v err=%v", exists, err)
 	}
-	if c.Format != Format || c.Router != "10.0.0.5:8910" || c.Levels != 4 || c.BrandText != "Studio" {
+	if c.Format != Format || c.Address != "10.0.0.5:8910" || c.Levels != 4 || c.BrandText != "Studio" {
 		t.Fatalf("got %+v", c)
 	}
 	if k := c.UnknownKeys(); len(k) != 0 {
@@ -46,8 +46,8 @@ func TestIsV1(t *testing.T) {
 		want bool
 	}{
 		"missing":  {"", false},
-		"v2":       {"format: 2\nrouter: a:1\n", false},
-		"newer":    {"format: 9\nrouter: a:1\n", false},
+		"v2":       {"format: 2\nrouters: [{address: a:1}]\n", false},
+		"newer":    {"format: 9\nrouters: [{address: a:1}]\n", false},
 		"v1":       {"router: a:1\n", true},
 		"v1 empty": {"# Sode settings\n", true},
 	} {
@@ -63,7 +63,7 @@ func TestIsV1(t *testing.T) {
 
 // A file from a later format must not load, and must not count as v1 (that would move it away).
 func TestNewerFormatRefused(t *testing.T) {
-	_, err := Parse([]byte("format: 3\nrouter: 10.0.0.5:8910\n"))
+	_, err := Parse([]byte("format: 3\nrouters: [{address: 10.0.0.5:8910}]\n"))
 	if err == nil || !strings.Contains(err.Error(), "newer Sode") {
 		t.Fatalf("Parse(format 3) = %v", err)
 	}
@@ -72,7 +72,7 @@ func TestNewerFormatRefused(t *testing.T) {
 func TestSaveWritesFormat(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
 	c := Defaults()
-	c.Router = "10.0.0.5:8910"
+	c.Address = "10.0.0.5:8910"
 	c.Format = 0
 	if err := Save(p, c); err != nil {
 		t.Fatal(err)
@@ -80,6 +80,9 @@ func TestSaveWritesFormat(t *testing.T) {
 	b, _ := os.ReadFile(p)
 	if !strings.Contains(string(b), "\nformat: 2\n") {
 		t.Fatalf("saved file has no format line:\n%s", b)
+	}
+	if strings.Index(string(b), "format:") > strings.Index(string(b), "routers:") {
+		t.Fatalf("format is not the first key:\n%s", b)
 	}
 	if _, _, err := Load(p); err != nil {
 		t.Fatalf("reload: %v", err)
@@ -89,7 +92,7 @@ func TestSaveWritesFormat(t *testing.T) {
 // v1's read-only keys have no field in v2: they load as unknown keys, and salvos is not a preset list.
 func TestV1LegacyKeysAreUnknownInV2(t *testing.T) {
 	c, err := Parse([]byte(`format: 2
-router: 10.0.0.5:8910
+routers: [{address: 10.0.0.5:8910}]
 salvos:
   - name: old
     items: [{src: 1, dsts: [2]}]

@@ -28,6 +28,7 @@ func env(k, def string) string {
 
 func loadConfig(path string) config.Config {
 	if path != "" {
+		backupBeforeRelease(path)
 		c, exists, err := config.Load(path)
 		if err != nil {
 			log.Fatalf("config: %v", err)
@@ -36,7 +37,6 @@ func loadConfig(path string) config.Config {
 			log.Fatalf("config: settingsPin in %s is not a PIN hash (set PINs from Settings, not by hand); run sode -reset-pin", path)
 		}
 		if exists {
-			backupBeforeRelease(path)
 			if p := c.UnknownKeysProblem(); p != "" {
 				log.Printf("config: %s", p)
 			}
@@ -63,7 +63,8 @@ func loadConfig(path string) config.Config {
 	return c
 }
 
-// Runs before anything here can save, including the reset commands.
+// Runs before anything here can save, including the reset commands and Load. A missing file
+// is nothing to back up.
 func backupBeforeRelease(path string) {
 	if err := config.BackupOnce(path, app.Version); err != nil {
 		log.Printf("config: backing up %s: %v", path, err)
@@ -78,12 +79,10 @@ func resetSettingsPin(path string) {
 	if path == "" {
 		log.Fatal("reset-pin: SODE_CONFIG is not set")
 	}
+	backupBeforeRelease(path)
 	c, exists, err := config.Load(path)
 	if err != nil {
 		log.Fatalf("reset-pin: %v", err)
-	}
-	if exists {
-		backupBeforeRelease(path)
 	}
 	if !exists || c.SettingsPin == "" {
 		log.Printf("reset-pin: no Advanced Settings PIN in %s", path)
@@ -186,7 +185,7 @@ func main() {
 		srv.Shutdown(sctx)
 	}()
 	log.Printf("sode: http on %s, router %q matrix %d, %d levels (UI 1 → wire %d)",
-		listen, cfg.Router, cfg.Matrix, cfg.Levels, 1+cfg.LevelWireOffset)
+		listen, cfg.Address, cfg.Matrix, cfg.Levels, 1+cfg.LevelWireOffset)
 	ln, err := net.Listen("tcp", listen)
 	if err != nil {
 		log.Fatal(err)

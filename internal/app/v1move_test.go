@@ -97,7 +97,7 @@ func TestV1DataStartsFresh(t *testing.T) {
 }
 
 func TestV2DataStays(t *testing.T) {
-	for name, body := range map[string]string{"v2": "format: 2\nrouter: 10.0.0.5:8910\n", "none": ""} {
+	for name, body := range map[string]string{"v2": "format: 2\nrouters: [{address: 10.0.0.5:8910}]\n", "none": ""} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			names := []string{"tokens.json", "history.jsonl"}
