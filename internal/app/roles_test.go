@@ -200,7 +200,7 @@ func TestNoUsersActsAsAdministrator(t *testing.T) {
 func TestManageUsersSetsRoles(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
-	p.signIn("Ada", "2468")
+	p.signInRechecked("Ada", "2468")
 	list := p.ask("usersList", 3, nil)
 	var rows []map[string]any
 	for _, u := range list["users"].([]any) {

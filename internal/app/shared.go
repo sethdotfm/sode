@@ -63,6 +63,7 @@ func opResultFor(kind string, id *int, err error) opResult {
 	res := opResult{T: kind + "Result", OK: err == nil, ID: id}
 	if err != nil {
 		res.Err = err.Error()
+		res.Recheck = isRecheckErr(err)
 	}
 	return res
 }

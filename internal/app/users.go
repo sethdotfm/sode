@@ -56,6 +56,7 @@ type connUser struct {
 	rights string
 	// offline: last panelsOffline message sent (under mu); "" = none.
 	offline string
+	recheck recheck // under mu (recheck.go)
 }
 
 // userID is the signed-in user's id, or "".
@@ -325,6 +326,7 @@ func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	}
 	// A token-X connection signing in as Y leaves X's session, or Y's Lock would end X's.
 	c.u.sess = &session{seen: a.now()}
+	c.u.recheck = recheck{}
 	c.u.user.Store(hit)
 	a.syncAccessMu(c)
 	return nil
@@ -398,7 +400,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	}
 	before := a.r().cfg
 	var moves map[string]string
-	err := a.applyConfig(func(cur *config.Config) error {
+	err := a.applyConfig(a.critical(c, func(cur *config.Config) error {
 		if req.MaxPin != 0 {
 			cur.MaxPinLen = req.MaxPin
 		}
@@ -472,7 +474,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			cur.GuestAPIScopes = slices.Clone(*req.GuestScopes)
 		}
 		return nil
-	})
+	}))
 	if err == nil {
 		a.auditRights(c, before, a.r().cfg)
 		a.panelsFollowUsers(before.Users, a.r().cfg.Users)

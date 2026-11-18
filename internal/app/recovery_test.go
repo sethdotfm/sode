@@ -168,7 +168,7 @@ func TestDeletingAPanelOwnerNeedsANewOwner(t *testing.T) {
 		}
 	}
 	p := dialPeer(t, a)
-	p.signIn("Ada", "2468")
+	p.signInRechecked("Ada", "2468")
 	list := p.ask("usersList", 3, nil)
 	if list["me"] != ada.ID {
 		t.Fatalf("usersList me %v, want Ada's id", list["me"])

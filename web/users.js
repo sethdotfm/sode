@@ -5,6 +5,7 @@
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
 import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
+import { askRecheck } from './recheck.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 import { accessReq, mergeAccess, rightsTab } from './rightsrules.js';
@@ -288,6 +289,13 @@ onMsg('userSignOutAllResult', (m) => {
   signing.delete(m.id);
   if (w) w.out.disabled = false;
   if (m.ok) return setNote(`Signed ${w?.name || 'the user'} out everywhere.`);
+  if (m.recheck) {
+    askRecheck('Signing a user out everywhere').then((ok) => {
+      if (ok) w?.out.click();
+      else fail(m.err);
+    });
+    return;
+  }
   if (m.locked) {
     // ask, then send it again; the error shows only if the PIN is not given
     reask('Managing users needs the Advanced Settings PIN again.').then((ok) => {
@@ -459,6 +467,7 @@ onMsg('usersResult', async (m) => {
     if (isOpen) closeUsers();
     return;
   }
+  if (m.recheck && (await askRecheck('Saving these user changes'))) return doSave();
   if (m.locked && (await reask('Managing users needs the Advanced Settings PIN again.'))) return doSave(); // the PIN was entered: save again
   fail(m.err);
 });

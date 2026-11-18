@@ -29,7 +29,7 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 	// A Trusted user must not change the fields an Administrator guards.
 	admin := a.role(c) == config.RoleAdministrator
 	toggled, now := false, false
-	err := a.applyConfig(func(cur *config.Config) error {
+	err := a.applyConfig(a.critical(c, func(cur *config.Config) error {
 		// cur is a copy of live; fields saved apart (owned) stay as is, so a stale browser
 		// copy cannot undo them.
 		live := *cur
@@ -64,7 +64,7 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 			cur.SettingsPin = h
 		}
 		return nil
-	})
+	}))
 	if err == nil && toggled {
 		a.auditRequireHTTPS(connActor(c), !now, now)
 	}

@@ -4,6 +4,7 @@
 import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { needsPin, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
+import { askRecheck } from './recheck.js';
 import { showResult } from './plans.js';
 import { fileName, fileProblem, sizeText } from './configfilerules.js';
 
@@ -51,6 +52,10 @@ async function start(kind) {
 function failed(m, retry) {
   setBusy(null);
   say('');
+  if (m.recheck) {
+    askRecheck('Importing a configuration').then((ok) => (ok ? retry() : fail(sentence(m.err))));
+    return;
+  }
   if (m.locked) {
     reask('The Advanced Settings PIN is needed again.').then((ok) => {
       if (ok) retry();

@@ -27,6 +27,7 @@ func adminClient(t *testing.T, a *App) *client {
 	if err := a.UserUnlockAs(c, "Ada", "2468"); err != nil {
 		t.Fatal(err)
 	}
+	grantRecheck(a, c)
 	return c
 }
 
@@ -304,6 +305,8 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	ws, send, until = dial()
 	send(map[string]any{"t": "userSignIn", "user": "Ada", "pin": "2468", "id": 1})
 	until("userSignInResult")
+	send(map[string]any{"t": "pinRecheck", "pin": "2468", "id": 5}) // an import is a Critical action
+	until("pinRecheckResult")
 	send(map[string]any{"t": "configImportBegin", "id": 3, "size": len(big)})
 	if m := until("configImportBeginResult"); m["ok"] != true || m["id"] != float64(3) {
 		t.Fatalf("begin: %v", m)

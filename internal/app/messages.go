@@ -139,6 +139,8 @@ type opResult struct {
 	ID     *int   `json:"id,omitempty"`
 	Err    string `json:"err,omitempty"`
 	Locked *bool  `json:"locked,omitempty"`
+	// Recheck: refused for want of a PIN recheck; the page asks for it and sends again.
+	Recheck bool `json:"recheck,omitempty"`
 	// Kept: configImport only, the keys this release does not know that the file keeps (config.NameKeys).
 	Kept string `json:"kept,omitempty"`
 }

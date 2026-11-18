@@ -11,6 +11,7 @@ import { fillAbout } from './about.js';
 import { renderPinStatus, resetPinFields } from './settingspin.js';
 import { relock, unlocked, needsPin } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
+import { askRecheck } from './recheck.js';
 import { form, isOpen, fillForm, fillGlobalDefaults, renderOffsetNote, renderHiddenNote, renderNamesStatus } from './settingsform.js';
 import { renderLock, showLockErr, resetLock, closeLockHelp } from './settingslock.js';
 import { initSave, markClean, warnUnsaved, unwarn, saving, showSaveErr } from './settingssave.js';
@@ -141,10 +142,14 @@ on('historyCleared', () => {
   clearing = 0;
   showResult('ok', 'History cleared', 'History is empty for everyone.');
 });
-// Only a refusal with nothing to re-ask (Sode shuts down) answers this way.
+// A refusal: a PIN recheck is asked and the clear sent again; anything else (Sode shuts down) shows.
 onMsg('clearHistoryResult', (m) => {
   if (m.ok || !clearPending()) return;
   clearing = 0;
+  if (m.recheck) {
+    askRecheck('Clearing History').then((ok) => (ok ? sendClear() : showSaveErr(sentence(m.err))));
+    return;
+  }
   showSaveErr(sentence(m.err));
 });
 on('wsclose', () => {

@@ -23,7 +23,7 @@ func (a *App) SaveAPISettings(c *client, req apiSettingsReq) error {
 		return err
 	}
 	before := a.r().cfg.API
-	err := a.applyConfig(func(cur *config.Config) error {
+	err := a.applyConfig(a.critical(c, func(cur *config.Config) error {
 		set := func(dst *bool, v *bool) {
 			if v != nil {
 				*dst = *v
@@ -39,7 +39,7 @@ func (a *App) SaveAPISettings(c *client, req apiSettingsReq) error {
 			cur.API.TakeCap = *req.TakeCap
 		}
 		return nil
-	})
+	}))
 	if err == nil {
 		a.auditAPISettings(connActor(c), before, a.r().cfg.API)
 	}

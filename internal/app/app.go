@@ -118,6 +118,7 @@ type App struct {
 	userPins map[string]*pinPool // by user id; "" for names that match no user
 	// pinFirstWait: the first wait after wrong user PINs; tests shorten it.
 	pinFirstWait time.Duration
+	recheckFor   time.Duration // how long a PIN recheck holds; tests shorten it
 	tokens       *tokenStore
 	keys         *keyStore
 	public       publicKeys
@@ -221,7 +222,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		idleEvery:    defaultIdleEvery,
 		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Address},
 	}
-	a.pin, a.userPins, a.pinFirstWait = settingsPool(), map[string]*pinPool{}, pinFirstWait
+	a.pin, a.userPins, a.pinFirstWait, a.recheckFor = settingsPool(), map[string]*pinPool{}, pinFirstWait, recheckFor
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
 	a.keys = loadKeys(cfgPath)

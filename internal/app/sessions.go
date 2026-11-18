@@ -61,6 +61,7 @@ func (a *App) syncSessionMu(c *client) { a.eachOnSessionMu(c, a.syncAccessMu) }
 
 // Caller holds mu.
 func (a *App) signOutMu(cl *client) {
+	cl.u.recheck = recheck{}
 	cl.u.user.Store(nil)
 	cl.u.sess = nil
 	a.syncAccessMu(cl)
@@ -214,6 +215,9 @@ func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
 		drop = heldOnly(u, c.u.page, cfg.Locks)
 	}
 	s.locked = on
+	if on {
+		a.eachOnSessionMu(c, func(cl *client) { cl.u.recheck = recheck{} })
+	}
 	if drop {
 		// The token dies, so the connections that share it part. Each keeps its own
 		// tokenless session, and a later Lock or sign-out of one cannot reach the rest.
