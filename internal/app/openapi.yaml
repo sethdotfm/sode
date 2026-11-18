@@ -561,7 +561,9 @@ paths:
         `acts: api` makes the panel an API client of its own, named `Panel <id>` and made with
         the panel. `acts: both` does the same, and the page falls back to Session mode (a
         sign-in) when it opens without a key. `acts: public` does the same and hands any page a
-        short-lived key for it (`POST /panels/{id}/public`). Any user's key makes a panel act as
+        short-lived key for it (`POST /panels/{id}/public`). Public panels allowed is a switch in
+        Settings > Access > Panels. While it is off, `acts: public` is 403 `public_panels_off`,
+        here and on a change to Public. No Public panel hands out a key then. Any user's key makes a panel act as
         an API client. `clientRights` are its rights and default to the creator's. Rights wider
         than the creator's own need an Administrator (403 `administrator_only`), and Sode creates
         nothing. Its scopes start as names, tally, protected,
@@ -1103,9 +1105,11 @@ paths:
       summary: Save a copy
       description: |
         Scopes `panelsmanage` and `panels`. Needs a user's key and a panel the caller can use.
-        Makes a panel the caller owns: private, acting as a session user, with the grid,
-        settings and artwork of the source. The body is optional, `{"name":"..."}`; the default
-        name is the source's name plus " copy".
+        Makes a panel the caller owns: private, with the Authentication mode (`acts`), grid,
+        settings and artwork of the source. A copy that acts as an API client gets a client of
+        its own, with the source client's rights cut to the caller's own. A copy of a Public
+        panel while Public panels allowed is off acts as a session user. The body is optional,
+        `{"name":"..."}`; the default name is the source's name plus " copy".
       requestBody:
         required: false
         content:

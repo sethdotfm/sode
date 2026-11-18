@@ -110,6 +110,9 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 	// revive them.
 	a.tokens.prune(cfg)
 	a.pruneKeys(old.cfg, cfg)
+	if old.cfg.PublicPanels && !cfg.PublicPanels {
+		a.endEveryPublicKey()
+	}
 	return old, nw, nil
 }
 
@@ -216,7 +219,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
-	return "a change to these settings needs an Administrator signed in on this browser: the router, levels, name settings, fire mode, trusted proxies, the Wait after wrong PINs switch and the locks"
+	return "a change to these settings needs an Administrator signed in on this browser: the router, levels, name settings, fire mode, trusted proxies, the Wait after wrong PINs switch, the locks and the Panels settings"
 }
 func (guardedErr) As(target any) bool {
 	if r, ok := target.(*roleErr); ok {

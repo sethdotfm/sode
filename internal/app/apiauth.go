@@ -170,6 +170,10 @@ func (a *App) panelHeaders(r *http.Request, cl *apiCtx, k apiKey) {
 // the owner is gone (pruneKeys drops such keys, but a request can race it).
 func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 	kc := k
+	// An ask that read the config before the switch went off can hand out a key after update dropped them all.
+	if k.public && !cfg.PublicPanels {
+		return nil
+	}
 	switch k.Owner.Kind {
 	case actorUser:
 		u, ok := cfg.FindUserByID(k.Owner.User)
