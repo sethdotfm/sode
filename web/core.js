@@ -4,6 +4,7 @@
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
+import { buildChanged } from './buildrules.js';
 
 export const $ = (id) => document.getElementById(id);
 
@@ -174,6 +175,11 @@ export function wsSend(m) {
 function handle(m) {
   switch (m.t) {
     case 'hello':
+      // This page's code is from the old build, and the new server can send messages it does not know.
+      if (buildChanged(S.version, m.version)) {
+        globalThis.location?.reload();
+        return;
+      }
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
       emit('helloCfg', m.cfg);

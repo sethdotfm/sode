@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -82,5 +83,31 @@ func TestSaveWritesFormat(t *testing.T) {
 	}
 	if _, _, err := Load(p); err != nil {
 		t.Fatalf("reload: %v", err)
+	}
+}
+
+// v1's read-only keys have no field in v2: they load as unknown keys, and salvos is not a preset list.
+func TestV1LegacyKeysAreUnknownInV2(t *testing.T) {
+	c, err := Parse([]byte(`format: 2
+router: 10.0.0.5:8910
+salvos:
+  - name: old
+    items: [{src: 1, dsts: [2]}]
+grids: [1]
+gridConfirm: true
+hideDsts: [3]
+levelTypedBase: 1
+locks:
+  grid: true
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"gridConfirm", "grids", "hideDsts", "levelTypedBase", "locks.grid", "salvos"}
+	if got := c.UnknownKeys(); !slices.Equal(got, want) {
+		t.Fatalf("UnknownKeys = %q, want %q", got, want)
+	}
+	if len(c.Presets) != 0 {
+		t.Fatalf("salvos loaded as presets: %+v", c.Presets)
 	}
 }

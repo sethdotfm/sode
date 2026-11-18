@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"slices"
 	"testing"
-
-	"gopkg.in/yaml.v3"
 )
 
 func TestEveryConfigStructKeepsExtra(t *testing.T) {
@@ -101,35 +99,5 @@ func TestUnknownKeysRoundTrip(t *testing.T) {
 	}
 	if got.Extra["futureKey"] != 1 || got.Users[0].Extra["futureField"] != "x" || got.Locks.Extra["futureLock"] != true {
 		t.Errorf("values changed: %v %v %v", got.Extra, got.Users[0].Extra, got.Locks.Extra)
-	}
-}
-
-func TestLegacyKeysAreNotUnknown(t *testing.T) {
-	const legacy = `
-format: 2
-salvos:
-  - name: old
-    items: [{src: 1, dsts: [2]}]
-grids: [1]
-gridConfirm: true
-hideDsts: [3]
-levelTypedBase: 1
-locks:
-  grid: true
-`
-	var raw Config
-	if err := yaml.Unmarshal([]byte(legacy), &raw); err != nil {
-		t.Fatal(err)
-	}
-	if len(raw.LegacySalvos) != 1 || raw.LegacyGrids == nil || raw.LegacyGridConfirm == nil ||
-		!slices.Equal(raw.HideDsts, []int{3}) || raw.LevelTypedBase != 1 || raw.Locks.LegacyGrid == nil {
-		t.Errorf("a legacy key missed its field: %+v", raw)
-	}
-	c, err := Parse([]byte(legacy))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if k := c.UnknownKeys(); len(k) != 0 {
-		t.Errorf("UnknownKeys = %q, want none", k)
 	}
 }

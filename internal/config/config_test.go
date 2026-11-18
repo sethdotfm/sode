@@ -101,15 +101,6 @@ func TestSaveLoad(t *testing.T) {
 	if err != nil || !exists || !reflect.DeepEqual(got, c) {
 		t.Fatalf("round trip: %+v exists=%v err=%v", got, exists, err)
 	}
-	// Files from before levelTypedBase was dropped still load.
-	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\nlevelTypedBase: 1\n"), 0o644)
-	if _, _, err := Load(path); err != nil {
-		t.Fatalf("legacy levelTypedBase: %v", err)
-	}
-	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\nhideDsts: [3, 64]\n"), 0o644)
-	if _, _, err := Load(path); err != nil {
-		t.Fatalf("legacy hideDsts: %v", err)
-	}
 	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
 	if got, _, err := Load(path); err != nil || !slices.Equal(got.UnknownKeys(), []string{"levelz"}) || got.Extra["levelz"] != 3 {
 		t.Fatalf("unknown key: %v %v", err, got.Extra)
@@ -207,43 +198,6 @@ func TestPin(t *testing.T) {
 	b, _ := json.Marshal(c)
 	if strings.Contains(string(b), "pbkdf2") {
 		t.Fatal("PIN hash leaks into JSON")
-	}
-}
-
-// Old grid keys load; the next save drops them.
-func TestLegacyGridKeysLoad(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(p, []byte("format: 2\nrouter: 10.0.0.5:8910\ngridConfirm: true\ngrids:\n  - link: a\n    cells: []\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	c, ok, err := Load(p)
-	if err != nil || !ok {
-		t.Fatalf("load: %v %v", ok, err)
-	}
-	if err := Save(p, c); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := os.ReadFile(p)
-	if strings.Contains(string(b), "grid") {
-		t.Fatalf("saved file still has grid keys:\n%s", b)
-	}
-}
-
-func TestLegacyGridLockKeyLoads(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(p, []byte("format: 2\nrouter: 10.0.0.5:8910\nlocks:\n  main: false\n  grid: false\n  log: false\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	c, ok, err := Load(p)
-	if err != nil || !ok {
-		t.Fatalf("load: %v %v", ok, err)
-	}
-	if err := Save(p, c); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := os.ReadFile(p)
-	if strings.Contains(string(b), "grid") {
-		t.Fatalf("saved file still has the grid lock key:\n%s", b)
 	}
 }
 
