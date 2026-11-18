@@ -45,13 +45,14 @@ func TestPanelsFollowUserRename(t *testing.T) {
 
 func TestPanelsFollowUserRemoval(t *testing.T) {
 	a, admin, mine, shared, _ := followFixture(t)
-	anaID := idOf(a, "Ana")
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted}}}); err != nil {
+	anaID, boID := idOf(a, "Ana"), idOf(a, "Bo")
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: boID, Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted}},
+		PanelOwners: map[string]string{anaID: boID}}); err != nil {
 		t.Fatal(err)
 	}
 	p, _ := a.panels.get(mine)
-	if p.Owner != anaID || strings.Join(p.Share.Users, ",") != "Bo,Cy" {
-		t.Fatalf("owned panel must stay with its owner: %+v", p)
+	if p.Owner != boID || strings.Join(p.Share.Users, ",") != "Bo,Cy" {
+		t.Fatalf("owned panel must go to the new owner: %+v", p)
 	}
 	if p, _ = a.panels.get(shared); strings.Join(p.Share.Users, ",") != "Bo" {
 		t.Fatalf("removed user still shared: %v", p.Share.Users)

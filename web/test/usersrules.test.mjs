@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, MODES, ROLES, GUEST_ROLES, pinClashes, needsNewPins, clashNotice } from '../usersrules.js';
+import { usersReq, MODES, ROLES, GUEST_ROLES, pinClashes, needsNewPins, clashNotice, ownerChoices } from '../usersrules.js';
 
 const rows = [
   { name: ' Ann ', id: 'u-1', pin: '', role: 'trusted', persistent: false },
@@ -87,4 +87,38 @@ test('clashNotice names the users and what to do', () => {
   );
   assert.equal(clashNotice({ missing: [], same: ['Ann', 'Bob'] }), 'Ann and Bob have the same new PIN. Each needs a different one.');
   assert.match(clashNotice({ missing: ['Cy'], same: ['Ann', 'Bob'] }), /^Give Cy a new PIN.* Ann and Bob have the same new PIN/);
+});
+
+test('a removed user who owns panels gets a new owner, by default the acting user', () => {
+  const listed = [
+    { id: 'u-a', name: 'Ada', panels: 0 },
+    { id: 'u-n', name: 'Ana', panels: 2 },
+    { id: 'u-b', name: 'Bo', panels: 1 },
+    { id: 'u-c', name: 'Cy' },
+  ];
+  const rows = [
+    { id: 'u-a', name: 'Ada ' },
+    { id: 'u-c', name: 'Cyd' },
+    { id: '', name: 'New' },
+  ];
+  const kept = [
+    { id: 'u-a', name: 'Ada' },
+    { id: 'u-c', name: 'Cyd' },
+  ];
+  assert.deepEqual(ownerChoices(listed, rows, 'u-a'), [
+    { id: 'u-n', name: 'Ana', panels: 2, kept, pick: 'u-a' },
+    { id: 'u-b', name: 'Bo', panels: 1, kept, pick: 'u-a' },
+  ]);
+  // The acting user is not kept (or not a user): the first kept user.
+  assert.equal(ownerChoices(listed, rows, 'u-n')[0].pick, 'u-a');
+  assert.equal(ownerChoices(listed, rows.slice(1), 'u-a')[0].pick, 'u-c');
+  assert.deepEqual(ownerChoices(listed, [], 'u-a')[0].kept, []);
+  assert.equal(ownerChoices(listed, [], 'u-a')[0].pick, '');
+  assert.deepEqual(ownerChoices(listed, listed, 'u-a'), []);
+});
+
+test('usersReq sends the chosen new owners', () => {
+  const r = usersReq([], 8, 'pin', 'pin', 'standard', 'standard', { 'u-n': 'u-a' });
+  assert.deepEqual(r.panelOwners, { 'u-n': 'u-a' });
+  assert.equal('panelOwners' in usersReq([], 8, 'pin', 'pin', 'standard', 'standard', {}), false);
 });

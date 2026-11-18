@@ -241,7 +241,7 @@ func TestLockStateCarriesSignInMode(t *testing.T) {
 // The Users editor gets each user's hidden id, so a save keeps the user through a rename.
 func TestUsersListCarriesIDsAndMode(t *testing.T) {
 	a := usernameApp(t)
-	r := a.usersList(7)
+	r := a.usersList(&client{}, 7)
 	b, _ := json.Marshal(r)
 	if r.Mode != config.SignInUsername || r.Users[0].ID != idOf(a, "Ana") || r.Users[0].ID == "" || strings.Contains(string(b), "pbkdf2") {
 		t.Fatalf("list %s", b)
