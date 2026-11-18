@@ -104,12 +104,17 @@ func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
 	}
 	// An "all" edge follows the router, so it shows every default of its kind except the hidden ones.
 	edges := map[string]*GridEdge{artKindSource: p.Sources, artKindDst: p.Destinations}
+	uid := a.r().cfg.UID
 	return a.artDefaultsFor(cl, func(d ArtDefault) bool {
 		if shown[d.key()] {
 			return true
 		}
 		e := edges[d.Kind]
-		return e != nil && d.N != nil && e.shows(*d.N)
+		router := d.Router
+		if router == "" {
+			router = uid
+		}
+		return e != nil && d.N != nil && e.shows(router, *d.N)
 	})
 }
 

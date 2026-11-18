@@ -91,8 +91,8 @@ func TestChromeGridPanelScale(t *testing.T) {
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
 	const pinSrc, pinDst = 1200, 400
-	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Big grid","type":"grid","settings":{"mode":"take","levels":[1]},
-		"sources":{"members":"all","items":{"%d":{"pinned":true}}},"destinations":{"members":"all","items":{"%d":{"pinned":true}}}}`, pinSrc, pinDst))
+	id := makePanel(t, a, ana, gridBody(t, fmt.Sprintf(`{"name":"Big grid","type":"grid","settings":{"mode":"take","levels":[1]},
+		"sources":{"members":"all","items":{"%d":{"pinned":true}}},"destinations":{"members":"all","items":{"%d":{"pinned":true}}}}`, pinSrc, pinDst)))
 	waitNamesAndTally(t, a, ana)
 	for deadline := time.Now().Add(30 * time.Second); ; time.Sleep(100 * time.Millisecond) {
 		body := apiDo(a, "GET", "/api/v1/names", ana, nil).Body.String()
@@ -250,8 +250,8 @@ func TestChromeGridPanelScale(t *testing.T) {
 		}
 		return strings.Join(p, ",")
 	}
-	many := makePanel(t, a, ana, `{"name":"Many pins","type":"grid","settings":{"mode":"take","levels":[1]},`+
-		`"sources":{"members":"all","items":{`+pins(100)+`}},"destinations":{"members":"all","items":{`+pins(100)+`}}}`)
+	many := makePanel(t, a, ana, gridBody(t, `{"name":"Many pins","type":"grid","settings":{"mode":"take","levels":[1]},`+
+		`"sources":{"members":"all","items":{`+pins(100)+`}},"destinations":{"members":"all","items":{`+pins(100)+`}}}`))
 	b.open(srv.URL + "/panels/" + many + "?instance=Desk")
 	b.waitFor("the 50 pinned lead", `document.querySelector('.sode-gridpanel__src[data-src="100"]')?.textContent === 'SRC 101'`)
 	b.waitFor("each pinned band holds fewer than half the view", `(() => {

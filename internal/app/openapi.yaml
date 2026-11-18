@@ -2335,32 +2335,43 @@ components:
       type: object
       description: |
         A Grid panel's sources or destinations. Left out, it is `"all"`. Sent on a Buttons panel, it is 400 `bad_request`.
+        Each entry is a router reference. A blank `router` is this router. The server stores the router's name for it
+        now, else the name the body gives for that item, else the name stored before.
       required: [members]
       properties:
         members:
           description: |
             `all`: every item the router reports, in router order, less `hide`, following the router as it changes.
-            A list: these router numbers in this order, without repeats. A pin or artwork in `items` never changes `all` into a list.
+            A list: these items in this order, without repeats. A pin or artwork in `items` never changes `all` into a list.
           oneOf:
             - { type: string, enum: [all] }
             - type: array
-              uniqueItems: true
-              items: { type: integer, minimum: 0, maximum: 65535 }
+              items: { $ref: "#/components/schemas/GridRef" }
         hide:
           type: array
-          uniqueItems: true
-          items: { type: integer, minimum: 0, maximum: 65535 }
-          description: Router numbers that an `all` edge leaves out. With a list, it is 400 `bad_request`.
+          items: { $ref: "#/components/schemas/GridRef" }
+          description: Items that an `all` edge leaves out. With a list, it is 400 `bad_request`.
         items:
-          type: object
-          propertyNames: { pattern: "^(0|[1-9][0-9]*)$" }
-          additionalProperties: { $ref: "#/components/schemas/GridItem" }
+          type: array
+          items: { $ref: "#/components/schemas/GridItem" }
           description: |
-            Settings for each item, keyed by router number. An entry for an item that is not shown stays.
+            Settings for each item, one entry for each item. An entry for an item that is not shown stays.
             Any number of items can be pinned.
+    GridRef:
+      type: object
+      description: One source or destination on one router. A bare number is taken as `{n}`. Two entries for one item in one list are 400 `bad_request`.
+      required: [n]
+      properties:
+        router: { type: string, description: "The router UID. Blank or left out, it is this router." }
+        n: { type: integer, minimum: 0, maximum: 65535, description: "Sode's number, 0-based" }
+        name: { type: string, description: The router's name for it when the panel was saved }
     GridItem:
       type: object
+      required: [n]
       properties:
+        router: { type: string, description: "The router UID. Blank or left out, it is this router." }
+        n: { type: integer, minimum: 0, maximum: 65535, description: "Sode's number, 0-based" }
+        name: { type: string, description: The router's name for it when the panel was saved }
         pinned: { type: boolean, description: "The item shows first, at the edge of the grid, before the items that are not pinned" }
         art: { type: string, description: "Artwork in the form of a cell's `art`" }
         artB: { type: string, description: "Icon B in the form of a cell's `artB`: a number 0 to 16 or a letter A to Z" }

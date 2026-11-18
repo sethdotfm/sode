@@ -261,8 +261,8 @@ func TestChromeGridPanelLook(t *testing.T) {
 		pinList[i] = fmt.Sprintf(`"%d":{"pinned":true}`, i+1)
 	}
 	pins := "{" + strings.Join(pinList, ",") + "}"
-	pinned := makePanel(t, a, ana, `{"name":"Pinned grid","type":"grid","settings":{"mode":"take","levels":[1]},`+
-		`"sources":{"members":"all","items":`+pins+`},"destinations":{"members":"all","items":`+pins+`}}`)
+	pinned := makePanel(t, a, ana, gridBody(t, `{"name":"Pinned grid","type":"grid","settings":{"mode":"take","levels":[1]},`+
+		`"sources":{"members":"all","items":`+pins+`},"destinations":{"members":"all","items":`+pins+`}}`))
 	b.open(srv.URL + "/panels/" + pinned + "?instance=Desk")
 	b.waitFor("the pinned grid", `!!document.querySelector('.sode-gridpanel__xp')`)
 	b.waitFor("the pinned bands take at most half the room past the names, so the rest scrolls, and each band has its own little bar", `(() => {
@@ -286,8 +286,8 @@ func TestChromeGridPanelLook(t *testing.T) {
 		}
 		return `{"members":[` + strings.Join(l, ",") + `]}`
 	}
-	makePanel(t, a, ana, `{"name":"Small grid","type":"grid","settings":{"mode":"take","levels":[1]},"sources":`+members(4)+`,"destinations":`+members(2)+`}`)
-	makePanel(t, a, ana, `{"name":"Medium grid","type":"grid","settings":{"mode":"take","levels":[1]},"sources":`+members(40)+`,"destinations":`+members(20)+`}`)
+	makePanel(t, a, ana, gridBody(t, `{"name":"Small grid","type":"grid","settings":{"mode":"take","levels":[1]},"sources":`+members(4)+`,"destinations":`+members(2)+`}`))
+	makePanel(t, a, ana, gridBody(t, `{"name":"Medium grid","type":"grid","settings":{"mode":"take","levels":[1]},"sources":`+members(40)+`,"destinations":`+members(20)+`}`))
 
 	b.open(srv.URL + "/panels")
 	b.waitFor("the Grid panel in the list, on a page that keeps the 125% root", `!!document.querySelector('.sode-ov__item[data-id="`+id+`"]') && getComputedStyle(document.documentElement).fontSize === '20px'`)

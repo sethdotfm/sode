@@ -55,6 +55,7 @@ import { createPageBar } from './editorpagebar.js';
 import { createPageView } from './editorpageview.js';
 import { askCopyTo } from './editorpagecopy.js';
 import { isGridPanel } from './gridpaneledges.js';
+import { edgesIn } from './gridedgerefs.js';
 
 const GRID_EDGE = Object.freeze({ members: 'all' });
 
@@ -553,7 +554,7 @@ export async function runEditor() {
 
   function show(panel) {
     live.stop();
-    loaded = panel;
+    loaded = edgesIn(panel);
     edits = {};
     art?.revoke();
     art = panel ? createArt(sessionFetch, panel.id) : null;
@@ -662,7 +663,7 @@ export async function runEditor() {
       return e.message;
     }
     const made = !loaded;
-    loaded = stored;
+    loaded = edgesIn(stored);
     // Pages edited during the save stay as they are now; the rest take the stored copy. The first save gives an
     // unsaved Page 1 its id.
     const after = pagesAfterSave(sentPages, livePages(), pagesOf(stored));
@@ -855,7 +856,7 @@ export async function runEditor() {
     fixedOn,
     // A panel stored elsewhere (the Share modal): the grid and unsaved fields stay as they are.
     replaceLoaded(panel) {
-      loaded = panel;
+      loaded = edgesIn(panel);
       loadList().catch(() => {});
       refresh();
       fieldsChanged();

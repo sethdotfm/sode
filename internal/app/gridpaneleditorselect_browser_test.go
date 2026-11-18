@@ -172,7 +172,7 @@ func TestChromeGridPanelEditorSelect(t *testing.T) {
 	b.eval(`document.getElementById('ed-name').value = 'Selected grid'; document.getElementById('ed-name').dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('ed-save').click(); true`)
 	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved' && location.search.startsWith('?panel=')`)
 	id := regexp.MustCompile(`panel=([\w-]+)`).FindStringSubmatch(b.eval(`location.search`).(string))[1]
-	srcs, _ := readPanel(t, a, ana, id)["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, readPanel(t, a, ana, id), "sources")
 	members, _ := srcs["members"].([]any)
 	head, _ := json.Marshal(members[:6])
 	// Row 1 went to the top when pinned and stayed there when unpinned.

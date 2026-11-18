@@ -1,5 +1,6 @@
 // Which sources and destinations a Grid panel shows, in display order (ADR 0011). Pure.
 // An edge is { members: 'all' | [n, ...], hide: [n], items: { n: { pinned, art } } }; a missing edge is 'all'.
+// edgesIn (gridedgerefs.js) makes this form from the stored references.
 // 'all' is every router item in router order, less hide. Display order puts pinned members first, then the rest.
 import { rightsAllow } from './panelrules.js';
 

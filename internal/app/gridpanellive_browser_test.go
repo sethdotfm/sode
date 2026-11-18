@@ -17,7 +17,7 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
 	body := func(name, dsts string) string {
-		return fmt.Sprintf(`{"name":%q,"type":"grid","settings":{"mode":"take","levels":[1]},"sources":{"members":"all"},"destinations":{"members":%s}}`, name, dsts)
+		return gridBody(t, fmt.Sprintf(`{"name":%q,"type":"grid","settings":{"mode":"take","levels":[1]},"sources":{"members":"all"},"destinations":{"members":%s}}`, name, dsts))
 	}
 	id := makePanel(t, a, ana, body("Before", `"all"`))
 	save := func(name, dsts string) {

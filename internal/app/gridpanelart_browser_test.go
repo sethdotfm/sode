@@ -24,7 +24,7 @@ func TestChromeGridPanelArt(t *testing.T) {
 	body := `{"name":"Art grid","type":"grid","settings":{"mode":"take"},
 		"sources":{"members":"all","items":{"1":{"art":"icon:camera","artB":"2"}}},
 		"destinations":{"members":"all","items":{"1":{"art":"` + img + `"},"2":{"hideText":false}}}}`
-	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, gridBody(t, body)); rec.Code != 200 {
 		t.Fatalf("PUT: %d %s", rec.Code, rec.Body.String())
 	}
 	num := func(n int) *int { return &n }
@@ -84,7 +84,7 @@ func TestChromeGridPanelArt(t *testing.T) {
 	b.waitFor("the row shows its artwork", row+`.querySelector('.sode-edge__art .sode-panel__art-b')?.textContent === '7'`)
 	b.eval(`document.getElementById('ed-save').click(); true`)
 	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
-	srcs, _ := readPanel(t, a, ana, id)["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, readPanel(t, a, ana, id), "sources")
 	items, _ := json.Marshal(srcs["items"])
 	if want := `{"1":{"art":"icon:camera","artB":"2"},"3":{"art":"icon:camera","artB":"7"}}`; string(items) != want {
 		t.Errorf("items %s, want %s", items, want)

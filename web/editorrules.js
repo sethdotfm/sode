@@ -5,6 +5,7 @@ import { pagesOf, pageView, storedPages } from './panelpages.js';
 import { chord } from './keys.js';
 import { nameMismatch } from './panellook.js';
 import { isGridPanel } from './gridpaneledges.js';
+import { edgesOut } from './gridedgerefs.js';
 
 // The Cell tab's lines about Default artwork. d is the item's default or null, and own is whether the cell sets
 // artwork of its own. routerName is the router's name for the cell's number now ('' when not known).
@@ -98,7 +99,14 @@ export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded
     delete rest.rows;
     delete rest.cols;
     const base = newPanel('grid');
-    return { ...rest, name: name.trim(), pages: [], sources: rest.sources ?? base.sources, destinations: rest.destinations ?? base.destinations, ...edits };
+    return edgesOut({
+      ...rest,
+      name: name.trim(),
+      pages: [],
+      sources: rest.sources ?? base.sources,
+      destinations: rest.destinations ?? base.destinations,
+      ...edits,
+    });
   }
   const { rows, cols, cells } = saved(grid);
   return { ...rest, name: name.trim(), rows, cols, pages: storedPages(pages, cells, rows, cols), ...edits };
