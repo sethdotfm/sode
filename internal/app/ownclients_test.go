@@ -139,7 +139,7 @@ func TestAdministratorSaveKeepsOwnClients(t *testing.T) {
 	if cl, _ := a.r().cfg.FindAPIClient("PanelsBot"); cl.Owner != "" {
 		t.Fatalf("PanelsBot got an owner: %+v", cl)
 	}
-	l := a.usersList(1)
+	l := a.usersList(admin, 1)
 	for _, cl := range l.APIClients {
 		if cl.Name == "Ana desk" && cl.OwnerName != "Ana" {
 			t.Fatalf("the Administrator's list does not name the owner: %+v", cl)
