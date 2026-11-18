@@ -486,6 +486,13 @@
 [data-layout="phone"] .sode__settings:not([data-locked]) > .sode__group.sode__page-on {
   display: flex;
 }
+/* The list page names the topics; a section's page has no band. */
+[data-layout="phone"] .sode__settings:not([data-locked]) > :is(.sode__topic, .sode__router) {
+  display: none;
+}
+[data-layout="phone"] .sode__toc .sode__toc-topic::after {
+  content: none;
+}
 [data-layout="phone"] .sode__settings[data-page] > .sode__toc {
   display: none;
 }

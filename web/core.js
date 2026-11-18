@@ -1,10 +1,11 @@
-// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js, sprite.js, fuzzy.js and
-// routerprefix.js: an import cycle must not occur.
+// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js
+// and routerprefix.js: an import cycle must not occur.
 
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
 import { searchText } from './routerprefix.js';
+import { buildChanged } from './buildrules.js';
 
 export const $ = (id) => document.getElementById(id);
 
@@ -33,6 +34,7 @@ export const S = {
   levelDefaults: [],
   levelBy: new Map(),
   namesAt: null,
+  namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
   wsState: 'connecting',
   wsLost: false,
   router: null,
@@ -176,6 +178,11 @@ export function wsSend(m) {
 function handle(m) {
   switch (m.t) {
     case 'hello':
+      // This page's code is from the old build, and the new server can send messages it does not know.
+      if (buildChanged(S.version, m.version)) {
+        globalThis.location?.reload();
+        return;
+      }
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
       emit('helloCfg', m.cfg);
@@ -189,6 +196,7 @@ function handle(m) {
       S.levelDefaults = m.levelDefaults || [];
       setNames(m.srcs, m.dsts);
       S.namesAt = m.at;
+      S.namesSavedAt = m.savedAt || null;
       S.tally = new Map();
       applyTally(m.tally || []);
       S.prot = new Map();

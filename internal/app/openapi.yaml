@@ -2774,6 +2774,8 @@ components:
         found: { type: boolean, description: "External only, changed without a Connected and seen when Sode re-read the router" }
         follow: { type: integer, description: "External only, the id of the take this seems to follow" }
         followGroup: { type: string, description: "External only, the Group of that take" }
+        router: { type: string, description: "The router UID. Absent on entries from before v2" }
+        routerTitle: { type: string, description: "The router title when the entry was made, kept after a rename" }
     LogRow:
       type: object
       description: One Communication Log row, a router message or an event such as an `api` row.
@@ -2797,3 +2799,5 @@ components:
         note: { type: string }
         hex: { type: string, description: Empty for an event }
         ackMs: { type: number, description: How long the router needed to ACK }
+        router: { type: string, description: "The router UID, on router messages and `link` rows only" }
+        routerTitle: { type: string, description: "The router title when the row was written" }
