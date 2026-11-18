@@ -145,7 +145,7 @@ func TestUserUnlock(t *testing.T) {
 	if a.pageAllowed(c, gateMain) || a.pageAllowed(c, gateLog) {
 		t.Fatal("main and log should be locked")
 	}
-	if err := a.admit(c, policy["batch"]); !errors.Is(err, errPageLocked) {
+	if err := a.admit(c, policy["take"]); !errors.Is(err, errPageLocked) {
 		t.Fatalf("batch while locked: %v", err)
 	}
 	if err := a.UserUnlock(c, "2468"); err != nil {
@@ -337,7 +337,7 @@ func TestLockOverWebSocket(t *testing.T) {
 		t.Fatalf("lockState %v", m)
 	}
 	items := []map[string]any{{"src": 1, "dst": 1, "levels": []int{1}}}
-	send(map[string]any{"t": "batch", "items": items})
+	send(map[string]any{"t": "take", "items": items})
 	if m := until("lockState"); m["locked"] != true {
 		t.Fatalf("batch not refused: %v", m)
 	}
@@ -347,28 +347,28 @@ func TestLockOverWebSocket(t *testing.T) {
 		t.Fatal("config changed users")
 	}
 	send(map[string]any{"t": "clearHistory"})
-	send(map[string]any{"t": "sent", "before": -1, "n": 10})
+	send(map[string]any{"t": "log", "before": -1, "n": 10})
 	if m := until("lockState"); m["locked"] != true {
 		t.Fatalf("clearHistory not refused: %v", m)
 	}
-	send(map[string]any{"t": "userUnlock", "user": "Ana", "pin": "123", "id": 1})
-	if m := until("userUnlockResult"); m["ok"] == true {
+	send(map[string]any{"t": "userSignIn", "user": "Ana", "pin": "123", "id": 1})
+	if m := until("userSignInResult"); m["ok"] == true {
 		t.Fatalf("short PIN: %v", m)
 	}
-	send(map[string]any{"t": "userUnlock", "user": "Ana", "pin": "1234", "id": 2})
+	send(map[string]any{"t": "userSignIn", "user": "Ana", "pin": "1234", "id": 2})
 	if m := until("lockState"); m["locked"] != false || m["user"] != "Ana" {
 		t.Fatalf("after unlock: %v", m)
 	}
-	if m := until("userUnlockResult"); m["ok"] != true {
+	if m := until("userSignInResult"); m["ok"] != true {
 		t.Fatalf("unlock: %v", m)
 	}
-	send(map[string]any{"t": "sent", "before": -1, "n": 10})
-	until("sentPage")
+	send(map[string]any{"t": "log", "before": -1, "n": 10})
+	until("logPage")
 	send(map[string]any{"t": "userLock"})
 	if m := until("lockState"); m["locked"] != true {
 		t.Fatalf("after lock: %v", m)
 	}
-	send(map[string]any{"t": "sent", "before": -1, "n": 10})
+	send(map[string]any{"t": "log", "before": -1, "n": 10})
 	if m := until("lockState"); m["locked"] != true {
 		t.Fatalf("sent not refused after lock: %v", m)
 	}

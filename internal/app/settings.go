@@ -190,12 +190,12 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 			a.deliver(cl, hello)
 		}
 		a.syncAccessAllMu() // it is possible that locks, users or the Advanced Settings PIN changed
-		locked, _ := json.Marshal(simpleMsg{T: "locked"})
+		pinNeeded, _ := json.Marshal(simpleMsg{T: "pinNeeded"})
 		for cl := range a.clients {
 			if cl.pin != "" && cl.pin != c.SettingsPin {
 				cl.pin = ""
 				if c.SettingsPin != "" {
-					a.deliver(cl, locked)
+					a.deliver(cl, pinNeeded)
 				}
 			}
 		}

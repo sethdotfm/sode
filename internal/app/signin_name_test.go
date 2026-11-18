@@ -176,11 +176,11 @@ func TestUserUnlockMessageCarriesName(t *testing.T) {
 	a := sharedPinApp(t)
 	c := &client{ip: "10.0.0.1"}
 	read := register(a, c)
-	if err := admitMsg(a, c, inMsg{T: "userUnlock"}); err != nil {
+	if err := admitMsg(a, c, inMsg{T: "userSignIn"}); err != nil {
 		t.Fatalf("userUnlock needs no access: %v", err)
 	}
 	var m inMsg
-	if err := json.Unmarshal([]byte(`{"t":"userUnlock","user":"bo","pin":"1234","id":4}`), &m); err != nil {
+	if err := json.Unmarshal([]byte(`{"t":"userSignIn","user":"bo","pin":"1234","id":4}`), &m); err != nil {
 		t.Fatal(err)
 	}
 	a.serveUserUnlock(c, &m)

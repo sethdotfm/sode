@@ -68,7 +68,7 @@ func TestPresetSavedAsReferencesFiresSameRoutes(t *testing.T) {
 			break
 		}
 	}
-	if err := ws.Write(ctx, websocket.MessageText, []byte(`{"t":"userUnlock","user":"Ada","pin":"2468","id":9}`)); err != nil {
+	if err := ws.Write(ctx, websocket.MessageText, []byte(`{"t":"userSignIn","user":"Ada","pin":"2468","id":9}`)); err != nil {
 		t.Fatal(err)
 	}
 	// A browser that knows no names sends numbers only; the server fills router and names.

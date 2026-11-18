@@ -551,7 +551,7 @@ func (a *App) flush() {
 		a.router.pend = nil
 	}
 	if len(a.router.pendProt) > 0 {
-		a.broadcast(deltaMsg{T: "protect", U: a.router.pendProt})
+		a.broadcast(deltaMsg{T: "protected", U: a.router.pendProt})
 		a.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
@@ -737,7 +737,7 @@ func (a *App) record(e *Entry) {
 	}
 	log.Print(e.logLine(cfg.NumberOffset))
 	a.mu.Lock()
-	a.broadcast(recentMsg{T: "recent", E: e})
+	a.broadcast(recentMsg{T: "entry", E: e})
 	a.mu.Unlock()
 }
 

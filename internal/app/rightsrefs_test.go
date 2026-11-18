@@ -156,10 +156,10 @@ func TestBatchMessagePresetIDReachesTheRightsCheck(t *testing.T) {
 			}
 		}
 	}
-	if rs := send(`{"t":"batch","preset":"Show","presetId":"id1","items":[{"id":1,"src":7,"dst":5,"levels":[1]}]}`); len(rs) != 1 || !rs[0].OK {
+	if rs := send(`{"t":"take","preset":"Show","presetId":"id1","items":[{"id":1,"src":7,"dst":5,"levels":[1]}]}`); len(rs) != 1 || !rs[0].OK {
 		t.Fatalf("preset by id refused: %+v", rs)
 	}
-	allFailed(t, send(`{"t":"batch","preset":"Show","items":[{"id":2,"src":7,"dst":5,"levels":[1]}]}`), 1, `preset "Show"`)
+	allFailed(t, send(`{"t":"take","preset":"Show","items":[{"id":2,"src":7,"dst":5,"levels":[1]}]}`), 1, `preset "Show"`)
 }
 
 // refsAre: the list holds these numbers, in order.

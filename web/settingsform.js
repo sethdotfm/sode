@@ -224,7 +224,7 @@ $('cfg-levels').addEventListener('input', () => {
 });
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
 $('names-refresh').addEventListener('click', () => {
-  if (wsSend({ t: 'refreshNames' })) {
+  if (wsSend({ t: 'rereadNames' })) {
     $('names-refresh').disabled = true;
     $('names-refresh').textContent = 'Refreshing…';
   }

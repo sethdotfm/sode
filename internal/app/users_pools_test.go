@@ -121,7 +121,7 @@ func TestLockGatesMoreOverWebSocket(t *testing.T) {
 	ws.SetReadLimit(1 << 24)
 	for _, m := range []map[string]any{
 		{"t": "uptime", "id": 1},
-		{"t": "refreshNames"},
+		{"t": "rereadNames"},
 	} {
 		b, _ := json.Marshal(m)
 		ws.Write(ctx, websocket.MessageText, b)

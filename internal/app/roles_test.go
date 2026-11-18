@@ -106,8 +106,8 @@ func (p *wsPeer) until(typ string) map[string]any {
 
 func (p *wsPeer) signIn(name, pin string) {
 	p.t.Helper()
-	p.send(map[string]any{"t": "userUnlock", "user": name, "pin": pin, "id": 1})
-	if m := p.until("userUnlockResult"); m["ok"] != true {
+	p.send(map[string]any{"t": "userSignIn", "user": name, "pin": pin, "id": 1})
+	if m := p.until("userSignInResult"); m["ok"] != true {
 		p.t.Fatalf("sign-in: %v", m)
 	}
 }
