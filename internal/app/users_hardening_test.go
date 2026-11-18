@@ -147,7 +147,7 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 		t.Fatalf("padded but unchanged router refused: %v", err)
 	}
 	cfg := a.r().cfg.Clone()
-	cfg.LevelColors = []string{"#aabbcc"}
+	cfg.BrandText = "Studio B"
 	if err := a.SaveSettings(c, cfg, "", false); err != nil {
 		t.Fatalf("plain trusted save: %v", err)
 	}

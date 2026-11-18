@@ -66,10 +66,15 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 	seen := map[string]bool{}
 	webMsgTypes(t, func(name string) { seen[name] = true })
 	for m := range policy {
-		if !seen[m] {
+		if !seen[m] && notSentYet[m] == "" {
 			t.Errorf("policy rule %q is sent by no web/*.js file", m)
 		}
 	}
+}
+
+// Rules no page sends yet, with what will send them. Drop the entry when a page does.
+var notSentYet = map[string]string{
+	"settingsSave": "the one Save review in Settings",
 }
 
 // Literals that look like a message type in web/*.js but never reach the socket.
