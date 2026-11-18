@@ -10,6 +10,10 @@ This list starts over for v2. v2 reads no v1 files, so it has no legacy names th
 
 Calls. Keep means the name stays for now and `AGENTS.md` records why. #574 removes `settingsPin` and #575 renames the other kept names.
 
+## Router references
+
+Every stored source and destination is a router reference `{router, n, name}`: the router UID, Sode's number (0-based) and the router's name at save time. `shown` is never stored. Presets, Rights, panel cells, Grid edges, `fixedDests`, templates, checkpoints, Checkpoint sets and Default artwork hold one each. History and Communication Log rows hold `router` once per row, and `names/<router uid>.yaml` once per file. No store holds a bare number, and no loader reads one. A file reference with no router is refused (config.yaml) or skipped with a problem (the other stores). Only a request can send `{n}` with no router, which names the one router. Levels are UI levels 1..N; a preset item's levels belong to its source's router.
+
 ## Format markers
 
 - `format` (config key, first in `config.yaml`): the format version, now `2`. A file without it is from v1. Sode refuses a higher number.
@@ -84,9 +88,9 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - Directory `panels/` beside the config: `<id>.yaml` per panel (id `p-` and 8 hex digits) and `<id>.art/<art id>` for artwork (`a-` and 8 hex digits). A file with a name and id that differ is skipped.
 - Panel fields (YAML and JSON): `id`, `name`, `owner`, `acts`, `client`, `share`, `rows`, `cols`, `pages`, `settings` and `art`. `acts` is `session`, `api`, `both` or `public`. `share` has `mode` (`me`, `named` or `everyone`) and `users`. `owner` is a user id in the file and the live name in JSON. `canEdit` is output only. Fields not listed are kept as they are.
 - Grid panels (ADR 0011): the panel fields `type` (`buttons` or `grid`, omitted or empty reads as `buttons`), `sources` and `destinations`. A Grid panel has no `rows`, `cols`, `cells` or `pages`. Each of `sources` and `destinations` is an edge:
-  - `members`: the string `all`, or a list of router numbers in order.
-  - `hide`: router numbers left out of an `all` edge. It is refused on a list.
-  - `items`: a map from a plain decimal router number to `pinned` (any number for an edge), `art`, `artB` and `hideText`, written as on a cell.
+  - `members`: the string `all`, or a list of router references in order.
+  - `hide`: router references left out of an `all` edge. It is refused on a list.
+  - `items`: a list of router references, each with `pinned` (any number for an edge), `art`, `artB` and `hideText`, written as on a cell.
   Checkpoint and Push layouts carry the same three fields. A layout of the other type is refused.
 - Pages (ADR 0007): `pages` is a list of 1 to 16 Pages in order. Each Page has these fields:
   - `id`: 1 to 16 letters, digits, dashes and underscores. Sode makes 8 hex digits, and a Page sent without one gets one.
@@ -99,8 +103,8 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - Cell fields inside each Page's `cells` (stored by the panel page and the editor):
   - `r` and `c` (from 1), `rs`, `cs`.
   - `kind`: `source`, `destination`, `take`, `preset`, `clear`, `undo`, `current`, `panelName`, `instanceName`, `pageName`, `info`, `goToPage`, `nextPage` or `previousPage`.
-  - `n` (the router's number).
-  - `scope` (`everyone` or `me`) and `name` on a `preset` cell.
+  - `router`, `n` and `name` on a `source` or `destination` cell: its router reference. A cell with no `n` is unassigned.
+  - `scope` (`everyone` or `me`), `id` (the preset's hidden id) and `name` on a `preset` cell.
   - `page` on a `goToPage` cell: its target Page's id. A missing Page is kept and reads as unassigned.
   - `show` on a `pageName` cell: a list of `number` and `name`; without it, `name`.
   - `show` on an `info` cell: a list of `panel`, `number`, `page` and `instance`; without it, all but `number`.
@@ -144,7 +148,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 
 - Default artwork: `artdefaults.yaml` beside the config, with `rev`, `defaults` and `images` (`id`, `type`, `size`). Each item in `defaults` has these fields:
   - `kind` (`source`, `destination`, `preset`).
-  - `n` for a Source or Destination, `scope` for a Preset.
+  - `router` and `n` for a Source or Destination, `id` and `scope` for a Preset.
   - `name`: the preset's, or the router name when a Source or Destination default was set.
   - `art`, `artB`, `hideText`.
 
