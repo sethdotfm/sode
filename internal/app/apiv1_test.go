@@ -456,7 +456,7 @@ func TestAPISettingsMessage(t *testing.T) {
 	}
 	c := &client{ip: "10.0.0.9"}
 	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(true)}); err == nil {
-		t.Fatal("saved without the Advanced Settings PIN")
+		t.Fatal("saved by a Guest")
 	}
 	c = adminClient(t, a)
 	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(true), RateLimit: apiPtr(50), GuestEnabled: apiPtr(true), LogReads: apiPtr(true)}); err != nil {

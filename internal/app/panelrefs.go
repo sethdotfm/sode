@@ -12,14 +12,39 @@ import (
 // now, else the one the cell came with. A Preset cell gets the preset's hidden id and its name now, so it survives
 // a rename. Me presets are the saving user's (userID). Cells are copies, since a stored panel can share them.
 func (a *App) refPages(pages []PanelPage, userID string) []PanelPage {
+	return a.pageRefer()(pages, userID)
+}
+
+// pageRefer is refPages over a copy of the config and names taken now. The func takes no lock, so the panel store
+// can call it under its own.
+func (a *App) pageRefer() func(pages []PanelPage, userID string) []PanelPage {
 	cfg := a.r().cfg
+	a.mu.Lock()
+	src, dst := maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
+	a.mu.Unlock()
+	return func(pages []PanelPage, userID string) []PanelPage {
+		return refPagesWith(cfg, src, dst, pages, userID)
+	}
+}
+
+// layoutRefer makes a Buttons layout's cells router references for the panel's owner. Grid edges are not cells.
+type layoutRefer func(l panelLayout, owner string) panelLayout
+
+func (a *App) layoutRefer() layoutRefer {
+	refer := a.pageRefer()
+	return func(l panelLayout, owner string) panelLayout {
+		if layoutType(l.Type) == panelTypeButtons {
+			l.Pages = refer(l.Pages, owner)
+		}
+		return l
+	}
+}
+
+func refPagesWith(cfg config.Config, src, dst map[int]string, pages []PanelPage, userID string) []PanelPage {
 	var mine []config.Preset
 	if u, ok := cfg.FindUserByID(userID); ok {
 		mine = u.Profile.Presets
 	}
-	a.mu.Lock()
-	src, dst := maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
-	a.mu.Unlock()
 	out := make([]PanelPage, len(pages))
 	for i, g := range pages {
 		out[i] = g

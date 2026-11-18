@@ -207,7 +207,7 @@ func TestCheckpointsSurviveRestart(t *testing.T) {
 	dir := t.TempDir()
 	s := loadPanels(dir + "/config.yaml")
 	p, _ := s.create(Panel{Name: "A", Owner: "Ana", Rows: 1, Cols: 1})
-	if _, _, err := s.applyLayout(p.ID, panelLayout{Rows: 2, Cols: 2}, "Ana", "test"); err != nil {
+	if _, _, err := s.applyLayout(p.ID, panelLayout{Rows: 2, Cols: 2}, "Ana", "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	again := loadPanels(dir + "/config.yaml")

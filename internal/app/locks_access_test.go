@@ -42,9 +42,9 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	}
 }
 
-// Changing the locks or the idle time needs the Advanced Settings PIN. A trusted user
-// is refused with guardedErr (which counts as errLocked), and the PIN holder saves.
-func TestLocksNeedSettingsPin(t *testing.T) {
+// Changing the locks or the idle time needs an Administrator. A Trusted user
+// is refused with guardedErr (a Role refusal), and the Administrator saves.
+func TestLocksNeedAnAdministrator(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", true, false)
 	ana := &client{ip: "10.0.0.1"}

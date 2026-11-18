@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -45,17 +46,41 @@ func (a *App) artDefaultVisible(cl *apiCtx, d ArtDefault) bool {
 	}
 	// A preset's items would teach hidden numbers, so a hidden caller needs the whole preset in view.
 	// Only Everyone presets have defaults (check).
-	for _, p := range a.r().cfg.Presets {
-		if p.Name == d.Name {
-			return v.WholePreset(p)
-		}
+	if p, ok := everyonePreset(a.r().cfg, d.ID, d.Name); ok {
+		return v.WholePreset(p)
 	}
 	return false
 }
 
+// everyonePreset finds a preset by hidden id, else (no id) by name ignoring case.
+func everyonePreset(cfg config.Config, id, name string) (config.Preset, bool) {
+	for _, p := range cfg.Presets {
+		if id != "" && p.ID == id || id == "" && name != "" && strings.EqualFold(p.Name, name) {
+			return p, true
+		}
+	}
+	return config.Preset{}, false
+}
+
+// liveArtDefaults is the stored list with each preset's id and name now. A default stored with no id is found by
+// name. A default of a deleted preset keeps what it has.
+func (a *App) liveArtDefaults() []ArtDefault {
+	cfg := a.r().cfg
+	list := a.artDefaults.list()
+	for i, d := range list {
+		if d.Kind != artKindPreset {
+			continue
+		}
+		if p, ok := everyonePreset(cfg, d.ID, d.Name); ok {
+			list[i].ID, list[i].Name = p.ID, p.Name
+		}
+	}
+	return list
+}
+
 func (a *App) artDefaultsFor(cl *apiCtx, keep func(ArtDefault) bool) []ArtDefault {
 	out := []ArtDefault{}
-	for _, d := range a.artDefaults.list() {
+	for _, d := range a.liveArtDefaults() {
 		if (keep == nil || keep(d)) && a.artDefaultVisible(cl, d) {
 			out = append(out, d)
 		}
@@ -66,9 +91,14 @@ func (a *App) artDefaultsFor(cl *apiCtx, keep func(ArtDefault) bool) []ArtDefaul
 // panelArtDefaults are the defaults of the items p's cells show, as cl can see them. GET
 // /panels/{id} carries them, so a changed default reaches an open panel page through its update check.
 func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
+	cfg := a.r().cfg
 	shown := map[string]bool{}
 	for c := range allCells(p.Pages) {
 		if d, ok := cellItem(c); ok {
+			// A Preset cell saved before it had an id finds its preset by name.
+			if q, found := everyonePreset(cfg, d.ID, d.Name); d.Kind == artKindPreset && d.ID == "" && found {
+				d.ID = q.ID
+			}
 			shown[d.key()] = true
 		}
 	}
@@ -102,7 +132,8 @@ func cellItem(c map[string]any) (ArtDefault, bool) {
 	case artKindPreset:
 		scope, _ := c["scope"].(string)
 		name, _ := c["name"].(string)
-		return ArtDefault{Kind: kind, Scope: scope, Name: name}, name != ""
+		id, _ := c["id"].(string)
+		return ArtDefault{Kind: kind, Scope: scope, Name: name, ID: id}, name != "" || id != ""
 	}
 	return ArtDefault{}, false
 }
@@ -128,6 +159,18 @@ func (a *App) readArtDefault(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if err := in.check(); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return in, false
+	}
+	if in.Kind == artKindPreset {
+		p, found := everyonePreset(a.r().cfg, in.ID, in.Name)
+		switch {
+		case found:
+			in.ID, in.Name = p.ID, p.Name
+		case r.Method == http.MethodPut:
+			apiFail(w, http.StatusNotFound, "not_found", "no Everyone preset "+cmp.Or(in.ID, in.Name))
+			return in, false
+		}
+	} else if in.Router == "" {
+		in.Router = a.r().cfg.UID
 	}
 	if err := a.mayEveryone(cl, "only a Trusted user can change Default artwork"); err != nil {
 		failWith(w, err)
