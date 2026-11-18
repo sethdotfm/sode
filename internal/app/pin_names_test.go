@@ -73,7 +73,7 @@ func TestSocketWaitsPerName(t *testing.T) {
 		for {
 			_, b, err := ws.Read(ctx)
 			if err != nil {
-				t.Fatalf("no userUnlockResult: %v", err)
+				t.Fatalf("no userSignInResult: %v", err)
 			}
 			var r userResult
 			if json.Unmarshal(b, &r) == nil && r.T == "userSignInResult" && r.ID == id {
