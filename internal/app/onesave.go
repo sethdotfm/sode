@@ -75,6 +75,8 @@ var saveFields = map[string]string{
 	"pinWaits":             "locks",
 	"locks":                "locks",
 	"autoLockMinutes":      "locks",
+	"guestRole":            "locks",
+	"newUserDefaults":      "users",
 	"publicPanels":         "panels",
 	"newPanelActs":         "panels",
 	"trustedProxies":       "proxy",

@@ -56,6 +56,8 @@ export function fillForm() {
   $('cfg-lock-main').checked = !!S.cfg.locks?.main;
   $('cfg-lock-log').checked = !!S.cfg.locks?.log;
   $('cfg-lock-panel').checked = !!S.cfg.locks?.panel;
+  $('cfg-new-persistent').checked = !!S.cfg.newUserDefaults?.persistent;
+  $('cfg-new-no-auto-lock').checked = !!S.cfg.newUserDefaults?.noAutoLock;
   shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, panel: !!S.cfg.locks?.panel, auto: S.cfg.autoLockMinutes ?? 0 };
 }
 
@@ -84,6 +86,7 @@ export function readSettings() {
   if (shownAccess && locks.main === shownAccess.main && locks.log === shownAccess.log && locks.panel === shownAccess.panel) delete c.locks;
   else c.locks = locks;
   if (shownAccess && c.autoLockMinutes === shownAccess.auto) delete c.autoLockMinutes;
+  c.newUserDefaults = { ...S.cfg.newUserDefaults, persistent: $('cfg-new-persistent').checked, noAutoLock: $('cfg-new-no-auto-lock').checked };
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
   c.browserDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));

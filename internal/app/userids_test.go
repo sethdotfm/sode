@@ -32,7 +32,7 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	srcs := *nums(1, 2)
 	admin := adminClient(t, a)
 	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true, Rights: &config.Rights{Sources: &srcs}},
+		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true), Rights: &config.Rights{Sources: &srcs}},
 		{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
 	}}); err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	id := idOf(a, "Ana")
 
 	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: id, Name: "Anna", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
+		{ID: id, Name: "Anna", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
 	}}); err != nil {
 		t.Fatal(err)
 	}

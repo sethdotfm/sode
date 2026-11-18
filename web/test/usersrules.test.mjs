@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, ROLES, GUEST_ROLES, ownerChoices, pinPlaceholder } from '../usersrules.js';
+import { usersReq, ROLES, ownerChoices, pinPlaceholder } from '../usersrules.js';
 
 const rows = [
   { name: ' Ann ', id: 'u-1', pin: '', role: 'trusted', persistent: false },
@@ -38,7 +38,7 @@ test('No PIN removes a saved user PIN only when no new PIN is typed; the placeho
   assert.equal(pinPlaceholder({ id: '' }), 'new PIN');
 });
 
-test('every row sends its Role; Guest role goes only when changed', () => {
+test('every row sends its Role; Guest role is not in the users save', () => {
   assert.deepEqual(
     ROLES.map((r) => [r.value, r.label]),
     [
@@ -47,13 +47,8 @@ test('every row sends its Role; Guest role goes only when changed', () => {
       ['administrator', 'Administrator'],
     ],
   );
-  assert.deepEqual(
-    GUEST_ROLES.map((r) => r.value),
-    ['standard', 'trusted'],
-  );
   assert.equal(usersReq([{ name: 'Cy', id: '', pin: '1', persistent: false }], 8).users[0].role, 'standard');
-  assert.equal(usersReq(rows, 8, 'trusted', 'standard').guestRole, 'trusted');
-  assert.equal('guestRole' in usersReq(rows, 8, 'standard', 'standard'), false);
+  assert.equal('guestRole' in usersReq(rows, 8), false);
 });
 
 test('no row and no request carries a username or a sign-in mode: every user signs in by the Name', () => {
@@ -91,7 +86,7 @@ test('a removed user who owns panels gets a new owner, by default the acting use
 });
 
 test('usersReq sends the chosen new owners', () => {
-  const r = usersReq([], 8, 'standard', 'standard', { 'u-n': 'u-a' });
+  const r = usersReq([], 8, { 'u-n': 'u-a' });
   assert.deepEqual(r.panelOwners, { 'u-n': 'u-a' });
-  assert.equal('panelOwners' in usersReq([], 8, 'standard', 'standard', {}), false);
+  assert.equal('panelOwners' in usersReq([], 8, {}), false);
 });
