@@ -14,7 +14,6 @@ func sessionKeyApp(t *testing.T) *App {
 	t.Helper()
 	a := keyTestApp(t)
 	cfg := a.r().cfg
-	cfg.API.Enabled = true
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}

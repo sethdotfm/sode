@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -196,9 +197,10 @@ func onOff(b bool) string {
 	return "off"
 }
 
-func (a *App) auditAPISettings(act Actor, was, now config.APISettings) {
-	if was.Enabled != now.Enabled {
-		a.apiEvent(act, "apiEnabled", onOff(now.Enabled), "", nil)
+func (a *App) auditAPISettings(act Actor, wasCfg, nowCfg config.Config) {
+	was, now := wasCfg.API, nowCfg.API
+	if !sameSet(wasCfg.GuestAPIScopes, nowCfg.GuestAPIScopes) {
+		a.apiEvent(act, "keylessScopes", "ok", "keyless scopes: "+cmp.Or(strings.Join(nowCfg.GuestAPIScopes, ", "), "none"), nil)
 	}
 	if was.GuestEnabled != now.GuestEnabled {
 		a.apiEvent(act, "guestApi", onOff(now.GuestEnabled), "", nil)

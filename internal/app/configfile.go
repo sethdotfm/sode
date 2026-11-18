@@ -158,7 +158,7 @@ func (a *App) importConfig(c *client, text string) (unknown []string, err error)
 	if err == nil {
 		now := a.r().cfg
 		a.auditRights(c, before, now)
-		a.auditAPISettings(connActor(c), before.API, now.API)
+		a.auditAPISettings(connActor(c), before, now)
 		a.auditRequireHTTPS(connActor(c), before.RequireHTTPS, now.RequireHTTPS)
 	}
 	if err != nil {

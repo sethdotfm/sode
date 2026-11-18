@@ -8,7 +8,7 @@ Every message written to the router, captured at the wire, plus event rows (#139
     - `read` (Log API reads), `refused` (a missing scope).
     - `authFailed` (one row per address per minute, By = the address, Note = the count).
     - `endedKeyUsed` (the same, for calls with a key that ended).
-    - `apiEnabled`, `guestApi`, `logApiReads`, `apiLimits`.
+    - `guestApi`, `keylessScopes`, `logApiReads`, `apiLimits`.
     - The take rows (`take`, and the refusals of the rights pass).
     - `keyCreate`, `keyRevoke`, `keyEnded` (owner changed or PIN changed) and `keyExpired` (By is Sode).
     - `rightsEdit`, `clientEdit`, `noAutoLockEdit`.

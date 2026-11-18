@@ -281,7 +281,7 @@ func (a *App) endStreams(keys []apiKey, why string) {
 }
 
 // refreshStreams applies a config commit to the open streams as the next REST call would see
-// it. A changed view applies at once. A stream ends when its caller lost the API, Guest, a
+// it. A changed view applies at once. A stream ends when its caller lost the keyless API, a
 // scope it uses or its log detail. Caller holds mu.
 func (a *App) refreshStreams(cfg config.Config) {
 	for st := range a.streams {
@@ -291,10 +291,8 @@ func (a *App) refreshStreams(cfg config.Config) {
 		why := ""
 		cl := &apiCtx{Scopes: cfg.GuestAPIScopes, Rights: cfg.GuestRights}
 		switch {
-		case !cfg.API.Enabled:
-			why = "the API is off"
 		case st.keyID == "" && !cfg.API.GuestEnabled:
-			why = "the Guest API is off"
+			why = "the keyless API is off"
 		case st.keyID != "":
 			if cl = a.resolveKey(cfg, apiKey{Owner: st.owner}, ""); cl == nil {
 				continue // pruneKeys ends it

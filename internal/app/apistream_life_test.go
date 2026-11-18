@@ -84,14 +84,6 @@ func TestStreamEndsWhenLogScopeRemoved(t *testing.T) {
 	lifeEnded(t, a, s, "scopes changed")
 }
 
-func TestStreamEndsWhenAPIOff(t *testing.T) {
-	a, _ := apiTestApp(t, nil)
-	defer startLog(t, a)()
-	s := lifeTally(t, a, "tally")
-	lifeCommit(t, a, func(c *config.Config) { c.API.Enabled = false })
-	lifeEnded(t, a, s, "the API is off")
-}
-
 func TestStreamEndsWhenGuestOff(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		c.API.GuestEnabled = true
@@ -102,7 +94,7 @@ func TestStreamEndsWhenGuestOff(t *testing.T) {
 	s.next()
 	s.next()
 	lifeCommit(t, a, func(c *config.Config) { c.API.GuestEnabled = false })
-	lifeEnded(t, a, s, "the Guest API is off")
+	lifeEnded(t, a, s, "the keyless API is off")
 }
 
 func TestStreamSlowDropSaysWhy(t *testing.T) {

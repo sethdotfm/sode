@@ -1,14 +1,15 @@
 # Sode API guide
 
-A guide to `/api/v1`. The contract is the OpenAPI file Sode serves at `/api/v1/openapi.yaml`, open even while the API is off. It lists every path, field and error code. Settings and the rest of the server are in [reference.md](reference.md).
+A guide to `/api/v1`. The contract is the OpenAPI file Sode serves at `/api/v1/openapi.yaml`, open with no key. It lists every path, field and error code. Settings and the rest of the server are in [reference.md](reference.md).
 
-## Turn it on
+## Settings
 
-The API is off until an administrator ticks *API enabled* in Settings (advanced). While it is off, every call answers 503 `api_off`, except the OpenAPI file and `/api/health`. The same area sets:
+The API is always on. An Administrator sets these in Settings > Access > API:
 
 - *Rate limit*: requests a minute per key (default 600, 0 means none). A call with no key is limited per address.
 - *Take cap*: API takes in flight across all callers (default 4). The router answers one message at a time, so over the cap a take gets 429 `take_cap`.
-- *Guest API*: lets a call with no key in, with Guest's scopes only.
+- *Keyless API*: lets a call with no key in. Such a call gets only the *Keyless scopes* and Guest Rights. Guest role never applies to it.
+- *Keyless scopes*: what a call with no key can use. A change is a Critical action, so it needs a PIN recheck.
 - *Log API reads*: one Communication Log row for every read. Off keeps the log to commands, refusals and key events.
 
 ## Keys
@@ -22,7 +23,7 @@ Two kinds of owner:
 - **A user's key** acts as that user, with that user's rights and Me presets, and no narrowing. A user makes it in Settings > My user > **My API keys**, a dialog next to Change my PIN. It asks for the user's own PIN, in the same pool and with the same waits as Change my PIN. It dies when the user changes their PIN, is renamed or is removed (ADR 0003), the same moment their session tokens die. Revoke and expiry end it too.
 - **An API client's key** carries the client's own rights and scopes. An administrator makes a client and its keys in Manage users, on the API clients tab. Changing a user's PIN does not touch it. It ends on revoke, expiry, or removing or renaming its client.
 
-Per owner, a user can hold 8 keys and a client 20. An administrator lists every key and revokes one or all keys of an owner. Sode closes a stream open on a key that is revoked, expires or loses its owner. The Communication Log's disconnect row says why.
+Per owner, a user can hold 50 keys and an API client 200. One more is refused with a message that names the cap; revoke a key first. No setting or preset changes these caps. An administrator lists every key and revokes one or all keys of an owner. Sode closes a stream open on a key that is revoked, expires or loses its owner. The Communication Log's disconnect row says why.
 
 No PIN is ever sent over the API, and there is no API sign-in. The Lock and auto-lock never apply to a key.
 
@@ -175,7 +176,7 @@ The Sode page receives `panelNotice` (`state` `lost` or `back`, `panel`, `name`,
 
 A panel client's keys share one rate limit that grows with the number of live devices. Its streams are capped at 64 per key, not 8 per key and address. Nothing watches for a key used from a new place.
 
-Panels need the API switch and use the same scopes, rate limit and errors as every other call. A panel the caller is not allowed to use is 404, never 403. Sode serves artwork with headers that stop a script in an SVG from running. Show it as an image.
+Panels use the same scopes, rate limit and errors as every other call. A panel the caller is not allowed to use is 404, never 403. Sode serves artwork with headers that stop a script in an SVG from running. Show it as an image.
 
 There are no settings, users, keys or lock endpoints.
 
@@ -189,8 +190,7 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 
 | Status | Code | Cause | What to do |
 | --- | --- | --- | --- |
-| 503 | `api_off` | The API switch is off | Ask an administrator |
-| 401 | `key_required` | No key, and Guest API is off | Send a key |
+| 401 | `key_required` | No key, and the Keyless API is off | Send a key |
 | 401 | `invalid_key` | The key is unknown or malformed | Check the key; ten of these from one address in a minute make it wait |
 | 401 | `key_revoked` | The key worked before and was ended: revoked, rotated, its session ended, or its owner was removed or changed PIN | Stop using it and make a new key |
 | 401 | `key_expired` | The key's expiry has passed | Stop using it and make a new key |
@@ -246,7 +246,7 @@ Every frame is JSON `{"t","topic","data"}`, and every frame but `hello` and `pin
 
 Changes follow as `names`, `tally` (only changed routes), `status` (the same fields as `GET /status`), `entry`, `entryUpdate` (the whole Entry again) and `historyCleared`. `ping` is a heartbeat every 5 seconds, ignore it.
 
-A rights or scope change applies to an open stream immediately, but to later frames only. A client keeps what it already holds until it reconnects. A stream whose key lost a topic's scope, or whose API switch went off, is closed. A key or an address can hold 8 streams at a time, and a ninth gets 429 `too_many_streams`. A panel's own API client key is the exception. Its kiosks share one key, so it can hold 64, and its streams do not count toward an address's 8. A client that stops reading is dropped when a frame write stalls for 5 seconds or 256 frames are queued. Connects and disconnects are `api` rows with the key name, and a disconnect row says why.
+A rights or scope change applies to an open stream immediately, but to later frames only. A client keeps what it already holds until it reconnects. A stream whose key lost a topic's scope, or a keyless stream when the Keyless API goes off, is closed. A key or an address can hold 8 streams at a time, and a ninth gets 429 `too_many_streams`. A panel's own API client key is the exception. Its kiosks share one key, so it can hold 64, and its streams do not count toward an address's 8. A client that stops reading is dropped when a frame write stalls for 5 seconds or 256 frames are queued. Connects and disconnects are `api` rows with the key name, and a disconnect row says why.
 
 ## Require HTTPS
 

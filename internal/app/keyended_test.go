@@ -230,12 +230,10 @@ func TestSessionKeysLeaveTheUsersKeyCap(t *testing.T) {
 	for range sessionKeyMax {
 		sessionKeyOf(t, a, c, next)
 	}
-	if sessionKeyMax <= a.r().cfg.API.MaxUserKeys {
-		t.Fatalf("the cap %d does not test anything", a.r().cfg.API.MaxUserKeys)
-	}
-	r := send(t, a, c, next, inMsg{T: "keyCreate", ID: 9, Pin: "1234", KeyName: "Desk"}, "keyCreateResult")
-	if r["ok"] != true {
-		t.Fatalf("keyCreate refused: %v", r)
+	for i := range userKeyMax {
+		if _, _, err := a.CreateOwnKey(c, "1234", "Desk", 0); err != nil {
+			t.Fatalf("own key %d with %d session keys held: %v", i+1, sessionKeyMax, err)
+		}
 	}
 }
 
