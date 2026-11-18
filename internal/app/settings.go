@@ -123,6 +123,7 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	}
 	a.mu.Lock()
 	a.rt.Store(nr)
+	a.stepOutsOnSaveMu(old.cfg, nr.cfg)
 	a.endDeadHeldMu()
 	a.renameSignedInMu()
 	a.refreshStreams(nr.cfg)

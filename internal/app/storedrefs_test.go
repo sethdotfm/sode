@@ -154,7 +154,6 @@ func TestStoresHoldNoBareNumbers(t *testing.T) {
 	shortTimers(a)
 	stopLog := startLog(t, a)
 	cfg = a.r().cfg
-	cfg.API.Enabled = true
 	cfg.APIClients = []config.APIClient{{Name: "PanelsBot", Scopes: []string{config.ScopeTake, config.ScopePresets, config.ScopeLayouts},
 		Rights: config.Rights{Dsts: nums(2)}}}
 	cfg.Presets = []config.Preset{{ID: "studio-a", Name: "Studio A", Items: []config.PresetItem{presetItem(1, []int{1}, 2)}}}

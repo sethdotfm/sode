@@ -24,7 +24,6 @@ func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 	a := userApp(t, false)
 	f := newFakeRouter(t, a)
 	cfg := a.r().cfg
-	cfg.API.Enabled = true
 	cfg.APIClients = []config.APIClient{
 		{Name: "PanelsBot", Scopes: []string{config.ScopeNames, config.ScopeTally, config.ScopeProtected, config.ScopeStatus, config.ScopePresets, config.ScopeHistory, config.ScopeLayouts}},
 		{Name: "LogBot", Scopes: []string{config.ScopeLog}},
@@ -104,16 +103,6 @@ func wantErr(t *testing.T, rec *httptest.ResponseRecorder, status int, code stri
 	}
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
 		t.Errorf("content type %q", ct)
-	}
-}
-
-func TestAPIOffRefusesEverything(t *testing.T) {
-	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
-	key := botKey(t, a)
-	wantErr(t, apiDo(a, "GET", "/api/v1/names", key, nil), 503, "api_off")
-	wantErr(t, apiDo(a, "GET", "/api/v1/names", "", nil), 503, "api_off")
-	if rec := apiDo(a, "GET", "/api/health", "", nil); rec.Code == 0 || rec.Code == 403 {
-		t.Errorf("health %d", rec.Code)
 	}
 }
 
@@ -407,7 +396,7 @@ func TestAPINoCORSAndUnknownRoutes(t *testing.T) {
 
 // The OpenAPI file is hand-written; this keeps it in step with the route table.
 func TestOpenAPIDocumentsEveryRoute(t *testing.T) {
-	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
+	a, _ := apiTestApp(t, nil)
 	rec := apiDo(a, "GET", "/api/v1/openapi.yaml", "", nil)
 	if rec.Code != 200 || !strings.Contains(rec.Header().Get("Content-Type"), "yaml") {
 		t.Fatalf("%d %q", rec.Code, rec.Header().Get("Content-Type"))
@@ -448,22 +437,22 @@ func TestOpenAPIDocumentsEveryRoute(t *testing.T) {
 }
 
 func TestAPISettingsMessage(t *testing.T) {
-	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
+	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
 	rule, ok := policy["apiSettings"]
 	if !ok || rule.role != config.RoleAdministrator {
 		t.Fatalf("apiSettings rule %+v ok=%v", rule, ok)
 	}
 	c := &client{ip: "10.0.0.9"}
-	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(true)}); err == nil {
+	if err := a.SaveAPISettings(c, apiSettingsReq{GuestEnabled: apiPtr(true)}); err == nil {
 		t.Fatal("saved by a Guest")
 	}
 	c = adminClient(t, a)
-	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(true), RateLimit: apiPtr(50), GuestEnabled: apiPtr(true), LogReads: apiPtr(true)}); err != nil {
+	if err := a.SaveAPISettings(c, apiSettingsReq{RateLimit: apiPtr(50), GuestEnabled: apiPtr(true), LogReads: apiPtr(true)}); err != nil {
 		t.Fatal(err)
 	}
 	got := a.r().cfg.API
-	if !got.Enabled || got.RateLimit != 50 || !got.GuestEnabled || !got.LogReads || got.TakeCap != config.DefaultTakeCap {
+	if got.RateLimit != 50 || !got.GuestEnabled || !got.LogReads || got.TakeCap != config.DefaultTakeCap {
 		t.Fatalf("settings %+v", got)
 	}
 	if err := a.SaveAPISettings(c, apiSettingsReq{TakeCap: apiPtr(0)}); err == nil {
@@ -472,16 +461,16 @@ func TestAPISettingsMessage(t *testing.T) {
 	if a.r().cfg.API.TakeCap != config.DefaultTakeCap {
 		t.Error("refused save changed settings")
 	}
-	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(false)}); err != nil {
+	if err := a.SaveAPISettings(c, apiSettingsReq{LogReads: apiPtr(false)}); err != nil {
 		t.Fatal(err)
 	}
 	var whys []string
-	for _, e := range waitLogged(t, a, 5) {
+	for _, e := range waitLogged(t, a, 4) {
 		if e.Kind == kindAPI {
 			whys = append(whys, e.Why+":"+e.Result)
 		}
 	}
-	for _, want := range []string{"apiEnabled:on", "apiEnabled:off", "guestApi:on", "logApiReads:on"} {
+	for _, want := range []string{"guestApi:on", "logApiReads:on", "logApiReads:off"} {
 		if !apiHas(whys, want) {
 			t.Errorf("no row %q in %v", want, whys)
 		}

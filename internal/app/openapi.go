@@ -6,7 +6,7 @@ import (
 )
 
 // openapi.yaml is the hand-written contract. It is served open (it describes the API, it
-// is not the API), even while the API is off. TestOpenAPIDocumentsEveryRoute keeps it in
+// is not the API), with no key. TestOpenAPIDocumentsEveryRoute keeps it in
 // step with apiRoutes.
 //
 //go:embed openapi.yaml

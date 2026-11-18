@@ -47,15 +47,11 @@ type apiState struct {
 }
 
 // apiAuth is the one auth step. It writes the error response itself and returns false, or
-// returns the resolved caller. Order: API switch, throttle on failed keys, key or Guest,
+// returns the resolved caller. Order: throttle on failed keys, key or keyless Guest,
 // rate limit, then the key's use is counted.
 func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 	rt := a.r()
 	cfg := rt.cfg
-	if !cfg.API.Enabled {
-		apiFail(w, http.StatusServiceUnavailable, "api_off", "the API is off; an administrator turns it on in Settings")
-		return nil, false
-	}
 	ip := clientIP(r, rt.proxies)
 	via := cleanText(r.Header.Get("X-Sode-Via"), apiViaMax)
 	now := time.Now()

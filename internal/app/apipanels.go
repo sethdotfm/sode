@@ -20,7 +20,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Panels over REST (docs/panels-design.md). They ride the API switch, scopes, rate limit and
+// Panels over REST (docs/panels-design.md). They ride the scopes, rate limit and
 // error shape of the rest of v1. Read is `panels`, change is `panelsmanage`. A panel the
 // caller is not allowed to use is answered 404, as if it did not exist.
 

@@ -3,14 +3,14 @@ info:
   title: Sode API
   version: "1"
   description: |
-    Read and command access to one SW-P-08 router through Sode. The API is off until an administrator
-    turns it on in Settings. Sode serves this document at /api/v1/openapi.yaml, always open. The guide with worked
+    Read and command access to one SW-P-08 router through Sode. The API is always on. Sode serves this document at /api/v1/openapi.yaml, always open. The guide with worked
     examples is docs/api.md in the Sode repository.
 
     Auth. Send a key as `Authorization: Bearer <key>` (`sode_` plus 43 URL-safe characters; treat it
     as opaque). Sode never accepts a key in a query string. A call with no Authorization header is
-    a Guest call. Sode allows it only while the Guest API switch is on, and only for the scopes
-    that Guest has. A 401 carries `WWW-Authenticate: Bearer`.
+    a keyless call. Sode allows it only while the Keyless API is on, only for the keyless
+    scopes and only inside Guest Rights. Guest role never applies to it. A user holds at most 50 keys
+    and an API client 200; one more is refused until a key is revoked. A 401 carries `WWW-Authenticate: Bearer`.
 
     Numbers. Sources and destinations are the router's own numbers, 0-based. Add `numberOffset`
     (from /names) to show the number a person sees; with an offset of 1, send `src: 0` for the
@@ -79,9 +79,8 @@ info:
     that says to make it in Settings. A user can make an API client from My user. Its Rights are
     never more than its user's Rights now, and it ends with that user.
 
-    Panels. Panels need the API switch. They use the same switch, scopes, rate limit and error
-    shape as the rest of v1. Nothing under `/panels` answers while the API is off. A user's
-    key has both panel scopes. An API client or Guest has them only if set.
+    Panels. Panels use the same scopes, rate limit and error shape as the rest of v1. A user's
+    key has both panel scopes. An API client or a keyless call has them only if set.
 
     A panel belongs to a user. Its owner, or a Trusted user for anyone's, can change, delete and add artwork to it.
     Everyone else it is shared with, by name or as Everyone, is allowed only to read it and Save a copy.
@@ -108,7 +107,7 @@ paths:
       security: []
       responses:
         "200":
-          description: This document, open even while the API is off
+          description: This document, open with no key
           content:
             application/yaml:
               schema: { type: string }
@@ -2122,8 +2121,8 @@ paths:
         source is hidden from the caller is left out, as `GET /tally` leaves that route out. A
         hidden entry never arrives, so ids can skip. A rights or scope change applies to an
         open stream immediately, to later frames only: the client keeps what it holds until it
-        reconnects. A stream whose key lost a topic's scope, or whose API switch went off, is
-        closed.
+        reconnects. A stream whose key lost a topic's scope, or a keyless stream when the Keyless
+        API goes off, is closed.
 
         Lifetime. A key or an address can hold 8 streams at a time, and a ninth is refused
         with 429 `too_many_streams`. A panel's own API client key can hold 64, since its
@@ -2259,7 +2258,6 @@ components:
             code:
               type: string
               enum:
-                - api_off
                 - key_required
                 - invalid_key
                 - key_revoked
@@ -2288,7 +2286,7 @@ components:
                 - network_not_allowed
                 - internal
               description: |
-                503 api_off (the API switch is off). 401 key_required, invalid_key, key_revoked
+                401 key_required, invalid_key, key_revoked
                 (the key worked before and was ended; stop using it), key_expired,
                 invalid_setup (a setup link that was used, expired or replaced).
                 403 network_not_allowed (the key's address is outside the panel's allowed networks).

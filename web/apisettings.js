@@ -1,14 +1,14 @@
-// Settings > API (index.html #api-group): the switch and limits for Sode's API. Saved apart from the Settings form with the
-// Advanced Settings PIN (the `apiSettings` message), even for a trusted user. Require HTTPS lives under Proxy.
+// Settings > API (index.html #api-group): the keyless API, its scopes and the limits. The API itself is always on.
+// Saved apart from the Settings form (the `apiSettings` message). Require HTTPS lives under Proxy.
 
-import { $, S, on, onMsg, wsSend, sentence } from './core.js';
+import { $, S, on, onMsg, wsSend, sentence, el } from './core.js';
 import { unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { askRecheck } from './recheck.js';
-import { apiProblem, apiRepaints, apiSettingsReq } from './apirules.js';
+import { apiProblem, apiRepaints, apiSettingsReq, SCOPES } from './apirules.js';
 
-const enabled = $('api-enabled');
 const guest = $('api-guest');
+const scopeBox = $('api-scopes');
 const logReads = $('api-log-reads');
 const rate = $('api-rate');
 const cap = $('api-cap');
@@ -16,34 +16,64 @@ const err = $('api-err');
 const note = $('api-note');
 const save = $('api-save');
 
-let saved = { enabled: false, rateLimit: 0, takeCap: 1, guestEnabled: false, logReads: false };
+for (const s of SCOPES) {
+  const box = el('input', 'pb-check__input');
+  box.type = 'checkbox';
+  box.dataset.scope = s.id;
+  scopeBox.append(el('label', 'pb-check', box, el('span', 'pb-check__label', s.text)));
+}
+const boxes = [...scopeBox.querySelectorAll('input[data-scope]')];
+// Disabled until a usersList answer says what the scopes are, so a tick cannot replace a set the page never saw.
+for (const b of boxes) b.disabled = true;
+
+let saved = { rateLimit: 0, takeCap: 1, guestEnabled: false, logReads: false, guestScopes: [] };
 let sent = saved;
 let seq = 0;
 let painted = false;
 
 const edited = () => ({
-  enabled: enabled.checked,
   rateLimit: Number(rate.value),
   takeCap: Number(cap.value),
   guestEnabled: guest.checked,
   logReads: logReads.checked,
+  guestScopes: boxes.filter((b) => b.checked).map((b) => b.dataset.scope),
 });
 
-function paint() {
-  const a = S.cfg?.api;
-  if (!a) return;
-  const incoming = { enabled: !!a.enabled, rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads };
-  if (painted && !apiRepaints(saved, edited(), incoming)) return;
-  painted = true;
-  saved = incoming;
-  enabled.checked = saved.enabled;
+const fill = () => {
   guest.checked = saved.guestEnabled;
   logReads.checked = saved.logReads;
   rate.value = String(saved.rateLimit);
   cap.value = String(saved.takeCap);
+  for (const b of boxes) b.checked = saved.guestScopes.includes(b.dataset.scope);
+};
+
+// The hello has no keyless scopes (they ride the Administrator's usersList), so they come from saved.
+function paint() {
+  const a = S.cfg?.api;
+  if (!a) return;
+  const incoming = { rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads, guestScopes: saved.guestScopes };
+  if (painted && !apiRepaints(saved, edited(), incoming)) return;
+  painted = true;
+  saved = incoming;
+  fill();
 }
 on('hello', paint);
 paint();
+
+// users.js asks for the usersList after a sign-in and on Manage users, and passes each answer on.
+on('usersListed', (m) => {
+  const incoming = { ...saved, guestScopes: m.guestScopes || [] };
+  const first = boxes[0]?.disabled;
+  for (const b of boxes) b.disabled = false;
+  if (!first && !apiRepaints(saved, edited(), incoming)) return;
+  saved = incoming;
+  fill();
+});
+
+// The next sign-in can be someone else's; they load the scopes again before a tick counts.
+on('locked', () => {
+  for (const b of boxes) b.disabled = true;
+});
 
 const fail = (text) => {
   err.textContent = sentence(text);

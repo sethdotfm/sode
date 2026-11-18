@@ -186,7 +186,7 @@ func (a *App) CreateOwnClientKey(c *client, client, pin, keyName string, expires
 	if !ok {
 		return "", apiKey{}, errors.New("you have no API client of that name")
 	}
-	return a.keys.createCapped(keyOwner{Kind: actorClient, Name: cl.Name}, keyName, exp, cur.API.MaxClientKeys, "")
+	return a.keys.createCapped(keyOwner{Kind: actorClient, Name: cl.Name}, keyName, exp, clientKeyMax, "")
 }
 
 // RevokeOwnClientKey ends a key of one of c's user's clients; any other key reads as no such key.
