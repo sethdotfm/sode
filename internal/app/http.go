@@ -366,6 +366,7 @@ type inMsg struct {
 	Name       string             `json:"name"`  // userSignOutAll, profileSave, profileGet
 	Old        string             `json:"old"`
 	New        string             `json:"new"`
+	Remove     bool               `json:"remove"` // userSetPin: remove my PIN
 	UsersReq   *usersReq          `json:"usersReq"`
 	Pins       bool               `json:"pins"`    // configExport: include the PIN hashes
 	YAML       string             `json:"yaml"`    // configImport: the file

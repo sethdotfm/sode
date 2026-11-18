@@ -32,8 +32,12 @@ func TestKeepPins(t *testing.T) {
 			t.Errorf("%s: no error", name)
 		}
 	}
-	if _, err := (Config{Users: []User{{Name: "Ana"}}}).KeepPins(Config{Users: []User{{Name: "Ana"}}}); err == nil || !strings.Contains(err.Error(), "no PIN") {
-		t.Errorf("empty live hash: %v", err)
+	// A user without a PIN here stays one.
+	if got, err := (Config{Users: []User{{Name: "Ana"}}}).KeepPins(Config{Users: []User{{Name: "Ana"}}}); err != nil || got.Users[0].Pin != "" {
+		t.Errorf("user without a PIN: %+v %v", got, err)
+	}
+	if _, err := (Config{Users: []User{{Name: "Bo"}}}).KeepPins(Config{}); err == nil || !strings.Contains(err.Error(), "no PIN") {
+		t.Errorf("unknown user, no hash: %v", err)
 	}
 }
 

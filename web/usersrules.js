@@ -19,6 +19,8 @@ export function usersReq(rows, maxPinLen, guestRole, savedGuestRole, panelOwners
     pin: r.pin,
     role: r.role || 'standard',
     persistent: r.persistent,
+    // A typed PIN wins; only a saved user with a PIN has one to remove.
+    ...(r.noPin && !r.pin && r.id && r.hadPin ? { clearPin: true } : {}),
   }));
   return {
     users,
@@ -26,6 +28,13 @@ export function usersReq(rows, maxPinLen, guestRole, savedGuestRole, panelOwners
     ...(guestRole && guestRole !== savedGuestRole ? { guestRole } : {}),
     ...(Object.keys(panelOwners).length ? { panelOwners } : {}),
   };
+}
+
+// The PIN box's placeholder for a row {id, hadPin, noPin, pinNeeded}: what an empty box saves.
+export function pinPlaceholder(r) {
+  if (!r.id) return r.noPin ? 'no PIN' : 'new PIN';
+  if (r.hadPin) return r.noPin ? 'no PIN after Save' : 'unchanged';
+  return r.pinNeeded ? 'PIN needed' : 'no PIN';
 }
 
 // The saved users that rows remove and that own panels, each with the saved users rows keep

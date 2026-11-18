@@ -233,11 +233,11 @@ func (a *App) serveMyClientKeyRevoke(c *client, m *inMsg) {
 	a.reply(c, opResultFor("myClientKeyRevoke", &m.ID, err))
 }
 
-// dropOwnerless removes API clients whose owner is no longer a user, in the same commit, so
-// pruneKeys ends their keys with it.
+// dropOwnerless removes API clients whose owner is gone or has no PIN. It runs in the same
+// commit, so pruneKeys ends their keys with it.
 func dropOwnerless(cfg *config.Config) {
 	cfg.APIClients = slices.DeleteFunc(slices.Clone(cfg.APIClients), func(c config.APIClient) bool {
-		_, ok := cfg.FindUserByID(c.Owner)
-		return c.Owner != "" && !ok
+		u, ok := cfg.FindUserByID(c.Owner)
+		return c.Owner != "" && (!ok || !u.HasPin())
 	})
 }

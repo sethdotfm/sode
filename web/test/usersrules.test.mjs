@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, ROLES, GUEST_ROLES, ownerChoices } from '../usersrules.js';
+import { usersReq, ROLES, GUEST_ROLES, ownerChoices, pinPlaceholder } from '../usersrules.js';
 
 const rows = [
   { name: ' Ann ', id: 'u-1', pin: '', role: 'trusted', persistent: false },
@@ -15,6 +15,27 @@ test('a saved row sends its id so a rename keeps the user; a new row sends none'
     ],
     maxPinLen: 8,
   });
+});
+
+test('No PIN removes a saved user PIN only when no new PIN is typed; the placeholder says what Save does', () => {
+  const r = usersReq(
+    [
+      { name: 'Ann', id: 'u-1', pin: '', noPin: true, hadPin: true, role: 'standard' },
+      { name: 'Cy', id: 'u-2', pin: '', noPin: true, hadPin: false, role: 'standard' },
+      { name: 'Dee', id: '', pin: '', noPin: true, role: 'standard' },
+    ],
+    8,
+  );
+  assert.deepEqual(
+    r.users.map((u) => u.clearPin),
+    [true, undefined, undefined],
+  );
+  assert.equal(pinPlaceholder({ id: 'u-1', hadPin: true, noPin: false }), 'unchanged');
+  assert.equal(pinPlaceholder({ id: 'u-1', hadPin: true, noPin: true }), 'no PIN after Save');
+  assert.equal(pinPlaceholder({ id: 'u-2', hadPin: false, pinNeeded: true }), 'PIN needed');
+  assert.equal(pinPlaceholder({ id: 'u-2', hadPin: false }), 'no PIN');
+  assert.equal(pinPlaceholder({ id: '', noPin: true }), 'no PIN');
+  assert.equal(pinPlaceholder({ id: '' }), 'new PIN');
 });
 
 test('every row sends its Role; Guest role goes only when changed', () => {

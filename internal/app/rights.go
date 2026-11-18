@@ -22,7 +22,8 @@ func (a *App) callerOf(c *client) (Actor, config.Rights) {
 	a.mu.Unlock()
 	if u := c.u.user.Load(); ok && u != nil {
 		if cur, found := cfg.FindUserByID(u.ID); found {
-			return Actor{Kind: actorUser, Name: cur.Name, User: cur.ID}, cur.Rights
+			_, rights := cfg.ActsAs(cur)
+			return Actor{Kind: actorUser, Name: cur.Name, User: cur.ID}, rights
 		}
 	}
 	return Actor{Kind: actorGuest, Name: "Guest"}, cfg.GuestRights
@@ -42,7 +43,8 @@ func (a *App) pushRightsMu(c *client) {
 	var msg string
 	if a.userOKMu(c, cfg) {
 		if u, ok := cfg.FindUserByID(c.u.user.Load().ID); ok {
-			rt := u.Rights.Clone()
+			_, rt := cfg.ActsAs(u)
+			rt = rt.Clone()
 			j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &rt})
 			msg = string(j)
 		}

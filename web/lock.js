@@ -26,6 +26,7 @@ import {
   padLens,
   canSend,
   padDelay,
+  sendsOnPick,
   signInMsg,
   signInAsOffered,
   signOutOffered,
@@ -67,7 +68,22 @@ const page = pageType(location.pathname);
   document.head.append(css);
 }
 
-const L = { enforced: false, locked: false, held: false, user: '', role: '', trusted: false, persistent: false, noAutoLock: false, lens: [] };
+const L = {
+  enforced: false,
+  locked: false,
+  held: false,
+  user: '',
+  role: '',
+  trusted: false,
+  persistent: false,
+  noAutoLock: false,
+  pinNeeded: false,
+  lens: [],
+  // The holder of a held Lock has no PIN: their name again resumes it (asksName).
+  get heldNoPin() {
+    return this.held && listedUser(S.users, heldUser)?.len === 0;
+  },
+};
 export const lockState = () => ({ ...L });
 
 startHandshake(page);
@@ -138,6 +154,10 @@ function build() {
     },
     // A picked name hands the keys to the pad; a PIN typed first goes at once.
     onPick: () => {
+      if (sendsOnPick(L, who())) {
+        pin = '';
+        return sendPin();
+      }
       if (!pin || !canSend(L, pin, who())) root.focus({ preventScroll: true });
     },
   });
@@ -472,6 +492,7 @@ onMsg('lockState', (m) => {
   L.role = m.role || '';
   L.persistent = !!m.persistent;
   L.noAutoLock = !!m.noAutoLock;
+  L.pinNeeded = !!m.pinNeeded;
   L.lens = m.lens || [];
   applyCover(m);
   // The Lock ended without this tab's PIN: it stays covered, as when signing out of the letter Lock.

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,9 +87,13 @@ func (a *App) userSameMu(c *client, cfg config.Config) bool {
 	return ok && u.Pin == was.Pin
 }
 
-// userOKMu: signed in and not under the Lock. Caller holds mu.
+// userOKMu: signed in and not under the Lock. A user without a PIN opens no page lock, so under
+// their page's lock they count as nobody. Caller holds mu.
 func (a *App) userOKMu(c *client, cfg config.Config) bool {
-	return !c.u.lockedMu() && a.userSameMu(c, cfg)
+	if c.u.lockedMu() || !a.userSameMu(c, cfg) {
+		return false
+	}
+	return c.u.user.Load().HasPin() || !pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks)
 }
 
 // heldMu: the session's Lock is on and its user can still resume it. Caller holds mu.
@@ -156,6 +161,8 @@ type lockStateMsg struct {
 	Persistent bool `json:"persistent,omitempty"`
 	// NoAutoLock: to the signed-in user only, so the page's idle timer skips them.
 	NoAutoLock bool `json:"noAutoLock,omitempty"`
+	// PinNeeded: to the signed-in user only, so the page asks them to set a PIN.
+	PinNeeded bool `json:"pinNeeded,omitempty"`
 }
 
 // Caller holds mu.
@@ -169,7 +176,7 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	m.Held = a.heldMu(c, cfg)
 	if a.userOKMu(c, cfg) {
 		u, _ := cfg.FindUserByID(c.u.user.Load().ID) // live flags, not the sign-in copy
-		m.User, m.Persistent, m.NoAutoLock = u.Name, u.Persistent, u.NoAutoLock
+		m.User, m.Persistent, m.NoAutoLock, m.PinNeeded = u.Name, u.Persistent, u.NoAutoLock, u.PinNeeded
 	}
 	m.Role = a.roleMu(c)
 	m.Trusted = config.RoleAtLeast(m.Role, config.RoleTrusted)
@@ -260,6 +267,12 @@ func matchPin(cfg config.Config, holder *config.User, name, pin string) *config.
 		burnPinCheck(pin)
 		return nil
 	}
+	if !cand.HasPin() { // public in the hello (len 0), so there is nothing to hide by hashing
+		if pin != "" {
+			return nil
+		}
+		return &cand
+	}
 	// Hashed whatever the length: PIN lengths are public, so skipping it would tell a known name
 	// from an unknown one.
 	if !config.CheckPin(cand.Pin, pin) || cand.Len != utf8.RuneCountInString(pin) {
@@ -305,6 +318,9 @@ func (a *App) UserUnlockAs(c *client, name, pin string) error {
 		return nil
 	}
 	defer a.mu.Unlock()
+	if !hit.HasPin() && pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks) {
+		return fmt.Errorf("%s has no PIN, and this page's lock needs a user with a PIN", hit.Name)
+	}
 	// A token-X connection signing in as Y leaves X's session, or Y's Lock would end X's.
 	c.u.sess = &session{seen: a.now()}
 	c.u.user.Store(hit)
@@ -341,7 +357,8 @@ type userEdit struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	Pin        string `json:"pin"`
-	Role       string `json:"role"` // "" is Standard user
+	ClearPin   bool   `json:"clearPin"` // remove the user's PIN; a new Pin wins
+	Role       string `json:"role"`     // "" is Standard user
 	Persistent bool   `json:"persistent"`
 	// Rights and NoAutoLock: nil keeps the user's current value, so a page that does not
 	// know them cannot erase them.
@@ -409,6 +426,8 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				}
 				kept[e.ID] = true
 				u.ID, u.Pin, u.Len = o.ID, o.Pin, o.Len
+				// A PIN needed user keeps the flag only at a Role no higher than before.
+				u.PinNeeded = o.PinNeeded && config.RoleAtLeast(o.Role, cmp.Or(u.Role, config.RoleStandard))
 				u.Profile = o.Profile.Clone()
 				u.Extra = o.Extra
 				u.Rights, u.NoAutoLock = o.Rights.Clone(), o.NoAutoLock
@@ -427,9 +446,12 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				if err != nil {
 					return err
 				}
-				u.Pin, u.Len = h, len(e.Pin)
-			} else if e.ID == "" {
-				return errors.New("give " + u.Name + " a PIN")
+				u.Pin, u.Len, u.PinNeeded = h, len(e.Pin), false
+			} else if e.ClearPin {
+				u.Pin, u.Len, u.PinNeeded = "", 0, false
+			}
+			if err := config.NoPinRefusal(u); err != nil {
+				return err
 			}
 			out = append(out, u)
 		}
@@ -561,7 +583,11 @@ func (a *App) serveUserUnlock(c *client, m *inMsg) {
 }
 
 func (a *App) serveUserSetPin(c *client, m *inMsg) {
-	err := a.UserSetPin(c, m.Old, m.New)
+	set := a.UserSetPin
+	if m.Remove {
+		set = func(c *client, old, _ string) error { return a.RemoveOwnPin(c, old) }
+	}
+	err := set(c, m.Old, m.New)
 	if err != nil {
 		a.command(c, "userSetPin", "refused", "", err)
 	} else {
@@ -592,6 +618,7 @@ type userView struct {
 	Role       string `json:"role"`
 	Persistent bool   `json:"persistent,omitempty"`
 	NoAutoLock bool   `json:"noAutoLock,omitempty"`
+	PinNeeded  bool   `json:"pinNeeded,omitempty"`
 	// Rights has no omitempty: an unset list is "all", an empty one "none".
 	Rights config.Rights `json:"rights"`
 	// PanelClients are the panel clients this user's panels have, for the Rights editor to list.
@@ -627,14 +654,24 @@ func (a *App) usersList(c *client, id int) usersListMsg {
 			ps = append(ps, presetNote{p.ID, p.Name})
 		}
 		m.Users = append(m.Users, userView{ID: u.ID, Name: u.Name, Len: u.Len, Role: u.Role, Persistent: u.Persistent,
-			NoAutoLock: u.NoAutoLock, Rights: u.Rights, PanelClients: pc, Presets: ps, Panels: a.panels.ownedBy(u.ID)})
+			NoAutoLock: u.NoAutoLock, PinNeeded: u.PinNeeded, Rights: u.Rights, PanelClients: pc, Presets: ps, Panels: a.panels.ownedBy(u.ID)})
 	}
 	return m
 }
 
-// UserSetPin needs the user's own PIN, not the Advanced Settings PIN; the old PIN counts as a try
-// (same pool). Other connections of the user relock; c stays signed in.
+// UserSetPin sets or changes c's own PIN. A user with a PIN gives it as old, a try in the users'
+// pool; a user without one gives none. Other connections of the user relock; c stays signed in.
 func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
+	return a.setOwnPin(c, oldPin, newPin, false)
+}
+
+// RemoveOwnPin: only a Standard user can have no PIN (config.NoPinRefusal). Their personal keys
+// end with the hash. Their own API clients go in the same commit (dropOwnerless).
+func (a *App) RemoveOwnPin(c *client, oldPin string) error {
+	return a.setOwnPin(c, oldPin, "", true)
+}
+
+func (a *App) setOwnPin(c *client, oldPin, newPin string, remove bool) error {
 	who := c.u.user.Load()
 	if who == nil {
 		return errors.New("unlock with your PIN first")
@@ -649,20 +686,32 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 		return errors.New("unlock with your PIN first")
 	}
 	u, _ := cur.FindUserByID(who.ID)
-	if err := config.CheckUserPinRules(newPin, cur.MaxPinLen); err != nil {
-		return err
+	switch {
+	case remove && !u.HasPin():
+		return errors.New("you have no PIN to remove")
+	case remove && u.Role != config.RoleStandard:
+		return fmt.Errorf("only a Standard user can remove their PIN; you are %s", config.RoleLabel(u.Role))
+	case !remove:
+		if err := config.CheckUserPinRules(newPin, cur.MaxPinLen); err != nil {
+			return err
+		}
 	}
-	if err := a.tryPin(&a.userPin, c.ip, func() bool { return config.CheckPin(u.Pin, oldPin) }); err != nil {
-		return err
+	if u.HasPin() {
+		if err := a.tryPin(&a.userPin, c.ip, func() bool { return config.CheckPin(u.Pin, oldPin) }); err != nil {
+			return err
+		}
+		if !remove && oldPin == newPin {
+			return errors.New("the new PIN is the same as the old one")
+		}
 	}
-	if oldPin == newPin {
-		return errors.New("the new PIN is the same as the old one")
+	h := ""
+	if !remove {
+		var err error
+		if h, err = config.HashPin(newPin); err != nil {
+			return err
+		}
 	}
-	h, err := config.HashPin(newPin)
-	if err != nil {
-		return err
-	}
-	err = a.commit(func(cfg *config.Config) error {
+	err := a.commit(func(cfg *config.Config) error {
 		for i := range cfg.Users {
 			if cfg.Users[i].ID != who.ID {
 				continue
@@ -670,8 +719,8 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 			if cfg.Users[i].Pin != u.Pin {
 				return errors.New("your PIN changed; unlock again")
 			}
-			cfg.Users[i].Pin, cfg.Users[i].Len = h, len(newPin)
-			return nil
+			cfg.Users[i].Pin, cfg.Users[i].Len, cfg.Users[i].PinNeeded = h, len(newPin), false
+			return config.NoPinRefusal(cfg.Users[i])
 		}
 		return errors.New("unlock with your PIN first")
 	}, func(_, nr *runtime) {
