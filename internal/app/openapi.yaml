@@ -950,8 +950,8 @@ paths:
       summary: Save a template
       description: |
         Scope `panelsmanage`. Needs a user's key (403 `user_required`). Saves a layout: rows,
-        columns and each cell's type, levels and look. Cell contents (`n`, `scope`, `name`,
-        `caption`) are dropped unless asked for. `sources` keeps those of Source and Preset cells,
+        columns and each cell's type, levels and look. Cell contents (`router`, `n`, `scope`, `id`,
+        `name`, `caption`) are dropped unless asked for. `sources` keeps those of Source and Preset cells,
         and `dests` keeps those of Destination cells. By default, every cell comes back unassigned. The
         older `contents: true` still works and means both. `settings` are kept when sent, except
         `settings.fixedDests`, which is kept only with `dests`. Artwork ids are never kept, since artwork
