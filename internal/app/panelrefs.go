@@ -69,15 +69,18 @@ func refCell(c map[string]any, uid string, names map[int]string) {
 	}
 }
 
-// The id wins, so a renamed preset is still found; a cell with no id is matched by name once.
+// The id wins, so a renamed preset is still found. A cell with no id is matched by name once. An id not in the
+// list stays: it can be another user's Me preset, when a Trusted user saves someone else's panel.
 func presetCell(c map[string]any, list []config.Preset) {
 	id, _ := c["id"].(string)
 	name, _ := c["name"].(string)
-	for _, p := range list {
-		if id != "" && p.ID == id {
-			c["name"] = p.Name
-			return
+	if id != "" {
+		for _, p := range list {
+			if p.ID == id {
+				c["name"] = p.Name
+			}
 		}
+		return
 	}
 	for _, p := range list {
 		if strings.EqualFold(p.Name, strings.TrimSpace(name)) {

@@ -45,6 +45,11 @@ func TestPanelCellsStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 			}
 		}
 	}
+	// An id this list does not hold (another user's Me preset) stays, even when the name matches.
+	other := makePanel(t, a, ana, `{"name":"Other","cells":[{"kind":"preset","scope":"everyone","id":"feedfeedfeedfeed","name":"Studio A","r":1,"c":1}]}`)
+	if o, _ := a.panels.get(other); o.Pages[0].Cells[0]["id"] != "feedfeedfeedfeed" {
+		t.Fatalf("unknown id replaced: %v", o.Pages[0].Cells[0])
+	}
 	if _, has := cells[4]["router"]; has {
 		t.Fatalf("a Take cell got a router: %v", cells[4])
 	}
