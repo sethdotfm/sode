@@ -114,17 +114,19 @@ type App struct {
 	namesDirt  bool
 	dumpAt     time.Time
 
-	pin         pinPool
-	userPin     pinPool
-	tokens      *tokenStore
-	keys        *keyStore
-	public      publicKeys
-	panels      *panelStore
-	templates   *templateStore
-	artDefaults *artDefaultStore
-	icons       *iconLib
-	mon         *panelMon
-	cfgMu       sync.Mutex
+	pin      pinPool
+	userPins map[string]*pinPool // by user id; "" for names that match no user
+	// pinFirstWait: the first wait after wrong user PINs; tests shorten it.
+	pinFirstWait time.Duration
+	tokens       *tokenStore
+	keys         *keyStore
+	public       publicKeys
+	panels       *panelStore
+	templates    *templateStore
+	artDefaults  *artDefaultStore
+	icons        *iconLib
+	mon          *panelMon
+	cfgMu        sync.Mutex
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
@@ -219,7 +221,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		idleEvery:    defaultIdleEvery,
 		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Address},
 	}
-	a.pin, a.userPin = settingsPool(), userPool()
+	a.pin, a.userPins, a.pinFirstWait = settingsPool(), map[string]*pinPool{}, pinFirstWait
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
 	a.keys = loadKeys(cfgPath)

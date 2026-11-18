@@ -331,7 +331,7 @@ export const DICT = {
   'cfg-pin': ['pin', 'password', 'passcode', 'lock', 'secret', 'admin', 'protect settings', 'security', 'change pin'],
   'cfg-pin2': ['pin', 'password', 'confirm', 'repeat', 'retype', 'again'],
   'cfg-pin-clear': ['remove pin', 'delete pin', 'no pin', 'unlock', 'disable', 'password off', 'clear'],
-  'cfg-pin-tries': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'reset pin'],
+  'cfg-pin-waits': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'delay', 'wait', 'backoff'],
 
   // ---- Audit
   'cfg-proxies': [

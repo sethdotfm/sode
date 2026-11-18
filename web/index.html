@@ -477,8 +477,8 @@
         <label class="pb-check" id="cfg-pin-clear-row"><input type="checkbox" class="pb-check__input" id="cfg-pin-clear"><span class="pb-check__label">Remove the PIN</span></label>
       </div>
       <div class="sode__field">
-        <label for="cfg-pin-tries">Lock after wrong PINs</label>
-        <span class="pb-number-wrap"><input type="number" id="cfg-pin-tries" class="pb-input" data-key="pinMaxTries" data-type="int" min="0" max="1000"></span>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-pin-waits" data-key="pinWaits" data-type="bool"><span class="pb-check__label">Wait after wrong PINs</span></label>
+        <span class="sode__hint">After 4 wrong PINs for a name, that name waits before the next try. The wait doubles with each wrong PIN, up to 5 minutes. A right PIN stops it. Administrator names always wait.</span>
       </div>
       <div class="sode__fields">
         <div class="sode__field" data-find="lock-pages" data-label="Page locks">

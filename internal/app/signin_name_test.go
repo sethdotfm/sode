@@ -226,7 +226,7 @@ func fastestOf(t *testing.T, a *App, signIn func() error) time.Duration {
 	for range 15 {
 		// Wrong PINs lock the pool after a few tries, and a locked pool answers before any hash.
 		a.mu.Lock()
-		a.userPin.pinState = pinState{}
+		clear(a.userPins)
 		a.mu.Unlock()
 		start := time.Now()
 		if signIn() == nil {
