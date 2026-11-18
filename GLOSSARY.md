@@ -188,6 +188,9 @@ A qualified user's name and PIN, typed in someone else's browser. It lets one br
 **Request approval**:
 Sending an Approval request to the browsers of signed-in Administrators, who approve or deny it there.
 
+**Step in** / **Step out**:
+Step in is a short sign-in by a user with a PIN on top of the sign-in a browser has. Step out returns the browser to its own sign-in.
+
 **Guest role**:
 The role a Guest acts with in a browser: Standard or Trusted, never Administrator. An API call with no key never gets it.
 
