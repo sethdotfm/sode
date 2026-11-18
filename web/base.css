@@ -855,8 +855,9 @@ html {
 .sode__lock-help {
   max-width: 60ch;
 }
-.sode__noadmin {
-  margin: var(--pb-space-4) var(--pb-space-8) 0;
+/* .pb-alert sets display, which beats the hidden attribute. */
+.sode__noadmin[hidden] {
+  display: none;
 }
 .sode__lock-help > p {
   margin: 0 0 var(--pb-space-3);
