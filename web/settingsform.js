@@ -9,7 +9,7 @@ import { resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { omitOwned } from './owned.js';
-import { intProblem } from './settingsrules.js';
+import { intProblem, namesTimeText } from './settingsrules.js';
 
 const root = document.documentElement;
 export const form = $('settings-view');
@@ -203,8 +203,7 @@ export function renderHiddenNote() {
 
 export function renderNamesStatus() {
   if (!isOpen()) return;
-  const at = S.namesAt && new Date(S.namesAt);
-  $('names-at').textContent = at && at.getFullYear() > 2000 ? `Refreshed ${fmtTime(S.namesAt)}` : 'Not loaded yet';
+  $('names-at').textContent = namesTimeText({ at: S.namesAt, savedAt: S.namesSavedAt }, fmtTime);
   $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations`;
   const btn = $('names-refresh');
   btn.disabled = S.router !== 'up';
