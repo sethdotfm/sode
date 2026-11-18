@@ -114,10 +114,10 @@ func TestApplyLayoutRefusesTheOtherType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := a.panels.applyLayout(b.ID, layoutOf(g), "Ana", "t"); !errors.Is(err, errLayoutType) {
+	if _, _, err := a.panels.applyLayout(b.ID, layoutOf(g), "Ana", "t", nil); !errors.Is(err, errLayoutType) {
 		t.Errorf("grid layout on buttons panel: %v", err)
 	}
-	if _, _, err := a.panels.applyLayout(g.ID, layoutOf(b), "Ana", "t"); !errors.Is(err, errLayoutType) {
+	if _, _, err := a.panels.applyLayout(g.ID, layoutOf(b), "Ana", "t", nil); !errors.Is(err, errLayoutType) {
 		t.Errorf("buttons layout on grid panel: %v", err)
 	}
 	if cps, _ := a.panels.checkpoints(g.ID); len(cps) != 0 {
@@ -150,7 +150,7 @@ func TestOldLayoutWithNoTypeAppliesToButtonsPanel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, _, err := a.panels.applyLayout(p.ID, panelLayout{Rows: 1, Cols: 1, LegacyCells: []map[string]any{{"r": 1, "c": 1, "kind": "take"}}}, "Ana", "t")
+	q, _, err := a.panels.applyLayout(p.ID, panelLayout{Rows: 1, Cols: 1, LegacyCells: []map[string]any{{"r": 1, "c": 1, "kind": "take"}}}, "Ana", "t", nil)
 	if err != nil || q.Type != panelTypeButtons {
 		t.Fatalf("%+v %v", q, err)
 	}

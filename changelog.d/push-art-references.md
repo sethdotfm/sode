@@ -1,0 +1,1 @@
+- Push checkpoints and Checkpoint sets keep the router and the router's name for each source and destination. Default artwork for a preset stays when you rename the preset.

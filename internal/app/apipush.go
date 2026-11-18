@@ -125,10 +125,12 @@ func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		}
 	}
 	why := "Push from " + src.ID + " " + src.Name
+	refer := a.layoutRefer()
+	lay := refer(layoutOf(src), src.Owner)
 	var done []pushedOne
 	for _, t := range targets {
 		skipped := a.panels.copyArt(src, t.ID)
-		p, cp, err := a.panels.pushLayout(t.ID, layoutOf(src), cl.Actor.Name, why)
+		p, cp, err := a.panels.pushLayout(t.ID, lay, cl.Actor.Name, why, refer)
 		if err != nil {
 			a.pushFail(w, err)
 			return
@@ -172,7 +174,7 @@ func (a *App) apiCheckpointRestore(w http.ResponseWriter, r *http.Request, cl *a
 		return
 	}
 	cp := r.PathValue("cp")
-	made, found, err := a.panels.restoreCheckpoint(p.ID, cp, cl.Actor.Name)
+	made, found, err := a.panels.restoreCheckpoint(p.ID, cp, cl.Actor.Name, a.layoutRefer())
 	switch {
 	case err != nil:
 		a.pushFail(w, err)
@@ -251,11 +253,12 @@ func (a *App) apiSetList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	apiJSON(w, map[string]any{"sets": out})
 }
 
-// capture is each panel's saved layout as a set entry.
-func capture(ps []Panel) []PanelSetEntry {
+// capture is each panel's saved layout as a set entry, its cells as router references.
+func (a *App) capture(ps []Panel) []PanelSetEntry {
+	refer := a.layoutRefer()
 	out := make([]PanelSetEntry, len(ps))
 	for i, p := range ps {
-		out[i] = PanelSetEntry{Panel: p.ID, Name: p.Name, panelLayout: layoutOf(p)}
+		out[i] = PanelSetEntry{Panel: p.ID, Name: p.Name, panelLayout: refer(layoutOf(p), p.Owner)}
 	}
 	return out
 }
@@ -315,7 +318,7 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ok {
 		return
 	}
-	made, err := a.panels.sets.create(PanelSet{Name: name, Scope: in.Scope, Owner: cl.Actor.User, Entries: capture(ps)})
+	made, err := a.panels.sets.create(PanelSet{Name: name, Scope: in.Scope, Owner: cl.Actor.User, Entries: a.capture(ps)})
 	if err != nil {
 		a.setStoreFail(w, err)
 		return
@@ -352,7 +355,7 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		if !ok {
 			return
 		}
-		set.Entries = capture(ps)
+		set.Entries = a.capture(ps)
 	}
 	if err := a.panels.sets.replace(set); err != nil {
 		a.setStoreFail(w, err)
@@ -429,9 +432,10 @@ func (a *App) apiSetPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		}
 	}
 	why := "Checkpoint set " + set.ID + " " + set.Name
+	refer := a.layoutRefer()
 	done := []pushedOne{}
 	for _, e := range live {
-		p, cp, err := a.panels.applyLayout(e.Panel, e.panelLayout, cl.Actor.Name, why)
+		p, cp, err := a.panels.applyLayout(e.Panel, e.panelLayout, cl.Actor.Name, why, refer)
 		if err != nil {
 			a.pushFail(w, err)
 			return
