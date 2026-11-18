@@ -1,0 +1,1 @@
+- Sode saves the router names to `names/<router uid>.yaml` beside config.yaml when the names change. After a restart, the router names show at once, also when the router is offline. Until the first read from the router, Settings > Router names shows "Names from" and the time of the saved names.
