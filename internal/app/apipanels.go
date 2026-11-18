@@ -40,11 +40,19 @@ func init() {
 	)
 }
 
-// trusted: user id's Role, read live so an edit applies at once, is Trusted user or higher.
-// Keys never act above Trusted user, so this is the most a key-borne check asks.
+// keyRole is the Role a user's key acts with: the owner's, never above Trusted user. An
+// Administrator-only change is made in Settings (apiAdminOnly).
+func keyRole(owner string) string {
+	if config.RoleAtLeast(owner, config.RoleTrusted) {
+		return config.RoleTrusted
+	}
+	return owner
+}
+
+// trusted: user id's key Role, read live so a demotion applies at once, is Trusted user.
 func (a *App) trusted(id string) bool {
 	u, ok := a.r().cfg.FindUserByID(id)
-	return ok && config.RoleAtLeast(u.Role, config.RoleTrusted)
+	return ok && keyRole(u.Role) == config.RoleTrusted
 }
 
 // panelReach is what cl can do with p. A user owns a panel by id; a Trusted user (read

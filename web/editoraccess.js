@@ -1,7 +1,7 @@
 // The sidebar's Access tab: who the panel acts as, the Rights limits of its own API client, and sharing.
 // The server decides who is allowed to set up a client (ADR 0006): a Trusted user, within their own Rights.
 // Sharing is the Share modal's job (panelshare.js), opened from the toolbar's Share button.
-import { $, el, on } from './core.js';
+import { $, el } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, segmented } from './formbits.js';
 import { openShare } from './panelshare.js';
@@ -19,9 +19,6 @@ const LISTS = [
 ];
 
 const api = jsonCall(sessionFetch, { failed: (s) => `Sode answered ${s}` });
-
-let me = { user: '', trusted: false };
-on('access', (a) => (me = { user: a.user || '', trusted: !!a.trusted && !!a.user }));
 
 // offset is the router's numberOffset and levelCount how many levels exist, for typing Rights lists.
 export function createAccessTab(ed, ctx) {
@@ -70,11 +67,10 @@ export function createAccessTab(ed, ctx) {
   let asking = null; // the mode an open Confirm is for; update() shows it until the answer
   let askedFor; // the panel it was asked on: opening another panel cancels it
   const guard = confirmBox(node);
-  const actsHint = el('p', 'sode__hint');
   const actsNote = el('p', 'sode__hint');
   actsNote.setAttribute('role', 'status');
   const publicWarn = el('p', 'sode__hint', PUBLIC_WARNING);
-  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, actsHint, guard.node, actsNote, publicWarn);
+  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, guard.node, actsNote, publicWarn);
 
   const clientBox = el('div', 'sode-side__sec');
   const current = el('p', 'sode-side__rights');
@@ -151,9 +147,8 @@ export function createAccessTab(ed, ctx) {
         guard.cancel();
       }
       acts.set(asking ?? f.acts);
-      // Switching to Session mode is open to the owner; setting up or widening a client needs a Trusted user (server rule).
-      acts.disable(ro || (!me.trusted && !hasClient(p)));
-      actsHint.textContent = f.acts === 'session' && !me.trusted && !ro ? 'Only a Trusted user can make it act as an API client.' : '';
+      // Any editor sets up a client within their own Rights; the server refuses wider ones (ADR 0006).
+      acts.disable(ro);
       publicWarn.hidden = !isPublic(f);
       clientBox.hidden = !hasClient(f);
       if (hasClient(f)) {

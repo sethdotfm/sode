@@ -190,6 +190,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	cfg.Normalize() // every user has an id from here on; the caller saved any it filled
 	panels := loadPanels(cfgPath)
 	dropOrphanPanelClients(&cfg, panels)
+	dropOwnerless(&cfg)
 	r, err := newRuntime(cfg)
 	if err != nil {
 		return nil, err

@@ -66,23 +66,29 @@ func failWith(w http.ResponseWriter, err error) {
 
 // clientRightsFor decides the Rights a panel's client ends up with, or why not. cur is nil for
 // a new client. A request that leaves them out or repeats the stored ones changes nothing, so a
-// save never fails over Rights an administrator widened. Anything else needs a Trusted caller
-// (read live) and must be within the caller's own Rights.
+// save never fails over Rights an Administrator widened. Anything else needs the key of a user
+// who can edit the panel (any Role, ADR 0006) and must be within the caller's own Rights.
 func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Rights) (config.Rights, bool, error) {
 	if cur != nil && (want == nil || reflect.DeepEqual(clean(*want), *cur)) {
 		return *cur, false, nil
 	}
-	if !a.trusted(cl.Actor.User) {
-		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "trusted_required", "only a Trusted user can make a panel act as an API client or change its rights"}
+	if cl.Actor.Kind != actorUser {
+		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "user_required", "a panel's API client is made with a user's key"}
 	}
 	r := cl.Rights.Clone()
 	if want != nil {
 		r = clean(*want)
 	}
 	if !r.Within(cl.Rights) {
-		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "outside_rights", "the panel's rights must not be wider than your own"}
+		return config.Rights{}, false, apiAdminOnly("rights wider than your own")
 	}
 	return r, true, nil
+}
+
+// apiAdminOnly refuses an Administrator-only change: a key never acts as an Administrator (keyRole).
+func apiAdminOnly(what string) error {
+	return &panelClientFail{http.StatusForbidden, "administrator_only",
+		what + " need an Administrator, and a key never acts as one: an Administrator makes this change in Settings"}
 }
 
 func clean(r config.Rights) config.Rights {
@@ -135,15 +141,17 @@ func dropOrphanPanelClients(cfg *config.Config, panels *panelStore) {
 	})
 }
 
-// keepPanelClients folds an administrator's client list into the config's. A panel client in
-// the request gets its Rights and Scopes but keeps its panel link and name. The Advanced Settings
-// PIN is what widens them. A panel client left out stays. Plain clients replace the old ones.
+// keepPanelClients folds an Administrator's client list into the config's. It treats a user's own
+// client (ownclients.go) as a panel client. Such a client in the request gets its Rights and
+// Scopes, and keeps its name and its panel or owner. One left out stays. Plain clients replace
+// the old ones.
 func keepPanelClients(cur []config.APIClient, req []config.APIClient) []config.APIClient {
+	kept := func(c config.APIClient) bool { return c.Panel != "" || c.Owner != "" }
 	var out []config.APIClient
 	seen := map[string]bool{}
 	for _, c := range req {
 		key := strings.ToLower(strings.TrimSpace(c.Name))
-		if i := slices.IndexFunc(cur, func(o config.APIClient) bool { return o.Panel != "" && strings.EqualFold(o.Name, c.Name) }); i >= 0 {
+		if i := slices.IndexFunc(cur, func(o config.APIClient) bool { return kept(o) && strings.EqualFold(o.Name, c.Name) }); i >= 0 {
 			if seen[key] {
 				continue
 			}
@@ -153,11 +161,11 @@ func keepPanelClients(cur []config.APIClient, req []config.APIClient) []config.A
 			out = append(out, o)
 			continue
 		}
-		c.Panel, c.Rights = "", c.Rights.Clone()
+		c.Panel, c.Owner, c.OwnerName, c.Rights = "", "", "", c.Rights.Clone()
 		out = append(out, c)
 	}
 	for _, o := range cur {
-		if o.Panel != "" && !seen[strings.ToLower(o.Name)] {
+		if kept(o) && !seen[strings.ToLower(o.Name)] {
 			out = append(out, o)
 		}
 	}

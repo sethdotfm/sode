@@ -286,6 +286,7 @@ export const DICT = {
   ],
   account: ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
   'account-keys': ['api', 'api key', 'api keys', 'key', 'keys', 'my keys', 'panel', 'token', 'qr', 'qr code', 'copy key', 'revoke', 'expiry', 'account'],
+  'account-clients': ['api', 'api client', 'api clients', 'client', 'clients', 'my clients', 'app', 'key', 'keys', 'scopes', 'account'],
   'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],
   lock: ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
   'lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],

@@ -18,11 +18,13 @@ import (
 
 const publicPanel = `{"name":"Lobby","acts":"public"`
 
-func TestPublicNeedsATrustedUserWithinTheirRights(t *testing.T) {
+func TestPublicNeedsAUserWithinTheirRights(t *testing.T) {
 	a, _ := clientApp(t)
 	cy, ana := userKey(t, a, "Cy"), userKey(t, a, "Ana")
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, publicPanel+`}`), 403, "trusted_required")
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels", cy, publicPanel+`,"clientRights":{"sources":[1,8],"dsts":[2]}}`), 403, "outside_rights")
+	if rec := apiSend(a, "POST", "/api/v1/panels", ana, publicPanel+`}`); rec.Code != 201 {
+		t.Fatalf("a Standard user within their Rights: %d %s", rec.Code, rec.Body.String())
+	}
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels", cy, publicPanel+`,"clientRights":{"sources":[1,8],"dsts":[2]}}`), 403, "administrator_only")
 	rec := apiSend(a, "POST", "/api/v1/panels", cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
 	if rec.Code != 201 || apiBody(t, rec)["acts"] != "public" {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -50,11 +52,13 @@ func TestSwitchingToPublicChecksTheCallerAgain(t *testing.T) {
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, cy, apiPanel+`}`); rec.Code != 200 {
 		t.Fatalf("api save: %d %s", rec.Code, rec.Body.String())
 	}
-	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, cy, publicPanel+`}`), 403, "outside_rights")
+	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, cy, publicPanel+`}`), 403, "administrator_only")
 
 	ana := userKey(t, a, "Ana")
 	own := makePanel(t, a, ana, `{"name":"Mine"}`)
-	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+own, ana, publicPanel+`}`), 403, "trusted_required")
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+own, ana, publicPanel+`}`); rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
 }
 
 func askPublic(a *App, peer, id string) *httptest.ResponseRecorder {
