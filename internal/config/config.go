@@ -24,6 +24,8 @@ import (
 // Config is everything editable from the settings dialog. Process-level
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
+	// Format: see format.go. Defaults sets it, so every write carries it.
+	Format int    `yaml:"format" json:"-" owned:"true"`
 	Router string `yaml:"router" json:"router" guard:"router"`
 	// Brand fields are display only.
 	BrandText       string `yaml:"brandText,omitempty" json:"brandText" guard:"open"`
@@ -150,6 +152,7 @@ type FilterSet struct {
 
 func Defaults() Config {
 	return Config{
+		Format:               Format,
 		RouterShow:           "address",
 		Matrix:               0,
 		Levels:               17,
@@ -591,6 +594,9 @@ func Load(path string) (c Config, exists bool, err error) {
 // keys load. It does not Validate, so a caller can merge PIN hashes first.
 func Parse(b []byte) (Config, error) {
 	c := Defaults()
+	if err := checkFormat(b); err != nil {
+		return c, err
+	}
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)
 	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
@@ -682,6 +688,7 @@ func joinKey(path, k string) string {
 const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"
 
 func Save(path string, c Config) error {
+	c.Format = Format
 	b, err := yaml.Marshal(c)
 	if err != nil {
 		return err

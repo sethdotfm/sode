@@ -30,7 +30,7 @@ func TestOldFileLoadsAsPinOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	old := "users:\n  - name: Ana\n    pin: " + h + "\n    len: 4\nmaxPinLen: 8\n"
+	old := "format: 2\nusers:\n  - name: Ana\n    pin: " + h + "\n    len: 4\nmaxPinLen: 8\n"
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
 		t.Fatal(err)

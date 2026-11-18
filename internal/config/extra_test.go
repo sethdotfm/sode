@@ -53,6 +53,7 @@ func TestEveryConfigStructKeepsExtra(t *testing.T) {
 }
 
 const futureYAML = `
+format: 2
 router: 127.0.0.1:8910
 futureKey: 1
 users:
@@ -105,6 +106,7 @@ func TestUnknownKeysRoundTrip(t *testing.T) {
 
 func TestLegacyKeysAreNotUnknown(t *testing.T) {
 	const legacy = `
+format: 2
 salvos:
   - name: old
     items: [{src: 1, dsts: [2]}]

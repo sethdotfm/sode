@@ -265,7 +265,7 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 		}
 		return ws, send, until
 	}
-	big := "# " + strings.Repeat("x", 200<<10) + "\nrouter: " + strconv.Quote(a.r().cfg.Router) + "\nbrandText: Big\n"
+	big := "# " + strings.Repeat("x", 200<<10) + "\nformat: 2\nrouter: " + strconv.Quote(a.r().cfg.Router) + "\nbrandText: Big\n"
 	// The server cuts off an oversize message mid-write. So it is possible that the
 	// client sees the 1009 close or, if the reset wins, a failed write or read.
 	// Either way the connection ends; a completed write must show the 1009.

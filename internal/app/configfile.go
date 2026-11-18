@@ -115,10 +115,6 @@ func (a *App) importConfig(c *client, text string) (unknown []string, err error)
 	if blank(text) {
 		return nil, errors.New("the file is empty")
 	}
-	file, err := config.Parse([]byte(text))
-	if err != nil {
-		return nil, fmt.Errorf("not a Sode configuration: %w", err)
-	}
 	// Parse keeps unknown keys, and a profile export shares filterSets and presets with
 	// Config, so either would load as defaults; ExportConfig always writes router.
 	var top map[string]any
@@ -127,6 +123,13 @@ func (a *App) importConfig(c *client, text string) (unknown []string, err error)
 	}
 	if _, ok := top["router"]; !ok {
 		return nil, fmt.Errorf("not a Sode configuration: no router setting (found: %s)", config.NameKeys(slices.Sorted(maps.Keys(top))))
+	}
+	file, err := config.Parse([]byte(text))
+	if errors.Is(err, config.ErrV1) {
+		return nil, err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("not a Sode configuration: %w", err)
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

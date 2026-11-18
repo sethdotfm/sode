@@ -102,15 +102,15 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatalf("round trip: %+v exists=%v err=%v", got, exists, err)
 	}
 	// Files from before levelTypedBase was dropped still load.
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelTypedBase: 1\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\nlevelTypedBase: 1\n"), 0o644)
 	if _, _, err := Load(path); err != nil {
 		t.Fatalf("legacy levelTypedBase: %v", err)
 	}
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nhideDsts: [3, 64]\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\nhideDsts: [3, 64]\n"), 0o644)
 	if _, _, err := Load(path); err != nil {
 		t.Fatalf("legacy hideDsts: %v", err)
 	}
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
 	if got, _, err := Load(path); err != nil || !slices.Equal(got.UnknownKeys(), []string{"levelz"}) || got.Extra["levelz"] != 3 {
 		t.Fatalf("unknown key: %v %v", err, got.Extra)
 	}
@@ -118,13 +118,13 @@ func TestSaveLoad(t *testing.T) {
 
 func TestDeviceDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\n"), 0o644)
 	c, _, err := Load(path)
 	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30"}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouter: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
 	c, _, err = Load(path)
 	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", Compact: true}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
@@ -213,7 +213,7 @@ func TestPin(t *testing.T) {
 // Old grid keys load; the next save drops them.
 func TestLegacyGridKeysLoad(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\ngridConfirm: true\ngrids:\n  - link: a\n    cells: []\n"), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte("format: 2\nrouter: 10.0.0.5:8910\ngridConfirm: true\ngrids:\n  - link: a\n    cells: []\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	c, ok, err := Load(p)
@@ -231,7 +231,7 @@ func TestLegacyGridKeysLoad(t *testing.T) {
 
 func TestLegacyGridLockKeyLoads(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\nlocks:\n  main: false\n  grid: false\n  log: false\n"), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte("format: 2\nrouter: 10.0.0.5:8910\nlocks:\n  main: false\n  grid: false\n  log: false\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	c, ok, err := Load(p)

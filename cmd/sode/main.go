@@ -141,6 +141,10 @@ func main() {
 		resetRequireHTTPS(cfgPath)
 		return
 	}
+	// Before anything opens a file the move takes.
+	if _, err := app.MoveV1Files(cfgPath, os.Getenv("SODE_HISTORY"), os.Getenv("SODE_SENTLOG"), os.Getenv("SODE_UPTIME")); err != nil {
+		log.Fatalf("config: %v", err)
+	}
 	cfg := loadConfig(cfgPath)
 	if cfg.SettingsPin != "" {
 		log.Printf("config: Advanced Settings PIN is set (remove it with sode -reset-pin)")

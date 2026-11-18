@@ -16,7 +16,7 @@ func TestOldFileLoadsWithAPIOff(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	body := "router: 10.0.0.1:8910\nusers:\n  - name: Ana\n    pin: " + h + "\n    len: 4\n"
+	body := "format: 2\nrouter: 10.0.0.1:8910\nusers:\n  - name: Ana\n    pin: " + h + "\n    len: 4\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
