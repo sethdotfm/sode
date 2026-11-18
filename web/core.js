@@ -21,6 +21,7 @@ export const S = {
   configPath: '',
   version: '',
   brandColors: [],
+  routerUid: '',
   srcs: [],
   dsts: [],
   srcBy: new Map(),
@@ -181,6 +182,7 @@ function handle(m) {
       S.configPath = m.configPath;
       S.version = m.version || '';
       S.brandColors = m.brandColors || [];
+      S.routerUid = m.routerUid || '';
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];

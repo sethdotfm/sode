@@ -9,7 +9,9 @@ import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 
 const FILTER_KEY = 'sode-filter';
 export const FILTER_DEFAULT = Object.freeze({ src: '', dst: '', sode: true, ext: true, hidden: false });
+// router: the UID whose numbers the number and range terms mean; left out, the one router.
 export const normFilter = (f) => ({
+  ...(f?.router && typeof f.router === 'string' ? { router: f.router } : {}),
   src: String(f?.src ?? ''),
   dst: String(f?.dst ?? ''),
   sode: f?.sode !== false,
@@ -32,8 +34,8 @@ function loadFilter() {
 
 const anything = () => true;
 let filter = loadFilter();
-let srcOk = filterFn(filter.src) || anything;
-let dstOk = filterFn(filter.dst) || anything;
+let srcOk = filterFn(filter.src, { router: filter.router }) || anything;
+let dstOk = filterFn(filter.dst, { router: filter.router }) || anything;
 
 export const filterState = () => ({ ...filter });
 
@@ -42,8 +44,8 @@ export const filterCount = () =>
 
 function applyFilter(next) {
   filter = normFilter(next);
-  srcOk = filterFn(filter.src) || srcOk;
-  dstOk = filterFn(filter.dst) || dstOk;
+  srcOk = filterFn(filter.src, { router: filter.router }) || srcOk;
+  dstOk = filterFn(filter.dst, { router: filter.router }) || dstOk;
   writeJSON(FILTER_KEY, filterCount() ? filter : null);
   emit('filters');
   emit('history');
@@ -167,8 +169,8 @@ function stackMatchers() {
   if (!stackM) {
     stackM = activeStack().map((s) => ({
       f: s.f,
-      srcOk: filterFn(s.f.src) || anything,
-      dstOk: filterFn(s.f.dst) || anything,
+      srcOk: filterFn(s.f.src, { router: s.f.router }) || anything,
+      dstOk: filterFn(s.f.dst, { router: s.f.router }) || anything,
     }));
   }
   return stackM.length > 1 ? stackM : null;
@@ -247,13 +249,14 @@ export function filterSummary(f) {
 // Compiled one time per expression. Blank (or unparsable) hides nothing.
 let hiddenText = null,
   hiddenFn = null;
-function globallyHidden(num, name) {
+function globallyHidden(num, name, at) {
   const t = (S.cfg?.hiddenDsts || '').trim();
-  if (t !== hiddenText) {
-    hiddenText = t;
-    hiddenFn = t ? filterFn(t) : null;
+  const router = S.cfg?.hiddenDstsRouter || '';
+  if (`${router} ${t}` !== hiddenText) {
+    hiddenText = `${router} ${t}`;
+    hiddenFn = t ? filterFn(t, { router }) : null;
   }
-  return !!hiddenFn && hiddenFn(num, name);
+  return !!hiddenFn && hiddenFn(num, name, at);
 }
 
 // Quick search is history.js's. With a stack, each set's saved filter judges it and pref
@@ -262,7 +265,9 @@ export function filterAllows(e) {
   const s = srcItem(e.src, e.srcName),
     d = dstItem(e.dst, e.dstName);
   const dn = e.dst + off();
-  const x = { ext: !!e.ext, sn: e.src + off(), sname: s.name, dn, dname: d.name, hiddenDst: !!e.ext && globallyHidden(dn, d.name) };
+  // An entry without a router UID is on the one router.
+  const router = e.router || S.routerUid;
+  const x = { ext: !!e.ext, sn: e.src + off(), sname: s.name, dn, dname: d.name, router, hiddenDst: !!e.ext && globallyHidden(dn, d.name, router) };
   const st = stackMatchers();
   return st ? stackAllows(pref('setStack'), st, x) : entryAllows(filter, { srcOk, dstOk }, x);
 }

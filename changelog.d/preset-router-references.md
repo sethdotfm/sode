@@ -1,0 +1,2 @@
+- Presets keep the router and the router's name for each source and destination, and each preset has a hidden id. A pin and its place in the pin order stay when you rename a preset.
+- The presets list is smaller than before: each source and destination now holds its name, so fewer destinations fit in the 48 KiB limit.

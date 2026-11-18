@@ -14,6 +14,7 @@ const setup = async () => {
   const m = await import('./all.mjs');
   const it = (n, name) => ({ n, name, num: String(n + 1), label: `${n + 1} ${name}` });
   m.S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [], presets: [] };
+  m.S.routerUid = '0123456789abcdef';
   m.S.levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
   m.S.levelBy = new Map(m.S.levels.map((l) => [l.ui, l]));
   m.S.srcs = [it(0, 'Cam 1'), it(1, 'Cam 2'), it(2, 'Cam 3')];
@@ -285,7 +286,7 @@ test('isBlankRow: only a row with nothing typed', async () => {
 
 test('orderPins: saved order first, the rest after in their own order', async () => {
   const { orderPins, presetKey } = await setup();
-  const mk = (scope, name) => ({ scope, name });
+  const mk = (scope, name) => ({ scope, id: name.toLowerCase(), name });
   const list = [mk('global', 'A'), mk('user', 'B'), mk('local', 'C'), mk('global', 'D')];
   assert.deepEqual(
     orderPins(list, []).map((s) => s.name),
@@ -296,7 +297,8 @@ test('orderPins: saved order first, the rest after in their own order', async ()
     orderPins(list, order).map((s) => s.name),
     ['C', 'D', 'A', 'B'],
   );
-  assert.equal(presetKey(mk('user', 'Mon 1')), 'user:mon 1');
+  // By id, so a rename keeps the place.
+  assert.equal(presetKey({ scope: 'user', id: 'a1b2', name: 'Mon 1' }), 'user:a1b2');
 });
 
 test('moveKey: out, then in at an index counted without it, clamped', async () => {
@@ -322,9 +324,10 @@ test('setPinOrder answers with the save; a guest’s is already kept', async () 
 });
 
 test('movePin: before another pin, or by one place; null when it would not move', async () => {
-  const { movePin, pinOrder, saveLocalPreset, presetKey } = await setup();
+  const m = await setup();
+  const { movePin, pinOrder, saveLocalPreset, presetKey } = m;
   for (const n of ['A', 'B', 'C']) saveLocalPreset({ name: n, items: [{ src: 0, dsts: [1], levels: [] }] }, '');
-  const k = (n) => presetKey({ scope: 'local', name: n });
+  const k = (n) => presetKey(m.findPreset('local', n));
   await movePin(k('C'), { before: k('A') });
   assert.deepEqual(pinOrder(), [k('C'), k('A'), k('B')]);
   await movePin(k('C'), { by: 1 });

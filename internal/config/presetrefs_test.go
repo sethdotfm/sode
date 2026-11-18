@@ -69,8 +69,8 @@ func TestPresetRefsAndIDs(t *testing.T) {
 	}
 }
 
-// A list save keeps ids: a sent id wins, a preset sent without one takes the saved id of its
-// name (a Replace), and a new name gets none (Normalize makes one).
+// A list save keeps ids. A sent id wins. A preset sent without one gets the saved id of its name
+// (a Replace). A new name gets none, and Normalize makes one.
 func TestPresetListSaveKeepsIDs(t *testing.T) {
 	saved := []Preset{{ID: "a1", Name: "Show", Items: []PresetItem{refItem(1, nil, 2)}}, {ID: "b2", Name: "Late", Items: []PresetItem{refItem(1, nil, 3)}}}
 	got := WithPresetExtras([]Preset{

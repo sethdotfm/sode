@@ -13,6 +13,7 @@ import { trapDialog, labeled } from './widgets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
+import { carryNames } from './presetref.js';
 import {
   allPresets,
   presetsIn,
@@ -369,8 +370,8 @@ function load(s) {
   dirty = false;
   discard = false;
   cur = s
-    ? { scope: s.scope, from: s.scope, old: s.name, name: s.name, pinned: s.pinned !== false, items: s.items.map(rowFromItem) }
-    : { scope: 'local', from: '', old: '', name: '', pinned: true, items: [blankRow()] };
+    ? { id: s.id, was: s.items, scope: s.scope, from: s.scope, old: s.name, name: s.name, pinned: s.pinned !== false, items: s.items.map(rowFromItem) }
+    : { id: '', was: [], scope: 'local', from: '', old: '', name: '', pinned: true, items: [blankRow()] };
   renderEditor();
 }
 
@@ -565,14 +566,15 @@ function addRows(items, note) {
 }
 
 // The preset the editor holds as name, in list: { s, next } or { err }. dupes: names it must not have; replace: the entry it overwrites.
-function build(name, list, { dupes, old, replace }) {
+// id: '' for a Save as, so it gets a new one.
+function build(name, list, { dupes, old, replace, id = cur.id }) {
   const items = [];
   for (const r of cur.items.filter((x) => !isBlankRow(x))) {
     const p = parseRow(r);
     if (p.error) return { err: p.text };
     items.push(p.item);
   }
-  const s = { ...normPreset({ name, items }), pinned: cur.pinned };
+  const s = { ...normPreset({ id, name, items: carryNames(items, cur.was) }), pinned: cur.pinned };
   const err = nameProblem(s.name, dupes, { noun: 'preset', old }) || presetProblem(s);
   if (err) return { err };
   const next = replacePreset(list, s, replace);
@@ -601,12 +603,13 @@ function saveHere(b, moving) {
   // Copy first, remove after: a refused or lost save never loses the preset.
   const landed = () => {
     cur.from = to;
+    cur.id = b.s.id || cur.id;
     cur.old = b.s.name;
     cur.name = b.s.name;
     nameIn.value = cur.name;
     dirty = false;
     if (!moving) return finish();
-    if (from === 'global') clearPinOverride(was);
+    if (from === 'global') clearPinOverride(cur.id);
     removeIn(from, was, () => {
       cur.scope = to;
       finish();
@@ -652,13 +655,14 @@ function saveAs() {
   };
   const list = presetsIn(dest);
   const taken = list.find((x) => x.name.toLowerCase() === name.toLowerCase())?.name || '';
-  const b = build(name, list, { dupes: [], replace: taken });
+  const b = build(name, list, { dupes: [], replace: taken, id: '' });
   if (b.err) return bad(b.err);
   const { s, next } = b;
   const loaded = () => {
     closeSaveAs();
     cur.scope = dest;
     cur.from = dest;
+    cur.id = s.id;
     cur.old = s.name;
     cur.name = s.name;
     dirty = false;

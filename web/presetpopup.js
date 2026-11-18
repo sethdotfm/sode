@@ -152,7 +152,7 @@ function draw() {
 
 function togglePin(s) {
   const pinned = effectivePin(s, pinOverrides());
-  if (s.scope === 'user') profSaver.change({ presets: withUserPin(s.name, !pinned) }, () => {});
+  if (s.scope === 'user') profSaver.change({ presets: withUserPin(s.id, !pinned) }, () => {});
   else setLocalPin(s, !pinned);
 }
 

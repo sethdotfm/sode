@@ -42,9 +42,9 @@ func WithFilterSetExtras(in, saved []FilterSet) []FilterSet {
 	return out
 }
 
-// A preset matches on its hidden id. One sent without an id (a sender that never saw it) takes
-// the id of the saved preset of the same name, so a Replace keeps what names it. Items have no
-// name, so one matches on source and destination numbers.
+// A preset matches on its hidden id. A preset sent without an id gets the id of the saved preset
+// of the same name, so a Replace keeps what names it. Items have no name, so one matches on
+// source and destination numbers.
 func WithPresetExtras(in, saved []Preset) []Preset {
 	out := ClonePresets(in)
 	sent := map[string]bool{}
