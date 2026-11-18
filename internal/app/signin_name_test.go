@@ -164,7 +164,7 @@ func TestUsersSaveSendsAFreshHello(t *testing.T) {
 // The Users editor gets each user's hidden id, so a save keeps the user through a rename.
 func TestUsersListCarriesIDs(t *testing.T) {
 	a := userApp(t, true)
-	r := a.usersList(7)
+	r := a.usersList(&client{}, 7)
 	b, _ := json.Marshal(r)
 	if r.Users[0].ID != idOf(a, "Ana") || r.Users[0].ID == "" || strings.Contains(string(b), "pbkdf2") || strings.Contains(string(b), "signInMode") {
 		t.Fatalf("list %s", b)

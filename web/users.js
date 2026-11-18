@@ -12,7 +12,7 @@ import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
-import { GUEST_ROLES, ROLES, usersReq } from './usersrules.js';
+import { GUEST_ROLES, ROLES, ownerChoices, usersReq } from './usersrules.js';
 
 // ---- the Settings section (index.html #users-group)
 const manage = $('users-manage');
@@ -54,6 +54,9 @@ const guestField = el(
   el('span', 'sode__hint', 'The Role of a browser with nobody signed in. Guest Rights still limit what it routes.'),
 );
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows);
+// A removed user's panels need a new owner in the same save (the server refuses it otherwise).
+const owners = el('div', 'sode__users-opts');
+owners.hidden = true;
 
 const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
   addRow().focus();
@@ -81,6 +84,7 @@ const usersPanel = el(
   ),
   table,
   el('div', 'sode__users-acts', addBtn),
+  owners,
   el('div', 'sode__users-opts', guestField, formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
 );
 // The rights editor and the API clients tab read the live rows, and hand back their drafts on save.
@@ -128,6 +132,8 @@ let outSeq = 0;
 let listSeq = 0;
 let listedGuestRole = 'standard'; // the saved Guest role, what the server keeps when none is sent
 let listed = []; // the directory the server sent; empty until it does.
+let listedMe = ''; // the id of the user asking, the default new owner
+const ownerPick = new Map(); // removed user id to the chosen new owner id
 let extras = { apiClients: [], guestRights: {}, guestScopes: [] }; // clients and Guest, sent with it.
 let loaded = false;
 const signing = new Map();
@@ -139,8 +145,33 @@ const setNote = (text, error = false) => {
 function touched() {
   edited = true;
   discard = false;
+  const r = readRows();
   for (const row of rows.children) row.querySelector('input[data-field="pin"]').placeholder = row.dataset.was ? 'unchanged' : 'new PIN';
+  paintOwners(r);
 }
+
+function paintOwners(r = readRows()) {
+  const asks = ownerChoices(listed, r, listedMe);
+  owners.hidden = !asks.length;
+  owners.replaceChildren(
+    ...asks.map((a) => {
+      const s = el('select', 'pb-select');
+      s.id = `usr-owner-${a.id}`;
+      s.dataset.owner = a.id;
+      for (const k of a.kept) s.append(Object.assign(el('option', null, k.name), { value: k.id }));
+      s.value = a.kept.some((k) => k.id === ownerPick.get(a.id)) ? ownerPick.get(a.id) : a.pick;
+      s.addEventListener('change', () => ownerPick.set(a.id, s.value));
+      const what = a.panels === 1 ? '1 panel' : `${a.panels} panels`;
+      return formField(
+        s.id,
+        `New owner of ${a.name}'s ${what}`,
+        el('span', 'pb-select-wrap', s),
+        'You remove this user. Their panels go to this user when you save.',
+      );
+    }),
+  );
+}
+const panelOwners = () => Object.fromEntries([...owners.querySelectorAll('select[data-owner]')].map((s) => [s.dataset.owner, s.value]));
 function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
@@ -261,6 +292,8 @@ function fill() {
   clientsTab.forget();
   rightsPanel.reset();
   for (const u of listed) addRow(u);
+  ownerPick.clear();
+  paintOwners();
   for (const c of extras.apiClients) clientsTab.addRow(c);
   rightsPanel.adoptGuest(extras.guestRights, extras.guestScopes);
   rightsPanel.refresh();
@@ -300,6 +333,7 @@ onMsg('usersListResult', (m) => {
     return;
   }
   listed = m.users || [];
+  listedMe = m.me || '';
   extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {}, guestScopes: m.guestScopes || [] };
   listedGuestRole = m.guestRole === 'trusted' ? 'trusted' : 'standard';
   loaded = true;
@@ -390,7 +424,7 @@ function doSave() {
     levels: S.levels.length,
   });
   if (acc.error) return fail(acc.error);
-  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, guestSelect.value, listedGuestRole), acc, loaded);
+  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, guestSelect.value, listedGuestRole, panelOwners()), acc, loaded);
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: req })) return fail('Not connected to Sode.');
   saveBtn.disabled = true;

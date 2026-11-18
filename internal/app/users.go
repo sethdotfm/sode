@@ -359,6 +359,9 @@ type usersReq struct {
 	APIClients  *[]config.APIClient `json:"apiClients"`
 	GuestRights *config.Rights      `json:"guestRights"`
 	GuestScopes *[]string           `json:"guestScopes"`
+	// PanelOwners maps a removed user's id to the id of a kept user who takes their panels.
+	// A removed user who owns panels needs one.
+	PanelOwners map[string]string `json:"panelOwners"`
 	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
 	Locks    json.RawMessage `json:"locks"`
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
@@ -375,6 +378,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		return err
 	}
 	before := a.r().cfg
+	var moves map[string]string
 	err := a.applyConfig(func(cur *config.Config) error {
 		if req.MaxPin != 0 {
 			cur.MaxPinLen = req.MaxPin
@@ -429,6 +433,10 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			}
 			out = append(out, u)
 		}
+		var err error
+		if moves, err = a.newPanelOwners(c, *cur, out, req.PanelOwners); err != nil {
+			return err
+		}
 		cur.Users = out
 		if req.APIClients != nil {
 			cur.APIClients = keepPanelClients(cur.APIClients, config.WithAPIClientExtras(*req.APIClients, cur.APIClients))
@@ -444,8 +452,39 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	if err == nil {
 		a.auditRights(c, before, a.r().cfg)
 		a.panelsFollowUsers(before.Users, a.r().cfg.Users)
+		if n, err := a.panels.moveOwners(moves); err != nil {
+			log.Printf("panels: new owner reached %d panels, then: %v", n, err)
+		} else if n > 0 {
+			log.Printf("panels: %d panels have a new owner", n)
+		}
 	}
 	return err
+}
+
+// newPanelOwners is the new owner for each user that out removes from cur: the one the save
+// names, else the acting user. A removed user who owns panels now must have one named, a
+// kept user. The move goes by owner after the save, so a panel made meanwhile moves too.
+func (a *App) newPanelOwners(c *client, cur config.Config, out []config.User, named map[string]string) (map[string]string, error) {
+	kept := config.Config{Users: out}
+	moves := map[string]string{}
+	for _, u := range cur.Users {
+		if _, ok := kept.FindUserByID(u.ID); ok {
+			continue
+		}
+		to, ok := named[u.ID]
+		if n := a.panels.ownedBy(u.ID); n > 0 {
+			if _, isKept := kept.FindUserByID(to); !ok || !isKept {
+				return nil, fmt.Errorf("%s owns %d panels: choose a new owner for them from the users you keep", u.Name, n)
+			}
+		}
+		if !ok {
+			to = c.userID()
+		}
+		if to != "" {
+			moves[u.ID] = to
+		}
+	}
+	return moves, nil
 }
 
 // userNameRefusal is the clear refusal for a Name the config would reject (Validate has the
@@ -538,6 +577,8 @@ type usersListMsg struct {
 	OK        bool       `json:"ok"`
 	Users     []userView `json:"users"`
 	GuestRole string     `json:"guestRole"`
+	// Me is the id of the user asking, the default new owner of a removed user's panels.
+	Me string `json:"me"`
 	// Rights and API clients: Administrator only, never before the PIN.
 	APIClients  []config.APIClient `json:"apiClients"`
 	GuestRights config.Rights      `json:"guestRights"`
@@ -557,6 +598,8 @@ type userView struct {
 	PanelClients []panelClientNote `json:"panelClients"`
 	// Presets are the user's Me presets, so the Rights editor can turn their names into ids.
 	Presets []presetNote `json:"presets"`
+	// Panels: how many panels the user owns, so removing them asks for a new owner.
+	Panels int `json:"panels,omitempty"`
 }
 
 type presetNote struct {
@@ -564,9 +607,9 @@ type presetNote struct {
 	Name string `json:"name"`
 }
 
-func (a *App) usersList(id int) usersListMsg {
+func (a *App) usersList(c *client, id int) usersListMsg {
 	cfg := a.r().cfg.Clone()
-	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, GuestRole: cfg.GuestRole,
+	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Me: c.userID(), Users: []userView{}, GuestRole: cfg.GuestRole,
 		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes}
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}
@@ -581,7 +624,7 @@ func (a *App) usersList(id int) usersListMsg {
 			ps = append(ps, presetNote{p.ID, p.Name})
 		}
 		m.Users = append(m.Users, userView{ID: u.ID, Name: u.Name, Len: u.Len, Role: u.Role, Persistent: u.Persistent,
-			NoAutoLock: u.NoAutoLock, Rights: u.Rights, PanelClients: pc, Presets: ps})
+			NoAutoLock: u.NoAutoLock, Rights: u.Rights, PanelClients: pc, Presets: ps, Panels: a.panels.ownedBy(u.ID)})
 	}
 	return m
 }

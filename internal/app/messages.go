@@ -72,6 +72,9 @@ type helloMsg struct {
 	InstallUID string `json:"installUid"`
 	// Prefix is the router prefix, so typing accepts A.23. Not in cfg, which hides it.
 	Prefix string `json:"prefix"`
+	// NoAdministrator: users and no Administrator (a hand-edited file). The page shows the
+	// recovery banner. Only a restart can change it.
+	NoAdministrator bool `json:"noAdministrator,omitempty"`
 }
 
 type helloUser struct {

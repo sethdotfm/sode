@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -438,7 +439,7 @@ func (s *panelStore) replaceLocked(p Panel) (bool, error) {
 
 // followUsers applies a Users save to sharing, which lists names. renames maps a lowercased old
 // name to the new one. removed holds lowercased names that leave it. Owner is an id, so neither
-// touches it; a removed owner stays on their panels so a Trusted user can still reach them. Each panel is written on its own; the
+// touches it; a removed owner's panels move in moveOwners. Each panel is written on its own; the
 // count is of panels changed. A failed write skips that panel and returns the first error.
 func (s *panelStore) followUsers(renames map[string]string, removed map[string]bool) (int, error) {
 	s.mu.Lock()
@@ -470,6 +471,45 @@ func (s *panelStore) followUsers(renames map[string]string, removed map[string]b
 			if first == nil {
 				first = err
 			}
+			continue
+		}
+		s.by[id] = q
+		n++
+	}
+	return n, first
+}
+
+func (s *panelStore) ownedBy(user string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, p := range s.by {
+		if user != "" && p.Owner == user {
+			n++
+		}
+	}
+	return n
+}
+
+// moveOwners gives each panel whose owner is a key of to the owner it maps to. Each panel is
+// written on its own; a failed write skips that panel and returns the first error.
+func (s *panelStore) moveOwners(to map[string]string) (int, error) {
+	if len(to) == 0 {
+		return 0, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	var first error
+	for id, p := range s.by {
+		nw, ok := to[p.Owner]
+		if !ok {
+			continue
+		}
+		q := p
+		q.Owner = nw
+		if err := s.writeLocked(&q); err != nil {
+			first = cmp.Or(first, err)
 			continue
 		}
 		s.by[id] = q

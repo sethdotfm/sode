@@ -681,7 +681,7 @@ func (a *App) hello(p helloPage) []byte {
 		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Users: users,
 		ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
-		InstallUID: r.cfg.InstallUID,
+		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),
 	}
 	b, err := json.Marshal(m)
 	if err != nil {

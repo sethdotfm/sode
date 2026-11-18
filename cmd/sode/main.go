@@ -2,15 +2,18 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,7 +37,7 @@ func loadConfig(path string) config.Config {
 			log.Fatalf("config: %v", err)
 		}
 		if exists && c.SettingsPin != "" && !config.ValidPinHash(c.SettingsPin) {
-			log.Fatalf("config: settingsPin in %s is not a PIN hash (set PINs from Settings, not by hand); run sode -reset-pin", path)
+			log.Fatalf("config: settingsPin in %s is not a PIN hash (set PINs from Settings, not by hand); remove the settingsPin line", path)
 		}
 		if exists {
 			if p := c.UnknownKeysProblem(); p != "" {
@@ -74,27 +77,28 @@ func backupBeforeRelease(path string) {
 	}
 }
 
-// A running server keeps its PIN copy until it restarts.
-func resetSettingsPin(path string) {
+// The PIN comes from stdin, not a flag, so it stays out of ps and shell history. With no
+// terminal package (no new deps) the typed PIN shows.
+func makeAdministrator(path, name string) {
 	if path == "" {
-		log.Fatal("reset-pin: SODE_CONFIG is not set")
+		log.Fatal("make-administrator: SODE_CONFIG is not set")
+	}
+	fmt.Fprintf(os.Stderr, "New PIN for %s (digits; it shows as you type): ", name)
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil && line == "" {
+		log.Fatalf("make-administrator: reading the PIN: %v", err)
 	}
 	backupBeforeRelease(path)
-	c, exists, err := config.Load(path)
+	created, err := config.MakeAdministrator(path, name, strings.TrimSpace(line))
 	if err != nil {
-		log.Fatalf("reset-pin: %v", err)
+		log.Fatalf("make-administrator: %v", err)
 	}
-	if !exists || c.SettingsPin == "" {
-		log.Printf("reset-pin: no Advanced Settings PIN in %s", path)
-		return
+	what := "is now an Administrator with the new PIN"
+	if created {
+		what = "was added as an Administrator with the new PIN"
 	}
-	c.SettingsPin = ""
-	// Locks need an Advanced Settings PIN, so they go with it.
-	c.Locks = config.Locks{Extra: c.Locks.Extra}
-	if err := config.Save(path, c); err != nil {
-		log.Fatalf("reset-pin: %v", err)
-	}
-	log.Printf("reset-pin: removed the Advanced Settings PIN (and turned the page locks off) from %s; restart sode to apply", path)
+	// A save from the running server before the restart would write its old users back.
+	log.Printf("make-administrator: %s %s in %s. Restart sode now to apply it. Their API keys end at the restart.", name, what, path)
 }
 
 // A running server keeps its setting until it restarts.
@@ -116,7 +120,7 @@ func resetRequireHTTPS(path string) {
 
 func main() {
 	health := flag.Bool("healthcheck", false, "probe the local /healthz and exit")
-	resetPin := flag.Bool("reset-pin", false, "remove the Advanced Settings PIN from SODE_CONFIG and exit (restart sode afterwards)")
+	makeAdmin := flag.String("make-administrator", "", "make the named user an Administrator in SODE_CONFIG and exit. It reads the new PIN from stdin. Restart sode afterwards")
 	resetHTTPS := flag.Bool("reset-https", false, "turn Require HTTPS off in SODE_CONFIG and exit (restart sode afterwards)")
 	flag.Parse()
 	listen := env("SODE_LISTEN", ":8080")
@@ -132,8 +136,8 @@ func main() {
 	}
 
 	cfgPath := os.Getenv("SODE_CONFIG")
-	if *resetPin {
-		resetSettingsPin(cfgPath)
+	if *makeAdmin != "" {
+		makeAdministrator(cfgPath, *makeAdmin)
 		return
 	}
 	if *resetHTTPS {
@@ -145,8 +149,8 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 	cfg := loadConfig(cfgPath)
-	if cfg.SettingsPin != "" {
-		log.Printf("config: Advanced Settings PIN is set (remove it with sode -reset-pin)")
+	if len(cfg.Users) > 0 && !cfg.HasAdministrator() {
+		log.Printf("config: no Administrator, so Administrator actions are refused; make one with sode -make-administrator NAME")
 	}
 
 	hist, err := app.OpenHistory(os.Getenv("SODE_HISTORY"))
