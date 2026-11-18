@@ -26,6 +26,7 @@ export const S = {
   routerUid: '',
   installUid: '', // from the hello; Item links name it
   prefix: '', // the router prefix, from the hello
+  noAdministrator: false, // users and no Administrator: the page shows the recovery banner
   srcs: [],
   dsts: [],
   srcBy: new Map(),
@@ -200,6 +201,7 @@ function handle(m) {
       S.routerUid = m.routerUid || '';
       S.installUid = m.installUid || '';
       S.prefix = m.prefix || '';
+      S.noAdministrator = !!m.noAdministrator;
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];
