@@ -78,13 +78,39 @@ func keyHash(secret string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// keyOwner is who a key acts as: a user (Name is the user's name) or an API client.
+// keyOwner is who a key acts as: a user (User is the user id) or an API client (by Name). A
+// user's Name is only the label: lists fill it live (withLiveNames).
 type keyOwner struct {
 	Kind string `json:"kind"` // actorUser or actorClient
+	User string `json:"user,omitempty"`
 	Name string `json:"name"`
 }
 
-func (o keyOwner) is(p keyOwner) bool { return o.Kind == p.Kind && strings.EqualFold(o.Name, p.Name) }
+func (o keyOwner) is(p keyOwner) bool {
+	if o.Kind == actorUser {
+		return p.Kind == actorUser && o.User != "" && o.User == p.User
+	}
+	return o.Kind == p.Kind && strings.EqualFold(o.Name, p.Name)
+}
+
+// userOwner is the owner of u's own keys.
+func userOwner(u config.User) keyOwner { return keyOwner{Kind: actorUser, User: u.ID, Name: u.Name} }
+
+// label is the owner's live name; a user gone since reads as the name the key was made under.
+func (o keyOwner) label(cfg config.Config) string {
+	if n := cfg.UserName(o.User); o.Kind == actorUser && n != "" {
+		return n
+	}
+	return o.Name
+}
+
+// withLiveNames gives each user key its owner's current name, for the page's lists.
+func withLiveNames(cfg config.Config, keys []apiKey) []apiKey {
+	for i := range keys {
+		keys[i].Owner.Name = keys[i].Owner.label(cfg)
+	}
+	return keys
+}
 
 // apiKey is a key's record without its hash; what lists and lookups return.
 type apiKey struct {
@@ -442,7 +468,7 @@ func (s *keyStore) reconcile(cfg config.Config) []apiKey {
 	for _, r := range s.recs {
 		ok := keyOwnerExists(cfg, r.Owner)
 		if ok && r.Owner.Kind == actorUser {
-			u, _ := cfg.FindUser(r.Owner.Name)
+			u, _ := cfg.FindUserByID(r.Owner.User)
 			switch fp := pinFP(u.Pin); {
 			case r.PinFP == "":
 				r.PinFP, changed = fp, true

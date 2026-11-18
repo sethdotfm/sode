@@ -85,6 +85,8 @@ type Config struct {
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
 	Extra map[string]any `yaml:",inline" json:"-" owned:"true"`
+	// idsFilled: see UserIDsFilled. Never saved.
+	idsFilled bool
 }
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.

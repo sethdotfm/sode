@@ -41,6 +41,12 @@ func loadConfig(path string) config.Config {
 				log.Printf("config: %s", p)
 			}
 			log.Printf("config: loaded %s (SODE_* seed variables are ignored once it exists)", path)
+			if c.UserIDsFilled() {
+				// Tokens, keys and panels refer to these ids, so they must outlive this start.
+				if err := config.Save(path, c); err != nil {
+					log.Fatalf("config: writing user ids to %s: %v", path, err)
+				}
+			}
 			return c
 		}
 	}

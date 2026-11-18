@@ -207,7 +207,7 @@ func TestAPIWUserKeyFiresMePreset(t *testing.T) {
 		}
 	})
 	f.seed(2, 3, 0)
-	key := apiTestKey(t, a, keyOwner{Kind: actorUser, Name: "Ana"}, "Desk", time.Time{})
+	key := apiTestKey(t, a, ownerOf(a, "Ana"), "Desk", time.Time{})
 	rec := apiPost(a, "/api/v1/presets/me/Mine", key, ``, nil)
 	if rec.Code != 200 || apiBody(t, rec)["ok"] != true {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())

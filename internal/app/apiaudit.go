@@ -21,6 +21,8 @@ const (
 type Actor struct {
 	Kind string `json:"kind"`
 	Name string `json:"name"`
+	// User is the id of a user actor, for ownership checks; History keeps only the name.
+	User string `json:"-"`
 	Key  string `json:"key,omitempty"`
 	// Owner is who made a panel's own API client; it only gives the label a person to read.
 	Owner string `json:"owner,omitempty"`
@@ -144,7 +146,7 @@ func (a *App) apiEvent(act Actor, why, result, note string, err error) {
 var sodeActor = Actor{Kind: actorSode, Name: "Sode"}
 
 // connActor is the signed-in user, or the address, behind a browser connection.
-func connActor(c *client) Actor { return Actor{Kind: actorUser, Name: c.who()} }
+func connActor(c *client) Actor { return Actor{Kind: actorUser, Name: c.who(), User: c.userID()} }
 
 // auditRights writes a row per actor whose rights, scopes or No auto-lock a users save
 // changed, so widened rights can be found later.
@@ -152,7 +154,7 @@ func (a *App) auditRights(c *client, was, now config.Config) {
 	act := connActor(c)
 	row := func(why, note string) { a.apiEvent(act, why, "ok", note, nil) }
 	for _, u := range now.Users {
-		ou, existed := was.FindUser(u.Name)
+		ou, existed := was.FindUserByID(u.ID)
 		if !reflect.DeepEqual(ou.Rights, u.Rights) && (existed || !u.Rights.IsOpen()) {
 			note := "rights of user " + u.Name
 			if pc := a.panelClientsOf(now, u); len(pc) > 0 {

@@ -34,8 +34,8 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	srcs := []int{7}
 	none := []int{}
 	mrSet(t, a, []userEdit{
-		{Name: "Ana", Rights: &config.Rights{Sources: &srcs, Dsts: &none, Visibility: config.VisHidden}},
-		{Name: "Bo"},
+		{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Sources: &srcs, Dsts: &none, Visibility: config.VisHidden}},
+		{ID: idOf(a, "Bo"), Name: "Bo"},
 	})
 
 	guest := &client{ip: "10.0.0.7"}
@@ -65,7 +65,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 
 	// An administrator's edit reaches the open page at once.
 	dsts := []int{3}
-	mrSet(t, a, []userEdit{{Name: "Ana", Rights: &config.Rights{Dsts: &dsts}}, {Name: "Bo"}})
+	mrSet(t, a, []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Dsts: &dsts}}, {ID: idOf(a, "Bo"), Name: "Bo"}})
 	m = mrLast(anext(), "myRights")
 	if m == nil {
 		t.Fatal("no myRights after the edit")

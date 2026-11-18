@@ -41,7 +41,7 @@ func TestSessionKeyActsAsTheSignedInUser(t *testing.T) {
 	key := sessionKeyOf(t, a, c, next)
 	id := makePanel(t, a, key, `{"name":"Mine"}`)
 	p, _ := a.panels.get(id)
-	if p.Owner != "Ana" {
+	if p.Owner != idOf(a, "Ana") {
 		t.Fatalf("owner %q", p.Owner)
 	}
 	// A key shows in the user's own key list like any other, with its key name.
@@ -72,7 +72,7 @@ func TestSessionKeyEndsOnSignOut(t *testing.T) {
 	if got := panelsStatus(a, key); got != 401 {
 		t.Fatalf("after sign out: %d", got)
 	}
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("record kept after sign out")
 	}
 }
@@ -92,7 +92,7 @@ func TestSessionKeyEndsWithItsSessionToken(t *testing.T) {
 		t.Fatalf("expired session: %d", got)
 	}
 	a.expireKeys(time.Now())
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("record kept after the sweep")
 	}
 }
@@ -124,7 +124,7 @@ func TestSessionKeysStayWithTheirOwnUser(t *testing.T) {
 	idb := makePanel(t, a, kb, `{"name":"B"}`)
 	pa, _ := a.panels.get(ida)
 	pb, _ := a.panels.get(idb)
-	if pa.Owner != "Ana" || pb.Owner != "Bo" {
+	if pa.Owner != idOf(a, "Ana") || pb.Owner != idOf(a, "Bo") {
 		t.Fatalf("owners %q %q", pa.Owner, pb.Owner)
 	}
 	// Signing one browser out leaves the other's key alone.

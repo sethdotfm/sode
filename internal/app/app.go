@@ -182,6 +182,8 @@ type statusMsg struct {
 }
 
 func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug bool) (*App, error) {
+	cfg = cfg.Clone()
+	cfg.Normalize() // every user has an id from here on; the caller saved any it filled
 	panels := loadPanels(cfgPath)
 	dropOrphanPanelClients(&cfg, panels)
 	r, err := newRuntime(cfg)

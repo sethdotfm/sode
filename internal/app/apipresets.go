@@ -30,7 +30,7 @@ func (a *App) apiPresets(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	}
 	add("everyone", cfg.Presets)
 	if cl.Actor.Kind == actorUser {
-		if u, ok := cfg.FindUser(cl.Actor.Name); ok {
+		if u, ok := cfg.FindUserByID(cl.Actor.User); ok {
 			add("me", u.Profile.Presets)
 		}
 	}

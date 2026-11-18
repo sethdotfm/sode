@@ -233,7 +233,7 @@ func (c Config) validateAPI() []error {
 		case seen[key]:
 			bad("two API clients are named %q", cl.Name)
 		}
-		if _, ok := c.FindUser(cl.Name); ok {
+		if _, ok := c.FindUserByName(cl.Name); ok {
 			bad("API client %q has the name of a user; History would not tell them apart", cl.Name)
 		}
 		seen[key] = true

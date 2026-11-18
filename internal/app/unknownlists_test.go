@@ -155,7 +155,7 @@ func TestWholeListSavesKeepUnknownKeys(t *testing.T) {
 				{Name: "CAM", Scopes: []string{"names"}, Rights: rights},
 			}
 			req := usersReq{
-				Users:       []userEdit{{Name: "Bo"}, {Name: "Ana", Rights: &rights}},
+				Users:       []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Ana"), Name: "Ana", Rights: &rights}},
 				APIClients:  &clients,
 				GuestRights: &rights,
 			}

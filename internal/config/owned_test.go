@@ -10,6 +10,9 @@ func TestEveryFieldChooses(t *testing.T) {
 	typ := reflect.TypeOf(Config{})
 	for i := range typ.NumField() {
 		f := typ.Field(i)
+		if !f.IsExported() {
+			continue // never saved or sent
+		}
 		owned, guard := f.Tag.Get("owned") == "true", f.Tag.Get("guard")
 		switch {
 		case owned && guard != "":

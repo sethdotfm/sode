@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strings"
@@ -10,12 +12,11 @@ import (
 
 // Len is the PIN length, so the lock screen can tell a partly typed PIN from a wrong full-length one.
 type User struct {
+	// ID is hidden and never changes, so whatever stores a user survives a rename. Normalize fills a missing one.
+	ID   string `yaml:"id" json:"id"`
 	Name string `yaml:"name" json:"name"`
-	// Username signs in under SignInUsername; separate from Name (what History shows). Never
-	// sent before the PIN: the hello blanks Users and lockState has no field for it.
-	Username string `yaml:"username,omitempty" json:"username,omitempty"`
-	Pin      string `yaml:"pin" json:"-"`
-	Len      int    `yaml:"len" json:"len"`
+	Pin  string `yaml:"pin" json:"-"`
+	Len  int    `yaml:"len" json:"len"`
 	// Trusted: low-risk saves need no Advanced Settings PIN (policy: app/policy.go).
 	Trusted    bool `yaml:"trusted,omitempty" json:"trusted,omitempty"`
 	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
@@ -43,7 +44,7 @@ func (l Locks) Any() bool { return l.Main || l.Log || l.Panel }
 // Sign-in modes. Wire and file values.
 const (
 	SignInPin      = "pin"      // the PIN alone says who; every PIN is unique
-	SignInUsername = "username" // username and PIN together; PINs can repeat
+	SignInUsername = "username" // the user's Name and PIN together; PINs can repeat
 )
 
 const (
@@ -66,7 +67,11 @@ func CheckUserPinRules(pin string, max int) error {
 	return nil
 }
 
-func (c Config) FindUser(name string) (User, bool) {
+// FindUserByName is for a name a person typed; anything stored refers to a user by id.
+func (c Config) FindUserByName(name string) (User, bool) {
+	if name == "" {
+		return User{}, false
+	}
 	for _, u := range c.Users {
 		if strings.EqualFold(u.Name, name) {
 			return u, true
@@ -75,18 +80,34 @@ func (c Config) FindUser(name string) (User, bool) {
 	return User{}, false
 }
 
-// FindUsername is the user whose Username equals username ignoring case; "" matches nobody.
-func (c Config) FindUsername(username string) (User, bool) {
-	if username == "" {
+// FindUserByID: "" matches nobody.
+func (c Config) FindUserByID(id string) (User, bool) {
+	if id == "" {
 		return User{}, false
 	}
 	for _, u := range c.Users {
-		if strings.EqualFold(u.Username, username) {
+		if u.ID == id {
 			return u, true
 		}
 	}
 	return User{}, false
 }
+
+// UserName is the live name of user id, or "" when there is no such user.
+func (c Config) UserName(id string) string {
+	u, _ := c.FindUserByID(id)
+	return u.Name
+}
+
+func NewUserID() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return "u-" + hex.EncodeToString(b)
+}
+
+// UserIDsFilled: Normalize gave a user an id the file lacked. The caller must save before
+// anything refers to it, or the next start makes new ones.
+func (c Config) UserIDsFilled() bool { return c.idsFilled }
 
 // KeepPins is c with PIN hashes it lacks copied from live (a user's hash and length together).
 // Hashes must look like hashes so a file cannot stop the next start; a user with neither is an error.
@@ -103,7 +124,10 @@ func (c Config) KeepPins(live Config) (Config, error) {
 				return c, fmt.Errorf("the PIN of user %q in the file is not a PIN hash", u.Name)
 			}
 		} else {
-			keep, ok := live.FindUser(u.Name)
+			keep, ok := live.FindUserByID(u.ID)
+			if !ok {
+				keep, ok = live.FindUserByName(u.Name)
+			}
 			if !ok || keep.Pin == "" {
 				return c, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep. Export with PINs included, or add the user in Settings first", u.Name)
 			}
@@ -128,7 +152,10 @@ func (c *Config) normalizeUsers() {
 	}
 	for i := range c.Users {
 		c.Users[i].Name = strings.TrimSpace(c.Users[i].Name)
-		c.Users[i].Username = strings.TrimSpace(c.Users[i].Username)
+		if c.Users[i].ID == "" {
+			c.Users[i].ID = NewUserID()
+			c.idsFilled = true
+		}
 	}
 }
 
@@ -142,8 +169,12 @@ func (c Config) validateUsers() []error {
 		bad("sign-in mode must be %q or %q", SignInPin, SignInUsername)
 	}
 	seen := map[string]bool{}
-	seenUsername := map[string]bool{}
+	seenID := map[string]bool{}
 	for _, u := range c.Users {
+		if u.ID == "" || seenID[u.ID] {
+			bad("user %q needs an id of its own", u.Name)
+		}
+		seenID[u.ID] = true
 		key := strings.ToLower(u.Name)
 		switch n := utf8.RuneCountInString(u.Name); {
 		case n == 0:
@@ -157,19 +188,6 @@ func (c Config) validateUsers() []error {
 		if strings.IndexFunc(u.Name, func(r rune) bool { return !unicode.IsPrint(r) }) >= 0 {
 			bad("user name %q must use printable characters only", u.Name)
 		}
-		switch n := utf8.RuneCountInString(u.Username); {
-		case n == 0:
-			if c.SignInMode == SignInUsername {
-				bad("user %q needs a username", u.Name)
-			}
-		case n > MaxUserName:
-			bad("username %q must be at most %d characters", u.Username, MaxUserName)
-		case strings.IndexFunc(u.Username, func(r rune) bool { return !unicode.IsPrint(r) || unicode.IsSpace(r) }) >= 0:
-			bad("username %q must use printable characters and no spaces", u.Username)
-		case seenUsername[strings.ToLower(u.Username)]:
-			bad("two users have the username %q", u.Username)
-		}
-		seenUsername[strings.ToLower(u.Username)] = true
 		if !ValidPinHash(u.Pin) || u.Len < UserPinMin || u.Len > c.MaxPinLen {
 			bad("user %q has no valid PIN", u.Name)
 		}

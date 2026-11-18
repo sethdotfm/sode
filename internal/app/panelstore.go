@@ -87,6 +87,7 @@ type Panel struct {
 	Name string `yaml:"name" json:"name"`
 	// Type is panelTypeButtons or panelTypeGrid, fixed when the panel is made (ADR 0011).
 	Type   string `yaml:"type,omitempty" json:"type"`
+	// Owner is the owning user's id. As sent, owner is that user's live name (panelOut).
 	Owner  string `yaml:"owner" json:"owner"`
 	Acts   string `yaml:"acts" json:"acts"`
 	Client string `yaml:"client,omitempty" json:"client,omitempty"` // the API client of an api panel
@@ -428,9 +429,9 @@ func (s *panelStore) replaceLocked(p Panel) (bool, error) {
 	return true, nil
 }
 
-// followUsers applies a Users save: renames maps a lowercased old name to the new one (owner and
-// sharing), removed holds lowercased names that leave sharing. An owner who is removed stays on
-// their panels so a Trusted user can still reach them. Each panel is written on its own; the
+// followUsers applies a Users save to sharing, which lists names. renames maps a lowercased old
+// name to the new one. removed holds lowercased names that leave it. Owner is an id, so neither
+// touches it; a removed owner stays on their panels so a Trusted user can still reach them. Each panel is written on its own; the
 // count is of panels changed. A failed write skips that panel and returns the first error.
 func (s *panelStore) followUsers(renames map[string]string, removed map[string]bool) (int, error) {
 	s.mu.Lock()
@@ -440,9 +441,6 @@ func (s *panelStore) followUsers(renames map[string]string, removed map[string]b
 	for id, p := range s.by {
 		q := p
 		changed := false
-		if to, ok := renames[strings.ToLower(p.Owner)]; ok && to != p.Owner {
-			q.Owner, changed = to, true
-		}
 		if len(p.Share.Users) > 0 {
 			users := make([]string, 0, len(p.Share.Users))
 			for _, u := range p.Share.Users {

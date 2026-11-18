@@ -58,20 +58,20 @@ func TestRevocationIsDurable(t *testing.T) {
 			t.Fatal("record kept")
 		}
 	})
-	t.Run("rename A to B to A", func(t *testing.T) {
+	t.Run("removed and added again under the same name and PIN", func(t *testing.T) {
 		a, _, tok := persistentApp(t)
 		admin := &client{ip: "10.0.0.9"}
 		if err := a.Unlock(admin, "2468"); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana2", Was: "Ana", Persistent: true}, {Name: "Bo"}}}); err != nil {
+		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana2", Persistent: true}, {Name: "Bo"}}}); err != nil {
+		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 			t.Fatal(err)
 		}
 		if tokenAlive(a, tok) {
-			t.Fatal("token revived by renaming back")
+			t.Fatal("token revived by a new user of the same name")
 		}
 	})
 	t.Run("PIN changed and changed back", func(t *testing.T) {

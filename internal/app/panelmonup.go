@@ -145,6 +145,6 @@ func (a *App) hideInstance(w http.ResponseWriter, r *http.Request, cl *apiCtx, o
 		apiFail(w, http.StatusBadRequest, "bad_request", "instance is a device name: ?instance=<instance name>")
 		return
 	}
-	a.mon.setHidden(cl.Actor.Name, p.ID, inst, on)
+	a.mon.setHidden(cl.Actor.User, p.ID, inst, on)
 	w.WriteHeader(http.StatusNoContent)
 }

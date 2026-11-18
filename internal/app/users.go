@@ -1,7 +1,7 @@
 package app
 
 import (
-	"cmp"
+	"fmt"
 	"encoding/json"
 	"errors"
 	"log"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -59,6 +60,14 @@ type connUser struct {
 	offline string
 }
 
+// userID is the signed-in user's id, or "".
+func (c *client) userID() string {
+	if u := c.u.user.Load(); u != nil {
+		return u.ID
+	}
+	return ""
+}
+
 func (c *client) who() string {
 	if c.api != nil {
 		return c.api.Actor.String()
@@ -76,7 +85,7 @@ func (a *App) userSameMu(c *client, cfg config.Config) bool {
 	if was == nil {
 		return false
 	}
-	u, ok := cfg.FindUser(was.Name)
+	u, ok := cfg.FindUserByID(was.ID)
 	return ok && u.Pin == was.Pin
 }
 
@@ -100,6 +109,21 @@ func (a *App) endDeadHeldMu() {
 		if cl.u.lockedMu() && !a.userSameMu(cl, cfg) {
 			cl.u.user.Store(nil)
 			cl.u.sess = nil
+		}
+	}
+}
+
+// renameSignedInMu gives each signed-in connection its user's live name, so History after a
+// rename shows the new one. Caller holds mu.
+func (a *App) renameSignedInMu() {
+	cfg := a.r().cfg
+	for cl := range a.clients {
+		was := cl.u.user.Load()
+		if was == nil {
+			continue
+		}
+		if u, ok := cfg.FindUserByID(was.ID); ok && u.Pin == was.Pin && u.Name != was.Name {
+			cl.u.user.Store(&u)
 		}
 	}
 }
@@ -149,7 +173,7 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	m.Held = a.heldMu(c, cfg)
 	m.Mode = cfg.SignInMode
 	if a.userOKMu(c, cfg) {
-		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the sign-in copy
+		u, _ := cfg.FindUserByID(c.u.user.Load().ID) // live flags, not the sign-in copy
 		m.User, m.Trusted, m.Persistent, m.NoAutoLock = u.Name, u.Trusted, u.Persistent, u.NoAutoLock
 	}
 	m.Locked = m.Held || m.Enforced && m.User == ""
@@ -218,8 +242,8 @@ func (a *App) Hi(c *client, page, token string) {
 	}
 }
 
-// dummyPinHash gives a wrong username the same PBKDF2 cost as a right one, so timing
-// cannot reveal which usernames exist.
+// dummyPinHash gives a wrong name the same PBKDF2 cost as a right one, so timing
+// cannot reveal which names exist.
 var dummyPinHash = sync.OnceValue(func() string {
 	h, _ := config.HashPin("0000")
 	return h
@@ -228,23 +252,23 @@ var dummyPinHash = sync.OnceValue(func() string {
 func burnPinCheck(pin string) { config.CheckPin(dummyPinHash(), pin) }
 
 // matchPin finds the user a PIN signs in, or nil. Pure: it reads only cfg. Candidates are
-// the holder of a Lock (only their PIN counts), the user a username names, or in PIN only
+// the holder of a Lock (only their PIN counts), the user a name names, or in PIN only
 // mode everyone. Exactly one must match, so a PIN several users hold (left over from
-// Username and PIN mode) signs nobody in. A username that names nobody, or someone other
+// name and PIN mode) signs nobody in. A name that names nobody, or someone other
 // than the holder, burns a check so it costs what a right one does.
-func matchPin(cfg config.Config, holder *config.User, username, pin string) *config.User {
+func matchPin(cfg config.Config, holder *config.User, name, pin string) *config.User {
 	byName := cfg.SignInMode == config.SignInUsername
 	var cands []config.User
 	switch {
 	case holder != nil:
-		if named, ok := cfg.FindUsername(username); byName && username != "" && (!ok || named.Name != holder.Name) {
+		if named, ok := cfg.FindUserByName(name); byName && name != "" && (!ok || named.ID != holder.ID) {
 			break
 		}
-		if u, ok := cfg.FindUser(holder.Name); ok { // the live hash, not the sign-in copy
+		if u, ok := cfg.FindUserByID(holder.ID); ok { // the live hash, not the sign-in copy
 			cands = []config.User{u}
 		}
 	case byName:
-		if u, ok := cfg.FindUsername(username); ok {
+		if u, ok := cfg.FindUserByName(name); ok {
 			cands = []config.User{u}
 		}
 	default:
@@ -257,8 +281,8 @@ func matchPin(cfg config.Config, holder *config.User, username, pin string) *con
 	n := utf8.RuneCountInString(pin)
 	var found []config.User
 	for _, u := range cands {
-		// Username mode hashes whatever the length: PIN lengths are public, so skipping it
-		// would tell a known username from an unknown one.
+		// Name and PIN mode hashes whatever the length: PIN lengths are public, so skipping it
+		// would tell a known name from an unknown one.
 		if !byName && u.Len != n {
 			continue
 		}
@@ -272,11 +296,11 @@ func matchPin(cfg config.Config, holder *config.User, username, pin string) *con
 	return &found[0]
 }
 
-// UserUnlockAs: PIN only mode ignores username and finds the user by PIN. Username and PIN
+// UserUnlockAs: PIN only mode ignores name and finds the user by PIN. Name and PIN
 // mode compares the PIN with the named user's hash only. A held Lock resumes with its own
-// user's PIN whatever the mode, and a username there must be that user's. Every try
+// user's PIN whatever the mode, and a name there must be that user's. Every try
 // counts in the users' pool, like an Advanced Settings PIN.
-func (a *App) UserUnlockAs(c *client, username, pin string) error {
+func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	cfg := a.r().cfg
 	a.mu.Lock()
 	var holder *config.User
@@ -286,7 +310,7 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 	a.mu.Unlock()
 	var hit *config.User
 	err := a.tryPin(&a.userPin, c.ip, func() bool {
-		hit = matchPin(cfg, holder, username, pin)
+		hit = matchPin(cfg, holder, name, pin)
 		return hit != nil
 	})
 	if err != nil {
@@ -294,13 +318,13 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 	}
 	a.mu.Lock()
 	cfg = a.r().cfg // the PIN check can wait minutes: it is possible that the user changed since
-	if u, ok := cfg.FindUser(hit.Name); !ok || u.Pin != hit.Pin {
+	if u, ok := cfg.FindUserByID(hit.ID); !ok || u.Pin != hit.Pin {
 		a.mu.Unlock()
 		return errors.New("that PIN changed; try again")
 	}
 	held := c.u.user.Load()
 	if c.u.lockedMu() && held != nil {
-		if held.Name != hit.Name {
+		if held.ID != hit.ID {
 			// Locked by another tab while the PIN was being checked: only the holder resumes it.
 			a.mu.Unlock()
 			return errors.New("wrong PIN")
@@ -325,14 +349,15 @@ func (a *App) SignOutAll(c *client, name string) error {
 	if err := a.guardSave(c, false); err != nil {
 		return err
 	}
-	if _, ok := a.r().cfg.FindUser(name); !ok {
+	who, ok := a.r().cfg.FindUserByName(name)
+	if !ok {
 		return errors.New("no such user")
 	}
-	a.tokens.dropUser(name)
+	a.tokens.dropUser(who.ID)
 	a.endSessionKeys()
 	a.mu.Lock()
 	for cl := range a.clients {
-		if u := cl.u.user.Load(); u != nil && strings.EqualFold(u.Name, name) {
+		if u := cl.u.user.Load(); u != nil && u.ID == who.ID {
 			a.signOutMu(cl)
 		}
 	}
@@ -368,13 +393,12 @@ func backToPinRefusal(users []userEdit) error {
 	return nil
 }
 
-// userEdit: Was is the old name (rename keeps the PIN), Pin a new PIN ("" keeps).
+// userEdit: ID names a saved user (a rename keeps everything of theirs); "" adds one. Pin is a
+// new PIN ("" keeps).
 type userEdit struct {
-	Name string `json:"name"`
-	Was  string `json:"was"`
-	// Username: nil keeps the user's current one.
-	Username   *string `json:"username"`
-	Pin        string  `json:"pin"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Pin        string `json:"pin"`
 	Trusted    bool    `json:"trusted"`
 	Persistent bool    `json:"persistent"`
 	// Rights and NoAutoLock: nil keeps the user's current value, so a page that does not
@@ -425,32 +449,29 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		if len(req.Users) == 0 && cur.Locks.Any() {
 			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
 		}
-		old := map[string]config.User{}
-		for _, u := range cur.Users {
-			old[strings.ToLower(u.Name)] = u
-		}
 		var out []config.User
-		inherited := map[string]bool{} // rows keep a hash only from their own, one row each
-		fresh := map[string]string{}   // new PINs by user name
-		kept := map[string]bool{}      // profiles carried over, one row each
+		fresh := map[string]string{} // new PINs by user name
+		kept := map[string]bool{}    // one row per saved user
 		for _, e := range req.Users {
-			u := config.User{Name: strings.TrimSpace(e.Name), Trusted: e.Trusted, Persistent: e.Persistent}
-			if u.Name == "" {
-				return errors.New("every user needs a name")
+			u := config.User{ID: config.NewUserID(), Name: strings.TrimSpace(e.Name), Trusted: e.Trusted, Persistent: e.Persistent}
+			if err := userNameRefusal(u.Name); err != nil {
+				return err
 			}
-			// The profile follows Was (rename keeps it); removed users lose theirs; a new
-			// row starts empty.
-			was := cmp.Or(e.Was, e.Name)
-			pk := strings.ToLower(strings.TrimSpace(was))
-			if o, ok := old[pk]; ok && !kept[pk] && (e.Was != "" || e.Pin == "") {
-				kept[pk] = true
+			// A saved user keeps their id, so everything that refers to them follows a rename.
+			// Removed users lose all of it; a new row starts empty.
+			if e.ID != "" {
+				o, ok := cur.FindUserByID(e.ID)
+				if !ok {
+					return errors.New(u.Name + " was removed meanwhile: reload the user list")
+				}
+				if kept[e.ID] {
+					return errors.New("two rows are the same user")
+				}
+				kept[e.ID] = true
+				u.ID, u.Pin, u.Len = o.ID, o.Pin, o.Len
 				u.Profile = o.Profile.Clone()
 				u.Extra = o.Extra
-				u.Username = o.Username
 				u.Rights, u.NoAutoLock = o.Rights.Clone(), o.NoAutoLock
-			}
-			if e.Username != nil {
-				u.Username = strings.TrimSpace(*e.Username)
 			}
 			if e.Rights != nil {
 				u.Rights = e.Rights.WithExtraOf(u.Rights)
@@ -468,17 +489,8 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				}
 				u.Pin, u.Len = h, len(e.Pin)
 				fresh[u.Name] = e.Pin
-			} else {
-				key := pk
-				o, ok := old[key]
-				if !ok {
-					return errors.New("give " + u.Name + " a PIN")
-				}
-				if inherited[key] {
-					return errors.New("two rows keep the same user's PIN; give one of them a new PIN")
-				}
-				inherited[key] = true
-				u.Pin, u.Len = o.Pin, o.Len
+			} else if e.ID == "" {
+				return errors.New("give " + u.Name + " a PIN")
 			}
 			out = append(out, u)
 		}
@@ -514,37 +526,45 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	})
 	if err == nil {
 		a.auditRights(c, before, a.r().cfg)
-		a.panelsFollowUsers(before.Users, req.Users)
+		a.panelsFollowUsers(before.Users, a.r().cfg.Users)
 	}
 	return err
 }
 
-// panelsFollowUsers keeps panel owner and sharing in step with a saved Users list. Rows keep
-// a user by Was (or Name), like profiles above.
-func (a *App) panelsFollowUsers(before []config.User, rows []userEdit) {
+// userNameRefusal is the clear refusal for a Name the config would reject (Validate has the
+// same rules, for files).
+func userNameRefusal(name string) error {
+	switch n := utf8.RuneCountInString(name); {
+	case n == 0:
+		return errors.New("every user needs a name")
+	case n > config.MaxUserName:
+		return fmt.Errorf("the name %q is too long: at most %d characters", name, config.MaxUserName)
+	case strings.IndexFunc(name, func(r rune) bool { return !unicode.IsPrint(r) }) >= 0:
+		return fmt.Errorf("the name %q has a character that cannot be shown", name)
+	}
+	return nil
+}
+
+// panelsFollowUsers keeps panel sharing (by name) in step with a saved Users list, and drops a
+// removed user's watches. Owners are ids, so a rename leaves them.
+func (a *App) panelsFollowUsers(before, after []config.User) {
 	renames := map[string]string{}
-	kept := map[string]bool{}
-	for _, e := range rows {
-		name := strings.TrimSpace(e.Name)
-		pk := strings.ToLower(strings.TrimSpace(cmp.Or(e.Was, e.Name)))
-		kept[pk] = true
-		if e.Was != "" && strings.TrimSpace(e.Was) != name {
-			renames[pk] = name
-		}
-	}
-	removed := map[string]bool{}
+	removedIDs, removedNames := map[string]bool{}, map[string]bool{}
+	now := config.Config{Users: after}
 	for _, u := range before {
-		if k := strings.ToLower(u.Name); !kept[k] {
-			removed[k] = true
+		nu, ok := now.FindUserByID(u.ID)
+		switch {
+		case !ok:
+			removedIDs[u.ID], removedNames[strings.ToLower(u.Name)] = true, true
+		case nu.Name != u.Name:
+			renames[strings.ToLower(u.Name)] = nu.Name
 		}
 	}
-	if len(renames) == 0 && len(removed) == 0 {
+	if len(renames) == 0 && len(removedIDs) == 0 {
 		return
 	}
-	a.templates.followUsers(renames)
-	a.panels.sets.followUsers(renames)
-	a.mon.followUsers(renames, removed)
-	n, err := a.panels.followUsers(renames, removed)
+	a.mon.dropUsers(removedIDs)
+	n, err := a.panels.followUsers(renames, removedNames)
 	if err != nil {
 		log.Printf("panels: user change reached %d panels, then: %v", n, err)
 		return
@@ -573,7 +593,7 @@ func (a *App) serveUserUnlock(c *client, m *inMsg) {
 	} else {
 		a.command(c, "userUnlock", "ok", "", nil)
 		if res.Token = a.issueToken(c, m.Tab); res.Token != "" {
-			if us, _ := a.r().cfg.FindUser(c.who()); !us.Persistent {
+			if us, _ := a.r().cfg.FindUserByID(c.userID()); !us.Persistent {
 				res.Tab = true
 			}
 			a.mu.Lock()
@@ -608,8 +628,8 @@ type usersListMsg struct {
 }
 
 type userView struct {
+	ID         string `json:"id"`
 	Name       string `json:"name"`
-	Username   string `json:"username,omitempty"`
 	Len        int    `json:"len"`
 	Trusted    bool   `json:"trusted,omitempty"`
 	Persistent bool   `json:"persistent,omitempty"`
@@ -632,7 +652,7 @@ func (a *App) usersList(id int) usersListMsg {
 		if pc == nil {
 			pc = []panelClientNote{}
 		}
-		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights, pc})
+		m.Users = append(m.Users, userView{u.ID, u.Name, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights, pc})
 	}
 	return m
 }
@@ -653,7 +673,7 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 	if !ok {
 		return errors.New("unlock with your PIN first")
 	}
-	u, _ := cur.FindUser(who.Name)
+	u, _ := cur.FindUserByID(who.ID)
 	if err := config.CheckUserPinRules(newPin, cur.MaxPinLen); err != nil {
 		return err
 	}
@@ -669,7 +689,7 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 	}
 	err = a.commit(func(cfg *config.Config) error {
 		for i := range cfg.Users {
-			if !strings.EqualFold(cfg.Users[i].Name, who.Name) {
+			if cfg.Users[i].ID != who.ID {
 				continue
 			}
 			if cfg.Users[i].Pin != u.Pin {
@@ -685,7 +705,7 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 		}
 		return errors.New("unlock with your PIN first")
 	}, func(_, nr *runtime) {
-		if nu, ok := nr.cfg.FindUser(who.Name); ok {
+		if nu, ok := nr.cfg.FindUserByID(who.ID); ok {
 			c.u.user.Store(&nu)
 		}
 		a.syncAccessAllMu() // the user's other connections relock

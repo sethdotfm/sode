@@ -30,7 +30,7 @@ func rightsApp(t *testing.T, r config.Rights) (*App, *fakeRouter, *client) {
 
 func rightsSignedIn(t *testing.T, a *App, name string) *client {
 	t.Helper()
-	u, _ := a.r().cfg.FindUser(name)
+	u, _ := a.r().cfg.FindUserByName(name)
 	c := &client{ip: "10.0.0.1", send: make(chan []byte, 32)}
 	register(a, c)
 	a.mu.Lock()

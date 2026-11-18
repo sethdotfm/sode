@@ -173,16 +173,16 @@ func TestClearAlarmHidesTheOutageUntilTheNextNotice(t *testing.T) {
 	if len(r["offline"].([]any)) != 0 {
 		t.Fatalf("badge after clear %v", r)
 	}
-	if rows := a.offlineFor("Cy"); len(rows) != 1 {
+	if rows := a.offlineFor(idOf(a, "Cy")); len(rows) != 1 {
 		t.Fatalf("clearing for Ana hid it from Cy: %v", rows)
 	}
-	if !a.mon.watching("Ana", id) {
+	if !a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("clearing stopped the watch")
 	}
 	keepalive(a, id, ana, "Lobby") // back, then lost again
 	clk.advance(50 * time.Second)
 	a.monSweep()
-	if rows := a.offlineFor("Ana"); len(rows) != 1 {
+	if rows := a.offlineFor(idOf(a, "Ana")); len(rows) != 1 {
 		t.Fatalf("a new outage stayed cleared: %v", rows)
 	}
 }
@@ -200,12 +200,12 @@ func TestStopMonitoringEndsTheWatch(t *testing.T) {
 	}
 	watchPanel(t, a, id, ana)
 	a.serveAlarm(c, &inMsg{T: "panelAlarm", Panel: id, Action: "bogus"})
-	if !a.mon.watching("Ana", id) {
+	if !a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("an unknown action stopped the watch")
 	}
 	rl := policy["panelAlarm"].forMsg(&inMsg{T: "panelAlarm"})
 	rl.handle(a, c, &inMsg{T: "panelAlarm", Panel: id, Action: "stop"}, &connCtx{})
-	if a.mon.watching("Ana", id) {
+	if a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("still watching after stop")
 	}
 }

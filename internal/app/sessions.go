@@ -85,7 +85,7 @@ func (a *App) issueTokenFor(c *client, wantTab, forKey bool) string {
 	if who == nil {
 		return ""
 	}
-	u, ok := cfg.FindUser(who.Name)
+	u, ok := cfg.FindUserByID(who.ID)
 	if !ok || u.Pin != who.Pin {
 		return ""
 	}
@@ -172,7 +172,7 @@ func (a *App) catchUpSessions() {
 	var todo []*client
 	for cl := range a.clients {
 		if who := cl.u.user.Load(); who != nil && a.userOKMu(cl, cfg) && !a.sessionGoodMu(cl) {
-			if u, ok := cfg.FindUser(who.Name); ok && u.Persistent {
+			if u, ok := cfg.FindUserByID(who.ID); ok && u.Persistent {
 				todo = append(todo, cl)
 			}
 		}
@@ -210,7 +210,7 @@ func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
 	tok = s.token
 	cfg := a.r().cfg
 	if who := c.u.user.Load(); !on && tok != "" && who != nil {
-		u, _ := cfg.FindUser(who.Name)
+		u, _ := cfg.FindUserByID(who.ID)
 		drop = heldOnly(u, c.u.page, cfg.Locks)
 	}
 	s.locked = on

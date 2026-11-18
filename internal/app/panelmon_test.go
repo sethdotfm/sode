@@ -278,11 +278,11 @@ func TestWatchesSurviveARestartAndFollowTheirPanel(t *testing.T) {
 	if err != nil || !strings.Contains(string(raw), id) {
 		t.Fatalf("file: %v %s", err, raw)
 	}
-	if !loadPanelMon(a.cfgPath).watching("Ana", id) {
+	if !loadPanelMon(a.cfgPath).watching(idOf(a, "Ana"), id) {
 		t.Fatal("not reloaded")
 	}
 	apiSend(a, "DELETE", "/api/v1/panels/"+id, ana, "")
-	if loadPanelMon(a.cfgPath).watching("Ana", id) {
+	if loadPanelMon(a.cfgPath).watching(idOf(a, "Ana"), id) {
 		t.Fatal("watch outlived its panel")
 	}
 }

@@ -69,14 +69,14 @@ func TestMaxPinLen(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	long := []userEdit{{Name: "Ana"}, {Name: "Bo", Pin: "123456789"}}
+	long := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Bo", Pin: "123456789"}}
 	if err := a.SaveUsers(admin, usersReq{Users: long}); err == nil {
 		t.Fatal("a 9-digit PIN under maxPinLen 8")
 	}
 	if err := a.SaveUsers(admin, usersReq{Users: long, MaxPin: 9}); err != nil {
 		t.Fatalf("raised: %v", err)
 	}
-	keep := []userEdit{{Name: "Ana"}, {Name: "Bo"}}
+	keep := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}
 	if err := a.SaveUsers(admin, usersReq{Users: keep, MaxPin: 6}); err == nil {
 		t.Fatal("lowered below an existing PIN")
 	}
