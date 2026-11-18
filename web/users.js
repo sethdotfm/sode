@@ -135,7 +135,7 @@ let listedGuestRole = 'standard'; // the saved Guest role, what the server keeps
 let listed = []; // the directory the server sent; empty until it does.
 let listedMe = ''; // the id of the user asking, the default new owner
 const ownerPick = new Map(); // removed user id to the chosen new owner id
-let extras = { apiClients: [], guestRights: {}, guestScopes: [] }; // clients and Guest, sent with it.
+let extras = { apiClients: [], guestRights: {} }; // clients and Guest, sent with it.
 let loaded = false;
 const signing = new Map();
 
@@ -318,7 +318,7 @@ function fill() {
   ownerPick.clear();
   paintOwners();
   for (const c of extras.apiClients) clientsTab.addRow(c);
-  rightsPanel.adoptGuest(extras.guestRights, extras.guestScopes);
+  rightsPanel.adoptGuest(extras.guestRights);
   rightsPanel.refresh();
   edited = false;
   discard = false;
@@ -357,9 +357,10 @@ onMsg('usersListResult', (m) => {
   }
   listed = m.users || [];
   listedMe = m.me || '';
-  extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {}, guestScopes: m.guestScopes || [] };
+  extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {} };
   listedGuestRole = m.guestRole === 'trusted' ? 'trusted' : 'standard';
   loaded = true;
+  emit('usersListed', m);
   paintSummary();
   if (isOpen && !edited) fill();
 });
@@ -368,7 +369,7 @@ on('unlockResult', (m) => {
 });
 on('locked', () => {
   listed = [];
-  extras = { apiClients: [], guestRights: {}, guestScopes: [] };
+  extras = { apiClients: [], guestRights: {} };
   listedGuestRole = 'standard';
   loaded = false;
   paintSummary();

@@ -145,20 +145,30 @@ func TestOwnKeyUsesChangePinThrottle(t *testing.T) {
 
 func TestOwnKeyCap(t *testing.T) {
 	a := keyTestApp(t)
-	a.cfgMu.Lock()
-	err := a.commit(func(c *config.Config) error { c.API.MaxUserKeys = 2; return nil }, nil)
-	a.cfgMu.Unlock()
-	if err != nil {
-		t.Fatal(err)
-	}
 	c, _ := signedIn(t, a, "10.0.0.1", "1234")
-	for i := 0; i < 2; i++ {
+	for range 50 {
 		if _, _, err := a.CreateOwnKey(c, "1234", "k", 0); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, _, err := a.CreateOwnKey(c, "1234", "k", 0); err == nil {
-		t.Fatal("third key over a cap of 2")
+	_, _, err := a.CreateOwnKey(c, "1234", "k", 0)
+	if err == nil || !strings.Contains(err.Error(), "50 keys") || !strings.Contains(err.Error(), "Revoke a key") {
+		t.Fatalf("51st key: %v", err)
+	}
+}
+
+func TestAPIClientKeyCap(t *testing.T) {
+	a := keyTestApp(t)
+	admin := adminClient(t, a)
+	bot := keyOwner{Kind: actorClient, Name: "PanelsBot"}
+	for range 200 {
+		if _, _, err := a.CreateKeyFor(admin, bot, "k", 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, _, err := a.CreateKeyFor(admin, bot, "k", 0)
+	if err == nil || !strings.Contains(err.Error(), "200 keys") || !strings.Contains(err.Error(), "Revoke a key") {
+		t.Fatalf("201st key: %v", err)
 	}
 }
 
@@ -366,7 +376,6 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	err := saveUsers(a, admin, usersReq{
 		Users:       []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Sources: &srcs, Visibility: config.VisHidden}, NoAutoLock: &tr}, {ID: idOf(a, "Bo"), Name: "Bo"}},
 		GuestRights: &config.Rights{Dsts: nums()},
-		GuestScopes: &[]string{config.ScopeNames},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -376,7 +385,7 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(2) || ana.Rights.AllowsSource(3) {
 		t.Fatalf("Ana %+v", ana)
 	}
-	if cfg.GuestRights.Dsts == nil || cfg.GuestRights.AllowsDst(0) || len(cfg.GuestAPIScopes) != 1 {
+	if cfg.GuestRights.Dsts == nil || cfg.GuestRights.AllowsDst(0) {
 		t.Fatalf("guest %+v %v", cfg.GuestRights, cfg.GuestAPIScopes)
 	}
 

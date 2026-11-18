@@ -3,7 +3,6 @@
 // rightsrules.accessReq. A factory that gets hooks, so nothing imports users.js back.
 
 import { el, S } from './core.js';
-import { SCOPES } from './apirules.js';
 import { entryKeys, newEntry, pickValid } from './rightsrules.js';
 import { check, field, opt } from './formbits.js';
 
@@ -34,8 +33,7 @@ export function makeRightsTab({ users, clients, touched }) {
   const node = el('div', null, el('div', 'sode__rights-pick', selectField('rights-pick', 'Rights for', pickSel)), body);
 
   const entryOf = (key) => {
-    if (!entries.has(key))
-      entries.set(key, newEntry(undefined, off(), key === 'guest' ? { scopes: [] } : key.startsWith('user:') ? { noAutoLock: false } : {}));
+    if (!entries.has(key)) entries.set(key, newEntry(undefined, off(), key.startsWith('user:') ? { noAutoLock: false } : {}));
     return entries.get(key);
   };
   const keys = () => entryKeys(users(), clients());
@@ -109,7 +107,6 @@ export function makeRightsTab({ users, clients, touched }) {
       ),
     );
     if (kind === 'user') parts.push(flagBox(e, dirty));
-    if (kind === 'guest') parts.push(scopeBoxes(e, dirty));
     body.replaceChildren(el('h3', 'sode__profiles-h', titleOf(pick)), ...parts);
   }
 
@@ -126,28 +123,6 @@ export function makeRightsTab({ users, clients, touched }) {
       }).label,
       el('span', 'sode__hint', 'Auto-lock skips this user. The Lock button still works for them.'),
     );
-  const scopeBoxes = (e, dirty) =>
-    el(
-      'div',
-      'sode__field',
-      el('span', 'sode__field-label', 'Guest API scopes'),
-      el(
-        'div',
-        'sode__scopes',
-        ...SCOPES.map(
-          (s) =>
-            check(s.text, {
-              checked: e.draft.scopes.includes(s.id),
-              onChange: (v) => {
-                e.draft.scopes = SCOPES.map((x) => x.id).filter((id) => (id === s.id ? v : e.draft.scopes.includes(id)));
-                dirty('scopes');
-              },
-            }).label,
-        ),
-      ),
-      el('span', 'sode__hint', 'What an API call with no key can use, when Guest API is on in Settings.'),
-    );
-
   // Names and rows change under the tab: rebuild the list, keep the pick if its row is still there.
   function refresh() {
     const ks = keys();
@@ -175,8 +150,8 @@ export function makeRightsTab({ users, clients, touched }) {
     adoptClient(rid, c) {
       entries.set(`client:${rid}`, newEntry(c.rights || {}, off(), {}, presets()));
     },
-    adoptGuest(rights, scopes) {
-      entries.set('guest', newEntry(rights || {}, off(), { scopes: scopes || [] }, presets()));
+    adoptGuest(rights) {
+      entries.set('guest', newEntry(rights || {}, off(), {}, presets()));
     },
     read: () => entries,
   };

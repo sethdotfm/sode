@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -375,11 +374,10 @@ type usersReq struct {
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
 	// GuestRole: "" keeps the current one.
 	GuestRole string `json:"guestRole"`
-	// API clients, Guest rights and Guest scopes: nil keeps the current ones. They ride this
-	// save so they need an Administrator.
+	// API clients and Guest rights: nil keeps the current ones. They ride this save so they
+	// need an Administrator. Keyless scopes save with the API settings (apisettings.go).
 	APIClients  *[]config.APIClient `json:"apiClients"`
 	GuestRights *config.Rights      `json:"guestRights"`
-	GuestScopes *[]string           `json:"guestScopes"`
 	// PanelOwners maps a removed user's id to the id of a kept user who takes their panels.
 	// A removed user who owns panels needs one.
 	PanelOwners map[string]string `json:"panelOwners"`
@@ -469,9 +467,6 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		}
 		if req.GuestRights != nil {
 			cur.GuestRights = req.GuestRights.WithExtraOf(cur.GuestRights)
-		}
-		if req.GuestScopes != nil {
-			cur.GuestAPIScopes = slices.Clone(*req.GuestScopes)
 		}
 		return nil
 	}))

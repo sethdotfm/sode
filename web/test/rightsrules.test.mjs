@@ -99,7 +99,7 @@ test('accessReq sends untouched rights as they were loaded, and nothing for a ro
   const entries = new Map([
     ['user:1', ent({ dsts: [] }, { noAutoLock: true }, ['noAutoLock'])],
     ['client:5', ent({ sources: [2] })],
-    ['guest', ent({ levels: [1] }, { scopes: ['names'] }, ['scopes'])],
+    ['guest', ent({ levels: [1] })],
   ]);
   const r = accessReq({
     entries,
@@ -120,17 +120,13 @@ test('accessReq sends untouched rights as they were loaded, and nothing for a ro
     { name: 'Fresh', scopes: [], rights: {} },
   ]);
   assert.deepEqual(r.guestRights, { levels: [1] });
-  assert.deepEqual(r.guestScopes, ['names']);
+  assert.equal('guestScopes' in r, false, 'keyless scopes save with the API settings');
 });
 
-test('accessReq sends No auto-lock and Guest scopes only once edited', () => {
-  const entries = new Map([
-    ['user:1', ent({}, { noAutoLock: true })],
-    ['guest', ent({}, { scopes: ['names'] })],
-  ]);
+test('accessReq sends No auto-lock only once edited', () => {
+  const entries = new Map([['user:1', ent({}, { noAutoLock: true })]]);
   const r = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 });
   assert.deepEqual(r.users, [{ rights: {} }]);
-  assert.equal('guestScopes' in r, false);
 });
 
 test('accessReq reads an edited draft, and names the user whose rights are wrong', () => {
@@ -140,20 +136,18 @@ test('accessReq reads an edited draft, and names the user whose rights are wrong
   const ok = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 });
   assert.deepEqual(ok.users, [{ rights: { dsts: [{ n: 2 }, { n: 4 }, { n: 5 }] } }]);
   assert.equal('guestRights' in ok, false, 'no guest entry: the server keeps the saved one');
-  assert.equal('guestScopes' in ok, false);
   edited.draft.dsts.text = 'x';
   assert.match(accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 }).error, /^Ana: Destinations/);
 });
 
 test("mergeAccess puts each row's rights on its user and leaves clients and Guest out until they loaded", () => {
   const req = { users: [{ name: 'Ana' }, { name: 'Bo' }], maxPinLen: 8 };
-  const acc = { users: [{ rights: { dsts: [] } }, {}], apiClients: [{ name: 'P', scopes: [], rights: {} }], guestRights: {}, guestScopes: ['names'] };
+  const acc = { users: [{ rights: { dsts: [] } }, {}], apiClients: [{ name: 'P', scopes: [], rights: {} }], guestRights: {} };
   assert.deepEqual(mergeAccess(req, acc, true), {
     users: [{ name: 'Ana', rights: { dsts: [] } }, { name: 'Bo' }],
     maxPinLen: 8,
     apiClients: acc.apiClients,
     guestRights: {},
-    guestScopes: ['names'],
   });
   const early = mergeAccess(req, acc, false);
   assert.equal('apiClients' in early, false);

@@ -85,9 +85,10 @@ test('the Users section holds Manage users and the profile list, saved apart fro
 test('the API section holds its fields and its own Save, saved apart from the form', () => {
   const g = group('API');
   assert.match(g.attrs, /data-apart/);
-  for (const id of ['api-enabled', 'api-guest', 'api-log-reads', 'api-rate', 'api-cap', 'api-save', 'api-note', 'api-err']) {
+  for (const id of ['api-guest', 'api-scopes', 'api-log-reads', 'api-rate', 'api-cap', 'api-save', 'api-note', 'api-err']) {
     assert.match(g.body, new RegExp(`id="${id}"`));
   }
+  assert.doesNotMatch(g.body, /id="api-enabled"/, 'the API is always on');
 });
 
 test('one Export & Import section opens the Export & Import dialog', () => {
