@@ -14,6 +14,8 @@ import { initNameEdit } from './editorname.js';
 import { initGrip } from './editorgrip.js';
 import { bigScrollAll } from './bigscroll.js';
 import { linkInstall, OTHER_INSTALL } from './itemlink.js';
+import { layout, onLayout } from './layout.js';
+import { desktopOnly } from './desktoponly.js';
 
 const id = panelIdFrom(location.pathname);
 
@@ -38,7 +40,16 @@ function runLinked() {
   });
 }
 
+// v2.0 has no phone editor (spec #543, Phone): the page says to use a computer, and Use desktop layout starts it.
+function editorOnPhone() {
+  const head = document.querySelector('.sode-ed > .sode-panels__head');
+  for (const n of document.querySelectorAll('.sode-ed > *')) if (n !== head) n.hidden = true;
+  head.after(desktopOnly('edit panels'));
+  onLayout(() => location.reload());
+}
+
 if (id) runLinked();
+else if (document.getElementById('ed-grid') && layout() === 'phone') editorOnPhone();
 else if (document.getElementById('ed-grid'))
   runEditor().then((editor) => {
     initArtTool(editor, initFind(editor));

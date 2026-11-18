@@ -158,7 +158,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	id, name := apiBody(t, rec)["id"].(string), apiBody(t, rec)["client"].(string)
 
-	list := a.usersList(1).APIClients
+	list := a.usersList(&client{}, 1).APIClients
 	var shown *config.APIClient
 	for i := range list {
 		if list[i].Name == name {
@@ -358,7 +358,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 	apiSend(a, "POST", "/api/v1/panels", userKey(t, a, "Ana"), `{"name":"Not a client"}`)
 
 	var cy userView
-	for _, u := range a.usersList(1).Users {
+	for _, u := range a.usersList(&client{}, 1).Users {
 		if u.Name == "Cy" {
 			cy = u
 		}
@@ -373,7 +373,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 	if err := saveUsers(a, admin, usersReq{Users: users}); err != nil {
 		t.Fatal(err)
 	}
-	for _, u := range a.usersList(2).Users {
+	for _, u := range a.usersList(&client{}, 2).Users {
 		if u.Name == "Cy" && (len(u.PanelClients) != 1 || !u.PanelClients[0].Wider) {
 			t.Fatalf("after narrowing: %+v", u.PanelClients)
 		}

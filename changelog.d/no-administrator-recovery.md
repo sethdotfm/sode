@@ -1,0 +1,3 @@
+- `-reset-pin` is gone. The new `-make-administrator "NAME"` command makes a named user an Administrator with a new PIN, which it asks for on the terminal. A name that no user has adds a new Administrator, if Sode has fewer than 12 users.
+- A config with users but no Administrator (a hand-edited file) starts. Sode refuses every Administrator action, and the main page shows a banner that names the command.
+- Removing a user who owns panels needs a new owner for the panels in the same save. Manage users asks for one, and the default is you.

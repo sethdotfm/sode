@@ -391,7 +391,7 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	}
 
 	// The list carries them, to the PIN holder only.
-	b, _ := json.Marshal(a.usersList(1))
+	b, _ := json.Marshal(a.usersList(&client{}, 1))
 	for _, want := range []string{`"noAutoLock":true`, `"visibility":"hidden"`, `"apiClients"`, `"PanelsBot"`, `"guestRights"`} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("usersListResult lacks %s: %s", want, b)

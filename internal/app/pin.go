@@ -53,7 +53,7 @@ func pinWait(n int) time.Duration {
 	return min(w, pinMaxWait)
 }
 
-// settingsPool: PinMaxTries wrong in a row lock it until -reset-pin or restart.
+// settingsPool: PinMaxTries wrong in a row lock it until restart.
 func settingsPool() pinPool {
 	return pinPool{what: "settings", wait: pinWait, resetOnOK: true, maxTries: func(c config.Config) int { return c.PinMaxTries }}
 }
@@ -64,7 +64,7 @@ func userPool() pinPool {
 	return pinPool{what: "users", wait: func(n int) time.Duration { return min(pinWait(n), userPinMaxWait) }, forget: pinMaxWait}
 }
 
-const resetHint = "On the Docker host run: docker compose exec sode /sode -reset-pin, then restart Sode"
+const resetHint = "Restart Sode to unlock them"
 
 // tryPin refuses while locked out, waiting or busy, else runs check with mu free (hashing
 // is slow). Takes and releases mu itself; callers needing a stable world re-check under
@@ -107,7 +107,7 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	p.last = time.Now()
 	log.Printf("%s: wrong PIN from %s (%d in a row)", p.what, from, p.n)
 	if max > 0 && p.n >= max {
-		log.Printf("%s: locked after %d wrong PINs; run sode -reset-pin or restart to unlock", p.what, p.n)
+		log.Printf("%s: locked after %d wrong PINs; restart to unlock", p.what, p.n)
 		return fmt.Errorf("wrong PIN; settings are now locked after %d wrong PINs. %s", p.n, resetHint)
 	}
 	if w := p.wait(p.n); w > 0 {
