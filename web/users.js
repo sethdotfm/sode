@@ -325,6 +325,7 @@ onMsg('usersListResult', (m) => {
   if (!m.ok) {
     // a stale unlock: ask, then read the directory again
     if (m.locked && isOpen) reask('Managing users needs the Advanced Settings PIN.').then((ok) => (ok ? load() : closeUsers()));
+    else if (isOpen) fail(m.err); // a Role refusal: no PIN opens it
     return;
   }
   listed = m.users || [];
