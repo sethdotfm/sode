@@ -31,6 +31,7 @@ export const S = {
   levelDefaults: [],
   levelBy: new Map(),
   namesAt: null,
+  namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
   wsState: 'connecting',
   wsLost: false,
   router: null,
@@ -186,6 +187,7 @@ function handle(m) {
       S.levelDefaults = m.levelDefaults || [];
       setNames(m.srcs, m.dsts);
       S.namesAt = m.at;
+      S.namesSavedAt = m.savedAt || null;
       S.tally = new Map();
       applyTally(m.tally || []);
       S.prot = new Map();
