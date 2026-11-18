@@ -2716,19 +2716,29 @@ components:
         level: { type: integer, description: UI level }
     Preset:
       type: object
-      required: [scope, name, items]
+      required: [scope, id, name, items]
       properties:
         scope: { type: string, enum: [everyone, me] }
+        id: { type: string, description: "Hidden id; it stays when the preset is renamed" }
         name: { type: string }
         pinned: { type: boolean }
         items:
           type: array
+          description: Each item is one route on one router
           items:
             type: object
             properties:
-              src: { type: integer }
-              dsts: { type: array, items: { type: integer } }
+              src: { $ref: "#/components/schemas/RouterRef" }
+              dsts: { type: array, items: { $ref: "#/components/schemas/RouterRef" } }
               levels: { type: array, items: { type: integer }, description: Empty means the default levels }
+    RouterRef:
+      type: object
+      description: One source or destination on one router
+      required: [router, n]
+      properties:
+        router: { type: string, description: The router UID }
+        n: { type: integer, description: "Sode's number, 0-based" }
+        name: { type: string, description: The router's name for it when the item was saved }
     Actor:
       type: object
       required: [kind, name]

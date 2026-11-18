@@ -5,6 +5,7 @@
 
 import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
+import { itemPlain } from './presetref.js';
 
 export const KINDS = [
   'source',
@@ -84,7 +85,7 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
     tally: rows,
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),
     rights: rights || null,
-    presets: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), p.items || []])),
+    presets: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), (p.items || []).map(itemPlain)])),
   };
 }
 

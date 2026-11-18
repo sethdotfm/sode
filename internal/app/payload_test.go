@@ -59,7 +59,7 @@ func maxOwned(t *testing.T) config.Config {
 		for l := 1; l <= 64; l++ {
 			lv = append(lv, l)
 		}
-		c.Presets[si].Items = append(c.Presets[si].Items, config.PresetItem{Src: 60000 + n%5000, Dsts: []int{n}, Levels: lv})
+		c.Presets[si].Items = append(c.Presets[si].Items, presetItem(60000+n%5000, lv, n))
 		return true
 	})
 	if len(cfg.FilterSets) == 0 || len(cfg.Presets) == 0 {
@@ -115,7 +115,7 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: "keep"}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SavePresets(c, []config.Preset{{Name: "keep", Items: []config.PresetItem{{Src: 1, Dsts: []int{2}}}}}); err != nil {
+	if err := a.SavePresets(c, []config.Preset{{Name: "keep", Items: []config.PresetItem{presetItem(1, nil, 2)}}}); err != nil {
 		t.Fatal(err)
 	}
 	live := a.r().cfg

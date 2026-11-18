@@ -62,6 +62,8 @@ type helloMsg struct {
 	ConfigPath    string              `json:"configPath"`
 	Version       string              `json:"version"`
 	BrandColors   []config.BrandColor `json:"brandColors"`
+	// RouterUID: browsers write it into This browser presets and filter sets. Never shown.
+	RouterUID string `json:"routerUid"`
 	// Prefix is the router prefix, so typing accepts A.23. Not in cfg, which hides it.
 	Prefix string `json:"prefix"`
 }

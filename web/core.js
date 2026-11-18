@@ -23,6 +23,7 @@ export const S = {
   configPath: '',
   version: '',
   brandColors: [],
+  routerUid: '',
   prefix: '', // the router prefix, from the hello
   srcs: [],
   dsts: [],
@@ -195,6 +196,7 @@ function handle(m) {
       S.configPath = m.configPath;
       S.version = m.version || '';
       S.brandColors = m.brandColors || [];
+      S.routerUid = m.routerUid || '';
       S.prefix = m.prefix || '';
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));

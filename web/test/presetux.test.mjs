@@ -51,7 +51,8 @@ const setup = async () => {
   mem.clear();
   return m;
 };
-const sv = (name, pinned) => ({ name, items: [{ src: 0, dsts: [1], levels: [] }], ...(pinned === undefined ? {} : { pinned }) });
+// The server gives every preset an id; these use the lowercase name.
+const sv = (name, pinned) => ({ id: name.toLowerCase(), name, items: [{ src: 0, dsts: [1], levels: [] }], ...(pinned === undefined ? {} : { pinned }) });
 const names = (l) => l.map((s) => s.name).join(',');
 
 test('pinning: global flag, local override, unknown names, default', async () => {
@@ -75,9 +76,9 @@ test('pinning: global flag, local override, unknown names, default', async () =>
   mem.set('sode-preset-pins', 'not json');
   assert.equal(names(m.pinnedPresets()), 'Morning,Late');
   // Pin for everyone changes the flag in the list sent; this browser then follows it.
-  assert.equal(m.withGlobalPin('Evening', true).find((s) => s.name === 'Evening').pinned, true);
+  assert.equal(m.withGlobalPin('evening', true).find((s) => s.name === 'Evening').pinned, true);
   mem.set('sode-preset-pins', JSON.stringify({ evening: false }));
-  m.clearPinOverride('Evening');
+  m.clearPinOverride('evening');
   assert.equal(mem.has('sode-preset-pins'), false);
 });
 

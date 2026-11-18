@@ -32,7 +32,8 @@ func TestAddressChangeKeepsRouterUID(t *testing.T) {
 	}
 }
 
-// The Settings message never names the UID or the prefix: with one router the prefix is hidden.
+// The Settings message has no UID or prefix key: with one router the prefix is hidden. The UID
+// reaches browsers only as the hello's routerUid and inside stored references (presets).
 func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 	a := newTestApp(t)
 	b, err := json.Marshal(a.r().cfg)
@@ -50,11 +51,12 @@ func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 		t.Errorf("flat router keys missing: %v", m)
 	}
 	if strings.Contains(string(b), a.r().cfg.UID) {
-		t.Errorf("config JSON holds the UID")
+		t.Errorf("config JSON with no references holds the UID")
 	}
 }
 
-// The hello carries the prefix for typing (A.23) and never the UID, which no page needs.
+// The hello carries the prefix for typing (A.23). The UID goes only as routerUid, for the
+// references This browser presets store; no page shows it.
 func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
@@ -65,8 +67,11 @@ func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	if m["prefix"] != "A" {
 		t.Errorf("hello prefix %v", m["prefix"])
 	}
-	if strings.Contains(string(b), a.r().cfg.UID) {
-		t.Error("hello holds the router UID")
+	if m["routerUid"] != a.r().cfg.UID {
+		t.Errorf("hello routerUid %v", m["routerUid"])
+	}
+	if strings.Count(string(b), a.r().cfg.UID) != 1 {
+		t.Error("hello holds the router UID outside routerUid")
 	}
 }
 
