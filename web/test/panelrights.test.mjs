@@ -42,11 +42,13 @@ test('a take sends only the levels the Rights allow, and none left is no common 
 test('a Preset outside the Rights, or holding a route outside them, is refused whole', () => {
   const presets = new Map([['me:A', [{ src: 4, dsts: [0, 1], levels: [] }]]]);
   const cell = { kind: 'preset', scope: 'me', name: 'A' };
-  const run = (r) => pressPreset(createState(), cell, env({ presets, rights: r }), T0);
-  assert.equal(errorOf(run({ presets: ['B'] }), T0).code, 'outside-rights');
+  // Rights name presets by id; the page gets ids from the presets reply.
+  const presetIds = new Map([['me:A', 'id-a']]);
+  const run = (r) => pressPreset(createState(), cell, env({ presets, presetIds, rights: r }), T0);
+  assert.equal(errorOf(run({ presets: ['id-b'] }), T0).code, 'outside-rights');
   assert.equal(errorOf(run({ dsts: [0] }), T0).dst, 1);
   assert.equal(run({ dsts: [0] }).staged.length, 0);
-  assert.equal(run({ presets: ['A'] }).staged.length, 2);
+  assert.equal(run({ presets: ['id-a'] }).staged.length, 2);
 });
 
 test('a Result shows as an icon, with its word only when the panel asks for text', () => {

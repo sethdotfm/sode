@@ -72,7 +72,8 @@ export function sessionNote(step, err = '') {
 
 // rights is the caller's own Rights from GET /panels/<id>: an unset list allows everything, an empty one nothing.
 // Keep in step with config.Rights and outsideRights (internal/app/rights.go).
-export const rightsAllow = (rights, list, v) => !Array.isArray(rights?.[list]) || rights[list].includes(v);
+// List entries are router references {router, n, name} or bare numbers (refN in rightsrules.js); presets are ids.
+export const rightsAllow = (rights, list, v) => !Array.isArray(rights?.[list]) || rights[list].some((x) => (x && typeof x === 'object' ? x.n : x) === v);
 
 export function envFrom(tally, protectedReply, presetsReply = {}, rights = null) {
   const rows = new Map();
@@ -86,6 +87,8 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),
     rights: rights || null,
     presets: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), (p.items || []).map(itemPlain)])),
+    // Rights name presets by id.
+    presetIds: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), p.id])),
   };
 }
 
@@ -145,11 +148,13 @@ export function cellsIn(panel, i = 0) {
 
 // The panel's fixed destinations (settings.fixedDests), [] when the setting is off. A list the server would refuse
 // (fixedList in internal/app/panelfixed.go) also reads as off, so a hand-edited file cannot break the page.
-export const FIXED_MAX = 16; // keep in step with panelFixedMax in internal/app/panelfixed.go
-const DST_MAX = 0xffff; // keep in step with dstNumberMax in internal/app/panelfixed.go
+export const FIXED_MAX = 16; // keep in step with panelFixedMax in internal/app/panelfixed.go.
+const DST_MAX = 0xffff; // keep in step with dstNumberMax in internal/app/panelfixed.go.
+// The server stores router references {router, n, name}. An editor's unsaved list can hold bare numbers.
 export function fixedDestsOf(panel) {
-  const list = panel?.settings?.fixedDests;
-  const ok = Array.isArray(list) && list.length <= FIXED_MAX && list.every((n, i) => Number.isInteger(n) && n >= 0 && n <= DST_MAX && list.indexOf(n) === i);
+  const raw = panel?.settings?.fixedDests;
+  const list = Array.isArray(raw) ? raw.map((x) => (x && typeof x === 'object' ? x.n : x)) : null;
+  const ok = list && list.length <= FIXED_MAX && list.every((n, i) => Number.isInteger(n) && n >= 0 && n <= DST_MAX && list.indexOf(n) === i);
   return ok ? list : [];
 }
 

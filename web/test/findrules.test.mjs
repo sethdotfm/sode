@@ -18,8 +18,8 @@ const names = {
 };
 const presets = {
   presets: [
-    { scope: 'everyone', name: 'Show open' },
-    { scope: 'me', name: 'Night' },
+    { id: 'p-show', scope: 'everyone', name: 'Show open' },
+    { id: 'p-night', scope: 'me', name: 'Night' },
   ],
 };
 
@@ -41,7 +41,7 @@ test('every Source, Destination, Preset, Take, Clear, Undo, Current, Panel Name,
 });
 
 test('Read-only rights grey what is outside them and Hidden removes it', () => {
-  const rights = { sources: [0], dsts: [1], presets: ['Night'] };
+  const rights = { sources: [0], dsts: [1], presets: ['p-night'] };
   const grey = findEntries(names, presets, rights);
   assert.equal(grey.length, 18);
   assert.deepEqual(

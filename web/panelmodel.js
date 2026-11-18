@@ -141,7 +141,8 @@ export const pressPreset = (st, cell, env, now) => overUndo(st, (s) => pressPres
 function pressPresetOne(st, cell, env, now) {
   const all = env.presets?.get(presetKey(cell.scope, cell.name));
   if (!all?.length) return fail(st, { code: 'no-preset', name: cell.name }, now);
-  if (!rightsAllow(env.rights, 'presets', cell.name)) return fail(st, { code: 'outside-rights', what: 'preset', name: cell.name, quiet: quiet(env) }, now);
+  if (!rightsAllow(env.rights, 'presets', env.presetIds?.get(presetKey(cell.scope, cell.name))))
+    return fail(st, { code: 'outside-rights', what: 'preset', name: cell.name, quiet: quiet(env) }, now);
   const items = presetItems(st, all);
   if (!items.length) return fail(st, { code: 'preset-no-fixed', name: cell.name }, now);
   const dsts = new Set(items.flatMap((it) => it.dsts));

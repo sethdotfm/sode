@@ -11,9 +11,11 @@ const LISTS = [
   { kind: 'sources', title: 'Sources', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
   { kind: 'dsts', title: 'Destinations', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
   { kind: 'levels', title: 'Levels', hint: 'Level numbers start at 1, whatever the router calls its levels.' },
-  { kind: 'presets', title: 'Presets', hint: 'One preset name per line.', area: true },
+  { kind: 'presets', title: 'Presets', hint: 'One Everyone preset name per line.', area: true },
 ];
 const off = () => S.cfg?.numberOffset ?? 0;
+// Rights name presets by id; the Everyone presets give the names to type.
+const presets = () => S.cfg?.presets || [];
 
 const select = (id, options) => {
   const s = el('select', 'pb-select');
@@ -168,13 +170,13 @@ export function makeRightsTab({ users, clients, touched }) {
     },
     reset: () => entries.clear(),
     adoptUser(rid, u) {
-      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }));
+      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, presets()));
     },
     adoptClient(rid, c) {
-      entries.set(`client:${rid}`, newEntry(c.rights || {}, off()));
+      entries.set(`client:${rid}`, newEntry(c.rights || {}, off(), {}, presets()));
     },
     adoptGuest(rights, scopes) {
-      entries.set('guest', newEntry(rights || {}, off(), { scopes: scopes || [] }));
+      entries.set('guest', newEntry(rights || {}, off(), { scopes: scopes || [] }, presets()));
     },
     read: () => entries,
   };

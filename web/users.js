@@ -403,6 +403,7 @@ function doSave() {
     clients: clientsTab.read(),
     off: S.cfg?.numberOffset ?? 0,
     levels: S.levels.length,
+    presets: S.cfg?.presets || [],
   });
   if (acc.error) return fail(acc.error);
   const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode), acc, loaded);

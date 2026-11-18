@@ -92,7 +92,7 @@ export function findEntries(namesReply, presetsReply, rights, { fixed = false } 
   numbered('destination', namesReply?.destinations);
   // A preset has no number, so "onward" follows the name.
   const byName = [...(presetsReply?.presets || [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-  for (const p of byName) add({ category: 'preset', key: `preset:${p.scope}:${p.name}`, label: p.name, scope: p.scope }, p.name);
+  for (const p of byName) add({ category: 'preset', key: `preset:${p.scope}:${p.name}`, label: p.name, scope: p.scope }, p.id);
   // The numberless kinds are always placeable: Rights limit Sources, Destinations and Presets only.
   for (const category of NUMBERLESS) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
   return out;
