@@ -172,6 +172,9 @@ func loadTemplates(cfgPath string) *templateStore {
 			if err == nil {
 				err = yaml.Unmarshal(b, &t)
 			}
+			if err == nil {
+				err = panelLayout{Pages: t.Pages, LegacyCells: t.LegacyCells, Settings: t.Settings}.noRouterProblem()
+			}
 			t.migrate()
 			if err != nil || t.ID != id || !validTemplateID(id) || t.Scope != scope {
 				log.Printf("templates: skipped %s: not a template of this folder (%v)", path, err)

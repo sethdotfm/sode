@@ -9,7 +9,7 @@ import { PREFS } from './prefs.js';
 import { ownPref } from './device.js';
 import { profile, profileName, fetchProfile } from './profile.js';
 import { localSets, globalSets, userSets, normFilter } from './filterstore.js';
-import { localPresets, globalPresets, userPresets, normPreset } from './presetstore.js';
+import { localPresets, globalPresets, userPresets, storedPreset } from './presetstore.js';
 import { openReview } from './reviewsheet.js';
 import * as fmt from './exportfmt.js';
 
@@ -70,7 +70,7 @@ function dataOf(src) {
     return {
       prefs: { ...p?.prefs },
       sets: (p?.filterSets || []).filter((s) => s?.name).map((s) => ({ name: String(s.name), f: normFilter(s) })),
-      presets: (p?.presets || []).filter((s) => s?.name).map((s) => normPreset(s)),
+      presets: (p?.presets || []).filter((s) => s?.name).map((s) => storedPreset(s)),
       user: other?.name || '',
     };
   }

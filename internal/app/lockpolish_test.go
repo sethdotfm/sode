@@ -4,7 +4,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestUserSetPin(t *testing.T) {
@@ -30,9 +29,9 @@ func TestUserSetPin(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	n := a.userPin.n
-	if err := a.UserSetPin(c, "0000", "4321"); err == nil || a.userPin.n != n+1 {
-		t.Fatalf("wrong old PIN: %v n=%d", err, a.userPin.n)
+	n := userPinCount(a, "Ana")
+	if err := a.UserSetPin(c, "0000", "4321"); err == nil || userPinCount(a, "Ana") != n+1 {
+		t.Fatalf("wrong old PIN: %v n=%d", err, userPinCount(a, "Ana"))
 	}
 	if err := a.UserSetPin(c, "1234", "43210"); err != nil {
 		t.Fatalf("change: %v", err)
@@ -48,7 +47,7 @@ func TestUserSetPin(t *testing.T) {
 		t.Fatal("old PIN still works")
 	}
 	a.mu.Lock()
-	a.userPin.until = time.Time{}
+	clear(a.userPins)
 	a.mu.Unlock()
 	if err := a.UserUnlock(fresh, "43210"); err != nil {
 		t.Fatalf("new PIN: %v", err)

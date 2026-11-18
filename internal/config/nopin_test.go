@@ -30,8 +30,8 @@ func TestUsersWithoutPinValidate(t *testing.T) {
 
 func TestActsAsCapsUsersWithoutPin(t *testing.T) {
 	c := Defaults()
-	c.Users = []User{roleUser(t, "Ada", RoleAdministrator), {Name: "Cy", Role: RoleAdministrator, PinNeeded: true, Rights: Rights{Dsts: Nums(1, 2)}}}
-	c.GuestRights = Rights{Dsts: Nums(2, 3)}
+	c.Users = []User{roleUser(t, "Ada", RoleAdministrator), {Name: "Cy", Role: RoleAdministrator, PinNeeded: true, Rights: Rights{Dsts: nums(1, 2)}}}
+	c.GuestRights = Rights{Dsts: nums(2, 3)}
 	c.Normalize()
 	if role, _ := c.ActsAs(c.Users[0]); role != RoleAdministrator {
 		t.Fatalf("Ada %q", role)

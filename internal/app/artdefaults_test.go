@@ -160,12 +160,12 @@ func TestArtDefaultLoadDropsBadEntries(t *testing.T) {
 	cfgPath := filepath.Join(dir, "config.yaml")
 	file := `rev: 3
 defaults:
-  - {kind: source, n: 1, name: CAM 1, art: icon:camera}
-  - {kind: source, n: 2, name: CAM 2, art: "https://example.com/x.png"}
-  - {kind: source, n: 3, name: CAM 3, art: icon:tv, artB: "99"}
+  - {kind: source, router: r1, n: 1, name: CAM 1, art: icon:camera}
+  - {kind: source, router: r1, n: 2, name: CAM 2, art: "https://example.com/x.png"}
+  - {kind: source, router: r1, n: 3, name: CAM 3, art: icon:tv, artB: "99"}
   - {kind: preset, scope: me, name: Mine, art: icon:tv}
-  - {kind: destination, n: 1, name: MON, art: d-0000000a}
-  - {kind: destination, n: 2, name: MON 2, art: lib:0000000b}
+  - {kind: destination, router: r1, n: 1, name: MON, art: d-0000000a}
+  - {kind: destination, router: r1, n: 2, name: MON 2, art: lib:0000000b}
 images:
   - {id: d-0000000a, type: image/png, size: 4}
   - {id: d-0000000b, type: text/html, size: 4}

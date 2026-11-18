@@ -69,7 +69,7 @@ func TestUserWithoutPinActsNoWiderThanGuest(t *testing.T) {
 	if r := a.role(c); r != config.RoleStandard {
 		t.Fatalf("role %q", r)
 	}
-	setGuest(t, a, config.RoleTrusted, config.Rights{Dsts: config.Nums(5)})
+	setGuest(t, a, config.RoleTrusted, config.Rights{Dsts: nums(5)})
 	if r := a.role(c); r != config.RoleTrusted {
 		t.Fatalf("Guest role Trusted: role %q", r)
 	}
@@ -191,7 +191,7 @@ func TestUserWithoutPinHoldsNoPersonalKeys(t *testing.T) {
 		t.Fatalf("own client: %v", r)
 	}
 	// A session key is allowed, and acts within Guest Rights.
-	setGuest(t, a, config.RoleStandard, config.Rights{Dsts: config.Nums(5)})
+	setGuest(t, a, config.RoleStandard, config.Rights{Dsts: nums(5)})
 	r = send(t, a, c, next, inMsg{T: "sessionKey", ID: 4, KeyName: "tab"}, "sessionKeyResult")
 	if r["ok"] != true {
 		t.Fatalf("session key: %v", r)

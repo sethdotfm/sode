@@ -50,7 +50,7 @@ test('the editor keeps All and Only these apart, so an empty list is not All', (
 
 test('rightsOf builds the wire shape and reports the first bad list', () => {
   const d = draftOf({ sources: [0, 1], levels: [1, 2], presets: ['Wall'], visibility: 'hidden' }, 1);
-  assert.deepEqual(rightsOf(d, 1, 4), { rights: { sources: [0, 1], levels: [1, 2], presets: ['Wall'], visibility: 'hidden' } });
+  assert.deepEqual(rightsOf(d, 1, 4), { rights: { sources: [{ n: 0 }, { n: 1 }], levels: [1, 2], presets: ['Wall'], visibility: 'hidden' } });
   d.levels.text = '1, 9';
   assert.match(rightsOf(d, 1, 4).error, /level/i);
   d.levels.text = '1';
@@ -138,7 +138,7 @@ test('accessReq reads an edited draft, and names the user whose rights are wrong
   edited.draft.dsts = { all: false, text: '3, 5-6' };
   const entries = new Map([['user:1', edited]]);
   const ok = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 });
-  assert.deepEqual(ok.users, [{ rights: { dsts: [2, 4, 5] } }]);
+  assert.deepEqual(ok.users, [{ rights: { dsts: [{ n: 2 }, { n: 4 }, { n: 5 }] } }]);
   assert.equal('guestRights' in ok, false, 'no guest entry: the server keeps the saved one');
   assert.equal('guestScopes' in ok, false);
   edited.draft.dsts.text = 'x';

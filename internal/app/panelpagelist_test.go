@@ -46,7 +46,7 @@ const twoPages = `"pages":[
 func TestPagesOldFileLoadsAsOnePageAndSavesOnlyPages(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "panels"), 0o755)
-	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, n: 4}\nsettings:\n    mode: instant\n")
+	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, router: r1, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, router: r1, n: 4}\nsettings:\n    mode: instant\n")
 	path := filepath.Join(dir, "panels", "p-0000abcd.yaml")
 	os.WriteFile(path, old, 0o644)
 
@@ -171,7 +171,7 @@ func TestPagesTravelWithPushCopyRestoreSetAndTemplate(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	src := makePanel(t, a, ana, `{"name":"Src",`+twoPages+`}`)
-	dst := makePanel(t, a, ana, `{"name":"Dst","pages":[{"id":"mine","cells":[{"r":1,"c":1,"kind":"current"}]}],"settings":{"fixedDests":[3]}}`)
+	dst := makePanel(t, a, ana, `{"name":"Dst","pages":[{"id":"mine","cells":[{"r":1,"c":1,"kind":"current"}]}],"settings":{"fixedDests":[{"n":3}]}}`)
 
 	if code, body := pushTo(a, ana, src, dst); code != 200 {
 		t.Fatalf("push %d %v", code, body)

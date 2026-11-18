@@ -109,7 +109,7 @@ func TestSetupLinkExpires(t *testing.T) {
 
 func TestSetupTokenOfAnotherPanelFails(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
-	other := makePanel(t, a, cy, apiPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	other := makePanel(t, a, cy, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	token, _ := setupLink(t, a, cy, id)
 	wantErr(t, exchangeSetup(a, apiPeer, other, token), 401, "invalid_setup")
 	if rec := exchangeSetup(a, apiPeer, id, token); rec.Code != 201 {
@@ -286,7 +286,7 @@ func TestSetupLinkWorksOnABothPanel(t *testing.T) {
 	a, _ := clientApp(t)
 	shortTimers(a)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, `{"name":"Wall","acts":"both","clientRights":{"sources":[1,2,3],"dsts":[2,4]}}`)
+	id := makePanel(t, a, cy, `{"name":"Wall","acts":"both","clientRights":{"sources":[{"n":1},{"n":2},{"n":3}],"dsts":[{"n":2},{"n":4}]}}`)
 	token, _ := setupLink(t, a, cy, id)
 	rec := exchangeSetup(a, apiPeer, id, token)
 	if rec.Code != 201 {

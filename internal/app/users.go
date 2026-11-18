@@ -250,10 +250,9 @@ var dummyPinHash = sync.OnceValue(func() string {
 
 func burnPinCheck(pin string) { config.CheckPin(dummyPinHash(), pin) }
 
-// matchPin finds the user a PIN signs in, or nil. Pure: it reads only cfg. The one candidate
-// is the holder of a Lock (an empty name, or the holder's own), else the named user. No
-// candidate burns a check so it costs what a right one does.
-func matchPin(cfg config.Config, holder *config.User, name, pin string) *config.User {
+// pinCandidate is the one user a PIN can sign in, or nil. Pure: it reads only cfg. It is the
+// holder of a Lock (an empty name, or the holder's own), else the named user.
+func pinCandidate(cfg config.Config, holder *config.User, name string) *config.User {
 	var cand config.User
 	ok := false
 	if holder != nil {
@@ -264,25 +263,27 @@ func matchPin(cfg config.Config, holder *config.User, name, pin string) *config.
 		cand, ok = cfg.FindUserByName(name)
 	}
 	if !ok {
-		burnPinCheck(pin)
-		return nil
-	}
-	if !cand.HasPin() { // public in the hello (len 0), so there is nothing to hide by hashing
-		if pin != "" {
-			return nil
-		}
-		return &cand
-	}
-	// Hashed whatever the length: PIN lengths are public, so skipping it would tell a known name
-	// from an unknown one.
-	if !config.CheckPin(cand.Pin, pin) || cand.Len != utf8.RuneCountInString(pin) {
 		return nil
 	}
 	return &cand
 }
 
+// pinMatches: no candidate burns a check so it costs what a right one does.
+func pinMatches(cand *config.User, pin string) bool {
+	if cand == nil {
+		burnPinCheck(pin)
+		return false
+	}
+	if !cand.HasPin() { // public in the hello (len 0), so there is nothing to hide by hashing
+		return pin == ""
+	}
+	// Hashed whatever the length: PIN lengths are public, so skipping it would tell a known name
+	// from an unknown one.
+	return config.CheckPin(cand.Pin, pin) && cand.Len == utf8.RuneCountInString(pin)
+}
+
 // UserUnlockAs compares the PIN with the named user's hash only. A held Lock resumes with its
-// own user's PIN, and a name there must be that user's. Every try counts in the users' pool.
+// own user's PIN, and a name there must be that user's. Every try counts toward that name's wait.
 func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	cfg := a.r().cfg
 	a.mu.Lock()
@@ -291,11 +292,12 @@ func (a *App) UserUnlockAs(c *client, name, pin string) error {
 		holder = c.u.user.Load()
 	}
 	a.mu.Unlock()
-	var hit *config.User
-	err := a.tryPin(&a.userPin, c.ip, func() bool {
-		hit = matchPin(cfg, holder, name, pin)
-		return hit != nil
-	})
+	hit := pinCandidate(cfg, holder, name)
+	counts := hit
+	if holder != nil {
+		counts = holder // a held Lock's PIN pad is its holder's, whatever name is typed
+	}
+	err := a.tryUserPin(counts, c.ip, func() bool { return pinMatches(hit, pin) })
 	if err != nil {
 		return err
 	}
@@ -697,7 +699,7 @@ func (a *App) setOwnPin(c *client, oldPin, newPin string, remove bool) error {
 		}
 	}
 	if u.HasPin() {
-		if err := a.tryPin(&a.userPin, c.ip, func() bool { return config.CheckPin(u.Pin, oldPin) }); err != nil {
+		if err := a.tryUserPin(&u, c.ip, func() bool { return config.CheckPin(u.Pin, oldPin) }); err != nil {
 			return err
 		}
 		if !remove && oldPin == newPin {

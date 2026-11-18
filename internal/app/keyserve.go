@@ -66,8 +66,8 @@ func (a *App) ownUser(c *client) (config.User, error) {
 	return u, nil
 }
 
-// CreateOwnKey makes a key that acts as c's user. It asks the user's own PIN in the
-// change-PIN pool, so an unattended signed-in browser cannot mint a lasting key.
+// CreateOwnKey makes a key that acts as c's user. It asks the user's own PIN, counted toward their
+// name's wait, so an unattended signed-in browser cannot mint a lasting key.
 func (a *App) CreateOwnKey(c *client, pin, keyName string, expiresMs int64) (string, apiKey, error) {
 	u, err := a.ownUser(c)
 	if err != nil {
@@ -76,7 +76,7 @@ func (a *App) CreateOwnKey(c *client, pin, keyName string, expiresMs int64) (str
 	if !u.HasPin() {
 		return "", apiKey{}, errors.New("set a PIN before you make an API key")
 	}
-	if err := a.tryPin(&a.userPin, c.ip, func() bool { return config.CheckPin(u.Pin, pin) }); err != nil {
+	if err := a.tryUserPin(&u, c.ip, func() bool { return config.CheckPin(u.Pin, pin) }); err != nil {
 		return "", apiKey{}, err
 	}
 	exp, err := keyExpiry(expiresMs, time.Now())

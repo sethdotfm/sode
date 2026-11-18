@@ -1,0 +1,2 @@
+- The API takes a source or destination in Rights, `clientRights`, `fixedDests` and Grid edges only as a router reference, such as `{"n": 4}`. A bare number is refused with 400 `bad_request`.
+- A stored source or destination with no router does not load. Sode refuses a config.yaml that holds one, and skips a panel, template, checkpoint, Checkpoint set or Default artwork entry that holds one.

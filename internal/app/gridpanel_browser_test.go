@@ -335,7 +335,7 @@ func TestChromeGridPanelProtected(t *testing.T) {
 		for i := range v {
 			v[i] = i
 		}
-		return config.Nums(v...)
+		return nums(v...)
 	}
 	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Rights = config.Rights{Sources: span(20), Dsts: span(30)} })
 	srv := seamServer(t, a)

@@ -27,7 +27,7 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 
 	ana := userKey(t, a, "Ana")
 	from := makePanel(t, a, ana, `{"name":"Studio A","acts":"api"}`)
-	to := makePanel(t, a, ana, `{"name":"Studio B","acts":"api","slug":"studio-b","settings":{"fixedDests":[2]}}`)
+	to := makePanel(t, a, ana, `{"name":"Studio B","acts":"api","slug":"studio-b","settings":{"fixedDests":[{"n":2}]}}`)
 	both := makePanel(t, a, ana, `{"name":"Studio C","acts":"both"}`)
 	rec := apiSend(a, "POST", "/api/v1/panels/"+from+"/key", ana, `{"instance":"Lobby"}`)
 	if rec.Code != 201 {

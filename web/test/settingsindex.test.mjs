@@ -29,7 +29,7 @@ const idx = () =>
           title: 'Locks',
           settings: [
             { id: 'cfg-pin', label: 'Advanced Settings PIN' },
-            { id: 'cfg-pin-tries', label: 'Lock after wrong PINs' },
+            { id: 'cfg-pin-waits', label: 'Wait after wrong PINs' },
           ],
         },
         {
@@ -91,7 +91,7 @@ test('password, pin, lock, idle and auto-lock land on Users or Access', () => {
 });
 
 test('settings are found by label and by dictionary', () => {
-  assert.equal(top('wrong pins').id, 'cfg-pin-tries');
+  assert.equal(top('wrong pins').id, 'cfg-pin-waits');
   assert.equal(top('communication log').id, 'open-log');
   assert.equal(top('uptime').id, 'open-log');
   assert.equal(top('wipe').id, 'clear-history');

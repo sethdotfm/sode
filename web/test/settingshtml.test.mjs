@@ -72,7 +72,7 @@ test('the router block has a sub-heading and holds the per-router sections', () 
 
 test('the Locks section holds the page locks and auto-lock', () => {
   const g = group('Locks');
-  for (const id of ['cfg-lock-main', 'cfg-lock-log', 'cfg-lock-panel', 'cfg-auto-lock', 'cfg-pin-tries']) assert.match(g.body, new RegExp(`id="${id}"`));
+  for (const id of ['cfg-lock-main', 'cfg-lock-log', 'cfg-lock-panel', 'cfg-auto-lock', 'cfg-pin-waits']) assert.match(g.body, new RegExp(`id="${id}"`));
 });
 
 test('the Users section holds Manage users and the profile list, saved apart from the form', () => {

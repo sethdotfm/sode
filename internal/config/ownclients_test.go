@@ -22,11 +22,11 @@ func TestRightsIntersect(t *testing.T) {
 		want string
 	}{
 		{"both open", Rights{}, Rights{}, `{}`},
-		{"one open", Rights{Sources: Nums(1, 2)}, Rights{}, `{"sources":[{"router":"","n":1},{"router":"","n":2}]}`},
-		{"other open", Rights{}, Rights{Dsts: Nums(4)}, `{"dsts":[{"router":"","n":4}]}`},
-		{"common", Rights{Sources: Nums(1, 2, 3)}, Rights{Sources: Nums(2, 3, 9)}, `{"sources":[{"router":"","n":2},{"router":"","n":3}]}`},
-		{"router blank matches", Rights{Sources: &[]Ref{{N: 2, Router: "r-1"}}}, Rights{Sources: Nums(2)}, `{"sources":[{"router":"r-1","n":2}]}`},
-		{"none left", Rights{Dsts: Nums(1)}, Rights{Dsts: Nums(2)}, `{"dsts":[]}`},
+		{"one open", Rights{Sources: nums(1, 2)}, Rights{}, `{"sources":[{"router":"","n":1},{"router":"","n":2}]}`},
+		{"other open", Rights{}, Rights{Dsts: nums(4)}, `{"dsts":[{"router":"","n":4}]}`},
+		{"common", Rights{Sources: nums(1, 2, 3)}, Rights{Sources: nums(2, 3, 9)}, `{"sources":[{"router":"","n":2},{"router":"","n":3}]}`},
+		{"router blank matches", Rights{Sources: &[]Ref{{N: 2, Router: "r-1"}}}, Rights{Sources: nums(2)}, `{"sources":[{"router":"r-1","n":2}]}`},
+		{"none left", Rights{Dsts: nums(1)}, Rights{Dsts: nums(2)}, `{"dsts":[]}`},
 		{"levels and presets", Rights{Levels: lv(1, 2), Presets: ps("a", "b")}, Rights{Levels: lv(2), Presets: ps("b", "c")}, `{"levels":[2],"presets":["b"]}`},
 		{"hidden wins", Rights{}, Rights{Visibility: VisHidden}, `{"visibility":"hidden"}`},
 		{"read-only stays", Rights{Visibility: VisReadOnly}, Rights{}, `{"visibility":"readonly"}`},

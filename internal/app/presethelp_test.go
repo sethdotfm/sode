@@ -15,3 +15,12 @@ func withItemExtra(it config.PresetItem, extra map[string]any) config.PresetItem
 	it.Extra = extra
 	return it
 }
+
+// nums is a reference list on the one router; Normalize fills the blank router.
+func nums(ns ...int) *[]config.Ref {
+	out := make([]config.Ref, len(ns))
+	for i, n := range ns {
+		out[i] = config.Ref{N: n}
+	}
+	return &out
+}

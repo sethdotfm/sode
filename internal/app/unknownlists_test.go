@@ -66,17 +66,18 @@ func TestUnknownPrefNamedOnStartRow(t *testing.T) {
 }
 
 // One unknown key on each kind of list item, and a second item beside it with none.
-const futureLists = `filterSets:
+const futureLists = `routers: [{uid: r1, address: 127.0.0.1:8910}]
+filterSets:
   - {name: A, sode: true, ext: true, futureF: 1}
   - {name: B, sode: true, ext: true}
 presets:
   - name: P
     futureP: 1
     items:
-      - {src: {n: 1}, dsts: [{n: 2}], futureI: 1}
+      - {src: {router: r1, n: 1}, dsts: [{router: r1, n: 2}], futureI: 1}
   - name: Q
     items:
-      - {src: {n: 3}, dsts: [{n: 4}]}
+      - {src: {router: r1, n: 3}, dsts: [{router: r1, n: 4}]}
 guestRights:
   futureG: 1
 apiClients:
@@ -93,10 +94,10 @@ users:
         - name: P
           futureP: 1
           items:
-            - {src: {n: 1}, dsts: [{n: 2}], futureI: 1}
+            - {src: {router: r1, n: 1}, dsts: [{router: r1, n: 2}], futureI: 1}
         - name: Q
           items:
-            - {src: {n: 3}, dsts: [{n: 4}]}
+            - {src: {router: r1, n: 3}, dsts: [{router: r1, n: 4}]}
   - name: b
 `
 
@@ -148,7 +149,7 @@ func TestWholeListSavesKeepUnknownKeys(t *testing.T) {
 		},
 		"users editor": func(t *testing.T, a *App) error {
 			planted := map[string]any{"browserKey": 1}
-			src := *config.Nums(1, 2)
+			src := *nums(1, 2)
 			rights := config.Rights{Sources: &src, Extra: planted}
 			clients := []config.APIClient{
 				{Name: "other", Scopes: []string{"names", "tally"}, Extra: planted},
