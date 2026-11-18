@@ -19,7 +19,20 @@ func init() {
 		apiRoute{"GET", apiBase + "/protected", config.ScopeProtected, (*App).apiProtected},
 		apiRoute{"GET", apiBase + "/status", config.ScopeStatus, (*App).apiStatus},
 		apiRoute{"GET", apiBase + "/layouts", config.ScopeLayouts, (*App).apiLayouts},
+		apiRoute{"GET", apiBase + "/routers", "", (*App).apiRouters},
 	)
+}
+
+// apiRouter is one router as clients name it: the router parameter takes UID, never Prefix.
+type apiRouter struct {
+	UID    string `json:"uid"`
+	Prefix string `json:"prefix"`
+	Title  string `json:"title"`
+}
+
+func (a *App) apiRouters(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
+	c := a.r().cfg
+	apiJSONTagged(w, r, map[string][]apiRouter{"routers": {{c.UID, c.Prefix, c.Title}}})
 }
 
 type apiName struct {

@@ -38,9 +38,9 @@ func TestChromeClosedPanelTabIsLostInsideFifteenSeconds(t *testing.T) {
 
 	closed := time.Now()
 	b.open("about:blank")
-	for !a.mon.watching("Ana", id) || len(a.offlineFor("Ana")) == 0 {
+	for !a.mon.watching(idOf(a, "Ana"), id) || len(a.offlineFor(idOf(a, "Ana"))) == 0 {
 		if time.Since(closed) > 15*time.Second {
-			t.Fatalf("not offline 15 seconds after the tab closed (rows %v)", a.offlineFor("Ana"))
+			t.Fatalf("not offline 15 seconds after the tab closed (rows %v)", a.offlineFor(idOf(a, "Ana")))
 		}
 		time.Sleep(100 * time.Millisecond)
 	}

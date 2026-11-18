@@ -40,23 +40,23 @@ func init() {
 	)
 }
 
-// trusted reads the user's Trusted flag live from the config, so an edit applies at once.
-func (a *App) trusted(name string) bool {
-	u, ok := a.r().cfg.FindUser(name)
+// trusted reads user id's Trusted flag live from the config, so an edit applies at once.
+func (a *App) trusted(id string) bool {
+	u, ok := a.r().cfg.FindUserByID(id)
 	return ok && u.Trusted
 }
 
-// panelReach is what cl can do with p. A user owns a panel by name; a Trusted user (read
+// panelReach is what cl can do with p. A user owns a panel by id; a Trusted user (read
 // live from the config) reaches all. A client reaches the panel it is the API client of. The Assign to warning
 // repeats the user part (opens in web/panelassignrules.js); keep in step.
 func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
 	name := cl.Actor.Name
 	switch cl.Actor.Kind {
 	case actorUser:
-		if strings.EqualFold(p.Owner, name) {
+		if cl.Actor.User != "" && p.Owner == cl.Actor.User {
 			return true, true
 		}
-		if a.trusted(name) {
+		if a.trusted(cl.Actor.User) {
 			return true, true
 		}
 		for _, n := range p.Share.Users {
@@ -84,6 +84,7 @@ func (a *App) panelOut(p Panel, edit bool) map[string]any {
 	m := map[string]any{}
 	json.Unmarshal(b, &m)
 	m["canEdit"] = edit
+	m["owner"] = a.r().cfg.UserName(p.Owner) // the id stays inside Sode
 	if s, _ := m["settings"].(map[string]any); s != nil {
 		s[panelAskNameKey] = asksName(p)
 	}
@@ -257,7 +258,7 @@ func (a *App) panelIDOf(seg string) string {
 
 // ownerOnly answers 403 user_required: a panel needs a user to own it.
 func ownerOnly(w http.ResponseWriter, cl *apiCtx) bool {
-	if cl.Actor.Kind != actorUser {
+	if cl.Actor.Kind != actorUser || cl.Actor.User == "" {
 		apiFail(w, http.StatusForbidden, "user_required", "a panel is owned by a user: use a user's key to create or copy one")
 		return false
 	}
@@ -273,7 +274,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = "", cl.Actor.Name, "", nil, nil, 0
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = "", cl.Actor.User, "", nil, nil, 0
 	p.normalize()
 	if err := validatePanel(&p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
@@ -433,7 +434,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	c := src
-	c.Owner, c.Client, c.Acts, c.Share = cl.Actor.Name, "", panelActsSession, PanelShare{Mode: panelShareMe}
+	c.Owner, c.Client, c.Acts, c.Share = cl.Actor.User, "", panelActsSession, PanelShare{Mode: panelShareMe}
 	c.Name = in.Name
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"

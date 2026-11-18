@@ -31,7 +31,7 @@ func testPreset(name string) config.Preset {
 
 func anasProfile(t *testing.T, a *App) config.Profile {
 	t.Helper()
-	u, _ := a.r().cfg.FindUser("Ana")
+	u, _ := a.r().cfg.FindUserByName("Ana")
 	return u.Profile
 }
 
@@ -77,7 +77,7 @@ func TestProfileSelfSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u, _ := cfg.FindUser("Ana"); u.Profile.Prefs["flip"] != "on" || len(u.Profile.Presets) != 1 {
+	if u, _ := cfg.FindUserByName("Ana"); u.Profile.Prefs["flip"] != "on" || len(u.Profile.Presets) != 1 {
 		t.Fatalf("saved file %+v", u.Profile)
 	}
 }
@@ -254,33 +254,33 @@ func TestProfileRenameKeepsAndDeleteDrops(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Anna", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Anna"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
-	u, ok := a.r().cfg.FindUser("Anna")
+	u, ok := a.r().cfg.FindUserByName("Anna")
 	if !ok || u.Profile.Prefs["theme"] != "dark" || len(u.Profile.Presets) != 1 {
 		t.Fatalf("after rename: %+v", u)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ann", Was: "Anna", Pin: "4321"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Anna"), Name: "Ann", Pin: "4321"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
-	u, _ = a.r().cfg.FindUser("Ann")
+	u, _ = a.r().cfg.FindUserByName("Ann")
 	if u.Profile.Prefs["theme"] != "dark" {
 		t.Fatalf("after rename with a new PIN: %+v", u)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ann", Was: "Ann"}, {Name: "Ana", Pin: "1357"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ann"), Name: "Ann"}, {Name: "Ana", Pin: "1357"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if u, _ := a.r().cfg.FindUser("Ana"); !u.Profile.Empty() {
+	if u, _ := a.r().cfg.FindUserByName("Ana"); !u.Profile.Empty() {
 		t.Fatalf("a new user inherited %+v", u.Profile)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo", Was: "Bo"}, {Name: "Ann", Pin: "4321"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Ann", Pin: "4321"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if u, _ := a.r().cfg.FindUser("Ann"); !u.Profile.Empty() {
+	if u, _ := a.r().cfg.FindUserByName("Ann"); !u.Profile.Empty() {
 		t.Fatalf("a removed user's profile came back: %+v", u.Profile)
 	}
 	raw, _ := json.Marshal(a.r().cfg)
@@ -302,7 +302,7 @@ func TestProfilePushOnAccessChange(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	got := profiles(ana)
@@ -347,7 +347,7 @@ func TestProfileNeverInHello(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	for who, c := range map[string]*client{"Bo": bo, "anonymous": anon} {
@@ -427,10 +427,10 @@ func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "9753"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "9753"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
-	u, _ := a.r().cfg.FindUser("Ana")
+	u, _ := a.r().cfg.FindUserByName("Ana")
 	if len(u.Profile.Prefs) != 0 {
 		t.Fatalf("new Ana inherited the old profile: %+v", u.Profile)
 	}
@@ -444,14 +444,14 @@ func TestProfileSavePinOrder(t *testing.T) {
 	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", PinOrder: []string{"local:b", "global:a", "local:b"}}); err != nil {
 		t.Fatal(err)
 	}
-	u, _ := a.r().cfg.FindUser("Ana")
+	u, _ := a.r().cfg.FindUserByName("Ana")
 	if got := u.Profile.Normalized().PinOrder; len(got) != 2 || got[0] != "local:b" || got[1] != "global:a" {
 		t.Fatalf("pin order %v", got)
 	}
 	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); err != nil {
 		t.Fatal(err)
 	}
-	u, _ = a.r().cfg.FindUser("Ana")
+	u, _ = a.r().cfg.FindUserByName("Ana")
 	if len(u.Profile.Normalized().PinOrder) != 2 {
 		t.Fatalf("pin order lost: %v", u.Profile.PinOrder)
 	}

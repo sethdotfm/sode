@@ -89,7 +89,7 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 			t.Errorf("%s admitted for a trusted user: %v", name, err)
 		}
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}}}); !errors.Is(err, errLocked) {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); !errors.Is(err, errLocked) {
 		t.Errorf("SaveUsers: %v", err)
 	}
 	if err := a.SaveSettings(c, a.r().cfg, "9999", false); !errors.Is(err, errLocked) {
@@ -175,7 +175,7 @@ func TestSaveUsersFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{Name: "Ana", Trusted: true}, {Name: "Bo", Persistent: true},
+		{ID: idOf(a, "Ana"), Name: "Ana", Trusted: true}, {ID: idOf(a, "Bo"), Name: "Bo", Persistent: true},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func TestSessionTokenDies(t *testing.T) {
 			if err := a.Unlock(admin, "2468"); err != nil {
 				t.Fatal(err)
 			}
-			if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo"}}}); err != nil {
+			if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -302,7 +302,7 @@ func TestSessionTokenCapPerUser(t *testing.T) {
 	}
 	n := 0
 	for _, r := range a.tokens.toks {
-		if r.User == "Ana" {
+		if r.User == idOf(a, "Ana") {
 			n++
 		}
 	}
@@ -442,7 +442,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{Name: "Ana", Persistent: true}, {Name: "Bo"},
+		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -459,7 +459,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 		t.Fatal("the pushed token does not log in")
 	}
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{Name: "Ana", Persistent: true}, {Name: "Bo"},
+		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}}); err != nil {
 		t.Fatal(err)
 	}

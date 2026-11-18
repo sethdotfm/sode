@@ -71,6 +71,10 @@ Hidden applies to API callers only, because the browser connection already broad
 
 Sources and destinations are the router's own numbers, 0-based. `/names` carries `numberOffset`; add it to show the number a person sees. Levels are UI levels, from 1, the same numbers the rights lists use. A source of -1 means nothing is routed. If a route omits `levels` or sends `[]`, Sode uses the *Default levels* setting (`defaultLevels` in `GET /tally`, as typed in Settings), so always send `levels`.
 
+## Routers
+
+Any call can carry the query parameter `router`, a router UID from `GET /routers`, for example `GET /api/v1/names?router=3f9c...`. It is optional while Sode has one router. A value that is not a router UID is 404 `unknown_router`. Send the UID, never the router prefix: an administrator can change the prefix, and the UID never changes. Sode reads `router` from the query only; a take body with a `router` field is 400 `bad_request`.
+
 ## Endpoints
 
 All paths are under `/api/v1`.
@@ -82,6 +86,7 @@ All paths are under `/api/v1`.
 | `GET /history?before=&n=` | `history` | History, newest first, 50 per page by default, 500 at most. A page never ends inside a Group |
 | `GET /history/groups/last` | `history` | The latest Group with its entries, oldest first |
 | `GET /layouts` | `layouts` | Panel layouts, empty until the panel page exists |
+| `GET /routers` | any | `{"routers":[{"uid","prefix","title"}]}`: each router's router UID, router prefix (A to Z) and router title. See Routers |
 | `GET /log?before=&n=` | `log` | The Communication Log, 100 per page by default, 500 at most |
 | `POST /takes` | `take` | A take by routes: `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, 1 to 200 routes |
 | `POST /presets/{scope}/{name}` | `take` | Fire a preset, scope `everyone` or `me` |
@@ -202,6 +207,7 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 | 415 | `unsupported_type` | Artwork that is not a JPEG, PNG, GIF or SVG | Send one of those |
 | 500 | `internal` | A panel could not be written to disk | Check the disk and the logs |
 | 404 | `not_found` | No such path, History entry or visible preset, or scope `me` on a client or Guest key | Check the id, name or scope |
+| 404 | `unknown_router` | The `router` parameter is not a router UID | Send a `uid` from `GET /routers`, or leave `router` out |
 | 405 | `method_not_allowed` | The path does not take this method | Use a method in `Allow` |
 | 409 | `conflict` | Redo of a failed entry, or Retry of one that succeeded; a panel over its limits; a short name another panel has; a key for a panel that does not act as an API client; a panel already at 20 instances | Use the other verb, switch the panel to `api`, or revoke an instance |
 | 409 | `name_taken` | An Assign whose target, or a rename whose panel, already has an instance of that name; `error.suggest` is a free one | Send again with that name, or another, as `name` |

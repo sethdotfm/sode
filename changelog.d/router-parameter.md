@@ -1,0 +1,3 @@
+- API: `GET /api/v1/routers` lists each router's UID, prefix and title. Any `/api/v1` call can carry an optional `router` query parameter with the router UID; a value that is not a router UID is 404 `unknown_router`.
+- Where you type a source or destination, you can type the router prefix first, for example `A.23`.
+- A change of the router prefix reloads every open page.

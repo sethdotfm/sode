@@ -192,7 +192,7 @@ func TestHeldLockEndsWhenTheHolderChangesPin(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	req := usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana", Pin: "4321", Persistent: true}, {Name: "Bo", Was: "Bo"}}}
+	req := usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Pin: "4321", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}
 	if err := a.SaveUsers(admin, req); err != nil {
 		t.Fatal(err)
 	}

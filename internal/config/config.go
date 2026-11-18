@@ -65,6 +65,8 @@ type Config struct {
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
 	Extra map[string]any `yaml:",inline" json:"-" owned:"true"`
+	// idsFilled: Normalize gave a user an id; Load writes it back, or the next start makes new ones.
+	idsFilled bool
 }
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
@@ -556,8 +558,8 @@ func ParseLevels(s string, max int) ([]int, error) {
 	return out, nil
 }
 
-// Load reads path over the defaults. exists is false if there is no file. A router UID made
-// here is written back, so the file keeps it; callers back the file up before Load.
+// Load reads path over the defaults. exists is false if there is no file. A router UID or user id
+// made here is written back, so the file keeps it; callers back the file up before Load.
 func Load(path string) (c Config, exists bool, err error) {
 	c = Defaults()
 	b, err := os.ReadFile(path)
@@ -574,9 +576,9 @@ func Load(path string) (c Config, exists bool, err error) {
 	if err := c.Validate(); err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
-	if !bytes.Contains(b, []byte(c.UID)) || !hasPresetIDs(b, c) {
+	if !bytes.Contains(b, []byte(c.UID)) || c.idsFilled || !hasPresetIDs(b, c) {
 		if err := Save(path, c); err != nil {
-			return c, true, fmt.Errorf("%s: keeping the new router UID or preset ids: %w", path, err)
+			return c, true, fmt.Errorf("%s: keeping the new router UID, user ids or preset ids: %w", path, err)
 		}
 	}
 	return c, true, nil

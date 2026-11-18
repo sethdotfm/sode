@@ -66,7 +66,7 @@ func TestSettingsSaveKeepsUnknownKeys(t *testing.T) {
 // Every users save rebuilds each user, not only the edited one.
 func TestUsersSaveKeepsUnknownKeys(t *testing.T) {
 	a := futureApp(t, "users:\n  - name: a\n    futureField: x\n  - name: b\n")
-	req := usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo", Trusted: true}}}
+	req := usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo", Trusted: true}}}
 	if err := a.SaveUsers(adminClient(t, a), req); err != nil {
 		t.Fatal(err)
 	}

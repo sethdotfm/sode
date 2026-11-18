@@ -104,7 +104,7 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusNotFound, "not_found", "no panel "+r.PathValue("id"))
 		return
 	}
-	if !strings.EqualFold(p.Owner, cl.Actor.Name) {
+	if cl.Actor.User == "" || p.Owner != cl.Actor.User {
 		if err := a.mayEveryone(cl, in.Pin, renameMsg); err != nil {
 			failWith(w, err)
 			return

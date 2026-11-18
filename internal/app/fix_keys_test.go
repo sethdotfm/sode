@@ -82,7 +82,7 @@ func TestStartupKeepsClientKeysWhenUserPinsChange(t *testing.T) {
 // first startup, so a PIN change after that ends them.
 func TestStartupStampsLegacyUserKeys(t *testing.T) {
 	a := userApp(t, false)
-	secret := apiTestKey(t, a, keyOwner{Kind: actorUser, Name: "Ana"}, "Old", time.Time{})
+	secret := apiTestKey(t, a, ownerOf(a, "Ana"), "Old", time.Time{})
 
 	kept := fixRestart(t, a, func(*config.Config) {})
 	if _, _, ok := kept.keys.find(secret, time.Now()); !ok {
@@ -108,7 +108,7 @@ func TestKeyFileNeverHoldsPinOrHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ana, _ := a.r().cfg.FindUser("Ana")
+	ana, _ := a.r().cfg.FindUserByName("Ana")
 	// "1234" as a substring turns up in random hex now and then, so only a whole value counts.
 	var recs []map[string]any
 	if err := json.Unmarshal(b, &recs); err != nil {

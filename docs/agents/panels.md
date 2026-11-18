@@ -7,7 +7,7 @@ Sode Panels: saved 4x8 grid pages on `/panels`, `/panels/editor` and `/panels/<i
 All beside the config, under `/data` in the image.
 
 - `panels/<id>.yaml`: one file per panel. `<id>.art/<art id>` holds its artwork and `<id>.checkpoints` its Push checkpoints (at most 10). `panelStore` (`panelstore.go`) owns all three. The artwork cap is by total bytes (`panelArtTotal`, 64 MB, `artBytes`), not by count. `copyArt` (Push and Copy) copies what fits and returns the ids that did not fit. Every write goes through `writeLocked`, which moves `Rev`.
-- `panelsets/`: Checkpoint sets, `everyone.yaml` and `me-<hex of user>.yaml`.
+- `panelsets/`: Checkpoint sets, `everyone.yaml` and `me-<hex of the user id>.yaml`. Panel, template and set `owner` is a user id; reads send the live name (docs/agents/users-locks.md, User id).
 - `templates/me/` and `templates/everyone/`: templates, apart from the panel files.
 - `artdefaults.yaml` and `artdefaults.art/`: Default artwork (`artDefaultStore`, `artdefaults.go`; routes in `artdefaultsapi.go`). Images are keyed by content (`d-` ids), so setting one image twice stores it once, and a write deletes images no default names. The 64 MB cap covers all of them together. Uploads and copies both go through `checkArtBytes`.
 - `icons.yaml` and `icons/`: the Icon library (`iconLib`, `iconlib.go`; routes in `iconlibapi.go`). Ids are random, not by content, so two names for one file stay two icons; files are `<id>.png` or `<id>.svg`.

@@ -8,6 +8,9 @@ import (
 
 func TestEveryFieldChooses(t *testing.T) {
 	for _, f := range configFields() {
+		if !f.IsExported() {
+			continue // never saved or sent
+		}
 		owned, guard := f.Tag.Get("owned") == "true", f.Tag.Get("guard")
 		switch {
 		case owned && guard != "":

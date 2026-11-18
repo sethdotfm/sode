@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -33,7 +32,7 @@ type tokenStore struct {
 }
 
 type tokenRec struct {
-	User string    `json:"user"` // the user it was issued to
+	User string    `json:"user"` // the id of the user it was issued to, so a rename keeps it
 	Pin  string    `json:"pin"`  // that user's PIN hash then
 	At   time.Time `json:"at"`
 	Tab  bool      `json:"tab,omitempty"` // a sign-in with no page lock: for a user who is not persistent, kept by one browser tab
@@ -109,7 +108,7 @@ func (s *tokenStore) save() {
 // NOT persistent, and for tabTokenMaxAge. So ticking Never sign out cannot turn it into a
 // persistent one that skips a lock.
 func valid(r tokenRec, cfg config.Config) (config.User, bool) {
-	u, ok := cfg.FindUser(r.User)
+	u, ok := cfg.FindUserByID(r.User)
 	if !ok || u.Pin != r.Pin {
 		return u, false
 	}
@@ -157,8 +156,8 @@ func heldOnly(u config.User, page string, locks config.Locks) bool {
 	return !u.Persistent && pageGates[page].on(locks)
 }
 
-func (s *tokenStore) dropUser(name string) {
-	s.dropWhere(func(r tokenRec) bool { return strings.EqualFold(r.User, name) })
+func (s *tokenStore) dropUser(id string) {
+	s.dropWhere(func(r tokenRec) bool { return r.User == id })
 }
 
 // Never with App.mu held (writes the file).
@@ -194,12 +193,12 @@ func (s *tokenStore) user(t string, cfg config.Config) (config.User, bool) {
 	return valid(r, cfg)
 }
 
-// live: the token with this sha256 key still exists, is valid and was issued to owner.
+// live: the token with this sha256 key still exists, is valid and was issued to user id owner.
 func (s *tokenStore) live(hash, owner string, cfg config.Config) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	r, ok := s.toks[hash]
-	if !ok || !strings.EqualFold(r.User, owner) {
+	if !ok || owner == "" || r.User != owner {
 		return false
 	}
 	_, ok = valid(r, cfg)
@@ -220,7 +219,7 @@ func (s *tokenStore) issue(u config.User, cfg config.Config, tab, locked bool) s
 	for {
 		n, oldest := 0, ""
 		for k, r := range s.toks {
-			if !strings.EqualFold(r.User, u.Name) || r.Tab != tab {
+			if r.User != u.ID || r.Tab != tab {
 				continue // the cap is per user and per kind
 			}
 			n++
@@ -233,7 +232,7 @@ func (s *tokenStore) issue(u config.User, cfg config.Config, tab, locked bool) s
 		}
 		delete(s.toks, oldest)
 	}
-	s.toks[tokenKey(t)] = tokenRec{User: u.Name, Pin: u.Pin, At: time.Now(), Tab: tab, Locked: locked}
+	s.toks[tokenKey(t)] = tokenRec{User: u.ID, Pin: u.Pin, At: time.Now(), Tab: tab, Locked: locked}
 	s.mu.Unlock()
 	s.save()
 	return t

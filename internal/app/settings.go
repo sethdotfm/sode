@@ -115,9 +115,17 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	a.mu.Lock()
 	a.rt.Store(nr)
 	a.endDeadHeldMu()
+	a.renameSignedInMu()
 	a.refreshStreams(nr.cfg)
 	if after != nil {
 		after(old, nr)
+	}
+	// Open pages hold typed text and stored items with the old prefix, so each one starts again.
+	if old.cfg.Prefix != nr.cfg.Prefix {
+		reload, _ := json.Marshal(simpleMsg{T: "reload"})
+		for cl := range a.clients {
+			a.deliver(cl, reload)
+		}
 	}
 	a.mu.Unlock()
 	return nil

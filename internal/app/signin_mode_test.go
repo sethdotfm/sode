@@ -9,19 +9,17 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Sign-in mode: PIN only is the default; Username and PIN lets users share a PIN and a
-// sign-in names the user (docs/agents/users-locks.md).
+// Sign-in mode: PIN only is the default. In name and PIN mode (`username`), users can share a PIN,
+// and a sign-in gives the user's Name (docs/agents/users-locks.md).
 
-func sp(s string) *string { return &s }
-
-// usernameApp: Ana (1234) and Bo (1234, the same PIN) in Username and PIN mode.
+// usernameApp: Ana (1234) and Bo (1234, the same PIN) in name and PIN mode.
 func usernameApp(t *testing.T) *App {
 	t.Helper()
 	a := userApp(t, true)
 	admin := adminClient(t, a)
 	err := a.SaveUsers(admin, usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
-		{Name: "Ana", Was: "Ana", Username: sp("ana.k")},
-		{Name: "Bo", Was: "Bo", Username: sp("bobby"), Pin: "1234"},
+		{ID: idOf(a, "Ana"), Name: "Ana"},
+		{ID: idOf(a, "Bo"), Name: "Bo", Pin: "1234"},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +33,7 @@ func TestPinOnlyIsTheDefaultAndPinsStayUnique(t *testing.T) {
 		t.Fatalf("mode %q", m)
 	}
 	err := a.SaveUsers(adminClient(t, a), usersReq{Users: []userEdit{
-		{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}, {Name: "Cy", Pin: "1234"},
+		{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Cy", Pin: "1234"},
 	}})
 	if err == nil {
 		t.Fatal("a shared PIN was saved in PIN only mode")
@@ -44,7 +42,7 @@ func TestPinOnlyIsTheDefaultAndPinsStayUnique(t *testing.T) {
 	if err := a.UserUnlock(c, "1234"); err != nil || c.who() != "Ana" {
 		t.Fatalf("PIN alone: %v %q", err, c.who())
 	}
-	// The mode ignores a username in the message.
+	// The mode ignores a name in the message.
 	c2 := &client{ip: "10.0.0.2"}
 	if err := a.UserUnlockAs(c2, "nobody", "567890"); err != nil || c2.who() != "Bo" {
 		t.Fatalf("PIN only with a stray username: %v %q", err, c2.who())
@@ -53,7 +51,7 @@ func TestPinOnlyIsTheDefaultAndPinsStayUnique(t *testing.T) {
 
 func TestUsernameModeSharedPinNeedsBoth(t *testing.T) {
 	a := usernameApp(t)
-	for user, want := range map[string]string{"ana.k": "Ana", "BOBBY": "Bo"} {
+	for user, want := range map[string]string{"ana": "Ana", "BO": "Bo"} {
 		c := &client{ip: "10.0.0.1"}
 		if err := a.UserUnlockAs(c, user, "1234"); err != nil || c.who() != want {
 			t.Errorf("%s: %v %q", user, err, c.who())
@@ -61,10 +59,9 @@ func TestUsernameModeSharedPinNeedsBoth(t *testing.T) {
 	}
 	for name, args := range map[string][2]string{
 		"PIN alone":            {"", "1234"},
-		"the displayed name":   {"Ana", "1234"},
-		"unknown username":     {"zed", "1234"},
-		"another user's PIN":   {"ana.k", "567890"},
-		"right user wrong PIN": {"bobby", "9999"},
+		"unknown name":         {"zed", "1234"},
+		"another user's PIN":   {"Ana", "567890"},
+		"right user wrong PIN": {"Bo", "9999"},
 	} {
 		c := &client{ip: "10.0.0.3"}
 		if err := a.UserUnlockAs(c, args[0], args[1]); err == nil || c.who() != "10.0.0.3" {
@@ -73,49 +70,10 @@ func TestUsernameModeSharedPinNeedsBoth(t *testing.T) {
 	}
 }
 
-func TestUsernameUniqueIgnoringCaseAndIndependentOfName(t *testing.T) {
-	a := usernameApp(t)
-	admin := adminClient(t, a)
-	err := a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo", Username: sp("ANA.K")},
-	}})
-	if err == nil {
-		t.Fatal("two usernames equal ignoring case saved")
-	}
-	// A rename keeps the username; a username change keeps the name and the PIN.
-	err = a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{Name: "Anna", Was: "Ana"}, {Name: "Bo", Was: "Bo", Username: sp("bo2")},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	users := a.r().cfg.Users
-	if users[0].Name != "Anna" || users[0].Username != "ana.k" || users[1].Name != "Bo" || users[1].Username != "bo2" {
-		t.Fatalf("users %+v", users)
-	}
-	c := &client{ip: "10.0.0.1"}
-	if err := a.UserUnlockAs(c, "bo2", "1234"); err != nil || c.who() != "Bo" {
-		t.Fatalf("%v %q", err, c.who())
-	}
-}
-
-func TestUsernameModeNeedsEveryUsername(t *testing.T) {
-	a := userApp(t, true)
-	err := a.SaveUsers(adminClient(t, a), usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
-		{Name: "Ana", Was: "Ana", Username: sp("ana")}, {Name: "Bo", Was: "Bo"},
-	}})
-	if err == nil {
-		t.Fatal("Username and PIN accepted with a user lacking a username")
-	}
-	if a.r().cfg.SignInMode != config.SignInPin {
-		t.Fatal("a refused save changed the mode")
-	}
-}
-
 func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 	a := userApp(t, true)
 	req := usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
-		{Name: "Ana", Was: "Ana", Username: sp("ana")}, {Name: "Bo", Was: "Bo", Username: sp("bo")},
+		{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}}
 	// Over the wire the policy refuses it without the Advanced Settings PIN, and a
 	// trusted user is not enough.
@@ -157,12 +115,12 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Going back needs a new PIN for each user and keeps everything but the mode and PINs.
-	back := backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "2222"})
+	back := backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo", Pin: "2222"})
 	if err := a.SaveUsers(admin, back); err != nil {
 		t.Fatal(err)
 	}
 	cfg = a.r().cfg
-	if cfg.SignInMode != config.SignInPin || len(cfg.Users) != 2 || cfg.Users[0].Profile.Prefs["theme"] != "dark" || cfg.Users[0].Username != "ana" {
+	if cfg.SignInMode != config.SignInPin || len(cfg.Users) != 2 || cfg.Users[0].Profile.Prefs["theme"] != "dark" {
 		t.Fatalf("after switching back: %+v", cfg)
 	}
 	c := &client{ip: "10.0.0.5"}
@@ -177,7 +135,7 @@ func backToPin(users ...userEdit) usersReq {
 
 func TestUsernameModeBackToPinOnlyWithNewUniquePins(t *testing.T) {
 	a := usernameApp(t)
-	back := backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "2222"})
+	back := backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo", Pin: "2222"})
 	if err := a.SaveUsers(adminClient(t, a), back); err != nil {
 		t.Fatalf("new PINs for both: %v", err)
 	}
@@ -195,11 +153,11 @@ func TestUsernameModeBackToPinOnlyWithNewUniquePins(t *testing.T) {
 func TestUsernameModeBackToPinOnlyRefusesUsersWithoutNewPin(t *testing.T) {
 	a := usernameApp(t)
 	// Ana and Bo share 1234, but the server cannot see that: any user without a typed PIN is refused.
-	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo"}))
+	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo"}))
 	if err == nil || !strings.Contains(err.Error(), "Bo") || strings.Contains(err.Error(), "Ana") {
 		t.Fatalf("want a refusal naming only Bo, got %v", err)
 	}
-	err = a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana"}, userEdit{Name: "Bo", Was: "Bo"}))
+	err = a.SaveUsers(adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo"}))
 	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
 		t.Fatalf("want a refusal naming Ana and Bo, got %v", err)
 	}
@@ -208,20 +166,20 @@ func TestUsernameModeBackToPinOnlyRefusesUsersWithoutNewPin(t *testing.T) {
 
 func TestUsernameModeBackToPinOnlyRefusesEqualTypedPins(t *testing.T) {
 	a := usernameApp(t)
-	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "1111"}))
+	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo", Pin: "1111"}))
 	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
 		t.Fatalf("want a refusal naming Ana and Bo, got %v", err)
 	}
 	assertNothingSaved(t, a)
 }
 
-// assertNothingSaved: still Username and PIN, and Ana and Bo still sign in with the old shared PIN.
+// assertNothingSaved: still name and PIN, and Ana and Bo still sign in with the old shared PIN.
 func assertNothingSaved(t *testing.T, a *App) {
 	t.Helper()
 	if a.r().cfg.SignInMode != config.SignInUsername {
 		t.Fatal("the mode changed")
 	}
-	for user, want := range map[string]string{"ana.k": "Ana", "bobby": "Bo"} {
+	for user, want := range map[string]string{"Ana": "Ana", "Bo": "Bo"} {
 		c := &client{ip: "10.0.0.1"}
 		if err := a.UserUnlockAs(c, user, "1234"); err != nil || c.who() != want {
 			t.Fatalf("nothing should have been saved: %s %v %q", user, err, c.who())
@@ -240,15 +198,15 @@ func TestSetPinSharingFollowsTheMode(t *testing.T) {
 	}
 	a = usernameApp(t)
 	c = &client{ip: "10.0.0.2"}
-	if err := a.UserUnlockAs(c, "ana.k", "1234"); err != nil {
+	if err := a.UserUnlockAs(c, "Ana", "1234"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.UserSetPin(c, "1234", "567890"); err != nil {
-		t.Fatalf("Username and PIN: %v", err)
+		t.Fatalf("name and PIN: %v", err)
 	}
 	// Bo's PIN is still 1234.
 	c2 := &client{ip: "10.0.0.3"}
-	if err := a.UserUnlockAs(c2, "bobby", "1234"); err != nil || c2.who() != "Bo" {
+	if err := a.UserUnlockAs(c2, "Bo", "1234"); err != nil || c2.who() != "Bo" {
 		t.Fatalf("Bo: %v %q", err, c2.who())
 	}
 }
@@ -256,60 +214,42 @@ func TestSetPinSharingFollowsTheMode(t *testing.T) {
 func TestHeldLockResumesWithThePinInUsernameMode(t *testing.T) {
 	a := usernameApp(t)
 	c := &client{ip: "10.0.0.1"}
-	if err := a.UserUnlockAs(c, "ana.k", "1234"); err != nil {
+	if err := a.UserUnlockAs(c, "Ana", "1234"); err != nil {
 		t.Fatal(err)
 	}
 	a.UserLock(c)
 	// Bo shares Ana's PIN; the name and the PIN must not switch a held session to Bo.
-	if err := a.UserUnlockAs(c, "bobby", "1234"); err == nil {
-		t.Fatal("another user's username resumed a held Lock")
+	if err := a.UserUnlockAs(c, "Bo", "1234"); err == nil {
+		t.Fatal("another user's name resumed a held Lock")
 	}
 	if err := a.UserUnlockAs(c, "", "1234"); err != nil || c.who() != "Ana" {
 		t.Fatalf("resume: %v %q", err, c.who())
 	}
 }
 
-// Nothing sent before the PIN carries a username.
-func TestUsernamesStayOutOfPublicMessages(t *testing.T) {
+// The sign-in screen needs the mode to know what to ask.
+func TestLockStateCarriesSignInMode(t *testing.T) {
 	a := usernameApp(t)
 	a.mu.Lock()
-	hello := string(a.hello(helloPage{}))
 	locked := a.lockStateMu(&client{ip: "10.0.0.1"})
 	a.mu.Unlock()
-	lb, _ := json.Marshal(locked)
-	for _, s := range []string{"ana.k", "bobby"} {
-		if strings.Contains(hello, s) || strings.Contains(string(lb), s) {
-			t.Fatalf("%q leaked: %s %s", s, hello, lb)
-		}
-	}
-	// The sign-in screen needs the mode to know what to ask.
 	if locked.Mode != config.SignInUsername {
 		t.Fatalf("lockState mode %q", locked.Mode)
 	}
-	in := &client{ip: "10.0.0.2"}
-	if err := a.UserUnlockAs(in, "ana.k", "1234"); err != nil {
-		t.Fatal(err)
-	}
-	a.mu.Lock()
-	signed := a.lockStateMu(in)
-	a.mu.Unlock()
-	sb, _ := json.Marshal(signed)
-	if strings.Contains(string(sb), "ana.k") || strings.Contains(string(sb), "bobby") {
-		t.Fatalf("signed-in lockState carries a username: %s", sb)
-	}
 }
 
-func TestUsersListCarriesUsernamesAndMode(t *testing.T) {
+// The Users editor gets each user's hidden id, so a save keeps the user through a rename.
+func TestUsersListCarriesIDsAndMode(t *testing.T) {
 	a := usernameApp(t)
 	r := a.usersList(7)
 	b, _ := json.Marshal(r)
-	if r.Mode != config.SignInUsername || r.Users[0].Username != "ana.k" || r.Users[1].Username != "bobby" || strings.Contains(string(b), "pbkdf2") {
+	if r.Mode != config.SignInUsername || r.Users[0].ID != idOf(a, "Ana") || r.Users[0].ID == "" || strings.Contains(string(b), "pbkdf2") {
 		t.Fatalf("list %s", b)
 	}
 }
 
 // userUnlock carries user next to pin; the policy keeps it open.
-func TestUserUnlockMessageCarriesUsername(t *testing.T) {
+func TestUserUnlockMessageCarriesName(t *testing.T) {
 	a := usernameApp(t)
 	c := &client{ip: "10.0.0.1"}
 	read := register(a, c)
@@ -317,7 +257,7 @@ func TestUserUnlockMessageCarriesUsername(t *testing.T) {
 		t.Fatalf("userUnlock needs no access: %v", err)
 	}
 	var m inMsg
-	if err := json.Unmarshal([]byte(`{"t":"userUnlock","user":"bobby","pin":"1234","id":4}`), &m); err != nil {
+	if err := json.Unmarshal([]byte(`{"t":"userUnlock","user":"bo","pin":"1234","id":4}`), &m); err != nil {
 		t.Fatal(err)
 	}
 	a.serveUserUnlock(c, &m)
@@ -329,29 +269,29 @@ func TestUserUnlockMessageCarriesUsername(t *testing.T) {
 	}
 }
 
-// An unknown username must cost about what a known one does, or response time tells
-// which usernames exist.
-func TestUnknownUsernameCostsAsMuchAsAKnownOne(t *testing.T) {
+// An unknown name must cost about what a known one does, or response time tells
+// which names exist.
+func TestUnknownNameCostsAsMuchAsAKnownOne(t *testing.T) {
 	a := usernameApp(t)
 	try := func(user string) time.Duration {
 		return fastestOf(t, a, func() error { return a.UserUnlockAs(&client{ip: "10.0.0.9"}, user, "9999") })
 	}
-	known, unknown := try("ana.k"), try("nobody")
+	known, unknown := try("Ana"), try("nobody")
 	if unknown < known/2 {
-		t.Fatalf("unknown username answered in %v, a known one in %v", unknown, known)
+		t.Fatalf("unknown name answered in %v, a known one in %v", unknown, known)
 	}
 }
 
-// PIN lengths are public (lockState.lens). So a wrong-length PIN for a known username must
-// still pay the hash cost, or a fast answer says the username exists.
+// PIN lengths are public (lockState.lens). So a wrong-length PIN for a known name must
+// still pay the hash cost, or a fast answer says the name exists.
 func TestWrongLengthPinCostsAsMuchAsARightLengthOne(t *testing.T) {
 	a := usernameApp(t)
 	try := func(user, pin string) time.Duration {
 		return fastestOf(t, a, func() error { return a.UserUnlockAs(&client{ip: "10.0.0.9"}, user, pin) })
 	}
-	short, unknown := try("ana.k", "99"), try("nobody", "9999")
+	short, unknown := try("Ana", "99"), try("nobody", "9999")
 	if short < unknown/2 {
-		t.Fatalf("a wrong-length PIN answered in %v, an unknown username in %v", short, unknown)
+		t.Fatalf("a wrong-length PIN answered in %v, an unknown name in %v", short, unknown)
 	}
 }
 
@@ -378,12 +318,12 @@ func TestEmptySignInModeKeepsTheCurrent(t *testing.T) {
 	a := userApp(t, true)
 	admin := adminClient(t, a)
 	err := a.SaveUsers(admin, usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
-		{Name: "Ana", Was: "Ana", Username: sp("ana")}, {Name: "Bo", Was: "Bo", Username: sp("bo")},
+		{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatalf("a save with no mode: %v", err)
 	}
 	if got := a.r().cfg.SignInMode; got != config.SignInUsername {

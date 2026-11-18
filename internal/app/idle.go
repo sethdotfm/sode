@@ -44,7 +44,7 @@ func (a *App) overdueMu(c *client, cfg config.Config, now time.Time) bool {
 	if !a.userOKMu(c, cfg) {
 		return false
 	}
-	u, _ := cfg.FindUser(c.u.user.Load().Name)
+	u, _ := cfg.FindUserByID(c.u.user.Load().ID)
 	lim := idleLimit(cfg, u)
 	if lim == 0 {
 		return false

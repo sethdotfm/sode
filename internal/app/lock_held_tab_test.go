@@ -88,27 +88,24 @@ func TestSignOutFromNonPersistentLockRevokesToken(t *testing.T) {
 	}
 }
 
-// A rename ends the user's persistent sessions (ADR 0001): tokens are looked up by name.
-func TestRenameEndsPersistentSession(t *testing.T) {
+// A rename keeps the user's persistent sessions: tokens hold the user's id, not the name.
+func TestRenameKeepsPersistentSession(t *testing.T) {
 	a, c, tok := persistentApp(t)
 	admin := &client{ip: "10.0.0.9"}
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Anna", Was: "Ana", Persistent: true}, {Name: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Anna", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
-	}
-	if tokenAlive(a, tok) {
-		t.Fatal("the token outlived a rename")
 	}
 	fresh := &client{ip: "10.0.0.2"}
 	register(a, fresh)
 	a.Hi(fresh, "main", tok)
-	if err := canTake(a, fresh); !errors.Is(err, errPageLocked) {
-		t.Fatalf("a reload with the old token: %v", err)
+	if err := canTake(a, fresh); err != nil || fresh.who() != "Anna" {
+		t.Fatalf("a reload with the token: %v as %q", err, fresh.who())
 	}
-	if err := canTake(a, c); !errors.Is(err, errPageLocked) {
-		t.Fatalf("the open connection stayed signed in as the old name: %v", err)
+	if err := canTake(a, c); err != nil || c.who() != "Anna" {
+		t.Fatalf("the open connection: %v as %q", err, c.who())
 	}
 }
 
@@ -117,7 +114,7 @@ func TestRenameEndsPersistentSession(t *testing.T) {
 func TestLockRacingTokenIssueReachesTheToken(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", false, true)
-	ana, _ := a.r().cfg.FindUser("Ana")
+	ana, _ := a.r().cfg.FindUserByName("Ana")
 	c := &client{ip: "10.0.0.1"}
 	register(a, c)
 	a.mu.Lock()

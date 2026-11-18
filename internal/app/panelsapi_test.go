@@ -35,7 +35,7 @@ func panelsApp(t *testing.T) *App {
 
 func userKey(t *testing.T, a *App, name string) string {
 	t.Helper()
-	return apiTestKey(t, a, keyOwner{Kind: actorUser, Name: name}, "Desk "+name, time.Time{})
+	return apiTestKey(t, a, ownerOf(a, name), "Desk "+name, time.Time{})
 }
 
 func apiSend(a *App, method, path, key, body string) *httptest.ResponseRecorder {

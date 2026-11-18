@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -206,7 +205,8 @@ type PanelSetEntry struct {
 	panelLayout `yaml:",inline"`
 }
 
-// PanelSet: Scope is panelShareMe (Owner only) or panelShareAll (every user can push it).
+// PanelSet: Scope is panelShareMe (Owner only) or panelShareAll (every user can push it). Owner is
+// a user id; as sent, owner is the live name (setOut).
 type PanelSet struct {
 	ID      string          `yaml:"id" json:"id"`
 	Name    string          `yaml:"name" json:"name"`
@@ -260,7 +260,7 @@ func setFileName(set PanelSet) string {
 	if set.Scope == panelShareAll {
 		return "everyone.yaml"
 	}
-	return "me-" + hex.EncodeToString([]byte(strings.ToLower(set.Owner))) + ".yaml"
+	return "me-" + hex.EncodeToString([]byte(set.Owner)) + ".yaml"
 }
 
 // persistLocked rewrites the file that holds set's scope and owner.
@@ -308,28 +308,6 @@ func (s *panelSetStore) putLocked(set PanelSet) error {
 	return nil
 }
 
-// followUsers renames set owners. A Me set's file is named for its owner. So the set moves to the new
-// name's file and the old file is rewritten without it.
-func (s *panelSetStore) followUsers(renames map[string]string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, set := range s.by {
-		to, ok := renames[strings.ToLower(set.Owner)]
-		if !ok || to == set.Owner {
-			continue
-		}
-		old := set
-		set.Owner = to
-		if err := s.putLocked(set); err != nil {
-			log.Printf("panel sets: owner of %s not renamed: %v", id, err)
-			continue
-		}
-		if err := s.persistLocked(old); err != nil {
-			log.Printf("panel sets: %s left in the old owner's file: %v", id, err)
-		}
-	}
-}
-
 func (s *panelSetStore) create(set PanelSet) (PanelSet, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -364,7 +342,7 @@ func (s *panelSetStore) delete(id string) error {
 	return nil
 }
 
-// visible is every Everyone set and the user's own Me sets, by name.
+// visible is every Everyone set and user's (an id) own Me sets, by name.
 func (s *panelSetStore) visible(user string) []PanelSet {
-	return s.sorted(func(set PanelSet) bool { return set.Scope == panelShareAll || strings.EqualFold(set.Owner, user) })
+	return s.sorted(func(set PanelSet) bool { return set.Scope == panelShareAll || user != "" && set.Owner == user })
 }

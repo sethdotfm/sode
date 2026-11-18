@@ -52,7 +52,7 @@ func TestPanelFileFromBeforeGridLoadsAsButtons(t *testing.T) {
 	id := makePanel(t, a, ana, `{"name":"Fixture"}`)
 	old := "id: " + id + `
 name: Fixture
-owner: Ana
+owner: ` + idOf(a, "Ana") + `
 acts: session
 share:
   mode: me
@@ -99,7 +99,7 @@ func TestGridPanelTakeModesSurviveARestart(t *testing.T) {
 	old := makeGridPanel(t, a, ana, "Old grid")
 	file := "id: " + old + `
 name: Old grid
-owner: Ana
+owner: ` + idOf(a, "Ana") + `
 acts: session
 share:
   mode: me
