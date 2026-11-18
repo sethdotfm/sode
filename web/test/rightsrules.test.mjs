@@ -68,13 +68,13 @@ test('planOutside names the first route the rights refuse, with shown numbers', 
   assert.equal(planOutside({ levels: [2] }, plan, 1), 'level 1 is outside your rights');
 });
 
-test('planOutside skips the Before source of an undo and checks a preset by name', () => {
+test('planOutside skips the Before source of an undo and checks a preset by id', () => {
   const undo = { verb: 'undo', items: [{ dst: { n: 9 }, undo: { id: 1 }, groups: [{ src: { n: 3 }, levels: [1] }] }] };
   assert.equal(planOutside({ sources: [] }, undo, 0), '');
   assert.equal(planOutside({ dsts: [] }, undo, 0), 'destination 9 is outside your rights');
-  const preset = { verb: 'preset', preset: 'Wall', items: [] };
-  assert.equal(planOutside({ presets: ['News'] }, preset, 0), 'preset "Wall" is outside your rights');
-  assert.equal(planOutside({ presets: ['Wall'] }, preset, 0), '');
+  const preset = { verb: 'preset', preset: 'Wall', presetId: 'p-wall', items: [] };
+  assert.equal(planOutside({ presets: ['p-news'] }, preset, 0), 'preset "Wall" is outside your rights');
+  assert.equal(planOutside({ presets: ['p-wall'] }, preset, 0), '');
 });
 
 test('Edit user rights jumps to the Rights tab with that row selected, even after a rename', () => {

@@ -11,9 +11,40 @@ import (
 
 // REST seam for the Fixed destination setting, `settings.fixedDests`.
 
+// fixedOf is the numbers of a read panel's list, nil when it has none.
 func fixedOf(p map[string]any) any {
 	s, _ := p["settings"].(map[string]any)
-	return s["fixedDests"]
+	if s["fixedDests"] == nil {
+		return nil
+	}
+	return wireNs(s["fixedDests"])
+}
+
+// The list is stored as {router, n, name} references; a read gives them back.
+func TestFixedDestsStoredAsReferences(t *testing.T) {
+	a := panelsApp(t)
+	uid := a.r().cfg.UID
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, `{"name":"Wall","settings":{"fixedDests":[2,{"n":40}]}}`)
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(a.cfgPath), "panels", id+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"router: " + uid, `"n": 2`, "name: MON 2", `"n": 40`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("file has no %q:\n%s", want, b)
+		}
+	}
+	got := readPanel(t, a, ana, id)["settings"].(map[string]any)["fixedDests"].([]any)
+	if first := got[0].(map[string]any); first["router"] != uid || first["n"] != 2.0 || first["name"] != "MON 2" {
+		t.Fatalf("read %v", got)
+	}
+	// A page sends the list back as it read it; the names stay.
+	rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Wall","settings":{"fixedDests":[{"router":"`+uid+`","n":2,"name":"MON 2"},40]}}`)
+	if rec.Code != 200 || fmt.Sprint(fixedOf(readPanel(t, a, ana, id))) != "[2 40]" {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Wall","settings":{"fixedDests":[{"router":"other","n":2}]}}`), 400, "bad_request")
 }
 
 func TestFixedDestsSaveAndRead(t *testing.T) {
@@ -24,7 +55,7 @@ func TestFixedDestsSaveAndRead(t *testing.T) {
 		t.Fatalf("fixed destinations %s", got)
 	}
 	again := loadPanels(a.cfgPath)
-	if p, _ := again.get(id); fmt.Sprint(p.Settings["fixedDests"]) != "[12 0 40]" {
+	if p, _ := again.get(id); fmt.Sprint(fixedNs(p.Settings["fixedDests"])) != "[12 0 40]" {
 		t.Fatalf("after reload %v", p.Settings)
 	}
 

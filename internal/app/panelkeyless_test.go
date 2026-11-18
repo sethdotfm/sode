@@ -237,7 +237,7 @@ func TestKeylessPageGetsAKeyOnlyByAnAssign(t *testing.T) {
 	if msg["panel"] != to || msg["instance"] != "Lobby" || key == "" {
 		t.Fatalf("message %v", msg)
 	}
-	if got := panelOf(t, a, to, key); fmt.Sprint(got["rights"].(map[string]any)["dsts"]) != "[2]" {
+	if got := panelOf(t, a, to, key); fmt.Sprint(wireNs(got["rights"].(map[string]any)["dsts"])) != "[2]" {
 		t.Fatalf("rights %v", got["rights"])
 	}
 	if len(keylessRows(t, a, from, cy)) != 0 {

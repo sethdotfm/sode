@@ -90,7 +90,12 @@ export function createAccessTab(ed, ctx) {
     if (kind === 'presets') text.rows = 3;
     return { kind, only: all.input, text, node: el('div', 'sode__field', all.label, text) };
   });
-  let draft = draftOf(null, 0); // the Rights lists as typed; read back into clientRights on each change
+  let draft = draftOf(null, 0); // the Rights lists as typed; read back into clientRights on each change.
+  // Rights name presets by id. The list the key can read gives the names to type.
+  let presets = [];
+  api('api/v1/presets')
+    .then((r) => (presets = r?.presets || []))
+    .catch(() => {});
   const hidden = check('Hide what the client is not allowed to use', { id: 'ed-rl-hidden' });
   const limits = el('div', 'sode-side__form', ...lists.map((l) => l.node), hidden.label);
   limits.hidden = true;
@@ -107,9 +112,9 @@ export function createAccessTab(ed, ctx) {
 
   // Typing a list sends the Rights as written. A bad list keeps the last good Rights and says why.
   function sendRights() {
-    for (const l of lists) draft[l.kind] = { all: !l.only.checked, text: l.text.value };
+    for (const l of lists) draft[l.kind] = { ...draft[l.kind], all: !l.only.checked, text: l.text.value };
     draft.visibility = hidden.input.checked ? 'hidden' : 'readonly';
-    const r = rightsOf(draft, ctx.offset(), ctx.levelCount() || 99);
+    const r = rightsOf(draft, ctx.offset(), ctx.levelCount() || 99, presets);
     note.textContent = r.error || '';
     if (!r.error) ed.setFields({ clientRights: r.rights });
   }
@@ -120,7 +125,7 @@ export function createAccessTab(ed, ctx) {
   hidden.input.addEventListener('change', sendRights);
   limit.input.addEventListener('change', () => {
     if (limit.input.checked) {
-      draft = draftOf(ed.panel()?.clientRights, ctx.offset());
+      draft = draftOf(ed.panel()?.clientRights, ctx.offset(), presets);
       fill();
       sendRights();
     } else {

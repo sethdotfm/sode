@@ -329,12 +329,12 @@ func TestChromeGridPanelSharingModes(t *testing.T) {
 func TestChromeGridPanelProtected(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	span := func(n int) *[]int {
+	span := func(n int) *[]config.Ref {
 		v := make([]int, n)
 		for i := range v {
 			v[i] = i
 		}
-		return &v
+		return config.Nums(v...)
 	}
 	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Rights = config.Rights{Sources: span(20), Dsts: span(30)} })
 	srv := seamServer(t, a)
