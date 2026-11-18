@@ -50,12 +50,13 @@ test('ownerText names a user or an API client, and keysByOwner groups for the ad
   assert.equal(ownerText({ kind: 'user', name: 'Ana' }), 'Ana (user)');
   assert.equal(ownerText({ kind: 'client', name: 'PanelsBot' }), 'PanelsBot (API client)');
   const keys = [
-    { id: '1', owner: { kind: 'user', name: 'Ana' } },
+    { id: '1', owner: { kind: 'user', user: 'u-1', name: 'Ana' } },
     { id: '2', owner: { kind: 'client', name: 'PanelsBot' } },
-    { id: '3', owner: { kind: 'user', name: 'Ana' } },
+    { id: '3', owner: { kind: 'user', user: 'u-1', name: 'Ana' } },
+    { id: '4', owner: { kind: 'client', name: 'u-1' } },
   ];
   const g = keysByOwner(keys);
-  assert.equal(g.length, 2);
+  assert.equal(g.length, 3);
   assert.deepEqual(
     g[0].keys.map((k) => k.id),
     ['1', '3'],

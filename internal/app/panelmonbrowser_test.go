@@ -39,7 +39,7 @@ func TestChromePanelWatchToast(t *testing.T) {
 
 	b.waitFor("Watch checkbox", `!!document.getElementById('panels-watch')`)
 	b.eval(`document.getElementById('panels-watch').click()`)
-	for deadline := time.Now().Add(10 * time.Second); !a.mon.watching("Ana", id); time.Sleep(50 * time.Millisecond) {
+	for deadline := time.Now().Add(10 * time.Second); !a.mon.watching(idOf(a, "Ana"), id); time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("the checkbox did not set the watch")
 		}
@@ -53,7 +53,7 @@ func TestChromePanelWatchToast(t *testing.T) {
 	// Open now lists the instance with its own Watch box, which watches only that instance.
 	b.waitFor("instance watch box", `!!document.querySelector('[data-watch-instance="Lobby tablet"]')`)
 	b.eval(`document.querySelector('[data-watch-instance="Lobby tablet"]').click()`)
-	for deadline := time.Now().Add(10 * time.Second); !a.mon.watchingInst("Ana", id, "Lobby tablet"); time.Sleep(50 * time.Millisecond) {
+	for deadline := time.Now().Add(10 * time.Second); !a.mon.watchingInst(idOf(a, "Ana"), id, "Lobby tablet"); time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("the instance checkbox did not set the instance watch")
 		}
@@ -83,7 +83,7 @@ func TestChromePanelWatchToast(t *testing.T) {
 	b.eval(`document.querySelector('[data-hide-instance="Lobby tablet"]').click()`)
 	b.waitFor("instance hidden", `!document.querySelector('[data-hide-instance]') && /Hidden: Lobby tablet/.test(document.getElementById('panels-open').textContent)`)
 	b.waitFor("nothing counted", `document.querySelector('[data-online]')?.textContent === 'All Offline'`)
-	if !a.mon.watchingInst("Ana", id, "Lobby tablet") {
+	if !a.mon.watchingInst(idOf(a, "Ana"), id, "Lobby tablet") {
 		t.Fatal("Hide ended the instance watch")
 	}
 	b.shot("hidden")
@@ -138,7 +138,7 @@ func TestChromePanelOutageBanner(t *testing.T) {
 	b.shot("menu")
 	b.eval(`document.querySelector('[data-panel-alarm="clear"]').click()`)
 	b.waitFor("banner cleared", `!document.querySelector('[data-panel-outage]').textContent`)
-	if !a.mon.watching("Ana", id) {
+	if !a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("Clear alarm for now ended the watch")
 	}
 
@@ -149,7 +149,7 @@ func TestChromePanelOutageBanner(t *testing.T) {
 	b.waitFor("stop button", `!!document.querySelector('[data-panel-alarm="stop"]')`)
 	b.eval(`document.querySelector('[data-panel-alarm="stop"]').click()`)
 	b.waitFor("banner gone", `!document.querySelector('[data-panel-outage]').textContent`)
-	if a.mon.watching("Ana", id) {
+	if a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("Stop monitoring kept the watch")
 	}
 	b.check()

@@ -22,7 +22,7 @@ import {
   churnKey,
   localIdleLock,
   signInOffered,
-  asksUsername,
+  asksName,
   canSend,
   padDelay,
   signInMsg,
@@ -124,7 +124,7 @@ function build() {
   cancelBtn.hidden = true;
   cancelBtn.addEventListener('click', cancelSignIn);
   nameInput = el('input', 'pb-input sode-lock__name');
-  nameInput.id = 'lock-username';
+  nameInput.id = 'lock-name';
   nameInput.type = 'text';
   nameInput.autocomplete = 'username';
   nameInput.autocapitalize = 'none';
@@ -137,7 +137,7 @@ function build() {
     const wait = padDelay(L, pin, nameInput.value);
     if (wait != null && pin) timer = setTimeout(sendPin, wait);
   });
-  nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Username'), { htmlFor: 'lock-username' }), nameInput);
+  nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Name'), { htmlFor: 'lock-name' }), nameInput);
   nameField.hidden = true;
   padBody = el('div', 'sode-lock__body', nameField, state, dotsEl, msg, pad, cancelBtn);
 
@@ -229,7 +229,7 @@ function showLock() {
   const body = viewBody(V, lockCovers(L));
   padBody.hidden = body !== 'pad';
   cancelBtn.hidden = V.mode !== MODE.SIGN_IN;
-  nameField.hidden = !asksUsername(L);
+  nameField.hidden = !asksName(L);
   letterBody.hidden = body !== 'letter';
   signOutBtn.hidden = !(L.held || signOutOffered(L));
   signInAsBtn.hidden = L.held || !signInAsOffered(L);
@@ -414,7 +414,7 @@ function press(k) {
   if (dotsEl.classList.contains('is-text')) clearFeedback();
   if (k === 'enter') {
     if (canSend(L, pin, nameValue())) sendPin();
-    else if (asksUsername(L) && !nameValue().trim()) say('Enter your username.', true);
+    else if (asksName(L) && !nameValue().trim()) say('Enter your name.', true);
     else say(pin ? 'No PIN has that many digits.' : 'Enter your PIN.', true);
     return;
   }
@@ -430,14 +430,14 @@ function press(k) {
 
 function sendPin() {
   const id = ++seq;
-  if (!wsSend(signInMsg(L, { pin, id, username: nameValue() }))) return say('Not connected to Sode.', true);
+  if (!wsSend(signInMsg(L, { pin, id, name: nameValue() }))) return say('Not connected to Sode.', true);
   say('Checking…');
 }
 
 onMsg('userUnlockResult', (m) => {
   if (m.id !== seq) return;
   if (m.ok) {
-    if (asksUsername(L) && remembers(m)) keepLastUser(nameValue().trim());
+    if (asksName(L) && remembers(m)) keepLastUser(nameValue().trim());
     pin = '';
     unlocked = true;
     say('');
@@ -643,7 +643,7 @@ document.addEventListener(
         return;
       }
       if (e.target === nameInput) {
-        // The pad's keys must not eat what is typed into the username; Enter moves on to the PIN.
+        // The pad's keys must not eat what is typed into the name; Enter moves on to the PIN.
         if (e.key === 'Enter') {
           e.preventDefault();
           e.stopPropagation();

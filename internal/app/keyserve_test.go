@@ -15,7 +15,7 @@ func keyTestApp(t *testing.T) *App {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
 	if err := a.SaveUsers(admin, usersReq{
-		Users:      []userEdit{{Name: "Ana"}, {Name: "Bo"}},
+		Users:      []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}},
 		APIClients: &[]config.APIClient{{Name: "PanelsBot", Scopes: []string{config.ScopeTake}}},
 	}); err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestOwnKeyNeedsOwnPinAndShowsKeyOnce(t *testing.T) {
 	if r["ok"] != false {
 		t.Fatalf("wrong PIN made a key: %v", r)
 	}
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("key stored after a wrong PIN")
 	}
 	// The Advanced Settings PIN is not the user's PIN.
@@ -119,7 +119,7 @@ func TestOwnKeyNeedsSignIn(t *testing.T) {
 	c := &client{ip: "10.0.0.1"}
 	next := registerAll(a, c)
 	r := send(t, a, c, next, inMsg{T: "keyCreate", ID: 1, Pin: "1234", KeyName: "x"}, "keyCreateResult")
-	if r["ok"] != false || keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if r["ok"] != false || keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatalf("anonymous connection made a key: %v", r)
 	}
 	if r := send(t, a, c, next, inMsg{T: "keyListOwn", ID: 2}, "keyListOwnResult"); r["ok"] != false || len(r["keys"].([]any)) != 0 {
@@ -181,7 +181,7 @@ func TestKeyExpiryAtCreateAndSweep(t *testing.T) {
 		t.Fatal("expired key accepted")
 	}
 	a.expireKeys(soon.Add(time.Second))
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("expired key kept")
 	}
 	var found bool
@@ -205,7 +205,7 @@ func TestRevokeOwnKeyOnlyOwn(t *testing.T) {
 	if r := send(t, a, bo, nextB, inMsg{T: "keyRevoke", ID: 1, KeyID: rec.ID}, "keyRevokeResult"); r["ok"] != false {
 		t.Fatalf("Bo revoked Ana's key: %v", r)
 	}
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 1 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 1 {
 		t.Fatal("key gone")
 	}
 	if r := send(t, a, ana, nextA, inMsg{T: "keyRevoke", ID: 2, KeyID: rec.ID}, "keyRevokeResult"); r["ok"] != true {
@@ -220,16 +220,13 @@ func TestRevokeOwnKeyOnlyOwn(t *testing.T) {
 	}
 }
 
-func TestUserKeysDieWithPinRenameRemoval(t *testing.T) {
+func TestUserKeysDieWithPinChangeAndRemoval(t *testing.T) {
 	for name, edit := range map[string]func(a *App, admin *client) error{
 		"PIN change": func(a *App, admin *client) error {
-			return a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "4321"}, {Name: "Bo"}}})
-		},
-		"rename": func(a *App, admin *client) error {
-			return a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Anna", Was: "Ana"}, {Name: "Bo"}}})
+			return a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "4321"}, {ID: idOf(a, "Bo"), Name: "Bo"}}})
 		},
 		"removal": func(a *App, admin *client) error {
-			return a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo"}}})
+			return a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}})
 		},
 		"own PIN change": func(a *App, _ *client) error {
 			c, _ := signedIn(t, a, "10.0.0.7", "1234")
@@ -284,13 +281,13 @@ func TestClientKeysSurviveUserPinsAndDieWithClient(t *testing.T) {
 		t.Fatal("client key died with user PINs")
 	}
 	// A save that leaves the client list unsent keeps the client and its keys.
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, ok := a.keys.find(sec, time.Now()); !ok {
 		t.Fatal("client key died when the save did not mention clients")
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}, APIClients: &[]config.APIClient{}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}, APIClients: &[]config.APIClient{}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, ok := a.keys.find(sec, time.Now()); ok {
@@ -307,10 +304,10 @@ func TestAdminKeyMessages(t *testing.T) {
 	if r["ok"] != true || !strings.HasPrefix(r["key"].(string), "sode_") {
 		t.Fatalf("create for client: %v", r)
 	}
-	if r := send(t, a, admin, register, inMsg{T: "keyCreateFor", ID: 2, KeyName: "x", Owner: &keyOwner{Kind: actorUser, Name: "Nobody"}}, "keyCreateForResult"); r["ok"] != false {
+	if r := send(t, a, admin, register, inMsg{T: "keyCreateFor", ID: 2, KeyName: "x", Owner: ptr(ownerOf(a, "Nobody"))}, "keyCreateForResult"); r["ok"] != false {
 		t.Fatalf("key for a missing user: %v", r)
 	}
-	r = send(t, a, admin, register, inMsg{T: "keyCreateFor", ID: 3, KeyName: "Ana's panel", Owner: &keyOwner{Kind: actorUser, Name: "Ana"}}, "keyCreateForResult")
+	r = send(t, a, admin, register, inMsg{T: "keyCreateFor", ID: 3, KeyName: "Ana's panel", Owner: ptr(ownerOf(a, "Ana"))}, "keyCreateForResult")
 	anaID := r["info"].(map[string]any)["id"].(string)
 	l := send(t, a, admin, register, inMsg{T: "keyListAll", ID: 4}, "keyListAllResult")
 	if len(l["keys"].([]any)) != 2 {
@@ -367,7 +364,7 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	srcs := []int{1, 2}
 	tr := true
 	err := a.SaveUsers(admin, usersReq{
-		Users:       []userEdit{{Name: "Ana", Rights: &config.Rights{Sources: &srcs, Visibility: config.VisHidden}, NoAutoLock: &tr}, {Name: "Bo"}},
+		Users:       []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Sources: &srcs, Visibility: config.VisHidden}, NoAutoLock: &tr}, {ID: idOf(a, "Bo"), Name: "Bo"}},
 		GuestRights: &config.Rights{Dsts: &[]int{}},
 		GuestScopes: &[]string{config.ScopeNames},
 	})
@@ -375,7 +372,7 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg
-	ana, _ := cfg.FindUser("Ana")
+	ana, _ := cfg.FindUserByName("Ana")
 	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(2) || ana.Rights.AllowsSource(3) {
 		t.Fatalf("Ana %+v", ana)
 	}
@@ -384,11 +381,11 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	}
 
 	// A save from a page that knows none of it keeps all of it.
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	cfg = a.r().cfg
-	ana, _ = cfg.FindUser("Ana")
+	ana, _ = cfg.FindUserByName("Ana")
 	if !ana.NoAutoLock || ana.Rights.Sources == nil || cfg.GuestRights.Dsts == nil || len(cfg.APIClients) != 1 {
 		t.Fatalf("a stale save erased: %+v %+v", ana, cfg.GuestRights)
 	}
@@ -418,11 +415,11 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 func TestUsersSaveRefusesBadRights(t *testing.T) {
 	a := keyTestApp(t)
 	admin := adminClient(t, a)
-	err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Rights: &config.Rights{Visibility: "secret"}}, {Name: "Bo"}}})
+	err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Visibility: "secret"}}, {ID: idOf(a, "Bo"), Name: "Bo"}}})
 	if err == nil {
 		t.Fatal("bad visibility saved")
 	}
-	err = a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}, APIClients: &[]config.APIClient{{Name: "ana"}}})
+	err = a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}, APIClients: &[]config.APIClient{{Name: "ana"}}})
 	if err == nil {
 		t.Fatal("API client with a user's name saved")
 	}
@@ -435,7 +432,7 @@ func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	tr := true
 	srcs := []int{7}
 	if err := a.SaveUsers(admin, usersReq{
-		Users:      []userEdit{{Name: "Ana", NoAutoLock: &tr, Rights: &config.Rights{Sources: &srcs}}, {Name: "Bo"}},
+		Users:      []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", NoAutoLock: &tr, Rights: &config.Rights{Sources: &srcs}}, {ID: idOf(a, "Bo"), Name: "Bo"}},
 		APIClients: &[]config.APIClient{{Name: "PanelsBot", Rights: config.Rights{Dsts: &[]int{42}}}},
 	}); err != nil {
 		t.Fatal(err)

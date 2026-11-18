@@ -39,14 +39,14 @@ func (a *App) SessionKey(c *client, keyName string) (string, apiKey, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	cur := a.r().cfg
-	nu, ok := cur.FindUser(u.Name)
+	nu, ok := cur.FindUserByID(u.ID)
 	if !ok || nu.Pin != u.Pin {
 		return "", apiKey{}, errors.New("your PIN changed; unlock again")
 	}
-	if !a.tokens.live(tokenKey(tok), u.Name, cur) {
+	if !a.tokens.live(tokenKey(tok), u.ID, cur) {
 		return "", apiKey{}, errUnlockFirst
 	}
-	return a.keys.create(keyOwner{Kind: actorUser, Name: u.Name}, keyName, time.Time{}, 0, pinFP(u.Pin), tokenKey(tok))
+	return a.keys.create(userOwner(u), keyName, time.Time{}, 0, pinFP(u.Pin), tokenKey(tok))
 }
 
 func (a *App) serveSessionKey(c *client, m *inMsg) {
@@ -59,10 +59,10 @@ func (a *App) serveSessionKey(c *client, m *inMsg) {
 func (a *App) endSessionKeys() {
 	cfg := a.r().cfg
 	gone := a.keys.dropWhere(func(r keyRec) bool {
-		return r.Sess != "" && !a.tokens.live(r.Sess, r.Owner.Name, cfg)
+		return r.Sess != "" && !a.tokens.live(r.Sess, r.Owner.User, cfg)
 	})
 	a.endStreams(gone, "key ended: its session ended")
 	for _, k := range gone {
-		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended: its session ended", k.Name, k.Owner.Name), nil)
+		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended: its session ended", k.Name, k.Owner.label(cfg)), nil)
 	}
 }

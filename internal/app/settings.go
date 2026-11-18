@@ -115,6 +115,7 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	a.mu.Lock()
 	a.rt.Store(nr)
 	a.endDeadHeldMu()
+	a.renameSignedInMu()
 	a.refreshStreams(nr.cfg)
 	if after != nil {
 		after(old, nr)

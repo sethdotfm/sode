@@ -12,7 +12,7 @@ import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
-import { MODES, RENAME_HINT, clashNotice, needsNewPins, pinClashes, prefillUsernames, renameNotice, usernameColumn, usersReq } from './usersrules.js';
+import { MODES, clashNotice, needsNewPins, pinClashes, usersReq } from './usersrules.js';
 
 // ---- the Settings section (index.html #users-group)
 const manage = $('users-manage');
@@ -48,18 +48,10 @@ const modeField = el(
   el(
     'span',
     'sode__hint',
-    'Username and PIN: each user has a username, and two users can share a PIN. A switch back to PIN only needs a new, different PIN for every user.',
+    'Name and PIN: each user signs in with their name and PIN, and two users can share a PIN. A switch back to PIN only needs a new, different PIN for every user.',
   ),
 );
-const fillBtn = btn('pb-btn--outline pb-btn--sm', 'Fill empty usernames', () => {
-  const r = readRows();
-  const names = prefillUsernames(r);
-  for (const [i, row] of [...rows.children].entries()) row.querySelector('input[data-field="username"]').value = names[i];
-  touched();
-});
-fillBtn.dataset.pbTip = 'Sets each empty username to the Name without spaces. You can edit them before you save.';
-const usernameHead = el('span', null, 'Username');
-const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
+const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows);
 
 const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
   addRow().focus();
@@ -83,16 +75,20 @@ const usersPanel = el(
   el(
     'p',
     'sode__hint',
-    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. ' +
-      RENAME_HINT,
+    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. A rename keeps the user signed in, with their keys, panels and Profile.',
   ),
   table,
-  el('div', 'sode__users-acts', addBtn, fillBtn),
+  el('div', 'sode__users-acts', addBtn),
   el('div', 'sode__users-opts', modeField, formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
 );
 // The rights editor and the API clients tab read the live rows, and hand back their drafts on save.
 const userList = () =>
-  [...rows.children].map((r) => ({ rid: Number(r.dataset.rid), name: r.querySelector('input[data-field="name"]').value, was: r.dataset.was }));
+  [...rows.children].map((r) => ({
+    rid: Number(r.dataset.rid),
+    id: r.dataset.uid,
+    name: r.querySelector('input[data-field="name"]').value,
+    was: r.dataset.was,
+  }));
 const rightsPanel = makeRightsTab({ users: userList, clients: () => clientsTab.read(), touched: () => touched() });
 const clientsTab = makeClientsTab({ users: userList, touched: () => touched(), adopt: (rid, c) => c.name && rightsPanel.adoptClient(rid, c) });
 const tabs = makeTabs(
@@ -152,7 +148,7 @@ function touched() {
     pin.classList.toggle('pb-input--invalid', clash);
     pin.placeholder = asking || !row.dataset.was ? 'new PIN' : 'unchanged';
   }
-  setNote(clashNotice(clashes) || renameNotice(r));
+  setNote(clashNotice(clashes));
 }
 function fail(text) {
   err.textContent = sentence(text);
@@ -160,13 +156,6 @@ function fail(text) {
 }
 
 const mode = () => (modeSelect.value === 'username' ? 'username' : 'pin');
-function paintMode() {
-  const named = usernameColumn(mode());
-  table.classList.toggle('sode__users-table--named', named);
-  usernameHead.hidden = !named;
-  fillBtn.hidden = !named;
-  for (const c of rows.querySelectorAll('.sode__users-name')) c.hidden = !named;
-}
 
 function addRow(u = { name: '', len: 0 }) {
   const rid = ++ridSeq;
@@ -177,15 +166,6 @@ function addRow(u = { name: '', len: 0 }) {
   name.placeholder = 'Name';
   name.setAttribute('aria-label', 'Name');
   name.dataset.field = 'name';
-  const uname = el('input', 'pb-input');
-  uname.value = u.username || '';
-  uname.spellcheck = false;
-  uname.autocomplete = 'off';
-  uname.autocapitalize = 'none';
-  uname.maxLength = 24;
-  uname.placeholder = 'Username';
-  uname.setAttribute('aria-label', 'Username');
-  uname.dataset.field = 'username';
   const pin = el('input', 'pb-input');
   pin.type = 'password';
   pin.inputMode = 'numeric';
@@ -248,7 +228,6 @@ function addRow(u = { name: '', len: 0 }) {
     'div',
     'sode__users-row',
     el('div', 'sode__users-in', name),
-    Object.assign(el('div', 'sode__users-in sode__users-name', uname), { hidden: !usernameColumn(mode()) }),
     el('div', 'sode__users-in', pin),
     trust.label,
     never.label,
@@ -259,9 +238,10 @@ function addRow(u = { name: '', len: 0 }) {
   );
   row.dataset.rid = String(rid);
   row.dataset.was = u.len ? u.name : '';
+  row.dataset.uid = u.len ? u.id || '' : '';
   paintProf();
   name.addEventListener('input', paintProf);
-  for (const f of [name, uname, pin]) f.addEventListener('input', touched);
+  for (const f of [name, pin]) f.addEventListener('input', touched);
   for (const f of [trust.input, never.input]) f.addEventListener('change', touched);
   rows.append(row);
   if (u.len) rightsPanel.adoptUser(rid, u);
@@ -291,7 +271,6 @@ function fill() {
   clientsTab.clear();
   clientsTab.forget();
   rightsPanel.reset();
-  paintMode();
   for (const u of listed) addRow(u);
   for (const c of extras.apiClients) clientsTab.addRow(c);
   rightsPanel.adoptGuest(extras.guestRights, extras.guestScopes);
@@ -399,12 +378,12 @@ function readRows() {
     const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
     return {
       rid: Number(row.dataset.rid),
+      id: row.dataset.uid,
       name: val('name'),
       was: row.dataset.was,
       pin: val('pin'),
       trusted: flag('trusted'),
       persistent: flag('persistent'),
-      username: val('username'),
     };
   });
 }
@@ -445,10 +424,7 @@ onMsg('usersResult', async (m) => {
   fail(m.err);
 });
 
-modeSelect.addEventListener('change', () => {
-  touched();
-  paintMode();
-});
+modeSelect.addEventListener('change', touched);
 maxInput.addEventListener('input', () => {
   touched();
   for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;

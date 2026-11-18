@@ -190,22 +190,22 @@ func (a *App) setReach(cl *apiCtx, set PanelSet) (use, change bool) {
 	if cl.Actor.Kind != actorUser {
 		return false, false
 	}
-	if strings.EqualFold(set.Owner, cl.Actor.Name) {
+	if cl.Actor.User != "" && set.Owner == cl.Actor.User {
 		return true, true
 	}
 	if set.Scope != panelShareAll {
 		return false, false
 	}
-	return true, a.trusted(cl.Actor.Name)
+	return true, a.trusted(cl.Actor.User)
 }
 
-func setOut(set PanelSet, change bool) map[string]any {
+func setOut(cfg config.Config, set PanelSet, change bool) map[string]any {
 	entries := make([]map[string]any, len(set.Entries))
 	for i, e := range set.Entries {
 		cells, pages := pageCellCount(e.Pages, e.LegacyCells)
 		entries[i] = map[string]any{"panel": e.Panel, "name": e.Name, "rows": e.Rows, "cols": e.Cols, "cells": cells, "pages": pages}
 	}
-	return map[string]any{"id": set.ID, "name": set.Name, "scope": set.Scope, "owner": set.Owner, "entries": entries, "canEdit": change}
+	return map[string]any{"id": set.ID, "name": set.Name, "scope": set.Scope, "owner": cfg.UserName(set.Owner), "entries": entries, "canEdit": change}
 }
 
 const setEveryoneMsg = "only a Trusted user, or the Advanced Settings PIN, can save or change a checkpoint set for Everyone"
@@ -243,9 +243,9 @@ func (a *App) setFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needCha
 func (a *App) apiSetList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	out := []map[string]any{}
 	if cl.Actor.Kind == actorUser {
-		for _, s := range a.panels.sets.visible(cl.Actor.Name) {
+		for _, s := range a.panels.sets.visible(cl.Actor.User) {
 			_, change := a.setReach(cl, s)
-			out = append(out, setOut(s, change))
+			out = append(out, setOut(a.r().cfg, s, change))
 		}
 	}
 	apiJSON(w, map[string]any{"sets": out})
@@ -315,13 +315,13 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ok {
 		return
 	}
-	made, err := a.panels.sets.create(PanelSet{Name: name, Scope: in.Scope, Owner: cl.Actor.Name, Entries: capture(ps)})
+	made, err := a.panels.sets.create(PanelSet{Name: name, Scope: in.Scope, Owner: cl.Actor.User, Entries: capture(ps)})
 	if err != nil {
 		a.setStoreFail(w, err)
 		return
 	}
 	a.apiEvent(cl.Actor, "panelSetCreate", "ok", "set "+made.ID+" "+made.Name, nil)
-	apiCreated(w, setOut(made, true))
+	apiCreated(w, setOut(a.r().cfg, made, true))
 }
 
 // apiSetUpdate renames a set, and with panels saves their current layouts over its entries.
@@ -359,7 +359,7 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	a.apiEvent(cl.Actor, "panelSetUpdate", "ok", "set "+set.ID+" "+set.Name, nil)
-	apiJSON(w, setOut(set, true))
+	apiJSON(w, setOut(a.r().cfg, set, true))
 }
 
 func (a *App) apiSetDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {

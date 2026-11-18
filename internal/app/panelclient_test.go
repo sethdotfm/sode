@@ -186,7 +186,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 			clients = append(clients, c)
 		}
 	}
-	users := []userEdit{{Name: "Ana"}, {Name: "Bo"}, {Name: "Cy", Trusted: true}}
+	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true}}
 	if err := a.SaveUsers(admin, usersReq{Users: users, APIClients: &clients}); err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +374,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 
 	admin := adminClient(t, a)
 	narrow := config.Rights{Sources: ints(1), Dsts: ints(2, 4)}
-	users := []userEdit{{Name: "Ana"}, {Name: "Bo"}, {Name: "Cy", Trusted: true, Rights: &narrow}}
+	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true, Rights: &narrow}}
 	if err := a.SaveUsers(admin, usersReq{Users: users}); err != nil {
 		t.Fatal(err)
 	}
@@ -403,7 +403,7 @@ func TestPanelActorShowsKeyName(t *testing.T) {
 		c.Users = append(c.Users, cy)
 	})
 	f.seed(2, 1, 0)
-	key := apiTestKey(t, a, keyOwner{Kind: actorUser, Name: "Cy"}, "Panel 21", time.Time{})
+	key := apiTestKey(t, a, ownerOf(a, "Cy"), "Panel 21", time.Time{})
 	rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())

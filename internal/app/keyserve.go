@@ -29,7 +29,7 @@ func keyExpiry(ms int64, now time.Time) (time.Time, error) {
 func keyOwnerExists(cfg config.Config, o keyOwner) bool {
 	switch o.Kind {
 	case actorUser:
-		_, ok := cfg.FindUser(o.Name)
+		_, ok := cfg.FindUserByID(o.User)
 		return ok
 	case actorClient:
 		_, ok := cfg.FindAPIClient(o.Name)
@@ -62,7 +62,7 @@ func (a *App) ownUser(c *client) (config.User, error) {
 	if !a.userOKMu(c, cfg) {
 		return config.User{}, errUnlockFirst
 	}
-	u, _ := cfg.FindUser(c.u.user.Load().Name)
+	u, _ := cfg.FindUserByID(c.u.user.Load().ID)
 	return u, nil
 }
 
@@ -84,10 +84,10 @@ func (a *App) CreateOwnKey(c *client, pin, keyName string, expiresMs int64) (str
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	cur := a.r().cfg
-	if nu, ok := cur.FindUser(u.Name); !ok || nu.Pin != u.Pin {
+	if nu, ok := cur.FindUserByID(u.ID); !ok || nu.Pin != u.Pin {
 		return "", apiKey{}, errors.New("your PIN changed; unlock again")
 	}
-	return a.keys.createCapped(keyOwner{Kind: actorUser, Name: u.Name}, keyName, exp, cur.API.MaxUserKeys, pinFP(u.Pin))
+	return a.keys.createCapped(userOwner(u), keyName, exp, cur.API.MaxUserKeys, pinFP(u.Pin))
 }
 
 func (a *App) replyKeyCreate(c *client, t string, id int, secret string, rec apiKey, err error) {
@@ -112,12 +112,13 @@ func (a *App) serveKeyListOwn(c *client, m *inMsg) {
 	u, err := a.ownUser(c)
 	res := keyListMsg{T: "keyListOwnResult", ID: m.ID, OK: err == nil, Keys: []apiKey{}}
 	if err == nil {
-		me := keyOwner{Kind: actorUser, Name: u.Name}
+		me := userOwner(u)
 		for _, k := range a.keys.list() {
 			if k.Owner.is(me) {
 				res.Keys = append(res.Keys, k)
 			}
 		}
+		res.Keys = withLiveNames(a.r().cfg, res.Keys)
 	}
 	a.reply(c, res)
 }
@@ -128,7 +129,7 @@ func (a *App) RevokeOwnKey(c *client, id string) (apiKey, error) {
 	if err != nil {
 		return apiKey{}, err
 	}
-	me := keyOwner{Kind: actorUser, Name: u.Name}
+	me := userOwner(u)
 	if gone := a.keys.dropWhere(func(r keyRec) bool { return r.ID == id && r.Owner.is(me) }); len(gone) > 0 {
 		a.endStreams(gone, "key revoked")
 		return gone[0], nil
@@ -153,7 +154,7 @@ func (a *App) logKeyRevoked(act Actor, ks []apiKey, err error) {
 }
 
 func (a *App) serveKeyListAll(c *client, m *inMsg) {
-	a.reply(c, keyListMsg{T: "keyListAllResult", ID: m.ID, OK: true, Keys: a.keys.list()})
+	a.reply(c, keyListMsg{T: "keyListAllResult", ID: m.ID, OK: true, Keys: withLiveNames(a.r().cfg, a.keys.list())})
 }
 
 // CreateKeyFor makes a key for an API client or another user, with the Advanced Settings PIN.
@@ -172,11 +173,11 @@ func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int6
 	var fp string
 	switch o.Kind {
 	case actorUser:
-		u, ok := cfg.FindUser(o.Name)
+		u, ok := cfg.FindUserByID(o.User)
 		if !ok {
 			return "", apiKey{}, errors.New("no such user")
 		}
-		o.Name, max, fp = u.Name, cfg.API.MaxUserKeys, pinFP(u.Pin)
+		o, max, fp = userOwner(u), cfg.API.MaxUserKeys, pinFP(u.Pin)
 	case actorClient:
 		cl, ok := cfg.FindAPIClient(o.Name)
 		if !ok {
@@ -229,16 +230,16 @@ func (a *App) serveKeyRevokeAll(c *client, m *inMsg) {
 	a.reply(c, opResultFor("keyRevokeAll", &m.ID, err))
 }
 
-// pruneKeys ends keys whose owner is gone or, for a user, whose PIN changed since was
-// (a rename reads as gone). Client keys ignore user PINs. Caller holds cfgMu.
+// pruneKeys ends keys whose owner is gone or, for a user, whose PIN changed since was. A user
+// rename keeps them (by id); a client rename ends them. Client keys ignore user PINs. Caller holds cfgMu.
 func (a *App) pruneKeys(was, now config.Config) {
 	gone := a.keys.dropWhere(func(r keyRec) bool {
 		if !keyOwnerExists(now, r.Owner) {
 			return true
 		}
 		if r.Owner.Kind == actorUser {
-			ou, ok := was.FindUser(r.Owner.Name)
-			nu, _ := now.FindUser(r.Owner.Name)
+			ou, ok := was.FindUserByID(r.Owner.User)
+			nu, _ := now.FindUserByID(r.Owner.User)
 			return ok && ou.Pin != nu.Pin
 		}
 		return false
@@ -248,9 +249,9 @@ func (a *App) pruneKeys(was, now config.Config) {
 	for _, k := range gone {
 		why := "its API client was removed or renamed"
 		if k.Owner.Kind == actorUser {
-			why = "its user's PIN changed, or the user was renamed or removed"
+			why = "its user's PIN changed, or the user was removed"
 		}
-		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended: %s", k.Name, k.Owner.Name, why), nil)
+		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended: %s", k.Name, k.Owner.label(was), why), nil)
 	}
 }
 

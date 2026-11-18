@@ -13,7 +13,7 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
 }
 
 .sode-lock {
-  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 6.5)); /* the pad and the username box */
+  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 6.5)); /* the pad and the name box */
   align-items: center;
   -webkit-backdrop-filter: blur(0);
   backdrop-filter: blur(0);
@@ -346,9 +346,6 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
     column-gap: var(--pb-space-5);
     display: grid;
     grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(6, auto);
-  }
-  .sode__users-table--named {
-    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(6, auto);
   }
   .sode__users-head,
   .sode__users-list,

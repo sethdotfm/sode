@@ -68,7 +68,7 @@ type monInst struct {
 }
 
 // streamWho is who opened a stream and from where. signIn is "client" or "user" ("none" for a guest),
-// and user names the user.
+// and user is the user id.
 type streamWho struct {
 	addr, signIn, user string
 }
@@ -344,18 +344,15 @@ func (m *panelMon) unclearLocked(id, device string) {
 	}
 }
 
-// followUsers moves watches with a renamed user and drops a removed user's. Keys are lowercased.
-func (m *panelMon) followUsers(renames map[string]string, removed map[string]bool) {
+// dropUsers drops the watches of removed users (by id). Watches are keyed by user id, so a
+// rename keeps them.
+func (m *panelMon) dropUsers(removed map[string]bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	changed := false
-	for old, set := range m.watch {
-		if to, ok := renames[old]; ok && strings.ToLower(to) != old {
-			m.watch[strings.ToLower(to)] = set
-			delete(m.watch, old)
-			changed = true
-		} else if removed[old] {
-			delete(m.watch, old)
+	for id := range m.watch {
+		if removed[id] {
+			delete(m.watch, id)
 			changed = true
 		}
 	}
@@ -573,15 +570,15 @@ func (m *panelMon) offlineKeys(user string) []offlineRow {
 	return rows
 }
 
-// mayWatch: the owner, or a Trusted user (read live), can watch a panel.
+// mayWatch: the owner, or a Trusted user (read live), can watch a panel. user is an id.
 func (a *App) mayWatch(user string, p Panel) bool {
-	if strings.EqualFold(p.Owner, user) {
+	if user != "" && p.Owner == user {
 		return true
 	}
 	return a.trusted(user)
 }
 
-// offlineFor is the alarms of user, newest loss first. A device already named by the user's
+// offlineFor is the alarms of user (an id), newest loss first. A device already named by the user's
 // whole-panel alarm is not listed twice.
 func (a *App) offlineFor(user string) []offlineRow {
 	rows := []offlineRow{}
@@ -631,7 +628,7 @@ type panelNoticeMsg struct {
 func (a *App) pushPanelsOfflineMu(c *client) {
 	var msg string
 	if u := c.u.user.Load(); u != nil && a.userOKMu(c, a.r().cfg) {
-		if rows := a.offlineFor(u.Name); len(rows) > 0 {
+		if rows := a.offlineFor(u.ID); len(rows) > 0 {
 			j, _ := json.Marshal(panelsOfflineMsg{T: "panelsOffline", Offline: rows})
 			msg = string(j)
 		}
@@ -671,10 +668,10 @@ func (a *App) monNotify(ev monEvent) {
 	whole, one := notice(ev.offline), notice(false)
 	allowed := map[string][]byte{}
 	for w, all := range a.mon.watchersOf(p.ID, ev.device) {
-		if u, ok := a.r().cfg.FindUser(w); ok && a.mayWatch(u.Name, p) {
-			allowed[strings.ToLower(u.Name)] = one
+		if u, ok := a.r().cfg.FindUserByID(w); ok && a.mayWatch(u.ID, p) {
+			allowed[u.ID] = one
 			if all {
-				allowed[strings.ToLower(u.Name)] = whole
+				allowed[u.ID] = whole
 			}
 		}
 	}
@@ -683,7 +680,7 @@ func (a *App) monNotify(ev monEvent) {
 	cfg := a.r().cfg
 	for c := range a.clients {
 		if u := c.u.user.Load(); u != nil && a.userOKMu(c, cfg) {
-			if b, ok := allowed[strings.ToLower(u.Name)]; ok {
+			if b, ok := allowed[u.ID]; ok {
 				a.deliver(c, b)
 			}
 		}
@@ -707,10 +704,10 @@ func (a *App) monSweep() {
 // monFields adds online, the instance counts, watching and, for an editor, the devices to a panel as sent.
 func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	m["online"] = a.mon.online(p.ID)
-	m["watching"] = cl.Actor.Kind == actorUser && a.mon.watching(cl.Actor.Name, p.ID)
+	m["watching"] = cl.Actor.Kind == actorUser && a.mon.watching(cl.Actor.User, p.ID)
 	user := ""
 	if cl.Actor.Kind == actorUser {
-		user = cl.Actor.Name
+		user = cl.Actor.User
 		m["watchingInstances"] = a.mon.watchedInstances(user, p.ID)
 		m["hiddenInstances"] = a.mon.hiddenInstances(user, p.ID)
 	}
@@ -718,7 +715,10 @@ func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	if edit {
 		rows := a.mon.instances(p.ID)
 		for i := range rows {
-			rows[i].Trusted = rows[i].SignIn == "user" && a.trusted(rows[i].User)
+			if rows[i].SignIn == "user" {
+				id := rows[i].User // an id until here; the editor shows the name
+				rows[i].Trusted, rows[i].User = a.trusted(id), a.r().cfg.UserName(id)
+			}
 		}
 		m["instances"] = rows
 		m["keyless"] = a.mon.keylessOf(p)
@@ -734,14 +734,14 @@ func (a *App) serveAlarm(c *client, m *inMsg) {
 		return
 	}
 	p, ok := a.panels.get(m.Panel)
-	if !ok || !a.mayWatch(u.Name, p) || !a.mon.watchingInst(u.Name, p.ID, m.Instance) {
+	if !ok || !a.mayWatch(u.ID, p) || !a.mon.watchingInst(u.ID, p.ID, m.Instance) {
 		return
 	}
 	switch m.Action {
 	case "clear":
-		a.mon.clearAlarm(u.Name, p.ID, m.Instance)
+		a.mon.clearAlarm(u.ID, p.ID, m.Instance)
 	case "stop":
-		if err := a.mon.setWatchInst(u.Name, p.ID, m.Instance, false); err != nil {
+		if err := a.mon.setWatchInst(u.ID, p.ID, m.Instance, false); err != nil {
 			log.Printf("panels: watches not saved: %v", err)
 			return
 		}
@@ -834,7 +834,7 @@ func (a *App) streamKeyLive(cl *apiCtx) bool {
 		return false
 	}
 	cfg := a.r().cfg
-	if sess := a.keys.sessionOf(id); sess != "" && !a.tokens.live(sess, cl.Key.Owner.Name, cfg) {
+	if sess := a.keys.sessionOf(id); sess != "" && !a.tokens.live(sess, cl.Key.Owner.User, cfg) {
 		return false
 	}
 	return a.resolveKey(cfg, *cl.Key, cl.IP) != nil
@@ -845,7 +845,7 @@ func streamWhoOf(cl *apiCtx) streamWho {
 	case actorClient:
 		return streamWho{addr: cl.IP, signIn: "client"}
 	case actorUser:
-		return streamWho{addr: cl.IP, signIn: "user", user: cl.Actor.Name}
+		return streamWho{addr: cl.IP, signIn: "user", user: cl.Actor.User}
 	}
 	return streamWho{addr: cl.IP, signIn: "none"}
 }
@@ -925,7 +925,7 @@ func (a *App) setWatch(w http.ResponseWriter, r *http.Request, cl *apiCtx, on bo
 			return
 		}
 	}
-	if err := a.mon.setWatchInst(cl.Actor.Name, p.ID, inst, on); err != nil {
+	if err := a.mon.setWatchInst(cl.Actor.User, p.ID, inst, on); err != nil {
 		apiFail(w, http.StatusInternalServerError, "internal", "the watch list could not be saved: "+err.Error())
 		return
 	}
