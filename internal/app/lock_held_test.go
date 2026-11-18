@@ -185,7 +185,7 @@ func TestLockedSessionOfRemovedUserIsGone(t *testing.T) {
 	}
 }
 
-func TestHeldLockBlocksAdvancedSettingsPinPaths(t *testing.T) {
+func TestHeldLockBlocksAdministratorPaths(t *testing.T) {
 	for _, enforced := range []bool{false, true} {
 		a := userApp(t, enforced)
 		setFlags(t, a, "Ana", true, true)
@@ -194,7 +194,7 @@ func TestHeldLockBlocksAdvancedSettingsPinPaths(t *testing.T) {
 		if err := a.UserUnlock(c, "1234"); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.Unlock(c, "2468"); err != nil {
+		if err := a.UserUnlock(c, "2468"); err != nil {
 			t.Fatal(err)
 		}
 		if err := admitMsg(a, c, inMsg{T: "users"}); err != nil {
@@ -203,13 +203,13 @@ func TestHeldLockBlocksAdvancedSettingsPinPaths(t *testing.T) {
 		a.UserLock(c)
 		for _, m := range []inMsg{{T: "users"}, {T: "configExport"}, {T: "configImportBegin"}, {T: "userSignOutAll"}} {
 			if err := admitMsg(a, c, m); !errors.Is(err, errPageLocked) {
-				t.Errorf("enforced=%v: %s from a locked session with the Advanced Settings PIN: %v", enforced, m.T, err)
+				t.Errorf("enforced=%v: %s from a locked Administrator session: %v", enforced, m.T, err)
 			}
 		}
 	}
 }
 
-func TestHeldLockBlocksTrustedSavesEvenWithAdvancedSettingsPin(t *testing.T) {
+func TestHeldLockBlocksTrustedSavesEvenForAnAdministrator(t *testing.T) {
 	for _, enforced := range []bool{false, true} {
 		a := userApp(t, enforced)
 		setFlags(t, a, "Ana", true, true)
@@ -218,13 +218,13 @@ func TestHeldLockBlocksTrustedSavesEvenWithAdvancedSettingsPin(t *testing.T) {
 		if err := a.UserUnlock(c, "1234"); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.Unlock(c, "2468"); err != nil {
+		if err := a.UserUnlock(c, "2468"); err != nil {
 			t.Fatal(err)
 		}
 		a.UserLock(c)
 		for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "presets"}, {T: "profileGet", Name: "Ana"}, {T: "profileSave", Name: "Ana"}} {
 			if err := admitMsg(a, c, m); err == nil {
-				t.Errorf("enforced=%v: %s admitted from a locked session with the Advanced Settings PIN", enforced, m.T)
+				t.Errorf("enforced=%v: %s admitted from a locked Administrator session", enforced, m.T)
 			}
 		}
 		if err := a.SaveFilterSets(c, []config.FilterSet{{Name: "X", Sode: true, Ext: true}}); err == nil {

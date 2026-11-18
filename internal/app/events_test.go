@@ -228,7 +228,8 @@ func TestBrowserAndCommandRows(t *testing.T) {
 	if got := strings.Join(why, ","); got != "unlock,unlock,lock,clearHistory,refreshNames,take" {
 		t.Fatalf("commands = %s", got)
 	}
-	if got := strings.Join(res, ","); got != "refused,ok,ok,locked,sent,sent" {
+	// No users: every browser acts as an Administrator, so clearHistory runs.
+	if got := strings.Join(res, ","); got != "refused,ok,ok,ok,sent,sent" {
 		t.Fatalf("results = %s", got)
 	}
 	var take Sent

@@ -451,12 +451,12 @@ func TestAPISettingsMessage(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
 	defer startLog(t, a)()
 	rule, ok := policy["apiSettings"]
-	if !ok || rule.need&needAdmin == 0 {
+	if !ok || rule.role != config.RoleAdministrator {
 		t.Fatalf("apiSettings rule %+v ok=%v", rule, ok)
 	}
 	c := &client{ip: "10.0.0.9"}
 	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(true)}); err == nil {
-		t.Fatal("saved without the Advanced Settings PIN")
+		t.Fatal("saved by a Guest")
 	}
 	c = adminClient(t, a)
 	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(true), RateLimit: apiPtr(50), GuestEnabled: apiPtr(true), LogReads: apiPtr(true)}); err != nil {

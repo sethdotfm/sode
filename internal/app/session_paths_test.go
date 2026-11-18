@@ -167,7 +167,7 @@ func TestSignOutAllEndsHeldSessions(t *testing.T) {
 	a.Hi(twin, "main", tok)
 	a.UserLock(c)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SignOutAll(admin, "Ana"); err != nil {
@@ -189,11 +189,11 @@ func TestHeldLockEndsWhenTheHolderChangesPin(t *testing.T) {
 	read := register(a, c)
 	a.UserLock(c)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	req := usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Pin: "4321", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}
-	if err := a.SaveUsers(admin, req); err != nil {
+	if err := saveUsers(a, admin, req); err != nil {
 		t.Fatal(err)
 	}
 	a.syncAccess(c)

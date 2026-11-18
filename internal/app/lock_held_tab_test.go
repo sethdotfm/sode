@@ -92,10 +92,10 @@ func TestSignOutFromNonPersistentLockRevokesToken(t *testing.T) {
 func TestRenameKeepsPersistentSession(t *testing.T) {
 	a, c, tok := persistentApp(t)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Anna", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Anna", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	fresh := &client{ip: "10.0.0.2"}

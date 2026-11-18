@@ -126,7 +126,8 @@ func TestIconLibraryRescan(t *testing.T) {
 	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library/rescan", ana, `{"pin":"1111"}`), 403, "trusted_required")
 
-	added, skipped := rescanBody(t, a, ana, `{"pin":"9999"}`)
+	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library/rescan", ana, `{"pin":"9999"}`), 403, "trusted_required")
+	added, skipped := rescanBody(t, a, cy, "")
 	var names []string
 	for _, ic := range added {
 		names = append(names, ic.Name)

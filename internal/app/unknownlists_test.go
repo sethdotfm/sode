@@ -159,7 +159,7 @@ func TestWholeListSavesKeepUnknownKeys(t *testing.T) {
 				APIClients:  &clients,
 				GuestRights: &rights,
 			}
-			return a.SaveUsers(adminClient(t, a), req)
+			return saveUsers(a, adminClient(t, a), req)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

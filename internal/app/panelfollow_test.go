@@ -3,6 +3,8 @@ package app
 import (
 	"strings"
 	"testing"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Panel sharing follows the Users save, and the owner id stays, through SaveUsers and the REST seam.
@@ -20,8 +22,8 @@ func followFixture(t *testing.T) (a *App, admin *client, mine, shared, other str
 
 func TestPanelsFollowUserRename(t *testing.T) {
 	a, admin, mine, shared, other := followFixture(t)
-	err := a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Anna"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true},
+	err := saveUsers(a, admin, usersReq{Users: []userEdit{
+		{ID: idOf(a, "Ana"), Name: "Anna"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +46,7 @@ func TestPanelsFollowUserRename(t *testing.T) {
 func TestPanelsFollowUserRemoval(t *testing.T) {
 	a, admin, mine, shared, _ := followFixture(t)
 	anaID := idOf(a, "Ana")
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted}}}); err != nil {
 		t.Fatal(err)
 	}
 	p, _ := a.panels.get(mine)

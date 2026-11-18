@@ -12,7 +12,7 @@ import (
 )
 
 // Default artwork over REST. Read needs `panels`, as a cell's own artwork does; set and clear need
-// `panelsmanage` and a Trusted user or the Advanced Settings PIN. A Hidden caller sees only the
+// `panelsmanage` and a Trusted user. A Hidden caller sees only the
 // defaults of items inside its Rights. Not under /panels/, whose {id} routes would conflict.
 
 func init() {
@@ -172,7 +172,7 @@ func (a *App) readArtDefault(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	} else if in.Router == "" {
 		in.Router = a.r().cfg.UID
 	}
-	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can change Default artwork"); err != nil {
+	if err := a.mayEveryone(cl, "only a Trusted user can change Default artwork"); err != nil {
 		failWith(w, err)
 		return in, false
 	}

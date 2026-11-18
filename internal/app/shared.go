@@ -7,19 +7,12 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// guardSave repeats the policy check because a PIN can change before cfgMu is ours. It is
-// the only guard (the main lock does not cover settings). Caller holds cfgMu.
-func (a *App) guardSave(c *client, trusted bool) error {
+// guardSave repeats the policy's Role check, because a Role or sign-in can change before
+// cfgMu is ours. Caller holds cfgMu.
+func (a *App) guardSave(c *client, need string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	ok := a.settingsUnlockedMu(c)
-	if trusted {
-		ok = a.trustedMu(c)
-	}
-	if !ok {
-		return errLocked
-	}
-	return nil
+	return a.needRoleMu(c, need)
 }
 
 // saveShared: mutate edits a copy, then update. broadcast builds one message from the new
@@ -27,7 +20,7 @@ func (a *App) guardSave(c *client, trusted bool) error {
 func (a *App) saveShared(c *client, mutate func(*config.Config) error, broadcast func(config.Config) any) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, true); err != nil {
+	if err := a.guardSave(c, config.RoleTrusted); err != nil {
 		return err
 	}
 	return a.commit(mutate, func(_, nr *runtime) {

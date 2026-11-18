@@ -80,7 +80,7 @@ func TestPanelPeopleListsUserNamesForThePicker(t *testing.T) {
 			t.Errorf("a person is only a name: %v", m)
 		}
 	}
-	if strings.Join(names, ",") != "Ana,Bo,Cy" {
+	if strings.Join(names, ",") != "Ana,Bo,Ada,Cy" {
 		t.Fatalf("names %v", names)
 	}
 }

@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -61,13 +60,13 @@ func TestRevocationIsDurable(t *testing.T) {
 	t.Run("removed and added again under the same name and PIN", func(t *testing.T) {
 		a, _, tok := persistentApp(t)
 		admin := &client{ip: "10.0.0.9"}
-		if err := a.Unlock(admin, "2468"); err != nil {
+		if err := a.UserUnlock(admin, "2468"); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+		if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+		if err := saveUsers(a, admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 			t.Fatal(err)
 		}
 		if tokenAlive(a, tok) {
@@ -135,7 +134,7 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 		cfg := a.r().cfg.Clone()
 		ch(&cfg)
 		err := a.SaveSettings(c, cfg, "", false)
-		if !errors.Is(err, errLocked) || !strings.Contains(err.Error(), "Advanced Settings PIN") {
+		if !isRoleErr(err) || !strings.Contains(err.Error(), "Administrator") {
 			t.Errorf("trusted changed %s: %v", name, err)
 		}
 	}
@@ -152,7 +151,7 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	if err := a.SaveSettings(c, cfg, "", false); err != nil {
 		t.Fatalf("plain trusted save: %v", err)
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	cfg = a.r().cfg.Clone()
@@ -174,11 +173,11 @@ func TestSignOutAll(t *testing.T) {
 	a.clients[c] = struct{}{}
 	a.mu.Unlock()
 	setFlags(t, a, "Ana", true, true) // trusted is not enough
-	if err := a.SignOutAll(c, "Ana"); !errors.Is(err, errLocked) {
+	if err := a.SignOutAll(c, "Ana"); !isRoleErr(err) {
 		t.Fatalf("trusted user signed everyone out: %v", err)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SignOutAll(admin, "Nobody"); err == nil {
@@ -193,7 +192,7 @@ func TestSignOutAll(t *testing.T) {
 	if err := a.UserUnlock(c, "1234"); err != nil || a.issueSession(c) == "" {
 		t.Fatalf("login after sign out: %v", err)
 	}
-	if err := admitMsg(a, &client{}, inMsg{T: "userSignOutAll"}); !errors.Is(err, errLocked) {
+	if err := admitMsg(a, &client{}, inMsg{T: "userSignOutAll"}); err == nil {
 		t.Fatalf("policy: %v", err)
 	}
 }
@@ -329,7 +328,7 @@ func TestHardeningOverWebSocket(t *testing.T) {
 
 	cfg := a.r().cfg
 	send2(map[string]any{"t": "config", "config": cfg, "Pin": "9999"})
-	if m := until2("configResult"); m["ok"] == true || m["locked"] != true {
+	if m := until2("configResult"); m["ok"] == true {
 		t.Fatalf("odd-case Pin accepted: %v", m)
 	}
 	send2(map[string]any{"t": "config", "config": cfg, "CLEARPIN": true})
@@ -404,7 +403,8 @@ func TestLockStateCarriesPinLengthsAfterPinChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := read()
-	if len(got) == 0 || !reflect.DeepEqual(got[len(got)-1]["lens"], []any{float64(6), float64(8)}) {
+	// Ada keeps a 4-digit PIN.
+	if len(got) == 0 || !reflect.DeepEqual(got[len(got)-1]["lens"], []any{float64(4), float64(6), float64(8)}) {
 		t.Fatalf("lens after the change: %v", got)
 	}
 }

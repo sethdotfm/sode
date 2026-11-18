@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // The table is the dispatch: every rule has a handler. The read loop has no switch
@@ -49,6 +51,11 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 	for m, r := range policy {
 		if r.handle == nil {
 			t.Errorf("policy lists %q without a handler", m)
+		}
+		switch r.role {
+		case roleAnyone, config.RoleStandard, config.RoleTrusted, config.RoleAdministrator:
+		default:
+			t.Errorf("policy rule %q names no Role (%q)", m, r.role)
 		}
 	}
 	webMsgTypes(t, func(name string) {
@@ -132,22 +139,25 @@ func TestRefusalReplies(t *testing.T) {
 	if m := until("takeResult"); m["ok"] == true || m["id"] != float64(7) || m["err"] == "" {
 		t.Fatalf("refused batch: %v", m)
 	}
+	// A Guest under the page lock: refused with the lock state, and no PIN prompt.
 	send(map[string]any{"t": "presets", "id": 3})
-	if m := until("presetsResult"); m["ok"] == true || m["locked"] != true || m["id"] != float64(3) {
-		t.Fatalf("refused salvos: %v", m)
+	if m := until("presetsResult"); m["ok"] == true || m["locked"] == true || m["id"] != float64(3) {
+		t.Fatalf("refused presets: %v", m)
 	}
+	until("lockState")
 	send(map[string]any{"t": "users", "id": 5, "usersReq": map[string]any{}})
-	if m := until("usersResult"); m["locked"] != true || m["id"] != float64(5) {
+	if m := until("usersResult"); m["ok"] == true || m["id"] != float64(5) {
 		t.Fatalf("refused users: %v", m)
 	}
 
+	// The Advanced Settings PIN still unlocks, and opens nothing.
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
 	if m := until("unlockResult"); m["ok"] != true {
 		t.Fatalf("unlock: %v", m)
 	}
 	send(map[string]any{"t": "presets", "id": 6, "presets": []any{}})
-	if m := until("presetsResult"); m["ok"] != true {
-		t.Fatalf("salvos with the Advanced Settings PIN: %v", m)
+	if m := until("presetsResult"); m["ok"] == true {
+		t.Fatalf("presets with the Advanced Settings PIN: %v", m)
 	}
 	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 8}}})
 	if m := until("takeResult"); m["ok"] == true {
@@ -165,10 +175,10 @@ func TestClearHistoryNeedsBoth(t *testing.T) {
 	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.admit(c, r); !errors.Is(err, errLocked) {
+	if err := a.admit(c, r); !isRoleErr(err) {
 		t.Fatalf("user only: %v", err)
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.admit(c, r); err != nil {

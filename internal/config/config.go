@@ -59,10 +59,12 @@ type Config struct {
 	SignInMode string `yaml:"signInMode" json:"signInMode" owned:"true"`
 	// API settings, clients, Guest rights and scopes change only through their own admin
 	// messages. Clients and Guest rights stay out of JSON: never sent before the PIN.
-	API            APISettings `yaml:"api" json:"api" owned:"true"`
-	APIClients     []APIClient `yaml:"apiClients,omitempty" json:"-" owned:"true"`
-	GuestRights    Rights      `yaml:"guestRights,omitempty" json:"-" owned:"true"`
-	GuestAPIScopes []string    `yaml:"guestApiScopes" json:"-" owned:"true"`
+	API         APISettings `yaml:"api" json:"api" owned:"true"`
+	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-" owned:"true"`
+	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-" owned:"true"`
+	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator. Saved with the users.
+	GuestRole      string   `yaml:"guestRole" json:"-" owned:"true"`
+	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-" owned:"true"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.

@@ -11,8 +11,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// futureApp starts from a file a newer release wrote: keys this release does not know,
-// users Ana (1234) and Bo (567890), Advanced Settings PIN 2468.
+// futureApp starts from a file a newer release wrote, with keys this release does not know.
+// Its users are Ana (1234), Bo (567890) and the Administrator Ada (2468).
 func futureApp(t *testing.T, yamlText string) *App {
 	t.Helper()
 	cfg, err := config.Parse([]byte("format: 2\n" + yamlText))
@@ -27,7 +27,7 @@ func futureApp(t *testing.T, yamlText string) *App {
 		}
 		cfg.Users[i].Name, cfg.Users[i].Pin, cfg.Users[i].Len = src.Name, src.Pin, src.Len
 	}
-	cfg.SettingsPin = mkUser(t, "", "2468").Pin
+	withAdministrator(&cfg)
 	cfgPath := filepath.Join(settledTempDir(t), "config.yaml")
 	if err := config.Save(cfgPath, cfg); err != nil {
 		t.Fatal(err)
@@ -66,8 +66,8 @@ func TestSettingsSaveKeepsUnknownKeys(t *testing.T) {
 // Every users save rebuilds each user, not only the edited one.
 func TestUsersSaveKeepsUnknownKeys(t *testing.T) {
 	a := futureApp(t, "users:\n  - name: a\n    futureField: x\n  - name: b\n")
-	req := usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo", Trusted: true}}}
-	if err := a.SaveUsers(adminClient(t, a), req); err != nil {
+	req := usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo", Role: config.RoleTrusted}}}
+	if err := saveUsers(a, adminClient(t, a), req); err != nil {
 		t.Fatal(err)
 	}
 	if k, want := savedUnknownKeys(t, a), []string{"users[0].futureField"}; !slices.Equal(k, want) {

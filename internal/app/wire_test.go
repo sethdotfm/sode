@@ -35,7 +35,7 @@ func legacyHello(a *App, p helloPage) []byte {
 	m["levels"] = r.levels
 	m["levelDefaults"] = config.DefaultLevelColors
 	m["cfg"] = r.cfg
-	m["pinSet"] = r.cfg.SettingsPin != ""
+	m["pinSet"] = false
 	m["configPath"] = a.cfgPath
 	m["version"] = VersionLabel()
 	m["brandColors"] = config.BrandColors

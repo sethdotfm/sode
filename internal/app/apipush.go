@@ -210,16 +210,15 @@ func setOut(cfg config.Config, set PanelSet, change bool) map[string]any {
 	return map[string]any{"id": set.ID, "name": set.Name, "scope": set.Scope, "owner": cfg.UserName(set.Owner), "entries": entries, "canEdit": change}
 }
 
-const setEveryoneMsg = "only a Trusted user, or the Advanced Settings PIN, can save or change a checkpoint set for Everyone"
+const setEveryoneMsg = "only a Trusted user can save or change a checkpoint set for Everyone"
 
-// mayChangeSet settles a change the caller named in pin. It allows the owner, or a Trusted user for
-// an Everyone set, as setReach says. It also allows whoever sends the Advanced Settings PIN for an
-// Everyone set.
-// Without a PIN the refusal is the plain 403 not_owner of setFor.
+// mayChangeSet allows the owner, or a Trusted user for an Everyone set, as setReach says. An
+// Everyone set with a PIN in the body answers trusted_required; without one the refusal is
+// the plain 403 not_owner of setFor.
 func (a *App) mayChangeSet(w http.ResponseWriter, cl *apiCtx, set PanelSet, pin string) bool {
 	use, change := a.setReach(cl, set)
 	if !change && set.Scope == panelShareAll && pin != "" {
-		if err := a.mayEveryone(cl, pin, setEveryoneMsg); err != nil {
+		if err := a.mayEveryone(cl, setEveryoneMsg); err != nil {
 			failWith(w, err)
 			return false
 		}
@@ -309,7 +308,7 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	if in.Scope == panelShareAll {
-		if err := a.mayEveryone(cl, in.Pin, setEveryoneMsg); err != nil {
+		if err := a.mayEveryone(cl, setEveryoneMsg); err != nil {
 			failWith(w, err)
 			return
 		}

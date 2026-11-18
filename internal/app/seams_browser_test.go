@@ -44,7 +44,7 @@ func waitNamesAndTally(t *testing.T, a *App, key string) {
 func TestChromeSeamKeylessAssignRunsFixedDestsThenKeyEnds(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	srv := seamServer(t, a)
 
 	ana := userKey(t, a, "Ana")
@@ -129,7 +129,7 @@ func TestChromeSeamKeylessAssignRunsFixedDestsThenKeyEnds(t *testing.T) {
 func TestChromeSeamIconBBadgeAfterPushAndCopy(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	srv := seamServer(t, a)
 
 	ana := userKey(t, a, "Ana")

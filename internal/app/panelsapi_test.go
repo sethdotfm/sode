@@ -27,7 +27,7 @@ func panelsApp(t *testing.T) *App {
 	t.Helper()
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		c.Users = append(c.Users, cy)
 	})
 	return a
@@ -189,7 +189,7 @@ func TestPanelTrustedReachesAnyPanel(t *testing.T) {
 	// Trusted is read live: unticking ends the reach at once.
 	cfg := a.r().cfg
 	for i := range cfg.Users {
-		cfg.Users[i].Trusted = false
+		cfg.Users[i].Role = config.RoleStandard
 	}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)

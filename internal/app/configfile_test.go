@@ -3,10 +3,8 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http/httptest"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -18,10 +16,15 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
+// adminClient is a connection signed in as Ada (withAdministrator), or a Guest on an app with
+// no users, where every browser acts as an Administrator.
 func adminClient(t *testing.T, a *App) *client {
 	t.Helper()
 	c := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if len(a.r().cfg.Users) == 0 {
+		return c
+	}
+	if err := a.UserUnlockAs(c, "Ada", "2468"); err != nil {
 		t.Fatal(err)
 	}
 	return c
@@ -113,7 +116,7 @@ func TestConfigImportNewUserWithoutPin(t *testing.T) {
 		t.Fatal("config changed by a refused import")
 	}
 	// Two PIN-less users never clash: with hashes from the file they are fine.
-	file.Users[2] = mkUser(t, "Cy", "55555")
+	file.Users[len(file.Users)-1] = mkUser(t, "Cy", "55555")
 	b, _ = yaml.Marshal(file)
 	if err := a.ImportConfig(adminClient(t, a), string(b)); err != nil {
 		t.Fatal(err)
@@ -162,7 +165,7 @@ func TestConfigImportRefused(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	if got := a.r().cfg; got.SettingsPin != live.SettingsPin || len(got.Users) != 2 || got.BrandText != live.BrandText {
+	if got := a.r().cfg; got.SettingsPin != live.SettingsPin || len(got.Users) != 3 || got.BrandText != live.BrandText {
 		t.Fatal("a refused import changed the config")
 	}
 	file, _ := config.Parse([]byte(text))
@@ -178,10 +181,10 @@ func TestConfigImportRefused(t *testing.T) {
 	}
 }
 
-func TestConfigFileNeedsSettingsPin(t *testing.T) {
+func TestConfigFileNeedsAnAdministrator(t *testing.T) {
 	a := userApp(t, false)
 	cfg := a.r().cfg.Clone()
-	cfg.Users[0].Trusted = true
+	cfg.Users[0].Role = config.RoleTrusted
 	if err := a.saveShared(adminClient(t, a), func(c *config.Config) error { *c = cfg; return nil }, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -190,12 +193,12 @@ func TestConfigFileNeedsSettingsPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, typ := range []string{"configExport", "configImportBegin", "configImport"} {
-		if err := a.admit(c, policy[typ]); !errors.Is(err, errLocked) {
+		if err := a.admit(c, policy[typ]); !isRoleErr(err) {
 			t.Errorf("%s for a trusted user: %v", typ, err)
 		}
 	}
 	text, _ := exportOf(t, a, true)
-	if err := a.ImportConfig(c, text); !errors.Is(err, errLocked) {
+	if err := a.ImportConfig(c, text); !isRoleErr(err) {
 		t.Fatalf("import as a trusted user: %v", err)
 	}
 }
@@ -265,7 +268,9 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 		}
 		return ws, send, until
 	}
-	big := "# " + strings.Repeat("x", 200<<10) + "\nformat: 2\nrouters: [{address: " + strconv.Quote(a.r().cfg.Address) + "}]\nbrandText: Big\n"
+	// The export keeps the users, so the import keeps an Administrator.
+	export, _ := exportOf(t, a, true)
+	big := "# " + strings.Repeat("x", 200<<10) + "\n" + strings.Replace(export, "\nrouters:", "\nbrandText: Big\nrouters:", 1)
 	// The server cuts off an oversize message mid-write. So it is possible that the
 	// client sees the 1009 close or, if the reset wins, a failed write or read.
 	// Either way the connection ends; a completed write must show the 1009.
@@ -281,24 +286,24 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 
 	ws, send, until := dial()
 	send(map[string]any{"t": "configImportBegin", "id": 1, "size": len(big)})
-	if m := until("configImportBeginResult"); m["ok"] == true || m["locked"] != true || m["id"] != float64(1) {
-		t.Fatalf("begin without the PIN: %v", m)
+	if m := until("configImportBeginResult"); m["ok"] == true || m["id"] != float64(1) {
+		t.Fatalf("begin as a Guest: %v", m)
 	}
-	send(map[string]any{"t": "unlock", "pin": "2468", "id": 9})
-	until("unlockResult")
+	send(map[string]any{"t": "userUnlock", "pin": "2468", "id": 9})
+	until("userUnlockResult")
 	tooBig(ws, map[string]any{"t": "configImport", "id": 2, "yaml": big}, "a connection without an accepted begin")
 	if a.r().cfg.BrandText == "Big" {
 		t.Fatal("imported without the PIN")
 	}
 
 	ws, send, until = dial()
-	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
-	until("unlockResult")
+	send(map[string]any{"t": "userUnlock", "pin": "2468", "id": 1})
+	until("userUnlockResult")
 	tooBig(ws, map[string]any{"t": "configImport", "id": 2, "yaml": big}, "no begin, big message")
 
 	ws, send, until = dial()
-	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
-	until("unlockResult")
+	send(map[string]any{"t": "userUnlock", "pin": "2468", "id": 1})
+	until("userUnlockResult")
 	send(map[string]any{"t": "configImportBegin", "id": 3, "size": len(big)})
 	if m := until("configImportBeginResult"); m["ok"] != true || m["id"] != float64(3) {
 		t.Fatalf("begin: %v", m)
@@ -312,8 +317,8 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	}
 	tooBig(ws, map[string]any{"t": "configImport", "id": 5, "yaml": big}, "limit not restored")
 	_, send, until = dial()
-	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
-	until("unlockResult")
+	send(map[string]any{"t": "userUnlock", "pin": "2468", "id": 1})
+	until("userUnlockResult")
 	send(map[string]any{"t": "configImportBegin", "id": 6, "size": maxConfigFile + 1})
 	if m := until("configImportBeginResult"); m["ok"] == true || m["id"] != float64(6) {
 		t.Fatalf("oversize begin: %v", m)
@@ -353,8 +358,8 @@ func TestConfigExportOverWebSocket(t *testing.T) {
 	if m := until("configExportResult"); m["ok"] == true || m["yaml"] != nil {
 		t.Fatalf("export without the PIN: %v", m)
 	}
-	send(map[string]any{"t": "unlock", "pin": "2468", "id": 2})
-	until("unlockResult")
+	send(map[string]any{"t": "userUnlock", "pin": "2468", "id": 2})
+	until("userUnlockResult")
 	send(map[string]any{"t": "configExport", "id": 3, "pins": true})
 	m := until("configExportResult")
 	if m["ok"] != true || m["id"] != float64(3) || !strings.Contains(m["yaml"].(string), "PRIVATE BACKUP") || m["name"] == "" {
@@ -362,17 +367,17 @@ func TestConfigExportOverWebSocket(t *testing.T) {
 	}
 }
 
-// The export re-checks the Advanced Settings PIN when it runs. A lock (or a changed
-// PIN) between admit and the export refuses it and returns no YAML.
-func TestConfigExportRechecksPin(t *testing.T) {
+// The export checks the Role again when it runs. A sign-out between admit and the export
+// refuses it and returns no YAML.
+func TestConfigExportRechecksRole(t *testing.T) {
 	a := userApp(t, false)
 	c := adminClient(t, a)
 	if err := a.admit(c, policy["configExport"]); err != nil {
 		t.Fatal(err)
 	}
-	a.Lock(c)
+	a.SignOut(c)
 	_, text, err := a.ExportConfig(c, true)
-	if !errors.Is(err, errLocked) || text != "" {
+	if !isRoleErr(err) || text != "" {
 		t.Fatalf("export after lock: %q %v", text, err)
 	}
 	if _, text, err := a.ExportConfig(adminClient(t, a), true); err != nil || text == "" {
