@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -57,6 +56,7 @@ type connUser struct {
 	// offline: last panelsOffline message sent (under mu); "" = none.
 	offline string
 	recheck recheck // under mu (recheck.go)
+	step    *stepIn // under mu; nil when not stepped in (stepin.go)
 }
 
 // userID is the signed-in user's id, or "".
@@ -164,6 +164,9 @@ type lockStateMsg struct {
 	NoAutoLock bool `json:"noAutoLock,omitempty"`
 	// PinNeeded: to the signed-in user only, so the page asks them to set a PIN.
 	PinNeeded bool `json:"pinNeeded,omitempty"`
+	// StepIn: this connection is stepped in as User; StepGuest: Step out returns to Guest.
+	StepIn    bool `json:"stepIn,omitempty"`
+	StepGuest bool `json:"stepGuest,omitempty"`
 }
 
 // Caller holds mu.
@@ -183,6 +186,9 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	m.Trusted = config.RoleAtLeast(m.Role, config.RoleTrusted)
 	m.Locked = m.Held || m.Enforced && m.User == ""
 	m.Lens = cfg.PinLens()
+	if st := c.u.step; st != nil {
+		m.StepIn, m.StepGuest = true, st.orig == nil
+	}
 	return m
 }
 
@@ -288,6 +294,10 @@ func pinMatches(cand *config.User, pin string) bool {
 func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	cfg := a.r().cfg
 	a.mu.Lock()
+	if c.u.step != nil {
+		a.mu.Unlock()
+		return errors.New("you are stepped in: step out first")
+	}
 	var holder *config.User
 	if c.u.lockedMu() {
 		holder = c.u.user.Load()
@@ -347,6 +357,14 @@ func (a *App) SignOutAll(c *client, name string) error {
 	a.endSessionKeys()
 	a.mu.Lock()
 	for cl := range a.clients {
+		if st := cl.u.step; st != nil && st.orig != nil && st.orig.ID == who.ID {
+			st.ended = true
+		}
+		if st := cl.u.step; st != nil && cl.userID() == who.ID {
+			a.stepOutMu(cl, "signOut")
+		}
+	}
+	for cl := range a.clients {
 		if u := cl.u.user.Load(); u != nil && u.ID == who.ID {
 			a.signOutMu(cl)
 		}
@@ -375,11 +393,10 @@ type usersReq struct {
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
 	// GuestRole: "" keeps the current one.
 	GuestRole string `json:"guestRole"`
-	// API clients, Guest rights and Guest scopes: nil keeps the current ones. They ride this
-	// save so they need an Administrator.
+	// API clients and Guest rights: nil keeps the current ones. They ride this save so they
+	// need an Administrator. Keyless scopes save with the API settings (apisettings.go).
 	APIClients  *[]config.APIClient `json:"apiClients"`
 	GuestRights *config.Rights      `json:"guestRights"`
-	GuestScopes *[]string           `json:"guestScopes"`
 	// PanelOwners maps a removed user's id to the id of a kept user who takes their panels.
 	// A removed user who owns panels needs one.
 	PanelOwners map[string]string `json:"panelOwners"`
@@ -469,9 +486,6 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		}
 		if req.GuestRights != nil {
 			cur.GuestRights = req.GuestRights.WithExtraOf(cur.GuestRights)
-		}
-		if req.GuestScopes != nil {
-			cur.GuestAPIScopes = slices.Clone(*req.GuestScopes)
 		}
 		return nil
 	}))
@@ -729,7 +743,7 @@ func (a *App) setOwnPin(c *client, oldPin, newPin string, remove bool) error {
 		}
 		return errors.New("unlock with your PIN first")
 	}, func(_, nr *runtime) {
-		if nu, ok := nr.cfg.FindUserByID(who.ID); ok {
+		if nu, ok := nr.cfg.FindUserByID(who.ID); ok && c.userID() == who.ID {
 			c.u.user.Store(&nu)
 		}
 		if u.Len != len(newPin) { // the hello carries each user's PIN length

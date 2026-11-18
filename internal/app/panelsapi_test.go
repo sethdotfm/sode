@@ -265,7 +265,7 @@ func TestPanelScopesAndWhoOwns(t *testing.T) {
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/panels/"+id, bot, ``), 403, "not_owner")
 }
 
-func TestPanelAPISwitchAndRateLimitApply(t *testing.T) {
+func TestPanelAPIRateLimitApplies(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	cfg := a.r().cfg
@@ -276,11 +276,6 @@ func TestPanelAPISwitchAndRateLimitApply(t *testing.T) {
 	apiDo(a, "GET", "/api/v1/panels", ana, nil)
 	apiDo(a, "GET", "/api/v1/panels", ana, nil)
 	wantErr(t, apiDo(a, "GET", "/api/v1/panels", ana, nil), 429, "rate_limited")
-	cfg.API.Enabled = false
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
-	wantErr(t, apiDo(a, "GET", "/api/v1/panels", ana, nil), 503, "api_off")
 }
 
 func TestPanelStoreLoadsMissingFolderAndSkipsBadFiles(t *testing.T) {

@@ -123,6 +123,7 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	}
 	a.mu.Lock()
 	a.rt.Store(nr)
+	a.stepOutsOnSaveMu(old.cfg, nr.cfg)
 	a.endDeadHeldMu()
 	a.renameSignedInMu()
 	a.refreshStreams(nr.cfg)
@@ -137,6 +138,10 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 		}
 	}
 	a.mu.Unlock()
+	// After the swap, so an ask that read the old config cannot leave a key behind (endStreams takes mu).
+	if old.cfg.PublicPanels && !nr.cfg.PublicPanels {
+		a.endEveryPublicKey()
+	}
 	return nil
 }
 

@@ -51,6 +51,8 @@ import {
   pinFreeView,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
+import { stepLock, noteStepState, steppedIn } from './stepin.js';
+import { stepActive } from './stepinrules.js';
 import { createOwed } from './owed.js';
 import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
@@ -479,6 +481,7 @@ onMsg('userSignInResult', (m) => {
 });
 
 onMsg('lockState', (m) => {
+  noteStepState(m);
   if (owed.arrived(m)) return;
   if (settle) settle();
   const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
@@ -555,6 +558,13 @@ on('hello', () => {
 
 on('logout', () => signOutNow());
 
+// The original sign-in ended during a step-in: the pad says so.
+on('stepEnded', (m) => {
+  if (!m.note) return;
+  build();
+  say(m.note, true);
+});
+
 on('login', () => {
   if (!signInOffered(L) || V.mode !== MODE.PAGE) return;
   V = startSignIn(V, false);
@@ -626,7 +636,7 @@ on('localLock', localLock);
 // The Lock keeps the session: the server holds it, so a reload or another tab shows the pad
 // until this user's PIN resumes it. The token stays for that.
 function lockNow() {
-  if (!L.user) return;
+  if (!L.user || stepLock()) return;
   owed.owe();
   pin = '';
   clearTimeout(timer);
@@ -709,13 +719,20 @@ document.addEventListener(
 );
 
 const idle = createIdleShare(typeof BroadcastChannel === 'function' ? new BroadcastChannel('sode-activity') : null);
-const touch = idle.touch;
+let ownActive = Date.now(); // this tab's own input, which alone feeds a step-in
+const touch = () => {
+  ownActive = Date.now();
+  idle.touch();
+};
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
 let lastPing = 0;
 setInterval(() => {
   const minutes = S.cfg?.autoLockMinutes || 0;
-  if (pingDue(L, lastPing, idle.lastActive(), Date.now()) && wsSend({ t: 'activity' })) lastPing = Date.now();
+  const stepped = steppedIn();
+  if (pingDue(L, lastPing, stepActive(stepped, idle.lastActive(), ownActive), Date.now()) && wsSend({ t: 'activity' })) lastPing = Date.now();
+  // The server ends an idle step-in and decides whether the original locks (internal/app/stepin.go).
+  if (stepped) return;
   if (idleLock(L, idle.lastActive(), Date.now(), minutes)) lockNow();
   else if (S.cfg && localIdleLock(L, !!letterLock, idle.lastActive(), Date.now(), minutes)) localLock();
 }, 5000);

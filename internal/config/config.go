@@ -63,6 +63,10 @@ type Config struct {
 	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator. Saved with the users.
 	GuestRole      string   `yaml:"guestRole" json:"-" owned:"true"`
 	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-" owned:"true"`
+	// PublicPanels is Public panels allowed: off, no panel hands out a Public key (panelpublic.go).
+	PublicPanels bool `yaml:"publicPanels" json:"publicPanels" guard:"pin"`
+	// NewPanelActs prefills a blank new panel's Authentication mode (a panel's acts value) and nothing else.
+	NewPanelActs string `yaml:"newPanelActs" json:"newPanelActs" guard:"pin"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
@@ -70,6 +74,9 @@ type Config struct {
 	// idsFilled: Normalize gave a user an id; Load writes it back, or the next start makes new ones.
 	idsFilled bool
 }
+
+// PanelActs are a panel's Authentication modes as stored (acts); keep in step with panelActs* in internal/app/panelstore.go.
+var PanelActs = []string{"session", "api", "both", "public"}
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
 const MaxFilterSetsBytes = 48 << 10
@@ -157,6 +164,8 @@ func Defaults() Config {
 		TrustedProxies:       []string{},
 		LevelColors:          []string{},
 		PinWaits:             true,
+		PublicPanels:         true,
+		NewPanelActs:         "public",
 		MaxPinLen:            DefaultMaxPinLen,
 		API:                  DefaultAPISettings(),
 		GuestAPIScopes:       slices.Clone(DefaultGuestScopes),
@@ -255,6 +264,9 @@ func (c *Config) Normalize() {
 		c.Prefix = "A"
 	}
 	c.BrandText = strings.TrimSpace(c.BrandText)
+	if c.NewPanelActs = strings.ToLower(strings.TrimSpace(c.NewPanelActs)); c.NewPanelActs == "" {
+		c.NewPanelActs = "public"
+	}
 	c.normalizeUsers()
 	c.normalizeAPI()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
@@ -339,6 +351,9 @@ func (c Config) Validate() error {
 		if p, perr := strconv.Atoi(port); err != nil || host == "" || perr != nil || p < 1 || p > 65535 {
 			bad("router must be host:port, for example 10.0.0.50:8910")
 		}
+	}
+	if !slices.Contains(PanelActs, c.NewPanelActs) {
+		bad("the new-panel Authentication mode is session, api, both or public")
 	}
 	switch c.NameRequests {
 	case "std":

@@ -2,11 +2,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { apiSettingsReq, apiProblem, apiEdited, apiRepaints, SCOPES } from '../apirules.js';
 
-const cur = { enabled: false, rateLimit: 600, takeCap: 4, guestEnabled: false, logReads: false };
+const cur = { rateLimit: 600, takeCap: 4, guestEnabled: false, logReads: false, guestScopes: ['names', 'tally'] };
 
 test('apiSettingsReq sends only what changed, so a stale page cannot overwrite the rest', () => {
   assert.deepEqual(apiSettingsReq(cur, cur), { t: 'apiSettings', apiSettings: {} });
-  assert.deepEqual(apiSettingsReq(cur, { ...cur, enabled: true, rateLimit: 100 }), { t: 'apiSettings', apiSettings: { enabled: true, rateLimit: 100 } });
+  assert.deepEqual(apiSettingsReq(cur, { ...cur, guestEnabled: true, rateLimit: 100 }), {
+    t: 'apiSettings',
+    apiSettings: { rateLimit: 100, guestEnabled: true },
+  });
+});
+
+test('apiSettingsReq sends the keyless scopes only when the set changed', () => {
+  assert.deepEqual(apiSettingsReq(cur, { ...cur, guestScopes: ['tally', 'names'] }), { t: 'apiSettings', apiSettings: {} });
+  assert.deepEqual(apiSettingsReq(cur, { ...cur, guestScopes: ['names'] }), { t: 'apiSettings', apiSettings: { guestScopes: ['names'] } });
+  assert.equal(apiEdited(cur, { ...cur, guestScopes: [] }), true);
 });
 
 test('apiProblem uses the server limits: rate limit 0-100000, take cap 1-64', () => {
@@ -32,12 +41,12 @@ test('apiEdited is false while the form equals what was saved, so a hello repain
 });
 
 test('apiRepaints lets a hello through once the form matches it, so a second save diffs against what the server holds', () => {
-  const incoming = { ...cur, enabled: true };
-  assert.equal(apiRepaints(cur, { ...cur, enabled: true }, incoming), true);
+  const incoming = { ...cur, guestEnabled: true };
+  assert.equal(apiRepaints(cur, { ...cur, guestEnabled: true }, incoming), true);
 });
 
 test('apiRepaints keeps unsaved edits that match neither the saved nor the incoming settings', () => {
-  const incoming = { ...cur, enabled: true };
+  const incoming = { ...cur, guestEnabled: true };
   assert.equal(apiRepaints(cur, { ...cur, takeCap: 7 }, incoming), false);
   assert.equal(apiRepaints(cur, { ...cur }, incoming), true);
 });

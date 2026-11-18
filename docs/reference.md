@@ -193,7 +193,7 @@ Sode checks each file as it checks an upload. It must be PNG or SVG, at most 2 M
 
 ## API
 
-`/api/v1` lets other apps read names, tally, History and status, and fire takes and presets. Apps can also undo, redo and retry History entries, and follow live changes on a WebSocket stream. It is off until an administrator turns on *API enabled* in Settings (advanced). *Guest API* lets a call with no key in with Guest's scopes, and *Log API reads* writes one `api` row per read. Keys, scopes, rights, visibility and limits are in [api.md](api.md), and the contract is `/api/v1/openapi.yaml`, open even while the API is off.
+`/api/v1` lets other apps read names, tally, History and status, and fire takes and presets. Apps can also undo, redo and retry History entries, and follow live changes on a WebSocket stream. The API is always on. *Keyless API* lets a call with no key in, with the *Keyless scopes* inside Guest Rights. *Log API reads* writes one `api` row per read. Keys, scopes, rights, visibility and limits are in [api.md](api.md), and the contract is `/api/v1/openapi.yaml`, open with no key.
 
 ## Monitoring (Uptime Kuma)
 

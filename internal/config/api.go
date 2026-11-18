@@ -3,6 +3,7 @@ package config
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"unicode"
@@ -38,11 +39,9 @@ const (
 )
 
 const (
-	MaxAPIClients        = 12
-	DefaultRateLimit     = 600 // requests per minute per key
-	DefaultTakeCap       = 4   // API takes in flight; the router answers one message per ACK
-	DefaultMaxUserKeys   = 8
-	DefaultMaxClientKeys = 20
+	MaxAPIClients    = 12
+	DefaultRateLimit = 600 // requests per minute per key
+	DefaultTakeCap   = 4   // API takes in flight; the router answers one message per ACK
 )
 
 // Rights is an allowlist per kind. A nil list means all and an empty one means none, so the
@@ -177,18 +176,15 @@ type APIClient struct {
 
 // APISettings: advanced settings, saved apart from the Settings form (owned).
 type APISettings struct {
-	Enabled       bool           `yaml:"enabled" json:"enabled"`
-	RateLimit     int            `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
-	TakeCap       int            `yaml:"takeCap" json:"takeCap"`
-	GuestEnabled  bool           `yaml:"guestEnabled" json:"guestEnabled"`
-	LogReads      bool           `yaml:"logReads" json:"logReads"`
-	MaxUserKeys   int            `yaml:"maxUserKeys" json:"maxUserKeys"`
-	MaxClientKeys int            `yaml:"maxClientKeys" json:"maxClientKeys"`
-	Extra         map[string]any `yaml:",inline" json:"-"`
+	RateLimit    int            `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
+	TakeCap      int            `yaml:"takeCap" json:"takeCap"`
+	GuestEnabled bool           `yaml:"guestEnabled" json:"guestEnabled"`
+	LogReads     bool           `yaml:"logReads" json:"logReads"`
+	Extra        map[string]any `yaml:",inline" json:"-"`
 }
 
 func DefaultAPISettings() APISettings {
-	return APISettings{RateLimit: DefaultRateLimit, TakeCap: DefaultTakeCap, MaxUserKeys: DefaultMaxUserKeys, MaxClientKeys: DefaultMaxClientKeys}
+	return APISettings{RateLimit: DefaultRateLimit, TakeCap: DefaultTakeCap}
 }
 
 func (c Config) FindAPIClient(name string) (APIClient, bool) {
@@ -214,7 +210,17 @@ func (r *Rights) fillRouter(uid string) {
 	}
 }
 
+// retiredAPIKeys went before v2.0 shipped (the API is always on, key caps are fixed), so dev files
+// that hold them are not warned about. Extra is shared by Clone, hence the copy.
+var retiredAPIKeys = []string{"enabled", "maxUserKeys", "maxClientKeys"}
+
 func (c *Config) normalizeAPI() {
+	if slices.ContainsFunc(retiredAPIKeys, func(k string) bool { _, ok := c.API.Extra[k]; return ok }) {
+		c.API.Extra = maps.Clone(c.API.Extra)
+		for _, k := range retiredAPIKeys {
+			delete(c.API.Extra, k)
+		}
+	}
 	c.GuestRights.Visibility = strings.ToLower(strings.TrimSpace(c.GuestRights.Visibility))
 	c.GuestRights.fillRouter(c.UID)
 	for i := range c.Users {
@@ -270,14 +276,11 @@ func (c Config) validateAPI() []error {
 	if a.TakeCap < 1 || a.TakeCap > 64 {
 		bad("API take cap must be 1-64")
 	}
-	if a.MaxUserKeys < 1 || a.MaxUserKeys > 100 || a.MaxClientKeys < 1 || a.MaxClientKeys > 100 {
-		bad("key caps must be 1-100")
-	}
 	if c.RequireHTTPS && len(c.TrustedProxies) == 0 {
 		bad("Require HTTPS needs at least one trusted proxy: only a trusted proxy can say a request was secure")
 	}
 	c.GuestRights.validate("Guest rights", c.Levels, c.UID, bad)
-	checkScopes("Guest API scopes", c.GuestAPIScopes, bad)
+	checkScopes("keyless scopes", c.GuestAPIScopes, bad)
 	for _, u := range c.Users {
 		u.Rights.validate("rights of "+u.Name, c.Levels, c.UID, bad)
 	}

@@ -212,6 +212,8 @@
         <span class="sode__acct" id="account-name"></span>
         <div class="sode__names sode__names--start">
           <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Sign in" hidden>Sign in</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-stepin" data-find="account-stepin" data-label="Step in" aria-haspopup="dialog" hidden>Step in</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-stepout" data-find="account-stepout" data-label="Step out" hidden>Step out</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-pin" data-find="account-pin" data-label="Change my PIN">Change my PIN</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-keys" data-find="account-keys" data-label="My API keys" aria-haspopup="dialog" hidden>My API keys</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-clients" data-find="account-clients" data-label="My API clients" aria-haspopup="dialog" hidden>My API clients</button>
@@ -220,6 +222,7 @@
           <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Sign out">Sign out</button>
           <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="lock-btn" data-find="lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-lock"/></svg>Lock the screen</button>
         </div>
+        <p class="sode__hint" id="account-step-note" role="status" hidden></p>
       </div>
     </fieldset>
 
@@ -509,13 +512,15 @@
     <!-- apisettings.js. Saved apart from the form (the `apiSettings` message). -->
     <fieldset class="sode__group" id="api-group" data-apart data-section="api" data-topic="access">
       <legend>API</legend>
+      <span class="sode__hint">The API is always on. A key acts with its owner's Rights. A user can have 50 keys and an API client 200.</span>
       <div class="sode__field">
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-enabled"><span class="pb-check__label">API enabled</span></label>
-        <span class="sode__hint">Off by default. While off, every API call is refused.</span>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-guest"><span class="pb-check__label">Keyless API</span></label>
+        <span class="sode__hint">Lets a call with no key use the keyless scopes, inside Guest Rights (Manage users, Rights tab, Guest). Guest role does not apply to it.</span>
       </div>
-      <div class="sode__field">
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-guest"><span class="pb-check__label">Guest API</span></label>
-        <span class="sode__hint">Lets a call with no key use the Guest scopes (Manage users, Rights tab, Guest). The API switch gates it too.</span>
+      <div class="sode__field" data-find="api-scopes" data-label="Keyless scopes">
+        <span class="sode__label" id="api-scopes-label">Keyless scopes</span>
+        <div class="sode__scopes" id="api-scopes" role="group" aria-labelledby="api-scopes-label"></div>
+        <span class="sode__hint">What a call with no key can use.</span>
       </div>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>
@@ -538,9 +543,17 @@
       <div class="pb-note pb-note--error" id="api-err" role="alert" hidden></div>
     </fieldset>
 
-    <fieldset class="sode__group" data-apart data-section="panels" data-topic="access">
+    <fieldset class="sode__group" data-section="panels" data-topic="access">
       <legend>Panels</legend>
-      <span class="sode__hint">The settings for new panels come in a later release.</span>
+      <div class="sode__field">
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-public-panels" data-key="publicPanels" data-type="bool"><span class="pb-check__label">Public panels allowed</span></label>
+        <span class="sode__hint">A Public panel opens for anyone with its link, with no sign-in. When this is off, no panel can become Public and each Public panel stops until this is on again. Its pages come back by themselves.</span>
+      </div>
+      <div class="sode__field">
+        <label for="cfg-new-panel-acts">New-panel Authentication mode</label>
+        <span class="pb-select-wrap"><select id="cfg-new-panel-acts" class="pb-select" data-key="newPanelActs"><option value="public">Public</option><option value="session">User</option><option value="both">Both</option><option value="api">API</option></select></span>
+        <span class="sode__hint">The mode a blank new panel starts with. Its owner can change it. Save a copy keeps the mode of the panel it copies. When Public panels are not allowed, a new panel set to Public starts as User.</span>
+      </div>
     </fieldset>
 
     <h3 class="sode__topic" data-topic="server" id="topic-server">Server</h3>

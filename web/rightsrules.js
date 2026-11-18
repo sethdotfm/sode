@@ -129,7 +129,7 @@ export const pickValid = (keys, pick) => (keys.includes(pick) ? pick : keys[0]);
 export const rightsTab = (id) => ({ tab: 'rights', pick: `user:${id}` });
 
 // An entry is {orig, draft, dirty}: what loaded, the editor's draft, and which fields the draft
-// changed ('rights', 'noAutoLock', 'scopes'). extra holds noAutoLock (a user) or scopes (Guest).
+// changed ('rights', 'noAutoLock'). extra holds noAutoLock (a user).
 // orig.rights is undefined for a row that never loaded. Untouched fields go back as loaded, so a save
 // never rewrites rights through the editor's text (and a number offset change cannot shift them).
 // presets: the [{id, name}] this entry can name, kept for the save.
@@ -147,8 +147,8 @@ function entryRights(e, off, levels) {
 }
 
 // The rights part of a `users` save: {users: [{rights?, noAutoLock?}] in row order, apiClients,
-// guestRights?, guestScopes?} or {error}. A missing field tells the server to keep what it has.
-// No auto-lock and Guest scopes go only after an edit.
+// guestRights?} or {error}. A missing field tells the server to keep what it has.
+// No auto-lock goes only after an edit. Keyless scopes save with the API settings (apirules.js).
 export function accessReq({ entries, users, clients, off, levels }) {
   const out = { users: [], apiClients: [] };
   for (const u of users) {
@@ -167,7 +167,6 @@ export function accessReq({ entries, users, clients, off, levels }) {
     const r = entryRights(g, off, levels);
     if (r.error) return { error: `Guest: ${r.error}` };
     out.guestRights = r.rights || {};
-    if (g.dirty.has('scopes')) out.guestScopes = g.draft.scopes;
   }
   return out;
 }
@@ -179,6 +178,5 @@ export function mergeAccess(req, acc, loaded) {
   if (!loaded) return out;
   out.apiClients = acc.apiClients;
   if ('guestRights' in acc) out.guestRights = acc.guestRights;
-  if ('guestScopes' in acc) out.guestScopes = acc.guestScopes;
   return out;
 }
