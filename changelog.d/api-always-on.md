@@ -1,0 +1,1 @@
+- The API is always on, so panels work on a new install with no switch to turn on. The Keyless API stays a switch. Calls with no key get only the keyless scopes and Guest Rights, never Guest role. You set the keyless scopes in Settings > Access > API, and a change needs a PIN recheck. A user can have 50 keys and an API client 200.

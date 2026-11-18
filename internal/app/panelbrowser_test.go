@@ -114,13 +114,12 @@ func runSim(t *testing.T, bin string, env []string) (addr string, stop func(), o
 	}
 }
 
-// simApp is an app with user Ana (PIN 1234) and the API on. It connects to the simulator through
+// simApp is an app with user Ana (PIN 1234). It connects to the simulator through
 // the real SW-P-08 client (apiTestApp swaps in a fake router).
 func simApp(t *testing.T, router string, edit ...func(*config.Config)) *App {
 	t.Helper()
 	cfg := config.Defaults()
 	cfg.Address = router
-	cfg.API.Enabled = true
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234")}
 	for _, fn := range edit {
 		fn(&cfg)

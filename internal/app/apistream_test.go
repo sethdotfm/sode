@@ -271,15 +271,6 @@ func TestStreamRefusals(t *testing.T) {
 		}
 	}
 
-	off, _ := viewApp(t, "")
-	cfg := off.r().cfg
-	cfg.API.Enabled = false
-	off.ApplyConfig(cfg)
-	_, resp, _, cancel, err := strmDialRaw(strmServer(t, off), botKey(t, off), "names")
-	cancel()
-	if err == nil || resp == nil || resp.StatusCode != 503 {
-		t.Errorf("API off: %v %v", resp, err)
-	}
 }
 
 func TestStreamConnectAndDisconnectAreLogged(t *testing.T) {

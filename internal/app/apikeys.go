@@ -301,6 +301,12 @@ func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max 
 	return s.create(o, name, expires, max, fp, "")
 }
 
+// Key caps, so a looping client cannot fill the key file. Fixed: no setting or preset writes them.
+const (
+	userKeyMax   = 50
+	clientKeyMax = 200
+)
+
 // sessionKeyMax bounds a session's keys. Tabs that share a session each hold one, so asking
 // again must not end another tab's key; past the bound the oldest ends.
 const sessionKeyMax = 16
@@ -340,7 +346,11 @@ func (s *keyStore) createWith(secret string, o keyOwner, name string, expires ti
 	}
 	if max > 0 && s.countMu(o) >= max {
 		s.mu.Unlock()
-		return "", apiKey{}, fmt.Errorf("%s already has %d keys", o.Name, max)
+		who := "a user"
+		if o.Kind == actorClient {
+			who = "an API client"
+		}
+		return "", apiKey{}, fmt.Errorf("%s already has %d keys, the most %s can have. Revoke a key first", o.Name, max, who)
 	}
 	k := apiKey{ID: hex.EncodeToString(id), Owner: o, Name: name, Created: time.Now().UTC(), Expires: expires}
 	s.recs = append(s.recs, keyRec{apiKey: k, Hash: keyHash(secret), PinFP: fp, Sess: sess})
