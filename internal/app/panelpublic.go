@@ -202,5 +202,9 @@ func (a *App) apiPanelPublic(w http.ResponseWriter, r *http.Request, _ *apiCtx) 
 	}
 	secret, k, gone := a.public.issue(keyOwner{Kind: actorClient, Name: c.Name}, ip, now)
 	a.endStreams(gone, "key ended: the panel handed out too many keys")
+	// back: the page asks after a public line (publicback.go). Only a key handed out writes a row, so asks cannot fill the Log.
+	if r.URL.Query().Get("back") == "1" {
+		a.apiEvent(Actor{Kind: actorAddress, Name: ip}, "publicBack", "ok", panelTag(p, "")+" is Public again", nil)
+	}
 	apiCreated(w, map[string]any{"public": true, "key": secret, "expires": k.Expires, "panel": p.ID})
 }

@@ -142,6 +142,9 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	if old.cfg.PublicPanels && !nr.cfg.PublicPanels {
 		a.endEveryPublicKey()
 	}
+	if !old.cfg.PublicPanels && nr.cfg.PublicPanels {
+		a.publicAgain()
+	}
 	return nil
 }
 

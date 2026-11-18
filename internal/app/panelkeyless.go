@@ -85,7 +85,7 @@ func (m *panelMon) noteAddrLocked(addr, device string) {
 }
 
 // openKeyless registers a held keyless stream. The returned func drops it.
-func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel context.CancelFunc) (func(), <-chan lastLine) {
+func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel context.CancelFunc) (func(), <-chan lastLine, <-chan struct{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now := m.now()
@@ -110,7 +110,8 @@ func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel cont
 	in.next++
 	n := in.next
 	out := make(chan lastLine, 1)
-	in.conns[n] = monConn{cancel, out}
+	pub := make(chan struct{}, 1)
+	in.conns[n] = monConn{cancel: cancel, out: out, pub: pub}
 	return func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -119,7 +120,7 @@ func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel cont
 		if len(in.conns) == 0 {
 			in.seen = m.now()
 		}
-	}, out
+	}, out, pub
 }
 
 func (m *panelMon) dropOldestKeylessLocked(now time.Time) {
@@ -250,7 +251,7 @@ func (a *App) apiPanelKeyless(w http.ResponseWriter, r *http.Request, _ *apiCtx)
 	addr := clientIP(r, a.r().proxies)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	done, out := a.mon.openKeyless(ref, addr, device, ended, cancel)
+	done, out, pub := a.mon.openKeyless(ref, addr, device, ended, cancel)
 	defer done()
 	rc := http.NewResponseController(w)
 	// The closing chunk needs a live deadline; see apiPanelInstanceStream.
@@ -276,6 +277,11 @@ func (a *App) apiPanelKeyless(w http.ResponseWriter, r *http.Request, _ *apiCtx)
 			return
 		case <-t.C:
 			if !line() {
+				return
+			}
+		case <-pub:
+			_ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			if _, err := w.Write(publicLine); err != nil || rc.Flush() != nil {
 				return
 			}
 		case l := <-out:

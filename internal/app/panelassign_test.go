@@ -148,7 +148,7 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 	}
 
 	row := lastRow(t, a, "assign")
-	if !strings.Contains(row.By, "Cy") || !strings.Contains(row.Note, "Lobby") || !strings.Contains(row.Note, "studio-a") || !strings.Contains(row.Note, "Studio B") {
+	if !strings.Contains(row.By, "Cy") || !strings.Contains(row.Note, "Lobby") || !strings.Contains(row.Note, "studio-a") || !strings.Contains(row.Note, "Studio B") || !strings.Contains(row.Note, "at 127.0.0.1") {
 		t.Fatalf("row %+v", row)
 	}
 	if strings.Contains(row.Note, key) {
@@ -243,7 +243,7 @@ func openTestStream(a *App, from string, cancel context.CancelFunc) (string, fun
 }
 
 func openTestKeyless(a *App, from string, cancel context.CancelFunc) (string, func(), <-chan lastLine) {
-	done, out := a.mon.openKeyless(from, "192.0.2.7", "Lobby", false, cancel)
+	done, out, _ := a.mon.openKeyless(from, "192.0.2.7", "Lobby", false, cancel)
 	return `{"keyless":"` + a.mon.keylessOf(Panel{ID: from})[0].Keyless + `"}`, sync.OnceFunc(done), out
 }
 

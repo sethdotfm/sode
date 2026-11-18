@@ -1537,7 +1537,10 @@ paths:
         Public panels allowed is off. Each address can ask 128 times a minute, whatever the id (fewer when
         the API rate limit is lower), then gets 429 `rate_limited`. Leaving `public` or deleting
         the panel ends every key it handed out. Turning Public panels allowed off ends every
-        Public key.
+        Public key. A page asks with `?back=1` after a `public` line on its keyless stream. A key
+        then writes one `api` row `publicBack` under the address, with no user.
+      parameters:
+        - { name: back, in: query, required: false, schema: { type: string, enum: ["1"] }, description: "The page asks after a public line" }
       responses:
         "200":
           description: The panel is not Public
@@ -1682,7 +1685,7 @@ paths:
                 properties:
                   online: { type: boolean }
                   graceSeconds: { type: integer }
-                  t: { type: string, enum: [assign, rename] }
+                  t: { type: string, enum: [assign, rename, reload] }
                   panel: { type: string }
                   slug: { type: string }
                   instance: { type: string }
@@ -1707,8 +1710,11 @@ paths:
         Needs no key (route scope `none`). A panel page with no working key, a Keyless instance
         (ADR 0009), holds it, so that a Trusted user can find and assign the page. It grants nothing,
         and the answer is the same if the panel exists or not. Sode records the address it sees and
-        keeps at most 1000 such pages in memory for 24 hours, the oldest dropped. Only an Assign
-        (`POST /panels/{id}/assign` with `keyless`) sends anything on it but the beat.
+        keeps at most 1000 such pages in memory for 24 hours, the oldest dropped. Besides the beat,
+        it carries an Assign (`POST /panels/{id}/assign` with `keyless`), a rename or a reload from
+        the Open now list, and a `public` line when Public panels allowed turns on or the panel
+        changes back to Public. The page then waits a random 0 to 5 s and asks
+        `POST /panels/{id}/public?back=1` one time.
       parameters:
         - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "The device name the page holds, if any" }
         - { name: ended, in: query, required: false, schema: { type: string, enum: ["1"] }, description: "The page's key answered `key_revoked` or `key_expired`" }
@@ -1720,11 +1726,12 @@ paths:
               schema:
                 type: object
                 description: |
-                  Every line but an Assign's is `{"keyless":true}`. An Assign sends one last line,
-                  the same as on `/panels/{id}/instances/stream`, and the stream ends
+                  The beat is `{"keyless":true}`. `{"t":"public"}` leaves the stream open. An Assign,
+                  a rename or a reload sends one last line, the same as on
+                  `/panels/{id}/instances/stream`, and the stream ends
                 properties:
                   keyless: { type: boolean }
-                  t: { type: string, enum: [assign] }
+                  t: { type: string, enum: [assign, rename, reload, public] }
                   panel: { type: string }
                   slug: { type: string }
                   instance: { type: string }
@@ -1895,16 +1902,22 @@ paths:
         per-instance watches to the new name. It sends `{"t":"rename","instance":"<new name>"}` as
         the stream's last line. The page then uses the name and rewrites its `?instance=` when its
         address has one. Then it reopens its stream under the new name. The old name leaves the list without a lost notice. Writes
-        one `api` row `rename` naming the user, the old name and the new one.
+        one `api` row `rename` naming the user, the old name, the new one and the address.
+
+        With `keyless` (a row of the panel's `keyless` list) in place of `instance`, it names a
+        keyless page. Only a Trusted user can, Sode checks no name clash, and only the line goes
+        out. The page keeps the name in its own browser. A page with no stream now answers 409
+        `offline`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [instance, name]
+              required: [name]
               properties:
                 instance: { type: string, maxLength: 40, description: "The instance's device name now, ignoring case" }
+                keyless: { type: string, description: "A keyless page's id, in place of instance" }
                 name: { type: string, maxLength: 40, description: Its new device name }
                 pin: { type: string, description: "Ignored: no PIN opens this. Never stored" }
       responses:
@@ -1926,8 +1939,52 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/reload:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: reloadPanelPages
+      tags: [panels]
+      summary: Reload open panel pages
+      description: |
+        Scope `panelsmanage`. A Trusted user's key (403 `trusted_required`), with no PIN recheck.
+        Sends `{"t":"reload"}` as the last line on every stream of one instance (`instance`), of
+        one keyless page (`keyless`), or of every page of the panel (`all`). The page reloads at
+        the same address and keeps its stored key and name. A Public page asks for a new key.
+        Only a stream held now hears it, and nothing waits. With none, the answer is 409 `offline`.
+        Writes one `api` row `reload` per page, naming the user, the panel, the instance and the
+        address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instance: { type: string, maxLength: 40 }
+                keyless: { type: string }
+                all: { type: boolean }
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [panel, sent]
+                properties:
+                  panel: { type: string }
+                  sent: { type: integer, description: How many pages heard it }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}/watch:
     parameters:
+
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
     post:
       operationId: watchPanel
