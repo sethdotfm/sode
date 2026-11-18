@@ -256,3 +256,28 @@ func TestUsersSaveCriticalFields(t *testing.T) {
 		}
 	}
 }
+
+// Manage users sends the loaded API clients, Guest Rights and keyless scopes back as they
+// came. Untouched, they are no Critical change, even in another order.
+func TestUsersSaveEchoNeedsNoRecheck(t *testing.T) {
+	a := newTestApp(t, withAdministrator, func(c *config.Config) {
+		two := []config.Ref{{N: 1}, {N: 2}}
+		c.Users[0].Rights = config.Rights{Sources: &[]config.Ref{{N: 1}}}
+		c.GuestRights = config.Rights{Sources: &two}
+		c.GuestAPIScopes = []string{"tally", "names"}
+		c.APIClients = []config.APIClient{{Name: "Wall", Scopes: []string{"tally"}, Rights: config.Rights{Dsts: &two}}}
+	})
+	p := dialPeer(t, a)
+	p.signIn("Ada", "2468")
+	list := p.ask("usersList", 1, nil)
+	var users []any
+	for _, u := range list["users"].([]any) {
+		row := u.(map[string]any)
+		users = append(users, map[string]any{"id": row["id"], "name": row["name"], "role": row["role"],
+			"persistent": row["persistent"], "rights": row["rights"], "noAutoLock": row["noAutoLock"]})
+	}
+	scopes := list["guestScopes"].([]any)
+	slices.Reverse(scopes)
+	passed(t, "the loaded lists sent back", p.ask("users", 2, map[string]any{"usersReq": map[string]any{
+		"users": users, "apiClients": list["apiClients"], "guestRights": list["guestRights"], "guestScopes": scopes}}))
+}

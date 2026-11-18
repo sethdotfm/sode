@@ -127,7 +127,12 @@ var presetFields = []struct {
 	{"Guest role", func(a, b config.Config) bool { return a.GuestRole != b.GuestRole }},
 	{"Wait after wrong PINs", func(a, b config.Config) bool { return a.PinWaits != b.PinWaits }},
 	{"the keyless API", func(a, b config.Config) bool { return a.API.GuestEnabled != b.API.GuestEnabled }},
-	{"keyless scopes", func(a, b config.Config) bool { return !slices.Equal(a.GuestAPIScopes, b.GuestAPIScopes) }},
+	{"keyless scopes", func(a, b config.Config) bool { return !sameSet(a.GuestAPIScopes, b.GuestAPIScopes) }},
+}
+
+// sameSet: pages send scopes in their own order.
+func sameSet(a, b []string) bool {
+	return slices.Equal(slices.Sorted(slices.Values(a)), slices.Sorted(slices.Values(b)))
 }
 
 func sameRights(a, b config.Rights) bool { return a.Within(b) && b.Within(a) }

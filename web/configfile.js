@@ -154,7 +154,7 @@ $('config-replace').addEventListener('click', runImport);
 onMsg('configImportBeginResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
   if (!m.ok) {
-    if (!m.locked) reset();
+    if (!m.locked && !m.recheck) reset(); // a retry needs the picked file
     return failed(m, runImport);
   }
   if (!picked || !wsSend({ t: 'configImport', id: busy.id, yaml: picked.text })) {
@@ -168,7 +168,7 @@ onMsg('configImportBeginResult', (m) => {
 onMsg('configImportResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
   if (!m.ok) {
-    if (!m.locked) reset();
+    if (!m.locked && !m.recheck) reset(); // a retry needs the picked file
     return failed(m, runImport);
   }
   const name = picked?.name || 'the file';
