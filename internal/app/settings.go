@@ -220,7 +220,7 @@ func (guardedErr) Error() string {
 }
 func (guardedErr) As(target any) bool {
 	if r, ok := target.(*roleErr); ok {
-		*r = roleErr{config.RoleAdministrator}
+		*r = roleErr{need: config.RoleAdministrator}
 		return true
 	}
 	return false

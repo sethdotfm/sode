@@ -98,7 +98,7 @@ func TestSettingsLockoutLeavesUsers(t *testing.T) {
 		a.Unlock(c, "0000")
 	}
 	clearWaits(a)
-	if err := a.Unlock(c, "2468"); err == nil || !strings.Contains(err.Error(), "-reset-pin") {
+	if err := a.Unlock(c, "2468"); err == nil || !strings.Contains(err.Error(), "Restart Sode") {
 		t.Fatalf("settings not locked out: %v", err)
 	}
 	if err := a.UserUnlock(c, "1234"); err != nil {

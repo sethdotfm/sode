@@ -63,7 +63,7 @@ A few process settings stay in the environment. They are `SODE_LISTEN` (`:8080`)
 
 The Icon library lives beside the config: `/data/icons.yaml` and the `/data/icons/` directory. To back it up or move it, copy both with `config.yaml`. To add many icons in one step, put SVG and PNG files in `/data/icons/drop-in/`. Sode adds them at start and when a Trusted user presses **Rescan**. See [docs/reference.md](docs/reference.md#icon-library-files).
 
-If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -reset-pin && docker compose restart sode`.
+If no Administrator knows their PIN, run `docker compose exec sode /sode -make-administrator "NAME" && docker compose restart sode`. It asks for a new PIN and makes that user an Administrator. See [docs/reference.md](docs/reference.md#no-administrator).
 
 ## More documentation
 

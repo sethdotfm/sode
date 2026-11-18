@@ -19,7 +19,7 @@ Calls. Keep means the name stays for now and `AGENTS.md` records why. #574 remov
 
 | Name | Retired word | Call | Why |
 | --- | --- | --- | --- |
-| `settingsPin` | Settings PIN | Keep | Holds the Advanced Settings PIN hash. A rename needs a fallback read, a fixture file, and the `-reset-pin` and import paths changed, and it buys nothing a user sees. |
+| `settingsPin` | Settings PIN | Keep | Holds the Advanced Settings PIN hash. A rename needs a fallback read, a fixture file, and the import path changed, and it buys nothing a user sees. |
 | `nameRefreshSeconds` (Settings message key), `SODE_NAME_REFRESH_S` | refresh | Keep | The Settings label already says re-read. Deploy env holds the variable. In `config.yaml` the key is `nameRereadSeconds` under `routers`. |
 | `deviceDefaults` | This device | Keep | Only the phrase "This device" is retired, and the key holds the defaults This browser falls back on. Listed because the word is close. |
 

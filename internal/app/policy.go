@@ -197,7 +197,7 @@ var policy = map[string]rule{
 		}(*m.APISet, m.ID)
 	}},
 	"usersList": {role: config.RoleAdministrator, op: "usersList",
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(m.ID)) }},
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(c, m.ID)) }},
 	"users": {role: config.RoleAdministrator, op: "users", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		if m.UsersReq == nil {
 			m.finish()

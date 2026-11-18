@@ -29,6 +29,15 @@
     <span class="sode__conn-addr" id="conn-addr"></span>
   </div>
   <div class="sode__down" id="conn-down" role="alert" hidden></div>
+  <!-- The command keeps in step with recoverCommand in internal/app/roles.go. -->
+  <div class="pb-alert pb-alert--error sode__noadmin" id="no-admin" role="alert" hidden>
+    <div class="sode__lock-help">
+      <div class="pb-alert__title">No Administrator</div>
+      <p>Sode has users but no Administrator, so it refuses every Administrator action. On the machine that runs Sode, in the directory with its <code>docker-compose.yml</code>, run this command. It asks for a new PIN.</p>
+      <pre><code>docker compose exec sode /sode -make-administrator "NAME" &amp;&amp; docker compose restart sode</code></pre>
+      <p>Replace NAME with the name of a user. A new name adds a user, if Sode has fewer than 12.</p>
+    </div>
+  </div>
 
   <div class="sode__view" id="patch-view">
     <h1 class="sode__mark">Sode</h1>
@@ -732,13 +741,11 @@
 </div>
 <div class="pb-modal-backdrop sode__scrim" id="lock-help" hidden>
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="lock-help-title" tabindex="-1" id="lock-help-dialog">
-    <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot the Advanced Settings PIN</span></div>
+    <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot your PIN</span></div>
     <div class="pb-modal__body sode__lock-help">
-      <p>On the machine running Sode, in the directory with its <code>docker-compose.yml</code>, remove the PIN:</p>
-      <pre><code>docker compose exec sode /sode -reset-pin</code></pre>
-      <p>Then restart Sode to apply it:</p>
-      <pre><code>docker compose restart sode</code></pre>
-      <p>Settings then open without a PIN. Set a new one under Access.</p>
+      <p>An Administrator can give you a new PIN in Manage users. If no Administrator knows their PIN, then on the machine that runs Sode, in the directory with its <code>docker-compose.yml</code>, run this command. It asks for a new PIN.</p>
+      <pre><code>docker compose exec sode /sode -make-administrator "NAME" &amp;&amp; docker compose restart sode</code></pre>
+      <p>Replace NAME with the name of a user. That user becomes an Administrator with the new PIN.</p>
     </div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="lock-help-close">Close</button>

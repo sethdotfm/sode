@@ -28,6 +28,9 @@ export function initToc({ form, sections, toc, isOpen }) {
   // press. It does not re-read the stale scroll position.
   let stepping = false;
   let marked = -1;
+  // Sections the Role or the phone leaves out (settingsroles.js): no entry, no anchor, no step.
+  let off = new Set();
+  const shown = (i) => !off.has(i);
 
   // Phone: one section at a time; the page is the list, Back returns. Only CSS keyed on data-page hides (base.css).
   const phone = () => layout() === 'phone';
@@ -88,10 +91,15 @@ export function initToc({ form, sections, toc, isOpen }) {
     const at = topicOf(tree, cur);
     branches.forEach((b, k) => {
       const open = k === at.topic;
+      const t = tree[k];
+      b.head.hidden = ![...t.sections, ...t.routers.flatMap((r) => r.sections)].some(shown);
       b.head.setAttribute('aria-expanded', String(open));
       b.head.classList.toggle('sode__toc-open', open);
       for (const kid of b.kids) {
-        kid.hidden = !open && !phone();
+        const sec = secBtns.indexOf(kid);
+        const r = kid.dataset.router && t.routers.find((x) => x.id === kid.dataset.router);
+        const gone = sec >= 0 ? !shown(sec) : r ? !r.sections.some(shown) : false;
+        kid.hidden = gone || (!open && !phone());
         if (kid.dataset.router) kid.classList.toggle('sode__toc-open', open && kid.dataset.router === at.router);
       }
     });
@@ -101,6 +109,11 @@ export function initToc({ form, sections, toc, isOpen }) {
       else b.removeAttribute('aria-current');
     });
   }
+  const firstShown = () =>
+    Math.max(
+      sections.findIndex((_, i) => shown(i)),
+      0,
+    );
   mark(0);
   let tocTick = false;
   function markSection() {
@@ -110,7 +123,9 @@ export function initToc({ form, sections, toc, isOpen }) {
     // last section, since it is possible that it is too short to reach it.
     const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
     const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
-    mark(Math.max(atEnd ? sections.length - 1 : anchors.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));
+    const last = sections.findLastIndex((_, i) => shown(i));
+    const at = anchors.findLastIndex((s, i) => shown(i) && s.getBoundingClientRect().top <= line(s));
+    mark(atEnd ? last : at >= 0 ? at : firstShown());
   }
   window.addEventListener(
     'scroll',
@@ -140,8 +155,10 @@ export function initToc({ form, sections, toc, isOpen }) {
     const step = STEP[chord(e)];
     if (!step || e.target.closest?.('dialog, [role="dialog"], .pb-modal')) return;
     e.preventDefault();
-    const at = picked >= 0 ? picked : marked;
-    go(Math.min(sections.length - 1, Math.max(0, at + step)), true);
+    let to = picked >= 0 ? picked : marked;
+    do to += step;
+    while (to >= 0 && to < sections.length && !shown(to));
+    if (to >= 0 && to < sections.length) go(to, true);
   });
 
   return {
@@ -158,6 +175,12 @@ export function initToc({ form, sections, toc, isOpen }) {
       if (!phone() || form.dataset.page == null) return false;
       showPage(-1);
       return true;
+    },
+    // hidden: section indexes to leave out.
+    setOff(hidden) {
+      off = new Set(hidden);
+      if (phone() && form.dataset.page != null && off.has(Number(form.dataset.page))) showPage(-1);
+      mark(shown(marked) ? marked : firstShown());
     },
     goRouter(id) {
       const r = tree.flatMap((t) => t.routers).find((x) => x.id === id);

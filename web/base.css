@@ -639,7 +639,34 @@ html {
   gap: var(--pb-space-5);
   grid-template-columns: 1fr auto 1fr;
 }
-.sode__lock-exit .sode__about {
+.sode__lock-exit /* The phone's desktop-only message (desktoponly.js). */
+.sode__desktop-only {
+  align-items: flex-start;
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4);
+}
+.sode__desktop-only[hidden] {
+  display: none;
+}
+.sode__desktop-only p {
+  margin: 0;
+}
+.sode__desktop-only-lead {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+/* A section, band or router sub-heading the Role or the phone leaves out (settingsroles.js). */
+.sode__settings > :is(.sode__group, .sode__topic, .sode__router)[hidden] {
+  display: none;
+}
+/* A Shown section a lower Role can read but not change (settingsroles.js). */
+.sode__role-note {
+  margin: 0;
+}
+.sode__about {
   justify-content: center;
 }
 .sode__lock-exit > :first-child {
@@ -854,6 +881,10 @@ html {
 
 .sode__lock-help {
   max-width: 60ch;
+}
+/* .pb-alert sets display, which beats the hidden attribute. */
+.sode__noadmin[hidden] {
+  display: none;
 }
 .sode__lock-help > p {
   margin: 0 0 var(--pb-space-3);

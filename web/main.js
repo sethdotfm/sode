@@ -14,6 +14,7 @@ import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
 import './panelwatch.js';
+import './noadmin.js';
 import { bigScrollAll } from './bigscroll.js';
 
 on('brand', ({ text }) => {
