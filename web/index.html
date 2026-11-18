@@ -149,7 +149,8 @@
       <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
     </div>
 
-    <fieldset class="sode__group sode__device" data-apart>
+    <h3 class="sode__topic" data-topic="preferences" id="topic-preferences">Preferences</h3>
+    <fieldset class="sode__group sode__device" data-apart data-section="this-browser" data-topic="preferences">
       <legend>This browser</legend>
       <span class="sode__hint">Personal choices, saved in this browser only. Anyone can change them.</span>
       <div class="sode__fields">
@@ -196,7 +197,7 @@
       </div>
     </fieldset>
 
-    <fieldset class="sode__group sode__device" data-apart>
+    <fieldset class="sode__group sode__device" data-apart data-section="my-user" data-topic="preferences">
       <legend>My user</legend>
       <div class="sode__field" id="account" data-find="account" data-label="Me">
         <span class="sode__acct" id="account-name"></span>
@@ -212,8 +213,13 @@
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Global defaults</legend>
+    <div class="sode__lock-exit" id="lock-exit">
+      <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
+    </div>
+
+    <h3 class="sode__topic" data-topic="look-and-feel" id="topic-look-and-feel">Look and feel</h3>
+    <fieldset class="sode__group" data-section="everyone-defaults" data-topic="look-and-feel">
+      <legend>Everyone's defaults</legend>
       <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
@@ -259,11 +265,85 @@
       </div>
     </fieldset>
 
-    <div class="sode__lock-exit" id="lock-exit">
-      <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
-    </div>
+    <fieldset class="sode__group" data-section="branding" data-topic="look-and-feel">
+      <legend>Branding</legend>
+      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-brandtext">Logo text & Page title</label>
+          <input id="cfg-brandtext" class="pb-input" data-key="brandText" placeholder="Sode" maxlength="24" spellcheck="false">
+        </div>
+        <div class="sode__field">
+          <label for="cfg-brandborder">Accent Color</label>
+          <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"></select></span>
+          <span class="sode__hint">Adds a colored border to all pages, so they are easy to identify.</span>
+          <span class="sode__brand-preview" id="brand-preview">
+            <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
+            <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
+            <span class="sode__hint" id="brand-name"></span>
+          </span>
+        </div>
+      </div>
+    </fieldset>
 
-    <fieldset class="sode__group">
+    <fieldset class="sode__group" data-section="history" data-topic="look-and-feel">
+      <legend>History</legend>
+      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
+      <div class="sode__field">
+        <label for="cfg-hidden">Hidden destinations in History</label>
+        <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
+        <span class="sode__hint" id="cfg-hidden-note"></span>
+      </div>
+      <div class="sode__field" data-find="clear-history" data-label="Clear History">
+        <span>Advanced setting. Clears History for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect the Communication Log.</span>
+        <div class="sode__names" id="clear-step1">
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
+        </div>
+        <div class="sode__names" id="clear-step2" hidden>
+          <span>
+            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Keep it</button>
+            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm">Clear all history</button>
+          </span>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group" data-section="level-colors" data-topic="look-and-feel">
+      <legend>Level colors</legend>
+      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
+      <span class="sode__hint">Hex colors like <code><span class="sode__swatch" style="--sw: #3a7bd5" aria-hidden="true"></span>#3a7bd5</code>. Leave blank for default.</span>
+      <div class="sode__colors" id="cfg-colors"></div>
+      <div class="sode__names">
+        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-colors-reset">Reset to default</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group" data-section="confirm" data-topic="look-and-feel">
+      <legend>Confirm and results</legend>
+      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-lockout" data-pb-tip="The wait before the Confirm letter key and OK work.">Confirm lockout (ms)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-dismiss">Success banner closes after (s)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
+          <span class="sode__hint">At 0s, it stays until you close it.<br>Failures always stay until you close them.</span>
+        </div>
+      </div>
+      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms takes</span></label>
+    </fieldset>
+
+    <h3 class="sode__topic" data-topic="routers" id="topic-routers">Routers</h3>
+    <fieldset class="sode__group" data-apart data-section="routers" data-topic="routers">
+      <legend>Routers</legend>
+      <span class="sode__hint">Each router has its own block of settings below.</span>
+      <ul class="sode__routers" id="routers-list" aria-label="Routers"></ul>
+    </fieldset>
+
+    <h4 class="sode__router" data-router="1" id="router-1"><span class="sode__router-title" id="router-1-title">Router</span></h4>
+    <fieldset class="sode__group" data-section="router-matrix" data-topic="routers" data-router="1">
       <legend>Router & matrix</legend>
       <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
       <div class="sode__field">
@@ -310,46 +390,8 @@
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Takes</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-default">Default levels</label>
-          <input id="cfg-default" class="pb-input" spellcheck="false">
-          <span class="sode__hint">Used if the Levels input is blank.</span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-lockout" data-pb-tip="The wait before the Confirm letter key and OK work.">Confirm lockout (ms)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-dismiss">Success banner closes after (s)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
-          <span class="sode__hint">At 0s, it stays until you close it.<br>Failures always stay until you close them.</span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-resync">Re-read routes every (s)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
-          <span class="sode__hint">At 0s, Sode does not re-read routes.</span>
-        </div>
-      </div>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-firemode">Multi destination behavior (advanced)</label>
-          <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">Sequential</option><option value="native">Native salvo</option></select></span>
-          <span class="sode__hint">Native stages the changes on the router, then sends a "Take all" command.<br>Sequential sends the routes one after another, in quick succession.</span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-salvogroup">Router salvo group (advanced)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
-        </div>
-      </div>
-      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms takes</span></label>
-    </fieldset>
-
-    <fieldset class="sode__group" data-toc="Router names">
-      <legend>Router Source & Destination Names</legend>
+    <fieldset class="sode__group" data-section="router-names" data-topic="routers" data-router="1">
+      <legend>Router names</legend>
       <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
       <div class="sode__names">
         <span id="names-status"></span>
@@ -375,39 +417,37 @@
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Level colors</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
-      <span class="sode__hint">Hex colors like <code><span class="sode__swatch" style="--sw: #3a7bd5" aria-hidden="true"></span>#3a7bd5</code>. Leave blank for default.</span>
-      <div class="sode__colors" id="cfg-colors"></div>
-      <div class="sode__names">
-        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-colors-reset">Reset to default</button>
-      </div>
-    </fieldset>
-
-    <fieldset class="sode__group">
-      <legend>Branding</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
+    <fieldset class="sode__group" data-section="takes" data-topic="routers" data-router="1">
+      <legend>Takes</legend>
+      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-brandtext">Logo text & Page title</label>
-          <input id="cfg-brandtext" class="pb-input" data-key="brandText" placeholder="Sode" maxlength="24" spellcheck="false">
+          <label for="cfg-default">Default levels</label>
+          <input id="cfg-default" class="pb-input" spellcheck="false">
+          <span class="sode__hint">Used if the Levels input is blank.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-brandborder">Accent Color</label>
-          <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"></select></span>
-          <span class="sode__hint">Adds a colored border to all pages, so they are easy to identify.</span>
-          <span class="sode__brand-preview" id="brand-preview">
-            <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
-            <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
-            <span class="sode__hint" id="brand-name"></span>
-          </span>
+          <label for="cfg-resync">Re-read routes every (s)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
+          <span class="sode__hint">At 0s, Sode does not re-read routes.</span>
+        </div>
+      </div>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-firemode">Multi destination behavior (advanced)</label>
+          <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">Sequential</option><option value="native">Native salvo</option></select></span>
+          <span class="sode__hint">Native stages the changes on the router, then sends a "Take all" command.<br>Sequential sends the routes one after another, in quick succession.</span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-salvogroup">Router salvo group (advanced)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
         </div>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Access</legend>
+    <h3 class="sode__topic" data-topic="access" id="topic-access">Access</h3>
+    <fieldset class="sode__group" data-section="locks" data-topic="access">
+      <legend>Locks</legend>
       <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
       <div class="sode__names sode__names--start">
         <button type="button" class="pb-btn pb-btn--outline" id="cfg-pin-change" aria-expanded="false" aria-controls="cfg-pin-box">Change Advanced PIN</button>
@@ -448,7 +488,7 @@
     </fieldset>
 
     <!-- users.js. Saved apart from the form (the `users` message). -->
-    <fieldset class="sode__group" id="users-group" data-apart>
+    <fieldset class="sode__group" id="users-group" data-apart data-section="users" data-topic="access">
       <legend>Users</legend>
       <div class="sode__field">
         <button type="button" class="pb-btn pb-btn--outline" id="users-manage" data-find="users-manage" data-label="Manage users" aria-haspopup="dialog">Manage users</button>
@@ -457,7 +497,7 @@
     </fieldset>
 
     <!-- apisettings.js. Saved apart from the form (the `apiSettings` message). -->
-    <fieldset class="sode__group" id="api-group" data-apart>
+    <fieldset class="sode__group" id="api-group" data-apart data-section="api" data-topic="access">
       <legend>API</legend>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-enabled"><span class="pb-check__label">API enabled</span></label>
@@ -488,29 +528,13 @@
       <div class="pb-note pb-note--error" id="api-err" role="alert" hidden></div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>History</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
-      <div class="sode__field">
-        <label for="cfg-hidden">Hidden destinations in History</label>
-        <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
-        <span class="sode__hint" id="cfg-hidden-note"></span>
-      </div>
-      <div class="sode__field" data-find="clear-history" data-label="Clear History">
-        <span>Advanced setting. Clears History for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect the Communication Log.</span>
-        <div class="sode__names" id="clear-step1">
-          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
-        </div>
-        <div class="sode__names" id="clear-step2" hidden>
-          <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Keep it</button>
-            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm">Clear all history</button>
-          </span>
-        </div>
-      </div>
+    <fieldset class="sode__group" data-apart data-section="panels" data-topic="access">
+      <legend>Panels</legend>
+      <span class="sode__hint">The settings for new panels come in a later release.</span>
     </fieldset>
 
-    <fieldset class="sode__group">
+    <h3 class="sode__topic" data-topic="server" id="topic-server">Server</h3>
+    <fieldset class="sode__group" data-section="proxy" data-topic="server">
       <legend>Proxy</legend>
       <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
       <div class="sode__field">
@@ -524,20 +548,15 @@
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Export & import</legend>
+    <fieldset class="sode__group" data-section="export-import" data-topic="server">
+      <legend>Export & Import</legend>
       <div class="sode__field" data-find="transfer-open" data-label="Export & import">
         <div class="sode__names">
           <button type="button" class="pb-btn pb-btn--outline" id="transfer-open">Export & import</button>
         </div>
         <span class="sode__hint">Export and import settings, filter sets, and presets to and from files.<br>Share links for one filter set or preset are in Filters and Presets.</span>
       </div>
-    </fieldset>
-
-    <fieldset class="sode__group">
-      <legend>Server backup</legend>
-      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
-      <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the Advanced Settings PIN.</span>
+      <span class="sode__hint">Server backup: everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the Advanced Settings PIN.</span>
       <!-- Server config file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
       <div class="sode__field" id="config-file" data-apart data-find="config-file" data-label="Server backup">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include Secrets (private backup)</span></label>
@@ -559,6 +578,11 @@
         <div class="pb-note pb-note--error" id="config-err" role="alert" hidden></div>
         <span class="sode__hint" id="config-status" role="status" aria-live="polite"></span>
       </div>
+    </fieldset>
+
+    <fieldset class="sode__group" data-apart data-section="run-setup-again" data-topic="server">
+      <legend>Run setup again</legend>
+      <span class="sode__hint">The setup wizard comes in a later release.</span>
     </fieldset>
 
     <div class="sode__savebar">

@@ -15,6 +15,7 @@ import { form, isOpen, fillForm, fillGlobalDefaults, renderOffsetNote, renderHid
 import { renderLock, showLockErr, resetLock, closeLockHelp } from './settingslock.js';
 import { initSave, markClean, warnUnsaved, unwarn, saving, showSaveErr } from './settingssave.js';
 import { initFind } from './settingsfind.js';
+import { fillRouters, routerTitle } from './settingsrouters.js';
 import './mykeys.js';
 import './users.js';
 import './apisettings.js';
@@ -51,6 +52,7 @@ function openSettings() {
   showPage(-1);
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');
   fillForm();
+  showRouters();
   resetPinFields();
   relock(); // opens locked; a reply to an unlock sent before is dropped
   resetLock();
@@ -88,6 +90,12 @@ fillAbout($('settings-foot'), { id: 'open-log' });
 const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
 const toc = initToc({ form, sections, toc: $('settings-toc'), isOpen });
 const { showPage, markSection } = toc;
+
+function showRouters() {
+  fillRouters((id) => toc.goRouter(id));
+  toc.renameRouter('1', routerTitle());
+  reindex();
+}
 
 function syncLock() {
   if (S.wsState !== 'up') $('settings-save').disabled = false;
@@ -167,6 +175,7 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('popstate', showView);
 
 on('hello', () => {
+  if (isOpen()) showRouters();
   showView();
   syncLock();
 });

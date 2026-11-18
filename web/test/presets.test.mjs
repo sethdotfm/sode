@@ -230,21 +230,6 @@ test('conflicts: different sources, one destination, overlapping levels', async 
   assert.equal(presetProblem(s(it(0, [1]), it(0, [1]))), '');
 });
 
-test('presets saved under the old salvo keys move to the new ones, once', async () => {
-  const m = await setup();
-  mem.set('sode-salvos', '[{"name":"Old"}]');
-  mem.set('sode-salvo-pins', '{"old":false}');
-  m.migrateLegacyKeys();
-  assert.equal(mem.get('sode-presets'), '[{"name":"Old"}]');
-  assert.equal(mem.get('sode-preset-pins'), '{"old":false}');
-  assert.equal(mem.has('sode-salvos') || mem.has('sode-salvo-pins'), false);
-  // A new key already there wins, and the old one is still cleared.
-  mem.set('sode-salvos', '[{"name":"Stale"}]');
-  m.migrateLegacyKeys();
-  assert.equal(mem.get('sode-presets'), '[{"name":"Old"}]');
-  assert.equal(mem.has('sode-salvos'), false);
-});
-
 test('presetTip: one or many sources and destinations', async () => {
   const { presetTip } = await setup();
   const s = (items) => ({ items });

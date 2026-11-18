@@ -3,14 +3,16 @@
 
 import { $, el } from './core.js';
 import { showPinFields } from './settingspin.js';
-import { buildIndex, find, slug } from './settingsindex.js';
+import { buildIndex, find, hitWhere } from './settingsindex.js';
 import { resultStep } from './keys.js';
 
 // Runs one time, after the table of contents and #open-log (about.js) exist. Returns reindex, for a control added later.
 export function initFind({ sections, toc }) {
   const findBox = $('settings-find');
   const foundList = $('settings-found');
-  const secIds = sections.map((sec) => slug(sec.querySelector('legend').textContent));
+  const secIds = sections.map((sec) => sec.dataset.section);
+  // The band and router sub-heading text, read when the index is built (a router's title changes with its settings).
+  const headText = (sel) => (sel ? document.querySelector(sel)?.textContent.trim() : undefined);
   const targets = new Map();
 
   function settingsOf(sec, secId) {
@@ -39,7 +41,13 @@ export function initFind({ sections, toc }) {
           settings.push({ id: x.id, label: x.label });
           targets.set(`${x.secId}/${x.id}`, x.node);
         }
-        return { id: secIds[i], title: sec.querySelector('legend').textContent, settings };
+        return {
+          id: secIds[i],
+          title: sec.querySelector('legend').textContent,
+          topic: headText(`.sode__topic[data-topic="${sec.dataset.topic}"]`),
+          router: headText(sec.dataset.router && `.sode__router[data-router="${sec.dataset.router}"]`),
+          settings,
+        };
       }),
     );
   let settingsIndex = makeIndex();
@@ -85,7 +93,7 @@ export function initFind({ sections, toc }) {
     cur = 0;
     foundList.replaceChildren(
       ...hits.map((h, i) => {
-        const li = el('li', null, el('span', null, h.label), el('span', 'sode__hint', h.kind === 'section' ? 'Section' : 'in ' + h.section));
+        const li = el('li', null, el('span', null, h.label), el('span', 'sode__hint', (h.kind === 'section' ? 'Section in ' : 'in ') + hitWhere(h)));
         li.id = `settings-found-${i}`;
         li.setAttribute('role', 'option');
         li.addEventListener('mousedown', (e) => e.preventDefault());

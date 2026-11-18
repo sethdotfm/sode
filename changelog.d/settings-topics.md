@@ -1,0 +1,4 @@
+- Settings is one page in five topics: Preferences, Look and feel, Routers, Access and Server. Each topic starts with a band. The sidebar is a tree that opens the topic you scroll to and marks the section.
+- The Routers topic lists the router and holds its own block: Router & matrix, Router names and Takes. Confirm lockout, the success banner time and Enter confirms takes move to Look and feel > Confirm and results.
+- Global defaults is now Everyone's defaults, and Access is now Locks. Export & import and Server backup are one Export & Import section.
+- Search settings names the topic of each result, and a topic's name finds its sections.

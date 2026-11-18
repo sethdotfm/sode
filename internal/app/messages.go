@@ -49,8 +49,9 @@ type helloMsg struct {
 	Srcs          [][2]any            `json:"srcs"`
 	Dsts          [][2]any            `json:"dsts"`
 	At            time.Time           `json:"at"`
-	Tally         json.RawMessage     `json:"tally"`   // routeTriples
-	Protect       json.RawMessage     `json:"protect"` // routeTriples
+	SavedAt       time.Time           `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
+	Tally         json.RawMessage     `json:"tally"`            // routeTriples
+	Protect       json.RawMessage     `json:"protect"`          // routeTriples
 	Status        statusMsg           `json:"status"`
 	Recent        []Entry             `json:"recent"`
 	More          bool                `json:"more"`

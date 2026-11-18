@@ -33,6 +33,9 @@ type Sent struct {
 	Hex     string    `json:"hex"`
 	Note    string    `json:"note,omitempty"`  // events: the detail (a count, an address)
 	AckMs   float64   `json:"ackMs,omitempty"` // how long the router took to ACK
+	// Router messages and link events only; as on Entry.
+	Router      string `json:"router,omitempty"`
+	RouterTitle string `json:"routerTitle,omitempty"`
 }
 
 // Event kinds: link events share the log (seqs, paging, live view); cmd, wire level, dst
