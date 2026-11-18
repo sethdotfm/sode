@@ -79,6 +79,14 @@ func TestChromeOneSaveReview(t *testing.T) {
 		t.Fatalf("after the partial save: brand %q, lockout %d, requireHttps %v", got.BrandText, got.ConfirmLockoutMs, got.RequireHTTPS)
 	}
 
+	// A second Save shows their value as Was, then writes this page's value.
+	b.eval(`document.getElementById('settings-save').click(); true`)
+	b.waitFor("review Was is their value", `(() => {
+		const row = [...document.querySelectorAll('#review tbody tr')].find((r) => r.cells[0]?.textContent.startsWith('Confirm lockout'));
+		return row?.cells[1].textContent === '700' && row.cells[2].textContent === '900';
+	})()`)
+	b.eval(`document.getElementById('review-back').click(); true`)
+	b.waitFor("review closed", `!document.getElementById('review').offsetParent`)
 	b.eval(`document.getElementById('settings-exit').click(); true`)
 	b.waitFor("exit warning names the sections", `(() => {
 		const n = document.getElementById('settings-unsaved');

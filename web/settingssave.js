@@ -38,10 +38,13 @@ function pinRow() {
 }
 
 function changes() {
-  const rows = diffRows(base, readSettings());
+  const rows = diffRows(base, saveFields());
   const pin = pinRow();
   return pin ? [...rows, pin] : rows;
 }
+
+// A data-apart input with a data-key saves on its own, so it is never a change here.
+const saveFields = () => Object.fromEntries(Object.entries(readSettings()).filter(([k]) => k in SAVE_FIELDS));
 
 export const dirty = () => isOpen() && changes().length > 0;
 const warned = () => !$('settings-unsaved').hidden;
@@ -128,7 +131,7 @@ function changedSections() {
 }
 
 export function markClean(saved) {
-  base = readSettings();
+  base = saveFields();
   versions = { ...S.versions };
   refused.clear();
   paintMarks();
@@ -203,8 +206,11 @@ function settingsSaveResult(m) {
   const again = [];
   for (const [key, r] of Object.entries(m.results)) {
     if (r.status === 'refused') {
-      // Their value is now on the mark, so the next Save overwrites it on purpose.
-      if (r.reason === 'conflict' && r.version) versions[key] = r.version;
+      // Their value is now on the mark and in the review's Was, so the next Save overwrites it on purpose.
+      if (r.reason === 'conflict' && r.version) {
+        versions[key] = r.version;
+        base[key] = r.value;
+      }
       if (r.reason === 'needs PIN recheck' && !p.retried) again.push(key);
       refused.set(key, r);
       continue;
