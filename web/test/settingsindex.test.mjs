@@ -8,15 +8,12 @@ import { DICT, buildIndex, find, slug } from '../settingsindex.js';
 const web = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => readFileSync(join(web, f), 'utf8');
 
-// The sections as the page registers them: the settings view's own fieldsets
-// plus the ones modules add (users.js).
+// The sections as the page registers them: the settings view's fieldsets.
 function registered() {
   const html = read('index.html');
   const view = html.slice(html.indexOf('id="settings-view"'));
   const titles = [...view.matchAll(/<fieldset class="sode__group[^"]*"[^>]*>\s*<legend>([^<]+)<\/legend>/g)].map((m) => m[1]);
-  const lines = read('users.js') + read('settings.js');
-  for (const m of lines.matchAll(/el\('legend', null, '([^']+)'\)/g)) titles.push(m[1]);
-  return [...new Set(titles)];
+  return titles;
 }
 
 const idx = () =>
@@ -48,8 +45,6 @@ test('sections appear in the agreed order', () => {
   const html = read('index.html');
   const view = html.slice(html.indexOf('id="settings-view"'));
   const titles = [...view.matchAll(/<fieldset class="sode__group[^"]*"[^>]*>\s*<legend>([^<]+)<\/legend>/g)].map((m) => m[1]);
-  // users.js inserts Users right after Access.
-  titles.splice(titles.indexOf('Access') + 1, 0, 'Users');
   assert.deepEqual(titles, [
     'This browser',
     'My user',
@@ -61,6 +56,7 @@ test('sections appear in the agreed order', () => {
     'Branding',
     'Access',
     'Users',
+    'API',
     'History',
     'Proxy',
     'Export & import',

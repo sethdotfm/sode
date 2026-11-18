@@ -447,6 +447,47 @@
       </div>
     </fieldset>
 
+    <!-- users.js. Saved apart from the form (the `users` message). -->
+    <fieldset class="sode__group" id="users-group" data-apart>
+      <legend>Users</legend>
+      <div class="sode__field">
+        <button type="button" class="pb-btn pb-btn--outline" id="users-manage" data-find="users-manage" data-label="Manage users" aria-haspopup="dialog">Manage users</button>
+      </div>
+      <div class="sode__field" id="users-people" role="group" aria-label="Profiles" hidden></div>
+    </fieldset>
+
+    <!-- apisettings.js. Saved apart from the form (the `apiSettings` message). -->
+    <fieldset class="sode__group" id="api-group" data-apart>
+      <legend>API</legend>
+      <div class="sode__field">
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-enabled"><span class="pb-check__label">API enabled</span></label>
+        <span class="sode__hint">Off by default. While off, every API call is refused.</span>
+      </div>
+      <div class="sode__field">
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-guest"><span class="pb-check__label">Guest API</span></label>
+        <span class="sode__hint">Lets a call with no key use the Guest scopes (Manage users, Rights tab, Guest). The API switch gates it too.</span>
+      </div>
+      <div class="sode__field">
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>
+        <span class="sode__hint">One Communication Log row for every read. Off keeps the log to commands, refusals and key events.</span>
+      </div>
+      <div class="sode__field">
+        <label for="api-rate">Rate limit (requests a minute per key)</label>
+        <span class="pb-number-wrap"><input type="number" id="api-rate" class="pb-input" min="0" max="100000"></span>
+        <span class="sode__hint">0 means none.</span>
+      </div>
+      <div class="sode__field">
+        <label for="api-cap">Take cap (API takes in flight)</label>
+        <span class="pb-number-wrap"><input type="number" id="api-cap" class="pb-input" min="1" max="64"></span>
+        <span class="sode__hint">The router answers one message at a time, so a runaway client is held back here. 1-64.</span>
+      </div>
+      <div class="sode__field">
+        <button type="button" class="pb-btn pb-btn--outline" id="api-save" data-find="api-save" data-label="Save API settings">Save API settings</button>
+        <span class="sode__hint" id="api-note" role="status" aria-live="polite"></span>
+      </div>
+      <div class="pb-note pb-note--error" id="api-err" role="alert" hidden></div>
+    </fieldset>
+
     <fieldset class="sode__group">
       <legend>History</legend>
       <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
