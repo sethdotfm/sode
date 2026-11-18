@@ -114,3 +114,14 @@ locks:
 		t.Fatalf("salvos loaded as presets: %+v", c.Presets)
 	}
 }
+
+// Keys v2.0 dropped before its release: a dev file that still holds them loads with no unknown keys.
+func TestRetiredAPIKeysAreDropped(t *testing.T) {
+	c, err := Parse([]byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\napi:\n  enabled: true\n  maxUserKeys: 8\n  maxClientKeys: 20\n  rateLimit: 9\n  future: 1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.UnknownKeys(); !slices.Equal(got, []string{"api.future"}) {
+		t.Fatalf("UnknownKeys = %q", got)
+	}
+}

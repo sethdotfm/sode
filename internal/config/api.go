@@ -3,6 +3,7 @@ package config
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"unicode"
@@ -209,7 +210,17 @@ func (r *Rights) fillRouter(uid string) {
 	}
 }
 
+// retiredAPIKeys went before v2.0 shipped (the API is always on, key caps are fixed), so dev files
+// that hold them are not warned about. Extra is shared by Clone, hence the copy.
+var retiredAPIKeys = []string{"enabled", "maxUserKeys", "maxClientKeys"}
+
 func (c *Config) normalizeAPI() {
+	if slices.ContainsFunc(retiredAPIKeys, func(k string) bool { _, ok := c.API.Extra[k]; return ok }) {
+		c.API.Extra = maps.Clone(c.API.Extra)
+		for _, k := range retiredAPIKeys {
+			delete(c.API.Extra, k)
+		}
+	}
 	c.GuestRights.Visibility = strings.ToLower(strings.TrimSpace(c.GuestRights.Visibility))
 	c.GuestRights.fillRouter(c.UID)
 	for i := range c.Users {

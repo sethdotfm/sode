@@ -70,6 +70,11 @@ on('usersListed', (m) => {
   fill();
 });
 
+// The next sign-in may be someone else's; they load the scopes again before a tick counts.
+on('locked', () => {
+  for (const b of boxes) b.disabled = true;
+});
+
 const fail = (text) => {
   err.textContent = sentence(text);
   err.hidden = !text;
