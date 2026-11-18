@@ -188,6 +188,13 @@ export function actsSwitch(from, to) {
   return { confirm: true, name, text: `${name} makes the panel its own API client, with no keys yet. ${next}` };
 }
 
+// A blank new panel's mode: the new-panel Authentication mode, but User while Public panels are not allowed (the server
+// refuses Public then). Missing values are the server's defaults. Save a copy keeps its source's mode on the server.
+export function newPanelActs(cfg) {
+  const m = cfg?.newPanelActs || 'public';
+  return m === 'public' && cfg?.publicPanels === false ? 'session' : m;
+}
+
 // The short form for a row, after the owner's name.
 export const actsShort = (p) => SHORT[p.acts] || 'signs in as the user';
 

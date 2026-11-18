@@ -300,6 +300,10 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if p.Type == panelTypeButtons {
 		p.Pages = a.refPages(p.Pages, cl.Actor.User)
 	}
+	if p.Acts == panelActsPublic && !a.r().cfg.PublicPanels {
+		failWith(w, errPublicOff)
+		return
+	}
 	var rights config.Rights
 	if actsHasClient(p.Acts) {
 		var err error
@@ -395,6 +399,10 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		}
 		// Opening a panel to anyone checks the caller even when the Rights stay as stored.
 		if p.Acts == panelActsPublic && old.Acts != panelActsPublic {
+			if !a.r().cfg.PublicPanels {
+				failWith(w, errPublicOff)
+				return
+			}
 			if want == nil && had {
 				want = &cur.Rights
 			}
@@ -449,8 +457,8 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// apiPanelCopy is Save a copy: a new private panel the caller owns, acting as a session user.
-// It gets the copied panel's grid, settings, unknown fields and artwork. The body can name it.
+// apiPanelCopy is Save a copy: a new private panel the caller owns, with the copied panel's mode,
+// grid, settings, unknown fields and artwork. The body can name it.
 func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ownerOnly(w, cl) {
 		return
@@ -464,7 +472,11 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	c := src
-	c.Owner, c.Client, c.Acts, c.Share = cl.Actor.User, "", panelActsSession, PanelShare{Mode: panelShareMe}
+	c.Owner, c.Client, c.Share = cl.Actor.User, "", PanelShare{Mode: panelShareMe}
+	// A Public source while the switch is off: as a blank new panel would, the copy acts as a user.
+	if c.Acts == panelActsPublic && !a.r().cfg.PublicPanels {
+		c.Acts = panelActsSession
+	}
 	c.Name = in.Name
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
@@ -478,10 +490,32 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+	var rights config.Rights
+	var nets []string
+	if actsHasClient(c.Acts) {
+		if srcClient, ok := clientOfPanel(a.r().cfg, src); ok {
+			rights, nets = srcClient.Rights.Intersect(cl.Rights), srcClient.Networks
+		} else {
+			rights = cl.Rights.Clone()
+		}
+	}
 	made, err := a.panels.create(c)
 	if err != nil {
 		a.panelStoreFail(w, err)
 		return
+	}
+	if actsHasClient(made.Acts) {
+		made.Client = panelClientName(made.ID)
+		err := a.putPanelClient(made.ID, &rights, nets)
+		if err == nil {
+			_, err = a.panels.replace(made)
+		}
+		if err != nil {
+			a.panels.delete(made.ID)
+			a.setPanelClient(made.ID, nil)
+			failWith(w, err)
+			return
+		}
 	}
 	skipped := a.panels.copyArt(src, made.ID)
 	made, _ = a.panels.get(made.ID)

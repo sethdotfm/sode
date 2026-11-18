@@ -71,6 +71,7 @@ var exportSections = []exportSection{
 	{"confirm", []string{"confirmLockoutMs", "resultDismissSeconds", "confirmEnter"}},
 	{"locks", []string{"locks", "autoLockMinutes", "pinWaits", "maxPinLen"}},
 	{"api", []string{"api", "guestRights", "guestRole", "guestApiScopes"}},
+	{"panels", []string{"publicPanels", "newPanelActs"}},
 	{"proxy", []string{"trustedProxies", "requireHttps"}},
 }
 

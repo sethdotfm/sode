@@ -100,6 +100,11 @@ func clean(r config.Rights) config.Rights {
 // setPanelClient adds, replaces the rights of, or (rights nil) removes the client of panel id.
 // Removing it ends its keys and open streams through the config commit.
 func (a *App) setPanelClient(id string, rights *config.Rights) error {
+	return a.putPanelClient(id, rights, nil)
+}
+
+// putPanelClient is setPanelClient; nets are a new client's allowed networks (Save a copy keeps its source's).
+func (a *App) putPanelClient(id string, rights *config.Rights, nets []string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	name := panelClientName(id)
@@ -115,7 +120,7 @@ func (a *App) setPanelClient(id string, rights *config.Rights) error {
 		case i >= 0:
 			return errors.New("an API client is already named " + name)
 		default:
-			cur.APIClients = append(cur.APIClients, config.APIClient{Name: name, Scopes: slices.Clone(config.PanelClientScopes), Rights: rights.Clone(), Panel: id})
+			cur.APIClients = append(cur.APIClients, config.APIClient{Name: name, Scopes: slices.Clone(config.PanelClientScopes), Rights: rights.Clone(), Panel: id, Networks: slices.Clone(nets)})
 		}
 		return nil
 	})

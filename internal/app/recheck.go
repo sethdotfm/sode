@@ -128,6 +128,8 @@ var presetFields = []struct {
 	{"Wait after wrong PINs", func(a, b config.Config) bool { return a.PinWaits != b.PinWaits }},
 	{"the keyless API", func(a, b config.Config) bool { return a.API.GuestEnabled != b.API.GuestEnabled }},
 	{"keyless scopes", func(a, b config.Config) bool { return !sameSet(a.GuestAPIScopes, b.GuestAPIScopes) }},
+	{"Public panels allowed", func(a, b config.Config) bool { return a.PublicPanels != b.PublicPanels }},
+	{"the new-panel Authentication mode", func(a, b config.Config) bool { return a.NewPanelActs != b.NewPanelActs }},
 }
 
 // sameSet: pages send scopes in their own order.

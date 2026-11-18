@@ -543,9 +543,17 @@
       <div class="pb-note pb-note--error" id="api-err" role="alert" hidden></div>
     </fieldset>
 
-    <fieldset class="sode__group" data-apart data-section="panels" data-topic="access">
+    <fieldset class="sode__group" data-section="panels" data-topic="access">
       <legend>Panels</legend>
-      <span class="sode__hint">The settings for new panels come in a later release.</span>
+      <div class="sode__field">
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-public-panels" data-key="publicPanels" data-type="bool"><span class="pb-check__label">Public panels allowed</span></label>
+        <span class="sode__hint">A Public panel opens for anyone with its link, with no sign-in. When this is off, no panel can become Public and each Public panel stops until this is on again. Its pages come back by themselves.</span>
+      </div>
+      <div class="sode__field">
+        <label for="cfg-new-panel-acts">New-panel Authentication mode</label>
+        <span class="pb-select-wrap"><select id="cfg-new-panel-acts" class="pb-select" data-key="newPanelActs"><option value="public">Public</option><option value="session">User</option><option value="both">Both</option><option value="api">API</option></select></span>
+        <span class="sode__hint">The mode a blank new panel starts with. Its owner can change it. Save a copy keeps the mode of the panel it copies. When Public panels are not allowed, a new panel set to Public starts as User.</span>
+      </div>
     </fieldset>
 
     <h3 class="sode__topic" data-topic="server" id="topic-server">Server</h3>
