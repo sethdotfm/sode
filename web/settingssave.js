@@ -5,7 +5,6 @@ import { $, el, S, on, wsSend, sentence } from './core.js';
 import { fmtTime } from './device.js';
 import { relock, unlocked, trusted, needsPin } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
-import { guardedEdited } from './lockrules.js';
 import { showPinFields, resetPinFields } from './settingspin.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
 import { renderLock, showLockErr, sendUnlock } from './settingslock.js';
@@ -117,9 +116,6 @@ export function initSave({ focusField, reveal }) {
       return void askThenSave('Changing the PIN needs the Advanced Settings PIN.');
     }
     const c = readSettings();
-    if (S.pinSet && trusted() && !unlocked() && guardedEdited(c, S.cfg)) {
-      return void askThenSave('Changing that setting needs the Advanced Settings PIN.');
-    }
     const bad = formProblem(c);
     if (bad) {
       showSaveErr(bad.text);

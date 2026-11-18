@@ -65,7 +65,7 @@ const page = pageType(location.pathname);
   document.head.append(css);
 }
 
-const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false, lens: [], mode: 'pin' };
+const L = { enforced: false, locked: false, held: false, user: '', role: '', trusted: false, persistent: false, noAutoLock: false, lens: [], mode: 'pin' };
 export const lockState = () => ({ ...L });
 
 startHandshake(page);
@@ -463,6 +463,7 @@ onMsg('lockState', (m) => {
   L.held = !!m.held;
   L.user = m.user || '';
   L.trusted = !!m.trusted;
+  L.role = m.role || '';
   L.persistent = !!m.persistent;
   L.noAutoLock = !!m.noAutoLock;
   L.lens = m.lens || [];
