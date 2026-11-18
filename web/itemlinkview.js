@@ -46,7 +46,8 @@ export function itemLinkBox() {
     box,
     // A preset of this install; This browser presets have no Item link.
     showPreset(id) {
-      input.value = presetLink(linkBase(), id, S.installUid);
+      // The main page has no <base>, so its base URI holds the address's own query and fragment.
+      input.value = presetLink(new URL('./', linkBase()).href, id, S.installUid);
       const qr = qrNode(input.value, 'QR code of the Item link');
       qrBox.replaceChildren(qr || el('p', 'sode__hint', 'This link is too long for a QR code. Copy it instead.'));
       status.replaceChildren();

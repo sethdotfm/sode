@@ -21,7 +21,7 @@ export async function copyText(text) {
 }
 
 // Before the hello the install is not known, so the link has no install until it comes.
-const itemLink = (panel) => {
+export const itemLink = (panel) => {
   const link = linkFor(panel, { base: linkBase() });
   return S.installUid ? panelLink(link, S.installUid) : link;
 };

@@ -15,7 +15,7 @@ func TestChromeEditorChrome(t *testing.T) {
 	b.waitFor("link in Identity", `/\/panels\/`+id+`#install=[0-9a-f]{16}$/.test(document.querySelector('#panel-ed-panel .sode-linkrow__text')?.value)`)
 	b.waitFor("picker at least 14rem", `document.getElementById('ed-pick').getBoundingClientRect().width >= 14 * parseFloat(getComputedStyle(document.documentElement).fontSize)`)
 	b.eval(`window.copied = ''; navigator.clipboard.writeText = async (t) => { window.copied = t }; document.getElementById('ed-copylink').click()`)
-	b.waitFor("link copied", `window.copied.endsWith('/panels/`+id+`') && document.getElementById('ed-status').textContent === 'Link copied.'`)
+	b.waitFor("link copied", `/\/panels\/`+id+`#install=[0-9a-f]{16}$/.test(window.copied) &&document.getElementById('ed-status').textContent === 'Link copied.'`)
 
 	b.eval(`window.grid = document.getElementById('ed-grid');
 		window.press = (init) => grid.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));

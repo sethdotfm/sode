@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -35,7 +36,19 @@ func TestChromeItemLinkWorksOnlyOnItsInstall(t *testing.T) {
 	b.waitFor("the link leaves the address", `location.hash === ''`)
 	b.check()
 
-	b.open(srv.URL + "/?again#preset=pshow&install=0000000000000000") // a new search, so a full load and not a hashchange
+	// The link the preset editor makes, opened as is, does the same.
+	b.eval(`[...document.querySelectorAll('.sode__preset-pop button')].find((x) => x.textContent === 'Preset Editor').click(); true`)
+	pick := `[...document.querySelectorAll('select')].find((s) => s.offsetParent && [...s.options].some((o) => o.value === 'global:Show'))`
+	b.waitFor("the preset editor", "!!"+pick)
+	b.eval(`(() => { const s = ` + pick + `; s.value = 'global:Show'; s.dispatchEvent(new Event('change')); return true })()`)
+	b.eval(`[...document.querySelectorAll('button')].find((x) => x.offsetParent && x.textContent === 'Item link').click(); true`)
+	b.waitFor("the Item link and its QR code", `document.querySelector('.sode__itemlink input')?.value === location.origin + '/#preset=pshow&install=`+here+`' && !!document.querySelector('.sode__itemlink .sode__qr')`)
+	link, _ := b.eval(`document.querySelector('.sode__itemlink input').value`).(string)
+	b.open(strings.Replace(link, "/#", "/?again#", 1)) // a new search, so a full load and not a hashchange
+	b.waitFor("the made link opens the popup on its preset", `!document.querySelector('.sode__preset-pop').closest('.pb-modal-backdrop').hidden && document.querySelector('.sode__preset-pop .sode__preset-item.is-hi strong')?.textContent === 'Show'`)
+	b.check()
+
+	b.open(srv.URL + "/?other#preset=pshow&install=0000000000000000")
 	b.waitFor("another install's link says so", `document.body.innerText.includes('made on another Sode install')`)
 	b.waitFor("and opens no popup", `document.querySelector('.sode__preset-pop').closest('.pb-modal-backdrop').hidden`)
 	b.check()
