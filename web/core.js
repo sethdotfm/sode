@@ -183,6 +183,11 @@ function handle(m) {
         globalThis.location?.reload();
         return;
       }
+      // The prefix changed while this socket was down, so the reload message never came.
+      if (S.prefix && m.prefix && S.prefix !== m.prefix) {
+        globalThis.location?.reload();
+        return;
+      }
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
       emit('helloCfg', m.cfg);
@@ -247,7 +252,7 @@ function handle(m) {
       break;
     // The router prefix changed: typed text and stored items on this page name the old one.
     case 'reload':
-      location.reload();
+      globalThis.location?.reload();
       break;
     case 'sentPage':
     case 'uptimeResult':
