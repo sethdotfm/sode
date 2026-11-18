@@ -19,7 +19,7 @@ func TestChromePanelKioskAndRefusal(t *testing.T) {
 	sim := startSim(t)
 
 	a := simApp(t, sim)
-	a.r().cfg.Users[0].Rights = config.Rights{Dsts: config.Nums(simDst)}
+	a.r().cfg.Users[0].Rights = config.Rights{Dsts: nums(simDst)}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()

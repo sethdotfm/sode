@@ -333,6 +333,12 @@ func loadPanels(cfgPath string) *panelStore {
 			s.skip(id, "%s: the file name and its id %q differ", path, p.ID)
 			return p, false
 		}
+		l := layoutOf(p)
+		l.LegacyCells = p.LegacyCells
+		if err := l.noRouterProblem(); err != nil {
+			s.skip(id, "%s: %v", path, err)
+			return p, false
+		}
 		p.Extra = extraOwnFields(p.Extra)
 		p.normalize()
 		// In memory the list is always []config.Ref; a bad hand-edited one is dropped.

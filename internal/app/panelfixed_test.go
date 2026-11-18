@@ -25,7 +25,7 @@ func TestFixedDestsStoredAsReferences(t *testing.T) {
 	a := panelsApp(t)
 	uid := a.r().cfg.UID
 	ana := userKey(t, a, "Ana")
-	id := makePanel(t, a, ana, `{"name":"Wall","settings":{"fixedDests":[2,{"n":40}]}}`)
+	id := makePanel(t, a, ana, `{"name":"Wall","settings":{"fixedDests":[{"n":2},{"router":"`+uid+`","n":40}]}}`)
 	b, err := os.ReadFile(filepath.Join(filepath.Dir(a.cfgPath), "panels", id+".yaml"))
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func TestFixedDestsStoredAsReferences(t *testing.T) {
 		t.Fatalf("read %v", got)
 	}
 	// A page sends the list back as it read it; the names stay.
-	rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Wall","settings":{"fixedDests":[{"router":"`+uid+`","n":2,"name":"MON 2"},40]}}`)
+	rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Wall","settings":{"fixedDests":[{"router":"`+uid+`","n":2,"name":"MON 2"},{"n":40}]}}`)
 	if rec.Code != 200 || fmt.Sprint(fixedOf(readPanel(t, a, ana, id))) != "[2 40]" {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
@@ -50,7 +50,7 @@ func TestFixedDestsStoredAsReferences(t *testing.T) {
 func TestFixedDestsSaveAndRead(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
-	id := makePanel(t, a, ana, `{"name":"Wall","settings":{"mode":"take","fixedDests":[12,0,40]}}`)
+	id := makePanel(t, a, ana, `{"name":"Wall","settings":{"mode":"take","fixedDests":[{"n":12},{"n":0},{"n":40}]}}`)
 	if got := fmt.Sprint(fixedOf(readPanel(t, a, ana, id))); got != "[12 0 40]" {
 		t.Fatalf("fixed destinations %s", got)
 	}
@@ -71,7 +71,7 @@ func TestFixedDestsOldPanelFileLoadsUnchanged(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "panels"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, n: 4}\nsettings:\n    mode: instant\n    levels: [1, 2]\n")
+	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, router: r1, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, router: r1, n: 4}\nsettings:\n    mode: instant\n    levels: [1, 2]\n")
 	path := filepath.Join(dir, "panels", "p-0000abcd.yaml")
 	if err := os.WriteFile(path, old, 0o644); err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestFixedDestsOldPanelFileLoadsUnchanged(t *testing.T) {
 	if _, has := p.Settings[panelFixedKey]; has || fmt.Sprint(p.Settings) != "map[levels:[1 2] mode:instant]" {
 		t.Fatalf("settings %v", p.Settings)
 	}
-	if got := fmt.Sprint(p.Pages[0].Cells); got != "[map[c:1 cs:1 kind:destination n:7 r:1 rs:1] map[c:2 cs:1 kind:source n:4 r:1 rs:1]]" {
+	if got := fmt.Sprint(p.Pages[0].Cells); got != "[map[c:1 cs:1 kind:destination n:7 r:1 router:r1 rs:1] map[c:2 cs:1 kind:source n:4 r:1 router:r1 rs:1]]" {
 		t.Fatalf("cells %s", got)
 	}
 	if b, _ := os.ReadFile(path); !bytes.Equal(b, old) {
@@ -99,11 +99,11 @@ func TestFixedDestsRefusesABadList(t *testing.T) {
 	upTo := func(n int) string {
 		s := make([]string, n)
 		for i := range s {
-			s[i] = fmt.Sprint(i)
+			s[i] = fmt.Sprintf(`{"n":%d}`, i)
 		}
 		return "[" + strings.Join(s, ",") + "]"
 	}
-	for _, list := range []string{`[1.5]`, `["3"]`, `[-1]`, `[4,4]`, upTo(17), `7`, `[null]`} {
+	for _, list := range []string{`[{"n":1.5}]`, `["3"]`, `[{"n":-1}]`, `[{"n":4},{"n":4}]`, upTo(17), `7`, `[null]`, `[2]`} {
 		body := `{"name":"Wall","settings":{"fixedDests":` + list + `}}`
 		wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, body), 400, "bad_request")
 		wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body), 400, "bad_request")
@@ -116,7 +116,7 @@ func TestFixedDestsRefusesABadList(t *testing.T) {
 func TestFixedDestsGoInATemplateOnlyWithDests(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
-	body := `{"name":"%s","scope":"%s",%s"settings":{"mode":"instant","fixedDests":[3,4]},"cells":[]}`
+	body := `{"name":"%s","scope":"%s",%s"settings":{"mode":"instant","fixedDests":[{"n":3},{"n":4}]},"cells":[]}`
 
 	rec := apiSend(a, "POST", "/api/v1/panel-templates", ana, fmt.Sprintf(body, "Plain", "me", `"sources":true,`))
 	if rec.Code != 201 {
@@ -140,8 +140,8 @@ func TestFixedDestsGoInATemplateOnlyWithDests(t *testing.T) {
 func TestFixedDestsStayWithEachPanelOnPushAndComeBackWithASet(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
-	src := makePanel(t, a, ana, `{"name":"Wall 1","cells":[{"r":1,"c":1,"kind":"take"}],"settings":{"mode":"instant","fixedDests":[1]}}`)
-	two := makePanel(t, a, ana, `{"name":"Wall 2","settings":{"fixedDests":[2,22]}}`)
+	src := makePanel(t, a, ana, `{"name":"Wall 1","cells":[{"r":1,"c":1,"kind":"take"}],"settings":{"mode":"instant","fixedDests":[{"n":1}]}}`)
+	two := makePanel(t, a, ana, `{"name":"Wall 2","settings":{"fixedDests":[{"n":2},{"n":22}]}}`)
 	none := makePanel(t, a, ana, `{"name":"Wall 3"}`)
 
 	rec := apiSend(a, "POST", "/api/v1/panel-sets", ana, setBody("Show A", "me", src, two))
@@ -161,7 +161,7 @@ func TestFixedDestsStayWithEachPanelOnPushAndComeBackWithASet(t *testing.T) {
 		t.Fatalf("Wall 3 took the source's list: %v", p["settings"])
 	}
 
-	apiSend(a, "PUT", "/api/v1/panels/"+src, ana, `{"name":"Wall 1","settings":{"fixedDests":[9]}}`)
+	apiSend(a, "PUT", "/api/v1/panels/"+src, ana, `{"name":"Wall 1","settings":{"fixedDests":[{"n":9}]}}`)
 	apiSend(a, "PUT", "/api/v1/panels/"+two, ana, `{"name":"Wall 2","settings":{}}`)
 	rec = apiSend(a, "POST", "/api/v1/panel-sets/"+sid+"/push", ana, `{}`)
 	if rec.Code != 200 {

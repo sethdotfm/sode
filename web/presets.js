@@ -19,6 +19,7 @@ import {
   presetsIn,
   findPreset,
   normPreset,
+  storedPreset,
   presetProblem,
   presetsProblem,
   replacePreset,
@@ -750,7 +751,7 @@ on('openPresetEditor', (m) => {
   open = true;
   pinRow.hidden = true;
   const found = t.found;
-  load(found ? { scope: 'user', ...normPreset(found), pinned: found.pinned !== false } : null);
+  load(found ? { scope: 'user', ...storedPreset(found), pinned: found.pinned !== false } : null);
   dlg.show();
   dialog.focus();
 });

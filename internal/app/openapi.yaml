@@ -2367,7 +2367,7 @@ components:
             Any number of items can be pinned.
     GridRef:
       type: object
-      description: One source or destination on one router. A bare number is taken as `{n}`. Two entries for one item in one list are 400 `bad_request`.
+      description: One source or destination on one router. A bare number is 400 `bad_request`. Two entries for one item in one list are 400 `bad_request`.
       required: [n]
       properties:
         router: { type: string, description: "The router UID. Blank or left out, it is this router." }
@@ -2756,12 +2756,15 @@ components:
         n: { type: integer, description: "Sode's number, 0-based" }
         name: { type: string, description: The router's name for it when the item was saved }
     RightsRef:
+      type: object
       description: |
-        A router reference. Sode returns the object; a request can also send the bare number,
-        which names the one router.
-      oneOf:
-        - { $ref: "#/components/schemas/RouterRef" }
-        - { type: integer, minimum: 0 }
+        A router reference. Sode returns it with `router` and `name`. A request can leave `router` out,
+        which names the one router. A bare number is 400 `bad_request`.
+      required: [n]
+      properties:
+        router: { type: string, description: "The router UID. Blank or left out, it is this router." }
+        n: { type: integer, minimum: 0, description: "Sode's number, 0-based" }
+        name: { type: string, description: The router's name for it when the item was saved }
     Actor:
       type: object
       required: [kind, name]

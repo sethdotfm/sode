@@ -91,8 +91,8 @@ func TestLoadKeepsMadePresetIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := "format: 2\nrouters: [{uid: r1, address: 10.0.0.1:8910}]\n" +
-		"presets:\n  - name: Show\n    items: [{src: {n: 1}, dsts: [{n: 2}]}]\n" +
-		"users:\n  - name: Ann\n    pin: " + pin + "\n    len: 4\n    profile:\n      presets:\n        - name: Mine\n          items: [{src: {n: 1}, dsts: [{n: 3}]}]\n"
+		"presets:\n  - name: Show\n    items: [{src: {router: r1, n: 1}, dsts: [{router: r1, n: 2}]}]\n" +
+		"users:\n  - name: Ann\n    pin: " + pin + "\n    len: 4\n    profile:\n      presets:\n        - name: Mine\n          items: [{src: {router: r1, n: 1}, dsts: [{router: r1, n: 3}]}]\n"
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -41,9 +41,9 @@ func cleanFixedDests(settings map[string]any) (map[string]any, error) {
 	return settings, nil
 }
 
-// fixedList reads JSON ([]any of float64 or reference objects), YAML ([]any of reference maps) or
-// a list already cleaned. A bare number is the one router's destination; nameFixed fills the rest.
-// A router other than this one is refused when named (nameFixed), since v2.0 drives one router.
+// fixedList reads JSON or YAML ([]any of reference maps) or a list already cleaned. A request can leave
+// the router out, and nameFixed fills it. A file cannot (noRouterProblem). A router other than this one is
+// refused when named (nameFixed), since v2.0 drives one router.
 func fixedList(v any) ([]config.Ref, error) {
 	var raw []any
 	switch l := v.(type) {
@@ -98,8 +98,7 @@ func fixedRef(x any) (config.Ref, bool) {
 		}
 		return config.Ref{Router: router, N: n, Name: name}, true
 	}
-	n, ok := fixedNumber(x)
-	return config.Ref{N: n}, ok
+	return config.Ref{}, false
 }
 
 // fixedNs is the destination numbers of a cleaned list.

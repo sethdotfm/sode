@@ -16,7 +16,7 @@ func clientApp(t *testing.T) (*App, *fakeRouter) {
 	return apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
 		cy.Role = config.RoleTrusted
-		cy.Rights = config.Rights{Sources: config.Nums(1, 2, 3), Dsts: config.Nums(2, 4)}
+		cy.Rights = config.Rights{Sources: nums(1, 2, 3), Dsts: nums(2, 4)}
 		c.Users = append(c.Users, cy)
 	})
 }
@@ -31,7 +31,7 @@ func clientOf(t *testing.T, a *App, name string) (config.APIClient, bool) {
 func TestPanelClientCreatedWithinRights(t *testing.T) {
 	a, _ := clientApp(t)
 	key := userKey(t, a, "Cy")
-	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[1,2],"dsts":[2]}}`)
+	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":2}],"dsts":[{"n":2}]}}`)
 	if rec.Code != 201 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
@@ -74,14 +74,14 @@ func TestPanelClientWiderThanCreatorRefused(t *testing.T) {
 	a, _ := clientApp(t)
 	key := userKey(t, a, "Cy")
 	for _, rights := range []string{
-		`{"sources":[1,9]}`,
-		`{"dsts":[7]}`,
+		`{"sources":[{"n":1},{"n":9}]}`,
+		`{"dsts":[{"n":7}]}`,
 		`{}`, // every list unset is wider than Cy's
-		`{"sources":[1],"dsts":[2],"presets":["Studio A"],"levels":null}`,
+		`{"sources":[{"n":1}],"dsts":[{"n":2}],"presets":["Studio A"],"levels":null}`,
 	} {
 		rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":`+rights+`}`)
 		want := 403
-		if rights == `{"sources":[1],"dsts":[2],"presets":["Studio A"],"levels":null}` {
+		if rights == `{"sources":[{"n":1}],"dsts":[{"n":2}],"presets":["Studio A"],"levels":null}` {
 			want = 201 // within: lists only narrow
 		}
 		if rec.Code != want || (want == 403 && apiErrCode(t, rec) != "administrator_only") {
@@ -106,17 +106,17 @@ func TestPanelClientWiderThanCreatorRefused(t *testing.T) {
 func TestPanelClientCheckedOnSave(t *testing.T) {
 	a, _ := clientApp(t)
 	key := userKey(t, a, "Cy")
-	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	id, name := apiBody(t, rec)["id"].(string), apiBody(t, rec)["client"].(string)
 	path := "/api/v1/panels/" + id
 
-	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[1,2],"dsts":[2]}}`); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":2}],"dsts":[{"n":2}]}}`); rec.Code != 200 {
 		t.Fatalf("narrower or equal change refused: %d %s", rec.Code, rec.Body.String())
 	}
 	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
 		t.Fatalf("not saved: %+v", cl.Rights)
 	}
-	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[1,2,8],"dsts":[2]}}`); rec.Code != 403 || apiErrCode(t, rec) != "administrator_only" {
+	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":2},{"n":8}],"dsts":[{"n":2}]}}`); rec.Code != 403 || apiErrCode(t, rec) != "administrator_only" {
 		t.Fatalf("widening on save: %d %s", rec.Code, rec.Body.String())
 	}
 	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
@@ -132,7 +132,7 @@ func TestPanelClientCheckedOnSave(t *testing.T) {
 	}
 	// Any Role changes them within its own Rights (ADR 0006).
 	setRole(t, a, "Cy", config.RoleStandard)
-	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`); rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 }
@@ -140,7 +140,7 @@ func TestPanelClientCheckedOnSave(t *testing.T) {
 func TestPanelClientAdminWidens(t *testing.T) {
 	a, _ := clientApp(t)
 	key := userKey(t, a, "Cy")
-	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	id, name := apiBody(t, rec)["id"].(string), apiBody(t, rec)["client"].(string)
 
 	list := a.usersList(&client{}, 1).APIClients
@@ -156,7 +156,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 
 	admin := adminClient(t, a)
 	widened := *shown
-	widened.Rights = config.Rights{Sources: config.Nums(1, 50)}
+	widened.Rights = config.Rights{Sources: nums(1, 50)}
 	// It is possible that the page drops the panel link. The save still treats the client as the panel's, and
 	// leaving a panel client out never removes it.
 	widened.Panel = ""
@@ -340,7 +340,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 	a, _ := clientApp(t)
 	defer startLog(t, a)()
 	key := userKey(t, a, "Cy")
-	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[1,2,3],"dsts":[2]}}`)
+	rec := apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":2},{"n":3}],"dsts":[{"n":2}]}}`)
 	id, name := apiBody(t, rec)["id"].(string), apiBody(t, rec)["client"].(string)
 	apiSend(a, "POST", "/api/v1/panels", userKey(t, a, "Ana"), `{"name":"Not a client"}`)
 
@@ -355,7 +355,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 	}
 
 	admin := adminClient(t, a)
-	narrow := config.Rights{Sources: config.Nums(1), Dsts: config.Nums(2, 4)}
+	narrow := config.Rights{Sources: nums(1), Dsts: nums(2, 4)}
 	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted, Rights: &narrow}}
 	if err := saveUsers(a, admin, usersReq{Users: users}); err != nil {
 		t.Fatal(err)

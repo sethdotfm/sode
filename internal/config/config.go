@@ -614,6 +614,9 @@ func Parse(b []byte) (Config, error) {
 	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
 		return c, err
 	}
+	if err := c.noRouterProblem(); err != nil {
+		return c, err
+	}
 	c.Normalize()
 	return c, nil
 }

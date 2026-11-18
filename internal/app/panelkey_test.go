@@ -16,7 +16,7 @@ func keyedPanel(t *testing.T) (*App, *fakeRouter, string, string) {
 	a, f := clientApp(t)
 	shortTimers(a)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, apiPanel+`,"clientRights":{"sources":[1,2,3],"dsts":[2,4]}}`)
+	id := makePanel(t, a, cy, apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":2},{"n":3}],"dsts":[{"n":2},{"n":4}]}}`)
 	return a, f, cy, id
 }
 

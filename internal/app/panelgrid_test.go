@@ -62,7 +62,7 @@ pages:
   - id: aa11
     enabled: true
     cells:
-      - {r: 1, c: 1, kind: source, n: 4}
+      - {r: 1, c: 1, kind: source, router: r1, n: 4}
 settings: {}
 rev: 3
 `
@@ -78,7 +78,7 @@ rev: 3
 		t.Errorf("type %q sources %v destinations %v", p.Type, p.Sources, p.Destinations)
 	}
 	got, _ := json.Marshal(p.Pages)
-	if string(got) != `[{"id":"aa11","enabled":true,"cells":[{"c":1,"kind":"source","n":4,"r":1}]}]` {
+	if string(got) != `[{"id":"aa11","enabled":true,"cells":[{"c":1,"kind":"source","n":4,"r":1,"router":"r1"}]}]` {
 		t.Errorf("pages %s", got)
 	}
 }
