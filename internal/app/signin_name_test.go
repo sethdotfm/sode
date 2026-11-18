@@ -85,20 +85,24 @@ func TestHeldLockResumesOnlyWithTheHoldersPin(t *testing.T) {
 	}
 }
 
-// withoutNewUserDefaults is the hello without cfg.newUserDefaults. That setting has the key
-// names of a user's Persistent and No auto-lock, and the scans look at user data only.
-func withoutNewUserDefaults(t *testing.T, hello []byte) string {
+// withoutAccessSettings is the hello without cfg.newUserDefaults and cfg.guestRole. These
+// settings use the words of user data (persistent, noAutoLock, trusted), and the scans look at
+// user data only.
+func withoutAccessSettings(t *testing.T, hello []byte) string {
 	t.Helper()
 	var m map[string]any
 	if err := json.Unmarshal(hello, &m); err != nil {
 		t.Fatal(err)
 	}
-	if cfg, ok := m["cfg"].(map[string]any); !ok {
+	cfg, ok := m["cfg"].(map[string]any)
+	if !ok {
 		t.Fatal("hello has no cfg")
-	} else if _, ok := cfg["newUserDefaults"]; !ok {
-		t.Fatal("hello has no cfg.newUserDefaults: drop withoutNewUserDefaults")
-	} else {
-		delete(cfg, "newUserDefaults")
+	}
+	for _, k := range []string{"newUserDefaults", "guestRole"} {
+		if _, ok := cfg[k]; !ok {
+			t.Fatalf("hello has no cfg.%s: drop it from withoutAccessSettings", k)
+		}
+		delete(cfg, k)
 	}
 	b, _ := json.Marshal(m)
 	return string(b)
@@ -136,7 +140,7 @@ func TestUsernamesStayOutOfPublicMessages(t *testing.T) {
 			t.Fatalf("hello user %d: %v", i, u)
 		}
 	}
-	scan := withoutNewUserDefaults(t, b)
+	scan := withoutAccessSettings(t, b)
 	for _, bad := range []string{`"u-`, `"role"`, `"administrator"`, `"trusted"`, `"persistent"`, `"noAutoLock"`, `"rights"`, "pbkdf2", `"signInMode"`} {
 		if strings.Contains(scan, bad) {
 			t.Fatalf("hello mentions %s: %s", bad, b)

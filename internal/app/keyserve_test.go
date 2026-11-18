@@ -453,7 +453,7 @@ func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	}
 
 	a.mu.Lock()
-	hello := withoutNewUserDefaults(t, a.hello(helloPage{}))
+	hello := withoutAccessSettings(t, a.hello(helloPage{}))
 	locked := a.lockStateMu(&client{ip: "10.0.0.8"})
 	a.mu.Unlock()
 	lockedJSON, _ := json.Marshal(locked)
