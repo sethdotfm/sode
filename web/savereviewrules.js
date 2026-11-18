@@ -31,6 +31,8 @@ export const SAVE_FIELDS = Object.freeze({
   pinWaits: 'locks',
   locks: 'locks',
   autoLockMinutes: 'locks',
+  publicPanels: 'panels',
+  newPanelActs: 'panels',
   trustedProxies: 'proxy',
   requireHttps: 'proxy',
 });
@@ -41,7 +43,7 @@ export const reconnects = (key) => RECONNECT.has(key);
 
 // Critical fields of the form (criticalEdits in internal/app/recheck.go). The page asks the PIN recheck before it
 // sends them; a server refusal still asks if this list falls behind.
-const CRITICAL = new Set([...RECONNECT, 'locks', 'autoLockMinutes', 'pinWaits']);
+const CRITICAL = new Set([...RECONNECT, 'locks', 'autoLockMinutes', 'pinWaits', 'publicPanels', 'newPanelActs']);
 export const critical = (key) => CRITICAL.has(key);
 
 // Lists that read as one row per item.
