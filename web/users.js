@@ -1,7 +1,6 @@
 // Users: the directory (users, longest PIN) has its own dialog with its own save (`users` message, guarded by the Advanced
 // Settings PIN). It never saves with the main Save.
 // Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a trusted user without the PIN. The server holds every rule.
-// Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
 import { trusted, unlocked } from './pin.js';
@@ -15,27 +14,9 @@ import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
 import { MODES, RENAME_HINT, clashNotice, needsNewPins, pinClashes, prefillUsernames, renameNotice, usernameColumn, usersReq } from './usersrules.js';
 
-const form = $('settings-view');
-
-// ---- the Settings section: the button
-const manage = el('button', 'pb-btn pb-btn--outline', 'Manage users');
-manage.type = 'button';
-manage.id = 'users-manage';
-manage.dataset.find = 'users-manage';
-manage.dataset.label = 'Manage users';
-manage.setAttribute('aria-haspopup', 'dialog');
-
-const people = el('div', 'sode__field');
-people.hidden = true;
-people.setAttribute('role', 'group');
-people.setAttribute('aria-label', 'Profiles');
-
-const group = el('fieldset', 'sode__group', el('legend', null, 'Users'), el('div', 'sode__field', manage), people);
-group.id = 'users-group';
-group.dataset.apart = '';
-
-const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');
-access.after(group);
+// ---- the Settings section (index.html #users-group)
+const manage = $('users-manage');
+const people = $('users-people');
 
 // ---- the dialog
 const number = (id) => {
