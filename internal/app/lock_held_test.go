@@ -201,7 +201,7 @@ func TestHeldLockBlocksAdministratorPaths(t *testing.T) {
 			t.Fatalf("enforced=%v: before the Lock: %v", enforced, err)
 		}
 		a.UserLock(c)
-		for _, m := range []inMsg{{T: "users"}, {T: "configExport"}, {T: "configImportBegin"}, {T: "userSignOutAll"}} {
+		for _, m := range []inMsg{{T: "users"}, {T: "exportSession"}, {T: "userSignOutAll"}} {
 			if err := admitMsg(a, c, m); !errors.Is(err, errPageLocked) {
 				t.Errorf("enforced=%v: %s from a locked Administrator session: %v", enforced, m.T, err)
 			}

@@ -195,6 +195,7 @@ function handle(m) {
       }
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
+      S.versions = m.versions || {};
       emit('helloCfg', m.cfg);
       S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;

@@ -41,8 +41,8 @@ type rule struct {
 	self   string
 	// admitted runs under mu on admit, so a lock cannot slip between check and effect.
 	admitted func(c *client)
-	// handle runs after admit passed; connCtx is the read loop's per-connection state.
-	handle func(a *App, c *client, m *inMsg, cc *connCtx)
+	// handle runs after admit passed.
+	handle func(a *App, c *client, m *inMsg)
 	// write: a take or save. The read loop counts it so shutdown waits for it, and refuses it
 	// after shutdown began; its handler calls m.finish when done, on every path.
 	write bool
@@ -50,78 +50,73 @@ type rule struct {
 	onRefuse func(a *App, c *client, m *inMsg, err error)
 }
 
-// connCtx: per-connection state the read loop owns.
-type connCtx struct {
-	budget *readBudget
-}
-
 var policy = map[string]rule{
 	// declares the page type and session token; answered with the lock state
-	"hi": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.Hi(c, m.Page, m.Token) }},
+	"hi": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.Hi(c, m.Page, m.Token) }},
 	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
 	// handled after.
-	"userSignIn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserUnlock(c, m) }},
+	"userSignIn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserUnlock(c, m) }},
 	// locking and signing out are never refused; with nobody signed in the Lock is page-only
 	// and the server does nothing
-	"userLock": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+	"userLock": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) {
 		a.setHeld(c, true)
 		a.command(c, "userLock", "ok", "", nil)
 	}},
-	"userSignOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+	"userSignOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) {
 		a.SignOut(c)
 		a.command(c, "userSignOut", "ok", "", nil)
 	}},
 	// the page's ping while its user is active (idle.go); never refused, never logged
-	"activity":   {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) { a.Activity(c) }},
-	"userSetPin": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserSetPin(c, m) }},
+	"activity":   {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.Activity(c) }},
+	"userSetPin": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserSetPin(c, m) }},
 	// counted in the settings pool. In line: a later lock is handled after, and one
 	// connection checks one PIN at a time.
-	"unlock": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"unlock": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) {
 		err := a.Unlock(c, m.Pin)
 		a.command(c, "unlock", map[bool]string{true: "ok", false: "refused"}[err == nil], "", err)
 		a.reply(c, opResultFor("unlock", &m.ID, err))
 	}},
 	// forgetting an unlock is never refused
-	"lock": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+	"lock": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) {
 		a.Lock(c)
 		a.command(c, "lock", "ok", "", nil)
 	}},
 	// Own keys: a signed-in user only (checked in the handler). Creating asks the user's own
 	// PIN, in the change-PIN pool. Inline, like userSetPin.
-	"keyCreate":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreate(c, m) }},
-	"keyRevoke":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevoke(c, m) }},
-	"sessionKey": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveSessionKey(c, m) }},
+	"keyCreate":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveKeyCreate(c, m) }},
+	"keyRevoke":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevoke(c, m) }},
+	"sessionKey": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveSessionKey(c, m) }},
 	// the banner's Clear menu; a signed-in user only, checked in the handler
-	"panelAlarm": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveAlarm(c, m) }},
-	"keyListOwn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListOwn(c, m) }},
+	"panelAlarm": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveAlarm(c, m) }},
+	"keyListOwn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveKeyListOwn(c, m) }},
 	// API clients from My user (ownclients.go): any Role, a signed-in user only, checked in the
 	// handler. Within the user's own Rights, so no Administrator. Inline, like keyCreate.
-	"myClients":         {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClients(c, m) }},
-	"myClientSave":      {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientSave(c, m) }},
-	"myClientDelete":    {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientDelete(c, m) }},
-	"myClientKey":       {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientKey(c, m) }},
-	"myClientKeyRevoke": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientKeyRevoke(c, m) }},
+	"myClients":         {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClients(c, m) }},
+	"myClientSave":      {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientSave(c, m) }},
+	"myClientDelete":    {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientDelete(c, m) }},
+	"myClientKey":       {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientKey(c, m) }},
+	"myClientKeyRevoke": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientKeyRevoke(c, m) }},
 	// PIN recheck (recheck.go): the signed-in user's own PIN, in that name's pool. In line,
 	// like userSignIn.
-	"pinRecheck": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.servePinRecheck(c, m) }},
+	"pinRecheck": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.servePinRecheck(c, m) }},
 	// Step in and Step out (stepin.go): in line, like userSignIn.
-	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveStepIn(c, m) }},
-	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) { a.StepOut(c) }},
-	"history": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
+	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveStepIn(c, m) }},
+	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.StepOut(c) }},
+	"history": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
 
 	"take": {crit: critNever, role: config.RoleStandard, need: needMain, why: "take", write: true,
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveTake(c, m) },
+		handle: func(a *App, c *client, m *inMsg) { a.serveTake(c, m) },
 		onRefuse: func(a *App, c *client, m *inMsg, err error) {
 			for _, it := range m.Items {
 				a.reply(c, routeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
 			}
 		}},
-	"rereadNames": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+	"rereadNames": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg) {
 		a.command(c, "rereadNames", "sent", "", nil)
 		go a.RefreshNames()
 	}},
 	// Erasing history is more than a take.
-	"clearHistory": {crit: critAlways, role: config.RoleAdministrator, need: needMain, write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"clearHistory": {crit: critAlways, role: config.RoleAdministrator, need: needMain, write: true, handle: func(a *App, c *client, m *inMsg) {
 		a.command(c, "clearHistory", "ok", "", nil)
 		go func() {
 			defer m.finish()
@@ -137,24 +132,24 @@ var policy = map[string]rule{
 
 	// Admitting log subscribes to the feed in the same step, so a lock cannot slip in.
 	"log": {crit: critNever, role: config.RoleStandard, need: needLog, admitted: func(c *client) { c.sent = true },
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.sentHistory(c, int64(m.Before), m.N) }},
-	"uptime": {crit: critNever, role: config.RoleStandard, need: needLog, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		handle: func(a *App, c *client, m *inMsg) { go a.sentHistory(c, int64(m.Before), m.N) }},
+	"uptime": {crit: critNever, role: config.RoleStandard, need: needLog, handle: func(a *App, c *client, m *inMsg) {
 		a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
 	}},
 
 	"config": {crit: critByFields, role: config.RoleTrusted, op: "config", noID: true, write: true,
 		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin },
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveConfig(c, m) }},
+		handle: func(a *App, c *client, m *inMsg) { a.serveConfig(c, m) }},
 	// the one Save: a Standard user passes here and gets a result per field (onesave.go)
 	"settingsSave": {crit: critByFields, role: config.RoleStandard, op: "settingsSave", write: true,
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveSettingsSave(c, m) }},
-	"filterSets": {crit: critNever, role: config.RoleTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		handle: func(a *App, c *client, m *inMsg) { a.serveSettingsSave(c, m) }},
+	"filterSets": {crit: critNever, role: config.RoleTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(sets []config.FilterSet, id int) {
 			defer m.finish()
 			a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
 		}(m.Sets, m.ID)
 	}},
-	"presets": {crit: critNever, role: config.RoleTrusted, op: "presets", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"presets": {crit: critNever, role: config.RoleTrusted, op: "presets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(presets []config.Preset, id int) {
 			defer m.finish()
 			a.replyOp(c, "presets", id, len(presets), "preset", a.SavePresets(c, presets))
@@ -162,42 +157,30 @@ var policy = map[string]rule{
 	}},
 	// A user saves their own profile; another's needs a Trusted user.
 	"profileSave": {crit: critNever, role: config.RoleTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name }, write: true,
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		handle: func(a *App, c *client, m *inMsg) {
 			go func() {
 				defer m.finish()
 				a.serveProfileSave(c, m)
 			}()
 		}},
 	"profileGet": {crit: critNever, role: config.RoleTrusted, op: "profileGet",
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveProfileGet(c, m) }},
-	// Administrator only: holds users, locks, router, profiles and PIN hashes. Begin raises
-	// the read limit for the next message, so it must never be reachable below Administrator.
-	"configExport": {crit: critNever, role: config.RoleAdministrator, op: "configExport",
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.serveConfigExport(c, m) }},
-	"configImportBegin": {crit: critNever, role: config.RoleAdministrator, op: "configImportBegin", handle: func(a *App, c *client, m *inMsg, cc *connCtx) {
-		if cc.budget.Grant(m.Size) {
-			// Answered either way after the limit is raised. The page sends the file
-			// only after this, so a refusal is a normal result, not a too-big message.
-			a.reply(c, opResult{T: "configImportBeginResult", OK: true, ID: &m.ID})
-		} else {
-			a.replyOp(c, "configImportBegin", m.ID, 0, "", errImportTooBig)
-		}
-	}},
-	"configImport": {crit: critAlways, role: config.RoleAdministrator, op: "configImport", write: true,
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveConfigImport(c, m) }},
-	"userSignOutAll": {crit: critAlways, role: config.RoleAdministrator, op: "userSignOutAll", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		handle: func(a *App, c *client, m *inMsg) { a.serveProfileGet(c, m) }},
+	// A session token for the export routes (exportitems.go), which take it in a header.
+	"exportSession": {crit: critNever, role: config.RoleAdministrator, op: "exportSession",
+		handle: func(a *App, c *client, m *inMsg) { a.serveExportSession(c, m) }},
+	"userSignOutAll": {crit: critAlways, role: config.RoleAdministrator, op: "userSignOutAll", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(name string, id int) {
 			defer m.finish()
 			a.replyOp(c, "userSignOutAll", id, 0, "", a.SignOutAll(c, name))
 		}(m.Name, m.ID)
 	}},
 	// Any key: Administrator only.
-	"keyListAll":   {crit: critNever, role: config.RoleAdministrator, op: "keyListAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListAll(c, m) }},
-	"keyCreateFor": {crit: critNever, role: config.RoleAdministrator, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreateFor(c, m) }},
-	"keyRevokeAny": {crit: critNever, role: config.RoleAdministrator, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAny(c, m) }},
-	"keyRevokeAll": {crit: critAlways, role: config.RoleAdministrator, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAll(c, m) }},
+	"keyListAll":   {crit: critNever, role: config.RoleAdministrator, op: "keyListAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyListAll(c, m) }},
+	"keyCreateFor": {crit: critNever, role: config.RoleAdministrator, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg) { a.serveKeyCreateFor(c, m) }},
+	"keyRevokeAny": {crit: critNever, role: config.RoleAdministrator, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAny(c, m) }},
+	"keyRevokeAll": {crit: critAlways, role: config.RoleAdministrator, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAll(c, m) }},
 	// the API settings area: Administrator only
-	"apiSettings": {crit: critByFields, role: config.RoleAdministrator, op: "apiSettings", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"apiSettings": {crit: critByFields, role: config.RoleAdministrator, op: "apiSettings", write: true, handle: func(a *App, c *client, m *inMsg) {
 		if m.APISet == nil {
 			m.finish()
 			return
@@ -208,8 +191,8 @@ var policy = map[string]rule{
 		}(*m.APISet, m.ID)
 	}},
 	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(c, m.ID)) }},
-	"users": {crit: critByFields, role: config.RoleAdministrator, op: "users", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
+	"users": {crit: critByFields, role: config.RoleAdministrator, op: "users", write: true, handle: func(a *App, c *client, m *inMsg) {
 		if m.UsersReq == nil {
 			m.finish()
 			return

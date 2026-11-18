@@ -39,7 +39,7 @@ func sendMsg(a *App, c *client, m inMsg) error {
 	if err := admitMsg(a, c, m); err != nil {
 		return err
 	}
-	policy[m.T].handle(a, c, &m, nil)
+	policy[m.T].handle(a, c, &m)
 	return nil
 }
 

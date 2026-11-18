@@ -1,5 +1,5 @@
-// Settings form fields: fill from S.cfg, read back for the `config` message, check before save, and the live notes and
-// previews beside the fields. data-apart sections (users.js, apisettings.js, configfile.js) own their own fields.
+// Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
+// previews beside the fields. data-apart sections (users.js, apisettings.js) own their own fields.
 
 import { $, el, S, wsSend } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
@@ -8,7 +8,6 @@ import { parseLevelsAs } from './levels.js';
 import { resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { parseFilter, compileFilter } from './filter.js';
-import { omitOwned } from './owned.js';
 import { intProblem, namesTimeText } from './settingsrules.js';
 
 const root = document.documentElement;
@@ -19,10 +18,6 @@ const fields = () => form.querySelectorAll('[data-key]');
 const formMode = () => form.querySelector('input[name="lvlnum"]:checked')?.value || '1';
 const formLevels = () => Number($('cfg-levels').value);
 let shownMode = '1';
-
-// What the form showed: only a change from it is sent, so a form opened before someone else changed the locks cannot
-// undo their change.
-let shownAccess = null;
 
 // Previewed before save: window border and the app icon the server draws (icon.go).
 function renderBrandPreview() {
@@ -58,7 +53,6 @@ export function fillForm() {
   $('cfg-lock-panel').checked = !!S.cfg.locks?.panel;
   $('cfg-new-persistent').checked = !!S.cfg.newUserDefaults?.persistent;
   $('cfg-new-no-auto-lock').checked = !!S.cfg.newUserDefaults?.noAutoLock;
-  shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, panel: !!S.cfg.locks?.panel, auto: S.cfg.autoLockMinutes ?? 0 };
 }
 
 // After renderPrefs (devicesettings.js), which draws the This browser section.
@@ -66,8 +60,10 @@ export function fillGlobalDefaults() {
   for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, null, S.cfg.browserDefaults);
 }
 
+// The form's one Save fields as the page reads them. The review compares two reads, so a value the form shows
+// differently from S.cfg (blank level colors, a rewritten default levels box) is no change.
 export function readSettings() {
-  const c = omitOwned(S.cfg);
+  const c = {};
   for (const f of fields()) {
     const k = f.dataset.key;
     if (f.dataset.type === 'bool') c[k] = f.checked;
@@ -79,14 +75,10 @@ export function readSettings() {
     else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
     else c[k] = f.value.trim();
   }
-  // Locks and idle time are sent only when edited; a missing key keeps the live value. Blank
-  // idle time means 0 (never).
+  // Blank idle time means 0 (never).
   if (Number.isNaN(c.autoLockMinutes)) c.autoLockMinutes = 0;
-  const locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked, panel: $('cfg-lock-panel').checked };
-  if (shownAccess && locks.main === shownAccess.main && locks.log === shownAccess.log && locks.panel === shownAccess.panel) delete c.locks;
-  else c.locks = locks;
-  if (shownAccess && c.autoLockMinutes === shownAccess.auto) delete c.autoLockMinutes;
-  c.newUserDefaults = { ...S.cfg.newUserDefaults, persistent: $('cfg-new-persistent').checked, noAutoLock: $('cfg-new-no-auto-lock').checked };
+  c.locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked, panel: $('cfg-lock-panel').checked };
+  c.newUserDefaults = { persistent: $('cfg-new-persistent').checked, noAutoLock: $('cfg-new-no-auto-lock').checked };
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
   c.browserDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));
