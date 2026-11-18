@@ -24,6 +24,8 @@ import (
 // Config is everything editable from the settings dialog. Process-level
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
+	// Format: see format.go. Defaults sets it, so every write carries it.
+	Format int `yaml:"format" json:"-" owned:"true"`
 	// Router is the one router v2.0 drives; the file holds it as the only entry of routers (router.go).
 	Router `yaml:"-"`
 	// Brand fields are display only.
@@ -37,17 +39,8 @@ type Config struct {
 	HiddenDsts string      `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
 	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
 	Presets    []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
-	// LegacyPresets: pre-1.5 key "salvos"; Normalize moves it to Presets.
-	LegacySalvos []Preset `yaml:"salvos,omitempty" json:"-" guard:"open"`
-	// Grid: ignored; kept so old files load.
-	LegacyGrids       any `yaml:"grids,omitempty" json:"-" guard:"open"`
-	LegacyGridConfirm any `yaml:"gridConfirm,omitempty" json:"-" guard:"open"`
-	// HideDsts: unused; kept so old files load.
-	HideDsts []int `yaml:"hideDsts,omitempty" json:"-" guard:"open"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
-	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
-	// LevelTypedBase: unused; kept so old files load.
-	LevelTypedBase int            `yaml:"levelTypedBase,omitempty" json:"-" guard:"open"`
+	LevelColors    []string       `yaml:"levelColors" json:"levelColors" guard:"open"`
 	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
 	PinMaxTries    int            `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
@@ -137,6 +130,7 @@ type FilterSet struct {
 
 func Defaults() Config {
 	return Config{
+		Format: Format,
 		Router: Router{
 			Prefix:             "A",
 			RouterShow:         "address",
@@ -227,7 +221,6 @@ func (c Config) Clone() Config {
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Presets = ClonePresets(c.Presets)
-	c.HideDsts = slices.Clone(c.HideDsts)
 	c.Users = slices.Clone(c.Users)
 	for i := range c.Users {
 		c.Users[i].Profile = c.Users[i].Profile.Clone()
@@ -305,12 +298,6 @@ func (c *Config) Normalize() {
 		d.StackGap = "30"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
-	c.LegacyGrids, c.LegacyGridConfirm, c.Locks.LegacyGrid = nil, nil, nil
-	if len(c.Presets) == 0 && len(c.LegacySalvos) > 0 {
-		c.Presets = c.LegacySalvos
-	}
-	c.LegacySalvos = nil
-	c.HideDsts = nil
 	c.FilterSets = normalizeFilterSets(c.FilterSets)
 	c.normalizePresets()
 	c.normalizeProfiles()
@@ -597,6 +584,9 @@ func Load(path string) (c Config, exists bool, err error) {
 // keys load. It does not Validate, so a caller can merge PIN hashes first.
 func Parse(b []byte) (Config, error) {
 	c := Defaults()
+	if err := checkFormat(b); err != nil {
+		return c, err
+	}
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)
 	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
@@ -692,6 +682,7 @@ func joinKey(path, k string) string {
 const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"
 
 func Save(path string, c Config) error {
+	c.Format = Format
 	b, err := yaml.Marshal(c)
 	if err != nil {
 		return err

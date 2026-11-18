@@ -15,7 +15,7 @@ import (
 // users Ana (1234) and Bo (567890), Advanced Settings PIN 2468.
 func futureApp(t *testing.T, yamlText string) *App {
 	t.Helper()
-	cfg, err := config.Parse([]byte(yamlText))
+	cfg, err := config.Parse([]byte("format: 2\n" + yamlText))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,6 +111,7 @@ func TestImportRefusesNonConfig(t *testing.T) {
 		"panel file":     {"id: p1\ncells: []\n", "not a Sode configuration: no routers setting (found: cells, id)"},
 		"profile export": {profile, "not a Sode configuration: no routers setting (found: exported, filterSets, prefs, presets, site, sode, user)"},
 		"empty mapping":  {"{}\n", "not a Sode configuration: no routers setting (found: none)"},
+		"v1 config":      {"router: 10.0.0.5:8910\nbrandText: Old\n", config.ErrV1.Error()},
 	} {
 		if err := a.ImportConfig(admin, c.in); err == nil || err.Error() != c.want {
 			t.Errorf("%s: %v, want %q", name, err, c.want)

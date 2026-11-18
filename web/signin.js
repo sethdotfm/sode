@@ -15,10 +15,6 @@ const TAB_KEY = 'sode-tab-session';
 const HELD_KEY = 'sode-held-user';
 const LAST_KEY = 'sode-last-user';
 
-// Drop keys of the removed admin-browser sign-in.
-writeStr('sode-lock-token', null);
-writeStr('sode-lock-never', null);
-
 export const heldUserKept = () => readTab(HELD_KEY) || '';
 export const keepHeldUser = (name) => writeTab(HELD_KEY, name || null);
 export const lastUser = () => readStr(LAST_KEY);

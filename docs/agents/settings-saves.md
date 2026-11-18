@@ -15,4 +15,3 @@
   - settingslock.js: the PIN prompt of Settings. settingsfind.js: search. settingstoc.js: the table of contents.
 - Each section is a fieldset in web/index.html, Users (users.js) and API (apisettings.js) too. The table of contents and search read them at load. settingshtml.test.mjs fails if a module adds a section.
 - Inputs saved apart from the Settings form carry data-apart so the unsaved check skips them. emit('settingsClose',{discard:true}) closes Settings discarding the form.
-- Grid is parked on branch archive/grids (#150); old grids: and gridConfirm: keys load and are ignored.

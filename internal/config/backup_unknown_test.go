@@ -19,7 +19,7 @@ func unknownCopies(t *testing.T, path string) []string {
 
 func TestBackupUnknownKeepsDatedCopies(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
-	first := []byte("routers: [{address: 10.0.0.1:8910}]\nfutureKey: 1\n")
+	first := []byte("format: 2\nrouters: [{address: 10.0.0.1:8910}]\nfutureKey: 1\n")
 	if err := os.WriteFile(p, first, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestBackupUnknownKeepsDatedCopies(t *testing.T) {
 		t.Fatalf("same file, copies = %q", c)
 	}
 
-	if err := os.WriteFile(p, []byte("routers: [{address: 10.0.0.2:8910}]\nfutureKey: 1\n"), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte("format: 2\nrouters: [{address: 10.0.0.2:8910}]\nfutureKey: 1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := BackupUnknown(p, at.Add(time.Hour)); err != nil {
@@ -59,7 +59,7 @@ func TestBackupUnknownKeepsDatedCopies(t *testing.T) {
 
 func TestBackupUnknownNeedsUnknownKeys(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
-	for _, text := range []string{"", "routers: [{address: 10.0.0.1:8910}]\n"} {
+	for _, text := range []string{"", "format: 2\nrouters: [{address: 10.0.0.1:8910}]\n"} {
 		if text != "" {
 			if err := os.WriteFile(p, []byte(text), 0o600); err != nil {
 				t.Fatal(err)

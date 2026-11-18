@@ -81,7 +81,7 @@ func TestUserIDsFilledAndKept(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	file := "users:\n  - name: Ana\n    pin: " + h + "\n    len: 4\n  - name: Bo\n    pin: " + h + "\n    len: 4\nmaxPinLen: 8\n"
+	file := "format: 2\nusers:\n  - name: Ana\n    pin: " + h + "\n    len: 4\n  - name: Bo\n    pin: " + h + "\n    len: 4\nmaxPinLen: 8\n"
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(path, []byte(file), 0o600); err != nil {
 		t.Fatal(err)
