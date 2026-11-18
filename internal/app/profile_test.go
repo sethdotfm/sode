@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 
@@ -122,7 +121,7 @@ func TestProfileValidation(t *testing.T) {
 			return out
 		}()},
 	} {
-		if _, err := a.ProfileSave(ana, req); err == nil || errors.Is(err, errLocked) && req.Name == "Ana" {
+		if _, err := a.ProfileSave(ana, req); err == nil || isRoleErr(err) && req.Name == "Ana" {
 			t.Errorf("%s: err=%v", name, err)
 		}
 	}
@@ -157,14 +156,14 @@ func TestProfileTrustedSavesAnothers(t *testing.T) {
 		t.Fatalf("the trusted editor was sent Ana's profile: %+v", got)
 	}
 	setFlags(t, a, "Bo", false, false)
-	if _, err := a.ProfileSave(bo, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !errors.Is(err, errLocked) {
+	if _, err := a.ProfileSave(bo, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !isRoleErr(err) {
 		t.Fatalf("untrusted again: %v", err)
 	}
 	c := &client{ip: "10.0.0.9"}
-	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !errors.Is(err, errLocked) {
+	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !isRoleErr(err) {
 		t.Fatalf("anonymous: %v", err)
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); err != nil {
@@ -181,20 +180,20 @@ func TestProfileUntrustedRefused(t *testing.T) {
 	bo := watched(t, a, "10.0.0.3", "567890") // not trusted
 	anon := &client{ip: "10.0.0.9"}
 	for who, c := range map[string]*client{"Bo": bo, "anonymous": anon} {
-		if err := admitMsg(a, c, inMsg{T: "profileSave", Name: "Ana"}); !errors.Is(err, errLocked) {
+		if err := admitMsg(a, c, inMsg{T: "profileSave", Name: "Ana"}); !isRoleErr(err) {
 			t.Errorf("%s: profileSave admitted: %v", who, err)
 		}
-		if err := admitMsg(a, c, inMsg{T: "profileGet", Name: "Ana"}); !errors.Is(err, errLocked) {
+		if err := admitMsg(a, c, inMsg{T: "profileGet", Name: "Ana"}); !isRoleErr(err) {
 			t.Errorf("%s: profileGet admitted: %v", who, err)
 		}
-		if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); !errors.Is(err, errLocked) {
+		if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); !isRoleErr(err) {
 			t.Errorf("%s: ProfileSave: %v", who, err)
 		}
 	}
-	if err := admitMsg(a, ana, inMsg{T: "profileSave"}); !errors.Is(err, errLocked) {
+	if err := admitMsg(a, ana, inMsg{T: "profileSave"}); !isRoleErr(err) {
 		t.Errorf("empty name admitted: %v", err)
 	}
-	if _, err := a.ProfileSave(ana, profileReq{Name: "Bo", Prefs: map[string]string{"theme": "dark"}}); !errors.Is(err, errLocked) {
+	if _, err := a.ProfileSave(ana, profileReq{Name: "Bo", Prefs: map[string]string{"theme": "dark"}}); !isRoleErr(err) {
 		t.Errorf("Ana saving Bo's: %v", err)
 	}
 	if !anasProfile(t, a).Empty() {
@@ -251,33 +250,33 @@ func TestProfileRenameKeepsAndDeleteDrops(t *testing.T) {
 		t.Fatal(err)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Anna"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Anna"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	u, ok := a.r().cfg.FindUserByName("Anna")
 	if !ok || u.Profile.Prefs["theme"] != "dark" || len(u.Profile.Presets) != 1 {
 		t.Fatalf("after rename: %+v", u)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Anna"), Name: "Ann", Pin: "4321"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Anna"), Name: "Ann", Pin: "4321"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	u, _ = a.r().cfg.FindUserByName("Ann")
 	if u.Profile.Prefs["theme"] != "dark" {
 		t.Fatalf("after rename with a new PIN: %+v", u)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ann"), Name: "Ann"}, {Name: "Ana", Pin: "1357"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ann"), Name: "Ann"}, {Name: "Ana", Pin: "1357"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if u, _ := a.r().cfg.FindUserByName("Ana"); !u.Profile.Empty() {
 		t.Fatalf("a new user inherited %+v", u.Profile)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Ann", Pin: "4321"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Ann", Pin: "4321"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if u, _ := a.r().cfg.FindUserByName("Ann"); !u.Profile.Empty() {
@@ -299,10 +298,10 @@ func TestProfilePushOnAccessChange(t *testing.T) {
 	}
 	profiles(ana)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	got := profiles(ana)
@@ -344,10 +343,10 @@ func TestProfileNeverInHello(t *testing.T) {
 	bo := watched(t, a, "10.0.0.3", "567890")
 	anon := watched(t, a, "10.0.0.4", "")
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	for who, c := range map[string]*client{"Bo": bo, "anonymous": anon} {
@@ -424,10 +423,10 @@ func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "9753"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "9753"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	u, _ := a.r().cfg.FindUserByName("Ana")

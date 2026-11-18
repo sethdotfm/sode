@@ -451,7 +451,7 @@ func TestAPISettingsMessage(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
 	defer startLog(t, a)()
 	rule, ok := policy["apiSettings"]
-	if !ok || rule.need&needAdmin == 0 {
+	if !ok || rule.role != config.RoleAdministrator {
 		t.Fatalf("apiSettings rule %+v ok=%v", rule, ok)
 	}
 	c := &client{ip: "10.0.0.9"}

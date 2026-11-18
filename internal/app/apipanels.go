@@ -40,10 +40,11 @@ func init() {
 	)
 }
 
-// trusted reads user id's Trusted flag live from the config, so an edit applies at once.
+// trusted: user id's Role, read live so an edit applies at once, is Trusted user or higher.
+// Keys never act above Trusted user, so this is the most a key-borne check asks.
 func (a *App) trusted(id string) bool {
 	u, ok := a.r().cfg.FindUserByID(id)
-	return ok && u.Trusted
+	return ok && config.RoleAtLeast(u.Role, config.RoleTrusted)
 }
 
 // panelReach is what cl can do with p. A user owns a panel by id; a Trusted user (read

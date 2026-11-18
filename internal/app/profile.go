@@ -53,10 +53,10 @@ func (a *App) signedInAsMu(c *client, name string) bool {
 func (a *App) guardProfile(c *client, name string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !a.signedInAsMu(c, name) && !a.trustedMu(c) {
-		return errLocked
+	if a.signedInAsMu(c, name) {
+		return nil
 	}
-	return nil
+	return a.needRoleMu(c, config.RoleTrusted)
 }
 
 // Caller holds mu.

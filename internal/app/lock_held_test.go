@@ -194,7 +194,7 @@ func TestHeldLockBlocksAdvancedSettingsPinPaths(t *testing.T) {
 		if err := a.UserUnlock(c, "1234"); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.Unlock(c, "2468"); err != nil {
+		if err := a.UserUnlock(c, "2468"); err != nil {
 			t.Fatal(err)
 		}
 		if err := admitMsg(a, c, inMsg{T: "users"}); err != nil {
@@ -218,7 +218,7 @@ func TestHeldLockBlocksTrustedSavesEvenWithAdvancedSettingsPin(t *testing.T) {
 		if err := a.UserUnlock(c, "1234"); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.Unlock(c, "2468"); err != nil {
+		if err := a.UserUnlock(c, "2468"); err != nil {
 			t.Fatal(err)
 		}
 		a.UserLock(c)

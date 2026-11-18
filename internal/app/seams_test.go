@@ -24,7 +24,7 @@ func unwritten(t *testing.T, a *App, id, key string) string {
 func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 	a, f := apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		c.Users = append(c.Users, cy)
 	})
 	shortTimers(a)

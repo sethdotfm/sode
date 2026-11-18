@@ -10,7 +10,7 @@ import (
 )
 
 // The Icon library over REST. List and read need `panels`, so any panel page or editor draws its icons. Upload
-// needs `panelsmanage`, a user's key, and a Trusted user or the Advanced Settings PIN. Not under /panels/, whose
+// needs `panelsmanage`, a user's key, and a Trusted user. Not under /panels/, whose
 // {id} routes would conflict.
 
 func init() {
@@ -43,7 +43,7 @@ func (a *App) readIconChange(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return in, false
 		}
 	}
-	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can change the Icon library"); err != nil {
+	if err := a.mayEveryone(cl, "only a Trusted user can change the Icon library"); err != nil {
 		failWith(w, err)
 		return in, false
 	}
@@ -152,7 +152,7 @@ func (a *App) apiIconUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"name", "data" as base64} as JSON: `+err.Error())
 		return
 	}
-	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can add to the Icon library"); err != nil {
+	if err := a.mayEveryone(cl, "only a Trusted user can add to the Icon library"); err != nil {
 		failWith(w, err)
 		return
 	}

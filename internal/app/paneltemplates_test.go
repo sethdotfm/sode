@@ -193,7 +193,7 @@ func TestTemplateScopesAndVisibility(t *testing.T) {
 	}
 }
 
-func TestTemplateEveryoneNeedsTrustedOrPin(t *testing.T) {
+func TestTemplateEveryoneNeedsATrustedUser(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	rec := apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Shared","scope":"everyone"}`)
@@ -221,8 +221,11 @@ func TestTemplateEveryoneNeedsTrustedOrPin(t *testing.T) {
 	if rec = apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Shared","scope":"everyone","pin":"1111"}`); rec.Code != 403 {
 		t.Fatalf("wrong PIN: %d", rec.Code)
 	}
-	if rec = apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Shared","scope":"everyone","pin":"9999"}`); rec.Code != 201 {
-		t.Fatalf("right PIN: %d %s", rec.Code, rec.Body.String())
+	if rec = apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Shared","scope":"everyone","pin":"9999"}`); rec.Code != 403 {
+		t.Fatalf("the Advanced Settings PIN opened it: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec = apiSend(a, "POST", "/api/v1/panel-templates", userKey(t, a, "Cy"), `{"name":"Shared","scope":"everyone"}`); rec.Code != 201 {
+		t.Fatalf("Trusted user: %d %s", rec.Code, rec.Body.String())
 	}
 	if got := tplList(t, a, ana); got != "Shared/everyone," {
 		t.Fatalf("%q", got)

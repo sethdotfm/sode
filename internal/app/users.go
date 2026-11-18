@@ -21,9 +21,6 @@ import (
 
 var errPageLocked = errors.New("locked; unlock with your PIN first")
 
-//lint:ignore ST1005 Settings shows this as is
-var errNeedAdminPin = errors.New("Set an Advanced Settings PIN first: users and locks are administered with it")
-
 type gate int
 
 const (
@@ -155,7 +152,9 @@ type lockStateMsg struct {
 	// Hi: answer to the page's own hi; it is possible that an unsolicited state arrives
 	// first, and it says nothing about the token.
 	Hi bool `json:"hi,omitempty"`
-	// Trusted: low-risk settings without the Advanced Settings PIN; the server decides.
+	// Role: the Role this connection acts with ("" under a Lock); the server decides.
+	Role string `json:"role,omitempty"`
+	// Trusted: Role is Trusted user or higher; pages read it for the signed-in user.
 	Trusted    bool `json:"trusted,omitempty"`
 	Persistent bool `json:"persistent,omitempty"`
 	// NoAutoLock: to the signed-in user only, so the page's idle timer skips them.
@@ -174,8 +173,10 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	m.Mode = cfg.SignInMode
 	if a.userOKMu(c, cfg) {
 		u, _ := cfg.FindUserByID(c.u.user.Load().ID) // live flags, not the sign-in copy
-		m.User, m.Trusted, m.Persistent, m.NoAutoLock = u.Name, u.Trusted, u.Persistent, u.NoAutoLock
+		m.User, m.Persistent, m.NoAutoLock = u.Name, u.Persistent, u.NoAutoLock
 	}
+	m.Role = a.roleMu(c)
+	m.Trusted = config.RoleAtLeast(m.Role, config.RoleTrusted)
 	m.Locked = m.Held || m.Enforced && m.User == ""
 	m.Lens = cfg.PinLens()
 	if !m.Locked {
@@ -342,11 +343,11 @@ func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	return nil
 }
 
-// SignOutAll needs the Advanced Settings PIN (a trusted user is not enough).
+// SignOutAll needs an Administrator.
 func (a *App) SignOutAll(c *client, name string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, false); err != nil {
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
 		return err
 	}
 	who, ok := a.r().cfg.FindUserByName(name)
@@ -399,7 +400,7 @@ type userEdit struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	Pin        string `json:"pin"`
-	Trusted    bool   `json:"trusted"`
+	Role       string `json:"role"` // "" is Standard user
 	Persistent bool   `json:"persistent"`
 	// Rights and NoAutoLock: nil keeps the user's current value, so a page that does not
 	// know them cannot erase them.
@@ -410,11 +411,12 @@ type userEdit struct {
 type usersReq struct {
 	Users  []userEdit `json:"users"`
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// SignInMode: "" keeps the current one. Saved here so it needs
-	// the Advanced Settings PIN.
+	// SignInMode: "" keeps the current one. Saved here so it needs an Administrator.
 	SignInMode string `json:"signInMode"`
+	// GuestRole: "" keeps the current one.
+	GuestRole string `json:"guestRole"`
 	// API clients, Guest rights and Guest scopes: nil keeps the current ones. They ride this
-	// save so they need the Advanced Settings PIN.
+	// save so they need an Administrator.
 	APIClients  *[]config.APIClient `json:"apiClients"`
 	GuestRights *config.Rights      `json:"guestRights"`
 	GuestScopes *[]string           `json:"guestScopes"`
@@ -423,17 +425,14 @@ type usersReq struct {
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
 }
 
-// SaveUsers needs the Advanced Settings PIN only (not the main lock). PINs unique across users.
+// SaveUsers needs an Administrator (not the main lock). PINs unique across users.
 func (a *App) SaveUsers(c *client, req usersReq) error {
 	if present(req.Locks) || present(req.AutoLock) {
 		return errors.New("the lock settings moved to Settings > Access: reload this page")
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if a.r().cfg.SettingsPin == "" {
-		return errNeedAdminPin
-	}
-	if err := a.guardSave(c, false); err != nil {
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
 		return err
 	}
 	before := a.r().cfg
@@ -446,6 +445,9 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		if req.SignInMode != "" {
 			cur.SignInMode = req.SignInMode
 		}
+		if req.GuestRole != "" {
+			cur.GuestRole = req.GuestRole
+		}
 		if len(req.Users) == 0 && cur.Locks.Any() {
 			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
 		}
@@ -453,7 +455,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		fresh := map[string]string{} // new PINs by user name
 		kept := map[string]bool{}    // one row per saved user
 		for _, e := range req.Users {
-			u := config.User{ID: config.NewUserID(), Name: strings.TrimSpace(e.Name), Trusted: e.Trusted, Persistent: e.Persistent}
+			u := config.User{ID: config.NewUserID(), Name: strings.TrimSpace(e.Name), Role: e.Role, Persistent: e.Persistent}
 			if err := userNameRefusal(u.Name); err != nil {
 				return err
 			}
@@ -616,12 +618,13 @@ func (a *App) serveUserSetPin(c *client, m *inMsg) {
 
 // Len: whether a PIN is set (0 = none); never a hash.
 type usersListMsg struct {
-	T     string     `json:"t"` // "usersListResult"
-	ID    int        `json:"id"`
-	OK    bool       `json:"ok"`
-	Users []userView `json:"users"`
-	Mode  string     `json:"signInMode"`
-	// Rights and API clients: needAdmin only, never before the PIN.
+	T         string     `json:"t"` // "usersListResult"
+	ID        int        `json:"id"`
+	OK        bool       `json:"ok"`
+	Users     []userView `json:"users"`
+	Mode      string     `json:"signInMode"`
+	GuestRole string     `json:"guestRole"`
+	// Rights and API clients: Administrator only, never before the PIN.
 	APIClients  []config.APIClient `json:"apiClients"`
 	GuestRights config.Rights      `json:"guestRights"`
 	GuestScopes []string           `json:"guestScopes"`
@@ -631,7 +634,7 @@ type userView struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	Len        int    `json:"len"`
-	Trusted    bool   `json:"trusted,omitempty"`
+	Role       string `json:"role"`
 	Persistent bool   `json:"persistent,omitempty"`
 	NoAutoLock bool   `json:"noAutoLock,omitempty"`
 	// Rights has no omitempty: an unset list is "all", an empty one "none".
@@ -642,7 +645,7 @@ type userView struct {
 
 func (a *App) usersList(id int) usersListMsg {
 	cfg := a.r().cfg.Clone()
-	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode,
+	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode, GuestRole: cfg.GuestRole,
 		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes}
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}
@@ -652,7 +655,7 @@ func (a *App) usersList(id int) usersListMsg {
 		if pc == nil {
 			pc = []panelClientNote{}
 		}
-		m.Users = append(m.Users, userView{u.ID, u.Name, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights, pc})
+		m.Users = append(m.Users, userView{u.ID, u.Name, u.Len, u.Role, u.Persistent, u.NoAutoLock, u.Rights, pc})
 	}
 	return m
 }

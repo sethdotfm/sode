@@ -19,11 +19,15 @@ import (
 func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, pin == "" && !clearPin); err != nil {
+	need := config.RoleTrusted
+	if pin != "" || clearPin {
+		need = config.RoleAdministrator
+	}
+	if err := a.guardSave(c, need); err != nil {
 		return err
 	}
-	// A trusted user must not weaken what the admin guards through plain fields.
-	admin := a.settingsUnlocked(c)
+	// A Trusted user must not change the fields an Administrator guards.
+	admin := a.role(c) == config.RoleAdministrator
 	toggled, now := false, false
 	err := a.applyConfig(func(cur *config.Config) error {
 		// cur is a copy of live; fields saved apart (owned) stay as is, so a stale browser
@@ -86,6 +90,9 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 	}
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
+		return nil, nil, err
+	}
+	if err := keepsAdministrator(old.cfg, cfg, a.cfgPath == ""); err != nil {
 		return nil, nil, err
 	}
 	nw, err = newRuntime(cfg)
@@ -196,13 +203,19 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	return nil
 }
 
-// guardedErr counts as errLocked, so the page asks for the PIN.
+// guardedErr is a roleErr, so the page shows it and asks for no PIN.
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
-	return "a change to these settings needs the Advanced Settings PIN: the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit and the locks"
+	return "a change to these settings needs an Administrator signed in on this browser: the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit and the locks"
 }
-func (guardedErr) Is(target error) bool { return target == errLocked }
+func (guardedErr) As(target any) bool {
+	if r, ok := target.(*roleErr); ok {
+		*r = roleErr{config.RoleAdministrator}
+		return true
+	}
+	return false
+}
 
 // trustedMayNotChange: fields a trusted user cannot change (guard roles "router" and
 // "pin"). One group is the router and how it is read (reconnects, cuts takes). The other is

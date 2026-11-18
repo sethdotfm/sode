@@ -8,11 +8,16 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-func newTestApp(t *testing.T) *App {
+// newTestApp has no users, so every browser acts as an Administrator. Pass withAdministrator
+// for an app where Roles apply.
+func newTestApp(t *testing.T, opts ...func(*config.Config)) *App {
 	t.Helper()
 	h, _ := OpenHistory("")
 	cfg := config.Defaults()
 	cfg.Levels = 3
+	for _, o := range opts {
+		o(&cfg)
+	}
 	cfg.Normalize()
 	a, err := New(cfg, "", h, nil, false)
 	if err != nil {
@@ -20,6 +25,15 @@ func newTestApp(t *testing.T) *App {
 	}
 	shortTimers(a)
 	return a
+}
+
+// withAdministrator seeds Ada, an Administrator with PIN 2468.
+func withAdministrator(cfg *config.Config) {
+	h, err := config.HashPin("2468")
+	if err != nil {
+		panic(err)
+	}
+	cfg.Users = append(cfg.Users, config.User{Name: "Ada", Pin: h, Len: 4, Role: config.RoleAdministrator})
 }
 
 // shortTimers keeps tests that wait on an unanswered router fast. queueMax stays well above

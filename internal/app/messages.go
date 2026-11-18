@@ -45,23 +45,24 @@ type deltaMsg struct {
 
 // helloMsg: every key always sent (none omitempty).
 type helloMsg struct {
-	T             string              `json:"t"` // "hello"
-	Srcs          [][2]any            `json:"srcs"`
-	Dsts          [][2]any            `json:"dsts"`
-	At            time.Time           `json:"at"`
-	SavedAt       time.Time           `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
-	Tally         json.RawMessage     `json:"tally"`            // routeTriples
-	Protect       json.RawMessage     `json:"protect"`          // routeTriples
-	Status        statusMsg           `json:"status"`
-	Recent        []Entry             `json:"recent"`
-	More          bool                `json:"more"`
-	Levels        []config.Level      `json:"levels"`
-	LevelDefaults []string            `json:"levelDefaults"`
-	Cfg           config.Config       `json:"cfg"`
-	PinSet        bool                `json:"pinSet"`
-	ConfigPath    string              `json:"configPath"`
-	Version       string              `json:"version"`
-	BrandColors   []config.BrandColor `json:"brandColors"`
+	T             string          `json:"t"` // "hello"
+	Srcs          [][2]any        `json:"srcs"`
+	Dsts          [][2]any        `json:"dsts"`
+	At            time.Time       `json:"at"`
+	SavedAt       time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
+	Tally         json.RawMessage `json:"tally"`            // routeTriples
+	Protect       json.RawMessage `json:"protect"`          // routeTriples
+	Status        statusMsg       `json:"status"`
+	Recent        []Entry         `json:"recent"`
+	More          bool            `json:"more"`
+	Levels        []config.Level  `json:"levels"`
+	LevelDefaults []string        `json:"levelDefaults"`
+	Cfg           config.Config   `json:"cfg"`
+	// PinSet stays false: no PIN opens anything since Roles, so the page never asks for one.
+	PinSet      bool                `json:"pinSet"`
+	ConfigPath  string              `json:"configPath"`
+	Version     string              `json:"version"`
+	BrandColors []config.BrandColor `json:"brandColors"`
 }
 
 type namesCheckedMsg struct {

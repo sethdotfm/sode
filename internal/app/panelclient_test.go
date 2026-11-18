@@ -16,7 +16,7 @@ func clientApp(t *testing.T) (*App, *fakeRouter) {
 	t.Helper()
 	return apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		cy.Rights = config.Rights{Sources: ints(1, 2, 3), Dsts: ints(2, 4)}
 		c.Users = append(c.Users, cy)
 	})
@@ -147,11 +147,7 @@ func TestPanelClientCheckedOnSave(t *testing.T) {
 		t.Fatalf("rights lost: %+v", cl.Rights)
 	}
 	// Losing Trusted ends the right to change them, not to save the panel.
-	cfg := a.r().cfg
-	cfg.Users[2].Trusted = false
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
+	setRole(t, a, "Cy", config.RoleStandard)
 	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[1]}}`); rec.Code != 403 || apiErrCode(t, rec) != "trusted_required" {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
@@ -186,8 +182,8 @@ func TestPanelClientAdminWidens(t *testing.T) {
 			clients = append(clients, c)
 		}
 	}
-	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true}}
-	if err := a.SaveUsers(admin, usersReq{Users: users, APIClients: &clients}); err != nil {
+	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted}}
+	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &clients}); err != nil {
 		t.Fatal(err)
 	}
 	cl, _ := clientOf(t, a, name)
@@ -195,7 +191,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 		t.Fatalf("after widening: %+v", cl)
 	}
 	none := []config.APIClient{}
-	if err := a.SaveUsers(admin, usersReq{Users: users, APIClients: &none}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &none}); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := clientOf(t, a, name); !ok {
@@ -207,7 +203,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 	}
 	// A client of that name cannot be added beside it.
 	dup := []config.APIClient{{Name: name, Scopes: []string{}}}
-	if err := a.SaveUsers(admin, usersReq{Users: users, APIClients: &dup}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &dup}); err != nil {
 		t.Fatal(err)
 	}
 	if n := 0; true {
@@ -374,8 +370,8 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 
 	admin := adminClient(t, a)
 	narrow := config.Rights{Sources: ints(1), Dsts: ints(2, 4)}
-	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true, Rights: &narrow}}
-	if err := a.SaveUsers(admin, usersReq{Users: users}); err != nil {
+	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted, Rights: &narrow}}
+	if err := saveUsers(a, admin, usersReq{Users: users}); err != nil {
 		t.Fatal(err)
 	}
 	for _, u := range a.usersList(2).Users {
@@ -399,7 +395,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 func TestPanelActorShowsKeyName(t *testing.T) {
 	a, f, _ := takerApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		c.Users = append(c.Users, cy)
 	})
 	f.seed(2, 1, 0)

@@ -15,7 +15,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST and stream seam for Assign: a held instance stream, a trusted user or the PIN, a target that acts as an API client.
+// REST and stream seam for Assign: a held instance stream, a Trusted user, a target that acts as an API client.
 
 const assignTarget = `{"name":"Studio B","acts":"api","clientRights":{"sources":[1,2],"dsts":[2]},"settings":{"mode":"take","fixedDests":[2]}}`
 
@@ -247,7 +247,7 @@ func openTestKeyless(a *App, from string, cancel context.CancelFunc) (string, fu
 	return `{"keyless":"` + a.mon.keylessOf(Panel{ID: from})[0].Keyless + `"}`, sync.OnceFunc(done), out
 }
 
-func TestAssignNeedsATrustedUserOrThePin(t *testing.T) {
+func TestAssignNeedsATrustedUser(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	from := makePanel(t, a, ana, `{"name":"Studio A"}`)
@@ -266,8 +266,9 @@ func TestAssignNeedsATrustedUserOrThePin(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "1111")), 403, "trusted_required")
-	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "9999")); rec.Code != 200 {
-		t.Fatalf("with the PIN: %d %s", rec.Code, rec.Body.String())
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "9999")), 403, "trusted_required")
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")); rec.Code != 200 {
+		t.Fatalf("Trusted user: %d %s", rec.Code, rec.Body.String())
 	}
 	// A panel's own key cannot assign, even with the PIN.
 	client := instanceKey(t, a, to, cy, "Desk")

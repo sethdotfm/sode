@@ -17,7 +17,7 @@ import (
 func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -108,7 +108,7 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 func TestChromeAssignToAUserModePanelShowsTheDevicesSignIn(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()

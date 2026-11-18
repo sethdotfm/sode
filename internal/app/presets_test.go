@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -31,17 +30,12 @@ func TestSavePresets(t *testing.T) {
 	if err := a.SaveSettings(c, stale, "", false); err != nil || len(a.r().cfg.Presets) != 1 {
 		t.Fatalf("settings save dropped the presets: %v %v", err, a.r().cfg.Presets)
 	}
+	// An Advanced Settings PIN closes nothing: with no users, every browser is an Administrator.
 	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SavePresets(c, nil); !errors.Is(err, errLocked) {
-		t.Fatalf("locked save: %v", err)
-	}
-	if a.Unlock(c, "2468") != nil {
-		t.Fatal("unlock")
-	}
 	if err := a.SavePresets(c, nil); err != nil || len(a.r().cfg.Presets) != 0 {
-		t.Fatalf("unlocked save: %v %v", err, a.r().cfg.Presets)
+		t.Fatalf("save with a PIN set: %v %v", err, a.r().cfg.Presets)
 	}
 }
 

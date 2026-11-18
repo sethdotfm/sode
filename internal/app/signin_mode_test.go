@@ -17,7 +17,7 @@ func usernameApp(t *testing.T) *App {
 	t.Helper()
 	a := userApp(t, true)
 	admin := adminClient(t, a)
-	err := a.SaveUsers(admin, usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
+	err := saveUsers(a, admin, usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana"},
 		{ID: idOf(a, "Bo"), Name: "Bo", Pin: "1234"},
 	}})
@@ -32,7 +32,7 @@ func TestPinOnlyIsTheDefaultAndPinsStayUnique(t *testing.T) {
 	if m := a.r().cfg.SignInMode; m != config.SignInPin {
 		t.Fatalf("mode %q", m)
 	}
-	err := a.SaveUsers(adminClient(t, a), usersReq{Users: []userEdit{
+	err := saveUsers(a, adminClient(t, a), usersReq{Users: []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Cy", Pin: "1234"},
 	}})
 	if err == nil {
@@ -85,7 +85,7 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 	if err := admitMsg(a, ana, inMsg{T: "users", UsersReq: &req}); err == nil {
 		t.Fatal("a trusted user changed the sign-in mode")
 	}
-	if err := a.SaveUsers(ana, req); err == nil {
+	if err := saveUsers(a, ana, req); err == nil {
 		t.Fatal("SaveUsers took the mode without the PIN")
 	}
 	// The Settings form cannot change it either.
@@ -111,16 +111,16 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 	a.mu.Lock()
 	a.rt.Store(nr)
 	a.mu.Unlock()
-	if err := a.SaveUsers(admin, req); err != nil {
+	if err := saveUsers(a, admin, req); err != nil {
 		t.Fatal(err)
 	}
 	// Going back needs a new PIN for each user and keeps everything but the mode and PINs.
 	back := backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo", Pin: "2222"})
-	if err := a.SaveUsers(admin, back); err != nil {
+	if err := saveUsers(a, admin, back); err != nil {
 		t.Fatal(err)
 	}
 	cfg = a.r().cfg
-	if cfg.SignInMode != config.SignInPin || len(cfg.Users) != 2 || cfg.Users[0].Profile.Prefs["theme"] != "dark" {
+	if cfg.SignInMode != config.SignInPin || len(cfg.Users) != 3 || cfg.Users[0].Profile.Prefs["theme"] != "dark" {
 		t.Fatalf("after switching back: %+v", cfg)
 	}
 	c := &client{ip: "10.0.0.5"}
@@ -136,7 +136,7 @@ func backToPin(users ...userEdit) usersReq {
 func TestUsernameModeBackToPinOnlyWithNewUniquePins(t *testing.T) {
 	a := usernameApp(t)
 	back := backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo", Pin: "2222"})
-	if err := a.SaveUsers(adminClient(t, a), back); err != nil {
+	if err := saveUsers(a, adminClient(t, a), back); err != nil {
 		t.Fatalf("new PINs for both: %v", err)
 	}
 	if a.r().cfg.SignInMode != config.SignInPin {
@@ -153,11 +153,11 @@ func TestUsernameModeBackToPinOnlyWithNewUniquePins(t *testing.T) {
 func TestUsernameModeBackToPinOnlyRefusesUsersWithoutNewPin(t *testing.T) {
 	a := usernameApp(t)
 	// Ana and Bo share 1234, but the server cannot see that: any user without a typed PIN is refused.
-	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo"}))
+	err := saveUsers(a, adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo"}))
 	if err == nil || !strings.Contains(err.Error(), "Bo") || strings.Contains(err.Error(), "Ana") {
 		t.Fatalf("want a refusal naming only Bo, got %v", err)
 	}
-	err = a.SaveUsers(adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo"}))
+	err = saveUsers(a, adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo"}))
 	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
 		t.Fatalf("want a refusal naming Ana and Bo, got %v", err)
 	}
@@ -166,7 +166,7 @@ func TestUsernameModeBackToPinOnlyRefusesUsersWithoutNewPin(t *testing.T) {
 
 func TestUsernameModeBackToPinOnlyRefusesEqualTypedPins(t *testing.T) {
 	a := usernameApp(t)
-	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo", Pin: "1111"}))
+	err := saveUsers(a, adminClient(t, a), backToPin(userEdit{ID: idOf(a, "Ana"), Name: "Ana", Pin: "1111"}, userEdit{ID: idOf(a, "Bo"), Name: "Bo", Pin: "1111"}))
 	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
 		t.Fatalf("want a refusal naming Ana and Bo, got %v", err)
 	}
@@ -317,13 +317,13 @@ func fastestOf(t *testing.T, a *App, signIn func() error) time.Duration {
 func TestEmptySignInModeKeepsTheCurrent(t *testing.T) {
 	a := userApp(t, true)
 	admin := adminClient(t, a)
-	err := a.SaveUsers(admin, usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
+	err := saveUsers(a, admin, usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatalf("a save with no mode: %v", err)
 	}
 	if got := a.r().cfg.SignInMode; got != config.SignInUsername {

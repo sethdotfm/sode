@@ -102,8 +102,11 @@ func TestRenameRights(t *testing.T) {
 		t.Fatalf("a panel key renamed: %d %s", rec.Code, rec.Body.String())
 	}
 
-	// The owner, then the PIN, then a Trusted user. Each rename ends the stream, so the page's reopen is held again.
-	steps := []struct{ key, from, to, pin string }{{ana, "Lobby", "Hall", ""}, {bo, "Hall", "Porch", "2468"}, {cy, "Porch", "Gate", ""}}
+	// The Advanced Settings PIN opens nothing.
+	wantErr(t, apiSend(a, "POST", renamePath(id), bo, renameBody("Lobby", "Hall", "2468")), 403, "trusted_required")
+
+	// The owner, then a Trusted user twice. Each rename ends the stream, so the page's reopen is held again.
+	steps := []struct{ key, from, to, pin string }{{ana, "Lobby", "Hall", ""}, {cy, "Hall", "Porch", ""}, {cy, "Porch", "Gate", ""}}
 	for _, s := range steps {
 		if rec := apiSend(a, "POST", renamePath(id), s.key, renameBody(s.from, s.to, s.pin)); rec.Code != 200 {
 			t.Fatalf("%s to %s: %d %s", s.from, s.to, rec.Code, rec.Body.String())

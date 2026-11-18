@@ -378,7 +378,7 @@ func TestPublicTakeOutsideTheRightsIsRefusedAndHistoryNamesTheClient(t *testing.
 func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
 	a, f := apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		cy.Rights = config.Rights{Sources: ints(1, 2, 3), Dsts: ints(2, 4)}
 		c.Users = append(c.Users, cy)
 		c.Locks = config.Locks{Panel: true}

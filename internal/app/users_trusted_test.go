@@ -3,11 +3,11 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
 	"testing/fstest"
 	"time"
 
-	"errors"
 	"github.com/coder/websocket"
 	"os"
 	"path/filepath"
@@ -17,8 +17,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// setFlags changes a user's Trusted/Persistent in the live config, the way a
-// users save would (the PIN hash stays).
+// setFlags sets a user's Role (Trusted user or Standard user) and Persistent in the live
+// config, as a users save does. The PIN hash stays.
 func setFlags(t *testing.T, a *App, name string, trusted, persistent bool) {
 	t.Helper()
 	a.cfgMu.Lock()
@@ -26,7 +26,10 @@ func setFlags(t *testing.T, a *App, name string, trusted, persistent bool) {
 	_, nr, err := a.update(func(cfg *config.Config) error {
 		for i := range cfg.Users {
 			if cfg.Users[i].Name == name {
-				cfg.Users[i].Trusted, cfg.Users[i].Persistent = trusted, persistent
+				cfg.Users[i].Role, cfg.Users[i].Persistent = config.RoleStandard, persistent
+				if trusted {
+					cfg.Users[i].Role = config.RoleTrusted
+				}
 			}
 		}
 		return nil
@@ -85,28 +88,28 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 		"set PIN":      {T: "config", Pin: "9999"},
 		"clear PIN":    {T: "config", ClearPin: true},
 	} {
-		if err := admitMsg(a, c, m); !errors.Is(err, errLocked) {
+		if err := admitMsg(a, c, m); !isRoleErr(err) {
 			t.Errorf("%s admitted for a trusted user: %v", name, err)
 		}
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); !errors.Is(err, errLocked) {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); !isRoleErr(err) {
 		t.Errorf("SaveUsers: %v", err)
 	}
-	if err := a.SaveSettings(c, a.r().cfg, "9999", false); !errors.Is(err, errLocked) {
+	if err := a.SaveSettings(c, a.r().cfg, "9999", false); !isRoleErr(err) {
 		t.Errorf("setting the PIN: %v", err)
 	}
-	if err := a.SaveSettings(c, a.r().cfg, "", true); !errors.Is(err, errLocked) {
+	if err := a.SaveSettings(c, a.r().cfg, "", true); !isRoleErr(err) {
 		t.Errorf("clearing the PIN: %v", err)
 	}
 	if a.r().cfg.SettingsPin == "" {
 		t.Fatal("PIN gone")
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	for _, m := range []inMsg{{T: "clearHistory"}, {T: "users"}, {T: "config", Pin: "9999"}} {
 		if err := admitMsg(a, c, m); err != nil {
-			t.Errorf("%s with the PIN: %v", m.T, err)
+			t.Errorf("%s as the Administrator: %v", m.T, err)
 		}
 	}
 }
@@ -115,7 +118,7 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
 	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "presets"}} {
-		if err := admitMsg(a, c, m); !errors.Is(err, errLocked) {
+		if err := admitMsg(a, c, m); !errors.Is(err, errPageLocked) {
 			t.Errorf("%s: locked connection admitted: %v", m.T, err)
 		}
 	}
@@ -123,11 +126,11 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "presets"}} {
-		if err := admitMsg(a, c, m); !errors.Is(err, errLocked) {
+		if err := admitMsg(a, c, m); !isRoleErr(err) {
 			t.Errorf("%s: untrusted user admitted: %v", m.T, err)
 		}
 	}
-	if err := a.SaveFilterSets(c, nil); !errors.Is(err, errLocked) {
+	if err := a.SaveFilterSets(c, nil); !isRoleErr(err) {
 		t.Errorf("untrusted SaveFilterSets: %v", err)
 	}
 	setFlags(t, a, "Ana", true, false)
@@ -135,7 +138,7 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	setFlags(t, a, "Ana", false, false)
-	if err := admitMsg(a, c, inMsg{T: "presets"}); !errors.Is(err, errLocked) {
+	if err := admitMsg(a, c, inMsg{T: "presets"}); !isRoleErr(err) {
 		t.Errorf("after unticking Trusted: %v", err)
 	}
 	setFlags(t, a, "Ana", true, false)
@@ -148,7 +151,7 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 	a.mu.Lock()
 	a.rt.Store(nr)
 	a.mu.Unlock()
-	if err := admitMsg(a, c, inMsg{T: "presets"}); !errors.Is(err, errLocked) {
+	if err := admitMsg(a, c, inMsg{T: "presets"}); !errors.Is(err, errPageLocked) {
 		t.Errorf("after the user's PIN changed: %v", err)
 	}
 }
@@ -171,16 +174,16 @@ func TestLockStateCarriesFlags(t *testing.T) {
 func TestSaveUsersFlags(t *testing.T) {
 	a := userApp(t, false)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Trusted: true}, {ID: idOf(a, "Bo"), Name: "Bo", Persistent: true},
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
+		{ID: idOf(a, "Ana"), Name: "Ana", Role: config.RoleTrusted}, {ID: idOf(a, "Bo"), Name: "Bo", Persistent: true},
 	}}); err != nil {
 		t.Fatal(err)
 	}
 	u := a.r().cfg.Users
-	if !u[0].Trusted || u[0].Persistent || u[1].Trusted || !u[1].Persistent {
+	if u[0].Role != config.RoleTrusted || u[0].Persistent || u[1].Role != config.RoleStandard || !u[1].Persistent {
 		t.Fatalf("flags %+v", u)
 	}
 }
@@ -251,10 +254,10 @@ func TestSessionTokenDies(t *testing.T) {
 		},
 		"user removed": func(t *testing.T, a *App) {
 			admin := &client{ip: "10.0.0.9"}
-			if err := a.Unlock(admin, "2468"); err != nil {
+			if err := a.UserUnlock(admin, "2468"); err != nil {
 				t.Fatal(err)
 			}
-			if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+			if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -438,10 +441,10 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	bo := watched(t, a, "10.0.0.2", "567890") // not persistent
 	idle := watched(t, a, "10.0.0.3", "")
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}}); err != nil {
 		t.Fatal(err)
@@ -458,7 +461,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	if !a.pageAllowed(fresh, gateMain) || fresh.who() != "Ana" {
 		t.Fatal("the pushed token does not log in")
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}}); err != nil {
 		t.Fatal(err)
