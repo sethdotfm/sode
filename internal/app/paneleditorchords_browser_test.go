@@ -26,6 +26,7 @@ func TestChromeEditorSelectAll(t *testing.T) {
 	id := makePanel(t, a, ana, `{"name":"Chord panel","rows":4,"cols":8,"cells":[{"r":1,"c":1,"rs":2,"cs":2,"kind":"take"}]}`)
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

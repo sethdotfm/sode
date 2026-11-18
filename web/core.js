@@ -51,6 +51,8 @@ export const S = {
   newId: null,
   prevNumbering: null,
   myRights: null,
+  users: [], // the hello's sign-in list, [{name, len}]; len 0 is no PIN
+  userNames: [],
 };
 
 export function toggle(set, k) {
@@ -200,6 +202,8 @@ function handle(m) {
       S.routerUid = m.routerUid || '';
       S.installUid = m.installUid || '';
       S.prefix = m.prefix || '';
+      S.users = m.users || [];
+      S.userNames = S.users.map((u) => u.name);
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];

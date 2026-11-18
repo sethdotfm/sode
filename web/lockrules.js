@@ -185,19 +185,22 @@ export const hiToken = (tab, persistent) => tab || persistent || '';
 
 export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
-// Name and PIN mode asks for the name too, except where the held Lock of a signed-in
-// session resumes. There the server knows whose it is, and a `user` that names someone else is a
-// wrong try.
-export const asksName = (s) => s.mode === 'username' && !s.held;
+// The pad asks for a name, except where the held Lock of a signed-in session resumes. There the
+// server knows whose it is, and a `user` that names someone else is a wrong try.
+export const asksName = (s) => !s.held;
 
-export const canSend = (s, pin, name) => sendable(pin, s.lens || []) && (!asksName(s) || name.trim() !== '');
+// user is the hello's {name, len} for the picked name (or the held Lock's user), else null. Its own
+// length drives the pad: names are public, so the longest-length wait buys nothing.
+export const padLens = (s, user) => (user?.len ? [user.len] : s.lens || []);
+
+export const canSend = (s, pin, user) => sendable(pin, padLens(s, user)) && (!asksName(s) || !!user);
 
 // A pad that auto-sends waits for the name, so a full PIN typed first is not lost as a wrong try.
-export const padDelay = (s, pin, name) => (asksName(s) && name.trim() === '' ? null : sendDelay(pin, s.lens || []));
+export const padDelay = (s, pin, user) => (asksName(s) && !user ? null : sendDelay(pin, padLens(s, user)));
 
-export const signInMsg = (s, { pin, id, name }) => ({
+export const signInMsg = (s, { pin, id, user }) => ({
   t: 'userUnlock',
-  ...(asksName(s) ? { user: name.trim() } : {}),
+  ...(asksName(s) ? { user: user?.name || '' } : {}),
   pin,
   id,
   tab: wantsTab(s),
@@ -258,10 +261,8 @@ export const heldEnded = (prev, next) => !!prev.held && !next.held && !next.user
 // came. sessionStorage keeps it across reloads, and the tab forgets it when the Lock is gone.
 export const heldWho = (kept, prev, next) => (next.held ? prev.user || kept : '');
 
-// A name is kept for the next sign-in unless a browser-wide token already signs them in.
-export const remembers = (m) => !m.token || !!m.tab;
-
-export const prefillName = (s, last) => (asksName(s) ? last || '' : '');
+// users is the hello's list: a remembered name that is gone is not offered.
+export const prefillName = (s, last, users) => (asksName(s) && last ? users?.find((u) => u.name.toLowerCase() === last.toLowerCase())?.name || '' : '');
 
 // The pad gets the keys when the box already holds a name.
 export const focusName = (s, name) => asksName(s) && !name.trim();

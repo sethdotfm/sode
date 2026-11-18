@@ -31,6 +31,7 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 		{"r":2,"c":1,"rs":1,"cs":2,"kind":"take","caption":"C"}]}`)
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

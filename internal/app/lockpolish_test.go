@@ -21,10 +21,10 @@ func TestUserSetPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, pins := range map[string][2]string{
-		"short":     {"1234", "123"},
-		"letters":   {"1234", "12a4"},
-		"too long":  {"1234", "123456789"},
-		"same":      {"1234", "1234"},
+		"short":    {"1234", "123"},
+		"letters":  {"1234", "12a4"},
+		"too long": {"1234", "123456789"},
+		"same":     {"1234", "1234"},
 	} {
 		if err := a.UserSetPin(c, pins[0], pins[1]); err == nil {
 			t.Errorf("%s: accepted", name)

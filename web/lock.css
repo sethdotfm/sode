@@ -118,6 +118,26 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   font-size: var(--pb-text-lg);
   height: var(--pb-control-h-lg);
 }
+/* The user list drops over the pad, so the pad does not move while it is open. */
+.sode-namepick {
+  position: relative;
+}
+.sode-namepick__list {
+  left: 0;
+  list-style: none;
+  max-height: calc(var(--pb-control-h) * 6.5);
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--pb-space-1));
+  width: auto;
+  z-index: var(--pb-z-dropdown);
+}
+.sode-namepick__list[hidden] {
+  display: none;
+}
 .sode-lock__state {
   color: var(--pb-text-muted);
   margin: 0;

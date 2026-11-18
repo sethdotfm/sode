@@ -277,6 +277,21 @@ func (b *tab) eval(expr string) any {
 	return v
 }
 
+// padName types a user's name into the sign-in pad's name box, as a person would before the PIN. It
+// replaces a remembered name, and does nothing where the box is hidden (a held Lock resumes by PIN).
+func (b *tab) padName(name string) {
+	b.t.Helper()
+	q, _ := json.Marshal(name)
+	b.eval(`(() => {
+		const i = document.getElementById('lock-name');
+		if (!i || i.closest('[hidden]')) return;
+		i.focus();
+		i.value = ` + string(q) + `;
+		i.dispatchEvent(new Event('input', { bubbles: true }));
+		i.blur();
+	})()`)
+}
+
 // evalTry reports a page exception or a CDP error as a string instead of failing the test. Page.navigate answers
 // before the old document goes, so an evaluate right after it can get "Inspected target navigated or closed".
 func (b *tab) evalTry(expr string) (any, string) {

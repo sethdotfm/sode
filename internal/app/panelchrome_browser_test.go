@@ -34,6 +34,7 @@ func TestChromePanelHeaderChrome(t *testing.T) {
 
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

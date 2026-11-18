@@ -23,6 +23,7 @@ import {
   localIdleLock,
   signInOffered,
   asksName,
+  padLens,
   canSend,
   padDelay,
   signInMsg,
@@ -44,7 +45,6 @@ import {
   chipShown,
   heldEnded,
   heldWho,
-  remembers,
   prefillName,
   focusName,
   pinFreeView,
@@ -54,6 +54,8 @@ import { createOwed } from './owed.js';
 import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
 import { layout, onLayout } from './layout.js';
+import { namePicker } from './namepick.js';
+import { listedUser } from './namepickrules.js';
 
 let heldUser = heldUserKept();
 const page = pageType(location.pathname);
@@ -65,7 +67,7 @@ const page = pageType(location.pathname);
   document.head.append(css);
 }
 
-const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false, lens: [], mode: 'pin' };
+const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false, lens: [] };
 export const lockState = () => ({ ...L });
 
 startHandshake(page);
@@ -73,7 +75,7 @@ onSessionToken(() => !!L.user);
 
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
-let nameField, nameInput;
+let nameField, nameInput, picker;
 let padBody, letterBody, letterKey, letterBtn, letterNote, signInAsBtn, signOutBtn, letterFoot;
 const owed = createOwed(wsSend); // a Lock the server has not got yet
 let unlocked = false; // set when a userUnlock succeeds: the lockState that follows ends a sign-in
@@ -123,21 +125,24 @@ function build() {
   cancelBtn.type = 'button';
   cancelBtn.hidden = true;
   cancelBtn.addEventListener('click', cancelSignIn);
-  nameInput = el('input', 'pb-input sode-lock__name');
-  nameInput.id = 'lock-name';
-  nameInput.type = 'text';
-  nameInput.autocomplete = 'username';
-  nameInput.autocapitalize = 'none';
-  nameInput.spellcheck = false;
-  nameInput.maxLength = 24;
-  nameInput.addEventListener('input', () => {
-    if (dotsEl.classList.contains('is-text')) clearFeedback();
-    paint();
-    clearTimeout(timer);
-    const wait = padDelay(L, pin, nameInput.value);
-    if (wait != null && pin) timer = setTimeout(sendPin, wait);
+  picker = namePicker({
+    id: 'lock-name',
+    users: () => S.users,
+    onInput: () => {
+      if (dotsEl.classList.contains('is-text')) clearFeedback();
+      say('');
+      paint();
+      clearTimeout(timer);
+      const wait = padDelay(L, pin, who());
+      if (wait != null && pin) timer = setTimeout(sendPin, wait);
+    },
+    // A picked name hands the keys to the pad; a PIN typed first goes at once.
+    onPick: () => {
+      if (!pin || !canSend(L, pin, who())) root.focus({ preventScroll: true });
+    },
   });
-  nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Name'), { htmlFor: 'lock-name' }), nameInput);
+  nameInput = picker.input;
+  nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Name'), { htmlFor: 'lock-name' }), picker.root);
   nameField.hidden = true;
   padBody = el('div', 'sode-lock__body', nameField, state, dotsEl, msg, pad, cancelBtn);
 
@@ -238,7 +243,7 @@ function showLock() {
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
   pin = '';
-  nameInput.value = prefillName(L, lastUser());
+  picker.set(prefillName(L, lastUser(), S.users));
   welcoming = false;
   clearFeedback();
   say('');
@@ -402,42 +407,44 @@ function clearFeedback() {
 function paint() {
   dotsEl.textContent = dots(pin);
   state.textContent = pin ? `${pin.length} ${pin.length === 1 ? 'digit' : 'digits'} entered` : '';
-  checkKey.disabled = !canSend(L, pin, nameValue());
+  checkKey.disabled = !canSend(L, pin, who());
 }
 
-const lens = () => L.lens;
 const nameValue = () => nameInput?.value ?? '';
+// The hello's {name, len} for the name in the box, or under a held Lock for its holder.
+const who = () => listedUser(S.users, asksName(L) ? nameValue() : heldUser);
 
 function press(k) {
   clearTimeout(timer);
   if (welcoming) return;
   if (dotsEl.classList.contains('is-text')) clearFeedback();
   if (k === 'enter') {
-    if (canSend(L, pin, nameValue())) sendPin();
+    if (canSend(L, pin, who())) sendPin();
     else if (asksName(L) && !nameValue().trim()) say('Enter your name.', true);
-    else say(pin ? 'No PIN has that many digits.' : 'Enter your PIN.', true);
+    else if (asksName(L) && !who()) say('Pick your name from the list.', true);
+    else say(pin ? 'That PIN has the wrong number of digits.' : 'Enter your PIN.', true);
     return;
   }
-  pin = padKey(pin, k, lens(), S.cfg?.maxPinLen || 0);
+  pin = padKey(pin, k, padLens(L, who()), S.cfg?.maxPinLen || 0);
   paint();
   if (k !== 'clear' && k !== 'back') say('');
   // Only the longest length goes on its own: it is possible that a pause after a shorter PIN is
   // the start of a longer one.
-  const wait = padDelay(L, pin, nameValue());
+  const wait = padDelay(L, pin, who());
   if (wait == null) return;
   timer = setTimeout(sendPin, wait);
 }
 
 function sendPin() {
   const id = ++seq;
-  if (!wsSend(signInMsg(L, { pin, id, name: nameValue() }))) return say('Not connected to Sode.', true);
+  if (!wsSend(signInMsg(L, { pin, id, user: who() }))) return say('Not connected to Sode.', true);
   say('Checking…');
 }
 
 onMsg('userUnlockResult', (m) => {
   if (m.id !== seq) return;
   if (m.ok) {
-    if (asksName(L) && remembers(m)) keepLastUser(nameValue().trim());
+    if (asksName(L)) keepLastUser(who()?.name);
     pin = '';
     unlocked = true;
     say('');
@@ -458,7 +465,6 @@ onMsg('lockState', (m) => {
   const ended = heldEnded(L, m);
   heldUser = heldWho(heldUser, L, m);
   keepHeldUser(heldUser);
-  if (ended) keepLastUser(null);
   lastState = m;
   L.held = !!m.held;
   L.user = m.user || '';
@@ -466,8 +472,6 @@ onMsg('lockState', (m) => {
   L.persistent = !!m.persistent;
   L.noAutoLock = !!m.noAutoLock;
   L.lens = m.lens || [];
-  L.mode = m.mode === 'username' ? 'username' : 'pin';
-  S.userNames = m.names || [];
   applyCover(m);
   // The Lock ended without this tab's PIN: it stays covered, as when signing out of the letter Lock.
   if (ended && !L.enforced) localLock();
@@ -517,6 +521,14 @@ on('publicPanel', ({ on: free }) => {
   applyCover(lastState);
   render();
   emit('access', { ...L });
+});
+
+// A users save sends a new hello: the list and the picked user's PIN length follow it.
+on('hello', () => {
+  if (!picker) return;
+  picker.refresh();
+  if (!root.hidden && !nameValue()) picker.set(prefillName(L, lastUser(), S.users));
+  paint();
 });
 
 on('logout', () => signOutNow());
@@ -574,7 +586,7 @@ function signInFromLock() {
   letterLock.lock.cancel();
   letterLock = null;
   V = startSignIn(V, true);
-  nameInput.value ||= prefillName(L, lastUser());
+  if (!nameValue()) picker.set(prefillName(L, lastUser(), S.users));
   pin = '';
   clearTimeout(timer);
   clearFeedback();
@@ -636,22 +648,20 @@ document.addEventListener(
     }
     if (root && !root.hidden && root.classList.contains('is-on')) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // The pad's keys must not eat what is typed into the name. The list gets arrows, Enter and an
+      // Escape that closes it; Enter then moves on to the PIN.
+      if (e.target === nameInput && picker.key(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (V.mode === MODE.SIGN_IN && e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
         cancelSignIn();
         return;
       }
-      if (e.target === nameInput) {
-        // The pad's keys must not eat what is typed into the name; Enter moves on to the PIN.
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          e.stopPropagation();
-          if (pin && canSend(L, pin, nameValue())) sendPin();
-          else root.focus({ preventScroll: true });
-        }
-        return;
-      }
+      if (e.target === nameInput) return;
       const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
       if (k === 'enter' && e.target.closest?.('button')) return;
       if (k) {

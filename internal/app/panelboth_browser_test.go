@@ -40,6 +40,7 @@ func TestChromePanelBothMode(t *testing.T) {
 	b.eval(`localStorage.removeItem('sode-panel-key-` + id + `')`)
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the plain link asks for a sign-in", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
