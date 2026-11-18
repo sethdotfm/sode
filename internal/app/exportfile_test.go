@@ -170,7 +170,7 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 		if strings.HasPrefix(name, "art/") {
 			art = append(art, name)
 		}
-		// With one router, items leave the router out; only the router's own files name its UID.
+		// Items name the router by prefix; only the router's own files name its UID.
 		if name != "manifest.yaml" && name != "routers.yaml" && !strings.HasPrefix(name, "names/") && bytes.Contains(files[name], []byte(cfg.UID)) {
 			t.Errorf("%s holds the router UID:\n%s", name, files[name])
 		}
@@ -228,7 +228,7 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 	if b.APIClients[0].Owner != userID(t, a, "Ana") {
 		t.Errorf("API client owner: %q", b.APIClients[0].Owner)
 	}
-	if b.Settings == nil || b.Settings.HiddenDsts != "9" || b.Settings.HiddenDstsRouter != "" {
+	if b.Settings == nil || b.Settings.HiddenDsts != "9" || b.Settings.HiddenDstsRouter != cfg.UID || b.FilterSets[0].Router != cfg.UID {
 		t.Errorf("settings: %+v", b.Settings)
 	}
 	if b.Browser["theme"] != "dark" || len(b.Names[cfg.UID].Sources) != 1 || len(b.Art) != 3 {

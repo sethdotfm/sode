@@ -153,8 +153,8 @@ type zipFile struct {
 	data []byte
 }
 
-// buildExport writes the zip for req. Items name routers by prefix, left out with one router, so every
-// UID is only in manifest.yaml, routers.yaml and the names/ file names.
+// buildExport writes the zip for req. Items name routers by prefix, so every UID is only in manifest.yaml,
+// routers.yaml and the names/ file names.
 func (a *App) buildExport(req exportReq) ([]byte, error) {
 	cfg := a.r().cfg
 	for _, c := range req.Categories {
@@ -359,7 +359,11 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return writeZip(append([]zipFile{{"manifest.yaml", mb}}, files...))
+	zb, err := writeZip(append([]zipFile{{"manifest.yaml", mb}}, files...))
+	if err == nil && int64(len(zb)) > exportMaxUpload {
+		return nil, fmt.Errorf("the export is over %d MiB, which an import does not accept; pick fewer items", exportMaxUpload>>20)
+	}
+	return zb, err
 }
 
 func writeZip(files []zipFile) ([]byte, error) {
@@ -438,7 +442,8 @@ func exportYAML(v any, prefix map[string]string, one bool, used map[string]bool)
 // exportRouterKeys hold a router UID in Sode's stores.
 var exportRouterKeys = map[string]bool{"router": true, "hiddenDstsRouter": true}
 
-// toPrefixes writes each router UID as its prefix. With one router the key is left out.
+// toPrefixes writes each router UID as its prefix. With one router a reference (a mapping with n) leaves it
+// out. A filter set's router and hiddenDstsRouter keep the prefix, since blank means "no router" there.
 func toPrefixes(n *yaml.Node, prefix map[string]string, one bool, used map[string]bool) {
 	if n.Kind != yaml.MappingNode {
 		for _, c := range n.Content {
@@ -446,12 +451,16 @@ func toPrefixes(n *yaml.Node, prefix map[string]string, one bool, used map[strin
 		}
 		return
 	}
+	isRef := false
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		isRef = isRef || n.Content[i].Value == "n"
+	}
 	for i := 0; i+1 < len(n.Content); {
 		k, v := n.Content[i], n.Content[i+1]
 		if exportRouterKeys[k.Value] && v.Kind == yaml.ScalarNode {
 			if p, ok := prefix[v.Value]; ok {
 				used[v.Value] = true
-				if one {
+				if one && isRef {
 					n.Content = slices.Delete(n.Content, i, i+2)
 					continue
 				}

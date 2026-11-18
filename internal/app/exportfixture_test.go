@@ -57,8 +57,9 @@ func TestExportFormat1Fixture(t *testing.T) {
 	if p := b.Presets[0].Items[0]; p.Src.Router != uid || p.Dsts[0].Router != uid || !slices.Equal(p.Levels, []int{1, 2}) {
 		t.Errorf("preset: %+v", p)
 	}
-	if b.FilterSets[0].Router != "" || b.FilterSets[0].Src != "CAM" {
-		t.Errorf("filter set: %+v", b.FilterSets[0])
+	// A filter set with no router stays without one; a set with the prefix gets the UID.
+	if len(b.FilterSets) != 2 || b.FilterSets[0].Router != "" || b.FilterSets[0].Src != "CAM" || b.FilterSets[1].Router != uid {
+		t.Errorf("filter sets: %+v", b.FilterSets)
 	}
 	cells := b.Panels.Panels[0].Pages[0].Cells
 	if cells[0]["router"] != uid || cells[1]["router"] != uid || b.Panels.Panels[0].Owner != "u-0001" {
@@ -76,7 +77,7 @@ func TestExportFormat1Fixture(t *testing.T) {
 	if r := b.Routers[0]; r.UID != uid || r.Address != "10.1.2.3:8910" || r.NumberOffset != 1 || r.NameLength != 8 {
 		t.Errorf("router: %+v", r)
 	}
-	if s := b.Settings; s.BrandText != "Truck B" || s.ConfirmLockoutMs != 700 || s.HiddenDsts != "9" || !slices.Equal(b.Sections, []string{"branding", "confirm", "history"}) {
+	if s := b.Settings; s.BrandText != "Truck B" || s.ConfirmLockoutMs != 700 || s.HiddenDsts != "9" || s.HiddenDstsRouter != uid || !slices.Equal(b.Sections, []string{"branding", "confirm", "history"}) {
 		t.Errorf("settings: %+v %v", s, b.Sections)
 	}
 	if n := b.Names[uid]; len(n.Sources) != 2 || n.Destinations[0].Name != "MON 1" {

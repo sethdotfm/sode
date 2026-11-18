@@ -8,5 +8,6 @@ confirm:
   confirmSound: true
 history:
   hiddenDsts: "9"
+  hiddenDstsRouter: A
 weather:
   sunny: true
