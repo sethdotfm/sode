@@ -191,7 +191,7 @@ export const canSend = (s, pin, user) => sendable(pin, padLens(s, user)) && (!as
 export const padDelay = (s, pin, user) => (asksName(s) && !user ? null : sendDelay(pin, padLens(s, user)));
 
 export const signInMsg = (s, { pin, id, user }) => ({
-  t: 'userUnlock',
+  t: 'userSignIn',
   ...(asksName(s) ? { user: user?.name || '' } : {}),
   pin,
   id,

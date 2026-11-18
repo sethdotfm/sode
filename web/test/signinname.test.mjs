@@ -66,7 +66,7 @@ test('a user without a PIN signs in when their name is picked, with no PIN', () 
   assert.equal(sendsOnPick(s, { name: 'Bo', len: 6 }), false);
   assert.equal(canSend(s, '', cy), true);
   assert.equal(canSend(s, '', null), false);
-  assert.deepEqual(signInMsg(s, { pin: '', id: 6, user: cy }), { t: 'userUnlock', user: 'Cy', pin: '', id: 6, tab: true });
+  assert.deepEqual(signInMsg(s, { pin: '', id: 6, user: cy }), { t: 'userSignIn', user: 'Cy', pin: '', id: 6, tab: true });
 });
 
 test("a held Lock of a user without a PIN asks for the name again; the holder's own name resumes it", () => {
@@ -75,7 +75,7 @@ test("a held Lock of a user without a PIN asks for the name again; the holder's 
   assert.equal(asksName(held), true);
   assert.equal(canSend(held, '', null), false);
   assert.equal(sendsOnPick(held, cy), true);
-  assert.deepEqual(signInMsg(held, { pin: '', id: 7, user: cy }), { t: 'userUnlock', user: 'Cy', pin: '', id: 7, tab: true });
+  assert.deepEqual(signInMsg(held, { pin: '', id: 7, user: cy }), { t: 'userSignIn', user: 'Cy', pin: '', id: 7, tab: true });
 });
 
 test('pinNeededAsk: a signed-in user who must set a PIN is asked once per sign-in', () => {
@@ -103,7 +103,7 @@ test('nothing sends, by hand or by itself, without a listed name; at its own len
   assert.equal(padDelay(s, '123456', bo), 0);
   // Ada's PIN is the shortest in use, but her own: no wait for a longer one.
   assert.equal(padDelay(s, '1234', ada), 0);
-  assert.deepEqual(signInMsg(s, { pin: '1234', id: 4, user: ada }), { t: 'userUnlock', user: 'Ada', pin: '1234', id: 4, tab: false });
+  assert.deepEqual(signInMsg(s, { pin: '1234', id: 4, user: ada }), { t: 'userSignIn', user: 'Ada', pin: '1234', id: 4, tab: false });
 });
 
 test('a held Lock resumes with the PIN alone at the holder length', () => {
@@ -112,7 +112,7 @@ test('a held Lock resumes with the PIN alone at the holder length', () => {
   assert.equal(canSend(held, '1234', ana), true);
   assert.equal(canSend(held, '1234', null), true);
   assert.equal(padDelay(held, '1234', ana), 0);
-  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, user: ana }), { t: 'userUnlock', pin: '1234', id: 5, tab: true });
+  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, user: ana }), { t: 'userSignIn', pin: '1234', id: 5, tab: true });
 });
 
 test('prefillName: the remembered name, only while it is still listed; then the pad takes the keys', () => {

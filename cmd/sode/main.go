@@ -145,7 +145,7 @@ func main() {
 		return
 	}
 	// Before anything opens a file the move takes.
-	if _, err := app.MoveV1Files(cfgPath, os.Getenv("SODE_HISTORY"), os.Getenv("SODE_SENTLOG"), os.Getenv("SODE_UPTIME")); err != nil {
+	if _, err := app.MoveV1Files(cfgPath, os.Getenv("SODE_HISTORY"), os.Getenv("SODE_COMMLOG"), os.Getenv("SODE_UPTIME")); err != nil {
 		log.Fatalf("config: %v", err)
 	}
 	cfg := loadConfig(cfgPath)
@@ -157,11 +157,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("history: %v", err)
 	}
-	sentMB, err := strconv.Atoi(env("SODE_SENTLOG_MB", "64"))
+	sentMB, err := strconv.Atoi(env("SODE_COMMLOG_MB", "64"))
 	if err != nil || sentMB < 1 {
-		log.Fatalf("SODE_SENTLOG_MB: want a whole number of megabytes, at least 1")
+		log.Fatalf("SODE_COMMLOG_MB: want a whole number of megabytes, at least 1")
 	}
-	sent, err := app.OpenSentLog(os.Getenv("SODE_SENTLOG"), int64(sentMB)<<20)
+	sent, err := app.OpenSentLog(os.Getenv("SODE_COMMLOG"), int64(sentMB)<<20)
 	if err != nil {
 		log.Fatalf("sent log: %v", err)
 	}

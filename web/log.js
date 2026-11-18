@@ -180,7 +180,7 @@ let shown = [];
 
 function send(req) {
   if (!req) return;
-  if (!wsSend({ t: 'sent', ...req })) pager.unsent();
+  if (!wsSend({ t: 'log', ...req })) pager.unsent();
   renderMore();
 }
 
@@ -207,7 +207,7 @@ on('hello', () => {
   refreshUptime();
 });
 
-on('sentPage', (m) => {
+on('logPage', (m) => {
   const r = pager.receive(m);
   if (!r) return;
   showCounts(m);
@@ -223,7 +223,7 @@ on('sentPage', (m) => {
   else renderMore();
 });
 
-on('sentAdd', (m) => {
+on('logAdd', (m) => {
   if (!pager.started) return;
   showCounts(m);
   const { fresh, dropped } = pager.live(m);

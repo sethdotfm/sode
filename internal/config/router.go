@@ -31,7 +31,7 @@ type Router struct {
 	NameLength     int    `yaml:"nameLength" json:"nameLength" guard:"router"`
 	NameRequests   string `yaml:"nameRequests" json:"nameRequests" guard:"router"`
 	// NameRefreshSeconds is the router name re-read interval; 0 is off.
-	NameRefreshSeconds int `yaml:"nameRereadSeconds" json:"nameRefreshSeconds" guard:"open"`
+	NameRefreshSeconds int `yaml:"nameRereadSeconds" json:"nameRereadSeconds" guard:"open"`
 	// TallyResyncSeconds is the Re-read routes interval; 0 is off.
 	TallyResyncSeconds int `yaml:"routeRereadSeconds" json:"tallyResyncSeconds" guard:"open"`
 	// FireMode is Multi destination behavior. SalvoGroup (0-127): the router's list is shared by every client, so use one only Sode uses.

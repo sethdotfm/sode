@@ -349,7 +349,7 @@ type inMsg struct {
 	Slot       int64              `json:"slot"`   // ...and its slot length, ms
 	Config     json.RawMessage    `json:"config"` // decoded in saveSettings, over the live config
 	Pin        string             `json:"pin"`
-	User       string             `json:"user"` // userUnlock: the user's name (name and PIN mode)
+	User       string             `json:"user"` // userSignIn: the user's name (name and PIN mode)
 	ClearPin   bool               `json:"clearPin"`
 	ID         int                `json:"id"` // echoed by unlock and save replies
 	Items      []routeReq         `json:"items"`
@@ -362,7 +362,7 @@ type inMsg struct {
 	PinOrder   []string           `json:"pinOrder"`
 	Page       string             `json:"page"`  // hi: main | log
 	Token      string             `json:"token"` // hi: session token of a persistent user or a tab login
-	Tab        bool               `json:"tab"`   // userUnlock: no lock on, wants a tab session token
+	Tab        bool               `json:"tab"`   // userSignIn: no lock on, wants a tab session token
 	Name       string             `json:"name"`  // userSignOutAll, profileSave, profileGet
 	Old        string             `json:"old"`
 	New        string             `json:"new"`

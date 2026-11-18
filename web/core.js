@@ -215,9 +215,9 @@ function handle(m) {
       S.tally = new Map();
       applyTally(m.tally || []);
       S.prot = new Map();
-      applyProtect(m.protect || []);
+      applyProtect(m.protected || []);
       setStatus(m.status);
-      S.hist = m.recent || [];
+      S.hist = m.history || [];
       S.histMore = m.more;
       // A page asked for before this snapshot is for a replaced list and is ignored (takePage):
       // do not wait for it.
@@ -240,7 +240,7 @@ function handle(m) {
       emit('tallyRows', m.u);
       emit('tally');
       break;
-    case 'protect':
+    case 'protected':
       applyProtect(m.u);
       emit('protectedRows');
       emit('tally');
@@ -251,7 +251,7 @@ function handle(m) {
     case 'unlockResult':
       emit('unlockResult', m);
       break;
-    case 'locked':
+    case 'pinNeeded':
       emit('locked');
       break;
     case 'status':
@@ -264,9 +264,9 @@ function handle(m) {
     case 'reload':
       globalThis.location?.reload();
       break;
-    case 'sentPage':
+    case 'logPage':
     case 'uptimeResult':
-    case 'sentAdd':
+    case 'logAdd':
       emit(m.t, m);
       break;
     default: {

@@ -222,8 +222,8 @@ func TestStreamHistoryEntriesAndLateResults(t *testing.T) {
 	late := mine
 	late.Failed, late.Late, late.OK = nil, []int{1}, true
 	a.mu.Lock()
-	a.broadcast(recentMsg{T: "recent", E: &late, Update: true})
-	a.broadcast(recentMsg{T: "recent", E: &Entry{ID: secret.ID, Src: 5, Dst: 7, Levels: []int{1}}, Update: true})
+	a.broadcast(recentMsg{T: "entry", E: &late, Update: true})
+	a.broadcast(recentMsg{T: "entry", E: &Entry{ID: secret.ID, Src: 5, Dst: 7, Levels: []int{1}}, Update: true})
 	a.mu.Unlock()
 	// The topic is the one the client chose; a client with both gets history.
 	for name, s := range map[string]*strmConn{"history": hist, "results": results} {

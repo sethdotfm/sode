@@ -204,9 +204,9 @@ func TestBrowserAndCommandRows(t *testing.T) {
 	send(map[string]any{"t": "unlock", "pin": "4711", "id": 2})
 	send(map[string]any{"t": "lock"})
 	send(map[string]any{"t": "clearHistory"})
-	send(map[string]any{"t": "refreshNames"})
-	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 1, "src": 1, "dst": 2, "levels": []int{1}}, {"id": 2, "src": 1, "dst": 3, "levels": []int{1}}}})
-	send(map[string]any{"t": "sent", "before": -1}) // reads are not commands
+	send(map[string]any{"t": "rereadNames"})
+	send(map[string]any{"t": "take", "items": []map[string]any{{"id": 1, "src": 1, "dst": 2, "levels": []int{1}}, {"id": 2, "src": 1, "dst": 3, "levels": []int{1}}}})
+	send(map[string]any{"t": "log", "before": -1}) // reads are not commands
 	rows := waitLogged(t, a, 8)
 	c.Close(websocket.StatusNormalClosure, "")
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
@@ -225,7 +225,7 @@ func TestBrowserAndCommandRows(t *testing.T) {
 			t.Fatalf("a PIN is in the log: %+v", e)
 		}
 	}
-	if got := strings.Join(why, ","); got != "unlock,unlock,lock,clearHistory,refreshNames,take" {
+	if got := strings.Join(why, ","); got != "unlock,unlock,lock,clearHistory,rereadNames,take" {
 		t.Fatalf("commands = %s", got)
 	}
 	// No users: every browser acts as an Administrator, so clearHistory runs.

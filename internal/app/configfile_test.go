@@ -289,21 +289,21 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	if m := until("configImportBeginResult"); m["ok"] == true || m["id"] != float64(1) {
 		t.Fatalf("begin as a Guest: %v", m)
 	}
-	send(map[string]any{"t": "userUnlock", "user": "Ada", "pin": "2468", "id": 9})
-	until("userUnlockResult")
+	send(map[string]any{"t": "userSignIn", "user": "Ada", "pin": "2468", "id": 9})
+	until("userSignInResult")
 	tooBig(ws, map[string]any{"t": "configImport", "id": 2, "yaml": big}, "a connection without an accepted begin")
 	if a.r().cfg.BrandText == "Big" {
 		t.Fatal("imported without the PIN")
 	}
 
 	ws, send, until = dial()
-	send(map[string]any{"t": "userUnlock", "user": "Ada", "pin": "2468", "id": 1})
-	until("userUnlockResult")
+	send(map[string]any{"t": "userSignIn", "user": "Ada", "pin": "2468", "id": 1})
+	until("userSignInResult")
 	tooBig(ws, map[string]any{"t": "configImport", "id": 2, "yaml": big}, "no begin, big message")
 
 	ws, send, until = dial()
-	send(map[string]any{"t": "userUnlock", "user": "Ada", "pin": "2468", "id": 1})
-	until("userUnlockResult")
+	send(map[string]any{"t": "userSignIn", "user": "Ada", "pin": "2468", "id": 1})
+	until("userSignInResult")
 	send(map[string]any{"t": "configImportBegin", "id": 3, "size": len(big)})
 	if m := until("configImportBeginResult"); m["ok"] != true || m["id"] != float64(3) {
 		t.Fatalf("begin: %v", m)
@@ -317,8 +317,8 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	}
 	tooBig(ws, map[string]any{"t": "configImport", "id": 5, "yaml": big}, "limit not restored")
 	_, send, until = dial()
-	send(map[string]any{"t": "userUnlock", "user": "Ada", "pin": "2468", "id": 1})
-	until("userUnlockResult")
+	send(map[string]any{"t": "userSignIn", "user": "Ada", "pin": "2468", "id": 1})
+	until("userSignInResult")
 	send(map[string]any{"t": "configImportBegin", "id": 6, "size": maxConfigFile + 1})
 	if m := until("configImportBeginResult"); m["ok"] == true || m["id"] != float64(6) {
 		t.Fatalf("oversize begin: %v", m)
@@ -358,8 +358,8 @@ func TestConfigExportOverWebSocket(t *testing.T) {
 	if m := until("configExportResult"); m["ok"] == true || m["yaml"] != nil {
 		t.Fatalf("export without the PIN: %v", m)
 	}
-	send(map[string]any{"t": "userUnlock", "user": "Ada", "pin": "2468", "id": 2})
-	until("userUnlockResult")
+	send(map[string]any{"t": "userSignIn", "user": "Ada", "pin": "2468", "id": 2})
+	until("userSignInResult")
 	send(map[string]any{"t": "configExport", "id": 3, "pins": true})
 	m := until("configExportResult")
 	if m["ok"] != true || m["id"] != float64(3) || !strings.Contains(m["yaml"].(string), "PRIVATE BACKUP") || m["name"] == "" {

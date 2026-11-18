@@ -68,15 +68,15 @@ func TestSocketWaitsPerName(t *testing.T) {
 	defer ws.CloseNow()
 	ws.SetReadLimit(1 << 24)
 	signIn := func(id int, user, pin string) userResult {
-		b, _ := json.Marshal(map[string]any{"t": "userUnlock", "id": id, "user": user, "pin": pin})
+		b, _ := json.Marshal(map[string]any{"t": "userSignIn", "id": id, "user": user, "pin": pin})
 		ws.Write(ctx, websocket.MessageText, b)
 		for {
 			_, b, err := ws.Read(ctx)
 			if err != nil {
-				t.Fatalf("no userUnlockResult: %v", err)
+				t.Fatalf("no userSignInResult: %v", err)
 			}
 			var r userResult
-			if json.Unmarshal(b, &r) == nil && r.T == "userUnlockResult" && r.ID == id {
+			if json.Unmarshal(b, &r) == nil && r.T == "userSignInResult" && r.ID == id {
 				return r
 			}
 		}

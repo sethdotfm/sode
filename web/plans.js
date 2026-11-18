@@ -548,7 +548,7 @@ export function sendTakes(p) {
       take.byId.set(id, { dst: it.dst, g });
     }
   }
-  const out = { t: 'batch', items };
+  const out = { t: 'take', items };
   if (p.verb === 'preset' && p.preset) Object.assign(out, { preset: p.preset, presetId: p.presetId });
   if (!wsSend(out)) {
     showResult(

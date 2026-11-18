@@ -32,7 +32,7 @@ func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 			case f[2] != "":
 				k = byID[f[2]]
 			case k == "":
-				k = "deviceDefaults"
+				k = "browserDefaults"
 			}
 			if !seen[k] {
 				seen[k] = true
@@ -50,7 +50,7 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 	// Saved apart from the form: their own messages, or nothing to save yet.
 	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "users": true, "api": true, "panels": true, "export-import": true, "run-setup-again": true}
 	values := map[string]any{
-		"deviceDefaults":       config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "12", SetStack: "or", NextMode: "fuzzy", StackGap: "30"},
+		"browserDefaults":      config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "12", SetStack: "or", NextMode: "fuzzy", StackGap: "30"},
 		"brandText":            "Stage B",
 		"brandBorder":          config.BrandColors[1].Name,
 		"hiddenDsts":           "65",
@@ -66,7 +66,7 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 		"levelWireOffset":      1,
 		"levelNumbering":       "0",
 		"numberOffset":         0,
-		"nameRefreshSeconds":   120,
+		"nameRereadSeconds":    120,
 		"nameLength":           16,
 		"nameRequests":         "ext",
 		"defaultLevels":        "1-2",

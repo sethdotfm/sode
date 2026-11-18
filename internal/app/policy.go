@@ -9,7 +9,7 @@ import (
 // Message table: what each browser message needs and what runs for it, in one place. The
 // read loop looks the type up, checks access, then calls the handler; an unlisted type is
 // dropped (TestPolicyCoversEveryMessage: every rule has a handler). A handler picks inline
-// or goroutine itself: unlock and userUnlock stay inline so a following lock wins.
+// or goroutine itself: unlock and userSignIn stay inline so a following lock wins.
 // Locks cover actions, not data: hello, names, tally, History stream to a locked
 // browser (the lock screen is not a secret). Every rule names the Role it needs (roles.go,
 // TestPolicyCoversEveryMessage); settings changes need a Role, never the main lock.
@@ -58,7 +58,7 @@ var policy = map[string]rule{
 	"hi": {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.Hi(c, m.Page, m.Token) }},
 	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
 	// handled after.
-	"userUnlock": {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserUnlock(c, m) }},
+	"userSignIn": {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserUnlock(c, m) }},
 	// locking and signing out are never refused; with nobody signed in the Lock is page-only
 	// and the server does nothing
 	"userLock": {role: roleAnyone, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
@@ -101,15 +101,15 @@ var policy = map[string]rule{
 	"myClientKeyRevoke": {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientKeyRevoke(c, m) }},
 	"history":           {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 
-	"batch": {role: config.RoleStandard, need: needMain, why: "take", write: true,
+	"take": {role: config.RoleStandard, need: needMain, why: "take", write: true,
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveTake(c, m) },
 		onRefuse: func(a *App, c *client, m *inMsg, err error) {
 			for _, it := range m.Items {
 				a.reply(c, routeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
 			}
 		}},
-	"refreshNames": {role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
-		a.command(c, "refreshNames", "sent", "", nil)
+	"rereadNames": {role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+		a.command(c, "rereadNames", "sent", "", nil)
 		go a.RefreshNames()
 	}},
 	// Erasing history is more than a take.
@@ -127,8 +127,8 @@ var policy = map[string]rule{
 			}
 		}},
 
-	// Admitting sent subscribes to the feed in the same step, so a lock cannot slip in.
-	"sent": {role: config.RoleStandard, need: needLog, admitted: func(c *client) { c.sent = true },
+	// Admitting log subscribes to the feed in the same step, so a lock cannot slip in.
+	"log": {role: config.RoleStandard, need: needLog, admitted: func(c *client) { c.sent = true },
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.sentHistory(c, int64(m.Before), m.N) }},
 	"uptime": {role: config.RoleStandard, need: needLog, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
