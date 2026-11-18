@@ -137,6 +137,9 @@ var policy = map[string]rule{
 	"config": {crit: critByFields, role: config.RoleTrusted, op: "config", noID: true, write: true,
 		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin },
 		handle: func(a *App, c *client, m *inMsg) { a.serveConfig(c, m) }},
+	// the one Save: a Standard user passes here and gets a result per field (onesave.go)
+	"settingsSave": {crit: critByFields, role: config.RoleStandard, op: "settingsSave", write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveSettingsSave(c, m) }},
 	"filterSets": {crit: critNever, role: config.RoleTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(sets []config.FilterSet, id int) {
 			defer m.finish()

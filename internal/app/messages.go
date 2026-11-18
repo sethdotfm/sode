@@ -58,6 +58,8 @@ type helloMsg struct {
 	Levels        []config.Level  `json:"levels"`
 	LevelDefaults []string        `json:"levelDefaults"`
 	Cfg           config.Config   `json:"cfg"`
+	// Versions: each one Save field's version (onesave.go); a save sends back the one it loaded.
+	Versions map[string]string `json:"versions"`
 	// Users: the sign-in list. It reaches locked pages, so it holds each name and PIN length (0 for
 	// none) and never more; cfg.users stays empty.
 	Users []helloUser `json:"users"`

@@ -682,7 +682,7 @@ func (a *App) hello(p helloPage) []byte {
 		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: a.router.savedAt,
 		Tally: routeTriples(a.router.tally), Protect: routeTriples(a.router.protect),
 		Status: a.status, Recent: p.recent, More: p.more,
-		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Users: users,
+		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
 		ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
 		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),

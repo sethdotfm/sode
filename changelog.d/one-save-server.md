@@ -1,0 +1,2 @@
+- The server now applies each section's Role to Settings saves. A Trusted user can no longer change Level colors, Confirm and results or the Routers topic.
+- The server has a field-by-field Settings save for the coming one Save. Each changed field is saved or refused with its reason (Role, needs Approval, needs PIN recheck, conflict, missing prerequisite or invalid). A field that someone else saved after you opened Settings is refused alone, with their value.
