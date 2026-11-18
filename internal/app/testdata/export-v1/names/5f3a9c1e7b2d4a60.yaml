@@ -1,0 +1,7 @@
+router: 5f3a9c1e7b2d4a60
+at: 2026-11-18T09:58:00Z
+sources:
+  - {n: 0, name: CAM 1}
+  - {n: 1, name: CAM 2}
+destinations:
+  - {n: 0, name: MON 1}

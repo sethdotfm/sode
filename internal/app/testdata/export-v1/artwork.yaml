@@ -1,0 +1,4 @@
+icons:
+  - {id: 00ff00ff, name: Star, type: image/svg+xml, size: 41}
+defaults:
+  - {kind: source, n: 0, name: CAM 1, art: "lib:00ff00ff"}

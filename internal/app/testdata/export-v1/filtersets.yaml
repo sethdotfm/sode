@@ -1,0 +1,10 @@
+filterSets:
+  - name: Cams
+    src: CAM
+    sode: true
+    ext: false
+  - name: Low numbers
+    router: A
+    src: 1-8
+    sode: true
+    ext: true
