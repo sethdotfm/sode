@@ -81,8 +81,10 @@ export function initFind({ sections, toc }) {
     flashTimer = setTimeout(start, 1000);
   }
 
-  // A [data-find] row or button is hidden while it does not apply (Sign in, My API keys), so search skips it.
+  // A [data-find] row or button is hidden while it does not apply (Sign in, My API keys), so search skips it. So does
+  // a section the Role or the phone leaves out (settingsroles.js).
   const offered = (h) => {
+    if (sections.find((s) => s.dataset.section === h.sectionId)?.hidden) return false;
     const node = h.kind === 'setting' ? targets.get(`${h.sectionId}/${h.id}`) : null;
     return !(node?.matches('[data-find]') && node.closest('[hidden]'));
   };

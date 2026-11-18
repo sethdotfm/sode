@@ -1,0 +1,2 @@
+- Settings shows each section by your Role. A Standard user sees Look and feel and Routers as view only and does not see Access or Server. A Trusted user can also change Everyone's defaults, Branding and History.
+- On the phone, Settings shows only This browser and My user, with "Other settings need a computer". On `/panels` the phone keeps the list, Launch and Open now; the editor, Assign to, keys and sharing say "Open Sode on a computer to ...". The Use desktop layout button sets this browser's layout.

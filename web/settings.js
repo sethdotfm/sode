@@ -16,6 +16,7 @@ import { renderLock, showLockErr, resetLock, closeLockHelp } from './settingsloc
 import { initSave, markClean, warnUnsaved, unwarn, saving, showSaveErr } from './settingssave.js';
 import { initFind } from './settingsfind.js';
 import { fillRouters, routerTitle } from './settingsrouters.js';
+import { initRoles } from './settingsroles.js';
 import './mykeys.js';
 import './users.js';
 import './apisettings.js';
@@ -62,6 +63,7 @@ function openSettings() {
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
+  roles.apply();
   renderOffsetNote();
   renderHiddenNote();
   renderNamesStatus();
@@ -90,6 +92,7 @@ fillAbout($('settings-foot'), { id: 'open-log' });
 const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
 const toc = initToc({ form, sections, toc: $('settings-toc'), isOpen });
 const { showPage, markSection } = toc;
+const roles = initRoles({ form, sections, toc, isOpen });
 
 function showRouters() {
   fillRouters((id) => toc.goRouter(id));

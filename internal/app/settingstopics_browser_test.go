@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
 )
 
@@ -13,7 +14,8 @@ import (
 func TestChromeSettingsTopics(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim)
+	// No users: the page acts as an Administrator, so Settings shows the Access and Server topics.
+	a := simApp(t, sim, func(c *config.Config) { c.Users = nil })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
