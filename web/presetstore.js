@@ -3,7 +3,7 @@
 // UI levels, [] = default levels), never names: names are re-polled from the router.
 
 import { S, on, onMsg, emit, off, search } from './core.js';
-import { readJSON, writeJSON, readStr, writeStr } from './store.js';
+import { readJSON, writeJSON } from './store.js';
 import { profile, profileName, saveProfile } from './profile.js';
 import { profileProblem } from './profilesrules.js';
 
@@ -19,20 +19,6 @@ export const MAX_BYTES = 48 * 1024;
 const KEY = 'sode-presets';
 const ORDER = 'sode-preset-order';
 const PINS = 'sode-preset-pins';
-
-// Old salvo keys: move what a browser holds to the new keys one time (a new key already there wins).
-export function migrateLegacyKeys() {
-  for (const [from, to] of [
-    ['sode-salvos', KEY],
-    ['sode-salvo-pins', PINS],
-  ]) {
-    const v = readStr(from);
-    if (v == null) continue;
-    if (readStr(to) == null) writeStr(to, v);
-    writeStr(from, null);
-  }
-}
-migrateLegacyKeys();
 
 // Out-of-range values stay so presetProblem can name them rather than quietly change the preset.
 const ints = (a) =>

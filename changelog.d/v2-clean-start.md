@@ -1,0 +1,3 @@
+- Sode v2 starts clean. On the first start, Sode moves every v1 file into `/data/v1/`: config.yaml, tokens.json, keys.json, panels and artwork, History and the Communication Log. Then it starts as a fresh install, and the log has one line that names the directory. Set up Sode again, sign in again on every browser, and make and pair each panel, panel client and API key again. Device defaults go back to their defaults.
+- config.yaml starts with `format: 2`. Sode v2 does not read a config.yaml without it, and Settings refuses to import a v1 configuration.
+- The first time a browser opens a v2 page, Sode deletes the v1 `sode-*` keys that the browser kept. An open page reloads itself when the server changes to a different build.

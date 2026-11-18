@@ -35,7 +35,7 @@ type Entry struct {
 	Already     []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 	Group       string    `json:"group,omitempty"`
 	GroupN      int       `json:"groupN,omitempty"`
-	Preset      string    `json:"preset,omitempty"` // name of the preset this take was fired from (browser-supplied, cleaned); older files call it "salvo"
+	Preset      string    `json:"preset,omitempty"` // name of the preset this take was fired from (browser-supplied, cleaned)
 	Ext         bool      `json:"ext,omitempty"`
 	FollowGroup string    `json:"followGroup,omitempty"`
 	Follow      *int      `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
@@ -304,20 +304,4 @@ func (h *History) at(id int) (Entry, error) {
 		return Entry{}, fmt.Errorf("history entry %d: %w", id, err)
 	}
 	return e, nil
-}
-
-// Loads the preset name from "salvo" for old history files.
-func (e *Entry) UnmarshalJSON(b []byte) error {
-	type plain Entry
-	aux := struct {
-		*plain
-		Salvo string `json:"salvo"`
-	}{plain: (*plain)(e)}
-	if err := json.Unmarshal(b, &aux); err != nil {
-		return err
-	}
-	if e.Preset == "" {
-		e.Preset = aux.Salvo
-	}
-	return nil
 }

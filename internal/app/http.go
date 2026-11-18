@@ -1,7 +1,6 @@
 package app
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -303,7 +302,7 @@ func (a *App) serveTake(c *client, m *inMsg) {
 		n := len(m.Items)
 		a.command(c, takeWhy(m.Items), "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
 	}
-	if name := cleanPresetName(cmp.Or(m.Preset, m.Salvo)); name != "" {
+	if name := cleanPresetName(m.Preset); name != "" {
 		for i := range m.Items {
 			m.Items[i].Preset = name
 		}
@@ -354,7 +353,6 @@ type inMsg struct {
 	ID         int                `json:"id"` // echoed by unlock and save replies
 	Items      []routeReq         `json:"items"`
 	Preset     string             `json:"preset"` // take: the preset that was fired, if any
-	Salvo      string             `json:"salvo"`  // the same, from a page loaded before presets were renamed
 	Sets       []config.FilterSet `json:"sets"`
 	Prefs      map[string]string  `json:"prefs"`
 	FilterSets []config.FilterSet `json:"filterSets"`

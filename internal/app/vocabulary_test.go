@@ -104,7 +104,6 @@ var vocabAllow = []allowEntry{
 	{"", ".js", `^(?:login|logout|unlock|unlocked)$`, "bus and wire event names, which do not change"},
 	{"unlock", "", "`unlock(?:ed)?`", "wire message and bus event names keep this name"},
 	{"log in", "", "`[^`]*log-?(?:in|out)[^`]*`", "bus event names keep this name"},
-	{"salvo", "docs/agents/presets.md", "Old data still loads", "legacy data keys keep the old name so old files load"},
 	{"batch", "", "`batch`", "the wire message type and command kind keep this name"},
 	{"batch", "web/plans.js", `^batch$`, "the wire message type keeps this name"},
 	{"batch", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},

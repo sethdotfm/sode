@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -146,34 +145,5 @@ func TestPresetsMessageFits(t *testing.T) {
 	}
 	if err := c.Validate(); err == nil {
 		t.Fatal("oversized presets accepted")
-	}
-}
-
-// Old key "salvos" still loads.
-func TestLegacySalvosKeyLoadsAsPresets(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	c := Defaults()
-	if err := Save(path, c); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := os.ReadFile(path)
-	old := string(b) + "salvos:\n  - name: Show\n    items:\n      - src: 4\n        dsts: [1, 2]\n"
-	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	got, _, err := Load(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got.Normalize()
-	if len(got.Presets) != 1 || got.Presets[0].Name != "Show" || got.LegacySalvos != nil {
-		t.Fatalf("legacy key not moved: %+v legacy=%v", got.Presets, got.LegacySalvos)
-	}
-	if err := Save(path, got); err != nil {
-		t.Fatal(err)
-	}
-	b, _ = os.ReadFile(path)
-	if strings.Contains(string(b), "salvos:") || !strings.Contains(string(b), "presets:") {
-		t.Fatalf("saved file still uses the old key:\n%s", b)
 	}
 }
