@@ -73,6 +73,12 @@ info:
     entry, and Sode writes an `api` row in the Communication Log. Undo checks the destination
     and level but not the source it restores.
 
+    Roles. A user's key acts with its owner's Role as it is now, never above Trusted user. After
+    a demotion, the next call uses the lower Role and the key keeps working. An API client holds
+    no Role. A change only an Administrator can make is 403 `administrator_only`, with a message
+    that says to make it in Settings. A user can make an API client from My user. Its Rights are
+    never more than its user's Rights now, and it ends with that user.
+
     Panels. Panels need the API switch. They use the same switch, scopes, rate limit and error
     shape as the rest of v1. Nothing under `/panels` answers while the API is off. A user's
     key has both panel scopes. An API client or Guest has them only if set.
@@ -555,10 +561,10 @@ paths:
         `acts: api` makes the panel an API client of its own, named `Panel <id>` and made with
         the panel. `acts: both` does the same, and the page falls back to Session mode (a
         sign-in) when it opens without a key. `acts: public` does the same and hands any page a
-        short-lived key for it (`POST /panels/{id}/public`). Only a Trusted user can make a panel
-        act as an API client (403 `trusted_required`). `clientRights` are its rights and default
-        to the creator's. The panel's rights must not be wider than the creator's own (403
-        `outside_rights`), and Sode creates nothing. Its scopes start as names, tally, protected,
+        short-lived key for it (`POST /panels/{id}/public`). Any user's key makes a panel act as
+        an API client. `clientRights` are its rights and default to the creator's. Rights wider
+        than the creator's own need an Administrator (403 `administrator_only`), and Sode creates
+        nothing. Its scopes start as names, tally, protected,
         status, presets, layouts, take and panels, never history, log or panelsmanage. Its keys are made elsewhere. It
         shows in the administrator's client list and does not count toward the limit of API
         clients.
@@ -1050,12 +1056,12 @@ paths:
 
         `acts` decides the API client. `api`, `both` or `public` makes one if the panel has none, and
         a switch between them keeps it. `session` removes it with its keys. A switch to
-        `public` checks the caller as a new client would (Trusted, Rights within the caller's).
-        Sode does this even when `clientRights` stay as stored. If the panel leaves `public`, every
-        key it handed out ends. `clientRights` left out, or equal to the stored ones, change
-        nothing. Any other value needs a Trusted caller and must be within the caller's own
-        rights (403 `trusted_required`, `outside_rights`). If Sode refuses it, the panel stays as
-        it was. Only an Administrator widens a client past its creator.
+        `public` checks the caller as a new client would (Rights within the caller's). Sode does
+        this even when `clientRights` stay as stored. If the panel leaves `public`, every key it
+        handed out ends. `clientRights` left out, or equal to the stored ones, change nothing. Any
+        other value needs a user's key and must be within the caller's own rights (403
+        `user_required`, `administrator_only`). If Sode refuses it, the panel stays as it was.
+        Only an Administrator widens a client past its creator, in Settings.
 
         A body with `cells` and no `pages` changes only Page 1's cells and keeps the other Pages.
       requestBody:
