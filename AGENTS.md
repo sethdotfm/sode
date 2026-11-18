@@ -60,7 +60,7 @@ Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web 
 - docs/agents/web-layout.md: Web layout. Read before touching web modules and import rules, the two layouts, keyboard mode and key plumbing, Last and Next chips, socket freshness or source ends.
 - docs/agents/history.md: History, ext and External follow. Read before touching History, undo, ext/found entries, External follow entries, filters and filter sets, stacked sets, Redo, quick search.
 - docs/agents/users-locks.md: Users and locks (#151). Read before touching users, PINs, page locks, the policy table, sessions and tokens, lock screen, tab sign-in, the Lock.
-- docs/agents/profiles.md: Profiles (#161), guests (#187), sharing (#169). Read before touching profiles, guests, the profile editor, export/import/share links, server config export/import.
+- docs/agents/profiles.md: Profiles (#161), guests (#187), sharing (#169). Read before touching profiles, guests, the profile editor, export/import, Item links, server config export/import.
 - docs/agents/comm-log.md: Communication Log (#72, /log). Read before touching /log page, Communication Log rows, event rows, uptime graph.
 - docs/agents/router-verified.md: Verified against the real Ultrix (2026-10-22, 172.17.60.101:8910). Read before touching what was measured on the real Ultrix and the protocol quirks Sode depends on.
 - docs/agents/browser-checks.md: Browser checks (headless Chrome against swp08sim, `go test ./internal/app -run TestChrome`). Read before adding or changing one.

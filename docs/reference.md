@@ -80,10 +80,11 @@ Commas separate terms. A name matches if it fits any plain term and no `!` term.
 
 Open Settings with the **Settings** button at the bottom of the page. Sode stores them in `/data/config.yaml`. A save applies immediately. Changes to the router, matrix, levels or name options reconnect and re-read names and routes. When there is no config file yet, Sode seeds it from these variables, and after that the file wins.
 
-The router's keys sit under `routers`, a list that holds one router. Each router also has a `uid`, which Sode makes when it adds the router and never changes, not even with the address. It has a `prefix`, one letter A to Z (`A` for the first router), hidden while there is one router. Rows marked "router" below are keys of that router. The others are top-level keys. The first key is `format: 2`. A file without it is from v1, and on start Sode moves the v1 files into `/data/v1/` and starts as a fresh install:
+The router's keys sit under `routers`, a list that holds one router. Each router also has a `uid`, which Sode makes when it adds the router and never changes, not even with the address. It has a `prefix`, one letter A to Z (`A` for the first router), hidden while there is one router. Rows marked "router" below are keys of that router. The others are top-level keys. The first key is `format: 2`. The top-level `installUid` names this install. Sode makes it on first start and never changes it, not even with a config import; Item links carry it. A file without `format` is from v1, and on start Sode moves the v1 files into `/data/v1/` and starts as a fresh install:
 
 ```yaml
 format: 2
+installUid: 3b8e05c1d29a7f44
 routers:
   - uid: 7f3c9a1e2b4d5f60
     prefix: A

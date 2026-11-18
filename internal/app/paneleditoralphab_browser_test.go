@@ -57,7 +57,7 @@ func TestChromeEditorKeyTab(t *testing.T) {
 			b.eval(`document.querySelector('.sode-ov__share #tab-key').click()`)
 			b.waitFor("key tab shows text", `document.querySelector('.sode-ov__share #panel-key').textContent.length > 20`)
 			if acts == "session" {
-				b.waitFor("key tab has the panel link", `document.querySelector('.sode-ov__share #panel-key .sode-linkrow__text')?.value.endsWith('/panels/`+id+`')`)
+				b.waitFor("key tab has the panel link", `/\/panels\/`+id+`#install=[0-9a-f]{16}$/.test(document.querySelector('.sode-ov__share #panel-key .sode-linkrow__text')?.value)`)
 			}
 			b.eval(`document.getElementById('tab-people').click()`)
 			b.waitFor("People tab has the link, except for a client panel", `!!document.querySelector('.sode-ov__share #panel-people .sode-linkrow__text') === `+fmt.Sprint(acts == "session"))

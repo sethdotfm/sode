@@ -40,6 +40,7 @@ func legacyHello(a *App, p helloPage) []byte {
 	m["version"] = VersionLabel()
 	m["brandColors"] = config.BrandColors
 	m["routerUid"] = r.cfg.UID
+	m["installUid"] = r.cfg.InstallUID
 	m["prefix"] = r.cfg.Prefix
 	b, _ := json.Marshal(m)
 	return b

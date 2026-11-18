@@ -173,7 +173,6 @@ export const DICT = {
     'download',
     'upload',
     'share',
-    'share link',
     'move',
     'copy',
     'transfer',
@@ -191,7 +190,7 @@ export const DICT = {
     'presets',
     'filter sets',
   ],
-  'transfer-open': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share link', 'review', 'transfer', 'copy to another site'],
+  'transfer-open': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'review', 'transfer', 'copy to another site'],
   // Sections for other branches to add later; ignored until they exist.
   salvos: ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
   'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
