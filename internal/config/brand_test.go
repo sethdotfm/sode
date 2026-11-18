@@ -7,7 +7,7 @@ import (
 
 func TestBrandNormalize(t *testing.T) {
 	c := Defaults()
-	c.Router = "10.0.0.5:8910"
+	c.Address = "10.0.0.5:8910"
 	c.BrandText = "  Studio B "
 	c.BrandBorder = " Teal "
 	c.Normalize()

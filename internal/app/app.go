@@ -212,7 +212,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		drainLimit:   defaultDrainLimit,
 		now:          time.Now,
 		idleEvery:    defaultIdleEvery,
-		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
+		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Address},
 	}
 	a.pin, a.userPin = settingsPool(), userPool()
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
@@ -229,7 +229,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	}
 	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
-	a.sw = swp08.NewClient(cfg.Router, r.probe())
+	a.sw = swp08.NewClient(cfg.Address, r.probe())
 	a.sw.Debug = debug
 	a.sw.OnUp = a.onRouterUp
 	a.sw.OnMsg = a.onRouterMsg
@@ -369,7 +369,7 @@ func (a *App) onRouterState(s swp08.State, err error) {
 	a.up.State(s == swp08.StateUp)
 	a.logLink(s, err)
 	a.status.Router = string(s)
-	a.status.Addr = a.r().cfg.Router
+	a.status.Addr = a.r().cfg.Address
 	// Retrying keeps the last error so a browser loading mid-retry sees the router as
 	// lost; Up clears it.
 	if s != swp08.StateConnecting {
@@ -396,7 +396,7 @@ func (a *App) logLink(s swp08.State, err error) {
 		return
 	}
 	e := event(kindLink, "", "", a.linkSeen)
-	e.Err, e.Note = a.linkErr, a.r().cfg.Router
+	e.Err, e.Note = a.linkErr, a.r().cfg.Address
 	a.logEvent(e)
 }
 

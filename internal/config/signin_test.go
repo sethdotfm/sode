@@ -91,18 +91,16 @@ func TestUserIDsFilledAndKept(t *testing.T) {
 		t.Fatal(err)
 	}
 	a, b := c.Users[0].ID, c.Users[1].ID
-	if a == "" || b == "" || a == b || !c.UserIDsFilled() {
-		t.Fatalf("ids %q %q filled %v", a, b, c.UserIDsFilled())
+	if a == "" || b == "" || a == b {
+		t.Fatalf("ids %q %q", a, b)
 	}
-	if err := Save(path, c); err != nil {
-		t.Fatal(err)
-	}
+	// Load wrote them back, so the next start reads the same ids.
 	again, _, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again.Users[0].ID != a || again.UserIDsFilled() {
-		t.Fatalf("saved id not kept: %q filled %v", again.Users[0].ID, again.UserIDsFilled())
+	if again.Users[0].ID != a || again.Users[1].ID != b || again.idsFilled {
+		t.Fatalf("ids not kept: %q %q filled %v", again.Users[0].ID, again.Users[1].ID, again.idsFilled)
 	}
 	again.Users[0].Name = "Anna"
 	again.Normalize()

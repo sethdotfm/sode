@@ -12,7 +12,7 @@ import (
 func changeRouter(t *testing.T, a *App) {
 	t.Helper()
 	cfg := a.r().cfg
-	cfg.Router = "127.0.0.1:1"
+	cfg.Address = "127.0.0.1:1"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}

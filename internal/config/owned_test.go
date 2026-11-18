@@ -7,9 +7,7 @@ import (
 )
 
 func TestEveryFieldChooses(t *testing.T) {
-	typ := reflect.TypeOf(Config{})
-	for i := range typ.NumField() {
-		f := typ.Field(i)
+	for _, f := range configFields() {
 		if !f.IsExported() {
 			continue // never saved or sent
 		}
@@ -57,16 +55,16 @@ func TestKeepOwned(t *testing.T) {
 	live.SettingsPin = "hash"
 	live.DeviceDefaults.Theme = "dark"
 	live.Users = []User{{Name: "u"}}
-	live.Router = "1.1.1.1:1"
+	live.Address = "1.1.1.1:1"
 
 	in := Defaults()
-	in.Router = "2.2.2.2:2"
+	in.Address = "2.2.2.2:2"
 	in.DeviceDefaults.Theme = "light"
 	in.FilterSets = make([]FilterSet, 1000)
 	in.Presets = make([]Preset, 1000)
 	in.Users = make([]User, 100)
 	in.KeepOwned(live)
-	if in.Router != "2.2.2.2:2" {
+	if in.Address != "2.2.2.2:2" {
 		t.Error("a form field was overwritten")
 	}
 	if !reflect.DeepEqual(in.FilterSets, live.FilterSets) || !reflect.DeepEqual(in.Presets, live.Presets) ||

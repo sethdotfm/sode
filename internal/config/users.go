@@ -105,10 +105,6 @@ func NewUserID() string {
 	return "u-" + hex.EncodeToString(b)
 }
 
-// UserIDsFilled: Normalize gave a user an id the file lacked. The caller must save before
-// anything refers to it, or the next start makes new ones.
-func (c Config) UserIDsFilled() bool { return c.idsFilled }
-
 // KeepPins is c with PIN hashes it lacks copied from live (a user's hash and length together).
 // Hashes must look like hashes so a file cannot stop the next start; a user with neither is an error.
 func (c Config) KeepPins(live Config) (Config, error) {
