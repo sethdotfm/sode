@@ -67,7 +67,7 @@ func TestTrustedSavesWithoutPin(t *testing.T) {
 	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: "X", Sode: true, Ext: true}}); err != nil {
 		t.Fatalf("filter sets: %v", err)
 	}
-	if err := a.SavePresets(c, []config.Preset{{Name: "S", Items: []config.PresetItem{{Src: 1, Dsts: []int{1}, Levels: []int{1}}}}}); err != nil {
+	if err := a.SavePresets(c, []config.Preset{{Name: "S", Items: []config.PresetItem{presetItem(1, []int{1}, 1)}}}); err != nil {
 		t.Fatalf("salvos: %v", err)
 	}
 	if len(a.r().cfg.FilterSets) != 1 || len(a.r().cfg.Presets) != 1 {

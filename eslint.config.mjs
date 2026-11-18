@@ -119,8 +119,8 @@ export default [
         {
           patterns: [
             {
-              regex: '^(?!\\./(tooltip|sprite|fuzzy|buildrules)\\.js$)',
-              message: 'core.js imports only ./tooltip.js, ./sprite.js, ./fuzzy.js and ./buildrules.js.',
+              regex: '^(?!\\./(tooltip|sprite|fuzzy|buildrules|routerprefix)\\.js$)',
+              message: 'core.js imports only ./tooltip.js, ./sprite.js, ./fuzzy.js, ./buildrules.js and ./routerprefix.js.',
             },
           ],
         },

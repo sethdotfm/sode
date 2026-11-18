@@ -10,7 +10,7 @@ import (
 func TestSavePresets(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}
-	sv := []config.Preset{{Name: " Morning ", Items: []config.PresetItem{{Src: 3, Dsts: []int{1, 2}, Levels: []int{2, 1, 1}}}}}
+	sv := []config.Preset{{Name: " Morning ", Items: []config.PresetItem{presetItem(3, []int{2, 1, 1}, 1, 2)}}}
 	if err := a.SavePresets(c, sv); err != nil {
 		t.Fatalf("open save: %v", err)
 	}
@@ -18,8 +18,8 @@ func TestSavePresets(t *testing.T) {
 	if len(got) != 1 || got[0].Name != "Morning" || len(got[0].Items[0].Levels) != 2 || got[0].Items[0].Levels[0] != 1 {
 		t.Fatalf("normalized: %+v", got)
 	}
-	sv[0].Items[0].Dsts[0] = 99
-	if a.r().cfg.Presets[0].Items[0].Dsts[0] != 1 {
+	sv[0].Items[0].Dsts[0].N = 99
+	if a.r().cfg.Presets[0].Items[0].Dsts[0].N != 1 {
 		t.Fatal("presets share memory with the caller")
 	}
 	if err := a.SavePresets(c, []config.Preset{{Name: "x"}}); err == nil {
@@ -47,7 +47,7 @@ func TestPresetMessageShapes(t *testing.T) {
 	var m struct {
 		Presets []config.Preset `json:"presets"`
 	}
-	if err := json.Unmarshal([]byte(`{"presets":[{"name":"A","items":[{"src":1,"dsts":[2],"levels":[]}]}]}`), &m); err != nil || m.Presets[0].Items[0].Dsts[0] != 2 {
+	if err := json.Unmarshal([]byte(`{"presets":[{"name":"A","items":[{"src":{"n":1},"dsts":[{"n":2}],"levels":[]}]}]}`), &m); err != nil || m.Presets[0].Items[0].Dsts[0].N != 2 {
 		t.Fatalf("decode %v %+v", err, m)
 	}
 }

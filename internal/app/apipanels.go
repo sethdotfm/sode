@@ -281,6 +281,9 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+	if p.Type == panelTypeButtons {
+		p.Pages = a.refPages(p.Pages, cl.Actor.User)
+	}
 	var rights config.Rights
 	if actsHasClient(p.Acts) {
 		var err error
@@ -350,6 +353,9 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if err := validatePanel(&p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
+	}
+	if p.Type == panelTypeButtons {
+		p.Pages = a.refPages(p.Pages, cl.Actor.User)
 	}
 	// The client change goes first: it is the part that can be refused, and a refused save
 	// must leave the panel as it was. So the store's own refusal is checked before it.

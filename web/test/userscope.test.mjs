@@ -124,8 +124,8 @@ test('a set edited on another device is followed unless this browser edited it',
 
 test('user presets: own pinned flag, scoped after Everyone', () => {
   reset();
-  m.S.cfg.presets = [{ name: 'Show', items: [{ src: 1, dsts: [0], levels: [] }] }];
-  signIn('Ana', [], [{ name: 'Show', pinned: false, items: [{ src: 2, dsts: [1], levels: [] }] }]);
+  m.S.cfg.presets = [{ id: 'g1', name: 'Show', items: [{ src: 1, dsts: [0], levels: [] }] }];
+  signIn('Ana', [], [{ id: 'u1', name: 'Show', pinned: false, items: [{ src: 2, dsts: [1], levels: [] }] }]);
   assert.deepEqual(
     m.allPresets().map((s) => `${s.scope}:${s.name}`),
     ['global:Show', 'user:Show'],
@@ -145,7 +145,7 @@ test('user presets: own pinned flag, scoped after Everyone', () => {
   assert.equal(m.effectivePin(m.findPreset('user', 'Show')), false);
   m.setLocalPin(m.findPreset('user', 'Show'), true); // a Me preset is saved to the profile instead: no local effect
   assert.equal(m.effectivePin(m.findPreset('user', 'Show')), false);
-  const next = m.withUserPin('Show', true);
+  const next = m.withUserPin('u1', true);
   assert.equal(next.length, 1);
   assert.equal(next[0].pinned, true);
   assert.equal('scope' in next[0], false);

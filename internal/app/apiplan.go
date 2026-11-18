@@ -145,8 +145,9 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	defaults, _ := config.ParseLevels(r.cfg.DefaultLevels, r.cfg.Levels)
 	a.mu.Lock()
-	hasSrc := func(n int) bool { _, ok := a.router.srcNames[n]; return ok }
-	hasDst := func(n int) bool { _, ok := a.router.dstNames[n]; return ok }
+	// A reference to another router names one this release does not drive: left out like a gone number.
+	hasSrc := func(f config.Ref) bool { _, ok := a.router.srcNames[f.N]; return ok && f.Router == r.cfg.UID }
+	hasDst := func(f config.Ref) bool { _, ok := a.router.dstNames[f.N]; return ok && f.Router == r.cfg.UID }
 	type key struct{ dst, src int }
 	var order []key
 	levels := map[key][]int{}
@@ -159,7 +160,7 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	off := r.cfg.NumberOffset
 	for _, it := range p.Items {
 		if !hasSrc(it.Src) {
-			miss(fmt.Sprintf("source %d", it.Src+off))
+			miss(fmt.Sprintf("source %d", it.Src.N+off))
 			continue
 		}
 		want := it.Levels
@@ -179,10 +180,10 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 		}
 		for _, d := range it.Dsts {
 			if !hasDst(d) {
-				miss(fmt.Sprintf("destination %d", d+off))
+				miss(fmt.Sprintf("destination %d", d.N+off))
 				continue
 			}
-			k := key{d, it.Src}
+			k := key{d.N, it.Src.N}
 			if _, ok := levels[k]; !ok {
 				order = append(order, k)
 			}

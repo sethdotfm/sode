@@ -84,9 +84,7 @@ func (p Profile) Normalized() Profile {
 	}
 	maps.DeleteFunc(p.Prefs, func(k, _ string) bool { return !knownPref(k) })
 	p.FilterSets = normalizeFilterSets(p.FilterSets)
-	tmp := Config{Presets: p.Presets}
-	tmp.normalizePresets()
-	p.Presets = tmp.Presets
+	p.Presets = normalizePresets(p.Presets, "")
 	p.PinOrder = normalizePinOrder(p.PinOrder)
 	return p
 }
@@ -110,6 +108,7 @@ func normalizePinOrder(in []string) []string {
 func (c *Config) normalizeProfiles() {
 	for i := range c.Users {
 		p := c.Users[i].Profile.Normalized()
+		p.Presets = normalizePresets(p.Presets, c.UID)
 		// Normalized is what the browser gets; the file keeps prefs a newer release wrote.
 		p.Prefs = WithUnknownPrefs(p.Prefs, c.Users[i].Profile.Prefs)
 		if p.Empty() {

@@ -112,7 +112,7 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 				u.Profile.FilterSets = config.WithFilterSetExtras(req.FilterSets, u.Profile.FilterSets)
 			}
 			if req.Presets != nil {
-				u.Profile.Presets = config.WithPresetExtras(req.Presets, u.Profile.Presets)
+				u.Profile.Presets = a.namePresets(cfg.UID, config.WithPresetExtras(req.Presets, u.Profile.Presets))
 			}
 			if req.PinOrder != nil {
 				u.Profile.PinOrder = slices.Clone(req.PinOrder)

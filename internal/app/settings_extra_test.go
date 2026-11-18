@@ -106,7 +106,7 @@ func TestImportRefusesNonConfig(t *testing.T) {
 	profile := `{"sode":1,"site":"Studio","user":"Ana","exported":"2026-11-14T10:00:00Z",` +
 		`"prefs":{"theme":"dark"},` +
 		`"filterSets":[{"name":"Cams","src":"cam","dst":"","sode":true,"ext":true,"hidden":false}],` +
-		`"presets":[{"name":"P","items":[{"src":1,"srcName":"CAM 1","dsts":[2],"dstNames":["MON"]}]}]}`
+		`"presets":[{"name":"P","items":[{"src":{"n":1,"name":"CAM 1"},"dsts":[{"n":2,"name":"MON"}]}]}]}`
 	for name, c := range map[string]struct{ in, want string }{
 		"panel file":     {"id: p1\ncells: []\n", "not a Sode configuration: no routers setting (found: cells, id)"},
 		"profile export": {profile, "not a Sode configuration: no routers setting (found: exported, filterSets, prefs, presets, site, sode, user)"},

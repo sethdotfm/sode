@@ -47,6 +47,7 @@ func TestMessageKeys(t *testing.T) {
 		{"filterSets", filterSetsMsg{T: "filterSets"}, []string{"sets", "t"}},
 		{"locked", simpleMsg{T: "locked"}, []string{"t"}},
 		{"historyCleared", simpleMsg{T: "historyCleared"}, []string{"t"}},
+		{"reload", simpleMsg{T: "reload"}, []string{"t"}},
 		{"takeResult bare", routeResult{T: "takeResult"}, []string{"id", "ok", "t"}},
 		{"takeResult planned fail", routeResult{T: "takeResult", Err: "x"}, []string{"err", "id", "ok", "t"}},
 		{"takeResult done", routeResult{T: "takeResult", OK: true, Entry: &zero}, []string{"entry", "id", "ok", "t"}},

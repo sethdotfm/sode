@@ -30,7 +30,7 @@ func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 		{Name: "LogBot", Scopes: []string{config.ScopeLog}},
 		{Name: "NamesBot", Scopes: []string{config.ScopeNames}},
 	}
-	cfg.Presets = []config.Preset{{Name: "Studio A", Items: []config.PresetItem{{Src: 1, Dsts: []int{2}}}}}
+	cfg.Presets = []config.Preset{{Name: "Studio A", Items: []config.PresetItem{presetItem(1, nil, 2)}}}
 	if mut != nil {
 		mut(&cfg)
 	}
@@ -224,7 +224,7 @@ func TestAPIUserKeyActsAsUser(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		for i := range c.Users {
 			if c.Users[i].Name == "Ana" {
-				c.Users[i].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{{Src: 1, Dsts: []int{2}}}}}
+				c.Users[i].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{presetItem(1, nil, 2)}}}
 			}
 		}
 	})

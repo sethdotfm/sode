@@ -63,8 +63,8 @@ presets:
   - name: p
     futurePreset: y
     items:
-      - src: 1
-        dsts: [2]
+      - src: {n: 1}
+        dsts: [{n: 2}]
         futureItem: w
 locks:
   futureLock: true

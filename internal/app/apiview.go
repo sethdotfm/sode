@@ -29,7 +29,7 @@ func (v apiView) WholePreset(p config.Preset) bool {
 		return false
 	}
 	for _, it := range p.Items {
-		if !v.Source(it.Src) || slices.ContainsFunc(it.Dsts, func(d int) bool { return !v.Destination(d) }) {
+		if !v.Source(it.Src.N) || slices.ContainsFunc(it.Dsts, func(d config.Ref) bool { return !v.Destination(d.N) }) {
 			return false
 		}
 	}

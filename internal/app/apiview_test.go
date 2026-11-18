@@ -19,7 +19,7 @@ func viewApp(t *testing.T, vis string) (*App, string) {
 	t.Helper()
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		c.APIClients[0].Rights = viewRights(vis)
-		c.Presets = append(c.Presets, config.Preset{Name: "Secret mix", Items: []config.PresetItem{{Src: 5, Dsts: []int{7}}}})
+		c.Presets = append(c.Presets, config.Preset{Name: "Secret mix", Items: []config.PresetItem{presetItem(5, nil, 7)}})
 	})
 	a.mu.Lock()
 	a.router.srcNames[5] = "SECRET SRC"
@@ -86,8 +86,8 @@ func TestHiddenRightsDropPresetsNamingHiddenNumbers(t *testing.T) {
 			r.Presets = &[]string{"Studio A", "Mixed", "Hidden src"}
 			c.APIClients[0].Rights = r
 			c.Presets = append(c.Presets,
-				config.Preset{Name: "Mixed", Items: []config.PresetItem{{Src: 1, Dsts: []int{2, 7}}}},
-				config.Preset{Name: "Hidden src", Items: []config.PresetItem{{Src: 5, Dsts: []int{2}}}})
+				config.Preset{Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
+				config.Preset{Name: "Hidden src", Items: []config.PresetItem{presetItem(5, nil, 2)}})
 		})
 		return a, botKey(t, a)
 	}

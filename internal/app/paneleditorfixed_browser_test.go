@@ -22,7 +22,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	// The simulator starts with d routed from d, so the Preset's route to elsewhere is seen not to happen.
 	const other, elsewhere, presetSrc = 5, 8, 3
 	a := simApp(t, sim, func(c *config.Config) {
-		c.Presets = append(c.Presets, config.Preset{Name: "Pair", Items: []config.PresetItem{{Src: presetSrc, Dsts: []int{simDst, elsewhere}}, {Src: presetSrc, Dsts: []int{other}}}})
+		c.Presets = append(c.Presets, config.Preset{Name: "Pair", Items: []config.PresetItem{presetItem(presetSrc, nil, simDst, elsewhere), presetItem(presetSrc, nil, other)}})
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

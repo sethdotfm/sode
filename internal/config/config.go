@@ -36,9 +36,11 @@ type Config struct {
 	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter" guard:"open"`
 	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
 	// HiddenDsts is a History filter expression (web/filter.js) hiding Externals on these destinations; still recorded.
-	HiddenDsts string      `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
-	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
-	Presets    []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
+	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
+	// HiddenDstsRouter: the router UID whose numbers HiddenDsts's number and range terms mean; blank is the one router.
+	HiddenDstsRouter string      `yaml:"hiddenDstsRouter,omitempty" json:"hiddenDstsRouter,omitempty" guard:"open"`
+	FilterSets       []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
+	Presets          []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors    []string       `yaml:"levelColors" json:"levelColors" guard:"open"`
 	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
@@ -120,8 +122,10 @@ type DeviceDefaults struct {
 	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
+// Router is the UID whose numbers the number and range terms mean; blank is the one router.
 type FilterSet struct {
 	Name   string         `yaml:"name" json:"name"`
+	Router string         `yaml:"router,omitempty" json:"router,omitempty"`
 	Src    string         `yaml:"src,omitempty" json:"src"`
 	Dst    string         `yaml:"dst,omitempty" json:"dst"`
 	Sode   bool           `yaml:"sode" json:"sode"`
@@ -574,12 +578,29 @@ func Load(path string) (c Config, exists bool, err error) {
 	if err := c.Validate(); err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
-	if !bytes.Contains(b, []byte(c.UID)) || c.idsFilled {
+	if !bytes.Contains(b, []byte(c.UID)) || c.idsFilled || !hasPresetIDs(b, c) {
 		if err := Save(path, c); err != nil {
-			return c, true, fmt.Errorf("%s: keeping the new router UID and user ids: %w", path, err)
+			return c, true, fmt.Errorf("%s: keeping the new router UID, user ids or preset ids: %w", path, err)
 		}
 	}
 	return c, true, nil
+}
+
+// hasPresetIDs: Normalize makes a missing id at random. Pins and other items name a preset by
+// its id, so Load writes back any id the file did not hold.
+func hasPresetIDs(b []byte, c Config) bool {
+	lists := [][]Preset{c.Presets}
+	for _, u := range c.Users {
+		lists = append(lists, u.Profile.Presets)
+	}
+	for _, l := range lists {
+		for _, p := range l {
+			if !bytes.Contains(b, []byte(p.ID)) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Parse is Load's decoder (also config import). Unknown keys are kept (see UnknownKeys) and legacy
