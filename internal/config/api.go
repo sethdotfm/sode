@@ -269,7 +269,7 @@ func (c Config) validateAPI() []error {
 		bad("Require HTTPS needs at least one trusted proxy: only a trusted proxy can say a request was secure")
 	}
 	c.GuestRights.validate("Guest rights", c.Levels, c.UID, bad)
-	checkScopes("Guest API scopes", c.GuestAPIScopes, bad)
+	checkScopes("keyless scopes", c.GuestAPIScopes, bad)
 	for _, u := range c.Users {
 		u.Rights.validate("rights of "+u.Name, c.Levels, c.UID, bad)
 	}

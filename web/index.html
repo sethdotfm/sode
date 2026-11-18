@@ -509,13 +509,15 @@
     <!-- apisettings.js. Saved apart from the form (the `apiSettings` message). -->
     <fieldset class="sode__group" id="api-group" data-apart data-section="api" data-topic="access">
       <legend>API</legend>
+      <span class="sode__hint">The API is always on. A key acts with its owner's Rights. A user can have 50 keys and an API client 200.</span>
       <div class="sode__field">
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-enabled"><span class="pb-check__label">API enabled</span></label>
-        <span class="sode__hint">Off by default. While off, every API call is refused.</span>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-guest"><span class="pb-check__label">Keyless API</span></label>
+        <span class="sode__hint">Lets a call with no key use the keyless scopes, inside Guest Rights (Manage users, Rights tab, Guest). Guest role does not apply to it.</span>
       </div>
-      <div class="sode__field">
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-guest"><span class="pb-check__label">Guest API</span></label>
-        <span class="sode__hint">Lets a call with no key use the Guest scopes (Manage users, Rights tab, Guest). The API switch gates it too.</span>
+      <div class="sode__field" data-find="api-scopes" data-label="Keyless scopes">
+        <span class="sode__label" id="api-scopes-label">Keyless scopes</span>
+        <div class="sode__scopes" id="api-scopes" role="group" aria-labelledby="api-scopes-label"></div>
+        <span class="sode__hint">What a call with no key can use.</span>
       </div>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>

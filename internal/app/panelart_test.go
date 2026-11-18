@@ -221,7 +221,7 @@ func TestOpenAPIListsScopesAndErrorCodes(t *testing.T) {
 			t.Errorf("%s %s: scope %s is not named", r.Method, r.Path, r.Scope)
 		}
 	}
-	if !strings.Contains(raw, "Panels need the API switch") {
-		t.Error("openapi.yaml does not say panels ride the API switch")
+	if strings.Contains(raw, "api_off") || strings.Contains(raw, "API switch") {
+		t.Error("openapi.yaml still names an API switch; the API is always on")
 	}
 }
