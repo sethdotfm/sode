@@ -73,6 +73,9 @@ func (a *App) CreateOwnKey(c *client, pin, keyName string, expiresMs int64) (str
 	if err != nil {
 		return "", apiKey{}, err
 	}
+	if !u.HasPin() {
+		return "", apiKey{}, errors.New("set a PIN before you make an API key")
+	}
 	if err := a.tryUserPin(&u, c.ip, func() bool { return config.CheckPin(u.Pin, pin) }); err != nil {
 		return "", apiKey{}, err
 	}
@@ -176,6 +179,9 @@ func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int6
 		u, ok := cfg.FindUserByID(o.User)
 		if !ok {
 			return "", apiKey{}, errors.New("no such user")
+		}
+		if !u.HasPin() {
+			return "", apiKey{}, fmt.Errorf("%s has no PIN, so holds no API keys: give them a PIN first", u.Name)
 		}
 		o, max, fp = userOwner(u), cfg.API.MaxUserKeys, pinFP(u.Pin)
 	case actorClient:

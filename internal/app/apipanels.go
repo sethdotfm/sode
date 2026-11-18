@@ -52,7 +52,8 @@ func keyRole(owner string) string {
 // trusted: user id's key Role, read live so a demotion applies at once, is Trusted user.
 func (a *App) trusted(id string) bool {
 	u, ok := a.r().cfg.FindUserByID(id)
-	return ok && keyRole(u.Role) == config.RoleTrusted
+	role, _ := a.r().cfg.ActsAs(u)
+	return ok && keyRole(role) == config.RoleTrusted
 }
 
 // panelReach is what cl can do with p. A user owns a panel by id; a Trusted user (read

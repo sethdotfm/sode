@@ -176,7 +176,8 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 		if !ok {
 			return nil
 		}
-		return &apiCtx{Actor: Actor{Kind: actorUser, Name: u.Name, User: u.ID, Key: k.Name}, Rights: u.Rights, Scopes: userKeyScopes, Key: &kc, IP: ip}
+		_, rights := cfg.ActsAs(u)
+		return &apiCtx{Actor: Actor{Kind: actorUser, Name: u.Name, User: u.ID, Key: k.Name}, Rights: rights, Scopes: userKeyScopes, Key: &kc, IP: ip}
 	case actorClient:
 		c, ok := cfg.FindAPIClient(k.Owner.Name)
 		if !ok {
@@ -192,7 +193,8 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 			if !ok {
 				return nil
 			}
-			act.Owner, rights = u.Name, c.Rights.Intersect(u.Rights)
+			_, own := cfg.ActsAs(u)
+			act.Owner, rights = u.Name, c.Rights.Intersect(own)
 		}
 		return &apiCtx{Actor: act, Rights: rights, Scopes: c.Scopes, Key: &kc, IP: ip, Panel: c.Panel}
 	}

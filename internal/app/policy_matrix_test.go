@@ -18,10 +18,11 @@ const (
 	stAdmin               // Ada, an Administrator
 	stLocked              // Ada signed in, then the held Lock
 	stNoUsers             // no users: every browser acts as an Administrator
+	stNoPin               // Cy, a PIN needed Administrator: acts as a Standard user
 	nStates
 )
 
-var stateNames = [nStates]string{"noAccess", "guest", "guestTrusted", "standard", "trusted", "administrator", "locked", "noUsers"}
+var stateNames = [nStates]string{"noAccess", "guest", "guestTrusted", "standard", "trusted", "administrator", "locked", "noUsers", "noPin"}
 
 func stateClient(t *testing.T, st int) (*App, *client) {
 	t.Helper()
@@ -39,6 +40,15 @@ func stateClient(t *testing.T, st int) (*App, *client) {
 		}
 	case stTrusted:
 		setFlags(t, a, "Ana", true, false)
+	case stNoPin:
+		cfg := a.r().cfg.Clone()
+		cfg.Users = append(cfg.Users, config.User{Name: "Cy", Role: config.RoleAdministrator, PinNeeded: true})
+		if err := a.ApplyConfig(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := a.UserUnlockAs(c, "Cy", ""); err != nil {
+			t.Fatal(err)
+		}
 	}
 	pin := map[int]string{stStandard: "1234", stTrusted: "1234", stAdmin: "2468", stLocked: "2468"}[st]
 	if pin != "" {
@@ -56,11 +66,11 @@ var (
 	pl = errPageLocked
 	ro = roleErr{} // any Role refusal
 	// per-state results, in state order
-	openRule    = [nStates]error{nil, nil, nil, nil, nil, nil, nil, nil}
-	mainRule    = [nStates]error{pl, nil, nil, nil, nil, nil, pl, nil}
-	trustedRule = [nStates]error{pl, ro, nil, ro, nil, nil, pl, nil}
-	adminRule   = [nStates]error{pl, ro, ro, ro, ro, nil, pl, nil}
-	selfRule    = [nStates]error{pl, ro, nil, nil, nil, nil, pl, nil}
+	openRule    = [nStates]error{nil, nil, nil, nil, nil, nil, nil, nil, nil}
+	mainRule    = [nStates]error{pl, nil, nil, nil, nil, nil, pl, nil, nil}
+	trustedRule = [nStates]error{pl, ro, nil, ro, nil, nil, pl, nil, ro}
+	adminRule   = [nStates]error{pl, ro, ro, ro, ro, nil, pl, nil, ro}
+	selfRule    = [nStates]error{pl, ro, nil, nil, nil, nil, pl, nil, ro}
 )
 
 // One row per policy rule. A rule added to or removed from the table fails until its row

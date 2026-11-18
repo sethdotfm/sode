@@ -365,7 +365,7 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   .sode__users-table {
     column-gap: var(--pb-space-5);
     display: grid;
-    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(6, auto);
+    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(7, auto);
   }
   .sode__users-head,
   .sode__users-list,

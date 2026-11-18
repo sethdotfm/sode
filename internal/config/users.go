@@ -15,8 +15,12 @@ type User struct {
 	// ID is hidden and never changes, so whatever stores a user survives a rename. Normalize fills a missing one.
 	ID   string `yaml:"id" json:"id"`
 	Name string `yaml:"name" json:"name"`
-	Pin  string `yaml:"pin" json:"-"`
-	Len  int    `yaml:"len" json:"len"`
+	// Pin is "" (and Len 0) for a user without a PIN, who acts no wider than a Guest (ActsAs).
+	Pin string `yaml:"pin,omitempty" json:"-"`
+	Len int    `yaml:"len,omitempty" json:"len"`
+	// PinNeeded: no PIN, but the Role is kept for when the user sets one. Only such a user can
+	// be above Standard user with no PIN.
+	PinNeeded bool `yaml:"pinNeeded,omitempty" json:"pinNeeded,omitempty"`
 	// Role: RoleAdministrator, RoleTrusted or RoleStandard (policy: app/policy.go).
 	Role       string `yaml:"role" json:"role"`
 	Persistent bool   `yaml:"persistent,omitempty" json:"persistent,omitempty"`
@@ -72,6 +76,36 @@ func RoleLabel(r string) string {
 		return "Trusted user"
 	}
 	return "Standard user"
+}
+
+func (u User) HasPin() bool { return u.Pin != "" }
+
+// ActsAs is the Role and Rights u acts with now. A user without a PIN (PIN needed too) acts as a
+// Standard user, or Guest role when that is higher. Their Rights are no wider than Guest Rights.
+func (c Config) ActsAs(u User) (string, Rights) {
+	if u.HasPin() {
+		return u.Role, u.Rights
+	}
+	role := RoleStandard
+	if roleRank(c.GuestRole) > roleRank(role) && c.GuestRole != RoleAdministrator {
+		role = c.GuestRole
+	}
+	return role, u.Rights.Intersect(c.GuestRights)
+}
+
+// NoPinRefusal names a user above Standard user left without a PIN; PIN needed users are allowed.
+func NoPinRefusal(u User) error {
+	if u.HasPin() || u.PinNeeded || !RoleAtLeast(u.Role, RoleTrusted) {
+		return nil
+	}
+	return fmt.Errorf("%s is %s and needs a PIN", u.Name, withArticle(RoleLabel(u.Role)))
+}
+
+func withArticle(label string) string {
+	if strings.HasPrefix(label, "A") {
+		return "an " + label
+	}
+	return "a " + label
 }
 
 // HasAdministrator: at least one Administrator with a PIN, which every save keeps (app's update).
@@ -165,7 +199,8 @@ func (c Config) KeepPins(live Config) (Config, error) {
 				return c, fmt.Errorf("the PIN of user %q in the file is not a PIN hash", u.Name)
 			}
 		} else {
-			if !ok || keep.Pin == "" {
+			// A live user without a PIN keeps having none.
+			if !ok {
 				return c, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep. Export with PINs included, or add the user in Settings first", u.Name)
 			}
 			u.Pin, u.Len = keep.Pin, keep.Len
@@ -191,6 +226,9 @@ func (c *Config) normalizeUsers() {
 		c.Users[i].Name = strings.TrimSpace(c.Users[i].Name)
 		if c.Users[i].Role == "" {
 			c.Users[i].Role = RoleStandard
+		}
+		if c.Users[i].HasPin() {
+			c.Users[i].PinNeeded = false
 		}
 		if c.Users[i].ID == "" {
 			c.Users[i].ID = NewUserID()
@@ -228,7 +266,12 @@ func (c Config) validateUsers() []error {
 		if roleRank(u.Role) == 0 {
 			bad("user %q has an unknown role %q", u.Name, u.Role)
 		}
-		if !ValidPinHash(u.Pin) || u.Len < UserPinMin || u.Len > c.MaxPinLen {
+		switch {
+		case u.Pin == "" && u.Len == 0:
+			if err := NoPinRefusal(u); err != nil {
+				bad("%v", err)
+			}
+		case !ValidPinHash(u.Pin) || u.Len < UserPinMin || u.Len > c.MaxPinLen:
 			bad("user %q has no valid PIN", u.Name)
 		}
 	}

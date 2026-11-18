@@ -164,11 +164,26 @@ export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
 // The pad asks for a name, except where the held Lock of a signed-in session resumes. There the
 // server knows whose it is, and a `user` that names someone else is a wrong try.
-export const asksName = (s) => !s.held;
+// heldNoPin: the holder has no PIN, so picking their name again resumes it.
+export const asksName = (s) => !s.held || !!s.heldNoPin;
 
 // user is the hello's {name, len} for the picked name (or the held Lock's user), else null. Its own
-// length drives the pad: names are public, so the longest-length wait buys nothing.
-export const padLens = (s, user) => (user?.len ? [user.len] : s.lens || []);
+// length drives the pad: names are public, so the longest-length wait buys nothing. len 0 is a
+// user without a PIN, who takes no digits.
+export const padLens = (s, user) => (user ? [user.len || 0] : s.lens || []);
+
+// A user without a PIN signs in as soon as their name is picked.
+export const sendsOnPick = (s, user) => asksName(s) && user?.len === 0;
+
+// Change my PIN for me, the hello's {name, len} of the signed-in user, acting with role. A user with
+// a PIN acts with their own Role, so role tells who can remove theirs. Unknown: the usual form.
+export function pinForm(me, role) {
+  const has = !me || me.len > 0;
+  return { current: has, remove: !!me && has && role === 'standard', save: has ? 'Change PIN' : 'Set PIN' };
+}
+
+// The name to ask to set a PIN now, else ''. asked: the user already asked on this page.
+export const pinNeededAsk = (s, asked) => (s.user && s.pinNeeded && s.user !== asked ? s.user : '');
 
 export const canSend = (s, pin, user) => sendable(pin, padLens(s, user)) && (!asksName(s) || !!user);
 

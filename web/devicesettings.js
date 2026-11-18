@@ -2,7 +2,8 @@
 // one starts at "Everyone's default (value)" ("My" with their own), which follows the default, and
 // applies immediately. A default one is saved with the form. Also the signed-in user block.
 
-import { $, el, on, emit } from './core.js';
+import { $, el, on, emit, S } from './core.js';
+import { listedUser } from './namepickrules.js';
 import { ownPref, globalPref, defaultPref, myPref, setPref, pref } from './device.js';
 import { myDefaultButtons } from './mydefaults.js';
 import { profile, profileName, saveProfile } from './profile.js';
@@ -113,6 +114,9 @@ export function initDeviceSettings({ form, reindex }) {
     $('account-name').hidden = !acct;
     $('account-name').replaceChildren(...(L.user ? ['Signed in as ', el('strong', null, L.user)] : ['Not signed in']));
     for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-keys', 'account-clients', 'account-logout']) $(id).hidden = !L.user;
+    // A user without a PIN holds no personal API keys or own API clients.
+    const noPin = listedUser(S.users, L.user)?.len === 0;
+    for (const id of ['account-keys', 'account-clients']) if (noPin) $(id).hidden = true;
     $('account-login').hidden = !!L.user || !acct;
     $('lock-btn').hidden = L.enforced && !L.user;
   });

@@ -12,7 +12,7 @@ import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
-import { GUEST_ROLES, ROLES, ownerChoices, usersReq } from './usersrules.js';
+import { GUEST_ROLES, ROLES, ownerChoices, pinPlaceholder, usersReq } from './usersrules.js';
 
 // ---- the Settings section (index.html #users-group)
 const manage = $('users-manage');
@@ -80,7 +80,7 @@ const usersPanel = el(
   el(
     'p',
     'sode__hint',
-    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. Each user signs in with their name and PIN, PINs are digits, and two users can have the same PIN. A Standard user patches within their Rights and keeps their own Profile and panels. A Trusted user also changes shared Settings, filter sets, presets, every Profile and panel, the Icon library and Default artwork. An Administrator changes everything, and Sode always keeps one. A rename keeps the user signed in, with their keys, panels and Profile.',
+    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. Each user signs in with their name and PIN, PINs are digits, and two users can have the same PIN. A User without a PIN signs in by name only and opens no page lock. Such a user acts no wider than a Guest. A Trusted user or an Administrator always needs a PIN. A Standard user patches within their Rights and keeps their own Profile and panels. A Trusted user also changes shared Settings, filter sets, presets, every Profile and panel, the Icon library and Default artwork. An Administrator changes everything, and Sode always keeps one. A rename keeps the user signed in, with their keys, panels and Profile.',
   ),
   table,
   el('div', 'sode__users-acts', addBtn),
@@ -146,8 +146,16 @@ function touched() {
   edited = true;
   discard = false;
   const r = readRows();
-  for (const row of rows.children) row.querySelector('input[data-field="pin"]').placeholder = row.dataset.was ? 'unchanged' : 'new PIN';
+  for (const row of rows.children)
+    paintPin(
+      row,
+      r.find((x) => x.rid === Number(row.dataset.rid)),
+    );
   paintOwners(r);
+}
+
+function paintPin(row, r) {
+  if (r) row.querySelector('input[data-field="pin"]').placeholder = pinPlaceholder(r);
 }
 
 function paintOwners(r = readRows()) {
@@ -192,12 +200,15 @@ function addRow(u = { name: '', len: 0 }) {
   pin.autocomplete = 'new-password';
   pin.setAttribute('aria-label', 'PIN');
   pin.dataset.field = 'pin';
-  pin.placeholder = u.len ? 'unchanged' : 'new PIN';
+  const saved = !!u.id;
   pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
   const role = roleSelect(ROLES, u.role || 'standard', 'Role');
   role.dataset.field = 'role';
   const never = check('Never sign out', { checked: !!u.persistent });
   never.input.dataset.flag = 'persistent';
+  // No PIN: a saved user's PIN goes on Save, a new row saves with none. A typed PIN wins.
+  const noPin = check('No PIN', { checked: saved && !u.len });
+  noPin.input.dataset.flag = 'noPin';
   // A saved user needs two clicks and the Advanced Settings PIN; a row never saved has nothing to lose.
   const disarm = () => {
     rm.dataset.armed = '';
@@ -223,7 +234,7 @@ function addRow(u = { name: '', len: 0 }) {
     touched();
   });
   rm.addEventListener('blur', disarm);
-  const out = u.len
+  const out = saved
     ? btn('pb-btn--outline pb-btn--sm', 'Sign out everywhere', () => {
         err.hidden = true;
         setNote('');
@@ -250,6 +261,7 @@ function addRow(u = { name: '', len: 0 }) {
     el('div', 'sode__users-in', name),
     el('div', 'sode__users-in', pin),
     el('span', 'pb-select-wrap', role),
+    noPin.label,
     never.label,
     prof,
     rights,
@@ -257,14 +269,17 @@ function addRow(u = { name: '', len: 0 }) {
     rm,
   );
   row.dataset.rid = String(rid);
-  row.dataset.was = u.len ? u.name : '';
-  row.dataset.uid = u.len ? u.id || '' : '';
+  row.dataset.was = saved ? u.name : '';
+  row.dataset.uid = saved ? u.id : '';
+  row.dataset.hadPin = u.len ? '1' : '';
+  row.dataset.pinNeeded = u.pinNeeded ? '1' : '';
   paintProf();
   name.addEventListener('input', paintProf);
   for (const f of [name, pin]) f.addEventListener('input', touched);
-  for (const f of [role, never.input]) f.addEventListener('change', touched);
+  for (const f of [role, never.input, noPin.input]) f.addEventListener('change', touched);
   rows.append(row);
-  if (u.len) rightsPanel.adoptUser(rid, u);
+  if (saved) rightsPanel.adoptUser(rid, u);
+  paintPin(row, readRow(row));
   return name;
 }
 
@@ -396,20 +411,25 @@ on('locking', () => {
   }
 });
 
+function readRow(row) {
+  const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
+  const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
+  return {
+    rid: Number(row.dataset.rid),
+    id: row.dataset.uid,
+    name: val('name'),
+    was: row.dataset.was,
+    pin: val('pin'),
+    role: row.querySelector('select[data-field="role"]').value,
+    persistent: flag('persistent'),
+    noPin: flag('noPin'),
+    hadPin: !!row.dataset.hadPin,
+    pinNeeded: !!row.dataset.pinNeeded,
+  };
+}
+
 function readRows() {
-  return [...rows.children].map((row) => {
-    const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
-    const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
-    return {
-      rid: Number(row.dataset.rid),
-      id: row.dataset.uid,
-      name: val('name'),
-      was: row.dataset.was,
-      pin: val('pin'),
-      role: row.querySelector('select[data-field="role"]').value,
-      persistent: flag('persistent'),
-    };
-  });
+  return [...rows.children].map(readRow);
 }
 
 function doSave() {
