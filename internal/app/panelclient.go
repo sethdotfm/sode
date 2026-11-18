@@ -66,23 +66,29 @@ func failWith(w http.ResponseWriter, err error) {
 
 // clientRightsFor decides the Rights a panel's client ends up with, or why not. cur is nil for
 // a new client. A request that leaves them out or repeats the stored ones changes nothing, so a
-// save never fails over Rights an administrator widened. Anything else needs a Trusted caller
-// (read live) and must be within the caller's own Rights.
+// save never fails over Rights an Administrator widened. Anything else needs the key of a user
+// who can edit the panel (any Role, ADR 0006) and must be within the caller's own Rights.
 func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Rights) (config.Rights, bool, error) {
 	if cur != nil && (want == nil || reflect.DeepEqual(clean(*want), *cur)) {
 		return *cur, false, nil
 	}
-	if !a.trusted(cl.Actor.User) {
-		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "trusted_required", "only a Trusted user can make a panel act as an API client or change its rights"}
+	if cl.Actor.Kind != actorUser {
+		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "user_required", "a panel's API client is made with a user's key"}
 	}
 	r := cl.Rights.Clone()
 	if want != nil {
 		r = clean(*want)
 	}
 	if !r.Within(cl.Rights) {
-		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "outside_rights", "the panel's rights must not be wider than your own"}
+		return config.Rights{}, false, apiAdminOnly("rights wider than your own")
 	}
 	return r, true, nil
+}
+
+// apiAdminOnly refuses an Administrator-only change: a key never acts as an Administrator (keyRole).
+func apiAdminOnly(what string) error {
+	return &panelClientFail{http.StatusForbidden, "administrator_only",
+		what + " need an Administrator, and a key never acts as one: an Administrator makes this change in Settings"}
 }
 
 func clean(r config.Rights) config.Rights {
