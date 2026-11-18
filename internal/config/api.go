@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -106,6 +107,35 @@ func (r Rights) Within(o Rights) bool {
 		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden())
 }
 
+func intersectBy[T any](l, o *[]T, same func(a, b T) bool) *[]T {
+	switch {
+	case l == nil:
+		return cloneList(o)
+	case o == nil:
+		return cloneList(l)
+	}
+	out := []T{}
+	for _, v := range *l {
+		if slices.ContainsFunc(*o, func(w T) bool { return same(v, w) }) {
+			out = append(out, v)
+		}
+	}
+	return &out
+}
+
+func eq[T comparable](a, b T) bool { return a == b }
+
+// Intersect is what both r and o grant, with r's Extra. Hidden on either side is hidden.
+func (r Rights) Intersect(o Rights) Rights {
+	out := Rights{Sources: intersectBy(r.Sources, o.Sources, sameRef), Dsts: intersectBy(r.Dsts, o.Dsts, sameRef),
+		Levels: intersectBy(r.Levels, o.Levels, eq[int]), Presets: intersectBy(r.Presets, o.Presets, eq[string]),
+		Visibility: r.Visibility, Extra: r.Extra}
+	if o.Hidden() {
+		out.Visibility = VisHidden
+	}
+	return out
+}
+
 func cloneList[T any](l *[]T) *[]T {
 	if l == nil {
 		return nil
@@ -129,11 +159,16 @@ var PanelClientScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeSt
 // APIClient is a non-person actor. Its keys live in the key store, not here. Panel is the id of
 // the panel that owns a panel's own client (ADR 0006). Such a client is made and removed with
 // its panel. It does not count toward MaxAPIClients, which bounds the administrator's own.
+// Owner is the id of the user who made the client from My user. That user's Rights cap the
+// client's live, and it goes with them. Each user has at most MaxAPIClients.
 type APIClient struct {
 	Name   string   `yaml:"name" json:"name"`
 	Scopes []string `yaml:"scopes" json:"scopes"`
 	Rights Rights   `yaml:"rights,omitempty" json:"rights"`
 	Panel  string   `yaml:"panel,omitempty" json:"panel,omitempty"`
+	Owner  string   `yaml:"owner,omitempty" json:"-"`
+	// OwnerName is Owner's live name for the Administrator's list; never stored.
+	OwnerName string `yaml:"-" json:"ownerName,omitempty"`
 	// Networks limits where the client's keys work: CIDRs, empty means anywhere. Set through a
 	// panel's Share tab (panelnet.go).
 	Networks []string       `yaml:"networks,omitempty" json:"networks,omitempty"`
@@ -247,13 +282,24 @@ func (c Config) validateAPI() []error {
 		u.Rights.validate("rights of "+u.Name, c.Levels, c.UID, bad)
 	}
 	own := 0
+	ofUser := map[string]int{}
 	for _, cl := range c.APIClients {
-		if cl.Panel == "" {
+		switch {
+		case cl.Panel != "" && cl.Owner != "":
+			bad("API client %q belongs to a panel and to a user", cl.Name)
+		case cl.Owner != "":
+			ofUser[cl.Owner]++
+		case cl.Panel == "":
 			own++
 		}
 	}
 	if own > MaxAPIClients {
 		bad("at most %d API clients", MaxAPIClients)
+	}
+	for id, n := range ofUser {
+		if n > MaxAPIClients {
+			bad("%s has more than %d API clients", cmp.Or(c.UserName(id), id), MaxAPIClients)
+		}
 	}
 	seen := map[string]bool{}
 	for _, cl := range c.APIClients {

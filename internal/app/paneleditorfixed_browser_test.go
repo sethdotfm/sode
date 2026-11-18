@@ -65,6 +65,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -136,6 +137,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the panel or its PIN pad", `!!document.querySelector('.sode-panel__cell--source') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == "true" {
+		b.padName("Ana")
 		for _, d := range "1234" {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}
@@ -184,6 +186,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

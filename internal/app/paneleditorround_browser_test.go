@@ -113,6 +113,7 @@ func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	note := `(document.getElementById('panels-note') || {})`
 	signin := `document.getElementById('panels-signin')`
 	pin := func(p string) {
+		b.padName("Ana")
 		for _, d := range p {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}

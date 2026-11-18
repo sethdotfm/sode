@@ -90,7 +90,6 @@ func TestMakeAdministratorRefusesBadInput(t *testing.T) {
 		{"Ana", "12", "digits"},
 		{"", "9753", "name"},
 		{strings.Repeat("x", 25), "9753", "long"},
-		{"Ana", "5678", "PIN"}, // PIN only sign-in: Bo has it
 	} {
 		if _, err := config.MakeAdministrator(path, x.name, x.pin); err == nil || !strings.Contains(err.Error(), x.want) {
 			t.Errorf("%q %q: %v, want %q", x.name, x.pin, err, x.want)
@@ -126,7 +125,7 @@ func TestNoAdministratorStartsAndRefusesAdministratorActions(t *testing.T) {
 		t.Fatal("the hello does not ask for the banner")
 	}
 	p := dialPeer(t, a)
-	p.signIn("1234")
+	p.signIn("Ana", "1234")
 	for i, typ := range []string{"usersList", "users"} {
 		r := p.ask(typ, 10+i, map[string]any{"usersReq": map[string]any{}})
 		refusedForRole(t, typ, r, config.RoleAdministrator)
@@ -169,7 +168,7 @@ func TestDeletingAPanelOwnerNeedsANewOwner(t *testing.T) {
 		}
 	}
 	p := dialPeer(t, a)
-	p.signIn("2468")
+	p.signIn("Ada", "2468")
 	list := p.ask("usersList", 3, nil)
 	if list["me"] != ada.ID {
 		t.Fatalf("usersList me %v, want Ada's id", list["me"])

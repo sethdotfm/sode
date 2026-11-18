@@ -39,6 +39,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	other := makePanel(t, a, ana, `{"name":"Clip two","rows":4,"cols":8,"cells":[]}`)
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

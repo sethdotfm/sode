@@ -122,11 +122,8 @@ A named person who can sign in to Sode. Their name is what History shows in plac
 _Avoid_: operator, account
 
 **Sign in** / **Sign out**:
-Sign in is how a user identifies themself. Sign out ends that session. Whether a page requires sign-in is set per page type.
+Sign in is how a user identifies themself: their name, then their PIN. PINs need not be unique. Sign out ends that session. Whether a page requires sign-in is set per page type.
 _Avoid_: log in, log out, unlock (for a user's session)
-
-**Sign-in mode**:
-How a user signs in. PIN only is the default, where the PIN alone says who signs in, so every PIN is unique. Name and PIN is an optional mode. There, a user types their name and PIN, so two users can share a PIN.
 
 **API client**:
 A named, non-person actor that uses Sode's API with an API key, such as a button panel app. Its name is what History shows in place of a user's name. Managing API clients is an advanced setting.
@@ -170,7 +167,7 @@ Someone who is not signed in. A guest sees This browser and Everyone values and 
 
 ### Access in v2
 
-These terms come with the v2 auth model (ADR 0010). When v2 ships they replace the Advanced Settings PIN, the trusted flag and Sign-in mode, and the rows above change with them.
+These terms come with the v2 auth model (ADR 0010). When v2 ships they replace the Advanced Settings PIN and the trusted flag, and the rows above change with them.
 
 **Role**:
 The one level of control each user holds: Standard, Trusted or Administrator. Rights still limit what any role can route. API clients hold no role.

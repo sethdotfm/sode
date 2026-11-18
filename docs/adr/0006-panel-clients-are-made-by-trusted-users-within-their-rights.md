@@ -11,3 +11,9 @@ A panel client holds several keys, one per named instance (at most 20 on a panel
 A panel set to Both holds the same client under the same rule, and its page runs in Session mode when it has no key. The choice of mode never widens access: with a key it is the client's Rights, without one the signed-in user's.
 
 The limit of 12 API clients bounds the administrator's own clients only. Panel clients are bounded by the 500 panels, because a wall of tablets would otherwise fill the 12 and leave the administrator none. The cap is checked when a save sets the client's Rights to something new, not on a save that leaves them as stored, so a panel an administrator widened keeps saving.
+
+## v2.0: any panel owner, and API clients from My user
+
+Roles (ADR 0010) widen this decision. Any user who can edit a panel may create its API client, whatever their Role, still capped by their own Rights. Rights wider than the creator's stay an Administrator's change: over the API the answer is 403 `administrator_only`, which says to make the change in Settings, since a key never acts as an Administrator.
+
+A user may also make API clients that belong to no panel, from My user, within their own Rights (owner ruling on the v2.0 spec). The user owns such a client. It saves at once, and it is deleted with its user. Unlike a panel client, its Rights are capped live: each call uses the client's Rights and the owner's current Rights together, so narrowing the user narrows the client at once. Each user may have 12 such clients, apart from the administrator's 12. A user without a PIN holds no lasting keys, so cannot make one. Settings > Access > API stays Administrator only.

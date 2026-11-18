@@ -84,7 +84,7 @@ func TestPanelClientWiderThanCreatorRefused(t *testing.T) {
 		if rights == `{"sources":[{"n":1}],"dsts":[{"n":2}],"presets":["Studio A"],"levels":null}` {
 			want = 201 // within: lists only narrow
 		}
-		if rec.Code != want || (want == 403 && apiErrCode(t, rec) != "outside_rights") {
+		if rec.Code != want || (want == 403 && apiErrCode(t, rec) != "administrator_only") {
 			t.Fatalf("%s: %d %s", rights, rec.Code, rec.Body.String())
 		}
 	}
@@ -103,21 +103,6 @@ func TestPanelClientWiderThanCreatorRefused(t *testing.T) {
 	}
 }
 
-func TestPanelClientNeedsTrustedUser(t *testing.T) {
-	a, _ := clientApp(t)
-	rec := apiSend(a, "POST", "/api/v1/panels", userKey(t, a, "Ana"), apiPanel+`}`)
-	if rec.Code != 403 || apiErrCode(t, rec) != "trusted_required" {
-		t.Fatalf("%d %s", rec.Code, rec.Body.String())
-	}
-	if len(a.panels.list()) != 0 || len(a.r().cfg.APIClients) != 3 {
-		t.Fatal("a refused create left a panel or client")
-	}
-	// A session panel needs no client, for anyone.
-	if rec := apiSend(a, "POST", "/api/v1/panels", userKey(t, a, "Ana"), `{"name":"Mine"}`); rec.Code != 201 {
-		t.Fatalf("%d %s", rec.Code, rec.Body.String())
-	}
-}
-
 func TestPanelClientCheckedOnSave(t *testing.T) {
 	a, _ := clientApp(t)
 	key := userKey(t, a, "Cy")
@@ -131,7 +116,7 @@ func TestPanelClientCheckedOnSave(t *testing.T) {
 	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
 		t.Fatalf("not saved: %+v", cl.Rights)
 	}
-	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":2},{"n":8}],"dsts":[{"n":2}]}}`); rec.Code != 403 || apiErrCode(t, rec) != "outside_rights" {
+	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":2},{"n":8}],"dsts":[{"n":2}]}}`); rec.Code != 403 || apiErrCode(t, rec) != "administrator_only" {
 		t.Fatalf("widening on save: %d %s", rec.Code, rec.Body.String())
 	}
 	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
@@ -145,9 +130,9 @@ func TestPanelClientCheckedOnSave(t *testing.T) {
 	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
 		t.Fatalf("rights lost: %+v", cl.Rights)
 	}
-	// Losing Trusted ends the right to change them, not to save the panel.
+	// Any Role changes them within its own Rights (ADR 0006).
 	setRole(t, a, "Cy", config.RoleStandard)
-	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[{"n":1}]}}`); rec.Code != 403 || apiErrCode(t, rec) != "trusted_required" {
+	if rec := apiSend(a, "PUT", path, key, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`); rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 }
@@ -322,8 +307,10 @@ func TestPanelBothModeHasClientAndOpensForUsers(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/tally", secret, ""); rec.Code != 200 {
 		t.Fatalf("api to both ended the key: %d", rec.Code)
 	}
-	// An ordinary user cannot make one, as with api.
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, `{"name":"Mine","acts":"both"}`), 403, "trusted_required")
+	// A Standard user makes one too, as with api.
+	if rec := apiSend(a, "POST", "/api/v1/panels", ana, `{"name":"Mine","acts":"both"}`); rec.Code != 201 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
 }
 
 func TestPanelClientsDoNotCountAgainstTheClientLimit(t *testing.T) {

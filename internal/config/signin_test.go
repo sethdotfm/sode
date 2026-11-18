@@ -16,32 +16,6 @@ func modeUser(t *testing.T, name, pin string) User {
 	return User{Name: name, Pin: h, Len: len(pin)}
 }
 
-func TestSignInModeDefaultsToPinOnly(t *testing.T) {
-	c := Defaults()
-	c.Normalize()
-	if c.SignInMode != SignInPin {
-		t.Fatalf("default mode %q", c.SignInMode)
-	}
-}
-
-func TestSignInModeValidation(t *testing.T) {
-	base := Defaults()
-	base.Users = []User{modeUser(t, "Ana", "1234"), modeUser(t, "Bo", "5678")}
-	base.Normalize()
-	for _, mode := range []string{SignInPin, SignInUsername} {
-		c := base.Clone()
-		c.SignInMode = mode
-		if err := c.Validate(); err != nil {
-			t.Fatalf("%s: %v", mode, err)
-		}
-	}
-	c := base.Clone()
-	c.SignInMode = "token"
-	if c.Validate() == nil {
-		t.Fatal("unknown mode accepted")
-	}
-}
-
 // Name rules: trimmed, printable, at most MaxUserName runes, unique ignoring case. Spaces are fine.
 func TestUserNameRules(t *testing.T) {
 	base := Defaults()

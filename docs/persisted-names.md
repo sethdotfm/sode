@@ -79,7 +79,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - `levelWireOffset` (Settings message key; `levelOffset` in `config.yaml`). It holds the offset between a Level and the router's own number on the wire. The Settings label says level offset.
 - `wire` (Communication Log field). The router's own level number, kept apart from the UI Level on purpose.
 - `locks`, `autoLockMinutes`, `lockState`. The Lock and Auto-lock.
-- `signInMode` (`pin` or `username`, also in `lockState` as `mode` and in `usersListResult`) and the `user` field of `userUnlock`. The Sign-in mode and the name that signs in. New names, no retired word.
+- The `user` field of `userUnlock` and the hello's `users` ({name, len}). The name that signs in and the sign-in list. New names, no retired word.
 - A user's `id` (config, `usersListResult`, the users save's rows), `tokens.json` `user` and a user key's `owner.user` in keys.json: the hidden user id.
 - `activity` (browser to server, no fields). An open page sends it about every 30 seconds while someone uses it. It moves the session's idle clock for Auto-lock (`Activity` in `internal/app/idle.go`).
 

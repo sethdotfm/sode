@@ -54,9 +54,6 @@ type Config struct {
 	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
 	// MaxPinLen is the longest user PIN (4-12).
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
-	// SignInMode: SignInPin or SignInUsername. Saved with the users (SaveUsers), so changing it
-	// needs the Advanced Settings PIN.
-	SignInMode string `yaml:"signInMode" json:"signInMode" owned:"true"`
 	// API settings, clients, Guest rights and scopes change only through their own admin
 	// messages. Clients and Guest rights stay out of JSON: never sent before the PIN.
 	API         APISettings `yaml:"api" json:"api" owned:"true"`
@@ -160,7 +157,6 @@ func Defaults() Config {
 		LevelColors:          []string{},
 		PinMaxTries:          10,
 		MaxPinLen:            DefaultMaxPinLen,
-		SignInMode:           SignInPin,
 		API:                  DefaultAPISettings(),
 		GuestAPIScopes:       slices.Clone(DefaultGuestScopes),
 		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30"},

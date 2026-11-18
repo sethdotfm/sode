@@ -12,7 +12,7 @@ import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
-import { GUEST_ROLES, MODES, ROLES, clashNotice, needsNewPins, ownerChoices, pinClashes, usersReq } from './usersrules.js';
+import { GUEST_ROLES, ROLES, ownerChoices, usersReq } from './usersrules.js';
 
 // ---- the Settings section (index.html #users-group)
 const manage = $('users-manage');
@@ -37,20 +37,6 @@ const note = el('span', 'sode__hint');
 note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 
-const modeSelect = el('select', 'pb-select');
-modeSelect.id = 'usr-mode';
-for (const m of MODES) modeSelect.append(Object.assign(el('option', null, m.label), { value: m.value }));
-const modeField = el(
-  'div',
-  'sode__field',
-  Object.assign(el('label', null, 'Sign-in mode'), { htmlFor: 'usr-mode' }),
-  el('span', 'pb-select-wrap', modeSelect),
-  el(
-    'span',
-    'sode__hint',
-    'Name and PIN: each user signs in with their name and PIN, and two users can share a PIN. A switch back to PIN only needs a new, different PIN for every user.',
-  ),
-);
 const roleSelect = (roles, value, label) => {
   const s = el('select', 'pb-select');
   for (const r of roles) s.append(Object.assign(el('option', null, r.label), { value: r.value }));
@@ -94,12 +80,12 @@ const usersPanel = el(
   el(
     'p',
     'sode__hint',
-    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ. A Standard user patches within their Rights and keeps their own Profile and panels. A Trusted user also changes shared Settings, filter sets, presets, every Profile and panel, the Icon library and Default artwork. An Administrator changes everything, and Sode always keeps one. A rename keeps the user signed in, with their keys, panels and Profile.',
+    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. Each user signs in with their name and PIN, PINs are digits, and two users can have the same PIN. A Standard user patches within their Rights and keeps their own Profile and panels. A Trusted user also changes shared Settings, filter sets, presets, every Profile and panel, the Icon library and Default artwork. An Administrator changes everything, and Sode always keeps one. A rename keeps the user signed in, with their keys, panels and Profile.',
   ),
   table,
   el('div', 'sode__users-acts', addBtn),
   owners,
-  el('div', 'sode__users-opts', modeField, guestField, formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
+  el('div', 'sode__users-opts', guestField, formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
 );
 // The rights editor and the API clients tab read the live rows, and hand back their drafts on save.
 const userList = () =>
@@ -144,8 +130,7 @@ let back = null;
 let seq = 0;
 let outSeq = 0;
 let listSeq = 0;
-let listedMode = 'pin'; // the saved sign-in mode, what the server keeps when none is sent.
-let listedGuestRole = 'standard'; // the same for Guest role
+let listedGuestRole = 'standard'; // the saved Guest role, what the server keeps when none is sent
 let listed = []; // the directory the server sent; empty until it does.
 let listedMe = ''; // the id of the user asking, the default new owner
 const ownerPick = new Map(); // removed user id to the chosen new owner id
@@ -161,17 +146,7 @@ function touched() {
   edited = true;
   discard = false;
   const r = readRows();
-  const clashes = pinClashes(r, mode(), listedMode);
-  const bad = [...clashes.missing, ...clashes.same];
-  const asking = needsNewPins(mode(), listedMode);
-  for (const row of rows.children) {
-    const clash = bad.includes(row.querySelector('input[data-field="name"]').value.trim());
-    const pin = row.querySelector('input[data-field="pin"]');
-    row.toggleAttribute('data-clash', clash);
-    pin.classList.toggle('pb-input--invalid', clash);
-    pin.placeholder = asking || !row.dataset.was ? 'new PIN' : 'unchanged';
-  }
-  setNote(clashNotice(clashes));
+  for (const row of rows.children) row.querySelector('input[data-field="pin"]').placeholder = row.dataset.was ? 'unchanged' : 'new PIN';
   paintOwners(r);
 }
 
@@ -201,8 +176,6 @@ function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
 }
-
-const mode = () => (modeSelect.value === 'username' ? 'username' : 'pin');
 
 function addRow(u = { name: '', len: 0 }) {
   const rid = ++ridSeq;
@@ -313,7 +286,6 @@ onMsg('userSignOutAllResult', (m) => {
 
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
-  modeSelect.value = listedMode;
   guestSelect.value = listedGuestRole;
   rows.replaceChildren();
   clientsTab.clear();
@@ -363,7 +335,6 @@ onMsg('usersListResult', (m) => {
   listed = m.users || [];
   listedMe = m.me || '';
   extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {}, guestScopes: m.guestScopes || [] };
-  listedMode = m.signInMode === 'username' ? 'username' : 'pin';
   listedGuestRole = m.guestRole === 'trusted' ? 'trusted' : 'standard';
   loaded = true;
   paintSummary();
@@ -375,7 +346,6 @@ on('unlockResult', (m) => {
 on('locked', () => {
   listed = [];
   extras = { apiClients: [], guestRights: {}, guestScopes: [] };
-  listedMode = 'pin';
   listedGuestRole = 'standard';
   loaded = false;
   paintSummary();
@@ -446,11 +416,6 @@ function doSave() {
   err.hidden = true;
   setNote('');
   const users = readRows();
-  const clashes = pinClashes(users, mode(), listedMode);
-  if (clashes.missing.length || clashes.same.length) {
-    setNote(clashNotice(clashes), true);
-    return rows.querySelector('.sode__users-row[data-clash] input[data-field="pin"]')?.focus();
-  }
   const acc = accessReq({
     entries: rightsPanel.read(),
     users: users.map((u) => ({ rid: u.rid, name: u.name.trim() })),
@@ -459,11 +424,7 @@ function doSave() {
     levels: S.levels.length,
   });
   if (acc.error) return fail(acc.error);
-  const req = mergeAccess(
-    usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode, guestSelect.value, listedGuestRole, panelOwners()),
-    acc,
-    loaded,
-  );
+  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, guestSelect.value, listedGuestRole, panelOwners()), acc, loaded);
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: req })) return fail('Not connected to Sode.');
   saveBtn.disabled = true;
@@ -482,7 +443,6 @@ onMsg('usersResult', async (m) => {
   fail(m.err);
 });
 
-modeSelect.addEventListener('change', touched);
 guestSelect.addEventListener('change', touched);
 maxInput.addEventListener('input', () => {
   touched();

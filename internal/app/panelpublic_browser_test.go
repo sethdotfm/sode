@@ -124,6 +124,7 @@ func TestChromeEditorPublic(t *testing.T) {
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Foyer","acts":"session","cells":[{"r":1,"c":1,"kind":"destination","n":%d}]}`, simDst))
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

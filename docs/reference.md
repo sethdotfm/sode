@@ -144,7 +144,7 @@ Sode always keeps one Administrator with a PIN. Use this command if no Administr
 docker compose exec sode /sode -make-administrator "NAME" && docker compose restart sode
 ```
 
-It asks for a new PIN on the terminal, and the PIN shows as you type it. The user named NAME (any case) becomes an Administrator with that PIN. A name that no user has adds a new Administrator, if Sode has fewer than 12 users. At 12 users, give the name of a user that exists. The command refuses a PIN that breaks the PIN rules, and in PIN only sign-in mode a PIN that another user has. To pipe the PIN in, use `echo 1234 | docker compose exec -T sode /sode -make-administrator "NAME"`. Restart Sode at once: until the restart, the running server keeps its old user list, and a save from it writes the old list back. That user's API keys end at the restart, as for any PIN change.
+It asks for a new PIN on the terminal, and the PIN shows as you type it. The user named NAME (any case) becomes an Administrator with that PIN. A name that no user has adds a new Administrator, if Sode has fewer than 12 users. At 12 users, give the name of a user that exists. The command refuses a PIN that breaks the PIN rules. To pipe the PIN in, use `echo 1234 | docker compose exec -T sode /sode -make-administrator "NAME"`. Restart Sode at once: until the restart, the running server keeps its old user list, and a save from it writes the old list back. That user's API keys end at the restart, as for any PIN change.
 
 A config with users and no Administrator still starts. Sode refuses every Administrator action and names the command in the refusal. The main page shows a banner with the command.
 
@@ -152,11 +152,9 @@ Every save keeps the file it replaces as `/data/config.yaml.prev`, and the first
 
 ## Users and locks (optional)
 
-Users and locks are off by default. With no users and no locks, Sode behaves as before. Settings > Users has a Manage users button that opens its own dialog with its own Save. There you add people, each with a name and a 4-12 digit PIN. In the default Sign-in mode, PIN only, PINs must differ, since the PIN alone says who signs in.
+Users and locks are off by default. With no users and no locks, Sode behaves as before. Settings > Users has a Manage users button that opens its own dialog with its own Save. There you add people, each with a name and a 4-12 digit PIN. Two users can have the same PIN.
 
-In name and PIN mode (`signInMode: username`), each user signs in with their name and PIN. You choose the mode in the Sign-in mode box of the Manage users dialog. Sode saves it with the users, so it needs the Advanced Settings PIN. Two users can then share a PIN. The sign-in screen asks for the name and the PIN together, and the PIN pad waits for a name before it sends. The Lock of a signed-in user still asks for the PIN only. In PIN only mode the screens are unchanged.
-
-A switch to name and PIN keeps users, PINs and Profiles. A switch back to PIN only needs a new PIN for every user in the same save, all different. The reason is that Sode cannot tell if saved PINs match. The dialog marks every user as needing one. It blocks the save until each user has one and no two match. Otherwise the server refuses the save and names the users.
+Every sign-in asks for the name, then the PIN. The name box finds a user as you type and lists every user. Pick a name with the arrow keys and Enter, or click it. The browser remembers the last name. The Lock of a signed-in user asks for the PIN only.
 
 The Rights tab has a No auto-lock box for a user who runs a wall browser that the idle auto-lock must skip. Only an administrator sets it, with the Advanced Settings PIN, and the Lock button still works for that user. Manage users also has an API clients tab and a Rights tab. Rights limit which sources, destinations, levels and presets a user, an API client or Guest can command, for the browser and the API alike. A row's Edit user rights button opens that user in the Rights tab, and one Save sends it all. A user's own API keys are under Settings > My user, in **My API keys**.
 
