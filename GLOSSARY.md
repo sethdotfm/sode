@@ -141,14 +141,14 @@ What a user, API client or Guest can command: allowed sources, destinations, lev
 Set on each rights entry. Read-only, the default, shows everything and refuses commands outside the rights. Hidden also removes what is outside the rights from what that actor sees over the API. Browsers always see everything.
 
 **Shared settings**:
-The settings and saved items that every browser sees, such as the layout and clock defaults for Everyone, Everyone filter sets and Everyone presets. Saving them needs the Advanced Settings PIN or a trusted user. Personal settings, saved to This browser or Me, need neither.
+The settings and saved items that every browser sees, such as the layout and clock defaults for Everyone, Everyone filter sets and Everyone presets. Saving them needs a Trusted user or an Administrator. Personal settings, saved to This browser or Me, need neither.
 
 **Advanced settings**:
-The shared settings that change the router connection, weaken a guard, or manage users, API clients, the PIN and History. Changing them, including adding, removing and renaming users and API clients, needs the **Advanced Settings PIN**, even for a trusted user.
+The shared settings that change the router connection, weaken a guard, or manage users, API clients, the PIN and History. Changing them, including adding, removing and renaming users and API clients, needs an Administrator, even for a Trusted user.
 _Avoid_: Settings PIN, admin PIN
 
 **Trusted user**:
-A user with a flag that lets them save shared settings without the Advanced Settings PIN. It never covers advanced settings.
+A user whose Role lets them change shared settings, every Profile and every panel, the Icon library and Default artwork. It never covers advanced settings.
 
 **Lock**:
 A cover over the page that stops every key from reaching it until it is dismissed. With nobody signed in, pressing the shown letter dismisses it, which guards against mashing the keyboard and nothing more. With a user signed in, the server holds the Lock for that session. A reload or reconnect still shows it, and only that user's PIN resumes it. They can also sign out from it.
@@ -159,7 +159,7 @@ Raises the Lock after a set number of idle minutes. It never signs anyone out. A
 _Avoid_: idle timeout
 
 **Profile**:
-A user's saved personal settings, filter sets and presets, kept on the server so they follow the user to any browser. A profile is not private: trusted users and the Advanced Settings PIN can see and edit every profile.
+A user's saved personal settings, filter sets and presets, kept on the server so they follow the user to any browser. A profile is not private: Trusted users and Administrators can see and edit every profile.
 
 **Me** / **This browser** / **Everyone**:
 The three scopes a setting, filter set or preset can be saved to. This browser wins over Me, and Me wins over Everyone. The Settings section for personal choices is My user.
@@ -399,10 +399,10 @@ The icons that come with Sode, as the Choose icon picker names them: Icon A's ve
 The Icon library's icons, as the Choose icon picker names them, under the Default icons.
 
 **Rescan**:
-Adds the SVG and PNG files in the Icon library's drop-in directory (`icons/drop-in/`), as Sode does at start. Needs a trusted user or the Advanced Settings PIN. A file it skips stays and is reported.
+Adds the SVG and PNG files in the Icon library's drop-in directory (`icons/drop-in/`), as Sode does at start. Needs a Trusted user or an Administrator. A file it skips stays and is reported.
 
 **Default artwork**:
-Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell that shows it and sets none of its own. One shared set for everyone; setting or clearing one needs a trusted user or the Advanced Settings PIN.
+Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell that shows it and sets none of its own. One shared set for everyone; setting or clearing one needs a Trusted user or an Administrator.
 
 **Push**:
 Copies a panel's saved config to other panels. Each target keeps its own name, id, sharing and fixed destinations. Sode keeps a checkpoint of each target first, so the Push can be put back.

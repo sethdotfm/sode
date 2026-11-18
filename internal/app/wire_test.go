@@ -35,11 +35,12 @@ func legacyHello(a *App, p helloPage) []byte {
 	m["levels"] = r.levels
 	m["levelDefaults"] = config.DefaultLevelColors
 	m["cfg"] = r.cfg
-	m["pinSet"] = r.cfg.SettingsPin != ""
+	m["pinSet"] = false
 	m["configPath"] = a.cfgPath
 	m["version"] = VersionLabel()
 	m["brandColors"] = config.BrandColors
 	m["routerUid"] = r.cfg.UID
+	m["installUid"] = r.cfg.InstallUID
 	m["prefix"] = r.cfg.Prefix
 	b, _ := json.Marshal(m)
 	return b

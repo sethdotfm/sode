@@ -17,7 +17,7 @@ func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/instances/rename", config.ScopePanelsManage, (*App).apiPanelRename})
 }
 
-const renameMsg = "only the panel's owner, a Trusted user or the Advanced Settings PIN can rename an instance"
+const renameMsg = "only the panel's owner or a Trusted user can rename an instance"
 
 type renameLine struct {
 	T        string `json:"t"` // "rename"
@@ -105,7 +105,7 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	if cl.Actor.User == "" || p.Owner != cl.Actor.User {
-		if err := a.mayEveryone(cl, in.Pin, renameMsg); err != nil {
+		if err := a.mayEveryone(cl, renameMsg); err != nil {
 			failWith(w, err)
 			return
 		}

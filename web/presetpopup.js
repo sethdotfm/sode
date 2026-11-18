@@ -260,7 +260,8 @@ dialog.addEventListener('keydown', (e) => {
   if (!onButton) input.focus();
 });
 
-function openPopup() {
+// at: {scope, id} highlights that preset (an Item link), so Enter fires it.
+function openPopup(at = null) {
   if (open) return;
   back = document.activeElement;
   open = true;
@@ -268,6 +269,13 @@ function openPopup() {
   hi = 0;
   setNote('');
   draw();
+  if (at) {
+    hi = Math.max(
+      0,
+      shownList.findIndex((s) => s.scope === at.scope && s.id === at.id),
+    );
+    draw();
+  }
   dlg.show();
   input.focus();
 }

@@ -1,15 +1,14 @@
-// Settings > Export & import dialog, and share links. Export writes YAML (the server only converts: POST api/yaml). Import reads a
-// file or pasted text into the review sheet (reviewsheet.js), which a share link also opens. Names go beside numbers so another
+// Settings > Export & import dialog. Export writes YAML (the server only converts: POST api/yaml). Import reads a
+// file or pasted text into the review sheet (reviewsheet.js). Names go beside numbers so another
 // router's numbers can still be matched.
 // Pure rules are in exportfmt.js. Other modules open this with emit('openTransfer', { scope, user }).
 
 import { $, el, S, on, sentence } from './core.js';
-import { trapDialog, labeled } from './widgets.js';
-import { showResult } from './plans.js';
+import { trapDialog } from './widgets.js';
 import { PREFS } from './prefs.js';
 import { ownPref } from './device.js';
 import { profile, profileName, fetchProfile } from './profile.js';
-import { localSets, globalSets, userSets, normFilter, snapshot, restore, adoptFilter } from './filterstore.js';
+import { localSets, globalSets, userSets, normFilter } from './filterstore.js';
 import { localPresets, globalPresets, userPresets, normPreset } from './presetstore.js';
 import { openReview } from './reviewsheet.js';
 import * as fmt from './exportfmt.js';
@@ -24,140 +23,6 @@ const btn = (cls, text, fn) => {
   b.addEventListener('click', fn);
   return b;
 };
-const dot = (kind) => {
-  const d = el('span', `pb-dot pb-dot--${kind}`);
-  d.setAttribute('aria-hidden', 'true');
-  return d;
-};
-
-// ---- share links
-
-export function shareRow() {
-  const input = el('input', 'pb-input sode__code');
-  input.readOnly = true;
-  input.setAttribute('aria-label', 'Share link');
-  const status = el('span', 'pb-status');
-  const ui = { input, status, copy: btn('pb-btn--outline', 'Copy link', () => copyLink(ui)) };
-  ui.box = el('div', 'sode__filters-share', labeled('Share link', input), ui.copy, status);
-  ui.box.hidden = true;
-  return ui;
-}
-
-export function shareLink(doc, ui) {
-  ui.box.hidden = false;
-  ui.input.value = fmt.shareUrl(`${location.origin}${location.pathname}`, doc);
-  ui.input.select();
-  ui.status.replaceChildren();
-  copiedOff(ui);
-}
-
-// With no clipboard the link stays selected, to copy by hand.
-const COPIED_MS = 2000;
-function copiedOff(ui) {
-  clearTimeout(ui.timer);
-  if (!ui.copy?.classList.contains('pb-btn--ok')) return;
-  ui.copy.classList.replace('pb-btn--ok', 'pb-btn--outline');
-  ui.copy.textContent = 'Copy link';
-  ui.copy.style.minWidth = '';
-}
-export async function copyLink(ui) {
-  let ok = false;
-  try {
-    await navigator.clipboard.writeText(ui.input.value);
-    ok = true;
-  } catch {
-    /* no clipboard */
-  }
-  if (!ok) {
-    ui.input.select();
-    copiedOff(ui);
-    return ui.status.replaceChildren(dot('info'), 'Copy it above');
-  }
-  ui.status.replaceChildren();
-  if (!ui.copy) return;
-  clearTimeout(ui.timer);
-  ui.copy.classList.replace('pb-btn--outline', 'pb-btn--ok');
-  ui.copy.style.minWidth = `${ui.copy.offsetWidth}px`; // keeps Copy link's width
-  ui.copy.textContent = 'Copied!';
-  ui.timer = setTimeout(() => copiedOff(ui), COPIED_MS);
-}
-
-export const sharePresetDoc = (p) => fmt.presetShare(p, srcName, dstName);
-
-// onLocked: a lock closed the sheet; the link waits to be shown again after the unlock.
-function reviewShare(share, source = '', onLocked = null) {
-  openReview({
-    doc: fmt.docOfShare(share),
-    source: source || (share.kind === 'preset' ? 'A shared preset' : 'A shared filter'),
-    title: share.kind === 'preset' ? 'Review shared preset' : 'Review shared filter',
-    applyNow: share.kind === 'filter' ? applyNow : null,
-    onLocked,
-  });
-}
-
-function applyNow(f, name) {
-  const prev = snapshot();
-  adoptFilter(normFilter(f));
-  const undo = btn('pb-btn--outline pb-btn--sm', 'Undo', () => {
-    restore(prev);
-    showResult('ok', 'Filters restored', '');
-  });
-  showResult('info', name ? `Shared filter “${name}” applied` : 'Shared filter applied', () => el('span', 'sode__filters-empty', undo));
-}
-
-// A link in the address (#share=, or the old ?f=) stays PENDING until the sheet can show. The sheet can
-// show when names are in and no lock covers the page. A new browser with the main lock on gets `hello` before the lock
-// screen, so the sheet would open and be closed again. The address is cleaned only after the sheet is up, so a reload while locked keeps the link. A hashchange link goes the same way.
-let pending = null; // the share document waiting to be shown
-let access = null; // lock.js's lock state, after it has said
-let namesIn = false;
-
-let lockUp = false; // lock.js's overlay is up (its 'lockcover' event)
-const pageLocked = () => lockUp;
-const clean = () => {
-  const r = fmt.readLink(location.search, location.hash);
-  if (r.doc || r.error) history.replaceState(null, '', location.pathname + r.search + r.hash);
-};
-
-function tryOpen() {
-  if (!pending || !fmt.mayOpenSheet(access, pageLocked(), namesIn)) return;
-  const doc = pending;
-  pending = null;
-  clean();
-  reviewShare(doc, '', () => {
-    // A lock closed it: wait for the page to be uncovered, and keep the link in the address.
-    pending = doc;
-    history.replaceState(null, '', `${location.pathname}${location.search}#share=${fmt.encodeShare(doc)}`);
-  });
-}
-
-function takeLink() {
-  const r = fmt.readLink(location.search, location.hash);
-  if (!r.doc && !r.error) return;
-  if (r.error) {
-    history.replaceState(null, '', location.pathname + r.search + r.hash);
-    return showResult('warn', 'Invalid share link', r.error);
-  }
-  pending = r.doc;
-  tryOpen();
-}
-
-export function applySharedLink() {
-  on('helloData', () => {
-    namesIn = true;
-    tryOpen();
-  });
-  on('access', (l) => {
-    access = l;
-    tryOpen();
-  });
-  on('lockcover', ({ on: up }) => {
-    lockUp = up;
-    tryOpen();
-  });
-  window.addEventListener('hashchange', takeLink);
-  takeLink();
-}
 
 // ---- the dialog
 

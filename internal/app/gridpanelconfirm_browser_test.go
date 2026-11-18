@@ -13,7 +13,7 @@ func TestChromeGridPanelConfirmSettings(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
-		c.Users[0].Trusted = true
+		c.Users[0].Role = config.RoleTrusted
 		c.ConfirmLockoutMs, c.ConfirmEnter = 1500, true
 	})
 	srv := seamServer(t, a)

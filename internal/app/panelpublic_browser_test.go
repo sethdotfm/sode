@@ -22,7 +22,7 @@ func TestChromePublicPanel(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
-		c.Users[0].Trusted = true
+		c.Users[0].Role = config.RoleTrusted
 		c.Locks = config.Locks{Panel: true}
 		c.SettingsPin = mkUser(t, "", "2468").Pin
 		c.AutoLockMinutes = 1
@@ -112,7 +112,7 @@ func TestChromePublicPanel(t *testing.T) {
 func TestChromeEditorPublic(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -152,7 +152,7 @@ func TestChromeEditorPublic(t *testing.T) {
 	keyTab := `[...document.querySelectorAll('.sode-ov__share .pb-tab')].find((x) => x.textContent === 'Link with key')`
 	b.waitFor("Link with key is muted", keyTab+`?.getAttribute('aria-disabled') === 'true'`)
 	b.eval(keyTab + `.click(); true`)
-	b.waitFor("the tab shows the plain link", `(document.querySelector('.sode-ov__keytab .sode-linkrow__text')?.value || '').endsWith('/panels/`+id+`')`)
+	b.waitFor("the tab shows the Item link", `/\/panels\/`+id+`#install=[0-9a-f]{16}$/.test(document.querySelector('.sode-ov__keytab .sode-linkrow__text')?.value)`)
 	link, _ := b.eval(`document.querySelector('.sode-ov__keytab .sode-linkrow__text').value`).(string)
 	b.shot("editor-public")
 	b.check()
@@ -160,7 +160,7 @@ func TestChromeEditorPublic(t *testing.T) {
 	// Storage cleared, so the page has no session to fall back on.
 	b.eval(`localStorage.clear(); sessionStorage.clear(); true`)
 	b.open(link)
-	b.waitFor("the plain link opened the panel", `document.getElementById('panel-title')?.textContent === 'Foyer' && document.querySelectorAll('.sode-panel__cell').length === 1`)
+	b.waitFor("the Item link opened the panel", `document.getElementById('panel-title')?.textContent === 'Foyer' && document.querySelectorAll('.sode-panel__cell').length === 1`)
 	b.waitFor("without a PIN pad or a sign-in", `!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent && document.getElementById('panels-signin').hidden`)
 	b.check()
 }

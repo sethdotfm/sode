@@ -14,16 +14,8 @@ import {
   fileNameFor,
   sizeProblem,
   jsonBytes,
-  presetShare,
-  filterShare,
-  shareUrl,
-  decodeShare,
-  decodeLegacy,
-  readLink,
-  docOfShare,
   itemIn,
   SOCKET_LIMIT,
-  mayOpenSheet,
   saveAsName,
   checkDoc,
   filterOf,
@@ -203,68 +195,6 @@ test('size check refuses what the socket or the profile would', () => {
   assert.ok(jsonBytes(mid) > 48 * 1024 && jsonBytes(mid) < SOCKET_LIMIT);
   assert.equal(sizeProblem('global', { presets: mid }), '');
   assert.match(sizeProblem('user', { presets: mid }), /profile holds at most 48 KiB/);
-});
-
-test('share link: a fragment that round trips', () => {
-  const p = presetShare(
-    { name: 'Open', items: [{ src: 1, dsts: [0], levels: [] }] },
-    () => 'CAM 2',
-    () => 'MV 1',
-  );
-  const url = shareUrl('https://x.test/sode/', p);
-  assert.match(url, /^https:\/\/x\.test\/sode\/#share=[A-Za-z0-9_-]+$/);
-  const r = readLink('', url.slice(url.indexOf('#')));
-  assert.equal(r.error, '');
-  assert.equal(r.hash, '');
-  assert.deepEqual(r.doc, { kind: 'preset', name: 'Open', items: [{ src: 1, srcName: 'CAM 2', dsts: [{ n: 0, name: 'MV 1' }], levels: [] }] });
-  assert.equal(docOfShare(r.doc).presets[0].name, 'Open');
-});
-
-test('share link: unicode names and a filter with only non-default parts', () => {
-  const f = filterShare('Café ☕', { dst: 'MV', ext: false });
-  assert.deepEqual(f, { kind: 'filter', name: 'Café ☕', dst: 'MV', ext: false });
-  const d = decodeShare(shareUrl('', f).slice('#share='.length));
-  assert.deepEqual(d, { kind: 'filter', name: 'Café ☕', src: '', dst: 'MV', sode: true, ext: false, hidden: false });
-});
-
-test('share link: other fragment parts stay, damage is an error not a throw', () => {
-  const t = shareUrl('', filterShare('A', { src: '1-5' })).slice(1);
-  const r = readLink('?x=1', `#keep=1&${t}`);
-  assert.equal(r.hash, '#keep=1');
-  assert.equal(r.search, '?x=1');
-  assert.equal(readLink('', '#share=%%%').error, 'The link is damaged.');
-  assert.equal(readLink('', '#share=e30').error, 'The link is not a Sode share link.');
-  assert.equal(readLink('', '').doc, null);
-  assert.equal(readLink('?a=1', '#top').error, '');
-});
-
-test('legacy ?f= still reads', () => {
-  const raw = Buffer.from(JSON.stringify({ dst: 'MV', name: 'Old' })).toString('base64url');
-  const r = readLink(`?f=${raw}&y=2`, '');
-  assert.equal(r.error, '');
-  assert.equal(r.search, '?y=2');
-  assert.deepEqual(r.doc, { kind: 'filter', name: 'Old', src: '', dst: 'MV', sode: true, ext: true, hidden: false });
-  assert.deepEqual(decodeLegacy(raw).kind, 'filter');
-  assert.equal(docOfShare(decodeLegacy(Buffer.from('{}').toString('base64url'))).filterSets[0].name, 'Shared filter');
-});
-
-test('a share link with no takes or no name is refused', () => {
-  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  assert.throws(() => decodeShare(enc({ kind: 'preset', name: 'x', items: [] })), /no takes/);
-  assert.throws(() => decodeShare(enc({ kind: 'preset', items: [{ src: 1, dsts: [] }] })), /no name/);
-});
-
-test('mayOpenSheet waits for the lock state, the names, and an uncovered page', () => {
-  const open = { enforced: false, locked: false };
-  assert.equal(mayOpenSheet(null, false, true), false);
-  assert.equal(mayOpenSheet(open, false, false), false);
-  assert.equal(mayOpenSheet(open, false, true), true);
-  assert.equal(mayOpenSheet({ enforced: true, locked: true }, false, true), false);
-  assert.equal(mayOpenSheet({ enforced: false, locked: true, held: true }, false, true), false);
-  assert.equal(mayOpenSheet({ enforced: true, locked: false, user: 'ana' }, false, true), true);
-  assert.equal(mayOpenSheet(open, true, true), false);
-  // a stale hand-lock marker while a PIN lock is enforced and unlocked does not hold it
-  assert.equal(mayOpenSheet({ enforced: true, locked: false }, true, true), true);
 });
 
 test('saveAsName suggests Name 2, or (mine) for Everyone, within 32 characters', () => {

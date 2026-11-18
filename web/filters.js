@@ -1,5 +1,5 @@
 // Recent's Filters dialog, shared by both layouts. Applies as you type; kept per browser
-// (filterstore.js). Share link: transfer.js reads it back through a review sheet.
+// (filterstore.js).
 
 import { $, el, S, on, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
@@ -23,8 +23,7 @@ import {
 } from './filterstore.js';
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
-import { shareLink, copyLink } from './transfer.js';
-import { filterShare, saveAsName } from './exportfmt.js';
+import { saveAsName } from './exportfmt.js';
 import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
@@ -201,7 +200,6 @@ function chrome() {
   tSave.hidden = own;
   $('flt-save').hidden = !own;
   $('flt-clear').hidden = !own;
-  $('flt-share-btn').hidden = !own;
   $('filters-title').textContent = target.title;
   tName.value = target.name;
   tNoteSet('');
@@ -267,12 +265,11 @@ for (const k of ['sode', 'ext', 'hidden']) {
     renderShow();
   });
 }
-// Show filter f in the editors and hide the share row.
+// Show filter f in the editors.
 function loadDialog(f) {
   renderShow();
   eds.src.load(f.src);
   eds.dst.load(f.dst);
-  $('flt-share').hidden = true;
 }
 const reload = () => loadDialog(curF());
 
@@ -330,16 +327,12 @@ function renderSetBar() {
   scopeBox.value = moveTo || (named && [...scopeBox.options].some((o) => o.value === a.scope) ? a.scope : 'local');
   scopeBox.disabled = busy || !named;
   $('flt-set-saveas').disabled = busy || stack.length > 0;
-  $('flt-share-btn').disabled = stack.length > 0;
   $('flt-set-del').disabled = busy || !named;
   $('flt-set-del').textContent = deleting && named ? `Delete “${a.name}”?` : 'Delete';
   $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
   if (busy) return;
   if (stack.length) {
-    return setNote(
-      `Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]}). ` +
-        'Changing a filter leaves the stack, and the share link is off.',
-    );
+    return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]}). Changing a filter leaves the stack.`);
   }
   if (named && moveTo) return setNote(`Save moves it from ${scopeLabel(a.scope)} to ${scopeLabel(moveTo)}.`);
   setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' (edited)' : ''}` : '');
@@ -559,16 +552,6 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 });
 
 const dlg = trapDialog(root, dialog, cancelFilters);
-
-// ---- share links: the filter as one item in a #share= link (exportfmt.js). The old ?f= link still opens.
-
-const shareUI = { box: $('flt-share'), input: $('flt-share-url'), status: $('flt-share-status'), copy: $('flt-share-copy') };
-$('flt-share-btn').addEventListener('click', () => {
-  flushEds();
-  const a = activeSet();
-  shareLink(filterShare(a && a.scope !== 'all' ? a.name : '', filterState()), shareUI);
-});
-$('flt-share-copy').addEventListener('click', () => copyLink(shareUI));
 
 on('filters', renderButtons);
 on('prefs', () => {

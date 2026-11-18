@@ -21,7 +21,7 @@ func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/assign", config.ScopePanelsManage, (*App).apiPanelAssign})
 }
 
-const assignMsg = "only a Trusted user, or the Advanced Settings PIN, can assign an instance to another panel"
+const assignMsg = "only a Trusted user can assign an instance to another panel"
 
 // assignLine is the stream's last line to the instance. Slug lets the page keep a short address.
 type assignLine struct {
@@ -132,7 +132,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusBadRequest, "bad_request", "name the instance to assign in instance")
 		return
 	}
-	if err := a.mayEveryone(cl, in.Pin, assignMsg); err != nil {
+	if err := a.mayEveryone(cl, assignMsg); err != nil {
 		failWith(w, err)
 		return
 	}

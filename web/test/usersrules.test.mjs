@@ -1,20 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, MODES, pinClashes, needsNewPins, clashNotice } from '../usersrules.js';
+import { usersReq, MODES, ROLES, GUEST_ROLES, pinClashes, needsNewPins, clashNotice } from '../usersrules.js';
 
 const rows = [
-  { name: ' Ann ', id: 'u-1', pin: '', trusted: true, persistent: false },
-  { name: 'Bob', id: '', pin: '4321', trusted: false, persistent: true },
+  { name: ' Ann ', id: 'u-1', pin: '', role: 'trusted', persistent: false },
+  { name: 'Bob', id: '', pin: '4321', role: 'administrator', persistent: true },
 ];
 
 test('a saved row sends its id so a rename keeps the user; a new row sends none', () => {
   assert.deepEqual(usersReq(rows, 8, 'pin', 'pin'), {
     users: [
-      { id: 'u-1', name: 'Ann', pin: '', trusted: true, persistent: false },
-      { id: '', name: 'Bob', pin: '4321', trusted: false, persistent: true },
+      { id: 'u-1', name: 'Ann', pin: '', role: 'trusted', persistent: false },
+      { id: '', name: 'Bob', pin: '4321', role: 'administrator', persistent: true },
     ],
     maxPinLen: 8,
   });
+});
+
+test('every row sends its Role; Guest role goes only when changed', () => {
+  assert.deepEqual(
+    ROLES.map((r) => [r.value, r.label]),
+    [
+      ['standard', 'Standard user'],
+      ['trusted', 'Trusted user'],
+      ['administrator', 'Administrator'],
+    ],
+  );
+  assert.deepEqual(
+    GUEST_ROLES.map((r) => r.value),
+    ['standard', 'trusted'],
+  );
+  assert.equal(usersReq([{ name: 'Cy', id: '', pin: '1', persistent: false }], 8, 'pin', 'pin').users[0].role, 'standard');
+  assert.equal(usersReq(rows, 8, 'pin', 'pin', 'trusted', 'standard').guestRole, 'trusted');
+  assert.equal('guestRole' in usersReq(rows, 8, 'pin', 'pin', 'standard', 'standard'), false);
 });
 
 test('a changed mode is sent; an unchanged one is not, so the server keeps its own', () => {

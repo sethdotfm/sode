@@ -18,7 +18,7 @@ import (
 // Server config export/import (Settings > Access). The file is a plain config.yaml built
 // here, since PIN hashes and profiles are not in the browser's JSON. A private backup is
 // marked only by a top comment and the file name, so any export is a drop-in config.yaml.
-// All three messages need the Advanced Settings PIN (needAdmin): the file holds everything it
+// All three messages need an Administrator: the file holds everything it
 // guards, and with PINs, the hashes.
 
 // maxConfigFile: a full config is about 300 KiB; leaves room for profiles. Only the read after
@@ -82,7 +82,7 @@ func exportName(cfg config.Config) string {
 func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, false); err != nil {
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
 		return "", "", err
 	}
 	cfg := a.r().cfg.Clone()
@@ -105,7 +105,7 @@ func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) 
 
 // importConfig replaces the whole config (no KeepOwned: everything comes from the file
 // except PIN hashes it omits). It writes the same `api` rows as the saves it stands in for.
-// It is refused without the Advanced Settings PIN, or for a file that does not parse or validate.
+// It is refused below Administrator, or for a file that does not parse or validate.
 // Router changes reconnect through applyConfig. unknown lists keys this release does not know; the file
 // keeps them.
 func (a *App) importConfig(c *client, text string) (unknown []string, err error) {
@@ -137,7 +137,7 @@ func (a *App) importConfig(c *client, text string) (unknown []string, err error)
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, false); err != nil {
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
 		return nil, err
 	}
 	before := a.r().cfg
@@ -150,6 +150,8 @@ func (a *App) importConfig(c *client, text string) (unknown []string, err error)
 		if m.RequireHTTPS && !cur.RequireHTTPS && !c.secure {
 			return errInsecureSave
 		}
+		// The install stays this install, so its Item links keep working.
+		m.InstallUID = cur.InstallUID
 		*cur = m
 		return nil
 	})

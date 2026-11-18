@@ -554,7 +554,7 @@
         <div class="sode__names">
           <button type="button" class="pb-btn pb-btn--outline" id="transfer-open">Export & import</button>
         </div>
-        <span class="sode__hint">Export and import settings, filter sets, and presets to and from files.<br>Share links for one filter set or preset are in Filters and Presets.</span>
+        <span class="sode__hint">Export and import settings, filter sets, and presets to and from files.<br>An Item link for one preset is in the preset editor.</span>
       </div>
       <span class="sode__hint">Server backup: everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the Advanced Settings PIN.</span>
       <!-- Server config file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
@@ -690,7 +690,6 @@
           <label class="sode__fld"><span class="sode__label">Name</span><input class="pb-input" id="flt-set-cur" maxlength="32" placeholder="Name" aria-label="Name of the set" autocomplete="off"></label>
           <label class="sode__fld sode__filters-scope"><span class="sode__label">Save for</span><span class="pb-select-wrap"><select class="pb-select" id="flt-set-cur-scope" aria-label="Save for"></select></span></label>
           <button type="button" class="pb-btn pb-btn--outline" id="flt-set-saveas">Save as…</button>
-          <button type="button" class="pb-btn pb-btn--outline" id="flt-share-btn">Share</button>
           <button type="button" class="pb-btn pb-btn--outline" id="flt-set-del">Delete</button>
         </div>
         <div class="sode__filters-set" id="flt-set-name-row" hidden>
@@ -705,11 +704,6 @@
           <button type="button" class="pb-btn pb-btn--ghost" id="flt-pin-cancel">Cancel</button>
         </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
-        <div class="sode__filters-share" id="flt-share" hidden>
-          <label class="sode__fld"><span class="sode__label">Share link</span><input class="pb-input sode__code" id="flt-share-url" readonly aria-label="Share link"></label>
-          <button type="button" class="pb-btn pb-btn--outline" id="flt-share-copy">Copy link</button>
-          <span class="pb-status" id="flt-share-status"></span>
-        </div>
       </div>
       <fieldset class="sode__filters-show">
         <legend class="sode__label">Show</legend>

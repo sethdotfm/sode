@@ -674,6 +674,12 @@ body {
   font-family: var(--pb-font-mono);
   min-width: 0;
 }
+.sode-linkrow__qr .sode__qr {
+  display: block;
+  height: auto;
+  margin-top: var(--pb-space-3);
+  width: 12rem;
+}
 .sode-ov__sharebody {
   display: flex;
   flex-direction: column;

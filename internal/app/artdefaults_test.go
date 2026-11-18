@@ -33,7 +33,7 @@ func setSettingsPin(t *testing.T, a *App, pin string) {
 	}
 }
 
-func TestArtDefaultNeedsTrustedOrPin(t *testing.T) {
+func TestArtDefaultNeedsATrustedUser(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
 	set := `{"kind":"source","n":1,"art":"icon:camera","artB":"2","hideText":true}`
@@ -55,8 +55,10 @@ func TestArtDefaultNeedsTrustedOrPin(t *testing.T) {
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/default-artwork", ana, clear), 403, "trusted_required")
 	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/default-artwork", ana, `{"kind":"source","n":1,"pin":"1111"}`), 403, "trusted_required")
-	if rec := apiSend(a, "DELETE", "/api/v1/default-artwork", ana, `{"kind":"source","n":1,"pin":"9999"}`); rec.Code != 204 {
-		t.Fatalf("PIN clear: %d %s", rec.Code, rec.Body.String())
+	// The Advanced Settings PIN opens nothing: only a Role does.
+	wantErr(t, apiSend(a, "DELETE", "/api/v1/default-artwork", ana, `{"kind":"source","n":1,"pin":"9999"}`), 403, "trusted_required")
+	if rec := apiSend(a, "DELETE", "/api/v1/default-artwork", cy, clear); rec.Code != 204 {
+		t.Fatalf("Trusted clear: %d %s", rec.Code, rec.Body.String())
 	}
 	if got := artDefaultList(t, a, ana); len(got) != 0 {
 		t.Fatalf("after clear %v", got)
@@ -188,6 +190,7 @@ images:
 func TestArtDefaultHiddenFromHiddenKey(t *testing.T) {
 	for _, vis := range []string{config.VisHidden, ""} {
 		a, bot := viewApp(t, vis)
+		setRole(t, a, "Ana", config.RoleTrusted)
 		ana := userKey(t, a, "Ana")
 		for _, body := range []string{
 			`{"kind":"source","n":1,"art":"icon:camera"}`,
@@ -196,8 +199,6 @@ func TestArtDefaultHiddenFromHiddenKey(t *testing.T) {
 			`{"kind":"preset","scope":"everyone","name":"Secret mix","artB":"S"}`,
 			`{"kind":"preset","scope":"everyone","name":"Studio A","artB":"A"}`,
 		} {
-			// userApp's Advanced Settings PIN is 2468.
-			body = strings.TrimSuffix(body, "}") + `,"pin":"2468"}`
 			if rec := apiSend(a, "PUT", "/api/v1/default-artwork", ana, body); rec.Code != 200 {
 				t.Fatalf("set %s: %d %s", body, rec.Code, rec.Body.String())
 			}

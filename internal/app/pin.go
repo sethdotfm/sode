@@ -133,7 +133,8 @@ func (a *App) checkAdmin(c *client, pin string) (string, error) {
 	return hash, nil
 }
 
-// Unlock covers the current PIN only: changing or removing it relocks.
+// Unlock covers the current PIN only: changing or removing it relocks. It gates nothing now
+// that Roles decide; it stays until the unlock message goes.
 func (a *App) Unlock(c *client, pin string) error {
 	hash, err := a.checkAdmin(c, pin)
 	if err != nil || hash == "" {
@@ -149,31 +150,4 @@ func (a *App) Lock(c *client) {
 	a.mu.Lock()
 	c.pin = ""
 	a.mu.Unlock()
-}
-
-func (a *App) settingsUnlocked(c *client) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.settingsUnlockedMu(c)
-}
-
-func (a *App) settingsUnlockedMu(c *client) bool {
-	cfg := a.r().cfg
-	if a.heldMu(c, cfg) {
-		return false // a held Lock trusts nothing, with or without the PIN (ADR 0001)
-	}
-	return cfg.SettingsPin == "" || c.pin == cfg.SettingsPin
-}
-
-// Trusted is read live, so unticking takes effect at once. Caller holds mu.
-func (a *App) trustedMu(c *client) bool {
-	if a.settingsUnlockedMu(c) {
-		return true
-	}
-	cfg := a.r().cfg
-	if !a.userOKMu(c, cfg) {
-		return false
-	}
-	u, _ := cfg.FindUserByID(c.u.user.Load().ID)
-	return u.Trusted
 }

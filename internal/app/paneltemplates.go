@@ -271,25 +271,13 @@ func (a *App) apiTemplateRead(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	}
 }
 
-// mayEveryone is the rule of story 80, for Everyone templates and Checkpoint sets: a Trusted
-// user, or whoever holds the Advanced Settings PIN. A REST call has no connection to unlock,
-// so the PIN rides in the body. It counts as a wrong try of the same pool as the Settings
-// dialog's. msg is the refusal when no PIN is set or sent.
-func (a *App) mayEveryone(cl *apiCtx, pin, msg string) error {
+// mayEveryone is the rule of story 80, for Everyone templates and Checkpoint sets: the key's
+// user is a Trusted user or higher. A PIN in the body opens nothing. msg is the refusal.
+func (a *App) mayEveryone(cl *apiCtx, msg string) error {
 	if a.trusted(cl.Actor.User) {
 		return nil
 	}
-	hash := a.r().cfg.SettingsPin
-	if hash == "" || pin == "" {
-		return &panelClientFail{http.StatusForbidden, "trusted_required", msg}
-	}
-	if err := a.tryPin(&a.pin, cl.IP, func() bool { return config.CheckPin(hash, pin) }); err != nil {
-		return &panelClientFail{http.StatusForbidden, "trusted_required", err.Error()}
-	}
-	if a.r().cfg.SettingsPin != hash {
-		return &panelClientFail{http.StatusForbidden, "trusted_required", msg}
-	}
-	return nil
+	return &panelClientFail{http.StatusForbidden, "trusted_required", msg}
 }
 
 func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -318,7 +306,7 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 	}
 	t.Pages = a.refPages(t.Pages, cl.Actor.User)
 	if t.Scope == templateEveryone {
-		if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can save a template to Everyone"); err != nil {
+		if err := a.mayEveryone(cl, "only a Trusted user can save a template to Everyone"); err != nil {
 			failWith(w, err)
 			return
 		}

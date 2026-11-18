@@ -95,7 +95,7 @@ func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Persistent = true // tabs share the session token, as for a wall user
-		c.Users[0].Trusted = true
+		c.Users[0].Role = config.RoleTrusted
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

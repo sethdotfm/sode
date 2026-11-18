@@ -235,7 +235,7 @@ func TestWatcherWhoLostTheirRightIsNotTold(t *testing.T) {
 	cfg := a.r().cfg
 	for i := range cfg.Users {
 		if cfg.Users[i].Name == "Cy" {
-			cfg.Users[i].Trusted = false
+			cfg.Users[i].Role = config.RoleStandard
 		}
 	}
 	if err := a.ApplyConfig(cfg); err != nil {
@@ -383,7 +383,7 @@ func TestManyStreamsOnOnePanelKey(t *testing.T) {
 func TestPanelClientActorNamesTheOwner(t *testing.T) {
 	a, f, _ := takerApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		c.Users = append(c.Users, cy)
 	})
 	f.seed(2, 1, 0)

@@ -17,9 +17,9 @@ type User struct {
 	Name string `yaml:"name" json:"name"`
 	Pin  string `yaml:"pin" json:"-"`
 	Len  int    `yaml:"len" json:"len"`
-	// Trusted: low-risk saves need no Advanced Settings PIN (policy: app/policy.go).
-	Trusted    bool `yaml:"trusted,omitempty" json:"trusted,omitempty"`
-	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
+	// Role: RoleAdministrator, RoleTrusted or RoleStandard (policy: app/policy.go).
+	Role       string `yaml:"role" json:"role"`
+	Persistent bool   `yaml:"persistent,omitempty" json:"persistent,omitempty"`
 	// NoAutoLock: the idle timer skips this user; the Lock button still works.
 	NoAutoLock bool `yaml:"noAutoLock,omitempty" json:"noAutoLock,omitempty"`
 	// Rights and its Visibility bind this user's browser and keys.
@@ -38,6 +38,51 @@ type Locks struct {
 }
 
 func (l Locks) Any() bool { return l.Main || l.Log || l.Panel }
+
+// Roles. Wire and file values; a missing role loads as RoleStandard.
+const (
+	RoleStandard      = "standard"
+	RoleTrusted       = "trusted"
+	RoleAdministrator = "administrator"
+)
+
+func roleRank(r string) int {
+	switch r {
+	case RoleStandard:
+		return 1
+	case RoleTrusted:
+		return 2
+	case RoleAdministrator:
+		return 3
+	}
+	return 0
+}
+
+// RoleAtLeast: an unknown or empty have is below every role.
+func RoleAtLeast(have, need string) bool {
+	return roleRank(have) > 0 && roleRank(have) >= roleRank(need)
+}
+
+// RoleLabel is the role's name in refusals and logs.
+func RoleLabel(r string) string {
+	switch r {
+	case RoleAdministrator:
+		return "Administrator"
+	case RoleTrusted:
+		return "Trusted user"
+	}
+	return "Standard user"
+}
+
+// HasAdministrator: at least one Administrator with a PIN, which every save keeps (app's update).
+func (c Config) HasAdministrator() bool {
+	for _, u := range c.Users {
+		if u.Role == RoleAdministrator && ValidPinHash(u.Pin) {
+			return true
+		}
+	}
+	return false
+}
 
 // Sign-in modes. Wire and file values.
 const (
@@ -148,8 +193,14 @@ func (c *Config) normalizeUsers() {
 	if c.SignInMode == "" {
 		c.SignInMode = SignInPin
 	}
+	if c.GuestRole == "" {
+		c.GuestRole = RoleStandard
+	}
 	for i := range c.Users {
 		c.Users[i].Name = strings.TrimSpace(c.Users[i].Name)
+		if c.Users[i].Role == "" {
+			c.Users[i].Role = RoleStandard
+		}
 		if c.Users[i].ID == "" {
 			c.Users[i].ID = NewUserID()
 			c.idsFilled = true
@@ -186,6 +237,9 @@ func (c Config) validateUsers() []error {
 		if strings.IndexFunc(u.Name, func(r rune) bool { return !unicode.IsPrint(r) }) >= 0 {
 			bad("user name %q must use printable characters only", u.Name)
 		}
+		if roleRank(u.Role) == 0 {
+			bad("user %q has an unknown role %q", u.Name, u.Role)
+		}
 		if !ValidPinHash(u.Pin) || u.Len < UserPinMin || u.Len > c.MaxPinLen {
 			bad("user %q has no valid PIN", u.Name)
 		}
@@ -193,8 +247,8 @@ func (c Config) validateUsers() []error {
 	if c.Locks.Any() && len(c.Users) == 0 {
 		bad("add a user before turning a lock on")
 	}
-	if c.Locks.Any() && c.SettingsPin == "" {
-		bad("set an Advanced Settings PIN before turning a lock on: users and locks are administered with it")
+	if c.GuestRole != RoleStandard && c.GuestRole != RoleTrusted {
+		bad("Guest role must be %q or %q", RoleStandard, RoleTrusted)
 	}
 	if c.MaxPinLen < UserPinMin || c.MaxPinLen > UserPinMax {
 		bad("longest user PIN must be %d-%d digits", UserPinMin, UserPinMax)

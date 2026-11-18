@@ -38,8 +38,7 @@ import {
   signInNote,
   openFailNote,
 } from './editorrules.js';
-import { linkFor } from './panellink.js';
-import { copyText } from './panellinkrow.js';
+import { copyText, itemLink } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
 import { createArt } from './panelart.js';
 import { createSmartMenu } from './editormenu.js';
@@ -720,7 +719,7 @@ export async function runEditor() {
   });
 
   $('ed-copylink').addEventListener('click', async () => {
-    say('ed-status', (await copyText(linkFor(loaded))) ? 'Link copied.' : 'Copy failed. Use the Link field in Share instead.');
+    say('ed-status', (await copyText(itemLink(loaded))) ? 'Link copied.' : 'Copy failed. Use the Link field in Share instead.');
   });
 
   $('ed-copy').addEventListener('click', async () => {

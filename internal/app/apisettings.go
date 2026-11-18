@@ -14,15 +14,12 @@ type apiSettingsReq struct {
 	LogReads     *bool `json:"logReads"`
 }
 
-// SaveAPISettings needs the Advanced Settings PIN, even for a trusted user. API is an
-// owned field, so the ordinary Settings save never touches it.
+// SaveAPISettings needs an Administrator. API is an owned field, so the ordinary Settings
+// save never touches it.
 func (a *App) SaveAPISettings(c *client, req apiSettingsReq) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if a.r().cfg.SettingsPin == "" {
-		return errNeedAdminPin
-	}
-	if err := a.guardSave(c, false); err != nil {
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
 		return err
 	}
 	before := a.r().cfg.API

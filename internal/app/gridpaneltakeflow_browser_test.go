@@ -12,7 +12,7 @@ import (
 func TestChromeGridPanelTakeFlow(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
 	boxed := makePanel(t, a, ana, `{"name":"Boxed grid","type":"grid","acts":"api","settings":{"levels":[1]}}`)

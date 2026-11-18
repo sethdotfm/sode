@@ -19,7 +19,7 @@ func mrLast(msgs []map[string]any, typ string) map[string]any {
 
 func mrSet(t *testing.T, a *App, edits []userEdit) {
 	t.Helper()
-	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: edits}); err != nil {
+	if err := saveUsers(a, adminClient(t, a), usersReq{Users: edits}); err != nil {
 		t.Fatal(err)
 	}
 }

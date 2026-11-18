@@ -157,11 +157,11 @@ func (a *App) serveKeyListAll(c *client, m *inMsg) {
 	a.reply(c, keyListMsg{T: "keyListAllResult", ID: m.ID, OK: true, Keys: withLiveNames(a.r().cfg, a.keys.list())})
 }
 
-// CreateKeyFor makes a key for an API client or another user, with the Advanced Settings PIN.
+// CreateKeyFor makes a key for an API client or another user; Administrator only.
 func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int64) (string, apiKey, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, false); err != nil {
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
 		return "", apiKey{}, err
 	}
 	exp, err := keyExpiry(expiresMs, time.Now())
@@ -199,11 +199,11 @@ func (a *App) serveKeyCreateFor(c *client, m *inMsg) {
 	a.replyKeyCreate(c, "keyCreateForResult", m.ID, secret, rec, err)
 }
 
-// RevokeKeys ends the keys match picks, with the Advanced Settings PIN.
+// RevokeKeys ends the keys match picks; Administrator only.
 func (a *App) RevokeKeys(c *client, match func(keyRec) bool) ([]apiKey, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, false); err != nil {
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
 		return nil, err
 	}
 	gone := a.keys.dropWhere(match)

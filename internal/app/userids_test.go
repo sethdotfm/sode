@@ -31,9 +31,9 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	ana := userKey(t, a, "Ana")
 	srcs := *config.Nums(1, 2)
 	admin := adminClient(t, a)
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true, Rights: &config.Rights{Sources: &srcs}},
-		{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true},
+		{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -58,8 +58,8 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	}
 	id := idOf(a, "Ana")
 
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{ID: id, Name: "Anna", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Trusted: true},
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
+		{ID: id, Name: "Anna", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -128,15 +128,15 @@ func TestUsersSaveRefusesBadNames(t *testing.T) {
 		"same as Bo by case": {"BO", "two users are named"},
 		"blank":              {"  ", "needs a name"},
 	} {
-		err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: tc.set}, bo}})
+		err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: tc.set}, bo}})
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: %v, want %q", name, err, tc.want)
 		}
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "ANA"}, bo}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "ANA"}, bo}}); err != nil {
 		t.Fatalf("a change of case only: %v", err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{ID: "u-gone", Name: "Ana"}, bo}}); err == nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: "u-gone", Name: "Ana"}, bo}}); err == nil {
 		t.Fatal("a row for a user who is gone was saved")
 	}
 }

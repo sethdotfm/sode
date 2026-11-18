@@ -15,7 +15,7 @@ import (
 func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	a := userApp(t, true)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	w := a.r().cfg
@@ -42,9 +42,9 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	}
 }
 
-// Changing the locks or the idle time needs the Advanced Settings PIN. A trusted user
-// is refused with guardedErr (which counts as errLocked), and the PIN holder saves.
-func TestLocksNeedSettingsPin(t *testing.T) {
+// Changing the locks or the idle time needs an Administrator. A Trusted user
+// is refused with guardedErr (a Role refusal), and the Administrator saves.
+func TestLocksNeedAnAdministrator(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", true, false)
 	ana := &client{ip: "10.0.0.1"}
@@ -60,7 +60,7 @@ func TestLocksNeedSettingsPin(t *testing.T) {
 		mut(&cfg)
 		err := a.SaveSettings(ana, cfg, "", false)
 		var g guardedErr
-		if !errors.As(err, &g) || !errors.Is(err, errLocked) {
+		if !errors.As(err, &g) || !isRoleErr(err) {
 			t.Errorf("%s: trusted user got %v, want guardedErr", name, err)
 		}
 	}
@@ -71,7 +71,7 @@ func TestLocksNeedSettingsPin(t *testing.T) {
 		t.Fatalf("unchanged locks: %v", err)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg
@@ -84,22 +84,13 @@ func TestLocksNeedSettingsPin(t *testing.T) {
 	}
 }
 
-func TestLockNeedsUserAndPin(t *testing.T) {
+func TestLockNeedsAUser(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatal(err)
-	}
 	cfg := a.r().cfg
 	cfg.Locks.Main = true
 	if err := a.SaveSettings(c, cfg, "", false); err == nil || !strings.Contains(err.Error(), "user") {
 		t.Fatalf("lock without users: %v", err)
-	}
-	a2 := userApp(t, false)
-	cfg = a2.r().cfg
-	cfg.Locks.Main = true
-	if err := a2.SaveSettings(&client{ip: "10.0.0.9"}, cfg, "", true); err == nil || !strings.Contains(err.Error(), "PIN") {
-		t.Fatalf("lock without an Advanced Settings PIN: %v", err)
 	}
 }
 
@@ -108,25 +99,25 @@ func TestLockNeedsUserAndPin(t *testing.T) {
 func TestRemoveLastUserWhileLockedSaysWhy(t *testing.T) {
 	a := userApp(t, true)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	err := a.SaveUsers(admin, usersReq{Users: nil})
+	err := saveUsers(a, admin, usersReq{Users: nil})
 	if err == nil || !strings.Contains(err.Error(), "Settings > Access") {
 		t.Fatalf("want a message pointing at Settings > Access, got %v", err)
 	}
 }
 
-// The guard leaves the users alone when it refuses. It does not fire when no
-// lock is on (the last user is allowed to go then).
+// The guard leaves the users alone when it refuses. With no lock on, removing every user
+// is still refused, since it leaves no Administrator.
 func TestRemoveLastUserGuardScope(t *testing.T) {
 	a := userApp(t, true)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	before := len(a.r().cfg.Users)
-	if err := a.SaveUsers(admin, usersReq{Users: nil}); err == nil {
+	if err := saveUsers(a, admin, usersReq{Users: nil}); err == nil {
 		t.Fatal("last user removed while a lock is on")
 	}
 	if got := len(a.r().cfg.Users); got != before || before == 0 {
@@ -134,14 +125,11 @@ func TestRemoveLastUserGuardScope(t *testing.T) {
 	}
 	b := userApp(t, false)
 	adm := &client{ip: "10.0.0.9"}
-	if err := b.Unlock(adm, "2468"); err != nil {
+	if err := b.UserUnlock(adm, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := b.SaveUsers(adm, usersReq{Users: nil}); err != nil {
+	if err := saveUsers(b, adm, usersReq{Users: nil}); !errors.Is(err, errNoAdministrator) {
 		t.Fatalf("removing every user with no lock on: %v", err)
-	}
-	if len(b.r().cfg.Users) != 0 {
-		t.Fatal("users not removed")
 	}
 }
 
@@ -150,14 +138,14 @@ func TestRemoveLastUserGuardScope(t *testing.T) {
 func TestSaveUsersRefusesOldLockKeys(t *testing.T) {
 	a := userApp(t, false)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	var req usersReq
 	if err := json.Unmarshal([]byte(`{"users":[{"name":"Ana","was":"Ana"}],"locks":{"main":true,"log":false},"autoLockMinutes":3}`), &req); err != nil {
 		t.Fatal(err)
 	}
-	err := a.SaveUsers(admin, req)
+	err := saveUsers(a, admin, req)
 	if err == nil || !strings.Contains(err.Error(), "Settings > Access") {
 		t.Fatalf("want a refusal pointing at Settings > Access, got %v", err)
 	}

@@ -9,7 +9,7 @@ const SVG = 'http://www.w3.org/2000/svg';
 
 // Black on white in both themes, set as attributes and not tokens. A camera needs the contrast,
 // and the quiet zone must stay light under a dark page.
-export function qrNode(text) {
+export function qrNode(text, label = 'QR code of the key') {
   let m;
   try {
     m = qrMatrix(text);
@@ -21,7 +21,7 @@ export function qrNode(text) {
   svg.setAttribute('viewBox', `0 0 ${box} ${box}`);
   svg.setAttribute('class', 'sode__qr');
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', 'QR code of the key');
+  svg.setAttribute('aria-label', label);
   svg.setAttribute('shape-rendering', 'crispEdges');
   const bg = document.createElementNS(SVG, 'rect');
   for (const [k, v] of [

@@ -19,7 +19,7 @@ func editorTab(t *testing.T, body string) (*tab, *App, string, string) {
 func editorTabPrep(t *testing.T, body string, prep func(b *tab, a *App, key, id string)) (*tab, *App, string, string) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -57,7 +57,7 @@ func TestChromeEditorKeyTab(t *testing.T) {
 			b.eval(`document.querySelector('.sode-ov__share #tab-key').click()`)
 			b.waitFor("key tab shows text", `document.querySelector('.sode-ov__share #panel-key').textContent.length > 20`)
 			if acts == "session" {
-				b.waitFor("key tab has the panel link", `document.querySelector('.sode-ov__share #panel-key .sode-linkrow__text')?.value.endsWith('/panels/`+id+`')`)
+				b.waitFor("key tab has the panel link", `/\/panels\/`+id+`#install=[0-9a-f]{16}$/.test(document.querySelector('.sode-ov__share #panel-key .sode-linkrow__text')?.value)`)
 			}
 			b.eval(`document.getElementById('tab-people').click()`)
 			b.waitFor("People tab has the link, except for a client panel", `!!document.querySelector('.sode-ov__share #panel-people .sode-linkrow__text') === `+fmt.Sprint(acts == "session"))

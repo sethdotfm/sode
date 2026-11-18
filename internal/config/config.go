@@ -26,6 +26,8 @@ import (
 type Config struct {
 	// Format: see format.go. Defaults sets it, so every write carries it.
 	Format int `yaml:"format" json:"-" owned:"true"`
+	// InstallUID is made once (Normalize) and never changes; Item links and import tell this install by it.
+	InstallUID string `yaml:"installUid" json:"-" owned:"true"`
 	// Router is the one router v2.0 drives; the file holds it as the only entry of routers (router.go).
 	Router `yaml:"-"`
 	// Brand fields are display only.
@@ -57,10 +59,12 @@ type Config struct {
 	SignInMode string `yaml:"signInMode" json:"signInMode" owned:"true"`
 	// API settings, clients, Guest rights and scopes change only through their own admin
 	// messages. Clients and Guest rights stay out of JSON: never sent before the PIN.
-	API            APISettings `yaml:"api" json:"api" owned:"true"`
-	APIClients     []APIClient `yaml:"apiClients,omitempty" json:"-" owned:"true"`
-	GuestRights    Rights      `yaml:"guestRights,omitempty" json:"-" owned:"true"`
-	GuestAPIScopes []string    `yaml:"guestApiScopes" json:"-" owned:"true"`
+	API         APISettings `yaml:"api" json:"api" owned:"true"`
+	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-" owned:"true"`
+	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-" owned:"true"`
+	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator. Saved with the users.
+	GuestRole      string   `yaml:"guestRole" json:"-" owned:"true"`
+	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-" owned:"true"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
@@ -245,6 +249,10 @@ func (c *Config) Normalize() {
 	c.Title = strings.TrimSpace(c.Title)
 	if c.UID == "" {
 		c.UID = newRouterUID()
+	}
+	c.InstallUID = strings.TrimSpace(c.InstallUID)
+	if c.InstallUID == "" {
+		c.InstallUID = newRouterUID()
 	}
 	c.Prefix = strings.ToUpper(strings.TrimSpace(c.Prefix))
 	if c.Prefix == "" {
@@ -558,8 +566,8 @@ func ParseLevels(s string, max int) ([]int, error) {
 	return out, nil
 }
 
-// Load reads path over the defaults. exists is false if there is no file. A router UID or user id
-// made here is written back, so the file keeps it; callers back the file up before Load.
+// Load reads path over the defaults. exists is false if there is no file. An install UID, router UID
+// or user id made here is written back, so the file keeps it; callers back the file up before Load.
 func Load(path string) (c Config, exists bool, err error) {
 	c = Defaults()
 	b, err := os.ReadFile(path)
@@ -576,9 +584,9 @@ func Load(path string) (c Config, exists bool, err error) {
 	if err := c.Validate(); err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
-	if !bytes.Contains(b, []byte(c.UID)) || c.idsFilled || !hasPresetIDs(b, c) {
+	if !bytes.Contains(b, []byte(c.UID)) || !bytes.Contains(b, []byte(c.InstallUID)) || c.idsFilled || !hasPresetIDs(b, c) {
 		if err := Save(path, c); err != nil {
-			return c, true, fmt.Errorf("%s: keeping the new router UID, user ids or preset ids: %w", path, err)
+			return c, true, fmt.Errorf("%s: keeping the new install UID, router UID, user ids or preset ids: %w", path, err)
 		}
 	}
 	return c, true, nil

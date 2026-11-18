@@ -66,21 +66,21 @@ func TestMaxPinLen(t *testing.T) {
 		t.Fatalf("default %d", a.r().cfg.MaxPinLen)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	long := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Bo", Pin: "123456789"}}
-	if err := a.SaveUsers(admin, usersReq{Users: long}); err == nil {
+	if err := saveUsers(a, admin, usersReq{Users: long}); err == nil {
 		t.Fatal("a 9-digit PIN under maxPinLen 8")
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: long, MaxPin: 9}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: long, MaxPin: 9}); err != nil {
 		t.Fatalf("raised: %v", err)
 	}
 	keep := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}
-	if err := a.SaveUsers(admin, usersReq{Users: keep, MaxPin: 6}); err == nil {
+	if err := saveUsers(a, admin, usersReq{Users: keep, MaxPin: 6}); err == nil {
 		t.Fatal("lowered below an existing PIN")
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: keep, MaxPin: 13}); err == nil {
+	if err := saveUsers(a, admin, usersReq{Users: keep, MaxPin: 13}); err == nil {
 		t.Fatal("13 accepted")
 	}
 }

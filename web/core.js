@@ -24,6 +24,7 @@ export const S = {
   version: '',
   brandColors: [],
   routerUid: '',
+  installUid: '', // from the hello; Item links name it
   prefix: '', // the router prefix, from the hello
   srcs: [],
   dsts: [],
@@ -197,6 +198,7 @@ function handle(m) {
       S.version = m.version || '';
       S.brandColors = m.brandColors || [];
       S.routerUid = m.routerUid || '';
+      S.installUid = m.installUid || '';
       S.prefix = m.prefix || '';
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));

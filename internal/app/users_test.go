@@ -26,8 +26,6 @@ func mkUser(t *testing.T, name, pin string) config.User {
 	return config.User{Name: name, Pin: h, Len: len(pin)}
 }
 
-// userApp is an app with users ana (1234) and bo (567890) and, if locks, the
-// main and log locks on.
 // settledTempDir is t.TempDir for a directory. It is possible that the app still writes to it.
 // tokens.json is saved off the lock, so a save can land at the moment the test
 // ends. That makes a plain RemoveAll fail with "directory not empty", which
@@ -49,14 +47,18 @@ func settledTempDir(t *testing.T) string {
 	return dir
 }
 
+// userApp is an app with Standard users Ana (1234) and Bo (567890), the Administrator Ada
+// (2468) and, if locks, the main and log locks on. The Advanced Settings PIN is 2468 too: it
+// opens nothing, and the PIN pool tests use it.
 func userApp(t *testing.T, locks bool) *App {
 	t.Helper()
 	cfgPath := filepath.Join(settledTempDir(t), "config.yaml")
 	cfg := config.Defaults()
 	cfg.Normalize()
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234"), mkUser(t, "Bo", "567890")}
-	cfg.Locks = config.Locks{Main: locks, Log: locks}
+	withAdministrator(&cfg)
 	cfg.SettingsPin = mkUser(t, "", "2468").Pin
+	cfg.Locks = config.Locks{Main: locks, Log: locks}
 	hist, _ := OpenHistory("")
 	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
 	if err != nil {
@@ -99,12 +101,9 @@ func TestUsersConfigValidation(t *testing.T) {
 	c := cfg.Clone()
 	good.ID = config.NewUserID()
 	c.Users, c.Locks, c.AutoLockMinutes = []config.User{good}, config.Locks{Main: true}, 5
-	if c.Validate() == nil {
-		t.Fatal("lock without an Advanced Settings PIN accepted")
-	}
-	c.SettingsPin = good.Pin
+	c.Normalize()
 	if err := c.Validate(); err != nil {
-		t.Fatal(err)
+		t.Fatalf("a lock needs a user, and no Advanced Settings PIN: %v", err)
 	}
 }
 
@@ -132,7 +131,7 @@ func TestLocksOffByDefault(t *testing.T) {
 	if !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
 		t.Fatal("users alone locked something")
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil {
@@ -146,20 +145,20 @@ func TestUserUnlock(t *testing.T) {
 	if a.pageAllowed(c, gateMain) || a.pageAllowed(c, gateLog) {
 		t.Fatal("main and log should be locked")
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil {
-		t.Fatalf("save with the Advanced Settings PIN, locked as a user: %v", err)
-	}
-	if err := a.SaveFilterSets(c, nil); err != nil {
-		t.Fatalf("filter sets with the Advanced Settings PIN: %v", err)
-	}
 	if err := a.admit(c, policy["batch"]); !errors.Is(err, errPageLocked) {
 		t.Fatalf("batch while locked: %v", err)
 	}
+	if err := a.UserUnlock(c, "2468"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil {
+		t.Fatalf("save as the Administrator: %v", err)
+	}
+	if err := a.SaveFilterSets(c, nil); err != nil {
+		t.Fatalf("filter sets as the Administrator: %v", err)
+	}
 	if err := a.admit(c, policy["config"]); err != nil {
-		t.Fatalf("config with the Advanced Settings PIN: %v", err)
+		t.Fatalf("config as the Administrator: %v", err)
 	}
 	if err := a.UserUnlock(c, "12345"); err == nil || a.userPin.n != 1 {
 		t.Fatalf("wrong-length PIN: %v, n=%d", err, a.userPin.n)
@@ -186,7 +185,7 @@ func TestUserUnlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg.Clone()
-	cfg.Users = []config.User{mkUser(t, "Bo", "567890")}
+	cfg.Users = cfg.Users[1:] // Ana goes
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -224,19 +223,13 @@ func TestUserUnlockBackoff(t *testing.T) {
 func TestSaveUsers(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.1"}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}}}); !errors.Is(err, errNeedAdminPin) {
-		t.Fatalf("users saved with no Advanced Settings PIN: %v", err)
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}}}); !errors.Is(err, errNoAdministrator) {
+		t.Fatalf("first users with no Administrator: %v", err)
 	}
-	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {
 		t.Fatal("user without a PIN accepted")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "12ab"}}}); err == nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "12ab"}}}); err == nil {
 		t.Fatal("non-digit PIN accepted")
 	}
 	withLock := a.r().cfg
@@ -244,10 +237,14 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveSettings(c, withLock, "", false); err == nil || !strings.Contains(err.Error(), "user") {
 		t.Fatalf("lock with no users: %v", err)
 	}
-	req := usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "5678"}}}
-	if err := a.SaveUsers(c, req); err != nil {
+	req := usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Role: config.RoleAdministrator}, {Name: "Bo", Pin: "5678"}}}
+	if err := saveUsers(a, c, req); err != nil {
 		t.Fatal(err)
 	}
+	if err := a.UserUnlock(c, "1234"); err != nil {
+		t.Fatal(err)
+	}
+	req.Users[0].ID, req.Users[0].Pin = idOf(a, "Ana"), ""
 	cfg := a.r().cfg
 	if len(cfg.Users) != 2 || cfg.Locks.Any() || cfg.Users[0].Len != 4 {
 		t.Fatalf("saved %+v (SaveUsers must not touch the locks)", cfg)
@@ -257,7 +254,7 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveSettings(c, withLock, "", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(c, req); err != nil {
+	if err := saveUsers(a, c, req); err != nil {
 		t.Fatal(err)
 	}
 	if got := a.r().cfg; !got.Locks.Log || got.AutoLockMinutes != 10 {
@@ -267,28 +264,28 @@ func TestSaveUsers(t *testing.T) {
 	if b, _ := json.Marshal(cfg); strings.Contains(string(b), "pbkdf2") {
 		t.Fatalf("a hash in the JSON: %s", b)
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "1234"}}}); err == nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "1234"}}}); err == nil {
 		t.Fatal("two new users with one PIN")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Cy", Pin: "1234"}}}); err == nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Cy", Pin: "1234"}}}); err == nil {
 		t.Fatal("new PIN equal to a kept user's")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Robert"}}}); err != nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Role: config.RoleAdministrator}, {ID: idOf(a, "Bo"), Name: "Robert"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if u, ok := a.r().cfg.FindUserByName("robert"); !ok || !config.ValidPinHash(u.Pin) {
 		t.Fatal("rename lost the PIN")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "ana", Pin: "9999"}}}); err == nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "ana", Pin: "9999"}}}); err == nil {
 		t.Fatal("names differing in case accepted")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana2"}, {ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Robert"), Name: "Robert"}}}); err == nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana2"}, {ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Robert"), Name: "Robert"}}}); err == nil {
 		t.Fatal("two rows inherited one user's PIN")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Robert"}, {ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Robert"}, {ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {
 		t.Fatal("duplicate was accepted")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Robert", Pin: "1234"}}}); err == nil || strings.Contains(err.Error(), "Ana") {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Robert", Pin: "1234"}}}); err == nil || strings.Contains(err.Error(), "Ana") {
 		t.Fatalf("colliding PIN: %v (must not name the other user)", err)
 	}
 	if err := pageSave(t, a, c, map[string]any{"users": nil}, "locks", "autoLockMinutes"); err != nil {
@@ -297,9 +294,9 @@ func TestSaveUsers(t *testing.T) {
 	if got := a.r().cfg; len(got.Users) != 2 || !got.Locks.Log || got.AutoLockMinutes != 10 {
 		t.Fatalf("settings save dropped users or locks: %+v", got)
 	}
-	a.Lock(c)
-	if err := a.SaveUsers(c, req); !errors.Is(err, errLocked) {
-		t.Fatalf("users saved without the Advanced Settings PIN: %v", err)
+	a.SignOut(c)
+	if err := saveUsers(a, c, req); !isRoleErr(err) {
+		t.Fatalf("users saved by a Guest: %v", err)
 	}
 }
 
@@ -346,7 +343,7 @@ func TestLockOverWebSocket(t *testing.T) {
 	}
 	send(map[string]any{"t": "config", "config": a.r().cfg})
 	until("configResult")
-	if cur := a.r().cfg; len(cur.Users) != 2 {
+	if cur := a.r().cfg; len(cur.Users) != 3 {
 		t.Fatal("config changed users")
 	}
 	send(map[string]any{"t": "clearHistory"})
