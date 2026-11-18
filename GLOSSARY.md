@@ -52,6 +52,15 @@ _Avoid_: salvo
 **Salvo**:
 The router's own stored group of routes, fired by number on the router. Sode does not use this word for anything of its own, so "fire salvo 12" always means the router's.
 
+**Broken**:
+Describes a saved item (preset, filter set or panel) that refers to a source, destination, level or router that no longer exists. A rename alone never makes an item Broken, since the number decides. A Broken item still fires the parts that exist.
+
+**Name moved**:
+Describes a saved item whose source or destination name now belongs to a different number on the same router. The item still fires on the number it stored.
+
+**Swap**:
+Puts one source or destination in place of another in every saved item that uses it, after a person ticks which items. Keep it apart from Replace import.
+
 ### Record
 
 **History**:
