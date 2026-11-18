@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   CATEGORIES,
+  iconsBroughtBy,
   newPick,
   catState,
   setCat,
@@ -37,8 +38,15 @@ const list = {
       ],
     },
     { name: 'filterSets', size: 0, items: [] },
-    { name: 'panels', size: 50, items: [{ id: 'p-1', name: 'Desk', kind: 'panel', size: 50 }] },
-    { name: 'artwork', size: 0 },
+    { name: 'panels', size: 50, items: [{ id: 'p-1', name: 'Desk', kind: 'panel', size: 50, icons: ['ic-1'] }] },
+    {
+      name: 'artwork',
+      size: 70,
+      items: [
+        { id: 'ic-1', name: 'Star', kind: 'icon', size: 30 },
+        { id: 'ic-2', name: 'Moon', kind: 'icon', size: 40 },
+      ],
+    },
     { name: 'apiClients', size: 0 },
     { name: 'browser', size: 0 },
   ],
@@ -105,4 +113,15 @@ test('sizes and file names read short', () => {
   assert.equal(sizeText(3_210_000), '3.2 MB');
   assert.equal(fileNameOf('attachment; filename="2026-11-18-Sode-Export.zip"', 'x'), '2026-11-18-Sode-Export.zip');
   assert.equal(fileNameOf(null, '2026-11-18'), '2026-11-18-Sode-Export.zip');
+});
+
+test('a picked panel brings the Icon library icons it uses', () => {
+  const p = newPick(list);
+  for (const [c] of CATEGORIES) setCat(list, p, c, false);
+  assert.equal(iconsBroughtBy(list, p).size, 0);
+  assert.equal(catSize(list, p, 'artwork'), 0);
+  p.items.panels.add('p-1');
+  assert.equal(iconsBroughtBy(list, p).get('ic-1').name, 'Desk');
+  assert.equal(catSize(list, p, 'artwork'), 30);
+  assert.deepEqual(exportBody(list, p, {}).categories, ['panels']);
 });

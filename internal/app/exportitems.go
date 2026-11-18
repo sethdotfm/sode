@@ -2,6 +2,8 @@ package app
 
 import (
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"gopkg.in/yaml.v3"
@@ -29,6 +31,42 @@ type exportListItem struct {
 	Detail string `json:"detail,omitempty"` // users: the Role
 	Size   int    `json:"size"`
 	Router bool   `json:"router,omitempty"` // names the router, so the router goes with it
+	// Icons: the Icon library icons it uses, which go with it.
+	Icons []string `json:"icons,omitempty"`
+}
+
+// libIcons lists the Icon library ids (lib:<id>) that a panel or template's cells and Grid edges use.
+func libIcons(pages []PanelPage, edges ...*GridEdge) []string {
+	var out []string
+	add := func(v any) {
+		if s, ok := v.(string); ok && strings.HasPrefix(s, "lib:") && !slices.Contains(out, s[4:]) {
+			out = append(out, s[4:])
+		}
+	}
+	for c := range allCells(pages) {
+		add(c["art"])
+		add(c["artB"])
+	}
+	for _, e := range edges {
+		if e == nil {
+			continue
+		}
+		for _, it := range e.Items {
+			add(it.Art)
+			add(it.ArtB)
+		}
+	}
+	return out
+}
+
+func (d ArtDefault) libIcons() []string {
+	var out []string
+	for _, s := range []string{d.Art, d.ArtB} {
+		if strings.HasPrefix(s, "lib:") && !slices.Contains(out, s[4:]) {
+			out = append(out, s[4:])
+		}
+	}
+	return out
 }
 
 func (a *App) exportList() (exportList, error) {
@@ -112,10 +150,10 @@ func (a *App) exportList() (exportList, error) {
 		if cps, _ := a.panels.checkpoints(p.ID); len(cps) > 0 {
 			one.Checkpoints = map[string][]panelCheckpoint{p.ID: cps}
 		}
-		item(panels, p.ID, p.Name, "panel", &one, images...)
+		item(panels, p.ID, p.Name, "panel", &one, images...).Icons = libIcons(p.Pages, p.Sources, p.Destinations)
 	}
 	for _, t := range a.templates.list() {
-		item(panels, t.ID, t.Name, "template", &exportPanels{Templates: []Template{t}})
+		item(panels, t.ID, t.Name, "template", &exportPanels{Templates: []Template{t}}).Icons = libIcons(t.Pages)
 	}
 	for _, s := range a.panels.sets.sorted(nil) {
 		item(panels, s.ID, s.Name, "checkpointSet", &exportPanels{CheckpointSets: []PanelSet{s}})
@@ -131,7 +169,7 @@ func (a *App) exportList() (exportList, error) {
 				images = append(images, b)
 			}
 		}
-		item(artwork, d.key(), d.Name, "default", &one, images...)
+		item(artwork, d.key(), d.Name, "default", &one, images...).Icons = d.libIcons()
 	}
 	for _, ic := range a.icons.list() {
 		if b, ic, ok := a.icons.file(ic.ID); ok {

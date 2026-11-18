@@ -178,6 +178,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		prefix[r.UID] = r.Prefix
 	}
 	used := map[string]bool{}
+	brought := map[string]bool{} // Icon library ids that picked panels, templates and Default artwork use
 	var files []zipFile
 	add := func(cat string, v any) error {
 		b, err := exportYAML(v, prefix, len(routers) == 1, used)
@@ -246,6 +247,9 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 					files = append(files, zipFile{"art/panels/" + p.ID + "/" + art.ID + "." + ext, b})
 				}
 			}
+			for _, id := range libIcons(p.Pages, p.Sources, p.Destinations) {
+				brought[id] = true
+			}
 			out.Panels = append(out.Panels, p)
 			if cps, _ := a.panels.checkpoints(p.ID); len(cps) > 0 {
 				out.Checkpoints[p.ID] = cps
@@ -253,6 +257,9 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		}
 		for _, t := range a.templates.list() {
 			if picked(catPanels, t.ID) {
+				for _, id := range libIcons(t.Pages) {
+					brought[id] = true
+				}
 				out.Templates = append(out.Templates, t)
 			}
 		}
@@ -265,12 +272,16 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 			return nil, err
 		}
 	}
-	if want(catArtwork) {
+	// Artwork goes when ticked, or for the icons that picked items use.
+	if want(catArtwork) || len(brought) > 0 {
 		var out exportArtwork
 		images := map[string]bool{}
 		for _, d := range a.artDefaults.list() {
-			if !picked(catArtwork, d.key()) {
+			if !want(catArtwork) || !picked(catArtwork, d.key()) {
 				continue
+			}
+			for _, id := range d.libIcons() {
+				brought[id] = true
 			}
 			out.Defaults = append(out.Defaults, d)
 			if artDefaultIDRe.MatchString(d.Art) && !images[d.Art] {
@@ -283,7 +294,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 			}
 		}
 		for _, ic := range a.icons.list() {
-			if !picked(catArtwork, ic.ID) {
+			if !brought[ic.ID] && (!want(catArtwork) || !picked(catArtwork, ic.ID)) {
 				continue
 			}
 			if b, ic, ok := a.icons.file(ic.ID); ok {

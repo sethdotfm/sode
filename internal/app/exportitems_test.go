@@ -62,6 +62,66 @@ func TestExportTwoPresetsAndOnePanel(t *testing.T) {
 	}
 }
 
+// A picked panel or Default artwork entry brings the Icon library icons it uses, with Artwork not ticked.
+func TestExportBringsTheIconsItUses(t *testing.T) {
+	a, tok := exportApp(t)
+	ana := userID(t, a, "Ana")
+	svg := []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`)
+	cellIcon, _ := a.icons.add("Cell", svg, "image/svg+xml")
+	edgeIcon, _ := a.icons.add("Edge", svg, "image/svg+xml")
+	defIcon, _ := a.icons.add("Default", svg, "image/svg+xml")
+	unused, _ := a.icons.add("Unused", svg, "image/svg+xml")
+	p, err := a.panels.create(Panel{Name: "Desk", Owner: ana, Rows: 1, Cols: 1,
+		Pages:   []PanelPage{{ID: "pg-1", Enabled: true, Cells: []map[string]any{{"kind": "panelName", "art": "lib:" + cellIcon.ID}}}},
+		Sources: &GridEdge{Items: []GridItem{{Art: "lib:" + edgeIcon.ID}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 3
+	d, err := a.artDefaults.set(ArtDefault{Kind: artKindSource, N: &n, Name: "CAM 3", Art: "lib:" + defIcon.ID}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	icons := func(req exportReq) []string {
+		files := unzipAll(t, postExport(t, a, tok, req).Body.Bytes())
+		var art exportArtwork
+		yaml.Unmarshal(files["artwork.yaml"], &art)
+		var ids []string
+		for _, ic := range art.Icons {
+			ids = append(ids, ic.ID)
+			if _, ok := files["art/icons/"+ic.fileName()]; !ok {
+				t.Errorf("no file for icon %s", ic.Name)
+			}
+		}
+		slices.Sort(ids)
+		return ids
+	}
+	want := []string{cellIcon.ID, edgeIcon.ID}
+	slices.Sort(want)
+	if got := icons(exportReq{Categories: []string{catPanels}, Pick: map[string][]string{catPanels: {p.ID}}}); !slices.Equal(got, want) {
+		t.Errorf("panel alone brought %v, want %v", got, want)
+	}
+	if got := icons(exportReq{Categories: []string{catArtwork}, Pick: map[string][]string{catArtwork: {d.key()}}}); !slices.Equal(got, []string{defIcon.ID}) {
+		t.Errorf("Default artwork entry alone brought %v, want %v", got, defIcon.ID)
+	}
+	if got := icons(exportReq{Categories: []string{catPresets}}); len(got) != 0 || slices.Contains(got, unused.ID) {
+		t.Errorf("nothing picked brought %v", got)
+	}
+
+	var list exportList
+	json.Unmarshal(getItems(t, a, tok).Body.Bytes(), &list)
+	for _, c := range list.Categories {
+		for _, it := range c.Items {
+			if it.ID == p.ID && !slices.Equal(slices.Sorted(slices.Values(it.Icons)), want) {
+				t.Errorf("panel lists icons %v", it.Icons)
+			}
+			if it.ID == d.key() && !slices.Equal(it.Icons, []string{defIcon.ID}) {
+				t.Errorf("Default artwork lists icons %v", it.Icons)
+			}
+		}
+	}
+}
+
 func getItems(t *testing.T, a *App, tok string) *httptest.ResponseRecorder {
 	t.Helper()
 	r := httptest.NewRequest("GET", "/api/export/items", nil)

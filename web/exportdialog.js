@@ -159,8 +159,8 @@ function check(key, text, checked, mixed, onChange, disabled = false) {
 
 const sizeEl = (n) => el('span', 'sode__xi-size', R.sizeText(n));
 
-function itemRow(key, text, detail, size, checked, onChange) {
-  return el('div', 'sode__xi-item', check(key, text, checked, false, onChange), el('span', 'sode__hint', detail), sizeEl(size));
+function itemRow(key, text, detail, size, checked, onChange, disabled = false) {
+  return el('div', 'sode__xi-item', check(key, text, checked, false, onChange, disabled), el('span', 'sode__hint', detail), sizeEl(size));
 }
 
 function render() {
@@ -168,6 +168,7 @@ function render() {
   const focused = dialog.contains(document.activeElement) ? document.activeElement.dataset.key : '';
   pinsBox.checked = pick.pins;
   const by = R.routerBroughtBy(list, pick);
+  const icons = R.iconsBroughtBy(list, pick);
   const rows = [];
   for (const [cat, text] of R.CATEGORIES) {
     const c = list.categories.find((x) => x.name === cat) || { items: [], sections: [] };
@@ -218,12 +219,21 @@ function render() {
     } else {
       for (const it of parts) {
         const detail = it.detail ? roleLabel(it.detail) : R.KIND_LABEL[it.kind] || '';
-        items.append(
-          itemRow(`item:${cat}:${it.id}`, it.name, detail, it.size, pick.items[cat].has(it.id), (on) => {
+        const bringer = pick.items[cat].has(it.id) ? null : icons.get(it.id);
+        const row = itemRow(
+          `item:${cat}:${it.id}`,
+          it.name,
+          detail,
+          it.size,
+          pick.items[cat].has(it.id) || !!bringer,
+          (on) => {
             R.toggle(pick.items[cat], it.id, on);
             changed();
-          }),
+          },
+          !!bringer,
         );
+        if (bringer) row.append(el('span', 'sode__hint sode__xi-sub', `Brought by ${bringer.name}`));
+        items.append(row);
       }
     }
     rows.push(items);

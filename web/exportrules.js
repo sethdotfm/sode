@@ -58,13 +58,23 @@ export function routerBroughtBy(list, pick) {
   return null;
 }
 
+// Icon library ids that picked panels, templates and Default artwork use, each with the first item that brings it.
+// The server sends those icons with them (buildExport) whether the icon is ticked or not.
+export function iconsBroughtBy(list, pick) {
+  const out = new Map();
+  for (const c of ['panels', 'artwork'])
+    for (const it of catOf(list, c).items || []) if (pick.items[c].has(it.id)) for (const id of it.icons || []) if (!out.has(id)) out.set(id, it);
+  return out;
+}
+
 // Uncompressed bytes of what is ticked in cat. browserBytes: This browser's values, measured by the page.
 export function catSize(list, pick, cat, browserBytes = 0) {
   const c = catOf(list, cat);
   if (cat === 'settings') return (c.sections || []).filter((s) => pick.sections.has(s.id)).reduce((n, s) => n + s.size, 0);
   if (cat === 'routers') return pick.routers || routerBroughtBy(list, pick) ? c.size : 0;
   if (cat === 'browser') return pick.browser ? browserBytes : 0;
-  return (c.items || []).filter((i) => pick.items[cat].has(i.id)).reduce((n, i) => n + i.size, 0);
+  const brought = cat === 'artwork' ? iconsBroughtBy(list, pick) : new Map();
+  return (c.items || []).filter((i) => pick.items[cat].has(i.id) || brought.has(i.id)).reduce((n, i) => n + i.size, 0);
 }
 
 export const nothingPicked = (list, pick) => CATEGORIES.every(([c]) => catState(list, pick, c) === 'none');
