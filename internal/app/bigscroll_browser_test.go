@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
 )
 
@@ -17,7 +18,8 @@ func TestChromeBigScroll(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 
-	a := simApp(t, sim)
+	// An install with users always has an Administrator; without one the recovery banner pushes the Source box down.
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
