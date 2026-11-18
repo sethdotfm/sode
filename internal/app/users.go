@@ -713,6 +713,7 @@ func (a *App) setOwnPin(c *client, oldPin, newPin string, remove bool) error {
 			return err
 		}
 	}
+	page := a.readHello() // the hello's PIN length changes; history read stays outside mu
 	err := a.commit(func(cfg *config.Config) error {
 		for i := range cfg.Users {
 			if cfg.Users[i].ID != who.ID {
@@ -728,6 +729,12 @@ func (a *App) setOwnPin(c *client, oldPin, newPin string, remove bool) error {
 	}, func(_, nr *runtime) {
 		if nu, ok := nr.cfg.FindUserByID(who.ID); ok {
 			c.u.user.Store(&nu)
+		}
+		if u.Len != len(newPin) { // the hello carries each user's PIN length
+			hello := a.hello(page)
+			for cl := range a.clients {
+				a.deliver(cl, hello)
+			}
 		}
 		a.syncAccessAllMu() // the user's other connections relock
 	})
