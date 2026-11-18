@@ -76,10 +76,9 @@ func TestHelloCarriesPrefixNotUID(t *testing.T) {
 }
 
 // A prefix change sends every open page the reload message; a save that keeps the prefix
-// sends none. Today an administrator changes the prefix through an import.
+// sends none.
 func TestPrefixChangeReloadsEveryPage(t *testing.T) {
 	a := userApp(t, false)
-	text, _ := exportOf(t, a, true)
 	pages := []*client{{ip: "10.0.0.1", send: make(chan []byte, 64)}, {ip: "10.0.0.2", send: make(chan []byte, 64)}}
 	a.mu.Lock()
 	for _, c := range pages {
@@ -99,7 +98,7 @@ func TestPrefixChangeReloadsEveryPage(t *testing.T) {
 			}
 		}
 	}
-	if _, err := a.importConfig(adminClient(t, a), text); err != nil {
+	if err := a.ApplyConfig(a.r().cfg.Clone()); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range pages {
@@ -107,10 +106,9 @@ func TestPrefixChangeReloadsEveryPage(t *testing.T) {
 			t.Fatalf("%s got %d reloads from a save that kept the prefix", c.ip, n)
 		}
 	}
-	if !strings.Contains(text, "prefix: A\n") {
-		t.Fatalf("export has no prefix: A line:\n%s", text)
-	}
-	if _, err := a.importConfig(adminClient(t, a), strings.Replace(text, "prefix: A\n", "prefix: C\n", 1)); err != nil {
+	next := a.r().cfg.Clone()
+	next.Prefix = "C"
+	if err := a.ApplyConfig(next); err != nil {
 		t.Fatal(err)
 	}
 	if a.r().cfg.Prefix != "C" {

@@ -204,7 +204,7 @@ func TestStopMonitoringEndsTheWatch(t *testing.T) {
 		t.Fatal("an unknown action stopped the watch")
 	}
 	rl := policy["panelAlarm"].forMsg(&inMsg{T: "panelAlarm"})
-	rl.handle(a, c, &inMsg{T: "panelAlarm", Panel: id, Action: "stop"}, &connCtx{})
+	rl.handle(a, c, &inMsg{T: "panelAlarm", Panel: id, Action: "stop"})
 	if a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("still watching after stop")
 	}
