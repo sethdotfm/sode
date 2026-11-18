@@ -88,6 +88,21 @@ func TestPanelsFieldsNeedRecheck(t *testing.T) {
 	}
 }
 
+// The one Save refuses each Panels field alone without a recheck.
+func TestOneSavePanelsFieldsNeedRecheck(t *testing.T) {
+	a := userApp(t, false)
+	p := dialPeer(t, a)
+	p.signIn("Ada", "2468")
+	r := p.saveFields(1, map[string]any{"publicPanels": false, "newPanelActs": "session", "levelColors": []string{"#abcdef"}})
+	wantRefused(t, r, "publicPanels", "needs PIN recheck")
+	wantRefused(t, r, "newPanelActs", "needs PIN recheck")
+	wantSaved(t, r, "levelColors")
+	passed(t, "recheck", p.recheck("2468"))
+	r = p.saveFields(2, map[string]any{"publicPanels": false, "newPanelActs": "session"})
+	wantSaved(t, r, "publicPanels")
+	wantSaved(t, r, "newPanelActs")
+}
+
 // Save a copy keeps its source's mode. The copy's own client gets the source client's networks and its Rights, no wider
 // than the copier's.
 func TestACopyKeepsItsSourcesMode(t *testing.T) {
