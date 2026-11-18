@@ -574,12 +574,29 @@ func Load(path string) (c Config, exists bool, err error) {
 	if err := c.Validate(); err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
-	if !bytes.Contains(b, []byte(c.UID)) {
+	if !bytes.Contains(b, []byte(c.UID)) || !hasPresetIDs(b, c) {
 		if err := Save(path, c); err != nil {
-			return c, true, fmt.Errorf("%s: keeping the new router UID: %w", path, err)
+			return c, true, fmt.Errorf("%s: keeping the new router UID or preset ids: %w", path, err)
 		}
 	}
 	return c, true, nil
+}
+
+// hasPresetIDs: Normalize makes a missing id at random. Pins and other items name a preset by
+// its id, so Load writes back any id the file did not hold.
+func hasPresetIDs(b []byte, c Config) bool {
+	lists := [][]Preset{c.Presets}
+	for _, u := range c.Users {
+		lists = append(lists, u.Profile.Presets)
+	}
+	for _, l := range lists {
+		for _, p := range l {
+			if !bytes.Contains(b, []byte(p.ID)) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Parse is Load's decoder (also config import). Unknown keys are kept (see UnknownKeys) and legacy

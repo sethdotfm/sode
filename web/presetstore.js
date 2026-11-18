@@ -112,8 +112,19 @@ export function saveLocalPreset(s, old = '') {
   writeJSON(KEY, replacePreset(localPresets(), s, old).map(withId));
   emit('presets');
 }
+// As the server's WithPresetExtras: an entry without an id gets the id of this browser's preset
+// of its name. That id must be free in the list. So a Replace import keeps pins and order.
 export function putLocalPresets(list) {
-  writeJSON(KEY, list.length ? list.map(saved).map(withId) : null);
+  const was = localPresets();
+  const taken = new Set(list.map((s) => s.id).filter(Boolean));
+  const kept = list.map((s) => {
+    if (s.id) return s;
+    const old = was.find((x) => x.name.toLowerCase() === String(s.name).trim().toLowerCase());
+    if (!old?.id || taken.has(old.id)) return s;
+    taken.add(old.id);
+    return { ...s, id: old.id };
+  });
+  writeJSON(KEY, kept.length ? kept.map(saved).map(withId) : null);
   emit('presets');
 }
 export function deleteLocalPreset(name) {

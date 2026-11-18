@@ -32,7 +32,8 @@ func TestAddressChangeKeepsRouterUID(t *testing.T) {
 	}
 }
 
-// The Settings message never names the UID or the prefix: with one router the prefix is hidden.
+// The Settings message has no UID or prefix key: with one router the prefix is hidden. The UID
+// reaches browsers only as the hello's routerUid and inside stored references (presets).
 func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 	a := newTestApp(t)
 	b, err := json.Marshal(a.r().cfg)
@@ -50,6 +51,6 @@ func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 		t.Errorf("flat router keys missing: %v", m)
 	}
 	if strings.Contains(string(b), a.r().cfg.UID) {
-		t.Errorf("config JSON holds the UID")
+		t.Errorf("config JSON with no references holds the UID")
 	}
 }

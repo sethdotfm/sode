@@ -83,6 +83,36 @@ func TestPresetListSaveKeepsIDs(t *testing.T) {
 	}
 }
 
+// An id Load had to make is written back, so it is the same on the next start.
+func TestLoadKeepsMadePresetIDs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	pin, err := HashPin("1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := "format: 2\nrouters: [{uid: r1, address: 10.0.0.1:8910}]\n" +
+		"presets:\n  - name: Show\n    items: [{src: {n: 1}, dsts: [{n: 2}]}]\n" +
+		"users:\n  - name: Ann\n    pin: " + pin + "\n    len: 4\n    profile:\n      presets:\n        - name: Mine\n          items: [{src: {n: 1}, dsts: [{n: 3}]}]\n"
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	first, _, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, _, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Presets[0].ID == "" || again.Presets[0].ID != first.Presets[0].ID {
+		t.Errorf("Everyone preset id %q then %q", first.Presets[0].ID, again.Presets[0].ID)
+	}
+	a, b := first.Users[0].Profile.Presets[0].ID, again.Users[0].Profile.Presets[0].ID
+	if a == "" || a != b {
+		t.Errorf("Me preset id %q then %q", a, b)
+	}
+}
+
 // Profile presets get ids and the router too.
 func TestProfilePresetRefsFilled(t *testing.T) {
 	c := Defaults()
