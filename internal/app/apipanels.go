@@ -491,9 +491,10 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	var rights config.Rights
+	var nets []string
 	if actsHasClient(c.Acts) {
 		if srcClient, ok := clientOfPanel(a.r().cfg, src); ok {
-			rights = srcClient.Rights.Intersect(cl.Rights)
+			rights, nets = srcClient.Rights.Intersect(cl.Rights), srcClient.Networks
 		} else {
 			rights = cl.Rights.Clone()
 		}
@@ -505,7 +506,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	if actsHasClient(made.Acts) {
 		made.Client = panelClientName(made.ID)
-		err := a.setPanelClient(made.ID, &rights)
+		err := a.putPanelClient(made.ID, &rights, nets)
 		if err == nil {
 			_, err = a.panels.replace(made)
 		}

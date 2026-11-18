@@ -1534,9 +1534,11 @@ paths:
         Past that, the oldest key of the address that asks ends, or else the oldest key of the
         panel. The key never shows in the panel's instance list. Any other panel answers 200
         `{"public": false}`. So does an id or short name that names no panel, and a Public panel
-        asked from outside its client's allowed networks. Each address can ask 128 times a minute, whatever the id (fewer when
+        asked from outside its client's allowed networks. A Public panel also answers so while
+        Public panels allowed is off. Each address can ask 128 times a minute, whatever the id (fewer when
         the API rate limit is lower), then gets 429 `rate_limited`. Leaving `public` or deleting
-        the panel ends every key it handed out.
+        the panel ends every key it handed out. Turning Public panels allowed off ends every
+        Public key.
       responses:
         "200":
           description: The panel is not Public

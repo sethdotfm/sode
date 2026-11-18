@@ -33,7 +33,12 @@ func TestPublicPanelsOffEndsEveryPublicKey(t *testing.T) {
 	one := makePanel(t, a, cy, publicPanel+`}`)
 	two := makePanel(t, a, cy, publicPanel+`}`)
 	k1, k2 := publicKeyOf(t, a, one), publicKeyOf(t, a, two)
+	// A wall tablet holds a stream on its key; it ends with the keys.
+	s := strmDial(t, strmServer(t, a), k1, "status")
+	s.next() // hello
+	strmWantType(t, s.next(), "snapshot", "status")
 	setPublicPanels(t, a, false)
+	rvkClosed(t, s)
 	for _, k := range []string{k1, k2} {
 		wantErr(t, apiSend(a, "GET", "/api/v1/tally", k, ""), 401, "key_revoked")
 	}
@@ -83,12 +88,16 @@ func TestPanelsFieldsNeedRecheck(t *testing.T) {
 	}
 }
 
-// Save a copy keeps its source's mode. The copy's own client gets the source client's Rights, no wider than the copier's.
+// Save a copy keeps its source's mode. The copy's own client gets the source client's networks and its Rights, no wider
+// than the copier's.
 func TestACopyKeepsItsSourcesMode(t *testing.T) {
 	a, _ := clientApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
 	for _, acts := range []string{"api", "both", "public"} {
 		src := makePanel(t, a, ana, `{"name":"Wall","acts":"`+acts+`","share":{"mode":"everyone"}}`)
+		if rec := apiSend(a, "PUT", "/api/v1/panels/"+src+"/networks", ana, `{"networks":["10.1.0.0/16"]}`); rec.Code != 200 {
+			t.Fatalf("networks: %d %s", rec.Code, rec.Body.String())
+		}
 		rec := apiSend(a, "POST", "/api/v1/panels/"+src+"/copy", cy, ``)
 		if rec.Code != 201 {
 			t.Fatalf("%s copy: %d %s", acts, rec.Code, rec.Body.String())
@@ -98,7 +107,7 @@ func TestACopyKeepsItsSourcesMode(t *testing.T) {
 			t.Fatalf("%s copy: acts %v client %v", acts, c["acts"], c["client"])
 		}
 		cl, ok := clientOf(t, a, c["client"].(string))
-		if !ok || !refsAre(cl.Rights.Sources, 1, 2, 3) || !refsAre(cl.Rights.Dsts, 2, 4) {
+		if !ok || !refsAre(cl.Rights.Sources, 1, 2, 3) || !refsAre(cl.Rights.Dsts, 2, 4) || len(cl.Networks) != 1 || cl.Networks[0] != "10.1.0.0/16" {
 			t.Fatalf("%s copy client: %+v %v", acts, cl.Rights, ok)
 		}
 	}

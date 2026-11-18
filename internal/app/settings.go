@@ -110,9 +110,6 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 	// revive them.
 	a.tokens.prune(cfg)
 	a.pruneKeys(old.cfg, cfg)
-	if old.cfg.PublicPanels && !cfg.PublicPanels {
-		a.endEveryPublicKey()
-	}
 	return old, nw, nil
 }
 
@@ -140,6 +137,10 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 		}
 	}
 	a.mu.Unlock()
+	// After the swap, so an ask that read the old config cannot leave a key behind (endStreams takes mu).
+	if old.cfg.PublicPanels && !nr.cfg.PublicPanels {
+		a.endEveryPublicKey()
+	}
 	return nil
 }
 
