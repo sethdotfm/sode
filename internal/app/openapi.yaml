@@ -2276,6 +2276,7 @@ components:
                 - not_owner
                 - user_required
                 - trusted_required
+                - administrator_only
                 - unsupported_type
                 - invalid_setup
                 - network_not_allowed
@@ -2286,8 +2287,9 @@ components:
                 invalid_setup (a setup link that was used, expired or replaced).
                 403 network_not_allowed (the key's address is outside the panel's allowed networks).
                 403 scope, outside_rights, https_required, not_owner (a panel the caller is allowed
-                only to use), user_required (a panel needs a user's key). 403 trusted_required (only
-                a Trusted user can make a panel act as an API client or change its rights). 400
+                only to use), user_required (a panel needs a user's key). 403 trusted_required (a Trusted
+                user is needed, as for an Everyone template). 403 administrator_only (only an
+                Administrator can make the change, in Settings, such as Rights wider than your own). 400
                 bad_request. 413 too_large (body over 64 KiB for a take, 4 MB for a panel or
                 template, 2 MB for artwork). 415 unsupported_type (artwork that is not a JPEG, PNG,
                 GIF or SVG). 404 not_found (no such path, entry, visible preset, or a panel or

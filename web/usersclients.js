@@ -54,16 +54,18 @@ export function makeClientsTab({ users, touched, adopt }) {
       input.addEventListener('change', touched);
       scopes.append(el('label', 'pb-check', input, el('span', 'pb-check__label', s.text)));
     }
-    const row = el(
-      'div',
-      'sode__clients-row',
-      el('div', 'sode__users-in', name),
-      scopes,
-      btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {
-        row.remove();
-        touched();
-      }),
-    );
+    // The save keeps a user's own client that is left out, so it gets no Remove.
+    const remove = c.ownerName
+      ? []
+      : [
+          btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {
+            row.remove();
+            touched();
+          }),
+        ];
+    const row = el('div', 'sode__clients-row', el('div', 'sode__users-in', name), scopes, ...remove);
+    // Panel clients and users' own clients are outside MAX_CLIENTS.
+    if (c.ownerName || c.panel) row.dataset.kept = '';
     row.dataset.rid = String(id);
     row.dataset.was = c.name ? c.name : '';
     rows.append(row);
@@ -180,7 +182,7 @@ export function makeClientsTab({ users, touched, adopt }) {
       'div',
       'sode__users-acts',
       btn('pb-btn--outline pb-btn--sm', 'Add API client', () => {
-        if (rows.children.length >= MAX_CLIENTS) return say(`At most ${MAX_CLIENTS} API clients.`);
+        if (rows.querySelectorAll(':scope > :not([data-kept])').length >= MAX_CLIENTS) return say(`At most ${MAX_CLIENTS} API clients.`);
         addRow().focus();
         touched();
       }),

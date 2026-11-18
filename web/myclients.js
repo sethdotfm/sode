@@ -86,7 +86,8 @@ document.body.append(root);
 
 let isOpen = false;
 let back = null;
-let seq = 0;
+let saveSeq = 0;
+let keySeq = 0;
 let listSeq = 0;
 let mine = [];
 const say = (text) => {
@@ -101,7 +102,8 @@ function closeClients() {
   shown.replaceChildren(); // the one-time key goes with the dialog
   for (const i of [nameIn, keyName, keyExp, pinIn]) i.value = '';
   say('');
-  seq++;
+  saveSeq++;
+  keySeq++;
   addBtn.disabled = keyBtn.disabled = false;
   dlg.hide();
   if (back?.isConnected) back.focus({ preventScroll: true });
@@ -151,10 +153,10 @@ addBtn.addEventListener('click', () => {
   const problem = clientNameProblem(nameIn.value, mine);
   if (problem) return say(problem);
   const scopes = [...scopeBox.querySelectorAll('input:checked')].map((i) => i.dataset.scope);
-  if (send(saveReq({ name: nameIn.value, scopes, id: ++seq }))) addBtn.disabled = true;
+  if (send(saveReq({ name: nameIn.value, scopes, id: ++saveSeq }))) addBtn.disabled = true;
 });
 onMsg('myClientSaveResult', (m) => {
-  if (m.id !== seq || !isOpen) return;
+  if (m.id !== saveSeq || !isOpen) return;
   addBtn.disabled = false;
   if (!m.ok) return say(m.err);
   nameIn.value = '';
@@ -170,10 +172,10 @@ keyBtn.addEventListener('click', () => {
   if (!pinIn.value) return say('Enter your PIN to make a key.');
   const exp = expiryFrom(keyExp.value, Date.now());
   if (exp.error) return say(exp.error);
-  if (send(keyReq({ client: who.value, name: keyName.value, pin: pinIn.value, expires: exp.ms, id: ++seq }))) keyBtn.disabled = true;
+  if (send(keyReq({ client: who.value, name: keyName.value, pin: pinIn.value, expires: exp.ms, id: ++keySeq }))) keyBtn.disabled = true;
 });
 onMsg('myClientKeyResult', (m) => {
-  if (m.id !== seq || !isOpen) return;
+  if (m.id !== keySeq || !isOpen) return;
   keyBtn.disabled = false;
   pinIn.value = '';
   if (!m.ok) return say(m.err);
