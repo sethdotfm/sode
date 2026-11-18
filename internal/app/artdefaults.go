@@ -44,12 +44,15 @@ var (
 	errNoArtDefaultFile = errors.New("no such Default artwork image")
 )
 
-// ArtDefault is one item's Default artwork. N is the router number of a Source or Destination; a
-// Preset is keyed by Scope and Name. For a Source or Destination, Name is the router name when the
-// default was set. Then the editor can warn when the number now names something else.
+// ArtDefault is one item's Default artwork. A Source or Destination is Router (UID; blank is this router) and N; a
+// Preset is its hidden ID, so a rename keeps the default. For a Source or Destination, Name is the router name when
+// the default was set. Then the editor can warn when the number now names something else. A Preset's Name is put
+// right when sent (liveArtDefaults).
 type ArtDefault struct {
 	Kind     string `yaml:"kind" json:"kind"`
+	Router   string `yaml:"router,omitempty" json:"router,omitempty"`
 	N        *int   `yaml:"n,omitempty" json:"n,omitempty"`
+	ID       string `yaml:"id,omitempty" json:"id,omitempty"`
 	Scope    string `yaml:"scope,omitempty" json:"scope,omitempty"`
 	Name     string `yaml:"name" json:"name"`
 	Art      string `yaml:"art,omitempty" json:"art,omitempty"`
@@ -57,8 +60,12 @@ type ArtDefault struct {
 	HideText bool   `yaml:"hideText,omitempty" json:"hideText,omitempty"`
 }
 
+// The router stays out of the key while there is one router. itemKey in web/panellook.js keeps in step.
 func (d ArtDefault) key() string {
 	if d.Kind == artKindPreset {
+		if d.ID != "" {
+			return d.Kind + "/" + d.ID
+		}
 		return d.Kind + "/" + d.Scope + "/" + d.Name
 	}
 	n := -1
@@ -75,14 +82,16 @@ func (d *ArtDefault) check() error {
 		if d.N == nil || *d.N < 0 || *d.N > 0xffff {
 			return errors.New("a Source or Destination default needs its router number n")
 		}
-		d.Scope = ""
+		d.Scope, d.ID = "", ""
+		d.Router = cleanText(d.Router, 64)
 		d.Name = cleanText(strings.TrimSpace(d.Name), panelNameMax)
 	case artKindPreset:
-		d.N = nil
+		d.N, d.Router = nil, ""
+		d.ID = cleanText(d.ID, 64)
 		d.Name = cleanText(strings.TrimSpace(d.Name), panelNameMax)
 		// No "me": the set is shared, so a Me default would reach every user's Me preset of that name.
-		if d.Scope != "everyone" || d.Name == "" {
-			return errors.New(`a Preset default needs scope "everyone" and the preset's name; Me presets have no Default artwork`)
+		if d.Scope != "everyone" || d.Name == "" && d.ID == "" {
+			return errors.New(`a Preset default needs scope "everyone" and the preset's id or name; Me presets have no Default artwork`)
 		}
 	default:
 		return fmt.Errorf("kind is %q, %q or %q", artKindSource, artKindDst, artKindPreset)
@@ -236,8 +245,8 @@ func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 	} else if artDefaultIDRe.MatchString(d.Art) && !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == d.Art }) {
 		return d, errNoArtDefaultFile
 	}
-	i := slices.IndexFunc(s.data.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
-	next.Defaults = slices.Clone(s.data.Defaults)
+	next.Defaults = slices.DeleteFunc(slices.Clone(s.data.Defaults), func(x ArtDefault) bool { return d.replaces(x) })
+	i := slices.IndexFunc(next.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
 	if i >= 0 {
 		next.Defaults[i] = d
 	} else {
@@ -253,13 +262,18 @@ func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 func (s *artDefaultStore) clear(d ArtDefault) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	i := slices.IndexFunc(s.data.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
-	if i < 0 {
+	kept := slices.DeleteFunc(slices.Clone(s.data.Defaults), func(x ArtDefault) bool { return x.key() == d.key() || d.replaces(x) })
+	if len(kept) == len(s.data.Defaults) {
 		return false, nil
 	}
 	next := s.data
-	next.Defaults = slices.Delete(slices.Clone(s.data.Defaults), i, i+1)
+	next.Defaults = kept
 	return true, s.writeLocked(next)
+}
+
+// replaces: x is a preset default stored by name before ids, for the preset d names by id.
+func (d ArtDefault) replaces(x ArtDefault) bool {
+	return d.Kind == artKindPreset && d.ID != "" && x.Kind == artKindPreset && x.ID == "" && strings.EqualFold(x.Name, d.Name)
 }
 
 func (s *artDefaultStore) image(id string) ([]byte, PanelArt, bool) {

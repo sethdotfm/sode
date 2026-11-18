@@ -131,6 +131,20 @@ test("Set as default sends the cell's item, its own artwork and Hide text, and t
   assert.deepEqual(defaultBody({ kind: 'destination', n: 0, art: 'icon:tv' }, 'p-1', false), { kind: 'destination', n: 0 });
 });
 
+test("a Preset cell finds its default by the preset's id after a rename, and by name when it has no id", () => {
+  const list = defaultsBy([{ kind: 'preset', scope: 'everyone', id: 'p1', name: 'New name', artB: 'N' }]);
+  assert.equal(defaultFor({ kind: 'preset', scope: 'everyone', id: 'p1', name: 'Old name' }, list)?.artB, 'N');
+  assert.equal(defaultFor({ kind: 'preset', scope: 'everyone', name: 'New name' }, list)?.artB, 'N');
+  assert.equal(defaultFor({ kind: 'preset', scope: 'everyone', id: 'p2', name: 'New name' }, list), null);
+  assert.equal(takesDefault({ kind: 'preset', scope: 'everyone', id: 'p1' }), true);
+  assert.deepEqual(defaultBody({ kind: 'preset', scope: 'everyone', id: 'p1', name: 'Old name' }, 'p-1', false), {
+    kind: 'preset',
+    scope: 'everyone',
+    id: 'p1',
+    name: 'Old name',
+  });
+});
+
 test('a Source, Destination or Everyone preset can carry Default artwork, a Me preset cannot', () => {
   assert.equal(takesDefault({ kind: 'source', n: 3 }), true);
   assert.equal(takesDefault({ kind: 'destination', n: 0 }), true);
