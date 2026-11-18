@@ -40,8 +40,8 @@ func TestRightsStoreRouterReferences(t *testing.T) {
 	c := Defaults()
 	c.Address = "127.0.0.1:1"
 	c.Normalize()
-	c.GuestRights = Rights{Sources: &[]Ref{{N: 4, Name: "CAM 5"}}, Dsts: Nums(), Presets: &[]string{"8b8db20da8d1c1f6"}}
-	c.APIClients = []APIClient{{Name: "Bot", Scopes: []string{ScopeTake}, Rights: Rights{Dsts: Nums(2)}}}
+	c.GuestRights = Rights{Sources: &[]Ref{{N: 4, Name: "CAM 5"}}, Dsts: nums(), Presets: &[]string{"8b8db20da8d1c1f6"}}
+	c.APIClients = []APIClient{{Name: "Bot", Scopes: []string{ScopeTake}, Rights: Rights{Dsts: nums(2)}}}
 	c.Normalize()
 	path := filepath.Join(t.TempDir(), "c.yaml")
 	if err := Save(path, c); err != nil {
@@ -73,10 +73,10 @@ func TestRightsStoreRouterReferences(t *testing.T) {
 	}
 }
 
-// The wire takes bare numbers or references; it gives references.
-func TestRightsJSONTakesNumbersOrReferences(t *testing.T) {
+// The wire takes references, the router left out or named; it gives references. A plain number is refused.
+func TestRightsJSONTakesReferences(t *testing.T) {
 	var r Rights
-	if err := json.Unmarshal([]byte(`{"sources":[1,{"router":"u","n":2,"name":"X"}],"dsts":[],"levels":[1],"presets":["id1"]}`), &r); err != nil {
+	if err := json.Unmarshal([]byte(`{"sources":[{"n":1},{"router":"u","n":2,"name":"X"}],"dsts":[],"levels":[1],"presets":["id1"]}`), &r); err != nil {
 		t.Fatal(err)
 	}
 	if !r.AllowsSource(1) || !r.AllowsSource(2) || r.AllowsSource(3) || r.AllowsDst(0) || !r.AllowsPreset("id1") {
@@ -90,8 +90,10 @@ func TestRightsJSONTakesNumbersOrReferences(t *testing.T) {
 		t.Errorf("encoded %s", b)
 	}
 	var bad Rights
-	if err := json.Unmarshal([]byte(`{"sources":["x"]}`), &bad); err == nil {
-		t.Error("a text source decoded")
+	for _, in := range []string{`{"sources":["x"]}`, `{"sources":[1]}`, `{"dsts":[2]}`} {
+		if err := json.Unmarshal([]byte(in), &bad); err == nil {
+			t.Errorf("%s decoded", in)
+		}
 	}
 }
 
@@ -106,4 +108,13 @@ func TestRightsWithinIgnoresNames(t *testing.T) {
 	if !blank.Within(of) || !of.Within(Rights{Sources: &[]Ref{{N: 1}, {N: 2}}}) {
 		t.Error("a blank router is not the one router")
 	}
+}
+
+// nums is a reference list on the one router; Normalize fills the blank router.
+func nums(ns ...int) *[]Ref {
+	out := make([]Ref, len(ns))
+	for i, n := range ns {
+		out[i] = Ref{N: n}
+	}
+	return &out
 }

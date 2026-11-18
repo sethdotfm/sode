@@ -27,8 +27,8 @@ func TestRightsSavedAsReferencesAdmitSameTakes(t *testing.T) {
 	a, f, key := takerApp(t, nil)
 	uid := a.r().cfg.UID
 	clients := a.r().cfg.Clone().APIClients
-	clients[0].Rights = config.Rights{Sources: config.Nums(1), Dsts: config.Nums(2)}
-	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: usersEdits(a.r().cfg, nil), APIClients: &clients, GuestRights: &config.Rights{Dsts: config.Nums(2)}}); err != nil {
+	clients[0].Rights = config.Rights{Sources: nums(1), Dsts: nums(2)}
+	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: usersEdits(a.r().cfg, nil), APIClients: &clients, GuestRights: &config.Rights{Dsts: nums(2)}}); err != nil {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg
@@ -57,7 +57,7 @@ func TestRightsKeepStoredNamesWithoutRouterNames(t *testing.T) {
 	a, _, _ := takerApp(t, func(c *config.Config) {
 		c.GuestRights = config.Rights{Sources: &[]config.Ref{{N: 40, Name: "OLD 41"}}}
 	})
-	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: usersEdits(a.r().cfg, nil), GuestRights: &config.Rights{Sources: config.Nums(40, 41)}}); err != nil {
+	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: usersEdits(a.r().cfg, nil), GuestRights: &config.Rights{Sources: nums(40, 41)}}); err != nil {
 		t.Fatal(err)
 	}
 	got := *a.r().cfg.GuestRights.Sources

@@ -16,7 +16,7 @@ const takeOne = `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`
 func ownClientApp(t *testing.T) (*App, *fakeRouter, *client, func() []map[string]any) {
 	t.Helper()
 	a, f := apiTestApp(t, nil)
-	setRights(t, a, "Ana", config.Rights{Sources: config.Nums(1, 2), Dsts: config.Nums(2)})
+	setRights(t, a, "Ana", config.Rights{Sources: nums(1, 2), Dsts: nums(2)})
 	c, next := signedIn(t, a, "10.0.0.1", "1234")
 	return a, f, c, next
 }
@@ -37,7 +37,7 @@ func ownClientKey(t *testing.T, a *App, c *client, next func() []map[string]any,
 
 func TestStandardUserMakesAPIClientWithinOwnRights(t *testing.T) {
 	a, f, c, next := ownClientApp(t)
-	narrow := config.Rights{Sources: config.Nums(1), Dsts: config.Nums(2)}
+	narrow := config.Rights{Sources: nums(1), Dsts: nums(2)}
 	if r := saveOwn(t, a, c, next, myClientReq{Name: "Ana desk", Scopes: []string{config.ScopeTake}, Rights: &narrow}); r["ok"] != true {
 		t.Fatalf("refused: %v", r)
 	}
@@ -46,7 +46,7 @@ func TestStandardUserMakesAPIClientWithinOwnRights(t *testing.T) {
 		t.Fatalf("client %+v %v", cl, ok)
 	}
 
-	wide := config.Rights{Sources: config.Nums(1, 3), Dsts: config.Nums(2)}
+	wide := config.Rights{Sources: nums(1, 3), Dsts: nums(2)}
 	r := saveOwn(t, a, c, next, myClientReq{Name: "Ana wide", Scopes: []string{}, Rights: &wide})
 	if r["ok"] != false || !strings.Contains(r["err"].(string), "Settings") {
 		t.Fatalf("wider Rights: %v", r)
@@ -94,7 +94,7 @@ func TestOwnClientNarrowsWithOwnerAndGoesWithThem(t *testing.T) {
 	if rec := apiPost(a, "/api/v1/takes", key, takeOne, nil); rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
-	setRights(t, a, "Ana", config.Rights{Sources: config.Nums(2), Dsts: config.Nums(2)})
+	setRights(t, a, "Ana", config.Rights{Sources: nums(2), Dsts: nums(2)})
 	wantErr(t, apiPost(a, "/api/v1/takes", key, takeOne, nil), 403, "outside_rights")
 
 	// Deleting Ana deletes the client and ends its key.

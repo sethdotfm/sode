@@ -7,7 +7,7 @@ import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON } from './store.js';
 import { profile, profileName, saveProfile } from './profile.js';
 import { profileProblem } from './profilesrules.js';
-import { itemNums, itemPlain, itemRefs, newPresetId } from './presetref.js';
+import { itemNums, itemPlain, itemRefs, newPresetId, storedItemNums } from './presetref.js';
 
 // Limits the server enforces too (internal/config/presets.go); test/preset_cases.json keeps the
 // two from drifting.
@@ -22,11 +22,13 @@ const KEY = 'sode-presets';
 const ORDER = 'sode-preset-order';
 const PINS = 'sode-preset-pins';
 
-export const normPreset = (s) => ({
+export const normPreset = (s, read = itemNums) => ({
   id: typeof s?.id === 'string' ? s.id.trim() : '',
   name: String(s?.name ?? '').trim(),
-  items: [].concat(s?.items ?? []).map(itemNums),
+  items: [].concat(s?.items ?? []).map(read),
 });
+// A stored preset (server, profile, This browser, a file): a bare number is no reference.
+export const storedPreset = (s) => normPreset(s, storedItemNums);
 
 const liveName = (kind, n) => (kind === 'src' ? S.srcBy : S.dstBy)?.get(n)?.name || '';
 // The stored and sent form: references named as the router names them now. A preset saved before
@@ -41,14 +43,14 @@ export const saved = ({ id, name, items, pinned }) => ({
 const withId = (s) => (s.id ? s : { ...s, id: newPresetId() });
 
 export const globalPresets = () =>
-  (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normPreset(s), pinned: s.pinned !== false }));
+  (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...storedPreset(s), pinned: s.pinned !== false }));
 export const localPresets = () =>
   []
     .concat(readJSON(KEY, []))
     .filter((s) => s?.name)
-    .map((s) => ({ scope: 'local', ...normPreset(s), pinned: s.pinned !== false }));
+    .map((s) => ({ scope: 'local', ...storedPreset(s), pinned: s.pinned !== false }));
 export const userPresets = () =>
-  (profileName() ? profile().presets : []).filter((s) => s?.name).map((s) => ({ scope: 'user', ...normPreset(s), pinned: s.pinned !== false }));
+  (profileName() ? profile().presets : []).filter((s) => s?.name).map((s) => ({ scope: 'user', ...storedPreset(s), pinned: s.pinned !== false }));
 export const allPresets = () => [...globalPresets(), ...userPresets(), ...localPresets()];
 const PRESET_LISTS = { global: globalPresets, user: userPresets, local: localPresets };
 export const presetsIn = (scope) => (PRESET_LISTS[scope] || (() => []))();

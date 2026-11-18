@@ -43,7 +43,7 @@ func TestOldFileLoadsWithAPIOff(t *testing.T) {
 
 func TestRightsRoundTrip(t *testing.T) {
 	c := Defaults()
-	c.GuestRights = Rights{Sources: Nums(1, 2), Dsts: Nums(), Visibility: VisHidden}
+	c.GuestRights = Rights{Sources: nums(1, 2), Dsts: nums(), Visibility: VisHidden}
 	c.APIClients = []APIClient{{Name: "Panel bot", Scopes: []string{ScopeNames, ScopeTake}, Rights: Rights{Presets: &[]string{"Cam"}}}}
 	c.Normalize()
 	path := filepath.Join(t.TempDir(), "c.yaml")
@@ -66,7 +66,7 @@ func TestRightsRoundTrip(t *testing.T) {
 }
 
 func TestRightsAllow(t *testing.T) {
-	r := Rights{Sources: Nums(4), Presets: &[]string{"Cam"}}
+	r := Rights{Sources: nums(4), Presets: &[]string{"Cam"}}
 	if !r.AllowsSource(4) || r.AllowsSource(5) || !r.AllowsDst(9) || !r.AllowsLevel(1) {
 		t.Error("source list or unset lists wrong")
 	}
@@ -80,8 +80,8 @@ func TestRightsAllow(t *testing.T) {
 
 func TestCloneSharesNoRights(t *testing.T) {
 	c := Defaults()
-	c.GuestRights.Sources = Nums(1)
-	c.APIClients = []APIClient{{Name: "a", Rights: Rights{Dsts: Nums(2)}, Scopes: []string{ScopeNames}}}
+	c.GuestRights.Sources = nums(1)
+	c.APIClients = []APIClient{{Name: "a", Rights: Rights{Dsts: nums(2)}, Scopes: []string{ScopeNames}}}
 	d := c.Clone()
 	(*d.GuestRights.Sources)[0].N = 9
 	(*d.APIClients[0].Rights.Dsts)[0].N = 9
@@ -98,7 +98,7 @@ func TestAPIValidation(t *testing.T) {
 		"client no name":     func(c *Config) { c.APIClients = []APIClient{{}} },
 		"duplicate client":   func(c *Config) { c.APIClients = []APIClient{{Name: "A"}, {Name: "a"}} },
 		"level out of range": func(c *Config) { c.GuestRights.Levels = &[]int{99} },
-		"negative source":    func(c *Config) { c.GuestRights.Sources = Nums(-1) },
+		"negative source":    func(c *Config) { c.GuestRights.Sources = nums(-1) },
 		"rate limit":         func(c *Config) { c.API.RateLimit = -1 },
 		"take cap":           func(c *Config) { c.API.TakeCap = 0 },
 		"https no proxies":   func(c *Config) { c.RequireHTTPS = true },
@@ -124,7 +124,7 @@ func TestAPIValidation(t *testing.T) {
 func TestRightsStayOutOfConfigJSON(t *testing.T) {
 	c := Defaults()
 	c.APIClients = []APIClient{{Name: "Secretbot"}}
-	c.GuestRights.Sources = Nums(7)
+	c.GuestRights.Sources = nums(7)
 	b, err := json.Marshal(c)
 	if err != nil {
 		t.Fatal(err)

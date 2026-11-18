@@ -36,9 +36,12 @@ export function setSetting(settings, key, value) {
 }
 
 // Fixed destination (settings.fixedDests). The order is kept: the first one is what the Current Source cell reads.
+// Entries are references: a kept one as stored, a new one {n}, which the server fills in. Never a bare number.
 const withFixed = (settings, list) => {
   const out = { ...settings };
-  if (list.length) out.fixedDests = list;
+  const kept = Array.isArray(settings?.fixedDests) ? settings.fixedDests : [];
+  const ref = (n) => kept.find((x) => x && typeof x === 'object' && x.n === n) || { n };
+  if (list.length) out.fixedDests = list.map(ref);
   else delete out.fixedDests;
   return out;
 };

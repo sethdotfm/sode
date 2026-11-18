@@ -3,7 +3,6 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -41,33 +40,16 @@ type Router struct {
 	Extra      map[string]any `yaml:",inline" json:"-" owned:"true"`
 }
 
-// Ref names one source, destination or level on one router; stores move to it from bare numbers.
+// Ref names one source, destination or level on one router. Every store holds it, never a bare number.
 // N is Sode's number: sources and destinations 0-based, levels 1..N. Shown and Name are for
-// people and the remap check; import ignores Shown.
+// people and the remap check; import ignores Shown. A request can leave Router blank while there is
+// one router. A stored one always has it (noRouterProblem).
 type Ref struct {
 	Router string         `yaml:"router" json:"router"`
 	N      int            `yaml:"n" json:"n"`
 	Shown  string         `yaml:"shown,omitempty" json:"shown,omitempty"`
 	Name   string         `yaml:"name,omitempty" json:"name,omitempty"`
 	Extra  map[string]any `yaml:",inline" json:"-"`
-}
-
-type refPlain Ref
-
-// UnmarshalJSON also takes a bare number, the one router's source or destination: older pages
-// and API callers send those.
-func (f *Ref) UnmarshalJSON(b []byte) error {
-	var n int
-	if err := json.Unmarshal(b, &n); err == nil {
-		*f = Ref{N: n}
-		return nil
-	}
-	var p refPlain
-	if err := json.Unmarshal(b, &p); err != nil {
-		return err
-	}
-	*f = Ref(p)
-	return nil
 }
 
 // Shown carries no prefix: with one router it is hidden.

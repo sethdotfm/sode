@@ -124,8 +124,8 @@ test('a set edited on another device is followed unless this browser edited it',
 
 test('user presets: own pinned flag, scoped after Everyone', () => {
   reset();
-  m.S.cfg.presets = [{ id: 'g1', name: 'Show', items: [{ src: 1, dsts: [0], levels: [] }] }];
-  signIn('Ana', [], [{ id: 'u1', name: 'Show', pinned: false, items: [{ src: 2, dsts: [1], levels: [] }] }]);
+  m.S.cfg.presets = [{ id: 'g1', name: 'Show', items: [{ src: { router: 'r1', n: 1 }, dsts: [{ router: 'r1', n: 0 }], levels: [] }] }];
+  signIn('Ana', [], [{ id: 'u1', name: 'Show', pinned: false, items: [{ src: { router: 'r1', n: 2 }, dsts: [{ router: 'r1', n: 1 }], levels: [] }] }]);
   assert.deepEqual(
     m.allPresets().map((s) => `${s.scope}:${s.name}`),
     ['global:Show', 'user:Show'],

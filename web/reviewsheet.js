@@ -9,7 +9,7 @@ import { profile, profileName, fetchProfile, saveProfile } from './profile.js';
 import { PREFS } from './prefs.js';
 import { ownPref, setPref } from './device.js';
 import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.js';
-import { presetsIn, putLocalPresets, normPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
+import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
 
@@ -123,7 +123,7 @@ function curSets(sc) {
 }
 function curPresets(sc) {
   if (sc === 'user' && forUser())
-    return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => ({ ...normPreset(s), pinned: s.pinned !== false }));
+    return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => ({ ...storedPreset(s), pinned: s.pinned !== false }));
   return presetsIn(sc).map((s) => ({ name: s.name, items: s.items, pinned: s.pinned !== false }));
 }
 const curNames = (kind, sc) => (kind === 'filter' ? curSets(sc) : curPresets(sc)).map((x) => x.name);

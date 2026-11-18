@@ -62,7 +62,7 @@ func setRights(t *testing.T, a *App, name string, r config.Rights) {
 func TestAPIAdministratorChangeNamesSettings(t *testing.T) {
 	a, _ := clientApp(t)
 	setRole(t, a, "Cy", config.RoleAdministrator)
-	rec := apiSend(a, "POST", "/api/v1/panels", userKey(t, a, "Cy"), apiPanel+`,"clientRights":{"sources":[1,9]}}`)
+	rec := apiSend(a, "POST", "/api/v1/panels", userKey(t, a, "Cy"), apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":9}]}}`)
 	wantErr(t, rec, 403, "administrator_only")
 	if msg := apiBody(t, rec)["error"].(map[string]any)["message"].(string); !strings.Contains(msg, "Settings") {
 		t.Fatalf("message does not name Settings: %q", msg)
@@ -72,11 +72,11 @@ func TestAPIAdministratorChangeNamesSettings(t *testing.T) {
 // ADR 0006 as widened: any panel owner makes a panel's client within their own Rights.
 func TestStandardUserMakesPanelClient(t *testing.T) {
 	a, _ := clientApp(t)
-	setRights(t, a, "Ana", config.Rights{Sources: config.Nums(1, 2), Dsts: config.Nums(2)})
+	setRights(t, a, "Ana", config.Rights{Sources: nums(1, 2), Dsts: nums(2)})
 	ana := userKey(t, a, "Ana")
-	rec := apiSend(a, "POST", "/api/v1/panels", ana, apiPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	rec := apiSend(a, "POST", "/api/v1/panels", ana, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	if rec.Code != 201 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, apiPanel+`,"clientRights":{"sources":[1,3]}}`), 403, "administrator_only")
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, apiPanel+`,"clientRights":{"sources":[{"n":1},{"n":3}]}}`), 403, "administrator_only")
 }
