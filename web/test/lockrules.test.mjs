@@ -9,7 +9,6 @@ import {
   idleLock,
   pingDue,
   needsPin,
-  guardedEdited,
   pageType,
   liftFrom,
   shouldFly,
@@ -217,19 +216,6 @@ test('dots', () => {
   assert.equal(dots('123').length, 3);
 });
 
-test('guardedEdited: router, trusted proxies and the PIN limit need the PIN', () => {
-  const cur = { router: 'a:1', pinMaxTries: 10, trustedProxies: ['10.0.0.2'] };
-  assert.equal(guardedEdited({ ...cur }, cur), false);
-  assert.equal(guardedEdited({ ...cur, router: 'b:1' }, cur), true);
-  assert.equal(guardedEdited({ ...cur, pinMaxTries: 0 }, cur), true);
-  assert.equal(guardedEdited({ ...cur, fireMode: 'native' }, cur), true);
-  assert.equal(guardedEdited({ ...cur, matrix: 2 }, cur), true);
-  assert.equal(guardedEdited({ ...cur, trustedProxies: ['0.0.0.0/0'] }, cur), true);
-  assert.equal(guardedEdited({ ...cur, trustedProxies: undefined }, { ...cur, trustedProxies: [] }), false);
-  assert.equal(guardedEdited({ ...cur, locks: { panel: true } }, { ...cur, locks: { panel: false } }), true);
-  assert.equal(guardedEdited({ ...cur, locks: { panel: false } }, cur), false);
-});
-
 test('wrongFeedback: Incorrect for a plain wrong PIN, server waits kept as text', () => {
   assert.deepEqual(wrongFeedback('wrong PIN'), { text: 'Incorrect', ms: WRONG_MS, note: '' });
   assert.deepEqual(wrongFeedback(''), { text: 'Incorrect', ms: WRONG_MS, note: '' });
@@ -301,16 +287,6 @@ test('tab signedIn: tokens', () => {
   assert.equal(tokenHome({}), 'browser');
 });
 
-test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")', () => {
-  const cur = { router: 'a:1', pinMaxTries: 10, autoLockMinutes: 0, locks: { main: true, log: false } };
-  assert.equal(guardedEdited({ ...cur, locks: { main: true, log: false } }, cur), false);
-  assert.equal(guardedEdited({ ...cur, locks: { main: false, log: false } }, cur), true);
-  assert.equal(guardedEdited({ ...cur, locks: { main: true, log: true } }, cur), true);
-  assert.equal(guardedEdited({ ...cur, autoLockMinutes: 5 }, cur), true);
-  assert.equal(guardedEdited({ ...cur, requireHttps: true }, { ...cur, requireHttps: false }), true);
-  assert.equal(guardedEdited({ ...cur, locks: undefined }, { ...cur, locks: {} }), false);
-});
-
 test('Lock: Sign in as is offered with users and no lock, signed in or not', () => {
   assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);
   assert.equal(signInAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
@@ -375,10 +351,10 @@ test('Lock: Sign out offered only with a user and no PIN lock; the view stays Lo
 });
 
 test('a signed-in Lock is held by the server: a pad with no Cancel that only a PIN ends', () => {
-  const user = { enforced: false, locked: false, held: false, user: 'Ana', trusted: true, persistent: true };
+  const user = { enforced: false, locked: false, held: false, user: 'Ana', role: 'administrator', trusted: true, persistent: true };
   assert.equal(lockCovers(user), false);
   const held = raiseLock(user);
-  assert.deepEqual(held, { enforced: false, locked: true, held: true, user: '', trusted: false, persistent: false, noAutoLock: false });
+  assert.deepEqual(held, { enforced: false, locked: true, held: true, user: '', role: '', trusted: false, persistent: false, noAutoLock: false });
   assert.equal(lockCovers(held), true);
   assert.equal(viewBody(PAGE_VIEW, lockCovers(held)), 'pad');
   assert.equal(lockCovers({ enforced: true, locked: true }), true);
@@ -387,7 +363,7 @@ test('a signed-in Lock is held by the server: a pad with no Cancel that only a P
 
 test('Sign out from the Lock clears it; an enforced lock then asks for a Sign in', () => {
   const held = { enforced: false, locked: true, held: true, user: '' };
-  assert.deepEqual(signedOut(held), { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false });
+  assert.deepEqual(signedOut(held), { enforced: false, locked: false, held: false, user: '', role: '', trusted: false, persistent: false, noAutoLock: false });
   assert.equal(lockCovers(signedOut({ ...held, enforced: true })), true);
 });
 

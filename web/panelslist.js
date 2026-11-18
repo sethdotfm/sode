@@ -28,6 +28,8 @@ import { artLeftOut } from './panelrules.js';
 import { openAssign, askName } from './panelassign.js';
 import { clashOf, renameRefusal } from './panelassignrules.js';
 import { isGridPanel } from './gridpaneledges.js';
+import { layout, onLayout } from './layout.js';
+import { desktopOnly } from './desktoponly.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
@@ -120,7 +122,9 @@ function detail(p) {
   const box = $('panels-detail');
   box.replaceChildren();
   if (!p) return;
-  const acts = actionsFor(p);
+  // The phone keeps Launch and Open now (spec #543, Phone); the rest says to use a computer.
+  const phone = layout() === 'phone';
+  const acts = phone ? [] : actionsFor(p);
   const bar = el('div', 'sode-ov__acts');
   bar.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), mac ? '⌘↵' : 'Ctrl+Enter'));
   if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id), mac ? '⌘E' : 'Ctrl+E'));
@@ -128,7 +132,7 @@ function detail(p) {
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
   // The server decides: a Trusted user, or the Advanced Settings PIN the modal asks for.
-  if (S.trusted || p.canEdit) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
+  if (!phone && (S.trusted || p.canEdit)) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
   // Link with key goes here.
   const slot = el('span', 'sode-ov__more');
   slot.id = 'panels-more';
@@ -150,12 +154,21 @@ function detail(p) {
       'div',
       'sode-ov__big',
       el('div', '', thumb(p), el('p', 'pb-hint', isGridPanel(p) ? gridSize(p) : sizeText(p.rows, p.cols))),
-      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p, { setWatch, setHide, rename })),
+      el(
+        'div',
+        'sode-ov__pane',
+        bar,
+        phone ? desktopOnly('edit, share, assign or delete panels and manage their keys') : null,
+        kv,
+        watchBox(p, setWatch),
+        openNow(p, { setWatch, setHide, rename }),
+      ),
     ),
   );
 }
 
 function draw() {
+  $('panels-new').hidden = layout() === 'phone';
   const groups = groupPanels(S.panels, S.me, S.trusted, S.filter);
   const shown = groups.flatMap((g) => g.panels);
   if (!shown.some((p) => p.id === S.cur)) S.cur = shown[0]?.id || '';
@@ -290,6 +303,7 @@ async function act(kind, id) {
 }
 
 export function runPanelsList() {
+  $('panels-new').hidden = layout() === 'phone';
   $('panels-signin').addEventListener('click', signInAgain);
   $('panels-find').addEventListener('input', (e) => {
     S.filter = e.target.value;
@@ -325,7 +339,7 @@ export function runPanelsList() {
       return;
     }
     const p = S.panels.find((x) => x.id === S.cur);
-    if (!p || (what === 'edit' && !actionsFor(p).includes('edit'))) return;
+    if (!p || (what === 'edit' && (layout() === 'phone' || !actionsFor(p).includes('edit')))) return;
     e.preventDefault();
     location.href = what === 'edit' ? editHref(p.id) : launchHref(p.id);
   });
@@ -358,6 +372,7 @@ export function runPanelsList() {
     else if (step === 'sign-in') say('Sign in with your PIN to see your panels.');
     else if (step === 'no-users') say('Panels need a user, and Sode has none.');
   });
+  onLayout(draw);
   setInterval(refreshOnline, MON_POLL_MS);
   startSession();
 }

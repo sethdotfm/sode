@@ -65,29 +65,6 @@ export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enfor
 // counts it locked, so it sends no names; a held Lock and the idle letter Lock still apply.
 export const pinFreeView = (m, pinFree) => (pinFree ? { enforced: false, locked: !!m.held } : { enforced: !!m.enforced, locked: !!m.locked });
 
-// Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
-// step.
-const GUARDED = [
-  'router',
-  'matrix',
-  'levels',
-  'levelWireOffset',
-  'nameLength',
-  'nameRequests',
-  'fireMode',
-  'salvoGroup',
-  'pinMaxTries',
-  'autoLockMinutes',
-  'requireHttps',
-];
-export const guardedEdited = (next, cur) =>
-  !!cur &&
-  (GUARDED.some((k) => next[k] !== cur[k]) ||
-    !!next.locks?.main !== !!cur.locks?.main ||
-    !!next.locks?.log !== !!cur.locks?.log ||
-    !!next.locks?.panel !== !!cur.locks?.panel ||
-    (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
-
 // A low-risk settings save asks for the settings PIN first, except on a trusted user's
 // connection. The server decides; this only hides the prompt.
 export const needsPin = (pinSet, unlocked, trusted) => !!pinSet && !unlocked && !trusted;
@@ -222,9 +199,9 @@ export const lockCovers = (s) => !!s.locked && !!(s.enforced || s.held);
 
 // The Lock of a signed-in session keeps the session (ADR 0001). Until the server's state
 // arrives the page already shows the pad.
-export const raiseLock = (s) => ({ ...s, locked: true, held: true, user: '', trusted: false, persistent: false, noAutoLock: false });
+export const raiseLock = (s) => ({ ...s, locked: true, held: true, user: '', role: '', trusted: false, persistent: false, noAutoLock: false });
 
-export const signedOut = (s) => ({ ...s, locked: !!s.enforced, held: false, user: '', trusted: false, persistent: false, noAutoLock: false });
+export const signedOut = (s) => ({ ...s, locked: !!s.enforced, held: false, user: '', role: '', trusted: false, persistent: false, noAutoLock: false });
 
 // Only the answer to our hi says whether the token was honored. A held Lock is the session
 // still alive and waiting for its PIN, so its token stays.

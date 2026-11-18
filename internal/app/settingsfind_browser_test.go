@@ -49,3 +49,14 @@ func TestChromeSettingsFindSkipsHidden(t *testing.T) {
 	}
 	b.check()
 }
+
+// signInSettings signs Ana (PIN 1234) in from Settings' My user section.
+func signInSettings(b *tab) {
+	b.t.Helper()
+	b.waitFor("Sign in shown", `!document.getElementById('account-login').hidden`)
+	b.eval(`document.getElementById('account-login').click()`)
+	signInOnPad(b)
+	b.waitFor("signed in", `document.getElementById('account-login').hidden`)
+	// The Lock's welcome hands focus back to Settings when it goes, which scrolls the page.
+	b.waitFor("Lock overlay gone", `!document.documentElement.hasAttribute('data-sode-lock')`)
+}
