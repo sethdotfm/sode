@@ -705,10 +705,12 @@ func (a *App) reply(c *client, v any) {
 }
 
 func (a *App) record(e *Entry) {
+	cfg := a.r().cfg
+	e.Router, e.RouterTitle = cfg.UID, cfg.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	log.Print(e.logLine(a.r().cfg.NumberOffset))
+	log.Print(e.logLine(cfg.NumberOffset))
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "recent", E: e})
 	a.mu.Unlock()
