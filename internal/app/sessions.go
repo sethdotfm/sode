@@ -78,6 +78,10 @@ func (a *App) issueToken(c *client, wantTab bool) string {
 // after the Lock ends, so only a session key rides on it (sessionkey.go).
 func (a *App) issueTokenFor(c *client, wantTab, forKey bool) string {
 	a.mu.Lock()
+	if c.u.step != nil { // a step-in is connection state only
+		a.mu.Unlock()
+		return ""
+	}
 	who := c.u.user.Load()
 	s := c.sessMu()
 	locked, page, had := s.locked, c.u.page, s.token != ""
@@ -157,6 +161,9 @@ func (a *App) touchSessions() {
 		if tok := cl.u.tokenMu(); tok != "" && a.userSameMu(cl, cfg) {
 			held = append(held, tok)
 		}
+		if st := cl.u.step; st != nil && st.sess.token != "" {
+			held = append(held, st.sess.token)
+		}
 	}
 	a.mu.Unlock()
 	a.tokens.touch(cfg, held...)
@@ -190,6 +197,9 @@ func (a *App) catchUpSessions() {
 // rides the token (ADR 0001), so a reload comes back locked. Ending it is a resume.
 func (a *App) setHeld(c *client, on bool) {
 	a.mu.Lock()
+	if on && c.u.step != nil { // the Lock lands on the original session, in every tab
+		a.stepOutMu(c, "lock")
+	}
 	if !a.userSameMu(c, a.r().cfg) {
 		a.syncAccessMu(c)
 		a.mu.Unlock()
@@ -217,6 +227,7 @@ func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
 	s.locked = on
 	if on {
 		a.eachOnSessionMu(c, func(cl *client) { cl.u.recheck = recheck{} })
+		a.stepOutsOnLockMu(s)
 	}
 	if drop {
 		// The token dies, so the connections that share it part. Each keeps its own
@@ -254,6 +265,11 @@ func (a *App) finishHold(c *client, on bool, tok string, drop bool) {
 // sharing it sign out too (ADR 0001).
 func (a *App) SignOut(c *client) {
 	a.mu.Lock()
+	if c.u.step != nil { // Sign out from a step-in never signs the original out
+		a.stepOutMu(c, "out")
+		a.mu.Unlock()
+		return
+	}
 	tok := c.u.tokenMu()
 	a.eachOnSessionMu(c, a.signOutMu)
 	a.mu.Unlock()

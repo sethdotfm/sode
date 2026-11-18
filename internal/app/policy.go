@@ -104,7 +104,10 @@ var policy = map[string]rule{
 	// PIN recheck (recheck.go): the signed-in user's own PIN, in that name's pool. In line,
 	// like userSignIn.
 	"pinRecheck": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.servePinRecheck(c, m) }},
-	"history":    {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
+	// Step in and Step out (stepin.go): in line, like userSignIn.
+	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveStepIn(c, m) }},
+	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) { a.StepOut(c) }},
+	"history": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 
 	"take": {crit: critNever, role: config.RoleStandard, need: needMain, why: "take", write: true,
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveTake(c, m) },
