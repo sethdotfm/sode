@@ -17,6 +17,7 @@ import { initSave, markClean, warnUnsaved, unwarn, saving, showSaveErr } from '.
 import { initFind } from './settingsfind.js';
 import { fillRouters, routerTitle } from './settingsrouters.js';
 import './mykeys.js';
+import './myclients.js';
 import './users.js';
 import './apisettings.js';
 import './profiles.js';

@@ -168,8 +168,8 @@ var PanelClientScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeSt
 // APIClient is a non-person actor. Its keys live in the key store, not here. Panel is the id of
 // the panel that owns a panel's own client (ADR 0006). Such a client is made and removed with
 // its panel. It does not count toward MaxAPIClients, which bounds the administrator's own.
-// Owner is the id of the user who made the client from My user: its Rights are capped live by
-// theirs, it goes with them, and each user has at most MaxAPIClients.
+// Owner is the id of the user who made the client from My user. That user's Rights cap the
+// client's live, and it goes with them. Each user has at most MaxAPIClients.
 type APIClient struct {
 	Name   string   `yaml:"name" json:"name"`
 	Scopes []string `yaml:"scopes" json:"scopes"`

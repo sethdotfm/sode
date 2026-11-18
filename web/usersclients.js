@@ -40,6 +40,11 @@ export function makeClientsTab({ users, touched, adopt }) {
     name.setAttribute('aria-label', 'API client name');
     name.dataset.field = 'client-name';
     name.addEventListener('input', touched);
+    // A user's own client keeps its name, or the save would make a new client beside it.
+    if (c.ownerName) {
+      name.readOnly = true;
+      name.dataset.pbTip = `Made by ${c.ownerName} from My user`;
+    }
     const scopes = el('div', 'sode__scopes');
     for (const s of SCOPES) {
       const input = el('input', 'pb-check__input');

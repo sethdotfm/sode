@@ -141,9 +141,10 @@ func dropOrphanPanelClients(cfg *config.Config, panels *panelStore) {
 	})
 }
 
-// keepPanelClients folds an Administrator's client list into the config's. A panel client or a
-// user's own client (ownclients.go) in the request gets its Rights and Scopes but keeps its panel
-// link or owner and its name; one left out stays. Plain clients replace the old ones.
+// keepPanelClients folds an Administrator's client list into the config's. It treats a user's own
+// client (ownclients.go) as a panel client. Such a client in the request gets its Rights and
+// Scopes, and keeps its name and its panel or owner. One left out stays. Plain clients replace
+// the old ones.
 func keepPanelClients(cur []config.APIClient, req []config.APIClient) []config.APIClient {
 	kept := func(c config.APIClient) bool { return c.Panel != "" || c.Owner != "" }
 	var out []config.APIClient

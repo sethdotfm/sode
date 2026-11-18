@@ -11,10 +11,10 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// API clients a user makes from My user (owner rulings on #543). The user owns the client
-// (config.APIClient.Owner): it saves at once, needs no Administrator while it stays within the
-// user's own Rights, is capped live by those Rights (resolveKey) and is deleted with the user.
-// Settings > Access > API stays Administrator only.
+// API clients a user makes from My user. The user owns the client (config.APIClient.Owner). It
+// saves at once and needs no Administrator while it stays within the user's own Rights.
+// resolveKey caps it live by those Rights, and it is deleted with the user. Settings > Access >
+// API stays Administrator only.
 
 // ownClientScopes: what the owner's own key has, less `panelsmanage`, since a client owns nothing.
 var ownClientScopes = slices.DeleteFunc(slices.Clone(userKeyScopes), func(s string) bool { return s == config.ScopePanelsManage })
@@ -42,7 +42,7 @@ type myClientsMsg struct {
 }
 
 // ownMaker is c's live user, if they can own API clients: signed in, not under the Lock, with a
-// PIN, since a user without one holds no lasting keys.
+// PIN. A user without a PIN holds no lasting keys.
 func (a *App) ownMaker(c *client) (config.User, error) {
 	u, err := a.ownUser(c)
 	if err != nil {
@@ -128,8 +128,8 @@ func (a *App) SaveOwnClient(c *client, req myClientReq) error {
 	})
 }
 
-// ownClientRights is clientRightsFor for a user's own client: unchanged Rights stay, so a save
-// never fails over Rights an Administrator widened; new ones must be within the user's.
+// ownClientRights is clientRightsFor for a user's own client. Unchanged Rights stay, so a save
+// never fails over Rights an Administrator widened. New ones must be within the user's.
 func ownClientRights(u config.User, want, stored *config.Rights) (config.Rights, error) {
 	switch {
 	case want == nil && stored != nil:

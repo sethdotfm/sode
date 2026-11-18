@@ -86,7 +86,7 @@ export async function runEditor() {
   const fieldWatchers = [];
   let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork.
   let defaults = new Map(); // Default artwork by item (defaultsBy): drawn only, never put into g.
-  let trusted = false; // only a Trusted user can make a client, so a new panel starts as Both for them and Session for the rest.
+  let trusted = false; // a new panel starts as Both for a Trusted user and as Session for the rest
   on('access', (a) => (trusted = !!a.trusted && !!a.user));
   let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each after its first edit.
   // The save's state for the toolbar: busy while a save runs, failed holds why the last save failed until one works.
