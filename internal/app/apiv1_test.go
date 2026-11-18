@@ -30,7 +30,7 @@ func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 		{Name: "LogBot", Scopes: []string{config.ScopeLog}},
 		{Name: "NamesBot", Scopes: []string{config.ScopeNames}},
 	}
-	cfg.Presets = []config.Preset{{Name: "Studio A", Items: []config.PresetItem{presetItem(1, nil, 2)}}}
+	cfg.Presets = []config.Preset{{ID: "studio-a", Name: "Studio A", Items: []config.PresetItem{presetItem(1, nil, 2)}}}
 	if mut != nil {
 		mut(&cfg)
 	}

@@ -47,19 +47,39 @@ const (
 // Rights is an allowlist per kind. A nil list means all and an empty one means none, so the
 // lists are pointers (omitempty would turn "none" back into "all" on reload). Never sent
 // before the PIN: the hello blanks Users and the owning Config fields carry json:"-".
+// Sources and destinations are router references; Presets are preset ids, so a rename keeps them.
 type Rights struct {
-	Sources    *[]int         `yaml:"sources,omitempty" json:"sources,omitempty"`
-	Dsts       *[]int         `yaml:"dsts,omitempty" json:"dsts,omitempty"`
+	Sources    *[]Ref         `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Dsts       *[]Ref         `yaml:"dsts,omitempty" json:"dsts,omitempty"`
 	Levels     *[]int         `yaml:"levels,omitempty" json:"levels,omitempty"` // UI levels
 	Presets    *[]string      `yaml:"presets,omitempty" json:"presets,omitempty"`
 	Visibility string         `yaml:"visibility,omitempty" json:"visibility,omitempty"`
 	Extra      map[string]any `yaml:",inline" json:"-"`
 }
 
+// Nums is a reference list on the one router (blank router, which Normalize fills).
+func Nums(ns ...int) *[]Ref {
+	out := make([]Ref, len(ns))
+	for i, n := range ns {
+		out[i] = Ref{N: n}
+	}
+	return &out
+}
+
 func in[T comparable](l *[]T, v T) bool { return l == nil || slices.Contains(*l, v) }
 
-func (r Rights) AllowsSource(i int) bool    { return in(r.Sources, i) }
-func (r Rights) AllowsDst(i int) bool       { return in(r.Dsts, i) }
+// sameRef: the name never decides, and a blank router is the one router.
+func sameRef(a, b Ref) bool {
+	return a.N == b.N && (a.Router == "" || b.Router == "" || a.Router == b.Router)
+}
+
+// inRefs matches the number on any router: v2.0 drives one router.
+func inRefs(l *[]Ref, n int) bool {
+	return l == nil || slices.ContainsFunc(*l, func(r Ref) bool { return r.N == n })
+}
+
+func (r Rights) AllowsSource(i int) bool    { return inRefs(r.Sources, i) }
+func (r Rights) AllowsDst(i int) bool       { return inRefs(r.Dsts, i) }
 func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
 func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
 func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
@@ -70,6 +90,10 @@ func (r Rights) IsOpen() bool {
 }
 
 func subset[T comparable](l, of *[]T) bool {
+	return subsetBy(l, of, func(a, b T) bool { return a == b })
+}
+
+func subsetBy[T any](l, of *[]T, same func(a, b T) bool) bool {
 	if of == nil {
 		return true
 	}
@@ -77,7 +101,7 @@ func subset[T comparable](l, of *[]T) bool {
 		return false
 	}
 	for _, v := range *l {
-		if !slices.Contains(*of, v) {
+		if !slices.ContainsFunc(*of, func(o T) bool { return same(v, o) }) {
 			return false
 		}
 	}
@@ -87,7 +111,7 @@ func subset[T comparable](l, of *[]T) bool {
 // Within: r grants nothing o does not (ADR 0006's cap). An unset list is everything. Hidden
 // shows less than read-only, so it is within both, and read-only is not within hidden.
 func (r Rights) Within(o Rights) bool {
-	return subset(r.Sources, o.Sources) && subset(r.Dsts, o.Dsts) && subset(r.Levels, o.Levels) &&
+	return subsetBy(r.Sources, o.Sources, sameRef) && subsetBy(r.Dsts, o.Dsts, sameRef) && subset(r.Levels, o.Levels) &&
 		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden())
 }
 
@@ -150,10 +174,26 @@ func (c Config) FindAPIClient(name string) (APIClient, bool) {
 	return APIClient{}, false
 }
 
+// fillRouter: a blank router is the one router.
+func (r *Rights) fillRouter(uid string) {
+	for _, l := range []*[]Ref{r.Sources, r.Dsts} {
+		if l == nil {
+			continue
+		}
+		for i := range *l {
+			if (*l)[i].Router == "" {
+				(*l)[i].Router = uid
+			}
+		}
+	}
+}
+
 func (c *Config) normalizeAPI() {
 	c.GuestRights.Visibility = strings.ToLower(strings.TrimSpace(c.GuestRights.Visibility))
+	c.GuestRights.fillRouter(c.UID)
 	for i := range c.Users {
 		c.Users[i].Rights.Visibility = strings.ToLower(strings.TrimSpace(c.Users[i].Rights.Visibility))
+		c.Users[i].Rights.fillRouter(c.UID)
 	}
 	if c.GuestAPIScopes == nil {
 		c.GuestAPIScopes = slices.Clone(DefaultGuestScopes)
@@ -162,19 +202,23 @@ func (c *Config) normalizeAPI() {
 		a := &c.APIClients[i]
 		a.Name = strings.TrimSpace(a.Name)
 		a.Rights.Visibility = strings.ToLower(strings.TrimSpace(a.Rights.Visibility))
+		a.Rights.fillRouter(c.UID)
 		if a.Scopes == nil {
 			a.Scopes = []string{}
 		}
 	}
 }
 
-func (r Rights) validate(who string, levels int, bad func(string, ...any)) {
+func (r Rights) validate(who string, levels int, uid string, bad func(string, ...any)) {
 	if r.Visibility != "" && r.Visibility != VisReadOnly && r.Visibility != VisHidden {
 		bad("%s: visibility must be %q or %q", who, VisReadOnly, VisHidden)
 	}
-	for _, l := range []*[]int{r.Sources, r.Dsts} {
-		if l != nil && slices.ContainsFunc(*l, func(n int) bool { return n < 0 }) {
+	for _, l := range []*[]Ref{r.Sources, r.Dsts} {
+		if l != nil && slices.ContainsFunc(*l, func(f Ref) bool { return f.N < 0 }) {
 			bad("%s: sources and destinations cannot be negative", who)
+		}
+		if l != nil && slices.ContainsFunc(*l, func(f Ref) bool { return f.Router != "" && f.Router != uid }) {
+			bad("%s: a source or destination names a router Sode does not have", who)
 		}
 	}
 	if r.Levels != nil && slices.ContainsFunc(*r.Levels, func(n int) bool { return n < 1 || n > levels }) {
@@ -206,10 +250,10 @@ func (c Config) validateAPI() []error {
 	if c.RequireHTTPS && len(c.TrustedProxies) == 0 {
 		bad("Require HTTPS needs at least one trusted proxy: only a trusted proxy can say a request was secure")
 	}
-	c.GuestRights.validate("Guest rights", c.Levels, bad)
+	c.GuestRights.validate("Guest rights", c.Levels, c.UID, bad)
 	checkScopes("Guest API scopes", c.GuestAPIScopes, bad)
 	for _, u := range c.Users {
-		u.Rights.validate("rights of "+u.Name, c.Levels, bad)
+		u.Rights.validate("rights of "+u.Name, c.Levels, c.UID, bad)
 	}
 	own := 0
 	for _, cl := range c.APIClients {
@@ -237,7 +281,7 @@ func (c Config) validateAPI() []error {
 			bad("API client %q has the name of a user; History would not tell them apart", cl.Name)
 		}
 		seen[key] = true
-		cl.Rights.validate("rights of API client "+cl.Name, c.Levels, bad)
+		cl.Rights.validate("rights of API client "+cl.Name, c.Levels, c.UID, bad)
 		checkScopes("API client "+cl.Name, cl.Scopes, bad)
 	}
 	return errs

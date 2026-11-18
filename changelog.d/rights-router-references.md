@@ -1,0 +1,2 @@
+- Rights for users, Guest and API clients keep the router and the router's name for each source and destination. They name presets by hidden id, so renaming a preset does not change who can fire it. In Manage users and the panel editor, the Presets list takes Everyone preset names, and a name that no preset has is refused.
+- A panel's Fixed destination list keeps the router and the router's name for each destination.

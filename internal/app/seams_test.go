@@ -16,7 +16,7 @@ import (
 func unwritten(t *testing.T, a *App, id, key string) string {
 	t.Helper()
 	p := panelOf(t, a, id, key)
-	return fmt.Sprint(p["rev"], p["acts"], p["settings"].(map[string]any)["fixedDests"])
+	return fmt.Sprint(p["rev"], p["acts"], wireNs(p["settings"].(map[string]any)["fixedDests"]))
 }
 
 // A panel with fixed destinations sends an instance to another one. Neither panel is written. The key the
@@ -49,7 +49,7 @@ func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 		t.Errorf("the target changed: %s -> %s", beforeTo, got)
 	}
 	// The page reads its fixed destinations from the panel it was sent to.
-	if got := fmt.Sprint(panelOf(t, a, to, key)["settings"].(map[string]any)["fixedDests"]); got != "[2 5]" {
+	if got := fmt.Sprint(wireNs(panelOf(t, a, to, key)["settings"].(map[string]any)["fixedDests"])); got != "[2 5]" {
 		t.Fatalf("fixed destinations through the new key: %s", got)
 	}
 

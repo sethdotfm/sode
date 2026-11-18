@@ -29,7 +29,7 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	a := panelsApp(t)
 	setFlags(t, a, "Ana", false, true)
 	ana := userKey(t, a, "Ana")
-	srcs := []int{1, 2}
+	srcs := *config.Nums(1, 2)
 	admin := adminClient(t, a)
 	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true, Rights: &config.Rights{Sources: &srcs}},

@@ -296,7 +296,11 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 	}
 	t := in.Template
 	t.ID, t.Owner = "", cl.Actor.User
-	if err := t.clean(); err != nil {
+	err := t.clean()
+	if err == nil {
+		err = a.nameFixed(t.Settings)
+	}
+	if err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}

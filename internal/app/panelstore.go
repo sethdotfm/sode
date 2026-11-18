@@ -334,6 +334,13 @@ func loadPanels(cfgPath string) *panelStore {
 		}
 		p.Extra = extraOwnFields(p.Extra)
 		p.normalize()
+		// In memory the list is always []config.Ref; a bad hand-edited one is dropped.
+		if settings, err := cleanFixedDests(p.Settings); err != nil {
+			s.problem("%s: %v, so the fixed destinations were dropped", path, err)
+			delete(p.Settings, panelFixedKey)
+		} else {
+			p.Settings = settings
+		}
 		// Art ids name files under <id>.art, so a hand-edited one must not reach a path.
 		p.Art = slices.DeleteFunc(p.Art, func(a PanelArt) bool {
 			if artIDRe.MatchString(a.ID) {

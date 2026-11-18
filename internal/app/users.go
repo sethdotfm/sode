@@ -641,6 +641,13 @@ type userView struct {
 	Rights config.Rights `json:"rights"`
 	// PanelClients are the panel clients this user's panels have, for the Rights editor to list.
 	PanelClients []panelClientNote `json:"panelClients"`
+	// Presets are the user's Me presets, so the Rights editor can turn their names into ids.
+	Presets []presetNote `json:"presets"`
+}
+
+type presetNote struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func (a *App) usersList(id int) usersListMsg {
@@ -655,7 +662,12 @@ func (a *App) usersList(id int) usersListMsg {
 		if pc == nil {
 			pc = []panelClientNote{}
 		}
-		m.Users = append(m.Users, userView{u.ID, u.Name, u.Len, u.Role, u.Persistent, u.NoAutoLock, u.Rights, pc})
+		ps := []presetNote{}
+		for _, p := range u.Profile.Presets {
+			ps = append(ps, presetNote{p.ID, p.Name})
+		}
+		m.Users = append(m.Users, userView{ID: u.ID, Name: u.Name, Len: u.Len, Role: u.Role, Persistent: u.Persistent,
+			NoAutoLock: u.NoAutoLock, Rights: u.Rights, PanelClients: pc, Presets: ps})
 	}
 	return m
 }

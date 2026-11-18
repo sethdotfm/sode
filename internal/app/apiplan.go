@@ -18,6 +18,7 @@ import (
 type takePlan struct {
 	Items     []routeReq
 	Preset    string
+	PresetID  string
 	LeftOut   []string // preset parts the router no longer has
 	Skipped   []int    // undo: levels with nothing routed before, left as is
 	Untouched []int    // undo: levels a failed take never changed, left as is
@@ -191,7 +192,7 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 		}
 	}
 	a.mu.Unlock()
-	plan := &takePlan{Preset: cleanPresetName(p.Name), LeftOut: left}
+	plan := &takePlan{Preset: cleanPresetName(p.Name), PresetID: p.ID, LeftOut: left}
 	for _, k := range order {
 		ls := levels[k]
 		sort.Ints(ls)

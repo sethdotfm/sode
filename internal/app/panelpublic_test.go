@@ -41,7 +41,7 @@ func TestSwitchingToPublicChecksTheCallerAgain(t *testing.T) {
 	cfg := a.r().cfg
 	for i, c := range cfg.APIClients {
 		if c.Panel == id {
-			cfg.APIClients[i].Rights = config.Rights{Sources: ints(1, 9), Dsts: ints(2)}
+			cfg.APIClients[i].Rights = config.Rights{Sources: config.Nums(1, 9), Dsts: config.Nums(2)}
 		}
 	}
 	if err := a.ApplyConfig(cfg); err != nil {
@@ -98,7 +98,7 @@ func TestPublicPanelHandsOutAKeyWithTheClientsRights(t *testing.T) {
 		t.Fatalf("read with the public key: %d %s", rec.Code, rec.Body.String())
 	}
 	r, _ := apiBody(t, rec)["rights"].(map[string]any)
-	if r == nil || !reflect.DeepEqual(r["sources"], []any{1.0}) || !reflect.DeepEqual(r["dsts"], []any{2.0}) {
+	if r == nil || fmt.Sprint(wireNs(r["sources"])) != "[1]" || fmt.Sprint(wireNs(r["dsts"])) != "[2]" {
 		t.Fatalf("rights %v", r)
 	}
 	if n := len(keyList(t, a, cy, id)); n != 0 {
@@ -379,7 +379,7 @@ func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
 	a, f := apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
 		cy.Role = config.RoleTrusted
-		cy.Rights = config.Rights{Sources: ints(1, 2, 3), Dsts: ints(2, 4)}
+		cy.Rights = config.Rights{Sources: config.Nums(1, 2, 3), Dsts: config.Nums(2, 4)}
 		c.Users = append(c.Users, cy)
 		c.Locks = config.Locks{Panel: true}
 		c.SettingsPin = mkUser(t, "", "2468").Pin
