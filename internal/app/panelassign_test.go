@@ -122,7 +122,7 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 	// The key is the target's client, so it carries the target's rights and reaches only it.
 	key, _ := msg["key"].(string)
 	got := panelOf(t, a, to, key)
-	if fmt.Sprint(got["rights"].(map[string]any)["dsts"]) != "[2]" {
+	if fmt.Sprint(wireNs(got["rights"].(map[string]any)["dsts"])) != "[2]" {
 		t.Fatalf("rights %v", got["rights"])
 	}
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+from, key, ""); rec.Code != 404 {

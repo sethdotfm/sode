@@ -265,7 +265,7 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	rt := a.r()
 	for i := range plan.Items {
 		plan.Items[i].ID = i + 1
-		plan.Items[i].Preset = plan.Preset
+		plan.Items[i].Preset, plan.Items[i].PresetID = plan.Preset, plan.PresetID
 	}
 	n := len(plan.Items)
 	sink := &sinkResults{by: map[int]routeResult{}}

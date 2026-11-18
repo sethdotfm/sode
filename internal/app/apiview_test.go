@@ -12,7 +12,7 @@ import (
 // hidden or read-only. The router also has source 5 and destination 7.
 
 func viewRights(vis string) config.Rights {
-	return config.Rights{Sources: &[]int{1}, Dsts: &[]int{2}, Presets: &[]string{"Studio A"}, Visibility: vis}
+	return config.Rights{Sources: config.Nums(1), Dsts: config.Nums(2), Presets: &[]string{"studio-a"}, Visibility: vis}
 }
 
 func viewApp(t *testing.T, vis string) (*App, string) {
@@ -83,11 +83,11 @@ func TestHiddenRightsDropPresetsNamingHiddenNumbers(t *testing.T) {
 	setup := func(vis string) (*App, string) {
 		a, _ := apiTestApp(t, func(c *config.Config) {
 			r := viewRights(vis)
-			r.Presets = &[]string{"Studio A", "Mixed", "Hidden src"}
+			r.Presets = &[]string{"studio-a", "mixed", "hidden-src"}
 			c.APIClients[0].Rights = r
 			c.Presets = append(c.Presets,
-				config.Preset{Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
-				config.Preset{Name: "Hidden src", Items: []config.PresetItem{presetItem(5, nil, 2)}})
+				config.Preset{ID: "mixed", Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
+				config.Preset{ID: "hidden-src", Name: "Hidden src", Items: []config.PresetItem{presetItem(5, nil, 2)}})
 		})
 		return a, botKey(t, a)
 	}

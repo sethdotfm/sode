@@ -54,7 +54,7 @@ func TestETagListWeakStarAndOtherRights(t *testing.T) {
 	for _, p := range []string{"/api/v1/tally", "/api/v1/names"} {
 		_, wide := ifNone(a, p, bot, "")
 		cfg := a.r().cfg
-		cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]int{1}, Sources: &[]int{1}}
+		cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: config.Nums(1), Sources: config.Nums(1)}
 		if err := a.ApplyConfig(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -103,7 +103,7 @@ func TestPanelReadETagMovesWithRightsAndDefaultArtwork(t *testing.T) {
 	}
 
 	cfg := a.r().cfg
-	cfg.APIClients[0].Rights = config.Rights{Sources: &[]int{1}}
+	cfg.APIClients[0].Rights = config.Rights{Sources: config.Nums(1)}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 	}
 
 	cfg = a.r().cfg
-	cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]int{1}}
+	cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: config.Nums(1)}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ func TestTallyETagMovesWithRouteLevelsAndRouter(t *testing.T) {
 	}
 
 	cfg = a.r().cfg
-	cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]int{1}}
+	cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: config.Nums(1)}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}

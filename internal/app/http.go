@@ -302,9 +302,10 @@ func (a *App) serveTake(c *client, m *inMsg) {
 		n := len(m.Items)
 		a.command(c, takeWhy(m.Items), "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
 	}
-	if name := cleanPresetName(m.Preset); name != "" {
+	name, id := cleanPresetName(m.Preset), cleanPresetName(m.PresetID)
+	if name != "" || id != "" {
 		for i := range m.Items {
-			m.Items[i].Preset = name
+			m.Items[i].Preset, m.Items[i].PresetID = name, id
 		}
 	}
 	go func() {
@@ -352,7 +353,8 @@ type inMsg struct {
 	ClearPin   bool               `json:"clearPin"`
 	ID         int                `json:"id"` // echoed by unlock and save replies
 	Items      []routeReq         `json:"items"`
-	Preset     string             `json:"preset"` // take: the preset that was fired, if any
+	Preset     string             `json:"preset"`   // take: the preset that was fired, if any
+	PresetID   string             `json:"presetId"` // ...and its hidden id
 	Sets       []config.FilterSet `json:"sets"`
 	Prefs      map[string]string  `json:"prefs"`
 	FilterSets []config.FilterSet `json:"filterSets"`
