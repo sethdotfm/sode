@@ -111,14 +111,14 @@ func TestChromeEditorFixedDests(t *testing.T) {
 			} `json:"cells"`
 		} `json:"pages"`
 		Settings struct {
-			FixedDests []int `json:"fixedDests"`
+			FixedDests []config.Ref `json:"fixedDests"`
 		} `json:"settings"`
 	}
 	raw := apiSend(a, "GET", "/api/v1/panels/"+id, ana, "").Body.Bytes()
 	if err := json.Unmarshal(raw, &stored); err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(stored.Settings.FixedDests) != fmt.Sprint([]int{simDst, other}) {
+	if !refsAre(&stored.Settings.FixedDests, simDst, other) {
 		t.Errorf("fixedDests not stored in order: %s", raw)
 	}
 	kept := false

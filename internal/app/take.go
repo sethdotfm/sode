@@ -29,6 +29,8 @@ type routeReq struct {
 	Group  string `json:"-"` // set by take for confirms of more than one route
 	GroupN int    `json:"-"`
 	Preset string `json:"-"` // set by the take handler: the preset this route came from (cleanPresetName)
+	// PresetID is that preset's hidden id, which Rights check, so a rename keeps who can fire it.
+	PresetID string `json:"-"`
 	// NoCheck: use the cache for Prev instead of reading dst first.
 	NoCheck bool `json:"-"`
 	// Stage: wire levels sent in a native group salvo (fire.go); other levels go as
@@ -383,7 +385,7 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 	} else if req.Retry != nil {
 		w.why.Reason = swp08.ReasonRetry
 	}
-	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, Prev: [][2]int{}}
+	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, PresetID: req.PresetID, Prev: [][2]int{}}
 	if c.api != nil {
 		e.setActor(c.api.Actor)
 		e.Panel, e.Instance = a.panelNames(c.api.Actor)

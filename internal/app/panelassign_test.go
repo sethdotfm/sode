@@ -122,7 +122,7 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 	// The key is the target's client, so it carries the target's rights and reaches only it.
 	key, _ := msg["key"].(string)
 	got := panelOf(t, a, to, key)
-	if fmt.Sprint(got["rights"].(map[string]any)["dsts"]) != "[2]" {
+	if fmt.Sprint(wireNs(got["rights"].(map[string]any)["dsts"])) != "[2]" {
 		t.Fatalf("rights %v", got["rights"])
 	}
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+from, key, ""); rec.Code != 404 {
@@ -136,7 +136,7 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 		t.Fatalf("the old key ended: %d", rec.Code)
 	}
 	after := panelOf(t, a, to, cy)
-	if after["rev"] != before["rev"] || fmt.Sprint(after["settings"].(map[string]any)["fixedDests"]) != "[2]" || after["acts"] != "api" {
+	if after["rev"] != before["rev"] || fmt.Sprint(wireNs(after["settings"].(map[string]any)["fixedDests"])) != "[2]" || after["acts"] != "api" {
 		t.Fatalf("the target changed: %v -> %v", before, after)
 	}
 
@@ -565,7 +565,7 @@ func TestAssignToAUserModePanelMakesNoKey(t *testing.T) {
 		t.Fatalf("keys %d -> %d", keys, n)
 	}
 	after := panelOf(t, a, to, cy)
-	if after["rev"] != before["rev"] || after["acts"] != "session" || fmt.Sprint(after["settings"].(map[string]any)["fixedDests"]) != "[2]" {
+	if after["rev"] != before["rev"] || after["acts"] != "session" || fmt.Sprint(wireNs(after["settings"].(map[string]any)["fixedDests"])) != "[2]" {
 		t.Fatalf("the target changed: %v -> %v", before, after)
 	}
 	if row := lastRow(t, a, "assign"); !strings.Contains(row.Note, "Desk") || !strings.Contains(row.Note, "sign-in") {

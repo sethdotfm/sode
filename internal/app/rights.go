@@ -106,7 +106,7 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 	}
 	for _, it := range items {
 		switch {
-		case it.Preset != "" && !rt.AllowsPreset(it.Preset):
+		case (it.Preset != "" || it.PresetID != "") && !rt.AllowsPreset(it.PresetID):
 			if quiet {
 				return "preset is outside your rights"
 			}
