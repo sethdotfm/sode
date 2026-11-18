@@ -24,6 +24,9 @@ func legacyHello(a *App, p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
 	m := map[string]any{"t": "hello", "srcs": n.Srcs, "dsts": n.Dsts, "at": n.At}
+	if !a.router.savedAt.IsZero() {
+		m["savedAt"] = a.router.savedAt
+	}
 	m["tally"] = legacyTriples(a.router.tally)
 	m["protect"] = legacyTriples(a.router.protect)
 	m["status"] = a.status
