@@ -34,6 +34,9 @@ func (a *App) Activity(c *client) {
 	defer a.mu.Unlock()
 	if a.userOKMu(c, a.r().cfg) {
 		a.touchMu(c, a.now())
+		if c.u.step != nil {
+			a.feedOriginalMu(c, a.now())
+		}
 	}
 }
 
@@ -78,6 +81,17 @@ func (a *App) idleSweep() {
 	done := map[*session]bool{}
 	var jobs []heldJob
 	for cl := range a.clients {
+		if st := cl.u.step; st != nil {
+			if st.sess.token != "" {
+				open[tokenKey(st.sess.token)] = true
+			}
+			if j, ok := a.stepIdleMu(cl, cfg, now); ok {
+				jobs = append(jobs, j)
+			}
+			if cl.u.step != nil {
+				continue
+			}
+		}
 		s := cl.sessMu()
 		if s.token != "" {
 			open[tokenKey(s.token)] = true

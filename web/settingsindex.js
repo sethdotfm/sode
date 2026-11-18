@@ -286,6 +286,8 @@ export const DICT = {
   lock: ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
   'lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],
   'account-login': ['log in', 'login', 'sign in', 'signin', 'user', 'pin', 'account', 'session', 'tab', 'name'],
+  'account-stepin': ['step in', 'stepin', 'sign in', 'other user', 'another user', 'my pin', 'borrow', 'visit', 'account'],
+  'account-stepout': ['step out', 'stepout', 'sign out', 'return', 'back', 'account'],
   'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave'],
 
   // ---- Names
