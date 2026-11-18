@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allowed, planOutside, draftOf, rightsOf } from '../rightsrules.js';
+import { allowed, planOutside, draftOf, rightsOf, newEntry, accessReq } from '../rightsrules.js';
 import { rightsAllow, fixedDestsOf } from '../panelrules.js';
 
 const ref = (n, name) => ({ router: 'u1', n, ...(name ? { name } : {}) });
@@ -44,4 +44,16 @@ test('fixed destinations read as numbers from references or numbers', () => {
   assert.deepEqual(of([ref(12, 'MON 13'), 0, ref(40)]), [12, 0, 40]);
   assert.deepEqual(of([ref(2), 2]), [], 'a repeat reads as off');
   assert.deepEqual(of([{ router: 'u1' }]), []);
+});
+
+test("a user entry names that user's Me presets as well as Everyone presets", () => {
+  const e = newEntry({ presets: ['me1'] }, 1, {}, [
+    { id: 'p1', name: 'Wall' },
+    { id: 'me1', name: 'Mine' },
+  ]);
+  assert.equal(e.draft.presets.text, 'Mine');
+  e.dirty.add('rights');
+  e.draft.presets.text = 'Mine\nWall';
+  const r = accessReq({ entries: new Map([['user:1', e]]), users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 });
+  assert.deepEqual(r.users[0].rights.presets, ['me1', 'p1']);
 });

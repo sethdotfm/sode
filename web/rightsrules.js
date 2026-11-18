@@ -130,37 +130,39 @@ export const rightsTab = (id) => ({ tab: 'rights', pick: `user:${id}` });
 // changed ('rights', 'noAutoLock', 'scopes'). extra holds noAutoLock (a user) or scopes (Guest).
 // orig.rights is undefined for a row that never loaded. Untouched fields go back as loaded, so a save
 // never rewrites rights through the editor's text (and a number offset change cannot shift them).
+// presets: the [{id, name}] this entry can name, kept for the save.
 export const newEntry = (rights, off, extra = {}, presets = []) => ({
   orig: { rights, ...extra },
   draft: { ...draftOf(rights, off, presets), ...extra },
   dirty: new Set(),
+  presets,
 });
 
-function entryRights(e, off, levels, presets) {
+function entryRights(e, off, levels) {
   if (!e) return {};
   if (!e.dirty.has('rights')) return e.orig.rights ? { rights: e.orig.rights } : {};
-  return rightsOf(e.draft, off, levels, presets);
+  return rightsOf(e.draft, off, levels, e.presets);
 }
 
 // The rights part of a `users` save: {users: [{rights?, noAutoLock?}] in row order, apiClients,
 // guestRights?, guestScopes?} or {error}. A missing field tells the server to keep what it has.
 // No auto-lock and Guest scopes go only after an edit.
-export function accessReq({ entries, users, clients, off, levels, presets = [] }) {
+export function accessReq({ entries, users, clients, off, levels }) {
   const out = { users: [], apiClients: [] };
   for (const u of users) {
     const e = entries.get(`user:${u.rid}`);
-    const r = entryRights(e, off, levels, presets);
+    const r = entryRights(e, off, levels);
     if (r.error) return { error: `${u.name}: ${r.error}` };
     out.users.push({ ...(r.rights ? { rights: r.rights } : {}), ...(e?.dirty.has('noAutoLock') ? { noAutoLock: e.draft.noAutoLock } : {}) });
   }
   for (const c of clients) {
-    const r = entryRights(entries.get(`client:${c.rid}`), off, levels, presets);
+    const r = entryRights(entries.get(`client:${c.rid}`), off, levels);
     if (r.error) return { error: `${c.name}: ${r.error}` };
     out.apiClients.push({ name: c.name.trim(), scopes: c.scopes, rights: r.rights || {} });
   }
   if (entries.has('guest')) {
     const g = entries.get('guest');
-    const r = entryRights(g, off, levels, presets);
+    const r = entryRights(g, off, levels);
     if (r.error) return { error: `Guest: ${r.error}` };
     out.guestRights = r.rights || {};
     if (g.dirty.has('scopes')) out.guestScopes = g.draft.scopes;

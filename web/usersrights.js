@@ -11,10 +11,10 @@ const LISTS = [
   { kind: 'sources', title: 'Sources', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
   { kind: 'dsts', title: 'Destinations', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
   { kind: 'levels', title: 'Levels', hint: 'Level numbers start at 1, whatever the router calls its levels.' },
-  { kind: 'presets', title: 'Presets', hint: 'One Everyone preset name per line.', area: true },
+  { kind: 'presets', title: 'Presets', hint: "One preset name per line: an Everyone preset, or one of the user's Me presets.", area: true },
 ];
 const off = () => S.cfg?.numberOffset ?? 0;
-// Rights name presets by id; the Everyone presets give the names to type.
+// Rights name presets by id. The Everyone presets, and a user's own Me presets, give the names to type.
 const presets = () => S.cfg?.presets || [];
 
 const select = (id, options) => {
@@ -170,7 +170,7 @@ export function makeRightsTab({ users, clients, touched }) {
     },
     reset: () => entries.clear(),
     adoptUser(rid, u) {
-      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, presets()));
+      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, [...presets(), ...(u.presets || [])]));
     },
     adoptClient(rid, c) {
       entries.set(`client:${rid}`, newEntry(c.rights || {}, off(), {}, presets()));

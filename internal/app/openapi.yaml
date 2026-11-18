@@ -2784,6 +2784,7 @@ components:
         group: { type: string, description: Entries of one take of several routes share it }
         groupN: { type: integer, description: Routes in the Group; absent for a hidden caller }
         preset: { type: string, description: The preset this take was fired from }
+        presetId: { type: string, description: "That preset's hidden id, which Rights name" }
         panel: { type: string, description: "The panel whose page made the take: its name, else its short name. A Session-mode page names itself" }
         panelId: { type: string, description: "That panel's id, which a rename leaves; the Undo cell matches by it" }
         instance: { type: string, description: "The instance of that panel, its device name" }

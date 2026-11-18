@@ -1,8 +1,10 @@
 package app
 
 import (
+	"encoding/json"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -116,6 +118,48 @@ func TestSocketTakeChecksPresetByID(t *testing.T) {
 	if rs := takeResults(t, a, c, []routeReq{{ID: 2, Src: 7, Dst: 5, Levels: []int{1}, Preset: "Renamed", PresetID: id}}); len(rs) != 1 || !rs[0].OK {
 		t.Fatalf("preset by id refused: %+v", rs)
 	}
+}
+
+// The batch message carries presetId beside preset; without it a preset list refuses the take.
+func TestBatchMessagePresetIDReachesTheRightsCheck(t *testing.T) {
+	a, f, c := rightsApp(t, config.Rights{})
+	cfg := a.r().cfg
+	for i := range cfg.Users {
+		if cfg.Users[i].Name == "Ana" {
+			cfg.Users[i].Rights = config.Rights{Presets: &[]string{"id1"}}
+		}
+	}
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	f.seed(5, 1, 0)
+	send := func(msg string) []routeResult {
+		t.Helper()
+		var m inMsg
+		if err := json.Unmarshal([]byte(msg), &m); err != nil {
+			t.Fatal(err)
+		}
+		done := make(chan struct{})
+		m.done = func() { close(done) }
+		a.serveTake(c, &m)
+		<-done
+		var out []routeResult
+		for {
+			select {
+			case b := <-c.send:
+				var r routeResult
+				if json.Unmarshal(b, &r) == nil && r.T == "takeResult" {
+					out = append(out, r)
+				}
+			case <-time.After(50 * time.Millisecond):
+				return out
+			}
+		}
+	}
+	if rs := send(`{"t":"batch","preset":"Show","presetId":"id1","items":[{"id":1,"src":7,"dst":5,"levels":[1]}]}`); len(rs) != 1 || !rs[0].OK {
+		t.Fatalf("preset by id refused: %+v", rs)
+	}
+	allFailed(t, send(`{"t":"batch","preset":"Show","items":[{"id":2,"src":7,"dst":5,"levels":[1]}]}`), 1, `preset "Show"`)
 }
 
 // refsAre: the list holds these numbers, in order.
