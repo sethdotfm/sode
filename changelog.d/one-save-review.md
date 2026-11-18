@@ -1,0 +1,3 @@
+- Settings has one Save with a review. The review shows each change with its old and new value, by topic and section. A change to a Critical field asks one PIN recheck. A change to the router connection asks Save and reconnect before anything is sent.
+- A save is partial. The changes your Role allows save, and the others stay on the page with the reason. When someone else saved a field after you opened Settings, the note shows their value, and the next Save writes yours.
+- Exit with unsaved changes names each section that has them.

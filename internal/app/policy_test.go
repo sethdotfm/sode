@@ -73,9 +73,7 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 }
 
 // Rules no page sends yet, with what will send them. Drop the entry when a page does.
-var notSentYet = map[string]string{
-	"settingsSave": "the one Save review in Settings",
-}
+var notSentYet = map[string]string{}
 
 // Literals that look like a message type in web/*.js but never reach the socket.
 var webNotMessage = map[string]string{

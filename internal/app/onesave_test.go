@@ -4,6 +4,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -220,5 +221,43 @@ func TestSectionRolesMatchPage(t *testing.T) {
 	}
 	if len(page) == 0 || !reflect.DeepEqual(page, sectionRoles) {
 		t.Fatalf("page %v\nserver %v", page, sectionRoles)
+	}
+}
+
+// The page's copy of saveFields, and its reconnect list against the guard:"router" tags.
+func TestSaveFieldsMatchPage(t *testing.T) {
+	b, err := os.ReadFile("../../web/savereviewrules.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	start := strings.Index(src, "SAVE_FIELDS = Object.freeze({")
+	end := strings.Index(src[start:], "});")
+	page := map[string]string{}
+	for _, m := range regexp.MustCompile(`(\w+): '([\w-]+)',`).FindAllStringSubmatch(src[start:start+end], -1) {
+		page[m[1]] = m[2]
+	}
+	if len(page) == 0 || !reflect.DeepEqual(page, saveFields) {
+		t.Fatalf("page %v\nserver %v", page, saveFields)
+	}
+	m := regexp.MustCompile(`RECONNECT = new Set\(\[([^\]]*)\]\)`).FindStringSubmatch(src)
+	if m == nil {
+		t.Fatal("no RECONNECT list in savereviewrules.js")
+	}
+	var reconnect []string
+	for _, k := range strings.Split(m[1], ",") {
+		reconnect = append(reconnect, strings.Trim(strings.TrimSpace(k), "'"))
+	}
+	var want []string
+	for _, f := range config.Fields() {
+		if f.Tag.Get("guard") == "router" {
+			name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+			want = append(want, name)
+		}
+	}
+	slices.Sort(reconnect)
+	slices.Sort(want)
+	if !slices.Equal(reconnect, want) {
+		t.Fatalf("page reconnects %v, guard:\"router\" fields are %v", reconnect, want)
 	}
 }
