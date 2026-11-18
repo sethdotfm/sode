@@ -110,7 +110,11 @@ func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
 			return true
 		}
 		e := edges[d.Kind]
-		return e != nil && d.N != nil && e.shows(uid, *d.N)
+		router := d.Router
+		if router == "" {
+			router = uid
+		}
+		return e != nil && d.N != nil && e.shows(router, *d.N)
 	})
 }
 

@@ -13,16 +13,23 @@ import (
 // create. A reference to another router stays as it is. It runs before validatePanel, so two entries for one item
 // are caught also when only one of them names the router.
 func (a *App) refEdges(p *Panel, old *Panel) {
-	uid := a.r().cfg.UID
-	a.mu.Lock()
-	src, dst := maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
-	a.mu.Unlock()
 	var oldSrc, oldDst *GridEdge
 	if old != nil {
 		oldSrc, oldDst = old.Sources, old.Destinations
 	}
-	p.Sources = refEdge(p.Sources, oldSrc, uid, src)
-	p.Destinations = refEdge(p.Destinations, oldDst, uid, dst)
+	p.Sources, p.Destinations = a.edgeRefer()(p.Sources, p.Destinations, oldSrc, oldDst)
+}
+
+// edgeRefer is refEdges over the UID and names taken now. The func takes no lock, so the panel store can call it
+// under its own (layoutRefer).
+func (a *App) edgeRefer() func(src, dst, oldSrc, oldDst *GridEdge) (*GridEdge, *GridEdge) {
+	uid := a.r().cfg.UID
+	a.mu.Lock()
+	srcNames, dstNames := maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
+	a.mu.Unlock()
+	return func(src, dst, oldSrc, oldDst *GridEdge) (*GridEdge, *GridEdge) {
+		return refEdge(src, oldSrc, uid, srcNames), refEdge(dst, oldDst, uid, dstNames)
+	}
 }
 
 // The edge is a copy, since a stored panel can share its slices.

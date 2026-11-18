@@ -27,14 +27,16 @@ func (a *App) pageRefer() func(pages []PanelPage, userID string) []PanelPage {
 	}
 }
 
-// layoutRefer makes a Buttons layout's cells router references for the panel's owner. Grid edges are not cells.
+// layoutRefer makes a layout's Buttons cells (for the panel's owner) or Grid edges router references.
 type layoutRefer func(l panelLayout, owner string) panelLayout
 
 func (a *App) layoutRefer() layoutRefer {
-	refer := a.pageRefer()
+	refer, edges := a.pageRefer(), a.edgeRefer()
 	return func(l panelLayout, owner string) panelLayout {
 		if layoutType(l.Type) == panelTypeButtons {
 			l.Pages = refer(l.Pages, owner)
+		} else {
+			l.Sources, l.Destinations = edges(l.Sources, l.Destinations, nil, nil)
 		}
 		return l
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -85,4 +86,45 @@ func TestGridPanelRefusesTwoReferencesToOneItem(t *testing.T) {
 			t.Errorf("%s: %d %s", edge, rec.Code, rec.Body.String())
 		}
 	}
+}
+
+// Push checkpoints and Checkpoint sets hold Grid edges as {router, n, name}. This is also true for a panel stored
+// with no router or name past the API's save.
+func TestGridCheckpointsAndSetsStoreRouterReferences(t *testing.T) {
+	a, _, _ := takerApp(t, nil)
+	uid := a.r().cfg.UID
+	ana := userKey(t, a, "Ana")
+	from := makePanel(t, a, ana, `{"name":"From","type":"grid","destinations":{"members":[{"n":2}]}}`)
+	to := makePanel(t, a, ana, `{"name":"To","type":"grid"}`)
+	p, _ := a.panels.get(to)
+	p.Sources = &GridEdge{Members: GridMembers{List: []config.Ref{{N: 1}}}, Items: []GridItem{{N: 1, Pinned: true}}}
+	if _, err := a.panels.replace(p); err != nil {
+		t.Fatal(err)
+	}
+	want := func(what string, r config.Ref, n int, name string) {
+		t.Helper()
+		if r.Router != uid || r.N != n || r.Name != name {
+			t.Fatalf("%s: %+v, want {router %s, n %d, name %s}", what, r, uid, n, name)
+		}
+	}
+
+	rec := apiSend(a, "POST", "/api/v1/panel-sets", ana, `{"name":"Show","panels":["`+to+`"]}`)
+	if rec.Code != 201 {
+		t.Fatalf("set: %d %s", rec.Code, rec.Body.String())
+	}
+	set, _ := a.panels.sets.get(apiBody(t, rec)["id"].(string))
+	want("set member", set.Entries[0].Sources.Members.List[0], 1, "CAM 1")
+	want("set item", set.Entries[0].Sources.Items[0].ref(), 1, "CAM 1")
+
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+from+"/push", ana, `{"targets":["`+to+`"]}`); rec.Code != 200 {
+		t.Fatalf("push: %d %s", rec.Code, rec.Body.String())
+	}
+	got, _ := a.panels.get(to)
+	want("pushed", got.Destinations.Members.List[0], 2, "MON 2")
+	cps, _ := a.panels.checkpoints(to)
+	if len(cps) != 1 {
+		t.Fatalf("checkpoints %v", cps)
+	}
+	want("checkpoint member", cps[0].Layout.Sources.Members.List[0], 1, "CAM 1")
+	want("checkpoint item", cps[0].Layout.Sources.Items[0].ref(), 1, "CAM 1")
 }
