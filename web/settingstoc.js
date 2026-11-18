@@ -1,16 +1,33 @@
-// Settings table of contents: pinned beside the column (wide), a strip (narrow), or the phone's list page; Ctrl+J/K steps sections.
-// initToc runs one time, after every section is added.
+// Settings sidebar: a tree of topics, router blocks and sections, pinned beside the column (wide), a strip (narrow), or
+// the phone's list page. Only the topic in view is open; Ctrl+J/K steps sections. initToc runs one time, after every
+// section is in the page.
 
 import { el } from './core.js';
 import { layout } from './layout.js';
 import { mac, chord } from './keys.js';
+import { topicTree, topicOf } from './settingstree.js';
+
+const sectionTitle = (s) => s.dataset.toc || s.querySelector('legend').textContent;
+// A section's topic band and router sub-heading (index.html: data-topic, data-router).
+const bandOf = (form, s) => form.querySelector(`.sode__topic[data-topic="${s.dataset.topic}"]`);
+const routerHeadOf = (form, s) => (s.dataset.router ? form.querySelector(`.sode__router[data-router="${s.dataset.router}"]`) : null);
 
 export function initToc({ form, sections, toc, isOpen }) {
-  // A clicked section stays marked until the scroll ends or the user scrolls, since near the bottom it is possible that it stops short.
+  const tree = topicTree(
+    sections.map((s) => ({
+      title: sectionTitle(s),
+      topic: s.dataset.topic,
+      topicTitle: bandOf(form, s)?.textContent.trim(),
+      router: s.dataset.router,
+      routerTitle: routerHeadOf(form, s)?.textContent.trim(),
+    })),
+  );
+  // A clicked entry stays marked until the scroll ends or the user scrolls, since near the bottom it is possible that it stops short.
   let picked = -1;
   // Set while Ctrl+J/K steps. Those scroll instantly and keep `picked`, so a held or spammed key walks one section per
   // press. It does not re-read the stale scroll position.
   let stepping = false;
+  let marked = -1;
 
   // Phone: one section at a time; the page is the list, Back returns. Only CSS keyed on data-page hides (base.css).
   const phone = () => layout() === 'phone';
@@ -29,28 +46,62 @@ export function initToc({ form, sections, toc, isOpen }) {
     reveal(node);
     node.focus();
   };
-  function go(i, instant) {
+  const smooth = (instant) => (instant || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+  // i: the section to mark; node: what to scroll to (a band or router sub-heading, or the section).
+  function go(i, instant, node = sections[i]) {
     if (phone()) return showPage(i);
     picked = i;
     stepping = instant;
     mark(i);
-    sections[i].scrollIntoView({ behavior: instant || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    node.scrollIntoView({ behavior: smooth(instant), block: 'start' });
   }
-  toc.replaceChildren(
-    ...sections.map((sec, i) => {
-      const b = el('button', 'pb-tab', sec.dataset.toc || sec.querySelector('legend').textContent);
-      b.type = 'button';
-      b.addEventListener('click', () => go(i, false));
-      return b;
-    }),
-  );
+
+  const entry = (cls, text, onClick) => {
+    const b = el('button', 'pb-tab ' + cls, text);
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  // What starts each section on the page: a topic's first section starts at its band, a router's at its sub-heading.
+  const anchors = sections.map((s, i) => {
+    const t = tree.find((x) => x.first === i);
+    if (t) return bandOf(form, s);
+    return tree.flatMap((x) => x.routers).some((r) => r.first === i) ? routerHeadOf(form, s) : s;
+  });
+  const secBtns = sections.map((s, i) => entry('sode__toc-sec', sectionTitle(s), () => go(i, false)));
+  const branches = tree.map((t) => {
+    const head = entry('sode__toc-topic', t.title, () => go(t.first, false, bandOf(form, sections[t.first])));
+    head.dataset.topic = t.id;
+    const kids = t.sections.map((i) => secBtns[i]);
+    for (const r of t.routers) {
+      const rb = entry('sode__toc-router', r.title, () => go(r.first, false, routerHeadOf(form, sections[r.first])));
+      rb.dataset.router = r.id;
+      for (const i of r.sections) secBtns[i].classList.add('sode__toc-sec--deep');
+      kids.push(rb, ...r.sections.map((i) => secBtns[i]));
+    }
+    return { head, kids };
+  });
+  toc.replaceChildren(...branches.flatMap((b) => [b.head, ...b.kids]));
+
   function mark(cur) {
-    [...toc.children].forEach((b, i) => {
+    marked = cur;
+    const at = topicOf(tree, cur);
+    branches.forEach((b, k) => {
+      const open = k === at.topic;
+      b.head.setAttribute('aria-expanded', String(open));
+      b.head.classList.toggle('sode__toc-open', open);
+      for (const kid of b.kids) {
+        kid.hidden = !open && !phone();
+        if (kid.dataset.router) kid.classList.toggle('sode__toc-open', open && kid.dataset.router === at.router);
+      }
+    });
+    secBtns.forEach((b, i) => {
       b.classList.toggle('active', i === cur);
       if (i === cur) b.setAttribute('aria-current', 'location');
       else b.removeAttribute('aria-current');
     });
   }
+  mark(0);
   let tocTick = false;
   function markSection() {
     tocTick = false;
@@ -59,7 +110,7 @@ export function initToc({ form, sections, toc, isOpen }) {
     // last section, since it is possible that it is too short to reach it.
     const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
     const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
-    mark(Math.max(atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));
+    mark(Math.max(atEnd ? sections.length - 1 : anchors.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));
   }
   window.addEventListener(
     'scroll',
@@ -89,7 +140,7 @@ export function initToc({ form, sections, toc, isOpen }) {
     const step = STEP[chord(e)];
     if (!step || e.target.closest?.('dialog, [role="dialog"], .pb-modal')) return;
     e.preventDefault();
-    const at = picked >= 0 ? picked : [...toc.children].findIndex((b) => b.classList.contains('active'));
+    const at = picked >= 0 ? picked : marked;
     go(Math.min(sections.length - 1, Math.max(0, at + step)), true);
   });
 
@@ -107,6 +158,14 @@ export function initToc({ form, sections, toc, isOpen }) {
       if (!phone() || form.dataset.page == null) return false;
       showPage(-1);
       return true;
+    },
+    goRouter(id) {
+      const r = tree.flatMap((t) => t.routers).find((x) => x.id === id);
+      if (r) go(r.first, false, routerHeadOf(form, sections[r.first]));
+    },
+    // A router's new title, for its sidebar entry.
+    renameRouter(id, title) {
+      for (const b of toc.querySelectorAll(`.sode__toc-router[data-router="${id}"]`)) b.textContent = title;
     },
   };
 }
