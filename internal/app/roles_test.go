@@ -52,6 +52,7 @@ type wsPeer struct {
 	ctx   context.Context
 	ws    *websocket.Conn
 	reads chan map[string]any
+	hello map[string]any // the last hello read
 }
 
 // dialPeer opens /ws, says hi as a main page and waits for the first lock state.
@@ -96,6 +97,9 @@ func (p *wsPeer) send(m map[string]any) {
 func (p *wsPeer) until(typ string) map[string]any {
 	p.t.Helper()
 	for m := range p.reads {
+		if m["t"] == "hello" {
+			p.hello = m
+		}
 		if m["t"] == typ {
 			return m
 		}
