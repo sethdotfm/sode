@@ -9,6 +9,7 @@ import { myDefaultButtons } from './mydefaults.js';
 import { profile, profileName, saveProfile } from './profile.js';
 import { PREFS } from './prefs.js';
 import { signInOffered } from './lockrules.js';
+import { initStepIn } from './stepindialog.js';
 
 // reindex: rebuilds the search index when a my-default button appears (made on the first profile).
 export function initDeviceSettings({ form, reindex }) {
@@ -128,6 +129,7 @@ export function initDeviceSettings({ form, reindex }) {
   $('account-transfer').addEventListener('click', () => emit('openTransfer', { scope: 'user', user: acctUser }));
   $('account-logout').addEventListener('click', () => emit('logout'));
   $('account-login').addEventListener('click', () => emit('login'));
+  initStepIn(); // after the access handler above, which it overrides while stepped in
   for (const s of form.querySelectorAll('select[data-pref]')) s.addEventListener('change', () => setPref(s.dataset.pref, s.value));
   return { renderPrefs };
 }

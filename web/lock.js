@@ -51,6 +51,7 @@ import {
   pinFreeView,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
+import { stepLock, noteStepState } from './stepin.js';
 import { createOwed } from './owed.js';
 import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
@@ -479,6 +480,7 @@ onMsg('userSignInResult', (m) => {
 });
 
 onMsg('lockState', (m) => {
+  noteStepState(m);
   if (owed.arrived(m)) return;
   if (settle) settle();
   const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
@@ -555,6 +557,13 @@ on('hello', () => {
 
 on('logout', () => signOutNow());
 
+// The original sign-in ended during a step-in: the pad says so.
+on('stepEnded', (m) => {
+  if (!m.note) return;
+  build();
+  say(m.note, true);
+});
+
 on('login', () => {
   if (!signInOffered(L) || V.mode !== MODE.PAGE) return;
   V = startSignIn(V, false);
@@ -626,7 +635,7 @@ on('localLock', localLock);
 // The Lock keeps the session: the server holds it, so a reload or another tab shows the pad
 // until this user's PIN resumes it. The token stays for that.
 function lockNow() {
-  if (!L.user) return;
+  if (!L.user || stepLock()) return;
   owed.owe();
   pin = '';
   clearTimeout(timer);

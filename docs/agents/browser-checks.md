@@ -86,3 +86,4 @@ Add a check:
 5. Keep checks few: each costs a Chrome start.
 
 The simulator starts with destination d routed from source d on every level (`SIM_*` options: docs/reference.md).
+- `stepin_browser_test.go`: `TestChromeStepInWritesNoSessionKeys`, Ana (persistent) steps in as Bo from Settings > My user. The five session keys stay as they were, although Bo's profile reaches the page. A reload is Ana again, and so is Step out.
