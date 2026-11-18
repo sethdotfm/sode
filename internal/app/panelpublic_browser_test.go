@@ -36,7 +36,7 @@ func TestChromePublicPanel(t *testing.T) {
 
 	ana := userKey(t, a, "Ana")
 	const other = 5
-	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Lobby","acts":"public","clientRights":{"dsts":[%d]},"cells":[
+	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Lobby","acts":"public","clientRights":{"dsts":[{"n":%d}]},"cells":[
 		{"r":1,"c":1,"kind":"destination","n":%d},
 		{"r":1,"c":2,"kind":"destination","n":%d},
 		{"r":1,"c":3,"kind":"source","n":%d},

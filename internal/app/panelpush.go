@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -93,6 +94,13 @@ func (s *panelStore) cpsLocked(id string) []panelCheckpoint {
 			if yaml.Unmarshal(b, &c) != nil {
 				c = nil
 			}
+			c = slices.DeleteFunc(c, func(cp panelCheckpoint) bool {
+				err := cp.Layout.noRouterProblem()
+				if err != nil {
+					log.Printf("panels: skipped checkpoint %s of %s: %v", cp.ID, id, err)
+				}
+				return err != nil
+			})
 		}
 	}
 	if s.cps == nil {
@@ -114,7 +122,7 @@ func (s *panelStore) checkpoints(id string) ([]panelCheckpoint, bool) {
 
 // applyLocked stores lay over panel id after keeping a checkpoint of what is there. A checkpoint
 // that cannot be written stops the change, so a Push is never unrecoverable. refer, when given, makes the
-// checkpoint's cells router references, so a panel stored with bare numbers is kept as references.
+// checkpoint's cells router references with the names the router has now.
 func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	p, ok := s.by[id]
 	if !ok {
@@ -252,7 +260,14 @@ func loadPanelSets(cfgPath string) *panelSetStore {
 		if yaml.Unmarshal(b, &f) != nil {
 			continue
 		}
+	sets:
 		for _, set := range f.Sets {
+			for _, e := range set.Entries {
+				if err := e.panelLayout.noRouterProblem(); err != nil {
+					log.Printf("panels: skipped Checkpoint set %s: %v", set.ID, err)
+					continue sets
+				}
+			}
 			if set.ID != "" {
 				s.by[set.ID] = set
 			}

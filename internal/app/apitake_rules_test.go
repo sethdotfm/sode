@@ -45,7 +45,7 @@ func TestAPIWBadRequests(t *testing.T) {
 }
 
 func TestAPIWRefusedWholeBeforeSending(t *testing.T) {
-	a, f, key := takerApp(t, func(c *config.Config) { c.APIClients[0].Rights = config.Rights{Dsts: config.Nums(2)} })
+	a, f, key := takerApp(t, func(c *config.Config) { c.APIClients[0].Rights = config.Rights{Dsts: nums(2)} })
 	defer startLog(t, a)()
 	n := f.sends()
 	rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]},{"src":4,"dst":5,"levels":[1]}]}`, nil)
@@ -73,7 +73,7 @@ func TestAPIWRefusedWholeBeforeSending(t *testing.T) {
 
 func TestAPIWUndoRestoresOutsideSources(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Sources: config.Nums(4), Dsts: config.Nums(2)}
+		c.APIClients[0].Rights = config.Rights{Sources: nums(4), Dsts: nums(2)}
 	})
 	f.seed(2, 1, 0)
 	first := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, nil))
@@ -179,7 +179,7 @@ func TestAPIWPresetRights(t *testing.T) {
 // nothing is sent. A preset that passes WholePreset only ever leaves out numbers the caller sees.
 func TestAPIWHiddenCallerCannotFirePresetListHides(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Sources: config.Nums(1), Dsts: config.Nums(2, 99), Presets: &[]string{"studio-a", "mixed", "gone"}, Visibility: config.VisHidden}
+		c.APIClients[0].Rights = config.Rights{Sources: nums(1), Dsts: nums(2, 99), Presets: &[]string{"studio-a", "mixed", "gone"}, Visibility: config.VisHidden}
 		c.Presets = append(c.Presets,
 			config.Preset{ID: "mixed", Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
 			config.Preset{ID: "gone", Name: "Gone", Items: []config.PresetItem{presetItem(1, nil, 99)}})

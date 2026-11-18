@@ -49,9 +49,9 @@ func TestChromeSeamKeylessAssignRunsFixedDestsThenKeyEnds(t *testing.T) {
 
 	ana := userKey(t, a, "Ana")
 	const other = 5
-	from := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[%d]}}`, other))
+	from := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[{"n":%d}]}}`, other))
 	to := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Studio B","acts":"api","slug":"studio-b","rows":4,"cols":8,"cells":[
-		{"r":1,"c":1,"kind":"source","n":%d},{"r":1,"c":2,"kind":"take"}],"settings":{"mode":"take","fixedDests":[%d,%d]}}`, simSrc, simDst, other))
+		{"r":1,"c":1,"kind":"source","n":%d},{"r":1,"c":2,"kind":"take"}],"settings":{"mode":"take","fixedDests":[{"n":%d},{"n":%d}]}}`, simSrc, simDst, other))
 	secret := instanceKey(t, a, from, ana, "Lobby")
 	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+from+"/key?instance=Lobby", ana, ""); rec.Code/100 != 2 {
 		t.Fatalf("revoke: %d %s", rec.Code, rec.Body.String())

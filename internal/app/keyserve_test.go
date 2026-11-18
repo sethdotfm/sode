@@ -361,11 +361,11 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	a := keyTestApp(t)
 	defer startLog(t, a)()
 	admin := adminClient(t, a)
-	srcs := *config.Nums(1, 2)
+	srcs := *nums(1, 2)
 	tr := true
 	err := saveUsers(a, admin, usersReq{
 		Users:       []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Sources: &srcs, Visibility: config.VisHidden}, NoAutoLock: &tr}, {ID: idOf(a, "Bo"), Name: "Bo"}},
-		GuestRights: &config.Rights{Dsts: config.Nums()},
+		GuestRights: &config.Rights{Dsts: nums()},
 		GuestScopes: &[]string{config.ScopeNames},
 	})
 	if err != nil {
@@ -430,10 +430,10 @@ func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	a := keyTestApp(t)
 	admin := adminClient(t, a)
 	tr := true
-	srcs := *config.Nums(7)
+	srcs := *nums(7)
 	if err := saveUsers(a, admin, usersReq{
 		Users:      []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", NoAutoLock: &tr, Rights: &config.Rights{Sources: &srcs}}, {ID: idOf(a, "Bo"), Name: "Bo"}},
-		APIClients: &[]config.APIClient{{Name: "PanelsBot", Rights: config.Rights{Dsts: config.Nums(42)}}},
+		APIClients: &[]config.APIClient{{Name: "PanelsBot", Rights: config.Rights{Dsts: nums(42)}}},
 	}); err != nil {
 		t.Fatal(err)
 	}

@@ -33,7 +33,7 @@ func TestPanelTakeWithSessionKeyNamesTheUser(t *testing.T) {
 
 func TestPanelTakeIsRefusedByTheServerOutsideRights(t *testing.T) {
 	a, f, key := sessionTaker(t, func(c *config.Config) {
-		c.Users[0].Rights = config.Rights{Dsts: config.Nums(2)}
+		c.Users[0].Rights = config.Rights{Dsts: nums(2)}
 	})
 	n := f.sends()
 	rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":5,"levels":[1]}]}`, nil)

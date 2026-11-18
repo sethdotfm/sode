@@ -171,7 +171,7 @@ func TestPanelUndoOutsideRights(t *testing.T) {
 	lifeCommit(t, a, func(c *config.Config) {
 		for i := range c.APIClients {
 			if c.APIClients[i].Name == p.Client {
-				c.APIClients[i].Rights.Dsts = config.Nums(4)
+				c.APIClients[i].Rights.Dsts = nums(4)
 			}
 		}
 	})

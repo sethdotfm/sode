@@ -133,7 +133,8 @@ func loadArtDefaults(cfgPath string) *artDefaultStore {
 	}
 	seen := map[string]bool{}
 	for _, x := range d.Defaults {
-		if x.check() != nil || !storedArtOK(x) || seen[x.key()] {
+		// A stored Source or Destination default names its router. Only a request can leave it out.
+		if x.check() != nil || x.Kind != artKindPreset && x.Router == "" || !storedArtOK(x) || seen[x.key()] {
 			log.Printf("default artwork: skipped a default that is not valid or repeats an item: %+v", x)
 			continue
 		}

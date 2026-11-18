@@ -70,7 +70,7 @@ func TestImportWritesAPIAuditRows(t *testing.T) {
 		c.APIClients = []config.APIClient{{Name: "ImpBot", Scopes: []string{config.ScopeNames}}}
 		c.GuestAPIScopes = []string{config.ScopeNames}
 		c.Users[0].NoAutoLock = true
-		c.Users[1].Rights = config.Rights{Sources: config.Nums(1)}
+		c.Users[1].Rights = config.Rights{Sources: &[]config.Ref{{Router: c.UID, N: 1}}}
 	})
 	c := adminClient(t, a)
 	c.secure = true

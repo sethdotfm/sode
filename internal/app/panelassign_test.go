@@ -17,7 +17,7 @@ import (
 
 // REST and stream seam for Assign: a held instance stream, a Trusted user, a target that acts as an API client.
 
-const assignTarget = `{"name":"Studio B","acts":"api","clientRights":{"sources":[1,2],"dsts":[2]},"settings":{"mode":"take","fixedDests":[2]}}`
+const assignTarget = `{"name":"Studio B","acts":"api","clientRights":{"sources":[{"n":1},{"n":2}],"dsts":[{"n":2}]},"settings":{"mode":"take","fixedDests":[{"n":2}]}}`
 
 // assignHold holds an instance stream like the panel page and hands back every line after the first.
 func assignHold(t *testing.T, a *App, id, key, device string) <-chan map[string]any {
@@ -550,7 +550,7 @@ func TestAssignToAUserModePanelMakesNoKey(t *testing.T) {
 	defer startLog(t, a)()
 	cy := userKey(t, a, "Cy")
 	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
-	to := makePanel(t, a, cy, `{"name":"Desk","slug":"desk","settings":{"mode":"take","fixedDests":[2]}}`)
+	to := makePanel(t, a, cy, `{"name":"Desk","slug":"desk","settings":{"mode":"take","fixedDests":[{"n":2}]}}`)
 	lobby := assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
 	before, keys := panelOf(t, a, to, cy), len(a.keys.list())
 
@@ -608,7 +608,7 @@ func TestAssignToABothPanelHonoursTheChoice(t *testing.T) {
 func TestAssignSendsNoKeyDownAStreamWhoseKeyEnded(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
-	from := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	from := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	to := makePanel(t, a, cy, assignTarget)
 	lines := assignHold(t, a, from, publicKeyOf(t, a, from), "Wall")
 	a.endPublicKeys(from)

@@ -180,7 +180,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":3,"cells":[
 		{"r":1,"c":1,"kind":"destination","n":8},
 		{"r":1,"c":2,"kind":"take"},
-		{"r":2,"c":3,"kind":"destination","n":5}],"settings":{"fixedDests":[%d]}}`, simDst))
+		{"r":2,"c":3,"kind":"destination","n":5}],"settings":{"fixedDests":[{"n":%d}]}}`, simDst))
 
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
