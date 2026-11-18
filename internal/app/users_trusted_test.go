@@ -55,7 +55,7 @@ func TestTrustedSavesWithoutPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg
-	cfg.LevelColors = []string{"#aabbcc"}
+	cfg.BrandText = "Studio B"
 	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "presets"}} {
 		if err := admitMsg(a, c, m); err != nil {
 			t.Fatalf("%s refused a trusted user: %v", m.T, err)

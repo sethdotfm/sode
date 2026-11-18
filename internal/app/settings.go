@@ -217,7 +217,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
-	return "a change to these settings needs an Administrator signed in on this browser: the router, levels, name settings, fire mode, trusted proxies, the Wait after wrong PINs switch and the locks"
+	return "a change to these settings needs an Administrator signed in on this browser: Level colors, Confirm and results, the Routers topic, Access and Server"
 }
 func (guardedErr) As(target any) bool {
 	if r, ok := target.(*roleErr); ok {
@@ -227,15 +227,16 @@ func (guardedErr) As(target any) bool {
 	return false
 }
 
-// trustedMayNotChange: fields a trusted user cannot change (guard roles "router" and
-// "pin"). One group is the router and how it is read (reconnects, cuts takes). The other is
-// what would weaken admin guards: trustedProxies (forge addresses in logs), pinWaits
-// (no waits after wrong PINs) and how confirms are fired. next is compared normalized.
+// trustedMayNotChange: the config message keeps the one Save's section rule (onesave.go), so a
+// Trusted user changes only fields of sections a Trusted user edits. next is compared
+// normalized.
 func trustedMayNotChange(live, next config.Config) error {
 	n := next.Clone()
 	n.Normalize()
-	if config.Changed(live, n, "router", "pin") {
-		return guardedErr{}
+	for key, sec := range saveFields {
+		if fieldRefusal(config.RoleTrusted, sec) != "" && string(fieldJSON(live, key)) != string(fieldJSON(n, key)) {
+			return guardedErr{}
+		}
 	}
 	return nil
 }

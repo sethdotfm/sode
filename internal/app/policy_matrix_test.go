@@ -71,6 +71,8 @@ var (
 	trustedRule = [nStates]error{pl, ro, nil, ro, nil, nil, pl, nil, ro}
 	adminRule   = [nStates]error{pl, ro, ro, ro, ro, nil, pl, nil, ro}
 	selfRule    = [nStates]error{pl, ro, nil, nil, nil, nil, pl, nil, ro}
+	// a Standard user's rule without the main lock
+	standardRule = [nStates]error{pl, nil, nil, nil, nil, nil, pl, nil, nil}
 )
 
 // One row per policy rule. A rule added to or removed from the table fails until its row
@@ -84,6 +86,8 @@ var policyExpect = map[string][nStates]error{
 	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,
 
 	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
+
+	"settingsSave": standardRule,
 
 	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,
