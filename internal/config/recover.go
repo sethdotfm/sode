@@ -35,13 +35,6 @@ func MakeAdministrator(path, name, pin string) (created bool, err error) {
 	if !found && len(c.Users) >= MaxUsers {
 		return false, fmt.Errorf("there are %d users, the limit: give the name of a user that exists", MaxUsers)
 	}
-	if c.SignInMode != SignInUsername {
-		for _, o := range c.Users {
-			if o.ID != u.ID && o.Len == len(pin) && CheckPin(o.Pin, pin) {
-				return false, fmt.Errorf("sign-in is PIN only and %s has that PIN: use a different PIN", o.Name)
-			}
-		}
-	}
 	h, err := HashPin(pin)
 	if err != nil {
 		return false, err

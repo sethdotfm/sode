@@ -315,7 +315,7 @@ func TestHardeningOverWebSocket(t *testing.T) {
 	send, until := dial(nil)
 	send(map[string]any{"t": "hi", "page": "main"})
 	until("lockState")
-	send(map[string]any{"t": "userUnlock", "pin": "1234", "id": 1})
+	send(map[string]any{"t": "userUnlock", "user": "Ana", "pin": "1234", "id": 1})
 	tok, _ := until("userUnlockResult")["token"].(string)
 	if tok == "" {
 		t.Fatal("no token")
@@ -339,7 +339,7 @@ func TestHardeningOverWebSocket(t *testing.T) {
 		t.Fatal("the Advanced Settings PIN changed")
 	}
 
-	send2(map[string]any{"t": "userUnlock", "pin": "567890", "id": 2})
+	send2(map[string]any{"t": "userUnlock", "user": "Bo", "pin": "567890", "id": 2})
 	until2("userUnlockResult")
 	a.mu.Lock()
 	var tokens []string

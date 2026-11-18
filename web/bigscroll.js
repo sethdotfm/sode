@@ -9,6 +9,7 @@ import { thumbFor, thumbAt, dragTo, pageDir, wheelPx } from './bigscrollrules.js
 // entries go before a broader big one.
 export const SCROLLERS = [
   ['.sode__search .sode__menu', 'y', 'little'],
+  ['.sode-namepick__list', 'y', 'little'],
   ['.sode__menu', 'y'],
   ['.sode__found', 'y'],
   ['.sode__scroll', 'y'],

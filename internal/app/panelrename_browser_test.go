@@ -54,6 +54,7 @@ func TestChromeRenameARunningPanelPageFromThePanelsPage(t *testing.T) {
 
 	b.open(srv.URL + "/panels")
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(`document.querySelector('.sode-lock__key[data-key="` + string(d) + `"]').click()`)
 	}

@@ -32,6 +32,7 @@ func TestChromePanelWatchToast(t *testing.T) {
 
 	b.open(srv.URL + "/panels")
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -116,6 +117,7 @@ func TestChromePanelOutageBanner(t *testing.T) {
 	// The Sode page is not locked here, so raise the sign-in pad the way the user chip does.
 	// The offer waits for the server's lock state, so it is repeated until the pad is up.
 	b.waitFor("PIN pad", `(import('/core.js').then((m) => m.emit('login')), !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent)`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

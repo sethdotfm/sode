@@ -41,9 +41,6 @@ import {
   chipShown,
   heldEnded,
   heldWho,
-  remembers,
-  prefillName,
-  focusName,
   wantsTab,
   hiToken,
   tokenHome,
@@ -381,33 +378,6 @@ test('a held Lock cancels the letter Lock', () => {
   assert.equal(lockArrived({ mode: MODE.LOCK, back: 'page' }, true), PAGE_VIEW);
 });
 
-test('username mode asks for a name, except when resuming a held Lock', async () => {
-  const { asksName, canSend, padDelay, signInMsg } = await import('../lockrules.js');
-  const pinOnly = { enforced: true, locked: true, mode: 'pin', lens: [4] };
-  const named = { enforced: true, locked: true, mode: 'username', lens: [4], held: false };
-  assert.equal(asksName(pinOnly), false);
-  assert.equal(asksName({}), false);
-  assert.equal(asksName(named), true);
-  assert.equal(asksName({ ...named, held: true, user: 'Ann' }), false);
-
-  // PIN only: the old rules and message, whatever the field holds
-  assert.equal(canSend(pinOnly, '1234', ''), true);
-  assert.equal(padDelay(pinOnly, '1234', ''), 0);
-  assert.deepEqual(signInMsg(pinOnly, { pin: '1234', id: 3, name: 'ann' }), { t: 'userUnlock', pin: '1234', id: 3, tab: false });
-
-  // Name and PIN: nothing sends, by hand or by itself, without a name
-  assert.equal(canSend(named, '1234', ''), false);
-  assert.equal(canSend(named, '1234', '  '), false);
-  assert.equal(canSend(named, '1234', 'ann'), true);
-  assert.equal(canSend(named, '123', 'ann'), false);
-  assert.equal(padDelay(named, '1234', ''), null);
-  assert.equal(padDelay(named, '1234', 'ann'), 0);
-  assert.deepEqual(signInMsg(named, { pin: '1234', id: 4, name: ' ann ' }), { t: 'userUnlock', user: 'ann', pin: '1234', id: 4, tab: false });
-  const held = { ...named, held: true, user: 'Ann' };
-  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, name: 'zed' }), { t: 'userUnlock', pin: '1234', id: 5, tab: false });
-  assert.equal(canSend(held, '1234', ''), true);
-});
-
 test('heldEnded: a held Lock that ends with nobody signed in was ended elsewhere; one that ends signed in was resumed', () => {
   assert.equal(heldEnded({ held: true }, { held: false, user: '' }), true);
   assert.equal(heldEnded({ held: true }, { held: false, user: 'Ana' }), false); // another tab's PIN resumed it
@@ -420,21 +390,6 @@ test('heldWho: this tab remembers whose Lock it is; a Lock that is gone forgets 
   assert.equal(heldWho('Ana', { user: '' }, { held: true }), 'Ana'); // reload or a later state
   assert.equal(heldWho('Ana', { user: '' }, { held: false }), '');
   assert.equal(heldWho('', { user: '' }, { held: true }), '');
-});
-
-test('remembers: only a sign-in without a browser-wide token keeps the username', () => {
-  assert.equal(remembers({ ok: true }), true);
-  assert.equal(remembers({ ok: true, token: 't', tab: true }), true);
-  assert.equal(remembers({ ok: true, token: 't' }), false); // Never sign out: the token already signs them in
-});
-
-test('prefillName and focusName: name mode fills the box, and then the pad takes the keys', () => {
-  assert.equal(prefillName({ mode: 'username', held: false }, 'ana'), 'ana');
-  assert.equal(prefillName({ mode: 'username', held: true }, 'ana'), '');
-  assert.equal(prefillName({ mode: 'pin', held: false }, 'ana'), '');
-  assert.equal(focusName({ mode: 'username', held: false }, 'ana'), false);
-  assert.equal(focusName({ mode: 'username', held: false }, ''), true);
-  assert.equal(focusName({ mode: 'pin', held: false }, ''), false);
 });
 
 test('byText names the user and the panel page that made a take', () => {

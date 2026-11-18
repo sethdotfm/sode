@@ -351,11 +351,11 @@ func TestLockOverWebSocket(t *testing.T) {
 	if m := until("lockState"); m["locked"] != true {
 		t.Fatalf("clearHistory not refused: %v", m)
 	}
-	send(map[string]any{"t": "userUnlock", "pin": "123", "id": 1})
+	send(map[string]any{"t": "userUnlock", "user": "Ana", "pin": "123", "id": 1})
 	if m := until("userUnlockResult"); m["ok"] == true {
 		t.Fatalf("short PIN: %v", m)
 	}
-	send(map[string]any{"t": "userUnlock", "pin": "1234", "id": 2})
+	send(map[string]any{"t": "userUnlock", "user": "Ana", "pin": "1234", "id": 2})
 	if m := until("lockState"); m["locked"] != false || m["user"] != "Ana" {
 		t.Fatalf("after unlock: %v", m)
 	}
@@ -374,5 +374,18 @@ func TestLockOverWebSocket(t *testing.T) {
 	}
 }
 
-// UserUnlock signs in by PIN alone (PIN only mode).
-func (a *App) UserUnlock(c *client, pin string) error { return a.UserUnlockAs(c, "", pin) }
+// UserUnlock signs in as the one user whose PIN this is, so tests need not name them. Test PINs
+// are unique; with no match or several, the name is left empty and the try is a wrong one.
+func (a *App) UserUnlock(c *client, pin string) error {
+	name := ""
+	for _, u := range a.r().cfg.Users {
+		if u.Len == len(pin) && config.CheckPin(u.Pin, pin) {
+			if name != "" {
+				name = ""
+				break
+			}
+			name = u.Name
+		}
+	}
+	return a.UserUnlockAs(c, name, pin)
+}

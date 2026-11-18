@@ -35,6 +35,7 @@ func TestChromePanelLockBarFloats(t *testing.T) {
 
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the plain link asks for a sign-in", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -65,6 +66,7 @@ func TestChromePanelLockBarFloats(t *testing.T) {
 	if got := b.eval(head); got != headIn {
 		t.Fatalf("signing out moved the header: signed in %v, signed out %v", headIn, got)
 	}
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

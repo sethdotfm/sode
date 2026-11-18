@@ -67,6 +67,7 @@ const gridMessage = `(document.querySelector('.sode-gridpanel__msg .sode__banner
 
 func signInOnPad(b *tab) {
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

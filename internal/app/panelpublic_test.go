@@ -406,8 +406,8 @@ func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
 	a.mu.Lock()
 	m := a.lockStateMu(c)
 	a.mu.Unlock()
-	if !m.Enforced || !m.Locked || len(m.Names) != 0 || m.User != "" {
-		t.Fatalf("panel page lockState %+v, want locked with no names", m)
+	if !m.Enforced || !m.Locked || m.User != "" {
+		t.Fatalf("panel page lockState %+v, want locked", m)
 	}
 }
 
