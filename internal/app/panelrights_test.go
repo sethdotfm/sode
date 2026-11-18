@@ -20,7 +20,7 @@ func TestPanelTakeOnALevelOutsideRightsIsRefusedByTheServer(t *testing.T) {
 // The page mirrors the Rights before arming, so GET /panels/{id} tells it the caller's own.
 func TestPanelReadCarriesTheCallersRights(t *testing.T) {
 	a, _, key := sessionTaker(t, func(c *config.Config) {
-		c.Users[0].Rights = config.Rights{Dsts: ints(2), Visibility: config.VisHidden}
+		c.Users[0].Rights = config.Rights{Dsts: config.Nums(2), Visibility: config.VisHidden}
 	})
 	id := makePanel(t, a, key, `{"name":"R"}`)
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, key, nil)

@@ -18,14 +18,14 @@ func (c *apiCtx) view() apiView { return apiView{c.Rights} }
 
 func (v apiView) Hidden() bool { return v.rights.Hidden() }
 
-func (v apiView) Source(n int) bool       { return !v.Hidden() || v.rights.AllowsSource(n) }
-func (v apiView) Destination(n int) bool  { return !v.Hidden() || v.rights.AllowsDst(n) }
-func (v apiView) Preset(name string) bool { return !v.Hidden() || v.rights.AllowsPreset(name) }
+func (v apiView) Source(n int) bool      { return !v.Hidden() || v.rights.AllowsSource(n) }
+func (v apiView) Destination(n int) bool { return !v.Hidden() || v.rights.AllowsDst(n) }
+func (v apiView) Preset(id string) bool  { return !v.Hidden() || v.rights.AllowsPreset(id) }
 
 // WholePreset: the preset is visible by name and every source and destination it names is
 // visible, since its items would otherwise teach a hidden number.
 func (v apiView) WholePreset(p config.Preset) bool {
-	if !v.Preset(p.Name) {
+	if !v.Preset(p.ID) {
 		return false
 	}
 	for _, it := range p.Items {
@@ -75,8 +75,8 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 	}
 	// Now names the router's own answer, which can be any source.
 	e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[1] >= 0 && !v.Source(p[1]) })
-	if e.Preset != "" && !v.Preset(e.Preset) {
-		e.Preset = ""
+	if e.Preset != "" && !v.Preset(e.PresetID) {
+		e.Preset, e.PresetID = "", ""
 	}
 	e.GroupN = 0
 	return e, true

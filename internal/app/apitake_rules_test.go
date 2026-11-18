@@ -45,7 +45,7 @@ func TestAPIWBadRequests(t *testing.T) {
 }
 
 func TestAPIWRefusedWholeBeforeSending(t *testing.T) {
-	a, f, key := takerApp(t, func(c *config.Config) { c.APIClients[0].Rights = config.Rights{Dsts: ints(2)} })
+	a, f, key := takerApp(t, func(c *config.Config) { c.APIClients[0].Rights = config.Rights{Dsts: config.Nums(2)} })
 	defer startLog(t, a)()
 	n := f.sends()
 	rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]},{"src":4,"dst":5,"levels":[1]}]}`, nil)
@@ -73,7 +73,7 @@ func TestAPIWRefusedWholeBeforeSending(t *testing.T) {
 
 func TestAPIWUndoRestoresOutsideSources(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Sources: ints(4), Dsts: ints(2)}
+		c.APIClients[0].Rights = config.Rights{Sources: config.Nums(4), Dsts: config.Nums(2)}
 	})
 	f.seed(2, 1, 0)
 	first := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, nil))
@@ -166,7 +166,7 @@ func TestAPIWPreset(t *testing.T) {
 
 func TestAPIWPresetRights(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Presets: &[]string{"Other"}}
+		c.APIClients[0].Rights = config.Rights{Presets: &[]string{"other"}}
 	})
 	n := f.sends()
 	wantErr(t, apiPost(a, "/api/v1/presets/everyone/Studio%20A", key, ``, nil), 403, "outside_rights")
@@ -179,10 +179,10 @@ func TestAPIWPresetRights(t *testing.T) {
 // nothing is sent. A preset that passes WholePreset only ever leaves out numbers the caller sees.
 func TestAPIWHiddenCallerCannotFirePresetListHides(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Sources: &[]int{1}, Dsts: &[]int{2, 99}, Presets: &[]string{"Studio A", "Mixed", "Gone"}, Visibility: config.VisHidden}
+		c.APIClients[0].Rights = config.Rights{Sources: config.Nums(1), Dsts: config.Nums(2, 99), Presets: &[]string{"studio-a", "mixed", "gone"}, Visibility: config.VisHidden}
 		c.Presets = append(c.Presets,
-			config.Preset{Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
-			config.Preset{Name: "Gone", Items: []config.PresetItem{presetItem(1, nil, 99)}})
+			config.Preset{ID: "mixed", Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
+			config.Preset{ID: "gone", Name: "Gone", Items: []config.PresetItem{presetItem(1, nil, 99)}})
 	})
 	f.seed(2, 3, 0)
 	n := f.sends()

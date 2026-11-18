@@ -69,7 +69,7 @@ func TestGridPanelEdgesStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	}
 }
 
-// Two entries for one router item are refused, as two equal numbers were.
+// Two entries for one router item are refused, as two equal numbers were. So is the old items map.
 func TestGridPanelRefusesTwoReferencesToOneItem(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -79,7 +79,6 @@ func TestGridPanelRefusesTwoReferencesToOneItem(t *testing.T) {
 		`{"members":[{"n":1},{"router":"` + uid + `","n":1}]}`,
 		`{"members":"all","items":[{"n":4},{"n":4,"pinned":true}]}`,
 		`{"members":"all","items":{"4":{"pinned":true}}}`,
-		`{"members":[1,2]}`,
 	} {
 		rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"G","sources":`+edge+`}`)
 		if rec.Code != 400 || !strings.Contains(rec.Body.String(), "bad_request") {

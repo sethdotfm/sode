@@ -142,7 +142,8 @@ function pressPresetOne(st, cell, env, now) {
   const name = presetName(env, cell);
   const all = env.presets?.get(presetKey(cell.scope, name));
   if (!all?.length) return fail(st, { code: 'no-preset', name }, now);
-  if (!rightsAllow(env.rights, 'presets', name)) return fail(st, { code: 'outside-rights', what: 'preset', name, quiet: quiet(env) }, now);
+  if (!rightsAllow(env.rights, 'presets', env.presetIds?.get(presetKey(cell.scope, name))))
+    return fail(st, { code: 'outside-rights', what: 'preset', name, quiet: quiet(env) }, now);
   const items = presetItems(st, all);
   if (!items.length) return fail(st, { code: 'preset-no-fixed', name }, now);
   const dsts = new Set(items.flatMap((it) => it.dsts));

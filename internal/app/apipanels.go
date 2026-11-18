@@ -279,7 +279,11 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if p.Type == panelTypeGrid {
 		a.refEdges(&p, nil)
 	}
-	if err := validatePanel(&p); err != nil {
+	err := validatePanel(&p)
+	if err == nil {
+		err = a.nameFixed(p.Settings)
+	}
+	if err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
@@ -355,7 +359,11 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if p.Type == panelTypeGrid {
 		a.refEdges(&p, &old)
 	}
-	if err := validatePanel(&p); err != nil {
+	err := validatePanel(&p)
+	if err == nil {
+		err = a.nameFixed(p.Settings)
+	}
+	if err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
@@ -452,7 +460,11 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
 	c.Art, c.Rev, c.Slug = nil, 0, ""
-	if err := validatePanel(&c); err != nil {
+	err := validatePanel(&c)
+	if err == nil {
+		err = a.nameFixed(c.Settings)
+	}
+	if err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
