@@ -161,3 +161,21 @@ func TestV1MoveTakesLogsFromElsewhere(t *testing.T) {
 		t.Errorf("keep.jsonl moved: %v", err)
 	}
 }
+
+// v1's image kept its logs beside the config. They move even when this build reads other env names.
+func TestV1MoveTakesImageLogsWithoutPaths(t *testing.T) {
+	dir := t.TempDir()
+	writeTree(t, dir, []string{"config.yaml", "history.jsonl", "sent.jsonl", "sent.1.jsonl", "uptime.jsonl"}, func(n string) string { return "# " + n })
+	var moved string
+	logsOf(t, func() {
+		var err error
+		if moved, err = MoveV1Files(filepath.Join(dir, "config.yaml")); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, n := range []string{"history.jsonl", "sent.jsonl", "sent.1.jsonl", "uptime.jsonl"} {
+		if _, err := os.Stat(filepath.Join(moved, n)); err != nil {
+			t.Errorf("%s: %v", n, err)
+		}
+	}
+}

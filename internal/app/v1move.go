@@ -11,12 +11,13 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// v1Names: every file and directory Sode keeps beside the config. Keep in step with the stores'
-// path constants (tokens.go, apikeys.go, panelstore.go and the rest).
+// v1Names: what v1.8 wrote beside the config, with the image's log files. It is v1's list, not
+// this build's: never rename or drop an entry when a v2 store or env name changes.
 var v1Names = []string{
 	"tokens.json", "keys.json", "keys-ended.json",
-	panelsDir, panelSetsDir, templatesDir, watchFile,
-	iconLibFile, iconLibDir, artDefaultsFile, artDefaultsDir,
+	"panels", "panelsets", "templates", "panelwatch.yaml",
+	"icons.yaml", "icons", "artdefaults.yaml", "artdefaults.art",
+	"history.jsonl", "sent.jsonl", "uptime.jsonl",
 }
 
 // MoveV1Files moves a v1 install's files into a v1 directory beside the config, so v2 starts as a
