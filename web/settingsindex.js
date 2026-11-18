@@ -1,12 +1,6 @@
 // Settings search: pure, no imports (Node-tested), own scorer because core.js `search` needs the DOM.
-// RULE: a new settings section needs an entry in DICT under its slug (see `slug`); settingsindex.test.mjs fails otherwise.
+// RULE: a new settings section needs an entry in DICT under its data-section slug; settingsindex.test.mjs fails otherwise.
 // Settings are keyed by their control's id; DICT ids that do not exist (yet) are ignored.
-
-export const slug = (s) =>
-  String(s)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
 
 const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
@@ -56,8 +50,8 @@ export const DICT = {
     'import',
     'export',
   ],
-  'global-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'shared settings', 'appearance', 'preferences'],
-  'router-source-destination-names': [
+  'everyone-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'shared settings', 'appearance', 'preferences'],
+  'router-names': [
     'names',
     'source names',
     'destination names',
@@ -71,7 +65,11 @@ export const DICT = {
     'truncate',
   ],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
-  takes: ['take', 'patch', 'route', 'confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'default levels', 'resync', 'reread', 'delay', 'safety'],
+  takes: ['take', 'patch', 'route', 'default levels', 'resync', 'reread', 'multi destination', 'fire mode', 'salvo group'],
+  confirm: ['confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'delay', 'safety', 'result', 'success', 'banner', 'dismiss'],
+  routers: ['router', 'routers', 'router list', 'ultrix', 'matrix', 'block'],
+  panels: ['panel', 'panels', 'new panel', 'authentication', 'sign in', 'sode panels'],
+  'run-setup-again': ['setup', 'set up', 'wizard', 'first run', 'start again', 'fresh install'],
   branding: ['brand', 'logo', 'name', 'title', 'border', 'colour', 'color', 'icon', 'identify', 'favicon', 'tab'],
   'router-matrix': [
     'router',
@@ -104,8 +102,7 @@ export const DICT = {
     'audio',
     'va',
   ],
-  'server-backup': ['server configuration', 'config file', 'config.yaml', 'backup', 'restore', 'export', 'import', 'secrets', 'pins', 'download', 'upload'],
-  access: [
+  locks: [
     'password',
     'pin',
     'lock',
@@ -183,6 +180,12 @@ export const DICT = {
     'another site',
     'studio',
     'settings file',
+    'server configuration',
+    'config file',
+    'config.yaml',
+    'server backup',
+    'secrets',
+    'pins',
     'save',
     'load',
     'presets',
@@ -192,7 +195,6 @@ export const DICT = {
   // Sections for other branches to add later; ignored until they exist.
   salvos: ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
   'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
-  grids: ['grid', 'grids', 'panel', 'panels', 'tablet', 'buttons'],
 
   // ---- This browser / Defaults
   ...both('theme', ['dark', 'light', 'colour', 'color', 'mode', 'night', 'appearance', 'theme', 'dark mode', 'light mode']),
@@ -305,7 +307,7 @@ export const DICT = {
   // ---- Level colors
   'cfg-colors-reset': ['reset', 'default colours', 'default colors', 'restore'],
 
-  // ---- Takes
+  // ---- Takes and Confirm and results
   'cfg-default': ['default levels', 'levels', 'all levels', 'which levels', 'preselect', 'v a', 'video audio'],
   'cfg-dismiss': ['banner', 'result', 'success', 'dismiss', 'close', 'auto', 'seconds', 'timeout', 'progress', 'notification'],
   'cfg-lockout': ['confirm', 'lockout', 'letter', 'delay', 'ms', 'milliseconds', 'confirm dialog', 'wait', 'safety', 'accidental'],
@@ -328,7 +330,7 @@ export const DICT = {
   'cfg-lvlnum': ['level numbering', 'level', 'numbering', 'number', 'v', 'va', 'video', 'zero', '0', '1', 'start'],
   'cfg-numoff': ['number', 'numbers', 'offset', 'start at 0', 'start at 1', 'zero', 'one', 'sources', 'destinations', 'numbering', 'index'],
 
-  // ---- Access
+  // ---- Locks
   'cfg-pin': ['pin', 'password', 'passcode', 'lock', 'secret', 'admin', 'protect settings', 'security', 'change pin'],
   'cfg-pin2': ['pin', 'password', 'confirm', 'repeat', 'retype', 'again'],
   'cfg-pin-clear': ['remove pin', 'delete pin', 'no pin', 'unlock', 'disable', 'password off', 'clear'],
@@ -397,19 +399,31 @@ function wordScore(t, w) {
 
 const top = (t, ws) => ws.reduce((m, w) => Math.max(m, wordScore(t, w)), 0);
 
+// Where a hit is, for its line in the results: the topic, the router for a per-router section, then the section.
+export function hitWhere(h) {
+  const at = [h.topic, h.router].filter(Boolean);
+  if (h.kind !== 'section') at.push(h.section);
+  return at.join(' › ');
+}
+
+// sections: { id, title, topic?, router?, settings }. A topic's name finds its sections, weaker than a section's.
 export function buildIndex(sections, dict = DICT) {
   const out = [];
   for (const sec of sections) {
     const sw = words(sec.title);
+    const pw = words(sec.topic || '');
     const mk = (kind, id, label) => ({
       kind,
       id,
       sectionId: sec.id,
       section: sec.title,
+      topic: sec.topic,
+      router: sec.router,
       label,
       lw: words(label),
       tw: (dict[id] || []).flatMap(words),
       sw,
+      pw,
     });
     out.push(mk('section', sec.id, sec.title));
     for (const s of sec.settings || []) out.push(mk('setting', s.id, s.label));
@@ -420,7 +434,7 @@ export function buildIndex(sections, dict = DICT) {
 function scoreEntry(e, toks) {
   let sum = 0;
   for (const t of toks) {
-    const s = Math.max(top(t, e.lw), top(t, e.tw) * 0.85, top(t, e.sw) * 0.4);
+    const s = Math.max(top(t, e.lw), top(t, e.tw) * 0.85, top(t, e.sw) * 0.4, top(t, e.pw) * 0.3);
     if (!s) return 0;
     sum += s;
   }
