@@ -51,10 +51,12 @@ export async function call(path, init = {}) {
   const headers = { ...init.headers };
   if (tok) headers[SESSION_HEADER] = tok;
   const res = await fetch(path, { ...init, headers, cache: 'no-store' });
-  if (res.status === 401 || res.status === 403) token = null; // ask for a new session next time
   if (!res.ok) {
     const err = await res.json().catch(() => null);
-    throw new Error(err?.error?.message || err?.message || `Sode answered ${res.status}.`);
+    const code = err?.error?.code || '';
+    // Ask for a new session next time; a refused Critical import keeps its session.
+    if (res.status === 401 || (res.status === 403 && code !== 'recheck')) token = null;
+    throw Object.assign(new Error(err?.error?.message || err?.message || `Sode answered ${res.status}.`), { code });
   }
   return res;
 }

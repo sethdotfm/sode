@@ -1,5 +1,5 @@
 // Settings > Server > Export & Import: the dialog with the Export and Import tabs (docs/agents/profiles.md).
-// The routes and the session token are in exportcalls.js, pure rules in exportrules.js. Import is a placeholder for now.
+// The routes and the session token are in exportcalls.js, pure rules in exportrules.js. The Import tab is importtab.js.
 
 import { $, el, on } from './core.js';
 import { trapDialog } from './widgets.js';
@@ -9,6 +9,7 @@ import { desktopOnly } from './desktoponly.js';
 import { ROLES } from './usersrules.js';
 import * as R from './exportrules.js';
 import { browserValues, post, call, downloadZip, downloadBackup } from './exportcalls.js';
+import { importTab } from './importtab.js';
 
 const SIZE_WAIT_MS = 300;
 
@@ -39,7 +40,6 @@ const exportPanel = el(
   el('span', 'sode__hint', 'Sizes are before compression.'),
   cats,
 );
-const importPanel = el('div', null, el('p', 'sode__hint', 'Import comes in a later release.'));
 const phone = el('div');
 const note = el('span', 'sode__hint');
 note.id = 'xi-note';
@@ -53,6 +53,17 @@ exportBtn.id = 'xi-export';
 const closeBtn = btn('pb-btn--outline', 'Close', () => close());
 closeBtn.id = 'xi-close';
 const exportActs = el('span', 'sode__xi-acts', backupBtn, exportBtn);
+const titleEl = Object.assign(el('span', 'pb-modal__title', 'Export & Import'), { id: 'xi-title' });
+const importer = importTab({
+  setNote: (t, error) => setNote(t, error),
+  // The review takes the whole body, so the tabs go while it shows.
+  setReview: (title) => {
+    titleEl.textContent = title || 'Export & Import';
+    tabs.node.hidden = !!title;
+  },
+  backup: () => download(downloadBackup),
+});
+const importPanel = importer.panel;
 
 const tabs = makeTabs(
   [
@@ -61,14 +72,11 @@ const tabs = makeTabs(
   ],
   (id) => {
     exportActs.hidden = id !== 'xi-export-tab';
+    importer.acts.hidden = id !== 'xi-import-tab';
   },
 );
 const body = el('div', 'pb-modal__body', tabs.node, exportPanel, importPanel, phone);
-dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Export & Import'), { id: 'xi-title' })),
-  body,
-  el('div', 'pb-modal__footer', closeBtn, note, exportActs),
-);
+dialog.append(el('div', 'pb-modal__header', titleEl), body, el('div', 'pb-modal__footer', closeBtn, note, exportActs, importer.acts));
 root.append(dialog);
 document.body.append(root);
 
@@ -255,6 +263,7 @@ function openDialog() {
   const desk = layout() !== 'phone';
   tabs.node.hidden = !desk;
   exportActs.hidden = !desk;
+  importer.acts.hidden = true;
   phone.replaceChildren(desk ? '' : desktopOnly('export or import'));
   setNote('');
   if (desk) {
@@ -270,6 +279,7 @@ function close() {
   clearTimeout(sizeTimer);
   list = pick = null;
   cats.replaceChildren();
+  importer.reset();
   exportBtn.textContent = 'Export';
   dlg.hide();
   if (back?.isConnected) back.focus();
