@@ -333,8 +333,8 @@ onMsg('usersListResult', (m) => {
     else if (isOpen) fail(m.err); // a Role refusal: no PIN opens it
     return;
   }
-  // Staged edits keep the list they were made against, so another person's save shows as a conflict and
-  // their other changes do not leak into this dialog.
+  // Staged edits keep the list they were made against. So another person's save shows as a conflict, and
+  // their other changes stay out of this dialog.
   const keep = staged();
   if (!keep) {
     listed = m.users || [];
