@@ -199,7 +199,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 		const grid = document.getElementById('ed-grid');
 		grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
 		grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', code: 'KeyM', ctrlKey: true, bubbles: true })); true`)
-	b.waitFor("a merge over a set-aside cell says it was removed", `/^Removed 1 Destination cell /.test(`+status+`)`)
+	b.waitFor("a merge over a set-aside cell says it was removed", `/^Removed 1 Destination cell:/.test(`+status+`)`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
 	b.waitSaved("saved")

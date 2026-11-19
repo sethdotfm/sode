@@ -1,8 +1,5 @@
-// Runs one panel (the page /panels/<id>, or the editor's live test). It loads the panel, polls the router over
-// /api/v1, keeps the state model and draws it. Every call goes out with the panel's key. That key is the user's
-// session key or, for a panel that acts as its API client, the key in the URL fragment. The third kind is a Public
-// panel's short-lived key (panelpublic.go). The editor's live test passes its own ui and call, and is not an instance of the panel: no
-// keepalive, no device name.
+// Runs one panel: the page /panels/<id>, or embedded in the Live Editor with its own ui and call (no keepalive, no
+// instance). The key is the user's session key, the link's key, or a Public panel's short-lived key (panelpublic.go).
 import { emit, on, S } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
@@ -76,12 +73,20 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     keyless?.stop();
     keyless = null;
   };
-  run.stop = () => {
+  let keep = null;
+  let feature = ''; // the wake lock note, which a good poll keeps on screen.
+  // Nothing calls Sode after this: no poll, update check or keepalive.
+  const halt = () => {
     ended = true;
     timers.forEach(clearInterval);
     stopWatch();
     offFrames();
     body?.stop();
+    keep?.stop();
+  };
+  run.stop = () => {
+    halt();
+    wake?.off();
     art?.revoke();
     unannounce();
     clearTimeout(backTimer);
@@ -161,7 +166,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       if (step === 'ended') announce(true);
       const n = sessionNote(step, err);
       ui.signin.hidden = !n.retry;
-      if (k) say(ui.note, '');
+      if (k) say(ui.note, feature);
       else if (n.text) say(ui.note, n.text);
     });
     nameSessionKey(`Panel ${seg}`);
@@ -197,7 +202,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
   // Kept only after it worked, so a mistyped or ended key never replaces a stored one.
   if (linked) stored = keepLinkKey(seg, key);
   if (panel.acts === 'api' && !key && !embedded) {
-    say(ui.note, 'This panel acts as its own API client. Open its link with the key.');
+    say(ui.note, 'API panel: open its link with the key.');
     return;
   }
   id = panel.id;
@@ -236,8 +241,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       wake = createWake(navigator, document);
       wake.on();
     }
-    const notes = featureNotes(look, navigator, window.isSecureContext);
-    if (notes.length) say(ui.note, notes.join(' '));
+    feature = featureNotes(look, navigator, window.isSecureContext).join(' ');
+    say(ui.note, feature);
   }
 
   let ready = false;
@@ -338,7 +343,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       showOffline(off);
       body.data({ tally: shown, prot, nm, pr, link, first: !ready && !off });
       ready = !off;
-      say(ui.note, '');
+      say(ui.note, feature);
     } catch (e) {
       const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key && !keyIsPublic, keyIsPublic);
       say(ui.note, f.text);
@@ -348,16 +353,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
         if (e.status === undefined || e.status >= 500) showOffline(offlineOf({ failed: true, routerUp: true }));
       }
       if (f.stop) {
-        ended = true;
+        halt();
         ready = false;
         tellLock(false);
         if (stored && f.forget) forgetKey(seg);
-        // Nothing is allowed to call Sode again: not the polls, the update check or the keepalive.
-        timers.forEach(clearInterval);
-        stopWatch();
-        offFrames();
-        body.stop();
-        keep?.stop();
         // Only the keyless announcement, which carries no key.
         if (e.status === 401) announce(endedCode(e.code));
         if (e.status === 401 && keyIsPublic) showStopped(ui);
@@ -423,7 +422,6 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     clearTimeout(rowsTimer);
   };
 
-  let keep = null;
   if (!embedded) {
     // The page runs with a key now and is an instance, so it is no longer listed as keyless.
     unannounce();

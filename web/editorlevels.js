@@ -1,8 +1,6 @@
-// The level picker of the Panel and Cell tabs has the Sode main page's own look (base.css .sode__pick, desktop.css
-// .sode__picker). levelview.js pickButtons builds it, so labels, colors and numbering follow Settings. No stored
-// subset lights every level, so the state shows instead of being explained, and the last lit level stays on
-// (sidebarrules.js levelLocked).
+// The Panel and Cell tabs' level picker, in the main page's look. No stored subset lights every level.
 import { el, S } from './core.js';
+import { bigScroll } from './bigscroll.js';
 import { pickButtons } from './levelview.js';
 import { levelsToggle, levelsShown, levelLocked, levelsPatch } from './sidebarrules.js';
 
@@ -23,6 +21,7 @@ export function createLevelBoxes({ ed, onPatch }) {
     reset: () => (shown = ''),
     draw(now) {
       stored = now;
+      bigScroll(grid, 'x', 'little'); // waits until the picker is in the page
       const all = nums();
       const on = levelsShown(all, stored);
       const key = `${all.join(',')}|${S.levels.map((l) => l.label).join(',')}|${on.join(',')}|${ed.readOnly()}`;

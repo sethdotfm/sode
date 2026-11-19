@@ -1,4 +1,4 @@
-// Entry for the panel pages (/panels, /panels/editor and /panels/<id>). Sign-in and the page lock come from lock.js, as on /log.
+// Entry for /panels, /panels/editor and /panels/<id>.
 import { on, once, connect, S } from './core.js';
 import './brand.js';
 import './lock.js';
@@ -13,7 +13,7 @@ import { initTemplates } from './editortemplates.js';
 import { initSidebar } from './editorside.js';
 import { initNameEdit } from './editorname.js';
 import { initGrip } from './editorgrip.js';
-import { bigScrollAll } from './bigscroll.js';
+import { bigScroll, bigScrollAll } from './bigscroll.js';
 import { linkInstall, OTHER_INSTALL } from './itemlink.js';
 import { layout, onLayout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
@@ -27,8 +27,9 @@ on('brand', ({ text }) => {
   if (!id) document.title = title.textContent;
 });
 
-// The run page leaves its scrolling to the Grid's own code.
+// The run page leaves the grid's scrolling to the grid's own code.
 if (!id) bigScrollAll();
+else for (const n of document.querySelectorAll('#confirm-body, #keys .pb-modal__body')) bigScroll(n);
 
 // An Item link names its install, so the panel waits for the hello to say which install this is.
 function runLinked() {
@@ -41,7 +42,7 @@ function runLinked() {
   });
 }
 
-// v2.0 has no phone editor (docs/panels-design.md, Phone and touch). Use desktop layout starts it.
+// No phone editor (docs/panels-design.md, Phone and touch).
 function editorOnPhone() {
   const head = document.querySelector('.sode-ed > .sode-panels__head');
   for (const n of document.querySelectorAll('.sode-ed > *')) if (n !== head) n.hidden = true;
@@ -49,7 +50,6 @@ function editorOnPhone() {
   onLayout(() => location.reload());
 }
 
-// Approval cards show on /panels and the editor, never on a panel page.
 if (!id) showApprovalCards();
 
 if (id) runLinked();

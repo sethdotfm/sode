@@ -61,7 +61,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	b.waitFor("copied", `window.copied.includes('sode-panel-cells') && stat() === 'Copied 3 cells.'`)
 
 	b.eval(`goTo(3, 2); pasteEvent('Cam 1')`)
-	b.waitFor("plain text is refused", `stat().includes('no valid Sode cells')`)
+	b.waitFor("plain text is refused", `stat().includes('no Sode cells')`)
 	b.waitSaved("plain text left it saved")
 	b.eval(`goTo(4, 8)`)
 	if b.eval(`press('v', 'KeyV', { ctrlKey: true })`) != false {

@@ -1,6 +1,4 @@
-// Runs /panels/editor: the panel picker, the toolbar, the grid and the smart menu, over /api/v1/panels as
-// the signed-in user. The grid rules are gridmodel.js and the page text is editorrules.js; this file wires
-// them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
+// Runs /panels/editor as the signed-in user. runEditor returns the seams the other editor modules use (see the end).
 import { $, on, S } from './core.js';
 import { newPanelActs, actsSavedNote } from './panelsrules.js';
 import { sessionFetch, jsonCall, startSession } from './sessionkey.js';
@@ -53,7 +51,7 @@ export async function runEditor() {
   let names = namesFrom({});
   let routerNames = {}; // GET /names as read, for the Grid panel's list tabs
   let discardAsked = ''; // the panel the user tried to leave unsaved; a second try discards.
-  const menuSections = []; // (grid) => items: where Find and later actions plug in.
+  const menuSections = []; // (grid) => items: Find adds its items here.
   const keyHooks = []; // (event) => true when a grid key was handled (Find handles typed text and Enter).
   const changeWatchers = [];
   const fieldWatchers = [];
@@ -91,7 +89,7 @@ export async function runEditor() {
     held = heldThatFit(aside.grid, [...all, ...aside.held]);
     return { shown: aside.grid, dropped: all.length + aside.held.length - held.length };
   };
-  const droppedNote = (n) => (n ? `Removed ${n} Destination cell${n > 1 ? 's' : ''} set aside by Fixed destination, as other cells now fill the squares.` : '');
+  const droppedNote = (n) => (n ? `Removed ${n} Destination cell${n > 1 ? 's' : ''}: other cells fill their squares.` : '');
   const sayDropped = (n) => n && say('ed-status', droppedNote(n));
   const whole = () => putBack(g, held);
   const fi = () =>
@@ -160,7 +158,7 @@ export async function runEditor() {
     say('ed-status', `${back ? 'Undid' : 'Redid'} ${s.what}.`);
   }
 
-  // ---- Pages (editorpagebar.js). Only Copy to is an undo step.
+  // Only Copy to is an undo step (editorpagebar.js).
 
   function focusPage(id) {
     if (id === focus) return;
@@ -279,11 +277,9 @@ export async function runEditor() {
       ),
   });
 
-  // The menu goes with the selection when a click or Tab lands outside the grid, the menu and the sidebar. The
-  // sidebar edits the selected cell, so a click there keeps the selection and only puts the menu away (it sat over
-  // the sidebar's fields). The next grid click or key brings it back. Not a blur: the menu rebuilds itself on every
-  // change and drops focus for a moment. The event path, not the target: a click on a square repaints the grid,
-  // which detaches that target.
+  // A click or Tab outside the grid, the menu and the sidebar drops the selection; a click in the sidebar only hides
+  // the menu. Not blur: the menu rebuilds on every change and drops focus. The event path, not the target: a repaint
+  // detaches the target.
   let menuAway = false;
   const leave = (e) => {
     if (!g.sel) return;
@@ -303,7 +299,7 @@ export async function runEditor() {
 
   async function copyCells() {
     const block = copyBlock(g, loaded?.id);
-    if (!block) return say('ed-status', 'Nothing copied: the selection holds no cells.');
+    if (!block) return say('ed-status', 'Nothing copied: no cells selected.');
     const n = block.cells.length;
     const ok = await writeClip(blockText(block));
     say('ed-status', ok ? `Copied ${n} cell${n > 1 ? 's' : ''}.` : 'Nothing copied: the browser did not let Sode use the clipboard.');
@@ -316,7 +312,7 @@ export async function runEditor() {
     const snap = g;
     const n = copyBlock(g, loaded?.id)?.cells.length;
     if (!(await copyCells())) return;
-    if (g !== snap) return say('ed-status', 'Copied, but the grid changed meanwhile, so nothing was removed.');
+    if (g !== snap) return say('ed-status', 'Copied. Nothing removed: the grid changed.');
     setGrid(clearSelection(g), { what: 'cut' });
     say('ed-status', `Cut ${n} cell${n > 1 ? 's' : ''}.`);
   }
@@ -326,9 +322,9 @@ export async function runEditor() {
     if (readOnly()) return;
     if (text === null) return say('ed-status', 'Nothing pasted: the browser did not let Sode read the clipboard.');
     const block = readBlock(text);
-    if (!block) return say('ed-status', 'Nothing pasted: the clipboard holds no valid Sode cells.');
+    if (!block) return say('ed-status', 'Nothing pasted: no Sode cells on the clipboard.');
     const plan = pastePlan(g, block, { panel: loaded?.id, fixed: fixedOn() });
-    if (!plan) return say('ed-status', 'Nothing pasted: first select the square to paste at.');
+    if (!plan) return say('ed-status', 'Nothing pasted: select a square first.');
     if (!plan.fits) return void pasteOverflow(plan);
     const dropped = setGrid(applyPaste(g, plan.placed), { what: 'paste' });
     say('ed-status', `${pasteNote(plan)} ${droppedNote(dropped)}`.trim());
@@ -343,7 +339,7 @@ export async function runEditor() {
     const answer = await askPasteEdge(choices, plan.outside, $('ed-grid'));
     if (!answer) return say('ed-status', 'Nothing pasted.');
     if (readOnly() || !sameCells(snap, whole()) || !samePages(pageSnap(before, g.rows, g.cols), pageSnap(livePages(), g.rows, g.cols)))
-      return say('ed-status', 'Nothing pasted: the grid changed meanwhile.');
+      return say('ed-status', 'Nothing pasted: the grid changed.');
     const choice = choices[answer];
     // A cascade onto later Pages and the paste here are one undo step, so the Page list changes inside the same edit.
     const dropped = edit('paste', () => {
@@ -454,16 +450,8 @@ export async function runEditor() {
   }
   nameBox.addEventListener('input', refresh);
 
-  // ---- panels
-
   async function loadList() {
-    list =
-      (
-        await edCall(
-          'The panel list could not be read',
-          'Sode did not answer, so the panel list could not be read. Check the network, then reload.',
-        )('api/v1/panels')
-      ).panels || [];
+    list = (await edCall('The panel list could not be read', 'Sode did not answer. Reload.')('api/v1/panels')).panels || [];
     drawPicker(list, loaded);
   }
 
@@ -517,7 +505,7 @@ export async function runEditor() {
     if (!readOnly() && dirty() && discardAsked !== id) {
       discardAsked = id;
       e.target.value = loaded?.id || '';
-      say('ed-status', 'This panel has unsaved changes. Choose again to discard them.');
+      say('ed-status', 'Unsaved changes. Choose again to discard.');
       return;
     }
     openPanel(id, true);
@@ -528,7 +516,7 @@ export async function runEditor() {
     if (!readOnly() && dirty() && id !== (loaded?.id || '') && discardAsked !== id) {
       discardAsked = id;
       history.pushState(null, '', loaded ? `panels/editor?panel=${loaded.id}` : 'panels/editor');
-      say('ed-status', 'This panel has unsaved changes. Go back again to discard them.');
+      say('ed-status', 'Unsaved changes. Go back again to discard.');
       return;
     }
     openPanel(id, false);
@@ -558,7 +546,7 @@ export async function runEditor() {
     const sentPages = livePages();
     const body = JSON.stringify(saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages));
     const send = () =>
-      edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
+      edCall('The panel was not saved', 'Sode did not answer. Not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
         method: loaded ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
@@ -573,7 +561,7 @@ export async function runEditor() {
     } catch (e) {
       saveState.busy = false;
       saveState.failed = e.message;
-      say('ed-status', `${e.message} Your changes are still here. Press Retry save.`);
+      say('ed-status', `${e.message} Changes kept.`);
       refresh();
       return e.message;
     }
@@ -642,7 +630,7 @@ export async function runEditor() {
   $('ed-copy').addEventListener('click', async () => {
     let copy;
     try {
-      copy = await edCall('The copy was not saved', 'Sode did not answer, so no copy was made.')(`api/v1/panels/${loaded.id}/copy`, {
+      copy = await edCall('The copy was not saved', 'Sode did not answer. No copy made.')(`api/v1/panels/${loaded.id}/copy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
@@ -653,12 +641,16 @@ export async function runEditor() {
     history.pushState(null, '', `panels/editor?panel=${copy.id}`);
     await loadList().catch(() => {});
     show(copy);
-    say('ed-status', `Saved a copy. You own it and can change it. ${artLeftOut(copy.artSkipped)}`.trim());
+    say('ed-status', `Saved a copy. You own it. ${artLeftOut(copy.artSkipped)}`.trim());
   });
 
-  // ---- start
-
   const bootFailed = editorSignIn(say);
+  // What is open belongs to the user who opened it: a sign-out or another user starts the page again.
+  let bootUser = '';
+  on('access', (a) => {
+    if (!bootUser) bootUser = a.user || '';
+    else if ((a.user || '') !== bootUser) location.reload();
+  });
   // Names come from the REST read, which applies the user's Rights. The socket says when the router's names change,
   // so the cells and the Grid lists show a rename at once, as an open panel does.
   // Returns false when the read was refused; the names already shown stay.
@@ -669,7 +661,7 @@ export async function runEditor() {
     names = namesFrom(routerNames);
     return true;
   }
-  const namesFailed = () => say('ed-status', 'The new router names did not load. The editor shows the names it had.');
+  const namesFailed = () => say('ed-status', 'Router names did not load. Old names shown.');
   on('names', () =>
     readNames()
       .then((ok) => {
@@ -696,7 +688,7 @@ export async function runEditor() {
     }
   })();
 
-  // Seams for later tickets: Find adds menu items, the sidebars and live update read and replace the grid.
+  // Seams: Find adds menu items; the sidebars and live update read and replace the grid.
   return {
     // The focused Page's grid; Find, the grip, the art tool and the Cell tab work on it.
     grid: () => g,
