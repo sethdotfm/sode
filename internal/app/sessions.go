@@ -2,7 +2,10 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Sessions: tokens issued to signed-in connections and the server-held Lock that rides them
@@ -285,4 +288,34 @@ func (a *App) SignOut(c *client) {
 	a.mu.Unlock()
 	a.tokens.forget(tok)
 	a.endSessionKeys()
+}
+
+func (a *App) SignOutAll(c *client, name string) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
+		return err
+	}
+	who, ok := a.r().cfg.FindUserByName(name)
+	if !ok {
+		return errors.New("no such user")
+	}
+	a.tokens.dropUser(who.ID)
+	a.endSessionKeys()
+	a.mu.Lock()
+	for cl := range a.clients {
+		if st := cl.u.step; st != nil && st.orig != nil && st.orig.ID == who.ID {
+			st.ended = true
+		}
+		if st := cl.u.step; st != nil && cl.userID() == who.ID {
+			a.stepOutMu(cl, "signOut")
+		}
+	}
+	for cl := range a.clients {
+		if u := cl.u.user.Load(); u != nil && u.ID == who.ID {
+			a.signOutMu(cl)
+		}
+	}
+	a.mu.Unlock()
+	return nil
 }
