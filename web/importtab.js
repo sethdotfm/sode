@@ -1,6 +1,4 @@
-// The Import tab of the Export & Import dialogs (exportdialog.js; ownexport.js with own) is one long review of the
-// file. Review… puts the one Save review in the dialog body. The server plans every step (POST api/import,
-// docs/agents/profiles.md); the page sends its ticks and choices and shows what the server answers. Pure rules are in importrules.js.
+// The server plans every step (POST api/import, docs/agents/profiles.md); the page sends ticks and choices.
 
 import { el, off, S } from './core.js';
 import { call } from './exportcalls.js';
@@ -112,8 +110,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     fileInput.value = '';
   });
 
-  // ---- the list
-
   function box(key, text, checked, mixed, disabled, onChange) {
     const b = el('input', 'pb-check__input');
     b.type = 'checkbox';
@@ -202,7 +198,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     return remapView(remap, { off, fmt: fmtTime, onChange: () => render(), onRouter: () => load(file, true) });
   }
 
-  // A category of the file that only an Administrator imports, greyed.
   function adminRow(cat, text) {
     const head = el(
       'div',
@@ -223,7 +218,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
 
   // Add import or Replace import. Replace import is for Administrators, and the dialog is only theirs.
   function modeRow() {
-    // An own import has no Replace import.
     if (own) return el('div', 'sode__xi-mode', el('strong', null, 'Add import'), el('span', 'sode__hint', 'Adds and updates. Deletes nothing.'));
     const replace = pick.mode === 'replace';
     const seg = segmented('xi-mode', 'Import mode', MODES, (v) => {
@@ -268,8 +262,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
       ...routerNames(),
     ];
   }
-
-  // ---- the review
 
   async function review() {
     const my = ++seq;
@@ -339,7 +331,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     return out;
   }
 
-  // A Broken item links to the row of its first missing name.
   function brokenLine(it) {
     const li = el('li', null, `${it.as || it.name}: missing ${missing(it)}`);
     const at = it.broken.map((m) => rowOf(remap, m)).find(Boolean);

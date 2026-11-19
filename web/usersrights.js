@@ -144,7 +144,6 @@ export function makeRightsTab({ users, clients, touched }) {
       refresh();
     },
     reset: () => entries.clear(),
-    // Apply an access preset: as if ticked by hand.
     setNoAutoLock(rid, v) {
       const e = entryOf(`user:${rid}`);
       e.draft.noAutoLock = v;

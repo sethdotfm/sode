@@ -8,7 +8,6 @@ export const BACK_MAX_MS = 5000;
 
 export const backWaitMs = (rand = Math.random) => Math.round(rand() * BACK_MAX_MS);
 
-// 'public' or 'reload' for those stream lines, else ''.
 export function lineType(line) {
   try {
     const t = JSON.parse(line)?.t;
@@ -21,10 +20,8 @@ export function lineType(line) {
 // back marks the ask that follows a public line, so Sode writes its Log row.
 export const publicAskPath = (id, back) => `api/v1/panels/${id}/public${back ? '?back=1' : ''}`;
 
-// The Reload control of an Open now row reaches the same streams as its rename.
 export const reloadState = renameState;
 
-// Reload all: ready while any page of the panel holds a stream.
 export function reloadAllState(p) {
   const rows = [...(p.instances || []), ...(p.keyless || [])].filter((r) => reloadState(r));
   if (!rows.length) return '';

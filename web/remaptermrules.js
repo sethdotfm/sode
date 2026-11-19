@@ -4,7 +4,6 @@
 
 import { parseFilter, filterText } from './filter.js';
 
-// Keep in step with norm in remaprules.js.
 const norm = (s) => (s || '').trim().toLowerCase();
 
 const SIDES = [
@@ -16,7 +15,6 @@ const isNum = (r) => r.kind === 'num' || r.kind === 'range';
 const span = (r) => (r.kind === 'num' ? [r.a, r.a] : [r.a, r.b]);
 const label = (a, b) => (a === b ? String(a) : `${a}-${b}`);
 
-// Shown number → name, for one side of a names table.
 function shownNames(list, offset) {
   const m = new Map();
   for (const x of list || []) m.set(x.n + offset, x.name);
@@ -65,7 +63,6 @@ export function termChoices(rows) {
   return Object.fromEntries(rows.map((r) => [r.key, r.preset]));
 }
 
-// One side's text with the choices made, as rules.
 function rewrite(router, side, text, byKey, choices) {
   const p = parseFilter(text || '');
   if (!p.rules) return null;

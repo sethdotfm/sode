@@ -1,4 +1,3 @@
-// The setup wizard's step rules and its Finish message.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

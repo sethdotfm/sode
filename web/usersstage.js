@@ -24,7 +24,6 @@ export function makeUsersSource(hooks) {
     for (const k of Object.keys(base)) if (k.startsWith(prefix)) delete base[k];
   };
 
-  // m: a usersList answer. Called when the dialog fills from it.
   function adopt(m) {
     list = {
       users: (m.users || []).map((u) => ({ ...u })),

@@ -1,6 +1,4 @@
-// Export documents and import matching. Pure: no imports, no DOM, so Node tests it
-// (the review sheet, reviewsheet.js). Export documents carry numbers with names beside them
-// so an import on another router can match by name.
+// Pure, so Node tests it. Numbers carry names so an import on another router can match by name.
 
 export const SOCKET_LIMIT = 64 * 1024;
 const PROFILE_LIMIT = 48 * 1024;
@@ -204,9 +202,7 @@ export function renameFor(name, taken) {
 
 export const defaultChoice = (clash) => (clash ? 'both' : 'import');
 
-// picks[i]: { choice, as } (as: the Rename name, else automatic). Use new ('replace') swaps in place; Use
-// current and Skip leave the item out; the rest append. Names stay unique whatever the case. Returns { list, added, replaced, kept,
-// skipped }.
+// Use new ('replace') swaps in place; Use current and Skip leave the item out. Names stay unique ignoring case.
 export function applyChoices(existing, incoming, picks) {
   const list = existing.map((x) => ({ ...x }));
   const out = { list, added: 0, replaced: 0, kept: 0, skipped: 0 };

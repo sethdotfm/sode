@@ -1,5 +1,4 @@
-// The phone's desktop-only message (spec #543, Phone). Use desktop layout sets This browser's layout, so a large
-// tablet can still go on; layout.js redraws every page that listens to onLayout.
+// Use desktop layout sets This browser's layout, so a large tablet can go on.
 import { el } from './core.js';
 import { setPref } from './device.js';
 

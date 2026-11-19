@@ -1,5 +1,5 @@
-// The one Save review dialog (GLOSSARY.md, Review). Its steps run in this order: the review, then the PIN recheck, then
-// the Save and reconnect confirm. Nothing is sent before the last step (spec #543, The one Save).
+// Steps: review, PIN recheck, Save and reconnect confirm. Nothing is sent before the last step
+// (docs/agents/settings-saves.md).
 
 import { $, el } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -120,14 +120,8 @@ function backupBlock(toExport) {
   ];
 }
 
-// rows: the changes (savereviewrules.js diffRows). kept(row): why it stays unsaved, or ''. place(row): {topic, section,
-// order}. label(row), show(row, value): text. critical: a row the server checks for a PIN recheck. reconnects(row): a
-// router connection field. address: the router address it reconnects to. by(row): who staged it, or null. unseen: the
-// counts of edits the saver's Role cannot see (stagedrules.js); they are not in rows and do not save. interruptions:
-// the server's list for the fields that save (settingsReview), or null when it did not answer. criticalAction: a row
-// that is a Critical action, also when an Approval saves it. role: the saver's Role. preset(row): the name of the
-// Access preset that staged it, or ''.
-// Resolves true when the save is to be sent, false when the person goes back to editing.
+// unseen: counts the Role cannot see (stagedrules.js), not in rows. interruptions: null when the server did not
+// answer. Resolves false when the person goes back.
 export function reviewSave({
   rows,
   kept,

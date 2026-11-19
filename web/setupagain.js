@@ -10,7 +10,7 @@ import { againAnswers, againStage } from './setupagainrules.js';
 const open = $('setup-again-open');
 let presets = [];
 
-// The values with unsaved edits, so an edit staged before is not undone by Finish.
+// Finish must not undo an edit staged before.
 function valuesNow() {
   const out = readSettings();
   for (const src of saveSources()) Object.assign(out, src.now());

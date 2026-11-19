@@ -1,4 +1,3 @@
-// The preset editor's Item link: the link, Copy link and its QR code. Link rules are in itemlink.js.
 import { el, S } from './core.js';
 import { labeled } from './widgets.js';
 import { qrNode } from './keyview.js';

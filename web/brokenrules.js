@@ -1,6 +1,4 @@
-// Broken and Name moved in the page (GLOSSARY.md; docs/agents/presets.md, Broken banner): which marks still apply,
-// the left-out lines and the Main-page banner rule. The server's marks (brokencheck.go) are kept until the next name
-// read, so a mark counts only while the item still holds that reference. Pure (Node-tested); filter.js has no imports.
+// The server's marks last until the next name read, so a mark counts only while the item still holds that reference. Pure (Node-tested).
 import { parseFilter, filterText } from './filter.js';
 
 const SIDE = { source: 'src', destination: 'dst' };
@@ -13,7 +11,6 @@ const same = (a, b) =>
     .trim()
     .toLowerCase();
 
-// A preset item in memory (presetref.js itemNums) holds mark m.
 function holds(it, m) {
   const n = m?.ref?.n;
   switch (m?.kind) {
@@ -38,7 +35,6 @@ export function presetMarks(p) {
   return { broken: list(p.broken).filter(keep), moved: list(p.moved).filter(keep) };
 }
 
-// The positive number and exact terms of one side's text: {nums: Set of shown numbers, exact: [text]}.
 function terms(text) {
   const r = parseFilter(String(text ?? ''));
   const out = { nums: new Set(), exact: [] };
@@ -83,7 +79,7 @@ export function replaceTerm(text, m, offset, next) {
   return filterText(r.rules);
 }
 
-// One row per Broken term still in s.f: {side, mark, term (as typed), now (the detected new name, or '')}.
+// now: the new name a name read found, or ''.
 export function replaceRows(s, offset) {
   const rows = [];
   for (const m of filterSetMarks(s, offset).broken) {
@@ -101,7 +97,6 @@ export const countAsks = (role, me) => ({ all: role === 'administrator', mine: !
 export const statusOf = (m) => (m.broken.length ? 'broken' : m.moved.length ? 'moved' : '');
 export const STATUS_TEXT = { broken: 'Broken', moved: 'Name moved' };
 
-// What was left out and why, one line per mark.
 export function leftOutLines(marks, offset) {
   return marks.map((m) => {
     const r = m.ref || {};
@@ -124,8 +119,7 @@ export function leftOutLines(marks, offset) {
   });
 }
 
-// ---- Banner: one entry per used Broken item. A dismissed entry stays dismissed while its marks stay the same, for
-// the page's lifetime. So a fire after Dismiss does not bring it back, but a new missing part does.
+// A dismissed entry stays dismissed while its marks stay the same, for the page's lifetime.
 
 const sig = (marks) =>
   marks
@@ -149,8 +143,7 @@ export function dismissItem(st, key) {
   if (was) was.dismissed = true;
 }
 
-// The entries to show, in the order they were used. now: key -> the item with its marks now. An item that is gone or
-// fixed leaves the state, so a later break is new.
+// A gone or fixed item leaves the state, so a later break is new.
 export function bannerItems(st, now) {
   const out = [];
   for (const [key, v] of st) {

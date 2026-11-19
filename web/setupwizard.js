@@ -365,7 +365,6 @@ $('setup-body').addEventListener('input', (e) => {
     tryRouter();
     paintRouter();
   }
-  // These change what the step draws.
   if (t.type === 'radio' || k === 'levels') render(t.type === 'radio' ? null : t.id);
   else check();
 });

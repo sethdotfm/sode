@@ -82,8 +82,7 @@ const L = {
   pinNeeded: false,
   lens: [],
 };
-// The holder of a held Lock has no PIN: their name again resumes it (asksName). Not enumerable,
-// so the {...L} copies that go back through Object.assign(L, ...) do not hit a getter-only prop.
+// Not enumerable, so the {...L} copies that go back through Object.assign(L, ...) do not hit a getter-only prop.
 Object.defineProperty(L, 'heldNoPin', { get: () => L.held && listedUser(S.users, heldUser)?.len === 0 });
 export const lockState = () => ({ ...L });
 
@@ -95,7 +94,7 @@ let brand, dotsEl, msg, state, chip, checkKey;
 let nameField, nameInput, picker;
 let padBody, letterBody, letterKey, letterBtn, letterNote, signInAsBtn, signOutBtn, letterFoot;
 const owed = createOwed(wsSend); // a Lock the server has not got yet
-let unlocked = false; // set when a userSignIn succeeds: the lockState that follows ends a sign-in
+let unlocked = false; // the lockState after a userSignIn ends a sign-in
 let V = PAGE_VIEW;
 let covering = false;
 let cancelBtn;
@@ -153,7 +152,6 @@ function build() {
       const wait = padDelay(L, pin, who());
       if (wait != null && pin) timer = setTimeout(sendPin, wait);
     },
-    // A picked name hands the keys to the pad; a PIN typed first goes at once.
     onPick: () => {
       if (sendsOnPick(L, who())) {
         pin = '';
@@ -432,7 +430,6 @@ function paint() {
 }
 
 const nameValue = () => nameInput?.value ?? '';
-// The hello's {name, len} for the name in the box, or under a held Lock for its holder.
 const who = () => listedUser(S.users, asksName(L) ? nameValue() : heldUser);
 
 function press(k) {
@@ -547,7 +544,6 @@ on('publicPanel', ({ on: free }) => {
   emit('access', { ...L });
 });
 
-// A users save sends a new hello: the list and the picked user's PIN length follow it.
 on('hello', () => {
   if (!picker) return;
   picker.refresh();
@@ -557,7 +553,6 @@ on('hello', () => {
 
 on('logout', () => signOutNow());
 
-// The original sign-in ended during a step-in: the pad says so.
 on('stepEnded', (m) => {
   if (!m.note) return;
   build();
@@ -679,8 +674,7 @@ document.addEventListener(
     }
     if (root && !root.hidden && root.classList.contains('is-on')) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // The pad's keys must not eat what is typed into the name. The list gets arrows, Enter and an
-      // Escape that closes it; Enter then moves on to the PIN.
+      // Keep the pad's keys out of the name box; Enter in the list moves on to the PIN.
       if (e.target === nameInput && picker.key(e)) {
         e.preventDefault();
         e.stopPropagation();

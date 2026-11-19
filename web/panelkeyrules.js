@@ -128,7 +128,7 @@ export function setupFailText(status, message) {
 // the renewal could not help. A 429 is not lost contact: the fetcher already waits out Retry-After.
 // forget: only a 401 ends a stored key. A refused network leaves it, since the key still works after the list is fixed.
 export function pollFail(status, code, message, hadKey, isPublic = false) {
-  // A Public key that could not be renewed: the panel left Public, or Public panels allowed went off.
+  // Sode did not renew the Public key: the panel left Public, or Public panels allowed went off.
   if (status === 401 && isPublic) return { stop: true, forget: false, text: PUBLIC_STOPPED };
   if (status === 401 && hadKey) return { stop: true, forget: true, text: "This link's key no longer works. It was rotated or revoked, so ask for a new link." };
   if (status === 401 && (code === 'key_revoked' || code === 'key_expired'))

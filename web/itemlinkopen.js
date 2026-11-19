@@ -1,5 +1,4 @@
-// Opens a preset Item link in the address: the preset popup on that preset, or a message. Rules are in itemlink.js.
-// The link stays in the address until it can be judged (itemLinkStep), so a reload while locked keeps it.
+// The link stays in the address until itemLinkStep can judge it, so a reload under a lock keeps it.
 import { S, on, emit } from './core.js';
 import { showResult } from './plans.js';
 import { profileName } from './profile.js';

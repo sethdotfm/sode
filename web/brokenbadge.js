@@ -1,5 +1,4 @@
-// The status icon with its text for a Broken or Name moved item in a list (GLOSSARY.md). It imports little, so the
-// panels pages can use it.
+// Few imports, so the panels pages can use it.
 import { el, icon } from './core.js';
 import { statusOf, STATUS_TEXT } from './brokenrules.js';
 
@@ -13,5 +12,4 @@ export function statusBadge(status) {
   return b;
 }
 
-// A panel as /api/v1 sends it, with the server's marks.
 export const panelStatus = (p) => statusOf({ broken: Array.isArray(p?.broken) ? p.broken : [], moved: Array.isArray(p?.moved) ? p.moved : [] });

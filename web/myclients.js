@@ -1,6 +1,4 @@
-// My API clients: API clients a signed-in user makes from My user (internal/app/ownclients.go). A client
-// saves at once, gets a copy of the user's Rights and stays capped by them, and goes when the user is
-// removed. Its keys do not end with the user's PIN; making one asks that PIN.
+// A client gets a copy of the user's Rights, stays capped by them and goes with the user. Its keys outlive the user's PIN.
 
 import { el, on, onMsg, wsSend, sentence } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -193,6 +191,6 @@ on('openClients', () => {
   dlg.show();
   dialog.focus();
 });
-// Signing out or a Lock closes it, forgetting any key on show.
+// A Lock forgets any key on show.
 on('locking', () => isOpen && closeClients());
 on('access', (L) => isOpen && !L.user && closeClients());

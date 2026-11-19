@@ -76,7 +76,7 @@ export function readSettings() {
     else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
     else c[k] = f.value.trim();
   }
-  // Blank idle time means 0 (never).
+  // A blank Auto-lock time means 0 (never).
   if (Number.isNaN(c.autoLockMinutes)) c.autoLockMinutes = 0;
   c.locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked, panel: $('cfg-lock-panel').checked };
   c.newUserDefaults = { persistent: $('cfg-new-persistent').checked, noAutoLock: $('cfg-new-no-auto-lock').checked };
@@ -110,9 +110,7 @@ function renderNumbering() {
   form.querySelector('label[for="cfg-lvlnum-va"]').textContent = Number.isInteger(n) && n > 1 ? `V + ${levelLabel(2, 'va')}–${levelLabel(n, 'va')}` : 'V';
 }
 
-// Rewrite the default levels box in the new numbering (if it parsed in the old one) and relabel
-// previews. Not limited to the level count, since it is possible that the count is mid-edit:
-// Save checks that.
+// Not limited to the level count, since the count can be mid-edit: Save checks it.
 function numberingChanged() {
   const f = $('cfg-default');
   const list = f.value.trim() && parseLevelsAs(f.value, shownMode, Infinity);

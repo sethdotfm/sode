@@ -1,6 +1,3 @@
-// Settings > Server > Export & Import: the dialog with the Export and Import tabs (docs/agents/profiles.md).
-// The routes and the session token are in exportcalls.js, pure rules in exportrules.js. The Import tab is importtab.js.
-
 import { $, el, on } from './core.js';
 import { trapDialog } from './widgets.js';
 import { makeTabs } from './tabs.js';
@@ -56,7 +53,7 @@ const exportActs = el('span', 'sode__xi-acts', backupBtn, exportBtn);
 const titleEl = Object.assign(el('span', 'pb-modal__title', 'Export & Import'), { id: 'xi-title' });
 const importer = importTab({
   setNote: (t, error) => setNote(t, error),
-  // The review takes the whole body, so the tabs go while it shows.
+  // The review fills the whole body, so the tabs go while it shows.
   setReview: (title) => {
     titleEl.textContent = title || 'Export & Import';
     tabs.node.hidden = !!title;
@@ -92,8 +89,6 @@ const setNote = (t, error = false) => {
   note.textContent = t;
   note.classList.toggle('sode__error-text', error);
 };
-
-// ---- the list
 
 const sectionLabel = (id) => document.querySelector(`fieldset[data-section="${id}"] > legend`)?.textContent || id;
 const roleLabel = (v) => ROLES.find((r) => r.value === v)?.label || v;
@@ -254,8 +249,6 @@ pinsBox.addEventListener('change', () => {
   pick.pins = pinsBox.checked;
   sizeLater();
 });
-
-// ---- open and close
 
 function openDialog() {
   back = document.activeElement;

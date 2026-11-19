@@ -1,6 +1,4 @@
-// The review's Interruptions (GLOSSARY.md): the Save button's words and the "do not come back" line. The server
-// works the list out (internal/app/interruptions.go); each line has text, counts and ends. Pure, no imports
-// (Node-tested).
+// The server works out the list (internal/app/interruptions.go). Pure, no imports (Node-tested).
 
 const COUNTS = [
   ['panels', 'panel', 'panels'],

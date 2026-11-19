@@ -1,6 +1,4 @@
-// Replace term in the Filters dialog: one row per Broken term of the active filter set. The box holds the new name
-// when a name read saw it. The change goes into the filter like a hand edit, and Save stores it. Rules in
-// brokenrules.js (replaceRows, replaceTerm).
+// The change goes into the filter like a hand edit, and Save stores it. Rules: brokenrules.js.
 import { el, off } from './core.js';
 import { replaceRows, replaceTerm } from './brokenrules.js';
 

@@ -84,8 +84,7 @@ export function normalizeKinds(saved, dflt) {
   return known.length ? known : KIND_IDS.slice();
 }
 
-// Kinds a saved filter has not met yet start on: known is KIND_IDS when it was saved. A filter saved
-// before `known` was stored knew every kind but Settings saves.
+// A filter saved before `known` existed knew every kind but Settings saves.
 export function addNewKinds(kinds, known) {
   const met = Array.isArray(known) ? known : KIND_IDS.filter((id) => id !== 'settings');
   return [...kinds, ...KIND_IDS.filter((id) => !met.includes(id) && !kinds.includes(id))];

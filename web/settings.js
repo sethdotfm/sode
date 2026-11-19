@@ -143,8 +143,7 @@ on('historyCleared', () => {
   clearAnswer = null;
   showResult('ok', 'History cleared', 'History is empty for everyone.');
 });
-// A refusal: a PIN recheck is asked and the clear sent again. Below an Administrator, an Approval is asked. Anything
-// else (Sode shuts down) shows.
+// A refusal asks a PIN recheck and sends the clear again; below an Administrator it asks an Approval.
 onMsg('clearHistoryResult', (m) => {
   if (m.ok || !clearPending()) return;
   clearing = 0;

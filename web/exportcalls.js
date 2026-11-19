@@ -1,7 +1,4 @@
-// The export routes and the full backup. The Export & Import dialogs (exportdialog.js, ownexport.js) and the review's backup offer
-// (savereview.js) use them. The routes take the user's session token in a header and
-// check the Role; exportSession gives one to a connection that has none. The token stays in memory here, so sign-in storage
-// is not changed.
+// The token stays in memory, so sign-in storage does not change.
 
 import { el, on, onMsg, wsSend } from './core.js';
 import { PREFS } from './prefs.js';
@@ -77,7 +74,6 @@ export async function downloadZip(b, path = 'api/export') {
   return { name: a.download, size: blob.size };
 }
 
-// Back up everything and the review's Download a backup.
 export async function downloadBackup() {
   const got = await downloadZip(backupBody(browserValues()));
   writeStr(LAST_BACKUP, new Date().toISOString());

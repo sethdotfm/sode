@@ -49,7 +49,7 @@ export function startAnswers(cfg = {}, setup = {}) {
   };
 }
 
-// envHint: the line under a field that SODE_* filled on first start, or ''.
+// '' when SODE_* did not fill it.
 export function envHint(setup, key) {
   const name = setup?.env?.[key];
   return name ? `Filled from ${name}.` : '';
@@ -59,7 +59,6 @@ export const pinMax = (cfg = {}) => cfg.maxPinLen || 8;
 
 const wholeIn = (s, lo, hi) => /^\d+$/.test(String(s).trim()) && +s >= lo && +s <= hi;
 
-// stepProblem: why step i cannot go on, or '' when it can.
 export function stepProblem(d, i, max = 8) {
   switch (STEPS[i]?.[0]) {
     case 'welcome': {
@@ -78,7 +77,7 @@ export function stepProblem(d, i, max = 8) {
   return '';
 }
 
-// restorePinProblem: why a new PIN and PIN again cannot be used, or ''. Your user and a restore without PINs use it.
+// Your user and a restore without PINs use it.
 export function restorePinProblem(pin, pin2, max = 8) {
   if (!/^\d+$/.test(pin) || pin.length < PIN_MIN || pin.length > max) return `A PIN has ${PIN_MIN} to ${max} digits.`;
   if (pin !== pin2) return 'The two PINs are not the same.';
@@ -94,7 +93,6 @@ export function stopAt(d, want, max) {
 // chipGoes: a chip moves to a visited step until Finish; after it every step is locked.
 export const chipGoes = (i, at, reached, finished) => !finished && i !== at && i <= reached;
 
-// numberingChoices: the Level numbering buttons for n levels.
 export function numberingChoices(n) {
   const top = wholeIn(n, 1, 256) ? +n : 0;
   const to = (a, b) => (top ? `${a} to ${b}` : a);
@@ -105,7 +103,7 @@ export function numberingChoices(n) {
   ];
 }
 
-// finishMessage: the setupFinish message. PIN again stays on the page.
+// PIN again stays on the page.
 export function finishMessage(d, id) {
   return {
     t: 'setupFinish',

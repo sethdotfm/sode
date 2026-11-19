@@ -73,7 +73,6 @@ export function namesReq(rows, choices) {
 
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-// One router pair's counts for the review.
 export function remapSummary(rows, choices) {
   const n = { asIs: 0, auto: 0, hand: 0, skipped: 0 };
   for (const r of rows) {

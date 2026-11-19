@@ -6,7 +6,6 @@ import { reloadState, reloadAllState } from './panelbackrules.js';
 // The text an Open now row shows while its stream is gone: nothing would hear a Reload or a new name.
 export const offlineNote = () => el('span', 'sode-ov__muted', 'Offline');
 
-// target is {instance}, {keyless} or {all: true}; reload(id, target) sends it.
 function button(label, tip, state, onClick) {
   const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('rotate-cw'), ` ${label}`);
   b.type = 'button';
@@ -17,7 +16,6 @@ function button(label, tip, state, onClick) {
   return b;
 }
 
-// The Reload button of one row, or null where it has none.
 export function reloadButton(p, row, reload) {
   const state = reload ? reloadState(row) : '';
   if (!state) return null;
@@ -28,7 +26,6 @@ export function reloadButton(p, row, reload) {
   return b;
 }
 
-// Reload all: every page of the panel that holds a stream now.
 export function reloadAllButton(p, reload) {
   const state = reload ? reloadAllState(p) : '';
   if (!state) return null;

@@ -1,5 +1,4 @@
-// Settings > API (index.html #api-group): the keyless API, its scopes and the limits. The API itself is always on.
-// A save source of the one Save (savesources.js): `api` and `guestApiScopes`. Require HTTPS lives under Proxy.
+// The API is always on. Require HTTPS lives under Proxy.
 
 import { $, S, on, el } from './core.js';
 import { addSaveSource } from './savesources.js';
@@ -63,7 +62,6 @@ on('hello', () => {
 });
 fillApi();
 
-// users.js asks for the usersList after a sign-in and on Manage users, and passes each answer on.
 on('usersListed', (m) => {
   scopes = { list: m.guestScopes || [], version: m.versions?.guestApiScopes };
   const first = boxes[0]?.disabled;
@@ -83,7 +81,7 @@ function show(r, v) {
   return showValue(v);
 }
 
-// Apply an access preset (accesspreset.js) stages the keyless API as a hand edit would. Callers emit the change.
+// Callers emit the change.
 export function stageKeyless({ guestEnabled, scopes }) {
   if (guestEnabled !== undefined) guest.checked = guestEnabled;
   if (scopes) for (const b of boxes) b.checked = scopes.includes(b.dataset.scope);

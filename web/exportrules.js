@@ -1,5 +1,4 @@
-// Pure parts of the Export tab (exportdialog.js). The list comes from GET api/export/items; the bodies go to
-// POST api/export. Category names and item ids are the server's (internal/app/exportfile.go, exportitems.go).
+// Category names and item ids are the server's (exportfile.go, exportitems.go).
 
 // In file order; keep in step with exportCategories in exportfile.go (exportrules.test.mjs reads it).
 export const CATEGORIES = [
@@ -33,7 +32,6 @@ export const ADMIN_ONLY = [
   ['browser', 'This browser'],
 ];
 
-// Everything ticked.
 export function newOwnPick(list) {
   const items = {};
   for (const [c] of OWN_CATEGORIES) items[c] = new Set((catOf(list, c).items || []).map((i) => i.id));
@@ -60,21 +58,18 @@ export function ownBody(pick) {
   return body;
 }
 
-// Picked item by item.
 export const ITEM_CATS = ['users', 'presets', 'filterSets', 'panels', 'artwork', 'apiClients'];
 
 export const KIND_LABEL = { panel: 'Panel', template: 'Template', checkpointSet: 'Checkpoint set', default: 'Default artwork', icon: 'Icon' };
 
 const catOf = (list, name) => list.categories.find((c) => c.name === name) || { name, size: 0, items: [], sections: [] };
 
-// Everything ticked, Include PINs on.
 export function newPick(list) {
   const items = {};
   for (const c of ITEM_CATS) items[c] = new Set((catOf(list, c).items || []).map((i) => i.id));
   return { sections: new Set((catOf(list, 'settings').sections || []).map((s) => s.id)), items, routers: true, browser: true, pins: true };
 }
 
-// 'all', 'some' or 'none' for the category's box.
 export function catState(list, pick, cat) {
   let total, on;
   if (cat === 'settings') [total, on] = [(catOf(list, cat).sections || []).length, pick.sections.size];
@@ -139,7 +134,6 @@ export function exportBody(list, pick, browser) {
   return body;
 }
 
-// Back up everything: every category whole, with PINs, whatever the ticks say.
 export function backupBody(browser) {
   return { categories: CATEGORIES.map(([c]) => c), includePins: true, browser };
 }
@@ -150,7 +144,6 @@ export function sizeText(bytes) {
   return `${(bytes / 1000_000).toFixed(1)} MB`;
 }
 
-// The file name from Content-Disposition, else a dated default.
 export function fileNameOf(disposition, today) {
   const m = /filename="([^"]+)"/.exec(disposition || '');
   return m ? m[1] : `${today}-Sode-Export.zip`;

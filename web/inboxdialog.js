@@ -1,7 +1,4 @@
-// The Inbox button and its dialog (docs/agents/profiles.md, Inbox). A page puts `data-inbox` on the element that
-// takes the button: the Main page, Settings, /panels, the panel editor and the Log. A panel page has none, so it shows
-// no button and no toast. The Inbox tab answers cards; Accept reviews the card as the Add import does (importtab.js).
-// The Sent tab lists what this user sent. The phone keeps Decline only.
+// A panel page has no data-inbox, so no button and no toast. The phone keeps Decline only.
 
 import { el, icon, off, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -44,8 +41,6 @@ function drawButtons() {
     b.setAttribute('aria-label', R.countLabel(n));
   }
 }
-
-// ---- the dialog
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -157,8 +152,6 @@ function drawLists() {
   phoneNote.replaceChildren(phone() ? desktopOnly('accept a copy or withdraw one') : '');
 }
 
-// ---- Accept: the review
-
 async function startReview(c) {
   if (busy) return;
   busy = true;
@@ -259,8 +252,6 @@ async function accept() {
   endReview();
   setNote(failed ? `Accepted. ${failed} panels were not written.` : 'Accepted.');
 }
-
-// ---- open and close
 
 export function openDialog() {
   if (!signedIn) return;

@@ -475,7 +475,7 @@ on('pick', () => {
   if (!boxPicking()) for (const k of ['src', 'dst']) boxes[k].cb.close();
 });
 on('conn', renderConn);
-// A burst of takes sends one entry each, and a redraw rebuilds every row: one redraw per frame is enough.
+// One redraw per frame: each take in a burst sends an entry, and a redraw rebuilds every row.
 let histFrame = 0;
 on('history', () => {
   histFrame ||= requestAnimationFrame(() => {

@@ -30,10 +30,7 @@ export function groupActor(entries, users) {
   return who.size === 1 ? [...who][0] : '';
 }
 
-// The History row's "by Ana on panel Lobby Wall, instance Front desk", or "by Bo (browser of Ana)" for a take made
-// while stepped in (browserOf: the original user or the address). An API take by a user's key names the user
-// through its actor, since its client text carries the key name. x is an entry or a Group ({entries}), which
-// shows only what all its takes share; '' when there is nothing to show.
+// browserOf: the original user or the address, for a take made while stepped in.
 export function byText(x, users) {
   const list = x.entries || [x];
   const shared = (f) => {
@@ -160,21 +157,15 @@ export const hiToken = (tab, persistent) => tab || persistent || '';
 
 export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
-// The pad asks for a name, except where the held Lock of a signed-in session resumes. There the
-// server knows whose it is, and a `user` that names someone else is a wrong try.
-// heldNoPin: the holder has no PIN, so picking their name again resumes it.
+// Under a held Lock the server knows the holder, so a `user` that names someone else is a wrong try.
 export const asksName = (s) => !s.held || !!s.heldNoPin;
 
-// user is the hello's {name, len} for the picked name (or the held Lock's user), else null. Its own
-// length drives the pad: names are public, so the longest-length wait buys nothing. len 0 is a
-// user without a PIN, who takes no digits.
+// Names are public, so the pad waits only for the picked user's length; len 0 = no PIN.
 export const padLens = (s, user) => (user ? [user.len || 0] : s.lens || []);
 
-// A user without a PIN signs in as soon as their name is picked.
 export const sendsOnPick = (s, user) => asksName(s) && user?.len === 0;
 
-// Change my PIN for me, the hello's {name, len} of the signed-in user, acting with role. A user with
-// a PIN acts with their own Role, so role tells who can remove theirs. Unknown: the usual form.
+// A user with a PIN acts with their own Role, so role decides who can remove theirs.
 export function pinForm(me, role) {
   const has = !me || me.len > 0;
   return { current: has, remove: !!me && has && role === 'standard', save: has ? 'Change PIN' : 'Set PIN' };
@@ -251,7 +242,6 @@ export const heldEnded = (prev, next) => !!prev.held && !next.held && !next.user
 // came. sessionStorage keeps it across reloads, and the tab forgets it when the Lock is gone.
 export const heldWho = (kept, prev, next) => (next.held ? prev.user || kept : '');
 
-// users is the hello's list: a remembered name that is gone is not offered.
 export const prefillName = (s, last, users) => (asksName(s) && last ? users?.find((u) => u.name.toLowerCase() === last.toLowerCase())?.name || '' : '');
 
 // The pad gets the keys when the box already holds a name.

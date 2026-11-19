@@ -9,10 +9,7 @@ import { lineType } from './panelbackrules.js';
 
 export const DEVICE_KEY = 'sode-panel-device';
 
-// fetch with the Authorization header can stream where EventSource cannot. The server writes a line every 10 s,
-// and an Assign, a rename or a reload from the panels page as its last. A keyless stream also hears public lines,
-// which leave it open. Ends when gate.stop aborts it (a rename opens a new hold under the new name). open(signal)
-// answers the fetch.
+// A keyless stream also hears public lines and stays open. A rename opens a new hold under the new name.
 async function hold(open, gate, onAssign, onRename = () => {}, onPublic = () => {}) {
   for (let tries = 0; !gate.ctl.signal.aborted; tries++) {
     try {
@@ -57,9 +54,7 @@ function endOnLeave(stop) {
   );
 }
 
-// A page with no working key (GLOSSARY.md, Keyless instance) holds the keyless announcement under the name it already
-// has, and never asks for one. No key rides it; ended says the page's key was ended. A rename from the panels page
-// is kept in this browser and the announcement opens again under it. onPublic hears each public line. Returns { stop() }.
+// No key rides the keyless announcement. A rename from the panels page is kept in this browser and reopens it.
 export function announceKeyless(seg, ended, onAssign, onPublic = () => {}) {
   const gate = { ctl: new AbortController() };
   let device = deviceFrom(instanceFrom(location.search)) || deviceFrom(readStr(DEVICE_KEY));

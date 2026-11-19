@@ -86,8 +86,8 @@ export function createAccessTab(ed, ctx) {
     if (kind === 'presets') text.rows = 3;
     return { kind, only: all.input, text, node: el('div', 'sode__field', all.label, text) };
   });
-  let draft = draftOf(null, 0); // the Rights lists as typed; read back into clientRights on each change.
-  // Rights name presets by id. The list the key can read gives the names to type.
+  let draft = draftOf(null, 0);
+  // Rights name presets by id; this list gives the names to type.
   let presets = [];
   api('api/v1/presets')
     .then((r) => (presets = r?.presets || []))

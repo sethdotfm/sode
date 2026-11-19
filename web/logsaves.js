@@ -23,7 +23,7 @@ export function fieldText(f) {
   return f.note ? `${text} (${f.note})` : text;
 }
 
-// The words of CATEGORIES in exportrules.js; this module takes no imports.
+// Keep in step with CATEGORIES in exportrules.js (this module has no imports).
 const IMPORT_CAT = {
   settings: 'Settings',
   routers: 'Routers',
@@ -34,7 +34,6 @@ const IMPORT_CAT = {
   apiClients: 'API clients',
 };
 
-// An import row has counts per category and no values: "Add import: Presets 2 added, 1 updated".
 function importSummary(im) {
   const cats = (im.categories || []).map((c) => {
     if (c.refused) return `${IMPORT_CAT[c.category] || c.category} not imported`;

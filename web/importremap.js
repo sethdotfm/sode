@@ -1,6 +1,4 @@
-// The Import tab's remap step. Each file router has a row with its target. Below it, each file source or destination
-// that does not import as is has a row. Matching is in remaprules.js; the server applies the numbers (importReq.names).
-// The rows form one list for selection (remaplist.js). Filter number and range terms follow (remapterms.js).
+// The server applies the numbers (importReq.names).
 
 import { el, icon } from './core.js';
 import * as M from './remaprules.js';
@@ -147,8 +145,7 @@ function datalists(st, uid, off) {
   });
 }
 
-// Use all suggestions, Keep numbers for all blank names, Reset to Skip: on the selected rows, else on every row that
-// needs a choice.
+// On the selected rows, else on every row that needs a choice.
 function bulkBar(st, onChange) {
   const run = (action) => () => {
     const keys = st.sel.sel.size ? st.sel.sel : null;
@@ -232,7 +229,6 @@ export function remapView(st, { off, onChange, onRouter, fmt }) {
 
 const linkTo = (text, fn) => el('li', null, btn('pb-btn--ghost pb-btn--sm', text, fn));
 
-// The review: per router pair what the names do, the changed filter terms and the notes, each linked to its row.
 export function remapReview(st, goTo) {
   const out = [];
   for (const r of st.info.routers) {
@@ -260,7 +256,6 @@ export function remapReview(st, goTo) {
   return [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list sode__xi-pairs', ...out)];
 }
 
-// The row a Broken item's missing reference comes from, as [file UID, key], or null.
 export function rowOf(st, m) {
   for (const [uid, rows] of Object.entries(st.rowsBy)) {
     if (st.targets[uid] !== m.ref?.router) continue;

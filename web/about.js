@@ -1,5 +1,3 @@
-// Settings bottom row, in the save bar (.sode__foot).
-
 import { el, S, icon, on } from './core.js';
 
 const link = (href, tip, cls, ...kids) => {

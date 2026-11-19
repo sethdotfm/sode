@@ -1,5 +1,4 @@
-// Change my PIN (bus 'changePin'): set, change or remove the signed-in user's own PIN. Opens by
-// itself once per sign-in for a user who is PIN needed. Rules in lockrules.js (pinForm).
+// Opens by itself one time per sign-in for a PIN needed user. Rules in lockrules.js (pinForm).
 
 import { el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -24,7 +23,7 @@ export function buildChangePin() {
   note.setAttribute('role', 'status');
   const cancel = el('button', 'pb-btn pb-btn--outline', 'Cancel');
   cancel.type = 'button';
-  // Removing needs the current PIN too; it reads it from the same field.
+  // Remove reads the current PIN from the same field.
   const remove = el('button', 'pb-btn pb-btn--ghost', 'Remove my PIN');
   remove.type = 'button';
   const save = el('button', 'pb-btn pb-btn--ok', 'Change PIN');

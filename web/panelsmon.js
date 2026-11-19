@@ -155,8 +155,6 @@ function keylessItem(p, k, rename, reload) {
   );
 }
 
-// Who has the panel open. Only an editor is sent the names. Each instance has its own Watch checkbox, uptime strip,
-// Hide, rename and, for a Trusted user, Reload. Keyless pages follow, and a Trusted user can reload and rename them.
 export function openNow(p, { setWatch, setHide, rename, reload, trusted } = {}, now = Date.now()) {
   const box = el('section', 'sode-ov__opennow');
   box.id = 'panels-open';

@@ -1,5 +1,4 @@
-// Settings > Routers: the Routers list and each router block's sub-heading. One router today; the list and the block
-// stay with one (no flat view), so a second router only adds rows and blocks.
+// v2.0 drives one router; the list and block stay, so a second router only adds rows and blocks.
 
 import { $, S, el, emit, on } from './core.js';
 

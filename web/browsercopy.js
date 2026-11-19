@@ -1,5 +1,4 @@
-// Copy this browser to My user (docs/agents/profiles.md). It is the review sheet with Me as the only target.
-// It sends browserCopy, so the server writes one Settings saves row. Rules: browsercopyrules.js.
+// browserCopy makes the server write one Settings saves row (docs/agents/profiles.md).
 
 import { S, on, onMsg, wsSend } from './core.js';
 import { buildExport } from './exportfmt.js';

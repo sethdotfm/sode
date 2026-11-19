@@ -10,7 +10,7 @@ document.body.append(frame);
 
 on('helloCfg', (cfg) => showBrand(cfg.brandText, cfg.brandBorder));
 
-// showBrand draws a name and colour; the setup wizard calls it as they are typed, before any save.
+// The setup wizard calls it on each keystroke, before any save.
 export function showBrand(brandText, brandBorder) {
   const text = (brandText || '').trim() || 'Sode';
   for (const m of document.querySelectorAll('.sode__mark, .sode-m__mark')) m.textContent = text;

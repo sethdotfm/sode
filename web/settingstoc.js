@@ -186,7 +186,6 @@ export function initToc({ form, sections, toc, isOpen }) {
       const r = tree.flatMap((t) => t.routers).find((x) => x.id === id);
       if (r) go(r.first, false, routerHeadOf(form, sections[r.first]));
     },
-    // A router's new title, for its sidebar entry.
     renameRouter(id, title) {
       for (const b of toc.querySelectorAll(`.sode__toc-router[data-router="${id}"]`)) b.textContent = title;
     },
