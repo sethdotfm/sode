@@ -13,11 +13,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Add import (docs/agents/profiles.md): planImport works out what a checked export file does to this
+// Add import and Replace import (docs/agents/profiles.md): planImport works out what a checked export file does to this
 // install, item by item. The check route answers the plan with the preselected choices. The apply route
 // plans again under cfgMu with the page's choices and writes that plan.
 
-const importAdd = "add"
+const (
+	importAdd     = "add"
+	importReplace = "replace" // empties each ticked category first (importreplace.go)
+)
 
 // Clash choices.
 const (
@@ -36,6 +39,8 @@ type importReq struct {
 	Pick       map[string][]string          `json:"pick"`
 	Sections   []string                     `json:"sections"`
 	Choices    map[string]map[string]string `json:"choices"`
+	// KeepAdmins is Keep current Administrators, for Replace import; left out means ticked.
+	KeepAdmins *bool `json:"keepAdmins,omitempty"`
 	// Routers: file router UID → target UID, "" for none. A file router left out gets its default target.
 	Routers map[string]string `json:"routers,omitempty"`
 	// Names: remapRef key → the target numbers it moves to. Two are Add both (destinations only); none is Skip.
@@ -58,11 +63,13 @@ type importItem struct {
 	Kind   string           `json:"kind,omitempty"` // panels: panel, template, checkpointSet; artwork: icon, default
 	// Refused: why this item alone is not imported; the others of its category are.
 	Refused string `json:"refused,omitempty"`
-	Size    int    `json:"size,omitempty"` // bytes of the file item before compression, images included
+	// Remove: a live item that Replace import removes, since the file does not hold it.
+	Remove bool `json:"remove,omitempty"`
+	Size   int  `json:"size,omitempty"` // bytes of the file item before compression, images included
 }
 
 func (it importItem) writes() bool {
-	return !it.Same && it.Refused == "" && (it.Clash == "" || it.Choice == useNew || it.Choice == useRename)
+	return !it.Same && !it.Remove && it.Refused == "" && (it.Clash == "" || it.Choice == useNew || it.Choice == useRename)
 }
 
 func (it importItem) overwrites() bool { return it.writes() && it.Clash != "" && it.Choice == useNew }
@@ -76,7 +83,9 @@ type importPlan struct {
 	SameInstall bool                  `json:"sameInstall"`
 	Critical    bool                  `json:"critical"`
 	Categories  map[string]*importCat `json:"categories"`
-	Remap       *remapInfo            `json:"remap,omitempty"`
+	// Refused: why the whole import is refused; the apply writes nothing.
+	Refused string     `json:"refused,omitempty"`
+	Remap   *remapInfo `json:"remap,omitempty"`
 }
 
 // plannedPanel is a panel write that waits for the config commit. Live is the panel it replaces, if any.
@@ -157,6 +166,10 @@ type importPlanner struct {
 	b          *exportBundle
 	req        importReq
 	same       bool
+	replace    bool
+	keepAdmins bool
+	noHashes   bool   // no file user carries a PIN hash, so the importing Administrator stays
+	noAdmin    bool   // the Users step would leave no Administrator with a PIN: the whole import is refused
 	actor      string // the importing user's id; "" with no users
 	secure     bool
 	check      *refCheck
@@ -164,6 +177,7 @@ type importPlanner struct {
 	// waits: with no names at all, the items that hold references, by category and key, to their names.
 	waits      map[string]map[string]string
 	livePanels []Panel
+	removed    importRemovals
 	users      map[string]string // file user id → live id, "" when skipped
 	presets    map[string]string // file preset id → live id, "" when skipped
 	icons      map[string]string // file icon id → live id, "" when skipped
@@ -196,6 +210,10 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 		icons: map[string]string{}, panelIDs: map[string]string{},
 		liveTemplates: lv.Templates, liveSets: lv.Sets, liveIcons: lv.Icons, liveDefaults: lv.Defaults, liveIconFile: lv.IconFile,
 	}
+	p.replace = req.Mode == importReplace
+	p.keepAdmins = req.KeepAdmins == nil || *req.KeepAdmins
+	p.noHashes = !slices.ContainsFunc(b.Users, fileHash)
+	p.removed.users = map[string]bool{}
 	if p.liveIconFile == nil {
 		p.liveIconFile = func(string) ([]byte, LibIcon, bool) { return nil, LibIcon{}, false }
 	}
@@ -228,6 +246,9 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 		cand := p.next.Clone()
 		p.check.waited, p.pending = false, nil
 		err := s.run(&cand, cat)
+		if err == nil && p.replace {
+			err = p.emptyRest(s.cat, &cand, cat)
+		}
 		if err == nil && p.check.waited {
 			err = errors.New("the router names are not read yet; import this after Sode reads them")
 		}
@@ -237,6 +258,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 		}
 		if err != nil {
 			cat.Refused = err.Error()
+			p.noAdmin = p.noAdmin || errors.Is(err, errNoAdministrator)
 			p.refused(s.cat)
 			continue
 		}
@@ -250,8 +272,12 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 			}
 		}
 		p.next = cand
+		p.check.levels = cand.Levels
+		if s.cat == catUsers {
+			p.actor = p.adminFor(cand)
+		}
 		p.written = append(p.written, p.pending...)
-		if slices.ContainsFunc(cat.Items, importItem.writes) {
+		if slices.ContainsFunc(cat.Items, func(it importItem) bool { return it.writes() || it.Remove }) {
 			p.written = append(p.written, s.keys...)
 		}
 	}
@@ -266,7 +292,13 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 		}
 	}
 	slices.Sort(p.overwrites)
-	p.plan.Critical = len(p.overwrites) > 0
+	if p.replace && len(p.overwrites) == 0 {
+		p.overwrites = []string{"Replace import"}
+	}
+	p.plan.Critical = p.replace || len(p.overwrites) > 0
+	if p.noAdmin {
+		p.plan.Refused = errNoAdministrator.Error()
+	}
 	return p
 }
 
@@ -275,12 +307,15 @@ func (p *importPlanner) refused(cat string) {
 	switch cat {
 	case catUsers:
 		p.users = map[string]string{}
+		p.removed.users = map[string]bool{}
 	case catPresets:
 		p.presets = map[string]string{}
 	case catArtwork:
 		p.icons, p.iconWrites, p.defaultWrites = map[string]string{}, nil, nil
+		p.removed.icons, p.removed.defaults = nil, nil
 	case catPanels:
 		p.panels, p.templateWrites, p.setWrites = nil, nil, nil
+		p.removed.panels, p.removed.templates, p.removed.sets = nil, nil, nil
 	}
 }
 
@@ -336,10 +371,12 @@ func (p *importPlanner) itemsWithRefs() map[string]map[string]string {
 }
 
 // choice is the page's choice for a clashing item, when it is a valid one. Else a file from this install
-// gets Use new and a foreign file gets Rename.
+// gets Use new and a foreign file gets Rename. Replace import takes the file's item always.
 func (p *importPlanner) choice(cat, key string, rename bool) string {
 	c := p.req.Choices[cat][key]
 	switch {
+	case p.replace:
+		return useNew
 	case c == useNew || c == useCurrent || c == useSkip || c == useRename && rename:
 		return c
 	case p.same || !rename:
@@ -444,8 +481,12 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 // planRouters: v2.0 drives one router, so only the file's router with the live UID applies. Another
 // router is for the remap step.
 func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
-	for _, r := range p.b.Routers {
+	for i, r := range p.b.Routers {
 		it := importItem{Key: r.UID, Name: cmp.Or(r.Title, r.Prefix)}
+		// Replace import goes over the one router in place: adding or deleting a router is not in v2.0.
+		if p.replace && i == 0 {
+			r.UID = p.live.UID
+		}
 		if r.UID != p.live.UID {
 			it.Choice, it.Note = useSkip, "another router: Sode does not add routers"
 			cat.Items = append(cat.Items, it)
@@ -467,7 +508,8 @@ func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
 	return nil
 }
 
-// planUsers: a new user is PIN needed, keeping the Role; Use new on a live user keeps that user's PIN.
+// planUsers: a user with a PIN hash in the file brings it. A new user without one is PIN needed, keeping the
+// Role, and Use new on a live user keeps that user's PIN.
 func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 	for _, u := range p.b.Users {
 		key := cmp.Or(u.ID, u.Name)
@@ -483,8 +525,18 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 		i := matchIdx(p.same, cand.Users, u.ID, u.Name, func(x config.User) string { return x.ID }, func(x config.User) string { return x.Name })
 		if i >= 0 {
 			lu := cand.Users[i]
-			u.ID, u.Pin, u.Len, u.PinNeeded = lu.ID, lu.Pin, lu.Len, lu.PinNeeded
+			hashed := fileHash(u)
+			if !hashed {
+				u.Pin, u.Len, u.PinNeeded = lu.Pin, lu.Len, lu.PinNeeded
+			}
+			if p.noHashes && lu.ID == p.actor {
+				u.Role = lu.Role // an import without hashes keeps the importing Administrator
+			}
+			u.ID = lu.ID
 			it.Clash = lu.Name
+			if hashed && u.Pin != lu.Pin {
+				it.Note = "Ends " + lu.Name + "'s keys and sessions"
+			}
 			if sameYAML(u, lu) {
 				it.Same = true
 				p.users[fileID] = lu.ID
@@ -512,7 +564,9 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 		if _, taken := cand.FindUserByID(u.ID); u.ID == "" || taken || it.Choice == useRename {
 			u.ID = config.NewUserID()
 		}
-		u.Pin, u.Len, u.PinNeeded = "", 0, true
+		if !fileHash(u) {
+			u.Pin, u.Len, u.PinNeeded = "", 0, true
+		}
 		cand.Users = append(cand.Users, u)
 		p.users[fileID] = u.ID
 		cat.Items = append(cat.Items, it)
@@ -739,7 +793,7 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Cps: cps})
 		cat.Items = append(cat.Items, it)
 	}
-	if len(p.livePanels)+adds > panelMax {
+	if len(p.livePanels)+adds > panelMax && !p.replace { // Replace counts after its removals (emptyRest)
 		return errPanelCap
 	}
 	return nil

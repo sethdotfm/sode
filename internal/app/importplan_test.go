@@ -241,10 +241,10 @@ func TestAddImportGivesOwnerlessItemsToTheAdministrator(t *testing.T) {
 	}
 }
 
-// Use new on a user takes the file's Role and keeps the live PIN, since this import carries no hashes.
+// Use new on a user takes the file's Role and keeps the live PIN when the file carries no hash.
 func TestAddImportUseNewKeepsLivePin(t *testing.T) {
 	a, c, tok := importApp(t)
-	file := exported(t, a, tok, exportReq{Categories: []string{catUsers}, IncludePins: true})
+	file := exported(t, a, tok, exportReq{Categories: []string{catUsers}})
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Users[0].Role = config.RoleTrusted })
 	pin := a.r().cfg.Users[0].Pin
 	if rec := postApply(t, a, tok, file, importReq{Mode: importAdd}); rec.Code != 403 {
