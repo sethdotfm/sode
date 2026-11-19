@@ -8,7 +8,6 @@ import {
   idleDue,
   idleLock,
   pingDue,
-  needsPin,
   pageType,
   liftFrom,
   shouldFly,
@@ -131,14 +130,6 @@ test('idleLock: a user marked No auto-lock is skipped, and raising the Lock or s
   assert.equal(idleLock({ ...user, noAutoLock: false }, 0, t, 5), true);
   assert.equal(raiseLock(user).noAutoLock, false);
   assert.equal(signedOut(user).noAutoLock, false);
-});
-
-test('needsPin: a trusted user skips the prompt', () => {
-  assert.equal(needsPin(false, false, false), false);
-  assert.equal(needsPin(true, false, false), true);
-  assert.equal(needsPin(true, true, false), false);
-  assert.equal(needsPin(true, false, true), false);
-  assert.equal(needsPin(true, true, true), false);
 });
 
 test('pageType', () => {

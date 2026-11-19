@@ -131,7 +131,7 @@ function detail(p) {
   if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
-  // The server decides: a Trusted user, or the Advanced Settings PIN the modal asks for.
+  // The server decides: a Trusted user or higher.
   if (!phone && (S.trusted || p.canEdit)) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
   // Link with key goes here.
   const slot = el('span', 'sode-ov__more');
@@ -210,15 +210,15 @@ async function setHide(id, instance, on) {
 }
 
 // Renames the instance's device name: the page hears it down its stream (POST .../instances/rename). Answers null after
-// it is sent, or after a clash is handed to the name dialog, else renameRefusal's {why, pin}. keyless names a keyless
+// it is sent, or after a clash is handed to the name dialog, else renameRefusal's {why}. keyless names a keyless
 // page by its id; it has no watch and no name check.
-async function rename(id, instance, name, pin = '', keyless = '') {
+async function rename(id, instance, name, keyless = '') {
   const p = S.panels.find((x) => x.id === id);
   try {
     await api(`api/v1/panels/${id}/instances/rename`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(keyless ? { keyless, name } : { instance, name, pin }),
+      body: JSON.stringify(keyless ? { keyless, name } : { instance, name }),
     });
     // The server moved the watch with the name; the poll does not carry watches.
     if (p) p.watchingInstances = (p.watchingInstances || []).map((d) => (d === instance.toLowerCase() ? name.toLowerCase() : d));
@@ -227,7 +227,7 @@ async function rename(id, instance, name, pin = '', keyless = '') {
   } catch (e) {
     const suggest = clashOf(e);
     if (suggest === null) return renameRefusal(e);
-    askName(p || { name: 'This panel' }, name, suggest, (chosen) => rename(id, instance, chosen, pin).then((r) => r && say(r.why)), 'rename');
+    askName(p || { name: 'This panel' }, name, suggest, (chosen) => rename(id, instance, chosen).then((r) => r && say(r.why)), 'rename');
     return null;
   }
 }

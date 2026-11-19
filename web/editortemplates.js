@@ -5,7 +5,7 @@ import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check } from './formbits.js';
 import { trapDialog } from './dialogkeys.js';
-import { saveTemplateBody, templateGrid, groupTemplates, templateNote, pinNeeded } from './templaterules.js';
+import { saveTemplateBody, templateGrid, groupTemplates, templateNote } from './templaterules.js';
 import { pagesOf } from './panelpages.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -30,7 +30,6 @@ export function initTemplates(editor) {
     const opener = document.activeElement;
     let templates = null; // null while loading
     let scope = 'me';
-    let pinAsked = false;
     let busy = false;
 
     const note = el('span', 'sode__hint');
@@ -48,13 +47,6 @@ export function initTemplates(editor) {
     const withSettings = check('Include the panel settings', { id: 'tpl-settings' });
     const withSources = check('Store with Sources (and Presets)', { id: 'tpl-sources' });
     const withDests = check('Store with Destinations', { id: 'tpl-dests' });
-    const pin = el('input', 'pb-input');
-    pin.type = 'password';
-    pin.autocomplete = 'off';
-    pin.id = 'tpl-pin';
-    pin.setAttribute('aria-label', 'Advanced Settings PIN');
-    const pinRow = el('label', 'sode-tpl__pin', 'Everyone templates need a Trusted user or the Advanced Settings PIN', pin);
-    pinRow.hidden = true;
     const saveBtn = el('button', 'pb-btn pb-btn--ok', 'Save template');
     saveBtn.type = 'button';
     saveBtn.id = 'tpl-save';
@@ -75,7 +67,6 @@ export function initTemplates(editor) {
       withSettings.label,
       withSources.label,
       withDests.label,
-      pinRow,
       saveBtn,
     );
 
@@ -92,7 +83,6 @@ export function initTemplates(editor) {
           r.checked = scope === id;
           r.addEventListener('change', () => {
             scope = id;
-            pinRow.hidden = !(scope === 'everyone' && pinAsked);
           });
           const l = el('label', 'pb-btn pb-btn--outline', text);
           l.htmlFor = r.id;
@@ -176,19 +166,12 @@ export function initTemplates(editor) {
               withSettings: withSettings.input.checked,
               withSources: withSources.input.checked,
               withDests: withDests.input.checked,
-              pin: pin.value,
             }),
           ),
         });
-        pin.value = '';
         templates = [...(templates || []), made];
         note.textContent = `Saved ${made.name} to ${made.scope === 'me' ? 'Me' : 'Everyone'}.`;
       } catch (e) {
-        if (pinNeeded(e.status, e.code)) {
-          pinAsked = true;
-          pinRow.hidden = false;
-          pin.focus();
-        }
         note.textContent = e.message;
       }
       busy = false;

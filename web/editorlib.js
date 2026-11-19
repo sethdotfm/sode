@@ -1,14 +1,12 @@
 // The Choose icon picker's Uploaded icons section. It has the Icon library's icons, and an Icon library button that
 // opens the dialog with Upload, Rename, Delete and Rescan. The sidebar is for choosing; the library is changed in the dialog.
-// Any editor picks; adding needs a Trusted user or the Advanced Settings PIN, asked for after the first refusal as
-// Default artwork does. Tiles draw through the panel's createArt, so their blob URLs go when the panel does. Rename,
-// Delete and Rescan (the drop-in directory, docs/reference.md) show only to a Trusted user. The server also accepts
-// the PIN, but only from the API.
+// Any editor picks; adding needs a Trusted user, and the server's refusal shows in the note. Tiles draw through the
+// panel's createArt, so their blob URLs go when the panel does. Rename, Delete and Rescan (the drop-in directory,
+// docs/reference.md) show only to a Trusted user.
 import { el, on, S } from './core.js';
 import { btn } from './formbits.js';
 import { trapDialog } from './dialogkeys.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
-import { pinNeeded } from './templaterules.js';
 import { prepareArt } from './artcompress.js';
 import { artImage } from './panelview.js';
 import { churnKey, lockoutMs } from './lockrules.js';
@@ -28,7 +26,7 @@ on('access', (a) => {
   for (const fn of repaints) fn();
 });
 
-// The body is JSON so the PIN can ride in it; readAsDataURL, since spreading 2 MB into btoa throws.
+// The body is JSON; readAsDataURL, since spreading 2 MB into btoa throws.
 const base64 = (blob) =>
   new Promise((done, fail) => {
     const r = new FileReader();
@@ -67,13 +65,6 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   file.hidden = true;
   const up = btn('pb-btn--outline pb-btn--sm', 'Upload', () => file.click());
   up.id = 'ed-lib-upload';
-  const pin = el('input', 'pb-input');
-  pin.type = 'password';
-  pin.autocomplete = 'off';
-  pin.id = 'ed-lib-pin';
-  pin.setAttribute('aria-label', 'Advanced Settings PIN');
-  const pinRow = el('label', 'sode-side__pin', 'Adding to the Icon library needs a Trusted user or the Advanced Settings PIN', pin);
-  pinRow.hidden = true;
 
   let chosen = ''; // the icon id Rename and Delete act on
   let confirming = null; // {key, ready, lock, go}
@@ -129,7 +120,6 @@ export function createLibSection({ ed, set, gone = () => {} }) {
       'pb-modal__body sode-side__lib-sec',
       el('p', 'sode__hint', 'Every panel can use these icons. A new upload also goes on the selection.'),
       el('div', 'sode-side__row', name, up),
-      pinRow,
       manageSec,
       confirmBox,
       note,
@@ -300,19 +290,12 @@ export function createLibSection({ ed, set, gone = () => {} }) {
         return;
       }
       const body = { name: n, data: await base64(blob) };
-      if (pin.value) body.pin = pin.value;
       const ic = await send('api/v1/icon-library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      pin.value = '';
-      pinRow.hidden = true;
       name.value = '';
       note.textContent = ic.name === n ? `Added ${ic.name}.` : `Added as ${ic.name}, since ${n} is already in use.`;
       await load();
       set(`lib:${ic.id}`);
     } catch (e) {
-      if (pinNeeded(e.status, e.code)) {
-        pinRow.hidden = false;
-        pin.focus();
-      }
       note.textContent = e.message;
     }
   });

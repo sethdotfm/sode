@@ -27,10 +27,7 @@ const idx = () =>
         {
           id: 'locks',
           title: 'Locks',
-          settings: [
-            { id: 'cfg-pin', label: 'Advanced Settings PIN' },
-            { id: 'cfg-pin-waits', label: 'Wait after wrong PINs' },
-          ],
+          settings: [{ id: 'cfg-pin-waits', label: 'Wait after wrong PINs' }],
         },
         {
           id: 'history',
@@ -102,7 +99,7 @@ test('the router salvo group is found by its words', () => {
     {
       id: 'router',
       title: 'Router',
-      settings: [{ id: 'cfg-salvogroup', label: 'Router salvo group (advanced)' }],
+      settings: [{ id: 'cfg-salvogroup', label: 'Router salvo group' }],
     },
   ]);
   for (const q of ['salvo group', 'native', 'group number', 'crosspoint list']) {

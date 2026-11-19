@@ -46,8 +46,7 @@ func topicOf(section string) string {
 	return "Look and feel"
 }
 
-// fieldLabels: the Settings label of each saveFields key (TestEverySavedFieldHasLabel), plus the
-// Advanced Settings PIN that the config message saves.
+// fieldLabels: the Settings label of each saveFields key (TestEverySavedFieldHasLabel).
 var fieldLabels = map[string]string{
 	"browserDefaults":      "Everyone's defaults",
 	"brandText":            "Logo text & Page title",
@@ -86,11 +85,7 @@ var fieldLabels = map[string]string{
 	"guestRights":          "Guest rights",
 	"api":                  "API",
 	"guestApiScopes":       "Keyless API scopes",
-	settingsPinKey:         "Advanced Settings PIN",
 }
-
-// settingsPinKey is not a one Save key: only the config message writes it.
-const settingsPinKey = "settingsPin"
 
 var attrLabels = map[string]string{
 	"name": "Name", "role": "Role", "pin": "PIN", "rights": "Rights", "persistent": "Never sign out",
@@ -180,12 +175,6 @@ func diffList(f SavedField, was, now json.RawMessage, rights bool) []SavedField 
 func (a *App) savedFields(was, now config.Config, keys []string, x *saveCtx) []SavedField {
 	var out []SavedField
 	for _, key := range slices.Sorted(slices.Values(keys)) {
-		if key == settingsPinKey {
-			f := newSavedField(key, "locks", fieldLabels[key])
-			f.Changed = true
-			out = append(out, f)
-			continue
-		}
 		spec, ok := lookupField(key)
 		if !ok {
 			continue

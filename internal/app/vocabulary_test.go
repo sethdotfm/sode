@@ -81,10 +81,9 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"open panel"}, Why: "an open panel page is any panel page that is open, so a scan cannot tell it from a Public panel; a reviewer judges it by hand"},
 }
 
-// vocabMask blanks phrases that contain a retired word but stay: the Advanced Settings PIN,
-// the router's own salvo and the native group-send fire mode.
+// vocabMask blanks phrases that contain a retired word but stay: the router's own salvo and
+// the native group-send fire mode.
 var vocabMask = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)advanced settings pin`),
 	regexp.MustCompile(`(?i)\bas follows\b`),
 	regexp.MustCompile(`(?i)\b(?:native|router'?s?(?: own)?) salvos?\b`),
 	regexp.MustCompile(`(?i)\bfire salvo \d+`),
@@ -98,7 +97,6 @@ var vocabAllow = []allowEntry{
 	{"account", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"log in", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"unlock", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
-	{"Settings PIN", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"hand lock", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"This device", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"", ".js", `^(?:login|logout|unlock|unlocked)$`, "bus and wire event names, which do not change"},
@@ -120,8 +118,8 @@ var identAllow = []allowEntry{
 	{"salvo", "web/logkinds.js", `^\s*salvos?:`, "`log` command kinds, as the server logs them"},
 	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
 	{"salvo", "web/savereviewrules.js", `^\s*salvoGroup:`, "the router's own salvo group, a Config JSON key"},
-	{"unlock", "web/logkinds.js", `^\s*(?:unlock|adminUnlock):`, "`log` command kinds, as the server logs them"},
-	{"unlock", "", `\b(?:unlock|unlocked|isUnlocked|lostUnlock|sendUnlock)\b`, "names for the `unlock` and `userSignIn` messages and the access they grant (pin.js, lock.js); they hold a wire value, not a UI word"},
+	{"unlock", "web/logkinds.js", `^\s*adminUnlock:`, "a `log` command kind, as old rows hold it"},
+	{"unlock", "", `\bunlocked\b`, "the access a `userSignIn` grants (lock.js); it holds a wire value, not a UI word"},
 	{"follows", ".js", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 	{"follows", ".mjs", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 }
@@ -419,8 +417,8 @@ func TestVocabularyScanMechanics(t *testing.T) {
 		}
 	}
 	pin := wordRe(`(?i)settings pin`)
-	if len(scanLines("Settings PIN", "a.md", "the Advanced Settings PIN", pin, nil)) > 0 {
-		t.Error("Advanced Settings PIN is kept")
+	if len(scanLines("Settings PIN", "a.md", "the Advanced Settings PIN", pin, nil)) == 0 {
+		t.Error("the Advanced Settings PIN is retired")
 	}
 	if len(scanLines("Settings PIN", "a.md", "the Settings PIN", pin, nil)) == 0 {
 		t.Error("a bare Settings PIN is retired")

@@ -1,35 +1,41 @@
 package config
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 )
 
-func TestChanged(t *testing.T) {
+func TestReconnectChanged(t *testing.T) {
 	a := Defaults()
-	b := a.Clone()
-	if Changed(a, b, "router", "pin", "open") {
+	if ReconnectChanged(a, a.Clone()) {
 		t.Fatal("a clone differs")
 	}
-	b.Matrix = 3
-	if !Changed(a, b, "router") || Changed(a, b, "pin", "open") {
-		t.Error("Matrix is a router field")
+	for name, mut := range map[string]func(*Config){
+		"address":      func(c *Config) { c.Address = "10.9.9.9:8910" },
+		"matrix":       func(c *Config) { c.Matrix = 3 },
+		"levels":       func(c *Config) { c.Levels = 5 },
+		"level offset": func(c *Config) { c.LevelWireOffset = 1 },
+		"name length":  func(c *Config) { c.NameLength = 8 },
+		"name reads":   func(c *Config) { c.NameRequests = "none" },
+	} {
+		b := a.Clone()
+		mut(&b)
+		if !ReconnectChanged(a, b) {
+			t.Errorf("%s does not reconnect", name)
+		}
 	}
-	b = a.Clone()
-	b.FireMode = "native"
-	if !Changed(a, b, "pin") || Changed(a, b, "router") {
-		t.Error("FireMode is a pin field")
-	}
-	b = a.Clone()
-	a.TrustedProxies, b.TrustedProxies = nil, []string{}
-	if Changed(a, b, "pin") {
-		t.Error("nil and empty slices should be equal")
-	}
-	b = a.Clone()
-	b.LevelColors = []string{"#abc"}
-	if Changed(a, b, "router", "pin") || !Changed(a, b, "open") {
-		t.Error("LevelColors is open")
+	for name, mut := range map[string]func(*Config){
+		"fire mode":     func(c *Config) { c.FireMode = "native" },
+		"level colors":  func(c *Config) { c.LevelColors = []string{"#abc"} },
+		"router name":   func(c *Config) { c.Title = "Studio" },
+		"locks":         func(c *Config) { c.Locks.Main = true },
+		"require HTTPS": func(c *Config) { c.RequireHTTPS = true },
+	} {
+		b := a.Clone()
+		mut(&b)
+		if ReconnectChanged(a, b) {
+			t.Errorf("%s reconnects", name)
+		}
 	}
 }
 
@@ -59,27 +65,5 @@ func TestValidateNames(t *testing.T) {
 	}
 	if !has(validateNames("thing", []string{"Alpha", "alpha"}, 5), "two things are named") {
 		t.Error("duplicate ignoring case")
-	}
-}
-
-// Locks and idle time are guarded by the Advanced Settings PIN.
-func TestLocksAreGuarded(t *testing.T) {
-	typ := reflect.TypeOf(Config{})
-	for _, name := range []string{"Locks", "AutoLockMinutes"} {
-		f, _ := typ.FieldByName(name)
-		if f.Tag.Get("guard") != "pin" {
-			t.Errorf("Config.%s tags %q", name, f.Tag)
-		}
-	}
-	a := Defaults()
-	b := a.Clone()
-	b.Locks.Main = true
-	if !Changed(a, b, "pin") {
-		t.Error("a lock change is a pin-guarded change")
-	}
-	b = a.Clone()
-	b.AutoLockMinutes = 5
-	if !Changed(a, b, "pin") {
-		t.Error("auto-lock change is a pin-guarded change")
 	}
 }

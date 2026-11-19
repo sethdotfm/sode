@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
 func httpsApp(t *testing.T, on bool) *App {
@@ -91,20 +89,20 @@ func TestRequireHTTPSSaveNeedsSecureRequest(t *testing.T) {
 	a := httpsApp(t, false)
 	cfg := a.r().cfg
 	cfg.RequireHTTPS = true
-	if err := a.SaveSettings(&client{}, cfg, "", false); err != errInsecureSave {
+	if err := a.SaveSettings(&client{}, cfg); err != errInsecureSave {
 		t.Fatalf("insecure save: %v", err)
 	}
 	if a.r().cfg.RequireHTTPS {
 		t.Fatal("turned on")
 	}
-	if err := a.SaveSettings(&client{secure: true}, cfg, "", false); err != nil {
+	if err := a.SaveSettings(&client{secure: true}, cfg); err != nil {
 		t.Fatal(err)
 	}
 	if !a.r().cfg.RequireHTTPS {
 		t.Fatal("not turned on")
 	}
 	// Staying on from an insecure connection is not a toggle.
-	if err := a.SaveSettings(&client{}, cfg, "", false); err != nil {
+	if err := a.SaveSettings(&client{}, cfg); err != nil {
 		t.Fatalf("resave while on: %v", err)
 	}
 }
@@ -113,7 +111,7 @@ func TestRequireHTTPSSaveRefusesEmptyProxies(t *testing.T) {
 	a := newTestApp(t)
 	cfg := a.r().cfg
 	cfg.RequireHTTPS = true
-	if err := a.SaveSettings(&client{secure: true}, cfg, "", false); err == nil {
+	if err := a.SaveSettings(&client{secure: true}, cfg); err == nil {
 		t.Fatal("saved with no trusted proxies")
 	}
 }
@@ -123,11 +121,11 @@ func TestRequireHTTPSToggleIsLogged(t *testing.T) {
 	defer startLog(t, a)()
 	cfg := a.r().cfg
 	cfg.RequireHTTPS = true
-	if err := a.SaveSettings(&client{ip: "10.1.1.1", secure: true}, cfg, "", false); err != nil {
+	if err := a.SaveSettings(&client{ip: "10.1.1.1", secure: true}, cfg); err != nil {
 		t.Fatal(err)
 	}
 	cfg.RequireHTTPS = false
-	if err := a.SaveSettings(&client{ip: "10.1.1.1", secure: true}, cfg, "", false); err != nil {
+	if err := a.SaveSettings(&client{ip: "10.1.1.1", secure: true}, cfg); err != nil {
 		t.Fatal(err)
 	}
 	var rows []string
@@ -138,14 +136,5 @@ func TestRequireHTTPSToggleIsLogged(t *testing.T) {
 	}
 	if len(rows) != 2 || rows[0] != "requireHttps on 10.1.1.1" || rows[1] != "requireHttps off 10.1.1.1" {
 		t.Fatalf("rows %q", rows)
-	}
-}
-
-func TestRequireHTTPSGuardedByPin(t *testing.T) {
-	live := config.Defaults()
-	next := live
-	next.RequireHTTPS = true
-	if !config.Changed(live, next, "pin") {
-		t.Fatal("requireHttps is not PIN-guarded")
 	}
 }

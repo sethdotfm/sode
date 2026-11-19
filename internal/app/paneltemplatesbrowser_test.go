@@ -54,10 +54,10 @@ func TestChromeEditorTemplates(t *testing.T) {
 		t.Fatalf("the template kept cell contents or lost its layout: %s", body)
 	}
 
-	// Everyone is for a Trusted user or the PIN; Ana is neither, so the dialog asks for the PIN.
+	// Everyone is for a Trusted user; Ana is not one, so the dialog shows the refusal and asks for no PIN.
 	b.eval(`document.getElementById('tpl-name').value = 'For all'; document.getElementById('tpl-scope-everyone').click(); document.getElementById('tpl-save').click()`)
-	b.waitFor("PIN asked", `!document.querySelector('.sode-tpl__pin').hidden && document.querySelector('.sode-tpl .pb-modal__footer').textContent.includes('Trusted user')`)
-	b.shot("pin")
+	b.waitFor("refused", `document.querySelector('.sode-tpl .pb-modal__footer').textContent.includes('Trusted user') && !document.querySelector('.sode-tpl input[type="password"]')`)
+	b.shot("refused")
 
 	b.eval(`document.querySelector('[data-apply]').click()`)
 	b.waitFor("applied with the cells unassigned", `!document.getElementById('tpl-save') && document.getElementById('ed-state').textContent === 'Unsaved changes'`)

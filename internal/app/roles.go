@@ -10,7 +10,7 @@ import (
 // roleAnyone: a policy rule that needs no Role. The handler can still need a sign-in.
 const roleAnyone = "anyone"
 
-// roleErr is a refusal for the connection's Role. It is not errLocked: no PIN opens it, so
+// roleErr is a refusal for the connection's Role. No PIN opens it, so
 // the page must not ask for one. noAdmin: the install has no Administrator at all.
 type roleErr struct {
 	need    string

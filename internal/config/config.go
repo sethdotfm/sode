@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net"
 	"net/netip"
 	"os"
@@ -31,30 +32,28 @@ type Config struct {
 	// Router is the one router v2.0 drives; the file holds it as the only entry of routers (router.go).
 	Router `yaml:"-"`
 	// Brand fields are display only.
-	BrandText            string   `yaml:"brandText,omitempty" json:"brandText" guard:"open"`
-	BrandBorder          string   `yaml:"brandBorder,omitempty" json:"brandBorder" guard:"open"`
-	ConfirmLockoutMs     int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs" guard:"open"`
-	ResultDismissSeconds int      `yaml:"resultDismissSeconds" json:"resultDismissSeconds" guard:"open"`
-	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter" guard:"open"`
-	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
+	BrandText            string   `yaml:"brandText,omitempty" json:"brandText"`
+	BrandBorder          string   `yaml:"brandBorder,omitempty" json:"brandBorder"`
+	ConfirmLockoutMs     int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs"`
+	ResultDismissSeconds int      `yaml:"resultDismissSeconds" json:"resultDismissSeconds"`
+	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter"`
+	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies"`
 	// HiddenDsts is a History filter expression (web/filter.js) hiding Externals on these destinations; still recorded.
-	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
+	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts"`
 	// HiddenDstsRouter: the router UID whose numbers HiddenDsts's number and range terms mean; blank is the one router.
-	HiddenDstsRouter string      `yaml:"hiddenDstsRouter,omitempty" json:"hiddenDstsRouter,omitempty" guard:"open"`
+	HiddenDstsRouter string      `yaml:"hiddenDstsRouter,omitempty" json:"hiddenDstsRouter,omitempty"`
 	FilterSets       []FilterSet `yaml:"filterSets,omitempty" json:"filterSets"`
 	Presets          []Preset    `yaml:"presets,omitempty" json:"presets"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
-	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
-	SettingsPin string   `yaml:"settingsPin,omitempty" json:"-"`
+	LevelColors []string `yaml:"levelColors" json:"levelColors"`
 	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
-	PinWaits       bool           `yaml:"pinWaits" json:"pinWaits" guard:"pin"`
+	PinWaits       bool           `yaml:"pinWaits" json:"pinWaits"`
 	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults"`
-	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (saveSettings).
-	Users []User `yaml:"users,omitempty" json:"users"`
+	Users          []User         `yaml:"users,omitempty" json:"users"`
 	// NewUserDefaults has no value in Defaults: a file from before it loads both off, as new users started then.
-	NewUserDefaults NewUserDefaults `yaml:"newUserDefaults" json:"newUserDefaults" guard:"pin"`
-	Locks           Locks           `yaml:"locks" json:"locks" guard:"pin"`
-	AutoLockMinutes int             `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
+	NewUserDefaults NewUserDefaults `yaml:"newUserDefaults" json:"newUserDefaults"`
+	Locks           Locks           `yaml:"locks" json:"locks"`
+	AutoLockMinutes int             `yaml:"autoLockMinutes" json:"autoLockMinutes"`
 	// MaxPinLen is the longest user PIN (4-12).
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen"`
 	// API settings, clients, Guest rights and scopes save through the one Save. Clients, Guest
@@ -63,14 +62,14 @@ type Config struct {
 	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-"`
 	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-"`
 	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator.
-	GuestRole      string   `yaml:"guestRole" json:"guestRole" guard:"pin"`
+	GuestRole      string   `yaml:"guestRole" json:"guestRole"`
 	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-"`
 	// PublicPanels is Public panels allowed: off, no panel hands out a Public key (panelpublic.go).
-	PublicPanels bool `yaml:"publicPanels" json:"publicPanels" guard:"pin"`
+	PublicPanels bool `yaml:"publicPanels" json:"publicPanels"`
 	// NewPanelActs prefills a blank new panel's Authentication mode (a panel's acts value) and nothing else.
-	NewPanelActs string `yaml:"newPanelActs" json:"newPanelActs" guard:"pin"`
+	NewPanelActs string `yaml:"newPanelActs" json:"newPanelActs"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
-	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
+	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
 	Extra map[string]any `yaml:",inline" json:"-"`
 	// idsFilled: Normalize gave a user an id; Load writes it back, or the next start makes new ones.
@@ -271,6 +270,7 @@ func (c *Config) Normalize() {
 	}
 	c.normalizeUsers()
 	c.normalizeAPI()
+	c.dropRetiredKeys()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
 	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
 	if c.RouterShow == "" {
@@ -660,6 +660,19 @@ func NameKeys(keys []string) string {
 		return strings.Join(keys, ", ")
 	}
 	return fmt.Sprintf("%s and %d more", strings.Join(keys[:maxNamedKeys], ", "), len(keys)-maxNamedKeys)
+}
+
+// retiredKeys held v1's settings secret, a PIN hash; v2.0 gates on Roles (ADR 0010). Extra is shared
+// by Clone, hence the copy.
+var retiredKeys = []string{"settingsPin"}
+
+func (c *Config) dropRetiredKeys() {
+	if slices.ContainsFunc(retiredKeys, func(k string) bool { _, ok := c.Extra[k]; return ok }) {
+		c.Extra = maps.Clone(c.Extra)
+		for _, k := range retiredKeys {
+			delete(c.Extra, k)
+		}
+	}
 }
 
 // UnknownKeys lists the keys Parse kept in Extra fields, as sorted paths named like the file

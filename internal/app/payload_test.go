@@ -94,7 +94,7 @@ func TestMessageSizes(t *testing.T) {
 	}
 	form := cfg
 	form.FilterSets, form.Presets, form.Users = nil, nil, nil
-	if n := size(map[string]any{"t": "config", "config": form, "pin": strings.Repeat("9", 64)}); n+envelope >= wsReadLimit/4 {
+	if n := size(map[string]any{"t": "config", "config": form}); n+envelope >= wsReadLimit/4 {
 		t.Errorf("a Settings message without owned lists is %d bytes", n)
 	}
 	var hello struct{ Cfg config.Config }
@@ -122,10 +122,9 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 
 	in := maxOwned(t)
 	in.Address = "9.9.9.9:9"
-	in.SettingsPin = "not a hash"
 	in.Users = []config.User{{Name: "intruder"}}
 	in.Presets[0].Name = "" // would fail validation if it were applied
-	if err := a.SaveSettings(c, in, "", false); err != nil {
+	if err := a.SaveSettings(c, in); err != nil {
 		t.Fatalf("owned fields were validated or applied: %v", err)
 	}
 	got := a.r().cfg
@@ -133,7 +132,7 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 		t.Error("form field not applied")
 	}
 	if len(got.FilterSets) != 1 || got.FilterSets[0].Name != "keep" || len(got.Presets) != 1 ||
-		got.SettingsPin != live.SettingsPin || len(got.Users) != 0 ||
+		len(got.Users) != 0 ||
 		got.Locks.Any() || got.AutoLockMinutes != live.AutoLockMinutes {
 		t.Fatalf("owned fields changed: %+v", got)
 	}

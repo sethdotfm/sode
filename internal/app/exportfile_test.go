@@ -197,9 +197,6 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 	if !bytes.Contains(files["users.yaml"], []byte("pin: ")) {
 		t.Errorf("Include PINs left the hashes out:\n%s", files["users.yaml"])
 	}
-	if bytes.Contains(files["settings.yaml"], []byte("settingsPin")) {
-		t.Error("settings.yaml holds the settingsPin hash")
-	}
 
 	// The import route reads it back: routers are UIDs again and the counts match.
 	imp := postImport(t, a, tok, rec.Body.Bytes())

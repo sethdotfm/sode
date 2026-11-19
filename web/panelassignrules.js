@@ -6,7 +6,6 @@ import { durationText } from './panelwatchrules.js';
 import { wordScore } from './findrules.js';
 import { stepPanel } from './panelsrules.js';
 import { INSTANCE_MAX, INSTANCE_HOLD } from './panelkeyrules.js';
-import { pinNeeded } from './templaterules.js';
 
 // How an Assign to the panel lands: its client's key, the device's own sign-in, or a choice of both with the key
 // first. The values are the assign route's as.
@@ -194,8 +193,8 @@ export function assignNameProblem(text, clashed) {
 // nothing would hear it.
 export const renameState = (i) => (!i?.page && !i?.keyless ? '' : i.stream ? 'ready' : 'offline');
 
-// A refused rename: the reason to show beside the field, and whether to ask for the Advanced Settings PIN.
-export const renameRefusal = (err) => ({ why: err?.message || '', pin: pinNeeded(err?.status, err?.code) });
+// A refused rename: the reason to show beside the field.
+export const renameRefusal = (err) => ({ why: err?.message || '' });
 
 // What is wrong with a typed instance name, or ''. A name the panel already holds comes back from the server as a
 // name clash with a suggestion, as for an Assign.

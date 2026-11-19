@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// keyTestApp: users Ana (1234) and Bo (567890), an API client PanelsBot, Advanced Settings PIN 2468.
+// keyTestApp: users Ana (1234) and Bo (567890), an API client PanelsBot, the Administrator Ada (2468).
 func keyTestApp(t *testing.T) *App {
 	t.Helper()
 	a := userApp(t, false)
@@ -85,9 +85,9 @@ func TestOwnKeyNeedsOwnPinAndShowsKeyOnce(t *testing.T) {
 	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("key stored after a wrong PIN")
 	}
-	// The Advanced Settings PIN is not the user's PIN.
+	// Another user's PIN is not Ana's.
 	if r := send(t, a, c, next, inMsg{T: "keyCreate", ID: 2, Pin: "2468", KeyName: "Panel 21"}, "keyCreateResult"); r["ok"] != false {
-		t.Fatalf("settings PIN made a user key: %v", r)
+		t.Fatalf("Ada's PIN made a key for Ana: %v", r)
 	}
 
 	r = send(t, a, c, next, inMsg{T: "keyCreate", ID: 3, Pin: "1234", KeyName: "Panel 21"}, "keyCreateResult")
@@ -341,7 +341,7 @@ func TestAdminKeyMessages(t *testing.T) {
 	waitLogged(t, a, 5)
 }
 
-// Every admin key message refuses without the Advanced Settings PIN, a trusted user too.
+// Every admin key message refuses anyone below an Administrator, a Trusted user too.
 func TestAdminKeyMessagesNeedPin(t *testing.T) {
 	a := keyTestApp(t)
 	setFlags(t, a, "Ana", true, false)

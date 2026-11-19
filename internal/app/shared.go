@@ -45,16 +45,14 @@ func (a *App) replyOpNote(c *client, kind string, id int, note string, err error
 
 func (a *App) replyOpResult(c *client, kind, note string, res opResult, err error) {
 	a.command(c, kind, outcome(err), note, err)
-	if err != nil {
-		res.Locked = locked(err)
-	} else {
+	if err == nil {
 		log.Printf("config: %s saved by %s", kind, c.who())
 	}
 	a.reply(c, res)
 }
 
 // opResultFor: the "<kind>Result" reply without the PIN-failure flag; replyOpNote adds it,
-// and callers that log their own outcome (unlock, userSetPin) send it as is.
+// and callers that log their own outcome (userSetPin) send it as is.
 func opResultFor(kind string, id *int, err error) opResult {
 	res := opResult{T: kind + "Result", OK: err == nil, ID: id}
 	if err != nil {
