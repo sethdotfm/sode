@@ -50,11 +50,6 @@ const dialog = el(
   el(
     'div',
     'pb-modal__body',
-    el(
-      'p',
-      'sode__hint',
-      'An API client is an app with its own name in History. It gets a copy of your Rights and never more than your Rights. Its keys work after you change your PIN. It is removed when your user is removed.',
-    ),
     list,
     shown,
     el('h3', 'sode__profiles-h', 'Make an API client'),
@@ -121,6 +116,9 @@ onMsg('myClientsResult', (m) => {
   const keep = who.value;
   who.replaceChildren(...mine.map((n) => opt(n, n)));
   if (mine.includes(keep)) who.value = keep;
+  keyBtn.disabled = !mine.length;
+  if (mine.length) delete keyBtn.dataset.pbTip;
+  else keyBtn.dataset.pbTip = 'Make an API client first';
   const now = Date.now();
   list.replaceChildren(
     ...(m.clients.length
@@ -164,7 +162,7 @@ onMsg('myClientSaveResult', (m) => {
 
 keyBtn.addEventListener('click', () => {
   say('');
-  if (!who.value) return say('Make an API client first, then make its key.');
+  if (!who.value) return;
   const problem = keyNameProblem(keyName.value);
   if (problem) return say(problem);
   if (!pinIn.value) return say('Enter your PIN.');

@@ -74,7 +74,7 @@ export function sendCopy(list, name) {
   items = list;
   back = document.activeElement;
   setNote('');
-  what.textContent = `Send a copy of ${name}. Each person gets it in their Inbox and chooses to accept it.`;
+  what.textContent = `Send a copy of ${name}`;
   const desk = layout() !== 'phone';
   sendBtn.hidden = !desk;
   const names = (S.users || []).map((u) => u.name).filter((n) => n.toLowerCase() !== inboxUser().toLowerCase());

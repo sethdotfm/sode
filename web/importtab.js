@@ -68,6 +68,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     brokenBadge.textContent = `${broken} Broken`;
     reviewBtn.disabled = step === 'list' && !R.importReq(pick).categories.length;
     importBtn.disabled = step === 'review' && !!planned?.refused;
+    importBtn.textContent = own ? 'Import' : pick?.mode === 'replace' ? 'Replace and import' : 'Import (add)';
   };
 
   // In the list the plan is the check's; the remap choices made since take references off it.
@@ -218,7 +219,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
 
   // Add import or Replace import. Replace import is for Administrators, and the dialog is only theirs.
   function modeRow() {
-    if (own) return el('div', 'sode__xi-mode', el('strong', null, 'Add import'), el('span', 'sode__hint', 'Adds and updates. Deletes nothing.'));
+    if (own) return el('div', 'sode__xi-mode', el('strong', null, 'Add import'));
     const replace = pick.mode === 'replace';
     const seg = segmented('xi-mode', 'Import mode', MODES, (v) => {
       pick.mode = v;
@@ -226,8 +227,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     });
     seg.set(pick.mode);
     for (const r of seg.node.querySelectorAll('input')) r.dataset.key = `mode:${r.value}`;
-    const hint = replace ? 'Empties each ticked category first, then imports the file.' : 'Adds and updates. Deletes nothing.';
-    const row = el('div', 'sode__xi-mode', seg.node, el('span', 'sode__hint', hint));
+    const row = el('div', 'sode__xi-mode', seg.node);
     if (replace) {
       const keep = checkBox('Keep current Administrators', {
         id: 'xi-keep-admins',

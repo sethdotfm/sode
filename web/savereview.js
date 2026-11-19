@@ -112,12 +112,7 @@ function backupBlock(toExport) {
   link.type = 'button';
   link.id = 'review-export';
   link.onclick = toExport;
-  return [
-    el('h3', 'sode__label', 'Backup'),
-    el('p', 'sode__hint', 'You can download a full backup before you save, to go back if you must.'),
-    el('div', 'sode__review-backup', get, link, last),
-    status,
-  ];
+  return [el('h3', 'sode__label', 'Backup'), el('div', 'sode__review-backup', get, link, last), status];
 }
 
 // unseen: counts the Role cannot see (stagedrules.js), not in rows. interruptions: null when the server did not
@@ -193,11 +188,8 @@ export function reviewSave({
 
     function confirmReconnect() {
       step = { esc: review };
-      ui.title.textContent = 'Save and reconnect?';
-      ui.body.replaceChildren(
-        el('p', null, `Saving reconnects Sode to the router${address ? ` at ${address}` : ''}.`),
-        el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take in progress fails.'),
-      );
+      ui.title.textContent = `Save and reconnect${address ? ` to ${address}` : ''}?`;
+      ui.body.replaceChildren(el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take in progress fails.'));
       button(ui.back, 'Back', review);
       button(ui.go, 'Save and reconnect', () => end(true));
       ui.go.className = 'pb-btn pb-btn--danger';

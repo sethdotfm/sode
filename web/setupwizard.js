@@ -164,17 +164,7 @@ const nextLink = (text, section, href = '#settings') => h('li', null, h('a', { h
 const VIEW = {
   welcome: () => [
     d.again ? 'Run setup again' : 'Set up Sode',
-    lead(
-      d.again
-        ? 'Change the name, the router and the access in three steps. Finish shows each change before Sode saves it.'
-        : 'Sode patches your router from the keyboard. Set up this install in three short steps.',
-    ),
-    section(
-      'Name and color',
-      'Shown on every page, so people can tell this Sode from another.',
-      field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }),
-      swatches(),
-    ),
+    section('Name and color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
     // replaceChildren draws a null as text, so Run setup again leaves the section out.
     ...(d.again
       ? []
@@ -190,7 +180,6 @@ const VIEW = {
   ],
   router: () => [
     'Router',
-    lead('Where Sode finds the router, and how it shows levels and numbers.'),
     section(
       'Connection',
       '',
@@ -201,7 +190,7 @@ const VIEW = {
       'Levels and numbers',
       '',
       field('setup-levels', 'Levels', d.levels, { type: 'number', min: '1', max: '256' }, hint('levels')),
-      choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), hint('levelNumbering', 'How levels are shown and typed.')),
+      choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), hint('levelNumbering')),
       choice(
         'numberOffset',
         'Source and destination numbers',

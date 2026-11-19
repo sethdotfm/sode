@@ -158,7 +158,7 @@ function bulkBar(st, onChange) {
   const help = el('span', 'sode__xi-help pb-tip--end', icon('circle-help'));
   help.tabIndex = 0;
   help.setAttribute('aria-label', 'Keys for the list');
-  help.setAttribute('data-pb-tip', `${LIST_HELP} With rows selected, these buttons change only those rows.`);
+  help.setAttribute('data-pb-tip', `${LIST_HELP} Buttons act on selected rows.`);
   return el(
     'div',
     'sode__xi-bulk',
