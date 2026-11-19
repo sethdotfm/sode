@@ -229,8 +229,8 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 	}{
 		{catSettings, nil, p.planSettings},
 		{catRouters, nil, p.planRouters},
+		{catPresets, []string{"presets"}, p.planPresets}, // before Users and API clients, whose Rights map preset ids
 		{catUsers, []string{"users"}, p.planUsers},
-		{catPresets, []string{"presets"}, p.planPresets},
 		{catFilterSets, []string{"filterSets"}, p.planFilterSets},
 		{catAPIClients, []string{"apiClients"}, p.planAPIClients},
 		{catArtwork, nil, p.planArtwork},
@@ -534,6 +534,7 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			continue
 		}
 		fileID := u.ID
+		u.Rights = p.mapRightsPresets(u.Rights)
 		u.Profile.Presets = p.checkedPresets(u.Profile.Presets)
 		for i := range u.Profile.FilterSets {
 			u.Profile.FilterSets[i].Broken = p.check.filterSetBroken(u.Profile.FilterSets[i])
@@ -589,6 +590,24 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
+}
+
+// mapRightsPresets moves preset ids as this import moves the presets. A skipped preset leaves the list.
+func (p *importPlanner) mapRightsPresets(r config.Rights) config.Rights {
+	if r.Presets == nil {
+		return r
+	}
+	ids := []string{}
+	for _, id := range *r.Presets {
+		if to, ok := p.presets[id]; ok {
+			id = to
+		}
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
+	r.Presets = &ids
+	return r
 }
 
 // checkedPresets marks each preset with what the target lacks.
@@ -710,6 +729,7 @@ func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) erro
 		if c.Owner != "" {
 			c.Owner = p.ownerFor(*cand, c.Owner, true)
 		}
+		c.Rights = p.mapRightsPresets(c.Rights)
 		it := importItem{Key: c.Name, Name: c.Name}
 		i := matchIdx(false, cand.APIClients, "", c.Name, nil, func(x config.APIClient) string { return x.Name })
 		if i >= 0 {

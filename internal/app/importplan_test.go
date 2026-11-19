@@ -321,3 +321,38 @@ func TestAddImportPanelShareFollowsUsers(t *testing.T) {
 		t.Errorf("plan: %+v", res.Plan.Categories[catPanels])
 	}
 }
+
+// Rights name presets by id, so they follow a preset that imports under another id.
+func TestAddImportMapsRightsPresets(t *testing.T) {
+	a, _, tok := importApp(t)
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")}
+	})
+	lifeCommit(t, a, func(cfg *config.Config) {
+		ids := []string{cfg.Presets[0].ID}
+		for i := range cfg.Users {
+			if cfg.Users[i].Name == "Bo" {
+				cfg.Users[i].Rights.Presets = &ids
+			}
+		}
+		cfg.APIClients = []config.APIClient{{Name: "Cue", Scopes: []string{config.ScopeNames}, Rights: config.Rights{Presets: &ids}}}
+	})
+	file := foreign(t, exported(t, a, tok, exportReq{Categories: []string{catUsers, catPresets, catAPIClients}}))
+	dropUser(t, a, "Bo")
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.Presets[0].Items[0].Dsts = []config.Ref{cfg.DestinationRef(5, "MON 5")}
+		cfg.APIClients = nil
+	})
+	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	two, ok := presetNamed(t, a, "Show 2")
+	if !ok {
+		t.Fatalf("presets: %+v", a.r().cfg.Presets)
+	}
+	bo, _ := a.r().cfg.FindUserByName("Bo")
+	cue, _ := a.r().cfg.FindAPIClient("Cue")
+	for who, r := range map[string]config.Rights{"Bo": bo.Rights, "Cue": cue.Rights} {
+		if r.Presets == nil || !slices.Equal(*r.Presets, []string{two.ID}) {
+			t.Errorf("%s's preset Rights: %v, want [%s]", who, r.Presets, two.ID)
+		}
+	}
+}
