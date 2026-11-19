@@ -2,7 +2,7 @@
 // savereview.js. A change is a difference from the form as opened or last saved. A save source (savesources.js:
 // Manage users, the API section) gives its own changes. data-apart inputs are not counted.
 
-import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
+import { $, el, S, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { fmtTime } from './device.js';
 import { layout } from './layout.js';
 import { askRecheck } from './recheck.js';
@@ -245,7 +245,7 @@ function sendFields(keys, sent, retried, approval = null, answer = null) {
   const preset = changes().find((r) => keys.includes(r.key) && markOf(r));
   const named = preset && { accessPreset: markOf(preset) };
   if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }), ...named })) {
-    if (!answer) showSaveErr('Not connected to Sode.');
+    if (!answer) showSaveErr(LINK_DOWN);
     return false;
   }
   pending = { id, sent, retried, answer };

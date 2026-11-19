@@ -1,4 +1,4 @@
-import { on, onMsg, wsSend, sentence } from './core.js';
+import { on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { showResult } from './plans.js';
 import { profile, saveProfile } from './profile.js';
 
@@ -41,7 +41,7 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
     if (how.send(p, payload, settle) === false) {
       pending = null;
       render();
-      setNote('Not connected to Sode.', true);
+      setNote(LINK_DOWN, true);
       return;
     }
     render();
@@ -71,7 +71,7 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
     if (!pending?.sent) return;
     pending = null;
     render();
-    if (isOpen()) setNote('Connection lost; try again.', true);
+    if (isOpen()) setNote(LINK_DOWN, true);
   });
 
   function cancel() {

@@ -5,7 +5,7 @@
 // With no PIN lock, a Lock with nobody signed in (churning letter, behind the confirm lockout) can still go up. It
 // guards against keyboard mashing. It is page-local state, and a reload clears it.
 
-import { el, S, on, emit, onMsg, wsSend } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, LINK_DOWN } from './core.js';
 import { heldUserKept, keepHeldUser, lastUser, keepLastUser, startHandshake, keepSignInToken, forgetTokens, forgetSignIn, onSessionToken } from './signin.js';
 import {
   padKey,
@@ -455,7 +455,7 @@ function press(k) {
 
 function sendPin() {
   const id = ++seq;
-  if (!wsSend(signInMsg(L, { pin, id, user: who() }))) return say('Not connected to Sode.', true);
+  if (!wsSend(signInMsg(L, { pin, id, user: who() }))) return say(LINK_DOWN, true);
   say('Checking…');
 }
 

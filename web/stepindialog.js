@@ -1,6 +1,6 @@
 // The Step in and Step out controls in Settings > My user, the Step in popup and the "This steps you out" question on
 // links that leave the page. stepin.js holds the state.
-import { $, el, S, on, sentence } from './core.js';
+import { $, el, S, on, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { namePicker } from './namepick.js';
 import { layout } from './layout.js';
@@ -57,7 +57,7 @@ function submit() {
   if (!name) return fail('Enter your name.');
   ui.err.hidden = true;
   const id = ++seq;
-  if (!sendStepIn(name, ui.pin.value, id)) return fail('Not connected to Sode.');
+  if (!sendStepIn(name, ui.pin.value, id)) return fail(LINK_DOWN);
   waiting = id;
   ui.go.disabled = true;
 }

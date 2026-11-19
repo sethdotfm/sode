@@ -1,5 +1,7 @@
 // Card views, the plan and request bodies are the server's (internal/app/inboxsend.go).
 
+import { itemRefs } from './presetref.js';
+
 export const CARD_CATS = ['presets', 'filterSets', 'panels'];
 const WORDS = { presets: ['preset', 'presets'], filterSets: ['filter set', 'filter sets'], panels: ['panel', 'panels'] };
 
@@ -56,12 +58,12 @@ export function acceptReq(pick) {
 
 export const pickedCount = (pick) => CARD_CATS.reduce((n, cat) => n + (pick.items[cat]?.size || 0), 0);
 
-// The inboxSend body. Me and Everyone items go by id (presets) or name (filter sets); This browser items go whole.
-// sets are filterstore.js entries ({ scope, name, f }).
-export function sendBody(to, { presets = [], filterSets = [], panels = [] }) {
+// This browser items go whole, presets in the stored form (presetref.js); sets are filterstore.js entries.
+export function sendBody(router, to, { presets = [], filterSets = [], panels = [] }) {
+  const stored = ({ id, name, items, pinned }) => ({ id, name, pinned, items: items.map((it) => itemRefs(it, router)) });
   return {
     to,
-    presets: presets.map(({ scope, ...p }) => (scope === 'local' ? { scope, preset: p } : { scope, id: p.id })),
+    presets: presets.map((p) => (p.scope === 'local' ? { scope: p.scope, preset: stored(p) } : { scope: p.scope, id: p.id })),
     filterSets: filterSets.map((s) => (s.scope === 'local' ? { scope: s.scope, set: { name: s.name, ...s.f } } : { scope: s.scope, name: s.name })),
     panels: panels.map((p) => p.id),
   };

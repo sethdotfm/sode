@@ -69,8 +69,8 @@ test('an unticked category goes as an empty list', () => {
 });
 
 test('send body: Me and Everyone by id or name, This browser whole', () => {
-  const local = { scope: 'local', id: 'l1', name: 'Desk', items: [] };
-  const body = sendBody(['Bo', 'Cy'], {
+  const local = { scope: 'local', id: 'l1', name: 'Desk', pinned: true, items: [{ src: 3, dsts: [7], levels: [], srcName: 'CAM 3', dstNames: {} }] };
+  const body = sendBody('r1', ['Bo', 'Cy'], {
     presets: [{ scope: 'user', id: 'p1', name: 'Show' }, local],
     filterSets: [
       { scope: 'global', name: 'Cams' },
@@ -82,7 +82,15 @@ test('send body: Me and Everyone by id or name, This browser whole', () => {
     to: ['Bo', 'Cy'],
     presets: [
       { scope: 'user', id: 'p1' },
-      { scope: 'local', preset: { id: 'l1', name: 'Desk', items: [] } },
+      {
+        scope: 'local',
+        preset: {
+          id: 'l1',
+          name: 'Desk',
+          pinned: true,
+          items: [{ src: { router: 'r1', n: 3, name: 'CAM 3' }, dsts: [{ router: 'r1', n: 7 }], levels: [] }],
+        },
+      },
     ],
     filterSets: [
       { scope: 'global', name: 'Cams' },

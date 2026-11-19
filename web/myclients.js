@@ -1,6 +1,6 @@
 // A client gets a copy of the user's Rights, stays capped by them and goes with the user. Its keys outlive the user's PIN.
 
-import { el, on, onMsg, wsSend, sentence } from './core.js';
+import { el, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
@@ -87,7 +87,7 @@ const say = (text) => {
   note.textContent = sentence(text);
   note.hidden = !text;
 };
-const send = (m) => wsSend(m) || (say('Not connected to Sode.'), false);
+const send = (m) => wsSend(m) || (say(LINK_DOWN), false);
 const load = () => send({ t: 'myClients', id: ++listSeq });
 
 function closeClients() {

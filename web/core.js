@@ -6,6 +6,9 @@ import { fuzzyScore } from './fuzzy.js';
 import { searchText } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
 
+// A send or a pending answer with no Server link.
+export const LINK_DOWN = 'Server link down.';
+
 export const $ = (id) => document.getElementById(id);
 
 export function el(tag, cls, ...kids) {

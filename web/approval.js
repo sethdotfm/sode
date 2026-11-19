@@ -2,7 +2,7 @@
 // send returns false when it could not send; the caller then calls answer.fail or answer.done.
 // req: req.action() is the message the server holds for Request approval (approvalcards.js); req.onEnd hears the end.
 
-import { el, S, on, sentence } from './core.js';
+import { el, S, on, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { namePicker } from './namepick.js';
 import { requestApproval, canApprove } from './approvalcards.js';
@@ -36,7 +36,7 @@ function submit() {
   const user = ui.picker.value().trim();
   if (!user) return fail("Enter the approver's name.");
   ui.err.hidden = true;
-  if (!send({ user, pin: ui.pin.value }, { fail, done: close })) return fail('Not connected to Sode.');
+  if (!send({ user, pin: ui.pin.value }, { fail, done: close })) return fail(LINK_DOWN);
   ui.go.disabled = true;
 }
 

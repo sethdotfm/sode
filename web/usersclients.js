@@ -1,6 +1,6 @@
 // Names and scopes save with Settings' one Save; keys act at once. A factory with hooks, so nothing imports users.js back.
 
-import { el, onMsg, wsSend, sentence } from './core.js';
+import { el, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { SCOPES } from './apirules.js';
 import { expiryFrom, keyNameProblem, keysByOwner, ownerText } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
@@ -94,7 +94,7 @@ export function makeClientsTab({ users, touched, adopt }) {
             ),
             ...g.keys.map((k) =>
               keyRow(k, now, () => {
-                if (!wsSend({ t: 'keyRevokeAny', keyId: k.id, id: ++listSeq })) say('Not connected to Sode.');
+                if (!wsSend({ t: 'keyRevokeAny', keyId: k.id, id: ++listSeq })) say(LINK_DOWN);
               }),
             ),
           ])
@@ -104,7 +104,7 @@ export function makeClientsTab({ users, touched, adopt }) {
   let revoking = null; // { id, owner } of the Revoke all in flight
   function revokeAll(owner) {
     revoking = { id: ++listSeq, owner };
-    if (!wsSend({ t: 'keyRevokeAll', owner, id: revoking.id })) say('Not connected to Sode.');
+    if (!wsSend({ t: 'keyRevokeAll', owner, id: revoking.id })) say(LINK_DOWN);
   }
   const load = () => {
     if (open) wsSend({ t: 'keyListAll', id: ++listSeq });
@@ -140,7 +140,7 @@ export function makeClientsTab({ users, touched, adopt }) {
     const exp = expiryFrom(kexp.value, Date.now());
     if (exp.error) return say(exp.error);
     const id = ++seq;
-    if (!wsSend({ t: 'keyCreateFor', id, owner: o, keyName: kname.value.trim(), expires: exp.ms })) return say('Not connected to Sode.');
+    if (!wsSend({ t: 'keyCreateFor', id, owner: o, keyName: kname.value.trim(), expires: exp.ms })) return say(LINK_DOWN);
     make.disabled = true;
   });
   onMsg('keyCreateForResult', (m) => {

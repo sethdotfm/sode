@@ -199,6 +199,6 @@ test('saveProfile: one at a time, the second built on the first; a lost socket s
   m.emit('wsclose');
   const r = await b;
   assert.equal(r.ok, false);
-  assert.match(r.err, /lost/i);
+  assert.match(r.err, /Server link down/);
   assert.deepEqual(profile().prefs, { theme: 'dark' });
 });

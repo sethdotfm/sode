@@ -1,7 +1,7 @@
 // The Swap dialog (GLOSSARY.md, Swap). An Administrator opens it from Settings > Routers and stages one Swap into
 // the one Save (savesources.js). A user opens it from My user, and it saves their own items at once. Rules in
 // swaprules.js.
-import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence } from './core.js';
+import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { addSaveSource } from './savesources.js';
 import { groupByOwner, parseShown, swapLabel, swapShow, swapValue } from './swaprules.js';
@@ -112,7 +112,7 @@ function find() {
   if (f.from == null) return fail('Enter the old number.');
   fail('');
   waiting = ++seq;
-  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: S.routerUid, side: f.side, from: f.from, mine } })) fail('Not connected to Sode.');
+  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: S.routerUid, side: f.side, from: f.from, mine } })) fail(LINK_DOWN);
 }
 
 onMsg('swapListResult', (m) => {
@@ -143,7 +143,7 @@ function done() {
     ui.go.disabled = true;
     if (!wsSend({ t: 'swapMine', id: waiting, swap: v })) {
       ui.go.disabled = false;
-      fail('Not connected to Sode.');
+      fail(LINK_DOWN);
     }
     return;
   }

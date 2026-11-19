@@ -2,7 +2,7 @@
 // the user's own PIN (the server checks it in the change-PIN pool). The key is shown once and kept nowhere.
 // A user's key acts as that user and ends with a PIN change; ADR 0003.
 
-import { el, on, onMsg, wsSend, sentence } from './core.js';
+import { el, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { createReq, expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
@@ -73,7 +73,7 @@ const say = (text) => {
 };
 
 function load() {
-  if (!wsSend({ t: 'keyListOwn', id: ++listSeq })) say('Not connected to Sode.');
+  if (!wsSend({ t: 'keyListOwn', id: ++listSeq })) say(LINK_DOWN);
 }
 
 function closeKeys() {
@@ -97,7 +97,7 @@ onMsg('keyListOwnResult', (m) => {
     ...(m.keys.length
       ? m.keys.map((k) =>
           keyRow(k, now, () => {
-            if (!wsSend({ t: 'keyRevoke', keyId: k.id, id: ++listSeq })) say('Not connected to Sode.');
+            if (!wsSend({ t: 'keyRevoke', keyId: k.id, id: ++listSeq })) say(LINK_DOWN);
           }),
         )
       : [el('p', 'sode__hint', 'You have no API keys.')]),
@@ -117,7 +117,7 @@ makeBtn.addEventListener('click', () => {
   const exp = expiryFrom(expIn.value, Date.now());
   if (exp.error) return say(exp.error);
   const id = ++seq;
-  if (!wsSend(createReq({ name: nameIn.value, pin: pinIn.value, expires: exp.ms, id }))) return say('Not connected to Sode.');
+  if (!wsSend(createReq({ name: nameIn.value, pin: pinIn.value, expires: exp.ms, id }))) return say(LINK_DOWN);
   makeBtn.disabled = true;
 });
 onMsg('keyCreateResult', (m) => {

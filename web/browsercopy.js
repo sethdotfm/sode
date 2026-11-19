@@ -1,6 +1,6 @@
 // browserCopy makes the server write one Settings saves row (docs/agents/profiles.md).
 
-import { S, on, onMsg, wsSend } from './core.js';
+import { S, on, onMsg, wsSend, LINK_DOWN } from './core.js';
 import { buildExport } from './exportfmt.js';
 import { browserValues } from './exportcalls.js';
 import { copyDoc, toClear } from './browsercopyrules.js';
@@ -18,14 +18,14 @@ onMsg('browserCopyResult', (m) => {
   done({ ok: !!m.ok, err: m.err || '' });
 });
 on('wsclose', () => {
-  for (const done of asks.values()) done({ ok: false, err: 'Not connected to Sode.' });
+  for (const done of asks.values()) done({ ok: false, err: LINK_DOWN });
   asks.clear();
 });
 
 function send(parts) {
   return new Promise((resolve) => {
     const id = ++seq;
-    if (!wsSend({ t: 'browserCopy', id, ...parts })) return resolve({ ok: false, err: 'Not connected to Sode.' });
+    if (!wsSend({ t: 'browserCopy', id, ...parts })) return resolve({ ok: false, err: LINK_DOWN });
     asks.set(id, resolve);
   });
 }

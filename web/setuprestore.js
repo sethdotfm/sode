@@ -2,7 +2,7 @@
 // that runs setup a key for POST api/setup/restore. A file with no PINs is answered pin_needed, and the page asks
 // for a new PIN for the file's first Administrator. After the restore the page reloads into sign-in.
 
-import { $, el, onMsg, wsSend } from './core.js';
+import { $, el, onMsg, wsSend, LINK_DOWN } from './core.js';
 import { applyBrowser } from './browserapply.js';
 import { restorePinProblem } from './setupwizardrules.js';
 
@@ -24,7 +24,7 @@ onMsg('setupRestoreKeyResult', (m) => {
 function restoreKey() {
   const id = ++seq;
   return new Promise((resolve, reject) => {
-    if (!wsSend({ t: 'setupRestoreKey', id })) return reject(new Error('Not connected to Sode.'));
+    if (!wsSend({ t: 'setupRestoreKey', id })) return reject(new Error(LINK_DOWN));
     asks.set(id, (m) => (m.ok ? resolve(m.key) : reject(new Error(m.err || 'Sode refused the restore.'))));
   });
 }

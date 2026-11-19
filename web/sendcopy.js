@@ -56,7 +56,7 @@ async function send() {
   if (busy || !to.length) return;
   busy = sendBtn.disabled = true;
   setNote('Sending…');
-  const r = await ask({ t: 'inboxSend', inbox: sendBody(to, items) });
+  const r = await ask({ t: 'inboxSend', inbox: sendBody(S.routerUid, to, items) });
   busy = false;
   sendBtn.disabled = !picked().length;
   if (!r.ok) return setNote(r.err, true);

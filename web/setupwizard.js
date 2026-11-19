@@ -1,6 +1,6 @@
 // The setup wizard (docs/agents/server.md, setup.go): a config file with no users opens it in
 // place of the patch page. Nothing is sent but the Router step's address until Finish.
-import { $, S, el, on, onMsg, wsSend, icon } from './core.js';
+import { $, S, el, on, onMsg, wsSend, icon, LINK_DOWN } from './core.js';
 import { showBrand } from './brand.js';
 import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
@@ -394,7 +394,7 @@ $('setup-next').addEventListener('click', () => {
   if (d.again) return closeAgain(true);
   // Finish sends every answer at once, so a wizard left half done leaves nothing behind.
   if (!wsSend(finishMessage(d, ++seq))) {
-    $('setup-err').textContent = 'Not connected to Sode.';
+    $('setup-err').textContent = LINK_DOWN;
     return;
   }
   finishing = true;

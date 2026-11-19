@@ -47,7 +47,7 @@ test('a socket that cannot send says so and is not left busy', async () => {
   core.S.ws = null;
   saver.change({}, () => {});
   assert.ok(!saver.busy());
-  assert.deepEqual(notes.at(-1), ['Not connected to Sode.', true]);
+  assert.deepEqual(notes.at(-1), ['Server link down.', true]);
 });
 
 test('close keeps a sent save; no PIN is ever asked first', async () => {

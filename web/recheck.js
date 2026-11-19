@@ -1,6 +1,6 @@
 // PIN recheck (GLOSSARY.md, docs/agents/users-locks.md): per connection, for one minute.
 
-import { el, S, on, onMsg, wsSend, sentence } from './core.js';
+import { el, S, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 
 let ui = null;
@@ -34,7 +34,7 @@ function submit() {
   if (ui.go.disabled) return;
   ui.err.hidden = true;
   const id = ++seq;
-  if (!wsSend({ t: 'pinRecheck', pin: ui.input.value, id })) return fail('Not connected to Sode.');
+  if (!wsSend({ t: 'pinRecheck', pin: ui.input.value, id })) return fail(LINK_DOWN);
   waiting = id;
   ui.go.disabled = true;
 }
@@ -114,7 +114,7 @@ export function askRecheck(what) {
 // For a page with its own PIN field, such as the import review: sends the PIN and resolves {ok, err}.
 export function recheckPin(pin) {
   const id = ++seq;
-  if (!wsSend({ t: 'pinRecheck', pin, id })) return Promise.resolve({ ok: false, err: 'Not connected to Sode.' });
+  if (!wsSend({ t: 'pinRecheck', pin, id })) return Promise.resolve({ ok: false, err: LINK_DOWN });
   return new Promise((resolve) => inline.set(id, resolve));
 }
 
@@ -123,6 +123,6 @@ on('locking', () => close(false));
 on('conn', () => {
   if (S.wsState === 'up') return;
   close(false);
-  for (const done of inline.values()) done({ ok: false, err: 'Not connected to Sode.' });
+  for (const done of inline.values()) done({ ok: false, err: LINK_DOWN });
   inline.clear();
 });

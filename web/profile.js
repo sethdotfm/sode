@@ -2,7 +2,7 @@
 // user (name '' clears it). The ONLY module that handles `profile` and `profileSaveResult` (onMsg allows one handler per type); others use the 'profile' bus event.
 // Never in the hello, so empty for a locked or anonymous page.
 
-import { on, onMsg, emit, wsSend } from './core.js';
+import { on, onMsg, emit, wsSend, LINK_DOWN } from './core.js';
 import { findByName } from './profilesrules.js';
 
 const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [], pinOrder: [] });
@@ -40,7 +40,7 @@ onMsg('profile', (m) => {
 let seq = 0;
 const pending = new Map(); // save id -> resolve
 const reading = new Map(); // get id -> resolve
-const lost = { ok: false, err: 'Connection lost.' };
+const lost = { ok: false, err: LINK_DOWN };
 
 onMsg('profileGetResult', (m) => {
   const done = reading.get(m.id);
@@ -91,7 +91,7 @@ export function saveProfile(parts, name = cur.name) {
         resolve(r);
       };
       if (!wsSend({ t: 'profileSave', id, name, ...parts })) {
-        return settle({ ok: false, err: 'Not connected to Sode.' });
+        return settle({ ok: false, err: LINK_DOWN });
       }
       pending.set(id, settle);
     });
@@ -105,7 +105,7 @@ export function fetchProfile(name) {
   return new Promise((resolve) => {
     const id = ++seq;
     if (!wsSend({ t: 'profileGet', id, name })) {
-      return resolve({ ok: false, err: 'Not connected to Sode.', profile: EMPTY });
+      return resolve({ ok: false, err: LINK_DOWN, profile: EMPTY });
     }
     reading.set(id, resolve);
   });

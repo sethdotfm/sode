@@ -1,6 +1,6 @@
 // The server sends cards only to pages that called showApprovalCards(); a panel page does not.
 
-import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { changeText, leftText, endText } from './approvalcardrules.js';
 
 {
@@ -78,7 +78,7 @@ export const requesting = () => !!(asking || mine);
 export function requestApproval(action, { what, onEnd = () => {}, onTimeout = () => {} }) {
   if (requesting()) return Promise.resolve('An Approval request is already open.');
   const id = ++seq;
-  if (!wsSend({ t: 'approvalAsk', id, for: action })) return Promise.resolve('Not connected to Sode.');
+  if (!wsSend({ t: 'approvalAsk', id, for: action })) return Promise.resolve(LINK_DOWN);
   return new Promise((resolve) => {
     asking = { id, what, onEnd, onTimeout, resolve };
   });
@@ -223,7 +223,7 @@ onMsg('approvers', (m) => {
 
 // A socket drop ends this browser's request on the server and loses every card's answer.
 on('wsclose', () => {
-  if (asking) asking.resolve('Not connected to Sode.');
+  if (asking) asking.resolve(LINK_DOWN);
   asking = null;
   if (mine?.card) ending(mine.card, 'info', 'Cancelled');
   mine?.onEnd('cancelled');

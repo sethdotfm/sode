@@ -2,7 +2,7 @@
 // it closes and save with Settings' one Save (usersstage.js).
 // Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a Trusted user. The server holds every rule.
 
-import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
+import { $, el, S, on, onMsg, emit, wsSend, sentence, LINK_DOWN } from './core.js';
 import { diffRows } from './savereviewrules.js';
 import { makeUsersSource } from './usersstage.js';
 import { trusted } from './trusted.js';
@@ -209,7 +209,7 @@ function addRow(u = { name: '', len: 0 }) {
         err.hidden = true;
         setNote('');
         const id = ++outSeq;
-        if (!wsSend({ t: 'userSignOutAll', name: u.name, id })) return fail('Not connected to Sode.');
+        if (!wsSend({ t: 'userSignOutAll', name: u.name, id })) return fail(LINK_DOWN);
         out.disabled = true;
         signing.set(id, { out, name: u.name });
       })

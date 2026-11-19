@@ -1,6 +1,6 @@
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
-import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
 import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
@@ -556,11 +556,7 @@ export function sendTakes(p) {
   const out = { t: 'take', items };
   if (p.verb === 'preset' && p.preset) Object.assign(out, { preset: p.preset, presetId: p.presetId });
   if (!wsSend(out)) {
-    showResult(
-      'error',
-      'Not sent',
-      'The patch was NOT sent: the connection to the Sode server was lost. The page reconnects by itself; try again in a moment.',
-    );
+    showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
     return false;
   }
   for (const id of take.byId.keys()) takes.set(id, take);

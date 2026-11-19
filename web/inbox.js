@@ -1,4 +1,4 @@
-import { el, emit, icon, on, onMsg, wsSend } from './core.js';
+import { el, emit, icon, on, onMsg, wsSend, LINK_DOWN } from './core.js';
 import { toastText } from './inboxrules.js';
 
 const TOAST_MS = 20000;
@@ -20,13 +20,17 @@ onMsg('inboxResult', (m) => {
   asks.delete(m.id);
   done(m);
 });
+on('wsclose', () => {
+  for (const done of asks.values()) done({ ok: false, err: LINK_DOWN });
+  asks.clear();
+});
 
 // m is the whole message with its literal type (the policy test reads the types from the source). Resolves the
 // inboxResult, or { ok: false, err } with no link.
 export function ask(m) {
   const id = ++seq;
   return new Promise((resolve) => {
-    if (!wsSend({ ...m, id })) return resolve({ ok: false, err: 'Not connected to Sode.' });
+    if (!wsSend({ ...m, id })) return resolve({ ok: false, err: LINK_DOWN });
     asks.set(id, resolve);
   });
 }
