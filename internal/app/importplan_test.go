@@ -282,7 +282,7 @@ func TestAddImportBringsPanelArt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	art, _, err := a.panels.addArt(p.ID, []byte("\x89PNG\r\n\x1a\nart"), "image/png")
+	art, _, err := a.panels.addArt(p.ID, imgBytes("png", 1, 1), "image/png")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,8 +293,46 @@ func TestAddImportBringsPanelArt(t *testing.T) {
 	if len(ps) != 1 || len(ps[0].Art) != 1 || ps[0].Art[0].ID != art.ID {
 		t.Fatalf("panels: %+v", ps)
 	}
-	if data, _, ok := b.panels.artData(ps[0].ID, art.ID); !ok || string(data) != "\x89PNG\r\n\x1a\nart" {
+	if data, _, ok := b.panels.artData(ps[0].ID, art.ID); !ok || !bytes.Equal(data, imgBytes("png", 1, 1)) {
 		t.Fatalf("art: %q %v", data, ok)
+	}
+}
+
+// Use new on a panel whose image is missing from the file, or is not the image it claims, refuses that
+// panel and keeps the live artwork.
+func TestAddImportRefusesPanelWithBadArt(t *testing.T) {
+	a, c, tok := importApp(t)
+	p, err := a.panels.create(Panel{Name: "Desk", Owner: userID(t, a, "Ana"), Rows: 1, Cols: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	art, _, err := a.panels.addArt(p.ID, imgBytes("png", 1, 1), "image/png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := unzipAll(t, exported(t, a, tok, exportReq{Categories: []string{catPanels}}))
+	if _, err := a.panels.replace(Panel{ID: p.ID, Name: "Desk", Owner: p.Owner, Rows: 1, Cols: 2, Art: []PanelArt{art}}); err != nil {
+		t.Fatal(err)
+	}
+	grantRecheck(a, c)
+	entry := "art/panels/" + p.ID + "/" + art.ID + ".png"
+	for name, data := range map[string]*string{"missing": nil, "html": ptr("<html><script>x</script></html>")} {
+		files := map[string]string{}
+		for k, v := range file {
+			if k != entry || data != nil {
+				files[k] = string(v)
+			}
+		}
+		if data != nil {
+			files[entry] = *data
+		}
+		res := applied(t, postApply(t, a, tok, zipOf(t, files), importReq{Mode: importAdd}))
+		if it := res.Plan.Categories[catPanels].Items[0]; it.Refused == "" {
+			t.Errorf("%s: not refused: %+v", name, it)
+		}
+		if lp, _ := a.panels.get(p.ID); len(lp.Art) != 1 || lp.Cols != 2 {
+			t.Errorf("%s: live panel: %+v", name, lp)
+		}
 	}
 }
 

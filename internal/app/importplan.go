@@ -780,6 +780,8 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			it.Refused = err.Error()
 		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
 			it.Refused = errPublicOff.Error()
+		} else if slices.ContainsFunc(fp.Art, func(art PanelArt) bool { _, ok := p.panelArt(fileID, art); return !ok }) {
+			it.Refused = "an artwork image is not in the file or is not the image its type says"
 		}
 		if it.Refused != "" {
 			cat.Items = append(cat.Items, it)

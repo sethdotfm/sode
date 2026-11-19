@@ -133,7 +133,7 @@ func seedEverything(t *testing.T, a *App) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := a.panels.addArt(p.ID, []byte("\x89PNG\r\n\x1a\nart"), "image/png"); err != nil {
+	if _, _, err := a.panels.addArt(p.ID, imgBytes("png", 1, 1), "image/png"); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := a.panels.pushLayout(p.ID, layoutOf(p), ana, "push", nil); err != nil {

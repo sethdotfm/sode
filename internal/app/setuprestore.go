@@ -163,7 +163,7 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	act := Actor{Kind: actorUser, Name: "Administrator"}
-	res, err := a.writeImport(p, b, act, importReplace, was, func(cur *config.Config) {
+	res, err := a.writeImport(p, act, importReplace, was, func(cur *config.Config) {
 		cur.Router, cur.InstallUID = live.Router, live.InstallUID
 	})
 	if err != nil {

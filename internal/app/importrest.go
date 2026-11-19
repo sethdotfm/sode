@@ -139,6 +139,10 @@ func (p *importPlanner) artFile(dir, id, typ string) ([]byte, bool) {
 	return data, true
 }
 
+func (p *importPlanner) panelArt(fileID string, art PanelArt) ([]byte, bool) {
+	return p.artFile("art/panels/"+fileID+"/", art.ID, art.Type)
+}
+
 // planArtwork plans the Icon library first, so Default artwork, panels and templates follow its id map.
 // A file icon matches a live one by id, then by name. Rename gives it a new id.
 func (p *importPlanner) planArtwork(_ *config.Config, cat *importCat) error {

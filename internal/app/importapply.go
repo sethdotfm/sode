@@ -7,7 +7,6 @@ import (
 	"log"
 	"maps"
 	"net/http"
-	"os"
 	"slices"
 	"strings"
 
@@ -142,7 +141,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 		apiFail(w, http.StatusForbidden, "recheck", recheckErr{what: p.overwrites}.Error())
 		return
 	}
-	res, err := a.writeImport(p, b, act, req.Mode, live, nil)
+	res, err := a.writeImport(p, act, req.Mode, live, nil)
 	if err != nil {
 		apiFail(w, http.StatusConflict, "refused", err.Error())
 		return
@@ -152,7 +151,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 
 // writeImport commits the plan, then writes the stores outside the config. more, when set, also runs in the
 // commit. Caller holds cfgMu.
-func (a *App) writeImport(p *importPlanner, b *exportBundle, act Actor, mode string, live config.Config, more func(*config.Config)) (importResult, error) {
+func (a *App) writeImport(p *importPlanner, act Actor, mode string, live config.Config, more func(*config.Config)) (importResult, error) {
 	if len(p.written) > 0 || more != nil {
 		fields := configFieldsByYAML()
 		err := a.applyConfig(func(cur *config.Config) error {
@@ -176,7 +175,7 @@ func (a *App) writeImport(p *importPlanner, b *exportBundle, act Actor, mode str
 	failed := map[string]string{}
 	a.writeImportRemovals(p, failed)
 	a.writeImportArtwork(p, failed)
-	a.writeImportPanels(p, b, failed)
+	a.writeImportPanels(p, failed)
 	a.writeImportPanelExtras(p, failed)
 	a.moveRemovedUsersPanels(p)
 	if len(failed) == 0 {
@@ -190,7 +189,7 @@ func (a *App) writeImport(p *importPlanner, b *exportBundle, act Actor, mode str
 }
 
 // Each panel is its own file, so one failed write leaves the others.
-func (a *App) writeImportPanels(p *importPlanner, b *exportBundle, failed map[string]string) {
+func (a *App) writeImportPanels(p *importPlanner, failed map[string]string) {
 	for _, pp := range p.panels {
 		fp := pp.P
 		files := fp.Art
@@ -209,7 +208,7 @@ func (a *App) writeImportPanels(p *importPlanner, b *exportBundle, failed map[st
 		}
 		if err == nil {
 			p.panelIDs[pp.FileID] = fp.ID
-			err = a.putImportArt(fp.ID, pp.FileID, files, b)
+			err = a.putImportArt(p, fp.ID, pp.FileID, files)
 		}
 		if err == nil && len(pp.Cps) > 0 {
 			err = a.panels.putCheckpoints(fp.ID, pp.Cps)
@@ -221,17 +220,11 @@ func (a *App) writeImportPanels(p *importPlanner, b *exportBundle, failed map[st
 	}
 }
 
-func (a *App) putImportArt(id, fileID string, arts []PanelArt, b *exportBundle) error {
+func (a *App) putImportArt(p *importPlanner, id, fileID string, arts []PanelArt) error {
 	var bad []string
 	for _, art := range arts {
-		path := ""
-		for ext, typ := range map[string]string{"png": "image/png", "jpg": "image/jpeg", "gif": "image/gif", "svg": "image/svg+xml"} {
-			if p, ok := b.Art["art/panels/"+fileID+"/"+art.ID+"."+ext]; ok && typ == art.Type {
-				path = p
-			}
-		}
-		data, err := os.ReadFile(path)
-		if path == "" || err != nil || !a.panels.putArtAs(id, PanelArt{ID: art.ID, Type: art.Type}, data) {
+		data, ok := p.panelArt(fileID, art)
+		if !ok || !a.panels.putArtAs(id, PanelArt{ID: art.ID, Type: art.Type}, data) {
 			bad = append(bad, art.ID)
 		}
 	}
