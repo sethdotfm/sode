@@ -184,6 +184,8 @@ Sode names a blank device (`askInstanceName` off and no name) by the caller's ad
 
 The tests use `a.mon.now`, and `monHold` in `panelmonstream_test.go` for a real held connection. Each held stream (`monConn`) has a one-line `out` channel that its own handler goroutine writes, so nothing else writes to the response. An Assign, a rename or a reload is the only line sent on it, and the stream ends after it. The old name is forgotten with no lost notice (`panelassign.go`, `panelrename.go`). `assignHold` in `panelassign_test.go` reads the lines. `instances` rows carry `stream`, and only those rows are Sode's own panel pages and can be assigned.
 
+Chrome can keep a page that left for another address frozen in the back/forward cache, with its stream and socket still open. So `endOnLeave` in `panelkeepalive.js` ends the hold on `pagehide`, and a `pageshow` from that cache reloads the page. A headless check that opens `about:blank` gets the same cache. `TestChromeOpenNowReloadsAndRenamesAKeylessPage` failed on it about one run in three.
+
 A watch is the whole panel or one device (`?instance=`). `watchersOf` decides who hears an event, and an instance-only watcher gets the notice with `offline` false. `offlineFor` rows carry `instance` for those, and `panelAlarm` echoes it. `KeepAliveListener` (TCP keepalive, about 5 s) catches a dead peer with no FIN, and then the 8 s grace applies. `TestChromeClosedPanelTabIsLostInsideFifteenSeconds` runs a closed tab on the real clock. The panels page polls every 2 s (`MON_POLL_MS`) instead of having a push channel.
 
 Panels page extras (`panelmonup.go`, `panelsmon.js`, rules in `panelsrules.js`):
