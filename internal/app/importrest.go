@@ -82,46 +82,42 @@ func (p *importPlanner) libTo(s string) string {
 	return "lib:" + to
 }
 
-func (p *importPlanner) relibPages(pages []PanelPage) []PanelPage {
-	if len(p.icons) == 0 || pages == nil {
-		return pages
+// relib maps the Icon library artwork of l's cells and Grid items.
+func (p *importPlanner) relib(l panelLayout) panelLayout {
+	if len(p.icons) == 0 {
+		return l
 	}
-	out := make([]PanelPage, len(pages))
-	for i, g := range pages {
-		out[i] = g
-		out[i].Cells = make([]map[string]any, len(g.Cells))
-		for j, c := range g.Cells {
-			c = maps.Clone(c)
-			for _, k := range []string{"art", "artB"} {
-				if s, ok := c[k].(string); ok {
-					if s = p.libTo(s); s == "" {
-						delete(c, k)
-					} else {
-						c[k] = s
+	if l.Pages != nil {
+		pages := make([]PanelPage, len(l.Pages))
+		for i, g := range l.Pages {
+			pages[i] = g
+			pages[i].Cells = make([]map[string]any, len(g.Cells))
+			for j, c := range g.Cells {
+				c = maps.Clone(c)
+				for _, k := range []string{"art", "artB"} {
+					if s, ok := c[k].(string); ok {
+						if s = p.libTo(s); s == "" {
+							delete(c, k)
+						} else {
+							c[k] = s
+						}
 					}
 				}
+				pages[i].Cells[j] = c
 			}
-			out[i].Cells[j] = c
+		}
+		l.Pages = pages
+	}
+	for _, e := range []**GridEdge{&l.Sources, &l.Destinations} {
+		if *e != nil {
+			out := **e
+			out.Items = slices.Clone(out.Items)
+			for i := range out.Items {
+				out.Items[i].Art, out.Items[i].ArtB = p.libTo(out.Items[i].Art), p.libTo(out.Items[i].ArtB)
+			}
+			*e = &out
 		}
 	}
-	return out
-}
-
-func (p *importPlanner) relibEdge(e *GridEdge) *GridEdge {
-	if e == nil || len(p.icons) == 0 {
-		return e
-	}
-	out := *e
-	out.Items = slices.Clone(e.Items)
-	for i := range out.Items {
-		out.Items[i].Art, out.Items[i].ArtB = p.libTo(out.Items[i].Art), p.libTo(out.Items[i].ArtB)
-	}
-	return &out
-}
-
-func (p *importPlanner) relibLayout(l panelLayout) panelLayout {
-	l.Pages = p.relibPages(l.Pages)
-	l.Sources, l.Destinations = p.relibEdge(l.Sources), p.relibEdge(l.Destinations)
 	return l
 }
 
@@ -287,7 +283,7 @@ func (p *importPlanner) planCheckpoints(fileID string) []panelCheckpoint {
 		if cp.Layout.noRouterProblem() != nil {
 			continue
 		}
-		cp.Layout = p.relibLayout(cp.Layout)
+		cp.Layout = p.relib(cp.Layout)
 		out = append(out, cp)
 	}
 	return out
@@ -303,7 +299,7 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 		}
 		fileID := t.ID
 		t.Owner = p.ownerFor(*cand, t.Owner, false)
-		t.Pages = p.relibPages(t.Pages)
+		t.Pages = p.relib(panelLayout{Pages: t.Pages}).Pages
 		it := importItem{Key: fileID, Name: t.Name, Kind: kindTemplate}
 		err := t.clean()
 		i := -1
@@ -360,7 +356,7 @@ func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 		s.Owner = p.ownerFor(*cand, s.Owner, false)
 		s.Entries = slices.Clone(s.Entries)
 		for i := range s.Entries {
-			s.Entries[i].panelLayout = p.relibLayout(s.Entries[i].panelLayout)
+			s.Entries[i].panelLayout = p.relib(s.Entries[i].panelLayout)
 		}
 		it := importItem{Key: fileID, Name: s.Name, Kind: kindSet}
 		bucket := func(x PanelSet) bool { return x.Scope == s.Scope && (s.Scope == panelShareAll || x.Owner == s.Owner) }
@@ -464,8 +460,8 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		}
 		fileID := fp.ID
 		fp.Owner = p.ownerFor(*cand, fp.Owner, false)
-		fp.Pages = p.relibPages(fp.Pages)
-		fp.Sources, fp.Destinations = p.relibEdge(fp.Sources), p.relibEdge(fp.Destinations)
+		l := p.relib(layoutOf(fp))
+		fp.Pages, fp.Sources, fp.Destinations = l.Pages, l.Sources, l.Destinations
 		fp.Broken = p.check.panelBroken(&fp, *cand, p.presetTo)
 		fp.Rev, fp.Client = 0, ""
 		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)

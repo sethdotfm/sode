@@ -273,25 +273,18 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 		return nil, nil, k, err
 	}
 	// Every ticked item refused: the card waits, so the person can fix it and accept again.
-	planned, why := 0, ""
+	why := ""
 	for _, name := range slices.Sorted(maps.Keys(p.plan.Categories)) {
 		cat := p.plan.Categories[name]
 		why = cmp.Or(why, cat.Refused)
 		for _, it := range cat.Items {
 			why = cmp.Or(why, it.Refused)
-			if cat.Refused == "" && it.writes() {
-				planned++
-			}
 		}
 	}
-	if planned == 0 && why != "" {
+	if p.plan.written(nil) == 0 && why != "" {
 		return &p.plan, nil, k, errors.New(why)
 	}
-	writes := func(cat string) bool {
-		c := p.plan.Categories[cat]
-		return c != nil && c.Refused == "" && slices.ContainsFunc(c.Items, importItem.writes)
-	}
-	if writes(catPresets) || writes(catFilterSets) {
+	if p.plan.writes(catPresets) || p.plan.writes(catFilterSets) {
 		next := *p.profile(&p.next)
 		err := a.applyConfig(func(cur *config.Config) error {
 			i := slices.IndexFunc(cur.Users, func(x config.User) bool { return x.ID == u.ID })
@@ -306,15 +299,7 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 		}
 	}
 	failed := a.writeCardPanels(connActor(c), p, k.ID)
-	n := 0
-	for name, cat := range p.plan.Categories {
-		for _, it := range cat.Items {
-			if cat.Refused == "" && it.writes() && !(name == catPanels && failed[it.Key] != "") {
-				n++
-			}
-		}
-	}
-	k, err = a.inbox.end(k.ID, cardAccepted, n, a.now())
+	k, err = a.inbox.end(k.ID, cardAccepted, p.plan.written(failed), a.now())
 	if err != nil {
 		log.Printf("inbox: card %s accepted, then: %v", card, err)
 	}

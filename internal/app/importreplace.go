@@ -64,6 +64,18 @@ func keptNames(cat *importCat) map[string]bool {
 	return out
 }
 
+// dropUnkept removes the items of list, of those mine says are the category's, that no file item kept by name.
+func dropUnkept[T any](c *importCat, list []T, nameOf func(T) string, mine func(T) bool) []T {
+	keep := keptNames(c)
+	return slices.DeleteFunc(list, func(x T) bool {
+		gone := mine(x) && !keep[strings.ToLower(strings.TrimSpace(nameOf(x)))]
+		if gone {
+			removeItem(c, nameOf(x), nameOf(x), "")
+		}
+		return gone
+	})
+}
+
 // keptIDs is the live ids m maps file items to, with those kept.
 func (p *importPlanner) keptIDs(m map[string]string) map[string]bool {
 	out := map[string]bool{}
@@ -138,24 +150,11 @@ func (p *importPlanner) emptyRest(cat string, cand *config.Config, c *importCat)
 			return !keep[x.ID]
 		})
 	case catFilterSets:
-		keep := keptNames(c)
-		cand.FilterSets = slices.DeleteFunc(cand.FilterSets, func(x config.FilterSet) bool {
-			gone := !keep[strings.ToLower(strings.TrimSpace(x.Name))]
-			if gone {
-				removeItem(c, x.Name, x.Name, "")
-			}
-			return gone
-		})
+		cand.FilterSets = dropUnkept(c, cand.FilterSets, setName, func(config.FilterSet) bool { return true })
 	case catAPIClients:
-		keep := keptNames(c)
 		// A panel's own client goes with its panel, not with this category.
-		cand.APIClients = slices.DeleteFunc(cand.APIClients, func(x config.APIClient) bool {
-			gone := x.Panel == "" && !keep[strings.ToLower(strings.TrimSpace(x.Name))]
-			if gone {
-				removeItem(c, x.Name, x.Name, "")
-			}
-			return gone
-		})
+		cand.APIClients = dropUnkept(c, cand.APIClients, func(x config.APIClient) string { return x.Name },
+			func(x config.APIClient) bool { return x.Panel == "" })
 	case catArtwork:
 		keep := p.keptIDs(p.icons)
 		for _, ic := range p.liveIcons {

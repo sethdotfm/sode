@@ -227,10 +227,7 @@ func (a *App) newSwapper(cfg config.Config, req swapReq) (*swapper, error) {
 	}
 	sw := &swapper{uid: cfg.UID, dst: req.Side == config.MissingDestination, from: req.From, to: req.To, off: cfg.NumberOffset}
 	a.mu.Lock()
-	names := a.router.srcNames
-	if sw.dst {
-		names = a.router.dstNames
-	}
+	names := sideNames(req.Side, a.router.srcNames, a.router.dstNames)
 	sw.toName = strings.TrimSpace(names[req.To])
 	sw.fromNames = []string{names[req.From]}
 	a.mu.Unlock()
@@ -274,11 +271,7 @@ func everyItem(string) bool { return true }
 
 // "Swap destination 23 for 40", numbers as shown.
 func (sw *swapper) label() string {
-	side := "source"
-	if sw.dst {
-		side = "destination"
-	}
-	return fmt.Sprintf("Swap %s %d for %d", side, sw.from+sw.off, sw.to+sw.off)
+	return fmt.Sprintf("Swap %s %d for %d", sw.kind(), sw.from+sw.off, sw.to+sw.off)
 }
 
 // swapCounts: items changed per owner, Everyone for shared items.

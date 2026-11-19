@@ -85,6 +85,24 @@ type importPlan struct {
 	Remap   *remapInfo `json:"remap,omitempty"`
 }
 
+func (p importPlan) writes(cat string) bool {
+	c := p.Categories[cat]
+	return c != nil && c.Refused == "" && slices.ContainsFunc(c.Items, importItem.writes)
+}
+
+// written counts the items that write, less the panels in failed.
+func (p importPlan) written(failed map[string]string) int {
+	n := 0
+	for name, cat := range p.Categories {
+		for _, it := range cat.Items {
+			if cat.Refused == "" && it.writes() && !(name == catPanels && failed[it.Key] != "") {
+				n++
+			}
+		}
+	}
+	return n
+}
+
 // plannedPanel is a panel write that waits for the config commit. Live is the panel it replaces, if any.
 type plannedPanel struct {
 	P      Panel

@@ -148,11 +148,7 @@ func (k *pollCheck) verdict(dst bool, r config.Ref) (refVerdict, string) {
 }
 
 func (k *pollCheck) noteRename(dst bool, r config.Ref, now string) {
-	side := "source"
-	if dst {
-		side = "destination"
-	}
-	s := fmt.Sprintf("%s %d %s to %s", side, r.N+k.off, strings.TrimSpace(r.Name), now)
+	s := fmt.Sprintf("%s %d %s to %s", refKind(dst), r.N+k.off, strings.TrimSpace(r.Name), now)
 	if !slices.Contains(k.renames, s) {
 		k.renames = append(k.renames, s)
 	}
