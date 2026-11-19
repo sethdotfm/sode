@@ -87,8 +87,8 @@ func (a *App) readImportParts(w http.ResponseWriter, r *http.Request) (importReq
 		apiFail(w, http.StatusBadRequest, "bad_request", "the plan is not valid JSON")
 		return req, nil, none, false
 	}
-	if req.Mode != importAdd {
-		apiFail(w, http.StatusBadRequest, "bad_request", `mode must be "add"`)
+	if req.Mode != importAdd && req.Mode != importReplace {
+		apiFail(w, http.StatusBadRequest, "bad_request", `mode must be "add" or "replace"`)
 		return req, nil, none, false
 	}
 	part, err = mr.NextPart()
@@ -121,6 +121,10 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	live := a.r().cfg
 	src, dst := a.liveNames()
 	p := planImport(live, src, dst, a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies), a.cfgPath == "")
+	if p.noAdmin {
+		apiFail(w, http.StatusConflict, "refused", errNoAdministrator.Error())
+		return
+	}
 	if p.plan.Critical && !a.tokenRechecked(r.Header.Get(sessionHeader)) {
 		apiFail(w, http.StatusForbidden, "recheck", recheckErr{what: p.overwrites}.Error())
 		return
@@ -144,9 +148,11 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	}
 	now := a.r().cfg
 	failed := map[string]string{}
+	a.writeImportRemovals(p, failed)
 	a.writeImportArtwork(p, failed)
 	a.writeImportPanels(p, b, failed)
 	a.writeImportPanelExtras(p, failed)
+	a.moveRemovedUsersPanels(p)
 	if len(failed) == 0 {
 		failed = nil
 	}
@@ -216,6 +222,7 @@ type importCount struct {
 	Added    int    `json:"added,omitempty"`
 	Updated  int    `json:"updated,omitempty"`
 	Kept     int    `json:"kept,omitempty"` // Use current, Skip or equal: nothing written
+	Removed  int    `json:"removed,omitempty"`
 	Broken   int    `json:"broken,omitempty"`
 	Refused  bool   `json:"refused,omitempty"`
 }
@@ -234,6 +241,8 @@ func (a *App) recordImport(by Actor, mode string, plan *importPlan, failed map[s
 		for _, it := range c.Items {
 			switch {
 			case c.Refused != "", failed[it.Key] != "":
+			case it.Remove:
+				n.Removed++
 			case !it.writes():
 				n.Kept++
 			case it.Clash != "" && it.Choice == useNew:

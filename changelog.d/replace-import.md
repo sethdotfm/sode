@@ -1,0 +1,2 @@
+- Replace import in Export & Import empties each ticked category, then imports the file. It is for Administrators and always asks for your PIN. Keep current Administrators is ticked by default. A file without PINs always keeps you. Sode refuses an import that would leave no Administrator with a PIN. Panels and API clients of the users it removes go to you.
+- An export with Include PINs now brings the PINs back on import. Use new with another PIN ends that user's keys and sessions. A user without a PIN in the file keeps their Role and is PIN needed until they set one.

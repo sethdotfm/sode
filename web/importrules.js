@@ -19,12 +19,14 @@ export const choicesFor = (cat, it) => (NO_RENAME.has(cat) || it?.kind === 'defa
 
 const catOf = (check, cat) => check.plan.categories[cat] || { items: [] };
 
-// A clash the person decides: live, different, and in a category that imports.
-export const hasChoice = (c, it) => !c.refused && !it.refused && !it.same && !!it.clash && !!it.choice;
+// A clash the person decides: live, different, and in a category that imports. Replace import takes the file's
+// item always, so it has none.
+export const hasChoice = (c, it, pick) => pick?.mode !== 'replace' && !c.refused && !it.refused && !it.same && !it.remove && !!it.clash && !!it.choice;
 
-// Everything ticked but Routers, which changes the router only when ticked, with the preselected choices.
+// Everything ticked but Routers, which changes the router only when ticked, with the preselected choices. Add
+// import, with Keep current Administrators ticked for when the person picks Replace import.
 export function newPick(check) {
-  const pick = { items: {}, choices: {} };
+  const pick = { mode: 'add', keepAdmins: true, items: {}, choices: {} };
   for (const cat of PLANNED) {
     const c = catOf(check, cat);
     pick.items[cat] = new Set(cat === 'routers' || c.refused ? [] : c.items.map((i) => i.key));
@@ -54,14 +56,16 @@ export const catSize = (check, pick, cat) =>
 
 // The importReq. A category with nothing ticked is left out, since an empty pick means every item to the server.
 export function importReq(pick) {
-  const req = { mode: 'add', categories: [], sections: [], pick: {}, choices: {} };
+  const replace = pick.mode === 'replace';
+  const req = { mode: replace ? 'replace' : 'add', categories: [], sections: [], pick: {}, choices: {} };
+  if (replace && pick.keepAdmins === false) req.keepAdmins = false;
   for (const cat of PLANNED) {
     const keys = [...(pick.items[cat] || [])];
     if (!keys.length) continue;
     req.categories.push(cat);
     if (cat === 'settings') req.sections = keys;
     else if (cat !== 'routers') req.pick[cat] = keys;
-    const ch = Object.entries(pick.choices[cat] || {}).filter(([k]) => pick.items[cat].has(k));
+    const ch = replace ? [] : Object.entries(pick.choices[cat] || {}).filter(([k]) => pick.items[cat].has(k));
     if (ch.length) req.choices[cat] = Object.fromEntries(ch);
   }
   return req;
@@ -78,7 +82,7 @@ export function criticalNames(check, pick) {
 }
 
 // importItem.writes, for a planned item.
-const writes = (it) => !it.same && !it.refused && (!it.clash || it.choice === 'new' || it.choice === 'rename');
+const writes = (it) => !it.same && !it.refused && !it.remove && (!it.clash || it.choice === 'new' || it.choice === 'rename');
 
 const plural = (n, w) => `${n} ${w}`;
 
@@ -92,9 +96,10 @@ export function reviewCounts(plan) {
       out.push({ cat, text: `Not imported: ${c.refused}` });
       continue;
     }
-    const n = { added: 0, updated: 0, kept: 0, 'no change': 0, 'not imported': 0, Broken: 0 };
+    const n = { added: 0, updated: 0, removed: 0, kept: 0, 'no change': 0, 'not imported': 0, Broken: 0 };
     for (const it of c.items) {
-      if (it.same) n['no change']++;
+      if (it.remove) n.removed++;
+      else if (it.same) n['no change']++;
       else if (it.refused) n['not imported']++;
       else if (!writes(it)) n.kept++;
       else if (it.clash && it.choice === 'new') n.updated++;
