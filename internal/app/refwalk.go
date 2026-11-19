@@ -87,18 +87,10 @@ func (e *GridEdge) walkRefs(kind string, fn slotFn, dedupe bool) *GridEdge {
 
 // A cell with no number is unassigned.
 func cellRef(c map[string]any) (config.Ref, bool) {
-	var n int
-	switch x := c["n"].(type) {
-	case int:
-		n = x
-	case float64:
-		n = int(x)
-	default:
-		return config.Ref{}, false
-	}
+	n, ok := cellInt(c["n"])
 	r, _ := c["router"].(string)
 	name, _ := c["name"].(string)
-	return config.Ref{Router: r, N: n, Name: name}, true
+	return config.Ref{Router: r, N: n, Name: name}, ok
 }
 
 func withCellRef(c map[string]any, r config.Ref) map[string]any {
