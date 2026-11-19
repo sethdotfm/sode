@@ -23,26 +23,36 @@ const (
 	exportStagesDir = "import-staging"
 )
 
-// httpAdmin passes an Administrator's session, as roleMu judges a socket. In env-only mode with no
-// users, every browser is an Administrator. A session under its Lock is not. Pending setup refuses all.
-func (a *App) httpAdmin(w http.ResponseWriter, r *http.Request) bool {
+// httpSession is the user the session token signs in, not under its Lock. With no users it passes with
+// no user. false: it answered already.
+func (a *App) httpSession(w http.ResponseWriter, r *http.Request, signIn string) (config.User, config.Config, bool) {
 	cfg := a.r().cfg
 	if a.setupPendingCfg(cfg) {
 		apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
-		return false
+		return config.User{}, cfg, false
 	}
 	if len(cfg.Users) == 0 {
-		return true
+		return config.User{}, cfg, true
 	}
 	tok := r.Header.Get(sessionHeader)
 	u, ok := a.tokens.user(tok, cfg)
 	switch {
 	case !ok:
-		apiFail(w, http.StatusUnauthorized, "sign_in", "sign in as an Administrator on this browser first")
-		return false
+		apiFail(w, http.StatusUnauthorized, "sign_in", signIn)
+		return u, cfg, false
 	case a.tokens.locked(tok):
 		apiFail(w, http.StatusForbidden, "locked", errPageLocked.Error())
-		return false
+		return u, cfg, false
+	}
+	return u, cfg, true
+}
+
+// httpAdmin passes an Administrator's session, as roleMu judges a socket. In env-only mode with no
+// users, every browser is an Administrator.
+func (a *App) httpAdmin(w http.ResponseWriter, r *http.Request) bool {
+	u, cfg, ok := a.httpSession(w, r, "sign in as an Administrator on this browser first")
+	if !ok || len(cfg.Users) == 0 {
+		return ok
 	}
 	if role, _ := cfg.ActsAs(u); role != config.RoleAdministrator {
 		apiFail(w, http.StatusForbidden, "role", roleErr{need: config.RoleAdministrator}.Error())

@@ -24,26 +24,12 @@ var ownCategories = []string{catProfile, catPresets, catFilterSets}
 
 // httpOwn is the user the session token signs in. Any Role passes; a Guest has no own items.
 func (a *App) httpOwn(w http.ResponseWriter, r *http.Request) (config.User, bool) {
-	cfg := a.r().cfg
-	switch {
-	case a.setupPendingCfg(cfg):
-		apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
-		return config.User{}, false
-	case len(cfg.Users) == 0:
+	u, cfg, ok := a.httpSession(w, r, "sign in on this browser first")
+	if ok && len(cfg.Users) == 0 {
 		apiFail(w, http.StatusConflict, "no_users", "there are no users; use Export & Import in Settings > Server")
-		return config.User{}, false
-	}
-	tok := r.Header.Get(sessionHeader)
-	u, ok := a.tokens.user(tok, cfg)
-	switch {
-	case !ok:
-		apiFail(w, http.StatusUnauthorized, "sign_in", "sign in on this browser first")
-		return u, false
-	case a.tokens.locked(tok):
-		apiFail(w, http.StatusForbidden, "locked", errPageLocked.Error())
 		return u, false
 	}
-	return u, true
+	return u, ok
 }
 
 // ownFileUser is u as the own export writes it: the picked parts of the profile only.
