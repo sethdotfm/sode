@@ -1,15 +1,11 @@
 package app
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
-	"io"
 	"log"
 	"maps"
 	"net/http"
@@ -518,98 +514,4 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		out["artSkipped"] = skipped
 	}
 	apiCreated(w, out)
-}
-
-// The image is the raw body. Its content decides its type: Sode ignores the request's Content-Type and any file name.
-func (a *App) apiArtUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	p, ok := a.panelFor(w, r, cl, true)
-	if !ok {
-		return
-	}
-	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, panelArtBytes))
-	if err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			apiFail(w, http.StatusRequestEntityTooLarge, "too_large", "artwork is at most 2 MB")
-		} else {
-			apiFail(w, http.StatusBadRequest, "bad_request", "the body could not be read")
-		}
-		return
-	}
-	typ, f := checkArtBytes(data)
-	if f != nil {
-		failWith(w, f)
-		return
-	}
-	art, _, err := a.panels.addArt(p.ID, data, typ)
-	if err != nil {
-		a.panelStoreFail(w, err)
-		return
-	}
-	apiCreated(w, art)
-}
-
-// Panel uploads and Default artwork both pass through it.
-func checkArtBytes(data []byte) (string, error) {
-	if len(data) > panelArtBytes {
-		return "", &panelClientFail{http.StatusRequestEntityTooLarge, "too_large", "artwork is at most 2 MB"}
-	}
-	typ := sniffArt(data)
-	if typ == "" {
-		return "", &panelClientFail{http.StatusUnsupportedMediaType, "unsupported_type", "artwork is a JPEG, PNG, GIF or SVG image"}
-	}
-	if typ != "image/svg+xml" {
-		// DecodeConfig reads the header only, so a huge image costs no pixel memory here.
-		cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
-		if err != nil {
-			return "", &panelClientFail{http.StatusBadRequest, "bad_request", "the image header could not be read"}
-		}
-		if cfg.Width > panelArtSide || cfg.Height > panelArtSide {
-			msg := fmt.Sprintf("artwork is at most %d by %d pixels, this one is %d by %d", panelArtSide, panelArtSide, cfg.Width, cfg.Height)
-			return "", &panelClientFail{http.StatusBadRequest, "bad_request", msg}
-		}
-	}
-	return typ, nil
-}
-
-// The headers keep a script in an SVG from running even when someone opens the URL: sandbox without allow-scripts,
-// nothing loadable, no sniffing. Pages must show it as an image, never inline.
-func serveArtBytes(w http.ResponseWriter, typ string, data []byte) {
-	h := w.Header()
-	h.Set("Content-Type", typ)
-	h.Set("X-Content-Type-Options", "nosniff")
-	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
-	h.Set("Cross-Origin-Resource-Policy", "same-origin")
-	h.Set("Cache-Control", "private, no-cache")
-	w.Write(data)
-}
-
-// Serves the stored type, never one the uploader named.
-func (a *App) apiArtGet(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	p, ok := a.panelFor(w, r, cl, false)
-	if !ok {
-		return
-	}
-	data, art, found := a.panels.artData(p.ID, r.PathValue("art"))
-	if !found || !artIDRe.MatchString(art.ID) {
-		apiFail(w, http.StatusNotFound, "not_found", "no such artwork on this panel")
-		return
-	}
-	serveArtBytes(w, art.Type, data)
-}
-
-func (a *App) apiArtDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	p, ok := a.panelFor(w, r, cl, true)
-	if !ok {
-		return
-	}
-	found, err := a.panels.delArt(p.ID, r.PathValue("art"))
-	switch {
-	case err != nil:
-		a.panelStoreFail(w, err)
-	case !found:
-		apiFail(w, http.StatusNotFound, "not_found", "no such artwork on this panel")
-	default:
-		w.WriteHeader(http.StatusNoContent)
-	}
 }
