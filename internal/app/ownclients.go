@@ -172,7 +172,7 @@ func (a *App) CreateOwnClientKey(c *client, client, pin, keyName string, expires
 	if err != nil {
 		return "", apiKey{}, err
 	}
-	if err := a.tryUserPin(&u, c.ip, func() bool { return config.CheckPin(u.Pin, pin) }); err != nil {
+	if err := a.provePin(c, nil, &u, pin); err != nil {
 		return "", apiKey{}, err
 	}
 	exp, err := keyExpiry(expiresMs, time.Now())

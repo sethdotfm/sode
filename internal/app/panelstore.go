@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -56,9 +57,9 @@ var (
 	panelSlugRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$`)
 	artIDRe     = regexp.MustCompile(`^a-[0-9a-f]{8}$`)
 
-	errPanelCap  = errors.New("too many panels")
-	errSlugTaken = errors.New("another panel already has that short name")
-	errArtCap    = errors.New("this panel's artwork would pass the 64 MB total; delete some artwork first")
+	errPanelCap  = &panelClientFail{http.StatusConflict, "conflict", "too many panels"}
+	errSlugTaken = &panelClientFail{http.StatusConflict, "conflict", "another panel already has that short name"}
+	errArtCap    = &panelClientFail{http.StatusConflict, "conflict", "this panel's artwork would pass the 64 MB total; delete some artwork first"}
 )
 
 // PanelShare: Mode is panelShareMe, panelShareNamed (Users) or panelShareAll. Everyone it
@@ -291,7 +292,7 @@ func (s *panelStore) bySlug(slug string) (Panel, bool) {
 // one, so a copy returned by get stays valid. Never call with App.mu held: changes write files.
 type panelStore struct {
 	yamlDir[Panel]
-	art   map[string][]byte // memory only: "<id>/<artID>"
+	art   blobDir // "<id>.art/<artID>" under the panels folder
 	probs []string
 	// skipped holds ids of panel files on disk that failed to load; dirFailed is set when the
 	// folder itself could not be read. Startup keeps their clients (dropOrphanPanelClients).
@@ -304,7 +305,7 @@ type panelStore struct {
 // loadPanels runs one time, from New. A missing folder is empty. A file that does not parse, or
 // whose id differs from its name, is logged, kept in problems and skipped.
 func loadPanels(cfgPath string) *panelStore {
-	s := &panelStore{art: map[string][]byte{}, skipped: map[string]bool{}, sets: loadPanelSets(cfgPath)}
+	s := &panelStore{skipped: map[string]bool{}, sets: loadPanelSets(cfgPath)}
 	s.by = map[string]Panel{}
 	s.prefix = "p-"
 	s.idOf = func(p *Panel) *string { return &p.ID }
@@ -314,6 +315,7 @@ func loadPanels(cfgPath string) *panelStore {
 		return s
 	}
 	s.dir = filepath.Join(filepath.Dir(cfgPath), panelsDir)
+	s.art.dir = s.dir
 	slugSeen := map[string]bool{}
 	err := s.loadDir(s.dir, func(path, id string, b []byte, err error) (Panel, bool) {
 		var p Panel
@@ -389,16 +391,19 @@ func (s *panelStore) writeLocked(p *Panel) error {
 
 // Callers validate first.
 func (s *panelStore) create(p Panel) (Panel, error) {
-	vet := func(p Panel) error {
-		if s.slugTakenLocked(p.Slug, "") {
-			return errSlugTaken
-		}
-		return nil
+	return s.insert(p, panelMax, errPanelCap, s.vetNewLocked, s.writeNewLocked)
+}
+
+func (s *panelStore) vetNewLocked(p Panel) error {
+	if s.slugTakenLocked(p.Slug, "") {
+		return errSlugTaken
 	}
-	return s.insert(p, panelMax, errPanelCap, vet, func(p *Panel) error {
-		p.normalize()
-		return s.writeLocked(p)
-	})
+	return nil
+}
+
+func (s *panelStore) writeNewLocked(p *Panel) error {
+	p.normalize()
+	return s.writeLocked(p)
 }
 
 // createAs is create, but an imported panel keeps its id when nobody holds it, so its links still work.
@@ -406,16 +411,7 @@ func (s *panelStore) createAs(p Panel) (Panel, error) {
 	if !panelIDRe.MatchString(p.ID) {
 		p.ID = ""
 	}
-	vet := func(p Panel) error {
-		if s.slugTakenLocked(p.Slug, "") {
-			return errSlugTaken
-		}
-		return nil
-	}
-	return s.insertAs(p, panelMax, errPanelCap, vet, func(p *Panel) error {
-		p.normalize()
-		return s.writeLocked(p)
-	})
+	return s.insertAs(p, panelMax, errPanelCap, s.vetNewLocked, s.writeNewLocked)
 }
 
 func (s *panelStore) replace(p Panel) (bool, error) {
@@ -485,9 +481,7 @@ func (s *panelStore) followUsers(renames map[string]string, removed map[string]b
 			continue
 		}
 		if err := s.writeLocked(&q); err != nil {
-			if first == nil {
-				first = err
-			}
+			first = cmp.Or(first, err)
 			continue
 		}
 		s.by[id] = q
@@ -535,12 +529,9 @@ func (s *panelStore) moveOwners(to map[string]string) (int, error) {
 }
 
 func (s *panelStore) delete(id string) (bool, error) {
-	return s.remove(id, func(p Panel) {
-		if s.dir != "" && panelIDRe.MatchString(id) { // as dropCheckpoints
-			os.RemoveAll(filepath.Join(s.dir, id+".art"))
-		}
-		for _, a := range p.Art {
-			delete(s.art, id+"/"+a.ID)
+	return s.remove(id, func(Panel) {
+		if panelIDRe.MatchString(id) { // as dropCheckpoints
+			s.art.delPrefix(id + ".art")
 		}
 		s.dropCheckpoints(id)
 	})

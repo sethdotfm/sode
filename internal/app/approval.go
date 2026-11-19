@@ -47,7 +47,7 @@ func (a *App) approve(c *client, r rule, m *inMsg) error {
 	if hit != nil && !hit.HasPin() {
 		return approvalErr{hit.Name + " has no PIN: only a user with a PIN can approve"}
 	}
-	if err := a.tryUserPin(hit, c.ip, func() bool { return pinMatches(hit, m.Approval.Pin) }); err != nil {
+	if err := a.provePin(c, nil, hit, m.Approval.Pin); err != nil {
 		return approvalErr{err.Error()}
 	}
 	a.mu.Lock()
@@ -58,12 +58,6 @@ func (a *App) approve(c *client, r rule, m *inMsg) error {
 	}
 	m.approver = &live
 	return nil
-}
-
-// The PIN check ran outside mu. false when hit is gone or has a new PIN.
-func (a *App) livePinMu(hit *config.User) (config.User, bool) {
-	live, ok := a.r().cfg.FindUserByID(hit.ID)
-	return live, ok && live.Pin == hit.Pin
 }
 
 // "" when the approver is gone or changed their PIN.

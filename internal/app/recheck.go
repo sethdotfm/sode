@@ -73,12 +73,11 @@ func (a *App) servePinRecheck(c *client, m *inMsg) {
 	case !ok || !u.HasPin():
 		err = errors.New("sign in as a user with a PIN first")
 	default:
-		err = a.tryUserPin(&u, c.ip, func() bool { return config.CheckPin(u.Pin, m.Pin) })
+		err = a.provePin(c, nil, &u, m.Pin)
 	}
 	if err == nil {
 		a.mu.Lock()
-		// The PIN check can wait: it is possible that the sign-in or the PIN changed since.
-		if live, ok := a.r().cfg.FindUserByID(u.ID); ok && live.Pin == u.Pin && a.userOKMu(c, a.r().cfg) && c.userID() == u.ID {
+		if _, ok := a.livePinMu(&u); ok && a.userOKMu(c, a.r().cfg) && c.userID() == u.ID {
 			c.u.recheck = recheck{user: u.ID, hash: u.Pin, until: a.now().Add(a.recheckFor)}
 		} else {
 			err = errors.New("your sign-in changed; try again")

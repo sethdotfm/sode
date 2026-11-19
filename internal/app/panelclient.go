@@ -54,6 +54,17 @@ type panelClientFail struct {
 
 func (f *panelClientFail) Error() string { return f.msg }
 
+// failStore answers a store's sentinel (a *panelClientFail, maybe wrapped) with its status and anything else as a
+// disk fault. Unlike failWith it keeps the wrapped detail and never answers 400 by default.
+func failStore(w http.ResponseWriter, err error, prefix string) {
+	var f *panelClientFail
+	if errors.As(err, &f) {
+		apiFail(w, f.status, f.code, err.Error())
+		return
+	}
+	apiFail(w, http.StatusInternalServerError, "internal", prefix+": "+err.Error())
+}
+
 func failWith(w http.ResponseWriter, err error) {
 	var f *panelClientFail
 	if errors.As(err, &f) {
@@ -103,6 +114,30 @@ func (a *App) putPanelClient(by Actor, id string, rights *config.Rights, nets []
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	return a.putPanelClientLocked(by, id, rights, nets)
+}
+
+// createPanelWithClient writes p, then its API client when its acts need one; a refused client deletes the panel
+// again. A fault after the panel write answers 400 unless it carries its own status, as failWith does.
+func (a *App) createPanelWithClient(by Actor, p Panel, rights *config.Rights, nets []string) (Panel, error) {
+	made, err := a.panels.create(p)
+	if err != nil || !actsHasClient(made.Acts) {
+		return made, err
+	}
+	made.Client = panelClientName(made.ID)
+	err = a.putPanelClient(by, made.ID, rights, nets)
+	if err == nil {
+		_, err = a.panels.replace(made)
+	}
+	if err == nil {
+		return made, nil
+	}
+	a.panels.delete(made.ID)
+	a.putPanelClient(by, made.ID, nil, nil)
+	var f *panelClientFail
+	if !errors.As(err, &f) {
+		f = &panelClientFail{http.StatusBadRequest, "bad_request", err.Error()}
+	}
+	return Panel{}, f
 }
 
 // Caller holds cfgMu.

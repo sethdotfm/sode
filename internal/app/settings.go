@@ -66,19 +66,6 @@ func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 	return nil
 }
 
-// sourceKeys: one Save fields that only Manage users and the API section write, never the form.
-var sourceKeys = map[string]bool{"maxPinLen": true, "guestRights": true, "api": true, "guestApiScopes": true}
-
-func configKeys() []string {
-	var out []string
-	for k := range saveFields {
-		if !sourceKeys[k] {
-			out = append(out, k)
-		}
-	}
-	return out
-}
-
 var errInsecureSave = errors.New("to turn on Require HTTPS, save from a request that came over HTTPS through a trusted proxy. This stops a lock-out. Open Sode through your HTTPS address and save again")
 
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
@@ -114,7 +101,10 @@ func (a *App) updateWith(mutate func(*config.Config) error, save bool) (old, nw 
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}
 	}
-	a.promoted = a.tokens.promoteTabs(old.cfg, cfg, a.openTokens())
+	promoted := a.tokens.promoteTabs(old.cfg, cfg, a.openTokens())
+	a.mu.Lock()
+	a.promoted = promoted
+	a.mu.Unlock()
 	// Revocation is durable: prune deletes the tokens that are not valid, so an undo of the
 	// change cannot revive them.
 	a.tokens.prune(cfg)

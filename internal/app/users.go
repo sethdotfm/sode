@@ -305,17 +305,13 @@ func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	}
 	a.mu.Unlock()
 	hit := pinCandidate(cfg, holder, name)
-	counts := hit
-	if holder != nil {
-		counts = holder // a held Lock's PIN pad is its holder's, whatever name is typed
-	}
-	err := a.tryUserPin(counts, c.ip, func() bool { return pinMatches(hit, pin) })
-	if err != nil {
+	// A held Lock's PIN pad is its holder's, whatever name is typed.
+	if err := a.provePin(c, holder, hit, pin); err != nil {
 		return err
 	}
 	a.mu.Lock()
-	cfg = a.r().cfg // the PIN check can wait minutes: it is possible that the user changed since
-	if u, ok := cfg.FindUserByID(hit.ID); !ok || u.Pin != hit.Pin {
+	cfg = a.r().cfg
+	if _, ok := a.livePinMu(hit); !ok {
 		a.mu.Unlock()
 		return errors.New("that PIN changed; try again")
 	}

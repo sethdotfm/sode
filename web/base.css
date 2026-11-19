@@ -1544,7 +1544,7 @@ button.sode-up__bar:not(:disabled):hover,
 .sode-inbox__names {
   grid-column: 1 / -1;
 }
-/* history.css holds the Import tab's rules and loads only on the main page; the review shows on every Inbox page. */
+/* exportimport.css holds the Import tab's rules and loads only on the main page; the review shows on every Inbox page. */
 .sode-inbox__review .sode__xi-head {
   border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
   display: flex;

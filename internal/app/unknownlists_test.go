@@ -151,16 +151,13 @@ func TestWholeListSavesKeepUnknownKeys(t *testing.T) {
 			planted := map[string]any{"browserKey": 1}
 			src := *nums(1, 2)
 			rights := config.Rights{Sources: &src, Extra: planted}
-			clients := []config.APIClient{
-				{Name: "other", Scopes: []string{"names", "tally"}, Extra: planted},
-				{Name: "CAM", Scopes: []string{"names"}, Rights: rights},
-			}
-			req := usersReq{
-				Users:       []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Ana"), Name: "Ana", Rights: &rights}},
-				APIClients:  &clients,
-				GuestRights: &rights,
-			}
-			return saveUsers(a, adminClient(t, a), req)
+			mustSave(t, a, adminClient(t, a), map[string]any{
+				ukey(a, "Ana", "rights"): rights,
+				"client/other/scopes":    []string{"names", "tally"},
+				"client/cam/rights":      rights,
+				"guestRights":            rights,
+			})
+			return nil
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

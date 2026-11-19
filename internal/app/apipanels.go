@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -77,11 +76,11 @@ func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
 }
 
 func (a *App) panelOut(p Panel, edit bool) map[string]any {
-	if c, ok := clientOfPanel(a.r().cfg, p); ok && edit {
-		r := c.Rights.Clone()
+	cl, hasClient := clientOfPanel(a.r().cfg, p)
+	if hasClient && edit {
+		r := cl.Rights.Clone()
 		p.ClientRights = &r
 	}
-	cl, hasClient := clientOfPanel(a.r().cfg, p)
 	b, _ := json.Marshal(p)
 	m := map[string]any{}
 	json.Unmarshal(b, &m)
@@ -143,16 +142,8 @@ func refuseReach(w http.ResponseWriter, read, edit, needEdit bool, noRead, noEdi
 }
 
 func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Panel, bool) {
-	body, ok := readBody(w, r, panelLayoutBodyMax, "panel")
-	if !ok {
-		return Panel{}, false
-	}
 	var p Panel
-	if len(strings.TrimSpace(string(body))) == 0 && allowEmpty {
-		return p, true
-	}
-	if err := json.Unmarshal(body, &p); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a panel as JSON: "+err.Error())
+	if !decodeBody(w, r, panelLayoutBodyMax, "panel", "send a panel as JSON: ", allowEmpty, &p) {
 		return Panel{}, false
 	}
 	if p.Pages != nil && p.LegacyCells != nil {
@@ -162,13 +153,17 @@ func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Pan
 	return p, true
 }
 
-func (a *App) panelStoreFail(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, errPanelCap), errors.Is(err, errArtCap), errors.Is(err, errSlugTaken):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-	default:
-		apiFail(w, http.StatusInternalServerError, "internal", "the panel could not be saved: "+err.Error())
+const panelSaveFail = "the panel could not be saved"
+
+func (a *App) checkPanel(w http.ResponseWriter, p *Panel) bool {
+	err := validatePanel(p)
+	if err == nil {
+		err = a.nameFixed(p.Settings)
 	}
+	if err != nil {
+		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	}
+	return err == nil
 }
 
 func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
@@ -276,12 +271,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if p.Type == panelTypeGrid {
 		a.refEdges(&p, nil)
 	}
-	err := validatePanel(&p)
-	if err == nil {
-		err = a.nameFixed(p.Settings)
-	}
-	if err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	if !a.checkPanel(w, &p) {
 		return
 	}
 	if p.Type == panelTypeButtons {
@@ -299,113 +289,31 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return
 		}
 	}
-	made, err := a.panels.create(p)
+	made, err := a.createPanelWithClient(cl.Actor, p, &rights, nil)
 	if err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
-	}
-	if actsHasClient(made.Acts) {
-		made.Client = panelClientName(made.ID)
-		err := a.putPanelClient(cl.Actor, made.ID, &rights, nil)
-		if err == nil {
-			_, err = a.panels.replace(made)
-		}
-		if err != nil {
-			a.panels.delete(made.ID)
-			a.putPanelClient(cl.Actor, made.ID, nil, nil)
-			failWith(w, err)
-			return
-		}
 	}
 	a.apiEvent(cl.Actor, "panelCreate", "ok", "panel "+made.ID+" "+made.Name, nil)
 	apiCreated(w, a.panelOut(made, true))
 }
 
-// Id, owner, client and artwork are the server's. An unknown stored field that the body leaves out is kept.
 func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	old, ok := a.panelFor(w, r, cl, true)
 	if !ok {
 		return
 	}
-	p, ok := readPanelBody(w, r, false)
+	p, want, ok := a.readPanelUpdate(w, r, cl, old)
 	if !ok {
 		return
 	}
-	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
-	// ADR 0011: a body with no type keeps the stored one, so a client that does not know types still saves.
-	if p.Type == "" {
-		p.Type = old.Type
-	}
-	if p.Type != old.Type {
-		apiFail(w, http.StatusConflict, "conflict", "a panel's type is fixed when the panel is made")
+	putClient, ok := a.panelClientChange(w, cl, old, &p, want)
+	if !ok {
 		return
-	}
-	if p.Type == panelTypeButtons && p.Pages == nil && p.LegacyCells != nil {
-		// A body with cells and no Pages changes Page 1 only, so a client that does not know Pages still saves.
-		p.Pages = slices.Clone(old.Pages)
-		p.Pages[0].Cells, p.LegacyCells = p.LegacyCells, nil
-	}
-	merged := maps.Clone(old.Extra)
-	if merged == nil {
-		merged = map[string]any{}
-	}
-	maps.Copy(merged, p.Extra)
-	if p.Extra = merged; len(merged) == 0 {
-		p.Extra = nil
-	}
-	p.normalize()
-	if p.Type == panelTypeGrid {
-		a.refEdges(&p, &old)
-	}
-	err := validatePanel(&p)
-	if err == nil {
-		err = a.nameFixed(p.Settings)
-	}
-	if err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-	if p.Type == panelTypeButtons {
-		p.Pages = a.refPages(p.Pages, cl.Actor.User)
 	}
 	// The panel is written before the client changes: a removed client's keys cannot come back, a file can.
-	cur, had := clientOfPanel(a.r().cfg, old)
-	var putClient func() error
-	switch {
-	case actsHasClient(p.Acts):
-		var curRights *config.Rights
-		if had {
-			curRights = &cur.Rights
-		}
-		// A change to Public checks the caller even when the Rights stay as stored.
-		if p.Acts == panelActsPublic && old.Acts != panelActsPublic {
-			if !a.r().cfg.PublicPanels {
-				failWith(w, errPublicOff)
-				return
-			}
-			if want == nil && had {
-				want = &cur.Rights
-			}
-			curRights = nil
-		}
-		rights, changed, err := a.clientRightsFor(cl, want, curRights)
-		if err != nil {
-			failWith(w, err)
-			return
-		}
-		if !had || changed {
-			putClient = func() error { return a.putPanelClient(cl.Actor, p.ID, &rights, nil) }
-		}
-		p.Client = panelClientName(p.ID)
-	case had:
-		putClient = func() error { return a.putPanelClient(cl.Actor, p.ID, nil, nil) }
-		p.Client = ""
-	default:
-		p.Client = ""
-	}
 	if _, err := a.panels.replaceBody(p); err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	if putClient != nil {
@@ -429,13 +337,92 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	apiJSON(w, a.panelOut(p, true))
 }
 
+// Id, owner, client and artwork are the server's. An unknown stored field that the body leaves out is kept.
+func (a *App) readPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx, old Panel) (Panel, *config.Rights, bool) {
+	p, ok := readPanelBody(w, r, false)
+	if !ok {
+		return p, nil, false
+	}
+	want := p.ClientRights
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
+	// ADR 0011: a body with no type keeps the stored one, so a client that does not know types still saves.
+	if p.Type == "" {
+		p.Type = old.Type
+	}
+	if p.Type != old.Type {
+		apiFail(w, http.StatusConflict, "conflict", "a panel's type is fixed when the panel is made")
+		return p, nil, false
+	}
+	if p.Type == panelTypeButtons && p.Pages == nil && p.LegacyCells != nil {
+		// A body with cells and no Pages changes Page 1 only, so a client that does not know Pages still saves.
+		p.Pages = slices.Clone(old.Pages)
+		p.Pages[0].Cells, p.LegacyCells = p.LegacyCells, nil
+	}
+	merged := maps.Clone(old.Extra)
+	if merged == nil {
+		merged = map[string]any{}
+	}
+	maps.Copy(merged, p.Extra)
+	if p.Extra = merged; len(merged) == 0 {
+		p.Extra = nil
+	}
+	p.normalize()
+	if p.Type == panelTypeGrid {
+		a.refEdges(&p, &old)
+	}
+	if !a.checkPanel(w, &p) {
+		return p, nil, false
+	}
+	if p.Type == panelTypeButtons {
+		p.Pages = a.refPages(p.Pages, cl.Actor.User)
+	}
+	return p, want, true
+}
+
+// panelClientChange sets p.Client and returns the client change to make after the panel write, or nil for none.
+func (a *App) panelClientChange(w http.ResponseWriter, cl *apiCtx, old Panel, p *Panel, want *config.Rights) (func() error, bool) {
+	cur, had := clientOfPanel(a.r().cfg, old)
+	p.Client = ""
+	if !actsHasClient(p.Acts) {
+		if had {
+			return func() error { return a.putPanelClient(cl.Actor, p.ID, nil, nil) }, true
+		}
+		return nil, true
+	}
+	var curRights *config.Rights
+	if had {
+		curRights = &cur.Rights
+	}
+	// A change to Public checks the caller even when the Rights stay as stored.
+	if p.Acts == panelActsPublic && old.Acts != panelActsPublic {
+		if !a.r().cfg.PublicPanels {
+			failWith(w, errPublicOff)
+			return nil, false
+		}
+		if want == nil && had {
+			want = &cur.Rights
+		}
+		curRights = nil
+	}
+	rights, changed, err := a.clientRightsFor(cl, want, curRights)
+	if err != nil {
+		failWith(w, err)
+		return nil, false
+	}
+	p.Client = panelClientName(p.ID)
+	if had && !changed {
+		return nil, true
+	}
+	return func() error { return a.putPanelClient(cl.Actor, p.ID, &rights, nil) }, true
+}
+
 func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, ok := a.panelFor(w, r, cl, true)
 	if !ok {
 		return
 	}
 	if _, err := a.panels.delete(p.ID); err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	a.mon.forget(p.ID, true)
@@ -471,12 +458,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
 	c.Art, c.Rev, c.Slug = nil, 0, ""
-	err := validatePanel(&c)
-	if err == nil {
-		err = a.nameFixed(c.Settings)
-	}
-	if err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	if !a.checkPanel(w, &c) {
 		return
 	}
 	var rights config.Rights
@@ -488,23 +470,10 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 			rights = cl.Rights.Clone()
 		}
 	}
-	made, err := a.panels.create(c)
+	made, err := a.createPanelWithClient(cl.Actor, c, &rights, nets)
 	if err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
-	}
-	if actsHasClient(made.Acts) {
-		made.Client = panelClientName(made.ID)
-		err := a.putPanelClient(cl.Actor, made.ID, &rights, nets)
-		if err == nil {
-			_, err = a.panels.replace(made)
-		}
-		if err != nil {
-			a.panels.delete(made.ID)
-			a.putPanelClient(cl.Actor, made.ID, nil, nil)
-			failWith(w, err)
-			return
-		}
 	}
 	skipped := a.panels.copyArt(src, made.ID)
 	made, _ = a.panels.get(made.ID)

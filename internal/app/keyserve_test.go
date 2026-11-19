@@ -9,51 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// keyTestApp: users Ana (1234) and Bo (567890), an API client PanelsBot, the Administrator Ada (2468).
-func keyTestApp(t *testing.T) *App {
-	t.Helper()
-	a := userApp(t, false)
-	admin := adminClient(t, a)
-	if err := saveUsers(a, admin, usersReq{
-		Users:      []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}},
-		APIClients: &[]config.APIClient{{Name: "PanelsBot", Scopes: []string{config.ScopeTake}}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	return a
-}
-
-func signedIn(t *testing.T, a *App, ip, pin string) (*client, func() []map[string]any) {
-	t.Helper()
-	c := &client{ip: ip}
-	next := registerAll(a, c)
-	if err := a.UserUnlock(c, pin); err != nil {
-		t.Fatal(err)
-	}
-	return c, next
-}
-
-// registerAll is register but keeps every message type.
-func registerAll(a *App, c *client) func() []map[string]any {
-	a.mu.Lock()
-	c.send = make(chan []byte, 64)
-	a.clients[c] = struct{}{}
-	a.mu.Unlock()
-	return func() []map[string]any {
-		var out []map[string]any
-		for {
-			select {
-			case b := <-c.send:
-				var m map[string]any
-				json.Unmarshal(b, &m)
-				out = append(out, m)
-			default:
-				return out
-			}
-		}
-	}
-}
-
 // send runs a message the way the read loop does and returns the reply of type want.
 func send(t *testing.T, a *App, c *client, next func() []map[string]any, m inMsg, want string) map[string]any {
 	t.Helper()
@@ -233,10 +188,12 @@ func TestRevokeOwnKeyOnlyOwn(t *testing.T) {
 func TestUserKeysDieWithPinChangeAndRemoval(t *testing.T) {
 	for name, edit := range map[string]func(a *App, admin *client) error{
 		"PIN change": func(a *App, admin *client) error {
-			return saveUsers(a, admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "4321"}, {ID: idOf(a, "Bo"), Name: "Bo"}}})
+			mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "pin"): "4321"})
+			return nil
 		},
 		"removal": func(a *App, admin *client) error {
-			return saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}})
+			mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "remove"): true})
+			return nil
 		},
 		"own PIN change": func(a *App, _ *client) error {
 			c, _ := signedIn(t, a, "10.0.0.7", "1234")
@@ -284,22 +241,11 @@ func TestClientKeysSurviveUserPinsAndDieWithClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "4321"}, {Name: "Bo", Pin: "135790"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "pin"): "4321", ukey(a, "Bo", "pin"): "135790"})
 	if _, _, ok := a.keys.find(sec, time.Now()); !ok {
 		t.Fatal("client key died with user PINs")
 	}
-	// A save that leaves the client list unsent keeps the client and its keys.
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, ok := a.keys.find(sec, time.Now()); !ok {
-		t.Fatal("client key died when the save did not mention clients")
-	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}, APIClients: &[]config.APIClient{}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{"client/PanelsBot/remove": true})
 	if _, _, ok := a.keys.find(sec, time.Now()); ok {
 		t.Fatal("client key outlived its client")
 	}
@@ -372,14 +318,11 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	defer startLog(t, a)()
 	admin := adminClient(t, a)
 	srcs := *nums(1, 2)
-	tr := true
-	err := saveUsers(a, admin, usersReq{
-		Users:       []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Sources: &srcs, Visibility: config.VisHidden}, NoAutoLock: &tr}, {ID: idOf(a, "Bo"), Name: "Bo"}},
-		GuestRights: &config.Rights{Dsts: nums()},
+	mustSave(t, a, admin, map[string]any{
+		ukey(a, "Ana", "rights"):     config.Rights{Sources: &srcs, Visibility: config.VisHidden},
+		ukey(a, "Ana", "noAutoLock"): true,
+		"guestRights":                config.Rights{Dsts: nums()},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	cfg := a.r().cfg
 	ana, _ := cfg.FindUserByName("Ana")
 	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(config.Ref{N: 2}) || ana.Rights.AllowsSource(config.Ref{N: 3}) {
@@ -390,9 +333,7 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	}
 
 	// A save from a page that knows none of it keeps all of it.
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "name"): "Ana", ukey(a, "Bo", "name"): "Bo"})
 	cfg = a.r().cfg
 	ana, _ = cfg.FindUserByName("Ana")
 	if !ana.NoAutoLock || ana.Rights.Sources == nil || cfg.GuestRights.Dsts == nil || len(cfg.APIClients) != 1 {
@@ -407,12 +348,12 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 		}
 	}
 
-	// The fixture's API client add, then the first save; the stale save changed nothing.
-	waitSaves(t, a, 2)
+	// The stale save changed nothing, so it made no row.
+	waitSaves(t, a, 1)
 	time.Sleep(50 * time.Millisecond)
 	rows := a.saves.Between(-1, 1<<62)
-	if len(rows) != 2 {
-		t.Fatalf("%d Settings saves rows, want 2", len(rows))
+	if len(rows) != 1 {
+		t.Fatalf("%d Settings saves rows, want 1", len(rows))
 	}
 	got := map[string]bool{}
 	for _, f := range rows[0].Save.Fields {
@@ -429,27 +370,24 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 func TestUsersSaveRefusesBadRights(t *testing.T) {
 	a := keyTestApp(t)
 	admin := adminClient(t, a)
-	err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Visibility: "secret"}}, {ID: idOf(a, "Bo"), Name: "Bo"}}})
-	if err == nil {
-		t.Fatal("bad visibility saved")
+	if r := mustRefuse(t, a, admin, map[string]any{ukey(a, "Ana", "rights"): config.Rights{Visibility: "secret"}}); r.Reason != reasonInvalid {
+		t.Fatalf("bad visibility: %+v", r)
 	}
-	err = saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}, APIClients: &[]config.APIClient{{Name: "ana"}}})
-	if err == nil {
-		t.Fatal("API client with a user's name saved")
+	if r := mustRefuse(t, a, admin, map[string]any{"client/ana/add": newClient{}}); r.Reason != reasonInvalid {
+		t.Fatalf("API client with a user's name: %+v", r)
 	}
 }
 
 func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	a := keyTestApp(t)
 	admin := adminClient(t, a)
-	tr := true
 	srcs := *nums(7)
-	if err := saveUsers(a, admin, usersReq{
-		Users:      []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", NoAutoLock: &tr, Rights: &config.Rights{Sources: &srcs}}, {ID: idOf(a, "Bo"), Name: "Bo"}},
-		APIClients: &[]config.APIClient{{Name: "PanelsBot", Rights: config.Rights{Dsts: nums(42)}}},
-	}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{
+		ukey(a, "Ana", "noAutoLock"): true,
+		ukey(a, "Ana", "rights"):     config.Rights{Sources: &srcs},
+		"client/PanelsBot/scopes":    []string{},
+		"client/PanelsBot/rights":    config.Rights{Dsts: nums(42)},
+	})
 	ana, _ := signedIn(t, a, "10.0.0.1", "1234")
 	secret, rec, err := a.CreateOwnKey(ana, "1234", "Panel 21", 0)
 	if err != nil {

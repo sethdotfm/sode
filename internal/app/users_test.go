@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -16,56 +14,6 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 )
-
-func mkUser(t *testing.T, name, pin string) config.User {
-	t.Helper()
-	h, err := config.HashPin(pin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return config.User{Name: name, Pin: h, Len: len(pin)}
-}
-
-// The app saves tokens.json off the lock, so a save can land when the test ends.
-// A plain RemoveAll then fails with "directory not empty".
-func settledTempDir(t *testing.T) string {
-	t.Helper()
-	dir, err := os.MkdirTemp("", "sode-test-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		for i := 0; i < 50; i++ {
-			if os.RemoveAll(dir) == nil {
-				return
-			}
-			time.Sleep(20 * time.Millisecond)
-		}
-	})
-	return dir
-}
-
-// userApp is an app with Standard users Ana (1234) and Bo (567890), the Administrator Ada
-// (2468) and, if locks, the main and log locks on.
-func userApp(t *testing.T, locks bool) *App {
-	t.Helper()
-	cfgPath := filepath.Join(settledTempDir(t), "config.yaml")
-	cfg := config.Defaults()
-	cfg.Normalize()
-	cfg.Users = []config.User{mkUser(t, "Ana", "1234"), mkUser(t, "Bo", "567890")}
-	withAdministrator(&cfg)
-	cfg.Locks = config.Locks{Main: locks, Log: locks}
-	hist, _ := OpenHistory("")
-	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a, err := New(cfg, cfgPath, hist, sl, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return a
-}
 
 func TestUsersConfigValidation(t *testing.T) {
 	good := mkUser(t, "Ana", "1234")
@@ -208,73 +156,53 @@ func TestUserUnlockBackoff(t *testing.T) {
 	}
 }
 
-func TestSaveUsers(t *testing.T) {
+func TestUsersSave(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.1"}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}}}); !errors.Is(err, errFirstUser) {
-		t.Fatalf("first users with no Administrator: %v", err)
+	add := func(u newUser) map[string]any { return map[string]any{"user/new:0/add": u} }
+	if r := mustRefuse(t, a, c, add(newUser{Name: "Ana", Pin: "1234"})); r.Err != errFirstUser.Error() {
+		t.Fatalf("first users with no Administrator: %+v", r)
 	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {
-		t.Fatal("user without a PIN accepted")
-	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "12ab"}}}); err == nil {
-		t.Fatal("non-digit PIN accepted")
-	}
+	mustRefuse(t, a, c, add(newUser{Name: "Ana", Role: config.RoleAdministrator}))
+	mustRefuse(t, a, c, add(newUser{Name: "Ana", Pin: "12ab", Role: config.RoleAdministrator}))
 	withLock := a.r().cfg
 	withLock.Locks.Main = true
 	if err := a.SaveSettings(c, withLock); err == nil || !strings.Contains(err.Error(), "user") {
 		t.Fatalf("lock with no users: %v", err)
 	}
-	req := usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Role: config.RoleAdministrator}, {Name: "Bo", Pin: "5678"}}}
-	if err := saveUsers(a, c, req); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, c, map[string]any{
+		"user/new:0/add": newUser{Name: "Ana", Pin: "1234", Role: config.RoleAdministrator},
+		"user/new:1/add": newUser{Name: "Bo", Pin: "5678"},
+	})
 	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
-	req.Users[0].ID, req.Users[0].Pin = idOf(a, "Ana"), ""
 	cfg := a.r().cfg
 	if len(cfg.Users) != 2 || cfg.Locks.Any() || cfg.Users[0].Len != 4 {
-		t.Fatalf("saved %+v (SaveUsers must not touch the locks)", cfg)
+		t.Fatalf("saved %+v (a users save must not touch the locks)", cfg)
 	}
 	withLock = a.r().cfg
 	withLock.Locks.Log, withLock.AutoLockMinutes = true, 10
 	if err := a.SaveSettings(c, withLock); err != nil {
 		t.Fatal(err)
 	}
-	if err := saveUsers(a, c, req); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, c, map[string]any{ukey(a, "Bo", "persistent"): true})
 	if got := a.r().cfg; !got.Locks.Log || got.AutoLockMinutes != 10 {
-		t.Fatalf("SaveUsers changed the locks: %+v", got)
+		t.Fatalf("a users save changed the locks: %+v", got)
 	}
 	// Hashes never reach browsers.
 	if b, _ := json.Marshal(cfg); strings.Contains(string(b), "pbkdf2") {
 		t.Fatalf("a hash in the JSON: %s", b)
 	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "1234"}}}); err == nil {
-		t.Fatal("two new users with one PIN")
-	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Cy", Pin: "1234"}}}); err == nil {
-		t.Fatal("new PIN equal to a kept user's")
-	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Role: config.RoleAdministrator}, {ID: idOf(a, "Bo"), Name: "Robert"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, c, map[string]any{ukey(a, "Bo", "name"): "Robert"})
 	if u, ok := a.r().cfg.FindUserByName("robert"); !ok || !config.ValidPinHash(u.Pin) {
 		t.Fatal("rename lost the PIN")
 	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "ana", Pin: "9999"}}}); err == nil {
-		t.Fatal("names differing in case accepted")
+	if r := mustRefuse(t, a, c, add(newUser{Name: "ana", Pin: "9999"})); !strings.Contains(r.Err, "two users are named") {
+		t.Fatalf("names differing in case: %+v", r)
 	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana2"}, {ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Robert"), Name: "Robert"}}}); err == nil {
-		t.Fatal("two rows inherited one user's PIN")
-	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Robert"}, {ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {
-		t.Fatal("duplicate was accepted")
-	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Robert", Pin: "1234"}}}); err == nil || strings.Contains(err.Error(), "Ana") {
-		t.Fatalf("colliding PIN: %v (must not name the other user)", err)
+	if r := mustRefuse(t, a, c, map[string]any{ukey(a, "Ana", "name"): "Robert"}); !strings.Contains(r.Err, "two users are named") {
+		t.Fatalf("rename onto another user: %+v", r)
 	}
 	if err := pageSave(t, a, c, map[string]any{"users": nil}, "locks", "autoLockMinutes"); err != nil {
 		t.Fatal(err)
@@ -283,8 +211,8 @@ func TestSaveUsers(t *testing.T) {
 		t.Fatalf("settings save dropped users or locks: %+v", got)
 	}
 	a.SignOut(c)
-	if err := saveUsers(a, c, req); !isRoleErr(err) {
-		t.Fatalf("users saved by a Guest: %v", err)
+	if r := mustRefuse(t, a, c, map[string]any{ukey(a, "Ana", "name"): "Anna"}); r.Reason != reasonRole {
+		t.Fatalf("users saved by a Guest: %+v", r)
 	}
 }
 

@@ -34,7 +34,7 @@ func adminPeer(t *testing.T, a *App) *wsPeer {
 	return p
 }
 
-func TestOneSaveUsersRightsAndClientTogether(t *testing.T) {
+func TestOneSaveOfUsersRightsAndClient(t *testing.T) {
 	a := userApp(t, false)
 	cfg := a.r().cfg
 	cfg.APIClients = []config.APIClient{{Name: "Wall", Scopes: []string{config.ScopeNames}}}

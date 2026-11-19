@@ -169,9 +169,11 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 	a := newTestApp(t, withAdministrator)
 	p := dialPeer(t, a)
 	p.signIn("Ada", "2468")
-	ada, _ := a.r().cfg.FindUserByName("Ada")
-	adaRow := map[string]any{"id": ada.ID, "name": "Ada", "role": config.RoleAdministrator}
-
+	api := func(edit func(*config.APISettings)) map[string]any {
+		s := a.r().cfg.API
+		edit(&s)
+		return map[string]any{"api": s}
+	}
 	saveForm := func(edit func(*config.Config)) map[string]any {
 		cfg := a.r().cfg.Clone()
 		edit(&cfg)
@@ -184,17 +186,18 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 	needsRecheck(t, "Wait after wrong PINs", saveForm(func(c *config.Config) { c.PinWaits = !c.PinWaits }))
 	needsRecheck(t, "Guest role", saveForm(func(c *config.Config) { c.GuestRole = config.RoleTrusted }))
 
-	passed(t, "rate limit", p.askAPI(a, 1, map[string]any{"rateLimit": 7}))
-	needsRecheck(t, "keyless API", p.askAPI(a, 2, map[string]any{"guestEnabled": !a.r().cfg.API.GuestEnabled}))
+	wantSaved(t, p.saveLive(a, 1, api(func(s *config.APISettings) { s.RateLimit = 7 })), "api")
+	keyless := func(s *config.APISettings) { s.GuestEnabled = !s.GuestEnabled }
+	wantRefused(t, p.saveLive(a, 2, api(keyless)), "api", reasonRecheck)
 
-	addBob := map[string]any{"users": []any{adaRow, map[string]any{"name": "Bob", "pin": "1357"}}}
-	passed(t, "longest PIN", p.askUsers(a, 3, map[string]any{"users": []any{adaRow}, "maxPinLen": 9}))
-	needsRecheck(t, "add a user", p.askUsers(a, 4, addBob))
+	addBob := map[string]any{"user/new:0/add": map[string]any{"name": "Bob", "pin": "1357"}}
+	wantSaved(t, p.saveLive(a, 3, map[string]any{"maxPinLen": 9}), "maxPinLen")
+	wantRefused(t, p.saveLive(a, 4, addBob), "user/new:0/add", reasonRecheck)
 
 	passed(t, "recheck", p.recheck("2468"))
 	passed(t, "router address after a recheck", saveForm(func(c *config.Config) { c.Address = "127.0.0.1:9" }))
-	passed(t, "keyless API after a recheck", p.askAPI(a, 6, map[string]any{"guestEnabled": !a.r().cfg.API.GuestEnabled}))
-	passed(t, "add a user after a recheck", p.askUsers(a, 7, addBob))
+	wantSaved(t, p.saveLive(a, 6, api(keyless)), "api")
+	wantSaved(t, p.saveLive(a, 7, addBob), "user/new:0/add")
 	if _, ok := a.r().cfg.FindUserByName("Bob"); !ok {
 		t.Fatal("Bob was not added")
 	}
@@ -209,44 +212,35 @@ func TestUsersSaveCriticalFields(t *testing.T) {
 	})
 	p := dialPeer(t, a)
 	p.signIn("Ada", "2468")
-	cfg := a.r().cfg
-	ada, _ := cfg.FindUserByName("Ada")
-	bob, _ := cfg.FindUserByName("Bob")
-	row := func(u config.User, edit func(map[string]any)) []any {
-		m := map[string]any{"id": u.ID, "name": u.Name, "role": u.Role, "persistent": u.Persistent}
-		edit(m)
-		ar := map[string]any{"id": ada.ID, "name": "Ada", "role": config.RoleAdministrator}
-		return []any{ar, m}
-	}
-	none := func(map[string]any) {}
+	bob := "user/" + idOf(a, "Bob") + "/"
+	src := func(n int) map[string]any { return map[string]any{"sources": []any{map[string]any{"n": n}}} }
 	cases := []struct {
 		what     string
-		users    []any
+		key      string
+		value    any
 		critical bool
 	}{
-		{"rename", row(bob, func(m map[string]any) { m["name"] = "Robert" }), false},
-		{"remove a user", []any{map[string]any{"id": ada.ID, "name": "Ada", "role": config.RoleAdministrator}}, true},
-		{"change a role", row(bob, func(m map[string]any) { m["role"] = config.RoleTrusted }), true},
-		{"set another's PIN", row(bob, func(m map[string]any) { m["pin"] = "9753" }), true},
-		{"remove another's PIN", row(bob, func(m map[string]any) { m["clearPin"] = true }), true},
-		{"Persistent", row(bob, func(m map[string]any) { m["persistent"] = true }), true},
-		{"No auto-lock", row(bob, func(m map[string]any) { m["noAutoLock"] = true }), true},
-		{"Rights within Ada's", row(bob, func(m map[string]any) { m["rights"] = map[string]any{"sources": []any{map[string]any{"n": 1}}} }), false},
-		{"Rights wider than Ada's", row(bob, func(m map[string]any) { m["rights"] = map[string]any{"sources": []any{map[string]any{"n": 2}}} }), true},
-		{"nothing", row(bob, none), false},
+		{"rename", bob + "name", "Robert", false},
+		{"remove a user", bob + "remove", true, true},
+		{"change a role", bob + "role", config.RoleTrusted, true},
+		{"set another's PIN", bob + "pin", "9753", true},
+		{"remove another's PIN", bob + "pin", "", true},
+		{"Persistent", bob + "persistent", true, true},
+		{"No auto-lock", bob + "noAutoLock", true, true},
+		{"Rights within Ada's", bob + "rights", src(1), false},
+		{"Rights wider than Ada's", bob + "rights", src(2), true},
+		{"nothing", bob + "name", "Robert", false},
+		{"Guest Rights wider than Ada's", "guestRights", src(3), true},
+		{"an API client wider than Ada's Rights", "client/Wall/add", map[string]any{"scopes": []string{"tally"}}, true},
 		// last: it signs this page out
-		{"Ada's own PIN", []any{map[string]any{"id": ada.ID, "name": "Ada", "role": config.RoleAdministrator, "pin": "8642"}, map[string]any{"id": bob.ID, "name": "Bob", "role": config.RoleStandard}}, false},
+		{"Ada's own PIN", ukey(a, "Ada", "pin"), "8642", false},
 	}
-	needsRecheck(t, "Guest Rights wider than Ada's", p.askUsers(a, 30, map[string]any{
-		"users": row(bob, none), "guestRights": map[string]any{"sources": []any{map[string]any{"n": 3}}}}))
-	needsRecheck(t, "an API client wider than Ada's Rights", p.askUsers(a, 31, map[string]any{
-		"users": row(bob, none), "apiClients": []any{map[string]any{"name": "Wall", "scopes": []string{"tally"}}}}))
 	for i, c := range cases {
-		r := p.askUsers(a, 10+i, map[string]any{"users": c.users})
+		r := p.saveLive(a, 10+i, map[string]any{c.key: c.value})
 		if c.critical {
-			needsRecheck(t, c.what, r)
+			wantRefused(t, r, c.key, reasonRecheck)
 		} else {
-			passed(t, c.what, r)
+			allSaved(t, c.what, r)
 		}
 	}
 }
@@ -264,15 +258,20 @@ func TestUsersSaveEchoNeedsNoRecheck(t *testing.T) {
 	p := dialPeer(t, a)
 	p.signIn("Ada", "2468")
 	list := p.ask("usersList", 1, nil)
-	var users []any
+	back := map[string]any{"guestRights": list["guestRights"]}
 	for _, u := range list["users"].([]any) {
 		row := u.(map[string]any)
-		users = append(users, map[string]any{"id": row["id"], "name": row["name"], "role": row["role"],
-			"persistent": row["persistent"], "rights": row["rights"], "noAutoLock": row["noAutoLock"]})
+		for _, at := range []string{"name", "role", "persistent", "rights", "noAutoLock"} {
+			back["user/"+row["id"].(string)+"/"+at] = row[at]
+		}
 	}
-	passed(t, "the loaded lists sent back", p.askUsers(a, 2, map[string]any{
-		"users": users, "apiClients": list["apiClients"], "guestRights": list["guestRights"]}))
+	for _, c := range list["apiClients"].([]any) {
+		cl := c.(map[string]any)
+		back["client/"+cl["name"].(string)+"/scopes"] = cl["scopes"]
+		back["client/"+cl["name"].(string)+"/rights"] = cl["rights"]
+	}
+	allSaved(t, "the loaded lists sent back", p.saveLive(a, 2, back))
 	scopes := list["guestScopes"].([]any)
 	slices.Reverse(scopes)
-	passed(t, "the keyless scopes in another order", p.askAPI(a, 3, map[string]any{"guestScopes": scopes}))
+	allSaved(t, "the keyless scopes in another order", p.saveLive(a, 3, map[string]any{"guestApiScopes": scopes}))
 }

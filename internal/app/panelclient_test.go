@@ -11,16 +11,6 @@ import (
 
 // REST seam for a panel's own API client (ADR 0006): Cy is Trusted with narrow Rights, Ana is not.
 
-func clientApp(t *testing.T) (*App, *fakeRouter) {
-	t.Helper()
-	return apiTestApp(t, func(c *config.Config) {
-		cy := mkUser(t, "Cy", "4321")
-		cy.Role = config.RoleTrusted
-		cy.Rights = config.Rights{Sources: nums(1, 2, 3), Dsts: nums(2, 4)}
-		c.Users = append(c.Users, cy)
-	})
-}
-
 const apiPanel = `{"name":"Wall","acts":"api"`
 
 func clientOf(t *testing.T, a *App, name string) (config.APIClient, bool) {
@@ -153,40 +143,25 @@ func TestPanelClientAdminWidens(t *testing.T) {
 	}
 
 	admin := adminClient(t, a)
-	widened := *shown
-	widened.Rights = config.Rights{Sources: nums(1, 50)}
-	// It is possible that the page drops the panel link. The save still treats the client as the panel's, and
-	// leaving a panel client out never removes it.
-	widened.Panel = ""
-	clients := []config.APIClient{widened}
-	for _, c := range list {
-		if c.Panel == "" {
-			clients = append(clients, c)
-		}
-	}
-	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted}}
-	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &clients}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{"client/" + name + "/rights": config.Rights{Sources: nums(1, 50)}})
 	cl, _ := clientOf(t, a, name)
 	if cl.Panel != id || !refsAre(cl.Rights.Sources, 1, 50) {
 		t.Fatalf("after widening: %+v", cl)
 	}
-	none := []config.APIClient{}
-	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &none}); err != nil {
-		t.Fatal(err)
+	// A panel client goes with its panel, never from Manage users.
+	if r := mustRefuse(t, a, admin, map[string]any{"client/" + name + "/remove": true}); !strings.Contains(r.Err, "belongs to a panel or a user") {
+		t.Fatalf("panel client remove: %+v", r)
 	}
 	if _, ok := clientOf(t, a, name); !ok {
-		t.Fatal("an admin save without the panel client removed it")
+		t.Fatal("an admin save removed the panel client")
 	}
 	// Widened past the creator, a plain re-save of the panel is not blocked.
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, key, apiPanel+`}`); rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	// Sode refuses a second client of that name.
-	dup := []config.APIClient{{Name: name, Scopes: []string{}}}
-	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &dup}); err != nil {
-		t.Fatal(err)
+	if r := mustRefuse(t, a, admin, map[string]any{"client/" + name + "/add": newClient{Scopes: []string{}}}); !strings.Contains(r.Err, "already an API client") {
+		t.Fatalf("second client of that name: %+v", r)
 	}
 	if n := 0; true {
 		for _, c := range a.r().cfg.APIClients {
@@ -348,10 +323,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 
 	admin := adminClient(t, a)
 	narrow := config.Rights{Sources: nums(1), Dsts: nums(2, 4)}
-	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted, Rights: &narrow}}
-	if err := saveUsers(a, admin, usersReq{Users: users}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Cy", "rights"): narrow})
 	for _, u := range a.usersList(&client{}, 2).Users {
 		if u.Name == "Cy" && (len(u.PanelClients) != 1 || !u.PanelClients[0].Wider) {
 			t.Fatalf("after narrowing: %+v", u.PanelClients)
@@ -400,5 +372,26 @@ func TestOrphanPanelClientsDropAtStartup(t *testing.T) {
 	}
 	if _, ok := cfg.FindAPIClient(name); !ok || len(cfg.APIClients) != 4 {
 		t.Fatalf("live clients dropped: %+v", cfg.APIClients)
+	}
+}
+
+// A refused client change puts the panel back, so the file never names a client that is not there.
+func TestPanelUpdateRefusedClientKeepsPanel(t *testing.T) {
+	a, _ := clientApp(t)
+	key := userKey(t, a, "Cy")
+	rec := apiSend(a, "POST", "/api/v1/panels", key, `{"name":"Wall","acts":"session"}`)
+	id := apiBody(t, rec)["id"].(string)
+	if err := a.applyConfig(func(c *config.Config) error {
+		c.APIClients = append(c.APIClients, config.APIClient{Name: panelClientName(id), Scopes: []string{config.ScopePanels}})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, key, `{"name":"Wall 2","acts":"api"}`)
+	if rec.Code != 400 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if p, _ := a.panels.get(id); p.Name != "Wall" || p.Acts != panelActsSession || p.Client != "" {
+		t.Fatalf("panel not put back: %+v", p)
 	}
 }

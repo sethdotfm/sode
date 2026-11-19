@@ -28,17 +28,6 @@ func rightsApp(t *testing.T, r config.Rights) (*App, *fakeRouter, *client) {
 	return a, f, rightsSignedIn(t, a, "Ana")
 }
 
-func rightsSignedIn(t *testing.T, a *App, name string) *client {
-	t.Helper()
-	u, _ := a.r().cfg.FindUserByName(name)
-	c := &client{ip: "10.0.0.1", send: make(chan []byte, 32)}
-	register(a, c)
-	a.mu.Lock()
-	c.u.user.Store(&u)
-	a.mu.Unlock()
-	return c
-}
-
 func takeResults(t *testing.T, a *App, c *client, items []routeReq) []routeResult {
 	t.Helper()
 	a.take(c, items)

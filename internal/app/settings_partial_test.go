@@ -135,7 +135,7 @@ func TestSaveListFieldsReplace(t *testing.T) {
 
 // Users are owned: a save with a users list (and the map inside a profile) cannot
 // change them, and cannot leak into the live copy.
-func TestSaveUsersListAndPrefsMapIgnored(t *testing.T) {
+func TestUsersListAndPrefsMapIgnoredBySave(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
 	before := a.r().cfg.Clone()

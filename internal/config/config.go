@@ -118,6 +118,19 @@ type DeviceDefaults struct {
 	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
+// deviceEnums: the string device defaults. Allowed values are PrefValues; empty means the Defaults value.
+var deviceEnums = []struct {
+	pref, msg string
+	get       func(*DeviceDefaults) *string
+}{
+	{"theme", "default theme must be system, light or dark", func(d *DeviceDefaults) *string { return &d.Theme }},
+	{"layout", "default layout must be auto, phone or desktop", func(d *DeviceDefaults) *string { return &d.Layout }},
+	{"clock", "default clock must be 24, 12 or locale", func(d *DeviceDefaults) *string { return &d.Clock }},
+	{"setStack", "default set stacking must be and or or", func(d *DeviceDefaults) *string { return &d.SetStack }},
+	{"nextMode", "default next must be number or fuzzy", func(d *DeviceDefaults) *string { return &d.NextMode }},
+	{"stackGap", "default stacked rows gap must be 0, 10, 30, 60, 120 or 300 seconds", func(d *DeviceDefaults) *string { return &d.StackGap }},
+}
+
 // Blank is the one router.
 type FilterSet struct {
 	Name   string         `yaml:"name" json:"name"`
@@ -298,30 +311,12 @@ func (c *Config) Normalize() {
 	if c.LevelColors == nil {
 		c.LevelColors = []string{}
 	}
-	d := &c.DeviceDefaults
-	d.Theme = strings.ToLower(strings.TrimSpace(d.Theme))
-	d.Layout = strings.ToLower(strings.TrimSpace(d.Layout))
-	d.Clock = strings.ToLower(strings.TrimSpace(d.Clock))
-	d.SetStack = strings.ToLower(strings.TrimSpace(d.SetStack))
-	d.NextMode = strings.ToLower(strings.TrimSpace(d.NextMode))
-	d.StackGap = strings.TrimSpace(d.StackGap)
-	if d.Theme == "" {
-		d.Theme = "system"
-	}
-	if d.Layout == "" {
-		d.Layout = "auto"
-	}
-	if d.Clock == "" {
-		d.Clock = "24"
-	}
-	if d.SetStack == "" {
-		d.SetStack = "and"
-	}
-	if d.NextMode == "" {
-		d.NextMode = "number"
-	}
-	if d.StackGap == "" {
-		d.StackGap = "30"
+	def := Defaults().DeviceDefaults
+	for _, e := range deviceEnums {
+		v := e.get(&c.DeviceDefaults)
+		if *v = strings.ToLower(strings.TrimSpace(*v)); *v == "" {
+			*v = *e.get(&def)
+		}
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
 	c.FilterSets = normalizeFilterSets(c.FilterSets)

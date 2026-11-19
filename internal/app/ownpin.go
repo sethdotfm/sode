@@ -55,7 +55,7 @@ func (a *App) setOwnPin(c *client, oldPin, newPin string, remove bool) error {
 		}
 	}
 	if u.HasPin() {
-		if err := a.tryUserPin(&u, c.ip, func() bool { return config.CheckPin(u.Pin, oldPin) }); err != nil {
+		if err := a.provePin(c, nil, &u, oldPin); err != nil {
 			return err
 		}
 		if !remove && oldPin == newPin {

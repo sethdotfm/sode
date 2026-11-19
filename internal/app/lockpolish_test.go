@@ -67,18 +67,9 @@ func TestMaxPinLen(t *testing.T) {
 	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	long := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Bo", Pin: "123456789"}}
-	if err := saveUsers(a, admin, usersReq{Users: long}); err == nil {
-		t.Fatal("a 9-digit PIN under maxPinLen 8")
-	}
-	if err := saveUsers(a, admin, usersReq{Users: long, MaxPin: 9}); err != nil {
-		t.Fatalf("raised: %v", err)
-	}
-	keep := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}}
-	if err := saveUsers(a, admin, usersReq{Users: keep, MaxPin: 6}); err == nil {
-		t.Fatal("lowered below an existing PIN")
-	}
-	if err := saveUsers(a, admin, usersReq{Users: keep, MaxPin: 13}); err == nil {
-		t.Fatal("13 accepted")
-	}
+	long := ukey(a, "Bo", "pin")
+	mustRefuse(t, a, admin, map[string]any{long: "123456789"})
+	mustSave(t, a, admin, map[string]any{long: "123456789", "maxPinLen": 9})
+	mustRefuse(t, a, admin, map[string]any{"maxPinLen": 6})
+	mustRefuse(t, a, admin, map[string]any{"maxPinLen": 13})
 }

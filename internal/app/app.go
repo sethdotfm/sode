@@ -120,7 +120,7 @@ type App struct {
 	mon          *panelMon
 	cfgMu        sync.Mutex
 	// promoted: token keys the last commit turned from tab to ordinary. catchUpSessions gives them to their pages.
-	// Under cfgMu.
+	// Under mu.
 	promoted map[string]bool
 	setup    setupHold // the browser that runs setup (setup.go). Under cfgMu.
 

@@ -63,10 +63,7 @@ func TestSettingsSaveKeepsUnknownKeys(t *testing.T) {
 // Every users save rebuilds each user, not only the edited one.
 func TestUsersSaveKeepsUnknownKeys(t *testing.T) {
 	a := futureApp(t, "users:\n  - name: a\n    futureField: x\n  - name: b\n")
-	req := usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo", Role: config.RoleTrusted}}}
-	if err := saveUsers(a, adminClient(t, a), req); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Bo", "role"): config.RoleTrusted})
 	if k, want := savedUnknownKeys(t, a), []string{"users[0].futureField"}; !slices.Equal(k, want) {
 		t.Fatalf("UnknownKeys = %q, want %q", k, want)
 	}

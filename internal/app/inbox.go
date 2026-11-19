@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -62,11 +61,12 @@ func (it cardItems) count() int { return len(it.Presets) + len(it.FilterSets) + 
 
 type inboxStore struct {
 	yamlDir[inboxCard]
-	art map[string][]byte // memory only: "<card>/<panel>/<art>"
+	art     blobDir         // "<card>.art/<panel>/<art>" under the inbox folder
+	pending map[string]bool // card ids add has picked and is writing art for
 }
 
 func loadInbox(cfgPath string) *inboxStore {
-	s := &inboxStore{art: map[string][]byte{}}
+	s := &inboxStore{pending: map[string]bool{}}
 	s.by = map[string]inboxCard{}
 	s.prefix = "c-"
 	s.idOf = func(c *inboxCard) *string { return &c.ID }
@@ -76,6 +76,7 @@ func loadInbox(cfgPath string) *inboxStore {
 		return s
 	}
 	s.dir = filepath.Join(filepath.Dir(cfgPath), inboxDir)
+	s.art.dir = s.dir
 	err := s.loadDir(s.dir, func(path, id string, b []byte, err error) (inboxCard, bool) {
 		var c inboxCard
 		if err == nil {
@@ -96,51 +97,46 @@ func loadInbox(cfgPath string) *inboxStore {
 	return s
 }
 
-func (s *inboxStore) artDir(card string) string { return filepath.Join(s.dir, card+".art") }
-
-func (s *inboxStore) artKey(card, panel, art string) string { return card + "/" + panel + "/" + art }
-
 func (s *inboxStore) artData(card, panel, art string) ([]byte, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.dir == "" {
-		b, ok := s.art[s.artKey(card, panel, art)]
-		return b, ok
-	}
-	b, err := os.ReadFile(filepath.Join(s.artDir(card), panel, art))
-	return b, err == nil
-}
-
-// Caller holds mu.
-func (s *inboxStore) waitingForLocked(to string) int {
-	n := 0
-	for _, c := range s.by {
-		if c.To == to && c.State == cardWaiting {
-			n++
-		}
-	}
-	return n
+	return s.art.get(card + ".art/" + panel + "/" + art)
 }
 
 // add stores one card per recipient, or none: full names the first recipient whose Inbox is full.
 // art is keyed "<panel>/<art>" and goes with every card. live is read after the write: a user removed
 // before it loses the card here, one removed after it is caught by usersRemoved.
+// The art is written outside mu, since pushInboxMu takes mu under App.mu; full is asked again after it.
 func (s *inboxStore) add(cards []inboxCard, art map[string][]byte, live func(user string) bool) (stored []inboxCard, full string, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, c := range cards {
-		if s.waitingForLocked(c.To) >= inboxWaitingMax {
-			return nil, c.ToName, nil
+	ids, full := s.reserve(cards)
+	if full != "" {
+		return nil, full, nil
+	}
+	for _, id := range ids {
+		for k, b := range art {
+			if err == nil {
+				err = s.art.put(id+".art/"+k, b)
+			}
 		}
 	}
-	for _, c := range cards {
-		c.ID = s.newIDLocked()
-		err := s.putArtLocked(c.ID, art)
-		if err == nil {
-			err = s.writeLocked(c)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, id := range ids {
+		delete(s.pending, id)
+	}
+	if err == nil {
+		full = s.fullLocked(cards)
+	}
+	if err != nil || full != "" {
+		for _, id := range ids {
+			s.dropArtLocked(id)
 		}
-		if err != nil {
-			s.dropArtLocked(c.ID)
+		return nil, full, err
+	}
+	for i, c := range cards {
+		c.ID = ids[i]
+		if err := s.writeLocked(c); err != nil {
+			for _, id := range ids[i:] {
+				s.dropArtLocked(id)
+			}
 			for _, k := range stored {
 				s.forgetLocked(k)
 			}
@@ -158,34 +154,41 @@ func (s *inboxStore) add(cards []inboxCard, art map[string][]byte, live func(use
 	}), "", nil
 }
 
-func (s *inboxStore) putArtLocked(card string, art map[string][]byte) error {
-	for k, b := range art {
-		if s.dir == "" {
-			s.art[card+"/"+k] = b
-			continue
-		}
-		path := filepath.Join(s.artDir(card), filepath.FromSlash(k))
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			return err
-		}
-		if err := config.AtomicWrite(path, b); err != nil {
-			return err
-		}
+// reserve picks an id per card and keeps it from other adds until add has stored or dropped the card.
+func (s *inboxStore) reserve(cards []inboxCard) (ids []string, full string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if full = s.fullLocked(cards); full != "" {
+		return nil, full
 	}
-	return nil
+	for range cards {
+		id := s.newIDLocked()
+		for s.pending[id] {
+			id = s.newIDLocked()
+		}
+		s.pending[id] = true
+		ids = append(ids, id)
+	}
+	return ids, ""
 }
 
-func (s *inboxStore) dropArtLocked(card string) {
-	if s.dir != "" {
-		os.RemoveAll(s.artDir(card))
-		return
-	}
-	for k := range s.art {
-		if strings.HasPrefix(k, card+"/") {
-			delete(s.art, k)
+// fullLocked names the first recipient whose Inbox is full, or "".
+func (s *inboxStore) fullLocked(cards []inboxCard) string {
+	waiting := map[string]int{}
+	for _, c := range s.by {
+		if c.State == cardWaiting {
+			waiting[c.To]++
 		}
 	}
+	for _, c := range cards {
+		if waiting[c.To] >= inboxWaitingMax {
+			return c.ToName
+		}
+	}
+	return ""
 }
+
+func (s *inboxStore) dropArtLocked(card string) { s.art.delPrefix(card + ".art") }
 
 func (s *inboxStore) end(id, state string, accepted int, now time.Time) (inboxCard, error) {
 	s.mu.Lock()

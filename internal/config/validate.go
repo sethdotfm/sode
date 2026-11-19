@@ -98,35 +98,10 @@ func (c Config) Validate() error {
 	if _, ok := BrandColorByName(c.BrandBorder); c.BrandBorder != "" && !ok {
 		bad("border colour must be one of %s", strings.Join(BrandNames(), ", "))
 	}
-	switch c.DeviceDefaults.Theme {
-	case "system", "light", "dark":
-	default:
-		bad("default theme must be system, light or dark")
-	}
-	switch c.DeviceDefaults.Layout {
-	case "auto", "phone", "desktop":
-	default:
-		bad("default layout must be auto, phone or desktop")
-	}
-	switch c.DeviceDefaults.Clock {
-	case "24", "12", "locale":
-	default:
-		bad("default clock must be 24, 12 or locale")
-	}
-	switch c.DeviceDefaults.SetStack {
-	case "and", "or":
-	default:
-		bad("default set stacking must be and or or")
-	}
-	switch c.DeviceDefaults.NextMode {
-	case "number", "fuzzy":
-	default:
-		bad("default next must be number or fuzzy")
-	}
-	switch c.DeviceDefaults.StackGap {
-	case "0", "10", "30", "60", "120", "300":
-	default:
-		bad("default stacked rows gap must be 0, 10, 30, 60, 120 or 300 seconds")
+	for _, e := range deviceEnums {
+		if !slices.Contains(PrefValues[e.pref], *e.get(&c.DeviceDefaults)) {
+			errs = append(errs, errors.New(e.msg))
+		}
 	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {

@@ -48,47 +48,6 @@ func topicOf(section string) string {
 	return "Look and feel"
 }
 
-// fieldLabels: the Settings label of each saveFields key (TestEverySavedFieldHasLabel).
-var fieldLabels = map[string]string{
-	"browserDefaults":      "Everyone's defaults",
-	"brandText":            "Logo text & Page title",
-	"brandBorder":          "Accent Color",
-	"hiddenDsts":           "Hidden destinations in History",
-	"hiddenDstsRouter":     "Hidden destinations router",
-	"levelColors":          "Level colors",
-	"confirmLockoutMs":     "Confirm lockout (ms)",
-	"resultDismissSeconds": "Success banner closes after (s)",
-	"confirmEnter":         "Enter confirms takes",
-	"router":               "Address",
-	"routerName":           "Name",
-	"routerShow":           "Status label",
-	"matrix":               "Matrix",
-	"levels":               "Levels",
-	"levelWireOffset":      "Level offset",
-	"levelNumbering":       "Level numbering",
-	"numberOffset":         "Source and destination numbers",
-	"nameRereadSeconds":    "Re-read every (s)",
-	"nameLength":           "Name character limit",
-	"nameRequests":         "Name requests",
-	"defaultLevels":        "Default levels",
-	"tallyResyncSeconds":   "Re-read routes every (s)",
-	"fireMode":             "Multi destination behavior",
-	"salvoGroup":           "Router salvo group",
-	"pinWaits":             "Wait after wrong PINs",
-	"locks":                "Locks",
-	"autoLockMinutes":      "Auto-lock after idle (minutes)",
-	"guestRole":            "Guest role",
-	"newUserDefaults":      "New user defaults",
-	"publicPanels":         "Public panels allowed",
-	"newPanelActs":         "New-panel Authentication mode",
-	"trustedProxies":       "Trusted proxies",
-	"requireHttps":         "Require HTTPS",
-	"maxPinLen":            "Longest PIN",
-	"guestRights":          "Guest rights",
-	"api":                  "API",
-	"guestApiScopes":       "Keyless API scopes",
-}
-
 var attrLabels = map[string]string{
 	"name": "Name", "role": "Role", "pin": "PIN", "rights": "Rights", "persistent": "Never sign out",
 	"noAutoLock": "No auto-lock", "remove": "Remove", "add": "Add", "scopes": "Scopes",

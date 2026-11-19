@@ -31,8 +31,8 @@ const (
 
 var (
 	tplIDRe        = regexp.MustCompile(`^t-[0-9a-f]{8}$`)
-	errTemplateCap = errors.New("too many templates")
-	errTemplateDup = errors.New("there is already a template with that name")
+	errTemplateCap = &panelClientFail{http.StatusConflict, "conflict", "too many templates"}
+	errTemplateDup = &panelClientFail{http.StatusConflict, "conflict", "there is already a template with that name"}
 
 	// contentKeys are what fills a cell after its type is set. A template leaves them out unless
 	// asked, so a new show's Sources and Destinations are chosen afresh.
@@ -136,7 +136,8 @@ func (t *Template) clean() error {
 }
 
 func dropArtwork(m map[string]any, key string) {
-	if s, ok := m[key].(string); ok && artIDRe.MatchString(s) {
+	s, _ := m[key].(string)
+	if r, _ := parseArtRef(s); r.kind == artRefPanel {
 		delete(m, key)
 	}
 }
@@ -290,13 +291,8 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 		apiFail(w, http.StatusForbidden, "user_required", "a template is owned by a user: use a user's key to save one")
 		return
 	}
-	body, ok := readBody(w, r, panelLayoutBodyMax, "template")
-	if !ok {
-		return
-	}
 	var t Template
-	if err := json.Unmarshal(body, &t); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a template as JSON: "+err.Error())
+	if !decodeBody(w, r, panelLayoutBodyMax, "template", "send a template as JSON: ", false, &t) {
 		return
 	}
 	t.ID, t.Owner = "", cl.Actor.User
@@ -316,12 +312,8 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 		}
 	}
 	made, err := a.templates.create(t)
-	switch {
-	case errors.Is(err, errTemplateCap), errors.Is(err, errTemplateDup):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the template could not be saved: "+err.Error())
+	if err != nil {
+		failStore(w, err, "the template could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "templateCreate", "ok", "template "+made.ID+" "+made.Name+" ("+made.Scope+")", nil)
@@ -334,7 +326,7 @@ func (a *App) apiTemplateDelete(w http.ResponseWriter, r *http.Request, cl *apiC
 		return
 	}
 	if _, err := a.templates.delete(t.ID); err != nil {
-		apiFail(w, http.StatusInternalServerError, "internal", "the template could not be deleted: "+err.Error())
+		failStore(w, err, "the template could not be deleted")
 		return
 	}
 	a.apiEvent(cl.Actor, "templateDelete", "ok", "template "+t.ID+" "+t.Name, nil)

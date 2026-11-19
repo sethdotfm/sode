@@ -11,15 +11,6 @@ import (
 
 const takeOne = `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`
 
-// ownClientApp: Ana is a Standard user with sources 1-2 and destination 2, signed in.
-func ownClientApp(t *testing.T) (*App, *fakeRouter, *client, func() []map[string]any) {
-	t.Helper()
-	a, f := apiTestApp(t, nil)
-	setRights(t, a, "Ana", config.Rights{Sources: nums(1, 2), Dsts: nums(2)})
-	c, next := signedIn(t, a, "10.0.0.1", "1234")
-	return a, f, c, next
-}
-
 func saveOwn(t *testing.T, a *App, c *client, next func() []map[string]any, cl myClientReq) map[string]any {
 	t.Helper()
 	return send(t, a, c, next, inMsg{T: "myClientSave", ID: 1, MyClient: &cl}, "myClientSaveResult")
@@ -94,15 +85,7 @@ func TestOwnClientNarrowsWithOwnerAndGoesWithThem(t *testing.T) {
 	setRights(t, a, "Ana", config.Rights{Sources: nums(2), Dsts: nums(2)})
 	wantErr(t, apiPost(a, "/api/v1/takes", key, takeOne, nil), 403, "outside_rights")
 
-	keep := []userEdit{}
-	for _, u := range a.r().cfg.Users {
-		if u.Name != "Ana" {
-			keep = append(keep, userEdit{ID: u.ID, Name: u.Name, Role: u.Role})
-		}
-	}
-	if err := saveUsers(a, adminClient(t, a), usersReq{Users: keep}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Ana", "remove"): true})
 	if _, ok := a.r().cfg.FindAPIClient("Ana desk"); ok {
 		t.Fatal("client outlived its owner")
 	}
@@ -113,20 +96,13 @@ func TestAdministratorSaveKeepsOwnClients(t *testing.T) {
 	a, _, c, next := ownClientApp(t)
 	saveOwn(t, a, c, next, myClientReq{Name: "Ana desk", Scopes: []string{config.ScopeTake}})
 	admin := adminClient(t, a)
-	users := []userEdit{}
-	for _, u := range a.r().cfg.Users {
-		users = append(users, userEdit{ID: u.ID, Name: u.Name, Role: u.Role})
-	}
-	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &[]config.APIClient{{Name: "PanelsBot", Scopes: []string{}}}}); err != nil {
-		t.Fatal(err)
+	if r := mustRefuse(t, a, admin, map[string]any{"client/Ana desk/remove": true}); !strings.Contains(r.Err, "belongs to a panel or a user") {
+		t.Fatalf("own client remove: %+v", r)
 	}
 	if cl, ok := a.r().cfg.FindAPIClient("Ana desk"); !ok || cl.Owner != idOf(a, "Ana") {
-		t.Fatalf("left out: %+v %v", cl, ok)
+		t.Fatalf("removed: %+v %v", cl, ok)
 	}
-	edited := []config.APIClient{{Name: "Ana desk", Scopes: []string{config.ScopeNames}}, {Name: "PanelsBot", Scopes: []string{}}}
-	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &edited}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{"client/Ana desk/scopes": []string{config.ScopeNames}, "client/PanelsBot/scopes": []string{}})
 	if cl, _ := a.r().cfg.FindAPIClient("Ana desk"); cl.Owner != idOf(a, "Ana") || !slicesHas(cl.Scopes, config.ScopeNames) {
 		t.Fatalf("edited: %+v", cl)
 	}

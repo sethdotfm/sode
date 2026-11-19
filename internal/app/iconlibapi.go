@@ -68,10 +68,8 @@ func (a *App) apiIconRename(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 	switch {
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "no such icon in the Icon library")
-	case errors.Is(err, errIconBadName):
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the icon could not be renamed: "+err.Error())
+		failStore(w, err, "the icon could not be renamed")
 	default:
 		a.apiEvent(cl.Actor, "iconRename", "ok", "Icon library: renamed "+ic.ID+" to "+ic.Name, nil)
 		apiJSON(w, ic)
@@ -87,7 +85,7 @@ func (a *App) apiIconDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "no such icon in the Icon library")
 	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the icon could not be deleted: "+err.Error())
+		failStore(w, err, "the icon could not be deleted")
 	default:
 		a.apiEvent(cl.Actor, "iconDelete", "ok", "Icon library: deleted "+ic.Name, nil)
 		w.WriteHeader(http.StatusNoContent)
@@ -162,15 +160,8 @@ func (a *App) apiIconUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		return
 	}
 	ic, err := a.icons.add(in.Name, in.Data, typ)
-	switch {
-	case errors.Is(err, errIconBadName):
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	case errors.Is(err, errIconLibCap):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the icon could not be saved: "+err.Error())
+	if err != nil {
+		failStore(w, err, "the icon could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "iconAdd", "ok", "Icon library: added "+ic.Name, nil)

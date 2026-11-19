@@ -131,9 +131,8 @@ func TestNoAdministratorStartsAndRefusesAdministratorActions(t *testing.T) {
 	if e, _ := r["err"].(string); !strings.Contains(e, "-make-administrator") {
 		t.Errorf("usersList refusal does not name the command: %q", e)
 	}
-	if r := p.askUsers(a, 11, map[string]any{"guestRole": config.RoleTrusted}); r["ok"] == true {
-		t.Fatalf("a Trusted user saved Users: %v", r)
-	}
+	boName := ukey(a, "Bo", "name")
+	wantRefused(t, p.saveLive(a, 11, map[string]any{boName: "Bob"}), boName, reasonRole)
 	if r := p.ask("presets", 20, map[string]any{"presets": []any{}}); r["ok"] != true {
 		t.Fatalf("a Trusted user action: %v", r)
 	}
@@ -182,30 +181,19 @@ func TestDeletingAPanelOwnerNeedsANewOwner(t *testing.T) {
 		}
 	}
 
-	var keep []map[string]any
-	for _, u := range a.r().cfg.Users {
-		if u.ID != ana.ID {
-			keep = append(keep, map[string]any{"id": u.ID, "name": u.Name, "role": u.Role})
-		}
+	remove := "user/" + ana.ID + "/remove"
+	save := func(id int, owner string) map[string]any {
+		return p.saveLive(a, id, map[string]any{remove: map[string]string{"owner": owner}})
 	}
-	save := func(id int, owners map[string]any) map[string]any {
-		req := map[string]any{"users": keep}
-		if owners != nil {
-			req["panelOwners"] = owners
-		}
-		return p.askUsers(a, id, req)
-	}
-	for i, owners := range []map[string]any{nil, {ana.ID: ana.ID}, {ana.ID: "u-0000000000000000"}} {
-		if r := save(10+i, owners); r["ok"] == true || !strings.Contains(r["err"].(string), "Ana") {
-			t.Fatalf("new owner %v: %v", owners, r)
+	for i, owner := range []string{"", ana.ID, "u-0000000000000000"} {
+		if f := wantRefused(t, save(10+i, owner), remove, reasonInvalid); !strings.Contains(f["err"].(string), "Ana") {
+			t.Fatalf("new owner %q: %v", owner, f)
 		}
 		if _, ok := a.r().cfg.FindUserByID(ana.ID); !ok {
-			t.Fatalf("new owner %v: Ana removed anyway", owners)
+			t.Fatalf("new owner %q: Ana removed anyway", owner)
 		}
 	}
-	if r := save(20, map[string]any{ana.ID: bo.ID}); r["ok"] != true {
-		t.Fatalf("with a new owner: %v", r)
-	}
+	wantSaved(t, save(20, bo.ID), remove)
 	if _, ok := a.r().cfg.FindUserByID(ana.ID); ok {
 		t.Fatal("Ana is still there")
 	}

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -91,56 +90,23 @@ func TestLockNeedsAUser(t *testing.T) {
 
 // The locks are Settings > Access fields, not part of the users save, so the refusal says what to do.
 func TestRemoveLastUserWhileLockedSaysWhy(t *testing.T) {
-	a := userApp(t, true)
-	admin := &client{ip: "10.0.0.9"}
-	if err := a.UserUnlock(admin, "2468"); err != nil {
-		t.Fatal(err)
+	a := adaOnly(t, true)
+	if r := mustRefuse(t, a, adminClient(t, a), map[string]any{ukey(a, "Ada", "remove"): true}); !strings.Contains(r.Err, "Settings > Access") {
+		t.Fatalf("want a message pointing at Settings > Access, got %+v", r)
 	}
-	err := saveUsers(a, admin, usersReq{Users: nil})
-	if err == nil || !strings.Contains(err.Error(), "Settings > Access") {
-		t.Fatalf("want a message pointing at Settings > Access, got %v", err)
-	}
-}
-
-// The guard leaves the users alone when it refuses. With no lock on, removing every user
-// is still refused, since it leaves no Administrator.
-func TestRemoveLastUserGuardScope(t *testing.T) {
-	a := userApp(t, true)
-	admin := &client{ip: "10.0.0.9"}
-	if err := a.UserUnlock(admin, "2468"); err != nil {
-		t.Fatal(err)
-	}
-	before := len(a.r().cfg.Users)
-	if err := saveUsers(a, admin, usersReq{Users: nil}); err == nil {
+	if len(a.r().cfg.Users) != 1 {
 		t.Fatal("last user removed while a lock is on")
 	}
-	if got := len(a.r().cfg.Users); got != before || before == 0 {
-		t.Fatalf("users changed by a refused save: %d -> %d", before, got)
-	}
-	b := userApp(t, false)
-	adm := &client{ip: "10.0.0.9"}
-	if err := b.UserUnlock(adm, "2468"); err != nil {
-		t.Fatal(err)
-	}
-	if err := saveUsers(b, adm, usersReq{Users: nil}); !errors.Is(err, errNoAdministrator) {
-		t.Fatalf("removing every user with no lock on: %v", err)
+}
+
+// With no lock on, removing the last user is still refused, since it leaves no Administrator.
+func TestRemoveLastUserGuardScope(t *testing.T) {
+	a := adaOnly(t, false)
+	if r := mustRefuse(t, a, adminClient(t, a), map[string]any{ukey(a, "Ada", "remove"): true}); r.Err != errNoAdministrator.Error() {
+		t.Fatalf("removing every user with no lock on: %+v", r)
 	}
 }
 
-// A users message from a page loaded before the locks moved is refused out
-// loud, not saved with its lock edits quietly dropped.
-func TestSaveUsersRefusesOldLockKeys(t *testing.T) {
-	a := userApp(t, false)
-	admin := &client{ip: "10.0.0.9"}
-	if err := a.UserUnlock(admin, "2468"); err != nil {
-		t.Fatal(err)
-	}
-	var req usersReq
-	if err := json.Unmarshal([]byte(`{"users":[{"name":"Ana","was":"Ana"}],"locks":{"main":true,"log":false},"autoLockMinutes":3}`), &req); err != nil {
-		t.Fatal(err)
-	}
-	err := saveUsers(a, admin, req)
-	if err == nil || !strings.Contains(err.Error(), "Settings > Access") {
-		t.Fatalf("want a refusal pointing at Settings > Access, got %v", err)
-	}
+func adaOnly(t *testing.T, locks bool) *App {
+	return newTestApp(t, withAdministrator, func(c *config.Config) { c.Locks.Main = locks })
 }

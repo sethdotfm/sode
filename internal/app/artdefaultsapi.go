@@ -2,8 +2,6 @@ package app
 
 import (
 	"cmp"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -149,12 +147,7 @@ func (a *App) readArtDefault(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusForbidden, "user_required", "Default artwork is changed with a user's key")
 		return in, false
 	}
-	body, ok := readBody(w, r, panelBodyMax, "default")
-	if !ok {
-		return in, false
-	}
-	if err := json.Unmarshal(body, &in); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a default as JSON: "+err.Error())
+	if !decodeBody(w, r, panelBodyMax, "default", "send a default as JSON: ", false, &in) {
 		return in, false
 	}
 	if err := in.check(); err != nil {
@@ -195,15 +188,19 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 		return
 	}
 	var img *artImage
-	switch {
-	case d.Art == "", artIconRe.MatchString(d.Art), artDefaultIDRe.MatchString(d.Art):
-	case strings.HasPrefix(d.Art, "lib:") && iconIDRe.MatchString(d.Art[len("lib:"):]):
+	ref, ok := parseArtRef(d.Art)
+	if !ok {
+		apiFail(w, http.StatusBadRequest, "bad_request", "art is a vendored icon (icon:<name>), an Icon library icon (lib:<id>) or an artwork id")
+		return
+	}
+	switch ref.kind {
+	case artRefLib:
 		// Kept as the reference, never copied, so a library delete reaches the default as it does a cell.
-		if !slices.ContainsFunc(a.icons.list(), func(ic LibIcon) bool { return "lib:"+ic.ID == d.Art }) {
+		if !slices.ContainsFunc(a.icons.list(), func(ic LibIcon) bool { return ic.ID == ref.id }) {
 			apiFail(w, http.StatusNotFound, "not_found", "no icon "+d.Art+" in the Icon library")
 			return
 		}
-	case artIDRe.MatchString(d.Art):
+	case artRefPanel:
 		// A panel's own image: copied, so the default outlives the panel and its artwork.
 		p, read, _ := a.reachPanel(cl, in.Panel)
 		data, _, found := a.panels.artData(p.ID, d.Art)
@@ -217,9 +214,6 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 			return
 		}
 		img = &artImage{data, typ}
-	default:
-		apiFail(w, http.StatusBadRequest, "bad_request", "art is a vendored icon (icon:<name>), an Icon library icon (lib:<id>) or an artwork id")
-		return
 	}
 	if d.Art == "" && d.ArtB == "" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "a default needs Icon A or Icon B")
@@ -238,15 +232,8 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 		a.mu.Unlock()
 	}
 	saved, err := a.artDefaults.set(d, img)
-	switch {
-	case errors.Is(err, errArtDefaultsCap):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	case errors.Is(err, errNoArtDefaultFile):
-		apiFail(w, http.StatusNotFound, "not_found", err.Error())
-		return
-	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the default could not be saved: "+err.Error())
+	if err != nil {
+		failStore(w, err, "the default could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "artDefaultSet", "ok", "Default artwork for "+saved.key(), nil)
@@ -261,7 +248,7 @@ func (a *App) apiArtDefaultClear(w http.ResponseWriter, r *http.Request, cl *api
 	found, err := a.artDefaults.clear(in.ArtDefault)
 	switch {
 	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the default could not be cleared: "+err.Error())
+		failStore(w, err, "the default could not be cleared")
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "that item has no Default artwork")
 	default:

@@ -76,7 +76,7 @@ func (a *App) CreateOwnKey(c *client, pin, keyName string, expiresMs int64) (str
 	if !u.HasPin() {
 		return "", apiKey{}, errors.New("set a PIN before you make an API key")
 	}
-	if err := a.tryUserPin(&u, c.ip, func() bool { return config.CheckPin(u.Pin, pin) }); err != nil {
+	if err := a.provePin(c, nil, &u, pin); err != nil {
 		return "", apiKey{}, err
 	}
 	exp, err := keyExpiry(expiresMs, time.Now())

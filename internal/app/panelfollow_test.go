@@ -3,11 +3,9 @@ package app
 import (
 	"strings"
 	"testing"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Panel sharing follows the Users save, and the owner id stays, through SaveUsers and the REST seam.
+// Panel sharing follows the Users save, and the owner id stays, through the one Save and the REST seam.
 
 func followFixture(t *testing.T) (a *App, admin *client, mine, shared, other string) {
 	t.Helper()
@@ -22,12 +20,7 @@ func followFixture(t *testing.T) (a *App, admin *client, mine, shared, other str
 
 func TestPanelsFollowUserRename(t *testing.T) {
 	a, admin, mine, shared, other := followFixture(t)
-	err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Anna"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "name"): "Anna"})
 	p, _ := a.panels.get(mine)
 	if p.Owner != idOf(a, "Anna") || strings.Join(p.Share.Users, ",") != "Bo,Cy" {
 		t.Fatalf("owned panel: owner %q share %v", p.Owner, p.Share.Users)
@@ -46,10 +39,7 @@ func TestPanelsFollowUserRename(t *testing.T) {
 func TestPanelsFollowUserRemoval(t *testing.T) {
 	a, admin, mine, shared, _ := followFixture(t)
 	anaID, boID := idOf(a, "Ana"), idOf(a, "Bo")
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: boID, Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted}},
-		PanelOwners: map[string]string{anaID: boID}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{"user/" + anaID + "/remove": map[string]string{"owner": boID}})
 	p, _ := a.panels.get(mine)
 	if p.Owner != boID || strings.Join(p.Share.Users, ",") != "Bo,Cy" {
 		t.Fatalf("owned panel must go to the new owner: %+v", p)

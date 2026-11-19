@@ -9,27 +9,6 @@ import (
 
 // Users without a PIN (GLOSSARY.md) and PIN needed. Seam: the App's messages and the REST API.
 
-// noPinApp: apiTestApp plus Cy, a Standard user an Administrator saved with no PIN.
-func noPinApp(t *testing.T) (*App, *fakeRouter) {
-	t.Helper()
-	a, f := apiTestApp(t, nil)
-	keep := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Cy"}}
-	if err := saveUsers(a, adminClient(t, a), usersReq{Users: keep}); err != nil {
-		t.Fatal(err)
-	}
-	return a, f
-}
-
-func signInNoPin(t *testing.T, a *App, ip, name string) (*client, func() []map[string]any) {
-	t.Helper()
-	c := &client{ip: ip}
-	next := registerAll(a, c)
-	if err := a.UserUnlockAs(c, name, ""); err != nil {
-		t.Fatal(err)
-	}
-	return c, next
-}
-
 func setGuest(t *testing.T, a *App, role string, rights config.Rights) {
 	t.Helper()
 	cfg := a.r().cfg.Clone()
@@ -235,9 +214,7 @@ func TestRemoveOwnPinEndsKeysAndClients(t *testing.T) {
 func TestAdministratorResetEndsSessionsAndKeys(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	admin := adminClient(t, a)
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "persistent"): true})
 	ana, anext := signedIn(t, a, "10.0.0.1", "1234")
 	tok := a.issueToken(ana, false)
 	if tok == "" {
@@ -248,9 +225,7 @@ func TestAdministratorResetEndsSessionsAndKeys(t *testing.T) {
 	if k["ok"] != true || sk["ok"] != true {
 		t.Fatalf("keys %v %v", k, sk)
 	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Pin: "8642", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "pin"): "8642"})
 	if _, ok := a.tokens.user(tok, a.r().cfg); ok {
 		t.Fatal("the token outlived the reset")
 	}
@@ -263,9 +238,7 @@ func TestAdministratorResetEndsSessionsAndKeys(t *testing.T) {
 		t.Fatal("Ana's open browser stayed signed in")
 	}
 
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", ClearPin: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "pin"): ""})
 	if u, _ := a.r().cfg.FindUserByName("Ana"); u.Pin != "" || u.Len != 0 {
 		t.Fatalf("Ana %+v", u)
 	}
@@ -274,23 +247,21 @@ func TestAdministratorResetEndsSessionsAndKeys(t *testing.T) {
 func TestSaveRefusesTrustedUserWithoutPin(t *testing.T) {
 	a, _ := noPinApp(t)
 	admin := adminClient(t, a)
-	rows := func(cy userEdit) []userEdit {
-		return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, cy}
-	}
-	for name, cy := range map[string]userEdit{
-		"raise a user without a PIN": {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
-		"new Trusted user":           {Name: "Dee", Role: config.RoleTrusted},
-		"new Administrator":          {Name: "Dee", Role: config.RoleAdministrator},
+	for _, c := range []struct {
+		what, name string
+		kv         map[string]any
+	}{
+		{"raise a user without a PIN", "Cy", map[string]any{ukey(a, "Cy", "role"): config.RoleTrusted}},
+		{"new Trusted user", "Dee", map[string]any{"user/new:0/add": newUser{Name: "Dee", Role: config.RoleTrusted}}},
+		{"new Administrator", "Dee", map[string]any{"user/new:0/add": newUser{Name: "Dee", Role: config.RoleAdministrator}}},
 	} {
-		err := saveUsers(a, admin, usersReq{Users: rows(cy)})
-		if err == nil || !strings.Contains(err.Error(), cy.Name) {
-			t.Errorf("%s: %v", name, err)
+		if r := mustRefuse(t, a, admin, c.kv); !strings.Contains(r.Err, c.name) {
+			t.Errorf("%s: %+v", c.what, r)
 		}
 	}
 	setRole(t, a, "Bo", config.RoleTrusted)
-	err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo", Role: config.RoleTrusted, ClearPin: true}, {ID: idOf(a, "Cy"), Name: "Cy"}}})
-	if err == nil || !strings.Contains(err.Error(), "Bo") {
-		t.Fatalf("removing a Trusted user's PIN: %v", err)
+	if r := mustRefuse(t, a, admin, map[string]any{ukey(a, "Bo", "pin"): ""}); !strings.Contains(r.Err, "Bo") {
+		t.Fatalf("removing a Trusted user's PIN: %+v", r)
 	}
 	if u, _ := a.r().cfg.FindUserByName("Bo"); u.Pin == "" {
 		t.Fatal("the refused save removed Bo's PIN")
@@ -308,10 +279,7 @@ func TestSaveKeepsPinNeededTrustedUser(t *testing.T) {
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	err := saveUsers(a, adminClient(t, a), usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted}}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Ana", "name"): "Anna", ukey(a, "Cy", "role"): config.RoleTrusted})
 	if u, _ := a.r().cfg.FindUserByName("Cy"); !u.PinNeeded || u.Role != config.RoleTrusted {
 		t.Fatalf("Cy %+v", u)
 	}
