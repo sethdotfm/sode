@@ -499,3 +499,185 @@ func (a *App) writeImportPanelExtras(p *importPlanner, failed map[string]string)
 		}
 	}
 }
+
+// keepLivePanel finds fp's live twin and keeps it from Replace import's removals.
+func (p *importPlanner) keepLivePanel(fp Panel) int {
+	i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
+	if i >= 0 {
+		p.removed.keep(p.livePanels[i].ID)
+	}
+	return i
+}
+
+// planPanels plans the panel writes; they happen after the config commit, so a preset the same import
+// adds is found. A new panel has no key link; Use new keeps the live panel's Authentication mode and key link.
+func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
+	adds := 0
+	slugTaken := func(fp Panel, self string) bool {
+		return fp.Slug != "" && slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.Slug == fp.Slug && x.ID != self })
+	}
+	for _, fp := range p.b.Panels.Panels {
+		if !p.picked(catPanels, fp.ID) {
+			continue
+		}
+		fileID := fp.ID
+		fp.Owner = p.ownerFor(*cand, fp.Owner, false)
+		fp.Pages = p.relibPages(fp.Pages)
+		fp.Sources, fp.Destinations = p.relibEdge(fp.Sources), p.relibEdge(fp.Destinations)
+		fp.Broken = p.panelBroken(&fp, *cand)
+		fp.Rev, fp.Client = 0, ""
+		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)
+		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken, Kind: kindPanel}
+		cps := p.planCheckpoints(fileID)
+		i := p.keepLivePanel(fp)
+		if err := validatePanel(&fp); err != nil {
+			it.Refused = err.Error()
+		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
+			it.Refused = errPublicOff.Error()
+		} else if slices.ContainsFunc(fp.Art, func(art PanelArt) bool { _, ok := p.panelArt(fileID, art); return !ok }) {
+			it.Refused = "an artwork image is not in the file or is not the image its type says"
+		}
+		if it.Refused != "" {
+			cat.Items = append(cat.Items, it)
+			continue
+		}
+		if i >= 0 {
+			lp := p.livePanels[i]
+			fp.ID, fp.Acts, fp.Client, fp.Rev = lp.ID, lp.Acts, lp.Client, lp.Rev
+			it.Clash = lp.Name
+			if sameYAML(fp, lp) {
+				it.Same = true
+				p.panelIDs[fileID] = lp.ID
+				cat.Items = append(cat.Items, it)
+				continue
+			}
+			it.Choice = p.choice(catPanels, fileID, true)
+			switch it.Choice {
+			case useNew:
+				if slugTaken(fp, lp.ID) {
+					fp.Slug = lp.Slug
+				}
+				fp.Rev = lp.Rev + 1
+				p.panelIDs[fileID] = lp.ID
+				p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Live: &lp, Cps: cps})
+			case useCurrent:
+				p.panelIDs[fileID] = lp.ID
+			case useRename:
+				fp.Name = nextName(fp.Name, func(n string) bool {
+					return slices.ContainsFunc(p.livePanels, func(x Panel) bool { return strings.EqualFold(x.Name, n) })
+				})
+				it.As = fp.Name
+			}
+			if it.Choice != useRename {
+				cat.Items = append(cat.Items, it)
+				continue
+			}
+		}
+		fp.Rev = 0
+		if it.Choice == useRename || slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.ID == fp.ID }) {
+			fp.ID = "" // createAs keeps a free id, so a link to this panel still opens it
+		}
+		if slugTaken(fp, "") {
+			fp.Slug = ""
+		}
+		if actsHasClient(fp.Acts) {
+			it.Note = "needs a new key link"
+		}
+		adds++
+		p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Cps: cps})
+		cat.Items = append(cat.Items, it)
+	}
+	if len(p.livePanels)+adds > panelMax && !p.replace { // Replace counts after its removals (emptyRest)
+		return errPanelCap
+	}
+	return nil
+}
+
+// shareNames maps the user names a panel is shared with through the users this import maps. A name from
+// a foreign file that the import does not map is left out, since here it can be another person.
+func (p *importPlanner) shareNames(cfg config.Config, names []string) []string {
+	var out []string
+	for _, n := range names {
+		i := slices.IndexFunc(p.b.Users, func(u config.User) bool { return strings.EqualFold(u.Name, n) })
+		if i >= 0 {
+			if id, ok := p.users[cmp.Or(p.b.Users[i].ID, p.b.Users[i].Name)]; ok {
+				if u, found := cfg.FindUserByID(id); found {
+					out = append(out, u.Name)
+				}
+				continue
+			}
+		}
+		if _, ok := cfg.FindUserByName(n); ok && p.same {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// panelBroken points preset buttons at the presets this import maps them to and lists what the target lacks.
+func (p *importPlanner) panelBroken(fp *Panel, cfg config.Config) []config.Missing {
+	var b brokenList
+	pages := make([]PanelPage, len(fp.Pages))
+	for i, g := range fp.Pages {
+		pages[i] = g
+		pages[i].Cells = make([]map[string]any, len(g.Cells))
+		for j, c := range g.Cells {
+			c = maps.Clone(c)
+			switch c["kind"] {
+			case "source", "destination":
+				if r, ok := cellRef(c); ok {
+					kind := config.MissingSource
+					if c["kind"] == "destination" {
+						kind = config.MissingDestination
+					}
+					b.add(p.check.missing(kind, r))
+				}
+			case "preset":
+				if c["scope"] == "me" {
+					break
+				}
+				id, _ := c["id"].(string)
+				name, _ := c["name"].(string)
+				to, mapped := p.presets[id]
+				if !mapped && p.same {
+					to = id
+				}
+				if !slices.ContainsFunc(cfg.Presets, func(x config.Preset) bool { return to != "" && x.ID == to }) {
+					b.add(config.Missing{Kind: config.MissingPreset, Ref: config.Ref{Name: name}}, id != "" || name != "")
+					break
+				}
+				c["id"] = to
+			}
+			pages[i].Cells[j] = c
+		}
+	}
+	fp.Pages = pages
+	for _, e := range []struct {
+		edge *GridEdge
+		kind string
+	}{{fp.Sources, config.MissingSource}, {fp.Destinations, config.MissingDestination}} {
+		if e.edge == nil {
+			continue
+		}
+		for r := range edgeRefs(e.edge) {
+			b.add(p.check.missing(e.kind, r))
+		}
+	}
+	return b.out
+}
+
+// A cell with no number is unassigned.
+func cellRef(c map[string]any) (config.Ref, bool) {
+	var n int
+	switch x := c["n"].(type) {
+	case int:
+		n = x
+	case float64:
+		n = int(x)
+	default:
+		return config.Ref{}, false
+	}
+	r, _ := c["router"].(string)
+	name, _ := c["name"].(string)
+	return config.Ref{Router: r, N: n, Name: name}, true
+}

@@ -3,14 +3,12 @@ package app
 import (
 	"cmp"
 	"errors"
-	"fmt"
 	"maps"
 	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
-	"gopkg.in/yaml.v3"
 )
 
 // Add import and Replace import (docs/agents/profiles.md): planImport works out what a checked export file does to this
@@ -93,70 +91,6 @@ type plannedPanel struct {
 	FileID string
 	Live   *Panel
 	Cps    []panelCheckpoint // the file's Push checkpoints, added to the panel's
-}
-
-// refCheck checks references against the live router's names. With no names read yet a source or
-// destination cannot be checked, so the item waits (waited) and its category is not imported.
-type refCheck struct {
-	uid      string
-	levels   int
-	src, dst map[int]string
-	unknown  bool
-	waited   bool
-}
-
-func (k *refCheck) missing(kind string, r config.Ref) (config.Missing, bool) {
-	if r.Router != k.uid {
-		return config.Missing{Kind: config.MissingRouter, Ref: r}, true
-	}
-	if kind == config.MissingLevel {
-		return config.Missing{Kind: kind, Ref: r}, r.N < 1 || r.N > k.levels
-	}
-	if k.unknown {
-		k.waited = true
-		return config.Missing{}, false
-	}
-	names := k.src
-	if kind == config.MissingDestination {
-		names = k.dst
-	}
-	return config.Missing{Kind: kind, Ref: r}, !strings.EqualFold(strings.TrimSpace(names[r.N]), strings.TrimSpace(r.Name))
-}
-
-type brokenList struct{ out []config.Missing }
-
-func (b *brokenList) add(m config.Missing, bad bool) {
-	if !bad {
-		return
-	}
-	m.Ref.Shown, m.Ref.Extra = "", nil
-	if !slices.ContainsFunc(b.out, func(x config.Missing) bool {
-		return x.Kind == m.Kind && x.Ref.Router == m.Ref.Router && x.Ref.N == m.Ref.N && x.Ref.Name == m.Ref.Name
-	}) {
-		b.out = append(b.out, m)
-	}
-}
-
-func (k *refCheck) presetBroken(p config.Preset) []config.Missing {
-	var b brokenList
-	for _, it := range p.Items {
-		b.add(k.missing(config.MissingSource, it.Src))
-		for _, d := range it.Dsts {
-			b.add(k.missing(config.MissingDestination, d))
-		}
-		for _, l := range it.Levels {
-			b.add(k.missing(config.MissingLevel, config.Ref{Router: it.Src.Router, N: l}))
-		}
-	}
-	return b.out
-}
-
-// filterSetBroken: only the router is checked here; terms break on router changes, not on import.
-func (k *refCheck) filterSetBroken(s config.FilterSet) []config.Missing {
-	if s.Router == "" || s.Router == k.uid {
-		return nil
-	}
-	return []config.Missing{{Kind: config.MissingRouter, Ref: config.Ref{Router: s.Router}}}
 }
 
 type importPlanner struct {
@@ -377,49 +311,6 @@ func (p *importPlanner) choice(cat, key string, rename bool) string {
 		return useNew
 	}
 	return useRename
-}
-
-// matchIdx finds the live item for a file item: by hidden id on a file from this install, then by name.
-func matchIdx[T any](same bool, list []T, id, name string, idOf, nameOf func(T) string) int {
-	if same && id != "" && idOf != nil {
-		if i := slices.IndexFunc(list, func(x T) bool { return idOf(x) == id }); i >= 0 {
-			return i
-		}
-	}
-	name = strings.TrimSpace(name)
-	return slices.IndexFunc(list, func(x T) bool { return strings.EqualFold(strings.TrimSpace(nameOf(x)), name) })
-}
-
-func matchUser(same bool, list []config.User, u config.User) int {
-	return matchIdx(same, list, u.ID, u.Name, func(x config.User) string { return x.ID }, func(x config.User) string { return x.Name })
-}
-
-func matchPreset(same bool, list []config.Preset, s config.Preset) int {
-	return matchIdx(same, list, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
-}
-
-// keepLivePanel finds fp's live twin and keeps it from Replace import's removals.
-func (p *importPlanner) keepLivePanel(fp Panel) int {
-	i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
-	if i >= 0 {
-		p.removed.keep(p.livePanels[i].ID)
-	}
-	return i
-}
-
-// nextName is "Name 2", or the first number after it that taken does not hold.
-func nextName(name string, taken func(string) bool) string {
-	for n := 2; ; n++ {
-		if s := fmt.Sprintf("%s %d", strings.TrimSpace(name), n); !taken(s) {
-			return s
-		}
-	}
-}
-
-func sameYAML(a, b any) bool {
-	x, err1 := yaml.Marshal(a)
-	y, err2 := yaml.Marshal(b)
-	return err1 == nil && err2 == nil && string(x) == string(y)
 }
 
 // configFieldsByYAML: top-level Config fields by yaml key, for copying a Settings section.
@@ -745,177 +636,4 @@ func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) erro
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
-}
-
-// planPanels plans the panel writes; they happen after the config commit, so a preset the same import
-// adds is found. A new panel has no key link; Use new keeps the live panel's Authentication mode and key link.
-func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
-	adds := 0
-	slugTaken := func(fp Panel, self string) bool {
-		return fp.Slug != "" && slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.Slug == fp.Slug && x.ID != self })
-	}
-	for _, fp := range p.b.Panels.Panels {
-		if !p.picked(catPanels, fp.ID) {
-			continue
-		}
-		fileID := fp.ID
-		fp.Owner = p.ownerFor(*cand, fp.Owner, false)
-		fp.Pages = p.relibPages(fp.Pages)
-		fp.Sources, fp.Destinations = p.relibEdge(fp.Sources), p.relibEdge(fp.Destinations)
-		fp.Broken = p.panelBroken(&fp, *cand)
-		fp.Rev, fp.Client = 0, ""
-		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)
-		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken, Kind: kindPanel}
-		cps := p.planCheckpoints(fileID)
-		i := p.keepLivePanel(fp)
-		if err := validatePanel(&fp); err != nil {
-			it.Refused = err.Error()
-		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
-			it.Refused = errPublicOff.Error()
-		} else if slices.ContainsFunc(fp.Art, func(art PanelArt) bool { _, ok := p.panelArt(fileID, art); return !ok }) {
-			it.Refused = "an artwork image is not in the file or is not the image its type says"
-		}
-		if it.Refused != "" {
-			cat.Items = append(cat.Items, it)
-			continue
-		}
-		if i >= 0 {
-			lp := p.livePanels[i]
-			fp.ID, fp.Acts, fp.Client, fp.Rev = lp.ID, lp.Acts, lp.Client, lp.Rev
-			it.Clash = lp.Name
-			if sameYAML(fp, lp) {
-				it.Same = true
-				p.panelIDs[fileID] = lp.ID
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catPanels, fileID, true)
-			switch it.Choice {
-			case useNew:
-				if slugTaken(fp, lp.ID) {
-					fp.Slug = lp.Slug
-				}
-				fp.Rev = lp.Rev + 1
-				p.panelIDs[fileID] = lp.ID
-				p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Live: &lp, Cps: cps})
-			case useCurrent:
-				p.panelIDs[fileID] = lp.ID
-			case useRename:
-				fp.Name = nextName(fp.Name, func(n string) bool {
-					return slices.ContainsFunc(p.livePanels, func(x Panel) bool { return strings.EqualFold(x.Name, n) })
-				})
-				it.As = fp.Name
-			}
-			if it.Choice != useRename {
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-		}
-		fp.Rev = 0
-		if it.Choice == useRename || slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.ID == fp.ID }) {
-			fp.ID = "" // createAs keeps a free id, so a link to this panel still opens it
-		}
-		if slugTaken(fp, "") {
-			fp.Slug = ""
-		}
-		if actsHasClient(fp.Acts) {
-			it.Note = "needs a new key link"
-		}
-		adds++
-		p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Cps: cps})
-		cat.Items = append(cat.Items, it)
-	}
-	if len(p.livePanels)+adds > panelMax && !p.replace { // Replace counts after its removals (emptyRest)
-		return errPanelCap
-	}
-	return nil
-}
-
-// shareNames maps the user names a panel is shared with through the users this import maps. A name from
-// a foreign file that the import does not map is left out, since here it can be another person.
-func (p *importPlanner) shareNames(cfg config.Config, names []string) []string {
-	var out []string
-	for _, n := range names {
-		i := slices.IndexFunc(p.b.Users, func(u config.User) bool { return strings.EqualFold(u.Name, n) })
-		if i >= 0 {
-			if id, ok := p.users[cmp.Or(p.b.Users[i].ID, p.b.Users[i].Name)]; ok {
-				if u, found := cfg.FindUserByID(id); found {
-					out = append(out, u.Name)
-				}
-				continue
-			}
-		}
-		if _, ok := cfg.FindUserByName(n); ok && p.same {
-			out = append(out, n)
-		}
-	}
-	return out
-}
-
-// panelBroken points preset buttons at the presets this import maps them to and lists what the target lacks.
-func (p *importPlanner) panelBroken(fp *Panel, cfg config.Config) []config.Missing {
-	var b brokenList
-	pages := make([]PanelPage, len(fp.Pages))
-	for i, g := range fp.Pages {
-		pages[i] = g
-		pages[i].Cells = make([]map[string]any, len(g.Cells))
-		for j, c := range g.Cells {
-			c = maps.Clone(c)
-			switch c["kind"] {
-			case "source", "destination":
-				if r, ok := cellRef(c); ok {
-					kind := config.MissingSource
-					if c["kind"] == "destination" {
-						kind = config.MissingDestination
-					}
-					b.add(p.check.missing(kind, r))
-				}
-			case "preset":
-				if c["scope"] == "me" {
-					break
-				}
-				id, _ := c["id"].(string)
-				name, _ := c["name"].(string)
-				to, mapped := p.presets[id]
-				if !mapped && p.same {
-					to = id
-				}
-				if !slices.ContainsFunc(cfg.Presets, func(x config.Preset) bool { return to != "" && x.ID == to }) {
-					b.add(config.Missing{Kind: config.MissingPreset, Ref: config.Ref{Name: name}}, id != "" || name != "")
-					break
-				}
-				c["id"] = to
-			}
-			pages[i].Cells[j] = c
-		}
-	}
-	fp.Pages = pages
-	for _, e := range []struct {
-		edge *GridEdge
-		kind string
-	}{{fp.Sources, config.MissingSource}, {fp.Destinations, config.MissingDestination}} {
-		if e.edge == nil {
-			continue
-		}
-		for r := range edgeRefs(e.edge) {
-			b.add(p.check.missing(e.kind, r))
-		}
-	}
-	return b.out
-}
-
-// A cell with no number is unassigned.
-func cellRef(c map[string]any) (config.Ref, bool) {
-	var n int
-	switch x := c["n"].(type) {
-	case int:
-		n = x
-	case float64:
-		n = int(x)
-	default:
-		return config.Ref{}, false
-	}
-	r, _ := c["router"].(string)
-	name, _ := c["name"].(string)
-	return config.Ref{Router: r, N: n, Name: name}, true
 }
