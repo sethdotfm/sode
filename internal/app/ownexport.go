@@ -183,7 +183,7 @@ type ownCheck struct {
 	Plan        importPlan     `json:"plan"`
 }
 
-// ownFrom is the file user that an own import takes. It is the only user in the file, else me by hidden id
+// ownFrom is the file user that an own import reads. It is the only user in the file, else me by hidden id
 // on a file from this install, else me by name.
 func ownFrom(b *exportBundle, me config.User, same bool) (config.User, bool) {
 	if len(b.Users) == 1 {

@@ -213,7 +213,7 @@ func (p *importPlanner) emptyRest(cat string, cand *config.Config, c *importCat)
 	return nil
 }
 
-// writeImportRemovals runs before the stores take the file's items, so a freed name or place is theirs.
+// writeImportRemovals runs before the stores get the file's items, so a freed name or place is theirs.
 func (a *App) writeImportRemovals(p *importPlanner, failed map[string]string) {
 	r := p.removed
 	fail := func(key, what string, err error) {

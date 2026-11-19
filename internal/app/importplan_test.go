@@ -43,7 +43,6 @@ func TestAddImportForeignClashRenames(t *testing.T) {
 	}
 }
 
-// Use current and Skip write nothing and are not Critical.
 func TestAddImportUseCurrentAndSkipKeepLive(t *testing.T) {
 	a, _, tok := importApp(t)
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")} })
@@ -241,7 +240,7 @@ func TestAddImportGivesOwnerlessItemsToTheAdministrator(t *testing.T) {
 	}
 }
 
-// Use new on a user takes the file's Role and keeps the live PIN when the file carries no hash.
+// Use new on a user writes the file's Role and keeps the live PIN when the file carries no hash.
 func TestAddImportUseNewKeepsLivePin(t *testing.T) {
 	a, c, tok := importApp(t)
 	file := exported(t, a, tok, exportReq{Categories: []string{catUsers}})

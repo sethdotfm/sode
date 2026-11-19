@@ -55,8 +55,7 @@ func categoryFile(cat string) string {
 	return ""
 }
 
-// exportSections are the Settings sections with the top-level config keys each holds. The names are the
-// data-section names in web/index.html. Router fields are in routers.yaml, not here.
+// The names are the data-section names in web/index.html. Router fields are in routers.yaml, not here.
 type exportSection struct {
 	Name string
 	Keys []string
@@ -155,8 +154,7 @@ type zipFile struct {
 	data []byte
 }
 
-// buildExport writes the zip for req. Items name routers by prefix, so every UID is only in manifest.yaml,
-// routers.yaml and the names/ file names.
+// Items name routers by prefix, so every UID is only in manifest.yaml, routers.yaml and the names/ file names.
 func (a *App) buildExport(req exportReq) ([]byte, error) {
 	cfg := a.r().cfg
 	for _, c := range req.Categories {

@@ -10,8 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// docs/agents/server.md. Unlike Replace import it takes the file's router UID and install UID, so later backups
-// from here match as this install's own.
+// Setup restore (docs/agents/server.md). Unlike Replace import it uses the file's router UID and install UID, so
+// later backups from here match as this install's own.
 
 const setupKeyHeader = "X-Sode-Setup"
 

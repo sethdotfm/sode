@@ -11,8 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Export & Import dialog at the default size: nine categories with sizes, footer order and zip size. A picked
-// export sends its ids. The phone gets the desktop-only message.
 func TestChromeExportDialog(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -86,7 +84,6 @@ func TestChromeExportDialog(t *testing.T) {
 		t.Errorf("footer %v", got.Footer)
 	}
 
-	// Only Users ticked: the export sends Ana's id alone.
 	b.eval(`(() => {
 		window.sentBodies = [];
 		// No real download: the runner's Downloads folder stays empty.
@@ -119,7 +116,6 @@ func TestChromeExportDialog(t *testing.T) {
 	b.eval(`document.getElementById('xi-close').click(); true`)
 	b.waitFor("dialog closed", `!document.querySelector('.sode__xi')?.offsetParent`)
 
-	// The phone gets the desktop-only message and no tabs.
 	b.eval(`document.documentElement.dataset.layout = 'phone'; document.getElementById('xi-open').click(); true`)
 	b.waitFor("desktop-only message", `!!document.querySelector('.sode__xi .sode__desktop-only')?.offsetParent && !document.querySelector('.sode__xi [role=tab]')?.offsetParent`)
 	b.check()

@@ -63,7 +63,7 @@ func joinPath(p, k string) string {
 	return p + "." + k
 }
 
-// pruneUnknown removes from n each key that t does not know and appends its path to out (nil: not listed).
+// out nil: the paths are not listed.
 func pruneUnknown(n *yaml.Node, t reflect.Type, path string, out *[]string) {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()

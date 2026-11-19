@@ -389,7 +389,7 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 	return nil
 }
 
-// planSets: entries name panels by id, which the write maps once the panels are stored.
+// planSets: entries name panels by id, which the write maps after the panels are stored.
 func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 	adds := 0
 	for _, s := range p.b.Panels.CheckpointSets {
@@ -472,7 +472,7 @@ func (a *App) writeImportArtwork(p *importPlanner, failed map[string]string) {
 	}
 }
 
-// writeImportPanelExtras stores the templates and sets once the panels are stored, so set entries name
+// writeImportPanelExtras stores the templates and sets after the panels are stored, so set entries name
 // the panels' ids here.
 func (a *App) writeImportPanelExtras(p *importPlanner, failed map[string]string) {
 	for _, w := range p.templateWrites {

@@ -254,7 +254,7 @@ func decodeInto(n *yaml.Node, name string, v any) error {
 	return nil
 }
 
-// loadExportV1 reads format 1. Keep it as it is once released: a change to the file adds a new version.
+// loadExportV1 reads format 1. Do not change it after release: a change to the file adds a new version.
 func loadExportV1(dir string) (*exportBundle, error) {
 	out := &exportBundle{Names: map[string]namesTable{}, Art: map[string]string{}}
 	pruneAs := func(t reflect.Type) func(*yaml.Node) {

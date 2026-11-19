@@ -113,7 +113,7 @@ func slicesSorted(m map[string]string) []string {
 
 var everyCategory = []string{catSettings, catRouters, catUsers, catPresets, catFilterSets, catPanels, catArtwork, catAPIClients, catBrowser}
 
-// seedEverything puts one item in every category, each naming the router where it can.
+// seedEverything puts one item in every category. Each item names the router where it can.
 func seedEverything(t *testing.T, a *App) {
 	t.Helper()
 	cfg := a.r().cfg
@@ -202,7 +202,6 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 		t.Errorf("Include PINs left the hashes out:\n%s", files["users.yaml"])
 	}
 
-	// The import route reads it back: routers are UIDs again and the counts match.
 	imp := postImport(t, a, tok, rec.Body.Bytes())
 	if imp.Code != 200 {
 		t.Fatalf("import check: %d %s", imp.Code, imp.Body)

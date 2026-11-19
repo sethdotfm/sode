@@ -46,7 +46,6 @@ func TestExportFormat1Fixture(t *testing.T) {
 	if len(b.Users) != 2 || b.Users[0].Extra != nil || b.Users[0].Pin == "" || b.Users[0].Role != config.RoleAdministrator {
 		t.Errorf("users: %+v", b.Users)
 	}
-	// With one router, a reference with no router and one with its prefix both name its UID.
 	me := b.Users[0].Profile.Presets[0].Items[0]
 	if me.Src.Router != uid || me.Src.N != 1 || me.Dsts[0].Router != uid {
 		t.Errorf("Me preset: %+v", me)
@@ -57,7 +56,6 @@ func TestExportFormat1Fixture(t *testing.T) {
 	if p := b.Presets[0].Items[0]; p.Src.Router != uid || p.Dsts[0].Router != uid || !slices.Equal(p.Levels, []int{1, 2}) {
 		t.Errorf("preset: %+v", p)
 	}
-	// A filter set with no router stays without one; a set with the prefix gets the UID.
 	if len(b.FilterSets) != 2 || b.FilterSets[0].Router != "" || b.FilterSets[0].Src != "CAM" || b.FilterSets[1].Router != uid {
 		t.Errorf("filter sets: %+v", b.FilterSets)
 	}

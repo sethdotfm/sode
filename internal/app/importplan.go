@@ -22,7 +22,6 @@ const (
 	importReplace = "replace" // empties each ticked category first (importreplace.go)
 )
 
-// Clash choices.
 const (
 	useNew     = "new"
 	useCurrent = "current"
@@ -49,7 +48,7 @@ type importReq struct {
 	Filters map[string]remapFilter `json:"filters,omitempty"`
 }
 
-// importItem is one file item. Key is what pick and choices take. Users, presets and panels use the hidden
+// importItem is one file item. Key is the key in pick and choices. Users, presets and panels use the hidden
 // id, filter sets and API clients the name. Settings use the section name, Routers the UID.
 type importItem struct {
 	Key    string           `json:"key"`
@@ -195,13 +194,13 @@ type importPlanner struct {
 	templateWrites []plannedTemplate
 	setWrites      []plannedSet
 
-	written    []string // config keys the commit takes from next
+	written    []string // config keys the commit copies from next
 	pending    []string // keys the step being planned adds to written when its category is accepted
 	overwrites []string // the names of the items Use new writes over: they make the import Critical
 	plan       importPlan
 }
 
-// planImport plans b onto live. src, dst are the live router's names; livePanels the panel store's list.
+// src, dst are the live router's names.
 func planImport(live config.Config, src, dst map[int]string, lv importLive, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
 	p := &importPlanner{
 		live: live, next: live.Clone(), b: b, req: req, actor: actor, secure: secure,
@@ -371,7 +370,7 @@ func (p *importPlanner) itemsWithRefs() map[string]map[string]string {
 }
 
 // choice is the page's choice for a clashing item, when it is a valid one. Else a file from this install
-// gets Use new and a foreign file gets Rename. Replace import takes the file's item always.
+// gets Use new and a foreign file gets Rename. Replace import always uses the file's item.
 func (p *importPlanner) choice(cat, key string, rename bool) string {
 	c := p.req.Choices[cat][key]
 	switch {
@@ -481,7 +480,7 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 		if it.Choice != useNew {
 			continue
 		}
-		// Turning it on from a connection that is not secure would lock this page out (ADR 0005).
+		// Require HTTPS set from a connection that is not secure locks this page out (ADR 0005).
 		if one.RequireHTTPS && !p.live.RequireHTTPS && !p.secure {
 			return errInsecureSave
 		}
@@ -495,12 +494,12 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 	return nil
 }
 
-// planRouters: v2.0 drives one router, so only the file's router with the live UID applies. Another
+// planRouters: Sode drives one router, so only the file's router with the live UID applies. Another
 // router is for the remap step.
 func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
 	for i, r := range p.b.Routers {
 		it := importItem{Key: r.UID, Name: cmp.Or(r.Title, r.Prefix)}
-		// Replace import goes over the one router in place: adding or deleting a router is not in v2.0.
+		// Replace import writes over the one router in place: Sode does not add or delete routers.
 		if p.replace && i == 0 {
 			r.UID = p.live.UID
 		}
@@ -525,8 +524,8 @@ func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
 	return nil
 }
 
-// planUsers: a user with a PIN hash in the file brings it. A new user without one is PIN needed, keeping the
-// Role, and Use new on a live user keeps that user's PIN.
+// planUsers: a user with a PIN hash in the file brings it. A new user without one is PIN needed and keeps the
+// Role. Use new on a live user keeps that user's PIN.
 func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 	for _, u := range p.b.Users {
 		key := cmp.Or(u.ID, u.Name)
@@ -916,7 +915,7 @@ func cloneCell(c map[string]any) map[string]any {
 	return out
 }
 
-// cellRef reads a source or destination cell's reference; a cell with no number is unassigned.
+// A cell with no number is unassigned.
 func cellRef(c map[string]any) (config.Ref, bool) {
 	var n int
 	switch x := c["n"].(type) {

@@ -9,8 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The Export tab's list: what each category holds, with sizes. An item's id is what exportReq.Pick takes
-// for it (buildExport's picked), so TestExportItemsRoundTripThroughPick keeps the two in step.
+// The Export tab's list: what each category holds, with sizes. An item's id is what exportReq.Pick accepts for it
+// (buildExport's picked), so TestExportItemsRoundTripThroughPick keeps the two in step.
 
 type exportList struct {
 	Categories []exportListCat `json:"categories"`
