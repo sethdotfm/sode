@@ -29,8 +29,10 @@ const NAME_MAX = 24;
 const PIN_MIN = 4;
 const GROUP = 127; // the router's last group, which other control systems seldom use
 
-// startAnswers: the wizard's fields from the hello's config, which SODE_* filled.
+// startAnswers: the wizard's fields from the hello's config, which SODE_* filled. Multi destination
+// and its group take the config's value only when SODE_* set it (setup.env), else the wizard's own.
 export function startAnswers(cfg = {}, setup = {}) {
+  const env = setup.env || {};
   return {
     brandText: cfg.brandText || '',
     brandBorder: cfg.brandBorder || '',
@@ -41,10 +43,16 @@ export function startAnswers(cfg = {}, setup = {}) {
     levels: String(cfg.levels || ''),
     levelNumbering: cfg.levelNumbering || '1',
     numberOffset: String(cfg.numberOffset ?? 1),
-    fireMode: 'sequential',
-    group: String(GROUP),
+    fireMode: (env.fireMode && cfg.fireMode) || 'sequential',
+    group: String(env.group && cfg.salvoGroup != null ? cfg.salvoGroup : GROUP),
     preset: setup.preset || 'standard',
   };
+}
+
+// envHint: the line under a field that SODE_* filled on first start, or ''.
+export function envHint(setup, key) {
+  const name = setup?.env?.[key];
+  return name ? `Filled from ${name}.` : '';
 }
 
 export const pinMax = (cfg = {}) => cfg.maxPinLen || 8;
@@ -55,6 +63,7 @@ const wholeIn = (s, lo, hi) => /^\d+$/.test(String(s).trim()) && +s >= lo && +s 
 export function stepProblem(d, i, max = 8) {
   switch (STEPS[i]?.[0]) {
     case 'welcome': {
+      if (d.again) return ''; // Run setup again skips Your user
       const name = d.name.trim();
       if (!name) return 'Enter your name.';
       if ([...name].length > NAME_MAX) return `A name has at most ${NAME_MAX} characters.`;

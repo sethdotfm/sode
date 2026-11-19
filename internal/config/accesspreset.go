@@ -103,3 +103,15 @@ func AccessPresetFromEnv() (*AccessPreset, error) {
 	}
 	return &p, nil
 }
+
+// ApplyEnvOnlyPreset applies SODE_ACCESS_PRESET in env-only mode, which starts with no users. The
+// page locks stay off, since Validate refuses a lock with no user to open it.
+func ApplyEnvOnlyPreset(c *Config) error {
+	p, err := AccessPresetFromEnv()
+	if p == nil {
+		return err
+	}
+	p.Apply(c)
+	c.Locks.Main, c.Locks.Log, c.Locks.Panel = false, false, false
+	return nil
+}

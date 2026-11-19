@@ -199,6 +199,7 @@ export const DICT = {
     'panels',
     'artwork',
   ],
+  'setup-again-open': ['setup', 'set up', 'wizard', 'run setup again', 'branding', 'router', 'access preset'],
   'xi-open': ['export', 'import', 'backup', 'back up everything', 'restore', 'zip', 'file', 'download', 'include pins', 'transfer', 'copy to another site'],
   // Sections for other branches to add later; ignored until they exist.
   salvos: ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],

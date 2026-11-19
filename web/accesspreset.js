@@ -93,7 +93,15 @@ const setCheck = (id, v) => ($(id).checked = !!v);
 function apply() {
   const p = presets.find((x) => x.key === pick);
   if (!p) return;
-  const ticked = [...rows.querySelectorAll('input:checked')].map((b) => b.dataset.uid);
+  stagePreset(
+    p,
+    [...rows.querySelectorAll('input:checked')].map((b) => b.dataset.uid),
+  );
+  close();
+}
+
+// stagePreset writes preset p (a usersList accessPresets entry) as unsaved changes; ticked: user ids whose flags change.
+export function stagePreset(p, ticked) {
   const f = p.fields;
   setCheck('cfg-lock-main', f.locks.main);
   setCheck('cfg-lock-log', f.locks.log);
@@ -110,7 +118,6 @@ function apply() {
   form.dispatchEvent(new Event('change'));
   emit('saveSourceChanged');
   markPreset(p.name, presetTarget(p, ticked));
-  close();
 }
 
 open.addEventListener('click', show);
