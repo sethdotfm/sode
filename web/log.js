@@ -5,7 +5,7 @@ import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
 import { newPager, rowKey, rowPos, byNewest } from './logpager.js';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, eventProblem, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, kindLabel, eventProblem, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
 import { fieldText, saveSummary } from './logsaves.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
@@ -28,24 +28,6 @@ on('brand', ({ text }) => {
 const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
 
-const KIND_LABEL = {
-  connect: 'Connect',
-  interrogate: 'Interrogate',
-  keepalive: 'Keepalive',
-  tallyDump: 'Tally dump',
-  protectDump: 'Protect dump',
-  srcNames: 'Source names',
-  dstNames: 'Destination names',
-  other: 'Other',
-  salvoStage: 'Router salvo stage',
-  salvoGo: 'Router salvo go',
-  browser: 'Browser',
-  command: 'Command',
-  api: 'API',
-  link: 'Router link',
-  server: 'Sode',
-  settings: 'Settings save',
-};
 const isEvent = (e) => EVENT_KINDS.has(e.kind);
 
 function loadFilter() {
@@ -341,7 +323,7 @@ function row(e, fresh = false) {
     'tr',
     fresh ? 'sode--enter' : null,
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
-    el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), KIND_LABEL[e.kind] || e.kind),
+    el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), kindLabel(e)),
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),
@@ -367,7 +349,7 @@ const SORT_KEY = 'sode-log-sort';
 const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
 const SORTS = {
   time: rowPos,
-  message: (e) => KIND_LABEL[e.kind] || e.kind,
+  message: (e) => kindLabel(e),
   level: (e) => (e.level ? e.level : e.wire >= 0 ? 1000 + e.wire : null),
   dst: (e) => (e.dst >= 0 ? e.dst : null),
   src: (e) => (e.src >= 0 ? e.src : null),
@@ -487,7 +469,7 @@ function renderMore() {
 const CSV_COLS = [
   ['time', (e) => e.time],
   ['seq', (e) => e.seq],
-  ['message', (e) => KIND_LABEL[e.kind] || e.kind],
+  ['message', (e) => kindLabel(e)],
   ['cmd', (e) => (isEvent(e) ? '' : `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`)],
   ['level', (e) => S.levelBy.get(e.level)?.label ?? ''],
   ['router level', (e) => (e.wire >= 0 ? e.wire : '')],

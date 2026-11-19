@@ -2,6 +2,8 @@ package app
 
 import (
 	"cmp"
+	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -540,6 +542,117 @@ func TestNativeFireLock(t *testing.T) {
 		}
 	}
 	fireLeftovers(t, a)
+}
+
+// salvoRows drains a.evq and returns the salvo command rows as "result: note".
+func salvoRows(a *App) []string {
+	var out []string
+	for len(a.evq) > 0 {
+		if e := <-a.evq; e.Kind == kindCommand && e.Why == "salvo" {
+			out = append(out, e.Result+": "+e.Note)
+		}
+	}
+	return out
+}
+
+// A fire that waits for fireMu says so in its lock row. The set time leaves the wait out.
+func TestNativeFireLockRows(t *testing.T) {
+	t.Parallel()
+	a, f := nativeApp(t, 3)
+	for d := 5; d < 8; d++ {
+		f.seed(d, 1, 0, 1, 2)
+	}
+	a.lockFire("a fire by Test")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		takeOf(t, a, 20, []int{5, 6, 7}, 1, 2, 3)
+	}()
+	const hold = 150 * time.Millisecond
+	time.Sleep(hold)
+	a.unlockFire()
+	<-done
+	rows := salvoRows(a)
+	if len(rows) < 4 || !strings.HasPrefix(rows[0], "lock: fire lock: waited ") || !strings.HasSuffix(rows[0], " ms for a fire by Test") ||
+		!strings.HasPrefix(rows[1], "release: fire lock: held ") || !strings.HasPrefix(rows[2], "ok: 9 crosspoints set in ") {
+		t.Fatalf("rows %q", rows)
+	}
+	var waited, set int
+	if _, err := fmt.Sscanf(rows[0], "lock: fire lock: waited %d ms", &waited); err != nil || waited < int((hold/2).Milliseconds()) {
+		t.Fatalf("lock row %q", rows[0])
+	}
+	if _, err := fmt.Sscanf(rows[2], "ok: 9 crosspoints set in %d ms", &set); err != nil || set >= waited {
+		t.Fatalf("set row %q counts the wait of %d ms", rows[2], waited)
+	}
+
+	// With no other fire, the lock row says there was no wait.
+	takeOf(t, a, 30, []int{5, 6, 7}, 1, 2, 3)
+	if rows := salvoRows(a); len(rows) < 2 || rows[0] != "lock: fire lock: no wait" {
+		t.Fatalf("rows %q", rows)
+	}
+	f.settle()
+}
+
+// Against swp08sim, the Communication Log shows a fire's rows in this order: lock, Go-clear, stages, Go-set,
+// Go-clear, release.
+func TestNativeFireRowsWithSimulator(t *testing.T) {
+	slowTest(t)
+	sim, _ := simServer(t)
+	a := simApp(t, sim, func(c *config.Config) { c.FireMode = "native" })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	for end := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		a.mu.Lock()
+		n := len(a.router.tally)
+		a.mu.Unlock()
+		if n >= 120 {
+			break
+		}
+		if time.Now().After(end) {
+			t.Fatal("the app never read the tally from swp08sim")
+		}
+	}
+	time.Sleep(200 * time.Millisecond) // the salvo clear after the connect
+	from := a.sent.Next()
+	a.take(&client{ip: "10.0.0.1"}, []routeReq{{ID: 1, Src: 30, Dst: 40, Levels: []int{1, 2}}, {ID: 2, Src: 30, Dst: 41, Levels: []int{1, 2}}})
+	var seq []string
+	for end := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		rows, _, _ := a.sent.Page(-1, 500)
+		slices.SortFunc(rows, func(x, y Sent) int { return cmp.Compare(x.Seq, y.Seq) })
+		seq = seq[:0]
+		for _, s := range rows {
+			switch {
+			case s.Seq < from:
+			case s.Kind == kindCommand && s.Why == "salvo":
+				seq = append(seq, s.Result)
+			case strings.HasPrefix(s.Kind, "salvo"):
+				seq = append(seq, kindWords(s))
+			}
+		}
+		if slices.Contains(seq, "release") {
+			break
+		}
+		if time.Now().After(end) {
+			t.Fatalf("no release row: %q", seq)
+		}
+	}
+	want := []string{"lock", "clear", "stage", "stage", "stage", "stage", "go", "clear", "release"}
+	if len(seq) < len(want) || !slices.Equal(seq[:len(want)], want) {
+		t.Fatalf("rows %q, want %q first", seq, want)
+	}
+}
+
+// kindWords: what the page's kindLabel tells apart for a router salvo row.
+func kindWords(s Sent) string {
+	switch {
+	case s.Kind == "salvoGo" && strings.Contains(s.Note, ": clear"):
+		return "clear"
+	case s.Kind == "salvoGo":
+		return "go"
+	}
+	return "stage"
 }
 
 // A big native take reads every route before its first Go-clear, and Prev comes from the router.

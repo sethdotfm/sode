@@ -113,8 +113,7 @@ var vocabAllow = []allowEntry{
 // identAllow exempts web identifiers only, so a UI string or a doc line gets no pass. Wire message
 // types and `sode-*` keys are strings and never reach that scan; these names hold a wire or logged value.
 var identAllow = []allowEntry{
-	{"salvo", "web/log.js", `^\s*salvos?(?:Stage|Go)?:`, "`log` command kinds and the router's own salvo"},
-	{"salvo", "web/logkinds.js", `^\s*salvos?:`, "`log` command kinds, as the server logs them"},
+	{"salvo", "web/logkinds.js", `^\s*salvos?(?:Stage|StageExt|Go)?:`, "`log` command kinds and the router's own salvo, as the server logs them"},
 	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
 	{"salvo", "web/savereviewrules.js", `^\s*salvoGroup:`, "the router's own salvo group, a Config JSON key"},
 	{"salvo", "web/setupwizardrules.js", `cfg\.salvoGroup`, "the router's own salvo group, a Config JSON key"},
