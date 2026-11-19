@@ -31,6 +31,8 @@ import { browserFilters, profileFilters } from './editortargets.js';
 import { FILTER_DEFAULT, normFilter, snapshot, restore } from './filterstore.js';
 import { trapDialog, labeled } from './widgets.js';
 import { editor } from './filtereditor.js';
+import { inboxUser } from './inbox.js';
+import { sendCopy } from './sendcopy.js';
 
 const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]);
 const root = $('filters');
@@ -329,6 +331,9 @@ function renderSetBar() {
   $('flt-set-del').disabled = busy || !named;
   $('flt-set-del').textContent = deleting && named ? `Delete “${a.name}”?` : 'Delete';
   $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
+  // The saved set goes, not unsaved edits.
+  $('flt-set-send').hidden = !inboxUser();
+  $('flt-set-send').disabled = busy || !named;
   if (busy) return;
   if (stack.length) {
     return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]}). Changing a filter leaves the stack.`);
@@ -467,6 +472,11 @@ function saveSet(done = () => {}) {
   );
 }
 
+$('flt-set-send').addEventListener('click', () => {
+  const a = activeSet();
+  const set = a && setsIn(a.scope).find((s) => s.name === a.name);
+  if (set) sendCopy({ filterSets: [set] }, set.name);
+});
 $('flt-set-del').addEventListener('click', () => {
   const a = activeSet();
   if (!a || a.scope === 'all') return;

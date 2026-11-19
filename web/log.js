@@ -13,6 +13,7 @@ import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summ
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
 import './lock.js';
+import './inboxdialog.js';
 import { bigScrollAll } from './bigscroll.js';
 import { pullToLoad } from './widgets.js';
 

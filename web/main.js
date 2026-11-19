@@ -15,6 +15,7 @@ import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
 import './panelwatch.js';
+import './inboxdialog.js';
 import './noadmin.js';
 import './setupwizard.js';
 import { bigScrollAll } from './bigscroll.js';
