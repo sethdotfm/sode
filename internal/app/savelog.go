@@ -26,6 +26,7 @@ type SettingsSave struct {
 	Preset        string       `json:"preset,omitempty"`
 	Critical      bool         `json:"critical,omitempty"`
 	Interruptions []string     `json:"interruptions,omitempty"`
+	Import        *ImportSave  `json:"import,omitempty"` // an import: counts only, no values
 }
 
 // SavedField: one written field. A list gives Added and Removed in place of Old and New. Changed
