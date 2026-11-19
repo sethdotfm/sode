@@ -46,53 +46,30 @@ func refPagesWith(cfg config.Config, src, dst map[int]string, pages []PanelPage,
 	if u, ok := cfg.FindUserByID(userID); ok {
 		mine = u.Profile.Presets
 	}
-	out := make([]PanelPage, len(pages))
-	for i, g := range pages {
-		out[i] = g
-		out[i].Cells = make([]map[string]any, len(g.Cells))
+	if pages == nil {
+		pages = []PanelPage{}
+	}
+	out := panelLayout{Pages: pages}.walkRefs(func(_ refSlot, kind string, r config.Ref) []config.Ref {
+		r = withRouter(r, cfg.UID)
+		if name := strings.TrimSpace(sideNames(kind, src, dst)[r.N]); r.Router == cfg.UID && name != "" {
+			r.Name = name
+		}
+		return []config.Ref{r}
+	}, false).Pages
+	for _, g := range out {
 		for j, c := range g.Cells {
-			c = maps.Clone(c)
-			switch c["kind"] {
-			case "source":
-				refCell(c, cfg.UID, src)
-			case "destination":
-				refCell(c, cfg.UID, dst)
-			case "preset":
-				list := cfg.Presets
-				if c["scope"] == "me" {
-					list = mine
-				}
-				presetCell(c, list)
+			g.Cells[j] = maps.Clone(c)
+			if c["kind"] != "preset" {
+				continue
 			}
-			out[i].Cells[j] = c
+			list := cfg.Presets
+			if c["scope"] == "me" {
+				list = mine
+			}
+			presetCell(g.Cells[j], list)
 		}
 	}
 	return out
-}
-
-// Numbers are float64 from JSON and int from YAML. A cell with no number is unassigned and stays as it is.
-func refCell(c map[string]any, uid string, names map[int]string) {
-	var n int
-	switch x := c["n"].(type) {
-	case float64:
-		n = int(x)
-	case int:
-		n = x
-	default:
-		return
-	}
-	delete(c, "shown")
-	r, _ := c["router"].(string)
-	if r == "" {
-		r = uid
-		c["router"] = r
-	}
-	if r != uid {
-		return
-	}
-	if name := strings.TrimSpace(names[n]); name != "" {
-		c["name"] = name
-	}
 }
 
 // The id wins, so a renamed preset is still found. A cell with no id is matched by name one time. An id not in the list

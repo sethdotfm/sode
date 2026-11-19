@@ -13,8 +13,12 @@ import (
 var errNoRouter = errors.New("a source or destination has no router")
 
 func (l panelLayout) noRouterProblem() error {
-	switch l.Settings[panelFixedKey].(type) {
-	case nil, []config.Ref, []any:
+	switch list := l.Settings[panelFixedKey].(type) {
+	case nil, []config.Ref:
+	case []any:
+		if slices.ContainsFunc(list, func(x any) bool { m, _ := x.(map[string]any); r, _ := m["router"].(string); return r == "" }) {
+			return errNoRouter
+		}
 	default:
 		return errFixedDests
 	}

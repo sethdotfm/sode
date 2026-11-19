@@ -1,7 +1,6 @@
 package app
 
 import (
-	"iter"
 	"maps"
 	"strings"
 
@@ -33,57 +32,25 @@ func (a *App) edgeRefer() func(src, dst, oldSrc, oldDst *GridEdge) (*GridEdge, *
 
 // The edge is a copy, since a stored panel can share its slices.
 func refEdge(e, old *GridEdge, uid string, live map[int]string) *GridEdge {
-	if e == nil {
-		return nil
-	}
 	known := map[refKey]string{}
-	note := func(edge *GridEdge) {
-		if edge == nil {
-			return
-		}
-		for r := range edgeRefs(edge) {
+	for _, edge := range []*GridEdge{old, e} {
+		edge.walkRefs("", func(_ refSlot, _ string, r config.Ref) []config.Ref {
 			if r.Name != "" {
 				known[keyOf(withRouter(r, uid))] = r.Name
 			}
-		}
+			return nil
+		}, false)
 	}
-	note(old)
-	note(e)
-	fill := func(r config.Ref) config.Ref {
+	return e.walkRefs("", func(_ refSlot, _ string, r config.Ref) []config.Ref {
 		r = withRouter(r, uid)
 		r.Shown = ""
-		if r.Router != uid {
-			return r
-		}
-		if name := strings.TrimSpace(live[r.N]); name != "" {
+		if name := strings.TrimSpace(live[r.N]); r.Router == uid && name != "" {
 			r.Name = name
-		} else if r.Name == "" {
+		} else if r.Router == uid && r.Name == "" {
 			r.Name = known[keyOf(r)]
 		}
-		return r
-	}
-	out := *e
-	if e.Members.List != nil {
-		out.Members.List = make([]config.Ref, len(e.Members.List))
-		for i, r := range e.Members.List {
-			out.Members.List[i] = fill(r)
-		}
-	}
-	if e.Hide != nil {
-		out.Hide = make([]config.Ref, len(e.Hide))
-		for i, r := range e.Hide {
-			out.Hide[i] = fill(r)
-		}
-	}
-	if e.Items != nil {
-		out.Items = make([]GridItem, len(e.Items))
-		for i, it := range e.Items {
-			r := fill(it.ref())
-			it.Router, it.Name = r.Router, r.Name
-			out.Items[i] = it
-		}
-	}
-	return &out
+		return []config.Ref{r}
+	}, false)
 }
 
 func withRouter(r config.Ref, uid string) config.Ref {
@@ -91,24 +58,4 @@ func withRouter(r config.Ref, uid string) config.Ref {
 		r.Router = uid
 	}
 	return r
-}
-
-func edgeRefs(e *GridEdge) iter.Seq[config.Ref] {
-	return func(yield func(config.Ref) bool) {
-		for _, r := range e.Members.List {
-			if !yield(r) {
-				return
-			}
-		}
-		for _, r := range e.Hide {
-			if !yield(r) {
-				return
-			}
-		}
-		for _, it := range e.Items {
-			if !yield(it.ref()) {
-				return
-			}
-		}
-	}
 }

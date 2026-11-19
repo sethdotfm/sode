@@ -95,6 +95,13 @@ func withCellRef(c map[string]any, r config.Ref) map[string]any {
 	return c
 }
 
+func sideNames(kind string, src, dst map[int]string) map[int]string {
+	if kind == config.MissingDestination {
+		return dst
+	}
+	return src
+}
+
 // readRefs calls fn on every reference of l, for a check that changes nothing.
 func (l panelLayout) readRefs(fn func(slot refSlot, kind string, r config.Ref)) {
 	l.walkRefs(func(s refSlot, kind string, r config.Ref) []config.Ref { fn(s, kind, r); return nil }, false)

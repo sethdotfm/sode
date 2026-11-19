@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -20,46 +21,28 @@ func everyRights(c *config.Config) []*config.Rights {
 // Browsers and API callers send {n} with no name. With no router name the stored name stays, so a save while the router is
 // away keeps it. Keep in step with namePresets.
 func (a *App) nameRights(c *config.Config, old config.Config) {
-	type key struct {
-		dst bool
-		n   int
-	}
-	was := map[key]string{}
-	for _, r := range everyRights(&old) {
-		for _, side := range []struct {
-			l   *[]config.Ref
-			dst bool
-		}{{r.Sources, false}, {r.Dsts, true}} {
-			if side.l == nil {
-				continue
-			}
-			for _, f := range *side.l {
-				if f.Name != "" && (f.Router == "" || f.Router == old.UID) {
-					was[key{side.dst, f.N}] = f.Name
-				}
-			}
+	was := map[string]string{}
+	note := config.RefWalk{Fn: func(kind string, f config.Ref) []config.Ref {
+		if f.Name != "" && (f.Router == "" || f.Router == old.UID) {
+			was[kind+strconv.Itoa(f.N)] = f.Name
 		}
+		return nil
+	}}
+	for _, r := range everyRights(&old) {
+		note.Rights(r)
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	fill := func(l *[]config.Ref, dst bool, names map[int]string) {
-		if l == nil {
-			return
+	fill := config.RefWalk{Fn: func(kind string, f config.Ref) []config.Ref {
+		if f.Name != "" || f.Router != "" && f.Router != c.UID {
+			return nil
 		}
-		for i := range *l {
-			f := &(*l)[i]
-			if f.Name != "" || (f.Router != "" && f.Router != c.UID) {
-				continue
-			}
-			if n := names[f.N]; strings.TrimSpace(n) != "" {
-				f.Name = n
-			} else {
-				f.Name = was[key{dst, f.N}]
-			}
+		if f.Name = sideNames(kind, a.router.srcNames, a.router.dstNames)[f.N]; strings.TrimSpace(f.Name) == "" {
+			f.Name = was[kind+strconv.Itoa(f.N)]
 		}
-	}
+		return []config.Ref{f}
+	}}
 	for _, r := range everyRights(c) {
-		fill(r.Sources, false, a.router.srcNames)
-		fill(r.Dsts, true, a.router.dstNames)
+		fill.Rights(r)
 	}
 }

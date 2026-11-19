@@ -19,8 +19,13 @@ func (w RefWalk) One(kind string, r Ref) Ref {
 
 // List is l itself when nothing answered and Dedupe is off; nil stays nil.
 func (w RefWalk) List(kind string, l []Ref) []Ref {
+	out, _ := w.list(kind, l)
+	return out
+}
+
+func (w RefWalk) list(kind string, l []Ref) ([]Ref, bool) {
 	if l == nil {
-		return nil
+		return nil, false
 	}
 	out, answered := make([]Ref, 0, len(l)), false
 	for _, r := range l {
@@ -37,9 +42,9 @@ func (w RefWalk) List(kind string, l []Ref) []Ref {
 		}
 	}
 	if !answered && !w.Dedupe {
-		return l
+		return l, false
 	}
-	return out
+	return out, true
 }
 
 // Preset visits sources and destinations; levels are not references.
@@ -56,8 +61,10 @@ func (w RefWalk) Rights(r *Rights) {
 		l    **[]Ref
 		kind string
 	}{{&r.Sources, MissingSource}, {&r.Dsts, MissingDestination}} {
-		if *s.l != nil {
-			l := w.List(s.kind, **s.l)
+		if *s.l == nil {
+			continue
+		}
+		if l, changed := w.list(s.kind, **s.l); changed {
 			*s.l = &l
 		}
 	}
