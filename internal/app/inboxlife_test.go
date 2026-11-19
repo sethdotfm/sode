@@ -14,7 +14,7 @@ func TestInboxStoreReloads(t *testing.T) {
 	s := loadInbox(path)
 	cards, full, err := s.add([]inboxCard{{From: "u-a", To: "u-b", ToName: "Bo", State: cardWaiting, Count: 1,
 		Items: cardItems{Panels: []Panel{{ID: "p-00000001", Name: "Desk", Art: []PanelArt{{ID: "a-00000001", Type: "image/png"}}}}}}},
-		map[string][]byte{"p-00000001/a-00000001": []byte("png")})
+		map[string][]byte{"p-00000001/a-00000001": []byte("png")}, func(string) bool { return true })
 	if err != nil || full != "" || len(cards) != 1 {
 		t.Fatalf("add: %v %q %+v", err, full, cards)
 	}

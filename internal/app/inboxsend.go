@@ -245,7 +245,10 @@ func (a *App) SendCopy(c *client, req inboxReq) ([]inboxCard, cardItems, error) 
 		return nil, items, errors.New("pick at least one user to send to")
 	}
 	a.inboxSweep()
-	stored, full, err := a.inbox.add(cards, art)
+	stored, full, err := a.inbox.add(cards, art, func(id string) bool {
+		_, ok := a.r().cfg.FindUserByID(id)
+		return ok
+	})
 	if full != "" {
 		return nil, items, fmt.Errorf("%s's Inbox is full", full)
 	}
