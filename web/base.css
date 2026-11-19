@@ -1442,3 +1442,76 @@ button.sode-up__bar:not(:disabled):hover,
 .sode-bigscroll--drag > .sode-bigscroll__thumb {
   cursor: grabbing;
 }
+
+/* Send a copy and the Inbox (inboxdialog.js, sendcopy.js). The phone's Settings has no #conn, so its head takes the
+   button there; the desktop Settings keeps the one in #conn. */
+:root:not([data-layout="phone"]) .sode__settings-head .sode-inbox__slot {
+  display: none;
+}
+.sode__settings-head .sode-inbox__slot {
+  margin-inline-start: auto;
+}
+.sode-inbox__btn {
+  gap: var(--pb-space-2);
+}
+.sode-inbox__count {
+  font-family: var(--pb-font-num);
+}
+/* The phone header has no room for the word; the button's aria-label keeps it. */
+[data-layout="phone"] .sode-inbox__word {
+  display: none;
+}
+.sode-inbox__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-block: var(--pb-space-3);
+}
+.sode-inbox__row {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-4);
+  grid-template-columns: 1fr auto;
+  padding-block-end: var(--pb-space-3);
+}
+.sode-inbox__what {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  min-width: 0;
+}
+.sode-inbox__acts {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-inbox__names {
+  grid-column: 1 / -1;
+}
+/* history.css holds the Import tab's rules and loads only on the main page; the review shows on every Inbox page. */
+.sode-inbox__review .sode__xi-head {
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-2) 0;
+}
+.sode-inbox__review .sode__xi-item {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--pb-space-1) 0;
+}
+.sode-inbox__review .sode__xi-sub {
+  grid-column: 1 / -1;
+  padding-inline-start: var(--pb-space-6);
+}
+.sode-send__people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  padding-block: var(--pb-space-2);
+}

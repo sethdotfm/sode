@@ -16,6 +16,7 @@ import './presetpopup.js';
 import './presetkeys.js';
 import './browsercopy.js';
 import './panelwatch.js';
+import './inboxdialog.js';
 import './noadmin.js';
 import './notsaved.js';
 import './setupwizard.js';
