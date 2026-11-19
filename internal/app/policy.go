@@ -176,6 +176,14 @@ var policy = map[string]rule{
 	"keyCreateFor": {crit: critNever, role: config.RoleAdministrator, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg) { a.serveKeyCreateFor(c, m) }},
 	"keyRevokeAny": {crit: critNever, role: config.RoleAdministrator, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAny(c, m) }},
 	"keyRevokeAll": {crit: critAlways, role: config.RoleAdministrator, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAll(c, m) }},
+	// Send a copy (inboxsend.go): any signed-in user, with or without a PIN, checked in the handler.
+	// Accepting writes only the user's own items, so it is never Critical.
+	"inboxList":     {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveInboxList(c, m) }},
+	"inboxSend":     {crit: critNever, role: roleAnyone, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxSend(c, m) }},
+	"inboxReview":   {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxReview(c, m) }},
+	"inboxAccept":   {crit: critNever, role: roleAnyone, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxAccept(c, m) }},
+	"inboxDecline":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxDecline(c, m) }},
+	"inboxWithdraw": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxWithdraw(c, m) }},
 	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
 }

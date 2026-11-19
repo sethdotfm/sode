@@ -385,6 +385,7 @@ type inMsg struct {
 	approver   *config.User         // set by approve once the Approval's PIN is checked
 	Router     string               `json:"router"` // setupRouter: the address typed
 	Setup      *setupReq            `json:"setup"`  // setupFinish
+	Inbox      *inboxReq            `json:"inbox"`  // the inbox messages (inboxsend.go)
 }
 
 func plural(n int, one, many string) string {
