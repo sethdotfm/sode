@@ -1,5 +1,5 @@
 // Export documents and import matching. Pure: no imports, no DOM, so Node tests it
-// (dialogs: transfer.js, reviewsheet.js). Export documents carry numbers with names beside them
+// (the review sheet, reviewsheet.js). Export documents carry numbers with names beside them
 // so an import on another router can match by name.
 
 export const SOCKET_LIMIT = 64 * 1024;

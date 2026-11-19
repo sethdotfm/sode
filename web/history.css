@@ -859,17 +859,14 @@ html[data-alt] .sode__chip-key {
 [data-pb-layout="phone"] .sode__preset-list {
   max-height: none;
 }
-.sode__scrim > .sode__tr {
-  width: 38rem;
-}
-/* Export & Import (exportdialog.js): Sode's default dialog size. */
-.sode__scrim > .sode__xi {
+/* Export & Import (exportdialog.js, ownexport.js): Sode's default dialog size. */
+.sode__scrim > :is(.sode__xi, .sode__xi-own) {
   width: min(37.5rem, calc(100vw - var(--pb-space-8) * 2));
 }
-.sode__xi .pb-modal__footer {
+:is(.sode__xi, .sode__xi-own) .pb-modal__footer {
   gap: var(--pb-space-3);
 }
-.sode__xi .pb-modal__footer > .sode__hint {
+:is(.sode__xi, .sode__xi-own) .pb-modal__footer > .sode__hint {
   flex: 1;
   min-width: 0;
 }
@@ -1021,9 +1018,6 @@ html[data-alt] .sode__chip-key {
 .sode__scrim > .sode__rv {
   width: 56rem;
 }
-.sode__tr .sode__filters-sets:last-of-type {
-  border-bottom: 0;
-}
 .sode__rv-sec {
   display: flex;
   flex-direction: column;
@@ -1086,11 +1080,10 @@ html[data-alt] .sode__chip-key {
   flex-basis: 100%;
 }
 @media (max-width: 599.98px) {
-  .sode__scrim:has(> .sode__rv, > .sode__tr) {
+  .sode__scrim:has(> .sode__rv) {
     padding: var(--pb-space-3);
   }
-  .sode__scrim > .sode__rv,
-  .sode__scrim > .sode__tr {
+  .sode__scrim > .sode__rv {
     min-width: 0;
     width: 100%;
   }

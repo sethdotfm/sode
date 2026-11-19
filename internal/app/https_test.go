@@ -35,7 +35,7 @@ var proto = map[string]string{"X-Forwarded-Proto": "https"}
 
 func TestRequireHTTPSRefusesInsecureEverywhere(t *testing.T) {
 	a := httpsApp(t, true)
-	for _, p := range []string{"/", "/ws", "/api/yaml", "/api/v1/names", "/log"} {
+	for _, p := range []string{"/", "/ws", "/api/own/export/items", "/api/v1/names", "/log"} {
 		rec := httpsGet(a, p, "10.0.0.2", nil)
 		if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "HTTPS") {
 			t.Errorf("%s: %d %q", p, rec.Code, rec.Body.String())

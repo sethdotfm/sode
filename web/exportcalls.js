@@ -1,6 +1,6 @@
-// The export routes and the full backup. The Export & Import dialog (exportdialog.js) and the review's backup offer
-// (savereview.js) both use them, so both download the same file. The routes take an Administrator's session token in a
-// header; exportSession gives one to a connection that has none. The token stays in memory here, so sign-in storage
+// The export routes and the full backup. The Export & Import dialogs (exportdialog.js, ownexport.js) and the review's backup offer
+// (savereview.js) use them. The routes take the user's session token in a header and
+// check the Role; exportSession gives one to a connection that has none. The token stays in memory here, so sign-in storage
 // is not changed.
 
 import { el, on, onMsg, wsSend } from './core.js';
@@ -63,9 +63,9 @@ export async function call(path, init = {}) {
 
 export const post = (path, b) => call(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
 
-// Resolves { name, size } of the saved zip.
-export async function downloadZip(b) {
-  const res = await post('api/export', b);
+// Resolves { name, size } of the saved zip. path: api/own/export for My user's own items.
+export async function downloadZip(b, path = 'api/export') {
+  const res = await post(path, b);
   const blob = await res.blob();
   const a = el('a');
   a.href = URL.createObjectURL(blob);
