@@ -69,8 +69,8 @@ func (a *App) liveNames() (src, dst map[int]string) {
 	return maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
 }
 
-// readImportApply reads the two parts; the plan must come first, so the file streams to the staging directory.
-func (a *App) readImportApply(w http.ResponseWriter, r *http.Request) (importReq, *exportBundle, func(), bool) {
+// readImportParts reads the two parts; the plan must come first, so the file streams to the staging directory.
+func (a *App) readImportParts(w http.ResponseWriter, r *http.Request) (importReq, *exportBundle, func(), bool) {
 	var req importReq
 	none := func() {}
 	mr, err := r.MultipartReader()
@@ -110,7 +110,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, exportMaxUpload+exportReqMax+64<<10)
-	req, b, done, ok := a.readImportApply(w, r)
+	req, b, done, ok := a.readImportParts(w, r)
 	defer done()
 	if !ok {
 		return

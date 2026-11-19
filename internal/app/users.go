@@ -479,6 +479,8 @@ type usersListMsg struct {
 	GuestScopes []string           `json:"guestScopes"`
 	// Versions of the one Save's fields that never ride the hello (hiddenVersions).
 	Versions map[string]string `json:"versions"`
+	// AccessPresets: for Apply an access preset (accesspreset.go).
+	AccessPresets []accessPresetView `json:"accessPresets"`
 }
 
 type userView struct {
@@ -509,7 +511,7 @@ type presetNote struct {
 func (a *App) usersList(c *client, id int) usersListMsg {
 	cfg := a.r().cfg.Clone()
 	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Me: c.userID(), Users: []userView{},
-		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes, Versions: hiddenVersions(cfg)}
+		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes, Versions: hiddenVersions(cfg), AccessPresets: accessPresetViews()}
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}
 	}

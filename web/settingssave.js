@@ -15,6 +15,7 @@ import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical, se
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
 import { sectionView, approvalWho } from './settingsrolerules.js';
+import { presetMarks, presetGaps, gapText } from './accesspresetrules.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
 
 // A save is in flight.
@@ -29,6 +30,8 @@ let savedAt = null;
 let role = '';
 let me = ''; // who stages an edit now: the user, a stepped-in user included, else Guest
 let authors = new Map(); // stagedrules.js marks
+let marks = new Map(); // accesspresetrules.js marks. The Access preset that staged a row.
+let applied = null; // {name, target}. The last Access preset applied, until nothing differs from it.
 let seq = 0;
 let requested = null; // { id, sent, keys }: a save the server holds for Request approval.
 let pending = null; // { id, sent, retried, answer }; sent: key -> the value sent; answer: the Approval popup's
@@ -47,7 +50,18 @@ export const dirty = () => isOpen() && changes().length > 0;
 // Called on each edit, never on a Step in or Step out, so an edit keeps the name of who made it.
 const noteEdits = () => {
   authors = noteAuthors(authors, changes(), me);
+  marks = presetMarks(marks, changes(), null, null);
 };
+const markOf = (r) => marks.get(rowId(r))?.preset || '';
+
+// Apply an access preset (accesspreset.js) calls it after it staged the preset's values.
+export function markPreset(name, target) {
+  noteEdits();
+  marks = presetMarks(marks, changes(), name, target);
+  applied = { name, target };
+  paintMarks();
+  return warned() ? unwarn() : renderSaveState();
+}
 const by = (r) => authors.get(rowId(r))?.by || me;
 // Edits in a section the saver's Role cannot see show only as a count, and Save skips them (spec #543, Step in).
 const seen = (r) => sectionView(sectionOf(r.key), role) !== 'hidden';
@@ -112,7 +126,8 @@ const kept = (r) => (sectionView(sectionOf(r.key), role, layout() === 'phone') =
 // ---- marks, the exit warning and the footer text
 
 function paintMarks() {
-  for (const m of form.querySelectorAll('.sode__refused')) m.remove();
+  for (const m of form.querySelectorAll('.sode__refused, .sode__preset-mark')) m.remove();
+  paintPresetMarks();
   const open = new Set(changes().map((r) => r.key));
   for (const [key, r] of refused) {
     if (!open.has(key)) {
@@ -133,6 +148,20 @@ function paintMarks() {
   }
 }
 
+// One badge per field, or per section for a save source's fields, with the name of the preset that staged it.
+function paintPresetMarks() {
+  const done = new Set();
+  for (const r of changes()) {
+    const name = markOf(r);
+    const at = name && (sourceOf(r.key) ? fieldset(r.key) : keyNode(r.key)?.closest('.sode__field, .pb-check'));
+    if (!at || done.has(at)) continue;
+    done.add(at);
+    const mark = el('span', 'pb-badge pb-badge--info sode__preset-mark', name);
+    if (sourceOf(r.key)) at.append(mark);
+    else at.after(mark);
+  }
+}
+
 function unsavedText() {
   const { shown, unseen } = splitSeen(changes(), seen);
   const slugs = new Set(shown.map((r) => sectionOf(r.key)));
@@ -150,6 +179,8 @@ export function markClean(saved) {
   versions = { ...S.versions };
   refused.clear();
   authors = new Map();
+  marks = new Map();
+  applied = null;
   paintMarks();
   savedAt = saved ? new Date().toISOString() : null;
   unwarn();
@@ -215,7 +246,9 @@ function sendFields(keys, sent, retried, approval = null, answer = null) {
   const fields = fieldsOf(keys, sent);
   if (!keys.length) return;
   const id = ++seq;
-  if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }) })) {
+  const preset = changes().find((r) => keys.includes(r.key) && markOf(r));
+  const named = preset && { accessPreset: markOf(preset) };
+  if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }), ...named })) {
     if (!answer) showSaveErr('Not connected to Sode.');
     return false;
   }
@@ -236,7 +269,8 @@ function requestFor(keys, sent) {
     action: () => {
       const id = ++seq;
       requested = { id, sent, keys, retried: true };
-      return { t: 'settingsSave', id, fields: fieldsOf(keys, sent) };
+      const preset = changes().find((r) => keys.includes(r.key) && markOf(r));
+      return { t: 'settingsSave', id, fields: fieldsOf(keys, sent), ...(preset && { accessPreset: markOf(preset) }) };
     },
     onEnd: (end) => {
       if (end !== 'approved') requested = null;
@@ -302,13 +336,33 @@ function settled(m, p) {
   }
 }
 
+// The values as saved now: the form's baseline and each source's.
+function liveNow() {
+  const out = { ...base };
+  for (const src of saveSources()) Object.assign(out, src.base());
+  return out;
+}
+
 function done(saved) {
   if (saved) savedAt = new Date().toISOString();
   if (!isOpen()) return;
   paintMarks();
-  if (refused.size) showSaveErr(`${refused.size} ${refused.size === 1 ? 'change is' : 'changes are'} not saved. Each one says why.`);
-  else $('settings-err').hidden = true;
+  const gaps = applied ? presetGaps(applied.target, liveNow()) : [];
+  if (refused.size) {
+    showSaveErr(`${refused.size} ${refused.size === 1 ? 'change is' : 'changes are'} not saved. Each one says why.`);
+    if (gaps.length) $('settings-err').append(stillDiffers(gaps));
+  } else $('settings-err').hidden = true;
+  if (!gaps.length || !refused.size) applied = null;
   renderSaveState();
+}
+
+// After a partly refused save: what still differs from the applied preset, and what each does now.
+function stillDiffers(gaps) {
+  const items = gaps.map((g) => {
+    const r = { key: g.key, sub: g.sub };
+    return el('li', null, `${label(r)}: ${show(r, g.live)}. ${gapText(g)}.`);
+  });
+  return el('div', null, el('p', null, `Still different from ${applied.name}:`), el('ul', null, ...items));
 }
 
 async function review({ focusField }) {
@@ -338,12 +392,15 @@ async function review({ focusField }) {
     rows,
     unseen: unseenNotes(unseen, by),
     by: namesAuthors(rows, by, me) ? by : null,
+    preset: markOf,
     kept,
     place,
     label,
     show,
     // A row that goes through an Approval needs no recheck of this browser's user: an Administrator approver's counts.
     critical: (r) => critical(r.key) && sectionView(sectionOf(r.key), role) === 'edit',
+    criticalAction: (r) => critical(r.key),
+    role,
     reconnects: (r) => reconnects(r.key),
     address: now.router,
     recheckNeeded: S.users.length > 0,
@@ -359,7 +416,7 @@ export function initSave(toc) {
       noteEdits();
       withdrawIfEdited();
       $('settings-err').hidden = true;
-      if (refused.size) paintMarks();
+      if (refused.size || marks.size) paintMarks();
       return warned() ? unwarn() : renderSaveState();
     });
   }
@@ -383,7 +440,7 @@ export function initSave(toc) {
     if (!isOpen()) return;
     noteEdits();
     withdrawIfEdited();
-    if (refused.size) paintMarks();
+    if (refused.size || marks.size) paintMarks();
     return warned() ? unwarn() : renderSaveState();
   });
   onMsg('settingsSaveResult', settingsSaveResult);

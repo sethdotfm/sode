@@ -191,7 +191,7 @@ func fieldRefusal(role, sec string) string {
 func (a *App) serveSettingsSave(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
-		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver, m.asRole)
+		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver, m.asRole, m.AccessPreset)
 		out := settingsSaveResult{opResult: opResultFor("settingsSave", &m.ID, err), Results: res, Interruptions: stops}
 		n := 0
 		for _, r := range res {
@@ -238,7 +238,8 @@ func (p *savePlan) refuse(key, reason string, err error) {
 // pass in one commit. No commit when none changes anything. ap, the approver of an Approval
 // (approval.go), stands in for the Role only in Shown sections; it is nil without one. asRole: a
 // Request approval's requester Role when sent, used when the requester is under the Lock now.
-func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User, asRole string) (map[string]fieldResult, []interruption, error) {
+// preset: the Access preset the page staged, named in the Settings saves row.
+func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User, asRole, preset string) (map[string]fieldResult, []interruption, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	plan, err := a.planSave(c, edits, ap, asRole, false)
@@ -276,7 +277,8 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 	if slices.Contains(keep, "requireHttps") {
 		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
 	}
-	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops))
+	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
+		presetOfSave(preset, keep))
 	a.auditAPISettings(connActor(c), live, now)
 	a.panelsFollowUsers(live.Users, now.Users)
 	if n, err := a.panels.moveOwners(plan.moves); err != nil {
