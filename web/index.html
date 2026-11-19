@@ -44,7 +44,11 @@
   <div class="sode-setup" id="setup" hidden>
     <h1 class="sode__mark">Sode</h1>
     <ol class="sode-setup__steps" id="setup-steps" aria-label="Setup steps"></ol>
-    <div class="sode-setup__phone" id="setup-phone" hidden></div>
+    <!-- The wait page: another browser runs setup, or this is a phone, which never runs it. -->
+    <div class="pb-modal sode-setup__dialog" id="setup-wait" role="region" aria-labelledby="setup-wait-title" hidden>
+      <div class="pb-modal__header"><h2 class="pb-modal__title" id="setup-wait-title"></h2></div>
+      <div class="pb-modal__body sode-setup__wait" id="setup-wait-body"></div>
+    </div>
     <div class="pb-modal sode-setup__dialog" id="setup-dialog" role="dialog" aria-labelledby="setup-title">
       <div class="pb-modal__header"><h2 class="pb-modal__title" id="setup-title"></h2></div>
       <div class="pb-modal__body" id="setup-body"></div>
@@ -487,6 +491,10 @@
         <label for="cfg-guest-role">Guest role</label>
         <span class="pb-select-wrap"><select id="cfg-guest-role" class="pb-select" data-key="guestRole"><option value="standard">Standard user</option><option value="trusted">Trusted user</option></select></span>
         <span class="sode__hint">The Role of a browser with nobody signed in. Guest Rights still limit what it routes.</span>
+      </div>
+      <div class="sode__field">
+        <button type="button" class="pb-btn pb-btn--outline" id="cfg-apply-preset" data-find="apply-preset" data-label="Apply an access preset" aria-haspopup="dialog" hidden>Apply an access preset…</button>
+        <span class="sode__hint">Open access, Standard access or Secured access. It changes the access fields as unsaved changes, and Save shows each one first.</span>
       </div>
     </fieldset>
 

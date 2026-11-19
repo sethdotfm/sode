@@ -249,3 +249,17 @@
 .sode-setup__next a {
   color: var(--pb-text-muted);
 }
+
+/* The wait page (setupwizard.js): another browser runs setup, or a phone. */
+.sode-setup__dialog[hidden] {
+  display: none;
+}
+.sode-setup__wait {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--pb-space-4);
+}
+.sode-setup__wait p {
+  margin: 0;
+}

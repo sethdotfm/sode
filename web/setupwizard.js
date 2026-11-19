@@ -30,6 +30,10 @@ let seq = 0;
 let sentRouter = ''; // the address the server tries now
 let routerTimer = 0;
 let sheetPresets = []; // the hello's presets, kept: the hello after Finish has none
+let mode = ''; // '' closed, 'claim' asked the server, 'run' this browser runs setup, 'wait' the wait page.
+let claiming = 0; // the id of the setupClaim with no answer yet.
+let taken = false; // another browser took control from this one.
+let free = false; // the browser that ran setup closed.
 
 const max = () => pinMax(S.cfg || {});
 
@@ -391,34 +395,113 @@ onMsg('setupFinishResult', (m) => {
 
 function openSode() {
   d = null;
+  mode = '';
   root.removeAttribute('data-sode-setup');
   $('setup').hidden = true;
   if (layout() === 'desktop') $('src')?.focus();
 }
 
-function show() {
-  const phone = layout() === 'phone';
-  $('setup-dialog').hidden = phone;
-  $('setup-steps').hidden = phone;
-  $('setup-phone').replaceChildren(...(phone ? [desktopOnly('set it up')] : []));
-  $('setup-phone').hidden = !phone;
+// The server gives setup to one browser (setup.go). A phone never asks for it.
+function claim(take = false) {
+  if (layout() === 'phone' || claiming) return;
+  claiming = ++seq;
+  if (!wsSend({ t: 'setupClaim', id: claiming, ...(take ? { take: true } : {}) })) claiming = 0;
 }
 
+function startWizard() {
+  if (d) return;
+  d = startAnswers(S.cfg, S.setup);
+  sentRouter = d.router.trim();
+  at = reached = 0;
+  finished = finishing = false;
+  render();
+}
+
+function waitPage() {
+  const phone = layout() === 'phone';
+  $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup runs in another browser';
+  const kids = [];
+  if (taken && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control of setup. Your answers were not saved.'));
+  else if (free && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
+  if (phone) kids.push(desktopOnly('set it up'));
+  else {
+    kids.push(
+      h(
+        'p',
+        null,
+        'Only one browser can run setup. If nobody uses the other browser, take control here. The other browser stops, and its answers are not saved.',
+      ),
+    );
+    kids.push(h('button', { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take' }, 'Take control'));
+  }
+  $('setup-wait-body').replaceChildren(...kids);
+}
+
+function show() {
+  const wizard = mode === 'run' && layout() !== 'phone';
+  const wait = !wizard && (mode === 'wait' || layout() === 'phone');
+  $('setup-dialog').hidden = !wizard;
+  $('setup-steps').hidden = !wizard;
+  $('setup-wait').hidden = !wait;
+  if (wait) waitPage();
+}
+
+// dropped: another browser took control, so this one's answers go.
+function toWait(dropped) {
+  d = null;
+  mode = 'wait';
+  if (dropped) taken = true;
+  show();
+}
+
+$('setup-wait-body').addEventListener('click', (e) => {
+  if (e.target.closest('#setup-take')) claim(true);
+});
+
+onMsg('setupClaimResult', (m) => {
+  if (m.id !== claiming) return;
+  claiming = 0;
+  if (!S.setup || finished || finishing) return;
+  if (!m.ok) return toWait(mode === 'run');
+  mode = 'run';
+  taken = free = false;
+  // A reconnect lost the hold, and the server put back the address this page had moved.
+  if (d && sentRouter && S.cfg.router !== sentRouter) {
+    sentRouter = '';
+    tryRouter();
+  }
+  startWizard();
+  show();
+});
+
+onMsg('setupTaken', () => {
+  if (S.setup && mode === 'run' && !finished) toWait(true);
+});
+
+// Take control stays the only way to move setup, since the browser that closed can be a reload.
+onMsg('setupFree', () => {
+  if (!S.setup || mode !== 'wait') return;
+  free = true;
+  show();
+});
+
 on('hello', () => {
-  if (S.setup && !d) {
-    d = startAnswers(S.cfg, S.setup);
-    sheetPresets = S.setup.presets || [];
-    sentRouter = d.router.trim();
-    at = reached = 0;
-    finished = finishing = false;
-    root.setAttribute('data-sode-setup', '');
-    $('setup').hidden = false;
-    show();
-    render();
+  if (S.setup) {
+    if (!mode) {
+      sheetPresets = S.setup.presets || [];
+      // Desktop shows nothing until the claim answers, so the first browser never sees the wait page.
+      mode = layout() === 'phone' ? 'wait' : 'claim';
+      root.setAttribute('data-sode-setup', '');
+      $('setup').hidden = false;
+      show();
+    }
+    // Every hello asks again: after a reconnect the server no longer knows this browser runs setup.
+    if (!finished && !finishing) claim();
+    paintDone();
     return;
   }
   // Another browser finished setup: this one has nothing to save any more.
-  if (!S.setup && d && !finished && !finishing) openSode();
+  if (mode && !finished && !finishing) openSode();
   paintDone();
 });
 
@@ -430,4 +513,8 @@ on('names', () => {
   paintRouter();
   paintDone();
 });
-onLayout(() => d && show());
+onLayout(() => {
+  if (!mode) return;
+  show();
+  if (mode === 'wait') claim();
+});

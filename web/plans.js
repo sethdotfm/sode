@@ -71,11 +71,13 @@ export const boxPatch = (src, dsts, lvl) => (src && dsts.length ? { src, dsts, l
 // What the router does not have is left out and listed in warnings. Validated at save
 // (presetProblem), not here.
 export function presetPlan(preset, defaults) {
+  // The shown names keep a gone number's old name, so the server's Broken mark decides.
+  const marked = (kind, n) => (preset.broken || []).some((m) => m?.kind === kind && m?.ref?.n === n);
   const r = resolvePreset(
     preset,
     {
-      src: (n) => S.srcBy.has(n),
-      dst: (n) => S.dstBy.has(n),
+      src: (n) => S.srcBy.has(n) && !marked('source', n),
+      dst: (n) => S.dstBy.has(n) && !marked('destination', n),
       level: (u) => S.levelBy.has(u),
     },
     defaults,
