@@ -40,9 +40,7 @@ const saveFields = () => Object.fromEntries(Object.entries(readSettings()).filte
 const sources = () => [formSource, ...saveSources()];
 const srcOf = (key) => sourceOf(key) || formSource;
 
-function changes() {
-  return sources().flatMap((src) => diffRows(src.base(), src.now()));
-}
+const changes = () => sources().flatMap((src) => diffRows(src.base(), src.now()));
 
 export const dirty = () => isOpen() && changes().length > 0;
 
@@ -128,10 +126,7 @@ const formSource = {
     base[key] = value;
     if (r.version) versions[key] = r.version;
   },
-  conflict(key, r) {
-    versions[key] = r.version;
-    base[key] = r.value;
-  },
+  conflict: (key, r) => formSource.saved(key, r.value, r),
   reset() {
     base = saveFields();
     versions = { ...S.versions };
