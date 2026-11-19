@@ -120,7 +120,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	defer a.cfgMu.Unlock()
 	live := a.r().cfg
 	src, dst := a.liveNames()
-	p := planImport(live, src, dst, a.panels.list(), b, req, act.User, secureRequest(r, a.r().proxies), a.cfgPath == "")
+	p := planImport(live, src, dst, a.panels.list(), b, req, act.User, secureRequest(r, a.r().proxies))
 	if p.plan.Critical && !a.tokenRechecked(r.Header.Get(sessionHeader)) {
 		apiFail(w, http.StatusForbidden, "recheck", recheckErr{what: p.overwrites}.Error())
 		return

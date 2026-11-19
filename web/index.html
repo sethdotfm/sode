@@ -40,6 +40,13 @@
     </div>
   </div>
 
+  <!-- Env-only mode (notsaved.js). The phone view has its own copy. -->
+  <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
+    <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
+    <span class="pb-grow">Not saved. Sode has no config file (SODE_CONFIG), so all settings and users are lost when Sode restarts.</span>
+    <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
+  </div>
+
   <!-- The setup wizard (setupwizard.js): a config file with no users. html[data-sode-setup] hides the rest. -->
   <div class="sode-setup" id="setup" hidden>
     <h1 class="sode__mark">Sode</h1>
@@ -602,6 +609,11 @@
     </header>
 
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
+    <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
+      <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
+      <span class="pb-grow">Not saved. Sode has no config file (SODE_CONFIG), so all settings and users are lost when Sode restarts.</span>
+      <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
+    </div>
     <div class="sode-m__result" id="m-result" aria-live="polite"></div>
 
     <div class="sode-m__stage">

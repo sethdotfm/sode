@@ -95,7 +95,7 @@ func TestSetupWizardRefusesTakesAndSavesBeforeFinish(t *testing.T) {
 	}
 }
 
-// Without SODE_CONFIG there is no wizard; every browser stays an Administrator until #587.
+// Without SODE_CONFIG there is no wizard; with no users every browser is an Administrator.
 func TestSetupWizardNotInEnvOnlyMode(t *testing.T) {
 	a := newTestApp(t)
 	p := dialPeer(t, a)

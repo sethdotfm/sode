@@ -150,7 +150,6 @@ type importPlanner struct {
 	same       bool
 	actor      string // the importing user's id; "" with no users
 	secure     bool
-	envOnly    bool
 	check      *refCheck
 	livePanels []Panel
 	users      map[string]string // file user id → live id, "" when skipped
@@ -163,9 +162,9 @@ type importPlanner struct {
 }
 
 // planImport plans b onto live. src, dst are the live router's names; livePanels the panel store's list.
-func planImport(live config.Config, src, dst map[int]string, livePanels []Panel, b *exportBundle, req importReq, actor string, secure, envOnly bool) *importPlanner {
+func planImport(live config.Config, src, dst map[int]string, livePanels []Panel, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
 	p := &importPlanner{
-		live: live, next: live.Clone(), b: b, req: req, actor: actor, secure: secure, envOnly: envOnly,
+		live: live, next: live.Clone(), b: b, req: req, actor: actor, secure: secure,
 		same:       b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID,
 		check:      &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
 		livePanels: livePanels, users: map[string]string{}, presets: map[string]string{},
@@ -198,7 +197,7 @@ func planImport(live config.Config, src, dst map[int]string, livePanels []Panel,
 		}
 		if err == nil && s.cat != catPanels {
 			cand.Normalize()
-			err = validateSave(p.live, cand, p.envOnly)
+			err = validateSave(p.live, cand)
 		}
 		if err != nil {
 			cat.Refused = err.Error()

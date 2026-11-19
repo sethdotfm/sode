@@ -11,8 +11,8 @@ import (
 )
 
 // The setup wizard (web/setupwizard.js). With a config path and no users, Sode takes only the
-// setup messages until Finish, and nothing is on disk before it. Env-only mode has no wizard;
-// roleMu's interim rule still covers it.
+// setup messages until Finish, and nothing is on disk before it. Env-only mode has no wizard
+// (docs/agents/users-locks.md).
 
 //lint:ignore ST1005 the page shows it as is
 var errSetup = errors.New("Sode is not set up yet: finish the setup on this page first")
@@ -42,19 +42,20 @@ type setupPresetView struct {
 	Rows map[string]bool `json:"rows"`
 }
 
-// setupHello rides the hello only while setup is pending. Preset is SODE_ACCESS_PRESET's key,
-// else Standard access.
+// setupHello rides the hello only while setup is pending. Preset is SODE_ACCESS_PRESET's key on
+// first start, else Standard access. Env: setupEnv, for the "Filled from" hints.
 type setupHello struct {
 	Preset  string            `json:"preset"`
 	Presets []setupPresetView `json:"presets"`
+	Env     map[string]string `json:"env,omitempty"`
 }
 
 func (a *App) setupHelloFor(cfg config.Config) *setupHello {
 	if !a.setupPendingCfg(cfg) {
 		return nil
 	}
-	h := &setupHello{Preset: "standard"}
-	if p, _ := config.AccessPresetFromEnv(); p != nil {
+	h := &setupHello{Preset: "standard", Env: a.setupEnv()}
+	if p, _ := config.AccessPresetFromEnv(); p != nil && h.Env["preset"] != "" {
 		h.Preset = p.Key
 	}
 	for _, p := range config.AccessPresets {

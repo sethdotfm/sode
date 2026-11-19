@@ -52,6 +52,9 @@ func loadConfig(path string) config.Config {
 	if _, err := config.AccessPresetFromEnv(); err != nil {
 		log.Fatalf("config: %v", err)
 	}
+	if path == "" {
+		config.ApplyEnvOnlyPreset(&c) // the name was checked above
+	}
 	c.Normalize()
 	if err := c.Validate(); err != nil {
 		log.Fatalf("config from environment: %v", err)

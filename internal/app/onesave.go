@@ -379,12 +379,12 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, r
 	for _, key := range cands {
 		var err error
 		for scope := range 3 {
-			if err = validateSave(live, with(key, scope), a.cfgPath == ""); err == nil {
+			if err = validateSave(live, with(key, scope)); err == nil {
 				break
 			}
 		}
 		if err != nil {
-			if scoped := validateSave(live, with(key, 0), a.cfgPath == ""); scoped != nil {
+			if scoped := validateSave(live, with(key, 0)); scoped != nil {
 				err = scoped // the reason of the field alone reads best
 			}
 			refuse(key, reasonInvalid, err)
@@ -409,13 +409,13 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, r
 }
 
 // validateSave: what update checks, so a field that would fail the commit is refused alone.
-func validateSave(live, next config.Config, envOnly bool) error {
+func validateSave(live, next config.Config) error {
 	n := next.Clone()
 	dropOwnerless(&n)
 	if err := n.Validate(); err != nil {
 		return err
 	}
-	return keepsAdministrator(live, n, envOnly)
+	return keepsAdministrator(live, n)
 }
 
 // removedUsersPanels gives the panels of each removed user a new owner. The owner is the one

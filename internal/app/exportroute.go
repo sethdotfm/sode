@@ -120,7 +120,7 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	m := bundle.Manifest
 	src, dst := a.liveNames()
-	plan := planImport(a.r().cfg, src, dst, a.panels.list(), bundle, importReq{Mode: importAdd}, a.importActor(r).User, secureRequest(r, a.r().proxies), a.cfgPath == "").plan
+	plan := planImport(a.r().cfg, src, dst, a.panels.list(), bundle, importReq{Mode: importAdd}, a.importActor(r).User, secureRequest(r, a.r().proxies)).plan
 	apiJSON(w, importCheck{Plan: plan,
 		Format: m.Format, Sode: m.Sode, SameInstall: m.Install != "" && m.Install == a.r().cfg.InstallUID,
 		Categories: m.Categories, Routers: m.Routers, Unknown: bundle.Unknown,

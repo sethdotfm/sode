@@ -882,6 +882,22 @@ html {
 .sode__noadmin[hidden] {
   display: none;
 }
+/* Solid, unlike a result: it stays until SODE_CONFIG is set (look from prototype/setup-wizard). */
+.sode__notsaved {
+  background: var(--pb-status-warn-fill);
+  border: 0;
+  color: color-mix(in srgb, var(--pb-status-warn-fill) 12%, black);
+}
+.sode__notsaved[hidden] {
+  display: none;
+}
+.sode__notsaved .pb-chip {
+  background: color-mix(in srgb, var(--pb-status-warn-fill) 70%, black);
+  border-color: transparent;
+  color: white;
+  text-decoration: none;
+  white-space: nowrap;
+}
 .sode__lock-help > p {
   margin: 0 0 var(--pb-space-3);
 }

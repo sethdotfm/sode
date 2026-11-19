@@ -116,7 +116,7 @@ routers:
 | `SODE_TALLY_RESYNC_S` | `routeRereadSeconds` (router) | `300` | Re-read all routes and which destinations are protected this often (0 turns it off) |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` Sode believes (your proxy) |
 | `SODE_MAX_PIN_LEN` | `maxPinLen` | `8` | Longest user PIN (4-12 digits). The lock pad stops there and submits on its own only at the longest length in use. Shorter PINs are sent with the check key or Enter. Also set in Settings > Users |
-| `SODE_ACCESS_PRESET` | | | An Access preset: `open` (Open access), `standard` (Standard access) or `secured` (Secured access); the full names also work. The setup wizard preselects it, and env-only mode applies it. An unknown name stops the first start |
+| `SODE_ACCESS_PRESET` | | | An Access preset: `open` (Open access), `standard` (Standard access) or `secured` (Secured access); the full names also work. On a first start the setup wizard preselects it, and env-only mode applies it with the page locks off. An unknown name stops the first start |
 
 Settings-only keys (no seed var):
 
@@ -130,6 +130,12 @@ Settings-only keys (no seed var):
 - `browserDefaults`: what a browser uses until it chooses its own under Settings > This browser. It holds theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`), stackGap and compact. The stackGap field is a number of seconds written as text: `0` (off), `10`, `30` (the default), `60`, `120` or `300`. The compact field is Compact view, off by default (see Compact view above).
 
 Process settings stay in env. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_COMMLOG` (`/data/sent.jsonl`), `SODE_COMMLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true`, which hex-dumps all SW-P-08 traffic. `SODE_SETTINGS_SAVES` (`/data/settings-saves.jsonl`) holds the Settings saves record. Without `SODE_UPTIME`, the router uptime is kept in memory only.
+
+### Not saved
+
+Without `SODE_CONFIG`, Sode reads its settings from the `SODE_*` variables and keeps every change in memory only. The main page shows a yellow Not saved banner, on a phone too. There is no setup wizard. Until you add a user, every browser is an Administrator and no lock or PIN recheck applies. `SODE_ACCESS_PRESET` writes its preset, but the page locks stay off. The first user you add must be an Administrator with a PIN. A restart starts empty again, and Item links and paired panels from before the restart stop working.
+
+To fix it, set `SODE_CONFIG` to a file on a volume that Sode keeps, for example `/data/config.yaml` (the image sets this), and restart Sode. The setup wizard then runs, and the `SODE_*` variables fill its fields.
 
 ### No Administrator
 
