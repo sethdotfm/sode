@@ -2,9 +2,9 @@ package app
 
 import "slices"
 
-// A Public panel page comes back by itself (docs/agents/panels.md, Public keys). When Public panels allowed turns
-// on, or a panel's mode changes back to Public, every keyless stream whose address resolves to that panel hears a
-// public line. The page waits a random 0 to 5 s and asks once; nothing polls, since publicAskMax counts per address.
+// A Public panel page comes back by itself (docs/agents/panels.md, Public keys). Public panels allowed turns on, or a
+// panel's mode changes back to Public. Then every keyless stream whose address resolves to that panel hears a public
+// line. The page waits a random 0 to 5 s and asks once; nothing polls, since publicAskMax counts per address.
 
 var publicLine = []byte("{\"t\":\"public\"}\n")
 

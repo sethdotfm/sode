@@ -161,7 +161,7 @@ function detail(p) {
         phone ? desktopOnly('edit, share, assign or delete panels and manage their keys') : null,
         kv,
         watchBox(p, setWatch),
-        openNow(p, { setWatch, setHide, rename }),
+        openNow(p, openHandlers()),
       ),
     ),
   );
@@ -210,14 +210,15 @@ async function setHide(id, instance, on) {
 }
 
 // Renames the instance's device name: the page hears it down its stream (POST .../instances/rename). Answers null after
-// it is sent, or after a clash is handed to the name dialog, else renameRefusal's {why, pin}.
-async function rename(id, instance, name, pin = '') {
+// it is sent, or after a clash is handed to the name dialog, else renameRefusal's {why, pin}. keyless names a keyless
+// page by its id; it has no watch and no name check.
+async function rename(id, instance, name, pin = '', keyless = '') {
   const p = S.panels.find((x) => x.id === id);
   try {
     await api(`api/v1/panels/${id}/instances/rename`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instance, name, pin }),
+      body: JSON.stringify(keyless ? { keyless, name } : { instance, name, pin }),
     });
     // The server moved the watch with the name; the poll does not carry watches.
     if (p) p.watchingInstances = (p.watchingInstances || []).map((d) => (d === instance.toLowerCase() ? name.toLowerCase() : d));
@@ -231,6 +232,18 @@ async function rename(id, instance, name, pin = '') {
   }
 }
 
+// Reload from the Open now list: target is {instance}, {keyless} or {all: true}. The page reloads on its own.
+async function reload(id, target) {
+  try {
+    await api(`api/v1/panels/${id}/instances/reload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(target) });
+    refreshOnline();
+  } catch (e) {
+    say(e.message);
+  }
+}
+
+const openHandlers = () => ({ setWatch, setHide, rename, reload, trusted: S.trusted });
+
 // Online marks and the Open now list change without a redraw, so a button that a person presses is not rebuilt.
 async function refreshOnline() {
   if (!S.loaded || document.hidden) return;
@@ -239,14 +252,14 @@ async function refreshOnline() {
     for (const p of next) {
       const old = S.panels.find((x) => x.id === p.id);
       if (old) {
-        const { online, instances, instancesOnline, instancesKnown, hiddenInstances } = p;
-        Object.assign(old, { online, instances, instancesOnline, instancesKnown, hiddenInstances });
+        const { online, instances, keyless, instancesOnline, instancesKnown, hiddenInstances } = p;
+        Object.assign(old, { online, instances, keyless, instancesOnline, instancesKnown, hiddenInstances });
       }
     }
     paintOnline(S.panels);
     paintOpenNow(
       S.panels.find((x) => x.id === S.cur),
-      { setWatch, setHide, rename },
+      openHandlers(),
     );
   } catch {}
 }

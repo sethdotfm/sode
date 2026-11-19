@@ -88,7 +88,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
   };
   // lock.js drops the page lock's PIN pad for a Public panel, never for the editor's live test.
   const tellLock = (on) => embedded || emit('publicPanel', { on });
-  // A public line: the panel may be Public again. After a random wait the page reloads and asks one time at open, a
+  // A public line: it is possible that the panel is Public again. After a random wait the page reloads and asks one time at open, a
   // marked ask. Refused, it is a keyless page again and waits for the next line.
   let backTimer = 0;
   const comeBack = () => {

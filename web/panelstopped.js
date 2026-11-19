@@ -1,7 +1,7 @@
 // A Public panel page whose key could not be renewed (docs/panels-design.md). The grid stays on screen, disabled,
 // under a fixed status, and the page waits on its keyless stream for a public line (panelrun.js).
 import { icon } from './core.js';
-import { PUBLIC_STOPPED } from './panelbackrules.js';
+import { PUBLIC_STOPPED } from './panelkeyrules.js';
 
 export function showStopped(ui) {
   ui.main.classList.add('sode-panels--stopped');

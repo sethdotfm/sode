@@ -1,8 +1,8 @@
 // A Public panel page that comes back by itself, and the Open now list's Reload and keyless rename. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lineType, backWaitMs, publicAskPath, PUBLIC_STOPPED, reloadState, reloadAllState } from '../panelbackrules.js';
-import { pollFail } from '../panelkeyrules.js';
+import { lineType, backWaitMs, publicAskPath, reloadState, reloadAllState } from '../panelbackrules.js';
+import { pollFail, PUBLIC_STOPPED } from '../panelkeyrules.js';
 
 test('the stream lines the page acts on', () => {
   assert.equal(lineType('{"t":"public"}'), 'public');

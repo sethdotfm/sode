@@ -12,8 +12,8 @@ import (
 )
 
 // Keyless instances (GLOSSARY.md, ADR 0009): a panel page with no working key announces itself on an open stream so
-// a Trusted user can Assign it. The stream grants nothing: no key, session or user rides it, and nothing is sent on
-// it but beats until an Assign. A device signs in only through the page's own socket and Lock, so the idle clock
+// a Trusted user can Assign it. The stream grants nothing: no key, session or user rides it. Besides beats it carries
+// public lines (publicback.go), and an Assign, rename or reload as its last line. A device signs in only through the page's own socket and Lock, so the idle clock
 // covers it there. Memory only, like the rest of panelMon.
 
 const (

@@ -4,7 +4,9 @@ import { fullSetup } from './panellink.js';
 import { whenText } from './keyrules.js';
 import { hasClient, isPublic } from './panelsrules.js';
 import { renewable } from './sessionkeyrules.js';
-import { PUBLIC_STOPPED } from './panelbackrules.js';
+
+// Fixed and free of any reason or name: anyone can read a Public panel's page.
+export const PUBLIC_STOPPED = 'This panel is not public now. It comes back by itself when it is public again.';
 
 export const MODES = [
   ['key', 'Named instance link'],

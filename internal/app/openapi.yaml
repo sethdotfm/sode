@@ -1712,8 +1712,8 @@ paths:
         and the answer is the same if the panel exists or not. Sode records the address it sees and
         keeps at most 1000 such pages in memory for 24 hours, the oldest dropped. Besides the beat,
         it carries an Assign (`POST /panels/{id}/assign` with `keyless`), a rename or a reload from
-        the Open now list, and a `public` line when Public panels allowed turns on or the panel
-        changes back to Public. The page then waits a random 0 to 5 s and asks
+        the Open now list. It also carries a `public` line when Public panels allowed turns on or
+        the panel changes back to Public. The page then waits a random 0 to 5 s and asks
         `POST /panels/{id}/public?back=1` one time.
       parameters:
         - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "The device name the page holds, if any" }
@@ -1948,8 +1948,9 @@ paths:
       summary: Reload open panel pages
       description: |
         Scope `panelsmanage`. A Trusted user's key (403 `trusted_required`), with no PIN recheck.
-        Sends `{"t":"reload"}` as the last line on every stream of one instance (`instance`), of
-        one keyless page (`keyless`), or of every page of the panel (`all`). The page reloads at
+        Sends `{"t":"reload"}` as the last line on every stream of what the body names: one
+        instance (`instance`), one keyless page (`keyless`) or every page (`all`). The page reloads at
+
         the same address and keeps its stored key and name. A Public page asks for a new key.
         Only a stream held now hears it, and nothing waits. With none, the answer is 409 `offline`.
         Writes one `api` row `reload` per page, naming the user, the panel, the instance and the

@@ -8,9 +8,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Reload from the Open now list (docs/agents/panels.md, Open now). A reload line goes down the page's held stream as
-// its last line, and the page reloads at the same address with its stored key and name. A Trusted user, no PIN
-// recheck, as for an Assign. Only a live stream hears it: nothing waits in a queue.
+// Reload from the Open now list (docs/agents/panels.md, Reload). A reload line is the last line on the page's held
+// stream. The page reloads at the same address with its stored key and name. A Trusted user, no PIN recheck, as for
+// an Assign. Only a live stream hears it: nothing waits in a queue.
 
 func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/instances/reload", config.ScopePanelsManage, (*App).apiPanelReload})
