@@ -762,6 +762,9 @@ func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) erro
 // adds is found. A new panel has no key link; Use new keeps the live panel's Authentication mode and key link.
 func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 	adds := 0
+	slugTaken := func(fp Panel, self string) bool {
+		return fp.Slug != "" && slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.Slug == fp.Slug && x.ID != self })
+	}
 	for _, fp := range p.b.Panels.Panels {
 		if !p.picked(catPanels, fp.ID) {
 			continue
@@ -800,6 +803,9 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			it.Choice = p.choice(catPanels, fileID, true)
 			switch it.Choice {
 			case useNew:
+				if slugTaken(fp, lp.ID) {
+					fp.Slug = lp.Slug
+				}
 				fp.Rev = lp.Rev + 1
 				p.panelIDs[fileID] = lp.ID
 				p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Live: &lp, Cps: cps})
@@ -820,7 +826,7 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		if it.Choice == useRename || slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.ID == fp.ID }) {
 			fp.ID = "" // createAs keeps a free id, so a link to this panel still opens it
 		}
-		if slices.ContainsFunc(p.livePanels, func(x Panel) bool { return fp.Slug != "" && x.Slug == fp.Slug }) {
+		if slugTaken(fp, "") {
 			fp.Slug = ""
 		}
 		if actsHasClient(fp.Acts) {

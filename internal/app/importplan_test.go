@@ -336,6 +336,32 @@ func TestAddImportRefusesPanelWithBadArt(t *testing.T) {
 	}
 }
 
+// Use new on a panel whose file short name another live panel now holds keeps the live short name.
+func TestAddImportUseNewPanelSlugTaken(t *testing.T) {
+	a, c, tok := importApp(t)
+	mk := func(name, slug string) Panel {
+		p, err := a.panels.create(Panel{Name: name, Slug: slug, Owner: userID(t, a, "Ana"), Rows: 1, Cols: 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	desk, wall := mk("Desk", "desk"), mk("Wall", "")
+	file := exported(t, a, tok, exportReq{Categories: []string{catPanels}, Pick: map[string][]string{catPanels: {desk.ID}}})
+	desk.Slug, desk.Cols = "front", 2
+	wall.Slug = "desk"
+	for _, p := range []Panel{desk, wall} {
+		if _, err := a.panels.replace(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grantRecheck(a, c)
+	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	if got, _ := a.panels.get(desk.ID); len(res.Failed) != 0 || got.Cols != 1 || got.Slug != "front" {
+		t.Fatalf("failed %v, desk %+v", res.Failed, got)
+	}
+}
+
 // A foreign panel shared with Bo follows the file's Bo, here renamed "Bo 2", never the live Bo. A public
 // panel waits while Public panels allowed is off, and says so.
 func TestAddImportPanelShareFollowsUsers(t *testing.T) {
