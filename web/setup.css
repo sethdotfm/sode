@@ -123,10 +123,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--pb-space-6);
-  align-items: start;
-}
-.sode-setup__guide {
-  align-self: end;
+  align-items: end;
 }
 .sode-setup__h {
   font-size: var(--pb-text-md);
