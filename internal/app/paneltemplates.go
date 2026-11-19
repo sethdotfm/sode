@@ -250,7 +250,7 @@ func (a *App) templateOut(cl *apiCtx, t Template) map[string]any {
 	json.Unmarshal(b, &m)
 	m["canEdit"] = edit
 	m["owner"] = a.r().cfg.UserName(t.Owner)
-	hideNamesFromPublic(m, cl)
+	hideUserNames(m, cl)
 	return m
 }
 

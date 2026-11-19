@@ -101,9 +101,9 @@ func (a *App) panelOut(p Panel, edit bool) map[string]any {
 	return m
 }
 
-// A Public panel's key is anyone's, and user names never reach a caller who entered no PIN (AGENTS.md).
-func hideNamesFromPublic(m map[string]any, cl *apiCtx) {
-	if cl.Key == nil || !cl.Key.public {
+// User names never reach a caller who entered no PIN (AGENTS.md): Guest, API client, Public key.
+func hideUserNames(m map[string]any, cl *apiCtx) {
+	if cl.Actor.Kind == actorUser {
 		return
 	}
 	m["owner"] = ""
@@ -181,7 +181,7 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 		if read, edit := a.panelReach(cl, p); read {
 			m := a.panelOut(p, edit)
 			a.monFields(m, cl, p, edit)
-			hideNamesFromPublic(m, cl)
+			hideUserNames(m, cl)
 			out = append(out, m)
 		}
 	}
@@ -211,7 +211,7 @@ func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	out := a.panelOut(p, edit)
 	a.monFields(out, cl, p, edit)
-	hideNamesFromPublic(out, cl)
+	hideUserNames(out, cl)
 	// The page copies these before it arms a take; the server still enforces them.
 	out["rights"] = cl.Rights.Clone()
 	out["artDefaults"] = a.panelArtDefaults(cl, p)

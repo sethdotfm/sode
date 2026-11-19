@@ -419,6 +419,34 @@ func TestPublicKeyReadsNoUserNames(t *testing.T) {
 	}
 }
 
+func TestKeylessGuestReadsNoUserNames(t *testing.T) {
+	a, _ := clientApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`,"share":{"mode":"everyone"},"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
+	if rec := apiSend(a, "POST", "/api/v1/panel-templates", cy, `{"name":"Grid","scope":"everyone","from":"`+id+`"}`); rec.Code != 201 {
+		t.Fatalf("template: %d %s", rec.Code, rec.Body.String())
+	}
+	cfg := a.r().cfg
+	cfg.API.GuestEnabled = true
+	cfg.GuestAPIScopes = append(cfg.GuestAPIScopes, config.ScopePanels)
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	read := 0
+	for _, path := range []string{"/api/v1/panels/" + id, "/api/v1/panels", "/api/v1/panel-templates"} {
+		rec := apiDo(a, "GET", path, "", nil)
+		if rec.Code == 200 {
+			read++
+		}
+		if strings.Contains(rec.Body.String(), `"Cy"`) {
+			t.Fatalf("%s names a user: %s", path, rec.Body.String())
+		}
+	}
+	if read == 0 {
+		t.Fatal("the Guest read nothing, so the test shows nothing")
+	}
+}
+
 func TestPublicKeyReadsNoTemplateOwner(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
