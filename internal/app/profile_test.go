@@ -167,7 +167,7 @@ func TestProfileTrustedSavesAnothers(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); err != nil {
-		t.Fatalf("Advanced Settings PIN: %v", err)
+		t.Fatalf("Administrator: %v", err)
 	}
 	if anasProfile(t, a).Prefs["theme"] != "light" {
 		t.Fatal("PIN save did not land")

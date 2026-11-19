@@ -101,7 +101,7 @@ func TestUsersConfigValidation(t *testing.T) {
 	c.Users, c.Locks, c.AutoLockMinutes = []config.User{good}, config.Locks{Main: true}, 5
 	c.Normalize()
 	if err := c.Validate(); err != nil {
-		t.Fatalf("a lock needs a user, and no Advanced Settings PIN: %v", err)
+		t.Fatalf("a lock needs a user and nothing more: %v", err)
 	}
 }
 

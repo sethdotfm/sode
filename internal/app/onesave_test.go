@@ -175,8 +175,11 @@ func TestOneSaveUnderLockIsRefused(t *testing.T) {
 	}
 }
 
+// savedApart: Config JSON keys with their own messages, never the one Save's.
+var savedApart = map[string]bool{"filterSets": true, "presets": true, "users": true}
+
 // Every Config field the page sees is a field of the one Save, in a known section, or saved
-// apart (savedApart).
+// apart.
 func TestEveryFormFieldHasSection(t *testing.T) {
 	for _, f := range config.Fields() {
 		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")

@@ -34,8 +34,6 @@ export const WHY_LABEL = {
   filterSets: 'Filter sets saved',
   presets: 'Presets saved',
   salvos: 'Presets saved', // salvos: rows logged before the rename
-  unlock: 'Advanced Settings PIN',
-  lock: 'Settings locked',
   salvo: 'Native salvo',
   userSignIn: 'User PIN',
   userLock: 'User locked',

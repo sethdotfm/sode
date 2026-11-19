@@ -59,8 +59,8 @@ function hideButton(p, i, setHide) {
 }
 
 // The instance's name with its Rename icon. A click turns the name into a field: Enter saves, and Escape or a move away
-// drops the edit. rename(id, device, name, pin, keyless) answers null when sent (or handed to the clash dialog), else
-// {why, pin}. pin shows the Advanced Settings PIN field, as the Assign to modal does. keyless is a keyless page's id.
+// drops the edit. rename(id, device, name, keyless) answers null when sent (or handed to the clash dialog), else {why}.
+// keyless is a keyless page's id.
 function nameSlot(p, i, rename) {
   const slot = el('span', 'sode-ov__name');
   const state = rename ? renameState(i) : '';
@@ -86,13 +86,6 @@ function nameSlot(p, i, rename) {
     const err = el('span', 'pb-note pb-note--error');
     err.setAttribute('role', 'alert');
     err.hidden = true;
-    const pin = el('input', 'pb-input');
-    pin.type = 'password';
-    pin.autocomplete = 'off';
-    pin.dataset.renamePin = i.device;
-    pin.setAttribute('aria-label', 'Advanced Settings PIN');
-    const pinRow = el('label', 'sode-tpl__pin', 'Advanced Settings PIN', pin);
-    pinRow.hidden = true;
     let busy = false;
     const fail = (t) => {
       err.textContent = t;
@@ -111,25 +104,16 @@ function nameSlot(p, i, rename) {
       const problem = renameProblem(name);
       if (problem) return fail(problem);
       busy = true;
-      const r = await rename(p.id, i.device, name, pin.value, i.keyless || '');
+      const r = await rename(p.id, i.device, name, i.keyless || '');
       busy = false;
-      pin.value = '';
       if (!r) return show();
       fail(r.why);
-      if (r.pin) {
-        pinRow.hidden = false;
-        pin.focus();
-      }
     };
-    // A move between the name and the PIN field keeps the edit open.
-    const blur = (e) => {
-      if (!busy && slot.contains(input) && !slot.contains(e.relatedTarget)) show();
-    };
-    for (const f of [input, pin]) {
-      f.addEventListener('keydown', keydown);
-      f.addEventListener('blur', blur);
-    }
-    slot.replaceChildren(input, pinRow, err);
+    input.addEventListener('keydown', keydown);
+    input.addEventListener('blur', () => {
+      if (!busy && slot.contains(input)) show();
+    });
+    slot.replaceChildren(input, err);
     input.focus();
     input.select();
   }

@@ -1,0 +1,2 @@
+- The Advanced Settings PIN is gone. Roles decide every change, so Settings, Filters, presets, the import review and the panel editor ask for no PIN, and Settings has no PIN screen. A `settingsPin` line in `config.yaml` is dropped at start. The WebSocket messages `unlock` and `lock` and the hello field `pinSet` are gone.
+- Settings sections say who can change them: a Trusted user, or only an Administrator. The (advanced) marks on field labels are gone.

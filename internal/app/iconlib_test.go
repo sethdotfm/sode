@@ -254,7 +254,7 @@ func TestIconLibraryDeleteAndUses(t *testing.T) {
 		t.Errorf("cell art %v, want %s kept", p.Pages[0].Cells[0]["art"], lib)
 	}
 
-	// The Advanced Settings PIN deletes nothing.
+	// A PIN in the body deletes nothing.
 	id2 := apiBody(t, apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload("Mark", b64(t, tinyPNG), "")))["id"].(string)
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id2, ana, `{"pin":"9999"}`), 403, "trusted_required")
 }

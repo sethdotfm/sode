@@ -53,7 +53,7 @@ func parsePinHash(hash string) (iter int, salt, want []byte, ok bool) {
 	return iter, salt, want, true
 }
 
-// ValidPinHash catches a hand-typed PIN in the config file at startup.
+// ValidPinHash tells a stored hash from a PIN typed into the config file by hand.
 func ValidPinHash(hash string) bool {
 	_, _, _, ok := parsePinHash(hash)
 	return ok

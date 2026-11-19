@@ -1,4 +1,4 @@
-// Settings bottom row, shared by the locked view (.sode__lock-exit) and the save bar (.sode__foot).
+// Settings bottom row, in the save bar (.sode__foot).
 
 import { el, S, icon, on } from './core.js';
 

@@ -40,7 +40,7 @@ onMsg('profile', (m) => {
 let seq = 0;
 const pending = new Map(); // save id -> resolve
 const reading = new Map(); // get id -> resolve
-const lost = { ok: false, err: 'Connection lost.', locked: false };
+const lost = { ok: false, err: 'Connection lost.' };
 
 onMsg('profileGetResult', (m) => {
   const done = reading.get(m.id);
@@ -48,8 +48,8 @@ onMsg('profileGetResult', (m) => {
   reading.delete(m.id);
   done(
     m.ok
-      ? { ok: true, err: '', locked: false, profile: toProfile({ ...m.profile, name: m.name }) }
-      : { ok: false, err: m.err || 'Could not read that profile.', locked: !!m.locked, profile: EMPTY },
+      ? { ok: true, err: '', profile: toProfile({ ...m.profile, name: m.name }) }
+      : { ok: false, err: m.err || 'Could not read that profile.', profile: EMPTY },
   );
 });
 
@@ -57,7 +57,7 @@ onMsg('profileSaveResult', (m) => {
   const done = pending.get(m.id);
   if (!done) return;
   pending.delete(m.id);
-  done({ ok: !!m.ok, err: m.err || '', locked: !!m.locked });
+  done({ ok: !!m.ok, err: m.err || '' });
 });
 
 // A dropped socket never answers: settle everything waiting.
@@ -76,7 +76,7 @@ let chain = Promise.resolve();
 // `name` defaults to the signed-in user; a trusted user can name another. No PIN is asked here: the server decides.
 // The own profile's local copy gets the parts at once so the next save builds on them; a failed save puts it back.
 export function saveProfile(parts, name = cur.name) {
-  if (!name) return Promise.resolve({ ok: false, err: 'Not signed in.', locked: false });
+  if (!name) return Promise.resolve({ ok: false, err: 'Not signed in.' });
   // At call time, not when the queued send runs: the next caller reads it now.
   const before = cur;
   const mine = name === cur.name;
@@ -91,7 +91,7 @@ export function saveProfile(parts, name = cur.name) {
         resolve(r);
       };
       if (!wsSend({ t: 'profileSave', id, name, ...parts })) {
-        return settle({ ok: false, err: 'Not connected to Sode.', locked: false });
+        return settle({ ok: false, err: 'Not connected to Sode.' });
       }
       pending.set(id, settle);
     });
@@ -100,12 +100,12 @@ export function saveProfile(parts, name = cur.name) {
   return p;
 }
 
-// Any user's profile (trusted user or Advanced Settings PIN; others get locked: true).
+// Any user's profile (a Trusted user or higher; others get a refusal).
 export function fetchProfile(name) {
   return new Promise((resolve) => {
     const id = ++seq;
     if (!wsSend({ t: 'profileGet', id, name })) {
-      return resolve({ ok: false, err: 'Not connected to Sode.', locked: false, profile: EMPTY });
+      return resolve({ ok: false, err: 'Not connected to Sode.', profile: EMPTY });
     }
     reading.set(id, resolve);
   });

@@ -167,7 +167,7 @@ Someone who is not signed in. A guest sees This browser and Everyone values and 
 
 ### Access in v2
 
-These terms come with the v2 auth model (ADR 0010). When v2 ships they replace the Advanced Settings PIN and the trusted flag, and the rows above change with them.
+These terms come with the v2 auth model (ADR 0010). They replace the v1 shared PIN for advanced settings and the trusted flag.
 
 **Role**:
 The one level of control each user holds: Standard, Trusted or Administrator. Rights still limit what any role can route. API clients hold no role.

@@ -1,12 +1,11 @@
 // The Cell tab's Default artwork row. It makes the cell's artwork and Hide text its item's default, clears that
-// default, or puts the cell back on it. Wording is defaultNote in editorrules.js. A user who is not Trusted is asked for the
-// Advanced Settings PIN after the first refusal, as an Everyone template save does.
+// default, or puts the cell back on it. Wording is defaultNote in editorrules.js. The server refuses a user who is not
+// Trusted, and the reason shows below.
 import { el } from './core.js';
 import { btn } from './formbits.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { defaultFor, artOf, artBOf } from './panellook.js';
 import { defaultNote, defaultBody, takesDefault } from './editorrules.js';
-import { pinNeeded } from './templaterules.js';
 
 const send = jsonCall(sessionFetch, {
   down: 'Sode did not answer, so the Default artwork was not changed.',
@@ -20,31 +19,17 @@ export function createDefaultRow({ ed, patch, done }) {
   warn.id = 'ed-default-warn';
   const said = el('p', 'sode__hint');
   said.setAttribute('role', 'status');
-  const pin = el('input', 'pb-input');
-  pin.type = 'password';
-  pin.autocomplete = 'off';
-  pin.id = 'ed-default-pin';
-  pin.setAttribute('aria-label', 'Advanced Settings PIN');
-  const pinRow = el('label', 'sode-side__pin', 'Changing Default artwork needs a Trusted user or the Advanced Settings PIN', pin);
-  pinRow.hidden = true;
   let cell = null;
 
   async function change(set) {
     const body = defaultBody(cell, ed.panel()?.id || '', set);
-    if (pin.value) body.pin = pin.value;
     said.textContent = '';
     try {
       await send('api/v1/default-artwork', { method: set ? 'PUT' : 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      pin.value = '';
-      pinRow.hidden = true;
       said.textContent = set ? 'Saved as the Default artwork.' : 'Default artwork cleared.';
       await ed.loadDefaults();
       done();
     } catch (e) {
-      if (pinNeeded(e.status, e.code)) {
-        pinRow.hidden = false;
-        pin.focus();
-      }
       said.textContent = e.message;
     }
   }
@@ -63,7 +48,6 @@ export function createDefaultRow({ ed, patch, done }) {
     text,
     warn,
     el('div', 'sode-side__row', setBtn, follow, clearBtn),
-    pinRow,
     said,
   );
 
