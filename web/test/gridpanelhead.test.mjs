@@ -1,4 +1,3 @@
-// A Grid panel's words and banner rule (gridpanelhead.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyText, bannerStep } from '../gridpanelhead.js';
@@ -7,11 +6,11 @@ test('a grid with no sources or no destinations says so, and how to add them', (
   assert.equal(emptyText({ srcs: 3, dsts: 2, canEdit: true }), null);
   assert.deepEqual(emptyText({ srcs: 0, dsts: 0, canEdit: true }), {
     title: 'This panel shows no sources or destinations',
-    msg: 'Add them in the editor.',
+    msg: '',
     edit: true,
   });
   assert.equal(emptyText({ srcs: 0, dsts: 4, canEdit: false }).title, 'This panel shows no sources');
-  assert.equal(emptyText({ srcs: 4, dsts: 0, canEdit: false }).msg, 'The owner of the panel adds them in the editor.');
+  assert.equal(emptyText({ srcs: 4, dsts: 0, canEdit: false }).msg, 'Only its owner can add them.');
 });
 
 test('banner: a result that went well never takes the place of an error, and counts as held back', () => {
@@ -19,7 +18,7 @@ test('banner: a result that went well never takes the place of an error, and cou
   const ok = bannerStep(err, { text: 'Taken: 1 route', kind: 'ok', key: '5' });
   assert.equal(ok.shown, err);
   assert.equal(ok.back, true);
-  // Once its X closes it, the next result shows.
+  // After its X closes it, the next result shows.
   const after = bannerStep({ ...err, gone: true }, { text: 'Taken: 1 route', kind: 'ok', key: '6' });
   assert.equal(after.shown.title, 'Taken: 1 route');
 });
@@ -40,7 +39,7 @@ test('banner: errors of one group join; another error takes the place', () => {
   assert.deepEqual([s.title, s.line], ['Sode did not answer', '']);
   s = bannerStep(s, { text: 'Sode did not answer', kind: 'error', key: '4' }).shown;
   assert.equal(s.title, 'Sode did not answer (2 times)');
-  // A result that went well after a result that went well takes its place.
+  // A good result replaces the good result before it.
   const a = bannerStep(null, { text: 'Taken: 1 route', kind: 'ok', key: '7' }).shown;
   assert.equal(bannerStep(a, { text: 'Taken: 2 routes', kind: 'ok', key: '8' }).shown.title, 'Taken: 2 routes');
 });

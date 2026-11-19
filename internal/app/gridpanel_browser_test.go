@@ -261,7 +261,7 @@ func TestChromeGridPanelSharingModes(t *testing.T) {
 		t.Fatalf("revoke: %d %s", rec.Code, rec.Body.String())
 	}
 	b.open(srv.URL + "/panels/" + id + "?instance=Lobby#key=" + strings.TrimPrefix(secret, keyPrefix))
-	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("This link's key no longer works")`)
+	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("Key rotated or revoked")`)
 	p, _ := a.panels.get(id)
 	var kid string
 	for deadline := time.Now().Add(15 * time.Second); kid == ""; time.Sleep(50 * time.Millisecond) {

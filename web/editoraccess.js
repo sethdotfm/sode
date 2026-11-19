@@ -1,6 +1,4 @@
-// The sidebar's Access tab: who the panel acts as, the Rights limits of its own API client, and sharing.
 // The server decides who is allowed to set up a client (ADR 0006): a Trusted user, within their own Rights.
-// Sharing is the Share modal's job (panelshare.js), opened from the toolbar's Share button.
 import { $, el } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, segmented } from './formbits.js';
@@ -12,9 +10,9 @@ import { draftOf, rightsOf } from './rightsrules.js';
 import { rightsRows } from './sidebarrules.js';
 
 const LISTS = [
-  ['sources', 'Sources', 'Router numbers, such as 1-8, 12'],
-  ['dsts', 'Destinations', 'Router numbers, such as 1-8, 12'],
-  ['levels', 'Levels', 'Level numbers, such as 1, 2'],
+  ['sources', 'Sources', '1-8, 12'],
+  ['dsts', 'Destinations', '1-8, 12'],
+  ['levels', 'Levels', '1, 2'],
   ['presets', 'Presets', 'One name per line'],
 ];
 
@@ -147,7 +145,6 @@ export function createAccessTab(ed, ctx) {
         guard.cancel();
       }
       acts.set(asking ?? f.acts);
-      // Any editor sets up a client within their own Rights; the server refuses wider ones (ADR 0006).
       acts.disable(ro);
       publicWarn.hidden = !isPublic(f);
       clientBox.hidden = !hasClient(f);

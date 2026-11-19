@@ -1,4 +1,3 @@
-// The panel page's own chrome: kiosk on and off for one open page, and the header buttons' wording (panelchromerules.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { kioskNow, headHidden, leavesKiosk, fullscreenWords, kioskWords } from '../panelchromerules.js';

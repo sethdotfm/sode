@@ -1,4 +1,3 @@
-// Fixed destination (settings.fixedDests): a panel that always patches to the same destinations (panelmodel.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -195,7 +194,7 @@ test('the Current Source and the Source states read the first fixed destination'
   assert.equal(sourceState(st, 6, env()), 'current');
   assert.equal(sourceState(st, 5, env()), 'idle');
   assert.equal(sourceState(pressSource(st, S(5), env(), T0), 5, env()), 'pending');
-  // The first one has it already, the second is staged for it: there is still something to take.
+  // The first destination has the source; the second is staged, so there is a route to take.
   assert.equal(sourceState(pressSource(fixed([0, 1]), S(5), env(), T0), 5, env()), 'pending');
 });
 

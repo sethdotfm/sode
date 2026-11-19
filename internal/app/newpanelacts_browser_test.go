@@ -46,7 +46,7 @@ func TestChromeEditorNewPanelTakesTheNewPanelMode(t *testing.T) {
 	if got := saved(true, "public", "public", "Public on"); got != "public" {
 		t.Fatalf("Public default: stored %q", got)
 	}
-	b.waitFor("the first save says anyone with the link can use it", `document.getElementById('ed-status').textContent.includes('Anyone with the link can use the panel')`)
+	b.waitFor("the first save says anyone with the link can use it", `document.getElementById('ed-status').textContent.includes('Public: anyone with the link can use it.')`)
 	if b.eval(`document.querySelector('#panel-ed-access .sode-ov__keyconfirm')?.hidden ?? true`) != true {
 		t.Error("a new Public panel asked for a Confirm")
 	}

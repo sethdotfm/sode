@@ -1,4 +1,3 @@
-// The Undo cell's rules (panelmodel.js) and its status words (panelrules.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

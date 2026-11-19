@@ -1,5 +1,3 @@
-// A Grid panel on the phone layout (gridpanelphone.js): the press point of the numbered targets with no hover.
-// Also the Take button, which every layout shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPicks, pickName } from '../gridpanelpick.js';

@@ -1,4 +1,3 @@
-// The Authentication mode a blank new panel starts with (Settings > Access > Panels). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newPanelActs } from '../panelsrules.js';

@@ -24,7 +24,7 @@ import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
 import './panelkeytab.js';
 import { openPush } from './panelpush.js';
-import { artLeftOut } from './panelrules.js';
+import { artLeftOut, SIGN_IN_ENDED } from './panelrules.js';
 import { openAssign, askName } from './panelassign.js';
 import { clashOf, renameRefusal } from './panelassignrules.js';
 import { isGridPanel } from './gridpaneledges.js';
@@ -36,6 +36,9 @@ import { statusBadge, panelStatus } from './brokenbadge.js';
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
 let disarm = 0;
+// The list belongs to the user who loaded it: a sign-out or another user clears it, and the next key loads again.
+let keyed = false;
+let shownFor = null;
 
 const say = (text) => {
   const n = $('panels-note');
@@ -81,6 +84,8 @@ function thumb(p, small) {
   return box;
 }
 
+const shownIds = () => groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((p) => p.id));
+
 const owner = (p) => (p.owner.toLowerCase() === S.me.toLowerCase() ? 'You' : p.owner);
 
 function row(p) {
@@ -88,7 +93,6 @@ function row(p) {
   b.type = 'button';
   b.dataset.id = p.id;
   b.setAttribute('aria-current', String(p.id === S.cur));
-  // Empty hook for the online dot, so monitoring can fill it without reshaping the row.
   const online = el('span', 'sode-ov__online');
   online.dataset.online = p.id;
   const who = el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsShort(p)}`));
@@ -138,16 +142,12 @@ function detail(p) {
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
   if (!phone && S.me) bar.append(button('Send a copy', 'forward', '', 'send', p.id));
   if (!phone && (S.trusted || p.canEdit)) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
-  // Link with key goes here.
-  const slot = el('span', 'sode-ov__more');
-  slot.id = 'panels-more';
-  bar.append(slot);
   if (acts.includes('delete')) bar.append(button(S.armed === p.id ? 'Delete? Press again' : 'Delete', 'trash-2', 'pb-btn--ghost', 'delete', p.id));
   const kv = el(
     'dl',
     'sode-ov__kv',
     el('dt', '', 'Owner'),
-    el('dd', '', owner(p) + (p.canEdit ? '' : ' (you can use it, not change it)')),
+    el('dd', '', owner(p) + (p.canEdit ? '' : ' (read only)')),
     el('dt', '', 'Acts as'),
     el('dd', '', actsLabel(p).replace('Acts as ', '') + launchNote(p)),
     el('dt', '', 'Shared with'),
@@ -178,7 +178,9 @@ function draw() {
   const shown = groups.flatMap((g) => g.panels);
   if (!shown.some((p) => p.id === S.cur)) S.cur = shown[0]?.id || '';
   list(groups);
+  const act = document.activeElement?.closest('#panels-detail [data-act]')?.dataset.act;
   detail(shown.find((p) => p.id === S.cur));
+  if (act) $('panels-detail').querySelector(`[data-act="${act}"]`)?.focus();
   paintOnline(S.panels);
 }
 
@@ -251,7 +253,7 @@ const openHandlers = () => ({ setWatch, setHide, rename, reload, trusted: S.trus
 
 // Online marks and the Open now list change without a redraw, so a button that a person presses is not rebuilt.
 async function refreshOnline() {
-  if (!S.loaded || document.hidden) return;
+  if (!S.loaded || !keyed || document.hidden) return;
   try {
     const next = (await api('api/v1/panels')).panels;
     for (const p of next) {
@@ -270,6 +272,7 @@ async function refreshOnline() {
 }
 
 async function load(pick) {
+  shownFor = S.me;
   try {
     S.panels = (await api('api/v1/panels')).panels;
     S.loaded = true;
@@ -333,7 +336,7 @@ export function runPanelsList() {
     draw();
   });
   $('panels-find').addEventListener('keydown', (e) => {
-    const ids = groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((p) => p.id));
+    const ids = shownIds();
     const step = resultStep(e, ids.length > 0);
     if (step) {
       e.preventDefault();
@@ -353,7 +356,7 @@ export function runPanelsList() {
     const what = listKey(e, mac);
     if (!what) return;
     if (what === 'next' || what === 'prev') {
-      const ids = groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((x) => x.id));
+      const ids = shownIds();
       e.preventDefault();
       S.cur = stepPanel(ids, S.cur, what === 'next' ? 1 : -1);
       S.armed = '';
@@ -382,17 +385,19 @@ export function runPanelsList() {
   on('access', (a) => {
     S.me = a.user || '';
     S.trusted = !!a.trusted && !!a.user;
+    if (shownFor === null || shownFor === S.me) return;
+    shownFor = null;
+    Object.assign(S, { panels: [], cur: '', armed: '', loaded: false });
+    draw();
+    if (keyed && S.me) load();
   });
-  let first = true;
   onSessionKey((k, step) => {
+    keyed = !!k;
     $('panels-signin').hidden = step !== 'sign-in';
     if (k) {
-      if (first) {
-        first = false;
-        load();
-      }
-    } else if (step === 'ended') say("This page's sign-in key was ended. Reload the page to sign in again.");
-    else if (step === 'sign-in') say('Sign in with your PIN to see your panels.');
+      if (shownFor === null) load();
+    } else if (step === 'ended') say(SIGN_IN_ENDED);
+    else if (step === 'sign-in') say('Sign in to see your panels.');
     else if (step === 'no-users') say('Panels need a user, and Sode has none.');
   });
   onLayout(draw);

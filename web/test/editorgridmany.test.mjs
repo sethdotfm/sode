@@ -1,4 +1,3 @@
-// The Grid panel editor's edits of several selected entries at once (editorgridrules.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { moveRows, stepRows, pinItems, removeItems, itemsArt, itemsHideText, edgeRows, edgeListKey } from '../editorgridrules.js';

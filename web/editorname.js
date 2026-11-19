@@ -1,5 +1,4 @@
-// The toolbar's Rename: an icon beside the panel picker, which already shows the name. It opens the sidebar's Panel
-// tab with the Name field focused. #ed-name stays hidden and is the one source of the name for the rest of the editor.
+// The toolbar's Rename opens the Panel tab with the Name field focused.
 import { $, el, icon } from './core.js';
 
 // rename() is the sidebar's (editorside.js renameField).
@@ -9,7 +8,7 @@ export function initNameEdit(rename) {
   btn.type = 'button';
   btn.id = 'ed-name-btn';
   btn.setAttribute('aria-label', 'Rename');
-  btn.dataset.pbTip = 'Rename this panel';
+  btn.dataset.pbTip = 'Rename';
   btn.addEventListener('click', rename);
   $('ed-pick').closest('label').after(btn);
 }

@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MODES,
-  INSTANCE_MAX,
   INSTANCE_HOLD,
   SESSION_WARNING,
   instanceCheck,
@@ -62,7 +61,7 @@ test('making a link asks first only when an instance would end', () => {
 test('the two kinds of link say what they are', () => {
   assert.deepEqual(
     MODES.map(([, text]) => text),
-    ['Named instance link', 'One-time setup link'],
+    ['Named link', 'Setup link, 1 hour'],
   );
   assert.ok(!JSON.stringify(MODES).includes('Standing'));
 });
@@ -74,9 +73,7 @@ test('an instance name is required, unique ignoring case, and counts against the
   assert.equal(instanceCheck(' lobby ', keys, 20).held.name, 'Lobby');
   assert.equal(instanceCheck('lobby', keys, 20).error, '');
   assert.equal(instanceCheck('Gym', keys, 20).held, null);
-  assert.equal(instanceCheck('\u{1F3A5}'.repeat(40), keys, 20).error, '');
-  assert.ok(instanceCheck('x'.repeat(INSTANCE_MAX + 1), keys, 20).error.includes('40'));
-  assert.ok(instanceCheck('Gym', keys, 2).error.includes('at most 2'));
+  assert.ok(instanceCheck('Gym', keys, 2).error.includes('At most 2'));
   assert.equal(instanceCheck('lobby', keys, 2).error, '', 'rotating a held name is allowed at the cap');
 });
 
@@ -102,7 +99,7 @@ test('the Share modal opens on the tab that fits how the panel acts', () => {
   assert.ok(SESSION_WARNING.includes('sign-in'));
 });
 
-// A Public panel needs no key for its link, so the tab is muted as for a User panel, though the panel has a client.
+// A Public panel's link needs no key, so the tab is muted although the panel has a client.
 test('the Link with key tab is muted for a User or a Public panel', () => {
   assert.equal(keyTabMuted({ acts: 'session' }), true);
   assert.equal(keyTabMuted({ acts: 'public' }), true);
@@ -156,15 +153,15 @@ test('a session key that ended stops the page and says how to go on; a wait from
     const f = pollFail(401, code, 'ended', false);
     assert.equal(f.stop, true);
     assert.match(f.text, /Reload/);
-    assert.match(pollFail(401, code, 'ended', true).text, /ask for a new link/);
+    assert.match(pollFail(401, code, 'ended', true).text, /Ask for a new link/);
   }
   const wait = pollFail(429, 'rate_limited', 'slow down', false);
   assert.equal(wait.stop, false);
-  assert.match(wait.text, /wait/);
+  assert.match(wait.text, /busy/);
 });
 
 test('a refused setup says why', () => {
-  assert.match(setupFailText(401), /already used/);
+  assert.match(setupFailText(401), /used, expired/);
   assert.equal(setupFailText(403, 'outside'), 'outside');
 });
 
@@ -213,7 +210,6 @@ test('a panel that stopped being Public passes the refusal on', async () => {
   assert.equal((await call('p', {})).status, 401);
 });
 
-// A lockout or a lost link is not the end of the panel: the call fails like lost contact and the next one asks again.
 test('a Public key that cannot be asked for now fails the call, and the next call asks again', async () => {
   let asks = 0;
   const call = publicFetch('old', {

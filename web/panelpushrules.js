@@ -72,17 +72,15 @@ export const setBody = (set, selected) => ({ targets: setTargets(set, selected) 
 const nameOf = (panels, id) => panels.find((p) => p.id === id)?.name || id;
 const list = (names) => (names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
 
-// The line after a Push, from the server's answer.
 export function pushSummary(result, panels) {
   const done = (result.pushed || []).map((p) => nameOf(panels, p.panel));
   const skipped = (result.skipped || []).map((s) => nameOf(panels, s.panel));
-  let text = done.length ? `Pushed to ${list(done)}. A checkpoint of each was kept.` : 'Nothing was pushed.';
-  if (skipped.length) text += ` Skipped ${list(skipped)}, which no longer exists.`;
+  let text = done.length ? `Pushed to ${list(done)}. Checkpoints kept.` : 'Nothing pushed.';
+  if (skipped.length) text += ` Skipped ${list(skipped)} (deleted).`;
   for (const p of result.pushed || []) if (p.artSkipped?.length) text += ` ${artLeftOut(p.artSkipped, nameOf(panels, p.panel))}`;
   return text;
 }
 
-// A checkpoint as one line: when, who, what it holds.
 export function checkpointLabel(cp) {
   const when = String(cp.at || '')
     .replace('T', ' ')

@@ -1,6 +1,5 @@
-// An open panel page is an instance of the panel (docs/panels-design.md, Monitoring). The page asks for the device
-// name one time per browser. Then a keepalive goes out every 15 seconds so Sode knows the instance is alive. A held stream
-// tells Sode at once when the page closes; the keepalive is the fallback when a proxy or browser will not hold it.
+// An open panel page is an instance of the panel (docs/panels-design.md, Monitoring). A held stream tells Sode at once when the
+// page closes; the keepalive is the fallback when a proxy or browser will not hold it.
 import { readStr, writeStr } from './store.js';
 import { KEEPALIVE_MS, deviceFrom, keepaliveBody, streamPath, retryMs, renameTo } from './panelwatchrules.js';
 import { splitLines, assignOf, keylessPath, renameOf, renamedSearch } from './panelassignrules.js';
@@ -86,12 +85,9 @@ function keepName(name) {
   return name;
 }
 
-// call(path, init) is the page's keyed fetch; form holds the name input and its Save button. preset is the link's
-// ?instance= name. It stands in for the stored name and the question. It is never stored, so the link stays the authority.
-// onName(device, editable) hears the name after it is known and after a rename. onAssign(msg) hears an Assign, after
-// which nothing is held or sent. Returns { rename(name), stop() }; a preset name is renamed only from the panels page. The old name's
-// instance goes quiet and is lost after the usual grace, as any closed page is.
-// ask false (settings.askInstanceName) never shows the form: an unnamed page beats with '' and Sode names it by address.
+// call(path, init): the page's keyed fetch. form: the name input and its Save button. preset: the link's ?instance= name,
+// never stored, renamed only from the panels page. onName(device, editable) and onAssign(msg) hear changes. ask false
+// (settings.askInstanceName): no form; the page beats with '' and Sode names it by address. Returns { rename(name), stop() }.
 export function startKeepalive(call, id, form, preset = '', onName = () => {}, onAssign = () => {}, ask = true) {
   let device = deviceFrom(preset) || deviceFrom(readStr(DEVICE_KEY));
   let timer = 0;

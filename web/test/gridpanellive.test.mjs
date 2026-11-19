@@ -1,4 +1,3 @@
-// What a live update (a newer saved copy) keeps on an open Grid panel: arrange (gridpanelarrange.js) and restage (gridpanelstage.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { arrange } from '../gridpanelarrange.js';

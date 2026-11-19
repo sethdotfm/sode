@@ -7,24 +7,7 @@ import { artNode } from './panelview.js';
 import { cellScale, textHidden, withDefault } from './panellook.js';
 import { goToState, navText } from './panelnav.js';
 import { PAGE_KINDS, pageCellText } from './pagecells.js';
-
-// keep in step with findrules.js CATEGORY_ICON
-const KIND_ICON = {
-  source: 'arrow-right-from-line',
-  destination: 'arrow-right-to-line',
-  take: 'zap',
-  preset: 'bookmark',
-  clear: 'eraser',
-  undo: 'undo-2',
-  current: 'eye',
-  panelName: 'panels-top-left',
-  instanceName: 'tablet-smartphone',
-  pageName: 'file-type',
-  info: 'info',
-  goToPage: 'file-symlink',
-  nextPage: 'chevron-right',
-  previousPage: 'chevron-left',
-};
+import { CATEGORY_ICON } from './findrules.js';
 
 // A cell's text in the editor: the caption, else the router name, else what is still to be chosen. pages is the
 // panel's Page list, for a Go to Page cell's target; page is the id of the Page the cell sits on.
@@ -111,7 +94,7 @@ export function createEditorGrid(host, on) {
             if (art) b.append(art);
             if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
             if (textHidden(drawn)) b.dataset.hideText = '1'; // the square hides its words as the panel page will (panels.css)
-            b.append(icon(KIND_ICON[cell.kind] || 'square-dashed'), el('span', 'sode-ed__text', cellText(cell, names, pages, page)));
+            b.append(icon(CATEGORY_ICON[cell.kind] || 'square-dashed'), el('span', 'sode-ed__text', cellText(cell, names, pages, page)));
           }
           host.append(b);
         }

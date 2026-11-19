@@ -4,7 +4,6 @@
 import { PAGE_MAX, PAGE_NAME_MAX, newPageId } from './panelpages.js';
 import { moveItem } from './orderedlistrules.js';
 
-// Pages open side by side at most.
 export const OPEN_MAX = 4;
 
 export const addPage = (pages, id = newPageId()) => (pages.length >= PAGE_MAX ? pages : [...pages, { id, enabled: true, cells: [] }]);

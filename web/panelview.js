@@ -1,5 +1,4 @@
-// Draws a panel's grid from the state model. Holds no state of its own: paintGrid is called after
-// every change, with the model state, the router env and the names.
+// Holds no state of its own: paintGrid is called after every change.
 import { el, icon } from './core.js';
 import { artOf, artBOf, artBBadge, cellScale, textHidden } from './panellook.js';
 import { currentLabel, nameCellText, presetKey, presetName, SHOW_KINDS } from './panelrules.js';
@@ -159,20 +158,17 @@ function paintPreset(b, cell, { st, env, names }) {
   b.disabled = !env.presets?.has(presetKey(cell.scope, presetName(env, cell)));
 }
 
-// Not pressable: it only reads the viewed destination.
 function paintCurrent(b, cell, { st, env, names }) {
   const src = currentSource(env, st);
   const label = currentLabel(cell, st.view ? names.destination(st.view.dst) : '');
   fill(b, el('small', 'sode-panel__text', label), el('span', 'sode-panel__text', src >= 0 ? names.source(src) : ''));
 }
 
-// Not pressable: the panel's own name, or the name of the instance that shows it.
 function paintName(b, cell, ctx) {
   const t = nameCellText(cell, ctx);
   fill(b, ...(t.caption ? [el('small', 'sode-panel__text', t.caption)] : []), el('span', 'sode-panel__text', t.value));
 }
 
-// Not pressable: the Page this grid shows (st.page), so a copy on another Page names that Page.
 function paintPageCell(b, cell, ctx) {
   const t = pageCellText(cell, { ...ctx, page: ctx.st.page });
   const cap = t.caption ? [el('small', 'sode-panel__text', t.caption)] : [];

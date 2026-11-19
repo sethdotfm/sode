@@ -1,5 +1,4 @@
-// Panel cells as stored router references (internal/app/panelrefs.go). The page fires the same routes as
-// from bare numbers. A Preset cell finds its preset by id after a rename.
+// Keep in step with internal/app/panelrefs.go.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { envFrom, cellsIn } from '../panelrules.js';

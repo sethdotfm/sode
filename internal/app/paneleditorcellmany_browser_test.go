@@ -64,8 +64,8 @@ func TestChromeEditorCellMany(t *testing.T) {
 		t.Errorf("cells %v, want four, the last with Icon B 4", cells)
 	}
 
-	b.eval(`[...` + cell + `.querySelectorAll('.pb-btn')].find((x) => x.textContent === 'Remove Icon').click(); true`)
-	b.waitFor("Remove Icon clears every cell", `![1, 2, 3, 4].some((c) => document.querySelector('.sode-ed__sq[data-r="1"][data-c="' + c + '"] .sode-panel__art'))`)
+	b.eval(`[...` + cell + `.querySelectorAll('.pb-btn')].find((x) => x.textContent === 'Remove icon').click(); true`)
+	b.waitFor("Remove icon clears every cell", `![1, 2, 3, 4].some((c) => document.querySelector('.sode-ed__sq[data-r="1"][data-c="' + c + '"] .sode-panel__art'))`)
 	b.check()
 }
 

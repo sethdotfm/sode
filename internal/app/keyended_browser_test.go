@@ -174,7 +174,7 @@ func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 		t.Fatalf("revoke: %d %s", rec.Code, rec.Body.String())
 	}
 	mark = tap.len()
-	b.waitFor("the page says its key ended", `/no longer works/.test(document.getElementById('panels-note')?.textContent || '')`)
+	b.waitFor("the page says its key ended", `/Key rotated or revoked/.test(document.getElementById('panels-note')?.textContent || '')`)
 	after := tap.since(mark, link)
 	// Absence needs time to show: longer than a poll, an update check and a keepalive retry.
 	time.Sleep(7 * time.Second)

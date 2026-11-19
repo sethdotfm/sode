@@ -57,7 +57,7 @@ const routesText = (n) => (n === 1 ? '1 staged route' : `${n} staged routes`);
 // plan is planOf (gridpanelplan.js); tally() is the last GET /tally answer. A plan with verb 'undo' is this instance's
 // Undo; with replace set too, it only asks to drop that many staged routes for the Undo.
 export function gridSummary(plan, tally) {
-  if (plan.replace) return [el('div', null, 'Are you sure you want to drop ', strong(routesText(plan.replace)), " and stage this panel's Undo?")];
+  if (plan.replace) return [el('div', null, 'Drop ', strong(routesText(plan.replace)), " and stage this panel's Undo?")];
   const n = plan.items.length;
   const srcs = new Set(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
   const firstSrc = plan.items[0].groups[0].srcName;
@@ -80,7 +80,7 @@ export function gridSummary(plan, tally) {
         ),
       ]
     : [];
-  if (plan.verb === 'undo') left.push(el('div', null, 'This undoes the last take of this panel instance.'));
+  if (plan.verb === 'undo') left.push(el('div', null, "Undo of this instance's last take."));
   if (n === 1)
     return [...left, question, ...plan.items[0].groups.map((g) => routeRow(tally, g, plan.items[0].dstName)), ...nowRows(tally, plan.items[0], false)];
   return [

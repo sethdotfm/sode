@@ -62,7 +62,7 @@ func TestChromePanelKioskAndRefusal(t *testing.T) {
 	b.eval(`window.__gridTop = ` + gridTop)
 	b.eval(cell("destination", 1) + `.click()`)
 	b.eval(cell("source", 0) + `.click()`)
-	b.waitFor("refusal shown", `document.getElementById('panel-status').textContent.includes("outside this panel's rights")`)
+	b.waitFor("refusal shown", `document.getElementById('panel-status').textContent.includes("outside this panel's Rights")`)
 	b.waitFor("Take not armed", cell("take", 0)+`.disabled`)
 	b.waitFor("the grid did not move", gridTop+` === window.__gridTop`)
 	b.waitFor("the refusal sits at the bottom of the viewport", `(() => {

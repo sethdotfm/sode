@@ -66,7 +66,7 @@ func TestChromeSeamKeylessAssignRunsFixedDestsThenKeyEnds(t *testing.T) {
 	}
 
 	b.open(srv.URL + "/panels/studio-a?instance=Lobby#key=" + strings.TrimPrefix(secret, keyPrefix) + "&kiosk=1")
-	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("This link's key no longer works")`)
+	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("Key rotated or revoked")`)
 	fromPanel, _ := a.panels.get(from)
 	var kid string
 	until("the page announces itself keyless", func() bool {
@@ -108,7 +108,7 @@ func TestChromeSeamKeylessAssignRunsFixedDestsThenKeyEnds(t *testing.T) {
 	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+to+"/key?instance=Lobby", ana, ""); rec.Code/100 != 2 {
 		t.Fatalf("revoke the assigned key: %d %s", rec.Code, rec.Body.String())
 	}
-	b.waitFor("the ended-key note on the target", `document.getElementById('panels-note')?.textContent.includes("This link's key no longer works")`)
+	b.waitFor("the ended-key note on the target", `document.getElementById('panels-note')?.textContent.includes("Key rotated or revoked")`)
 	toPanel, _ := a.panels.get(to)
 	until("the target's page announces itself keyless", func() bool {
 		rows := a.mon.keylessOf(toPanel)

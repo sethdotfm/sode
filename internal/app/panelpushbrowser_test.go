@@ -55,7 +55,7 @@ func TestChromePushFlow(t *testing.T) {
 	b.eval(`(() => { const i = document.querySelector('#panel-sets input.pb-input'); i.value = 'Show A'; i.dispatchEvent(new Event('input', {bubbles: true})); })()`)
 	b.waitFor("Save enabled", `document.querySelector('#panel-sets .pb-btn--outline').disabled === false`)
 	b.eval(`document.querySelector('#panel-sets .pb-btn--outline').click()`)
-	b.waitFor("set saved", `document.querySelector('.sode-ov__share .pb-modal__footer .sode__hint').textContent === 'Saved the set Show A.'`)
+	b.waitFor("set saved", `document.querySelector('.sode-ov__share .pb-modal__footer .sode__hint').textContent === 'Saved set Show A.'`)
 	if n := len(apiBody(t, apiDo(a, "GET", "/api/v1/panel-sets", ana, nil))["sets"].([]any)); n != 1 {
 		t.Fatalf("sets %d", n)
 	}

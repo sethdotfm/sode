@@ -5,7 +5,7 @@ import { shortSecret } from './panellink.js';
 import { durationText } from './panelwatchrules.js';
 import { wordScore } from './findrules.js';
 import { stepPanel } from './panelsrules.js';
-import { INSTANCE_MAX, INSTANCE_HOLD } from './panelkeyrules.js';
+import { INSTANCE_HOLD } from './panelkeyrules.js';
 
 // How an Assign to the panel lands: its client's key, the device's own sign-in, or a choice of both with the key
 // first. The values are the assign route's as.
@@ -23,7 +23,7 @@ function opens(panel, user, trusted) {
 
 // signIn is the server's word for who opened the last stream; "ended" and "none" are a page with no working key.
 export function signInText(i) {
-  if (i.signIn === 'client') return "Signed in as the panel's client";
+  if (i.signIn === 'client') return "Signed in as the panel's API client";
   if (i.signIn === 'user' && i.user) return `Signed in as ${i.user}`;
   if (i.signIn === 'ended') return 'Key ended';
   return 'Not signed in';
@@ -32,11 +32,8 @@ export function signInText(i) {
 // Whole minutes: the list redraws only when a row's text changes, and it is read every MON_POLL_MS.
 export const uptimeText = (secs) => (secs < 60 ? 'under a minute' : durationText(Math.floor(secs / 60) * 60));
 
-// The Sode panel pages (page: they held the instance stream) of the panels the page can read with instances. The
-// sort is by their current panel's name, then the instance name. here marks the ones already on the target; timedOut the ones
-// with no stream now, which have nothing to send on. The server keeps an instance 24 hours after it was last heard.
-// bySignIn is an Assign that sends the device to the target's sign-in, where a signed-in user keeps their session.
-// With it, notShared marks a user who cannot open the target, so the page would show that no panel there is theirs.
+// Rows: the Sode panel pages of the panels read with instances, by panel name, then instance name. timedOut: no stream now
+// (the server keeps an instance 24 hours). notShared (bySignIn only): the user cannot open the target.
 export function assignRows(panels, targetId, now, bySignIn = false) {
   const target = panels.find((p) => p.id === targetId);
   const rows = [];
@@ -86,9 +83,8 @@ export function assignRows(panels, targetId, now, bySignIn = false) {
   return rows.sort((a, b) => by(a.panelName, b.panelName) || by(a.device, b.device));
 }
 
-// Find over the list: the panel Find's scoring (wordScore) on each row's name, current panel, address and sign-in
-// state. A name hit ranks above the rest. Every word must hit some field. Best first; the stable sort keeps the list's
-// own order for equal scores and for an empty query.
+// Find over the list, scored as the panel Find (wordScore). A name hit ranks above the rest; every word must hit some field.
+// The stable sort keeps the list's order for equal scores.
 export function rankAssign(rows, q) {
   const words = String(q || '')
     .toLowerCase()
@@ -115,7 +111,6 @@ export function rankAssign(rows, q) {
 // The row key the highlight sits on: cur while it is still listed, else the first row.
 export const curRow = (rows, cur) => (rows.some((r) => r.key === cur) ? cur : rows[0]?.key || '');
 
-// Ctrl/Cmd+J, K (as the panels list) move the highlight and stop at the ends.
 export const stepRow = (rows, cur, step) =>
   stepPanel(
     rows.map((r) => r.key),
@@ -123,13 +118,12 @@ export const stepRow = (rows, cur, step) =>
     step,
   );
 
-// Enter assigns the highlighted row; a greyed or timed-out one does nothing.
 export const enterRow = (rows, cur) => {
   const r = rows.find((x) => x.key === curRow(rows, cur));
   return r?.assignable ? r : null;
 };
 
-// The stream answers JSON lines, and it is possible that a line arrives split across chunks; rest waits for the next one.
+// A JSON line can arrive split across chunks; rest waits for the next one.
 export function splitLines(rest, chunk) {
   const parts = (rest + chunk).split('\n');
   return { lines: parts.slice(0, -1).filter((l) => l.trim()), rest: parts.at(-1) };
@@ -157,9 +151,8 @@ export function assignOf(line) {
   return { panel: m.panel, slug: m.slug || '', instance: m.instance, key: m.key || '' };
 }
 
-// The target's address, built as linkFor builds one: the short name when there is one, the page's own ?instance=, and
-// the fragment. The fragment keeps its kiosk part and drops an old key or setup token. seg is what the page stores the key under,
-// since it reads the stored key by its address. stored false puts the key in the fragment instead.
+// The target's address, built as linkFor builds one. The fragment keeps its kiosk part and drops an old key or setup token.
+// seg is what the page stores the key under (it reads the stored key by address); stored false puts the key in the fragment.
 export function assignAddress(msg, { search, hash }, stored) {
   const seg = msg.slug || msg.panel;
   const keep = hash
@@ -174,16 +167,13 @@ export function assignAddress(msg, { search, hash }, stored) {
   return { seg, href: `panels/${seg}${qs ? `?${qs}` : ''}${frag ? `#${frag}` : ''}` };
 }
 
-// A name clash answers 409 name_taken with the server's suggestion (its name plus 2, or the next free number). Any
-// other failure gives null, since it has no name to offer.
+// 409 name_taken carries the server's suggestion; any other failure gives null.
 export const clashOf = (err) => (err?.code === 'name_taken' ? err.suggest || '' : null);
 
-// What is wrong with a name typed in the clash dialog, or ''. A name the server still finds taken comes back as
-// another clash with a new suggestion.
+// A name the server still finds taken comes back as another clash.
 export function assignNameProblem(text, clashed) {
   const name = String(text || '').trim();
   if (!name) return INSTANCE_HOLD;
-  if ([...name].length > INSTANCE_MAX) return `Use at most ${INSTANCE_MAX} characters.`;
   if (name.toLowerCase() === String(clashed || '').toLowerCase()) return `The panel already has an instance named ${name}.`;
   return '';
 }
@@ -193,12 +183,9 @@ export const streamState = (i) => (!i?.page && !i?.keyless ? '' : i.stream ? 're
 
 export const renameRefusal = (err) => ({ why: err?.message || '' });
 
-// What is wrong with a typed instance name, or ''. A name the panel already holds comes back from the server as a
-// name clash with a suggestion, as for an Assign.
 export function renameProblem(text) {
   const name = String(text || '').trim();
   if (!name) return INSTANCE_HOLD;
-  if ([...name].length > INSTANCE_MAX) return `Use at most ${INSTANCE_MAX} characters.`;
   return '';
 }
 

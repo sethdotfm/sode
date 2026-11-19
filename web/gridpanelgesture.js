@@ -20,7 +20,7 @@ export function lineGestures(g, on) {
   const { scroll } = g;
   let down = null; // { a, id }: a mouse or pen press on a crosspoint, not yet past the click threshold.
   let active = null; // { kind: 'pointer' | 'touch', x, y }: a line draws; x and y are the last client point.
-  let span = null; // { kind, from, to, add, id, on, x, y }: a mouse or pen press on a name; on is true once it left that name.
+  let span = null; // { kind, from, to, add, id, on, x, y }: a mouse or pen press on a name; on is true after it left that name.
   let timer = 0;
   let touchAt = null; // the client point of a pending long-press.
   let nameAt = null; // { kind, n } of a pending long-press on a name.

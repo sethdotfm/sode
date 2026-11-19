@@ -1,4 +1,3 @@
-// Monitoring text and timing. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -23,7 +22,6 @@ test('a call from a panel page says its panel and instance in headers, and keeps
   assert.deepEqual(fromPanel({ headers: { 'Content-Type': 'application/json' } }, 'p-1', 'Lobby'), {
     headers: { 'Content-Type': 'application/json', 'X-Sode-Panel': 'p-1', 'X-Sode-Instance': 'Lobby' },
   });
-  // Before the instance is named only the panel goes; an id-less call sends nothing extra.
   assert.deepEqual(fromPanel({ method: 'POST' }, 'p-1', ''), { method: 'POST', headers: { 'X-Sode-Panel': 'p-1' } });
   assert.deepEqual(fromPanel({}, '', 'Lobby'), {});
   assert.deepEqual(fromPanel(undefined, 'p-1', 'Lobby'), { headers: { 'X-Sode-Panel': 'p-1', 'X-Sode-Instance': 'Lobby' } });
@@ -91,8 +89,8 @@ test('the banner names one panel, or counts several, and the Clear menu words fo
   assert.match(bannerText(one).text, /Lobby/);
   const two = [...one, { panel: 'p-2', name: 'Door', device: 'Hall' }];
   assert.equal(bannerText(two).title, '2 panels are offline');
-  assert.equal(clearNote(one).stop, 'Stop monitoring this panel');
-  assert.equal(clearNote(two).stop, 'Stop monitoring these panels');
+  assert.equal(clearNote(one).stop, 'Stop notifying for this panel');
+  assert.equal(clearNote(two).stop, 'Stop notifying for these panels');
 });
 
 test('a watched instance reads as an instance, and a mix is counted plainly', () => {
@@ -106,8 +104,8 @@ test('a watched instance reads as an instance, and a mix is counted plainly', ()
 });
 
 test('the lost line counts the silence up from the notice', () => {
-  assert.equal(lostText('Lobby', 8), 'Lobby has not been heard from for 8 seconds.');
-  assert.equal(lostText('Lobby', 8 + 55.4), 'Lobby has not been heard from for 1 minute 3 seconds.');
+  assert.equal(lostText('Lobby', 8), 'Lobby: no contact for 8 seconds.');
+  assert.equal(lostText('Lobby', 8 + 55.4), 'Lobby: no contact for 1 minute 3 seconds.');
 });
 
 test('a rename is the trimmed name when it is new and not empty, else nothing', () => {

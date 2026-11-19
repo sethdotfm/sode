@@ -1,5 +1,4 @@
-// Keeps an open panel current. It polls the panel's rev and Default artwork (revOf), shows the banner while an update waits and calls
-// apply(panel) when panelupdate.js says so. Polled because a browser cannot send Bearer on an event stream.
+// Polled because a browser cannot send Bearer on an event stream. Calls apply(panel) when panelupdate.js says so.
 import { el } from './core.js';
 import { createUpdate, noticeRev, snooze, canSnooze, applyNow, updateStep, applied, bannerLine, revOf } from './panelupdate.js';
 

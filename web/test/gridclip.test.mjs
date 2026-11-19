@@ -1,4 +1,3 @@
-// The editor's clipboard block (gridclip.js): copy, read and paste rules. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGrid, select } from '../gridmodel.js';
@@ -150,7 +149,7 @@ test('a paste past the edge does not fit and changes nothing, with the counts a 
   assert.deepEqual(plan.at, { r: 4, c: 7 });
   assert.deepEqual([plan.rows, plan.cols], [2, 3]);
   assert.equal(plan.outside, 1);
-  assert.match(pasteNote(plan), /past the edge/);
+  assert.match(pasteNote(plan), /past the grid edge/);
 });
 
 test('no selection, no paste', () => {
@@ -199,7 +198,7 @@ test('a Go to Page cell pasted into another panel arrives unassigned, with a not
   const other = pastePlan(g, b, { panel: 'p-2' });
   assert.equal(other.placed[0].page, undefined);
   assert.equal(other.lostTargets, 1);
-  assert.match(pasteNote(other), /1 Go to Page cell came in unassigned/);
+  assert.match(pasteNote(other), /1 Go to Page cell unassigned/);
   const same = pastePlan(g, b, { panel: 'p-1' });
   assert.equal(same.placed[0].page, 'aa');
   assert.equal(same.lostTargets, 0);

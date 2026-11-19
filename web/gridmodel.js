@@ -80,7 +80,7 @@ export function resize(g, rows, cols) {
 
 const inGrid = (g, r, c) => Number.isInteger(r) && Number.isInteger(c) && r >= 1 && c >= 1 && r <= g.rows && c <= g.cols;
 
-// A plain click selects one square. With extend the head moves and the anchor stays (drag, Shift-click).
+// extend: the head moves and the anchor stays (drag, Shift-click).
 export function select(g, r, c, extend = false) {
   if (!inGrid(g, r, c)) return g;
   const sel = extend && g.sel ? { anchor: g.sel.anchor, head: { r, c } } : { anchor: { r, c }, head: { r, c } };
@@ -317,7 +317,6 @@ export function dragRect(g, r, c) {
   return down >= up ? { ...q, r2: r } : { ...q, r1: r };
 }
 
-// The extension is placed per line, and the selection grows with it.
 export function applyExtend(g, plan) {
   if (!plan || !plan.slots.length) return g;
   let out = g;
@@ -335,7 +334,6 @@ export const isUnassigned = (c) => !cellsIn({ rows: c.r + c.rs, cols: c.c + c.cs
 // What a live panel shows of this grid: every cell it can use, so unassigned ones are left out.
 export const liveCells = (g) => cellsIn(g);
 
-// The grid as a panel stores it: reading order, no selection. Unassigned cells are kept.
 // Fixed destination keeps Destination cells out of the editor's grid but in the stored panel, so no edit can touch a
 // square nobody sees. putBack drops a held cell whose squares were filled meanwhile or that no longer fits.
 // The editor drops them immediately and says how many (paneleditor.js holdOrPutBack).
@@ -366,4 +364,5 @@ export function putBack(g, held) {
   return kept.length ? withCells(g, [...g.cells, ...kept]) : g;
 }
 
+// The grid as a panel stores it: reading order, no selection. Unassigned cells stay.
 export const saved = (g) => ({ rows: g.rows, cols: g.cols, cells: g.cells.map((c) => ({ ...c })).sort(reading) });

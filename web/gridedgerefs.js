@@ -26,7 +26,7 @@ export function edgeOut(edge) {
   if (Array.isArray(edge.members)) out.members = edge.members.map(ref);
   if (Array.isArray(edge.hide)) out.hide = edge.hide.map(ref);
   if (edge.items && !Array.isArray(edge.items)) {
-    // An item with no setting left (a pin taken off) is not stored.
+    // An item with no setting left (its pin removed) is not stored.
     out.items = Object.entries(edge.items)
       .map(([n, it]) => ({ n: Number(n), ...it }))
       .filter((it) => Object.entries(it).some(([k, v]) => k !== 'n' && v !== undefined))

@@ -275,7 +275,6 @@ body {
   transition: transform var(--wait-ms, 800ms) linear;
 }
 
-/* Full width, and Offline: the grid blurs under a framed message. */
 .sode-panels--full {
   max-width: none;
   padding: var(--pb-space-3);
@@ -371,11 +370,7 @@ body {
 .sode-panel__take {
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
 }
-/* The artwork row: Icon A (a sprite icon or an image) then Icon B (a glyph) side by side, each scaled to the row.
-   The row is a size container so the glyph follows the square's height (cqh), as the icon does. Alone, either
-   fills the row; beside a sprite icon Icon A takes 40% of its width and Icon B 60% (both shrink alike for the gap,
-   so the ratio holds). An image fills the row (--fill, always contain) and Icon B is a corner badge over it.
-   With the text hidden nothing sits over the artwork, so it is drawn at full strength. */
+/* Icon A, then Icon B. The row is a size container, so a glyph follows the square's height (cqh). An image fills the row and Icon B is a badge over it. */
 .sode-panel__art {
   align-items: center;
   color: var(--pb-text-strong);
@@ -840,7 +835,6 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* The Panel tab's Fixed destination field: chosen Destinations, then the picker's box and results. */
 .sode-fixed__chosen {
   display: flex;
   flex-direction: column;
@@ -1203,7 +1197,7 @@ body {
     max-height: none;
   }
 }
-/* One list (editorgridlist.js): its head, the panel's items with their bar, and Add from the router. */
+/* One list (editorgridlist.js). */
 .sode-edge {
   display: flex;
   flex-direction: column;
@@ -1249,7 +1243,6 @@ body {
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);
   padding-top: var(--pb-space-4);
 }
-/* The bar over the panel's list: the selection count, then icon buttons that act on the selection. */
 .sode-edge__acts {
   align-items: center;
   display: flex;
@@ -1346,7 +1339,7 @@ body {
 .sode-ed[data-type="grid"] #ed-templates {
   display: none;
 }
-/* A row is one line, as in the prototype: grip, number, artwork, name, then Pin, Move and Remove. */
+/* A row is one line: grip, number, artwork, name, then Pin, Move and Remove. */
 .sode-pages__row.sode-edge__row {
   align-items: center;
   border: 0;
@@ -1598,7 +1591,7 @@ body {
   flex-wrap: wrap;
   gap: var(--pb-space-4);
 }
-/* Rows and Columns share one line (TestChromeEditorSidebar). The sidebar had about 4px spare; keep the gap and inputs small so a wider font cannot wrap them. */
+/* Rows and Columns share one line (TestChromeEditorSidebar). Keep the gap and inputs small, so a wider font cannot wrap them. */
 .sode-side__steps {
   align-items: center;
   display: flex;
@@ -1649,8 +1642,7 @@ body {
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
 }
-/* The icon picker: Default icons, with Icon A and Icon B side by side, half each, each scrolling on its own; then
-   Uploaded icons across both. */
+/* The icon picker. Icon A and Icon B each scroll on their own. */
 .sode-side__picker {
   display: flex;
   flex-direction: column;
@@ -1695,7 +1687,6 @@ body {
   font-family: var(--pb-font-num);
   font-weight: var(--pb-weight-bold);
 }
-/* Uploaded icons (the Icon library), under the Default icons. */
 .sode-side__lib-sec {
   display: flex;
   flex-direction: column;
@@ -1773,7 +1764,6 @@ body {
   margin: 0;
 }
 
-/* Sidebar additions */
 .sode-side__head {
   align-items: baseline;
   display: flex;
@@ -1797,17 +1787,6 @@ body {
 .sode-side__people {
   margin: 0;
   padding-inline-start: var(--pb-space-5);
-}
-.sode-fixed__help {
-  color: var(--pb-text-muted);
-  cursor: help;
-  display: inline-flex;
-  vertical-align: middle;
-}
-/* The sidebar scrolls, so a one-line tip this long would be cut off at its edge. */
-.sode-fixed__help[data-pb-tip]::after {
-  white-space: normal;
-  width: 12rem;
 }
 .sode-ed__side .sode__tabs {
   gap: var(--pb-space-4);
@@ -1837,27 +1816,15 @@ body {
   min-width: 0;
   padding-block: var(--pb-space-1);
 }
-/* Classic scroll bars, so the lists show that they scroll even where the system hides overlay bars. */
 .sode-side__icons {
   overflow-y: scroll;
-  scrollbar-color: var(--pb-edge-hard) var(--pb-surface-sunken);
 }
-.sode-side__icons::-webkit-scrollbar {
-  width: 0.75rem;
-}
-.sode-side__icons::-webkit-scrollbar-track {
-  background: var(--pb-surface-sunken);
-}
-.sode-side__icons::-webkit-scrollbar-thumb {
-  background: var(--pb-edge-hard);
-}
-/* Panel picker in the toolbar, with the Rename icon (editorname.js) beside it. The Name field stays hidden. */
+/* The panel picker, with the Rename icon (editorname.js) beside it. */
 .sode-ed__pick {
   padding-inline-start: var(--pb-space-3);
 }
-/* A count has one tile per character. The Destination bar reads from the bottom up, as the Grid page's Sources label does.
-   The text scales with the square. In the list it never goes below 0.55rem, so it still reads; a character may then
-   pass its square. --sode-ov-cols is GRID_SQUARES + 1 (panelsrules.js). */
+/* A count has one tile per character. In the list the text never goes below 0.55rem, so it is possible that a character then
+   passes its square. --sode-ov-cols is GRID_SQUARES + 1 (panelsrules.js). */
 .sode-ov__thumb--grid {
   --sode-ov-cols: 9;
 }

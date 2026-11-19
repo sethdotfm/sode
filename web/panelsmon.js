@@ -1,5 +1,4 @@
-// Monitoring on the panels page: the status of each row, the Watch checkbox and the Open now list of the
-// chosen panel. Each instance has its uptime strip and Hide. Kept out of panelslist.js so that file only calls a few functions.
+// /panels monitoring: row status, Watch and the Open now list.
 import { el, icon } from './core.js';
 import { askNotifyPermission, notifyPermission } from './panelwatch.js';
 import { durationText, permissionText } from './panelwatchrules.js';
@@ -7,14 +6,15 @@ import { panelStatus, shownInstances, hiddenShown } from './panelsrules.js';
 import { slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import { streamState, renameProblem } from './panelassignrules.js';
+import { INSTANCE_MAX } from './panelkeyrules.js';
 import { reloadButton, reloadAllButton, offlineNote } from './panelsopen.js';
 
-// Fast enough that the online mark follows an instance within a couple of seconds, with no push channel to the page.
+// No push channel to /panels, so this is how fast the online mark follows.
 export const MON_POLL_MS = 2000;
 
 const badge = (online) => el('span', `pb-badge${online ? ' pb-badge--ok' : ''}`, online ? 'Online' : 'Offline');
 
-const statusBadge = (p) => {
+const rowBadge = (p) => {
   const s = panelStatus(p);
   return el('span', `pb-badge${s.tone ? ` pb-badge--${s.tone}` : ''}`, s.text);
 };
@@ -27,11 +27,10 @@ const fmtTime = (t) => {
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-// Fills every row's empty online span (the hook row() leaves) from the panels last read.
 export function paintOnline(panels) {
   for (const span of document.querySelectorAll('[data-online]')) {
     const p = panels.find((x) => x.id === span.dataset.online);
-    span.replaceChildren(...(p ? [statusBadge(p)] : []));
+    span.replaceChildren(...(p ? [rowBadge(p)] : []));
   }
 }
 
@@ -51,34 +50,33 @@ function hideButton(p, i, setHide) {
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('eye-off'));
   b.type = 'button';
   b.dataset.hideInstance = i.device;
-  b.dataset.pbTip = 'Hide this instance from the list. It keeps its key and watch, and shows again when it comes back.';
+  b.dataset.pbTip = 'Hide. Keeps key and watch.';
   b.classList.add('pb-tip--end');
   b.setAttribute('aria-label', `Hide ${i.device}`);
   b.addEventListener('click', () => setHide?.(p.id, i.device, true));
   return b;
 }
 
-// The instance's name with its Rename icon. A click turns the name into a field: Enter saves, and Escape or a move away
-// drops the edit. rename(id, device, name, keyless) answers null when sent (or handed to the clash dialog), else {why}.
-// keyless is a keyless page's id.
+// rename(id, device, name, keyless) answers null when sent or handed to the clash dialog, else {why}.
 function nameSlot(p, i, rename) {
   const slot = el('span', 'sode-ov__name');
   const state = rename ? streamState(i) : '';
-  const show = () => {
+  const show = (focus) => {
     if (!state) return slot.replaceChildren(el('strong', '', i.device));
     const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('text-cursor-input'));
     b.type = 'button';
     b.dataset.renameInstance = i.device;
     b.disabled = state === 'offline';
     b.setAttribute('aria-label', state === 'offline' ? `Rename ${i.device}: offline` : `Rename ${i.device}`);
-    b.dataset.pbTip = state === 'offline' ? 'Offline: it cannot hear a new name until it opens again' : 'Rename this instance';
+    b.dataset.pbTip = state === 'offline' ? 'Offline: no open page' : 'Rename';
     b.addEventListener('click', edit);
     slot.replaceChildren(el('strong', '', i.device), b);
+    if (focus) b.focus();
   };
   function edit() {
     const input = el('input', 'pb-input sode-panels__device-input');
     input.type = 'text';
-    input.maxLength = 40;
+    input.maxLength = INSTANCE_MAX;
     input.value = i.device;
     input.autocomplete = 'off';
     input.dataset.renameField = i.device;
@@ -95,18 +93,18 @@ function nameSlot(p, i, rename) {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        return show();
+        return show(true);
       }
       if (e.key !== 'Enter' || busy) return;
       e.preventDefault();
       const name = input.value.trim();
-      if (name === i.device) return show();
+      if (name === i.device) return show(true);
       const problem = renameProblem(name);
       if (problem) return fail(problem);
       busy = true;
       const r = await rename(p.id, i.device, name, i.keyless || '');
       busy = false;
-      if (!r) return show();
+      if (!r) return show(true);
       fail(r.why);
     };
     input.addEventListener('keydown', keydown);
@@ -121,11 +119,10 @@ function nameSlot(p, i, rename) {
   return slot;
 }
 
-// The instances this user hid, with one button that shows them all again.
 function hiddenLine(p, setHide) {
   const names = hiddenShown(p);
   if (!names.length) return null;
-  const show = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Show them');
+  const show = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Show all');
   show.type = 'button';
   show.dataset.showHidden = '';
   show.addEventListener('click', () => names.forEach((d) => setHide?.(p.id, d, false)));
@@ -133,11 +130,9 @@ function hiddenLine(p, setHide) {
   return el('p', 'sode-ov__muted sode-ov__hidden', `Hidden: ${shown.join(', ')}`, show);
 }
 
-// Offline after a row's controls: neither Reload nor a new name would reach it.
 const offlineAfter = (i, shown) => (shown && streamState(i) === 'offline' ? offlineNote() : null);
 
-// A page with no working key (GLOSSARY.md, Keyless instance): its name, address, and for a Trusted user Reload and
-// rename. Its name lives in its own browser.
+// A Keyless instance's name lives in its own browser.
 function keylessItem(p, k, rename, reload) {
   const re = reloadButton(p, k, reload);
   return el(
@@ -166,7 +161,7 @@ export function openNow(p, { setWatch, setHide, rename, reload, trusted } = {}, 
   const hidden = hiddenLine(p, setHide);
   const keyless = (p.keyless || []).map((k) => keylessItem(p, k, trusted ? rename : null, trustedReload));
   if (!rows.length) {
-    box.append(el('p', 'sode-ov__muted', hidden ? 'Every instance is hidden.' : 'No instance has opened this panel since Sode started.'));
+    box.append(el('p', 'sode-ov__muted', hidden ? 'All hidden' : 'No instances since Sode started'));
     if (keyless.length) box.append(el('ul', 'sode-ov__open', ...keyless));
     if (hidden) box.append(hidden);
     return box;
@@ -194,7 +189,7 @@ export function openNow(p, { setWatch, setHide, rename, reload, trusted } = {}, 
           ago && el('span', 'sode-ov__muted', ago),
           re,
           offlineAfter(i, rename || re),
-          el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Notify on disconnect')),
+          el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Notify when offline')),
         ),
         uptimeStrip(i),
       ),
@@ -207,14 +202,13 @@ export function openNow(p, { setWatch, setHide, rename, reload, trusted } = {}, 
   return box;
 }
 
-// Watch is offered where the server says the user can edit: the owner, or any panel for a Trusted user.
 export function watchBox(p, setWatch) {
   if (!p.canEdit) return el('span');
   const input = el('input', 'pb-check__input');
   input.type = 'checkbox';
   input.id = 'panels-watch';
   input.checked = !!p.watching;
-  // A browser asks for notification permission only after a click, so Watch (and the button) ask.
+  // Browsers ask for notification permission only on a click.
   const note = el('p', 'pb-hint sode-ov__notify');
   note.dataset.notify = '';
   const allow = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Allow notifications');
@@ -231,19 +225,18 @@ export function watchBox(p, setWatch) {
     setWatch(p.id, input.checked);
   });
   paint();
-  return el(
-    'div',
-    'sode-ov__watchbox',
-    el('label', 'pb-check sode-ov__watch', input, el('span', 'pb-check__label', 'Tell me when this panel drops offline')),
-    note,
-    allow,
-  );
+  return el('div', 'sode-ov__watchbox', el('label', 'pb-check sode-ov__watch', input, el('span', 'pb-check__label', 'Notify when offline')), note, allow);
 }
 
-// Replaces the Open now list in place, so a poll does not rebuild the detail pane under a hand.
-// A checkbox under a hand is left alone until the next poll.
+// A poll skips the list while a field has focus; a focused button gets its copy focused.
 export function paintOpenNow(p, handlers) {
   const old = document.getElementById('panels-open');
-  if (!old || !p || old.dataset.for !== p.id || old.contains(document.activeElement)) return;
-  old.replaceWith(openNow(p, handlers));
+  const f = document.activeElement;
+  const held = old?.contains(f);
+  if (!old || !p || old.dataset.for !== p.id || (held && f.matches('input'))) return;
+  const fresh = openNow(p, handlers);
+  old.replaceWith(fresh);
+  if (!held) return;
+  const same = [...f.attributes].filter((a) => a.name.startsWith('data-')).map((a) => `[${a.name}="${CSS.escape(a.value)}"]`);
+  if (same.length) fresh.querySelector(same.join(''))?.focus();
 }
