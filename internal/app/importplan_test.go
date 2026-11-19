@@ -298,8 +298,7 @@ func TestAddImportBringsPanelArt(t *testing.T) {
 	}
 }
 
-// Use new on a panel whose image is missing from the file, or is not the image it claims, refuses that
-// panel and keeps the live artwork.
+// A panel image that is missing or not its stated type refuses the panel. The live artwork stays.
 func TestAddImportRefusesPanelWithBadArt(t *testing.T) {
 	a, c, tok := importApp(t)
 	p, err := a.panels.create(Panel{Name: "Desk", Owner: userID(t, a, "Ana"), Rows: 1, Cols: 1})
