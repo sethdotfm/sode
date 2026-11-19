@@ -29,3 +29,8 @@ test('the summary counts fields and names the Critical mark, approver and preset
     '2 fields, Critical, approved by Ada, preset Secured',
   );
 });
+
+test('the summary counts the Interruptions, the hidden ones too', () => {
+  assert.equal(saveSummary({ fields: [base], interruptions: ['Public panel Lobby stops'] }), '1 field, 1 Interruption');
+  assert.equal(saveSummary({ fields: [base], hiddenInterruptions: 2 }), '1 field, 2 Interruptions');
+});

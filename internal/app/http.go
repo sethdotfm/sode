@@ -350,7 +350,7 @@ type inMsg struct {
 	To         int64                `json:"to"`
 	Slot       int64                `json:"slot"`   // ...and its slot length, ms
 	Config     json.RawMessage      `json:"config"` // decoded in saveSettings, over the live config
-	Fields     map[string]fieldEdit `json:"fields"` // settingsSave: changed fields only
+	Fields     map[string]fieldEdit `json:"fields"` // settingsSave, settingsReview: changed fields only
 	Pin        string               `json:"pin"`
 	User       string               `json:"user"` // userSignIn: the user's name (name and PIN mode)
 	ClearPin   bool                 `json:"clearPin"`

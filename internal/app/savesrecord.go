@@ -276,13 +276,14 @@ func clientChanges(was, now config.Config, name string) []SavedField {
 }
 
 // recordSave writes one Settings saves row. why is how it came: "save" (Settings) or "api".
-func (a *App) recordSave(by Actor, why string, fields []SavedField, critical bool) {
+// stops: the Interruptions at save time.
+func (a *App) recordSave(by Actor, why string, fields []SavedField, critical bool, stops ...string) {
 	if len(fields) == 0 {
 		return
 	}
 	e := event(kindSettings, why, redactKeys(by.String()), "ok")
 	e.Note = a.panelNote(by)
-	e.Save = &SettingsSave{Fields: fields, Critical: critical}
+	e.Save = &SettingsSave{Fields: fields, Critical: critical, Interruptions: stops}
 	a.logEvent(e)
 }
 
@@ -313,6 +314,7 @@ func forReader(es []Sent, admin bool) []Sent {
 				s.Fields[j] = SavedField{Topic: f.Topic, Section: f.Section, SectionID: f.SectionID, Key: f.Key, Label: f.Label, Changed: true}
 			}
 		}
+		s.HiddenInterruptions, s.Interruptions = len(s.Interruptions), nil
 		out[i].Save = &s
 	}
 	return out

@@ -1,0 +1,2 @@
+- The Settings review lists the Interruptions. These are the Public panels, keyless streams, sessions and keys that the save ends. They are also the browsers that drop to a lock screen. Sode finds them when the review opens and again at Save. The Save button names them ("Save and stop 3 panels"), and the Settings saves row in the Communication Log keeps them.
+- Ticking Never sign out for a user no longer ends their Session panels. Turning on the Panel pages lock stops the Session panels of users without a PIN.

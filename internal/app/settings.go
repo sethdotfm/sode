@@ -139,6 +139,7 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}
 	}
+	a.promoted = a.tokens.promoteTabs(old.cfg, cfg, a.openTokens())
 	// Revocation is durable: invalidated tokens are deleted so undoing the change cannot
 	// revive them.
 	a.tokens.prune(cfg)
@@ -177,6 +178,9 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	}
 	if !old.cfg.PublicPanels && nr.cfg.PublicPanels {
 		a.publicAgain()
+	}
+	if !old.cfg.Locks.Panel && nr.cfg.Locks.Panel {
+		a.endNoPinSessionKeys()
 	}
 	return nil
 }

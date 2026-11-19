@@ -18,14 +18,17 @@ const (
 
 const kindSettings = "settings" // a Settings save; Seq is its anchor, ID its own number
 
-// SettingsSave: one save. Approver, Preset and Interruptions stay empty until the tickets that
-// make them fill them.
+// SettingsSave: one save. Approver and Preset stay empty until the tickets that make them fill
+// them. Interruptions: the review's lines at save time (interruptions.go).
 type SettingsSave struct {
 	Fields        []SavedField `json:"fields"`
 	Approver      string       `json:"approver,omitempty"`
 	Preset        string       `json:"preset,omitempty"`
 	Critical      bool         `json:"critical,omitempty"`
 	Interruptions []string     `json:"interruptions,omitempty"`
+	// HiddenInterruptions: how many lines a reader below Administrator does not see. They name
+	// users, Public panels and sessions from Access (forReader).
+	HiddenInterruptions int `json:"hiddenInterruptions,omitempty"`
 }
 
 // SavedField: one written field. A list gives Added and Removed in place of Old and New. Changed

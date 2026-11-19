@@ -87,8 +87,9 @@ func TestTabTokenIgnoredOnceLocked(t *testing.T) {
 	}
 }
 
-// A tab token is not a persistent one. If Never log out is ticked afterwards, the
-// token must not turn into one that skips a lock; it is pruned.
+// A tab token is not a persistent one. Never sign out is ticked afterwards. A tab token that no
+// open page holds must not turn into one that skips a lock, so prune deletes it. The tab token
+// of an open page becomes its persistent session (TestInterruptionsPersistentTickedEndsNothing).
 func TestTabTokenDiesWhenUserBecomesPersistent(t *testing.T) {
 	a := userApp(t, false)
 	c := &client{ip: "10.0.0.1"}
