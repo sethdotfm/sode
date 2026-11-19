@@ -98,7 +98,7 @@ func TestParseProtectDump(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Protect{{Dst: 64, Protected: true, Device: 9}, {Dst: 65}}
+	want := []Protect{{Dst: 64, Protected: true, Kind: KindRouterLock, Device: 9}, {Dst: 65}}
 	if !reflect.DeepEqual(ev.Protects, want) {
 		t.Fatalf("got %+v", ev.Protects)
 	}
@@ -113,11 +113,11 @@ func TestParseProtectChangeRouterOrder(t *testing.T) {
 		want Protect
 	}{
 		{"0x8D protect dst 26 level 0 device 126", []byte{0x8D, 0x00, 0x00, 0x01, 0x00, 0x1A, 0x00, 0x7E},
-			Protect{Matrix: 0, Level: 0, Dst: 26, Protected: true, Device: 126}},
+			Protect{Matrix: 0, Level: 0, Dst: 26, Protected: true, Kind: KindProtect, Device: 126}},
 		{"0x8B dst 64 level 0 device 9", []byte{0x8B, 0x00, 0x00, 0x02, 0x00, 0x40, 0x00, 0x09},
-			Protect{Matrix: 0, Level: 0, Dst: 64, Protected: true, Device: 9}},
+			Protect{Matrix: 0, Level: 0, Dst: 64, Protected: true, Kind: KindRouterLock, Device: 9}},
 		{"0x8B dst 64 level 16 device 9", []byte{0x8B, 0x00, 0x10, 0x02, 0x00, 0x40, 0x00, 0x09},
-			Protect{Matrix: 0, Level: 16, Dst: 64, Protected: true, Device: 9}},
+			Protect{Matrix: 0, Level: 16, Dst: 64, Protected: true, Kind: KindRouterLock, Device: 9}},
 		{"0x8F clear dst 26 level 0", []byte{0x8F, 0x00, 0x00, 0x00, 0x00, 0x1A, 0x00, 0x00},
 			Protect{Matrix: 0, Level: 0, Dst: 26}},
 		{"0x8F with details set still clears", []byte{0x8F, 0x00, 0x05, 0x01, 0x00, 0x1A, 0x00, 0x7E},
@@ -133,6 +133,16 @@ func TestParseProtectChangeRouterOrder(t *testing.T) {
 	}
 }
 
+// The probe's own frame: 8C 00 00 00 1A 00 7E sets a Protect on wire dst 26, level 0, device 126.
+func TestExtProtectSenders(t *testing.T) {
+	if m, want := ExtProtectConnect(0, 0, 26, 126), []byte{0x8C, 0x00, 0x00, 0x00, 0x1A, 0x00, 0x7E}; !reflect.DeepEqual(m, want) {
+		t.Fatalf("connect % X, want % X", m, want)
+	}
+	if m, want := ExtProtectDisconnect(0, 16, 0x140, 0x3E8), []byte{0x8E, 0x00, 0x10, 0x01, 0x40, 0x03, 0xE8}; !reflect.DeepEqual(m, want) {
+		t.Fatalf("disconnect % X, want % X", m, want)
+	}
+}
+
 func TestExtProtectChangeRoundTrips(t *testing.T) {
 	m := ExtProtectChange(CmdExtProtectConnected, 0, 16, 2, 0x140, 10)
 	if want := []byte{0x8D, 0x00, 0x10, 0x02, 0x01, 0x40, 0x00, 0x0A}; !reflect.DeepEqual(m, want) {
@@ -145,17 +155,19 @@ func TestDescribeTx(t *testing.T) {
 		m    []byte
 		want Request
 	}{
-		{ExtConnect(1, 2, 700, 2600), Request{"connect", 1, 2, 700, 2600, -1, false}},
-		{ExtInterrogate(0, 16, 300), Request{"interrogate", 0, 16, 300, -1, -1, false}},
-		{ExtTallyDumpReq(0, 3), Request{"tallyDump", 0, 3, -1, -1, -1, false}},
-		{ExtProtectDumpReq(0, 4, 5), Request{"protectDump", 0, 4, 5, -1, -1, false}},
-		{NamesReq(false, true, 0, 0, 2), Request{"srcNames", 0, -1, -1, -1, -1, false}},
-		{NamesReq(true, false, 1, 0, 2), Request{"dstNames", 1, -1, -1, -1, -1, false}},
-		{[]byte{0x7F, 1}, Request{"other", -1, -1, -1, -1, -1, false}},
-		{[]byte{CmdExtConnect, 0}, Request{"other", -1, -1, -1, -1, -1, false}},
-		{ConnectOnGo(1, 2, 389, 263, 127), Request{"salvoStage", 1, 2, 389, 263, 127, false}},
-		{GoSalvo(true, 127), Request{"salvoGo", -1, -1, -1, -1, 127, true}},
-		{[]byte{CmdConnectOnGo, 0, 0}, Request{"other", -1, -1, -1, -1, -1, false}},
+		{ExtConnect(1, 2, 700, 2600), Request{"connect", 1, 2, 700, 2600, -1, false, -1}},
+		{ExtInterrogate(0, 16, 300), Request{"interrogate", 0, 16, 300, -1, -1, false, -1}},
+		{ExtTallyDumpReq(0, 3), Request{"tallyDump", 0, 3, -1, -1, -1, false, -1}},
+		{ExtProtectDumpReq(0, 4, 5), Request{"protectDump", 0, 4, 5, -1, -1, false, -1}},
+		{NamesReq(false, true, 0, 0, 2), Request{"srcNames", 0, -1, -1, -1, -1, false, -1}},
+		{NamesReq(true, false, 1, 0, 2), Request{"dstNames", 1, -1, -1, -1, -1, false, -1}},
+		{[]byte{0x7F, 1}, Request{"other", -1, -1, -1, -1, -1, false, -1}},
+		{[]byte{CmdExtConnect, 0}, Request{"other", -1, -1, -1, -1, -1, false, -1}},
+		{ConnectOnGo(1, 2, 389, 263, 127), Request{"salvoStage", 1, 2, 389, 263, 127, false, -1}},
+		{GoSalvo(true, 127), Request{"salvoGo", -1, -1, -1, -1, 127, true, -1}},
+		{[]byte{CmdConnectOnGo, 0, 0}, Request{"other", -1, -1, -1, -1, -1, false, -1}},
+		{ExtProtectConnect(0, 3, 26, 126), Request{"protectSet", 0, 3, 26, -1, -1, false, 126}},
+		{ExtProtectDisconnect(0, 16, 300, 1000), Request{"protectClear", 0, 16, 300, -1, -1, false, 1000}},
 	} {
 		if got := DescribeTx(c.m); got != c.want {
 			t.Errorf("DescribeTx(% X) = %+v, want %+v", c.m, got, c.want)

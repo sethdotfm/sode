@@ -69,7 +69,7 @@ export const stackGapMs = () => Number(pref('stackGap')) * 1000;
 // A change that can join a stacked row: one route on its own, from any browser, panel or the
 // router itself. A failed take stays apart for its Retry; a follow belongs to its take. An undo
 // (also a Restore) stays apart, or it would join the row that it undid.
-const stacks = (e) => (!e.group || e.groupN < 2) && e.ok && e.follow == null && !e.followGroup && e.undo == null;
+const stacks = (e) => (!e.group || e.groupN < 2) && e.ok && e.follow == null && !e.followGroup && e.undo == null && !e.protect;
 
 // { e } for an entry on its own, { f } for a Group (a take that sent several routes), placed where its newest entry is.
 // Rapid changes to one destination merge into one { e }: the newest, with the oldest's prev, and merged = count.

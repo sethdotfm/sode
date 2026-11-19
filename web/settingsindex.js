@@ -66,6 +66,7 @@ export const DICT = {
   ],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
   takes: ['take', 'patch', 'route', 'default levels', 'resync', 'reread', 'multi destination', 'fire mode', 'salvo group'],
+  protects: ['protect', 'protects', 'protected', 'router lock', 'device number', 'device', 'panel id', 'clear', 'hold'],
   confirm: ['confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'delay', 'safety', 'result', 'success', 'banner', 'dismiss'],
   routers: ['router', 'routers', 'router list', 'ultrix', 'matrix', 'block'],
   panels: [

@@ -76,12 +76,21 @@ type NameBlock struct {
 	Names         []string
 }
 
+// Kind is the router's details value: KindProtect or KindRouterLock when Protected, 0 when not. Device is who set it.
 type Protect struct {
 	Matrix, Level int
 	Dst           int
 	Protected     bool
+	Kind          int
 	Device        int
 }
+
+// The Ultrix's details values (2026-11-16): a Protect only the device that set it can clear, and a Router lock from
+// DashBoard or a panel. SW-P-08 can set only a Protect. 3 was not seen.
+const (
+	KindProtect    = 1
+	KindRouterLock = 2
+)
 
 type Event struct {
 	Cmd         byte
@@ -114,6 +123,18 @@ func xp(cmd byte, matrix, level, dst, src int) []byte {
 // ExtProtectChange builds a 7-byte 0x8B, 0x8D or 0x8F in the Ultrix's order. Details is 0 when not protected.
 func ExtProtectChange(cmd byte, matrix, level, details, dst, device int) []byte {
 	return []byte{cmd, byte(matrix), byte(level), byte(details), byte(dst >> 8), byte(dst), byte(device >> 8), byte(device)}
+}
+
+// ExtProtectConnect sets a Protect on one level of dst for device (0x8C); the router answers 0x8D. One message covers one
+// level.
+func ExtProtectConnect(matrix, level, dst, device int) []byte {
+	return []byte{CmdExtProtectConnect, byte(matrix), byte(level), byte(dst >> 8), byte(dst), byte(device >> 8), byte(device)}
+}
+
+// ExtProtectDisconnect clears the Protect on one level of dst (0x8E); the router answers 0x8F. Only the device that
+// set it clears it: another number gets an ACK and nothing else.
+func ExtProtectDisconnect(matrix, level, dst, device int) []byte {
+	return []byte{CmdExtProtectDisconnect, byte(matrix), byte(level), byte(dst >> 8), byte(dst), byte(device >> 8), byte(device)}
 }
 
 func ExtProtectDumpReq(matrix, level, firstDst int) []byte {
@@ -154,10 +175,11 @@ type Request struct {
 	Dst, Src      int
 	Group         int
 	Clear         bool
+	Device        int
 }
 
 func DescribeTx(m []byte) Request {
-	r := Request{Kind: "other", Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: -1}
+	r := Request{Kind: "other", Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: -1, Device: -1}
 	if len(m) == 0 {
 		return r
 	}
@@ -165,29 +187,34 @@ func DescribeTx(m []byte) Request {
 	word := func(i int) int { return int(d[i])<<8 | int(d[i+1]) }
 	switch {
 	case m[0] == CmdExtConnect && len(d) >= 6:
-		r = Request{Kind: "connect", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: word(4), Group: -1}
+		r = Request{Kind: "connect", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: word(4), Group: -1, Device: -1}
 	case m[0] == CmdConnectOnGo && len(d) >= 5:
 		x := stagedOf(d)
-		r = Request{Kind: "salvoStage", Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group}
+		r = Request{Kind: "salvoStage", Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group, Device: -1}
 	case m[0] == CmdExtConnectOnGo && len(d) >= 7:
 		x := extStagedOf(d)
-		r = Request{Kind: "salvoStageExt", Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group}
+		r = Request{Kind: "salvoStageExt", Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group, Device: -1}
 	case m[0] == CmdGoSalvo && len(d) >= 2:
-		r = Request{Kind: "salvoGo", Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: int(d[1] & 0x7f), Clear: d[0] == 1}
+		r = Request{Kind: "salvoGo", Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: int(d[1] & 0x7f), Clear: d[0] == 1, Device: -1}
 	case m[0] == CmdExtInterrogate && len(d) >= 4:
-		r = Request{Kind: "interrogate", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1, Group: -1}
+		r = Request{Kind: "interrogate", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1, Group: -1, Device: -1}
 	case m[0] == CmdExtTallyDumpReq && len(d) >= 2:
-		r = Request{Kind: "tallyDump", Matrix: int(d[0]), Level: int(d[1]), Dst: -1, Src: -1, Group: -1}
+		r = Request{Kind: "tallyDump", Matrix: int(d[0]), Level: int(d[1]), Dst: -1, Src: -1, Group: -1, Device: -1}
+	case (m[0] == CmdExtProtectConnect || m[0] == CmdExtProtectDisconnect) && len(d) >= 6:
+		r = Request{Kind: "protectSet", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1, Group: -1, Device: word(4)}
+		if m[0] == CmdExtProtectDisconnect {
+			r.Kind = "protectClear"
+		}
 	case m[0] == CmdExtProtectDumpReq && len(d) >= 4:
-		r = Request{Kind: "protectDump", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1, Group: -1}
+		r = Request{Kind: "protectDump", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1, Group: -1, Device: -1}
 	// Names are not per level, whatever the request's level byte says.
 	case (m[0] == CmdExtSrcNamesReq || m[0] == CmdExtDstNamesReq) && len(d) >= 2:
-		r = Request{Kind: "srcNames", Matrix: int(d[0]), Level: -1, Dst: -1, Src: -1, Group: -1}
+		r = Request{Kind: "srcNames", Matrix: int(d[0]), Level: -1, Dst: -1, Src: -1, Group: -1, Device: -1}
 		if m[0] == CmdExtDstNamesReq {
 			r.Kind = "dstNames"
 		}
 	case (m[0] == CmdSrcNamesReq || m[0] == CmdDstNamesReq) && len(d) >= 1:
-		r = Request{Kind: "srcNames", Matrix: int(d[0] >> 4), Level: -1, Dst: -1, Src: -1, Group: -1}
+		r = Request{Kind: "srcNames", Matrix: int(d[0] >> 4), Level: -1, Dst: -1, Src: -1, Group: -1, Device: -1}
 		if m[0] == CmdDstNamesReq {
 			r.Kind = "dstNames"
 		}
@@ -297,16 +324,17 @@ func Parse(msg []byte) (Event, error) {
 		switch len(d) {
 		case 6: // matrix, level, dst(2), state+device(2) — same packing as the dump
 			p = Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: int(d[2])<<8 | int(d[3])}
-			p.Protected, p.Device = protectWord(d[4], d[5])
+			p.Kind, p.Device = protectWord(d[4], d[5])
 		case 7: // matrix, level, details, dst(2), device(2): the Ultrix's order, seen 2026-11-16
 			p = Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: int(d[3])<<8 | int(d[4]),
-				Protected: d[2] != 0, Device: int(d[5])<<8 | int(d[6])}
+				Kind: int(d[2]), Device: int(d[5])<<8 | int(d[6])}
 		default:
 			return ev, fmt.Errorf("swp08: cmd 0x%02X: unexpected length %d", msg[0], len(d))
 		}
 		if msg[0] == CmdExtProtectDisconnected {
-			p.Protected = false
+			p.Kind = 0
 		}
+		p.Protected = p.Kind != 0
 		ev.Protects = []Protect{p}
 
 	case CmdExtProtectDump:
@@ -321,7 +349,8 @@ func Parse(msg []byte) (Event, error) {
 		}
 		for i := 0; i < count; i++ {
 			p := Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: first + i}
-			p.Protected, p.Device = protectWord(d[5+i*2], d[6+i*2])
+			p.Kind, p.Device = protectWord(d[5+i*2], d[6+i*2])
+			p.Protected = p.Kind != 0
 			ev.Protects = append(ev.Protects, p)
 		}
 
@@ -369,11 +398,11 @@ func Parse(msg []byte) (Event, error) {
 
 var errTruncDump = errors.New("swp08: tally dump truncated")
 
-// protectWord unpacks a protect entry: state in bits 4-5 of the high byte
+// protectWord unpacks a protect entry: the kind in bits 4-5 of the high byte
 // (0 = not protected), device number in the rest.
 // Keep in step with ProtectWord.
-func protectWord(hi, lo byte) (protected bool, device int) {
-	return hi>>4&0x03 != 0, int(hi&0x0F)<<8 | int(lo)
+func protectWord(hi, lo byte) (kind, device int) {
+	return int(hi >> 4 & 0x03), int(hi&0x0F)<<8 | int(lo)
 }
 
 // dumpWords parses: count, firstDst(2), count × src(2). Nil if truncated.

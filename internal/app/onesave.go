@@ -37,6 +37,7 @@ var sectionRoles = map[string]sectionTag{
 	"router-matrix":     {config.RoleAdministrator, true},
 	"router-names":      {config.RoleAdministrator, true},
 	"takes":             {config.RoleAdministrator, true},
+	"protects":          {config.RoleAdministrator, false},
 	"locks":             {config.RoleAdministrator, false},
 	"users":             {config.RoleAdministrator, false},
 	"api":               {config.RoleAdministrator, false},

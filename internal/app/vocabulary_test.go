@@ -42,7 +42,6 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"layer"}, Re: wordRe(`(?i)signal layers?`)},
 	{Terms: []string{"label"}, Re: wordRe(`(?i)(?:router|source|destination) labels?`)},
 	{Terms: []string{"refresh"}, Re: wordRe(`(?i)names? refreshe?s?|refresh(?:es|ed|ing)? (?:of )?(?:the )?(?:router )?names?`)},
-	{Terms: []string{"protect"}, Re: wordRe(`(?i)protects|the protect|protect (?:flag|state|status|badge|icon)`)},
 	{Terms: []string{"locked"}, Re: wordRe(`(?i)locked (?:destination|dst)s?`)},
 	{Terms: []string{"batch"}, Re: wordRe(`(?i)batch(?:es)?`)},
 	{
@@ -593,7 +592,7 @@ func TestIdentifierScanMechanics(t *testing.T) {
 	if strings.Contains(code, "'Recent'") {
 		t.Error("string literal not blanked")
 	}
-	if !identRe(retiredWords[7]).MatchString("send batch") || !identRe(retiredWords[11]).MatchString("recent row") {
+	if !identRe(retiredWords[6]).MatchString("send batch") || !identRe(retiredWords[10]).MatchString("recent row") {
 		t.Error("identRe does not match identifier words")
 	}
 }

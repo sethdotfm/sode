@@ -131,6 +131,8 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 		e.Note = fmt.Sprintf("salvo %d: clear", q.Group)
 	case q.Kind == "salvoGo":
 		e.Note = fmt.Sprintf("salvo %d: set", q.Group)
+	case q.Kind == "protectSet" || q.Kind == "protectClear":
+		e.Note = fmt.Sprintf("device %d", q.Device)
 	}
 	if ev.Why.Note != "" {
 		if e.Note != "" {

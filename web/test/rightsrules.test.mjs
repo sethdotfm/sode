@@ -138,3 +138,10 @@ test('accessReq reads an edited draft, and names the user whose rights are wrong
   edited.draft.dsts.text = 'x';
   assert.match(accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 }).error, /^Ana: Destinations/);
 });
+
+test('the Protect right: unset stays unset, Yes and No go back as true and false', () => {
+  assert.equal(draftOf({}, 1).protect, '');
+  assert.deepEqual(rightsOf(draftOf({ protect: true }, 1), 1, 4), { rights: { protect: true } });
+  assert.deepEqual(rightsOf(draftOf({ protect: false }, 1), 1, 4), { rights: { protect: false } });
+  assert.deepEqual(rightsOf(draftOf({}, 1), 1, 4), { rights: {} });
+});

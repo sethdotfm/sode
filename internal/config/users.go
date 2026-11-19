@@ -79,15 +79,17 @@ func RoleLabel(r string) string {
 func (u User) HasPin() bool { return u.Pin != "" }
 
 // A user without a PIN acts as Standard user or Guest role, whichever is higher, with no more than Guest Rights.
+// The Protect right comes back set, from the Role when the user's Rights leave it unset.
 func (c Config) ActsAs(u User) (string, Rights) {
 	if u.HasPin() {
-		return u.Role, u.Rights
+		return u.Role, u.Rights.ProtectFor(u.Role)
 	}
 	role := RoleStandard
 	if roleRank(c.GuestRole) > roleRank(role) && c.GuestRole != RoleAdministrator {
 		role = c.GuestRole
 	}
-	return role, u.Rights.Intersect(c.GuestRights)
+	// Guest Rights leave Protect unset when off, so a user without a PIN gets it only from both.
+	return role, u.Rights.ProtectFor(role).Intersect(c.GuestRights.ProtectFor(RoleStandard))
 }
 
 // NoPinRefusal names a user above Standard user left without a PIN; PIN needed users are allowed.

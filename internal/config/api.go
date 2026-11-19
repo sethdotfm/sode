@@ -20,13 +20,18 @@ const (
 	ScopeLayouts   = "layouts"
 	ScopeLog       = "log"
 	ScopeTake      = "take"
+	// ScopeProtect sets and clears Sode's Protects; the caller's Rights need the Protect right too.
+	ScopeProtect = "protect"
 	// Panels: reading is for any panel the caller can use. Managing is create, update, delete,
 	// Save a copy and artwork uploads, and needs a user's key to own what it makes.
 	ScopePanels       = "panels"
 	ScopePanelsManage = "panelsmanage"
 )
 
-var AllScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeHistory, ScopeLayouts, ScopeLog, ScopeTake, ScopePanels, ScopePanelsManage}
+var AllScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeHistory, ScopeLayouts, ScopeLog, ScopeTake, ScopeProtect, ScopePanels, ScopePanelsManage}
+
+// MaxProtectDevice: the protect dump packs the device number in 12 bits.
+const MaxProtectDevice = 4095
 
 // DefaultGuestScopes is what a call with no key can read until an administrator widens it.
 var DefaultGuestScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus}
@@ -47,11 +52,15 @@ const (
 // lists are pointers (omitempty would turn "none" back into "all" on reload). Never sent
 // before the PIN: the hello blanks Users and the owning Config fields carry json:"-".
 // Sources and destinations are router references; Presets are preset ids, so a rename keeps them.
+//
+// Protect is the Protect right: set and clear Sode's Protects on the destinations the lists allow. Unset means the
+// Role decides (ProtectFor): on for a Trusted user and an Administrator, off for everyone else.
 type Rights struct {
 	Sources    *[]Ref         `yaml:"sources,omitempty" json:"sources,omitempty"`
 	Dsts       *[]Ref         `yaml:"dsts,omitempty" json:"dsts,omitempty"`
 	Levels     *[]int         `yaml:"levels,omitempty" json:"levels,omitempty"` // UI levels
 	Presets    *[]string      `yaml:"presets,omitempty" json:"presets,omitempty"`
+	Protect    *bool          `yaml:"protect,omitempty" json:"protect,omitempty"`
 	Visibility string         `yaml:"visibility,omitempty" json:"visibility,omitempty"`
 	Extra      map[string]any `yaml:",inline" json:"-"`
 }
@@ -73,6 +82,42 @@ func (r Rights) AllowsDst(x Ref) bool       { return inRefs(r.Dsts, x) }
 func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
 func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
 func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
+
+// AllowsProtect: an unset right is off, so Guest Rights and an API client need it ticked. ActsAs sets it for a user.
+func (r Rights) AllowsProtect() bool { return r.Protect != nil && *r.Protect }
+
+// ProtectFor fills an unset Protect right from the Role: on for a Trusted user and an Administrator.
+func (r Rights) ProtectFor(role string) Rights {
+	if r.Protect == nil {
+		on := RoleAtLeast(role, RoleTrusted)
+		r.Protect = &on
+	}
+	return r
+}
+
+// protectWithin: only a right that is on needs it on in o. Unset is off for an API client and Guest, and ActsAs sets a
+// user's from the Role.
+func protectWithin(r, o *bool) bool { return r == nil || !*r || o == nil || *o }
+
+// protectBoth: off when either is off; unset only when both are.
+func protectBoth(r, o *bool) *bool {
+	switch {
+	case r == nil:
+		return cloneBool(o)
+	case o == nil:
+		return cloneBool(r)
+	}
+	on := *r && *o
+	return &on
+}
+
+func cloneBool(b *bool) *bool {
+	if b == nil {
+		return nil
+	}
+	v := *b
+	return &v
+}
 
 func subset[T comparable](l, of *[]T) bool {
 	return subsetBy(l, of, func(a, b T) bool { return a == b })
@@ -97,7 +142,7 @@ func subsetBy[T any](l, of *[]T, same func(a, b T) bool) bool {
 // shows less than read-only, so it is within both, and read-only is not within hidden.
 func (r Rights) Within(o Rights) bool {
 	return subsetBy(r.Sources, o.Sources, sameRef) && subsetBy(r.Dsts, o.Dsts, sameRef) && subset(r.Levels, o.Levels) &&
-		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden())
+		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden()) && protectWithin(r.Protect, o.Protect)
 }
 
 func intersectBy[T any](l, o *[]T, same func(a, b T) bool) *[]T {
@@ -122,7 +167,7 @@ func eq[T comparable](a, b T) bool { return a == b }
 func (r Rights) Intersect(o Rights) Rights {
 	out := Rights{Sources: intersectBy(r.Sources, o.Sources, sameRef), Dsts: intersectBy(r.Dsts, o.Dsts, sameRef),
 		Levels: intersectBy(r.Levels, o.Levels, eq[int]), Presets: intersectBy(r.Presets, o.Presets, eq[string]),
-		Visibility: r.Visibility, Extra: r.Extra}
+		Protect: protectBoth(r.Protect, o.Protect), Visibility: r.Visibility, Extra: r.Extra}
 	if o.Hidden() {
 		out.Visibility = VisHidden
 	}
@@ -142,6 +187,7 @@ func cloneList[T any](l *[]T) *[]T {
 
 func (r Rights) Clone() Rights {
 	r.Sources, r.Dsts, r.Levels, r.Presets = cloneList(r.Sources), cloneList(r.Dsts), cloneList(r.Levels), cloneList(r.Presets)
+	r.Protect = cloneBool(r.Protect)
 	return r
 }
 

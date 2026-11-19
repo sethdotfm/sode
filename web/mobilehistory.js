@@ -6,6 +6,7 @@ import { entryNote, historyPager, statusNode, groupTitle, groupLevels, stackBefo
 import { layout } from './layout.js';
 import { emptyNote } from './searchbox.js';
 import { rowActions, disclosureAria, followersHead } from './historyrows.js';
+import { protectRow } from './protects.js';
 import { picking, isPicked, pickBox, bindPick, pickBar } from './historypick.js';
 import { byLabel, disclosure, undoButton, againButton, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
@@ -65,7 +66,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         'div',
         'sode-m__recent-route',
         ...(e.chain ? [el('span', 'sode__hist-note', stackBefore(e).text), ' to '] : []),
-        el('strong', null, labelNode(src)),
+        e.protect ? el('span', 'pb-badge pb-badge--warn', protectRow(e).text) : el('strong', null, labelNode(src)),
         ' → ',
         el('strong', null, labelNode(dst)),
         entryNote(e),
