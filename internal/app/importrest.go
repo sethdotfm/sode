@@ -617,52 +617,34 @@ func (p *importPlanner) shareNames(cfg config.Config, names []string) []string {
 // panelBroken points preset buttons at the presets this import maps them to and lists what the target lacks.
 func (p *importPlanner) panelBroken(fp *Panel, cfg config.Config) []config.Missing {
 	var b brokenList
+	layoutOf(*fp).readRefs(func(s refSlot, kind string, r config.Ref) {
+		if s != slotFixed {
+			b.add(p.check.missing(kind, r))
+		}
+	})
 	pages := make([]PanelPage, len(fp.Pages))
 	for i, g := range fp.Pages {
 		pages[i] = g
-		pages[i].Cells = make([]map[string]any, len(g.Cells))
+		pages[i].Cells = slices.Clone(g.Cells)
 		for j, c := range g.Cells {
-			c = maps.Clone(c)
-			switch c["kind"] {
-			case "source", "destination":
-				if r, ok := cellRef(c); ok {
-					kind := config.MissingSource
-					if c["kind"] == "destination" {
-						kind = config.MissingDestination
-					}
-					b.add(p.check.missing(kind, r))
-				}
-			case "preset":
-				if c["scope"] == "me" {
-					break
-				}
-				id, _ := c["id"].(string)
-				name, _ := c["name"].(string)
-				to, mapped := p.presets[id]
-				if !mapped && p.same {
-					to = id
-				}
-				if !slices.ContainsFunc(cfg.Presets, func(x config.Preset) bool { return to != "" && x.ID == to }) {
-					b.add(config.Missing{Kind: config.MissingPreset, Ref: config.Ref{Name: name}}, id != "" || name != "")
-					break
-				}
-				c["id"] = to
+			if c["kind"] != "preset" || c["scope"] == "me" {
+				continue
 			}
-			pages[i].Cells[j] = c
+			id, _ := c["id"].(string)
+			name, _ := c["name"].(string)
+			to, mapped := p.presets[id]
+			if !mapped && p.same {
+				to = id
+			}
+			if !slices.ContainsFunc(cfg.Presets, func(x config.Preset) bool { return to != "" && x.ID == to }) {
+				b.add(config.Missing{Kind: config.MissingPreset, Ref: config.Ref{Name: name}}, id != "" || name != "")
+				continue
+			}
+			pages[i].Cells[j] = maps.Clone(c)
+			pages[i].Cells[j]["id"] = to
 		}
 	}
 	fp.Pages = pages
-	for _, e := range []struct {
-		edge *GridEdge
-		kind string
-	}{{fp.Sources, config.MissingSource}, {fp.Destinations, config.MissingDestination}} {
-		if e.edge == nil {
-			continue
-		}
-		for r := range edgeRefs(e.edge) {
-			b.add(p.check.missing(e.kind, r))
-		}
-	}
 	return b.out
 }
 

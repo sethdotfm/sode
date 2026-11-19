@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -12,54 +13,22 @@ import (
 var errNoRouter = errors.New("a source or destination has no router")
 
 func (l panelLayout) noRouterProblem() error {
-	for _, g := range l.Pages {
-		if cellsNoRouter(g.Cells) {
-			return errNoRouter
-		}
-	}
-	if cellsNoRouter(l.LegacyCells) {
-		return errNoRouter
-	}
-	for _, e := range []*GridEdge{l.Sources, l.Destinations} {
-		if e == nil {
-			continue
-		}
-		for r := range edgeRefs(e) {
-			if r.Router == "" {
-				return errNoRouter
-			}
-		}
-	}
-	switch list := l.Settings[panelFixedKey].(type) {
-	case nil:
-	case []config.Ref:
-		for _, f := range list {
-			if f.Router == "" {
-				return errNoRouter
-			}
-		}
-	case []any:
-		for _, x := range list {
-			m, _ := x.(map[string]any)
-			if r, _ := m["router"].(string); r == "" {
-				return errNoRouter
-			}
-		}
+	switch l.Settings[panelFixedKey].(type) {
+	case nil, []config.Ref, []any:
 	default:
 		return errFixedDests
 	}
-	return nil
-}
-
-// A Source or Destination cell with no number is unassigned and needs no router.
-func cellsNoRouter(cells []map[string]any) bool {
-	for _, c := range cells {
-		if k := c["kind"]; k != "source" && k != "destination" || c["n"] == nil {
-			continue
-		}
-		if r, _ := c["router"].(string); r == "" {
-			return true
-		}
+	// A Source or Destination cell with no number is unassigned and needs no router.
+	if slices.ContainsFunc(l.LegacyCells, func(c map[string]any) bool {
+		r, ok := cellRef(c)
+		return ok && cellKinds[c["kind"]] != "" && r.Router == ""
+	}) {
+		return errNoRouter
 	}
-	return false
+	bare := false
+	l.readRefs(func(_ refSlot, _ string, r config.Ref) { bare = bare || r.Router == "" })
+	if bare {
+		return errNoRouter
+	}
+	return nil
 }

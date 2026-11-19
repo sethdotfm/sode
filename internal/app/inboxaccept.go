@@ -136,45 +136,17 @@ func (p *cardPlanner) outside(kind string, r config.Ref) bool {
 }
 
 func (p *cardPlanner) presetOutside(s config.Preset) bool {
-	for _, it := range s.Items {
-		if p.outside(config.MissingSource, it.Src) || slices.ContainsFunc(it.Dsts, func(d config.Ref) bool { return p.outside(config.MissingDestination, d) }) ||
-			slices.ContainsFunc(it.Levels, func(l int) bool { return p.outside(config.MissingLevel, config.Ref{Router: it.Src.Router, N: l}) }) {
-			return true
-		}
-	}
-	return false
+	out := false
+	config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref { out = out || p.outside(kind, r); return nil }}.Preset(&s)
+	return out || slices.ContainsFunc(s.Items, func(it config.PresetItem) bool {
+		return slices.ContainsFunc(it.Levels, func(l int) bool { return p.outside(config.MissingLevel, config.Ref{Router: it.Src.Router, N: l}) })
+	})
 }
 
 func (p *cardPlanner) panelOutside(fp Panel) bool {
-	for _, g := range fp.Pages {
-		for _, c := range g.Cells {
-			if r, ok := cellRef(c); ok {
-				kind := config.MissingSource
-				if c["kind"] == "destination" {
-					kind = config.MissingDestination
-				} else if c["kind"] != "source" {
-					continue
-				}
-				if p.outside(kind, r) {
-					return true
-				}
-			}
-		}
-	}
-	for _, e := range []struct {
-		edge *GridEdge
-		kind string
-	}{{fp.Sources, config.MissingSource}, {fp.Destinations, config.MissingDestination}} {
-		if e.edge == nil {
-			continue
-		}
-		for r := range edgeRefs(e.edge) {
-			if p.outside(e.kind, r) {
-				return true
-			}
-		}
-	}
-	return false
+	out := false
+	layoutOf(fp).readRefs(func(s refSlot, kind string, r config.Ref) { out = out || s != slotFixed && p.outside(kind, r) })
+	return out
 }
 
 func withID(s config.Preset, id string) config.Preset {
