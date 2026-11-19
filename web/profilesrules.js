@@ -4,23 +4,6 @@ import { PREFS } from './prefs.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
-export function prefRows(prefs) {
-  const out = [];
-  for (const [key, def] of Object.entries(PREFS)) {
-    let v = prefs?.[key];
-    if (typeof v === 'boolean') v = v ? 'on' : 'off';
-    if (typeof v !== 'string' || !Object.hasOwn(def.values, v)) continue;
-    out.push({ key, label: def.label, value: def.values[v] });
-  }
-  return out;
-}
-
-export function withoutPref(prefs, key) {
-  const rest = { ...(prefs || {}) };
-  delete rest[key];
-  return rest;
-}
-
 export function setSummary(s) {
   const bits = [];
   if (s?.src) bits.push(`sources ${s.src}`);

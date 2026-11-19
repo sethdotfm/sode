@@ -1,22 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfiles, profileButtonOff, PROFILE_NOTICE } from '../profilesrules.js';
-
-test('prefRows: labels values, skips unknown ones', () => {
-  const r = prefRows({ theme: 'dark', flip: true, clock: 'bogus', nope: 'x' });
-  assert.deepEqual(
-    r.map((x) => [x.key, x.value]),
-    [
-      ['theme', 'Dark'],
-      ['flip', 'Yes'],
-    ],
-  );
-  assert.deepEqual(prefRows(null), []);
-});
-
-test('withoutPref leaves the others', () => {
-  assert.deepEqual(withoutPref({ theme: 'dark', clock: '12' }, 'theme'), { clock: '12' });
-});
+import { setSummary, presetSummary, without, canSeeProfiles, profileButtonOff, PROFILE_NOTICE } from '../profilesrules.js';
 
 test('setSummary', () => {
   assert.equal(setSummary({}), 'Shows everything');

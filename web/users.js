@@ -300,7 +300,6 @@ function paintPeople() {
   );
 }
 
-const paintSummary = paintPeople;
 
 const load = () => {
   wsSend({ t: 'usersList', id: ++listSeq });
@@ -321,7 +320,7 @@ onMsg('usersListResult', (m) => {
   }
   loaded = true;
   emit('usersListed', m);
-  paintSummary();
+  paintPeople();
   if (!keep) {
     lastList = m;
     fill();
@@ -330,14 +329,14 @@ onMsg('usersListResult', (m) => {
 // policy.go answers usersList to an Administrator only; anyone else would only add a refused row to the Log.
 let admin = false;
 on('access', (a) => {
-  paintSummary();
+  paintPeople();
   const was = admin;
   admin = a.role === 'administrator';
   if (admin && (!was || !loaded)) load();
 });
 on('conn', paintPeople);
 on('hello', () => {
-  paintSummary();
+  paintPeople();
   if (admin) load();
 });
 
@@ -460,4 +459,4 @@ maxInput.addEventListener('input', () => {
   for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;
 });
 
-paintSummary();
+paintPeople();

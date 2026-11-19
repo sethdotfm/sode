@@ -73,8 +73,6 @@ test('pinning: global flag, local override, unknown names, default', async () =>
   assert.deepEqual(m.pinOverrides(), {});
   mem.set('sode-preset-pins', 'not json');
   assert.equal(names(m.pinnedPresets()), 'Morning,Late');
-  // Pin for everyone changes the flag in the list sent; this browser then follows it.
-  assert.equal(m.withGlobalPin('evening', true).find((s) => s.name === 'Evening').pinned, true);
   mem.set('sode-preset-pins', JSON.stringify({ evening: false }));
   m.clearPinOverride('evening');
   assert.equal(mem.has('sode-preset-pins'), false);

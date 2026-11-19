@@ -55,7 +55,6 @@ export const userPresets = () =>
 export const allPresets = () => [...globalPresets(), ...userPresets(), ...localPresets()];
 const PRESET_LISTS = { global: globalPresets, user: userPresets, local: localPresets };
 export const presetsIn = (scope) => (PRESET_LISTS[scope] || (() => []))();
-export const findPresetById = (scope, id) => (id ? allPresets().find((s) => s.scope === scope && s.id === id) : undefined);
 export const findPreset = (scope, name) => allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
 export function presetProblem(s) {
@@ -237,8 +236,6 @@ export function clearPinOverride(id) {
   writeJSON(PINS, Object.keys(o).length ? o : null);
   emit('presets');
 }
-export const withGlobalPin = (id, on) => globalPresets().map((s) => saved(s.id === id ? { ...s, pinned: on } : s));
-
 export const withUserPin = (id, on) => userPresets().map((s) => saved(s.id === id ? { ...s, pinned: on } : s));
 
 // ---- the popup's list: all presets, or the best matches (core.js search). Matches keep their order among equal scores.
