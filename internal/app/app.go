@@ -345,6 +345,7 @@ func (a *App) periodic() {
 	a.expireKeys(time.Now())
 	a.monSweep()
 	a.flushAuthFails(time.Now())
+	a.apiS.idemSweep(time.Now())
 	if !up {
 		return
 	}

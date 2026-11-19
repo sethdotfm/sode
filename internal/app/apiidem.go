@@ -110,6 +110,12 @@ func (s *apiState) idemPruneLocked(now time.Time) {
 	}
 }
 
+func (s *apiState) idemSweep(now time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.idemPruneLocked(now)
+}
+
 func (s *apiState) idemCommit(sl *idemSlot, status int, body []byte) {
 	s.mu.Lock()
 	sl.status, sl.body = status, body
