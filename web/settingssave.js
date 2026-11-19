@@ -12,6 +12,7 @@ import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical, sectionOfKey } from './savereviewrules.js';
 import { saveSources, sourceOf } from './savesources.js';
+import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
 import { sectionView } from './settingsrolerules.js';
 import { showPinFields, resetPinFields } from './settingspin.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
@@ -29,6 +30,8 @@ let versions = {}; // each field's version as loaded
 const refused = new Map(); // key -> refused result; marked until it saves or goes back
 let savedAt = null;
 let role = '';
+let me = ''; // who stages an edit now: the user, a stepped-in user included, else Guest
+let authors = new Map(); // stagedrules.js marks
 let seq = 0;
 let pending = null; // { id, sent, retried, pin }; sent: key -> the value sent
 
@@ -49,6 +52,14 @@ function changes() {
 const saveFields = () => Object.fromEntries(Object.entries(readSettings()).filter(([k]) => k in SAVE_FIELDS));
 
 export const dirty = () => isOpen() && changes().length > 0;
+
+// Called on each edit, never on a Step in or Step out, so an edit keeps the name of who made it.
+const noteEdits = () => {
+  authors = noteAuthors(authors, changes(), me);
+};
+const by = (r) => authors.get(rowId(r))?.by || me;
+// Edits in a section the saver's Role cannot see show only as a count, and Save skips them (spec #543, Step in).
+const seen = (r) => sectionView(sectionOf(r.key), role) !== 'hidden';
 const warned = () => !$('settings-unsaved').hidden;
 
 // ---- what each change is called on the page
@@ -133,11 +144,13 @@ function paintMarks() {
   }
 }
 
-function changedSections() {
-  const slugs = new Set(changes().map((r) => sectionOf(r.key)));
-  return sections()
+function unsavedText() {
+  const { shown, unseen } = splitSeen(changes(), seen);
+  const slugs = new Set(shown.map((r) => sectionOf(r.key)));
+  const names = sections()
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
+  return [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
 }
 
 export function markClean(saved) {
@@ -145,6 +158,7 @@ export function markClean(saved) {
   base = saveFields();
   versions = { ...S.versions };
   refused.clear();
+  authors = new Map();
   paintMarks();
   savedAt = saved ? new Date().toISOString() : null;
   unwarn();
@@ -153,7 +167,7 @@ export function markClean(saved) {
 // True when it warned: the first try to leave with unsaved changes warns, a second one goes.
 export function warnUnsaved() {
   if (!dirty() || warned()) return false;
-  $('settings-unsaved').textContent = `Unsaved changes in ${changedSections().join(', ')}. Save them, or exit again to discard them.`;
+  $('settings-unsaved').textContent = `${unsavedText()}. Save them, or exit again to discard them.`;
   $('settings-unsaved').hidden = false;
   $('settings-exit').textContent = 'Discard and exit';
   $('settings-exit').classList.replace('pb-btn--outline', 'pb-btn--danger');
@@ -333,11 +347,15 @@ async function review({ focusField, reveal }) {
     .map((src) => src.problem())
     .find(Boolean);
   if (srcBad) return void showSaveErr(srcBad);
-  const rows = changes();
-  if (!rows.length) return void showSaveErr('There are no changes to save.');
+  noteEdits();
+  const all = changes();
+  if (!all.length) return void showSaveErr('There are no changes to save.');
+  const { shown: rows, unseen } = splitSeen(all, seen);
   $('settings-err').hidden = true;
   const send = await reviewSave({
     rows,
+    unseen: unseenNotes(unseen, by),
+    by: namesAuthors(rows, by, me) ? by : null,
     kept,
     place,
     label,
@@ -349,7 +367,8 @@ async function review({ focusField, reveal }) {
   });
   if (!send || !isOpen()) return;
   // Fields the page expects refused are sent too: the server's answer gives each its reason.
-  const keys = [...new Set(rows.map((r) => r.key))].filter((k) => k !== PIN);
+  // Edits the Role cannot see stay unsaved and stay staged; the rest are sent.
+  const keys = sentKeys(all, seen).filter((k) => k !== PIN);
   sendFields(
     keys,
     valuesOf(keys),
@@ -362,6 +381,7 @@ async function review({ focusField, reveal }) {
 export function initSave(toc) {
   for (const ev of ['input', 'change']) {
     form.addEventListener(ev, () => {
+      noteEdits();
       $('settings-err').hidden = true;
       if (refused.size) paintMarks();
       return warned() ? unwarn() : renderSaveState();
@@ -383,6 +403,7 @@ export function initSave(toc) {
   });
   on('access', (a) => {
     role = a.role || '';
+    me = a.user || 'Guest';
   });
   on('wsclose', () => {
     pending = null;
@@ -390,6 +411,7 @@ export function initSave(toc) {
   // Manage users is a dialog outside the form, so its edits come as this bus event.
   on('saveSourceChanged', () => {
     if (!isOpen()) return;
+    noteEdits();
     if (refused.size) paintMarks();
     return warned() ? unwarn() : renderSaveState();
   });
