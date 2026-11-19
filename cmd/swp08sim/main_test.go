@@ -85,7 +85,7 @@ func (sc *simConn) want(desc string, msg []byte) {
 }
 
 // The sim answers protect messages in the Ultrix's 7-byte order and sends 0x8D and 0x8F only to clients that have
-// sent a message (docs/research/protect-probe/).
+// sent a message.
 func TestSimProtectMessagesLikeUltrix(t *testing.T) {
 	dial := startSim(t)
 	a, quiet, other := dial(), dial(), dial()

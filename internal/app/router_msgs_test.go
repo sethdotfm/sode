@@ -86,17 +86,10 @@ func TestProtectDumpRefusesTake(t *testing.T) {
 	}
 }
 
-// A DashBoard Lock on a Ross Ultrix is 17 0x8D frames, one for each level; its release is 17 0x8F
-// frames. Real frames: dst 27, device 10.
-func TestDashBoardLockAndReleaseAllLevels(t *testing.T) {
-	h, _ := OpenHistory("")
-	cfg := config.Defaults()
-	cfg.Levels = 17
-	cfg.Normalize()
-	a, err := New(cfg, "", h, nil, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+// One DashBoard press on a Ross Ultrix protects all 17 levels with 17 0x8D frames, one for each level. The
+// next press clears them with 17 0x8F frames. Real frames: dst 27, device 10.
+func TestDashBoardProtectAndClearAllLevels(t *testing.T) {
+	a := newTestApp(t, func(c *config.Config) { c.Levels = 17 })
 	protect := func() map[int]int {
 		a.mu.Lock()
 		defer a.mu.Unlock()

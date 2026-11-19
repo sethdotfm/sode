@@ -111,8 +111,7 @@ func xp(cmd byte, matrix, level, dst, src int) []byte {
 	return []byte{cmd, byte(matrix), byte(level), byte(dst >> 8), byte(dst), byte(src >> 8), byte(src)}
 }
 
-// ExtProtectChange builds a 7-byte 0x8B, 0x8D or 0x8F in the Ultrix's order. Details is 0 when not
-// Protected.
+// ExtProtectChange builds a 7-byte 0x8B, 0x8D or 0x8F in the Ultrix's order. Details is 0 when not protected.
 func ExtProtectChange(cmd byte, matrix, level, details, dst, device int) []byte {
 	return []byte{cmd, byte(matrix), byte(level), byte(details), byte(dst >> 8), byte(dst), byte(device >> 8), byte(device)}
 }
@@ -299,7 +298,7 @@ func Parse(msg []byte) (Event, error) {
 		case 6: // matrix, level, dst(2), state+device(2) — same packing as the dump
 			p = Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: int(d[2])<<8 | int(d[3])}
 			p.Protected, p.Device = protectWord(d[4], d[5])
-		case 7: // matrix, level, details, dst(2), device(2): the Ultrix's order (docs/research/protect-probe/)
+		case 7: // matrix, level, details, dst(2), device(2): the Ultrix's order, seen 2026-11-16
 			p = Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: int(d[3])<<8 | int(d[4]),
 				Protected: d[2] != 0, Device: int(d[5])<<8 | int(d[6])}
 		default:
@@ -372,6 +371,7 @@ var errTruncDump = errors.New("swp08: tally dump truncated")
 
 // protectWord unpacks a protect entry: state in bits 4-5 of the high byte
 // (0 = not protected), device number in the rest.
+// Keep in step with ProtectWord.
 func protectWord(hi, lo byte) (protected bool, device int) {
 	return hi>>4&0x03 != 0, int(hi&0x0F)<<8 | int(lo)
 }
@@ -414,4 +414,9 @@ func names(dest bool, matrix, level int, d []byte) (*NameBlock, error) {
 		nb.Names = append(nb.Names, strings.TrimRight(raw, " \x00"))
 	}
 	return nb, nil
+}
+
+// ProtectWord packs a protect dump entry the way protectWord unpacks it. State is 0 when not protected.
+func ProtectWord(state, device int) (hi, lo byte) {
+	return byte(state&0x03)<<4 | byte(device>>8&0x0F), byte(device)
 }

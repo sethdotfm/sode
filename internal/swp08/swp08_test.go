@@ -104,8 +104,8 @@ func TestParseProtectDump(t *testing.T) {
 	}
 }
 
-// Frames from swp08probe against a Ross Ultrix (docs/research/protect-probe/). The 7-byte order is
-// matrix, level, details, dst(2), device(2).
+// Frames captured from a Ross Ultrix on 2026-11-16. The 7-byte order is matrix, level, details, dst(2),
+// device(2).
 func TestParseProtectChangeRouterOrder(t *testing.T) {
 	for _, c := range []struct {
 		name string

@@ -228,7 +228,7 @@ Each bar is a slot: a minute for an hour, 15 minutes for a day and an hour for a
 
 ## Protocol notes
 
-Crosspoints use extended commands: 0x82 connect, 0x84 connected and 0x95/0x97 tally dump. A take succeeds when the router sends Connected for every requested level, with a 3s timeout. Routers send nothing for a connect that changes nothing, so Sode interrogates and counts those as "already". Sode reads which destinations are protected with the extended protect dump (0x93, answered by 0x94) and refuses takes to protected destinations before it sends anything. Sode discards messages queued while it is disconnected. Names are polled, since the router does not announce renames.
+Crosspoints use extended commands: 0x82 connect, 0x84 connected and 0x95/0x97 tally dump. A take succeeds when the router sends Connected for every requested level, with a 3s timeout. Routers send nothing for a connect that changes nothing, so Sode interrogates and counts those as "already". Sode reads which destinations are protected with the extended protect dump (0x93, answered by 0x94). It also applies the 0x8D and 0x8F the router sends, one for each level, when a client changes which levels of a destination are protected. Sode refuses takes to protected destinations before it sends anything. Sode discards messages queued while it is disconnected. Names are polled, since the router does not announce renames.
 
 ## Simulator
 
