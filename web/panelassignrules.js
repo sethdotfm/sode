@@ -189,7 +189,7 @@ export function assignNameProblem(text, clashed) {
 }
 
 // '' when only a non-Sode page holds the stream; 'offline' when no stream would hear it.
-export const renameState = (i) => (!i?.page && !i?.keyless ? '' : i.stream ? 'ready' : 'offline');
+export const streamState = (i) => (!i?.page && !i?.keyless ? '' : i.stream ? 'ready' : 'offline');
 
 export const renameRefusal = (err) => ({ why: err?.message || '' });
 

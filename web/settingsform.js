@@ -76,7 +76,6 @@ export function readSettings() {
     else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
     else c[k] = f.value.trim();
   }
-  // A blank Auto-lock time means 0 (never).
   if (Number.isNaN(c.autoLockMinutes)) c.autoLockMinutes = 0;
   c.locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked, panel: $('cfg-lock-panel').checked };
   c.newUserDefaults = { persistent: $('cfg-new-persistent').checked, noAutoLock: $('cfg-new-no-auto-lock').checked };

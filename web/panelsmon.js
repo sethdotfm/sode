@@ -6,7 +6,7 @@ import { durationText, permissionText } from './panelwatchrules.js';
 import { panelStatus, shownInstances, hiddenShown } from './panelsrules.js';
 import { slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
-import { renameState, renameProblem } from './panelassignrules.js';
+import { streamState, renameProblem } from './panelassignrules.js';
 import { reloadButton, reloadAllButton, offlineNote } from './panelsopen.js';
 
 // Fast enough that the online mark follows an instance within a couple of seconds, with no push channel to the page.
@@ -63,7 +63,7 @@ function hideButton(p, i, setHide) {
 // keyless is a keyless page's id.
 function nameSlot(p, i, rename) {
   const slot = el('span', 'sode-ov__name');
-  const state = rename ? renameState(i) : '';
+  const state = rename ? streamState(i) : '';
   const show = () => {
     if (!state) return slot.replaceChildren(el('strong', '', i.device));
     const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('text-cursor-input'));
@@ -134,7 +134,7 @@ function hiddenLine(p, setHide) {
 }
 
 // Offline after a row's controls: neither Reload nor a new name would reach it.
-const offlineAfter = (i, shown) => (shown && renameState(i) === 'offline' ? offlineNote() : null);
+const offlineAfter = (i, shown) => (shown && streamState(i) === 'offline' ? offlineNote() : null);
 
 // A page with no working key (GLOSSARY.md, Keyless instance): its name, address, and for a Trusted user Reload and
 // rename. Its name lives in its own browser.

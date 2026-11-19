@@ -1,5 +1,5 @@
 // Entry for the panel pages (/panels, /panels/editor and /panels/<id>). Sign-in and the page lock come from lock.js, as on /log.
-import { on, connect, S } from './core.js';
+import { on, once, connect, S } from './core.js';
 import './brand.js';
 import './lock.js';
 import './inboxdialog.js';
@@ -33,8 +33,7 @@ if (!id) bigScrollAll();
 // An Item link names its install, so the panel waits for the hello to say which install this is.
 function runLinked() {
   if (!linkInstall(location.hash)) return runPanel(id);
-  const off = on('helloData', () => {
-    queueMicrotask(off); // a removal inside emit would skip the next listener
+  once('helloData', () => {
     if (linkInstall(location.hash) === S.installUid) return runPanel(id);
     const note = document.getElementById('panels-note');
     note.textContent = OTHER_INSTALL;

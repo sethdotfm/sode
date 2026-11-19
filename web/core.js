@@ -84,6 +84,13 @@ export const on = (ev, fn) => {
     if (i >= 0) l.splice(i, 1);
   };
 };
+// The removal waits a microtask: one inside emit would skip the next listener.
+export const once = (ev, fn) => {
+  const off = on(ev, (...a) => {
+    queueMicrotask(off);
+    fn(...a);
+  });
+};
 // Runs before earlier listeners: for a module that must refresh its memo before views read it.
 export const onFirst = (ev, fn) => {
   (listeners[ev] ||= []).unshift(fn);

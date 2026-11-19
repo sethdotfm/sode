@@ -1,6 +1,6 @@
 // A Public panel page that comes back by itself, and Reload from the Open now list (internal/app/publicback.go,
 // internal/app/panelreload.go). Pure, so node tests read it.
-import { renameState } from './panelassignrules.js';
+import { streamState } from './panelassignrules.js';
 
 // The longest random wait before a page asks after a public line. It spreads a wall of tablets behind one address
 // under publicAskMax.
@@ -20,10 +20,8 @@ export function lineType(line) {
 // back marks the ask that follows a public line, so Sode writes its Log row.
 export const publicAskPath = (id, back) => `api/v1/panels/${id}/public${back ? '?back=1' : ''}`;
 
-export const reloadState = renameState;
-
 export function reloadAllState(p) {
-  const rows = [...(p.instances || []), ...(p.keyless || [])].filter((r) => reloadState(r));
+  const rows = [...(p.instances || []), ...(p.keyless || [])].filter((r) => streamState(r));
   if (!rows.length) return '';
   return rows.some((r) => r.stream) ? 'ready' : 'offline';
 }

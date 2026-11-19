@@ -3,8 +3,7 @@
 // remapSet in internal/app/importremap.go). No core.js import, so Node tests load it.
 
 import { parseFilter, filterText } from './filter.js';
-
-const norm = (s) => (s || '').trim().toLowerCase();
+import { norm } from './remaprules.js';
 
 const SIDES = [
   ['src', 'sources'],

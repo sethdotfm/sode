@@ -51,8 +51,7 @@ const browser = browserFilters({
   write: setFilter,
   snapshot,
   restore,
-  // A save already sent finishes first.
-  onClose: () => saver.close(),
+  onClose: () => saver.close(), // a save already sent finishes first
 });
 let target = browser;
 const curF = () => target.filter();

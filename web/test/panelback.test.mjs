@@ -1,7 +1,8 @@
 // A Public panel page that comes back by itself, and the Open now list's Reload and keyless rename. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lineType, backWaitMs, publicAskPath, reloadState, reloadAllState } from '../panelbackrules.js';
+import { lineType, backWaitMs, publicAskPath, reloadAllState } from '../panelbackrules.js';
+import { streamState } from '../panelassignrules.js';
 import { pollFail, PUBLIC_STOPPED } from '../panelkeyrules.js';
 
 test('the stream lines the page acts on', () => {
@@ -41,10 +42,10 @@ test('a stopped Public page says it comes back by itself', () => {
 });
 
 test('Reload and rename reach only a live stream; an offline row says Offline', () => {
-  assert.equal(reloadState({ device: 'Lobby', page: true, stream: true }), 'ready');
-  assert.equal(reloadState({ device: 'Lobby', page: true, stream: false }), 'offline');
-  assert.equal(reloadState({ device: 'Lobby', online: true }), '');
-  assert.equal(reloadState({ keyless: 'ab', stream: false }), 'offline');
+  assert.equal(streamState({ device: 'Lobby', page: true, stream: true }), 'ready');
+  assert.equal(streamState({ device: 'Lobby', page: true, stream: false }), 'offline');
+  assert.equal(streamState({ device: 'Lobby', online: true }), '');
+  assert.equal(streamState({ keyless: 'ab', stream: false }), 'offline');
   assert.equal(reloadAllState({ instances: [{ page: true, stream: false }], keyless: [{ keyless: 'ab', stream: true }] }), 'ready');
   assert.equal(reloadAllState({ instances: [{ page: true, stream: false }], keyless: [] }), 'offline');
   assert.equal(reloadAllState({ instances: [] }), '');
