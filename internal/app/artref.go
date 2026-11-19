@@ -13,10 +13,9 @@ const (
 	artRefPanel                     // a-<hex>, the panel's own artwork
 )
 
-// id is the name after "icon:", the library id after "lib:", or the whole d- or a- id.
 type artRef struct {
 	kind artRefKind
-	id   string
+	id   string // after "icon:" or "lib:"; the whole d- or a- id
 }
 
 // parseArtRef is false for a string that is none of the forms. "" is true, with kind artRefNone.

@@ -101,17 +101,6 @@ func (s *inboxStore) artData(card, panel, art string) ([]byte, bool) {
 	return s.art.get(card + ".art/" + panel + "/" + art)
 }
 
-// Caller holds mu.
-func (s *inboxStore) waitingForLocked(to string) int {
-	n := 0
-	for _, c := range s.by {
-		if c.To == to && c.State == cardWaiting {
-			n++
-		}
-	}
-	return n
-}
-
 // add stores one card per recipient, or none: full names the first recipient whose Inbox is full.
 // art is keyed "<panel>/<art>" and goes with every card. live is read after the write: a user removed
 // before it loses the card here, one removed after it is caught by usersRemoved.
@@ -122,8 +111,10 @@ func (s *inboxStore) add(cards []inboxCard, art map[string][]byte, live func(use
 		return nil, full, nil
 	}
 	for _, id := range ids {
-		if err = s.putArt(id, art); err != nil {
-			break
+		for k, b := range art {
+			if err == nil {
+				err = s.art.put(id+".art/"+k, b)
+			}
 		}
 	}
 	s.mu.Lock()
@@ -183,21 +174,18 @@ func (s *inboxStore) reserve(cards []inboxCard) (ids []string, full string) {
 
 // fullLocked names the first recipient whose Inbox is full, or "".
 func (s *inboxStore) fullLocked(cards []inboxCard) string {
+	waiting := map[string]int{}
+	for _, c := range s.by {
+		if c.State == cardWaiting {
+			waiting[c.To]++
+		}
+	}
 	for _, c := range cards {
-		if s.waitingForLocked(c.To) >= inboxWaitingMax {
+		if waiting[c.To] >= inboxWaitingMax {
 			return c.ToName
 		}
 	}
 	return ""
-}
-
-func (s *inboxStore) putArt(card string, art map[string][]byte) error {
-	for k, b := range art {
-		if err := s.art.put(card+".art/"+k, b); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *inboxStore) dropArtLocked(card string) { s.art.delPrefix(card + ".art") }

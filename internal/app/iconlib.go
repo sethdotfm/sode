@@ -15,8 +15,6 @@ import (
 	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Icon library: one install-wide set of SVG and PNG icons, icons.yaml beside the config and the files in icons/
@@ -206,14 +204,8 @@ func (s *iconLib) putLocked(ic LibIcon, data []byte) (LibIcon, error) {
 // saveLocked writes next as the index before memory changes.
 func (s *iconLib) saveLocked(next iconLibData) error {
 	next.Rev = s.data.Rev + 1
-	if s.path != "" {
-		out, err := yaml.Marshal(next)
-		if err == nil {
-			err = config.AtomicWrite(s.path, out)
-		}
-		if err != nil {
-			return err
-		}
+	if err := writeYAML(s.path, next); err != nil {
+		return err
 	}
 	s.data = next
 	return nil

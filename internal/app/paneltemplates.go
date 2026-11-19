@@ -291,13 +291,8 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 		apiFail(w, http.StatusForbidden, "user_required", "a template is owned by a user: use a user's key to save one")
 		return
 	}
-	body, ok := readBody(w, r, panelLayoutBodyMax, "template")
-	if !ok {
-		return
-	}
 	var t Template
-	if err := json.Unmarshal(body, &t); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a template as JSON: "+err.Error())
+	if !decodeBody(w, r, panelLayoutBodyMax, "template", "send a template as JSON: ", false, &t) {
 		return
 	}
 	t.ID, t.Owner = "", cl.Actor.User

@@ -2,7 +2,6 @@ package app
 
 import (
 	"cmp"
-	"encoding/json"
 	"net/http"
 	"slices"
 	"strings"
@@ -148,12 +147,7 @@ func (a *App) readArtDefault(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusForbidden, "user_required", "Default artwork is changed with a user's key")
 		return in, false
 	}
-	body, ok := readBody(w, r, panelBodyMax, "default")
-	if !ok {
-		return in, false
-	}
-	if err := json.Unmarshal(body, &in); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a default as JSON: "+err.Error())
+	if !decodeBody(w, r, panelBodyMax, "default", "send a default as JSON: ", false, &in) {
 		return in, false
 	}
 	if err := in.check(); err != nil {

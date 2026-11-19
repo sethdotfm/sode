@@ -391,16 +391,19 @@ func (s *panelStore) writeLocked(p *Panel) error {
 
 // Callers validate first.
 func (s *panelStore) create(p Panel) (Panel, error) {
-	vet := func(p Panel) error {
-		if s.slugTakenLocked(p.Slug, "") {
-			return errSlugTaken
-		}
-		return nil
+	return s.insert(p, panelMax, errPanelCap, s.vetNewLocked, s.writeNewLocked)
+}
+
+func (s *panelStore) vetNewLocked(p Panel) error {
+	if s.slugTakenLocked(p.Slug, "") {
+		return errSlugTaken
 	}
-	return s.insert(p, panelMax, errPanelCap, vet, func(p *Panel) error {
-		p.normalize()
-		return s.writeLocked(p)
-	})
+	return nil
+}
+
+func (s *panelStore) writeNewLocked(p *Panel) error {
+	p.normalize()
+	return s.writeLocked(p)
 }
 
 // createAs is create, but an imported panel keeps its id when nobody holds it, so its links still work.
@@ -408,16 +411,7 @@ func (s *panelStore) createAs(p Panel) (Panel, error) {
 	if !panelIDRe.MatchString(p.ID) {
 		p.ID = ""
 	}
-	vet := func(p Panel) error {
-		if s.slugTakenLocked(p.Slug, "") {
-			return errSlugTaken
-		}
-		return nil
-	}
-	return s.insertAs(p, panelMax, errPanelCap, vet, func(p *Panel) error {
-		p.normalize()
-		return s.writeLocked(p)
-	})
+	return s.insertAs(p, panelMax, errPanelCap, s.vetNewLocked, s.writeNewLocked)
 }
 
 func (s *panelStore) replace(p Panel) (bool, error) {
@@ -487,9 +481,7 @@ func (s *panelStore) followUsers(renames map[string]string, removed map[string]b
 			continue
 		}
 		if err := s.writeLocked(&q); err != nil {
-			if first == nil {
-				first = err
-			}
+			first = cmp.Or(first, err)
 			continue
 		}
 		s.by[id] = q

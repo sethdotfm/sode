@@ -179,14 +179,8 @@ func (s *artDefaultStore) writeLocked(next artDefaultsFileData) error {
 		gone = append(gone, im.ID)
 		return true
 	})
-	if s.path != "" {
-		b, err := yaml.Marshal(next)
-		if err != nil {
-			return err
-		}
-		if err := config.AtomicWrite(s.path, b); err != nil {
-			return err
-		}
+	if err := writeYAML(s.path, next); err != nil {
+		return err
 	}
 	s.data = next
 	for _, id := range gone {

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // blobDir holds named bytes as files under dir, or in memory when dir is "". Names use "/" and can nest. Ids,
@@ -74,4 +75,16 @@ func (b *blobDir) delPrefix(prefix string) {
 		return
 	}
 	os.RemoveAll(b.path(prefix))
+}
+
+// "" is memory only and writes nothing.
+func writeYAML(path string, v any) error {
+	if path == "" {
+		return nil
+	}
+	b, err := yaml.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return config.AtomicWrite(path, b)
 }

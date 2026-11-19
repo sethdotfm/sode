@@ -27,15 +27,20 @@ func init() {
 }
 
 func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	body, ok := readBody(w, r, panelBodyMax, "request")
+	return decodeBody(w, r, panelBodyMax, "request", "send JSON: ", true, v)
+}
+
+// decodeBody answers 400 with hint before the parse error. With empty, a blank body leaves v as it is.
+func decodeBody(w http.ResponseWriter, r *http.Request, limit int64, what, hint string, empty bool, v any) bool {
+	body, ok := readBody(w, r, limit, what)
 	if !ok {
 		return false
 	}
-	if len(strings.TrimSpace(string(body))) == 0 {
+	if empty && len(strings.TrimSpace(string(body))) == 0 {
 		return true
 	}
 	if err := json.Unmarshal(body, v); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send JSON: "+err.Error())
+		apiFail(w, http.StatusBadRequest, "bad_request", hint+err.Error())
 		return false
 	}
 	return true
@@ -191,24 +196,17 @@ func setOut(cfg config.Config, set PanelSet, change bool) map[string]any {
 
 const setEveryoneMsg = "only a Trusted user can save or change a checkpoint set for Everyone"
 
-// An Everyone set with a PIN in the body answers trusted_required; without one, 403 not_owner (setFor).
-func (a *App) mayChangeSet(w http.ResponseWriter, cl *apiCtx, set PanelSet) bool {
+// refuseSet answers as refuseReach does. A missing set is the zero PanelSet, which setReach gives to no one.
+func (a *App) refuseSet(w http.ResponseWriter, cl *apiCtx, id string, set PanelSet, needChange bool) bool {
 	use, change := a.setReach(cl, set)
-	return !refuseReach(w, use, change, true, "no checkpoint set "+set.ID+" that this key can use",
+	return refuseReach(w, use, change, needChange, "no checkpoint set "+id+" that this key can use",
 		"this checkpoint set is use only for this key: only its owner or a Trusted user can change it")
 }
 
 func (a *App) setFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needChange bool) (PanelSet, bool) {
-	set, ok := a.panels.sets.get(r.PathValue("sid"))
-	use, change := false, false
-	if ok {
-		use, change = a.setReach(cl, set)
-	}
-	if refuseReach(w, use, change, needChange, "no checkpoint set "+r.PathValue("sid")+" that this key can use",
-		"this checkpoint set is use only for this key: only its owner or a Trusted user can change it") {
-		return PanelSet{}, false
-	}
-	return set, true
+	id := r.PathValue("sid")
+	set, _ := a.panels.sets.get(id)
+	return set, !a.refuseSet(w, cl, id, set, needChange)
 }
 
 func (a *App) apiSetList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
@@ -295,7 +293,7 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		Name   *string  `json:"name"`
 		Panels []string `json:"panels"`
 	}
-	if !readJSON(w, r, &in) || !a.mayChangeSet(w, cl, set) {
+	if !readJSON(w, r, &in) || a.refuseSet(w, cl, set.ID, set, true) {
 		return
 	}
 	if in.Name != nil {
@@ -323,11 +321,8 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 }
 
 func (a *App) apiSetDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	set, ok := a.setFor(w, r, cl, false)
+	set, ok := a.setFor(w, r, cl, true)
 	if !ok {
-		return
-	}
-	if !a.mayChangeSet(w, cl, set) {
 		return
 	}
 	if err := a.panels.sets.delete(set.ID); err != nil {

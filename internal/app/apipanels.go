@@ -76,11 +76,11 @@ func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
 }
 
 func (a *App) panelOut(p Panel, edit bool) map[string]any {
-	if c, ok := clientOfPanel(a.r().cfg, p); ok && edit {
-		r := c.Rights.Clone()
+	cl, hasClient := clientOfPanel(a.r().cfg, p)
+	if hasClient && edit {
+		r := cl.Rights.Clone()
 		p.ClientRights = &r
 	}
-	cl, hasClient := clientOfPanel(a.r().cfg, p)
 	b, _ := json.Marshal(p)
 	m := map[string]any{}
 	json.Unmarshal(b, &m)
@@ -142,16 +142,8 @@ func refuseReach(w http.ResponseWriter, read, edit, needEdit bool, noRead, noEdi
 }
 
 func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Panel, bool) {
-	body, ok := readBody(w, r, panelLayoutBodyMax, "panel")
-	if !ok {
-		return Panel{}, false
-	}
 	var p Panel
-	if len(strings.TrimSpace(string(body))) == 0 && allowEmpty {
-		return p, true
-	}
-	if err := json.Unmarshal(body, &p); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a panel as JSON: "+err.Error())
+	if !decodeBody(w, r, panelLayoutBodyMax, "panel", "send a panel as JSON: ", allowEmpty, &p) {
 		return Panel{}, false
 	}
 	if p.Pages != nil && p.LegacyCells != nil {
@@ -162,6 +154,17 @@ func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Pan
 }
 
 const panelSaveFail = "the panel could not be saved"
+
+func (a *App) checkPanel(w http.ResponseWriter, p *Panel) bool {
+	err := validatePanel(p)
+	if err == nil {
+		err = a.nameFixed(p.Settings)
+	}
+	if err != nil {
+		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	}
+	return err == nil
+}
 
 func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	out := []map[string]any{}
@@ -268,12 +271,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if p.Type == panelTypeGrid {
 		a.refEdges(&p, nil)
 	}
-	err := validatePanel(&p)
-	if err == nil {
-		err = a.nameFixed(p.Settings)
-	}
-	if err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	if !a.checkPanel(w, &p) {
 		return
 	}
 	if p.Type == panelTypeButtons {
@@ -372,12 +370,7 @@ func (a *App) readPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	if p.Type == panelTypeGrid {
 		a.refEdges(&p, &old)
 	}
-	err := validatePanel(&p)
-	if err == nil {
-		err = a.nameFixed(p.Settings)
-	}
-	if err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	if !a.checkPanel(w, &p) {
 		return p, nil, false
 	}
 	if p.Type == panelTypeButtons {
@@ -465,12 +458,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
 	c.Art, c.Rev, c.Slug = nil, 0, ""
-	err := validatePanel(&c)
-	if err == nil {
-		err = a.nameFixed(c.Settings)
-	}
-	if err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	if !a.checkPanel(w, &c) {
 		return
 	}
 	var rights config.Rights
