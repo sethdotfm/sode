@@ -44,6 +44,19 @@ async function hold(open, gate, onAssign, onRename = () => {}, onPublic = () => 
   }
 }
 
+// A page left for another address can stay frozen in the back/forward cache with its hold open. Sode would then show
+// a closed page as online. Leaving ends the hold; coming back reloads, as a reload line does.
+function endOnLeave(stop) {
+  window.addEventListener(
+    'pagehide',
+    () => {
+      stop();
+      window.addEventListener('pageshow', (e) => e.persisted && location.reload(), { once: true });
+    },
+    { once: true },
+  );
+}
+
 // A page with no working key (GLOSSARY.md, Keyless instance) holds the keyless announcement under the name it already
 // has, and never asks for one. No key rides it; ended says the page's key was ended. A rename from the panels page
 // is kept in this browser and the announcement opens again under it. onPublic hears each public line. Returns { stop() }.
@@ -65,7 +78,9 @@ export function announceKeyless(seg, ended, onAssign, onPublic = () => {}) {
       onPublic,
     );
   open();
-  return { stop: () => gate.ctl.abort() };
+  const stop = () => gate.ctl.abort();
+  endOnLeave(stop);
+  return { stop };
 }
 
 // A name from the panels page. A link's name lives in the address, so the address carries the new one for a reload;
@@ -127,6 +142,7 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}, o
     stopped = true;
   };
   const api = { rename, stop };
+  endOnLeave(stop);
   if (device || !ask) {
     run();
     return api;
