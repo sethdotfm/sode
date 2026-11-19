@@ -1,0 +1,2 @@
+- A fresh install opens a setup wizard in four steps: Welcome, Router, Access and Done. Welcome sets the name, the border colour and your Administrator user. Router sets the address, levels, numbering and Multi destination, and says if the router answers. Access puts Open, Standard and Secured access side by side.
+- Nothing is saved until Finish, which signs you in as the first Administrator. Until then, Sode refuses takes, saves and API calls. `SODE_*` variables now fill the wizard and do not write the config file.

@@ -80,7 +80,7 @@ const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), levelSource, {
   hold: 'pointerdown',
   onChange: () => renderThread(),
 });
-const active = () => layout() === 'phone' && document.documentElement.dataset.view !== 'settings';
+const active = () => layout() === 'phone' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
 
 // ---- header
 

@@ -378,6 +378,8 @@ type inMsg struct {
 	Action     string               `json:"action"`   // panelAlarm: clear | stop
 	Instance   string               `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
 	MyClient   *myClientReq         `json:"client"`   // myClientSave
+	Router     string               `json:"router"`   // setupRouter: the address typed
+	Setup      *setupReq            `json:"setup"`    // setupFinish
 }
 
 func plural(n int, one, many string) string {

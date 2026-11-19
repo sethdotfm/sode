@@ -1,0 +1,433 @@
+// The setup wizard (docs/agents/server.md, setup.go): a config file with no users opens it in
+// place of the patch page. Nothing is sent but the Router step's address until Finish.
+import { $, S, el, on, onMsg, wsSend, icon } from './core.js';
+import { showBrand } from './brand.js';
+import { keepSignInToken } from './signin.js';
+import { desktopOnly } from './desktoponly.js';
+import { layout, onLayout } from './layout.js';
+import {
+  STEPS,
+  DONE,
+  PRESET_ROWS,
+  PRESET_WHO,
+  startAnswers,
+  pinMax,
+  stepProblem,
+  stopAt,
+  chipGoes,
+  numberingChoices,
+  finishMessage,
+  routerLine,
+} from './setupwizardrules.js';
+
+const root = document.documentElement;
+let d = null; // the answers; null while the wizard is closed
+let at = 0;
+let reached = 0;
+let finished = false;
+let finishing = false; // Finish sent, no answer yet: its hello comes first
+let seq = 0;
+let sentRouter = ''; // the address the server tries now
+let routerTimer = 0;
+let sheetPresets = []; // the hello's presets, kept: the hello after Finish has none
+
+const max = () => pinMax(S.cfg || {});
+
+// h: el with attributes; a false or null attribute is left out.
+function h(tag, attrs, ...kids) {
+  const e = el(tag, attrs?.class || '', ...kids);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'class' || v == null || v === false) continue;
+    e.setAttribute(k, v === true ? '' : v);
+  }
+  return e;
+}
+
+function iconWith(name, cls) {
+  const svg = icon(name);
+  if (cls) svg.classList.add(cls);
+  return svg;
+}
+
+function field(id, label, value, attrs = {}, hint = '') {
+  const input = h('input', { id, class: 'pb-input', autocomplete: 'off', ...attrs });
+  input.value = value;
+  return h('div', { class: 'sode__field' }, h('label', { for: id }, label), input, hint ? h('span', { class: 'sode__hint' }, hint) : null);
+}
+
+function choice(name, label, opts, hint = '') {
+  const group = h('span', { class: 'pb-btn-group', role: 'radiogroup', 'aria-labelledby': `setup-${name}-label` });
+  for (const [v, t] of opts) {
+    const id = `setup-${name}-${v}`;
+    const input = h('input', { type: 'radio', class: 'pb-btn-check', name, id, value: v });
+    input.checked = d[name] === v;
+    group.append(input, h('label', { class: 'pb-btn pb-btn--outline', for: id }, t));
+  }
+  return h(
+    'div',
+    { class: 'sode__field' },
+    h('span', { class: 'sode__field-label', id: `setup-${name}-label` }, label),
+    group,
+    hint ? h('span', { class: 'sode__hint' }, hint) : null,
+  );
+}
+
+const section = (title, sub, ...inner) =>
+  h('div', { class: 'sode-setup__section' }, h('h3', { class: 'sode-setup__h' }, title), sub ? h('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
+
+const lead = (text) => h('p', { class: 'sode-setup__lead' }, text);
+const strong = (text) => h('span', { class: 'pb-text-strong' }, text);
+
+function statusLine() {
+  const line = routerLine(d.router, S.router, S.srcs.length + S.dsts.length);
+  if (!line) return [];
+  return [
+    h(
+      'span',
+      { class: 'pb-status' },
+      h('span', { class: `pb-dot ${line.ok ? 'pb-dot--ok' : 'pb-dot--warn'}`, 'aria-hidden': 'true' }),
+      h('span', null, line.text),
+    ),
+  ];
+}
+
+const presets = () => sheetPresets;
+const presetName = () => presets().find((p) => p.key === d.preset)?.name || d.preset;
+
+function swatches() {
+  const box = h('span', { class: 'sode-setup__swatches', role: 'radiogroup', 'aria-labelledby': 'setup-brand-label' });
+  for (const c of [{ name: '', label: 'None' }, ...S.brandColors]) {
+    const input = h('input', { type: 'radio', name: 'brandBorder', value: c.name, 'aria-label': c.label });
+    input.checked = d.brandBorder === c.name;
+    box.append(h('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
+  }
+  return h('div', { class: 'sode__field' }, h('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border colour'), box);
+}
+
+function sheet() {
+  const picked = (p) => (d.preset === p.key ? 'is-picked' : '');
+  const head = h('tr', null, h('th'));
+  for (const p of presets()) {
+    const input = h('input', { type: 'radio', class: 'pb-check__input', name: 'preset', value: p.key });
+    input.checked = d.preset === p.key;
+    head.append(
+      h(
+        'th',
+        { 'data-preset': p.key, class: picked(p) },
+        h('label', { class: 'pb-check' }, input, h('span', { class: 'pb-check__label pb-text-strong' }, p.name)),
+        h('span', { class: 'sode-setup__who' }, PRESET_WHO[p.key] || ''),
+      ),
+    );
+  }
+  const body = h('tbody');
+  for (const [key, text] of PRESET_ROWS) {
+    const row = h('tr', null, h('th', { scope: 'row' }, text));
+    for (const p of presets()) {
+      const mark = p.rows[key]
+        ? h('span', { class: 'sode-setup__yes' }, iconWith('check', 'pb-icon--ok'), 'Yes')
+        : h('span', { class: 'sode-setup__no' }, icon('x'), 'No');
+      row.append(h('td', { 'data-preset': p.key, class: picked(p) }, mark));
+    }
+    body.append(row);
+  }
+  return h('table', { class: 'sode-setup__sheet' }, h('thead', null, head), body);
+}
+
+function doneText() {
+  const addr = () => h('span', { class: 'pb-text-mono' }, d.router.trim());
+  const linked = routerLine(d.router, S.router, S.srcs.length + S.dsts.length)?.ok;
+  return [
+    'You are signed in as ',
+    strong(d.name.trim()),
+    ...(linked ? [' and connected to the router at ', addr(), '.'] : ['. The router at ', addr(), ' has not answered yet, and Sode keeps trying.']),
+    ' You chose ',
+    strong(presetName()),
+    '.',
+  ];
+}
+
+const nextLink = (text, section, href = '#settings') => h('li', null, h('a', { href, 'data-section': section }, text));
+
+const VIEW = {
+  welcome: () => [
+    'Welcome to Sode',
+    lead('Sode patches your router from the keyboard. Set up this install in three short steps.'),
+    section(
+      'Name and colour',
+      'Shown on every page, so people can tell this Sode from another.',
+      field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }),
+      swatches(),
+    ),
+    section(
+      'Your user',
+      'You are the Administrator. Sode asks for your PIN again before a big change.',
+      field('setup-name', 'Name', d.name, { maxlength: '24' }),
+      field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric' }, `4 to ${max()} digits.`),
+      field('setup-pin2', 'PIN again', d.pin2, { type: 'password', inputmode: 'numeric' }),
+    ),
+  ],
+  router: () => [
+    'Router',
+    lead('Where Sode finds the router, and how it shows levels and numbers.'),
+    section(
+      'Connection',
+      '',
+      field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }),
+      h('div', { id: 'setup-router-status' }, ...statusLine()),
+    ),
+    section(
+      'Levels and numbers',
+      '',
+      field('setup-levels', 'Levels', d.levels, { type: 'number', min: '1', max: '256' }),
+      choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), 'How levels are shown and typed.'),
+      choice(
+        'numberOffset',
+        'Source and destination numbers',
+        [
+          ['1', 'Start at 1'],
+          ['0', 'Start at 0'],
+        ],
+        'Ultrix shows numbers starting at 1.',
+      ),
+    ),
+    section(
+      'Takes',
+      '',
+      choice('fireMode', 'Multi destination', [
+        ['sequential', 'One after another'],
+        ['native', 'Router salvo'],
+      ]),
+      d.fireMode === 'native'
+        ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, 'Pick a group nothing else on the router uses.')
+        : null,
+    ),
+  ],
+  access: () => ['Access', lead('What people can do without signing in. You can change any part of it later in Settings.'), sheet()],
+  done: () => [
+    'Sode is set up',
+    h(
+      'div',
+      { class: 'sode-setup__done' },
+      h(
+        'div',
+        null,
+        h('p', { id: 'setup-done-text' }, ...doneText()),
+        h('button', { type: 'button', class: 'pb-btn pb-btn--ok pb-btn--lg', id: 'setup-open' }, 'Open Sode'),
+      ),
+      h(
+        'nav',
+        { class: 'sode-setup__next', 'aria-label': 'Next steps' },
+        h('h3', null, 'Next steps'),
+        h(
+          'ul',
+          null,
+          nextLink('Add more users', 'users'),
+          nextLink('Create your first panel', null, 'panels/editor'),
+          nextLink('Connect a tablet or another app', 'api'),
+          nextLink('Download a backup', 'export-import'),
+        ),
+      ),
+    ),
+  ],
+};
+
+function renderSteps() {
+  const list = [];
+  STEPS.forEach(([, name], i) => {
+    const now = i === at;
+    const done = !now && (i < at || i <= reached);
+    const go = chipGoes(i, at, reached, finished);
+    const chip = h(
+      'button',
+      { type: 'button', class: 'sode-setup__chip', 'data-go': go ? String(i) : null, tabindex: go ? null : '-1', 'aria-current': now ? 'step' : null },
+      h('span', { class: 'sode-setup__dot' }, done ? icon('check') : String(i + 1)),
+      h('span', { class: 'sode-setup__label' }, name),
+    );
+    list.push(h('li', { class: now ? 'is-now' : done ? 'is-done' : '' }, chip));
+    if (i < STEPS.length - 1) list.push(h('span', { class: `sode-setup__line ${i < Math.max(at, reached) ? 'is-done' : ''}` }));
+  });
+  $('setup-steps').replaceChildren(...list);
+}
+
+const KEYS = {
+  'setup-brandText': 'brandText',
+  'setup-name': 'name',
+  'setup-pin': 'pin',
+  'setup-pin2': 'pin2',
+  'setup-router': 'router',
+  'setup-levels': 'levels',
+  'setup-group': 'group',
+};
+
+function render(focus) {
+  const step = STEPS[at][0];
+  $('setup').classList.toggle('sode-setup--wide', step === 'access');
+  renderSteps();
+  const [title, ...body] = VIEW[step]();
+  $('setup-title').textContent = title;
+  $('setup-body').replaceChildren(...body);
+  $('setup-foot').hidden = step === 'done';
+  $('setup-back').hidden = at === 0;
+  $('setup-restore').hidden = step !== 'welcome';
+  $('setup-next').textContent = { welcome: 'Set up', access: 'Finish' }[step] || 'Next';
+  $('setup-err').textContent = '';
+  check();
+  const f = focus ? $(focus) : $('setup-body').querySelector('input:not([type="radio"])');
+  if (f) {
+    f.focus();
+    if (focus && f.type === 'text') f.setSelectionRange(f.value.length, f.value.length);
+  } else if (step === 'done') $('setup-open')?.focus();
+}
+
+function check() {
+  $('setup-next').disabled = finishing || !!stepProblem(d, at, max());
+}
+
+function go(i) {
+  at = stopAt(d, i, max());
+  render();
+}
+
+// The server moves its link to a typed address after a pause, so the status line can say if it answers.
+function tryRouter() {
+  clearTimeout(routerTimer);
+  routerTimer = setTimeout(() => {
+    const addr = d?.router.trim();
+    if (!addr || addr === sentRouter) return;
+    sentRouter = addr;
+    wsSend({ t: 'setupRouter', id: ++seq, router: addr });
+  }, 600);
+}
+
+function paintRouter() {
+  const box = d && $('setup-router-status');
+  if (box) box.replaceChildren(...statusLine());
+}
+
+function paintDone() {
+  const box = d && finished && $('setup-done-text');
+  if (box) box.replaceChildren(...doneText());
+}
+
+$('setup-body').addEventListener('input', (e) => {
+  const t = e.target;
+  const k = KEYS[t.id] || t.name;
+  if (!d || !k) return;
+  if (t.type === 'radio' && !t.checked) return;
+  d[k] = t.value;
+  if (k === 'brandText' || k === 'brandBorder') showBrand(d.brandText, d.brandBorder);
+  if (k === 'router') {
+    tryRouter();
+    paintRouter();
+  }
+  // These change what the step draws.
+  if (t.type === 'radio' || k === 'levels') render(t.type === 'radio' ? null : t.id);
+  else check();
+});
+
+$('setup-body').addEventListener('click', (e) => {
+  const cell = e.target.closest('[data-preset]');
+  if (cell && d && d.preset !== cell.dataset.preset) {
+    d.preset = cell.dataset.preset;
+    render();
+    return;
+  }
+  const next = e.target.closest('.sode-setup__next a[data-section]');
+  if (next) {
+    e.preventDefault();
+    openSode();
+    $('settings-open').click();
+    document.querySelector(`fieldset[data-section="${next.dataset.section}"]`)?.scrollIntoView({ block: 'start' });
+    return;
+  }
+  if (e.target.closest('#setup-open')) openSode();
+});
+
+$('setup-body').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.target.tagName !== 'INPUT' || $('setup-next').disabled) return;
+  e.preventDefault();
+  $('setup-next').click();
+});
+
+$('setup-steps').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-go]');
+  if (b) go(+b.dataset.go);
+});
+
+$('setup-back').addEventListener('click', () => go(Math.max(0, at - 1)));
+
+$('setup-next').addEventListener('click', () => {
+  if (stepProblem(d, at, max())) return;
+  if (STEPS[at][0] !== 'access') {
+    at++;
+    reached = Math.max(reached, at);
+    render();
+    return;
+  }
+  // Finish sends every answer at once, so a wizard left half done leaves nothing behind.
+  if (!wsSend(finishMessage(d, ++seq))) {
+    $('setup-err').textContent = 'Not connected to Sode.';
+    return;
+  }
+  finishing = true;
+  check();
+  $('setup-err').textContent = 'Saving…';
+});
+
+onMsg('setupFinishResult', (m) => {
+  if (!d || m.id !== seq) return;
+  finishing = false;
+  if (!m.ok && !S.setup) return openSode(); // another browser finished first
+  if (!m.ok) {
+    $('setup-err').textContent = m.err || 'Setup was refused.';
+    check();
+    return;
+  }
+  keepSignInToken(m);
+  finished = true;
+  at = reached = DONE;
+  render();
+});
+
+function openSode() {
+  d = null;
+  root.removeAttribute('data-sode-setup');
+  $('setup').hidden = true;
+  if (layout() === 'desktop') $('src')?.focus();
+}
+
+function show() {
+  const phone = layout() === 'phone';
+  $('setup-dialog').hidden = phone;
+  $('setup-steps').hidden = phone;
+  $('setup-phone').replaceChildren(...(phone ? [desktopOnly('set it up')] : []));
+  $('setup-phone').hidden = !phone;
+}
+
+on('hello', () => {
+  if (S.setup && !d) {
+    d = startAnswers(S.cfg, S.setup);
+    sheetPresets = S.setup.presets || [];
+    sentRouter = d.router.trim();
+    at = reached = 0;
+    finished = finishing = false;
+    root.setAttribute('data-sode-setup', '');
+    $('setup').hidden = false;
+    show();
+    render();
+    return;
+  }
+  // Another browser finished setup: this one has nothing to save any more.
+  if (!S.setup && d && !finished && !finishing) openSode();
+  paintDone();
+});
+
+on('conn', () => {
+  paintRouter();
+  paintDone();
+});
+on('names', () => {
+  paintRouter();
+  paintDone();
+});
+onLayout(() => d && show());

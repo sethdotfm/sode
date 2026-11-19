@@ -221,6 +221,10 @@ func pathMatches(pattern, path string) bool {
 
 func (a *App) apiWrap(rt apiRoute) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if a.setupPending() {
+			apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
+			return
+		}
 		if rt.Scope == scopeOpen {
 			if a.routerOK(w, r) {
 				rt.Handle(a, w, r, nil)

@@ -57,7 +57,7 @@ Sode serves plain HTTP, so put your own TLS proxy in front. Behind a proxy, set 
 
 ## Configuration
 
-You change settings in the page, with the **Settings** button at the bottom. Sode stores them in `/data/config.yaml` and applies a save immediately. On first start, with no config file yet, Sode seeds the file from `SODE_*` variables such as `SODE_ROUTER`. After that the file wins.
+You change settings in the page, with the **Settings** button at the bottom. Sode stores them in `/data/config.yaml` and applies a save immediately. On first start, with no config file yet, Sode opens a setup wizard: name and colour, your Administrator user, the router and an Access preset. `SODE_*` variables such as `SODE_ROUTER` fill its fields. Finish writes the file, and after that the file wins.
 
 A few process settings stay in the environment. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_COMMLOG` (`/data/sent.jsonl`), `SODE_COMMLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true`, which hex-dumps all SW-P-08 traffic. `SODE_SETTINGS_SAVES` (`/data/settings-saves.jsonl`) holds the Settings saves record.
 

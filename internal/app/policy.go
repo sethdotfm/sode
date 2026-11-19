@@ -48,11 +48,13 @@ type rule struct {
 	write bool
 	// onRefuse: extra replies after a refusal is logged (a take fails each route).
 	onRefuse func(a *App, c *client, m *inMsg, err error)
+	// setup: allowed while setup is pending (setup.go); every other message is refused.
+	setup bool
 }
 
 var policy = map[string]rule{
 	// declares the page type and session token; answered with the lock state
-	"hi": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.Hi(c, m.Page, m.Token) }},
+	"hi": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { a.Hi(c, m.Page, m.Token) }},
 	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
 	// handled after.
 	"userSignIn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserUnlock(c, m) }},
@@ -67,7 +69,7 @@ var policy = map[string]rule{
 		a.command(c, "userSignOut", "ok", "", nil)
 	}},
 	// the page's ping while its user is active (idle.go); never refused, never logged
-	"activity":   {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.Activity(c) }},
+	"activity":   {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, _ *inMsg) { a.Activity(c) }},
 	"userSetPin": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserSetPin(c, m) }},
 	// counted in the settings pool. In line: a later lock is handled after, and one
 	// connection checks one PIN at a time.
@@ -102,7 +104,11 @@ var policy = map[string]rule{
 	// Step in and Step out (stepin.go): in line, like userSignIn.
 	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveStepIn(c, m) }},
 	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.StepOut(c) }},
-	"history": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
+	"history": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
+
+	// The setup wizard (setup.go). Finish is a write: shutdown waits for it.
+	"setupRouter": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupRouter(c, m) }},
+	"setupFinish": {crit: critNever, role: roleAnyone, setup: true, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupFinish(c, m) }},
 
 	"take": {crit: critNever, role: config.RoleStandard, need: needMain, why: "take", write: true,
 		handle: func(a *App, c *client, m *inMsg) { a.serveTake(c, m) },
@@ -197,6 +203,9 @@ func (r rule) forMsg(m *inMsg) rule {
 func (a *App) admit(c *client, r rule) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if !r.setup && a.setupPending() {
+		return errSetup
+	}
 	switch {
 	case r.need&needMain != 0 && !a.pageAllowedMu(c, gateMain),
 		r.need&needLog != 0 && !a.pageAllowedMu(c, gateLog):
