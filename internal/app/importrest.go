@@ -178,45 +178,29 @@ func (p *importPlanner) planArtwork(_ *config.Config, cat *importCat) error {
 			continue
 		}
 		ic.Size = len(data)
+		out := addItem
 		if i >= 0 {
 			li := live[i]
-			it.Clash = li.Name
 			cur, _, _ := p.liveIconFile(li.ID)
-			if li.Name == ic.Name && string(cur) == string(data) {
-				it.Same = true
-				p.icons[ic.ID] = li.ID
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catArtwork, ic.ID, true)
-			switch it.Choice {
-			case useNew:
+			switch out = p.settle(&it, catArtwork, li.Name, li.Name == ic.Name && string(cur) == string(data), namesIn(live, func(x LibIcon) string { return x.Name })); out {
+			case keepLive:
+				p.icons[ic.ID] = it.liveID(li.ID)
+			case overwrite:
 				p.icons[ic.ID] = li.ID
 				total += ic.Size - li.Size
 				p.iconWrites = append(p.iconWrites, plannedIcon{ic.ID, LibIcon{ID: li.ID, Name: ic.Name, Type: ic.Type}, data})
-			case useCurrent:
-				p.icons[ic.ID] = li.ID
-			case useSkip:
-				p.icons[ic.ID] = ""
-			case useRename:
-				id := ic.ID
-				for taken[id] {
-					id = newShortID("")
-				}
-				taken[id] = true
-				it.As = nextName(ic.Name, func(n string) bool {
-					return slices.ContainsFunc(live, func(x LibIcon) bool { return strings.EqualFold(x.Name, n) })
-				})
-				p.icons[ic.ID] = id
-				total += ic.Size
-				p.iconWrites = append(p.iconWrites, plannedIcon{ic.ID, LibIcon{ID: id, Name: it.As, Type: ic.Type}, data})
 			}
-			cat.Items = append(cat.Items, it)
-			continue
 		}
-		p.icons[ic.ID] = ic.ID
-		total += ic.Size
-		p.iconWrites = append(p.iconWrites, plannedIcon{ic.ID, LibIcon{ID: ic.ID, Name: ic.Name, Type: ic.Type}, data})
+		if out == addItem {
+			id := ic.ID
+			for it.Choice == useRename && taken[id] {
+				id = newShortID("")
+			}
+			taken[id] = true
+			p.icons[ic.ID] = id
+			total += ic.Size
+			p.iconWrites = append(p.iconWrites, plannedIcon{ic.ID, LibIcon{ID: id, Name: cmp.Or(it.As, ic.Name), Type: ic.Type}, data})
+		}
 		cat.Items = append(cat.Items, it)
 	}
 	if total > iconLibTotal {
@@ -240,10 +224,7 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 		it := importItem{Key: key, Name: d.Name, Kind: kindDefault}
 		switch d.Kind {
 		case artKindPreset:
-			to, mapped := p.presets[d.ID]
-			if !mapped && p.same {
-				to = d.ID
-			}
+			to := p.presetTo(d.ID)
 			if !slices.ContainsFunc(p.next.Presets, func(x config.Preset) bool { return to != "" && x.ID == to }) {
 				it.Refused = "its preset is not here"
 			}
@@ -274,23 +255,9 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 		if i >= 0 {
 			p.removed.keep(p.liveDefaults[i].key())
 		}
-		if it.Refused != "" {
-			cat.Items = append(cat.Items, it)
-			continue
+		if it.Refused == "" && (i < 0 || p.settle(&it, catArtwork, p.liveDefaults[i].Name, sameYAML(d, p.liveDefaults[i]), nil) == overwrite) {
+			p.defaultWrites = append(p.defaultWrites, plannedDefault{key, d, img})
 		}
-		if i >= 0 {
-			it.Clash = p.liveDefaults[i].Name
-			if sameYAML(d, p.liveDefaults[i]) {
-				it.Same = true
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			if it.Choice = p.choice(catArtwork, key, false); it.Choice != useNew {
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-		}
-		p.defaultWrites = append(p.defaultWrites, plannedDefault{key, d, img})
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
@@ -357,35 +324,23 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 		if !validTemplateID(t.ID) {
 			t.ID = ""
 		}
+		out := addItem
 		if i >= 0 {
 			lt := p.liveTemplates[i]
-			t.ID, it.Clash = lt.ID, lt.Name
-			if sameYAML(t, lt) {
-				it.Same = true
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catPanels, fileID, true)
-			switch it.Choice {
-			case useNew:
-				p.templateWrites = append(p.templateWrites, plannedTemplate{fileID, t})
-			case useRename:
+			t.ID = lt.ID
+			bucket := slices.DeleteFunc(slices.Clone(p.liveTemplates), func(x Template) bool { return !sameBucket(x, t) })
+			out = p.settle(&it, catPanels, lt.Name, sameYAML(t, lt), namesIn(bucket, func(x Template) string { return x.Name }))
+		}
+		if out == addItem {
+			adds++
+			t.Name = cmp.Or(it.As, t.Name)
+			if slices.ContainsFunc(p.liveTemplates, func(x Template) bool { return x.ID == t.ID }) {
 				t.ID = ""
-				t.Name = nextName(t.Name, func(n string) bool {
-					return slices.ContainsFunc(p.liveTemplates, func(x Template) bool { return sameBucket(x, t) && strings.EqualFold(x.Name, n) })
-				})
-				it.As = t.Name
-				adds++
-				p.templateWrites = append(p.templateWrites, plannedTemplate{fileID, t})
 			}
-			cat.Items = append(cat.Items, it)
-			continue
 		}
-		if slices.ContainsFunc(p.liveTemplates, func(x Template) bool { return x.ID == t.ID }) {
-			t.ID = ""
+		if out != keepLive {
+			p.templateWrites = append(p.templateWrites, plannedTemplate{fileID, t})
 		}
-		adds++
-		p.templateWrites = append(p.templateWrites, plannedTemplate{fileID, t})
 		cat.Items = append(cat.Items, it)
 	}
 	if len(p.liveTemplates)+adds > templateMax {
@@ -424,35 +379,22 @@ func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
+		out := addItem
 		if i >= 0 {
 			ls := p.liveSets[i]
-			s.ID, it.Clash = ls.ID, ls.Name
-			if sameYAML(s, ls) {
-				it.Same = true
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catPanels, fileID, true)
-			switch it.Choice {
-			case useNew:
-				p.setWrites = append(p.setWrites, plannedSet{fileID, s})
-			case useRename:
+			s.ID = ls.ID
+			out = p.settle(&it, catPanels, ls.Name, sameYAML(s, ls), namesIn(slices.DeleteFunc(slices.Clone(p.liveSets), func(x PanelSet) bool { return !bucket(x) }), func(x PanelSet) string { return x.Name }))
+		}
+		if out == addItem {
+			adds++
+			s.Name = cmp.Or(it.As, s.Name)
+			if slices.ContainsFunc(p.liveSets, func(x PanelSet) bool { return x.ID == s.ID }) || !strings.HasPrefix(s.ID, "s-") {
 				s.ID = ""
-				s.Name = nextName(s.Name, func(n string) bool {
-					return slices.ContainsFunc(p.liveSets, func(x PanelSet) bool { return bucket(x) && strings.EqualFold(x.Name, n) })
-				})
-				it.As = s.Name
-				adds++
-				p.setWrites = append(p.setWrites, plannedSet{fileID, s})
 			}
-			cat.Items = append(cat.Items, it)
-			continue
 		}
-		if slices.ContainsFunc(p.liveSets, func(x PanelSet) bool { return x.ID == s.ID }) || !strings.HasPrefix(s.ID, "s-") {
-			s.ID = ""
+		if out != keepLive {
+			p.setWrites = append(p.setWrites, plannedSet{fileID, s})
 		}
-		adds++
-		p.setWrites = append(p.setWrites, plannedSet{fileID, s})
 		cat.Items = append(cat.Items, it)
 	}
 	if len(p.liveSets)+adds > panelSetMax {
@@ -524,7 +466,7 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		fp.Owner = p.ownerFor(*cand, fp.Owner, false)
 		fp.Pages = p.relibPages(fp.Pages)
 		fp.Sources, fp.Destinations = p.relibEdge(fp.Sources), p.relibEdge(fp.Destinations)
-		fp.Broken = p.panelBroken(&fp, *cand)
+		fp.Broken = p.check.panelBroken(&fp, *cand, p.presetTo)
 		fp.Rev, fp.Client = 0, ""
 		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)
 		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken, Kind: kindPanel}
@@ -541,50 +483,38 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
+		out := addItem
 		if i >= 0 {
 			lp := p.livePanels[i]
 			fp.ID, fp.Acts, fp.Client, fp.Rev = lp.ID, lp.Acts, lp.Client, lp.Rev
-			it.Clash = lp.Name
-			if sameYAML(fp, lp) {
-				it.Same = true
-				p.panelIDs[fileID] = lp.ID
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catPanels, fileID, true)
-			switch it.Choice {
-			case useNew:
+			switch out = p.settle(&it, catPanels, lp.Name, sameYAML(fp, lp), namesIn(p.livePanels, panelName)); out {
+			case keepLive:
+				if it.Choice != useSkip {
+					p.panelIDs[fileID] = lp.ID
+				}
+			case overwrite:
 				if slugTaken(fp, lp.ID) {
 					fp.Slug = lp.Slug
 				}
 				fp.Rev = lp.Rev + 1
 				p.panelIDs[fileID] = lp.ID
 				p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Live: &lp, Cps: cps})
-			case useCurrent:
-				p.panelIDs[fileID] = lp.ID
-			case useRename:
-				fp.Name = nextName(fp.Name, func(n string) bool {
-					return slices.ContainsFunc(p.livePanels, func(x Panel) bool { return strings.EqualFold(x.Name, n) })
-				})
-				it.As = fp.Name
-			}
-			if it.Choice != useRename {
-				cat.Items = append(cat.Items, it)
-				continue
 			}
 		}
-		fp.Rev = 0
-		if it.Choice == useRename || slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.ID == fp.ID }) {
-			fp.ID = "" // createAs keeps a free id, so a link to this panel still opens it
+		if out == addItem {
+			fp.Name, fp.Rev = cmp.Or(it.As, fp.Name), 0
+			if slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.ID == fp.ID }) {
+				fp.ID = "" // createAs keeps a free id, so a link to this panel still opens it
+			}
+			if slugTaken(fp, "") {
+				fp.Slug = ""
+			}
+			if actsHasClient(fp.Acts) {
+				it.Note = "needs a new key link"
+			}
+			adds++
+			p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Cps: cps})
 		}
-		if slugTaken(fp, "") {
-			fp.Slug = ""
-		}
-		if actsHasClient(fp.Acts) {
-			it.Note = "needs a new key link"
-		}
-		adds++
-		p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Cps: cps})
 		cat.Items = append(cat.Items, it)
 	}
 	if len(p.livePanels)+adds > panelMax && !p.replace { // Replace counts after its removals (emptyRest)
@@ -612,54 +542,4 @@ func (p *importPlanner) shareNames(cfg config.Config, names []string) []string {
 		}
 	}
 	return out
-}
-
-// panelBroken points preset buttons at the presets this import maps them to and lists what the target lacks.
-func (p *importPlanner) panelBroken(fp *Panel, cfg config.Config) []config.Missing {
-	var b brokenList
-	layoutOf(*fp).readRefs(func(s refSlot, kind string, r config.Ref) {
-		if s != slotFixed {
-			b.add(p.check.missing(kind, r))
-		}
-	})
-	pages := make([]PanelPage, len(fp.Pages))
-	for i, g := range fp.Pages {
-		pages[i] = g
-		pages[i].Cells = slices.Clone(g.Cells)
-		for j, c := range g.Cells {
-			if c["kind"] != "preset" || c["scope"] == "me" {
-				continue
-			}
-			id, _ := c["id"].(string)
-			name, _ := c["name"].(string)
-			to, mapped := p.presets[id]
-			if !mapped && p.same {
-				to = id
-			}
-			if !slices.ContainsFunc(cfg.Presets, func(x config.Preset) bool { return to != "" && x.ID == to }) {
-				b.add(config.Missing{Kind: config.MissingPreset, Ref: config.Ref{Name: name}}, id != "" || name != "")
-				continue
-			}
-			pages[i].Cells[j] = maps.Clone(c)
-			pages[i].Cells[j]["id"] = to
-		}
-	}
-	fp.Pages = pages
-	return b.out
-}
-
-// A cell with no number is unassigned.
-func cellRef(c map[string]any) (config.Ref, bool) {
-	var n int
-	switch x := c["n"].(type) {
-	case int:
-		n = x
-	case float64:
-		n = int(x)
-	default:
-		return config.Ref{}, false
-	}
-	r, _ := c["router"].(string)
-	name, _ := c["name"].(string)
-	return config.Ref{Router: r, N: n, Name: name}, true
 }

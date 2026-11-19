@@ -191,25 +191,14 @@ func (a *App) writeImport(p *importPlanner, act Actor, mode string, live config.
 // Each panel is its own file, so one failed write leaves the others.
 func (a *App) writeImportPanels(p *importPlanner, failed map[string]string) {
 	for _, pp := range p.panels {
-		fp := pp.P
-		files := fp.Art
-		fp.Art = nil
-		var err error
-		if pp.Live != nil {
-			fp.Art = pp.Live.Art
-			_, err = a.panels.replace(fp)
-			for _, art := range pp.Live.Art {
-				if err == nil {
-					_, err = a.panels.delArt(fp.ID, art.ID)
-				}
+		create := func(fp Panel) (Panel, error) {
+			fp, err := a.panels.createAs(fp)
+			if err == nil {
+				p.panelIDs[pp.FileID] = fp.ID
 			}
-		} else {
-			fp, err = a.panels.createAs(fp)
+			return fp, err
 		}
-		if err == nil {
-			p.panelIDs[pp.FileID] = fp.ID
-			err = a.putImportArt(p, fp.ID, pp.FileID, files)
-		}
+		fp, err := a.storePanel(pp, create, func(art PanelArt) ([]byte, bool) { return p.panelArt(pp.FileID, art) })
 		if err == nil && len(pp.Cps) > 0 {
 			err = a.panels.putCheckpoints(fp.ID, pp.Cps)
 		}
@@ -220,18 +209,37 @@ func (a *App) writeImportPanels(p *importPlanner, failed map[string]string) {
 	}
 }
 
-func (a *App) putImportArt(p *importPlanner, id, fileID string, arts []PanelArt) error {
+// storePanel writes a planned panel over its live twin, whose artwork goes, or as a new one through create. Then it
+// stores the panel's artwork, read through art.
+func (a *App) storePanel(pp plannedPanel, create func(Panel) (Panel, error), art func(PanelArt) ([]byte, bool)) (Panel, error) {
+	fp := pp.P
+	arts := fp.Art
+	fp.Art = nil
+	var err error
+	if pp.Live != nil {
+		fp.Art = pp.Live.Art
+		_, err = a.panels.replace(fp)
+		for _, x := range pp.Live.Art {
+			if err == nil {
+				_, err = a.panels.delArt(fp.ID, x.ID)
+			}
+		}
+	} else {
+		fp, err = create(fp)
+	}
+	if err != nil {
+		return fp, err
+	}
 	var bad []string
-	for _, art := range arts {
-		data, ok := p.panelArt(fileID, art)
-		if !ok || !a.panels.putArtAs(id, PanelArt{ID: art.ID, Type: art.Type}, data) {
-			bad = append(bad, art.ID)
+	for _, x := range arts {
+		if b, ok := art(x); !ok || !a.panels.putArtAs(fp.ID, PanelArt{ID: x.ID, Type: x.Type}, b) {
+			bad = append(bad, x.ID)
 		}
 	}
 	if len(bad) > 0 {
-		return errors.New("artwork not written: " + strings.Join(bad, ", "))
+		return fp, errors.New("artwork not written: " + strings.Join(bad, ", "))
 	}
-	return nil
+	return fp, nil
 }
 
 // No values, only counts.

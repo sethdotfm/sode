@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -62,6 +63,46 @@ func (k *refCheck) presetBroken(p config.Preset) []config.Missing {
 			b.add(k.missing(config.MissingLevel, config.Ref{Router: it.Src.Router, N: l}))
 		}
 	}
+	return b.out
+}
+
+func (k *refCheck) checked(ps []config.Preset) []config.Preset {
+	out := config.ClonePresets(ps)
+	for i := range out {
+		out[i].Broken = k.presetBroken(out[i])
+	}
+	return out
+}
+
+// panelBroken points preset buttons at their presets here and lists what the target lacks. presetTo maps a file preset
+// id to its id here, "" for none.
+func (k *refCheck) panelBroken(fp *Panel, cfg config.Config, presetTo func(id string) string) []config.Missing {
+	var b brokenList
+	layoutOf(*fp).readRefs(func(s refSlot, kind string, r config.Ref) {
+		if s != slotFixed {
+			b.add(k.missing(kind, r))
+		}
+	})
+	pages := make([]PanelPage, len(fp.Pages))
+	for i, g := range fp.Pages {
+		pages[i] = g
+		pages[i].Cells = slices.Clone(g.Cells)
+		for j, c := range g.Cells {
+			if c["kind"] != "preset" || c["scope"] == "me" {
+				continue
+			}
+			id, _ := c["id"].(string)
+			name, _ := c["name"].(string)
+			to := presetTo(id)
+			if !slices.ContainsFunc(cfg.Presets, func(x config.Preset) bool { return to != "" && x.ID == to }) {
+				b.add(config.Missing{Kind: config.MissingPreset, Ref: config.Ref{Name: name}}, id != "" || name != "")
+				continue
+			}
+			pages[i].Cells[j] = maps.Clone(c)
+			pages[i].Cells[j]["id"] = to
+		}
+	}
+	fp.Pages = pages
 	return b.out
 }
 
