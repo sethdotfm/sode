@@ -384,17 +384,20 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	}
 	// with: live plus key, plus the other candidates of its item (scope 1) or all of them (scope
 	// 2). So a Role and a PIN, or a rename and a new user of the old name, validate together.
-	with := func(key string, scope int) config.Config {
+	build := func(keys []string) config.Config {
 		one := live.Clone()
-		f, _ := lookupField(key)
-		for _, k := range cands {
-			g, _ := lookupField(k)
-			if k == key || scope == 2 || scope == 1 && f.item != "" && g.item == f.item {
-				_ = setField(&one, k, edits[k].Value, x)
-			}
+		for _, k := range keys {
+			_ = setField(&one, k, edits[k].Value, x)
 		}
 		one.Normalize()
 		return one
+	}
+	with := func(key string, scope int) config.Config {
+		f, _ := lookupField(key)
+		return build(slices.DeleteFunc(slices.Clone(cands), func(k string) bool {
+			g, _ := lookupField(k)
+			return k != key && scope != 2 && (scope != 1 || f.item == "" || g.item != f.item)
+		}))
 	}
 	var keep []string
 	for _, key := range cands {
@@ -424,6 +427,24 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 			continue
 		}
 		keep = append(keep, key)
+	}
+	// Fields that pass alone can fail together: refuse each one whose absence mends the rest.
+	for len(keep) > 0 {
+		err := validateSave(live, build(keep))
+		if err == nil {
+			break
+		}
+		bad := slices.DeleteFunc(slices.Clone(keep), func(k string) bool {
+			return validateSave(live, build(slices.DeleteFunc(slices.Clone(keep), func(o string) bool { return o == k }))) != nil
+		})
+		if len(bad) == 0 {
+			bad, keep = keep, nil
+		} else {
+			keep = slices.DeleteFunc(keep, func(k string) bool { return slices.Contains(bad, k) })
+		}
+		for _, k := range bad {
+			refuse(k, reasonInvalid, err)
+		}
 	}
 	plan.moves, plan.keep = a.removedUsersPanels(c, live, edits, keep, refuse)
 	return plan, nil
