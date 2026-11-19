@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -390,7 +391,7 @@ func (sw *swapper) label() string {
 // swapCounts: items changed per owner, Everyone for shared items.
 type swapCounts map[string]int
 
-func (n swapCounts) add(it swapItem) { n[cmpOr(it.Owner, swapEveryone)]++ }
+func (n swapCounts) add(it swapItem) { n[cmp.Or(it.Owner, swapEveryone)]++ }
 
 // swapField: the Settings saves row's field for a Swap: counts per owner as the new value.
 func (sw *swapper) field(n swapCounts) SavedField {
@@ -401,7 +402,7 @@ func (sw *swapper) field(n swapCounts) SavedField {
 	if i := slices.IndexFunc(sw.fromNames, func(n string) bool { return strings.TrimSpace(n) != "" }); i >= 0 {
 		from = strings.TrimSpace(sw.fromNames[i])
 	}
-	f.Note = from + " to " + cmpOr(sw.toName, "no name")
+	f.Note = from + " to " + cmp.Or(sw.toName, "no name")
 	return f
 }
 

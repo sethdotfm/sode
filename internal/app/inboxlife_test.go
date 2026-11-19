@@ -298,6 +298,25 @@ func TestInboxUserRemoved(t *testing.T) {
 // A sent panel brings its Pages, cells, settings and artwork, owned by the recipient and shared with
 // nobody. It brings no short name, keys, checkpoints or Checkpoint set membership. A panel that is
 // its own API client arrives with a new client that has the recipient's Rights.
+// An Accept that writes nothing because every ticked item is refused keeps the card waiting.
+func TestInboxAcceptOfOnlyRefusedItemsKeepsCard(t *testing.T) {
+	a, ana, bo := inboxApp(t)
+	lifeCommit(t, a, func(cfg *config.Config) { cfg.PublicPanels = true })
+	src, err := a.panels.create(Panel{Name: "Desk", Owner: userID(t, a, "Ana"), Acts: panelActsPublic, Rows: 1, Cols: 1,
+		Pages: []PanelPage{{ID: "pg-1", Enabled: true, Cells: []map[string]any{}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := sendOne(t, a, ana, inboxReq{To: []string{"Bo"}, Panels: []string{src.ID}})
+	lifeCommit(t, a, func(cfg *config.Config) { cfg.PublicPanels = false })
+	if _, _, _, err := a.AcceptCard(bo, k.ID, importReq{}); err == nil {
+		t.Fatal("an Accept that wrote nothing succeeded")
+	}
+	if got, _ := a.inbox.get(k.ID); got.State != cardWaiting {
+		t.Fatalf("card state %q", got.State)
+	}
+}
+
 func TestInboxSendsPanel(t *testing.T) {
 	a, ana, bo := inboxApp(t)
 	uid, anaID, boID := a.r().cfg.UID, userID(t, a, "Ana"), userID(t, a, "Bo")

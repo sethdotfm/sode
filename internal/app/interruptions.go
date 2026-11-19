@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -69,7 +70,7 @@ func (a *App) publicStops(live, next config.Config) []interruption {
 		if p.Acts != panelActsPublic {
 			continue
 		}
-		name := cmpOr(p.Name, p.ID)
+		name := cmp.Or(p.Name, p.ID)
 		out = append(out, interruption{Panels: 1, Ends: true, Text: fmt.Sprintf(
 			"Public panel %s stops: %s %s it open now. Its page comes back by itself when the panel is Public again.",
 			name, howMany(a.mon.liveCount(p.ID), "tablet", "tablets"), plural(a.mon.liveCount(p.ID), "has", "have"))})
@@ -162,7 +163,7 @@ func (a *App) lockStops(live, next config.Config) []interruption {
 		n := 0
 		a.mu.Lock()
 		for cl := range a.clients {
-			if pageGates[cmpOr(cl.u.page, "main")] != l.g {
+			if pageGates[cmp.Or(cl.u.page, "main")] != l.g {
 				continue
 			}
 			if u := cl.u.user.Load(); u == nil || !u.HasPin() {

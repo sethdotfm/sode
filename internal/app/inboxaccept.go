@@ -1,9 +1,11 @@
 package app
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"slices"
 	"strings"
 
@@ -392,13 +394,20 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 		}
 	}
 	failed := a.writeCardPanels(connActor(c), p, k.ID)
-	n := 0
-	for name, cat := range p.plan.Categories {
+	n, why := 0, ""
+	for _, name := range slices.Sorted(maps.Keys(p.plan.Categories)) {
+		cat := p.plan.Categories[name]
+		why = cmp.Or(why, cat.Refused)
 		for _, it := range cat.Items {
+			why = cmp.Or(why, it.Refused, failed[it.Key])
 			if cat.Refused == "" && it.writes() && !(name == catPanels && failed[it.Key] != "") {
 				n++
 			}
 		}
+	}
+	// Nothing written for a reason: the card waits, so the person can fix it and accept again.
+	if n == 0 && why != "" {
+		return &p.plan, failed, k, errors.New(why)
 	}
 	k, err = a.inbox.end(k.ID, cardAccepted, n, a.now())
 	if err != nil {
