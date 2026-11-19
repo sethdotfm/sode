@@ -81,7 +81,7 @@ func (p *importPlanner) keptIDs(m map[string]string) map[string]bool {
 // keepWaiting keeps the live twins of the file items that wait for router names.
 func (p *importPlanner) keepWaiting(cat string, cand *config.Config) {
 	for key := range p.waits[cat] {
-		if !p.wantedItem(cat, key) {
+		if !picked(p.req.Pick, cat, key) {
 			continue
 		}
 		switch cat {

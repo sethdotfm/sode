@@ -263,7 +263,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 			continue
 		}
 		for _, key := range slices.Sorted(maps.Keys(p.waits[s.cat])) {
-			if p.wantedItem(s.cat, key) {
+			if picked(p.req.Pick, s.cat, key) {
 				it := importItem{Key: key, Name: p.waits[s.cat][key], Refused: waitsForNames}
 				if s.cat == catPanels {
 					it.Kind = kindPanel
@@ -333,12 +333,7 @@ func (p *importPlanner) picked(cat, key string) bool {
 	if _, waits := p.waits[cat][key]; waits {
 		return false
 	}
-	return p.wantedItem(cat, key)
-}
-
-func (p *importPlanner) wantedItem(cat, key string) bool {
-	keys, some := p.req.Pick[cat]
-	return !some || slices.Contains(keys, key)
+	return picked(p.req.Pick, cat, key)
 }
 
 const waitsForNames = "it holds router references; import it after Sode reads the router names"

@@ -49,10 +49,6 @@ func (a *App) httpOwn(w http.ResponseWriter, r *http.Request) (config.User, bool
 // ownFileUser is u as the own export writes it: the picked parts of the profile only.
 func ownFileUser(u config.User, req exportReq) config.User {
 	want := func(c string) bool { return slices.Contains(req.Categories, c) }
-	picked := func(c, id string) bool {
-		ids, some := req.Pick[c]
-		return !some || slices.Contains(ids, id)
-	}
 	out := u
 	out.Profile = config.Profile{}
 	if want(catProfile) {
@@ -60,14 +56,14 @@ func ownFileUser(u config.User, req exportReq) config.User {
 	}
 	if want(catPresets) {
 		for _, p := range u.Profile.Presets {
-			if picked(catPresets, p.ID) {
+			if picked(req.Pick, catPresets, p.ID) {
 				out.Profile.Presets = append(out.Profile.Presets, p)
 			}
 		}
 	}
 	if want(catFilterSets) {
 		for _, s := range u.Profile.FilterSets {
-			if picked(catFilterSets, s.Name) {
+			if picked(req.Pick, catFilterSets, s.Name) {
 				out.Profile.FilterSets = append(out.Profile.FilterSets, s)
 			}
 		}

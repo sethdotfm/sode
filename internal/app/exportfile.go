@@ -46,6 +46,12 @@ var exportCategories = []struct{ Name, File string }{
 	{catBrowser, "browser.yaml"},
 }
 
+// picked: a category that pick leaves out is picked whole.
+func picked(pick map[string][]string, cat, id string) bool {
+	ids, some := pick[cat]
+	return !some || slices.Contains(ids, id)
+}
+
 func categoryFile(cat string) string {
 	for _, c := range exportCategories {
 		if c.Name == cat {
@@ -165,10 +171,6 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		}
 	}
 	want := func(c string) bool { return slices.Contains(req.Categories, c) }
-	picked := func(c, id string) bool {
-		ids, some := req.Pick[c]
-		return !some || slices.Contains(ids, id)
-	}
 	routers := []config.Router{cfg.Router}
 	prefix := map[string]string{}
 	for _, r := range routers {
@@ -201,7 +203,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 			users = req.only
 		}
 		for _, u := range users {
-			if !picked(catUsers, u.ID) {
+			if !picked(req.Pick, catUsers, u.ID) {
 				continue
 			}
 			if !req.IncludePins {
@@ -216,7 +218,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	if want(catPresets) {
 		var out exportPresets
 		for _, p := range cfg.Presets {
-			if picked(catPresets, p.ID) {
+			if picked(req.Pick, catPresets, p.ID) {
 				out.Presets = append(out.Presets, p)
 			}
 		}
@@ -227,7 +229,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	if want(catFilterSets) {
 		var out exportFilterSets
 		for _, s := range cfg.FilterSets {
-			if picked(catFilterSets, s.Name) {
+			if picked(req.Pick, catFilterSets, s.Name) {
 				out.FilterSets = append(out.FilterSets, s)
 			}
 		}
@@ -238,7 +240,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	if want(catPanels) {
 		out := exportPanels{Checkpoints: map[string][]panelCheckpoint{}}
 		for _, p := range a.panels.list() {
-			if !picked(catPanels, p.ID) {
+			if !picked(req.Pick, catPanels, p.ID) {
 				continue
 			}
 			p.Rev = 0
@@ -257,7 +259,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 			}
 		}
 		for _, t := range a.templates.list() {
-			if picked(catPanels, t.ID) {
+			if picked(req.Pick, catPanels, t.ID) {
 				for _, id := range libIcons(t.Pages) {
 					brought[id] = true
 				}
@@ -265,7 +267,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 			}
 		}
 		for _, s := range a.panels.sets.sorted(nil) {
-			if picked(catPanels, s.ID) {
+			if picked(req.Pick, catPanels, s.ID) {
 				out.CheckpointSets = append(out.CheckpointSets, s)
 			}
 		}
@@ -277,7 +279,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		var out exportArtwork
 		images := map[string]bool{}
 		for _, d := range a.artDefaults.list() {
-			if !want(catArtwork) || !picked(catArtwork, d.key()) {
+			if !want(catArtwork) || !picked(req.Pick, catArtwork, d.key()) {
 				continue
 			}
 			for _, id := range d.libIcons() {
@@ -294,7 +296,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 			}
 		}
 		for _, ic := range a.icons.list() {
-			if !brought[ic.ID] && (!want(catArtwork) || !picked(catArtwork, ic.ID)) {
+			if !brought[ic.ID] && (!want(catArtwork) || !picked(req.Pick, catArtwork, ic.ID)) {
 				continue
 			}
 			if b, ic, ok := a.icons.file(ic.ID); ok {
@@ -309,7 +311,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	if want(catAPIClients) {
 		var out exportAPIClients
 		for _, c := range cfg.APIClients {
-			if picked(catAPIClients, c.Name) {
+			if picked(req.Pick, catAPIClients, c.Name) {
 				out.APIClients = append(out.APIClients, c)
 			}
 		}
