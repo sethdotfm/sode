@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"maps"
@@ -43,8 +42,7 @@ func (a *App) setupRestoreKey(c *client) (string, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if !a.setupPending() {
-		//lint:ignore ST1005 the page shows it as is
-		return "", errors.New("Sode is already set up")
+		return "", errSetUpDone
 	}
 	if !a.setupOwnsLocked(c) {
 		return "", errSetupElsewhere
@@ -86,10 +84,8 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, exportMaxUpload+exportReqMax+64<<10)
 	var req restoreReq
 	key := r.Header.Get(setupKeyHeader)
-	// Checked before the file streams in, and again under cfgMu below.
-	b, done, ok := a.readPlanAndFile(w, r, &req, func() error {
-		a.cfgMu.Lock()
-		defer a.cfgMu.Unlock()
+	// Caller holds cfgMu. Checked before the file streams in, and again after.
+	held := func() error {
 		if !a.setupPending() {
 			return &exportErr{http.StatusConflict, "setup_done", setupDoneMsg}
 		}
@@ -97,6 +93,11 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 			return &exportErr{http.StatusForbidden, "setup_elsewhere", errSetupElsewhere.Error()}
 		}
 		return nil
+	}
+	b, done, ok := a.readPlanAndFile(w, r, &req, func() error {
+		a.cfgMu.Lock()
+		defer a.cfgMu.Unlock()
+		return held()
 	})
 	defer done()
 	if !ok {
@@ -104,12 +105,8 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if !a.setupPending() {
-		apiFail(w, http.StatusConflict, "setup_done", setupDoneMsg)
-		return
-	}
-	if a.setup.key == "" || key != a.setup.key {
-		apiFail(w, http.StatusForbidden, "setup_elsewhere", errSetupElsewhere.Error())
+	if err := held(); err != nil {
+		importFail(w, err)
 		return
 	}
 	if len(b.Routers) == 0 {
