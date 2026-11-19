@@ -150,7 +150,9 @@ function unsavedText() {
   const names = sections()
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
-  return [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
+  const what = [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
+  // Save skips edits the Role cannot see, so with only those it is not offered.
+  return `${what}. ${names.length ? 'Save them, or exit' : 'Exit'} again to discard them.`;
 }
 
 export function markClean(saved) {
@@ -167,7 +169,7 @@ export function markClean(saved) {
 // True when it warned: the first try to leave with unsaved changes warns, a second one goes.
 export function warnUnsaved() {
   if (!dirty() || warned()) return false;
-  $('settings-unsaved').textContent = `${unsavedText()}. Save them, or exit again to discard them.`;
+  $('settings-unsaved').textContent = unsavedText();
   $('settings-unsaved').hidden = false;
   $('settings-exit').textContent = 'Discard and exit';
   $('settings-exit').classList.replace('pb-btn--outline', 'pb-btn--danger');
