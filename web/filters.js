@@ -235,6 +235,12 @@ tName.addEventListener('keydown', (e) => {
   }
 });
 
+// The Broken banner's and the Broken lists' Edit: the set is made active, so the dialog shows it.
+on('editFilterSetAt', (m) => {
+  pickSet(m.scope, m.name);
+  openFilters();
+});
+
 on('openFilterEditor', (m) => {
   const t = editTarget(m, 'filterSets');
   if (!t) return;

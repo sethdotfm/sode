@@ -2,7 +2,7 @@
 // settings save together and the view stays open; This browser choices are per browser and apply
 // at once. Fields: settingsform.js; save: settingssave.js; search: settingsfind.js.
 
-import { $, S, on, onMsg, wsSend, sentence } from './core.js';
+import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { initDeviceSettings } from './devicesettings.js';
 import { showResult } from './plans.js';
 import { layout } from './layout.js';
@@ -183,6 +183,13 @@ document.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('popstate', showView);
+
+// The Broken banner's and the Broken lists' Swap…: Swap stages into this page's one Save, so Settings opens first.
+on('swapAt', (m) => {
+  if (!isOpen()) openSettings();
+  toc.goRouter('1');
+  emit('openSwap', { mine: false, side: m.side, from: m.from });
+});
 
 on('hello', () => {
   if (isOpen()) showRouters();

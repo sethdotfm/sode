@@ -51,6 +51,7 @@ export function fire(scope, name) {
   if (!s || !host) return;
   if (!S.srcBy.size) return showResult('warn', 'Preset not sent', 'The router’s names have not loaded yet.');
   const plan = presetPlan(s, parseLevels('') || []);
+  emit('itemUsed', { kind: 'preset', scope: s.scope, id: s.id, name: s.name });
   if (!plan.items.length) {
     return showResult('error', `Preset ${s.name} not sent`, plan.warnings.length ? plan.warnings.join('; ') + '.' : 'It has no takes.');
   }
@@ -722,6 +723,9 @@ on('locking', () => {
   discard = true;
   closePresets();
 });
+
+// The Broken banner's and the Broken lists' Edit.
+on('editPresetAt', (m) => openPresets(m.scope, m.name));
 
 on('openPresetEditor', (m) => {
   const t = editTarget(m, 'presets');

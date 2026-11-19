@@ -66,7 +66,9 @@ const SETS_KEY = 'sode-filter-sets';
 const ACTIVE_KEY = 'sode-filter-active';
 
 const sameFilter = (a, b) => Object.keys(FILTER_DEFAULT).every((k) => (typeof a[k] === 'string' ? a[k].trim() === b[k].trim() : a[k] === b[k]));
-export const globalSets = () => (S.cfg?.filterSets || []).map((s) => ({ scope: 'global', name: s.name, f: normFilter(s) }));
+// broken: the server's marks (brokenrules.js), kept out of f so a save never sends them.
+const marks = (s) => (Array.isArray(s?.broken) && s.broken.length ? { broken: s.broken } : {});
+export const globalSets = () => (S.cfg?.filterSets || []).map((s) => ({ scope: 'global', name: s.name, f: normFilter(s), ...marks(s) }));
 export const localSets = () =>
   []
     .concat(readJSON(SETS_KEY, []))
@@ -75,7 +77,7 @@ export const localSets = () =>
 export const userSets = () =>
   (profileName() ? profile().filterSets : [])
     .filter((s) => s?.name)
-    .map((s) => ({ scope: 'user', user: profileName(), name: String(s.name), f: normFilter(s) }));
+    .map((s) => ({ scope: 'user', user: profileName(), name: String(s.name), f: normFilter(s), ...marks(s) }));
 export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_DEFAULT) }, ...globalSets(), ...userSets(), ...localSets()];
 const SET_LISTS = { global: globalSets, user: userSets, local: localSets };
 export const setsIn = (scope) => (SET_LISTS[scope] || (() => []))();
@@ -145,6 +147,7 @@ export function pickSet(scope, name) {
   if (!s) return;
   setActive({ ...setRef(scope, name), base: s.f });
   applyFilter(s.f);
+  if (scope !== 'all') emit('itemUsed', { kind: 'filterSet', scope, name: s.name });
 }
 
 function useSets(refs) {
@@ -162,7 +165,9 @@ export function toggleSet(scope, name) {
   if (!s) return;
   if (s.scope === 'all') return pickSet('all', 'All');
   const now = stack.length ? stack : active && active.scope !== 'all' ? [active] : [];
-  useSets(isActive(s.scope, s.name) ? now.filter((r) => !sameRef(r, setRef(s.scope, s.name))) : [...now, setRef(s.scope, s.name)]);
+  const on = !isActive(s.scope, s.name);
+  useSets(on ? [...now, setRef(s.scope, s.name)] : now.filter((r) => !sameRef(r, setRef(s.scope, s.name))));
+  if (on) emit('itemUsed', { kind: 'filterSet', scope: s.scope, name: s.name });
 }
 
 function stackMatchers() {

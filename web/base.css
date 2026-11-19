@@ -910,6 +910,36 @@ html {
 .sode__notsaved[hidden] {
   display: none;
 }
+/* The Broken banner (brokenbanner.js): one entry per used Broken item, each with its own Dismiss. */
+.sode__broken {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__broken[hidden] {
+  display: none;
+}
+.sode__broken-item {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__broken-lines {
+  margin: 0;
+  padding-left: var(--pb-space-5);
+}
+.sode__broken-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  margin-top: var(--pb-space-2);
+}
+.sode__status-badge {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-1);
+}
 .sode__notsaved .pb-chip {
   background: color-mix(in srgb, var(--pb-status-warn-fill) 70%, black);
   border-color: transparent;
