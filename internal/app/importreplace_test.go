@@ -213,6 +213,9 @@ func TestImportRefusedWhenNoAdministratorWithPinRemains(t *testing.T) {
 	file := exported(t, a, tok, exportReq{Categories: []string{catUsers, catPresets}, IncludePins: true,
 		Pick: map[string][]string{catUsers: {userID(t, a, "Bo")}}})
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Late", "MON 4")} })
+	if p := postCheck(t, a, tok, file, noKeep(replaceReq(catUsers, catPresets))).Plan; !strings.Contains(p.Refused, "Administrator") {
+		t.Fatalf("the review does not say the import is refused: %+v", p)
+	}
 	rec := postApply(t, a, tok, file, noKeep(replaceReq(catUsers, catPresets)))
 	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "Administrator") {
 		t.Fatalf("apply: %d %s", rec.Code, rec.Body)
@@ -315,5 +318,30 @@ func TestReplaceImportWritesSavesRow(t *testing.T) {
 	e := lastSavesRow(t, a)
 	if e.Save.Import.Mode != importReplace || len(e.Save.Import.Categories) != 1 || e.Save.Import.Categories[0].Removed != 1 {
 		t.Fatalf("row: %+v", e.Save.Import)
+	}
+}
+
+// Replace import ends only the Inbox cards of the users it removes.
+func TestReplaceImportEndsRemovedUsersCards(t *testing.T) {
+	a, ana, bo := inboxApp(t)
+	c := &client{ip: "10.0.0.9", send: make(chan []byte, 4096)}
+	register(a, c)
+	if err := a.UserUnlockAs(c, "Ada", "2468"); err != nil {
+		t.Fatal(err)
+	}
+	tok := a.issueSessionTab(c, true)
+	grantRecheck(a, c)
+	p := mePreset("Show", 1, 2)
+	setProfile(t, a, "Ana", config.Profile{Presets: []config.Preset{p}})
+	setProfile(t, a, "Bo", config.Profile{Presets: []config.Preset{p}})
+	toBo := sendOne(t, a, ana, inboxReq{To: []string{"Bo"}, Presets: []cardPresetReq{{Scope: scopeMe, ID: p.ID}}})
+	toAna := sendOne(t, a, bo, inboxReq{To: []string{"Ana"}, Presets: []cardPresetReq{{Scope: scopeMe, ID: p.ID}}})
+	file := exported(t, a, tok, exportReq{Categories: []string{catUsers}, Pick: map[string][]string{catUsers: {userID(t, a, "Ada"), userID(t, a, "Ana")}}})
+	applied(t, postApply(t, a, tok, file, replaceReq(catUsers)))
+	if got, _ := a.inbox.get(toBo.ID); got.State != cardExpired {
+		t.Fatalf("card to Bo: %s", got.State)
+	}
+	if got, _ := a.inbox.get(toAna.ID); got.State != cardWaiting {
+		t.Fatalf("card to Ana: %s", got.State)
 	}
 }

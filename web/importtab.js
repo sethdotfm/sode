@@ -77,6 +77,7 @@ export function importTab({ setNote, setReview, backup }) {
     brokenBadge.hidden = !broken;
     brokenBadge.textContent = `${broken} Broken`;
     reviewBtn.disabled = step === 'list' && !R.importReq(pick).categories.length;
+    importBtn.disabled = step === 'review' && !!planned?.refused;
   };
 
   // In the list the plan is the check's; the remap choices made since take references off it.
@@ -182,10 +183,11 @@ export function importTab({ setNote, setReview, backup }) {
     caret.setAttribute('aria-label', `Show the ${text.toLowerCase()} items`);
     caret.hidden = !items.length;
     const count = items.length > 1 ? ` ${pick.items[cat].size}/${items.length}` : '';
-    const why = c?.refused || '';
+    // Replace import can empty a category the file holds with no items.
+    const why = c?.refused || (!items.length && pick.mode === 'replace' ? 'Empties it here' : '');
     head.append(
       caret,
-      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', !!c?.refused || !items.length, (on) => {
+      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', !!c?.refused || (!items.length && pick.mode !== 'replace'), (on) => {
         R.setCat(check, pick, cat, on);
         render();
       }),
@@ -301,7 +303,8 @@ export function importTab({ setNote, setReview, backup }) {
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
     // A backup of this install: what ended after it was made stays ended.
     if (replace && check.sameInstall) out.push(el('p', 'sode__hint', 'Keys and sessions ended since the backup do not come back.'));
-    if (planned.critical) {
+    if (planned.refused) out.push(el('div', 'pb-alert pb-alert--error', `Sode refuses this import: ${planned.refused}.`));
+    else if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
       if (needsPin()) row.append(Object.assign(el('label', 'sode__label', 'PIN'), { htmlFor: 'xi-pin' }), pinInput);
       const warn = replace

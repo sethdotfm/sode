@@ -80,7 +80,9 @@ type importPlan struct {
 	SameInstall bool                  `json:"sameInstall"`
 	Critical    bool                  `json:"critical"`
 	Categories  map[string]*importCat `json:"categories"`
-	Remap       *remapInfo            `json:"remap,omitempty"`
+	// Refused: why the whole import is refused; the apply writes nothing.
+	Refused string     `json:"refused,omitempty"`
+	Remap   *remapInfo `json:"remap,omitempty"`
 }
 
 // plannedPanel is a panel write that waits for the config commit. Live is the panel it replaces, if any.
@@ -277,6 +279,9 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 		p.overwrites = []string{"Replace import"}
 	}
 	p.plan.Critical = p.replace || len(p.overwrites) > 0
+	if p.noAdmin {
+		p.plan.Refused = errNoAdministrator.Error()
+	}
 	return p
 }
 

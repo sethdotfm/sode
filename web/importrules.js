@@ -24,11 +24,13 @@ const catOf = (check, cat) => check.plan.categories[cat] || { items: [] };
 export const hasChoice = (c, it, pick) => pick?.mode !== 'replace' && !c.refused && !it.refused && !it.same && !it.remove && !!it.clash && !!it.choice;
 
 // Everything ticked but Routers, which changes the router only when ticked, with the preselected choices. Add
-// import, with Keep current Administrators ticked for when the person picks Replace import.
+// import, with Keep current Administrators ticked for when the person picks Replace import. empty holds the ticked
+// categories the file holds with no items: only Replace import sends them, to empty them here.
 export function newPick(check) {
-  const pick = { mode: 'add', keepAdmins: true, items: {}, choices: {} };
+  const pick = { mode: 'add', keepAdmins: true, items: {}, choices: {}, empty: new Set() };
   for (const cat of PLANNED) {
     const c = catOf(check, cat);
+    if (!c.items.length && !c.refused && cat !== 'routers' && check.categories?.includes(cat)) pick.empty.add(cat);
     pick.items[cat] = new Set(cat === 'routers' || c.refused ? [] : c.items.map((i) => i.key));
     pick.choices[cat] = {};
     for (const it of c.items) if (hasChoice(c, it)) pick.choices[cat][it.key] = it.choice;
@@ -39,6 +41,7 @@ export function newPick(check) {
 // 'all', 'some' or 'none' for the category's box.
 export function catState(check, pick, cat) {
   const total = catOf(check, cat).items.length;
+  if (!total) return pick.empty?.has(cat) ? 'all' : 'none';
   const on = pick.items[cat]?.size || 0;
   if (!on) return 'none';
   return on === total ? 'all' : 'some';
@@ -46,6 +49,10 @@ export function catState(check, pick, cat) {
 
 export function setCat(check, pick, cat, on) {
   const c = catOf(check, cat);
+  if (!c.items.length && !c.refused) {
+    if (on) pick.empty.add(cat);
+    else pick.empty.delete(cat);
+  }
   pick.items[cat] = new Set(on && !c.refused ? c.items.map((i) => i.key) : []);
 }
 
@@ -61,6 +68,10 @@ export function importReq(pick) {
   if (replace && pick.keepAdmins === false) req.keepAdmins = false;
   for (const cat of PLANNED) {
     const keys = [...(pick.items[cat] || [])];
+    if (replace && !keys.length && pick.empty?.has(cat)) {
+      req.categories.push(cat); // no pick: the file's none
+      continue;
+    }
     if (!keys.length) continue;
     req.categories.push(cat);
     if (cat === 'settings') req.sections = keys;
