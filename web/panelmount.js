@@ -95,7 +95,7 @@ export function liveUi(host, onBack, edit = null) {
   };
 }
 
-// Keep in step with #panel-levels in panel.html. Only a Grid panel shows it (gridpanelrun.js).
+// Keep in step with #panel-levels in panel.html. Only a Grid panel shows it (gridpanellevelbox.js).
 function levelsBox() {
   const input = el('input', 'pb-input sode__input');
   Object.assign(input, { id: 'panel-lvl', spellcheck: false, autocomplete: 'off' });
