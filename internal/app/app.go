@@ -119,6 +119,11 @@ type App struct {
 	// pinFirstWait: the first wait after wrong user PINs; tests shorten it.
 	pinFirstWait time.Duration
 	recheckFor   time.Duration // how long a PIN recheck holds; tests shorten it
+	// Request approval (approvalrequest.go): pending requests by requester, under mu. The wait
+	// is a field so tests can shorten it.
+	asks         map[*client]*approvalRequest
+	askSeq       int
+	approvalWait time.Duration
 	tokens       *tokenStore
 	keys         *keyStore
 	public       publicKeys
@@ -235,6 +240,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Address},
 	}
 	a.userPins, a.pinFirstWait, a.recheckFor = map[string]*pinPool{}, pinFirstWait, recheckFor
+	a.asks, a.approvalWait = map[*client]*approvalRequest{}, defaultApprovalWait
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
 	a.keys = loadKeys(cfgPath)

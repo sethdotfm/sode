@@ -18,6 +18,7 @@ import './panelwatch.js';
 import './noadmin.js';
 import './setupwizard.js';
 import { bigScrollAll } from './bigscroll.js';
+import { showApprovalCards } from './approvalcards.js';
 
 on('brand', ({ text }) => {
   document.title = text;
@@ -26,4 +27,5 @@ on('brand', ({ text }) => {
 initTheme();
 openItemLinks();
 bigScrollAll();
+showApprovalCards();
 connect();

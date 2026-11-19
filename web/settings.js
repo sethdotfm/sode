@@ -148,7 +148,13 @@ onMsg('clearHistoryResult', (m) => {
   if (answer && m.approval) return void answer.fail(m.err);
   answer?.done();
   if (!answer && !m.locked && myRole && myRole !== 'administrator') {
-    askApproval('Clearing History', 'an Administrator', (ap, ans) => sendClear(ap, ans));
+    askApproval('Clearing History', 'an Administrator', (ap, ans) => sendClear(ap, ans), {
+      action: () => ({ t: 'clearHistory' }),
+      // The server clears when approved; the grace then covers its historyCleared.
+      onEnd: (end) => {
+        if (end === 'approved') clearing = Date.now();
+      },
+    });
     return;
   }
   if (m.recheck) {

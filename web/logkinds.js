@@ -32,6 +32,7 @@ export const WHY_LABEL = {
   rereadNames: 'Re-read names',
   routerNames: 'Router names',
   clearHistory: 'Clear history',
+  approvalRequest: 'Request approval',
   config: 'Settings saved',
   filterSets: 'Filter sets saved',
   presets: 'Presets saved',
