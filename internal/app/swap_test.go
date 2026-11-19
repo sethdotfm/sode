@@ -245,3 +245,66 @@ func TestSwapSourceFilterNumberTermsUseShownNumbers(t *testing.T) {
 		t.Fatalf("src = %q, want %q", s.Src, want)
 	}
 }
+
+// A Grid panel's destinations edge and fixed destinations swap too. Settings already held for To stay, and the list
+// does not change the stored panel.
+func TestSwapGridEdgeAndFixedDestinations(t *testing.T) {
+	a, uid := swapApp(t)
+	ref := func(n int, name string) config.Ref { return config.Ref{Router: uid, N: n, Name: name} }
+	grid, err := a.panels.create(Panel{Name: "Grid", Type: panelTypeGrid, Owner: userID(t, a, "Bo"),
+		Settings: map[string]any{panelFixedKey: []config.Ref{ref(22, "MON 23"), ref(39, "MON 40")}},
+		Sources:  &GridEdge{Members: GridMembers{All: true}},
+		Destinations: &GridEdge{
+			Members: GridMembers{List: []config.Ref{ref(22, "MON 23"), ref(39, "MON 40"), ref(5, "MON 6")}},
+			Items:   []GridItem{{Router: uid, N: 22, Name: "MON 23", Art: "old"}, {Router: uid, N: 39, Name: "MON 40", Art: "kept"}},
+		}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := dialPeer(t, a)
+	p.signIn("Bo", "567890")
+	list := swapItems(t, p.ask("swapList", 1, map[string]any{"swap": map[string]any{"side": "destination", "from": 22, "mine": true}}))
+	if list["Grid"] == nil {
+		t.Fatalf("Grid not listed: %v", list)
+	}
+	if got, _ := a.panels.get(grid.ID); got.Rev != grid.Rev || got.Destinations.Members.List[0].N != 22 || dstCellN(panelNamed(t, a, "Bo desk")) != 22 {
+		t.Fatalf("the list changed a stored panel: %+v", got.Destinations)
+	}
+	r := p.ask("swapMine", 2, map[string]any{"swap": map[string]any{"router": uid, "side": "destination", "from": 22, "to": 39,
+		"items": []string{list["Grid"]["id"].(string)}}})
+	if r["ok"] != true {
+		t.Fatalf("swapMine: %v", r)
+	}
+	got, _ := a.panels.get(grid.ID)
+	var ns []int
+	for _, m := range got.Destinations.Members.List {
+		ns = append(ns, m.N)
+	}
+	if !slices.Equal(ns, []int{39, 5}) {
+		t.Errorf("members = %v, want [39 5]", ns)
+	}
+	if it := got.Destinations.Items; len(it) != 1 || it[0].N != 39 || it[0].Art != "kept" {
+		t.Errorf("items = %+v, want To's settings kept", it)
+	}
+	if fixed, _ := fixedList(got.Settings[panelFixedKey]); len(fixed) != 1 || fixed[0].N != 39 {
+		t.Errorf("fixed = %+v", fixed)
+	}
+	if dstCellN(panelNamed(t, a, "Bo desk")) != 22 {
+		t.Error("an unticked panel changed")
+	}
+}
+
+func TestSwapSourceChangesPresetSource(t *testing.T) {
+	sw := swapper{uid: "r", from: 0, to: 4, toName: "CAM 5", fromNames: []string{"CAM 1"}}
+	p := config.Preset{Items: []config.PresetItem{{Src: config.Ref{Router: "r", N: 0, Name: "CAM 1"}, Dsts: []config.Ref{{Router: "r", N: 0}}}},
+		Moved: []config.Missing{{Kind: config.MissingSource, Ref: config.Ref{Router: "r", N: 0}}}}
+	if !sw.preset(&p) || p.Items[0].Src.N != 4 || p.Items[0].Src.Name != "CAM 5" || p.Items[0].Dsts[0].N != 0 || len(p.Moved) != 0 {
+		t.Fatalf("preset = %+v", p)
+	}
+	// Name moved: the stored name CAM 5 is already at To.
+	sw.fromNames = append(sw.fromNames, "CAM 5")
+	s := config.FilterSet{Src: `"cam 5"`}
+	if sw.filterSet(&s) {
+		t.Fatalf("a term that already names To changed: %q", s.Src)
+	}
+}

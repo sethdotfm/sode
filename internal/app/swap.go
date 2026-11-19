@@ -123,14 +123,13 @@ func (sw *swapper) filterText(text string) (string, bool) {
 		return text, false
 	}
 	r := []rune(text)
-	changed := false
 	for i := len(terms) - 1; i >= 0; i-- {
 		t := terms[i]
 		var put string
 		switch {
 		case t.Kind == "num" && t.A-sw.off == sw.from:
 			put = strconv.Itoa(sw.to + sw.off)
-		case t.Kind == "exact" && sw.named(t.Text):
+		case t.Kind == "exact" && sw.named(t.Text) && !sameName(t.Text, sw.toName):
 			put = strconv.Itoa(sw.to + sw.off)
 			if strings.TrimSpace(sw.toName) != "" {
 				put = `"` + strings.ReplaceAll(strings.TrimSpace(sw.toName), `"`, `""`) + `"`
@@ -139,9 +138,9 @@ func (sw *swapper) filterText(text string) (string, bool) {
 			continue
 		}
 		r = slices.Concat(r[:t.at], []rune(put), r[t.end:])
-		changed = true
 	}
-	return string(r), changed
+	// An exact term that already names To (Name moved) is no change.
+	return string(r), string(r) != text
 }
 
 func (sw *swapper) filterSet(s *config.FilterSet) bool {
@@ -397,7 +396,11 @@ func (n swapCounts) add(it swapItem) { n[cmpOr(it.Owner, swapEveryone)]++ }
 func (sw *swapper) field(n swapCounts) SavedField {
 	f := newSavedField(swapKey, "routers", sw.label())
 	f.New, _ = json.Marshal(n)
-	from := cmpOr(strings.TrimSpace(sw.fromNames[0]), "no name")
+	// A Broken number has no name on the router now, so the first stored one names it.
+	from := "no name"
+	if i := slices.IndexFunc(sw.fromNames, func(n string) bool { return strings.TrimSpace(n) != "" }); i >= 0 {
+		from = strings.TrimSpace(sw.fromNames[i])
+	}
 	f.Note = from + " to " + cmpOr(sw.toName, "no name")
 	return f
 }
