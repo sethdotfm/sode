@@ -2,12 +2,10 @@ package app
 
 import (
 	"testing"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
 // An Everyone Checkpoint set needs a Trusted user, as an Everyone template does. A PIN in the
-// body opens nothing, even the Advanced Settings PIN: the answer is 403 trusted_required.
+// body opens nothing: the answer is 403 trusted_required.
 func TestCheckpointSetEveryoneNeedsATrustedUser(t *testing.T) {
 	a := panelsApp(t)
 	ana, bo, cy := userKey(t, a, "Ana"), userKey(t, a, "Bo"), userKey(t, a, "Cy")
@@ -16,15 +14,6 @@ func TestCheckpointSetEveryoneNeedsATrustedUser(t *testing.T) {
 		return `{"name":"All","scope":"` + scope + `","panels":["` + p1 + `"],"pin":"` + pin + `"}`
 	}
 
-	h, err := config.HashPin("9999")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := a.r().cfg
-	cfg.SettingsPin = h
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
 	wantErr(t, apiSend(a, "POST", "/api/v1/panel-sets", ana, withPin("everyone", "1111")), 403, "trusted_required")
 	wantErr(t, apiSend(a, "POST", "/api/v1/panel-sets", ana, withPin("everyone", "9999")), 403, "trusted_required")
 	if rec := apiSend(a, "POST", "/api/v1/panel-sets", ana, withPin("me", "")); rec.Code != 201 {

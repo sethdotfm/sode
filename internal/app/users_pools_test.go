@@ -14,44 +14,12 @@ import (
 
 func clearWaits(a *App) {
 	a.mu.Lock()
-	a.pin.until = time.Time{}
 	clear(a.userPins)
 	a.mu.Unlock()
 }
 
-// A user's success never resets the Advanced Settings PIN's count, and neither
-// pool's failures reach the other.
-func TestPinClassesSeparate(t *testing.T) {
-	a := userApp(t, true)
-	c := &client{ip: "10.0.0.1"}
-	for range 3 {
-		a.mu.Lock()
-		a.pin.until = time.Time{}
-		a.mu.Unlock()
-		if a.Unlock(c, "0000") == nil {
-			t.Fatal("wrong Advanced Settings PIN accepted")
-		}
-	}
-	if a.pin.n != 3 || userPinCount(a, "Ana") != 0 {
-		t.Fatalf("counts settings %d, Ana %d", a.pin.n, userPinCount(a, "Ana"))
-	}
-	if err := a.UserUnlockAs(c, "Ana", "1234"); err != nil {
-		t.Fatal(err)
-	}
-	if a.pin.n != 3 {
-		t.Fatalf("a user's success reset the settings count to %d", a.pin.n)
-	}
-	wrongAs(t, a, "Ana", 1)
-	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatal(err)
-	}
-	if userPinCount(a, "Ana") != 1 || a.pin.n != 0 {
-		t.Fatalf("after a settings success: settings %d, Ana %d", a.pin.n, userPinCount(a, "Ana"))
-	}
-}
-
 // Wrong user PINs wait longer and longer, to five minutes, and never lock
-// anyone out for good or touch the Advanced Settings PIN.
+// anyone out for good.
 func TestUserPinBackoffCapped(t *testing.T) {
 	if got := userPinWait(pinFirstWait, pinFreeTries); got != 0 {
 		t.Fatalf("free try waits %v", got)
@@ -80,9 +48,6 @@ func TestUserPinBackoffCapped(t *testing.T) {
 	a.mu.Unlock()
 	if wait <= 0 || wait > userPinMaxWait {
 		t.Fatalf("wait %v", wait)
-	}
-	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatalf("Advanced Settings PIN blocked by user failures: %v", err)
 	}
 	clearWaits(a)
 	if err := a.UserUnlockAs(c, "Ana", "1234"); err != nil {
@@ -136,22 +101,5 @@ func TestUserPinForgetsAfterQuiet(t *testing.T) {
 	a.mu.Unlock()
 	if err := wrongAs(t, a, "Ana", 1); waits(err) || userPinCount(a, "Ana") != 1 {
 		t.Fatalf("still counting after a quiet hour: %v", err)
-	}
-}
-
-func TestSettingsPinSuccessResetsCount(t *testing.T) {
-	a := userApp(t, true)
-	c := &client{ip: "10.0.0.1"}
-	for range pinFreeTries {
-		a.Unlock(c, "0000")
-	}
-	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatal(err)
-	}
-	a.mu.Lock()
-	n := a.pin.n
-	a.mu.Unlock()
-	if n != 0 {
-		t.Fatalf("count after a right Advanced Settings PIN: %d", n)
 	}
 }

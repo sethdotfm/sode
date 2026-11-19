@@ -48,8 +48,7 @@ func settledTempDir(t *testing.T) string {
 }
 
 // userApp is an app with Standard users Ana (1234) and Bo (567890), the Administrator Ada
-// (2468) and, if locks, the main and log locks on. The Advanced Settings PIN is 2468 too: it
-// opens nothing, and the PIN pool tests use it.
+// (2468) and, if locks, the main and log locks on.
 func userApp(t *testing.T, locks bool) *App {
 	t.Helper()
 	cfgPath := filepath.Join(settledTempDir(t), "config.yaml")
@@ -57,7 +56,6 @@ func userApp(t *testing.T, locks bool) *App {
 	cfg.Normalize()
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234"), mkUser(t, "Bo", "567890")}
 	withAdministrator(&cfg)
-	cfg.SettingsPin = mkUser(t, "", "2468").Pin
 	cfg.Locks = config.Locks{Main: locks, Log: locks}
 	hist, _ := OpenHistory("")
 	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
@@ -134,7 +132,7 @@ func TestLocksOffByDefault(t *testing.T) {
 	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil {
+	if err := a.SaveSettings(c, a.r().cfg); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -151,7 +149,7 @@ func TestUserUnlock(t *testing.T) {
 	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil {
+	if err := a.SaveSettings(c, a.r().cfg); err != nil {
 		t.Fatalf("save as the Administrator: %v", err)
 	}
 	if err := a.SaveFilterSets(c, nil); err != nil {
@@ -204,12 +202,6 @@ func TestUserUnlockBackoff(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "try again in") {
 		t.Fatalf("5th wrong: %v", err)
 	}
-	if a.pin.n != 0 {
-		t.Fatal("user failures counted against the Advanced Settings PIN")
-	}
-	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatalf("Advanced Settings PIN blocked by user PIN failures: %v", err)
-	}
 	if err := a.UserUnlockAs(c, "Ana", "1234"); err == nil || a.pageAllowed(c, gateMain) {
 		t.Fatalf("right PIN during the wait: %v", err)
 	}
@@ -232,7 +224,7 @@ func TestSaveUsers(t *testing.T) {
 	}
 	withLock := a.r().cfg
 	withLock.Locks.Main = true
-	if err := a.SaveSettings(c, withLock, "", false); err == nil || !strings.Contains(err.Error(), "user") {
+	if err := a.SaveSettings(c, withLock); err == nil || !strings.Contains(err.Error(), "user") {
 		t.Fatalf("lock with no users: %v", err)
 	}
 	req := usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Role: config.RoleAdministrator}, {Name: "Bo", Pin: "5678"}}}
@@ -249,7 +241,7 @@ func TestSaveUsers(t *testing.T) {
 	}
 	withLock = a.r().cfg
 	withLock.Locks.Log, withLock.AutoLockMinutes = true, 10
-	if err := a.SaveSettings(c, withLock, "", false); err != nil {
+	if err := a.SaveSettings(c, withLock); err != nil {
 		t.Fatal(err)
 	}
 	if err := saveUsers(a, c, req); err != nil {

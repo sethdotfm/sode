@@ -45,9 +45,7 @@ func (a *App) replyOpNote(c *client, kind string, id int, note string, err error
 
 func (a *App) replyOpResult(c *client, kind, note string, res opResult, err error) {
 	a.command(c, kind, outcome(err), note, err)
-	if err != nil {
-		res.Locked = locked(err)
-	} else {
+	if err == nil {
 		log.Printf("config: %s saved by %s", kind, c.who())
 	}
 	a.reply(c, res)

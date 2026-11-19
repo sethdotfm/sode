@@ -204,25 +204,16 @@ func TestTemplateEveryoneNeedsATrustedUser(t *testing.T) {
 		t.Fatalf("refused template stored: %q", got)
 	}
 
-	// With no Advanced Settings PIN set, a pin in the body opens nothing.
+	// A pin in the body opens nothing.
 	if rec = apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Shared","scope":"everyone","pin":"9999"}`); rec.Code != 403 {
 		t.Fatalf("no PIN set: %d", rec.Code)
 	}
 
-	h, err := config.HashPin("9999")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := a.r().cfg
-	cfg.SettingsPin = h
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
 	if rec = apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Shared","scope":"everyone","pin":"1111"}`); rec.Code != 403 {
 		t.Fatalf("wrong PIN: %d", rec.Code)
 	}
 	if rec = apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Shared","scope":"everyone","pin":"9999"}`); rec.Code != 403 {
-		t.Fatalf("the Advanced Settings PIN opened it: %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("a PIN opened it: %d %s", rec.Code, rec.Body.String())
 	}
 	if rec = apiSend(a, "POST", "/api/v1/panel-templates", userKey(t, a, "Cy"), `{"name":"Shared","scope":"everyone"}`); rec.Code != 201 {
 		t.Fatalf("Trusted user: %d %s", rec.Code, rec.Body.String())

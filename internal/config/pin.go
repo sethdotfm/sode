@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"testing" // on purpose: testing.Testing() keeps UseTestCosts out of production
-	"unicode/utf8"
 )
 
 var pinIter = 600_000
@@ -22,14 +21,6 @@ func UseTestCosts() {
 		panic("config.UseTestCosts outside a test")
 	}
 	pinIter, syncWrites = 1000, false
-}
-
-func CheckPinRules(pin string) error {
-	if n := utf8.RuneCountInString(pin); n < 4 || n > 64 {
-		//lint:ignore ST1005 Settings shows this as is
-		return fmt.Errorf("Advanced Settings PIN must be 4-64 characters")
-	}
-	return nil
 }
 
 // HashPin returns "pbkdf2-sha256$<iter>$<salt>$<hash>" (raw base64).

@@ -76,12 +76,12 @@ func TestConfigMessageKeepsSectionRoles(t *testing.T) {
 	}
 	cfg := a.r().cfg
 	cfg.LevelColors = []string{"#abcdef"}
-	if err := a.SaveSettings(ana, cfg, "", false); !isRoleErr(err) {
+	if err := a.SaveSettings(ana, cfg); !isRoleErr(err) {
 		t.Fatalf("Trusted user saving Level colors: %v", err)
 	}
 	cfg = a.r().cfg
 	cfg.BrandText = "Studio B"
-	if err := a.SaveSettings(ana, cfg, "", false); err != nil {
+	if err := a.SaveSettings(ana, cfg); err != nil {
 		t.Fatalf("Trusted user saving Branding: %v", err)
 	}
 }

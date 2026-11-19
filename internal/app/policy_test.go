@@ -144,27 +144,13 @@ func TestRefusalReplies(t *testing.T) {
 	}
 	// A Guest under the page lock: refused with the lock state, and no PIN prompt.
 	send(map[string]any{"t": "presets", "id": 3})
-	if m := until("presetsResult"); m["ok"] == true || m["locked"] == true || m["id"] != float64(3) {
+	if m := until("presetsResult"); m["ok"] == true || m["id"] != float64(3) {
 		t.Fatalf("refused presets: %v", m)
 	}
 	until("lockState")
 	send(map[string]any{"t": "settingsSave", "id": 5, "fields": map[string]any{}})
 	if m := until("settingsSaveResult"); m["ok"] == true || m["id"] != float64(5) {
 		t.Fatalf("refused settingsSave: %v", m)
-	}
-
-	// The Advanced Settings PIN still unlocks, and opens nothing.
-	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
-	if m := until("unlockResult"); m["ok"] != true {
-		t.Fatalf("unlock: %v", m)
-	}
-	send(map[string]any{"t": "presets", "id": 6, "presets": []any{}})
-	if m := until("presetsResult"); m["ok"] == true {
-		t.Fatalf("presets with the Advanced Settings PIN: %v", m)
-	}
-	send(map[string]any{"t": "take", "items": []map[string]any{{"id": 8}}})
-	if m := until("takeResult"); m["ok"] == true {
-		t.Fatalf("a take got through on the Advanced Settings PIN: %v", m)
 	}
 }
 

@@ -43,9 +43,8 @@ func TestIconLibraryUploadNeedsATrustedUser(t *testing.T) {
 		t.Fatalf("icon %v", got)
 	}
 
-	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library", ana, iconUpload("Mark", png, "1111")), 403, "trusted_required")
-	// The Advanced Settings PIN opens nothing: only a Role does.
+	// A PIN in the body opens nothing: only a Role does.
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library", ana, iconUpload("Mark", png, "9999")), 403, "trusted_required")
 	if rec := apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload("Mark", png, "")); rec.Code != 201 {
 		t.Fatalf("Trusted upload: %d %s", rec.Code, rec.Body.String())
@@ -196,7 +195,6 @@ func TestIconLibraryRename(t *testing.T) {
 			t.Fatalf("rename %q: %d %s, want %q", c[0], rec.Code, rec.Body.String(), c[1])
 		}
 	}
-	setSettingsPin(t, a, "9999")
 	wantErr(t, rename(ana, "By PIN", "9999"), 403, "trusted_required")
 	wantErr(t, rename(cy, "", ""), 400, "bad_request")
 	wantErr(t, apiSend(a, "PATCH", "/api/v1/icon-library/0badc0de", cy, `{"name":"X"}`), 404, "not_found")
@@ -234,7 +232,6 @@ func TestIconLibraryDeleteAndUses(t *testing.T) {
 	}
 
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id, ana, ``), 403, "trusted_required")
-	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id, ana, `{"pin":"1111"}`), 403, "trusted_required")
 	if len(a.icons.list()) != 1 {
 		t.Fatal("a refused delete removed the icon")

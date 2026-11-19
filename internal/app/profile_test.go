@@ -199,11 +199,11 @@ func TestProfileUntrustedRefused(t *testing.T) {
 	if !anasProfile(t, a).Empty() {
 		t.Fatal("a refused save changed the profile")
 	}
-	// A refusal answers as a failed result echoing the id, with locked.
+	// A refusal answers as a failed result echoing the id.
 	c := watched(t, a, "10.0.0.7", "")
 	rl := policy["profileSave"].forMsg(&inMsg{T: "profileSave", Name: "Ana", ID: 7})
 	m := inMsg{T: "profileSave", Name: "Ana", ID: 7}
-	a.refuse(c, "profileSave", rl, &m, errLocked)
+	a.refuse(c, "profileSave", rl, &m, roleErr{need: config.RoleTrusted})
 	var res opResult
 	select {
 	case b := <-c.send:
@@ -211,7 +211,7 @@ func TestProfileUntrustedRefused(t *testing.T) {
 	default:
 		t.Fatal("no reply")
 	}
-	if res.T != "profileSaveResult" || res.OK || res.ID == nil || *res.ID != 7 || res.Locked == nil || !*res.Locked {
+	if res.T != "profileSaveResult" || res.OK || res.ID == nil || *res.ID != 7 || res.Err == "" {
 		t.Fatalf("refusal %+v", res)
 	}
 }

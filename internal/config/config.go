@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net"
 	"net/netip"
 	"os"
@@ -45,7 +46,6 @@ type Config struct {
 	Presets          []Preset    `yaml:"presets,omitempty" json:"presets"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
-	SettingsPin string   `yaml:"settingsPin,omitempty" json:"-"`
 	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
 	PinWaits       bool           `yaml:"pinWaits" json:"pinWaits" guard:"pin"`
 	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults"`
@@ -271,6 +271,7 @@ func (c *Config) Normalize() {
 	}
 	c.normalizeUsers()
 	c.normalizeAPI()
+	c.dropRetiredKeys()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
 	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
 	if c.RouterShow == "" {
@@ -660,6 +661,19 @@ func NameKeys(keys []string) string {
 		return strings.Join(keys, ", ")
 	}
 	return fmt.Sprintf("%s and %d more", strings.Join(keys[:maxNamedKeys], ", "), len(keys)-maxNamedKeys)
+}
+
+// retiredKeys held v1's Advanced Settings PIN hash; v2.0 gates on Roles (ADR 0010). Extra is shared
+// by Clone, hence the copy.
+var retiredKeys = []string{"settingsPin"}
+
+func (c *Config) dropRetiredKeys() {
+	if slices.ContainsFunc(retiredKeys, func(k string) bool { _, ok := c.Extra[k]; return ok }) {
+		c.Extra = maps.Clone(c.Extra)
+		for _, k := range retiredKeys {
+			delete(c.Extra, k)
+		}
+	}
 }
 
 // UnknownKeys lists the keys Parse kept in Extra fields, as sorted paths named like the file

@@ -27,15 +27,11 @@ func TestSavePresets(t *testing.T) {
 	}
 	stale := a.r().cfg
 	stale.Presets = nil
-	if err := a.SaveSettings(c, stale, "", false); err != nil || len(a.r().cfg.Presets) != 1 {
+	if err := a.SaveSettings(c, stale); err != nil || len(a.r().cfg.Presets) != 1 {
 		t.Fatalf("settings save dropped the presets: %v %v", err, a.r().cfg.Presets)
 	}
-	// An Advanced Settings PIN closes nothing: with no users, every browser is an Administrator.
-	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
-		t.Fatal(err)
-	}
 	if err := a.SavePresets(c, nil); err != nil || len(a.r().cfg.Presets) != 0 {
-		t.Fatalf("save with a PIN set: %v %v", err, a.r().cfg.Presets)
+		t.Fatalf("clear: %v %v", err, a.r().cfg.Presets)
 	}
 }
 

@@ -198,9 +198,6 @@ func (a *App) serveSettingsSave(c *client, m *inMsg) {
 			}
 		}
 		a.command(c, "settingsSave", outcome(err), fmt.Sprintf("%d of %d %s saved", n, len(res), plural(len(res), "field", "fields")), err)
-		if err != nil {
-			out.Locked = locked(err)
-		}
 		a.reply(c, out)
 	}()
 }

@@ -20,7 +20,7 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	}
 	w := a.r().cfg
 	w.AutoLockMinutes = 7
-	if err := a.SaveSettings(admin, w, "", false); err != nil {
+	if err := a.SaveSettings(admin, w); err != nil {
 		t.Fatal(err)
 	}
 	setFlags(t, a, "Ana", true, false)
@@ -30,9 +30,6 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	}
 	for _, who := range []string{"admin", "trusted"} {
 		c := map[string]*client{"admin": admin, "trusted": ana}[who]
-		if who == "trusted" {
-			a.Lock(admin) // only the trusted flag from here on
-		}
 		if err := pageSave(t, a, c, map[string]any{"levelColors": []string{"#abcdef"}}, "locks", "autoLockMinutes"); err != nil {
 			t.Fatalf("%s: %v", who, err)
 		}
@@ -58,7 +55,7 @@ func TestLocksNeedAnAdministrator(t *testing.T) {
 	} {
 		cfg := a.r().cfg
 		mut(&cfg)
-		err := a.SaveSettings(ana, cfg, "", false)
+		err := a.SaveSettings(ana, cfg)
 		var g guardedErr
 		if !errors.As(err, &g) || !isRoleErr(err) {
 			t.Errorf("%s: trusted user got %v, want guardedErr", name, err)
@@ -67,7 +64,7 @@ func TestLocksNeedAnAdministrator(t *testing.T) {
 	if got := a.r().cfg; !got.Locks.Main || !got.Locks.Log || got.AutoLockMinutes != 0 {
 		t.Fatalf("a refused save changed the locks: %+v", got)
 	}
-	if err := a.SaveSettings(ana, a.r().cfg, "", false); err != nil {
+	if err := a.SaveSettings(ana, a.r().cfg); err != nil {
 		t.Fatalf("unchanged locks: %v", err)
 	}
 	admin := &client{ip: "10.0.0.9"}
@@ -76,7 +73,7 @@ func TestLocksNeedAnAdministrator(t *testing.T) {
 	}
 	cfg := a.r().cfg
 	cfg.Locks.Log, cfg.AutoLockMinutes = false, 3
-	if err := a.SaveSettings(admin, cfg, "", false); err != nil {
+	if err := a.SaveSettings(admin, cfg); err != nil {
 		t.Fatalf("the PIN holder: %v", err)
 	}
 	if got := a.r().cfg; got.Locks.Log || !got.Locks.Main || got.AutoLockMinutes != 3 {
@@ -89,7 +86,7 @@ func TestLockNeedsAUser(t *testing.T) {
 	c := &client{ip: "10.0.0.9"}
 	cfg := a.r().cfg
 	cfg.Locks.Main = true
-	if err := a.SaveSettings(c, cfg, "", false); err == nil || !strings.Contains(err.Error(), "user") {
+	if err := a.SaveSettings(c, cfg); err == nil || !strings.Contains(err.Error(), "user") {
 		t.Fatalf("lock without users: %v", err)
 	}
 }
