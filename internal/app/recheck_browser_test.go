@@ -27,7 +27,7 @@ func TestChromeClearHistoryAsksRecheck(t *testing.T) {
 	b.eval(`document.getElementById('clear-history').click(); document.getElementById('clear-confirm').click(); true`)
 	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('recheck-pin').value = '0000'; document.getElementById('recheck-go').click(); true`)
-	b.waitFor("wrong PIN shown", `!!document.querySelector('#recheck-pin ~ .pb-note--error:not([hidden])')`)
+	b.waitFor("wrong PIN shown", `!!document.querySelector('.sode__pinshow:has(#recheck-pin) ~ .pb-note--error:not([hidden])')`)
 	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
 	b.waitFor("History cleared", `document.body.textContent.includes('History cleared')`)
 	if b.eval(`!!document.getElementById('recheck-pin').offsetParent`) == true {

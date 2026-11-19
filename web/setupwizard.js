@@ -116,11 +116,14 @@ function swatches() {
     input.checked = d.brandBorder === c.name;
     box.append(el('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
   }
-  // A custom color is #rrggbb, the form the native picker gives.
+  // A custom color is #rrggbb, the form the native picker gives. Run setup again writes into Settings' Page border
+  // color, which has no custom value yet, so it leaves the swatch out.
   const own = d.brandBorder.startsWith('#');
-  const pick = el('input', { type: 'color', name: 'brandBorder', 'aria-label': 'Custom color' });
-  pick.value = own ? d.brandBorder : '#5fb2e8';
-  box.append(el('label', { class: `sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, 'data-pb-tip': 'Custom' }, pick));
+  if (!d.again) {
+    const pick = el('input', { type: 'color', name: 'brandBorder', 'aria-label': 'Custom color' });
+    pick.value = own ? d.brandBorder : '#5fb2e8';
+    box.append(el('label', { class: `sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, 'data-pb-tip': 'Custom' }, pick));
+  }
   return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box);
 }
 

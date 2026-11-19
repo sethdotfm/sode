@@ -1,3 +1,3 @@
 - Setup wizard: the first step is Style & User, in a wider dialog. It has a custom border color and both PIN boxes on one row. Router setup shows how many sources and destinations it found, with the level chips beside Level numbering. The Access table is shorter.
 - Every PIN box has a Show PIN button.
-- The lock screen's Name box is bigger and sits on top of the keypad.
+- The lock screen's Name box is bigger and is above the keypad.

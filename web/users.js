@@ -438,7 +438,7 @@ const staged = () => {
 
 maxInput.addEventListener('input', () => {
   touched();
-  for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;
+  for (const p of rows.querySelectorAll('input[data-field="pin"]')) p.maxLength = Number(maxInput.value) || 12;
 });
 
 paintPeople();

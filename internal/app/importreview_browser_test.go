@@ -85,7 +85,7 @@ func TestChromeImportReview(t *testing.T) {
 	b.eval(`document.getElementById('xi-review').click(); true`)
 	b.waitFor("review with the PIN row", `document.getElementById('xi-title').textContent === 'Import from file?' && !!document.getElementById('xi-pin')?.offsetParent && !document.querySelector('.sode__xi [role=tab]')?.offsetParent`)
 	b.shot("review")
-	if got := b.eval(`[...document.querySelectorAll('.sode__xi-crit button')].map((x) => x.textContent).join()`); got != "Back up everything first" {
+	if got := b.eval(`[...document.querySelectorAll('.sode__xi-crit > button')].map((x) => x.textContent).join()`); got != "Back up everything first" {
 		t.Errorf("Critical row %v", got)
 	}
 	b.eval(`document.getElementById('xi-back').click(); true`)
