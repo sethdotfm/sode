@@ -399,6 +399,16 @@ test('byText names the user and the panel page that made a take', () => {
   assert.equal(byText({ entries: [fromPanel, { client: 'Ana' }] }, users), 'by Ana');
 });
 
+test('byText names whose browser a step-in used, and the actor alone counts as the user', () => {
+  const users = ['Ana', 'Bo'];
+  const stepped = { client: 'Bo', browserOf: 'Ana' };
+  assert.equal(byText(stepped, users), 'by Bo (browser of Ana)');
+  assert.equal(byText({ client: 'Bo', browserOf: '192.0.2.1' }, users), 'by Bo (browser of 192.0.2.1)');
+  assert.equal(actorUser(stepped.client, users), 'Bo');
+  assert.equal(groupActor([stepped], users), 'Bo');
+  assert.equal(byText({ entries: [stepped, { client: 'Bo' }] }, users), 'by Bo');
+});
+
 test('lockoutMs falls back to 500 without a cfg and caps at the server limit', async () => {
   const { lockoutMs, LOCKOUT_MAX_MS } = await import('../lockrules.js');
   assert.equal(lockoutMs(undefined), 500);

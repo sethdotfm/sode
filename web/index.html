@@ -41,6 +41,13 @@
     </div>
   </div>
 
+  <!-- Env-only mode (notsaved.js). The phone view has its own copy. -->
+  <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
+    <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
+    <span class="pb-grow">Not saved. Sode has no config file (SODE_CONFIG), so all settings and users are lost when Sode restarts.</span>
+    <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
+  </div>
+
   <!-- The setup wizard (setupwizard.js): a config file with no users. html[data-sode-setup] hides the rest. -->
   <div class="sode-setup" id="setup" hidden>
     <h1 class="sode__mark">Sode</h1>
@@ -230,6 +237,8 @@
           <button type="button" class="pb-btn pb-btn--outline" id="account-keys" data-find="account-keys" data-label="My API keys" aria-haspopup="dialog" hidden>My API keys</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-clients" data-find="account-clients" data-label="My API clients" aria-haspopup="dialog" hidden>My API clients</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-profile" data-find="account-profile" data-label="My profile" aria-haspopup="dialog">My profile</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-copy" data-find="account-copy" data-label="Copy this browser to My user" aria-haspopup="dialog">Copy this browser to My user</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-swap" data-find="account-swap" data-label="Swap" aria-haspopup="dialog" hidden>Swap…</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export / import" aria-haspopup="dialog">Import &amp; Export</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Sign out">Sign out</button>
           <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="lock-btn" data-find="lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-lock"/></svg>Lock the screen</button>
@@ -618,6 +627,11 @@
     </header>
 
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
+    <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
+      <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
+      <span class="pb-grow">Not saved. Sode has no config file (SODE_CONFIG), so all settings and users are lost when Sode restarts.</span>
+      <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
+    </div>
     <div class="sode-m__result" id="m-result" aria-live="polite"></div>
 
     <div class="sode-m__stage">
