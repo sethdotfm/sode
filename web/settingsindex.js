@@ -1,6 +1,6 @@
 // Settings search: pure, no imports (Node-tested), own scorer because core.js `search` needs the DOM.
 // RULE: a new settings section needs an entry in DICT under its data-section slug; settingsindex.test.mjs fails otherwise.
-// Settings are keyed by their control's id; DICT ids that do not exist (yet) are ignored.
+// Settings are keyed by their control's id (settingsindex.test.mjs checks each one is on the page).
 
 const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
@@ -295,7 +295,6 @@ export const DICT = {
   'account-keys': ['api', 'api key', 'api keys', 'key', 'keys', 'my keys', 'panel', 'token', 'qr', 'qr code', 'copy key', 'revoke', 'expiry', 'account'],
   'account-clients': ['api', 'api client', 'api clients', 'client', 'clients', 'my clients', 'app', 'key', 'keys', 'scopes', 'account'],
   'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],
-  lock: ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
   'lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],
   'account-login': ['log in', 'login', 'sign in', 'signin', 'user', 'pin', 'account', 'session', 'tab', 'name'],
   'account-stepin': ['step in', 'stepin', 'sign in', 'other user', 'another user', 'my pin', 'borrow', 'visit', 'account'],
