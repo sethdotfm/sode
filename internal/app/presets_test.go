@@ -36,8 +36,8 @@ func TestSavePresets(t *testing.T) {
 }
 
 func TestPresetMessageShapes(t *testing.T) {
-	b, _ := json.Marshal(presetsMsg{T: "presets", Presets: []config.Preset{}})
-	if string(b) != `{"t":"presets","presets":[]}` {
+	b, _ := json.Marshal(presetsMsg{T: "presets", Presets: []config.Preset{}, Bookmarks: []config.Bookmark{}})
+	if string(b) != `{"t":"presets","presets":[],"bookmarks":[]}` {
 		t.Fatalf("presets message %s", b)
 	}
 	var m struct {

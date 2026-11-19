@@ -10,6 +10,6 @@ export function applyBrowser(values, replace) {
   const list = (x) => [].concat(x || []).filter((s) => s?.name);
   const sets = list(values?.filterSets).map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
   putLocalSets(mergeByName(localSets(), sets, replace));
-  const presets = list(values?.presets).map((s) => ({ scope: 'local', ...storedPreset(s), pinned: s.pinned !== false }));
+  const presets = list(values?.presets).map((s) => ({ scope: 'local', ...storedPreset(s) }));
   putLocalPresets(mergeByName(localPresets(), presets, replace));
 }

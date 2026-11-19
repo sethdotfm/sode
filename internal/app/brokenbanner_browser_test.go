@@ -21,6 +21,7 @@ func TestChromeBrokenBanner(t *testing.T) {
 		c.Presets = []config.Preset{{ID: "p1", Name: "Studio", Items: []config.PresetItem{{
 			Src: config.Ref{Router: uid, N: 0}, Dsts: []config.Ref{{Router: uid, N: 1}, gone}}},
 			Broken: []config.Missing{{Kind: config.MissingDestination, Ref: gone}}}}
+		c.Bookmarks = []config.Bookmark{{Key: "preset:global:p1", Label: "Studio"}}
 		return nil
 	}, nil)
 	a.cfgMu.Unlock()

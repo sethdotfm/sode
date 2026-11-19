@@ -79,7 +79,7 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"command palette"}, Re: wordRe(`(?i)command palettes?`)},
 	{Terms: []string{"Test it live"}, Re: wordRe(`(?i)test it live`)},
 	{Terms: []string{"open panel"}, Why: "an open panel page is any panel page that is open, so a scan cannot tell it from a Public panel; a reviewer judges it by hand"},
-	{Terms: []string{"pinned preset", "preset pin"}, Re: wordRe(`(?i)pinned presets?|preset pins?`), Docs: "#674", UI: "#674", Ident: "#674"},
+	{Terms: []string{"pinned preset", "preset pin"}, Re: wordRe(`(?i)pinned presets?|preset pins?`)},
 }
 
 // vocabMask keeps phrases with a retired word that are correct: the router's own `salvo` and fireMode `native`.

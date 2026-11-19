@@ -101,11 +101,15 @@ type namesMsg struct {
 type filterSetsMsg struct {
 	T    string             `json:"t"` // "filterSets"
 	Sets []config.FilterSet `json:"sets"`
+	// Bookmarks: Everyone's list after the save, since a rename moves the bookmarks on the set.
+	Bookmarks []config.Bookmark `json:"bookmarks"`
 }
 
 type presetsMsg struct {
 	T       string          `json:"t"` // "presets"
 	Presets []config.Preset `json:"presets"`
+	// Bookmarks: Everyone's list after the save, since a rename changes the bookmarks' names.
+	Bookmarks []config.Bookmark `json:"bookmarks"`
 }
 
 type simpleMsg struct {

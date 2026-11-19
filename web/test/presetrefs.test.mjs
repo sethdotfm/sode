@@ -65,31 +65,13 @@ test('a stored preset resolves to the same routes as its numbers', async () => {
   ]);
 });
 
-test('a rename keeps the id, the pin override and the pin order', async () => {
+test('a rename keeps the id, so a bookmark key still finds the preset', async () => {
   const m = await setup();
-  m.S.cfg.presets = [{ id: 'g1', name: 'Morning', pinned: true, items: [{ src: { router: UID, n: 0 }, dsts: [{ router: UID, n: 1 }], levels: [] }] }];
   m.saveLocalPreset({ name: 'Mine', items: [{ src: 0, dsts: [0], levels: [] }] });
   const mine = m.findPreset('local', 'Mine');
-  m.setLocalPin(m.findPreset('global', 'Morning'), false);
-  m.setLocalPin(m.findPreset('global', 'Morning'), true);
-  await m.setPinOrder([m.presetKey(mine), 'global:g1']);
-
-  m.S.cfg.presets = [{ ...m.S.cfg.presets[0], name: 'Evening', pinned: false }];
-  m.setLocalPin(m.findPreset('global', 'Evening'), true);
   m.saveLocalPreset({ ...mine, name: 'Renamed' }, 'Mine');
-  const renamed = m.findPreset('local', 'Renamed');
-  assert.equal(renamed.id, mine.id);
-  assert.deepEqual(m.pinOverrides(), { g1: true });
-  assert.deepEqual(
-    m.pinnedPresets().map((s) => s.name),
-    ['Renamed', 'Evening'],
-  );
-  await m.setPinOrder(['global:g1', m.presetKey(renamed)]);
-  m.S.cfg.presets = [{ ...m.S.cfg.presets[0], name: 'Late' }];
-  assert.deepEqual(
-    m.pinnedPresets().map((s) => s.name),
-    ['Late', 'Renamed'],
-  );
+  assert.equal(m.findPreset('local', 'Renamed').id, mine.id);
+  assert.equal('pinned' in m.saved(mine), false);
 });
 
 test('a Replace import into This browser keeps the replaced preset id', async () => {

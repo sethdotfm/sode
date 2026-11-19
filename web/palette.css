@@ -104,3 +104,16 @@
 [data-pb-layout="phone"] .sode-palette__keys {
   display: none;
 }
+.sode-palette__label + .sode-palette__mark {
+  margin-inline-start: auto;
+}
+.sode-palette__mark {
+  color: var(--pb-text-muted);
+  flex: none;
+}
+.sode-palette__note {
+  margin: 0;
+}
+.sode-palette__note:empty {
+  display: none;
+}

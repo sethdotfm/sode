@@ -18,18 +18,12 @@ type Profile struct {
 	Prefs      map[string]string `yaml:"prefs,omitempty" json:"prefs"`
 	FilterSets []FilterSet       `yaml:"filterSets,omitempty" json:"filterSets"`
 	Presets    []Preset          `yaml:"presets,omitempty" json:"presets"`
-	// PinOrder keys are "scope:lowercase name"; unmatched ignored, unlisted pinned presets come after.
-	PinOrder []string `yaml:"pinOrder,omitempty" json:"pinOrder"`
+	// Bookmarks is the user's Me list (GLOSSARY.md, Bookmark).
+	Bookmarks []Bookmark `yaml:"bookmarks,omitempty" json:"bookmarks"`
 	// PalettePicks holds the keys of the user's last Palette picks, newest first.
 	PalettePicks []string       `yaml:"palettePicks,omitempty" json:"palettePicks"`
 	Extra        map[string]any `yaml:",inline" json:"-"`
 }
-
-// MaxPinOrder caps PinOrder; MaxPinKey caps one key, in runes.
-const (
-	MaxPinOrder = 200
-	MaxPinKey   = 80
-)
 
 // Go twin of PREFS in web/prefs.js; keep in step (TestPrefTable).
 var PrefValues = map[string][]string{
@@ -47,11 +41,11 @@ var PrefValues = map[string][]string{
 }
 
 func (p Profile) Empty() bool {
-	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.PinOrder) == 0 && len(p.PalettePicks) == 0
+	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.Bookmarks) == 0 && len(p.PalettePicks) == 0
 }
 
 func (p Profile) Clone() Profile {
-	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder), PalettePicks: slices.Clone(p.PalettePicks), Extra: p.Extra}
+	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), Bookmarks: CloneBookmarks(p.Bookmarks), PalettePicks: slices.Clone(p.PalettePicks), Extra: p.Extra}
 }
 
 func knownPref(k string) bool {
@@ -84,25 +78,9 @@ func (p Profile) Normalized() Profile {
 	maps.DeleteFunc(p.Prefs, func(k, _ string) bool { return !knownPref(k) })
 	p.FilterSets = normalizeFilterSets(p.FilterSets)
 	p.Presets = normalizePresets(p.Presets, "")
-	p.PinOrder = normalizePinOrder(p.PinOrder)
+	p.Bookmarks = normalizeBookmarks(p.Bookmarks)
 	p.PalettePicks = normalizePalettePicks(p.PalettePicks)
 	return p
-}
-
-// Keys are opaque: the browser builds them (presetKey in presetstore.js) and compares bytes. Go's
-// ToLower differs from JS for some letters, so lowercasing again could break a key.
-func normalizePinOrder(in []string) []string {
-	out := []string{}
-	seen := map[string]bool{}
-	for _, k := range in {
-		k = strings.TrimSpace(k)
-		if k == "" || seen[k] || len([]rune(k)) > MaxPinKey || len(out) >= MaxPinOrder {
-			continue
-		}
-		seen[k] = true
-		out = append(out, k)
-	}
-	return out
 }
 
 func (c *Config) normalizeProfiles() {
@@ -133,6 +111,9 @@ func validateProfile(owner string, p Profile) []error {
 	}
 	tmp := Config{Presets: p.Presets}
 	for _, e := range tmp.validatePresets() {
+		bad("%v", e)
+	}
+	for _, e := range validateBookmarks(p.Bookmarks) {
 		bad("%v", e)
 	}
 	if b, err := json.Marshal(p); err == nil && len(b) > MaxProfileBytes {

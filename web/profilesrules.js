@@ -74,7 +74,7 @@ export const withParts = (prof, parts) => ({ ...(prof || {}), ...parts });
 export const PROFILE_MAX_BYTES = 48 * 1024;
 
 export function profileProblem(p, parts) {
-  const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, pinOrder: p.pinOrder, ...parts };
+  const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, bookmarks: p.bookmarks, ...parts };
   // UTF-8 bytes as the server counts them: Go's json.Marshal also writes < > & as 6-byte escapes.
   const json = JSON.stringify(next);
   const bytes = new TextEncoder().encode(json).length + 5 * (json.match(/[<>&]/g) || []).length;

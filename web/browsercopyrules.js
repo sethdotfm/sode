@@ -32,7 +32,4 @@ export function toClear({ prefs, rows }, keep) {
   return out;
 }
 
-// A moved preset keeps its id (reviewsheet.js), so its pin key changes scope only.
-export const movedPinOrder = (order, ids) => order.map((k) => (k.startsWith('local:') && ids.includes(k.slice(6)) ? `user:${k.slice(6)}` : k));
-
 export const moveText = (what, keep) => (keep ? `${what} copied to Me. This browser keeps them too.` : `${what} moved to Me.`);

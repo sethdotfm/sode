@@ -14,7 +14,7 @@ import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.j
 import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
-import { toClear, moveText, movedPinOrder } from './browsercopyrules.js';
+import { toClear, moveText } from './browsercopyrules.js';
 
 const status = (dot, text) => {
   const d = el('span', `pb-dot pb-dot--${dot}`);
@@ -88,9 +88,8 @@ function curSets(sc) {
   return setsIn(sc).map((s) => ({ name: s.name, f: s.f }));
 }
 function curPresets(sc) {
-  if (sc === 'user' && forUser())
-    return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => ({ ...storedPreset(s), pinned: s.pinned !== false }));
-  return presetsIn(sc).map((s) => ({ name: s.name, items: s.items, pinned: s.pinned !== false }));
+  if (sc === 'user' && forUser()) return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => storedPreset(s));
+  return presetsIn(sc).map((s) => ({ name: s.name, items: s.items }));
 }
 const curNames = (kind, sc) => (kind === 'filter' ? curSets(sc) : curPresets(sc)).map((x) => x.name);
 const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs : profile().prefs) || {} : null);
@@ -134,7 +133,7 @@ function plan() {
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
     const choices = rs.map(choiceOf);
     const meIds = st.copy ? presetsIn('user').map((s) => s.id) : [];
-    // A new Me preset keeps its This browser id, so its pin key can follow it (movedPinOrder).
+    // A new Me preset keeps its This browser id.
     const keepId = (r, i) => st.copy && r.src.id && choices[i] !== 'replace' && !meIds.includes(r.src.id);
     const incoming = rs.map((r, i) =>
       kind === 'filter'
@@ -142,7 +141,6 @@ function plan() {
         : {
             ...normPreset({ name: r.name, items: matched(r).saved.items }),
             ...(keepId(r, i) ? { id: r.src.id } : {}),
-            pinned: !st.copy || r.src.pinned !== false,
           },
     );
     const picks = rs.map((r, i) => {
@@ -561,9 +559,7 @@ function copyApply(p) {
   busy = true;
   refresh();
   setNote('Saving…');
-  const ids = (p.parts.presets || []).map((s) => s.id).filter(Boolean);
-  const parts = !keep && ids.length ? { ...p.parts, pinOrder: movedPinOrder(profile().pinOrder, ids) } : p.parts;
-  send(parts).then((r) => {
+  send(p.parts).then((r) => {
     busy = false;
     if (!open) return;
     if (r.ok) return after();

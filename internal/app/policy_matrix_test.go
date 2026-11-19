@@ -63,7 +63,7 @@ var policyExpect = map[string][nStates]error{
 	// the handler lists by the panel page lock and the reach of the sign-in (palette_test.go)
 	"palettePanels": openRule,
 
-	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
+	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule, "bookmarks": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,
 
 	"clearHistory":   adminRule,

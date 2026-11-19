@@ -109,20 +109,22 @@ export function settingsSections(rows) {
 // - { type: 'row', row }: a catalogue row.
 // - { type: 'cat', id, label, count }: a category (top) or a Settings section (path ['settings']).
 // - { type: 'head', label }: a heading line, never picked.
-// The empty top lists Home (on every page but Home), the last picks, then the categories. A query at the top
-// searches every row.
-export function paletteView(rows, { path = [], query = '', last = [] } = {}) {
+// The empty top lists Home (on every page but Home), the bookmarks with Show in Palette (marks, as rows), the last
+// picks, then the categories. A query at the top searches every row.
+export function paletteView(rows, { path = [], query = '', last = [], marks = [] } = {}) {
   const q = String(query || '').trim();
   const rowItems = (list) => list.map((row) => ({ type: 'row', row }));
   if (!path.length) {
     if (q) return rowItems(rankRows(rows, q));
     const home = rows.find((r) => r.key === 'page:home');
+    const marked = marks.filter((r) => r !== home);
     const picks = cleanPicks(last)
       .map((k) => rows.find((r) => r.key === k))
-      .filter((r) => r && r !== home);
+      .filter((r) => r && r !== home && !marked.includes(r));
     const cats = CATEGORIES.map((c) => ({ type: 'cat', id: c.id, label: c.label, count: rows.filter((r) => r.cat === c.id).length })).filter((c) => c.count);
     return [
       ...(home ? rowItems([home]) : []),
+      ...(marked.length ? [{ type: 'head', label: 'Bookmarks' }, ...rowItems(marked)] : []),
       ...(picks.length ? [{ type: 'head', label: 'Last picks' }, ...rowItems(picks)] : []),
       { type: 'head', label: 'Categories' },
       ...cats,

@@ -290,7 +290,8 @@ on('profile', () => {
   emit('history');
 });
 onMsg('filterSets', (m) => {
-  S.cfg = { ...S.cfg, filterSets: m.sets };
+  // A rename moves Everyone's bookmarks on the set in the same save, so the message carries them.
+  S.cfg = { ...S.cfg, filterSets: m.sets, ...(Array.isArray(m.bookmarks) ? { bookmarks: m.bookmarks } : {}) };
   followGlobal();
   emit('filters');
   emit('history');

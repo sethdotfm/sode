@@ -53,50 +53,22 @@ const setup = async () => {
 const sv = (name, pinned) => ({ id: name.toLowerCase(), name, items: [{ src: 0, dsts: [1], levels: [] }], ...(pinned === undefined ? {} : { pinned }) });
 const names = (l) => l.map((s) => s.name).join(',');
 
-test('pinning: global flag, local override, unknown names, default', async () => {
-  const m = await setup();
-  m.S.cfg.presets = [sv('Morning'), sv('Evening', false), sv('Late', true)];
-  assert.equal(names(m.pinnedPresets()), 'Morning,Late');
-  const g = (n) => m.globalPresets().find((s) => s.name === n);
-  m.setLocalPin(g('Evening'), true);
-  m.setLocalPin(g('Morning'), false);
-  assert.equal(names(m.pinnedPresets()), 'Evening,Late');
-  assert.deepEqual(JSON.parse(mem.get('sode-preset-pins')), { evening: true, morning: false });
-  // Sode drops an override that equals the flag.
-  m.setLocalPin(g('Morning'), true);
-  assert.deepEqual(JSON.parse(mem.get('sode-preset-pins')), { evening: true });
-  // Unknown names, junk values and a non-object are ignored.
-  mem.set('sode-preset-pins', JSON.stringify({ evening: 'yes', gone: false, late: false }));
-  assert.deepEqual(m.pinOverrides(), { late: false });
-  assert.equal(names(m.pinnedPresets()), 'Morning');
-  mem.set('sode-preset-pins', '[1]');
-  assert.deepEqual(m.pinOverrides(), {});
-  mem.set('sode-preset-pins', 'not json');
-  assert.equal(names(m.pinnedPresets()), 'Morning,Late');
-  mem.set('sode-preset-pins', JSON.stringify({ evening: false }));
-  m.clearPinOverride('evening');
-  assert.equal(mem.has('sode-preset-pins'), false);
-});
-
-test('pinning: own presets carry their flag; the strip filters', async () => {
+test('presets carry no pinned flag: an old one is dropped on save', async () => {
   const m = await setup();
   mem.set('sode-presets', JSON.stringify([sv('A'), sv('B', false)]));
   m.S.cfg.presets = [sv('G')];
-  assert.deepEqual(
-    m.localPresets().map((s) => s.pinned),
-    [true, false],
+  assert.equal(names(m.allPresets()), 'G,A,B');
+  const next = m.replacePreset(m.localPresets(), m.normPreset(sv('C')));
+  assert.equal(
+    next.some((s) => 'pinned' in s),
+    false,
   );
-  assert.equal(names(m.pinnedPresets()), 'G,A');
-  m.setLocalPin(m.localPresets()[1], true);
-  assert.equal(names(m.pinnedPresets()), 'G,A,B');
-  const next = m.replacePreset(m.localPresets(), { ...m.normPreset(sv('C')), pinned: false });
-  assert.equal(next[2].pinned, false);
   assert.equal(m.presetsProblem(next), '');
 });
 
 test('popup search: all when empty, best name first when typed', async () => {
   const m = await setup();
-  const l = ['Morning show', 'Evening', 'Late morning', 'Mono'].map((name) => ({ scope: 'global', name, items: [], pinned: true }));
+  const l = ['Morning show', 'Evening', 'Late morning', 'Mono'].map((name) => ({ scope: 'global', name, items: [] }));
   assert.equal(m.rankPresets(l, '  ').length, 4);
   assert.deepEqual(
     m.rankPresets(l, 'morning').map((s) => s.name),

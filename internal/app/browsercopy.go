@@ -69,7 +69,7 @@ func (a *App) BrowserCopy(c *client, req profileReq) error {
 }
 
 func (a *App) serveBrowserCopy(c *client, m *inMsg) {
-	err := a.BrowserCopy(c, profileReq{Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, PinOrder: m.PinOrder})
+	err := a.BrowserCopy(c, profileReq{Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets})
 	a.replyOp(c, "browserCopy", m.ID, len(m.Prefs)+len(m.FilterSets)+len(m.Presets), "item", err)
 }
 
@@ -101,8 +101,7 @@ func copyFields(was, now config.Profile) []SavedField {
 	presets := func(l []config.Preset) map[string][]byte {
 		m := map[string][]byte{}
 		for _, p := range l {
-			pinned := p.Pinned == nil || *p.Pinned
-			m[strings.ToLower(p.Name)], _ = json.Marshal(map[string]any{"items": p.Items, "pinned": pinned})
+			m[strings.ToLower(p.Name)], _ = json.Marshal(p.Items)
 		}
 		return m
 	}

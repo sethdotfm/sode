@@ -129,11 +129,12 @@ export function profileSaver({ target, ...opts }) {
 //   listOf(scope): the scope's current list as it is sent.
 //   same(a, b): do two names mean one item?   dropLocal(name): delete from localStorage.
 export function scopeWriter({ global, user, target, key, globalKey = key, listOf, same, dropLocal }) {
-  // The whole next list into a remote scope; done() runs after it lands. The caller writes local scopes.
-  function saveIn(scope, list, done) {
+  // The whole next list into a remote scope; done() runs after it lands. The caller writes local scopes. extra goes in
+  // the same message (renameSet: the bookmarks on a renamed filter set follow in the same save).
+  function saveIn(scope, list, done, extra = {}) {
     const t = target?.();
     const [saver, k] = t ? [t, key] : scope === 'user' ? [user, key] : [global, globalKey];
-    saver.change({ [k]: list }, done);
+    saver.change({ [k]: list, ...extra }, done);
   }
   // Without the item; local deletes immediately. done() runs after it is gone.
   function removeIn(scope, name, done) {

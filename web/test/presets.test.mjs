@@ -264,61 +264,6 @@ test('isBlankRow: only a row with nothing typed', async () => {
   assert.equal(isBlankRow({ src: '', dsts: '', levels: '2' }), false);
 });
 
-test('orderPins: saved order first, the rest after in their own order', async () => {
-  const { orderPins, presetKey } = await setup();
-  const mk = (scope, name) => ({ scope, id: name.toLowerCase(), name });
-  const list = [mk('global', 'A'), mk('user', 'B'), mk('local', 'C'), mk('global', 'D')];
-  assert.deepEqual(
-    orderPins(list, []).map((s) => s.name),
-    ['A', 'B', 'C', 'D'],
-  );
-  const order = [presetKey(mk('local', 'c')), presetKey(mk('global', 'D')), 'global:gone'];
-  assert.deepEqual(
-    orderPins(list, order).map((s) => s.name),
-    ['C', 'D', 'A', 'B'],
-  );
-  // By id, so a rename keeps the place.
-  assert.equal(presetKey({ scope: 'user', id: 'a1b2', name: 'Mon 1' }), 'user:a1b2');
-});
-
-test('moveKey: out, then in at an index counted without it, clamped', async () => {
-  const { moveKey } = await setup();
-  assert.deepEqual(moveKey(['a', 'b', 'c', 'd'], 'a', 2), ['b', 'c', 'a', 'd']);
-  assert.deepEqual(moveKey(['a', 'b', 'c', 'd'], 'd', 0), ['d', 'a', 'b', 'c']);
-  assert.deepEqual(moveKey(['a', 'b', 'c'], 'b', 99), ['a', 'c', 'b']);
-  assert.deepEqual(moveKey(['a', 'b', 'c'], 'b', -3), ['b', 'a', 'c']);
-});
-
-test('pinOrder: a guest keeps it in this browser, setPinOrder writes it', async () => {
-  const { pinOrder, setPinOrder } = await setup();
-  assert.deepEqual(pinOrder(), []);
-  setPinOrder(['local:x', 'global:y']);
-  assert.deepEqual(pinOrder(), ['local:x', 'global:y']);
-  setPinOrder([]);
-  assert.deepEqual(pinOrder(), []);
-});
-
-test('setPinOrder answers with the save; a guest’s is already kept', async () => {
-  const { setPinOrder } = await setup();
-  assert.deepEqual(await setPinOrder(['local:x']), { ok: true });
-});
-
-test('movePin: before another pin, or by one place; null when it would not move', async () => {
-  const m = await setup();
-  const { movePin, pinOrder, saveLocalPreset, presetKey } = m;
-  for (const n of ['A', 'B', 'C']) saveLocalPreset({ name: n, items: [{ src: 0, dsts: [1], levels: [] }] }, '');
-  const k = (n) => presetKey(m.findPreset('local', n));
-  await movePin(k('C'), { before: k('A') });
-  assert.deepEqual(pinOrder(), [k('C'), k('A'), k('B')]);
-  await movePin(k('C'), { by: 1 });
-  assert.deepEqual(pinOrder(), [k('A'), k('C'), k('B')]);
-  assert.equal(movePin(k('A'), { by: -1 }), null);
-  assert.equal(movePin(k('B'), { by: 1 }), null);
-  assert.equal(movePin(k('B'), { before: k('B') }), null);
-  assert.equal(movePin('local:gone', { by: 1 }), null);
-  assert.equal(movePin(k('A'), { before: 'local:gone' }), null);
-});
-
 test('fillFrom: the first take that still exists, with what was left out', async () => {
   const { fillFrom } = await setup();
   const has = { src: (n) => n < 3, dst: (n) => n < 3, level: (u) => u <= 3 };
