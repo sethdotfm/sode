@@ -331,6 +331,22 @@ func copyConfigKey(dst, src *config.Config, idx []int) {
 	reflect.ValueOf(dst).Elem().FieldByIndex(idx).Set(reflect.ValueOf(src).Elem().FieldByIndex(idx))
 }
 
+// overlaySetting copies key k from the file. Of a nested key it takes only the fields the file has or leaves out when
+// empty, so an older file keeps the live value of a newer field.
+func (p *importPlanner) overlaySetting(dst *config.Config, k string, idx []int) {
+	to, from := reflect.ValueOf(dst).Elem().FieldByIndex(idx), reflect.ValueOf(p.b.Settings).Elem().FieldByIndex(idx)
+	if to.Kind() != reflect.Struct {
+		to.Set(from)
+		return
+	}
+	for i := range to.NumField() {
+		name, opts, _ := strings.Cut(to.Type().Field(i).Tag.Get("yaml"), ",")
+		if name == "" || p.b.SettingKeys[k+"."+name] || strings.Contains(opts, "omitempty") {
+			to.Field(i).Set(from.Field(i))
+		}
+	}
+}
+
 // planSettings copies each file section's keys over live. A section that changes something is a Use new
 // clash on global settings; Skip or Use current leaves it.
 func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error {
@@ -346,7 +362,7 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 		keys := slices.DeleteFunc(slices.Clone(sec.Keys), func(k string) bool { _, ok := fields[k]; return !ok || !p.b.SettingKeys[k] })
 		one := cand.Clone()
 		for _, k := range keys {
-			copyConfigKey(&one, p.b.Settings, fields[k])
+			p.overlaySetting(&one, k, fields[k])
 		}
 		one.Normalize()
 		changed := slices.ContainsFunc(keys, func(k string) bool {

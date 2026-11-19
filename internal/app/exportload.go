@@ -55,7 +55,8 @@ type exportBundle struct {
 	Unknown  []string // keys this release does not know, already dropped
 	Settings *config.Config
 	Sections []string
-	// SettingKeys: the config keys the file sets. An omitempty key counts, since the export leaves it out when empty.
+	// SettingKeys: the config keys the file sets, and "key.sub" for a nested one. An omitempty key counts, since the
+	// export leaves it out when empty.
 	SettingKeys map[string]bool
 	Routers     []config.Router
 	Names       map[string]namesTable // by router UID
@@ -397,8 +398,14 @@ func settingsFromSections(n *yaml.Node, out *exportBundle) error {
 		out.Sections = append(out.Sections, n.Content[i].Value)
 		if sec := n.Content[i+1]; sec.Kind == yaml.MappingNode {
 			flat.Content = append(flat.Content, sec.Content...)
-			for j := 0; j < len(sec.Content); j += 2 {
-				out.SettingKeys[sec.Content[j].Value] = true
+			for j := 0; j+1 < len(sec.Content); j += 2 {
+				key := sec.Content[j].Value
+				out.SettingKeys[key] = true
+				if sub := sec.Content[j+1]; sub.Kind == yaml.MappingNode {
+					for k := 0; k < len(sub.Content); k += 2 {
+						out.SettingKeys[key+"."+sub.Content[k].Value] = true
+					}
+				}
 			}
 		}
 	}
