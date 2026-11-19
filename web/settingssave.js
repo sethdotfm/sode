@@ -1,6 +1,6 @@
 // The Settings save path: unsaved changes, the one Save (`settingsSave`) and its answer per field. The review is in
-// savereview.js. A change is a difference from the form as opened or last saved. data-apart sections save on their
-// own and are not counted.
+// savereview.js. A change is a difference from the form as opened or last saved. A save source (savesources.js:
+// Manage users, the API section) gives its own changes. data-apart inputs are not counted.
 
 import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { fmtTime } from './device.js';
@@ -10,7 +10,8 @@ import { askPin, reask } from './pinprompt.js';
 import { askRecheck } from './recheck.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
-import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical } from './savereviewrules.js';
+import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical, sectionOfKey } from './savereviewrules.js';
+import { saveSources, sourceOf } from './savesources.js';
 import { sectionView } from './settingsrolerules.js';
 import { showPinFields, resetPinFields } from './settingspin.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
@@ -21,7 +22,7 @@ export const saving = () => $('settings-save').disabled;
 
 // The Advanced Settings PIN fields go on the `config` message, after the one Save. Their row sits in Locks.
 const PIN = 'settingsPin';
-const sectionOf = (key) => SAVE_FIELDS[key] || 'locks';
+const sectionOf = (key) => sectionOfKey(key) || 'locks';
 
 let base = {}; // the fields as last opened or saved
 let versions = {}; // each field's version as loaded
@@ -29,7 +30,7 @@ const refused = new Map(); // key -> refused result; marked until it saves or go
 let savedAt = null;
 let role = '';
 let seq = 0;
-let pending = null; // { id, now, retried, pin }
+let pending = null; // { id, sent, retried, pin }; sent: key -> the value sent
 
 function pinRow() {
   if ($('cfg-pin').value) return { key: PIN, sub: null, was: S.pinSet ? 'Set' : 'Not set', now: 'Changed' };
@@ -39,6 +40,7 @@ function pinRow() {
 
 function changes() {
   const rows = diffRows(base, saveFields());
+  for (const src of saveSources()) rows.push(...diffRows(src.base(), src.now()));
   const pin = pinRow();
   return pin ? [...rows, pin] : rows;
 }
@@ -72,6 +74,8 @@ function place(r) {
 }
 
 function label(r) {
+  const src = sourceOf(r.key);
+  if (src) return src.label(r);
   if (r.key === PIN) return 'Advanced Settings PIN';
   if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
   if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;
@@ -82,6 +86,8 @@ function label(r) {
 }
 
 function show(r, v) {
+  const src = sourceOf(r.key);
+  if (src) return src.show(r, v);
   if (r.key === PIN) return v;
   if (r.key === 'levelColors' && r.sub != null) return v || 'Default';
   if (v && typeof v === 'object' && !Array.isArray(v)) {
@@ -111,15 +117,17 @@ function paintMarks() {
       refused.delete(key);
       continue;
     }
-    const node = keyNode(key);
-    const host = node.closest('.sode__field') || node.closest('.pb-check') || node;
-    const mark = el(
-      'div',
-      'pb-note pb-note--warn sode__refused',
-      refusalNote(r, (v) => show({ key, sub: null }, v)),
-    );
+    const row = { key, sub: null };
+    const note = refusalNote(r, (v) => show(row, v));
+    const mark = el('div', 'pb-note pb-note--warn sode__refused', sourceOf(key) ? `${label(row)}: ${note}` : note);
     mark.dataset.refused = key;
-    host.after(mark);
+    // A source's field has no input in the form: its mark goes at the end of its section.
+    if (sourceOf(key)) {
+      fieldset(key).append(mark);
+      continue;
+    }
+    const node = keyNode(key);
+    (node.closest('.sode__field') || node.closest('.pb-check') || node).after(mark);
   }
 }
 
@@ -131,6 +139,7 @@ function changedSections() {
 }
 
 export function markClean(saved) {
+  for (const src of saveSources()) src.reset();
   base = saveFields();
   versions = { ...S.versions };
   refused.clear();
@@ -179,12 +188,24 @@ export function showSaveErr(text) {
 
 // ---- sending and the answers
 
-function sendFields(keys, now, retried, pin) {
-  const fields = Object.fromEntries(keys.map((k) => [k, { value: now[k], version: versions[k] ?? '' }]));
+// The value of each key as it is now, from the form or its source.
+function valuesOf(keys) {
+  const form = readSettings();
+  const out = {};
+  for (const k of keys) {
+    const src = sourceOf(k);
+    out[k] = src ? src.now()[k] : form[k];
+  }
+  return out;
+}
+
+function sendFields(keys, sent, retried, pin) {
+  const version = (k) => (sourceOf(k) ? sourceOf(k).version(k) : versions[k]) ?? '';
+  const fields = Object.fromEntries(keys.map((k) => [k, { value: sent[k], version: version(k) }]));
   if (!keys.length) return void (pin && sendPin());
   const id = ++seq;
   if (!wsSend({ t: 'settingsSave', id, fields })) return void showSaveErr('Not connected to Sode.');
-  pending = { id, now, retried, pin };
+  pending = { id, sent, retried, pin };
   $('settings-save').disabled = true;
 }
 
@@ -205,24 +226,31 @@ function settingsSaveResult(m) {
   let saved = 0;
   const again = [];
   for (const [key, r] of Object.entries(m.results)) {
+    const src = sourceOf(key);
     if (r.status === 'refused') {
       // Their value is now on the mark and in the review's Was, so the next Save overwrites it on purpose.
       if (r.reason === 'conflict' && r.version) {
-        versions[key] = r.version;
-        base[key] = r.value;
+        if (src) src.conflict(key, r);
+        else {
+          versions[key] = r.version;
+          base[key] = r.value;
+        }
       }
       if (r.reason === 'needs PIN recheck' && !p.retried) again.push(key);
       refused.set(key, r);
       continue;
     }
-    base[key] = p.now[key];
-    if (r.version) versions[key] = r.version;
+    if (src) src.saved(key, p.sent[key], r);
+    else {
+      base[key] = p.sent[key];
+      if (r.version) versions[key] = r.version;
+    }
     refused.delete(key);
     if (r.status === 'saved') saved++;
   }
   if (again.length) {
     askRecheck('Saving these changes').then((ok) => {
-      if (ok) sendFields(again, p.now, true, p.pin);
+      if (ok) sendFields(again, p.sent, true, p.pin);
       else done(saved, p);
     });
     return;
@@ -299,6 +327,10 @@ async function review({ focusField, reveal }) {
     $('cfg-pin2').select();
     return;
   }
+  const srcBad = saveSources()
+    .map((src) => src.problem())
+    .find(Boolean);
+  if (srcBad) return void showSaveErr(srcBad);
   const rows = changes();
   if (!rows.length) return void showSaveErr('There are no changes to save.');
   $('settings-err').hidden = true;
@@ -318,7 +350,7 @@ async function review({ focusField, reveal }) {
   const keys = [...new Set(rows.map((r) => r.key))].filter((k) => k !== PIN);
   sendFields(
     keys,
-    readSettings(),
+    valuesOf(keys),
     false,
     rows.some((r) => r.key === PIN && !kept(r)),
   );
@@ -352,6 +384,12 @@ export function initSave(toc) {
   });
   on('wsclose', () => {
     pending = null;
+  });
+  // Manage users is a dialog outside the form, so its edits come as this bus event.
+  on('saveSourceChanged', () => {
+    if (!isOpen()) return;
+    if (refused.size) paintMarks();
+    return warned() ? unwarn() : renderSaveState();
   });
   onMsg('settingsSaveResult', settingsSaveResult);
   on('configResult', configResult);

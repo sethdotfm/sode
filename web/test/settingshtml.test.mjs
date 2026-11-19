@@ -82,12 +82,13 @@ test('the Users section holds Manage users and the profile list, saved apart fro
   for (const id of ['users-manage', 'users-people']) assert.match(g.body, new RegExp(`id="${id}"`));
 });
 
-test('the API section holds its fields and its own Save, saved apart from the form', () => {
+test('the API section holds its fields and no Save of its own: they save with the one Save', () => {
   const g = group('API');
-  assert.match(g.attrs, /data-apart/);
-  for (const id of ['api-guest', 'api-scopes', 'api-log-reads', 'api-rate', 'api-cap', 'api-save', 'api-note', 'api-err']) {
+  assert.doesNotMatch(g.attrs, /data-apart/);
+  for (const id of ['api-guest', 'api-scopes', 'api-log-reads', 'api-rate', 'api-cap']) {
     assert.match(g.body, new RegExp(`id="${id}"`));
   }
+  assert.doesNotMatch(g.body, /id="api-save"/);
   assert.doesNotMatch(g.body, /id="api-enabled"/, 'the API is always on');
 });
 

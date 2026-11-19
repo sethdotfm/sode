@@ -9,27 +9,6 @@ export const ROLES = Object.freeze([
 // A Guest is never an Administrator.
 export const GUEST_ROLES = Object.freeze(ROLES.slice(0, 2));
 
-// rows: [{id, name, pin, role, persistent}]. id is the saved user's ("" for a new row), so a
-// rename keeps everything of theirs. An unchanged Guest role is left out (the server keeps it).
-// panelOwners: removed user id to the id of the user who takes their panels.
-export function usersReq(rows, maxPinLen, guestRole, savedGuestRole, panelOwners = {}) {
-  const users = rows.map((r) => ({
-    id: r.id,
-    name: r.name.trim(),
-    pin: r.pin,
-    role: r.role || 'standard',
-    persistent: r.persistent,
-    // A typed PIN wins; only a saved user with a PIN has one to remove.
-    ...(r.noPin && !r.pin && r.id && r.hadPin ? { clearPin: true } : {}),
-  }));
-  return {
-    users,
-    maxPinLen,
-    ...(guestRole && guestRole !== savedGuestRole ? { guestRole } : {}),
-    ...(Object.keys(panelOwners).length ? { panelOwners } : {}),
-  };
-}
-
 // The PIN box's placeholder for a row {id, hadPin, noPin, pinNeeded}: what an empty box saves.
 export function pinPlaceholder(r) {
   if (!r.id) return r.noPin ? 'no PIN' : 'new PIN';

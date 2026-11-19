@@ -500,7 +500,7 @@
       </div>
     </fieldset>
 
-    <!-- users.js. Saved apart from the form (the `users` message). -->
+    <!-- users.js. The dialog's edits save with the one Save (usersstage.js). -->
     <fieldset class="sode__group" id="users-group" data-apart data-section="users" data-topic="access">
       <legend>Users</legend>
       <div class="sode__field">
@@ -509,8 +509,8 @@
       <div class="sode__field" id="users-people" role="group" aria-label="Profiles" hidden></div>
     </fieldset>
 
-    <!-- apisettings.js. Saved apart from the form (the `apiSettings` message). -->
-    <fieldset class="sode__group" id="api-group" data-apart data-section="api" data-topic="access">
+    <!-- apisettings.js. Saves with the one Save. -->
+    <fieldset class="sode__group" id="api-group" data-section="api" data-topic="access">
       <legend>API</legend>
       <span class="sode__hint">The API is always on. A key acts with its owner's Rights. A user can have 50 keys and an API client 200.</span>
       <div class="sode__field">
@@ -536,11 +536,6 @@
         <span class="pb-number-wrap"><input type="number" id="api-cap" class="pb-input" min="1" max="64"></span>
         <span class="sode__hint">The router answers one message at a time, so a runaway client is held back here. 1-64.</span>
       </div>
-      <div class="sode__field">
-        <button type="button" class="pb-btn pb-btn--outline" id="api-save" data-find="api-save" data-label="Save API settings">Save API settings</button>
-        <span class="sode__hint" id="api-note" role="status" aria-live="polite"></span>
-      </div>
-      <div class="pb-note pb-note--error" id="api-err" role="alert" hidden></div>
     </fieldset>
 
     <fieldset class="sode__group" data-section="panels" data-topic="access">
