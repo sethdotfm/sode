@@ -213,6 +213,9 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			delete(a.clients, c)
 			close(c.send)
 		}
+		if c.u.step != nil {
+			a.stepOutRowMu(c, "closed")
+		}
 		a.cardsSyncMu() // a page close cancels its request
 		a.mu.Unlock()
 		a.setupLeft(c)

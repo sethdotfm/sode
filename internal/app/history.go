@@ -16,35 +16,38 @@ import (
 )
 
 type Entry struct {
-	ID          int       `json:"id"`
-	Time        time.Time `json:"time"`
-	Client      string    `json:"client"`
-	Actor       *Actor    `json:"actor,omitempty"` // set for an API actor: Client then holds its label, never an address
-	Src         int       `json:"src"`
-	SrcName     string    `json:"srcName"`
-	Dst         int       `json:"dst"`
-	DstName     string    `json:"dstName"`
-	Levels      []int     `json:"levels"`
-	Prev        [][2]int  `json:"prev"` // [UI level, src] before the take; src -1 = nothing routed
-	OK          bool      `json:"ok"`
-	Err         string    `json:"err,omitempty"`
-	Undo        *int      `json:"undo,omitempty"`
-	Retry       *int      `json:"retry,omitempty"`
-	Failed      []int     `json:"failed,omitempty"`  // levels the router never confirmed or that were not sent
-	Now         [][2]int  `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
-	Already     []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
-	Group       string    `json:"group,omitempty"`
-	GroupN      int       `json:"groupN,omitempty"`
-	Preset      string    `json:"preset,omitempty"`   // name of the preset this take was fired from (browser-supplied, cleaned)
-	PresetID    string    `json:"presetId,omitempty"` // its hidden id, for Rights
-	Ext         bool      `json:"ext,omitempty"`
-	FollowGroup string    `json:"followGroup,omitempty"`
-	Follow      *int      `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
-	Found       bool      `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
-	Late        []int     `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
-	Unsent      []int     `json:"unsent,omitempty"`
-	SendErr     string    `json:"sendErr,omitempty"`
-	Cut         bool      `json:"cut,omitempty"` // the router changed under the take, so its Failed levels only got no answer
+	ID     int       `json:"id"`
+	Time   time.Time `json:"time"`
+	Client string    `json:"client"`
+	Actor  *Actor    `json:"actor,omitempty"` // set for an API actor: Client then holds its label, never an address
+	// BrowserOf: a take made while stepped in (stepin.go). Client is the stepped-in user; this is the
+	// original user, or the address with nobody signed in. Apart from Client so filters match the actor only.
+	BrowserOf   string   `json:"browserOf,omitempty"`
+	Src         int      `json:"src"`
+	SrcName     string   `json:"srcName"`
+	Dst         int      `json:"dst"`
+	DstName     string   `json:"dstName"`
+	Levels      []int    `json:"levels"`
+	Prev        [][2]int `json:"prev"` // [UI level, src] before the take; src -1 = nothing routed
+	OK          bool     `json:"ok"`
+	Err         string   `json:"err,omitempty"`
+	Undo        *int     `json:"undo,omitempty"`
+	Retry       *int     `json:"retry,omitempty"`
+	Failed      []int    `json:"failed,omitempty"`  // levels the router never confirmed or that were not sent
+	Now         [][2]int `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
+	Already     []int    `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
+	Group       string   `json:"group,omitempty"`
+	GroupN      int      `json:"groupN,omitempty"`
+	Preset      string   `json:"preset,omitempty"`   // name of the preset this take was fired from (browser-supplied, cleaned)
+	PresetID    string   `json:"presetId,omitempty"` // its hidden id, for Rights
+	Ext         bool     `json:"ext,omitempty"`
+	FollowGroup string   `json:"followGroup,omitempty"`
+	Follow      *int     `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
+	Found       bool     `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
+	Late        []int    `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
+	Unsent      []int    `json:"unsent,omitempty"`
+	SendErr     string   `json:"sendErr,omitempty"`
+	Cut         bool     `json:"cut,omitempty"` // the router changed under the take, so its Failed levels only got no answer
 	// Panel and Instance name the panel page that made the take (panelNames). With a user's key they are the
 	// page's own word, which the log marks unverified. PanelID is the panel's id, which a rename leaves, so the
 	// Undo cell (panelundo.go) matches by it.
@@ -87,8 +90,12 @@ func (e *Entry) logLine(off int) string {
 		return fmt.Sprintf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s followGroup=%s found=%t",
 			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, followGroup, e.Found)
 	}
+	client := e.Client
+	if e.BrowserOf != "" {
+		client += " (browser of " + e.BrowserOf + ")"
+	}
 	return fmt.Sprintf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
-		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
+		client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
 }
 
 // History: append-only JSONL; only line offsets are kept in memory. With no path, entries
