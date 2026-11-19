@@ -47,6 +47,27 @@ func TestStepInHistoryNamesBrowserOf(t *testing.T) {
 	}
 }
 
+// Over the WebSocket: the History entry a stepped-in take pushes has the actor in client and
+// the original only in browserOf.
+func TestStepInHistoryEntryOverTheWire(t *testing.T) {
+	a := userApp(t, false)
+	shortTimers(a)
+	newFakeRouter(t, a)
+	p := dialPeer(t, a)
+	p.signIn("Ana", "1234")
+	p.stepIn("Bo", "567890")
+	p.send(map[string]any{"t": "take", "items": []map[string]any{{"id": 1, "src": 7, "dst": 5, "levels": []int{1}}}})
+	e, _ := p.until("entry")["e"].(map[string]any)
+	if e["client"] != "Bo" || e["browserOf"] != "Ana" || e["actor"] != nil {
+		t.Fatalf("entry %v", e)
+	}
+	for k, v := range e {
+		if s, ok := v.(string); ok && k != "browserOf" && strings.Contains(s, "Ana") {
+			t.Fatalf("%s names the original: %q", k, s)
+		}
+	}
+}
+
 // With nobody signed in, the browser is its address.
 func TestStepInHistoryBrowserOfAddress(t *testing.T) {
 	a := userApp(t, false)
@@ -149,6 +170,18 @@ func TestStepInSavesRowNamesTheSteppedInUser(t *testing.T) {
 	wantSaved(t, saveLive(p, a, 2, map[string]any{"user/" + ada + "/name": "Adele"}, nil), "user/"+ada+"/name")
 	if e := waitSaves(t, a, 2)[0]; e.By != "Ada" {
 		t.Fatalf("who saved the rename = %q, want Ada", e.By)
+	}
+	var by []string
+	for deadline := time.Now().Add(5 * time.Second); len(by) < 2 && time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		by = by[:0]
+		for _, e := range logged(t, a) {
+			if e.Why == "settingsSave" {
+				by = append(by, e.By)
+			}
+		}
+	}
+	if strings.Join(by, ",") != "Ada,Ada" {
+		t.Fatalf("settingsSave command rows by %v, want Ada twice", by)
 	}
 	rows := stepRows(t, a, 2)
 	if e := rows[1]; e.Why != "stepOut" || !strings.HasPrefix(e.Note, "a save changed the user") {

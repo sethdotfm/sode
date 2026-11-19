@@ -191,6 +191,7 @@ func fieldRefusal(role, sec string) string {
 func (a *App) serveSettingsSave(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
+		by := c.who() // before the save, which can end c's step-in
 		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver, m.asRole, m.AccessPreset)
 		out := settingsSaveResult{opResult: opResultFor("settingsSave", &m.ID, err), Results: res, Interruptions: stops}
 		n := 0
@@ -200,7 +201,7 @@ func (a *App) serveSettingsSave(c *client, m *inMsg) {
 			}
 		}
 		note := fmt.Sprintf("%d of %d %s saved", n, len(res), plural(len(res), "field", "fields"))
-		a.command(c, "settingsSave", outcome(err), approvedNote(m.approver, note), err)
+		a.commandBy(by, "settingsSave", outcome(err), approvedNote(m.approver, note), err)
 		a.reply(c, out)
 	}()
 }
