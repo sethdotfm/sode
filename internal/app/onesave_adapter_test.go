@@ -11,8 +11,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Older tests build the whole user list. These helpers make one Save fields from it, with live
-// versions, so the tests use the real save path.
+// Whole-list users helpers over the one Save, so these tests use the real save path.
 
 type userEdit struct {
 	ID         string         `json:"id"`
@@ -127,7 +126,7 @@ func usersFields(live config.Config, req usersReq) (map[string]fieldEdit, error)
 	return out, nil
 }
 
-// saveErr: the first refusal as the old saves reported it: Role, then invalid, then recheck.
+// saveErr: the first refusal, in order Role, invalid, recheck.
 func saveErr(res map[string]fieldResult, _ []interruption, err error) error {
 	if err != nil {
 		return err
@@ -176,8 +175,7 @@ func (a *App) SaveAPISettings(c *client, req apiSettingsReq) error {
 	return saveErr(a.saveSettingsFields(c, apiFields(a.r().cfg, req), nil, "", ""))
 }
 
-// askUsers sends a whole-list users save as one Save over p and answers in the old result's
-// shape: ok, recheck and err.
+// askUsers sends a whole-list users save as one Save over p; it answers ok, recheck and err.
 func (p *wsPeer) askUsers(a *App, id int, req map[string]any) map[string]any {
 	p.t.Helper()
 	var r usersReq

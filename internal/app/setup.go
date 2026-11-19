@@ -10,14 +10,12 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The setup wizard (web/setupwizard.js). With a config path and no users, Sode takes only the
-// setup messages until Finish, and nothing is on disk before it. Env-only mode has no wizard
+// With a config path and no users, Sode admits only the setup messages until Finish, and writes nothing to disk before it
 // (docs/agents/users-locks.md).
 
 //lint:ignore ST1005 the page shows it as is
 var errSetup = errors.New("Sode is not set up yet")
 
-// setupPendingCfg: a config file path and no users, whether the file exists or not.
 func (a *App) setupPendingCfg(cfg config.Config) bool {
 	return a.cfgPath != "" && len(cfg.Users) == 0
 }
@@ -103,7 +101,7 @@ func (a *App) setupOwnsLocked(c *client) bool {
 	return a.setup.owner == c
 }
 
-// setupDropLocked puts back the address the last owner's Router step moved. Caller holds cfgMu.
+// Caller holds cfgMu.
 func (a *App) setupDropLocked() {
 	if !a.setup.moved {
 		return
@@ -143,7 +141,6 @@ func (a *App) setupClaim(c *client, take bool) error {
 	return nil
 }
 
-// setupLeft: the browser that ran setup closed, so the waiting ones can claim it.
 func (a *App) setupLeft(c *client) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -192,7 +189,6 @@ func (a *App) setupRouter(c *client, addr string) error {
 
 const setupAddKey = "user/new:0/add"
 
-// setupFinish writes every answer in one save, then signs c in as the new Administrator.
 func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -250,7 +246,7 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	c.u.user.Store(&signed)
 	a.syncAccessMu(c)
 	a.mu.Unlock()
-	// flush kept the names table back until now (setupPending).
+	// flush writes no names table while setup is pending.
 	if len(src)+len(dst) > 0 {
 		a.names.save(after.UID, a.now(), src, dst)
 	}
@@ -258,7 +254,6 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	return signed, nil
 }
 
-// recordSetup: one Settings saves row with every value new.
 func (a *App) recordSetup(c *client, was, now config.Config, id string) {
 	var fields []SavedField
 	for _, key := range setupKeys {

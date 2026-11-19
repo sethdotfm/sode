@@ -8,9 +8,7 @@ import (
 	"unicode/utf8"
 )
 
-// MakeAdministrator is the -make-administrator console command. The user named name (any
-// case) becomes an Administrator with pin. With no such user and fewer than MaxUsers, it adds
-// one, and created is true. A running server keeps its own copy until it restarts.
+// -make-administrator. A running server keeps its own copy until it restarts.
 func MakeAdministrator(path, name, pin string) (created bool, err error) {
 	c, exists, err := Load(path)
 	if err != nil {

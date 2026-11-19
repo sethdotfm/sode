@@ -38,8 +38,7 @@ type rule struct {
 	self   string
 	// admitted runs under mu on admit, so a lock cannot slip between check and effect.
 	admitted func(c *client)
-	// handle runs after admit passed.
-	handle func(a *App, c *client, m *inMsg)
+	handle   func(a *App, c *client, m *inMsg)
 	// write: a take or save. The read loop counts it so shutdown waits for it, and refuses it
 	// after shutdown began; its handler calls m.finish when done, on every path.
 	write bool
@@ -80,21 +79,18 @@ var policy = map[string]rule{
 	// the banner's Clear menu; a signed-in user only, checked in the handler
 	"panelAlarm": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveAlarm(c, m) }},
 	"keyListOwn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveKeyListOwn(c, m) }},
-	// API clients from My user (ownclients.go): any Role, a signed-in user only, checked in the
-	// handler. Within the user's own Rights, so no Administrator. Inline, like keyCreate.
+	// Any Role; the handler checks for a signed-in user. Inline, like keyCreate.
 	"myClients":         {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClients(c, m) }},
 	"myClientSave":      {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientSave(c, m) }},
 	"myClientDelete":    {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientDelete(c, m) }},
 	"myClientKey":       {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientKey(c, m) }},
 	"myClientKeyRevoke": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientKeyRevoke(c, m) }},
-	// PIN recheck (recheck.go): the signed-in user's own PIN, in that name's pool. In line,
-	// like userSignIn.
+	// The user's own PIN, in that name's pool. In line, like userSignIn.
 	"pinRecheck": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.servePinRecheck(c, m) }},
 	// Step in and Step out (stepin.go): in line, like userSignIn.
 	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveStepIn(c, m) }},
 	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.StepOut(c) }},
-	// Request approval (approvalrequest.go). The handlers check who can ask, answer and see cards;
-	// the frozen action is checked again when it runs. Answer is in line, like pinRecheck.
+	// The handlers check who can ask, answer and see cards; the frozen action is checked again when it runs.
 	"approvalAsk":    {crit: critNever, role: roleAnyone, op: "approvalAsk", handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAsk(c, m) }},
 	"approvalAnswer": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAnswer(c, m) }},
 	"approvalCancel": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.serveApprovalCancel(c) }},
@@ -178,7 +174,7 @@ var policy = map[string]rule{
 		}},
 	"profileGet": {crit: critNever, role: config.RoleTrusted, op: "profileGet",
 		handle: func(a *App, c *client, m *inMsg) { a.serveProfileGet(c, m) }},
-	// A session token for the export routes (exportitems.go, ownexport.go), which take it in a header and check the Role. A Guest gets none (ExportSession).
+	// The export routes take the token in a header and check the Role. A Guest gets none.
 	"exportSession": {crit: critNever, role: config.RoleStandard, op: "exportSession",
 		handle: func(a *App, c *client, m *inMsg) { a.serveExportSession(c, m) }},
 	"userSignOutAll": {crit: critAlways, role: config.RoleAdministrator, op: "userSignOutAll", write: true, handle: func(a *App, c *client, m *inMsg) {
@@ -187,7 +183,6 @@ var policy = map[string]rule{
 			a.replyOp(c, "userSignOutAll", id, 0, "", a.SignOutAll(c, name))
 		}(m.Name, m.ID)
 	}},
-	// Any key: Administrator only.
 	"keyListAll":   {crit: critNever, role: config.RoleAdministrator, op: "keyListAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyListAll(c, m) }},
 	"keyCreateFor": {crit: critNever, role: config.RoleAdministrator, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg) { a.serveKeyCreateFor(c, m) }},
 	"keyRevokeAny": {crit: critNever, role: config.RoleAdministrator, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAny(c, m) }},
@@ -250,8 +245,7 @@ func (a *App) admit(c *client, r rule) error {
 	return nil
 }
 
-// refuse: logs a "locked" command. A page lock answers with the lock state. A result type
-// also gets a failed result so the page is not left waiting.
+// A result type also gets a failed result, so the page is not left waiting.
 func (a *App) refuse(c *client, t string, r rule, m *inMsg, err error) {
 	why := r.why
 	if why == "" {

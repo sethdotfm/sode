@@ -18,8 +18,7 @@ type User struct {
 	// Pin is "" (and Len 0) for a user without a PIN, who acts no wider than a Guest (ActsAs).
 	Pin string `yaml:"pin,omitempty" json:"-"`
 	Len int    `yaml:"len,omitempty" json:"len"`
-	// PinNeeded: no PIN, but the Role is kept for when the user sets one. Only such a user can
-	// be above Standard user with no PIN.
+	// PinNeeded: the Role is kept for when the user sets a PIN; the only way above Standard user with no PIN.
 	PinNeeded bool `yaml:"pinNeeded,omitempty" json:"pinNeeded,omitempty"`
 	// Role: RoleAdministrator, RoleTrusted or RoleStandard (policy: app/policy.go).
 	Role       string `yaml:"role" json:"role"`
@@ -67,7 +66,6 @@ func RoleAtLeast(have, need string) bool {
 	return roleRank(have) > 0 && roleRank(have) >= roleRank(need)
 }
 
-// RoleLabel is the role's name in refusals and logs.
 func RoleLabel(r string) string {
 	switch r {
 	case RoleAdministrator:
@@ -80,8 +78,7 @@ func RoleLabel(r string) string {
 
 func (u User) HasPin() bool { return u.Pin != "" }
 
-// ActsAs is the Role and Rights u acts with now. A user without a PIN (PIN needed too) acts as a
-// Standard user, or Guest role when that is higher. Their Rights are no wider than Guest Rights.
+// A user without a PIN acts as Standard user or Guest role, whichever is higher, with no more than Guest Rights.
 func (c Config) ActsAs(u User) (string, Rights) {
 	if u.HasPin() {
 		return u.Role, u.Rights
@@ -164,7 +161,6 @@ func (c Config) FindUserByID(id string) (User, bool) {
 	return User{}, false
 }
 
-// UserName is the live name of user id, or "" when there is no such user.
 func (c Config) UserName(id string) string {
 	u, _ := c.FindUserByID(id)
 	return u.Name

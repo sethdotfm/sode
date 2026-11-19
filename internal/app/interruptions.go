@@ -10,10 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Interruptions (GLOSSARY.md): what a Settings save ends or narrows on the floor. The review asks
-// for them (settingsReview). The one Save finds them again before its commit, because after the
-// commit the things that ended are gone. A save ends only what a changed field governs (spec
-// #543, The one Save). The endings happen in commit and the prune paths.
+// Interruptions (GLOSSARY.md). The one Save finds them again before its commit, since the commit ends them. A save ends
+// only what a changed field governs (docs/agents/settings-saves.md).
 
 // interruption: one line of the list. The counts name the Save button (web/savereviewrules.js).
 // Ends: something on the line ends for good, so the review says it does not come back.
@@ -145,9 +143,8 @@ func (a *App) userStops(live, next config.Config) []interruption {
 	return out
 }
 
-// lockStops: for each lock turned on, Guest browsers and browsers of users without a PIN on that
-// page type drop to a lock screen. The users without a PIN cannot open that page type. The Panel
-// pages lock also stops the Session panels of users without a PIN (endNoPinSessionKeys).
+// Each lock turned on locks Guest browsers and users without a PIN. The Panel pages lock also stops their Session
+// panels (endNoPinSessionKeys).
 func (a *App) lockStops(live, next config.Config) []interruption {
 	var noPin []string
 	for _, u := range next.Users {
@@ -197,8 +194,7 @@ func noPinSessionKey(r keyRec, cfg config.Config) bool {
 	return ok && !u.HasPin()
 }
 
-// endNoPinSessionKeys: the Panel pages lock went on. A user without a PIN cannot open a panel
-// page under it, so their Session panels stop. Never with mu held (writes the file).
+// Never with mu held (writes the file).
 func (a *App) endNoPinSessionKeys() {
 	cfg := a.r().cfg
 	gone := a.keys.dropWhere(func(r keyRec) bool { return noPinSessionKey(r, cfg) })
@@ -208,7 +204,6 @@ func (a *App) endNoPinSessionKeys() {
 	}
 }
 
-// countLive: the valid tokens under cfg that match.
 func (s *tokenStore) countLive(cfg config.Config, match func(tokenRec) bool) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -221,11 +216,8 @@ func (s *tokenStore) countLive(cfg config.Config, match func(tokenRec) bool) int
 	return n
 }
 
-// promoteTabs: this commit ticks Never sign out for some users. Each tab token of theirs that an
-// open page holds becomes an ordinary token. So the sign-in and the Session panel keys on it go
-// on, as ticking Never sign out must end nothing. A tab token no open page holds still
-// dies in prune, so it cannot skip a lock later. It returns the token keys it changed. Never
-// with App.mu held (writes the file).
+// Ticking Never sign out must end nothing, so tab tokens that open pages hold become ordinary tokens. A tab token no page
+// holds still dies in prune. Never with App.mu held (writes the file).
 func (s *tokenStore) promoteTabs(was, now config.Config, open map[string]bool) map[string]bool {
 	ticked := map[string]bool{}
 	for _, nu := range now.Users {
@@ -252,7 +244,7 @@ func (s *tokenStore) promoteTabs(was, now config.Config, open map[string]bool) m
 	return out
 }
 
-// openTokens: the token keys that open connections hold. Acquires mu.
+// Acquires mu.
 func (a *App) openTokens() map[string]bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()

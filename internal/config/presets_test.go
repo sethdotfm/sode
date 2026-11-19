@@ -112,9 +112,7 @@ func TestPresetTotalAndConflict(t *testing.T) {
 }
 
 func TestPresetsMessageFits(t *testing.T) {
-	// MaxPresetsBytes binds before the count caps: every destination is a {router, n, name}
-	// reference. The largest list it allows must still make a "presets" message under the 64 KiB
-	// WebSocket read limit. Worst case: 5-digit numbers and names of the longest name length.
+	// The largest list MaxPresetsBytes allows must fit the 64 KiB WebSocket read limit (5-digit numbers, longest names).
 	c := Defaults()
 	c.Normalize()
 	name := strings.Repeat("N", 16)

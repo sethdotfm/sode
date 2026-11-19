@@ -72,7 +72,6 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 	}
 }
 
-// Rules no page sends yet, with what will send them. Drop the entry when a page does.
 var notSentYet = map[string]string{}
 
 // Rules no page sends any more, with why the rule stays.

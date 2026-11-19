@@ -78,7 +78,7 @@ func sideIndex(dst bool) int {
 	return 0
 }
 
-// noteRenamed records each number whose name changed from base to cur. A name that comes back drops its entry.
+// A name that comes back drops its entry.
 func noteRenamed(to *[2]map[string]string, base, cur namePoll) {
 	for _, dst := range []bool{false, true} {
 		i := sideIndex(dst)
@@ -107,8 +107,6 @@ const (
 	refGone                      // no name at that number in either poll
 )
 
-// pollCheck judges stored references against the last two counted polls and notes what it changed for the
-// Router names row.
 type pollCheck struct {
 	uid       string
 	levels    int
@@ -215,10 +213,8 @@ func hasMissing(l []config.Missing, kind string, r config.Ref) bool {
 	return ok
 }
 
-// ref judges one source or destination reference, renaming it in place when the router renamed it. A save names
-// every reference with the name at its number now (namePresets, refCell). So the name in a mark decides for a
-// marked reference. A Broken one comes back only when its number holds that name again, and an import's mismatch
-// stays.
+// A save stores each reference with the name now at its number, so the name in a mark decides. A Broken reference recovers
+// only when its number holds that name again.
 func (c *itemCheck) ref(dst bool, r *config.Ref) {
 	kind := refKind(dst)
 	if r.Router != c.k.uid {
@@ -275,7 +271,7 @@ func ownedKind(kind string) bool {
 	return false
 }
 
-// done returns the new lists and whether anything about the item changed. name is for the Router names row.
+// name is for the Router names row.
 func (c *itemCheck) done(name string) (broken, moved []config.Missing, changed bool) {
 	for _, m := range c.oldBroken {
 		if !ownedKind(m.Kind) {
@@ -405,7 +401,6 @@ func fits(what string, v any, max int) bool {
 	return false
 }
 
-// config checks presets and filter sets (Everyone and each user's Me) and Rights in c.
 func (k *pollCheck) config(c *config.Config) bool {
 	changed := false
 	presets := func(ps []config.Preset, who string) ([]config.Preset, bool) {
@@ -455,8 +450,7 @@ func (k *pollCheck) config(c *config.Config) bool {
 	return changed
 }
 
-// panel checks a panel's cells and Grid members (Broken and Moved), and renames its Grid hidden items, item
-// settings and fixed destinations quietly. Cells and lists are copies, since a stored panel shares them.
+// Cells and lists are copies, since a stored panel shares them.
 func (k *pollCheck) panel(p *Panel) bool {
 	c := k.item(p.Broken, p.Moved)
 	quiet := false
@@ -521,7 +515,7 @@ func (k *pollCheck) panel(p *Panel) bool {
 	return changed || quiet
 }
 
-// recheckRefs runs the check over every store. No Settings saves row: only a Router names row says what changed.
+// No Settings saves row: the Router names row says what changed.
 func (a *App) recheckRefs(prev, cur namePoll, hints [2]map[string]string) {
 	r := a.r()
 	k := &pollCheck{uid: r.cfg.UID, levels: r.cfg.Levels, off: r.cfg.NumberOffset, prev: prev, cur: cur, hints: hints}
@@ -569,7 +563,6 @@ func (k *pollCheck) logRow(a *App) {
 	a.logEvent(e)
 }
 
-// rewrite applies fn to a copy of every panel under the store's lock and writes each one fn changed.
 func (s *panelStore) rewrite(fn func(*Panel) bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -587,7 +580,7 @@ func (s *panelStore) rewrite(fn func(*Panel) bool) error {
 	return first
 }
 
-// rename gives Source and Destination defaults the router's new names. A default whose number is gone stays.
+// A default whose number is gone stays.
 func (s *artDefaultStore) rename(k *pollCheck) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

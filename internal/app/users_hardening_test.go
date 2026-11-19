@@ -390,7 +390,6 @@ func TestLockStateCarriesPinLengthsAfterPinChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := read()
-	// Ada keeps a 4-digit PIN.
 	if len(got) == 0 || !reflect.DeepEqual(got[len(got)-1]["lens"], []any{float64(4), float64(6), float64(8)}) {
 		t.Fatalf("lens after the change: %v", got)
 	}

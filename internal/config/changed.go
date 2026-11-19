@@ -2,9 +2,7 @@ package config
 
 import "reflect"
 
-// ReconnectChanged: a field tagged reconnect:"true" differs, so the router connection starts
-// again. The embedded Router's fields count as Config's own (configFields). Empty slices
-// equal nil ones.
+// Embedded Router fields count as Config's own; empty slices equal nil ones.
 func ReconnectChanged(a, b Config) bool {
 	va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
 	for _, f := range configFields() {
@@ -22,7 +20,6 @@ func ReconnectChanged(a, b Config) bool {
 	return false
 }
 
-// configFields lists Config's fields with the embedded Router's in place of Router itself.
 // Not reflect.VisibleFields: Config.Extra hides Router.Extra there.
 func configFields() []reflect.StructField {
 	var out []reflect.StructField

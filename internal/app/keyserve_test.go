@@ -341,7 +341,7 @@ func TestAdminKeyMessages(t *testing.T) {
 	waitLogged(t, a, 5)
 }
 
-// Every admin key message refuses anyone below an Administrator, a Trusted user too.
+// Every Administrator key message refuses a lower Role, a Trusted user too.
 func TestAdminKeyMessagesNeedPin(t *testing.T) {
 	a := keyTestApp(t)
 	setFlags(t, a, "Ana", true, false)

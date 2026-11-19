@@ -69,7 +69,7 @@ func TestAPIAdministratorChangeNamesSettings(t *testing.T) {
 	}
 }
 
-// ADR 0006 as widened: any panel owner makes a panel's client within their own Rights.
+// ADR 0006: any panel owner makes a panel's client within their own Rights.
 func TestStandardUserMakesPanelClient(t *testing.T) {
 	a, _ := clientApp(t)
 	setRights(t, a, "Ana", config.Rights{Sources: nums(1, 2), Dsts: nums(2)})

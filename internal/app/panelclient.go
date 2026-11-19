@@ -111,7 +111,7 @@ func (a *App) putPanelClient(by Actor, id string, rights *config.Rights, nets []
 	return a.putPanelClientLocked(by, id, rights, nets)
 }
 
-// putPanelClientLocked is putPanelClient for a caller that holds cfgMu.
+// Caller holds cfgMu.
 func (a *App) putPanelClientLocked(by Actor, id string, rights *config.Rights, nets []string) error {
 	name := panelClientName(id)
 	was := a.r().cfg

@@ -10,7 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Default levels belong to the router entry that carries the router UID, not to the install.
 func TestDefaultLevelsStoredPerRouterUID(t *testing.T) {
 	c := Defaults()
 	c.Levels, c.DefaultLevels = 4, "1-2"
@@ -35,7 +34,6 @@ func TestDefaultLevelsStoredPerRouterUID(t *testing.T) {
 	}
 }
 
-// Rights store {router, n, name} per source and destination and preset ids; the file shows it.
 func TestRightsStoreRouterReferences(t *testing.T) {
 	c := Defaults()
 	c.Address = "127.0.0.1:1"
@@ -75,7 +73,6 @@ func TestRightsStoreRouterReferences(t *testing.T) {
 	}
 }
 
-// The wire takes references, the router left out or named; it gives references. A plain number is refused.
 func TestRightsJSONTakesReferences(t *testing.T) {
 	var r Rights
 	if err := json.Unmarshal([]byte(`{"sources":[{"n":1},{"router":"u","n":2,"name":"X"}],"dsts":[],"levels":[1],"presets":["id1"]}`), &r); err != nil {
@@ -99,7 +96,6 @@ func TestRightsJSONTakesReferences(t *testing.T) {
 	}
 }
 
-// A stored name is for people and import; it never changes what a list allows.
 func TestRightsWithinIgnoresNames(t *testing.T) {
 	r := Rights{Sources: &[]Ref{{Router: "u", N: 1, Name: "OLD"}}}
 	of := Rights{Sources: &[]Ref{{Router: "u", N: 1, Name: "NEW"}, {Router: "u", N: 2}}}
@@ -112,7 +108,6 @@ func TestRightsWithinIgnoresNames(t *testing.T) {
 	}
 }
 
-// nums is a reference list on the one router; Normalize fills the blank router.
 func nums(ns ...int) *[]Ref {
 	out := make([]Ref, len(ns))
 	for i, n := range ns {

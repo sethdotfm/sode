@@ -89,7 +89,7 @@ var saveFields = map[string]string{
 	"guestApiScopes":       "api",
 }
 
-// Refusal reasons. The page shows them beside the field (spec #543, The one Save).
+// Refusal reasons; the page shows them beside the field.
 const (
 	reasonRole     = "Role"
 	reasonApproval = "needs Approval"
@@ -217,7 +217,6 @@ type savePlan struct {
 	x     *saveCtx
 }
 
-// next: live with the kept fields written.
 func (p *savePlan) next() config.Config {
 	n := p.live.Clone()
 	for _, key := range p.keep {
@@ -235,11 +234,9 @@ func (p *savePlan) refuse(key, reason string, err error) {
 	p.res[key] = r
 }
 
-// saveSettingsFields checks each field on its own against live, then writes the ones that
-// pass in one commit. No commit when none changes anything. ap, the approver of an Approval
-// (approval.go), stands in for the Role only in Shown sections; it is nil without one. asRole: a
-// Request approval's requester Role when sent, used when the requester is under the Lock now.
-// preset: the Access preset the page staged, named in the Settings saves row.
+// ap: the approver (approval.go), stands in for the Role only in Shown sections; nil without one. asRole: the requester's
+// Role of a Request approval, for a requester now under the Lock. preset: the staged Access preset, for the Settings saves
+// row.
 func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User, asRole, preset string) (map[string]fieldResult, []interruption, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -337,7 +334,6 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 		delete(edits, swapKey)
 		plan.edits = edits
 	}
-	// First the checks that need no other field: section, unchanged, conflict.
 	var cands []string
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
 		e := edits[key]

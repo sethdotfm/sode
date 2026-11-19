@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// waitSaves waits for at least n Settings saves rows, newest first.
 func waitSaves(t *testing.T, a *App, n int) []Sent {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -87,7 +86,6 @@ func TestSettingsSaveRowHasOldAndNewAndHidesSecrets(t *testing.T) {
 	}
 }
 
-// liveSave reads p's logAdd messages until one holds a Settings saves row.
 func liveSave(t *testing.T, p *wsPeer) Sent {
 	t.Helper()
 	for {

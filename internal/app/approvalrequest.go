@@ -10,10 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Request approval (GLOSSARY.md, docs/agents/users-locks.md): the server holds the exact action
-// while the browsers that could approve it show a card. First answer wins. Cards follow state, not
-// events. cardsSyncMu runs after every access push. A late page, a dismissed Lock or a Step in
-// gets the card with the time left; a Lock takes it away.
+// Request approval (GLOSSARY.md, docs/agents/users-locks.md). Cards follow state: cardsSyncMu runs after every access
+// push, so a late page or a Step in gets the card with the time left.
 
 const defaultApprovalWait = 2 * time.Minute
 
@@ -71,7 +69,6 @@ type approversMsg struct {
 
 var errNoApprover = errors.New("no one signed in can approve this")
 
-// what each approvable action is called on a card
 var approvalWhat = map[string]string{"settingsSave": "Saving these changes", "clearHistory": "Clearing History"}
 
 // askNeed: the Role an approver needs. For a save, the highest Role among the fields that need
@@ -226,8 +223,7 @@ func (a *App) logAskEnd(r *approvalRequest, end, by string) {
 	a.logEvent(e)
 }
 
-// cardsSyncMu cancels requests whose requester's sign-in changed, hands out and takes back
-// cards, and sends each page whether someone could approve. Caller holds mu.
+// Caller holds mu.
 func (a *App) cardsSyncMu() {
 	var gone []*approvalRequest
 	for c, r := range a.asks {
@@ -342,7 +338,7 @@ func (a *App) serveApprovalAnswer(c *client, m *inMsg) {
 		return
 	}
 	a.mu.Lock()
-	live, ok := a.r().cfg.FindUserByID(hit.ID) // the PIN check can wait
+	live, ok := a.r().cfg.FindUserByID(hit.ID) // Read again: the PIN check ran outside mu.
 	if !ok || live.Pin != hit.Pin || find() != r || !a.endAskMu(r, "approved", live.Name) {
 		a.mu.Unlock()
 		reply(errAskEnded)
@@ -375,7 +371,7 @@ func (a *App) runApproved(r *approvalRequest, ap config.User) {
 	rl.handle(a, r.from, &m)
 }
 
-// deliverJSONMu: deliver for a value. Caller holds mu.
+// Caller holds mu.
 func (a *App) deliverJSONMu(c *client, v any) {
 	b, _ := json.Marshal(v)
 	a.deliver(c, b)

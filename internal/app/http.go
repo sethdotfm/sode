@@ -379,7 +379,7 @@ type inMsg struct {
 	Presets      []config.Preset    `json:"presets"`
 	PinOrder     []string           `json:"pinOrder"`
 	Page         string             `json:"page"`  // hi: main | log
-	Token        string             `json:"token"` // hi: session token of a persistent user or a tab login
+	Token        string             `json:"token"` // hi: session token of a persistent user or a tab sign-in
 	Tab          bool               `json:"tab"`   // userSignIn: no lock on, wants a tab session token
 	Name         string             `json:"name"`  // userSignOutAll, profileSave, profileGet
 	Old          string             `json:"old"`

@@ -8,16 +8,15 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Apply an access preset (spec #543, Access presets): the page stages these values into the
-// one Save. The server gives the values and puts the preset's name in the record.
+// Apply an access preset: the page stages the values into the one Save, and the record names the preset.
 
 // presetKeys: the one Save keys a preset writes. `api` carries only guestEnabled, since an
 // object merges key by key and the other API settings are not the preset's.
 var presetKeys = []string{"locks", "autoLockMinutes", "guestRole", "pinWaits", "publicPanels",
 	"newPanelActs", "newUserDefaults", "guestApiScopes"}
 
-// accessPresetView rides usersListResult (Administrator only). Users: the Persistent and No
-// auto-lock a ticked user row gets. Rows: the setup sheet's, for Run setup again.
+// accessPresetView is part of usersListResult (Administrator only). Users: the flags a ticked user row gets. Rows: the
+// setup sheet, for Run setup again.
 type accessPresetView struct {
 	Key    string                     `json:"key"`
 	Name   string                     `json:"name"`

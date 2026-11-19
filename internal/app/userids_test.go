@@ -7,7 +7,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// idOf is the live id of the user named name ("" for none), as the Users editor sends for a row it loaded.
 func idOf(a *App, name string) string {
 	u, _ := a.r().cfg.FindUserByName(name)
 	return u.ID
@@ -23,8 +22,7 @@ func ownerOf(a *App, name string) keyOwner {
 
 func ptr[T any](v T) *T { return &v }
 
-// A rename keeps everything that refers to the user: the session token, API keys, panels, templates,
-// Checkpoint sets and Rights. Only the shown name changes. The reads below use the key made before.
+// The reads below use the key made before the rename.
 func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	a := panelsApp(t)
 	setFlags(t, a, "Ana", false, true)
@@ -85,7 +83,6 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	}
 }
 
-// Name rules are refused on save with words a person can act on.
 func TestUsersSaveRefusesBadNames(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)

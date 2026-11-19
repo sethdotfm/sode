@@ -124,7 +124,7 @@ func intersectBy[T any](l, o *[]T, same func(a, b T) bool) *[]T {
 
 func eq[T comparable](a, b T) bool { return a == b }
 
-// Intersect is what both r and o grant, with r's Extra. Hidden on either side is hidden.
+// Hidden on either side is hidden; r's Extra is kept.
 func (r Rights) Intersect(o Rights) Rights {
 	out := Rights{Sources: intersectBy(r.Sources, o.Sources, sameRef), Dsts: intersectBy(r.Dsts, o.Dsts, sameRef),
 		Levels: intersectBy(r.Levels, o.Levels, eq[int]), Presets: intersectBy(r.Presets, o.Presets, eq[string]),
@@ -166,7 +166,7 @@ type APIClient struct {
 	Rights Rights   `yaml:"rights,omitempty" json:"rights"`
 	Panel  string   `yaml:"panel,omitempty" json:"panel,omitempty"`
 	Owner  string   `yaml:"owner,omitempty" json:"-"`
-	// OwnerName is Owner's live name for the Administrator's list; never stored.
+	// Never stored.
 	OwnerName string `yaml:"-" json:"ownerName,omitempty"`
 	// Networks limits where the client's keys work: CIDRs, empty means anywhere. Set through a
 	// panel's Share tab (panelnet.go).
@@ -174,7 +174,6 @@ type APIClient struct {
 	Extra    map[string]any `yaml:",inline" json:"-"`
 }
 
-// APISettings: Settings > API, saved through the one Save.
 type APISettings struct {
 	RateLimit    int            `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
 	TakeCap      int            `yaml:"takeCap" json:"takeCap"`
@@ -196,7 +195,6 @@ func (c Config) FindAPIClient(name string) (APIClient, bool) {
 	return APIClient{}, false
 }
 
-// fillRouter: a blank router is the one router.
 func (r *Rights) fillRouter(uid string) {
 	for _, l := range []*[]Ref{r.Sources, r.Dsts} {
 		if l == nil {
@@ -210,8 +208,7 @@ func (r *Rights) fillRouter(uid string) {
 	}
 }
 
-// retiredAPIKeys went before v2.0 shipped (the API is always on, key caps are fixed), so dev files
-// that hold them are not warned about. Extra is shared by Clone, hence the copy.
+// retiredAPIKeys: keys that dev builds wrote; load them without a warning. Clone shares Extra, hence the copy.
 var retiredAPIKeys = []string{"enabled", "maxUserKeys", "maxClientKeys"}
 
 func (c *Config) normalizeAPI() {

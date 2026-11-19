@@ -9,8 +9,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Guest role in Locks and New user defaults in Users go through the one Save review with their page labels and a
-// PIN recheck. A new row in Manage users then starts at the New user defaults.
+// Guest role and New user defaults save through the one Save review with a PIN recheck; a new user row then starts at the
+// defaults.
 func TestChromeLocksGuestRoleAndNewUserDefaults(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

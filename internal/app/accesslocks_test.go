@@ -7,8 +7,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Settings > Access > Locks holds Guest role and Wait after wrong PINs, Users holds New user
-// defaults: each saves through the one Save and acts.
+// Guest role and Wait after wrong PINs save in Locks, New user defaults in Users.
 func TestLocksAndNewUserDefaultsSaveAndAct(t *testing.T) {
 	a := namedApp(t)
 	p := dialPeer(t, a)
@@ -60,7 +59,7 @@ func TestLocksAndNewUserDefaultsSaveAndAct(t *testing.T) {
 	}
 }
 
-// Guest role is saved in Locks now: a stale Manage users dialog that sends it is told to reload.
+// Locks owns Guest role: Sode tells a stale Manage users dialog that sends it to reload.
 func TestUsersSaveRefusesGuestRole(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)

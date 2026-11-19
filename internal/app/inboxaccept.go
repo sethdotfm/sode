@@ -34,7 +34,7 @@ type cardPlanner struct {
 	file, same bool
 }
 
-// planCard plans card onto user toID of live. src, dst are the live router's names.
+// src, dst are the live router's names.
 func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
 	p, err := newCardPlanner(live, src, dst, allPanels, card, toID, req)
 	if err != nil {
@@ -57,7 +57,7 @@ func newCardPlanner(live config.Config, src, dst map[int]string, allPanels []Pan
 	}, nil
 }
 
-// run plans profile (when given) and the card's items. Categories none in the request means all of them.
+// No categories in the request means all.
 func (p *cardPlanner) run(profile func(*config.Config, *importCat) error) {
 	steps := []struct {
 		cat string
@@ -344,7 +344,6 @@ func (a *App) ReviewCard(c *client, card string, req importReq) (*importPlan, er
 	return &p.plan, nil
 }
 
-// cardFor is a waiting card of c's user's Inbox.
 func (a *App) cardFor(c *client, card string) (config.User, inboxCard, error) {
 	u, err := a.inboxUser(c)
 	if err != nil {

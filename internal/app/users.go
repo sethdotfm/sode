@@ -65,7 +65,6 @@ type connUser struct {
 	approvers string
 }
 
-// userID is the signed-in user's id, or "".
 func (c *client) userID() string {
 	if u := c.u.user.Load(); u != nil {
 		return u.ID
@@ -122,8 +121,7 @@ func (a *App) endDeadHeldMu() {
 	}
 }
 
-// renameSignedInMu gives each signed-in connection its user's live name, so History after a
-// rename shows the new one. Caller holds mu.
+// History after a rename shows the new name. Caller holds mu.
 func (a *App) renameSignedInMu() {
 	cfg := a.r().cfg
 	for cl := range a.clients {
@@ -155,22 +153,20 @@ type lockStateMsg struct {
 	// that user's PIN resumes it.
 	Held bool   `json:"held,omitempty"`
 	User string `json:"user,omitempty"`
-	// Lens: PIN lengths in use; rides every lock state so a pad is never stale. Names and each
-	// user's length ride the hello.
+	// Lens: PIN lengths in use, in every lock state, so a pad is never stale.
 	Lens []int `json:"lens,omitempty"`
 	// Hi: answer to the page's own hi; it is possible that an unsolicited state arrives
 	// first, and it says nothing about the token.
 	Hi bool `json:"hi,omitempty"`
-	// Role: the Role this connection acts with ("" under a Lock); the server decides.
-	Role string `json:"role,omitempty"`
-	// Trusted: Role is Trusted user or higher; pages read it for the signed-in user.
-	Trusted    bool `json:"trusted,omitempty"`
-	Persistent bool `json:"persistent,omitempty"`
+	// "" under a Lock.
+	Role       string `json:"role,omitempty"`
+	Trusted    bool   `json:"trusted,omitempty"`
+	Persistent bool   `json:"persistent,omitempty"`
 	// NoAutoLock: to the signed-in user only, so the page's idle timer skips them.
 	NoAutoLock bool `json:"noAutoLock,omitempty"`
 	// PinNeeded: to the signed-in user only, so the page asks them to set a PIN.
 	PinNeeded bool `json:"pinNeeded,omitempty"`
-	// StepIn: this connection is stepped in as User; StepGuest: Step out returns to Guest.
+	// StepGuest: Step out returns to Guest.
 	StepIn    bool `json:"stepIn,omitempty"`
 	StepGuest bool `json:"stepGuest,omitempty"`
 }
@@ -265,8 +261,7 @@ var dummyPinHash = sync.OnceValue(func() string {
 
 func burnPinCheck(pin string) { config.CheckPin(dummyPinHash(), pin) }
 
-// pinCandidate is the one user a PIN can sign in, or nil. Pure: it reads only cfg. It is the
-// holder of a Lock (an empty name, or the holder's own), else the named user.
+// pinCandidate: the holder of a Lock (an empty name, or the holder's own), else the named user. Pure.
 func pinCandidate(cfg config.Config, holder *config.User, name string) *config.User {
 	var cand config.User
 	ok := false
@@ -283,7 +278,7 @@ func pinCandidate(cfg config.Config, holder *config.User, name string) *config.U
 	return &cand
 }
 
-// pinMatches: no candidate burns a check so it costs what a right one does.
+// With no candidate it still hashes, so timing matches a real check.
 func pinMatches(cand *config.User, pin string) bool {
 	if cand == nil {
 		burnPinCheck(pin)
@@ -297,8 +292,7 @@ func pinMatches(cand *config.User, pin string) bool {
 	return config.CheckPin(cand.Pin, pin) && cand.Len == utf8.RuneCountInString(pin)
 }
 
-// UserUnlockAs compares the PIN with the named user's hash only. A held Lock resumes with its
-// own user's PIN, and a name there must be that user's. Every try counts toward that name's wait.
+// A held Lock resumes only with its holder's PIN. Every try counts toward that name's wait.
 func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	cfg := a.r().cfg
 	a.mu.Lock()
@@ -350,7 +344,6 @@ func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	return nil
 }
 
-// SignOutAll needs an Administrator.
 func (a *App) SignOutAll(c *client, name string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -381,8 +374,7 @@ func (a *App) SignOutAll(c *client, name string) error {
 	return nil
 }
 
-// userNameRefusal is the clear refusal for a Name the config would reject (Validate has the
-// same rules, for files).
+// Keep in step with config Validate's name rules.
 func userNameRefusal(name string) error {
 	switch n := utf8.RuneCountInString(name); {
 	case n == 0:
@@ -434,7 +426,7 @@ type userResult struct {
 	Tab   bool   `json:"tab,omitempty"` // Token is a sign-in without a page lock's: for this tab only
 }
 
-// Sign-ins run inline, so a later lock is handled after.
+// Sign-ins run inline, so the hub handles a later lock after this one.
 func (a *App) serveUserUnlock(c *client, m *inMsg) {
 	res := userResult{T: "userSignInResult", OK: true, ID: m.ID}
 	err := a.UserUnlockAs(c, m.User, m.Pin)
@@ -477,13 +469,12 @@ type usersListMsg struct {
 	Users []userView `json:"users"`
 	// Me is the id of the user asking, the default new owner of a removed user's panels.
 	Me string `json:"me"`
-	// Rights and API clients: Administrator only, never before the PIN.
+	// Never before the PIN.
 	APIClients  []config.APIClient `json:"apiClients"`
 	GuestRights config.Rights      `json:"guestRights"`
 	GuestScopes []string           `json:"guestScopes"`
-	// Versions of the one Save's fields that never ride the hello (hiddenVersions).
-	Versions map[string]string `json:"versions"`
-	// AccessPresets: for Apply an access preset (accesspreset.go).
+	// Not in the hello (hiddenVersions).
+	Versions      map[string]string  `json:"versions"`
 	AccessPresets []accessPresetView `json:"accessPresets"`
 }
 
@@ -501,8 +492,7 @@ type userView struct {
 	PanelClients []panelClientNote `json:"panelClients"`
 	// Presets are the user's Me presets, so the Rights editor can turn their names into ids.
 	Presets []presetNote `json:"presets"`
-	// Panels: how many panels the user owns, so removing them asks for a new owner.
-	Panels int `json:"panels,omitempty"`
+	Panels  int          `json:"panels,omitempty"`
 	// Clients: the API clients the user owns, which go with them (dropOwnerless).
 	Clients []string `json:"clients,omitempty"`
 }
@@ -544,14 +534,12 @@ func (a *App) usersList(c *client, id int) usersListMsg {
 	return m
 }
 
-// UserSetPin sets or changes c's own PIN. A user with a PIN gives it as old, a try in the users'
-// pool; a user without one gives none. Other connections of the user relock; c stays signed in.
+// Other connections of the user relock; c stays signed in.
 func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 	return a.setOwnPin(c, oldPin, newPin, false)
 }
 
-// RemoveOwnPin: only a Standard user can have no PIN (config.NoPinRefusal). Their personal keys
-// end with the hash. Their own API clients go in the same commit (dropOwnerless).
+// Personal keys end with the hash; own API clients go in the same commit (dropOwnerless).
 func (a *App) RemoveOwnPin(c *client, oldPin string) error {
 	return a.setOwnPin(c, oldPin, "", true)
 }

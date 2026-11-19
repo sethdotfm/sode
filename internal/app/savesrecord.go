@@ -10,9 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The Settings saves record (docs/agents/comm-log.md): one Communication Log row per write to
-// shared settings, with old and new values. Values come from the config before and after,
-// never from what the page sent, which can hold a PIN.
+// Values come from the config before and after, never from what the page sent, which can hold a PIN
+// (docs/agents/comm-log.md).
 
 // sectionNames and topics: the words of index.html's legends and topic headings.
 var sectionNames = map[string]string{
@@ -122,8 +121,6 @@ func rightsField(key string) bool {
 
 var allJSON = json.RawMessage(`"everything"`)
 
-// diffValue fills old and new, or added and removed for a list. An object gives a field per
-// changed member.
 func diffValue(base SavedField, was, now json.RawMessage, rights bool) []SavedField {
 	var wo, no map[string]json.RawMessage
 	if json.Unmarshal(was, &wo) == nil && json.Unmarshal(now, &no) == nil && wo != nil && no != nil {
@@ -211,7 +208,7 @@ func (a *App) savedFields(was, now config.Config, keys []string, x *saveCtx) []S
 	return out
 }
 
-// addedFields: a new user or API client, read from now. A new user's PIN is its own field.
+// A new user's PIN is its own field.
 func (a *App) addedFields(base SavedField, key string, now config.Config, x *saveCtx) []SavedField {
 	if id, ok := x.made[key]; ok {
 		u, _ := now.FindUserByID(id)

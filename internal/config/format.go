@@ -12,7 +12,6 @@ import (
 // misread the file; a file without the key is from v1 (docs/agents/server.md, config load).
 const Format = 2
 
-// ErrV1 is Parse's error for a file with no `format` key. v2 does not read v1 files.
 var ErrV1 = errors.New("the file is from Sode v1, and Sode v2 does not read v1 files")
 
 // formatOf reads only the marker, so Defaults cannot fill it in. 0 means no key.
@@ -45,8 +44,7 @@ func checkFormat(b []byte) error {
 	return nil
 }
 
-// IsV1 reports whether path holds a config file with no `format` key. A missing file, one
-// that does not parse, or one from any v2 format is not v1.
+// A missing or unparsable file is not v1.
 func IsV1(path string) (bool, error) {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {

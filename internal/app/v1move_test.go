@@ -11,8 +11,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// v1Files is a /data that a v1 release left. It has every file v1 writes beside the config.
-// It also has the History, Communication Log and uptime files with their side files.
 var v1Files = []string{
 	"config.yaml", "config.yaml.prev", "config.yaml.before-1.8.3", "config.yaml.unknown-20261101T000000Z",
 	"tokens.json", "keys.json", "keys-ended.json", "keys.json.damaged-20261101T000000Z",
@@ -123,7 +121,6 @@ func TestV2DataStays(t *testing.T) {
 	}
 }
 
-// A second v1 move never writes over the first one's files.
 func TestV1MoveKeepsAnEarlierV1Directory(t *testing.T) {
 	dir := t.TempDir()
 	writeTree(t, dir, []string{"v1/config.yaml", "config.yaml", "tokens.json"}, func(n string) string { return "# " + n })
@@ -139,7 +136,6 @@ func TestV1MoveKeepsAnEarlierV1Directory(t *testing.T) {
 	}
 }
 
-// SODE_HISTORY and the rest can point outside the config's directory.
 func TestV1MoveTakesLogsFromElsewhere(t *testing.T) {
 	dir, other := t.TempDir(), t.TempDir()
 	writeTree(t, dir, []string{"config.yaml"}, func(string) string { return "router: 10.0.0.5:8910\n" })
@@ -162,7 +158,6 @@ func TestV1MoveTakesLogsFromElsewhere(t *testing.T) {
 	}
 }
 
-// v1's image kept its logs beside the config. They move even when this build reads other env names.
 func TestV1MoveTakesImageLogsWithoutPaths(t *testing.T) {
 	dir := t.TempDir()
 	writeTree(t, dir, []string{"config.yaml", "history.jsonl", "sent.jsonl", "sent.1.jsonl", "uptime.jsonl"}, func(n string) string { return "# " + n })

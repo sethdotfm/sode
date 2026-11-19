@@ -226,7 +226,6 @@ func hashNewPin(x *saveCtx, key, pin string, maxLen int) (string, error) {
 	return x.once(key, func() (string, error) { return config.HashPin(pin) })
 }
 
-// newUser: what an add key carries.
 type newUser struct {
 	Name string `json:"name"`
 	Pin  string `json:"pin"`

@@ -100,7 +100,6 @@ func (s *inboxStore) artDir(card string) string { return filepath.Join(s.dir, ca
 
 func (s *inboxStore) artKey(card, panel, art string) string { return card + "/" + panel + "/" + art }
 
-// artData is one frozen artwork file of a waiting card.
 func (s *inboxStore) artData(card, panel, art string) ([]byte, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -112,7 +111,7 @@ func (s *inboxStore) artData(card, panel, art string) ([]byte, bool) {
 	return b, err == nil
 }
 
-// waitingFor counts to's waiting cards. Caller holds mu.
+// Caller holds mu.
 func (s *inboxStore) waitingForLocked(to string) int {
 	n := 0
 	for _, c := range s.by {
@@ -178,7 +177,6 @@ func (s *inboxStore) dropArtLocked(card string) {
 	}
 }
 
-// end moves a waiting card to state and drops its items and artwork.
 func (s *inboxStore) end(id, state string, accepted int, now time.Time) (inboxCard, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -248,7 +246,6 @@ func (s *inboxStore) usersRemoved(removed map[string]bool, now time.Time) []inbo
 	return out
 }
 
-// cards is every card that keep accepts, oldest first.
 func (s *inboxStore) cards(keep func(inboxCard) bool) []inboxCard {
 	out := s.sorted(keep)
 	slices.SortStableFunc(out, func(a, b inboxCard) int { return a.At.Compare(b.At) })

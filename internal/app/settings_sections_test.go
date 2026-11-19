@@ -11,7 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// settingsSections reads each Settings section of index.html and the config keys its form fields save, in page order.
 func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 	t.Helper()
 	b, err := fs.ReadFile(web.FS, "index.html")
@@ -44,8 +43,7 @@ func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 	return order, keys
 }
 
-// The form fields of each Settings section still save after the move into topics. Each key is saved alone, the
-// way a page sends it. Then the test reads it from the live config and from config.yaml.
+// Each key saves alone, the way a page sends it, and the test reads it back from the live config and config.yaml.
 func TestEverySettingsSectionSaves(t *testing.T) {
 	order, keys := settingsSections(t)
 	// Saved apart from the form: their own messages, or nothing to save yet.

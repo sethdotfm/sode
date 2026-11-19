@@ -2,7 +2,7 @@ package app
 
 import "testing"
 
-// TestNoV1WireNames: v2 keeps no v1 wire names (docs/persisted-names.md).
+// docs/persisted-names.md
 func TestNoV1WireNames(t *testing.T) {
 	for old, now := range map[string]string{"batch": "take", "refreshNames": "rereadNames", "sent": "log", "userUnlock": "userSignIn"} {
 		if _, ok := policy[old]; ok {
@@ -28,7 +28,6 @@ func TestNoV1WireNames(t *testing.T) {
 	}
 }
 
-// v2 has no settings secret: no message enters or drops it, and the hello says nothing of it.
 func TestNoSettingsSecretOnTheWire(t *testing.T) {
 	for _, gone := range []string{"unlock", "lock"} {
 		if _, ok := policy[gone]; ok {

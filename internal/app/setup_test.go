@@ -11,7 +11,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// setupApp is a fresh install with a config path: no file and no users, so the wizard runs.
 func setupApp(t *testing.T, edit ...func(*config.Config)) *App {
 	t.Helper()
 	cfg := config.Defaults()
@@ -221,8 +220,7 @@ func TestSetupWizardFinishRefusesBadAnswers(t *testing.T) {
 	}
 }
 
-// The Access step's sheet comes from config.AccessPresets, so the page holds no copy. The rows
-// are the spec's table.
+// The Access step's sheet comes from config.AccessPresets, so the page holds no copy.
 func TestSetupWizardHelloCarriesThePresetSheet(t *testing.T) {
 	t.Setenv("SODE_ACCESS_PRESET", "Open access")
 	var m struct {

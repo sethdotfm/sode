@@ -25,7 +25,6 @@ func namedApp(t *testing.T) *App {
 
 func waits(err error) bool { return err != nil && strings.Contains(err.Error(), "try again in") }
 
-// wrongAs sends n wrong PINs for name and returns the last answer.
 func wrongAs(t *testing.T, a *App, name string, n int) error {
 	t.Helper()
 	var err error
@@ -105,7 +104,6 @@ func TestRightPinResetsThatNamesWait(t *testing.T) {
 	}
 }
 
-// pinWaitFor is the wait after n wrong PINs for a name that waits.
 func pinWaitFor(a *App, n int) time.Duration { return userPinWait(a.pinFirstWait, n) }
 
 func TestWaitSwitchOffSparesAllButAdministrators(t *testing.T) {

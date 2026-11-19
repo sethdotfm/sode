@@ -344,7 +344,7 @@ func loadPanels(cfgPath string) *panelStore {
 		}
 		p.Extra = extraOwnFields(p.Extra)
 		p.normalize()
-		// In memory the list is always []config.Ref; a bad hand-edited one is dropped.
+		// In memory the list is always []config.Ref; load drops a bad hand-edited list.
 		if settings, err := cleanFixedDests(p.Settings); err != nil {
 			s.problem("%s: %v, so the fixed destinations were dropped", path, err)
 			delete(p.Settings, panelFixedKey)
@@ -470,10 +470,8 @@ func (s *panelStore) replaceLocked(p Panel) (bool, error) {
 	return true, nil
 }
 
-// followUsers applies a Users save to sharing, which lists names. renames maps a lowercased old
-// name to the new one. removed holds lowercased names that leave it. Owner is an id, so neither
-// touches it; a removed owner's panels move in moveOwners. Each panel is written on its own; the
-// count is of panels changed. A failed write skips that panel and returns the first error.
+// renames and removed use lowercased names. Owner is an id, so a Users save does not touch it (moveOwners moves a removed
+// owner's panels).
 func (s *panelStore) followUsers(renames map[string]string, removed map[string]bool) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -524,8 +522,7 @@ func (s *panelStore) ownedBy(user string) int {
 	return n
 }
 
-// moveOwners gives each panel whose owner is a key of to the owner it maps to. Each panel is
-// written on its own; a failed write skips that panel and returns the first error.
+// A failed write skips that panel; the first error is returned.
 func (s *panelStore) moveOwners(to map[string]string) (int, error) {
 	if len(to) == 0 {
 		return 0, nil

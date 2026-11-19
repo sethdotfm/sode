@@ -20,9 +20,7 @@ func scrambled() config.Config {
 	return c
 }
 
-// The preset's field list and the Critical list stay matched (spec #543, Testing Decisions).
-// Each Config field that a preset writes is Critical alone. Each preset entry on the Critical
-// list is a field that a preset writes.
+// Each Config field that a preset writes is Critical alone, and each preset entry on the Critical list is a preset field.
 func TestPresetFieldsAreCritical(t *testing.T) {
 	cfgType := reflect.TypeFor[config.Config]()
 	fired := map[string]bool{}

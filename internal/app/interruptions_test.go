@@ -65,7 +65,6 @@ func newFloor(t *testing.T) *floor {
 	return f
 }
 
-// live counts what runs on the floor now.
 func (f *floor) live() map[string]int {
 	a := f.a
 	cfg := a.r().cfg

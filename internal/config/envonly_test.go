@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// Env-only mode writes every field of SODE_ACCESS_PRESET but the page locks, which stay off.
 func TestEnvOnlyPresetLeavesThePageLocksOff(t *testing.T) {
 	t.Setenv("SODE_ACCESS_PRESET", "secured")
 	c := Defaults()
@@ -34,7 +33,6 @@ func TestEnvOnlyPresetUnsetChangesNothing(t *testing.T) {
 	}
 }
 
-// WizardEnv names the variable behind each setup wizard field that SODE_* set.
 func TestWizardEnvNamesTheSetVariables(t *testing.T) {
 	t.Setenv("SODE_ROUTER", "10.0.0.5:8910")
 	t.Setenv("SODE_SALVO_GROUP", "120")

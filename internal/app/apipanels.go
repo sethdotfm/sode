@@ -49,7 +49,7 @@ func keyRole(owner string) string {
 	return owner
 }
 
-// trusted: user id's key Role, read live so a demotion applies at once, is Trusted user.
+// Read live, so a demotion applies at once.
 func (a *App) trusted(id string) bool {
 	u, ok := a.r().cfg.FindUserByID(id)
 	role, _ := a.r().cfg.ActsAs(u)
@@ -460,8 +460,7 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// apiPanelCopy is Save a copy: a new private panel the caller owns, with the copied panel's mode,
-// grid, settings, unknown fields and artwork. The body can name it.
+// Save a copy: a new private panel that the caller owns.
 func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ownerOnly(w, cl) {
 		return

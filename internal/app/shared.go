@@ -7,8 +7,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// guardSave repeats the policy's Role check, because a Role or sign-in can change before
-// cfgMu is ours. Caller holds cfgMu.
+// A Role or sign-in can change between admit and this lock, so the Role is checked again. Caller holds cfgMu.
 func (a *App) guardSave(c *client, need string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
