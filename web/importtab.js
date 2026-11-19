@@ -11,6 +11,7 @@ import { stillBroken } from './remaprules.js';
 import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
 import { applyBrowser } from './browserapply.js';
 import { fmtTime } from './device.js';
+import { pinShow, hidePin } from './pinshow.js';
 
 const MODES = [
   ['add', 'Add import'],
@@ -248,11 +249,13 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     }
   }
 
-  const pinInput = el('input', 'pb-input sode__xi-pin');
+  const pinInput = el('input', 'pb-input');
   pinInput.type = 'password';
   pinInput.inputMode = 'numeric';
   pinInput.id = `${ids}-pin`;
   pinInput.autocomplete = 'current-password';
+  const pinBox = pinShow(pinInput);
+  pinBox.classList.add('sode__xi-pin');
   pinInput.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -286,7 +289,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     if (planned.refused) out.push(el('div', 'pb-alert pb-alert--error', `Sode refuses this import: ${planned.refused}.`));
     else if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
-      if (needsPin()) row.append(Object.assign(el('label', 'sode__label', 'PIN'), { htmlFor: pinInput.id }), pinInput);
+      if (needsPin()) row.append(Object.assign(el('label', 'sode__label', 'PIN'), { htmlFor: pinInput.id }), pinBox);
       const warn = replace ? 'Critical: removes what the file does not hold.' : 'Critical: Use new overwrites current items.';
       out.push(el('div', 'pb-note pb-note--warn', warn), row, pinErr);
     }
@@ -387,6 +390,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     failed = 0;
     step = 'file';
     pinInput.value = '';
+    hidePin(pinInput);
     pinErr.textContent = '';
     render();
   }

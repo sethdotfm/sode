@@ -12,6 +12,7 @@ import { accessReq, rightsTab } from './rightsrules.js';
 import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
 import { modal } from './modal.js';
+import { pinShow } from './pinshow.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
 import { ROLES, ownerChoices, pinPlaceholder } from './usersrules.js';
@@ -216,7 +217,7 @@ function addRow(u = { name: '', len: 0 }) {
     'div',
     'sode__users-row',
     el('div', 'sode__users-in', name),
-    el('div', 'sode__users-in', pin),
+    el('div', 'sode__users-in', pinShow(pin)),
     el('span', 'pb-select-wrap', role),
     noPin.label,
     never.label,

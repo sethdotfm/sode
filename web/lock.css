@@ -105,7 +105,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-2);
-  width: var(--sode-lock-w);
+  margin-bottom: calc(-1 * var(--pb-space-3)); /* nearer the pad than the body gap */
+  width: min(100%, calc(var(--sode-lock-w) * 1.3));
 }
 .sode-lock__namefield[hidden] {
   display: none;
@@ -116,6 +117,17 @@
 .sode-lock__name {
   font-size: var(--pb-text-lg);
   height: var(--pb-control-h-lg);
+}
+.sode-lock .sode-lock__name {
+  font-size: var(--pb-text-xl);
+  height: calc(var(--pb-control-h-lg) * 1.4);
+}
+.sode-lock .sode-namepick__list {
+  max-height: calc(var(--pb-control-h-lg) * 7.5);
+}
+.sode-lock .sode-namepick__list .pb-menu__item {
+  font-size: var(--pb-text-lg);
+  padding-block: var(--pb-space-3);
 }
 /* The user list drops over the pad, so the pad does not move while it is open. */
 .sode-namepick {

@@ -5,6 +5,7 @@ import { modal } from './modal.js';
 import { expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
 import { btn, field, opt } from './formbits.js';
+import { pinShow, hidePin } from './pinshow.js';
 import { OWN_SCOPES, clientNameProblem, saveReq, keyReq } from './myclientrules.js';
 
 const input = (id, type, auto) => el('input', { class: 'pb-input', id, type, autocomplete: auto, spellcheck: false });
@@ -50,7 +51,7 @@ const dlg = modal({
       field('myclient-key-for', 'For', el('span', 'pb-select-wrap', who)),
       field('myclient-key-name', 'Key name', keyName),
       field('myclient-key-expires', 'Expires (optional)', keyExp),
-      field('myclient-pin', 'Your PIN', pinIn),
+      field('myclient-pin', 'Your PIN', pinShow(pinIn)),
       el('div', null, keyBtn),
     ),
     note,
@@ -77,6 +78,7 @@ function closeClients() {
   isOpen = false;
   shown.replaceChildren(); // the one-time key goes with the dialog
   for (const i of [nameIn, keyName, keyExp, pinIn]) i.value = '';
+  hidePin(pinIn);
   say('');
   saveSeq++;
   keySeq++;

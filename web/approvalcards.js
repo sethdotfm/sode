@@ -2,6 +2,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { btn } from './formbits.js';
+import { pinShow } from './pinshow.js';
 import { changeText, leftText, endText } from './approvalcardrules.js';
 
 {
@@ -181,7 +182,7 @@ onMsg('approvalCard', (m) => {
     el('div', 'pb-toast__msg', `${m.from} asks from ${m.browser}: ${m.what}. `, left),
     ...(list.childElementCount ? [list] : []),
     ...stops,
-    pin,
+    pinShow(pin),
     err,
     el('div', 'sode-approvals__actions', deny, approve),
   );

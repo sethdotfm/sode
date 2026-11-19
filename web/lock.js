@@ -61,6 +61,7 @@ import { buildChip } from './lockchip.js';
 import { layout, onLayout } from './layout.js';
 import { namePicker } from './namepick.js';
 import { listedUser } from './namepickrules.js';
+import { setBrand } from './brandicon.js';
 
 let heldUser = heldUserKept();
 const page = pageType(location.pathname);
@@ -165,7 +166,8 @@ function build() {
   nameInput = picker.input;
   nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Name'), { htmlFor: 'lock-name' }), picker.root);
   nameField.hidden = true;
-  padBody = el('div', 'sode-lock__body', nameField, state, dotsEl, msg, pad, cancelBtn);
+  // The name sits on the pad, so name and digits are typed in one place.
+  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, pad, cancelBtn);
 
   letterKey = el('kbd', 'sode__key sode__key--locked');
   letterBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
@@ -270,8 +272,7 @@ function showLock() {
   const text = S.cfg?.brandText?.trim() || 'Sode';
   brand.textContent = text;
   const frame = document.querySelector('.sode__brandframe');
-  if (frame?.dataset.brand) root.dataset.brand = frame.dataset.brand;
-  else delete root.dataset.brand;
+  setBrand(root, frame?.dataset.brand || frame?.style.getPropertyValue('--brand-color') || '');
   // The page keeps its scroll; focus moves must not scroll it (desktop.js leaves its
   // focus-scroll alone while this is set).
   if (root.hidden) scrolled = { x: window.scrollX, y: window.scrollY };

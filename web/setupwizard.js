@@ -6,11 +6,12 @@ import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
 import { layout, onLayout } from './layout.js';
 import { restoring, wireRestore } from './setuprestore.js';
+import { pinShow } from './pinshow.js';
+import { levelPicks } from './levelbox.js';
 import {
   STEPS,
   DONE,
   PRESET_ROWS,
-  PRESET_WHO,
   startAnswers,
   pinMax,
   stepProblem,
@@ -19,6 +20,7 @@ import {
   numberingChoices,
   finishMessage,
   routerLine,
+  guideLevels,
   envHint,
 } from './setupwizardrules.js';
 
@@ -55,12 +57,13 @@ function field(id, label, value, attrs = {}, hint = '', tip = '') {
   return el(
     'div',
     { class: 'sode__field' },
-    el('label', { for: id, 'data-pb-tip': tip }, label),
-    input,
+    el('label', { for: id, 'data-pb-tip': tip || null }, label),
+    attrs.type === 'password' ? pinShow(input) : input,
     hint ? el('span', { class: 'sode__hint' }, hint) : null,
   );
 }
 
+// label null: the section heading with id setup-<name>-label names the group.
 function choice(name, label, opts, hint = '') {
   const group = el('span', { class: 'pb-btn-group', role: 'radiogroup', 'aria-labelledby': `setup-${name}-label` });
   for (const [v, t] of opts) {
@@ -72,16 +75,18 @@ function choice(name, label, opts, hint = '') {
   return el(
     'div',
     { class: 'sode__field' },
-    el('span', { class: 'sode__field-label', id: `setup-${name}-label` }, label),
+    label ? el('span', { class: 'sode__field-label', id: `setup-${name}-label` }, label) : null,
     group,
     hint ? el('span', { class: 'sode__hint' }, hint) : null,
   );
 }
 
-const section = (title, sub, ...inner) =>
-  el('div', { class: 'sode-setup__section' }, el('h3', { class: 'sode-setup__h' }, title), sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
-
-const lead = (text) => el('p', { class: 'sode-setup__lead' }, text);
+const section = (title, sub, ...inner) => sectionAs(null, title, sub, ...inner);
+function sectionAs(id, title, sub, ...inner) {
+  const h = el('h3', { class: 'sode-setup__h', id }, title);
+  return el('div', { class: 'sode-setup__section' }, h, sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
+}
+const row = (...kids) => el('div', { class: 'sode-setup__row' }, ...kids);
 const strong = (text) => el('span', { class: 'pb-text-strong' }, text);
 
 function statusLine() {
@@ -89,7 +94,7 @@ function statusLine() {
   const line =
     d.again && d.router.trim() !== (S.cfg.router || '')
       ? { ok: false, text: 'Connects on Save' }
-      : routerLine(d.router, S.router, S.srcs.length + S.dsts.length);
+      : routerLine(d.router, S.router, S.srcs.length, S.dsts.length);
   if (!line) return [];
   return [
     el(
@@ -111,12 +116,17 @@ function swatches() {
     input.checked = d.brandBorder === c.name;
     box.append(el('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
   }
+  // A custom color is #rrggbb, the form the native picker gives.
+  const own = d.brandBorder.startsWith('#');
+  const pick = el('input', { type: 'color', name: 'brandBorder', 'aria-label': 'Custom color' });
+  pick.value = own ? d.brandBorder : '#5fb2e8';
+  box.append(el('label', { class: `sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, 'data-pb-tip': 'Custom' }, pick));
   return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box);
 }
 
 function sheet() {
   const picked = (p) => (d.preset === p.key ? 'is-picked' : '');
-  const head = el('tr', null, el('th'));
+  const head = el('tr', null, el('th', { class: 'sode-setup__corner' }, 'Without sign-in:'));
   for (const p of presets()) {
     const input = el('input', { type: 'radio', class: 'pb-check__input', name: 'preset', value: p.key });
     input.checked = d.preset === p.key;
@@ -125,7 +135,6 @@ function sheet() {
         'th',
         { 'data-preset': p.key, class: picked(p) },
         el('label', { class: 'pb-check' }, input, el('span', { class: 'pb-check__label pb-text-strong' }, p.name)),
-        el('span', { class: 'sode-setup__who' }, PRESET_WHO[p.key] || ''),
       ),
     );
   }
@@ -145,7 +154,7 @@ function sheet() {
 
 function doneText() {
   const addr = () => el('span', { class: 'pb-text-mono' }, d.router.trim());
-  const linked = routerLine(d.router, S.router, S.srcs.length + S.dsts.length)?.ok;
+  const linked = routerLine(d.router, S.router, S.srcs.length, S.dsts.length)?.ok;
   return [
     'You are signed in as ',
     strong(d.name.trim()),
@@ -156,27 +165,46 @@ function doneText() {
   ];
 }
 
+// The Level numbering guide: the main page's level chips for the typed count, display only.
+function levelGuide() {
+  const levels = guideLevels(d.levels, d.levelNumbering, S.levels);
+  if (!levels.length) return null;
+  const picks = levelPicks(levels, () => {});
+  for (const b of picks) b.setAttribute('aria-pressed', 'true');
+  const odd = levels.length % 2;
+  const cols = Math.floor(levels.length / 2) + odd;
+  // Past 12 columns the chips wrap to more rows, so a first level of 0 or V no longer stands alone.
+  const grid = el('div', { class: `sode__levels${odd && cols <= 12 ? ' sode__levels--odd' : ''}`, inert: true }, ...picks);
+  grid.style.setProperty('--sode-bar-cols', Math.min(cols, 12));
+  const first = levels[0].label;
+  const last = levels[levels.length - 1].label;
+  return el('div', { class: 'sode__picker sode-setup__guide', role: 'img', 'aria-label': `Levels ${first} to ${last}` }, grid);
+}
+
 const nextLink = (text, section, href = '#settings') => el('li', null, el('a', { href, 'data-section': section }, text));
 
 const VIEW = {
   welcome: () => [
     d.again ? 'Run setup again' : 'Set up Sode',
-    section('Name and color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
+    section('Server Name and Color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
     // replaceChildren draws a null as text, so Run setup again leaves the section out.
     ...(d.again
       ? []
       : [
+          el('hr', { class: 'pb-divider pb-divider--hard sode-setup__hr' }),
           section(
-            'Your user',
+            'Add a first user',
             'Administrator',
             field('setup-name', 'Name', d.name, { maxlength: '24' }),
-            field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric', placeholder: `4 to ${max()} digits` }),
-            field('setup-pin2', 'PIN again', d.pin2, { type: 'password', inputmode: 'numeric' }),
+            row(
+              field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric', placeholder: `4 to ${max()} digits` }),
+              field('setup-pin2', 'Repeat your PIN', d.pin2, { type: 'password', inputmode: 'numeric' }),
+            ),
           ),
         ]),
   ],
   router: () => [
-    'Router',
+    'Router setup',
     section(
       'Connection',
       '',
@@ -186,8 +214,8 @@ const VIEW = {
     section(
       'Levels and numbers',
       '',
-      field('setup-levels', 'Levels', d.levels, { type: 'number', min: '1', max: '256' }, hint('levels')),
-      choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), hint('levelNumbering')),
+      row(field('setup-levels', 'Levels', d.levels, { type: 'number', min: '1', max: '256' }, hint('levels')), el('div')),
+      row(choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), hint('levelNumbering')), levelGuide() || el('div')),
       choice(
         'numberOffset',
         'Source and destination numbers',
@@ -198,29 +226,27 @@ const VIEW = {
         hint('numberOffset'),
       ),
     ),
-    section(
-      'Takes',
-      '',
-      choice(
-        'fireMode',
-        'Multi destination',
-        [
-          ['sequential', 'One after another'],
-          ['native', 'Router salvo'],
-        ],
-        hint('fireMode'),
+    sectionAs(
+      'setup-fireMode-label',
+      'Multi destination take behavior',
+      'Some routers support staging changes for taking many routes simultaneously.',
+      row(
+        choice(
+          'fireMode',
+          null,
+          [
+            ['sequential', 'One after another'],
+            ['native', 'Router salvo'],
+          ],
+          hint('fireMode'),
+        ),
+        d.fireMode === 'native'
+          ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, hint('group'), 'Must be unused on the router')
+          : el('div'),
       ),
-      d.fireMode === 'native'
-        ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, hint('group'), 'Must be unused on the router')
-        : null,
     ),
   ],
-  access: () => [
-    'Access',
-    lead('Without sign-in:'),
-    ...(hint('preset') ? [el('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []),
-    sheet(),
-  ],
+  access: () => ['Access', ...(hint('preset') ? [el('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []), sheet()],
   done: () => [
     'Sode is set up',
     el(
@@ -283,7 +309,6 @@ const KEYS = {
 
 function render(focus) {
   const step = STEPS[at][0];
-  $('setup').classList.toggle('sode-setup--wide', step === 'access');
   renderSteps();
   const [title, ...body] = VIEW[step]();
   $('setup-title').textContent = title;
@@ -341,6 +366,11 @@ $('setup-body').addEventListener('input', (e) => {
   if (t.type === 'radio' && !t.checked) return;
   d[k] = t.value;
   if (k === 'brandText' || k === 'brandBorder') showBrand(d.brandText, d.brandBorder);
+  // No render: it would close the open color picker.
+  if (t.type === 'color') {
+    for (const r of $('setup-body').querySelectorAll('input[name="brandBorder"][type="radio"]')) r.checked = false;
+    t.closest('label').classList.add('is-picked');
+  }
   if (k === 'router') {
     tryRouter();
     paintRouter();
@@ -545,7 +575,7 @@ onLayout(() => {
   if (mode === 'wait') claim();
 });
 
-// Run setup again (setupagain.js): the same steps over Settings, with no Your user and no Done. Nothing is sent here;
+// Run setup again (setupagain.js): the same steps over Settings, with no Add a first user and no Done. Nothing is sent here;
 // Finish hands the answers back to stage into the one Save.
 export function openAgain(answers, presets, hooks) {
   if (mode || layout() === 'phone') return;

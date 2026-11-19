@@ -9,9 +9,15 @@ test('iconURL', () => {
 });
 
 test('setBrand sets and clears', () => {
-  const el = { dataset: {} };
+  const props = new Map();
+  const el = { dataset: {}, style: { setProperty: (k, v) => props.set(k, v), removeProperty: (k) => props.delete(k) } };
   setBrand(el, 'pink');
   assert.equal(el.dataset.brand, 'pink');
+  assert.ok(!props.has('--brand-color'));
+  setBrand(el, '#12ab34');
+  assert.ok(!('brand' in el.dataset));
+  assert.equal(props.get('--brand-color'), '#12ab34');
   setBrand(el, '');
   assert.ok(!('brand' in el.dataset));
+  assert.ok(!props.has('--brand-color'));
 });
