@@ -46,49 +46,6 @@ var sectionRoles = map[string]sectionTag{
 	"run-setup-again":   {config.RoleAdministrator, false},
 }
 
-// saveFields: the Config keys the one Save takes, and the section of each. Every Config JSON
-// key is here or saved apart (TestEveryFormFieldHasSection). Item keys (a user's or an API
-// client's attribute) are in onesavefields.go.
-var saveFields = map[string]string{
-	"browserDefaults":      "everyone-defaults",
-	"brandText":            "branding",
-	"brandBorder":          "branding",
-	"hiddenDsts":           "history",
-	"hiddenDstsRouter":     "history",
-	"levelColors":          "level-colors",
-	"confirmLockoutMs":     "confirm",
-	"resultDismissSeconds": "confirm",
-	"confirmEnter":         "confirm",
-	"router":               "router-matrix",
-	"routerName":           "router-matrix",
-	"routerShow":           "router-matrix",
-	"matrix":               "router-matrix",
-	"levels":               "router-matrix",
-	"levelWireOffset":      "router-matrix",
-	"levelNumbering":       "router-matrix",
-	"numberOffset":         "router-matrix",
-	"nameRereadSeconds":    "router-names",
-	"nameLength":           "router-names",
-	"nameRequests":         "router-names",
-	"defaultLevels":        "takes",
-	"tallyResyncSeconds":   "takes",
-	"fireMode":             "takes",
-	"salvoGroup":           "takes",
-	"pinWaits":             "locks",
-	"locks":                "locks",
-	"autoLockMinutes":      "locks",
-	"guestRole":            "locks",
-	"newUserDefaults":      "users",
-	"publicPanels":         "panels",
-	"newPanelActs":         "panels",
-	"trustedProxies":       "proxy",
-	"requireHttps":         "proxy",
-	"maxPinLen":            "users",
-	"guestRights":          "users",
-	"api":                  "api",
-	"guestApiScopes":       "api",
-}
-
 // Refusal reasons; the page shows them beside the field.
 const (
 	reasonRole     = "Role"

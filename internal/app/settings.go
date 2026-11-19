@@ -66,19 +66,6 @@ func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 	return nil
 }
 
-// sourceKeys: one Save fields that only Manage users and the API section write, never the form.
-var sourceKeys = map[string]bool{"maxPinLen": true, "guestRights": true, "api": true, "guestApiScopes": true}
-
-func configKeys() []string {
-	var out []string
-	for k := range saveFields {
-		if !sourceKeys[k] {
-			out = append(out, k)
-		}
-	}
-	return out
-}
-
 var errInsecureSave = errors.New("to turn on Require HTTPS, save from a request that came over HTTPS through a trusted proxy. This stops a lock-out. Open Sode through your HTTPS address and save again")
 
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {

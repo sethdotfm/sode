@@ -61,25 +61,6 @@ func categoryFile(cat string) string {
 	return ""
 }
 
-// The names are the data-section names in web/index.html. Router fields are in routers.yaml, not here.
-type exportSection struct {
-	Name string
-	Keys []string
-}
-
-var exportSections = []exportSection{
-	{"everyone-defaults", []string{"browserDefaults"}},
-	{"branding", []string{"brandText", "brandBorder"}},
-	{"history", []string{"hiddenDsts", "hiddenDstsRouter"}},
-	{"level-colors", []string{"levelColors"}},
-	{"confirm", []string{"confirmLockoutMs", "resultDismissSeconds", "confirmEnter"}},
-	{"locks", []string{"locks", "autoLockMinutes", "guestRole", "pinWaits", "maxPinLen"}},
-	{"users", []string{"newUserDefaults"}},
-	{"api", []string{"api", "guestRights", "guestApiScopes"}},
-	{"panels", []string{"publicPanels", "newPanelActs"}},
-	{"proxy", []string{"trustedProxies", "requireHttps"}},
-}
-
 type exportManifest struct {
 	Format     int            `yaml:"format"`
 	Sode       string         `yaml:"sode"`
