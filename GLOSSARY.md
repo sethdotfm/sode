@@ -415,6 +415,9 @@ One saved layout per panel in a group, so a single Push gives each panel in the 
 **Patch boxes**:
 The Source box, the Destination box and the Level box, where a plan is typed. What they hold is a plan until Confirm.
 
+**Grid popup**:
+A grid that opens over the main page to stage several routes and send them in one take. It shows every source and destination in the person's Rights. It is part of the main page, not a panel. Keep it apart from a Grid panel, which is a saved panel.
+
 **Last**:
 The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser and kept across reloads, and the chip is hidden until this browser has made a take.
 
