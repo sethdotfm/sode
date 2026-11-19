@@ -101,7 +101,10 @@ func (a *App) updateWith(mutate func(*config.Config) error, save bool) (old, nw 
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}
 	}
-	a.promoted = a.tokens.promoteTabs(old.cfg, cfg, a.openTokens())
+	promoted := a.tokens.promoteTabs(old.cfg, cfg, a.openTokens())
+	a.mu.Lock()
+	a.promoted = promoted
+	a.mu.Unlock()
 	// Revocation is durable: prune deletes the tokens that are not valid, so an undo of the
 	// change cannot revive them.
 	a.tokens.prune(cfg)

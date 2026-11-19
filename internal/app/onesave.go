@@ -174,13 +174,96 @@ type savePlan struct {
 	x     *saveCtx
 }
 
-func (p *savePlan) next() config.Config {
+func (p *savePlan) next() config.Config { return p.build(p.keep) }
+
+func (p *savePlan) build(keys []string) config.Config {
 	n := p.live.Clone()
-	for _, key := range p.keep {
+	for _, key := range keys {
 		_ = setField(&n, key, p.edits[key].Value, p.x)
 	}
 	n.Normalize()
 	return n
+}
+
+// screen refuses key for Role, a bad value or a conflict, marks it unchanged, or answers true:
+// a candidate for the validation passes.
+func (p *savePlan) screen(key, role string, ap *config.User) bool {
+	live, e := p.live, p.edits[key]
+	f, ok := lookupField(key)
+	if !ok {
+		p.refuse(key, reasonRole, fmt.Errorf("%s is not saved here", key))
+		return false
+	}
+	// Before the conflict check, so a conflict never shows a value hidden from that Role.
+	if why := fieldRefusal(role, f.section); why != "" && (why != reasonApproval || ap == nil) {
+		p.refuse(key, why, roleErr{need: sectionRoles[f.section].edit})
+		return false
+	}
+	one := live.Clone()
+	if err := f.set(&one, e.Value, p.x); err != nil {
+		// Another field of this save can make it fit, for example a higher Longest PIN.
+		one = live.Clone()
+		for _, k := range slices.Sorted(maps.Keys(p.edits)) {
+			if k != key {
+				_ = setField(&one, k, p.edits[k].Value, p.x)
+			}
+		}
+		if f.set(&one, e.Value, p.x) != nil {
+			p.refuse(key, reasonInvalid, err)
+			return false
+		}
+	}
+	one.Normalize()
+	if f.adds || f.action {
+		return true
+	}
+	if string(fieldJSON(one, key)) == string(fieldJSON(live, key)) {
+		p.res[key] = fieldResult{Status: "unchanged"}
+		return false
+	}
+	if e.Version != fieldVersion(live, key) {
+		r := fieldResult{Status: "refused", Reason: reasonConflict, Err: "someone else saved this after you opened Settings",
+			Version: fieldVersion(live, key)}
+		if !f.secret {
+			r.Value = fieldJSON(live, key)
+		}
+		p.res[key] = r
+		return false
+	}
+	return true
+}
+
+// with: live plus key, plus the other candidates of its item (scope 1) or all of them (scope 2).
+// So a Role and a PIN, or a rename and a new user of the old name, validate together.
+func (p *savePlan) with(cands []string, key string, scope int) config.Config {
+	f, _ := lookupField(key)
+	return p.build(slices.DeleteFunc(slices.Clone(cands), func(k string) bool {
+		g, _ := lookupField(k)
+		return k != key && scope != 2 && (scope != 1 || f.item == "" || g.item != f.item)
+	}))
+}
+
+// pruneTogether: fields that pass alone can fail together, so it refuses each one whose absence
+// mends the rest.
+func (p *savePlan) pruneTogether(keep []string) []string {
+	for len(keep) > 0 {
+		err := validateSave(p.live, p.build(keep))
+		if err == nil {
+			break
+		}
+		bad := slices.DeleteFunc(slices.Clone(keep), func(k string) bool {
+			return validateSave(p.live, p.build(slices.DeleteFunc(slices.Clone(keep), func(o string) bool { return o == k }))) != nil
+		})
+		if len(bad) == 0 {
+			bad, keep = keep, nil
+		} else {
+			keep = slices.DeleteFunc(keep, func(k string) bool { return slices.Contains(bad, k) })
+		}
+		for _, k := range bad {
+			p.refuse(k, reasonInvalid, err)
+		}
+	}
+	return keep
 }
 
 func (p *savePlan) refuse(key, reason string, err error) {
@@ -284,7 +367,7 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	}
 	x, swapErr := a.swapCtx(live, edits)
 	plan := &savePlan{live: live, actor: actor, res: make(map[string]fieldResult, len(edits)), edits: edits, x: x}
-	res, refuse := plan.res, plan.refuse
+	refuse := plan.refuse
 	if swapErr != nil {
 		refuse(swapKey, reasonInvalid, swapErr)
 		edits = maps.Clone(edits)
@@ -293,81 +376,26 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	}
 	var cands []string
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
-		e := edits[key]
-		f, ok := lookupField(key)
-		if !ok {
-			refuse(key, reasonRole, fmt.Errorf("%s is not saved here", key))
-			continue
+		if plan.screen(key, role, ap) {
+			cands = append(cands, key)
 		}
-		// Before the conflict check, so a conflict never shows a value hidden from that Role.
-		if why := fieldRefusal(role, f.section); why != "" && (why != reasonApproval || ap == nil) {
-			refuse(key, why, roleErr{need: sectionRoles[f.section].edit})
-			continue
-		}
-		one := live.Clone()
-		if err := f.set(&one, e.Value, x); err != nil {
-			// Another field of this save can make it fit, for example a higher Longest PIN. Try
-			// again on top of all the other fields.
-			one = live.Clone()
-			for _, k := range slices.Sorted(maps.Keys(edits)) {
-				if k != key {
-					_ = setField(&one, k, edits[k].Value, x)
-				}
-			}
-			if f.set(&one, e.Value, x) != nil {
-				refuse(key, reasonInvalid, err)
-				continue
-			}
-		}
-		one.Normalize()
-		if !f.adds && !f.action && string(fieldJSON(one, key)) == string(fieldJSON(live, key)) {
-			res[key] = fieldResult{Status: "unchanged"}
-			continue
-		}
-		if !f.adds && !f.action && e.Version != fieldVersion(live, key) {
-			r := fieldResult{Status: "refused", Reason: reasonConflict, Err: "someone else saved this after you opened Settings",
-				Version: fieldVersion(live, key)}
-			if !f.secret {
-				r.Value = fieldJSON(live, key)
-			}
-			res[key] = r
-			continue
-		}
-		cands = append(cands, key)
-	}
-	// with: live plus key, plus the other candidates of its item (scope 1) or all of them (scope
-	// 2). So a Role and a PIN, or a rename and a new user of the old name, validate together.
-	build := func(keys []string) config.Config {
-		one := live.Clone()
-		for _, k := range keys {
-			_ = setField(&one, k, edits[k].Value, x)
-		}
-		one.Normalize()
-		return one
-	}
-	with := func(key string, scope int) config.Config {
-		f, _ := lookupField(key)
-		return build(slices.DeleteFunc(slices.Clone(cands), func(k string) bool {
-			g, _ := lookupField(k)
-			return k != key && scope != 2 && (scope != 1 || f.item == "" || g.item != f.item)
-		}))
 	}
 	var keep []string
 	for _, key := range cands {
 		var err error
 		for scope := range 3 {
-			if err = validateSave(live, with(key, scope)); err == nil {
+			if err = validateSave(live, plan.with(cands, key, scope)); err == nil {
 				break
 			}
 		}
 		if err != nil {
-			if scoped := validateSave(live, with(key, 0)); scoped != nil {
+			if scoped := validateSave(live, plan.with(cands, key, 0)); scoped != nil {
 				err = scoped // the reason of the field alone reads best
 			}
 			refuse(key, reasonInvalid, err)
 			continue
 		}
-		one := with(key, 0)
+		one := plan.with(cands, key, 0)
 		if !rechecked {
 			if what := criticalEdits(live, one, actor); len(what) > 0 {
 				refuse(key, reasonRecheck, recheckErr{what: what})
@@ -381,24 +409,7 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 		}
 		keep = append(keep, key)
 	}
-	// Fields that pass alone can fail together: refuse each one whose absence mends the rest.
-	for len(keep) > 0 {
-		err := validateSave(live, build(keep))
-		if err == nil {
-			break
-		}
-		bad := slices.DeleteFunc(slices.Clone(keep), func(k string) bool {
-			return validateSave(live, build(slices.DeleteFunc(slices.Clone(keep), func(o string) bool { return o == k }))) != nil
-		})
-		if len(bad) == 0 {
-			bad, keep = keep, nil
-		} else {
-			keep = slices.DeleteFunc(keep, func(k string) bool { return slices.Contains(bad, k) })
-		}
-		for _, k := range bad {
-			refuse(k, reasonInvalid, err)
-		}
-	}
+	keep = plan.pruneTogether(keep)
 	plan.moves, plan.keep = a.removedUsersPanels(c, live, edits, keep, refuse)
 	return plan, nil
 }
