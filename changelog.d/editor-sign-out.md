@@ -1,0 +1,1 @@
+- A sign-out, or a change of user or Role, now ends the panel editor and the Live Editor at once, with no unsaved-changes prompt. Unsaved edits are discarded. A save pressed while signed out is refused, and no longer waits to go out under the next sign-in.

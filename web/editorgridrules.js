@@ -93,8 +93,8 @@ export function selectRows(s, shown, n, { shift = false, toggle = false } = {}) 
 }
 
 // Adds the selected items, less the members the edge has, which stay where they are. A Set adds in router order (Add
-// from the router), an array in its own order. at is an index in the members as they show (an "all" edge resolved);
-// without it, or past the end, the items go at the end. An "all" edge becomes a list first.
+// from the router), an array in its own order. at is an index in the members as they show (an "all" edge resolved).
+// Without it, or past the end, the items go at the end. An "all" edge becomes a list first.
 export function addItems(edge, router, selected, { at } = {}) {
   const list = membersOf(edge, router);
   const has = new Set(list);
