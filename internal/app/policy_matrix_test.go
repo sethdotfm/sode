@@ -91,7 +91,7 @@ var policyExpect = map[string][nStates]error{
 	// the handler also needs a signed-in user; the export routes check the Role (exportitems_test.go)
 	"exportSession": standardRule,
 	// the handlers refuse once set up; while setup is pending see TestSetupWizardAdmitsOnlySetupMessages
-	"setupClaim": openRule, "setupRouter": openRule, "setupFinish": openRule,
+	"setupClaim": openRule, "setupRouter": openRule, "setupRestoreKey": openRule, "setupFinish": openRule,
 
 	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
 

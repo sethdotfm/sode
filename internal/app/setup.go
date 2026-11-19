@@ -90,6 +90,7 @@ type setupHold struct {
 	owner *client
 	addr  string
 	moved bool
+	key   string // for POST /api/setup/restore (setuprestore.go); a new owner gets a new one
 }
 
 var errSetupElsewhere = errors.New("another browser runs setup now: take control to run it here")
@@ -133,7 +134,7 @@ func (a *App) setupClaim(c *client, take bool) error {
 	if !take {
 		return errSetupElsewhere
 	}
-	a.setup.owner = c
+	a.setup.owner, a.setup.key = c, ""
 	a.setupDropLocked()
 	a.reply(was, struct {
 		T string `json:"t"`
@@ -149,7 +150,7 @@ func (a *App) setupLeft(c *client) {
 	if a.setup.owner != c {
 		return
 	}
-	a.setup.owner = nil
+	a.setup.owner, a.setup.key = nil, ""
 	if !a.setupPending() {
 		return
 	}
