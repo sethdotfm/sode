@@ -34,19 +34,16 @@ func TestChromeBrokenBanner(t *testing.T) {
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
 	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+	waitNamesAndTally(t, a, userKey(t, a, "Ana")) // the hello then carries the names a fire needs
 
 	b.open(srv.URL + "/")
 	const chip = `[...document.querySelectorAll('#patch-view [data-presets] .sode__set')].find((c) => c.textContent.startsWith('Studio'))`
 	const banner = `document.querySelector('#patch-view [data-broken]')`
-	b.waitFor("Studio chip with names loaded", `!!`+chip+` && document.getElementById('conn-rt-text').textContent !== ''`)
+	b.waitFor("Studio chip", `!!`+chip)
 	b.waitFor("no banner before a fire", banner+`.hidden`)
 	fire := func() {
-		// Until the names load a fire says "not sent", so it presses again.
-		b.waitFor("confirm open", `(() => {
-			if (!document.getElementById('confirm').hidden) return true;
-			`+chip+`.click();
-			return false;
-		})()`)
+		b.eval(chip + `.click(); true`)
+		b.waitFor("confirm open", `!document.getElementById('confirm').hidden`)
 		b.eval(`document.getElementById('confirm-cancel').click(); true`)
 		b.waitFor("confirm closed", `document.getElementById('confirm').hidden`)
 	}
