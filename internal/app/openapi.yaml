@@ -2302,7 +2302,7 @@ components:
               already: { type: array, items: { type: integer }, description: Levels already on the source }
               error: { type: string }
               entry: { type: integer, description: The History entry id; follow it for a late result }
-        leftOut: { type: array, items: { type: string }, description: Preset parts the router no longer has }
+        leftOut: { type: array, items: { type: string }, description: 'Preset parts the router no longer has, as the stored name and the number, for example "CAM 3 (source 13)"' }
         skippedLevels: { type: array, items: { type: integer }, description: Undo only }
         untouchedLevels: { type: array, items: { type: integer }, description: Undo only }
     Error:
