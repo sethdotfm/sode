@@ -12,11 +12,12 @@ import (
 
 // The route view of one destination with no source offers Protect. It goes through the Confirm, the simulator
 // holds it on every level, and the view then says "Protected by Sode (Ana)". Shift+x in Keyboard mode clears it.
+// Ana is an Administrator here, for Clear Sode's Protects.
 func TestChromeProtectFromRouteView(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
-		c.Users[0].Role = config.RoleTrusted
+		c.Users[0].Role = config.RoleAdministrator
 		c.ProtectDevice = 126
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -61,6 +62,22 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	b.waitFor("the shield again", `!!document.querySelector('#dst-under [data-protect="set"]')`)
 	if n := sodeRows(); n != 0 {
 		t.Fatalf("Sode's Protect left on %d levels", n)
+	}
+
+	// Settings > Routers > Protects lists one set over the API, and Clear Sode's Protects asks the PIN again.
+	if rec := apiSend(a, "POST", "/api/v1/protected/3", key, ""); rec.Code != 200 {
+		t.Fatalf("API Protect: %d %s", rec.Code, rec.Body.String())
+	}
+	b.eval(`document.getElementById('settings-open').click(); true`)
+	b.waitFor("the Protects list", `[...document.querySelectorAll('#protects-list li')].some((n) => n.textContent.includes('DSM2') && n.textContent.includes('Protected by Sode (Ana)'))`)
+	b.eval(`document.getElementById('protects-clear-all').click(); true`)
+	b.waitFor("the Confirm unlocks", `!!document.querySelector('#protects-confirm .pb-btn--ok:not(:disabled)')`)
+	b.eval(`document.querySelector('#protects-confirm .pb-btn--ok').click(); true`)
+	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
+	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
+	b.waitFor("cleared", `!!document.querySelector('#protects-confirm + .sode__hint')?.textContent.startsWith("Sode's Protects cleared")`)
+	if n := sodeRows(); n != 0 {
+		t.Fatalf("Clear Sode's Protects left %d levels", n)
 	}
 	b.check()
 }
