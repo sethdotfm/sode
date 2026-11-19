@@ -51,7 +51,7 @@ func (a *App) httpAdmin(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// readExportReq checks the session and reads the export request; false means it answered already.
+// false: it answered already.
 func (a *App) readExportReq(w http.ResponseWriter, r *http.Request) (exportReq, bool) {
 	var req exportReq
 	if !a.httpAdmin(w, r) {
@@ -85,7 +85,6 @@ func (a *App) serveExport(w http.ResponseWriter, r *http.Request) {
 	writeExportZip(w, b)
 }
 
-// importCheck is what the import route answers about a file it accepted.
 type importCheck struct {
 	Format      int            `json:"format"`
 	Sode        string         `json:"sode"`
@@ -108,9 +107,8 @@ func (a *App) stagesDir() string {
 	return filepath.Join(filepath.Dir(a.cfgPath), exportStagesDir)
 }
 
-// serveImportCheck stages and checks the file and answers what it holds and the Add import plan. Then it removes
-// the staging directory; the apply route stages it again. A zip body gets the preselected choices. The review
-// sends multipart as to the apply route, to see what its ticks and choices do. The check writes nothing.
+// The check writes nothing and removes the staging directory; the apply route stages the file again. A zip body
+// gets the preselected choices; the review sends multipart, as to the apply route, to see what its picks do.
 func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 	if !a.httpAdmin(w, r) {
 		return
@@ -227,7 +225,6 @@ func sizeImport(plan *importPlan, b *exportBundle) {
 	}
 }
 
-// stageAndLoad copies body to a staging directory, unpacks and loads it, and removes the directory.
 func (a *App) stageAndLoad(body io.Reader) (*exportBundle, error) {
 	b, done, err := a.stageImport(body)
 	done()

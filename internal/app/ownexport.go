@@ -75,7 +75,7 @@ func ownFileUser(u config.User, req exportReq) config.User {
 	return out
 }
 
-// ownExport builds the own zip; false means it answered already.
+// false: it answered already.
 func (a *App) ownExport(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 	u, ok := a.httpOwn(w, r)
 	if !ok {
@@ -129,7 +129,6 @@ func writeExportZip(w http.ResponseWriter, b []byte) {
 	w.Write(b)
 }
 
-// serveOwnExportItems lists the user's own items as GET api/export/items lists everything.
 func (a *App) serveOwnExportItems(w http.ResponseWriter, r *http.Request) {
 	u, ok := a.httpOwn(w, r)
 	if !ok {
@@ -172,7 +171,6 @@ func (a *App) serveOwnExportItems(w http.ResponseWriter, r *http.Request) {
 	apiJSON(w, out)
 }
 
-// ownCheck is what the own import check answers.
 type ownCheck struct {
 	Format      int            `json:"format"`
 	Sode        string         `json:"sode"`
@@ -197,7 +195,7 @@ func ownFrom(b *exportBundle, me config.User, same bool) (config.User, bool) {
 	return config.User{}, false
 }
 
-// planOwn plans the file user's profile onto user id of live. Caller holds cfgMu for an apply.
+// Caller holds cfgMu for an apply.
 func (a *App) planOwn(id string, b *exportBundle, req importReq) (*cardPlanner, ownCheck, error) {
 	live := a.r().cfg
 	me, _ := live.FindUserByID(id)
@@ -231,7 +229,6 @@ func (a *App) planOwn(id string, b *exportBundle, req importReq) (*cardPlanner, 
 	return p, out, nil
 }
 
-// planProfile overwrites the prefs and pin order whole.
 func (p *cardPlanner) planProfile(from config.Profile) func(*config.Config, *importCat) error {
 	return func(cand *config.Config, cat *importCat) error {
 		if !p.picked(catProfile, catProfile) {
@@ -249,7 +246,7 @@ func (p *cardPlanner) planProfile(from config.Profile) func(*config.Config, *imp
 	}
 }
 
-// ownParts reads the plan and file parts after the session check; false means it answered already.
+// false: it answered already.
 func (a *App) ownParts(w http.ResponseWriter, r *http.Request) (config.User, importReq, *exportBundle, func(), bool) {
 	u, ok := a.httpOwn(w, r)
 	if !ok {
@@ -268,7 +265,7 @@ func (a *App) ownParts(w http.ResponseWriter, r *http.Request) (config.User, imp
 	return u, req, b, done, ok
 }
 
-// serveOwnImportCheck answers the plan for the request's ticks and choices and writes nothing.
+// Writes nothing.
 func (a *App) serveOwnImportCheck(w http.ResponseWriter, r *http.Request) {
 	u, req, b, done, ok := a.ownParts(w, r)
 	defer done()
@@ -283,7 +280,6 @@ func (a *App) serveOwnImportCheck(w http.ResponseWriter, r *http.Request) {
 	apiJSON(w, out)
 }
 
-// serveOwnImportApply plans again under cfgMu and writes the importer's profile in one commit.
 func (a *App) serveOwnImportApply(w http.ResponseWriter, r *http.Request) {
 	u, req, b, done, ok := a.ownParts(w, r)
 	defer done()

@@ -212,7 +212,6 @@ func (a *App) serveExportItems(w http.ResponseWriter, r *http.Request) {
 	apiJSON(w, list)
 }
 
-// serveExportSize answers the zip size of an export request, built as the export route builds it.
 func (a *App) serveExportSize(w http.ResponseWriter, r *http.Request) {
 	req, ok := a.readExportReq(w, r)
 	if !ok {

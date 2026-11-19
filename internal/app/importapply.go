@@ -17,14 +17,12 @@ import (
 // POST /api/import/apply: multipart with a "plan" part (importReq JSON) and a "file" part (the zip). The
 // file is staged again, so the route keeps no state between the check and the apply.
 
-// importResult is what the apply route answers: the plan it wrote.
 type importResult struct {
 	Plan importPlan `json:"plan"`
 	// Failed: panels the store did not write after the config was saved, by file key.
 	Failed map[string]string `json:"failed,omitempty"`
 }
 
-// importFail answers a staging or loading error.
 func importFail(w http.ResponseWriter, err error) {
 	var tooBig *http.MaxBytesError
 	var ee *exportErr
@@ -38,7 +36,6 @@ func importFail(w http.ResponseWriter, err error) {
 	}
 }
 
-// importActor is who the session token signs in, or nobody with no users.
 func (a *App) importActor(r *http.Request) Actor {
 	u, ok := a.tokens.user(r.Header.Get(sessionHeader), a.r().cfg)
 	if !ok {
@@ -69,7 +66,6 @@ func (a *App) liveNames() (src, dst map[int]string) {
 	return maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
 }
 
-// readImportParts reads the two parts of an import.
 func (a *App) readImportParts(w http.ResponseWriter, r *http.Request) (importReq, *exportBundle, func(), bool) {
 	var req importReq
 	b, done, ok := a.readPlanAndFile(w, r, &req, func() error {
@@ -193,8 +189,7 @@ func (a *App) writeImport(p *importPlanner, b *exportBundle, act Actor, mode str
 	return importResult{Plan: p.plan, Failed: failed}, nil
 }
 
-// writeImportPanels writes the planned panels, their artwork and Push checkpoints. Each panel is its own
-// file, so a failed write leaves the others and is reported.
+// Each panel is its own file, so one failed write leaves the others.
 func (a *App) writeImportPanels(p *importPlanner, b *exportBundle, failed map[string]string) {
 	for _, pp := range p.panels {
 		fp := pp.P
@@ -246,7 +241,7 @@ func (a *App) putImportArt(id, fileID string, arts []PanelArt, b *exportBundle) 
 	return nil
 }
 
-// importCount: one category's line in the Settings saves row. No values, only counts.
+// No values, only counts.
 type importCount struct {
 	Category string `json:"category"`
 	Added    int    `json:"added,omitempty"`
@@ -257,7 +252,6 @@ type importCount struct {
 	Refused  bool   `json:"refused,omitempty"`
 }
 
-// ImportSave is the import part of a Settings saves row.
 type ImportSave struct {
 	Mode       string        `json:"mode"`
 	Categories []importCount `json:"categories"`
