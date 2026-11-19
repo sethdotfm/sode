@@ -147,8 +147,13 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	defaults, _ := config.ParseLevels(r.cfg.DefaultLevels, r.cfg.Levels)
 	a.mu.Lock()
 	// A reference to another router names one this release does not drive: left out like a gone number.
-	hasSrc := func(f config.Ref) bool { _, ok := a.router.srcNames[f.N]; return ok && f.Router == r.cfg.UID }
-	hasDst := func(f config.Ref) bool { _, ok := a.router.dstNames[f.N]; return ok && f.Router == r.cfg.UID }
+	// A reference the Broken check marked is left out too: the shown names keep a gone number (refreshed).
+	has := func(f config.Ref, kind string, names map[int]string) bool {
+		_, ok := names[f.N]
+		return ok && f.Router == r.cfg.UID && !hasMissing(p.Broken, kind, f)
+	}
+	hasSrc := func(f config.Ref) bool { return has(f, config.MissingSource, a.router.srcNames) }
+	hasDst := func(f config.Ref) bool { return has(f, config.MissingDestination, a.router.dstNames) }
 	type key struct{ dst, src int }
 	var order []key
 	levels := map[key][]int{}
@@ -159,9 +164,16 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 		}
 	}
 	off := r.cfg.NumberOffset
+	// "CAM 3 (source 13)": the stored name says what was meant, the number which one is gone.
+	gone := func(side string, f config.Ref) string {
+		if name := strings.TrimSpace(f.Name); name != "" {
+			return fmt.Sprintf("%s (%s %d)", name, side, f.N+off)
+		}
+		return fmt.Sprintf("%s %d", side, f.N+off)
+	}
 	for _, it := range p.Items {
 		if !hasSrc(it.Src) {
-			miss(fmt.Sprintf("source %d", it.Src.N+off))
+			miss(gone("source", it.Src))
 			continue
 		}
 		want := it.Levels
@@ -181,7 +193,7 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 		}
 		for _, d := range it.Dsts {
 			if !hasDst(d) {
-				miss(fmt.Sprintf("destination %d", d.N+off))
+				miss(gone("destination", d))
 				continue
 			}
 			k := key{d.N, it.Src.N}

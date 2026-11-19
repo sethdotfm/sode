@@ -110,15 +110,16 @@ type Panel struct {
 	Destinations *GridEdge `yaml:"destinations,omitempty" json:"destinations,omitempty"`
 	// Rev is the server's: it counts stored changes, and an open panel updates when it moves.
 	Rev int `yaml:"rev,omitempty" json:"rev"`
-	// Broken: the references the target lacked when the panel was imported.
+	// Broken and Moved as on config.Preset; brokencheck.go keeps them.
 	Broken []config.Missing `yaml:"broken,omitempty" json:"broken,omitempty"`
+	Moved  []config.Missing `yaml:"moved,omitempty" json:"moved,omitempty"`
 
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // panelKnown are the JSON names the struct owns plus every output-only field a read adds (panelOut, monFields,
 // apiPanelRead). So a client that echoes a read back does not plant one in Extra. Keep in step with those.
-var panelKnown = []string{"id", "name", "type", "sources", "destinations", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "broken", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped", "confirm"}
+var panelKnown = []string{"id", "name", "type", "sources", "destinations", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "broken", "moved", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped", "confirm"}
 
 // extraOwnFields is extra without panelKnown names. It is possible that files, checkpoints and sets saved
 // before panelKnown listed every output-only field hold one. A copy, since it is possible that extra is shared with a
@@ -421,6 +422,13 @@ func (s *panelStore) replaceBody(p Panel) (bool, error) {
 	defer s.mu.Unlock()
 	if cur, ok := s.by[p.ID]; ok {
 		p.Art, p.Owner, p.Rev = cur.Art, cur.Owner, cur.Rev
+		// An editor sends no marks; the Broken check keeps them.
+		if p.Broken == nil {
+			p.Broken = cur.Broken
+		}
+		if p.Moved == nil {
+			p.Moved = cur.Moved
+		}
 	}
 	return s.replaceLocked(p)
 }

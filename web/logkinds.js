@@ -30,6 +30,7 @@ export const WHY_LABEL = {
   connect: 'WebSocket connected',
   disconnect: 'WebSocket dropped',
   rereadNames: 'Re-read names',
+  routerNames: 'Router names',
   clearHistory: 'Clear history',
   config: 'Settings saved',
   filterSets: 'Filter sets saved',
