@@ -9,8 +9,8 @@ import (
 )
 
 // A blank router is this one; a reference to another router stays. The name: the router's now, else the body's, else
-// old's
-// (nil on create). Runs before validatePanel, so two entries for one item are caught when only one names the router.
+// old's (nil on create). Runs before validatePanel, so two entries for one item are caught when only one names the
+// router.
 func (a *App) refEdges(p *Panel, old *Panel) {
 	var oldSrc, oldDst *GridEdge
 	if old != nil {

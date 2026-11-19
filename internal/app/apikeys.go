@@ -285,8 +285,7 @@ func (s *keyStore) save() {
 }
 
 // The secret is shown one time and kept nowhere. max is the owner's cap (0 = none). fp is pinFP of a user owner's PIN
-// hash
-// ("" for a client).
+// hash ("" for a client).
 func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max int, fp string) (string, apiKey, error) {
 	return s.create(o, name, expires, max, fp, "")
 }

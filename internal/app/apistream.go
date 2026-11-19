@@ -16,8 +16,8 @@ import (
 )
 
 // GET /api/v1/stream upgrades to a WebSocket that only sends. The frames and topics are in docs/api.md and
-// openapi.yaml;
-// keep them in step. Visibility (apiView) filters every frame, and a tally change with a hidden Source is left out,
+// openapi.yaml; keep them in step. Visibility (apiView) filters every frame, and a tally change with a hidden Source
+// is left out,
 // as in the REST read. Frames go out in the order the server saw the changes.
 
 func init() {

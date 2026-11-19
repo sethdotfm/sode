@@ -13,8 +13,7 @@ import (
 )
 
 // Keyless instances (GLOSSARY.md, ADR 0009): the stream grants nothing; no key, session or user rides it. Besides
-// beats,
-// it carries public lines (publicback.go) and a last Assign, rename or reload line. Memory only.
+// beats, it carries public lines (publicback.go) and a last Assign, rename or reload line. Memory only.
 
 const (
 	keylessMax      = 1000 // entries; past it the oldest without a stream is dropped, else a new one is refused

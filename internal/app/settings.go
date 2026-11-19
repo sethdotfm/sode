@@ -11,8 +11,7 @@ import (
 )
 
 // One save at a time. msg decodes over a copy of the live config, so a key an old page lacks keeps its live value.
-// Lists
-// replace; null clears a list.
+// Lists replace; null clears a list.
 func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

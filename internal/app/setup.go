@@ -11,8 +11,7 @@ import (
 )
 
 // With a config path and no users, Sode admits only the setup messages until Finish, and writes nothing to disk
-// before it
-// (docs/agents/users-locks.md).
+// before it (docs/agents/users-locks.md).
 
 //lint:ignore ST1005 the page shows it as is
 var errSetup = errors.New("Sode is not set up yet")

@@ -211,8 +211,7 @@ func hasMissing(l []config.Missing, kind string, r config.Ref) bool {
 }
 
 // A save stores each reference with the name now at its number, so the name in a mark decides. A Broken reference
-// recovers
-// only when its number holds that name again.
+// recovers only when its number holds that name again.
 func (c *itemCheck) ref(dst bool, r *config.Ref) {
 	kind := refKind(dst)
 	if r.Router != c.k.uid {

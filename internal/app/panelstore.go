@@ -457,8 +457,7 @@ func (s *panelStore) replaceLocked(p Panel) (bool, error) {
 }
 
 // renames and removed use lowercased names. Owner is an id, so a Users save does not touch it (moveOwners moves a
-// removed
-// owner's panels).
+// removed owner's panels).
 func (s *panelStore) followUsers(renames map[string]string, removed map[string]bool) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -152,8 +152,7 @@ func checkShowParts(pages []PanelPage) error {
 }
 
 // checkPageTargets judges each Go to Page cell's `page`, a Page id. A target that is missing is stored as is and read
-// as
-// unassigned (web/panelnav.js goToState). So only a malformed one is refused. "" or no field is unassigned.
+// as unassigned (web/panelnav.js goToState). So only a malformed one is refused. "" or no field is unassigned.
 func checkPageTargets(pages []PanelPage) error {
 	for c := range allCells(pages) {
 		v, has := c["page"]

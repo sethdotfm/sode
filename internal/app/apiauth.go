@@ -90,8 +90,7 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 				expired, ended = a.public.endedAs(secret)
 			}
 			// A public key with no record: a restart forgot it, or it is a guess. A real key is at most publicKeyTTL
-			// old,
-			// so after Sode has run that long it is a guess and counts.
+			// old, so after Sode has run that long it is a guess and counts.
 			if !ended && isPublicShape(secret) {
 				ended = now.Sub(a.started) < publicKeyTTL
 				forgot = !ended
