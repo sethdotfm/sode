@@ -19,7 +19,6 @@ const (
 	SalvoMaxMatrix = 15
 	SalvoMaxLevel  = 15
 	SalvoMaxNum    = 1023
-	SalvoMaxGroup  = 127
 )
 
 const (

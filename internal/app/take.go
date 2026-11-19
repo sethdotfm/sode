@@ -311,7 +311,7 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 		delete(a.checks, c)
 		a.mu.Unlock()
 	}()
-	done, err := a.interrogate(r, w, ls, "check")
+	done, err := a.interrogate(r, w, ls, swp08.ReasonCheck)
 	if err != nil {
 		return false // the link is down or full: no answers are coming
 	}

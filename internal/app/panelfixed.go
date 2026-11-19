@@ -101,15 +101,6 @@ func fixedRef(x any) (config.Ref, bool) {
 	return config.Ref{}, false
 }
 
-func fixedNs(v any) []int {
-	l, _ := v.([]config.Ref)
-	out := make([]int, len(l))
-	for i, f := range l {
-		out[i] = f.N
-	}
-	return out
-}
-
 // nameFixed fills each reference's router and, from the router, a blank name, as namePresets does.
 // settings must hold a new list from fixedList, since it is changed in place.
 func (a *App) nameFixed(settings map[string]any) error {

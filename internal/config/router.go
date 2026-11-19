@@ -56,10 +56,6 @@ func (c Config) SourceRef(n int, name string) Ref {
 
 func (c Config) DestinationRef(n int, name string) Ref { return c.SourceRef(n, name) }
 
-func (c Config) LevelRef(ui int) Ref {
-	return Ref{Router: c.UID, N: ui, Shown: c.LevelLabel(ui)}
-}
-
 func newRouterUID() string { return RandomHexID(8) }
 
 // RandomHexID is n random bytes in hex. The first digit is a to f.

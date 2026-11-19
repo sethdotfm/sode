@@ -8,11 +8,8 @@ import (
 
 // Extended variants are the general commands + 0x80 (16-bit src/dst, a full byte each for matrix and level).
 const (
-	CmdInterrogate   = 0x01
-	CmdConnect       = 0x02
 	CmdTally         = 0x03
 	CmdConnected     = 0x04
-	CmdTallyDumpReq  = 0x15
 	CmdTallyDumpByte = 0x16
 	CmdTallyDumpWord = 0x17
 	CmdSrcNamesReq   = 0x64

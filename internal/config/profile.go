@@ -47,10 +47,6 @@ func (p Profile) Empty() bool {
 	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.PinOrder) == 0
 }
 
-func (p Profile) Items() int {
-	return len(p.Prefs) + len(p.FilterSets) + len(p.Presets) + len(p.PinOrder)
-}
-
 func (p Profile) Clone() Profile {
 	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder), Extra: p.Extra}
 }

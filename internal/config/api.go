@@ -74,11 +74,6 @@ func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
 func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
 func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
 
-// IsOpen: every list unset and read-only, the state of an old file.
-func (r Rights) IsOpen() bool {
-	return r.Sources == nil && r.Dsts == nil && r.Levels == nil && r.Presets == nil && !r.Hidden()
-}
-
 func subset[T comparable](l, of *[]T) bool {
 	return subsetBy(l, of, func(a, b T) bool { return a == b })
 }

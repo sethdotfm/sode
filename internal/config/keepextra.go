@@ -81,15 +81,6 @@ func WithPresetExtras(in, saved []Preset) []Preset {
 	return out
 }
 
-func WithAPIClientExtras(in, saved []APIClient) []APIClient {
-	out := slices.Clone(in)
-	for i, j := range savedMatch(out, saved, func(c APIClient) string { return c.Name }) {
-		out[i].Extra = extraAt(saved, j, func(c APIClient) map[string]any { return c.Extra })
-		out[i].Rights.Extra = extraAt(saved, j, func(c APIClient) map[string]any { return c.Rights.Extra })
-	}
-	return out
-}
-
 func (r Rights) WithExtraOf(saved Rights) Rights {
 	r = r.Clone()
 	r.Extra = saved.Extra

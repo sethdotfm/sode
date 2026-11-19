@@ -89,13 +89,8 @@ func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	}, func(cfg config.Config) any { return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets} })
 }
 
-// update: mutate edits a copy, then Normalize, Validate, build a runtime, save. Stores
-// nothing; the caller swaps the runtime under mu. Caller holds cfgMu.
-func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err error) {
-	return a.updateWith(mutate, true)
-}
-
-// updateWith: save false keeps the change in memory only (the setup wizard's Router step).
+// updateWith: mutate edits a copy, then Normalize, Validate, build a runtime and, if save, write it.
+// Stores nothing; the caller swaps the runtime under mu. Caller holds cfgMu.
 func (a *App) updateWith(mutate func(*config.Config) error, save bool) (old, nw *runtime, err error) {
 	old = a.r()
 	cfg := old.cfg.Clone()
