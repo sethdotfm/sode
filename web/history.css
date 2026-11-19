@@ -981,6 +981,40 @@ html[data-alt] .sode__chip-key {
 .sode__xi-moved {
   margin: var(--pb-space-1) 0;
 }
+/* The remap rows are one selectable list (remaplist.js). */
+.sode__xi-remap [data-row] {
+  cursor: default;
+  padding-inline: var(--pb-space-2);
+  user-select: none;
+}
+.sode__xi-name[aria-selected="true"] {
+  background: color-mix(in oklab, var(--pb-accent) 35%, var(--pb-surface-raised));
+}
+.sode__xi-remap:focus-within .sode__xi-name--cur {
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
+}
+.sode__xi-name:focus-visible {
+  outline: none;
+}
+.sode__xi-bulk {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  margin-bottom: var(--pb-space-3);
+}
+.sode__xi-help {
+  color: var(--pb-text-muted);
+  cursor: help;
+  display: inline-flex;
+}
+.sode__xi-help[data-pb-tip]::after {
+  white-space: normal;
+  width: 20rem;
+}
+.sode__xi-offline {
+  margin-bottom: var(--pb-space-2);
+}
 .sode__scrim > .sode__rv {
   width: 56rem;
 }

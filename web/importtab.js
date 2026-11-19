@@ -11,7 +11,7 @@ import * as R from './importrules.js';
 import { stillBroken } from './remaprules.js';
 import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
 import { browserPrefs, mergeByName } from './browserimport.js';
-import { setPref } from './device.js';
+import { fmtTime, setPref } from './device.js';
 import { localSets, normFilter, putLocalSets } from './filterstore.js';
 import { localPresets, putLocalPresets, storedPreset } from './presetstore.js';
 
@@ -157,7 +157,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     const row = el(
       'div',
       'sode__xi-item',
-      box(`item:${cat}:${it.key}`, it.name, ticked, false, !!c.refused, (on) => {
+      box(`item:${cat}:${it.key}`, it.name, ticked, false, !!c.refused || !!it.refused, (on) => {
         if (on) pick.items[cat].add(it.key);
         else pick.items[cat].delete(it.key);
         render();
@@ -211,7 +211,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
       });
       return lines.length ? [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list', ...lines)] : [];
     }
-    return remapView(remap, { off, onChange: () => render(), onRouter: () => load(file, true) });
+    return remapView(remap, { off, fmt: fmtTime, onChange: () => render(), onRouter: () => load(file, true) });
   }
 
   // A category of the file that only an Administrator imports, greyed.
@@ -366,7 +366,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   function goTo(uid, key) {
     if (remap.rowsBy[uid]?.some((x) => x.key === key && x.state === 'moved')) remap.open.add(uid);
     back();
-    const sel = [...panel.querySelectorAll('[data-row]')].find((x) => x.dataset.row === key)?.querySelector('select');
+    const sel = [...panel.querySelectorAll('[data-row], [data-term]')].find((x) => (x.dataset.row ?? x.dataset.term) === key)?.querySelector('select');
     sel?.scrollIntoView({ block: 'center' });
     sel?.focus();
   }

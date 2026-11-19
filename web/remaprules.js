@@ -121,3 +121,42 @@ export function usedBy(r) {
   if (r.users) parts.push(count(r.users, 'user'));
   return parts.length ? `used by ${parts.join(', ')}` : '';
 }
+
+// The note above a target's rows when its names are not a fresh read. fmt formats an ISO time.
+export function namesNote(t, fmt) {
+  if (t.noNames) return 'Sode has no names for this router yet. Items that hold references wait. Import them after Sode reads the names.';
+  const from = t.savedAt ? `the saved names table from ${fmt(t.savedAt)}` : t.namesAt ? `the names read at ${fmt(t.namesAt)}` : 'the last names read';
+  if (t.offline) return `The router is offline. Sode uses ${from}, and checks the imported items again when the router answers.`;
+  if (t.savedAt) return `Sode uses ${from} until it reads the router, then checks the imported items again.`;
+  return '';
+}
+
+// The bulk buttons. keys: the selected rows, or none for every row that needs a choice. suggest: Use all
+// suggestions. keepBlank: Keep numbers for all blank names. skip: Reset to Skip.
+export function bulk(rows, choices, action, keys) {
+  const on = rows.filter((r) => r.state !== 'as-is' && (keys?.size ? keys.has(r.key) : needsChoice(r)));
+  for (const r of on) {
+    if (action === 'skip') choices[r.key] = [];
+    else if (action === 'suggest' && r.suggestion !== undefined) choices[r.key] = [r.suggestion];
+    else if (action === 'keepBlank' && r.state === 'blank') choices[r.key] = [r.n];
+  }
+}
+
+// A picker value (skip, keep, suggest, all, n:<number>) on one row. With that row selected it goes to every
+// selected row where it applies. Keep number goes to blank rows, and a suggestion or Add both to rows that have
+// one. A number goes to rows of the same kind.
+export function applyChoice(rows, choices, key, value, keys) {
+  const row = rows.find((r) => r.key === key);
+  if (!row) return;
+  const on = keys?.has(key) ? rows.filter((r) => r.state !== 'as-is' && keys.has(r.key)) : [row];
+  for (const r of on) {
+    if (value === 'skip') choices[r.key] = [];
+    else if (value === 'keep') {
+      if (r.state === 'blank') choices[r.key] = [r.n];
+    } else if (value === 'suggest') {
+      if (r.suggestion !== undefined) choices[r.key] = [r.suggestion];
+    } else if (value === 'all') {
+      if (r.addBoth) choices[r.key] = [...r.candidates];
+    } else if (value.startsWith('n:') && r.kind === row.kind) choices[r.key] = [+value.slice(2)];
+  }
+}

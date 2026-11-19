@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -28,6 +29,31 @@ type remapRouter struct {
 	Default    string      `json:"default"`
 	Candidates []remapCand `json:"candidates"`
 	Refs       []remapRef  `json:"refs"`
+	// Names is the file's names table and Offset its shown number of source 0, for the filter term rows.
+	Names  *remapNames `json:"names,omitempty"`
+	Offset int         `json:"offset"`
+	Sets   []remapSet  `json:"sets,omitempty"`
+}
+
+type remapNames struct {
+	Sources      []namedItem `json:"sources"`
+	Destinations []namedItem `json:"destinations"`
+}
+
+// remapSet is a file filter set on the router. Key is what importReq.Filters takes: the owner's file user id
+// ("" for a shared set), "/" and the name.
+type remapSet struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+	User string `json:"user,omitempty"` // the owner's name
+	Src  string `json:"src"`
+	Dst  string `json:"dst"`
+}
+
+// remapFilter is the page's text for a set's sides; nil keeps the file's.
+type remapFilter struct {
+	Src *string `json:"src,omitempty"`
+	Dst *string `json:"dst,omitempty"`
 }
 
 // remapCand: Found of the file router's Total names are on the target (trailing spaces and case ignored).
@@ -55,6 +81,18 @@ type remapTarget struct {
 	Title        string      `json:"title"`
 	Sources      []namedItem `json:"sources"`
 	Destinations []namedItem `json:"destinations"`
+	Offset       int         `json:"offset"`
+	Offline      bool        `json:"offline,omitempty"`
+	// SavedAt: the names are the saved names table from then, since no read has finished since Sode started.
+	SavedAt time.Time `json:"savedAt,omitzero"`
+	NamesAt time.Time `json:"namesAt,omitzero"`
+	NoNames bool      `json:"noNames,omitempty"` // no names at all: items with references wait
+}
+
+// namesState is what the remap step tells about the live names.
+type namesState struct {
+	Offline          bool
+	SavedAt, NamesAt time.Time
 }
 
 func remapRefKey(router, kind string, n int) string {
@@ -185,7 +223,10 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 	}
 	live := p.live
 	liveTable := namesTable{Router: live.UID, Sources: tableList(src), Destinations: tableList(dst)}
-	info := &remapInfo{Targets: []remapTarget{{UID: live.UID, Title: cmp.Or(live.Title, live.Prefix), Sources: liveTable.Sources, Destinations: liveTable.Destinations}}}
+	ns := p.names
+	info := &remapInfo{Targets: []remapTarget{{UID: live.UID, Title: cmp.Or(live.Title, live.Prefix), Sources: liveTable.Sources,
+		Destinations: liveTable.Destinations, Offset: live.NumberOffset, Offline: ns.Offline, SavedAt: ns.SavedAt, NamesAt: ns.NamesAt,
+		NoNames: len(src) == 0 && len(dst) == 0}}}
 	liveNorm := map[string]map[string]bool{config.MissingSource: normSet(src), config.MissingDestination: normSet(dst)}
 
 	// Default targets: UID match first, then names-table hash, then the only router.
@@ -209,9 +250,14 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 		if !chosen {
 			target = defaults[r.UID]
 		}
-		rr := &remapRouter{UID: r.UID, Title: cmp.Or(r.Title, r.Prefix), Target: target, Default: defaults[r.UID], Refs: []remapRef{}}
+		rr := &remapRouter{UID: r.UID, Title: cmp.Or(r.Title, r.Prefix), Target: target, Default: defaults[r.UID], Refs: []remapRef{},
+			Offset: live.NumberOffset, Sets: p.remapSets(r.UID)}
+		if i := slices.IndexFunc(p.b.Routers, func(x config.Router) bool { return x.UID == r.UID }); i >= 0 {
+			rr.Offset = p.b.Routers[i].NumberOffset
+		}
 		found, total := 0, 0
 		if t, ok := p.b.Names[r.UID]; ok {
+			rr.Names = &remapNames{Sources: t.Sources, Destinations: t.Destinations}
 			for kind, l := range map[string][]namedItem{config.MissingSource: t.Sources, config.MissingDestination: t.Destinations} {
 				for _, x := range l {
 					if normName(x.Name) == "" {
@@ -293,19 +339,51 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 		}
 		return out
 	})
-	retarget := func(s *config.FilterSet) {
-		if rr := byRouter[s.Router]; rr != nil && rr.Target != "" {
-			s.Router = rr.Target
+	p.eachFileSet(func(key string, s *config.FilterSet) {
+		rr := byRouter[s.Router]
+		if rr == nil || rr.Target == "" {
+			return
 		}
-	}
+		s.Router = rr.Target
+		f := p.req.Filters[key]
+		for _, side := range []struct{ to, from *string }{{&s.Src, f.Src}, {&s.Dst, f.Dst}} {
+			if side.from == nil {
+				continue
+			}
+			if _, ok := filterTerms(*side.from); ok {
+				*side.to = *side.from
+			}
+		}
+	})
+}
+
+// eachFileSet calls fn on every filter set of the file with its remapSet key.
+func (p *importPlanner) eachFileSet(fn func(key string, s *config.FilterSet)) {
 	for i := range p.b.FilterSets {
-		retarget(&p.b.FilterSets[i])
+		fn("/"+p.b.FilterSets[i].Name, &p.b.FilterSets[i])
 	}
 	for i := range p.b.Users {
-		for j := range p.b.Users[i].Profile.FilterSets {
-			retarget(&p.b.Users[i].Profile.FilterSets[j])
+		u := &p.b.Users[i]
+		for j := range u.Profile.FilterSets {
+			fn(u.ID+"/"+u.Profile.FilterSets[j].Name, &u.Profile.FilterSets[j])
 		}
 	}
+}
+
+func (p *importPlanner) remapSets(uid string) []remapSet {
+	var out []remapSet
+	owner := map[string]string{}
+	for _, u := range p.b.Users {
+		owner[u.ID] = u.Name
+	}
+	p.eachFileSet(func(key string, s *config.FilterSet) {
+		if s.Router != uid {
+			return
+		}
+		user, _, _ := strings.Cut(key, "/")
+		out = append(out, remapSet{Key: key, Name: s.Name, User: owner[user], Src: s.Src, Dst: s.Dst})
+	})
+	return out
 }
 
 func normSet(m map[int]string) map[string]bool {

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -44,6 +45,8 @@ type importReq struct {
 	Routers map[string]string `json:"routers,omitempty"`
 	// Names: remapRef key → the target numbers it moves to. Two are Add both (destinations only); none is Skip.
 	Names map[string][]int `json:"names,omitempty"`
+	// Filters: remapSet key → the page's text for a set on a moved router, its number and range terms decided.
+	Filters map[string]remapFilter `json:"filters,omitempty"`
 }
 
 // importItem is one file item. Key is what pick and choices take. Users, presets and panels use the hidden
@@ -170,6 +173,9 @@ type importPlanner struct {
 	actor      string // the importing user's id; "" with no users
 	secure     bool
 	check      *refCheck
+	names      namesState
+	// waits: with no names at all, the items that hold references, by category and key, to their names.
+	waits      map[string]map[string]string
 	livePanels []Panel
 	removed    importRemovals
 	users      map[string]string // file user id → live id, "" when skipped
@@ -198,9 +204,9 @@ type importPlanner struct {
 func planImport(live config.Config, src, dst map[int]string, lv importLive, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
 	p := &importPlanner{
 		live: live, next: live.Clone(), b: b, req: req, actor: actor, secure: secure,
-		same:       b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID,
-		check:      &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
-		livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{},
+		same:  b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID,
+		check: &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
+		names: lv.Names, livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{},
 		icons: map[string]string{}, panelIDs: map[string]string{},
 		liveTemplates: lv.Templates, liveSets: lv.Sets, liveIcons: lv.Icons, liveDefaults: lv.Defaults, liveIconFile: lv.IconFile,
 	}
@@ -213,6 +219,9 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 	}
 	p.plan = importPlan{SameInstall: p.same, Categories: map[string]*importCat{}}
 	p.planRemap(src, dst)
+	if p.check.unknown {
+		p.waits = p.itemsWithRefs()
+	}
 	steps := []struct {
 		cat  string
 		keys []string
@@ -252,6 +261,15 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 			p.noAdmin = p.noAdmin || errors.Is(err, errNoAdministrator)
 			p.refused(s.cat)
 			continue
+		}
+		for _, key := range slices.Sorted(maps.Keys(p.waits[s.cat])) {
+			if p.wantedItem(s.cat, key) {
+				it := importItem{Key: key, Name: p.waits[s.cat][key], Refused: waitsForNames}
+				if s.cat == catPanels {
+					it.Kind = kindPanel
+				}
+				cat.Items = append(cat.Items, it)
+			}
 		}
 		p.next = cand
 		p.check.levels = cand.Levels
@@ -312,8 +330,44 @@ func (p *importPlanner) wanted(cat string) bool {
 }
 
 func (p *importPlanner) picked(cat, key string) bool {
+	if _, waits := p.waits[cat][key]; waits {
+		return false
+	}
+	return p.wantedItem(cat, key)
+}
+
+func (p *importPlanner) wantedItem(cat, key string) bool {
 	keys, some := p.req.Pick[cat]
 	return !some || slices.Contains(keys, key)
+}
+
+const waitsForNames = "it holds router references; import it after Sode reads the router names"
+
+// itemsWithRefs names the file's users, presets and panels that hold a source or destination reference.
+func (p *importPlanner) itemsWithRefs() map[string]map[string]string {
+	held := map[string]bool{}
+	refWalk(p.b, func(_ string, _ config.Ref, _ refUse, item string) []config.Ref {
+		held[item] = true
+		return nil
+	})
+	out := map[string]map[string]string{catUsers: {}, catPresets: {}, catPanels: {}}
+	for _, s := range p.b.Presets {
+		if held["/"+s.ID] {
+			out[catPresets][s.ID] = s.Name
+		}
+	}
+	for _, u := range p.b.Users {
+		key := cmp.Or(u.ID, u.Name)
+		if held["user/"+key] || slices.ContainsFunc(u.Profile.Presets, func(s config.Preset) bool { return held[u.ID+"/"+s.ID] }) {
+			out[catUsers][key] = u.Name
+		}
+	}
+	for _, fp := range p.b.Panels.Panels {
+		if held["panel/"+fp.ID] {
+			out[catPanels][fp.ID] = fp.Name
+		}
+	}
+	return out
 }
 
 // choice is the page's choice for a clashing item, when it is a valid one. Else a file from this install
@@ -530,10 +584,8 @@ func (p *importPlanner) checkedPresets(ps []config.Preset) []config.Preset {
 }
 
 func (p *importPlanner) planPresets(cand *config.Config, cat *importCat) error {
-	for _, s := range p.checkedPresets(p.b.Presets) {
-		if !p.picked(catPresets, s.ID) {
-			continue
-		}
+	picked := slices.DeleteFunc(slices.Clone(p.b.Presets), func(s config.Preset) bool { return !p.picked(catPresets, s.ID) })
+	for _, s := range p.checkedPresets(picked) {
 		fileID := s.ID
 		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
 		i := matchIdx(p.same, cand.Presets, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
