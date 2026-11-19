@@ -5,12 +5,12 @@ import { slots, summary, drops, slotFor, slotText, rangeFor, presetId, presetTex
 const MIN = 60_000,
   HOUR = 60 * MIN,
   DAY = 24 * HOUR;
-const colours = (d) => slots(d).map((s) => s.colour);
+const colors = (d) => slots(d).map((s) => s.color);
 // 4 hours in 1 hour slots, "now" at the end.
 const base = (over) => ({ start: 'up', trans: [], counts: [], from: 0, to: 4 * HOUR, slot: HOUR, now: 4 * HOUR, ...over });
 
 test('up all the time is green', () => {
-  assert.deepEqual(colours(base()), ['ok', 'ok', 'ok', 'ok']);
+  assert.deepEqual(colors(base()), ['ok', 'ok', 'ok', 'ok']);
 });
 
 test('down for a whole slot is red, part of one is yellow', () => {
@@ -21,7 +21,7 @@ test('down for a whole slot is red, part of one is yellow', () => {
     ],
   });
   // 0 ok, 1 half down, 2 down, 3 up
-  assert.deepEqual(colours(d), ['ok', 'warn', 'error', 'ok']);
+  assert.deepEqual(colors(d), ['ok', 'warn', 'error', 'ok']);
   assert.equal(slots(d)[1].upMs, 30 * MIN);
 });
 
@@ -32,24 +32,24 @@ test('failed or slow messages make an up slot yellow', () => {
       { i: 2, bad: 0, slow: 1 },
     ],
   });
-  assert.deepEqual(colours(d), ['ok', 'warn', 'warn', 'ok']);
+  assert.deepEqual(colors(d), ['ok', 'warn', 'warn', 'ok']);
 });
 
 test('nothing recorded yet is grey; the record starting mid-slot counts from there', () => {
   const d = base({ start: '', trans: [{ t: HOUR + 30 * MIN, s: 'up' }] });
-  assert.deepEqual(colours(d), ['none', 'ok', 'ok', 'ok']);
+  assert.deepEqual(colors(d), ['none', 'ok', 'ok', 'ok']);
   assert.equal(slots(d)[1].knownMs, 30 * MIN);
 });
 
 test('time to come is not drawn as down', () => {
   const d = base({ now: 2 * HOUR + 10 * MIN, trans: [{ t: 2 * HOUR + 5 * MIN, s: 'down' }] });
-  assert.deepEqual(colours(d), ['ok', 'ok', 'warn', 'future']);
+  assert.deepEqual(colors(d), ['ok', 'ok', 'warn', 'future']);
   assert.equal(slots(d)[2].knownMs, 10 * MIN);
 });
 
 test('state carries across slots with no change in them', () => {
   const d = base({ start: 'down', trans: [{ t: 3 * HOUR, s: 'up' }] });
-  assert.deepEqual(colours(d), ['error', 'error', 'error', 'ok']);
+  assert.deepEqual(colors(d), ['error', 'error', 'error', 'ok']);
 });
 
 test('Sode being off counts as down', () => {
@@ -60,7 +60,7 @@ test('Sode being off counts as down', () => {
       { t: 3 * HOUR + 1, s: 'up' },
     ],
   });
-  assert.deepEqual(colours(d).slice(0, 3), ['ok', 'error', 'error']);
+  assert.deepEqual(colors(d).slice(0, 3), ['ok', 'error', 'error']);
 });
 
 test('summary: rounds down, counts drops, and always has text', () => {

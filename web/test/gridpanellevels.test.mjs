@@ -55,7 +55,7 @@ test("a crosspoint's pie is the levels on which that destination has that source
   assert.deepEqual(pieOn(env, 3, 8), []);
 });
 
-test('each level has its own fixed slice of the pie, coloured only when on', () => {
+test('each level has its own fixed slice of the pie, colored only when on', () => {
   const levels = tallyReply().levels;
   assert.equal(
     pieFill(levels, [1, 3]),
