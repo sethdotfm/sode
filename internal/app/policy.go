@@ -167,6 +167,14 @@ var policy = map[string]rule{
 				a.serveProfileSave(c, m)
 			}()
 		}},
+	// Copy this browser to My user: the connection's own user only, checked in the handler.
+	"browserCopy": {crit: critNever, role: roleAnyone, op: "browserCopy", write: true,
+		handle: func(a *App, c *client, m *inMsg) {
+			go func() {
+				defer m.finish()
+				a.serveBrowserCopy(c, m)
+			}()
+		}},
 	"profileGet": {crit: critNever, role: config.RoleTrusted, op: "profileGet",
 		handle: func(a *App, c *client, m *inMsg) { a.serveProfileGet(c, m) }},
 	// A session token for the export routes (exportitems.go, ownexport.go), which take it in a header and check the Role. A Guest gets none (ExportSession).

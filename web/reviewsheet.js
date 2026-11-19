@@ -1,4 +1,5 @@
-// Review sheet: what an import would change, shown before anything is saved. Used by browsercopy.js.
+// Review sheet: what an import would change, shown before anything is saved. Used, with Me as the only target,
+// by browsercopy.js.
 // A save goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
 import { el, S, on, off, sentence } from './core.js';
@@ -12,6 +13,7 @@ import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.j
 import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
+import { toClear, moveText } from './browsercopyrules.js';
 
 // ---- the dialog
 
@@ -151,7 +153,9 @@ function plan() {
     if (!rs.length) continue;
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
     const incoming = rs.map((r) =>
-      kind === 'filter' ? { name: r.name, f: r.f } : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: true },
+      kind === 'filter'
+        ? { name: r.name, f: r.f }
+        : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: !st.copy || r.src.pinned !== false },
     );
     const choices = rs.map(choiceOf);
     const picks = rs.map((r, i) => {
@@ -334,7 +338,8 @@ function rowNode(r, i, choices) {
 
 function prefsNode() {
   const list = prefList();
-  if (!list.length) return null;
+  const only = st.copy ? st.doc.browserOnly || [] : [];
+  if (!list.length && !only.length) return null;
   const sc = prefTarget();
   const opts = forUser() ? [] : [['local', 'This browser']];
   if (profileName() || forUser()) opts.push(['user', forUser() ? `${st.user}’s profile` : 'Me']);
@@ -384,6 +389,19 @@ function prefsNode() {
       el('div', 'sode__rv-pick', pick),
     );
   });
+  for (const p of only) {
+    const label = fmt.PREF_LABELS[p.name] || p.name;
+    rows.push(
+      el(
+        'div',
+        'sode__rv-row is-skip',
+        el('div', 'sode__rv-in', el('strong', null, label), status('idle', 'This browser only')),
+        el('div', 'sode__rv-cur'),
+        el('div', 'sode__rv-pick'),
+      ),
+    );
+  }
+  if (st.copy) return el('div', 'sode__rv-sec', el('strong', null, 'This browser settings'), ...rows);
   const to = select('Settings go to', opts, sc, (v) => {
     st.prefsTo = v;
     render();
@@ -408,15 +426,18 @@ function render() {
   }
   if (!opts.some((o) => o[0] === st.scope)) st.scope = opts[0][0];
   const choices = st.rows.map(choiceOf);
+  if (st.copy) st.scope = 'user';
   const head = el('div', 'sode__rv-head', el('span', 'sode__label', 'Importing'), el('span', 'sode__label', 'Current'), el('span', 'sode__label', 'Do'));
-  targetBox.replaceChildren(
-    el('span', 'sode__label', 'Save to'),
-    select('Save to', opts, st.scope, (v) => {
-      st.scope = v;
-      gsave.cancel();
-      render();
-    }),
-  );
+  if (st.copy) targetBox.replaceChildren(keepSwitch());
+  else
+    targetBox.replaceChildren(
+      el('span', 'sode__label', 'Save to'),
+      select('Save to', opts, st.scope, (v) => {
+        st.scope = v;
+        gsave.cancel();
+        render();
+      }),
+    );
   noteTop.textContent = st.rows.some((r) => r.kind === 'filter')
     ? 'Filter expressions are copied as written. It is possible that source and destination numbers in them differ on this router. Check them after the import.'
     : '';
@@ -424,7 +445,9 @@ function render() {
   prefsBox.replaceChildren(...(pn ? [pn] : []));
   prefsBox.hidden = !pn;
   rowsBox.replaceChildren(
-    ...(st.rows.length ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))] : [el('span', 'sode__hint', 'Nothing to import in this file.')]),
+    ...(st.rows.length
+      ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))]
+      : [el('span', 'sode__hint', st.copy ? 'This browser has no filter sets or presets.' : 'Nothing to import in this file.')]),
   );
   refresh();
 }
@@ -450,7 +473,7 @@ function refresh() {
   const pn = Object.keys(p.prefs).length;
   if (pn) parts.push(`change ${pluralize(pn, 'setting')}`);
   sumEl.textContent = parts.length ? `Will ${parts.join(', ')}.` : 'Nothing will change.';
-  const nothing = !(add + rep + pn);
+  const nothing = !(add + rep + pn) && !(st.copy && !st.copy.keep && cleared(st.copy.keep));
   applyBtn.disabled = saving() || nothing || p.problems.length > 0;
   if (!saving()) {
     setNote(p.problems[0] || '', true);
@@ -484,6 +507,7 @@ function apply() {
   if (saving() || applyBtn.disabled) return;
   const p = plan();
   if (p.problems.length) return;
+  if (st.copy) return copyApply(p);
   const sc = scope();
   const done = () => finish(p);
   if (!Object.keys(p.parts).length) return done();
@@ -528,12 +552,66 @@ function apply() {
   else sendPresets();
 }
 
+// ---- Copy this browser to My user
+
+// What reached Me: prefs with their Import or Skip, and each row's choice (browsercopyrules.js toClear).
+function moved() {
+  const choices = st.rows.map(choiceOf);
+  return {
+    prefs: prefList()
+      .filter((p) => p.ok)
+      .map((p) => ({ name: p.name, on: st.prefOn[p.name] !== false })),
+    rows: st.rows.map((r, i) => ({ kind: r.kind, name: r.name, choice: choices[i], as: choices[i] === 'both' ? r.as || r.autoAs : '' })),
+  };
+}
+const cleared = (keep) => Object.values(toClear(moved(), keep)).some((l) => l.length);
+
+let keepBox = null;
+function keepSwitch() {
+  keepBox = el('input', 'pb-switch__input');
+  keepBox.type = 'checkbox';
+  keepBox.id = 'rv-keep';
+  keepBox.setAttribute('role', 'switch');
+  keepBox.checked = st.copy.keep;
+  keepBox.addEventListener('change', () => {
+    st.copy.keep = keepBox.checked;
+    applyBtn.textContent = st.copy.keep ? 'Copy' : 'Move';
+    refresh();
+  });
+  return el('label', 'pb-check', keepBox, el('span', 'pb-check__label', 'Keep on this browser'));
+}
+
+// The server writes the profile and one Settings saves row; the browser lets go only after that.
+function copyApply(p) {
+  const { send, clear, keep } = st.copy;
+  const m = moved();
+  const after = () => {
+    clear(m, keep);
+    const text = moveText(summaryText(p) === 'Nothing' ? 'This browser’s values' : summaryText(p), keep);
+    close();
+    showResult('ok', keep ? 'Copied' : 'Moved', text);
+  };
+  if (!Object.keys(p.parts).length) return after();
+  busy = true;
+  refresh();
+  setNote('Saving…');
+  send(p.parts).then((r) => {
+    busy = false;
+    if (!open) return;
+    if (r.ok) return after();
+    refresh();
+    setNote(sentence(r.err) || 'Not saved.', true);
+  });
+}
+
 // ---- open / close
 
 // Options: scope, user (review for that user's profile, saved by name), source (where it came from).
-export function openReview({ doc, scope: sc = 'local', user = '', source = '', title = 'Review import' }) {
+// copy: { send(parts), clear(moved, keep) } for Copy this browser to My user (browsercopy.js).
+export function openReview({ doc, scope: sc = 'local', user = '', source = '', title = 'Review import', copy = null }) {
   back = document.activeElement;
-  st = { doc, scope: sc, user, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {} };
+  st = { doc, scope: sc, user, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {}, copy: copy && { ...copy, keep: false } };
+  applyBtn.textContent = copy ? 'Move' : 'Apply';
   fetched = null;
   open = true;
   busy = false;
