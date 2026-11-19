@@ -140,6 +140,7 @@ type FilterSet struct {
 	Sode   bool           `yaml:"sode" json:"sode"`
 	Ext    bool           `yaml:"ext" json:"ext"`
 	Hidden bool           `yaml:"hidden,omitempty" json:"hidden"`
+	Broken []Missing      `yaml:"broken,omitempty" json:"broken,omitempty"`
 	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 

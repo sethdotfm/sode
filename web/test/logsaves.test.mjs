@@ -29,3 +29,18 @@ test('the summary counts fields and names the Critical mark, approver and preset
     '2 fields, Critical, approved by Ada, preset Secured',
   );
 });
+
+test('an import row reads as counts per category, never values', () => {
+  const im = {
+    mode: 'add',
+    categories: [
+      { category: 'presets', added: 2, updated: 1, broken: 1 },
+      { category: 'filterSets', kept: 3 },
+      { category: 'users', refused: true },
+    ],
+  };
+  assert.equal(
+    saveSummary({ fields: [], critical: true, import: im }),
+    'Add import: Presets 2 added, 1 updated, 1 Broken; Filter sets 3 kept; Users not imported, Critical',
+  );
+});

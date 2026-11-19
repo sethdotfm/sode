@@ -54,6 +54,7 @@ export const WHY_LABEL = {
   reload: 'Panel page reloaded',
   publicBack: 'Public panel page back',
   save: 'Settings saved',
+  import: 'Import',
   api: 'Settings saved through the API',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server', 'settings']);
