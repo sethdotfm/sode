@@ -373,13 +373,9 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if p.Type == panelTypeButtons {
 		p.Pages = a.refPages(p.Pages, cl.Actor.User)
 	}
-	// The client change goes first, since Sode can refuse it and a refused save must leave the panel as it was.
-	// So the store's own refusal is checked before it.
-	if a.panels.slugTaken(p.Slug, p.ID) {
-		a.panelStoreFail(w, errSlugTaken)
-		return
-	}
+	// The panel is written before the client changes: a removed client's keys cannot come back, a file can.
 	cur, had := clientOfPanel(a.r().cfg, old)
+	var putClient func() error
 	switch {
 	case actsHasClient(p.Acts):
 		var curRights *config.Rights
@@ -398,19 +394,16 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			curRights = nil
 		}
 		rights, changed, err := a.clientRightsFor(cl, want, curRights)
-		if err == nil && (!had || changed) {
-			err = a.putPanelClient(cl.Actor, p.ID, &rights, nil)
-		}
 		if err != nil {
 			failWith(w, err)
 			return
 		}
+		if !had || changed {
+			putClient = func() error { return a.putPanelClient(cl.Actor, p.ID, &rights, nil) }
+		}
 		p.Client = panelClientName(p.ID)
 	case had:
-		if err := a.putPanelClient(cl.Actor, p.ID, nil, nil); err != nil {
-			failWith(w, err)
-			return
-		}
+		putClient = func() error { return a.putPanelClient(cl.Actor, p.ID, nil, nil) }
 		p.Client = ""
 	default:
 		p.Client = ""
@@ -418,6 +411,15 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if _, err := a.panels.replaceBody(p); err != nil {
 		a.panelStoreFail(w, err)
 		return
+	}
+	if putClient != nil {
+		if err := putClient(); err != nil {
+			if _, rerr := a.panels.replaceBody(old); rerr != nil {
+				log.Printf("panels: %s not put back after a refused client change: %v", p.ID, rerr)
+			}
+			failWith(w, err)
+			return
+		}
 	}
 	// After the write: an ask that read the panel as Public before it would get a key that outlives the switch.
 	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
