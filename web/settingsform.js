@@ -19,6 +19,14 @@ const formMode = () => form.querySelector('input[name="lvlnum"]:checked')?.value
 const formLevels = () => Number($('cfg-levels').value);
 let shownMode = '1';
 
+// A computed rgb() color as #rrggbb.
+const rgbHex = (css) =>
+  '#' +
+  (css.match(/\d+/g) || [])
+    .slice(0, 3)
+    .map((c) => Number(c).toString(16).padStart(2, '0'))
+    .join('');
+
 // brandBorder is a color name or a custom #rrggbb; the select shows "custom" for the second and the color input holds it.
 const brandValue = () => ($('cfg-brandborder').value === 'custom' ? $('cfg-brandcustom').value : $('cfg-brandborder').value);
 
@@ -38,8 +46,12 @@ function fillBrandColors(v) {
   if (custom) $('cfg-brandcustom').value = v;
 }
 $('cfg-brandborder').addEventListener('change', () => {
+  const custom = $('cfg-brandborder').value === 'custom';
+  // Custom starts from the color shown before, not the input's black.
+  const was = rgbHex(getComputedStyle($('brand-swatch')).borderTopColor);
+  if (custom && /^#[0-9a-f]{6}$/.test(was)) $('cfg-brandcustom').value = was;
   renderBrandPreview();
-  if ($('cfg-brandborder').value !== 'custom') return;
+  if (!custom) return;
   try {
     $('cfg-brandcustom').showPicker();
   } catch {
@@ -145,15 +157,9 @@ function defaultHex(ui) {
   const probe = el('span');
   probe.style.color = `var(--pb-signal-${swatchOf(ui)})`;
   document.body.append(probe);
-  const rgb = getComputedStyle(probe).color.match(/\d+/g) || [];
+  const hex = rgbHex(getComputedStyle(probe).color);
   probe.remove();
-  return (
-    '#' +
-    rgb
-      .slice(0, 3)
-      .map((c) => Number(c).toString(16).padStart(2, '0'))
-      .join('')
-  );
+  return hex;
 }
 
 function preview(slot, ui, v) {
