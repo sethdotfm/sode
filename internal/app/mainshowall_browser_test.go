@@ -35,6 +35,17 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 	}
 	b.waitFor("fonts loaded", `document.fonts.status === 'loaded'`)
 	want := shown("with no destinations added")
+	// Ctrl+J and Ctrl+K open Show all in an empty box, as the arrows do.
+	for _, k := range []struct {
+		key, code string
+		vk        int
+	}{{"j", "KeyJ", 'J'}, {"k", "KeyK", 'K'}} {
+		b.eval(`document.getElementById('dst').focus(); true`)
+		realKeyMods(b, k.key, k.code, k.vk, modCtrl)
+		b.waitFor("Ctrl+"+k.key+" opens the destination list", `!document.getElementById('dst-menu').hidden`)
+		realKeyMods(b, "Escape", "Escape", 27, 0)
+		b.waitFor("destination list closed", `document.getElementById('dst-menu').hidden`)
+	}
 	added := 0
 	for _, n := range []int{3, 12} {
 		for ; added < n; added++ {
