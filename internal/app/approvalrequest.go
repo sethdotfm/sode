@@ -68,7 +68,7 @@ type approversMsg struct {
 	Administrator bool   `json:"administrator"`
 }
 
-var errNoApprover = errors.New("No one signed in can approve this")
+var errNoApprover = errors.New("no one signed in can approve this")
 
 // what each approvable action is called on a card
 var approvalWhat = map[string]string{"settingsSave": "Saving these changes", "clearHistory": "Clearing History"}
@@ -121,7 +121,7 @@ func (a *App) approvalAsk(c *client, act *inMsg, id int) error {
 	}
 	rl, ok := ruleOf(act.T)
 	if !ok || !rl.approvable {
-		return errors.New("Request approval does not cover this")
+		return errors.New("only a Settings save or Clear History can go through Request approval")
 	}
 	var changes []SavedField
 	var stops []string

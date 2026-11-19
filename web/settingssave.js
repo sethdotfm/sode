@@ -7,6 +7,7 @@ import { fmtTime } from './device.js';
 import { layout } from './layout.js';
 import { askRecheck } from './recheck.js';
 import { askApproval } from './approval.js';
+import { requesting, cancelRequest } from './approvalcards.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { askInterruptions, initInterruptions } from './interruptions.js';
@@ -29,6 +30,7 @@ let role = '';
 let me = ''; // who stages an edit now: the user, a stepped-in user included, else Guest
 let authors = new Map(); // stagedrules.js marks
 let seq = 0;
+let requested = null; // { id, sent, keys }: a save the server holds for Request approval.
 let pending = null; // { id, sent, retried, answer }; sent: key -> the value sent; answer: the Approval popup's
 
 function changes() {
@@ -222,11 +224,40 @@ function sendFields(keys, sent, retried, approval = null, answer = null) {
   return true;
 }
 
+// Request approval: an edit to what the request covers withdraws it, so no one approves something else.
+function withdrawIfEdited() {
+  if (!requested || !requesting()) return;
+  const now = valuesOf(requested.keys);
+  if (requested.keys.some((k) => JSON.stringify(now[k]) !== JSON.stringify(requested.sent[k]))) cancelRequest();
+}
+
+function requestFor(keys, sent) {
+  return {
+    action: () => {
+      const id = ++seq;
+      requested = { id, sent, keys, retried: true };
+      return { t: 'settingsSave', id, fields: fieldsOf(keys, sent) };
+    },
+    onEnd: (end) => {
+      if (end !== 'approved') requested = null;
+    },
+  };
+}
+
 function settingsSaveResult(m) {
+  if (requested && m.id === requested.id) {
+    const p = requested;
+    requested = null;
+    return void settled(m, p);
+  }
   if (!pending || m.id !== pending.id) return;
   const p = pending;
   pending = null;
   $('settings-save').disabled = false;
+  settled(m, p);
+}
+
+function settled(m, p) {
   if (p.answer && !m.results && m.approval) return void p.answer.fail(m.err);
   p.answer?.done();
   if (!m.results) return showSaveErr(sentence(m.err) || 'Not saved.');
@@ -267,7 +298,7 @@ function settingsSaveResult(m) {
   done(saved);
   if (approve.length && isOpen()) {
     const who = approvalWho(approve.map(sectionOf));
-    askApproval('Saving these changes', who, (ap, answer) => sendFields(approve, p.sent, true, ap, answer));
+    askApproval('Saving these changes', who, (ap, answer) => sendFields(approve, p.sent, true, ap, answer), requestFor(approve, p.sent));
   }
 }
 
@@ -326,6 +357,7 @@ export function initSave(toc) {
   for (const ev of ['input', 'change']) {
     form.addEventListener(ev, () => {
       noteEdits();
+      withdrawIfEdited();
       $('settings-err').hidden = true;
       if (refused.size) paintMarks();
       return warned() ? unwarn() : renderSaveState();
@@ -350,6 +382,7 @@ export function initSave(toc) {
   on('saveSourceChanged', () => {
     if (!isOpen()) return;
     noteEdits();
+    withdrawIfEdited();
     if (refused.size) paintMarks();
     return warned() ? unwarn() : renderSaveState();
   });

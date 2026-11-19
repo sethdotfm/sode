@@ -311,7 +311,7 @@ func TestRequestApprovalNeedsSomeoneSignedIn(t *testing.T) {
 	ana := dialPeer(t, a)
 	ana.signIn("Ana", "1234")
 	r := ana.askSave(7, map[string]any{"confirmLockoutMs": 900})
-	if r["ok"] == true || !strings.Contains(r["err"].(string), "No one signed in can approve this") {
+	if r["ok"] == true || !strings.Contains(r["err"].(string), "no one signed in can approve this") {
 		t.Fatalf("with nobody to approve: %v", r)
 	}
 	ada := approver(t, a, "Ada", "2468")

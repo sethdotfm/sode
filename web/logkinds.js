@@ -31,6 +31,7 @@ export const WHY_LABEL = {
   disconnect: 'WebSocket dropped',
   rereadNames: 'Re-read names',
   clearHistory: 'Clear history',
+  approvalRequest: 'Request approval',
   config: 'Settings saved',
   filterSets: 'Filter sets saved',
   presets: 'Presets saved',
