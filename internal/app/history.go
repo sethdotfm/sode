@@ -114,6 +114,11 @@ func OpenHistory(path string) (*History, error) {
 	if path == "" {
 		return h, nil
 	}
+	// A rewrite cut short by a kill leaves its temp file.
+	old, _ := filepath.Glob(path + ".tmp-*")
+	for _, p := range old {
+		os.Remove(p)
+	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
 	if err != nil {
 		return nil, err
