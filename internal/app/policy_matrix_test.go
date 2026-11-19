@@ -83,7 +83,7 @@ var policyExpect = map[string][nStates]error{
 	"stepIn": openRule, "stepOut": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
 	"myClients": openRule, "myClientSave": openRule, "myClientDelete": openRule, "myClientKey": openRule, "myClientKeyRevoke": openRule,
-	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,
+	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule, "browserCopy": openRule,
 	// the handlers refuse once set up; while setup is pending see TestSetupWizardAdmitsOnlySetupMessages
 	"setupClaim": openRule, "setupRouter": openRule, "setupFinish": openRule,
 

@@ -1,0 +1,1 @@
+- Settings > My user has Copy this browser to My user. It moves This browser's preferences, filter sets and presets to Me through the review, with a Keep on this browser switch. A copy writes one Settings saves row for that user. Guests do not see it.
