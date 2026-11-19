@@ -532,7 +532,7 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 		if !p.picked(catUsers, key) {
 			continue
 		}
-		fileID := u.ID
+		fileID := key
 		u.Rights = p.mapRightsPresets(u.Rights)
 		u.Profile.Presets = p.checkedPresets(u.Profile.Presets)
 		for i := range u.Profile.FilterSets {
@@ -849,7 +849,7 @@ func (p *importPlanner) shareNames(cfg config.Config, names []string) []string {
 	for _, n := range names {
 		i := slices.IndexFunc(p.b.Users, func(u config.User) bool { return strings.EqualFold(u.Name, n) })
 		if i >= 0 {
-			if id, ok := p.users[p.b.Users[i].ID]; ok {
+			if id, ok := p.users[cmp.Or(p.b.Users[i].ID, p.b.Users[i].Name)]; ok {
 				if u, found := cfg.FindUserByID(id); found {
 					out = append(out, u.Name)
 				}

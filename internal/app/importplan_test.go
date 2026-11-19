@@ -362,6 +362,27 @@ func TestAddImportUseNewPanelSlugTaken(t *testing.T) {
 	}
 }
 
+// Users with no id, as in a file written by hand, map one by one: an ownerless panel does not go to one of them.
+func TestAddImportUsersWithoutIDsKeepApart(t *testing.T) {
+	a, _, tok := importApp(t)
+	if _, err := a.panels.create(Panel{Name: "Desk", Rows: 1, Cols: 1}); err != nil {
+		t.Fatal(err)
+	}
+	pick := map[string][]string{catUsers: {userID(t, a, "Ana"), userID(t, a, "Bo")}}
+	files := map[string]string{}
+	for name, b := range unzipAll(t, foreign(t, exported(t, a, tok, exportReq{Categories: []string{catUsers, catPanels}, Pick: pick}))) {
+		files[name] = string(b)
+	}
+	files["users.yaml"] = regexp.MustCompile(`id: u-[0-9a-f]+\n\s*`).ReplaceAllString(files["users.yaml"], "")
+	b, _, tok2 := importApp(t)
+	dropUser(t, b, "Ana")
+	dropUser(t, b, "Bo")
+	applied(t, postApply(t, b, tok2, zipOf(t, files), importReq{Mode: importAdd}))
+	if ps := b.panels.list(); len(ps) != 1 || ps[0].Owner != userID(t, b, "Ada") {
+		t.Fatalf("panels: %+v", ps)
+	}
+}
+
 // A foreign panel shared with Bo follows the file's Bo, here renamed "Bo 2", never the live Bo. A public
 // panel waits while Public panels allowed is off, and says so.
 func TestAddImportPanelShareFollowsUsers(t *testing.T) {
