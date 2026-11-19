@@ -191,10 +191,7 @@ func TestHeldLockEndsWhenTheHolderChangesPin(t *testing.T) {
 	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	req := usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Pin: "4321", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}}
-	if err := saveUsers(a, admin, req); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "pin"): "4321"})
 	a.syncAccess(c)
 	st := lastLockState(t, read)
 	if st["held"] != nil || st["user"] != nil || c.who() != c.ip {

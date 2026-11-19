@@ -89,8 +89,8 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 			t.Errorf("%s admitted for a trusted user: %v", name, err)
 		}
 	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); !isRoleErr(err) {
-		t.Errorf("SaveUsers: %v", err)
+	if r := mustRefuse(t, a, c, map[string]any{ukey(a, "Bo", "name"): "Bob"}); r.Reason != reasonRole {
+		t.Errorf("users save: %+v", r)
 	}
 	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
@@ -165,11 +165,7 @@ func TestSaveUsersFlags(t *testing.T) {
 	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Role: config.RoleTrusted}, {ID: idOf(a, "Bo"), Name: "Bo", Persistent: new(true)},
-	}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "role"): config.RoleTrusted, ukey(a, "Bo", "persistent"): true})
 	u := a.r().cfg.Users
 	if u[0].Role != config.RoleTrusted || u[0].Persistent || u[1].Role != config.RoleStandard || !u[1].Persistent {
 		t.Fatalf("flags %+v", u)
@@ -245,9 +241,7 @@ func TestSessionTokenDies(t *testing.T) {
 			if err := a.UserUnlock(admin, "2468"); err != nil {
 				t.Fatal(err)
 			}
-			if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-				t.Fatal(err)
-			}
+			mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "remove"): true})
 		},
 		"Persistent unticked": func(t *testing.T, a *App) { setFlags(t, a, "Ana", false, false) },
 	} {
@@ -431,11 +425,8 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"},
-	}}); err != nil {
-		t.Fatal(err)
-	}
+	persist := map[string]any{ukey(a, "Ana", "persistent"): true}
+	mustSave(t, a, admin, persist)
 	tok := sessionSent(ana)
 	if tok == "" {
 		t.Fatal("Ana was not given a token")
@@ -448,11 +439,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	if !a.pageAllowed(fresh, gateMain) || fresh.who() != "Ana" {
 		t.Fatal("the pushed token does not log in")
 	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"},
-	}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, persist)
 	if sessionSent(ana) != "" || len(a.tokens.toks) != 1 {
 		t.Fatalf("a second token was issued (%d on file)", len(a.tokens.toks))
 	}

@@ -14,13 +14,7 @@ import (
 func sharedPinApp(t *testing.T) *App {
 	t.Helper()
 	a := userApp(t, true)
-	err := saveUsers(a, adminClient(t, a), usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana"},
-		{ID: idOf(a, "Bo"), Name: "Bo", Pin: "1234"},
-	}})
-	if err != nil {
-		t.Fatalf("a shared PIN was refused: %v", err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Bo", "pin"): "1234"})
 	return a
 }
 
@@ -155,12 +149,7 @@ func TestUsersSaveSendsAFreshHello(t *testing.T) {
 	a.mu.Lock()
 	a.clients[c] = struct{}{}
 	a.mu.Unlock()
-	err := saveUsers(a, adminClient(t, a), usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Anna"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Cy", Pin: "13579"},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Ana", "name"): "Anna", "user/new:0/add": newUser{Name: "Cy", Pin: "13579"}})
 	for {
 		select {
 		case b := <-c.send:

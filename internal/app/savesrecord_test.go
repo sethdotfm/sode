@@ -36,16 +36,11 @@ func adminSave(t *testing.T, a *App) string {
 	ana := idOf(a, "Ana")
 	p := dialPeer(t, a)
 	p.signInRechecked("Ada", "2468")
-	live := a.r().cfg
-	fields := map[string]fieldEdit{}
-	for k, v := range map[string]any{
+	r := p.saveLive(a, 1, map[string]any{
 		"brandText":            "Studio B",
 		"user/" + ana + "/pin": "9753",
 		"trustedProxies":       []string{"10.1.0.0/16"},
-	} {
-		fields[k] = fieldEdit{Value: jsonOf(v), Version: fieldVersion(live, k)}
-	}
-	r := p.ask("settingsSave", 1, map[string]any{"fields": fields})
+	})
 	for _, k := range []string{"brandText", "user/" + ana + "/pin", "trustedProxies"} {
 		wantSaved(t, r, k)
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -27,22 +26,6 @@ func setRole(t *testing.T, a *App, name, role string) {
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-}
-
-// Keeps Ada, the fixture Administrator, when a non-empty list leaves her out. Tests of the no-Administrator refusal call
-// SaveUsers.
-func saveUsers(a *App, c *client, req usersReq) error {
-	if ada, ok := a.r().cfg.FindUserByName("Ada"); ok && ada.Role == config.RoleAdministrator && len(req.Users) > 0 {
-		listed := false
-		for _, e := range req.Users {
-			listed = listed || e.ID == ada.ID || strings.EqualFold(e.Name, "Ada")
-		}
-		if !listed {
-			row := userEdit{ID: ada.ID, Name: ada.Name, Role: ada.Role}
-			req.Users = append(slices.Clone(req.Users), row)
-		}
-	}
-	return a.SaveUsers(c, req)
 }
 
 type wsPeer struct {
@@ -161,7 +144,10 @@ func TestTrustedUserIsRefusedAnAdministratorAction(t *testing.T) {
 		t.Fatalf("Trusted user presets: %v", r)
 	}
 	refusedForRole(t, "usersList", p.ask("usersList", 4, nil), config.RoleAdministrator)
-	refusedForRole(t, "users", p.askUsers(a, 5, map[string]any{}), config.RoleAdministrator)
+	bo := ukey(a, "Bo", "name")
+	if f := wantRefused(t, p.saveLive(a, 5, map[string]any{bo: "Bob"}), bo, reasonRole); !strings.Contains(f["err"].(string), config.RoleLabel(config.RoleAdministrator)) {
+		t.Fatalf("users: refusal does not name the Administrator: %v", f)
+	}
 	p.send(map[string]any{"t": "config", "config": map[string]any{"router": "10.9.9.9:8910"}})
 	refusedForRole(t, "router change", p.until("configResult"), config.RoleAdministrator)
 
@@ -201,19 +187,7 @@ func TestManageUsersSetsRoles(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
 	p.signInRechecked("Ada", "2468")
-	list := p.ask("usersList", 3, nil)
-	var rows []map[string]any
-	for _, u := range list["users"].([]any) {
-		row := u.(map[string]any)
-		edit := map[string]any{"id": row["id"], "name": row["name"], "role": row["role"]}
-		if row["name"] == "Bo" {
-			edit["role"] = config.RoleTrusted
-		}
-		rows = append(rows, edit)
-	}
-	if r := p.askUsers(a, 4, map[string]any{"users": rows}); r["ok"] != true {
-		t.Fatalf("save: %v", r)
-	}
+	wantSaved(t, p.saveLive(a, 4, map[string]any{ukey(a, "Bo", "role"): config.RoleTrusted}), ukey(a, "Bo", "role"))
 	cfg := a.r().cfg
 	if bo, _ := cfg.FindUserByName("Bo"); bo.Role != config.RoleTrusted {
 		t.Fatalf("Bo's role %q", bo.Role)
@@ -227,42 +201,23 @@ func TestManageUsersSetsRoles(t *testing.T) {
 	wantRefused(t, p.saveFields(6, map[string]any{"guestRole": config.RoleAdministrator}), "guestRole", reasonInvalid)
 }
 
-func usersEdits(cfg config.Config, roles map[string]string) []userEdit {
-	var out []userEdit
-	for _, u := range cfg.Users {
-		r := u.Role
-		if nr, ok := roles[u.Name]; ok {
-			r = nr
-		}
-		out = append(out, userEdit{ID: u.ID, Name: u.Name, Role: r})
-	}
-	return out
-}
-
 func TestSaveThatLeavesNoAdministratorIsRefused(t *testing.T) {
 	a := userApp(t, false)
 	ada := &client{ip: "10.0.0.9"}
 	if err := a.UserUnlock(ada, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	err := a.SaveUsers(ada, usersReq{Users: usersEdits(a.r().cfg, map[string]string{"Ada": config.RoleTrusted})})
-	if err == nil || !strings.Contains(err.Error(), "Administrator") {
-		t.Fatalf("demoting the last Administrator: %v", err)
+	if r := mustRefuse(t, a, ada, map[string]any{ukey(a, "Ada", "role"): config.RoleTrusted}); r.Err != errNoAdministrator.Error() {
+		t.Fatalf("demoting the last Administrator: %+v", r)
 	}
 	if u, _ := a.r().cfg.FindUserByName("Ada"); u.Role != config.RoleAdministrator {
 		t.Fatalf("saved anyway: %q", u.Role)
 	}
-	var keep []userEdit
-	for _, e := range usersEdits(a.r().cfg, nil) {
-		if e.Name != "Ada" {
-			keep = append(keep, e)
-		}
+	if r := mustRefuse(t, a, ada, map[string]any{ukey(a, "Ada", "remove"): true}); r.Err != errNoAdministrator.Error() {
+		t.Fatalf("removing the last Administrator: %+v", r)
 	}
-	if err := a.SaveUsers(ada, usersReq{Users: keep}); err == nil {
+	if _, ok := a.r().cfg.FindUserByName("Ada"); !ok {
 		t.Fatal("removing the last Administrator saved")
-	}
-	if err := a.SaveUsers(ada, usersReq{Users: []userEdit{}}); err == nil {
-		t.Fatal("removing every user saved")
 	}
 }
 
@@ -280,20 +235,24 @@ func TestConcurrentDemotionsKeepAnAdministrator(t *testing.T) {
 		if err := a.UserUnlock(bo, "567890"); err != nil {
 			t.Fatal(err)
 		}
-		cfg := a.r().cfg
 		var wg sync.WaitGroup
-		errs := make([]error, 2)
+		refused := make([]string, 2)
 		for i, x := range []struct {
 			c    *client
 			name string
 		}{{ada, "Bo"}, {bo, "Ada"}} {
+			kv := map[string]any{ukey(a, x.name, "role"): config.RoleStandard}
 			wg.Go(func() {
-				errs[i] = a.SaveUsers(x.c, usersReq{Users: usersEdits(cfg, map[string]string{x.name: config.RoleStandard})})
+				res, err := a.saveKeys(x.c, kv)
+				if err != nil {
+					t.Error(err)
+				}
+				refused[i], _ = firstRefused(res)
 			})
 		}
 		wg.Wait()
-		if (errs[0] == nil) == (errs[1] == nil) {
-			t.Fatalf("want exactly one save: %v / %v", errs[0], errs[1])
+		if (refused[0] == "") == (refused[1] == "") {
+			t.Fatalf("want exactly one save, refused: %q / %q", refused[0], refused[1])
 		}
 		if !a.r().cfg.HasAdministrator() {
 			t.Fatal("no Administrator left")

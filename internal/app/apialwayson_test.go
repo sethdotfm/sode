@@ -26,16 +26,14 @@ func TestKeylessScopesSaveFromAPISettingsWithRecheck(t *testing.T) {
 	defer startLog(t, a)()
 	p := dialPeer(t, a)
 	p.signIn("Ada", "2468")
-	scopes := map[string]any{"guestScopes": []string{config.ScopeNames, config.ScopeTake}}
-	needsRecheck(t, "keyless scopes", p.askAPI(a, 1, scopes))
+	scopes := map[string]any{"guestApiScopes": []string{config.ScopeNames, config.ScopeTake}}
+	wantRefused(t, p.saveLive(a, 1, scopes), "guestApiScopes", reasonRecheck)
 	passed(t, "recheck", p.recheck("2468"))
-	passed(t, "keyless scopes after a recheck", p.askAPI(a, 2, scopes))
+	wantSaved(t, p.saveLive(a, 2, scopes), "guestApiScopes")
 	if got := a.r().cfg.GuestAPIScopes; !slices.Equal(got, []string{config.ScopeNames, config.ScopeTake}) {
 		t.Fatalf("keyless scopes %v", got)
 	}
-	if r := p.askAPI(a, 3, map[string]any{"guestScopes": []string{"everything"}}); r["ok"] == true {
-		t.Fatal("an unknown scope saved")
-	}
+	wantRefused(t, p.saveLive(a, 3, map[string]any{"guestApiScopes": []string{"everything"}}), "guestApiScopes", reasonInvalid)
 	var whys []string
 	for _, e := range waitLogged(t, a, 1) {
 		whys = append(whys, e.Why)

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -30,16 +29,10 @@ func TestLocksAndNewUserDefaultsSaveAndAct(t *testing.T) {
 		t.Fatalf("Ana's name waits with Wait after wrong PINs off: %v", err)
 	}
 
+	allSaved(t, "add Cy and Di", p.saveLive(a, 3, map[string]any{
+		"user/new:0/add": map[string]any{"name": "Cy", "pin": "1357"},
+		"user/new:1/add": map[string]any{"name": "Di", "pin": "8642", "persistent": false, "noAutoLock": false}}))
 	cfg := a.r().cfg
-	rows := []any{}
-	for _, u := range cfg.Users {
-		rows = append(rows, map[string]any{"id": u.ID, "name": u.Name, "role": u.Role})
-	}
-	rows = append(rows,
-		map[string]any{"name": "Cy", "pin": "1357"},
-		map[string]any{"name": "Di", "pin": "8642", "persistent": false, "noAutoLock": false})
-	passed(t, "add Cy and Di", p.askUsers(a, 3, map[string]any{"users": rows}))
-	cfg = a.r().cfg
 	if cy, _ := cfg.FindUserByName("Cy"); !cy.Persistent || !cy.NoAutoLock {
 		t.Errorf("Cy, sent without either: Persistent %v, No auto-lock %v; want the New user defaults", cy.Persistent, cy.NoAutoLock)
 	}
@@ -47,31 +40,9 @@ func TestLocksAndNewUserDefaultsSaveAndAct(t *testing.T) {
 		t.Errorf("Di, sent with both off: Persistent %v, No auto-lock %v", di.Persistent, di.NoAutoLock)
 	}
 	setFlags(t, a, "Ana", false, true)
-	rows = rows[:0]
-	for _, u := range a.r().cfg.Users {
-		rows = append(rows, map[string]any{"id": u.ID, "name": u.Name, "role": u.Role})
-	}
-	passed(t, "save again", p.askUsers(a, 4, map[string]any{"users": rows}))
+	allSaved(t, "save again", p.saveLive(a, 4, map[string]any{ukey(a, "Ana", "name"): "Ana", ukey(a, "Ana", "role"): config.RoleStandard}))
 	if ana, _ := a.r().cfg.FindUserByName("Ana"); !ana.Persistent {
 		t.Error("a saved user sent without Persistent lost it")
-	}
-}
-
-// Locks owns Guest role: Sode tells a stale Manage users dialog that sends it to reload.
-func TestUsersSaveRefusesGuestRole(t *testing.T) {
-	a := userApp(t, false)
-	p := dialPeer(t, a)
-	p.signInRechecked("Ada", "2468")
-	rows := []any{}
-	for _, u := range a.r().cfg.Users {
-		rows = append(rows, map[string]any{"id": u.ID, "name": u.Name, "role": u.Role})
-	}
-	r := p.askUsers(a, 1, map[string]any{"users": rows, "guestRole": config.RoleTrusted})
-	if e, _ := r["err"].(string); r["ok"] == true || !strings.Contains(e, "Locks") {
-		t.Fatalf("want a refusal that names Locks: %v", r)
-	}
-	if a.r().cfg.GuestRole != config.RoleStandard {
-		t.Fatal("Guest role changed")
 	}
 }
 

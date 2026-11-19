@@ -50,9 +50,7 @@ func TestRevokedKeyAnswersKeyRevokedUncounted(t *testing.T) {
 func TestOwnerChangeEndsKeyAsRevoked(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	key := userKey(t, a, "Bo")
-	if err := saveUsers(a, adminClient(t, a), usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Bo", "remove"): true})
 	wantEndedUncounted(t, a, key, "key_revoked")
 }
 

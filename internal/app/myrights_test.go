@@ -17,13 +17,6 @@ func mrLast(msgs []map[string]any, typ string) map[string]any {
 	return out
 }
 
-func mrSet(t *testing.T, a *App, edits []userEdit) {
-	t.Helper()
-	if err := saveUsers(a, adminClient(t, a), usersReq{Users: edits}); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func mrJSON(m map[string]any) string {
 	b, _ := json.Marshal(m["rights"])
 	return string(b)
@@ -33,10 +26,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	a := keyTestApp(t)
 	srcs := *nums(7)
 	none := *nums()
-	mrSet(t, a, []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Sources: &srcs, Dsts: &none, Visibility: config.VisHidden}},
-		{ID: idOf(a, "Bo"), Name: "Bo"},
-	})
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Ana", "rights"): config.Rights{Sources: &srcs, Dsts: &none, Visibility: config.VisHidden}})
 
 	guest := &client{ip: "10.0.0.7"}
 	gnext := registerAll(a, guest)
@@ -64,7 +54,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	}
 
 	dsts := *nums(3)
-	mrSet(t, a, []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Dsts: &dsts}}, {ID: idOf(a, "Bo"), Name: "Bo"}})
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Ana", "rights"): config.Rights{Dsts: &dsts}})
 	m = mrLast(anext(), "myRights")
 	if m == nil {
 		t.Fatal("no myRights after the edit")

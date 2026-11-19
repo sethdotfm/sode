@@ -25,11 +25,10 @@ func presetID(t *testing.T, a *App, name string) string {
 func TestRightsSavedAsReferencesAdmitSameTakes(t *testing.T) {
 	a, f, key := takerApp(t, nil)
 	uid := a.r().cfg.UID
-	clients := a.r().cfg.Clone().APIClients
-	clients[0].Rights = config.Rights{Sources: nums(1), Dsts: nums(2)}
-	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: usersEdits(a.r().cfg, nil), APIClients: &clients, GuestRights: &config.Rights{Dsts: nums(2)}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{
+		"client/PanelsBot/rights": config.Rights{Sources: nums(1), Dsts: nums(2)},
+		"guestRights":             config.Rights{Dsts: nums(2)},
+	})
 	cfg := a.r().cfg
 	bot, _ := cfg.FindAPIClient("PanelsBot")
 	want := config.Ref{Router: uid, N: 1, Name: "CAM 1"}
@@ -56,9 +55,7 @@ func TestRightsKeepStoredNamesWithoutRouterNames(t *testing.T) {
 	a, _, _ := takerApp(t, func(c *config.Config) {
 		c.GuestRights = config.Rights{Sources: &[]config.Ref{{N: 40, Name: "OLD 41"}}}
 	})
-	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: usersEdits(a.r().cfg, nil), GuestRights: &config.Rights{Sources: nums(40, 41)}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{"guestRights": config.Rights{Sources: nums(40, 41)}})
 	got := *a.r().cfg.GuestRights.Sources
 	if len(got) != 2 || got[0].Name != "OLD 41" || got[1].Name != "" || got[1].Router != a.r().cfg.UID {
 		t.Fatalf("stored %+v", got)
@@ -71,11 +68,7 @@ func TestRenamedPresetKeepsWhoMayFireIt(t *testing.T) {
 		c.Presets = append(c.Presets, config.Preset{Name: "Other", Items: []config.PresetItem{presetItem(1, nil, 2)}})
 	})
 	studio := presetID(t, a, "Studio A")
-	clients := a.r().cfg.Clone().APIClients
-	clients[0].Rights = config.Rights{Presets: &[]string{studio}}
-	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: usersEdits(a.r().cfg, nil), APIClients: &clients}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{"client/PanelsBot/rights": config.Rights{Presets: &[]string{studio}}})
 	ps := config.ClonePresets(a.r().cfg.Presets)
 	for i := range ps {
 		if ps[i].ID == studio {

@@ -29,12 +29,7 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	ana := userKey(t, a, "Ana")
 	srcs := *nums(1, 2)
 	admin := adminClient(t, a)
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true), Rights: &config.Rights{Sources: &srcs}},
-		{ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
-	}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "rights"): config.Rights{Sources: &srcs}})
 	c := &client{ip: "10.0.0.1"}
 	register(a, c)
 	if err := a.UserUnlock(c, "1234"); err != nil {
@@ -56,11 +51,7 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	}
 	id := idOf(a, "Ana")
 
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: id, Name: "Anna", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted},
-	}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{"user/" + id + "/name": "Anna"})
 
 	fresh := &client{ip: "10.0.0.2"}
 	register(a, fresh)
@@ -86,8 +77,8 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 func TestUsersSaveRefusesBadNames(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
-	bo := userEdit{ID: idOf(a, "Bo"), Name: "Bo"}
-	for name, tc := range map[string]struct {
+	name := ukey(a, "Ana", "name")
+	for what, tc := range map[string]struct {
 		set, want string
 	}{
 		"25 runes":           {strings.Repeat("é", 25), "too long"},
@@ -95,15 +86,12 @@ func TestUsersSaveRefusesBadNames(t *testing.T) {
 		"same as Bo by case": {"BO", "two users are named"},
 		"blank":              {"  ", "needs a name"},
 	} {
-		err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: tc.set}, bo}})
-		if err == nil || !strings.Contains(err.Error(), tc.want) {
-			t.Errorf("%s: %v, want %q", name, err, tc.want)
+		if r := mustRefuse(t, a, admin, map[string]any{name: tc.set}); !strings.Contains(r.Err, tc.want) {
+			t.Errorf("%s: %+v, want %q", what, r, tc.want)
 		}
 	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "ANA"}, bo}}); err != nil {
-		t.Fatalf("a change of case only: %v", err)
-	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: "u-gone", Name: "Ana"}, bo}}); err == nil {
-		t.Fatal("a row for a user who is gone was saved")
+	mustSave(t, a, admin, map[string]any{name: "ANA"})
+	if r := mustRefuse(t, a, admin, map[string]any{"user/u-gone/name": "Ana"}); r.Err != errUserGone.Error() {
+		t.Fatalf("a user who is gone: %+v", r)
 	}
 }

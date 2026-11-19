@@ -436,27 +436,23 @@ func TestOpenAPIDocumentsEveryRoute(t *testing.T) {
 func TestAPISettingsMessage(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
-	c := &client{ip: "10.0.0.9"}
-	if err := a.SaveAPISettings(c, apiSettingsReq{GuestEnabled: apiPtr(true)}); err == nil {
-		t.Fatal("saved by a Guest")
+	api := func(edit func(*config.APISettings)) map[string]any {
+		s := a.r().cfg.API
+		edit(&s)
+		return map[string]any{"api": s}
 	}
-	c = adminClient(t, a)
-	if err := a.SaveAPISettings(c, apiSettingsReq{RateLimit: apiPtr(50), GuestEnabled: apiPtr(true), LogReads: apiPtr(true)}); err != nil {
-		t.Fatal(err)
-	}
+	mustRefuse(t, a, &client{ip: "10.0.0.9"}, api(func(s *config.APISettings) { s.GuestEnabled = true }))
+	c := adminClient(t, a)
+	mustSave(t, a, c, api(func(s *config.APISettings) { s.RateLimit, s.GuestEnabled, s.LogReads = 50, true, true }))
 	got := a.r().cfg.API
 	if got.RateLimit != 50 || !got.GuestEnabled || !got.LogReads || got.TakeCap != config.DefaultTakeCap {
 		t.Fatalf("settings %+v", got)
 	}
-	if err := a.SaveAPISettings(c, apiSettingsReq{TakeCap: apiPtr(0)}); err == nil {
-		t.Error("take cap 0 accepted")
-	}
+	mustRefuse(t, a, c, api(func(s *config.APISettings) { s.TakeCap = 0 }))
 	if a.r().cfg.API.TakeCap != config.DefaultTakeCap {
 		t.Error("refused save changed settings")
 	}
-	if err := a.SaveAPISettings(c, apiSettingsReq{LogReads: apiPtr(false)}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, c, api(func(s *config.APISettings) { s.LogReads = false }))
 	var whys []string
 	for _, e := range waitLogged(t, a, 4) {
 		if e.Kind == kindAPI {
@@ -469,8 +465,6 @@ func TestAPISettingsMessage(t *testing.T) {
 		}
 	}
 }
-
-func apiPtr[T any](v T) *T { return &v }
 
 func apiHas(l []string, s string) bool {
 	for _, v := range l {

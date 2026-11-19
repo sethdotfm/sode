@@ -153,41 +153,22 @@ func TestPanelClientAdminWidens(t *testing.T) {
 	}
 
 	admin := adminClient(t, a)
-	widened := *shown
-	widened.Rights = config.Rights{Sources: nums(1, 50)}
-	// It is possible that the page drops the panel link. The save still treats the client as the panel's, and
-	// leaving a panel client out never removes it.
-	widened.Panel = ""
-	clients := []config.APIClient{widened}
-	for _, c := range list {
-		if c.Panel == "" {
-			clients = append(clients, c)
-		}
-	}
-	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted}}
-	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &clients}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{"client/" + name + "/rights": config.Rights{Sources: nums(1, 50)}})
 	cl, _ := clientOf(t, a, name)
 	if cl.Panel != id || !refsAre(cl.Rights.Sources, 1, 50) {
 		t.Fatalf("after widening: %+v", cl)
 	}
-	none := []config.APIClient{}
-	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &none}); err != nil {
-		t.Fatal(err)
-	}
+	// A panel client goes with its panel, never from Manage users.
+	mustRefuse(t, a, admin, map[string]any{"client/" + name + "/remove": true})
 	if _, ok := clientOf(t, a, name); !ok {
-		t.Fatal("an admin save without the panel client removed it")
+		t.Fatal("an admin save removed the panel client")
 	}
 	// Widened past the creator, a plain re-save of the panel is not blocked.
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, key, apiPanel+`}`); rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	// Sode refuses a second client of that name.
-	dup := []config.APIClient{{Name: name, Scopes: []string{}}}
-	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &dup}); err != nil {
-		t.Fatal(err)
-	}
+	mustRefuse(t, a, admin, map[string]any{"client/" + name + "/add": newClient{Scopes: []string{}}})
 	if n := 0; true {
 		for _, c := range a.r().cfg.APIClients {
 			if strings.EqualFold(c.Name, name) {
@@ -348,10 +329,7 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 
 	admin := adminClient(t, a)
 	narrow := config.Rights{Sources: nums(1), Dsts: nums(2, 4)}
-	users := []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {ID: idOf(a, "Cy"), Name: "Cy", Role: config.RoleTrusted, Rights: &narrow}}
-	if err := saveUsers(a, admin, usersReq{Users: users}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Cy", "rights"): narrow})
 	for _, u := range a.usersList(&client{}, 2).Users {
 		if u.Name == "Cy" && (len(u.PanelClients) != 1 || !u.PanelClients[0].Wider) {
 			t.Fatalf("after narrowing: %+v", u.PanelClients)

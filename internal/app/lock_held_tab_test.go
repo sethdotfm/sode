@@ -95,9 +95,7 @@ func TestRenameKeepsPersistentSession(t *testing.T) {
 	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Anna", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "name"): "Anna"})
 	fresh := &client{ip: "10.0.0.2"}
 	register(a, fresh)
 	a.Hi(fresh, "main", tok)

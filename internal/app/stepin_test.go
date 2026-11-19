@@ -381,32 +381,21 @@ func TestStepOutAfterTheOriginalSignedOutUnderAPageLock(t *testing.T) {
 func TestStepInEndsOnASaveThatChangesTheUser(t *testing.T) {
 	for _, tc := range []struct {
 		what string
-		edit func(a *App) []userEdit
+		attr string
+		to   any
 		ends bool
 	}{
-		{"delete", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}}
-		}, true},
-		{"rename", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bob", Role: config.RoleTrusted}}
-		}, true},
-		{"PIN reset", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo", Pin: "222222", Role: config.RoleTrusted}}
-		}, true},
-		{"Role lowered", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}
-		}, true},
-		{"Persistent", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo", Role: config.RoleTrusted, Persistent: new(true)}}
-		}, false},
+		{"delete", "remove", true, true},
+		{"rename", "name", "Bob", true},
+		{"PIN reset", "pin", "222222", true},
+		{"Role lowered", "role", config.RoleStandard, true},
+		{"Persistent", "persistent", true, false},
 	} {
 		t.Run(tc.what, func(t *testing.T) {
 			a, c, read, _ := stepApp(t)
 			setFlags(t, a, "Bo", true, false)
 			mustStepIn(t, a, c, read, "Bo", "567890")
-			if err := saveUsers(a, adminClient(t, a), usersReq{Users: tc.edit(a)}); err != nil {
-				t.Fatal(err)
-			}
+			mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Bo", tc.attr): tc.to})
 			if steppedIn(a, c) == tc.ends {
 				t.Fatalf("stepped in after the save: %v", steppedIn(a, c))
 			}

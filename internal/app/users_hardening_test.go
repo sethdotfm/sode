@@ -63,12 +63,8 @@ func TestRevocationIsDurable(t *testing.T) {
 		if err := a.UserUnlock(admin, "2468"); err != nil {
 			t.Fatal(err)
 		}
-		if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-			t.Fatal(err)
-		}
-		if err := saveUsers(a, admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
-			t.Fatal(err)
-		}
+		mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "remove"): true})
+		mustSave(t, a, admin, map[string]any{"user/new:0/add": newUser{Name: "Ana", Pin: "1234", Persistent: new(true)}})
 		if tokenAlive(a, tok) {
 			t.Fatal("token revived by a new user of the same name")
 		}
