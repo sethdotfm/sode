@@ -73,7 +73,7 @@ type importPlan struct {
 	SameInstall bool                  `json:"sameInstall"`
 	Critical    bool                  `json:"critical"`
 	Categories  map[string]*importCat `json:"categories"`
-	Remap *remapInfo `json:"remap,omitempty"`
+	Remap       *remapInfo            `json:"remap,omitempty"`
 }
 
 // plannedPanel is a panel write that waits for the config commit. Live is the panel it replaces, if any.
