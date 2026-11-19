@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Retention of the Settings saves record and the uptime graph (spec #543): whichever comes first.
+// Retention of the Settings saves record and the uptime graph: whichever limit comes first.
 const (
 	keepAge   = 365 * 24 * time.Hour
 	keepBytes = 5 << 20
@@ -18,8 +18,7 @@ const (
 
 const kindSettings = "settings" // a Settings save; Seq is its anchor, ID its own number
 
-// SettingsSave: one save. Preset: the Access preset staged into it (accesspreset.go).
-// Interruptions: the review's lines at save time (interruptions.go).
+// Preset: the Access preset staged into the save. Interruptions: the review's lines at save time.
 type SettingsSave struct {
 	Fields        []SavedField `json:"fields"`
 	Approver      string       `json:"approver,omitempty"`
@@ -48,9 +47,8 @@ type SavedField struct {
 	Note      string            `json:"note,omitempty"`
 }
 
-// SaveLog: the Settings saves record, its own JSONL file so it keeps keepAge apart from the
-// Communication Log's size cap. All of it fits in memory. Seq on a row is the Communication
-// Log seq that came next when it was written; the Log merges rows by it (docs/agents/comm-log.md).
+// Its own JSONL file, so keepAge applies apart from the Communication Log's size cap. Seq is the next Communication Log
+// seq at write time; the Log merges rows by it (docs/agents/comm-log.md).
 type SaveLog struct {
 	mu       sync.Mutex
 	path     string
@@ -109,8 +107,7 @@ func (l *SaveLog) push(e Sent, n int) {
 // again on every append.
 func lowWater(capBytes int) int { return capBytes * 4 / 5 }
 
-// prune drops rows past keepAge and, over the cap, the oldest down to lowWater. Caller holds mu
-// or owns l.
+// Caller holds mu or owns l.
 func (l *SaveLog) prune() bool {
 	cut := l.now().Add(-keepAge)
 	i := sort.Search(len(l.rows), func(i int) bool { return l.rows[i].Time.After(cut) })
@@ -143,8 +140,7 @@ func (l *SaveLog) rewrite() error {
 	return replaceFile(l.path, b)
 }
 
-// Append numbers e and writes it. Over the cap or past keepAge, the file is written again
-// without the oldest rows.
+// Over the cap or past keepAge, the file is written again without the oldest rows.
 func (l *SaveLog) Append(e *Sent) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()

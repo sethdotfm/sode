@@ -104,7 +104,7 @@ func (d *yamlDir[T]) insert(v T, limit int, full error, vet func(T) error, save 
 	return v, nil
 }
 
-// insertAs is insert, but v keeps its own id when it has one nobody holds. Callers check the id's form.
+// Callers check the id's form.
 func (d *yamlDir[T]) insertAs(v T, limit int, full error, vet func(T) error, save func(*T) error) (T, error) {
 	var zero T
 	d.mu.Lock()
@@ -127,7 +127,7 @@ func (d *yamlDir[T]) insertAs(v T, limit int, full error, vet func(T) error, sav
 	return v, nil
 }
 
-// putLocked stores v over the record of its id. A record that moves to another file leaves the old one.
+// A record that moves to another file leaves the old one.
 func (d *yamlDir[T]) putLocked(v T) error {
 	old, had := d.by[*d.idOf(&v)]
 	if err := d.writeLocked(v); err != nil {

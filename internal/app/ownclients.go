@@ -141,7 +141,7 @@ func ownClientRights(u config.User, want, stored *config.Rights) (config.Rights,
 	}
 	r := clean(*want)
 	if !r.Within(u.Rights) {
-		return config.Rights{}, errors.New("an API client's Rights must be within your own; an Administrator gives wider Rights in Settings")
+		return config.Rights{}, errors.New("an API client's Rights must not be wider than yours")
 	}
 	return r, nil
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -158,7 +159,7 @@ func userSpec(id, attr string) (fieldSpec, bool) {
 		s.set = edit(func(u *config.User, v json.RawMessage, _ *saveCtx) error {
 			r, err := decodeJSON[string](v)
 			// A PIN needed user keeps the flag only at a Role no higher than before.
-			u.PinNeeded = u.PinNeeded && config.RoleAtLeast(u.Role, cmpOr(r, config.RoleStandard))
+			u.PinNeeded = u.PinNeeded && config.RoleAtLeast(u.Role, cmp.Or(r, config.RoleStandard))
 			u.Role = r
 			return err
 		})
@@ -208,7 +209,7 @@ func userSpec(id, attr string) (fieldSpec, bool) {
 				c.Users = slices.Delete(slices.Clone(c.Users), i, i+1)
 			}
 			if len(c.Users) == 0 && c.Locks.Any() {
-				return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
+				return errors.New("a page lock is on: turn it off in Settings > Access before you remove the last user")
 			}
 			return nil
 		}
@@ -218,13 +219,6 @@ func userSpec(id, attr string) (fieldSpec, bool) {
 	return s, true
 }
 
-func cmpOr(s, def string) string {
-	if s == "" {
-		return def
-	}
-	return s
-}
-
 func hashNewPin(x *saveCtx, key, pin string, maxLen int) (string, error) {
 	if err := config.CheckUserPinRules(pin, maxLen); err != nil {
 		return "", err
@@ -232,7 +226,6 @@ func hashNewPin(x *saveCtx, key, pin string, maxLen int) (string, error) {
 	return x.once(key, func() (string, error) { return config.HashPin(pin) })
 }
 
-// newUser: what an add key carries.
 type newUser struct {
 	Name string `json:"name"`
 	Pin  string `json:"pin"`

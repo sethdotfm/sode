@@ -48,7 +48,7 @@ func TestStandardUserMakesAPIClientWithinOwnRights(t *testing.T) {
 
 	wide := config.Rights{Sources: nums(1, 3), Dsts: nums(2)}
 	r := saveOwn(t, a, c, next, myClientReq{Name: "Ana wide", Scopes: []string{}, Rights: &wide})
-	if r["ok"] != false || !strings.Contains(r["err"].(string), "Settings") {
+	if r["ok"] != false || !strings.Contains(r["err"].(string), "wider than yours") {
 		t.Fatalf("wider Rights: %v", r)
 	}
 	if r := saveOwn(t, a, c, next, myClientReq{Name: "Ana log", Scopes: []string{config.ScopeLog}}); r["ok"] != false {

@@ -160,7 +160,7 @@ func (a *App) serveKeyListAll(c *client, m *inMsg) {
 	a.reply(c, keyListMsg{T: "keyListAllResult", ID: m.ID, OK: true, Keys: withLiveNames(a.r().cfg, a.keys.list())})
 }
 
-// CreateKeyFor makes a key for an API client or another user; Administrator only.
+// CreateKeyFor makes a key for an API client or another user.
 func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int64) (string, apiKey, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -181,7 +181,7 @@ func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int6
 			return "", apiKey{}, errors.New("no such user")
 		}
 		if !u.HasPin() {
-			return "", apiKey{}, fmt.Errorf("%s has no PIN, so holds no API keys: give them a PIN first", u.Name)
+			return "", apiKey{}, fmt.Errorf("%s has no PIN: set one first", u.Name)
 		}
 		o, max, fp = userOwner(u), userKeyMax, pinFP(u.Pin)
 	case actorClient:
@@ -205,7 +205,6 @@ func (a *App) serveKeyCreateFor(c *client, m *inMsg) {
 	a.replyKeyCreate(c, "keyCreateForResult", m.ID, secret, rec, err)
 }
 
-// RevokeKeys ends the keys match picks; Administrator only.
 func (a *App) RevokeKeys(c *client, match func(keyRec) bool) ([]apiKey, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

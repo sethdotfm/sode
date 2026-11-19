@@ -18,9 +18,7 @@ const (
 	MaxPresetsBytes = 48 << 10
 )
 
-// Items hold router references; Name in a reference is the name at save time, kept for import
-// and Broken checks. Empty Levels means the default levels. ID is hidden and survives a rename,
-// so other items name a preset by it.
+// Reference names are the names at save time, for import and Broken checks. ID survives a rename.
 type Preset struct {
 	ID    string       `yaml:"id" json:"id"`
 	Name  string       `yaml:"name" json:"name"`
@@ -60,7 +58,6 @@ func ClonePresets(in []Preset) []Preset {
 	return out
 }
 
-// DstNs lists the destination numbers.
 func (it PresetItem) DstNs() []int {
 	out := make([]int, len(it.Dsts))
 	for i, d := range it.Dsts {
@@ -74,8 +71,7 @@ func (c *Config) normalizePresets() {
 	c.Presets = normalizePresets(c.Presets, c.UID)
 }
 
-// router fills blank item routers: with one router a blank one means it. Blank or repeated ids
-// get a new one, so a list never names two presets by one id.
+// Blank or repeated ids get a new one, so a list never names two presets by one id.
 func normalizePresets(ps []Preset, router string) []Preset {
 	if ps == nil {
 		return []Preset{}

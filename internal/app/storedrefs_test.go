@@ -47,7 +47,6 @@ func hasNumber(v any) bool {
 	return false
 }
 
-// bareNumbers lists the paths in v that hold a source, destination or level number with no router.
 func bareNumbers(v any, path string, routed bool) []string {
 	var out []string
 	switch x := v.(type) {
@@ -74,7 +73,6 @@ func bareNumbers(v any, path string, routed bool) []string {
 	return out
 }
 
-// normal turns YAML's map[string]any and ints into JSON's shapes.
 func normal(t *testing.T, v any) any {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -86,7 +84,7 @@ func normal(t *testing.T, v any) any {
 	return out
 }
 
-// storedValues reads every YAML, JSON and JSON Lines file under dir, so a store added later is checked too.
+// Reads every file under dir, so a store added later is checked too.
 func storedValues(t *testing.T, dir string) map[string]any {
 	t.Helper()
 	out := map[string]any{}
@@ -207,7 +205,6 @@ func TestStoresHoldNoBareNumbers(t *testing.T) {
 	}
 }
 
-// The walker finds what it is meant to find.
 func TestBareNumbersFindsNumbersWithNoRouter(t *testing.T) {
 	var v any
 	json.Unmarshal([]byte(`{"items":[{"src":4,"dsts":[{"n":1}]}],"rights":{"sources":[{"router":"u","n":1}],"levels":[1]},

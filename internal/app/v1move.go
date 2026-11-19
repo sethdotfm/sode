@@ -20,11 +20,7 @@ var v1Names = []string{
 	"history.jsonl", "sent.jsonl", "uptime.jsonl",
 }
 
-// MoveV1Files moves a v1 install's files into a v1 directory beside the config, so v2 starts as a
-// fresh install. It does nothing unless cfgPath holds a config with no format marker. logs are
-// the History, Communication Log and uptime paths (empty ones are skipped). It returns the
-// directory, or "" when nothing moved. Only names Sode writes move: the config's directory can hold
-// other files when SODE_CONFIG is not /data/config.yaml.
+// Only names Sode writes move: the config's directory can hold other files when SODE_CONFIG is not /data/config.yaml.
 func MoveV1Files(cfgPath string, logs ...string) (string, error) {
 	if cfgPath == "" {
 		return "", nil
@@ -74,7 +70,6 @@ func MoveV1Files(cfgPath string, logs ...string) (string, error) {
 	return dst, nil
 }
 
-// sodeFile matches a name and its side files: name.prev, name.tmp, sent.1.jsonl.
 func sodeFile(entry string, names []string) bool {
 	for _, n := range names {
 		stem := strings.TrimSuffix(n, filepath.Ext(n))

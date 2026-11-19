@@ -59,6 +59,20 @@ func swapApp(t *testing.T) (*App, string) {
 	return a, uid
 }
 
+// A Request approval card shows the staged Swap with every count, panels too, and writes nothing.
+func TestSwapShowsOnApprovalCard(t *testing.T) {
+	a, _ := swapApp(t)
+	req, _ := json.Marshal(swapReq{Side: config.MissingDestination, From: 22, To: 39,
+		Items: []string{"preset/everyone/p1", "panel/" + panelNamed(t, a, "Ana desk").ID}})
+	ch, _ := a.askChanges(map[string]fieldEdit{swapKey: {Value: req}}, config.RoleAdministrator)
+	if len(ch) != 1 || ch[0].Key != swapKey || string(ch[0].New) != `{"Ana":1,"Everyone":1}` {
+		t.Fatalf("card changes: %+v", ch)
+	}
+	if dstCellN(panelNamed(t, a, "Ana desk")) != 22 {
+		t.Fatal("the card wrote the panel")
+	}
+}
+
 func swapItems(t *testing.T, r map[string]any) map[string]map[string]any {
 	t.Helper()
 	if r["ok"] != true {
@@ -94,7 +108,6 @@ func swapProfile(a *App, name string) config.Profile {
 	return u.Profile
 }
 
-// The acceptance check: swapping destination 23 for 40 updates every ticked item and nothing else.
 func TestSwapDestinationUpdatesEveryTickedItem(t *testing.T) {
 	a, uid := swapApp(t)
 	defer startLog(t, a)()
@@ -185,7 +198,6 @@ func mapsEqual(a, b map[string]int) bool {
 	return true
 }
 
-// A Standard user's Swap from My user touches only their own items, whatever ids it sends.
 func TestSwapMineTouchesOnlyOwnItems(t *testing.T) {
 	a, uid := swapApp(t)
 	defer startLog(t, a)()
@@ -228,7 +240,6 @@ func TestSwapMineTouchesOnlyOwnItems(t *testing.T) {
 	if bo.Presets[0].Items[0].Dsts[0].N != 39 || bo.FilterSets[0].Dst != `"MON 40"` || dstCellN(panelNamed(t, a, "Bo desk")) != 39 {
 		t.Errorf("Bo's own items not swapped: %+v %q", bo.Presets[0].Items[0].Dsts, bo.FilterSets[0].Dst)
 	}
-	// The one Save's Swap is an Administrator action.
 	sv := p.ask("settingsSave", 4, map[string]any{"fields": map[string]any{
 		"swap": map[string]any{"value": map[string]any{"router": uid, "side": "destination", "from": 22, "to": 39, "items": ids}},
 	}})
@@ -246,8 +257,7 @@ func TestSwapSourceFilterNumberTermsUseShownNumbers(t *testing.T) {
 	}
 }
 
-// A Grid panel's destinations edge and fixed destinations swap too. Settings already held for To stay, and the list
-// does not change the stored panel.
+// The stored panel keeps its list; only the edge and fixed destinations change.
 func TestSwapGridEdgeAndFixedDestinations(t *testing.T) {
 	a, uid := swapApp(t)
 	ref := func(n int, name string) config.Ref { return config.Ref{Router: uid, N: n, Name: name} }
@@ -301,7 +311,6 @@ func TestSwapSourceChangesPresetSource(t *testing.T) {
 	if !sw.preset(&p) || p.Items[0].Src.N != 4 || p.Items[0].Src.Name != "CAM 5" || p.Items[0].Dsts[0].N != 0 || len(p.Moved) != 0 {
 		t.Fatalf("preset = %+v", p)
 	}
-	// Name moved: the stored name CAM 5 is already at To.
 	sw.fromNames = append(sw.fromNames, "CAM 5")
 	s := config.FilterSet{Src: `"cam 5"`}
 	if sw.filterSet(&s) {

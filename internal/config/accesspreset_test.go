@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// The values are the table in the spec (#543, Access presets), typed out here, not read from the code.
+// Typed out from the Access presets table, not read from the code.
 func TestAccessPresetValues(t *testing.T) {
 	type row struct {
 		Main, Log, Panel bool
@@ -101,9 +101,8 @@ func TestAccessPresetFromEnv(t *testing.T) {
 	}
 }
 
-// Loader-default rule (docs/agents/server.md, config load): a file from before an access field
-// existed loads the value that keeps that release's behaviour. Before New user defaults, a new
-// user started with Persistent and No auto-lock off.
+// Before New user defaults, a new user started with Persistent and No auto-lock off (loader-default rule,
+// docs/agents/server.md).
 func TestLoaderKeepsBehaviourForNewAccessFields(t *testing.T) {
 	b, err := os.ReadFile("testdata/before-new-user-defaults.yaml")
 	if err != nil {

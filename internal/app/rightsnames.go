@@ -6,7 +6,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// everyRights is each Rights entry the config holds: users, Guest and API clients (panel clients too).
 func everyRights(c *config.Config) []*config.Rights {
 	out := []*config.Rights{&c.GuestRights}
 	for i := range c.Users {
@@ -18,9 +17,8 @@ func everyRights(c *config.Config) []*config.Rights {
 	return out
 }
 
-// nameRights fills the name of each reference to this router that has none, as namePresets does.
-// Browsers and API callers send {n} with no name. With no router name, the name stored before for
-// that number stays, so a save while the router is away keeps them.
+// Browsers and API callers send {n} with no name. With no router name the stored name stays, so a save while the router is
+// away keeps it. Keep in step with namePresets.
 func (a *App) nameRights(c *config.Config, old config.Config) {
 	type key struct {
 		dst bool

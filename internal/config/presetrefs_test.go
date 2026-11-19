@@ -8,7 +8,6 @@ import (
 	"testing"
 )
 
-// refs makes router references with a blank router, which Normalize reads as the one router.
 func refs(ns ...int) []Ref {
 	out := make([]Ref, len(ns))
 	for i, n := range ns {
@@ -21,7 +20,6 @@ func refItem(src int, levels []int, dsts ...int) PresetItem {
 	return PresetItem{Src: Ref{N: src}, Dsts: refs(dsts...), Levels: levels}
 }
 
-// A preset item names its router: a blank router is the one router, ids are made and kept unique.
 func TestPresetRefsAndIDs(t *testing.T) {
 	c := Defaults()
 	c.Normalize()
@@ -69,8 +67,6 @@ func TestPresetRefsAndIDs(t *testing.T) {
 	}
 }
 
-// A list save keeps ids. A sent id wins. A preset sent without one gets the saved id of its name
-// (a Replace). A new name gets none, and Normalize makes one.
 func TestPresetListSaveKeepsIDs(t *testing.T) {
 	saved := []Preset{{ID: "a1", Name: "Show", Items: []PresetItem{refItem(1, nil, 2)}}, {ID: "b2", Name: "Late", Items: []PresetItem{refItem(1, nil, 3)}}}
 	got := WithPresetExtras([]Preset{
@@ -83,7 +79,6 @@ func TestPresetListSaveKeepsIDs(t *testing.T) {
 	}
 }
 
-// An id Load had to make is written back, so it is the same on the next start.
 func TestLoadKeepsMadePresetIDs(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	pin, err := HashPin("1234")
@@ -113,7 +108,6 @@ func TestLoadKeepsMadePresetIDs(t *testing.T) {
 	}
 }
 
-// Profile presets get ids and the router too.
 func TestProfilePresetRefsFilled(t *testing.T) {
 	c := Defaults()
 	c.Normalize()

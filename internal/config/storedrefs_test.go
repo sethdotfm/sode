@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// config.yaml reads no bare router number. Load refuses a reference with no router, or a plain number where a
-// reference belongs. Only a request can leave the router out, and Normalize fills it.
 func TestParseRefusesReferencesWithNoRouter(t *testing.T) {
 	head := "format: 2\nrouters:\n  - uid: 2c5bb739e7cf2f2a\n    address: 127.0.0.1:8910\n"
 	for name, body := range map[string]string{
@@ -33,8 +31,6 @@ func TestParseRefusesReferencesWithNoRouter(t *testing.T) {
 	}
 }
 
-// A request names a source or destination as {n}, with the router left out while there is one router; a plain
-// number is refused.
 func TestRefReadsNoPlainNumber(t *testing.T) {
 	var r Ref
 	if err := json.Unmarshal([]byte(`4`), &r); err == nil {

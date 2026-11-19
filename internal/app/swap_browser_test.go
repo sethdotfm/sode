@@ -10,8 +10,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// An Administrator's Swap from the Routers row. Done stages it, and Settings' Save sends it. The review row
-// counts the items per owner.
+// Done stages the Swap; Settings' Save sends it.
 func TestChromeSwap(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

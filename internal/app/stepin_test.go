@@ -13,7 +13,6 @@ import (
 // Step in (GLOSSARY.md): one connection acts as another user with a PIN until it steps out.
 // The tests drive the policy table like the read loop does.
 
-// peerOf registers c with room for every message and returns a reader of all of them.
 func peerOf(a *App, c *client) func() []map[string]any {
 	a.mu.Lock()
 	c.send = make(chan []byte, 512)
@@ -34,7 +33,7 @@ func peerOf(a *App, c *client) func() []map[string]any {
 	}
 }
 
-// sendMsg runs m through admit and its handler; an admit refusal is returned.
+// An admit refusal is returned.
 func sendMsg(a *App, c *client, m inMsg) error {
 	if err := admitMsg(a, c, m); err != nil {
 		return err
@@ -52,7 +51,6 @@ func lastOf(msgs []map[string]any, t string) map[string]any {
 	return nil
 }
 
-// askStepIn sends stepIn and returns the stepInResult.
 func askStepIn(t *testing.T, a *App, c *client, read func() []map[string]any, name, pin string) map[string]any {
 	t.Helper()
 	read()

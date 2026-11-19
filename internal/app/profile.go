@@ -129,7 +129,6 @@ func (a *App) applyProfileReq(cfg *config.Config, u *config.User, req profileReq
 	}
 }
 
-// Caller holds mu.
 func (a *App) pushProfileOfMu(owner string) {
 	for cl := range a.clients {
 		if a.signedInAsMu(cl, owner) {

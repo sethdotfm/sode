@@ -21,8 +21,7 @@ func presetID(t *testing.T, a *App, name string) string {
 	return ""
 }
 
-// Rights saved as bare numbers are stored as {router, n, name} references, and a take is
-// admitted or refused as before.
+// Rights saved as bare numbers are stored as {router, n, name} references and admit the same takes.
 func TestRightsSavedAsReferencesAdmitSameTakes(t *testing.T) {
 	a, f, key := takerApp(t, nil)
 	uid := a.r().cfg.UID
@@ -120,7 +119,7 @@ func TestSocketTakeChecksPresetByID(t *testing.T) {
 	}
 }
 
-// The batch message carries presetId beside preset; without it a preset list refuses the take.
+// The `batch` message carries presetId beside preset; without it a preset list refuses the take.
 func TestBatchMessagePresetIDReachesTheRightsCheck(t *testing.T) {
 	a, f, c := rightsApp(t, config.Rights{})
 	cfg := a.r().cfg
@@ -162,7 +161,6 @@ func TestBatchMessagePresetIDReachesTheRightsCheck(t *testing.T) {
 	allFailed(t, send(`{"t":"take","preset":"Show","items":[{"id":2,"src":7,"dst":5,"levels":[1]}]}`), 1, `preset "Show"`)
 }
 
-// refsAre: the list holds these numbers, in order.
 func refsAre(l *[]config.Ref, ns ...int) bool {
 	if l == nil || len(*l) != len(ns) {
 		return false
@@ -175,7 +173,6 @@ func refsAre(l *[]config.Ref, ns ...int) bool {
 	return true
 }
 
-// wireNs is the numbers of a decoded JSON reference list.
 func wireNs(v any) []int {
 	var out []int
 	l, _ := v.([]any)

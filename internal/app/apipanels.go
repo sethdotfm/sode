@@ -49,7 +49,7 @@ func keyRole(owner string) string {
 	return owner
 }
 
-// trusted: user id's key Role, read live so a demotion applies at once, is Trusted user.
+// Read live, so a demotion applies at once.
 func (a *App) trusted(id string) bool {
 	u, ok := a.r().cfg.FindUserByID(id)
 	role, _ := a.r().cfg.ActsAs(u)
@@ -319,13 +319,13 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	if actsHasClient(made.Acts) {
 		made.Client = panelClientName(made.ID)
-		err := a.setPanelClient(cl.Actor, made.ID, &rights)
+		err := a.putPanelClient(cl.Actor, made.ID, &rights, nil)
 		if err == nil {
 			_, err = a.panels.replace(made)
 		}
 		if err != nil {
 			a.panels.delete(made.ID)
-			a.setPanelClient(cl.Actor, made.ID, nil)
+			a.putPanelClient(cl.Actor, made.ID, nil, nil)
 			failWith(w, err)
 			return
 		}
@@ -410,7 +410,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		}
 		rights, changed, err := a.clientRightsFor(cl, want, curRights)
 		if err == nil && (!had || changed) {
-			err = a.setPanelClient(cl.Actor, p.ID, &rights)
+			err = a.putPanelClient(cl.Actor, p.ID, &rights, nil)
 		}
 		if err != nil {
 			failWith(w, err)
@@ -418,7 +418,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		}
 		p.Client = panelClientName(p.ID)
 	case had:
-		if err := a.setPanelClient(cl.Actor, p.ID, nil); err != nil {
+		if err := a.putPanelClient(cl.Actor, p.ID, nil, nil); err != nil {
 			failWith(w, err)
 			return
 		}
@@ -453,15 +453,14 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	a.mon.forget(p.ID, true)
 	a.endPublicKeys(p.ID)
-	if err := a.setPanelClient(cl.Actor, p.ID, nil); err != nil {
+	if err := a.putPanelClient(cl.Actor, p.ID, nil, nil); err != nil {
 		log.Printf("panels: client of deleted panel %s not removed: %v", p.ID, err)
 	}
 	a.apiEvent(cl.Actor, "panelDelete", "ok", "panel "+p.ID+" "+p.Name, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// apiPanelCopy is Save a copy: a new private panel the caller owns, with the copied panel's mode,
-// grid, settings, unknown fields and artwork. The body can name it.
+// Save a copy: a new private panel that the caller owns.
 func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ownerOnly(w, cl) {
 		return
@@ -515,7 +514,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		}
 		if err != nil {
 			a.panels.delete(made.ID)
-			a.setPanelClient(cl.Actor, made.ID, nil)
+			a.putPanelClient(cl.Actor, made.ID, nil, nil)
 			failWith(w, err)
 			return
 		}

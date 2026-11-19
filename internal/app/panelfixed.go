@@ -101,7 +101,6 @@ func fixedRef(x any) (config.Ref, bool) {
 	return config.Ref{}, false
 }
 
-// fixedNs is the destination numbers of a cleaned list.
 func fixedNs(v any) []int {
 	l, _ := v.([]config.Ref)
 	out := make([]int, len(l))

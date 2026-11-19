@@ -165,7 +165,7 @@ func (a *App) endPublicKeys(id string) {
 
 // errPublicOff refuses a panel that would become Public while Public panels allowed is off.
 var errPublicOff = &panelClientFail{http.StatusForbidden, "public_panels_off",
-	"Public panels are off: an Administrator turns on Public panels allowed in Settings > Access > Panels"}
+	"Public panels are off (Settings > Access > Panels)"}
 
 // endEveryPublicKey: Public panels allowed went off. Each panel keeps its mode, so it opens again when the switch is back on.
 func (a *App) endEveryPublicKey() {

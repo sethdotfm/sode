@@ -11,8 +11,6 @@ func rightsJSON(r Rights) string {
 	return string(b)
 }
 
-// Intersect is what both grant: an unset list is all, a router reference matches by number on
-// the one router, and hidden wins.
 func TestRightsIntersect(t *testing.T) {
 	lv := func(l ...int) *[]int { return &l }
 	ps := func(l ...string) *[]string { return &l }
@@ -41,7 +39,6 @@ func TestRightsIntersect(t *testing.T) {
 	}
 }
 
-// A user's own API clients: at most MaxAPIClients each, apart from the Administrator's 12.
 func TestOwnClientsCountPerUser(t *testing.T) {
 	c := Defaults()
 	c.Users = []User{{ID: "u-1", Name: "Ana", Pin: "x"}}

@@ -11,10 +11,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Keyless instances (GLOSSARY.md, ADR 0009): a panel page with no working key announces itself on an open stream so
-// a Trusted user can Assign it. The stream grants nothing: no key, session or user rides it. Besides beats it carries
-// public lines (publicback.go), and an Assign, rename or reload as its last line. A device signs in only through the page's own socket and Lock, so the idle clock
-// covers it there. Memory only, like the rest of panelMon.
+// Keyless instances (GLOSSARY.md, ADR 0009): the stream grants nothing; no key, session or user rides it. Besides beats,
+// it carries public lines (publicback.go) and a last Assign, rename or reload line. Memory only.
 
 const (
 	keylessMax  = 1000 // entries; the oldest is dropped past it

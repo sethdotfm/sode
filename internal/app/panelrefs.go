@@ -7,10 +7,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// refPages makes a Buttons panel's or template's cells router references, as namePresets does for presets.
-// Source and Destination cells get {router, n, name}. A blank router is this one. The name is the router's name
-// now, else the one the cell came with. A Preset cell gets the preset's hidden id and its name now, so it survives
-// a rename. Me presets are the saving user's (userID). Cells are copies, since a stored panel can share them.
+// Source and Destination cells get {router, n, name}; a blank router is this one, the name is the router's now, else the
+// cell's. A Preset cell gets the preset's hidden id, so it survives a rename. Cells are copies, since a stored panel can
+// share them.
 func (a *App) refPages(pages []PanelPage, userID string) []PanelPage {
 	return a.pageRefer()(pages, userID)
 }
@@ -96,8 +95,8 @@ func refCell(c map[string]any, uid string, names map[int]string) {
 	}
 }
 
-// The id wins, so a renamed preset is still found. A cell with no id is matched by name once. An id not in the
-// list stays: it can be another user's Me preset, when a Trusted user saves someone else's panel.
+// The id wins, so a renamed preset is still found. A cell with no id is matched by name one time. An id not in the list
+// stays: it can be another user's Me preset.
 func presetCell(c map[string]any, list []config.Preset) {
 	id, _ := c["id"].(string)
 	name, _ := c["name"].(string)

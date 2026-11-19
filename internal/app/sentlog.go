@@ -245,14 +245,13 @@ func (l *SentLog) rotate() error {
 	return nil
 }
 
-// Next is the seq the next entry gets.
 func (l *SentLog) Next() int64 {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.next
 }
 
-// Oldest is the seq of the oldest entry kept (Next when there is none).
+// Next when there is none.
 func (l *SentLog) Oldest() int64 {
 	l.mu.Lock()
 	defer l.mu.Unlock()

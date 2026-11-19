@@ -8,9 +8,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Reload from the Open now list (docs/agents/panels.md, Reload). A reload line is the last line on the page's held
-// stream. The page reloads at the same address with its stored key and name. A Trusted user, no PIN recheck, as for
-// an Assign. Only a live stream hears it: nothing waits in a queue.
+// Reload (docs/agents/panels.md, Reload): needs a Trusted user, no PIN recheck. Only a live stream hears it; nothing waits
+// in a queue.
 
 func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/instances/reload", config.ScopePanelsManage, (*App).apiPanelReload})
@@ -23,7 +22,6 @@ var reloadLine = []byte(`{"t":"reload"}`)
 // reached is one page a line was queued for, for its Log row.
 type reached struct{ device, addr string }
 
-// offerAll queues b on every stream in conns and says whether any took it.
 func offerAll(conns map[int]monConn, b []byte) bool {
 	ok := false
 	for _, c := range conns {
@@ -34,7 +32,7 @@ func offerAll(conns map[int]monConn, b []byte) bool {
 	return ok
 }
 
-// reloadInstances queues b on the streams of device, or of every instance when device is "".
+// device "" means every instance.
 func (m *panelMon) reloadInstances(id, device string, b []byte) []reached {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -50,8 +48,7 @@ func (m *panelMon) reloadInstances(id, device string, b []byte) []reached {
 	return out
 }
 
-// lineToKeyless queues b on the streams of the keyless entries whose segment is in refs: only kid, or every one
-// when kid is "".
+// kid "" means every keyless entry in refs.
 func (m *panelMon) lineToKeyless(kid string, refs map[string]bool, b []byte) []reached {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -115,7 +112,6 @@ func (a *App) apiPanelReload(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	apiJSON(w, map[string]any{"panel": p.ID, "sent": len(sent)})
 }
 
-// refsOf is the address segments that name p: its id and its short name.
 func refsOf(p Panel) map[string]bool {
 	refs := map[string]bool{p.ID: true}
 	if p.Slug != "" {

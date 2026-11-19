@@ -18,8 +18,8 @@ func (c *apiCtx) view() apiView { return apiView{c.Rights} }
 
 func (v apiView) Hidden() bool { return v.rights.Hidden() }
 
-func (v apiView) Source(n int) bool      { return !v.Hidden() || v.rights.AllowsSource(n) }
-func (v apiView) Destination(n int) bool { return !v.Hidden() || v.rights.AllowsDst(n) }
+func (v apiView) Source(n int) bool      { return !v.Hidden() || v.rights.AllowsSource(config.Ref{N: n}) }
+func (v apiView) Destination(n int) bool { return !v.Hidden() || v.rights.AllowsDst(config.Ref{N: n}) }
 func (v apiView) Preset(id string) bool  { return !v.Hidden() || v.rights.AllowsPreset(id) }
 
 // WholePreset: the preset is visible by name and every source and destination it names is

@@ -6,8 +6,7 @@ import (
 	"slices"
 )
 
-// noRouterProblem names the references in a config file with no router. Only a request can leave the router out,
-// and Normalize fills it there.
+// Only a request can leave the router out; Normalize fills it there.
 func (c Config) noRouterProblem() error {
 	blank := func(l []Ref) bool { return slices.ContainsFunc(l, func(r Ref) bool { return r.Router == "" }) }
 	presets := func(who string, ps []Preset) error {

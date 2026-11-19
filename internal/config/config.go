@@ -25,11 +25,10 @@ import (
 // Config is everything editable from the settings dialog. Process-level
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
-	// Format: see format.go. Defaults sets it, so every write carries it.
 	Format int `yaml:"format" json:"-"`
-	// InstallUID is made once (Normalize) and never changes; Item links and import tell this install by it.
+	// Never changes: Item links and import identify this install by it.
 	InstallUID string `yaml:"installUid" json:"-"`
-	// Router is the one router v2.0 drives; the file holds it as the only entry of routers (router.go).
+	// The file holds it as the only entry of routers (router.go).
 	Router `yaml:"-"`
 	// Brand fields are display only.
 	BrandText            string   `yaml:"brandText,omitempty" json:"brandText"`
@@ -56,17 +55,16 @@ type Config struct {
 	AutoLockMinutes int             `yaml:"autoLockMinutes" json:"autoLockMinutes"`
 	// MaxPinLen is the longest user PIN (4-12).
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen"`
-	// API settings, clients, Guest rights and scopes save through the one Save. Clients, Guest
-	// rights and scopes stay out of JSON: never sent before the PIN.
+	// Clients, Guest rights and scopes stay out of JSON: never sent before the PIN.
 	API         APISettings `yaml:"api" json:"api"`
 	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-"`
 	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-"`
 	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator.
 	GuestRole      string   `yaml:"guestRole" json:"guestRole"`
 	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-"`
-	// PublicPanels is Public panels allowed: off, no panel hands out a Public key (panelpublic.go).
+	// Off: no panel hands out a Public key (panelpublic.go).
 	PublicPanels bool `yaml:"publicPanels" json:"publicPanels"`
-	// NewPanelActs prefills a blank new panel's Authentication mode (a panel's acts value) and nothing else.
+	// Prefills a blank new panel's acts only.
 	NewPanelActs string `yaml:"newPanelActs" json:"newPanelActs"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps"`
@@ -130,7 +128,7 @@ type DeviceDefaults struct {
 	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
-// Router is the UID whose numbers the number and range terms mean; blank is the one router.
+// Blank is the one router.
 type FilterSet struct {
 	Name   string         `yaml:"name" json:"name"`
 	Router string         `yaml:"router,omitempty" json:"router,omitempty"`
@@ -230,8 +228,7 @@ func FromEnv(c Config) (Config, error) {
 	return c, errors.Join(errs...)
 }
 
-// WizardEnv: the setup wizard's fields (web/setupwizardrules.js keys) that SODE_* set, each with
-// its variable, for the "Filled from" hints. Keep in step with FromEnv and AccessPresetFromEnv.
+// For the "Filled from" hints. Keep in step with FromEnv, AccessPresetFromEnv and web/setupwizardrules.js keys.
 func WizardEnv() map[string]string {
 	out := map[string]string{}
 	for _, f := range [][2]string{
@@ -593,8 +590,7 @@ func ParseLevels(s string, max int) ([]int, error) {
 	return out, nil
 }
 
-// Load reads path over the defaults. exists is false if there is no file. An install UID, router UID
-// or user id made here is written back, so the file keeps it; callers back the file up before Load.
+// Made ids are written back so the file keeps them; callers back the file up before Load.
 func Load(path string) (c Config, exists bool, err error) {
 	c = Defaults()
 	b, err := os.ReadFile(path)
@@ -619,8 +615,7 @@ func Load(path string) (c Config, exists bool, err error) {
 	return c, true, nil
 }
 
-// hasPresetIDs: Normalize makes a missing id at random. Pins and other items name a preset by
-// its id, so Load writes back any id the file did not hold.
+// Pins and other items name a preset by its id, so Load writes back any id it made.
 func hasPresetIDs(b []byte, c Config) bool {
 	lists := [][]Preset{c.Presets}
 	for _, u := range c.Users {
@@ -679,8 +674,7 @@ func NameKeys(keys []string) string {
 	return fmt.Sprintf("%s and %d more", strings.Join(keys[:maxNamedKeys], ", "), len(keys)-maxNamedKeys)
 }
 
-// retiredKeys held v1's settings secret, a PIN hash; v2.0 gates on Roles (ADR 0010). Extra is shared
-// by Clone, hence the copy.
+// settingsPin: a v1 key; v2 gates on Roles (ADR 0010). Clone shares Extra, hence the copy.
 var retiredKeys = []string{"settingsPin"}
 
 func (c *Config) dropRetiredKeys() {

@@ -16,7 +16,6 @@ func modeUser(t *testing.T, name, pin string) User {
 	return User{Name: name, Pin: h, Len: len(pin)}
 }
 
-// Name rules: trimmed, printable, at most MaxUserName runes, unique ignoring case. Spaces are fine.
 func TestUserNameRules(t *testing.T) {
 	base := Defaults()
 	base.Users = []User{modeUser(t, "Ana Kis", "1234"), modeUser(t, "Bo", "5678")}
@@ -49,7 +48,6 @@ func TestUserNameRules(t *testing.T) {
 	}
 }
 
-// Every user gets a hidden id that a rename leaves alone; a file without them is filled once.
 func TestUserIDsFilledAndKept(t *testing.T) {
 	h, err := HashPin("1234")
 	if err != nil {
@@ -68,7 +66,6 @@ func TestUserIDsFilledAndKept(t *testing.T) {
 	if a == "" || b == "" || a == b {
 		t.Fatalf("ids %q %q", a, b)
 	}
-	// Load wrote them back, so the next start reads the same ids.
 	again, _, err := Load(path)
 	if err != nil {
 		t.Fatal(err)

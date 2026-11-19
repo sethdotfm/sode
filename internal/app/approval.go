@@ -54,12 +54,18 @@ func (a *App) approve(c *client, r rule, m *inMsg) error {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	live, ok := a.r().cfg.FindUserByID(hit.ID) // the PIN check can wait
-	if !ok || live.Pin != hit.Pin {
+	live, ok := a.livePinMu(hit)
+	if !ok {
 		return approvalErr{"that PIN changed; try again"}
 	}
 	m.approver = &live
 	return nil
+}
+
+// livePinMu reads hit again after a PIN check that ran outside mu; false when hit is gone or has a new PIN.
+func (a *App) livePinMu(hit *config.User) (config.User, bool) {
+	live, ok := a.r().cfg.FindUserByID(hit.ID)
+	return live, ok && live.Pin == hit.Pin
 }
 
 // approverRole: the approver's live Role; "" when the approver is gone or changed their PIN.
@@ -72,7 +78,6 @@ func approverRole(cfg config.Config, ap *config.User) string {
 	return cmp.Or(role, config.RoleStandard)
 }
 
-// cannotApprove names the approver and the Role the action needs.
 func cannotApprove(ap *config.User, need string) error {
 	who := "an Administrator"
 	if need != config.RoleAdministrator {
@@ -81,7 +86,6 @@ func cannotApprove(ap *config.User, need string) error {
 	return approvalErr{ap.Name + " cannot approve this: it needs " + who}
 }
 
-// approvedNote: the Communication Log names the approver beside the browser's user.
 func approvedNote(ap *config.User, note string) string {
 	if ap == nil {
 		return note

@@ -37,7 +37,7 @@ func TestActsAsCapsUsersWithoutPin(t *testing.T) {
 		t.Fatalf("Ada %q", role)
 	}
 	role, r := c.ActsAs(c.Users[1])
-	if role != RoleStandard || !r.AllowsDst(2) || r.AllowsDst(1) || r.AllowsDst(3) {
+	if role != RoleStandard || !r.AllowsDst(Ref{N: 2}) || r.AllowsDst(Ref{N: 1}) || r.AllowsDst(Ref{N: 3}) {
 		t.Fatalf("Cy %q %+v", role, r)
 	}
 	c.GuestRole = RoleTrusted

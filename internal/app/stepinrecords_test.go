@@ -12,7 +12,6 @@ import (
 // Request approval and Interruptions. Seam: the App driven like the read loop, and over the
 // WebSocket for Approval cards.
 
-// takeAs makes one take on c through a fake router and returns its History entry.
 func takeAs(t *testing.T, a *App, c *client) Entry {
 	t.Helper()
 	a.route(c, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1}})
@@ -82,7 +81,6 @@ func TestStepInHistoryBrowserOfAddress(t *testing.T) {
 	}
 }
 
-// stepRows waits for n stepIn and stepOut rows in the Communication Log.
 func stepRows(t *testing.T, a *App, n int) []Sent {
 	t.Helper()
 	var out []Sent
@@ -132,7 +130,6 @@ func TestStepInLogRows(t *testing.T) {
 	}
 }
 
-// saveLive sends the one Save with the live versions, user fields included.
 func saveLive(p *wsPeer, a *App, id int, set map[string]any, extra map[string]any) map[string]any {
 	p.t.Helper()
 	live := a.r().cfg

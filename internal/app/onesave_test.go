@@ -122,6 +122,27 @@ func TestOneSaveConflictIsRefusedAlone(t *testing.T) {
 	wantSaved(t, p2.saveFields(3, map[string]any{"brandText": "Second"}), "brandText")
 }
 
+// Fields that fail only together are refused; the rest of the save goes through.
+func TestOneSaveRefusesOnlyTheFieldsThatFailTogether(t *testing.T) {
+	a := userApp(t, false)
+	a.cfgMu.Lock()
+	err := a.commit(func(c *config.Config) error {
+		c.Users[1].Role = config.RoleAdministrator
+		return nil
+	}, nil)
+	a.cfgMu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := dialPeer(t, a)
+	p.signInRechecked("Ada", "2468")
+	ada, bo := "user/"+userID(t, a, "Ada")+"/role", "user/"+userID(t, a, "Bo")+"/role"
+	r := saveLive(p, a, 1, map[string]any{ada: config.RoleStandard, bo: config.RoleStandard, "brandText": "X"}, nil)
+	wantSaved(t, r, "brandText")
+	wantRefused(t, r, ada, "invalid")
+	wantRefused(t, r, bo, "invalid")
+}
+
 // A field not sent keeps another connection's later value, and a save that changes nothing
 // writes nothing.
 func TestOneSaveWritesOnlyChangedFields(t *testing.T) {

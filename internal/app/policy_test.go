@@ -66,14 +66,11 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 	seen := map[string]bool{}
 	webMsgTypes(t, func(name string) { seen[name] = true })
 	for m := range policy {
-		if !seen[m] && notSentYet[m] == "" && noPageSends[m] == "" {
+		if !seen[m] && noPageSends[m] == "" {
 			t.Errorf("policy rule %q is sent by no web/*.js file", m)
 		}
 	}
 }
-
-// Rules no page sends yet, with what will send them. Drop the entry when a page does.
-var notSentYet = map[string]string{}
 
 // Rules no page sends any more, with why the rule stays.
 var noPageSends = map[string]string{

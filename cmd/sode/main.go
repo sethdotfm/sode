@@ -53,7 +53,7 @@ func loadConfig(path string) config.Config {
 		log.Fatalf("config: %v", err)
 	}
 	if path == "" {
-		config.ApplyEnvOnlyPreset(&c) // the name was checked above
+		config.ApplyEnvOnlyPreset(&c)
 	}
 	c.Normalize()
 	if err := c.Validate(); err != nil {
@@ -68,8 +68,7 @@ func loadConfig(path string) config.Config {
 	return c
 }
 
-// Runs before anything here can save, including the reset commands and Load. A missing file
-// is nothing to back up.
+// Back up before any save, the reset commands and Load included.
 func backupBeforeRelease(path string) {
 	if err := config.BackupOnce(path, app.Version); err != nil {
 		log.Printf("config: backing up %s: %v", path, err)
@@ -146,7 +145,7 @@ func main() {
 		resetRequireHTTPS(cfgPath)
 		return
 	}
-	// Before anything opens a file the move takes.
+	// Runs before any code opens a file that MoveV1Files moves.
 	if _, err := app.MoveV1Files(cfgPath, os.Getenv("SODE_HISTORY"), os.Getenv("SODE_COMMLOG"), os.Getenv("SODE_UPTIME")); err != nil {
 		log.Fatalf("config: %v", err)
 	}

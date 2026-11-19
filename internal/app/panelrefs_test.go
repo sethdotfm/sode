@@ -19,8 +19,8 @@ func cellsOf(t *testing.T, body map[string]any) []map[string]any {
 	return out
 }
 
-// A saved Buttons panel holds {router, n, name} on Source and Destination cells and the preset's id on a Preset
-// cell. A preset rename keeps the cell, and the cell numbers fire the same route as before references.
+// Buttons cells hold {router, n, name}; a Preset cell holds the preset's id. A preset rename keeps the cell, and the cell
+// fires the same route.
 func TestPanelCellsStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	a, f, bot := takerApp(t, nil)
 	uid := a.r().cfg.UID
