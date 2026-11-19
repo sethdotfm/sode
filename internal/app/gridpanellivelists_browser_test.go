@@ -6,9 +6,6 @@ import (
 	"time"
 )
 
-// The Live Editor on a Grid panel: Edit lists opens a drawer with the editor's own Sources and Destinations lists. A
-// move, a pin or a remove there shows on the live grid at once and makes Save show in the bar. Keys in the drawer
-// stay in the drawer. Save stores the lists and brings no "This panel was changed" banner. Back puts the lists back.
 func TestChromeGridPanelLiveLists(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -64,7 +61,6 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 	b.waitFor("keys in the drawer never move the grid's cursor", `cursorAt() === cursorWas`)
 	b.waitFor("Esc in a list drops its selection and keeps the drawer open", `document.getElementById('ed-sources-sel').textContent === '0 selected' && document.getElementById('ed-live-drawer').classList.contains('pb-drawer--open')`)
 
-	// The owner's case: Shift-click a run of sources, then the Artwork panel gives each a camera and a number at once.
 	b.eval(`window.shift = (n) => n.dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true, cancelable: true }));
 		row('sources', 0).querySelector('.sode-pages__name').click(); shift(row('sources', 9).querySelector('.sode-pages__name')); true`)
 	b.waitFor("Shift-click in the drawer selects the range in drawn order", `document.getElementById('ed-sources-sel').textContent === '9 selected' && !document.getElementById('ed-sources-sel-art').disabled`)

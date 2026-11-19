@@ -11,7 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The header's Kiosk and Full screen buttons, the way out of a kiosk, and the Panels link at the bottom left.
 func TestChromePanelHeaderChrome(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -66,7 +65,6 @@ func TestChromePanelHeaderChrome(t *testing.T) {
 		})()`)
 	b.shot("chrome-buttons")
 
-	// The grid keeps clear of the fixed Panels link.
 	b.waitFor("the page leaves room under the grid for the Panels link", `document.querySelector('.sode-panels').getBoundingClientRect().bottom <= innerHeight || parseFloat(getComputedStyle(document.querySelector('.sode-panels')).paddingBottom) > 40`)
 
 	b.eval(`document.getElementById('panel-kiosk').click(); true`)
@@ -76,18 +74,15 @@ func TestChromePanelHeaderChrome(t *testing.T) {
 	pressEsc()
 	b.waitFor("Esc leaves the kiosk", `!(`+kiosk+`) && document.querySelector('.sode-panels__head').getClientRects().length > 0 && document.getElementById('panel-home').getClientRects().length > 0`)
 
-	// A kiosk from the link starts on, can be left, and comes back after a reload.
 	b.open(srv.URL + "/panels/" + id + "#kiosk=1")
 	b.eval(`location.reload(); true`)
 	b.waitFor("link kiosk is on", kiosk+` && document.querySelectorAll('.sode-panel__cell').length > 0`)
 	pressEsc()
 	b.waitFor("Esc leaves the link's kiosk", `!(`+kiosk+`) && document.querySelector('.sode-panels__head').getClientRects().length > 0`)
 
-	// Full screen follows the browser's own state.
 	// A browser grants full screen only after a user gesture, which a plain script click is not.
 	b.call("Runtime.evaluate", map[string]any{"expression": `document.getElementById('panel-screen').click()`, "userGesture": true})
 	b.waitFor("Full screen button turns into Leave full screen", `!!document.fullscreenElement && document.getElementById('panel-screen').getAttribute('aria-label') === 'Leave full screen' && document.getElementById('panel-screen').getAttribute('aria-pressed') === 'true'`)
-	// A browser grants full screen only after a user gesture, which a plain script click is not.
 	b.call("Runtime.evaluate", map[string]any{"expression": `document.getElementById('panel-screen').click()`, "userGesture": true})
 	b.waitFor("and back", `!document.fullscreenElement && document.getElementById('panel-screen').getAttribute('aria-label') === 'Full screen'`)
 	b.check()

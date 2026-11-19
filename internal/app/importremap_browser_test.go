@@ -35,7 +35,7 @@ func TestChromeImportRemap(t *testing.T) {
 		}
 	}
 	src, dst := a.liveNames()
-	// A name only once on the target, filed at simSrc.
+	// A name that is on the target one time only, filed at simSrc.
 	moved := -1
 	for n := simSrc + 1; n < len(src); n++ {
 		count := 0

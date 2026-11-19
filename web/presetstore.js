@@ -1,7 +1,4 @@
-// Presets: { id, name, items }. Global ones live in cfg.presets (a Trusted user changes them), this
-// browser's own in localStorage. Stored items hold router references (presetref.js); in memory they
-// are numbers (internal numbers, UI levels, [] = default levels). The hidden id survives a rename,
-// so pins and pin order name a preset by it.
+// In memory items are numbers (UI levels, [] = default levels). The hidden id survives a rename, so pins name a preset by it.
 
 import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON } from './store.js';
@@ -143,7 +140,7 @@ export function deleteLocalPreset(name) {
 
 // ---- pinning: a preset carries its own flag; a browser can override it for everyone's presets, by id.
 
-// Ids it still has only; an unknown id or a non-boolean value is ignored.
+// Sode ignores an unknown id or a non-boolean value.
 export function pinOverrides(list = globalPresets()) {
   const raw = readJSON(PINS, {});
   const out = {};

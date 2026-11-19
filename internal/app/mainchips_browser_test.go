@@ -8,9 +8,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Last chip has the look of the destination chips under the box. A Ctrl-click on a History
-// destination or a Destination match row adds it as + does. On a Mac, a Ctrl-click is a
-// contextmenu event. A plain click still fills the box.
 func TestChromeMainChips(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -38,7 +35,6 @@ func TestChromeMainChips(t *testing.T) {
 	b.waitFor("History has the take", `!!document.querySelector('#history .sode__end--dst.sode__end--pick')`)
 	b.waitFor("Last destination chip", `!!document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)')`)
 
-	// Last takes the edge, text size and padding of a destination chip in the same box.
 	if got := b.eval(`(() => {
 		const st = (n) => { const c = getComputedStyle(n); return [c.borderTopColor, c.fontSize, c.paddingLeft, c.paddingTop].join(' '); };
 		const box = document.getElementById('dst-chips');
@@ -79,12 +75,12 @@ func TestChromeMainChips(t *testing.T) {
 	b.eval(`document.querySelector('#history .sode__end--dst.sode__end--pick').click(); true`)
 	b.waitFor("a plain click fills the box", `document.getElementById('dst').value.includes('DSM1')`)
 
-	// A folder's "N destinations" chip adds every destination, with a plain click.
+	// A group's "N destinations" chip adds every destination, with a plain click.
 	pick("src", simSrcName)
 	b.eval(`(() => { const t = document.getElementById('lvl'); t.focus(); t.value = '1'; t.dispatchEvent(new Event('input', {bubbles: true})); t.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true})); return true; })()`)
 	b.waitFor("confirm unlocks again", `!document.getElementById('confirm').hidden && !document.getElementById('confirm-ok').disabled`)
 	b.eval(`document.getElementById('confirm-ok').click(); true`)
-	// The folder's own chip, not any earlier row: History redraws once per frame, so it can come a frame late.
+	// The group's own chip, not an earlier row: History redraws one time per frame, so the chip can come a frame late.
 	folderChip := `[...document.querySelectorAll('#history .sode__hist-route button.sode__end--dst')].find((n) => /destinations/.test(n.textContent))`
 	b.waitFor("History has the folder", `!!`+folderChip)
 	b.eval(`document.querySelectorAll('#dst-chips .pb-chip__remove').forEach((x) => x.click()); true`)

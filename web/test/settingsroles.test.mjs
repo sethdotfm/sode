@@ -1,4 +1,4 @@
-// Settings role tags: who edits each section and whether lower roles see it (spec #543, Settings structure).
+// Settings role tags: who edits each section and whether lower roles see it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

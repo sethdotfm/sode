@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  countAsks,
   presetMarks,
   filterSetMarks,
   statusOf,
@@ -129,4 +130,11 @@ test('This browser: a stored name now at another number is Name moved; a gone ex
   assert.deepEqual(localPresetMarks(renamed, names, 'R').moved, [], 'a plain rename is no mark');
   const set = { scope: 'local', name: 'Mine', f: { src: '"CAM 1", "CAM 7"', dst: '' } };
   assert.deepEqual(localFilterMarks(set, names, 'R').broken, [{ kind: 'source', ref: { router: 'R', n: -1, name: 'CAM 7' } }]);
+});
+
+test('counts are asked only by a Role the server answers', () => {
+  assert.deepEqual(countAsks('', 'ana'), { all: false, mine: false });
+  assert.deepEqual(countAsks('standard', ''), { all: false, mine: false });
+  assert.deepEqual(countAsks('standard', 'ana'), { all: false, mine: true });
+  assert.deepEqual(countAsks('administrator', 'ana'), { all: true, mine: true });
 });

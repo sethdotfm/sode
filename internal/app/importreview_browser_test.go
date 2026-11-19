@@ -13,7 +13,7 @@ import (
 )
 
 // The Import tab: a same-install file preselects Use new on its clash, and Review… puts the review in the
-// dialog body with the PIN row. Use current takes the PIN row away and imports without a recheck; Use new
+// dialog body with the PIN row. Use current removes the PIN row and imports without a recheck; Use new
 // imports after the PIN typed in the review.
 func TestChromeImportReview(t *testing.T) {
 	b := startBrowser(t)
@@ -82,7 +82,6 @@ func TestChromeImportReview(t *testing.T) {
 		t.Errorf("clash choices %v", got)
 	}
 
-	// Review… with Use new: the review takes the body, the tabs go, and the PIN row shows.
 	b.eval(`document.getElementById('xi-review').click(); true`)
 	b.waitFor("review with the PIN row", `document.getElementById('xi-title').textContent === 'Import from file?' && !!document.getElementById('xi-pin')?.offsetParent && !document.querySelector('.sode__xi [role=tab]')?.offsetParent`)
 	b.shot("review")
@@ -92,7 +91,6 @@ func TestChromeImportReview(t *testing.T) {
 	b.eval(`document.getElementById('xi-back').click(); true`)
 	b.waitFor("back to the list", `!!document.querySelector('.sode__xi-import .sode__xi-head[data-cat="presets"]') && !!document.querySelector('.sode__xi [role=tab]')?.offsetParent`)
 
-	// Use current: no PIN, and only Open is added.
 	b.eval(showChoice + `.find((b) => b.textContent === 'Use current').click(); true`)
 	b.eval(`document.getElementById('xi-review').click(); true`)
 	b.waitFor("review without the PIN row", `document.getElementById('xi-title').textContent === 'Import from file?' && !document.getElementById('xi-pin')?.offsetParent`)
@@ -102,7 +100,6 @@ func TestChromeImportReview(t *testing.T) {
 		t.Fatalf("after Use current: %s", got)
 	}
 
-	// Use new: the PIN typed in the review is the recheck.
 	b.eval(`[...document.querySelectorAll('.sode__xi .pb-modal__footer button')].find((x) => x.textContent === 'Import another').click(); true`)
 	open()
 	b.eval(`document.getElementById('xi-review').click(); true`)

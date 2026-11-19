@@ -1,6 +1,6 @@
 // Pure rules for the Settings form (Node-tested).
 
-// `entries` are read from the form's own inputs, not the built config (it turns a blank number into NaN or 0). A blank idle time means 0 (never).
+// entries come from the form's own inputs, not the built config. A blank Auto-lock time means 0 (never).
 export function intProblem(entries) {
   for (const e of entries) {
     if (e.type !== 'int') continue;

@@ -241,6 +241,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.names = newNamesStore(cfgPath)
+	a.sweepStages()
 	if t, ok := a.names.load(cfg.UID); ok {
 		a.router.srcNames, a.router.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
 		a.router.savedAt = t.At

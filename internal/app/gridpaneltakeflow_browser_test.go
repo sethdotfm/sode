@@ -7,8 +7,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A Grid panel's take confirm shows Currently (the source the destination has now). Mode takeOnly (Stage + Take)
-// sends on Take with no confirm box, and the editor offers it for a Grid panel only.
 func TestChromeGridPanelTakeFlow(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -25,7 +23,7 @@ func TestChromeGridPanelTakeFlow(t *testing.T) {
 		b.waitFor("the grid", gridXp(simSrc, simDst)+` !== null && `+gridXp(5, 5)+`.dataset.on?.startsWith('1')`)
 	}
 
-	// A panel saved before the setting has no mode: the confirm box, now with Currently.
+	// A panel saved before the setting has no mode, so it shows the confirm box.
 	open(boxed)
 	b.eval(gridXp(simSrc, simDst) + `.click()`)
 	b.waitFor("staged", gridXp(simSrc, simDst)+`.dataset.s === 'staged'`)
@@ -38,7 +36,6 @@ func TestChromeGridPanelTakeFlow(t *testing.T) {
 	gridKey(b, "Escape")
 	b.waitFor("the confirm closes", `document.getElementById('confirm').hidden`)
 
-	// Stage + Take: Take sends with no box.
 	open(bare)
 	b.eval(gridXp(simSrc, simDst) + `.click()`)
 	b.waitFor("staged", gridXp(simSrc, simDst)+`.dataset.s === 'staged'`)
@@ -48,7 +45,6 @@ func TestChromeGridPanelTakeFlow(t *testing.T) {
 		t.Error("the confirm box opened for a Stage + Take panel")
 	}
 
-	// The editor offers the three choices for a Grid panel only, and a new one starts on Stage + Take + Confirm.
 	b.open(srv.URL + "/panels/editor?new")
 	signInOnPad(b)
 	b.waitFor("the lock goes", `!document.documentElement.dataset.sodeLock`)

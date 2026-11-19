@@ -30,7 +30,7 @@ var prefLabels = map[string]string{
 	"compact":       "Compact view (no History, centred)",
 }
 
-// BrowserCopy saves req to the profile of the user signed in on c; req.Name is not used.
+// BrowserCopy saves req to the profile of the user signed in on c.
 func (a *App) BrowserCopy(c *client, req profileReq) error {
 	a.cfgMu.Lock()
 	a.mu.Lock()
@@ -55,7 +55,7 @@ func (a *App) BrowserCopy(c *client, req profileReq) error {
 		}
 		return errNoSuchUser
 	}, func(_, nr *runtime) {
-		u, _ := nr.cfg.FindUserByID(id) // normalized, as was
+		u, _ := nr.cfg.FindUserByID(id)
 		now = u.Profile
 		a.pushProfileOfMu(owner)
 	})
@@ -68,7 +68,7 @@ func (a *App) BrowserCopy(c *client, req profileReq) error {
 }
 
 func (a *App) serveBrowserCopy(c *client, m *inMsg) {
-	err := a.BrowserCopy(c, profileReq{Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets})
+	err := a.BrowserCopy(c, profileReq{Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, PinOrder: m.PinOrder})
 	a.replyOp(c, "browserCopy", m.ID, len(m.Prefs)+len(m.FilterSets)+len(m.Presets), "item", err)
 }
 
@@ -124,7 +124,7 @@ func copyFields(was, now config.Profile) []SavedField {
 	return out
 }
 
-// listField: was and now map lowercase names to item JSON; names are now's, in order.
+// Maps are lowercase name to item JSON; names keep now's order.
 func listField(key, label string, was, now map[string][]byte, names []string) []SavedField {
 	f := newSavedField(key, "my-user", label)
 	var replaced []string

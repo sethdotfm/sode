@@ -6,10 +6,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The phone layout keeps the panel list, Launch and the Preferences topic. On /panels the editor, Assign to, keys and
-// sharing give way to "Open Sode on a computer to ...", and so does /panels/editor. Settings lists only This browser
-// and My user, with "Other settings need a computer". Its Use desktop layout switches the layout, and the panel's
-// actions come back.
+// The phone layout keeps the panel list, Launch and Preferences. The other actions need a computer or Use desktop layout.
 func TestChromePhoneDesktopOnly(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

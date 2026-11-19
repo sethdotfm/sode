@@ -1,5 +1,3 @@
-// One saver flow for filter sets and presets. globalSaver: server-side setting. profileSaver: the user's own profile.
-
 import { on, onMsg, wsSend, sentence } from './core.js';
 import { showResult } from './plans.js';
 import { profile, saveProfile } from './profile.js';
@@ -60,7 +58,7 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
       else if (okNote) setNote(okNote);
       return;
     }
-    // Closed while saving: say if it failed.
+    // The dialog closed before the answer: say if the save failed.
     if (!r.ok) showResult('error', failTitle, sentence(r.err) || 'Not saved.');
   }
 

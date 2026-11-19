@@ -8,8 +8,6 @@ import (
 	"testing"
 )
 
-// The smart menu's Artwork tool over a 2x3 block with one empty square. Esc after a preview changes nothing. Icon A
-// goes on every cell, and Icon B runs on in the fill order. A save stores both, read back over REST.
 func TestChromeEditorArtTool(t *testing.T) {
 	b, a, ana, id := editorTab(t, `{"name":"Art tool","rows":2,"cols":3,"cells":[
 		{"r":1,"c":1,"kind":"take"},{"r":1,"c":2,"kind":"clear"},{"r":1,"c":3,"kind":"source"},
@@ -39,7 +37,6 @@ func TestChromeEditorArtTool(t *testing.T) {
 	b.waitFor("block selected with the menu", `document.querySelectorAll('.sode-ed__sq.is-sel').length === 6 && !document.querySelector('.sode-ed__menu').hidden`)
 	b.waitFor("Artwork sits below Find", `(() => { const items = [...document.querySelectorAll('.sode-ed__menu > li > .pb-menu__item')].map((n) => n.textContent); return items.indexOf('Artwork') === items.findIndex((t) => t.startsWith('Find')) + 1; })()`)
 
-	// Keyboard: focus the item, the arrow toward the flyout enters it at the search box, Down enters the icons.
 	b.eval(`toolItem().focus(); key(toolItem(), toolItem().parentElement.dataset.subSide === 'left' ? 'ArrowLeft' : 'ArrowRight'); true`)
 	b.waitFor("the arrow enters the flyout at its search box", `document.activeElement === tool().querySelector('input[type=search]')`)
 	b.waitFor("the flyout is open", `getComputedStyle(tool()).display !== 'none'`)
@@ -50,7 +47,6 @@ func TestChromeEditorArtTool(t *testing.T) {
 	b.waitFor("Esc backs out to the grid and drops the preview", `document.activeElement === document.getElementById('ed-grid') && !document.querySelector('.sode-ed__sq.is-preview')`)
 	b.waitSaved("Esc changed nothing")
 
-	// Icon A by Enter on a chosen icon, then Icon B from 15 across: 15, 16 and the rest left without.
 	b.eval(`toolItem().click(); true`)
 	b.waitFor("the item opens the flyout", `document.activeElement === tool().querySelector('input[type=search]')`)
 	b.eval(`const s = tool().querySelector('input[type=search]'); s.value = 'camera'; s.dispatchEvent(new Event('input')); true`)
@@ -73,7 +69,6 @@ func TestChromeEditorArtTool(t *testing.T) {
 	b.check()
 }
 
-// The Artwork flyout opened from the bottom right square of a tall grid stays inside the viewport.
 func TestChromeEditorArtToolFitsViewport(t *testing.T) {
 	b, _, _, _ := editorTab(t, `{"name":"Tall","rows":12,"cols":8,"cells":[]}`)
 	b.waitFor("grid drawn", `document.querySelectorAll('#ed-grid .sode-ed__sq').length === 96`)

@@ -1,5 +1,4 @@
-// Copy this browser to My user (docs/agents/profiles.md). It is the review sheet with Me as the only target.
-// It sends browserCopy, so the server writes one Settings saves row. Rules: browsercopyrules.js.
+// browserCopy makes the server write one Settings saves row (docs/agents/profiles.md).
 
 import { S, on, onMsg, wsSend } from './core.js';
 import { buildExport } from './exportfmt.js';
@@ -45,8 +44,8 @@ const dstName = (n) => S.dstBy.get(n)?.name || '';
 export function openBrowserCopy() {
   const d = copyDoc(browserValues());
   const doc = buildExport({ ...d, srcName, dstName });
-  // A move keeps each preset's pin; an export file does not carry it.
-  if (doc.presets) doc.presets = doc.presets.map((p, i) => ({ ...p, pinned: d.presets[i].pinned !== false }));
+  // A move keeps each preset's id and pin; an export file carries neither.
+  if (doc.presets) doc.presets = doc.presets.map((p, i) => ({ ...p, id: d.presets[i].id, pinned: d.presets[i].pinned !== false }));
   openReview({
     doc: { ...doc, browserOnly: d.browserOnly },
     scope: 'user',

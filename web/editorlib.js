@@ -1,8 +1,4 @@
-// The Choose icon picker's Uploaded icons section. It has the Icon library's icons, and an Icon library button that
-// opens the dialog with Upload, Rename, Delete and Rescan. The sidebar is for choosing; the library is changed in the dialog.
-// Any editor picks; adding needs a Trusted user, and the server's refusal shows in the note. Tiles draw through the
-// panel's createArt, so their blob URLs go when the panel does. Rename, Delete and Rescan (the drop-in directory,
-// docs/reference.md) show only to a Trusted user.
+// Tiles draw through the panel's createArt, so their blob URLs go when the panel does.
 import { el, on, S } from './core.js';
 import { btn } from './formbits.js';
 import { trapDialog } from './dialogkeys.js';

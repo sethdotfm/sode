@@ -55,7 +55,6 @@ func (s leakSample) String() string {
 		s.heap/1e6, s.documents, s.nodes, s.attached, s.listeners, s.intervals, s.docL, s.urls, s.fetches)
 }
 
-// measure forces a GC, then reads the heap, the DOM counters and the probe.
 func (b *tab) measure() leakSample {
 	b.t.Helper()
 	// A loaded runner needs more passes and a pause before detached nodes are really gone.
@@ -72,8 +71,7 @@ func (b *tab) measure() leakSample {
 	return leakSample{heap: heap.UsedSize, documents: dom.Documents, attached: num("attached"), nodes: dom.Nodes, listeners: dom.JsEventListeners, intervals: num("intervals"), docL: num("docL"), urls: num("urls"), fetches: num("fetches")}
 }
 
-// The editor must not grow while it sits open or is used. The rounds repeat selecting, the menu, Find, the modals, Save
-// and the Live Editor. Each round ends with the same intervals, listeners, nodes and object URLs as the round before.
+// Each round ends with the same intervals, listeners, nodes and object URLs as the round before.
 func TestChromeEditorHoldsNoMemory(t *testing.T) {
 	var art string
 	b, _, _, _ := editorTabPrep(t, fmt.Sprintf(`{"name":"Wall","rows":4,"cols":8,"cells":[
@@ -106,7 +104,7 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 	b.eval(`window.press = (el, init) => el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })); true`)
 	b.waitFor("Find attached", `(document.querySelector('.is-sel') || press(document.getElementById('ed-grid'), { key: 'ArrowDown' }), !!document.querySelector('.sode-find'))`)
 	b.eval(`press(document.getElementById('ed-grid'), { key: 'Escape' })`)
-	// panels.css once ran the pulse on :root, which restyled the whole page every frame on every panel page.
+	// A pulse on :root restyles the whole page every frame on every panel page.
 	if n := b.eval(animList); n != "" {
 		t.Errorf("the idle editor runs animations; it must run none: %v", n)
 	}
@@ -118,21 +116,18 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 	}
 	round := func(n int) {
 		grid := `document.getElementById('ed-grid')`
-		// Select, extend, the type submenu, clear.
 		b.eval(`press(` + grid + `, { key: 'ArrowDown' }); press(` + grid + `, { key: 'ArrowDown' }); press(` + grid + `, { key: 'ArrowRight', shiftKey: true })`)
 		b.waitFor("menu shown", `!document.querySelector('.sode-ed__menu').hidden`)
 		b.eval(`document.querySelector('.sode-ed__menu .pb-menu__sub .pb-menu__item').click()`)
 		b.waitFor("kind set", `document.querySelectorAll('#ed-grid .is-sel.has-cell').length === 2`)
 		b.eval(`press(` + grid + `, { key: 'Delete' })`)
 		step("select and menu")
-		// Find: type, narrow, leave.
 		b.eval(`press(` + grid + `, { key: 'z' })`)
 		b.waitFor("Find open", `document.querySelector('.sode-find input') === document.activeElement`)
 		b.eval(`{ const box = document.querySelector('.sode-find input'); box.value = 'zoom'; box.dispatchEvent(new Event('input')); }`)
 		b.waitFor("results", `document.querySelectorAll('.sode-find__row').length > 0`)
 		b.eval(`press(document.querySelector('.sode-find input'), { key: 'Escape' })`)
 		step("find")
-		// Templates and Share open and close.
 		b.eval(`document.getElementById('ed-templates').click()`)
 		b.waitFor("templates open", `!!document.querySelector('.sode-tpl')`)
 		b.eval(`[...document.querySelectorAll('.sode-tpl .pb-modal__footer .pb-btn')].find((x) => x.textContent === 'Close').click()`)
@@ -143,13 +138,11 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		b.eval(`[...document.querySelectorAll('.sode-ov__share .pb-btn')].find((x) => x.textContent === 'Cancel').click()`)
 		b.waitFor("share closed", `!document.querySelector('.sode-ov__share')`)
 		step("share")
-		// A change and Save.
 		b.eval(fmt.Sprintf(`{ const nm = document.getElementById('ed-name'); nm.value = 'Wall %d'; nm.dispatchEvent(new Event('input')); }`, n))
 		b.waitFor("save enabled", `!document.getElementById('ed-save').disabled`)
 		b.eval(`document.getElementById('ed-save').click()`)
 		b.waitSaved("saved")
 		step("save")
-		// The Live Editor, a poll and some ticks, Back to editing.
 		b.eval(`document.getElementById('ed-live').click()`)
 		b.waitFor("live cells", `document.querySelectorAll('#ed-live-view .sode-panel__cell').length === 3`)
 		b.waitFor("live art shown", `!document.querySelector('#ed-live-view .sode-panel__art-a')?.hidden`)

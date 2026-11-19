@@ -43,7 +43,6 @@ func TestAddImportForeignClashRenames(t *testing.T) {
 	}
 }
 
-// Use current and Skip write nothing and are not Critical.
 func TestAddImportUseCurrentAndSkipKeepLive(t *testing.T) {
 	a, _, tok := importApp(t)
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")} })
@@ -241,7 +240,7 @@ func TestAddImportGivesOwnerlessItemsToTheAdministrator(t *testing.T) {
 	}
 }
 
-// Use new on a user takes the file's Role and keeps the live PIN when the file carries no hash.
+// Use new on a user writes the file's Role and keeps the live PIN when the file carries no hash.
 func TestAddImportUseNewKeepsLivePin(t *testing.T) {
 	a, c, tok := importApp(t)
 	file := exported(t, a, tok, exportReq{Categories: []string{catUsers}})
@@ -257,6 +256,25 @@ func TestAddImportUseNewKeepsLivePin(t *testing.T) {
 	}
 }
 
+// A hashless foreign user renamed past a live user gets neither that user's PIN nor the importer's Role.
+func TestAddImportRenamedHashlessUserIsPinNeeded(t *testing.T) {
+	a, _, tok := importApp(t)
+	files := map[string]string{}
+	for name, b := range unzipAll(t, foreign(t, exported(t, a, tok, exportReq{Categories: []string{catUsers}}))) {
+		files[name] = string(b)
+	}
+	y := strings.Replace(files["users.yaml"], "role: standard", "role: trusted", 1)
+	files["users.yaml"] = regexp.MustCompile(`(?m)^( *)role: administrator$`).ReplaceAllString(y, "${1}role: trusted\n${1}noAutoLock: true")
+	b, _, tok2 := importApp(t)
+	applied(t, postApply(t, b, tok2, zipOf(t, files), importReq{Mode: importAdd}))
+	for name, role := range map[string]string{"Ana 2": config.RoleTrusted, "Ada 2": config.RoleTrusted} {
+		u, ok := b.r().cfg.FindUserByName(name)
+		if !ok || u.HasPin() || !u.PinNeeded || u.Role != role {
+			t.Errorf("%s: %+v", name, u)
+		}
+	}
+}
+
 // A new panel brings its artwork under the same ids, so its cells still find it.
 func TestAddImportBringsPanelArt(t *testing.T) {
 	a, _, tok := importApp(t)
@@ -264,7 +282,7 @@ func TestAddImportBringsPanelArt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	art, _, err := a.panels.addArt(p.ID, []byte("\x89PNG\r\n\x1a\nart"), "image/png")
+	art, _, err := a.panels.addArt(p.ID, imgBytes("png", 1, 1), "image/png")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,8 +293,111 @@ func TestAddImportBringsPanelArt(t *testing.T) {
 	if len(ps) != 1 || len(ps[0].Art) != 1 || ps[0].Art[0].ID != art.ID {
 		t.Fatalf("panels: %+v", ps)
 	}
-	if data, _, ok := b.panels.artData(ps[0].ID, art.ID); !ok || string(data) != "\x89PNG\r\n\x1a\nart" {
+	if data, _, ok := b.panels.artData(ps[0].ID, art.ID); !ok || !bytes.Equal(data, imgBytes("png", 1, 1)) {
 		t.Fatalf("art: %q %v", data, ok)
+	}
+}
+
+// A panel image that is missing or not its stated type refuses the panel. The live artwork stays.
+func TestAddImportRefusesPanelWithBadArt(t *testing.T) {
+	a, c, tok := importApp(t)
+	p, err := a.panels.create(Panel{Name: "Desk", Owner: userID(t, a, "Ana"), Rows: 1, Cols: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	art, _, err := a.panels.addArt(p.ID, imgBytes("png", 1, 1), "image/png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := unzipAll(t, exported(t, a, tok, exportReq{Categories: []string{catPanels}}))
+	if _, err := a.panels.replace(Panel{ID: p.ID, Name: "Desk", Owner: p.Owner, Rows: 1, Cols: 2, Art: []PanelArt{art}}); err != nil {
+		t.Fatal(err)
+	}
+	grantRecheck(a, c)
+	entry := "art/panels/" + p.ID + "/" + art.ID + ".png"
+	for name, data := range map[string]*string{"missing": nil, "html": ptr("<html><script>x</script></html>")} {
+		files := map[string]string{}
+		for k, v := range file {
+			if k != entry || data != nil {
+				files[k] = string(v)
+			}
+		}
+		if data != nil {
+			files[entry] = *data
+		}
+		res := applied(t, postApply(t, a, tok, zipOf(t, files), importReq{Mode: importAdd}))
+		if it := res.Plan.Categories[catPanels].Items[0]; it.Refused == "" {
+			t.Errorf("%s: not refused: %+v", name, it)
+		}
+		if lp, _ := a.panels.get(p.ID); len(lp.Art) != 1 || lp.Cols != 2 {
+			t.Errorf("%s: live panel: %+v", name, lp)
+		}
+	}
+}
+
+// Use new on a panel whose file short name another live panel now holds keeps the live short name.
+func TestAddImportUseNewPanelSlugTaken(t *testing.T) {
+	a, c, tok := importApp(t)
+	mk := func(name, slug string) Panel {
+		p, err := a.panels.create(Panel{Name: name, Slug: slug, Owner: userID(t, a, "Ana"), Rows: 1, Cols: 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	desk, wall := mk("Desk", "desk"), mk("Wall", "")
+	file := exported(t, a, tok, exportReq{Categories: []string{catPanels}, Pick: map[string][]string{catPanels: {desk.ID}}})
+	desk.Slug, desk.Cols = "front", 2
+	wall.Slug = "desk"
+	for _, p := range []Panel{desk, wall} {
+		if _, err := a.panels.replace(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grantRecheck(a, c)
+	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	if got, _ := a.panels.get(desk.ID); len(res.Failed) != 0 || got.Cols != 1 || got.Slug != "front" {
+		t.Fatalf("failed %v, desk %+v", res.Failed, got)
+	}
+}
+
+// Users with no id, as in a file written by hand, map one by one: an ownerless panel does not go to one of them.
+func TestAddImportUsersWithoutIDsKeepApart(t *testing.T) {
+	a, _, tok := importApp(t)
+	if _, err := a.panels.create(Panel{Name: "Desk", Rows: 1, Cols: 1}); err != nil {
+		t.Fatal(err)
+	}
+	pick := map[string][]string{catUsers: {userID(t, a, "Ana"), userID(t, a, "Bo")}}
+	files := map[string]string{}
+	for name, b := range unzipAll(t, foreign(t, exported(t, a, tok, exportReq{Categories: []string{catUsers, catPanels}, Pick: pick}))) {
+		files[name] = string(b)
+	}
+	files["users.yaml"] = regexp.MustCompile(`id: u-[0-9a-f]+\n\s*`).ReplaceAllString(files["users.yaml"], "")
+	b, _, tok2 := importApp(t)
+	dropUser(t, b, "Ana")
+	dropUser(t, b, "Bo")
+	applied(t, postApply(t, b, tok2, zipOf(t, files), importReq{Mode: importAdd}))
+	if ps := b.panels.list(); len(ps) != 1 || ps[0].Owner != userID(t, b, "Ada") {
+		t.Fatalf("panels: %+v", ps)
+	}
+}
+
+// A key an older file lacks keeps its live value. An empty key the export leaves out still clears the live one.
+func TestAddImportSettingsKeepKeysTheFileLacks(t *testing.T) {
+	a, c, tok := importApp(t)
+	files := map[string]string{}
+	for name, b := range unzipAll(t, exported(t, a, tok, exportReq{Categories: []string{catSettings}, Sections: []string{"branding", "confirm"}})) {
+		files[name] = string(b)
+	}
+	files["settings.yaml"] = regexp.MustCompile(`(?m)^\s*confirmLockoutMs: .*\n`).ReplaceAllString(files["settings.yaml"], "")
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.ConfirmLockoutMs, cfg.ConfirmEnter, cfg.BrandText = 900, !cfg.ConfirmEnter, "X"
+	})
+	enter := a.r().cfg.ConfirmEnter
+	grantRecheck(a, c)
+	applied(t, postApply(t, a, tok, zipOf(t, files), importReq{Mode: importAdd}))
+	if cfg := a.r().cfg; cfg.ConfirmLockoutMs != 900 || cfg.ConfirmEnter == enter || cfg.BrandText != "" {
+		t.Fatalf("lockout %d, enter %v, brand %q", cfg.ConfirmLockoutMs, cfg.ConfirmEnter, cfg.BrandText)
 	}
 }
 

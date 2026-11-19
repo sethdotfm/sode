@@ -16,8 +16,6 @@ func pressSquare(b *tab, r, c int, extend bool) {
 	})()`, r, c, extend))
 }
 
-// A Buttons panel with four cells selected: the Cell tab edits them all. Icon A goes on every cell, and Icon B runs one
-// glyph per cell in fill order. Hide text and levels go on every cell. Remove Icon clears them all.
 func TestChromeEditorCellMany(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -71,7 +69,6 @@ func TestChromeEditorCellMany(t *testing.T) {
 	b.check()
 }
 
-// A rename on the router reaches the open editor at once: a Buttons cell and a Grid panel's list row both show it.
 func TestChromeEditorNamesLive(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

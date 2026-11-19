@@ -1,5 +1,4 @@
-// Settings role tags (spec #543, Settings structure): who edits a section and whether lower roles see it. Pure, no
-// imports (Node-tested). Keys are the fieldsets' data-section slugs in index.html.
+// Settings role tags (docs/agents/settings-saves.md). Keys are the data-section slugs in index.html. Pure (Node-tested).
 
 const tag = (edit, lower) => ({ edit, lower });
 const PREF = tag('anyone', 'shown');
@@ -43,8 +42,8 @@ export function sectionView(slug, role, phone = false) {
   return t.lower === 'shown' ? 'read' : 'hidden';
 }
 
-// Who can approve every one of these sections: the highest Role they need, in words.
-export function approvalWho(slugs) {
-  const admin = slugs.some((s) => SECTION_ROLES[s]?.edit === 'administrator');
-  return admin ? 'an Administrator' : 'a Trusted user or an Administrator';
-}
+export const ROLE_WHO = { trusted: 'a Trusted user or an Administrator', administrator: 'an Administrator' };
+export const ROLE_BADGE = { trusted: 'Trusted', administrator: 'Administrator' };
+
+// The highest Role these sections need, in words.
+export const approvalWho = (slugs) => ROLE_WHO[slugs.some((s) => SECTION_ROLES[s]?.edit === 'administrator') ? 'administrator' : 'trusted'];

@@ -1,9 +1,6 @@
-// Approval in person (GLOSSARY.md): a person beside this browser types their name and PIN, and the action goes again
-// with `approval`. The server checks that one message against the approver's Role; nothing stays on this browser.
-// send(approval, answer) sends the action and returns false when it could not. The caller then calls answer.fail(text)
-// for a refused Approval (the popup stays open) or answer.done() for any other answer.
-// req, when given, offers Request approval to another browser instead (approvalcards.js): req.action() is the message
-// the server holds, and req.onEnd(end) hears how the request ended.
+// The server checks the one message with `approval` against the approver's Role; nothing stays on this browser.
+// send returns false when it could not send; the caller then calls answer.fail or answer.done.
+// req: req.action() is the message the server holds for Request approval (approvalcards.js); req.onEnd hears the end.
 
 import { el, S, on, sentence } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -37,18 +34,18 @@ function fail(text) {
 function submit() {
   if (ui.go.disabled || !send) return;
   const user = ui.picker.value().trim();
-  if (!user) return fail('Type the name of the person who approves.');
+  if (!user) return fail("Enter the approver's name.");
   ui.err.hidden = true;
   if (!send({ user, pin: ui.pin.value }, { fail, done: close })) return fail('Not connected to Sode.');
   ui.go.disabled = true;
 }
 
-// Request approval: disabled, with the reason, while no other browser could approve.
 function paintRequest() {
   if (!ui || !ask?.req) return;
   const ok = canApprove(approverKey(ask.who));
   ui.request.disabled = !ok;
-  ui.requestNote.hidden = ok;
+  if (ok) delete ui.request.dataset.pbTip;
+  else ui.request.dataset.pbTip = 'No approver signed in';
 }
 
 async function sendRequest() {
@@ -89,9 +86,7 @@ function build() {
   err.hidden = true;
   const go = button('approval-go', 'Approve', '', submit);
   const request = button('approval-request', 'Request approval', 'pb-btn--outline', sendRequest);
-  const requestNote = el('p', 'sode__hint', 'No one signed in can approve this.');
-  requestNote.id = 'approval-request-note';
-  const requestRow = el('div', '', el('p', 'sode__hint', 'Or send it to the browsers of people who can approve it.'), request, requestNote);
+  const requestRow = el('div', '', request);
 
   const root = el('div', 'pb-modal-backdrop sode__scrim');
   root.hidden = true;
@@ -115,7 +110,7 @@ function build() {
     e.preventDefault();
     submit();
   });
-  ui = { dlg: trapDialog(root, dialog, close), picker, pin, why, err, go, request, requestNote, requestRow };
+  ui = { dlg: trapDialog(root, dialog, close), picker, pin, why, err, go, request, requestRow };
 }
 
 // what names the action, for example 'Saving these changes'; who names the Role it needs.
@@ -126,7 +121,7 @@ export function askApproval(what, who, sendFn, req = null) {
   ask = { what, who, sendFn, req };
   ui.requestRow.hidden = !req;
   paintRequest();
-  ui.why.textContent = `${what} needs Approval from ${who}. That person types their name and PIN here. The Approval covers this one action.`;
+  ui.why.textContent = `${what}: Approval from ${who}.`;
   ui.picker.set('');
   ui.dlg.show();
   ui.picker.input.focus();

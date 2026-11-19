@@ -18,7 +18,6 @@ import { sectionView, approvalWho } from './settingsrolerules.js';
 import { presetMarks, presetGaps, gapText } from './accesspresetrules.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
 
-// A save is in flight.
 export const saving = () => $('settings-save').disabled;
 
 const sectionOf = sectionOfKey;
@@ -54,7 +53,6 @@ const noteEdits = () => {
 };
 const markOf = (r) => marks.get(rowId(r))?.preset || '';
 
-// Apply an access preset (accesspreset.js) calls it after it staged the preset's values.
 export function markPreset(name, target) {
   noteEdits();
   marks = presetMarks(marks, changes(), name, target);
@@ -63,7 +61,7 @@ export function markPreset(name, target) {
   return warned() ? unwarn() : renderSaveState();
 }
 const by = (r) => authors.get(rowId(r))?.by || me;
-// Edits in a section the saver's Role cannot see show only as a count, and Save skips them (spec #543, Step in).
+// Save skips edits in a section the saver's Role cannot see; they show only as a count.
 const seen = (r) => sectionView(sectionOf(r.key), role) !== 'hidden';
 const warned = () => !$('settings-unsaved').hidden;
 
@@ -169,8 +167,7 @@ function unsavedText() {
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
   const what = [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
-  // Save skips edits the Role cannot see, so with only those it is not offered.
-  return `${what}. ${names.length ? 'Save them, or exit' : 'Exit'} again to discard them.`;
+  return `${what}. Exit again to discard.`;
 }
 
 export function markClean(saved) {
@@ -226,7 +223,6 @@ export function showSaveErr(text) {
 
 // ---- sending and the answers
 
-// The value of each key as it is now, from the form or its source.
 function valuesOf(keys) {
   const form = readSettings();
   const out = {};
@@ -336,7 +332,6 @@ function settled(m, p) {
   }
 }
 
-// The values as saved now: the form's baseline and each source's.
 function liveNow() {
   const out = { ...base };
   for (const src of saveSources()) Object.assign(out, src.base());
@@ -349,7 +344,7 @@ function done(saved) {
   paintMarks();
   const gaps = applied ? presetGaps(applied.target, liveNow()) : [];
   if (refused.size) {
-    showSaveErr(`${refused.size} ${refused.size === 1 ? 'change is' : 'changes are'} not saved. Each one says why.`);
+    showSaveErr(`${refused.size} ${refused.size === 1 ? 'change' : 'changes'} not saved.`);
     if (gaps.length) $('settings-err').append(stillDiffers(gaps));
   } else $('settings-err').hidden = true;
   if (!gaps.length || !refused.size) applied = null;
@@ -379,7 +374,7 @@ async function review({ focusField }) {
   if (srcBad) return void showSaveErr(srcBad);
   noteEdits();
   const all = changes();
-  if (!all.length) return void showSaveErr('There are no changes to save.');
+  if (!all.length) return void showSaveErr('No changes');
   const { shown: rows, unseen } = splitSeen(all, seen);
   $('settings-err').hidden = true;
   // Fields the page expects refused are sent too: the server's answer gives each its reason.

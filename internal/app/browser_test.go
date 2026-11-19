@@ -111,8 +111,7 @@ func startBrowser(t *testing.T) *tab {
 		go func() { _ = cmd.Wait(); close(exited) }()
 		t.Cleanup(func() { c(); <-exited; stopWatch() })
 
-		// Chrome writes the port it chose into the profile directory. A first start on a fresh CI runner can last
-		// more than 6 s. Each retry is cold again, so a try stops early only when Chrome exits.
+		// Chrome writes the port it chose into the profile directory. A first start on a fresh CI runner can last more than 6 s. Each retry is cold again, so a try stops early only when Chrome exits.
 		started := time.Now()
 		for deadline := started.Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
 			select {

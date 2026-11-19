@@ -1,7 +1,6 @@
-// A panel's Item link as a read-only field with a Copy link button, for the editor's Identity section and the Share
-// modal. The Share modal also shows its QR code. The text comes from linkFor and itemlink.js only. A panel that only acts as its API client has no link without its key. A
-// Both panel's plain link opens in Session mode, with the keyed links under Share. A Public panel's opens for anyone.
-import { el, icon, on, S } from './core.js';
+// A panel that acts only as its API client has no link without its key. A Both panel's plain link opens in Session
+// mode; the keyed links are under Share. A Public panel's link opens for anyone.
+import { el, icon, once, S } from './core.js';
 import { linkFor } from './panellink.js';
 import { panelLink } from './itemlink.js';
 import { qrNode } from './keyview.js';
@@ -60,16 +59,10 @@ export function linkRow(panel, { withHost = true } = {}) {
   const redraw = () => {
     link = itemLink(panel);
     input.value = link;
-    if (withHost)
-      qrBox.replaceChildren(qrNode(link, 'QR code of the Item link') || el('p', 'sode__hint', 'This link is too long for a QR code. Copy it instead.'));
+    if (withHost) qrBox.replaceChildren(qrNode(link, 'QR code of the Item link') || el('p', 'sode__hint', 'Too long for a QR code.'));
   };
   redraw();
-  if (!S.installUid) {
-    const off = on('helloData', () => {
-      queueMicrotask(off); // a removal inside emit would skip the next listener
-      redraw();
-    });
-  }
+  if (!S.installUid) once('helloData', redraw);
   const host = withHost ? shareHostField(redraw) : null;
   box.append(
     el('span', 'sode__field-label', 'Item link'),

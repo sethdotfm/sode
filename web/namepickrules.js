@@ -1,7 +1,6 @@
 // The sign-in name box's pure rules. users is the hello's list, [{name, len}].
 import { fuzzyScore } from './fuzzy.js';
 
-// An empty box lists every user in the hello's order.
 export function nameMatches(users, typed) {
   const list = users || [];
   const q = (typed || '').trim().toLowerCase();
@@ -19,5 +18,4 @@ export function listedUser(users, typed) {
   return (q && (users || []).find((u) => u.name.toLowerCase() === q)) || null;
 }
 
-// What Enter in the box picks: the exact name, else the best match.
 export const pickName = (users, typed) => listedUser(users, typed)?.name || ((typed || '').trim() && nameMatches(users, typed)[0]?.name) || '';

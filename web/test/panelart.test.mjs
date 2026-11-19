@@ -78,7 +78,7 @@ test('forget lets go of one id only, and a later look fetches it afresh', async 
   art.forget('a-never');
 });
 
-// An Icon library SVG is drawn as a mask in the text colour, so the page needs the file's type, which only the fetch knows.
+// An Icon library SVG is drawn as a mask in the text color, so the page needs the file's type, which only the fetch knows.
 test('look gives the blob URL with the fetched type, from the same one fetch', async () => {
   let n = 0;
   const call = async (p) => (n++, { ok: !p.endsWith('bad'), blob: async () => ({ type: 'image/svg+xml' }) });

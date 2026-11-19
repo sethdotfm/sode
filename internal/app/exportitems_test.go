@@ -223,7 +223,7 @@ func countItems(t *testing.T, cat string, files map[string][]byte) int {
 		len(v.CheckpointSets) + len(v.Defaults) + len(v.Icons)
 }
 
-// Back up everything: the body backupBody in web/exportrules.js sends exports every category with PINs.
+// Keep in step with backupBody in web/exportrules.js: every category, with PINs.
 func TestExportBackUpEverything(t *testing.T) {
 	a, tok := exportApp(t)
 	seedEverything(t, a)

@@ -1,6 +1,4 @@
-// The Main-page Broken banner: firing a Broken preset or activating a Broken filter set names what was left out and
-// why. It links Swap (Administrator) or the item's editor, and stays until dismissed or fixed (brokenrules.js). Each
-// layout draws its own copy ([data-broken]).
+// Each layout draws its own copy ([data-broken]).
 import { el, emit, icon, off, on } from './core.js';
 import { profileName } from './profile.js';
 import { newBannerState, useItem, dismissItem, bannerItems, leftOutLines } from './brokenrules.js';
@@ -18,7 +16,6 @@ const KIND = { preset: 'Preset', filterSet: 'Filter set' };
 
 const canEdit = (it) => (it.scope === 'global' ? role === 'administrator' || role === 'trusted' : it.scope === 'user' ? !!profileName() : true);
 
-// The first Broken source or destination with a number, for the Swap dialog.
 const swapOf = (it) => {
   const m = it.broken.find((x) => (x.kind === 'source' || x.kind === 'destination') && x.ref.n >= 0);
   return m ? { side: m.kind, from: m.ref.n } : null;

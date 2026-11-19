@@ -1,6 +1,4 @@
-// The review's Interruptions (GLOSSARY.md): the Save button's words and the "do not come back" line. The server
-// works the list out (internal/app/interruptions.go); each line has text, counts and ends. Pure, no imports
-// (Node-tested).
+// The server works out the list (internal/app/interruptions.go). Pure, no imports (Node-tested).
 
 const COUNTS = [
   ['panels', 'panel', 'panels'],
@@ -36,4 +34,4 @@ export function saveStopsLabel(save, keep, list, plain) {
 
 export const endsSomething = (list) => (list || []).some((x) => x.ends);
 
-export const NO_RETURN = 'Keys, streams and sessions that this save ends do not come back, even after a restore.';
+export const NO_RETURN = 'Ended keys, streams and sessions do not come back, even after a restore.';

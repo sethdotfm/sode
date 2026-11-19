@@ -1,5 +1,4 @@
-// The step-in look (spec #543, Step in). The page border has a fixed colour, never the Branding colour, inside the
-// lost-link border. "<name> stepped in" and Step out show below the lost-link bar. Compact view never fades them.
+// Step in (GLOSSARY.md): a fixed border color, never the Branding color, inside the lost-link border. Compact view never fades it.
 import { el, on } from './core.js';
 import { steppedIn, stepOut } from './stepin.js';
 

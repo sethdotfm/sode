@@ -16,10 +16,6 @@ func gridFound(kind string) string {
 	return fmt.Sprintf(`[...document.querySelectorAll('.sode-gridpanel__%s[data-found]:not([hidden])')].map((n) => n.dataset.%s).sort((a, b) => a - b).join(',')`, attr, attr)
 }
 
-// s and d go to the bars' search boxes in the corner. Find marks matches in place and moves the cursor to the first;
-// Enter and Shift+Enter step. Ctrl+/ switches to Filter, which shows only matches. Tab goes to the other box, which
-// has the same mode. n and N on the grid step the box last typed in. Esc clears the box, keeps the mode and gives the
-// keys back to the grid with the cursor on the last match.
 func TestChromeGridPanelFind(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

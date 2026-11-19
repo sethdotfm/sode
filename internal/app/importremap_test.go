@@ -98,7 +98,6 @@ func TestImportCheckAnswersRemapRows(t *testing.T) {
 	}
 }
 
-// No target: the file's router stays and its items arrive Broken.
 func TestImportRemapNoTargetIsBroken(t *testing.T) {
 	a, tok, file := cam3File(t)
 	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Routers: map[string]string{otherRouterUID: ""}}))

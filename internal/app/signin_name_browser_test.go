@@ -11,7 +11,7 @@ import (
 )
 
 // One sign-in: the name box finds a user by fuzzy match or from the list of every user, then
-// takes that user's PIN. Ana and Dana share a PIN, so only the name says who signs in. The
+// asks for that user's PIN. Ana and Dana share a PIN, so only the name says who signs in. The
 // browser remembers the last name.
 func TestChromeSignInByNameThenPin(t *testing.T) {
 	b := startBrowser(t)
@@ -44,7 +44,7 @@ func TestChromeSignInByNameThenPin(t *testing.T) {
 	signIn()
 	b.waitFor("the empty box has focus and lists every user", `document.activeElement?.id === 'lock-name' && `+listed+` === 'Ana,Bo,Dana'`)
 
-	// Fuzzy find, Enter picks, and the pad takes the PIN at Dana's own length.
+	// Fuzzy find, Enter picks, and the pad reads the PIN at Dana's own length.
 	typeName("da")
 	if got := b.eval(listed); got != "Dana" {
 		t.Fatalf("typed da, the list is %v", got)

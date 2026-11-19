@@ -12,8 +12,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A closed tab, on the real clock: the page holds its stream, then goes away. The panel is offline
-// for its watcher in under 15 seconds (8 s grace plus the sweep), not after the 45 s miss.
+// Real clock: the watcher sees the panel offline in under 15 s (8 s grace plus the sweep), not after the 45 s miss.
 func TestChromeClosedPanelTabIsLostInsideFifteenSeconds(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

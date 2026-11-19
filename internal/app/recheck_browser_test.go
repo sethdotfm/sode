@@ -9,8 +9,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Clear History is a Critical action. The server refuses it without a PIN recheck, so the page asks for
-// the PIN. After a right one, it clears.
+// The server refuses Clear History without a PIN recheck, so the page asks for the PIN.
 func TestChromeClearHistoryAsksRecheck(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

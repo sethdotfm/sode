@@ -154,8 +154,7 @@ html {
 .sode__brandframe[hidden] {
   display: none;
 }
-/* Step in (stepinframe.js): one fixed colour that no Branding colour uses, over the Branding border and inside the
-   lost-link one. The bar is outside every Compact view fade rule in desktop.css. */
+/* Step in: one fixed color that no Branding color uses. Outside every Compact view fade rule in desktop.css. */
 .sode__stepframe {
   border: var(--pb-space-3) solid var(--pb-signal-10);
   inset: 0;
@@ -306,7 +305,7 @@ html {
   font-size: var(--pb-text-md);
   gap: var(--pb-space-4);
 }
-/* Every text box with a role colour edge: the main page's Source and Destination boxes, the phone's one box and a
+/* Every text box with a role color edge: the main page's Source and Destination boxes, the phone's one box and a
    Grid panel's search boxes. The edge is a background strip inside the border, so the border and the focus ring run
    all the way round. Not patchbay's pb-rolebar, whose edge replaces the left border. */
 .sode__box--src .sode__input,
@@ -535,11 +534,15 @@ html {
 .sode__settings > :is(.sode__group, .sode__topic, .sode__router) {
   scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px));
 }
-@media (min-width: 68.75rem) {
+/* Media rems are 16px, not the 125% root. Below about 1380px the centered form leaves no room on its left, so it moves right of the sidebar. */
+@media (min-width: 73.75rem) {
+  .sode__settings {
+    margin-inline: max(var(--pb-space-4) + 12.5rem + var(--pb-space-8), calc((100% - 40rem) / 2)) auto;
+  }
   .sode__toc {
     border-bottom: 0;
     flex-direction: column;
-    left: calc(50% - var(--sode-page-bar) / 2 - 20rem - 12.5rem - var(--pb-space-8));
+    left: max(var(--pb-space-4), calc(50% - var(--sode-page-bar) / 2 - 20rem - 12.5rem - var(--pb-space-8)));
     overflow-x: hidden;
     position: fixed;
     top: calc(10vh + var(--sode-down-h, 0px));
@@ -604,7 +607,6 @@ html {
   padding: var(--pb-space-5) 0 0;
   width: 100%;
 }
-/* Topic band: a thick accent line on a raised surface. A router block's sub-heading has a thinner line. */
 .sode__topic {
   background: var(--pb-surface-raised);
   border-top: calc(var(--pb-accent-bar-w) * 2) solid var(--pb-accent);
@@ -614,7 +616,6 @@ html {
   margin: var(--pb-space-8) 0 0;
   padding: var(--pb-space-4) var(--pb-space-5);
 }
-/* The one Save review (savereview.js). */
 .sode__review-topic {
   border-top: var(--pb-accent-bar-w) solid var(--pb-accent);
   color: var(--pb-text-strong);
@@ -660,7 +661,6 @@ html {
   display: flex;
   gap: var(--pb-space-4);
 }
-/* The Swap dialog's list (swap.js): owners as headings, one tick per item. */
 .sode__swap-list {
   margin-top: var(--pb-space-4);
 }
@@ -678,7 +678,7 @@ html {
   display: flex;
   gap: var(--pb-space-4);
 }
-/* Sidebar tree: topic, router, section. Closed topics hide their entries (settingstoc.js sets hidden). */
+/* settingstoc.js sets hidden. */
 .sode__toc .sode__toc-topic {
   color: var(--pb-text-strong);
   font-weight: var(--pb-weight-bold);
@@ -693,7 +693,6 @@ html {
 .sode__toc .pb-tab[hidden] {
   display: none;
 }
-/* The phone's desktop-only message (desktoponly.js). */
 .sode__desktop-only {
   align-items: flex-start;
   border: var(--pb-border-w) solid var(--pb-edge);
@@ -712,13 +711,11 @@ html {
   color: var(--pb-text-strong);
   font-weight: var(--pb-weight-bold);
 }
-/* A section, band or router sub-heading the Role or the phone leaves out (settingsroles.js). */
 .sode__settings > :is(.sode__group, .sode__topic, .sode__router)[hidden] {
   display: none;
 }
-/* A Shown section a lower Role can read but not change (settingsroles.js). */
-.sode__role-note {
-  margin: 0;
+.sode__group > legend > .pb-badge[hidden] {
+  display: none;
 }
 .sode__about {
   justify-content: center;
@@ -900,7 +897,7 @@ html {
 .sode__noadmin[hidden] {
   display: none;
 }
-/* Solid, unlike a result: it stays until SODE_CONFIG is set (look from prototype/setup-wizard). */
+/* Solid, unlike a result: it stays until SODE_CONFIG is set. */
 .sode__notsaved {
   align-self: stretch;
   background: var(--pb-status-warn-fill);
@@ -910,7 +907,6 @@ html {
 .sode__notsaved[hidden] {
   display: none;
 }
-/* The Broken banner (brokenbanner.js): one entry per used Broken item, each with its own Dismiss. */
 .sode__broken {
   align-self: stretch;
   display: flex;
@@ -935,7 +931,6 @@ html {
   gap: var(--pb-space-2);
   margin-top: var(--pb-space-2);
 }
-/* Replace term in the Filters dialog (filterreplace.js). */
 .sode__filters-replace {
   display: flex;
   flex-direction: column;
@@ -953,7 +948,6 @@ html {
 .sode__filters-replace-row .pb-input {
   max-width: 16rem;
 }
-/* The count lines in Settings > Routers and My user (brokencount.js). */
 .sode__broken-count[hidden] {
   display: none;
 }
@@ -1340,7 +1334,7 @@ html:has(.sode__scrim:not([hidden])) > body {
   }
 }
 
-/* The Panels logo is white strokes on transparent, so it is a mask: the colour is the text colour, as the icons' is. */
+/* The Panels logo is white strokes on transparent, so it is a mask: the color is the text color, as the icons' is. */
 .sode-logo {
   background-color: currentColor;
   display: inline-block;
@@ -1509,8 +1503,7 @@ button.sode-up__bar:not(:disabled):hover,
   cursor: grabbing;
 }
 
-/* Send a copy and the Inbox (inboxdialog.js, sendcopy.js). The phone's Settings has no #conn, so its head takes the
-   button there; the desktop Settings keeps the one in #conn. */
+/* The phone's Settings has no #conn, so its head holds the button. */
 :root:not([data-layout="phone"]) .sode__settings-head .sode-inbox__slot {
   display: none;
 }

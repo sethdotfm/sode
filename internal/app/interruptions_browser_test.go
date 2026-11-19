@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The review lists the Interruptions the server sends, says they do not come back, and the Save button names them.
 func TestChromeReviewNamesInterruptions(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -48,8 +47,6 @@ func TestChromeReviewNamesInterruptions(t *testing.T) {
 	b.check()
 }
 
-// A save with Interruptions offers Download a backup, which sends the same request as Back up everything. Its
-// Export & Import link ends the review and opens the dialog.
 func TestChromeReviewBackupOffer(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -113,7 +114,7 @@ func slicesSorted(m map[string]string) []string {
 
 var everyCategory = []string{catSettings, catRouters, catUsers, catPresets, catFilterSets, catPanels, catArtwork, catAPIClients, catBrowser}
 
-// seedEverything puts one item in every category, each naming the router where it can.
+// seedEverything puts one item in every category. Each item names the router where it can.
 func seedEverything(t *testing.T, a *App) {
 	t.Helper()
 	cfg := a.r().cfg
@@ -133,7 +134,7 @@ func seedEverything(t *testing.T, a *App) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := a.panels.addArt(p.ID, []byte("\x89PNG\r\n\x1a\nart"), "image/png"); err != nil {
+	if _, _, err := a.panels.addArt(p.ID, imgBytes("png", 1, 1), "image/png"); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := a.panels.pushLayout(p.ID, layoutOf(p), ana, "push", nil); err != nil {
@@ -202,7 +203,6 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 		t.Errorf("Include PINs left the hashes out:\n%s", files["users.yaml"])
 	}
 
-	// The import route reads it back: routers are UIDs again and the counts match.
 	imp := postImport(t, a, tok, rec.Body.Bytes())
 	if imp.Code != 200 {
 		t.Fatalf("import check: %d %s", imp.Code, imp.Body)
@@ -213,7 +213,8 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 		check.Counts[catPanels] != 1 || check.Counts["icons"] != 1 || check.Counts["artDefaults"] != 1 || check.Counts[catAPIClients] != 1 {
 		t.Errorf("import check: %+v", check)
 	}
-	b, err := a.stageAndLoad(bytes.NewReader(rec.Body.Bytes()))
+	b, done, err := a.stageImport(bytes.NewReader(rec.Body.Bytes()))
+	defer done()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,6 +330,15 @@ func TestImportRefusesBadFiles(t *testing.T) {
 			t.Errorf("%d %s", rec.Code, rec.Body)
 		}
 	})
+	t.Run("unpacked total too large", func(t *testing.T) {
+		defer func(n int64) { exportMaxTotal = n }(exportMaxTotal)
+		exportMaxTotal = 300
+		pad := "#" + strings.Repeat("x", 200) + "\n"
+		rec := postImport(t, a, tok, zipOf(t, map[string]string{"manifest.yaml": ok + pad, "users.yaml": pad}))
+		if rec.Code != 400 || !strings.Contains(rec.Body.String(), "unpacks to over") {
+			t.Errorf("%d %s", rec.Code, rec.Body)
+		}
+	})
 	t.Run("upload too large", func(t *testing.T) {
 		defer func(n int64) { exportMaxUpload = n }(exportMaxUpload)
 		exportMaxUpload = 100
@@ -343,9 +353,32 @@ func TestImportRefusesBadFiles(t *testing.T) {
 	}
 }
 
+// A staging directory that a killed import left goes at start.
+func TestStartRemovesImportStaging(t *testing.T) {
+	dir := settledTempDir(t)
+	left := filepath.Join(dir, exportStagesDir, "import-1")
+	if err := os.MkdirAll(left, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Defaults()
+	cfg.Normalize()
+	hist, _ := OpenHistory("")
+	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(cfg, filepath.Join(dir, "config.yaml"), hist, sl, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(left); !os.IsNotExist(err) {
+		t.Fatalf("staging directory left: %v", err)
+	}
+}
+
 // Every top-level config key is in one Settings section, or in exportNotSettings, so a new setting cannot
 // miss the export. The sections are the page's own.
 func TestExportSectionsCoverTheConfig(t *testing.T) {
+	exportNotSettings := []string{"format", "installUid", "users", "presets", "filterSets", "apiClients"}
 	where := map[string][]string{}
 	for _, s := range exportSections {
 		for _, k := range s.Keys {

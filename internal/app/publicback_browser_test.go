@@ -31,7 +31,7 @@ func TestChromeStoppedPublicPanelKeepsItsGridAndComesBack(t *testing.T) {
 	b.waitFor("the plain URL opened the panel", `document.getElementById('panel-title')?.textContent === 'Lobby' && `+cells)
 
 	setPublicPanels(t, a, false)
-	b.waitFor("the stopped text", `document.getElementById('panels-note')?.textContent.trim() === 'This panel is not public now. It comes back by itself when it is public again.'`)
+	b.waitFor("the stopped text", `document.getElementById('panels-note')?.textContent.trim() === 'Not Public now. Reconnects when Public again.'`)
 	b.waitFor("the grid stays, disabled", cells+` && document.getElementById('panel-grid').inert && document.querySelector('.sode-panels--stopped')`)
 	b.shot("public-stopped")
 	keylessRow(t, a, id, ana, "Wall")

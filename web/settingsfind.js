@@ -42,7 +42,7 @@ export function initFind({ sections, toc }) {
         }
         return {
           id: secIds[i],
-          title: sec.querySelector('legend').textContent,
+          title: sec.querySelector('legend').firstChild.textContent.trim(),
           topic: headText(`.sode__topic[data-topic="${sec.dataset.topic}"]`),
           router: headText(sec.dataset.router && `.sode__router[data-router="${sec.dataset.router}"]`),
           settings,

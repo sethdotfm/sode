@@ -1,5 +1,5 @@
-// The one Save review dialog (GLOSSARY.md, Review). Its steps run in this order: the review, then the PIN recheck, then
-// the Save and reconnect confirm. Nothing is sent before the last step (spec #543, The one Save).
+// Steps: review, PIN recheck, Save and reconnect confirm. Nothing is sent before the last step
+// (docs/agents/settings-saves.md).
 
 import { $, el } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -77,7 +77,7 @@ const badge = (kind, text) => el('span', `pb-badge pb-badge--${kind}`, text);
 function interruptionsBlock(list) {
   if (list && !list.length) return [];
   const head = el('h3', 'sode__label', 'Interruptions');
-  if (!list) return [head, el('div', 'pb-note pb-note--warn', 'Sode did not send the Interruptions. Save finds them again.')];
+  if (!list) return [head, el('div', 'pb-note pb-note--warn', 'Interruptions not loaded. Save checks them again.')];
   const out = [head, el('ul', 'sode__review-stops', ...list.map((x) => el('li', null, x.text)))];
   if (endsSomething(list)) out.push(el('div', 'pb-note pb-note--warn', NO_RETURN));
   return out;
@@ -112,22 +112,11 @@ function backupBlock(toExport) {
   link.type = 'button';
   link.id = 'review-export';
   link.onclick = toExport;
-  return [
-    el('h3', 'sode__label', 'Backup'),
-    el('p', 'sode__hint', 'You can download a full backup before you save, to go back if you must.'),
-    el('div', 'sode__review-backup', get, link, last),
-    status,
-  ];
+  return [el('h3', 'sode__label', 'Backup'), el('div', 'sode__review-backup', get, link, last), status];
 }
 
-// rows: the changes (savereviewrules.js diffRows). kept(row): why it stays unsaved, or ''. place(row): {topic, section,
-// order}. label(row), show(row, value): text. critical: a row the server checks for a PIN recheck. reconnects(row): a
-// router connection field. address: the router address it reconnects to. by(row): who staged it, or null. unseen: the
-// counts of edits the saver's Role cannot see (stagedrules.js); they are not in rows and do not save. interruptions:
-// the server's list for the fields that save (settingsReview), or null when it did not answer. criticalAction: a row
-// that is a Critical action, also when an Approval saves it. role: the saver's Role. preset(row): the name of the
-// Access preset that staged it, or ''.
-// Resolves true when the save is to be sent, false when the person goes back to editing.
+// unseen: counts the Role cannot see (stagedrules.js), not in rows. interruptions: null when the server did not
+// answer. Resolves false when the person goes back.
 export function reviewSave({
   rows,
   kept,
@@ -199,11 +188,8 @@ export function reviewSave({
 
     function confirmReconnect() {
       step = { esc: review };
-      ui.title.textContent = 'Save and reconnect?';
-      ui.body.replaceChildren(
-        el('p', null, `Saving reconnects Sode to the router${address ? ` at ${address}` : ''}.`),
-        el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take that is in progress when Sode reconnects fails.'),
-      );
+      ui.title.textContent = `Save and reconnect${address ? ` to ${address}` : ''}?`;
+      ui.body.replaceChildren(el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take in progress fails.'));
       button(ui.back, 'Back', review);
       button(ui.go, 'Save and reconnect', () => end(true));
       ui.go.className = 'pb-btn pb-btn--danger';

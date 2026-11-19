@@ -12,8 +12,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A kiosk panel draws only the grid, and a route outside the user's Rights is refused on the
-// page before Take arms. The refusal shows at the bottom of the viewport and never moves the grid.
 func TestChromePanelKioskAndRefusal(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -60,7 +58,6 @@ func TestChromePanelKioskAndRefusal(t *testing.T) {
 	b.waitFor("kiosk hides the header", `document.querySelector('.sode-panels__head').offsetParent === null`)
 	b.waitFor("the grid is shown", `!!document.getElementById('panel-grid').offsetParent`)
 
-	// Outside the Rights: refused with a message, and Take stays disabled.
 	gridTop := `document.getElementById('panel-grid').getBoundingClientRect().top`
 	b.eval(`window.__gridTop = ` + gridTop)
 	b.eval(cell("destination", 1) + `.click()`)
@@ -75,7 +72,6 @@ func TestChromePanelKioskAndRefusal(t *testing.T) {
 	})()`)
 	b.shot("refused")
 
-	// Inside the Rights: arms, and the server takes it.
 	b.eval(cell("destination", 0) + `.click()`)
 	b.eval(cell("source", 0) + `.click()`)
 	b.waitFor("Take armed", `!`+cell("take", 0)+`.disabled`)

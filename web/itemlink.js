@@ -1,9 +1,7 @@
-// Item links: one Everyone or Me preset, or one panel, on this install (GLOSSARY.md). Pure: Node tests it.
-// Shapes: <page>#preset=<id>&install=<uid> and <panel link>#install=<uid>. The link holds ids, not a copy of the item.
-// So it is short enough for a QR code, and it opens nothing on another install.
+// The link holds ids, not a copy, so it fits a QR code and opens nothing on another install. Pure.
 
-export const OTHER_INSTALL = 'This Item link was made on another Sode install. It does not work here.';
-export const MISSING_PRESET = 'The preset in this Item link is not here, or you cannot see it.';
+export const OTHER_INSTALL = 'Item link from another Sode install.';
+export const MISSING_PRESET = 'Preset not found, or outside your Rights.';
 
 const params = (hash) => new URLSearchParams(String(hash || '').replace(/^#/, ''));
 

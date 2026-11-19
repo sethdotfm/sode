@@ -6,10 +6,6 @@ import (
 	"testing"
 )
 
-// A new panel made as a Grid panel in the editor. It checks the type switch, the hidden Buttons settings, and the
-// lists beside the same tabs as a Buttons panel. A new Grid panel has no sources and no destinations. Follow the router is
-// in the Panel tab; while it is on, only Pin and artwork change a list. A pin on the Sources list is saved, the type
-// locks, and the panel page shows the pinned source first.
 func TestChromeGridPanelEditor(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -59,7 +55,6 @@ func TestChromeGridPanelEditor(t *testing.T) {
 		t.Errorf("sources %v", srcs)
 	}
 
-	// Opened again from a fresh page: no unsaved changes, the type locked, and a second save is a PUT that keeps both.
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("the saved Grid panel opens in the editor", tabs+` === 'Cell,Panel,Access' && document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('ed-set-type-grid').checked && document.getElementById('ed-set-type-grid').disabled`)
 	b.waitFor("the pin loads", src+`?.querySelector('[data-act="pin"]').getAttribute('aria-pressed') === 'true'`)

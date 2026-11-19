@@ -1,6 +1,4 @@
-// The Import tab's remap step. Each file router has a row with its target. Below it, each file source or destination
-// that does not import as is has a row. Matching is in remaprules.js; the server applies the numbers (importReq.names).
-// The rows form one list for selection (remaplist.js). Filter number and range terms follow (remapterms.js).
+// The server applies the numbers (importReq.names).
 
 import { el, icon } from './core.js';
 import * as M from './remaprules.js';
@@ -147,8 +145,7 @@ function datalists(st, uid, off) {
   });
 }
 
-// Use all suggestions, Keep numbers for all blank names, Reset to Skip: on the selected rows, else on every row that
-// needs a choice.
+// On the selected rows, else on every row that needs a choice.
 function bulkBar(st, onChange) {
   const run = (action) => () => {
     const keys = st.sel.sel.size ? st.sel.sel : null;
@@ -161,7 +158,7 @@ function bulkBar(st, onChange) {
   const help = el('span', 'sode__xi-help pb-tip--end', icon('circle-help'));
   help.tabIndex = 0;
   help.setAttribute('aria-label', 'Keys for the list');
-  help.setAttribute('data-pb-tip', `${LIST_HELP} With rows selected, these buttons change only those rows.`);
+  help.setAttribute('data-pb-tip', `${LIST_HELP} Buttons act on selected rows.`);
   return el(
     'div',
     'sode__xi-bulk',
@@ -218,7 +215,7 @@ export function remapView(st, { off, onChange, onRouter, fmt }) {
       box.append(caret);
       if (open) box.append(...moved.map((x) => nameRow(st, r.uid, x, o, onChange)));
     }
-    if (asIs) box.append(el('p', 'sode__hint', `${asIs} ${asIs === 1 ? 'name imports' : 'names import'} as is.`));
+    if (asIs) box.append(el('p', 'sode__hint', `${asIs} unchanged`));
     list.append(box, ...termView(r, st.termsBy[r.uid] || [], st.terms, () => onChange('')), ...datalists(st, r.uid, o));
   }
   const any = Object.values(st.rowsBy).some((rows) => rows.some((x) => x.state !== 'as-is'));
@@ -232,7 +229,6 @@ export function remapView(st, { off, onChange, onRouter, fmt }) {
 
 const linkTo = (text, fn) => el('li', null, btn('pb-btn--ghost pb-btn--sm', text, fn));
 
-// The review: per router pair what the names do, the changed filter terms and the notes, each linked to its row.
 export function remapReview(st, goTo) {
   const out = [];
   for (const r of st.info.routers) {
@@ -251,7 +247,7 @@ export function remapReview(st, goTo) {
       links.push(
         linkTo(`${t.side === 'src' ? 'Sources' : 'Destinations'} ${t.label} in ${t.sets.join(', ')}: ${TERM_CHOICE[t.choice]}`, () => goTo(r.uid, t.key)),
       );
-    for (const name of ch.open) links.push(el('li', 'sode__hint', `${name}: no number or name term is left on one side, so that side matches all.`));
+    for (const name of ch.open) links.push(el('li', 'sode__hint', `${name}: one side now matches all.`));
     for (const x of rows.filter((x) => x.note && (st.choices[x.key] || []).length)) links.push(linkTo(`${x.name.trim()}: ${x.note}`, () => goTo(r.uid, x.key)));
     if (links.length) li.append(el('ul', 'sode__xi-list', ...links));
     out.push(li);
@@ -260,7 +256,6 @@ export function remapReview(st, goTo) {
   return [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list sode__xi-pairs', ...out)];
 }
 
-// The row a Broken item's missing reference comes from, as [file UID, key], or null.
 export function rowOf(st, m) {
   for (const [uid, rows] of Object.entries(st.rowsBy)) {
     if (st.targets[uid] !== m.ref?.router) continue;

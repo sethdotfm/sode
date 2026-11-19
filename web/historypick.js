@@ -143,7 +143,7 @@ bar.setAttribute('role', 'region');
 bar.setAttribute('aria-label', 'Choose takes from History');
 bar.hidden = true;
 document.body.append(bar);
-// The phone makes the bar a row of its view (mobile.js).
+// The phone makes the bar a row of its view (mobilehistory.js).
 export const pickBar = bar;
 
 followsIn.addEventListener('change', () => {

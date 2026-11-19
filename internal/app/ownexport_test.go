@@ -173,7 +173,7 @@ func TestOwnExportReimportsPresets(t *testing.T) {
 	}
 }
 
-// An own import of an Administrator's file takes only the importer's own profile: other users, global items and
+// An own import of an Administrator's file writes only the importer's own profile: other users, global items and
 // the importer's Role and Rights stay. Profile is overwritten whole.
 func TestOwnImportTouchesOnlyOwnProfile(t *testing.T) {
 	a, tok := ownApp(t)
@@ -297,7 +297,6 @@ func TestOwnExportItems(t *testing.T) {
 	}
 }
 
-// A Standard user's page gets the session token for the own routes.
 func TestExportSessionForStandardUser(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)

@@ -16,7 +16,7 @@ func gridXp(src, dst int) string {
 	return fmt.Sprintf(`document.querySelector('.sode-gridpanel__xp[data-src="%d"][data-dst="%d"]:not([hidden])')`, src, dst)
 }
 
-// gridConfirm answers the open take confirm with its churning letter once the lockout is over.
+// gridConfirm answers the open take confirm with its churning letter after the lockout is over.
 func gridConfirm(b *tab) {
 	b.waitFor("the take confirm", `!document.getElementById('confirm').hidden`)
 	b.waitFor("the confirm lockout ends", `!document.getElementById('confirm-ok').disabled`)
@@ -74,9 +74,6 @@ func signInOnPad(b *tab) {
 	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 }
 
-// A Grid panel in Take mode, signed in as a user. A press stages and a second press opens the take confirm; Clear
-// drops the route. Another source in a
-// staged row replaces the route. Enter opens the churning-letter confirm, and the take is one History Group.
 func TestChromeGridPanelTake(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -147,22 +144,16 @@ func TestChromeGridPanelTake(t *testing.T) {
 		t.Errorf("history %+v, want one Group of two routes", hist.Entries)
 	}
 
-	// Esc drops staged routes.
 	b.eval(gridXp(12, 4) + `.click()`)
 	b.waitFor("staged again", staged(12, 4))
 	gridKey(b, "Escape")
 	b.waitFor("Esc drops it", `!document.querySelector('.sode-gridpanel__xp[data-s="staged"]')`)
 
-	// The panels list draws with a Grid panel in it.
 	b.open(srv.URL + "/panels")
 	b.waitFor("the panels list names the Grid panel", `document.body.textContent.includes('Studio grid')`)
 	b.check()
 }
 
-// Picks on the Source bar make a press stage a Diagonal. The targets show numbered before the press. The header
-// counts the staged routes. The same Diagonal again opens the confirm, Alt-click unstages one route, and one confirm
-// takes the rest. In Kiosk mode Esc drops the picks, then the staged
-// routes, and only then leaves Kiosk mode.
 func TestChromeGridPanelDiagonal(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -217,7 +208,6 @@ func TestChromeGridPanelDiagonal(t *testing.T) {
 	b.waitFor("the same Diagonal again opens the take confirm", `!document.getElementById('confirm').hidden && document.getElementById('confirm-body').textContent.includes('3 destinations')`)
 	b.eval(`document.getElementById('confirm-cancel').click(); true`)
 	b.waitFor("Cancel keeps the stage", `document.getElementById('confirm').hidden && `+staged(12, 5))
-	// Alt-click takes one route out, not the rest.
 	b.eval(gridXp(12, 5) + `.dispatchEvent(new MouseEvent('click', { bubbles: true, altKey: true }))`)
 	b.waitFor("Alt-click unstages only that route", `!(`+staged(12, 5)+`) && `+staged(11, 4)+` && `+staged(13, 6)+` && document.getElementById('panel-staged').textContent === '2 staged'`)
 	b.waitFor("Clear's tip names the way to unstage one route", `document.getElementById('panel-clear').dataset.pbTip.includes('Alt-click')`)
@@ -228,7 +218,6 @@ func TestChromeGridPanelDiagonal(t *testing.T) {
 	tallyHas(t, a, ana, 6, 13)
 	b.waitFor("nothing staged after the take", `document.getElementById('panel-staged').hidden`)
 
-	// Esc steps in Kiosk mode.
 	const kiosk = `document.documentElement.hasAttribute('data-sode-kiosk')`
 	pressEsc := func() {
 		for _, typ := range []string{"keyDown", "keyUp"} {
@@ -251,8 +240,6 @@ func TestChromeGridPanelDiagonal(t *testing.T) {
 	b.check()
 }
 
-// One Grid panel in Instant mode. It opens as a keyless page that an Assign gives a key, then as Both behind a
-// sign-in, then as Public. Each press sends its one route at once.
 func TestChromeGridPanelSharingModes(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -269,7 +256,6 @@ func TestChromeGridPanelSharingModes(t *testing.T) {
 		b.waitFor(how+": the tally", gridXp(5, 5)+`.dataset.on?.startsWith('1')`)
 	}
 
-	// Keyless: a revoked key makes the page announce itself, and an Assign gives it a working key.
 	secret := instanceKey(t, a, id, ana, "Lobby")
 	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key?instance=Lobby", ana, ""); rec.Code/100 != 2 {
 		t.Fatalf("revoke: %d %s", rec.Code, rec.Body.String())
@@ -293,7 +279,6 @@ func TestChromeGridPanelSharingModes(t *testing.T) {
 	b.eval(gridXp(11, simDst) + `.click()`)
 	tallyHas(t, a, ana, simDst, 11)
 
-	// Both, by the plain link: the page lock signs in and the panel runs as the user.
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body("both")); rec.Code != 200 {
 		t.Fatalf("to both: %d %s", rec.Code, rec.Body.String())
 	}
@@ -304,7 +289,6 @@ func TestChromeGridPanelSharingModes(t *testing.T) {
 	b.eval(gridXp(12, simDst) + `.click()`)
 	tallyHas(t, a, ana, simDst, 12)
 
-	// Public: no key and no sign-in needed.
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body("public")); rec.Code != 200 {
 		t.Fatalf("to public: %d %s", rec.Code, rec.Body.String())
 	}
@@ -324,9 +308,7 @@ func TestChromeGridPanelSharingModes(t *testing.T) {
 	}
 }
 
-// A Grid panel for a user whose Rights cover sources 0-19 and destinations 0-29. Items outside them are left out.
-// Rec B (12) is protected in the simulator, so it shows the lock and refuses a press. A destination whose current
-// source is outside the grid names it. A staged destination that becomes protected is left out of the confirm.
+// Rec B (12) is protected in the simulator.
 func TestChromeGridPanelProtected(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -434,8 +416,6 @@ func TestChromeGridPanelProtected(t *testing.T) {
 	b.check()
 }
 
-// The Levels box on a Grid panel: the panel's levels setting fills it, typing changes what a press stages, and the
-// confirm shows those levels. Rights leave out the levels the box does not offer.
 func TestChromeGridPanelLevels(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -453,7 +433,6 @@ func TestChromeGridPanelLevels(t *testing.T) {
 	b.waitFor("a chip for every router level", `document.querySelectorAll('#panel-lvl-pick .sode__pick').length === 17`)
 	b.waitFor("the chips for the setting are on", `document.querySelectorAll('#panel-lvl-pick .sode__pick[aria-pressed="true"]').length === 2`)
 
-	// f focuses the box, as on the main page, and typing changes the chips.
 	b.waitFor("the lock screen is off", `!document.querySelector('.sode-lock.is-on')`)
 	gridKey(b, "f")
 	b.waitFor("f focuses the box", `document.activeElement.id === 'panel-lvl'`)

@@ -10,7 +10,7 @@ const LISTS = [
   { kind: 'sources', title: 'Sources', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
   { kind: 'dsts', title: 'Destinations', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
   { kind: 'levels', title: 'Levels', hint: 'Level numbers start at 1, whatever the router calls its levels.' },
-  { kind: 'presets', title: 'Presets', hint: "One preset name per line: an Everyone preset, or one of the user's Me presets.", area: true },
+  { kind: 'presets', title: 'Presets', hint: "One name per line (Everyone or the user's Me presets)", area: true },
 ];
 const off = () => S.cfg?.numberOffset ?? 0;
 // Rights name presets by id. The Everyone presets, and a user's own Me presets, give the names to type.
@@ -144,7 +144,6 @@ export function makeRightsTab({ users, clients, touched }) {
       refresh();
     },
     reset: () => entries.clear(),
-    // Apply an access preset: as if ticked by hand.
     setNoAutoLock(rid, v) {
       const e = entryOf(`user:${rid}`);
       e.draft.noAutoLock = v;

@@ -3,14 +3,12 @@ package app
 import (
 	"cmp"
 	"errors"
-	"fmt"
 	"maps"
 	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
-	"gopkg.in/yaml.v3"
 )
 
 // Add import and Replace import (docs/agents/profiles.md): planImport works out what a checked export file does to this
@@ -22,7 +20,6 @@ const (
 	importReplace = "replace" // empties each ticked category first (importreplace.go)
 )
 
-// Clash choices.
 const (
 	useNew     = "new"
 	useCurrent = "current"
@@ -49,7 +46,7 @@ type importReq struct {
 	Filters map[string]remapFilter `json:"filters,omitempty"`
 }
 
-// importItem is one file item. Key is what pick and choices take. Users, presets and panels use the hidden
+// importItem is one file item. Key is the key in pick and choices. Users, presets and panels use the hidden
 // id, filter sets and API clients the name. Settings use the section name, Routers the UID.
 type importItem struct {
 	Key    string           `json:"key"`
@@ -96,70 +93,6 @@ type plannedPanel struct {
 	Cps    []panelCheckpoint // the file's Push checkpoints, added to the panel's
 }
 
-// refCheck checks references against the live router's names. With no names read yet a source or
-// destination cannot be checked, so the item waits (waited) and its category is not imported.
-type refCheck struct {
-	uid      string
-	levels   int
-	src, dst map[int]string
-	unknown  bool
-	waited   bool
-}
-
-func (k *refCheck) missing(kind string, r config.Ref) (config.Missing, bool) {
-	if r.Router != k.uid {
-		return config.Missing{Kind: config.MissingRouter, Ref: r}, true
-	}
-	if kind == config.MissingLevel {
-		return config.Missing{Kind: kind, Ref: r}, r.N < 1 || r.N > k.levels
-	}
-	if k.unknown {
-		k.waited = true
-		return config.Missing{}, false
-	}
-	names := k.src
-	if kind == config.MissingDestination {
-		names = k.dst
-	}
-	return config.Missing{Kind: kind, Ref: r}, !strings.EqualFold(strings.TrimSpace(names[r.N]), strings.TrimSpace(r.Name))
-}
-
-type brokenList struct{ out []config.Missing }
-
-func (b *brokenList) add(m config.Missing, bad bool) {
-	if !bad {
-		return
-	}
-	m.Ref.Shown, m.Ref.Extra = "", nil
-	if !slices.ContainsFunc(b.out, func(x config.Missing) bool {
-		return x.Kind == m.Kind && x.Ref.Router == m.Ref.Router && x.Ref.N == m.Ref.N && x.Ref.Name == m.Ref.Name
-	}) {
-		b.out = append(b.out, m)
-	}
-}
-
-func (k *refCheck) presetBroken(p config.Preset) []config.Missing {
-	var b brokenList
-	for _, it := range p.Items {
-		b.add(k.missing(config.MissingSource, it.Src))
-		for _, d := range it.Dsts {
-			b.add(k.missing(config.MissingDestination, d))
-		}
-		for _, l := range it.Levels {
-			b.add(k.missing(config.MissingLevel, config.Ref{Router: it.Src.Router, N: l}))
-		}
-	}
-	return b.out
-}
-
-// filterSetBroken: only the router is checked here; terms break on router changes, not on import.
-func (k *refCheck) filterSetBroken(s config.FilterSet) []config.Missing {
-	if s.Router == "" || s.Router == k.uid {
-		return nil
-	}
-	return []config.Missing{{Kind: config.MissingRouter, Ref: config.Ref{Router: s.Router}}}
-}
-
 type importPlanner struct {
 	live, next config.Config
 	b          *exportBundle
@@ -195,13 +128,13 @@ type importPlanner struct {
 	templateWrites []plannedTemplate
 	setWrites      []plannedSet
 
-	written    []string // config keys the commit takes from next
+	written    []string // config keys the commit copies from next
 	pending    []string // keys the step being planned adds to written when its category is accepted
 	overwrites []string // the names of the items Use new writes over: they make the import Critical
 	plan       importPlan
 }
 
-// planImport plans b onto live. src, dst are the live router's names; livePanels the panel store's list.
+// src, dst are the live router's names.
 func planImport(live config.Config, src, dst map[int]string, lv importLive, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
 	p := &importPlanner{
 		live: live, next: live.Clone(), b: b, req: req, actor: actor, secure: secure,
@@ -264,7 +197,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 			continue
 		}
 		for _, key := range slices.Sorted(maps.Keys(p.waits[s.cat])) {
-			if p.wantedItem(s.cat, key) {
+			if picked(p.req.Pick, s.cat, key) {
 				it := importItem{Key: key, Name: p.waits[s.cat][key], Refused: waitsForNames}
 				if s.cat == catPanels {
 					it.Kind = kindPanel
@@ -334,12 +267,7 @@ func (p *importPlanner) picked(cat, key string) bool {
 	if _, waits := p.waits[cat][key]; waits {
 		return false
 	}
-	return p.wantedItem(cat, key)
-}
-
-func (p *importPlanner) wantedItem(cat, key string) bool {
-	keys, some := p.req.Pick[cat]
-	return !some || slices.Contains(keys, key)
+	return picked(p.req.Pick, cat, key)
 }
 
 const waitsForNames = "it holds router references; import it after Sode reads the router names"
@@ -371,7 +299,7 @@ func (p *importPlanner) itemsWithRefs() map[string]map[string]string {
 }
 
 // choice is the page's choice for a clashing item, when it is a valid one. Else a file from this install
-// gets Use new and a foreign file gets Rename. Replace import takes the file's item always.
+// gets Use new and a foreign file gets Rename. Replace import always uses the file's item.
 func (p *importPlanner) choice(cat, key string, rename bool) string {
 	c := p.req.Choices[cat][key]
 	switch {
@@ -383,49 +311,6 @@ func (p *importPlanner) choice(cat, key string, rename bool) string {
 		return useNew
 	}
 	return useRename
-}
-
-// matchIdx finds the live item for a file item: by hidden id on a file from this install, then by name.
-func matchIdx[T any](same bool, list []T, id, name string, idOf, nameOf func(T) string) int {
-	if same && id != "" && idOf != nil {
-		if i := slices.IndexFunc(list, func(x T) bool { return idOf(x) == id }); i >= 0 {
-			return i
-		}
-	}
-	name = strings.TrimSpace(name)
-	return slices.IndexFunc(list, func(x T) bool { return strings.EqualFold(strings.TrimSpace(nameOf(x)), name) })
-}
-
-func matchUser(same bool, list []config.User, u config.User) int {
-	return matchIdx(same, list, u.ID, u.Name, func(x config.User) string { return x.ID }, func(x config.User) string { return x.Name })
-}
-
-func matchPreset(same bool, list []config.Preset, s config.Preset) int {
-	return matchIdx(same, list, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
-}
-
-// keepLivePanel finds fp's live twin and keeps it from Replace import's removals.
-func (p *importPlanner) keepLivePanel(fp Panel) int {
-	i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
-	if i >= 0 {
-		p.removed.keep(p.livePanels[i].ID)
-	}
-	return i
-}
-
-// nextName is "Name 2", or the first number after it that taken does not hold.
-func nextName(name string, taken func(string) bool) string {
-	for n := 2; ; n++ {
-		if s := fmt.Sprintf("%s %d", strings.TrimSpace(name), n); !taken(s) {
-			return s
-		}
-	}
-}
-
-func sameYAML(a, b any) bool {
-	x, err1 := yaml.Marshal(a)
-	y, err2 := yaml.Marshal(b)
-	return err1 == nil && err2 == nil && string(x) == string(y)
 }
 
 // configFieldsByYAML: top-level Config fields by yaml key, for copying a Settings section.
@@ -458,19 +343,15 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 			continue
 		}
 		it := importItem{Key: sec.Name, Name: sectionNames[sec.Name]}
+		keys := slices.DeleteFunc(slices.Clone(sec.Keys), func(k string) bool { _, ok := fields[k]; return !ok || !p.b.SettingKeys[k] })
 		one := cand.Clone()
-		for _, k := range sec.Keys {
-			if idx, ok := fields[k]; ok {
-				copyConfigKey(&one, p.b.Settings, idx)
-			}
+		for _, k := range keys {
+			copyConfigKey(&one, p.b.Settings, fields[k])
 		}
 		one.Normalize()
-		changed := false
-		for _, k := range sec.Keys {
-			if idx, ok := fields[k]; ok {
-				changed = changed || !reflect.DeepEqual(reflect.ValueOf(one).FieldByIndex(idx).Interface(), reflect.ValueOf(*cand).FieldByIndex(idx).Interface())
-			}
-		}
+		changed := slices.ContainsFunc(keys, func(k string) bool {
+			return !reflect.DeepEqual(reflect.ValueOf(one).FieldByIndex(fields[k]).Interface(), reflect.ValueOf(*cand).FieldByIndex(fields[k]).Interface())
+		})
 		if !changed {
 			it.Same = true
 			cat.Items = append(cat.Items, it)
@@ -481,26 +362,24 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 		if it.Choice != useNew {
 			continue
 		}
-		// Turning it on from a connection that is not secure would lock this page out (ADR 0005).
+		// Require HTTPS set from a connection that is not secure locks this page out (ADR 0005).
 		if one.RequireHTTPS && !p.live.RequireHTTPS && !p.secure {
 			return errInsecureSave
 		}
-		for _, k := range sec.Keys {
-			if idx, ok := fields[k]; ok {
-				copyConfigKey(cand, &one, idx)
-				p.pending = append(p.pending, k)
-			}
+		for _, k := range keys {
+			copyConfigKey(cand, &one, fields[k])
 		}
+		p.pending = append(p.pending, keys...)
 	}
 	return nil
 }
 
-// planRouters: v2.0 drives one router, so only the file's router with the live UID applies. Another
+// planRouters: Sode drives one router, so only the file's router with the live UID applies. Another
 // router is for the remap step.
 func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
 	for i, r := range p.b.Routers {
 		it := importItem{Key: r.UID, Name: cmp.Or(r.Title, r.Prefix)}
-		// Replace import goes over the one router in place: adding or deleting a router is not in v2.0.
+		// Replace import writes over the one router in place: Sode does not add or delete routers.
 		if p.replace && i == 0 {
 			r.UID = p.live.UID
 		}
@@ -525,25 +404,25 @@ func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
 	return nil
 }
 
-// planUsers: a user with a PIN hash in the file brings it. A new user without one is PIN needed, keeping the
-// Role, and Use new on a live user keeps that user's PIN.
+// planUsers: a user with a PIN hash in the file brings it. A new user without one is PIN needed and keeps the
+// Role. Use new on a live user keeps that user's PIN.
 func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 	for _, u := range p.b.Users {
 		key := cmp.Or(u.ID, u.Name)
 		if !p.picked(catUsers, key) {
 			continue
 		}
-		fileID := u.ID
+		fileID := key
 		u.Rights = p.mapRightsPresets(u.Rights)
 		u.Profile.Presets = p.checkedPresets(u.Profile.Presets)
 		for i := range u.Profile.FilterSets {
 			u.Profile.FilterSets[i].Broken = p.check.filterSetBroken(u.Profile.FilterSets[i])
 		}
 		it := importItem{Key: key, Name: u.Name}
+		hashed, role := fileHash(u), u.Role
 		i := matchUser(p.same, cand.Users, u)
 		if i >= 0 {
 			lu := cand.Users[i]
-			hashed := fileHash(u)
 			if !hashed {
 				u.Pin, u.Len, u.PinNeeded = lu.Pin, lu.Len, lu.PinNeeded
 			}
@@ -552,9 +431,6 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			}
 			u.ID = lu.ID
 			it.Clash = lu.Name
-			if hashed && u.Pin != lu.Pin {
-				it.Note = "Ends " + lu.Name + "'s keys and sessions"
-			}
 			if sameYAML(u, lu) {
 				it.Same = true
 				p.users[fileID] = lu.ID
@@ -565,6 +441,9 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			switch it.Choice {
 			case useNew:
 				cand.Users[i] = u
+				if hashed && u.Pin != lu.Pin {
+					it.Note = "Ends " + lu.Name + "'s keys and sessions"
+				}
 				p.users[fileID] = lu.ID
 			case useCurrent:
 				p.users[fileID] = lu.ID
@@ -572,7 +451,7 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 				p.users[fileID] = ""
 			case useRename:
 				u.Name = nextName(u.Name, func(s string) bool { _, ok := cand.FindUserByName(s); return ok })
-				it.As = u.Name
+				u.Role, it.As = role, u.Name
 			}
 			if it.Choice != useRename {
 				cat.Items = append(cat.Items, it)
@@ -582,7 +461,7 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 		if _, taken := cand.FindUserByID(u.ID); u.ID == "" || taken || it.Choice == useRename {
 			u.ID = config.NewUserID()
 		}
-		if !fileHash(u) {
+		if !hashed {
 			u.Pin, u.Len, u.PinNeeded = "", 0, true
 		}
 		cand.Users = append(cand.Users, u)
@@ -757,177 +636,4 @@ func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) erro
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
-}
-
-// planPanels plans the panel writes; they happen after the config commit, so a preset the same import
-// adds is found. A new panel has no key link; Use new keeps the live panel's Authentication mode and key link.
-func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
-	adds := 0
-	for _, fp := range p.b.Panels.Panels {
-		if !p.picked(catPanels, fp.ID) {
-			continue
-		}
-		fileID := fp.ID
-		fp.Owner = p.ownerFor(*cand, fp.Owner, false)
-		fp.Pages = p.relibPages(fp.Pages)
-		fp.Sources, fp.Destinations = p.relibEdge(fp.Sources), p.relibEdge(fp.Destinations)
-		fp.Broken = p.panelBroken(&fp, *cand)
-		fp.Rev, fp.Client = 0, ""
-		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)
-		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken, Kind: kindPanel}
-		cps := p.planCheckpoints(fileID)
-		i := p.keepLivePanel(fp)
-		if err := validatePanel(&fp); err != nil {
-			it.Refused = err.Error()
-		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
-			it.Refused = errPublicOff.Error()
-		}
-		if it.Refused != "" {
-			cat.Items = append(cat.Items, it)
-			continue
-		}
-		if i >= 0 {
-			lp := p.livePanels[i]
-			fp.ID, fp.Acts, fp.Client, fp.Rev = lp.ID, lp.Acts, lp.Client, lp.Rev
-			it.Clash = lp.Name
-			if sameYAML(fp, lp) {
-				it.Same = true
-				p.panelIDs[fileID] = lp.ID
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catPanels, fileID, true)
-			switch it.Choice {
-			case useNew:
-				fp.Rev = lp.Rev + 1
-				p.panelIDs[fileID] = lp.ID
-				p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Live: &lp, Cps: cps})
-			case useCurrent:
-				p.panelIDs[fileID] = lp.ID
-			case useRename:
-				fp.Name = nextName(fp.Name, func(n string) bool {
-					return slices.ContainsFunc(p.livePanels, func(x Panel) bool { return strings.EqualFold(x.Name, n) })
-				})
-				it.As = fp.Name
-			}
-			if it.Choice != useRename {
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-		}
-		fp.Rev = 0
-		if it.Choice == useRename || slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.ID == fp.ID }) {
-			fp.ID = "" // createAs keeps a free id, so a link to this panel still opens it
-		}
-		if slices.ContainsFunc(p.livePanels, func(x Panel) bool { return fp.Slug != "" && x.Slug == fp.Slug }) {
-			fp.Slug = ""
-		}
-		if actsHasClient(fp.Acts) {
-			it.Note = "needs a new key link"
-		}
-		adds++
-		p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Cps: cps})
-		cat.Items = append(cat.Items, it)
-	}
-	if len(p.livePanels)+adds > panelMax && !p.replace { // Replace counts after its removals (emptyRest)
-		return errPanelCap
-	}
-	return nil
-}
-
-// shareNames maps the user names a panel is shared with through the users this import maps. A name from
-// a foreign file that the import does not map is left out, since here it can be another person.
-func (p *importPlanner) shareNames(cfg config.Config, names []string) []string {
-	var out []string
-	for _, n := range names {
-		i := slices.IndexFunc(p.b.Users, func(u config.User) bool { return strings.EqualFold(u.Name, n) })
-		if i >= 0 {
-			if id, ok := p.users[p.b.Users[i].ID]; ok {
-				if u, found := cfg.FindUserByID(id); found {
-					out = append(out, u.Name)
-				}
-				continue
-			}
-		}
-		if _, ok := cfg.FindUserByName(n); ok && p.same {
-			out = append(out, n)
-		}
-	}
-	return out
-}
-
-// panelBroken points preset buttons at the presets this import maps them to and lists what the target lacks.
-func (p *importPlanner) panelBroken(fp *Panel, cfg config.Config) []config.Missing {
-	var b brokenList
-	pages := make([]PanelPage, len(fp.Pages))
-	for i, g := range fp.Pages {
-		pages[i] = g
-		pages[i].Cells = make([]map[string]any, len(g.Cells))
-		for j, c := range g.Cells {
-			c = cloneCell(c)
-			switch c["kind"] {
-			case "source", "destination":
-				if r, ok := cellRef(c); ok {
-					kind := config.MissingSource
-					if c["kind"] == "destination" {
-						kind = config.MissingDestination
-					}
-					b.add(p.check.missing(kind, r))
-				}
-			case "preset":
-				if c["scope"] == "me" {
-					break
-				}
-				id, _ := c["id"].(string)
-				name, _ := c["name"].(string)
-				to, mapped := p.presets[id]
-				if !mapped && p.same {
-					to = id
-				}
-				if !slices.ContainsFunc(cfg.Presets, func(x config.Preset) bool { return to != "" && x.ID == to }) {
-					b.add(config.Missing{Kind: config.MissingPreset, Ref: config.Ref{Name: name}}, id != "" || name != "")
-					break
-				}
-				c["id"] = to
-			}
-			pages[i].Cells[j] = c
-		}
-	}
-	fp.Pages = pages
-	for _, e := range []struct {
-		edge *GridEdge
-		kind string
-	}{{fp.Sources, config.MissingSource}, {fp.Destinations, config.MissingDestination}} {
-		if e.edge == nil {
-			continue
-		}
-		for r := range edgeRefs(e.edge) {
-			b.add(p.check.missing(e.kind, r))
-		}
-	}
-	return b.out
-}
-
-func cloneCell(c map[string]any) map[string]any {
-	out := make(map[string]any, len(c))
-	for k, v := range c {
-		out[k] = v
-	}
-	return out
-}
-
-// cellRef reads a source or destination cell's reference; a cell with no number is unassigned.
-func cellRef(c map[string]any) (config.Ref, bool) {
-	var n int
-	switch x := c["n"].(type) {
-	case int:
-		n = x
-	case float64:
-		n = int(x)
-	default:
-		return config.Ref{}, false
-	}
-	r, _ := c["router"].(string)
-	name, _ := c["name"].(string)
-	return config.Ref{Router: r, N: n, Name: name}, true
 }

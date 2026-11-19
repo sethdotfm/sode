@@ -12,10 +12,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The run page must hold steady while it sits open for hours. The poll and the one-second redraw must not add nodes,
-// documents, listeners, timers or object URLs. A <use> of the external sprite made Chrome load its own copy of the
-// sprite document for each tick icon the redraw built. Each copy was about 16,700 nodes until a major GC. Renderer
-// memory climbed from 0.4 to 4 GB in two minutes with one destination viewed.
+// Chrome loads its own copy of an external sprite document for each <use> (about 16,700 nodes each, held to a major GC).
+// So the poll and the one-second redraw must add no nodes, documents, listeners, timers or object URLs.
 func TestChromeRunPageHoldsNoMemory(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -76,7 +74,7 @@ func TestChromeRunPageHoldsNoMemory(t *testing.T) {
 		t.Errorf("a <use> points outside the page: %v", ext)
 	}
 
-	// Pre-GC documents over several redraws: each external <use> made one more.
+	// Documents before a GC, over several redraws: each external <use> adds one.
 	docs := func() float64 {
 		var m struct {
 			Metrics []struct {

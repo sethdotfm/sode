@@ -69,11 +69,6 @@ let ridSeq = 0;
 const usersPanel = el(
   'div',
   null,
-  el(
-    'p',
-    'sode__hint',
-    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. Each user signs in with their name and PIN, PINs are digits, and two users can have the same PIN. A User without a PIN signs in by name only and opens no page lock. Such a user acts no wider than a Guest. A Trusted user or an Administrator always needs a PIN. A Standard user patches within their Rights and keeps their own Profile and panels. A Trusted user also changes shared Settings, filter sets, presets, every Profile and panel, the Icon library and Default artwork. An Administrator changes everything, and Sode always keeps one. A rename keeps the user signed in, with their keys, panels and Profile.',
-  ),
   table,
   el('div', 'sode__users-acts', addBtn),
   owners,
@@ -150,12 +145,7 @@ function paintOwners(r = readRows()) {
       s.value = a.kept.some((k) => k.id === ownerPick.get(a.id)) ? ownerPick.get(a.id) : a.pick;
       s.addEventListener('change', () => ownerPick.set(a.id, s.value));
       const what = a.panels === 1 ? '1 panel' : `${a.panels} panels`;
-      return formField(
-        s.id,
-        `New owner of ${a.name}'s ${what}`,
-        el('span', 'pb-select-wrap', s),
-        'You remove this user. Their panels go to this user when you save.',
-      );
+      return formField(s.id, `New owner of ${a.name}'s ${what}`, el('span', 'pb-select-wrap', s));
     }),
   );
 }
@@ -312,7 +302,6 @@ function paintPeople() {
 
 const paintSummary = paintPeople;
 
-// The directory is not in the hello (a locked page gets that too): an Administrator asks for it.
 const load = () => {
   wsSend({ t: 'usersList', id: ++listSeq });
 };
@@ -338,22 +327,25 @@ onMsg('usersListResult', (m) => {
     fill();
   }
 });
-// An Administrator who signs in gets the list at once, so Settings can show and stage it.
+// policy.go answers usersList to an Administrator only; anyone else would only add a refused row to the Log.
+let admin = false;
 on('access', (a) => {
   paintSummary();
-  if (!loaded && a.role === 'administrator') load();
+  const was = admin;
+  admin = a.role === 'administrator';
+  if (admin && (!was || !loaded)) load();
 });
 on('conn', paintPeople);
 on('hello', () => {
   paintSummary();
-  load();
+  if (admin) load();
 });
 
 // ---- open / close / save
 function openUsers() {
   back = document.activeElement;
   isOpen = true;
-  setNote('Changes save with the Save button of Settings.');
+  setNote('');
   if (!staged()) load();
   tabs.select('users');
   dlg.show();

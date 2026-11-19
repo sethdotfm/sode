@@ -45,7 +45,7 @@ func TestChromeSetupWaitPage(t *testing.T) {
 	b.shot("setup-wait-desktop")
 
 	b.eval(`document.getElementById('setup-take').click(); true`)
-	b.waitFor("the wizard here", `!!document.getElementById('setup-dialog').offsetParent && document.getElementById('setup-title').textContent === 'Welcome to Sode' && `+wait+`.hidden`)
+	b.waitFor("the wizard here", `!!document.getElementById('setup-dialog').offsetParent && document.getElementById('setup-title').textContent === 'Set up Sode' && `+wait+`.hidden`)
 	first.until("setupTaken")
 	b.check()
 }

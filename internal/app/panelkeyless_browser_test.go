@@ -12,8 +12,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A panel page whose key was revoked shows the ended-key note and is listed as a Keyless instance with Key ended. A
-// Trusted user assigns it from the panels page: it switches with no prompt, runs the target and opens it again.
 func TestChromeKeylessPageIsAssignedAndRuns(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -83,7 +81,6 @@ func TestChromeKeylessPageIsAssignedAndRuns(t *testing.T) {
 		t.Fatalf("address %s", addr)
 	}
 
-	// The ended-key note, seen on a second open of the old link in this tab; then the target's address again.
 	b.open(srv.URL + "/panels/" + from + "?instance=Lobby#key=" + strings.TrimPrefix(secret, keyPrefix))
 	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("This link's key no longer works")`)
 	b.open(addr)

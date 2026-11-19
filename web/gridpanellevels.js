@@ -33,7 +33,7 @@ export function pieOn(env, src, dst) {
 
 const turn = (x) => `${Number(x.toFixed(4))}turn`;
 
-// A fixed slice per router level, so a slice's place tells the level and colour is never the only signal.
+// A fixed slice per router level, so a slice's place tells the level and color is never the only signal.
 // '' when no level is on.
 export function pieFill(levels, on) {
   if (!on.length) return '';

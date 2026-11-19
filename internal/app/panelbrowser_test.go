@@ -18,9 +18,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// startSim builds cmd/swp08sim, runs it on a free port and returns its address. Never a live Ultrix: this is the only
-// router a browser check is allowed to reach. env adds SIM_* settings ("SIM_SOURCES=2500"; docs/reference.md lists
-// them).
+// startSim builds cmd/swp08sim, runs it on a free port and returns its address. Never a live Ultrix: this is the only router a browser check is allowed to reach. env adds SIM_* settings ("SIM_SOURCES=2500"; docs/reference.md lists them).
 func startSim(t *testing.T, env ...string) string {
 	addr, _ := startSimStoppable(t, env...)
 	return addr

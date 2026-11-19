@@ -1,9 +1,7 @@
-// Pure parts of importing This browser (importtab.js applies them). The file's values come from POST api/import's
-// `browser`, in the form exportcalls.js browserValues writes. They are another browser's, so only known values pass.
+// The values are another browser's, so only known values pass.
 
 import { PREFS } from './prefs.js';
 
-// The file's preferences that this Sode knows, with values it knows.
 export function browserPrefs(file) {
   const out = {};
   for (const [name, p] of Object.entries(PREFS)) {
@@ -13,8 +11,7 @@ export function browserPrefs(file) {
   return out;
 }
 
-// Add import puts each file entry over the local one of its name (ignoring case) and keeps the others. Replace
-// import keeps only the file's.
+// Names match ignoring case.
 export function mergeByName(local, file, replace) {
   if (replace) return file;
   const key = (x) => String(x.name).trim().toLowerCase();

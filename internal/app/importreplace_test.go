@@ -234,7 +234,6 @@ func TestReplaceImportMovesRemovedUsersItems(t *testing.T) {
 	}
 }
 
-// Replace import of Panels and Artwork removes what the file does not hold.
 func TestReplaceImportEmptiesPanelsAndArtwork(t *testing.T) {
 	a, tok := replaceApp(t)
 	file := exported(t, a, tok, exportReq{Categories: []string{catPanels, catArtwork}})
@@ -271,7 +270,7 @@ func TestReplaceImportRouterKeepsUIDs(t *testing.T) {
 	}
 }
 
-// Turning Require HTTPS on from a request that is not secure would lock the page out (ADR 0005).
+// Require HTTPS set from a request that is not secure locks the page out (ADR 0005).
 func TestImportRequireHTTPSNeedsSecureRequest(t *testing.T) {
 	for _, mode := range []string{importAdd, importReplace} {
 		a, tok := replaceApp(t)
