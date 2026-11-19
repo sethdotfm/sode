@@ -5,6 +5,7 @@ import { el } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { askRecheck } from './recheck.js';
 import { groupRows, saveLabel } from './savereviewrules.js';
+import { saveStopsLabel, endsSomething, NO_RETURN } from './interruptionrules.js';
 
 let ui = null;
 let step = null; // the open run's handlers: { esc }
@@ -70,12 +71,23 @@ function table(groups, { label, show, notes, by }) {
 
 const badge = (kind, text) => el('span', `pb-badge pb-badge--${kind}`, text);
 
+// list: the server's Interruptions, or null when it did not answer.
+function interruptionsBlock(list) {
+  if (list && !list.length) return [];
+  const head = el('h3', 'sode__label', 'Interruptions');
+  if (!list) return [head, el('div', 'pb-note pb-note--warn', 'Sode did not send the Interruptions. Save finds them again.')];
+  const out = [head, el('ul', 'sode__review-stops', ...list.map((x) => el('li', null, x.text)))];
+  if (endsSomething(list)) out.push(el('div', 'pb-note pb-note--warn', NO_RETURN));
+  return out;
+}
+
 // rows: the changes (savereviewrules.js diffRows). kept(row): why it stays unsaved, or ''. place(row): {topic, section,
 // order}. label(row), show(row, value): text. critical: a row the server checks for a PIN recheck. reconnects(row): a
 // router connection field. address: the router address it reconnects to. by(row): who staged it, or null. unseen: the
-// counts of edits the saver's Role cannot see (stagedrules.js); they are not in rows and do not save.
+// counts of edits the saver's Role cannot see (stagedrules.js); they are not in rows and do not save. interruptions:
+// the server's list for the fields that save (settingsReview), or null when it did not answer.
 // Resolves true when the save is to be sent, false when the person goes back to editing.
-export function reviewSave({ rows, kept, place, label, show, critical, reconnects, address, recheckNeeded, by = null, unseen = [] }) {
+export function reviewSave({ rows, kept, place, label, show, critical, reconnects, address, recheckNeeded, by = null, unseen = [], interruptions = [] }) {
   build();
   step?.esc();
   const saves = rows.filter((r) => !kept(r));
@@ -93,9 +105,14 @@ export function reviewSave({ rows, kept, place, label, show, critical, reconnect
       const n = rows.length + unseen.length;
       ui.title.textContent = `Review ${n} ${n === 1 ? 'change' : 'changes'}`;
       const counts = unseen.map((t) => el('div', 'pb-note pb-note--warn', `${t}. They stay unsaved.`));
-      ui.body.replaceChildren(...counts, ...(rows.length ? [table(groupRows(rows, place), { label, show, notes, by })] : []));
+      ui.body.replaceChildren(
+        ...counts,
+        ...(rows.length ? [table(groupRows(rows, place), { label, show, notes, by })] : []),
+        ...interruptionsBlock(interruptions),
+      );
       button(ui.back, 'Keep editing', () => end(false));
-      button(ui.go, saveLabel(saves.length, rows.length - saves.length), next);
+      const keep = rows.length - saves.length;
+      button(ui.go, saveStopsLabel(saves.length, keep, interruptions, saveLabel(saves.length, keep)), next);
       ui.go.className = 'pb-btn pb-btn--ok';
       ui.go.disabled = !saves.length;
       ui.dlg.show();

@@ -55,5 +55,8 @@ export function saveSummary(s) {
   if (s.critical) parts.push('Critical');
   if (s.approver) parts.push(`approved by ${s.approver}`);
   if (s.preset) parts.push(`preset ${s.preset}`);
+  // Readers below Administrator get only the count (hiddenInterruptions).
+  const stops = (s.interruptions?.length || 0) + (s.hiddenInterruptions || 0);
+  if (stops) parts.push(`${stops} ${stops === 1 ? 'Interruption' : 'Interruptions'}`);
   return parts.join(', ');
 }

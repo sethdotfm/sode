@@ -117,6 +117,8 @@ type fieldResult struct {
 type settingsSaveResult struct {
 	opResult
 	Results map[string]fieldResult `json:"results"`
+	// Interruptions: found again before the commit (interruptions.go).
+	Interruptions []interruption `json:"interruptions,omitempty"`
 }
 
 var jsonFields = sync.OnceValue(func() map[string][]int {
@@ -189,8 +191,8 @@ func fieldRefusal(role, sec string) string {
 func (a *App) serveSettingsSave(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
-		res, err := a.saveSettingsFields(c, m.Fields, m.approver)
-		out := settingsSaveResult{opResult: opResultFor("settingsSave", &m.ID, err), Results: res}
+		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver)
+		out := settingsSaveResult{opResult: opResultFor("settingsSave", &m.ID, err), Results: res, Interruptions: stops}
 		n := 0
 		for _, r := range res {
 			if r.Status == "saved" {
@@ -203,14 +205,92 @@ func (a *App) serveSettingsSave(c *client, m *inMsg) {
 	}()
 }
 
+// savePlan: what a save would write. keep are the fields that pass every check against live.
+type savePlan struct {
+	live  config.Config
+	actor config.User
+	res   map[string]fieldResult
+	edits map[string]fieldEdit
+	keep  []string
+	moves map[string]string
+	x     *saveCtx
+}
+
+// next: live with the kept fields written.
+func (p *savePlan) next() config.Config {
+	n := p.live.Clone()
+	for _, key := range p.keep {
+		_ = setField(&n, key, p.edits[key].Value, p.x)
+	}
+	n.Normalize()
+	return n
+}
+
+func (p *savePlan) refuse(key, reason string, err error) {
+	r := fieldResult{Status: "refused", Reason: reason}
+	if err != nil {
+		r.Err = err.Error()
+	}
+	p.res[key] = r
+}
+
 // saveSettingsFields checks each field on its own against live, then writes the ones that
 // pass in one commit. No commit when none changes anything. ap, the approver of an Approval
 // (approval.go), stands in for the Role only in Shown sections; it is nil without one.
-func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User) (map[string]fieldResult, error) {
+func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User) (map[string]fieldResult, []interruption, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
+	plan, err := a.planSave(c, edits, ap, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	res, keep, live, x, actor := plan.res, plan.keep, plan.live, plan.x, plan.actor
+	if len(keep) == 0 {
+		return res, nil, nil
+	}
+	stops := a.interruptions(live, plan.next())
+	err = a.applyConfig(func(cur *config.Config) error {
+		for _, key := range keep {
+			if err := setField(cur, key, edits[key].Value, x); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	now := a.r().cfg
+	for _, key := range keep {
+		if err != nil {
+			plan.refuse(key, reasonInvalid, err)
+			continue
+		}
+		r := fieldResult{Status: "saved", Version: fieldVersion(now, key)}
+		if f, _ := lookupField(key); f.adds {
+			r.Value, r.Version = addedResult(now, key, x), ""
+		}
+		res[key] = r
+	}
+	if err != nil {
+		return res, nil, err
+	}
+	if slices.Contains(keep, "requireHttps") {
+		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
+	}
+	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops))
+	a.auditAPISettings(connActor(c), live, now)
+	a.panelsFollowUsers(live.Users, now.Users)
+	if n, err := a.panels.moveOwners(plan.moves); err != nil {
+		log.Printf("panels: new owner reached %d panels, then: %v", n, err)
+	} else if n > 0 {
+		log.Printf("panels: %d panels have a new owner", n)
+	}
+	return res, stops, nil
+}
+
+// planSave runs every check of a save and writes nothing. review: the review asks before the PIN
+// recheck, so a field that needs one is not refused for it. Caller holds cfgMu.
+func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, review bool) (*savePlan, error) {
 	a.mu.Lock()
-	role, rechecked := a.roleMu(c), a.recheckedMu(c)
+	role, rechecked := a.roleMu(c), a.recheckedMu(c) || review
 	live := a.r().cfg
 	var actor config.User
 	if u := c.u.user.Load(); u != nil {
@@ -234,15 +314,8 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 		actor = *ap
 		rechecked = rechecked || apRole == config.RoleAdministrator
 	}
-	res := make(map[string]fieldResult, len(edits))
-	refuse := func(key, reason string, err error) {
-		r := fieldResult{Status: "refused", Reason: reason}
-		if err != nil {
-			r.Err = err.Error()
-		}
-		res[key] = r
-	}
-	x := &saveCtx{}
+	plan := &savePlan{live: live, actor: actor, res: make(map[string]fieldResult, len(edits)), edits: edits, x: &saveCtx{}}
+	res, x, refuse := plan.res, plan.x, plan.refuse
 	// First the checks that need no other field: section, unchanged, conflict.
 	var cands []string
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
@@ -331,45 +404,8 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 		}
 		keep = append(keep, key)
 	}
-	moves, keep := a.removedUsersPanels(c, live, edits, keep, refuse)
-	if len(keep) == 0 {
-		return res, nil
-	}
-	err := a.applyConfig(func(cur *config.Config) error {
-		for _, key := range keep {
-			if err := setField(cur, key, edits[key].Value, x); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	now := a.r().cfg
-	for _, key := range keep {
-		if err != nil {
-			refuse(key, reasonInvalid, err)
-			continue
-		}
-		r := fieldResult{Status: "saved", Version: fieldVersion(now, key)}
-		if f, _ := lookupField(key); f.adds {
-			r.Value, r.Version = addedResult(now, key, x), ""
-		}
-		res[key] = r
-	}
-	if err != nil {
-		return res, err
-	}
-	if slices.Contains(keep, "requireHttps") {
-		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
-	}
-	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap)
-	a.auditAPISettings(connActor(c), live, now)
-	a.panelsFollowUsers(live.Users, now.Users)
-	if n, err := a.panels.moveOwners(moves); err != nil {
-		log.Printf("panels: new owner reached %d panels, then: %v", n, err)
-	} else if n > 0 {
-		log.Printf("panels: %d panels have a new owner", n)
-	}
-	return res, nil
+	plan.moves, plan.keep = a.removedUsersPanels(c, live, edits, keep, refuse)
+	return plan, nil
 }
 
 // validateSave: what update checks, so a field that would fail the commit is refused alone.

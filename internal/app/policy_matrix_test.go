@@ -87,7 +87,7 @@ var policyExpect = map[string][nStates]error{
 
 	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
 
-	"settingsSave": standardRule,
+	"settingsSave": standardRule, "settingsReview": standardRule,
 
 	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,

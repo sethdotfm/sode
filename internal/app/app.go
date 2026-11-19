@@ -128,6 +128,9 @@ type App struct {
 	icons        *iconLib
 	mon          *panelMon
 	cfgMu        sync.Mutex
+	// promoted: token keys the last commit turned from tab to ordinary (promoteTabs), so
+	// catchUpSessions hands them to their pages to keep. Under cfgMu.
+	promoted map[string]bool
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 

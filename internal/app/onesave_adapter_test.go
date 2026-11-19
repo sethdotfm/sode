@@ -128,7 +128,7 @@ func usersFields(live config.Config, req usersReq) (map[string]fieldEdit, error)
 }
 
 // saveErr: the first refusal as the old saves reported it: Role, then invalid, then recheck.
-func saveErr(res map[string]fieldResult, err error) error {
+func saveErr(res map[string]fieldResult, _ []interruption, err error) error {
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (p *wsPeer) askFields(id int, fields map[string]fieldEdit) map[string]any {
 	b, _ := json.Marshal(m["results"])
 	var res map[string]fieldResult
 	json.Unmarshal(b, &res)
-	if err := saveErr(res, nil); err != nil {
+	if err := saveErr(res, nil, nil); err != nil {
 		out := map[string]any{"ok": false, "err": err.Error(), "recheck": isRecheckErr(err)}
 		for _, k := range slices.Sorted(maps.Keys(res)) {
 			if r := res[k]; r.Status == "refused" && r.Err != "" {
