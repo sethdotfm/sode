@@ -242,6 +242,39 @@ func (a *App) addedFields(base SavedField, key string, now config.Config, x *sav
 	return []SavedField{base}
 }
 
+// clientChanges: what a write outside the one Save did to the API client name (a panel's own).
+func clientChanges(was, now config.Config, name string) []SavedField {
+	o, had := was.FindAPIClient(name)
+	n, has := now.FindAPIClient(name)
+	field := func(attr, label string) SavedField {
+		return newSavedField("client/"+name+"/"+attr, usersSection, "API client "+name+": "+label)
+	}
+	switch {
+	case !had && has:
+		f := field("add", "Add")
+		f.New, _ = json.Marshal(map[string]any{"name": n.Name, "scopes": n.Scopes, "rights": n.Rights, "networks": n.Networks})
+		return []SavedField{f}
+	case had && !has:
+		f := field("remove", "Remove")
+		f.Old, f.New = json.RawMessage("false"), json.RawMessage("true")
+		return []SavedField{f}
+	case !had:
+		return nil
+	}
+	var out []SavedField
+	ro, _ := json.Marshal(o.Rights)
+	rn, _ := json.Marshal(n.Rights)
+	if !bytes.Equal(ro, rn) {
+		out = append(out, diffValue(field("rights", "Rights"), ro, rn, true)...)
+	}
+	if !slices.Equal(o.Networks, n.Networks) {
+		no, _ := json.Marshal(o.Networks)
+		nn, _ := json.Marshal(n.Networks)
+		out = append(out, diffList(field("networks", "Networks"), no, nn, false)...)
+	}
+	return out
+}
+
 // recordSave writes one Settings saves row. why is how it came: "save" (Settings) or "api".
 func (a *App) recordSave(by Actor, why string, fields []SavedField, critical bool) {
 	if len(fields) == 0 {

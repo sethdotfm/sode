@@ -366,9 +366,11 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 		}
 	}
 	found := false
-	for _, f := range waitSaves(t, a, 1)[0].Save.Fields {
-		if strings.HasPrefix(f.Label, "User Cy: Rights") && strings.Contains(f.Note, name) {
-			found = true
+	for end := time.Now().Add(5 * time.Second); !found && time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+		for _, e := range a.saves.Between(-1, 1<<62) {
+			for _, f := range e.Save.Fields {
+				found = found || strings.HasPrefix(f.Label, "User Cy: Rights") && strings.Contains(f.Note, name)
+			}
 		}
 	}
 	if !found {

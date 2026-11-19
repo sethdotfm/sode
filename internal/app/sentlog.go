@@ -252,6 +252,19 @@ func (l *SentLog) Next() int64 {
 	return l.next
 }
 
+// Oldest is the seq of the oldest entry kept (Next when there is none).
+func (l *SentLog) Oldest() int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	switch {
+	case l.cur == nil:
+		return l.next - int64(len(l.mem))
+	case l.old != nil:
+		return l.old.first
+	}
+	return l.cur.first
+}
+
 func (l *SentLog) Total() int64 {
 	l.mu.Lock()
 	defer l.mu.Unlock()

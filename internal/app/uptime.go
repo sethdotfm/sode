@@ -163,7 +163,14 @@ func (u *Uptime) sizeCut() int64 {
 		ls = append(ls, line{m.M * 60_000, len(l) + 1})
 	}
 	sort.Slice(ls, func(i, j int) bool { return ls[i].t > ls[j].t })
-	room := u.cap - 64
+	total := 0
+	for _, l := range ls {
+		total += l.n
+	}
+	if total <= u.cap {
+		return 0
+	}
+	room := lowWater(u.cap)
 	for _, l := range ls {
 		if room -= l.n; room < 0 {
 			return l.t

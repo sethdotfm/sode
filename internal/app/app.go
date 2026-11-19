@@ -378,7 +378,10 @@ func (a *App) send(m []byte, reason swp08.Reason) {
 
 func (a *App) SetUptime(u *Uptime) { a.up = u }
 
-func (a *App) SetSettingsSaves(l *SaveLog) { a.saves = l }
+func (a *App) SetSettingsSaves(l *SaveLog) {
+	l.Reanchor(a.sent.Next(), a.sent.Oldest())
+	a.saves = l
+}
 
 func (a *App) onRouterState(s swp08.State, err error) {
 	a.mu.Lock()

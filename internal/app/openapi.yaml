@@ -2900,3 +2900,28 @@ components:
         ackMs: { type: number, description: How long the router needed to ACK }
         router: { type: string, description: "The router UID, on router messages and `link` rows only" }
         routerTitle: { type: string, description: "The router title when the row was written" }
+        id: { type: integer, description: "A Settings saves row (kind `settings`) only: its own number. Its seq is the seq that came next when it was written." }
+        save:
+          type: object
+          description: "A Settings saves row only. Fields of Access and Server sections come with `changed` and no values, since a key never acts as an Administrator."
+          properties:
+            fields:
+              type: array
+              items:
+                type: object
+                properties:
+                  topic: { type: string }
+                  section: { type: string }
+                  sectionId: { type: string }
+                  key: { type: string }
+                  label: { type: string }
+                  old: { description: The value before }
+                  new: { description: The value after }
+                  added: { type: array, items: {} }
+                  removed: { type: array, items: {} }
+                  changed: { type: boolean, description: "A secret, or a value hidden from this reader" }
+                  note: { type: string }
+            approver: { type: string }
+            preset: { type: string }
+            critical: { type: boolean }
+            interruptions: { type: array, items: { type: string } }

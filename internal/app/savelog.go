@@ -101,12 +101,23 @@ func (l *SaveLog) push(e Sent, n int) {
 	l.next = max(l.next, e.ID+1)
 }
 
-// prune drops rows past keepAge, then the oldest until under the cap. Caller holds mu or owns l.
+// lowWater: over the cap, the oldest go until this much is left, so the file is not written
+// again on every append.
+func lowWater(capBytes int) int { return capBytes * 4 / 5 }
+
+// prune drops rows past keepAge and, over the cap, the oldest down to lowWater. Caller holds mu
+// or owns l.
 func (l *SaveLog) prune() bool {
 	cut := l.now().Add(-keepAge)
 	i := sort.Search(len(l.rows), func(i int) bool { return l.rows[i].Time.After(cut) })
-	for size := l.size; i < len(l.rows) && size > l.capBytes; i++ {
-		size -= l.sizes[i]
+	size := l.size
+	for _, n := range l.sizes[:i] {
+		size -= n
+	}
+	if size > l.capBytes {
+		for ; i < len(l.rows) && size > lowWater(l.capBytes); i++ {
+			size -= l.sizes[i]
+		}
 	}
 	if i == 0 {
 		return false
@@ -167,6 +178,24 @@ func appendFile(path string, b []byte) error {
 		err = cerr
 	}
 	return err
+}
+
+// Reanchor moves rows anchored past next to oldest, the first seq. Then a Communication Log that
+// started its seqs again does not show them as the newest rows.
+func (l *SaveLog) Reanchor(next, oldest int64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	moved := false
+	for i := range l.rows {
+		if l.rows[i].Seq > next {
+			l.rows[i].Seq, moved = oldest, true
+		}
+	}
+	if moved && l.path != "" {
+		if err := l.rewrite(); err != nil {
+			log.Printf("settings saves: %v", err)
+		}
+	}
 }
 
 // Between: rows with lo < Seq <= hi, newest first.
