@@ -120,17 +120,19 @@ func BrandNames() []string {
 
 // DeviceDefaults mirrors the per-browser prefs in web/prefs.js.
 type DeviceDefaults struct {
-	Theme         string         `yaml:"theme" json:"theme"`
-	Layout        string         `yaml:"layout" json:"layout"`
-	Clock         string         `yaml:"clock" json:"clock"`
-	Flip          bool           `yaml:"flip" json:"flip"`
-	ScrollTop     bool           `yaml:"scrollTop" json:"scrollTop"`
-	SearchFilters bool           `yaml:"searchFilters" json:"searchFilters"`
-	SetStack      string         `yaml:"setStack" json:"setStack"`
-	NextMode      string         `yaml:"nextMode" json:"nextMode"`
-	StackGap      string         `yaml:"stackGap" json:"stackGap"`
-	Compact       bool           `yaml:"compact" json:"compact"`
-	Extra         map[string]any `yaml:",inline" json:"-"`
+	Theme         string `yaml:"theme" json:"theme"`
+	Layout        string `yaml:"layout" json:"layout"`
+	Clock         string `yaml:"clock" json:"clock"`
+	Flip          bool   `yaml:"flip" json:"flip"`
+	ScrollTop     bool   `yaml:"scrollTop" json:"scrollTop"`
+	SearchFilters bool   `yaml:"searchFilters" json:"searchFilters"`
+	SetStack      string `yaml:"setStack" json:"setStack"`
+	NextMode      string `yaml:"nextMode" json:"nextMode"`
+	StackGap      string `yaml:"stackGap" json:"stackGap"`
+	Compact       bool   `yaml:"compact" json:"compact"`
+	// PaletteChar is one of PaletteChars, or "off" for no Palette character.
+	PaletteChar string         `yaml:"paletteChar" json:"paletteChar"`
+	Extra       map[string]any `yaml:",inline" json:"-"`
 }
 
 // deviceEnums: the string device defaults. Allowed values are PrefValues; empty means the Defaults value.
@@ -144,6 +146,7 @@ var deviceEnums = []struct {
 	{"setStack", "default set stacking must be and or or", func(d *DeviceDefaults) *string { return &d.SetStack }},
 	{"nextMode", "default next must be number or fuzzy", func(d *DeviceDefaults) *string { return &d.NextMode }},
 	{"stackGap", "default stacked rows gap must be 0, 10, 30, 60, 120 or 300 seconds", func(d *DeviceDefaults) *string { return &d.StackGap }},
+	{"paletteChar", "default Palette character must be one of " + PaletteChars + " or off", func(d *DeviceDefaults) *string { return &d.PaletteChar }},
 }
 
 // Blank is the one router.
@@ -187,7 +190,7 @@ func Defaults() Config {
 		MaxPinLen:            DefaultMaxPinLen,
 		API:                  DefaultAPISettings(),
 		GuestAPIScopes:       slices.Clone(DefaultGuestScopes),
-		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30"},
+		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", PaletteChar: PaletteDefault},
 	}
 }
 

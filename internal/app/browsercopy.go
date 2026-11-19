@@ -28,6 +28,7 @@ var prefLabels = map[string]string{
 	"stackGap":      "Stack quick changes to one destination",
 	"nextMode":      "Next match behavior",
 	"compact":       "Compact view",
+	"paletteChar":   "Palette character",
 }
 
 // BrowserCopy saves req to the profile of the user signed in on c.

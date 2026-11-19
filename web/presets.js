@@ -699,6 +699,10 @@ function closePresets() {
 }
 
 // A lock closes the editor without the unsaved-changes warning (the page is covered).
+// The Palette does not open over unsaved edits in the editor.
+on('unsavedAsk', (a) => {
+  if (open && dirty) a.unsaved = true;
+});
 on('locking', () => {
   if (picking) {
     picking = false;

@@ -30,6 +30,8 @@ type profileReq struct {
 	FilterSets []config.FilterSet
 	Presets    []config.Preset
 	PinOrder   []string
+	// PalettePicks: the Palette's last picks (config.Profile.PalettePicks).
+	PalettePicks []string
 }
 
 type profileGetResult struct {
@@ -90,7 +92,7 @@ func (a *App) pushProfileMu(c *client) {
 }
 
 func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
-	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets) + len(req.PinOrder)
+	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets) + len(req.PinOrder) + len(req.PalettePicks)
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if err := a.guardProfile(c, req.Name); err != nil {
@@ -126,6 +128,9 @@ func (a *App) applyProfileReq(cfg *config.Config, u *config.User, req profileReq
 	if req.PinOrder != nil {
 		u.Profile.PinOrder = slices.Clone(req.PinOrder)
 	}
+	if req.PalettePicks != nil {
+		u.Profile.PalettePicks = slices.Clone(req.PalettePicks)
+	}
 }
 
 func (a *App) pushProfileOfMu(owner string) {
@@ -138,7 +143,7 @@ func (a *App) pushProfileOfMu(owner string) {
 
 // Logs whose profile and how many things, never a value.
 func (a *App) serveProfileSave(c *client, m *inMsg) {
-	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, PinOrder: m.PinOrder})
+	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, PinOrder: m.PinOrder, PalettePicks: m.PalettePicks})
 	note := fmt.Sprintf("%s: %d %s", cleanPresetName(m.Name), n, plural(n, "item", "items"))
 	a.replyOpNote(c, "profileSave", m.ID, note, err)
 }

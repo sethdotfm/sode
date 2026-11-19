@@ -115,6 +115,21 @@ func TestPrefTable(t *testing.T) {
 			found[m[1]] = append(found[m[1]], k[1])
 		}
 	}
+	// The Palette character's values are PALETTE_CHARS in paletterules.js, then off.
+	if regexp.MustCompile(`(?m)^  paletteChar: \{ key: 'sode-palette-char', def: PALETTE_DEFAULT, values: PALETTE_VALUES \},$`).Match(b) {
+		r, err := os.ReadFile("../../web/paletterules.js")
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := regexp.MustCompile(`export const PALETTE_CHARS = '([^']*)';`).FindSubmatch(r)
+		if m == nil {
+			t.Fatal("no PALETTE_CHARS in paletterules.js")
+		}
+		for _, c := range string(m[1]) {
+			found["paletteChar"] = append(found["paletteChar"], string(c))
+		}
+		found["paletteChar"] = append(found["paletteChar"], PaletteOff)
+	}
 	if len(found) != len(PrefValues) {
 		t.Fatalf("prefs.js has %v, Go has %v", found, PrefValues)
 	}

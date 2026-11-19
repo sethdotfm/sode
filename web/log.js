@@ -14,6 +14,7 @@ import { lockState } from './lock.js';
 import { lockCovers } from './lockrules.js';
 import './inboxdialog.js';
 import { showApprovalCards } from './approvalcards.js';
+import './palette.js';
 import { bigScrollAll } from './bigscroll.js';
 import { pullToLoad } from './widgets.js';
 

@@ -462,6 +462,9 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     openConfirm(plan);
   }
 
+  // The Palette's Undo row.
+  on('undoLast', undoLast);
+
   function histArea(n) {
     return !!n && (histList.contains(n) || $('history-more').contains(n));
   }
