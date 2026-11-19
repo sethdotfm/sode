@@ -348,7 +348,7 @@ func (k *pollCheck) filterSet(s *config.FilterSet, off int, who string) bool {
 				gone := !named(k.prev.side(side.dst)) && !named(k.cur.side(side.dst))
 				// N -1: a name term, which names no number.
 				m := config.Missing{Kind: refKind(side.dst), Ref: config.Ref{Router: k.uid, N: -1, Name: t.Text}}
-				m.Now = k.hints[sideIndex(side.dst)][strings.ToLower(strings.TrimSpace(t.Text))]
+				m.Now = k.hints[sideIndex(side.dst)][normName(t.Text)]
 				if i := slices.IndexFunc(s.Broken, func(o config.Missing) bool {
 					return o.Kind == m.Kind && o.Ref.N == -1 && sameName(o.Ref.Name, t.Text)
 				}); i >= 0 && m.Now == "" {

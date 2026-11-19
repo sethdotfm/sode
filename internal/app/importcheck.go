@@ -35,7 +35,7 @@ func (k *refCheck) missing(kind string, r config.Ref) (config.Missing, bool) {
 	if kind == config.MissingDestination {
 		names = k.dst
 	}
-	return config.Missing{Kind: kind, Ref: r}, !strings.EqualFold(strings.TrimSpace(names[r.N]), strings.TrimSpace(r.Name))
+	return config.Missing{Kind: kind, Ref: r}, !sameName(names[r.N], r.Name)
 }
 
 type brokenList struct{ out []config.Missing }
@@ -121,8 +121,7 @@ func matchIdx[T any](same bool, list []T, id, name string, idOf, nameOf func(T) 
 			return i
 		}
 	}
-	name = strings.TrimSpace(name)
-	return slices.IndexFunc(list, func(x T) bool { return strings.EqualFold(strings.TrimSpace(nameOf(x)), name) })
+	return slices.IndexFunc(list, func(x T) bool { return sameName(nameOf(x), name) })
 }
 
 func matchUser(same bool, list []config.User, u config.User) int {

@@ -82,7 +82,6 @@ func (p *importPlanner) libTo(s string) string {
 	return "lib:" + to
 }
 
-// relib maps the Icon library artwork of l's cells and Grid items.
 func (p *importPlanner) relib(l panelLayout) panelLayout {
 	if len(p.icons) == 0 {
 		return l
@@ -438,7 +437,6 @@ func (a *App) writeImportPanelExtras(p *importPlanner, failed map[string]string)
 	}
 }
 
-// keepLivePanel finds fp's live twin and keeps it from Replace import's removals.
 func (p *importPlanner) keepLivePanel(fp Panel) int {
 	i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
 	if i >= 0 {

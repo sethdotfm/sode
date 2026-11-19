@@ -83,7 +83,6 @@ func (sw *swapper) unmark(l []config.Missing) []config.Missing {
 	return slices.DeleteFunc(slices.Clone(l), sw.marked)
 }
 
-// answer is To for a reference to From on the Swap's side, as a RefWalk answer.
 func (sw *swapper) answer(kind string, r config.Ref) []config.Ref {
 	if kind != sw.kind() || !sw.ref(&r) {
 		return nil
@@ -194,7 +193,6 @@ func (sw *swapper) config(c *config.Config, mine string, pick func(id string) bo
 	}
 }
 
-// onPanel swaps p, a copy, when it is picked and mine.
 func (sw *swapper) onPanel(p *Panel, cfg config.Config, mine string, pick func(id string) bool, hit swapHit) bool {
 	if mine != "" && p.Owner != mine || !pick("panel/"+p.ID) {
 		return false

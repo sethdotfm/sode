@@ -5,7 +5,6 @@ import (
 	"log"
 	"maps"
 	"slices"
-	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -59,7 +58,7 @@ func removeItem(cat *importCat, key, name, kind string) {
 func keptNames(cat *importCat) map[string]bool {
 	out := map[string]bool{}
 	for _, it := range cat.Items {
-		out[strings.ToLower(strings.TrimSpace(cmp.Or(it.As, it.Clash, it.Name)))] = true
+		out[normName(cmp.Or(it.As, it.Clash, it.Name))] = true
 	}
 	return out
 }
@@ -68,7 +67,7 @@ func keptNames(cat *importCat) map[string]bool {
 func dropUnkept[T any](c *importCat, list []T, nameOf func(T) string, mine func(T) bool) []T {
 	keep := keptNames(c)
 	return slices.DeleteFunc(list, func(x T) bool {
-		gone := mine(x) && !keep[strings.ToLower(strings.TrimSpace(nameOf(x)))]
+		gone := mine(x) && !keep[normName(nameOf(x))]
 		if gone {
 			removeItem(c, nameOf(x), nameOf(x), "")
 		}

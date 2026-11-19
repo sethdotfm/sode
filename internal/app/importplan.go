@@ -202,7 +202,6 @@ func (p *planBase) settle(it *importItem, cat, clash string, same bool, taken fu
 	return keepLive
 }
 
-// liveID is what a kept item maps to: its twin's id, or "" for Skip.
 func (it importItem) liveID(twin string) string {
 	if it.Choice == useSkip {
 		return ""
@@ -254,7 +253,6 @@ type importPlanner struct {
 	overwrites []string // the names of the items Use new writes over: they make the import Critical
 }
 
-// src, dst are the live router's names.
 func planImport(live config.Config, src, dst map[int]string, lv importLive, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
 	p := &importPlanner{
 		planBase: newPlanBase(live, src, dst, req, b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID),

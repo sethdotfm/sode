@@ -31,7 +31,6 @@ type cardPlanner struct {
 	file bool
 }
 
-// src, dst are the live router's names.
 func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
 	p, err := newCardPlanner(live, src, dst, allPanels, card, toID, req)
 	if err != nil {
@@ -228,7 +227,6 @@ func (p *cardPlanner) planPanels(cand *config.Config, cat *importCat) error {
 	return nil
 }
 
-// ReviewCard plans an accept and writes nothing.
 func (a *App) ReviewCard(c *client, card string, req importReq) (*importPlan, error) {
 	u, k, err := a.cardFor(c, card)
 	if err != nil {
