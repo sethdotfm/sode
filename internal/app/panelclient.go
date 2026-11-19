@@ -108,6 +108,11 @@ func (a *App) setPanelClient(by Actor, id string, rights *config.Rights) error {
 func (a *App) putPanelClient(by Actor, id string, rights *config.Rights, nets []string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
+	return a.putPanelClientLocked(by, id, rights, nets)
+}
+
+// putPanelClientLocked is putPanelClient for a caller that holds cfgMu.
+func (a *App) putPanelClientLocked(by Actor, id string, rights *config.Rights, nets []string) error {
 	name := panelClientName(id)
 	was := a.r().cfg
 	defer func() { a.recordSave(by, "api", clientChanges(was, a.r().cfg, name), false) }()

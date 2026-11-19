@@ -30,6 +30,7 @@ export const WHY_LABEL = {
   connect: 'WebSocket connected',
   disconnect: 'WebSocket dropped',
   rereadNames: 'Re-read names',
+  routerNames: 'Router names',
   clearHistory: 'Clear history',
   config: 'Settings saved',
   filterSets: 'Filter sets saved',
@@ -55,8 +56,14 @@ export const WHY_LABEL = {
   import: 'Import',
   api: 'Settings saved through the API',
   setup: 'Setup finished',
+  setupClaim: 'Setup take control',
   setupRouter: 'Setup router address',
   setupFinish: 'Setup finished',
+  inboxSend: 'Copy sent',
+  inboxAccept: 'Copy accepted',
+  inboxDecline: 'Copy declined',
+  inboxWithdraw: 'Copy withdrawn',
+  inboxExpired: 'Copy expired',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server', 'settings']);
 const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };

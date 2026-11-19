@@ -26,6 +26,8 @@ func fillRouterDerived(a *App) {
 	a.router.newSrc, a.router.newDst = map[int]string{1: "x"}, map[int]string{2: "y"}
 	a.router.namesAt = time.Now()
 	a.router.savedAt = time.Now()
+	a.router.lastPoll = &namePoll{map[int]string{7: "CAM 7"}, map[int]string{5: "MON 5"}}
+	a.router.faultSeen = true
 	a.ext.add(extChange{xp: swp08.Crosspoint{Dst: 5, Level: 0, Src: 7}, ui: 1, old: 3, known: true, at: time.Now()})
 	a.ext.own[ownKey{5, 0, 7}] = until
 	a.ext.late[ownKey{5, 0, 9}] = until

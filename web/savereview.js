@@ -125,7 +125,8 @@ function backupBlock(toExport) {
 // router connection field. address: the router address it reconnects to. by(row): who staged it, or null. unseen: the
 // counts of edits the saver's Role cannot see (stagedrules.js); they are not in rows and do not save. interruptions:
 // the server's list for the fields that save (settingsReview), or null when it did not answer. criticalAction: a row
-// that is a Critical action, also when an Approval saves it. role: the saver's Role.
+// that is a Critical action, also when an Approval saves it. role: the saver's Role. preset(row): the name of the
+// Access preset that staged it, or ''.
 // Resolves true when the save is to be sent, false when the person goes back to editing.
 export function reviewSave({
   rows,
@@ -142,11 +143,17 @@ export function reviewSave({
   interruptions = [],
   criticalAction = critical,
   role = '',
+  preset = () => '',
 }) {
   build();
   step?.esc();
   const saves = rows.filter((r) => !kept(r));
-  const notes = (r) => [kept(r) && badge('warn', `Stays unsaved: ${kept(r)}`), reconnects(r) && badge('warn', 'Reconnects the router')].filter(Boolean);
+  const notes = (r) =>
+    [
+      preset(r) && badge('info', preset(r)),
+      kept(r) && badge('warn', `Stays unsaved: ${kept(r)}`),
+      reconnects(r) && badge('warn', 'Reconnects the router'),
+    ].filter(Boolean);
   let rechecked = false;
   return new Promise((resolve) => {
     const end = (send) => {

@@ -55,6 +55,8 @@ type connUser struct {
 	rights string
 	// offline: last panelsOffline message sent (under mu); "" = none.
 	offline string
+	// inbox: an inbox message went out (under mu), so losing the user sends an empty one.
+	inbox   bool
 	recheck recheck // under mu (recheck.go)
 	step    *stepIn // under mu; nil when not stepped in (stepin.go)
 }
@@ -208,6 +210,7 @@ func (a *App) pushAccessMu(c *client, hi bool) {
 	a.pushProfileMu(c) // only to the user it belongs to
 	a.pushRightsMu(c)
 	a.pushPanelsOfflineMu(c)
+	a.pushInboxMu(c, nil)
 }
 
 func (a *App) syncAccess(c *client) {
@@ -406,6 +409,7 @@ func (a *App) panelsFollowUsers(before, after []config.User) {
 		return
 	}
 	a.mon.dropUsers(removedIDs)
+	a.inboxFollowUsers(removedIDs)
 	n, err := a.panels.followUsers(renames, removedNames)
 	if err != nil {
 		log.Printf("panels: user change reached %d panels, then: %v", n, err)
@@ -474,6 +478,8 @@ type usersListMsg struct {
 	GuestScopes []string           `json:"guestScopes"`
 	// Versions of the one Save's fields that never ride the hello (hiddenVersions).
 	Versions map[string]string `json:"versions"`
+	// AccessPresets: for Apply an access preset (accesspreset.go).
+	AccessPresets []accessPresetView `json:"accessPresets"`
 }
 
 type userView struct {
@@ -504,7 +510,7 @@ type presetNote struct {
 func (a *App) usersList(c *client, id int) usersListMsg {
 	cfg := a.r().cfg.Clone()
 	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Me: c.userID(), Users: []userView{},
-		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes, Versions: hiddenVersions(cfg)}
+		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes, Versions: hiddenVersions(cfg), AccessPresets: accessPresetViews()}
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}
 	}
