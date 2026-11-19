@@ -293,7 +293,7 @@ func (c Config) validateAPI() []error {
 	}
 	seen := map[string]bool{}
 	for _, cl := range c.APIClients {
-		key := strings.ToLower(cl.Name)
+		key := foldKey(cl.Name)
 		switch n := utf8.RuneCountInString(cl.Name); {
 		case n == 0:
 			bad("every API client needs a name")

@@ -40,7 +40,13 @@ func TestUserNameRules(t *testing.T) {
 			t.Errorf("%s: %v, want %q", name, err, tc.want)
 		}
 	}
+	// Lookups use EqualFold, which matches U+017F with s; ToLower does not.
 	c := base.Clone()
+	c.Users[0].Name, c.Users[1].Name = "Sam", "ſam"
+	if err := c.Validate(); err == nil {
+		t.Error("Sam and ſam both passed")
+	}
+	c = base.Clone()
 	c.Users[0].Name = "  " + strings.Repeat("é", MaxUserName) + " "
 	c.Normalize()
 	if err := c.Validate(); err != nil || c.Users[0].Name != strings.Repeat("é", MaxUserName) {

@@ -198,6 +198,17 @@ func (c *Config) normalizeUsers() {
 	}
 }
 
+// Two names share a key exactly when strings.EqualFold matches them, as every lookup does.
+func foldKey(s string) string {
+	return strings.Map(func(r rune) rune {
+		m := r
+		for f := unicode.SimpleFold(r); f != r; f = unicode.SimpleFold(f) {
+			m = min(m, f)
+		}
+		return m
+	}, s)
+}
+
 func (c Config) validateUsers() []error {
 	var errs []error
 	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
@@ -211,7 +222,7 @@ func (c Config) validateUsers() []error {
 			bad("user %q needs an id of its own", u.Name)
 		}
 		seenID[u.ID] = true
-		key := strings.ToLower(u.Name)
+		key := foldKey(u.Name)
 		switch n := utf8.RuneCountInString(u.Name); {
 		case n == 0:
 			bad("every user needs a name")
