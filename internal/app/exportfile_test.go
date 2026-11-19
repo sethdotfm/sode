@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -349,6 +350,28 @@ func TestImportRefusesBadFiles(t *testing.T) {
 	// Every refusal and success removes its staging directory.
 	if ents, _ := filepathGlob(a.stagesDir()); len(ents) != 0 {
 		t.Errorf("staging directories left: %v", ents)
+	}
+}
+
+// A staging directory that a killed import left goes at start.
+func TestStartRemovesImportStaging(t *testing.T) {
+	dir := settledTempDir(t)
+	left := filepath.Join(dir, exportStagesDir, "import-1")
+	if err := os.MkdirAll(left, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Defaults()
+	cfg.Normalize()
+	hist, _ := OpenHistory("")
+	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(cfg, filepath.Join(dir, "config.yaml"), hist, sl, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(left); !os.IsNotExist(err) {
+		t.Fatalf("staging directory left: %v", err)
 	}
 }
 

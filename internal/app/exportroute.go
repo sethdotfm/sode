@@ -117,6 +117,13 @@ func (a *App) stagesDir() string {
 	return filepath.Join(filepath.Dir(a.cfgPath), exportStagesDir)
 }
 
+// sweepStages removes what a killed import left. Never the system temporary directory, which others share.
+func (a *App) sweepStages() {
+	if a.cfgPath != "" {
+		os.RemoveAll(a.stagesDir())
+	}
+}
+
 // The check writes nothing and removes the staging directory; the apply route stages the file again. A zip body
 // gets the preselected choices; the review sends multipart, as to the apply route, to see what its picks do.
 func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
