@@ -135,7 +135,7 @@ func TestLockStateCarriesFlags(t *testing.T) {
 	}
 }
 
-func TestSaveUsersFlags(t *testing.T) {
+func TestUsersSaveFlags(t *testing.T) {
 	a := userApp(t, false)
 	admin := &client{ip: "10.0.0.9"}
 	if err := a.UserUnlock(admin, "2468"); err != nil {

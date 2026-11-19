@@ -156,7 +156,7 @@ func TestUserUnlockBackoff(t *testing.T) {
 	}
 }
 
-func TestSaveUsers(t *testing.T) {
+func TestUsersSave(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.1"}
 	add := func(u newUser) map[string]any { return map[string]any{"user/new:0/add": u} }

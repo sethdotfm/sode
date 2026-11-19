@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-func TestChromeOneSaveUsersAndAPI(t *testing.T) {
+func TestChromeOneSaveOfUsersAndAPI(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
