@@ -169,69 +169,6 @@ func (w *waiter) unregister(a *App, id int) {
 	}
 }
 
-// tallyCheck waits for interrogate answers so a route reads dst's real state, not a cache
-// that misses unannounced changes.
-type tallyCheck struct {
-	dst   int
-	wires map[int]bool // still unanswered
-	done  chan struct{}
-	shut  bool // done is closed
-}
-
-func (c *tallyCheck) finish() {
-	if !c.shut {
-		c.shut = true
-		close(c.done)
-	}
-}
-
-// Caller holds mu.
-func (c *tallyCheck) see(xp swp08.Crosspoint) {
-	if xp.Dst != c.dst || !c.wires[xp.Level] {
-		return
-	}
-	delete(c.wires, xp.Level)
-	if len(c.wires) == 0 {
-		c.finish()
-	}
-}
-
-func (a *App) checkTally(r *runtime, w *waiter) bool {
-	c := &tallyCheck{dst: w.dst, wires: map[int]bool{}, done: make(chan struct{})}
-	// Levels reported lately are skipped: undo and retry follow the Connected that set them.
-	var ls []*routeLevel
-	a.mu.Lock()
-	for _, l := range w.levels {
-		if at, ok := a.router.seenAt[[2]int{w.dst, l.ui}]; !ok || time.Since(at) > checkFresh {
-			ls = append(ls, l)
-			c.wires[l.wire] = true
-		}
-	}
-	if len(ls) > 0 {
-		a.checks[c] = struct{}{}
-	}
-	a.mu.Unlock()
-	if len(ls) == 0 {
-		return true
-	}
-	defer func() {
-		a.mu.Lock()
-		delete(a.checks, c)
-		a.mu.Unlock()
-	}()
-	done, err := a.interrogate(r, w, ls, swp08.ReasonCheck)
-	if err != nil {
-		return false // the link is down or full: no answers are coming
-	}
-	a.leftQueue(done)
-	select {
-	case <-c.done:
-		return true
-	case <-time.After(a.checkTimeout):
-		return false
-	}
-}
-
 const (
 	pending        confirmedBy = iota // no answer yet
 	byConnected                       // a Connected: the route changed

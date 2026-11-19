@@ -4,7 +4,7 @@
 
 - When: in native mode, a take of 2 or more items runs `markStages`, which sets takeReq.Stage (router levels) for each item. It stages every level that exists on the router (`ExtSalvoFits`) and that the take uses one time for that destination. If the take uses a destination and router level two times, neither item stages it, and each sends an ordinary connect. If 2 or more items have something to stage, the take goes to `takeNative`, else it is sequential. Protected and bad takes drop out in `prepare`. If fewer than 2 staged takes are left, all are sequential.
 - Stage command rule: levels that `SalvoFits` accepts (matrix and router level 0-15, numbers 0-1023) use 120. Anything else (level 17, numbers >= 1024) uses the extended 248. Both ride the same Go.
-- Phases: `takeNative` prepares every take (bigTake NoCheck as usual). Then `fireSalvo` runs under `App.fireMu`, which allows one fire at a time. The fire never holds `mu` across waits. `fireSalvo` does these steps:
+- Phases: A big take is read first (checkRoutes, then NoCheck). `takeNative` prepares every take. Then `fireSalvo` runs under `App.fireMu`, which allows one fire at a time. The fire never holds `mu` across waits. `fireSalvo` does these steps:
   1. It sends Go-clear and waits for 123. If no 123 comes, Sode treats that as no group salvos and falls back.
   2. It stages each native level, with `stageChunk` (64) queued at a time. It waits for every 122 or 250, matched by decoded bytes (`swp08.Staged`). A stage that the link gave up on gets no ack, so the Go never fires with one missing.
   3. It sends Go-set (121) and waits for 123.

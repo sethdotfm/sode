@@ -542,6 +542,28 @@ func TestNativeFireLock(t *testing.T) {
 	fireLeftovers(t, a)
 }
 
+// A big native take reads every route before its first Go-clear, and Prev comes from the router.
+func TestNativeBigReadsFirst(t *testing.T) {
+	t.Parallel()
+	a, f := nativeApp(t, 3)
+	dsts := []int{5, 6, 7, 8, 9, 10}
+	for _, d := range dsts {
+		f.seed(d, 1, 0, 1, 2)
+	}
+	f.mu.Lock()
+	f.tally[[2]int{8, 1}] = 3 // not announced
+	f.mu.Unlock()
+	takeOf(t, a, 20, dsts, 1, 2, 3)
+	if c, last := f.at(swp08.CmdGoSalvo, "", false), f.at(0, swp08.ReasonCheck, true); last < 0 || c < 0 || last > c {
+		t.Fatalf("last check %d, first salvo message %d", last, c)
+	}
+	if e := takeEntry(t, a, 8); !e.OK || !equalPrev(e.Prev, [][2]int{{1, 1}, {2, 3}, {3, 1}}) {
+		t.Fatalf("entry %+v", e)
+	}
+	f.settle()
+	fireLeftovers(t, a)
+}
+
 func TestNativeNoGoAck(t *testing.T) {
 	slowTest(t)
 	t.Parallel()

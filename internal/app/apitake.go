@@ -170,8 +170,8 @@ type apiRouteOut struct {
 
 type apiTakeOut struct {
 	OK bool `json:"ok"` // every route succeeded
-	// CheckSkipped: a take of bigTake or more routes skips the check, so Prev comes from the cache. After a change that
-	// the router did not announce, an Undo can restore a stale route.
+	// CheckSkipped: the check before take did not finish for some route (no answer in time, or the link was down).
+	// Its Prev came from the cache. After a change that the router did not announce, an Undo can restore a stale route.
 	CheckSkipped bool          `json:"checkSkipped"`
 	Results      []apiRouteOut `json:"results"`
 	LeftOut      []string      `json:"leftOut,omitempty"`
@@ -279,9 +279,9 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
 	// The recorder in tests has no write deadline.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))
-	a.takeAllowed(c, plan.Items)
+	unread := a.takeAllowed(c, plan.Items)
 
-	out := apiTakeOut{OK: true, CheckSkipped: n >= bigTake, LeftOut: plan.LeftOut, Skipped: plan.Skipped, Untouched: plan.Untouched, Results: make([]apiRouteOut, n)}
+	out := apiTakeOut{OK: true, CheckSkipped: unread, LeftOut: plan.LeftOut, Skipped: plan.Skipped, Untouched: plan.Untouched, Results: make([]apiRouteOut, n)}
 	sink.mu.Lock()
 	defer sink.mu.Unlock()
 	for i, it := range plan.Items {

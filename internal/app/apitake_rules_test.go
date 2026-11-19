@@ -216,8 +216,10 @@ func TestAPIWUserKeyFiresMePreset(t *testing.T) {
 	}
 }
 
-func TestAPIWBigTakeSaysCheckWasSkipped(t *testing.T) {
-	a, _, key := takerApp(t, nil)
+// checkSkipped is true only when the check before take got no answer for some route, whatever the take's size.
+func TestAPIWCheckSkippedOnlyWhenUnread(t *testing.T) {
+	a, f, key := takerApp(t, nil)
+	f.dsts = 64
 	small := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, nil))
 	if small["checkSkipped"] != false {
 		t.Fatalf("small %v", small)
@@ -226,9 +228,23 @@ func TestAPIWBigTakeSaysCheckWasSkipped(t *testing.T) {
 	for d := 10; d < 10+bigTake; d++ {
 		rs = append(rs, `{"src":4,"dst":`+strconv.Itoa(d)+`,"levels":[1]}`)
 	}
-	big := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[`+strings.Join(rs, ",")+`]}`, nil))
-	if big["checkSkipped"] != true || len(big["results"].([]any)) != bigTake {
+	routes := `{"routes":[` + strings.Join(rs, ",") + `]}`
+	big := apiBody(t, apiPost(a, "/api/v1/takes", key, routes, nil))
+	if big["checkSkipped"] != false || len(big["results"].([]any)) != bigTake {
 		t.Fatalf("big %v", big)
+	}
+	f.mu.Lock()
+	f.mute[12], f.mute[20] = true, true
+	f.mu.Unlock()
+	a.mu.Lock()
+	clear(a.router.seenAt)
+	a.mu.Unlock()
+	routes = strings.ReplaceAll(routes, `"src":4`, `"src":5`) // a change, so a Connected confirms it
+	if big := apiBody(t, apiPost(a, "/api/v1/takes", key, routes, nil)); big["checkSkipped"] != true || big["ok"] != true {
+		t.Fatalf("big, unanswered %v", big)
+	}
+	if small := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":20,"levels":[1]}]}`, nil)); small["checkSkipped"] != true {
+		t.Fatalf("small, unanswered %v", small)
 	}
 }
 

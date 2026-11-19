@@ -90,7 +90,8 @@ func markStages(r *runtime, items []routeReq) int {
 	return n
 }
 
-func (a *App) takeNative(r *runtime, c *client, items []routeReq) {
+// takeNative: unread as in takeAllowed.
+func (a *App) takeNative(r *runtime, c *client, items []routeReq) (unread bool) {
 	runs := make([]*routeRun, len(items))
 	runLimited(routeLimit, len(items), func(i int) { runs[i] = a.prepare(r, c, items[i]) })
 	var live, staged []*routeRun
@@ -98,6 +99,7 @@ func (a *App) takeNative(r *runtime, c *client, items []routeReq) {
 		if t == nil {
 			continue // answered already: bad request or protected
 		}
+		unread = unread || t.unread
 		live = append(live, t)
 		if t.w.hasNative() {
 			staged = append(staged, t)
@@ -132,6 +134,7 @@ func (a *App) takeNative(r *runtime, c *client, items []routeReq) {
 	}
 	runLimited(routeLimit, len(live), func(i int) { a.complete(r, live[i], a.sendRoute(r, live[i].w)) })
 	a.logSalvoTiming(c, staged)
+	return unread
 }
 
 func (a *App) logSalvoTiming(c *client, staged []*routeRun) {
