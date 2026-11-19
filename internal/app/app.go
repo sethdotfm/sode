@@ -95,7 +95,7 @@ type App struct {
 	idleEvery time.Duration
 	idleAt    time.Time
 
-	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
+	lateQ chan lateJob // to lateWorker; nil = amend in line (tests). Set by Run before the router link starts, then fixed.
 
 	nameReqAt  time.Time
 	sessionsAt time.Time
@@ -280,13 +280,13 @@ func (a *App) Run(ctx context.Context) {
 	start.Err = a.r().cfg.UnknownKeysProblem() // Err files it under Problems
 	a.logEvent(start)
 	link, cut := context.WithCancel(context.WithoutCancel(ctx))
+	a.lateQ = make(chan lateJob, 64)
 	go a.sw.Run(link)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() { defer wg.Done(); a.logSent(link) }()
 	go func() { defer wg.Done(); a.up.Run(link) }()
 	defer func() { cut(); wg.Wait(); a.up.Stop() }()
-	a.lateQ = make(chan lateJob, 64)
 	go a.lateWorker(link)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
