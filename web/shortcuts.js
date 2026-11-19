@@ -3,6 +3,10 @@
 import { $, on } from './core.js';
 import { mac } from './keys.js';
 
+// The open list's close, which a Lock runs.
+let shut = null;
+on('locking', () => shut?.());
+
 export function shortcutList({ keyMode, fromHistory, enterKeys, focusFirst }) {
   let back = null;
   let wasKeys = false;
@@ -18,15 +22,16 @@ export function shortcutList({ keyMode, fromHistory, enterKeys, focusFirst }) {
     wasKeys = keyMode();
     fromHist = fromHistory(back);
     $('keys').hidden = false;
+    shut = close;
     $('keys-dialog').focus();
   }
   function close(viaKeys = false) {
+    shut = null;
     $('keys').hidden = true;
     if (wasKeys && viaKeys) enterKeys();
     else if (back?.isConnected && !fromHist) back.focus();
     else focusFirst();
   }
   $('keys-close').addEventListener('click', () => close());
-  on('locking', () => $('keys').hidden || close());
   return { open, close, shown: () => !$('keys').hidden };
 }

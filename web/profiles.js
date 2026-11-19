@@ -144,7 +144,7 @@ async function load(name) {
   const r = await fetchProfile(name);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    fail(r.err || 'Could not read that profile.');
+    fail(r.err || 'Profile not read.');
     return paint();
   }
   prof = r.profile;
