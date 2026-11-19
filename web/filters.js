@@ -572,6 +572,10 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 
 const dlg = trapDialog(root, dialog, cancelFilters);
 on('locking', () => filtersOpen() && cancelFilters());
+// The filter changes live while the dialog is open, and a close goes back: the Palette does not open over it.
+on('unsavedAsk', (a) => {
+  if (filtersOpen()) a.unsaved = true;
+});
 
 on('filters', renderButtons);
 on('prefs', () => {

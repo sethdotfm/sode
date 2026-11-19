@@ -19,8 +19,10 @@ type Profile struct {
 	FilterSets []FilterSet       `yaml:"filterSets,omitempty" json:"filterSets"`
 	Presets    []Preset          `yaml:"presets,omitempty" json:"presets"`
 	// PinOrder keys are "scope:lowercase name"; unmatched ignored, unlisted pinned presets come after.
-	PinOrder []string       `yaml:"pinOrder,omitempty" json:"pinOrder"`
-	Extra    map[string]any `yaml:",inline" json:"-"`
+	PinOrder []string `yaml:"pinOrder,omitempty" json:"pinOrder"`
+	// PalettePicks holds the keys of the user's last Palette picks, newest first.
+	PalettePicks []string       `yaml:"palettePicks,omitempty" json:"palettePicks"`
+	Extra        map[string]any `yaml:",inline" json:"-"`
 }
 
 // MaxPinOrder caps PinOrder; MaxPinKey caps one key, in runes.
@@ -41,14 +43,15 @@ var PrefValues = map[string][]string{
 	"stackGap":      {"0", "10", "30", "60", "120", "300"},
 	"searchFilters": {"on", "off"},
 	"compact":       {"on", "off"},
+	"paletteChar":   paletteValues(),
 }
 
 func (p Profile) Empty() bool {
-	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.PinOrder) == 0
+	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.PinOrder) == 0 && len(p.PalettePicks) == 0
 }
 
 func (p Profile) Clone() Profile {
-	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder), Extra: p.Extra}
+	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder), PalettePicks: slices.Clone(p.PalettePicks), Extra: p.Extra}
 }
 
 func knownPref(k string) bool {
@@ -82,6 +85,7 @@ func (p Profile) Normalized() Profile {
 	p.FilterSets = normalizeFilterSets(p.FilterSets)
 	p.Presets = normalizePresets(p.Presets, "")
 	p.PinOrder = normalizePinOrder(p.PinOrder)
+	p.PalettePicks = normalizePalettePicks(p.PalettePicks)
 	return p
 }
 

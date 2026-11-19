@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
 <link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="palette.css">
 <link rel="stylesheet" href="desktop.css">
 <link rel="stylesheet" href="mobile.css">
 <link rel="stylesheet" href="history.css">
@@ -223,6 +224,10 @@
           <label for="cfg-compact">Compact view</label>
           <span class="pb-select-wrap"><select id="cfg-compact" class="pb-select" data-pref="compact"></select></span>
         </div>
+        <div class="sode__field">
+          <label for="cfg-palette-char">Palette character</label>
+          <span class="pb-select-wrap"><select id="cfg-palette-char" class="pb-select" data-pref="paletteChar"></select></span>
+        </div>
       </div>
     </fieldset>
 
@@ -290,6 +295,10 @@
         <div class="sode__field">
           <label for="gcfg-compact">Compact view</label>
           <span class="pb-select-wrap"><select id="gcfg-compact" class="pb-select" data-gpref="compact"></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="gcfg-palette-char">Palette character</label>
+          <span class="pb-select-wrap"><select id="gcfg-palette-char" class="pb-select" data-gpref="paletteChar"></select></span>
         </div>
       </div>
     </fieldset>
@@ -781,6 +790,14 @@
         <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock</dd>
         <dt><kbd data-mac="⌥⇧c">Alt+Shift+c</kbd></dt><dd>Compact view on or off</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
+        <dt><kbd data-mac="⌃⇧p">Ctrl+Shift+p</kbd></dt><dd>Palette. Firefox on Windows and Linux keeps this key for a private window, so there type the Palette character (default <kbd>&gt;</kbd>) first in an empty Source or Destination box</dd>
+      </dl>
+      <div class="sode__label">Palette</div>
+      <dl>
+        <dt><kbd>&gt;</kbd></dt><dd>First in an empty Source or Destination box: open the Palette. Type it again to search for <kbd>&gt;</kbd>. Settings › This browser sets the character</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Open the row. A preset still asks for a Confirm</dd>
+        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the Patch boxes from a preset, no take. Add a filter set to the stack</dd>
+        <dt><kbd>Esc</kbd> <kbd>Backspace</kbd></dt><dd>Back one step, then close</dd>
       </dl>
     </div>
     <div class="pb-modal__footer">

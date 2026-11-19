@@ -49,7 +49,7 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 	// Saved apart from the form: their own messages, or nothing to save yet.
 	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "api": true, "export-import": true, "run-setup-again": true}
 	values := map[string]any{
-		"browserDefaults":      config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "12", SetStack: "or", NextMode: "fuzzy", StackGap: "30"},
+		"browserDefaults":      config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "12", SetStack: "or", NextMode: "fuzzy", StackGap: "30", PaletteChar: "~"},
 		"brandText":            "Stage B",
 		"brandBorder":          config.BrandColors[1].Name,
 		"hiddenDsts":           "65",

@@ -7,6 +7,7 @@ import { failureGroups } from './history.js';
 import { resolvePreset } from './presetstore.js';
 import { showResult, setResult } from './banner.js';
 import { writeJSON, writeStr } from './store.js';
+import { onMyRights } from './editorrights.js';
 export { showResult, resultNode } from './banner.js';
 
 let takeSeq = 0;
@@ -554,8 +555,8 @@ export const applyMyRights = (r) => {
   emit('myRights');
 };
 export const rightsOff = (kind, n) => !allowed(S.myRights, kind, n);
-onMsg('myRights', (m) => applyMyRights(m.rights));
-on('wsclose', () => applyMyRights(null));
+// editorrights.js owns the message on every page, so the Palette reads the same Rights.
+onMyRights(applyMyRights);
 
 onMsg('takeResult', takeResult);
 on('wsclose', () => {

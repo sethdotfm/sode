@@ -60,6 +60,8 @@ var policyExpect = map[string][nStates]error{
 	"swapList": standardRule, "swapMine": standardRule,
 	// everyone's count needs an Administrator, checked in the handler (brokencount_test.go)
 	"brokenCount": standardRule,
+	// the handler lists by the panel page lock and the reach of the sign-in (palette_test.go)
+	"palettePanels": openRule,
 
 	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,

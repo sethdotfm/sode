@@ -199,6 +199,8 @@ var policy = map[string]rule{
 	"swapMine": {crit: critNever, role: config.RoleStandard, op: "swapMine", write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSwapMine(c, m) }},
 	// Broken and Name moved counts (brokencount.go): everyone's is Administrator only, checked in the handler.
 	"brokenCount": {crit: critNever, role: config.RoleStandard, handle: func(a *App, c *client, m *inMsg) { go a.serveBrokenCount(c, m) }},
+	// The Palette's Panels rows (palette.go): the reach of the browser's own sign-in, never a panel key.
+	"palettePanels": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.servePalettePanels(c, m) }},
 	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
 }

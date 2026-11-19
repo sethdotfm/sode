@@ -1,0 +1,106 @@
+/* The Palette (palette.js): one list dialog on every page. */
+.sode-palette__scrim > .sode-palette {
+  align-self: flex-start;
+  margin-top: 12vh;
+  max-width: calc(100vw - 2 * var(--pb-space-4));
+  min-width: 0;
+  transform-origin: top left;
+  width: 40rem;
+}
+.sode-palette--grow {
+  transition: transform var(--pb-motion-normal) var(--pb-ease);
+}
+.sode-palette > .pb-modal__footer:empty {
+  display: none;
+}
+.sode-palette__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-palette__where {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+.sode-palette__list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 0;
+}
+.sode-palette__row {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-height: var(--pb-control-h);
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+.sode-palette__row[aria-selected="true"] {
+  background: var(--pb-surface-hover);
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
+}
+.sode-palette__row:hover {
+  background: var(--pb-surface-hover);
+}
+.sode-palette__row--off {
+  color: var(--pb-text-disabled);
+}
+.sode-palette__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sode-palette__hint {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin-inline-start: auto;
+}
+.sode-palette__row--off .sode-palette__hint {
+  color: inherit;
+}
+.sode-palette__tag {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1);
+  white-space: nowrap;
+}
+.sode-palette__hint + .sode-palette__tag {
+  margin-inline-start: var(--pb-space-2);
+}
+.sode-palette__label + .sode-palette__tag {
+  margin-inline-start: auto;
+}
+.sode-palette__head {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  padding: var(--pb-space-2) var(--pb-space-2) 0;
+  text-transform: uppercase;
+}
+.sode-palette__none {
+  color: var(--pb-text-muted);
+  padding: var(--pb-space-2);
+}
+.sode-palette__why p {
+  margin: 0 0 var(--pb-space-2);
+}
+.sode-palette__offers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+.sode-palette__keys {
+  margin: 0;
+}
+.sode-palette__warn {
+  color: var(--pb-status-warn);
+}
+[data-pb-layout="phone"] .sode-palette__scrim > .sode-palette {
+  margin-top: var(--pb-space-4);
+}
+[data-pb-layout="phone"] .sode-palette__keys {
+  display: none;
+}

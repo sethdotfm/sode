@@ -18,6 +18,7 @@ import { linkInstall, OTHER_INSTALL } from './itemlink.js';
 import { layout, onLayout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
 import { showApprovalCards } from './approvalcards.js';
+import './palette.js';
 
 const id = panelIdFrom(location.pathname);
 
