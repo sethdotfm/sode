@@ -30,6 +30,11 @@ test('the summary counts fields and names the Critical mark, approver and preset
   );
 });
 
+test('the summary counts the Interruptions, the hidden ones too', () => {
+  assert.equal(saveSummary({ fields: [base], interruptions: ['Public panel Lobby stops'] }), '1 field, 1 Interruption');
+  assert.equal(saveSummary({ fields: [base], hiddenInterruptions: 2 }), '1 field, 2 Interruptions');
+});
+
 test('an import row reads as counts per category, never values', () => {
   const im = {
     mode: 'add',

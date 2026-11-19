@@ -2924,4 +2924,5 @@ components:
             approver: { type: string }
             preset: { type: string }
             critical: { type: boolean }
-            interruptions: { type: array, items: { type: string } }
+            interruptions: { type: array, items: { type: string }, description: "What the save ended or narrowed, for an Administrator" }
+            hiddenInterruptions: { type: integer, description: "How many Interruptions a reader below Administrator does not see" }

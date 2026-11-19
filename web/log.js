@@ -328,7 +328,12 @@ const saveFields = (s) =>
     'details',
     'sode-log__save',
     el('summary', null, saveSummary(s)),
-    el('ul', 'sode-log__save-fields', ...(s.fields || []).map((f) => el('li', null, fieldText(f)))),
+    el(
+      'ul',
+      'sode-log__save-fields',
+      ...(s.fields || []).map((f) => el('li', null, fieldText(f))),
+      ...(s.interruptions || []).map((t) => el('li', null, `Interruption: ${t}`)),
+    ),
   );
 
 function row(e, fresh = false) {

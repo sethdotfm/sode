@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Session keys: a signed-in browser trades its session for a user key so a Session-mode
@@ -56,8 +58,11 @@ func (a *App) serveSessionKey(c *client, m *inMsg) {
 
 // endSessionKeys ends the keys whose session token is gone, expired or no longer the
 // owner's. Never with App.mu held (writes the file).
-func (a *App) endSessionKeys() {
-	cfg := a.r().cfg
+func (a *App) endSessionKeys() { a.endSessionKeysAt(a.r().cfg) }
+
+// endSessionKeysAt: cfg is the config the tokens are judged by. A commit passes its new one
+// before the swap.
+func (a *App) endSessionKeysAt(cfg config.Config) {
 	gone := a.keys.dropWhere(func(r keyRec) bool {
 		return r.Sess != "" && !a.tokens.live(r.Sess, r.Owner.User, cfg)
 	})

@@ -1,20 +1,15 @@
 // Settings > Server > Export & Import: the dialog with the Export and Import tabs (docs/agents/profiles.md).
-// The session token for the routes is in exportsession.js. Pure rules are in exportrules.js; the Import tab is
-// importtab.js.
+// The routes and the session token are in exportcalls.js, pure rules in exportrules.js. The Import tab is importtab.js.
 
 import { $, el, on } from './core.js';
-import { call, post } from './exportsession.js';
-import { importTab } from './importtab.js';
 import { trapDialog } from './widgets.js';
 import { makeTabs } from './tabs.js';
 import { layout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
-import { PREFS } from './prefs.js';
-import { ownPref } from './device.js';
-import { localSets } from './filterstore.js';
-import { localPresets } from './presetstore.js';
 import { ROLES } from './usersrules.js';
 import * as R from './exportrules.js';
+import { browserValues, post, call, downloadZip, downloadBackup } from './exportcalls.js';
+import { importTab } from './importtab.js';
 
 const SIZE_WAIT_MS = 300;
 
@@ -51,9 +46,9 @@ note.id = 'xi-note';
 note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 
-const backupBtn = btn('pb-btn--outline', 'Back up everything', () => download(R.backupBody(browserValues())));
+const backupBtn = btn('pb-btn--outline', 'Back up everything', () => download(downloadBackup));
 backupBtn.id = 'xi-backup';
-const exportBtn = btn('pb-btn--ok', 'Export', () => download(R.exportBody(list, pick, browserValues())));
+const exportBtn = btn('pb-btn--ok', 'Export', () => download(() => downloadZip(R.exportBody(list, pick, browserValues()))));
 exportBtn.id = 'xi-export';
 const closeBtn = btn('pb-btn--outline', 'Close', () => close());
 closeBtn.id = 'xi-close';
@@ -66,7 +61,7 @@ const importer = importTab({
     titleEl.textContent = title || 'Export & Import';
     tabs.node.hidden = !!title;
   },
-  backup: () => download(R.backupBody(browserValues())),
+  backup: () => download(downloadBackup),
 });
 const importPanel = importer.panel;
 
@@ -97,14 +92,6 @@ const setNote = (t, error = false) => {
   note.textContent = t;
   note.classList.toggle('sode__error-text', error);
 };
-
-// This browser: its own device preferences as top-level keys, with its filter sets and presets (browser.yaml in
-// internal/app/testdata/export-v1).
-function browserValues() {
-  const out = {};
-  for (const n of Object.keys(PREFS)) if (ownPref(n)) out[n] = ownPref(n);
-  return { ...out, filterSets: localSets(), presets: localPresets() };
-}
 
 // ---- the list
 
@@ -247,20 +234,13 @@ async function load() {
   }
 }
 
-async function download(b) {
+// make: resolves { name, size } of the saved zip (exportcalls.js).
+async function download(make) {
   setNote('Making the file…');
   backupBtn.disabled = exportBtn.disabled = true;
   try {
-    const res = await post('api/export', b);
-    const blob = await res.blob();
-    const a = el('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = R.fileNameOf(res.headers.get('Content-Disposition'), new Date().toISOString().slice(0, 10));
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 0);
-    setNote(`Saved ${a.download} (${R.sizeText(blob.size)}).`);
+    const got = await make();
+    setNote(`Saved ${got.name} (${R.sizeText(got.size)}).`);
   } catch (e) {
     setNote(e.message, true);
   } finally {

@@ -95,6 +95,11 @@ func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 // update: mutate edits a copy, then Normalize, Validate, build a runtime, save. Stores
 // nothing; the caller swaps the runtime under mu. Caller holds cfgMu.
 func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err error) {
+	return a.updateWith(mutate, true)
+}
+
+// updateWith: save false keeps the change in memory only (the setup wizard's Router step).
+func (a *App) updateWith(mutate func(*config.Config) error, save bool) (old, nw *runtime, err error) {
 	old = a.r()
 	cfg := old.cfg.Clone()
 	if err := mutate(&cfg); err != nil {
@@ -113,11 +118,12 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 	if err != nil {
 		return nil, nil, err
 	}
-	if a.cfgPath != "" {
+	if a.cfgPath != "" && save {
 		if err := config.Save(a.cfgPath, cfg); err != nil {
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}
 	}
+	a.promoted = a.tokens.promoteTabs(old.cfg, cfg, a.openTokens())
 	// Revocation is durable: invalidated tokens are deleted so undoing the change cannot
 	// revive them.
 	a.tokens.prune(cfg)
@@ -129,7 +135,11 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 // holding it. The one config commit; side effects that must not see a half-swapped state
 // go in after. Caller holds cfgMu and has done its own guard check.
 func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runtime)) error {
-	old, nr, err := a.update(mutate)
+	return a.commitWith(mutate, after, true)
+}
+
+func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *runtime), save bool) error {
+	old, nr, err := a.updateWith(mutate, save)
 	if err != nil {
 		return err
 	}
@@ -157,6 +167,9 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	if !old.cfg.PublicPanels && nr.cfg.PublicPanels {
 		a.publicAgain()
 	}
+	if !old.cfg.Locks.Panel && nr.cfg.Locks.Panel {
+		a.endNoPinSessionKeys()
+	}
 	return nil
 }
 
@@ -182,11 +195,15 @@ func (a *App) cutRoutes() {
 }
 
 func (a *App) applyConfig(mutate func(*config.Config) error) error {
+	return a.applyConfigWith(mutate, true)
+}
+
+func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) error {
 	page := a.readHello() // history read stays outside mu
 	var reconnect bool
 	var c config.Config
 	var applied *runtime
-	err := a.commit(mutate, func(oldRt, nr *runtime) {
+	err := a.commitWith(mutate, func(oldRt, nr *runtime) {
 		old := oldRt.cfg
 		c = nr.cfg
 		reconnect = config.ReconnectChanged(old, c)
@@ -211,7 +228,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		}
 		a.syncAccessAllMu() // it is possible that locks or users changed
 		applied = nr
-	})
+	}, save)
 	if err != nil {
 		return err
 	}

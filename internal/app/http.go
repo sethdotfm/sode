@@ -354,7 +354,7 @@ type inMsg struct {
 	To         int64                `json:"to"`
 	Slot       int64                `json:"slot"`   // ...and its slot length, ms
 	Config     json.RawMessage      `json:"config"` // decoded in saveSettings, over the live config
-	Fields     map[string]fieldEdit `json:"fields"` // settingsSave: changed fields only
+	Fields     map[string]fieldEdit `json:"fields"` // settingsSave, settingsReview: changed fields only
 	Pin        string               `json:"pin"`
 	User       string               `json:"user"` // userSignIn: the user's name (name and PIN mode)
 	ID         int                  `json:"id"`   // echoed by save replies
@@ -383,6 +383,8 @@ type inMsg struct {
 	MyClient   *myClientReq         `json:"client"`   // myClientSave
 	Approval   *approvalReq         `json:"approval"` // an Approval in person for this one message
 	approver   *config.User         // set by approve once the Approval's PIN is checked
+	Router     string               `json:"router"` // setupRouter: the address typed
+	Setup      *setupReq            `json:"setup"`  // setupFinish
 }
 
 func plural(n int, one, many string) string {

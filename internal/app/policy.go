@@ -49,11 +49,13 @@ type rule struct {
 	// approver of this one message; forMsg fills it.
 	approvable bool
 	approver   *config.User
+	// setup: allowed while setup is pending (setup.go); every other message is refused.
+	setup bool
 }
 
 var policy = map[string]rule{
 	// declares the page type and session token; answered with the lock state
-	"hi": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.Hi(c, m.Page, m.Token) }},
+	"hi": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { a.Hi(c, m.Page, m.Token) }},
 	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
 	// handled after.
 	"userSignIn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserUnlock(c, m) }},
@@ -68,7 +70,7 @@ var policy = map[string]rule{
 		a.command(c, "userSignOut", "ok", "", nil)
 	}},
 	// the page's ping while its user is active (idle.go); never refused, never logged
-	"activity":   {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.Activity(c) }},
+	"activity":   {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, _ *inMsg) { a.Activity(c) }},
 	"userSetPin": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserSetPin(c, m) }},
 	// Own keys: a signed-in user only (checked in the handler). Creating asks the user's own
 	// PIN, in the change-PIN pool. Inline, like userSetPin.
@@ -91,7 +93,11 @@ var policy = map[string]rule{
 	// Step in and Step out (stepin.go): in line, like userSignIn.
 	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveStepIn(c, m) }},
 	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.StepOut(c) }},
-	"history": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
+	"history": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
+
+	// The setup wizard (setup.go). Finish is a write: shutdown waits for it.
+	"setupRouter": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupRouter(c, m) }},
+	"setupFinish": {crit: critNever, role: roleAnyone, setup: true, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupFinish(c, m) }},
 
 	"take": {crit: critNever, role: config.RoleStandard, need: needMain, why: "take", write: true,
 		handle: func(a *App, c *client, m *inMsg) { a.serveTake(c, m) },
@@ -131,6 +137,9 @@ var policy = map[string]rule{
 	// the one Save: a Standard user passes here and gets a result per field (onesave.go)
 	"settingsSave": {crit: critByFields, role: config.RoleStandard, op: "settingsSave", write: true, approvable: true,
 		handle: func(a *App, c *client, m *inMsg) { a.serveSettingsSave(c, m) }},
+	// the review's Interruptions (interruptions.go): it writes nothing, and the save checks again
+	"settingsReview": {crit: critNever, role: config.RoleStandard, op: "settingsReview",
+		handle: func(a *App, c *client, m *inMsg) { a.serveSettingsReview(c, m) }},
 	"filterSets": {crit: critNever, role: config.RoleTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(sets []config.FilterSet, id int) {
 			defer m.finish()
@@ -183,6 +192,9 @@ func (r rule) forMsg(m *inMsg) rule {
 func (a *App) admit(c *client, r rule) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if !r.setup && a.setupPending() {
+		return errSetup
+	}
 	switch {
 	case r.need&needMain != 0 && !a.pageAllowedMu(c, gateMain),
 		r.need&needLog != 0 && !a.pageAllowedMu(c, gateLog):

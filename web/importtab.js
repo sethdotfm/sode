@@ -3,7 +3,7 @@
 // the page sends its ticks and choices and shows what the server answers. Pure rules are in importrules.js.
 
 import { el, off, S } from './core.js';
-import { call } from './exportsession.js';
+import { call } from './exportcalls.js';
 import { recheckPin } from './recheck.js';
 import { segmented } from './formbits.js';
 import { CATEGORIES, sizeText } from './exportrules.js';

@@ -27,6 +27,7 @@ export const S = {
   installUid: '', // from the hello; Item links name it
   prefix: '', // the router prefix, from the hello
   noAdministrator: false, // users and no Administrator: the page shows the recovery banner
+  setup: null, // setupwizard.js
   srcs: [],
   dsts: [],
   srcBy: new Map(),
@@ -206,6 +207,7 @@ function handle(m) {
       S.users = m.users || [];
       S.userNames = S.users.map((u) => u.name);
       S.noAdministrator = !!m.noAdministrator;
+      S.setup = m.setup || null;
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];

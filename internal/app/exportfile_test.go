@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"gopkg.in/yaml.v3"
@@ -22,6 +23,9 @@ import (
 // exportApp is a file-backed app with Ana (Standard), Bo and Ada (Administrator), signed in as Ada.
 func exportApp(t *testing.T) (*App, string) {
 	t.Helper()
+	made := time.Date(2026, 11, 19, 4, 0, 0, 0, time.UTC)
+	exportNow = func() time.Time { return made }
+	t.Cleanup(func() { exportNow = time.Now })
 	a := userApp(t, false)
 	c := &client{ip: "10.0.0.9"}
 	register(a, c)

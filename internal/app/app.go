@@ -128,6 +128,9 @@ type App struct {
 	icons        *iconLib
 	mon          *panelMon
 	cfgMu        sync.Mutex
+	// promoted: token keys the last commit turned from tab to ordinary (promoteTabs), so
+	// catchUpSessions hands them to their pages to keep. Under cfgMu.
+	promoted map[string]bool
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
@@ -597,7 +600,9 @@ func (a *App) flush() {
 		a.namesDirt = false
 		a.broadcast(a.namesMsg())
 		uid, src, dst := a.r().cfg.UID, maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
-		save = func() { a.names.save(uid, time.Now(), src, dst) }
+		if !a.setupPending() { // nothing on disk before Finish, which saves them
+			save = func() { a.names.save(uid, time.Now(), src, dst) }
+		}
 	}
 }
 
@@ -692,6 +697,7 @@ func (a *App) hello(p helloPage) []byte {
 		ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
 		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),
+		Setup: a.setupHelloFor(r.cfg),
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
