@@ -77,6 +77,7 @@ type SentLog struct {
 	cur, old *segment // old is nil until the first rotation (or a .1 on disk)
 	next     int64
 	mem      []Sent
+	torn     bool // cur may hold part of a line past cur.size
 }
 
 func rotatedPath(path string) string {
@@ -220,8 +221,17 @@ func (l *SentLog) Append(e *Sent) error {
 			log.Printf("sent log: rotating: %v", err)
 		}
 	}
+	// A failed write can leave part of a line past size; cut it before the next line, as openSegment does.
+	if l.torn {
+		if err := l.cur.f.Truncate(l.cur.size); err != nil {
+			return err
+		}
+		l.torn = false
+	}
 	if _, err := l.cur.f.WriteAt(b, l.cur.size); err != nil {
-		l.cur.f.Truncate(l.cur.size) // best effort: no partial line left behind
+		if l.cur.f.Truncate(l.cur.size) != nil {
+			l.torn = true
+		}
 		return err
 	}
 	l.next++
