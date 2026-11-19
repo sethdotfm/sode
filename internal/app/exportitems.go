@@ -230,14 +230,18 @@ func (a *App) serveExportSize(w http.ResponseWriter, r *http.Request) {
 
 // ExportSession is a session token for the export routes. A connection without a good one gets a tab
 // token, as a session key does (sessionkey.go). With no users every browser is an Administrator and
-// needs none.
+// needs none. A Guest gets none, since every export route needs a user.
 func (a *App) ExportSession(c *client) (string, error) {
-	if len(a.r().cfg.Users) == 0 {
+	cfg := a.r().cfg
+	if len(cfg.Users) == 0 {
 		return "", nil
 	}
 	a.mu.Lock()
-	good, tok := a.sessionGoodMu(c), c.u.tokenMu()
+	signed, good, tok := a.userOKMu(c, cfg), a.sessionGoodMu(c), c.u.tokenMu()
 	a.mu.Unlock()
+	if !signed {
+		return "", errUnlockFirst
+	}
 	if good {
 		return tok, nil
 	}

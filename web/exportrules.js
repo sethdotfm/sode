@@ -14,6 +14,52 @@ export const CATEGORIES = [
   ['browser', 'This browser'],
 ];
 
+// My user's own export (ownexport.js): GET api/own/export/items and POST api/own/export (internal/app/ownexport.go).
+export const OWN_CATEGORIES = [
+  ['profile', 'Profile'],
+  ['presets', 'Presets'],
+  ['filterSets', 'Filter sets'],
+];
+// Greyed in the own dialog. The keys are the file's categories, so presets and filterSets here are Everyone's.
+export const ADMIN_ONLY = [
+  ['settings', 'Settings'],
+  ['routers', 'Routers'],
+  ['users', 'Users'],
+  ['presets', 'Everyone presets'],
+  ['filterSets', 'Everyone filter sets'],
+  ['panels', 'Panels'],
+  ['artwork', 'Artwork'],
+  ['apiClients', 'API clients'],
+  ['browser', 'This browser'],
+];
+
+// Everything ticked.
+export function newOwnPick(list) {
+  const items = {};
+  for (const [c] of OWN_CATEGORIES) items[c] = new Set((catOf(list, c).items || []).map((i) => i.id));
+  return { items };
+}
+
+export function ownState(list, pick, cat) {
+  const total = (catOf(list, cat).items || []).length;
+  const on = pick.items[cat].size;
+  if (!on) return 'none';
+  return on === total ? 'all' : 'some';
+}
+
+export const ownSize = (list, pick, cat) => (catOf(list, cat).items || []).filter((i) => pick.items[cat].has(i.id)).reduce((n, i) => n + i.size, 0);
+
+// The POST api/own/export body. Presets and filter sets send their ids, so an item added meanwhile does not go unseen.
+export function ownBody(pick) {
+  const body = { categories: [], pick: {} };
+  for (const [c] of OWN_CATEGORIES) {
+    if (!pick.items[c].size) continue;
+    body.categories.push(c);
+    if (c !== 'profile') body.pick[c] = [...pick.items[c]];
+  }
+  return body;
+}
+
 // Picked item by item.
 export const ITEM_CATS = ['users', 'presets', 'filterSets', 'panels', 'artwork', 'apiClients'];
 

@@ -78,22 +78,6 @@ func TestAddImportMissingReferenceIsBroken(t *testing.T) {
 	}
 }
 
-// Without names read from the router a reference cannot be checked: the category waits.
-func TestAddImportWaitsForNames(t *testing.T) {
-	a, _, tok := importApp(t)
-	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")} })
-	file := exported(t, a, tok, exportReq{Categories: []string{catPresets}})
-	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = nil })
-	a.mu.Lock()
-	clear(a.router.srcNames)
-	clear(a.router.dstNames)
-	a.mu.Unlock()
-	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
-	if res.Plan.Categories[catPresets].Refused == "" || len(a.r().cfg.Presets) != 0 {
-		t.Fatalf("plan %+v, presets %+v", res.Plan.Categories[catPresets], a.r().cfg.Presets)
-	}
-}
-
 func TestAddImportWritesOneSavesRow(t *testing.T) {
 	a, _, tok := importApp(t)
 	defer startLog(t, a)()

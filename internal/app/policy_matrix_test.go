@@ -88,6 +88,8 @@ var policyExpect = map[string][nStates]error{
 	// a signed-in user only, checked in the handlers (inboxlife_test.go)
 	"inboxList": openRule, "inboxSend": openRule, "inboxReview": openRule, "inboxAccept": openRule,
 	"inboxDecline": openRule, "inboxWithdraw": openRule,
+	// the handler also needs a signed-in user; the export routes check the Role (exportitems_test.go)
+	"exportSession": standardRule,
 	// the handlers refuse once set up; while setup is pending see TestSetupWizardAdmitsOnlySetupMessages
 	"setupClaim": openRule, "setupRouter": openRule, "setupRestoreKey": openRule, "setupFinish": openRule,
 
@@ -101,7 +103,6 @@ var policyExpect = map[string][nStates]error{
 	"profileGet": trustedRule, "profileSave": selfRule,
 
 	"clearHistory":   adminRule,
-	"exportSession":  adminRule,
 	"userSignOutAll": adminRule, "usersList": adminRule,
 	"keyListAll": adminRule, "keyCreateFor": adminRule,
 	"keyRevokeAny": adminRule, "keyRevokeAll": adminRule,

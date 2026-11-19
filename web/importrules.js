@@ -2,8 +2,9 @@
 // back to it for the review and to POST api/import/apply. Item keys and choice values are the server's
 // (importItem and the clash choices in internal/app/importplan.go).
 
-// The categories the server plans, in its order. This browser the page applies itself (browserimport.js).
-export const PLANNED = ['settings', 'routers', 'users', 'presets', 'filterSets', 'apiClients', 'artwork', 'panels', 'browser'];
+// The categories the server plans, in its order. This browser the page applies itself (browserimport.js). Profile is
+// only in an own import (internal/app/ownexport.go).
+export const PLANNED = ['profile', 'settings', 'routers', 'users', 'presets', 'filterSets', 'apiClients', 'artwork', 'panels', 'browser'];
 
 const CHOICES = [
   ['new', 'Use new'],
