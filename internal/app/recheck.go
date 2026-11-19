@@ -152,7 +152,7 @@ func criticalEdits(live, next config.Config, actor config.User) []string {
 			out = append(out, what)
 		}
 	}
-	add(config.Changed(live, next, "router"), "the router connection")
+	add(config.ReconnectChanged(live, next), "the router connection")
 	for _, f := range presetFields {
 		add(f.changed(live, next), f.what)
 	}

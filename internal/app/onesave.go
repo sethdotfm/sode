@@ -46,8 +46,8 @@ var sectionRoles = map[string]sectionTag{
 	"run-setup-again":   {config.RoleAdministrator, false},
 }
 
-// saveFields: the Config keys the one Save takes, and the section of each. Every form-saved
-// field (guard tag) is here (TestEveryGuardedFieldHasSection). Item keys (a user's or an API
+// saveFields: the Config keys the one Save takes, and the section of each. Every Config JSON
+// key is here or in savedApart (TestEveryFormFieldHasSection). Item keys (a user's or an API
 // client's attribute) are in onesavefields.go.
 var saveFields = map[string]string{
 	"browserDefaults":      "everyone-defaults",
@@ -88,6 +88,9 @@ var saveFields = map[string]string{
 	"api":                  "api",
 	"guestApiScopes":       "api",
 }
+
+// savedApart: Config JSON keys with their own messages, never the one Save's.
+var savedApart = map[string]bool{"filterSets": true, "presets": true, "users": true}
 
 // Refusal reasons. The page shows them beside the field (spec #543, The one Save).
 const (

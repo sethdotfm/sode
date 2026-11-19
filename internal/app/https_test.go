@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
 func httpsApp(t *testing.T, on bool) *App {
@@ -138,14 +136,5 @@ func TestRequireHTTPSToggleIsLogged(t *testing.T) {
 	}
 	if len(rows) != 2 || rows[0] != "requireHttps on 10.1.1.1" || rows[1] != "requireHttps off 10.1.1.1" {
 		t.Fatalf("rows %q", rows)
-	}
-}
-
-func TestRequireHTTPSGuardedByPin(t *testing.T) {
-	live := config.Defaults()
-	next := live
-	next.RequireHTTPS = true
-	if !config.Changed(live, next, "pin") {
-		t.Fatal("requireHttps is not PIN-guarded")
 	}
 }

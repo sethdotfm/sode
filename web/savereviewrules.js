@@ -48,7 +48,7 @@ export const SAVE_FIELDS = Object.freeze({
 const ITEM_SECTIONS = Object.freeze({ user: 'users', client: 'users' });
 export const sectionOfKey = (key) => SAVE_FIELDS[key] || ITEM_SECTIONS[key.split('/')[0]];
 
-// The router connection fields (guard:"router" in internal/config/router.go). A change reconnects the router.
+// The router connection fields (reconnect:"true" in internal/config/router.go). A change reconnects the router.
 const RECONNECT = new Set(['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests']);
 export const reconnects = (key) => RECONNECT.has(key);
 

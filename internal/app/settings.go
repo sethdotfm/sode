@@ -177,7 +177,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	err := a.commit(mutate, func(oldRt, nr *runtime) {
 		old := oldRt.cfg
 		c = nr.cfg
-		reconnect = config.Changed(old, c, "router")
+		reconnect = config.ReconnectChanged(old, c)
 		if reconnect {
 			a.router = newRouterState()
 			a.ext = newExtTracker()
