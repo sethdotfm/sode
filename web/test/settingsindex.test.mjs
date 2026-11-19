@@ -51,6 +51,14 @@ test('every registered section has dictionary terms', () => {
   }
 });
 
+// my-default-* buttons come from devicesettings.js and open-log from about.js.
+test('every DICT key names a section or control on the page', () => {
+  const html = read('index.html');
+  for (const k of Object.keys(DICT).filter((k) => !k.startsWith('my-default-') && k !== 'open-log')) {
+    assert.match(html, new RegExp(`(id|data-find|data-section)="${k}"`), k);
+  }
+});
+
 test('common words reach their section', () => {
   const cases = {
     dark: 'this-browser',
@@ -116,7 +124,7 @@ test('the fire mode setting is found by its words', () => {
     {
       id: 'router',
       title: 'Router',
-      settings: [{ id: 'cfg-firemode', label: 'Multi destination behavior' }],
+      settings: [{ id: 'cfg-firemode', label: 'Multi destination' }],
     },
   ]);
   for (const q of ['native', 'fire mode', 'router salvo', 'preset']) {

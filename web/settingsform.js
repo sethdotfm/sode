@@ -1,6 +1,5 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
-// previews beside the fields. Manage users (users.js) and the API section (apisettings.js) are save sources of the
-// one Save (savesources.js).
+// previews beside the fields. settingssave.js wraps the form as formSource, a save source of the one Save.
 
 import { $, el, S, wsSend } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
@@ -22,11 +21,9 @@ let shownMode = '1';
 
 // Previewed before save: window border and the app icon the server draws (icon.go).
 function renderBrandPreview() {
-  const sel = $('cfg-brandborder');
-  const c = sel.value;
+  const c = $('cfg-brandborder').value;
   setBrand($('brand-swatch'), c);
   $('brand-icon').src = iconURL(180, c);
-  $('brand-name').textContent = sel.selectedOptions[0]?.textContent || 'Off';
 }
 function fillBrandColors() {
   const sel = $('cfg-brandborder');
@@ -49,9 +46,7 @@ export function fillForm() {
   renderNumbering();
   renderBrandPreview();
   renderColors(S.cfg.levelColors || []);
-  $('cfg-lock-main').checked = !!S.cfg.locks?.main;
-  $('cfg-lock-log').checked = !!S.cfg.locks?.log;
-  $('cfg-lock-panel').checked = !!S.cfg.locks?.panel;
+  for (const page of ['main', 'log', 'panel']) $(`cfg-lock-${page}`).checked = !!S.cfg.locks?.[page];
   $('cfg-new-persistent').checked = !!S.cfg.newUserDefaults?.persistent;
   $('cfg-new-no-auto-lock').checked = !!S.cfg.newUserDefaults?.noAutoLock;
 }
