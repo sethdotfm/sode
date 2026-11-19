@@ -1,14 +1,11 @@
-// Profile dialog: the editor of one user's profile, opened by bus 'openProfile' {name}. Edit/Add open the Filters dialog or preset editor
-// aimed at this profile (they save through saveProfile; 'profileSaved' refreshes this dialog). The own profile reads profile.js's cache;
-// anyone else's goes through fetchProfile (a Trusted user or higher).
+// Profile dialog (bus 'openProfile' {name}). Edit and Add open the Filters dialog or the preset editor on this Profile; 'profileSaved' redraws.
+// A user's own Profile comes from profile.js; another's from fetchProfile (a Trusted user or higher).
 
 import { el, S, on, emit, sentence } from './core.js';
 import { trusted } from './trusted.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
 import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles, PROFILE_NOTICE } from './profilesrules.js';
-
-// ---- the dialog
 
 const btn = (cls, text, fn) => {
   const b = el('button', `pb-btn ${cls}`, text);
@@ -35,7 +32,6 @@ dialog.setAttribute('aria-modal', 'true');
 dialog.setAttribute('aria-labelledby', 'profiles-title');
 dialog.tabIndex = -1;
 dialog.append(el('div', 'pb-modal__header', title), el('div', 'pb-modal__body', body, err), el('div', 'pb-modal__footer', note, closeBtn));
-// A later "Restrictions" section (sources and destinations a trusted user hides from a user) goes in `body` after presets.
 root.append(dialog);
 document.body.append(root);
 
@@ -64,9 +60,9 @@ function line(kind, i, name, summary) {
       'li',
       'sode__profiles-row',
       text,
-      el('span', 'pb-note pb-note--warn', `Remove "${name}" from ${who}'s profile?`),
+      el('span', 'pb-note pb-note--warn', `Remove “${name}”?`),
       btn('pb-btn--danger pb-btn--sm', 'Remove', () => doRemove(kind, i)),
-      btn('pb-btn--outline pb-btn--sm', 'Keep', () => {
+      btn('pb-btn--outline pb-btn--sm', 'Cancel', () => {
         removing = null;
         paint();
       }),
@@ -112,7 +108,7 @@ function listSection(heading, rows, empty, addText, ev) {
 function paint() {
   title.textContent = who ? `Profile: ${who}` : 'Profile';
   if (!prof) {
-    body.replaceChildren(el('p', 'sode__hint', who ? `Reading ${who}'s profile…` : 'No user chosen.'));
+    body.replaceChildren(el('p', 'sode__hint', `Reading ${who}'s profile…`));
     return;
   }
   body.replaceChildren(
@@ -179,13 +175,13 @@ async function doSave(parts, done) {
   });
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    fail(r.err || 'Could not save that profile.');
+    fail(r.err || 'Profile not saved.');
     if (own()) {
       prof = profile();
       return paint();
     }
     paint();
-    return load(name).then(() => fail(r.err || 'Could not save that profile.'));
+    return load(name).then(() => fail(r.err || 'Profile not saved.'));
   }
   prof = own() ? profile() : prof;
   setNote(done);

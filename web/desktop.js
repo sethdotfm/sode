@@ -1,5 +1,3 @@
-// Desktop layout: three boxes, Tab between them, churning-key confirm.
-
 import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
 import { paintConn } from './connview.js';
 import { levelBar, allLevels, levelSource } from './levelview.js';
@@ -58,8 +56,6 @@ const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onCha
 const active = () =>
   layout() === 'desktop' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
 
-// ---- connection
-
 function renderConn() {
   const c = paintConn({
     root: $('conn'),
@@ -74,8 +70,6 @@ function renderConn() {
 }
 needsLink($('patch'));
 
-// ---- the boxes
-
 function select(k, it) {
   sel[k] = it;
   const b = boxes[k];
@@ -85,8 +79,6 @@ function select(k, it) {
   if (k === 'dst') renderChips();
   renderTally();
 }
-
-// ---- destination chips
 
 const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...dsts]);
 
@@ -158,8 +150,6 @@ function renderChips() {
   $('dst-label').textContent = n > 1 ? `Destinations (${n})` : 'Destination';
 }
 
-// ---- the last take's source, destinations or levels (Ctrl+S/D/F)
-
 // Last chip does what Ctrl+S/D/F do; the Next chip (Ctrl+Shift+S/D) opens over it on hover,
 // focus or Shift (data-shift). Hidden when the box has it, and for default levels.
 const boxState = () => ({ src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] });
@@ -182,7 +172,7 @@ function renderLast() {
         el('span', 'sode__last-text', ...last[k]),
         el('kbd', 'sode__key-note', `⌃${key}`),
       );
-      b.title = `Last take's ${what} (Ctrl+${key})`;
+      b.dataset.pbTip = `Last ${what} (Ctrl+${key})`;
       b.addEventListener('click', () => useLast(k));
       chips.push(b);
     }
@@ -194,7 +184,7 @@ function renderLast() {
         el('kbd', 'sode__key-note sode__tag-key', `⌃⇧${key}`),
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))),
       );
-      b.title = `Last take's ${what}, the next one (Ctrl+Shift+${key.toUpperCase()})`;
+      b.dataset.pbTip = `Next ${what} (Ctrl+Shift+${key.toUpperCase()})`;
       b.addEventListener('click', () => useLast(k, true));
       // The closed chip's room stays in the slot so nothing in the row moves.
       chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', `⌃⇧${key}`)), b));
@@ -214,7 +204,7 @@ on('last', renderLast);
 // next: use nextTake() and remember it so a repeat goes on.
 function useLast(k, next = false) {
   const fill = lastFill(k, next, boxState());
-  if (fill?.none) return showResult('info', 'No take yet', 'There is no earlier take to reuse.');
+  if (fill?.none) return showResult('info', 'No earlier take', '');
   if (!fill) return;
   const t = fill.t;
   if (k === 'src') {
@@ -235,8 +225,6 @@ function useLast(k, next = false) {
     focusBox(lvlInput);
   }
 }
-
-// ---- tally display
 
 // Both lists show at the same time, on their own row (the flip swaps them).
 function underHead(text, up) {
@@ -294,12 +282,10 @@ function renderTally() {
   });
 }
 
-// ---- history
-
 const historyView = desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys: () => keys.open(), boxes, active });
 const { renderHistory, enterKeys, keyMode, histList, histArea, pager } = historyView;
 
-// ---- flip order (per browser; index.html applies it before first paint)
+// Per browser; index.html applies it before first paint.
 
 function showFlip() {
   const on = flipped();
@@ -311,8 +297,6 @@ $('flip').addEventListener('click', () => setFlip(!flipped()));
 on('flip', showFlip);
 showFlip();
 
-// ---- shortcut list (?)
-
 const keys = shortcutList({ keyMode, fromHistory: histArea, enterKeys, focusFirst: () => focusBox(boxes.src.input) });
 
 function focusSearch(k) {
@@ -321,8 +305,6 @@ function focusSearch(k) {
   f.focus();
   f.select();
 }
-
-// ---- confirm
 
 let confirmBack = null;
 let confirmKeys = false;
@@ -333,7 +315,7 @@ const confirm = keyConfirm({
   summary: planSummary,
   enter: () => !!S.cfg?.confirmEnter,
   spaceHint: true,
-  prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'],
+  prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, Esc to cancel.'],
   onTake: (p, viaKeys) => {
     if (sendTakes(p) && VERBS[p.verb].resets) clearAll();
     else focusBack(viaKeys);
@@ -390,15 +372,13 @@ function openConfirm(plan) {
   confirm.open(plan, prot);
 }
 
-// Focus returns to where the confirm opened. Keyboard mode only if it was on and answered from
-// the keyboard; from Recent otherwise it goes to Source, boxes untouched (the row is redrawn).
+// Focus returns to where the confirm opened. Keyboard mode returns only if it was on and the answer came from the
+// keyboard. From History, focus goes to Source and the boxes stay (the row is redrawn).
 function focusBack(viaKeys) {
   if (confirmKeys && viaKeys) enterKeys();
   else if (!confirmFromHist && confirmBack?.isConnected) confirmBack.focus();
   else focusBox(boxes.src.input);
 }
-
-// ---- keyboard & input wiring
 
 function clearAll() {
   dsts = [];
@@ -430,7 +410,7 @@ function showList(k, at, keepMoved = false) {
   if (sel[k] || !b.input.value.trim()) b.cb.browse(b.list(), at, { keepMoved });
   else b.cb.refresh();
 }
-// Focusing a box scrolls to the top (Settings → This device).
+// A focus on a box scrolls to the top (Settings, This browser).
 const calm = matchMedia('(prefers-reduced-motion: reduce)');
 // From down the page, skip the browser's own jump so the scroll animates all the way.
 function focusBox(input) {
@@ -439,7 +419,7 @@ function focusBox(input) {
 for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   input.addEventListener('focus', () => {
     input.select();
-    // Not while the lock screen goes up or away: the page keeps its scroll.
+    // Not while the Lock goes up or away: the page keeps its scroll.
     if (active() && scrollTopPref() && window.scrollY > 0 && !document.documentElement.dataset.sodeLock) {
       window.scrollTo({ top: 0, behavior: calm.matches ? 'auto' : 'smooth' });
     }
@@ -452,8 +432,6 @@ $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
-
-// ---- subscriptions
 
 on('hello', () => {
   pager.reset();

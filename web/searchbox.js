@@ -6,11 +6,10 @@ import { parseFilter } from './filter.js';
 import { pickSet, activeStack } from './filterstore.js';
 import { combobox } from './widgets.js';
 
-// During a search: Sode still reads back through the log, or nothing was found (it is possible
-// that the filters do not even apply).
+// An empty list in a search: Sode still reads older History, or found nothing.
 export function emptyNote(rows, fetching) {
   if (rows.length) return null;
-  if (!S.hist.length) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'No history yet'));
+  if (!S.hist.length) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'History is empty'));
   const searching = searchActive();
   if (searching && fetching) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Searching…'));
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', searching ? 'Clear search' : 'Clear filters');
@@ -24,7 +23,7 @@ export function emptyNote(rows, fetching) {
   );
 }
 
-// ---- quick search boxes above History, kept in step across layouts. Names logged in history count too, so a renamed source is still found. Text that is an expression applies as typed instead.
+// Names in History count too, so a renamed source is still found. Text that is a filter expression applies as typed.
 
 const looksLikeExpr = (t) => /[,!/"']/.test(t) || /^\s*\d+\s*(-|\s(thru|through|to)\s)\s*\d+\s*$/i.test(t) || /^\s*not\s+['"/\d]/i.test(t);
 const MENU = 50;

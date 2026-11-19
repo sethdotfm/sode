@@ -1,4 +1,3 @@
-// globalSaver with a fake socket: send, answer, lost socket.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -47,7 +46,7 @@ test('a socket that cannot send says so and is not left busy', async () => {
   core.S.ws = null;
   saver.change({}, () => {});
   assert.ok(!saver.busy());
-  assert.deepEqual(notes.at(-1), ['Not connected to Sode.', true]);
+  assert.deepEqual(notes.at(-1), ['Server link down.', true]);
 });
 
 test('close keeps a sent save; no PIN is ever asked first', async () => {
@@ -64,7 +63,7 @@ test('two savers of one result type register once and keep their ids apart', asy
   core.S.ws = { readyState: 1, lastRx: Date.now() + 1e9, send: (m) => sent.push(JSON.parse(m)) };
   const opts = () => ({ t: 'presets', resultT: 'sharedResult', setNote() {}, isOpen: () => true, failTitle: 'x' });
   const a = globalSaver(opts());
-  const b = globalSaver(opts()); // used to throw: onMsg('sharedResult') is already handled
+  const b = globalSaver(opts());
   let doneA = 0,
     doneB = 0;
   a.change({ presets: [] }, () => {

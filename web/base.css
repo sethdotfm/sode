@@ -1,8 +1,4 @@
-/* Sode page layout. Tokens only; components come from patchbay. */
-
-/* Whole-UI scale: sizes are rem, so the root font size scales everything (never zoom); the phone layout stays at 100%.
-   A Grid panel's page and its Live Editor preview are 112.5%: the owner asked for the size of 125% at 90% zoom. The
-   :not() keeps this rule from winning over the phone's 100%. */
+/* The root font size scales the whole UI (AGENTS.md, Frontend). The :not() keeps this rule under the phone's 100%. */
 html {
   font-size: 125%;
 }
@@ -423,7 +419,7 @@ html {
   color: var(--pb-text-disabled);
 }
 
-/* A thick outline reads as filled at this size, so every slot gets the thin one; a fixed width keeps two-digit slots from growing when filled. */
+/* A thick outline reads as filled at this size, so every slot gets the thin one. The fixed width stops two-digit slots growing. */
 /* The bar scrolls sideways past its container (scrollbar style in desktop.css). */
 .sode__bar {
   display: grid;
@@ -745,7 +741,7 @@ html {
 .sode__field .pb-select-wrap {
   width: 100%;
 }
-/* The down arrow is ::before, so the positioned input painted over it: lift both glyphs. */
+/* The down arrow is ::before, so the positioned input paints over it. Lift both glyphs. */
 .pb-number-wrap::before,
 .pb-number-wrap::after {
   z-index: 1;
@@ -1101,7 +1097,7 @@ html[data-shift] .sode__next > .sode__next-open {
   font-weight: var(--pb-weight-normal);
 }
 
-/* Rows that toggle when clicked anywhere (clickToToggle); their open panels don't. */
+/* Rows that toggle on a click anywhere (clickToToggle). Their open panels do not. */
 .sode--tap {
   cursor: pointer;
 }
@@ -1289,7 +1285,6 @@ html:has(.sode__scrim:not([hidden])) > body {
   padding: var(--pb-space-3) var(--pb-space-5) 0;
 }
 
-/* The offline badge in the toast stack (panelwatch.js) */
 .pb-toast-stack [data-panel-badge] {
   font-size: calc(var(--pb-text-xs) * 2);
   padding: calc(var(--pb-space-2) * 2) calc(var(--pb-space-4) * 2);
@@ -1394,7 +1389,7 @@ button.sode-up__bar:not(:disabled):hover,
   width: var(--pb-space-4);
 }
 
-/* ---- Key list (? and Ctrl+?): the main page and a Grid panel */
+/* The key list: the main page and a Grid panel use it. */
 .sode__keys {
   display: grid;
   gap: var(--pb-space-2) var(--pb-space-6);
@@ -1420,8 +1415,7 @@ button.sode-up__bar:not(:disabled):hover,
   margin: 0;
 }
 
-/* Big scroll bars (bigscroll.js): drawn by Sode, oversized and always shown where a user needs to scroll.
-   The phone layout keeps the native bars, since a touch screen scrolls the content itself. */
+/* Big scroll bars (bigscroll.js; AGENTS.md has the rule). The phone layout keeps native bars. */
 /* The page's scroller is html itself, so :root needs its own selector beside the descendant one. */
 :root:not([data-layout="phone"])[data-bigscroll],
 :root:not([data-layout="phone"]) [data-bigscroll] {

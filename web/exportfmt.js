@@ -4,19 +4,6 @@ export const SOCKET_LIMIT = 64 * 1024;
 const PROFILE_LIMIT = 48 * 1024;
 export const NAME_MAX = 32;
 
-export const PREF_LABELS = {
-  theme: 'Theme',
-  layout: 'Layout',
-  clock: 'Clock',
-  flip: 'Destination before Source',
-  scrollTop: 'Scroll to top on focus',
-  stackGap: 'Stacked rows gap',
-  searchFilters: 'Search respects filters',
-  setStack: 'Stacked filter sets',
-  nextMode: 'Next means',
-  compact: 'Compact view',
-};
-
 const runes = (s) => [...String(s)].length;
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 const ints = (a) =>
@@ -71,72 +58,7 @@ export const itemIn = (it) => ({
   levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
 });
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
-const isNum = (v) => Number.isInteger(v) && v >= 0;
-const goodName = (v) => typeof v === 'string' && v.trim() !== '' && runes(v) <= NAME_MAX && !/[\p{Cc}]/u.test(v);
-
-// Only shape and version: the saves check the content (config.Validate).
-export function checkDoc(doc) {
-  if (!isObj(doc)) return 'Not a Sode export: the file is not a mapping.';
-  if (doc.sode == null) return 'Not a Sode export: it has no "sode" version.';
-  if (doc.sode !== 1) return `Unsupported export version ${typeof doc.sode === 'object' ? '?' : doc.sode} (this Sode reads version 1).`;
-  if (
-    doc.exported != null &&
-    (typeof doc.exported !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|[+-]\d\d:\d\d)$/.test(doc.exported) || isNaN(Date.parse(doc.exported)))
-  ) {
-    return '"exported" must be an RFC 3339 time.';
-  }
-  if (doc.prefs != null && !isObj(doc.prefs)) return '"prefs" must be a mapping.';
-  for (const k of ['filterSets', 'presets']) {
-    if (doc[k] != null && !Array.isArray(doc[k])) return `"${k}" must be a list.`;
-  }
-  for (const f of doc.filterSets || []) {
-    if (!isObj(f)) return 'Every filter set must be a mapping.';
-    if (!goodName(f.name)) return `A filter set needs a printable name of at most ${NAME_MAX} characters.`;
-  }
-  for (const p of doc.presets || []) {
-    if (!isObj(p)) return 'Every preset must be a mapping.';
-    if (!goodName(p.name)) return `A preset needs a printable name of at most ${NAME_MAX} characters.`;
-    if (!Array.isArray(p.items)) return `Preset “${p.name}” needs a list of items.`;
-    for (const it of p.items) {
-      if (!isObj(it) || !isNum(it.src)) return `Preset “${p.name}”: every item needs a source number of 0 or more.`;
-      if (!Array.isArray(it.dsts) || !it.dsts.every((d) => isObj(d) && isNum(d.n))) return `Preset “${p.name}”: every destination needs a number of 0 or more.`;
-      if (it.levels != null && !(Array.isArray(it.levels) && it.levels.every((l) => Number.isInteger(l) && l >= 1)))
-        return `Preset “${p.name}”: levels must be whole numbers from 1.`;
-    }
-  }
-  return '';
-}
-
-const clean = (s) =>
-  String(s)
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^A-Za-z0-9._-]+/g, '-')
-    .replace(/-{2,}/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
-    .slice(0, 40);
-
-const two = (n) => String(n).padStart(2, '0');
-export const dateStamp = (d) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
-
-export function defaultFileName({ now = new Date(), site = '', user = '' } = {}) {
-  const parts = [dateStamp(new Date(now)), 'Sode', 'Export', clean(site), clean(user)].filter(Boolean);
-  return parts.join('-') + '.yaml';
-}
-
-export function fileNameFor(typed, dflt) {
-  const base = clean(
-    String(typed || '')
-      .trim()
-      .replace(/\.ya?ml$/i, ''),
-  );
-  return base ? `${base}.yaml` : dflt;
-}
-
-// ---- matching an imported item against this router
-
-// Names compare ignoring case and outer spaces. Statuses, best to worst: same, byName (one live
+// Names compare without regard to case and outer spaces. Statuses, best to worst: same, byName (one live
 // item has that name: number remapped), ambiguous (several do: never the first), unmatched.
 const STATUS = ['same', 'byName', 'ambiguous', 'unmatched'];
 export const worst = (a, b) => (STATUS.indexOf(a) >= STATUS.indexOf(b) ? a : b);
@@ -202,7 +124,7 @@ export function renameFor(name, taken) {
 
 export const defaultChoice = (clash) => (clash ? 'both' : 'import');
 
-// Use new ('replace') swaps in place; Use current and Skip leave the item out. Names stay unique ignoring case.
+// Use new ('replace') swaps in place; Use current and Skip leave the item out. Names stay unique without regard to case.
 export function applyChoices(existing, incoming, picks) {
   const list = existing.map((x) => ({ ...x }));
   const out = { list, added: 0, replaced: 0, kept: 0, skipped: 0 };

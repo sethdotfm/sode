@@ -1,5 +1,5 @@
 // DOM pieces shared by the key lists: one key's row, the one-time key display with Copy and a QR code.
-// The rules are in keyrules.js and the QR encoder in qr.js; nothing here is stored.
+// Nothing here is stored. Rules: keyrules.js. QR encoder: qr.js.
 
 import { el, icon } from './core.js';
 import { keyFacts } from './keyrules.js';
@@ -64,13 +64,13 @@ export function secretNode(secret) {
   const copy = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('copy'), 'Copy');
   copy.type = 'button';
   copy.addEventListener('click', async () => {
-    say.textContent = (await copyText(secret, field)) ? 'Copied.' : 'Copy failed. Select the key and copy it by hand.';
+    say.textContent = (await copyText(secret, field)) ? 'Copied.' : 'Copy failed: key selected.';
   });
   const qr = qrNode(secret);
   return el(
     'div',
     'sode__secret',
-    el('p', 'sode__hint', 'Copy this key now. Sode shows it one time and keeps only a hash of it.'),
+    el('p', 'pb-note pb-note--warn', 'Copy this key now. Sode does not show it again.'),
     el('div', 'sode__secret-row', field, copy, say),
     ...(qr ? [qr] : []),
   );

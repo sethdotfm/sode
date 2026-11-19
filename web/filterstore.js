@@ -1,5 +1,4 @@
-// Recent filters, per browser (edited in filters.js), and the named filter sets. hidden shows
-// changes made elsewhere to Settings' globally hidden destinations.
+// History's filter, per browser (filters.js edits it), and the named filter sets. hidden: show Externals on the destinations that Settings hides.
 
 import { S, on, onMsg, emit, off, srcItem, dstItem } from './core.js';
 import { filterFn, entryAllows, stackAllows } from './filter.js';
@@ -9,7 +8,7 @@ import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 
 const FILTER_KEY = 'sode-filter';
 export const FILTER_DEFAULT = Object.freeze({ src: '', dst: '', sode: true, ext: true, hidden: false });
-// router: the UID whose numbers the number and range terms mean; left out, the one router.
+// router: the UID whose numbers the number and range terms mean.
 export const normFilter = (f) => ({
   ...(f?.router && typeof f.router === 'string' ? { router: f.router } : {}),
   src: String(f?.src ?? ''),
@@ -58,9 +57,8 @@ export function setFilter(next) {
   applyFilter(next);
 }
 
-// ---- named sets: built-in All, global (cfg.filterSets) and this browser's own. The active set is
-// remembered with the filter it had when picked (base). So a global set changed in Settings carries browsers along,
-// unless they edited it since.
+// Named sets: the built-in All, global (cfg.filterSets) and this browser's own. The active set keeps the filter it had when picked (base).
+// So a global set that changes in Settings moves each browser that did not edit it.
 
 const SETS_KEY = 'sode-filter-sets';
 const ACTIVE_KEY = 'sode-filter-active';
@@ -279,7 +277,6 @@ export function filterAllows(e) {
   const s = srcItem(e.src, e.srcName),
     d = dstItem(e.dst, e.dstName);
   const dn = e.dst + off();
-  // An entry without a router UID is on the one router.
   const router = e.router || S.routerUid;
   const x = { ext: !!e.ext, sn: e.src + off(), sname: s.name, dn, dname: d.name, router, hiddenDst: !!e.ext && globallyHidden(dn, d.name, router) };
   const st = stackMatchers();

@@ -71,7 +71,6 @@ export function pageType(pathname) {
   return 'main';
 }
 
-// Puts box `to` over box `from`: translate its centre, scale its width.
 export function liftFrom(from, to) {
   if (!from || !from.width || !to || !to.width) return { x: 0, y: 0, scale: 1 };
   return {
@@ -197,8 +196,6 @@ export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
 
 export const viewBody = (v, covered) => (v.mode === MODE.LOCK ? 'letter' : covered || v.mode === MODE.SIGN_IN ? 'pad' : '');
 
-// The server covers the page: a PIN lock with nobody signed in, or the held Lock of a
-// signed-in session.
 export const lockCovers = (s) => !!s.locked && !!(s.enforced || s.held);
 
 // The Lock of a signed-in session keeps the session (ADR 0001). Until the server's state

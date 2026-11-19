@@ -1,4 +1,3 @@
-// Redo: plans built from takes that worked.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

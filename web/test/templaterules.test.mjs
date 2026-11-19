@@ -1,5 +1,3 @@
-// Templates in the panel editor (templaterules.js): what a save sends, what an apply does to the grid, and how the
-// list is grouped. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { saveTemplateBody, templateGrid, groupTemplates, templateNote } from '../templaterules.js';

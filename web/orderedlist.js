@@ -4,13 +4,11 @@ import { el, icon } from './core.js';
 import { btn } from './formbits.js';
 import { dropTo, canMove } from './orderedlistrules.js';
 
-// opts: rowClass, toolsClass, move(from, to), remove(i), removeTip (the button's name, for example 'Delete Page').
-// drop(from, over, after) is opt-in: the drop goes before or after the row under it by the pointer's half, and the
-// caller places it. Without it a drop takes the place of the row under it, as the Pages bar needs.
-// grip(i) is opt-in too. A drag then starts only from a grip handle at the row's start or from the row's body. The
-// browser's drag image is a chip with the text of grip(i), not the row. dragging(i | -1) tells the caller when a drag
-// starts and ends.
-// Buttons carry data-act (the caller's act, or up, down, delete) and data-i, so a caller can put focus back after a repaint.
+// opts: rowClass, toolsClass, move(from, to), remove(i), removeTip.
+// Opt-in: drop(from, over, after) places a drop by the pointer's half.
+// Opt-in: grip(i) limits the drag to the grip and the body, and gives the drag chip's text.
+// Opt-in: dragging(i | -1).
+// Buttons carry data-act and data-i so a caller can put focus back.
 const DRAG_AT = 12; // px from the chip's top left corner to the pointer
 // Marks a drag as a row of this page's. A windowed list can drop the row that a drag started from. Then its dragend
 // does not come, and nor does a drop outside the rows. A later drag without the mark (a file) must not move a row.
@@ -72,7 +70,6 @@ export function createOrderedList(opts) {
     return li;
   }
 
-  // A drop takes the place of the row under it, or with opts.drop goes to the side of it the pointer is on.
   const sideOf = (li, e) => {
     const r = li.getBoundingClientRect();
     return e.clientY > r.top + r.height / 2;

@@ -39,7 +39,7 @@ export function parseLevelsAs(text, mode, max) {
   return out.size ? [...out].sort((x, y) => x - y) : null;
 }
 
-// These take levels ({ui} from the hello, {level} from /api/v1) and the Level numbering as arguments.
+// These get levels ({ui} from the hello, {level} from /api/v1) and the Level numbering as arguments.
 // A page with no socket can use them.
 const uiOf = (l) => l.ui ?? l.level;
 

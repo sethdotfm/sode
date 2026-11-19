@@ -1,4 +1,3 @@
-// Run setup again: the wizard's answers from the Settings values, and what Finish stages.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { againAnswers, againStage } from '../setupagainrules.js';

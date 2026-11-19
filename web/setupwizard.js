@@ -1,6 +1,6 @@
 // The setup wizard (docs/agents/server.md, setup.go): a config file with no users opens it in
 // place of the patch page. Nothing is sent but the Router step's address until Finish.
-import { $, S, el, on, onMsg, wsSend, icon } from './core.js';
+import { $, S, el, on, onMsg, wsSend, icon, LINK_DOWN } from './core.js';
 import { showBrand } from './brand.js';
 import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
@@ -58,10 +58,10 @@ function iconWith(name, cls) {
   return svg;
 }
 
-function field(id, label, value, attrs = {}, hint = '') {
+function field(id, label, value, attrs = {}, hint = '', tip = '') {
   const input = h('input', { id, class: 'pb-input', autocomplete: 'off', ...attrs });
   input.value = value;
-  return h('div', { class: 'sode__field' }, h('label', { for: id }, label), input, hint ? h('span', { class: 'sode__hint' }, hint) : null);
+  return h('div', { class: 'sode__field' }, h('label', { for: id, 'data-pb-tip': tip }, label), input, hint ? h('span', { class: 'sode__hint' }, hint) : null);
 }
 
 function choice(name, label, opts, hint = '') {
@@ -91,7 +91,7 @@ function statusLine() {
   // Run setup again moves no link before the save, so only the live address has a state.
   const line =
     d.again && d.router.trim() !== (S.cfg.router || '')
-      ? { ok: false, text: 'Connects on Finish' }
+      ? { ok: false, text: 'Connects on Save' }
       : routerLine(d.router, S.router, S.srcs.length + S.dsts.length);
   if (!line) return [];
   return [
@@ -109,7 +109,7 @@ const presetName = () => presets().find((p) => p.key === d.preset)?.name || d.pr
 
 function swatches() {
   const box = h('span', { class: 'sode-setup__swatches', role: 'radiogroup', 'aria-labelledby': 'setup-brand-label' });
-  for (const c of [{ name: '', label: 'None' }, ...S.brandColors]) {
+  for (const c of [{ name: '', label: 'Off' }, ...S.brandColors]) {
     const input = h('input', { type: 'radio', name: 'brandBorder', value: c.name, 'aria-label': c.label });
     input.checked = d.brandBorder === c.name;
     box.append(h('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
@@ -173,7 +173,7 @@ const VIEW = {
             'Your user',
             'Administrator',
             field('setup-name', 'Name', d.name, { maxlength: '24' }),
-            field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric' }, `4 to ${max()} digits.`),
+            field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric', placeholder: `4 to ${max()} digits` }),
             field('setup-pin2', 'PIN again', d.pin2, { type: 'password', inputmode: 'numeric' }),
           ),
         ]),
@@ -198,7 +198,7 @@ const VIEW = {
           ['1', 'Start at 1'],
           ['0', 'Start at 0'],
         ],
-        hint('numberOffset', 'Ultrix: 1'),
+        hint('numberOffset'),
       ),
     ),
     section(
@@ -214,7 +214,7 @@ const VIEW = {
         hint('fireMode'),
       ),
       d.fireMode === 'native'
-        ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, hint('group', 'Must be unused on the router'))
+        ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, hint('group'), 'Must be unused on the router')
         : null,
     ),
   ],
@@ -296,7 +296,7 @@ function render(focus) {
   $('setup-back').textContent = at === 0 ? 'Cancel' : 'Back';
   $('setup-restore').hidden = step !== 'welcome' || !!d.again;
   $('setup-next').hidden = false;
-  $('setup-next').textContent = { welcome: 'Set up', access: 'Finish' }[step] || 'Next';
+  $('setup-next').textContent = { access: 'Finish' }[step] || 'Next';
   $('setup-err').textContent = '';
   check();
   const f = focus ? $(focus) : $('setup-body').querySelector('input:not([type="radio"])');
@@ -350,6 +350,7 @@ $('setup-body').addEventListener('input', (e) => {
   }
   if (t.type === 'radio' || k === 'levels') render(t.type === 'radio' ? null : t.id);
   else check();
+  if (!finishing) $('setup-err').textContent = stepProblem(d, at, max());
 });
 
 $('setup-body').addEventListener('click', (e) => {
@@ -394,7 +395,7 @@ $('setup-next').addEventListener('click', () => {
   if (d.again) return closeAgain(true);
   // Finish sends every answer at once, so a wizard left half done leaves nothing behind.
   if (!wsSend(finishMessage(d, ++seq))) {
-    $('setup-err').textContent = 'Not connected to Sode.';
+    $('setup-err').textContent = LINK_DOWN;
     return;
   }
   finishing = true;
@@ -452,8 +453,9 @@ function waitPage() {
   else if (free && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
   if (phone) kids.push(desktopOnly('set it up'));
   else {
-    kids.push(h('p', null, "Setup runs in one browser at a time. Take control discards the other browser's answers."));
-    kids.push(h('button', { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take' }, 'Take control'));
+    kids.push(
+      h('button', { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take', 'data-pb-tip': "Discards the other browser's answers" }, 'Take control'),
+    );
   }
   $('setup-wait-body').replaceChildren(...kids);
 }

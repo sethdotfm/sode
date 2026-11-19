@@ -1,4 +1,3 @@
-// The 'user' (Me) scope of filter sets and presets: from the profile message, carry their user, never leak to another user.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -188,7 +187,7 @@ test('saveProfile: one at a time, the second built on the first; a lost socket s
   sent.length = 0;
   const a = saveProfile({ prefs: { theme: 'dark' } });
   const b = saveProfile({ prefs: { ...profile().prefs, clock: '12' } });
-  // The own copy takes each save at call time, so the second was built on the first.
+  // The own copy gets each save when the call is made, so the second save builds on the first.
   assert.deepEqual(profile().prefs, { theme: 'dark', clock: '12' });
   await new Promise((r) => setImmediate(r));
   assert.equal(sent.length, 1);
@@ -196,11 +195,10 @@ test('saveProfile: one at a time, the second built on the first; a lost socket s
   assert.equal((await a).ok, true);
   await new Promise((r) => setImmediate(r));
   assert.equal(sent.length, 2);
-  // The socket drops before the second is answered: it settles, not hangs,
-  // and the local copy goes back to what it was.
+  // The socket drops before the second answer: the save settles, and the local copy goes back.
   m.emit('wsclose');
   const r = await b;
   assert.equal(r.ok, false);
-  assert.match(r.err, /lost/i);
+  assert.match(r.err, /Server link down/);
   assert.deepEqual(profile().prefs, { theme: 'dark' });
 });

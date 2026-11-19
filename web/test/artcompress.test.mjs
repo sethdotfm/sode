@@ -1,5 +1,4 @@
-// What the editor does to an upload before sending it (artcompress.js). The canvas needs a browser
-// (TestChromeEditorArtUpload); the rules and the GIF and SVG paths run here.
+// The canvas path needs a browser (TestChromeEditorArtUpload). The rules, the GIF path and the SVG path run here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compressPlan, keepEncoded, gifSize, gifProblem, prepareArt, ART_EDGE } from '../artcompress.js';
@@ -49,9 +48,9 @@ test('a GIF is measured from its header, without decoding it', () => {
 
 test('a GIF within 1024 by 1024 and 2 MB passes; a larger one is refused with how to fix it', () => {
   assert.equal(gifProblem({ width: 1024, height: 1024 }, ART_MAX_BYTES), '');
-  assert.match(gifProblem({ width: 1025, height: 10 }, 100), /resize it and upload again/i);
-  assert.match(gifProblem({ width: 10, height: 1025 }, 100), /resize it and upload again/i);
-  assert.match(gifProblem({ width: 10, height: 10 }, ART_MAX_BYTES + 1), /resize it and upload again/i);
+  assert.match(gifProblem({ width: 1025, height: 10 }, 100), /GIF too large/);
+  assert.match(gifProblem({ width: 10, height: 1025 }, 100), /GIF too large/);
+  assert.match(gifProblem({ width: 10, height: 10 }, ART_MAX_BYTES + 1), /GIF too large/);
   // An unreadable header is left to the server, which reads the bytes again.
   assert.equal(gifProblem(null, 100), '');
 });
@@ -65,10 +64,10 @@ test('a GIF within the limits is sent as it is, so its animation is kept', async
 
 test('an oversize GIF is refused before sending', async () => {
   const big = await prepareArt(gifFile(2000, 100), null);
-  assert.match(big.problem, /resize it and upload again/i);
+  assert.match(big.problem, /GIF too large/);
   assert.equal(big.blob, undefined);
   const heavy = await prepareArt(gifFile(10, 10, ART_MAX_BYTES + 1), null);
-  assert.match(heavy.problem, /resize it and upload again/i);
+  assert.match(heavy.problem, /GIF too large/);
 });
 
 test('SVG is sent untouched, with only the 2 MB cap', async () => {

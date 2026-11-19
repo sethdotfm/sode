@@ -17,7 +17,7 @@ test('the Save button names what the save stops', () => {
 test('with nothing that stops, or nothing that saves, the plain label stays', () => {
   assert.equal(saveStopsLabel(2, 0, [], 'Save 2 changes'), 'Save 2 changes');
   assert.equal(saveStopsLabel(2, 0, [guest], 'Save 2 changes'), 'Save 2 changes');
-  assert.equal(saveStopsLabel(0, 2, [lobby], 'Nothing can save'), 'Nothing can save');
+  assert.equal(saveStopsLabel(0, 2, [lobby], 'Nothing to save'), 'Nothing to save');
   assert.equal(saveStopsLabel(2, 0, null, 'Save 2 changes'), 'Save 2 changes');
 });
 

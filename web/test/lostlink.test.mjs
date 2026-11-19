@@ -1,4 +1,3 @@
-// The Lost link banner names the link that is down.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

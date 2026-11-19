@@ -5,7 +5,6 @@ const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const norm = (v) => (Array.isArray(v) ? [...v].sort() : (v ?? null));
 const same = (a, b) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 
-// ticked: only those user rows change.
 export function presetTarget(preset, ticked) {
   const out = structuredClone(preset.fields);
   for (const id of ticked) {

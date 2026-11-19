@@ -1,5 +1,5 @@
 // Presets popup (Ctrl+G / Cmd+G): every preset with search; Enter fires through presets.js.
-// Pins here are per browser or in the user's profile; a pin for everyone is set in the editor.
+// Pins here are for This browser or the user's Profile. The editor sets the pin for Everyone.
 
 import { el, on, emit, icon, sentence } from './core.js';
 import { chord, mac } from './keys.js';
@@ -35,7 +35,7 @@ list.setAttribute('role', 'listbox');
 list.setAttribute('aria-label', 'Presets');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
-const editorBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__head-link', 'Preset Editor');
+const editorBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__head-link', 'Edit Presets');
 editorBtn.type = 'button';
 editorBtn.addEventListener('click', () => {
   close();
@@ -47,20 +47,7 @@ done.addEventListener('click', () => close());
 
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'All Presets'), { id: 'preset-pop-title' }), editorBtn),
-  el(
-    'div',
-    'pb-modal__body sode__filters-body',
-    input,
-    list,
-    noteEl,
-    el(
-      'span',
-      'sode__hint sode__pop-help',
-      mac
-        ? 'Navigate with ↑ ↓ or ⌘j/k. Reorder with ⌥↑ ⌥↓ or ⌥⌘j/k. Pin with ⌥p. To fill the boxes without a take, use ⇧Enter or ⇧click.'
-        : 'Navigate with ↑ ↓ or Ctrl+j/k. Reorder with Alt+↑ Alt+↓ or Ctrl+Alt+j/k. Pin with Alt+p. To fill the boxes without a take, use Shift+Enter or Shift+click.',
-    ),
-  ),
+  el('div', 'pb-modal__body sode__filters-body', input, list, noteEl),
   el('div', 'pb-modal__footer', done),
 );
 root.append(dialog);
@@ -74,7 +61,7 @@ const setNote = (t, error = false) => {
   noteEl.textContent = t;
   noteEl.classList.toggle('sode__error-text', error);
 };
-const scopeText = (s) => scopeLabel(s.scope).toLowerCase();
+const scopeText = (s) => scopeLabel(s.scope);
 // Pins of the user's own (Me) presets save to their profile: no PIN row.
 const profSaver = profileSaver({
   setNote,
@@ -87,7 +74,7 @@ const profSaver = profileSaver({
 function btn(text, ic, tip, fn) {
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', icon(ic), text);
   b.type = 'button';
-  b.title = tip;
+  if (tip) b.dataset.pbTip = tip;
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     fn();
@@ -103,7 +90,6 @@ function draw() {
       ? [f.closest('.sode__preset-item').id, [...f.closest('.sode__preset-item').querySelectorAll('button')].indexOf(f)]
       : null;
   const ov = pinOverrides();
-  // Pinned first in the strip's order, then the rest; search ranks within each.
   const ranked = rankPresets(allPresets(), input.value);
   const isPinned = (s) => effectivePin(s, ov);
   const searching = !!input.value.trim();
@@ -124,21 +110,22 @@ function draw() {
         statusBadge(presetStatus(s).status) || '',
       );
       main.type = 'button';
+      main.dataset.pbTip = `${mac ? '⇧' : 'Shift'}: fill the patch boxes`;
       main.tabIndex = -1;
       main.addEventListener('click', (e) => pressPreset(s, e.shiftKey));
       const tools = [
         btn(
           pinned ? 'Unpin' : 'Pin',
           pinned ? 'pin-off' : 'pin',
-          `${s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin'} (${mac ? '⌥' : 'Alt+'}P)`,
+          s.scope === 'global' ? `This browser only (${mac ? '⌥' : 'Alt+'}P)` : `${mac ? '⌥' : 'Alt+'}P`,
           () => togglePin(s),
         ),
       ];
-      if (inboxUser()) tools.push(btn('Send', 'send', 'Send a copy to another user', () => sendCopy({ presets: [s] }, s.name)));
+      if (inboxUser()) tools.push(btn('Send a copy', 'send', '', () => sendCopy({ presets: [s] }, s.name)));
       const slot = keySlot.get(presetKey(s));
       const keyCell = el('span', 'sode__preset-key', slot < 9 ? `${mac ? '⌥' : 'Alt+'}${slot + 1}` : '');
       const grip = pinned && reorder ? el('span', 'sode__preset-grip', icon('grip-vertical')) : null;
-      if (grip) grip.dataset.pbTip = 'Drag to reorder (Alt+↑/↓)';
+      if (grip) grip.dataset.pbTip = `Drag or ${mac ? '⌥' : 'Alt+'}↑/↓`;
       const row = el('div', `sode__preset-item${i === hi ? ' is-hi' : ''}`, keyCell, ...(grip ? [grip] : []), main, el('span', 'sode__preset-tools', ...tools));
       if (grip) dragRow(row, s);
       row.id = `preset-pop-${i}`;
@@ -147,8 +134,7 @@ function draw() {
       return row;
     }),
   );
-  if (!shownList.length)
-    list.append(el('span', 'sode__hint', allPresets().length ? 'No preset matches.' : 'No presets yet. Make one with Edit above History.'));
+  if (!shownList.length) list.append(el('span', 'sode__hint', allPresets().length ? 'No preset matches.' : 'No presets'));
   if (shownList.length) input.setAttribute('aria-activedescendant', `preset-pop-${hi}`);
   else input.removeAttribute('aria-activedescendant');
   list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });
@@ -161,14 +147,13 @@ function togglePin(s) {
   else setLocalPin(s, !pinned);
 }
 
-// ---- reorder the pinned presets: drag a row, or Alt+↑/↓ on the highlighted one
 let dragKey = '';
 // The order shows at once; a failed save restores the real order and says why.
 function reorder(saved) {
   saved?.then((r) => {
     if (r.ok) return;
-    emit('presets'); // the strip and this list, from the order that really is
-    setNote(sentence(r.err) || 'The order was not saved.', true);
+    emit('presets'); // redraws the strip and this list from the saved order
+    setNote(sentence(r.err) || 'Order not saved.', true);
   });
   return !!saved;
 }
@@ -307,3 +292,4 @@ on('presets', () => {
   if (open) draw();
 });
 on('presetPopup', openPopup);
+on('locking', close);

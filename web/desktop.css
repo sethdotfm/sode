@@ -39,7 +39,7 @@
   height: calc(var(--pb-control-h-lg) * 1.6);
   padding: 0 var(--pb-space-5);
 }
-/* Clicking flips the boxes (per browser, set before first paint). */
+/* A click flips the boxes. prepaint.js sets the order before first paint. */
 .pb-btn.sode__to {
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.6);
@@ -281,7 +281,7 @@
   display: none;
 }
 /* The block sits in the middle of the viewport. The match lists are already out of flow; #result hangs below Presets
-   out of flow too, so a failed take doesn't move the boxes. */
+   out of flow too, so a failed take does not move the boxes. */
 :root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]):not([data-view="settings"]) .sode {
   display: grid;
   grid-template-columns: minmax(0, 75rem);
@@ -330,9 +330,9 @@
   font-size: var(--pb-text-xs);
   min-height: var(--pb-control-h-sm);
 }
-/* Chrome fades out but keeps its place, its tab stop and its name; hover or focus brings it back. The server and router
-   status hides only while both links are up (sode__conn--ok, desktop.js), so a fault always shows with its words. The
-   Lock bar fades on .sode-lock__who-bar: .sode-lock__who's own transition belongs to the lock screen, which leaves it shown (is-hand). */
+/* The corner items fade out but keep their place, tab stop and name. Hover or focus shows them again. The status hides
+   only while both links are up (sode__conn--ok, desktop.js). The Lock bar fades on .sode-lock__who-bar, since
+   .sode-lock__who's own transition belongs to the Lock. */
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__footer,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"], [data-sode-lock]) .sode-lock__who:not(.is-hand) .sode-lock__who-bar {

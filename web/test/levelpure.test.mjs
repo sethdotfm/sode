@@ -1,4 +1,4 @@
-// Level display and parsing as pure functions: levels and numbering come in as arguments (a panel page has no socket).
+// Levels and numbering come in as arguments: a panel page has no socket.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { levelLabelOf, levelStyle, parseLevelsIn, levelInputOf, levelTextOf, relabelLevelsFor } from '../levels.js';

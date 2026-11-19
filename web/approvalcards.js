@@ -1,6 +1,6 @@
 // The server sends cards only to pages that called showApprovalCards(); a panel page does not.
 
-import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { changeText, leftText, endText } from './approvalcardrules.js';
 
 {
@@ -72,15 +72,13 @@ function ticking() {
   if (!tick) tick = setInterval(ticking, 1000);
 }
 
-// ---- the requester
-
 export const requesting = () => !!(asking || mine);
 
 // Resolves '' when the server accepted it, else the reason.
 export function requestApproval(action, { what, onEnd = () => {}, onTimeout = () => {} }) {
   if (requesting()) return Promise.resolve('An Approval request is already open.');
   const id = ++seq;
-  if (!wsSend({ t: 'approvalAsk', id, for: action })) return Promise.resolve('Not connected to Sode.');
+  if (!wsSend({ t: 'approvalAsk', id, for: action })) return Promise.resolve(LINK_DOWN);
   return new Promise((resolve) => {
     asking = { id, what, onEnd, onTimeout, resolve };
   });
@@ -149,8 +147,6 @@ onMsg('approvalEnded', (m) => {
   onEnd(m.end);
 });
 
-// ---- the approver
-
 function answer(request, approve) {
   const c = cards.get(request);
   if (!c) return;
@@ -183,7 +179,7 @@ onMsg('approvalCard', (m) => {
   deny.dataset.approvalDeny = approve.dataset.approvalApprove = m.request;
   const list = el('ul', 'sode-approvals__list', ...(m.changes || []).map((f) => el('li', '', changeText(f))));
   const stops = (m.interruptions || []).length
-    ? [el('div', 'pb-note pb-note--warn', el('div', '', 'This stops:'), el('ul', 'sode-approvals__list', ...m.interruptions.map((s) => el('li', '', s))))]
+    ? [el('div', 'pb-note pb-note--warn', el('div', '', 'Interruptions:'), el('ul', 'sode-approvals__list', ...m.interruptions.map((s) => el('li', '', s))))]
     : [];
   const card = toast(
     'warn',
@@ -227,7 +223,7 @@ onMsg('approvers', (m) => {
 
 // A socket drop ends this browser's request on the server and loses every card's answer.
 on('wsclose', () => {
-  if (asking) asking.resolve('Not connected to Sode.');
+  if (asking) asking.resolve(LINK_DOWN);
   asking = null;
   if (mine?.card) ending(mine.card, 'info', 'Cancelled');
   mine?.onEnd('cancelled');

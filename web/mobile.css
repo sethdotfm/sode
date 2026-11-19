@@ -1,7 +1,5 @@
 /* Phone layout (sode-m__). Load after base.css and desktop.css, before history.css. */
 
-/* ---- Phone layout ----------------------------------------------------- */
-
 [data-layout="phone"] .sode {
   --sode-pad-bottom: var(--pb-space-5);
   gap: var(--pb-space-6);
@@ -240,7 +238,7 @@
   justify-content: space-between;
 }
 
-/* The composer may shrink; the input bar never does, so it stays above the keyboard. */
+/* The composer can shrink. The input bar cannot, so it stays above the keyboard. */
 .sode-m__composer {
   background: var(--pb-surface-raised);
   border-top: var(--pb-border-w) solid var(--pb-edge);
@@ -391,7 +389,6 @@
   background: var(--pb-surface-high);
   border-bottom-width: var(--pb-border-w);
 }
-/* 16px+ text stops iOS zooming into the field on focus. */
 .pb-input.sode-m__input {
   font-size: max(16px, var(--pb-text-lg));
   height: calc(var(--pb-control-h-lg) * 1.4);
@@ -479,7 +476,7 @@
   overflow-y: auto;
 }
 
-/* ---- Settings on the phone: sections are pages, This device is tighter */
+/* Settings on the phone: each section is a page. */
 [data-layout="phone"] .sode__settings > .sode__group {
   display: none;
 }
@@ -515,13 +512,13 @@
   color: var(--pb-text-muted);
   content: "\203A";
 }
-/* iOS zooms in when a field under 16px takes focus and doesn't zoom back out: every phone text field is at least 16px. */
+/* iOS zooms in when a field under 16px takes focus and does not zoom back out. */
 [data-layout="phone"]
   :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="button"], [type="submit"]), select, textarea) {
   font-size: max(16px, 1rem);
 }
 /* No double-tap zoom (PIN pad digits, composer keys): taps press, pinching still zooms. */
-/* Every element, not just the page: a scrolling box cuts the inheritance, and :where() keeps zero weight so the swipe rows' pan-y still wins. */
+/* Every element, not only the page: a box that scrolls cuts the inheritance. :where() keeps zero weight, so the pan-y of the swipe rows still wins. */
 :where([data-layout="phone"], [data-layout="phone"] *) {
   touch-action: manipulation;
 }
@@ -534,7 +531,7 @@
   font-weight: var(--pb-weight-normal);
 }
 
-/* ---- Choosing takes for a preset (historypick.js exports the bar; mobilehistory.js places it) */
+/* Pick mode: historypick.js exports the bar and mobilehistory.js places it. */
 [data-layout="phone"] .sode-m > .sode__pickbar {
   flex: 0 0 auto;
   gap: var(--pb-space-2) var(--pb-space-4);

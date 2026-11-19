@@ -1,7 +1,7 @@
 // My user > Export & Import: the user's own profile, presets and filter sets (docs/agents/profiles.md). The other
 // categories show greyed as Administrators only. Pure rules are in exportrules.js; the Import tab is importtab.js.
 
-import { el, on } from './core.js';
+import { el, on, icon } from './core.js';
 import { trapDialog } from './widgets.js';
 import { makeTabs } from './tabs.js';
 import { layout } from './layout.js';
@@ -101,7 +101,7 @@ function render() {
     const items = list.categories.find((c) => c.name === cat)?.items || [];
     const state = R.ownState(list, pick, cat);
     const many = cat !== 'profile' && items.length > 0;
-    const caret = btn('pb-btn--ghost pb-btn--icon pb-btn--sm sode__xi-caret', expanded.has(cat) ? '▾' : '▸', () => {
+    const caret = btn('pb-btn--ghost pb-btn--icon pb-btn--sm sode__xi-caret', icon(expanded.has(cat) ? 'chevron-down' : 'chevron-right'), () => {
       if (expanded.has(cat)) expanded.delete(cat);
       else expanded.add(cat);
       render();
@@ -197,7 +197,7 @@ async function load() {
 }
 
 async function download() {
-  setNote('Making the file…');
+  setNote('Exporting…');
   exportBtn.disabled = true;
   try {
     const got = await downloadZip(R.ownBody(pick), 'api/own/export');
@@ -220,6 +220,7 @@ function openDialog() {
   setNote('');
   if (desk) {
     tabs.select('own-xi-export-tab');
+    exportBtn.disabled = true; // until the list comes
     load();
   } else exportPanel.hidden = importer.panel.hidden = true;
   dlg.show();

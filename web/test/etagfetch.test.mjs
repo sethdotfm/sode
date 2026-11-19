@@ -1,9 +1,8 @@
-// A fetcher that sends If-None-Match and hands back the last body on a 304.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { withEtag } from '../etagfetch.js';
 
-// A server that answers from a body and its tag, as /api/v1/tally does.
+// As /api/v1/tally answers.
 function server(state) {
   const seen = [];
   const fetcher = async (path, init = {}) => {

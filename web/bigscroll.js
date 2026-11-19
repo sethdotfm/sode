@@ -31,6 +31,7 @@ export const SCROLLERS = [
   ['.sode-tpl__list', 'y'],
   ['.sode-ov__people', 'y'],
   ['.sode-ov__keys', 'y'],
+  ['.sode-lock', 'y'],
 ];
 
 const PAGE = 0.9; // a track press pages by this much of the view, so a line stays in sight
@@ -192,7 +193,7 @@ function track(scroller, axis, little, page) {
   let geo = null; // { track, len, travel, max } from the last layout read
   let at = -1;
   let laid = false;
-  let pad = null; // the scroller's own end padding in px, read once while it is drawn
+  let pad = null; // the scroller's own end padding in px, read one time while it is drawn
 
   const view = () => (y ? scroller.clientHeight : scroller.clientWidth);
   const content = () => (y ? scroller.scrollHeight : scroller.scrollWidth);

@@ -1,6 +1,6 @@
 // Opens by itself one time per sign-in for a PIN needed user. Rules in lockrules.js (pinForm).
 
-import { el, S, on, onMsg, wsSend, sentence } from './core.js';
+import { el, S, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { listedUser } from './namepickrules.js';
 import { pinForm, pinNeededAsk } from './lockrules.js';
@@ -87,9 +87,14 @@ export function buildChangePin() {
     }
   });
   cancel.addEventListener('click', closePin);
+  on('wsclose', () => {
+    if (back.hidden || !save.disabled) return;
+    save.disabled = remove.disabled = false;
+    say(LINK_DOWN, true);
+  });
   const sendSet = (msg) => {
     const id = ++seq;
-    if (!wsSend({ t: 'userSetPin', id, ...msg })) return say('Not connected to Sode.', true);
+    if (!wsSend({ t: 'userSetPin', id, ...msg })) return say(LINK_DOWN, true);
     save.disabled = remove.disabled = true;
     say('Checking…');
   };

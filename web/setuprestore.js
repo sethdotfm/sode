@@ -2,7 +2,7 @@
 // that runs setup a key for POST api/setup/restore. A file with no PINs is answered pin_needed, and the page asks
 // for a new PIN for the file's first Administrator. After the restore the page reloads into sign-in.
 
-import { $, el, onMsg, wsSend } from './core.js';
+import { $, el, onMsg, wsSend, LINK_DOWN } from './core.js';
 import { applyBrowser } from './browserapply.js';
 import { restorePinProblem } from './setupwizardrules.js';
 
@@ -24,7 +24,7 @@ onMsg('setupRestoreKeyResult', (m) => {
 function restoreKey() {
   const id = ++seq;
   return new Promise((resolve, reject) => {
-    if (!wsSend({ t: 'setupRestoreKey', id })) return reject(new Error('Not connected to Sode.'));
+    if (!wsSend({ t: 'setupRestoreKey', id })) return reject(new Error(LINK_DOWN));
     asks.set(id, (m) => (m.ok ? resolve(m.key) : reject(new Error(m.err || 'Sode refused the restore.'))));
   });
 }
@@ -59,8 +59,7 @@ async function send(file, pin = '') {
   }
 }
 
-// showFailed: the restore is written but some stores outside the config are not. Setup cannot run again, so the
-// page says so before it opens Sode.
+// The restore is written but some stores outside the config are not. Setup cannot run again, so say so before opening Sode.
 function showFailed(n) {
   const open = el('button', 'pb-btn pb-btn--ok', 'Open Sode');
   open.type = 'button';
@@ -75,7 +74,7 @@ function showFailed(n) {
   open.focus();
 }
 
-// askPin: the file holds no PINs, so the first Administrator gets a new one here.
+// The file holds no PINs, so the first Administrator gets a new one here.
 function askPin(file, text) {
   const field = (id, label) => {
     const input = el('input', 'pb-input');
@@ -98,9 +97,16 @@ function askPin(file, text) {
   });
   back.addEventListener('click', () => hooks.back());
   for (const i of [pin, pin2]) {
-    i.addEventListener('input', check);
+    i.addEventListener('input', () => {
+      check();
+      if (!busy) say(problem());
+    });
     i.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !go.disabled) go.click();
+      if (e.key !== 'Enter') return;
+      // #setup-body would also press the hidden Next.
+      e.preventDefault();
+      e.stopPropagation();
+      if (!go.disabled) go.click();
     });
   }
   $('setup-title').textContent = 'Restore from a backup';
@@ -114,7 +120,6 @@ function askPin(file, text) {
   pin.focus();
 }
 
-// wireRestore: the Restore from a backup button picks a file and sends it.
 export function wireRestore(h) {
   hooks = h;
   const input = el('input');

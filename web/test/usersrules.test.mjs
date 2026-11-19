@@ -42,7 +42,7 @@ test('a removed user who owns panels gets a new owner, by default the acting use
     { id: 'u-n', name: 'Ana', panels: 2, kept, pick: 'u-a' },
     { id: 'u-b', name: 'Bo', panels: 1, kept, pick: 'u-a' },
   ]);
-  // The acting user is not kept (or not a user): the first kept user.
+  // The acting user is not kept: the first kept user.
   assert.equal(ownerChoices(listed, rows, 'u-n')[0].pick, 'u-a');
   assert.equal(ownerChoices(listed, rows.slice(1), 'u-a')[0].pick, 'u-c');
   assert.deepEqual(ownerChoices(listed, [], 'u-a')[0].kept, []);

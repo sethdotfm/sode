@@ -1,4 +1,3 @@
-// Find in the panel editor (findrules.js): what can be searched, who can see it, and how results rank. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pairPlan, chipKinds, findEntries, pageEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';

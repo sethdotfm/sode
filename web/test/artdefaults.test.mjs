@@ -1,5 +1,3 @@
-// Default artwork: how a cell resolves its own artwork and its item's default (panellook.js), and how an open
-// panel notices a changed default (panelupdate.js revOf).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { withDefault, defaultsBy, defaultFor, itemKey, artOf, artBOf, artBBadge, textHidden, artUrlPath, nameMismatch } from '../panellook.js';

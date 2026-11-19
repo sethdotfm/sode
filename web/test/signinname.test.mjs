@@ -54,7 +54,7 @@ test("a picked user's own PIN length drives the pad; with none known, every leng
   const s = { lens: [4, 5, 6] };
   assert.deepEqual(padLens(s, { name: 'Bo', len: 6 }), [6]);
   assert.deepEqual(padLens(s, null), [4, 5, 6]);
-  // A user without a PIN takes no digits.
+  // A user without a PIN has no digits to type.
   assert.deepEqual(padLens(s, { name: 'Cy', len: 0 }), [0]);
 });
 

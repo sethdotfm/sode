@@ -72,7 +72,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         byLabel(e),
       ),
       changes,
-      e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
+      e.follows && !open ? el('div', 'sode__hint', `External follow: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
       levelBar(e.levels.filter((u) => S.levelBy.has(u))),
     );
     if (disc) clickToToggle(face, disc, '.sode-m__changes');
@@ -88,7 +88,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
     return row;
   }
 
-  // A folder: swipe to undo all; open it to swipe or retry one by one.
+  // A Group: swipe to undo all. Open it to act on one take.
   function groupRows(f) {
     const open = openGroups.has(f.group);
     const kidsId = `m-folder-${f.group}`;
@@ -138,7 +138,11 @@ export function mobileHistory({ sheetFor, pickSrc }) {
       renderHistory();
     });
     disc.setAttribute('aria-label', aria);
-    const face = el('div', 'sode-m__recent-face', el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', disc)));
+    const face = el(
+      'div',
+      'sode-m__recent-face',
+      el('div', 'sode-m__recent-top', el('strong', null, 'External follow entries'), el('span', 'sode-m__recent-status', disc)),
+    );
     clickToToggle(face, disc);
     const head = el('li', 'sode-m__recent-row', face);
     if (!open) return [head];

@@ -1,6 +1,4 @@
-// The /log page: every message Sode wrote to the router, plus browser connects, commands and
-// router link changes. It is newest first and live, with this browser's filters and the router
-// uptime graph.
+// The /log page: Communication Log rows, newest first and live, with this browser's filters and the uptime graph.
 import { $, el, S, on, connect, wsSend, connState, routerTitle, setDot, item, labelNode } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
@@ -12,7 +10,8 @@ import { fieldText, saveSummary } from './logsaves.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
-import './lock.js';
+import { lockState } from './lock.js';
+import { lockCovers } from './lockrules.js';
 import './inboxdialog.js';
 import { showApprovalCards } from './approvalcards.js';
 import { bigScrollAll } from './bigscroll.js';
@@ -199,17 +198,15 @@ const rangeDone = () => range.from != null && pager.list.length > 0 && !rangeNee
 
 const fill = () => rangeNeedsMore() && send(pager.back());
 
-on('unlocked', () => {
+// A locked page's asks are refused, and each refusal writes a row; 'unlocked' loads.
+const reload = () => {
+  if (lockCovers(lockState())) return;
   send(pager.open());
   render();
   refreshUptime();
-});
-
-on('hello', () => {
-  send(pager.open());
-  render();
-  refreshUptime();
-});
+};
+on('unlocked', reload);
+on('hello', reload);
 
 on('logPage', (m) => {
   const r = pager.receive(m);
@@ -243,7 +240,6 @@ on('logAdd', (m) => {
   renderMore();
 });
 
-// shown and tbody's rows stay in step, so an entry's row sits at its index in shown.
 function dropRows(es) {
   if (!es.length) return;
   const gone = new Set(es.map(rowKey));
@@ -258,9 +254,7 @@ function showCounts(m) {
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
-  note.textContent = n
-    ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'was not' : 'were not'} saved to this log. The server log has details.`
-    : '';
+  note.textContent = n ? `${n} message${n === 1 ? '' : 's'} not saved since restart. See the server log.` : '';
 }
 
 const tbody = $('log-rows');
@@ -301,7 +295,7 @@ function outcome(e) {
   if (isEvent(e)) {
     const [dot, text] = e.kind === 'server' && e.err ? ['warn', 'Started with a problem'] : EVENT_RESULT[e.result] || ['idle', e.result];
     const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
-    if (e.err) s.title = e.err;
+    if (e.err) s.dataset.pbTip = e.err;
     return s;
   }
   const tries = `${e.tries} ${e.tries === 1 ? 'try' : 'tries'}`;
@@ -314,7 +308,7 @@ function outcome(e) {
     unsent: ['error', 'Not sent'],
   }[e.result] || ['idle', e.result];
   const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
-  if (e.err) s.title = e.err;
+  if (e.err) s.dataset.pbTip = e.err;
   return s;
 }
 
@@ -323,7 +317,7 @@ const fmtMs = (ms) => (ms < 10 ? ms.toFixed(1) : String(Math.round(ms))) + ' ms'
 function levelCell(e) {
   const l = S.levelBy.get(e.level);
   if (l) return levelColor(el('span', 'sode__slot sode__slot--on sode-log__lvl', l.label), l);
-  return e.wire >= 0 ? el('span', 'pb-text-muted', `wire ${e.wire}`) : '';
+  return e.wire >= 0 ? el('span', 'pb-text-muted', `router level ${e.wire}`) : '';
 }
 
 const side = (n, name) => (n >= 0 ? labelNode(item(n, name || '')) : '');
@@ -367,7 +361,7 @@ function row(e, fresh = false) {
   return tr;
 }
 
-// ---- sorting: ties keep newest first; rows without that column go last either way.
+// ---- sorting: ties keep newest first. Rows without the column go last in both directions.
 
 const SORT_KEY = 'sode-log-sort';
 const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
@@ -472,6 +466,7 @@ function renderMore() {
   const shown = tbody.childElementCount;
   $('log-count').textContent = pager.list.length ? `${shown.toLocaleString()} of ${pager.total.toLocaleString()} in log` : '';
   $('log-csv').disabled = !shown;
+  $('log-csv').textContent = `Download CSV (${shown.toLocaleString()} rows)`;
   const older = $('log-older');
   const busy = pager.loading;
   const filling = busy && rangeNeedsMore();
@@ -525,14 +520,13 @@ $('log-csv').addEventListener('click', () => {
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
   const a = el('a');
   a.href = url;
-  a.download = `sode-sent-${stamp}.csv`;
+  a.download = `sode-log-${stamp}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 const loadOlder = () => send(pager.older(pager.list.filter(passes).length));
 $('log-older').addEventListener('click', loadOlder);
-// The home page's auto-expand: a wheel or touch pull past the end presses Load older.
 pullToLoad(window, $('log-older').parentElement, { hasMore: () => !$('log-older').hidden && !pager.loading, more: loadOlder }, () => true);
 
 const fmtDay = (t) => {
@@ -554,9 +548,7 @@ on('conn', () => {
     renderMore();
   }
 });
-// ---- uptime graph. One strip whose toggles set the log's time range (From = that long ago, no To)
-// and keep rolling with the clock. With no times set, it shows the last 24 hours. Only the
-// newest reply is drawn.
+// Uptime graph: its chips set the log's time range (From = that long ago, no To) and move with the clock. No times set = the last 24 hours. Only the newest reply is drawn.
 
 let chipOn = null;
 // Slot mode: a bar was clicked and the log shows only its slot. The strip keeps its window (view)
@@ -579,7 +571,7 @@ function initUptime() {
   const chips = PRESETS.map((p) => {
     const b = el('button', 'pb-chip sode-log__chip', presetText(p));
     b.type = 'button';
-    b.title = `Show the last ${p.label} and limit the log to it. Each bar of the graph is ${slotLabel(slotFor(0, p.span))}.`;
+    b.dataset.pbTip = `Bar = ${slotLabel(slotFor(0, p.span))}`;
     b.addEventListener('click', () => {
       const from = $('log-from');
       from.value = localStamp(Date.now() - p.span);
@@ -606,7 +598,7 @@ function refreshUptime() {
   const r = slotMode ? slotMode.view : chipOn ? rangeFor(chipOn, null, null, now) : rangeFor(DEFAULT_PRESET, range.from, range.to, now);
   if (!r) {
     upBars.replaceChildren();
-    upSum.textContent = 'The From time is after the To time.';
+    upSum.textContent = 'From is after To.';
     return;
   }
   const id = ++upId;
@@ -656,7 +648,7 @@ function showSlot() {
   const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Back');
   back.type = 'button';
   back.addEventListener('click', leaveSlotBack);
-  note.replaceChildren(el('strong', null, 'One slot of the graph'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, 'newest first', back);
+  note.replaceChildren(el('strong', null, 'Slot'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, back);
 }
 
 on('uptimeResult', (m) => {
@@ -675,7 +667,7 @@ on('uptimeResult', (m) => {
   upSum.textContent = text;
 });
 
-setInterval(refreshUptime, 60_000);
+setInterval(() => lockCovers(lockState()) || refreshUptime(), 60_000);
 
 initFilters();
 initUptime();

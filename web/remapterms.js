@@ -36,10 +36,10 @@ export function termView(router, rows, choices, onChange) {
       'sode__xi-name',
       el('span', null, el('strong', null, row.label), ' ', el('span', 'sode__hint', `${SIDE[row.side]}, ${setsText(router, row.sets)}`)),
       el('span', 'sode__xi-pick', el('span', 'pb-select-wrap', sel)),
-      el('span', 'sode__hint sode__xi-sub', `${hint} (names differ here)`),
+      el('span', 'sode__hint sode__xi-sub', hint),
     );
     r.dataset.term = row.key;
     box.append(r);
   }
-  return [el('p', 'sode__label sode__xi-sub', 'Filter number and range terms'), box];
+  return [el('p', 'sode__label sode__xi-sub', 'Filter terms whose names differ here'), box];
 }

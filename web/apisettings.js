@@ -1,5 +1,3 @@
-// The API is always on. Require HTTPS lives under Proxy.
-
 import { $, S, on, el } from './core.js';
 import { addSaveSource } from './savesources.js';
 import { diffRows, showValue } from './savereviewrules.js';
@@ -24,7 +22,7 @@ for (const b of boxes) b.disabled = true;
 // The page's scope order, so a set the server keeps in another order is no change.
 const ordered = (list) => SCOPES.map((s) => s.id).filter((id) => list.includes(id));
 
-let base = {}; // api, and guestApiScopes once a usersList said them
+let base = {}; // api, and guestApiScopes after a usersList gives them
 let vers = {};
 let scopes = null; // the last usersList's {list, version}
 

@@ -53,12 +53,12 @@ test('the link waits for the install, the lock state, the names, an uncovered pa
   assert.deepEqual(itemLinkStep(link, { ...ready, access: { enforced: true, locked: true } }), wait);
   assert.deepEqual(itemLinkStep(link, { ...ready, access: { enforced: false, locked: true, held: true } }), wait);
   assert.deepEqual(itemLinkStep(link, { ...ready, pageLocked: true }), wait);
-  // a stale Lock marker does not hold a page whose user Lock is enforced and open
+  // A stale Lock marker does not hold a page whose user Lock is enforced and open.
   assert.equal(itemLinkStep(link, { ...ready, access: { enforced: true, locked: false }, pageLocked: true }).step, 'open');
-  // Me presets come after sign-in: a missing one waits for the profile, a found one does not
+  // Me presets come after sign-in: a missing preset waits for the profile, a found preset does not.
   assert.deepEqual(itemLinkStep(readItemLink(`#preset=gone&install=${HERE}`), { ...ready, profileWait: true }), wait);
   assert.equal(itemLinkStep(readItemLink(`#preset=p1&install=${HERE}`), { ...ready, profileWait: true }).step, 'open');
-  // another install shows its message after the page is uncovered; the profile does not matter
+  // Another install shows its message after the page is uncovered; the profile does not matter.
   assert.deepEqual(itemLinkStep(readItemLink('#preset=p1&install=x'), { ...ready, pageLocked: true }), wait);
   assert.deepEqual(itemLinkStep(readItemLink('#preset=p1&install=x'), { ...ready, profileWait: true }), { step: 'other' });
 });

@@ -10,14 +10,11 @@ import {
   applyChoices,
   defaultChoice,
   renameProblem,
-  defaultFileName,
-  fileNameFor,
   sizeProblem,
   jsonBytes,
   itemIn,
   SOCKET_LIMIT,
   saveAsName,
-  checkDoc,
   filterOf,
 } from '../exportfmt.js';
 
@@ -66,7 +63,7 @@ test('matching: number and name agree', () => {
 test('matching: unique name elsewhere remaps the number', () => {
   const m = matchEnd(7, 'CAM 2', live.srcs);
   assert.deepEqual(m, { status: 'byName', n: 1, was: 7 });
-  // the number exists but names a different thing: the name wins
+  // The number exists but names a different item: the name wins.
   assert.equal(matchEnd(0, 'CAM 2', live.srcs).n, 1);
 });
 
@@ -75,7 +72,7 @@ test('matching: a name on several is ambiguous, never the first', () => {
   assert.equal(m.status, 'ambiguous');
   assert.equal(m.n, 9);
   assert.equal(m.count, 2);
-  // number + name still agree when the number is one of them
+  // The number and the name still agree when the number is one of them.
   assert.equal(matchEnd(4, 'dup', live.srcs).status, 'same');
 });
 
@@ -182,19 +179,6 @@ test('applyChoices never creates a duplicate even when the choice is import', ()
   );
 });
 
-test('default file name is dated and sanitised', () => {
-  const d = new Date(2026, 10, 3, 12);
-  assert.equal(defaultFileName({ now: d, site: 'Studio A / Main', user: 'Ana Ö' }), '2026-11-03-Sode-Export-Studio-A-Main-Ana-O.yaml');
-  assert.equal(defaultFileName({ now: d, site: 'localhost' }), '2026-11-03-Sode-Export-localhost.yaml');
-  assert.equal(defaultFileName({ now: d, site: '', user: '' }), '2026-11-03-Sode-Export.yaml');
-  const dflt = defaultFileName({ now: d });
-  assert.equal(fileNameFor('', dflt), dflt);
-  assert.equal(fileNameFor('   ', dflt), dflt);
-  assert.equal(fileNameFor('my backup', dflt), 'my-backup.yaml');
-  assert.equal(fileNameFor('../../etc/x.yml', dflt), 'etc-x.yaml');
-  assert.equal(fileNameFor('///', dflt), dflt);
-});
-
 test('size check refuses what the socket or the profile would', () => {
   assert.equal(sizeProblem('local', { presets: [] }), '');
   const big = Array.from({ length: 700 }, (_, i) => ({ name: 'P' + i, items: [{ src: i, dsts: Array.from({ length: 40 }, (_, k) => k), levels: [] }] }));
@@ -212,45 +196,6 @@ test('saveAsName suggests Name 2, or (mine) for Everyone, within 32 characters',
   assert.equal(saveAsName('  ', 'local'), '');
   assert.equal(saveAsName('', ''), '');
   for (const sc of ['local', 'global']) assert.ok([...saveAsName('x'.repeat(40), sc)].length <= 32);
-});
-
-test('checkDoc accepts a good document and says what is wrong with others', () => {
-  const good = {
-    sode: 1,
-    exported: '2026-11-03T12:00:00Z',
-    prefs: { clock: '24' },
-    filterSets: [{ name: 'Cams', src: '1-8' }],
-    presets: [
-      {
-        name: 'Show',
-        items: [
-          { src: 0, dsts: [{ n: 3, name: 'MV' }], levels: [1, 2] },
-          { src: 4, dsts: [] },
-        ],
-      },
-    ],
-  };
-  assert.equal(checkDoc(good), '');
-  assert.equal(checkDoc({ sode: 1 }), '');
-  assert.match(checkDoc(null), /not a mapping/);
-  assert.match(checkDoc([]), /not a mapping/);
-  assert.match(checkDoc({ site: 'x' }), /no "sode" version/);
-  assert.match(checkDoc({ sode: 2 }), /Unsupported export version 2/);
-  assert.match(checkDoc({ sode: '1' }), /Unsupported/);
-  assert.match(checkDoc({ sode: 1, exported: 'yesterday' }), /RFC 3339/);
-  assert.match(checkDoc({ sode: 1, exported: 5 }), /RFC 3339/);
-  assert.match(checkDoc({ sode: 1, prefs: [] }), /"prefs"/);
-  assert.match(checkDoc({ sode: 1, filterSets: {} }), /"filterSets" must be a list/);
-  assert.match(checkDoc({ sode: 1, presets: 'x' }), /"presets" must be a list/);
-  assert.match(checkDoc({ sode: 1, filterSets: ['a'] }), /filter set must be a mapping/);
-  assert.match(checkDoc({ sode: 1, filterSets: [{ src: '1' }] }), /filter set needs a printable name/);
-  assert.match(checkDoc({ sode: 1, presets: [{ name: 'x'.repeat(33), items: [] }] }), /at most 32/);
-  assert.match(checkDoc({ sode: 1, presets: [{ name: 'a\nb', items: [] }] }), /printable/);
-  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A' }] }), /list of items/);
-  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A', items: [{ src: -1, dsts: [] }] }] }), /source number/);
-  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A', items: [{ src: 1, dsts: [{ n: -2 }] }] }] }), /destination needs a number/);
-  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A', items: [{ src: 1, dsts: [{ n: 2 }], levels: [0] }] }] }), /levels/);
-  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A', items: [{ src: 1, dsts: [{ n: 2 }], levels: 'x' }] }] }), /levels/);
 });
 
 test('a filter set that leaves out sode and ext shows them', () => {

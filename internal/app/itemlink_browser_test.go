@@ -34,7 +34,7 @@ func TestChromeItemLinkWorksOnlyOnItsInstall(t *testing.T) {
 	b.waitFor("the link leaves the address", `location.hash === ''`)
 	b.check()
 
-	b.eval(`[...document.querySelectorAll('.sode__preset-pop button')].find((x) => x.textContent === 'Preset Editor').click(); true`)
+	b.eval(`[...document.querySelectorAll('.sode__preset-pop button')].find((x) => x.textContent === 'Edit Presets').click(); true`)
 	pick := `[...document.querySelectorAll('select')].find((s) => s.offsetParent && [...s.options].some((o) => o.value === 'global:Show'))`
 	b.waitFor("the preset editor", "!!"+pick)
 	b.eval(`(() => { const s = ` + pick + `; s.value = 'global:Show'; s.dispatchEvent(new Event('change')); return true })()`)

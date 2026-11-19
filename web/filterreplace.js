@@ -15,7 +15,7 @@ export function replaceBox(io) {
     const rows = s ? replaceRows({ f: io.read(), broken: s.broken }, off()) : [];
     box.hidden = !rows.length;
     box.replaceChildren(
-      ...(rows.length ? [el('div', 'pb-alert__title', 'Broken: these terms match nothing')] : []),
+      ...(rows.length ? [el('div', 'pb-alert__title', 'Broken terms')] : []),
       ...rows.map((r) => {
         const input = el('input', 'pb-input');
         input.value = r.now;

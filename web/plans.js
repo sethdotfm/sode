@@ -1,6 +1,4 @@
-// A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
-
-import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
 import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
@@ -85,11 +83,7 @@ export function presetPlan(preset, defaults) {
   // The Broken banner (brokenbanner.js) names a marked part.
   const warnings = r.missing
     .filter((m) => !marked(m.kind, m.n))
-    .map(
-      (m) =>
-        (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) +
-        ' on the router now',
-    );
+    .map((m) => `${m.kind === 'level' ? `Level ${m.n}` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()}`}: not on the router`);
   return {
     verb: 'preset',
     preset: preset.name,
@@ -141,7 +135,6 @@ export const VERBS = {
 };
 export const planVerb = (plan) => VERBS[plan.verb].word;
 export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
-// ---- results
 
 function routeText(t, already = []) {
   return (
@@ -203,7 +196,7 @@ export function failureBanner(t, hist = S.hist) {
   if (!open.length) {
     const n = t.items.length;
     const title = `${what} resolved: ${n === 1 ? 'the take' : `all ${n} takes`} confirmed`;
-    return { kind: 'ok', title, key: title, text: 'The router confirmed after all, or a retry went through.' };
+    return { kind: 'ok', title, key: title, text: 'Late Result, or a retry went through.' };
   }
   const lines = new Map();
   for (const it of open) {
@@ -239,7 +232,7 @@ export function planBlocked(plan) {
     return { block: { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' }, prot };
   }
   const outside = planOutside(S.myRights, plan, off(), levelLabel);
-  if (outside) return { block: { kind: 'error', title: 'Outside your rights', text: outside }, prot };
+  if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   for (const i of live) {
     const p = protectedOn(
@@ -274,38 +267,22 @@ function planQuestion(plan) {
   const to = n === 1 ? ['Destination ', strong(labelNode(plan.items[0].dst))] : [strong(`${n} destinations`)];
   const uniq = (its) => [...new Map(its.map((it) => [it.n, it])).values()];
   if (plan.at) {
-    return el(
-      'div',
-      null,
-      'Are you sure you want to go back to ',
-      strong(labelNode(srcItem(plan.at.src, plan.at.srcName))),
-      ' on ',
-      ...to,
-      `, as at ${fmtClock(plan.at.time)}?`,
-    );
+    return el('div', null, 'Go back to ', strong(labelNode(srcItem(plan.at.src, plan.at.srcName))), ' on ', ...to, `, as at ${fmtClock(plan.at.time)}?`);
   }
   const stack = n === 1 && plan.items[0].undo?.chain;
   if (stack) {
-    return el('div', null, `Are you sure you want to undo ${stack.length} changes on `, ...to, `, back to before ${fmtClock(stack[stack.length - 1].time)}?`);
+    return el('div', null, `Undo ${stack.length} changes on `, ...to, `, back to before ${fmtClock(stack[stack.length - 1].time)}?`);
   }
   if (plan.verb === 'undo') {
     const srcs = uniq(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName)));
-    return el(
-      'div',
-      null,
-      'Are you sure you want to undo the take of ',
-      srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`,
-      ' to ',
-      ...to,
-      '?',
-    );
+    return el('div', null, 'Undo the take of ', srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`, ' to ', ...to, '?');
   }
   const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
   const what = VERBS[plan.verb].ask;
   return el(
     'div',
     null,
-    `Are you sure you want to ${what} `,
+    `${what[0].toUpperCase()}${what.slice(1)} `,
     ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]),
     ' to ',
     ...to,
@@ -344,14 +321,7 @@ function itemSummary(item, boxed, prot, since) {
     ...(since ? changedSince(item) : []).map((r) =>
       el('div', 'sode__route', levelBar(r.levels), el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`),
     ),
-    alreadyThere(item)
-      ? el(
-          'div',
-          'sode__route',
-          el('span', 'pb-badge pb-badge--info', 'Already there'),
-          'the destination already has this source on every level; this changes nothing.',
-        )
-      : null,
+    alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there')) : null,
     prot ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(prot.devices)), 'will be refused') : null,
     item.untouched?.length
       ? el(
@@ -419,7 +389,7 @@ function extraBox(plan, spaceHint) {
     el(
       'span',
       'pb-check__label',
-      `Also undo ${n} external follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
+      `Also undo ${n} External follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
     ),
   );
 }
@@ -556,11 +526,7 @@ export function sendTakes(p) {
   const out = { t: 'take', items };
   if (p.verb === 'preset' && p.preset) Object.assign(out, { preset: p.preset, presetId: p.presetId });
   if (!wsSend(out)) {
-    showResult(
-      'error',
-      'Not sent',
-      'The patch was NOT sent: the connection to the Sode server was lost. The page reconnects by itself; try again in a moment.',
-    );
+    showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
     return false;
   }
   for (const id of take.byId.keys()) takes.set(id, take);
@@ -595,5 +561,5 @@ onMsg('takeResult', takeResult);
 on('wsclose', () => {
   if (!takes.size) return;
   takes.clear();
-  showResult('warn', 'Connection lost', 'The take was sent but its result is unknown. Check History after the page reconnects.');
+  showResult('warn', 'Connection lost', 'Take sent, Result unknown. Check History.');
 });

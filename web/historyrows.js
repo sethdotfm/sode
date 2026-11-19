@@ -1,4 +1,4 @@
-// Recent rows, shared by the desktop list and the phone's swipe rows. Pure: wording and plans only,
+// History rows, for the desktop list and the phone's swipe rows. Pure: wording and plans only,
 // each layout builds its own DOM from these.
 
 import { srcItem, dstItem } from './core.js';
@@ -18,11 +18,11 @@ export function rowActions(row) {
     return {
       undo: {
         plan: groupUndoPlan(f),
-        label: `Undo all ${f.entries.length} takes of ${groupIds(f)}`,
+        label: `Undo all ${f.entries.length} routes of ${groupIds(f)}`,
         text: groupPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all',
         tip: UNDO_TIP_ALL,
       },
-      again: { plan: again, label: `${againWord(again)} ${noun(again.items.length, 'take')} of ${groupIds(f)}` },
+      again: { plan: again, label: `${againWord(again)} ${noun(again.items.length, 'route')} of ${groupIds(f)}` },
     };
   }
   const e = row.e;
@@ -34,18 +34,22 @@ export function rowActions(row) {
         plan: undoPlan(e),
         label: `Undo ${e.chain.length} changes on ${dst.label}`,
         text: `Undo ${e.chain.length}`,
-        tip: 'Set destination to its source before these changes.',
+        tip: 'Restores the source from before these changes',
       }
     : { plan: undoPlan(e), label: `Undo ${src.label} to ${dst.label}`, text: 'Undo', tip: undefined };
   return { undo, again: { plan: again, label: `${againWord(again)} ${src.label} to ${dst.label}` } };
 }
 
-// Aria label of a folder's or followers' disclosure: "Show the 3 takes", "Hide the 2 followers".
+// Aria label of a Group's disclosure: "Show the 3 takes", "Hide the 2 followers".
 export const disclosureAria = (open, n, what) => `${open ? 'Hide' : 'Show'} the ${n} ${what}`;
 
-// Followers header of a folder: the disclosure's count text, aria label, and the id of its kids.
+// The External follow header of a Group: the disclosure's count text, aria label, and the id of its kids.
 export function followersHead(f, open, idPrefix) {
-  return { count: `${f.followers.length}`, aria: disclosureAria(open, f.followers.length, 'followers'), kidsId: `${idPrefix}-followers-${f.group}` };
+  return {
+    count: `${f.followers.length}`,
+    aria: disclosureAria(open, f.followers.length, 'External follow entries'),
+    kidsId: `${idPrefix}-followers-${f.group}`,
+  };
 }
 
 // The Last / Next fill of one box (k: src, dst or lvl). null: nothing to fill for k; {none: true}:

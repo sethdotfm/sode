@@ -28,8 +28,8 @@ test('saved names show their time until the first read', () => {
   assert.equal(namesTimeText({ at: null, savedAt: '2026-11-12T14:02:00Z' }, fmt), 'Names from T2026-11-12T14:02:00Z');
 });
 test('a read wins over the saved time', () => {
-  assert.equal(namesTimeText({ at: '2026-11-18T09:00:00Z', savedAt: '2026-11-12T14:02:00Z' }, fmt), 'Refreshed T2026-11-18T09:00:00Z');
+  assert.equal(namesTimeText({ at: '2026-11-18T09:00:00Z', savedAt: '2026-11-12T14:02:00Z' }, fmt), 'Re-read T2026-11-18T09:00:00Z');
 });
 test('no names yet', () => {
-  assert.equal(namesTimeText({ at: '0001-01-01T00:00:00Z', savedAt: null }, fmt), 'Not loaded yet');
+  assert.equal(namesTimeText({ at: '0001-01-01T00:00:00Z', savedAt: null }, fmt), 'Not read yet');
 });

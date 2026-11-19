@@ -1,7 +1,6 @@
-// Uploaded artwork is shrunk in the browser before it is sent, so neither side passes ART_EDGE px (the server refuses
-// more, panelArtSide in internal/app/panelstore.go). PNG stays PNG for transparency and JPEG stays JPEG. GIF and SVG
-// are sent as they are, because a canvas would drop the animation or turn a vector into pixels. So an oversize GIF
-// is refused here. What is sent must fit ART_MAX_BYTES (sidebarrules.js).
+// The browser shrinks uploaded artwork so neither side passes ART_EDGE px (the server refuses more: panelArtSide in
+// internal/app/panelstore.go). PNG and JPEG keep their type. GIF and SVG go as they are, since a canvas drops the
+// animation or makes pixels of a vector. The upload must fit ART_MAX_BYTES (sidebarrules.js).
 import { artProblem, ART_TYPES, ART_MAX_BYTES } from './sidebarrules.js';
 
 export const ART_EDGE = 1024;
@@ -31,7 +30,7 @@ export function gifSize(head) {
 
 export function gifProblem(size, bytes) {
   if (bytes <= ART_MAX_BYTES && (!size || (size.width <= ART_EDGE && size.height <= ART_EDGE))) return '';
-  return `A GIF is sent as it is, to keep its animation, so it must be at most ${ART_EDGE} by ${ART_EDGE} pixels and 2 MB. Resize it and upload again.`;
+  return `GIF too large: at most ${ART_EDGE} by ${ART_EDGE} pixels and 2 MB.`;
 }
 
 // Returns the Blob to upload. Any failure (an unreadable image, no canvas) sends the original, which the server checks.

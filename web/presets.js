@@ -51,11 +51,11 @@ export function fire(scope, name) {
   const s = findPreset(scope, name);
   const host = shown();
   if (!s || !host) return;
-  if (!S.srcBy.size) return showResult('warn', 'Preset not sent', 'The router’s names have not loaded yet.');
+  if (!S.srcBy.size) return showResult('warn', 'Preset not sent', 'Router names not read yet.');
   const plan = presetPlan(s, parseLevels('') || []);
   emit('itemUsed', { kind: 'preset', scope: s.scope, id: s.id, name: s.name });
   if (!plan.items.length) {
-    return showResult('error', `Preset ${s.name} not sent`, plan.warnings.length ? plan.warnings.join('; ') + '.' : 'It has no takes.');
+    return showResult('error', `Preset ${s.name} not sent`, plan.warnings.length ? plan.warnings.join('; ') + '.' : 'It has no rows.');
   }
   host.confirm(plan);
 }
@@ -69,21 +69,20 @@ const statusSuffix = (s) => {
 const phone = () => document.documentElement.dataset.pbLayout === 'phone';
 const askPopup = () => emit('presetPopup');
 
-// Shift-click (or Shift+Enter in the popup) fills the boxes and sends nothing. They hold one
-// source, so a multi-take preset fills the first take that still exists, and says so, and
-// what is missing.
+// Shift-click (or Shift+Enter in the popup) fills the boxes and sends nothing. The boxes hold one
+// source, so a preset with more rows fills the first row that the router still has.
 export function fillBoxes(scope, name) {
   const s = findPreset(scope, name);
   const host = shown();
   if (!s || !host) return;
-  if (!host.fill) return showResult('info', `Preset ${s.name}`, 'A preset fills the boxes only on the desktop layout.');
-  if (!S.srcBy.size) return showResult('warn', 'Preset not filled', 'The router’s names have not loaded yet.');
+  if (!host.fill) return showResult('info', `Preset ${s.name}`, 'Fill needs the desktop layout.');
+  if (!S.srcBy.size) return showResult('warn', 'Preset not filled', 'Router names not read yet.');
   const r = fillFrom(s, { src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u) }, parseLevels('') || []);
   if (!r.fill) return showResult('error', `Preset ${s.name} not filled`, 'Nothing in it exists on the router now.');
   host.fill({ src: srcItem(r.fill.src), dsts: r.fill.dsts.map((n) => dstItem(n)), levels: r.fill.levels });
   const notes = [];
-  if (r.many) notes.push(`The boxes hold one source, so only one of its ${s.items.length} takes was filled.`);
-  if (r.partial) notes.push('Some of its destinations or levels no longer exist on the router and were left out.');
+  if (r.many) notes.push(`Filled 1 of ${s.items.length} rows.`);
+  if (r.partial) notes.push('Left out: destinations or levels that are not on the router.');
   if (notes.length) showResult('info', `Preset ${s.name}`, notes.join(' '));
 }
 
@@ -122,12 +121,10 @@ function renderStrips() {
       b.addEventListener('click', (e) => (e.shiftKey ? fillBoxes(s.scope, s.name) : fire(s.scope, s.name)));
       return b;
     });
-    // A plain chip, not the selected style: it opens a list, it is not a state. So it is the
-    // first stop for the arrow keys.
     const more = all.length ? el('button', 'pb-chip sode__set sode__presets-all', icon('list'), 'Show all') : null;
     if (more) {
       more.type = 'button';
-      more.title = phone() ? 'Show all presets' : 'Show all presets (Ctrl+G)';
+      if (!phone()) more.dataset.pbTip = `${mac ? '⌘' : 'Ctrl+'}G`;
       more.setAttribute('aria-haspopup', 'dialog');
       more.addEventListener('click', askPopup);
     }
@@ -189,8 +186,6 @@ const btn = (cls, text, fn = () => {}) => {
 };
 const nameIn = el('input', 'pb-input');
 nameIn.maxLength = 32;
-nameIn.placeholder = 'Name';
-nameIn.setAttribute('aria-label', 'Preset name');
 nameIn.autocomplete = 'off';
 const scopeIn = el('select', 'pb-select');
 scopeIn.setAttribute('aria-label', 'Save for');
@@ -199,7 +194,7 @@ scopeIn.append(...scopeOpts());
 const pinnedIn = el('input', 'pb-check__input');
 pinnedIn.type = 'checkbox';
 pinnedIn.checked = true;
-const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label', 'Pinned (show above History)'));
+const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label', 'Pinned'));
 const rowsBox = el('div', 'sode__preset-rows');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
@@ -209,8 +204,6 @@ const linkUI = itemLinkBox();
 const saveAsBtn = btn('pb-btn--outline', 'Save as…', () => askSaveAs());
 const asName = el('input', 'pb-input');
 asName.maxLength = 32;
-asName.placeholder = 'Name';
-asName.setAttribute('aria-label', 'Name for the copy');
 asName.autocomplete = 'off';
 const asScope = el('select', 'pb-select');
 asScope.setAttribute('aria-label', 'Save the copy for');
@@ -295,20 +288,18 @@ const saver = globalSaver({
   setNote,
   isOpen: () => open,
   failTitle: 'Presets not saved',
-  okNote: 'Saved for everyone.',
+  okNote: 'Saved for Everyone.',
   render: () => renderHead(true),
 });
 const profSaver = profileSaver({
   setNote,
   isOpen: () => open,
   failTitle: 'Presets not saved',
-  okNote: 'Saved to your profile.',
+  okNote: 'Saved for Me.',
   render: () => renderHead(true),
 });
 
-// Bus 'openPresetEditor' swaps in a profile target (editortargets.js): the editor on one preset
-// of that user's profile. Picker, scope, Save as, Share, Delete and Export are hidden, and the
-// save goes to that profile.
+// 'openPresetEditor' swaps in a profile target (editortargets.js): one preset of that user's Profile, saved there.
 const browser = browserPresets({
   list: (scope) => presetsIn(scope),
   note: (c) => (c.old ? scopeLabel(c.from) : ''),
@@ -419,9 +410,9 @@ function renderRows() {
       return el(
         'div',
         `sode__preset-row${i ? ' sode__preset-row--bare' : ''}`,
-        field('src', SRC_EXAMPLE, `Take ${i + 1} source`, 'Source'),
-        field('dsts', DST_EXAMPLE, `Take ${i + 1} destinations`, 'Destinations'),
-        field('levels', S.levels.length ? `Levels (${S.levels[0].label}-${S.levels[S.levels.length - 1].label})` : 'Levels', `Take ${i + 1} levels`, 'Levels'),
+        field('src', SRC_EXAMPLE, `Row ${i + 1} source`, 'Source'),
+        field('dsts', DST_EXAMPLE, `Row ${i + 1} destinations`, 'Destinations'),
+        field('levels', S.levels.length ? `${S.levels[0].label}-${S.levels[S.levels.length - 1].label}` : '', `Row ${i + 1} levels`, 'Levels'),
         btn('pb-btn--ghost', 'Remove', () => {
           cur.items.splice(i, 1);
           touch();
@@ -451,7 +442,7 @@ function renderHead(keep = false) {
   pinnedIn.checked = cur.pinned;
   delBtn.hidden = !cur.old;
   linkBtn.hidden = !hasItemLink();
-  delBtn.textContent = deleting ? 'Really delete?' : 'Delete';
+  delBtn.textContent = deleting ? 'Confirm delete' : 'Delete';
   saveBtn.disabled = saver.busy() || profSaver.busy() || tgtSaver.busy();
   const own = target.own;
   pickRow.hidden = !own;
@@ -466,8 +457,7 @@ function renderHead(keep = false) {
   organizerBtn.hidden = !own;
 }
 
-// keepEdit: the lists changed under us; only the picker redraws, never the rows or the name that
-// the person types.
+// keepEdit: the lists changed. Only the picker redraws, never the rows or the name.
 function renderEditor(keepEdit = false) {
   if (keepEdit && cur?.old && !findPreset(cur.from, cur.old) && !dirty) return load(null);
   renderHead(keepEdit);
@@ -497,8 +487,7 @@ scopeIn.addEventListener('change', () => {
   setNote(cur.scope === cur.from ? scopeLabel(cur.from) : `Save moves it from ${scopeLabel(cur.from)} to ${scopeLabel(cur.scope)}.`);
 });
 
-// Add from Patch Boxes: the editor steps aside, the patch boxes stay live and the bar's Add (or
-// Enter) turns them into a row.
+// The editor hides while the patch boxes stay live (historypick.js).
 let added = 0;
 function addFromBoxes() {
   if (!shown()) return setNote('The patch boxes are not showing.', true);
@@ -527,8 +516,7 @@ function addFromBoxes() {
   });
   shown().focus();
 }
-// The editor steps aside while History is in pick mode (historypick.js). A lock ends the pick
-// first (see 'locking' below).
+// A lock ends the pick first ('locking' below).
 let picking = false;
 function fillFromHistory() {
   if (!S.hist.length) return setNote('No takes made in Sode yet.', true);
@@ -547,7 +535,7 @@ function fillFromHistory() {
     onAdd: (entries) => {
       back();
       const items = itemsFromEntries(entries);
-      addRows(items, `Added ${entries.length} take${entries.length === 1 ? '' : 's'} from History.`);
+      addRows(items, `Added ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} from History.`);
     },
   });
 }
@@ -666,7 +654,7 @@ function saveAs() {
   if (dest === 'local') {
     saveLocalPreset(s, taken);
     loaded();
-    return setNote('Saved for this browser.');
+    return setNote('Saved for This browser.');
   }
   saveIn(dest, next, loaded);
 }
@@ -686,7 +674,7 @@ function deleteClick() {
   if (!cur.old) return;
   if (!deleting) {
     deleting = true;
-    delBtn.textContent = 'Really delete?';
+    delBtn.textContent = 'Confirm delete';
     return;
   }
   deleting = false;

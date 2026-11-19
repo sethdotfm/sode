@@ -1,4 +1,4 @@
-// The Levels box: typed levels plus a picker of toggles and All/None. It takes its levels from a source function,
+// The Levels box: typed levels plus a picker of toggles and All/None. It gets its levels from a source function,
 // so a page with no History, plans or routes can use it. Imports only core.js and levels.js.
 
 import { el } from './core.js';

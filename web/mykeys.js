@@ -1,8 +1,6 @@
-// My API keys: a signed-in user's own keys, opened from Settings' My user section. Making a key asks
-// the user's own PIN (the server checks it in the change-PIN pool). The key is shown once and kept nowhere.
-// A user's key acts as that user and ends with a PIN change; ADR 0003.
+// My API keys. A key acts as its user and ends with a PIN change (ADR 0003). Sode shows it one time and does not keep it.
 
-import { el, on, onMsg, wsSend, sentence } from './core.js';
+import { el, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { createReq, expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
@@ -47,7 +45,7 @@ const dialog = el(
     el(
       'div',
       'sode__keys-new',
-      field('mykey-name', 'Key name', nameIn, 'Shown beside your name in History, such as "Seth (Panel 21)".'),
+      field('mykey-name', 'Key name', nameIn),
       field('mykey-expires', 'Expires (optional)', expIn),
       field('mykey-pin', 'Your PIN', pinIn),
     ),
@@ -73,7 +71,7 @@ const say = (text) => {
 };
 
 function load() {
-  if (!wsSend({ t: 'keyListOwn', id: ++listSeq })) say('Not connected to Sode.');
+  if (!wsSend({ t: 'keyListOwn', id: ++listSeq })) say(LINK_DOWN);
 }
 
 function closeKeys() {
@@ -97,10 +95,10 @@ onMsg('keyListOwnResult', (m) => {
     ...(m.keys.length
       ? m.keys.map((k) =>
           keyRow(k, now, () => {
-            if (!wsSend({ t: 'keyRevoke', keyId: k.id, id: ++listSeq })) say('Not connected to Sode.');
+            if (!wsSend({ t: 'keyRevoke', keyId: k.id, id: ++listSeq })) say(LINK_DOWN);
           }),
         )
-      : [el('p', 'sode__hint', 'You have no API keys.')]),
+      : [el('p', 'sode__hint', 'No API keys')]),
   );
 });
 onMsg('keyRevokeResult', (m) => {
@@ -113,11 +111,11 @@ makeBtn.addEventListener('click', () => {
   say('');
   const problem = keyNameProblem(nameIn.value);
   if (problem) return say(problem);
-  if (!pinIn.value) return say('Enter your PIN to make a key.');
+  if (!pinIn.value) return say('Enter your PIN.');
   const exp = expiryFrom(expIn.value, Date.now());
   if (exp.error) return say(exp.error);
   const id = ++seq;
-  if (!wsSend(createReq({ name: nameIn.value, pin: pinIn.value, expires: exp.ms, id }))) return say('Not connected to Sode.');
+  if (!wsSend(createReq({ name: nameIn.value, pin: pinIn.value, expires: exp.ms, id }))) return say(LINK_DOWN);
   makeBtn.disabled = true;
 });
 onMsg('keyCreateResult', (m) => {
@@ -139,6 +137,12 @@ on('openKeys', () => {
   dlg.show();
   dialog.focus();
 });
-// Signing out or a Lock closes it, forgetting any key on show.
+// A sign out or a Lock forgets any key on show.
 on('locking', () => isOpen && closeKeys());
+on('wsclose', () => {
+  if (isOpen && makeBtn.disabled) {
+    makeBtn.disabled = false;
+    say(LINK_DOWN);
+  }
+});
 on('access', (L) => isOpen && !L.user && closeKeys());

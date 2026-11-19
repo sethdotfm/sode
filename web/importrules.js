@@ -1,6 +1,6 @@
 // Item keys and choice values are the server's (internal/app/importplan.go).
 
-// The categories the server plans, in its order. This browser the page applies itself (browserimport.js). Profile is
+// The categories the server plans, in its order. The page applies This browser itself (browserapply.js). Profile is
 // only in an own import (internal/app/ownexport.go).
 export const PLANNED = ['profile', 'settings', 'routers', 'users', 'presets', 'filterSets', 'apiClients', 'artwork', 'panels', 'browser'];
 
@@ -64,7 +64,7 @@ export function importReq(pick) {
   for (const cat of PLANNED) {
     const keys = [...(pick.items[cat] || [])];
     if (replace && !keys.length && pick.empty?.has(cat)) {
-      req.categories.push(cat); // no pick: the file's none
+      req.categories.push(cat); // no pick: the file holds no items for it
       continue;
     }
     if (!keys.length) continue;

@@ -1,5 +1,5 @@
 // How /log reads the Communication Log back, newest first. Filters hide entries, so it reads on until enough are
-// shown (want) or the log or page cap runs out. Else a page of only hidden keepalives looked stuck. Pure, no imports.
+// shown (want) or the log or page cap runs out. A page of only hidden keepalives would look stuck. Pure, no imports.
 // Methods return the request { before, n } to send, or null.
 
 export const PAGE = 100;
@@ -19,7 +19,7 @@ export const byNewest = (a, b) => rowPos(b) - rowPos(a) || (b.id || 0) - (a.id |
 
 export function newPager() {
   let list = []; // loaded entries, newest first.
-  const seen = new Set(); // their rowKeys.
+  const seen = new Set();
   let more = false;
   let total = 0; // entries in the log, as last reported.
   let pending = null; // the `before` of the request that waits for its reply.

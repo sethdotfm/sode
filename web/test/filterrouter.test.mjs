@@ -1,4 +1,3 @@
-// Filter sets carry an optional router UID: number and range terms mean that router only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterFn, entryAllows, routerTermsProblem } from '../filter.js';
@@ -38,6 +37,6 @@ test('with a second router, a set with no router allows only name, exact and reg
   assert.match(routerTermsProblem('1-4', '', 3), /router/);
   assert.equal(routerTermsProblem('5', 'r1', 2), '');
   assert.equal(routerTermsProblem('5', '', 1), '');
-  // Text that does not parse is the parser's problem, not this one's.
+  // The parser reports text that does not parse; this check skips it.
   assert.equal(routerTermsProblem('"open', '', 2), '');
 });

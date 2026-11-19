@@ -43,7 +43,6 @@ function remainder(data, n) {
   return r;
 }
 
-// ---- codewords
 function codewords(bytes, v) {
   const [dpb, epb, nb] = BLOCKS[v];
   const bits = [];
@@ -67,7 +66,6 @@ function codewords(bytes, v) {
   return out;
 }
 
-// ---- matrix
 const MASKS = [
   (x, y) => (x + y) % 2 === 0,
   (_x, y) => y % 2 === 0,

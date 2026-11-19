@@ -1,4 +1,3 @@
-// Presets: storage, typed references, and turning a preset into a plan.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -38,7 +37,7 @@ test('normPreset cleans numbers (shared cases)', async () => {
   for (const c of cases.norm) assert.deepEqual(normPreset(c.in), c.out);
 });
 
-// The cases the Go side can share: a preset as sent, and whether it can be saved.
+// preset_cases.json: the Go tests read the same cases.
 const build = (c) => {
   if (!c.gen) return c;
   const { items, perItem } = c.gen;
@@ -143,11 +142,7 @@ test('presetPlan: one item per destination, default levels, unresolved left out 
       ],
     ],
   );
-  assert.deepEqual(plan.warnings, [
-    'Source 100 does not exist on the router now',
-    'Level 9 does not exist on the router now',
-    'Destination 78 does not exist on the router now',
-  ]);
+  assert.deepEqual(plan.warnings, ['Source 100: not on the router', 'Level 9: not on the router', 'Destination 78: not on the router']);
 });
 
 test('presetPlan: the same source twice on one destination merges levels', async () => {
@@ -259,7 +254,7 @@ test('presetTip: one or many sources and destinations', async () => {
     ),
     '2 Sources to 2 Destinations',
   );
-  assert.equal(presetTip(s([]), sl, dl), 'No takes');
+  assert.equal(presetTip(s([]), sl, dl), 'No rows');
 });
 
 test('isBlankRow: only a row with nothing typed', async () => {
@@ -328,16 +323,16 @@ test('fillFrom: the first take that still exists, with what was left out', async
   const { fillFrom } = await setup();
   const has = { src: (n) => n < 3, dst: (n) => n < 3, level: (u) => u <= 3 };
   const p = (...items) => ({ name: 'P', items });
-  // Whole: one take, nothing missing; its own [] levels stay [].
+  // Whole: one route, nothing missing; its own [] levels stay [].
   let r = fillFrom(p({ src: 0, dsts: [1, 2], levels: [] }), has, [1, 2]);
   assert.deepEqual(r, { fill: { src: 0, dsts: [1, 2], levels: [] }, partial: false, many: false, missing: [] });
   // A destination gone: filled without it, and partial.
   r = fillFrom(p({ src: 0, dsts: [1, 9], levels: [2] }), has, [1, 2]);
   assert.deepEqual([r.fill, r.partial], [{ src: 0, dsts: [1], levels: [2] }, true]);
-  // Every level of the first take gone: it is skipped, not filled with defaults.
+  // Every level of the first route gone: it is skipped, not filled with defaults.
   r = fillFrom(p({ src: 0, dsts: [1], levels: [5] }, { src: 1, dsts: [2], levels: [1] }), has, [1, 2]);
   assert.deepEqual([r.fill, r.many], [{ src: 1, dsts: [2], levels: [1] }, true]);
-  // Nothing fits: no take, and what is missing is listed.
+  // Nothing fits: no route, and what is missing is listed.
   r = fillFrom(p({ src: 9, dsts: [1], levels: [] }, { src: 0, dsts: [1], levels: [7] }), has, [1, 2]);
   assert.equal(r.fill, null);
   assert.deepEqual(r.missing.map((m) => m.kind).sort(), ['level', 'source']);

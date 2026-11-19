@@ -255,6 +255,7 @@ function openDialog() {
   setNote('');
   if (desk) {
     tabs.select('xi-export-tab');
+    exportBtn.disabled = true; // until the list comes
     load();
   } else exportPanel.hidden = importPanel.hidden = true;
   dlg.show();

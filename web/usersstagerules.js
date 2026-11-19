@@ -85,7 +85,7 @@ const ATTR_LABELS = {
 };
 const OTHER_LABELS = { maxPinLen: 'Longest PIN (digits)', guestRights: 'Guest Rights' };
 
-// split: {kind, id, attr} of an item key, or null.
+// {kind, id, attr} of an item key, or null.
 export function splitKey(key) {
   const m = /^(user|client)\/(.+)\/(\w+)$/.exec(key);
   return m ? { kind: m[1], id: m[2], attr: m[3] } : null;

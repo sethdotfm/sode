@@ -1,4 +1,3 @@
-// The panel editor's sidebar rules (sidebarrules.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

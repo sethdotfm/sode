@@ -1,4 +1,3 @@
-// Manage users as one Save fields: a key per user and API client attribute, compared with the list as loaded.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { listedFields, stageFields, stageLabel, stageShow } from '../usersstagerules.js';

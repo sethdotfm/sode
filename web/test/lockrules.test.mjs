@@ -229,7 +229,7 @@ test('churnKey: a letter, never the one before, never one that is easy to confus
     last = k;
   }
   assert.equal(seen.size, 23);
-  // Even if the dice keep landing on the last key, it moves on.
+  // A roll that gives the last key again still moves on.
   const rolls = [0, 0, 0.5];
   assert.notEqual(
     churnKey('a', () => rolls.shift()),
@@ -299,7 +299,7 @@ test('lock view: transitions', () => {
   assert.equal(lockView(PAGE_VIEW, true), PAGE_VIEW);
   assert.equal(lockDismissed(lock), PAGE_VIEW);
   assert.deepEqual(startSignIn(PAGE_VIEW, false), { mode: 'signIn', back: 'page' });
-  assert.equal(startSignIn(lock, false), lock); // Settings' button never over the Lock
+  assert.equal(startSignIn(lock, false), lock); // the Settings button never shows over the Lock
   assert.deepEqual(startSignIn(lock, true), { mode: 'signIn', back: 'lock' });
   assert.equal(startSignIn(PAGE_VIEW, true), PAGE_VIEW);
   const fromLock = startSignIn(lock, true);
@@ -335,7 +335,7 @@ test('Lock: Sign out offered only with a user and no PIN lock; the view stays Lo
   assert.equal(signOutOffered({ enforced: false, user: '', lens: [4] }), false);
   assert.equal(signOutOffered({ enforced: true, user: 'Ana', lens: [4] }), false);
   const v = lockView(PAGE_VIEW, false);
-  // logging out changes no view: lockArrived(false) and signInWon leave the Lock alone
+  // Sign out changes no view: lockArrived(false) and signInWon leave the Lock alone
   assert.deepEqual(lockArrived(v, false), v);
   assert.deepEqual(signInWon(v, { enforced: false, unlocked: false, user: '' }), v);
   assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);

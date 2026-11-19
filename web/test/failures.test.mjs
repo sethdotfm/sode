@@ -1,11 +1,7 @@
-// Failed takes: what the router reported, undo and changedSince.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// core.js and the modules on it read these at load.
-const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
-globalThis.document = node();
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+import './domstub.mjs';
 
 test('failed takes: reasons, undo and changedSince', async () => {
   const { S, undoPlan, failureGroups, changedSince } = await import('./all.mjs');
@@ -20,8 +16,7 @@ test('failed takes: reasons, undo and changedSince', async () => {
     [0, { n: 0, num: 1, name: 'CAM 1', label: 'CAM 1' }],
     [8, { n: 8, num: 9, name: 'CAM 9', label: 'CAM 9' }],
   ]);
-  // Take of src 7 on levels 1-4, from src 0. Level 1 was left on 0, level 2
-  // is on 8 (someone else's), level 3 gave no answer, level 4 worked.
+  // A take of src 7 on levels 1-4, from src 0. Level 1 stayed on 0, level 2 is on 8 (from a different sender), level 3 gave no answer, level 4 worked.
   const e = {
     id: 4,
     dst: 5,
@@ -61,7 +56,7 @@ test('failed takes: reasons, undo and changedSince', async () => {
     [[3, 4]],
   );
   assert.deepEqual(item.untouched, [1, 2]);
-  // Level 4 moved on since; level 3 cannot tell (it never confirmed).
+  // Level 4 changed after the take. Level 3 never confirmed, so nothing shows if it changed.
   S.tally = new Map([
     [
       5,
@@ -102,7 +97,6 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
       [4, 0],
     ],
   };
-  // The note is an opaque el() result under the Proxy stub, so only its presence is checked.
   const note = entryNote({ ...base, ok: true, late: [3, 4] });
   const note1 = entryNote({ ...base, ok: true, late: [3] });
   assert.ok(note && note1);
@@ -126,7 +120,7 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
   assert.equal(putEntry({ id: 40, fixed: true }, S, true), 'skipped');
   assert.equal(S.hist, loaded);
 
-  // Corrected entry (ok now): undo uses prev for every level, nothing untouched.
+  // A corrected entry (ok): undo uses prev for every level, and no level is left out.
   const fixed = { ...base, id: 10, ok: true, late: [3, 4] };
   const item = undoPlan(fixed).items[0];
   assert.deepEqual(
@@ -134,7 +128,7 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
     [[1, 2, 3, 4]],
   );
   assert.deepEqual(item.untouched, []);
-  // Late level 3 moved on since: counted like any level of the take.
+  // Late level 3 changed after the take: it counts as any other level of the take.
   S.tally = new Map([
     [
       5,
@@ -196,7 +190,7 @@ test('histRows: followers of a confirm go in its folder', async () => {
     ...extra,
   });
   const takes = [t(1, 1), t(2, 2), t(3, 3)];
-  // Same dst and levels within 30s: would chain if they were plain panel changes.
+  // The same dst and levels within 30 s: plain Externals would chain.
   const list = [ext(8, 7, { followGroup: 'g' }), ext(7, 7, { followGroup: 'g' }), ...takes.reverse()];
   let rows = histRows(list);
   assert.equal(rows.length, 1);
@@ -219,8 +213,7 @@ test('histRows: followers of a confirm go in its folder', async () => {
     [8, 5],
   );
   setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '' });
-  // Sode takes hidden: the group does not show, so a follower that passes
-  // stands on its own rather than vanishing with it.
+  // Sode's takes are hidden, so the Group does not show. A follow that passes the filter stands alone.
   setFilter({ sode: false, ext: true, hidden: true, src: '', dst: '' });
   rows = histRows([ext(8, 7, { followGroup: 'g' }), ext(7, 7, { followGroup: 'g' }), ...takes]);
   assert.ok(rows.every((r) => !r.f));
@@ -268,10 +261,8 @@ test('failure banner: grouped lines, shrinks as takes resolve', async () => {
   const b = failureBanner(t, hist);
   assert.equal(b.kind, 'error');
   assert.equal(b.title, 'Take partly failed (4 of 5)');
-  // Three destinations share "no answer" (one line), one is "still on" (another).
   assert.match(b.key, /D10, D11, D12: levels 1–3 no answer/);
   assert.match(b.key, /D13: levels 1–3 still on CAM 1/);
-  // One confirmed late, one retried: two left, and it says "still".
   const h2 = hist
     .map((e) => (e.id === 10 ? { ...e, ok: true, failed: [], late: [1, 2, 3] } : e))
     .concat([{ id: 20, ok: true, retry: 11, dst: 11, levels: [1, 2, 3] }]);

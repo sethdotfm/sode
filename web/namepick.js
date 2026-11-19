@@ -80,7 +80,7 @@ export function namePicker({ id, users, onInput, onPick }) {
     if (li) pick(matches[+li.dataset.i]?.name);
   });
 
-  // True when the key was the box's: arrows move in the list, Enter picks, Escape closes an open list.
+  // True when the key was the box's.
   function key(e) {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       if (list.hidden) open();

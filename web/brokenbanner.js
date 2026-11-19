@@ -1,6 +1,7 @@
 // Each layout draws its own copy ([data-broken]).
 import { el, emit, icon, off, on } from './core.js';
 import { profileName } from './profile.js';
+import { layout } from './layout.js';
 import { newBannerState, useItem, dismissItem, bannerItems, leftOutLines } from './brokenrules.js';
 import { pageItems, presetKey, setKey } from './brokenview.js';
 
@@ -30,7 +31,8 @@ function button(label, cls, fn) {
 
 function itemNode(it) {
   const acts = [];
-  const sw = role === 'administrator' && swapOf(it);
+  // Routers, where a Swap is saved, is not on the phone.
+  const sw = role === 'administrator' && layout() !== 'phone' && swapOf(it);
   if (sw) acts.push(button('Swap…', 'pb-btn--outline', () => emit('swapAt', sw)));
   if (canEdit(it)) acts.push(button('Edit', 'pb-btn--outline', () => emit(it.kind === 'preset' ? 'editPresetAt' : 'editFilterSetAt', it)));
   const x = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('x'));

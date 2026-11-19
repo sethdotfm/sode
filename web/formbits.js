@@ -1,5 +1,3 @@
-// Small form builders shared by the Settings panels that build their fields in code.
-
 import { el } from './core.js';
 
 export const btn = (cls, text, fn) => {
@@ -17,7 +15,6 @@ export const labeled = (id, text, control) => el('div', 'sode__field', Object.as
 export const field = (id, text, control, hint) =>
   el('div', 'sode__field', Object.assign(el('label', null, text), { htmlFor: id }), control, ...(hint ? [el('span', 'sode__hint', hint)] : []));
 
-// A checkbox with its label: {input, label}. onChange gets the new checked state.
 export const check = (text, { id, checked = false, onChange } = {}) => {
   const input = el('input', 'pb-check__input');
   input.type = 'checkbox';
@@ -27,8 +24,7 @@ export const check = (text, { id, checked = false, onChange } = {}) => {
   return { input, label: el('label', 'pb-check', input, el('span', 'pb-check__label', text)) };
 };
 
-// A row of exclusive choices on patchbay's pb-btn-group, for two or three settings. Same radio-plus-label pairs as the
-// link-kind picker (panelkeytab.js). onChange gets the chosen value; set() never fires it.
+// For two or three choices. set() never fires onChange.
 export const segmented = (id, text, options, onChange) => {
   const group = el('div', 'pb-btn-group');
   group.id = id;

@@ -1,6 +1,4 @@
-// One filter's rule editor (Sources or Destinations) in the Filters dialog: rows or code, with a
-// preview. read() gives the filter being edited, write(next) stores it, mode() is 'visual' or
-// 'code'. filters.js decides where those point (the browser's own filter or a profile draft).
+// read() gives the filter in the editor, write(next) stores it. filters.js decides where they point (the browser's own filter or a profile draft).
 
 import { $, el, S, off } from './core.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
@@ -33,13 +31,15 @@ export function editor(key, { read, write, mode }) {
   const box = $(`flt-${key}`);
   const ed = { text: '', rows: [], error: null };
   let timer = 0;
+  // An unchanged write would still clear a stack of sets (filterstore.js setFilter).
+  const store = () => !ed.error && ed.text !== read()[key] && write({ ...read(), [key]: ed.text });
 
   function changed(now = false) {
     const p = parseFilter(ed.text);
     ed.error = p.error ? `${p.error}${p.at != null ? ` at “${ed.text.slice(p.at, p.at + 12)}”` : ''}` : null;
     clearTimeout(timer);
     const go = () => {
-      if (!ed.error) write({ ...read(), [key]: ed.text });
+      store();
       preview();
     };
     if (now) go();
@@ -239,7 +239,7 @@ export function editor(key, { read, write, mode }) {
     preview,
     flush() {
       clearTimeout(timer);
-      if (!ed.error) write({ ...read(), [key]: ed.text });
+      store();
       preview();
     },
   };

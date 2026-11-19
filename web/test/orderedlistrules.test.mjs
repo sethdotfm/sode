@@ -1,4 +1,3 @@
-// The ordered list's move rules (orderedlistrules.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { moveItem, dropTo, removeItem, canMove } from '../orderedlistrules.js';

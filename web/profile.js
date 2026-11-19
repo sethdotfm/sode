@@ -1,8 +1,8 @@
-// The signed-in user's profile (This browser prefs, filter sets, presets). Sode pushes it to every connection signed in as that
-// user (name '' clears it). The ONLY module that handles `profile` and `profileSaveResult` (onMsg allows one handler per type); others use the 'profile' bus event.
-// Never in the hello, so empty for a locked or anonymous page.
+// The signed-in user's Profile. Sode pushes it to every connection of that user (name '' clears it).
+// Only this module handles `profile` and `profileSaveResult` (onMsg allows one handler per type); others use the 'profile' bus event.
+// Never in the hello, so it is empty for a locked page or a Guest.
 
-import { on, onMsg, emit, wsSend } from './core.js';
+import { on, onMsg, emit, wsSend, LINK_DOWN } from './core.js';
 import { findByName } from './profilesrules.js';
 
 const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [], pinOrder: [] });
@@ -40,17 +40,13 @@ onMsg('profile', (m) => {
 let seq = 0;
 const pending = new Map(); // save id -> resolve
 const reading = new Map(); // get id -> resolve
-const lost = { ok: false, err: 'Connection lost.' };
+const lost = { ok: false, err: LINK_DOWN };
 
 onMsg('profileGetResult', (m) => {
   const done = reading.get(m.id);
   if (!done) return;
   reading.delete(m.id);
-  done(
-    m.ok
-      ? { ok: true, err: '', profile: toProfile({ ...m.profile, name: m.name }) }
-      : { ok: false, err: m.err || 'Could not read that profile.', profile: EMPTY },
-  );
+  done(m.ok ? { ok: true, err: '', profile: toProfile({ ...m.profile, name: m.name }) } : { ok: false, err: m.err || 'Profile not read.', profile: EMPTY });
 });
 
 onMsg('profileSaveResult', (m) => {
@@ -73,7 +69,7 @@ on('wsclose', () => {
 let chain = Promise.resolve();
 
 // Saves some parts ({prefs}, {filterSets}, {presets}, {pinOrder}); a part left out is kept, a part sent replaces the whole list/map.
-// `name` defaults to the signed-in user; a trusted user can name another. No PIN is asked here: the server decides.
+// `name` defaults to the signed-in user; a Trusted user can name another. The server decides, so no PIN is asked here.
 // The own profile's local copy gets the parts at once so the next save builds on them; a failed save puts it back.
 export function saveProfile(parts, name = cur.name) {
   if (!name) return Promise.resolve({ ok: false, err: 'Not signed in.' });
@@ -91,7 +87,7 @@ export function saveProfile(parts, name = cur.name) {
         resolve(r);
       };
       if (!wsSend({ t: 'profileSave', id, name, ...parts })) {
-        return settle({ ok: false, err: 'Not connected to Sode.' });
+        return settle({ ok: false, err: LINK_DOWN });
       }
       pending.set(id, settle);
     });
@@ -105,7 +101,7 @@ export function fetchProfile(name) {
   return new Promise((resolve) => {
     const id = ++seq;
     if (!wsSend({ t: 'profileGet', id, name })) {
-      return resolve({ ok: false, err: 'Not connected to Sode.', profile: EMPTY });
+      return resolve({ ok: false, err: LINK_DOWN, profile: EMPTY });
     }
     reading.set(id, resolve);
   });

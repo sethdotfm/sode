@@ -1,7 +1,7 @@
 // The Swap dialog (GLOSSARY.md, Swap). An Administrator opens it from Settings > Routers and stages one Swap into
 // the one Save (savesources.js). A user opens it from My user, and it saves their own items at once. Rules in
 // swaprules.js.
-import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence } from './core.js';
+import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { addSaveSource } from './savesources.js';
 import { groupByOwner, parseShown, swapLabel, swapShow, swapValue } from './swaprules.js';
@@ -14,6 +14,7 @@ let items = []; // the last list the server sent
 let ticked = new Set();
 let asked = null; // {side, from, to} of that list
 let seq = 0;
+let back = null;
 let waiting = 0;
 let staged = null; // {value, items}: the Swap that the next Save sends
 
@@ -112,13 +113,13 @@ function find() {
   if (f.from == null) return fail('Enter the old number.');
   fail('');
   waiting = ++seq;
-  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: S.routerUid, side: f.side, from: f.from, mine } })) fail('Not connected to Sode.');
+  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: S.routerUid, side: f.side, from: f.from, mine } })) fail(LINK_DOWN);
 }
 
 onMsg('swapListResult', (m) => {
   if (!ui || m.id !== waiting) return;
   waiting = 0;
-  if (!m.ok) return fail(m.err || 'The list did not load.');
+  if (!m.ok) return fail(m.err || 'List not loaded.');
   const f = fields();
   asked = { side: f.side, from: f.from };
   items = m.items || [];
@@ -126,11 +127,18 @@ onMsg('swapListResult', (m) => {
   paintList();
 });
 
+on('wsclose', () => {
+  if (!ui || !waiting || !mine) return;
+  waiting = 0;
+  ui.go.disabled = false;
+  fail(LINK_DOWN);
+});
+
 onMsg('swapMineResult', (m) => {
   if (!ui || m.id !== waiting) return;
   waiting = 0;
   ui.go.disabled = false;
-  if (!m.ok) return fail(m.err || 'The Swap did not save.');
+  if (!m.ok) return fail(m.err || 'Swap not saved.');
   emit('swapDone', m.count);
   close();
 });
@@ -143,7 +151,7 @@ function done() {
     ui.go.disabled = true;
     if (!wsSend({ t: 'swapMine', id: waiting, swap: v })) {
       ui.go.disabled = false;
-      fail('Not connected to Sode.');
+      fail(LINK_DOWN);
     }
     return;
   }
@@ -155,6 +163,8 @@ function done() {
 function close() {
   ui?.dlg.hide();
   waiting = 0;
+  if (back?.isConnected) back.focus();
+  back = null;
 }
 
 function build() {
@@ -170,7 +180,7 @@ function build() {
   const side = el('select', 'pb-select');
   side.id = 'swap-side';
   side.append(Object.assign(el('option', null, 'Destination'), { value: 'destination' }), Object.assign(el('option', null, 'Source'), { value: 'source' }));
-  const sideField = el('div', 'sode__field', Object.assign(el('label', null, 'Swap a'), { htmlFor: 'swap-side' }), el('span', 'pb-select-wrap', side));
+  const sideField = el('div', 'sode__field', Object.assign(el('label', null, 'Swap'), { htmlFor: 'swap-side' }), el('span', 'pb-select-wrap', side));
   const from = numberBox('swap-from', 'Old number');
   const to = numberBox('swap-to', 'New number');
   const broken = el('input', 'pb-check__input');
@@ -181,7 +191,7 @@ function build() {
   const err = el('div', 'pb-note pb-note--error');
   err.setAttribute('role', 'alert');
   err.hidden = true;
-  const go = button('swap-go', 'Done', 'pb-btn--ok', done);
+  const go = button('swap-go', '', 'pb-btn--ok', done);
   dialog.append(
     el('div', 'pb-modal__header', title),
     el(
@@ -234,6 +244,7 @@ function open(opts = {}) {
     ui.from.input.value = String(opts.from + off());
   }
   paintList();
+  back ||= document.activeElement;
   ui.dlg.show();
   if (opts.side && opts.from != null) {
     find();

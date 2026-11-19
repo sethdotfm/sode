@@ -1,4 +1,3 @@
-// Last kept in localStorage: survives a reload, and a single-source redo sets it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

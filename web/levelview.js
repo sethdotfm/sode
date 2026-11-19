@@ -1,7 +1,7 @@
 // Levels on screen and in boxes (reads S). The pure parts, with levels and numbering as arguments, are in levels.js.
 
 import { el, S } from './core.js';
-import { levelLabelOf, levelInputOf, levelTextOf, parseLevelsIn, relabelLevelsFor } from './levels.js';
+import { levelLabelOf, levelInputOf, levelTextOf, parseLevelsIn } from './levels.js';
 import { levelColor, levelPicks } from './levelbox.js';
 
 export { levelColor };
@@ -18,13 +18,10 @@ const parseCtx = () => ({ levels: S.levels, numbering: numbering(), defaultLevel
 // No mode: the server's Level.Label; a mode previews an unsaved numbering.
 export const levelLabel = (ui, mode) => levelLabelOf(S.levels, numbering(), ui, mode);
 export const parseLevels = (text, none = false) => parseLevelsIn(text, parseCtx(), none);
-export const relabelLevels = (text) => relabelLevelsFor(text, S.levels, numbering(), S.prevNumbering);
 export const levelText = (list) => levelTextOf(list, S.levels, numbering());
 export const levelInput = (list, mode) => levelInputOf(list, S.levels, numbering(), mode);
 
-const defaultLevelsText = () => levelInput(parseLevels('') || []);
 export const defaultLevelsWord = () => ((parseLevels('') || []).length === S.levels.length ? 'All' : 'default');
-export const defaultLevelsHint = () => `${defaultLevelsText()} (${defaultLevelsWord()})`;
 
 // Fixed row of slots, filled when on, so rows line up and color is never the only signal.
 export function levelBar(on) {

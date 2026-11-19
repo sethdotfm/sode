@@ -101,7 +101,6 @@ var vocabAllow = []allowEntry{
 	{"unlock", "", "`unlock(?:ed)?`", "wire message and bus event names keep this name"},
 	{"log in", "", "`[^`]*log-?(?:in|out)[^`]*`", "bus event names keep this name"},
 	{"batch", "", "`batch`", "the v1 wire message name, quoted where docs list the v2 renames"},
-	{"batch", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"salvo", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"operator", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"", "docs/vocabulary-plan.md", `^\|`, "the checklist tables quote the old words by design"},

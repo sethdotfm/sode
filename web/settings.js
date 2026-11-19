@@ -2,7 +2,7 @@
 // settings save together and the view stays open; This browser choices are per browser and apply
 // at once. Fields: settingsform.js; save: settingssave.js; search: settingsfind.js.
 
-import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';
+import { $, S, on, emit, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { initDeviceSettings } from './devicesettings.js';
 import { showResult } from './plans.js';
 import { layout } from './layout.js';
@@ -125,7 +125,7 @@ function sendClear(approval = null, answer = null) {
   clearing = Date.now();
   if (!wsSend({ t: 'clearHistory', ...(approval && { approval }) })) {
     clearing = 0;
-    if (!answer) showSaveErr('Not connected to Sode.');
+    if (!answer) showSaveErr(LINK_DOWN);
     return false;
   }
   clearAnswer = answer;
@@ -141,7 +141,7 @@ on('historyCleared', () => {
   clearing = 0;
   clearAnswer?.done();
   clearAnswer = null;
-  showResult('ok', 'History cleared', 'History is empty for everyone.');
+  showResult('ok', 'History cleared for everyone', '');
 });
 // A refusal asks a PIN recheck and sends the clear again; below an Administrator it asks an Approval.
 onMsg('clearHistoryResult', (m) => {

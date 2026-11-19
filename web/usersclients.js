@@ -1,6 +1,6 @@
 // Names and scopes save with Settings' one Save; keys act at once. A factory with hooks, so nothing imports users.js back.
 
-import { el, onMsg, wsSend, sentence } from './core.js';
+import { el, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { SCOPES } from './apirules.js';
 import { expiryFrom, keyNameProblem, keysByOwner, ownerText } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
@@ -79,7 +79,6 @@ export function makeClientsTab({ users, touched, adopt }) {
       scopes: SCOPES.filter((s) => row.querySelector(`input[data-scope="${s.id}"]`).checked).map((s) => s.id),
     }));
 
-  // ---- keys
   function paintKeys(keys) {
     const now = Date.now();
     const groups = keysByOwner(keys);
@@ -94,7 +93,7 @@ export function makeClientsTab({ users, touched, adopt }) {
             ),
             ...g.keys.map((k) =>
               keyRow(k, now, () => {
-                if (!wsSend({ t: 'keyRevokeAny', keyId: k.id, id: ++listSeq })) say('Not connected to Sode.');
+                if (!wsSend({ t: 'keyRevokeAny', keyId: k.id, id: ++listSeq })) say(LINK_DOWN);
               }),
             ),
           ])
@@ -104,7 +103,7 @@ export function makeClientsTab({ users, touched, adopt }) {
   let revoking = null; // { id, owner } of the Revoke all in flight
   function revokeAll(owner) {
     revoking = { id: ++listSeq, owner };
-    if (!wsSend({ t: 'keyRevokeAll', owner, id: revoking.id })) say('Not connected to Sode.');
+    if (!wsSend({ t: 'keyRevokeAll', owner, id: revoking.id })) say(LINK_DOWN);
   }
   const load = () => {
     if (open) wsSend({ t: 'keyListAll', id: ++listSeq });
@@ -113,7 +112,7 @@ export function makeClientsTab({ users, touched, adopt }) {
   onMsg('keyRevokeAllResult', async (m) => {
     const was = revoking?.id === m.id ? revoking : null;
     revoking = null;
-    if (!m.ok && m.recheck && was && (await askRecheck('Revoke all keys'))) return revokeAll(was.owner);
+    if (!m.ok && m.recheck && was && (await askRecheck('Revoking all keys'))) return revokeAll(was.owner);
     if (!m.ok) say(m.err);
     load();
   });
@@ -140,8 +139,13 @@ export function makeClientsTab({ users, touched, adopt }) {
     const exp = expiryFrom(kexp.value, Date.now());
     if (exp.error) return say(exp.error);
     const id = ++seq;
-    if (!wsSend({ t: 'keyCreateFor', id, owner: o, keyName: kname.value.trim(), expires: exp.ms })) return say('Not connected to Sode.');
+    if (!wsSend({ t: 'keyCreateFor', id, owner: o, keyName: kname.value.trim(), expires: exp.ms })) return say(LINK_DOWN);
     make.disabled = true;
+  });
+  on('wsclose', () => {
+    if (!open || !make.disabled) return;
+    make.disabled = false;
+    say(LINK_DOWN);
   });
   onMsg('keyCreateForResult', (m) => {
     if (m.id !== seq || !open) return;
@@ -194,8 +198,7 @@ export function makeClientsTab({ users, touched, adopt }) {
         touched();
       }),
     ),
-    el('h3', 'sode__profiles-h', 'Keys'),
-    el('p', 'sode__hint', 'Every key of every user and API client. Sode shows a key one time, when it makes the key, and keeps only a hash of it.'),
+    el('h3', 'sode__profiles-h', 'All keys'),
     keyHost,
     el('h3', 'sode__profiles-h', 'Make a key'),
     el(
@@ -203,7 +206,7 @@ export function makeClientsTab({ users, touched, adopt }) {
       'sode__keys-new',
       labeled('clients-key-owner', 'For', el('span', 'pb-select-wrap', who)),
       labeled('clients-key-name', 'Key name', kname),
-      labeled('clients-key-expires', 'Expires (optional)', kexp),
+      labeled('clients-key-expires', 'Expires', kexp),
       el('div', null, make),
     ),
     shown,
@@ -215,7 +218,6 @@ export function makeClientsTab({ users, touched, adopt }) {
     read,
     addRow,
     clear: () => rows.replaceChildren(),
-    count: () => rows.children.length,
     // The tab is on screen: list the keys, and forget a key shown before.
     shownNow(on_) {
       open = on_;
@@ -234,6 +236,5 @@ export function makeClientsTab({ users, touched, adopt }) {
       const row = [...rows.children].find((r) => !r.dataset.was && r.querySelector('input[data-field="client-name"]').value.trim() === name);
       if (row) row.dataset.was = name;
     },
-    say,
   };
 }

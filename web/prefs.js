@@ -17,6 +17,20 @@ export const PREFS = {
   compact: { key: 'sode-compact', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
 };
 
+// Settings labels; index.html and internal/app/browsercopy.go keep the same words (tests check both).
+export const PREF_LABELS = {
+  theme: 'Theme',
+  layout: 'Layout',
+  clock: 'Clock',
+  flip: 'Destination before Source',
+  scrollTop: 'Scroll to top on focus',
+  setStack: 'Stacked filters behavior',
+  nextMode: 'Next match behavior',
+  stackGap: 'Stack quick changes to one destination',
+  searchFilters: 'Searching history respects filters',
+  compact: 'Compact view',
+};
+
 // The Browser language option says what it gives (still one table entry, as the Go test reads it).
 Object.defineProperty(PREFS.clock.values, 'locale', { get: () => `Browser language (${browserClock()})`, enumerable: true });
 

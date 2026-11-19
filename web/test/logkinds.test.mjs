@@ -44,7 +44,7 @@ test('kinds toggle, and the last one off goes back to All', () => {
 test('a list saved when All was the six message groups is still All', () => {
   const old = ['connect', 'interrogate', 'keepalive', 'dump', 'names', 'other'];
   assert.deepEqual(normalizeKinds(old, ['connect']), KIND_IDS);
-  // Choosing a subset that happens to be the old six plus an event is not All.
+  // A subset that equals the old six kinds plus an event is not All.
   assert.deepEqual(normalizeKinds(old.slice(0, 5), ['connect']), old.slice(0, 5));
   assert.deepEqual(normalizeKinds([...old, 'command'], ['connect']), [...old, 'command']);
 });

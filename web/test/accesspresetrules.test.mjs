@@ -1,5 +1,3 @@
-// Apply an access preset: what it stages, the preset's name on each staged change, and what still differs after a
-// partly refused save.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { presetTarget, presetMarks, presetGaps, gapText } from '../accesspresetrules.js';
@@ -23,7 +21,6 @@ const secured = {
   users: { persistent: false, noAutoLock: false },
 };
 
-// An install on Open access, with two users who never sign out.
 const live = {
   locks: { main: false, log: false, panel: false },
   autoLockMinutes: 0,
@@ -41,7 +38,6 @@ const live = {
   'user/u2/role': 'standard',
 };
 
-// The page after staging: each key the preset writes takes its value, a partial object merges.
 function staged(target) {
   const now = structuredClone(live);
   for (const [k, v] of Object.entries(target)) now[k] = v && typeof v === 'object' && !Array.isArray(v) ? { ...now[k], ...v } : v;

@@ -2,7 +2,7 @@
 // savereview.js. A change is a difference from the form as opened or last saved. A save source (savesources.js:
 // Manage users, the API section) gives its own changes. data-apart inputs are not counted.
 
-import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
+import { $, el, S, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { fmtTime } from './device.js';
 import { layout } from './layout.js';
 import { askRecheck } from './recheck.js';
@@ -18,9 +18,7 @@ import { sectionView, approvalWho } from './settingsrolerules.js';
 import { presetMarks, presetGaps, gapText } from './accesspresetrules.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
 
-export const saving = () => $('settings-save').disabled;
-
-const sectionOf = sectionOfKey;
+const saving = () => $('settings-save').disabled;
 
 let base = {}; // the fields as last opened or saved
 let versions = {}; // each field's version as loaded
@@ -62,10 +60,8 @@ export function markPreset(name, target) {
 }
 const by = (r) => authors.get(rowId(r))?.by || me;
 // Save skips edits in a section the saver's Role cannot see; they show only as a count.
-const seen = (r) => sectionView(sectionOf(r.key), role) !== 'hidden';
+const seen = (r) => sectionView(sectionOfKey(r.key), role) !== 'hidden';
 const warned = () => !$('settings-unsaved').hidden;
-
-// ---- what each change is called on the page
 
 const SPECIAL = {
   levelColors: 'cfg-colors',
@@ -76,7 +72,7 @@ const SPECIAL = {
   newUserDefaults: 'cfg-new-persistent',
 };
 const keyNode = (key) => (SPECIAL[key] ? $(SPECIAL[key]) : form.querySelector(`[data-key="${key}"]`));
-const fieldset = (key) => form.querySelector(`:scope > fieldset[data-section="${sectionOf(key)}"]`);
+const fieldset = (key) => form.querySelector(`:scope > fieldset[data-section="${sectionOfKey(key)}"]`);
 const sections = () => [...form.querySelectorAll(':scope > fieldset[data-section]')];
 const sectionName = (fs) => fs.querySelector(':scope > legend').firstChild.textContent.trim();
 const checkText = (node) => node?.closest('.pb-check')?.querySelector('.pb-check__label')?.textContent;
@@ -119,9 +115,7 @@ function show(r, v) {
 }
 
 // A read section (Shown) saves through an Approval, so its rows are sent.
-const kept = (r) => (sectionView(sectionOf(r.key), role, layout() === 'phone') === 'hidden' ? 'your Role cannot change this' : '');
-
-// ---- marks, the exit warning and the footer text
+const kept = (r) => (sectionView(sectionOfKey(r.key), role, layout() === 'phone') === 'hidden' ? 'your Role is not allowed to change this' : '');
 
 function paintMarks() {
   for (const m of form.querySelectorAll('.sode__refused, .sode__preset-mark')) m.remove();
@@ -162,12 +156,11 @@ function paintPresetMarks() {
 
 function unsavedText() {
   const { shown, unseen } = splitSeen(changes(), seen);
-  const slugs = new Set(shown.map((r) => sectionOf(r.key)));
+  const slugs = new Set(shown.map((r) => sectionOfKey(r.key)));
   const names = sections()
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
-  const what = [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
-  return `${what}. Exit again to discard.`;
+  return [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
 }
 
 export function markClean(saved) {
@@ -221,8 +214,6 @@ export function showSaveErr(text) {
   $('settings-err').hidden = false;
 }
 
-// ---- sending and the answers
-
 function valuesOf(keys) {
   const form = readSettings();
   const out = {};
@@ -245,7 +236,7 @@ function sendFields(keys, sent, retried, approval = null, answer = null) {
   const preset = changes().find((r) => keys.includes(r.key) && markOf(r));
   const named = preset && { accessPreset: markOf(preset) };
   if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }), ...named })) {
-    if (!answer) showSaveErr('Not connected to Sode.');
+    if (!answer) showSaveErr(LINK_DOWN);
     return false;
   }
   pending = { id, sent, retried, answer };
@@ -327,7 +318,7 @@ function settled(m, p) {
   }
   done(saved);
   if (approve.length && isOpen()) {
-    const who = approvalWho(approve.map(sectionOf));
+    const who = approvalWho(approve.map(sectionOfKey));
     askApproval('Saving these changes', who, (ap, answer) => sendFields(approve, p.sent, true, ap, answer), requestFor(approve, p.sent));
   }
 }
@@ -393,7 +384,7 @@ async function review({ focusField }) {
     label,
     show,
     // A row that goes through an Approval needs no recheck of this browser's user: an Administrator approver's counts.
-    critical: (r) => critical(r.key) && sectionView(sectionOf(r.key), role) === 'edit',
+    critical: (r) => critical(r.key) && sectionView(sectionOfKey(r.key), role) === 'edit',
     criticalAction: (r) => critical(r.key),
     role,
     reconnects: (r) => reconnects(r.key),

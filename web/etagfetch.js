@@ -1,7 +1,7 @@
 // Wraps a fetcher so repeated GETs send If-None-Match. A 304 comes back as a 200 with the body kept from the last 200,
 // so callers (jsonCall) never see it. Tags are per path: one page uses one key and session, so a path has one answer.
 // For a path where shared(path) is true, json() gives the same parsed object until the tag moves, so callers must not
-// change it. A Grid panel's 2 s tally poll on a 2500 by 750 router parsed 400 KB again on every 304.
+// change it. Without this, a Grid panel's 2 s tally poll on a 2500 by 750 router parses 400 KB on every 304.
 export function withEtag(fetcher, shared = () => false) {
   const kept = new Map();
   const parsedOnce = (res, rec) => {

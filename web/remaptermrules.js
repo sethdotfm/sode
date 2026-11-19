@@ -1,5 +1,5 @@
 // Filter number and range terms in the import's remap step. A term gets a row only when the names at its numbers
-// in the file differ from the names on the target. The server takes the rewritten text (importReq.filters,
+// in the file differ from the names on the target. The server gets the rewritten text (importReq.filters,
 // remapSet in internal/app/importremap.go). No core.js import, so Node tests load it.
 
 import { parseFilter, filterText } from './filter.js';

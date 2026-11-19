@@ -1,6 +1,6 @@
 // The token stays in memory, so sign-in storage does not change.
 
-import { el, on, onMsg, wsSend } from './core.js';
+import { el, on, onMsg, wsSend, LINK_DOWN } from './core.js';
 import { PREFS } from './prefs.js';
 import { ownPref } from './device.js';
 import { localSets } from './filterstore.js';
@@ -13,7 +13,7 @@ const LAST_BACKUP = 'sode-last-backup'; // ISO time (docs/persisted-names.md)
 
 let token = null; // null: not asked yet; '' with no users
 
-// This browser: its own device preferences as top-level keys, with its filter sets and presets (browser.yaml in
+// This browser: its own preferences as top-level keys, with its filter sets and presets (browser.yaml in
 // internal/app/testdata/export-v1).
 export function browserValues() {
   const out = {};
@@ -34,7 +34,7 @@ function session() {
   if (token !== null) return Promise.resolve(token);
   const id = ++askSeq;
   return new Promise((resolve, reject) => {
-    if (!wsSend({ t: 'exportSession', id })) return reject(new Error('Not connected to Sode.'));
+    if (!wsSend({ t: 'exportSession', id })) return reject(new Error(LINK_DOWN));
     asks.set(id, (m) => {
       if (!m.ok) return reject(new Error(m.err || 'Sode refused the export.'));
       token = m.token || '';

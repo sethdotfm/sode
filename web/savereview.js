@@ -144,10 +144,12 @@ export function reviewSave({
       reconnects(r) && badge('warn', 'Reconnects the router'),
     ].filter(Boolean);
   let rechecked = false;
+  const back = document.activeElement;
   return new Promise((resolve) => {
     const end = (send) => {
       step = null;
       ui.dlg.hide();
+      if (back?.isConnected) back.focus();
       resolve(send);
     };
 

@@ -1,4 +1,4 @@
-// Recent filter language for sources and destinations. No imports (Node tests).
+// History filter language for sources and destinations. No imports (Node tests).
 // Comma-separated terms are OR'd, then ! terms remove; only ! terms means everything but those.
 // Terms: 65, 1-50 (also "1 thru 50", "through", "to"), PIP (name contains), 'NOT USED' ('' = quote), "CAM 1" (exact).
 // Also /re/ (flags optional) and !term ("not" works before a number, quote or regex).
@@ -144,7 +144,6 @@ const fold = (s) =>
     .replace(/[^a-z0-9]+/g, '')
     .replace(/(^|[a-z])0+(?=\d)/g, '$1');
 
-// Every word of the fuzzy text is in the folded name.
 function fuzzy(text) {
   const words = text.split(/\s+/).map(fold).filter(Boolean);
   return (num, name) => {

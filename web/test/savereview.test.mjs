@@ -1,5 +1,3 @@
-// The one Save review's rules: the was/now diff, its grouping by topic and section, the Save button and the marks
-// on refused fields.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { diffRows, groupRows, saveLabel, refusalNote, showValue, reconnects } from '../savereviewrules.js';
@@ -60,7 +58,7 @@ test('the Save button names what saves and what stays', () => {
   assert.equal(saveLabel(1, 0), 'Save 1 change');
   assert.equal(saveLabel(3, 0), 'Save 3 changes');
   assert.equal(saveLabel(2, 2), 'Save 2, keep 2 unsaved');
-  assert.equal(saveLabel(0, 2), 'Nothing can save');
+  assert.equal(saveLabel(0, 2), 'Nothing to save');
 });
 
 test('values show as people read them', () => {
@@ -74,7 +72,7 @@ test('values show as people read them', () => {
 
 test('a refused field says why; a conflict shows the saved value', () => {
   assert.equal(refusalNote({ reason: 'conflict', value: 'Truck 9' }, showValue), 'Not saved. Someone else saved "Truck 9" after you opened Settings.');
-  assert.equal(refusalNote({ reason: 'Role' }, showValue), 'Not saved. Your Role cannot change this.');
+  assert.equal(refusalNote({ reason: 'Role' }, showValue), 'Not saved. Your Role is not allowed to change this.');
   assert.equal(refusalNote({ reason: 'needs Approval' }, showValue), 'Not saved. This needs Approval.');
   assert.equal(refusalNote({ reason: 'needs PIN recheck' }, showValue), 'Not saved. This needs a PIN recheck.');
   assert.equal(refusalNote({ reason: 'invalid', err: 'levels must be 1 to 256' }, showValue), 'Not saved. Levels must be 1 to 256.');

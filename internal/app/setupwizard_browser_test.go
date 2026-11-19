@@ -42,9 +42,9 @@ func TestChromeSetupWizard(t *testing.T) {
 	type_("setup-name", "Ada")
 	type_("setup-pin", "2468")
 	type_("setup-pin2", "2469")
-	b.waitFor("PINs that differ stop Set up", next+`.disabled && `+next+`.textContent === 'Set up'`)
+	b.waitFor("PINs that differ stop Next", next+`.disabled && `+next+`.textContent === 'Next'`)
 	type_("setup-pin2", "2468")
-	b.waitFor("Set up", `!`+next+`.disabled`)
+	b.waitFor("Next", `!`+next+`.disabled`)
 	b.waitFor("Restore from a backup sits beside it", `!document.getElementById('setup-restore').hidden`)
 	b.eval(next + `.click(); true`)
 

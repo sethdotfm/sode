@@ -79,7 +79,7 @@ on('wsclose', () => {
 });
 
 const signedOut = () =>
-  new Response(JSON.stringify({ error: { code: 'signed_out', message: 'Not signed in, so the take was not sent. Sign in and press again.' } }), {
+  new Response(JSON.stringify({ error: { code: 'signed_out', message: 'Not signed in. Nothing was sent. Sign in and press again.' } }), {
     status: 401,
     headers: { 'Content-Type': 'application/json' },
   });
