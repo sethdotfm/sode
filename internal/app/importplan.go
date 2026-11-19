@@ -331,8 +331,8 @@ func copyConfigKey(dst, src *config.Config, idx []int) {
 	reflect.ValueOf(dst).Elem().FieldByIndex(idx).Set(reflect.ValueOf(src).Elem().FieldByIndex(idx))
 }
 
-// overlaySetting copies key k from the file. Of a nested key it takes only the fields the file has or leaves out when
-// empty, so an older file keeps the live value of a newer field.
+// overlaySetting copies key k from the file. Of a nested key it takes the fields the file has or leaves out when
+// empty. So an older file keeps the live value of a newer field.
 func (p *importPlanner) overlaySetting(dst *config.Config, k string, idx []int) {
 	to, from := reflect.ValueOf(dst).Elem().FieldByIndex(idx), reflect.ValueOf(p.b.Settings).Elem().FieldByIndex(idx)
 	if to.Kind() != reflect.Struct {

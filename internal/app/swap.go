@@ -83,34 +83,22 @@ func (sw *swapper) unmark(l []config.Missing) []config.Missing {
 	return slices.DeleteFunc(slices.Clone(l), sw.marked)
 }
 
-// dedupe drops a later reference to the same number, since an item that held To and From now holds To twice.
-func dedupe(l []config.Ref) []config.Ref {
-	out := l[:0:0]
-	for _, r := range l {
-		if !slices.ContainsFunc(out, func(o config.Ref) bool { return o.Router == r.Router && o.N == r.N }) {
-			out = append(out, r)
-		}
+// answer is To for a reference to From on the Swap's side, as a RefWalk answer.
+func (sw *swapper) answer(kind string, r config.Ref) []config.Ref {
+	if kind != sw.kind() || !sw.ref(&r) {
+		return nil
 	}
-	return out
+	return []config.Ref{r}
 }
 
-// preset changes p in place; callers pass a copy (config.ClonePresets).
+// preset changes p in place; callers pass a copy (config.ClonePresets). A list that held To and From holds To once.
 func (sw *swapper) preset(p *config.Preset) bool {
 	changed := false
-	for i := range p.Items {
-		it := &p.Items[i]
-		if !sw.dst {
-			changed = sw.ref(&it.Src) || changed
-			continue
-		}
-		hit := false
-		for j := range it.Dsts {
-			hit = sw.ref(&it.Dsts[j]) || hit
-		}
-		if hit {
-			it.Dsts, changed = dedupe(it.Dsts), true
-		}
-	}
+	config.RefWalk{Dedupe: true, Fn: func(kind string, r config.Ref) []config.Ref {
+		out := sw.answer(kind, r)
+		changed = changed || out != nil
+		return out
+	}}.Preset(p)
 	if changed {
 		p.Broken, p.Moved = sw.unmark(p.Broken), sw.unmark(p.Moved)
 	}
@@ -159,83 +147,28 @@ func (sw *swapper) filterSet(s *config.FilterSet) bool {
 	return changed
 }
 
-// panel copies what it changes, since a stored panel shares its lists.
+// panel copies what it changes, since a stored panel shares its lists. A Grid item that already has settings for To
+// keeps them; From's go.
 func (sw *swapper) panel(p *Panel) bool {
-	changed := false
-	pages := slices.Clone(p.Pages)
-	for i, g := range pages {
-		cloned := false
-		for j, cell := range g.Cells {
-			r, ok := cellRef(cell)
-			if !ok || cell["kind"] != sw.kind() || !sw.ref(&r) {
-				continue
-			}
-			if !cloned {
-				pages[i].Cells, cloned = slices.Clone(g.Cells), true
-			}
-			c := maps.Clone(cell)
-			c["n"], c["name"] = r.N, r.Name
-			pages[i].Cells[j] = c
-			changed = true
-		}
-	}
-	p.Pages = pages
-	edge := &p.Sources
+	edge := p.Sources
 	if sw.dst {
-		edge = &p.Destinations
+		edge = p.Destinations
 	}
-	if e := *edge; e != nil {
-		out := *e
-		hit := false
-		out.Members.List = slices.Clone(e.Members.List)
-		for i := range out.Members.List {
-			hit = sw.ref(&out.Members.List[i]) || hit
+	hasTo := edge != nil && slices.ContainsFunc(edge.Items, func(it GridItem) bool { return sw.ours(it.Router) && it.N == sw.to })
+	changed := false
+	l := layoutOf(*p).walkRefs(func(s refSlot, kind string, r config.Ref) []config.Ref {
+		out := sw.answer(kind, r)
+		if changed = changed || out != nil; out != nil && s == slotItem && hasTo {
+			return []config.Ref{}
 		}
-		out.Members.List = dedupe(out.Members.List)
-		out.Hide = slices.Clone(e.Hide)
-		for i := range out.Hide {
-			hit = sw.ref(&out.Hide[i]) || hit
-		}
-		out.Hide = dedupe(out.Hide)
-		// An item that already has settings for To keeps them; From's go.
-		hasTo := slices.ContainsFunc(e.Items, func(it GridItem) bool { return sw.ours(it.Router) && it.N == sw.to })
-		out.Items = nil
-		for _, it := range e.Items {
-			r := it.ref()
-			if sw.ref(&r) {
-				hit = true
-				if hasTo {
-					continue
-				}
-				it.N, it.Name = r.N, r.Name
-			}
-			out.Items = append(out.Items, it)
-		}
-		if e.Items != nil && out.Items == nil {
-			out.Items = []GridItem{}
-		}
-		if hit {
-			*edge, changed = &out, true
-		}
+		return out
+	}, true)
+	if !changed {
+		return false
 	}
-	if v, ok := p.Settings[panelFixedKey]; ok && sw.dst {
-		if list, err := fixedList(v); err == nil {
-			list = slices.Clone(list)
-			hit := false
-			for i := range list {
-				hit = sw.ref(&list[i]) || hit
-			}
-			if hit {
-				p.Settings = maps.Clone(p.Settings)
-				p.Settings[panelFixedKey] = dedupe(list)
-				changed = true
-			}
-		}
-	}
-	if changed {
-		p.Broken, p.Moved = sw.unmark(p.Broken), sw.unmark(p.Moved)
-	}
-	return changed
+	p.Pages, p.Settings, p.Sources, p.Destinations = l.Pages, l.Settings, l.Sources, l.Destinations
+	p.Broken, p.Moved = sw.unmark(p.Broken), sw.unmark(p.Moved)
+	return true
 }
 
 // For a list, an item the Swap would change. Broken is from before the Swap.
@@ -243,62 +176,40 @@ type swapHit func(it swapItem)
 
 // mine is a user id and limits the Swap to the items of that user; "" is every owner.
 func (sw *swapper) config(c *config.Config, mine string, pick func(id string) bool, hit swapHit) {
-	presets := func(ps []config.Preset, owner, ownerName string) []config.Preset {
-		out := config.ClonePresets(ps)
-		for i := range out {
-			id := "preset/" + owner + "/" + out[i].ID
-			was := sw.brokenIn(out[i].Broken)
-			if !pick(id) {
-				continue
-			}
-			q := config.ClonePresets(out[i : i+1])[0]
-			if sw.preset(&q) {
-				out[i] = q
-				hit(swapItem{ID: id, Kind: "preset", Name: q.Name, Owner: ownerName, Broken: was})
+	for _, s := range itemScopes(c, mine) {
+		ps, fs := config.ClonePresets(*s.Presets), slices.Clone(*s.FilterSets)
+		for i := range ps {
+			id, was := "preset/"+s.ID+"/"+ps[i].ID, sw.brokenIn(ps[i].Broken)
+			if pick(id) && sw.preset(&ps[i]) {
+				hit(swapItem{ID: id, Kind: "preset", Name: ps[i].Name, Owner: s.Name, Broken: was})
 			}
 		}
-		return out
-	}
-	sets := func(fs []config.FilterSet, owner, ownerName string) []config.FilterSet {
-		out := slices.Clone(fs)
-		for i := range out {
-			id := "filterSet/" + owner + "/" + out[i].Name
-			was := sw.brokenIn(out[i].Broken)
-			if pick(id) && sw.filterSet(&out[i]) {
-				hit(swapItem{ID: id, Kind: "filterSet", Name: out[i].Name, Owner: ownerName, Broken: was})
+		for i := range fs {
+			id, was := "filterSet/"+s.ID+"/"+fs[i].Name, sw.brokenIn(fs[i].Broken)
+			if pick(id) && sw.filterSet(&fs[i]) {
+				hit(swapItem{ID: id, Kind: "filterSet", Name: fs[i].Name, Owner: s.Name, Broken: was})
 			}
 		}
-		return out
-	}
-	if mine == "" {
-		c.Presets = presets(c.Presets, "everyone", "")
-		c.FilterSets = sets(c.FilterSets, "everyone", "")
-	}
-	c.Users = slices.Clone(c.Users)
-	for i := range c.Users {
-		u := &c.Users[i]
-		if mine != "" && u.ID != mine {
-			continue
-		}
-		u.Profile = u.Profile.Clone()
-		u.Profile.Presets = presets(u.Profile.Presets, u.ID, u.Name)
-		u.Profile.FilterSets = sets(u.Profile.FilterSets, u.ID, u.Name)
+		*s.Presets, *s.FilterSets = ps, fs
 	}
 }
 
+// onPanel swaps p, a copy, when it is picked and mine.
+func (sw *swapper) onPanel(p *Panel, cfg config.Config, mine string, pick func(id string) bool, hit swapHit) bool {
+	if mine != "" && p.Owner != mine || !pick("panel/"+p.ID) {
+		return false
+	}
+	was := sw.brokenIn(p.Broken)
+	if !sw.panel(p) {
+		return false
+	}
+	u, _ := cfg.FindUserByID(p.Owner)
+	hit(swapItem{ID: "panel/" + p.ID, Kind: "panel", Name: p.Name, Owner: u.Name, Broken: was})
+	return true
+}
+
 func (sw *swapper) panels(s *panelStore, cfg config.Config, mine string, pick func(id string) bool, hit swapHit) error {
-	return s.rewrite(func(p *Panel) bool {
-		if mine != "" && p.Owner != mine || !pick("panel/"+p.ID) {
-			return false
-		}
-		was := sw.brokenIn(p.Broken)
-		if !sw.panel(p) {
-			return false
-		}
-		u, _ := cfg.FindUserByID(p.Owner)
-		hit(swapItem{ID: "panel/" + p.ID, Kind: "panel", Name: p.Name, Owner: u.Name, Broken: was})
-		return true
-	})
+	return s.rewrite(func(p *Panel) bool { return sw.onPanel(p, cfg, mine, pick, hit) })
 }
 
 var errSwapSide = errors.New("swap: side is source or destination")
@@ -327,41 +238,26 @@ func (a *App) newSwapper(cfg config.Config, req swapReq) (*swapper, error) {
 		return nil, errors.New("swap: choose a different number to swap to")
 	}
 	// The names stored for From, so an exact filter term for an old name still matches.
-	note := func(r config.Ref) {
-		if sw.ours(r.Router) && r.N == sw.from && strings.TrimSpace(r.Name) != "" && !sw.named(r.Name) {
+	note := func(kind string, r config.Ref) {
+		if kind == sw.kind() && sw.ours(r.Router) && r.N == sw.from && strings.TrimSpace(r.Name) != "" && !sw.named(r.Name) {
 			sw.fromNames = append(sw.fromNames, r.Name)
 		}
 	}
-	notePresets := func(ps []config.Preset) {
-		for _, p := range ps {
-			for _, it := range p.Items {
-				if sw.dst {
-					for _, d := range it.Dsts {
-						note(d)
-					}
-				} else {
-					note(it.Src)
-				}
-			}
+	w := config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref { note(kind, r); return nil }}
+	for _, s := range itemScopes(&cfg, "") {
+		for _, p := range *s.Presets {
+			w.Preset(&p)
 			for _, m := range slices.Concat(p.Broken, p.Moved) {
-				if m.Kind == sw.kind() {
-					note(m.Ref)
-				}
+				note(m.Kind, m.Ref)
 			}
 		}
-	}
-	notePresets(cfg.Presets)
-	for _, u := range cfg.Users {
-		notePresets(u.Profile.Presets)
 	}
 	for _, p := range a.panels.list() {
-		for _, g := range p.Pages {
-			for _, cell := range g.Cells {
-				if r, ok := cellRef(cell); ok && cell["kind"] == sw.kind() {
-					note(r)
-				}
+		layoutOf(p).readRefs(func(s refSlot, kind string, r config.Ref) {
+			if s == slotCell {
+				note(kind, r)
 			}
-		}
+		})
 	}
 	return sw, nil
 }
@@ -448,10 +344,7 @@ func (a *App) swapPanelsField(x *saveCtx, edits map[string]fieldEdit, now config
 		return x.swap.field(n)
 	}
 	for _, p := range a.panels.list() {
-		if pick("panel/"+p.ID) && x.swap.panel(&p) {
-			u, _ := now.FindUserByID(p.Owner)
-			n.add(swapItem{Owner: u.Name})
-		}
+		x.swap.onPanel(&p, now, "", pick, n.add)
 	}
 	return x.swap.field(n)
 }
@@ -490,14 +383,7 @@ func (a *App) swapList(c *client, req swapReq) ([]swapItem, error) {
 	c2 := cfg.Clone()
 	sw.config(&c2, mine, everyItem, add)
 	for _, p := range a.panels.list() {
-		if mine != "" && p.Owner != mine {
-			continue
-		}
-		was := sw.brokenIn(p.Broken)
-		if sw.panel(&p) {
-			u, _ := cfg.FindUserByID(p.Owner)
-			add(swapItem{ID: "panel/" + p.ID, Kind: "panel", Name: p.Name, Owner: u.Name, Broken: was})
-		}
+		sw.onPanel(&p, cfg, mine, everyItem, add)
 	}
 	return out, nil
 }
