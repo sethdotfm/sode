@@ -71,7 +71,7 @@ func TestChromeStepInWritesNoSessionKeys(t *testing.T) {
 	b.check()
 }
 
-// While stepped in the page border takes the step-in colour, not the Branding one, and "Bo stepped in" shows with Step
+// While stepped in, the page border has the step-in colour, not the Branding one, and "Bo stepped in" shows with Step
 // out. Bo's Compact view never fades the label, and it still shows after the layout turns to phone. The typed source
 // stays across Step in and Step out.
 func TestChromeStepInBorderAndLabel(t *testing.T) {

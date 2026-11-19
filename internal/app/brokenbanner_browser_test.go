@@ -9,8 +9,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Firing a Broken preset shows the Broken banner once, however often it fires, and the banner goes when the
-// preset is fixed. The mark's name differs from the simulator's name at that number, so a name read keeps it.
+// The mark's name differs from the simulator's name at that number, so a name read keeps it.
 func TestChromeBrokenBanner(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

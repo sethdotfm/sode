@@ -7,10 +7,6 @@ import (
 	"testing"
 )
 
-// A Grid panel's Sources list at 2500 sources. Add from the router draws only the rows in view. It lists only what
-// the panel does not have. A typed range uses the numbers as shown (offset 1), and Shift+Enter or Add all appends
-// every match. A click selects (Shift-click a range, Ctrl-click one more) and + adds the selection. Enter adds the
-// highlighted match, the arrows move the highlight, and the next match slides into it. Save keeps the list.
 func TestChromeGridPanelEditorChunk(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t, "SIM_SOURCES=2500", "SIM_DESTS=750")
@@ -32,8 +28,7 @@ func TestChromeGridPanelEditorChunk(t *testing.T) {
 	b.eval(`const r = document.getElementById('ed-sources-router'); r.scrollTop = r.scrollHeight; true`)
 	b.waitFor("the last source shows at the end", `!!document.querySelector('#ed-sources-router [data-n="2499"]:not([hidden])')`)
 
-	// Follow the router: the panel's own list has 2500 rows, and nothing is left to add. Only the rows in view have nodes, and an
-	// edit draws only those again. Every row drawn cost 66,000 elements, 33,000 listeners and 800 ms an edit.
+	// Only the rows in view have nodes. With every row drawn, an edit cost 66,000 elements, 33,000 listeners and 800 ms.
 	b.eval(`document.getElementById('ed-sources-all').click(); true`)
 	b.waitFor("nothing is left to add", `!document.querySelector('#ed-sources-router [data-n]:not([hidden])') && document.getElementById('ed-sources-shown').textContent === '0'`)
 	b.waitFor("the panel's list has every source", `document.getElementById('ed-sources-state').textContent === '2500' && document.getElementById('ed-sources-all').checked`)
@@ -131,7 +126,6 @@ func TestChromeGridPanelEditorChunk(t *testing.T) {
 	b.waitFor("Enter adds it, and Find keeps its text and the focus", `(async () => (await `+members+`) === '`+span(100, 149)+`,1,12,22' && document.activeElement.id === 'ed-sources-find')()`)
 	b.waitFor("what the panel has leaves Add from the router", `!document.querySelector('#ed-sources-router [data-n="12"]:not([hidden])') && `+rows+`.length === 2`)
 
-	// CAM 2, Shift-click CAM 4, Ctrl-click CAM 6, then + adds the four in router order.
 	find("14-21")
 	b.waitFor("Find shows the cameras left", `!!document.querySelector('#ed-sources-router [data-n="17"]:not([hidden])')`)
 	click(13, "")

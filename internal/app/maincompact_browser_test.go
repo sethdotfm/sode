@@ -10,11 +10,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Compact view hides History. While both links are up, it fades the footer, the Lock bar and the
-// status (hover or focus brings each back). It centres the block, and neither the match list nor a
-// failed take moves the block. After a reload the Last chips fill from the stored Last, and a failed
-// take and a lost link still show. Alt+Shift+C toggles Compact view from a box, and Settings shows
-// it under This browser.
 func TestChromeMainCompact(t *testing.T) {
 	b := startBrowser(t)
 	// The simulator ACKs connects to DSM1 but never routes it, so a take there fails.
@@ -133,7 +128,6 @@ func TestChromeMainCompact(t *testing.T) {
 		t.Fatalf("the failed take moved the boxes: top %v, was %v", got, top)
 	}
 	b.shot("compact-failed")
-	// Ctrl+Z still reaches undo: its confirm, or Nothing to undo when the failed take moved nothing.
 	b.eval(`document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true})); true`)
 	b.waitFor("Ctrl+Z answers", `!document.getElementById('confirm').hidden || document.getElementById('result').textContent.includes('Nothing to undo')`)
 	if b.eval(`!document.getElementById('confirm').hidden`) == true {
@@ -141,7 +135,6 @@ func TestChromeMainCompact(t *testing.T) {
 		b.waitFor("Esc closes the confirm", `document.getElementById('confirm').hidden`)
 	}
 
-	// Esc clears the boxes, then with them empty starts no keyboard mode while History is hidden.
 	b.eval(`for (let i = 0; i < 6; i++) { const t = document.getElementById('src'); t.focus(); t.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true, cancelable: true})); } true`)
 	b.waitFor("Esc cleared the boxes", `document.getElementById('src').value === '' && document.getElementById('lvl').value === '' && document.getElementById('dst-chips').hidden`)
 	if got := b.eval(`document.getElementById('history').classList.contains('sode__hist--keys') || document.activeElement.id`); got != "src" {
@@ -190,7 +183,6 @@ func TestChromeMainCompact(t *testing.T) {
 	b.waitFor("Lock bar back on focus", opacity(bar, "1"))
 	b.eval(`document.activeElement.blur(); true`)
 
-	// A preset picking from History brings back the usual page.
 	b.eval(`document.documentElement.dataset.sodePick = ''; true`)
 	b.waitFor("History back while picking", shown("#patch-view > .sode__history"))
 	b.waitFor("not centred while picking", `getComputedStyle(document.querySelector('.sode')).display !== 'grid' && getComputedStyle(document.getElementById('result')).position !== 'absolute'`)

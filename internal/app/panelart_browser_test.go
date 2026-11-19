@@ -11,11 +11,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A cell's artwork is one DOM node for the life of the grid. The poll and the one-second redraw must not detach and
-// re-attach it (a re-attached <use> re-resolves its sprite and blinks). They must not touch an idle cell's children.
-// Side by side, Icon A takes 40% of the row and Icon B 60%, and hidden text shows the artwork at full strength.
-// badgeIn(row) is true when the row's image fills its content box with contain and Icon B is a small badge in its top
-// end corner. The panel page and editor checks share it.
+// A cell's artwork is one DOM node for the life of the grid. The poll and the one-second redraw must not detach and re-attach it (a re-attached <use> re-resolves its sprite and blinks).
 const badgeIn = `window.badgeIn = (row) => {
 	const r = row.getBoundingClientRect(), p = parseFloat(getComputedStyle(row).paddingTop);
 	const img = row.querySelector('img.sode-panel__art-a'), g = row.querySelector('.sode-panel__art-b--badge');
@@ -75,11 +71,9 @@ func TestChromePanelArtHolds(t *testing.T) {
 	}
 	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	b.waitFor("five cells", `document.querySelectorAll('.sode-panel__cell').length === 5`)
-	// The page paints "Source N" until its first names poll answers; watching before the router's name is in sees that
-	// change, not a redraw.
+	// The page paints "Source N" until its first names poll answers. A watch that starts before the router's name is in sees that change, not a redraw.
 	b.waitFor("cells named from the router", `document.querySelectorAll('.sode-panel__cell--source')[1].querySelector('.sode-panel__text')?.textContent === 'Zoom 1'`)
 
-	// Watch the first cell and its artwork after the names are in, across several poll (2 s) and redraw (1 s) ticks.
 	b.eval(`window.cell = document.querySelectorAll('.sode-panel__cell--source')[0];
 		window.art = cell.querySelector('.sode-panel__art');
 		window.seen = [];
@@ -116,7 +110,6 @@ func TestChromePanelArtHolds(t *testing.T) {
 	b.waitFor("an image fills its merged cell with Icon B a corner badge", `badgeIn(document.querySelector('.sode-panel__cell--panelName .sode-panel__art'))`)
 	b.shot("image-badge")
 
-	// A state change still repaints: the pressed source reads pending, and its artwork stays the same node.
 	b.eval(`document.querySelector('.sode-panel__cell--destination').click(); cell.click(); true`)
 	b.waitFor("the source reads pending", `cell.dataset.s === 'pending'`)
 	b.waitFor("and keeps its artwork node", `cell.querySelector('.sode-panel__art') === art && cell.firstChild === art`)

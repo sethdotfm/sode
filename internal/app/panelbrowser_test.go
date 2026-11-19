@@ -18,9 +18,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// startSim builds cmd/swp08sim and runs it on a free port, returning its address. Never a
-// live Ultrix: the only router a browser check is allowed to reach is this one. env adds SIM_* settings
-// ("SIM_SOURCES=2500"; docs/reference.md lists them).
+// startSim builds cmd/swp08sim, runs it on a free port and returns its address. Never a live Ultrix: this is the only router a browser check is allowed to reach. env adds SIM_* settings ("SIM_SOURCES=2500"; docs/reference.md lists them).
 func startSim(t *testing.T, env ...string) string {
 	addr, _ := startSimStoppable(t, env...)
 	return addr
@@ -33,7 +31,7 @@ var simBuild struct {
 	out      []byte
 }
 
-// simBinary builds cmd/swp08sim once per test binary; TestMain removes it.
+// simBinary builds cmd/swp08sim one time per test binary; TestMain removes it.
 func simBinary(t *testing.T) string {
 	t.Helper()
 	simBuild.once.Do(func() {
@@ -150,8 +148,6 @@ const (
 	simSrcName = "Zoom 1"
 )
 
-// Panel launch in Session mode: the page asks for a PIN, and the signed-in user's key reads the
-// panel. Stage plus Take switch a destination on the simulated router.
 func TestChromePanelSessionTake(t *testing.T) {
 	b := startBrowser(t) // first: a box with no Chrome skips before building the simulator
 	sim := startSim(t)
@@ -184,7 +180,6 @@ func TestChromePanelSessionTake(t *testing.T) {
 	}
 	b.open(srv.URL + "/panels/" + id + "?instance=Desk")
 
-	// Launch: nobody is signed in, so the page raises the PIN pad before anything else.
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	b.shot("pin")
 	b.padName("Ana")

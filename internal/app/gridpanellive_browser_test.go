@@ -5,11 +5,6 @@ import (
 	"testing"
 )
 
-// A saved change and a Default artwork change reach an open Grid panel by the usual live update. With nothing staged
-// it applies after the countdown and keeps the search, the picks and the cursor on the same items. With a route
-// staged it waits until Apply now, which drops the staged route and keeps the search. The banner shows in the gap
-// between the search boxes and Clear, with the main page's countdown bar, and the grid never moves. A take result
-// shows over it, and a new update notice takes the place of the result.
 func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -107,7 +102,6 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	b.waitFor("the Take button is off", `document.getElementById('panel-take').textContent === 'Take' && document.getElementById('panel-take').disabled`)
 	kept("Apply now", 0)
 
-	// A take's result is the main page's banner in the same box, with its countdown, and the grid does not move.
 	b.eval(gridXp(12, 2) + `.click(); true`)
 	gridKey(b, "Enter")
 	gridConfirm(b)

@@ -11,7 +11,7 @@ import (
 )
 
 // Restore from a backup on the Welcome step. A file with no PINs asks for the first Administrator's PIN. The
-// page reloads out of the wizard once the restore is written.
+// page reloads out of the wizard after the restore is written.
 func TestChromeSetupRestore(t *testing.T) {
 	b := startBrowser(t)
 	_, file := backupOf(t, false)

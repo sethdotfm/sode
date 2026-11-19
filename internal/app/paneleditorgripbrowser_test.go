@@ -11,8 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The editor's corner grip extends numbering with a tip, and the fill order picker changes the preview. The toolbar
-// counts an unassigned cell, and the Live Editor saves and opens a panel that leaves that cell out.
 func TestChromeEditorGripOrderLive(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -54,7 +52,6 @@ func TestChromeEditorGripOrderLive(t *testing.T) {
 		window.ptr = (el, type, at) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, ...at }));
 		true`)
 
-	// Select the two Sources and drag the grip three squares right.
 	b.eval(`press(grid, { key: 'ArrowDown' }); press(grid, { key: 'ArrowRight', shiftKey: true })`)
 	b.waitFor("grip on the selection", `!!document.querySelector('.sode-ed__grip')`)
 	b.eval(`ptr(document.querySelector('.sode-ed__grip'), 'pointerdown', mid(document.querySelector('.sode-ed__grip'))); ptr(document, 'pointermove', mid(sq(1, 5)))`)
@@ -64,7 +61,6 @@ func TestChromeEditorGripOrderLive(t *testing.T) {
 	b.eval(`ptr(document, 'pointerup', mid(sq(1, 5)))`)
 	b.waitFor("numbering extended and selected", `document.querySelectorAll('.sode-ed__sq--source:not(.is-unassigned)').length === 5 && !!document.querySelector('.is-sel[data-r="1"][data-c="5"]') && !document.querySelector('.is-preview')`)
 
-	// Fill order: a 2x2 block previews down as 1 then 2 in the first column.
 	b.eval(`press(grid, { key: 'Escape' }); for (const k of ['ArrowDown', 'ArrowDown', 'ArrowDown']) press(grid, { key: k }); press(grid, { key: 'ArrowRight', shiftKey: true }); press(grid, { key: 'ArrowDown', shiftKey: true }); press(grid, { key: 'z' })`)
 	b.waitFor("Find open", `document.querySelector('.sode-find input') === document.activeElement`)
 	b.eval(`const i = document.querySelector('.sode-find input'); i.value = 'zoom'; i.dispatchEvent(new Event('input'))`)
@@ -73,7 +69,6 @@ func TestChromeEditorGripOrderLive(t *testing.T) {
 	b.waitFor("down order previewed", `sq(4, 1)?.textContent.includes('Zoom 2') && !sq(3, 2)?.textContent.includes('Zoom 2') && !!document.querySelector('.sode-find__orders [data-order="down"][aria-pressed="true"]')`)
 	b.shot("order")
 
-	// The Live Editor saves the edits, then runs the saved panel in the editor; the unassigned cell is not on it.
 	b.eval(`window.opened = ''; window.open = (u) => { window.opened = u; return null }; document.getElementById('ed-live').click()`)
 	b.waitSaved("saved before the live view")
 	b.waitFor("live shown after saving", `!document.getElementById('ed-live-view').hidden`)

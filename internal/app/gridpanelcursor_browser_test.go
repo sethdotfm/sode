@@ -20,22 +20,18 @@ func realKey(b *tab, key, code string, vk int) {
 // gridCursor is the cursor's display position as "i,j" (-1 is a bar).
 const gridCursor = `(() => { const c = document.querySelector('.sode-gridpanel__cursor'); return c && !c.hidden ? c.dataset.i + ',' + c.dataset.j : ''; })()`
 
-// gridCued is the router numbers of the names outlined for the cursor, as "src,dst" (” for none).
+// gridCued is the router numbers of the names outlined for the cursor, as "src,dst" ("" for none).
 const gridCued = `(() => {
 	const n = (k) => [...document.querySelectorAll('.sode-gridpanel__' + k + '[data-cue]:not([hidden])')].map((x) => x.dataset[k]).join('+');
 	return n('src') + ',' + n('dst');
 })()`
 
-// gridCursorOn waits for the cursor to be at display row i and column j.
 func gridCursorOn(b *tab, what string, i, j int) {
 	b.t.Helper()
 	b.waitFor(what, fmt.Sprintf(`%s === '%d,%d'`, gridCursor, i, j))
 }
 
-// One cursor for keys and the pointer. It starts at the corner. Physical h/j/k/l and arrows move it, Space stages at
-// it and a second Space opens the take confirm, PageDown scrolls one screen, Home goes back. A pointer move places the cursor and
-// changes nothing else on the page but the outline on its names. After a pointer move a scroll moves the cursor with the content under the
-// pointer; after a key a scroll leaves it. The pointer-to-cursor delay is reported, not asserted.
+// The check reports the delay from pointer to cursor and does not assert it.
 func TestChromeGridPanelCursor(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -101,7 +97,6 @@ func TestChromeGridPanelCursor(t *testing.T) {
 	gridCursorOn(b, "Home goes to the corner", -1, -1)
 	b.waitFor("Home scrolls to the start", `document.querySelector('.sode-gridpanel__scroll').scrollTop === 0`)
 
-	// The pointer: moves change only the cursor, and the delay to the next frame is reported.
 	at := func(src, dst int) (float64, float64) {
 		r := b.eval(`(() => { const r = ` + gridXp(src, dst) + `.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`).([]any)
 		return r[0].(float64), r[1].(float64)
@@ -112,7 +107,7 @@ func TestChromeGridPanelCursor(t *testing.T) {
 		const grid = document.getElementById('panel-grid');
 		const cur = grid.querySelector('.sode-gridpanel__cursor');
 		window.__muts = 0;
-		// The cursor's names take or drop their outline; anything else is work a pointer move must not do.
+		// The cursor's names get or drop their outline. A pointer move must not do other work.
 		const cue = (r) => r.attributeName === 'data-cue' && r.target.matches('.sode-gridpanel__src, .sode-gridpanel__dst');
 		window.__mo = new MutationObserver((recs) => { for (const r of recs) if (r.target !== cur && !cue(r)) { window.__muts++; (window.__what ||= []).push(r.type + ' ' + r.attributeName + ' ' + r.target.className); } });
 		window.__mo.observe(grid, { childList: true, subtree: true, attributes: true, characterData: true });
@@ -141,7 +136,6 @@ func TestChromeGridPanelCursor(t *testing.T) {
 	lag := b.eval(`(() => { const l = window.__lag.slice().sort((a, b) => a - b); return [l.length, l[l.length >> 1], l[l.length - 1]]; })()`).([]any)
 	t.Logf("pointer to cursor: %v moves, median %.1f ms, most %.1f ms to the next frame", lag[0], lag[1], lag[2])
 
-	// After a pointer move, a scroll moves the cursor to what is now under the pointer.
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseWheel", "x": x1, "y": y1, "deltaX": 0, "deltaY": 400})
 	b.waitFor("a scroll after the pointer moves the cursor with it", `(() => {
 		const [i, j] = `+gridCursor+`.split(',').map(Number);
@@ -150,7 +144,6 @@ func TestChromeGridPanelCursor(t *testing.T) {
 			.some((n) => n.matches?.('.sode-gridpanel__xp') && n.dataset.dst === String(i) && n.dataset.src === String(j));
 	})()`)
 
-	// After a key, a scroll leaves the cursor where the key put it.
 	realKey(b, "k", "KeyK", 75)
 	want := b.eval(gridCursor).(string)
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseWheel", "x": x1, "y": y1, "deltaX": 0, "deltaY": 200})
@@ -160,7 +153,6 @@ func TestChromeGridPanelCursor(t *testing.T) {
 		t.Errorf("a scroll after a key moved the cursor from %s to %s", want, got)
 	}
 
-	// With two sources picked, a press uses them and not the cursor's column, so only the targets are outlined.
 	cuedSrc := `getComputedStyle(document.querySelector('.sode-gridpanel__src[data-src="4"]')).outlineStyle`
 	b.waitFor("the cursor's source is outlined", cuedSrc+` === 'solid'`)
 	b.eval(`(() => {

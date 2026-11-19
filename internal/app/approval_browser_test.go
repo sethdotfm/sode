@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A Standard user edits a Shown section and saves. The refusal opens the Approval popup; a wrong PIN shows there, and
-// Ada's name and PIN save the change.
 func TestChromeApprovalSavesShownSection(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

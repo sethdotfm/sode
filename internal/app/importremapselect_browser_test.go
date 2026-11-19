@@ -34,7 +34,7 @@ func press(b *tab, key, code string, vk, modifiers int) {
 	}
 }
 
-// The remap rows as one list. Shift+arrow and a drag select rows, and Esc clears them without closing the dialog. A
+// The remap rows as one list. Shift+arrow and a drag select rows. Esc clears them and the dialog stays open. A
 // choice on a selected row goes to every selected row, and Reset to Skip clears them. A range term whose names differ asks
 // with Convert to names preselected, and the import writes the names.
 func TestChromeImportRemapSelect(t *testing.T) {

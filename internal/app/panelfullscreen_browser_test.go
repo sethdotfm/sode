@@ -11,7 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Fullscreen turned off stops presses that ask for it, after a reload and after a live update.
 // Enforce landscape orientation keeps asking, since Chrome locks the turn only in fullscreen.
 func TestChromePanelFullscreenFollowsSettings(t *testing.T) {
 	b := startBrowser(t)
@@ -76,14 +75,12 @@ func TestChromePanelFullscreenFollowsSettings(t *testing.T) {
 	b.waitFor("fullscreen on: a press enters fullscreen", `!!document.fullscreenElement`)
 	leave()
 
-	// On, then off and saved, then a reload.
 	put("Off", false, false)
 	b.eval(`location.reload(); true`)
 	ready("Off")
 	press()
 	stayOut("fullscreen off after a reload")
 
-	// A live update that turns it on and then off again.
 	put("Live on", true, false)
 	b.waitFor("update banner", `!document.getElementById('panel-update').hidden`)
 	b.eval(`document.getElementById('panel-apply').click()`)
@@ -98,7 +95,6 @@ func TestChromePanelFullscreenFollowsSettings(t *testing.T) {
 	press()
 	stayOut("fullscreen off after a live update")
 
-	// Landscape alone still asks: the turn locks only in fullscreen.
 	put("Landscape", false, true)
 	b.waitFor("update banner", `!document.getElementById('panel-update').hidden`)
 	b.eval(`document.getElementById('panel-apply').click()`)

@@ -31,7 +31,7 @@ func waitsOnSaveDisabled(call string) bool {
 	return false
 }
 
-// waitForCalls returns each `.waitFor(` call up to its closing paren, ignoring parens inside quotes.
+// waitForCalls returns each `.waitFor(` call up to its closing paren. It ignores parens inside quotes.
 func waitForCalls(src string) []waitForCall {
 	var out []waitForCall
 	for from := 0; ; {

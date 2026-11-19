@@ -11,8 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Both: a link with the key opens the panel as its API client with no sign-in. The plain link runs it in
-// Session mode behind the page lock's PIN pad.
 func TestChromePanelBothMode(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

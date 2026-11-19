@@ -37,10 +37,8 @@ func waitNamesAndTally(t *testing.T, a *App, key string) {
 	}
 }
 
-// A keyless page (its key revoked) of a panel with a Fixed destination is assigned to another panel with fixed
-// destinations. It opens the target by its short name on the key stored as sode-panel-key-<slug>. A Source press
-// and Take patch both fixed destinations. After that key is revoked, it shows the ended-key note and announces
-// itself keyless again.
+// A keyless page assigned to a panel with fixed destinations patches them on the stored key.
+// After a revoke of that key it shows the ended-key note and is keyless again.
 func TestChromeSeamKeylessAssignRunsFixedDestsThenKeyEnds(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -123,9 +121,7 @@ func TestChromeSeamKeylessAssignRunsFixedDestsThenKeyEnds(t *testing.T) {
 	}
 }
 
-// A panel holds an Icon library icon with Icon B, and a cell drawn whole by a Default artwork image with Icon B.
-// A cell with art of its own gets none of the default. The panel is Pushed and Copied. On both the copy's and the
-// target's panel page, each cell draws its image with Icon B as the corner badge.
+// Icon B stays the corner badge of a library icon and of a Default artwork cell after a Push and a Copy.
 func TestChromeSeamIconBBadgeAfterPushAndCopy(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -147,7 +143,7 @@ func TestChromeSeamIconBBadgeAfterPushAndCopy(t *testing.T) {
 	if code, body := pushTo(a, ana, src, dst); code != 200 {
 		t.Fatalf("push: %d %v", code, body)
 	}
-	// A copy starts in Session mode; switched to API mode so the page opens on a key with no sign-in.
+	// A copy starts in Session mode. API mode lets the page open on a key with no sign-in.
 	copied := apiBody(t, apiSend(a, "POST", "/api/v1/panels/"+src+"/copy", ana, ""))
 	cp := copied["id"].(string)
 	copied["acts"] = "api"

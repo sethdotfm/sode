@@ -6,8 +6,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Change my PIN on a phone. Cy is PIN needed with no PIN: picking the name signs in, and Change my PIN opens by
-// itself with no Current PIN. After the set, the dialog asks the current PIN and offers Remove my PIN.
+// Cy is PIN needed with no PIN, so Change my PIN opens by itself with no Current PIN.
 func TestChromeChangeMyPinOnPhone(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

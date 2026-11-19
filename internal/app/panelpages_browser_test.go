@@ -11,9 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A saved three-Page panel with wrap off: Go to Page, Next Page and Previous Page move between Pages. A route staged
-// from a Destination on Page 1 and a Source on Page 2 is taken from Page 2. A reload reopens Page 2. A saved edit
-// that disables Page 2 moves the page to the first enabled Page.
 func TestChromePanelPages(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -67,7 +64,6 @@ func TestChromePanelPages(t *testing.T) {
 	b.waitFor("Previous Page is greyed on the first Page without wrap", cell("previousPage")+`.disabled && !`+cell("nextPage")+`.disabled`)
 	b.shot("pages-one")
 
-	// Page 3 has no cells and still opens; it shows nothing, so the way back is a reload of the saved Page.
 	b.eval(cell("goToPage") + `.click()`)
 	onPage("Go to Page opens Page 3, which has no cells", `document.querySelectorAll('.sode-panel__cell').length === 0 && localStorage.getItem('sode-panel-page-`+id+`') === 'three'`)
 	b.eval(`localStorage.setItem('sode-panel-page-` + id + `', 'one'); location.reload(); true`)
