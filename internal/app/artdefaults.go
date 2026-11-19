@@ -155,9 +155,8 @@ func loadArtDefaults(cfgPath string) *artDefaultStore {
 
 // storedArtOK: the forms set stores, so a hand edit cannot name a URL or another panel's artwork.
 func storedArtOK(d ArtDefault) bool {
-	art := d.Art == "" || artIconRe.MatchString(d.Art) || artDefaultIDRe.MatchString(d.Art) ||
-		strings.HasPrefix(d.Art, "lib:") && iconIDRe.MatchString(d.Art[len("lib:"):])
-	return art && (d.ArtB == "" || artBRe.MatchString(d.ArtB))
+	r, ok := parseArtRef(d.Art)
+	return ok && r.kind != artRefPanel && (d.ArtB == "" || artBRe.MatchString(d.ArtB))
 }
 
 func (s *artDefaultStore) list() []ArtDefault {
@@ -245,7 +244,7 @@ func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 			return d, err
 		}
 		d.Art, added = id, add
-	} else if artDefaultIDRe.MatchString(d.Art) && !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == d.Art }) {
+	} else if r, _ := parseArtRef(d.Art); r.kind == artRefDefault && !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == d.Art }) {
 		return d, errNoArtDefaultFile
 	}
 	if i >= 0 {

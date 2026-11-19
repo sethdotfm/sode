@@ -136,7 +136,8 @@ func (t *Template) clean() error {
 }
 
 func dropArtwork(m map[string]any, key string) {
-	if s, ok := m[key].(string); ok && artIDRe.MatchString(s) {
+	s, _ := m[key].(string)
+	if r, _ := parseArtRef(s); r.kind == artRefPanel {
 		delete(m, key)
 	}
 }
