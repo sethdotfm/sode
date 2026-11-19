@@ -57,7 +57,7 @@ func TestChromeEditorSignOutLeavesEditing(t *testing.T) {
 	// Nothing waits to go out under the next sign-in.
 	signInOnPad(b)
 	b.waitFor("signed in again", `!document.documentElement.dataset.sodeLock && document.getElementById('ed-state').textContent === 'Saved'`)
-	time.Sleep(time.Second)
+	b.waitFor("a moment passes", `new Promise((ok) => setTimeout(() => ok(true), 1000))`)
 	if now, _ := a.panels.get(id); now.Rev != was.Rev {
 		t.Fatalf("the panel changed after the sign-out: rev %d, was %d", now.Rev, was.Rev)
 	}

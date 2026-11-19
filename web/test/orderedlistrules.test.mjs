@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { moveItem, dropTo, removeItem, canMove } from '../orderedlistrules.js';
+import { moveItem, dropTo, removeItem, canMove, edgeStep } from '../orderedlistrules.js';
 
 const abcd = () => ['a', 'b', 'c', 'd'];
 
@@ -57,4 +57,25 @@ test('Move up stops at the first row and Move down at the last', () => {
   assert.deepEqual(canMove(1, 4), { up: true, down: true });
   assert.deepEqual(canMove(3, 4), { up: true, down: false });
   assert.deepEqual(canMove(0, 1), { up: false, down: false });
+});
+
+test('a drag near an edge scrolls that way, faster nearer the edge, and not between the edges', () => {
+  // A scroller from 100 to 500 px, edge bands of 50 px, at most 20 px a frame.
+  const at = (y) => edgeStep(y, 100, 500, 50, 20);
+  assert.equal(at(300), 0);
+  assert.equal(at(150), 0);
+  assert.equal(at(450), 0);
+  assert.ok(at(140) < 0 && at(140) > at(110));
+  assert.ok(at(460) > 0 && at(460) < at(490));
+  assert.equal(at(100), -20);
+  assert.equal(at(500), 20);
+  // Past the edge it keeps the full speed.
+  assert.equal(at(90), -20);
+  assert.equal(at(520), 20);
+});
+
+test('a short scroller gets edge bands of a third each, so the middle third never scrolls', () => {
+  assert.equal(edgeStep(130, 100, 190, 50, 20), 0);
+  assert.ok(edgeStep(125, 100, 190, 50, 20) < 0);
+  assert.equal(edgeStep(100, 100, 100, 50, 20), 0);
 });

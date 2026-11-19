@@ -19,3 +19,14 @@ export function dropTo(from, over, after = from < over) {
 export const removeItem = (list, i) => (i < 0 || i >= list.length ? list : list.filter((_, j) => j !== i));
 
 export const canMove = (i, n) => ({ up: i > 0, down: i < n - 1 });
+
+// The scroll step for a drag at y over a scroller from top to bottom, in px a frame. It is negative in the band zone
+// px under the top, positive in the band above the bottom, and 0 between them. It grows to max at the edge and stays
+// at max past it. A short scroller's bands are a third of its height each.
+export function edgeStep(y, top, bottom, zone, max) {
+  const z = Math.min(zone, (bottom - top) / 3);
+  if (z <= 0) return 0;
+  const near = y < top + z ? (top + z - y) / z : y > bottom - z ? (y - (bottom - z)) / z : 0;
+  if (!near) return 0;
+  return Math.sign(y - (top + bottom) / 2) * Math.ceil(max * Math.min(1, near));
+}
