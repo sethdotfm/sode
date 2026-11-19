@@ -12,6 +12,7 @@ import { renderPinStatus, resetPinFields } from './settingspin.js';
 import { relock, unlocked, needsPin } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { askRecheck } from './recheck.js';
+import { askApproval } from './approval.js';
 import { form, isOpen, fillForm, fillGlobalDefaults, renderOffsetNote, renderHiddenNote, renderNamesStatus } from './settingsform.js';
 import { renderLock, showLockErr, resetLock, closeLockHelp } from './settingslock.js';
 import { initSave, markClean, warnUnsaved, unwarn, saving, showSaveErr } from './settingssave.js';
@@ -124,15 +125,22 @@ $('clear-cancel').addEventListener('click', resetClear);
 let clearing = 0;
 const CLEAR_GRACE_MS = 5000;
 const clearPending = () => Date.now() - clearing < CLEAR_GRACE_MS;
-function sendClear() {
+let clearAnswer = null; // the Approval popup of a clear sent with an Approval
+let myRole = '';
+function sendClear(approval = null, answer = null) {
   clearing = Date.now();
-  if (!wsSend({ t: 'clearHistory' })) {
+  if (!wsSend({ t: 'clearHistory', ...(approval && { approval }) })) {
     clearing = 0;
-    showSaveErr('Not connected to Sode.');
-    return;
+    if (!answer) showSaveErr('Not connected to Sode.');
+    return false;
   }
+  clearAnswer = answer;
   resetClear();
+  return true;
 }
+on('access', (a) => {
+  myRole = a.role || '';
+});
 $('clear-confirm').addEventListener('click', async () => {
   if (S.pinSet && !unlocked() && !(await askPin('Clearing history needs the Advanced Settings PIN.'))) return;
   sendClear();
@@ -140,12 +148,23 @@ $('clear-confirm').addEventListener('click', async () => {
 on('historyCleared', () => {
   if (!clearPending()) return;
   clearing = 0;
+  clearAnswer?.done();
+  clearAnswer = null;
   showResult('ok', 'History cleared', 'History is empty for everyone.');
 });
-// A refusal: a PIN recheck is asked and the clear sent again; anything else (Sode shuts down) shows.
+// A refusal: a PIN recheck is asked and the clear sent again. Below an Administrator, an Approval is asked. Anything
+// else (Sode shuts down) shows.
 onMsg('clearHistoryResult', (m) => {
   if (m.ok || !clearPending()) return;
   clearing = 0;
+  const answer = clearAnswer;
+  clearAnswer = null;
+  if (answer && m.approval) return void answer.fail(m.err);
+  answer?.done();
+  if (!answer && !m.locked && myRole && myRole !== 'administrator') {
+    askApproval('Clearing History', 'an Administrator', (ap, ans) => sendClear(ap, ans));
+    return;
+  }
   if (m.recheck) {
     askRecheck('Clearing History').then((ok) => (ok ? sendClear() : showSaveErr(sentence(m.err))));
     return;
