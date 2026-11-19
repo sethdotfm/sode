@@ -140,6 +140,8 @@ type opResult struct {
 	Err string `json:"err,omitempty"`
 	// Recheck: refused for want of a PIN recheck; the page asks for it and sends again.
 	Recheck bool `json:"recheck,omitempty"`
+	// Approval: the Approval itself was refused; the page shows why in its Approval popup.
+	Approval bool `json:"approval,omitempty"`
 }
 
 type sentAddMsg struct {

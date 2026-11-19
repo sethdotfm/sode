@@ -6,12 +6,13 @@ import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { fmtTime } from './device.js';
 import { layout } from './layout.js';
 import { askRecheck } from './recheck.js';
+import { askApproval } from './approval.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical, sectionOfKey } from './savereviewrules.js';
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
-import { sectionView } from './settingsrolerules.js';
+import { sectionView, approvalWho } from './settingsrolerules.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
 
 // A save is in flight.
@@ -27,7 +28,7 @@ let role = '';
 let me = ''; // who stages an edit now: the user, a stepped-in user included, else Guest
 let authors = new Map(); // stagedrules.js marks
 let seq = 0;
-let pending = null; // { id, sent, retried }; sent: key -> the value sent
+let pending = null; // { id, sent, retried, answer }; sent: key -> the value sent; answer: the Approval popup's
 
 function changes() {
   const rows = diffRows(base, saveFields());
@@ -102,7 +103,8 @@ function show(r, v) {
   return showValue(v);
 }
 
-const kept = (r) => (sectionView(sectionOf(r.key), role, layout() === 'phone') === 'edit' ? '' : 'your Role cannot change this');
+// A read section (Shown) saves through an Approval, so its rows are sent.
+const kept = (r) => (sectionView(sectionOf(r.key), role, layout() === 'phone') === 'hidden' ? 'your Role cannot change this' : '');
 
 // ---- marks, the exit warning and the footer text
 
@@ -201,14 +203,18 @@ function valuesOf(keys) {
   return out;
 }
 
-function sendFields(keys, sent, retried) {
+function sendFields(keys, sent, retried, approval = null, answer = null) {
   const version = (k) => (sourceOf(k) ? sourceOf(k).version(k) : versions[k]) ?? '';
   const fields = Object.fromEntries(keys.map((k) => [k, { value: sent[k], version: version(k) }]));
   if (!keys.length) return;
   const id = ++seq;
-  if (!wsSend({ t: 'settingsSave', id, fields })) return void showSaveErr('Not connected to Sode.');
-  pending = { id, sent, retried };
+  if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }) })) {
+    if (!answer) showSaveErr('Not connected to Sode.');
+    return false;
+  }
+  pending = { id, sent, retried, answer };
   $('settings-save').disabled = true;
+  return true;
 }
 
 function settingsSaveResult(m) {
@@ -216,9 +222,12 @@ function settingsSaveResult(m) {
   const p = pending;
   pending = null;
   $('settings-save').disabled = false;
+  if (p.answer && !m.results && m.approval) return void p.answer.fail(m.err);
+  p.answer?.done();
   if (!m.results) return showSaveErr(sentence(m.err) || 'Not saved.');
   let saved = 0;
   const again = [];
+  const approve = [];
   for (const [key, r] of Object.entries(m.results)) {
     const src = sourceOf(key);
     if (r.status === 'refused') {
@@ -231,6 +240,7 @@ function settingsSaveResult(m) {
         }
       }
       if (r.reason === 'needs PIN recheck' && !p.retried) again.push(key);
+      if (r.reason === 'needs Approval' && !p.answer) approve.push(key);
       refused.set(key, r);
       continue;
     }
@@ -250,6 +260,10 @@ function settingsSaveResult(m) {
     return;
   }
   done(saved);
+  if (approve.length && isOpen()) {
+    const who = approvalWho(approve.map(sectionOf));
+    askApproval('Saving these changes', who, (ap, answer) => sendFields(approve, p.sent, true, ap, answer));
+  }
 }
 
 function done(saved) {
@@ -286,7 +300,8 @@ async function review({ focusField }) {
     place,
     label,
     show,
-    critical: (r) => critical(r.key),
+    // A row that goes through an Approval needs no recheck of this browser's user: an Administrator approver's counts.
+    critical: (r) => critical(r.key) && sectionView(sectionOf(r.key), role) === 'edit',
     reconnects: (r) => reconnects(r.key),
     address: now.router,
     recheckNeeded: S.users.length > 0,
