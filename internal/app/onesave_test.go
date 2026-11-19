@@ -76,12 +76,12 @@ func TestConfigMessageKeepsSectionRoles(t *testing.T) {
 	}
 	cfg := a.r().cfg
 	cfg.LevelColors = []string{"#abcdef"}
-	if err := a.SaveSettings(ana, cfg, "", false); !isRoleErr(err) {
+	if err := a.SaveSettings(ana, cfg); !isRoleErr(err) {
 		t.Fatalf("Trusted user saving Level colors: %v", err)
 	}
 	cfg = a.r().cfg
 	cfg.BrandText = "Studio B"
-	if err := a.SaveSettings(ana, cfg, "", false); err != nil {
+	if err := a.SaveSettings(ana, cfg); err != nil {
 		t.Fatalf("Trusted user saving Branding: %v", err)
 	}
 }
@@ -175,13 +175,17 @@ func TestOneSaveUnderLockIsRefused(t *testing.T) {
 	}
 }
 
-// Every form-saved Config field (guard tag) is a field of the one Save, in a known section.
-func TestEveryGuardedFieldHasSection(t *testing.T) {
+// savedApart: Config JSON keys with their own messages, never the one Save's.
+var savedApart = map[string]bool{"filterSets": true, "presets": true, "users": true}
+
+// Every Config field the page sees is a field of the one Save, in a known section, or saved
+// apart.
+func TestEveryFormFieldHasSection(t *testing.T) {
 	for _, f := range config.Fields() {
-		if f.Tag.Get("guard") == "" {
+		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if name == "" || name == "-" || savedApart[name] {
 			continue
 		}
-		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 		sec, ok := saveFields[name]
 		if !ok {
 			t.Errorf("%s (%s) has no section in saveFields", f.Name, name)
@@ -227,7 +231,7 @@ func TestSectionRolesMatchPage(t *testing.T) {
 	}
 }
 
-// The page's copy of saveFields, and its reconnect list against the guard:"router" tags.
+// The page's copy of saveFields, and its reconnect list against the reconnect tags.
 func TestSaveFieldsMatchPage(t *testing.T) {
 	b, err := os.ReadFile("../../web/savereviewrules.js")
 	if err != nil {
@@ -256,7 +260,7 @@ func TestSaveFieldsMatchPage(t *testing.T) {
 	}
 	var want []string
 	for _, f := range config.Fields() {
-		if f.Tag.Get("guard") == "router" {
+		if f.Tag.Get("reconnect") == "true" {
 			name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 			want = append(want, name)
 		}
@@ -264,6 +268,6 @@ func TestSaveFieldsMatchPage(t *testing.T) {
 	slices.Sort(reconnect)
 	slices.Sort(want)
 	if !slices.Equal(reconnect, want) {
-		t.Fatalf("page reconnects %v, guard:\"router\" fields are %v", reconnect, want)
+		t.Fatalf("page reconnects %v, reconnect fields are %v", reconnect, want)
 	}
 }

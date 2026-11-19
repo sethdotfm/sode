@@ -24,7 +24,6 @@ func TestChromePublicPanel(t *testing.T) {
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleTrusted
 		c.Locks = config.Locks{Panel: true}
-		c.SettingsPin = mkUser(t, "", "2468").Pin
 		c.AutoLockMinutes = 1
 	})
 	ctx, cancel := context.WithCancel(context.Background())

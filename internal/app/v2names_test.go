@@ -27,3 +27,19 @@ func TestNoV1WireNames(t *testing.T) {
 		}
 	}
 }
+
+// v2 has no settings secret: no message enters or drops it, and the hello says nothing of it.
+func TestNoSettingsSecretOnTheWire(t *testing.T) {
+	for _, gone := range []string{"unlock", "lock"} {
+		if _, ok := policy[gone]; ok {
+			t.Errorf("policy still has %q", gone)
+		}
+	}
+	a := newTestApp(t)
+	a.mu.Lock()
+	h := asMap(t, a.hello(helloPage{}))
+	a.mu.Unlock()
+	if _, ok := h["pinSet"]; ok {
+		t.Error("hello still has pinSet")
+	}
+}

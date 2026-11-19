@@ -65,10 +65,6 @@ export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enfor
 // counts it locked, so it sends no names; a held Lock and the idle letter Lock still apply.
 export const pinFreeView = (m, pinFree) => (pinFree ? { enforced: false, locked: !!m.held } : { enforced: !!m.enforced, locked: !!m.locked });
 
-// A low-risk settings save asks for the settings PIN first, except on a trusted user's
-// connection. The server decides; this only hides the prompt.
-export const needsPin = (pinSet, unlocked, trusted) => !!pinSet && !unlocked && !trusted;
-
 export function pageType(pathname) {
   if (/\/log(\.html)?\/?$/.test(pathname)) return 'log';
   // The panels page, the editor and a panel itself share one lock.

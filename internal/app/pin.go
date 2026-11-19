@@ -18,8 +18,7 @@ type pinState struct {
 	busy  bool      // a PIN is being checked
 }
 
-// pinPool: wrong-PIN count and rules for one secret: the Advanced Settings PIN, or one user
-// name's PINs. tryPin is the only mutator.
+// pinPool: wrong-PIN count and rules for one user name's PINs. tryPin is the only mutator.
 type pinPool struct {
 	pinState
 	wait   func(tries int) time.Duration // the wait after this many wrong PINs in a row; nil = no waits
@@ -33,10 +32,6 @@ const (
 	pinMaxWait     = time.Hour
 	userPinMaxWait = 5 * time.Minute
 )
-
-var errLocked = errors.New("settings are locked; enter the PIN again")
-
-func pinWait(n int) time.Duration { return doubling(pinFirstWait, pinMaxWait, n) }
 
 // userPinWait: first is App.pinFirstWait, which tests shorten.
 func userPinWait(first time.Duration, n int) time.Duration {
@@ -52,10 +47,6 @@ func doubling(first, most time.Duration, n int) time.Duration {
 		w *= 2
 	}
 	return min(w, most)
-}
-
-func settingsPool() pinPool {
-	return pinPool{what: "settings", wait: pinWait}
 }
 
 // userPoolMu returns the pool of u's name; nil u is every name that matches no user. Keyed by
@@ -130,39 +121,4 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 		return fmt.Errorf("wrong PIN; try again in %s", w)
 	}
 	return errors.New("wrong PIN")
-}
-
-// checkAdmin returns the PIN's hash ("" when none set). Wrong PINs count for everyone: IPs
-// behind a proxy are no guard.
-func (a *App) checkAdmin(c *client, pin string) (string, error) {
-	hash := a.r().cfg.SettingsPin
-	if hash == "" {
-		return "", nil
-	}
-	if err := a.tryPin(&a.pin, c.ip, func() bool { return config.CheckPin(hash, pin) }); err != nil {
-		return "", err
-	}
-	if a.r().cfg.SettingsPin != hash {
-		return "", errLocked
-	}
-	return hash, nil
-}
-
-// Unlock covers the current PIN only: changing or removing it relocks. It gates nothing now
-// that Roles decide; it stays until the unlock message goes.
-func (a *App) Unlock(c *client, pin string) error {
-	hash, err := a.checkAdmin(c, pin)
-	if err != nil || hash == "" {
-		return err
-	}
-	a.mu.Lock()
-	c.pin = hash
-	a.mu.Unlock()
-	return nil
-}
-
-func (a *App) Lock(c *client) {
-	a.mu.Lock()
-	c.pin = ""
-	a.mu.Unlock()
 }

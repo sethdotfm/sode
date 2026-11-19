@@ -5,26 +5,21 @@
 import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { fmtTime } from './device.js';
 import { layout } from './layout.js';
-import { relock, unlocked, trusted, needsPin } from './pin.js';
-import { askPin, reask } from './pinprompt.js';
 import { askRecheck } from './recheck.js';
+import { askApproval } from './approval.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { askInterruptions, initInterruptions } from './interruptions.js';
 import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical, sectionOfKey } from './savereviewrules.js';
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
-import { sectionView } from './settingsrolerules.js';
-import { showPinFields, resetPinFields } from './settingspin.js';
+import { sectionView, approvalWho } from './settingsrolerules.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
-import { renderLock, showLockErr, sendUnlock } from './settingslock.js';
 
-// A save is in flight: its own hello / locked arrive before the result, so do not flip to the PIN prompt for them.
+// A save is in flight.
 export const saving = () => $('settings-save').disabled;
 
-// The Advanced Settings PIN fields go on the `config` message, after the one Save. Their row sits in Locks.
-const PIN = 'settingsPin';
-const sectionOf = (key) => sectionOfKey(key) || 'locks';
+const sectionOf = sectionOfKey;
 
 let base = {}; // the fields as last opened or saved
 let versions = {}; // each field's version as loaded
@@ -34,19 +29,12 @@ let role = '';
 let me = ''; // who stages an edit now: the user, a stepped-in user included, else Guest
 let authors = new Map(); // stagedrules.js marks
 let seq = 0;
-let pending = null; // { id, sent, retried, pin }; sent: key -> the value sent
-
-function pinRow() {
-  if ($('cfg-pin').value) return { key: PIN, sub: null, was: S.pinSet ? 'Set' : 'Not set', now: 'Changed' };
-  if ($('cfg-pin-clear').checked) return { key: PIN, sub: null, was: 'Set', now: 'Removed' };
-  return null;
-}
+let pending = null; // { id, sent, retried, answer }; sent: key -> the value sent; answer: the Approval popup's
 
 function changes() {
   const rows = diffRows(base, saveFields());
   for (const src of saveSources()) rows.push(...diffRows(src.base(), src.now()));
-  const pin = pinRow();
-  return pin ? [...rows, pin] : rows;
+  return rows;
 }
 
 // A data-apart input with a data-key saves on its own, so it is never a change here.
@@ -72,7 +60,6 @@ const SPECIAL = {
   browserDefaults: 'gcfg-theme',
   locks: 'cfg-lock-main',
   newUserDefaults: 'cfg-new-persistent',
-  [PIN]: 'cfg-pin-change',
 };
 const keyNode = (key) => (SPECIAL[key] ? $(SPECIAL[key]) : form.querySelector(`[data-key="${key}"]`));
 const fieldset = (key) => form.querySelector(`:scope > fieldset[data-section="${sectionOf(key)}"]`);
@@ -89,7 +76,6 @@ function place(r) {
 function label(r) {
   const src = sourceOf(r.key);
   if (src) return src.label(r);
-  if (r.key === PIN) return 'Advanced Settings PIN';
   if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
   if (r.key === 'newUserDefaults') return `New user defaults: ${checkText($(r.sub === 'persistent' ? 'cfg-new-persistent' : 'cfg-new-no-auto-lock')) || r.sub}`;
   if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;
@@ -102,7 +88,6 @@ function label(r) {
 function show(r, v) {
   const src = sourceOf(r.key);
   if (src) return src.show(r, v);
-  if (r.key === PIN) return v;
   if (r.key === 'levelColors' && r.sub != null) return v || 'Default';
   if (v && typeof v === 'object' && !Array.isArray(v)) {
     return Object.entries(v)
@@ -119,7 +104,8 @@ function show(r, v) {
   return showValue(v);
 }
 
-const kept = (r) => (sectionView(sectionOf(r.key), role, layout() === 'phone') === 'edit' ? '' : 'your Role cannot change this');
+// A read section (Shown) saves through an Approval, so its rows are sent.
+const kept = (r) => (sectionView(sectionOf(r.key), role, layout() === 'phone') === 'hidden' ? 'your Role cannot change this' : '');
 
 // ---- marks, the exit warning and the footer text
 
@@ -223,18 +209,17 @@ function fieldsOf(keys, sent) {
   return Object.fromEntries(keys.map((k) => [k, { value: sent[k], version: version(k) }]));
 }
 
-function sendFields(keys, sent, retried, pin) {
+function sendFields(keys, sent, retried, approval = null, answer = null) {
   const fields = fieldsOf(keys, sent);
-  if (!keys.length) return void (pin && sendPin());
+  if (!keys.length) return;
   const id = ++seq;
-  if (!wsSend({ t: 'settingsSave', id, fields })) return void showSaveErr('Not connected to Sode.');
-  pending = { id, sent, retried, pin };
+  if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }) })) {
+    if (!answer) showSaveErr('Not connected to Sode.');
+    return false;
+  }
+  pending = { id, sent, retried, answer };
   $('settings-save').disabled = true;
-}
-
-function sendPin() {
-  if (!wsSend({ t: 'config', config: {}, pin: $('cfg-pin').value, clearPin: $('cfg-pin-clear').checked })) return void showSaveErr('Not connected to Sode.');
-  $('settings-save').disabled = true;
+  return true;
 }
 
 function settingsSaveResult(m) {
@@ -242,12 +227,12 @@ function settingsSaveResult(m) {
   const p = pending;
   pending = null;
   $('settings-save').disabled = false;
-  if (!m.results) {
-    if (m.locked) relock();
-    return showSaveErr(sentence(m.err) || 'Not saved.');
-  }
+  if (p.answer && !m.results && m.approval) return void p.answer.fail(m.err);
+  p.answer?.done();
+  if (!m.results) return showSaveErr(sentence(m.err) || 'Not saved.');
   let saved = 0;
   const again = [];
+  const approve = [];
   for (const [key, r] of Object.entries(m.results)) {
     const src = sourceOf(key);
     if (r.status === 'refused') {
@@ -260,6 +245,7 @@ function settingsSaveResult(m) {
         }
       }
       if (r.reason === 'needs PIN recheck' && !p.retried) again.push(key);
+      if (r.reason === 'needs Approval' && !p.answer) approve.push(key);
       refused.set(key, r);
       continue;
     }
@@ -273,81 +259,33 @@ function settingsSaveResult(m) {
   }
   if (again.length) {
     askRecheck('Saving these changes').then((ok) => {
-      if (ok) sendFields(again, p.sent, true, p.pin);
-      else done(saved, p);
+      if (ok) sendFields(again, p.sent, true);
+      else done(saved);
     });
     return;
   }
-  done(saved, p);
+  done(saved);
+  if (approve.length && isOpen()) {
+    const who = approvalWho(approve.map(sectionOf));
+    askApproval('Saving these changes', who, (ap, answer) => sendFields(approve, p.sent, true, ap, answer));
+  }
 }
 
-function done(saved, p) {
+function done(saved) {
   if (saved) savedAt = new Date().toISOString();
   if (!isOpen()) return;
   paintMarks();
   if (refused.size) showSaveErr(`${refused.size} ${refused.size === 1 ? 'change is' : 'changes are'} not saved. Each one says why.`);
   else $('settings-err').hidden = true;
-  if (p.pin) sendPin();
   renderSaveState();
 }
 
-// The Advanced Settings PIN change's answer.
-function configResult(m) {
-  $('settings-save').disabled = false;
-  if (m.ok) {
-    if (!isOpen()) return;
-    // A changed PIN has relocked everyone, this view included.
-    resetPinFields();
-    savedAt = new Date().toISOString();
-    renderSaveState();
-    renderLock();
-    return;
-  }
-  if (m.recheck) {
-    askRecheck('Changing the Advanced Settings PIN').then((ok) => {
-      if (ok) sendPin();
-      else showSaveErr(sentence(m.err));
-    });
-    return;
-  }
-  if (m.locked) {
-    relock();
-    // Not trusted: Settings flips to its own PIN prompt. A trusted user's form never did, so
-    // ask in the popup and save again.
-    if (needsPin()) return showLockErr(m.err);
-    reask('Saving that needs the Advanced Settings PIN.').then((ok) => {
-      if (ok) sendPin();
-    });
-    return;
-  }
-  showSaveErr(sentence(m.err));
-}
-
-const askThenSave = (why) =>
-  askPin(why).then((ok) => {
-    if (ok) form.requestSubmit();
-  });
-
-async function review({ focusField, reveal }) {
+async function review({ focusField }) {
   const now = readSettings();
   const bad = formProblem(now);
   if (bad) {
     showSaveErr(bad.text);
     focusField(bad.node);
-    return;
-  }
-  const pin = $('cfg-pin').value;
-  if (pin && [...pin].length < 4) {
-    showSaveErr('The Advanced Settings PIN must be at least 4 characters.');
-    showPinFields(true);
-    focusField($('cfg-pin'));
-    return;
-  }
-  if (pin !== $('cfg-pin2').value) {
-    showSaveErr('The two PINs do not match.');
-    showPinFields(true);
-    reveal($('cfg-pin2'));
-    $('cfg-pin2').select();
     return;
   }
   const srcBad = saveSources()
@@ -361,7 +299,7 @@ async function review({ focusField, reveal }) {
   $('settings-err').hidden = true;
   // Fields the page expects refused are sent too: the server's answer gives each its reason.
   // Edits the Role cannot see stay unsaved and stay staged; the rest are sent.
-  const keys = sentKeys(all, seen).filter((k) => k !== PIN);
+  const keys = sentKeys(all, seen);
   const interruptions = await askInterruptions(fieldsOf(keys, valuesOf(keys)));
   if (!isOpen()) return;
   const send = await reviewSave({
@@ -373,18 +311,14 @@ async function review({ focusField, reveal }) {
     place,
     label,
     show,
-    critical: (r) => critical(r.key),
+    // A row that goes through an Approval needs no recheck of this browser's user: an Administrator approver's counts.
+    critical: (r) => critical(r.key) && sectionView(sectionOf(r.key), role) === 'edit',
     reconnects: (r) => reconnects(r.key),
     address: now.router,
     recheckNeeded: S.users.length > 0,
   });
   if (!send || !isOpen()) return;
-  sendFields(
-    keys,
-    valuesOf(keys),
-    false,
-    rows.some((r) => r.key === PIN && !kept(r)),
-  );
+  sendFields(keys, valuesOf(keys), false);
 }
 
 // focusField and reveal come from the table of contents (settingstoc.js), which opens a field's page on a phone.
@@ -402,13 +336,7 @@ export function initSave(toc) {
   });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if ('locked' in form.dataset) return void sendUnlock();
     if (saving()) return;
-    // A trusted user saves without the PIN, but not a change to the PIN itself: ask now instead
-    // of after a refusal.
-    if (S.pinSet && trusted() && !unlocked() && ($('cfg-pin').value || $('cfg-pin-clear').checked)) {
-      return void askThenSave('Changing the PIN needs the Advanced Settings PIN.');
-    }
     review(toc);
   });
   on('access', (a) => {
@@ -427,5 +355,4 @@ export function initSave(toc) {
   });
   onMsg('settingsSaveResult', settingsSaveResult);
   initInterruptions();
-  on('configResult', configResult);
 }

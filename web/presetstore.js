@@ -1,4 +1,4 @@
-// Presets: { id, name, items }. Global ones live in cfg.presets (Advanced Settings PIN), this
+// Presets: { id, name, items }. Global ones live in cfg.presets (a Trusted user changes them), this
 // browser's own in localStorage. Stored items hold router references (presetref.js); in memory they
 // are numbers (internal numbers, UI levels, [] = default levels). The hidden id survives a rename,
 // so pins and pin order name a preset by it.

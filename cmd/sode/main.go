@@ -36,9 +36,6 @@ func loadConfig(path string) config.Config {
 		if err != nil {
 			log.Fatalf("config: %v", err)
 		}
-		if exists && c.SettingsPin != "" && !config.ValidPinHash(c.SettingsPin) {
-			log.Fatalf("config: settingsPin in %s is not a PIN hash (set PINs from Settings, not by hand); remove the settingsPin line", path)
-		}
 		if exists {
 			if p := c.UnknownKeysProblem(); p != "" {
 				log.Printf("config: %s", p)

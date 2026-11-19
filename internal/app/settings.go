@@ -12,18 +12,13 @@ import (
 
 // --- settings
 
-// saveSettings: browsers never see the PIN hash, so the current one is kept unless pin
-// sets a new one or clearPin drops it. Saves are serialized. The message decodes over a
-// copy of the live config, so a key it lacks (an old page) keeps its live value. Lists
-// in it replace, and null clears a list.
-func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin bool) error {
+// saveSettings: saves are serialized. The message decodes over a copy of the live config,
+// so a key it lacks (an old page) keeps its live value. Lists in it replace, and null clears
+// a list.
+func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	need := config.RoleTrusted
-	if pin != "" || clearPin {
-		need = config.RoleAdministrator
-	}
-	if err := a.guardSave(c, need); err != nil {
+	if err := a.guardSave(c, config.RoleTrusted); err != nil {
 		return err
 	}
 	// A Trusted user must not change the fields an Administrator guards.
@@ -55,19 +50,6 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 			return errInsecureSave
 		}
 		*cur = cfg
-		switch {
-		case clearPin:
-			cur.SettingsPin = ""
-		case pin != "":
-			if err := config.CheckPinRules(pin); err != nil {
-				return err
-			}
-			h, err := config.HashPin(pin)
-			if err != nil {
-				return err
-			}
-			cur.SettingsPin = h
-		}
 		return nil
 	}))
 	if err != nil {
@@ -82,9 +64,6 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 		if string(fieldJSON(was, k)) != string(fieldJSON(after, k)) {
 			keys = append(keys, k)
 		}
-	}
-	if was.SettingsPin != after.SettingsPin {
-		keys = append(keys, settingsPinKey)
 	}
 	a.recordSave(connActor(c), "save", a.savedFields(was, after, keys, &saveCtx{}), len(criticalEdits(was, after, config.User{})) > 0)
 	return nil
@@ -214,7 +193,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	err := a.commit(mutate, func(oldRt, nr *runtime) {
 		old := oldRt.cfg
 		c = nr.cfg
-		reconnect = config.Changed(old, c, "router")
+		reconnect = config.ReconnectChanged(old, c)
 		if reconnect {
 			a.router = newRouterState()
 			a.ext = newExtTracker()
@@ -234,16 +213,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		for cl := range a.clients {
 			a.deliver(cl, hello)
 		}
-		a.syncAccessAllMu() // it is possible that locks, users or the Advanced Settings PIN changed
-		pinNeeded, _ := json.Marshal(simpleMsg{T: "pinNeeded"})
-		for cl := range a.clients {
-			if cl.pin != "" && cl.pin != c.SettingsPin {
-				cl.pin = ""
-				if c.SettingsPin != "" {
-					a.deliver(cl, pinNeeded)
-				}
-			}
-		}
+		a.syncAccessAllMu() // it is possible that locks or users changed
 		applied = nr
 	})
 	if err != nil {

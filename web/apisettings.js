@@ -71,13 +71,6 @@ on('usersListed', (m) => {
   if (first || !edited('guestApiScopes')) fillScopes();
 });
 
-// The next sign-in can be someone else's; they load the scopes again before a tick counts.
-on('locked', () => {
-  for (const b of boxes) b.disabled = true;
-  delete base.guestApiScopes;
-  scopes = null;
-});
-
 const LABELS = { rateLimit: 'api-rate', takeCap: 'api-cap', guestEnabled: 'api-guest', logReads: 'api-log-reads' };
 function label(r) {
   if (r.key === 'guestApiScopes') return $('api-scopes-label').textContent;

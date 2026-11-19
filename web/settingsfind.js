@@ -2,7 +2,6 @@
 // first; a second Esc leaves Settings.
 
 import { $, el } from './core.js';
-import { showPinFields } from './settingspin.js';
 import { buildIndex, find, hitWhere } from './settingsindex.js';
 import { resultStep } from './keys.js';
 
@@ -118,7 +117,6 @@ export function initFind({ sections, toc }) {
     const i = secIds.indexOf(h.sectionId);
     const node = h.kind === 'section' ? sections[i] : targets.get(`${h.sectionId}/${h.id}`);
     if (!node) return;
-    if (h.kind === 'setting' && /^cfg-pin(2|-clear)?$/.test(h.id)) showPinFields(true);
     if (toc.phone()) toc.showPage(i);
     findBox.value = '';
     showHits();

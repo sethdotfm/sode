@@ -32,8 +32,8 @@ test('a page named by its link keeps the new name in the address', () => {
   assert.equal(renamedSearch('?instance=Lobby', 'Gate'), '?instance=Gate');
 });
 
-test('a refusal for want of rights asks for the Advanced Settings PIN', () => {
+test('a refusal gives its reason and asks for no PIN', () => {
   const err = (status, code, message) => Object.assign(new Error(message), { status, code });
-  assert.deepEqual(renameRefusal(err(403, 'trusted_required', 'only the owner')), { why: 'only the owner', pin: true });
-  assert.deepEqual(renameRefusal(err(409, 'conflict', 'Lobby is offline')), { why: 'Lobby is offline', pin: false });
+  assert.deepEqual(renameRefusal(err(403, 'trusted_required', 'only the owner')), { why: 'only the owner' });
+  assert.deepEqual(renameRefusal(err(409, 'conflict', 'Lobby is offline')), { why: 'Lobby is offline' });
 });

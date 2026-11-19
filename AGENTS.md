@@ -48,12 +48,11 @@ Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web 
 - Vocabulary: use GLOSSARY.md's terms in code comments, docs and UI text. TestRetiredWordsCoverGlossary and the scans in internal/app/vocabulary_test.go fail on any _Avoid_ term used in docs or UI strings unless its row names the pending ticket. docs/research/ is skipped, since it quotes outside sources. A new _Avoid_ term needs a row; a finished sweep clears its ticket. TestIdentifiersUseGlossaryWords applies the same rows to web identifiers and file names (strings, so wire types and `sode-*` keys, are out of scope). A kept name goes in identAllow with its reason. A route is the per-destination unit, so names for one say route, not take.
 - v2 reads no v1 files (docs/agents/server.md, config load). config.yaml carries `format: 2`, and a v1 install moves to `/data/v1/` on start. The first v2 page load clears v1 `sode-*` keys. A page reloads when the hello's build label changes. There are no legacy read paths.
 - Kept old names: persisted and sent names follow GLOSSARY.md. v2 renamed the v1 wire, config, env, simulator and `localStorage` names; docs/persisted-names.md lists old and new. Name kept names in backticks. A new rename of a persisted or sent name needs the issue owner's approval. TestAllowlistsMatchSomething fails on a vocabAllow or identAllow entry that exempts nothing, so drop an entry when its name goes.
-  - Still kept until #574 removes the Advanced Settings PIN: `settingsPin`, `unlock`/`unlockResult` and the `unlock` `why` value.
   - `salvoGroup`, `fireMode` `native` and the `salvo*` request kinds are the router's own salvo and are correct.
 
 ## More notes (read the file when your task touches it)
 
-- docs/agents/settings-saves.md: Settings and saves. Read before touching the Advanced Settings PIN, device defaults, Settings search, the one Save and its sources (Manage users, API), data-apart or the Settings form.
+- docs/agents/settings-saves.md: Settings and saves. Read before touching device defaults, Settings search, the one Save and its sources (Manage users, API), data-apart or the Settings form.
 - docs/agents/server.md: Server architecture. Read before touching the SW-P-08 client, takes, check, undo, failures, late answers, HTTP routes, the WebSocket, config load or the simulator.
 - docs/agents/web-layout.md: Web layout. Read before touching web modules and import rules, the two layouts, keyboard mode and key plumbing, Last and Next chips, socket freshness or source ends.
 - docs/agents/history.md: History, ext and External follow. Read before touching History, undo, ext/found entries, External follow entries, filters and filter sets, stacked sets, Redo, quick search.
