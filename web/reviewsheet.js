@@ -422,15 +422,23 @@ function prefsNode() {
   );
 }
 
+// Each draw replaces every control, so the focused one is found again by its label.
 function render() {
   if (!open || !st) return;
-  const opts = [['local', 'This browser']];
-  if (forUser()) opts.length = 0;
-  if (forUser()) opts.push(['user', `${st.user}’s profile`]);
-  else {
-    if (profileName()) opts.push(['user', 'Me']);
-    opts.push(['global', 'Everyone']);
-  }
+  const had = dialog.contains(document.activeElement) ? document.activeElement : null;
+  const label = had?.getAttribute('aria-label');
+  const at = had?.selectionStart;
+  draw();
+  const now = label && [...dialog.querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === label);
+  if (!now) return;
+  now.focus();
+  if (at != null && now.setSelectionRange) now.setSelectionRange(at, at);
+}
+
+function draw() {
+  const opts = forUser()
+    ? [['user', `${st.user}’s profile`]]
+    : [['local', 'This browser'], ...(profileName() ? [['user', 'Me']] : []), ['global', 'Everyone']];
   if (!opts.some((o) => o[0] === st.scope)) st.scope = opts[0][0];
   const choices = st.rows.map(choiceOf);
   if (st.copy) st.scope = 'user';
