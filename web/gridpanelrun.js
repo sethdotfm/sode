@@ -29,7 +29,8 @@ import { createFind, typed, currentMatch, stepMatch, switchMode, clearFind, step
 import { findBoxes } from './gridpanelfindbox.js';
 import { planOf } from './gridpanelplan.js';
 import { gridConfirm } from './gridpanelconfirm.js';
-import { buildGridPanel, joinPulse } from './gridpanelview.js';
+import { buildGridPanel } from './gridpanelview.js';
+import { joinPulse } from './gridpanelnodes.js';
 import { pinsOf } from './gridpanelwindow.js';
 import { CORNER, MOVES, moveCursor, pointOf, cursorAt, barOf, rangeCursor, rangeKind } from './gridpanelcursor.js';
 import { isLine, linePairs, lineShown, lineStage } from './gridpanelline.js';

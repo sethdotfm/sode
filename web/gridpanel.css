@@ -239,7 +239,7 @@ html:has(.sode-gridpanel) {
   top: 0;
   width: calc(min(var(--sode-col-pins), 1) * var(--pb-state-border-w));
 }
-/* A pinned band's box and the box in it that moves by the part of a pin (gridpanelview.js bandBox). Each is the size
+/* A pinned band's box and the box in it that moves by the part of a pin (gridpanelnodes.js bandBox). Each is the size
    of its layer, so a pin is placed as it is in the layer. The boxes take no press; the pins do. A band that scrolls
    clips at its edges: the name bar on the near edge, the layer's end on the far edge, where the part pin is. */
 .sode-gridpanel__clip,
@@ -361,7 +361,7 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) :is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-num][data-hide-text]::before {
   content: none;
 }
-/* Protected, or the current sources the grid does not show (gridpanelview.js paintDstMarks). */
+/* Protected, or the current sources the grid does not show (gridpanelnodes.js paintDstMarks). */
 .sode-gridpanel__prot,
 .sode-gridpanel__other {
   align-items: center;
@@ -383,7 +383,7 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__dst[data-picked] > .sode-gridpanel__held {
   color: inherit;
 }
-/* Artwork beside a name (gridpanelview.js makeArt). It is the last child but reads first. */
+/* Artwork beside a name (gridpanelnodes.js makeArt). It is the last child but reads first. */
 .sode-gridpanel__art {
   align-items: center;
   color: var(--pb-text-strong);
@@ -412,7 +412,7 @@ html:has(.sode-gridpanel) {
   font-weight: var(--pb-weight-bold);
   line-height: 1;
 }
-/* Hide text (gridpanelview.js paintArt): the name's Text child has no box of its own, so it goes to no size and stays
+/* Hide text (gridpanelnodes.js paintArt): the name's Text child has no box of its own, so it goes to no size and stays
    for screen readers. The artwork grows into the room; the marks keep their size. */
 :is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-hide-text] {
   font-size: 0;
@@ -454,14 +454,14 @@ html:has(.sode-gridpanel) {
 }
 /* A staged crosspoint: a round ring past the pie that pulses on the panel clock (panels.css --pulse). The grid does
    not run the clock itself: with thousands of nodes under it, an inherited property animated there restyles all of
-   them every frame. So each staged crosspoint runs it, kept in step from time zero (gridpanelview.js joinPulse). */
+   them every frame. So each staged crosspoint runs it, kept in step from time zero (gridpanelnodes.js joinPulse). */
 .sode-panel__grid.sode-gridpanel {
   animation: none;
 }
 .sode-gridpanel__xp[data-s="staged"] {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
 }
-/* The ring is a pie of the staged levels (gridpanelview.js), 80% of the crosspoint, over the outer part of the pie.
+/* The ring is a pie of the staged levels (gridpanelnodes.js paintXp), 80% of the crosspoint, over the outer part of the pie.
    It reads the crosspoint's --pulse and runs no animation of its own. */
 .sode-gridpanel__stage {
   display: none;
@@ -508,7 +508,7 @@ html:has(.sode-gridpanel) {
   outline-offset: calc(var(--pb-border-w) * -3);
 }
 /* The ring runs the panel pulse itself, so it grows and shrinks in one phase with the staged rings and the armed
-   Take (gridpanelview.js joinPulse). */
+   Take (gridpanelnodes.js joinPulse). */
 .sode-gridpanel__ring {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
   background: radial-gradient(closest-side, transparent calc(100% - 0.25rem), var(--pb-accent) calc(100% - 0.25rem));
@@ -780,7 +780,7 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__field[data-over] .sode-gridpanel__xp[data-n]::after {
   color: var(--pb-status-error);
 }
-/* A previewed name carries its crosspoint's number in the same look (gridpanelview.js pairNumbers). */
+/* A previewed name carries its crosspoint's number in the same look (gridpanelnodes.js pairNumbers). */
 :is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-n]::after {
   color: var(--pb-text-strong);
   content: attr(data-n);
@@ -1050,7 +1050,7 @@ html:has(.sode-gridpanel) {
   display: none;
 }
 
-/* Picked rows and columns (gridpanelview.js paintXp): a role colour wash, translucent so the crosshairs still show. */
+/* Picked rows and columns (gridpanelnodes.js paintXp): a role colour wash, translucent so the crosshairs still show. */
 .sode-gridpanel__xp[data-row] {
   background-color: color-mix(in oklab, var(--pb-dest) 30%, transparent);
 }
