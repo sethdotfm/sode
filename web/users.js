@@ -333,14 +333,18 @@ onMsg('usersListResult', (m) => {
     else if (isOpen) fail(m.err); // a Role refusal: no PIN opens it
     return;
   }
-  listed = m.users || [];
-  listedMe = m.me || '';
-  extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {} };
+  // Staged edits keep the list they were made against, so another person's save shows as a conflict and
+  // their other changes do not leak into this dialog.
+  const keep = staged();
+  if (!keep) {
+    listed = m.users || [];
+    listedMe = m.me || '';
+    extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {} };
+  }
   loaded = true;
   emit('usersListed', m);
   paintSummary();
-  // Staged edits keep the list they were made against, so another person's save shows as a conflict.
-  if (!staged()) {
+  if (!keep) {
     lastList = m;
     fill();
   }

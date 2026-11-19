@@ -243,6 +243,9 @@ func TestSaveFieldsMatchPage(t *testing.T) {
 	if len(page) == 0 || !reflect.DeepEqual(page, saveFields) {
 		t.Fatalf("page %v\nserver %v", page, saveFields)
 	}
+	if !strings.Contains(src, "ITEM_SECTIONS = Object.freeze({ user: '"+usersSection+"', client: '"+usersSection+"' })") {
+		t.Fatal("ITEM_SECTIONS in savereviewrules.js does not match the user/ and client/ keys of onesavefields.go")
+	}
 	m := regexp.MustCompile(`RECONNECT = new Set\(\[([^\]]*)\]\)`).FindStringSubmatch(src)
 	if m == nil {
 		t.Fatal("no RECONNECT list in savereviewrules.js")

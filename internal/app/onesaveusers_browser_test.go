@@ -48,19 +48,27 @@ func TestChromeOneSaveUsersAndAPI(t *testing.T) {
 	})()`)
 	b.waitFor("dialog closed, change kept", `!document.querySelector('.sode__users-dlg')?.offsetParent && document.getElementById('settings-path').textContent.includes('Unsaved changes')`)
 
+	// Someone else changes Ana meanwhile. Its hello brings a new list, which must not leak into the staged edits.
+	cfg := a.r().cfg
+	cfg.Users[0].NoAutoLock = true
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	b.eval(`new Promise((r) => setTimeout(() => r(true), 1000))`)
+
 	b.eval(`(() => { const f = document.getElementById('api-rate'); f.value = '77'; f.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("review lists the new user and the API change", `(() => {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const t = d.textContent;
-		return t.includes('New user Cy') && t.includes('Rate limit') && t.includes('77') && document.getElementById('review-save').textContent === 'Save 2 changes';
+		return t.includes('New user Cy') && !t.includes('No auto-lock') && t.includes('Rate limit') && t.includes('77') && document.getElementById('review-save').textContent === 'Save 2 changes';
 	})()`)
 	b.eval(`document.getElementById('review-save').click(); true`)
 	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
 	b.waitFor("saved, nothing left unsaved", `!document.getElementById('settings-path').textContent.includes('Unsaved') && document.getElementById('settings-err').hidden`)
-	cfg := a.r().cfg
+	cfg = a.r().cfg
 	if cy, ok := cfg.FindUserByName("Cy"); !ok || !cy.HasPin() || cfg.API.RateLimit != 77 {
 		t.Fatalf("Cy %+v (found %v), rate limit %d", cy, ok, cfg.API.RateLimit)
 	}
