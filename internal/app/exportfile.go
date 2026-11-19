@@ -334,7 +334,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	}
 
 	// A router goes with every export that names it, ticked or not.
-	man := exportManifest{Format: exportFormat, Sode: BuildLabel(), Install: cfg.InstallUID, Made: time.Now().UTC().Truncate(time.Second)}
+	man := exportManifest{Format: exportFormat, Sode: BuildLabel(), Install: cfg.InstallUID, Made: exportNow().UTC().Truncate(time.Second)}
 	var withRouters []config.Router
 	for _, r := range routers {
 		if want(catRouters) || used[r.UID] {
@@ -378,6 +378,10 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	return zb, err
 }
 
+// exportNow dates an export. Tests fix it, since the deflated manifest's length moves with the time's digits. A
+// size counted before an export can then differ from it by a byte.
+var exportNow = time.Now
+
 func writeZip(files []zipFile) ([]byte, error) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
@@ -386,7 +390,7 @@ func writeZip(files []zipFile) ([]byte, error) {
 		if ext := path.Ext(f.name); ext == ".png" || ext == ".jpg" || ext == ".gif" {
 			method = zip.Store // already compressed
 		}
-		w, err := zw.CreateHeader(&zip.FileHeader{Name: f.name, Method: method, Modified: time.Now()})
+		w, err := zw.CreateHeader(&zip.FileHeader{Name: f.name, Method: method, Modified: exportNow()})
 		if err != nil {
 			return nil, err
 		}
