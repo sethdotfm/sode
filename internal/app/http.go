@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -448,4 +449,19 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 		m.Counts = []UptimeSlot{}
 	}
 	return m
+}
+
+// KeepAliveListener probes an idle connection after 2 s, every 1 s, and drops it after 3 misses. So a
+// peer that vanished without a FIN (power cut, lost Wi-Fi) ends its stream in about 5 s. The kernel
+// default is 2 hours. A proxy in front only gets this on its own leg of the connection.
+func KeepAliveListener(ln net.Listener) net.Listener { return keepAliveLn{ln} }
+
+type keepAliveLn struct{ net.Listener }
+
+func (l keepAliveLn) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if tc, ok := c.(*net.TCPConn); ok && err == nil {
+		_ = tc.SetKeepAliveConfig(net.KeepAliveConfig{Enable: true, Idle: 2 * time.Second, Interval: time.Second, Count: 3})
+	}
+	return c, err
 }
