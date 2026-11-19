@@ -47,6 +47,15 @@ export function copyPage(pages, from, to) {
   return { pages: pages.map((p, j) => (j === to ? { ...p, cells } : p)), replaced: (pages[to].cells || []).length };
 }
 
+// After any change to the Page list: focus is a Page that exists (else the first), open holds only Pages that exist,
+// and open holds focus (else it is focus alone).
+export function settle({ pages, focus, open }) {
+  const has = (id) => pages.some((p) => p.id === id);
+  const f = has(focus) ? focus : pages[0].id;
+  const o = open.filter(has);
+  return { pages, focus: f, open: o.includes(f) ? o : [f] };
+}
+
 // A plain click opens one Page. Cmd or Ctrl-click adds a Page or takes one away, up to OPEN_MAX and never the last.
 export function openClick(open, id, multi) {
   if (!multi) return [id];
