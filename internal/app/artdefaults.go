@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -190,36 +191,49 @@ func (s *artDefaultStore) writeLocked(next artDefaultsFileData) error {
 	}
 	s.data = next
 	for _, id := range gone {
-		if s.path != "" {
-			os.Remove(filepath.Join(s.imgDir(), id))
-		}
-		delete(s.mem, id)
+		s.dropImageLocked(id)
 	}
 	return nil
 }
 
-// Callers check the bytes first.
-func (s *artDefaultStore) putImageLocked(next *artDefaultsFileData, data []byte, typ string) (string, error) {
+// Callers check the bytes first. added is false when the same bytes are stored already.
+func (s *artDefaultStore) putImageLocked(next *artDefaultsFileData, data []byte, typ string) (id string, added bool, err error) {
 	sum := sha256.Sum256(data)
-	id := "d-" + hex.EncodeToString(sum[:4])
-	if slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == id }) {
-		return id, nil
+	// The id keeps 4 bytes of the hash (exports name the file by it), so a clash with other bytes takes the next 4.
+	for i := 0; ; i += 4 {
+		if i+4 > len(sum) {
+			return "", false, errors.New("no free image id")
+		}
+		id = "d-" + hex.EncodeToString(sum[i:i+4])
+		if !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == id }) {
+			break
+		}
+		if b, ok := s.imageLocked(id); ok && bytes.Equal(b, data) {
+			return id, false, nil
+		}
 	}
 	if artBytes(Panel{Art: next.Images})+len(data) > panelArtTotal {
-		return "", errArtDefaultsCap
+		return "", false, errArtDefaultsCap
 	}
 	if s.path != "" {
 		if err := os.MkdirAll(s.imgDir(), 0o700); err != nil {
-			return "", err
+			return "", false, err
 		}
 		if err := config.AtomicWrite(filepath.Join(s.imgDir(), id), data); err != nil {
-			return "", err
+			return "", false, err
 		}
 	} else {
 		s.mem[id] = data
 	}
 	next.Images = append(next.Images, PanelArt{ID: id, Type: typ, Size: len(data)})
-	return id, nil
+	return id, true, nil
+}
+
+func (s *artDefaultStore) dropImageLocked(id string) {
+	if s.path != "" {
+		os.Remove(filepath.Join(s.imgDir(), id))
+	}
+	delete(s.mem, id)
 }
 
 // The bytes already passed checkArtBytes.
@@ -233,26 +247,31 @@ func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 	defer s.mu.Unlock()
 	next := s.data
 	next.Images = slices.Clone(s.data.Images)
+	next.Defaults = slices.DeleteFunc(slices.Clone(s.data.Defaults), func(x ArtDefault) bool { return d.replaces(x) })
+	i := slices.IndexFunc(next.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
+	if i < 0 && len(next.Defaults) >= artDefaultsMax {
+		return d, fmt.Errorf("at most %d defaults", artDefaultsMax)
+	}
+	added := false
 	if img != nil {
-		id, err := s.putImageLocked(&next, img.data, img.typ)
+		id, add, err := s.putImageLocked(&next, img.data, img.typ)
 		if err != nil {
 			return d, err
 		}
-		d.Art = id
+		d.Art, added = id, add
 	} else if artDefaultIDRe.MatchString(d.Art) && !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == d.Art }) {
 		return d, errNoArtDefaultFile
 	}
-	next.Defaults = slices.DeleteFunc(slices.Clone(s.data.Defaults), func(x ArtDefault) bool { return d.replaces(x) })
-	i := slices.IndexFunc(next.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
 	if i >= 0 {
 		next.Defaults[i] = d
 	} else {
-		if len(next.Defaults) >= artDefaultsMax {
-			return d, fmt.Errorf("at most %d defaults", artDefaultsMax)
-		}
 		next.Defaults = append(next.Defaults, d)
 	}
-	return d, s.writeLocked(next)
+	err := s.writeLocked(next)
+	if err != nil && added {
+		s.dropImageLocked(d.Art)
+	}
+	return d, err
 }
 
 // false: d's item had no default.
@@ -280,10 +299,15 @@ func (s *artDefaultStore) image(id string) ([]byte, PanelArt, bool) {
 	if i < 0 || !artDefaultIDRe.MatchString(id) {
 		return nil, PanelArt{}, false
 	}
+	b, ok := s.imageLocked(id)
+	return b, s.data.Images[i], ok
+}
+
+func (s *artDefaultStore) imageLocked(id string) ([]byte, bool) {
 	if s.path == "" {
 		b, ok := s.mem[id]
-		return b, s.data.Images[i], ok
+		return b, ok
 	}
 	b, err := os.ReadFile(filepath.Join(s.imgDir(), id))
-	return b, s.data.Images[i], err == nil
+	return b, err == nil
 }
