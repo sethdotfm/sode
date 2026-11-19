@@ -49,7 +49,7 @@ func (a *App) adoptMu(c *client, tok string, locked bool) {
 }
 
 // eachOnSessionMu runs fn for every connection on c's session, c last (it is possible
-// that c is not registered). The one loop over connections sharing a token. Caller holds mu.
+// that c is not registered). Caller holds mu.
 func (a *App) eachOnSessionMu(c *client, fn func(*client)) {
 	s := c.sessMu()
 	for cl := range a.clients {
@@ -155,7 +155,7 @@ type sessionMsg struct {
 	Tab   bool   `json:"tab,omitempty"` // for this tab only
 }
 
-// Renews open connections' tokens so a never-reloading page outlasts tokenMaxAge. Off mu.
+// Renews the tokens of open connections so a page that never reloads outlasts tokenMaxAge. Off mu.
 func (a *App) touchSessions() {
 	a.mu.Lock()
 	cfg := a.r().cfg

@@ -21,8 +21,8 @@ const (
 
 var errFixedDests = fmt.Errorf("fixed destinations are at most %d different destinations from 0 to %d", panelFixedMax, dstNumberMax)
 
-// cleanFixedDests checks the list and stores it as []config.Ref, dropping an empty one. The map is
-// cloned before any change, since a stored panel's settings are shared and never mutated.
+// cleanFixedDests checks the list, stores it as []config.Ref and drops an empty one. It clones the map before a
+// change, since a stored panel's settings are shared and never mutated.
 func cleanFixedDests(settings map[string]any) (map[string]any, error) {
 	v, ok := settings[panelFixedKey]
 	if !ok {
@@ -41,9 +41,9 @@ func cleanFixedDests(settings map[string]any) (map[string]any, error) {
 	return settings, nil
 }
 
-// fixedList reads JSON or YAML ([]any of reference maps) or a list already cleaned. A request can leave
-// the router out, and nameFixed fills it. A file cannot (noRouterProblem). A router other than this one is
-// refused when named (nameFixed), since v2.0 drives one router.
+// fixedList reads JSON or YAML ([]any of reference maps) or a list already cleaned. A request can leave the router
+// out, and nameFixed fills it. A file must name it (noRouterProblem). nameFixed refuses a router other than this one,
+// since v2.0 drives one router.
 func fixedList(v any) ([]config.Ref, error) {
 	var raw []any
 	switch l := v.(type) {

@@ -17,7 +17,7 @@ const defaultDrainLimit = 6 * time.Second
 var errShuttingDown = errors.New("Sode is shutting down; try again when it is back")
 
 // inflight counts the writes started from browser messages (takes and saves), so shutdown
-// can wait for them. Adding and closing share mu, so no Add can race the Wait.
+// can wait for them. start and close share mu, so no Add can race the Wait.
 type inflight struct {
 	mu    sync.Mutex
 	wg    sync.WaitGroup

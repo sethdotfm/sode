@@ -18,9 +18,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Default artwork: one shared set, artdefaults.yaml beside the config, its images in artdefaults.art/
-// (memory only with no config path). Cells resolve it when drawn and never store it, so a Push or a
-// template carries a cell's own artwork only. Docs: docs/panels-design.md.
+// Default artwork (docs/panels-design.md): one shared set, artdefaults.yaml beside the config, images in
+// artdefaults.art/. Cells resolve it when drawn and never store it, so a Push or a template carries a cell's own
+// artwork only.
 
 const (
 	artDefaultsFile = "artdefaults.yaml"
@@ -36,7 +36,7 @@ var (
 	// A default's image id comes from its content, so the same image set twice is stored one time.
 	artDefaultIDRe = regexp.MustCompile(`^d-[0-9a-f]{8}$`)
 	artIconRe      = regexp.MustCompile(`^icon:[a-z0-9-]+$`)
-	// Icon B choices, as ART_B_CHOICES in web/panellook.js.
+	// Keep in step with ART_B_CHOICES in web/panellook.js.
 	artBRe = regexp.MustCompile(`^(?:[0-9]|1[0-6]|[A-Z])$`)
 
 	//lint:ignore ST1005 the panel editor shows this /api/v1 message as is
@@ -44,8 +44,8 @@ var (
 	errNoArtDefaultFile = errors.New("no such Default artwork image")
 )
 
-// A Preset default keys on the hidden ID, so a rename keeps it. A Source or Destination keeps the router name from when it
-// was set, so the editor can warn when the number names something else.
+// A Preset default keys on the hidden ID, so a rename keeps it. A Source or Destination default keeps the router name
+// from when it was set. Then the editor can warn when the number names a different item.
 type ArtDefault struct {
 	Kind     string `yaml:"kind" json:"kind"`
 	Router   string `yaml:"router,omitempty" json:"router,omitempty"`
@@ -58,7 +58,7 @@ type ArtDefault struct {
 	HideText bool   `yaml:"hideText,omitempty" json:"hideText,omitempty"`
 }
 
-// The router stays out of the key while there is one router. itemKey in web/panellook.js keeps in step.
+// Keep in step with itemKey in web/panellook.js.
 func (d ArtDefault) key() string {
 	if d.Kind == artKindPreset {
 		if d.ID != "" {
@@ -73,7 +73,7 @@ func (d ArtDefault) key() string {
 	return fmt.Sprintf("%s/%d", d.Kind, n)
 }
 
-// check fits the key fields to what the store keeps; the artwork fields are checked by set.
+// set checks the artwork fields.
 func (d *ArtDefault) check() error {
 	switch d.Kind {
 	case artKindSource, artKindDst:
@@ -103,7 +103,7 @@ type artDefaultsFileData struct {
 	Images   []PanelArt   `yaml:"images,omitempty"`
 }
 
-// artDefaultStore: values handed out are copies; every change writes the file before memory moves.
+// Values handed out are copies. Every change writes the file before memory moves.
 type artDefaultStore struct {
 	mu   sync.Mutex
 	path string // "" = memory only
@@ -165,7 +165,6 @@ func (s *artDefaultStore) list() []ArtDefault {
 
 func (s *artDefaultStore) imgDir() string { return filepath.Join(filepath.Dir(s.path), artDefaultsDir) }
 
-// writeLocked saves next, then drops images no default names any more.
 func (s *artDefaultStore) writeLocked(next artDefaultsFileData) error {
 	next.Rev = s.data.Rev + 1
 	used := map[string]bool{}
@@ -199,7 +198,7 @@ func (s *artDefaultStore) writeLocked(next artDefaultsFileData) error {
 	return nil
 }
 
-// putImageLocked stores an image by content and returns its id. Callers check the bytes first.
+// Callers check the bytes first.
 func (s *artDefaultStore) putImageLocked(next *artDefaultsFileData, data []byte, typ string) (string, error) {
 	sum := sha256.Sum256(data)
 	id := "d-" + hex.EncodeToString(sum[:4])
@@ -223,13 +222,12 @@ func (s *artDefaultStore) putImageLocked(next *artDefaultsFileData, data []byte,
 	return id, nil
 }
 
-// artImage is an image to store with a default: bytes already checked by checkArtBytes.
+// The bytes already passed checkArtBytes.
 type artImage struct {
 	data []byte
 	typ  string
 }
 
-// set stores d over any default for the same item. img, when given, becomes d.Art.
 func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -270,7 +268,7 @@ func (s *artDefaultStore) clear(d ArtDefault) (bool, error) {
 	return true, s.writeLocked(next)
 }
 
-// replaces: x is a preset default stored by name before ids, for the preset d names by id.
+// x is a preset default stored by name with no id, for the preset that d names by id.
 func (d ArtDefault) replaces(x ArtDefault) bool {
 	return d.Kind == artKindPreset && d.ID != "" && x.Kind == artKindPreset && x.ID == "" && strings.EqualFold(x.Name, d.Name)
 }

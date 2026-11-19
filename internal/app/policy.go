@@ -6,15 +6,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Message table: what each browser message needs and what runs for it, in one place. The
-// read loop looks the type up, checks access, then calls the handler; an unlisted type is
-// dropped (TestPolicyCoversEveryMessage: every rule has a handler). A handler picks inline
-// or goroutine itself: userSignIn stays inline so a following lock wins.
-// Locks cover actions, not data: hello, names, tally, History stream to a locked
-// browser (the lock screen is not a secret). Every rule names the Role it needs (roles.go,
-// TestPolicyCoversEveryMessage); settings changes need a Role, never the main lock.
-// Administrator rules need an Administrator signed in on that connection. Save handlers
-// check the Role again under cfgMu (guardSave, guardProfile).
+// Message table: what each browser message needs and what runs for it. The read loop drops an unlisted type.
+// Locks cover actions, not data: hello, names, tally and History stream to a locked browser.
+// A handler picks inline or goroutine itself. Save handlers check the Role again under cfgMu (guardSave, guardProfile).
 type need uint8
 
 const (
@@ -53,7 +47,6 @@ type rule struct {
 }
 
 var policy = map[string]rule{
-	// declares the page type and session token; answered with the lock state
 	"hi": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { a.Hi(c, m.Page, m.Token) }},
 	// the way out of the lock; counted in the user PIN pool. Inline: a later lock is
 	// handled after.
@@ -114,7 +107,7 @@ var policy = map[string]rule{
 		a.command(c, "rereadNames", "sent", "", nil)
 		go a.RefreshNames()
 	}},
-	// Erasing history is more than a take.
+	// A clear of History is more than a take, so it is always Critical.
 	"clearHistory": {crit: critAlways, role: config.RoleAdministrator, need: needMain, write: true, approvable: true, handle: func(a *App, c *client, m *inMsg) {
 		a.command(c, "clearHistory", "ok", approvedNote(m.approver, ""), nil)
 		go func() {
@@ -188,7 +181,7 @@ var policy = map[string]rule{
 	"keyRevokeAny": {crit: critNever, role: config.RoleAdministrator, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAny(c, m) }},
 	"keyRevokeAll": {crit: critAlways, role: config.RoleAdministrator, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAll(c, m) }},
 	// Send a copy (inboxsend.go): any signed-in user, with or without a PIN, checked in the handler.
-	// Accepting writes only the user's own items, so it is never Critical.
+	// An accept writes only the user's own items, so it is never Critical.
 	"inboxList":     {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveInboxList(c, m) }},
 	"inboxSend":     {crit: critNever, role: roleAnyone, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxSend(c, m) }},
 	"inboxReview":   {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxReview(c, m) }},

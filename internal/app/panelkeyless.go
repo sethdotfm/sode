@@ -11,7 +11,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Keyless instances (GLOSSARY.md, ADR 0009): the stream grants nothing; no key, session or user rides it. Besides beats,
+// Keyless instances (GLOSSARY.md, ADR 0009): the stream grants nothing; no key, session or user rides it. Besides
+// beats,
 // it carries public lines (publicback.go) and a last Assign, rename or reload line. Memory only.
 
 const (
@@ -24,8 +25,7 @@ func init() {
 	registerAPI(apiRoute{"GET", apiBase + "/panels/{id}/instances/keyless", scopeOpen, (*App).apiPanelKeyless})
 }
 
-// keylessInst is one announcing device: one per address segment, address and name the page holds, so a reload
-// finds its row again.
+// One entry per address segment, address and name that the page holds, so a reload finds its row again.
 type keylessInst struct {
 	id     string // names it in an Assign
 	ref    string // the panel id or short name in the page's address, if it exists or not
@@ -60,7 +60,7 @@ func newKeylessID() string {
 	return config.RandomHexID(8)
 }
 
-// noteAddrLocked records the name a stream from addr carried. Caller holds mu.
+// Caller holds mu.
 func (m *panelMon) noteAddrLocked(addr, device string) {
 	if addr == "" || device == "" {
 		return
@@ -80,7 +80,7 @@ func (m *panelMon) noteAddrLocked(addr, device string) {
 	m.addrs[addr] = addrName{device, m.now()}
 }
 
-// openKeyless registers a held keyless stream. The returned func drops it.
+// The returned func drops the stream.
 func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel context.CancelFunc) (func(), <-chan lastLine, <-chan struct{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -132,7 +132,7 @@ func (m *panelMon) dropOldestKeylessLocked(now time.Time) {
 	delete(m.keyless, old)
 }
 
-// sweepKeylessLocked drops closed entries and address names older than keylessKeep. Caller holds mu.
+// Caller holds mu.
 func (m *panelMon) sweepKeylessLocked(now time.Time) {
 	for k, in := range m.keyless {
 		if len(in.conns) == 0 && now.Sub(in.seen) > keylessKeep {
@@ -180,7 +180,6 @@ func (m *panelMon) outLocked(in *keylessInst, now time.Time) keylessOut {
 	return o
 }
 
-// keylessOf lists the keyless pages whose address names p, by id or short name.
 func (m *panelMon) keylessOf(p Panel) []keylessOut {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -197,7 +196,6 @@ func (m *panelMon) keylessOf(p Panel) []keylessOut {
 	return out
 }
 
-// keylessLive finds an entry that holds a stream now.
 func (m *panelMon) keylessLive(id string) (ref string, row keylessOut, ok bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -222,7 +220,6 @@ func (m *panelMon) sendKeyless(id string, b []byte) <-chan bool {
 	return nil
 }
 
-// dropKeyless forgets an entry after its page has left for the target.
 func (m *panelMon) dropKeyless(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

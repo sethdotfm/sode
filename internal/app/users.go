@@ -194,8 +194,7 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	return m
 }
 
-// Queues c's lock state and stops the sent-log feed if c can no longer read it. Caller
-// holds mu.
+// Also stops the Communication Log feed if c cannot read it. Caller holds mu.
 func (a *App) syncAccessMu(c *client) { a.pushAccessMu(c, false) }
 
 // pushAccessMu: hi marks the answer to a hi.

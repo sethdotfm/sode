@@ -8,15 +8,11 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Apply an access preset: the page stages the values into the one Save, and the record names the preset.
-
-// presetKeys: the one Save keys a preset writes. `api` carries only guestEnabled, since an
-// object merges key by key and the other API settings are not the preset's.
+// `api` carries only guestEnabled: an object merges key by key, and the other API settings are not the preset's.
 var presetKeys = []string{"locks", "autoLockMinutes", "guestRole", "pinWaits", "publicPanels",
 	"newPanelActs", "newUserDefaults", "guestApiScopes"}
 
-// accessPresetView is part of usersListResult (Administrator only). Users: the flags a ticked user row gets. Rows: the
-// setup sheet, for Run setup again.
+// Part of usersListResult (Administrator only). Rows is the setup sheet, for Run setup again.
 type accessPresetView struct {
 	Key    string                     `json:"key"`
 	Name   string                     `json:"name"`
@@ -25,8 +21,8 @@ type accessPresetView struct {
 	Rows   map[string]bool            `json:"rows"`
 }
 
-// presetSaveFields: p as one Save fields, read back from a config p was applied to, so the
-// values cannot drift from Apply (TestPresetSaveFieldsMatchApply).
+// Read back from a config that p was applied to, so the values cannot drift from Apply
+// (TestPresetSaveFieldsMatchApply).
 func presetSaveFields(p config.AccessPreset) map[string]json.RawMessage {
 	c := config.Defaults()
 	p.Apply(&c)
@@ -47,8 +43,7 @@ func accessPresetViews() []accessPresetView {
 	return out
 }
 
-// presetOfSave: the full name of the preset a save names, for its Settings saves row. Empty
-// when the name is unknown or no kept field is one a preset writes.
+// "" when the name is unknown or no kept field is one a preset writes.
 func presetOfSave(name string, keep []string) string {
 	if name == "" {
 		return ""

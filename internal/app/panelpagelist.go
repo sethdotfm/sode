@@ -24,7 +24,7 @@ const (
 
 var pageIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,16}$`)
 
-// PanelPage is one Page. Enabled reads as true when a body or file leaves it out.
+// Enabled reads as true when a body or file leaves it out.
 type PanelPage struct {
 	ID      string           `yaml:"id" json:"id"`
 	Name    string           `yaml:"name,omitempty" json:"name,omitempty"`
@@ -64,7 +64,8 @@ func legacyPageID(owner string) string {
 }
 
 // normalPages fills defaults and never fails; checkPages judges the result. Pages win over legacy cells, so a file an
-// older Sode saved with both keeps its Pages. The list is a copy: it is possible that pages are shared with a stored panel.
+// older Sode saved with both keeps its Pages. The list is a copy: it is possible that pages are shared with a stored
+// panel.
 func normalPages(pages []PanelPage, legacy []map[string]any, owner string) []PanelPage {
 	if len(pages) == 0 {
 		if legacy == nil {
@@ -84,8 +85,7 @@ func normalPages(pages []PanelPage, legacy []map[string]any, owner string) []Pan
 	return out
 }
 
-// checkPages is run on every save: the count, ids, names and cells per Page. Each Page's cells are fitted to the grid,
-// so a resize drops what no longer fits on every Page.
+// checkPages runs on every save. It fits each Page's cells to the grid, so a resize drops the cells that do not fit.
 func checkPages(pages []PanelPage, rows, cols int) ([]PanelPage, error) {
 	if len(pages) < 1 || len(pages) > panelPageMax {
 		return nil, fmt.Errorf("a panel has 1 to %d Pages", panelPageMax)
@@ -109,7 +109,8 @@ func checkPages(pages []PanelPage, rows, cols int) ([]PanelPage, error) {
 		out[i].Name = cleanText(name, panelPageNameMax)
 		out[i].Cells = fitCells(g.Cells, rows, cols)
 	}
-	// The panel page falls back to Page 1 when none is enabled (web/panelnav.js), so a reload would land on a dead Page.
+	// The panel page falls back to Page 1 when none is enabled (web/panelnav.js), so a reload would land on a dead
+	// Page.
 	if !slices.ContainsFunc(out, func(g PanelPage) bool { return g.Enabled }) {
 		return nil, errors.New("a panel needs at least one enabled Page")
 	}
@@ -150,7 +151,8 @@ func checkShowParts(pages []PanelPage) error {
 	return nil
 }
 
-// checkPageTargets judges each Go to Page cell's `page`, a Page id. A target that is missing is stored as is and read as
+// checkPageTargets judges each Go to Page cell's `page`, a Page id. A target that is missing is stored as is and read
+// as
 // unassigned (web/panelnav.js goToState). So only a malformed one is refused. "" or no field is unassigned.
 func checkPageTargets(pages []PanelPage) error {
 	for c := range allCells(pages) {
@@ -208,7 +210,6 @@ func cellInt(v any) (int, bool) {
 	return 0, false
 }
 
-// allCells walks every Page's cells, in order.
 func allCells(pages []PanelPage) func(func(map[string]any) bool) {
 	return func(yield func(map[string]any) bool) {
 		for _, g := range pages {
@@ -221,7 +222,7 @@ func allCells(pages []PanelPage) func(func(map[string]any) bool) {
 	}
 }
 
-// pageCellCount is how many cells the Pages hold together; legacy is a record from before Pages.
+// legacy is a record from before Pages.
 func pageCellCount(pages []PanelPage, legacy []map[string]any) (cells, count int) {
 	if len(pages) == 0 {
 		return len(legacy), 1

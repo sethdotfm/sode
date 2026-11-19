@@ -9,9 +9,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Renaming an instance from the panels page (docs/panels-design.md): the new device name goes down the instance's
-// held stream as its last line. The page applies it as its own header rename does and reopens under it. The
-// instance's key is renamed so the key list and the instances agree. The name is the device name itself.
+// Rename of an instance from the panels page (docs/panels-design.md): the new device name goes down the held stream
+// as its last line.
+// Sode renames the instance's key too, so the key list and the instances agree.
 
 func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/instances/rename", config.ScopePanelsManage, (*App).apiPanelRename})
@@ -24,7 +24,7 @@ type renameLine struct {
 	Instance string `json:"instance"`
 }
 
-// deviceNames lists every instance name the monitor holds for the panel, offline ones included.
+// Offline instances are included.
 func (m *panelMon) deviceNames(id string) []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -35,7 +35,6 @@ func (m *panelMon) deviceNames(id string) []string {
 	return out
 }
 
-// followRename moves every user's watch of the old instance name to the new one.
 func (m *panelMon) followRename(id, old, name string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -59,7 +58,6 @@ func (m *panelMon) followRename(id, old, name string) {
 	}
 }
 
-// renameInstance renames the owner's key or pending setup link named old, and says whether one was.
 func (s *keyStore) renameInstance(o keyOwner, old, name string) bool {
 	s.mu.Lock()
 	found := false
@@ -127,7 +125,7 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	c, has := clientOfPanel(a.r().cfg, p)
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
-	// Offline names count: reusing a lost instance's name would read as that instance coming back.
+	// Offline names count. If a page had a lost instance's name, it would read as that instance back online.
 	devs := a.mon.deviceNames(p.ID)
 	// cfgMu is never held while the monitor locks, as in an Assign.
 	a.cfgMu.Lock()

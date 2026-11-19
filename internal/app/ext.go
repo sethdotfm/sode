@@ -6,16 +6,9 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// Externals (a hardware panel, Companion) arrive as Connecteds no take asked for. An
-// External arrives as one message per level. So changes are collected until quiet and written as
-// one entry per destination and source. A burst over several destinations shares a history group.
-// The router also re-routes destinations itself (a multiviewer PiP following a DSM). The
-// same source moved to another destination right after one of our takes is written as a
-// follow of it (Entry.Follow), not a take. Changes made elsewhere are not followed: a
-// group send from a panel stays one burst.
-// The router does not announce every change (2026-10-23: KiPro 4 moved with no Connected).
-// Those surface as a tally differing from the cache (periodic dump, interrogate) and are
-// written as found entries, never follows (time unknown).
+// External changes and External follows: docs/agents/history.md. An External arrives as one message per level, so
+// Sode collects changes until quiet. The router does not announce every change (2026-10-23: KiPro 4 moved with no
+// Connected). Sode writes those as found entries.
 
 const (
 	extQuiet = 500 * time.Millisecond // a burst ends after this long with no changes
@@ -62,11 +55,7 @@ const (
 	verdictExt                   // a change made elsewhere
 )
 
-// classify: a Connected answering our connect is ours (key used up, so the same route
-// later elsewhere still counts). A route a take gave up on is claimed late (flushLate
-// amends; a tally confirms too). A tally of a route that a take in flight or recently given
-// up asked for is ours (ignore). So is a tally the cache had no value for (known false).
-// Anything else is made elsewhere (ext). Caller holds mu.
+// classify uses up the own key, so the same route made elsewhere later still counts as External. Caller holds mu.
 func (a *App) classify(xp swp08.Crosspoint, ui int, known bool) verdict {
 	k := ownKey{xp.Dst, xp.Level, xp.Src}
 	if xp.Changed() {

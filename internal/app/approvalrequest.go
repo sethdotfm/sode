@@ -25,7 +25,7 @@ type approvalRequest struct {
 	need   string // the Role an approver needs
 	what   string
 	msg    inMsg // frozen; the result goes back with its ID
-	// card content, worked out once when sent
+	// card content, worked out one time when sent
 	changes []SavedField
 	stops   []string
 	until   time.Time
@@ -59,8 +59,7 @@ type approvalEndMsg struct {
 	By      string `json:"by"`
 }
 
-// approversMsg: another browser could approve an action that needs this Role. No names: it goes
-// to every page, signed in or not.
+// No names: it goes to every page, signed in or not.
 type approversMsg struct {
 	T             string `json:"t"`
 	Trusted       bool   `json:"trusted"`
@@ -71,8 +70,7 @@ var errNoApprover = errors.New("no one signed in can approve this")
 
 var approvalWhat = map[string]string{"settingsSave": "Saving these changes", "clearHistory": "Clearing History"}
 
-// askNeed: the Role an approver needs. For a save, the highest Role among the fields that need
-// an Approval from this Role; "" when none does.
+// For a save, the highest Role among the fields that need an Approval from this Role; "" when none does.
 func askNeed(act *inMsg, rl rule, role string) string {
 	if act.T != "settingsSave" {
 		return rl.role
@@ -90,8 +88,7 @@ func askNeed(act *inMsg, rl rule, role string) string {
 	return need
 }
 
-// askChanges: the change list and Interruptions of a frozen save, for the card. Fields outside
-// role's view are left out: the save refuses them, and the approver need not see their values.
+// Fields outside role's view are left out: the save refuses them, and the approver must not see their values.
 func (a *App) askChanges(fields map[string]fieldEdit, role string) ([]SavedField, []string) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -118,7 +115,7 @@ func (a *App) serveApprovalAsk(c *client, m *inMsg) {
 	}
 }
 
-// approvalAsk answers a taken request itself, so the result comes before approvalWaiting.
+// approvalAsk answers an accepted request itself, so the result comes before approvalWaiting.
 func (a *App) approvalAsk(c *client, act *inMsg, id int) error {
 	if act == nil {
 		return errors.New("nothing to approve")
@@ -166,7 +163,7 @@ func (a *App) approvalAsk(c *client, act *inMsg, id int) error {
 
 func (r *approvalRequest) left() int64 { return max(time.Until(r.until).Milliseconds(), 1) }
 
-// qualifiesMu: q could approve r now. Caller holds mu.
+// Caller holds mu.
 func (a *App) qualifiesMu(q *client, r *approvalRequest) bool {
 	cfg := a.r().cfg
 	switch {
@@ -189,7 +186,7 @@ func (a *App) anyApproverMu(r *approvalRequest) bool {
 	return false
 }
 
-// endAskMu ends r once; false when it ended already. The Log row is the caller's, outside mu.
+// false when r ended already. The caller writes the Log row, outside mu.
 func (a *App) endAskMu(r *approvalRequest, end, by string) bool {
 	if a.asks[r.from] != r {
 		return false
@@ -292,8 +289,7 @@ func (a *App) serveApprovalCancel(c *client) {
 
 var errAskEnded = errors.New("this request has ended")
 
-// serveApprovalAnswer: the approver is this browser's signed-in user, never a typed name. Approve
-// checks their PIN in their name's pool; Deny needs none.
+// The approver is this browser's signed-in user, never a typed name. Deny needs no PIN.
 func (a *App) serveApprovalAnswer(c *client, m *inMsg) {
 	reply := func(err error) {
 		res := opResultFor("approvalAnswer", nil, err)
@@ -351,8 +347,7 @@ func (a *App) serveApprovalAnswer(c *client, m *inMsg) {
 	a.runApproved(r, live)
 }
 
-// runApproved runs the frozen action as the requester with the approver's Approval. It skips
-// admit on the requester's connection, which can be under the Lock; asRole stands in for it.
+// Skips admit on the requester's connection, which can be under the Lock; asRole stands in for it.
 func (a *App) runApproved(r *approvalRequest, ap config.User) {
 	rl, _ := ruleOf(r.msg.T)
 	m := r.msg

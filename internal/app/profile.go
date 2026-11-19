@@ -10,10 +10,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// User profiles: a user's This-device prefs, filter sets and presets, kept on config.User.
-// Never in a hello: pushed as a profile message only to connections unlocked as that user,
-// when access changes (pushAccessMu) and after a save. Who can save is in policy.go;
-// guardProfile repeats it under cfgMu.
+// User profiles: a user's This browser prefs, filter sets and presets, kept on config.User.
+// Never in a hello. The server pushes a profile message only to connections signed in as that user:
+// when access changes (pushAccessMu) and after a save. guardProfile repeats policy.go's rule under cfgMu.
 
 var errNoSuchUser = errors.New("no such user")
 

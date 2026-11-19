@@ -13,9 +13,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Send a copy over the socket (docs/agents/profiles.md, Inbox). Every message needs a signed-in user,
-// with or without a PIN; a Guest has no Inbox. The Log gets one command row per send, accept, decline,
-// withdraw and expiry, with names and counts. History gets nothing, since no route changes.
+// Send a copy over the socket (docs/agents/profiles.md, Inbox). The Log gets one command row per send and answer.
+// History gets nothing, since no route changes.
 
 // Item scopes as the pages name them (web/presetstore.js): This browser, Me, Everyone.
 const (
@@ -67,7 +66,7 @@ type cardView struct {
 	From     string     `json:"from"`
 	To       string     `json:"to"`
 	At       int64      `json:"at"`      // unix ms
-	Expires  int64      `json:"expires"` // unix ms; 0 once answered
+	Expires  int64      `json:"expires"` // unix ms; 0 after an answer
 	State    string     `json:"state"`
 	Count    int        `json:"count"`
 	Accepted int        `json:"accepted,omitempty"`
@@ -80,7 +79,7 @@ type cardLine struct {
 	Name     string `json:"name"`
 }
 
-// inboxMsg is pushed to each connection signed in as the user. New lists the cards that arrived now, for
+// Sode pushes inboxMsg to each connection signed in as the user. New lists the cards that arrived with this push, for
 // one toast each; an answer never fills it.
 type inboxMsg struct {
 	T     string     `json:"t"` // "inbox"
@@ -263,8 +262,8 @@ func (a *App) SendCopy(c *client, req inboxReq) ([]inboxCard, cardItems, error) 
 	return stored, items, err
 }
 
-// Me and Everyone items and panels are read here, and from must be able to see them; only This browser items come in the
-// request.
+// freezeItems reads Me and Everyone items and panels here, and from must be able to see them. Only This browser items
+// come in the request.
 func (a *App) freezeItems(cfg config.Config, from config.User, req inboxReq) (cardItems, map[string][]byte, error) {
 	var it cardItems
 	art := map[string][]byte{}

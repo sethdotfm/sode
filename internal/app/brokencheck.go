@@ -13,9 +13,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Broken and Name moved after a router name change (GLOSSARY.md; docs/agents/server.md, Broken check). On one
-// router the number decides. A check runs after each counted name poll. It acts only where the last two counted
-// polls agree, so one bad read changes nothing.
+// Broken check: docs/agents/server.md. It acts only where the last two counted polls agree, so one bad read changes
+// nothing.
 
 // namePoll is one full name read as the router sent it, before refreshed lays old names over a short reply.
 type namePoll struct{ src, dst map[int]string }
@@ -27,8 +26,7 @@ func (p *namePoll) side(dst bool) map[int]string {
 	return p.src
 }
 
-// routerFault: more than half the names the base held go blank or missing at once. base is the last counted
-// poll, else the names shown now (the saved names table at boot).
+// base is the last counted poll, else the names shown now (the saved names table at boot).
 func routerFault(base, cur namePoll) bool {
 	had, lost := 0, 0
 	for _, dst := range []bool{false, true} {
@@ -46,8 +44,8 @@ func routerFault(base, cur namePoll) bool {
 	return lost*2 > had
 }
 
-// countPollMu takes a full read and returns the check to run after mu is released, or nil. fault: the read
-// is a router fault, so it is neither shown nor saved. Caller holds mu.
+// countPollMu returns the check to run after the caller releases mu, or nil. A fault read is not shown or saved.
+// Caller holds mu.
 func (a *App) countPollMu(cur namePoll) (check func(), fault bool) {
 	base := a.router.lastPoll
 	if base == nil {
@@ -114,8 +112,8 @@ type pollCheck struct {
 	prev, cur namePoll
 	hints     [2]map[string]string // routerState.renamedTo when the read was counted
 	renames   []string
-	broke     []string // items that became Broken
-	moved     []string // items that became Name moved
+	broke     []string
+	moved     []string
 }
 
 func sameName(a, b string) bool { return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b)) }
@@ -213,7 +211,8 @@ func hasMissing(l []config.Missing, kind string, r config.Ref) bool {
 	return ok
 }
 
-// A save stores each reference with the name now at its number, so the name in a mark decides. A Broken reference recovers
+// A save stores each reference with the name now at its number, so the name in a mark decides. A Broken reference
+// recovers
 // only when its number holds that name again.
 func (c *itemCheck) ref(dst bool, r *config.Ref) {
 	kind := refKind(dst)

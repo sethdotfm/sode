@@ -25,7 +25,7 @@ const (
 	inboxKeep       = 30 * 24 * time.Hour // how long an answered card stays in the Sent list
 )
 
-// Card states. A card leaves cardWaiting once and never comes back.
+// Card states. A card that leaves cardWaiting never comes back.
 const (
 	cardWaiting   = "waiting"
 	cardAccepted  = "accepted"
@@ -197,8 +197,7 @@ func (s *inboxStore) endLocked(id, state string, accepted int, now time.Time) (i
 	return c, nil
 }
 
-// sweep expires waiting cards older than ttl and forgets answered cards older than keep. It returns
-// the cards it expired.
+// sweep returns the cards it expired.
 func (s *inboxStore) sweep(now time.Time, ttl, keep time.Duration) []inboxCard {
 	s.mu.Lock()
 	defer s.mu.Unlock()

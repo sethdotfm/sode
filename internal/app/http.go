@@ -26,14 +26,14 @@ type client struct {
 	// secure: the upgrade request came through a trusted proxy marked HTTPS (ADR 0005).
 	secure bool
 
-	// sent: a /log page receiving sent-log entries. Guarded by App.mu.
+	// sent: a /log page that gets Communication Log rows. Guarded by App.mu.
 	sent bool
 
 	// api: set for a caller that is not a browser session; its Actor and Rights replace
 	// the lookup callerOf does for a browser.
 	api *apiCtx
 
-	u connUser // page type, unlocked user, session token (users.go)
+	u connUser // page type, signed-in user, session token (users.go)
 }
 
 // wsReadLimit: see TestMessageSizes (largest are a Settings save and a presets save).
@@ -148,8 +148,7 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(healthMsg{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
 }
 
-// clientIP: a hop that is not an address ends the search at the peer rather than trusting
-// what lies beyond.
+// clientIP: a hop that is not an address ends the search at the peer. Sode does not trust what lies beyond it.
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	host, ok := trustedPeer(r, trusted)
 	if !ok {
@@ -394,7 +393,7 @@ type inMsg struct {
 	Instance     string             `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
 	MyClient     *myClientReq       `json:"client"`   // myClientSave
 	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
-	approver     *config.User       // set by approve once the Approval's PIN is checked
+	approver     *config.User       // approve sets it after it checks the Approval's PIN
 	Router       string             `json:"router"`  // setupRouter: the address typed
 	Setup        *setupReq          `json:"setup"`   // setupFinish
 	TakeOver     bool               `json:"take"`    // setupClaim: Take control from the browser that runs setup

@@ -269,7 +269,7 @@ func (h *History) Clear() error {
 	return h.f.Truncate(0)
 }
 
-// A page ending inside a group runs to its end, so a confirm's takes come back together.
+// A page that ends inside a group runs to the end of the group, so a confirm's takes come back together.
 func (h *History) Page(before, n int) ([]Entry, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

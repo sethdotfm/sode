@@ -63,9 +63,9 @@ type Uptime struct {
 	now   func() time.Time
 	trans []UptimeTrans
 	mins  []minute // completed minutes with problems, oldest first
-	cur   minute   // the minute being counted
-	pend  []byte   // lines not yet in the file
-	size  int      // bytes
+	cur   minute
+	pend  []byte // lines not yet in the file
+	size  int    // bytes
 	cap   int
 }
 

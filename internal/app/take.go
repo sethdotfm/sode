@@ -16,15 +16,13 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// --- takes
-
 type routeReq struct {
 	ID     int   `json:"id"`
 	Src    int   `json:"src"`
 	Dst    int   `json:"dst"`
 	Levels []int `json:"levels"`
-	Undo   *int  `json:"undo"`  // history ID being undone
-	Retry  *int  `json:"retry"` // history ID of the failed take being retried
+	Undo   *int  `json:"undo"`  // history ID of the take to undo
+	Retry  *int  `json:"retry"` // history ID of the failed take to retry
 
 	Group  string `json:"-"` // set by take for confirms of more than one route
 	GroupN int    `json:"-"`
@@ -33,22 +31,20 @@ type routeReq struct {
 	PresetID string `json:"-"`
 	// NoCheck: use the cache for Prev instead of reading dst first.
 	NoCheck bool `json:"-"`
-	// Stage: wire levels sent in a native group salvo (fire.go); other levels go as
-	// ordinary connects.
+	// Stage: levels, by wire number, that go in a native group salvo (fire.go); other levels go as ordinary connects.
 	Stage map[int]bool `json:"-"`
 }
 
-// routeLimit: routes of one take running at once; the link sends one message per ACK, so
-// more would time out waiting.
+// routeLimit: one take runs this many routes at one time; the link sends one message per ACK, so more would time out.
 const routeLimit = 8
 
 // bigTake: routes per confirm above which dst is not read first (17 interrogates each);
 // the cache is used.
 const bigTake = 6
 
-// take is the one entry point for every confirmed take (browser batch, Undo, Redo, Retry,
-// presets, API). Results go to c.send, or to c.api.sink for an API caller. It returns the
-// refusal when the caller's rights do not cover every route; nothing ran then.
+// take is the one entry point for every confirmed take (browser plan, Undo, Redo, Retry, presets, API).
+// Results go to c.send, or to c.api.sink for an API caller. It returns the refusal when the rights of
+// the caller do not cover every route; nothing ran then.
 func (a *App) take(c *client, items []routeReq) (refused string) {
 	if msg := a.rightsPass(a.r(), c, items); msg != "" {
 		return msg
@@ -99,7 +95,7 @@ func runLimited(limit, n int, fn func(i int)) {
 	wg.Wait()
 }
 
-// confirmedBy: how the router answered a level; set once in waiter.see.
+// confirmedBy: how the router answered a level; waiter.see sets it one time.
 type confirmedBy uint8
 
 const (
@@ -118,16 +114,16 @@ type routeLevel struct {
 	connect  []byte
 	same     bool        // the cache said it was already on src
 	unsent   bool        // the router link refused it
-	by       confirmedBy // how the router confirmed it (decided once, in see)
-	at       time.Time   // when it was confirmed
-	native   bool        // staged in the take's group salvo (fire.go): confirmed by a Connected or a tally
-	seen     bool        // the router reported some other route for the level...
-	now      int         // ...this src (-1 = nothing routed), the latest report
+	by       confirmedBy // how the router confirmed it (see decides one time)
+	at       time.Time
+	native   bool // staged in the take's group salvo (fire.go): confirmed by a Connected or a tally
+	seen     bool // the router reported some other route for the level...
+	now      int  // ...this src (-1 = nothing routed), the latest report
 }
 
 type waiter struct {
 	dst, src int
-	why      swp08.Why // the connects' reason and browser, for the sent log
+	why      swp08.Why // the connects' reason and browser, for the Communication Log
 	levels   []*routeLevel
 	done     chan struct{}
 	closed   bool
@@ -152,9 +148,8 @@ func (w *waiter) filter(keep func(*routeLevel) bool) []*routeLevel {
 	return ls
 }
 
-// see marks a level confirmed when the router reports the requested route. Routers
-// announce only changes, so a level already on src is confirmed by an interrogate answer.
-// Other reports are kept (seen, now) for the failure reason. Caller holds mu.
+// Routers announce only changes, so an interrogate answer confirms a level already on src.
+// Other reports stay in seen and now for the failure reason. Caller holds mu.
 func (w *waiter) see(xp swp08.Crosspoint) bool {
 	if xp.Dst != w.dst {
 		return false
@@ -332,7 +327,8 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 const (
 	defaultCheckTimeout = time.Second
 	checkFresh          = 15 * time.Second
-	// defaultQueueMax: default for App.queueMax, the cap on waiting in the send queue (one message per ACK, shared by all
+	// defaultQueueMax: default for App.queueMax, the cap on waiting in the send queue (one message per ACK, shared by
+	// all
 	// takes); then timeouts start anyway.
 	defaultQueueMax = 30 * time.Second
 	// A tally of a route a take gave up on stays its own this long.
@@ -638,8 +634,8 @@ func (a *App) whyMissing(e *Entry, missing []*routeLevel) {
 	}
 }
 
-// nowNames copies the names entryErr can read: the sources in e.Now. A whole copy of a large
-// router's names on every take was most of a take's garbage. Caller holds mu.
+// nowNames copies only the names entryErr can read: the sources in e.Now. A whole copy of a large
+// router's names on every take makes too much garbage. Caller holds mu.
 func (a *App) nowNames(e *Entry) map[int]string {
 	if len(e.Now) == 0 {
 		return nil
@@ -758,7 +754,7 @@ func (a *App) sendRoute(r *runtime, w *waiter) error {
 
 // sendTracked refuses after the router changed: applyConfig swaps a.ext under mu before
 // retargeting, so an earlier send would land in the old session's queue. Holding mu across
-// Send is fine (Send and onTx never block or take it).
+// Send is fine (Send and onTx never block or lock it).
 func (a *App) sendTracked(ext *extTracker, m []byte, why swp08.Why) (<-chan struct{}, error) {
 	why.Done = make(chan struct{})
 	a.mu.Lock()

@@ -21,12 +21,11 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Panel monitoring (docs/panels-design.md). An open panel page is an instance named by its device.
-// It sends a keepalive and holds a stream open. A panel is online while any instance has a stream
-// and was heard within monMiss. It is also online if it was heard within monGrace after its last
-// stream closed. Instances live in memory only: after a restart nothing is known, so nothing is
-// alerted. Watches are a user's list of panel ids in panelwatch.yaml beside the config. They are
-// never part of a panel file, so a save of the panel cannot drop another user's watch.
+// Panel monitoring (docs/panels-design.md). A panel is online while an instance holds a stream and was heard within
+// monMiss.
+// It is also online within monGrace after its last stream closed. Instances live in memory only, so a restart alerts
+// nothing.
+// Watches live in panelwatch.yaml, never in a panel file, so a panel save cannot drop another user's watch.
 
 const (
 	monKeepalive = 15 * time.Second // what the panel page sends; documented, not enforced
@@ -113,12 +112,12 @@ func (c monConn) offer(b []byte) <-chan bool {
 	}
 }
 
-// newestConn is the stream opened last. conns must not be empty.
+// conns must not be empty.
 func newestConn(conns map[int]monConn) monConn {
 	return conns[slices.Max(slices.Collect(maps.Keys(conns)))]
 }
 
-// written waits for a stream's answer to an offer. Call it with no lock held.
+// Call it with no lock held.
 func written(got <-chan bool) bool {
 	if got == nil {
 		return false
@@ -141,7 +140,6 @@ func unsent(out chan lastLine) {
 	}
 }
 
-// monEvent is a transition to tell watchers about.
 type monEvent struct {
 	panel, device string
 	state         string // "lost" or "back"
@@ -191,7 +189,7 @@ func loadPanelMon(cfgPath string) *panelMon {
 	return m
 }
 
-// saveLocked writes the watch lists. Caller holds mu.
+// Caller holds mu.
 func (m *panelMon) saveLocked() error {
 	if m.path == "" {
 		return nil
@@ -224,7 +222,6 @@ func splitWatchKey(k string) (id, inst string) {
 	return id, inst
 }
 
-// watching is the whole-panel watch.
 func (m *panelMon) watching(user, id string) bool { return m.watchingInst(user, id, "") }
 
 func (m *panelMon) watchingInst(user, id, inst string) bool {
@@ -233,7 +230,6 @@ func (m *panelMon) watchingInst(user, id, inst string) bool {
 	return m.watch[strings.ToLower(user)][watchKey(id, inst)]
 }
 
-// watchedInstances lists the lowercased device names the user watches on the panel.
 func (m *panelMon) watchedInstances(user, id string) []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -345,8 +341,7 @@ func (m *panelMon) unclearLocked(id, device string) {
 	}
 }
 
-// dropUsers drops the watches of removed users (by id). Watches are keyed by user id, so a
-// rename keeps them.
+// Watches are keyed by user id, so a rename keeps them.
 func (m *panelMon) dropUsers(removed map[string]bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -379,7 +374,6 @@ func (m *panelMon) online(id string) bool {
 	return m.onlineLocked(id, m.now())
 }
 
-// liveCount is how many devices count as online.
 func (m *panelMon) liveCount(id string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -428,7 +422,6 @@ func (m *panelMon) instances(id string) []instOut {
 	return out
 }
 
-// beat records a keepalive. A device that was lost yields a "back" event.
 func (m *panelMon) beat(id, device string) (*monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -440,8 +433,7 @@ func (m *panelMon) beat(id, device string) (*monEvent, error) {
 	return ev, err
 }
 
-// openStream registers a held connection of a device; cancel ends it and out is what to write on it.
-// The returned func drops it.
+// The returned func drops the stream.
 func (m *panelMon) openStream(id, device string, who streamWho, cancel context.CancelFunc) (func(), <-chan lastLine, *monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -472,7 +464,7 @@ func (m *panelMon) openStream(id, device string, who streamWho, cancel context.C
 	return closeFn, out, ev, nil
 }
 
-// touchLocked finds or adds the device and marks it heard. A device that was lost yields "back".
+// A device that was lost yields "back".
 func (m *panelMon) touchLocked(id, device string) (*monInst, *monEvent, error) {
 	now := m.now()
 	k := strings.ToLower(device)
@@ -501,7 +493,6 @@ func (m *panelMon) touchLocked(id, device string) (*monInst, *monEvent, error) {
 	return in, &monEvent{panel: id, device: device, state: "back", secs: int(now.Sub(was).Seconds())}, nil
 }
 
-// sweep marks the devices that are past their limit and returns what to tell.
 func (m *panelMon) sweep(now time.Time) []monEvent {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -646,7 +637,7 @@ func (a *App) pushPanelsOfflineMu(c *client) {
 	a.deliver(c, []byte(msg))
 }
 
-// monNotify tells every watcher who can still watch the panel, as a notice and a refreshed badge.
+// monNotify tells every watcher who can still watch the panel: a notice and an updated badge.
 func (a *App) monNotify(ev monEvent) {
 	p, ok := a.panels.get(ev.panel)
 	if !ok {
@@ -696,14 +687,12 @@ func (a *App) pushOfflineAllMu() {
 	}
 }
 
-// monSweep runs from periodic and from tests.
 func (a *App) monSweep() {
 	for _, ev := range a.mon.sweep(a.mon.now()) {
 		a.monNotify(ev)
 	}
 }
 
-// monFields adds online, the instance counts, watching and, for an editor, the devices to a panel as sent.
 func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	m["online"] = a.mon.online(p.ID)
 	m["watching"] = cl.Actor.Kind == actorUser && a.mon.watching(cl.Actor.User, p.ID)
@@ -896,7 +885,6 @@ func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiC
 	apiJSON(w, map[string]any{"online": true, "keepaliveSeconds": int(monKeepalive.Seconds()), "missSeconds": int(monMiss.Seconds()), "graceSeconds": int(monGrace.Seconds())})
 }
 
-// watchFor is panelFor for a user who can watch the panel: its owner, or a Trusted user.
 func (a *App) watchFor(w http.ResponseWriter, r *http.Request, cl *apiCtx) (Panel, bool) {
 	if cl.Actor.Kind != actorUser {
 		apiFail(w, http.StatusForbidden, "user_required", "watching belongs to a user: use a user's key")

@@ -10,7 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// With a config path and no users, Sode admits only the setup messages until Finish, and writes nothing to disk before it
+// With a config path and no users, Sode admits only the setup messages until Finish, and writes nothing to disk
+// before it
 // (docs/agents/users-locks.md).
 
 //lint:ignore ST1005 the page shows it as is
@@ -65,7 +66,7 @@ func (a *App) setupHelloFor(cfg config.Config) *setupHello {
 	return h
 }
 
-// setupReq: the wizard's answers, sent once at Finish.
+// setupReq: the wizard's answers, sent one time at Finish.
 type setupReq struct {
 	BrandText      string `json:"brandText"`
 	BrandBorder    string `json:"brandBorder"`
@@ -162,8 +163,8 @@ func (a *App) setupLeft(c *client) {
 	a.mu.Unlock()
 }
 
-// setupRouter moves the live link to the address the Router step typed, without saving, so the
-// page can say whether it answers.
+// setupRouter moves the live link to the address from the Router step and does not save.
+// The page can then say if the router answers.
 func (a *App) setupRouter(c *client, addr string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

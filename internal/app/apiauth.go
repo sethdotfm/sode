@@ -21,8 +21,7 @@ const (
 	apiViaMax      = 32
 )
 
-// userKeyScopes: a user's key acts as the user in full, except the Communication Log. That
-// needs an explicit scope, which an API client or Guest can be given.
+// A user's key acts as the user in full, except the Communication Log, which needs an explicit scope.
 var userKeyScopes = slices.DeleteFunc(slices.Clone(config.AllScopes), func(s string) bool { return s == config.ScopeLog })
 
 type authFail struct {
@@ -35,8 +34,7 @@ type rateWin struct {
 	n     int
 }
 
-// apiState is the throttle memory, the count of takes in flight and the Idempotency-Key
-// answers (apiidem.go). One mutex guards it all; never held with App.mu or across a take.
+// One mutex guards it all. Never hold it with App.mu or across a take.
 type apiState struct {
 	mu       sync.Mutex
 	fails    map[string]*authFail
@@ -46,9 +44,8 @@ type apiState struct {
 	idem     map[string]*idemSlot
 }
 
-// apiAuth is the one auth step. It writes the error response itself and returns false, or
-// returns the resolved caller. Order: throttle on failed keys, key or keyless Guest,
-// rate limit, then the key's use is counted.
+// Writes the error response itself. Order: throttle on failed keys, key or keyless Guest, rate limit, then the key's
+// use count.
 func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 	rt := a.r()
 	cfg := rt.cfg
@@ -85,22 +82,22 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 			if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.User, cfg) {
 				cl = nil // its session ended; endSessionKeys has not yet swept the record
 			}
-			ended = cl == nil // a real key whose owner or session went, not yet swept
+			ended = cl == nil
 		} else if !expired {
 			expired, ended = a.keys.endedAs(secret)
 			if !ended {
 				expired, ended = a.public.endedAs(secret)
 			}
-			// A public key this Sode has no record of: a restart forgot it, or it is a guess. Once the
-			// start is longer ago than a key lives, no real one can predate it, so it counts.
+			// A public key with no record: a restart forgot it, or it is a guess. A real key is at most publicKeyTTL
+			// old,
+			// so after Sode has run that long it is a guess and counts.
 			if !ended && isPublicShape(secret) {
 				ended = now.Sub(a.started) < publicKeyTTL
 				forgot = !ended
 			}
 		}
 	}
-	// A key that was real is answered for what it is, even during a lockout, and never counted:
-	// only unknown keys are guesses.
+	// Only unknown keys are guesses. A key that was real gets its own answer, even in a lockout, and never counts.
 	if expired || ended {
 		a.refuseEnded(w, ip, expired, now)
 		return nil, false
@@ -138,16 +135,15 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 	return cl, true
 }
 
-// panelHeaders ties the call to the panel page that made it, for log rows. A panel client's key
-// proves its panel. The key's name is the instance when the page sends none (a key is made per
-// instance, panelkey.go). A user's key proves nothing, so `X-Sode-Panel` must name a panel that
-// exists and is marked unverified; an instance with no panel is dropped.
+// For log rows. A panel client's key proves its panel, and the key's name is the instance when the page sends none
+// (one key per instance, panelkey.go). A user's key proves nothing: `X-Sode-Panel` must name a panel that exists,
+// and Sode marks it unverified. An instance with no panel is dropped.
 func (a *App) panelHeaders(r *http.Request, cl *apiCtx, k apiKey) {
 	instance := cleanDevice(r.Header.Get("X-Sode-Instance"))
 	if cl.Panel != "" {
 		switch {
 		case instance != "":
-		case k.public: // every Public page holds a key named Public; name it by address, as the monitor does
+		case k.public: // every Public page holds a key named Public, so the address names the instance, as in the monitor
 			instance = cleanDevice(cl.IP)
 		default:
 			instance = k.Name
@@ -162,11 +158,11 @@ func (a *App) panelHeaders(r *http.Request, cl *apiCtx, k apiKey) {
 	cl.Actor.panel, cl.Actor.instance, cl.Actor.panelSaid = id, instance, true
 }
 
-// resolveKey reads the owner live from the config, so a rights edit applies at once. nil if
-// the owner is gone (pruneKeys drops such keys, but a request can race it).
+// The owner is read live from the config, so a rights edit applies immediately. nil if the owner is gone: a request
+// can race pruneKeys.
 func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 	kc := k
-	// An ask that read the config before the switch went off can hand out a key after update dropped them all.
+	// An ask that read the config before the switch went off can get a key after update dropped them all.
 	if k.public && !cfg.PublicPanels {
 		return nil
 	}
@@ -201,8 +197,7 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 	return nil
 }
 
-// rateLimitFor scales a panel client's limit by its live devices: they share one key, and each
-// polls the router every 2 s.
+// A panel client's live devices share one key, and each polls the router every 2 s.
 func (a *App) rateLimitFor(limit int, cl *apiCtx) int {
 	if limit <= 0 || cl.Panel == "" {
 		return limit
@@ -215,7 +210,7 @@ func apiRetry(w http.ResponseWriter, wait time.Duration, msg string) {
 	apiFail(w, http.StatusTooManyRequests, "rate_limited", msg)
 }
 
-// apiRateOK counts one request for subject in a fixed one-minute window; limit 0 = none.
+// A fixed window of one minute; limit 0 = none.
 func (a *App) apiRateOK(w http.ResponseWriter, subject string, limit int, now time.Time) bool {
 	if limit <= 0 {
 		return true
@@ -263,7 +258,6 @@ func (s *apiState) failKey(ip string) string {
 	return ip
 }
 
-// authWait is how long ip must wait: it has used up its failed keys in this window.
 func (a *App) authWait(ip string, now time.Time) time.Duration {
 	s := &a.apiS
 	s.mu.Lock()
@@ -275,7 +269,7 @@ func (a *App) authWait(ip string, now time.Time) time.Duration {
 	return apiWindow - now.Sub(f.start)
 }
 
-// authFailed counts one bad key from ip. flushAuthFails writes the row.
+// flushAuthFails writes the row.
 func (a *App) authFailed(ip string, now time.Time) {
 	s := &a.apiS
 	s.mu.Lock()
@@ -296,16 +290,14 @@ func (a *App) authFailed(ip string, now time.Time) {
 	f.n++
 }
 
-// writeAuthFail: one `api` row per address per window, with the count. The address is the
-// only identity a failed attempt has. Never carries what was presented.
+// One `api` row per address per window, with the count. Never carries what was presented.
 func (a *App) writeAuthFail(ip string, f *authFail) {
 	a.apiEvent(Actor{Kind: actorAddress, Name: ip}, "authFailed", "refused",
 		fmt.Sprintf("%d failed %s in a minute", f.n, plural(f.n, "authentication", "authentications")), nil)
 }
 
-// refuseEnded answers a key that ended: final, so the client stops. Its own count per address
-// caps how often it is answered and gives one `endedKeyUsed` row per window. It never touches
-// the failed-key throttle, so a stale page does not lock out the others at its address.
+// The answer is final, so the client stops. Its own count per address gives one `endedKeyUsed` row per window.
+// It stays out of the failed-key throttle, so a stale page does not lock out the others at its address.
 func (a *App) refuseEnded(w http.ResponseWriter, ip string, expired bool, now time.Time) {
 	s := &a.apiS
 	s.mu.Lock()
@@ -345,8 +337,7 @@ func (a *App) writeEndedUse(ip string, f *authFail) {
 		fmt.Sprintf("%d %s with a key that ended, in a minute", f.n, plural(f.n, "call", "calls")), nil)
 }
 
-// flushAuthFails writes the rows of windows that have ended and forgets idle throttle state.
-// Run from periodic; tests pass a later time.
+// Also forgets idle throttle state. periodic runs it; tests pass a later time.
 func (a *App) flushAuthFails(now time.Time) {
 	s := &a.apiS
 	s.mu.Lock()

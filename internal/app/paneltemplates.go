@@ -39,7 +39,8 @@ var (
 	contentKeys = []string{"n", "router", "scope", "id", "name", "caption"}
 )
 
-// Owner is a user id; as sent it is the live name. Contents is the old single flag: a file that sets it means both, and it
+// Owner is a user id; as sent it is the live name. Contents is the old single flag: a file that sets it means both,
+// and it
 // is never stored.
 type Template struct {
 	ID       string      `yaml:"id" json:"id"`
@@ -151,7 +152,7 @@ type templateStore struct {
 	yamlDir[Template]
 }
 
-// loadTemplates runs once from New. A file that does not parse, or whose id or folder
+// loadTemplates runs one time, from New. A file that does not parse, or whose id or folder
 // differs from what it holds, is logged and skipped.
 func loadTemplates(cfgPath string) *templateStore {
 	s := &templateStore{}
@@ -189,7 +190,7 @@ func loadTemplates(cfgPath string) *templateStore {
 
 func (s *templateStore) list() []Template { return s.sorted(nil) }
 
-// sameBucket: one name once per place it is listed, Everyone for all or Me for one owner.
+// sameBucket: a name is used one time in each place it is listed, Everyone for all or Me for one owner.
 func sameBucket(a, b Template) bool {
 	return a.Scope == b.Scope && (a.Scope == templateEveryone || a.Owner == b.Owner)
 }

@@ -37,7 +37,6 @@ var (
 	errIconBadName = fmt.Errorf("an icon needs a name of 1 to %d characters", iconNameMax)
 )
 
-// LibIcon is one library icon as the index stores it and the API sends it.
 type LibIcon struct {
 	ID   string `yaml:"id" json:"id"`
 	Name string `yaml:"name" json:"name"`
@@ -112,8 +111,8 @@ func iconNameOK(name string) bool {
 	return name != "" && utf8.RuneCountInString(name) <= iconNameMax && cleanText(name, iconNameMax) == name
 }
 
-// freeName is name, or name with " 2", " 3" and so on when another icon has it ignoring case. The base is cut so
-// the result still fits iconNameMax. "" with errIconBadName when name is empty or too long.
+// freeName is name, or name with " 2", " 3" and so on when another icon has it (case does not count). The base is cut
+// so the result still fits iconNameMax. "" with errIconBadName when name is empty or too long.
 func freeName(name string, icons []LibIcon) (string, error) {
 	name = strings.TrimSpace(name)
 	if !iconNameOK(name) {
@@ -178,8 +177,8 @@ func (s *iconLib) add(name string, data []byte, typ string) (LibIcon, error) {
 	return ic, nil
 }
 
-// put stores an imported icon under ic.ID, over the icon of that id if there is one. The name is settled by
-// freeName against the others. Callers check the bytes (checkArtBytes) and the id's form.
+// put stores an imported icon under ic.ID and replaces an icon that has that id. freeName settles the name against
+// the others. Callers check the bytes (checkArtBytes) and the form of the id.
 func (s *iconLib) put(ic LibIcon, data []byte) (LibIcon, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -223,7 +222,7 @@ func (s *iconLib) put(ic LibIcon, data []byte) (LibIcon, error) {
 	return ic, s.saveLocked(next)
 }
 
-// saveLocked writes next as the index; only then does memory take it.
+// saveLocked writes next as the index before memory changes.
 func (s *iconLib) saveLocked(next iconLibData) error {
 	next.Rev = s.data.Rev + 1
 	if s.path != "" {
@@ -239,8 +238,7 @@ func (s *iconLib) saveLocked(next iconLibData) error {
 	return nil
 }
 
-// rename keeps the id, so every `lib:<id>` still names it. The name is settled by freeName against the others.
-// found is false for an id the library does not hold.
+// rename keeps the id, so every `lib:<id>` still names it. freeName settles the name against the others.
 func (s *iconLib) rename(id, name string) (ic LibIcon, found bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

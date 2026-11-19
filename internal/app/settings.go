@@ -10,9 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// --- settings
-
-// One save at a time. msg decodes over a copy of the live config, so a key an old page lacks keeps its live value. Lists
+// One save at a time. msg decodes over a copy of the live config, so a key an old page lacks keeps its live value.
+// Lists
 // replace; null clears a list.
 func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 	a.cfgMu.Lock()
@@ -44,7 +43,7 @@ func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 				return err
 			}
 		}
-		// Turning it on from a connection that is not secure would lock this page out (ADR 0005).
+		// A connection that is not secure must not turn it on: that locks this page out (ADR 0005).
 		if toggled, now = cfg.RequireHTTPS != live.RequireHTTPS, cfg.RequireHTTPS; toggled && now && !c.secure {
 			return errInsecureSave
 		}
@@ -122,8 +121,8 @@ func (a *App) updateWith(mutate func(*config.Config) error, save bool) (old, nw 
 		}
 	}
 	a.promoted = a.tokens.promoteTabs(old.cfg, cfg, a.openTokens())
-	// Revocation is durable: invalidated tokens are deleted so undoing the change cannot
-	// revive them.
+	// Revocation is durable: prune deletes the tokens that are not valid, so an undo of the
+	// change cannot revive them.
 	a.tokens.prune(cfg)
 	a.pruneKeys(old.cfg, cfg)
 	return old, nw, nil
@@ -158,7 +157,7 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 		}
 	}
 	a.mu.Unlock()
-	// After the swap, so an ask that read the old config cannot leave a key behind (endStreams takes mu).
+	// After the swap, so an ask that read the old config cannot leave a key behind (endStreams locks mu).
 	if old.cfg.PublicPanels && !nr.cfg.PublicPanels {
 		a.endEveryPublicKey()
 	}

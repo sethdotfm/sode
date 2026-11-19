@@ -58,7 +58,7 @@ func tokenKey(t string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// loadTokens: once, from New (callers hold App.mu: no other file I/O). A damaged file is
+// loadTokens: one time, from New (callers hold App.mu: no other file I/O). A damaged file is
 // set aside (setAsideDamaged) and the store starts empty.
 func loadTokens(cfgPath string) *tokenStore {
 	s := &tokenStore{toks: map[string]tokenRec{}, seen: map[string]time.Time{}}
@@ -81,8 +81,8 @@ func loadTokens(cfgPath string) *tokenStore {
 	return s
 }
 
-// save writes the file. Never with mu held: it locks mu to snapshot and releases it before
-// the write, so a slow disk does not block lookups.
+// Never with mu held: save locks mu for the snapshot and releases it before the write, so a slow disk does not block
+// lookups.
 func (s *tokenStore) save() {
 	if s.path == "" {
 		return
@@ -133,8 +133,7 @@ func (s *tokenStore) prune(cfg config.Config) {
 	})
 }
 
-// dropWhere deletes every record gone reports and writes the file only if any went. Never
-// with mu held.
+// Never with mu held.
 func (s *tokenStore) dropWhere(gone func(tokenRec) bool) {
 	s.mu.Lock()
 	n := len(s.toks)
@@ -246,7 +245,8 @@ func (s *tokenStore) locked(t string) bool {
 	return s.toks[tokenKey(t)].Locked
 }
 
-// setLocked changes the flag in memory only, cheap enough under App.mu; save writes it. A token the store does not know is ignored.
+// setLocked changes the flag in memory only, cheap enough under App.mu; save writes it. A token the store does not
+// know is ignored.
 func (s *tokenStore) setLocked(t string, on bool) {
 	if t == "" {
 		return
@@ -260,7 +260,7 @@ func (s *tokenStore) setLocked(t string, on bool) {
 	}
 }
 
-// seenAt records activity on t. Cheap: safe under App.mu.
+// Safe under App.mu.
 func (s *tokenStore) seenAt(t string, at time.Time) {
 	if t == "" {
 		return

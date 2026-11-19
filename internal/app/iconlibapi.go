@@ -26,7 +26,7 @@ func init() {
 	)
 }
 
-// readIconChange reads {name?, pin?} and checks that the caller is allowed to change the library. A DELETE can send no body.
+// A DELETE can send no body.
 func (a *App) readIconChange(w http.ResponseWriter, r *http.Request, cl *apiCtx) (iconIn, bool) {
 	var in iconIn
 	if cl.Actor.Kind != actorUser {

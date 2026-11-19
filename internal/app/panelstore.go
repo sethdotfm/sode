@@ -28,7 +28,7 @@ import (
 const (
 	panelsDir     = "panels"
 	panelMax      = 500
-	panelArtTotal = 64 << 20 // artwork bytes per panel; an image used by many cells is stored once, by id
+	panelArtTotal = 64 << 20 // artwork bytes per panel; an image that many cells use is stored one time, by id
 	panelArtBytes = 2 << 20  // 2 MB
 	panelArtSide  = 1024     // longest raster side in pixels; SVG has no pixel size
 	panelRowsMax  = 24
@@ -101,11 +101,12 @@ type Panel struct {
 	Rows         int            `yaml:"rows" json:"rows"`
 	Cols         int            `yaml:"cols" json:"cols"`
 	Pages        []PanelPage    `yaml:"pages" json:"pages"`
-	// LegacyCells is the one grid of a file or body from before Pages; normalize moves it into Pages and it is never written.
+	// LegacyCells is the one grid of a file or body from before Pages; normalize moves it into Pages and it is never
+	// written.
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings" json:"settings"`
 	Art         []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
-	// Sources and Destinations are a Grid panel's edges, nil on a Buttons panel.
+	// nil on a Buttons panel.
 	Sources      *GridEdge `yaml:"sources,omitempty" json:"sources,omitempty"`
 	Destinations *GridEdge `yaml:"destinations,omitempty" json:"destinations,omitempty"`
 	// Rev is the server's: it counts stored changes, and an open panel updates when it moves.
@@ -121,9 +122,8 @@ type Panel struct {
 // apiPanelRead). So a client that echoes a read back does not plant one in Extra. Keep in step with those.
 var panelKnown = []string{"id", "name", "type", "sources", "destinations", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "broken", "moved", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped", "confirm"}
 
-// extraOwnFields is extra without panelKnown names. It is possible that files, checkpoints and sets saved
-// before panelKnown listed every output-only field hold one. A copy, since it is possible that extra is shared with a
-// stored panel.
+// extraOwnFields is extra without panelKnown names: old files, checkpoints and sets can hold one.
+// A copy, since a stored panel can share extra.
 func extraOwnFields(extra map[string]any) map[string]any {
 	out := map[string]any{}
 	for k, v := range extra {
@@ -267,7 +267,6 @@ func validPanelSlug(s string) bool {
 	return len(s) <= 32 && panelSlugRe.MatchString(s) && s != "editor" && !validPanelID(s)
 }
 
-// slugTakenLocked says another panel than id holds slug.
 func (s *panelStore) slugTakenLocked(slug, id string) bool {
 	if slug == "" {
 		return false
@@ -280,7 +279,6 @@ func (s *panelStore) slugTakenLocked(slug, id string) bool {
 	return false
 }
 
-// bySlug is the panel with that short name.
 func (s *panelStore) bySlug(slug string) (Panel, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -308,7 +306,7 @@ type panelStore struct {
 	sets      *panelSetStore
 }
 
-// loadPanels runs once from New. A missing folder is empty. A file that does not parse, or
+// loadPanels runs one time, from New. A missing folder is empty. A file that does not parse, or
 // whose id differs from its name, is logged, kept in problems and skipped.
 func loadPanels(cfgPath string) *panelStore {
 	s := &panelStore{art: map[string][]byte{}, skipped: map[string]bool{}, sets: loadPanelSets(cfgPath)}
@@ -394,7 +392,7 @@ func (s *panelStore) writeLocked(p *Panel) error {
 	return s.yamlDir.writeLocked(*p)
 }
 
-// create stores p under a new id and returns it. Callers validate first.
+// Callers validate first.
 func (s *panelStore) create(p Panel) (Panel, error) {
 	vet := func(p Panel) error {
 		if s.slugTakenLocked(p.Slug, "") {
@@ -425,7 +423,6 @@ func (s *panelStore) createAs(p Panel) (Panel, error) {
 	})
 }
 
-// replace stores p over the panel of the same id; it reports false if there is none.
 func (s *panelStore) replace(p Panel) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -470,7 +467,8 @@ func (s *panelStore) replaceLocked(p Panel) (bool, error) {
 	return true, nil
 }
 
-// renames and removed use lowercased names. Owner is an id, so a Users save does not touch it (moveOwners moves a removed
+// renames and removed use lowercased names. Owner is an id, so a Users save does not touch it (moveOwners moves a
+// removed
 // owner's panels).
 func (s *panelStore) followUsers(renames map[string]string, removed map[string]bool) (int, error) {
 	s.mu.Lock()
@@ -572,7 +570,7 @@ func (s *panelStore) artPath(id, art string) string {
 	return filepath.Join(s.dir, id+".art", art)
 }
 
-// addArt stores data (already type-checked) and lists it on the panel.
+// data is already type-checked.
 func (s *panelStore) addArt(id string, data []byte, typ string) (PanelArt, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

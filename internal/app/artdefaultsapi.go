@@ -11,9 +11,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Default artwork over REST. Read needs `panels`, as a cell's own artwork does; set and clear need
-// `panelsmanage` and a Trusted user. A Hidden caller sees only the
-// defaults of items inside its Rights. Not under /panels/, whose {id} routes would conflict.
+// Default artwork over REST. A Hidden caller sees only the defaults of items inside its Rights. Not under /panels/:
+// its {id} routes would conflict.
 
 func init() {
 	const read, manage = config.ScopePanels, config.ScopePanelsManage
@@ -25,8 +24,8 @@ func init() {
 	)
 }
 
-// artDefaultIn is a set or clear. Panel names the panel an `a-` artwork id belongs to, whose image
-// is copied. Pin is read only for a user who is not Trusted, and never stored.
+// Panel names the panel that an `a-` artwork id belongs to; Sode copies its image. Pin is read only for a user who
+// is not Trusted, and never stored.
 type artDefaultIn struct {
 	ArtDefault
 	Panel string `json:"panel"`
@@ -61,7 +60,8 @@ func everyonePreset(cfg config.Config, id, name string) (config.Preset, bool) {
 	return config.Preset{}, false
 }
 
-// A default stored with no id is found by name. A default of a deleted preset keeps what it has.
+// A default stored with no id is found by name, so an old artdefaults.yaml still loads. A default of a deleted preset
+// keeps what it has.
 func (a *App) liveArtDefaults() []ArtDefault {
 	cfg := a.r().cfg
 	list := a.artDefaults.list()
@@ -86,14 +86,13 @@ func (a *App) artDefaultsFor(cl *apiCtx, keep func(ArtDefault) bool) []ArtDefaul
 	return out
 }
 
-// panelArtDefaults are the defaults of the items p's cells show, as cl can see them. GET
-// /panels/{id} carries them, so a changed default reaches an open panel page through its update check.
+// GET /panels/{id} carries them, so a changed default reaches an open panel page through its update check.
 func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
 	cfg := a.r().cfg
 	shown := map[string]bool{}
 	for c := range allCells(p.Pages) {
 		if d, ok := cellItem(c); ok {
-			// A Preset cell saved before it had an id finds its preset by name.
+			// A Preset cell with no id finds its preset by name, so an old panel file still loads.
 			if q, found := everyonePreset(cfg, d.ID, d.Name); d.Kind == artKindPreset && d.ID == "" && found {
 				d.ID = q.ID
 			}
@@ -116,8 +115,7 @@ func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
 	})
 }
 
-// cellItem is the item a stored cell shows, as a default key. Numbers come as float64 from JSON
-// and int from YAML.
+// Numbers come as float64 from JSON and int from YAML.
 func cellItem(c map[string]any) (ArtDefault, bool) {
 	kind, _ := c["kind"].(string)
 	switch kind {
@@ -272,7 +270,6 @@ func (a *App) apiArtDefaultClear(w http.ResponseWriter, r *http.Request, cl *api
 	}
 }
 
-// apiArtDefaultImage serves an image only while a default the caller can see names it.
 func (a *App) apiArtDefaultImage(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	id := r.PathValue("art")
 	seen := len(a.artDefaultsFor(cl, func(d ArtDefault) bool { return d.Art == id })) > 0

@@ -10,10 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Push, checkpoints and checkpoint sets over REST (docs/panels-design.md). Reach follows
-// panelReach. A Push needs the right to change the panel it copies and every target. So the owner
-// pushes to their own panels, and a Trusted user to anybody's. Nothing is changed unless every
-// target is allowed.
+// Push, checkpoints and checkpoint sets over REST (docs/panels-design.md). A Push needs the right to change the source
+// panel and every target, and changes nothing unless every target is allowed.
 
 func init() {
 	const read, manage = config.ScopePanels, config.ScopePanelsManage
@@ -44,8 +42,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
-// editable loads the panels ids name, refusing the whole request if any is missing, unseen
-// by cl (404) or use only (403). Duplicates are folded.
+// Refuses the whole request if any id is missing or not visible to cl (404), or use only (403). Duplicates are folded.
 func (a *App) editable(w http.ResponseWriter, cl *apiCtx, ids []string) ([]Panel, bool) {
 	var out []Panel
 	seen := map[string]bool{}
@@ -68,7 +65,7 @@ type pushedOne struct {
 	Panel      string `json:"panel"`
 	Rev        int    `json:"rev"`
 	Checkpoint string `json:"checkpoint"`
-	// ArtSkipped lists artwork ids that did not fit under the target's 64 MB total.
+	// Artwork ids that did not fit under the target's 64 MB total.
 	ArtSkipped []string `json:"artSkipped,omitempty"`
 }
 
@@ -93,7 +90,6 @@ func (a *App) pushFail(w http.ResponseWriter, err error) {
 	a.panelStoreFail(w, err)
 }
 
-// apiPanelPush copies the source's saved layout onto each target.
 func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	src, ok := a.panelFor(w, r, cl, true)
 	if !ok {
@@ -117,7 +113,7 @@ func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ok {
 		return
 	}
-	// ADR 0011: a layout of the other type would replace the target's cells or lists with nothing.
+	// ADR 0011: a layout of the other type would replace the cells or lists of the target with nothing.
 	for _, t := range targets {
 		if t.Type != src.Type {
 			apiFail(w, http.StatusConflict, "conflict", "panel "+t.ID+" is of the other type, and a Push needs a panel of the same type")
@@ -154,7 +150,7 @@ func checkpointOut(c panelCheckpoint) map[string]any {
 	return map[string]any{"id": c.ID, "at": c.At, "by": c.By, "why": c.Why, "rows": c.Layout.Rows, "cols": c.Layout.Cols, "cells": cells, "pages": pages}
 }
 
-// apiCheckpointList is newest first.
+// Newest first.
 func (a *App) apiCheckpointList(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, ok := a.panelFor(w, r, cl, true)
 	if !ok {
@@ -186,8 +182,8 @@ func (a *App) apiCheckpointRestore(w http.ResponseWriter, r *http.Request, cl *a
 	}
 }
 
-// setReach is what cl can do with set. Use is every user's for Everyone sets and the owner's
-// for Me sets. Change is the owner's, or a Trusted user's for an Everyone set.
+// Use: every user for an Everyone set, the owner for a Me set. Change: the owner, or a Trusted user for an Everyone
+// set.
 func (a *App) setReach(cl *apiCtx, set PanelSet) (use, change bool) {
 	if cl.Actor.Kind != actorUser {
 		return false, false
@@ -250,7 +246,6 @@ func (a *App) apiSetList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	apiJSON(w, map[string]any{"sets": out})
 }
 
-// capture is each panel's saved layout as a set entry, its cells as router references.
 func (a *App) capture(ps []Panel) []PanelSetEntry {
 	refer := a.layoutRefer()
 	out := make([]PanelSetEntry, len(ps))
@@ -276,7 +271,6 @@ func (a *App) setStoreFail(w http.ResponseWriter, err error) {
 	apiFail(w, http.StatusInternalServerError, "internal", "the checkpoint set could not be saved: "+err.Error())
 }
 
-// apiSetCreate saves the listed panels' current layouts as a set.
 func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ownerOnly(w, cl) {
 		return
@@ -324,7 +318,7 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	apiCreated(w, setOut(a.r().cfg, made, true))
 }
 
-// apiSetUpdate renames a set, and with panels saves their current layouts over its entries.
+// With panels in the body, their current layouts replace the set's entries.
 func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	set, ok := a.setFor(w, r, cl, false)
 	if !ok {
@@ -381,8 +375,7 @@ func (a *App) apiSetDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// apiSetPush gives each panel in the set its own saved layout. targets narrows it to some of
-// the set's panels. A panel that is gone is skipped and reported.
+// targets narrows the Push to some of the set's panels. A panel that is gone is skipped and reported.
 func (a *App) apiSetPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	set, ok := a.setFor(w, r, cl, false)
 	if !ok {

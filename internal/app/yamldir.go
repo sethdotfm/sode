@@ -19,10 +19,10 @@ type yamlDir[T any] struct {
 	dir string
 	by  map[string]T
 
-	prefix string           // id prefix, such as "p-"
-	idOf   func(*T) *string // the record's id field
+	prefix string // id prefix, such as "p-"
+	idOf   func(*T) *string
 	nameOf func(T) string
-	pathOf func(dir string, v T) string // the file that holds v
+	pathOf func(dir string, v T) string
 }
 
 func (d *yamlDir[T]) get(id string) (T, bool) {
@@ -51,8 +51,7 @@ func (d *yamlDir[T]) sorted(keep func(T) bool) []T {
 	return out
 }
 
-// loadDir reads every <id>.yaml in dir and hands accept the path, the id, the bytes and the read
-// error. accept parses and decides whether to keep the record. It returns the ReadDir error.
+// accept gets the read error too, and decides whether to keep the record. The return value is the ReadDir error.
 func (d *yamlDir[T]) loadDir(dir string, accept func(path, id string, raw []byte, readErr error) (T, bool)) error {
 	ents, err := os.ReadDir(dir)
 	if err != nil {
@@ -72,7 +71,6 @@ func (d *yamlDir[T]) loadDir(dir string, accept func(path, id string, raw []byte
 	return nil
 }
 
-// newIDLocked picks an id nobody holds.
 func (d *yamlDir[T]) newIDLocked() string {
 	for {
 		id := newShortID(d.prefix)
@@ -82,8 +80,7 @@ func (d *yamlDir[T]) newIDLocked() string {
 	}
 }
 
-// insert checks the cap, then vet, gives v a new id and calls save before keeping it. save
-// must write the file and can change v.
+// save must write the file and can change v.
 func (d *yamlDir[T]) insert(v T, limit int, full error, vet func(T) error, save func(*T) error) (T, error) {
 	var zero T
 	d.mu.Lock()
@@ -140,7 +137,7 @@ func (d *yamlDir[T]) putLocked(v T) error {
 	return nil
 }
 
-// writeLocked marshals v into its file; memory-only stores write nothing.
+// Memory-only stores write nothing.
 func (d *yamlDir[T]) writeLocked(v T) error {
 	if d.dir == "" {
 		return nil
@@ -156,8 +153,7 @@ func (d *yamlDir[T]) writeLocked(v T) error {
 	return config.AtomicWrite(path, b)
 }
 
-// remove deletes the file, then runs also (still under mu) and forgets the record. The bool is
-// false when there was no such record.
+// also runs under mu, after the file is gone. The bool is false when there was no such record.
 func (d *yamlDir[T]) remove(id string, also func(T)) (bool, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
