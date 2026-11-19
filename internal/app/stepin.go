@@ -112,7 +112,7 @@ func (a *App) stepInRefusalMu(c *client, name string) error {
 	case cmp.Or(c.u.page, "main") != "main":
 		return errors.New("step in on the main page or in Settings")
 	case c.u.lockedMu(), gateMain.on(cfg.Locks) && !a.userOKMu(c, cfg):
-		return errors.New("unlock first: you cannot step in from the Lock screen")
+		return errors.New("dismiss the Lock first")
 	}
 	if u, ok := cfg.FindUserByName(name); ok && a.userOKMu(c, cfg) && u.ID == c.userID() {
 		return errors.New("you are signed in as " + u.Name + " already")

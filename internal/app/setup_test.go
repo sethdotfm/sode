@@ -72,11 +72,11 @@ func TestSetupWizardRefusesTakesAndSavesBeforeFinish(t *testing.T) {
 	}
 
 	p.send(map[string]any{"t": "take", "items": []any{map[string]any{"id": 7, "dst": 1, "src": 1, "levels": []int{1}}}})
-	if r := p.until("takeResult"); !strings.Contains(r["err"].(string), "setup") {
+	if r := p.until("takeResult"); !strings.Contains(r["err"].(string), "not set up yet") {
 		t.Fatalf("take before Finish: %v", r)
 	}
 	r := p.saveFields(3, map[string]any{"brandText": "X"})
-	if r["ok"] == true || !strings.Contains(r["err"].(string), "setup") || r["locked"] == true {
+	if r["ok"] == true || !strings.Contains(r["err"].(string), "not set up yet") || r["locked"] == true {
 		t.Fatalf("settings save before Finish: %v", r)
 	}
 	if r := p.ask("usersList", 4, nil); r["ok"] == true {

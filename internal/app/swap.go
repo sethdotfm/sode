@@ -416,7 +416,7 @@ func swapSpec() fieldSpec {
 				return err
 			}
 			if x.swap == nil {
-				return errors.New("swap: not ready")
+				return errors.New("swap: internal error, save again")
 			}
 			n := swapCounts{}
 			x.swap.config(c, "", pickOf(req.Items), n.add)

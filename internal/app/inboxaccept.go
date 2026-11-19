@@ -79,7 +79,7 @@ func (p *cardPlanner) run(profile func(*config.Config, *importCat) error) {
 		p.check.waited = false
 		err := s.run(&cand, cat)
 		if err == nil && p.check.waited {
-			err = errors.New("the router names are not read yet; accept this after Sode reads them")
+			err = errors.New("router names not read yet: try again after the re-read")
 		}
 		if err == nil && s.cat != catPanels {
 			cand.Normalize()

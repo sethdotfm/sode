@@ -55,7 +55,7 @@ func usersFields(live config.Config, req usersReq) (map[string]fieldEdit, error)
 		return nil, errors.New("the lock settings and Guest role moved to Settings > Access > Locks: reload this page")
 	}
 	if len(req.Users) == 0 && live.Locks.Any() {
-		return nil, errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
+		return nil, errors.New("a page lock is on: turn it off in Settings > Access before you remove the last user")
 	}
 	vers := hiddenVersions(live)
 	for k, v := range fieldVersions(live) {

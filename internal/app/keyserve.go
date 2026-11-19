@@ -181,7 +181,7 @@ func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int6
 			return "", apiKey{}, errors.New("no such user")
 		}
 		if !u.HasPin() {
-			return "", apiKey{}, fmt.Errorf("%s has no PIN, so holds no API keys: give them a PIN first", u.Name)
+			return "", apiKey{}, fmt.Errorf("%s has no PIN: set one first", u.Name)
 		}
 		o, max, fp = userOwner(u), userKeyMax, pinFP(u.Pin)
 	case actorClient:

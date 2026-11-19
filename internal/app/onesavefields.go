@@ -209,7 +209,7 @@ func userSpec(id, attr string) (fieldSpec, bool) {
 				c.Users = slices.Delete(slices.Clone(c.Users), i, i+1)
 			}
 			if len(c.Users) == 0 && c.Locks.Any() {
-				return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
+				return errors.New("a page lock is on: turn it off in Settings > Access before you remove the last user")
 			}
 			return nil
 		}

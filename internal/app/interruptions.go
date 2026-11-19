@@ -72,7 +72,7 @@ func (a *App) publicStops(live, next config.Config) []interruption {
 		}
 		name := cmp.Or(p.Name, p.ID)
 		out = append(out, interruption{Panels: 1, Ends: true, Text: fmt.Sprintf(
-			"Public panel %s stops: %s %s it open now. Its page comes back by itself when the panel is Public again.",
+			"Public panel %s stops: %s %s it open now.",
 			name, howMany(a.mon.liveCount(p.ID), "tablet", "tablets"), plural(a.mon.liveCount(p.ID), "has", "have"))})
 	}
 	return out
@@ -171,11 +171,11 @@ func (a *App) lockStops(live, next config.Config) []interruption {
 			}
 		}
 		a.mu.Unlock()
-		text := fmt.Sprintf("The %s puts %s on a lock screen: Guest browsers and browsers of users without a PIN.", l.name,
-			howMany(n, "browser", "browsers"))
+		text := fmt.Sprintf("The %s locks %s: Guest browsers and users without a PIN", l.name, howMany(n, "browser", "browsers"))
 		if len(noPin) > 0 {
-			text += " It shuts out the users without a PIN: " + strings.Join(noPin, ", ") + "."
+			text += " (" + strings.Join(noPin, ", ") + ")"
 		}
+		text += "."
 		if n > 0 || len(noPin) > 0 {
 			out = append(out, interruption{Browsers: n, Text: text})
 		}

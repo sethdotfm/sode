@@ -24,7 +24,7 @@ const (
 	scopeEveryone = "global"
 )
 
-var errGuestInbox = errors.New("sign in to send or receive copies: a Guest has no Inbox")
+var errGuestInbox = errors.New("sign in to use the Inbox")
 
 // inboxReq is the one request body of every inbox message; each uses only its part.
 type inboxReq struct {

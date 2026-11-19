@@ -15,7 +15,7 @@ import (
 // (docs/agents/users-locks.md).
 
 //lint:ignore ST1005 the page shows it as is
-var errSetup = errors.New("Sode is not set up yet: finish the setup on this page first")
+var errSetup = errors.New("Sode is not set up yet")
 
 // setupPendingCfg: a config file path and no users, whether the file exists or not.
 func (a *App) setupPendingCfg(cfg config.Config) bool {

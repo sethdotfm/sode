@@ -34,7 +34,7 @@ const (
 	cardWithdrawn = "withdrawn"
 )
 
-var errCardGone = errors.New("this card was already answered, withdrawn or expired")
+var errCardGone = errors.New("this card is closed")
 
 // inboxCard: From and To are user ids. The names are the ones at send time, for the Log after a removal.
 type inboxCard struct {
