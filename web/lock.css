@@ -558,3 +558,8 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   justify-content: space-between;
   margin: var(--pb-space-5) 0 var(--pb-space-2);
 }
+/* The Lock's big scroll bar (bigscroll.js) sits after it in body, so it is fixed and on top too. */
+.sode-lock + .sode-bigscroll {
+  position: fixed;
+  z-index: var(--pb-z-toast);
+}

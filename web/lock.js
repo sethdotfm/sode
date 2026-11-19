@@ -332,6 +332,7 @@ let watch = null;
 let before = null;
 function inert(c) {
   if (c.nodeType !== 1 || c === root || c === chip?.root || ['SCRIPT', 'LINK', 'STYLE'].includes(c.tagName) || c.inert) return;
+  if (c.previousElementSibling === root && c.classList.contains('sode-bigscroll')) return; // the Lock's own bar
   c.inert = true;
   inerted.push(c);
 }
