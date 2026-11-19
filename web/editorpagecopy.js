@@ -36,7 +36,6 @@ export function askCopyTo(pages, from, back) {
         'pb-modal__body',
         el('div', 'sode__field', Object.assign(el('label', null, 'Page'), { htmlFor: 'ed-copyto-page' }), el('span', 'pb-select-wrap', pick)),
         warn,
-        el('p', 'sode__hint', 'Go to Page cells in the copy keep their targets. Undo reverses a Copy to.'),
       ),
       el('div', 'pb-modal__footer', go, cancel),
     );

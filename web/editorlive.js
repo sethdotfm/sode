@@ -1,10 +1,6 @@
-// The Live Editor: the saved panel runs in place of the grid and sidebar (panelrun.js, embedded), over
-// the editor's own session. It is not an instance of the panel, so it sends no keepalive.
-// A Grid panel gets a bar over it that marks it as a preview. Its drawer holds the editor's own Sources and
-// Destinations lists (editorgridlist.js), moved in for the run and back after it. A list's Artwork button shows the
-// Cell tab's artwork over it (editorliveart.js). Their edits show at once. Names picked on the grid are that list's
-// selection. Its selection bar moves into the bar while the drawer is closed, but the bar keeps it hidden for now
-// (docs/agents/panels.md).
+// The Live Editor: the saved panel runs in place of the grid and sidebar (panelrun.js, embedded), over the editor's own
+// session. It is not an instance of the panel, so it sends no keepalive. A Grid panel gets a bar that marks it as a
+// preview. It also gets a drawer for the editor's own lists (editorgridlist.js), moved in for the run.
 import { el, icon } from './core.js';
 import { sessionFetch } from './sessionkey.js';
 import { runPanel } from './panelrun.js';
@@ -68,18 +64,13 @@ function gridParts(ed) {
     paint(err);
   });
   save.id = 'ed-live-save';
-  // A toggle: pressed while the drawer is open (setOpen). Back to editing goes to its left (panelmount.js).
+  // Back to editing goes to its left (panelmount.js).
   const open = btn('pb-btn--lg', '', () => setOpen(!opened));
   open.id = 'ed-live-lists';
   let openIcon = icon('panel-right-open');
   open.append(openIcon, el('span', null, 'Edit lists'));
   open.setAttribute('aria-controls', 'ed-live-drawer');
   open.hidden = ro;
-  // The selection bar of the list whose names are picked on the grid. Hidden on the owner's request; the drawer keeps
-  // its own copy of the actions.
-  const picked = el('div', 'sode-live__picked');
-  picked.id = 'ed-live-picked';
-  picked.hidden = true;
   const title = el('h2', 'sode-live__title', 'Panel Live Editor');
   title.id = 'ed-live-title';
   const bar = el(
@@ -87,7 +78,6 @@ function gridParts(ed) {
     'pb-banner pb-banner--info sode-live__bar',
     title,
     el('span', 'pb-badge pb-badge--info', 'Preview'),
-    picked,
     el('span', 'sode-panels__spacer'),
     state,
     save,
@@ -146,8 +136,7 @@ function gridParts(ed) {
     const next = icon(on ? 'panel-right-close' : 'panel-right-open');
     openIcon.replaceWith(next);
     openIcon = next;
-    open.dataset.pbTip = on ? 'Close the lists' : 'Change the order of the sources and destinations, pin, add and remove them';
-    placeActs();
+    open.dataset.pbTip = on ? 'Close the lists' : 'Order, pin, add, remove';
   }
 
   // Grid picks to list selection. The Cell tab edits one list at a time (editorside.js), so the kind picked last wins.
@@ -165,22 +154,6 @@ function gridParts(ed) {
     if (next) lists[next].select(p[next]);
     else if (kind) lists[kind].clearPicks();
     kind = next;
-    placeActs();
-  }
-  // The list's own bar, so Move, Pin and Artwork are the drawer's buttons. It goes back into the list on a drawer open.
-  const actsHome = new Map();
-  function placeActs() {
-    if (!lists) return;
-    const show = kind && (!opened || artOnly) ? lists[kind].acts : null;
-    for (const k of KINDS) {
-      const a = lists[k].acts;
-      if (a === show || !picked.contains(a)) continue;
-      actsHome.get(a).prepend(a);
-    }
-    if (show && !picked.contains(show)) {
-      actsHome.set(show, show.parentNode);
-      picked.append(show);
-    }
   }
   setOpen(false);
 
@@ -226,7 +199,6 @@ function gridParts(ed) {
     stop() {
       art.close();
       kind = null;
-      placeActs();
       home.append(srcs, dsts);
     },
   };

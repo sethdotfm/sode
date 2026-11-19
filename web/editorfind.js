@@ -1,6 +1,5 @@
-// Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets
-// and the one-entry kinds). It shows a preview of the fill in the grid before anything changes. Ranking, Rights and the fill itself are findrules.js; this file is
-// the DOM. initFind(editor) accepts what runEditor returns.
+// Find in the panel editor's smart menu: one search over every kind a square can be, with a preview of the fill in the
+// grid. Ranking, Rights and the fill itself are findrules.js; this file is the DOM. initFind(editor) takes what runEditor returns.
 import { el, icon, $, on } from './core.js';
 import { myRights, onMyRights } from './editorrights.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
@@ -24,11 +23,10 @@ import {
   findScope,
   offTag,
 } from './findrules.js';
-import { flyoutShift } from './editorrules.js';
+import { flyoutShift, EDGE_GAP } from './editorrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest
 const STALE_MS = 5000;
-const EDGE_GAP = 8; // keep in step with GAP in editormenu.js and EDGE_GAP in editorarttool.js
 
 export function initFind(editor) {
   let rights = null;
@@ -49,7 +47,7 @@ export function initFind(editor) {
 
   const input = el('input', 'pb-input');
   input.type = 'search';
-  input.placeholder = 'Find a Source, Destination, Preset, Page, Take, Clear or Current';
+  input.placeholder = 'Find';
   input.setAttribute('aria-label', 'Find');
   input.autocomplete = 'off';
   const chips = el('div', 'sode-find__chips');
@@ -129,8 +127,6 @@ export function initFind(editor) {
     return (picks().length < 2 && pairPlan(g, results[i], everything())) || findPlan(g, runFor(i), order);
   }
 
-  // ---- preview in the grid
-
   function clearPreview() {
     for (const p of preview) {
       p.node.className = p.cls;
@@ -160,8 +156,6 @@ export function initFind(editor) {
     const span = n > 1 ? `${first} to ${last}` : first;
     return `Fills ${n} square${n > 1 ? 's' : ''} with ${span}.${plan.dropped && picked.length > 1 ? ` ${plan.dropped} picked do not fit.` : ''}`;
   }
-
-  // ---- list
 
   function draw() {
     moved = false;
@@ -208,7 +202,7 @@ export function initFind(editor) {
       all.addEventListener('click', searchAll);
       list.append(el('li', 'sode-find__none', `No ${CATEGORY_LABEL[chip]} match. `, all));
     } else if (!results.length) list.append(el('li', 'sode-find__none', data.names ? 'Nothing matches.' : 'Find needs a signed-in user.'));
-    else if (results.length > SHOWN) list.append(el('li', 'sode-find__none', `${results.length - SHOWN} more. Keep typing to narrow.`));
+    else if (results.length > SHOWN) list.append(el('li', 'sode-find__none', `${results.length - SHOWN} more`));
     fill.hidden = picked.length < 2;
     list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });
     showPreview();
@@ -242,8 +236,6 @@ export function initFind(editor) {
     else clearPicks();
     draw();
   }
-
-  // ---- choosing
 
   // A fill moves the selection, so the menu redraws and its new Find item removes the box from the page. Then focus
   // is lost and with it data-open. Hover cannot hold the flyout, since the menu moves away from the pointer.
@@ -338,8 +330,6 @@ export function initFind(editor) {
       else place(hi);
     }
   });
-
-  // ---- open and close
 
   const close = () => {
     delete panel.dataset.open;

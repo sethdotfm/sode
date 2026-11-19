@@ -123,7 +123,7 @@ func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	b.eval(signin + `.click(); true`)
 	b.waitFor("PIN pad again", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	pin("1234")
-	b.waitFor("another user's panel says what to do", `/No panel here that you can use\. Choose another panel, or ask its owner to share it with you\./.test(document.getElementById('ed-status').textContent)`)
+	b.waitFor("another user's panel says what to do", `/No panel here that you can use\./.test(document.getElementById('ed-status').textContent)`)
 
 	b.eval(`history.pushState(null, '', 'panels/editor?panel=nope'); dispatchEvent(new PopStateEvent('popstate')); true`)
 	b.waitFor("a bad id says what to do", `/No panel here that you can use/.test(document.getElementById('ed-status').textContent)`)
@@ -131,11 +131,11 @@ func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	b.call("Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": refuseSessionKey})
 	b.open(srv.URL + "/panels/editor?panel=" + bens)
 	pad := `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`
-	b.waitFor("the PIN pad or the refusal after the reload", pad+` || /would not open/.test(`+note+`.textContent)`)
+	b.waitFor("the PIN pad or the refusal after the reload", pad+` || /Sign-in refused/.test(`+note+`.textContent)`)
 	if b.eval(pad) == true {
 		pin("1234")
 	}
-	b.waitFor("a refused key says why, with Sign in again", `/would not open the editor for this sign-in: test refusal/.test(`+note+`.textContent) && !`+signin+`.hidden && `+signin+`.textContent === 'Sign in again'`)
+	b.waitFor("a refused key says why, with Sign in again", `/Sign-in refused: test refusal/.test(`+note+`.textContent) && !`+signin+`.hidden && `+signin+`.textContent === 'Sign in again'`)
 	b.eval(`window.sodeRefuse = 0; ` + signin + `.click(); true`)
 	b.waitFor("Sign in again asks again and the page goes on", `/No panel here that you can use/.test(document.getElementById('ed-status').textContent) && `+note+`.hidden`)
 

@@ -1,4 +1,3 @@
-// The editor's toolbar (the panel picker, Save, the save state and the panel's links) and its read-only banner.
 import { $, el } from './core.js';
 import { groupPanels } from './editorrules.js';
 
@@ -19,7 +18,7 @@ export function drawPicker(list, loaded) {
   };
   const fresh = el('option', '', 'New panel');
   fresh.value = '';
-  pick.replaceChildren(...[group('My panels', mine), group('Shared with me (use only)', shared), fresh].filter(Boolean));
+  pick.replaceChildren(...[group('My panels', mine), group('Shared with me: read-only', shared), fresh].filter(Boolean));
   pick.value = loaded?.id || '';
 }
 

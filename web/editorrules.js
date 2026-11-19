@@ -13,9 +13,7 @@ export function defaultNote(d, own, routerName) {
   if (!d) return { text: '', warn: '' };
   const what = d.kind === 'preset' ? 'preset' : d.kind;
   const text = own ? `This cell's own artwork shows instead of the Default artwork of its ${what}.` : `This cell shows the Default artwork of its ${what}.`;
-  const warn = nameMismatch(d, routerName)
-    ? `It is possible that this default is for another item: it was set for ${d.name}, and the router now names this ${what} ${routerName}.`
-    : '';
+  const warn = nameMismatch(d, routerName) ? `Default set for ${d.name}. The router now names this ${what} ${routerName}.` : '';
   return { text, warn };
 }
 
@@ -85,7 +83,7 @@ const edgeKey = (e) => {
 
 // PUT replaces the panel, so what the editor does not own goes back as it came (settings, sharing, unknown fields).
 // fields is the sidebar's edits: {settings, acts, clientRights}, each present only after an edit. clientRights is
-// left out otherwise so the server keeps the stored Rights (it is possible that an administrator widened them). grid is Page 1 as
+// left out otherwise so the server keeps the stored Rights (it is possible that an Administrator widened them). grid is Page 1 as
 // stored, whichever Page has focus. pages is the Page list with every Page's edits, and the server refuses a body
 // with both pages and cells.
 export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {
@@ -175,6 +173,9 @@ export function subSide(at, menuW, subW, area, gap) {
   return roomRight >= roomLeft ? 'right' : 'left';
 }
 
+// Pixels a flyout or menu keeps from the viewport edge.
+export const EDGE_GAP = 8;
+
 // How far a flyout (Find) must move to sit inside the viewport, in pixels; {x: 0, y: 0} when it already does. The
 // top and left edges win over the bottom and right, so the box at the top stays reachable when it is too tall.
 export function flyoutShift(rect, vp, gap) {
@@ -207,11 +208,11 @@ export function signInNote(step, err = '') {
     case 'no-users':
       return { text: 'Panels need a user, and Sode has none. Add one in Settings, Users.', button: '' };
     case 'ended':
-      return { text: "This page's sign-in key was ended. Sign in again to keep editing.", button: 'Sign in again' };
+      return { text: 'Sign-in ended.', button: 'Sign in again' };
     case 'refused':
-      return { text: `Sode would not open the editor for this sign-in${err ? `: ${err}` : ''}. Sign in again.`, button: 'Sign in again' };
+      return { text: `Sign-in refused${err ? `: ${err}` : ''}.`, button: 'Sign in again' };
     case 'offline':
-      return { text: 'Sode is not answering. The page keeps trying. If this continues, check the network.', button: '' };
+      return { text: 'Sode is not answering. Reconnecting…', button: '' };
     default:
       return { text: '', button: '' };
   }
@@ -219,9 +220,9 @@ export function signInNote(step, err = '') {
 
 // Why a panel could not be opened, from jsonCall's error, and what to do about it.
 export function openFailNote(e) {
-  if (e.status === 0) return 'Sode did not answer, so the panel could not be opened. Check the network, then choose the panel again.';
-  if (e.status === 404) return 'No panel here that you can use. Choose another panel, or ask its owner to share it with you.';
-  if (e.status === 401) return 'Your sign-in for this page ended. Sign in again, then choose the panel again.';
+  if (e.status === 0) return 'Sode did not answer. Choose the panel again.';
+  if (e.status === 404) return 'No panel here that you can use.';
+  if (e.status === 401) return 'Sign-in ended. Sign in again.';
   return e.message || `The panel could not be opened (${e.status}).`;
 }
 

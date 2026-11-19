@@ -76,8 +76,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   const del = btn('pb-btn--danger pb-btn--sm', 'Delete', () => askDelete());
   del.id = 'ed-lib-delete';
   const manageRow = el('div', 'sode-side__row', rename, renameBtn, del);
-  const manageHint = el('p', 'sode__hint', 'Choose an icon to rename or delete.');
-  const manageSec = el('div', 'sode-side__lib-sec', el('span', 'sode-side__col-h', 'Rename or delete'), chooseGrid, manageHint, manageRow);
+  const manageSec = el('div', 'sode-side__lib-sec', el('span', 'sode-side__col-h', 'Rename or delete'), chooseGrid, manageRow);
   const confirmBox = el('div', 'sode-side__lib-confirm');
   confirmBox.id = 'ed-lib-confirm';
   confirmBox.tabIndex = -1;
@@ -96,7 +95,6 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   const open = btn('pb-btn--ghost pb-btn--sm pb-tip--end', 'Icon library', () => openDialog());
   open.id = 'ed-lib-open';
   open.setAttribute('aria-haspopup', 'dialog');
-  open.dataset.pbTip = 'Upload, rename or delete the icons every panel can use';
   const node = el('div', 'sode-side__lib-sec', el('div', 'sode-side__lib-head', el('span', 'sode-side__picker-h', 'Uploaded icons'), open), grid, empty);
 
   const root = el('div', 'pb-modal-backdrop sode__scrim');
@@ -111,16 +109,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   close.id = 'ed-lib-close';
   dialog.append(
     el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Icon library'), { id: 'ed-lib-title' }), rescan),
-    el(
-      'div',
-      'pb-modal__body sode-side__lib-sec',
-      el('p', 'sode__hint', 'Every panel can use these icons. A new upload also goes on the selection.'),
-      el('div', 'sode-side__row', name, up),
-      manageSec,
-      confirmBox,
-      note,
-      file,
-    ),
+    el('div', 'pb-modal__body sode-side__lib-sec', el('div', 'sode-side__row', name, up), manageSec, confirmBox, note, file),
     el('div', 'pb-modal__footer', close),
   );
   root.append(dialog);
@@ -172,7 +161,6 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     chooseGrid.replaceChildren(...(trusted && !root.hidden ? pickerSections(icons, [], '')[0].tiles.map((t) => tile(t, true)) : []));
     manageSec.hidden = !trusted || !icons.length;
     rescan.hidden = !trusted;
-    manageHint.hidden = !!chosen;
     manageRow.hidden = !chosen;
   }
   repaints.add(paint);
