@@ -389,6 +389,7 @@ type inMsg struct {
 	Router       string             `json:"router"` // setupRouter: the address typed
 	Setup        *setupReq          `json:"setup"`  // setupFinish
 	TakeOver     bool               `json:"take"`   // setupClaim: Take control from the browser that runs setup
+	Inbox        *inboxReq          `json:"inbox"`  // the inbox messages (inboxsend.go)
 }
 
 func plural(n int, one, many string) string {
