@@ -191,7 +191,7 @@ func fieldRefusal(role, sec string) string {
 func (a *App) serveSettingsSave(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
-		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver, m.AccessPreset)
+		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver, m.asRole, m.AccessPreset)
 		out := settingsSaveResult{opResult: opResultFor("settingsSave", &m.ID, err), Results: res, Interruptions: stops}
 		n := 0
 		for _, r := range res {
@@ -236,12 +236,13 @@ func (p *savePlan) refuse(key, reason string, err error) {
 
 // saveSettingsFields checks each field on its own against live, then writes the ones that
 // pass in one commit. No commit when none changes anything. ap, the approver of an Approval
-// (approval.go), stands in for the Role only in Shown sections; it is nil without one. preset:
-// the Access preset the page staged, named in the Settings saves row.
-func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User, preset string) (map[string]fieldResult, []interruption, error) {
+// (approval.go), stands in for the Role only in Shown sections; it is nil without one. asRole: a
+// Request approval's requester Role when sent, used when the requester is under the Lock now.
+// preset: the Access preset the page staged, named in the Settings saves row.
+func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User, asRole, preset string) (map[string]fieldResult, []interruption, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	plan, err := a.planSave(c, edits, ap, false)
+	plan, err := a.planSave(c, edits, ap, asRole, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -296,7 +297,7 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 
 // planSave runs every check of a save and writes nothing. review: the review asks before the PIN
 // recheck, so a field that needs one is not refused for it. Caller holds cfgMu.
-func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, review bool) (*savePlan, error) {
+func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, asRole string, review bool) (*savePlan, error) {
 	a.mu.Lock()
 	role, rechecked := a.roleMu(c), a.recheckedMu(c) || review
 	live := a.r().cfg
@@ -305,6 +306,9 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, r
 		actor, _ = live.FindUserByID(u.ID)
 	}
 	a.mu.Unlock()
+	if role == "" {
+		role = asRole
+	}
 	if role == "" {
 		return nil, errPageLocked
 	}

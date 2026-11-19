@@ -13,6 +13,7 @@ import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summ
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
 import './lock.js';
+import { showApprovalCards } from './approvalcards.js';
 import { bigScrollAll } from './bigscroll.js';
 import { pullToLoad } from './widgets.js';
 
@@ -289,6 +290,11 @@ const EVENT_RESULT = {
   error: ['error', 'Failed'],
   start: ['ok', 'Started'],
   stop: ['idle', 'Stopped'],
+  // Request approval rows (approvalrequest.go)
+  approved: ['ok', 'Approved'],
+  denied: ['warn', 'Denied'],
+  timeout: ['warn', 'No one answered'],
+  cancelled: ['idle', 'Cancelled'],
 };
 
 function outcome(e) {
@@ -675,4 +681,5 @@ setInterval(refreshUptime, 60_000);
 initFilters();
 initUptime();
 bigScrollAll();
+showApprovalCards();
 connect();

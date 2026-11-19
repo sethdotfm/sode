@@ -8,6 +8,12 @@ import { recheckPin } from './recheck.js';
 import { segmented } from './formbits.js';
 import { CATEGORIES, sizeText } from './exportrules.js';
 import * as R from './importrules.js';
+import { stillBroken } from './remaprules.js';
+import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
+import { browserPrefs, mergeByName } from './browserimport.js';
+import { setPref } from './device.js';
+import { localSets, normFilter, putLocalSets } from './filterstore.js';
+import { localPresets, putLocalPresets, storedPreset } from './presetstore.js';
 
 const btn = (cls, text, fn) => {
   const b = el('button', `pb-btn ${cls}`, text);
@@ -16,8 +22,15 @@ const btn = (cls, text, fn) => {
   return b;
 };
 
-// The Artwork and This browser steps are not on the server yet; the review lists them as not imported.
-const NOT_YET = new Set(['artwork', 'browser']);
+// This browser takes the file's values here, since they are this browser's own (browserimport.js).
+function applyBrowser(values, replace) {
+  for (const [name, v] of Object.entries(browserPrefs(values))) setPref(name, v);
+  const list = (x) => [].concat(x || []).filter((s) => s?.name);
+  const sets = list(values?.filterSets).map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
+  putLocalSets(mergeByName(localSets(), sets, replace));
+  const presets = list(values?.presets).map((s) => ({ scope: 'local', ...storedPreset(s), pinned: s.pinned !== false }));
+  putLocalPresets(mergeByName(localPresets(), presets, replace));
+}
 
 // opts: setNote(text, error), setReview(title or ''), backup() downloads Back up everything.
 export function importTab({ setNote, setReview, backup }) {
@@ -42,6 +55,7 @@ export function importTab({ setNote, setReview, backup }) {
   let file = null;
   let check = null;
   let pick = null;
+  let remap = null; // importremap.js state
   let planned = null; // the review's plan
   let step = 'file'; // file, list, review, done
   let seq = 0;
@@ -54,11 +68,15 @@ export function importTab({ setNote, setReview, backup }) {
     reviewBtn.hidden = step !== 'list';
     backBtn.hidden = importBtn.hidden = step !== 'review';
     anotherBtn.hidden = step !== 'done';
-    const broken = step === 'list' ? R.brokenItems(check.plan).filter((it) => pick.items[it.cat]?.has(it.key)).length : 0;
+    const broken = step === 'list' ? R.brokenItems(check.plan).filter((it) => pick.items[it.cat]?.has(it.key) && brk(it).length).length : 0;
     brokenBadge.hidden = !broken;
     brokenBadge.textContent = `${broken} Broken`;
     reviewBtn.disabled = step === 'list' && !R.importReq(pick).categories.length;
   };
+
+  // In the list the plan is the check's; the remap choices made since take references off it.
+  const brk = (it) => stillBroken(it.broken, remap.rowsBy, remap.targets, remap.choices);
+  const fullReq = () => ({ ...R.importReq(pick), ...remapReq(remap) });
 
   function form(req) {
     const fd = new FormData();
@@ -67,18 +85,23 @@ export function importTab({ setNote, setReview, backup }) {
     return fd;
   }
 
-  async function load(f) {
+  // again: a router target changed, so the check plans again with the ticks and choices kept.
+  async function load(f, again = false) {
     file = f;
     const my = ++seq;
     setNote('Reading the file…');
     try {
-      const res = await call('api/import', { method: 'POST', body: form({ mode: 'add', categories: R.PLANNED }) });
+      const routers = again ? { routers: { ...remap.targets } } : {};
+      const res = await call('api/import', { method: 'POST', body: form({ mode: 'add', categories: R.PLANNED, ...routers }) });
       const got = await res.json();
       if (my !== seq) return;
       check = got;
-      pick = R.newPick(check);
-      expanded.clear();
-      for (const cat of R.PLANNED) if (check.plan.categories[cat]?.items.length) expanded.add(cat);
+      remap = remapState(check, again ? remap : null);
+      if (!again) {
+        pick = R.newPick(check);
+        expanded.clear();
+        for (const cat of R.PLANNED) if (check.plan.categories[cat]?.items.length) expanded.add(cat);
+      }
       step = 'list';
       setNote('');
       render();
@@ -105,7 +128,7 @@ export function importTab({ setNote, setReview, backup }) {
   }
 
   function choices(cat, it, i) {
-    const seg = segmented(`xi-choice-${cat}-${i}`, `${it.name} clash`, R.choicesFor(cat), (v) => {
+    const seg = segmented(`xi-choice-${cat}-${i}`, `${it.name} clash`, R.choicesFor(cat, it), (v) => {
       pick.choices[cat][it.key] = v;
       render();
     });
@@ -115,11 +138,12 @@ export function importTab({ setNote, setReview, backup }) {
     return el('div', 'sode__xi-sub', seg.node);
   }
 
-  const missing = (it) => it.broken.map((m) => R.missingText(m, off())).join(', ');
+  const missing = (it, list = it.broken) => list.map((m) => R.missingText(m, off())).join(', ');
 
   function itemRow(cat, c, it, i) {
     const ticked = pick.items[cat].has(it.key);
     const hint = it.refused ? it.refused : it.same ? 'No change' : it.note || '';
+    const broken = brk(it);
     const row = el(
       'div',
       'sode__xi-item',
@@ -128,18 +152,17 @@ export function importTab({ setNote, setReview, backup }) {
         else pick.items[cat].delete(it.key);
         render();
       }),
-      el('span', 'sode__hint', ...(it.broken?.length ? [el('span', 'pb-badge pb-badge--error', 'Broken'), ' '] : []), hint),
+      el('span', 'sode__hint', ...(broken.length ? [el('span', 'pb-badge pb-badge--error', 'Broken'), ' '] : []), hint),
       el('span', 'sode__xi-size', sizeText(it.size || 0)),
     );
     row.dataset.item = it.key;
     if (ticked && R.hasChoice(c, it)) row.append(choices(cat, it, i));
-    if (it.broken?.length) row.append(el('span', 'sode__hint sode__xi-sub sode__error-text', `Missing ${missing(it)}`));
+    if (broken.length) row.append(el('span', 'sode__hint sode__xi-sub sode__error-text', `Missing ${missing(it, broken)}`));
     return row;
   }
 
   function catRows(cat, text) {
     const c = check.plan.categories[cat];
-    const notYet = NOT_YET.has(cat);
     const items = c?.items || [];
     const state = R.catState(check, pick, cat);
     const head = el('div', 'sode__xi-head');
@@ -154,10 +177,10 @@ export function importTab({ setNote, setReview, backup }) {
     caret.setAttribute('aria-label', `Show the ${text.toLowerCase()} items`);
     caret.hidden = !items.length;
     const count = items.length > 1 ? ` ${pick.items[cat].size}/${items.length}` : '';
-    const why = notYet ? 'Not imported yet' : c?.refused || '';
+    const why = c?.refused || '';
     head.append(
       caret,
-      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', notYet || !!c?.refused || !items.length, (on) => {
+      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', !!c?.refused || !items.length, (on) => {
         R.setCat(check, pick, cat, on);
         render();
       }),
@@ -168,16 +191,8 @@ export function importTab({ setNote, setReview, backup }) {
     return [head, el('div', 'sode__xi-items', ...items.map((it, i) => itemRow(cat, c, it, i)))];
   }
 
-  // The file's routers against this one. Remapping onto another router is a later step.
   function routerNames() {
-    const live = check.plan.categories.routers?.items || [];
-    const lines = (check.routers || []).map((r) => {
-      const here = live.find((it) => it.key === r.UID);
-      const name = r.Title || r.Prefix;
-      return el('li', null, here && !here.note ? `${name}: this router` : `${name}: another router. Items that use it arrive Broken.`);
-    });
-    if (!lines.length) return [];
-    return [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list', ...lines)];
+    return remapView(remap, { off, onChange: () => render(), onRouter: () => load(file, true) });
   }
 
   function listView() {
@@ -205,7 +220,7 @@ export function importTab({ setNote, setReview, backup }) {
     setNote('Checking your choices…');
     reviewBtn.disabled = true;
     try {
-      const res = await call('api/import', { method: 'POST', body: form(R.importReq(pick)) });
+      const res = await call('api/import', { method: 'POST', body: form(fullReq()) });
       const got = await res.json();
       if (my !== seq) return;
       planned = got.plan;
@@ -239,8 +254,6 @@ export function importTab({ setNote, setReview, backup }) {
   function reviewView() {
     const counts = R.reviewCounts(planned);
     const broken = R.brokenItems(planned);
-    const notYet = [...(planned.deferred || [])];
-    for (const cat of NOT_YET) if (check.categories.includes(cat)) notYet.push(label(cat));
     const out = [
       el('p', null, el('strong', null, 'Add import'), check.sameInstall ? ' from this install' : ' from another install'),
       el(
@@ -249,12 +262,9 @@ export function importTab({ setNote, setReview, backup }) {
         el('tbody', null, ...counts.map((c) => el('tr', null, el('th', null, label(c.cat)), el('td', null, c.text)))),
       ),
     ];
+    out.push(...remapReview(remap, goTo));
     if (broken.length)
-      out.push(
-        el('h3', 'sode__label sode__xi-h', `Broken (${broken.length})`),
-        el('ul', 'sode__xi-list sode__xi-broken', ...broken.map((it) => el('li', null, `${it.as || it.name}: missing ${missing(it)}`))),
-      );
-    if (notYet.length) out.push(el('p', 'sode__hint', `Not imported yet: ${notYet.join(', ')}.`));
+      out.push(el('h3', 'sode__label sode__xi-h', `Broken (${broken.length})`), el('ul', 'sode__xi-list sode__xi-broken', ...broken.map(brokenLine)));
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
     if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
@@ -262,6 +272,26 @@ export function importTab({ setNote, setReview, backup }) {
       out.push(el('div', 'pb-note pb-note--warn', 'Use new replaces what is here. This is a Critical action.'), row, pinErr);
     }
     return out;
+  }
+
+  // A Broken item links to the row of its first missing name.
+  function brokenLine(it) {
+    const li = el('li', null, `${it.as || it.name}: missing ${missing(it)}`);
+    const at = it.broken.map((m) => rowOf(remap, m)).find(Boolean);
+    if (at)
+      li.append(
+        ' ',
+        btn('pb-btn--ghost pb-btn--sm', 'Show', () => goTo(...at)),
+      );
+    return li;
+  }
+
+  function goTo(uid, key) {
+    if (remap.rowsBy[uid]?.some((x) => x.key === key && x.state === 'moved')) remap.open.add(uid);
+    back();
+    const sel = [...panel.querySelectorAll('[data-row]')].find((x) => x.dataset.row === key)?.querySelector('select');
+    sel?.scrollIntoView({ block: 'center' });
+    sel?.focus();
   }
 
   function back() {
@@ -286,13 +316,14 @@ export function importTab({ setNote, setReview, backup }) {
         }
       }
       setNote('Importing…');
-      const res = await call('api/import/apply', { method: 'POST', body: form(R.importReq(pick)) });
+      const res = await call('api/import/apply', { method: 'POST', body: form(fullReq()) });
       const got = await res.json();
       if (my !== seq) return;
       planned = got.plan;
       step = 'done';
       setNote('');
       failed = Object.keys(got.failed || {}).length;
+      if (planned.categories.browser?.items.length) applyBrowser(check.browser, false);
       render();
     } catch (e) {
       if (my !== seq) return;
@@ -308,7 +339,7 @@ export function importTab({ setNote, setReview, backup }) {
   function doneView() {
     const counts = R.reviewCounts(planned);
     return [
-      el('div', 'pb-alert pb-alert--ok', failed ? `Imported. ${failed} panels were not written.` : 'Imported.'),
+      el('div', 'pb-alert pb-alert--ok', failed ? `Imported. ${failed} items were not written.` : 'Imported.'),
       el(
         'table',
         'pb-table pb-table--compact sode__xi-counts',
@@ -334,7 +365,7 @@ export function importTab({ setNote, setReview, backup }) {
 
   function reset() {
     seq++;
-    file = check = pick = planned = null;
+    file = check = pick = planned = remap = null;
     failed = 0;
     step = 'file';
     pinInput.value = '';

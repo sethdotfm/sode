@@ -178,6 +178,51 @@ func (s *iconLib) add(name string, data []byte, typ string) (LibIcon, error) {
 	return ic, nil
 }
 
+// put stores an imported icon under ic.ID, over the icon of that id if there is one. The name is settled by
+// freeName against the others. Callers check the bytes (checkArtBytes) and the id's form.
+func (s *iconLib) put(ic LibIcon, data []byte) (LibIcon, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := slices.IndexFunc(s.data.Icons, func(x LibIcon) bool { return x.ID == ic.ID })
+	others := slices.Clone(s.data.Icons)
+	if i >= 0 {
+		others = slices.Delete(others, i, i+1)
+	}
+	name, err := freeName(ic.Name, others)
+	if err != nil {
+		return LibIcon{}, err
+	}
+	ic.Name, ic.Size = name, len(data)
+	total := len(data)
+	for _, x := range others {
+		total += x.Size
+	}
+	if total > iconLibTotal {
+		return LibIcon{}, errIconLibCap
+	}
+	next := s.data
+	next.Icons = others
+	if i >= 0 {
+		next.Icons = slices.Insert(others, i, ic)
+	} else {
+		next.Icons = append(others, ic)
+	}
+	if s.path == "" {
+		s.mem[ic.ID] = data
+		return ic, s.saveLocked(next)
+	}
+	if err := os.MkdirAll(s.dir(), 0o700); err != nil {
+		return LibIcon{}, err
+	}
+	if err := config.AtomicWrite(filepath.Join(s.dir(), ic.fileName()), data); err != nil {
+		return LibIcon{}, err
+	}
+	if i >= 0 && s.data.Icons[i].fileName() != ic.fileName() {
+		os.Remove(filepath.Join(s.dir(), s.data.Icons[i].fileName()))
+	}
+	return ic, s.saveLocked(next)
+}
+
 // saveLocked writes next as the index; only then does memory take it.
 func (s *iconLib) saveLocked(next iconLibData) error {
 	next.Rev = s.data.Rev + 1
