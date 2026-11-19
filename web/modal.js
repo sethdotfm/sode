@@ -31,3 +31,19 @@ export function modal({ titleId, title, cls = '', rootCls = '', rootId, dialogId
     },
   };
 }
+
+// A modal built for one answer and removed with it: close(v) resolves answer with v; Esc, the backdrop and a Lock
+// give null. back gets focus again.
+export function question({ back, ...opts }) {
+  let done;
+  const answer = new Promise((r) => (done = r));
+  const m = modal({ ...opts, onEsc: () => close(null) });
+  function close(v) {
+    if (!m.root.isConnected) return;
+    m.remove();
+    if (back?.isConnected) back.focus({ preventScroll: true });
+    done(v);
+  }
+  m.show();
+  return { ...m, answer, close };
+}

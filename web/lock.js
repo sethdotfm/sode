@@ -52,6 +52,7 @@ import {
 } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { closeShown } from './dialogkeys.js';
+import { dialogAttrs } from './modal.js';
 import { stepLock, noteStepState, steppedIn } from './stepin.js';
 import { stepActive } from './stepinrules.js';
 import { createOwed } from './owed.js';
@@ -186,12 +187,12 @@ function build() {
   letterFoot = el('div', 'sode-lock__foot', signOutBtn, signInAsBtn);
   letterFoot.hidden = true;
   // The foot is the last row, in flow, so it cannot land on the pad.
-  root = el('div', 'sode-lock', el('div', 'sode-lock__main', brand, padBody, letterBody), letterFoot);
-  root.hidden = true;
-  root.tabIndex = -1;
-  root.setAttribute('role', 'dialog');
-  root.setAttribute('aria-modal', 'true');
-  root.setAttribute('aria-label', 'Locked');
+  root = el(
+    'div',
+    { class: 'sode-lock', ...dialogAttrs(), 'aria-label': 'Locked', hidden: true },
+    el('div', 'sode-lock__main', brand, padBody, letterBody),
+    letterFoot,
+  );
   document.body.append(root);
 
   chip = buildChip({ lock: localLock });

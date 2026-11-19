@@ -22,7 +22,6 @@ import {
 } from './panelsrules.js';
 import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
-import './panelkeytab.js';
 import { openPush } from './panelpush.js';
 import { artLeftOut, SIGN_IN_ENDED } from './panelrules.js';
 import { openAssign, askName } from './panelassign.js';
