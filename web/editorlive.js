@@ -10,19 +10,21 @@ import { btn } from './formbits.js';
 import { createLiveArt } from './editorliveart.js';
 
 // host holds the live panel, body is the editor it replaces, button is the toolbar's Live Editor button. ed is
-// { save, dirty, readOnly, edges, lists, cellTab, edgeLists }. edges() is { sources, destinations, rev } as the editor
+// { save, dirty, readOnly, edges, lists, cellTab, edgeLists, leave }. leave(href) is the unsaved-edits rule of the
+// Grid head row's links. edges() is { sources, destinations, rev } as the editor
 // has them. lists() gives the two list columns, cellTab() the sidebar's Cell tab and edgeLists() the lists' own apis.
 export function createLive(host, body, button, ed) {
   const label = button.textContent;
   let run = null;
   let grid = null; // the bar and drawer of a Grid panel's run
+  let ui = null;
   const api = {
     on: () => !!run,
     // page is the Page being edited, where the run opens.
     start(id, page = '', isGrid = false) {
       api.stop();
       grid = isGrid ? gridParts(ed) : null;
-      const ui = liveUi(host, () => api.stop(), grid);
+      ui = liveUi(host, () => api.stop(), grid);
       host.hidden = false;
       body.hidden = true;
       button.textContent = 'Back to editing';
@@ -34,6 +36,8 @@ export function createLive(host, body, button, ed) {
       if (!run) return;
       run.stop();
       run = null;
+      ui.stopScreen();
+      ui = null;
       grid?.stop();
       grid = null;
       host.replaceChildren();
@@ -41,6 +45,8 @@ export function createLive(host, body, button, ed) {
       body.hidden = false;
       button.textContent = label;
     },
+    // A note in the Grid bar's state, in place of "Unsaved changes" until the next change.
+    note: (text) => grid?.note(text),
     // The editor's fields or save state changed.
     changed: () => grid?.changed(),
     // A list's Artwork button: true when the open drawer shows the artwork.
@@ -171,6 +177,8 @@ function gridParts(ed) {
     open,
     aside,
     onPicks,
+    leave: ed.leave,
+    note: paint,
     started(r) {
       run = r;
     },

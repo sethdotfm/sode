@@ -27,6 +27,7 @@ import { createPageView } from './editorpageview.js';
 import { askCopyTo } from './editorpagecopy.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { edgesIn } from './gridedgerefs.js';
+import { panelsBar } from './panelsbar.js';
 
 const GRID_EDGE = Object.freeze({ members: 'all' });
 
@@ -262,6 +263,7 @@ export async function runEditor() {
     lists: () => [$('ed-sources-col'), $('ed-destinations-col')],
     cellTab: () => cellTab,
     edgeLists: () => edgeLists,
+    leave: (href) => mayLeave(href),
   });
   fieldWatchers.push(() => live.changed());
   // The menu and its flyouts keep off the sidebar when it sits beside the grid (menuArea).
@@ -518,8 +520,20 @@ export async function runEditor() {
     }
     openPanel(id, false);
   });
+  // The bar's links (Settings, Panels, Home) leave unsaved edits only on a second try, as the picker does. Then the
+  // browser's own prompt does not ask a third time.
+  let letGo = false;
+  function mayLeave(href) {
+    if (readOnly() || !dirty() || discardAsked === href) return (letGo = true);
+    discardAsked = href;
+    const text = 'Unsaved changes. Choose again to discard.';
+    say('ed-status', text);
+    live.note(text);
+    return false;
+  }
+  panelsBar(document.querySelector('.sode-ed > .sode-panels__head'), { panels: true, leave: mayLeave });
   window.addEventListener('beforeunload', (e) => {
-    if (!leaving && !readOnly() && dirty()) e.preventDefault();
+    if (!leaving && !letGo && !readOnly() && dirty()) e.preventDefault();
   });
 
   // One save at a time. A second Save, Ctrl+S or Live Editor press during a save gets the same answer. So a new panel is
