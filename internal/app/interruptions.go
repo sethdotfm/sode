@@ -279,7 +279,7 @@ func (s *keyStore) countWhere(match func(keyRec) bool) int {
 func (a *App) serveSettingsReview(c *client, m *inMsg) {
 	go func() {
 		a.cfgMu.Lock()
-		plan, err := a.planSave(c, m.Fields, nil, true)
+		plan, err := a.planSave(c, m.Fields, nil, "", true)
 		var list []interruption
 		if err == nil {
 			list = a.interruptions(plan.live, plan.next())

@@ -63,9 +63,14 @@ func (c Config) LevelRef(ui int) Ref {
 	return Ref{Router: c.UID, N: ui, Shown: c.LevelLabel(ui)}
 }
 
-func newRouterUID() string {
-	b := make([]byte, 8)
+func newRouterUID() string { return RandomHexID(8) }
+
+// RandomHexID is n random bytes in hex. The first digit is a to f.
+// YAML then never reads the id as a number, and never quotes it.
+func RandomHexID(n int) string {
+	b := make([]byte, n)
 	rand.Read(b)
+	b[0] |= 0xa0
 	return hex.EncodeToString(b)
 }
 

@@ -91,6 +91,10 @@ func (a *App) readImportParts(w http.ResponseWriter, r *http.Request) (importReq
 		apiFail(w, http.StatusBadRequest, "bad_request", `mode must be "add" or "replace"`)
 		return req, nil, none, false
 	}
+	if err := checkRouterTargets(req, a.r().cfg); err != nil {
+		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+		return req, nil, none, false
+	}
 	part, err = mr.NextPart()
 	if err != nil || part.FormName() != "file" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "the second part must be the file")
