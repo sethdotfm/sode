@@ -11,7 +11,7 @@ import * as R from './importrules.js';
 import { stillBroken } from './remaprules.js';
 import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
 import { browserPrefs, mergeByName } from './browserimport.js';
-import { setPref } from './device.js';
+import { fmtTime, setPref } from './device.js';
 import { localSets, normFilter, putLocalSets } from './filterstore.js';
 import { localPresets, putLocalPresets, storedPreset } from './presetstore.js';
 
@@ -147,7 +147,7 @@ export function importTab({ setNote, setReview, backup }) {
     const row = el(
       'div',
       'sode__xi-item',
-      box(`item:${cat}:${it.key}`, it.name, ticked, false, !!c.refused, (on) => {
+      box(`item:${cat}:${it.key}`, it.name, ticked, false, !!c.refused || !!it.refused, (on) => {
         if (on) pick.items[cat].add(it.key);
         else pick.items[cat].delete(it.key);
         render();
@@ -192,7 +192,7 @@ export function importTab({ setNote, setReview, backup }) {
   }
 
   function routerNames() {
-    return remapView(remap, { off, onChange: () => render(), onRouter: () => load(file, true) });
+    return remapView(remap, { off, fmt: fmtTime, onChange: () => render(), onRouter: () => load(file, true) });
   }
 
   function listView() {
@@ -289,7 +289,7 @@ export function importTab({ setNote, setReview, backup }) {
   function goTo(uid, key) {
     if (remap.rowsBy[uid]?.some((x) => x.key === key && x.state === 'moved')) remap.open.add(uid);
     back();
-    const sel = [...panel.querySelectorAll('[data-row]')].find((x) => x.dataset.row === key)?.querySelector('select');
+    const sel = [...panel.querySelectorAll('[data-row], [data-term]')].find((x) => (x.dataset.row ?? x.dataset.term) === key)?.querySelector('select');
     sel?.scrollIntoView({ block: 'center' });
     sel?.focus();
   }

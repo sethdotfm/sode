@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newSelection, setKeys, move, toggle, click, dragFrom, dragTo, clear, picked } from '../remapselectrules.js';
-import { remapRows, newChoices, bulk, applyChoice } from '../remaprules.js';
+import { remapRows, newChoices, bulk, applyChoice, namesNote } from '../remaprules.js';
 
 const sel = (keys) => {
   const s = newSelection();
@@ -114,4 +114,13 @@ test('bulk buttons and a choice with rows selected change every selected row', (
   applyChoice(rows, ch, key('source', 3), 'n:2', new Set([key('source', 4)]));
   assert.deepEqual(ch[key('source', 3)], [2], 'a row outside the selection changes alone');
   assert.deepEqual(ch[key('source', 4)], []);
+});
+
+test('the names note: offline, saved names table, none', () => {
+  const fmt = (t) => `<${t}>`;
+  assert.equal(namesNote({}, fmt), '');
+  assert.match(namesNote({ offline: true, savedAt: 'S' }, fmt), /offline.*saved names table from <S>.*when the router answers/);
+  assert.match(namesNote({ savedAt: 'S' }, fmt), /saved names table from <S> until it reads the router/);
+  assert.match(namesNote({ offline: true, namesAt: 'N' }, fmt), /names read at <N>/);
+  assert.match(namesNote({ noNames: true, offline: true }, fmt), /no names.*wait/);
 });

@@ -72,8 +72,8 @@ func sessionOn(t *testing.T, a *App) string {
 	return a.issueSessionTab(c, true)
 }
 
-// With the router offline the import plans against the saved names table, and the first reads once the router
-// answers check the imported items again (the Broken check).
+// With the router offline the import plans against the saved names table. When the router answers, the first
+// reads check the imported items again (the Broken check).
 func TestImportOfflineUsesSavedNamesAndRechecks(t *testing.T) {
 	a, _, tok := importApp(t)
 	srcs := []string{"CAM 0", "CAM 1", "CAM 2", "CAM 3"}

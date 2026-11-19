@@ -1,5 +1,5 @@
 // Filter number and range terms in the import's remap step. A term gets a row only when the names at its numbers
-// in the file differ from the names on the target; the server takes the rewritten text (importReq.filters,
+// in the file differ from the names on the target. The server takes the rewritten text (importReq.filters,
 // remapSet in internal/app/importremap.go). No core.js import, so Node tests load it.
 
 import { parseFilter, filterText } from './filter.js';
@@ -97,8 +97,8 @@ export function filtersReq(router, rows, choices) {
 
 const setName = (s) => (s.user ? `${s.name} (${s.user})` : s.name);
 
-// The review: each term not kept, with its sets by name, and the sets that lose every include term on a side, so
-// that side then matches everything.
+// The review: each term not kept, with its sets by name. open is the sets that lose every include term on a
+// side, since that side then matches everything.
 export function termChanges(router, rows, choices) {
   const sets = new Map((router.sets || []).map((s) => [s.key, s]));
   const terms = rows
