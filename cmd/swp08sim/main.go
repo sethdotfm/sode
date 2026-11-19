@@ -1,8 +1,10 @@
 // Command swp08sim is a fake SW-P-08 router for development. Group salvos (120-123, extended stage 248/250)
 // mimic the Ultrix. All clients share one staged list per group.
 // Protect messages (138-143) mimic the Ultrix. Each message covers one level. Replies have 7 bytes: matrix, level,
-// details, dst(2), device(2). 0x8D and 0x8F go to every client that has sent a message. Only the device that
-// protected a level can clear it. Dst 12 ("Rec B") starts protected by device 9 on every level.
+// details, dst(2), device(2). Details is the kind: 1 a Protect, 2 a Router lock. 0x8D and 0x8F go to every client
+// that has sent a message. Only the device that protected a level can clear it. A connect to a Protected level gets
+// an ACK and no other reply, and the route stays. Dst 12 ("Rec B") starts with a Router lock by device 9 on every
+// level; SIM_PROTECTS sets others.
 package main
 
 import (
@@ -64,6 +66,13 @@ func main() {
 			s.deaf[n] = true
 		}
 	}
+	// SIM_PROTECTS=12:2:9,20:1:112 (0-based dst:kind:device): that dst starts Protected on every level. Kind 1 is a
+	// Protect, 2 a Router lock, 0 clears dst 12's default.
+	for _, f := range strings.Split(os.Getenv("SIM_PROTECTS"), ",") {
+		if dst, kind, dev, ok := protectSpec(f); ok {
+			s.holdAll(dst, kind, dev)
+		}
+	}
 	// SIM_SILENT_DSTS=5,7: a connect sends no Connected, so Sode learns of it only from its interrogate.
 	for _, f := range strings.Split(os.Getenv("SIM_SILENT_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
@@ -107,6 +116,41 @@ func main() {
 		}
 		go s.serve(c)
 	}
+}
+
+func protectSpec(f string) (dst, kind, dev int, ok bool) {
+	parts := strings.Split(strings.TrimSpace(f), ":")
+	if len(parts) != 3 {
+		return 0, 0, 0, false
+	}
+	var n [3]int
+	for i, p := range parts {
+		v, err := strconv.Atoi(p)
+		if err != nil || v < 0 {
+			return 0, 0, 0, false
+		}
+		n[i] = v
+	}
+	return n[0], n[1], n[2], n[1] <= 3
+}
+
+// holdAll sets dst's hold on every level; kind 0 clears it.
+func (s *sim) holdAll(dst, kind, dev int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for l := range s.tally {
+		if kind == 0 {
+			delete(s.protect, [2]int{l, dst})
+		} else {
+			s.protect[[2]int{l, dst}] = hold{details: kind, device: dev}
+		}
+	}
+}
+
+// held: a connect to this level is refused. Caller holds mu.
+func (s *sim) held(l, dst int) bool {
+	_, ok := s.protect[[2]int{l, dst}]
+	return ok
 }
 
 func newSim(ns, nd, nl int) *sim {
@@ -285,6 +329,15 @@ func (s *sim) handle(c net.Conn, m []byte) {
 			log.Printf("connect level %d: dst %d ← src %d ignored (SIM_IGNORE_DSTS)", l, dst, src)
 			return
 		}
+		s.mu.Lock()
+		held := s.held(l, dst)
+		s.mu.Unlock()
+		if held {
+			// The Ultrix refuses in silence, also to the session that set the Protect: it cannot see a SW-P-08
+			// client as the owner.
+			log.Printf("connect level %d: dst %d ← src %d refused: Protected (no reply)", l, dst, src)
+			return
+		}
 		s.route(mx, l, dst, src, !s.silent[dst])
 
 	case swp08.CmdExtInterrogate:
@@ -425,14 +478,22 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 	// The Ultrix announces a Go's crosspoints only sometimes, so the default is no Connected. SIM_SALVO_ANNOUNCE=1
 	// sends one for
 	// each changed crosspoint in dst and level order, 4 ms apart, from about 110 ms after the Go (measured).
-	var changed []swp08.Staged
+	// Not proved on the Ultrix: what a Go does with a Protected destination. The sim leaves those crosspoints, as a
+	// connect does, and sets the rest (Best Effort).
+	var changed, free []swp08.Staged
 	s.mu.Lock()
 	for _, x := range xs {
+		if s.held(x.Level, x.Dst) {
+			log.Printf("salvo %d: level %d dst %d is Protected, left", g, x.Level, x.Dst)
+			continue
+		}
+		free = append(free, x)
 		if t := s.tally[x.Level]; x.Dst < len(t) && t[x.Dst] != x.Src {
 			changed = append(changed, x)
 		}
 	}
 	s.mu.Unlock()
+	xs = free
 	for _, x := range xs {
 		s.route(x.Matrix, x.Level, x.Dst, x.Src, false)
 	}

@@ -7,6 +7,8 @@ export * from '../profile.js';
 export * from '../filterstore.js';
 export * from '../history.js';
 export * from '../plans.js';
+export * from '../protectrules.js';
+export * from '../protects.js';
 export * from '../banner.js';
 export * from '../presetstore.js';
 export * from '../historypick.js';

@@ -28,7 +28,14 @@ func legacyHello(a *App, p helloPage) []byte {
 		m["savedAt"] = a.router.savedAt
 	}
 	m["tally"] = legacyTriples(a.router.tally)
-	m["protected"] = legacyTriples(a.router.protect)
+	prot := [][4]int{}
+	for d, t := range a.router.protect {
+		for l, h := range t {
+			prot = append(prot, [4]int{d, l, h.dev, h.kind})
+		}
+	}
+	m["protected"] = prot
+	m["protectBy"] = []any{}
 	m["status"] = a.status
 	m["history"] = p.recent
 	m["more"] = p.more
@@ -94,11 +101,11 @@ func TestRouteChangeWire(t *testing.T) {
 	a.mu.Lock()
 	h := asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
-	if !reflect.DeepEqual(h["tally"], []any{[]any{5.0, 1.0, 7.0}}) || !reflect.DeepEqual(h["protected"], []any{[]any{5.0, 1.0, 9.0}}) {
+	if !reflect.DeepEqual(h["tally"], []any{[]any{5.0, 1.0, 7.0}}) || !reflect.DeepEqual(h["protected"], []any{[]any{5.0, 1.0, 9.0, 1.0}}) {
 		t.Fatalf("hello tally/protected: %v %v", h["tally"], h["protected"])
 	}
 	a.mu.Lock()
-	a.router.tally, a.router.protect = map[int]map[int]int{}, map[int]map[int]int{}
+	a.router.tally, a.router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
 	h = asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
 	if !reflect.DeepEqual(h["tally"], []any{}) || !reflect.DeepEqual(h["protected"], []any{}) {

@@ -679,6 +679,24 @@ html {
 .sode__swap-list {
   margin-top: var(--pb-space-4);
 }
+/* Settings > Routers > Protects (settingsprotects.js). */
+.sode__protects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sode__protects-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+.sode__protects-acts {
+  margin-top: var(--pb-space-4);
+}
 .sode__swap-owner {
   font-size: 1rem;
   margin: var(--pb-space-4) 0 var(--pb-space-2);

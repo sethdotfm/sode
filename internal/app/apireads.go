@@ -114,11 +114,13 @@ type apiRouteRow struct {
 	Src   int `json:"src"`   // -1 = nothing routed
 }
 
-// router.protect maps dst and level to a device, not a source. So the row has no value and visibility asks about dst
-// only.
+// router.protect maps dst and level to a device, not a source. So visibility asks about dst only.
 type apiProtectedRow struct {
-	Dst   int `json:"dst"`
-	Level int `json:"level"` // UI level
+	Dst      int    `json:"dst"`
+	Level    int    `json:"level"` // UI level
+	Kind     string `json:"kind"`  // protect or routerLock
+	Device   int    `json:"device"`
+	SodeUser string `json:"sodeUser,omitempty"` // on a Protect Sode set: who set it
 }
 
 // Stable order.
@@ -203,6 +205,11 @@ func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 }
 
 func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	rt := a.r()
+	by := map[int]protectBy{}
+	for _, b := range a.protectByList(rt) {
+		by[b.Dst] = b
+	}
 	a.mu.Lock()
 	v := cl.view()
 	rows := []apiProtectedRow{}
@@ -210,8 +217,15 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		if !v.Destination(d) {
 			continue
 		}
-		for l := range t {
-			rows = append(rows, apiProtectedRow{d, l})
+		for l, h := range t {
+			row := apiProtectedRow{Dst: d, Level: l, Kind: "protect", Device: h.dev}
+			if h.kind == swp08.KindRouterLock {
+				row.Kind = "routerLock"
+			}
+			if b, ok := by[d]; ok && h.kind == swp08.KindProtect && h.dev == b.Device {
+				row.SodeUser = b.By
+			}
+			rows = append(rows, row)
 		}
 	}
 	a.mu.Unlock()

@@ -127,6 +127,17 @@ var policy = map[string]rule{
 			}
 		}},
 
+	// Protects (protect.go): the Protect right and the destination's Rights are checked in the handler. Another
+	// Sode user's Protect needs an Administrator, so an Approval can stand in for the Role.
+	"protectSet": {crit: critNever, role: config.RoleStandard, need: needMain, why: "protect", write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtect(c, m, true) }, onRefuse: refuseProtect},
+	"protectClear": {crit: critNever, role: config.RoleStandard, need: needMain, why: "protectClear", write: true, approvable: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtect(c, m, false) }, onRefuse: refuseProtect},
+	// Clear Sode's Protects: every Protect with Sode's device number, record or not. Critical, as it can free
+	// destinations other users hold.
+	"protectClearAll": {crit: critAlways, role: config.RoleAdministrator, need: needMain, why: "protectClearAll", write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtectClearAll(c, m) }, onRefuse: refuseProtect},
+
 	// Admitting log subscribes to the feed in the same step, so a lock cannot slip in.
 	"log": {crit: critNever, role: config.RoleStandard, need: needLog, admitted: func(c *client) { c.sent = true },
 		handle: func(a *App, c *client, m *inMsg) { go a.sentHistory(c, int64(m.Before), m.N) }},

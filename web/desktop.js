@@ -30,6 +30,7 @@ import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
+import { protectKey } from './protects.js';
 
 const sel = { src: null, dst: null };
 let dsts = [];
@@ -244,6 +245,10 @@ function sendingRow(src, d, levels) {
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
+// The route view of one destination: no source, one destination. It offers Protect and Clear Protect.
+const routeView = () => !sel.src && !boxes.src.input.value.trim() && allDsts().length === 1;
+const protectFromKeys = (set) => routeView() && protectKey(allDsts()[0], set, openConfirm);
+
 function pickSrc(n) {
   select('src', srcItem(n));
   lvlInput.focus();
@@ -273,7 +278,7 @@ function renderTally() {
     const srcs = new Set(ds.flatMap((d) => bySource(d.n, allLevels()).map((r) => r.src)).filter((s) => s != null && s >= 0));
     dstUnder.replaceChildren(
       underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving', true),
-      el('div', 'sode__scroll', ...ds.flatMap((d) => currentlyNodes(d, pickSrc))),
+      el('div', 'sode__scroll', ...ds.flatMap((d) => currentlyNodes(d, pickSrc, routeView() ? openConfirm : null))),
     );
   } else dstUnder.replaceChildren();
   [srcUnder, dstUnder].forEach((u, i) => {
@@ -282,7 +287,17 @@ function renderTally() {
   });
 }
 
-const historyView = desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys: () => keys.open(), boxes, active });
+const historyView = desktopHistory({
+  select,
+  addEnd,
+  focusBox,
+  openConfirm,
+  focusSearch,
+  openKeys: () => keys.open(),
+  boxes,
+  active,
+  protect: (set) => protectFromKeys(set),
+});
 const { renderHistory, enterKeys, keyMode, histList, histArea, pager } = historyView;
 
 // Per browser; index.html applies it before first paint.

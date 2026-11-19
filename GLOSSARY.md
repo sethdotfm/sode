@@ -35,8 +35,14 @@ The hidden identity Sode gives a router when it is added. It never changes, neve
 One source connected to one destination on a set of levels. A take sends one or more routes.
 
 **Protected**:
-Describes a destination that the router will not change because something has protected it. Sode refuses a plan that includes a protected destination before it sends anything.
-_Avoid_: protect (as a noun), locked
+Describes a destination with a Protect or a Router lock on one or more levels, so the router will not change those levels. Sode refuses a plan that includes a protected destination before it sends anything.
+_Avoid_: locked
+
+**Protect**:
+A mark on one level of a destination that stops other clients from changing it. Only the device number that set it can clear it, and the router does not check who sends that number. Sode, DashBoard and panels can set one. Sode sets and clears a Protect on every level of a destination, with its one device number for the router. It keeps its own record of which user or API client set each one. Sode refuses its own takes to a destination it Protected too. "Protect" is also the verb.
+
+**Router lock**:
+The router's second kind of mark on a level of a destination, set only from DashBoard or a panel. Sode shows it with the device that set it and never sets or clears it. Keep it apart from Sode's own Lock, the cover over the page.
 
 ### Actions
 

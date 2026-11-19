@@ -54,6 +54,8 @@ var policyExpect = map[string][nStates]error{
 	"setupClaim": openRule, "setupRouter": openRule, "setupRestoreKey": openRule, "setupFinish": openRule,
 
 	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
+	// the Protect right and the owner of the Protect are checked in the handlers (protect_test.go)
+	"protectSet": mainRule, "protectClear": mainRule,
 
 	"settingsSave": standardRule, "settingsReview": standardRule,
 	// everyone's list needs an Administrator and swapMine a signed-in user, checked in the handlers (swap_test.go)
@@ -64,7 +66,7 @@ var policyExpect = map[string][nStates]error{
 	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,
 
-	"clearHistory":   adminRule,
+	"clearHistory":   adminRule, "protectClearAll": adminRule,
 	"userSignOutAll": adminRule, "usersList": adminRule,
 	"keyListAll": adminRule, "keyCreateFor": adminRule,
 	"keyRevokeAny": adminRule, "keyRevokeAll": adminRule,

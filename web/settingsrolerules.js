@@ -18,6 +18,7 @@ export const SECTION_ROLES = Object.freeze({
   'router-matrix': ADMIN_SHOWN,
   'router-names': ADMIN_SHOWN,
   takes: ADMIN_SHOWN,
+  protects: ADMIN_HIDDEN,
   locks: ADMIN_HIDDEN,
   users: ADMIN_HIDDEN,
   api: ADMIN_HIDDEN,

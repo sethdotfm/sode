@@ -51,7 +51,9 @@ type helloMsg struct {
 	At            time.Time       `json:"at"`
 	SavedAt       time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
 	Tally         json.RawMessage `json:"tally"`            // routeTriples
-	Protect       json.RawMessage `json:"protected"`        // routeTriples
+	Protect       json.RawMessage `json:"protected"`        // protectRows: [dst, level, device, kind]
+	// ProtectBy: the Protects in Sode's own record, with who set each (protect.go).
+	ProtectBy []protectBy `json:"protectBy"`
 	Status        statusMsg       `json:"status"`
 	Recent        []Entry         `json:"history"`
 	More          bool            `json:"more"`

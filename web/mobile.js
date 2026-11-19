@@ -295,7 +295,9 @@ function renderThread() {
   const last = M.dsts[M.dsts.length - 1] || maybe('dst');
   const others = M.dsts.length - 1;
   if (last) {
-    nodes.push(el('div', 'sode-m__card', ...currentlyNodes(last), others > 0 ? el('div', 'sode__hint', `+${others} more`) : null));
+    // With no source, the route view of one destination offers Protect and Clear Protect.
+    const protect = !M.sel.src && others <= 0 ? (p) => sheetFor(p) : null;
+    nodes.push(el('div', 'sode-m__card', ...currentlyNodes(last, null, protect), others > 0 ? el('div', 'sode__hint', `+${others} more`) : null));
   } else if (M.sel.src) {
     nodes.push(
       el(

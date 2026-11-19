@@ -142,6 +142,10 @@ type App struct {
 	names *namesStore // namestable.go
 
 	inbox *inboxStore // inbox.go
+
+	protects  *protectStore          // protect.go: Sode's record of the Protects it set
+	protWaits map[*protWait]struct{} // guarded by mu
+	protMu    sync.Mutex             // one Protect set or clear at a time
 	// inboxTTL: how long a card waits before it expires; tests shorten it. inboxAt: the last sweep.
 	inboxTTL time.Duration
 	inboxAt  time.Time
@@ -152,12 +156,12 @@ type routerState struct {
 	srcNames map[int]string
 	dstNames map[int]string
 	tally    map[int]map[int]int // dst → UI level → src (-1 = nothing routed)
-	protect  map[int]map[int]int
+	protect  map[int]map[int]protHold // dst → UI level → the device and kind (protect.go)
 	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
 	tallyGen int                  // bumped on every tally change; keys App.tallyCache
 	namesGen int                  // bumped on every change to the names or namesAt; keys App.namesCache
 	pend     []routeChange
-	pendProt []routeChange
+	pendProt []protChange
 
 	// Replies to a name read fill new maps that Sode swaps in when they stop, so deleted names go.
 	newSrc, newDst map[int]string
@@ -184,7 +188,7 @@ func newRouterState() *routerState {
 		srcNames: map[int]string{},
 		dstNames: map[int]string{},
 		tally:    map[int]map[int]int{},
-		protect:  map[int]map[int]int{},
+		protect:  map[int]map[int]protHold{},
 		seenAt:   map[[2]int]time.Time{},
 	}
 }
@@ -242,6 +246,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
+	a.protects, a.protWaits = loadProtects(cfgPath), map[*protWait]struct{}{}
 	a.names = newNamesStore(cfgPath)
 	a.sweepStages()
 	if t, ok := a.names.load(cfg.UID); ok {
@@ -502,28 +507,31 @@ func (a *App) applyProtect(r *runtime, p swp08.Protect) {
 	if !ok {
 		return
 	}
-	dev := -1
-	if p.Protected {
-		dev = p.Device
+	h := protHold{dev: p.Device, kind: p.Kind}
+	for w := range a.protWaits {
+		if w.dst == p.Dst {
+			w.see(l.UI, h, p.Protected)
+		}
 	}
 	t := a.router.protect[p.Dst]
 	old, had := t[l.UI]
-	if dev < 0 {
+	if !p.Protected {
 		if !had {
 			return
 		}
 		delete(t, l.UI)
-	} else {
-		if had && old == dev {
-			return
-		}
-		if t == nil {
-			t = map[int]int{}
-			a.router.protect[p.Dst] = t
-		}
-		t[l.UI] = dev
+		a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, -1, 0})
+		return
 	}
-	a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
+	if had && old == h {
+		return
+	}
+	if t == nil {
+		t = map[int]protHold{}
+		a.router.protect[p.Dst] = t
+	}
+	t[l.UI] = h
+	a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, h.dev, h.kind})
 }
 
 func (a *App) flush() {
@@ -554,7 +562,7 @@ func (a *App) flush() {
 		a.router.pend = nil
 	}
 	if len(a.router.pendProt) > 0 {
-		a.broadcast(deltaMsg{T: "protected", U: a.router.pendProt})
+		a.broadcast(protectMsg{T: "protected", U: a.router.pendProt, By: a.protectByList(a.r())})
 		a.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
@@ -612,7 +620,7 @@ func (a *App) hello(p helloPage) []byte {
 	cfg.Users = nil
 	m := helloMsg{
 		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: a.router.savedAt,
-		Tally: routeTriples(a.router.tally), Protect: routeTriples(a.router.protect),
+		Tally: routeTriples(a.router.tally), Protect: protectRows(a.router.protect), ProtectBy: a.protectByList(r),
 		Status: a.status, Recent: p.recent, More: p.more,
 		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
 		ConfigPath: a.cfgPath, Version: BuildLabel(),

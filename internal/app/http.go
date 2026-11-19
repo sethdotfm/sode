@@ -418,6 +418,7 @@ type inMsg struct {
 	Inbox        *inboxReq          `json:"inbox"` // the inbox messages (inboxsend.go)
 	Swap         *swapReq           `json:"swap"`  // swapList, swapMine (swap.go)
 	Mine         bool               `json:"mine"`  // brokenCount: only the user's own items
+	Protect      *protectReq        `json:"protect"` // protectSet, protectClear
 }
 
 func plural(n int, one, many string) string {

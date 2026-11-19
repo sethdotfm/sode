@@ -138,10 +138,18 @@ test('nextTake: fuzzy steps through letters too (#149)', async () => {
   setPref('nextMode', '');
 });
 
-test('protectedLabel names the devices in the badge', async () => {
-  const { protectedLabel } = await import('./all.mjs');
-  assert.equal(protectedLabel([9]), 'Protected by 9');
-  assert.equal(protectedLabel([9, 12]), 'Protected by 9, 12');
+test('protectedText names each hold in the badge', async () => {
+  const { protectedText, holdsOn } = await import('./all.mjs');
+  const prot = new Map([
+    [
+      3,
+      new Map([
+        [1, { dev: 9, kind: 1 }],
+        [2, { dev: 12, kind: 2 }],
+      ]),
+    ],
+  ]);
+  assert.equal(protectedText(holdsOn(prot, new Map(), 3, [1, 2], 0)), 'Protected by 9; Router lock by 12');
 });
 
 test('nextTake: repeating keeps going while the boxes hold the last Next (#195)', async () => {

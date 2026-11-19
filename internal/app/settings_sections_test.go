@@ -72,6 +72,7 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 		"tallyResyncSeconds":   30,
 		"fireMode":             "native",
 		"salvoGroup":           5,
+		"protectDevice":        126,
 		"pinWaits":             false,
 		"locks":                config.Locks{Main: true, Log: true, Panel: true},
 		"autoLockMinutes":      9,

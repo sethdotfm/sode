@@ -1,8 +1,9 @@
 // /log kind chips. Pure, no imports. "All" is not stored (every kind selected), so saved filters stay a list of ids.
 
 export const KINDS = [
-  // Router salvo messages (120/248 stage, 121 go/clear) route too, so they show with connects.
-  { id: 'connect', label: 'Connects', kinds: ['connect', 'salvoStage', 'salvoStageExt', 'salvoGo'] },
+  // Router salvo messages (120/248 stage, 121 go/clear) route too, so they show with connects. A Protect set or clear
+  // (140/142) changes what a connect can do, so it shows there too.
+  { id: 'connect', label: 'Connects', kinds: ['connect', 'salvoStage', 'salvoStageExt', 'salvoGo', 'protectSet', 'protectClear'] },
   { id: 'interrogate', label: 'Interrogates', kinds: ['interrogate'] },
   { id: 'keepalive', label: 'Keepalives', kinds: ['keepalive'] },
   { id: 'dump', label: 'Dumps', kinds: ['tallyDump', 'protectDump'] },
@@ -40,6 +41,11 @@ export const WHY_LABEL = {
   presets: 'Presets saved',
   salvos: 'Presets saved', // salvos: rows logged before the rename
   salvo: 'Router salvo',
+  protect: 'Protect',
+  protectClear: 'Clear Protect',
+  protectUndo: 'Undo of a Protect',
+  protectRollback: 'Protect rolled back',
+  protectClearAll: "Clear Sode's Protects",
   userSignIn: 'Sign in',
   userLock: 'User locked',
   userSignOut: 'User signed out',
@@ -74,6 +80,8 @@ const KIND_LABEL = {
   keepalive: 'Keepalive',
   tallyDump: 'Tally dump',
   protectDump: 'Protect dump',
+  protectSet: 'Protect set',
+  protectClear: 'Protect clear',
   srcNames: 'Source names',
   dstNames: 'Destination names',
   other: 'Other',

@@ -456,7 +456,7 @@ func TestNativeProtected(t *testing.T) {
 		f.seed(d, 1, 0, 1)
 	}
 	a.mu.Lock()
-	a.router.protect[6] = map[int]int{2: 9}
+	a.router.protect[6] = map[int]protHold{2: {9, 1}}
 	a.mu.Unlock()
 	es := takeOf(t, a, 9, []int{5, 6, 7}, 1, 2)
 	for _, e := range es {
@@ -492,7 +492,7 @@ func TestNativeSingleTake(t *testing.T) {
 	}
 	f.seed(6, 1, 0)
 	a.mu.Lock()
-	a.router.protect[6] = map[int]int{1: 9}
+	a.router.protect[6] = map[int]protHold{1: {9, 1}}
 	a.mu.Unlock()
 	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	if n := f.cmds(swp08.CmdGoSalvo) + f.cmds(swp08.CmdConnectOnGo); n != 0 {
