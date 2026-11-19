@@ -55,8 +55,12 @@ What Sode intends to send but has not yet sent. A plan becomes a take when a per
 _Avoid_: pending take
 
 **Preset**:
-A saved plan that can be fired in one confirm and pinned. It is Sode's own feature.
+A saved plan that can be fired in one confirm and bookmarked. It is Sode's own feature.
 _Avoid_: salvo
+
+**Bookmark**:
+A saved link that opens a Palette row or an outside web address. A Palette row can be a preset, a filter set, a page, a Settings button or a setting. The Bookmarks strip shows them, and a bookmark with Show in Palette also shows at the top of the Palette. Bookmarks are saved to Me, This browser or Everyone, and the strip shows one list: This browser's, else Me, else Everyone. A bookmark that the user cannot use shows No access, and one whose target is gone shows Missing.
+_Avoid_: pinned preset, preset pin
 
 **Salvo**:
 The router's own stored group of routes, fired by number on the router. Sode does not use this word for anything of its own, so "fire salvo 12" always means the router's.
