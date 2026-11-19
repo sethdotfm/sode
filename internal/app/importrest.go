@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/internal/swp08"
 )
 
 // The import steps for the stores outside config.yaml. Artwork is the Icon library and Default artwork. Panels
@@ -53,11 +54,15 @@ type importLive struct {
 	Icons     []LibIcon
 	Defaults  []ArtDefault
 	IconFile  func(id string) ([]byte, LibIcon, bool)
+	Names     namesState
 }
 
 func (a *App) importLive() importLive {
+	a.mu.Lock()
+	ns := namesState{Offline: a.status.Router != string(swp08.StateUp), SavedAt: a.router.savedAt, NamesAt: a.router.namesAt}
+	a.mu.Unlock()
 	return importLive{Panels: a.panels.list(), Templates: a.templates.list(), Sets: a.panels.sets.sorted(nil),
-		Icons: a.icons.list(), Defaults: a.artDefaults.list(), IconFile: a.icons.file}
+		Icons: a.icons.list(), Defaults: a.artDefaults.list(), IconFile: a.icons.file, Names: ns}
 }
 
 // libTo is the Icon A or B value s with the icon id mapped as this import moves it. "" drops it: the
