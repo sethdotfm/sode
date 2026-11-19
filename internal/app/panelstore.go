@@ -447,12 +447,6 @@ func (s *panelStore) replaceBody(p Panel) (bool, error) {
 	return s.replaceLocked(p)
 }
 
-func (s *panelStore) slugTaken(slug, id string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.slugTakenLocked(slug, id)
-}
-
 func (s *panelStore) replaceLocked(p Panel) (bool, error) {
 	if _, ok := s.by[p.ID]; !ok {
 		return false, nil
