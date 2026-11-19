@@ -935,6 +935,24 @@ html {
   gap: var(--pb-space-2);
   margin-top: var(--pb-space-2);
 }
+/* Replace term in the Filters dialog (filterreplace.js). */
+.sode__filters-replace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode__filters-replace[hidden] {
+  display: none;
+}
+.sode__filters-replace-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode__filters-replace-row .pb-input {
+  max-width: 16rem;
+}
 /* The count lines in Settings > Routers and My user (brokencount.js). */
 .sode__broken-count[hidden] {
   display: none;

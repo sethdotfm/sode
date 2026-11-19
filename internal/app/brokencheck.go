@@ -60,12 +60,40 @@ func (a *App) countPollMu(cur namePoll) func() {
 		return nil
 	}
 	a.router.faultSeen = false
+	noteRenamed(&a.router.renamedTo, *base, cur)
 	prev := a.router.lastPoll
 	a.router.lastPoll = &cur
 	if prev == nil || a.setupPending() {
 		return nil
 	}
-	return func() { a.recheckRefs(*prev, cur) }
+	hints := [2]map[string]string{maps.Clone(a.router.renamedTo[0]), maps.Clone(a.router.renamedTo[1])}
+	return func() { a.recheckRefs(*prev, cur, hints) }
+}
+
+func sideIndex(dst bool) int {
+	if dst {
+		return 1
+	}
+	return 0
+}
+
+// noteRenamed records each number whose name changed from base to cur. A name that comes back drops its entry.
+func noteRenamed(to *[2]map[string]string, base, cur namePoll) {
+	for _, dst := range []bool{false, true} {
+		i := sideIndex(dst)
+		now := cur.side(dst)
+		for n, old := range base.side(dst) {
+			old, next := strings.TrimSpace(old), strings.TrimSpace(now[n])
+			if old == "" || next == "" || sameName(old, next) {
+				continue
+			}
+			if to[i] == nil {
+				to[i] = map[string]string{}
+			}
+			to[i][strings.ToLower(old)] = next
+			delete(to[i], strings.ToLower(next))
+		}
+	}
 }
 
 type refVerdict int
@@ -85,6 +113,7 @@ type pollCheck struct {
 	levels    int
 	off       int // numberOffset, for the row
 	prev, cur namePoll
+	hints     [2]map[string]string // routerState.renamedTo when the read was counted
 	renames   []string
 	broke     []string // items that became Broken
 	moved     []string // items that became Name moved
@@ -326,7 +355,14 @@ func (k *pollCheck) filterSet(s *config.FilterSet, off int, who string) bool {
 				}
 				gone := !named(k.prev.side(side.dst)) && !named(k.cur.side(side.dst))
 				// N -1: a name term, which names no number.
-				b.add(config.Missing{Kind: refKind(side.dst), Ref: config.Ref{Router: k.uid, N: -1, Name: t.Text}}, gone)
+				m := config.Missing{Kind: refKind(side.dst), Ref: config.Ref{Router: k.uid, N: -1, Name: t.Text}}
+				m.Now = k.hints[sideIndex(side.dst)][strings.ToLower(strings.TrimSpace(t.Text))]
+				if i := slices.IndexFunc(s.Broken, func(o config.Missing) bool {
+					return o.Kind == m.Kind && o.Ref.N == -1 && sameName(o.Ref.Name, t.Text)
+				}); i >= 0 && m.Now == "" {
+					m.Now = s.Broken[i].Now
+				}
+				b.add(m, gone)
 			}
 		}
 	}
@@ -485,9 +521,9 @@ func (k *pollCheck) panel(p *Panel) bool {
 }
 
 // recheckRefs runs the check over every store. No Settings saves row: only a Router names row says what changed.
-func (a *App) recheckRefs(prev, cur namePoll) {
+func (a *App) recheckRefs(prev, cur namePoll, hints [2]map[string]string) {
 	r := a.r()
-	k := &pollCheck{uid: r.cfg.UID, levels: r.cfg.Levels, off: r.cfg.NumberOffset, prev: prev, cur: cur}
+	k := &pollCheck{uid: r.cfg.UID, levels: r.cfg.Levels, off: r.cfg.NumberOffset, prev: prev, cur: cur, hints: hints}
 	a.cfgMu.Lock()
 	if !a.setupPending() {
 		err := a.applyConfigWith(func(c *config.Config) error {

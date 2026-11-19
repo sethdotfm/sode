@@ -1,7 +1,7 @@
 // Broken and Name moved in the page (GLOSSARY.md; docs/agents/presets.md, Broken banner): which marks still apply,
 // the left-out lines and the Main-page banner rule. The server's marks (brokencheck.go) are kept until the next name
 // read, so a mark counts only while the item still holds that reference. Pure (Node-tested); filter.js has no imports.
-import { parseFilter } from './filter.js';
+import { parseFilter, filterText } from './filter.js';
 
 const SIDE = { source: 'src', destination: 'dst' };
 const upper = (s) => s[0].toUpperCase() + s.slice(1);
@@ -66,6 +66,33 @@ export function cellStatus(panel, cell) {
   if (cell?.kind !== 'source' && cell?.kind !== 'destination') return '';
   const on = (l) => list(l).some((m) => m.kind === cell.kind && m.ref.n === cell.n);
   return on(panel?.broken) ? 'broken' : on(panel?.moved) ? 'moved' : '';
+}
+
+// ---- Replace term (filter editor): a Broken number or exact term, offered with the name a name read saw replace it.
+
+const isMarkTerm = (t, m, offset) => !t.not && (m.ref.n >= 0 ? t.kind === 'num' && t.a === m.ref.n + offset : t.kind === 'exact' && same(t.text, m.ref.name));
+
+// The text with the first positive term for mark m replaced by next: digits make a number term, else an exact term.
+export function replaceTerm(text, m, offset, next) {
+  const r = parseFilter(String(text ?? ''));
+  const v = String(next ?? '').trim();
+  if (!r.rules || !v) return text;
+  const i = r.rules.findIndex((t) => isMarkTerm(t, m, offset));
+  if (i < 0) return text;
+  r.rules[i] = /^\d+$/.test(v) ? { not: false, kind: 'num', a: Number(v) } : { not: false, kind: 'exact', text: v };
+  return filterText(r.rules);
+}
+
+// One row per Broken term still in s.f: {side, mark, term (as typed), now (the detected new name, or '')}.
+export function replaceRows(s, offset) {
+  const rows = [];
+  for (const m of filterSetMarks(s, offset).broken) {
+    const side = SIDE[m.kind];
+    if (!side) continue;
+    const t = (parseFilter(String(s.f?.[side] ?? '')).rules || []).find((x) => isMarkTerm(x, m, offset));
+    if (t) rows.push({ side, mark: m, term: filterText([t]), now: String(m.now || '') });
+  }
+  return rows;
 }
 
 export const statusOf = (m) => (m.broken.length ? 'broken' : m.moved.length ? 'moved' : '');

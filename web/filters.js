@@ -33,6 +33,7 @@ import { trapDialog, labeled } from './widgets.js';
 import { editor } from './filtereditor.js';
 import { statusBadge, setStatus } from './brokenview.js';
 import { STATUS_TEXT } from './brokenrules.js';
+import { replaceBox } from './filterreplace.js';
 
 const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]);
 const root = $('filters');
@@ -279,8 +280,20 @@ function loadDialog(f) {
   renderShow();
   eds.src.load(f.src);
   eds.dst.load(f.dst);
+  replace.paint();
 }
 const reload = () => loadDialog(curF());
+// Only the browser's own dialog has an active set; a profile target edits a draft.
+const replace = replaceBox({
+  set: () => {
+    const a = target === browser && activeSet();
+    return a && a.scope !== 'all' ? allSets().find((s) => s.scope === a.scope && s.name === a.name) || null : null;
+  },
+  read: curF,
+  put: putF,
+  reload,
+});
+$('flt-src').before(replace.box);
 
 $('flt-clear').addEventListener('click', () => {
   pickSet('all', 'All');

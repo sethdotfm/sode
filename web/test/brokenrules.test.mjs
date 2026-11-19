@@ -12,6 +12,8 @@ import {
   localPresetMarks,
   localFilterMarks,
   cellStatus,
+  replaceTerm,
+  replaceRows,
 } from '../brokenrules.js';
 
 const dst = (n, name) => ({ kind: 'destination', ref: { router: 'R', n, name } });
@@ -94,6 +96,16 @@ test('a panel cell takes the status of the mark on its number', () => {
   assert.equal(cellStatus(p, { kind: 'source', n: 0 }), 'moved');
   assert.equal(cellStatus(p, { kind: 'source', n: 22 }), '');
   assert.equal(cellStatus(p, { kind: 'take' }), '');
+});
+
+test('Replace term swaps the Broken term and keeps the rest', () => {
+  const name = { kind: 'source', ref: { router: 'R', n: -1, name: 'CAM 3' }, now: 'CAM C' };
+  const num = { kind: 'source', ref: { router: 'R', n: 12 } };
+  assert.equal(replaceTerm('"CAM 3", PIP, !"CAM 3"', name, 1, 'CAM C'), '"CAM C", PIP, !"CAM 3"');
+  assert.equal(replaceTerm('13, 20-30', num, 1, '15'), '15, 20-30');
+  assert.equal(replaceTerm('13', num, 1, 'CAM 9'), '"CAM 9"');
+  assert.equal(replaceTerm('14', num, 1, '15'), '14', 'no such term: unchanged');
+  assert.deepEqual(replaceRows({ f: { src: '"CAM 3"', dst: '' }, broken: [name] }, 1), [{ side: 'src', mark: name, term: '"CAM 3"', now: 'CAM C' }]);
 });
 
 test('Name moved alone never shows the banner', () => {
