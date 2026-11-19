@@ -242,13 +242,17 @@ function valuesOf(keys) {
 
 const fieldsOf = (keys, sent) => Object.fromEntries(keys.map((k) => [k, { value: sent[k], version: srcOf(k).version(k) ?? '' }]));
 
+// The Access preset that staged one of these fields, for the Settings saves row.
+function presetOf(keys) {
+  const r = changes().find((r) => keys.includes(r.key) && markOf(r));
+  return r && { accessPreset: markOf(r) };
+}
+
 function sendFields(keys, sent, retried, approval = null, answer = null) {
   const fields = fieldsOf(keys, sent);
   if (!keys.length) return;
   const id = ++seq;
-  const preset = changes().find((r) => keys.includes(r.key) && markOf(r));
-  const named = preset && { accessPreset: markOf(preset) };
-  if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }), ...named })) {
+  if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }), ...presetOf(keys) })) {
     if (!answer) showSaveErr(LINK_DOWN);
     return false;
   }
@@ -269,8 +273,7 @@ function requestFor(keys, sent) {
     action: () => {
       const id = ++seq;
       requested = { id, sent, keys, retried: true };
-      const preset = changes().find((r) => keys.includes(r.key) && markOf(r));
-      return { t: 'settingsSave', id, fields: fieldsOf(keys, sent), ...(preset && { accessPreset: markOf(preset) }) };
+      return { t: 'settingsSave', id, fields: fieldsOf(keys, sent), ...presetOf(keys) };
     },
     onEnd: (end) => {
       if (end !== 'approved') requested = null;
@@ -396,13 +399,16 @@ async function review({ focusField }) {
 
 // focusField and reveal come from the table of contents (settingstoc.js), which opens a field's page on a phone.
 export function initSave(toc) {
+  const edited = () => {
+    noteEdits();
+    withdrawIfEdited();
+    if (refused.size || marks.size) paintMarks();
+    return warned() ? unwarn() : renderSaveState();
+  };
   for (const ev of ['input', 'change']) {
     form.addEventListener(ev, () => {
-      noteEdits();
-      withdrawIfEdited();
       $('settings-err').hidden = true;
-      if (refused.size || marks.size) paintMarks();
-      return warned() ? unwarn() : renderSaveState();
+      edited();
     });
   }
   window.addEventListener('beforeunload', (e) => {
@@ -421,13 +427,7 @@ export function initSave(toc) {
     pending = null;
   });
   // Manage users is a dialog outside the form, so its edits come as this bus event.
-  on('saveSourceChanged', () => {
-    if (!isOpen()) return;
-    noteEdits();
-    withdrawIfEdited();
-    if (refused.size || marks.size) paintMarks();
-    return warned() ? unwarn() : renderSaveState();
-  });
+  on('saveSourceChanged', () => isOpen() && edited());
   onMsg('settingsSaveResult', settingsSaveResult);
   initInterruptions();
 }

@@ -47,9 +47,7 @@ export function fillForm() {
   renderNumbering();
   renderBrandPreview();
   renderColors(S.cfg.levelColors || []);
-  $('cfg-lock-main').checked = !!S.cfg.locks?.main;
-  $('cfg-lock-log').checked = !!S.cfg.locks?.log;
-  $('cfg-lock-panel').checked = !!S.cfg.locks?.panel;
+  for (const page of ['main', 'log', 'panel']) $(`cfg-lock-${page}`).checked = !!S.cfg.locks?.[page];
   $('cfg-new-persistent').checked = !!S.cfg.newUserDefaults?.persistent;
   $('cfg-new-no-auto-lock').checked = !!S.cfg.newUserDefaults?.noAutoLock;
 }
