@@ -1,6 +1,6 @@
 // The Settings save path: unsaved changes, the one Save (`settingsSave`) and its answer per field. The review is in
-// savereview.js. A change is a difference from the form as opened or last saved. A save source (savesources.js:
-// Manage users, the API section) gives its own changes. data-apart inputs are not counted.
+// savereview.js. A change is a difference from the form as opened or last saved. Each save source (savesources.js,
+// and formSource here for the form) gives its own changes. data-apart inputs are not counted.
 
 import { $, el, S, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { fmtTime } from './device.js';
@@ -33,14 +33,16 @@ let seq = 0;
 let requested = null; // { id, sent, keys }: a save the server holds for Request approval.
 let pending = null; // { id, sent, retried, answer }; sent: key -> the value sent; answer: the Approval popup's
 
-function changes() {
-  const rows = diffRows(base, saveFields());
-  for (const src of saveSources()) rows.push(...diffRows(src.base(), src.now()));
-  return rows;
-}
-
 // A data-apart input with a data-key saves on its own, so it is never a change here.
 const saveFields = () => Object.fromEntries(Object.entries(readSettings()).filter(([k]) => k in SAVE_FIELDS));
+
+// The form first: the review and the sent fields keep that order.
+const sources = () => [formSource, ...saveSources()];
+const srcOf = (key) => sourceOf(key) || formSource;
+
+function changes() {
+  return sources().flatMap((src) => diffRows(src.base(), src.now()));
+}
 
 export const dirty = () => isOpen() && changes().length > 0;
 
@@ -83,9 +85,10 @@ function place(r) {
   return { topic: $(`topic-${fs.dataset.topic}`)?.textContent.trim() || '', section: sectionName(fs), order: sections().indexOf(fs) };
 }
 
-function label(r) {
-  const src = sourceOf(r.key);
-  if (src) return src.label(r);
+const label = (r) => srcOf(r.key).label(r);
+const show = (r, v) => srcOf(r.key).show(r, v);
+
+function formLabel(r) {
   if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
   if (r.key === 'newUserDefaults') return `New user defaults: ${checkText($(r.sub === 'persistent' ? 'cfg-new-persistent' : 'cfg-new-no-auto-lock')) || r.sub}`;
   if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;
@@ -95,9 +98,7 @@ function label(r) {
   return (forText(node) || checkText(node) || r.key).trim();
 }
 
-function show(r, v) {
-  const src = sourceOf(r.key);
-  if (src) return src.show(r, v);
+function formShow(r, v) {
   if (r.key === 'levelColors' && r.sub != null) return v || 'Default';
   if (v && typeof v === 'object' && !Array.isArray(v)) {
     return Object.entries(v)
@@ -114,6 +115,29 @@ function show(r, v) {
   return showValue(v);
 }
 
+// The form as a save source (savesources.js). node(key) places its marks; a source without one marks its section.
+const formSource = {
+  owns: (key) => key in SAVE_FIELDS,
+  base: () => base,
+  now: saveFields,
+  version: (key) => versions[key],
+  label: formLabel,
+  show: formShow,
+  node: keyNode,
+  saved(key, value, r) {
+    base[key] = value;
+    if (r.version) versions[key] = r.version;
+  },
+  conflict(key, r) {
+    versions[key] = r.version;
+    base[key] = r.value;
+  },
+  reset() {
+    base = saveFields();
+    versions = { ...S.versions };
+  },
+};
+
 // A read section (Shown) saves through an Approval, so its rows are sent.
 const kept = (r) => (sectionView(sectionOfKey(r.key), role, layout() === 'phone') === 'hidden' ? 'your Role is not allowed to change this' : '');
 
@@ -128,15 +152,11 @@ function paintMarks() {
     }
     const row = { key, sub: null };
     const note = refusalNote(r, (v) => show(row, v));
-    const mark = el('div', 'pb-note pb-note--warn sode__refused', sourceOf(key) ? `${label(row)}: ${note}` : note);
+    const node = srcOf(key).node?.(key);
+    const mark = el('div', 'pb-note pb-note--warn sode__refused', node ? note : `${label(row)}: ${note}`);
     mark.dataset.refused = key;
-    // A source's field has no input in the form: its mark goes at the end of its section.
-    if (sourceOf(key)) {
-      fieldset(key).append(mark);
-      continue;
-    }
-    const node = keyNode(key);
-    (node.closest('.sode__field') || node.closest('.pb-check') || node).after(mark);
+    if (node) (node.closest('.sode__field') || node.closest('.pb-check') || node).after(mark);
+    else fieldset(key).append(mark);
   }
 }
 
@@ -145,12 +165,13 @@ function paintPresetMarks() {
   const done = new Set();
   for (const r of changes()) {
     const name = markOf(r);
-    const at = name && (sourceOf(r.key) ? fieldset(r.key) : keyNode(r.key)?.closest('.sode__field, .pb-check'));
+    const src = srcOf(r.key);
+    const at = name && (src.node ? src.node(r.key)?.closest('.sode__field, .pb-check') : fieldset(r.key));
     if (!at || done.has(at)) continue;
     done.add(at);
     const mark = el('span', 'pb-badge pb-badge--info sode__preset-mark', name);
-    if (sourceOf(r.key)) at.append(mark);
-    else at.after(mark);
+    if (src.node) at.after(mark);
+    else at.append(mark);
   }
 }
 
@@ -164,9 +185,8 @@ function unsavedText() {
 }
 
 export function markClean(saved) {
-  for (const src of saveSources()) src.reset();
-  base = saveFields();
-  versions = { ...S.versions };
+  // The form last: a source's reset refills its inputs.
+  for (const src of [...saveSources(), formSource]) src.reset();
   refused.clear();
   authors = new Map();
   marks = new Map();
@@ -215,19 +235,12 @@ export function showSaveErr(text) {
 }
 
 function valuesOf(keys) {
-  const form = readSettings();
-  const out = {};
-  for (const k of keys) {
-    const src = sourceOf(k);
-    out[k] = src ? src.now()[k] : form[k];
-  }
-  return out;
+  const nows = new Map();
+  const now = (src) => nows.get(src) || nows.set(src, src.now()).get(src);
+  return Object.fromEntries(keys.map((k) => [k, now(srcOf(k))[k]]));
 }
 
-function fieldsOf(keys, sent) {
-  const version = (k) => (sourceOf(k) ? sourceOf(k).version(k) : versions[k]) ?? '';
-  return Object.fromEntries(keys.map((k) => [k, { value: sent[k], version: version(k) }]));
-}
+const fieldsOf = (keys, sent) => Object.fromEntries(keys.map((k) => [k, { value: sent[k], version: srcOf(k).version(k) ?? '' }]));
 
 function sendFields(keys, sent, retried, approval = null, answer = null) {
   const fields = fieldsOf(keys, sent);
@@ -286,26 +299,16 @@ function settled(m, p) {
   const again = [];
   const approve = [];
   for (const [key, r] of Object.entries(m.results)) {
-    const src = sourceOf(key);
+    const src = srcOf(key);
     if (r.status === 'refused') {
       // Their value is now on the mark and in the review's Was, so the next Save overwrites it on purpose.
-      if (r.reason === 'conflict' && r.version) {
-        if (src) src.conflict(key, r);
-        else {
-          versions[key] = r.version;
-          base[key] = r.value;
-        }
-      }
+      if (r.reason === 'conflict' && r.version) src.conflict(key, r);
       if (r.reason === 'needs PIN recheck' && !p.retried) again.push(key);
       if (r.reason === 'needs Approval' && !p.answer) approve.push(key);
       refused.set(key, r);
       continue;
     }
-    if (src) src.saved(key, p.sent[key], r);
-    else {
-      base[key] = p.sent[key];
-      if (r.version) versions[key] = r.version;
-    }
+    src.saved(key, p.sent[key], r);
     refused.delete(key);
     if (r.status === 'saved') saved++;
   }
@@ -323,11 +326,7 @@ function settled(m, p) {
   }
 }
 
-function liveNow() {
-  const out = { ...base };
-  for (const src of saveSources()) Object.assign(out, src.base());
-  return out;
-}
+const liveNow = () => Object.assign({}, ...sources().map((src) => src.base()));
 
 function done(saved) {
   if (saved) savedAt = new Date().toISOString();
