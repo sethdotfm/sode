@@ -20,19 +20,6 @@ func artDefaultList(t *testing.T, a *App, key string) []any {
 	return apiBody(t, rec)["defaults"].([]any)
 }
 
-func setSettingsPin(t *testing.T, a *App, pin string) {
-	t.Helper()
-	h, err := config.HashPin(pin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := a.r().cfg
-	cfg.SettingsPin = h
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestArtDefaultNeedsATrustedUser(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
@@ -53,9 +40,8 @@ func TestArtDefaultNeedsATrustedUser(t *testing.T) {
 
 	clear := `{"kind":"source","n":1}`
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/default-artwork", ana, clear), 403, "trusted_required")
-	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/default-artwork", ana, `{"kind":"source","n":1,"pin":"1111"}`), 403, "trusted_required")
-	// The Advanced Settings PIN opens nothing: only a Role does.
+	// A PIN in the body opens nothing: only a Role does.
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/default-artwork", ana, `{"kind":"source","n":1,"pin":"9999"}`), 403, "trusted_required")
 	if rec := apiSend(a, "DELETE", "/api/v1/default-artwork", cy, clear); rec.Code != 204 {
 		t.Fatalf("Trusted clear: %d %s", rec.Code, rec.Body.String())

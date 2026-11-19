@@ -133,7 +133,7 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	for name, ch := range changes {
 		cfg := a.r().cfg.Clone()
 		ch(&cfg)
-		err := a.SaveSettings(c, cfg, "", false)
+		err := a.SaveSettings(c, cfg)
 		if !isRoleErr(err) || !strings.Contains(err.Error(), "Administrator") {
 			t.Errorf("trusted changed %s: %v", name, err)
 		}
@@ -143,12 +143,12 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	}
 	pad := a.r().cfg.Clone()
 	pad.Address = " " + pad.Address + " "
-	if err := a.SaveSettings(c, pad, "", false); err != nil {
+	if err := a.SaveSettings(c, pad); err != nil {
 		t.Fatalf("padded but unchanged router refused: %v", err)
 	}
 	cfg := a.r().cfg.Clone()
 	cfg.BrandText = "Studio B"
-	if err := a.SaveSettings(c, cfg, "", false); err != nil {
+	if err := a.SaveSettings(c, cfg); err != nil {
 		t.Fatalf("plain trusted save: %v", err)
 	}
 	if err := a.UserUnlock(c, "2468"); err != nil {
@@ -158,7 +158,7 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	cfg.PinWaits = false
 	cfg.TrustedProxies = []string{"10.0.0.2"}
 	cfg.Address = "127.0.0.1:9999"
-	if err := a.SaveSettings(c, cfg, "", false); err != nil {
+	if err := a.SaveSettings(c, cfg); err != nil {
 		t.Fatalf("admin save: %v", err)
 	}
 	if got := a.r().cfg; got.PinWaits || got.Address != "127.0.0.1:9999" || len(got.TrustedProxies) != 1 {
@@ -324,19 +324,6 @@ func TestHardeningOverWebSocket(t *testing.T) {
 	send2(map[string]any{"t": "hi", "page": "main", "token": tok})
 	if m := until2("lockState"); m["user"] != "Ana" {
 		t.Fatalf("token hi: %v", m)
-	}
-
-	cfg := a.r().cfg
-	send2(map[string]any{"t": "config", "config": cfg, "Pin": "9999"})
-	if m := until2("configResult"); m["ok"] == true {
-		t.Fatalf("odd-case Pin accepted: %v", m)
-	}
-	send2(map[string]any{"t": "config", "config": cfg, "CLEARPIN": true})
-	if m := until2("configResult"); m["ok"] == true {
-		t.Fatalf("odd-case clearPin accepted: %v", m)
-	}
-	if a.r().cfg.SettingsPin != cfg.SettingsPin {
-		t.Fatal("the Advanced Settings PIN changed")
 	}
 
 	send2(map[string]any{"t": "userSignIn", "user": "Bo", "pin": "567890", "id": 2})

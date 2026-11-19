@@ -112,7 +112,7 @@ func TestWaitSwitchOffSparesAllButAdministrators(t *testing.T) {
 	a := namedApp(t)
 	cfg := a.r().cfg
 	cfg.PinWaits = false
-	if err := a.SaveSettings(adminClient(t, a), cfg, "", false); err != nil {
+	if err := a.SaveSettings(adminClient(t, a), cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := wrongAs(t, a, "Ana", 3*pinFreeTries); waits(err) {

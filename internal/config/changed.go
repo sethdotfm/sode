@@ -1,18 +1,14 @@
 package config
 
-import (
-	"reflect"
-	"slices"
-)
+import "reflect"
 
-// Form-saved fields carry guard:"router|pin|open": a change reconnects, needs the Advanced
-// Settings PIN, or anyone. The embedded Router's fields count as Config's own (configFields).
-
-// Empty slices equal nil ones.
-func Changed(a, b Config, roles ...string) bool {
+// ReconnectChanged: a field tagged reconnect:"true" differs, so the router connection starts
+// again. The embedded Router's fields count as Config's own (configFields). Empty slices
+// equal nil ones.
+func ReconnectChanged(a, b Config) bool {
 	va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
 	for _, f := range configFields() {
-		if !slices.Contains(roles, f.Tag.Get("guard")) {
+		if f.Tag.Get("reconnect") != "true" {
 			continue
 		}
 		fa, fb := va.FieldByIndex(f.Index), vb.FieldByIndex(f.Index)

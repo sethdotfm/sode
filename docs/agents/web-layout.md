@@ -15,11 +15,11 @@ main.js wires modules then calls connect(). core.js is state/socket/bus (S, WebS
   - store.js (never-throwing readStr/writeStr/readJSON/writeJSON: use these, no hand-written try/catch)
   - levelview.js, levels.js, routes.js, device.js, filterstore.js, history.js (histRows, quick search, pager, putEntry)
   - plans.js (plans, planBlocked/planSummary, sendTakes, banners)
-  - levelbox.js (levelBox, level picker; imports only core.js and levels.js), widgets.js (combobox, undo/retry buttons, disclosure, arrivals, feeding, labeled), pin.js
-  - pinprompt.js (askPin/reask: the one prompt for an Advanced Settings PIN needed mid-session, see docs/agents/users-locks.md)
+  - levelbox.js (levelBox, level picker; imports only core.js and levels.js), widgets.js (combobox, undo/retry buttons, disclosure, arrivals, feeding, labeled)
+  - trusted.js (`trusted()`: a Trusted user or higher, not locked, from the last `access`)
   - banner.js (result banner; plans.js re-exports it)
   - devicesettings.js (Settings' This browser section, my-default buttons, signed-in user block)
-  - settingstoc.js and settingspin.js (Settings' sidebar tree, phone pages and PIN fields), about.js (the Settings bottom row), settingsroles.js (role tags and the phone's Preferences-only view)
+  - settingstoc.js (Settings' sidebar tree and phone pages), about.js (the Settings bottom row), settingsroles.js (role tags and the phone's Preferences-only view)
   - desktoponly.js (`desktopOnly(action, lead)`: the phone's "Open Sode on a computer to <action>" with Use desktop layout, which sets This browser's layout. Use it for every phone desktop-only place. `/panels` shows it in place of every action but Launch and Open now. `/panels/editor` shows it in place of the editor and reloads on a layout change)
   - shortcuts.js, keyboard.js (kbdUp), showall.js, settings.js (builds #settings-toc; its parts are in docs/agents/settings-saves.md), filters.js (the Filters dialog and set bar)
   - filtereditor.js (one filter's rule editor, editor(key, {read, write, mode})), searchbox.js (History's quick search boxes and emptyNote), filter.js

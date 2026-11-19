@@ -46,8 +46,8 @@ var sectionRoles = map[string]sectionTag{
 	"run-setup-again":   {config.RoleAdministrator, false},
 }
 
-// saveFields: the Config keys the one Save takes, and the section of each. Every form-saved
-// field (guard tag) is here (TestEveryGuardedFieldHasSection). Item keys (a user's or an API
+// saveFields: the Config keys the one Save takes, and the section of each. Every Config JSON
+// key is here or saved apart (TestEveryFormFieldHasSection). Item keys (a user's or an API
 // client's attribute) are in onesavefields.go.
 var saveFields = map[string]string{
 	"browserDefaults":      "everyone-defaults",
@@ -199,9 +199,6 @@ func (a *App) serveSettingsSave(c *client, m *inMsg) {
 		}
 		note := fmt.Sprintf("%d of %d %s saved", n, len(res), plural(len(res), "field", "fields"))
 		a.command(c, "settingsSave", outcome(err), approvedNote(m.approver, note), err)
-		if err != nil {
-			out.Locked = locked(err)
-		}
 		a.reply(c, out)
 	}()
 }

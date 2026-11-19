@@ -62,7 +62,6 @@ func TestPanelLockEnforcedOnPanelPages(t *testing.T) {
 	cfg.Normalize()
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234")}
 	cfg.Locks = config.Locks{Panel: true}
-	cfg.SettingsPin = mkUser(t, "", "2468").Pin
 	hist, _ := OpenHistory("")
 	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
 	if err != nil {

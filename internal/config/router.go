@@ -17,26 +17,26 @@ type Router struct {
 	UID string `yaml:"uid" json:"-"`
 	// Prefix is A-Z, hidden while there is one router.
 	Prefix  string `yaml:"prefix" json:"-"`
-	Title   string `yaml:"title" json:"routerName" guard:"open"`
-	Address string `yaml:"address" json:"router" guard:"router"`
+	Title   string `yaml:"title" json:"routerName"`
+	Address string `yaml:"address" json:"router" reconnect:"true"`
 	// RouterShow: what the status label shows (address, name or none).
-	RouterShow      string `yaml:"statusLabel" json:"routerShow" guard:"open"`
-	Matrix          int    `yaml:"matrix" json:"matrix" guard:"router"`
-	Levels          int    `yaml:"levels" json:"levels" guard:"router"`
-	LevelWireOffset int    `yaml:"levelOffset" json:"levelWireOffset" guard:"router"`
+	RouterShow      string `yaml:"statusLabel" json:"routerShow"`
+	Matrix          int    `yaml:"matrix" json:"matrix" reconnect:"true"`
+	Levels          int    `yaml:"levels" json:"levels" reconnect:"true"`
+	LevelWireOffset int    `yaml:"levelOffset" json:"levelWireOffset" reconnect:"true"`
 	// LevelNumbering: "1" (1-17), "0" (0-16) or "va" (V, 1-16).
-	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering" guard:"open"`
-	NumberOffset   int    `yaml:"numberOffset" json:"numberOffset" guard:"open"`
-	DefaultLevels  string `yaml:"defaultLevels" json:"defaultLevels" guard:"open"`
-	NameLength     int    `yaml:"nameLength" json:"nameLength" guard:"router"`
-	NameRequests   string `yaml:"nameRequests" json:"nameRequests" guard:"router"`
+	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering"`
+	NumberOffset   int    `yaml:"numberOffset" json:"numberOffset"`
+	DefaultLevels  string `yaml:"defaultLevels" json:"defaultLevels"`
+	NameLength     int    `yaml:"nameLength" json:"nameLength" reconnect:"true"`
+	NameRequests   string `yaml:"nameRequests" json:"nameRequests" reconnect:"true"`
 	// NameRefreshSeconds is the router name re-read interval; 0 is off.
-	NameRefreshSeconds int `yaml:"nameRereadSeconds" json:"nameRereadSeconds" guard:"open"`
+	NameRefreshSeconds int `yaml:"nameRereadSeconds" json:"nameRereadSeconds"`
 	// TallyResyncSeconds is the Re-read routes interval; 0 is off.
-	TallyResyncSeconds int `yaml:"routeRereadSeconds" json:"tallyResyncSeconds" guard:"open"`
+	TallyResyncSeconds int `yaml:"routeRereadSeconds" json:"tallyResyncSeconds"`
 	// FireMode is Multi destination behavior. SalvoGroup (0-127): the router's list is shared by every client, so use one only Sode uses.
-	FireMode   string         `yaml:"fireMode" json:"fireMode" guard:"pin"`
-	SalvoGroup int            `yaml:"salvoGroup" json:"salvoGroup" guard:"pin"`
+	FireMode   string         `yaml:"fireMode" json:"fireMode"`
+	SalvoGroup int            `yaml:"salvoGroup" json:"salvoGroup"`
 	Extra      map[string]any `yaml:",inline" json:"-"`
 }
 

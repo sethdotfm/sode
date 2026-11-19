@@ -908,9 +908,7 @@ body {
 .sode-tpl__row > .pb-btn:first-of-type {
   margin-left: auto;
 }
-.sode-tpl__field,
-.sode-tpl__pin,
-.sode-side__pin {
+.sode-tpl__field {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-1);

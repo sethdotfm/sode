@@ -1,4 +1,4 @@
-// globalSaver with a fake socket: send, answer, PIN, lock, lost socket.
+// globalSaver with a fake socket: send, answer, lost socket.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -11,16 +11,11 @@ const make = async () => {
   const { globalSaver } = await import('../globalsave.js');
   const sent = [];
   core.S.ws = { readyState: 1, lastRx: Date.now() + 1e9, send: (m) => sent.push(JSON.parse(m)) };
-  core.S.pinSet = false;
   const notes = [];
-  const mk = () => ({ addEventListener() {}, focus() {}, select() {}, hidden: true, value: '', disabled: false });
   let renders = 0;
   const saver = globalSaver({
     t: 'presets',
     resultT: `r${Math.random()}`,
-    pinIn: mk(),
-    pinRow: mk(),
-    pinOk: mk(),
     setNote: (t, e) => notes.push([t, !!e]),
     isOpen: () => true,
     failTitle: 'x',
@@ -55,16 +50,11 @@ test('a socket that cannot send says so and is not left busy', async () => {
   assert.deepEqual(notes.at(-1), ['Not connected to Sode.', true]);
 });
 
-test('close keeps a sent save, drops one waiting for the PIN', async () => {
-  const { core, saver } = await make();
+test('close keeps a sent save; no PIN is ever asked first', async () => {
+  const { saver, sent } = await make();
   saver.change({}, () => {});
+  assert.equal(sent.length, 1);
   assert.equal(saver.close(), true);
-  core.S.pinSet = true;
-  const { saver: s2 } = await make();
-  core.S.pinSet = true;
-  s2.change({}, () => {});
-  assert.equal(s2.close(), false);
-  assert.ok(!s2.busy());
 });
 
 test('two savers of one result type register once and keep their ids apart', async () => {
@@ -72,9 +62,7 @@ test('two savers of one result type register once and keep their ids apart', asy
   const { globalSaver } = await import('../globalsave.js');
   const sent = [];
   core.S.ws = { readyState: 1, lastRx: Date.now() + 1e9, send: (m) => sent.push(JSON.parse(m)) };
-  core.S.pinSet = false;
-  const mk = () => ({ addEventListener() {}, focus() {}, select() {}, hidden: true, value: '', disabled: false });
-  const opts = () => ({ t: 'presets', resultT: 'sharedResult', pinIn: mk(), pinRow: mk(), pinOk: mk(), setNote() {}, isOpen: () => true, failTitle: 'x' });
+  const opts = () => ({ t: 'presets', resultT: 'sharedResult', setNote() {}, isOpen: () => true, failTitle: 'x' });
   const a = globalSaver(opts());
   const b = globalSaver(opts()); // used to throw: onMsg('sharedResult') is already handled
   let doneA = 0,

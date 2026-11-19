@@ -8,7 +8,7 @@ Scope: config keys (`config.yaml` and the `SODE_*` env that seeds it), history a
 
 This list starts over for v2. v2 reads no v1 files, so it has no legacy names that are only read. On start, Sode moves a v1 install to `/data/v1/`, and the first v2 page load clears the v1 `sode-*` keys (`docs/agents/server.md`, config load).
 
-Calls. Keep means the name stays for now and `AGENTS.md` records why. v2 renamed every other v1 name that carried a retired word, and the table "Names v2 renamed" lists them. #574 removes the Advanced Settings PIN names that are still kept.
+Calls. Keep means the name stays for now and `AGENTS.md` records why. v2 renamed every other v1 name that carried a retired word, and the table "Names v2 renamed" lists them.
 
 ## Router references
 
@@ -21,10 +21,7 @@ Every stored source and destination is a router reference `{router, n, name}`: t
 
 ## Kept names
 
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `settingsPin` (config key) | Settings PIN | Keep | Holds the Advanced Settings PIN hash. #574 removes it. |
-| `unlock`, `unlockResult` (WebSocket types) and the `unlock` `why` value | unlock | Keep | Entering the Advanced Settings PIN. #574 removes them. |
+None. v2 removed the v1 settings secret and its names (its config key, its WebSocket messages and its `why` value) with Roles (ADR 0010).
 
 These names refer to the router's own salvo, so they are correct and not part of this audit: `fireMode` (`native`), `salvoGroup`, `SODE_SALVO_GROUP`, `SIM_NO_SALVO` and `SIM_SALVO_ANNOUNCE`. The `kind` values `salvoStage`, `salvoStageExt` and `salvoGo` are also the router's.
 
@@ -41,7 +38,6 @@ v2 loads no v1 files, and a page whose build label differs from the hello's relo
 | `sent`, `sentAdd`, `sentPage` | `log`, `logAdd`, `logPage` | WebSocket |
 | `userUnlock`, `userUnlockResult` | `userSignIn`, `userSignInResult` | WebSocket, and the `why` value in Communication Log rows |
 | `protect`, and the `protect` field of `hello` | `protected` | WebSocket |
-| `locked` | `pinNeeded` | WebSocket, server to browser |
 | `nameRefreshSeconds` | `nameRereadSeconds` | Settings message key (already the `config.yaml` key) |
 | `SODE_NAME_REFRESH_S` | `SODE_NAME_REREAD_S` | env |
 | `deviceDefaults` | `browserDefaults` | config key |
@@ -150,4 +146,4 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 `internal/app/vocabulary_test.go` keeps the lists below. Each entry names a real kept name, and `TestAllowlistsMatchSomething` fails on an entry that exempts no line.
 
 - `vocabAllow` exempts lines of docs, UI strings and web code that need a retired word. The `web/settingsindex.js` lines are search aliases, kept so that a search for the old word finds the setting.
-- `identAllow` exempts web identifiers only. Its entries are the names in the tables above (the `unlock` command kinds in `web/logkinds.js` and the `unlock` functions in `web/pin.js`).
+- `identAllow` exempts web identifiers only. Its `unlock` entries are the `adminUnlock` command kind of old rows in `web/logkinds.js` and the `unlocked` sign-in state and bus event in `web/lock.js`.
