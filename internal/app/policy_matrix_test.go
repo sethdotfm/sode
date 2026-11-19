@@ -92,8 +92,8 @@ var policyExpect = map[string][nStates]error{
 	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,
 
-	"clearHistory": adminRule,
-	"configExport": adminRule, "configImportBegin": adminRule, "configImport": adminRule,
+	"clearHistory":   adminRule,
+	"exportSession":  adminRule,
 	"userSignOutAll": adminRule, "usersList": adminRule, "users": adminRule,
 	"apiSettings": adminRule, "keyListAll": adminRule, "keyCreateFor": adminRule,
 	"keyRevokeAny": adminRule, "keyRevokeAll": adminRule,

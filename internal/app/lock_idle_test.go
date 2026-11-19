@@ -94,7 +94,7 @@ func ping(t *testing.T, a *App, c *client) {
 	if err := admitMsg(a, c, m); err != nil {
 		t.Fatalf("activity refused: %v", err)
 	}
-	policy["activity"].handle(a, c, &m, nil)
+	policy["activity"].handle(a, c, &m)
 }
 
 func TestServerIdleLocksClosedPersistentSession(t *testing.T) {

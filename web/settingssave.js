@@ -1,32 +1,140 @@
-// The Settings save path: unsaved changes against the last opened or saved form, the form's Save (`config`), and its
-// answer. data-apart sections save on their own and are not counted.
+// The Settings save path: unsaved changes, the one Save (`settingsSave`) and its answer per field. The review is in
+// savereview.js. A change is a difference from the form as opened or last saved. data-apart sections save on their
+// own and are not counted.
 
-import { $, el, S, on, wsSend, sentence } from './core.js';
+import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { fmtTime } from './device.js';
+import { layout } from './layout.js';
 import { relock, unlocked, trusted, needsPin } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { askRecheck } from './recheck.js';
+import { toGlobal } from './prefs.js';
+import { reviewSave } from './savereview.js';
+import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical } from './savereviewrules.js';
+import { sectionView } from './settingsrolerules.js';
 import { showPinFields, resetPinFields } from './settingspin.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
 import { renderLock, showLockErr, sendUnlock } from './settingslock.js';
 
-// A save is in flight: its own hello / locked arrive before configResult closes the view, so
-// do not flip to the PIN prompt for them.
+// A save is in flight: its own hello / locked arrive before the result, so do not flip to the PIN prompt for them.
 export const saving = () => $('settings-save').disabled;
 
-let clean = '';
+// The Advanced Settings PIN fields go on the `config` message, after the one Save. Their row sits in Locks.
+const PIN = 'settingsPin';
+const sectionOf = (key) => SAVE_FIELDS[key] || 'locks';
+
+let base = {}; // the fields as last opened or saved
+let versions = {}; // each field's version as loaded
+const refused = new Map(); // key -> refused result; marked until it saves or goes back
 let savedAt = null;
-const formState = () =>
-  JSON.stringify(
-    [...form.querySelectorAll('input, select, textarea')]
-      .filter((f) => !f.closest('[data-apart]') && f.id !== 'settings-find')
-      .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)),
-  );
-export const dirty = () => isOpen() && formState() !== clean;
+let role = '';
+let seq = 0;
+let pending = null; // { id, now, retried, pin }
+
+function pinRow() {
+  if ($('cfg-pin').value) return { key: PIN, sub: null, was: S.pinSet ? 'Set' : 'Not set', now: 'Changed' };
+  if ($('cfg-pin-clear').checked) return { key: PIN, sub: null, was: 'Set', now: 'Removed' };
+  return null;
+}
+
+function changes() {
+  const rows = diffRows(base, saveFields());
+  const pin = pinRow();
+  return pin ? [...rows, pin] : rows;
+}
+
+// A data-apart input with a data-key saves on its own, so it is never a change here.
+const saveFields = () => Object.fromEntries(Object.entries(readSettings()).filter(([k]) => k in SAVE_FIELDS));
+
+export const dirty = () => isOpen() && changes().length > 0;
 const warned = () => !$('settings-unsaved').hidden;
 
+// ---- what each change is called on the page
+
+const SPECIAL = {
+  levelColors: 'cfg-colors',
+  levelNumbering: 'cfg-lvlnum',
+  defaultLevels: 'cfg-default',
+  browserDefaults: 'gcfg-theme',
+  locks: 'cfg-lock-main',
+  [PIN]: 'cfg-pin-change',
+};
+const keyNode = (key) => (SPECIAL[key] ? $(SPECIAL[key]) : form.querySelector(`[data-key="${key}"]`));
+const fieldset = (key) => form.querySelector(`:scope > fieldset[data-section="${sectionOf(key)}"]`);
+const sections = () => [...form.querySelectorAll(':scope > fieldset[data-section]')];
+const sectionName = (fs) => fs.querySelector(':scope > legend').firstChild.textContent.trim();
+const checkText = (node) => node?.closest('.pb-check')?.querySelector('.pb-check__label')?.textContent;
+const forText = (node) => node && form.querySelector(`label[for="${node.id}"]`)?.textContent;
+
+function place(r) {
+  const fs = fieldset(r.key);
+  return { topic: $(`topic-${fs.dataset.topic}`)?.textContent.trim() || '', section: sectionName(fs), order: sections().indexOf(fs) };
+}
+
+function label(r) {
+  if (r.key === PIN) return 'Advanced Settings PIN';
+  if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
+  if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;
+  if (r.key === 'levelColors') return $(`cfg-color-${r.sub + 1}`)?.getAttribute('aria-label') || `Level ${r.sub + 1} color`;
+  if (r.key === 'levelNumbering') return $('cfg-lvlnum-label').textContent;
+  const node = keyNode(r.key);
+  return (forText(node) || checkText(node) || r.key).trim();
+}
+
+function show(r, v) {
+  if (r.key === PIN) return v;
+  if (r.key === 'levelColors' && r.sub != null) return v || 'Default';
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    return Object.entries(v)
+      .map(([sub, x]) => `${label({ key: r.key, sub })}: ${show({ key: r.key, sub }, x)}`)
+      .join(', ');
+  }
+  if (r.key === 'levelNumbering') return form.querySelector(`label[for="cfg-lvlnum-${v}"]`)?.textContent || v;
+  const sel = r.key === 'browserDefaults' ? form.querySelector(`select[data-gpref="${r.sub}"]`) : keyNode(r.key);
+  if (sel?.tagName === 'SELECT') {
+    const same = r.key === 'browserDefaults' ? (o) => toGlobal(r.sub, o.value) === v : (o) => o.value === String(v);
+    const o = [...sel.options].find(same);
+    if (o) return o.textContent;
+  }
+  return showValue(v);
+}
+
+const kept = (r) => (sectionView(sectionOf(r.key), role, layout() === 'phone') === 'edit' ? '' : 'your Role cannot change this');
+
+// ---- marks, the exit warning and the footer text
+
+function paintMarks() {
+  for (const m of form.querySelectorAll('.sode__refused')) m.remove();
+  const open = new Set(changes().map((r) => r.key));
+  for (const [key, r] of refused) {
+    if (!open.has(key)) {
+      refused.delete(key);
+      continue;
+    }
+    const node = keyNode(key);
+    const host = node.closest('.sode__field') || node.closest('.pb-check') || node;
+    const mark = el(
+      'div',
+      'pb-note pb-note--warn sode__refused',
+      refusalNote(r, (v) => show({ key, sub: null }, v)),
+    );
+    mark.dataset.refused = key;
+    host.after(mark);
+  }
+}
+
+function changedSections() {
+  const slugs = new Set(changes().map((r) => sectionOf(r.key)));
+  return sections()
+    .filter((fs) => slugs.has(fs.dataset.section))
+    .map(sectionName);
+}
+
 export function markClean(saved) {
-  clean = formState();
+  base = saveFields();
+  versions = { ...S.versions };
+  refused.clear();
+  paintMarks();
   savedAt = saved ? new Date().toISOString() : null;
   unwarn();
 }
@@ -34,6 +142,7 @@ export function markClean(saved) {
 // True when it warned: the first try to leave with unsaved changes warns, a second one goes.
 export function warnUnsaved() {
   if (!dirty() || warned()) return false;
+  $('settings-unsaved').textContent = `Unsaved changes in ${changedSections().join(', ')}. Save them, or exit again to discard them.`;
   $('settings-unsaved').hidden = false;
   $('settings-exit').textContent = 'Discard and exit';
   $('settings-exit').classList.replace('pb-btn--outline', 'pb-btn--danger');
@@ -68,20 +177,84 @@ export function showSaveErr(text) {
   $('settings-err').hidden = false;
 }
 
+// ---- sending and the answers
+
+function sendFields(keys, now, retried, pin) {
+  const fields = Object.fromEntries(keys.map((k) => [k, { value: now[k], version: versions[k] ?? '' }]));
+  if (!keys.length) return void (pin && sendPin());
+  const id = ++seq;
+  if (!wsSend({ t: 'settingsSave', id, fields })) return void showSaveErr('Not connected to Sode.');
+  pending = { id, now, retried, pin };
+  $('settings-save').disabled = true;
+}
+
+function sendPin() {
+  if (!wsSend({ t: 'config', config: {}, pin: $('cfg-pin').value, clearPin: $('cfg-pin-clear').checked })) return void showSaveErr('Not connected to Sode.');
+  $('settings-save').disabled = true;
+}
+
+function settingsSaveResult(m) {
+  if (!pending || m.id !== pending.id) return;
+  const p = pending;
+  pending = null;
+  $('settings-save').disabled = false;
+  if (!m.results) {
+    if (m.locked) relock();
+    return showSaveErr(sentence(m.err) || 'Not saved.');
+  }
+  let saved = 0;
+  const again = [];
+  for (const [key, r] of Object.entries(m.results)) {
+    if (r.status === 'refused') {
+      // Their value is now on the mark and in the review's Was, so the next Save overwrites it on purpose.
+      if (r.reason === 'conflict' && r.version) {
+        versions[key] = r.version;
+        base[key] = r.value;
+      }
+      if (r.reason === 'needs PIN recheck' && !p.retried) again.push(key);
+      refused.set(key, r);
+      continue;
+    }
+    base[key] = p.now[key];
+    if (r.version) versions[key] = r.version;
+    refused.delete(key);
+    if (r.status === 'saved') saved++;
+  }
+  if (again.length) {
+    askRecheck('Saving these changes').then((ok) => {
+      if (ok) sendFields(again, p.now, true, p.pin);
+      else done(saved, p);
+    });
+    return;
+  }
+  done(saved, p);
+}
+
+function done(saved, p) {
+  if (saved) savedAt = new Date().toISOString();
+  if (!isOpen()) return;
+  paintMarks();
+  if (refused.size) showSaveErr(`${refused.size} ${refused.size === 1 ? 'change is' : 'changes are'} not saved. Each one says why.`);
+  else $('settings-err').hidden = true;
+  if (p.pin) sendPin();
+  renderSaveState();
+}
+
+// The Advanced Settings PIN change's answer.
 function configResult(m) {
   $('settings-save').disabled = false;
   if (m.ok) {
     if (!isOpen()) return;
-    // Stay open. A changed PIN has relocked everyone, this view included.
+    // A changed PIN has relocked everyone, this view included.
     resetPinFields();
-    $('settings-err').hidden = true;
-    markClean(true);
+    savedAt = new Date().toISOString();
+    renderSaveState();
     renderLock();
     return;
   }
   if (m.recheck) {
-    askRecheck('Saving that change').then((ok) => {
-      if (ok) form.requestSubmit();
+    askRecheck('Changing the Advanced Settings PIN').then((ok) => {
+      if (ok) sendPin();
       else showSaveErr(sentence(m.err));
     });
     return;
@@ -92,7 +265,7 @@ function configResult(m) {
     // ask in the popup and save again.
     if (needsPin()) return showLockErr(m.err);
     reask('Saving that needs the Advanced Settings PIN.').then((ok) => {
-      if (ok) form.requestSubmit();
+      if (ok) sendPin();
     });
     return;
   }
@@ -104,11 +277,59 @@ const askThenSave = (why) =>
     if (ok) form.requestSubmit();
   });
 
+async function review({ focusField, reveal }) {
+  const now = readSettings();
+  const bad = formProblem(now);
+  if (bad) {
+    showSaveErr(bad.text);
+    focusField(bad.node);
+    return;
+  }
+  const pin = $('cfg-pin').value;
+  if (pin && [...pin].length < 4) {
+    showSaveErr('The Advanced Settings PIN must be at least 4 characters.');
+    showPinFields(true);
+    focusField($('cfg-pin'));
+    return;
+  }
+  if (pin !== $('cfg-pin2').value) {
+    showSaveErr('The two PINs do not match.');
+    showPinFields(true);
+    reveal($('cfg-pin2'));
+    $('cfg-pin2').select();
+    return;
+  }
+  const rows = changes();
+  if (!rows.length) return void showSaveErr('There are no changes to save.');
+  $('settings-err').hidden = true;
+  const send = await reviewSave({
+    rows,
+    kept,
+    place,
+    label,
+    show,
+    critical: (r) => critical(r.key),
+    reconnects: (r) => reconnects(r.key),
+    address: now.router,
+    recheckNeeded: S.users.length > 0,
+  });
+  if (!send || !isOpen()) return;
+  // Fields the page expects refused are sent too: the server's answer gives each its reason.
+  const keys = [...new Set(rows.map((r) => r.key))].filter((k) => k !== PIN);
+  sendFields(
+    keys,
+    readSettings(),
+    false,
+    rows.some((r) => r.key === PIN && !kept(r)),
+  );
+}
+
 // focusField and reveal come from the table of contents (settingstoc.js), which opens a field's page on a phone.
-export function initSave({ focusField, reveal }) {
+export function initSave(toc) {
   for (const ev of ['input', 'change']) {
     form.addEventListener(ev, () => {
       $('settings-err').hidden = true;
+      if (refused.size) paintMarks();
       return warned() ? unwarn() : renderSaveState();
     });
   }
@@ -118,37 +339,20 @@ export function initSave({ focusField, reveal }) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     if ('locked' in form.dataset) return void sendUnlock();
+    if (saving()) return;
     // A trusted user saves without the PIN, but not a change to the PIN itself: ask now instead
     // of after a refusal.
     if (S.pinSet && trusted() && !unlocked() && ($('cfg-pin').value || $('cfg-pin-clear').checked)) {
       return void askThenSave('Changing the PIN needs the Advanced Settings PIN.');
     }
-    const c = readSettings();
-    const bad = formProblem(c);
-    if (bad) {
-      showSaveErr(bad.text);
-      focusField(bad.node);
-      return;
-    }
-    const pin = $('cfg-pin').value;
-    if (pin && [...pin].length < 4) {
-      showSaveErr('The Advanced Settings PIN must be at least 4 characters.');
-      showPinFields(true);
-      focusField($('cfg-pin'));
-      return;
-    }
-    if (pin !== $('cfg-pin2').value) {
-      showSaveErr('The two PINs do not match.');
-      showPinFields(true);
-      reveal($('cfg-pin2'));
-      $('cfg-pin2').select();
-      return;
-    }
-    if (!wsSend({ t: 'config', config: c, pin, clearPin: $('cfg-pin-clear').checked })) {
-      showSaveErr('Not connected to Sode.');
-      return;
-    }
-    $('settings-save').disabled = true;
+    review(toc);
   });
+  on('access', (a) => {
+    role = a.role || '';
+  });
+  on('wsclose', () => {
+    pending = null;
+  });
+  onMsg('settingsSaveResult', settingsSaveResult);
   on('configResult', configResult);
 }

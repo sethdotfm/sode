@@ -11,7 +11,7 @@ main.js wires modules then calls connect(). core.js is state/socket/bus (S, WebS
 - Helpers:
   - formbits.js (btn, opt, field, check, labeled, for the Manage users, My API keys and API settings modules), tabs.js (makeTabs, stepTab)
   - globalsave.js (makeSaver is the one saver flow; globalSaver adds the PIN row and relock for save-for-everyone; profileSaver; profileProblem is the 48 KiB check)
-  - scopes.js (the one scope registry; setsIn, presetsIn), keyconfirm.js, trapDialog in widgets.js, owned.js
+  - scopes.js (the one scope registry; setsIn, presetsIn), keyconfirm.js, trapDialog in widgets.js
   - store.js (never-throwing readStr/writeStr/readJSON/writeJSON: use these, no hand-written try/catch)
   - levelview.js, levels.js, routes.js, device.js, filterstore.js, history.js (histRows, quick search, pager, putEntry)
   - plans.js (plans, planBlocked/planSummary, sendTakes, banners)

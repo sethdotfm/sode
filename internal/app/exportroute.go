@@ -46,21 +46,30 @@ func (a *App) httpAdmin(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func (a *App) serveExport(w http.ResponseWriter, r *http.Request) {
+// readExportReq checks the session and reads the export request; false means it answered already.
+func (a *App) readExportReq(w http.ResponseWriter, r *http.Request) (exportReq, bool) {
+	var req exportReq
 	if !a.httpAdmin(w, r) {
-		return
+		return req, false
 	}
 	body, ok := readBody(w, r, exportReqMax, "export request")
 	if !ok {
-		return
+		return req, false
 	}
-	var req exportReq
 	if err := json.Unmarshal(body, &req); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", "the export request is not valid JSON")
-		return
+		return req, false
 	}
 	if len(req.Categories) == 0 {
 		apiFail(w, http.StatusBadRequest, "bad_request", "pick at least one category")
+		return req, false
+	}
+	return req, true
+}
+
+func (a *App) serveExport(w http.ResponseWriter, r *http.Request) {
+	req, ok := a.readExportReq(w, r)
+	if !ok {
 		return
 	}
 	b, err := a.buildExport(req)
