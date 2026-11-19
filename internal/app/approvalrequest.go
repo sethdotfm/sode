@@ -31,7 +31,7 @@ type approvalRequest struct {
 	stops   []string
 	until   time.Time
 	timer   *time.Timer
-	cards   map[*client]bool
+	cards   map[*client]string // the user each card went to; a Step in or Step out sends it again
 }
 
 type approvalCardMsg struct {
@@ -92,15 +92,16 @@ func askNeed(act *inMsg, rl rule, role string) string {
 	return need
 }
 
-// askChanges: the change list and Interruptions of a frozen save, for the card.
-func (a *App) askChanges(fields map[string]fieldEdit) ([]SavedField, []string) {
+// askChanges: the change list and Interruptions of a frozen save, for the card. Fields outside
+// role's view are left out: the save refuses them, and the approver need not see their values.
+func (a *App) askChanges(fields map[string]fieldEdit, role string) ([]SavedField, []string) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	live := a.r().cfg
 	next, x := live.Clone(), &saveCtx{}
 	var keys []string
 	for key, e := range fields {
-		if _, ok := lookupField(key); ok && setField(&next, key, e.Value, x) == nil {
+		if f, ok := lookupField(key); ok && fieldRefusal(role, f.section) != reasonRole && setField(&next, key, e.Value, x) == nil {
 			keys = append(keys, key)
 		}
 	}
@@ -126,12 +127,12 @@ func (a *App) approvalAsk(c *client, act *inMsg, id int) error {
 	var changes []SavedField
 	var stops []string
 	if act.T == "settingsSave" {
-		changes, stops = a.askChanges(act.Fields)
+		changes, stops = a.askChanges(act.Fields, a.role(c))
 	}
 	a.mu.Lock()
 	role := a.roleMu(c)
 	r := &approvalRequest{from: c, userID: c.userID(), who: c.who(), ip: c.ip, role: role, need: askNeed(act, rl, role),
-		what: approvalWhat[act.T], msg: *act, changes: changes, stops: stops, cards: map[*client]bool{}}
+		what: approvalWhat[act.T], msg: *act, changes: changes, stops: stops, cards: map[*client]string{}}
 	switch {
 	case role == "":
 		a.mu.Unlock()
@@ -240,14 +241,17 @@ func (a *App) cardsSyncMu() {
 			}
 		}
 		for q := range a.clients {
-			switch want := a.qualifiesMu(q, r); {
-			case want && !r.cards[q]:
-				r.cards[q] = true
-				a.deliverJSONMu(q, approvalCardMsg{T: "approvalCard", Request: r.id, What: r.what, From: r.who, Browser: r.ip,
-					Changes: r.changes, Interruptions: r.stops, Left: r.left()})
-			case !want && r.cards[q]:
+			who, had := r.cards[q]
+			want := a.qualifiesMu(q, r)
+			if had && (!want || who != q.userID()) {
 				delete(r.cards, q)
 				a.deliverJSONMu(q, approvalEndMsg{T: "approvalCardClosed", Request: r.id})
+				had = false
+			}
+			if want && !had {
+				r.cards[q] = q.userID()
+				a.deliverJSONMu(q, approvalCardMsg{T: "approvalCard", Request: r.id, What: r.what, From: r.who, Browser: r.ip,
+					Changes: r.changes, Interruptions: r.stops, Left: r.left()})
 			}
 		}
 	}
@@ -298,7 +302,7 @@ func (a *App) serveApprovalAnswer(c *client, m *inMsg) {
 	}
 	find := func() *approvalRequest {
 		for _, r := range a.asks {
-			if r.id == m.Request && r.cards[c] && a.qualifiesMu(c, r) {
+			if who, ok := r.cards[c]; ok && r.id == m.Request && who == c.userID() && a.qualifiesMu(c, r) {
 				return r
 			}
 		}

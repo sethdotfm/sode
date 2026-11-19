@@ -18,6 +18,7 @@ export const canApprove = (key) => !!approvers[key];
 
 const END_SHOWN_MS = 5000;
 let stack = null;
+let held = []; // ended cards that wait for the Lock to go
 let tick = 0;
 let seq = 0;
 let asking = null; // an approvalAsk with no answer yet.
@@ -54,7 +55,10 @@ function ending(card, kind, text, ...extra) {
   card.node.className = `pb-toast pb-toast--${kind} sode-approvals__card`;
   card.head.textContent = text;
   card.box.replaceChildren(card.head, ...extra);
-  if (!extra.length) setTimeout(() => card.node.remove(), END_SHOWN_MS);
+  if (extra.length) return;
+  // Under the Lock the card waits, so the result shows when the Lock is dismissed.
+  if (stack.hidden) held.push(card.node);
+  else setTimeout(() => card.node.remove(), END_SHOWN_MS);
 }
 
 const leftNode = () => el('span', 'sode-approvals__left');
@@ -240,7 +244,11 @@ on('wsclose', () => {
 
 // Under the Lock the cards stay out of sight; the result shows when it is dismissed.
 on('access', (a) => {
-  if (stack) stack.hidden = !!a.locked;
+  if (!stack) return;
+  stack.hidden = !!a.locked;
+  if (stack.hidden) return;
+  for (const node of held) setTimeout(() => node.remove(), END_SHOWN_MS);
+  held = [];
 });
 
 let shown = false;

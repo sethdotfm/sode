@@ -98,7 +98,7 @@ var policy = map[string]rule{
 	"approvalAsk":    {crit: critNever, role: roleAnyone, op: "approvalAsk", handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAsk(c, m) }},
 	"approvalAnswer": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAnswer(c, m) }},
 	"approvalCancel": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.serveApprovalCancel(c) }},
-	"approvalCards":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalCards(c, m) }},
+	"approvalCards":  {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalCards(c, m) }},
 	"history":        {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
 
 	// The setup wizard (setup.go). Finish is a write: shutdown waits for it.

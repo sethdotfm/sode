@@ -342,6 +342,20 @@ func TestRequestApprovalOnePerBrowser(t *testing.T) {
 	}
 }
 
+// The card lists only fields the requester's Role can see; a Hidden one is refused when it runs.
+func TestRequestApprovalCardLeavesOutHiddenFields(t *testing.T) {
+	a := askApp(t, time.Minute)
+	setFlags(t, a, "Bo", true, false)
+	bo := approver(t, a, "Bo", "567890")
+	ana := dialPeer(t, a)
+	ana.signIn("Ana", "1234")
+	asked(t, ana.askSave(7, map[string]any{"brandText": "X", "autoLockMinutes": 5}))
+	ch, _ := bo.until("approvalCard")["changes"].([]any)
+	if len(ch) != 1 || ch[0].(map[string]any)["key"] != "brandText" {
+		t.Fatalf("card changes: %v", ch)
+	}
+}
+
 // Clear History through Request approval: the Administrator's Approval counts as the PIN recheck.
 func TestRequestApprovalClearHistory(t *testing.T) {
 	a := askApp(t, time.Minute)
