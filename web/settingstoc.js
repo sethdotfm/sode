@@ -7,7 +7,7 @@ import { layout } from './layout.js';
 import { mac, chord } from './keys.js';
 import { topicTree, topicOf } from './settingstree.js';
 
-const sectionTitle = (s) => s.dataset.toc || s.querySelector('legend').textContent;
+const sectionTitle = (s) => s.dataset.toc || s.querySelector('legend').firstChild.textContent.trim();
 // A section's topic band and router sub-heading (index.html: data-topic, data-router).
 const bandOf = (form, s) => form.querySelector(`.sode__topic[data-topic="${s.dataset.topic}"]`);
 const routerHeadOf = (form, s) => (s.dataset.router ? form.querySelector(`.sode__router[data-router="${s.dataset.router}"]`) : null);

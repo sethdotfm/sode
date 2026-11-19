@@ -720,9 +720,8 @@ html {
 .sode__settings > :is(.sode__group, .sode__topic, .sode__router)[hidden] {
   display: none;
 }
-/* A Shown section a lower Role can read but not change (settingsroles.js). */
-.sode__role-note {
-  margin: 0;
+.sode__group > legend > .pb-badge[hidden] {
+  display: none;
 }
 .sode__about {
   justify-content: center;

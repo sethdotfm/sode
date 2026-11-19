@@ -253,7 +253,6 @@
     <h3 class="sode__topic" data-topic="look-and-feel" id="topic-look-and-feel">Look and feel</h3>
     <fieldset class="sode__group" data-section="everyone-defaults" data-topic="look-and-feel">
       <legend>Everyone's defaults</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="gcfg-theme">Theme</label>
@@ -300,7 +299,6 @@
 
     <fieldset class="sode__group" data-section="branding" data-topic="look-and-feel">
       <legend>Branding</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-brandtext">Logo text & Page title</label>
@@ -321,7 +319,6 @@
 
     <fieldset class="sode__group" data-section="history" data-topic="look-and-feel">
       <legend>History</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
       <div class="sode__field">
         <label for="cfg-hidden">Hidden destinations in History</label>
         <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
@@ -343,7 +340,6 @@
 
     <fieldset class="sode__group" data-section="level-colors" data-topic="look-and-feel">
       <legend>Level colors</legend>
-      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <span class="sode__hint">Hex colors like <code><span class="sode__swatch" style="--sw: #3a7bd5" aria-hidden="true"></span>#3a7bd5</code>. Leave blank for default.</span>
       <div class="sode__colors" id="cfg-colors"></div>
       <div class="sode__names">
@@ -353,7 +349,6 @@
 
     <fieldset class="sode__group" data-section="confirm" data-topic="look-and-feel">
       <legend>Confirm and results</legend>
-      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-lockout" data-pb-tip="The wait before the Confirm letter key and OK work.">Confirm lockout (ms)</label>
@@ -378,7 +373,6 @@
     <h4 class="sode__router" data-router="1" id="router-1"><span class="sode__router-title" id="router-1-title">Router</span></h4>
     <fieldset class="sode__group" data-section="router-matrix" data-topic="routers" data-router="1">
       <legend>Router & matrix</legend>
-      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__field">
         <label for="cfg-router">Address</label>
         <input id="cfg-router" class="pb-input" data-key="router" placeholder="10.0.0.50:8910" spellcheck="false">
@@ -425,7 +419,6 @@
 
     <fieldset class="sode__group" data-section="router-names" data-topic="routers" data-router="1">
       <legend>Router names</legend>
-      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__names">
         <span id="names-status"></span>
         <span class="sode__names-refresh">
@@ -452,7 +445,6 @@
 
     <fieldset class="sode__group" data-section="takes" data-topic="routers" data-router="1">
       <legend>Takes</legend>
-      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-default">Default levels</label>
@@ -481,7 +473,6 @@
     <h3 class="sode__topic" data-topic="access" id="topic-access">Access</h3>
     <fieldset class="sode__group" data-section="locks" data-topic="access">
       <legend>Locks</legend>
-      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-pin-waits" data-key="pinWaits" data-type="bool"><span class="pb-check__label">Wait after wrong PINs</span></label>
         <span class="sode__hint">After 4 wrong PINs for a name, that name waits before the next try. The wait doubles with each wrong PIN, up to 5 minutes. A right PIN stops it. Administrator names always wait.</span>
@@ -574,7 +565,6 @@
     <h3 class="sode__topic" data-topic="server" id="topic-server">Server</h3>
     <fieldset class="sode__group" data-section="proxy" data-topic="server">
       <legend>Proxy</legend>
-      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__field">
         <label for="cfg-proxies">Trusted proxies</label>
         <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="10.0.0.2, 172.18.0.0/16" spellcheck="false">
