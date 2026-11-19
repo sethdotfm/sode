@@ -213,7 +213,7 @@ func TestUserUnlockBackoff(t *testing.T) {
 func TestSaveUsers(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.1"}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}}}); !errors.Is(err, errNoAdministrator) {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}}}); !errors.Is(err, errFirstUser) {
 		t.Fatalf("first users with no Administrator: %v", err)
 	}
 	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); err == nil {

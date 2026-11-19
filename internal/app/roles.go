@@ -87,15 +87,21 @@ func noAdministrator(cfg config.Config) bool {
 // errNoAdministrator: every save keeps one Administrator with a PIN (checked in update).
 var errNoAdministrator = errors.New("this save would leave no Administrator with a PIN: keep at least one")
 
+// errFirstUser: env-only mode with no users. The recovery command needs SODE_CONFIG, so the first
+// user must be one who can sign in as Administrator.
+var errFirstUser = errors.New("the first user must be an Administrator with a PIN")
+
 // keepsAdministrator refuses a change that leaves no Administrator with a PIN. A config
-// that already has none (a file edited by hand) can still save other changes. envOnly
-// allows no users at all, the one exception.
-func keepsAdministrator(old, nw config.Config, envOnly bool) error {
+// that already has none (a file edited by hand) can still save other changes. No users at all
+// stays allowed only while there were none (env-only mode); once users exist, the usual rule holds.
+func keepsAdministrator(old, nw config.Config) error {
 	switch {
 	case nw.HasAdministrator(),
-		len(nw.Users) == 0 && (envOnly || len(old.Users) == 0),
+		len(nw.Users) == 0 && len(old.Users) == 0,
 		len(nw.Users) > 0 && len(old.Users) > 0 && !old.HasAdministrator():
 		return nil
+	case len(old.Users) == 0:
+		return errFirstUser
 	}
 	return errNoAdministrator
 }

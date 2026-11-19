@@ -145,8 +145,10 @@ func saveErr(res map[string]fieldResult, _ []interruption, err error) error {
 			case reasonRecheck:
 				return recheckErr{}
 			}
-			if r.Err == errNoAdministrator.Error() {
-				return errNoAdministrator
+			for _, e := range []error{errNoAdministrator, errFirstUser} {
+				if r.Err == e.Error() {
+					return e
+				}
 			}
 			return errors.New(r.Err)
 		}
