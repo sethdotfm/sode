@@ -678,11 +678,12 @@ func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) erro
 		if i := matchIdx(false, cand.APIClients, "", c.Name, nil, func(x config.APIClient) string { return x.Name }); i >= 0 {
 			lc := cand.APIClients[i]
 			c.Name, c.Extra, c.Networks = lc.Name, lc.Extra, lc.Networks
-			switch out = p.settle(&it, catAPIClients, lc.Name, sameYAML(c, lc), func(n string) bool { _, ok := cand.FindAPIClient(n); return ok }); out {
+			taken := func(n string) bool { _, ok := cand.FindAPIClient(n); return ok }
+			switch out = p.settle(&it, catAPIClients, lc.Name, sameYAML(c, lc), taken); out {
 			case overwrite:
 				cand.APIClients[i] = c
 			case addItem:
-				c.Networks = nil
+				it.As, c.Networks = nextName(lc.Name, taken), nil // the live spelling
 			}
 		}
 		if out == addItem {
