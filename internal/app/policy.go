@@ -93,7 +93,13 @@ var policy = map[string]rule{
 	// Step in and Step out (stepin.go): in line, like userSignIn.
 	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveStepIn(c, m) }},
 	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.StepOut(c) }},
-	"history": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
+	// Request approval (approvalrequest.go). The handlers check who can ask, answer and see cards;
+	// the frozen action is checked again when it runs. Answer is in line, like pinRecheck.
+	"approvalAsk":    {crit: critNever, role: roleAnyone, op: "approvalAsk", handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAsk(c, m) }},
+	"approvalAnswer": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAnswer(c, m) }},
+	"approvalCancel": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.serveApprovalCancel(c) }},
+	"approvalCards":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalCards(c, m) }},
+	"history":        {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
 
 	// The setup wizard (setup.go). Finish is a write: shutdown waits for it.
 	"setupRouter": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupRouter(c, m) }},

@@ -81,6 +81,7 @@ var policyExpect = map[string][nStates]error{
 	"hi": openRule, "userSignIn": openRule, "userLock": openRule, "userSignOut": openRule,
 	"userSetPin": openRule, "history": openRule, "pinRecheck": openRule,
 	"stepIn": openRule, "stepOut": openRule,
+	"approvalAsk": openRule, "approvalAnswer": openRule, "approvalCancel": openRule, "approvalCards": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
 	"myClients": openRule, "myClientSave": openRule, "myClientDelete": openRule, "myClientKey": openRule, "myClientKeyRevoke": openRule,
 	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,

@@ -213,6 +213,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			delete(a.clients, c)
 			close(c.send)
 		}
+		a.cardsSyncMu() // a page close cancels its request
 		a.mu.Unlock()
 		log.Printf("ws %s: disconnected", c.ip)
 		e := event(kindBrowser, "disconnect", c.ip, "disconnected")
@@ -383,8 +384,13 @@ type inMsg struct {
 	MyClient   *myClientReq         `json:"client"`   // myClientSave
 	Approval   *approvalReq         `json:"approval"` // an Approval in person for this one message
 	approver   *config.User         // set by approve once the Approval's PIN is checked
-	Router     string               `json:"router"` // setupRouter: the address typed
-	Setup      *setupReq            `json:"setup"`  // setupFinish
+	Router     string               `json:"router"`  // setupRouter: the address typed
+	Setup      *setupReq            `json:"setup"`   // setupFinish
+	For        *inMsg               `json:"for"`     // approvalAsk: the action to approve
+	Request    string               `json:"request"` // approvalAnswer
+	Approve    bool                 `json:"approve"` // approvalAnswer: false denies
+	On         bool                 `json:"on"`      // approvalCards
+	asRole     string               // Request approval: the requester's Role when sent (approvalrequest.go)
 }
 
 func plural(n int, one, many string) string {
