@@ -220,6 +220,7 @@ function openDialog() {
   setNote('');
   if (desk) {
     tabs.select('own-xi-export-tab');
+    exportBtn.disabled = true; // until the list comes
     load();
   } else exportPanel.hidden = importer.panel.hidden = true;
   dlg.show();

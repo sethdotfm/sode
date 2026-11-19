@@ -87,6 +87,11 @@ export function buildChangePin() {
     }
   });
   cancel.addEventListener('click', closePin);
+  on('wsclose', () => {
+    if (back.hidden || !save.disabled) return;
+    save.disabled = remove.disabled = false;
+    say(LINK_DOWN, true);
+  });
   const sendSet = (msg) => {
     const id = ++seq;
     if (!wsSend({ t: 'userSetPin', id, ...msg })) return say(LINK_DOWN, true);

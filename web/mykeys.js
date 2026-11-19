@@ -141,4 +141,10 @@ on('openKeys', () => {
 });
 // Signing out or a Lock closes it, forgetting any key on show.
 on('locking', () => isOpen && closeKeys());
+on('wsclose', () => {
+  if (isOpen && makeBtn.disabled) {
+    makeBtn.disabled = false;
+    say(LINK_DOWN);
+  }
+});
 on('access', (L) => isOpen && !L.user && closeKeys());

@@ -1,6 +1,6 @@
 // Names and scopes save with Settings' one Save; keys act at once. A factory with hooks, so nothing imports users.js back.
 
-import { el, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
+import { el, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { SCOPES } from './apirules.js';
 import { expiryFrom, keyNameProblem, keysByOwner, ownerText } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
@@ -142,6 +142,11 @@ export function makeClientsTab({ users, touched, adopt }) {
     const id = ++seq;
     if (!wsSend({ t: 'keyCreateFor', id, owner: o, keyName: kname.value.trim(), expires: exp.ms })) return say(LINK_DOWN);
     make.disabled = true;
+  });
+  on('wsclose', () => {
+    if (!open || !make.disabled) return;
+    make.disabled = false;
+    say(LINK_DOWN);
   });
   onMsg('keyCreateForResult', (m) => {
     if (m.id !== seq || !open) return;

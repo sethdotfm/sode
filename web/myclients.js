@@ -191,4 +191,9 @@ on('openClients', () => {
 });
 // A Lock forgets any key on show.
 on('locking', () => isOpen && closeClients());
+on('wsclose', () => {
+  if (!isOpen || !(addBtn.disabled || keyBtn.disabled)) return;
+  addBtn.disabled = keyBtn.disabled = false;
+  say(LINK_DOWN);
+});
 on('access', (L) => isOpen && !L.user && closeClients());

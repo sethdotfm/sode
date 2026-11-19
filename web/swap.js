@@ -127,6 +127,13 @@ onMsg('swapListResult', (m) => {
   paintList();
 });
 
+on('wsclose', () => {
+  if (!ui || !waiting || !mine) return;
+  waiting = 0;
+  ui.go.disabled = false;
+  fail(LINK_DOWN);
+});
+
 onMsg('swapMineResult', (m) => {
   if (!ui || m.id !== waiting) return;
   waiting = 0;
