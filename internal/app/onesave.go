@@ -89,7 +89,7 @@ var saveFields = map[string]string{
 	"guestApiScopes":       "api",
 }
 
-// Refusal reasons. The page shows them beside the field (spec #543, The one Save).
+// Refusal reasons; the page shows them beside the field.
 const (
 	reasonRole     = "Role"
 	reasonApproval = "needs Approval"
@@ -217,7 +217,6 @@ type savePlan struct {
 	x     *saveCtx
 }
 
-// next: live with the kept fields written.
 func (p *savePlan) next() config.Config {
 	n := p.live.Clone()
 	for _, key := range p.keep {
@@ -235,11 +234,9 @@ func (p *savePlan) refuse(key, reason string, err error) {
 	p.res[key] = r
 }
 
-// saveSettingsFields checks each field on its own against live, then writes the ones that
-// pass in one commit. No commit when none changes anything. ap, the approver of an Approval
-// (approval.go), stands in for the Role only in Shown sections; it is nil without one. asRole: a
-// Request approval's requester Role when sent, used when the requester is under the Lock now.
-// preset: the Access preset the page staged, named in the Settings saves row.
+// ap: the approver (approval.go), stands in for the Role only in Shown sections; nil without one. asRole: the requester's
+// Role of a Request approval, for a requester now under the Lock. preset: the staged Access preset, for the Settings saves
+// row.
 func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User, asRole, preset string) (map[string]fieldResult, []interruption, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -283,7 +280,7 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 	}
 	saved := a.savedFields(live, now, keep, x)
 	if slices.Contains(keep, swapKey) {
-		saved = append(saved, a.swapPanelsAfter(x, edits, now))
+		saved = append(saved, a.swapPanelsField(x, edits, now, true))
 	}
 	a.recordSaveApproved(by, "save", saved, len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
 		presetOfSave(preset, keep))
@@ -328,21 +325,15 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 		actor = *ap
 		rechecked = rechecked || apRole == config.RoleAdministrator
 	}
-	plan := &savePlan{live: live, actor: actor, res: make(map[string]fieldResult, len(edits)), edits: edits, x: &saveCtx{}}
-	res, x, refuse := plan.res, plan.x, plan.refuse
-	if e, ok := edits[swapKey]; ok {
-		req, err := decodeJSON[swapReq](e.Value)
-		if err == nil {
-			x.swap, err = a.newSwapper(live, req)
-		}
-		if err != nil {
-			refuse(swapKey, reasonInvalid, err)
-			edits = maps.Clone(edits)
-			delete(edits, swapKey)
-			plan.edits = edits
-		}
+	x, swapErr := a.swapCtx(live, edits)
+	plan := &savePlan{live: live, actor: actor, res: make(map[string]fieldResult, len(edits)), edits: edits, x: x}
+	res, refuse := plan.res, plan.refuse
+	if swapErr != nil {
+		refuse(swapKey, reasonInvalid, swapErr)
+		edits = maps.Clone(edits)
+		delete(edits, swapKey)
+		plan.edits = edits
 	}
-	// First the checks that need no other field: section, unchanged, conflict.
 	var cands []string
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
 		e := edits[key]
@@ -389,17 +380,20 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	}
 	// with: live plus key, plus the other candidates of its item (scope 1) or all of them (scope
 	// 2). So a Role and a PIN, or a rename and a new user of the old name, validate together.
-	with := func(key string, scope int) config.Config {
+	build := func(keys []string) config.Config {
 		one := live.Clone()
-		f, _ := lookupField(key)
-		for _, k := range cands {
-			g, _ := lookupField(k)
-			if k == key || scope == 2 || scope == 1 && f.item != "" && g.item == f.item {
-				_ = setField(&one, k, edits[k].Value, x)
-			}
+		for _, k := range keys {
+			_ = setField(&one, k, edits[k].Value, x)
 		}
 		one.Normalize()
 		return one
+	}
+	with := func(key string, scope int) config.Config {
+		f, _ := lookupField(key)
+		return build(slices.DeleteFunc(slices.Clone(cands), func(k string) bool {
+			g, _ := lookupField(k)
+			return k != key && scope != 2 && (scope != 1 || f.item == "" || g.item != f.item)
+		}))
 	}
 	var keep []string
 	for _, key := range cands {
@@ -429,6 +423,24 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 			continue
 		}
 		keep = append(keep, key)
+	}
+	// Fields that pass alone can fail together: refuse each one whose absence mends the rest.
+	for len(keep) > 0 {
+		err := validateSave(live, build(keep))
+		if err == nil {
+			break
+		}
+		bad := slices.DeleteFunc(slices.Clone(keep), func(k string) bool {
+			return validateSave(live, build(slices.DeleteFunc(slices.Clone(keep), func(o string) bool { return o == k }))) != nil
+		})
+		if len(bad) == 0 {
+			bad, keep = keep, nil
+		} else {
+			keep = slices.DeleteFunc(keep, func(k string) bool { return slices.Contains(bad, k) })
+		}
+		for _, k := range bad {
+			refuse(k, reasonInvalid, err)
+		}
 	}
 	plan.moves, plan.keep = a.removedUsersPanels(c, live, edits, keep, refuse)
 	return plan, nil

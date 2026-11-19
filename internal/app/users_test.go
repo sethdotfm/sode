@@ -181,7 +181,7 @@ func TestUserUnlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg.Clone()
-	cfg.Users = cfg.Users[1:] // Ana goes
+	cfg.Users = cfg.Users[1:]
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -364,8 +364,7 @@ func TestLockOverWebSocket(t *testing.T) {
 	}
 }
 
-// UserUnlock signs in as the one user whose PIN this is, so tests need not name them. Test PINs
-// are unique; with no match or several, the name is left empty and the try is a wrong one.
+// Test PINs are unique; with no match or several, the try counts as a wrong one.
 func (a *App) UserUnlock(c *client, pin string) error {
 	name := ""
 	for _, u := range a.r().cfg.Users {

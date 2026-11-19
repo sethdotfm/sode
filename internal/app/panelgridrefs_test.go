@@ -70,7 +70,7 @@ func TestGridPanelEdgesStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	}
 }
 
-// Two entries for one router item are refused, as two equal numbers were. So is the old items map.
+// Two entries for one router item are refused, and so is an items map keyed by number.
 func TestGridPanelRefusesTwoReferencesToOneItem(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

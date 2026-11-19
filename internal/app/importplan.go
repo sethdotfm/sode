@@ -121,7 +121,6 @@ func (k *refCheck) missing(kind string, r config.Ref) (config.Missing, bool) {
 	if kind == config.MissingDestination {
 		names = k.dst
 	}
-	// Number and name agree, or both are blank.
 	return config.Missing{Kind: kind, Ref: r}, !strings.EqualFold(strings.TrimSpace(names[r.N]), strings.TrimSpace(r.Name))
 }
 
@@ -183,6 +182,8 @@ type importPlanner struct {
 	icons      map[string]string // file icon id → live id, "" when skipped
 	panelIDs   map[string]string // file panel id → live id; a new panel's is added when it is stored
 	panels     []plannedPanel
+	// movedDefaults: Default artwork index → where the remap step moves its reference.
+	movedDefaults map[int]config.Ref
 
 	liveTemplates  []Template
 	liveSets       []PanelSet
@@ -229,8 +230,8 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 	}{
 		{catSettings, nil, p.planSettings},
 		{catRouters, nil, p.planRouters},
+		{catPresets, []string{"presets"}, p.planPresets}, // before Users and API clients, whose Rights map preset ids
 		{catUsers, []string{"users"}, p.planUsers},
-		{catPresets, []string{"presets"}, p.planPresets},
 		{catFilterSets, []string{"filterSets"}, p.planFilterSets},
 		{catAPIClients, []string{"apiClients"}, p.planAPIClients},
 		{catArtwork, nil, p.planArtwork},
@@ -250,7 +251,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 			err = p.emptyRest(s.cat, &cand, cat)
 		}
 		if err == nil && p.check.waited {
-			err = errors.New("the router names are not read yet; import this after Sode reads them")
+			err = errors.New("router names not read yet: try again after the re-read")
 		}
 		if err == nil && !slices.Contains([]string{catPanels, catArtwork, catBrowser}, s.cat) { // kept outside the config
 			cand.Normalize()
@@ -343,7 +344,6 @@ func (p *importPlanner) wantedItem(cat, key string) bool {
 
 const waitsForNames = "it holds router references; import it after Sode reads the router names"
 
-// itemsWithRefs names the file's users, presets and panels that hold a source or destination reference.
 func (p *importPlanner) itemsWithRefs() map[string]map[string]string {
 	held := map[string]bool{}
 	refWalk(p.b, func(_ string, _ config.Ref, _ refUse, item string) []config.Ref {
@@ -394,6 +394,23 @@ func matchIdx[T any](same bool, list []T, id, name string, idOf, nameOf func(T) 
 	}
 	name = strings.TrimSpace(name)
 	return slices.IndexFunc(list, func(x T) bool { return strings.EqualFold(strings.TrimSpace(nameOf(x)), name) })
+}
+
+func matchUser(same bool, list []config.User, u config.User) int {
+	return matchIdx(same, list, u.ID, u.Name, func(x config.User) string { return x.ID }, func(x config.User) string { return x.Name })
+}
+
+func matchPreset(same bool, list []config.Preset, s config.Preset) int {
+	return matchIdx(same, list, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
+}
+
+// keepLivePanel finds fp's live twin and keeps it from Replace import's removals.
+func (p *importPlanner) keepLivePanel(fp Panel) int {
+	i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
+	if i >= 0 {
+		p.removed.keep(p.livePanels[i].ID)
+	}
+	return i
 }
 
 // nextName is "Name 2", or the first number after it that taken does not hold.
@@ -517,12 +534,13 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			continue
 		}
 		fileID := u.ID
+		u.Rights = p.mapRightsPresets(u.Rights)
 		u.Profile.Presets = p.checkedPresets(u.Profile.Presets)
 		for i := range u.Profile.FilterSets {
 			u.Profile.FilterSets[i].Broken = p.check.filterSetBroken(u.Profile.FilterSets[i])
 		}
 		it := importItem{Key: key, Name: u.Name}
-		i := matchIdx(p.same, cand.Users, u.ID, u.Name, func(x config.User) string { return x.ID }, func(x config.User) string { return x.Name })
+		i := matchUser(p.same, cand.Users, u)
 		if i >= 0 {
 			lu := cand.Users[i]
 			hashed := fileHash(u)
@@ -574,7 +592,24 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 	return nil
 }
 
-// checkedPresets marks each preset with what the target lacks.
+// mapRightsPresets moves preset ids as this import moves the presets. A skipped preset leaves the list.
+func (p *importPlanner) mapRightsPresets(r config.Rights) config.Rights {
+	if r.Presets == nil {
+		return r
+	}
+	ids := []string{}
+	for _, id := range *r.Presets {
+		if to, ok := p.presets[id]; ok {
+			id = to
+		}
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
+	r.Presets = &ids
+	return r
+}
+
 func (p *importPlanner) checkedPresets(ps []config.Preset) []config.Preset {
 	out := config.ClonePresets(ps)
 	for i := range out {
@@ -588,7 +623,7 @@ func (p *importPlanner) planPresets(cand *config.Config, cat *importCat) error {
 	for _, s := range p.checkedPresets(picked) {
 		fileID := s.ID
 		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
-		i := matchIdx(p.same, cand.Presets, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
+		i := matchPreset(p.same, cand.Presets, s)
 		if i >= 0 {
 			lp := cand.Presets[i]
 			s.ID = lp.ID
@@ -693,6 +728,7 @@ func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) erro
 		if c.Owner != "" {
 			c.Owner = p.ownerFor(*cand, c.Owner, true)
 		}
+		c.Rights = p.mapRightsPresets(c.Rights)
 		it := importItem{Key: c.Name, Name: c.Name}
 		i := matchIdx(false, cand.APIClients, "", c.Name, nil, func(x config.APIClient) string { return x.Name })
 		if i >= 0 {
@@ -740,6 +776,7 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)
 		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken, Kind: kindPanel}
 		cps := p.planCheckpoints(fileID)
+		i := p.keepLivePanel(fp)
 		if err := validatePanel(&fp); err != nil {
 			it.Refused = err.Error()
 		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
@@ -749,7 +786,6 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
-		i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
 		if i >= 0 {
 			lp := p.livePanels[i]
 			fp.ID, fp.Acts, fp.Client, fp.Rev = lp.ID, lp.Acts, lp.Client, lp.Rev

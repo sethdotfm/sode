@@ -81,8 +81,7 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"open panel"}, Why: "an open panel page is any panel page that is open, so a scan cannot tell it from a Public panel; a reviewer judges it by hand"},
 }
 
-// vocabMask blanks phrases that contain a retired word but stay: the router's own salvo and
-// the native group-send fire mode.
+// vocabMask keeps phrases with a retired word that are correct: the router's own `salvo` and fireMode `native`.
 var vocabMask = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\bas follows\b`),
 	regexp.MustCompile(`(?i)\b(?:native|router'?s?(?: own)?) salvos?\b`),

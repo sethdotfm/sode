@@ -52,7 +52,6 @@ func (a *App) artDefaultVisible(cl *apiCtx, d ArtDefault) bool {
 	return false
 }
 
-// everyonePreset finds a preset by hidden id, else (no id) by name ignoring case.
 func everyonePreset(cfg config.Config, id, name string) (config.Preset, bool) {
 	for _, p := range cfg.Presets {
 		if id != "" && p.ID == id || id == "" && name != "" && strings.EqualFold(p.Name, name) {
@@ -62,8 +61,7 @@ func everyonePreset(cfg config.Config, id, name string) (config.Preset, bool) {
 	return config.Preset{}, false
 }
 
-// liveArtDefaults is the stored list with each preset's id and name now. A default stored with no id is found by
-// name. A default of a deleted preset keeps what it has.
+// A default stored with no id is found by name. A default of a deleted preset keeps what it has.
 func (a *App) liveArtDefaults() []ArtDefault {
 	cfg := a.r().cfg
 	list := a.artDefaults.list()

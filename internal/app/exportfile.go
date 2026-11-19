@@ -34,7 +34,6 @@ const (
 	catBrowser    = "browser"
 )
 
-// exportCategories in file order, each with its entry name.
 var exportCategories = []struct{ Name, File string }{
 	{catSettings, "settings.yaml"},
 	{catRouters, "routers.yaml"},
@@ -88,8 +87,8 @@ type exportManifest struct {
 	Routers    []exportRouter `yaml:"routers"`
 }
 
-// exportRouter is what the remap step matches a file router on. The prefix is a label: items write it, and
-// this list maps it to the UID.
+// exportRouter is what the remap step matches a file router on. Items write the prefix; this list maps it to
+// the UID.
 type exportRouter struct {
 	UID            string `yaml:"uid"`
 	Prefix         string `yaml:"prefix"`
@@ -279,7 +278,6 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 			return nil, err
 		}
 	}
-	// Artwork goes when ticked, or for the icons that picked items use.
 	if want(catArtwork) || len(brought) > 0 {
 		var out exportArtwork
 		images := map[string]bool{}
@@ -379,7 +377,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	}
 	zb, err := writeZip(append([]zipFile{{"manifest.yaml", mb}}, files...))
 	if err == nil && int64(len(zb)) > exportMaxUpload {
-		return nil, fmt.Errorf("the export is over %d MiB, which an import does not accept; pick fewer items", exportMaxUpload>>20)
+		return nil, fmt.Errorf("export over %d MiB: pick fewer items", exportMaxUpload>>20)
 	}
 	return zb, err
 }
@@ -410,7 +408,6 @@ func writeZip(files []zipFile) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// exportSettings is the Settings sections asked for (none is all), each a mapping of its config keys.
 func exportSettings(cfg config.Config, sections []string) (*yaml.Node, error) {
 	for _, s := range sections {
 		if !slices.ContainsFunc(exportSections, func(x exportSection) bool { return x.Name == s }) {
@@ -444,7 +441,7 @@ func exportSettings(cfg config.Config, sections []string) (*yaml.Node, error) {
 
 func strNode(s string) *yaml.Node { return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: s} }
 
-// exportYAML encodes v with every key this release does not know dropped and router UIDs written as prefixes. used gets each
+// exportYAML drops the keys this release does not know and writes router UIDs as prefixes. used gets each
 // router v names.
 func exportYAML(v any, prefix map[string]string, one bool, used map[string]bool) ([]byte, error) {
 	var n yaml.Node
@@ -461,11 +458,10 @@ func exportYAML(v any, prefix map[string]string, one bool, used map[string]bool)
 	return yaml.Marshal(&n)
 }
 
-// exportRouterKeys hold a router UID in Sode's stores.
 var exportRouterKeys = map[string]bool{"router": true, "hiddenDstsRouter": true}
 
-// toPrefixes writes each router UID as its prefix. With one router a reference (a mapping with n) leaves it
-// out. A filter set's router and hiddenDstsRouter keep the prefix, since blank means "no router" there.
+// With one router a reference (a mapping with n) leaves its router out. A filter set's router and
+// hiddenDstsRouter keep the prefix, since blank means "no router" there. A UID not in prefix stays raw.
 func toPrefixes(n *yaml.Node, prefix map[string]string, one bool, used map[string]bool) {
 	if n.Kind != yaml.MappingNode {
 		for _, c := range n.Content {
@@ -501,7 +497,7 @@ func (a *App) liveNamesTable(uid string) namesTable {
 	defer a.mu.Unlock()
 	rs := a.router
 	at := rs.namesAt
-	if at.IsZero() { // no read yet: the names are the saved table's, from its time
+	if at.IsZero() {
 		at = rs.savedAt
 	}
 	return namesTable{Router: uid, At: at.UTC(), Sources: tableList(rs.srcNames), Destinations: tableList(rs.dstNames)}

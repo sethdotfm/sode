@@ -12,11 +12,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The remap step (docs/agents/profiles.md): the server answers each file router's target and its distinct
-// references; the page matches names (web/remaprules.js) and sends its choices back. Here the choices are only
-// applied. A reference with no choice keeps its number and is checked as before, so an unmatched name is Skip.
+// Remap step (docs/agents/profiles.md): the page matches names (web/remaprules.js). A reference with no choice
+// keeps its number, so an unmatched name is Skip.
 
-// remapInfo is the plan's remap part.
 type remapInfo struct {
 	Routers []remapRouter `json:"routers"`
 	Targets []remapTarget `json:"targets"`
@@ -75,7 +73,6 @@ type remapRef struct {
 	Users   int    `json:"users,omitempty"`
 }
 
-// remapTarget is a live router with the names the page matches against.
 type remapTarget struct {
 	UID          string      `json:"uid"`
 	Title        string      `json:"title"`
@@ -89,7 +86,6 @@ type remapTarget struct {
 	NoNames bool      `json:"noNames,omitempty"` // no names at all: items with references wait
 }
 
-// namesState is what the remap step tells about the live names.
 type namesState struct {
 	Offline          bool
 	SavedAt, NamesAt time.Time
@@ -120,14 +116,17 @@ func checkRouterTargets(req importReq, live config.Config) error {
 	return nil
 }
 
-// refUse names what holds a reference, for the row's "used by" counts.
+// refUse names what holds a reference, for the row's "used by" counts. useOther is not counted.
 type refUse int
 
 const (
 	usePreset refUse = iota
 	usePanel
 	useUser
+	useOther
 )
+
+var refKinds = map[any]string{"source": config.MissingSource, "destination": config.MissingDestination}
 
 // refWalk calls fn on every source and destination reference the file's items hold. fn answers the references
 // to put in its place, none to keep it; a slot that holds one reference takes the first.
@@ -156,6 +155,28 @@ func refWalk(b *exportBundle, fn func(kind string, r config.Ref, use refUse, ite
 		}
 		return out
 	}
+	// refMap rewrites a reference held as a map, as cells and This browser's presets hold them.
+	refMap := func(kind string, c map[string]any, use refUse, item string) {
+		r, ok := cellRef(c)
+		if !ok {
+			return
+		}
+		x := one(kind, r, use, item)
+		c["router"], c["n"] = x.Router, x.N
+		if x.Name != "" || c["name"] != nil {
+			c["name"] = x.Name
+		}
+	}
+	rights := func(r *config.Rights, use refUse, item string) {
+		if r.Sources != nil {
+			l := many(config.MissingSource, *r.Sources, use, item)
+			r.Sources = &l
+		}
+		if r.Dsts != nil {
+			l := many(config.MissingDestination, *r.Dsts, use, item)
+			r.Dsts = &l
+		}
+	}
 	presets := func(ps []config.Preset, owner string) {
 		for i := range ps {
 			item := owner + "/" + ps[i].ID
@@ -166,41 +187,21 @@ func refWalk(b *exportBundle, fn func(kind string, r config.Ref, use refUse, ite
 			}
 		}
 	}
-	presets(b.Presets, "")
-	for i := range b.Users {
-		u := &b.Users[i]
-		presets(u.Profile.Presets, u.ID)
-		item := "user/" + cmp.Or(u.ID, u.Name)
-		if u.Rights.Sources != nil {
-			l := many(config.MissingSource, *u.Rights.Sources, useUser, item)
-			u.Rights.Sources = &l
-		}
-		if u.Rights.Dsts != nil {
-			l := many(config.MissingDestination, *u.Rights.Dsts, useUser, item)
-			u.Rights.Dsts = &l
-		}
-	}
-	for i := range b.Panels.Panels {
-		p := &b.Panels.Panels[i]
-		item := "panel/" + p.ID
-		for _, g := range p.Pages {
+	layout := func(pages []PanelPage, settings map[string]any, srcs, dsts *GridEdge, item string) {
+		for _, g := range pages {
 			for _, c := range g.Cells {
-				kind := map[any]string{"source": config.MissingSource, "destination": config.MissingDestination}[c["kind"]]
-				r, ok := cellRef(c)
-				if kind == "" || !ok {
-					continue
-				}
-				x := one(kind, r, usePanel, item)
-				c["router"], c["n"] = x.Router, x.N
-				if x.Name != "" || c["name"] != nil {
-					c["name"] = x.Name
+				if kind := refKinds[c["kind"]]; kind != "" {
+					refMap(kind, c, usePanel, item)
 				}
 			}
+		}
+		if fixed, err := fixedList(settings[panelFixedKey]); err == nil && fixed != nil {
+			settings[panelFixedKey] = many(config.MissingDestination, fixed, usePanel, item)
 		}
 		for _, e := range []struct {
 			edge *GridEdge
 			kind string
-		}{{p.Sources, config.MissingSource}, {p.Destinations, config.MissingDestination}} {
+		}{{srcs, config.MissingSource}, {dsts, config.MissingDestination}} {
 			if e.edge == nil {
 				continue
 			}
@@ -213,10 +214,68 @@ func refWalk(b *exportBundle, fn func(kind string, r config.Ref, use refUse, ite
 			}
 		}
 	}
+
+	presets(b.Presets, "")
+	for i := range b.Users {
+		u := &b.Users[i]
+		presets(u.Profile.Presets, u.ID)
+		rights(&u.Rights, useUser, "user/"+cmp.Or(u.ID, u.Name))
+	}
+	for i := range b.APIClients {
+		rights(&b.APIClients[i].Rights, useOther, "client/"+b.APIClients[i].Name)
+	}
+	if b.Settings != nil {
+		rights(&b.Settings.GuestRights, useOther, "guest")
+	}
+	for _, p := range b.Panels.Panels {
+		layout(p.Pages, p.Settings, p.Sources, p.Destinations, "panel/"+p.ID)
+	}
+	for id, cps := range b.Panels.Checkpoints {
+		for _, cp := range cps {
+			l := cp.Layout
+			layout(l.Pages, l.Settings, l.Sources, l.Destinations, "panel/"+id)
+		}
+	}
+	for _, t := range b.Panels.Templates {
+		layout(t.Pages, nil, nil, nil, "template/"+t.ID)
+	}
+	for _, s := range b.Panels.CheckpointSets {
+		for _, e := range s.Entries {
+			layout(e.Pages, e.Settings, e.Sources, e.Destinations, "set/"+s.ID)
+		}
+	}
+	list, _ := b.Browser["presets"].([]any)
+	for _, sp := range list {
+		sp, _ := sp.(map[string]any)
+		items, _ := sp["items"].([]any)
+		name, _ := sp["name"].(string)
+		item := "browser/" + name
+		for _, it := range items {
+			it, _ := it.(map[string]any)
+			if src, ok := it["src"].(map[string]any); ok {
+				refMap(config.MissingSource, src, useOther, item)
+			}
+			dl, _ := it["dsts"].([]any)
+			var refs []config.Ref
+			for _, d := range dl {
+				if m, ok := d.(map[string]any); ok {
+					if r, ok := cellRef(m); ok {
+						refs = append(refs, r)
+					}
+				}
+			}
+			if len(refs) == len(dl) && len(refs) > 0 {
+				out := []any{}
+				for _, r := range many(config.MissingDestination, refs, useOther, item) {
+					out = append(out, map[string]any{"router": r.Router, "n": r.N, "name": r.Name})
+				}
+				it["dsts"] = out
+			}
+		}
+	}
 }
 
-// planRemap answers the remap part and rewrites the file's references to what req chooses. It runs before
-// the items are checked, so a moved reference is not Broken.
+// Runs before the item check, so a moved reference is not Broken.
 func (p *importPlanner) planRemap(src, dst map[int]string) {
 	if len(p.b.Manifest.Routers) == 0 {
 		return
@@ -275,10 +334,9 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 		info.Routers = append(info.Routers, *rr)
 	}
 
-	// The distinct references, before any rewrite.
 	idx := map[string]int{}
 	counted := map[string]bool{}
-	refWalk(p.b, func(kind string, r config.Ref, use refUse, item string) []config.Ref {
+	count := func(kind string, r config.Ref, use refUse, item string) []config.Ref {
 		rr := byRouter[r.Router]
 		if rr == nil {
 			return nil
@@ -306,7 +364,9 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 			}
 		}
 		return nil
-	})
+	}
+	refWalk(p.b, count)
+	p.defaultRefs(func(_ int, kind string, r config.Ref) { count(kind, r, useOther, "") })
 	for i := range info.Routers {
 		rr := byRouter[info.Routers[i].UID]
 		slices.SortFunc(rr.Refs, func(a, b remapRef) int { return cmp.Or(cmp.Compare(a.Kind, b.Kind), cmp.Compare(a.N, b.N)) })
@@ -314,9 +374,8 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 	}
 	p.plan.Remap = info
 
-	// The rewrite: a targeted router's references move to the target; a chosen number replaces the file's.
 	names := map[string]map[int]string{config.MissingSource: src, config.MissingDestination: dst}
-	refWalk(p.b, func(kind string, r config.Ref, _ refUse, _ string) []config.Ref {
+	move := func(kind string, r config.Ref, _ refUse, _ string) []config.Ref {
 		rr := byRouter[r.Router]
 		if rr == nil || rr.Target == "" {
 			return nil
@@ -338,13 +397,39 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 			out = []config.Ref{r}
 		}
 		return out
+	}
+	refWalk(p.b, move)
+	// Default artwork keys on its number, so the file's item stays as is and keeps the key the page picks by.
+	p.movedDefaults = map[int]config.Ref{}
+	p.defaultRefs(func(i int, kind string, r config.Ref) {
+		if out := move(kind, r, useOther, ""); len(out) > 0 {
+			p.movedDefaults[i] = out[0]
+		}
 	})
-	p.eachFileSet(func(key string, s *config.FilterSet) {
-		rr := byRouter[s.Router]
+	target := func(uid string) (string, bool) {
+		rr := byRouter[uid]
 		if rr == nil || rr.Target == "" {
+			return uid, false
+		}
+		return rr.Target, true
+	}
+	if p.b.Settings != nil {
+		p.b.Settings.HiddenDstsRouter, _ = target(p.b.Settings.HiddenDstsRouter)
+	}
+	sets, _ := p.b.Browser["filterSets"].([]any)
+	for _, s := range sets {
+		if m, ok := s.(map[string]any); ok {
+			if uid, ok := m["router"].(string); ok {
+				m["router"], _ = target(uid)
+			}
+		}
+	}
+	p.eachFileSet(func(key string, s *config.FilterSet) {
+		to, ok := target(s.Router)
+		if !ok {
 			return
 		}
-		s.Router = rr.Target
+		s.Router = to
 		f := p.req.Filters[key]
 		for _, side := range []struct{ to, from *string }{{&s.Src, f.Src}, {&s.Dst, f.Dst}} {
 			if side.from == nil {
@@ -357,7 +442,6 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 	})
 }
 
-// eachFileSet calls fn on every filter set of the file with its remapSet key.
 func (p *importPlanner) eachFileSet(fn func(key string, s *config.FilterSet)) {
 	for i := range p.b.FilterSets {
 		fn("/"+p.b.FilterSets[i].Name, &p.b.FilterSets[i])
@@ -384,6 +468,14 @@ func (p *importPlanner) remapSets(uid string) []remapSet {
 		out = append(out, remapSet{Key: key, Name: s.Name, User: owner[user], Src: s.Src, Dst: s.Dst})
 	})
 	return out
+}
+
+func (p *importPlanner) defaultRefs(fn func(i int, kind string, r config.Ref)) {
+	for i, d := range p.b.Artwork.Defaults {
+		if kind := refKinds[d.Kind]; kind != "" && d.N != nil {
+			fn(i, kind, config.Ref{Router: d.Router, N: *d.N, Name: d.Name})
+		}
+	}
 }
 
 func normSet(m map[int]string) map[string]bool {

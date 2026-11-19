@@ -212,9 +212,7 @@ func setOut(cfg config.Config, set PanelSet, change bool) map[string]any {
 
 const setEveryoneMsg = "only a Trusted user can save or change a checkpoint set for Everyone"
 
-// mayChangeSet allows the owner, or a Trusted user for an Everyone set, as setReach says. An
-// Everyone set with a PIN in the body answers trusted_required; without one the refusal is
-// the plain 403 not_owner of setFor.
+// An Everyone set with a PIN in the body answers trusted_required; without one, 403 not_owner (setFor).
 func (a *App) mayChangeSet(w http.ResponseWriter, cl *apiCtx, set PanelSet, pin string) bool {
 	use, change := a.setReach(cl, set)
 	if !change && set.Scope == panelShareAll && pin != "" {

@@ -44,10 +44,8 @@ var (
 	errNoArtDefaultFile = errors.New("no such Default artwork image")
 )
 
-// ArtDefault is one item's Default artwork. A Source or Destination is Router (UID; blank is this router) and N; a
-// Preset is its hidden ID, so a rename keeps the default. For a Source or Destination, Name is the router name when
-// the default was set. Then the editor can warn when the number now names something else. A Preset's Name is put
-// right when sent (liveArtDefaults).
+// A Preset default keys on the hidden ID, so a rename keeps it. A Source or Destination keeps the router name from when it
+// was set, so the editor can warn when the number names something else.
 type ArtDefault struct {
 	Kind     string `yaml:"kind" json:"kind"`
 	Router   string `yaml:"router,omitempty" json:"router,omitempty"`

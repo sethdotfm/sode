@@ -35,9 +35,8 @@ func isRoleErr(err error) bool {
 	return errors.As(err, &r)
 }
 
-// roleMu is the Role c acts with now, read live; "" is none (a held Lock, or a Guest under
-// its page's lock). Env-only mode with no users makes every browser an Administrator; with a
-// config file, needRoleMu refuses everything until the setup wizard's Finish. Caller holds mu.
+// "" is no Role (a held Lock, or a Guest under its page's lock). With no users, env-only mode makes every browser an
+// Administrator; with a config file, needRoleMu refuses everything until the setup wizard's Finish.
 func (a *App) roleMu(c *client) string {
 	cfg := a.r().cfg
 	switch {
@@ -61,7 +60,7 @@ func (a *App) role(c *client) string {
 	return a.roleMu(c)
 }
 
-// needRoleMu: nil, errPageLocked when c acts with no Role, or a roleErr. Caller holds mu.
+// errPageLocked when c acts with no Role, else a roleErr.
 func (a *App) needRoleMu(c *client, need string) error {
 	if need == roleAnyone {
 		return nil
@@ -84,16 +83,14 @@ func noAdministrator(cfg config.Config) bool {
 	return len(cfg.Users) > 0 && !cfg.HasAdministrator()
 }
 
-// errNoAdministrator: every save keeps one Administrator with a PIN (checked in update).
 var errNoAdministrator = errors.New("this save would leave no Administrator with a PIN: keep at least one")
 
 // errFirstUser: env-only mode with no users. The recovery command needs SODE_CONFIG, so the first
 // user must be one who can sign in as Administrator.
 var errFirstUser = errors.New("the first user must be an Administrator with a PIN")
 
-// keepsAdministrator refuses a change that leaves no Administrator with a PIN. A config
-// that already has none (a file edited by hand) can still save other changes. No users at all
-// stays allowed only while there were none (env-only mode); once users exist, the usual rule holds.
+// A config that already has no Administrator (edited by hand) can still save other changes. No users at all is allowed
+// only in env-only mode before the first user.
 func keepsAdministrator(old, nw config.Config) error {
 	switch {
 	case nw.HasAdministrator(),

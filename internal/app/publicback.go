@@ -2,13 +2,11 @@ package app
 
 import "slices"
 
-// A Public panel page comes back by itself (docs/agents/panels.md, Public keys). Public panels allowed turns on, or a
-// panel's mode changes back to Public. Then every keyless stream whose address resolves to that panel hears a public
-// line. The page waits a random 0 to 5 s and asks once; nothing polls, since publicAskMax counts per address.
+// docs/agents/panels.md, Public keys. The page waits a random 0 to 5 s and asks one time; nothing polls, since
+// publicAskMax counts per address.
 
 var publicLine = []byte("{\"t\":\"public\"}\n")
 
-// keylessRefs lists the address segments that hold a keyless stream now.
 func (m *panelMon) keylessRefs() []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -23,7 +21,7 @@ func (m *panelMon) keylessRefs() []string {
 	return out
 }
 
-// tellPublic queues a public line on every keyless stream of refs. A line already queued stands for this one.
+// A line already queued stands for this one.
 func (m *panelMon) tellPublic(refs map[string]bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -40,8 +38,7 @@ func (m *panelMon) tellPublic(refs map[string]bool) {
 	}
 }
 
-// publicAgain tells the keyless pages of the Public panels in ids, or of every Public panel when ids is empty.
-// Call it after the change is in place, so an ask the line causes reads it.
+// No ids means every Public panel. Call it after the change is in place, so the ask that the line causes reads it.
 func (a *App) publicAgain(ids ...string) {
 	if !a.r().cfg.PublicPanels {
 		return

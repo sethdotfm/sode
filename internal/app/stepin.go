@@ -10,9 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Step in (GLOSSARY.md, docs/agents/users-locks.md): one connection acts as another user with a
-// PIN. It is connection state only: issueTokenFor gives it no token, so a reload, page close or
-// dropped connection ends it.
+// Connection state only: issueTokenFor gives it no token, so a reload, page close or dropped connection ends it
+// (docs/agents/users-locks.md).
 
 // stepInIdle is fixed: No auto-lock on either user does not make it longer.
 const stepInIdle = 5 * time.Minute
@@ -56,7 +55,7 @@ var stepEndWords = map[string]string{
 	"closed":  "the page closed or the connection dropped",
 }
 
-// stepOutRowMu writes the Step out row before c returns to the original. Caller holds mu.
+// The row goes before c returns to the original.
 func (a *App) stepOutRowMu(c *client, why string) {
 	a.commandBy(c.who(), "stepOut", "ok", stepEndWords[why]+", browser of "+a.browserOfMu(c), nil)
 }
@@ -102,8 +101,7 @@ func (a *App) StepIn(c *client, name, pin string) error {
 	return nil
 }
 
-// stepInRefusalMu: never on the Lock screen, never twice, never as the user already signed in.
-// Caller holds mu.
+// Never on the Lock screen, never twice, never as the user already signed in.
 func (a *App) stepInRefusalMu(c *client, name string) error {
 	cfg := a.r().cfg
 	switch {
@@ -112,7 +110,7 @@ func (a *App) stepInRefusalMu(c *client, name string) error {
 	case cmp.Or(c.u.page, "main") != "main":
 		return errors.New("step in on the main page or in Settings")
 	case c.u.lockedMu(), gateMain.on(cfg.Locks) && !a.userOKMu(c, cfg):
-		return errors.New("unlock first: you cannot step in from the Lock screen")
+		return errors.New("dismiss the Lock first")
 	}
 	if u, ok := cfg.FindUserByName(name); ok && a.userOKMu(c, cfg) && u.ID == c.userID() {
 		return errors.New("you are signed in as " + u.Name + " already")
@@ -120,7 +118,7 @@ func (a *App) stepInRefusalMu(c *client, name string) error {
 	return nil
 }
 
-// feedOriginalMu: step-in activity counts for the original session too. Caller holds mu.
+// Step-in activity counts for the original session too.
 func (a *App) feedOriginalMu(c *client, now time.Time) {
 	st := c.u.step
 	st.seen = now
@@ -171,14 +169,13 @@ func (a *App) stepOutMu(c *client, why string) {
 	a.syncAccessMu(c)
 }
 
-// browserOf: whose browser c is while stepped in, for History; "" when not stepped in.
+// For History; "" when not stepped in.
 func (a *App) browserOf(c *client) string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.browserOfMu(c)
 }
 
-// Caller holds mu.
 func (a *App) browserOfMu(c *client) string {
 	st := c.u.step
 	switch {
@@ -193,7 +190,6 @@ func (a *App) browserOfMu(c *client) string {
 	return st.orig.Name
 }
 
-// Caller holds mu.
 func (a *App) originalLiveMu(st *stepIn, cfg config.Config) bool {
 	u, ok := cfg.FindUserByID(st.orig.ID)
 	if !ok || u.Pin != st.orig.Pin || st.ended {
@@ -206,8 +202,7 @@ func (a *App) originalLiveMu(st *stepIn, cfg config.Config) bool {
 	return ok
 }
 
-// stepOutsOnLockMu: a Lock of a session ends the step-ins that would return to it, so they land
-// on that Lock. Caller holds mu.
+// The step-ins that return to a Locked session end, so they land on that Lock.
 func (a *App) stepOutsOnLockMu(s *session) {
 	for cl := range a.clients {
 		if cl.u.step != nil && cl.u.step.sess == s {
@@ -216,8 +211,6 @@ func (a *App) stepOutsOnLockMu(s *session) {
 	}
 }
 
-// stepOutsOnSaveMu: a save that removes, renames, resets the PIN of or lowers the Role of a
-// stepped-in user ends their step-ins. Caller holds mu.
 func (a *App) stepOutsOnSaveMu(old, cfg config.Config) {
 	for cl := range a.clients {
 		if cl.u.step != nil && stepInEnds(old, cfg, cl.userID()) {
@@ -256,9 +249,8 @@ func (a *App) stepInStops(live, next config.Config) []interruption {
 	return out
 }
 
-// stepIdleMu ends c's step-in after stepInIdle without activity in this tab. A shorter
-// auto-lock of the original user wins. Then the original session locks if it is idle too.
-// It returns the Lock to finish off mu, if any. Caller holds mu.
+// A shorter auto-lock of the original user wins; then the original session locks if it is idle too. The caller runs the
+// returned Lock after it releases mu.
 func (a *App) stepIdleMu(c *client, cfg config.Config, now time.Time) (heldJob, bool) {
 	st := c.u.step
 	lim := stepInIdle

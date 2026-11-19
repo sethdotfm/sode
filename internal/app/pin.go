@@ -49,9 +49,7 @@ func doubling(first, most time.Duration, n int) time.Duration {
 	return min(w, most)
 }
 
-// userPoolMu returns the pool of u's name; nil u is every name that matches no user. Keyed by
-// user id, so a rename keeps the count. Names that match no user always wait: nobody signs in
-// with them. Administrator names wait even with the Wait after wrong PINs switch off.
+// Keyed by user id, so a rename keeps the count. nil u is the shared pool for unknown names, which always waits.
 func (a *App) userPoolMu(u *config.User) *pinPool {
 	key := ""
 	if u != nil {
@@ -75,7 +73,6 @@ func (a *App) userPoolMu(u *config.User) *pinPool {
 	return p
 }
 
-// tryUserPin runs check in the pool of u's name.
 func (a *App) tryUserPin(u *config.User, from string, check func() bool) error {
 	a.mu.Lock()
 	p := a.userPoolMu(u)
@@ -83,9 +80,7 @@ func (a *App) tryUserPin(u *config.User, from string, check func() bool) error {
 	return a.tryPin(p, from, check)
 }
 
-// tryPin refuses while waiting or busy, else runs check with mu free (hashing is slow). A right
-// PIN resets the count. Takes and releases mu itself; callers needing a stable world re-check
-// under their own lock.
+// check runs with mu free, since hashing is slow; a caller that needs a stable state checks again under its own lock.
 func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	a.mu.Lock()
 	if p.forget > 0 && p.n > 0 && time.Since(p.last) > p.forget {

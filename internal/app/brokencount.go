@@ -68,8 +68,7 @@ func markedEntry(id, kind, name, owner string, broken, moved []config.Missing) (
 	return e, true
 }
 
-// brokenItems lists the marked items of cfg and panels. mine: a user id, which limits the list to that user's Me
-// items and owned panels; "" for every owner. One router today, so every mark counts for it.
+// mine: a user id, or "" for every owner. Sode drives one router, so every mark counts for it.
 func brokenItems(cfg config.Config, panels []Panel, mine string) []brokenEntry {
 	out := []brokenEntry{}
 	add := func(e brokenEntry, ok bool) {

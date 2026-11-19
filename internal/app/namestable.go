@@ -127,7 +127,6 @@ func (s *namesStore) save(uid string, at time.Time, src, dst map[int]string) {
 	s.src, s.dst = src, dst
 }
 
-// remove deletes the router's names table; the router delete calls it.
 func (s *namesStore) remove(uid string) error {
 	path := s.path(uid)
 	if path == "" {

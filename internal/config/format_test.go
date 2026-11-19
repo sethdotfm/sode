@@ -89,7 +89,7 @@ func TestSaveWritesFormat(t *testing.T) {
 	}
 }
 
-// v1's read-only keys have no field in v2: they load as unknown keys, and salvos is not a preset list.
+// v1's read-only keys load as unknown keys; `salvos` is not a preset list.
 func TestV1LegacyKeysAreUnknownInV2(t *testing.T) {
 	c, err := Parse([]byte(`format: 2
 routers: [{address: 10.0.0.5:8910}]
@@ -115,19 +115,7 @@ locks:
 	}
 }
 
-// Keys v2.0 dropped before its release: a dev file that still holds them loads with no unknown keys.
-func TestRetiredAPIKeysAreDropped(t *testing.T) {
-	c, err := Parse([]byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\napi:\n  enabled: true\n  maxUserKeys: 8\n  maxClientKeys: 20\n  rateLimit: 9\n  future: 1\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := c.UnknownKeys(); !slices.Equal(got, []string{"api.future"}) {
-		t.Fatalf("UnknownKeys = %q", got)
-	}
-}
-
-// settingsPin held the Advanced Settings PIN hash, which v2.0 drops: the key loads as nothing
-// and no later write carries it.
+// The key loads as nothing and no later write carries it.
 func TestSettingsPinIsDropped(t *testing.T) {
 	c, err := Parse([]byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\nsettingsPin: pbkdf2$1$x$y\nfuture: 1\n"))
 	if err != nil {

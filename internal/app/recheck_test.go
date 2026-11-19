@@ -45,7 +45,6 @@ func grantRecheck(a *App, c *client) {
 	}
 }
 
-// signInRechecked is signIn plus a PIN recheck over the socket.
 func (p *wsPeer) signInRechecked(name, pin string) {
 	p.t.Helper()
 	p.signIn(name, pin)
@@ -54,7 +53,6 @@ func (p *wsPeer) signInRechecked(name, pin string) {
 	}
 }
 
-// recheckClock lets a test move the App's clock forward.
 func recheckClock(a *App) *atomic.Int64 {
 	var ahead atomic.Int64
 	a.now = func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }

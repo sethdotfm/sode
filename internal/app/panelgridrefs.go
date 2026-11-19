@@ -8,10 +8,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// refEdges makes a Grid panel's edges router references, as refPages does for cells. A blank router is this one.
-// The name is the router's name now, else one the body gave for the item, else the one old stored. old is nil on
-// create. A reference to another router stays as it is. It runs before validatePanel, so two entries for one item
-// are caught also when only one of them names the router.
+// A blank router is this one; a reference to another router stays. The name: the router's now, else the body's, else old's
+// (nil on create). Runs before validatePanel, so two entries for one item are caught when only one names the router.
 func (a *App) refEdges(p *Panel, old *Panel) {
 	var oldSrc, oldDst *GridEdge
 	if old != nil {

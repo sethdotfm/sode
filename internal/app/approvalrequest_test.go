@@ -8,7 +8,6 @@ import (
 
 // Seam: Request approval over the WebSocket, with peers for the requester and the approvers.
 
-// askApp: userApp with a short Request approval wait.
 func askApp(t *testing.T, wait time.Duration) *App {
 	t.Helper()
 	a := userApp(t, false)
@@ -16,7 +15,6 @@ func askApp(t *testing.T, wait time.Duration) *App {
 	return a
 }
 
-// approver: a peer signed in as name that shows Approval cards.
 func approver(t *testing.T, a *App, name, pin string) *wsPeer {
 	t.Helper()
 	p := dialPeer(t, a)
@@ -40,7 +38,6 @@ func (p *wsPeer) lock() {
 	}
 }
 
-// within: the next message of type typ within d, or nil.
 func (p *wsPeer) within(typ string, d time.Duration) map[string]any {
 	p.t.Helper()
 	end := time.After(d)
@@ -59,7 +56,6 @@ func (p *wsPeer) within(typ string, d time.Duration) map[string]any {
 	}
 }
 
-// askSave asks for an Approval of a settingsSave with id saveID.
 func (p *wsPeer) askSave(saveID int, set map[string]any) map[string]any {
 	p.t.Helper()
 	vers, _ := p.hello["versions"].(map[string]any)
@@ -128,7 +124,6 @@ func TestRequestApprovalApproved(t *testing.T) {
 	waitRequestRows(t, a, "sent", "approved")
 }
 
-// waitRequestRows waits for the Request approval rows with these results, in order.
 func waitRequestRows(t *testing.T, a *App, want ...string) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -269,9 +264,8 @@ func TestRequestApprovalSurvivesRequesterLock(t *testing.T) {
 	}
 }
 
-// Cards go only to browsers that could approve. Such a browser has a user with a PIN and a high
-// enough Role, the Lock dismissed and cards on (never a panel page). The requester gets none.
-// A late browser gets the time left.
+// Cards go only to browsers that could approve: a user with a PIN and a high enough Role, the Lock dismissed, cards on. A
+// late browser gets the time left.
 func TestRequestApprovalCardsReachOnlyQualified(t *testing.T) {
 	a := askApp(t, time.Minute)
 	bo := approver(t, a, "Bo", "567890") // Trusted is below the Administrator field

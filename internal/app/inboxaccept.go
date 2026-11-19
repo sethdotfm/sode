@@ -1,9 +1,11 @@
 package app
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"slices"
 	"strings"
 
@@ -32,7 +34,7 @@ type cardPlanner struct {
 	file, same bool
 }
 
-// planCard plans card onto user toID of live. src, dst are the live router's names.
+// src, dst are the live router's names.
 func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
 	p, err := newCardPlanner(live, src, dst, allPanels, card, toID, req)
 	if err != nil {
@@ -55,7 +57,7 @@ func newCardPlanner(live config.Config, src, dst map[int]string, allPanels []Pan
 	}, nil
 }
 
-// run plans profile (when given) and the card's items. Categories none in the request means all of them.
+// No categories in the request means all.
 func (p *cardPlanner) run(profile func(*config.Config, *importCat) error) {
 	steps := []struct {
 		cat string
@@ -77,7 +79,7 @@ func (p *cardPlanner) run(profile func(*config.Config, *importCat) error) {
 		p.check.waited = false
 		err := s.run(&cand, cat)
 		if err == nil && p.check.waited {
-			err = errors.New("the router names are not read yet; accept this after Sode reads them")
+			err = errors.New("router names not read yet: try again after the re-read")
 		}
 		if err == nil && s.cat != catPanels {
 			cand.Normalize()
@@ -126,9 +128,9 @@ func (p *cardPlanner) outside(kind string, r config.Ref) bool {
 	}
 	switch kind {
 	case config.MissingSource:
-		return !p.rights.AllowsSource(r.N)
+		return !p.rights.AllowsSource(r)
 	case config.MissingDestination:
-		return !p.rights.AllowsDst(r.N)
+		return !p.rights.AllowsDst(r)
 	}
 	return !p.rights.AllowsLevel(r.N)
 }
@@ -342,7 +344,6 @@ func (a *App) ReviewCard(c *client, card string, req importReq) (*importPlan, er
 	return &p.plan, nil
 }
 
-// cardFor is a waiting card of c's user's Inbox.
 func (a *App) cardFor(c *client, card string) (config.User, inboxCard, error) {
 	u, err := a.inboxUser(c)
 	if err != nil {
@@ -372,6 +373,21 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 	p, err := planCard(a.r().cfg, src, dst, a.panels.list(), k, u.ID, req)
 	if err != nil {
 		return nil, nil, k, err
+	}
+	// Every ticked item refused: the card waits, so the person can fix it and accept again.
+	planned, why := 0, ""
+	for _, name := range slices.Sorted(maps.Keys(p.plan.Categories)) {
+		cat := p.plan.Categories[name]
+		why = cmp.Or(why, cat.Refused)
+		for _, it := range cat.Items {
+			why = cmp.Or(why, it.Refused)
+			if cat.Refused == "" && it.writes() {
+				planned++
+			}
+		}
+	}
+	if planned == 0 && why != "" {
+		return &p.plan, nil, k, errors.New(why)
 	}
 	writes := func(cat string) bool {
 		c := p.plan.Categories[cat]

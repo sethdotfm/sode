@@ -11,7 +11,6 @@ import (
 // A file that leaves it out is skipped with a problem, not filled from the one router.
 var errNoRouter = errors.New("a source or destination has no router")
 
-// noRouterProblem judges a layout as read from a file.
 func (l panelLayout) noRouterProblem() error {
 	for _, g := range l.Pages {
 		if cellsNoRouter(g.Cells) {

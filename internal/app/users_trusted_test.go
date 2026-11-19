@@ -17,8 +17,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// setFlags sets a user's Role (Trusted user or Standard user) and Persistent in the live
-// config, as a users save does. The PIN hash stays.
+// The PIN hash stays.
 func setFlags(t *testing.T, a *App, name string, trusted, persistent bool) {
 	t.Helper()
 	a.cfgMu.Lock()

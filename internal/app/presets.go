@@ -15,9 +15,8 @@ func (a *App) SavePresets(c *client, presets []config.Preset) error {
 	}, func(cfg config.Config) any { return presetsMsg{T: "presets", Presets: cfg.Presets} })
 }
 
-// namePresets puts the router's names into each reference to this router. The file keeps the
-// name at save time for import and Broken checks. A number with no router name keeps its name.
-// A blank router is this one (Normalize fills it after).
+// The file keeps the save-time name for import and Broken checks; a number with no router name keeps its stored name.
+// Normalize fills a blank router.
 func (a *App) namePresets(uid string, ps []config.Preset) []config.Preset {
 	a.mu.Lock()
 	defer a.mu.Unlock()

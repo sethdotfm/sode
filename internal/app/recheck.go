@@ -45,8 +45,7 @@ func isRecheckErr(err error) bool {
 	return errors.As(err, &r)
 }
 
-// recheckedMu: c can do a Critical action now. With no users there is no PIN to check.
-// Caller holds mu.
+// With no users there is no PIN to check.
 func (a *App) recheckedMu(c *client) bool {
 	cfg := a.r().cfg
 	if len(cfg.Users) == 0 {
@@ -90,7 +89,6 @@ func (a *App) servePinRecheck(c *client, m *inMsg) {
 	a.reply(c, opResultFor("pinRecheck", &m.ID, err))
 }
 
-// critical wraps a critByFields save's mutate: a change to a Critical field needs c's recheck.
 func (a *App) critical(c *client, mutate func(*config.Config) error) func(*config.Config) error {
 	return func(cur *config.Config) error {
 		live := cur.Clone()
@@ -115,8 +113,7 @@ func (a *App) critical(c *client, mutate func(*config.Config) error) func(*confi
 	}
 }
 
-// presetFields: every field an Access preset writes (config.AccessValues) is Critical
-// (TestPresetFieldsAreCritical).
+// Every field config.AccessValues writes is Critical (TestPresetFieldsAreCritical).
 var presetFields = []struct {
 	what    string
 	changed func(a, b config.Config) bool

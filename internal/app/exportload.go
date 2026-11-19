@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -33,7 +34,6 @@ var exportEntryRe = regexp.MustCompile(`^(?:manifest\.yaml` +
 	`|art/icons/[0-9a-f]{8}\.(?:png|svg)` +
 	`|(?:names|art|art/panels|art/defaults|art/icons|art/panels/p-[0-9a-f]{8})/)$`)
 
-// exportErr is a refusal the route answers with its code and message as is.
 type exportErr struct {
 	status int
 	code   string
@@ -65,12 +65,11 @@ type exportBundle struct {
 	Art        map[string]string
 }
 
-// exportLoaders has one loader per format version this release reads.
 var exportLoaders = map[int]func(dir string) (*exportBundle, error){
 	1: loadExportV1,
 }
 
-// stageExport unpacks the zip at zipPath into dir, which must exist and be empty.
+// dir must exist and be empty.
 func stageExport(zipPath, dir string) error {
 	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -83,6 +82,9 @@ func stageExport(zipPath, dir string) error {
 	seen := map[string]bool{}
 	for _, f := range zr.File {
 		if !exportEntryRe.MatchString(f.Name) {
+			if err := newerFormat(zr.File); err != nil {
+				return err
+			}
 			return badExport("the file holds %q, which is not part of a Sode export", f.Name)
 		}
 		if seen[f.Name] {
@@ -130,24 +132,51 @@ func unpackEntry(f *zip.File, dst string) error {
 	return nil
 }
 
-// loadExport reads a staged file with the loader for its format version.
+// newerFormat: a newer Sode can add entry names, so its file answers newer_format, not bad_file.
+func newerFormat(files []*zip.File) error {
+	i := slices.IndexFunc(files, func(f *zip.File) bool { return f.Name == "manifest.yaml" })
+	if i < 0 {
+		return nil
+	}
+	rc, err := files[i].Open()
+	if err != nil {
+		return nil
+	}
+	defer rc.Close()
+	b, _ := io.ReadAll(io.LimitReader(rc, exportMaxEntry))
+	if v := manifestFormat(b); v > exportFormat {
+		return newerErr(v)
+	}
+	return nil
+}
+
+func manifestFormat(b []byte) int {
+	var head struct {
+		Format int `yaml:"format"`
+	}
+	yaml.Unmarshal(b, &head)
+	return head.Format
+}
+
+func newerErr(v int) error {
+	return &exportErr{422, "newer_format", fmt.Sprintf("made by a newer Sode: the file is export format %d, and this Sode reads up to %d", v, exportFormat)}
+}
+
 func loadExport(dir string) (*exportBundle, error) {
 	b, err := os.ReadFile(filepath.Join(dir, "manifest.yaml"))
 	if err != nil {
 		return nil, badExport("the file has no manifest.yaml, so it is not a Sode export")
 	}
-	var head struct {
-		Format int `yaml:"format"`
-	}
-	if err := yaml.Unmarshal(b, &head); err != nil || head.Format < 1 {
+	v := manifestFormat(b)
+	if v < 1 {
 		return nil, badExport("manifest.yaml has no format version, so the file is not a Sode export")
 	}
-	load, ok := exportLoaders[head.Format]
-	if !ok {
-		if head.Format > exportFormat {
-			return nil, &exportErr{422, "newer_format", fmt.Sprintf("made by a newer Sode: the file is export format %d, and this Sode reads up to %d", head.Format, exportFormat)}
-		}
-		return nil, badExport("export format %d is not one this Sode reads", head.Format)
+	load, ok := exportLoaders[v]
+	switch {
+	case !ok && v > exportFormat:
+		return nil, newerErr(v)
+	case !ok:
+		return nil, badExport("export format %d is not one this Sode reads", v)
 	}
 	return load(dir)
 }
@@ -178,7 +207,7 @@ func readExportYAML(dir, name string, prune func(*yaml.Node), uidOf map[string]s
 }
 
 // toUIDs undoes toPrefixes. only is the file's one router, else "": a reference (a mapping with n) without
-// a router names it.
+// a router names it. A raw router UID is a router not in the manifest, which toPrefixes writes as is.
 func toUIDs(n *yaml.Node, uidOf map[string]string, only string) error {
 	if n.Kind != yaml.MappingNode {
 		for _, c := range n.Content {
@@ -197,11 +226,11 @@ func toUIDs(n *yaml.Node, uidOf map[string]string, only string) error {
 			if v.Value == "" {
 				break
 			}
-			uid, ok := uidOf[v.Value]
-			if !ok {
+			if uid, ok := uidOf[v.Value]; ok {
+				v.Value = uid
+			} else if !rawRouterUIDRe.MatchString(v.Value) {
 				return fmt.Errorf("router %q is not in the manifest", v.Value)
 			}
-			v.Value = uid
 		case k == "n" && v.Kind == yaml.ScalarNode:
 			hasN = true
 		}
@@ -214,6 +243,9 @@ func toUIDs(n *yaml.Node, uidOf map[string]string, only string) error {
 	}
 	return nil
 }
+
+// rawRouterUIDRe is config's generated router UID form.
+var rawRouterUIDRe = regexp.MustCompile(`^[0-9a-f]{16}$`)
 
 func decodeInto(n *yaml.Node, name string, v any) error {
 	if err := n.Decode(v); err != nil {
@@ -343,7 +375,6 @@ func loadExportV1(dir string) (*exportBundle, error) {
 	return out, err
 }
 
-// settingsFromSections decodes the sections into one Config over the defaults, and lists them.
 func settingsFromSections(n *yaml.Node, out *exportBundle) error {
 	if n.Kind == yaml.DocumentNode && len(n.Content) == 1 {
 		n = n.Content[0]

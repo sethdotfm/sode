@@ -16,7 +16,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// setRole changes one user's Role straight in the config.
 func setRole(t *testing.T, a *App, name, role string) {
 	t.Helper()
 	cfg := a.r().cfg.Clone()
@@ -30,9 +29,8 @@ func setRole(t *testing.T, a *App, name, role string) {
 	}
 }
 
-// saveUsers is SaveUsers for a test that lists only the users it is about. It keeps the row
-// of Ada, the fixture Administrator, when a list that is not empty leaves her out. Tests of
-// the refusal for no Administrator call SaveUsers.
+// Keeps Ada, the fixture Administrator, when a non-empty list leaves her out. Tests of the no-Administrator refusal call
+// SaveUsers.
 func saveUsers(a *App, c *client, req usersReq) error {
 	if ada, ok := a.r().cfg.FindUserByName("Ada"); ok && ada.Role == config.RoleAdministrator && len(req.Users) > 0 {
 		listed := false
@@ -55,7 +53,6 @@ type wsPeer struct {
 	hello map[string]any // the last hello read
 }
 
-// dialPeer opens /ws, says hi as a main page and waits for the first lock state.
 func dialPeer(t *testing.T, a *App) *wsPeer {
 	t.Helper()
 	srv := httptest.NewServer(a.Handler(fstest.MapFS{}))
@@ -116,7 +113,6 @@ func (p *wsPeer) signIn(name, pin string) {
 	}
 }
 
-// ask sends a message with an id and returns its result.
 func (p *wsPeer) ask(typ string, id int, extra map[string]any) map[string]any {
 	p.t.Helper()
 	m := map[string]any{"t": typ, "id": id}
@@ -231,7 +227,6 @@ func TestManageUsersSetsRoles(t *testing.T) {
 	wantRefused(t, p.saveFields(6, map[string]any{"guestRole": config.RoleAdministrator}), "guestRole", reasonInvalid)
 }
 
-// usersEdits is the saved list as edits, with role changes by name.
 func usersEdits(cfg config.Config, roles map[string]string) []userEdit {
 	var out []userEdit
 	for _, u := range cfg.Users {

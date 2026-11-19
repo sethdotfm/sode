@@ -10,11 +10,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Restore from a backup on the wizard's Welcome (docs/agents/server.md): a Replace import of every category in the
-// file with no PIN recheck. Unlike Replace import it takes the file's router UID and install UID. So the backup
-// restores exactly, and later backups from here match as this install's own.
+// docs/agents/server.md. Unlike Replace import it takes the file's router UID and install UID, so later backups
+// from here match as this install's own.
 
-// setupKeyHeader carries the key that setupRestoreKey gave the browser that runs setup.
 const setupKeyHeader = "X-Sode-Setup"
 
 const setupDoneMsg = "Sode is already set up: sign in, then use Import in Settings"

@@ -39,8 +39,7 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	}
 }
 
-// Changing the locks or the idle time needs an Administrator. A Trusted user
-// is refused with guardedErr (a Role refusal), and the Administrator saves.
+// Changing the locks or Auto-lock needs an Administrator; a Trusted user gets guardedErr.
 func TestLocksNeedAnAdministrator(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", true, false)

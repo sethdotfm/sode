@@ -42,7 +42,7 @@ type Entry struct {
 	PresetID    string   `json:"presetId,omitempty"` // its hidden id, for Rights
 	Ext         bool     `json:"ext,omitempty"`
 	FollowGroup string   `json:"followGroup,omitempty"`
-	Follow      *int     `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
+	Follow      *int     `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (External follow)
 	Found       bool     `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
 	Late        []int    `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
 	Unsent      []int    `json:"unsent,omitempty"`

@@ -159,7 +159,6 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	apiJSON(w, map[string]any{"panel": p.ID, "from": old, "instance": name})
 }
 
-// streamAddr is the address of the device's last stream, for a Log row.
 func (m *panelMon) streamAddr(id, device string) string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -169,8 +168,7 @@ func (m *panelMon) streamAddr(id, device string) string {
 	return ""
 }
 
-// renameKeyless names a keyless page. It has no key and no watch, so the name only goes down its streams and the
-// page keeps it in its own browser. A Trusted user, as for an Assign; a name clash waits for the Assign.
+// A keyless page has no key and no watch, so the name lives only in its browser. A name clash waits for the Assign.
 func (a *App) renameKeyless(w http.ResponseWriter, r *http.Request, cl *apiCtx, kid, name string) {
 	if err := a.mayEveryone(cl, renameMsg); err != nil {
 		failWith(w, err)

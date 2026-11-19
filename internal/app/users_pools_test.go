@@ -55,7 +55,6 @@ func TestUserPinBackoffCapped(t *testing.T) {
 	}
 }
 
-// uptime and rereadNames are refused over a locked connection, too.
 func TestLockGatesMoreOverWebSocket(t *testing.T) {
 	a := userApp(t, true)
 	srv := httptest.NewServer(a.Handler(fstest.MapFS{}))

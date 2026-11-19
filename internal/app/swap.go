@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,8 +14,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Swap source and Swap destination (GLOSSARY.md, Swap; docs/agents/settings-saves.md, Swap). The Administrator's
-// Swap is the one Save's `swap` key; a user's own Swap from My user is swapMine and saves at once.
+// GLOSSARY.md, Swap; docs/agents/settings-saves.md, Swap. A user's own Swap (swapMine) saves at once, outside the one
+// Save.
 
 const swapKey = "swap"
 
@@ -68,7 +69,7 @@ func (sw *swapper) named(name string) bool {
 	return name != "" && slices.ContainsFunc(sw.fromNames, func(n string) bool { return sameName(n, name) })
 }
 
-// marked: m is a mark for From. A name term's mark has N -1.
+// A name term's mark has N -1.
 func (sw *swapper) marked(m config.Missing) bool {
 	return m.Kind == sw.kind() && sw.ours(m.Ref.Router) && (m.Ref.N == sw.from || m.Ref.N == -1 && sw.named(m.Ref.Name))
 }
@@ -116,7 +117,7 @@ func (sw *swapper) preset(p *config.Preset) bool {
 	return changed
 }
 
-// filterTerm text for To: the number as shown, else its exact name. Negated terms swap too.
+// The number as shown, else its exact name. Negated terms swap too.
 func (sw *swapper) filterText(text string) (string, bool) {
 	terms, ok := filterTerms(text)
 	if !ok {
@@ -238,7 +239,7 @@ func (sw *swapper) panel(p *Panel) bool {
 	return changed
 }
 
-// swapHit: an item the Swap changed (or, for a list, would change), with its Broken flag from before.
+// For a list, an item the Swap would change. Broken is from before the Swap.
 type swapHit func(it swapItem)
 
 // config swaps the presets and filter sets of c that pick allows and calls hit for each it changed. mine: a user
@@ -287,7 +288,6 @@ func (sw *swapper) config(c *config.Config, mine string, pick func(id string) bo
 	}
 }
 
-// panels swaps the panels pick allows (only those mine owns when mine is set) and writes each one changed.
 func (sw *swapper) panels(s *panelStore, cfg config.Config, mine string, pick func(id string) bool, hit swapHit) error {
 	return s.rewrite(func(p *Panel) bool {
 		if mine != "" && p.Owner != mine || !pick("panel/"+p.ID) {
@@ -378,7 +378,7 @@ func pickOf(ids []string) func(string) bool {
 
 func everyItem(string) bool { return true }
 
-// swapLabel: "Swap destination 23 for 40", numbers as shown.
+// "Swap destination 23 for 40", numbers as shown.
 func (sw *swapper) label() string {
 	side := "source"
 	if sw.dst {
@@ -390,9 +390,9 @@ func (sw *swapper) label() string {
 // swapCounts: items changed per owner, Everyone for shared items.
 type swapCounts map[string]int
 
-func (n swapCounts) add(it swapItem) { n[cmpOr(it.Owner, swapEveryone)]++ }
+func (n swapCounts) add(it swapItem) { n[cmp.Or(it.Owner, swapEveryone)]++ }
 
-// swapField: the Settings saves row's field for a Swap: counts per owner as the new value.
+// Counts per owner are the new value.
 func (sw *swapper) field(n swapCounts) SavedField {
 	f := newSavedField(swapKey, "routers", sw.label())
 	f.New, _ = json.Marshal(n)
@@ -401,7 +401,7 @@ func (sw *swapper) field(n swapCounts) SavedField {
 	if i := slices.IndexFunc(sw.fromNames, func(n string) bool { return strings.TrimSpace(n) != "" }); i >= 0 {
 		from = strings.TrimSpace(sw.fromNames[i])
 	}
-	f.Note = from + " to " + cmpOr(sw.toName, "no name")
+	f.Note = from + " to " + cmp.Or(sw.toName, "no name")
 	return f
 }
 
@@ -415,7 +415,7 @@ func swapSpec() fieldSpec {
 				return err
 			}
 			if x.swap == nil {
-				return errors.New("swap: not ready")
+				return errors.New("swap: internal error, save again")
 			}
 			n := swapCounts{}
 			x.swap.config(c, "", pickOf(req.Items), n.add)
@@ -424,15 +424,38 @@ func swapSpec() fieldSpec {
 		}}
 }
 
-// swapPanelsAfter writes the panels of a saved Swap and returns the Settings saves field with every count.
-func (a *App) swapPanelsAfter(x *saveCtx, edits map[string]fieldEdit, now config.Config) SavedField {
-	req, _ := decodeJSON[swapReq](edits[swapKey].Value)
-	n := maps.Clone(x.swapped)
-	if n == nil {
-		n = swapCounts{}
+// swapCtx: the save context of edits, with the swapper when edits hold a Swap.
+func (a *App) swapCtx(live config.Config, edits map[string]fieldEdit) (*saveCtx, error) {
+	x := &saveCtx{}
+	e, ok := edits[swapKey]
+	if !ok {
+		return x, nil
 	}
-	if err := x.swap.panels(a.panels, now, "", pickOf(req.Items), n.add); err != nil {
-		log.Printf("swap: panels not all written: %v", err)
+	req, err := decodeJSON[swapReq](e.Value)
+	if err == nil {
+		x.swap, err = a.newSwapper(live, req)
+	}
+	return x, err
+}
+
+// swapPanelsField returns the Settings saves field of a Swap that config already ran on, with the panel counts.
+// write false only counts, for a Request approval card.
+func (a *App) swapPanelsField(x *saveCtx, edits map[string]fieldEdit, now config.Config, write bool) SavedField {
+	req, _ := decodeJSON[swapReq](edits[swapKey].Value)
+	pick := pickOf(req.Items)
+	n := swapCounts{}
+	maps.Copy(n, x.swapped)
+	if write {
+		if err := x.swap.panels(a.panels, now, "", pick, n.add); err != nil {
+			log.Printf("swap: panels not all written: %v", err)
+		}
+		return x.swap.field(n)
+	}
+	for _, p := range a.panels.list() {
+		if pick("panel/"+p.ID) && x.swap.panel(&p) {
+			u, _ := now.FindUserByID(p.Owner)
+			n.add(swapItem{Owner: u.Name})
+		}
 	}
 	return x.swap.field(n)
 }
@@ -483,8 +506,7 @@ func (a *App) swapList(c *client, req swapReq) ([]swapItem, error) {
 	return out, nil
 }
 
-// swapMine: a signed-in user's Swap of their own presets, filter sets and panels. Like other My user changes it
-// writes no Settings saves row.
+// Like other My user changes it writes no Settings saves row.
 func (a *App) swapMine(c *client, req swapReq) (int, error) {
 	mine := c.userID()
 	if mine == "" {

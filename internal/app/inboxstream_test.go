@@ -13,7 +13,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// wsUser is one page's socket in a stream test.
 type wsUser struct {
 	t   *testing.T
 	ctx context.Context

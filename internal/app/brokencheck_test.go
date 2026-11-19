@@ -86,6 +86,19 @@ func TestBrokenIgnoresPollWithMostNamesBlank(t *testing.T) {
 	}
 }
 
+// A fault read is not shown or saved, so after a restart the base still has the names.
+func TestFaultReadKeepsNamesAndTable(t *testing.T) {
+	a := brokenApp(t)
+	readNames(a, []string{"", "", "", ""}, with(checkDsts, 1, ""))
+	a.mu.Lock()
+	src := a.router.srcNames[2]
+	a.mu.Unlock()
+	b, _ := os.ReadFile(namesTablePath(a))
+	if src != "CAM 3" || !strings.Contains(string(b), "CAM 3") {
+		t.Fatalf("fault read shown (%q) or saved:\n%s", src, b)
+	}
+}
+
 func TestRenameUpdatesStoredNameAndLogs(t *testing.T) {
 	a := brokenApp(t)
 	renamed := with(checkSrcs, 2, "CAM C")

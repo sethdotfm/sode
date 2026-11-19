@@ -12,8 +12,7 @@ import (
 	"time"
 )
 
-// uptimeKeep: older lines are dropped; older ranges show no data. The file also keeps under
-// keepBytes (savelog.go has the rule).
+// uptimeKeep: prune drops older lines, so older ranges show no data. The byte cap is in savelog.go.
 const uptimeKeep = keepAge
 
 // slowAckMs: ACK time above which a message is slow (yellow in the graph); under the
@@ -66,7 +65,7 @@ type Uptime struct {
 	mins  []minute // completed minutes with problems, oldest first
 	cur   minute   // the minute being counted
 	pend  []byte   // lines not yet in the file
-	size  int      // bytes in the file
+	size  int      // bytes
 	cap   int
 }
 
@@ -181,7 +180,7 @@ func (u *Uptime) sizeCut() int64 {
 
 func (u *Uptime) rewrite() error { return replaceFile(u.path, u.lines()) }
 
-// lines: the whole file. Caller holds mu or owns u.
+// Caller holds mu or owns u.
 func (u *Uptime) lines() []byte {
 	var b []byte
 	for _, t := range u.trans {

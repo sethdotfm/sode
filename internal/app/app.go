@@ -606,19 +606,20 @@ func (a *App) flush() {
 		quiet := got && time.Since(a.nameRxAt) > namesQuiet
 		if quiet || time.Since(a.nameReqAt) > namesTimeout {
 			// A read cut short by the timeout is not a full poll; neither is one with a side that never answered.
+			fault := false
 			if quiet && len(a.router.newSrc) > 0 && len(a.router.newDst) > 0 {
-				check = a.countPollMu(namePoll{a.router.newSrc, a.router.newDst})
+				check, fault = a.countPollMu(namePoll{a.router.newSrc, a.router.newDst})
 			}
 			changed := false
 			// A side with no replies keeps its old names.
-			if next := refreshed(a.router.srcNames, a.router.newSrc); next != nil {
+			if next := refreshed(a.router.srcNames, a.router.newSrc); next != nil && !fault {
 				a.router.srcNames, changed = next, true
 			}
-			if next := refreshed(a.router.dstNames, a.router.newDst); next != nil {
+			if next := refreshed(a.router.dstNames, a.router.newDst); next != nil && !fault {
 				a.router.dstNames, changed = next, true
 			}
 			a.router.newSrc, a.router.newDst = nil, nil
-			if got {
+			if got && !fault {
 				a.router.namesAt = time.Now()
 				a.router.savedAt = time.Time{}
 			}

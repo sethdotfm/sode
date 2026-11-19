@@ -37,7 +37,7 @@ type sim struct {
 	noSalvo bool
 	// SIM_SALVO_ANNOUNCE: a Go set's changes are announced, late
 	announceGo bool
-	namesFile  string // SIM_NAMES_FILE (renamed)
+	namesFile  string
 }
 
 const salvoDelay = 6 * time.Millisecond
@@ -421,8 +421,7 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 	s.later(c, swp08.GoDoneAck(swp08.GoSet, g))
 }
 
-// renamed lays SIM_NAMES_FILE over the names. It is read again on every name request, so a test can rename while
-// the simulator runs. Lines are "src 12 CAM C" or "dst 0 PGM" (0-based); "src 12" with no name makes it blank.
+// Read again on every name request, so a test can rename while the simulator runs. Lines: "src 12 CAM C", "dst 0 PGM
 func (s *sim) renamed(list []string, dest bool) []string {
 	if s.namesFile == "" {
 		return list

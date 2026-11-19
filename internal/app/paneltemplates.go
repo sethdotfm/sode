@@ -39,10 +39,8 @@ var (
 	contentKeys = []string{"n", "router", "scope", "id", "name", "caption"}
 )
 
-// Template is a file's content. Owner is the id of the user a Me template belongs to. For an
-// Everyone template, it is the id of the user who saved it. As sent, owner is the live name. Settings is nil when the template carries none. Sources keeps
-// Source and Preset contents, Dests keeps Destination contents. Contents is the single flag from
-// before the split. A save or file that sets it means both, and it is never stored or sent back.
+// Owner is a user id; as sent it is the live name. Contents is the old single flag: a file that sets it means both, and it
+// is never stored.
 type Template struct {
 	ID       string      `yaml:"id" json:"id"`
 	Name     string      `yaml:"name" json:"name"`
@@ -208,7 +206,6 @@ func (s *templateStore) create(t Template) (Template, error) {
 	return s.insert(t, templateMax, errTemplateCap, vet, func(t *Template) error { return s.writeLocked(*t) })
 }
 
-// put stores an imported template: over the one of its id, else as a new one that keeps a free id.
 func (s *templateStore) put(t Template) (Template, error) {
 	s.mu.Lock()
 	_, had := s.by[t.ID]
@@ -286,8 +283,7 @@ func (a *App) apiTemplateRead(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	}
 }
 
-// mayEveryone is the rule of story 80, for Everyone templates and Checkpoint sets: the key's
-// user is a Trusted user or higher. A PIN in the body opens nothing. msg is the refusal.
+// Everyone templates and Checkpoint sets need a Trusted user or higher. A PIN in the body opens nothing.
 func (a *App) mayEveryone(cl *apiCtx, msg string) error {
 	if a.trusted(cl.Actor.User) {
 		return nil

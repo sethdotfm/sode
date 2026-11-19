@@ -67,7 +67,7 @@ func TestRightsRoundTrip(t *testing.T) {
 
 func TestRightsAllow(t *testing.T) {
 	r := Rights{Sources: nums(4), Presets: &[]string{"Cam"}}
-	if !r.AllowsSource(4) || r.AllowsSource(5) || !r.AllowsDst(9) || !r.AllowsLevel(1) {
+	if !r.AllowsSource(Ref{N: 4}) || r.AllowsSource(Ref{N: 5}) || !r.AllowsDst(Ref{N: 9}) || !r.AllowsLevel(1) {
 		t.Error("source list or unset lists wrong")
 	}
 	if !r.AllowsPreset("Cam") || r.AllowsPreset("Other") {

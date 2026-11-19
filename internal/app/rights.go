@@ -113,7 +113,7 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 				return "preset is outside your rights"
 			}
 			return fmt.Sprintf("preset %q is outside your rights", it.Preset)
-		case !rt.AllowsDst(it.Dst):
+		case !rt.AllowsDst(config.Ref{N: it.Dst}):
 			return kind("destination", it.Dst+off)
 		}
 		for _, ui := range it.Levels {
@@ -121,7 +121,7 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 				return fmt.Sprintf("level %s is outside your rights", r.cfg.LevelLabel(ui))
 			}
 		}
-		if !rt.AllowsSource(it.Src) && !a.undoMatches(it) {
+		if !rt.AllowsSource(config.Ref{N: it.Src}) && !a.undoMatches(it) {
 			return kind("source", it.Src+off)
 		}
 	}

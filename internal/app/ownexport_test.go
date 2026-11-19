@@ -53,21 +53,29 @@ func ownExported(t *testing.T, a *App, tok string, req exportReq) []byte {
 	return rec.Body.Bytes()
 }
 
-func ownMultipart(t *testing.T, a *App, tok, path string, zipBytes []byte, req importReq) *httptest.ResponseRecorder {
+// postMultipart sends an import or restore request: the plan part, then the file part.
+func postMultipart(t *testing.T, a *App, path string, plan any, zipBytes []byte, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	pw, _ := mw.CreateFormField("plan")
-	json.NewEncoder(pw).Encode(req)
+	json.NewEncoder(pw).Encode(plan)
 	fw, _ := mw.CreateFormFile("file", "export.zip")
 	fw.Write(zipBytes)
 	mw.Close()
 	r := httptest.NewRequest("POST", path, &body)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
-	r.Header.Set(sessionHeader, tok)
+	for k, v := range headers {
+		r.Header.Set(k, v)
+	}
 	rec := httptest.NewRecorder()
 	a.Handler(fstest.MapFS{}).ServeHTTP(rec, r)
 	return rec
+}
+
+func ownMultipart(t *testing.T, a *App, tok, path string, zipBytes []byte, req importReq) *httptest.ResponseRecorder {
+	t.Helper()
+	return postMultipart(t, a, path, req, zipBytes, map[string]string{sessionHeader: tok})
 }
 
 func ownChecked(t *testing.T, a *App, tok string, zipBytes []byte, req importReq) ownCheck {

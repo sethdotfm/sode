@@ -402,9 +402,10 @@ type instOut struct {
 	Page        bool       `json:"page,omitempty"`
 	Addr        string     `json:"addr,omitempty"`
 	SignIn      string     `json:"signIn,omitempty"`
-	User        string     `json:"user,omitempty"`
+	User        string     `json:"user,omitempty"`    // the live name
 	Trusted     bool       `json:"trusted,omitempty"` // User's flag, live: a Trusted user can open every panel
 	StreamSince *time.Time `json:"streamSince,omitempty"`
+	userID      string
 }
 
 func (m *panelMon) instances(id string) []instOut {
@@ -415,7 +416,7 @@ func (m *panelMon) instances(id string) []instOut {
 	for _, in := range m.inst[id] {
 		o := instOut{Device: in.device, Seen: in.seen.UTC(), Online: in.live(now), Stream: len(in.conns) > 0, Uptime: in.uptime(now)}
 		if in.page {
-			o.Page, o.Addr, o.SignIn, o.User = true, in.who.addr, in.who.signIn, in.who.user
+			o.Page, o.Addr, o.SignIn, o.userID = true, in.who.addr, in.who.signIn, in.who.user
 		}
 		if o.Stream {
 			s := in.streamSince.UTC()
@@ -716,8 +717,7 @@ func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	if edit {
 		rows := a.mon.instances(p.ID)
 		for i := range rows {
-			if rows[i].SignIn == "user" {
-				id := rows[i].User // an id until here; the editor shows the name
+			if id := rows[i].userID; rows[i].SignIn == "user" {
 				rows[i].Trusted, rows[i].User = a.trusted(id), a.r().cfg.UserName(id)
 			}
 		}

@@ -50,7 +50,6 @@ func TestChromeSettingsFindSkipsHidden(t *testing.T) {
 	b.check()
 }
 
-// signInSettings signs Ana (PIN 1234) in from Settings' My user section.
 func signInSettings(b *tab) {
 	b.t.Helper()
 	b.waitFor("Sign in shown", `!document.getElementById('account-login').hidden`)

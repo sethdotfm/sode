@@ -169,8 +169,7 @@ func TestUptimeCountsEvenIfNotSaved(t *testing.T) {
 	}
 }
 
-// Browsers connecting and dropping and what they fire show in the log. The v1 unlock and
-// lock messages are unknown types now: nothing runs and nothing is logged.
+// Browsers that connect, drop and fire show in the log. `unlock` and `lock` are unknown types: nothing runs or logs.
 func TestBrowserAndCommandRows(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Normalize()

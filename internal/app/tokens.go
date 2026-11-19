@@ -193,7 +193,6 @@ func (s *tokenStore) user(t string, cfg config.Config) (config.User, bool) {
 	return valid(r, cfg)
 }
 
-// live: the token with this sha256 key still exists, is valid and was issued to user id owner.
 func (s *tokenStore) live(hash, owner string, cfg config.Config) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()

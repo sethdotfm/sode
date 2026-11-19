@@ -12,9 +12,8 @@ import (
 
 // --- settings
 
-// saveSettings: saves are serialized. The message decodes over a copy of the live config,
-// so a key it lacks (an old page) keeps its live value. Lists in it replace, and null clears
-// a list.
+// One save at a time. msg decodes over a copy of the live config, so a key an old page lacks keeps its live value. Lists
+// replace; null clears a list.
 func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -72,7 +71,6 @@ func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 // sourceKeys: one Save fields that only Manage users and the API section write, never the form.
 var sourceKeys = map[string]bool{"maxPinLen": true, "guestRights": true, "api": true, "guestApiScopes": true}
 
-// configKeys: the fields the config message still takes, the one Save's form fields.
 func configKeys() []string {
 	var out []string
 	for k := range saveFields {
@@ -254,9 +252,7 @@ func (guardedErr) As(target any) bool {
 	return false
 }
 
-// trustedMayNotChange: the config message keeps the one Save's section rule (onesave.go), so a
-// Trusted user changes only fields of sections a Trusted user edits. next is compared
-// normalized.
+// The config message keeps the one Save's section rule (onesave.go). next is compared normalized.
 func trustedMayNotChange(live, next config.Config) error {
 	n := next.Clone()
 	n.Normalize()

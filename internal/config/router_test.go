@@ -109,7 +109,6 @@ func TestNormalizeMakesUIDOnce(t *testing.T) {
 	}
 }
 
-// A file without a router UID gets one at Load, written back so it holds across restarts.
 func TestLoadKeepsAMadeUID(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(path, []byte("format: 2\nrouters:\n  - address: 10.0.0.50:8910\n"), 0o600); err != nil {

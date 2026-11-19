@@ -2,7 +2,6 @@ package config
 
 import "testing"
 
-// A file from before the Panels section opens Public panels and prefills new panels as Public.
 func TestPanelsFieldsDefaultForAnOldFile(t *testing.T) {
 	c, err := Parse([]byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\n"))
 	if err != nil {

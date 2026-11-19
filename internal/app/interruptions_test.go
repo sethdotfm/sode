@@ -65,7 +65,6 @@ func newFloor(t *testing.T) *floor {
 	return f
 }
 
-// live counts what runs on the floor now.
 func (f *floor) live() map[string]int {
 	a := f.a
 	cfg := a.r().cfg
@@ -209,7 +208,7 @@ func TestInterruptionsPublicPanelsOffEndsEveryPublicKey(t *testing.T) {
 	want := map[string]int{"panels": 1}
 	wantCounts(t, "review", rv, want)
 	wantCounts(t, "save", sv, want)
-	if s := texts(sv); !strings.Contains(s, "Lobby") || !strings.Contains(s, "1 tablet") || !strings.Contains(s, "comes back by itself") {
+	if s := texts(sv); !strings.Contains(s, "Lobby") || !strings.Contains(s, "1 tablet") || !strings.Contains(s, "it open now") {
 		t.Fatalf("Public panel line: %s", s)
 	}
 	f.wantEnded(before, map[string]int{"tablet keys": 0})

@@ -341,7 +341,7 @@ func TestAdminKeyMessages(t *testing.T) {
 	waitLogged(t, a, 5)
 }
 
-// Every admin key message refuses anyone below an Administrator, a Trusted user too.
+// Every Administrator key message refuses a lower Role, a Trusted user too.
 func TestAdminKeyMessagesNeedPin(t *testing.T) {
 	a := keyTestApp(t)
 	setFlags(t, a, "Ana", true, false)
@@ -382,10 +382,10 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	}
 	cfg := a.r().cfg
 	ana, _ := cfg.FindUserByName("Ana")
-	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(2) || ana.Rights.AllowsSource(3) {
+	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(config.Ref{N: 2}) || ana.Rights.AllowsSource(config.Ref{N: 3}) {
 		t.Fatalf("Ana %+v", ana)
 	}
-	if cfg.GuestRights.Dsts == nil || cfg.GuestRights.AllowsDst(0) {
+	if cfg.GuestRights.Dsts == nil || cfg.GuestRights.AllowsDst(config.Ref{N: 0}) {
 		t.Fatalf("guest %+v %v", cfg.GuestRights, cfg.GuestAPIScopes)
 	}
 

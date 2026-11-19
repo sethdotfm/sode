@@ -78,8 +78,7 @@ func keyHash(secret string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// keyOwner is who a key acts as: a user (User is the user id) or an API client (by Name). A
-// user's Name is only the label: lists fill it live (withLiveNames).
+// A user's Name is for display: lists fill it live (withLiveNames).
 type keyOwner struct {
 	Kind string `json:"kind"` // actorUser or actorClient
 	User string `json:"user,omitempty"`
@@ -93,7 +92,6 @@ func (o keyOwner) is(p keyOwner) bool {
 	return o.Kind == p.Kind && strings.EqualFold(o.Name, p.Name)
 }
 
-// userOwner is the owner of u's own keys.
 func userOwner(u config.User) keyOwner { return keyOwner{Kind: actorUser, User: u.ID, Name: u.Name} }
 
 // label is the owner's live name; a user gone since reads as the name the key was made under.
@@ -104,7 +102,6 @@ func (o keyOwner) label(cfg config.Config) string {
 	return o.Name
 }
 
-// withLiveNames gives each user key its owner's current name, for the page's lists.
 func withLiveNames(cfg config.Config, keys []apiKey) []apiKey {
 	for i := range keys {
 		keys[i].Owner.Name = keys[i].Owner.label(cfg)

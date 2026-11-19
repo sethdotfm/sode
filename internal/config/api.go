@@ -3,7 +3,6 @@ package config
 import (
 	"cmp"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 	"unicode"
@@ -64,13 +63,13 @@ func sameRef(a, b Ref) bool {
 	return a.N == b.N && (a.Router == "" || b.Router == "" || a.Router == b.Router)
 }
 
-// inRefs matches the number on any router: v2.0 drives one router.
-func inRefs(l *[]Ref, n int) bool {
-	return l == nil || slices.ContainsFunc(*l, func(r Ref) bool { return r.N == n })
+func inRefs(l *[]Ref, x Ref) bool {
+	return l == nil || slices.ContainsFunc(*l, func(r Ref) bool { return sameRef(r, x) })
 }
 
-func (r Rights) AllowsSource(i int) bool    { return inRefs(r.Sources, i) }
-func (r Rights) AllowsDst(i int) bool       { return inRefs(r.Dsts, i) }
+// A blank router in x is the one router.
+func (r Rights) AllowsSource(x Ref) bool    { return inRefs(r.Sources, x) }
+func (r Rights) AllowsDst(x Ref) bool       { return inRefs(r.Dsts, x) }
 func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
 func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
 func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
@@ -124,7 +123,7 @@ func intersectBy[T any](l, o *[]T, same func(a, b T) bool) *[]T {
 
 func eq[T comparable](a, b T) bool { return a == b }
 
-// Intersect is what both r and o grant, with r's Extra. Hidden on either side is hidden.
+// Hidden on either side is hidden; r's Extra is kept.
 func (r Rights) Intersect(o Rights) Rights {
 	out := Rights{Sources: intersectBy(r.Sources, o.Sources, sameRef), Dsts: intersectBy(r.Dsts, o.Dsts, sameRef),
 		Levels: intersectBy(r.Levels, o.Levels, eq[int]), Presets: intersectBy(r.Presets, o.Presets, eq[string]),
@@ -166,7 +165,7 @@ type APIClient struct {
 	Rights Rights   `yaml:"rights,omitempty" json:"rights"`
 	Panel  string   `yaml:"panel,omitempty" json:"panel,omitempty"`
 	Owner  string   `yaml:"owner,omitempty" json:"-"`
-	// OwnerName is Owner's live name for the Administrator's list; never stored.
+	// Never stored.
 	OwnerName string `yaml:"-" json:"ownerName,omitempty"`
 	// Networks limits where the client's keys work: CIDRs, empty means anywhere. Set through a
 	// panel's Share tab (panelnet.go).
@@ -174,7 +173,6 @@ type APIClient struct {
 	Extra    map[string]any `yaml:",inline" json:"-"`
 }
 
-// APISettings: Settings > API, saved through the one Save.
 type APISettings struct {
 	RateLimit    int            `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
 	TakeCap      int            `yaml:"takeCap" json:"takeCap"`
@@ -196,7 +194,6 @@ func (c Config) FindAPIClient(name string) (APIClient, bool) {
 	return APIClient{}, false
 }
 
-// fillRouter: a blank router is the one router.
 func (r *Rights) fillRouter(uid string) {
 	for _, l := range []*[]Ref{r.Sources, r.Dsts} {
 		if l == nil {
@@ -210,17 +207,7 @@ func (r *Rights) fillRouter(uid string) {
 	}
 }
 
-// retiredAPIKeys went before v2.0 shipped (the API is always on, key caps are fixed), so dev files
-// that hold them are not warned about. Extra is shared by Clone, hence the copy.
-var retiredAPIKeys = []string{"enabled", "maxUserKeys", "maxClientKeys"}
-
 func (c *Config) normalizeAPI() {
-	if slices.ContainsFunc(retiredAPIKeys, func(k string) bool { _, ok := c.API.Extra[k]; return ok }) {
-		c.API.Extra = maps.Clone(c.API.Extra)
-		for _, k := range retiredAPIKeys {
-			delete(c.API.Extra, k)
-		}
-	}
 	c.GuestRights.Visibility = strings.ToLower(strings.TrimSpace(c.GuestRights.Visibility))
 	c.GuestRights.fillRouter(c.UID)
 	for i := range c.Users {

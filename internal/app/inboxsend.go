@@ -24,7 +24,7 @@ const (
 	scopeEveryone = "global"
 )
 
-var errGuestInbox = errors.New("sign in to send or receive copies: a Guest has no Inbox")
+var errGuestInbox = errors.New("sign in to use the Inbox")
 
 // inboxReq is the one request body of every inbox message; each uses only its part.
 type inboxReq struct {
@@ -156,7 +156,6 @@ func (a *App) pushInboxMu(c *client, fresh []string) {
 	a.deliver(c, b)
 }
 
-// pushInboxTo pushes to every connection of the users ids names.
 func (a *App) pushInboxTo(ids map[string]bool, fresh []string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -264,8 +263,8 @@ func (a *App) SendCopy(c *client, req inboxReq) ([]inboxCard, cardItems, error) 
 	return stored, items, err
 }
 
-// freezeItems copies what the request names. Me and Everyone items and panels are read here and must
-// be ones from can see; only This browser items come in the request.
+// Me and Everyone items and panels are read here, and from must be able to see them; only This browser items come in the
+// request.
 func (a *App) freezeItems(cfg config.Config, from config.User, req inboxReq) (cardItems, map[string][]byte, error) {
 	var it cardItems
 	art := map[string][]byte{}
@@ -406,7 +405,6 @@ func (a *App) senderName(k inboxCard) string {
 	return "a removed user"
 }
 
-// inboxSweep expires what is due, logs each one and tells both users.
 func (a *App) inboxSweep() {
 	a.inboxEnded(a.inbox.sweep(a.now(), a.inboxTTL, inboxKeep))
 }
@@ -432,5 +430,5 @@ func (a *App) inboxFollowUsers(removed map[string]bool) {
 	}
 }
 
-// inboxSweepEvery is how often periodic expires cards; a read or an answer also does.
+// A read or an answer also sweeps.
 const inboxSweepEvery = time.Minute

@@ -14,8 +14,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A preset saved over the WebSocket is stored as {router, n, name} references with a hidden id.
-// A rename keeps the id, and firing it routes what the numbers name, as before references.
+// A preset saved over the WebSocket is stored as {router, n, name} references with a hidden id. A rename keeps the id, and
+// the preset fires what the numbers name.
 func TestPresetSavedAsReferencesFiresSameRoutes(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) { c.Presets = nil })
 	uid := a.r().cfg.UID
