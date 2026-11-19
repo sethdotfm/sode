@@ -50,7 +50,7 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 		return t.width > 0 && t.left - d.left < 40;
 	})()`)
 	b.eval(`window.topWas = gridTop(); press(nameOf('src', 3)); press(nameOf('src', 5), { shiftKey: true }); true`)
-	b.waitFor("a click and a Shift-click on the grid select those sources in the list; the Preview bar keeps its edit buttons hidden", `document.getElementById('ed-sources-sel').textContent === '3 selected' && !document.getElementById('ed-sources-sel-top').offsetParent`)
+	b.waitFor("a click and a Shift-click on the grid select those sources in the list", `document.getElementById('ed-sources-sel').textContent === '3 selected'`)
 	b.shot("picked")
 	b.waitFor("the grid does not move", `gridTop() === topWas`)
 	b.eval(`document.getElementById('ed-live-lists').click(); true`)

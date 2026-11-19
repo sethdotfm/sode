@@ -228,9 +228,15 @@ export function watchBox(p, setWatch) {
   return el('div', 'sode-ov__watchbox', el('label', 'pb-check sode-ov__watch', input, el('span', 'pb-check__label', 'Notify when offline')), note, allow);
 }
 
-// A poll leaves the list alone while focus is in it.
+// A poll skips the list while a field has focus; a focused button gets its copy focused.
 export function paintOpenNow(p, handlers) {
   const old = document.getElementById('panels-open');
-  if (!old || !p || old.dataset.for !== p.id || old.contains(document.activeElement)) return;
-  old.replaceWith(openNow(p, handlers));
+  const f = document.activeElement;
+  const held = old?.contains(f);
+  if (!old || !p || old.dataset.for !== p.id || (held && f.matches('input'))) return;
+  const fresh = openNow(p, handlers);
+  old.replaceWith(fresh);
+  if (!held) return;
+  const same = [...f.attributes].filter((a) => a.name.startsWith('data-')).map((a) => `[${a.name}="${CSS.escape(a.value)}"]`);
+  if (same.length) fresh.querySelector(same.join(''))?.focus();
 }
