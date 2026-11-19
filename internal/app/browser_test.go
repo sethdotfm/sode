@@ -107,14 +107,27 @@ func startBrowser(t *testing.T) *tab {
 		}
 		c := cancel
 		stopWatch := watchChrome(cmd.Process.Pid)
-		t.Cleanup(func() { c(); _ = cmd.Wait(); stopWatch() })
+		exited := make(chan struct{})
+		go func() { _ = cmd.Wait(); close(exited) }()
+		t.Cleanup(func() { c(); <-exited; stopWatch() })
 
-		// Chrome writes the port it chose into the profile directory.
-		for deadline := time.Now().Add(6 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		// Chrome writes the port it chose into the profile directory. A first start on a fresh CI runner can take
+		// over 6 s. Each retry is cold again, so a try stops early only when Chrome exits.
+		started := time.Now()
+		for deadline := started.Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+			select {
+			case <-exited:
+				deadline = time.Now()
+				continue
+			default:
+			}
 			if b, err := os.ReadFile(filepath.Join(dir, "DevToolsActivePort")); err == nil {
 				port = strings.SplitN(string(b), "\n", 2)[0]
 				break
 			}
+		}
+		if d := time.Since(started); d > 6*time.Second {
+			t.Logf("Chrome start try %d: %v, port %q", try+1, d.Round(time.Millisecond), port)
 		}
 		if port == "" {
 			c()
