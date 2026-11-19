@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Cmd or Ctrl+A on the editor grid selects every square, and the same chord in the name field is left to the field.
 func TestChromeEditorSelectAll(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -49,7 +48,6 @@ func TestChromeEditorSelectAll(t *testing.T) {
 		b.waitFor(mod+"+A selects every square", `squares() === 29 && picked() === 29`)
 	}
 
-	// One square picked, then the name field focused: the chord there must leave the grid's selection as it is.
 	b.eval(`press(grid, { key: 'Escape', code: 'Escape' }); press(grid, { key: 'ArrowDown', code: 'ArrowDown' })`)
 	b.waitFor("one square selected", `picked() === 1`)
 	b.eval(`document.getElementById('ed-name').focus(); window.before = picked(); true`)

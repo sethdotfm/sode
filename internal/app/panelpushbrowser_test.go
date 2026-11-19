@@ -8,8 +8,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Push modal on /panels: Ana pushes EVS 1 to the EVS group, saves a set, then restores a
-// checkpoint. The router is the simulator, which the page never uses here.
 func TestChromePushFlow(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -52,7 +50,6 @@ func TestChromePushFlow(t *testing.T) {
 		}
 	}
 
-	// A set, then restore the checkpoint of EVS 2 from the Restore tab.
 	b.eval(`document.querySelector('#tab-sets').click()`)
 	b.waitFor("Save needs a name", `document.querySelector('#panel-sets .pb-btn--outline').disabled === true`)
 	b.eval(`(() => { const i = document.querySelector('#panel-sets input.pb-input'); i.value = 'Show A'; i.dispatchEvent(new Event('input', {bubbles: true})); })()`)

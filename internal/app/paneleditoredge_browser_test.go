@@ -10,8 +10,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A paste past the edge of the grid asks Clip, Wrap or Cancel. Escape and Cancel change nothing and give focus
-// back to the grid. Clip and Wrap are one undo step each. Wrap follows the fill order picked in Find.
 func TestChromeEditorPasteEdge(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -53,7 +51,6 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	b.eval(`goTo(1, 1); press('ArrowDown', 'ArrowDown', { shiftKey: true }); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { metaKey: true })`)
 	b.waitFor("copied", `stat() === 'Copied 3 cells.'`)
 
-	// Escape: nothing changes, the selection stays and focus is back on the grid.
 	b.eval(`pasteAt(3, 8)`)
 	b.waitFor("dialog with the counts and the fill order", `edge()?.textContent.includes('Clip drops 1 cell that falls outside the grid and shrinks 1 merged cell.') && edge().textContent.includes('Wrap moves 2 cells along Across, then down.') && document.activeElement.id === 'ed-edge-clip'`)
 	b.shot("paste-edge")
@@ -61,7 +58,6 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	b.waitFor("Escape changes nothing", `!edge() && stat() === 'Nothing pasted.' && document.activeElement.id === 'ed-grid' && !!document.querySelector('.is-sel[data-r="3"][data-c="8"]')`)
 	b.waitSaved("Escape left it saved")
 
-	// Clip, reached with the arrow keys; then undo.
 	b.eval(`pasteAt(3, 8)`)
 	b.waitFor("dialog again", `document.activeElement?.id === 'ed-edge-clip'`)
 	b.eval(`press('ArrowRight', 'ArrowRight', {}, document.activeElement)`)
@@ -80,7 +76,6 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	b.eval(`press('z', 'KeyZ', { metaKey: true })`)
 	b.waitFor("Clip undone", `stat() === 'Undid paste.' && state() === 'Unsaved changes' && !document.querySelector('.sode-ed__sq[data-r="4"][data-c="8"]')?.textContent.includes('C')`)
 
-	// Wrap across, the order Find starts on.
 	b.eval(`pasteAt(3, 8)`)
 	b.waitFor("dialog for Wrap", `!!edge()`)
 	b.eval(`document.getElementById('ed-edge-wrap').click()`)
@@ -94,7 +89,6 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	b.eval(`press('z', 'KeyZ', { metaKey: true })`)
 	b.waitFor("Wrap undone", `stat() === 'Undid paste.' && state() === 'Unsaved changes'`)
 
-	// Find's fill order is the one Wrap names and walks.
 	b.eval(`goTo(3, 1); press('z', 'KeyZ')`)
 	b.waitFor("Find open", `document.querySelector('.sode-find input') === document.activeElement`)
 	b.eval(`document.querySelector('.sode-find__orders [data-order="down"]').click()`)

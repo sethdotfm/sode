@@ -375,7 +375,6 @@ export function entryNote(e) {
   return parts.length ? el('span', 'sode__hist-note', ` (${parts.join('; ')})`) : null;
 }
 
-// One `entry` message: a live entry, or an update to a loaded one.
 export function liveEntry(m) {
   const how = putEntry(m.e, S, m.update);
   if (how === 'new') S.newId = m.e.id; // views animate a new one in, one time, not a correction

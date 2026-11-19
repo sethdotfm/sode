@@ -10,8 +10,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A preset Item link opens the preset popup on that preset on its own install and leaves the address. A link
-// from another install, for a preset or a panel, opens nothing and says why.
 func TestChromeItemLinkWorksOnlyOnItsInstall(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -36,7 +34,6 @@ func TestChromeItemLinkWorksOnlyOnItsInstall(t *testing.T) {
 	b.waitFor("the link leaves the address", `location.hash === ''`)
 	b.check()
 
-	// The link the preset editor makes, opened as is, does the same.
 	b.eval(`[...document.querySelectorAll('.sode__preset-pop button')].find((x) => x.textContent === 'Preset Editor').click(); true`)
 	pick := `[...document.querySelectorAll('select')].find((s) => s.offsetParent && [...s.options].some((o) => o.value === 'global:Show'))`
 	b.waitFor("the preset editor", "!!"+pick)
@@ -49,11 +46,11 @@ func TestChromeItemLinkWorksOnlyOnItsInstall(t *testing.T) {
 	b.check()
 
 	b.open(srv.URL + "/?other#preset=pshow&install=0000000000000000")
-	b.waitFor("another install's link says so", `document.body.innerText.includes('made on another Sode install')`)
+	b.waitFor("another install's link says so", `document.body.innerText.includes('Item link from another Sode install')`)
 	b.waitFor("and opens no popup", `document.querySelector('.sode__preset-pop').closest('.pb-modal-backdrop').hidden`)
 	b.check()
 
 	b.open(srv.URL + "/panels/p-00000000#install=0000000000000000")
-	b.waitFor("a panel link from another install says so", `document.getElementById('panels-note')?.textContent.includes('made on another Sode install')`)
+	b.waitFor("a panel link from another install says so", `document.getElementById('panels-note')?.textContent.includes('Item link from another Sode install')`)
 	b.check()
 }

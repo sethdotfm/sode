@@ -1,6 +1,4 @@
-// The Cell tab's Default artwork row. It makes the cell's artwork and Hide text its item's default, clears that
-// default, or puts the cell back on it. Wording is defaultNote in editorrules.js. The server refuses a user who is not
-// Trusted, and the reason shows below.
+// Wording: defaultNote in editorrules.js. The server refuses a user who is not Trusted.
 import { el } from './core.js';
 import { btn } from './formbits.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';

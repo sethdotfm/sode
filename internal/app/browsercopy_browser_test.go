@@ -5,13 +5,16 @@ import (
 	"testing"
 )
 
-// Copy this browser to My user: Move sends the values to Ana's profile and only then takes them
-// off this browser. The active filter set follows to Me and an unpinned preset stays unpinned.
+// Move sends the values to Ana's profile before it removes them from this browser. The active filter set follows to Me and an unpinned preset stays unpinned.
+// order key moves to Me in place.
 func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim)
 	srv := seamServer(t, a)
+	if _, err := a.ProfileSave(watched(t, a, "10.0.0.9", "1234"), profileReq{Name: "Ana", PinOrder: []string{"global:x", "local:p1", "user:y"}}); err != nil {
+		t.Fatal(err)
+	}
 
 	b.open(srv.URL + "/")
 	b.waitFor("the page", `document.readyState === 'complete' && localStorage.getItem('sode-format') === '2'`)
@@ -53,6 +56,9 @@ func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 	if p.Prefs["theme"] != "dark" || len(p.FilterSets) != 1 || p.FilterSets[0].Name != "Cams" || len(p.Presets) != 1 || p.Presets[0].Name != "Open" ||
 		p.Presets[0].Pinned == nil || *p.Presets[0].Pinned {
 		t.Fatalf("Ana's profile %+v", p)
+	}
+	if p.Presets[0].ID != "p1" || fmt.Sprint(p.PinOrder) != "[global:x user:p1 user:y]" {
+		t.Fatalf("preset id %q, pin order %v", p.Presets[0].ID, p.PinOrder)
 	}
 	n := 0
 	for _, e := range waitSaves(t, a, 1) {

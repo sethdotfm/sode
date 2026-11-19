@@ -10,7 +10,7 @@ import (
 )
 
 // Run setup again opens the wizard with the current values and no Your user. Finish stages only
-// what changed into the one Save, which takes one recheck and deletes nothing.
+// what changed into the one Save, which needs one recheck and deletes nothing.
 func TestChromeRunSetupAgain(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

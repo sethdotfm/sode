@@ -11,9 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A panel with fixed destinations draws no Destination cells: a Source press stages a route to each
-// fixed destination and Take sends them. A saved edit to the list
-// arrives through the refresh banner, and Instant mode then patches on the press.
 func TestChromePanelFixedDests(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -84,7 +81,6 @@ func TestChromePanelFixedDests(t *testing.T) {
 	b.check()
 }
 
-// waitRouted waits for the tally to show dst taken from src.
 func waitRouted(t *testing.T, a *App, key string, dst, src int) {
 	t.Helper()
 	want := fmt.Sprintf(`"dst":%d,"level":1,"src":%d`, dst, src)

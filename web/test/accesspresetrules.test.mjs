@@ -106,7 +106,7 @@ test('after a partly refused save, the fields that still differ from the preset 
     ],
   );
   assert.match(gapText(gaps[0]), /Main page opens with no PIN/);
-  assert.match(gapText(gaps[1]), /apps with no key/i);
+  assert.match(gapText(gaps[1]), /^Keyless API: on$/);
 });
 
 test('nothing differs after a whole save', () => {

@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Settings in five topics. Each band has its accent line on a raised surface. The router block is under Routers,
-// with the title of the router. The sidebar tree opens the topic in view and marks the section. Search names the topic.
 func TestChromeSettingsTopics(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -64,7 +62,6 @@ func TestChromeSettingsTopics(t *testing.T) {
 	b.waitFor("Server band at the top", `Math.abs(document.getElementById('topic-server').getBoundingClientRect().top - parseFloat(getComputedStyle(document.getElementById('topic-server')).scrollMarginTop)) < 4 || innerHeight + scrollY >= document.documentElement.scrollHeight - 2`)
 	b.waitFor("Server open", `document.querySelector('.sode__toc-topic[data-topic="server"]').getAttribute('aria-expanded') === 'true'`)
 
-	// Search names each result's topic.
 	b.waitFor("search names the topic", `(() => {
 		const f = document.getElementById('settings-find');
 		f.value = 'confirm lockout'; f.dispatchEvent(new Event('input'));
@@ -73,5 +70,15 @@ func TestChromeSettingsTopics(t *testing.T) {
 		f.value = ''; f.dispatchEvent(new Event('input'));
 		return ok;
 	})()`)
+
+	// At 1280px (125% root) the sidebar and the form both fit, side by side.
+	for _, w := range []int{1280, 1180} {
+		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": w, "height": 800, "deviceScaleFactor": 1, "mobile": false})
+		b.waitFor("sidebar in view, left of the form", `(() => {
+			const toc = document.querySelector('.sode__toc').getBoundingClientRect();
+			const group = document.querySelector('#settings-view > .sode__group').getBoundingClientRect();
+			return getComputedStyle(document.querySelector('.sode__toc')).position === 'fixed' && toc.left >= 0 && toc.right <= group.left && group.right <= innerWidth;
+		})()`)
+	}
 	b.check()
 }

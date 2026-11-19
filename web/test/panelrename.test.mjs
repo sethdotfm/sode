@@ -2,14 +2,14 @@
 // handling of the stream's rename line. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renameState, renameProblem, renameOf, renamedSearch, assignOf, renameRefusal } from '../panelassignrules.js';
+import { streamState, renameProblem, renameOf, renamedSearch, assignOf, renameRefusal } from '../panelassignrules.js';
 
 test('only a Sode panel page can be renamed, and only while it holds its stream', () => {
-  assert.equal(renameState({ device: 'Lobby', page: true, stream: true }), 'ready');
-  assert.equal(renameState({ device: 'Lobby', page: true, stream: false }), 'offline');
+  assert.equal(streamState({ device: 'Lobby', page: true, stream: true }), 'ready');
+  assert.equal(streamState({ device: 'Lobby', page: true, stream: false }), 'offline');
   // A keepalive-only API client and a watched name never heard have no stream to tell.
-  assert.equal(renameState({ device: 'Lobby', online: true }), '');
-  assert.equal(renameState({ device: 'lobby', online: false, seen: '' }), '');
+  assert.equal(streamState({ device: 'Lobby', online: true }), '');
+  assert.equal(streamState({ device: 'lobby', online: false, seen: '' }), '');
 });
 
 test('the name checks', () => {

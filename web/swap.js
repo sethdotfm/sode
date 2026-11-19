@@ -62,7 +62,10 @@ function paintNames() {
   const f = fields();
   ui.from.name.textContent = nameAt(f.side, f.from);
   ui.to.name.textContent = nameAt(f.side, f.to);
-  ui.go.disabled = !current();
+  const v = current();
+  ui.go.disabled = !v;
+  const n = v?.items.length || 0;
+  ui.go.textContent = mine ? 'Swap and save' : `Stage ${n} ${n === 1 ? 'item' : 'items'}`;
 }
 
 function fail(text) {
@@ -99,14 +102,14 @@ function paintList() {
     }
     kids.push(ul);
   }
-  if (asked && !groups.length) kids.push(el('p', 'sode__hint', ui.broken.checked ? 'No Broken item uses it.' : 'No item uses it.'));
+  if (asked && !groups.length) kids.push(el('p', 'sode__hint', ui.broken.checked ? 'No Broken items' : 'No items'));
   ui.list.replaceChildren(...kids);
   paintNames();
 }
 
 function find() {
   const f = fields();
-  if (f.from == null) return fail('Type the number to swap out.');
+  if (f.from == null) return fail('Enter the old number.');
   fail('');
   waiting = ++seq;
   if (!wsSend({ t: 'swapList', id: waiting, swap: { router: S.routerUid, side: f.side, from: f.from, mine } })) fail('Not connected to Sode.');
@@ -173,7 +176,6 @@ function build() {
   const broken = el('input', 'pb-check__input');
   broken.type = 'checkbox';
   broken.id = 'swap-broken';
-  const hint = el('p', 'sode__hint');
   const list = el('div', 'sode__swap-list');
   list.setAttribute('aria-label', 'Items that use the old number');
   const err = el('div', 'pb-note pb-note--error');
@@ -185,7 +187,6 @@ function build() {
     el(
       'div',
       'pb-modal__body',
-      hint,
       el('div', 'sode__fields', sideField, from.field, to.field),
       button('swap-find', 'Find items', 'pb-btn--outline', find),
       el('label', 'pb-check', broken, el('span', 'pb-check__label', 'Only Broken')),
@@ -197,7 +198,7 @@ function build() {
   root.append(dialog);
   document.body.append(root);
   const dlg = trapDialog(root, dialog, close);
-  ui = { dlg, title, hint, side, from, to, broken, list, err, go };
+  ui = { dlg, title, side, from, to, broken, list, err, go };
   side.addEventListener('change', () => {
     asked = null;
     items = [];
@@ -218,10 +219,6 @@ function open(opts = {}) {
   build();
   mine = !!opts.mine;
   ui.title.textContent = mine ? 'Swap in my items' : 'Swap source or destination';
-  ui.hint.textContent = mine
-    ? 'Your presets, filter sets and panels that use the old number get the new number. Swap saves them at once.'
-    : 'Every preset, filter set and panel that uses the old number gets the new number. Settings saves the ticked items with Save.';
-  ui.go.textContent = mine ? 'Swap' : 'Done';
   asked = null;
   items = [];
   ticked = new Set();

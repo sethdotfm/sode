@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-// A save keeps edits made while it runs. A cell deleted on Page 2 during a held save stays deleted, and the editor
-// says Unsaved changes. A save that fails tries once more by itself, then the Save button says Retry save until one works.
 func TestChromeEditorSaveKeepsEdits(t *testing.T) {
 	b, a, ana, id := editorTabPrep(t, `{"name":"Two","rows":1,"cols":2,"pages":[
 		{"id":"p1","enabled":true,"cells":[{"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":1}]},

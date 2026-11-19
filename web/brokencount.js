@@ -1,9 +1,8 @@
-// Broken and Name moved counts: per router in Settings > Routers (an Administrator's covers everyone's items) and in
-// My user for the user's own items. The numbers are the server's (brokenCount, internal/app/brokencount.go); the
-// list under each count opens Swap or the item's editor.
+// An Administrator's count covers everyone's items. The numbers are the server's (brokencount.go).
 import { $, el, emit, on, onMsg, wsSend } from './core.js';
 import { profileName } from './profile.js';
 import { statusBadge } from './brokenview.js';
+import { countAsks } from './brokenrules.js';
 import { editHref } from './panelsrules.js';
 
 const KIND = { preset: 'Preset', filterSet: 'Filter set', panel: 'Panel' };
@@ -54,7 +53,6 @@ function row(it) {
   );
 }
 
-// box: the count line's holder. The list opens under it on a press of the count.
 function paint(box, r) {
   if (!box) return;
   if (!r || (!r.broken && !r.moved)) {
@@ -74,11 +72,12 @@ function paint(box, r) {
 }
 
 export function askBrokenCounts() {
-  if (role === 'administrator') {
+  const ask = countAsks(role, profileName());
+  if (ask.all) {
     asked.all = ++seq;
     wsSend({ t: 'brokenCount', id: asked.all });
   }
-  if (profileName()) {
+  if (ask.mine) {
     asked.mine = ++seq;
     wsSend({ t: 'brokenCount', id: asked.mine, mine: true });
   }

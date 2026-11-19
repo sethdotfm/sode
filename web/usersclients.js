@@ -1,7 +1,4 @@
-// The API clients tab of Manage users: a client's name and API scopes, and every key of every user
-// and client. An Administrator makes, lists and revokes the keys. Names and
-// scopes save with Settings' one Save; keys act at once. A factory that gets hooks, so nothing imports
-// users.js back.
+// Names and scopes save with Settings' one Save; keys act at once. A factory with hooks, so nothing imports users.js back.
 
 import { el, onMsg, wsSend, sentence } from './core.js';
 import { SCOPES } from './apirules.js';

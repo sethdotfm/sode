@@ -1,5 +1,3 @@
-// Broken and Name moved in the page's lists and the Main-page banner (rules in brokenrules.js). The page's own
-// presets and filter sets (Everyone, Me, This browser) with their marks now, by banner key.
 import { S, off } from './core.js';
 import { allPresets } from './presetstore.js';
 import { allSets } from './filterstore.js';

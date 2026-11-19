@@ -46,9 +46,9 @@ export function artNode(cell, art) {
   return row;
 }
 
-// An uploaded image from createArt, hidden until it loads. An Icon library SVG becomes a mask in the text colour, as a
-// sprite icon is drawn. So it changes with the theme, and a multi-colour file draws in one colour. A mask, like an
-// <img>, never runs the file's script. Anything else is an <img> in its own colours. The swap needs the node in place by then, which a
+// An uploaded image from createArt, hidden until it loads. An Icon library SVG becomes a mask in the text color, as a
+// sprite icon is drawn. So it changes with the theme, and a multi-color file draws in one color. A mask, like an
+// <img>, never runs the file's script. Anything else is an <img> in its own colors. The swap needs the node in place by then, which a
 // resolved promise's later turn gives.
 export function artImage(cls, art, id, lib) {
   const img = el('img', cls);

@@ -27,7 +27,7 @@ func TestChromeSetupRestore(t *testing.T) {
 		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	}
 	b.open(srv.URL + "/")
-	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Welcome to Sode'`)
+	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Set up Sode'`)
 	b.waitFor("Restore from a backup", `!document.getElementById('setup-restore').hidden && !document.getElementById('setup-restore').disabled`)
 	b.eval(fmt.Sprintf(`(() => {
 		window.beforeRestore = true;

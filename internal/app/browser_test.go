@@ -111,8 +111,7 @@ func startBrowser(t *testing.T) *tab {
 		go func() { _ = cmd.Wait(); close(exited) }()
 		t.Cleanup(func() { c(); <-exited; stopWatch() })
 
-		// Chrome writes the port it chose into the profile directory. A first start on a fresh CI runner can take
-		// over 6 s. Each retry is cold again, so a try stops early only when Chrome exits.
+		// Chrome writes the port it chose into the profile directory. A first start on a fresh CI runner can last more than 6 s. Each retry is cold again, so a try stops early only when Chrome exits.
 		started := time.Now()
 		for deadline := started.Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
 			select {
@@ -280,7 +279,7 @@ func (b *tab) open(url string) {
 	b.call("Page.navigate", map[string]any{"url": url})
 }
 
-// eval runs a JS expression in the page (promises are awaited) and returns its JSON value.
+// eval awaits a promise and returns the JSON value of the expression.
 func (b *tab) eval(expr string) any {
 	b.t.Helper()
 	v, err := b.evalTry(expr)
@@ -324,8 +323,7 @@ func (b *tab) evalTry(expr string) (any, string) {
 	return r.Result.Value, ""
 }
 
-// waitFor polls a JS expression until it is truthy. A miss fails the test, naming the check
-// and any page errors, so a missing element reads as what it is.
+// waitFor polls a JS expression until it is truthy. A miss fails the test and names the check and any page errors.
 func (b *tab) waitFor(what, expr string) {
 	b.t.Helper()
 	var last string
@@ -357,7 +355,6 @@ func (b *tab) problems() []string {
 	return append([]string(nil), b.errs...)
 }
 
-// check fails the test on any console error or exception seen so far.
 func (b *tab) check() {
 	b.t.Helper()
 	for _, e := range b.problems() {

@@ -21,7 +21,7 @@ function modal(id, title, body, buttons, onEsc) {
   dialog.tabIndex = -1;
   dialog.append(
     el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', title), { id: `${id}-title` })),
-    el('div', 'pb-modal__body', ...body),
+    ...(body.length ? [el('div', 'pb-modal__body', ...body)] : []),
     el('div', 'pb-modal__footer', ...buttons),
   );
   root.append(dialog);
@@ -54,7 +54,7 @@ function fail(text) {
 function submit() {
   if (ui.go.disabled) return;
   const name = ui.picker.value().trim();
-  if (!name) return fail('Type your name.');
+  if (!name) return fail('Enter your name.');
   ui.err.hidden = true;
   const id = ++seq;
   if (!sendStepIn(name, ui.pin.value, id)) return fail('Not connected to Sode.');
@@ -89,7 +89,7 @@ function build() {
   err.setAttribute('role', 'alert');
   err.hidden = true;
   const go = button('stepin-go', 'Step in', '', submit);
-  const hint = el('p', 'sode__hint', 'This tab acts as you until you step out. Your sign-in stays off this browser.');
+  const hint = el('p', 'sode__hint', 'This tab only. Not saved in this browser.');
   const dlg = modal('stepin', 'Step in', [hint, picker.root, pin, err], [button('stepin-cancel', 'Cancel', 'pb-btn--outline', close), go], close);
   picker.input.addEventListener('keydown', (e) => {
     if (picker.key(e)) e.preventDefault();
@@ -121,9 +121,9 @@ function askLeave(href) {
     };
     leave = modal(
       'stepout-ask',
-      'Step out',
-      [el('p', null, 'This steps you out. Continue?')],
-      [button('stepout-ask-cancel', 'Cancel', 'pb-btn--outline', () => leave.hide()), button('stepout-ask-go', 'Continue', '', go)],
+      'Step out?',
+      [],
+      [button('stepout-ask-cancel', 'Cancel', 'pb-btn--outline', () => leave.hide()), button('stepout-ask-go', 'Step out', '', go)],
       () => leave.hide(),
     );
   }

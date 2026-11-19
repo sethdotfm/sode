@@ -36,7 +36,7 @@ export function termView(router, rows, choices, onChange) {
       'sode__xi-name',
       el('span', null, el('strong', null, row.label), ' ', el('span', 'sode__hint', `${SIDE[row.side]}, ${setsText(router, row.sets)}`)),
       el('span', 'sode__xi-pick', el('span', 'pb-select-wrap', sel)),
-      el('span', 'sode__hint sode__xi-sub', `${hint}. The names here differ.`),
+      el('span', 'sode__hint sode__xi-sub', `${hint} (names differ here)`),
     );
     r.dataset.term = row.key;
     box.append(r);

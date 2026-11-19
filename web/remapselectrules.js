@@ -32,7 +32,6 @@ export function move(s, delta, extend = false) {
   s.sel = range(s, s.anchor, s.cursor);
 }
 
-// Space.
 export function toggle(s) {
   const k = s.keys[s.cursor];
   if (k === undefined) return;
@@ -73,7 +72,6 @@ export function dragEnd(s) {
   s.drag = -1;
 }
 
-// Esc.
 export function clear(s) {
   s.sel = new Set();
   s.anchor = -1;

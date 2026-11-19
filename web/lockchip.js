@@ -1,5 +1,4 @@
-// Lock screen's "Signed in as" chip: name and one lock button. Change my PIN and Sign out live in Settings' My user
-// section (bus 'changePin', 'logout'); changepin.js owns that dialog. lock.js owns the state.
+// Change my PIN and Sign out live in Settings > My user (changepin.js); lock.js owns the state.
 
 import { el, icon } from './core.js';
 import { buildChangePin } from './changepin.js';

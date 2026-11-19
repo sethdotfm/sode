@@ -10,8 +10,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Lock bar floats over the panel page on the desktop layout. With it present the page is no taller, and the grid,
-// the Panels link and the status line keep their place. The bar covers no cell or header control.
 func TestChromePanelLockBarFloats(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -42,7 +40,6 @@ func TestChromePanelLockBarFloats(t *testing.T) {
 	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	b.waitFor("signed in with the Lock bar", `document.documentElement.hasAttribute('data-sode-chip') && !document.querySelector('.sode-lock__who').hidden && document.querySelectorAll('.sode-panel__cell').length >= 3 && !document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	with := b.eval(geo).(string)
-	// The bar gone, as for a signed-out page or a kiosk: nothing else moves.
 	b.eval(`document.documentElement.removeAttribute('data-sode-chip'); document.querySelector('.sode-lock__who').hidden = true`)
 	if got := b.eval(geo); got != with {
 		t.Fatalf("the Lock bar moved the page: with %v, without %v", with, got)

@@ -11,8 +11,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The panels page: Watch a panel, then a missed keepalive raises a toast and the badge, and the
-// return a second toast. The clock jumps instead of waiting 45 seconds.
+// The clock jumps, so the check does not wait 45 seconds.
 func TestChromePanelWatchToast(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -51,7 +50,6 @@ func TestChromePanelWatchToast(t *testing.T) {
 		t.Fatalf("keepalive %d", c)
 	}
 	b.waitFor("online mark", `document.querySelector('[data-online]')?.textContent === 'All Online'`)
-	// Open now lists the instance with its own Watch box, which watches only that instance.
 	b.waitFor("instance watch box", `!!document.querySelector('[data-watch-instance="Lobby tablet"]')`)
 	b.eval(`document.querySelector('[data-watch-instance="Lobby tablet"]').click()`)
 	for deadline := time.Now().Add(10 * time.Second); !a.mon.watchingInst(idOf(a, "Ana"), id, "Lobby tablet"); time.Sleep(50 * time.Millisecond) {
@@ -77,7 +75,6 @@ func TestChromePanelWatchToast(t *testing.T) {
 	b.waitFor("badge gone", `document.querySelector('[data-panel-badge]').hidden`)
 	b.shot("back")
 
-	// Each instance has an uptime strip, here with a drop in its last slot, and a Hide that ends nothing.
 	b.waitFor("uptime strip", `document.querySelectorAll('#panels-open .sode-up__bar').length === 96 && /1 drop/.test(document.getElementById('panels-open').textContent)`)
 	b.eval(`document.querySelectorAll('.pb-toast').forEach((t) => t.remove()); document.getElementById('panels-open').scrollIntoView()`)
 	b.shot("uptime")
@@ -93,8 +90,6 @@ func TestChromePanelWatchToast(t *testing.T) {
 	b.check()
 }
 
-// The Sode page: a watcher signed in there sees a banner for a panel that went offline and clears it
-// for now. The watcher sees it again for the next outage, and stops monitoring from the same menu.
 func TestChromePanelOutageBanner(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -144,8 +139,8 @@ func TestChromePanelOutageBanner(t *testing.T) {
 		t.Fatal("Clear alarm for now ended the watch")
 	}
 
-	keepalive(a, id, ana, "Lobby tablet") // back
-	lose()                                // lost again
+	keepalive(a, id, ana, "Lobby tablet")
+	lose()
 	b.waitFor("banner again", `/Wall panel is offline/.test(document.querySelector('[data-panel-outage]')?.textContent || '')`)
 	b.eval(`document.querySelector('[data-panel-alarm="menu"]').click()`)
 	b.waitFor("stop button", `!!document.querySelector('[data-panel-alarm="stop"]')`)

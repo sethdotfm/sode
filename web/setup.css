@@ -1,5 +1,4 @@
-/* The setup wizard (setupwizard.js), design A of prototype/setup-wizard: one dialog in the page
-   flow under the Sode mark, with step chips joined by lines. */
+/* Look from prototype/setup-wizard, design A. */
 [data-sode-setup] .sode > :not(#setup, #conn) {
   display: none !important;
 }
@@ -130,7 +129,7 @@
   font-size: var(--pb-text-sm);
 }
 
-/* Border colour swatches */
+/* Border color swatches */
 .sode-setup__swatches {
   display: flex;
   gap: var(--pb-space-3);

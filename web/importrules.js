@@ -1,6 +1,4 @@
-// Pure parts of the Import tab (importtab.js). The check and the plan come from POST api/import; the request goes
-// back to it for the review and to POST api/import/apply. Item keys and choice values are the server's
-// (importItem and the clash choices in internal/app/importplan.go).
+// Item keys and choice values are the server's (internal/app/importplan.go).
 
 // The categories the server plans, in its order. This browser the page applies itself (browserimport.js). Profile is
 // only in an own import (internal/app/ownexport.go).
@@ -20,13 +18,10 @@ export const choicesFor = (cat, it) => (NO_RENAME.has(cat) || it?.kind === 'defa
 
 const catOf = (check, cat) => check.plan.categories[cat] || { items: [] };
 
-// A clash the person decides: live, different, and in a category that imports. Replace import takes the file's
-// item always, so it has none.
+// Replace import always uses the file's item, so it has no clash.
 export const hasChoice = (c, it, pick) => pick?.mode !== 'replace' && !c.refused && !it.refused && !it.same && !it.remove && !!it.clash && !!it.choice;
 
-// Everything ticked but Routers, which changes the router only when ticked, with the preselected choices. Add
-// import, with Keep current Administrators ticked for when the person picks Replace import. empty holds the ticked
-// categories the file holds with no items: only Replace import sends them, to empty them here.
+// Routers stays unticked: it changes the router only when ticked. empty: only Replace import sends it, to empty those categories.
 export function newPick(check) {
   const pick = { mode: 'add', keepAdmins: true, items: {}, choices: {}, empty: new Set() };
   for (const cat of PLANNED) {
@@ -39,7 +34,6 @@ export function newPick(check) {
   return pick;
 }
 
-// 'all', 'some' or 'none' for the category's box.
 export function catState(check, pick, cat) {
   const total = catOf(check, cat).items.length;
   if (!total) return pick.empty?.has(cat) ? 'all' : 'none';
@@ -93,12 +87,11 @@ export function criticalNames(check, pick) {
   return out;
 }
 
-// importItem.writes, for a planned item.
+// Keep in step with importItem.writes.
 const writes = (it) => !it.same && !it.refused && !it.remove && (!it.clash || it.choice === 'new' || it.choice === 'rename');
 
 const plural = (n, w) => `${n} ${w}`;
 
-// One line per planned category: what the import does to it.
 export function reviewCounts(plan) {
   const out = [];
   for (const cat of PLANNED) {
@@ -127,7 +120,6 @@ export function reviewCounts(plan) {
   return out;
 }
 
-// The items that arrive Broken, with what each is missing.
 export function brokenItems(plan) {
   const out = [];
   for (const cat of PLANNED) {

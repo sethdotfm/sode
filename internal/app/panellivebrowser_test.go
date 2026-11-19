@@ -11,9 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A saved edit reaches an open panel with a countdown banner, never at once, and waits out staged
-// routes until they are cleared. Snooze keeps the banner up with a 60 s bar and Apply now applies
-// over staged routes. The instance's name in the header renames the instance.
 func TestChromePanelLiveUpdate(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -81,7 +78,6 @@ func TestChromePanelLiveUpdate(t *testing.T) {
 	b.waitFor("banner gone", `document.getElementById('panel-update').hidden`)
 	b.waitFor("grid rebuilt", `document.querySelector('.sode-panel__cell--destination')?.querySelector('span')?.textContent === 'DSM1'`)
 
-	// Snooze is the person's word: the banner stays, a 60 s bar runs, and staged routes no longer hold the copy.
 	b.eval(dst + `.click()`)
 	b.eval(`document.querySelector('.sode-panel__cell--source').click()`)
 	b.waitFor("route staged again", `document.querySelector('.sode-panel__cell--destination').dataset.s === 'staged'`)

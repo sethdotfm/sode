@@ -71,7 +71,7 @@ func TestChromeStepInWritesNoSessionKeys(t *testing.T) {
 	b.check()
 }
 
-// While stepped in the page border takes the step-in colour, not the Branding one, and "Bo stepped in" shows with Step
+// While stepped in, the page border has the step-in colour, not the Branding one, and "Bo stepped in" shows with Step
 // out. Bo's Compact view never fades the label, and it still shows after the layout turns to phone. The typed source
 // stays across Step in and Step out.
 func TestChromeStepInBorderAndLabel(t *testing.T) {
@@ -198,7 +198,7 @@ func TestChromeStepInReviewNamesAuthor(t *testing.T) {
 		const head = [...d.querySelectorAll('thead th')].map((th) => th.textContent);
 		const row = [...d.querySelectorAll('tbody tr')].find((r) => r.cells[0]?.textContent === 'Logo text & Page title');
 		return d.textContent.includes('1 change by Bo that your Role cannot see') && head.includes('Staged by')
-			&& row?.cells[1].textContent === 'Bo' && !d.textContent.includes('Lock main screen')
+			&& row?.cells[1].textContent === 'Bo' && !d.textContent.includes('Lock Main page')
 			&& document.getElementById('review-save').textContent === 'Save 1 change';
 	})()`)
 	b.eval(`document.getElementById('review-save').click(); true`)

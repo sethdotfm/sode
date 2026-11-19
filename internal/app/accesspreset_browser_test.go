@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Apply an access preset stages its values in the form and in a ticked user row, each marked with
-// its name. The one Save sends them after one recheck and names the preset in the record.
 func TestChromeApplyAccessPreset(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -44,7 +42,7 @@ func TestChromeApplyAccessPreset(t *testing.T) {
 		const d = document.querySelector('[aria-labelledby="preset-apply-title"]');
 		d.querySelector('label[for="preset-apply-pick-secured"]').click();
 		d.querySelector('.sode__preset-users input').click();
-		[...d.querySelectorAll('button')].find((x) => x.textContent === 'Apply').click();
+		[...d.querySelectorAll('button')].find((x) => x.textContent === 'Stage changes').click();
 		return true;
 	})()`)
 	b.waitFor("staged and marked", `document.getElementById('cfg-lock-main').checked && !document.getElementById('cfg-public-panels').checked &&

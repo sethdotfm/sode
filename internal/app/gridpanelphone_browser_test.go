@@ -29,13 +29,6 @@ func touch(b *tab, expr string, hold time.Duration) {
 
 func tap(b *tab, expr string) { touch(b, expr, 30*time.Millisecond) }
 
-// A Grid panel on the phone layout, by touch only, on a 2500 by 750 router. The page is one screen high: one band,
-// then the grid, with at least 5 columns and 10 rows of crosspoints. The title always shows. More opens the rest of
-// the band, with Find and Filter as two named choices and no field under 16 px. The band's levels follow the Levels
-// box. No cursor shows. The corner gives the shown ranges. An edge scroll during a line is
-// capped, even with the finger far past the edge. Taps add names to the picks, a long-press adds a range, and the
-// numbered targets show with no hover. A tap on a crosspoint stages the Diagonal and the Take button opens the
-// confirm. A double-tap on a name jumps and leaves the picks as they were. There is no key list.
 func TestChromeGridPanelPhone(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t, "SIM_SOURCES=2500", "SIM_DESTS=750")
@@ -47,7 +40,7 @@ func TestChromeGridPanelPhone(t *testing.T) {
 
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": true})
 	b.call("Emulation.setTouchEmulationEnabled", map[string]any{"enabled": true, "maxTouchPoints": 5})
-	// A phone's scroll bars overlay the content; headless Chrome's would take 14 px.
+	// The scroll bars of a phone overlay the content. Those of headless Chrome would use 14 px.
 	b.call("Emulation.setScrollbarsHidden", map[string]any{"hidden": true})
 	b.open(srv.URL + "/panels/" + id + "?instance=Phone")
 	b.waitFor("the phone layout", `document.documentElement.dataset.layout === 'phone'`)
@@ -100,7 +93,6 @@ func TestChromeGridPanelPhone(t *testing.T) {
 	tap(b, `document.getElementById('panel-more')`)
 	b.waitFor("More closes them", `!document.querySelector('.sode-gridpanel__finds').offsetParent`)
 
-	// A line's edge scroll, with the finger dragged far past the body's top into the band.
 	b.eval(`document.querySelector('.sode-gridpanel__scroll').scrollTo(0, 20000), true`)
 	b.eval(`new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))`)
 	lx, ly := touchAt(b, `document.querySelector('.sode-gridpanel__scroll')`)

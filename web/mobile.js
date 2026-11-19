@@ -2,51 +2,20 @@
 // confirms. A blank Source or Destination goes to the other first (to see what is on it) and
 // comes back.
 
-import {
-  $,
-  el,
-  S,
-  on,
-  connState,
-  routerTitle,
-  linked,
-  setLinkDisabled,
-  renderDown,
-  setDot,
-  search,
-  dstItem,
-  srcItem,
-  labelNode,
-  toggle,
-  keepSearch,
-} from './core.js';
-import { defaultLevelsWord, levelBar, allLevels, levelText, levelSource } from './levelview.js';
+import { $, el, S, on, connState, routerTitle, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode, keepSearch } from './core.js';
+import { defaultLevelsWord, allLevels, levelText, levelSource } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { fedBy, currentlyNodes } from './routes.js';
-import { flipped, fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, groupTitle, groupLevels, stackBefore } from './history.js';
-import {
-  planVerb,
-  resultNode,
-  showResult,
-  patchPlan,
-  planBlocked,
-  rightsOff,
-  planSummary,
-  sendTakes,
-  lastTake,
-  nextTake,
-  boxPatch,
-  lastChip,
-  VERBS,
-} from './plans.js';
+import { flipped } from './device.js';
+import { resultNode, patchPlan, rightsOff, lastTake, nextTake, boxPatch, lastChip } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
-import { emptyNote } from './searchbox.js';
 import { presetHost } from './presets.js';
-import { rowActions, disclosureAria, followersHead, lastFill } from './historyrows.js';
-import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './historypick.js';
-import { byLabel, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { lastFill } from './historyrows.js';
+import { boxPicking, addPatch } from './historypick.js';
+import { combobox, feeding } from './widgets.js';
+import { mobileHistory, closeSwipes } from './mobilehistory.js';
+import { mobileConfirm } from './mobileconfirm.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -159,7 +128,7 @@ function advance() {
   if (!levels) return shake(inputs.lvl);
   inputs.lvl.blur();
   if (boxPicking()) return addPatch();
-  openSheet(patchPlan(M.sel.src, M.dsts, levels));
+  sheet.open(patchPlan(M.sel.src, M.dsts, levels));
 }
 
 // + keeps the typed search and its list (minus the bubbles), so the next match is one + away.
@@ -382,306 +351,14 @@ function scrollThread() {
   });
 }
 
-// ---- recent: swipe left to reveal Undo, right to reveal Redo (Retry for failed takes)
-
-const REVEAL = 96;
-const arrived = arrivals();
-
-const openGroups = new Set();
-const openFollowers = new Set();
-const openChanges = new Set();
+// ---- History rows and the Confirm sheet
 
 const sheetFor = (plan) => {
   closeSwipes();
-  openSheet(plan);
+  sheet.open(plan);
 };
-const undoBtn = (plan, label, text = 'Undo') => undoButton(plan, label, sheetFor, { text, cls: 'sode-m__undo' });
-const redoBtn = (plan, label) => againButton(plan, label, sheetFor, { placeholder: false, cls: 'sode-m__redo' });
-
-function historyRow(e) {
-  const src = srcItem(e.src, e.srcName),
-    dst = dstItem(e.dst, e.dstName);
-  const acts = rowActions({ e });
-  const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
-  const status = statusNode({ e });
-  const retry = redoBtn(acts.again.plan, acts.again.label);
-  const open = !!e.chain && openChanges.has(e.id);
-  const changesId = `m-changes-${e.id}`;
-  const disc =
-    e.chain &&
-    disclosure(open, 'Changes', changesId, () => {
-      toggle(openChanges, e.id);
-      renderHistory();
-    });
-  let changes = null;
-  if (open) {
-    changes = el('div', 'sode-m__changes', ...stackSteps(e, { restore: sheetFor, pickSrc }));
-    changes.id = changesId;
-  }
-  const face = el(
-    'div',
-    'sode-m__recent-face',
-    el(
-      'div',
-      'sode-m__recent-top',
-      el('span', 'sode__hist-time', fmtTime(e.time)),
-      el('span', 'sode-m__recent-status', status, ...(picking() ? [pickBox(`e${e.id}`)] : []), disc),
-    ),
-    el(
-      'div',
-      'sode-m__recent-route',
-      ...(e.chain ? [el('span', 'sode__hist-note', stackBefore(e).text), ' to '] : []),
-      el('strong', null, labelNode(src)),
-      ' → ',
-      el('strong', null, labelNode(dst)),
-      entryNote(e),
-      byLabel(e),
-    ),
-    changes,
-    e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
-    levelBar(e.levels.filter((u) => S.levelBy.has(u))),
-  );
-  if (disc) clickToToggle(face, disc, '.sode-m__changes');
-  const row = el(
-    'li',
-    'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : '') + (isPicked(`e${e.id}`) ? ' sode-m__recent-row--picked' : ''),
-    undo,
-    ...(retry ? [retry] : []),
-    face,
-  );
-  row.dataset.key = `e${e.id}`;
-  swipeable(row, face, !!retry);
-  return row;
-}
-
-// A folder: swipe to undo all; open it to swipe or retry one by one.
-function groupRows(f) {
-  const open = openGroups.has(f.group);
-  const kidsId = `m-folder-${f.group}`;
-  const acts = rowActions({ f });
-  const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
-  const retry = redoBtn(acts.again.plan, acts.again.label);
-  const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
-    toggle(openGroups, f.group);
-    renderHistory();
-  });
-  disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, 'takes'));
-
-  const face = el(
-    'div',
-    'sode-m__recent-face',
-    el(
-      'div',
-      'sode-m__recent-top',
-      el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
-      el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
-    ),
-    el('div', 'sode-m__recent-route', ...groupTitle(f), byLabel(f)),
-    levelBar(groupLevels(f)),
-  );
-  clickToToggle(face, disc);
-  const row = el(
-    'li',
-    'sode-m__recent-row' + (arrived.group(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''),
-    undo,
-    ...(retry ? [retry] : []),
-    face,
-  );
-  row.dataset.key = `f${f.group}`;
-  swipeable(row, face, !!retry);
-  if (!open) return [row];
-  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(historyRow), ...followerRows(f)));
-  kids.id = kidsId;
-  return [row, kids];
-}
-
-function followerRows(f) {
-  if (!f.followers?.length) return [];
-  const open = openFollowers.has(f.group);
-  const { count, aria, kidsId } = followersHead(f, open, 'm');
-  const disc = disclosure(open, count, kidsId, () => {
-    toggle(openFollowers, f.group);
-    renderHistory();
-  });
-  disc.setAttribute('aria-label', aria);
-  const face = el('div', 'sode-m__recent-face', el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', disc)));
-  clickToToggle(face, disc);
-  const head = el('li', 'sode-m__recent-row', face);
-  if (!open) return [head];
-  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.followers.map(historyRow)));
-  kids.id = kidsId;
-  return [head, kids];
-}
-
-const OPEN = 'sode-m__recent-row--open';
-const OPEN_R = 'sode-m__recent-row--open-r';
-function swipeable(row, face, canRedo = false) {
-  let x0 = null,
-    y0 = 0,
-    dx = 0,
-    base = 0,
-    horiz = null;
-  const set = (x) => {
-    face.style.transform = `translateX(${x}px)`;
-  };
-  const rest = () => (row.classList.contains(OPEN) ? -REVEAL : row.classList.contains(OPEN_R) ? REVEAL : 0);
-  face.addEventListener('pointerdown', (e) => {
-    if (picking()) return;
-    x0 = e.clientX;
-    y0 = e.clientY;
-    dx = 0;
-    horiz = null;
-    delete face.dataset.noTap; // a drag does not always end in a click
-    base = rest();
-  });
-  face.addEventListener('pointermove', (e) => {
-    if (x0 == null) return;
-    const mx = e.clientX - x0,
-      my = e.clientY - y0;
-    if (horiz == null && Math.abs(mx) + Math.abs(my) > 8) {
-      horiz = Math.abs(mx) > Math.abs(my);
-      if (horiz) face.setPointerCapture(e.pointerId);
-    }
-    if (!horiz) return;
-    dx = mx;
-    face.classList.add('sode-m__recent-face--drag');
-    set(Math.min(canRedo ? REVEAL * 1.3 : 0, Math.max(-REVEAL * 1.3, base + dx)));
-  });
-  const end = () => {
-    if (x0 == null) return;
-    face.classList.remove('sode-m__recent-face--drag');
-    const at = base + dx;
-    const side = !horiz ? 0 : at < -REVEAL / 2 ? -1 : canRedo && at > REVEAL / 2 ? 1 : 0;
-    if (horiz || base) face.dataset.noTap = '1';
-    if (!horiz && base) {
-      closeSwipes();
-      x0 = null;
-      return;
-    }
-    if (horiz) {
-      closeSwipes(row);
-      row.classList.toggle(OPEN, side < 0);
-      row.classList.toggle(OPEN_R, side > 0);
-    }
-    set(rest());
-    x0 = null;
-  };
-  face.addEventListener('pointerup', end);
-  face.addEventListener('pointercancel', end);
-}
-
-function closeSwipes(except) {
-  for (const r of document.querySelectorAll(`.${OPEN}, .${OPEN_R}`)) {
-    if (r === except) continue;
-    r.classList.remove(OPEN, OPEN_R);
-    r.querySelector('.sode-m__recent-face').style.transform = '';
-  }
-}
-
-const pager = historyPager(5, () => layout() === 'phone');
-pullToLoad($('m-thread'), $('m-recent-more'), pager, () => layout() === 'phone' && !$('m-recent').hidden);
-
-bindPick($('m-recent-list'));
-// The pick bar sits under the header and pushes the thread down; on other layouts it floats
-// over the page (history.css).
-function placeBar() {
-  if (layout() !== 'phone') return void (pickBar.parentNode !== document.body && document.body.append(pickBar));
-  if (pickBar.previousElementSibling !== $('m-result')) $('m-result').after(pickBar);
-}
-on('pick', () => {
-  placeBar();
-  renderHistory();
-});
-
-function renderHistory() {
-  const rows = pager.list();
-  $('m-recent-list').replaceChildren(...rows.flatMap((r) => (r.f ? groupRows(r.f) : [historyRow(r.e)])));
-  $('m-recent-more').replaceChildren(...[emptyNote(rows, pager.fetching()), pager.button()].filter(Boolean));
-}
-
-// ---- confirm sheet with slider
-
-let pending = null;
-
-function openSheet(plan) {
-  const { block, prot } = planBlocked(plan);
-  if (block) return showResult(block.kind, block.title, block.text);
-  pending?.lock.cancel(); // one replaced: its lockout must not unlock this one
-  $('m-sheet-title').textContent = `Confirm ${planVerb(plan)}`;
-  $('m-sheet-body').replaceChildren(...planSummary(plan, { prot }));
-  $('m-slide-label').textContent = `Slide to ${planVerb(plan)}`;
-  resetSlide(true);
-  $('m-sheet').hidden = false;
-  pending = { ...plan, lock: lockout(() => $('m-slide').classList.remove('sode__slide--locked')) };
-}
-
-function closeSheet() {
-  pending?.lock.cancel();
-  pending = null;
-  $('m-sheet').hidden = true;
-}
-
-function confirmSheet() {
-  const p = pending;
-  closeSheet();
-  if (sendTakes(p) && VERBS[p.verb].resets) reset();
-}
-
-const handle = $('m-slide-handle');
-const track = $('m-slide');
-let drag = null;
-
-const maxX = () => track.clientWidth - handle.offsetWidth;
-
-function setSlide(x) {
-  const pct = Math.round((x / maxX()) * 100);
-  handle.style.transform = `translateX(${x}px)`;
-  track.style.setProperty('--slide', `${x + handle.offsetWidth}px`);
-  handle.setAttribute('aria-valuenow', String(pct));
-}
-
-function resetSlide(locked) {
-  track.classList.toggle('sode__slide--locked', locked);
-  track.classList.remove('sode__slide--drag');
-  setSlide(0);
-}
-
-handle.addEventListener('pointerdown', (e) => {
-  if (!pending || !pending.lock.ready()) return;
-  drag = { x0: e.clientX };
-  handle.setPointerCapture(e.pointerId);
-  track.classList.add('sode__slide--drag');
-});
-handle.addEventListener('pointermove', (e) => {
-  if (!drag) return;
-  setSlide(Math.max(0, Math.min(maxX(), e.clientX - drag.x0)));
-});
-const release = (e) => {
-  if (!drag) return;
-  const x = Math.max(0, Math.min(maxX(), e.clientX - drag.x0));
-  drag = null;
-  track.classList.remove('sode__slide--drag');
-  if (x >= maxX() * 0.9) {
-    setSlide(maxX());
-    confirmSheet();
-  } else {
-    setSlide(0);
-  }
-};
-handle.addEventListener('pointerup', release);
-handle.addEventListener('pointercancel', release);
-handle.addEventListener('keydown', (e) => {
-  if (!pending || !pending.lock.ready()) return;
-  if (e.key === 'ArrowRight' || e.key === 'End') {
-    e.preventDefault();
-    setSlide(maxX());
-    confirmSheet();
-  }
-});
-$('m-sheet-cancel').addEventListener('click', closeSheet);
-$('m-sheet').addEventListener('click', (e) => {
-  if (e.target === $('m-sheet')) closeSheet();
-});
+const hist = mobileHistory({ sheetFor, pickSrc });
+const sheet = mobileConfirm(reset);
 
 // ---- inputs
 
@@ -805,10 +482,10 @@ if (vv) {
 // ---- subscriptions
 
 on('hello', () => {
-  pager.reset();
+  hist.pager.reset();
   lvl.reset();
   setStep(M.step, false);
-  renderHistory();
+  hist.renderHistory();
 });
 // The thread and History are hidden on the other layouts, and a tally or History message on a busy router
 // rebuilt them on every take. onLayout draws them when the phone layout comes back.
@@ -821,7 +498,7 @@ on('tally', () => phone() && renderThread());
 on('conn', renderConn);
 on('history', () => {
   if (!phone()) return;
-  renderHistory();
+  hist.renderHistory();
   renderLast();
 });
 on('last', renderLast);
@@ -835,11 +512,11 @@ on('flip', () => {
   else renderThread();
 });
 onLayout((l) => {
-  placeBar();
-  if (l !== 'phone') closeSheet();
+  hist.placeBar();
+  if (l !== 'phone') sheet.close();
   else {
     renderThread();
-    renderHistory();
+    hist.renderHistory();
     renderLast();
   }
 });

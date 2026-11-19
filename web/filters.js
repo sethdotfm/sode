@@ -51,8 +51,7 @@ const browser = browserFilters({
   write: setFilter,
   snapshot,
   restore,
-  // A save already sent finishes first.
-  onClose: () => saver.close(),
+  onClose: () => saver.close(), // a save already sent finishes first
 });
 let target = browser;
 const curF = () => target.filter();
@@ -242,7 +241,7 @@ tName.addEventListener('keydown', (e) => {
   }
 });
 
-// The Broken banner's and the Broken lists' Edit: the set is made active, so the dialog shows it.
+// Edit makes the set active, so the dialog shows it.
 on('editFilterSetAt', (m) => {
   pickSet(m.scope, m.name);
   openFilters();
@@ -262,8 +261,7 @@ on('openFilterEditor', (m) => {
 
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
 $('flt-done').addEventListener('click', cancelFilters);
-// Save closes after the write has landed (the server's answer for everyone or Me; stays open for
-// an error).
+// Save closes after the server answers; an error keeps it open.
 $('flt-save').addEventListener('click', () =>
   saveSet(() => {
     if (filtersOpen()) closeFilters();
@@ -277,7 +275,6 @@ for (const k of ['sode', 'ext', 'hidden']) {
     renderShow();
   });
 }
-// Show filter f in the editors.
 function loadDialog(f) {
   renderShow();
   eds.src.load(f.src);
@@ -301,9 +298,6 @@ $('flt-clear').addEventListener('click', () => {
   pickSet('all', 'All');
   reload();
 });
-
-// ---- the set bar. A saved set gets its new name when you edit the name and press Save. Sets for everyone are
-// settings saved on the server.
 
 const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false;
@@ -360,7 +354,7 @@ function renderSetBar() {
   $('flt-set-send').disabled = busy || !named;
   if (busy) return;
   if (stack.length) {
-    return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]}). Changing a filter leaves the stack.`);
+    return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]})`);
   }
   if (named && moveTo) return setNote(`Save moves it from ${scopeLabel(a.scope)} to ${scopeLabel(moveTo)}.`);
   setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' (edited)' : ''}` : '');
@@ -369,8 +363,6 @@ const setNote = (text, error = false) => {
   $('flt-set-note').textContent = text;
   $('flt-set-note').classList.toggle('sode__error-text', error);
 };
-
-// ---- sets for everyone: send the whole list.
 
 const saver = globalSaver({
   t: 'filterSets',

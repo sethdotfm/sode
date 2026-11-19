@@ -10,8 +10,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A panel Undo press stages the reverse of this instance's newest take and Take sends it. The next press goes one take
-// further back and skips another instance's takes. The cell greys when none are left.
 func TestChromePanelUndoStepsBackThisInstance(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -55,14 +53,12 @@ func TestChromePanelUndoStepsBackThisInstance(t *testing.T) {
 		b.eval(take + `.click()`)
 		waitRouted(t, a, ana, d, simSrc)
 	}
-	// Another instance of this panel takes after both.
 	other := map[string]string{"X-Sode-Panel": id, "X-Sode-Instance": "Lobby"}
 	if rec := apiPost(a, "/api/v1/takes", ana, fmt.Sprintf(`{"routes":[{"src":%d,"dst":%d,"levels":[1]}]}`, simSrc, elsewhere), other); rec.Code != 200 {
 		t.Fatalf("other instance's take: %d %s", rec.Code, rec.Body.String())
 	}
 	waitRouted(t, a, ana, elsewhere, simSrc)
 
-	// Each press stages the reverse and arms Take; nothing moves until Take.
 	for i, d := range []int{second, simDst} {
 		b.waitFor("Undo ready", `!`+undo+`.disabled`)
 		b.eval(undo + `.click()`)

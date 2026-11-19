@@ -9,9 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The two Request approval cards, with a socket peer on the other side. Ana (Trusted) asks Ada for an Administrator
-// field: the Waiting for approval card counts down, and Ada's approval saves it. Then Bo (Standard) asks for a
-// Trusted field, and Ana approves it on her card with her PIN.
 func TestChromeRequestApprovalCards(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -36,7 +33,7 @@ func TestChromeRequestApprovalCards(t *testing.T) {
 	b.waitFor("review", `!!document.getElementById('review-save')?.offsetParent`)
 	b.eval(`document.getElementById('review-save').click(); true`)
 	b.waitFor("Request approval offered", `!!document.getElementById('approval-request')?.offsetParent &&
-		!document.getElementById('approval-request').disabled && document.getElementById('approval-request-note').hidden`)
+		!document.getElementById('approval-request').disabled && !document.getElementById('approval-request').dataset.pbTip`)
 	b.eval(`document.getElementById('approval-request').click(); true`)
 	b.waitFor("Waiting for approval card with a countdown", `(() => {
 		const c = document.getElementById('approval-waiting');

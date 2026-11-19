@@ -11,8 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A short link: /panels/<slug>#key=<key without its prefix>&kiosk=1 opens the panel. ?instance= names the
-// session so the device question is skipped. An unknown short name says only that nothing is there.
 func TestChromePanelShortLink(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -42,12 +40,10 @@ func TestChromePanelShortLink(t *testing.T) {
 		t.Fatalf("the panel's instances do not hold Studio A: %s", names)
 	}
 
-	// The same panel by id, with an old full key, still opens; with no name the question appears.
 	b.open(srv.URL + "/panels/" + id + "#key=" + secret)
 	b.waitFor("the panel opened by its id", `document.getElementById('panel-title')?.textContent === 'Wall'`)
 	b.waitFor("the device question", `!document.getElementById('panel-device').hidden`)
 
-	// An unknown short name and a panel this key cannot use read the same.
 	b.open(srv.URL + "/panels/nothing#key=" + short)
 	b.waitFor("nothing here", `document.getElementById('panels-note')?.textContent === 'No panel here that you can use.'`)
 }

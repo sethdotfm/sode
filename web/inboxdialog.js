@@ -1,7 +1,4 @@
-// The Inbox button and its dialog (docs/agents/profiles.md, Inbox). A page puts `data-inbox` on the element that
-// takes the button: the Main page, Settings, /panels, the panel editor and the Log. A panel page has none, so it shows
-// no button and no toast. The Inbox tab answers cards; Accept reviews the card as the Add import does (importtab.js).
-// The Sent tab lists what this user sent. The phone keeps Decline only.
+// A panel page has no data-inbox, so no button and no toast. The phone keeps Decline only.
 
 import { el, icon, off, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -44,8 +41,6 @@ function drawButtons() {
     b.setAttribute('aria-label', R.countLabel(n));
   }
 }
-
-// ---- the dialog
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -150,14 +145,12 @@ function sentRow(c) {
 function drawLists() {
   if (!open || reviewing) return;
   const cards = inbox.cards.map(cardRow);
-  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'No copies wait for you.')]));
+  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'Inbox empty')]));
   // Newest first, as the server sends them oldest first.
   const sent = [...inbox.sent].reverse().map(sentRow);
-  sentList.replaceChildren(...(sent.length ? sent : [el('p', 'sode__hint', 'You sent no copies in the last 30 days.')]));
+  sentList.replaceChildren(...(sent.length ? sent : [el('p', 'sode__hint', 'None sent (30 days)')]));
   phoneNote.replaceChildren(phone() ? desktopOnly('accept a copy or withdraw one') : '');
 }
-
-// ---- Accept: the review
 
 async function startReview(c) {
   if (busy) return;
@@ -227,7 +220,7 @@ function drawReview() {
     rows.push(el('div', 'sode__xi-items', ...c.items.map((it, i) => itemRow(cat, c, it, i))));
   }
   const focused = review.contains(document.activeElement) ? document.activeElement.dataset.key : '';
-  review.replaceChildren(el('p', null, `${R.fromText(card)}. Untick what you do not want.`), el('div', 'sode__xi-cats', ...rows));
+  review.replaceChildren(el('p', null, R.fromText(card)), el('div', 'sode__xi-cats', ...rows));
   if (focused) [...review.querySelectorAll('[data-key]')].find((x) => x.dataset.key === focused)?.focus();
   showReview(true);
   acceptBtn.disabled = !R.pickedCount(pick);
@@ -259,8 +252,6 @@ async function accept() {
   endReview();
   setNote(failed ? `Accepted. ${failed} panels were not written.` : 'Accepted.');
 }
-
-// ---- open and close
 
 export function openDialog() {
   if (!signedIn) return;

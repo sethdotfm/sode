@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A Standard user edits a Shown section and saves. The refusal opens the Approval popup; a wrong PIN shows there, and
-// Ada's name and PIN save the change.
 func TestChromeApprovalSavesShownSection(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -30,7 +28,7 @@ func TestChromeApprovalSavesShownSection(t *testing.T) {
 	signInSettings(b)
 	b.waitFor("Confirm and results editable", `(() => {
 		const f = document.querySelector('fieldset[data-section="confirm"]');
-		return !f.hidden && !f.disabled && f.textContent.includes('Changes here need Approval from an Administrator');
+		return !f.hidden && !f.disabled && !f.querySelector('legend > .pb-badge--warn').hidden && f.querySelector('legend > .pb-badge--warn').dataset.pbTip === 'Save needs Approval from an Administrator';
 	})()`)
 	b.eval(`const i = document.getElementById('cfg-lockout'); i.value = '900'; i.dispatchEvent(new Event('input', { bubbles: true }));
 		document.getElementById('settings-save').click(); true`)

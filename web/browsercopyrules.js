@@ -1,5 +1,4 @@
-// Copy this browser to My user (docs/agents/profiles.md). Pure: what goes to Me, and what the
-// move then takes off this browser.
+// Pure (docs/agents/profiles.md).
 
 import { PREFS } from './prefs.js';
 
@@ -20,9 +19,7 @@ export function copyDoc(values, mePrefs = ME_PREFS) {
 
 const MOVED = new Set(['import', 'replace', 'both']);
 
-// prefs: [{name, on}], on false when the user picked Skip. rows: [{kind, name, choice, as}] with the
-// review's choices; as is the name on Me. Skip and Use current did not reach Me, so this browser keeps them.
-// filterSets come back as moves [{ from, to }], so an active set can follow its new name.
+// Skip and Use current did not reach Me, so this browser keeps them. filterSets come back as moves so an active set follows its new name.
 export function toClear({ prefs, rows }, keep) {
   const out = { prefs: [], filterSets: [], presets: [] };
   if (keep) return out;
@@ -34,5 +31,8 @@ export function toClear({ prefs, rows }, keep) {
   }
   return out;
 }
+
+// A moved preset keeps its id (reviewsheet.js), so its pin key changes scope only.
+export const movedPinOrder = (order, ids) => order.map((k) => (k.startsWith('local:') && ids.includes(k.slice(6)) ? `user:${k.slice(6)}` : k));
 
 export const moveText = (what, keep) => (keep ? `${what} copied to Me. This browser keeps them too.` : `${what} moved to Me.`);

@@ -82,7 +82,7 @@ export function presetPlan(preset, defaults) {
     },
     defaults,
   );
-  // A marked part is named by the Broken banner (brokenbanner.js), which stays until dismissed or fixed.
+  // The Broken banner (brokenbanner.js) names a marked part.
   const warnings = r.missing
     .filter((m) => !marked(m.kind, m.n))
     .map(
