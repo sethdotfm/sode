@@ -153,7 +153,9 @@ function plan() {
     if (!rs.length) continue;
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
     const incoming = rs.map((r) =>
-      kind === 'filter' ? { name: r.name, f: r.f } : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: true },
+      kind === 'filter'
+        ? { name: r.name, f: r.f }
+        : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: !st.copy || r.src.pinned !== false },
     );
     const choices = rs.map(choiceOf);
     const picks = rs.map((r, i) => {
@@ -559,7 +561,7 @@ function moved() {
     prefs: prefList()
       .filter((p) => p.ok)
       .map((p) => ({ name: p.name, on: st.prefOn[p.name] !== false })),
-    rows: st.rows.map((r, i) => ({ kind: r.kind, name: r.name, choice: choices[i] })),
+    rows: st.rows.map((r, i) => ({ kind: r.kind, name: r.name, choice: choices[i], as: choices[i] === 'both' ? r.as || r.autoAs : '' })),
   };
 }
 const cleared = (keep) => Object.values(toClear(moved(), keep)).some((l) => l.length);

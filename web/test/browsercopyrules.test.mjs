@@ -34,13 +34,21 @@ test('a move clears what reached Me; Skip and Use current stay', () => {
         { kind: 'filter', name: 'Cams', choice: 'import' },
         { kind: 'filter', name: 'Mons', choice: 'skip' },
         { kind: 'preset', name: 'Open', choice: 'replace' },
-        { kind: 'preset', name: 'Shut', choice: 'both' },
+        { kind: 'preset', name: 'Shut', choice: 'both', as: 'Shut 2' },
+        { kind: 'filter', name: 'Wide', choice: 'both', as: 'Wide 2' },
         { kind: 'preset', name: 'Wide', choice: 'current' },
       ],
     },
     false,
   );
-  assert.deepEqual(got, { prefs: ['theme'], filterSets: ['Cams'], presets: ['Open', 'Shut'] });
+  assert.deepEqual(got, {
+    prefs: ['theme'],
+    filterSets: [
+      { from: 'Cams', to: 'Cams' },
+      { from: 'Wide', to: 'Wide 2' },
+    ],
+    presets: ['Open', 'Shut'],
+  });
 });
 
 test('Keep on this browser clears nothing', () => {

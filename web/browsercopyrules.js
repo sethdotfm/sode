@@ -20,13 +20,18 @@ export function copyDoc(values, mePrefs = ME_PREFS) {
 
 const MOVED = new Set(['import', 'replace', 'both']);
 
-// prefs: [{name, on}], on false when the user picked Skip. rows: [{kind, name, choice}] with the
-// review's choices. Skip and Use current did not reach Me, so this browser keeps them.
+// prefs: [{name, on}], on false when the user picked Skip. rows: [{kind, name, choice, as}] with the
+// review's choices; as is the name on Me. Skip and Use current did not reach Me, so this browser keeps them.
+// filterSets come back as moves [{ from, to }], so an active set can follow its new name.
 export function toClear({ prefs, rows }, keep) {
   const out = { prefs: [], filterSets: [], presets: [] };
   if (keep) return out;
   for (const p of prefs) if (p.on) out.prefs.push(p.name);
-  for (const r of rows) if (MOVED.has(r.choice)) out[r.kind === 'filter' ? 'filterSets' : 'presets'].push(r.name);
+  for (const r of rows) {
+    if (!MOVED.has(r.choice)) continue;
+    if (r.kind === 'filter') out.filterSets.push({ from: r.name, to: r.as || r.name });
+    else out.presets.push(r.name);
+  }
   return out;
 }
 

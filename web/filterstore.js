@@ -196,6 +196,15 @@ export function renameLocalSet(old, name) {
   emit('filters');
 }
 
+// Copy this browser to My user: moves [{ from, to }] leave this browser, and the active set or stack follows them to Me.
+export function moveLocalSets(moves) {
+  const to = new Map(moves.map((m) => [m.from.toLowerCase(), m.to]));
+  saveLocals(localSets().filter((s) => !to.has(s.name.toLowerCase())));
+  const re = (r) => (r.scope === 'local' && to.has(r.name.toLowerCase()) ? { ...r, ...setRef('user', to.get(r.name.toLowerCase())) } : r);
+  setActive(active && re(active), stack.map(re));
+  emit('filters');
+}
+
 export function deleteLocalSet(name) {
   saveLocals(localSets().filter((s) => s.name.toLowerCase() !== name.toLowerCase()));
   if (stack.length) useSets(stack);

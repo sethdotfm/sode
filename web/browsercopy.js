@@ -7,7 +7,7 @@ import { browserValues } from './exportcalls.js';
 import { copyDoc, toClear } from './browsercopyrules.js';
 import { openReview } from './reviewsheet.js';
 import { setPref } from './device.js';
-import { localSets, putLocalSets } from './filterstore.js';
+import { moveLocalSets } from './filterstore.js';
 import { localPresets, putLocalPresets } from './presetstore.js';
 
 let seq = 0;
@@ -35,7 +35,7 @@ function clear(moved, keep) {
   const c = toClear(moved, keep);
   for (const name of c.prefs) setPref(name, '');
   const gone = (names) => (s) => !names.some((n) => n.toLowerCase() === s.name.toLowerCase());
-  if (c.filterSets.length) putLocalSets(localSets().filter(gone(c.filterSets)));
+  if (c.filterSets.length) moveLocalSets(c.filterSets);
   if (c.presets.length) putLocalPresets(localPresets().filter(gone(c.presets)));
 }
 
@@ -44,8 +44,11 @@ const dstName = (n) => S.dstBy.get(n)?.name || '';
 
 export function openBrowserCopy() {
   const d = copyDoc(browserValues());
+  const doc = buildExport({ ...d, srcName, dstName });
+  // A move keeps each preset's pin; an export file does not carry it.
+  if (doc.presets) doc.presets = doc.presets.map((p, i) => ({ ...p, pinned: d.presets[i].pinned !== false }));
   openReview({
-    doc: { ...buildExport({ ...d, srcName, dstName }), browserOnly: d.browserOnly },
+    doc: { ...doc, browserOnly: d.browserOnly },
     scope: 'user',
     title: 'Copy this browser to My user',
     source: 'This browser',

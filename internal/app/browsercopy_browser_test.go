@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// Copy this browser to My user: Move sends the values to Ana's profile and only then takes
-// them off this browser. The node tests cover the choices; this covers the storage.
+// Copy this browser to My user: Move sends the values to Ana's profile and only then takes them
+// off this browser. The active filter set follows to Me and an unpinned preset stays unpinned.
 func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -18,10 +18,11 @@ func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 	b.eval(`(() => {
 		localStorage.setItem('sode-theme', 'dark');
 		localStorage.setItem('sode-filter-sets', JSON.stringify([{ name: 'Cams', f: { src: 'cam', dst: '', sode: true, ext: true, hidden: false } }]));
-		localStorage.setItem('sode-presets', JSON.stringify([{ id: 'p1', name: 'Open', items: [{ src: { n: 1 }, dsts: [{ n: 2 }], levels: [1] }], pinned: true }]));
+		localStorage.setItem('sode-filter-active', JSON.stringify({ scope: 'local', name: 'Cams', base: { src: 'cam', dst: '', sode: true, ext: true, hidden: false } }));
+		localStorage.setItem('sode-presets', JSON.stringify([{ id: 'p1', name: 'Open', items: [{ src: { n: 1 }, dsts: [{ n: 2 }], levels: [1] }], pinned: false }]));
 		return true;
 	})()`)
-	b.open(srv.URL + "/#settings")
+	b.open(srv.URL + "/?seeded#settings") // a new document, so the stores read what was seeded
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	b.waitFor("no copy for a guest", `document.getElementById('account-copy').hidden && !document.getElementById('account-login').hidden`)
 	b.eval(`document.getElementById('account-login').click()`)
@@ -45,8 +46,12 @@ func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 	b.waitFor("this browser let go", `localStorage.getItem('sode-theme') === null
 		&& JSON.parse(localStorage.getItem('sode-filter-sets') || '[]').length === 0
 		&& localStorage.getItem('sode-presets') === null`)
+	if got := b.eval(`(() => { const a = JSON.parse(localStorage.getItem('sode-filter-active')); return a.scope + ':' + a.user + ':' + a.name; })()`); got != "user:Ana:Cams" {
+		t.Fatalf("the active filter set is %v, want Ana's Cams", got)
+	}
 	p := anasProfile(t, a)
-	if p.Prefs["theme"] != "dark" || len(p.FilterSets) != 1 || p.FilterSets[0].Name != "Cams" || len(p.Presets) != 1 || p.Presets[0].Name != "Open" {
+	if p.Prefs["theme"] != "dark" || len(p.FilterSets) != 1 || p.FilterSets[0].Name != "Cams" || len(p.Presets) != 1 || p.Presets[0].Name != "Open" ||
+		p.Presets[0].Pinned == nil || *p.Presets[0].Pinned {
 		t.Fatalf("Ana's profile %+v", p)
 	}
 	n := 0
