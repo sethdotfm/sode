@@ -218,6 +218,10 @@ html {
   height: 3rem;
   width: 3rem;
 }
+/* A tip set from a value that came out blank draws no empty bubble (web/test/tips.test.mjs keeps blank literals out). */
+[data-pb-tip=""]::after {
+  display: none;
+}
 .sode__label {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
