@@ -63,7 +63,7 @@ func remapRefKey(router, kind string, n int) string {
 
 func normName(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
-// checkRouterTargets: a target is a live router or "", and two file routers may not share one.
+// checkRouterTargets: a target is a live router or "", and two file routers cannot share one.
 func checkRouterTargets(req importReq, live config.Config) error {
 	taken := map[string]string{}
 	for _, from := range slices.Sorted(maps.Keys(req.Routers)) {
