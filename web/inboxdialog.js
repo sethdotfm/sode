@@ -197,15 +197,18 @@ function itemRow(cat, c, it, i) {
       'span',
       'sode__hint',
       ...(it.broken?.length ? [el('span', 'pb-badge pb-badge--error', 'Broken'), ' '] : []),
-      it.refused || it.note || (it.as ? `As ${it.as}` : ''),
+      // The server's As is for its own choice, Rename; another choice keeps no new name.
+      it.refused || it.note || (it.as && (!it.clash || pick.choices[cat][it.key] === 'rename') ? `As ${it.as}` : ''),
     ),
   );
   row.dataset.item = it.key;
   if (ticked && pick.choices[cat][it.key]) {
     const seg = segmented(`inbox-choice-${cat}-${i}`, `${it.name} clash`, choicesFor(cat), (v) => {
       pick.choices[cat][it.key] = v;
+      drawReview();
     });
     seg.set(pick.choices[cat][it.key]);
+    for (const r of seg.node.querySelectorAll('input')) r.dataset.key = `choice:${cat}:${it.key}:${r.value}`;
     seg.node.classList.add('sode__xi-choice');
     row.append(el('div', 'sode__xi-sub', el('span', 'sode__hint', `You have ${it.clash}. `), seg.node));
   }

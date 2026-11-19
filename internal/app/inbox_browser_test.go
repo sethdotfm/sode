@@ -10,7 +10,7 @@ import (
 
 // The Inbox button with its count on the Main page, Settings, the Log, /panels and the panel editor. A card sent to
 // the signed-in user shows a toast and the count at once. Decline and Accept from the dialog lower the count. The phone
-// layout keeps Decline only.
+// layout keeps Decline only. A panel page shows no button and no toast.
 func TestChromeInboxButton(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -105,6 +105,20 @@ func TestChromeInboxButton(t *testing.T) {
 		if time.Now().After(deadline) {
 			t.Fatalf("declined cards: %+v", a.inbox.cards(func(inboxCard) bool { return true }))
 		}
+	}
+
+	// A panel page signed in as Ana gets the push but shows no button and no toast.
+	id := makePanel(t, a, userKey(t, a, "Ana"), `{"name":"Desk panel"}`)
+	b.open(srv.URL + "/panels/" + id)
+	b.waitFor("the PIN pad or the panel", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent || document.getElementById('panel-title')?.textContent === 'Desk panel'`)
+	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == true {
+		signInOnPad(b)
+	}
+	b.waitFor("the panel runs", `document.getElementById('panel-title')?.textContent === 'Desk panel'`)
+	send()
+	time.Sleep(time.Second)
+	if got := b.eval(`document.querySelectorAll('[data-inbox-button], [data-inbox-toast]').length`); got != float64(0) {
+		t.Fatalf("a panel page shows %v Inbox buttons or toasts", got)
 	}
 	b.check()
 }
