@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -162,14 +161,7 @@ func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Pan
 	return p, true
 }
 
-func (a *App) panelStoreFail(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, errPanelCap), errors.Is(err, errArtCap), errors.Is(err, errSlugTaken):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-	default:
-		apiFail(w, http.StatusInternalServerError, "internal", "the panel could not be saved: "+err.Error())
-	}
-}
+const panelSaveFail = "the panel could not be saved"
 
 func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	out := []map[string]any{}
@@ -301,7 +293,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	made, err := a.panels.create(p)
 	if err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	if actsHasClient(made.Acts) {
@@ -405,7 +397,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		p.Client = ""
 	}
 	if _, err := a.panels.replaceBody(p); err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	if putClient != nil {
@@ -435,7 +427,7 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	if _, err := a.panels.delete(p.ID); err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	a.mon.forget(p.ID, true)
@@ -490,7 +482,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	made, err := a.panels.create(c)
 	if err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	if actsHasClient(made.Acts) {

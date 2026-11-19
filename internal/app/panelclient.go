@@ -54,6 +54,17 @@ type panelClientFail struct {
 
 func (f *panelClientFail) Error() string { return f.msg }
 
+// failStore answers a store's sentinel (a *panelClientFail, maybe wrapped) with its status and anything else as a
+// disk fault. Unlike failWith it keeps the wrapped detail and never answers 400 by default.
+func failStore(w http.ResponseWriter, err error, prefix string) {
+	var f *panelClientFail
+	if errors.As(err, &f) {
+		apiFail(w, f.status, f.code, err.Error())
+		return
+	}
+	apiFail(w, http.StatusInternalServerError, "internal", prefix+": "+err.Error())
+}
+
 func failWith(w http.ResponseWriter, err error) {
 	var f *panelClientFail
 	if errors.As(err, &f) {

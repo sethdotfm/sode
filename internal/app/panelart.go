@@ -221,7 +221,7 @@ func (a *App) apiArtUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	art, _, err := a.panels.addArt(p.ID, data, typ)
 	if err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	apiCreated(w, art)
@@ -284,7 +284,7 @@ func (a *App) apiArtDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	found, err := a.panels.delArt(p.ID, r.PathValue("art"))
 	switch {
 	case err != nil:
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "no such artwork on this panel")
 	default:

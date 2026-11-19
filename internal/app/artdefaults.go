@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -41,9 +42,8 @@ var (
 	// Keep in step with ART_B_CHOICES in web/panellook.js.
 	artBRe = regexp.MustCompile(`^(?:[0-9]|1[0-6]|[A-Z])$`)
 
-	//lint:ignore ST1005 the panel editor shows this /api/v1 message as is
-	errArtDefaultsCap   = errors.New("Default artwork would pass the 64 MB total; clear some first")
-	errNoArtDefaultFile = errors.New("no such Default artwork image")
+	errArtDefaultsCap   = &panelClientFail{http.StatusConflict, "conflict", "Default artwork would pass the 64 MB total; clear some first"}
+	errNoArtDefaultFile = &panelClientFail{http.StatusNotFound, "not_found", "no such Default artwork image"}
 )
 
 // A Preset default keys on the hidden ID, so a rename keeps it. A Source or Destination default keeps the router name

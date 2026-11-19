@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -23,10 +24,10 @@ import (
 const panelCheckpointMax = 10 // per panel, oldest dropped first
 
 var (
-	errNoPanel   = errors.New("no such panel")
-	errBadLayout = errors.New("the layout does not fit the panel")
+	errNoPanel   = &panelClientFail{http.StatusNotFound, "not_found", "no such panel"}
+	errBadLayout = &panelClientFail{http.StatusBadRequest, "bad_request", "the layout does not fit the panel"}
 	// errLayoutType guards every way in, so a layout of the other type never blanks a panel's cells or lists.
-	errLayoutType = errors.New("the layout is of the other panel type")
+	errLayoutType = &panelClientFail{http.StatusConflict, "conflict", "the layout is of the other panel type"}
 )
 
 type panelLayout struct {
@@ -204,7 +205,7 @@ const (
 	panelSetMax  = 200
 )
 
-var errSetCap = errors.New("too many checkpoint sets")
+var errSetCap = &panelClientFail{http.StatusConflict, "conflict", "too many checkpoint sets"}
 
 type PanelSetEntry struct {
 	Panel       string `yaml:"panel" json:"panel"`
@@ -335,7 +336,7 @@ func (s *panelSetStore) replace(set PanelSet) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.by[set.ID]; !ok {
-		return errNoPanel
+		return errors.New("no such panel") // not errNoPanel: a set lost to a race answers 500
 	}
 	return s.putLocked(set)
 }

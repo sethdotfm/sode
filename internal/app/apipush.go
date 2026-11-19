@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -74,22 +73,6 @@ type skippedOne struct {
 	Reason string `json:"reason"`
 }
 
-func (a *App) pushFail(w http.ResponseWriter, err error) {
-	if errors.Is(err, errNoPanel) {
-		apiFail(w, http.StatusNotFound, "not_found", err.Error())
-		return
-	}
-	if errors.Is(err, errLayoutType) {
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	}
-	if errors.Is(err, errBadLayout) {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-	a.panelStoreFail(w, err)
-}
-
 func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	src, ok := a.panelFor(w, r, cl, true)
 	if !ok {
@@ -128,7 +111,7 @@ func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		skipped := a.panels.copyArt(src, t.ID)
 		p, cp, err := a.panels.pushLayout(t.ID, lay, cl.Actor.Name, why, refer)
 		if err != nil {
-			a.pushFail(w, err)
+			failStore(w, err, panelSaveFail)
 			return
 		}
 		done = append(done, pushedOne{t.ID, p.Rev, cp.ID, skipped})
@@ -173,7 +156,7 @@ func (a *App) apiCheckpointRestore(w http.ResponseWriter, r *http.Request, cl *a
 	made, found, err := a.panels.restoreCheckpoint(p.ID, cp, cl.Actor.Name, a.layoutRefer())
 	switch {
 	case err != nil:
-		a.pushFail(w, err)
+		failStore(w, err, panelSaveFail)
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "no checkpoint "+cp+" on this panel")
 	default:
@@ -256,14 +239,6 @@ func cleanSetName(w http.ResponseWriter, name string) (string, bool) {
 	return name, name != ""
 }
 
-func (a *App) setStoreFail(w http.ResponseWriter, err error) {
-	if errors.Is(err, errSetCap) {
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	}
-	apiFail(w, http.StatusInternalServerError, "internal", "the checkpoint set could not be saved: "+err.Error())
-}
-
 func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ownerOnly(w, cl) {
 		return
@@ -303,7 +278,7 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	made, err := a.panels.sets.create(PanelSet{Name: name, Scope: in.Scope, Owner: cl.Actor.User, Entries: a.capture(ps)})
 	if err != nil {
-		a.setStoreFail(w, err)
+		failStore(w, err, "the checkpoint set could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "panelSetCreate", "ok", "set "+made.ID+" "+made.Name, nil)
@@ -340,7 +315,7 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		set.Entries = a.capture(ps)
 	}
 	if err := a.panels.sets.replace(set); err != nil {
-		a.setStoreFail(w, err)
+		failStore(w, err, "the checkpoint set could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "panelSetUpdate", "ok", "set "+set.ID+" "+set.Name, nil)
@@ -356,7 +331,7 @@ func (a *App) apiSetDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	if err := a.panels.sets.delete(set.ID); err != nil {
-		a.setStoreFail(w, err)
+		failStore(w, err, "the checkpoint set could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "panelSetDelete", "ok", "set "+set.ID+" "+set.Name, nil)
@@ -405,7 +380,7 @@ func (a *App) apiSetPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	for _, e := range live {
 		// A panel deleted since the check above is applyLayout's to refuse, as not found.
 		if cur, ok := a.panels.get(e.Panel); ok && layoutType(e.Type) != layoutType(cur.Type) {
-			a.pushFail(w, errLayoutType)
+			failStore(w, errLayoutType, panelSaveFail)
 			return
 		}
 	}
@@ -415,7 +390,7 @@ func (a *App) apiSetPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	for _, e := range live {
 		p, cp, err := a.panels.applyLayout(e.Panel, e.panelLayout, cl.Actor.Name, why, refer)
 		if err != nil {
-			a.pushFail(w, err)
+			failStore(w, err, panelSaveFail)
 			return
 		}
 		done = append(done, pushedOne{e.Panel, p.Rev, cp.ID, nil})

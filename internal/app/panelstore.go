@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -56,9 +57,9 @@ var (
 	panelSlugRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$`)
 	artIDRe     = regexp.MustCompile(`^a-[0-9a-f]{8}$`)
 
-	errPanelCap  = errors.New("too many panels")
-	errSlugTaken = errors.New("another panel already has that short name")
-	errArtCap    = errors.New("this panel's artwork would pass the 64 MB total; delete some artwork first")
+	errPanelCap  = &panelClientFail{http.StatusConflict, "conflict", "too many panels"}
+	errSlugTaken = &panelClientFail{http.StatusConflict, "conflict", "another panel already has that short name"}
+	errArtCap    = &panelClientFail{http.StatusConflict, "conflict", "this panel's artwork would pass the 64 MB total; delete some artwork first"}
 )
 
 // PanelShare: Mode is panelShareMe, panelShareNamed (Users) or panelShareAll. Everyone it

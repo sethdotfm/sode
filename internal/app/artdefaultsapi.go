@@ -3,7 +3,6 @@ package app
 import (
 	"cmp"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -238,15 +237,8 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 		a.mu.Unlock()
 	}
 	saved, err := a.artDefaults.set(d, img)
-	switch {
-	case errors.Is(err, errArtDefaultsCap):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	case errors.Is(err, errNoArtDefaultFile):
-		apiFail(w, http.StatusNotFound, "not_found", err.Error())
-		return
-	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the default could not be saved: "+err.Error())
+	if err != nil {
+		failStore(w, err, "the default could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "artDefaultSet", "ok", "Default artwork for "+saved.key(), nil)
@@ -261,7 +253,7 @@ func (a *App) apiArtDefaultClear(w http.ResponseWriter, r *http.Request, cl *api
 	found, err := a.artDefaults.clear(in.ArtDefault)
 	switch {
 	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the default could not be cleared: "+err.Error())
+		failStore(w, err, "the default could not be cleared")
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "that item has no Default artwork")
 	default:

@@ -3,9 +3,9 @@ package app
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -33,8 +33,8 @@ var (
 	// Random, not by content: two names for the same file stay two icons. Keep in step with LIB in web/panellook.js.
 	iconIDRe = regexp.MustCompile(`^[0-9a-f]{8}$`)
 
-	errIconLibCap  = errors.New("the Icon library would pass its 64 MB total; delete some icons first")
-	errIconBadName = fmt.Errorf("an icon needs a name of 1 to %d characters", iconNameMax)
+	errIconLibCap  = &panelClientFail{http.StatusConflict, "conflict", "the Icon library would pass its 64 MB total; delete some icons first"}
+	errIconBadName = &panelClientFail{http.StatusBadRequest, "bad_request", fmt.Sprintf("an icon needs a name of 1 to %d characters", iconNameMax)}
 )
 
 type LibIcon struct {
