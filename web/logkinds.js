@@ -30,6 +30,7 @@ export const WHY_LABEL = {
   connect: 'WebSocket connected',
   disconnect: 'WebSocket dropped',
   rereadNames: 'Re-read names',
+  routerNames: 'Router names',
   clearHistory: 'Clear history',
   approvalRequest: 'Request approval',
   config: 'Settings saved',
@@ -56,6 +57,7 @@ export const WHY_LABEL = {
   import: 'Import',
   api: 'Settings saved through the API',
   setup: 'Setup finished',
+  setupClaim: 'Setup take control',
   setupRouter: 'Setup router address',
   setupFinish: 'Setup finished',
 };

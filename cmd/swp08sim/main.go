@@ -37,6 +37,7 @@ type sim struct {
 	noSalvo bool
 	// SIM_SALVO_ANNOUNCE: a Go set's changes are announced, late
 	announceGo bool
+	namesFile  string // SIM_NAMES_FILE (renamed)
 }
 
 const salvoDelay = 6 * time.Millisecond
@@ -52,7 +53,7 @@ func main() {
 	addr := ":" + strconv.Itoa(envInt("SIM_PORT", 8910))
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
-	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}, staged: map[int][]swp08.Staged{}, noSalvo: os.Getenv("SIM_NO_SALVO") == "1", announceGo: os.Getenv("SIM_SALVO_ANNOUNCE") == "1"}
+	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}, staged: map[int][]swp08.Staged{}, noSalvo: os.Getenv("SIM_NO_SALVO") == "1", announceGo: os.Getenv("SIM_SALVO_ANNOUNCE") == "1", namesFile: os.Getenv("SIM_NAMES_FILE")}
 	// SIM_IGNORE_DSTS=5,7 (0-based): connects are ACKed but never carried out, to exercise timeout and retry.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
@@ -326,6 +327,7 @@ func (s *sim) handle(c net.Conn, m []byte) {
 		if dest {
 			list = s.dsts
 		}
+		list = s.renamed(list, dest)
 		per := swp08.NamesPerMsg(code)
 		for i := 0; i < len(list); i += per {
 			reply(swp08.NamesResp(dest, ext, 0, 0, code, i, list[i:min(i+per, len(list))]))
@@ -417,4 +419,28 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 		log.Printf("salvo %d: Go set %d crosspoints (no Connected)", g, len(xs))
 	}
 	s.later(c, swp08.GoDoneAck(swp08.GoSet, g))
+}
+
+// renamed lays SIM_NAMES_FILE over the names. It is read again on every name request, so a test can rename while
+// the simulator runs. Lines are "src 12 CAM C" or "dst 0 PGM" (0-based); "src 12" with no name makes it blank.
+func (s *sim) renamed(list []string, dest bool) []string {
+	if s.namesFile == "" {
+		return list
+	}
+	b, err := os.ReadFile(s.namesFile)
+	if err != nil {
+		log.Printf("SIM_NAMES_FILE: %v", err)
+		return list
+	}
+	out := slices.Clone(list)
+	for _, line := range strings.Split(string(b), "\n") {
+		side, rest, _ := strings.Cut(strings.TrimSpace(line), " ")
+		num, name, _ := strings.Cut(rest, " ")
+		n, err := strconv.Atoi(num)
+		if err != nil || n < 0 || n >= len(out) || (side != "src" && side != "dst") || (side == "dst") != dest {
+			continue
+		}
+		out[n] = name
+	}
+	return out
 }
