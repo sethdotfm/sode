@@ -40,7 +40,7 @@ Sode stores presets as numbers, so a rename on the router changes nothing. A num
 
 Only pinned presets show as buttons above History. Ctrl+g (⌘g on a Mac, the **Presets** button on a phone) opens a popup that lists all of them with a search box. Arrows or Ctrl+j/k move, Enter fires through the usual confirm, and Esc closes. Each row has **Pin/Unpin** for this browser. Pinning for everyone and sharing are in the editor, under the Pinned checkbox and Share. In keyboard mode, `p` jumps to the pinned presets.
 
-Because a preset is one confirm of several routes, Sode sends it the way the **Multi destination behavior** setting says, under Settings > Routers > Takes. See `SODE_FIRE_MODE` in the settings table below.
+Because a preset is one confirm of several routes, Sode sends it the way the **Multi destination** setting says, under Settings > Routers > Takes. See `SODE_FIRE_MODE` in the settings table below.
 
 ### Last take and next
 
