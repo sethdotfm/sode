@@ -204,8 +204,8 @@ export function renameFor(name, taken) {
 
 export const defaultChoice = (clash) => (clash ? 'both' : 'import');
 
-// picks[i]: { choice, as } (as: name for Keep both, else automatic). Replace swaps in place;
-// the rest append. Names stay unique whatever the case. Returns { list, added, replaced, kept,
+// picks[i]: { choice, as } (as: the Rename name, else automatic). Use new ('replace') swaps in place; Use
+// current and Skip leave the item out; the rest append. Names stay unique whatever the case. Returns { list, added, replaced, kept,
 // skipped }.
 export function applyChoices(existing, incoming, picks) {
   const list = existing.map((x) => ({ ...x }));
@@ -213,7 +213,7 @@ export function applyChoices(existing, incoming, picks) {
   incoming.forEach((it, i) => {
     const p = picks[i] || { choice: 'import' };
     const taken = () => list.map((x) => x.name);
-    if (p.choice === 'skip') {
+    if (p.choice === 'skip' || p.choice === 'current') {
       out.skipped++;
       return;
     }

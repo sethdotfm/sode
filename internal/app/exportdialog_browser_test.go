@@ -114,7 +114,7 @@ func TestChromeExportDialog(t *testing.T) {
 
 	b.eval(`document.getElementById('tab-xi-import-tab').click(); true`)
 	read()
-	if got.ImportHidden || len(got.Footer) != 1 || got.Footer[0] != "Close" {
+	if got.ImportHidden || strings.Join(got.Footer, ",") != "Close,Choose a file…" {
 		t.Errorf("Import tab: hidden %v, footer %v", got.ImportHidden, got.Footer)
 	}
 	b.eval(`document.getElementById('xi-close').click(); true`)
