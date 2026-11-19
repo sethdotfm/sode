@@ -3,11 +3,11 @@
 // (video from one source, audio from another). A route (GLOSSARY.md) is one destination and one source with its levels.
 // Instant mode holds nothing staged: a press, a Diagonal or a Drawn line sends at once, with no confirm.
 
-// The server takes 200 routes in one take; the Grid stops well under it.
+// The server accepts 200 routes in one take; the Grid panel stops well under it.
 export const STAGE_MAX = 128;
 
 // undoId is set while the stage is this instance's Undo (gridpanelundo.js). The stored mode takeOnly is Take mode
-// whose Take sends with no confirm box; ask is false only then. Any other value is today's Take mode, with the box.
+// whose Take sends with no confirm box; ask is false only then.
 export const createStage = ({ mode } = {}) => ({
   mode: mode === 'instant' ? 'instant' : 'take',
   ask: mode !== 'takeOnly',

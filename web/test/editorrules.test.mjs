@@ -1,4 +1,3 @@
-// What the panel editor reads from its URL and from /api/v1/panels (editorrules.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -131,8 +130,7 @@ test('the menu goes right of the selection, else left, else below, and stays ins
   assert.equal(placeMenu({ left: 20, top: 50, right: 680, bottom: 100 }, menu, area, 8).side, 'below');
 });
 
-// The sidebar edits the selected cell, so the menu must not sit over it. Beside the grid it bounds the menu's area;
-// under the grid (the narrow layout) it does not.
+// The sidebar edits the selected cell, so the menu must not cover it.
 test('the menu area is the viewport, cut at the sidebar when the sidebar is beside the grid', async () => {
   const { menuArea } = await import('../editorrules.js');
   const vp = { w: 1600, h: 900 };
@@ -142,8 +140,7 @@ test('the menu area is the viewport, cut at the sidebar when the sidebar is besi
   assert.deepEqual(menuArea(vp, null, grid), { left: 0, top: 0, right: 1600, bottom: 900 });
 });
 
-// A flyout (Type, Find) opens away from the selection, so on the menu's own side. When that side has no room it
-// flips to the other, and when neither fits it picks the side with more room.
+// When neither side fits, the side with more room wins.
 test('a flyout opens on the menu side when it fits there, else on the other side', async () => {
   const { subSide } = await import('../editorrules.js');
   const area = { left: 0, top: 0, right: 1000, bottom: 600 };
@@ -157,8 +154,6 @@ test('a flyout opens on the menu side when it fits there, else on the other side
   assert.equal(subSide({ side: 'right', left: 600 }, 200, 700, area, 8), 'left');
 });
 
-// The Find flyout sits beside its menu item and is pulled back inside the viewport when it would run off the bottom or
-// the right. It never moves when it already fits.
 test('a flyout that runs off the viewport is shifted back inside, and one that fits stays put', async () => {
   const { flyoutShift } = await import('../editorrules.js');
   const vp = { w: 1000, h: 600 };
@@ -227,8 +222,7 @@ test('a short name is an unsaved field: it dirties the editor, saves, and cleari
   assert.equal(saveBody(loaded, 'A', g).slug, 'lobby');
 });
 
-// The menu as the editor builds it for each selection: Merge reads Unmerge on a merged square, and is off on a
-// single square. Only Merge has a chord, Ctrl+M on every platform (macOS keeps Cmd+M for minimising the window).
+// Merge's chord is Ctrl+M on every platform: macOS keeps Cmd+M to minimise the window.
 const key = (k, mods = { ctrlKey: true }) => ({ key: k, ...mods });
 const variant = (merge) => [
   { name: 'Merge', label: merge.label, chord: 'm', disabled: merge.disabled, run: () => 'merge' },
@@ -274,7 +268,6 @@ test('the Type item names the kind of the selected squares', () => {
   assert.equal(typeLabel([]), 'Type: Empty');
 });
 
-// The editor never sits blank: every way it can fail to reach the panel says why and what to do.
 test('each sign-in state says what to do, with Sign in again where signing in is the fix', () => {
   assert.deepEqual(signInNote('sign-in'), { text: 'Sign in with your PIN to edit panels.', button: 'Sign in' });
   assert.deepEqual(signInNote('no-users'), { text: 'Panels need a user, and Sode has none. Add one in Settings, Users.', button: '' });
@@ -290,7 +283,7 @@ test('each sign-in state says what to do, with Sign in again where signing in is
 });
 
 test('a panel that cannot be opened says why and what to do', () => {
-  assert.match(openFailNote({ status: 404 }), /No panel here that you can use\. Choose another panel, or ask its owner to share it with you\./);
+  assert.match(openFailNote({ status: 404 }), /No panel here that you can use\./);
   assert.match(openFailNote({ status: 0, message: 'Failed to fetch' }), /Sode did not answer/);
   assert.match(openFailNote({ status: 401, message: 'key revoked' }), /sign in again/i);
   assert.equal(openFailNote({ status: 403, message: 'This address may not use the API.' }), 'This address may not use the API.');

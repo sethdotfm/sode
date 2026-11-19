@@ -1,7 +1,5 @@
-// The Share modal on the panels page: tabs, with People first. Sharing is only the share field of
-// PUT /api/v1/panels/{id}, which the server enforces for open lists and launches.
-// Another tab joins with a function pushed onto shareTabs. The function returns {id, text, panel},
-// or null when it does not apply to that panel (ctx: {panel, api, close}).
+// The Share modal on the panels page, with People first. Sharing is only the share field of PUT /api/v1/panels/{id}.
+// Another tab joins with a function pushed onto shareTabs, ctx {panel, api, close}: it returns {id, text, panel}, or null when it does not apply.
 import { el, on } from './core.js';
 import { check } from './formbits.js';
 import { linkRow } from './panellinkrow.js';
@@ -12,7 +10,6 @@ import { shareDraft, pickList, toggleUser, shareBody, shareChanged } from './pan
 
 export const shareTabs = [];
 
-// The Lock covers the page, so an open modal must not stay in front of it.
 let closeOpen = null;
 on('locking', () => closeOpen?.());
 
@@ -21,11 +18,6 @@ const MODES = [
   ['named', 'Named users'],
   ['everyone', 'Everyone'],
 ];
-const HINT = {
-  me: 'Only you and Trusted users can see this panel.',
-  named: 'The users you tick can launch this panel. They can use it, not change it.',
-  everyone: 'Every user can launch this panel. They can use it, not change it.',
-};
 
 // ctx.onSaved gets the panel the server answered with.
 export function openShare(panel, ctx) {
@@ -43,9 +35,8 @@ export function openShare(panel, ctx) {
   const modes = el('div', 'pb-btn-group');
   modes.setAttribute('role', 'radiogroup');
   modes.setAttribute('aria-label', 'Who can use this panel');
-  const hint = el('p', 'sode__hint');
   const picker = el('div', 'sode-ov__people');
-  const peopleTab = el('div', 'sode-ov__sharebody', modes, hint, picker, linkRow(panel));
+  const peopleTab = el('div', 'sode-ov__sharebody', modes, picker, linkRow(panel));
 
   function paint() {
     modes.replaceChildren(
@@ -58,17 +49,17 @@ export function openShare(panel, ctx) {
         r.checked = draft.mode === mode;
         const l = el('label', 'pb-btn pb-btn--outline', text);
         l.htmlFor = r.id;
+        if (mode !== 'me') l.dataset.pbTip = 'Use, not change';
         return [r, l];
       }),
     );
-    hint.textContent = HINT[draft.mode];
     picker.hidden = draft.mode !== 'named';
     picker.replaceChildren();
     if (draft.mode === 'named') {
-      if (people === null) picker.append(el('p', 'sode__hint', 'Loading users.'));
+      if (people === null) picker.append(el('p', 'sode__hint', 'Loading…'));
       else {
         const list = pickList(people, panel.owner, draft.users);
-        if (!list.length) picker.append(el('p', 'sode__hint', 'There are no other users.'));
+        if (!list.length) picker.append(el('p', 'sode__hint', 'No other users'));
         for (const u of list) {
           const c = check(u.name, {
             checked: u.on,

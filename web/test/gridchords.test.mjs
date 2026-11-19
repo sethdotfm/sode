@@ -1,4 +1,3 @@
-// The editor grid's Cmd/Ctrl commands (gridchords.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GRID_CHORDS, gridCommand } from '../gridchords.js';

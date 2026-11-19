@@ -58,7 +58,7 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	// Destination 0 leaves the panel, so destination 1 moves up a row.
 	save("After", `[1,2,3,4,5,6]`)
 	text := `document.getElementById('panel-update-text').textContent`
-	b.waitFor("the countdown banner", `/Refreshing in \d+ s\./.test(`+text+`)`)
+	b.waitFor("the countdown banner", `/Applies in \d+ s\./.test(`+text+`)`)
 	b.waitFor("the banner is in the gap between the search boxes and Clear, whole, with its countdown bar, and the grid did not move", `(() => {
 		const u = document.getElementById('panel-update'), r = u.getBoundingClientRect();
 		const f = document.querySelector('.sode-gridpanel__deck .sode-gridpanel__find-mode').getBoundingClientRect(), c = document.querySelector('.sode-gridpanel__clear').getBoundingClientRect();
@@ -93,7 +93,7 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	b.waitFor("the Take button is on", `document.getElementById('panel-take').textContent === 'Take' && !document.getElementById('panel-take').disabled`)
 	save("Third", `[1,2,3,4,5,6]`)
 	// The poll and the countdown together come near one wait's limit, so each gets its own.
-	b.waitFor("the countdown banner for the third copy", `/Refreshing in \d+ s\./.test(`+text+`)`)
+	b.waitFor("the countdown banner for the third copy", `/Applies in \d+ s\./.test(`+text+`)`)
 	b.waitFor("the banner waits for the staged route, its longest line whole, and the grid did not move", `/take or clear/.test(`+text+`) && `+whole+` && `+still)
 	b.waitFor("the staged route and the old copy stay", `document.getElementById('panel-title').textContent === 'After' && `+gridXp(12, 2)+`.dataset.s === 'staged'`)
 	b.eval(`document.getElementById('panel-apply').click(); true`)

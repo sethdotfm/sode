@@ -100,7 +100,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.waitFor("the letter is live after the lockout", `!`+box+`.hidden && !`+box+`.querySelector('.sode__key--locked')`)
 	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ` + box + `.querySelector('.sode__key').textContent.toLowerCase(), bubbles: true })); true`)
 	b.waitSaved("the Confirm saves at once")
-	b.waitFor("the Confirm applies the switch", `document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
+	b.waitFor("the Confirm applies the switch", `document.getElementById('panel-ed-access').textContent.includes('Make links: Share > Link with key')`)
 	b.shot("access")
 
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)

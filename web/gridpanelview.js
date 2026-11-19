@@ -212,11 +212,11 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
   };
   const xpPools = [pools.body, pools.top, pools.side, pools.corner];
 
-  // The scroller's metrics. Each read can force a layout, so a draw reads them once (frame) and all it calls share them.
+  // The scroller's metrics. Each read can force a layout, so a draw reads them one time (frame) and all it calls share them.
   let frame = null;
   const read = () => {
     const r = scroll.getBoundingClientRect();
-    // The drawn scroll bars sit over the client box (native ones sit outside it), so their room is taken off.
+    // The drawn scroll bars sit over the client box (native ones sit outside it), so the read subtracts their room.
     const room = scrollBars ? scrollBars.room() : { right: 0, bottom: 0 };
     return {
       left: scroll.scrollLeft,
@@ -275,7 +275,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
     const w = cur.j < 0 ? px.w : px.xp;
     const h = cur.i < 0 ? px.h : px.xp;
     const inBand = ci < ra.pins || cj < ca.pins;
-    // Above the bands, a part that scrolls is hidden once it is under them, so it does not cover a name.
+    // Above the bands, a part that scrolls is hidden when it is under them, so it does not cover a name.
     const under = (k, a, at) => k >= a.pins && at + a.size <= a.offset + a.head + a.pins * a.size;
     const hide = ci === null || cj === null || (inBand && (under(ci, ra, y) || under(cj, ca, x)));
     const key = `${x},${y},${w},${h},${inBand},${hide}`;
@@ -341,8 +341,8 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
     ax = next;
     srcAt = new Map(ax.srcs.map((n, j) => [n, j]));
     dstAt = new Map(ax.dsts.map((n, i) => [n, i]));
-    // The field is in slots: a band's pins past its slots are not in the grid's scroll. The bands are read again once
-    // the scroll bars are set for the new size, since the bars take room.
+    // The field is in slots: a band's pins past its slots are not in the grid's scroll. The bands are read again after
+    // the scroll bars are set for the new size, since the bars use room.
     const size = () => {
       Object.assign(band, bandsNow());
       setVar(field, '--sode-cols', ax.srcs.length - band.srcs.pins + band.srcs.slots);
@@ -455,7 +455,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
   scroll.addEventListener('pointerdown', (e) => e.pointerType === 'touch' && setData(field, 'touch', ''), { passive: true });
   scroll.addEventListener('pointermove', onMove, { passive: true });
   // Not passive, so a wheel over the horizontal scroll bar can scroll across instead of down. Chrome makes the rest of
-  // a wheel turn async once its first event goes by.
+  // a wheel turn async after its first event goes by.
   const onWheel = (e) => {
     const m = metricsNow();
     const box = { left: m.x, top: m.y, right: m.x + m.cw, bottom: m.y + m.ch, w: px.w, h: px.h, size: px.xp, line: px.xp, page: m.ch };
@@ -637,7 +637,8 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
       for (const p of [pools.dsts, pools.dstPinned]) for (const n of p.live.values()) paintDst(n, Number(n.dataset.dst));
     },
     // The routes a press would stage, numbered, and their names outlined. pairs is [{ src, dst }] in press order, or
-    // empty; over marks a press past the cap. skipped is the protected pairs a Drawn line passes over. Only drawn nodes that carry a mark, or get one, are touched.
+    // empty. over marks a press past the cap. skipped is the protected pairs a Drawn line passes over.
+    // Only drawn nodes that have a mark, or get one, change.
     preview(pairs, over, skipped = []) {
       mark = {
         xps: new Map(pairs.map(({ src, dst }, k) => [`${src}:${dst}`, k + 1])),

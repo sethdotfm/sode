@@ -1,4 +1,3 @@
-// What the Share modal's People tab offers and sends. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { actionsFor, shareDraft, pickList, toggleUser, shareBody, shareChanged } from '../panelsrules.js';

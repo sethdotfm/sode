@@ -1,4 +1,3 @@
-// The editor's undo stack for grid edits (gridundo.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { UNDO_MAX, emptyUndo, record, undo, redo, sameCells } from '../gridundo.js';

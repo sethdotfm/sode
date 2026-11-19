@@ -1,20 +1,11 @@
-// Device features a panel can switch on: keep the screen awake (Screen Wake Lock), fullscreen and landscape.
-// Wake lock is missing in some browsers and over plain http. So the editor asks featureSupport and disables
-// the switch, and the panel page does nothing for a switch that is on anyway.
+// Wake lock is missing in some browsers and over plain http, so the editor disables the switch and the page ignores it.
 
-// Android motors often cannot start under about 30 ms, so a shorter pulse is dropped silently.
 export const featureSupport = (nav) => ({ wake: !!nav?.wakeLock?.request });
 
-// What a switched-on feature cannot do here and why, for the note on the panel page. Wake lock exists only in a
-// secure context, so a LAN panel over plain http loses it silently.
+// Wake lock exists only in a secure context, so a LAN panel over plain http loses it silently.
 export function featureNotes(look, nav, secure) {
   const out = [];
-  if (look.wake && !featureSupport(nav).wake)
-    out.push(
-      secure
-        ? 'This browser cannot keep the screen awake.'
-        : 'The screen cannot be kept awake: the browser allows it only over https, and this page is open over http.',
-    );
+  if (look.wake && !featureSupport(nav).wake) out.push(secure ? 'This browser cannot keep the screen awake.' : 'Screen wake needs https.');
   return out;
 }
 
@@ -36,7 +27,7 @@ export function createWake(nav, doc) {
   };
   return {
     held: () => !!sentinel,
-    // It is possible that Safari refuses a request made without a touch, so a press asks again.
+    // Safari can refuse a request made without a touch, so a press asks again.
     retry: request,
     async on() {
       if (wanted) return;
@@ -54,18 +45,15 @@ export function createWake(nav, doc) {
   };
 }
 
-// Landscape needs fullscreen as well: Chrome locks the turn only in fullscreen, so while landscape is on, a
-// switch of fullscreen to off changes nothing. The editor says so beside both switches.
+// Chrome locks the turn only in fullscreen, so landscape on makes the fullscreen switch moot.
 export const wantsFullscreen = (look) => !!(look?.fullscreen || look?.landscape);
 
 export const LANDSCAPE_HINT = 'A press also enters fullscreen, since browsers lock the turn only there.';
 
-// Reads stored settings, so the editor can show it beside the fullscreen switch.
 export const fullscreenNote = (s) =>
   s?.landscape === true && s?.fullscreen !== true ? 'Enforce landscape orientation is on, so a press still enters fullscreen.' : '';
 
-// Browsers only allow fullscreen from a user gesture, so a panel with the setting on asks on its first press.
-// landscape asks for the turn lock after fullscreen starts: Chrome only allows it in fullscreen, and iOS never does.
+// Browsers allow fullscreen only from a user gesture. The turn lock follows fullscreen: iOS never allows it.
 export function enterFullscreen(doc, landscape = false, scr = globalThis.screen) {
   const root = doc?.documentElement;
   if (doc?.fullscreenElement || !doc?.fullscreenEnabled || !root?.requestFullscreen) return false;

@@ -1,4 +1,3 @@
-// Jumps on a Grid panel (gridpaneljump.js): g to the current source, G through the destinations that have a source.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sourceJump, holderJump, jumpText } from '../gridpaneljump.js';
@@ -70,7 +69,7 @@ test('the note for a jump that cannot go', () => {
     }),
   );
   const levels = tallyReply().levels;
-  assert.equal(jumpText({ why: 'levels' }, names, levels), 'No levels in the Levels box to jump on');
+  assert.equal(jumpText({ why: 'levels' }, names, levels), 'Levels box is empty');
   assert.equal(jumpText({ why: 'none', dst: 3, level: 1 }, names, levels), 'MON D has no source on level 1');
   assert.equal(jumpText({ why: 'other', dst: 3, src: 9 }, names, levels), 'SAT 1 on MON D is not on this panel');
   assert.equal(jumpText({ why: 'unused', src: 9 }, names, levels), 'No destination on this panel has SAT 1');

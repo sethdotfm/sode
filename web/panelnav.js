@@ -1,10 +1,9 @@
-// Movement between a panel's Pages (GLOSSARY.md Go to Page, Next Page / Previous Page). Pure. Pages are named by id,
-// never by number, so a reorder in a live update keeps the current Page and every Go to Page target.
+// Pages are named by id, never by number, so a reorder in a live update keeps the current Page and every Go to Page target.
 import { pageLabel } from './panelpages.js';
 
 export const NAV_KINDS = ['goToPage', 'nextPage', 'previousPage'];
 
-// settings.wrapPages, on unless stored false. It governs only Next Page and Previous Page.
+// On unless stored false. Governs only Next Page and Previous Page.
 export const wrapOf = (panel) => panel?.settings?.wrapPages !== false;
 
 const isOn = (p) => p.enabled !== false;
@@ -17,15 +16,13 @@ export function landingPage(pages, want) {
   return (pages.find(isOn) || pages[0])?.id ?? '';
 }
 
-// 0 for an id not in the list.
 export const pageIndex = (pages, id) =>
   Math.max(
     0,
     pages.findIndex((p) => p.id === id),
   );
 
-// The next enabled Page one way (dir 1 or -1). It is null when there is no other: past an end without wrap, or
-// the only enabled Page.
+// null when there is no other: past an end without wrap, or the only enabled Page.
 export function stepPage(pages, id, dir, wrap) {
   const n = pages.length;
   const i = pageIndex(pages, id);
@@ -50,7 +47,6 @@ export function goToState(pages, cell) {
   return p.cells?.length ? 'ok' : 'empty';
 }
 
-// The Page id a press goes to, or null when the cell is greyed and the press does nothing.
 export function navTarget(pages, current, cell, wrap) {
   if (cell.kind === 'nextPage') return stepPage(pages, current, 1, wrap);
   if (cell.kind === 'previousPage') return stepPage(pages, current, -1, wrap);
@@ -60,7 +56,6 @@ export function navTarget(pages, current, cell, wrap) {
 
 const WORDS = { goToPage: 'Go to Page', nextPage: 'Next Page', previousPage: 'Previous Page' };
 
-// A Go to Page cell's caption replaces its Page's name.
 export function navText(cell, pages) {
   if (cell.caption) return cell.caption;
   if (cell.kind !== 'goToPage') return WORDS[cell.kind];
@@ -68,8 +63,7 @@ export function navText(cell, pages) {
   return i < 0 ? WORDS.goToPage : pageLabel(pages[i], i);
 }
 
-// The editor's Page list for a Go to Page cell, by number and name. A Page with no id yet (an unsaved panel) cannot be
-// a target until the server gives it one.
+// A Page with no id yet (an unsaved panel) cannot be a target.
 export const targetChoices = (pages) =>
   pages.map((p, i) => {
     const text = p.name?.trim() ? `Page ${i + 1}, ${p.name.trim()}` : `Page ${i + 1}`;
@@ -77,18 +71,17 @@ export const targetChoices = (pages) =>
     return { value: p.id, text: isOn(p) ? text : `${text} (disabled)`, disabled: false };
   });
 
-// The Cell tab's warning for a Go to Page cell, '' when none. first is Page 1's cells as stored (the editor's storedGrid);
-// the editor's live Page list already holds the same cells there.
+// first is Page 1's cells as stored (the editor's storedGrid).
 export function targetWarning(pages, cell, first) {
   const now = pages.map((p, i) => (i === 0 ? { ...p, cells: first } : p));
   const n = pages.findIndex((p) => p.id === cell.page) + 1;
   switch (goToState(now, cell)) {
     case 'missing':
-      return 'The Page this cell went to was deleted, so the panel shows it greyed out. Choose another Page.';
+      return 'Target Page deleted. Choose another Page.';
     case 'disabled':
-      return `Page ${n} is disabled, so the panel shows this cell greyed out.`;
+      return `Page ${n} is disabled: the cell shows greyed.`;
     case 'empty':
-      return `Page ${n} has no cells yet. The cell still works.`;
+      return `Page ${n} has no cells.`;
     default:
       return '';
   }

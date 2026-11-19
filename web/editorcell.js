@@ -49,7 +49,6 @@ export function createCellTab(ed, { picked }) {
   size.max = '200';
   size.inputMode = 'numeric';
   size.placeholder = '100';
-  size.title = '50 to 200 percent of the panel font size.';
   const sizeNote = el('span', 'sode__hint');
   sizeNote.setAttribute('role', 'status');
   const sizeField = el(
@@ -138,7 +137,6 @@ export function createCellTab(ed, { picked }) {
     form.hidden = !on;
   }
 
-  // A Grid panel: the artwork of the selected rows.
   function updateRows() {
     const g = picked();
     for (const n of [...cellOnly, deflt.node]) n.hidden = true;
@@ -155,7 +153,6 @@ export function createCellTab(ed, { picked }) {
     const key = `rows ${g.rows.map((r) => r.n).join()}`;
     if (key !== at) artNote.textContent = '';
     at = key;
-    // As for cells: the controls edit what the rows set, and Hide text shows as drawn.
     const drawn = g.rows.map((r, i) => withDefault({ kind: what, n: r.n, ...items[i] }, ed.defaults()));
     art.update({
       value: same(items, 'art'),
@@ -173,10 +170,7 @@ export function createCellTab(ed, { picked }) {
     const several = cs.length > 1;
     showForm(!!c || several);
     if (!c && !several) {
-      hint.textContent =
-        cs.length === 1
-          ? 'Select the whole cell to change its settings.'
-          : 'Select a square to change its settings. An empty square gets its type from the menu beside it.';
+      hint.textContent = cs.length === 1 ? 'Select the whole cell to change its settings.' : 'Select a square.';
       return;
     }
     const first = cs[0];
@@ -189,7 +183,7 @@ export function createCellTab(ed, { picked }) {
     const kinds = new Set(cs.map((x) => x.kind));
     const oneKind = kinds.size === 1;
     kindLine.textContent = several
-      ? `${cs.length} ${oneKind ? `${kindLabel(first.kind)} ` : ''}cells selected. A change here sets them all.`
+      ? `${cs.length} ${oneKind ? `${kindLabel(first.kind)} ` : ''}cells selected`
       : `${kindLabel(c.kind)} at row ${c.r}, column ${c.c}`;
     captionField.hidden = sizeRow.hidden = false;
     caption.placeholder = several && same(cs, 'caption') === '' && cs.some((x) => x.caption) ? 'Several values' : '';
@@ -208,7 +202,7 @@ export function createCellTab(ed, { picked }) {
     }
     at = key;
     for (const i of [caption, size]) i.disabled = ed.readOnly();
-    // The controls edit what the cells set; Hide text shows as drawn, so a default that hides the text reads as hidden.
+    // Hide text shows as drawn, so a default that hides the text reads as hidden.
     const drawn = cs.map((x) => withDefault(x, ed.defaults()));
     art.update({
       value: same(cs, 'art'),

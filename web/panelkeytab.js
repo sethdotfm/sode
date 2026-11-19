@@ -1,7 +1,4 @@
-// The Link with key tab of the Share modal (panelshare.js shareTabs). A panel that acts as an API client holds one key
-// per named instance. The tab lists them, rotates or revokes one at a time, and makes a link for a name. A link shows
-// one time, when it is made. Rotate, Revoke and any make that replaces a key each ask for a Confirm first (the
-// churning letter and the short lockout). Server side: internal/app/panelkey.go.
+// The Link with key tab of the Share modal (panelshare.js shareTabs). Server side: internal/app/panelkey.go.
 import { el, icon, on } from './core.js';
 import { btn, check, field } from './formbits.js';
 import { confirmBox } from './confirmbox.js';
@@ -10,7 +7,6 @@ import { trapDialog } from './dialogkeys.js';
 import { shareTabs } from './panelshare.js';
 import {
   MODES,
-  MODE_HINT,
   CONFIRM_TEXT,
   SESSION_WARNING,
   SESSION_NEXT,
@@ -21,6 +17,7 @@ import {
   makeAction,
   confirmKind,
   instanceCheck,
+  INSTANCE_MAX,
   keyRow,
   parseNetworks,
   networksText,
@@ -57,8 +54,8 @@ shareTabs.push(({ panel, api }) => {
   }
 
   let mode = 'key';
-  let kioskLink = false; // the link shown, its copy and its QR code all follow this switch
-  let keys = []; // the panel's instances as the server lists them
+  let kioskLink = false;
+  let keys = [];
   let max = 20;
   let made = null; // {name, secret, mode, link}: held only while this modal is open
   let revealed = false;
@@ -75,7 +72,6 @@ shareTabs.push(({ panel, api }) => {
   const modes = el('div', 'pb-btn-group');
   modes.setAttribute('role', 'radiogroup');
   modes.setAttribute('aria-label', 'Kind of link');
-  const modeHint = el('p', 'sode__hint');
   const actions = el('div', 'sode-ov__keyrow');
   const guard = confirmBox(root);
   const linkBox = el('div', 'sode-ov__keylink');
@@ -83,16 +79,12 @@ shareTabs.push(({ panel, api }) => {
   nameIn.id = 'key-instance';
   nameIn.autocomplete = 'off';
   nameIn.placeholder = 'Lobby tablet';
+  nameIn.maxLength = INSTANCE_MAX;
   nameIn.addEventListener('input', () => {
     guard.cancel();
     paintTop();
   });
-  const nameBox = field(
-    'key-instance',
-    'Instance name',
-    nameIn,
-    'Required. It names this instance in the list and is its device name, so the page does not ask for one. It is not a secret.',
-  );
+  const nameBox = field('key-instance', 'Instance name', nameIn);
   const check1 = () => instanceCheck(nameIn.value, keys, max);
 
   function paintList() {
@@ -121,16 +113,10 @@ shareTabs.push(({ panel, api }) => {
         );
       }),
     );
-    if (!keys.length) list.append(el('li', 'sode-ov__muted', 'No instances yet. Name one below to make its link.'));
   }
 
   function paintTop() {
-    status.replaceChildren(
-      dot(keys.length ? 'ok' : 'idle'),
-      keys.length
-        ? ` ${keys.length} of ${max} instances. A link shows one time, when it is made. Rotate makes a new one for that instance.`
-        : ' This panel has no instances.',
-    );
+    status.replaceChildren(dot(keys.length ? 'ok' : 'idle'), ` ${keys.length} of ${max} instances`);
     modes.replaceChildren(
       ...MODES.flatMap(([m, text]) => {
         const r = el('input', 'pb-btn-check');
@@ -144,7 +130,6 @@ shareTabs.push(({ panel, api }) => {
         return [r, l];
       }),
     );
-    modeHint.textContent = MODE_HINT[mode];
     const c = check1();
     const act = makeAction(mode, c.held);
     const make = btn(c.held && mode === 'key' ? 'pb-btn--outline' : 'pb-btn--ok', act.label, () =>
@@ -164,13 +149,11 @@ shareTabs.push(({ panel, api }) => {
     modes.querySelector(`[data-mode="${mode}"]`).focus();
   });
 
-  // ---- Confirm
   function ask(kind, run) {
     const verb = kind === 'revoke' ? 'Revoke' : kind === 'setup' ? 'Replace the key' : 'Rotate';
-    guard.ask(CONFIRM_TEXT[kind], verb).then((ok) => (ok ? run() : paintTop()));
+    guard.ask(CONFIRM_TEXT, verb).then((ok) => (ok ? run() : paintTop()));
   }
 
-  // ---- calls
   async function call(path, init) {
     busy = true;
     paintTop();
@@ -215,24 +198,17 @@ shareTabs.push(({ panel, api }) => {
     await loadKeys();
     paintLink();
     if (!setup) showKey(made.name, res.key);
-    say(
-      setup
-        ? `${made.name}: the old key is ended. Open the link one time on that device to set it up.`
-        : res.rotated
-          ? `${made.name} rotated. That instance signed out and its old link stopped working.`
-          : `Link made for ${made.name}.`,
-    );
+    say(setup ? `${made.name}: old key ended. Open the link on that device.` : res.rotated ? `${made.name} rotated.` : `Link made for ${made.name}.`);
   }
   async function revokeKey(name) {
     if ((await call(`api/v1/panels/${panel.id}/key?instance=${encodeURIComponent(name)}`, { method: 'DELETE' })) === FAIL) return;
     if (made?.name.toLowerCase() === name.toLowerCase()) made = null;
     await loadKeys();
     paintLink();
-    say(`Revoked ${name}. Other instances are not affected.`);
+    say(`Revoked ${name}.`);
   }
 
-  // The key itself, for a client that needs it apart from the link (a Bearer header). Built per make and removed on
-  // close, so the secret lives no longer than the modal. trapDialog drops it from the Esc stack after it is hidden.
+  // Removed on close, so the secret lives no longer than the modal. trapDialog drops it from the Esc stack after it is hidden.
   function showKey(name, secret) {
     const back = document.activeElement;
     const keyRoot = el('div', 'pb-modal-backdrop sode__scrim');
@@ -296,7 +272,6 @@ shareTabs.push(({ panel, api }) => {
         say('Copy failed. The link is selected: copy it by hand.');
       }
     });
-    // Kiosk adds `kiosk=1` after the key and keeps `?instance=`.
     const view = el('div', 'pb-btn-group');
     view.setAttribute('role', 'radiogroup');
     view.setAttribute('aria-label', 'How the link opens');
@@ -327,7 +302,7 @@ shareTabs.push(({ panel, api }) => {
       paintLink();
     });
     linkBox.append(
-      el('p', 'sode__hint', `Link for ${made.name}. It is shown only now. If you close this window, the link is lost.`),
+      el('p', 'sode__hint', `Link for ${made.name}. Shown one time.`),
       el('div', 'sode__secret-row', input, reveal.label),
       view,
       el('div', 'sode-ov__keyrow', copy),
@@ -335,11 +310,10 @@ shareTabs.push(({ panel, api }) => {
     );
     if (revealed) {
       const qr = qrNode(made.link);
-      linkBox.append(qr || el('p', 'sode__hint', 'This link is too long for a QR code. Copy it instead.'));
+      linkBox.append(qr || el('p', 'sode__hint', 'Too long for a QR code.'));
     }
   }
 
-  // ---- allowed networks
   const nets = el('textarea', 'pb-textarea');
   nets.id = 'key-networks';
   nets.rows = 2;
@@ -365,17 +339,12 @@ shareTabs.push(({ panel, api }) => {
   const netBox = el(
     'div',
     'sode-ov__keynets',
-    Object.assign(el('label', null, 'Allowed networks'), { htmlFor: 'key-networks' }),
+    Object.assign(el('label', null, 'Allowed networks (one per line, empty = any)'), { htmlFor: 'key-networks' }),
     nets,
-    el(
-      'p',
-      'sode__hint',
-      "One address or CIDR such as 192.168.1.0/24 per line. A request with any of this panel's keys from anywhere else is refused. Leave it empty to allow any address.",
-    ),
     netSave,
   );
 
-  root.append(status, list, el('h3', 'sode-side__h', 'New link'), nameBox, modes, modeHint, actions, guard.node, linkBox, netBox, note);
+  root.append(status, list, el('h3', 'sode-side__h', 'New link'), nameBox, modes, actions, guard.node, linkBox, netBox, note);
   paintTop();
   paintList();
   syncNets();

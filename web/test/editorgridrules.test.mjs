@@ -1,4 +1,3 @@
-// The Grid panel editor's list tabs (editorgridrules.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { edgeRows, moveRows, stepRows, pinItems, clearEdge, followRouter, stopFollowing, drawnOrder } from '../editorgridrules.js';

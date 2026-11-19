@@ -22,13 +22,13 @@ export function createRouterList(o) {
   find.setAttribute('aria-expanded', 'true');
   find.setAttribute('aria-controls', `ed-${key}-router`);
   find.setAttribute('aria-label', `Find ${what}s on the router`);
-  const FIND_TIP = 'Enter adds the highlighted one, Shift+Enter adds every match. Up and Down move the highlight.';
+  const FIND_TIP = 'Enter: add the highlighted. Shift+Enter: add all.';
   find.dataset.pbTip = FIND_TIP;
   const count = el('span', 'sode-edge__count');
   count.id = `ed-${key}-shown`;
   const addAll = btn('pb-btn--outline pb-btn--sm', '', () => addMatches());
   addAll.id = `ed-${key}-add`;
-  addAll.dataset.pbTip = `Adds every match at the end of the list, in router order (Shift+Enter).`;
+  addAll.dataset.pbTip = 'Shift+Enter';
   const box = el('div', 'sode-rlist');
   box.id = `ed-${key}-router`;
   box.setAttribute('role', 'listbox');
@@ -37,12 +37,10 @@ export function createRouterList(o) {
   const field = el('div', 'sode-rlist__field');
   box.append(field);
   const search = el('div', 'pb-input-group sode-rlist__find', find, el('span', 'pb-input-group__addon', icon('search')));
-  // The bar under Find, as the bar over the panel's list: the selection count, then + on the right.
   const selNote = el('span', 'sode-edge__sel');
   selNote.id = `ed-${key}-rsel`;
   selNote.setAttribute('role', 'status');
-  selNote.dataset.pbTip = 'Click selects a row, Shift-click a range, Cmd- or Ctrl-click one more.';
-  const ADD_TIP = 'Adds the selected ones at the end of the list, in router order';
+  const ADD_TIP = 'Add selected';
   const addSel = btn('pb-btn--ghost pb-btn--icon pb-btn--sm', '', () => addPicked());
   addSel.append(icon('plus'));
   addSel.id = `ed-${key}-add-sel`;

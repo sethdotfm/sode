@@ -22,10 +22,6 @@ export function createFixedField(ed) {
   const set = (fn) => ed.setFields({ settings: fn(ed.fields().settings) });
   const chosen = () => fixedDestsOf({ settings: ed.fields().settings });
 
-  const help = el('span', 'sode-fixed__help pb-tip--start', icon('circle-help'));
-  help.tabIndex = 0;
-  help.setAttribute('aria-label', 'About fixed destinations');
-  help.setAttribute('data-pb-tip', 'A Source or Preset press patches to these, with no Destination cell to press first. Empty is off.');
   const list = el('ul', 'sode-fixed__chosen');
   list.id = 'ed-fixed-list';
   list.setAttribute('aria-label', 'Fixed destinations');
@@ -34,7 +30,7 @@ export function createFixedField(ed) {
   input.type = 'search';
   input.setAttribute('aria-label', 'Fixed destination');
   input.autocomplete = 'off';
-  input.placeholder = 'Add fixed panel destinations';
+  input.placeholder = 'Add a Destination';
   input.setAttribute('role', 'combobox');
   input.setAttribute('aria-controls', 'ed-fixed-results');
   input.setAttribute('aria-expanded', 'false');
@@ -45,7 +41,7 @@ export function createFixedField(ed) {
   found.hidden = true;
   const note = el('span', 'sode__hint');
   note.setAttribute('role', 'status');
-  const node = el('div', 'sode__field sode-fixed', el('span', 'sode__field-label', 'Fixed destinations ', help), list, input, found, note);
+  const node = el('div', 'sode__field sode-fixed', el('span', 'sode__field-label', 'Fixed destinations'), list, input, found, note);
 
   async function load() {
     if (data.loading || Date.now() - data.at < STALE_MS) return;
@@ -70,7 +66,7 @@ export function createFixedField(ed) {
     hi = Math.max(0, Math.min(hi, results.length - 1));
     found.hidden = !open;
     input.setAttribute('aria-expanded', String(open));
-    note.textContent = full ? `At most ${FIXED_MAX} fixed destinations.` : '';
+    note.textContent = full ? `At most ${FIXED_MAX} fixed destinations.` : chosen().length ? '' : 'Off';
     if (!open) return;
     const rows = results.slice(0, SHOWN).map((e, i) => {
       const li = el(

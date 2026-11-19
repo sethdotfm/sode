@@ -1,4 +1,3 @@
-// The editor's Pages bar rules (editorpagerules.js) and undo across Pages (gridundo.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addPage, movePage, renamePage, enablePage, deletePage, leadsTo, copyPage, openClick, OPEN_MAX } from '../editorpagerules.js';
@@ -29,7 +28,6 @@ test('a move puts the Page at the new place and keeps every id, so Go to Page ta
   assert.deepEqual(ids(movePage(three(), 0, 2)), ['b', 'c', 'a']);
   assert.deepEqual(ids(movePage(three(), 2, 0)), ['c', 'a', 'b']);
   assert.deepEqual(ids(movePage(three(), 1, 1)), ['a', 'b', 'c']);
-  // Move up on the first Page and Move down on the last change nothing.
   assert.deepEqual(ids(movePage(three(), 0, -1)), ['a', 'b', 'c']);
   assert.deepEqual(ids(movePage(three(), 2, 3)), ['a', 'b', 'c']);
   assert.equal(movePage(three(), 0, 2)[2].cells[1].page, 'c');
@@ -93,7 +91,6 @@ test('a plain click opens one Page; Cmd or Ctrl-click adds or removes one, up to
 test('undo covers a cell edit on any Page and leaves Page names, order and deletions as they are', () => {
   let pages = three();
   let h = emptyUndo();
-  // An edit on Page 2 while Page 1 is in view.
   const before = pageSnap(pages, 4, 8);
   pages = pages.map((p) => (p.id === 'b' ? { ...p, cells: [src(1, 1, 9)] } : p));
   assert.equal(samePages(before, pageSnap(pages, 4, 8)), false);

@@ -1,5 +1,4 @@
-// A Public panel page that comes back by itself, and Reload from the Open now list (internal/app/publicback.go,
-// internal/app/panelreload.go). Pure, so node tests read it.
+// Server side: internal/app/publicback.go and internal/app/panelreload.go.
 import { streamState } from './panelassignrules.js';
 
 // The longest random wait before a page asks after a public line. It spreads a wall of tablets behind one address

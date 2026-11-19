@@ -1,5 +1,3 @@
-// A panel's Pages as the web reads and saves them (panelpages.js), and every place that reads a stored panel's cells.
-// Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pagesOf, pageCells, pageView, pageLabel, newPageId, fitCells, fitPages, storedPages, pagesAfterSave, PAGE_MAX, PAGE_NAME_MAX } from '../panelpages.js';
@@ -107,7 +105,7 @@ test('the editor reads the pages it is given, so an applied template counts as a
   const g = createGrid(pageView(stored));
   assert.equal(isDirty(stored, 'Wall', g), false);
   assert.equal(isDirty(stored, 'Wall', g, {}, stored.pages), false);
-  // A Page the editor once showed comes back in reading order with its keys sorted, which is no change.
+  // A Page that the editor showed comes back in reading order with sorted keys. That is no change.
   const shown = [stored.pages[0], { ...stored.pages[1], cells: [...stored.pages[1].cells].reverse().map((c) => ({ ...c })) }];
   assert.equal(isDirty(stored, 'Wall', g, {}, shown), false);
   const other = [stored.pages[0], { ...stored.pages[1], enabled: true }];
@@ -140,7 +138,7 @@ test('pagesAfterSave keeps the Pages edited during the save', () => {
   ];
   // Nothing changed: the stored copies.
   assert.deepEqual(pagesAfterSave(sent, sent, stored).pages, stored);
-  // Page 2 edited and a Page added while the save ran: both stay, and Page 1 takes its new id.
+  // Page 2 edited and a Page added while the save ran: both stay, and Page 1 gets its new id.
   const now = [sent[0], { id: 'bb', enabled: true, cells: [take(2, 2)] }, { id: 'cc', enabled: true, cells: [] }];
   const after = pagesAfterSave(sent, now, stored);
   assert.deepEqual(after.pages, [stored[0], now[1], now[2]]);
@@ -148,6 +146,6 @@ test('pagesAfterSave keeps the Pages edited during the save', () => {
   // Page 1 edited: it keeps its cells under the new id.
   const edited = [{ id: '', enabled: true, cells: [] }, sent[1]];
   assert.deepEqual(pagesAfterSave(sent, edited, stored).pages, [{ id: 'p1', enabled: true, cells: [] }, stored[1]]);
-  // Moved during the save: the order stays as it is now.
+  // Moved while the save ran: the page's order stays.
   assert.deepEqual(pagesAfterSave(sent, [sent[1], sent[0]], stored).pages, [stored[1], stored[0]]);
 });

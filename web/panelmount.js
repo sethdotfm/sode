@@ -28,11 +28,9 @@ export function pageUi() {
   };
 }
 
-// Fills host with a live panel. onBack is the way out to editing. A Grid panel runs as on its own page. So it also
-// gets panel.html's instance name, Levels box and take confirm. They are made
-// again for each run, since keyconfirm.js adds listeners it never removes.
-// edit is a Grid panel's { bar, open, aside, onPicks } (editorlive.js). Back to editing goes in the bar, left of open.
-// aside sits in the panel's box and keeps its own keys. The run gives onPicks each new set of picks.
+// Fills host with a live panel; onBack goes back to editing. A Grid panel also gets panel.html's instance name, Levels box
+// and take confirm, made again for each run because keyconfirm.js never removes its listeners.
+// edit: a Grid panel's { bar, open, aside, onPicks } (editorlive.js).
 export function liveUi(host, onBack, edit = null) {
   const back = el('button', `pb-btn pb-btn--outline ${edit ? 'pb-btn--lg' : 'pb-btn--sm'}`, 'Back to editing');
   back.id = 'ed-live-back';

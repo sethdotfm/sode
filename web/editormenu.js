@@ -1,13 +1,11 @@
-// The smart menu: a small list beside the selection (right, else left, else below). It knows nothing about
-// cells. The page gives it items, so Find, fill orders and later actions are added by handing it more.
+// The smart menu: a small list beside the selection (right, else left, else below). It knows nothing about cells: the page gives it items.
 // An item is { label, icon, run, chord?, disabled?, sub?: [{ label, run, current?, disabled?, hint? }] }; chord is the letter that,
 // with Ctrl (on a Mac too), runs it, and is shown beside it. Esc and the arrows are the menu's own.
 // area() is the box the menu and its flyouts stay inside (editorrules.js menuArea); the viewport when not given.
 import { el, icon } from './core.js';
 import { mac } from './keys.js';
-import { placeMenu, subSide, flyoutShift, menuChord, chordText } from './editorrules.js';
+import { placeMenu, subSide, flyoutShift, menuChord, chordText, EDGE_GAP as GAP } from './editorrules.js';
 
-const GAP = 8; // keep in step with EDGE_GAP in editorfind.js and editorarttool.js
 const viewport = () => ({ left: 0, top: 0, right: document.documentElement.clientWidth, bottom: document.documentElement.clientHeight });
 
 export function createSmartMenu(host, { onEscape, area = viewport }) {
@@ -59,7 +57,7 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
     if (x || y) sub.style.translate = `${x}px ${y}px`;
   }
 
-  // Builds the item opening right; placeSubs turns a flyout to the left after the menu is placed and measured.
+  // Opens right; placeSubs turns a flyout left once the menu is placed and measured.
   function item(it) {
     const li = el('li');
     const b = el('button', 'pb-menu__item');

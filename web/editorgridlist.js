@@ -13,6 +13,7 @@ import { myRights, onMyRights } from './editorrights.js';
 import { artNode } from './panelview.js';
 import { plural } from './gridclip.js';
 import { defaultFor } from './panellook.js';
+import { mac } from './keys.js';
 import {
   edgeRows,
   clearEdge,
@@ -29,7 +30,7 @@ import {
 
 const FIRST = 30; // rows drawn before the list has a height
 const NONE = () => ({ selected: new Set(), anchor: null });
-const MOVE_KEYS = { top: 'Alt+Home', up: 'Alt+Up, Ctrl+Up or Cmd+Shift+Up', down: 'Alt+Down, Ctrl+Down or Cmd+Shift+Down', end: 'Alt+End' };
+const MOVE_KEYS = { top: 'Alt+Home', up: mac ? 'Cmd+Shift+Up' : 'Alt+Up', down: mac ? 'Cmd+Shift+Down' : 'Alt+Down', end: 'Alt+End' };
 
 // key is the panel field and the /names list ('sources' or 'destinations'). rights is the Rights key, what the item
 // word, side the edge of the grid it is drawn on. onPick(list) runs when the selection changes.
@@ -54,7 +55,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
   following.id = `ed-${key}-following`;
   const clear = btn('pb-btn--outline pb-btn--sm', 'Clear', () => set(clearEdge(edge(), myRights(), rights)));
   clear.id = `ed-${key}-clear`;
-  clear.dataset.pbTip = `Takes every ${what} off the panel.`;
+  clear.dataset.pbTip = `Removes every ${what} from the panel`;
   const outside = el('p', 'sode__hint');
   outside.id = `ed-${key}-outside`;
   const list = el('ol', 'sode-pages__list sode-edge__list');
@@ -69,7 +70,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     'div',
     'pb-empty sode-edge__empty',
     el('p', 'pb-empty__title', `No ${what}s yet`),
-    el('p', 'pb-empty__msg', 'Add them from the router, or switch on Follow the router in the Panel tab.'),
+    el('p', 'pb-empty__msg', 'Add from the router, or turn on Follow the router.'),
   );
   empty.id = `ed-${key}-empty`;
   const routerList = createRouterList({
@@ -93,7 +94,6 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
   const selNote = el('span', 'sode-edge__sel');
   selNote.id = `ed-${key}-sel`;
   selNote.setAttribute('role', 'status');
-  selNote.dataset.pbTip = 'Click selects a row, Shift-click a range, Cmd- or Ctrl-click one more. In the list, Ctrl+A selects all and Esc none.';
   const barBtn = (id, name, tip, fn) => {
     const b = btn('pb-btn--ghost pb-btn--icon pb-btn--sm', '', fn);
     b.append(icon(name));
@@ -109,8 +109,8 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     set(removeItems(edge(), many()));
     setSel(NONE());
   };
-  const selArt = barBtn('art', 'image', 'Artwork: Icon A, Icon B and Hide text', () => onArt?.(api));
-  const selPin = barBtn('pin', 'pin', 'Pin, in list order', () => pinSel(true));
+  const selArt = barBtn('art', 'image', 'Artwork', () => onArt?.(api));
+  const selPin = barBtn('pin', 'pin', 'Pin', () => pinSel(true));
   const selUnpin = barBtn('unpin', 'pin-off', 'Unpin', () => pinSel(false));
   const moves = [
     barBtn('top', 'arrow-up-to-line', `Move to the top (${MOVE_KEYS.top})`, () => moveSel('top')),
@@ -254,7 +254,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     pinsBtn.hidden = !pinned;
     pinsBtn.textContent = `${pinned} pinned`;
     pinsBtn.setAttribute('aria-pressed', String(pinOnly));
-    pinsBtn.dataset.pbTip = pinOnly ? `Shows every ${what} again` : `Shows only the pinned ${what}s`;
+    pinsBtn.dataset.pbTip = pinOnly ? 'Show all' : 'Show pinned only';
     outside.textContent = v.outside ? `${plural(v.outside, what)} outside your Rights, kept.` : '';
     outside.hidden = !v.outside;
     following.textContent = FOLLOWING;
@@ -262,7 +262,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     acts.hidden = list.hidden = !n;
     empty.hidden = !!n;
     clear.disabled = ro || fixed || !n;
-    clear.dataset.pbTip = fixed ? FOLLOWING : `Takes every ${what} off the panel.`;
+    clear.dataset.pbTip = fixed ? FOLLOWING : `Removes every ${what} from the panel`;
     shownOff = off;
     shownRo = ro;
     made = new Map();
@@ -287,7 +287,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
       ...(art ? [el('span', 'sode-edge__art', art)] : []),
       el('span', 'sode-pages__name', r.name || `${what} ${r.n + off}`),
     ];
-    if (r.gone) body.push(el('span', 'sode__hint', 'not on router'));
+    if (r.gone) body.push(el('span', 'sode__hint', 'Not on the router'));
     // A Move across the line between pinned and unpinned rows does nothing (moveRows), so it is off.
     const li = rows.row({
       i,

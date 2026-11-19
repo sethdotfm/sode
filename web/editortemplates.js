@@ -45,7 +45,7 @@ export function initTemplates(editor) {
     scopes.setAttribute('role', 'radiogroup');
     scopes.setAttribute('aria-label', 'Who sees this template');
     const withSettings = check('Include the panel settings', { id: 'tpl-settings' });
-    const withSources = check('Store with Sources (and Presets)', { id: 'tpl-sources' });
+    const withSources = check('Store with Sources and Presets', { id: 'tpl-sources' });
     const withDests = check('Store with Destinations', { id: 'tpl-dests' });
     const saveBtn = el('button', 'pb-btn pb-btn--ok', 'Save template');
     saveBtn.type = 'button';
@@ -59,11 +59,6 @@ export function initTemplates(editor) {
       el('h3', 'sode-tpl__head', 'Save this layout'),
       el('label', 'sode-tpl__field', 'Name', name),
       scopes,
-      el(
-        'p',
-        'sode__hint',
-        'A template keeps the rows, columns and button types. Cells come back unassigned unless you store them with Sources or Destinations.',
-      ),
       withSettings.label,
       withSources.label,
       withDests.label,
@@ -128,7 +123,7 @@ export function initTemplates(editor) {
     function applyTemplate(t) {
       editor.replacePages(pagesOf(t), templateGrid(t));
       if (t.settings) editor.setFields({ settings: { ...editor.fields().settings, ...t.settings } });
-      editor.status(t.sources && t.dests ? `Applied ${t.name}. Save to keep it.` : `Applied ${t.name}. Fill the unassigned cells, then save.`);
+      editor.status(`Applied ${t.name}.`);
       close();
       $('ed-grid').focus();
     }
@@ -148,7 +143,7 @@ export function initTemplates(editor) {
     }
 
     saveBtn.addEventListener('click', async () => {
-      if (!name.value.trim()) return void (note.textContent = 'Give the template a name.');
+      if (!name.value.trim()) return void (note.textContent = 'Name required.');
       busy = true;
       saveBtn.disabled = true;
       note.textContent = '';

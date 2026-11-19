@@ -1,4 +1,4 @@
-// The Grid panel's nodes. Each is made once and moves between crosspoints and names as the grid scrolls
+// The Grid panel's nodes. Each is made one time and moves between crosspoints and names as the grid scrolls
 // (gridpanelview.js). So a paint changes attributes and Text data, never childList.
 import { el, icon } from './core.js';
 import { iconHref } from './sprite.js';

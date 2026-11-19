@@ -1,4 +1,4 @@
-// Which part of a Grid panel is drawn (gridpanelwindow.js): one axis at a time, in px, pinned items at the edge.
+// One axis at a time, in px. Pinned items stay at the edge.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

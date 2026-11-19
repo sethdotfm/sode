@@ -1,10 +1,10 @@
-// The Assign to modal on the panels page: the open Sode panel pages, and a click sends one to the chosen panel.
-// The server checks who can (a Trusted user or higher) and sends the key to the instance alone.
+// The Assign to modal on the panels page. The server checks who can (a Trusted user or higher) and sends the key to the instance alone.
 import { el, icon, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { segmented } from './formbits.js';
 import { assignRows, assignWays, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
 import { MON_POLL_MS } from './panelsmon.js';
+import { INSTANCE_MAX } from './panelkeyrules.js';
 import { resultStep } from './keys.js';
 
 let closeOpen = null;
@@ -16,8 +16,7 @@ on('locking', () => {
   closeOpen?.();
 });
 
-// The name clash dialog, over the Assign to modal or the panels page's rename: the server's suggestion, editable.
-// go(name) sends again under it; Cancel and Escape close only this dialog.
+// The name clash dialog, over the Assign to modal or the panels page's rename. go(name) sends again under the edited suggestion.
 export function askName(panel, clashed, suggest, go, kind = 'assign') {
   const renaming = kind === 'rename';
   const opener = document.activeElement;
@@ -26,6 +25,7 @@ export function askName(panel, clashed, suggest, go, kind = 'assign') {
   input.autocomplete = 'off';
   input.spellcheck = false;
   input.value = suggest;
+  input.maxLength = INSTANCE_MAX;
   input.setAttribute('aria-label', `Instance name on ${panel.name}`);
   const err = el('div', 'pb-note pb-note--error');
   err.setAttribute('role', 'alert');
@@ -43,18 +43,8 @@ export function askName(panel, clashed, suggest, go, kind = 'assign') {
   dialog.setAttribute('aria-labelledby', 'assign-name-title');
   dialog.tabIndex = -1;
   dialog.append(
-    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Choose another name'), { id: 'assign-name-title' })),
-    el(
-      'div',
-      'pb-modal__body',
-      el(
-        'p',
-        'sode__hint',
-        `${panel.name} already has an instance named ${clashed}. The instance uses this name as its device name${renaming ? '' : ' there'}.`,
-      ),
-      input,
-      err,
-    ),
+    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `Name taken on ${panel.name}`), { id: 'assign-name-title' })),
+    el('div', 'pb-modal__body', input, err),
     el('div', 'pb-modal__footer', cancel, ok),
   );
   root.append(dialog);
@@ -88,8 +78,7 @@ export function askName(panel, clashed, suggest, go, kind = 'assign') {
   input.select();
 }
 
-// A user who cannot open the target: the device would sign in and find no panel there for them. Answers true for
-// Send anyway; Cancel, Escape and the Lock answer false.
+// Answers true for Send anyway; Cancel, Escape and the Lock answer false.
 function askAnyway(panel, row) {
   return new Promise((done) => {
     const opener = document.activeElement;
@@ -110,15 +99,7 @@ function askAnyway(panel, row) {
         'pb-modal__header',
         Object.assign(el('span', 'pb-modal__title', `${panel.name} is not shared with ${row.user}`), { id: 'assign-anyway-title' }),
       ),
-      el(
-        'div',
-        'pb-modal__body',
-        el(
-          'p',
-          'sode__hint',
-          `${row.device} is signed in as ${row.user}, who cannot open ${panel.name}. The device will open the panel and show that there is no panel there to use.`,
-        ),
-      ),
+      el('div', 'pb-modal__body', el('p', 'sode__hint', `${row.device} is signed in as ${row.user}. It will show no panel.`)),
       el('div', 'pb-modal__footer', cancel, ok),
     );
     root.append(dialog);
@@ -171,7 +152,7 @@ export function openAssign(panel, ctx) {
     ways.length > 1
       ? segmented(
           'assign-way',
-          'How the instance opens it',
+          'Opens with',
           [
             ['client', 'Its own key'],
             ['user', 'Sign in'],
@@ -198,7 +179,7 @@ export function openAssign(panel, ctx) {
     if (!force && now === shown) return;
     shown = now;
     list.replaceChildren();
-    if (!rows.length) return list.append(el('p', 'sode__hint', all.length ? 'No instance matches.' : 'No Sode panel page was open in the last 24 hours.'));
+    if (!rows.length) return list.append(el('p', 'sode__hint', all.length ? 'No instance matches.' : 'No panel page open in the last 24 hours.'));
     for (const r of rows) {
       const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('send'), ' Assign');
       b.type = 'button';
@@ -282,7 +263,6 @@ export function openAssign(panel, ctx) {
   });
 
   find.addEventListener('input', () => paint());
-  // The same keys as the panels list's Find: arrows or Ctrl/Cmd+J, K move the highlight, Enter assigns it.
   find.addEventListener('keydown', (e) => {
     const step = resultStep(e, shownRows.length > 0);
     if (step) {

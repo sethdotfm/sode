@@ -1,4 +1,3 @@
-// The router list on the Grid panel editor's list tabs (editorgridrules.js): Find, selection and Add. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { routerRows, findRows, selectRows, addItems } from '../editorgridrules.js';

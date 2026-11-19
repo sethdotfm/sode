@@ -35,7 +35,7 @@ export function askPasteEdge(choices, outside, back) {
       el('p', 'sode__hint', `${outside === 1 ? '1 cell runs' : `${outside} cells run`} past the edge of the grid.`),
       el('p', null, choices.clip.text),
       el('p', null, choices.wrap.text),
-      el('p', 'sode__hint', `Fill order: ${choices.orderName}, as picked in Find. Undo reverses either choice.`),
+      el('p', 'sode__hint', `Fill order: ${choices.orderName}`),
     );
     body.id = 'ed-edge-body';
     dialog.append(

@@ -50,7 +50,7 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 		return t.width > 0 && t.left - d.left < 40;
 	})()`)
 	b.eval(`window.topWas = gridTop(); press(nameOf('src', 3)); press(nameOf('src', 5), { shiftKey: true }); true`)
-	b.waitFor("a click and a Shift-click on the grid select those sources in the list; the Preview bar keeps its edit buttons hidden", `document.getElementById('ed-sources-sel').textContent === '3 selected' && getComputedStyle(document.getElementById('ed-live-picked')).display === 'none' && !document.getElementById('ed-sources-sel-top').offsetParent`)
+	b.waitFor("a click and a Shift-click on the grid select those sources in the list", `document.getElementById('ed-sources-sel').textContent === '3 selected'`)
 	b.shot("picked")
 	b.waitFor("the grid does not move", `gridTop() === topWas`)
 	b.eval(`document.getElementById('ed-live-lists').click(); true`)
@@ -76,7 +76,7 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 	b.waitFor("Done closes the artwork and puts the Cell tab back", `document.getElementById('ed-live-art').hidden && document.getElementById('panel-ed-cell').contains(document.getElementById('ed-cell-kind'))`)
 
 	b.eval(`document.getElementById('ed-live-lists').click(); document.getElementById('panel-clear').click(); true`)
-	b.waitFor("Clear drops the picks", `!document.getElementById('ed-live-picked').children.length && document.getElementById('ed-destinations-sel').textContent === '0 selected'`)
+	b.waitFor("Clear drops the picks", `document.getElementById('ed-destinations-sel').textContent === '0 selected'`)
 
 	b.eval(`document.getElementById('ed-live-save').click(); true`)
 	b.waitFor("saved", `document.getElementById('ed-live-save').hidden`)

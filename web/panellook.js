@@ -1,7 +1,4 @@
-// What a panel's look settings and a cell's artwork mean. Pure. Stored names are in docs/persisted-names.md.
-// Settings: titleBar (false hides the title bar), fontSize (percent), theme ('auto' follows the browser, 'light' or 'dark'), wake, fullscreen, landscape.
-// Cell: art ('icon:<vendored icon name>', 'lib:<Icon library id>' or an artwork id), artB, fontSize (percent) and hideText.
-// artB is a glyph beside an icon, or a corner badge on an image. hideText is true or false; if it is unset, the item's Default artwork decides.
+// artB is a glyph beside an icon, or a corner badge on an image. An unset hideText follows the item's Default artwork.
 
 const SCALE_MIN = 50;
 const SCALE_MAX = 200;
@@ -11,10 +8,10 @@ const ART_ID = /^[ad]-[0-9a-f]{8}$/;
 const ICON = /^icon:([a-z0-9-]+)$/;
 // An Icon library icon, as iconIDRe in internal/app/iconlib.go. Drawn as an image, never as a sprite icon.
 const LIB = /^lib:([0-9a-f]{8})$/;
-// Icon B: a digit 0 to 16 or a capital letter, so "[camera] 2" is two picks. Text, not a sprite icon: Lucide has no digits.
+// Icon B: a number 0 to 16 or a letter A to Z. Text, not a sprite icon: Lucide has no digits.
 export const ART_B_CHOICES = [...Array.from({ length: 17 }, (_, i) => String(i)), ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i))];
 
-// Percent to a multiplier. Anything that is not a number counts as 100.
+// Percent to a multiplier; a non-number counts as 100.
 function scaleOf(percent) {
   if (typeof percent !== 'number' || !Number.isFinite(percent)) return 1;
   return Math.min(SCALE_MAX, Math.max(SCALE_MIN, percent)) / 100;
@@ -32,14 +29,12 @@ export function lookOf(settings) {
   };
 }
 
-// Text is only hidden under artwork (Icon A or B), so a cell never ends up with neither.
+// Only under artwork, so a cell never ends up with neither.
 export const textHidden = (cell) => cell?.hideText === true && (!!artOf(cell) || !!artBOf(cell));
 
-// '' when the cell has no Icon B or holds something that is not one of the choices.
 export const artBOf = (cell) => (typeof cell?.artB === 'string' && ART_B_CHOICES.includes(cell.artB) ? cell.artB : '');
 
-// Icon B is a corner badge whenever Icon A draws as an image rather than a vendored sprite icon. Then the image fills
-// the cell and the badge sits over it. Beside a sprite icon Icon B keeps its 60% of the row. artNode (panelview.js) asks this.
+// A corner badge over an image that fills the cell; beside a sprite icon Icon B keeps its 60% of the row. artNode (panelview.js) asks this.
 export const artBBadge = (cell) => !!artBOf(cell) && !!artOf(cell) && !artOf(cell).icon;
 
 export const cellScale = (cell) => scaleOf(cell?.fontSize);
@@ -68,8 +63,7 @@ export function itemKey(cell) {
   return '';
 }
 
-// A list of defaults (GET /default-artwork, or a panel read's artDefaults) as a Map by item. A preset's default is
-// also kept under the preset's name now, for a Preset cell that has no id yet.
+// A preset's default is also kept under the preset's name, for a Preset cell that has no id yet.
 export function defaultsBy(list) {
   const out = new Map();
   for (const d of Array.isArray(list) ? list : []) {
@@ -81,9 +75,7 @@ export function defaultsBy(list) {
 
 export const defaultFor = (cell, defaults) => defaults?.get(itemKey(cell)) || null;
 
-// The cell as drawn: its own artwork wins whole, else its item's default fills both icons. Hide text comes from the
-// default unless the cell sets true or false itself. A copy: the stored cell never holds a default, so a save, a
-// Push or a template carries only what the cell sets.
+// A copy: the stored cell never holds a default, so a save, a Push or a template carries only what the cell sets.
 export function withDefault(cell, defaults) {
   const d = defaultFor(cell, defaults);
   if (!d) return cell;

@@ -26,7 +26,7 @@ export function undoText(err) {
     case 'nothing-to-undo':
       return 'Nothing to undo';
     case 'undo-refused':
-      return `Undo is refused: ${err.message}`;
+      return `Sode refused the Undo: ${err.message}`;
     default:
       return '';
   }

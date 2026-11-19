@@ -1,4 +1,3 @@
-// What a Grid panel's confirm lists (gridpanelplan.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { planOf, currentlyOf } from '../gridpanelplan.js';

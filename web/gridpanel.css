@@ -197,7 +197,7 @@ html:has(.sode-gridpanel) {
   width: calc(var(--sode-name-w) + var(--sode-col-pins) * var(--sode-xp));
   z-index: 4;
 }
-/* The bands hide what scrolls under them only where they draw: a name bar is opaque, crosspoints are. */
+/* A band hides what scrolls under it only where it draws. Only the name bar is opaque here; a pinned crosspoint draws its own field. */
 .sode-gridpanel__top::before,
 .sode-gridpanel__side::before {
   background: var(--pb-surface-base);
@@ -327,10 +327,7 @@ html:has(.sode-gridpanel) {
   transform: translateY(calc(var(--sode-name-h) + var(--sode-i) * var(--sode-xp)));
   width: var(--sode-name-w);
 }
-/* The router number before the name (gridpanelview.js paintSrc, paintDst), as numbers show in the main page's lists
-   (.sode__num). A pseudo-element, so the name's text is the name alone. The phone layout is the phone session's, so
-   it shows no number yet. On a destination the name is in rows that wrap, so the number shares its line; the artwork
-   and each mark take a line. A source name is one crosspoint wide, so its number takes a line over the name. */
+/* The router number before the name, as in the main page's lists (.sode__num). A pseudo-element, so the name's text is the name alone. Desktop only: phone names are narrow. A destination's number shares the name's line. A source's number has its own line. */
 :root:not([data-layout="phone"]) .sode-gridpanel__dst {
   align-content: center;
   flex-direction: row;
@@ -520,7 +517,7 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__cursor[data-bar] .sode-gridpanel__ring {
   display: none;
 }
-/* No cursor on touch: a finger has no hover, and the sticky-placed node jumped under momentum scroll. */
+/* No cursor on touch: a finger has no hover, and a sticky node jumps under momentum scroll. */
 :root[data-layout="phone"] .sode-gridpanel__cursor,
 .sode-gridpanel__field[data-touch] .sode-gridpanel__cursor {
   display: none;
@@ -612,9 +609,7 @@ html:has(.sode-gridpanel) {
     opacity: 1;
   }
 }
-/* The corner where the bars meet: the Destinations word along its bottom, next to the Destination bar, the Sources
-   word on its side down its right edge, next to the Source bar, and the search boxes in the editor's live test
-   (gridpanelfindbox.js). Each word is centred in its color bar. */
+/* The corner where the bars meet: each word is centred in its color bar. In the Live Editor it also holds the search boxes (gridpanelfindbox.js). */
 .sode-gridpanel__head {
   box-sizing: border-box;
   display: grid;
@@ -670,7 +665,6 @@ html:has(.sode-gridpanel) {
   user-select: text;
   width: 100%;
 }
-/* The key hint at the box's end, with the count before it. */
 .sode-gridpanel__find-count,
 .sode-gridpanel__find-key {
   pointer-events: none;
@@ -691,7 +685,6 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__find[data-counted] .sode-gridpanel__find-input {
   padding-inline-end: calc(var(--pb-space-10) * 2 + var(--pb-space-5));
 }
-/* Previous and next match, beside the box, as tall as it. */
 .sode-gridpanel__find-step {
   flex: none;
   height: 1.8rem;
@@ -702,8 +695,7 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__find-step[hidden] {
   display: none;
 }
-/* The Filter switch (gridpanelfindbox.js), in the corner of the editor's live test; the deck and the phone place it
-   themselves. Its words never change, so the band does not move as the mode changes. */
+/* The Filter switch (gridpanelfindbox.js), in the corner in the Live Editor. Its words never change, so the band does not move. */
 .sode-gridpanel__find-mode {
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-2);
@@ -727,9 +719,7 @@ html:has(.sode-gridpanel) {
 :root[data-layout="phone"] .sode-gridpanel__find-input {
   padding-inline-end: var(--pb-space-3);
 }
-/* The cursor shows where focus is; the scroller takes focus only so an embedded run gets its keys back. A clicked
-   crosspoint or name keeps focus, and Chrome gives it :focus-visible at the next key (Delete, say), which drew a
-   second, box-shaped cursor. */
+/* The cursor shows where focus is. Chrome gives a clicked crosspoint or name :focus-visible at the next key, which draws a second, box-shaped cursor. */
 .sode-gridpanel__scroll:focus,
 .sode-gridpanel__field :focus-visible {
   outline: none;
@@ -746,7 +736,6 @@ html:has(.sode-gridpanel) {
   outline: calc(var(--pb-border-w) * 3) solid var(--pb-text-strong);
   outline-offset: calc(var(--pb-border-w) * -3);
 }
-/* A target crosspoint is a round mark over the pie, with its number top left. */
 .sode-gridpanel__xp[data-n]::before {
   --sode-mark: var(--pb-text-strong);
   background: radial-gradient(
@@ -881,7 +870,6 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__levels :is(.sode__levels, .sode__all) {
   grid-row: 3;
 }
-/* The Take button (gridpanelphone.js) at the far end of the Levels box row. */
 .sode-gridpanel__levels:has(> .sode-gridpanel__take:not([hidden])) {
   grid-template-columns: auto auto 1fr;
 }
@@ -932,12 +920,9 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__take[hidden] {
   display: none;
 }
-/* Outside the grid, so it runs the pulse itself, kept in step with the staged crosspoints (gridpaneltake.js). */
+/* Outside the grid, so it runs the pulse itself, in step with the staged crosspoints (gridpaneltake.js). */
 .sode-gridpanel__take.sode-panel__take--armed {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
-}
-/* Take is the main page's red Take (pb-btn--danger); staged routes make it glow on the pulse. */
-.sode-gridpanel__take.sode-panel__take--armed {
   background-color: color-mix(in oklab, var(--pb-danger-hover) calc(var(--pulse) * 100%), var(--pb-status-error));
   box-shadow: none;
   color: var(--pb-text-on-accent);
@@ -966,8 +951,7 @@ html:has(.sode-gridpanel) {
   display: contents;
 }
 
-/* The header (gridpanelheadview.js): the title and instance name, then Settings, Full screen and the Panels link. The
-   main page's Server and Router status and the status slot are beside it, in the header row. */
+/* The header (gridpanelheadview.js). */
 .sode-gridpanel__id {
   align-items: baseline;
   display: flex;
@@ -986,16 +970,14 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__id > [hidden] {
   display: none;
 }
-/* A Grid panel is always full width (the lead's decision), so it has no Full width toggle. Kiosk mode is a panel
-   setting, so the header has no Kiosk mode button. */
+/* A Grid panel is always full width, and Kiosk mode is a panel setting, so the header has neither button. */
 .sode-panels:has(.sode-gridpanel) {
   max-width: none;
 }
 .sode-panels:has(.sode-gridpanel) :is(#panel-full, #panel-kiosk) {
   display: none;
 }
-/* The main page's status block, at the header row's right end here and not fixed at the window's top right. It goes
-   with the header in kiosk mode, as before. */
+/* The main page's status block, at the header row's right end here. Kiosk mode hides it with the header. */
 .sode-gridpanel__headrow > .sode__conn {
   background: none;
   flex: none;
@@ -1027,7 +1009,6 @@ html:has(.sode-gridpanel) {
   top: calc(100% + var(--pb-space-2));
 }
 
-/* The Sources and Destinations words in the corner, in the role colors. */
 .sode-gridpanel__label {
   align-items: center;
   color: var(--pb-text-strong);
@@ -1045,7 +1026,7 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__label--dst {
   background: var(--pb-dest);
 }
-/* The phone layout is the phone session's: its Sources word keeps no arrow. */
+/* The phone's Sources word reads across, so it has no arrow. */
 :root[data-layout="phone"] .sode-gridpanel__label--src > svg {
   display: none;
 }
@@ -1073,12 +1054,7 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__xp[aria-disabled="true"]:is([data-row], [data-col]) {
   background-color: var(--pb-surface-base);
 }
-/* The deck (gridpanelheadview.js): the header, the Levels box and the search boxes in one raised band over the grid.
-   The header row is on top with a line under it: the header on the left, then the status slot and the Server and
-   Router status in the top right corner, as on the main page. Under it are three groups with a rule between them: the Levels box,
-   the search boxes with the Filter switch, then Clear and Take with the note over them. The Levels box and the search
-   slot are display: contents in it, so their parts are cells of one grid. Each column whose words change has a fixed
-   width, so nothing moves. The phone layout keeps the page's own order. */
+/* The deck (gridpanelheadview.js): one raised band over the grid. The Levels box and the search slot are display: contents, so their parts are cells of one grid. Each column whose words change has a fixed width. */
 .sode-gridpanel__deck {
   display: contents;
 }
@@ -1208,7 +1184,6 @@ html:has(.sode-gridpanel) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* A rule apart from the cells beside it, so each group reads on its own. */
 :root:not([data-layout="phone"]) .sode-gridpanel__rule {
   display: block;
   margin: 0 var(--pb-space-3);
@@ -1305,11 +1280,7 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find-mode:has(> :checked) {
   border-color: var(--pb-accent);
 }
-/* The panel page (gridpanelheadview.js): results, refusals and the "This panel was changed" banner fill the gap
-   between the search boxes and Clear, as tall as the Find box, with a rule (r3) after the Find box. The gap keeps room
-   for the banner (10rem) before the search boxes grow to 14rem. The box takes the gap's size and never sets it
-   (contain: size), so a message that shows or goes never moves the grid. A result shows over the "This panel was
-   changed" banner. */
+/* The panel page (gridpanelheadview.js): messages fill the gap between the search boxes and Clear. contain: size, so a message never moves the grid. The gap keeps 10rem for the banner. */
 :root:not([data-layout="phone"]) .sode-gridpanel__deck:has(> .sode-gridpanel__msg) {
   grid-template-areas:
     "top   top   top  top  top  top  top  top  top   top"
@@ -1321,7 +1292,6 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__rule--3 {
   grid-area: r3;
 }
-/* The column gap spaces this rule, so the banner keeps room for Snooze and Apply now side by side at 1280 px. */
 :root:not([data-layout="phone"]) .sode-gridpanel__rule--3 {
   margin: 0;
 }
@@ -1337,7 +1307,6 @@ html:has(.sode-gridpanel) {
   grid-area: 1 / 1;
   min-width: 0;
 }
-/* A result fills the box, top to bottom. */
 :root:not([data-layout="phone"]) .sode-gridpanel__res > .sode__banner {
   height: 100%;
 }
@@ -1374,7 +1343,6 @@ html:has(.sode-gridpanel) {
   margin: 0;
   padding: var(--pb-space-2);
 }
-/* Snooze and Apply now side by side in the narrowest gap (1280 px). */
 :root:not([data-layout="phone"]) .sode-gridpanel__msg .pb-btn {
   padding-inline: var(--pb-space-2);
 }

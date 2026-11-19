@@ -1,5 +1,3 @@
-// The panel page's chrome rules, with no DOM so they test directly (test/panelchrome.test.mjs).
-
 // override is null until the Kiosk button is pressed; base is the panel setting or the #kiosk=1 link.
 export const kioskNow = (override, base) => (override === null ? base : override);
 

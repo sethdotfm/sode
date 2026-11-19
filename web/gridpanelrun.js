@@ -48,7 +48,7 @@ import { gridEmpty } from './gridpanelempty.js';
 import { gridTake } from './gridpaneltake.js';
 
 const NOTE_MS = 4000;
-const UNDO_MOVED = 'What Undo would undo has changed; press u again';
+const UNDO_MOVED = 'The Undo target changed. Press u again.';
 // Like the moves, these work in an embedded run only with focus in the grid.
 const FIND_KEYS = new Set(['findSrcs', 'findDsts', 'nextMatch', 'prevMatch']);
 const sameList = (a, b) => a.length === b.length && a.every((x, k) => x === b[k]);
@@ -107,7 +107,7 @@ export function gridBody(ctx, first) {
   const count = el('span', 'pb-badge pb-badge--info sode-gridpanel__count');
   count.id = 'panel-staged';
   count.hidden = true;
-  // The panel page's header has its own boxes (gridpanelheadview.js); the editor's live test keeps its own.
+  // The panel page's header has its own boxes (gridpanelheadview.js); the Live Editor keeps its own.
   const head = ctx.embedded || !ui.name ? null : gridHead(ui, count, { onCopy: copyPanel });
   head?.access(first, !ctx.keyed?.());
   if (!head) ui.head?.querySelector('.sode-panels__spacer')?.before(count);
@@ -217,7 +217,7 @@ export function gridBody(ctx, first) {
       const made = await ctx.callJSON(`api/v1/panels/${ctx.id}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       location.assign(editHref(made.id));
     } catch (e) {
-      note = noteOf(e.status === undefined ? 'Sode did not answer, so no copy was made.' : e.message || 'The copy was not saved');
+      note = noteOf(e.status === undefined ? 'Not connected to Sode. No copy made.' : e.message || 'Copy not saved');
       render();
     }
   }
@@ -302,7 +302,7 @@ export function gridBody(ctx, first) {
       find = clearFind(find, kind);
       rebuild();
       render();
-      // Back to the cursor. An embedded run takes its keys only with focus in the grid.
+      // Back to the cursor. An embedded run gets its keys only with focus in the grid.
       g.scroll.focus({ preventScroll: true });
     }
   }
@@ -328,15 +328,15 @@ export function gridBody(ctx, first) {
     } catch (e) {
       failed =
         e.status === undefined
-          ? `Sode did not answer, so it is possible that the ${word} was not sent`
-          : (undo && e.code === 'conflict' && UNDO_MOVED) || e.message || `The ${word} was refused`;
+          ? `No answer from Sode. Check History for the ${word}.`
+          : (undo && e.code === 'conflict' && UNDO_MOVED) || e.message || `Sode refused the ${word}`;
     }
     st = undo ? afterUndo(st, failed) : afterTake(st, failed);
     render();
     ctx.poll();
   }
 
-  // Each ask walks History, so u asks once per press. Only the newest ask's answer counts, and only while nothing
+  // Each ask walks History, so u asks one time for each press. Only the newest ask's answer counts, and only while nothing
   // else is in progress.
   let undoAsk = 0;
   async function pressUndo() {
@@ -352,7 +352,7 @@ export function gridBody(ctx, first) {
     }
     if (ask !== undoAsk || stopped || st.busy || confirm.isOpen()) return;
     if (failed) {
-      note = noteOf(failed.status === undefined ? 'Sode did not answer' : failed.message || 'Undo is refused');
+      note = noteOf(failed.status === undefined ? 'Sode did not answer' : failed.message || 'Sode refused the Undo');
       return render();
     }
     const staged = st.undoId === null ? stagedCount(st) : 0;
@@ -631,13 +631,13 @@ export function gridBody(ctx, first) {
   }
 
   const onKey = (e) => {
-    // The editor's list drawer beside a live test (editorlive.js) keeps every key of its own.
+    // The editor's list drawer beside the Live Editor (editorlive.js) keeps every key of its own.
     if (ui.aside?.contains(e.target)) return;
     if (confirm?.isOpen()) return confirm.key(e);
     if (keyList?.shown()) return listKey(e);
     // A dialog over the run (the editor's Icon library) keeps its keys; dialogkeys.js stops them only at its root.
     if (e.target.closest?.('.pb-modal-backdrop:not([hidden])')) return;
-    // The page lock's sign-in and dialogs take their keys first.
+    // The page lock's sign-in and dialogs handle their keys first.
     if (e.defaultPrevented) return;
     // A search box's own keys come before the grid's, so Esc there clears the box and does not drop picks.
     const box = boxes?.kindOf(e.target);

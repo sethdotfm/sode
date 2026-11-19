@@ -1,6 +1,5 @@
-// The Artwork panel in the Live Editor's list drawer (editorlive.js). It shows the sidebar's own Cell tab, moved in while
-// open and back on close. So the artwork editor and its Icon B run are the editor's. It lies over the drawer, not
-// over the grid, so the changed names stay in view.
+// The Artwork panel in the Live Editor's list drawer (editorlive.js): the sidebar's own Cell tab, moved in while open and
+// back on close. It lies over the drawer, not the grid, so the changed names stay in view.
 import { el } from './core.js';
 import { btn } from './formbits.js';
 
