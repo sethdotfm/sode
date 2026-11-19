@@ -50,19 +50,20 @@ export function pinPrompt({ id, title, go: goText, name, pin: pinProps, extra = 
     onClose(ok);
   }
 
-  function fail(text) {
+  // Selected, not cleared: the next key replaces a wrong PIN, and a missing name keeps the typed PIN.
+  function fail(text, field = pin) {
     if (!open) return;
     go.disabled = false;
-    pin.value = '';
     err.textContent = sentence(text);
     err.hidden = false;
-    pin.focus();
+    field.focus();
+    if (field === pin) pin.select();
   }
 
   function submit() {
     if (go.disabled) return;
     const who = picker ? picker.value().trim() : '';
-    if (picker && !who) return fail(name.missing);
+    if (picker && !who) return fail(name.missing, picker.input);
     err.hidden = true;
     if (!send(pin.value, who)) return fail(LINK_DOWN);
     go.disabled = true;
