@@ -383,6 +383,25 @@ func TestAddImportUsersWithoutIDsKeepApart(t *testing.T) {
 	}
 }
 
+// A key an older file lacks keeps its live value. An empty key the export leaves out still clears the live one.
+func TestAddImportSettingsKeepKeysTheFileLacks(t *testing.T) {
+	a, c, tok := importApp(t)
+	files := map[string]string{}
+	for name, b := range unzipAll(t, exported(t, a, tok, exportReq{Categories: []string{catSettings}, Sections: []string{"branding", "confirm"}})) {
+		files[name] = string(b)
+	}
+	files["settings.yaml"] = regexp.MustCompile(`(?m)^\s*confirmLockoutMs: .*\n`).ReplaceAllString(files["settings.yaml"], "")
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.ConfirmLockoutMs, cfg.ConfirmEnter, cfg.BrandText = 900, !cfg.ConfirmEnter, "X"
+	})
+	enter := a.r().cfg.ConfirmEnter
+	grantRecheck(a, c)
+	applied(t, postApply(t, a, tok, zipOf(t, files), importReq{Mode: importAdd}))
+	if cfg := a.r().cfg; cfg.ConfirmLockoutMs != 900 || cfg.ConfirmEnter == enter || cfg.BrandText != "" {
+		t.Fatalf("lockout %d, enter %v, brand %q", cfg.ConfirmLockoutMs, cfg.ConfirmEnter, cfg.BrandText)
+	}
+}
+
 // A foreign panel shared with Bo follows the file's Bo, here renamed "Bo 2", never the live Bo. A public
 // panel waits while Public panels allowed is off, and says so.
 func TestAddImportPanelShareFollowsUsers(t *testing.T) {

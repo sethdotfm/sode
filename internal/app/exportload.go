@@ -51,20 +51,22 @@ func badExport(format string, args ...any) error {
 // exportBundle is a checked export file. Routers in items are UIDs again; a reference with no router in a
 // file with one router names that router. Art maps each art entry name to its file in the staging directory.
 type exportBundle struct {
-	Manifest   exportManifest
-	Unknown    []string // keys this release does not know, already dropped
-	Settings   *config.Config
-	Sections   []string
-	Routers    []config.Router
-	Names      map[string]namesTable // by router UID
-	Users      []config.User
-	Presets    []config.Preset
-	FilterSets []config.FilterSet
-	Panels     exportPanels
-	Artwork    exportArtwork
-	APIClients []config.APIClient
-	Browser    map[string]any
-	Art        map[string]string
+	Manifest exportManifest
+	Unknown  []string // keys this release does not know, already dropped
+	Settings *config.Config
+	Sections []string
+	// SettingKeys: the config keys the file sets. An omitempty key counts, since the export leaves it out when empty.
+	SettingKeys map[string]bool
+	Routers     []config.Router
+	Names       map[string]namesTable // by router UID
+	Users       []config.User
+	Presets     []config.Preset
+	FilterSets  []config.FilterSet
+	Panels      exportPanels
+	Artwork     exportArtwork
+	APIClients  []config.APIClient
+	Browser     map[string]any
+	Art         map[string]string
 }
 
 var exportLoaders = map[int]func(dir string) (*exportBundle, error){
@@ -390,10 +392,19 @@ func settingsFromSections(n *yaml.Node, out *exportBundle) error {
 		return badExport("settings.yaml must be a mapping of sections")
 	}
 	flat := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	out.SettingKeys = map[string]bool{}
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		out.Sections = append(out.Sections, n.Content[i].Value)
 		if sec := n.Content[i+1]; sec.Kind == yaml.MappingNode {
 			flat.Content = append(flat.Content, sec.Content...)
+			for j := 0; j < len(sec.Content); j += 2 {
+				out.SettingKeys[sec.Content[j].Value] = true
+			}
+		}
+	}
+	for _, f := range reflect.VisibleFields(reflect.TypeFor[config.Config]()) {
+		if name, opts, _ := strings.Cut(f.Tag.Get("yaml"), ","); strings.Contains(opts, "omitempty") {
+			out.SettingKeys[name] = true
 		}
 	}
 	cfg := config.Defaults()

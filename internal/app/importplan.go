@@ -457,19 +457,15 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 			continue
 		}
 		it := importItem{Key: sec.Name, Name: sectionNames[sec.Name]}
+		keys := slices.DeleteFunc(slices.Clone(sec.Keys), func(k string) bool { _, ok := fields[k]; return !ok || !p.b.SettingKeys[k] })
 		one := cand.Clone()
-		for _, k := range sec.Keys {
-			if idx, ok := fields[k]; ok {
-				copyConfigKey(&one, p.b.Settings, idx)
-			}
+		for _, k := range keys {
+			copyConfigKey(&one, p.b.Settings, fields[k])
 		}
 		one.Normalize()
-		changed := false
-		for _, k := range sec.Keys {
-			if idx, ok := fields[k]; ok {
-				changed = changed || !reflect.DeepEqual(reflect.ValueOf(one).FieldByIndex(idx).Interface(), reflect.ValueOf(*cand).FieldByIndex(idx).Interface())
-			}
-		}
+		changed := slices.ContainsFunc(keys, func(k string) bool {
+			return !reflect.DeepEqual(reflect.ValueOf(one).FieldByIndex(fields[k]).Interface(), reflect.ValueOf(*cand).FieldByIndex(fields[k]).Interface())
+		})
 		if !changed {
 			it.Same = true
 			cat.Items = append(cat.Items, it)
@@ -484,12 +480,10 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 		if one.RequireHTTPS && !p.live.RequireHTTPS && !p.secure {
 			return errInsecureSave
 		}
-		for _, k := range sec.Keys {
-			if idx, ok := fields[k]; ok {
-				copyConfigKey(cand, &one, idx)
-				p.pending = append(p.pending, k)
-			}
+		for _, k := range keys {
+			copyConfigKey(cand, &one, fields[k])
 		}
+		p.pending = append(p.pending, keys...)
 	}
 	return nil
 }
