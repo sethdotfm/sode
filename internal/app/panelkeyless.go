@@ -34,10 +34,7 @@ type keylessInst struct {
 	device string // the name the page holds; "" for none
 	addr   string
 	ended  bool // the page's key was ended (key_revoked or key_expired)
-	seen   time.Time
-	since  time.Time // when conns last went from none to one
-	conns  map[int]monConn
-	next   int
+	heldStreams
 }
 
 // lastSeen counts a held stream as now, so the cap drops closed entries first.
@@ -58,11 +55,6 @@ func keylessKey(ref, addr, device string) string {
 	return ref + "\n" + addr + "\n" + strings.ToLower(device)
 }
 
-func newKeylessID() string {
-	return config.RandomHexID(8)
-}
-
-// Caller holds mu.
 func (m *panelMon) noteAddrLocked(addr, device string) {
 	if addr == "" || device == "" {
 		return
@@ -97,12 +89,8 @@ func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel cont
 		if m.keylessFromLocked(addr) >= keylessPerAddr || len(m.keyless) >= keylessMax && !m.dropOldestKeylessLocked() {
 			return nil, nil, nil, false
 		}
-		in = &keylessInst{id: newKeylessID(), ref: ref, device: device, addr: addr}
+		in = &keylessInst{id: config.RandomHexID(8), ref: ref, device: device, addr: addr}
 		m.keyless[k] = in
-	}
-	if len(in.conns) == 0 {
-		in.conns = map[int]monConn{}
-		in.since = now
 	}
 	if len(in.conns) >= keylessConnsMax {
 		old := slices.Min(slices.Collect(maps.Keys(in.conns)))
@@ -111,20 +99,9 @@ func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel cont
 	}
 	in.ended, in.seen = ended, now
 	m.noteAddrLocked(addr, device)
-	in.next++
-	n := in.next
 	out := make(chan lastLine, 1)
 	pub := make(chan struct{}, 1)
-	in.conns[n] = monConn{cancel: cancel, out: out, pub: pub}
-	return func() {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-		delete(in.conns, n)
-		unsent(out)
-		if len(in.conns) == 0 {
-			in.seen = m.now()
-		}
-	}, out, pub, true
+	return in.holdLocked(m, monConn{cancel: cancel, out: out, pub: pub}), out, pub, true
 }
 
 func (m *panelMon) keylessFromLocked(addr string) int {
@@ -149,7 +126,6 @@ func (m *panelMon) dropOldestKeylessLocked() bool {
 	return old != ""
 }
 
-// Caller holds mu.
 func (m *panelMon) sweepKeylessLocked(now time.Time) {
 	for k, in := range m.keyless {
 		if len(in.conns) == 0 && now.Sub(in.seen) > keylessKeep {
@@ -186,13 +162,9 @@ func (m *panelMon) nameLocked(in *keylessInst, now time.Time) string {
 }
 
 func (m *panelMon) outLocked(in *keylessInst, now time.Time) keylessOut {
-	o := keylessOut{Keyless: in.id, Device: m.nameLocked(in, now), Addr: in.addr, SignIn: "none", Stream: len(in.conns) > 0, Seen: in.lastSeen(now).UTC()}
+	o := keylessOut{Keyless: in.id, Device: m.nameLocked(in, now), Addr: in.addr, SignIn: "none", Stream: len(in.conns) > 0, Seen: in.lastSeen(now).UTC(), StreamSince: in.streamSince()}
 	if in.ended {
 		o.SignIn = "ended"
-	}
-	if o.Stream {
-		s := in.since.UTC()
-		o.StreamSince = &s
 	}
 	return o
 }

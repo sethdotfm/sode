@@ -36,20 +36,17 @@ const (
 var errMonCap = errors.New("too many devices on this panel")
 
 type monInst struct {
-	device   string
-	pubKey   string    // the Public key that named it; "" for any other caller
-	seen     time.Time // the last keepalive, stream open or stream close
-	lost     bool      // a lost notice went out
-	streamed bool      // it held a stream and no keepalive has come since the last one closed
-	conns    map[int]monConn
-	next     int
-	trans    []UptimeTrans // up and down changes for the uptime strip, see mark
+	device      string
+	pubKey      string        // the Public key that named it; "" for any other caller
+	heldStreams               // seen is the last keepalive, stream open or stream close
+	lost        bool          // a lost notice went out
+	streamed    bool          // it held a stream and no keepalive has come since the last one closed
+	trans       []UptimeTrans // up and down changes for the uptime strip, see mark
 
 	// Set by the last stream to open and kept after it closes, for the Assign to list. page is not
 	// streamed: a keepalive clears streamed, and a timed-out page must still be told from an API client.
-	page        bool
-	who         streamWho
-	streamSince time.Time // when conns last went from none to one; zero while it holds none
+	page bool
+	who  streamWho
 }
 
 // streamWho is who opened a stream and from where. signIn is "client" or "user" ("none" for a guest),
@@ -123,6 +120,42 @@ func unsent(out chan lastLine) {
 	case l := <-out:
 		l.got <- false
 	default:
+	}
+}
+
+// heldStreams is an instance's open streams, keyed or keyless. Caller holds panelMon.mu.
+type heldStreams struct {
+	seen  time.Time
+	since time.Time // when conns last went from none to one
+	conns map[int]monConn
+	next  int
+}
+
+func (h *heldStreams) streamSince() *time.Time {
+	if len(h.conns) == 0 {
+		return nil
+	}
+	s := h.since.UTC()
+	return &s
+}
+
+// holdLocked adds c and returns the func that drops it. The last drop sets seen.
+func (h *heldStreams) holdLocked(m *panelMon, c monConn) func() {
+	if len(h.conns) == 0 {
+		h.conns = map[int]monConn{}
+		h.since = m.now()
+	}
+	h.next++
+	n := h.next
+	h.conns[n] = c
+	return func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		delete(h.conns, n)
+		unsent(c.out)
+		if len(h.conns) == 0 {
+			h.seen = m.now()
+		}
 	}
 }
 
@@ -257,13 +290,9 @@ func (m *panelMon) instances(id string) []instOut {
 	now := m.now()
 	out := []instOut{}
 	for _, in := range m.inst[id] {
-		o := instOut{Device: in.device, Seen: in.seen.UTC(), Online: in.live(now), Stream: len(in.conns) > 0, Uptime: in.uptime(now)}
+		o := instOut{Device: in.device, Seen: in.seen.UTC(), Online: in.live(now), Stream: len(in.conns) > 0, Uptime: in.uptime(now), StreamSince: in.streamSince()}
 		if in.page {
 			o.Page, o.Addr, o.SignIn, o.userID = true, in.who.addr, in.who.signIn, in.who.user
-		}
-		if o.Stream {
-			s := in.streamSince.UTC()
-			o.StreamSince = &s
 		}
 		out = append(out, o)
 	}
@@ -290,27 +319,11 @@ func (m *panelMon) openStream(id, device, pubKey string, who streamWho, cancel c
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if len(in.conns) == 0 {
-		in.conns = map[int]monConn{}
-		in.streamSince = m.now()
-	}
 	in.page, in.who = true, who
 	m.noteAddrLocked(who.addr, device)
-	in.next++
-	n := in.next
 	out := make(chan lastLine, 1)
-	in.conns[n] = monConn{cancel: cancel, out: out}
 	in.streamed = true
-	closeFn := func() {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-		delete(in.conns, n)
-		unsent(out)
-		if len(in.conns) == 0 {
-			in.seen = m.now()
-		}
-	}
-	return closeFn, out, ev, nil
+	return in.holdLocked(m, monConn{cancel: cancel, out: out}), out, ev, nil
 }
 
 // A device that was lost yields "back".
