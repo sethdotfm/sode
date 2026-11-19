@@ -6,21 +6,6 @@ import (
 	"testing"
 )
 
-func TestEveryFieldChooses(t *testing.T) {
-	for _, f := range configFields() {
-		if !f.IsExported() {
-			continue // never saved or sent
-		}
-		owned, guard := f.Tag.Get("owned") == "true", f.Tag.Get("guard")
-		switch {
-		case owned && guard != "":
-			t.Errorf("Config.%s is both owned and guarded", f.Name)
-		case !owned && guard != "router" && guard != "pin" && guard != "open":
-			t.Errorf("Config.%s needs owned:\"true\" (saved apart from the Settings form) or guard:\"router|pin|open\" (the form edits it)", f.Name)
-		}
-	}
-}
-
 func TestChanged(t *testing.T) {
 	a := Defaults()
 	b := a.Clone()
@@ -45,32 +30,6 @@ func TestChanged(t *testing.T) {
 	b.LevelColors = []string{"#abc"}
 	if Changed(a, b, "router", "pin") || !Changed(a, b, "open") {
 		t.Error("LevelColors is open")
-	}
-}
-
-func TestKeepOwned(t *testing.T) {
-	live := Defaults()
-	live.FilterSets = []FilterSet{{Name: "a"}}
-	live.Presets = []Preset{{Name: "s"}}
-	live.SettingsPin = "hash"
-	live.DeviceDefaults.Theme = "dark"
-	live.Users = []User{{Name: "u"}}
-	live.Address = "1.1.1.1:1"
-
-	in := Defaults()
-	in.Address = "2.2.2.2:2"
-	in.DeviceDefaults.Theme = "light"
-	in.FilterSets = make([]FilterSet, 1000)
-	in.Presets = make([]Preset, 1000)
-	in.Users = make([]User, 100)
-	in.KeepOwned(live)
-	if in.Address != "2.2.2.2:2" {
-		t.Error("a form field was overwritten")
-	}
-	if !reflect.DeepEqual(in.FilterSets, live.FilterSets) || !reflect.DeepEqual(in.Presets, live.Presets) ||
-		in.SettingsPin != "hash" ||
-		in.DeviceDefaults.Theme != "dark" || !reflect.DeepEqual(in.Users, live.Users) {
-		t.Errorf("owned fields not kept: %+v", in)
 	}
 }
 
@@ -103,12 +62,12 @@ func TestValidateNames(t *testing.T) {
 	}
 }
 
-// Locks and idle time are guarded by the Advanced Settings PIN, not owned: a Settings save carries them.
-func TestLocksAreGuardedNotOwned(t *testing.T) {
+// Locks and idle time are guarded by the Advanced Settings PIN.
+func TestLocksAreGuarded(t *testing.T) {
 	typ := reflect.TypeOf(Config{})
 	for _, name := range []string{"Locks", "AutoLockMinutes"} {
 		f, _ := typ.FieldByName(name)
-		if f.Tag.Get("owned") != "" || f.Tag.Get("guard") != "pin" {
+		if f.Tag.Get("guard") != "pin" {
 			t.Errorf("Config.%s tags %q", name, f.Tag)
 		}
 	}

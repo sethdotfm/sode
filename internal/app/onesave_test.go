@@ -192,6 +192,9 @@ func TestEveryGuardedFieldHasSection(t *testing.T) {
 		}
 	}
 	for k := range saveFields {
+		if _, hidden := hiddenFields[k]; hidden {
+			continue
+		}
 		if _, ok := jsonFields()[k]; !ok {
 			t.Errorf("saveFields key %q is not a Config JSON key", k)
 		}
@@ -239,6 +242,9 @@ func TestSaveFieldsMatchPage(t *testing.T) {
 	}
 	if len(page) == 0 || !reflect.DeepEqual(page, saveFields) {
 		t.Fatalf("page %v\nserver %v", page, saveFields)
+	}
+	if !strings.Contains(src, "ITEM_SECTIONS = Object.freeze({ user: '"+usersSection+"', client: '"+usersSection+"' })") {
+		t.Fatal("ITEM_SECTIONS in savereviewrules.js does not match the user/ and client/ keys of onesavefields.go")
 	}
 	m := regexp.MustCompile(`RECONNECT = new Set\(\[([^\]]*)\]\)`).FindStringSubmatch(src)
 	if m == nil {

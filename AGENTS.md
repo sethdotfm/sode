@@ -53,7 +53,7 @@ Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web 
 
 ## More notes (read the file when your task touches it)
 
-- docs/agents/settings-saves.md: Settings and saves. Read before touching the Advanced Settings PIN, device defaults, Settings search, saveShared, owned fields, data-apart or the Settings form.
+- docs/agents/settings-saves.md: Settings and saves. Read before touching the Advanced Settings PIN, device defaults, Settings search, the one Save and its sources (Manage users, API), data-apart or the Settings form.
 - docs/agents/server.md: Server architecture. Read before touching the SW-P-08 client, takes, check, undo, failures, late answers, HTTP routes, the WebSocket, config load or the simulator.
 - docs/agents/web-layout.md: Web layout. Read before touching web modules and import rules, the two layouts, keyboard mode and key plumbing, Last and Next chips, socket freshness or source ends.
 - docs/agents/history.md: History, ext and External follow. Read before touching History, undo, ext/found entries, External follow entries, filters and filter sets, stacked sets, Redo, quick search.

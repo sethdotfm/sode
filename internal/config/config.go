@@ -25,9 +25,9 @@ import (
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
 	// Format: see format.go. Defaults sets it, so every write carries it.
-	Format int `yaml:"format" json:"-" owned:"true"`
+	Format int `yaml:"format" json:"-"`
 	// InstallUID is made once (Normalize) and never changes; Item links and import tell this install by it.
-	InstallUID string `yaml:"installUid" json:"-" owned:"true"`
+	InstallUID string `yaml:"installUid" json:"-"`
 	// Router is the one router v2.0 drives; the file holds it as the only entry of routers (router.go).
 	Router `yaml:"-"`
 	// Brand fields are display only.
@@ -41,30 +41,30 @@ type Config struct {
 	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
 	// HiddenDstsRouter: the router UID whose numbers HiddenDsts's number and range terms mean; blank is the one router.
 	HiddenDstsRouter string      `yaml:"hiddenDstsRouter,omitempty" json:"hiddenDstsRouter,omitempty" guard:"open"`
-	FilterSets       []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
-	Presets          []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
+	FilterSets       []FilterSet `yaml:"filterSets,omitempty" json:"filterSets"`
+	Presets          []Preset    `yaml:"presets,omitempty" json:"presets"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
-	SettingsPin string   `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
+	SettingsPin string   `yaml:"settingsPin,omitempty" json:"-"`
 	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
 	PinWaits       bool           `yaml:"pinWaits" json:"pinWaits" guard:"pin"`
-	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults" owned:"true"`
+	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults"`
 	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (saveSettings).
-	Users []User `yaml:"users,omitempty" json:"users" owned:"true"`
+	Users []User `yaml:"users,omitempty" json:"users"`
 	// NewUserDefaults has no value in Defaults: a file from before it loads both off, as new users started then.
 	NewUserDefaults NewUserDefaults `yaml:"newUserDefaults" json:"newUserDefaults" guard:"pin"`
 	Locks           Locks           `yaml:"locks" json:"locks" guard:"pin"`
 	AutoLockMinutes int             `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
 	// MaxPinLen is the longest user PIN (4-12).
-	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
-	// API settings, clients, Guest rights and scopes change only through their own admin
-	// messages. Clients and Guest rights stay out of JSON: never sent before the PIN.
-	API         APISettings `yaml:"api" json:"api" owned:"true"`
-	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-" owned:"true"`
-	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-" owned:"true"`
+	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen"`
+	// API settings, clients, Guest rights and scopes save through the one Save. Clients, Guest
+	// rights and scopes stay out of JSON: never sent before the PIN.
+	API         APISettings `yaml:"api" json:"api"`
+	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-"`
+	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-"`
 	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator.
 	GuestRole      string   `yaml:"guestRole" json:"guestRole" guard:"pin"`
-	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-" owned:"true"`
+	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-"`
 	// PublicPanels is Public panels allowed: off, no panel hands out a Public key (panelpublic.go).
 	PublicPanels bool `yaml:"publicPanels" json:"publicPanels" guard:"pin"`
 	// NewPanelActs prefills a blank new panel's Authentication mode (a panel's acts value) and nothing else.
@@ -72,7 +72,7 @@ type Config struct {
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
-	Extra map[string]any `yaml:",inline" json:"-" owned:"true"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 	// idsFilled: Normalize gave a user an id; Load writes it back, or the next start makes new ones.
 	idsFilled bool
 }

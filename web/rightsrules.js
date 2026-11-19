@@ -170,13 +170,3 @@ export function accessReq({ entries, users, clients, off, levels }) {
   }
   return out;
 }
-
-// req is usersReq's output. Rights go on each user; clients and Guest go along only after the
-// directory has loaded them. So a page that never did cannot erase them.
-export function mergeAccess(req, acc, loaded) {
-  const out = { ...req, users: req.users.map((u, i) => ({ ...u, ...acc.users[i] })) };
-  if (!loaded) return out;
-  out.apiClients = acc.apiClients;
-  if ('guestRights' in acc) out.guestRights = acc.guestRights;
-  return out;
-}

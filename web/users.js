@@ -1,19 +1,21 @@
-// Users: the directory (users, longest PIN, Roles) has its own dialog with its own save (`users` message, Administrator
-// only). It never saves with the main Save.
+// Users: the directory (users, longest PIN, Roles, API clients, Rights) has its own dialog. Its edits stay staged when
+// it closes and save with Settings' one Save (usersstage.js).
 // Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a Trusted user. The server holds every rule.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
+import { diffRows } from './savereviewrules.js';
+import { makeUsersSource } from './usersstage.js';
 import { trusted, unlocked } from './pin.js';
-import { askPin, reask } from './pinprompt.js';
+import { reask } from './pinprompt.js';
 import { askRecheck } from './recheck.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
-import { accessReq, mergeAccess, rightsTab } from './rightsrules.js';
+import { accessReq, rightsTab } from './rightsrules.js';
 import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
-import { ROLES, ownerChoices, pinPlaceholder, usersReq } from './usersrules.js';
+import { ROLES, ownerChoices, pinPlaceholder } from './usersrules.js';
 
 // ---- the Settings section (index.html #users-group)
 const manage = $('users-manage');
@@ -54,8 +56,7 @@ const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
   addRow().focus();
   touched();
 });
-const saveBtn = btn('pb-btn--ok', 'Save', () => doSave());
-const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closeUsers());
+const doneBtn = btn('pb-btn--outline', 'Done', () => closeUsers());
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -103,23 +104,12 @@ const tabs = makeTabs(
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Manage users'), { id: 'users-title' })),
   el('div', 'pb-modal__body', tabs.node, usersPanel, clientsTab.node, rightsPanel.node, err),
-  el('div', 'pb-modal__footer', note, cancelBtn, saveBtn),
+  el('div', 'pb-modal__footer', note, doneBtn),
 );
 root.append(dialog);
 document.body.append(root);
 
-// Enter saves from the Users panel only; the other tabs have their own forms.
-usersPanel.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
-    e.preventDefault();
-    saveBtn.click();
-  }
-});
-
-let edited = false; // changed in the dialog since it filled.
-let discard = false; // warned one time; the next close discards.
 let back = null;
-let seq = 0;
 let outSeq = 0;
 let listSeq = 0;
 let listed = []; // the directory the server sent; empty until it does.
@@ -127,6 +117,7 @@ let listedMe = ''; // the id of the user asking, the default new owner
 const ownerPick = new Map(); // removed user id to the chosen new owner id
 let extras = { apiClients: [], guestRights: {} }; // clients and Guest, sent with it.
 let loaded = false;
+let lastList = null; // the usersList answer the dialog filled from
 const signing = new Map();
 
 const setNote = (text, error = false) => {
@@ -134,8 +125,7 @@ const setNote = (text, error = false) => {
   note.classList.toggle('sode__error-text', error);
 };
 function touched() {
-  edited = true;
-  discard = false;
+  stage.changed();
   const r = readRows();
   for (const row of rows.children)
     paintPin(
@@ -201,13 +191,13 @@ function addRow(u = { name: '', len: 0 }) {
   // No PIN: a saved user's PIN goes on Save, a new row saves with none. A typed PIN wins.
   const noPin = check('No PIN', { checked: saved && !u.len });
   noPin.input.dataset.flag = 'noPin';
-  // A saved user needs two clicks and the Advanced Settings PIN; a row never saved has nothing to lose.
+  // A saved user needs two clicks; a row never saved has nothing to lose.
   const disarm = () => {
     rm.dataset.armed = '';
     rm.textContent = 'Remove';
     rm.classList.replace('pb-btn--danger', 'pb-btn--ghost');
   };
-  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', async () => {
+  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {
     if (!row.dataset.was) {
       row.remove();
       touched();
@@ -220,7 +210,6 @@ function addRow(u = { name: '', len: 0 }) {
       setNote(`Remove "${row.dataset.was}"? After you save, this cannot be undone: their PIN and profile are deleted.`);
       return;
     }
-    if (S.pinSet && !(await askPin('Removing a user needs the Advanced Settings PIN.'))) return disarm();
     setNote('');
     row.remove();
     touched();
@@ -310,10 +299,9 @@ function fill() {
   for (const c of extras.apiClients) clientsTab.addRow(c);
   rightsPanel.adoptGuest(extras.guestRights);
   rightsPanel.refresh();
-  edited = false;
-  discard = false;
   err.hidden = true;
-  saveBtn.disabled = false;
+  if (lastList) stage.adopt(lastList);
+  stage.changed();
 }
 
 function paintPeople() {
@@ -345,13 +333,21 @@ onMsg('usersListResult', (m) => {
     else if (isOpen) fail(m.err); // a Role refusal: no PIN opens it
     return;
   }
-  listed = m.users || [];
-  listedMe = m.me || '';
-  extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {} };
+  // Staged edits keep the list they were made against. So another person's save shows as a conflict, and
+  // their other changes stay out of this dialog.
+  const keep = staged();
+  if (!keep) {
+    listed = m.users || [];
+    listedMe = m.me || '';
+    extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {} };
+  }
   loaded = true;
   emit('usersListed', m);
   paintSummary();
-  if (isOpen && !edited) fill();
+  if (!keep) {
+    lastList = m;
+    fill();
+  }
 });
 on('unlockResult', (m) => {
   if (m.ok) load();
@@ -360,41 +356,36 @@ on('locked', () => {
   listed = [];
   extras = { apiClients: [], guestRights: {} };
   loaded = false;
+  lastList = null;
+  rows.replaceChildren();
+  stage.changed();
   paintSummary();
 });
-on('access', paintSummary);
+// An Administrator who signs in gets the list at once, so Settings can show and stage it.
+on('access', (a) => {
+  paintSummary();
+  if (!loaded && a.role === 'administrator') load();
+});
 for (const ev of ['unlockResult', 'conn']) on(ev, paintPeople);
 on('hello', () => {
   paintSummary();
   load();
-  if (isOpen && !edited) fill();
 });
 
 // ---- open / close / save
-async function openUsers() {
-  // It is possible that a trusted user has not entered the PIN: a popup asks instead of an editor with no users.
-  const opener = document.activeElement;
-  if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) {
-    opener?.focus?.();
-    return;
-  }
-  back = opener;
+function openUsers() {
+  back = document.activeElement;
   isOpen = true;
-  setNote('');
-  fill();
-  load();
+  setNote('Changes save with the Save button of Settings.');
+  if (!staged()) load();
   tabs.select('users');
   dlg.show();
   dialog.focus();
 }
 
+// Closing keeps the edits: they are unsaved changes of Settings until its Save or exit.
 function closeUsers() {
-  if (isOpen && edited && !discard) {
-    discard = true;
-    return setNote('Unsaved changes. Close again to discard them, or Save.', true);
-  }
   isOpen = false;
-  edited = false;
   clientsTab.shownNow(false);
   dlg.hide();
   if (back?.isConnected) back.focus();
@@ -402,10 +393,7 @@ function closeUsers() {
 manage.addEventListener('click', openUsers);
 const dlg = trapDialog(root, dialog, closeUsers);
 on('locking', () => {
-  if (isOpen) {
-    edited = false;
-    closeUsers();
-  }
+  if (isOpen) closeUsers();
 });
 
 function readRow(row) {
@@ -429,9 +417,8 @@ function readRows() {
   return [...rows.children].map(readRow);
 }
 
-function doSave() {
-  err.hidden = true;
-  setNote('');
+// The dialog as stageFields reads it, or {error} when a Rights entry does not parse.
+function state() {
   const users = readRows();
   const acc = accessReq({
     entries: rightsPanel.read(),
@@ -440,26 +427,55 @@ function doSave() {
     off: S.cfg?.numberOffset ?? 0,
     levels: S.levels.length,
   });
-  if (acc.error) return fail(acc.error);
-  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, panelOwners()), acc, loaded);
-  const id = ++seq;
-  if (!wsSend({ t: 'users', id, usersReq: req })) return fail('Not connected to Sode.');
-  saveBtn.disabled = true;
+  if (acc.error) return { error: `Manage users: ${acc.error}` };
+  const listedOf = (id) => listed.find((u) => u.id === id);
+  return {
+    users: users.map((u, i) => ({
+      ...u,
+      rights: acc.users[i].rights || listedOf(u.id)?.rights || {},
+      noAutoLock: 'noAutoLock' in acc.users[i] ? acc.users[i].noAutoLock : !!listedOf(u.id)?.noAutoLock,
+    })),
+    clients: clientsTab.read().map((c, i) => ({ ...c, rights: acc.apiClients[i].rights })),
+    guestRights: 'guestRights' in acc ? acc.guestRights : extras.guestRights,
+    maxPinLen: Math.trunc(Number(maxInput.value)) || 0,
+    owners: panelOwners(),
+  };
 }
 
-onMsg('usersResult', async (m) => {
-  saveBtn.disabled = false;
-  if (m.id !== seq) return;
-  if (m.ok) {
-    edited = false;
-    load(); // the hello before this was skipped as an edit
-    if (isOpen) closeUsers();
-    return;
-  }
-  if (m.recheck && (await askRecheck('Saving these user changes'))) return doSave();
-  if (m.locked && (await reask('Managing users needs the Advanced Settings PIN again.'))) return doSave(); // the PIN was entered: save again
-  fail(m.err);
+const rowOf = (pick) => [...rows.children].find(pick);
+const stage = makeUsersSource({
+  filled: () => !!lastList,
+  state,
+  refill: () => {
+    lastList = null;
+    if (loaded) load();
+    stage.changed();
+  },
+  pinSaved(id, value) {
+    const row = rowOf((r) => r.dataset.uid === id);
+    if (!row) return;
+    row.querySelector('input[data-field="pin"]').value = '';
+    row.dataset.hadPin = value ? '1' : '';
+    row.querySelector('input[data-flag="noPin"]').checked = !value;
+    paintPin(row, readRow(row));
+  },
+  userAdded(rid, u) {
+    const row = rowOf((r) => Number(r.dataset.rid) === rid);
+    if (!row) return;
+    row.dataset.uid = u.id;
+    row.dataset.was = u.name;
+    row.dataset.hadPin = u.len ? '1' : '';
+    row.querySelector('input[data-field="pin"]').value = '';
+    rightsPanel.adoptUser(rid, u);
+    paintPin(row, readRow(row));
+  },
+  clientAdded: (name) => clientsTab.saved(name),
 });
+// Edits wait in the dialog until Settings saves them or opens again.
+const staged = () => {
+  const src = stage.source;
+  return !!lastList && diffRows(src.base(), src.now()).length > 0;
+};
 
 maxInput.addEventListener('input', () => {
   touched();

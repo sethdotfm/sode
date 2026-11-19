@@ -40,7 +40,7 @@ func TestLocksAndNewUserDefaultsSaveAndAct(t *testing.T) {
 	rows = append(rows,
 		map[string]any{"name": "Cy", "pin": "1357"},
 		map[string]any{"name": "Di", "pin": "8642", "persistent": false, "noAutoLock": false})
-	passed(t, "add Cy and Di", p.ask("users", 3, map[string]any{"usersReq": map[string]any{"users": rows}}))
+	passed(t, "add Cy and Di", p.askUsers(a, 3, map[string]any{"users": rows}))
 	cfg = a.r().cfg
 	if cy, _ := cfg.FindUserByName("Cy"); !cy.Persistent || !cy.NoAutoLock {
 		t.Errorf("Cy, sent without either: Persistent %v, No auto-lock %v; want the New user defaults", cy.Persistent, cy.NoAutoLock)
@@ -54,7 +54,7 @@ func TestLocksAndNewUserDefaultsSaveAndAct(t *testing.T) {
 	for _, u := range a.r().cfg.Users {
 		rows = append(rows, map[string]any{"id": u.ID, "name": u.Name, "role": u.Role})
 	}
-	passed(t, "save again", p.ask("users", 4, map[string]any{"usersReq": map[string]any{"users": rows}}))
+	passed(t, "save again", p.askUsers(a, 4, map[string]any{"users": rows}))
 	if ana, _ := a.r().cfg.FindUserByName("Ana"); !ana.Persistent {
 		t.Error("a saved user sent without Persistent lost it")
 	}
@@ -69,7 +69,7 @@ func TestUsersSaveRefusesGuestRole(t *testing.T) {
 	for _, u := range a.r().cfg.Users {
 		rows = append(rows, map[string]any{"id": u.ID, "name": u.Name, "role": u.Role})
 	}
-	r := p.ask("users", 1, map[string]any{"usersReq": map[string]any{"users": rows, "guestRole": config.RoleTrusted}})
+	r := p.askUsers(a, 1, map[string]any{"users": rows, "guestRole": config.RoleTrusted})
 	if e, _ := r["err"].(string); r["ok"] == true || !strings.Contains(e, "Locks") {
 		t.Fatalf("want a refusal that names Locks: %v", r)
 	}

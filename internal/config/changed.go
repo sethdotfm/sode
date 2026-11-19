@@ -5,18 +5,8 @@ import (
 	"slices"
 )
 
-// Router's fields count as Config's own (configFields).
-// Fields saved outside the Settings form carry owned:"true"; a Settings save keeps their live values (KeepOwned).
-// Form-saved fields carry guard:"router|pin|open": reconnect, only the Advanced Settings PIN, anyone. TestEveryFieldChooses enforces one.
-
-func (c *Config) KeepOwned(from Config) {
-	dst, src := reflect.ValueOf(c).Elem(), reflect.ValueOf(from)
-	for _, f := range configFields() {
-		if f.Tag.Get("owned") == "true" {
-			dst.FieldByIndex(f.Index).Set(src.FieldByIndex(f.Index))
-		}
-	}
-}
+// Form-saved fields carry guard:"router|pin|open": a change reconnects, needs the Advanced
+// Settings PIN, or anyone. The embedded Router's fields count as Config's own (configFields).
 
 // Empty slices equal nil ones.
 func Changed(a, b Config, roles ...string) bool {

@@ -30,12 +30,19 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 	admin := a.role(c) == config.RoleAdministrator
 	toggled, now := false, false
 	err := a.applyConfig(a.critical(c, func(cur *config.Config) error {
-		// cur is a copy of live; fields saved apart (owned) stay as is, so a stale browser
-		// copy cannot undo them.
+		// cur is a copy of live. Only the form's fields come from msg (configKeys), so a
+		// stale browser copy cannot undo users, lists or anything else saved apart.
 		live := *cur
-		cfg := live.Clone()
-		if err := json.Unmarshal(msg, &cfg); err != nil {
+		sent := live.Clone()
+		if err := json.Unmarshal(msg, &sent); err != nil {
 			return err
+		}
+		cfg := live.Clone()
+		x := &saveCtx{}
+		for _, key := range configKeys() {
+			if err := setField(&cfg, key, fieldJSON(sent, key), x); err != nil {
+				return err
+			}
 		}
 		if !admin {
 			if err := trustedMayNotChange(live, cfg); err != nil {
@@ -46,10 +53,7 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 		if toggled, now = cfg.RequireHTTPS != live.RequireHTTPS, cfg.RequireHTTPS; toggled && now && !c.secure {
 			return errInsecureSave
 		}
-		defaults := cfg.DeviceDefaults // owned, but the form edits it
 		*cur = cfg
-		cur.KeepOwned(live)
-		cur.DeviceDefaults = defaults
 		switch {
 		case clearPin:
 			cur.SettingsPin = ""
@@ -71,10 +75,24 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 	return err
 }
 
+// sourceKeys: one Save fields that only Manage users and the API section write, never the form.
+var sourceKeys = map[string]bool{"maxPinLen": true, "guestRights": true, "api": true, "guestApiScopes": true}
+
+// configKeys: the fields the config message still takes, the one Save's form fields.
+func configKeys() []string {
+	var out []string
+	for k := range saveFields {
+		if !sourceKeys[k] {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
 var errInsecureSave = errors.New("to turn on Require HTTPS, save from a request that came over HTTPS through a trusted proxy. This stops a lock-out. Open Sode through your HTTPS address and save again")
 
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
-	return a.saveShared(c, func(cur *config.Config) error {
+	return a.saveList(c, func(cur *config.Config) error {
 		cur.FilterSets = config.WithFilterSetExtras(sets, cur.FilterSets)
 		return nil
 	}, func(cfg config.Config) any { return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets} })

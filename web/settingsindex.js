@@ -258,7 +258,6 @@ export const DICT = {
     'keys',
     'clients',
   ],
-  'api-save': ['save api settings', 'api'],
   'api-scopes': ['keyless scopes', 'guest scopes', 'keyless api', 'scopes', 'no key', 'api'],
   'users-manage': [
     'manage users',

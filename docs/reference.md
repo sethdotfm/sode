@@ -152,11 +152,11 @@ Every save keeps the file it replaces as `/data/config.yaml.prev`, and the first
 
 ## Users and locks (optional)
 
-Users and locks are off by default. With no users and no locks, Sode behaves as before. Settings > Users has a Manage users button that opens its own dialog with its own Save. There you add people, each with a name and a 4-12 digit PIN. Two users can have the same PIN.
+Users and locks are off by default. With no users and no locks, Sode behaves as before. Settings > Users has a Manage users button that opens its own dialog. Its changes save with the Save button of Settings. There you add people, each with a name and a 4-12 digit PIN. Two users can have the same PIN.
 
 Every sign-in asks for the name, then the PIN. The name box finds a user as you type and lists every user. Pick a name with the arrow keys and Enter, or click it. The browser remembers the last name. The Lock of a signed-in user asks for the PIN only.
 
-The Rights tab has a No auto-lock box for a user who runs a wall browser that the idle auto-lock must skip. Only an administrator sets it, with the Advanced Settings PIN, and the Lock button still works for that user. Manage users also has an API clients tab and a Rights tab. Rights limit which sources, destinations, levels and presets a user, an API client or Guest can command, for the browser and the API alike. A row's Edit user rights button opens that user in the Rights tab, and one Save sends it all. A user's own API keys are under Settings > My user, in **My API keys**.
+The Rights tab has a No auto-lock box for a user who runs a wall browser that the idle auto-lock must skip. Only an administrator sets it, with the Advanced Settings PIN, and the Lock button still works for that user. Manage users also has an API clients tab and a Rights tab. Rights limit which sources, destinations, levels and presets a user, an API client or Guest can command, for the browser and the API alike. A row's Edit user rights button opens that user in the Rights tab, and the Save button of Settings sends it all. A user's own API keys are under Settings > My user, in **My API keys**.
 
 Settings > Access > Locks turns on locks per page type, for the main screen, the Communication Log and the panel pages, and sets the idle auto-lock. Those need the Advanced Settings PIN like the rest of Locks. A locked page opens behind a lock screen with a number pad. It opens the moment the typed PIN matches, with no Enter. The server enforces locks per WebSocket connection.
 

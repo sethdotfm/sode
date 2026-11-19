@@ -20,23 +20,3 @@ export function apiProblem(a) {
   if (!Number.isInteger(a.takeCap) || a.takeCap < 1 || a.takeCap > 64) return 'The take cap is 1 to 64.';
   return '';
 }
-
-const FIELDS = ['rateLimit', 'takeCap', 'guestEnabled', 'logReads'];
-
-// Keyless scopes compare as a set, the same as the server's Critical check.
-const sameScopes = (a = [], b = []) => a.length === b.length && a.every((s) => b.includes(s));
-
-// A field left out keeps the server's value.
-export function apiSettingsReq(cur, next) {
-  const apiSettings = {};
-  for (const k of FIELDS) if (next[k] !== cur[k]) apiSettings[k] = next[k];
-  if (!sameScopes(cur.guestScopes, next.guestScopes)) apiSettings.guestScopes = next.guestScopes;
-  return { t: 'apiSettings', apiSettings };
-}
-
-// Whether the form differs from the saved settings.
-export const apiEdited = (cur, next) => FIELDS.some((k) => next[k] !== cur[k]) || !sameScopes(cur.guestScopes, next.guestScopes);
-
-// A hello repaints unless the form holds edits that are neither the saved values nor the incoming ones.
-// The commit's hello can land before the save result, so a form equal to the incoming values is not an edit.
-export const apiRepaints = (saved, form, incoming) => !apiEdited(saved, form) || !apiEdited(incoming, form);

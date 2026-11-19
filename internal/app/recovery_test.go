@@ -126,12 +126,13 @@ func TestNoAdministratorStartsAndRefusesAdministratorActions(t *testing.T) {
 	}
 	p := dialPeer(t, a)
 	p.signIn("Ana", "1234")
-	for i, typ := range []string{"usersList", "users"} {
-		r := p.ask(typ, 10+i, map[string]any{"usersReq": map[string]any{}})
-		refusedForRole(t, typ, r, config.RoleAdministrator)
-		if e, _ := r["err"].(string); !strings.Contains(e, "-make-administrator") {
-			t.Errorf("%s refusal does not name the command: %q", typ, e)
-		}
+	r := p.ask("usersList", 10, nil)
+	refusedForRole(t, "usersList", r, config.RoleAdministrator)
+	if e, _ := r["err"].(string); !strings.Contains(e, "-make-administrator") {
+		t.Errorf("usersList refusal does not name the command: %q", e)
+	}
+	if r := p.askUsers(a, 11, map[string]any{"guestRole": config.RoleTrusted}); r["ok"] == true {
+		t.Fatalf("a Trusted user saved Users: %v", r)
 	}
 	if r := p.ask("presets", 20, map[string]any{"presets": []any{}}); r["ok"] != true {
 		t.Fatalf("a Trusted user action: %v", r)
@@ -192,7 +193,7 @@ func TestDeletingAPanelOwnerNeedsANewOwner(t *testing.T) {
 		if owners != nil {
 			req["panelOwners"] = owners
 		}
-		return p.ask("users", id, map[string]any{"usersReq": req})
+		return p.askUsers(a, id, req)
 	}
 	for i, owners := range []map[string]any{nil, {ana.ID: ana.ID}, {ana.ID: "u-0000000000000000"}} {
 		if r := save(10+i, owners); r["ok"] == true || !strings.Contains(r["err"].(string), "Ana") {

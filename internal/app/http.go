@@ -369,13 +369,11 @@ type inMsg struct {
 	Name       string               `json:"name"`  // userSignOutAll, profileSave, profileGet
 	Old        string               `json:"old"`
 	New        string               `json:"new"`
-	Remove     bool                 `json:"remove"` // userSetPin: remove my PIN
-	UsersReq   *usersReq            `json:"usersReq"`
-	KeyName    string               `json:"keyName"` // keyCreate, keyCreateFor
-	KeyID      string               `json:"keyId"`   // keyRevoke, keyRevokeAny
-	Expires    int64                `json:"expires"` // key expiry, unix ms; 0 = never
-	Owner      *keyOwner            `json:"owner"`   // keyCreateFor, keyRevokeAll
-	APISet     *apiSettingsReq      `json:"apiSettings"`
+	Remove     bool                 `json:"remove"`   // userSetPin: remove my PIN
+	KeyName    string               `json:"keyName"`  // keyCreate, keyCreateFor
+	KeyID      string               `json:"keyId"`    // keyRevoke, keyRevokeAny
+	Expires    int64                `json:"expires"`  // key expiry, unix ms; 0 = never
+	Owner      *keyOwner            `json:"owner"`    // keyCreateFor, keyRevokeAll
 	Panel      string               `json:"panel"`    // panelAlarm: the panel id
 	Action     string               `json:"action"`   // panelAlarm: clear | stop
 	Instance   string               `json:"instance"` // panelAlarm: the watched device, empty for a whole panel

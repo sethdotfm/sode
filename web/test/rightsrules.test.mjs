@@ -12,7 +12,6 @@ import {
   pickValid,
   rightsTab,
   accessReq,
-  mergeAccess,
   newEntry,
 } from '../rightsrules.js';
 
@@ -138,19 +137,4 @@ test('accessReq reads an edited draft, and names the user whose rights are wrong
   assert.equal('guestRights' in ok, false, 'no guest entry: the server keeps the saved one');
   edited.draft.dsts.text = 'x';
   assert.match(accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 }).error, /^Ana: Destinations/);
-});
-
-test("mergeAccess puts each row's rights on its user and leaves clients and Guest out until they loaded", () => {
-  const req = { users: [{ name: 'Ana' }, { name: 'Bo' }], maxPinLen: 8 };
-  const acc = { users: [{ rights: { dsts: [] } }, {}], apiClients: [{ name: 'P', scopes: [], rights: {} }], guestRights: {} };
-  assert.deepEqual(mergeAccess(req, acc, true), {
-    users: [{ name: 'Ana', rights: { dsts: [] } }, { name: 'Bo' }],
-    maxPinLen: 8,
-    apiClients: acc.apiClients,
-    guestRights: {},
-  });
-  const early = mergeAccess(req, acc, false);
-  assert.equal('apiClients' in early, false);
-  assert.equal('guestRights' in early, false);
-  assert.deepEqual(early.users[0], { name: 'Ana', rights: { dsts: [] } });
 });

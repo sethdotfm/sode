@@ -1,6 +1,6 @@
 // The API clients tab of Manage users: a client's name and API scopes, and every key of every user
 // and client. A person needs the Advanced Settings PIN to make, list or revoke a key. Names and
-// scopes save with the users' Save; keys act at once. A factory that gets hooks, so nothing imports
+// scopes save with Settings' one Save; keys act at once. A factory that gets hooks, so nothing imports
 // users.js back.
 
 import { el, onMsg, wsSend, sentence } from './core.js';
@@ -232,6 +232,11 @@ export function makeClientsTab({ users, touched, adopt }) {
       }
     },
     forget: () => shown.replaceChildren(),
+    // A new client saved: its row is now the saved client of that name.
+    saved(name) {
+      const row = [...rows.children].find((r) => !r.dataset.was && r.querySelector('input[data-field="client-name"]').value.trim() === name);
+      if (row) row.dataset.was = name;
+    },
     say,
   };
 }

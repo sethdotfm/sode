@@ -148,9 +148,9 @@ func TestRefusalReplies(t *testing.T) {
 		t.Fatalf("refused presets: %v", m)
 	}
 	until("lockState")
-	send(map[string]any{"t": "users", "id": 5, "usersReq": map[string]any{}})
-	if m := until("usersResult"); m["ok"] == true || m["id"] != float64(5) {
-		t.Fatalf("refused users: %v", m)
+	send(map[string]any{"t": "settingsSave", "id": 5, "fields": map[string]any{}})
+	if m := until("settingsSaveResult"); m["ok"] == true || m["id"] != float64(5) {
+		t.Fatalf("refused settingsSave: %v", m)
 	}
 
 	// The Advanced Settings PIN still unlocks, and opens nothing.

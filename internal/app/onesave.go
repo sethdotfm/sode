@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"maps"
 	"reflect"
 	"slices"
@@ -45,8 +46,9 @@ var sectionRoles = map[string]sectionTag{
 	"run-setup-again":   {config.RoleAdministrator, false},
 }
 
-// saveFields: the Config JSON keys the one Save takes, and the section of each. Every
-// form-saved field (guard tag) is here (TestEveryGuardedFieldHasSection).
+// saveFields: the Config keys the one Save takes, and the section of each. Every form-saved
+// field (guard tag) is here (TestEveryGuardedFieldHasSection). Item keys (a user's or an API
+// client's attribute) are in onesavefields.go.
 var saveFields = map[string]string{
 	"browserDefaults":      "everyone-defaults",
 	"brandText":            "branding",
@@ -81,6 +83,10 @@ var saveFields = map[string]string{
 	"newPanelActs":         "panels",
 	"trustedProxies":       "proxy",
 	"requireHttps":         "proxy",
+	"maxPinLen":            "users",
+	"guestRights":          "users",
+	"api":                  "api",
+	"guestApiScopes":       "api",
 }
 
 // Refusal reasons. The page shows them beside the field (spec #543, The one Save).
@@ -128,7 +134,11 @@ func fieldOf(cfg *config.Config, key string) reflect.Value {
 }
 
 func fieldJSON(cfg config.Config, key string) json.RawMessage {
-	b, _ := json.Marshal(fieldOf(&cfg, key).Interface())
+	f, ok := lookupField(key)
+	if !ok {
+		return json.RawMessage("null")
+	}
+	b, _ := json.Marshal(f.get(cfg))
 	return b
 }
 
@@ -140,19 +150,26 @@ func fieldVersion(cfg config.Config, key string) string {
 	return fmt.Sprintf("%016x", h.Sum64())
 }
 
-// fieldVersions goes in every hello.
+// fieldVersions goes in every hello. It leaves out the versions that only an Administrator
+// gets (hiddenVersions).
 func fieldVersions(cfg config.Config) map[string]string {
 	out := make(map[string]string, len(saveFields))
 	for k := range saveFields {
-		out[k] = fieldVersion(cfg, k)
+		if _, hidden := hiddenFields[k]; !hidden {
+			out[k] = fieldVersion(cfg, k)
+		}
 	}
 	return out
 }
 
 // setField decodes over the current value, as the config message does: an object merges
 // key by key, a list replaces.
-func setField(cfg *config.Config, key string, v json.RawMessage) error {
-	return json.Unmarshal(v, fieldOf(cfg, key).Addr().Interface())
+func setField(cfg *config.Config, key string, v json.RawMessage, x *saveCtx) error {
+	f, ok := lookupField(key)
+	if !ok {
+		return fmt.Errorf("%s is not saved here", key)
+	}
+	return f.set(cfg, v, x)
 }
 
 // fieldRefusal: the reason role cannot save a field of section sec; "" when it can.
@@ -212,38 +229,82 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit) (map[str
 		}
 		res[key] = r
 	}
-	var keep []string
+	x := &saveCtx{}
+	// First the checks that need no other field: section, unchanged, conflict.
+	var cands []string
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
 		e := edits[key]
-		sec, ok := saveFields[key]
+		f, ok := lookupField(key)
 		if !ok {
 			refuse(key, reasonRole, fmt.Errorf("%s is not saved here", key))
 			continue
 		}
 		// Before the conflict check, so a conflict never shows a value hidden from that Role.
-		if why := fieldRefusal(role, sec); why != "" {
-			refuse(key, why, roleErr{need: sectionRoles[sec].edit})
+		if why := fieldRefusal(role, f.section); why != "" {
+			refuse(key, why, roleErr{need: sectionRoles[f.section].edit})
 			continue
 		}
 		one := live.Clone()
-		if err := setField(&one, key, e.Value); err != nil {
-			refuse(key, reasonInvalid, err)
-			continue
+		if err := f.set(&one, e.Value, x); err != nil {
+			// Another field of this save can make it fit, for example a higher Longest PIN. Try
+			// again on top of all the other fields.
+			one = live.Clone()
+			for _, k := range slices.Sorted(maps.Keys(edits)) {
+				if k != key {
+					_ = setField(&one, k, edits[k].Value, x)
+				}
+			}
+			if f.set(&one, e.Value, x) != nil {
+				refuse(key, reasonInvalid, err)
+				continue
+			}
 		}
 		one.Normalize()
-		if string(fieldJSON(one, key)) == string(fieldJSON(live, key)) {
+		if !f.adds && string(fieldJSON(one, key)) == string(fieldJSON(live, key)) {
 			res[key] = fieldResult{Status: "unchanged"}
 			continue
 		}
-		if e.Version != fieldVersion(live, key) {
-			res[key] = fieldResult{Status: "refused", Reason: reasonConflict, Err: "someone else saved this after you opened Settings",
-				Value: fieldJSON(live, key), Version: fieldVersion(live, key)}
+		if !f.adds && e.Version != fieldVersion(live, key) {
+			r := fieldResult{Status: "refused", Reason: reasonConflict, Err: "someone else saved this after you opened Settings",
+				Version: fieldVersion(live, key)}
+			if !f.secret {
+				r.Value = fieldJSON(live, key)
+			}
+			res[key] = r
 			continue
 		}
-		if err := one.Validate(); err != nil {
+		cands = append(cands, key)
+	}
+	// with: live plus key, plus the other candidates of its item (scope 1) or all of them (scope
+	// 2). So a Role and a PIN, or a rename and a new user of the old name, validate together.
+	with := func(key string, scope int) config.Config {
+		one := live.Clone()
+		f, _ := lookupField(key)
+		for _, k := range cands {
+			g, _ := lookupField(k)
+			if k == key || scope == 2 || scope == 1 && f.item != "" && g.item == f.item {
+				_ = setField(&one, k, edits[k].Value, x)
+			}
+		}
+		one.Normalize()
+		return one
+	}
+	var keep []string
+	for _, key := range cands {
+		var err error
+		for scope := range 3 {
+			if err = validateSave(live, with(key, scope), a.cfgPath == ""); err == nil {
+				break
+			}
+		}
+		if err != nil {
+			if scoped := validateSave(live, with(key, 0), a.cfgPath == ""); scoped != nil {
+				err = scoped // the reason of the field alone reads best
+			}
 			refuse(key, reasonInvalid, err)
 			continue
 		}
+		one := with(key, 0)
 		if !rechecked {
 			if what := criticalEdits(live, one, actor); len(what) > 0 {
 				refuse(key, reasonRecheck, recheckErr{what: what})
@@ -257,26 +318,103 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit) (map[str
 		}
 		keep = append(keep, key)
 	}
+	moves, keep := a.removedUsersPanels(c, live, edits, keep, refuse)
 	if len(keep) == 0 {
 		return res, nil
 	}
 	err := a.applyConfig(func(cur *config.Config) error {
 		for _, key := range keep {
-			if err := setField(cur, key, edits[key].Value); err != nil {
+			if err := setField(cur, key, edits[key].Value, x); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+	now := a.r().cfg
 	for _, key := range keep {
 		if err != nil {
 			refuse(key, reasonInvalid, err)
 			continue
 		}
-		res[key] = fieldResult{Status: "saved", Version: fieldVersion(a.r().cfg, key)}
+		r := fieldResult{Status: "saved", Version: fieldVersion(now, key)}
+		if f, _ := lookupField(key); f.adds {
+			r.Value, r.Version = addedResult(now, key, x), ""
+		}
+		res[key] = r
 	}
-	if err == nil && slices.Contains(keep, "requireHttps") {
-		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, a.r().cfg.RequireHTTPS)
+	if err != nil {
+		return res, err
 	}
-	return res, err
+	if slices.Contains(keep, "requireHttps") {
+		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
+	}
+	a.auditRights(c, live, now)
+	a.auditAPISettings(connActor(c), live, now)
+	a.panelsFollowUsers(live.Users, now.Users)
+	if n, err := a.panels.moveOwners(moves); err != nil {
+		log.Printf("panels: new owner reached %d panels, then: %v", n, err)
+	} else if n > 0 {
+		log.Printf("panels: %d panels have a new owner", n)
+	}
+	return res, nil
+}
+
+// validateSave: what update checks, so a field that would fail the commit is refused alone.
+func validateSave(live, next config.Config, envOnly bool) error {
+	n := next.Clone()
+	dropOwnerless(&n)
+	if err := n.Validate(); err != nil {
+		return err
+	}
+	return keepsAdministrator(live, n, envOnly)
+}
+
+// removedUsersPanels gives the panels of each removed user a new owner. The owner is the one
+// the value names ({"owner": id}), else the acting user. A user who owns panels needs a named
+// owner that the save keeps, or the remove is refused.
+func (a *App) removedUsersPanels(c *client, live config.Config, edits map[string]fieldEdit, keep []string,
+	refuse func(key, reason string, err error)) (map[string]string, []string) {
+	removed := map[string]bool{}
+	for _, key := range keep {
+		if id, ok := removeKeyUser(key); ok {
+			removed[id] = true
+		}
+	}
+	moves := map[string]string{}
+	out := keep[:0:0]
+	for _, key := range keep {
+		id, ok := removeKeyUser(key)
+		if !ok {
+			out = append(out, key)
+			continue
+		}
+		var v struct {
+			Owner string `json:"owner"`
+		}
+		_ = json.Unmarshal(edits[key].Value, &v)
+		_, kept := live.FindUserByID(v.Owner)
+		kept = kept && !removed[v.Owner]
+		if n := a.panels.ownedBy(id); n > 0 && !kept {
+			u, _ := live.FindUserByID(id)
+			refuse(key, reasonInvalid, fmt.Errorf("%s owns %d panels: choose a new owner for them from the users you keep", u.Name, n))
+			continue
+		}
+		to := v.Owner
+		if !kept {
+			to = c.userID()
+		}
+		if to != "" {
+			moves[id] = to
+		}
+		out = append(out, key)
+	}
+	return moves, out
+}
+
+func removeKeyUser(key string) (string, bool) {
+	rest, ok := strings.CutPrefix(key, "user/")
+	if !ok {
+		return "", false
+	}
+	return strings.CutSuffix(rest, "/remove")
 }

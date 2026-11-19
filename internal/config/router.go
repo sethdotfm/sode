@@ -14,9 +14,9 @@ import (
 // Settings form and the hello did not change; the file nests them under routers.
 type Router struct {
 	// UID is made once (Normalize) and never changes, not even with the address. Never shown.
-	UID string `yaml:"uid" json:"-" owned:"true"`
+	UID string `yaml:"uid" json:"-"`
 	// Prefix is A-Z, hidden while there is one router.
-	Prefix  string `yaml:"prefix" json:"-" owned:"true"`
+	Prefix  string `yaml:"prefix" json:"-"`
 	Title   string `yaml:"title" json:"routerName" guard:"open"`
 	Address string `yaml:"address" json:"router" guard:"router"`
 	// RouterShow: what the status label shows (address, name or none).
@@ -37,7 +37,7 @@ type Router struct {
 	// FireMode is Multi destination behavior. SalvoGroup (0-127): the router's list is shared by every client, so use one only Sode uses.
 	FireMode   string         `yaml:"fireMode" json:"fireMode" guard:"pin"`
 	SalvoGroup int            `yaml:"salvoGroup" json:"salvoGroup" guard:"pin"`
-	Extra      map[string]any `yaml:",inline" json:"-" owned:"true"`
+	Extra      map[string]any `yaml:",inline" json:"-"`
 }
 
 // Ref names one source, destination or level on one router. Every store holds it, never a bare number.

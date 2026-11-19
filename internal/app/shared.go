@@ -15,19 +15,15 @@ func (a *App) guardSave(c *client, need string) error {
 	return a.needRoleMu(c, need)
 }
 
-// saveShared: mutate edits a copy, then update. broadcast builds one message from the new
-// config (nil: none), not a full snapshot, so History is not reset.
-func (a *App) saveShared(c *client, mutate func(*config.Config) error, broadcast func(config.Config) any) error {
+// saveList writes a shared list (filter sets, presets) for a Trusted user. msg builds the one
+// message the new config sends, not a full hello, so History is not reset.
+func (a *App) saveList(c *client, mutate func(*config.Config) error, msg func(config.Config) any) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if err := a.guardSave(c, config.RoleTrusted); err != nil {
 		return err
 	}
-	return a.commit(mutate, func(_, nr *runtime) {
-		if broadcast != nil {
-			a.broadcast(broadcast(nr.cfg))
-		}
-	})
+	return a.commit(mutate, func(_, nr *runtime) { a.broadcast(msg(nr.cfg)) })
 }
 
 // replyOp: id < 0 = the request has none; reports whether the PIN was why it failed.

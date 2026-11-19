@@ -1,20 +1,16 @@
 // Settings > API (index.html #api-group): the keyless API, its scopes and the limits. The API itself is always on.
-// Saved apart from the Settings form (the `apiSettings` message). Require HTTPS lives under Proxy.
+// A save source of the one Save (savesources.js): `api` and `guestApiScopes`. Require HTTPS lives under Proxy.
 
-import { $, S, on, onMsg, wsSend, sentence, el } from './core.js';
-import { unlocked } from './pin.js';
-import { askPin, reask } from './pinprompt.js';
-import { askRecheck } from './recheck.js';
-import { apiProblem, apiRepaints, apiSettingsReq, SCOPES } from './apirules.js';
+import { $, S, on, el } from './core.js';
+import { addSaveSource } from './savesources.js';
+import { diffRows, showValue } from './savereviewrules.js';
+import { apiProblem, SCOPES } from './apirules.js';
 
 const guest = $('api-guest');
 const scopeBox = $('api-scopes');
 const logReads = $('api-log-reads');
 const rate = $('api-rate');
 const cap = $('api-cap');
-const err = $('api-err');
-const note = $('api-note');
-const save = $('api-save');
 
 for (const s of SCOPES) {
   const box = el('input', 'pb-check__input');
@@ -26,83 +22,93 @@ const boxes = [...scopeBox.querySelectorAll('input[data-scope]')];
 // Disabled until a usersList answer says what the scopes are, so a tick cannot replace a set the page never saw.
 for (const b of boxes) b.disabled = true;
 
-let saved = { rateLimit: 0, takeCap: 1, guestEnabled: false, logReads: false, guestScopes: [] };
-let sent = saved;
-let seq = 0;
-let painted = false;
+// The page's scope order, so a set the server keeps in another order is no change.
+const ordered = (list) => SCOPES.map((s) => s.id).filter((id) => list.includes(id));
 
-const edited = () => ({
-  rateLimit: Number(rate.value),
-  takeCap: Number(cap.value),
-  guestEnabled: guest.checked,
-  logReads: logReads.checked,
-  guestScopes: boxes.filter((b) => b.checked).map((b) => b.dataset.scope),
-});
+let base = {}; // api, and guestApiScopes once a usersList said them
+let vers = {};
+let scopes = null; // the last usersList's {list, version}
 
-const fill = () => {
-  guest.checked = saved.guestEnabled;
-  logReads.checked = saved.logReads;
-  rate.value = String(saved.rateLimit);
-  cap.value = String(saved.takeCap);
-  for (const b of boxes) b.checked = saved.guestScopes.includes(b.dataset.scope);
-};
+const apiNow = () => ({ rateLimit: Number(rate.value), takeCap: Number(cap.value), guestEnabled: guest.checked, logReads: logReads.checked });
 
-// The hello has no keyless scopes (they ride the Administrator's usersList), so they come from saved.
-function paint() {
+function now() {
+  if (!('api' in base)) return {};
+  const out = { api: apiNow() };
+  if ('guestApiScopes' in base) out.guestApiScopes = boxes.filter((b) => b.checked).map((b) => b.dataset.scope);
+  return out;
+}
+const edited = (key) => diffRows({ [key]: base[key] }, { [key]: now()[key] }).length > 0;
+
+function fillApi() {
   const a = S.cfg?.api;
   if (!a) return;
-  const incoming = { rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads, guestScopes: saved.guestScopes };
-  if (painted && !apiRepaints(saved, edited(), incoming)) return;
-  painted = true;
-  saved = incoming;
-  fill();
+  base.api = { rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads };
+  vers.api = S.versions?.api;
+  guest.checked = base.api.guestEnabled;
+  logReads.checked = base.api.logReads;
+  rate.value = String(base.api.rateLimit);
+  cap.value = String(base.api.takeCap);
 }
-on('hello', paint);
-paint();
+
+function fillScopes() {
+  if (!scopes) return;
+  base.guestApiScopes = ordered(scopes.list);
+  vers.guestApiScopes = scopes.version;
+  for (const b of boxes) b.checked = base.guestApiScopes.includes(b.dataset.scope);
+}
+
+// A hello or list moves only a baseline with no edits on it, so another person's save shows as a conflict.
+on('hello', () => {
+  if (!('api' in base) || !edited('api')) fillApi();
+});
+fillApi();
 
 // users.js asks for the usersList after a sign-in and on Manage users, and passes each answer on.
 on('usersListed', (m) => {
-  const incoming = { ...saved, guestScopes: m.guestScopes || [] };
+  scopes = { list: m.guestScopes || [], version: m.versions?.guestApiScopes };
   const first = boxes[0]?.disabled;
   for (const b of boxes) b.disabled = false;
-  if (!first && !apiRepaints(saved, edited(), incoming)) return;
-  saved = incoming;
-  fill();
+  if (first || !edited('guestApiScopes')) fillScopes();
 });
 
 // The next sign-in can be someone else's; they load the scopes again before a tick counts.
 on('locked', () => {
   for (const b of boxes) b.disabled = true;
+  delete base.guestApiScopes;
+  scopes = null;
 });
 
-const fail = (text) => {
-  err.textContent = sentence(text);
-  err.hidden = !text;
-};
-
-async function doSave() {
-  fail('');
-  note.textContent = '';
-  const next = edited();
-  const bad = apiProblem(next);
-  if (bad) return fail(bad);
-  if (S.pinSet && !unlocked() && !(await askPin('API settings need the Advanced Settings PIN.'))) return;
-  const id = ++seq;
-  if (!wsSend({ ...apiSettingsReq(saved, next), id })) return fail('Not connected to Sode.');
-  sent = next;
-  save.disabled = true;
+const LABELS = { rateLimit: 'api-rate', takeCap: 'api-cap', guestEnabled: 'api-guest', logReads: 'api-log-reads' };
+function label(r) {
+  if (r.key === 'guestApiScopes') return $('api-scopes-label').textContent;
+  const f = $(LABELS[r.sub]);
+  return (f.closest('.pb-check')?.querySelector('.pb-check__label') || document.querySelector(`label[for="${f.id}"]`)).textContent;
 }
-save.addEventListener('click', doSave);
 
-onMsg('apiSettingsResult', async (m) => {
-  if (m.id !== seq) return;
-  save.disabled = false;
-  if (m.ok) {
-    saved = sent;
-    note.textContent = 'Saved.';
-    return;
-  }
-  if (m.recheck && (await askRecheck('Saving the keyless API'))) return doSave();
-  if (m.locked && (await reask('API settings need the Advanced Settings PIN again.'))) return doSave();
-  fail(m.err);
+function show(r, v) {
+  if (r.key === 'guestApiScopes') return v.length ? v.map((id) => SCOPES.find((s) => s.id === id)?.text || id).join(', ') : 'None';
+  return showValue(v);
+}
+
+addSaveSource({
+  owns: (key) => key === 'api' || key === 'guestApiScopes',
+  base: () => base,
+  now,
+  version: (key) => vers[key],
+  label,
+  show,
+  problem: () => ('api' in base ? apiProblem(apiNow()) : ''),
+  saved(key, value, r) {
+    base[key] = value;
+    if (r.version) vers[key] = r.version;
+  },
+  conflict(key, r) {
+    vers[key] = r.version;
+    base[key] = key === 'guestApiScopes' ? ordered(r.value || []) : r.value;
+  },
+  reset() {
+    base = {};
+    fillApi();
+    fillScopes();
+  },
 });

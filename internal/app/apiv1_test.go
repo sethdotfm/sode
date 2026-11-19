@@ -439,10 +439,6 @@ func TestOpenAPIDocumentsEveryRoute(t *testing.T) {
 func TestAPISettingsMessage(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
-	rule, ok := policy["apiSettings"]
-	if !ok || rule.role != config.RoleAdministrator {
-		t.Fatalf("apiSettings rule %+v ok=%v", rule, ok)
-	}
 	c := &client{ip: "10.0.0.9"}
 	if err := a.SaveAPISettings(c, apiSettingsReq{GuestEnabled: apiPtr(true)}); err == nil {
 		t.Fatal("saved by a Guest")

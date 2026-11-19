@@ -37,7 +37,16 @@ export const SAVE_FIELDS = Object.freeze({
   newPanelActs: 'panels',
   trustedProxies: 'proxy',
   requireHttps: 'proxy',
+  maxPinLen: 'users',
+  guestRights: 'users',
+  api: 'api',
+  guestApiScopes: 'api',
 });
+
+// Item keys, `user/<id>/<attribute>` and `client/<name>/<attribute>`, by their first part. Keep in step with
+// internal/app/onesavefields.go.
+const ITEM_SECTIONS = Object.freeze({ user: 'users', client: 'users' });
+export const sectionOfKey = (key) => SAVE_FIELDS[key] || ITEM_SECTIONS[key.split('/')[0]];
 
 // The router connection fields (guard:"router" in internal/config/router.go). A change reconnects the router.
 const RECONNECT = new Set(['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests']);
@@ -45,11 +54,25 @@ export const reconnects = (key) => RECONNECT.has(key);
 
 // Critical fields of the form (criticalEdits in internal/app/recheck.go). The page asks the PIN recheck before it
 // sends them; a server refusal still asks if this list falls behind.
-const CRITICAL = new Set([...RECONNECT, 'locks', 'autoLockMinutes', 'guestRole', 'pinWaits', 'publicPanels', 'newPanelActs', 'newUserDefaults']);
-export const critical = (key) => CRITICAL.has(key);
+const CRITICAL = new Set([
+  ...RECONNECT,
+  'locks',
+  'autoLockMinutes',
+  'guestRole',
+  'pinWaits',
+  'publicPanels',
+  'newPanelActs',
+  'newUserDefaults',
+  'guestApiScopes',
+]);
+// Rights are Critical only when wider than the saver's own, which the server decides.
+const CRITICAL_ATTRS = /^user\/.+\/(role|pin|persistent|noAutoLock|remove|add)$/;
+export const critical = (key) => CRITICAL.has(key) || CRITICAL_ATTRS.test(key);
 
 // Lists that read as one row per item.
 const INDEXED = new Set(['levelColors']);
+// Objects that read as one row: Rights.
+const whole = (key) => key === 'guestRights' || key.includes('/');
 
 const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -61,7 +84,7 @@ export function diffRows(base, now) {
     const was = base[key];
     const is = now[key];
     if (same(was, is)) continue;
-    if (plain(was) && plain(is)) {
+    if (plain(was) && plain(is) && !whole(key)) {
       for (const sub of new Set([...Object.keys(was), ...Object.keys(is)])) {
         if (!same(was[sub], is[sub])) rows.push({ key, sub, was: was[sub], now: is[sub] });
       }
