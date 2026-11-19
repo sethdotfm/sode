@@ -1,36 +1,27 @@
 // The Send dialog (Send a copy, GLOSSARY.md): presets, filter sets and panels go to one or more named users as one card
 // each. The server reads Me and Everyone items itself; This browser items go whole (inboxrules.js sendBody).
 
-import { el, on, S } from './core.js';
+import { el, S } from './core.js';
 import { btn } from './formbits.js';
-import { trapDialog } from './dialogkeys.js';
+import { modal } from './modal.js';
 import { layout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
 import { ask, inboxUser } from './inbox.js';
 import { sendBody } from './inboxrules.js';
 
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal pb-modal--sm sode-send');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'send-title');
-dialog.tabIndex = -1;
-const people = el('div', 'sode-send__people');
-people.setAttribute('role', 'group');
-people.setAttribute('aria-label', 'Send to');
-const body = el('div', 'pb-modal__body', el('span', 'sode__label', 'Send to'), people);
-const note = el('span', 'sode__hint');
-note.id = 'send-note';
-note.setAttribute('role', 'status');
-const title = Object.assign(el('span', 'pb-modal__title', 'Send a copy'), { id: 'send-title' });
-const sendBtn = btn('pb-btn--ok', 'Send', () => send());
-sendBtn.id = 'send-go';
-const closeBtn = btn('pb-btn--outline', 'Close', () => close());
-dialog.append(el('div', 'pb-modal__header', title), body, el('div', 'pb-modal__footer', closeBtn, note, sendBtn));
-root.append(dialog);
-
+const people = el('div', { class: 'sode-send__people', role: 'group', 'aria-label': 'Send to' });
+const note = el('span', { class: 'sode__hint', id: 'send-note', role: 'status' });
+const sendBtn = btn('pb-btn--ok', 'Send', () => send(), 'send-go');
 let dlg = null;
+const ui = () =>
+  (dlg ||= modal({
+    titleId: 'send-title',
+    title: 'Send a copy',
+    cls: 'pb-modal--sm sode-send',
+    body: [el('span', 'sode__label', 'Send to'), people],
+    foot: [btn('pb-btn--outline', 'Close', () => close()), note, sendBtn],
+    onEsc: () => close(),
+  }));
 let items = null;
 let back = null;
 let busy = false;
@@ -57,23 +48,18 @@ async function send() {
 
 // list: { presets, filterSets, panels }, each entry with a name; name says what goes.
 export function sendCopy(list, name) {
-  if (!dlg) {
-    document.body.append(root);
-    dlg = trapDialog(root, dialog, close);
-  }
+  ui();
   items = list;
   back = document.activeElement;
   setNote('');
-  title.textContent = `Send a copy of ${name}`;
+  dlg.title.textContent = `Send a copy of ${name}`;
   const desk = layout() !== 'phone';
   sendBtn.hidden = !desk;
   const names = (S.users || []).map((u) => u.name).filter((n) => n.toLowerCase() !== inboxUser().toLowerCase());
   people.replaceChildren(
     ...(desk
       ? names.map((n) => {
-          const b = el('input', 'pb-check__input');
-          b.type = 'checkbox';
-          b.value = n;
+          const b = el('input', { class: 'pb-check__input', type: 'checkbox', value: n });
           b.addEventListener('change', () => (sendBtn.disabled = busy || !picked().length));
           return el('label', 'pb-check', b, el('span', 'pb-check__label', n));
         })
@@ -82,7 +68,7 @@ export function sendCopy(list, name) {
   if (desk && !names.length) people.append(el('p', 'sode__hint', 'No other users'));
   sendBtn.disabled = true;
   dlg.show();
-  (people.querySelector('input') || dialog).focus();
+  (people.querySelector('input') || dlg.dialog).focus();
 }
 
 function close() {
@@ -90,7 +76,3 @@ function close() {
   dlg?.hide();
   if (back?.isConnected) back.focus();
 }
-
-on('locking', () => {
-  if (items) close();
-});

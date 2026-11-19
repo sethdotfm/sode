@@ -10,7 +10,8 @@ import { startPick, endPick } from './historypick.js';
 import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
 import { browserPresets, profilePresets } from './editortargets.js';
-import { trapDialog, labeled } from './widgets.js';
+import { labeled } from './widgets.js';
+import { modal } from './modal.js';
 import { itemLinkBox } from './itemlinkview.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
@@ -169,14 +170,6 @@ on('presets', () => {
 });
 renderStrips();
 
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal sode__filters sode__presets-dlg');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'presets-title');
-dialog.tabIndex = -1;
-
 const pick = el('select', 'pb-select');
 pick.setAttribute('aria-label', 'Preset');
 const nameIn = el('input', 'pb-input');
@@ -225,15 +218,17 @@ const pickRow = el(
   btn('pb-btn--outline', 'New', () => load(null)),
 );
 const scopeWrap = labeled('Save for', el('span', 'pb-select-wrap', scopeIn), 'sode__filters-scope');
-const titleEl = Object.assign(el('span', 'pb-modal__title', 'Edit Presets'), { id: 'presets-title' });
 const organizerBtn = btn('pb-btn--outline pb-btn--sm sode__head-link', 'Preset Organizer', () => {
   closePresets();
   if (!open) emit('presetPopup');
 });
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closePresets());
-dialog.append(
-  el('div', 'pb-modal__header', titleEl, organizerBtn),
-  el(
+const dlg = modal({
+  titleId: 'presets-title',
+  title: 'Edit Presets',
+  cls: 'sode__filters sode__presets-dlg',
+  head: [organizerBtn],
+  body: el(
     'div',
     'pb-modal__body sode__filters-body',
     el(
@@ -258,10 +253,10 @@ dialog.append(
     ),
     rowsBox,
   ),
-  el('div', 'pb-modal__footer', noteEl, cancelBtn, saveBtn),
-);
-root.append(dialog);
-document.body.append(root);
+  foot: [noteEl, cancelBtn, saveBtn],
+  onEsc: () => closePresets(),
+});
+const { dialog, title: titleEl } = dlg;
 
 function setNote(text, error = false) {
   noteEl.textContent = text;
@@ -702,8 +697,6 @@ function closePresets() {
   target = browser;
   if (back?.isConnected) back.focus();
 }
-
-const dlg = trapDialog(root, dialog, closePresets);
 
 // A lock closes the editor without the unsaved-changes warning (the page is covered).
 on('locking', () => {

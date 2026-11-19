@@ -4,7 +4,7 @@
 
 import { el, S, on, off, sentence } from './core.js';
 import { btn } from './formbits.js';
-import { trapDialog } from './widgets.js';
+import { modal } from './modal.js';
 import { showResult } from './plans.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { profile, profileName, fetchProfile, saveProfile } from './profile.js';
@@ -15,14 +15,6 @@ import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, pr
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
 import { toClear, moveText, movedPinOrder } from './browsercopyrules.js';
-
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal sode__filters sode__rv');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'rv-title');
-dialog.tabIndex = -1;
 
 const status = (dot, text) => {
   const d = el('span', `pb-dot pb-dot--${dot}`);
@@ -38,26 +30,23 @@ const select = (label, options, value, onChange) => {
   return el('span', 'pb-select-wrap', s);
 };
 
-const titleEl = Object.assign(el('span', 'pb-modal__title', 'Review import'), { id: 'rv-title' });
 const fromEl = el('span', 'sode__hint');
 const targetBox = el('div', 'sode__filters-set');
 const noteTop = el('span', 'sode__hint');
 const prefsBox = el('div', 'sode__rv-sec');
 const rowsBox = el('div', 'sode__rv-sec');
-const sumEl = el('span', 'sode__hint');
-sumEl.setAttribute('aria-live', 'polite');
-const noteEl = el('span', 'sode__hint');
-noteEl.setAttribute('aria-live', 'polite');
-const cancelBtn = btn('pb-btn--outline', 'Cancel', () => close());
+const sumEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
+const noteEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
 const applyBtn = btn('pb-btn--ok', 'Apply', () => apply());
-
-dialog.append(
-  el('div', 'pb-modal__header', titleEl),
-  el('div', 'pb-modal__body sode__filters-body', fromEl, targetBox, noteTop, prefsBox, rowsBox, sumEl, noteEl),
-  el('div', 'pb-modal__footer', cancelBtn, applyBtn),
-);
-root.append(dialog);
-document.body.append(root);
+const dlg = modal({
+  titleId: 'rv-title',
+  title: 'Review import',
+  cls: 'sode__filters sode__rv',
+  body: el('div', 'pb-modal__body sode__filters-body', fromEl, targetBox, noteTop, prefsBox, rowsBox, sumEl, noteEl),
+  foot: [btn('pb-btn--outline', 'Cancel', () => close()), applyBtn],
+  onEsc: () => close(),
+});
+const { dialog, title: titleEl } = dlg;
 
 const setNote = (t, error = false) => {
   noteEl.textContent = t;
@@ -624,11 +613,6 @@ function close() {
   if (back?.isConnected) back.focus();
 }
 
-const dlg = trapDialog(root, dialog, () => close());
-
-on('locking', () => {
-  if (open) close();
-});
 on('profile', () => render());
 on('presets', () => render());
 on('filters', () => render());
