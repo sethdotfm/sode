@@ -36,7 +36,7 @@ func TestChromeRequestApprovalCards(t *testing.T) {
 	b.waitFor("review", `!!document.getElementById('review-save')?.offsetParent`)
 	b.eval(`document.getElementById('review-save').click(); true`)
 	b.waitFor("Request approval offered", `!!document.getElementById('approval-request')?.offsetParent &&
-		!document.getElementById('approval-request').disabled && document.getElementById('approval-request-note').hidden`)
+		!document.getElementById('approval-request').disabled && !document.getElementById('approval-request').dataset.pbTip`)
 	b.eval(`document.getElementById('approval-request').click(); true`)
 	b.waitFor("Waiting for approval card with a countdown", `(() => {
 		const c = document.getElementById('approval-waiting');
