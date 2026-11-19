@@ -256,6 +256,25 @@ func TestAddImportUseNewKeepsLivePin(t *testing.T) {
 	}
 }
 
+// A hashless foreign user renamed past a live user gets neither that user's PIN nor the importer's Role.
+func TestAddImportRenamedHashlessUserIsPinNeeded(t *testing.T) {
+	a, _, tok := importApp(t)
+	files := map[string]string{}
+	for name, b := range unzipAll(t, foreign(t, exported(t, a, tok, exportReq{Categories: []string{catUsers}}))) {
+		files[name] = string(b)
+	}
+	y := strings.Replace(files["users.yaml"], "role: standard", "role: trusted", 1)
+	files["users.yaml"] = regexp.MustCompile(`(?m)^( *)role: administrator$`).ReplaceAllString(y, "${1}role: trusted\n${1}noAutoLock: true")
+	b, _, tok2 := importApp(t)
+	applied(t, postApply(t, b, tok2, zipOf(t, files), importReq{Mode: importAdd}))
+	for name, role := range map[string]string{"Ana 2": config.RoleTrusted, "Ada 2": config.RoleTrusted} {
+		u, ok := b.r().cfg.FindUserByName(name)
+		if !ok || u.HasPin() || !u.PinNeeded || u.Role != role {
+			t.Errorf("%s: %+v", name, u)
+		}
+	}
+}
+
 // A new panel brings its artwork under the same ids, so its cells still find it.
 func TestAddImportBringsPanelArt(t *testing.T) {
 	a, _, tok := importApp(t)

@@ -539,10 +539,10 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			u.Profile.FilterSets[i].Broken = p.check.filterSetBroken(u.Profile.FilterSets[i])
 		}
 		it := importItem{Key: key, Name: u.Name}
+		hashed, role := fileHash(u), u.Role
 		i := matchUser(p.same, cand.Users, u)
 		if i >= 0 {
 			lu := cand.Users[i]
-			hashed := fileHash(u)
 			if !hashed {
 				u.Pin, u.Len, u.PinNeeded = lu.Pin, lu.Len, lu.PinNeeded
 			}
@@ -571,7 +571,7 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 				p.users[fileID] = ""
 			case useRename:
 				u.Name = nextName(u.Name, func(s string) bool { _, ok := cand.FindUserByName(s); return ok })
-				it.As = u.Name
+				u.Role, it.As = role, u.Name
 			}
 			if it.Choice != useRename {
 				cat.Items = append(cat.Items, it)
@@ -581,7 +581,7 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 		if _, taken := cand.FindUserByID(u.ID); u.ID == "" || taken || it.Choice == useRename {
 			u.ID = config.NewUserID()
 		}
-		if !fileHash(u) {
+		if !hashed {
 			u.Pin, u.Len, u.PinNeeded = "", 0, true
 		}
 		cand.Users = append(cand.Users, u)
