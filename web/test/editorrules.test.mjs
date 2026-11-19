@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   editorTarget,
+  editorAccess,
   groupPanels,
   newPanel,
   saveBody,
@@ -288,4 +289,17 @@ test('a panel that cannot be opened says why and what to do', () => {
   assert.match(openFailNote({ status: 401, message: 'key revoked' }), /sign in again/i);
   assert.equal(openFailNote({ status: 403, message: 'This address may not use the API.' }), 'This address may not use the API.');
   assert.match(openFailNote({ status: 500, message: '' }), /could not be opened \(500\)/);
+});
+
+test('the editor leaves on a sign-out, another user or another Role, not on a Lock', () => {
+  let s = editorAccess(null, { user: '' });
+  assert.deepEqual(s, { owner: null, leave: false });
+  s = editorAccess(s.owner, { user: 'Ana', role: 'trusted' });
+  assert.equal(s.leave, false);
+  const ana = s.owner;
+  assert.equal(editorAccess(ana, { user: 'Ana', role: 'trusted' }).leave, false);
+  assert.equal(editorAccess(ana, { user: 'Ana', role: '', locked: true, held: true }).leave, false);
+  assert.equal(editorAccess(ana, { user: '' }).leave, true);
+  assert.equal(editorAccess(ana, { user: 'Bo', role: 'trusted' }).leave, true);
+  assert.equal(editorAccess(ana, { user: 'Ana', role: 'standard' }).leave, true);
 });

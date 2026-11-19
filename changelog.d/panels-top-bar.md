@@ -1,0 +1,1 @@
+- The panels page, the panel editor and the Live Editor have one top bar, as on a Grid panel. It has the title, the Settings, Panels and Home icons, and the status at the right. Home (the house icon) replaces Back to Sode. In the editor and the Live Editor a link with unsaved edits warns first, and a second try discards.

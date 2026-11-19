@@ -20,6 +20,7 @@ import { desktopOnly } from './desktoponly.js';
 import { showApprovalCards } from './approvalcards.js';
 import './palette.js';
 import { registerShell } from './swreg.js';
+import { panelsBar } from './panelsbar.js';
 
 const id = panelIdFrom(location.pathname);
 
@@ -47,6 +48,7 @@ function runLinked() {
 // No phone editor (docs/panels-design.md, Phone and touch).
 function editorOnPhone() {
   const head = document.querySelector('.sode-ed > .sode-panels__head');
+  panelsBar(head, { panels: true });
   for (const n of document.querySelectorAll('.sode-ed > *')) if (n !== head) n.hidden = true;
   head.after(desktopOnly('edit panels'));
   onLayout(() => location.reload());
@@ -63,7 +65,10 @@ else if (document.getElementById('ed-grid'))
     initGrip(editor);
     initNameEdit(initSidebar(editor).renameField);
   });
-else runPanelsList();
+else {
+  panelsBar(document.querySelector('.sode-panels__head'));
+  runPanelsList();
+}
 
 registerShell();
 connect();

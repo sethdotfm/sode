@@ -35,11 +35,11 @@ function initWidth(button, main) {
   });
 }
 
-// Follows the browser's own state: Esc leaves without a click here.
-function initScreen(button) {
+// Follows the browser's own state: Esc leaves without a click here. Returns its stop.
+export function initScreen(button) {
   if (!document.fullscreenEnabled) {
     button.hidden = true; // iOS Safari and embedded frames refuse it
-    return;
+    return () => {};
   }
   const sync = () => {
     const on = !!document.fullscreenElement;
@@ -49,6 +49,7 @@ function initScreen(button) {
   sync();
   document.addEventListener('fullscreenchange', sync);
   button.addEventListener('click', () => (document.fullscreenElement ? exitFullscreen(document) : enterFullscreen(document)));
+  return () => document.removeEventListener('fullscreenchange', sync);
 }
 
 // Kiosk for this open page only. The panel setting and #kiosk=1 give the starting state, and a reload goes back to them.

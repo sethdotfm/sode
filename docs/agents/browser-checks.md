@@ -19,6 +19,8 @@ Files, all in `internal/app`:
 - `panelboth_browser_test.go`: `TestChromePanelBothMode`, a Both panel opened by its keyed link with no sign-in, then by its plain link behind the PIN pad.
 - `panelpublic_browser_test.go`: `TestChromePublicPanel`, a Public panel opened by its plain URL with a stale `#key=`. It shows no PIN pad or sign-in, and the stale key leaves the address. A route outside the client Rights is refused with the reason and one inside is taken, with History naming the client. `TestChromeEditorPublic`: Public chosen on the editor's Access tab saves at once with its note and warning. Share's Link with key tab is muted and shows the plain link. That link opens with storage cleared and no sign-in.
 - `panellockbar_browser_test.go`: `TestChromePanelLockBarFloats`, the Lock bar over a panel page. Its removal moves nothing, and it covers no cell or header control. A real sign-out and sign-in leave the header row in place. The phone layout gives the header no room for it.
+- `panelsbar_browser_test.go`: `TestChromePanelsTopBar`, the top bar of `/panels`, the editor and the Live Editor. It checks the links in order, Home, the status at the right and the warning on an unsaved edit before a second try leaves. It also checks the phone row.
+- `editorsignout_browser_test.go`: `TestChromeEditorSignOutLeavesEditing`, a sign-out from the Live Editor with an unsaved edit made by a real click. The page asks nothing, reloads to the sign-in and shows no edit controls. A sign-in after it sends no save.
 - `panelwidth_browser_test.go`: `TestChromePanelPagesFitNarrowMouseWindow` opens a window of 390 by 844 with `mobile: false`. A mouse gives the desktop layout. The editor, `/panels` and a panel page do not scroll sideways, and `/` still has the patchbay page minimum width.
 - `panelfixed_browser_test.go`: `TestChromePanelFixedDests`, a panel with two fixed destinations. No Destination cell is drawn, and a Source press and Take reach both (the tally over REST). Then a saved change to the list and to Instant mode arrives through Apply now and patches on the press.
 - `paneleditorsave_browser_test.go`: `TestChromeEditorSaveKeepsEdits`, a save held by a fetch wrapper set before the page loads (`sessionkey.js` keeps the fetch it finds). A Page 2 edit made during the save stays. Two 503 answers show Retry save, and a retry saves.
@@ -83,6 +85,7 @@ Files, all in `internal/app`:
   - `Art`: artwork on names, in the editor's row Artwork button, and no stale artwork after a scroll.
   - `Editor`: make, edit and save a Grid panel, a reopen, the Live Editor. `EditorChunk` is the router list and the windowed lists.
   - `ConfirmSettings`: a keyed Grid panel with its socket stubbed uses the configured confirm lockout and Enter from the panel read.
+  - `EditorDragScroll`: a row drag held at a Grid list's bottom edge, then its top edge, scrolls the list to its end and its start. The big scroll bar's thumb moves with it. It sends `DragEvent`s with one `DataTransfer`, so mouse, touch and pen drags all take this path. A drop past the first view puts the row at the end.
 
 Add a check:
 1. Name the test `TestChrome...` so one `-run` pattern finds it. Call `startBrowser(t)` first, then `startSim(t)`.

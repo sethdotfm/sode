@@ -255,6 +255,15 @@ export const kindChoices = ({ fixed = false } = {}) =>
     fixed && kind === 'destination' ? { kind, label: kindLabel(kind), disabled: true, hint: 'Fixed destination is on' } : { kind, label: kindLabel(kind) },
   );
 
+// The editor belongs to the access it opened with (lock.js `access`). owner is null until a user signs in. A sign-out,
+// another user or another Role leaves the editor. A Lock keeps the user, so it does not.
+export function editorAccess(owner, a) {
+  const now = { user: a.user || '', role: a.role || '' };
+  if (!owner) return { owner: now.user ? now : null, leave: false };
+  if (now.user !== owner.user) return { owner, leave: true };
+  return { owner, leave: !a.locked && !a.held && !!now.role && now.role !== owner.role };
+}
+
 // The tip beside the grip while it is dragged: how many squares, and the first and last name placed.
 export function gripTip(plan, nameOf) {
   if (!plan) return '';

@@ -3,6 +3,7 @@
 import { $, el } from './core.js';
 import { btn } from './formbits.js';
 import { dialogAttrs } from './modal.js';
+import { initScreen } from './panelfull.js';
 
 export function pageUi() {
   return {
@@ -32,7 +33,8 @@ export function pageUi() {
 
 // Fills host with a live panel; onBack goes back to editing. A Grid panel also gets panel.html's instance name, Levels box
 // and take confirm, made again for each run because keyconfirm.js never removes its listeners.
-// edit: a Grid panel's { bar, open, aside, onPicks } (editorlive.js).
+// edit: a Grid panel's { bar, open, aside, onPicks, leave } (editorlive.js). Its bar goes under the Grid head row, which
+// gets Full screen; stopScreen ends that button.
 export function liveUi(host, onBack, edit = null) {
   const back = el('button', `pb-btn pb-btn--outline ${edit ? 'pb-btn--lg' : 'pb-btn--sm'}`, 'Back to editing');
   back.id = 'ed-live-back';
@@ -65,6 +67,12 @@ export function liveUi(host, onBack, edit = null) {
   const offline = el('div', 'sode-panel__offline pb-state-offline', el('p', 'sode-panel__offline-title', 'Offline'), offlineDetail);
   offline.setAttribute('role', 'alert');
   for (const n of [status, update, bar, offline]) n.hidden = true;
+  const screen = edit ? el('button', 'pb-btn pb-btn--ghost pb-btn--icon') : null;
+  if (screen) {
+    screen.type = 'button';
+    screen.id = 'ed-live-screen';
+  }
+  const stopScreen = screen ? initScreen(screen) : () => {};
   note.hidden = true;
   const levels = levelsBox();
   // A Grid panel's list drawer sits beside the grid, under the band, so the grid narrows and Take stays in reach.
@@ -92,6 +100,10 @@ export function liveUi(host, onBack, edit = null) {
     levels,
     aside: edit?.aside,
     onPicks: edit?.onPicks,
+    screen,
+    stopScreen,
+    liveBar: edit?.bar,
+    leave: edit?.leave,
   };
 }
 

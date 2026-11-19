@@ -5,7 +5,7 @@ import { sessionFetch, jsonCall, startSession } from './sessionkey.js';
 import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
 import { defaultsBy } from './panellook.js';
 import { createGrid, cellsLost, resize, select, deselect, selectAll, rectOf, clearSelection, setAside, putBack, heldThatFit, saved } from './gridmodel.js';
-import { editorTarget, newPanel, saveBody, isDirty, menuArea, saveChord, openFailNote } from './editorrules.js';
+import { editorTarget, newPanel, saveBody, isDirty, menuArea, saveChord, openFailNote, editorAccess } from './editorrules.js';
 import { copyText, itemLink } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
 import { editorSignIn } from './editorsignin.js';
@@ -27,6 +27,7 @@ import { createPageView } from './editorpageview.js';
 import { askCopyTo } from './editorpagecopy.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { edgesIn } from './gridedgerefs.js';
+import { panelsBar } from './panelsbar.js';
 
 const GRID_EDGE = Object.freeze({ members: 'all' });
 
@@ -35,6 +36,8 @@ const say = (id, text) => {
   n.textContent = text;
   n.hidden = !text;
 };
+
+const LEFT = 'Signed out. Not saved.';
 
 // One call whose failures read "<what> (status)" unless the server says why; down words a dead network.
 const edCall = (what, down) => jsonCall(sessionFetch, { failed: (s) => `${what} (${s})`, down });
@@ -51,6 +54,7 @@ export async function runEditor() {
   let names = namesFrom({});
   let routerNames = {}; // GET /names as read, for the Grid panel's list tabs
   let discardAsked = ''; // the panel the user tried to leave unsaved; a second try discards.
+  let leaving = false; // the access the editor opened with is gone (leaveEditing): nothing more is saved.
   const menuSections = []; // (grid) => items: Find adds its items here.
   const keyHooks = []; // (event) => true when a grid key was handled (Find handles typed text and Enter).
   const changeWatchers = [];
@@ -259,6 +263,7 @@ export async function runEditor() {
     lists: () => [$('ed-sources-col'), $('ed-destinations-col')],
     cellTab: () => cellTab,
     edgeLists: () => edgeLists,
+    leave: (href) => mayLeave(href),
   });
   fieldWatchers.push(() => live.changed());
   // The menu and its flyouts keep off the sidebar when it sits beside the grid (menuArea).
@@ -515,14 +520,27 @@ export async function runEditor() {
     }
     openPanel(id, false);
   });
+  // The bar's links (Settings, Panels, Home) leave unsaved edits only on a second try, as the picker does. Then the
+  // browser's own prompt does not ask a third time.
+  let letGo = false;
+  function mayLeave(href) {
+    if (readOnly() || !dirty() || discardAsked === href) return (letGo = true);
+    discardAsked = href;
+    const text = 'Unsaved changes. Choose again to discard.';
+    say('ed-status', text);
+    live.note(text);
+    return false;
+  }
+  panelsBar(document.querySelector('.sode-ed > .sode-panels__head'), { panels: true, leave: mayLeave });
   window.addEventListener('beforeunload', (e) => {
-    if (!readOnly() && dirty()) e.preventDefault();
+    if (!leaving && !letGo && !readOnly() && dirty()) e.preventDefault();
   });
 
   // One save at a time. A second Save, Ctrl+S or Live Editor press during a save gets the same answer. So a new panel is
   // never made twice.
   let saving = null;
   function save() {
+    if (leaving) return Promise.resolve(LEFT);
     saving ??= saveNow().finally(() => {
       saving = null;
     });
@@ -544,6 +562,8 @@ export async function runEditor() {
         method: loaded ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
+        // Signed out, a save is refused at once: waiting would send it under the next sign-in, maybe someone else's.
+        noWait: true,
       });
     let stored;
     try {
@@ -624,6 +644,7 @@ export async function runEditor() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
+        noWait: true,
       });
     } catch (e) {
       return say('ed-status', e.message);
@@ -635,12 +656,21 @@ export async function runEditor() {
   });
 
   const bootFailed = editorSignIn(say);
-  // What is open belongs to the user who opened it: a sign-out or another user starts the page again.
-  let bootUser = '';
+  // What is open belongs to the user who opened it: a sign-out, another user or another Role starts the page again.
+  // The edits go with it, so the unsaved-changes prompt must not hold the page in the editor.
+  let owner = null;
   on('access', (a) => {
-    if (!bootUser) bootUser = a.user || '';
-    else if ((a.user || '') !== bootUser) location.reload();
+    const next = editorAccess(owner, a);
+    owner = next.owner;
+    if (next.leave) leaveEditing();
   });
+  function leaveEditing() {
+    if (leaving) return;
+    leaving = true;
+    live.stop();
+    document.querySelector('.sode-ed').hidden = true;
+    location.reload();
+  }
   // Names come from the REST read, which applies the user's Rights. The socket says when the router's names change,
   // so the cells and the Grid lists show a rename at once, as an open panel does.
   // Returns false when the read was refused; the names already shown stay.
