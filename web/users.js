@@ -312,7 +312,6 @@ function paintPeople() {
 
 const paintSummary = paintPeople;
 
-// The directory is not in the hello (a locked page gets that too): an Administrator asks for it.
 const load = () => {
   wsSend({ t: 'usersList', id: ++listSeq });
 };
@@ -338,15 +337,18 @@ onMsg('usersListResult', (m) => {
     fill();
   }
 });
-// An Administrator who signs in gets the list at once, so Settings can show and stage it.
+// policy.go answers usersList to an Administrator only; anyone else would only add a refused row to the Log.
+let admin = false;
 on('access', (a) => {
   paintSummary();
-  if (!loaded && a.role === 'administrator') load();
+  const was = admin;
+  admin = a.role === 'administrator';
+  if (admin && (!was || !loaded)) load();
 });
 on('conn', paintPeople);
 on('hello', () => {
   paintSummary();
-  load();
+  if (admin) load();
 });
 
 // ---- open / close / save

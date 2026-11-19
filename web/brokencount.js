@@ -4,6 +4,7 @@
 import { $, el, emit, on, onMsg, wsSend } from './core.js';
 import { profileName } from './profile.js';
 import { statusBadge } from './brokenview.js';
+import { countAsks } from './brokenrules.js';
 import { editHref } from './panelsrules.js';
 
 const KIND = { preset: 'Preset', filterSet: 'Filter set', panel: 'Panel' };
@@ -74,11 +75,12 @@ function paint(box, r) {
 }
 
 export function askBrokenCounts() {
-  if (role === 'administrator') {
+  const ask = countAsks(role, profileName());
+  if (ask.all) {
     asked.all = ++seq;
     wsSend({ t: 'brokenCount', id: asked.all });
   }
-  if (profileName()) {
+  if (ask.mine) {
     asked.mine = ++seq;
     wsSend({ t: 'brokenCount', id: asked.mine, mine: true });
   }

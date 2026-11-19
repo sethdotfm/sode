@@ -95,6 +95,9 @@ export function replaceRows(s, offset) {
   return rows;
 }
 
+// role: the lockState Role, '' under a Lock (policy.go refuses brokenCount then). Everyone's count is Administrator only.
+export const countAsks = (role, me) => ({ all: role === 'administrator', mine: !!role && !!me });
+
 export const statusOf = (m) => (m.broken.length ? 'broken' : m.moved.length ? 'moved' : '');
 export const STATUS_TEXT = { broken: 'Broken', moved: 'Name moved' };
 
