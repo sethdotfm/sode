@@ -22,6 +22,8 @@ var (
 	exportMaxUpload  int64 = 512 << 20
 	exportMaxEntries       = 20000
 	exportMaxEntry   int64 = panelArtTotal
+	// Images do not compress, so a real file unpacks to about its zip size; this stops a zip bomb.
+	exportMaxTotal int64 = 2 * exportMaxUpload
 )
 
 // exportEntryRe is every entry name a file can hold: the fixed names and the art and names directories, built on
@@ -80,6 +82,7 @@ func stageExport(zipPath, dir string) error {
 		return badExport("the file holds %d entries; an export holds at most %d", len(zr.File), exportMaxEntries)
 	}
 	seen := map[string]bool{}
+	left := exportMaxTotal
 	for _, f := range zr.File {
 		if !exportEntryRe.MatchString(f.Name) {
 			if err := newerFormat(zr.File); err != nil {
@@ -98,38 +101,42 @@ func stageExport(zipPath, dir string) error {
 			}
 			continue
 		}
-		if err := unpackEntry(f, dst); err != nil {
+		n, err := unpackEntry(f, dst, left)
+		if err != nil {
 			return err
 		}
+		left -= n
 	}
 	return nil
 }
 
-// unpackEntry reads at most exportMaxEntry bytes, whatever the zip header says.
-func unpackEntry(f *zip.File, dst string) error {
+// unpackEntry reads at most exportMaxEntry bytes, and at most left, whatever the zip header says.
+func unpackEntry(f *zip.File, dst string, left int64) (int64, error) {
 	rc, err := f.Open()
 	if err != nil {
-		return badExport("%s cannot be read: %v", f.Name, err)
+		return 0, badExport("%s cannot be read: %v", f.Name, err)
 	}
 	defer rc.Close()
 	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
-		return err
+		return 0, err
 	}
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	n, err := io.Copy(out, io.LimitReader(rc, exportMaxEntry+1))
+	n, err := io.Copy(out, io.LimitReader(rc, min(exportMaxEntry, left)+1))
 	if cerr := out.Close(); err == nil {
 		err = cerr
 	}
 	switch {
 	case n > exportMaxEntry:
-		return badExport("%s is over %d MiB", f.Name, exportMaxEntry>>20)
+		return n, badExport("%s is over %d MiB", f.Name, exportMaxEntry>>20)
+	case n > left:
+		return n, badExport("the file unpacks to over %d MiB", exportMaxTotal>>20)
 	case err != nil:
-		return badExport("%s cannot be read: %v", f.Name, err)
+		return n, badExport("%s cannot be read: %v", f.Name, err)
 	}
-	return nil
+	return n, nil
 }
 
 // newerFormat: a newer Sode can add entry names, so its file answers newer_format, not bad_file.

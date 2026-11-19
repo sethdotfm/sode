@@ -328,6 +328,15 @@ func TestImportRefusesBadFiles(t *testing.T) {
 			t.Errorf("%d %s", rec.Code, rec.Body)
 		}
 	})
+	t.Run("unpacked total too large", func(t *testing.T) {
+		defer func(n int64) { exportMaxTotal = n }(exportMaxTotal)
+		exportMaxTotal = 300
+		pad := "#" + strings.Repeat("x", 200) + "\n"
+		rec := postImport(t, a, tok, zipOf(t, map[string]string{"manifest.yaml": ok + pad, "users.yaml": pad}))
+		if rec.Code != 400 || !strings.Contains(rec.Body.String(), "unpacks to over") {
+			t.Errorf("%d %s", rec.Code, rec.Body)
+		}
+	})
 	t.Run("upload too large", func(t *testing.T) {
 		defer func(n int64) { exportMaxUpload = n }(exportMaxUpload)
 		exportMaxUpload = 100
