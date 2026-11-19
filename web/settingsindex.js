@@ -199,6 +199,7 @@ export const DICT = {
     'panels',
     'artwork',
   ],
+  'setup-again-open': ['setup', 'set up', 'wizard', 'run setup again', 'branding', 'router', 'access preset'],
   'xi-open': ['export', 'import', 'backup', 'back up everything', 'restore', 'zip', 'file', 'download', 'include pins', 'transfer', 'copy to another site'],
   // Sections for other branches to add later; ignored until they exist.
   salvos: ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
@@ -239,6 +240,7 @@ export const DICT = {
 
   // ---- Me (inside This browser; only shown while signed in as a user)
   'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],
+  'account-swap': ['swap', 'swap source', 'swap destination', 'broken', 'name moved', 're-patch', 'presets', 'filter sets', 'panels'],
   'account-transfer': ['export', 'import', 'backup', 'restore', 'share', 'transfer', 'my settings', 'presets', 'filter sets', 'account'],
   'apply-preset': ['access preset', 'preset', 'open access', 'standard access', 'secured access', 'secure', 'access level'],
   'lock-pages': ['lock', 'lock main screen', 'lock communication log', 'lock log', 'pin', 'users', 'protect', 'screen lock'],

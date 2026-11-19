@@ -399,6 +399,7 @@ type inMsg struct {
 	On           bool               `json:"on"`      // approvalCards
 	asRole       string             // Request approval: the requester's Role when sent (approvalrequest.go)
 	Inbox        *inboxReq          `json:"inbox"` // the inbox messages (inboxsend.go)
+	Swap         *swapReq           `json:"swap"`  // swapList, swapMine (swap.go)
 }
 
 func plural(n int, one, many string) string {

@@ -729,7 +729,7 @@ func (a *App) hello(p helloPage) []byte {
 		ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
 		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),
-		Setup: a.setupHelloFor(r.cfg),
+		NotSaved: a.cfgPath == "", Setup: a.setupHelloFor(r.cfg),
 	}
 	b, err := json.Marshal(m)
 	if err != nil {

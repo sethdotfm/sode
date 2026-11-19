@@ -14,6 +14,8 @@ type filterTerm struct {
 	Kind string `json:"kind"` // "num", "range", "exact", "name" (contains) or "re"
 	A    int    `json:"a,omitempty"`
 	Text string `json:"text,omitempty"`
+	// at and end: the rune span of the term after any negation, quotes included. Swap rewrites it.
+	at, end int
 }
 
 var (
@@ -52,6 +54,7 @@ func filterTerms(text string) ([]filterTerm, bool) {
 			i += 3
 			ws()
 		}
+		t.at = i
 		switch {
 		case i < n && (r[i] == '"' || r[i] == '\''):
 			q := r[i]
@@ -107,6 +110,7 @@ func filterTerms(text string) ([]filterTerm, bool) {
 			}
 			s := strings.TrimSpace(string(r[i:end]))
 			i = end
+			t.end = t.at + len([]rune(s))
 			if s == "" {
 				return nil, false
 			}
@@ -118,6 +122,9 @@ func filterTerms(text string) ([]filterTerm, bool) {
 			} else {
 				t.Kind, t.Text = "name", s
 			}
+		}
+		if t.end == 0 {
+			t.end = i
 		}
 		ws()
 		if i < n && r[i] != ',' {
