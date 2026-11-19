@@ -602,6 +602,9 @@ func Load(path string) (c Config, exists bool, err error) {
 	if err != nil {
 		return c, false, err
 	}
+	if noKeys(b) {
+		return c, false, nil
+	}
 	c, err = Parse(b)
 	if err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)

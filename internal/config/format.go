@@ -9,7 +9,7 @@ import (
 )
 
 // Format is config.yaml's top-level `format` key. Raise it only when an older loader would
-// misread the file; a file without the key is from v1 (docs/agents/server.md, config load).
+// misread the file; a file with settings but without the key is from v1 (docs/agents/server.md, config load).
 const Format = 2
 
 var ErrV1 = errors.New("the file is from Sode v1, and Sode v2 does not read v1 files")
@@ -28,12 +28,20 @@ func formatOf(b []byte) (int, error) {
 	return *head.Format, nil
 }
 
+// noKeys: empty, comments only, null or {}. v1 always wrote its settings, so such a file is not v1.
+func noKeys(b []byte) bool {
+	var m map[string]any
+	return yaml.Unmarshal(b, &m) == nil && len(m) == 0
+}
+
 func checkFormat(b []byte) error {
 	f, err := formatOf(b)
 	if err != nil {
 		return err
 	}
 	switch {
+	case f == 0 && noKeys(b):
+		return errors.New("the file has no settings")
 	case f == 0:
 		return ErrV1
 	case f > Format:
@@ -54,5 +62,5 @@ func IsV1(path string) (bool, error) {
 		return false, err
 	}
 	f, err := formatOf(b)
-	return err == nil && f == 0, nil
+	return err == nil && f == 0 && !noKeys(b), nil
 }
