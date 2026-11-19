@@ -334,7 +334,8 @@ func TestInterruptionsInTheLogAreForAdministrators(t *testing.T) {
 	f := newFloor(t)
 	defer startLog(t, f.a)()
 	f.reviewAndSave(map[string]any{"publicPanels": false})
-	waitSaves(t, f.a, 1)
+	// The floor's panel instance also writes a row (its API client), at its own time.
+	waitSaves(t, f.a, 2)
 	read := func(name, pin string) Sent {
 		p := dialPeer(t, f.a)
 		p.signIn(name, pin)
@@ -344,11 +345,16 @@ func TestInterruptionsInTheLogAreForAdministrators(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, e := range page.Entries {
-			if e.Kind == kindSettings {
-				return e
+			if e.Kind != kindSettings {
+				continue
+			}
+			for k := range fieldsByKey(e) {
+				if strings.Contains(k, "publicPanels") {
+					return e
+				}
 			}
 		}
-		t.Fatalf("no Settings saves row for %s", name)
+		t.Fatalf("no publicPanels Settings saves row for %s", name)
 		return Sent{}
 	}
 	if row := read("Ada", "2468"); !strings.Contains(strings.Join(row.Save.Interruptions, " "), "Lobby") {
