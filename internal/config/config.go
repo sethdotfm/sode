@@ -50,9 +50,11 @@ type Config struct {
 	PinWaits       bool           `yaml:"pinWaits" json:"pinWaits" guard:"pin"`
 	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults" owned:"true"`
 	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (saveSettings).
-	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
-	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
-	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
+	Users []User `yaml:"users,omitempty" json:"users" owned:"true"`
+	// NewUserDefaults has no value in Defaults: a file from before it loads both off, as new users started then.
+	NewUserDefaults NewUserDefaults `yaml:"newUserDefaults" json:"newUserDefaults" guard:"pin"`
+	Locks           Locks           `yaml:"locks" json:"locks" guard:"pin"`
+	AutoLockMinutes int             `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
 	// MaxPinLen is the longest user PIN (4-12).
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
 	// API settings, clients, Guest rights and scopes change only through their own admin
@@ -60,8 +62,8 @@ type Config struct {
 	API         APISettings `yaml:"api" json:"api" owned:"true"`
 	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-" owned:"true"`
 	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-" owned:"true"`
-	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator. Saved with the users.
-	GuestRole      string   `yaml:"guestRole" json:"-" owned:"true"`
+	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator.
+	GuestRole      string   `yaml:"guestRole" json:"guestRole" guard:"pin"`
 	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-" owned:"true"`
 	// PublicPanels is Public panels allowed: off, no panel hands out a Public key (panelpublic.go).
 	PublicPanels bool `yaml:"publicPanels" json:"publicPanels" guard:"pin"`

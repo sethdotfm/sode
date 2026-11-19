@@ -40,7 +40,7 @@ func saveUsers(a *App, c *client, req usersReq) error {
 			listed = listed || e.ID == ada.ID || strings.EqualFold(e.Name, "Ada")
 		}
 		if !listed {
-			row := userEdit{ID: ada.ID, Name: ada.Name, Role: ada.Role, Persistent: ada.Persistent}
+			row := userEdit{ID: ada.ID, Name: ada.Name, Role: ada.Role}
 			req.Users = append(slices.Clone(req.Users), row)
 		}
 	}
@@ -215,29 +215,20 @@ func TestManageUsersSetsRoles(t *testing.T) {
 		}
 		rows = append(rows, edit)
 	}
-	if r := p.ask("users", 4, map[string]any{"usersReq": map[string]any{"users": rows, "guestRole": config.RoleTrusted}}); r["ok"] != true {
+	if r := p.ask("users", 4, map[string]any{"usersReq": map[string]any{"users": rows}}); r["ok"] != true {
 		t.Fatalf("save: %v", r)
 	}
 	cfg := a.r().cfg
 	if bo, _ := cfg.FindUserByName("Bo"); bo.Role != config.RoleTrusted {
 		t.Fatalf("Bo's role %q", bo.Role)
 	}
-	if cfg.GuestRole != config.RoleTrusted {
-		t.Fatalf("Guest role %q", cfg.GuestRole)
-	}
 	again := p.ask("usersList", 5, nil)
-	if again["guestRole"] != config.RoleTrusted {
-		t.Fatalf("usersList Guest role: %v", again["guestRole"])
-	}
 	for _, u := range again["users"].([]any) {
 		if row := u.(map[string]any); row["name"] == "Bo" && row["role"] != config.RoleTrusted {
 			t.Fatalf("usersList Bo: %v", row)
 		}
 	}
-	bad := p.ask("users", 6, map[string]any{"usersReq": map[string]any{"guestRole": config.RoleAdministrator}})
-	if bad["ok"] == true {
-		t.Fatal("Guest role Administrator saved")
-	}
+	wantRefused(t, p.saveFields(6, map[string]any{"guestRole": config.RoleAdministrator}), "guestRole", reasonInvalid)
 }
 
 // usersEdits is the saved list as edits, with role changes by name.

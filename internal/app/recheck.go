@@ -115,7 +115,8 @@ func (a *App) critical(c *client, mutate func(*config.Config) error) func(*confi
 	}
 }
 
-// presetFields: every field an Access preset writes is Critical. Later access fields join here.
+// presetFields: every field an Access preset writes (config.AccessValues) is Critical
+// (TestPresetFieldsAreCritical).
 var presetFields = []struct {
 	what    string
 	changed func(a, b config.Config) bool
@@ -130,6 +131,9 @@ var presetFields = []struct {
 	{"keyless scopes", func(a, b config.Config) bool { return !sameSet(a.GuestAPIScopes, b.GuestAPIScopes) }},
 	{"Public panels allowed", func(a, b config.Config) bool { return a.PublicPanels != b.PublicPanels }},
 	{"the new-panel Authentication mode", func(a, b config.Config) bool { return a.NewPanelActs != b.NewPanelActs }},
+	{"New user defaults", func(a, b config.Config) bool {
+		return a.NewUserDefaults.Persistent != b.NewUserDefaults.Persistent || a.NewUserDefaults.NoAutoLock != b.NewUserDefaults.NoAutoLock
+	}},
 }
 
 // sameSet: pages send scopes in their own order.
