@@ -21,7 +21,7 @@ const gridMembersAll = "all"
 
 // GridEdge is a Grid panel's sources or destinations. Membership stays apart from per-item settings, so a
 // pin or artwork never stops an "all" edge from following the router. Every entry is a router reference, which
-// panelgridrefs.go fills.
+// panelrefs.go fills.
 type GridEdge struct {
 	Members GridMembers `yaml:"members" json:"members"`
 	// Hide is only for an "all" edge: items left out of it.
