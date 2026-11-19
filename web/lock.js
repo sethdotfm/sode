@@ -338,8 +338,8 @@ function inert(c) {
   inerted.push(c);
 }
 
-// A module whose dialog or view needs more than its Esc on a Lock listens for 'locking' (Settings exits; an unsaved
-// form keeps its warning, covered). Every other trapDialog dialog closes as on Esc.
+// A module that needs more than Esc on a Lock listens for 'locking' (Settings exits; an unsaved form keeps its
+// warning, covered). Every other trapDialog dialog closes as on Esc.
 function closeModals() {
   for (const d of document.querySelectorAll('dialog[open]')) d.close();
   emit('locking');

@@ -1,6 +1,6 @@
 // Runs one panel: the page /panels/<id>, or embedded in the Live Editor with its own ui and call (no keepalive, no
 // instance). The key is the user's session key, the link's key, or a Public panel's short-lived key (panelpublic.go).
-import { emit, on, S } from './core.js';
+import { emit, on, S, showNote } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
 import { startKeepalive, announceKeyless } from './panelkeepalive.js';
@@ -26,18 +26,13 @@ import { isPublic } from './panelsrules.js';
 import { initChrome } from './panelfull.js';
 import { initName } from './panelname.js';
 
-// The 2 s poll of the small reads stays while the WebSocket carries the tally: it finds a revoked key or a lost Sode
-// API, which the socket does not show.
+// The small reads are polled while the WebSocket carries the tally. The poll finds a revoked key or a lost Sode API,
+// which the socket does not show.
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
 // Frames that come close together (a Group or a Preset) are drawn as one.
 const FRAME_MS = 30;
 const ID_BYTES = 8;
-
-const say = (n, text) => {
-  n.textContent = text;
-  n.hidden = !text;
-};
 
 // A random key per press: a retry of the same request replays its answer instead of a second take.
 function takeKey() {
@@ -106,7 +101,7 @@ function makeDoor(seg, ui, embedded, given, run) {
       if (d.ended) return null;
       if (got.error) {
         d.announce(false);
-        say(ui.note, got.error);
+        showNote(ui.note, got.error);
         return null;
       }
       key = got.key;
@@ -137,8 +132,8 @@ function makeDoor(seg, ui, embedded, given, run) {
         if (step === 'ended') d.announce(true);
         const n = sessionNote(step, err);
         ui.signin.hidden = !n.retry;
-        if (k) say(ui.note, d.feature || '');
-        else if (n.text) say(ui.note, n.text);
+        if (k) showNote(ui.note, d.feature || '');
+        else if (n.text) showNote(ui.note, n.text);
       });
       nameSessionKey(`Panel ${seg}`);
       startSession();
@@ -152,7 +147,7 @@ function makeDoor(seg, ui, embedded, given, run) {
         // Kept only after it worked, so a mistyped or ended key never replaces a stored one.
         if (d.linked) d.stored = keepLinkKey(seg, d.key);
         if (panel.acts === 'api' && !d.key && !embedded) {
-          say(ui.note, 'API panel: open its link with the key.');
+          showNote(ui.note, 'API panel: open its link with the key.');
           return null;
         }
         d.id = panel.id;
@@ -173,7 +168,7 @@ function makeDoor(seg, ui, embedded, given, run) {
           continue;
         }
         if (e.status === 401) d.announce(endedCode(e.code));
-        say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!d.key));
+        showNote(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!d.key));
         return null;
       }
     }
@@ -255,7 +250,7 @@ function tallyFeed({ door, body, ui, rights, showOffline, onFail }) {
       showOffline(off);
       body.data({ tally: feed.shown, prot, nm, pr, link, first: !ready && !off });
       ready = !off;
-      say(ui.note, door.feature);
+      showNote(ui.note, door.feature);
     } catch (e) {
       ready = false;
       if (!onFail(e) && (e.status === undefined || e.status >= 500)) showOffline(offlineOf({ failed: true, routerUp: true }));
@@ -351,7 +346,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       wake.on();
     }
     door.feature = featureNotes(look, navigator, window.isSecureContext).join(' ');
-    say(ui.note, door.feature);
+    showNote(ui.note, door.feature);
   }
 
   // The adapter a body gets from the run. A panel's type never changes, so a live update keeps its body.
@@ -397,7 +392,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     },
     onFail(e) {
       const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!door.key && !door.keyIsPublic, door.keyIsPublic);
-      say(ui.note, f.text);
+      showNote(ui.note, f.text);
       if (!f.stop) return false;
       halt();
       door.tellLock(false);

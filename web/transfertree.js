@@ -32,10 +32,10 @@ export function catHead(cat, lead, box, hint = '', size = null, hintCls = '') {
   return head;
 }
 
-// A category the caller may not move, shown so the file's contents are complete.
+// A category that only an Administrator moves, shown so the list of the file is complete.
 export const adminRow = (cat, text) => catHead(`admin:${cat}`, null, tick(`admin:${cat}`, text, { disabled: true, onChange() {} }), 'Administrators only');
 
-// choice: { id, label, options, value, onPick, lead } for an item that clashes with one here.
+// choice: { id, options, value, onPick, lead } for an item that clashes with one here.
 export function planRow({ cat, it, ticked, disabled, onTick, broken, hint, size, choice, missing }) {
   const row = el(
     'div',

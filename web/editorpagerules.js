@@ -47,8 +47,8 @@ export function copyPage(pages, from, to) {
   return { pages: pages.map((p, j) => (j === to ? { ...p, cells } : p)), replaced: (pages[to].cells || []).length };
 }
 
-// After any change to the Page list: focus is a Page that exists (else the first), open holds only Pages that exist,
-// and open holds focus (else it is focus alone).
+// After a change to the Page list. focus is a Page that exists, else the first. open holds only Pages that exist, and
+// it holds focus, else it is focus alone.
 export function settle({ pages, focus, open }) {
   const has = (id) => pages.some((p) => p.id === id);
   const f = has(focus) ? focus : pages[0].id;
