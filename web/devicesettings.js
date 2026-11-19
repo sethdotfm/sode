@@ -116,7 +116,6 @@ export function initDeviceSettings({ form, reindex }) {
     for (const id of [
       'account-profile',
       'account-copy',
-      'account-swap',
       'account-transfer',
       'account-pin',
       'account-keys',
@@ -137,12 +136,6 @@ export function initDeviceSettings({ form, reindex }) {
   $('account-profile').addEventListener('click', () => emit('openProfile', { name: acctUser }));
   $('account-copy').addEventListener('click', () => emit('openBrowserCopy'));
   $('account-transfer').addEventListener('click', () => emit('openOwnExport'));
-  $('account-swap').addEventListener('click', () => emit('openSwap', { mine: true }));
-  on('swapDone', (n) => {
-    const note = $('account-step-note');
-    note.textContent = `Swap changed ${n} ${n === 1 ? 'item' : 'items'}.`;
-    note.hidden = false;
-  });
   $('account-logout').addEventListener('click', () => emit('logout'));
   $('account-login').addEventListener('click', () => emit('login'));
   initStepIn(); // after the access handler above, which it overrides while stepped in
