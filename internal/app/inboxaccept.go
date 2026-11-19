@@ -7,7 +7,6 @@ import (
 	"log"
 	"maps"
 	"slices"
-	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -19,22 +18,19 @@ import (
 
 const noteOutsideRights = "Outside your Rights"
 
+// cardPlanner's choice preselects Rename, since the clash is with the recipient's own item, or Use new on a file from
+// this install.
 type cardPlanner struct {
-	live, next config.Config
-	user       string // the recipient's id
-	rights     config.Rights
-	card       inboxCard
-	req        importReq
-	check      *refCheck
-	allPanels  []Panel
-	panels     []plannedPanel
-	plan       importPlan
-	// file: an export file, not a card (ownexport.go). An item equal to the importer's is No change, and
-	// same (a file from this install) matches by hidden id and preselects Use new.
-	file, same bool
+	planBase
+	user      string // the recipient's id
+	rights    config.Rights
+	card      inboxCard
+	allPanels []Panel
+	panels    []plannedPanel
+	// file: an export file, not a card (ownexport.go). An item equal to the importer's is No change.
+	file bool
 }
 
-// src, dst are the live router's names.
 func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
 	p, err := newCardPlanner(live, src, dst, allPanels, card, toID, req)
 	if err != nil {
@@ -50,11 +46,9 @@ func newCardPlanner(live config.Config, src, dst map[int]string, allPanels []Pan
 		return nil, errNoSuchUser
 	}
 	_, rights := live.ActsAs(u)
-	return &cardPlanner{
-		live: live, next: live.Clone(), user: toID, rights: rights, card: card, req: req, allPanels: allPanels,
-		check: &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
-		plan:  importPlan{SameInstall: true, Categories: map[string]*importCat{}},
-	}, nil
+	p := &cardPlanner{planBase: newPlanBase(live, src, dst, req, false), user: toID, rights: rights, card: card, allPanels: allPanels}
+	p.plan.SameInstall = true
+	return p, nil
 }
 
 // No categories in the request means all.
@@ -73,26 +67,9 @@ func (p *cardPlanner) run(profile func(*config.Config, *importCat) error) {
 		if s.n == 0 || s.run == nil || len(p.req.Categories) > 0 && !slices.Contains(p.req.Categories, s.cat) {
 			continue
 		}
-		cat := &importCat{Items: []importItem{}}
-		p.plan.Categories[s.cat] = cat
-		cand := p.next.Clone()
-		p.check.waited = false
-		err := s.run(&cand, cat)
-		if err == nil && p.check.waited {
-			err = errors.New("router names not read yet: try again after the re-read")
+		if _, err := p.step(s.cat, s.cat != catPanels, s.run); err != nil && s.cat == catPanels {
+			p.panels = nil
 		}
-		if err == nil && s.cat != catPanels {
-			cand.Normalize()
-			err = validateSave(p.live, cand)
-		}
-		if err != nil {
-			cat.Refused = err.Error()
-			if s.cat == catPanels {
-				p.panels = nil
-			}
-			continue
-		}
-		p.next = cand
 	}
 }
 
@@ -101,24 +78,6 @@ func (p *cardPlanner) profile(cfg *config.Config) *config.Profile {
 	cfg.Users = slices.Clone(cfg.Users)
 	cfg.Users[i].Profile = cfg.Users[i].Profile.Clone()
 	return &cfg.Users[i].Profile
-}
-
-func (p *cardPlanner) picked(cat, key string) bool {
-	keys, some := p.req.Pick[cat]
-	return !some || slices.Contains(keys, key)
-}
-
-// choice: the page's choice, else Rename, since the clash is with the recipient's own item. A file from this
-// install preselects Use new, as the Add import does.
-func (p *cardPlanner) choice(cat, key string) string {
-	switch c := p.req.Choices[cat][key]; c {
-	case useNew, useCurrent, useSkip, useRename:
-		return c
-	}
-	if p.same {
-		return useNew
-	}
-	return useRename
 }
 
 // outside: the route is on this router and the recipient's Rights do not reach it.
@@ -136,45 +95,17 @@ func (p *cardPlanner) outside(kind string, r config.Ref) bool {
 }
 
 func (p *cardPlanner) presetOutside(s config.Preset) bool {
-	for _, it := range s.Items {
-		if p.outside(config.MissingSource, it.Src) || slices.ContainsFunc(it.Dsts, func(d config.Ref) bool { return p.outside(config.MissingDestination, d) }) ||
-			slices.ContainsFunc(it.Levels, func(l int) bool { return p.outside(config.MissingLevel, config.Ref{Router: it.Src.Router, N: l}) }) {
-			return true
-		}
-	}
-	return false
+	out := false
+	config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref { out = out || p.outside(kind, r); return nil }}.Preset(&s)
+	return out || slices.ContainsFunc(s.Items, func(it config.PresetItem) bool {
+		return slices.ContainsFunc(it.Levels, func(l int) bool { return p.outside(config.MissingLevel, config.Ref{Router: it.Src.Router, N: l}) })
+	})
 }
 
 func (p *cardPlanner) panelOutside(fp Panel) bool {
-	for _, g := range fp.Pages {
-		for _, c := range g.Cells {
-			if r, ok := cellRef(c); ok {
-				kind := config.MissingSource
-				if c["kind"] == "destination" {
-					kind = config.MissingDestination
-				} else if c["kind"] != "source" {
-					continue
-				}
-				if p.outside(kind, r) {
-					return true
-				}
-			}
-		}
-	}
-	for _, e := range []struct {
-		edge *GridEdge
-		kind string
-	}{{fp.Sources, config.MissingSource}, {fp.Destinations, config.MissingDestination}} {
-		if e.edge == nil {
-			continue
-		}
-		for r := range edgeRefs(e.edge) {
-			if p.outside(e.kind, r) {
-				return true
-			}
-		}
-	}
-	return false
+	out := false
+	layoutOf(fp).readRefs(func(s refSlot, kind string, r config.Ref) { out = out || s != slotFixed && p.outside(kind, r) })
+	return out
 }
 
 func withID(s config.Preset, id string) config.Preset {
@@ -184,47 +115,32 @@ func withID(s config.Preset, id string) config.Preset {
 
 func (p *cardPlanner) planPresets(cand *config.Config, cat *importCat) error {
 	prof := p.profile(cand)
-	ic := &importPlanner{check: p.check}
-	for _, s := range ic.checkedPresets(p.card.Items.Presets) {
+	for _, s := range p.check.checked(p.card.Items.Presets) {
 		if !p.picked(catPresets, s.ID) {
 			continue
 		}
-		key := s.ID
-		it := importItem{Key: key, Name: s.Name, Broken: s.Broken}
+		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
 		if p.presetOutside(s) {
 			it.Note = noteOutsideRights
 		}
-		taken := func(n string) bool {
-			return slices.ContainsFunc(prof.Presets, func(x config.Preset) bool { return strings.EqualFold(x.Name, n) })
-		}
-		i := matchIdx(p.same, prof.Presets, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
-		if i >= 0 && p.file && sameYAML(withID(s, prof.Presets[i].ID), prof.Presets[i]) {
-			it.Same = true
-			cat.Items = append(cat.Items, it)
-			continue
-		}
-		if i >= 0 {
-			it.Clash, it.Choice = prof.Presets[i].Name, p.choice(catPresets, key)
-			switch it.Choice {
-			case useNew:
-				s.ID = prof.Presets[i].ID
+		out := addItem
+		if i := matchIdx(p.same, prof.Presets, s.ID, s.Name, func(x config.Preset) string { return x.ID }, presetName); i >= 0 {
+			lp := prof.Presets[i]
+			if out = p.settle(&it, catPresets, lp.Name, p.file && sameYAML(withID(s, lp.ID), lp), namesIn(prof.Presets, presetName)); out == overwrite {
+				s.ID = lp.ID
 				if !p.same { // matched by name: keep the live spelling
-					s.Name = prof.Presets[i].Name
+					s.Name = lp.Name
 				}
 				prof.Presets[i] = s
-			case useRename:
-				s.Name = nextName(s.Name, taken)
-				it.As = s.Name
-			}
-			if it.Choice != useRename {
-				cat.Items = append(cat.Items, it)
-				continue
 			}
 		}
-		if slices.ContainsFunc(prof.Presets, func(x config.Preset) bool { return x.ID == s.ID }) {
-			s.ID = config.NewPresetID()
+		if out == addItem {
+			s.Name = cmp.Or(it.As, s.Name)
+			if slices.ContainsFunc(prof.Presets, func(x config.Preset) bool { return x.ID == s.ID }) {
+				s.ID = config.NewPresetID()
+			}
+			prof.Presets = append(prof.Presets, s)
 		}
-		prof.Presets = append(prof.Presets, s)
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
@@ -236,35 +152,24 @@ func (p *cardPlanner) planFilterSets(cand *config.Config, cat *importCat) error 
 		if !p.picked(catFilterSets, s.Name) {
 			continue
 		}
-		key := s.Name
 		s.Broken = p.check.filterSetBroken(s)
-		it := importItem{Key: key, Name: s.Name, Broken: s.Broken}
-		i := matchIdx(false, prof.FilterSets, "", s.Name, nil, func(x config.FilterSet) string { return x.Name })
-		if i >= 0 && p.file {
-			s.Extra = prof.FilterSets[i].Extra
-			if sameYAML(s, prof.FilterSets[i]) {
-				it.Same = true
-				cat.Items = append(cat.Items, it)
-				continue
+		it := importItem{Key: s.Name, Name: s.Name, Broken: s.Broken}
+		out := addItem
+		if i := matchIdx(false, prof.FilterSets, "", s.Name, nil, setName); i >= 0 {
+			lf, same := prof.FilterSets[i], false
+			if p.file {
+				s.Extra = lf.Extra
+				same = sameYAML(s, lf)
 			}
-		}
-		if i >= 0 {
-			it.Clash, it.Choice = prof.FilterSets[i].Name, p.choice(catFilterSets, key)
-			switch it.Choice {
-			case useNew:
-				s.Name, s.Extra = prof.FilterSets[i].Name, prof.FilterSets[i].Extra
+			if out = p.settle(&it, catFilterSets, lf.Name, same, namesIn(prof.FilterSets, setName)); out == overwrite {
+				s.Name, s.Extra = lf.Name, lf.Extra
 				prof.FilterSets[i] = s
-			case useRename:
-				s.Name = nextName(s.Name, func(n string) bool {
-					return slices.ContainsFunc(prof.FilterSets, func(x config.FilterSet) bool { return strings.EqualFold(x.Name, n) })
-				})
-				it.As = s.Name
-				prof.FilterSets = append(prof.FilterSets, s)
 			}
-			cat.Items = append(cat.Items, it)
-			continue
 		}
-		prof.FilterSets = append(prof.FilterSets, s)
+		if out == addItem {
+			s.Name = cmp.Or(it.As, s.Name)
+			prof.FilterSets = append(prof.FilterSets, s)
+		}
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
@@ -279,7 +184,6 @@ func (p *cardPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			own = append(own, x)
 		}
 	}
-	ic := &importPlanner{check: p.check, presets: map[string]string{}, same: true}
 	adds := 0
 	for _, fp := range p.card.Items.Panels {
 		if !p.picked(catPanels, fp.ID) {
@@ -287,7 +191,8 @@ func (p *cardPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		}
 		key := fp.ID
 		fp.Owner, fp.Share, fp.Client, fp.Slug, fp.Rev = p.user, PanelShare{Mode: panelShareMe}, "", "", 0
-		fp.Broken = ic.panelBroken(&fp, *cand)
+		// A card comes from this install, so its preset buttons keep their ids.
+		fp.Broken = p.check.panelBroken(&fp, *cand, func(id string) string { return id })
 		it := importItem{Key: key, Name: fp.Name, Broken: fp.Broken}
 		if p.panelOutside(fp) {
 			it.Note = noteOutsideRights
@@ -301,27 +206,19 @@ func (p *cardPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
-		i := matchIdx(false, own, "", fp.Name, nil, func(x Panel) string { return x.Name })
-		if i >= 0 {
+		out := addItem
+		if i := matchIdx(false, own, "", fp.Name, nil, panelName); i >= 0 {
 			lp := own[i]
-			it.Clash, it.Choice = lp.Name, p.choice(catPanels, key)
-			switch it.Choice {
-			case useNew:
+			if out = p.settle(&it, catPanels, lp.Name, false, namesIn(own, panelName)); out == overwrite {
 				fp.ID, fp.Name, fp.Acts, fp.Client, fp.Share, fp.Slug, fp.Rev = lp.ID, lp.Name, lp.Acts, lp.Client, lp.Share, lp.Slug, lp.Rev+1
 				p.panels = append(p.panels, plannedPanel{P: fp, FileID: key, Live: &lp})
-			case useRename:
-				fp.Name = nextName(fp.Name, func(n string) bool {
-					return slices.ContainsFunc(own, func(x Panel) bool { return strings.EqualFold(x.Name, n) })
-				})
-				it.As = fp.Name
-			}
-			if it.Choice != useRename {
-				cat.Items = append(cat.Items, it)
-				continue
 			}
 		}
-		adds++
-		p.panels = append(p.panels, plannedPanel{P: fp, FileID: key})
+		if out == addItem {
+			fp.Name = cmp.Or(it.As, fp.Name)
+			adds++
+			p.panels = append(p.panels, plannedPanel{P: fp, FileID: key})
+		}
 		cat.Items = append(cat.Items, it)
 	}
 	if len(p.allPanels)+adds > panelMax {
@@ -330,7 +227,6 @@ func (p *cardPlanner) planPanels(cand *config.Config, cat *importCat) error {
 	return nil
 }
 
-// ReviewCard plans an accept and writes nothing.
 func (a *App) ReviewCard(c *client, card string, req importReq) (*importPlan, error) {
 	u, k, err := a.cardFor(c, card)
 	if err != nil {
@@ -375,25 +271,18 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 		return nil, nil, k, err
 	}
 	// Every ticked item refused: the card waits, so the person can fix it and accept again.
-	planned, why := 0, ""
+	why := ""
 	for _, name := range slices.Sorted(maps.Keys(p.plan.Categories)) {
 		cat := p.plan.Categories[name]
 		why = cmp.Or(why, cat.Refused)
 		for _, it := range cat.Items {
 			why = cmp.Or(why, it.Refused)
-			if cat.Refused == "" && it.writes() {
-				planned++
-			}
 		}
 	}
-	if planned == 0 && why != "" {
+	if p.plan.written(nil) == 0 && why != "" {
 		return &p.plan, nil, k, errors.New(why)
 	}
-	writes := func(cat string) bool {
-		c := p.plan.Categories[cat]
-		return c != nil && c.Refused == "" && slices.ContainsFunc(c.Items, importItem.writes)
-	}
-	if writes(catPresets) || writes(catFilterSets) {
+	if p.plan.writes(catPresets) || p.plan.writes(catFilterSets) {
 		next := *p.profile(&p.next)
 		err := a.applyConfig(func(cur *config.Config) error {
 			i := slices.IndexFunc(cur.Users, func(x config.User) bool { return x.ID == u.ID })
@@ -408,15 +297,7 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 		}
 	}
 	failed := a.writeCardPanels(connActor(c), p, k.ID)
-	n := 0
-	for name, cat := range p.plan.Categories {
-		for _, it := range cat.Items {
-			if cat.Refused == "" && it.writes() && !(name == catPanels && failed[it.Key] != "") {
-				n++
-			}
-		}
-	}
-	k, err = a.inbox.end(k.ID, cardAccepted, n, a.now())
+	k, err = a.inbox.end(k.ID, cardAccepted, p.plan.written(failed), a.now())
 	if err != nil {
 		log.Printf("inbox: card %s accepted, then: %v", card, err)
 	}
@@ -431,47 +312,24 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 // client gets a new client with the recipient's Rights, as a panel made in the editor does.
 func (a *App) writeCardPanels(by Actor, p *cardPlanner, card string) map[string]string {
 	failed := map[string]string{}
-	for _, pp := range p.panels {
-		fp := pp.P
-		arts := fp.Art
-		fp.Art = nil
-		var err error
-		if pp.Live != nil {
-			fp.Art = pp.Live.Art
+	create := func(fp Panel) (Panel, error) {
+		fp, err := a.panels.create(fp)
+		if err != nil || !actsHasClient(fp.Acts) {
+			return fp, err
+		}
+		rights := p.rights.Clone()
+		fp.Client = panelClientName(fp.ID)
+		if err = a.putPanelClientLocked(by, fp.ID, &rights, nil); err == nil {
 			_, err = a.panels.replace(fp)
-			for _, x := range pp.Live.Art {
-				if err == nil {
-					_, err = a.panels.delArt(fp.ID, x.ID)
-				}
-			}
-		} else {
-			fp, err = a.panels.create(fp)
-			if err == nil && actsHasClient(fp.Acts) {
-				rights := p.rights.Clone()
-				fp.Client = panelClientName(fp.ID)
-				err = a.putPanelClientLocked(by, fp.ID, &rights, nil)
-				if err == nil {
-					_, err = a.panels.replace(fp)
-				}
-				if err != nil {
-					a.panels.delete(fp.ID)
-					a.putPanelClientLocked(by, fp.ID, nil, nil)
-				}
-			}
 		}
-		var bad []string
-		for _, x := range arts {
-			if err != nil {
-				break
-			}
-			b, ok := a.inbox.artData(card, pp.FileID, x.ID)
-			if !ok || !a.panels.putArtAs(fp.ID, PanelArt{ID: x.ID, Type: x.Type}, b) {
-				bad = append(bad, x.ID)
-			}
+		if err != nil {
+			a.panels.delete(fp.ID)
+			a.putPanelClientLocked(by, fp.ID, nil, nil)
 		}
-		if err == nil && len(bad) > 0 {
-			err = errors.New("artwork not written: " + strings.Join(bad, ", "))
-		}
+		return fp, err
+	}
+	for _, pp := range p.panels {
+		_, err := a.storePanel(pp, create, func(x PanelArt) ([]byte, bool) { return a.inbox.artData(card, pp.FileID, x.ID) })
 		if err != nil {
 			failed[pp.FileID] = err.Error()
 			log.Printf("inbox: panel %s: %v", pp.P.Name, err)

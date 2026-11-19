@@ -3,7 +3,9 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -315,5 +317,50 @@ func TestSwapSourceChangesPresetSource(t *testing.T) {
 	s := config.FilterSet{Src: `"cam 5"`}
 	if sw.filterSet(&s) {
 		t.Fatalf("a term that already names To changed: %q", s.Src)
+	}
+}
+
+// A Swap that would take a user's Me items past the profile cap is refused and writes nothing.
+func TestSwapMineRefusedPastProfileCap(t *testing.T) {
+	a, uid := swapApp(t)
+	bo := userID(t, a, "Bo")
+	var ps []config.Preset
+	var ids []string
+	for i := range 3 {
+		p := config.Preset{ID: fmt.Sprintf("big%d", i), Name: fmt.Sprintf("Big %d", i)}
+		for range 80 {
+			p.Items = append(p.Items, config.PresetItem{Src: config.Ref{Router: uid}, Dsts: []config.Ref{{Router: uid, N: 22}}})
+		}
+		ps, ids = append(ps, p), append(ids, "preset/"+bo+"/"+p.ID)
+	}
+	a.cfgMu.Lock()
+	err := a.commit(func(c *config.Config) error {
+		for i := range c.Users {
+			if c.Users[i].ID != bo {
+				continue
+			}
+			pr := &c.Users[i].Profile
+			pr.Presets, pr.FilterSets, pr.Prefs = ps, nil, map[string]string{"pad": ""}
+			b, _ := json.Marshal(pr)
+			pr.Prefs["pad"] = strings.Repeat("x", config.MaxProfileBytes-len(b)-200)
+		}
+		return nil
+	}, nil)
+	a.cfgMu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := swapProfile(a, "Bo")
+	p := dialPeer(t, a)
+	p.signIn("Bo", "567890")
+	r := p.ask("swapMine", 1, map[string]any{"swap": map[string]any{"router": uid, "side": "destination", "from": 22, "to": 39, "items": ids}})
+	if r["ok"] == true || !strings.Contains(fmt.Sprint(r["err"]), "too large") {
+		t.Fatalf("swapMine passed the cap: %v", r)
+	}
+	if after := swapProfile(a, "Bo"); !reflect.DeepEqual(after.Presets, before.Presets) {
+		t.Fatal("a refused Swap changed Bo's presets")
+	}
+	if err := a.r().cfg.Validate(); err != nil {
+		t.Fatal(err)
 	}
 }

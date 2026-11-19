@@ -77,6 +77,7 @@ func normalizePresets(ps []Preset, router string) []Preset {
 		return []Preset{}
 	}
 	ids := map[string]bool{}
+	refs := RefWalk{Fn: func(_ string, r Ref) []Ref { return []Ref{presetRef(r, router)} }}
 	for i := range ps {
 		s := &ps[i]
 		s.Name = strings.TrimSpace(s.Name)
@@ -92,14 +93,11 @@ func normalizePresets(ps []Preset, router string) []Preset {
 		if s.Items == nil {
 			s.Items = []PresetItem{}
 		}
+		refs.Preset(s)
 		for j := range s.Items {
 			it := &s.Items[j]
-			it.Src = presetRef(it.Src, router)
 			if it.Dsts == nil {
 				it.Dsts = []Ref{}
-			}
-			for k := range it.Dsts {
-				it.Dsts[k] = presetRef(it.Dsts[k], router)
 			}
 			slices.Sort(it.Levels)
 			it.Levels = slices.Compact(it.Levels)

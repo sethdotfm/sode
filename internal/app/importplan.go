@@ -85,6 +85,24 @@ type importPlan struct {
 	Remap   *remapInfo `json:"remap,omitempty"`
 }
 
+func (p importPlan) writes(cat string) bool {
+	c := p.Categories[cat]
+	return c != nil && c.Refused == "" && slices.ContainsFunc(c.Items, importItem.writes)
+}
+
+// written counts the items that write, less the panels in failed.
+func (p importPlan) written(failed map[string]string) int {
+	n := 0
+	for name, cat := range p.Categories {
+		for _, it := range cat.Items {
+			if cat.Refused == "" && it.writes() && !(name == catPanels && failed[it.Key] != "") {
+				n++
+			}
+		}
+	}
+	return n
+}
+
 // plannedPanel is a panel write that waits for the config commit. Live is the panel it replaces, if any.
 type plannedPanel struct {
 	P      Panel
@@ -93,21 +111,123 @@ type plannedPanel struct {
 	Cps    []panelCheckpoint // the file's Push checkpoints, added to the panel's
 }
 
-type importPlanner struct {
+// planBase is what the import planner and the Inbox card planner share.
+type planBase struct {
 	live, next config.Config
-	b          *exportBundle
 	req        importReq
-	same       bool
+	same       bool // a file from this install: matched by hidden id, Use new preselected
 	replace    bool
+	check      *refCheck
+	// waits: with no names at all, the items that hold references, by category and key, to their names.
+	waits map[string]map[string]string
+	plan  importPlan
+}
+
+// src, dst are the live router's names.
+func newPlanBase(live config.Config, src, dst map[int]string, req importReq, same bool) planBase {
+	return planBase{live: live, next: live.Clone(), req: req, same: same,
+		check: &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
+		plan:  importPlan{SameInstall: same, Categories: map[string]*importCat{}}}
+}
+
+// step plans one category on a copy of next and keeps the copy unless the category is refused. inConfig: its items
+// are in the config, which must still validate.
+func (p *planBase) step(name string, inConfig bool, run func(*config.Config, *importCat) error) (*importCat, error) {
+	cat := &importCat{Items: []importItem{}}
+	p.plan.Categories[name] = cat
+	cand := p.next.Clone()
+	p.check.waited = false
+	err := run(&cand, cat)
+	if err == nil && p.check.waited {
+		err = errors.New("router names not read yet: try again after the re-read")
+	}
+	if err == nil && inConfig {
+		cand.Normalize()
+		err = validateSave(p.live, cand)
+	}
+	if err != nil {
+		cat.Refused = err.Error()
+		return cat, err
+	}
+	p.next = cand
+	return cat, nil
+}
+
+func (p *planBase) picked(cat, key string) bool {
+	if _, waits := p.waits[cat][key]; waits {
+		return false
+	}
+	return picked(p.req.Pick, cat, key)
+}
+
+// choice is the page's choice for a clashing item, when it is a valid one. Else a file from this install, or a kind
+// with no Rename, gets Use new and the rest Rename. Replace import always uses the file's item.
+func (p *planBase) choice(cat, key string, rename bool) string {
+	c := p.req.Choices[cat][key]
+	switch {
+	case p.replace:
+		return useNew
+	case c == useNew || c == useCurrent || c == useSkip || c == useRename && rename:
+		return c
+	case p.same || !rename:
+		return useNew
+	}
+	return useRename
+}
+
+type settled int
+
+const (
+	keepLive  settled = iota // Same, Use current or Skip: the item writes nothing
+	overwrite                // Use new: the file item takes its live twin's place
+	addItem                  // no twin, or Rename to it.As
+)
+
+// settle decides a file item whose live twin is named clash. taken tests a name for Rename; nil is a kind with no
+// Rename.
+func (p *planBase) settle(it *importItem, cat, clash string, same bool, taken func(string) bool) settled {
+	it.Clash = clash
+	if same {
+		it.Same = true
+		return keepLive
+	}
+	it.Choice = p.choice(cat, it.Key, taken != nil)
+	switch it.Choice {
+	case useNew:
+		return overwrite
+	case useRename:
+		it.As = nextName(it.Name, taken)
+		return addItem
+	}
+	return keepLive
+}
+
+func (it importItem) liveID(twin string) string {
+	if it.Choice == useSkip {
+		return ""
+	}
+	return twin
+}
+
+func namesIn[T any](list []T, nameOf func(T) string) func(string) bool {
+	return func(n string) bool {
+		return slices.ContainsFunc(list, func(x T) bool { return strings.EqualFold(nameOf(x), n) })
+	}
+}
+
+func presetName(x config.Preset) string { return x.Name }
+func setName(x config.FilterSet) string { return x.Name }
+func panelName(x Panel) string          { return x.Name }
+
+type importPlanner struct {
+	planBase
+	b          *exportBundle
 	keepAdmins bool
 	noHashes   bool   // no file user carries a PIN hash, so the importing Administrator stays
 	noAdmin    bool   // the Users step would leave no Administrator with a PIN: the whole import is refused
 	actor      string // the importing user's id; "" with no users
 	secure     bool
-	check      *refCheck
 	names      namesState
-	// waits: with no names at all, the items that hold references, by category and key, to their names.
-	waits      map[string]map[string]string
 	livePanels []Panel
 	removed    importRemovals
 	users      map[string]string // file user id → live id, "" when skipped
@@ -131,15 +251,12 @@ type importPlanner struct {
 	written    []string // config keys the commit copies from next
 	pending    []string // keys the step being planned adds to written when its category is accepted
 	overwrites []string // the names of the items Use new writes over: they make the import Critical
-	plan       importPlan
 }
 
-// src, dst are the live router's names.
 func planImport(live config.Config, src, dst map[int]string, lv importLive, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
 	p := &importPlanner{
-		live: live, next: live.Clone(), b: b, req: req, actor: actor, secure: secure,
-		same:  b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID,
-		check: &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
+		planBase: newPlanBase(live, src, dst, req, b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID),
+		b:        b, actor: actor, secure: secure,
 		names: lv.Names, livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{},
 		icons: map[string]string{}, panelIDs: map[string]string{},
 		liveTemplates: lv.Templates, liveSets: lv.Sets, liveIcons: lv.Icons, liveDefaults: lv.Defaults, liveIconFile: lv.IconFile,
@@ -151,7 +268,6 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 	if p.liveIconFile == nil {
 		p.liveIconFile = func(string) ([]byte, LibIcon, bool) { return nil, LibIcon{}, false }
 	}
-	p.plan = importPlan{SameInstall: p.same, Categories: map[string]*importCat{}}
 	p.planRemap(src, dst)
 	if p.check.unknown {
 		p.waits = p.itemsWithRefs()
@@ -175,23 +291,18 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 		if !p.wanted(s.cat) {
 			continue
 		}
-		cat := &importCat{Items: []importItem{}}
-		p.plan.Categories[s.cat] = cat
-		cand := p.next.Clone()
-		p.check.waited, p.pending = false, nil
-		err := s.run(&cand, cat)
-		if err == nil && p.replace {
-			err = p.emptyRest(s.cat, &cand, cat)
+		p.pending = nil
+		run := s.run
+		if p.replace {
+			run = func(cand *config.Config, cat *importCat) error {
+				if err := s.run(cand, cat); err != nil {
+					return err
+				}
+				return p.emptyRest(s.cat, cand, cat)
+			}
 		}
-		if err == nil && p.check.waited {
-			err = errors.New("router names not read yet: try again after the re-read")
-		}
-		if err == nil && !slices.Contains([]string{catPanels, catArtwork, catBrowser}, s.cat) { // kept outside the config
-			cand.Normalize()
-			err = validateSave(p.live, cand)
-		}
+		cat, err := p.step(s.cat, !slices.Contains([]string{catPanels, catArtwork, catBrowser}, s.cat), run)
 		if err != nil {
-			cat.Refused = err.Error()
 			p.noAdmin = p.noAdmin || errors.Is(err, errNoAdministrator)
 			p.refused(s.cat)
 			continue
@@ -205,10 +316,9 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 				cat.Items = append(cat.Items, it)
 			}
 		}
-		p.next = cand
-		p.check.levels = cand.Levels
+		p.check.levels = p.next.Levels
 		if s.cat == catUsers {
-			p.actor = p.adminFor(cand)
+			p.actor = p.adminFor(p.next)
 		}
 		p.written = append(p.written, p.pending...)
 		if slices.ContainsFunc(cat.Items, func(it importItem) bool { return it.writes() || it.Remove }) {
@@ -263,11 +373,14 @@ func (p *importPlanner) wanted(cat string) bool {
 	return slices.Contains(p.req.Categories, cat)
 }
 
-func (p *importPlanner) picked(cat, key string) bool {
-	if _, waits := p.waits[cat][key]; waits {
-		return false
+// presetTo is the id here of a file preset, as this import maps it. Else a file from this install keeps the id and
+// another gets "".
+func (p *importPlanner) presetTo(id string) string {
+	to, mapped := p.presets[id]
+	if !mapped && p.same {
+		to = id
 	}
-	return picked(p.req.Pick, cat, key)
+	return to
 }
 
 const waitsForNames = "it holds router references; import it after Sode reads the router names"
@@ -298,21 +411,6 @@ func (p *importPlanner) itemsWithRefs() map[string]map[string]string {
 	return out
 }
 
-// choice is the page's choice for a clashing item, when it is a valid one. Else a file from this install
-// gets Use new and a foreign file gets Rename. Replace import always uses the file's item.
-func (p *importPlanner) choice(cat, key string, rename bool) string {
-	c := p.req.Choices[cat][key]
-	switch {
-	case p.replace:
-		return useNew
-	case c == useNew || c == useCurrent || c == useSkip || c == useRename && rename:
-		return c
-	case p.same || !rename:
-		return useNew
-	}
-	return useRename
-}
-
 // configFieldsByYAML: top-level Config fields by yaml key, for copying a Settings section.
 func configFieldsByYAML() map[string][]int {
 	out := map[string][]int{}
@@ -331,6 +429,22 @@ func copyConfigKey(dst, src *config.Config, idx []int) {
 	reflect.ValueOf(dst).Elem().FieldByIndex(idx).Set(reflect.ValueOf(src).Elem().FieldByIndex(idx))
 }
 
+// overlaySetting copies key k from the file. Of a nested key it takes the fields the file has or leaves out when
+// empty. So an older file keeps the live value of a newer field.
+func (p *importPlanner) overlaySetting(dst *config.Config, k string, idx []int) {
+	to, from := reflect.ValueOf(dst).Elem().FieldByIndex(idx), reflect.ValueOf(p.b.Settings).Elem().FieldByIndex(idx)
+	if to.Kind() != reflect.Struct {
+		to.Set(from)
+		return
+	}
+	for i := range to.NumField() {
+		name, opts, _ := strings.Cut(to.Type().Field(i).Tag.Get("yaml"), ",")
+		if name == "" || p.b.SettingKeys[k+"."+name] || strings.Contains(opts, "omitempty") {
+			to.Field(i).Set(from.Field(i))
+		}
+	}
+}
+
 // planSettings copies each file section's keys over live. A section that changes something is a Use new
 // clash on global settings; Skip or Use current leaves it.
 func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error {
@@ -346,7 +460,7 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 		keys := slices.DeleteFunc(slices.Clone(sec.Keys), func(k string) bool { _, ok := fields[k]; return !ok || !p.b.SettingKeys[k] })
 		one := cand.Clone()
 		for _, k := range keys {
-			copyConfigKey(&one, p.b.Settings, fields[k])
+			p.overlaySetting(&one, k, fields[k])
 		}
 		one.Normalize()
 		changed := slices.ContainsFunc(keys, func(k string) bool {
@@ -412,16 +526,15 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 		if !p.picked(catUsers, key) {
 			continue
 		}
-		fileID := key
 		u.Rights = p.mapRightsPresets(u.Rights)
-		u.Profile.Presets = p.checkedPresets(u.Profile.Presets)
+		u.Profile.Presets = p.check.checked(u.Profile.Presets)
 		for i := range u.Profile.FilterSets {
 			u.Profile.FilterSets[i].Broken = p.check.filterSetBroken(u.Profile.FilterSets[i])
 		}
 		it := importItem{Key: key, Name: u.Name}
 		hashed, role := fileHash(u), u.Role
-		i := matchUser(p.same, cand.Users, u)
-		if i >= 0 {
+		out := addItem
+		if i := matchUser(p.same, cand.Users, u); i >= 0 {
 			lu := cand.Users[i]
 			if !hashed {
 				u.Pin, u.Len, u.PinNeeded = lu.Pin, lu.Len, lu.PinNeeded
@@ -430,42 +543,29 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 				u.Role = lu.Role // an import without hashes keeps the importing Administrator
 			}
 			u.ID = lu.ID
-			it.Clash = lu.Name
-			if sameYAML(u, lu) {
-				it.Same = true
-				p.users[fileID] = lu.ID
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catUsers, key, true)
-			switch it.Choice {
-			case useNew:
+			switch out = p.settle(&it, catUsers, lu.Name, sameYAML(u, lu), func(s string) bool { _, ok := cand.FindUserByName(s); return ok }); out {
+			case keepLive:
+				p.users[key] = it.liveID(lu.ID)
+			case overwrite:
 				cand.Users[i] = u
 				if hashed && u.Pin != lu.Pin {
 					it.Note = "Ends " + lu.Name + "'s keys and sessions"
 				}
-				p.users[fileID] = lu.ID
-			case useCurrent:
-				p.users[fileID] = lu.ID
-			case useSkip:
-				p.users[fileID] = ""
-			case useRename:
-				u.Name = nextName(u.Name, func(s string) bool { _, ok := cand.FindUserByName(s); return ok })
-				u.Role, it.As = role, u.Name
-			}
-			if it.Choice != useRename {
-				cat.Items = append(cat.Items, it)
-				continue
+				p.users[key] = lu.ID
+			case addItem:
+				u.Name, u.Role = it.As, role
 			}
 		}
-		if _, taken := cand.FindUserByID(u.ID); u.ID == "" || taken || it.Choice == useRename {
-			u.ID = config.NewUserID()
+		if out == addItem {
+			if _, taken := cand.FindUserByID(u.ID); u.ID == "" || taken || it.Choice == useRename {
+				u.ID = config.NewUserID()
+			}
+			if !hashed {
+				u.Pin, u.Len, u.PinNeeded = "", 0, true
+			}
+			cand.Users = append(cand.Users, u)
+			p.users[key] = u.ID
 		}
-		if !hashed {
-			u.Pin, u.Len, u.PinNeeded = "", 0, true
-		}
-		cand.Users = append(cand.Users, u)
-		p.users[fileID] = u.ID
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
@@ -489,55 +589,30 @@ func (p *importPlanner) mapRightsPresets(r config.Rights) config.Rights {
 	return r
 }
 
-func (p *importPlanner) checkedPresets(ps []config.Preset) []config.Preset {
-	out := config.ClonePresets(ps)
-	for i := range out {
-		out[i].Broken = p.check.presetBroken(out[i])
-	}
-	return out
-}
-
 func (p *importPlanner) planPresets(cand *config.Config, cat *importCat) error {
 	picked := slices.DeleteFunc(slices.Clone(p.b.Presets), func(s config.Preset) bool { return !p.picked(catPresets, s.ID) })
-	for _, s := range p.checkedPresets(picked) {
+	for _, s := range p.check.checked(picked) {
 		fileID := s.ID
 		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
-		i := matchPreset(p.same, cand.Presets, s)
-		if i >= 0 {
+		out := addItem
+		if i := matchPreset(p.same, cand.Presets, s); i >= 0 {
 			lp := cand.Presets[i]
 			s.ID = lp.ID
-			it.Clash = lp.Name
-			if sameYAML(s, lp) {
-				it.Same = true
-				p.presets[fileID] = lp.ID
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catPresets, fileID, true)
-			switch it.Choice {
-			case useNew:
-				cand.Presets[i] = s
-				p.presets[fileID] = lp.ID
-			case useCurrent:
-				p.presets[fileID] = lp.ID
-			case useSkip:
-				p.presets[fileID] = ""
-			case useRename:
-				s.Name = nextName(s.Name, func(n string) bool {
-					return slices.ContainsFunc(cand.Presets, func(x config.Preset) bool { return strings.EqualFold(x.Name, n) })
-				})
-				it.As = s.Name
-			}
-			if it.Choice != useRename {
-				cat.Items = append(cat.Items, it)
-				continue
+			switch out = p.settle(&it, catPresets, lp.Name, sameYAML(s, lp), namesIn(cand.Presets, presetName)); out {
+			case keepLive:
+				p.presets[fileID] = it.liveID(lp.ID)
+			case overwrite:
+				cand.Presets[i], p.presets[fileID] = s, lp.ID
 			}
 		}
-		if s.ID == "" || it.Choice == useRename || slices.ContainsFunc(cand.Presets, func(x config.Preset) bool { return x.ID == s.ID }) {
-			s.ID = config.NewPresetID()
+		if out == addItem {
+			s.Name = cmp.Or(it.As, s.Name)
+			if s.ID == "" || it.Choice == useRename || slices.ContainsFunc(cand.Presets, func(x config.Preset) bool { return x.ID == s.ID }) {
+				s.ID = config.NewPresetID()
+			}
+			cand.Presets = append(cand.Presets, s)
+			p.presets[fileID] = s.ID
 		}
-		cand.Presets = append(cand.Presets, s)
-		p.presets[fileID] = s.ID
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
@@ -550,31 +625,19 @@ func (p *importPlanner) planFilterSets(cand *config.Config, cat *importCat) erro
 		}
 		s.Broken = p.check.filterSetBroken(s)
 		it := importItem{Key: s.Name, Name: s.Name, Broken: s.Broken}
-		i := matchIdx(false, cand.FilterSets, "", s.Name, nil, func(x config.FilterSet) string { return x.Name })
-		if i >= 0 {
-			it.Clash = cand.FilterSets[i].Name
-			s.Extra = cand.FilterSets[i].Extra
-			if sameYAML(s, cand.FilterSets[i]) {
-				it.Same = true
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catFilterSets, s.Name, true)
-			switch it.Choice {
-			case useNew:
-				s.Name = cand.FilterSets[i].Name
+		out := addItem
+		if i := matchIdx(false, cand.FilterSets, "", s.Name, nil, setName); i >= 0 {
+			lf := cand.FilterSets[i]
+			s.Extra = lf.Extra
+			if out = p.settle(&it, catFilterSets, lf.Name, sameYAML(s, lf), namesIn(cand.FilterSets, setName)); out == overwrite {
+				s.Name = lf.Name
 				cand.FilterSets[i] = s
-			case useRename:
-				s.Name = nextName(s.Name, func(n string) bool {
-					return slices.ContainsFunc(cand.FilterSets, func(x config.FilterSet) bool { return strings.EqualFold(x.Name, n) })
-				})
-				it.As = s.Name
-				cand.FilterSets = append(cand.FilterSets, s)
 			}
-			cat.Items = append(cat.Items, it)
-			continue
 		}
-		cand.FilterSets = append(cand.FilterSets, s)
+		if out == addItem {
+			s.Name = cmp.Or(it.As, s.Name)
+			cand.FilterSets = append(cand.FilterSets, s)
+		}
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
@@ -609,30 +672,22 @@ func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) erro
 		}
 		c.Rights = p.mapRightsPresets(c.Rights)
 		it := importItem{Key: c.Name, Name: c.Name}
-		i := matchIdx(false, cand.APIClients, "", c.Name, nil, func(x config.APIClient) string { return x.Name })
-		if i >= 0 {
+		out := addItem
+		if i := matchIdx(false, cand.APIClients, "", c.Name, nil, func(x config.APIClient) string { return x.Name }); i >= 0 {
 			lc := cand.APIClients[i]
 			c.Name, c.Extra, c.Networks = lc.Name, lc.Extra, lc.Networks
-			it.Clash = lc.Name
-			if sameYAML(c, lc) {
-				it.Same = true
-				cat.Items = append(cat.Items, it)
-				continue
-			}
-			it.Choice = p.choice(catAPIClients, it.Key, true)
-			switch it.Choice {
-			case useNew:
+			taken := func(n string) bool { _, ok := cand.FindAPIClient(n); return ok }
+			switch out = p.settle(&it, catAPIClients, lc.Name, sameYAML(c, lc), taken); out {
+			case overwrite:
 				cand.APIClients[i] = c
-			case useRename:
-				c.Name = nextName(c.Name, func(n string) bool { _, ok := cand.FindAPIClient(n); return ok })
-				c.Networks = nil
-				it.As = c.Name
-				cand.APIClients = append(cand.APIClients, c)
+			case addItem:
+				it.As, c.Networks = nextName(lc.Name, taken), nil // the live spelling
 			}
-			cat.Items = append(cat.Items, it)
-			continue
 		}
-		cand.APIClients = append(cand.APIClients, c)
+		if out == addItem {
+			c.Name = cmp.Or(it.As, c.Name)
+			cand.APIClients = append(cand.APIClients, c)
+		}
 		cat.Items = append(cat.Items, it)
 	}
 	return nil

@@ -76,20 +76,12 @@ func brokenItems(cfg config.Config, panels []Panel, mine string) []brokenEntry {
 			out = append(out, e)
 		}
 	}
-	items := func(ps []config.Preset, fs []config.FilterSet, owner, ownerName string) {
-		for _, p := range ps {
-			add(markedEntry("preset/"+owner+"/"+p.ID, "preset", p.Name, ownerName, p.Broken, p.Moved))
+	for _, s := range itemScopes(&cfg, mine) {
+		for _, p := range *s.Presets {
+			add(markedEntry("preset/"+s.ID+"/"+p.ID, "preset", p.Name, s.Name, p.Broken, p.Moved))
 		}
-		for _, s := range fs {
-			add(markedEntry("filterSet/"+owner+"/"+s.Name, "filterSet", s.Name, ownerName, s.Broken, nil))
-		}
-	}
-	if mine == "" {
-		items(cfg.Presets, cfg.FilterSets, "everyone", "")
-	}
-	for _, u := range cfg.Users {
-		if mine == "" || u.ID == mine {
-			items(u.Profile.Presets, u.Profile.FilterSets, u.ID, u.Name)
+		for _, f := range *s.FilterSets {
+			add(markedEntry("filterSet/"+s.ID+"/"+f.Name, "filterSet", f.Name, s.Name, f.Broken, nil))
 		}
 	}
 	for _, p := range panels {
@@ -105,19 +97,23 @@ func brokenItems(cfg config.Config, panels []Panel, mine string) []brokenEntry {
 	return out
 }
 
-func (a *App) brokenCount(c *client, mine bool) ([]brokenRouter, error) {
-	who := ""
+// ownerScope is the asking user's id for their own items, or "" (every owner) for an Administrator.
+func (a *App) ownerScope(c *client, mine bool) (string, error) {
 	if mine {
-		if who = c.userID(); who == "" {
-			return nil, errNoSuchUser
+		if id := c.userID(); id != "" {
+			return id, nil
 		}
-	} else {
-		a.mu.Lock()
-		err := a.needRoleMu(c, config.RoleAdministrator)
-		a.mu.Unlock()
-		if err != nil {
-			return nil, err
-		}
+		return "", errNoSuchUser
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return "", a.needRoleMu(c, config.RoleAdministrator)
+}
+
+func (a *App) brokenCount(c *client, mine bool) ([]brokenRouter, error) {
+	who, err := a.ownerScope(c, mine)
+	if err != nil {
+		return nil, err
 	}
 	cfg := a.r().cfg
 	r := brokenRouter{Router: cfg.UID, Title: cfg.Title, Items: brokenItems(cfg, a.panels.list(), who)}
