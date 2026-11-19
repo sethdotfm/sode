@@ -305,7 +305,7 @@ html {
   font-size: var(--pb-text-md);
   gap: var(--pb-space-4);
 }
-/* Every text box with a role colour edge: the main page's Source and Destination boxes, the phone's one box and a
+/* Every text box with a role color edge: the main page's Source and Destination boxes, the phone's one box and a
    Grid panel's search boxes. The edge is a background strip inside the border, so the border and the focus ring run
    all the way round. Not patchbay's pb-rolebar, whose edge replaces the left border. */
 .sode__box--src .sode__input,
@@ -1334,7 +1334,7 @@ html:has(.sode__scrim:not([hidden])) > body {
   }
 }
 
-/* The Panels logo is white strokes on transparent, so it is a mask: the colour is the text colour, as the icons' is. */
+/* The Panels logo is white strokes on transparent, so it is a mask: the color is the text color, as the icons' is. */
 .sode-logo {
   background-color: currentColor;
   display: inline-block;

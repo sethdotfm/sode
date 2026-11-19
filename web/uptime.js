@@ -1,4 +1,4 @@
-// Uptime graph (/log, and each instance on /panels): turns the server's link record (state at range start, changes, per-slot bad counts) into coloured slots. Pure, no imports.
+// Uptime graph (/log, and each instance on /panels): turns the server's link record (state at range start, changes, per-slot bad counts) into colored slots. Pure, no imports.
 
 const MIN = 60_000,
   HOUR = 60 * MIN,
@@ -27,7 +27,7 @@ export function slotFor(from, to) {
   return SLOTS.find((s) => span / s <= MAX_SLOTS) || Math.ceil(span / MAX_SLOTS / DAY) * DAY;
 }
 
-// Slot colours are statuses: ok, warn, error; none is no record, future is time not come yet.
+// Slot colors are statuses: ok, warn, error; none is no record, future is time not come yet.
 // data: { start, trans: [{t, s}], counts: [{i, bad, slow}], from, to, slot, now }
 export function slots(data) {
   const { trans = [], counts = [], from, to, slot, now } = data;
@@ -41,7 +41,7 @@ export function slots(data) {
     const b = Math.min(a + slot, to);
     const end = Math.min(b, now);
     const c = byIndex.get(i) || { bad: 0, slow: 0 };
-    const s = { from: a, to: b, upMs: 0, knownMs: 0, bad: c.bad, slow: c.slow, colour: 'future' };
+    const s = { from: a, to: b, upMs: 0, knownMs: 0, bad: c.bad, slow: c.slow, color: 'future' };
     if (end > a) {
       while (k < trans.length && trans[k].t <= a) state = trans[k++].s;
       let at = a,
@@ -57,7 +57,7 @@ export function slots(data) {
         cur = trans[j].s;
       }
       span(end);
-      s.colour = !s.knownMs ? 'none' : !s.upMs ? 'error' : s.upMs < s.knownMs || s.bad || s.slow ? 'warn' : 'ok';
+      s.color = !s.knownMs ? 'none' : !s.upMs ? 'error' : s.upMs < s.knownMs || s.bad || s.slow ? 'warn' : 'ok';
     }
     out.push(s);
   }
@@ -95,8 +95,8 @@ const ROUTER_WORDS = { up: 'router up', down: 'router down' };
 
 export function slotText(s, fmt, words = ROUTER_WORDS) {
   const when = `${fmt(s.from)} – ${fmt(s.to)}`;
-  if (s.colour === 'future') return `${when}: not yet`;
-  if (s.colour === 'none') return `${when}: no record`;
+  if (s.color === 'future') return `${when}: not yet`;
+  if (s.color === 'none') return `${when}: no record`;
   const pct = Math.floor((s.upMs / s.knownMs) * 1000) / 10;
   const bits = [s.upMs === s.knownMs ? words.up : s.upMs ? `${words.up} ${pct}% of the time` : words.down];
   if (s.bad) bits.push(`${s.bad} ${s.bad === 1 ? 'message' : 'messages'} failed or needed a retry`);

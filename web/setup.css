@@ -129,7 +129,7 @@
   font-size: var(--pb-text-sm);
 }
 
-/* Border colour swatches */
+/* Border color swatches */
 .sode-setup__swatches {
   display: flex;
   gap: var(--pb-space-3);

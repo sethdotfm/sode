@@ -89,7 +89,7 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   text-align: center;
   white-space: normal;
 }
-/* The words ("Incorrect", "Welcome, <name>") carry the status; the colour only backs them. */
+/* The words ("Incorrect", "Welcome, <name>") carry the status; the color only backs them. */
 .sode-lock__dots.is-text {
   letter-spacing: normal;
   max-width: 100%;

@@ -59,7 +59,7 @@ export function paintXp(xp, s, d, view) {
     ring._fill = ringFill;
     ring.style.background = ringFill;
   }
-  // A picked row or column is washed in its role colour (gridpanel.css).
+  // A picked row or column is washed in its role color (gridpanel.css).
   setData(xp, 'row', view.picked('dsts', d) ? '' : undefined);
   setData(xp, 'col', view.picked('srcs', s) ? '' : undefined);
   const out = staged.length > 0 && view.leftOut(s, d);
@@ -87,7 +87,7 @@ const makeName = (cls) => () => {
   n.append(document.createTextNode(''));
   return n;
 };
-// Icon A (a sprite icon, an image, or a mask: a library SVG in the text colour), then Icon B. All four exist from the
+// Icon A (a sprite icon, an image, or a mask: a library SVG in the text color), then Icon B. All four exist from the
 // start, so a scroll never changes childList. The name's last child; CSS order puts it before the text.
 const makeArt = () => {
   const row = el(

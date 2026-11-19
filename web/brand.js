@@ -1,4 +1,4 @@
-// Per-instance branding: logo text and optional border colour. Display only; the red lost-link outline (.sode__frame) stays on top.
+// Per-instance branding: logo text and optional border color. Display only; the red lost-link outline (.sode__frame) stays on top.
 import { on, emit } from './core.js';
 import { iconURL, setBrand } from './brandicon.js';
 
@@ -17,7 +17,7 @@ export function showBrand(brandText, brandBorder) {
   const color = brandBorder || '';
   setBrand(frame, color);
   frame.hidden = !color;
-  // The server draws the tab and home-screen icons in this colour (icon.go).
+  // The server draws the tab and home-screen icons in this color (icon.go).
   const tab = document.querySelector('link[rel="icon"]');
   if (tab) tab.href = iconURL(192, color);
   const touch = document.querySelector('link[rel="apple-touch-icon"]');
