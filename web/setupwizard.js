@@ -18,6 +18,7 @@ import {
   numberingChoices,
   finishMessage,
   routerLine,
+  envHint,
 } from './setupwizardrules.js';
 
 const root = document.documentElement;
@@ -30,12 +31,15 @@ let seq = 0;
 let sentRouter = ''; // the address the server tries now
 let routerTimer = 0;
 let sheetPresets = []; // the hello's presets, kept: the hello after Finish has none
+let filled = {}; // the hello's setup, for the "Filled from" hints.
 let mode = ''; // '' closed, 'claim' asked the server, 'run' this browser runs setup, 'wait' the wait page.
 let claiming = 0; // the id of the setupClaim with no answer yet.
 let taken = false; // another browser took control from this one.
 let free = false; // the browser that ran setup closed.
+let again = null; // Run setup again (mode 'again'): {finish(d), cancel()} from setupagain.js
 
 const max = () => pinMax(S.cfg || {});
+const hint = (key, ...more) => [...more, envHint(filled, key)].filter(Boolean).join(' ');
 
 // h: el with attributes; a false or null attribute is left out.
 function h(tag, attrs, ...kids) {
@@ -83,7 +87,11 @@ const lead = (text) => h('p', { class: 'sode-setup__lead' }, text);
 const strong = (text) => h('span', { class: 'pb-text-strong' }, text);
 
 function statusLine() {
-  const line = routerLine(d.router, S.router, S.srcs.length + S.dsts.length);
+  // Run setup again moves no link before the save, so only the live address has a state.
+  const line =
+    d.again && d.router.trim() !== (S.cfg.router || '')
+      ? { ok: false, text: 'Sode connects to this address after you save.' }
+      : routerLine(d.router, S.router, S.srcs.length + S.dsts.length);
   if (!line) return [];
   return [
     h(
@@ -154,21 +162,30 @@ const nextLink = (text, section, href = '#settings') => h('li', null, h('a', { h
 
 const VIEW = {
   welcome: () => [
-    'Welcome to Sode',
-    lead('Sode patches your router from the keyboard. Set up this install in three short steps.'),
+    d.again ? 'Run setup again' : 'Welcome to Sode',
+    lead(
+      d.again
+        ? 'Change the name, the router and the access in three steps. Finish shows each change before Sode saves it.'
+        : 'Sode patches your router from the keyboard. Set up this install in three short steps.',
+    ),
     section(
       'Name and colour',
       'Shown on every page, so people can tell this Sode from another.',
       field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }),
       swatches(),
     ),
-    section(
-      'Your user',
-      'You are the Administrator. Sode asks for your PIN again before a big change.',
-      field('setup-name', 'Name', d.name, { maxlength: '24' }),
-      field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric' }, `4 to ${max()} digits.`),
-      field('setup-pin2', 'PIN again', d.pin2, { type: 'password', inputmode: 'numeric' }),
-    ),
+    // replaceChildren draws a null as text, so Run setup again leaves the section out.
+    ...(d.again
+      ? []
+      : [
+          section(
+            'Your user',
+            'You are the Administrator. Sode asks for your PIN again before a big change.',
+            field('setup-name', 'Name', d.name, { maxlength: '24' }),
+            field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric' }, `4 to ${max()} digits.`),
+            field('setup-pin2', 'PIN again', d.pin2, { type: 'password', inputmode: 'numeric' }),
+          ),
+        ]),
   ],
   router: () => [
     'Router',
@@ -176,14 +193,14 @@ const VIEW = {
     section(
       'Connection',
       '',
-      field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }),
+      field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router')),
       h('div', { id: 'setup-router-status' }, ...statusLine()),
     ),
     section(
       'Levels and numbers',
       '',
-      field('setup-levels', 'Levels', d.levels, { type: 'number', min: '1', max: '256' }),
-      choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), 'How levels are shown and typed.'),
+      field('setup-levels', 'Levels', d.levels, { type: 'number', min: '1', max: '256' }, hint('levels')),
+      choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), hint('levelNumbering', 'How levels are shown and typed.')),
       choice(
         'numberOffset',
         'Source and destination numbers',
@@ -191,22 +208,38 @@ const VIEW = {
           ['1', 'Start at 1'],
           ['0', 'Start at 0'],
         ],
-        'Ultrix shows numbers starting at 1.',
+        hint('numberOffset', 'Ultrix shows numbers starting at 1.'),
       ),
     ),
     section(
       'Takes',
       '',
-      choice('fireMode', 'Multi destination', [
-        ['sequential', 'One after another'],
-        ['native', 'Router salvo'],
-      ]),
+      choice(
+        'fireMode',
+        'Multi destination',
+        [
+          ['sequential', 'One after another'],
+          ['native', 'Router salvo'],
+        ],
+        hint('fireMode'),
+      ),
       d.fireMode === 'native'
-        ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, 'Pick a group nothing else on the router uses.')
+        ? field(
+            'setup-group',
+            'Router salvo group',
+            d.group,
+            { type: 'number', min: '0', max: '127' },
+            hint('group', 'Pick a group nothing else on the router uses.'),
+          )
         : null,
     ),
   ],
-  access: () => ['Access', lead('What people can do without signing in. You can change any part of it later in Settings.'), sheet()],
+  access: () => [
+    'Access',
+    lead('What people can do without signing in. You can change any part of it later in Settings.'),
+    ...(hint('preset') ? [h('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []),
+    sheet(),
+  ],
   done: () => [
     'Sode is set up',
     h(
@@ -235,9 +268,13 @@ const VIEW = {
   ],
 };
 
+// Run setup again has no Done: Finish opens the Save review.
+const steps = () => (d?.again ? STEPS.slice(0, DONE) : STEPS);
+
 function renderSteps() {
   const list = [];
-  STEPS.forEach(([, name], i) => {
+  const all = steps();
+  all.forEach(([, name], i) => {
     const now = i === at;
     const done = !now && (i < at || i <= reached);
     const go = chipGoes(i, at, reached, finished);
@@ -248,7 +285,7 @@ function renderSteps() {
       h('span', { class: 'sode-setup__label' }, name),
     );
     list.push(h('li', { class: now ? 'is-now' : done ? 'is-done' : '' }, chip));
-    if (i < STEPS.length - 1) list.push(h('span', { class: `sode-setup__line ${i < Math.max(at, reached) ? 'is-done' : ''}` }));
+    if (i < all.length - 1) list.push(h('span', { class: `sode-setup__line ${i < Math.max(at, reached) ? 'is-done' : ''}` }));
   });
   $('setup-steps').replaceChildren(...list);
 }
@@ -271,8 +308,9 @@ function render(focus) {
   $('setup-title').textContent = title;
   $('setup-body').replaceChildren(...body);
   $('setup-foot').hidden = step === 'done';
-  $('setup-back').hidden = at === 0;
-  $('setup-restore').hidden = step !== 'welcome';
+  $('setup-back').hidden = at === 0 && !d.again;
+  $('setup-back').textContent = at === 0 ? 'Cancel' : 'Back';
+  $('setup-restore').hidden = step !== 'welcome' || !!d.again;
   $('setup-next').textContent = { welcome: 'Set up', access: 'Finish' }[step] || 'Next';
   $('setup-err').textContent = '';
   check();
@@ -295,6 +333,7 @@ function go(i) {
 // The server moves its link to a typed address after a pause, so the status line can say if it answers.
 function tryRouter() {
   clearTimeout(routerTimer);
+  if (d?.again) return;
   routerTimer = setTimeout(() => {
     const addr = d?.router.trim();
     if (!addr || addr === sentRouter) return;
@@ -358,7 +397,7 @@ $('setup-steps').addEventListener('click', (e) => {
   if (b) go(+b.dataset.go);
 });
 
-$('setup-back').addEventListener('click', () => go(Math.max(0, at - 1)));
+$('setup-back').addEventListener('click', () => (d?.again && at === 0 ? closeAgain(false) : go(Math.max(0, at - 1))));
 
 $('setup-next').addEventListener('click', () => {
   if (stepProblem(d, at, max())) return;
@@ -368,6 +407,7 @@ $('setup-next').addEventListener('click', () => {
     render();
     return;
   }
+  if (d.again) return closeAgain(true);
   // Finish sends every answer at once, so a wizard left half done leaves nothing behind.
   if (!wsSend(finishMessage(d, ++seq))) {
     $('setup-err').textContent = 'Not connected to Sode.';
@@ -411,6 +451,7 @@ function claim(take = false) {
 function startWizard() {
   if (d) return;
   d = startAnswers(S.cfg, S.setup);
+  filled = S.setup;
   sentRouter = d.router.trim();
   at = reached = 0;
   finished = finishing = false;
@@ -438,7 +479,7 @@ function waitPage() {
 }
 
 function show() {
-  const wizard = mode === 'run' && layout() !== 'phone';
+  const wizard = (mode === 'run' || mode === 'again') && layout() !== 'phone';
   const wait = !wizard && (mode === 'wait' || layout() === 'phone');
   $('setup-dialog').hidden = !wizard;
   $('setup-steps').hidden = !wizard;
@@ -486,6 +527,7 @@ onMsg('setupFree', () => {
 });
 
 on('hello', () => {
+  if (mode === 'again') return;
   if (S.setup) {
     if (!mode) {
       sheetPresets = S.setup.presets || [];
@@ -514,7 +556,51 @@ on('names', () => {
   paintDone();
 });
 onLayout(() => {
+  if (mode === 'again' && layout() === 'phone') return closeAgain(false);
   if (!mode) return;
   show();
   if (mode === 'wait') claim();
 });
+
+// Run setup again (setupagain.js): the same steps over Settings, with no Your user and no Done. Nothing is sent here;
+// Finish hands the answers back to stage into the one Save.
+export function openAgain(answers, presets, hooks) {
+  if (mode || layout() === 'phone') return;
+  d = answers;
+  again = hooks;
+  sheetPresets = presets;
+  at = reached = 0;
+  finished = finishing = false;
+  mode = 'again';
+  root.setAttribute('data-sode-setup', '');
+  $('setup').hidden = false;
+  show();
+  render();
+}
+
+// finish: true hands the answers to Finish, false is Cancel. The brand goes back to the saved one either way,
+// since the answers are not saved yet.
+export function closeAgain(finish) {
+  if (mode !== 'again') return;
+  const answers = d;
+  const hooks = again;
+  d = again = null;
+  mode = '';
+  root.removeAttribute('data-sode-setup');
+  $('setup').hidden = true;
+  showBrand(S.cfg.brandText, S.cfg.brandBorder);
+  if (finish) hooks.finish(answers);
+  else hooks.cancel();
+}
+
+// Before settings.js, which leaves Settings on Escape.
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (mode !== 'again' || e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    closeAgain(false);
+  },
+  true,
+);

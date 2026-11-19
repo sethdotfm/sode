@@ -124,7 +124,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	defer a.cfgMu.Unlock()
 	live := a.r().cfg
 	src, dst := a.liveNames()
-	p := planImport(live, src, dst, a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies), a.cfgPath == "")
+	p := planImport(live, src, dst, a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies))
 	if p.noAdmin {
 		apiFail(w, http.StatusConflict, "refused", errNoAdministrator.Error())
 		return

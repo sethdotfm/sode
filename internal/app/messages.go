@@ -75,6 +75,8 @@ type helloMsg struct {
 	// NoAdministrator: users and no Administrator (a hand-edited file). The page shows the
 	// recovery banner. Only a restart can change it.
 	NoAdministrator bool `json:"noAdministrator,omitempty"`
+	// NotSaved: env-only mode (no SODE_CONFIG). The page shows the Not saved banner.
+	NotSaved bool `json:"notSaved,omitempty"`
 	// Setup opens the setup wizard (setup.go): only while setup is pending.
 	Setup *setupHello `json:"setup,omitempty"`
 }

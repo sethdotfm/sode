@@ -17,12 +17,13 @@ var presetKeys = []string{"locks", "autoLockMinutes", "guestRole", "pinWaits", "
 	"newPanelActs", "newUserDefaults", "guestApiScopes"}
 
 // accessPresetView rides usersListResult (Administrator only). Users: the Persistent and No
-// auto-lock a ticked user row gets.
+// auto-lock a ticked user row gets. Rows: the setup sheet's, for Run setup again.
 type accessPresetView struct {
 	Key    string                     `json:"key"`
 	Name   string                     `json:"name"`
 	Fields map[string]json.RawMessage `json:"fields"`
 	Users  config.NewUserDefaults     `json:"users"`
+	Rows   map[string]bool            `json:"rows"`
 }
 
 // presetSaveFields: p as one Save fields, read back from a config p was applied to, so the
@@ -42,7 +43,7 @@ func accessPresetViews() []accessPresetView {
 	out := make([]accessPresetView, 0, len(config.AccessPresets))
 	for _, p := range config.AccessPresets {
 		u := p.Values.NewUserDefaults
-		out = append(out, accessPresetView{p.Key, p.Name, presetSaveFields(p), config.NewUserDefaults{Persistent: u.Persistent, NoAutoLock: u.NoAutoLock}})
+		out = append(out, accessPresetView{p.Key, p.Name, presetSaveFields(p), config.NewUserDefaults{Persistent: u.Persistent, NoAutoLock: u.NoAutoLock}, setupRows(p.Values)})
 	}
 	return out
 }
