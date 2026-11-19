@@ -222,8 +222,8 @@ func (p *importPlanner) planArtwork(_ *config.Config, cat *importCat) error {
 	return p.planDefaults(cat)
 }
 
-// planDefaults: a Preset default follows its preset through the preset map; a Source or Destination
-// default for another router waits for the remap step.
+// planDefaults: a Preset default follows its preset through the preset map. A Source or Destination default
+// on a router that the remap step leaves without a target is refused.
 func (p *importPlanner) planDefaults(cat *importCat) error {
 	images := map[string]PanelArt{}
 	for _, im := range p.b.Artwork.DefaultImages {
