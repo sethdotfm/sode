@@ -22,7 +22,9 @@ function update() {
   const oy = parseFloat(cs.top) || 0;
   const shift = (r) => ({ left: r.left - ox, right: r.right - ox, top: r.top - oy, bottom: r.bottom - oy });
   const a = src.getBoundingClientRect();
-  const b = lvl.getBoundingClientRect();
+  // A one-level router hides Levels (levelview.js): the span then ends at the last box before Take.
+  const before = [...document.querySelectorAll('.sode__boxes > .sode__box')].filter((n) => n !== take && n.offsetParent);
+  const b = lvl.offsetParent ? lvl.getBoundingClientRect() : { right: Math.max(...before.map((n) => n.getBoundingClientRect().right)) };
   const box = shift({ left: a.left, right: b.right, top: a.top, bottom: a.bottom });
   const n = centreNudge(box, shift(view.getBoundingClientRect()), innerWidth, innerHeight);
   root.style.setProperty('--sode-centre-x', `${n.x}px`);

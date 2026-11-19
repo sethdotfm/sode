@@ -77,11 +77,14 @@
     <form class="sode__boxes" autocomplete="off">
       <div class="sode__box sode__box--src">
         <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
-        <span class="sode__keyed">
-          <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
-          <kbd class="sode__key-note" aria-hidden="true">s</kbd>
-        </span>
-        <div class="sode__menu-pop"><ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul><div class="sode__menu-count" id="src-count" aria-hidden="true" hidden></div><div class="sode__menu-all" id="src-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all sources</button></div></div>
+        <div class="sode__entry">
+          <span class="sode__keyed">
+            <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
+            <kbd class="sode__key-note" aria-hidden="true">s</kbd>
+          </span>
+          <div class="sode__menu-pop"><ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul><div class="sode__menu-count" id="src-count" aria-hidden="true" hidden></div></div>
+          <div class="sode__menu-all" id="src-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all sources</button></div>
+        </div>
       </div>
       <div class="sode__box sode__box--to">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>

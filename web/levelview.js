@@ -1,7 +1,7 @@
 // Levels on screen and in boxes (reads S). The pure parts, with levels and numbering as arguments, are in levels.js.
 
 import { el, S } from './core.js';
-import { levelLabelOf, levelInputOf, levelTextOf, parseLevelsIn } from './levels.js';
+import { levelLabelOf, levelInputOf, levelTextOf, parseLevelsIn, levelsBoxShown } from './levels.js';
 import { levelColor, levelPicks } from './levelbox.js';
 
 export { levelColor };
@@ -10,6 +10,9 @@ export { levelColor };
 export const levelSource = () => (S.cfg ? { ...parseCtx(), prev: S.prevNumbering } : null);
 
 export const allLevels = () => S.levels.map((l) => l.ui);
+
+// The desktop main page's Levels box: hidden while no router has more than one level. Focus paths into it check this.
+export const levelsShown = () => levelsBoxShown(S.cfg ? [S.levels.length] : []);
 
 // Display and typing follow cfg.levelNumbering; internally 1..N.
 const numbering = () => S.cfg.levelNumbering;

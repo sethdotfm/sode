@@ -2,6 +2,7 @@ import { $ } from './core.js';
 import { mac, chord, browseStep } from './keys.js';
 import { layout } from './layout.js';
 import { flipped, toggleCompact } from './device.js';
+import { levelsShown } from './levelview.js';
 
 // dsts is an accessor: desktop.js replaces the array. historyView is what desktopHistory returned.
 export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally }) {
@@ -94,7 +95,7 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
         return;
       }
       if (inBox) {
-        const ring = flipped() ? ['dst', 'src', 'lvl'] : ['src', 'dst', 'lvl'];
+        const ring = (flipped() ? ['dst', 'src', 'lvl'] : ['src', 'dst', 'lvl']).filter((x) => x !== 'lvl' || levelsShown());
         const i = ring.indexOf(id);
         if (i >= 0) {
           e.preventDefault();

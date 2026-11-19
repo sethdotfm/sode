@@ -13,8 +13,14 @@
   align-items: start;
   display: grid;
   gap: var(--pb-space-6);
-  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto auto;
+  /* Source, Destination and Levels share the width 2 : 2 : 1.8, so they shrink together. At the widest page, 1.8 gives
+     Levels the room of 17 picks and Select All. */
+  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto minmax(0, 1.8fr) auto;
   width: 100%;
+}
+/* No router has more than one level (levelview.js): no Levels column. */
+.sode__boxes:has(> .sode__box--levels[hidden]) {
+  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto;
 }
 .sode__box {
   display: flex;
@@ -52,7 +58,10 @@
   content: "←";
 }
 [data-flip] .sode__boxes {
-  grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) auto auto;
+  grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) minmax(0, 1.8fr) auto;
+}
+[data-flip] .sode__boxes:has(> .sode__box--levels[hidden]) {
+  grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) auto;
 }
 [data-flip] .sode__box--dst {
   order: 1;
@@ -126,7 +135,8 @@
 .sode__menu-all[hidden] {
   display: none;
 }
-/* Destination's hangs off the input row, so its place never depends on the chips. The chips start below its row. */
+/* Show all hangs off the input row at its right, the same in Source and Destination. So its place never depends on the
+   chips, which start below its row. */
 .sode__entry > .sode__menu-all {
   position: absolute;
   right: 0;
@@ -155,15 +165,17 @@
   min-width: 4ch;
   text-align: right;
 }
-/* Head and text box add nothing to the box's width (width 0, then fill). */
+/* The column sets the box's width. Head and text box add nothing to it (width 0, then fill). */
 .sode__box--levels {
-  column-gap: var(--pb-space-3);
   display: grid;
-  grid-template-columns: auto auto;
-  justify-content: start;
+  grid-template-columns: minmax(0, 1fr);
   margin-left: var(--pb-space-8);
-  /* Always as wide as for 17 levels; fewer leave blank space, more scroll. */
+  /* At most 9 picks on a row, as for 17 levels. A narrower box wraps them onto more rows. */
   --sode-picker-cols: 9;
+  --sode-pick-w: calc(var(--pb-space-8) + var(--pb-space-1));
+}
+.sode__box--levels[hidden] {
+  display: none;
 }
 .sode__box--levels > .sode__box-head {
   grid-column: 1 / -1;
@@ -175,20 +187,18 @@
   min-width: 100%;
   width: 0;
 }
+/* Select All stays beside the picks while both fit, else it goes below them. The picks fill as many columns as fit, up
+   to the two rows of the router's levels, and wrap onto more rows. An odd first level still stands two rows high. */
 .sode__box--levels > .sode__picker {
-  display: contents;
+  column-gap: var(--pb-space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+  row-gap: var(--pb-space-2);
 }
 .sode__box--levels .sode__levels {
-  grid-column: 1;
-  grid-row: 3;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  padding-bottom: var(--pb-space-1);
-  width: calc(var(--sode-picker-cols) * (var(--pb-space-8) + var(--pb-space-1)) + (var(--sode-picker-cols) - 1) * var(--pb-space-1));
-}
-.sode__box--levels .sode__all {
-  grid-column: 2;
-  grid-row: 3;
+  flex: 0 1 calc(min(var(--sode-bar-cols, 1), var(--sode-picker-cols)) * (var(--sode-pick-w) + var(--pb-space-1)) - var(--pb-space-1));
+  grid-template-columns: repeat(auto-fill, var(--sode-pick-w));
+  min-width: var(--sode-pick-w);
 }
 
 .sode__under {

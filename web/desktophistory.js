@@ -2,7 +2,7 @@
 
 import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem, dstItem } from './core.js';
 import { mac, pickOrAdd } from './keys.js';
-import { levelBar } from './levelview.js';
+import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
 import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupTitle, groupLevels, groupIds } from './history.js';
@@ -383,7 +383,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     const jk = e.ctrlKey !== e.metaKey && (e.ctrlKey || mac) && !e.altKey && !e.shiftKey && /^Key[JK]$/.test(e.code) ? e.code[3].toLowerCase() : '';
     if (!jk && (e.ctrlKey || e.metaKey || e.altKey)) return false;
     const k = jk || e.key;
-    if (BOXES[k]) {
+    if (BOXES[k] && (k !== 'f' || levelsShown())) {
       focusBox($(BOXES[k]));
       return true;
     }
