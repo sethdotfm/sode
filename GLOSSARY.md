@@ -433,6 +433,16 @@ The state where keys act on History entries instead of the patch boxes. Esc from
 **Compact view**:
 The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
 
+**Home**:
+The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page.
+
+**Palette**:
+A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. Rows outside a person's Rights or Role show grey, and picking one offers Step in or Request approval.
+_Avoid_: command palette
+
+**Palette character**:
+The character that opens the Palette when it is the first one typed in an empty Source or Destination box. It is a setting for Everyone, Me or This browser, and no character turns it off. Type it twice to search for the character itself.
+
 **Topic**:
 A top-level group of Settings sections, with a heading band on the page and a branch in the sidebar tree. With v2, Settings has five topics: Preferences, Look and feel, Routers, Access and Server.
 
