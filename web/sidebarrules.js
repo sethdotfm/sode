@@ -1,5 +1,6 @@
 // What the panel editor's sidebar stores and says. Pure. Stored names are in docs/persisted-names.md.
 import { fixedDestsOf, FIXED_MAX } from './panelrules.js';
+import { CATEGORY_ICON } from './findrules.js';
 
 export { FIXED_MAX };
 
@@ -92,22 +93,8 @@ export const levelLocked = (all, stored, level) => {
   return now.length === 1 && now[0] === level;
 };
 
-// The cell kind icons first (keep in step with CATEGORY_ICON in findrules.js), then Result and action icons, then pictures.
-export const ART_ICONS = [
-  'arrow-right-from-line',
-  'arrow-right-to-line',
-  'bookmark',
-  'zap',
-  'eraser',
-  'undo-2',
-  'eye',
-  'panels-top-left',
-  'tablet-smartphone',
-  'file-type',
-  'info',
-  'file-symlink',
-  'chevron-right',
-  'chevron-left',
+// Cell kind icons first, then Result and action icons, then pictures.
+const MORE_ICONS = [
   'check',
   'equal',
   'x',
@@ -165,6 +152,7 @@ export const ART_ICONS = [
   'clock',
   'image',
 ];
+export const ART_ICONS = [...new Set([...Object.values(CATEGORY_ICON), ...MORE_ICONS])];
 
 const amount = (list) => (!Array.isArray(list) ? 'All' : list.length ? String(list.length) : 'None');
 

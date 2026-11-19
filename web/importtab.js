@@ -71,7 +71,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     importBtn.textContent = own ? 'Import' : pick?.mode === 'replace' ? 'Replace and import' : 'Import (add)';
   };
 
-  // In the list the plan is the check's; the remap choices made since take references off it.
+  // In the list the plan is the check's. Later remap choices remove references from it.
   const brk = (it) => stillBroken(it.broken, remap.rowsBy, remap.targets, remap.choices);
   const fullReq = () => ({ ...R.importReq(pick), ...remapReq(remap) });
 
@@ -86,7 +86,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   async function load(f, again = false) {
     file = f;
     const my = ++seq;
-    setNote('Reading the file…');
+    setNote('Reading…');
     try {
       const routers = again ? { routers: { ...remap.targets } } : {};
       const res = await call(route, { method: 'POST', body: form({ mode: 'add', categories: R.PLANNED, ...routers }) });
@@ -265,7 +265,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
 
   async function review() {
     const my = ++seq;
-    setNote('Checking your choices…');
+    setNote('Checking…');
     reviewBtn.disabled = true;
     try {
       const res = await call(route, { method: 'POST', body: form(fullReq()) });
@@ -317,7 +317,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
       out.push(el('h3', 'sode__label sode__xi-h', `Broken (${broken.length})`), el('ul', 'sode__xi-list sode__xi-broken', ...broken.map(brokenLine)));
     if (ends.length) out.push(el('ul', 'sode__xi-list', ...ends.map((t) => el('li', null, `${t}.`))));
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
-    // A backup of this install: what ended after it was made stays ended.
     if (planned.refused) out.push(el('div', 'pb-alert pb-alert--error', `Sode refuses this import: ${planned.refused}.`));
     else if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));

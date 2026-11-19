@@ -27,8 +27,7 @@ export function againAnswers(now, presets) {
   };
 }
 
-// againStage: the fields Finish changes, as {key: value}, with only those that differ from now. preset: the preset
-// to apply, or null when the values already match the pick.
+// The fields Finish changes, as {key: value}: only those that differ from now. preset: the preset to apply, or null when the values already match the pick.
 export function againStage(d, now, presets = []) {
   const want = {
     brandText: d.brandText.trim(),

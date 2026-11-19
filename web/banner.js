@@ -1,5 +1,4 @@
 // Result banner. Each layout draws its own copy (data-rid); one timer per result, and dismissing collapses every copy.
-// plans.js re-exports showResult/resultNode.
 
 import { el, S, icon, emit } from './core.js';
 
@@ -21,7 +20,6 @@ export const dismissMs = (kind, secs) => (kind === 'ok' && secs > 0 ? secs * 100
 export function dismissResult(r) {
   if (S.result === r) S.result = null;
   for (const wrap of document.querySelectorAll(`.sode__banner[data-rid="${r.id}"]`)) {
-    // .sode__banner--out collapses it so what is below slides up.
     const done = () => wrap.remove();
     wrap.classList.add('sode__banner--out');
     wrap.addEventListener(

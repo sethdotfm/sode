@@ -100,7 +100,7 @@ func TestChromeEditorArtUpload(t *testing.T) {
 	}
 
 	b.eval(fmt.Sprintf(`choose(fromB64(%q, 'image/gif'), 'wide.gif'); true`, base64.StdEncoding.EncodeToString(imgBytes("gif", 2000, 10))))
-	b.waitFor("an oversize GIF is refused with how to fix it", `/Resize it and upload again/.test(note().textContent)`)
+	b.waitFor("an oversize GIF is refused", `/GIF too large/.test(note().textContent)`)
 	if arts = stored(); len(arts) != 2 {
 		t.Fatalf("the oversize GIF was sent: %+v", arts)
 	}

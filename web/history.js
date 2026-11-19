@@ -7,7 +7,7 @@ import { filterFn } from './filter.js';
 import { filterAllows } from './filterstore.js';
 import { pref } from './device.js';
 
-// ---- quick search boxes above Recent: reads back through the whole log and, unless this browser's setting says otherwise, ignores the filters. Not kept.
+// Quick search above History. It reads back through the whole log. It ignores the filters unless this browser's setting says otherwise. Not kept.
 
 let query = { src: '', dst: '' };
 const anything = () => true;
@@ -62,8 +62,8 @@ function passes(e) {
 }
 
 // Changes to one destination on the same levels show as one stacked row when each comes at most
-// this long after the one before. Think of a shader's preview punched about. The gap between
-// neighbours, not the whole span. 0 is off. Keep in step with docs/agents/history.md.
+// this long after the one before.
+// The gap is between neighbours, not the whole span. 0 is off. Keep in step with docs/agents/history.md.
 export const stackGapMs = () => Number(pref('stackGap')) * 1000;
 
 // A change that can join a stacked row: one route on its own, from any browser, panel or the
@@ -71,11 +71,9 @@ export const stackGapMs = () => Number(pref('stackGap')) * 1000;
 // (also a Restore) stays apart, or it would join the row that it undid.
 const stacks = (e) => (!e.group || e.groupN < 2) && e.ok && e.follow == null && !e.followGroup && e.undo == null;
 
-// { e } for a take on its own, { f } for a folder (one multi-take confirm), placed where its
-// newest take is. Rapid changes to one destination merge into one { e }: the newest, with the
-// oldest's prev, and merged = count. A folder shows if any take passes the filters (f.shown;
-// f.entries keeps all, for Undo all). Several calls per redraw, so the answer is kept
-// (rowsCache).
+// { e } for an entry on its own, { f } for a Group (a take that sent several routes), placed where its newest entry is.
+// Rapid changes to one destination merge into one { e }: the newest, with the oldest's prev, and merged = count.
+// A Group shows if any entry passes the filters (f.shown; f.entries keeps all, for Undo all). A redraw calls this several times, so rowsCache keeps the answer.
 let rowsCache = null;
 for (const ev of ['history', 'filters', 'search', 'names', 'hello'])
   onFirst(ev, () => {
@@ -95,7 +93,7 @@ function buildRows(list) {
   const byGroup = new Map();
   const chains = new Map();
   const gap = stackGapMs();
-  // Follows go with the take they followed (e.follows) when loaded and shown; one whose take is
+  // External follow entries go with the take they probably followed (e.follows) when it is loaded and shown. One whose take is
   // hidden stands alone if it passes the filters itself.
   const byId = new Map(list.map((e) => [e.id, e]));
   const followsOf = new Map();
@@ -108,8 +106,8 @@ function buildRows(list) {
     if (!passes({ ...byId.get(id), follows: fs })) followsOf.delete(id);
   }
   const attached = new Set([...followsOf.values()].flat());
-  // Followers of a multi-take confirm go in its folder's f.followers (the server does not say
-  // which take). That occurs only when that folder is loaded and will show; otherwise they stand alone.
+  // External follow entries of a Group go in f.followers (the server does not say which entry they followed).
+  // That occurs only when the Group is loaded and will show; otherwise they stand alone.
   const groups = new Set(list.filter((e) => e.group && !e.ext).map((e) => e.group));
   const shows = new Set(list.filter((e) => e.group && !e.ext && passes(e)).map((e) => e.group));
   const followers = new Map();
@@ -166,8 +164,8 @@ function buildRows(list) {
   return rows.filter((r) => !r.f || r.f.shown.length);
 }
 
-// A folder's takes arrive one by one; one still filling is "in flight" for a while. After that,
-// missing takes count as not loaded.
+// A Group's entries arrive one at a time; a Group that still fills is "in flight" for a while. After that,
+// missing entries count as not loaded.
 const IN_FLIGHT_MS = 30000;
 
 function groupStatus(f) {
@@ -189,14 +187,14 @@ function groupStatus(f) {
 
 const extStatus = (found, title = '') =>
   found
-    ? { dot: 'warn', text: 'Found', title: title || 'An External the router made without announcing it, found when Sode re-read the router' }
+    ? { dot: 'warn', text: 'Found', title: title || 'External with no announcement. Sode found it at a re-read.' }
     : { dot: 'info', text: 'External', title: title || 'A change on the router that Sode did not make' };
 
 export function statusNode(row) {
   const st = row.f
     ? groupStatus(row.f)
     : row.e.ext && row.e.followGroup
-      ? { dot: 'info', text: 'External follow', title: 'Changed along with this confirm, probably as a result of it' }
+      ? { dot: 'info', text: 'External follow', title: 'Changed with this take, probably because of it' }
       : row.e.ext
         ? extStatus(row.e.found)
         : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
@@ -222,7 +220,7 @@ export function groupTitle(f) {
     preset && `Preset: ${preset}`,
     kind,
     groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
-    nFollow && `+${nFollow} external follow ${nFollow === 1 ? 'entry' : 'entries'}`,
+    nFollow && `+${nFollow} External follow ${nFollow === 1 ? 'entry' : 'entries'}`,
   ].filter(Boolean);
   return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
@@ -362,9 +360,9 @@ export function entryNote(e) {
   const parts = [];
   if (e.preset && !(e.group && e.groupN > 1)) parts.push(`Preset: ${e.preset}`);
   if (e.merged > 1) parts.push(`${e.merged} changes`);
-  if (e.follows?.length) parts.push(`+${e.follows.length} external follow ${e.follows.length === 1 ? 'entry' : 'entries'}`);
-  if (e.follow != null) parts.push(`external follow of #${e.follow}`);
-  if (e.followGroup) parts.push('external follow of this confirm');
+  if (e.follows?.length) parts.push(`+${e.follows.length} External follow ${e.follows.length === 1 ? 'entry' : 'entries'}`);
+  if (e.follow != null) parts.push(`External follow of #${e.follow}`);
+  if (e.followGroup) parts.push('External follow of this take');
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);

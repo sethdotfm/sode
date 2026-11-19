@@ -1,4 +1,3 @@
-// The signed-in user's own rights grey out what the server would refuse. The server stays the authority.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

@@ -9,7 +9,7 @@ export function chord(e) {
   return `${e.ctrlKey ? 'ctrl+' : ''}${e.altKey ? 'alt+' : ''}${e.shiftKey ? 'shift+' : ''}${e.metaKey ? 'meta+' : ''}${key}`;
 }
 
-// Keep in step with the combobox and Settings search: both take their Ctrl/Cmd+J/K from here.
+// Keep in step with the combobox and Settings search: both get their Ctrl/Cmd+J/K from here.
 export function listStep(e) {
   const mod = (e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey);
   return (mod && !e.altKey && !e.shiftKey && { KeyJ: 1, KeyK: -1 }[e.code]) || 0;

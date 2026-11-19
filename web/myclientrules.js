@@ -9,7 +9,7 @@ const MAX_NAME = 24; // config.MaxUserName
 
 export function clientNameProblem(name, mine) {
   const n = name.trim();
-  if (!n) return 'Give the API client a name.';
+  if (!n) return 'Name the API client.';
   if ([...n].length > MAX_NAME) return `An API client name has at most ${MAX_NAME} characters.`;
   if (mine.some((m) => m.toLowerCase() === n.toLowerCase())) return `You already have an API client named ${n}.`;
   return '';

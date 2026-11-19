@@ -1,4 +1,4 @@
-// Per-instance branding: logo text and optional border color. Display only; the red lost-link outline (.sode__frame) stays on top.
+// Brand: logo text and optional border color. Display only; the red lost-link outline (.sode__frame) stays on top.
 import { on, emit } from './core.js';
 import { iconURL, setBrand } from './brandicon.js';
 

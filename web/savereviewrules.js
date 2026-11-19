@@ -112,7 +112,7 @@ export function groupRows(rows, placeOf) {
 }
 
 export function saveLabel(save, keep) {
-  if (!save) return 'Nothing can save';
+  if (!save) return 'Nothing to save';
   if (keep) return `Save ${save}, keep ${keep} unsaved`;
   return `Save ${save} ${save === 1 ? 'change' : 'changes'}`;
 }
@@ -133,7 +133,7 @@ export function refusalNote(r, show) {
     case 'conflict':
       return `Not saved. Someone else saved "${show(r.value)}" after you opened Settings.`;
     case 'Role':
-      return 'Not saved. Your Role cannot change this.';
+      return 'Not saved. Your Role is not allowed to change this.';
     case 'needs Approval':
       return 'Not saved. This needs Approval.';
     case 'needs PIN recheck':

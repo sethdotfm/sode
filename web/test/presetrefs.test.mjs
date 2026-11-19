@@ -1,4 +1,3 @@
-// Presets store router references { router, n, name } and a hidden id that survives a rename.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -25,7 +24,7 @@ const setup = async () => {
 
 test('This browser presets store {router, n, name} and an id', async () => {
   const m = await setup();
-  // 7 is not on the router now: it keeps the name it came with.
+  // 7 is not on the router: it keeps the name it came with.
   m.saveLocalPreset({ name: 'Show', items: [{ src: 1, dsts: [0, 7], levels: [], dstNames: { 7: 'OLD MON' } }] });
   const [s] = JSON.parse(mem.get('sode-presets'));
   assert.match(s.id, /^[0-9a-f]{16}$/);
@@ -99,7 +98,7 @@ test('a Replace import into This browser keeps the replaced preset id', async ()
   m.saveLocalPreset({ name: 'Late', items: [{ src: 0, dsts: [1], levels: [] }] });
   const show = m.findPreset('local', 'Show').id;
   const late = m.findPreset('local', 'Late').id;
-  // As reviewsheet.js writes it: the whole list, the replaced entries arriving without an id.
+  // As reviewsheet.js writes it: the whole list, and the replaced entries have no id.
   m.putLocalPresets([
     { name: 'show', items: [{ src: 1, dsts: [1], levels: [] }] },
     { name: 'Late', items: [{ src: 0, dsts: [1], levels: [] }] },
@@ -107,7 +106,7 @@ test('a Replace import into This browser keeps the replaced preset id', async ()
   ]);
   const got = m.localPresets();
   assert.equal(got[0].id, show);
-  // Late's id is taken by the entry that names it, so the other Late gets a new one.
+  // The entry that names Late's id keeps it, so the other Late gets a new id.
   assert.notEqual(got[1].id, late);
   assert.match(got[1].id, /^[0-9a-f]{16}$/);
   assert.equal(got[2].id, late);

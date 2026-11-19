@@ -1,4 +1,3 @@
-// The main page's fuzzy scoring (fuzzy.js), which core.js search and the Grid panel's Find both use.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fuzzyScore } from '../fuzzy.js';

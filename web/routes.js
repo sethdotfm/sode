@@ -44,7 +44,7 @@ export function pickEnd(side, text, title, onPick) {
   const b = el('button', `sode__end sode__end--${side} sode__end--pick`, text);
   b.type = 'button';
   b.tabIndex = -1;
-  b.title = title;
+  b.dataset.pbTip = title;
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', onPick);
   return b;

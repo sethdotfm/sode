@@ -201,9 +201,6 @@ export const DICT = {
   ],
   'setup-again-open': ['setup', 'set up', 'wizard', 'run setup again', 'branding', 'router', 'access preset'],
   'xi-open': ['export', 'import', 'backup', 'back up everything', 'restore', 'zip', 'file', 'download', 'include pins', 'transfer', 'copy to another site'],
-  // Sections for other branches to add later; ignored until they exist.
-  salvos: ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
-  'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
 
   // ---- This browser / Defaults
   ...both('theme', ['dark', 'light', 'colour', 'color', 'mode', 'night', 'appearance', 'theme', 'dark mode', 'light mode']),
@@ -238,7 +235,7 @@ export const DICT = {
     ]),
   ),
 
-  // ---- Me (inside This browser; only shown while signed in as a user)
+  // ---- My user (shown while signed in)
   'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],
   'account-copy': ['copy', 'move', 'this browser', 'my user', 'presets', 'filter sets', 'account'],
   'account-swap': ['swap', 'swap source', 'swap destination', 'broken', 'name moved', 're-patch', 'presets', 'filter sets', 'panels'],
@@ -344,7 +341,7 @@ export const DICT = {
   'cfg-guest-role': ['guest', 'signed out', 'nobody', 'anonymous', 'role', 'trusted', 'standard', 'visitor'],
   'new-user-defaults': ['new user', 'default', 'never sign out', 'persistent', 'auto-lock', 'idle', 'stay signed in'],
 
-  // ---- Audit
+  // ---- Proxy
   'cfg-proxies': [
     'proxy',
     'proxies',
@@ -367,8 +364,6 @@ export const DICT = {
   'clear-history': ['clear', 'delete', 'erase', 'wipe', 'reset', 'undo', 'history', 'recent', 'remove all'],
   'open-log': ['log', 'communication log', 'audit', 'uptime', 'messages', 'sent', 'wire', 'router log', 'events', 'tx', 'ack', 'diagnostics', 'debug', 'graph'],
 };
-
-// ---- matching
 
 const words = (s) =>
   String(s)

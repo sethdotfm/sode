@@ -1,4 +1,3 @@
-// Typing a router prefix (A.23) where a source or destination is typed, and the rule that one route stays on one router.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { searchText } from '../routerprefix.js';

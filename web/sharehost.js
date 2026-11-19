@@ -45,16 +45,5 @@ export function shareHostField(onChange) {
       onChange();
     }
   });
-  return el(
-    'div',
-    'sode__field',
-    Object.assign(el('label', null, 'Address for other devices'), { htmlFor: 'share-host' }),
-    el(
-      'span',
-      'sode__hint',
-      'This page is open on localhost, which a phone cannot reach. Type the address it uses, with the port. It is kept in this browser.',
-    ),
-    input,
-    note,
-  );
+  return el('div', 'sode__field', Object.assign(el('label', null, 'Address for other devices'), { htmlFor: 'share-host' }), input, note);
 }

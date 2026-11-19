@@ -4,8 +4,7 @@
 // number; the server fills the router and the name.
 // Levels are UI levels 1..N. Presets are preset ids. Keep in step with config.Rights.
 
-// refN: a list entry's router number. v2.0 drives one router, so the router is not compared. Tests and plans
-// pass plain numbers.
+// refN: a list entry's router number; the router is not compared. Tests and plans pass plain numbers.
 export const refN = (x) => (x && typeof x === 'object' ? x.n : x);
 
 export const allowed = (rights, kind, v) => !rights || !Array.isArray(rights[kind]) || rights[kind].some((x) => refN(x) === v);
@@ -26,7 +25,7 @@ export function planOutside(rights, plan, off, levelName = String) {
   return '';
 }
 
-// ---- the editor: a list is "all" or "only these", typed as shown numbers
+// The editor: a list is "All" or "Only these", typed as shown numbers.
 
 export function listText(list, off) {
   const shown = [...new Set(list.map((x) => refN(x) + off))].sort((a, b) => a - b);
@@ -46,7 +45,7 @@ export function parseList(text, off) {
     const m = /^(\d+)(?:-(\d+))?$/.exec(tok);
     if (!m) return { error: `"${tok}" is not a number or a range like 3-7` };
     const [a, b] = [Number(m[1]), Number(m[2] ?? m[1])];
-    if (b < a) return { error: `"${tok}" runs backwards` };
+    if (b < a) return { error: `"${tok}": the first number is higher than the last` };
     if (a - off < 0) return { error: `"${tok}" is below the first number, ${off}` };
     if (b - a > 100000) return { error: `"${tok}" is too long a range` };
     for (let n = a; n <= b; n++) out.add(n - off);
@@ -119,8 +118,7 @@ export function rightsOf(d, off, levels, presets = []) {
   return { rights };
 }
 
-// ---- the Rights tab's entries. Rows are keyed by a number that never changes, not by the name under
-// edit, so a rename keeps the selection.
+// Rights tab rows are keyed by a number that never changes, so a rename keeps the selection.
 
 export const entryKeys = (users, clients) => [...users.map((u) => `user:${u.rid}`), ...clients.map((c) => `client:${c.rid}`), 'guest'];
 

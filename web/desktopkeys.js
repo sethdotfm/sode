@@ -1,5 +1,3 @@
-// Desktop document key handling: Ctrl+?, Ctrl+comma, Ctrl+S/D/F fills, Ctrl+Z, box keys, Tab ring, Esc.
-
 import { $ } from './core.js';
 import { mac, chord } from './keys.js';
 import { layout } from './layout.js';

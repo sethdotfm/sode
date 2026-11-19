@@ -5,7 +5,7 @@ import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine, cachedProfile 
 import { readJSON, writeJSON, readStr, writeStr, readTab } from './store.js';
 
 let globals = readJSON(CACHE_KEY);
-// {user, prefs} of the logged-in user, cached until the profile arrives. Used only while a session token is kept
+// {user, prefs} of the signed-in user, cached until the profile arrives. Used only while a session token is kept
 // (same keys as lock.js TOKEN_KEY / TAB_KEY).
 const cached = cachedProfile(readJSON(PROFILE_CACHE_KEY), !!(readStr('sode-session') || readTab('sode-tab-session')));
 let mineUser = cached.user;
@@ -33,7 +33,7 @@ on('access', (a) => {
   if (mineUser && a.user !== mineUser) setProfilePrefs(null);
 });
 
-// '' or unknown goes back to the global default.
+// '' or unknown goes back to Everyone's default.
 export function setPref(name, v) {
   writeStr(PREFS[name].key, own(name, v) ? v : null);
   applyPrefs();
@@ -119,8 +119,6 @@ export const timeNodes = (iso) => {
   const d = new Date(iso);
   return [el('span', 'sode__date', `${isoDate(d)} `), timeFormat().format(d)];
 };
-
-// ---- theme
 
 export function initTheme() {
   const root = document.documentElement;

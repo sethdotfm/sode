@@ -22,7 +22,7 @@ export function initToc({ form, sections, toc, isOpen }) {
       routerTitle: routerHeadOf(form, s)?.textContent.trim(),
     })),
   );
-  // A clicked entry stays marked until the scroll ends or the user scrolls, since near the bottom it is possible that it stops short.
+  // A clicked entry stays marked until the scroll ends or the user scrolls, (near the bottom a scroll can stop short).
   let picked = -1;
   // Set while Ctrl+J/K steps. Those scroll instantly and keep `picked`, so a held or spammed key walks one section per
   // press. It does not re-read the stale scroll position.
@@ -119,8 +119,7 @@ export function initToc({ form, sections, toc, isOpen }) {
   function markSection() {
     tocTick = false;
     if (!isOpen() || picked >= 0) return;
-    // Last section whose top reached the window top (its scroll margin down). At the very bottom, the
-    // last section, since it is possible that it is too short to reach it.
+    // Last section whose top reached the window top (its scroll margin down). At the very bottom, the last section: it can be too short to reach it.
     const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
     const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
     const last = sections.findLastIndex((_, i) => shown(i));

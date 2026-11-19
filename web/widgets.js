@@ -10,8 +10,6 @@ import { windowAround, growEdge } from './listwindow.js';
 import { beforeGroups, failureGroups, stackBefore } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
 
-// ---- combobox: a list of matches under a text box
-
 const PAGE = 8;
 let boxSeq = 0;
 
@@ -55,7 +53,7 @@ export function combobox(
     const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', icon('plus', false));
     b.type = 'button';
     b.tabIndex = -1;
-    b.title = 'Add and keep searching';
+    b.dataset.pbTip = 'Add and keep searching';
     b.setAttribute('aria-label', `Add ${it.name}`);
     // pointerdown too: the phone's rows pick on click and keep the keyboard up.
     for (const t of ['mousedown', 'pointerdown'])
@@ -276,8 +274,8 @@ export function disclosure(open, label, controls, onToggle) {
 // The label wraps the control, so a click on the words focuses it.
 export const labeled = (text, control, cls = '') => el('label', `sode__fld ${cls}`.trim(), el('span', 'sode__label', text), control);
 
-// A click anywhere on row (not a control, nor inside skip, nor a different row) works toggle,
-// as does one that selected text not. data-no-tap (a swipe has ended) skips one click.
+// A click on the row presses toggle. Not a click on a control, inside skip, on a nested row, or one that selected text.
+// data-no-tap (a swipe ended) skips one click.
 export function clickToToggle(row, toggle, skip) {
   row.addEventListener('click', (e) => {
     if (row.dataset.noTap) {
@@ -293,8 +291,8 @@ export function clickToToggle(row, toggle, skip) {
   row.classList.add('sode--tap');
 }
 
-const UNDO_TIP = 'Set destination to its source before this change.';
-export const UNDO_TIP_ALL = 'Set destinations to their sources before these changes.';
+const UNDO_TIP = 'Restore the Before source';
+export const UNDO_TIP_ALL = 'Restore the Before sources';
 export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn pb-btn--outline pb-btn--sm', tip = UNDO_TIP } = {}) {
   const b = el('button', `${cls} pb-tip--end`, icon('undo-2'), text);
   b.type = 'button';
@@ -325,7 +323,7 @@ export function againButton(plan, label, onClick, { placeholder = true, cls = 'p
   }
   b.classList.add('pb-tip--end');
   const many = plan.items.length > 1;
-  b.dataset.pbTip = redo ? `Perform ${many ? 'these changes' : 'this change'} again.` : `Try the ${many ? 'takes' : 'take'} that failed again.`;
+  b.dataset.pbTip = redo ? `Send ${many ? 'these changes' : 'this change'} again` : `Send the Failed ${many ? 'routes' : 'route'} again`;
   needsLink(b);
   b.setAttribute('aria-label', label);
   b.addEventListener('click', () => onClick(plan));
@@ -412,11 +410,11 @@ export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst:
         c.src,
       ),
     ),
-    ...beforeGroups(e).map((g, i) => step(i === 0 ? 'before' : '', g.levels, tallyText(g.src), null, null, g.src)),
+    ...beforeGroups(e).map((g, i) => step(i === 0 ? 'Before' : '', g.levels, tallyText(g.src), null, null, g.src)),
   ];
 }
 
-// "Followed by:" with each follow's destination, levels shown where they differ. Null if none.
+// "External follow:" with each follow's destination, levels shown where they differ. Null if none.
 // onPickDst(item) makes each fill the Destination box; onAddDst(item) is the Ctrl-click that adds it.
 export function followBoxes(follows, levels, onPickDst, onAddDst) {
   if (!follows?.length) return null;
@@ -425,7 +423,7 @@ export function followBoxes(follows, levels, onPickDst, onAddDst) {
   return el(
     'span',
     'sode__follows',
-    el('span', 'sode__hist-note', 'Followed by:'),
+    el('span', 'sode__hist-note', 'External follow:'),
     ...follows.map((f) => {
       const it = dstItem(f.dst, f.dstName);
       const note = same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`);
@@ -527,7 +525,7 @@ export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty
   const chip = (d) => {
     const c = el('button', 'pb-chip', dstLabel(d));
     c.type = 'button';
-    c.title = 'Use as destination';
+    c.dataset.pbTip = 'Use as destination';
     c.addEventListener(hold, (e) => e.preventDefault());
     c.addEventListener('click', () => onPick(d));
     return c;

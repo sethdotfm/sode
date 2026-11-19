@@ -1,4 +1,4 @@
-/* Recent in both layouts, with the keyed boxes and shortcut list that keep their order against it. Load after mobile.css. */
+/* History in both layouts. Load after mobile.css. */
 
 .sode__history {
   display: flex;
@@ -6,7 +6,7 @@
   gap: var(--pb-space-3);
   width: 100%;
 }
-/* One grid for the whole list: every row (and each take in a folder) is a subgrid of it, so a column grows when one row needs it (e.g. ids passing #999). */
+/* One grid for the whole list. Each row, and each take in a Group, is a subgrid of it, so a column grows when one row needs it. */
 /* Columns: id, time, levels, route, status, Before, actions. */
 .sode__hist {
   display: grid;
@@ -259,7 +259,7 @@
     white-space: nowrap;
     width: 1px;
   }
-  /* Stacked, so an open panel's bars don't widen the levels column for every row. */
+  /* Stacked, so the bars of an open panel do not widen the levels column for every row. */
   .sode__hist-before {
     display: flex;
     flex-direction: column;
@@ -307,7 +307,6 @@
 .sode__hist-more:empty {
   display: none;
 }
-/* ---- Recent filters */
 .sode__recent-head {
   align-items: center;
   display: flex;
@@ -669,7 +668,7 @@
 html:not([data-keys-on]) :is(.sode__keyed, .sode__search-box) > .sode__key-note {
   display: none !important;
 }
-/* The Option+number wipes in over the name while Option is held (html[data-alt]); the chip keeps its size and only the key's own box is clipped, so its tooltip isn't. */
+/* While Option is held (html[data-alt]), the Option+number shows over the name. Only the key's own box is clipped, so its tooltip is not. */
 .sode__chip-key {
   align-items: center;
   background: var(--pb-accent);

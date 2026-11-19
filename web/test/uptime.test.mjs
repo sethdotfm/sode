@@ -6,7 +6,7 @@ const MIN = 60_000,
   HOUR = 60 * MIN,
   DAY = 24 * HOUR;
 const colors = (d) => slots(d).map((s) => s.color);
-// 4 hours in 1 hour slots, "now" at the end.
+// 4 hours in 1-hour slots; `now` is the end.
 const base = (over) => ({ start: 'up', trans: [], counts: [], from: 0, to: 4 * HOUR, slot: HOUR, now: 4 * HOUR, ...over });
 
 test('up all the time is green', () => {

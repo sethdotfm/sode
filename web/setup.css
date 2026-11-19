@@ -1,4 +1,3 @@
-/* Look from prototype/setup-wizard, design A. */
 [data-sode-setup] .sode > :not(#setup, #conn) {
   display: none !important;
 }
@@ -22,7 +21,6 @@
   margin: 0;
 }
 
-/* Step chips */
 .sode-setup__steps {
   display: flex;
   justify-content: center;
@@ -97,7 +95,6 @@
   background: var(--pb-accent);
 }
 
-/* Body */
 .sode-setup__lead {
   color: var(--pb-text-muted);
   margin: 0;
@@ -129,7 +126,6 @@
   font-size: var(--pb-text-sm);
 }
 
-/* Border color swatches */
 .sode-setup__swatches {
   display: flex;
   gap: var(--pb-space-3);
@@ -161,7 +157,6 @@
   outline-offset: 2px;
 }
 
-/* Access sheet */
 .sode-setup__sheet {
   width: 100%;
   margin-top: var(--pb-space-6);
@@ -216,7 +211,6 @@
   margin-top: var(--pb-space-2);
 }
 
-/* Done */
 .sode-setup__done {
   display: grid;
   grid-template-columns: 1fr 13rem;

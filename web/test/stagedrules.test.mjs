@@ -1,5 +1,3 @@
-// Staged Settings edits across Step in and Step out: each keeps its author, and Save skips the ones in sections the
-// saver's Role cannot see.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { noteAuthors, splitSeen, unseenNotes, sentKeys, namesAuthors } from '../stagedrules.js';

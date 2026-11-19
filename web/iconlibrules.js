@@ -1,4 +1,4 @@
-// The Icon library's pure rules: names and the Choose icon picker's sections. Pure. The server checks names again
+// Icon library names and the Choose icon picker's sections. Pure. The server checks names again
 // (freeName in internal/app/iconlib.go), and a clash there becomes "Name 2".
 import { artFilter } from './sidebarrules.js';
 
@@ -27,11 +27,11 @@ export const libNameOf = (fileName) =>
 // Grid panel's names. Both keep `lib:<id>` after a delete and draw no Icon A (apiIconDelete).
 export function libDeleteText(name, uses) {
   const ask = `Delete ${name} from the Icon library?`;
-  if (!uses) return `${ask} Cells and names that use it will draw no Icon A; their Icon B and text stay.`;
+  if (!uses) return `${ask} Cells and names that use it lose Icon A.`;
   const { cells, panels } = uses;
   if (!cells) return `${ask} No cell or name uses it.`;
   const one = cells === 1;
-  return `${ask} ${cells} ${one ? 'cell or name' : 'cells or names'} on ${panels} ${panels === 1 ? 'panel' : 'panels'} ${one ? 'uses' : 'use'} it and will draw no Icon A; ${one ? 'its' : 'their'} Icon B and text stay.`;
+  return `${ask} ${cells} ${one ? 'cell or name' : 'cells or names'} on ${panels} ${panels === 1 ? 'panel' : 'panels'} ${one ? 'loses' : 'lose'} Icon A.`;
 }
 
 // res is {added, skipped} from POST /icon-library/rescan; a skipped file stays in icons/drop-in until it is fixed.

@@ -11,7 +11,7 @@ export function browserPrefs(file) {
   return out;
 }
 
-// Names match ignoring case.
+// Names match without regard to case.
 export function mergeByName(local, file, replace) {
   if (replace) return file;
   const key = (x) => String(x.name).trim().toLowerCase();

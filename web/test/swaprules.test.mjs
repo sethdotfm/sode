@@ -1,4 +1,3 @@
-// Swap source and Swap destination: the list grouped by owner, Only Broken, the one Save value and its review text.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { groupByOwner, parseShown, swapLabel, swapShow, swapValue } from '../swaprules.js';

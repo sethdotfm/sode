@@ -155,7 +155,7 @@ test('a fresh browse list keeps a moved highlight moved when asked', () => {
   assert.equal(cb.moved, true);
   cb.browse(items(60), 0);
   assert.equal(cb.moved, false);
-  // Never moved: a fresh list is still only browsed, Enter must not take its first row.
+  // Never moved: the list is only browsed, so Enter must not pick its first row.
   cb.browse(items(70), 0, { keepMoved: true });
   assert.equal(cb.moved, false);
   assert.equal(cb.accept(), false);

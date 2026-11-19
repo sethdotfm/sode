@@ -7,9 +7,9 @@ import { entryKeys, newEntry, pickValid } from './rightsrules.js';
 import { check, field, opt } from './formbits.js';
 
 const LISTS = [
-  { kind: 'sources', title: 'Sources', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
-  { kind: 'dsts', title: 'Destinations', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
-  { kind: 'levels', title: 'Levels', hint: 'Level numbers start at 1, whatever the router calls its levels.' },
+  { kind: 'sources', title: 'Sources', example: () => '1-8, 12' },
+  { kind: 'dsts', title: 'Destinations', example: () => '1-8, 12' },
+  { kind: 'levels', title: 'Levels', example: () => `1-${S.levels.length || 8}` },
   { kind: 'presets', title: 'Presets', hint: "One name per line (Everyone or the user's Me presets)", area: true },
 ];
 const off = () => S.cfg?.numberOffset ?? 0;
@@ -51,7 +51,7 @@ export function makeRightsTab({ users, clients, touched }) {
           .find((c) => String(c.rid) === rid)
           ?.name.trim() || '(new client)'
       }`;
-    return 'Guest (a signed-out browser, and an API call with no key)';
+    return 'Guest';
   };
 
   function draw() {
@@ -70,6 +70,7 @@ export function makeRightsTab({ users, clients, touched }) {
       if (l.area) text.rows = 3;
       text.value = d.text;
       text.spellcheck = false;
+      if (l.example) text.placeholder = l.example();
       text.disabled = d.all;
       text.setAttribute('aria-label', `${l.title} allowed`);
       mode.addEventListener('change', () => {
@@ -88,24 +89,17 @@ export function makeRightsTab({ users, clients, touched }) {
           'sode__rights-list',
           el('div', 'sode__rights-head', Object.assign(el('label', null, l.title), { htmlFor: mode.id }), el('span', 'pb-select-wrap', mode)),
           text,
-          el('span', 'sode__hint', l.hint),
+          ...(l.hint ? [el('span', 'sode__hint', l.hint)] : []),
         ),
       );
     }
-    const vis = select('rights-visibility', [opt('readonly', 'Read-only'), opt('hidden', 'Hidden')]);
+    const vis = select('rights-visibility', [opt('readonly', 'Read-only'), opt('hidden', 'Hidden from the API')]);
     vis.value = e.draft.visibility;
     vis.addEventListener('change', () => {
       e.draft.visibility = vis.value;
       dirty('rights');
     });
-    parts.push(
-      selectField(
-        'rights-visibility',
-        'Visibility',
-        vis,
-        'Read-only shows everything and refuses commands outside these lists. Hidden also removes what is outside them from what this actor sees over the API. Browsers always see everything.',
-      ),
-    );
+    parts.push(selectField('rights-visibility', 'Visibility', vis));
     if (kind === 'user') parts.push(flagBox(e, dirty));
     body.replaceChildren(el('h3', 'sode__profiles-h', titleOf(pick)), ...parts);
   }
@@ -121,7 +115,6 @@ export function makeRightsTab({ users, clients, touched }) {
           dirty('noAutoLock');
         },
       }).label,
-      el('span', 'sode__hint', 'Auto-lock skips this user. The Lock button still works for them.'),
     );
   // Names and rows change under the tab: rebuild the list, keep the pick if its row is still there.
   function refresh() {

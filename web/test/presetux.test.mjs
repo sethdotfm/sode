@@ -1,4 +1,3 @@
-// Preset UX: pinning, the popup's search order, and the history trigger.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -51,7 +50,6 @@ const setup = async () => {
   mem.clear();
   return m;
 };
-// The server gives every preset an id; these use the lowercase name.
 const sv = (name, pinned) => ({ id: name.toLowerCase(), name, items: [{ src: 0, dsts: [1], levels: [] }], ...(pinned === undefined ? {} : { pinned }) });
 const names = (l) => l.map((s) => s.name).join(',');
 
@@ -64,7 +62,7 @@ test('pinning: global flag, local override, unknown names, default', async () =>
   m.setLocalPin(g('Morning'), false);
   assert.equal(names(m.pinnedPresets()), 'Evening,Late');
   assert.deepEqual(JSON.parse(mem.get('sode-preset-pins')), { evening: true, morning: false });
-  // An override equal to the flag is dropped again.
+  // Sode drops an override that equals the flag.
   m.setLocalPin(g('Morning'), true);
   assert.deepEqual(JSON.parse(mem.get('sode-preset-pins')), { evening: true });
   // Unknown names, junk values and a non-object are ignored.
@@ -141,7 +139,6 @@ test('preset trigger: plan carries the name, history shows it, search finds it',
     .map((n) => (typeof n === 'string' ? n : text(n)))
     .join('');
   assert.match(title, /Preset: Morning/);
-  // Quick search by the preset name.
   const hist = [
     e({ id: 5, src: 0, dst: 1, srcName: 'Cam 1', dstName: 'Rec 2', preset: 'Morning' }),
     e({ id: 6, src: 1, dst: 2, srcName: 'Cam 2', dstName: 'Rec 3' }),

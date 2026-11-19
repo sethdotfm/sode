@@ -7,7 +7,7 @@ import { slots, slotText } from './uptime.js';
 export function uptimeBars(data, { fmt, words, pick, sel } = {}) {
   return slots(data).map((s) => {
     const bar = el(pick ? 'button' : 'span', `sode-up__bar sode-up__bar--${s.color}`);
-    bar.title = slotText(s, fmt, words);
+    bar.dataset.pbTip = slotText(s, fmt, words);
     if (!pick) return bar;
     bar.type = 'button';
     bar.setAttribute('aria-label', bar.title);

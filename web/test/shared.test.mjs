@@ -1,4 +1,3 @@
-// Logic both layouts share: toggle, keepSearch and the "Last:" chips.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -33,7 +32,7 @@ test('keepSearch holds only a non-blank search that is still in the box', async 
   assert.equal(k.is(), false);
 });
 
-// The last patch is this browser's own: sendTakes sets it, History never does.
+// Last is this browser's own: sendTakes sets it, History never does.
 async function patched(src, dsts, levels = [1], srcName = `X${src}`) {
   const { S, sendTakes } = await import('./all.mjs');
   globalThis.WebSocket = { OPEN: 1 };

@@ -64,7 +64,7 @@ export function cellStatus(panel, cell) {
   return on(panel?.broken) ? 'broken' : on(panel?.moved) ? 'moved' : '';
 }
 
-// ---- Replace term (filter editor): a Broken number or exact term, offered with the name a name read saw replace it.
+// Replace term (filter editor): a Broken number or exact term, offered with the name that a name read found in its place.
 
 const isMarkTerm = (t, m, offset) => !t.not && (m.ref.n >= 0 ? t.kind === 'num' && t.a === m.ref.n + offset : t.kind === 'exact' && same(t.text, m.ref.name));
 
@@ -157,9 +157,9 @@ export function bannerItems(st, now) {
   return out;
 }
 
-// ---- This browser's items (no server marks): the same rules against the names the page has. The page's names keep a
-// gone number's old name, so this check cannot see a gone number. It finds Name moved for presets. For filter sets
-// it finds an exact term that no name matches.
+// This browser's items (no server marks): the same rules against the page's names. They keep a gone number's old
+// name, so this check cannot see a gone number. It finds Name moved for presets and, for filter sets, an exact term
+// that no name matches.
 
 const at = (map, name, not) => {
   for (const [n, v] of map) if (n !== not && same(v, name)) return true;

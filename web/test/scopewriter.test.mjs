@@ -1,4 +1,3 @@
-// scopeWriter: which saver and payload key a scope goes to, and what removeIn leaves.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

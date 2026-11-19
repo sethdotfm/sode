@@ -50,7 +50,7 @@ export function forgetSignIn() {
   writeTab(HELD_KEY, null);
 }
 
-// A token sent outside an unlock (user already signed in when Never sign out was ticked, or
+// A token sent outside an `unlock` answer (user already signed in when Never sign out was ticked, or
 // changed their own PIN). signedIn: this page has a user, so the token is for it.
 export function onSessionToken(signedIn) {
   onMsg('session', (m) => {

@@ -1,10 +1,8 @@
-// The editor's Artwork tool (arttoolrules.js): Icon A on every selected cell, Icon B one glyph per cell in the fill order, Clear. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { artToolPlan, applyArtTool } from '../arttoolrules.js';
 import { createGrid, select, cellAt } from '../gridmodel.js';
 
-// A 2x3 block of Source cells, all selected.
 const block = (cells) => {
   const g = createGrid({
     rows: 2,

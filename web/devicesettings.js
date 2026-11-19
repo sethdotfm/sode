@@ -1,6 +1,5 @@
-// This browser section of Settings and the Everyone defaults selects: the same choices (prefs.js). A browser
-// one starts at "Everyone's default (value)" ("My" with their own), which follows the default, and
-// applies immediately. A default one is saved with the form. Also the signed-in user block.
+// The This browser selects and the Everyone default selects offer the same choices (prefs.js). A This browser select
+// applies immediately; a default saves with the form.
 
 import { $, el, on, emit, S } from './core.js';
 import { listedUser } from './namepickrules.js';
@@ -83,7 +82,7 @@ export function initDeviceSettings({ form, reindex }) {
     return mb;
   }
 
-  // On any change of settings in force, so "Global (value)" stays true under an open form, and
+  // Runs on any change of the settings in force, so "Everyone's default (value)" stays true under an open form, and
   // Alt+Shift+T shows.
   function renderPrefs() {
     const user = profileName();

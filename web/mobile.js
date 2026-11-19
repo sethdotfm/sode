@@ -51,8 +51,6 @@ const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), levelSource, {
 });
 const active = () => layout() === 'phone' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
 
-// ---- header
-
 function renderConn() {
   const c = connState();
   setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Server']);
@@ -71,8 +69,6 @@ function renderConn() {
 function syncGo() {
   setLinkDisabled($('m-go'), M.step === 'lvl' && !linked());
 }
-
-// ---- composer
 
 function setStep(step, focus = true) {
   M.step = step;
@@ -178,8 +174,6 @@ function reset() {
   setStep(order()[0], false);
 }
 
-// ---- the last take's source, destinations or levels
-
 // "Last:" chip as on desktop: tap fills the step from the last take. Hidden when the step has
 // it, and for default levels.
 const boxState = () => ({ src: M.sel.src, dsts: M.dsts, levels: lvl.levels() || [] });
@@ -197,7 +191,7 @@ function renderLast() {
         if (!v) return null;
         const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', n || 'Last'), el('span', 'sode__last-text', ...v));
         b.type = 'button';
-        b.setAttribute('aria-label', n ? `Use the last take's ${what}, the next one` : `Use the last take's ${what}`);
+        b.setAttribute('aria-label', n ? `Next: use the ${what} after the last take's` : `Use the last take's ${what}`);
         b.addEventListener('pointerdown', (e) => e.preventDefault());
         b.addEventListener('click', () => useLast(k, !!n));
         return b;
@@ -228,8 +222,6 @@ function useLast(k, next = false) {
     lvl.set(t.levels);
   }
 }
-
-// ---- thread: recent, result, the patch summary, currently
 
 const editText = (it) => (it.label.startsWith(it.num + ' ') ? it.name : it.label);
 
@@ -303,14 +295,7 @@ function renderThread() {
   const last = M.dsts[M.dsts.length - 1] || maybe('dst');
   const others = M.dsts.length - 1;
   if (last) {
-    nodes.push(
-      el(
-        'div',
-        'sode-m__card',
-        ...currentlyNodes(last),
-        others > 0 ? el('div', 'sode__hint', `and ${others} more destination${others === 1 ? '' : 's'}`) : null,
-      ),
-    );
+    nodes.push(el('div', 'sode-m__card', ...currentlyNodes(last), others > 0 ? el('div', 'sode__hint', `+${others} more`) : null));
   } else if (M.sel.src) {
     nodes.push(
       el(
@@ -351,16 +336,12 @@ function scrollThread() {
   });
 }
 
-// ---- History rows and the Confirm sheet
-
 const sheetFor = (plan) => {
   closeSwipes();
   sheet.open(plan);
 };
 const hist = mobileHistory({ sheetFor, pickSrc });
 const sheet = mobileConfirm(reset);
-
-// ---- inputs
 
 inputs.src.addEventListener('input', () => {
   M.sel.src = null;
@@ -437,10 +418,7 @@ $('m-cancel').addEventListener('click', () => {
   document.activeElement?.blur();
 });
 
-// ---- typing: keyboard up means Recent steps aside
-
-// While a composer input has focus the keyboard is up and room is short, so Recent hides. Focus
-// moves between steps synchronously: check after the blur settles.
+// While a composer input has focus the keyboard is up and room is short, so History hides. Focus moves between steps in one task, so the check runs after the blur.
 function syncTyping() {
   const typing = STEPS.some((k) => document.activeElement === inputs[k]);
   if (view.classList.contains('sode-m--typing') === typing) return;
@@ -462,8 +440,6 @@ for (const k of STEPS) {
   inputs[k].addEventListener('blur', () => setTimeout(syncTyping, 0));
 }
 
-// ---- keyboard overlap (iOS)
-
 // iOS Safari does not shrink the layout viewport for the keyboard: size the phone view to the
 // visual viewport. Android Chrome resizes itself (interactive-widget).
 const vv = window.visualViewport;
@@ -479,16 +455,13 @@ if (vv) {
   fit();
 }
 
-// ---- subscriptions
-
 on('hello', () => {
   hist.pager.reset();
   lvl.reset();
   setStep(M.step, false);
   hist.renderHistory();
 });
-// The thread and History are hidden on the other layouts, and a tally or History message on a busy router
-// rebuilt them on every take. onLayout draws them when the phone layout comes back.
+// The thread and History are hidden on the other layouts, so only the phone layout draws them. onLayout draws them when it comes back.
 const phone = () => layout() === 'phone';
 on('names', () => {
   matches.refresh();

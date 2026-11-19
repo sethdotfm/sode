@@ -9,7 +9,7 @@ test('own clients offer the scopes of a user key, less the Communication Log and
 });
 
 test('a client name is needed, short and not one of your own clients', () => {
-  assert.match(clientNameProblem('  ', []), /name/);
+  assert.match(clientNameProblem('  ', []), /Name/);
   assert.match(clientNameProblem('x'.repeat(25), []), /24/);
   assert.match(clientNameProblem('desk', ['Desk']), /already/);
   assert.equal(clientNameProblem('Desk 2', ['Desk']), '');

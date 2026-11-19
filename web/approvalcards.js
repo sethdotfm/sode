@@ -72,8 +72,6 @@ function ticking() {
   if (!tick) tick = setInterval(ticking, 1000);
 }
 
-// ---- the requester
-
 export const requesting = () => !!(asking || mine);
 
 // Resolves '' when the server accepted it, else the reason.
@@ -149,8 +147,6 @@ onMsg('approvalEnded', (m) => {
   onEnd(m.end);
 });
 
-// ---- the approver
-
 function answer(request, approve) {
   const c = cards.get(request);
   if (!c) return;
@@ -183,7 +179,7 @@ onMsg('approvalCard', (m) => {
   deny.dataset.approvalDeny = approve.dataset.approvalApprove = m.request;
   const list = el('ul', 'sode-approvals__list', ...(m.changes || []).map((f) => el('li', '', changeText(f))));
   const stops = (m.interruptions || []).length
-    ? [el('div', 'pb-note pb-note--warn', el('div', '', 'This stops:'), el('ul', 'sode-approvals__list', ...m.interruptions.map((s) => el('li', '', s))))]
+    ? [el('div', 'pb-note pb-note--warn', el('div', '', 'Interruptions:'), el('ul', 'sode-approvals__list', ...m.interruptions.map((s) => el('li', '', s))))]
     : [];
   const card = toast(
     'warn',
