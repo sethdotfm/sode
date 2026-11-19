@@ -1,8 +1,5 @@
-// A Grid panel's header parts, laid out as on the main page. The Lock chip, the title and the icon buttons are on the
-// left. The Server and Router status (connview.js) is top right. On the panel page they share one band, the deck, with the Levels box and the search boxes (gridpanel.css lays
-// it out). Results, refusals and the "This panel was changed" banner show in the gap between the search boxes and
-// Clear. The Live Editor (ui.back) keeps its status slot beside the status block. The run (gridpanelrun.js)
-// makes them, and its stop puts the page back.
+// A Grid panel's header, laid out as on the main page. On the panel page it shares one band, the deck, with the Levels
+// box and the search boxes (gridpanel.css). The run (gridpanelrun.js) makes it, and its stop puts the page back.
 import { el, icon, on, S } from './core.js';
 import { connBox, paintConn } from './connview.js';
 import { layout, onLayout } from './layout.js';
@@ -39,16 +36,14 @@ export function gridHead(ui, count, { onCopy } = {}) {
   const conn = connBox();
   conns.add(conn);
   paintConn(conn);
-  // Full screen is a ghost icon button, as the Panels link beside it is.
   const screenCls = ['pb-btn--outline', 'pb-btn--sm'].filter((c) => ui.screen?.classList.contains(c));
   ui.screen?.classList.remove(...screenCls);
   ui.screen?.classList.add('pb-btn--ghost');
   // The main page's Settings button (index.html #settings-open), as a link: settings.js opens the view at #settings.
   const settings = iconLink('sode-gridpanel__settings', 'settings', 'Settings');
   settings.href = './#settings';
-  // The header buttons in one group; the Panels link joins it (panelfull.js). Kiosk mode and Full width stay in it
-  // for their code, and gridpanel.css hides them. On the panel page the order is Settings, Panels, Edit or Copy, a
-  // rule, then Full screen. Edit and Copy use the rules of /panels (actionsFor, see access).
+  // The Panels link joins this group (panelfull.js). Kiosk mode and Full width stay for their code; gridpanel.css hides them.
+  // Order on the panel page: Settings, Panels, Edit or Copy, a rule, Full screen. Edit and Copy use the rules of /panels (actionsFor, see access).
   const btns = [ui.kiosk, ui.screen, ui.full].filter(Boolean);
   const after = btns.at(-1)?.nextSibling ?? null;
   const home = page ? el('span', 'sode-gridpanel__home') : null;
@@ -80,7 +75,7 @@ export function gridHead(ui, count, { onCopy } = {}) {
   // The count of messages that a higher one held back (bannerStep), in the box's corner.
   const held = page ? el('span', 'pb-badge sode-gridpanel__held') : null;
   if (held) held.hidden = true;
-  // One live region that only gets each message's words, so a screen reader reads a result once and never the buttons.
+  // One live region gets only each message's words, so a screen reader reads a result one time and never the buttons.
   const said = page ? el('div', 'pb-sr-only sode-gridpanel__said') : null;
   said?.setAttribute('role', 'status');
   const msg = page ? el('div', 'sode-gridpanel__msg', res, held, said) : null;
@@ -155,7 +150,7 @@ export function gridHead(ui, count, { onCopy } = {}) {
       drop();
       return false;
     }
-    // A "This panel was changed" banner that comes up is the newest message, so it takes the place of a result.
+    // A "This panel was changed" banner that comes up is the newest message, so it replaces a result.
     const up = !ui.update.hidden;
     if (up && !updating) drop();
     updating = up;

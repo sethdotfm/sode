@@ -1,4 +1,3 @@
-// A paste past the edge of the grid (gridedge.js): Clip and Wrap. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGrid, select, FILL_ORDERS } from '../gridmodel.js';

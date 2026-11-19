@@ -1,4 +1,3 @@
-// Which sources and destinations a Grid panel shows, in display order (gridpaneledges.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isGridPanel, gridAxes } from '../gridpaneledges.js';

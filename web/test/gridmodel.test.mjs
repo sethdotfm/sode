@@ -1,4 +1,3 @@
-// The editor's grid model (gridmodel.js): resize, select, type, merge, unmerge, fill orders, numbering, unassigned.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -406,7 +405,7 @@ test('Destination cells set aside while Fixed destination is on come back where 
   );
   assert.equal(held.length, 3);
   assert.deepEqual(saved(putBack(grid, held)), saved(g));
-  // A square filled meanwhile wins, and a cell that no longer fits is dropped, as on load.
+  // A square filled in the interval wins. A cell that does not fit is dropped, as on load.
   const taken = setKind(select(grid, 2, 2), 'take');
   assert.deepEqual(
     saved(putBack(resize(taken, 2, 3), held)).cells.map((c) => `${c.r},${c.c} ${c.kind}`),
@@ -430,11 +429,10 @@ test('the held Destination cells that still fit are the ones putBack keeps, so t
   const g = createGrid({ rows: 2, cols: 4, cells: [D(1, 1, 3), S(1, 2, 1), { ...D(2, 1, 4), cs: 2 }, D(2, 4, 5)] });
   const { grid, held } = setAside(g, 'destination');
   assert.equal(heldThatFit(grid, held).length, 3);
-  // A square filled meanwhile and a span that reaches past a shrunk edge each lose one.
+  // A square filled in the interval and a span past a shrunk edge each lose one cell.
   const n = (cells) => cells.map((c) => c.n);
   assert.deepEqual(n(heldThatFit(setKind(select(grid, 2, 2), 'take'), held)), [3, 5]);
   assert.deepEqual(n(heldThatFit(resize(grid, 2, 1), held)), [3]);
-  // Two held cells on one square: the first is kept.
   assert.deepEqual(
     n(
       heldThatFit(

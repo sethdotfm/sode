@@ -8,6 +8,7 @@ import { rectOf, selCells, plural, ROWS_MAX, COLS_MAX } from './gridmodel.js';
 import { KINDS, PRESET_SCOPES } from './panelrules.js';
 import { artOf, ART_B_CHOICES } from './panellook.js';
 import { SHOW_PARTS } from './pagecells.js';
+import { FONT_MIN, FONT_MAX } from './sidebarrules.js';
 
 export const CLIP_MARK = 'sode-panel-cells';
 export const CLIP_VERSION = 1;
@@ -19,9 +20,8 @@ export const overlap = (a, b) => !(a.r + a.rs - 1 < b.r || b.r + b.rs - 1 < a.r 
 // The editor modules import plural from here.
 export { plural };
 
-// A clipboard is text anyone can write, so each field is checked as the Cell tab and the server would make it.
-// Keep in step with CAPTION_MAX (editorcell.js), FONT_MIN and FONT_MAX (sidebarrules.js), pageIDRe
-// (internal/app/panelpagelist.go) and dstNumberMax (internal/app/panelfixed.go).
+// A clipboard is text anyone can write, so each field gets the checks of the Cell tab and the server. Keep in step with
+// CAPTION_MAX (editorcell.js), pageIDRe (internal/app/panelpagelist.go) and dstNumberMax (internal/app/panelfixed.go).
 const CAPTION_MAX = 40;
 const NUMBER_MAX = 0xffff;
 const LEVEL_MAX = 256;
@@ -44,7 +44,7 @@ const CELL_FIELDS = {
   art: (v) => !!artOf({ art: v }),
   artB: (v) => ART_B_CHOICES.includes(v),
   hideText: (v) => typeof v === 'boolean',
-  fontSize: (v) => Number.isInteger(v) && v >= 50 && v <= 200,
+  fontSize: (v) => Number.isInteger(v) && v >= FONT_MIN && v <= FONT_MAX,
 };
 
 // A copy of the cell with only known fields, or null when any known field has the wrong shape.
@@ -98,13 +98,9 @@ export function readBlock(text) {
   return { sode: b.sode, version: b.version, panel: b.panel, rows: b.rows, cols: b.cols, cells: seen };
 }
 
-// Where a paste would land and what it would place, before anything changes. at is the selection's top left.
-// Uploaded images (artOf gives an id that is not a library icon) stay with the panel they were uploaded to. So they
-// are dropped across panels; an unsaved panel has none of its own. A Go to Page target is a Page id of the panel
-// copied from (ADR 0007). So across panels it is dropped and the cell arrives unassigned. An unsaved panel's Pages
-// already have their ids, so it counts as the same panel. Destination cells are skipped while Fixed
-// destination is on (fixed), so they never reach the editor's held cells. fits false: some placed cell runs past
-// the grid's edge (outside counts them) and the grid must not change.
+// Where a paste lands and what it places, before anything changes. at is the selection's top left.
+// Across panels an uploaded image and a Go to Page target are dropped: each belongs to the panel copied from (ADR 0007). An unsaved panel has no images, and its Pages count as the same panel.
+// fixed: Destination cells are skipped. fits false: a placed cell runs past the edge (outside counts them), and the grid must not change.
 export function pastePlan(g, block, { panel = '', fixed = false } = {}) {
   const q = rectOf(g);
   if (!q) return null;
@@ -150,13 +146,13 @@ export function applyPaste(g, placed) {
 
 // The status line for a plan, applied or not.
 export function pasteNote(plan) {
-  if (!plan.fits) return `Nothing pasted: ${plural(plan.outside, 'cell')} would run past the edge of the grid. Pick a square further up or left.`;
+  if (!plan.fits) return `Nothing pasted: ${plural(plan.outside, 'cell')} past the grid edge.`;
   const parts = [plan.placed.length ? `Pasted ${plural(plan.placed.length, 'cell')}.` : 'Nothing pasted.'];
   if (plan.lostArt)
     parts.push(
       `${plural(plan.lostArt, 'cell')} lost ${plan.lostArt === 1 ? 'its' : 'their'} uploaded image, since images stay with the panel they were added to.`,
     );
-  if (plan.lostTargets) parts.push(`${plural(plan.lostTargets, 'Go to Page cell')} came in unassigned, since a Page belongs to the panel it is on.`);
-  if (plan.skippedDests) parts.push(`Skipped ${plural(plan.skippedDests, 'Destination cell')}, since Fixed destination is on.`);
+  if (plan.lostTargets) parts.push(`${plural(plan.lostTargets, 'Go to Page cell')} unassigned (the Page is on another panel).`);
+  if (plan.skippedDests) parts.push(`Skipped ${plural(plan.skippedDests, 'Destination cell')}: Fixed destination is on.`);
   return parts.join(' ');
 }

@@ -1,5 +1,5 @@
-// Drawn lines on a Grid panel (gridpanelline.js). Points are in crosspoint units from the first crosspoint's top
-// left, display order: { x: 2.5, y: 0.5 } is the middle of column 2, row 0.
+// Points are in crosspoint units from the top left of the first crosspoint, in display order.
+// { x: 2.5, y: 0.5 } is the middle of column 2, row 0.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lineCells, isLine, unitsOf, linePairs, lineStage, snapLine, lineShown } from '../gridpanelline.js';
@@ -216,7 +216,7 @@ test('an empty line changes nothing', () => {
   assert.equal(r.confirm, false);
 });
 
-// Snapping (no picks): the targets are evenly spaced, at k columns per row or one column per k rows.
+// Snap targets with no picks: k columns per row, or one column per k rows.
 const snap = (a, b) => snapLine(a, b, dims).cells.map(({ i, j }) => [i, j]);
 
 test('a near-vertical line snaps to vertical: one column, every row', () => {

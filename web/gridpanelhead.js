@@ -6,14 +6,14 @@ export function emptyText({ srcs, dsts, canEdit }) {
   const what = !srcs && !dsts ? 'sources or destinations' : !srcs ? 'sources' : 'destinations';
   return {
     title: `This panel shows no ${what}`,
-    msg: canEdit ? 'Add them in the editor.' : 'The owner of the panel adds them in the editor.',
+    msg: canEdit ? '' : 'Only its owner can add them.',
     edit: !!canEdit,
   };
 }
 
-// The banner's rule (gridpanelheadview.js say). An error (a failure, or a state that waits, held) outranks a result
-// that went well. A lower one never takes the place of a higher one until its X or its state clears it. A new error
-// of the same group joins the shown one ("2 takes failed"); another error takes its place.
+// The banner's rule (gridpanelheadview.js say). An error (a failure, or a held state that waits) outranks an ok result.
+// A lower one never replaces a higher one: its X or its state clears it. A new error of the same group joins the shown
+// one ("2 takes failed"). A different error replaces it.
 // shown is { key, kind, held, title, line, group, names, gone } or null; gone marks one closed or timed out, whose key
 // must not come back. m is { text, kind, key, held }. Returns { shown, changed, back }: back is true when m was held back.
 const rank = (kind) => (kind === 'ok' ? 0 : 1);

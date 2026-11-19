@@ -1,4 +1,3 @@
-// Grid panel edges as router references, read into number form and sent back (gridedgerefs.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { edgeIn, edgeOut, edgesIn, edgesOut } from '../gridedgerefs.js';

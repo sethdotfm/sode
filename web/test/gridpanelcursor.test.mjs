@@ -1,9 +1,8 @@
-// The Grid panel cursor (gridpanelcursor.js): where it starts, how keys move it, and how it follows new axes.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CORNER, MOVES, moveCursor, cursorAt, followCursor, pointOf, barOf, rangeCursor, rangeKind } from '../gridpanelcursor.js';
 
-// 10 destination rows by 20 source columns, 4 rows and 6 columns to a screen.
+// 10 destination rows by 20 source columns; a page is 4 rows by 6 columns.
 const dims = { rows: 10, cols: 20, page: { rows: 4, cols: 6 } };
 const mv = (c, m, d = dims) => moveCursor(c, m, d);
 
@@ -29,9 +28,9 @@ test('a screen move goes one screen, stops at the last item, and stops at the fi
   assert.deepEqual(mv({ i: 2, j: 1 }, 'pageUp'), { i: 0, j: 1 });
   assert.deepEqual(mv({ i: 2, j: 1 }, 'pageRight'), { i: 2, j: 7 });
   assert.deepEqual(mv({ i: 2, j: 3 }, 'pageLeft'), { i: 2, j: 0 });
-  // From a bar, a screen move goes onto the crosspoints.
+  // From a bar, a page move goes onto the crosspoints.
   assert.deepEqual(mv(CORNER, 'pageDown'), { i: 3, j: -1 });
-  // Already on the bar, a screen move back stays there.
+  // On the bar, a page move back stays there.
   assert.deepEqual(mv(CORNER, 'pageUp'), CORNER);
 });
 

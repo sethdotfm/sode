@@ -1,4 +1,3 @@
-// Find and Filter on a Grid panel's bars (gridpanelfind.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFind, findMatches, typed, currentMatch, stepMatch, switchMode, clearFind, shownOrder, stepBox } from '../gridpanelfind.js';

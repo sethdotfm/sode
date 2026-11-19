@@ -1,4 +1,3 @@
-// Levels on a Grid panel (gridpanellevels.js): what a press stages and what a crosspoint's pie shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { stageLevels, offeredLevels, boxFill, pieOn, pieFill } from '../gridpanellevels.js';

@@ -1,4 +1,3 @@
-// Staging on a Grid panel (gridpanelstage.js): keyed by destination and level, Take mode and Instant mode.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -122,7 +121,6 @@ test('Esc drops every staged route', () => {
   assert.equal(stagedCount(dropStaged(st)), 0);
 });
 
-// A Diagonal is a list of { src, dst } pairs (gridpanelpick.js) staged by one press.
 const diag = (st, pairs, levels = [1, 2]) => stageRoutes(st, pairs, levels);
 const three = [
   { src: 1, dst: 10 },
@@ -218,7 +216,6 @@ test(`a Diagonal that would take the total past ${STAGE_MAX} stages nothing and 
   assert.equal(stagedCount(r.st), STAGE_MAX - 2);
   assert.equal(r.st.error.code, 'cap');
   assert.equal(stageText(r.st.error), 'At most 128 routes can be staged. This press adds 3 routes to 126.');
-  // Two fit exactly.
   assert.equal(
     stagedCount(
       diag(st, [

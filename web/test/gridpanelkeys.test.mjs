@@ -1,4 +1,3 @@
-// Keys on a Grid panel (gridpanelkeys.js): which action a key press asks for.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { gridKeyAction, findBoxAction } from '../gridpanelkeys.js';

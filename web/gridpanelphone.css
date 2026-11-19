@@ -87,7 +87,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Closed: the title and the band. */
 :root[data-layout="phone"]
   .sode-gridpanel__deck:not([data-open])
   :is(.sode-gridpanel__tools, .sode__box-head, .sode__input, .sode__levels, .sode__all, .sode-gridpanel__finds) {
