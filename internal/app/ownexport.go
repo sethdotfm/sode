@@ -261,6 +261,10 @@ func (a *App) ownParts(w http.ResponseWriter, r *http.Request) (config.User, imp
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, exportMaxUpload+exportReqMax+64<<10)
 	req, b, done, ok := a.readImportParts(w, r)
+	if ok && req.Mode != importAdd {
+		apiFail(w, http.StatusBadRequest, "bad_request", "from My user you import with Add import only")
+		return u, req, b, done, false
+	}
 	return u, req, b, done, ok
 }
 

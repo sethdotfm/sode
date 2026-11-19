@@ -338,6 +338,7 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 		}
 		if i >= 0 {
 			lt := p.liveTemplates[i]
+			p.removed.keep(&p.removed.keepTemplates, lt.ID)
 			t.ID, it.Clash = lt.ID, lt.Name
 			if sameYAML(t, lt) {
 				it.Same = true
@@ -402,6 +403,7 @@ func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 		}
 		if i >= 0 {
 			ls := p.liveSets[i]
+			p.removed.keep(&p.removed.keepSets, ls.ID)
 			s.ID, it.Clash = ls.ID, ls.Name
 			if sameYAML(s, ls) {
 				it.Same = true

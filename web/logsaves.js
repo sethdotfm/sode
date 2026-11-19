@@ -41,12 +41,14 @@ function importSummary(im) {
     const n = [
       [c.added, 'added'],
       [c.updated, 'updated'],
+      [c.removed, 'removed'],
       [c.kept, 'kept'],
       [c.broken, 'Broken'],
     ].filter(([v]) => v);
     return `${IMPORT_CAT[c.category] || c.category} ${n.map(([v, w]) => `${v} ${w}`).join(', ') || 'no change'}`;
   });
-  return `${im.mode === 'add' ? 'Add import' : 'Import'}: ${cats.join('; ') || 'nothing'}`;
+  const mode = { add: 'Add import', replace: 'Replace import' }[im.mode] || 'Import';
+  return `${mode}: ${cats.join('; ') || 'nothing'}`;
 }
 
 export function saveSummary(s) {
