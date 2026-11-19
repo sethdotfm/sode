@@ -63,6 +63,7 @@ const wholeIn = (s, lo, hi) => /^\d+$/.test(String(s).trim()) && +s >= lo && +s 
 export function stepProblem(d, i, max = 8) {
   switch (STEPS[i]?.[0]) {
     case 'welcome': {
+      if (d.again) return ''; // Run setup again skips Your user
       const name = d.name.trim();
       if (!name) return 'Enter your name.';
       if ([...name].length > NAME_MAX) return `A name has at most ${NAME_MAX} characters.`;
