@@ -431,9 +431,6 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			}
 			u.ID = lu.ID
 			it.Clash = lu.Name
-			if hashed && u.Pin != lu.Pin {
-				it.Note = "Ends " + lu.Name + "'s keys and sessions"
-			}
 			if sameYAML(u, lu) {
 				it.Same = true
 				p.users[fileID] = lu.ID
@@ -444,6 +441,9 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			switch it.Choice {
 			case useNew:
 				cand.Users[i] = u
+				if hashed && u.Pin != lu.Pin {
+					it.Note = "Ends " + lu.Name + "'s keys and sessions"
+				}
 				p.users[fileID] = lu.ID
 			case useCurrent:
 				p.users[fileID] = lu.ID
