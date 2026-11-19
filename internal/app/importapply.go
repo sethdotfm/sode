@@ -82,7 +82,7 @@ func (a *App) readImportParts(w http.ResponseWriter, r *http.Request) (importReq
 }
 
 // readPlanAndFile decodes the "plan" part into plan and stages the "file" part. The plan must come first, so the
-// file streams to the staging directory after check passes; a check error answers 400.
+// file streams to the staging directory after check passes. A check error answers 400, or an exportErr its own status.
 func (a *App) readPlanAndFile(w http.ResponseWriter, r *http.Request, plan any, check func() error) (*exportBundle, func(), bool) {
 	none := func() {}
 	mr, err := r.MultipartReader()
@@ -100,7 +100,12 @@ func (a *App) readPlanAndFile(w http.ResponseWriter, r *http.Request, plan any, 
 		return nil, none, false
 	}
 	if err := check(); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+		var ee *exportErr
+		if errors.As(err, &ee) {
+			apiFail(w, ee.status, ee.code, ee.msg)
+		} else {
+			apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+		}
 		return nil, none, false
 	}
 	part, err = mr.NextPart()

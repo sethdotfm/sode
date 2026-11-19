@@ -50,11 +50,33 @@ async function send(file, pin = '') {
       return;
     }
     applyBrowser(out?.browser, true);
+    const failed = Object.keys(out?.failed || {});
+    if (failed.length) return showFailed(failed.length);
     location.reload();
   } catch (e) {
     busy = false;
     say(e.message);
   }
+}
+
+// showFailed: the restore is written but some stores outside the config are not. Setup cannot run again, so the
+// page says so before it opens Sode.
+function showFailed(n) {
+  const open = el('button', 'pb-btn pb-btn--ok', 'Open Sode');
+  open.type = 'button';
+  open.addEventListener('click', () => location.reload());
+  $('setup-title').textContent = 'Restore from a backup';
+  $('setup-body').replaceChildren(
+    el(
+      'p',
+      'sode-setup__lead',
+      `Sode restored the backup, but ${n} ${n === 1 ? 'item was' : 'items were'} not written. Check panels and artwork after you sign in.`,
+    ),
+    el('div', 'sode-setup__restore', open),
+  );
+  for (const id of ['setup-back', 'setup-restore', 'setup-next']) $(id).hidden = true;
+  say('');
+  open.focus();
 }
 
 // askPin: the file holds no PINs, so the first Administrator gets a new one here.

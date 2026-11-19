@@ -17,6 +17,8 @@ import (
 // setupKeyHeader carries the key that setupRestoreKey gave the browser that runs setup.
 const setupKeyHeader = "X-Sode-Setup"
 
+const setupDoneMsg = "Sode is already set up: sign in, then use Import in Settings"
+
 // restoreReq is the restore route's plan part. Pin is for the file's first Administrator when no Administrator in
 // the file carries a PIN hash.
 type restoreReq struct {
@@ -85,7 +87,19 @@ func fileAdministrator(users []config.User) (int, bool) {
 func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, exportMaxUpload+exportReqMax+64<<10)
 	var req restoreReq
-	b, done, ok := a.readPlanAndFile(w, r, &req, func() error { return nil })
+	key := r.Header.Get(setupKeyHeader)
+	// Checked before the file streams in, and again under cfgMu below.
+	b, done, ok := a.readPlanAndFile(w, r, &req, func() error {
+		a.cfgMu.Lock()
+		defer a.cfgMu.Unlock()
+		if !a.setupPending() {
+			return &exportErr{http.StatusConflict, "setup_done", setupDoneMsg}
+		}
+		if a.setup.key == "" || key != a.setup.key {
+			return &exportErr{http.StatusForbidden, "setup_elsewhere", errSetupElsewhere.Error()}
+		}
+		return nil
+	})
 	defer done()
 	if !ok {
 		return
@@ -93,10 +107,10 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if !a.setupPending() {
-		apiFail(w, http.StatusConflict, "setup_done", "Sode is already set up: sign in, then use Import in Settings")
+		apiFail(w, http.StatusConflict, "setup_done", setupDoneMsg)
 		return
 	}
-	if key := r.Header.Get(setupKeyHeader); a.setup.key == "" || key != a.setup.key {
+	if a.setup.key == "" || key != a.setup.key {
 		apiFail(w, http.StatusForbidden, "setup_elsewhere", errSetupElsewhere.Error())
 		return
 	}
