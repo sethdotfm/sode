@@ -3,7 +3,6 @@ package app
 import (
 	"cmp"
 	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -148,47 +147,6 @@ var sodeActor = Actor{Kind: actorSode, Name: "Sode"}
 
 // connActor is the signed-in user, or the address, behind a browser connection.
 func connActor(c *client) Actor { return Actor{Kind: actorUser, Name: c.who(), User: c.userID()} }
-
-// auditRights writes a row per actor whose rights, scopes or No auto-lock a users save
-// changed, so widened rights can be found later.
-func (a *App) auditRights(c *client, was, now config.Config) {
-	act := connActor(c)
-	row := func(why, note string) { a.apiEvent(act, why, "ok", note, nil) }
-	for _, u := range now.Users {
-		ou, existed := was.FindUserByID(u.ID)
-		if !reflect.DeepEqual(ou.Rights, u.Rights) && (existed || !u.Rights.IsOpen()) {
-			note := "rights of user " + u.Name
-			if pc := a.panelClientsOf(now, u); len(pc) > 0 {
-				var l []string
-				for _, n := range pc {
-					l = append(l, n.Client+" ("+n.Name+")")
-				}
-				note += "; panel clients they created: " + strings.Join(l, ", ")
-			}
-			row("rightsEdit", note)
-		}
-		if ou.NoAutoLock != u.NoAutoLock {
-			row("noAutoLockEdit", fmt.Sprintf("No auto-lock of %s is now %v", u.Name, u.NoAutoLock))
-		}
-	}
-	for _, cl := range now.APIClients {
-		ocl, existed := was.FindAPIClient(cl.Name)
-		switch {
-		case !existed:
-			row("clientEdit", "API client "+cl.Name+" added")
-		case !reflect.DeepEqual(ocl.Rights, cl.Rights) || !reflect.DeepEqual(ocl.Scopes, cl.Scopes):
-			row("clientEdit", "API client "+cl.Name+" changed")
-		}
-	}
-	for _, ocl := range was.APIClients {
-		if _, ok := now.FindAPIClient(ocl.Name); !ok {
-			row("clientEdit", "API client "+ocl.Name+" removed")
-		}
-	}
-	if !reflect.DeepEqual(was.GuestRights, now.GuestRights) || !reflect.DeepEqual(was.GuestAPIScopes, now.GuestAPIScopes) {
-		row("rightsEdit", "Guest rights or scopes")
-	}
-}
 
 func onOff(b bool) string {
 	if b {

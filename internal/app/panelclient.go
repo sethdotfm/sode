@@ -98,16 +98,19 @@ func clean(r config.Rights) config.Rights {
 }
 
 // setPanelClient adds, replaces the rights of, or (rights nil) removes the client of panel id.
-// Removing it ends its keys and open streams through the config commit.
-func (a *App) setPanelClient(id string, rights *config.Rights) error {
-	return a.putPanelClient(id, rights, nil)
+// Removing it ends its keys and open streams through the config commit. by is who asked, for the
+// Settings saves row.
+func (a *App) setPanelClient(by Actor, id string, rights *config.Rights) error {
+	return a.putPanelClient(by, id, rights, nil)
 }
 
 // putPanelClient is setPanelClient; nets are a new client's allowed networks (Save a copy keeps its source's).
-func (a *App) putPanelClient(id string, rights *config.Rights, nets []string) error {
+func (a *App) putPanelClient(by Actor, id string, rights *config.Rights, nets []string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	name := panelClientName(id)
+	was := a.r().cfg
+	defer func() { a.recordSave(by, "api", clientChanges(was, a.r().cfg, name), false) }()
 	return a.applyConfig(func(cur *config.Config) error {
 		cur.APIClients = slices.Clone(cur.APIClients)
 		i := slices.IndexFunc(cur.APIClients, func(c config.APIClient) bool { return strings.EqualFold(c.Name, name) })

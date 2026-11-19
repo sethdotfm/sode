@@ -88,7 +88,7 @@ All paths are under `/api/v1`.
 | `GET /history/groups/last` | `history` | The latest Group with its entries, oldest first |
 | `GET /layouts` | `layouts` | Panel layouts, empty until the panel page exists |
 | `GET /routers` | any | `{"routers":[{"uid","prefix","title"}]}`: each router's router UID, router prefix (A to Z) and router title. See Routers |
-| `GET /log?before=&n=` | `log` | The Communication Log, 100 per page by default, 500 at most |
+| `GET /log?before=&n=` | `log` | The Communication Log, 100 per page by default, 500 at most. Settings saves rows (`kind` `settings`) are merged in; a key never sees the values of Access or Server fields |
 | `POST /takes` | `take` | A take by routes: `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, 1 to 200 routes |
 | `POST /presets/{scope}/{name}` | `take` | Fire a preset, scope `everyone` or `me` |
 | `POST /history/{id}/undo`, `/redo`, `/retry` | `take` and `history` | Undo, Redo or Retry one History entry |
@@ -133,7 +133,7 @@ A panel with `acts: api` or `acts: both` has an API client of its own, `Panel <i
 
 Its `clientRights` default to the creator's and can be no wider than the creator's rights (403 `outside_rights`, nothing created or changed). The check runs whenever a save sets them to something other than what is stored, so a panel that an administrator widened still saves. Its scopes start as `names`, `tally`, `protected`, `status`, `presets`, `layouts`, `take` and `panels`, so its key does not read History. Only an Administrator widens it, in Manage users. There it shows on the API clients tab with its panel and does not count toward the 12-client limit. If the panel switches to `session` or is deleted, Sode removes the client and ends its keys and streams. A switch between `api` and `both` keeps them.
 
-In History its actions read "Seth (Panel p-1a2b3c4d)": the user who made it and the panel client's name. `actor.owner` has the user, and `actor.name` and `actor.key` stay the client and its key name. A user's key named "Panel 21" reads "Seth (Panel 21)". When someone changes a user's Rights, Sode lists the panel clients that user created. It lists them in the Manage users list (`panelClients`, with `wider` when the client now exceeds the user) and in the `rightsEdit` row.
+In History its actions read "Seth (Panel p-1a2b3c4d)": the user who made it and the panel client's name. `actor.owner` has the user, and `actor.name` and `actor.key` stay the client and its key name. A user's key named "Panel 21" reads "Seth (Panel 21)". When someone changes a user's Rights, Sode lists the panel clients that user created. It lists them in the Manage users list (`panelClients`, with `wider` when the client now exceeds the user). It also lists them in the note on that field of the Settings saves row.
 
 A Public panel (`acts: public`) owns the same client and opens for anyone with its plain URL. A page with no key posts to `POST /panels/{id}/public` with nothing else. A Public panel answers 201 `{public: true, key, expires, panel}`: a new key for its client, with the client's Rights, that ends 15 minutes later. The page asks again when a call answers `key_expired` or `key_revoked`.
 

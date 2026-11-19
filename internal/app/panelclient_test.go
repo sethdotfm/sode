@@ -367,14 +367,14 @@ func TestRightsChangeListsPanelClients(t *testing.T) {
 	}
 	found := false
 	for end := time.Now().Add(5 * time.Second); !found && time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
-		for _, row := range logged(t, a) {
-			if row.Why == "rightsEdit" && strings.Contains(row.Note, "rights of user Cy") && strings.Contains(row.Note, name) {
-				found = true
+		for _, e := range a.saves.Between(-1, 1<<62) {
+			for _, f := range e.Save.Fields {
+				found = found || strings.HasPrefix(f.Label, "User Cy: Rights") && strings.Contains(f.Note, name)
 			}
 		}
 	}
 	if !found {
-		t.Fatal("no rightsEdit row listing the panel client")
+		t.Fatal("no Settings saves field listing the panel client")
 	}
 }
 

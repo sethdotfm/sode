@@ -11,9 +11,15 @@ export const AUTO_PAGES = 20;
 // live row does not drop them. Rows past the cap leave the page, never the log file.
 export const LIVE_CAP = 500;
 
+// A Settings saves row carries the seq that came next when it was written (its anchor), and its own
+// id. It sits below its anchor; rows with one anchor go by id.
+export const rowKey = (e) => (e.kind === 'settings' ? `s${e.id}` : e.seq);
+export const rowPos = (e) => (e.kind === 'settings' ? e.seq - 0.5 : e.seq);
+export const byNewest = (a, b) => rowPos(b) - rowPos(a) || (b.id || 0) - (a.id || 0);
+
 export function newPager() {
   let list = []; // loaded entries, newest first.
-  const seen = new Set(); // their seqs.
+  const seen = new Set(); // their rowKeys.
   let more = false; // the server has older ones.
   let total = 0; // entries in the log, as last reported.
   let pending = null; // the `before` of the request that waits for its reply.
@@ -24,12 +30,10 @@ export function newPager() {
   let raise = false; // older rows the user asked for (Load older, a time range) raise the cap; the read-on at open does not
 
   const oldest = () => list[list.length - 1];
-  const byNewest = (a, b) => b.seq - a.seq;
-
   function add(entries) {
-    const fresh = entries.filter((e) => !seen.has(e.seq));
+    const fresh = entries.filter((e) => !seen.has(rowKey(e)));
     for (const e of fresh) {
-      seen.add(e.seq);
+      seen.add(rowKey(e));
       e.t = Date.parse(e.time);
     }
     return fresh.sort(byNewest);
@@ -104,7 +108,7 @@ export function newPager() {
       list.unshift(...fresh);
       if (m.total != null) total = m.total;
       const dropped = list.length > cap ? list.splice(cap) : [];
-      for (const e of dropped) seen.delete(e.seq);
+      for (const e of dropped) seen.delete(rowKey(e));
       if (dropped.length) more = true;
       return { fresh, dropped };
     },

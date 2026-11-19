@@ -319,13 +319,13 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	if actsHasClient(made.Acts) {
 		made.Client = panelClientName(made.ID)
-		err := a.setPanelClient(made.ID, &rights)
+		err := a.setPanelClient(cl.Actor, made.ID, &rights)
 		if err == nil {
 			_, err = a.panels.replace(made)
 		}
 		if err != nil {
 			a.panels.delete(made.ID)
-			a.setPanelClient(made.ID, nil)
+			a.setPanelClient(cl.Actor, made.ID, nil)
 			failWith(w, err)
 			return
 		}
@@ -410,7 +410,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		}
 		rights, changed, err := a.clientRightsFor(cl, want, curRights)
 		if err == nil && (!had || changed) {
-			err = a.setPanelClient(p.ID, &rights)
+			err = a.setPanelClient(cl.Actor, p.ID, &rights)
 		}
 		if err != nil {
 			failWith(w, err)
@@ -418,7 +418,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		}
 		p.Client = panelClientName(p.ID)
 	case had:
-		if err := a.setPanelClient(p.ID, nil); err != nil {
+		if err := a.setPanelClient(cl.Actor, p.ID, nil); err != nil {
 			failWith(w, err)
 			return
 		}
@@ -453,7 +453,7 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	a.mon.forget(p.ID, true)
 	a.endPublicKeys(p.ID)
-	if err := a.setPanelClient(p.ID, nil); err != nil {
+	if err := a.setPanelClient(cl.Actor, p.ID, nil); err != nil {
 		log.Printf("panels: client of deleted panel %s not removed: %v", p.ID, err)
 	}
 	a.apiEvent(cl.Actor, "panelDelete", "ok", "panel "+p.ID+" "+p.Name, nil)
@@ -509,13 +509,13 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	if actsHasClient(made.Acts) {
 		made.Client = panelClientName(made.ID)
-		err := a.putPanelClient(made.ID, &rights, nets)
+		err := a.putPanelClient(cl.Actor, made.ID, &rights, nets)
 		if err == nil {
 			_, err = a.panels.replace(made)
 		}
 		if err != nil {
 			a.panels.delete(made.ID)
-			a.setPanelClient(made.ID, nil)
+			a.setPanelClient(cl.Actor, made.ID, nil)
 			failWith(w, err)
 			return
 		}

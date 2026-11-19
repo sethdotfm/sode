@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind, eventProblem } from '../logkinds.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind, eventProblem, addNewKinds } from '../logkinds.js';
 
 const [a, b, c] = KIND_IDS;
 
@@ -77,4 +77,11 @@ test('eventProblem: other kinds go by result, not err', () => {
   assert.equal(eventProblem({ kind: 'command', result: 'ok' }), false);
   assert.equal(eventProblem({ kind: 'link', result: 'down' }), true);
   assert.equal(eventProblem({ kind: 'api', result: 'error' }), true);
+});
+
+test('Settings saves is an event kind, and a saved filter from before it gets it', () => {
+  assert.ok(KIND_IDS.includes('settings'));
+  assert.ok(EVENT_KINDS.has('settings'));
+  assert.deepEqual(addNewKinds(['connect'], undefined), ['connect', 'settings']);
+  assert.deepEqual(addNewKinds(['connect'], KIND_IDS), ['connect']);
 });

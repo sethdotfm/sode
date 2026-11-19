@@ -1,0 +1,347 @@
+package app
+
+import (
+	"bytes"
+	"encoding/json"
+	"maps"
+	"slices"
+	"strings"
+
+	"github.com/sethdotfm/sode/internal/config"
+)
+
+// The Settings saves record (docs/agents/comm-log.md): one Communication Log row per write to
+// shared settings, with old and new values. Values come from the config before and after,
+// never from what the page sent, which can hold a PIN.
+
+// sectionNames and topics: the words of index.html's legends and topic headings.
+var sectionNames = map[string]string{
+	"everyone-defaults": "Everyone's defaults",
+	"branding":          "Branding",
+	"history":           "History",
+	"level-colors":      "Level colors",
+	"confirm":           "Confirm and results",
+	"routers":           "Routers",
+	"router-matrix":     "Router & matrix",
+	"router-names":      "Router names",
+	"takes":             "Takes",
+	"locks":             "Locks",
+	"users":             "Users",
+	"api":               "API",
+	"panels":            "Panels",
+	"proxy":             "Proxy",
+	"export-import":     "Export & Import",
+	"run-setup-again":   "Run setup again",
+}
+
+func topicOf(section string) string {
+	switch section {
+	case "routers", "router-matrix", "router-names", "takes":
+		return "Routers"
+	case "locks", "users", "api", "panels":
+		return "Access"
+	case "proxy", "export-import", "run-setup-again":
+		return "Server"
+	}
+	return "Look and feel"
+}
+
+// fieldLabels: the Settings label of each saveFields key (TestEverySavedFieldHasLabel), plus the
+// Advanced Settings PIN that the config message saves.
+var fieldLabels = map[string]string{
+	"browserDefaults":      "Everyone's defaults",
+	"brandText":            "Logo text & Page title",
+	"brandBorder":          "Accent Color",
+	"hiddenDsts":           "Hidden destinations in History",
+	"hiddenDstsRouter":     "Hidden destinations router",
+	"levelColors":          "Level colors",
+	"confirmLockoutMs":     "Confirm lockout (ms)",
+	"resultDismissSeconds": "Success banner closes after (s)",
+	"confirmEnter":         "Enter confirms takes",
+	"router":               "Address",
+	"routerName":           "Name",
+	"routerShow":           "Status label",
+	"matrix":               "Matrix",
+	"levels":               "Levels",
+	"levelWireOffset":      "Level offset",
+	"levelNumbering":       "Level numbering",
+	"numberOffset":         "Source and destination numbers",
+	"nameRereadSeconds":    "Re-read every (s)",
+	"nameLength":           "Name character limit",
+	"nameRequests":         "Name requests",
+	"defaultLevels":        "Default levels",
+	"tallyResyncSeconds":   "Re-read routes every (s)",
+	"fireMode":             "Multi destination behavior",
+	"salvoGroup":           "Router salvo group",
+	"pinWaits":             "Wait after wrong PINs",
+	"locks":                "Locks",
+	"autoLockMinutes":      "Auto-lock after idle (minutes)",
+	"guestRole":            "Guest role",
+	"newUserDefaults":      "New user defaults",
+	"publicPanels":         "Public panels allowed",
+	"newPanelActs":         "New-panel Authentication mode",
+	"trustedProxies":       "Trusted proxies",
+	"requireHttps":         "Require HTTPS",
+	"maxPinLen":            "Longest PIN",
+	"guestRights":          "Guest rights",
+	"api":                  "API",
+	"guestApiScopes":       "Keyless API scopes",
+	settingsPinKey:         "Advanced Settings PIN",
+}
+
+// settingsPinKey is not a one Save key: only the config message writes it.
+const settingsPinKey = "settingsPin"
+
+var attrLabels = map[string]string{
+	"name": "Name", "role": "Role", "pin": "PIN", "rights": "Rights", "persistent": "Never sign out",
+	"noAutoLock": "No auto-lock", "remove": "Remove", "add": "Add", "scopes": "Scopes",
+}
+
+// itemLabel: "User Ana: Role" or "API client Bot: Scopes". The name is the one before the save,
+// else after it.
+func itemLabel(key string, was, now config.Config) string {
+	if rest, ok := strings.CutPrefix(key, "user/"); ok {
+		id, attr, _ := strings.Cut(rest, "/")
+		u, ok := was.FindUserByID(id)
+		if !ok {
+			u, _ = now.FindUserByID(id)
+		}
+		return "User " + u.Name + ": " + attrLabels[attr]
+	}
+	rest := strings.TrimPrefix(key, "client/")
+	i := strings.LastIndex(rest, "/")
+	return "API client " + rest[:i] + ": " + attrLabels[rest[i+1:]]
+}
+
+func newSavedField(key, section, label string) SavedField {
+	return SavedField{Key: key, Label: label, SectionID: section, Section: sectionNames[section], Topic: topicOf(section)}
+}
+
+// rightsField: nil lists in Rights mean everything.
+func rightsField(key string) bool {
+	return key == "guestRights" || strings.HasSuffix(key, "/rights")
+}
+
+var allJSON = json.RawMessage(`"everything"`)
+
+// diffValue fills old and new, or added and removed for a list. An object gives a field per
+// changed member.
+func diffValue(base SavedField, was, now json.RawMessage, rights bool) []SavedField {
+	var wo, no map[string]json.RawMessage
+	if json.Unmarshal(was, &wo) == nil && json.Unmarshal(now, &no) == nil && wo != nil && no != nil {
+		var out []SavedField
+		subs := maps.Clone(wo)
+		maps.Copy(subs, no)
+		for _, k := range slices.Sorted(maps.Keys(subs)) {
+			if bytes.Equal(wo[k], no[k]) {
+				continue
+			}
+			f := base
+			f.Label += ": " + k
+			out = append(out, diffList(f, wo[k], no[k], rights)...)
+		}
+		return out
+	}
+	return diffList(base, was, now, rights)
+}
+
+func diffList(f SavedField, was, now json.RawMessage, rights bool) []SavedField {
+	isNull := func(v json.RawMessage) bool { return len(v) == 0 || string(v) == "null" }
+	var wl, nl []json.RawMessage
+	// A null list is empty, except in Rights, where it is everything.
+	lists := json.Unmarshal(was, &wl) == nil && json.Unmarshal(now, &nl) == nil && (wl != nil || nl != nil)
+	if lists && (!rights || !isNull(was) && !isNull(now)) {
+		for _, v := range nl {
+			if !slices.ContainsFunc(wl, func(w json.RawMessage) bool { return bytes.Equal(w, v) }) {
+				f.Added = append(f.Added, v)
+			}
+		}
+		for _, v := range wl {
+			if !slices.ContainsFunc(nl, func(w json.RawMessage) bool { return bytes.Equal(w, v) }) {
+				f.Removed = append(f.Removed, v)
+			}
+		}
+		if f.Added == nil && f.Removed == nil { // only the order changed
+			f.Old, f.New = was, now
+		}
+		return []SavedField{f}
+	}
+	if rights && isNull(was) && nl != nil {
+		was = allJSON
+	}
+	if rights && isNull(now) && wl != nil {
+		now = allJSON
+	}
+	f.Old, f.New = was, now
+	return []SavedField{f}
+}
+
+// savedFields: what each key in keys wrote between was and now. x names the ids that adds made.
+func (a *App) savedFields(was, now config.Config, keys []string, x *saveCtx) []SavedField {
+	var out []SavedField
+	for _, key := range slices.Sorted(slices.Values(keys)) {
+		if key == settingsPinKey {
+			f := newSavedField(key, "locks", fieldLabels[key])
+			f.Changed = true
+			out = append(out, f)
+			continue
+		}
+		spec, ok := lookupField(key)
+		if !ok {
+			continue
+		}
+		label := fieldLabels[key]
+		if label == "" {
+			label = itemLabel(key, was, now)
+		}
+		base := newSavedField(key, spec.section, label)
+		switch {
+		case spec.secret:
+			base.Changed = true
+			out = append(out, base)
+		case spec.adds:
+			out = append(out, a.addedFields(base, key, now, x)...)
+		default:
+			fs := diffValue(base, fieldJSON(was, key), fieldJSON(now, key), rightsField(key))
+			if id, ok := strings.CutPrefix(key, "user/"); ok && strings.HasSuffix(id, "/rights") {
+				u, _ := now.FindUserByID(strings.TrimSuffix(id, "/rights"))
+				if pc := a.panelClientsOf(now, u); len(pc) > 0 && len(fs) > 0 {
+					var l []string
+					for _, n := range pc {
+						l = append(l, n.Client+" ("+n.Name+")")
+					}
+					fs[0].Note = "panel clients they created: " + strings.Join(l, ", ")
+				}
+			}
+			out = append(out, fs...)
+		}
+	}
+	return out
+}
+
+// addedFields: a new user or API client, read from now. A new user's PIN is its own field.
+func (a *App) addedFields(base SavedField, key string, now config.Config, x *saveCtx) []SavedField {
+	if id, ok := x.made[key]; ok {
+		u, _ := now.FindUserByID(id)
+		base.Key = "user/" + id + "/add"
+		base.Label = "New user " + u.Name
+		base.New, _ = json.Marshal(map[string]any{"name": u.Name, "role": u.Role, "persistent": u.Persistent,
+			"noAutoLock": u.NoAutoLock, "rights": u.Rights})
+		out := []SavedField{base}
+		if u.Pin != "" {
+			pin := newSavedField("user/"+id+"/pin", base.SectionID, "User "+u.Name+": PIN")
+			pin.Changed = true
+			out = append(out, pin)
+		}
+		return out
+	}
+	rest := strings.TrimPrefix(key, "client/")
+	cl, _ := now.FindAPIClient(rest[:strings.LastIndex(rest, "/")])
+	base.Label = "New API client " + cl.Name
+	base.New, _ = json.Marshal(map[string]any{"name": cl.Name, "scopes": cl.Scopes, "rights": cl.Rights})
+	return []SavedField{base}
+}
+
+// clientChanges: what a write outside the one Save did to the API client name (a panel's own).
+func clientChanges(was, now config.Config, name string) []SavedField {
+	o, had := was.FindAPIClient(name)
+	n, has := now.FindAPIClient(name)
+	field := func(attr, label string) SavedField {
+		return newSavedField("client/"+name+"/"+attr, usersSection, "API client "+name+": "+label)
+	}
+	switch {
+	case !had && has:
+		f := field("add", "Add")
+		f.New, _ = json.Marshal(map[string]any{"name": n.Name, "scopes": n.Scopes, "rights": n.Rights, "networks": n.Networks})
+		return []SavedField{f}
+	case had && !has:
+		f := field("remove", "Remove")
+		f.Old, f.New = json.RawMessage("false"), json.RawMessage("true")
+		return []SavedField{f}
+	case !had:
+		return nil
+	}
+	var out []SavedField
+	ro, _ := json.Marshal(o.Rights)
+	rn, _ := json.Marshal(n.Rights)
+	if !bytes.Equal(ro, rn) {
+		out = append(out, diffValue(field("rights", "Rights"), ro, rn, true)...)
+	}
+	if !slices.Equal(o.Networks, n.Networks) {
+		no, _ := json.Marshal(o.Networks)
+		nn, _ := json.Marshal(n.Networks)
+		out = append(out, diffList(field("networks", "Networks"), no, nn, false)...)
+	}
+	return out
+}
+
+// recordSave writes one Settings saves row. why is how it came: "save" (Settings) or "api".
+func (a *App) recordSave(by Actor, why string, fields []SavedField, critical bool) {
+	if len(fields) == 0 {
+		return
+	}
+	e := event(kindSettings, why, redactKeys(by.String()), "ok")
+	e.Note = a.panelNote(by)
+	e.Save = &SettingsSave{Fields: fields, Critical: critical}
+	a.logEvent(e)
+}
+
+// hiddenSection: lower Roles do not see it in Settings, so they do not see its values here.
+func hiddenSection(id string) bool {
+	t, ok := sectionRoles[id]
+	return !ok || !t.shown
+}
+
+// forReader: es with the values of Hidden sections taken out unless the reader is an
+// Administrator. Rows that need no change are shared.
+func forReader(es []Sent, admin bool) []Sent {
+	if admin {
+		return es
+	}
+	out, cloned := es, false
+	for i, e := range es {
+		if e.Save == nil {
+			continue
+		}
+		if !cloned {
+			out, cloned = slices.Clone(es), true
+		}
+		s := *e.Save
+		s.Fields = slices.Clone(s.Fields)
+		for j, f := range s.Fields {
+			if hiddenSection(f.SectionID) {
+				s.Fields[j] = SavedField{Topic: f.Topic, Section: f.Section, SectionID: f.SectionID, Key: f.Key, Label: f.Label, Changed: true}
+			}
+		}
+		out[i].Save = &s
+	}
+	return out
+}
+
+// mergeSaves adds to a Communication Log page (newest first, seqs from before-1 down) the
+// Settings saves rows anchored in it. A row anchored at k sits between seq k and k-1. With no
+// more entries, every older row comes too.
+func (a *App) mergeSaves(page []Sent, before int64, more bool) []Sent {
+	hi := before
+	if hi < 0 {
+		hi = 1 << 62
+	}
+	lo := int64(-1 << 62)
+	if more && len(page) > 0 {
+		lo = page[len(page)-1].Seq
+	}
+	saves := a.saves.Between(lo, hi)
+	if len(saves) == 0 {
+		return page
+	}
+	out := make([]Sent, 0, len(page)+len(saves))
+	i := 0
+	for _, e := range page {
+		for i < len(saves) && saves[i].Seq > e.Seq {
+			out = append(out, saves[i])
+			i++
+		}
+		out = append(out, e)
+	}
+	return append(out, saves[i:]...)
+}
