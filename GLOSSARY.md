@@ -102,6 +102,9 @@ A named, savable group of filters, scoped to Me, This browser or Everyone. Sever
 The page that shows every command and the raw messages Sode sent to the router, plus a router uptime graph.
 _Avoid_: sent log
 
+**Log row**:
+One line in the Communication Log: a message Sode sent to the router, or an event such as a connect or a Settings save. Not an Entry, which is a History row.
+
 ### Changes Sode did not make
 
 **External**:
