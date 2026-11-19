@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"gopkg.in/yaml.v3"
@@ -83,10 +82,7 @@ func (a *App) serveExport(w http.ResponseWriter, r *http.Request) {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+time.Now().Format("2006-01-02")+`-Sode-Export.zip"`)
-	w.Write(b)
+	writeExportZip(w, b)
 }
 
 // importCheck is what the import route answers about a file it accepted.

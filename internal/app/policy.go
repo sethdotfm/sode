@@ -169,8 +169,8 @@ var policy = map[string]rule{
 		}},
 	"profileGet": {crit: critNever, role: config.RoleTrusted, op: "profileGet",
 		handle: func(a *App, c *client, m *inMsg) { a.serveProfileGet(c, m) }},
-	// A session token for the export routes (exportitems.go), which take it in a header.
-	"exportSession": {crit: critNever, role: config.RoleAdministrator, op: "exportSession",
+	// A session token for the export routes (exportitems.go, ownexport.go), which take it in a header and check the Role. A Guest gets none (ExportSession).
+	"exportSession": {crit: critNever, role: config.RoleStandard, op: "exportSession",
 		handle: func(a *App, c *client, m *inMsg) { a.serveExportSession(c, m) }},
 	"userSignOutAll": {crit: critAlways, role: config.RoleAdministrator, op: "userSignOutAll", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(name string, id int) {

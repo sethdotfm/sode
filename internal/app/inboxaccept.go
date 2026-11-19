@@ -28,31 +28,48 @@ type cardPlanner struct {
 	allPanels  []Panel
 	panels     []plannedPanel
 	plan       importPlan
+	// file: an export file, not a card (ownexport.go). An item equal to the importer's is No change, and
+	// same (a file from this install) matches by hidden id and preselects Use new.
+	file, same bool
 }
 
 // planCard plans card onto user toID of live. src, dst are the live router's names.
 func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq, envOnly bool) (*cardPlanner, error) {
+	p, err := newCardPlanner(live, src, dst, allPanels, card, toID, req, envOnly)
+	if err != nil {
+		return nil, err
+	}
+	p.run(nil)
+	return p, nil
+}
+
+func newCardPlanner(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq, envOnly bool) (*cardPlanner, error) {
 	u, ok := live.FindUserByID(toID)
 	if !ok {
 		return nil, errNoSuchUser
 	}
 	_, rights := live.ActsAs(u)
-	p := &cardPlanner{
+	return &cardPlanner{
 		live: live, next: live.Clone(), user: toID, rights: rights, card: card, req: req, envOnly: envOnly, allPanels: allPanels,
 		check: &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
 		plan:  importPlan{SameInstall: true, Categories: map[string]*importCat{}},
-	}
+	}, nil
+}
+
+// run plans profile (when given) and the card's items. Categories none in the request means all of them.
+func (p *cardPlanner) run(profile func(*config.Config, *importCat) error) {
 	steps := []struct {
 		cat string
 		n   int
 		run func(*config.Config, *importCat) error
 	}{
-		{catPresets, len(card.Items.Presets), p.planPresets},
-		{catFilterSets, len(card.Items.FilterSets), p.planFilterSets},
-		{catPanels, len(card.Items.Panels), p.planPanels},
+		{catProfile, 1, profile},
+		{catPresets, len(p.card.Items.Presets), p.planPresets},
+		{catFilterSets, len(p.card.Items.FilterSets), p.planFilterSets},
+		{catPanels, len(p.card.Items.Panels), p.planPanels},
 	}
 	for _, s := range steps {
-		if s.n == 0 {
+		if s.n == 0 || s.run == nil || len(p.req.Categories) > 0 && !slices.Contains(p.req.Categories, s.cat) {
 			continue
 		}
 		cat := &importCat{Items: []importItem{}}
@@ -76,7 +93,6 @@ func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, ca
 		}
 		p.next = cand
 	}
-	return p, nil
 }
 
 func (p *cardPlanner) profile(cfg *config.Config) *config.Profile {
@@ -91,11 +107,15 @@ func (p *cardPlanner) picked(cat, key string) bool {
 	return !some || slices.Contains(keys, key)
 }
 
-// choice: the page's choice, else Rename, since the clash is with the recipient's own item.
+// choice: the page's choice, else Rename, since the clash is with the recipient's own item. A file from this
+// install preselects Use new, as the Add import does.
 func (p *cardPlanner) choice(cat, key string) string {
 	switch c := p.req.Choices[cat][key]; c {
 	case useNew, useCurrent, useSkip, useRename:
 		return c
+	}
+	if p.same {
+		return useNew
 	}
 	return useRename
 }
@@ -156,6 +176,11 @@ func (p *cardPlanner) panelOutside(fp Panel) bool {
 	return false
 }
 
+func withID(s config.Preset, id string) config.Preset {
+	s.ID = id
+	return s
+}
+
 func (p *cardPlanner) planPresets(cand *config.Config, cat *importCat) error {
 	prof := p.profile(cand)
 	ic := &importPlanner{check: p.check}
@@ -171,12 +196,20 @@ func (p *cardPlanner) planPresets(cand *config.Config, cat *importCat) error {
 		taken := func(n string) bool {
 			return slices.ContainsFunc(prof.Presets, func(x config.Preset) bool { return strings.EqualFold(x.Name, n) })
 		}
-		i := matchIdx(false, prof.Presets, "", s.Name, nil, func(x config.Preset) string { return x.Name })
+		i := matchIdx(p.same, prof.Presets, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
+		if i >= 0 && p.file && sameYAML(withID(s, prof.Presets[i].ID), prof.Presets[i]) {
+			it.Same = true
+			cat.Items = append(cat.Items, it)
+			continue
+		}
 		if i >= 0 {
 			it.Clash, it.Choice = prof.Presets[i].Name, p.choice(catPresets, key)
 			switch it.Choice {
 			case useNew:
-				s.ID, s.Name = prof.Presets[i].ID, prof.Presets[i].Name
+				s.ID = prof.Presets[i].ID
+				if !p.same { // matched by name: keep the live spelling
+					s.Name = prof.Presets[i].Name
+				}
 				prof.Presets[i] = s
 			case useRename:
 				s.Name = nextName(s.Name, taken)
@@ -206,6 +239,14 @@ func (p *cardPlanner) planFilterSets(cand *config.Config, cat *importCat) error 
 		s.Broken = p.check.filterSetBroken(s)
 		it := importItem{Key: key, Name: s.Name, Broken: s.Broken}
 		i := matchIdx(false, prof.FilterSets, "", s.Name, nil, func(x config.FilterSet) string { return x.Name })
+		if i >= 0 && p.file {
+			s.Extra = prof.FilterSets[i].Extra
+			if sameYAML(s, prof.FilterSets[i]) {
+				it.Same = true
+				cat.Items = append(cat.Items, it)
+				continue
+			}
+		}
 		if i >= 0 {
 			it.Clash, it.Choice = prof.FilterSets[i].Name, p.choice(catFilterSets, key)
 			switch it.Choice {

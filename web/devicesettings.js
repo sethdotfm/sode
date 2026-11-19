@@ -126,7 +126,7 @@ export function initDeviceSettings({ form, reindex }) {
   $('account-keys').addEventListener('click', () => emit('openKeys'));
   $('account-clients').addEventListener('click', () => emit('openClients'));
   $('account-profile').addEventListener('click', () => emit('openProfile', { name: acctUser }));
-  $('account-transfer').addEventListener('click', () => emit('openTransfer', { scope: 'user', user: acctUser }));
+  $('account-transfer').addEventListener('click', () => emit('openOwnExport'));
   $('account-logout').addEventListener('click', () => emit('logout'));
   $('account-login').addEventListener('click', () => emit('login'));
   initStepIn(); // after the access handler above, which it overrides while stepped in

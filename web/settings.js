@@ -22,6 +22,7 @@ import './apisettings.js';
 import './accesspreset.js';
 import './profiles.js';
 import './exportdialog.js';
+import './ownexport.js';
 
 const root = document.documentElement;
 

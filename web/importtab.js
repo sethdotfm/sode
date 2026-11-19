@@ -1,12 +1,12 @@
-// The Import tab of the Export & Import dialog (exportdialog.js) is one long review of the file. Review… puts the
-// one Save review in the dialog body. The server plans every step (POST api/import, docs/agents/profiles.md);
-// the page sends its ticks and choices and shows what the server answers. Pure rules are in importrules.js.
+// The Import tab of the Export & Import dialogs (exportdialog.js; ownexport.js with own) is one long review of the
+// file. Review… puts the one Save review in the dialog body. The server plans every step (POST api/import,
+// docs/agents/profiles.md); the page sends its ticks and choices and shows what the server answers. Pure rules are in importrules.js.
 
 import { el, off, S } from './core.js';
 import { call } from './exportcalls.js';
 import { recheckPin } from './recheck.js';
 import { segmented } from './formbits.js';
-import { CATEGORIES, sizeText } from './exportrules.js';
+import { CATEGORIES, OWN_CATEGORIES, ADMIN_ONLY, sizeText } from './exportrules.js';
 import * as R from './importrules.js';
 import { browserPrefs, mergeByName } from './browserimport.js';
 import { setPref } from './device.js';
@@ -30,23 +30,27 @@ function applyBrowser(values, replace) {
   putLocalPresets(mergeByName(localPresets(), presets, replace));
 }
 
-// opts: setNote(text, error), setReview(title or ''), backup() downloads Back up everything.
-export function importTab({ setNote, setReview, backup }) {
+// opts: setNote(text, error), setReview(title or ''), backup() downloads Back up everything. own: My user's own items
+// (api/own/import), with the file's other categories shown as Administrators only.
+export function importTab({ setNote, setReview, backup, own = false }) {
+  const route = own ? 'api/own/import' : 'api/import';
+  const cats = own ? OWN_CATEGORIES : CATEGORIES;
+  const ids = own ? 'own-xi' : 'xi'; // both dialogs are in the page
   const panel = el('div', 'sode__xi-import');
   const fileInput = el('input');
   fileInput.type = 'file';
   fileInput.accept = '.zip,application/zip';
-  fileInput.id = 'xi-file';
+  fileInput.id = `${ids}-file`;
   fileInput.hidden = true;
   const chooseBtn = btn('pb-btn--ok', 'Choose a file…', () => fileInput.click());
-  chooseBtn.id = 'xi-choose';
+  chooseBtn.id = `${ids}-choose`;
   const brokenBadge = el('span', 'pb-badge pb-badge--error');
   const reviewBtn = btn('pb-btn--ok', 'Review…', () => review());
-  reviewBtn.id = 'xi-review';
+  reviewBtn.id = `${ids}-review`;
   const backBtn = btn('pb-btn--outline', 'Back', () => back());
-  backBtn.id = 'xi-back';
+  backBtn.id = `${ids}-back`;
   const importBtn = btn('pb-btn--ok', 'Import', () => apply());
-  importBtn.id = 'xi-import';
+  importBtn.id = `${ids}-import`;
   const anotherBtn = btn('pb-btn--outline', 'Import another', () => reset());
   const acts = el('span', 'sode__xi-acts', brokenBadge, chooseBtn, reviewBtn, backBtn, importBtn, anotherBtn);
 
@@ -83,7 +87,7 @@ export function importTab({ setNote, setReview, backup }) {
     const my = ++seq;
     setNote('Reading the file…');
     try {
-      const res = await call('api/import', { method: 'POST', body: form({ mode: 'add', categories: R.PLANNED }) });
+      const res = await call(route, { method: 'POST', body: form({ mode: 'add', categories: R.PLANNED }) });
       const got = await res.json();
       if (my !== seq) return;
       check = got;
@@ -116,7 +120,7 @@ export function importTab({ setNote, setReview, backup }) {
   }
 
   function choices(cat, it, i) {
-    const seg = segmented(`xi-choice-${cat}-${i}`, `${it.name} clash`, R.choicesFor(cat, it), (v) => {
+    const seg = segmented(`${ids}-choice-${cat}-${i}`, `${it.name} clash`, R.choicesFor(cat, it), (v) => {
       pick.choices[cat][it.key] = v;
       render();
     });
@@ -182,17 +186,40 @@ export function importTab({ setNote, setReview, backup }) {
   function routerNames() {
     const live = check.plan.categories.routers?.items || [];
     const lines = (check.routers || []).map((r) => {
-      const here = live.find((it) => it.key === r.UID);
+      // An own import plans no Routers category, so the check names the live router.
+      const here = own ? r.UID === check.router : live.some((it) => it.key === r.UID && !it.note);
       const name = r.Title || r.Prefix;
-      return el('li', null, here && !here.note ? `${name}: this router` : `${name}: another router. Items that use it arrive Broken.`);
+      return el('li', null, here ? `${name}: this router` : `${name}: another router. Items that use it arrive Broken.`);
     });
     if (!lines.length) return [];
     return [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list', ...lines)];
   }
 
+  // A category of the file that only an Administrator imports, greyed.
+  function adminRow(cat, text) {
+    const head = el(
+      'div',
+      'sode__xi-head',
+      el('span'),
+      box(`admin:${cat}`, text, false, false, true, () => {}),
+    );
+    head.append(el('span', 'sode__hint', 'Administrators only'), el('span', 'sode__xi-size'));
+    head.dataset.cat = `admin:${cat}`;
+    return head;
+  }
+
+  function fileHint() {
+    const where = `Sode ${check.sode}, ${check.sameInstall ? 'this install' : 'another install'}`;
+    if (!own) return where;
+    return check.from ? `${where}, from ${check.from}` : `${where}. It holds no profile for you.`;
+  }
+
   function listView() {
     const rows = [];
-    for (const [cat, text] of CATEGORIES) if (check.categories.includes(cat)) rows.push(...catRows(cat, text));
+    if (own) {
+      for (const [cat, text] of OWN_CATEGORIES) if (check.plan.categories[cat]) rows.push(...catRows(cat, text));
+      for (const [cat, text] of ADMIN_ONLY) if (check.admin?.includes(cat)) rows.push(adminRow(cat, text));
+    } else for (const [cat, text] of CATEGORIES) if (check.categories.includes(cat)) rows.push(...catRows(cat, text));
     return [
       el(
         'div',
@@ -200,7 +227,7 @@ export function importTab({ setNote, setReview, backup }) {
         el('strong', null, file.name),
         el('span', 'sode__xi-size', sizeText(file.size)),
         btn('pb-btn--ghost pb-btn--sm', 'Change', () => fileInput.click()),
-        el('span', 'sode__hint sode__xi-sub', `Sode ${check.sode}, ${check.sameInstall ? 'this install' : 'another install'}`),
+        el('span', 'sode__hint sode__xi-sub', fileHint()),
       ),
       el('div', 'sode__xi-mode', el('strong', null, 'Add import'), el('span', 'sode__hint', 'Adds and updates. Deletes nothing.')),
       el('div', 'sode__xi-cats', ...rows),
@@ -215,7 +242,7 @@ export function importTab({ setNote, setReview, backup }) {
     setNote('Checking your choices…');
     reviewBtn.disabled = true;
     try {
-      const res = await call('api/import', { method: 'POST', body: form(R.importReq(pick)) });
+      const res = await call(route, { method: 'POST', body: form(R.importReq(pick)) });
       const got = await res.json();
       if (my !== seq) return;
       planned = got.plan;
@@ -232,7 +259,7 @@ export function importTab({ setNote, setReview, backup }) {
   const pinInput = el('input', 'pb-input sode__xi-pin');
   pinInput.type = 'password';
   pinInput.inputMode = 'numeric';
-  pinInput.id = 'xi-pin';
+  pinInput.id = `${ids}-pin`;
   pinInput.autocomplete = 'current-password';
   pinInput.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
@@ -240,11 +267,11 @@ export function importTab({ setNote, setReview, backup }) {
     apply();
   });
   const pinErr = el('span', 'sode__hint sode__error-text');
-  pinErr.id = 'xi-pin-err';
+  pinErr.id = `${ids}-pin-err`;
   pinErr.setAttribute('role', 'alert');
 
   const needsPin = () => planned?.critical && S.users.length > 0;
-  const label = (cat) => CATEGORIES.find(([c]) => c === cat)?.[1] || cat;
+  const label = (cat) => cats.find(([c]) => c === cat)?.[1] || cat;
 
   function reviewView() {
     const counts = R.reviewCounts(planned);
@@ -265,7 +292,7 @@ export function importTab({ setNote, setReview, backup }) {
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
     if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
-      if (needsPin()) row.append(Object.assign(el('label', 'sode__label', 'PIN'), { htmlFor: 'xi-pin' }), pinInput);
+      if (needsPin()) row.append(Object.assign(el('label', 'sode__label', 'PIN'), { htmlFor: pinInput.id }), pinInput);
       out.push(el('div', 'pb-note pb-note--warn', 'Use new replaces what is here. This is a Critical action.'), row, pinErr);
     }
     return out;
@@ -293,7 +320,7 @@ export function importTab({ setNote, setReview, backup }) {
         }
       }
       setNote('Importing…');
-      const res = await call('api/import/apply', { method: 'POST', body: form(R.importReq(pick)) });
+      const res = await call(`${route}/apply`, { method: 'POST', body: form(R.importReq(pick)) });
       const got = await res.json();
       if (my !== seq) return;
       planned = got.plan;

@@ -14,6 +14,12 @@ import {
   nothingPicked,
   sizeText,
   fileNameOf,
+  OWN_CATEGORIES,
+  ADMIN_ONLY,
+  newOwnPick,
+  ownState,
+  ownSize,
+  ownBody,
 } from '../exportrules.js';
 
 const list = {
@@ -124,4 +130,37 @@ test('a picked panel brings the Icon library icons it uses', () => {
   assert.equal(iconsBroughtBy(list, p).get('ic-1').name, 'Desk');
   assert.equal(catSize(list, p, 'artwork'), 30);
   assert.deepEqual(exportBody(list, p, {}).categories, ['panels']);
+});
+
+test('own export: everything ticked; the body sends only own categories, presets and filter sets by id', () => {
+  const own = {
+    categories: [
+      { name: 'profile', items: [{ id: 'profile', name: 'Profile', size: 20 }] },
+      {
+        name: 'presets',
+        items: [
+          { id: 'p1', name: 'Show', size: 40 },
+          { id: 'p2', name: 'Rehearsal', size: 30 },
+        ],
+      },
+      { name: 'filterSets', items: [] },
+    ],
+  };
+  const p = newOwnPick(own);
+  assert.equal(ownState(own, p, 'presets'), 'all');
+  assert.equal(ownSize(own, p, 'presets'), 70);
+  assert.deepEqual(ownBody(p), { categories: ['profile', 'presets'], pick: { presets: ['p1', 'p2'] } });
+  p.items.presets.delete('p2');
+  p.items.profile.clear();
+  assert.equal(ownState(own, p, 'presets'), 'some');
+  assert.deepEqual(ownBody(p), { categories: ['presets'], pick: { presets: ['p1'] } });
+  assert.deepEqual(
+    OWN_CATEGORIES.map(([c]) => c),
+    ['profile', 'presets', 'filterSets'],
+  );
+  for (const [c] of ADMIN_ONLY)
+    assert.ok(
+      CATEGORIES.some(([x]) => x === c),
+      c,
+    );
 });

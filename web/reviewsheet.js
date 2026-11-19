@@ -1,4 +1,4 @@
-// Review sheet: what an import file would change, shown before anything is saved. Used by transfer.js.
+// Review sheet: what an import would change, shown before anything is saved. Used by browsercopy.js.
 // A save goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
 import { el, S, on, off, sentence } from './core.js';
