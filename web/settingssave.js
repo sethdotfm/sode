@@ -300,7 +300,8 @@ async function review({ focusField }) {
     place,
     label,
     show,
-    critical: (r) => critical(r.key),
+    // A row that goes through an Approval needs no recheck of this browser's user: an Administrator approver's counts.
+    critical: (r) => critical(r.key) && sectionView(sectionOf(r.key), role) === 'edit',
     reconnects: (r) => reconnects(r.key),
     address: now.router,
     recheckNeeded: S.users.length > 0,
