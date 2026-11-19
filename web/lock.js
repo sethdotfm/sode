@@ -110,10 +110,21 @@ let inerted = [];
 let hideTimer = 0;
 let pinFree = false; // a Public panel's page, told by panelrun.js
 let lastState = null;
+let offlineLine;
+
+// Offline wins over the Lock: html[data-conn="down"] (desktop.js, panelrun.js) gives the Lock the offline colors
+// (lock.css), and the Lock names both states.
+function sayOffline() {
+  if (!root) return;
+  const off = document.documentElement.dataset.conn === 'down';
+  offlineLine.hidden = !off;
+  root.setAttribute('aria-label', off ? 'Offline, locked' : 'Locked');
+}
 
 function build() {
   if (root) return;
   brand = el('h1', 'sode-lock__brand', 'Sode');
+  offlineLine = el('p', 'sode-lock__offline', 'Offline, locked');
   state = el('p', 'sode-lock__state', 'Locked');
   dotsEl = el('div', 'sode-lock__dots');
   dotsEl.setAttribute('aria-hidden', 'true');
@@ -192,10 +203,12 @@ function build() {
   root = el(
     'div',
     { class: 'sode-lock', ...dialogAttrs(), 'aria-label': 'Locked', hidden: true },
-    el('div', 'sode-lock__main', brand, padBody, letterBody),
+    el('div', 'sode-lock__main', brand, offlineLine, padBody, letterBody),
     letterFoot,
   );
   document.body.append(root);
+  sayOffline();
+  new MutationObserver(sayOffline).observe(document.documentElement, { attributes: true, attributeFilter: ['data-conn'] });
 
   chip = buildChip({ lock: localLock });
   document.body.append(chip.root);
@@ -261,7 +274,7 @@ function showLock() {
   signOutBtn.hidden = !(L.held || signOutOffered(L));
   signInAsBtn.hidden = L.held || !signInAsOffered(L);
   letterFoot.hidden = !L.held && (body !== 'letter' || (signOutBtn.hidden && signInAsBtn.hidden));
-  root.setAttribute('aria-label', 'Locked');
+  sayOffline();
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
   pin = '';

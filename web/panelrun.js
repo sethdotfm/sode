@@ -389,6 +389,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       ui.main.classList.toggle('sode-panels--offline', !!o);
       ui.offline.hidden = !o;
       if (o) ui.offlineDetail.textContent = o.detail;
+      // The Lock reads it: offline wins over its colors (lock.css).
+      document.documentElement.dataset.conn = o ? 'down' : 'up';
     },
     onFail(e) {
       const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!door.key && !door.keyIsPublic, door.keyIsPublic);
