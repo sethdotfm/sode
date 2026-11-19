@@ -7,6 +7,7 @@ const COUNTS = [
   ['streams', 'stream', 'streams'],
   ['sessions', 'session', 'sessions'],
   ['keys', 'key', 'keys'],
+  ['stepIns', 'step-in', 'step-ins'],
 ];
 
 const sum = (list, k) => list.reduce((n, x) => n + (x[k] || 0), 0);
