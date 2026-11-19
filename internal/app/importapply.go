@@ -120,7 +120,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	defer a.cfgMu.Unlock()
 	live := a.r().cfg
 	src, dst := a.liveNames()
-	p := planImport(live, src, dst, a.panels.list(), b, req, act.User, secureRequest(r, a.r().proxies), a.cfgPath == "")
+	p := planImport(live, src, dst, a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies), a.cfgPath == "")
 	if p.plan.Critical && !a.tokenRechecked(r.Header.Get(sessionHeader)) {
 		apiFail(w, http.StatusForbidden, "recheck", recheckErr{what: p.overwrites}.Error())
 		return
@@ -143,7 +143,13 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	now := a.r().cfg
-	failed := a.writeImportPanels(p, b)
+	failed := map[string]string{}
+	a.writeImportArtwork(p, failed)
+	a.writeImportPanels(p, b, failed)
+	a.writeImportPanelExtras(p, failed)
+	if len(failed) == 0 {
+		failed = nil
+	}
 	a.auditRequireHTTPS(act, live.RequireHTTPS, now.RequireHTTPS)
 	a.auditAPISettings(act, live, now)
 	a.panelsFollowUsers(live.Users, now.Users)
@@ -151,10 +157,9 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	apiJSON(w, importResult{Plan: p.plan, Failed: failed})
 }
 
-// writeImportPanels writes the planned panels and their artwork. Each panel is its own file, so a failed
-// write leaves the others and is reported.
-func (a *App) writeImportPanels(p *importPlanner, b *exportBundle) map[string]string {
-	failed := map[string]string{}
+// writeImportPanels writes the planned panels, their artwork and Push checkpoints. Each panel is its own
+// file, so a failed write leaves the others and is reported.
+func (a *App) writeImportPanels(p *importPlanner, b *exportBundle, failed map[string]string) {
 	for _, pp := range p.panels {
 		fp := pp.P
 		files := fp.Art
@@ -169,20 +174,20 @@ func (a *App) writeImportPanels(p *importPlanner, b *exportBundle) map[string]st
 				}
 			}
 		} else {
-			fp, err = a.panels.create(fp)
+			fp, err = a.panels.createAs(fp)
 		}
 		if err == nil {
+			p.panelIDs[pp.FileID] = fp.ID
 			err = a.putImportArt(fp.ID, pp.FileID, files, b)
+		}
+		if err == nil && len(pp.Cps) > 0 {
+			err = a.panels.putCheckpoints(fp.ID, pp.Cps)
 		}
 		if err != nil {
 			failed[pp.FileID] = err.Error()
 			log.Printf("import: panel %s: %v", pp.P.Name, err)
 		}
 	}
-	if len(failed) == 0 {
-		return nil
-	}
-	return failed
 }
 
 func (a *App) putImportArt(id, fileID string, arts []PanelArt, b *exportBundle) error {
@@ -219,17 +224,16 @@ type importCount struct {
 type ImportSave struct {
 	Mode       string        `json:"mode"`
 	Categories []importCount `json:"categories"`
-	Deferred   []string      `json:"deferred,omitempty"`
 }
 
 func (a *App) recordImport(by Actor, mode string, plan *importPlan, failed map[string]string) {
-	out := &ImportSave{Mode: mode, Deferred: plan.Deferred}
+	out := &ImportSave{Mode: mode}
 	for _, name := range slices.Sorted(maps.Keys(plan.Categories)) {
 		c := plan.Categories[name]
 		n := importCount{Category: name, Refused: c.Refused != ""}
 		for _, it := range c.Items {
 			switch {
-			case c.Refused != "", failed[it.Key] != "" && name == catPanels:
+			case c.Refused != "", failed[it.Key] != "":
 			case !it.writes():
 				n.Kept++
 			case it.Clash != "" && it.Choice == useNew:

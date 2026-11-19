@@ -407,6 +407,23 @@ func (s *panelStore) create(p Panel) (Panel, error) {
 	})
 }
 
+// createAs is create, but an imported panel keeps its id when nobody holds it, so its links still work.
+func (s *panelStore) createAs(p Panel) (Panel, error) {
+	if !panelIDRe.MatchString(p.ID) {
+		p.ID = ""
+	}
+	vet := func(p Panel) error {
+		if s.slugTakenLocked(p.Slug, "") {
+			return errSlugTaken
+		}
+		return nil
+	}
+	return s.insertAs(p, panelMax, errPanelCap, vet, func(p *Panel) error {
+		p.normalize()
+		return s.writeLocked(p)
+	})
+}
+
 // replace stores p over the panel of the same id; it reports false if there is none.
 func (s *panelStore) replace(p Panel) (bool, error) {
 	s.mu.Lock()
