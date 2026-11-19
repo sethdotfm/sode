@@ -1,4 +1,3 @@
-// The tally a panel page keeps from the WebSocket's frames.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { withRoutes, framesApply, sameRoutes } from '../paneltally.js';

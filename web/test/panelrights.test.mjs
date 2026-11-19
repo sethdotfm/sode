@@ -1,5 +1,4 @@
-// A panel's refusals before arming (Rights, Protected, levels) and its Result display. The server
-// enforces the same rules; these must stay in step with it (internal/app/rights.go).
+// The server enforces the same rules. Keep in step with internal/app/rights.go.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, pressDestination, pressSource, pressPreset, armed, finishTake, resultShown, errorOf, RESULT_MS } from '../panelmodel.js';
@@ -62,9 +61,9 @@ test('a Result shows as an icon, with its word only when the panel asks for text
 test('the outside-rights error names the cell, and nothing of numbers when quiet', () => {
   const n = namesFrom({ numberOffset: 0, sources: [{ n: 4, name: 'CAM 5' }], destinations: [{ n: 0, name: 'MON A' }] });
   const err = (what, quiet) => errorText({ code: 'outside-rights', what, dst: 0, src: 4, quiet }, n);
-  assert.equal(err('destination', false), "MON A is outside this panel's rights");
-  assert.equal(err('source', false), "CAM 5 is outside this panel's rights");
-  assert.equal(err('source', true), "That is outside this panel's rights");
+  assert.equal(err('destination', false), "MON A is outside this panel's Rights");
+  assert.equal(err('source', false), "CAM 5 is outside this panel's Rights");
+  assert.equal(err('source', true), "That is outside this panel's Rights");
 });
 
 test('the rights the server sent reach the env, and none means everything', () => {

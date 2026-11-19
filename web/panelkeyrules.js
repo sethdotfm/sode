@@ -4,54 +4,41 @@ import { fullSetup } from './panellink.js';
 import { whenText } from './keyrules.js';
 import { hasClient, isPublic } from './panelsrules.js';
 import { renewable } from './sessionkeyrules.js';
+import { KEY_ENDED, SIGN_IN_ENDED } from './panelrules.js';
 
 // Fixed and free of any reason or name: anyone can read a Public panel's page.
 export const PUBLIC_STOPPED = 'Not Public now. Reconnects when Public again.';
 
 export const MODES = [
-  ['key', 'Named instance link'],
-  ['setup', 'One-time setup link'],
+  ['key', 'Named link'],
+  ['setup', 'Setup link, 1 hour'],
 ];
 
-export const MODE_HINT = {
-  key: 'Makes a key for this instance. The link shows one time, so copy it when it appears. Anyone with the link can use the panel as this instance. To get a link again, rotate the instance.',
-  setup:
-    "Makes a link that works one time, for one hour. The device opens it and keeps its own key, so the link cannot be reused. This instance's old key ends now.",
-};
-
-// The instance name is required and becomes the device name (the page's ?instance=), so it has the monitor's limits.
+// The instance name becomes the device name (the page's ?instance=), so it has the monitor's limits.
 export const INSTANCE_MAX = 40; // characters, as monDeviceMax in internal/app/panelmon.go
-export const INSTANCE_HOLD = 'Name the instance, such as Lobby tablet.';
+export const INSTANCE_HOLD = 'Name the instance.';
 
-// What a typed name means against the instances the panel already holds (names ignore case). max is the server's cap.
+// Names ignore case. max is the server's cap.
 export function instanceCheck(text, keys, max) {
   const name = String(text || '').trim();
   const held = keys.find((k) => k.name.toLowerCase() === name.toLowerCase()) || null;
   if (!name) return { name, held, error: INSTANCE_HOLD };
-  if ([...name].length > INSTANCE_MAX) return { name, held, error: `Use at most ${INSTANCE_MAX} characters.` };
-  if (!held && keys.length >= max) return { name, held, error: `A panel has at most ${max} instances. Revoke one first.` };
+  if (!held && keys.length >= max) return { name, held, error: `At most ${max} instances. Revoke one first.` };
   return { name, held, error: '' };
 }
 
-// The server answers a link relative to Sode's root. A resolve against the page's base URL keeps it right at
-// /panels and /panels/ and behind a path prefix, since both pages set <base href="../">.
+// The server answers relative to Sode's root; both pages set <base href="../">, so this holds at /panels, /panels/ and behind a path prefix.
 export const absoluteLink = (link, base) => new URL(link, base).href;
 
-// The secret in the fragment, hidden until the owner asks to see it.
 export const maskLink = (href) => href.replace(/(#(?:key|setup)=)[^&]+/, '$1••••••••');
 
-// What the make button says and whether it needs a Confirm first. A new link for a name that holds a key or a
-// pending link ends that instance's, so it asks then.
+// A new link for a name that holds a key or a pending link ends that instance's, so it needs a Confirm.
 export function makeAction(mode, held) {
   if (mode === 'setup') return { label: held ? 'Replace with setup link' : 'Make setup link', confirm: !!held, verb: 'Replace the key' };
   return held ? { label: 'Rotate this instance', confirm: true, verb: 'Rotate' } : { label: 'Make link', confirm: false, verb: 'Make' };
 }
 
-export const CONFIRM_TEXT = {
-  rotate: "Rotating ends this instance's key. That instance signs out and its old link stops working. Other instances are not affected.",
-  setup: "A setup link replaces this instance's key. That instance signs out and its old link stops working. Other instances are not affected.",
-  revoke: 'Revoke ends this instance. It signs out and its link stops working. Other instances are not affected.',
-};
+export const CONFIRM_TEXT = "Ends this instance's key. Its page signs out and its old link stops.";
 
 export const confirmKind = (mode, which) => (which === 'revoke' ? 'revoke' : mode === 'setup' ? 'setup' : 'rotate');
 
@@ -60,7 +47,6 @@ function whenUntil(iso, now) {
   return m < 1 ? 'in under a minute' : `in ${m} minute${m === 1 ? '' : 's'}`;
 }
 
-// One row of the instance list. state drives the dot and its word: a status always has text.
 export function keyRow(k, now) {
   const state = k.setup ? { kind: 'idle', text: 'Setup link waiting' } : k.online ? { kind: 'ok', text: 'Online' } : { kind: 'idle', text: 'Offline' };
   const used = k.setup ? `Expires ${whenUntil(k.expires, now)}` : `Last used ${whenText(k.lastUsed, now, 'never')}`;
@@ -94,9 +80,7 @@ export const networksText = (list) => (list || []).join('\n');
 
 export const networksChanged = (saved, text) => JSON.stringify(parseNetworks(networksText(saved))) !== JSON.stringify(parseNetworks(text));
 
-// ---- the panel page
-
-// A one-time setup link in the fragment; the page trades it for a key and drops the fragment.
+// The page trades a setup link for a key and drops the fragment.
 export const setupFromHash = (hash) => fullSetup(/(?:^#|&)setup=([^&]+)/.exec(hash)?.[1] || '');
 
 // A key the page keeps after a setup link. localStorage name, kept per panel; docs/persisted-names.md.
@@ -110,32 +94,29 @@ function withoutPart(hash, name) {
   return rest.length ? `#${rest.join('&')}` : '';
 }
 
-// The hash without its setup part, so a reload or a copied address no longer carries the spent token.
+// So a reload or a copied address no longer carries the spent token.
 export const withoutSetup = (hash) => withoutPart(hash, 'setup');
 
-// The hash without its link key: one the browser stored, or a stale one on a Public panel. That panel then runs on its
-// own short-lived key. The address, history and a copied URL hold no key.
+// A stored key, or a stale one on a Public panel, which then runs on its own short-lived key.
 export const withoutKey = (hash) => withoutPart(hash, 'key');
 
 export function setupFailText(status, message) {
-  if (status === 401) return 'This setup link was already used, has expired or was replaced. Ask for a new one.';
+  if (status === 401) return 'Setup link used, expired or replaced. Ask for a new one.';
   if (status === 403 && message) return message;
-  return 'The setup link could not be used. Try again, or ask for a new link.';
+  return 'Setup link failed. Try again, or ask for a new link.';
 }
 
-// What a polling failure says. A key the server no longer knows ends the page: only a new link helps. Without a
-// key the page runs on a session, which sessionkey.js renews. An ended answer that still reaches the page means
-// the renewal could not help. A 429 is not lost contact: the fetcher already waits out Retry-After.
-// forget: only a 401 ends a stored key. A refused network leaves it, since the key still works after the list is fixed.
+// A dead key ends the page: only a new link helps. Without a key the page runs on a session that sessionkey.js renews, so an
+// ended answer here means the renewal could not help. A 429 is not lost contact: the fetcher waits out Retry-After.
+// forget: only a 401 ends a stored key; a refused network leaves it, since the key works again once the list is fixed.
 export function pollFail(status, code, message, hadKey, isPublic = false) {
   // Sode did not renew the Public key: the panel left Public, or Public panels allowed went off.
   if (status === 401 && isPublic) return { stop: true, forget: false, text: PUBLIC_STOPPED };
-  if (status === 401 && hadKey) return { stop: true, forget: true, text: "This link's key no longer works. It was rotated or revoked, so ask for a new link." };
-  if (status === 401 && (code === 'key_revoked' || code === 'key_expired'))
-    return { stop: true, forget: true, text: "This page's sign-in key was ended. Reload the page to sign in again." };
+  if (status === 401 && hadKey) return { stop: true, forget: true, text: KEY_ENDED };
+  if (status === 401 && (code === 'key_revoked' || code === 'key_expired')) return { stop: true, forget: true, text: SIGN_IN_ENDED };
   if (status === 403 && code === 'network_not_allowed') return { stop: true, forget: false, text: message || 'This panel is not allowed on this network.' };
-  if (status === 429) return { stop: false, text: 'Sode asked this page to wait before it tries again.' };
-  return { stop: false, text: 'Lost contact with Sode. The page will try again.' };
+  if (status === 429) return { stop: false, text: 'Sode is busy. Retrying.' };
+  return { stop: false, text: 'Lost contact with Sode. Retrying.' };
 }
 
 const codeOf = (res) =>
@@ -145,9 +126,8 @@ const codeOf = (res) =>
     .then((b) => b?.error?.code)
     .catch(() => undefined);
 
-// A Public panel's page key lives 15 minutes (internal/app/panelpublic.go). send(path, init, key) makes the call and
-// ask() gets a new key, '' when the panel is no longer Public. A call refused as ended asks one time and goes again.
-// Calls refused together share that one ask. A call that went out with an old key uses the new one.
+// A Public panel's page key lives 15 minutes (internal/app/panelpublic.go). ask() gets a new key, '' when the panel is no
+// longer Public. A call refused as ended asks once and goes again; calls refused together share that ask.
 export function publicFetch(first, { ask, send }) {
   let key = first;
   let asking = null;

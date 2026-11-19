@@ -1,5 +1,3 @@
-// A panel that acts only as its API client has no link without its key. A Both panel's plain link opens in Session
-// mode; the keyed links are under Share. A Public panel's link opens for anyone.
 import { el, icon, once, S } from './core.js';
 import { linkFor } from './panellink.js';
 import { panelLink } from './itemlink.js';
@@ -9,7 +7,7 @@ import { linkBase, shareHostField } from './sharehost.js';
 
 const COPIED_MS = 2000;
 
-// Copies text, and says false when the browser refused (no secure context, no permission).
+// False when the browser refused (no secure context, no permission).
 export async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -19,17 +17,16 @@ export async function copyText(text) {
   }
 }
 
-// Before the hello the install is not known, so the link has no install until it comes.
 export const itemLink = (panel) => {
   const link = linkFor(panel, { base: linkBase() });
   return S.installUid ? panelLink(link, S.installUid) : link;
 };
 
-// withHost false leaves out the address-for-other-devices field and the QR code; the Share modal still offers them.
+// withHost false leaves out the address field and the QR code; the Share modal still offers them.
 export function linkRow(panel, { withHost = true } = {}) {
   const box = el('div', 'sode__field sode-linkrow');
   if (panel.acts === 'api') {
-    box.append(el('p', 'sode__hint', 'This panel acts as its own API client, so its link needs the key. Use Link with key in Share.'));
+    box.append(el('p', 'sode__hint', 'API panel: the link needs a key (Share > Link with key).'));
     return box;
   }
   let link = itemLink(panel);
@@ -41,8 +38,8 @@ export function linkRow(panel, { withHost = true } = {}) {
   input.addEventListener('focus', () => input.select());
   const note = el('span', 'sode__hint');
   note.setAttribute('role', 'status');
-  if (panel.acts === 'both') note.textContent = 'Asks for a sign-in. A link with a key is under Share.';
-  if (isPublic(panel)) note.textContent = 'Opens for anyone with the link, with no sign-in.';
+  if (panel.acts === 'both') note.textContent = 'Asks for a sign-in. Keyed links: Share.';
+  if (isPublic(panel)) note.textContent = 'Opens for anyone. No sign-in.';
   const copy = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('copy'), 'Copy link');
   copy.type = 'button';
   const rest = note.textContent;

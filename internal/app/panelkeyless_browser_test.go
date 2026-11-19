@@ -82,7 +82,7 @@ func TestChromeKeylessPageIsAssignedAndRuns(t *testing.T) {
 	}
 
 	b.open(srv.URL + "/panels/" + from + "?instance=Lobby#key=" + strings.TrimPrefix(secret, keyPrefix))
-	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("This link's key no longer works")`)
+	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("Key rotated or revoked")`)
 	b.open(addr)
 	b.waitFor("the target opens again from its address", `document.getElementById('panel-title')?.textContent === 'Studio B' && document.getElementById('panels-note')?.hidden`)
 	// The ended key's refusal logs as a failed load; anything else is a real page error.

@@ -1,14 +1,6 @@
-// A panel's state model: view, stage, arm and Take. No DOM, no clock and no network, so the
-// rules test directly (test/panelmodel.test.mjs). Every function returns a new state.
-//
-// env is what the router says right now: { levels: [UI levels], tally: Map(dst -> Map(level -> src)),
-// protectedDsts: Set(dst) }. A cell is { kind, n, levels? } with n the router number and levels a UI
-// level subset. Settings: { mode: 'take' | 'instant', multi: bool, levels: [UI levels] | null, guard: 'none' | 'hold' | 'double' }.
-// A Preset cell is { kind: 'preset', scope, id, name }; env.presets maps presetKey(scope, presetName) to the
-// preset's items [{ src, dsts, levels }], where levels [] means every level.
-// settings.fixedDests (Fixed destination) makes the list the panel's destinations for the life of the page. The
-// first one is the view, so Current Source and the Source states read it, and Clear keeps it.
-// page is the current Page's id (panelnav.js). The plan is panel-wide, so a Page change leaves the view and staged alone.
+// A panel's state model: view, stage, arm and Take. No DOM, no clock and no network (test/panelmodel.test.mjs). Every
+// function returns a new state. env is the router's answer: { levels, tally: Map(dst -> Map(level -> src)), protectedDsts,
+// presets, rights }. The plan is panel-wide, so a Page change leaves the view and staged alone.
 import { presetKey, presetName, rightsAllow, fixedDestsOf } from './panelrules.js';
 import { navTarget } from './panelnav.js';
 

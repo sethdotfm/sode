@@ -71,7 +71,7 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b.waitFor("Assign to", `!!document.querySelector('[data-act="assign"]')`)
 	b.eval(`document.querySelector('[data-act="assign"]').click()`)
 	row := `document.querySelector('#assign-list [data-instance="Lobby"][data-from="` + from + `"]')`
-	b.waitFor("the open page in the list", `!!`+row+` && !`+row+`.disabled && `+row+`.closest('.sode-ov__cp').textContent.includes('Studio A') && `+row+`.closest('.sode-ov__cp').textContent.includes("Signed in as the panel's client, up ")`)
+	b.waitFor("the open page in the list", `!!`+row+` && !`+row+`.disabled && `+row+`.closest('.sode-ov__cp').textContent.includes('Studio A') && `+row+`.closest('.sode-ov__cp').textContent.includes("Signed in as the panel's API client, up ")`)
 	b.eval(row + `.click()`)
 	b.waitFor("the Assign was sent", `document.querySelector('.sode-ov__share [role="status"]').textContent.includes('Sent Lobby to Studio B')`)
 
@@ -137,7 +137,7 @@ func TestChromeAssignToAUserModePanelShowsTheDevicesSignIn(t *testing.T) {
 	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, `{"from":"`+from+`","instance":"Lobby"}`); rec.Code != 200 {
 		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
 	}
-	b.waitFor("the device shows its own sign-in", `location.pathname.endsWith('/panels/desk') && document.getElementById('panels-note')?.textContent.includes('Sign in with your PIN')`)
+	b.waitFor("the device shows its own sign-in", `location.pathname.endsWith('/panels/desk') && document.getElementById('panels-note')?.textContent.includes('Sign in to open this panel')`)
 	b.waitFor("the address keeps its name and kiosk without a key", `location.search === '?instance=Lobby' && location.hash === '#kiosk=1'`)
 	b.waitFor("no key is stored for the target", `localStorage.getItem('sode-panel-key-desk') === null`)
 	b.check()

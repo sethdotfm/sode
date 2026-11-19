@@ -1,4 +1,3 @@
-// What the panel page reads from the URL and the API (panelrules.js), and the text it shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -100,7 +99,7 @@ test('only whole cells inside the grid are drawn, and the first of two that over
 
 test('error text names the Source and Destination the way the cells do', () => {
   const n = namesFrom({ numberOffset: 0, sources: [{ n: 4, name: 'CAM 5' }], destinations: [{ n: 0, name: 'MON A' }] });
-  assert.equal(errorText({ code: 'no-destination' }, n), 'Pick a destination first');
+  assert.equal(errorText({ code: 'no-destination' }, n), 'Select a destination first');
   assert.equal(errorText({ code: 'protected', dst: 0 }, n), 'MON A is protected');
   assert.equal(errorText({ code: 'no-common-levels', src: 4, dst: 0 }, n), 'CAM 5 and MON A have no level in common');
   assert.equal(
@@ -147,7 +146,7 @@ test('the page is offline when Sode does not answer or the router link is down, 
   const router = offlineOf({ failed: false, routerUp: false });
   assert.match(router.detail, /router/);
   assert.equal(router.title, 'Offline');
-  // Both down: the page cannot know about the router, so it blames Sode.
+  // Both down: the page cannot see the router, so the text names Sode.
   assert.match(offlineOf({ failed: true, routerUp: false }).detail, /Sode/);
 });
 
@@ -168,6 +167,6 @@ test('sessionNote says something for a refused or ended key', () => {
 test('artwork a Copy or Push left out is counted', () => {
   assert.equal(artLeftOut(undefined), '');
   assert.equal(artLeftOut([]), '');
-  assert.equal(artLeftOut(['a-1']), '1 image did not fit under the 64 MB artwork total and was left out.');
-  assert.equal(artLeftOut(['a-1', 'a-2'], 'EVS 2'), '2 images did not fit under the 64 MB artwork total of EVS 2 and were left out.');
+  assert.equal(artLeftOut(['a-1']), '1 image left out: over the 64 MB artwork total.');
+  assert.equal(artLeftOut(['a-1', 'a-2'], 'EVS 2'), '2 images of EVS 2 left out: over the 64 MB artwork total.');
 });

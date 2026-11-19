@@ -131,7 +131,7 @@ func TestChromePanelOutageBanner(t *testing.T) {
 	b.shot("banner")
 
 	b.eval(`document.querySelector('[data-panel-outage] [data-panel-alarm="menu"]').click()`)
-	b.waitFor("clear menu", `!!document.querySelector('[data-panel-alarm="clear"]') && /Stop monitoring this panel/.test(document.querySelector('[data-panel-alarm="stop"]').textContent)`)
+	b.waitFor("clear menu", `!!document.querySelector('[data-panel-alarm="clear"]') && /Stop notifying for this panel/.test(document.querySelector('[data-panel-alarm="stop"]').textContent)`)
 	b.shot("menu")
 	b.eval(`document.querySelector('[data-panel-alarm="clear"]').click()`)
 	b.waitFor("banner cleared", `!document.querySelector('[data-panel-outage]').textContent`)

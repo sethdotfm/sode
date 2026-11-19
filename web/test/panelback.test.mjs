@@ -1,4 +1,3 @@
-// A Public panel page that comes back by itself, and the Open now list's Reload and keyless rename. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lineType, backWaitMs, publicAskPath, reloadAllState } from '../panelbackrules.js';

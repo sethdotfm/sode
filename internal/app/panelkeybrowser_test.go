@@ -131,8 +131,8 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 
 	openTab(id)
 	b.waitFor("Link with key is the first tab of a client panel", `document.querySelector('.sode-ov__share #tab-key').getAttribute('aria-selected') === 'true'`)
-	b.waitFor("no instances yet", tabText+`.includes('This panel has no instances.')`)
-	b.waitFor("the kinds are named for what they do", tabText+`.includes('Named instance link') && `+tabText+`.includes('One-time setup link') && !`+tabText+`.includes('Standing')`)
+	b.waitFor("no instances yet", `/0 of \d+ instances/.test(`+tabText+`)`)
+	b.waitFor("the kinds are named for what they do", tabText+`.includes('Named link') && `+tabText+`.includes('Setup link, 1 hour') && !`+tabText+`.includes('Standing')`)
 	b.waitFor("Make link waits for a name", `[...document.querySelectorAll('.sode-ov__share #panel-key button')].find(x => x.textContent.trim() === 'Make link').disabled`)
 	setName("Lobby")
 	click("Make link")

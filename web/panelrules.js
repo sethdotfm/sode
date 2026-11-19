@@ -1,8 +1,8 @@
-// What a panel page reads from its URL and from /api/v1, and the text it shows. Pure.
-// A stored panel's cells are { r, c, rs?, cs?, kind, n?, scope?, name?, caption?, levels? } with r and c
-// counted from 1 and kind one of KINDS (docs/panels-design.md, Panel page). A Preset cell holds
-// scope ('everyone' | 'me'), id and name instead of n. Source and Destination cells are router references
-// (router, n, name), filled by the server on save (internal/app/panelrefs.go). A Go to Page cell holds page, its target Page's id (panelnav.js).
+// What a panel page reads from its URL and from /api/v1, and the text it shows. Pure. Cell shapes: docs/panels-design.md,
+// Panel page. The server fills the router references of Source and Destination cells on save (internal/app/panelrefs.go).
+
+export const KEY_ENDED = 'Key rotated or revoked. Ask for a new link.';
+export const SIGN_IN_ENDED = 'Sign-in ended. Reload to sign in.';
 
 import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
@@ -24,7 +24,6 @@ export const KINDS = [
   'nextPage',
   'previousPage',
 ];
-// Kinds that only show something and are never pressed.
 export const SHOW_KINDS = ['current', 'panelName', 'instanceName', 'pageName', 'info'];
 const NEEDS_NUMBER = ['source', 'destination'];
 export const PRESET_SCOPES = ['everyone', 'me'];
@@ -37,7 +36,6 @@ const hasPreset = (c) => PRESET_SCOPES.includes(c.scope) && typeof c.name === 's
 // A target whose Page was deleted still counts, so the panel page can draw it greyed (panelnav.js goToState).
 const hasTarget = (c) => typeof c.page === 'string' && c.page !== '';
 
-// /panels/<id>. The list and the editor are other pages.
 export function panelIdFrom(pathname) {
   const m = /\/panels\/([^/]+)\/?$/.exec(pathname);
   return m && m[1] !== 'editor' ? m[1] : '';
@@ -46,28 +44,25 @@ export function panelIdFrom(pathname) {
 // A key in the fragment never reaches a request line or a proxy log. Without one the panel runs as the signed-in user.
 export const keyFromHash = (hash) => fullKey(/(?:^#|&)key=([^&]+)/.exec(hash)?.[1] || '');
 
-// Kiosk (GLOSSARY.md) is the panel's setting, or a link that asks for it without editing the panel.
 export const kioskOf = (hash, panel) => !!panel?.settings?.kiosk || /(?:^#|&)kiosk=1(?:&|$)/.test(hash);
 
-// A key in the link that the server refuses was rotated or revoked; only a new link helps.
 export function openFailText(status, hadKey) {
   if (status === 404) return 'No panel here that you can use.';
-  if (status === 401 && hadKey) return "This link's key no longer works. It was rotated or revoked, so ask for a new link.";
+  if (status === 401 && hadKey) return KEY_ENDED;
   return 'This panel could not be opened.';
 }
 
-// The note above a Session-mode panel for a session key step. A refused or ended key gets text, or the page stays blank.
 // retry shows the Sign in button; an ended module only a reload revives.
 export function sessionNote(step, err = '') {
   switch (step) {
     case 'sign-in':
-      return { text: 'Sign in with your PIN to open this panel.', retry: true };
+      return { text: 'Sign in to open this panel.', retry: true };
     case 'no-users':
       return { text: 'This panel needs a user, and Sode has none.', retry: false };
     case 'refused':
-      return { text: `Sode would not open this panel for this sign-in${err ? `: ${err}` : ''}. Sign in again.`, retry: true };
+      return { text: `Sode refused this sign-in${err ? `: ${err}` : ''}. Sign in again.`, retry: true };
     case 'ended':
-      return { text: "This page's sign-in key was ended. Reload the page to sign in again.", retry: false };
+      return { text: SIGN_IN_ENDED, retry: false };
     default:
       return { text: '', retry: false };
   }
@@ -123,13 +118,11 @@ export function namesFrom(reply) {
     const p = plain[cell.kind];
     return typeof p === 'function' ? p(cell) : p || '';
   };
-  // '' when the router has not named it, where source and destination make up a name.
   const routerName = (kind, n) => (kind === 'source' ? src : kind === 'destination' ? dst : new Map()).get(n) || '';
   return { source, destination, of, off, routerName };
 }
 
-// The cells that are whole, known and inside the grid. Where two overlap the first one stays. A stored panel gives
-// the cells of Page i (pageCells).
+// Where two cells overlap the first one stays.
 export function cellsIn(panel, i = 0) {
   const used = new Set();
   const out = [];
@@ -150,12 +143,10 @@ export function cellsIn(panel, i = 0) {
   return out;
 }
 
-// The panel's fixed destinations (settings.fixedDests), [] when the setting is off. A list the server would refuse
-// (fixedList in internal/app/panelfixed.go) also reads as off, so a hand-edited file cannot break the page.
+// [] when the setting is off. A list the server would refuse (fixedList in internal/app/panelfixed.go) reads as off too.
 export const FIXED_MAX = 16; // keep in step with panelFixedMax in internal/app/panelfixed.go.
 const DST_MAX = 0xffff; // keep in step with dstNumberMax in internal/app/panelfixed.go.
-// The server stores router references {router, n, name}, and the editor writes {n}. Tests and the panel page's own
-// state pass plain numbers.
+// The server stores router references {router, n, name}, and the editor writes {n}; tests pass plain numbers.
 export function fixedDestsOf(panel) {
   const raw = panel?.settings?.fixedDests;
   const list = Array.isArray(raw) ? raw.map((x) => (x && typeof x === 'object' ? x.n : x)) : null;
@@ -163,8 +154,7 @@ export function fixedDestsOf(panel) {
   return ok ? list : [];
 }
 
-// What the panel page draws of Page i. A panel with fixed destinations leaves its Destination cells out; they stay
-// stored, so the editor and the thumbnails keep using cellsIn.
+// Fixed destinations leave the Destination cells out of the page; they stay stored, so the editor keeps using cellsIn.
 export const drawnCells = (panel, i = 0) => {
   const cells = cellsIn(panel, i);
   return fixedDestsOf(panel).length ? cells.filter((c) => c.kind !== 'destination') : cells;
@@ -175,36 +165,34 @@ export function errorText(err, names) {
     case 'nothing-to-undo':
       return 'Nothing to undo';
     case 'no-destination':
-      return 'Pick a destination first';
+      return 'Select a destination first';
     case 'protected':
       return `${names.destination(err.dst)} is protected`;
     case 'no-common-levels':
       return `${names.source(err.src)} and ${names.destination(err.dst)} have no level in common`;
     case 'outside-rights': {
-      if (err.quiet) return "That is outside this panel's rights";
-      return `${err.what === 'source' ? names.source(err.src) : err.what === 'preset' ? err.name : names.destination(err.dst)} is outside this panel's rights`;
+      if (err.quiet) return "That is outside this panel's Rights";
+      return `${err.what === 'source' ? names.source(err.src) : err.what === 'preset' ? err.name : names.destination(err.dst)} is outside this panel's Rights`;
     }
     case 'no-preset':
       return 'That preset is not available to this panel';
     case 'preset-no-fixed':
       return `${err.name} has no route to this panel's destinations`;
     case 'preset-multi':
-      return 'This panel stages one destination at a time, and that preset has more';
+      return 'Preset has more than one destination. This panel stages one.';
     case 'refused':
-      return err.message || 'The take was refused';
+      return err.message || 'Sode refused the take';
     default:
       return '';
   }
 }
 
-// Whether a destination the Undo cell would restore moved between two envs. It is possible that History's own
-// Undo or another tab of the instance changed the target. next is GET /panels/<id>/undo's `undo`.
+// Whether a destination the Undo cell would restore moved between two envs (History's Undo or another tab). next is GET /panels/<id>/undo's `undo`.
 export function undoMoved(was, env, next) {
   const row = (e, dst) => JSON.stringify([...(e.tally.get(dst) || [])].sort((x, y) => x[0] - y[0]));
   return !!next?.routes.some((r) => row(was, r.dst) !== row(env, r.dst));
 }
 
-// The Undo cell's last press (panelmodel.js undoneOf), '' for none.
 export function undoneText(u, names) {
   if (!u) return '';
   if (u.failed.length) return `Undo failed on ${[...new Set(u.failed)].map(names.destination).join(', ')}`;
@@ -213,30 +201,25 @@ export function undoneText(u, names) {
   return `Undone: ${dsts.map(names.destination).join(', ')}${back}`;
 }
 
-// Offline is what the page shows over a blurred grid. No answer from Sode wins: with no answer the router link is unknown.
+// No answer from Sode wins: with no answer the router link is unknown.
 export function offlineOf({ failed, routerUp }) {
-  if (failed) return { title: 'Offline', detail: 'This page lost contact with Sode. Nothing you press will reach the router until it is back.' };
-  if (!routerUp) return { title: 'Offline', detail: 'Sode lost contact with the router. Nothing you press will reach it until it is back.' };
+  if (failed) return { title: 'Offline', detail: 'No contact with Sode. Presses do nothing.' };
+  if (!routerUp) return { title: 'Offline', detail: 'Sode lost the router. Presses do nothing.' };
   return null;
 }
 
-// What a Panel Name or Instance Name cell shows: the name, with the caption as a line above it. A page with no
-// instance yet (still naming itself, or the Live Editor) shows the kind's own words.
+// A page with no instance yet (still naming itself, or the Live Editor) shows the kind's own words.
 export function nameCellText(cell, { panelName = '', instance = '' } = {}) {
   const value = cell.kind === 'panelName' ? panelName || 'Panel Name' : instance || 'Instance Name';
   return { caption: cell.caption || '', value };
 }
 
-// The status words for artwork a Copy or Push left out: the server's artSkipped ids for one panel, '' when none.
-// The total is panelArtTotal in internal/app/panelstore.go.
+// artSkipped ids from the server for one panel. The total is panelArtTotal in internal/app/panelstore.go.
 export function artLeftOut(ids, panel = '') {
   const n = Array.isArray(ids) ? ids.length : 0;
   if (!n) return '';
   const of = panel ? ` of ${panel}` : '';
-  return n === 1
-    ? `1 image did not fit under the 64 MB artwork total${of} and was left out.`
-    : `${n} images did not fit under the 64 MB artwork total${of} and were left out.`;
+  return n === 1 ? `1 image${of} left out: over the 64 MB artwork total.` : `${n} images${of} left out: over the 64 MB artwork total.`;
 }
 
-// The Current cell reads the viewed destination's name; a caption replaces the whole label.
 export const currentLabel = (cell, destName) => cell.caption || (destName ? `${destName} is currently:` : 'Currently');

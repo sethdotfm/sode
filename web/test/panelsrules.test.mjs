@@ -1,4 +1,3 @@
-// What the panels page (/panels) groups, labels and offers. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -156,7 +155,7 @@ test('labels say who a panel acts as and who may use it', () => {
   assert.equal(shareLabel({ mode: 'me' }), 'Only the owner');
   assert.equal(shareLabel({ mode: 'everyone' }), 'Everyone');
   assert.equal(shareLabel({ mode: 'named', users: ['Bo', 'Cy'] }), 'Bo, Cy');
-  assert.equal(shareLabel({ mode: 'named', users: [] }), 'Nobody yet');
+  assert.equal(shareLabel({ mode: 'named', users: [] }), 'Nobody');
 });
 
 test('Launch opens the panel and Edit opens the editor on it, both relative to Sode root', () => {
@@ -205,10 +204,10 @@ test('stepping moves the highlight and stops at the ends', () => {
 });
 
 test('choosing an Authentication mode says what was saved', () => {
-  assert.match(actsSavedNote('session'), /signed-in user.*every key are gone/);
-  assert.match(actsSavedNote('both'), /plain link opens it as the signed-in user/);
+  assert.match(actsSavedNote('session'), /API client and keys ended/);
+  assert.equal(actsSavedNote('both'), 'Saved.');
   assert.match(actsSavedNote('api'), /Link with key/);
-  assert.match(actsSavedNote('public'), /anyone with the link can use the panel/i);
+  assert.match(actsSavedNote('public'), /anyone with the link can use it/i);
   assert.equal(actsSavedNote('nonsense'), 'Saved.');
 });
 
@@ -225,8 +224,7 @@ test('only a panel that may sign in says so after how it acts', () => {
   assert.equal(launchNote({ acts: 'public' }), '');
 });
 
-// Each switch of Authentication mode as apiPanelUpdate does it. A new client gets no key. A switch to User ends the
-// client (pruneKeys then ends its keys and setup links). API to Both or back keeps the client and its keys.
+// Keep in step with apiPanelUpdate. A new client gets no key. A switch to User ends the client, and pruneKeys ends its keys and setup links.
 test('each Authentication mode switch says what it does to keys, and only those that touch the client ask for a Confirm', () => {
   const s2a = actsSwitch('session', 'api');
   assert.equal(s2a.confirm, true);
@@ -234,20 +232,19 @@ test('each Authentication mode switch says what it does to keys, and only those 
   assert.match(s2a.text, /makes the panel its own API client/);
   assert.match(s2a.text, /no keys yet/);
   assert.match(s2a.text, /Link with key/);
-  assert.match(s2a.text, /plain link stops opening/);
+  assert.match(s2a.text, /plain link stops/);
 
   const s2b = actsSwitch('session', 'both');
   assert.equal(s2b.confirm, true);
   assert.match(s2b.text, /makes the panel its own API client/);
   assert.match(s2b.text, /no keys yet/);
-  assert.match(s2b.text, /plain link still opens it as the signed-in user/);
+  assert.match(s2b.text, /plain link still opens as the user/);
 
   for (const from of ['api', 'both']) {
     const s = actsSwitch(from, 'session');
     assert.equal(s.confirm, true, from);
     assert.match(s.text, /ends the panel's API client, every instance key and every setup link/);
-    assert.match(s.text, /signs out/);
-    assert.match(s.text, /cannot be undone/);
+    assert.match(s.text, /cannot undo/);
   }
 
   for (const [from, to] of [
@@ -261,12 +258,11 @@ test('each Authentication mode switch says what it does to keys, and only those 
   assert.match(actsSwitch('api', 'both').text, /plain link opens it as the signed-in user/);
   assert.match(actsSwitch('both', 'api').text, /plain link stops opening/);
 
-  // Not a switch: nothing to say or confirm. A panel with no acts yet reads as User.
+  // A panel with no acts reads as User.
   assert.equal(actsSwitch('api', 'api'), null);
   assert.equal(actsSwitch(undefined, 'session'), null);
   assert.equal(actsSwitch(undefined, 'api').confirm, true);
 
-  // Public opens the panel to anyone, so going there always asks; leaving it for API or Both says the Public keys end.
   for (const from of ['session', 'api', 'both']) assert.equal(actsSwitch(from, 'public').confirm, true, from);
   assert.match(actsSwitch('session', 'public').text, /makes the panel its own API client/);
   assert.match(actsSwitch('api', 'public').text, /keeps the panel's API client/);
@@ -279,7 +275,7 @@ test('a Grid panel on the list says how many sources and destinations it holds, 
   const { gridSize, gridThumb, GRID_MEDIUM_FROM, GRID_LARGE_FROM, GRID_SQUARES } = await import('../panelsrules.js');
   assert.equal(gridSize({ type: 'grid', sources: { members: [1, 2, 3] }, destinations: { members: [4] } }), 'Grid, 3 sources by 1 destination');
   assert.equal(gridSize({ type: 'grid', sources: { members: 'all', hide: [2] } }), 'Grid, all sources by all destinations');
-  // The picture: a Source bar across the top, a Destination bar down the side and a diagonal of routes, in one of three sizes.
+  // A Source bar at the top, a Destination bar at the side and a diagonal of routes, in three sizes.
   const edge = (n) => ({ members: Array.from({ length: n }, (_, i) => i + 1) });
   const t = (s, d) => gridThumb({ sources: edge(s), destinations: edge(d) });
   assert.equal(t(3, 2).size, 'small');
@@ -297,7 +293,7 @@ test('a Grid panel on the list says how many sources and destinations it holds, 
     all.tiles.map((x) => x.label),
     ['A', 'L', 'L', '4'],
   );
-  // One character per square, centred. Large has 8 squares, so "750" leaves 5 spare and takes a half square; "40" in Medium leaves 3 and does too.
+  // One character per square, centred. Large has 8 squares: "750" leaves 5, so it starts a half square in. "40" in Medium leaves 3.
   const s750 = gridThumb({ sources: edge(750), destinations: edge(2) });
   assert.deepEqual(
     s750.tiles.filter((x) => x.kind === 'source').map((x) => [x.label, x.c, x.cs, x.half]),
@@ -316,7 +312,7 @@ test('a Grid panel on the list says how many sources and destinations it holds, 
       ['0', 4, true],
     ],
   );
-  // The Destination bar reads from the bottom up, so its first character takes the lowest square.
+  // The Destination bar reads from the bottom up, so its first character is in the lowest square.
   assert.deepEqual(
     t(40, 12)
       .tiles.filter((x) => x.kind === 'destination')
@@ -331,7 +327,6 @@ test('a Grid panel on the list says how many sources and destinations it holds, 
     assert.equal(g.cols, GRID_SQUARES[k] + 1);
     assert.equal(g.cells.filter((c) => c.kind === 'source').length, g.cols - 1);
     assert.equal(g.cells.filter((c) => c.kind === 'destination').length, g.rows - 1);
-    // Each character has its own square, centred in its bar. Spare squares are even on both sides, or differ by a half square.
     for (const kind of ['source', 'destination']) {
       const ts = g.tiles.filter((x) => x.kind === kind);
       const at = (x) => (kind === 'source' ? x.c : x.r);
