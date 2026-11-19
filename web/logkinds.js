@@ -32,6 +32,7 @@ export const WHY_LABEL = {
   rereadNames: 'Re-read names',
   routerNames: 'Router names',
   clearHistory: 'Clear history',
+  approvalRequest: 'Request approval',
   config: 'Settings saved',
   filterSets: 'Filter sets saved',
   presets: 'Presets saved',
@@ -59,6 +60,11 @@ export const WHY_LABEL = {
   setupClaim: 'Setup take control',
   setupRouter: 'Setup router address',
   setupFinish: 'Setup finished',
+  inboxSend: 'Copy sent',
+  inboxAccept: 'Copy accepted',
+  inboxDecline: 'Copy declined',
+  inboxWithdraw: 'Copy withdrawn',
+  inboxExpired: 'Copy expired',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server', 'settings']);
 const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };

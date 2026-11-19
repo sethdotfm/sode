@@ -81,9 +81,13 @@ var policyExpect = map[string][nStates]error{
 	"hi": openRule, "userSignIn": openRule, "userLock": openRule, "userSignOut": openRule,
 	"userSetPin": openRule, "history": openRule, "pinRecheck": openRule,
 	"stepIn": openRule, "stepOut": openRule,
+	"approvalAsk": openRule, "approvalAnswer": openRule, "approvalCancel": openRule, "approvalCards": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
 	"myClients": openRule, "myClientSave": openRule, "myClientDelete": openRule, "myClientKey": openRule, "myClientKeyRevoke": openRule,
 	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,
+	// a signed-in user only, checked in the handlers (inboxlife_test.go)
+	"inboxList": openRule, "inboxSend": openRule, "inboxReview": openRule, "inboxAccept": openRule,
+	"inboxDecline": openRule, "inboxWithdraw": openRule,
 	// the handlers refuse once set up; while setup is pending see TestSetupWizardAdmitsOnlySetupMessages
 	"setupClaim": openRule, "setupRouter": openRule, "setupFinish": openRule,
 
