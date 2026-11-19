@@ -17,7 +17,7 @@ func jsonOf(v any) json.RawMessage {
 	return b
 }
 
-// saveKeys runs the one Save as c, each key at its live version; kv maps a key to its new value.
+// saveKeys: kv maps a key to its new value, sent at the live version.
 func (a *App) saveKeys(c *client, kv map[string]any) (map[string]fieldResult, error) {
 	live := a.r().cfg
 	edits := make(map[string]fieldEdit, len(kv))
@@ -32,7 +32,7 @@ func (a *App) saveKeys(c *client, kv map[string]any) (map[string]fieldResult, er
 	return res, err
 }
 
-// firstRefused: the first refused key in key order, "" for none.
+// firstRefused: "" for none.
 func firstRefused(res map[string]fieldResult) (string, fieldResult) {
 	for _, k := range slices.Sorted(maps.Keys(res)) {
 		if res[k].Status == "refused" {
@@ -67,11 +67,10 @@ func mustRefuse(t *testing.T, a *App, c *client, kv map[string]any) fieldResult 
 	return r
 }
 
-// ukey is the save key of attr for the user named name.
 func ukey(a *App, name, attr string) string { return "user/" + idOf(a, name) + "/" + attr }
 
-// saveLive is saveFields at the live versions, which a peer has for user and client keys only
-// after usersList.
+// saveLive: a peer has the versions of user and client keys only after usersList, so this takes
+// them from the live config.
 func (p *wsPeer) saveLive(a *App, id int, kv map[string]any) map[string]any {
 	p.t.Helper()
 	live := a.r().cfg
@@ -82,7 +81,6 @@ func (p *wsPeer) saveLive(a *App, id int, kv map[string]any) map[string]any {
 	return p.ask("settingsSave", id, map[string]any{"fields": fields})
 }
 
-// allSaved fails on a refused Save or any refused key.
 func allSaved(t *testing.T, what string, r map[string]any) {
 	t.Helper()
 	res, _ := r["results"].(map[string]any)

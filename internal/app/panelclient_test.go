@@ -149,7 +149,9 @@ func TestPanelClientAdminWidens(t *testing.T) {
 		t.Fatalf("after widening: %+v", cl)
 	}
 	// A panel client goes with its panel, never from Manage users.
-	mustRefuse(t, a, admin, map[string]any{"client/" + name + "/remove": true})
+	if r := mustRefuse(t, a, admin, map[string]any{"client/" + name + "/remove": true}); !strings.Contains(r.Err, "belongs to a panel or a user") {
+		t.Fatalf("panel client remove: %+v", r)
+	}
 	if _, ok := clientOf(t, a, name); !ok {
 		t.Fatal("an admin save removed the panel client")
 	}
@@ -158,7 +160,9 @@ func TestPanelClientAdminWidens(t *testing.T) {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	// Sode refuses a second client of that name.
-	mustRefuse(t, a, admin, map[string]any{"client/" + name + "/add": newClient{Scopes: []string{}}})
+	if r := mustRefuse(t, a, admin, map[string]any{"client/" + name + "/add": newClient{Scopes: []string{}}}); !strings.Contains(r.Err, "already an API client") {
+		t.Fatalf("second client of that name: %+v", r)
+	}
 	if n := 0; true {
 		for _, c := range a.r().cfg.APIClients {
 			if strings.EqualFold(c.Name, name) {

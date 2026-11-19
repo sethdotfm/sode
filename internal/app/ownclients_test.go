@@ -96,7 +96,9 @@ func TestAdministratorSaveKeepsOwnClients(t *testing.T) {
 	a, _, c, next := ownClientApp(t)
 	saveOwn(t, a, c, next, myClientReq{Name: "Ana desk", Scopes: []string{config.ScopeTake}})
 	admin := adminClient(t, a)
-	mustRefuse(t, a, admin, map[string]any{"client/Ana desk/remove": true})
+	if r := mustRefuse(t, a, admin, map[string]any{"client/Ana desk/remove": true}); !strings.Contains(r.Err, "belongs to a panel or a user") {
+		t.Fatalf("own client remove: %+v", r)
+	}
 	if cl, ok := a.r().cfg.FindAPIClient("Ana desk"); !ok || cl.Owner != idOf(a, "Ana") {
 		t.Fatalf("removed: %+v %v", cl, ok)
 	}
