@@ -104,3 +104,10 @@ test('no module adds a Settings section of its own', () => {
   const adders = readdirSync(web).filter((f) => f.endsWith('.js') && /el\(\s*'fieldset',\s*'sode__group'/.test(read(f)));
   assert.deepEqual(adders, []);
 });
+
+test('Preferences labels are the PREFS labels', async () => {
+  const { PREFS } = await import('../prefs.js');
+  const found = [...html.matchAll(/<label for="([\w-]+)">([^<]+)<\/label>\s*<span class="pb-select-wrap"><select id="\1"[^>]*data-g?pref="(\w+)"/g)];
+  assert.equal(found.length, 2 * Object.keys(PREFS).length);
+  for (const [, , text, key] of found) assert.equal(text, PREFS[key].label, key);
+});

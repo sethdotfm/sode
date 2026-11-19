@@ -4,25 +4,13 @@ import { PREFS } from './prefs.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
-const LABELS = {
-  theme: 'Theme',
-  layout: 'Layout',
-  clock: 'Clock',
-  flip: 'Destination before Source',
-  scrollTop: 'Scroll to top',
-  setStack: 'Stacked sets',
-  nextMode: 'Next chip',
-  stackGap: 'Stacked rows gap',
-  searchFilters: 'Quick search uses filters',
-  compact: 'Compact view',
-};
 export function prefRows(prefs) {
   const out = [];
   for (const [key, def] of Object.entries(PREFS)) {
     let v = prefs?.[key];
     if (typeof v === 'boolean') v = v ? 'on' : 'off';
     if (typeof v !== 'string' || !Object.hasOwn(def.values, v)) continue;
-    out.push({ key, label: LABELS[key] || key, value: def.values[v] });
+    out.push({ key, label: def.label, value: def.values[v] });
   }
   return out;
 }
@@ -68,7 +56,7 @@ export function prefFields(prefs) {
     const ok = typeof v === 'string' && Object.hasOwn(def.values, v);
     return {
       key,
-      label: LABELS[key] || key,
+      label: def.label,
       value: ok ? v : '',
       options: [['', 'Not set'], ...Object.entries(def.values)],
     };

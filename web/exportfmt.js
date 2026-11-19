@@ -4,19 +4,6 @@ export const SOCKET_LIMIT = 64 * 1024;
 const PROFILE_LIMIT = 48 * 1024;
 export const NAME_MAX = 32;
 
-export const PREF_LABELS = {
-  theme: 'Theme',
-  layout: 'Layout',
-  clock: 'Clock',
-  flip: 'Destination before Source',
-  scrollTop: 'Scroll to top on focus',
-  stackGap: 'Stacked rows gap',
-  searchFilters: 'Search respects filters',
-  setStack: 'Stacked filter sets',
-  nextMode: 'Next means',
-  compact: 'Compact view',
-};
-
 const runes = (s) => [...String(s)].length;
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 const ints = (a) =>

@@ -351,7 +351,7 @@ function prefsNode() {
   const opts = forUser() ? [] : [['local', 'This browser']];
   if (profileName() || forUser()) opts.push(['user', forUser() ? `${st.user}’s profile` : 'Me']);
   const rows = list.map((p) => {
-    const label = fmt.PREF_LABELS[p.name] || p.name;
+    const label = PREFS[p.name]?.label || p.name;
     if (!p.ok) {
       return el(
         'div',
@@ -397,7 +397,7 @@ function prefsNode() {
     );
   });
   for (const p of only) {
-    const label = fmt.PREF_LABELS[p.name] || p.name;
+    const label = PREFS[p.name]?.label || p.name;
     rows.push(
       el(
         'div',
@@ -436,9 +436,7 @@ function render() {
 }
 
 function draw() {
-  const opts = forUser()
-    ? [['user', `${st.user}’s profile`]]
-    : [['local', 'This browser'], ...(profileName() ? [['user', 'Me']] : []), ['global', 'Everyone']];
+  const opts = forUser() ? [['user', `${st.user}’s profile`]] : [['local', 'This browser'], ...(profileName() ? [['user', 'Me']] : []), ['global', 'Everyone']];
   if (!opts.some((o) => o[0] === st.scope)) st.scope = opts[0][0];
   const choices = st.rows.map(choiceOf);
   if (st.copy) st.scope = 'user';
