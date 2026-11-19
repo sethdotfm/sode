@@ -151,7 +151,7 @@ func TestUsersSaveSendsAFreshHello(t *testing.T) {
 			if m.T != "hello" {
 				continue
 			}
-			if len(m.Users) != 4 || m.Users[0].Name != "Anna" || m.Users[2].Name != "Cy" || m.Users[2].Len != 5 {
+			if len(m.Users) != 4 || m.Users[0].Name != "Anna" || m.Users[3].Name != "Cy" || m.Users[3].Len != 5 {
 				t.Fatalf("hello users %+v", m.Users)
 			}
 			return

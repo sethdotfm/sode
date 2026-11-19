@@ -174,7 +174,7 @@ type APIClient struct {
 	Extra    map[string]any `yaml:",inline" json:"-"`
 }
 
-// APISettings: advanced settings, saved apart from the Settings form (owned).
+// APISettings: Settings > API, saved through the one Save.
 type APISettings struct {
 	RateLimit    int            `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
 	TakeCap      int            `yaml:"takeCap" json:"takeCap"`

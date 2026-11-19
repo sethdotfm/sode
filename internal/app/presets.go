@@ -9,7 +9,7 @@ import (
 
 // Firing a preset is an ordinary take and needs no PIN.
 func (a *App) SavePresets(c *client, presets []config.Preset) error {
-	return a.saveShared(c, func(cur *config.Config) error {
+	return a.saveList(c, func(cur *config.Config) error {
 		cur.Presets = a.namePresets(cur.UID, config.WithPresetExtras(presets, cur.Presets))
 		return nil
 	}, func(cfg config.Config) any { return presetsMsg{T: "presets", Presets: cfg.Presets} })

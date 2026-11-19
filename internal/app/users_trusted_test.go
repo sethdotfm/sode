@@ -84,7 +84,6 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 	}
 	for name, m := range map[string]inMsg{
 		"clearHistory": {T: "clearHistory"},
-		"users":        {T: "users"},
 		"set PIN":      {T: "config", Pin: "9999"},
 		"clear PIN":    {T: "config", ClearPin: true},
 	} {
@@ -107,7 +106,7 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	for _, m := range []inMsg{{T: "clearHistory"}, {T: "users"}, {T: "config", Pin: "9999"}} {
+	for _, m := range []inMsg{{T: "clearHistory"}, {T: "usersList"}, {T: "config", Pin: "9999"}} {
 		if err := admitMsg(a, c, m); err != nil {
 			t.Errorf("%s as the Administrator: %v", m.T, err)
 		}

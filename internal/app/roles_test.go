@@ -165,7 +165,7 @@ func TestTrustedUserIsRefusedAnAdministratorAction(t *testing.T) {
 		t.Fatalf("Trusted user presets: %v", r)
 	}
 	refusedForRole(t, "usersList", p.ask("usersList", 4, nil), config.RoleAdministrator)
-	refusedForRole(t, "users", p.ask("users", 5, map[string]any{"usersReq": map[string]any{}}), config.RoleAdministrator)
+	refusedForRole(t, "users", p.askUsers(a, 5, map[string]any{}), config.RoleAdministrator)
 	p.send(map[string]any{"t": "config", "config": map[string]any{"router": "10.9.9.9:8910"}})
 	refusedForRole(t, "router change", p.until("configResult"), config.RoleAdministrator)
 
@@ -215,7 +215,7 @@ func TestManageUsersSetsRoles(t *testing.T) {
 		}
 		rows = append(rows, edit)
 	}
-	if r := p.ask("users", 4, map[string]any{"usersReq": map[string]any{"users": rows, "guestRole": config.RoleTrusted}}); r["ok"] != true {
+	if r := p.askUsers(a, 4, map[string]any{"users": rows, "guestRole": config.RoleTrusted}); r["ok"] != true {
 		t.Fatalf("save: %v", r)
 	}
 	cfg := a.r().cfg
@@ -234,7 +234,7 @@ func TestManageUsersSetsRoles(t *testing.T) {
 			t.Fatalf("usersList Bo: %v", row)
 		}
 	}
-	bad := p.ask("users", 6, map[string]any{"usersReq": map[string]any{"guestRole": config.RoleAdministrator}})
+	bad := p.askUsers(a, 6, map[string]any{"guestRole": config.RoleAdministrator})
 	if bad["ok"] == true {
 		t.Fatal("Guest role Administrator saved")
 	}

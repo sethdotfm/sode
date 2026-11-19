@@ -265,7 +265,7 @@ func TestSaveUsers(t *testing.T) {
 	if err := saveUsers(a, c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "1234"}}}); err == nil {
 		t.Fatal("two new users with one PIN")
 	}
-	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {Name: "Cy", Pin: "1234"}}}); err == nil {
+	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}, {ID: idOf(a, "Bo"), Name: "Bo"}, {Name: "Cy", Pin: "1234"}}}); err == nil {
 		t.Fatal("new PIN equal to a kept user's")
 	}
 	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Role: config.RoleAdministrator}, {ID: idOf(a, "Bo"), Name: "Robert"}}}); err != nil {

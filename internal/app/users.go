@@ -373,160 +373,6 @@ func (a *App) SignOutAll(c *client, name string) error {
 	return nil
 }
 
-// userEdit: ID names a saved user (a rename keeps everything of theirs); "" adds one. Pin is a
-// new PIN ("" keeps).
-type userEdit struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Pin        string `json:"pin"`
-	ClearPin   bool   `json:"clearPin"` // remove the user's PIN; a new Pin wins
-	Role       string `json:"role"`     // "" is Standard user
-	Persistent bool   `json:"persistent"`
-	// Rights and NoAutoLock: nil keeps the user's current value, so a page that does not
-	// know them cannot erase them.
-	Rights     *config.Rights `json:"rights"`
-	NoAutoLock *bool          `json:"noAutoLock"`
-}
-
-type usersReq struct {
-	Users  []userEdit `json:"users"`
-	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// GuestRole: "" keeps the current one.
-	GuestRole string `json:"guestRole"`
-	// API clients and Guest rights: nil keeps the current ones. They ride this save so they
-	// need an Administrator. Keyless scopes save with the API settings (apisettings.go).
-	APIClients  *[]config.APIClient `json:"apiClients"`
-	GuestRights *config.Rights      `json:"guestRights"`
-	// PanelOwners maps a removed user's id to the id of a kept user who takes their panels.
-	// A removed user who owns panels needs one.
-	PanelOwners map[string]string `json:"panelOwners"`
-	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
-	Locks    json.RawMessage `json:"locks"`
-	AutoLock json.RawMessage `json:"autoLockMinutes"`
-}
-
-// SaveUsers needs an Administrator (not the main lock). PINs need not be unique.
-func (a *App) SaveUsers(c *client, req usersReq) error {
-	if present(req.Locks) || present(req.AutoLock) {
-		return errors.New("the lock settings moved to Settings > Access: reload this page")
-	}
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
-		return err
-	}
-	before := a.r().cfg
-	var moves map[string]string
-	err := a.applyConfig(a.critical(c, func(cur *config.Config) error {
-		if req.MaxPin != 0 {
-			cur.MaxPinLen = req.MaxPin
-		}
-		maxLen := cur.MaxPinLen
-		if req.GuestRole != "" {
-			cur.GuestRole = req.GuestRole
-		}
-		if len(req.Users) == 0 && cur.Locks.Any() {
-			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
-		}
-		var out []config.User
-		kept := map[string]bool{} // one row per saved user
-		for _, e := range req.Users {
-			u := config.User{ID: config.NewUserID(), Name: strings.TrimSpace(e.Name), Role: e.Role, Persistent: e.Persistent}
-			if err := userNameRefusal(u.Name); err != nil {
-				return err
-			}
-			// A saved user keeps their id, so everything that refers to them follows a rename.
-			// Removed users lose all of it; a new row starts empty.
-			if e.ID != "" {
-				o, ok := cur.FindUserByID(e.ID)
-				if !ok {
-					return errors.New(u.Name + " was removed meanwhile: reload the user list")
-				}
-				if kept[e.ID] {
-					return errors.New("two rows are the same user")
-				}
-				kept[e.ID] = true
-				u.ID, u.Pin, u.Len = o.ID, o.Pin, o.Len
-				// A PIN needed user keeps the flag only at a Role no higher than before.
-				u.PinNeeded = o.PinNeeded && config.RoleAtLeast(o.Role, cmp.Or(u.Role, config.RoleStandard))
-				u.Profile = o.Profile.Clone()
-				u.Extra = o.Extra
-				u.Rights, u.NoAutoLock = o.Rights.Clone(), o.NoAutoLock
-			}
-			if e.Rights != nil {
-				u.Rights = e.Rights.WithExtraOf(u.Rights)
-			}
-			if e.NoAutoLock != nil {
-				u.NoAutoLock = *e.NoAutoLock
-			}
-			if e.Pin != "" {
-				if err := config.CheckUserPinRules(e.Pin, maxLen); err != nil {
-					return err
-				}
-				h, err := config.HashPin(e.Pin)
-				if err != nil {
-					return err
-				}
-				u.Pin, u.Len, u.PinNeeded = h, len(e.Pin), false
-			} else if e.ClearPin {
-				u.Pin, u.Len, u.PinNeeded = "", 0, false
-			}
-			if err := config.NoPinRefusal(u); err != nil {
-				return err
-			}
-			out = append(out, u)
-		}
-		var err error
-		if moves, err = a.newPanelOwners(c, *cur, out, req.PanelOwners); err != nil {
-			return err
-		}
-		cur.Users = out
-		if req.APIClients != nil {
-			cur.APIClients = keepPanelClients(cur.APIClients, config.WithAPIClientExtras(*req.APIClients, cur.APIClients))
-		}
-		if req.GuestRights != nil {
-			cur.GuestRights = req.GuestRights.WithExtraOf(cur.GuestRights)
-		}
-		return nil
-	}))
-	if err == nil {
-		a.auditRights(c, before, a.r().cfg)
-		a.panelsFollowUsers(before.Users, a.r().cfg.Users)
-		if n, err := a.panels.moveOwners(moves); err != nil {
-			log.Printf("panels: new owner reached %d panels, then: %v", n, err)
-		} else if n > 0 {
-			log.Printf("panels: %d panels have a new owner", n)
-		}
-	}
-	return err
-}
-
-// newPanelOwners is the new owner for each user that out removes from cur: the one the save
-// names, else the acting user. A removed user who owns panels now must have one named, a
-// kept user. The move goes by owner after the save, so a panel made meanwhile moves too.
-func (a *App) newPanelOwners(c *client, cur config.Config, out []config.User, named map[string]string) (map[string]string, error) {
-	kept := config.Config{Users: out}
-	moves := map[string]string{}
-	for _, u := range cur.Users {
-		if _, ok := kept.FindUserByID(u.ID); ok {
-			continue
-		}
-		to, ok := named[u.ID]
-		if n := a.panels.ownedBy(u.ID); n > 0 {
-			if _, isKept := kept.FindUserByID(to); !ok || !isKept {
-				return nil, fmt.Errorf("%s owns %d panels: choose a new owner for them from the users you keep", u.Name, n)
-			}
-		}
-		if !ok {
-			to = c.userID()
-		}
-		if to != "" {
-			moves[u.ID] = to
-		}
-	}
-	return moves, nil
-}
-
 // userNameRefusal is the clear refusal for a Name the config would reject (Validate has the
 // same rules, for files).
 func userNameRefusal(name string) error {
@@ -627,6 +473,8 @@ type usersListMsg struct {
 	APIClients  []config.APIClient `json:"apiClients"`
 	GuestRights config.Rights      `json:"guestRights"`
 	GuestScopes []string           `json:"guestScopes"`
+	// Versions of the one Save's fields that never ride the hello (hiddenVersions).
+	Versions map[string]string `json:"versions"`
 }
 
 type userView struct {
@@ -645,6 +493,8 @@ type userView struct {
 	Presets []presetNote `json:"presets"`
 	// Panels: how many panels the user owns, so removing them asks for a new owner.
 	Panels int `json:"panels,omitempty"`
+	// Clients: the API clients the user owns, which go with them (dropOwnerless).
+	Clients []string `json:"clients,omitempty"`
 }
 
 type presetNote struct {
@@ -655,7 +505,7 @@ type presetNote struct {
 func (a *App) usersList(c *client, id int) usersListMsg {
 	cfg := a.r().cfg.Clone()
 	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Me: c.userID(), Users: []userView{}, GuestRole: cfg.GuestRole,
-		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes}
+		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes, Versions: hiddenVersions(cfg)}
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}
 	}
@@ -671,8 +521,15 @@ func (a *App) usersList(c *client, id int) usersListMsg {
 		for _, p := range u.Profile.Presets {
 			ps = append(ps, presetNote{p.ID, p.Name})
 		}
+		var own []string
+		for _, cl := range cfg.APIClients {
+			if cl.Owner == u.ID {
+				own = append(own, cl.Name)
+			}
+		}
 		m.Users = append(m.Users, userView{ID: u.ID, Name: u.Name, Len: u.Len, Role: u.Role, Persistent: u.Persistent,
-			NoAutoLock: u.NoAutoLock, PinNeeded: u.PinNeeded, Rights: u.Rights, PanelClients: pc, Presets: ps, Panels: a.panels.ownedBy(u.ID)})
+			NoAutoLock: u.NoAutoLock, PinNeeded: u.PinNeeded, Rights: u.Rights, PanelClients: pc, Presets: ps, Panels: a.panels.ownedBy(u.ID),
+			Clients: own})
 	}
 	return m
 }

@@ -192,6 +192,9 @@ func TestEveryGuardedFieldHasSection(t *testing.T) {
 		}
 	}
 	for k := range saveFields {
+		if _, hidden := hiddenFields[k]; hidden {
+			continue
+		}
 		if _, ok := jsonFields()[k]; !ok {
 			t.Errorf("saveFields key %q is not a Config JSON key", k)
 		}

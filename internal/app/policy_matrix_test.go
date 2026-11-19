@@ -94,8 +94,8 @@ var policyExpect = map[string][nStates]error{
 
 	"clearHistory":   adminRule,
 	"exportSession":  adminRule,
-	"userSignOutAll": adminRule, "usersList": adminRule, "users": adminRule,
-	"apiSettings": adminRule, "keyListAll": adminRule, "keyCreateFor": adminRule,
+	"userSignOutAll": adminRule, "usersList": adminRule,
+	"keyListAll": adminRule, "keyCreateFor": adminRule,
 	"keyRevokeAny": adminRule, "keyRevokeAll": adminRule,
 }
 

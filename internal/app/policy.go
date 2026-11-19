@@ -179,30 +179,8 @@ var policy = map[string]rule{
 	"keyCreateFor": {crit: critNever, role: config.RoleAdministrator, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg) { a.serveKeyCreateFor(c, m) }},
 	"keyRevokeAny": {crit: critNever, role: config.RoleAdministrator, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAny(c, m) }},
 	"keyRevokeAll": {crit: critAlways, role: config.RoleAdministrator, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAll(c, m) }},
-	// the API settings area: Administrator only
-	"apiSettings": {crit: critByFields, role: config.RoleAdministrator, op: "apiSettings", write: true, handle: func(a *App, c *client, m *inMsg) {
-		if m.APISet == nil {
-			m.finish()
-			return
-		}
-		go func(r apiSettingsReq, id int) {
-			defer m.finish()
-			a.replyOp(c, "apiSettings", id, 0, "", a.SaveAPISettings(c, r))
-		}(*m.APISet, m.ID)
-	}},
 	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
-	"users": {crit: critByFields, role: config.RoleAdministrator, op: "users", write: true, handle: func(a *App, c *client, m *inMsg) {
-		if m.UsersReq == nil {
-			m.finish()
-			return
-		}
-		go func(r usersReq, id int) {
-			defer m.finish()
-			err := a.SaveUsers(c, r)
-			a.replyOp(c, "users", id, 0, "", err)
-		}(*m.UsersReq, m.ID)
-	}},
 }
 
 func (r rule) forMsg(m *inMsg) rule {
