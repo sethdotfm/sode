@@ -65,6 +65,22 @@ func TestBrowserCopyWritesOneSaveRowForTheUser(t *testing.T) {
 	}
 }
 
+// A moved preset keeps its id, so the page's pin order, rewritten from local: to user:, still finds it.
+func TestBrowserCopyKeepsPinOrder(t *testing.T) {
+	a := userApp(t, false)
+	ana := watched(t, a, "10.0.0.1", "1234")
+	p := testPreset("Moved")
+	p.ID = "00112233aabbccdd"
+	a.serveBrowserCopy(ana, &inMsg{T: "browserCopy", Presets: []config.Preset{p}, PinOrder: []string{"global:x", "user:00112233aabbccdd"}})
+	got := anasProfile(t, a)
+	if len(got.Presets) != 1 || got.Presets[0].ID != p.ID {
+		t.Fatalf("presets %+v", got.Presets)
+	}
+	if len(got.PinOrder) != 2 || got.PinOrder[1] != "user:00112233aabbccdd" {
+		t.Fatalf("pin order %v", got.PinOrder)
+	}
+}
+
 func TestBrowserCopyNotesReplacedItems(t *testing.T) {
 	a := userApp(t, false)
 	defer startLog(t, a)()
