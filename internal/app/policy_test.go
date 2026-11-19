@@ -72,7 +72,6 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 	}
 }
 
-
 // Rules no page sends any more, with why the rule stays.
 var noPageSends = map[string]string{
 	"config": "the one Save took the form; server tests still save settings through it",
