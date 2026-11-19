@@ -297,6 +297,7 @@ func TestImportRefusesBadFiles(t *testing.T) {
 		want  string
 	}{
 		"newer format":      {map[string]string{"manifest.yaml": "format: 2\n"}, 422, "made by a newer Sode"},
+		"newer entry":       {map[string]string{"manifest.yaml": "format: 2\n", "macros.yaml": "x"}, 422, "made by a newer Sode"},
 		"no manifest":       {map[string]string{"users.yaml": "users: []\n"}, 400, "not a Sode export"},
 		"unknown entry":     {map[string]string{"manifest.yaml": ok, "notes.txt": "hi"}, 400, "not part of a Sode export"},
 		"path out":          {map[string]string{"manifest.yaml": ok, "../config.yaml": "x"}, 400, "not part of a Sode export"},
@@ -373,4 +374,21 @@ func TestExportSectionsCoverTheConfig(t *testing.T) {
 
 func filepathGlob(dir string) ([]string, error) {
 	return filepath.Glob(filepath.Join(dir, "import-*"))
+}
+
+// An item on a router that is not live (one an import left Broken) still exports a file that imports.
+func TestExportOfForeignRouterItemImports(t *testing.T) {
+	a, _, tok := importApp(t)
+	lifeCommit(t, a, func(cfg *config.Config) {
+		p := showPreset(*cfg, "Show", "MON 4")
+		p.Items[0].Src.Router, p.Items[0].Dsts[0].Router = otherRouterUID, otherRouterUID
+		cfg.Presets = []config.Preset{p}
+	})
+	file := exported(t, a, tok, exportReq{Categories: []string{catPresets}})
+	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = nil })
+	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	p, ok := presetNamed(t, a, "Show")
+	if !ok || p.Items[0].Src.Router != otherRouterUID || len(p.Broken) == 0 {
+		t.Fatalf("Show: %+v", p)
+	}
 }

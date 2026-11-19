@@ -46,7 +46,6 @@ type plannedSet struct {
 	S   PanelSet
 }
 
-// importLive is what the planner reads from the stores outside the config.
 type importLive struct {
 	Panels    []Panel
 	Templates []Template
@@ -125,7 +124,6 @@ func (p *importPlanner) relibLayout(l panelLayout) panelLayout {
 	return l
 }
 
-// artFile finds a staged image entry of dir/id with one of the types' extensions.
 func (p *importPlanner) artFile(dir, id, typ string) ([]byte, bool) {
 	path, ok := p.b.Art[dir+id+"."+artExt[typ]]
 	if !ok || artExt[typ] == "" {
@@ -161,15 +159,18 @@ func (p *importPlanner) planArtwork(_ *config.Config, cat *importCat) error {
 			continue
 		}
 		it := importItem{Key: ic.ID, Name: ic.Name, Kind: kindIcon}
+		i := slices.IndexFunc(live, func(x LibIcon) bool { return x.ID == ic.ID })
+		if i < 0 {
+			i = slices.IndexFunc(live, func(x LibIcon) bool { return strings.EqualFold(x.Name, strings.TrimSpace(ic.Name)) })
+		}
+		if i >= 0 {
+			p.removed.keep(live[i].ID)
+		}
 		data, ok := p.artFile("art/icons/", ic.ID, ic.Type)
 		if !iconIDRe.MatchString(ic.ID) || !ok || ic.Type != "image/png" && ic.Type != "image/svg+xml" {
 			it.Refused = "the icon's image is not in the file or is not a PNG or SVG image"
 			cat.Items = append(cat.Items, it)
 			continue
-		}
-		i := slices.IndexFunc(live, func(x LibIcon) bool { return x.ID == ic.ID })
-		if i < 0 {
-			i = slices.IndexFunc(live, func(x LibIcon) bool { return strings.EqualFold(x.Name, strings.TrimSpace(ic.Name)) })
 		}
 		ic.Size = len(data)
 		if i >= 0 {
@@ -219,14 +220,14 @@ func (p *importPlanner) planArtwork(_ *config.Config, cat *importCat) error {
 	return p.planDefaults(cat)
 }
 
-// planDefaults: a Preset default follows its preset through the preset map; a Source or Destination
-// default for another router waits for the remap step.
+// planDefaults: a Preset default follows its preset through the preset map. A Source or Destination default
+// on a router that the remap step leaves without a target is refused.
 func (p *importPlanner) planDefaults(cat *importCat) error {
 	images := map[string]PanelArt{}
 	for _, im := range p.b.Artwork.DefaultImages {
 		images[im.ID] = im
 	}
-	for _, d := range p.b.Artwork.Defaults {
+	for i, d := range p.b.Artwork.Defaults {
 		key := d.key()
 		if !p.picked(catArtwork, key) {
 			continue
@@ -243,6 +244,10 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 			}
 			d.ID = to
 		default:
+			if x, ok := p.movedDefaults[i]; ok {
+				n := x.N
+				d.Router, d.N, d.Name = x.Router, &n, cmp.Or(x.Name, d.Name)
+			}
 			if d.Router != p.live.UID {
 				it.Refused = "it is for another router"
 			}
@@ -260,11 +265,15 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 		if it.Refused == "" && (d.check() != nil || !storedArtOK(d)) {
 			it.Refused = "it is not valid"
 		}
+		i := slices.IndexFunc(p.liveDefaults, func(x ArtDefault) bool { return x.key() == d.key() })
+		if i >= 0 {
+			p.removed.keep(p.liveDefaults[i].key())
+		}
 		if it.Refused != "" {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
-		if i := slices.IndexFunc(p.liveDefaults, func(x ArtDefault) bool { return x.key() == d.key() }); i >= 0 {
+		if i >= 0 {
 			it.Clash = p.liveDefaults[i].Name
 			if sameYAML(d, p.liveDefaults[i]) {
 				it.Same = true
@@ -282,7 +291,6 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 	return nil
 }
 
-// planPanelsAll is the Panels category: panels with their Push checkpoints, then templates and sets.
 func (p *importPlanner) planPanelsAll(cand *config.Config, cat *importCat) error {
 	if err := p.planPanels(cand, cat); err != nil {
 		return err
@@ -301,7 +309,6 @@ func (p *importPlanner) planBrowser(_ *config.Config, cat *importCat) error {
 	return nil
 }
 
-// planCheckpoints gives a planned panel the file's checkpoints, with icons moved as the import moves them.
 func (p *importPlanner) planCheckpoints(fileID string) []panelCheckpoint {
 	var out []panelCheckpoint
 	for _, cp := range p.b.Panels.Checkpoints[fileID] {
@@ -326,14 +333,7 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 		t.Owner = p.ownerFor(*cand, t.Owner, false)
 		t.Pages = p.relibPages(t.Pages)
 		it := importItem{Key: fileID, Name: t.Name, Kind: kindTemplate}
-		if err := t.clean(); err != nil {
-			it.Refused = err.Error()
-			cat.Items = append(cat.Items, it)
-			continue
-		}
-		if !validTemplateID(t.ID) {
-			t.ID = ""
-		}
+		err := t.clean()
 		i := -1
 		if p.same {
 			i = slices.IndexFunc(p.liveTemplates, func(x Template) bool { return x.ID == fileID })
@@ -342,8 +342,18 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 			i = slices.IndexFunc(p.liveTemplates, func(x Template) bool { return sameBucket(x, t) && strings.EqualFold(x.Name, t.Name) })
 		}
 		if i >= 0 {
+			p.removed.keep(p.liveTemplates[i].ID)
+		}
+		if err != nil {
+			it.Refused = err.Error()
+			cat.Items = append(cat.Items, it)
+			continue
+		}
+		if !validTemplateID(t.ID) {
+			t.ID = ""
+		}
+		if i >= 0 {
 			lt := p.liveTemplates[i]
-			p.removed.keep(&p.removed.keepTemplates, lt.ID)
 			t.ID, it.Clash = lt.ID, lt.Name
 			if sameYAML(t, lt) {
 				it.Same = true
@@ -393,11 +403,6 @@ func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 			s.Entries[i].panelLayout = p.relibLayout(s.Entries[i].panelLayout)
 		}
 		it := importItem{Key: fileID, Name: s.Name, Kind: kindSet}
-		if s.Scope != panelShareAll && s.Scope != panelShareMe || strings.TrimSpace(s.Name) == "" {
-			it.Refused = "it is not valid"
-			cat.Items = append(cat.Items, it)
-			continue
-		}
 		bucket := func(x PanelSet) bool { return x.Scope == s.Scope && (s.Scope == panelShareAll || x.Owner == s.Owner) }
 		i := -1
 		if p.same {
@@ -407,8 +412,15 @@ func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 			i = slices.IndexFunc(p.liveSets, func(x PanelSet) bool { return bucket(x) && strings.EqualFold(x.Name, s.Name) })
 		}
 		if i >= 0 {
+			p.removed.keep(p.liveSets[i].ID)
+		}
+		if s.Scope != panelShareAll && s.Scope != panelShareMe || strings.TrimSpace(s.Name) == "" {
+			it.Refused = "it is not valid"
+			cat.Items = append(cat.Items, it)
+			continue
+		}
+		if i >= 0 {
 			ls := p.liveSets[i]
-			p.removed.keep(&p.removed.keepSets, ls.ID)
 			s.ID, it.Clash = ls.ID, ls.Name
 			if sameYAML(s, ls) {
 				it.Same = true

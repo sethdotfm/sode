@@ -3,13 +3,11 @@ package app
 import (
 	"bytes"
 	"encoding/json"
-	"mime/multipart"
 	"net/http/httptest"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -33,20 +31,7 @@ func signInToken(t *testing.T, a *App, name, pin string) string {
 // postApplyWith is postApply from a trusted proxy that says the request came over proto.
 func postApplyWith(t *testing.T, a *App, tok string, zipBytes []byte, req importReq, proto string) *httptest.ResponseRecorder {
 	t.Helper()
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
-	pw, _ := mw.CreateFormField("plan")
-	json.NewEncoder(pw).Encode(req)
-	fw, _ := mw.CreateFormFile("file", "export.zip")
-	fw.Write(zipBytes)
-	mw.Close()
-	r := httptest.NewRequest("POST", "/api/import/apply", &body)
-	r.Header.Set("Content-Type", mw.FormDataContentType())
-	r.Header.Set(sessionHeader, tok)
-	r.Header.Set("X-Forwarded-Proto", proto)
-	rec := httptest.NewRecorder()
-	a.Handler(fstest.MapFS{}).ServeHTTP(rec, r)
-	return rec
+	return postMultipart(t, a, "/api/import/apply", req, zipBytes, map[string]string{sessionHeader: tok, "X-Forwarded-Proto": proto})
 }
 
 func lastSavesRow(t *testing.T, a *App) Sent {
@@ -343,5 +328,78 @@ func TestReplaceImportEndsRemovedUsersCards(t *testing.T) {
 	}
 	if got, _ := a.inbox.get(toAna.ID); got.State != cardWaiting {
 		t.Fatalf("card to Ana: %s", got.State)
+	}
+}
+
+// A same-install backup restored through Replace keeps what it holds, Default artwork included.
+func TestReplaceImportRoundTripKeepsEverything(t *testing.T) {
+	a, tok := replaceApp(t)
+	seedPanelExtras(t, a)
+	file := exported(t, a, tok, exportReq{Categories: []string{catPanels, catArtwork}})
+	res := applied(t, postApply(t, a, tok, file, replaceReq(catPanels, catArtwork)))
+	if len(res.Failed) != 0 {
+		t.Fatalf("failed: %v", res.Failed)
+	}
+	p, tp, s, i, d := len(a.panels.list()), len(a.templates.list()), len(a.panels.sets.sorted(nil)), len(a.icons.list()), len(a.artDefaults.list())
+	if p+tp+s+i+d != 5 {
+		t.Fatalf("panels %d, templates %d, sets %d, icons %d, defaults %d", p, tp, s, i, d)
+	}
+}
+
+// A file item that is refused or waits for names keeps its live twin: nothing would replace it.
+func TestReplaceImportKeepsTwinsOfRefusedItems(t *testing.T) {
+	a, tok := replaceApp(t)
+	_, _, _, ic := seedPanelExtras(t, a)
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")}
+		srcs := []config.Ref{cfg.SourceRef(2, "CAM 2")}
+		for i := range cfg.Users {
+			if cfg.Users[i].Name == "Bo" {
+				cfg.Users[i].Rights.Sources = &srcs
+			}
+		}
+	})
+	cats := []string{catPanels, catArtwork, catPresets, catUsers}
+	files := map[string]string{}
+	for name, b := range unzipAll(t, exported(t, a, tok, exportReq{Categories: cats})) {
+		files[name] = string(b)
+	}
+	for _, bad := range [][2]string{{"rows: 1", "rows: 99"}, {"name: Row", `name: ""`}, {"name: Show A", `name: ""`}} {
+		files["panels.yaml"] = strings.Replace(files["panels.yaml"], bad[0], bad[1], 1)
+	}
+	files["artwork.yaml"] = strings.Replace(files["artwork.yaml"], "art: lib:", "art: bad:", 1)
+	files["art/icons/"+ic.fileName()] = "not an image"
+	a.mu.Lock()
+	clear(a.router.srcNames)
+	clear(a.router.dstNames)
+	a.mu.Unlock()
+	res := applied(t, postApply(t, a, tok, zipOf(t, files), replaceReq(cats...)))
+	if len(res.Failed) != 0 {
+		t.Fatalf("failed: %v", res.Failed)
+	}
+	refused, waits := 0, 0
+	for _, c := range res.Plan.Categories {
+		for _, it := range c.Items {
+			switch it.Refused {
+			case "":
+			case waitsForNames:
+				waits++
+			default:
+				refused++
+			}
+		}
+	}
+	if refused != 5 || waits != 2 {
+		t.Fatalf("%d refused, %d waiting: %+v", refused, waits, res.Plan.Categories)
+	}
+	p, tp, set, i, d := len(a.panels.list()), len(a.templates.list()), len(a.panels.sets.sorted(nil)), len(a.icons.list()), len(a.artDefaults.list())
+	if p+tp+set+i+d != 5 {
+		t.Errorf("panels %d, templates %d, sets %d, icons %d, defaults %d", p, tp, set, i, d)
+	}
+	if _, ok := presetNamed(t, a, "Show"); !ok {
+		t.Error("the waiting preset's live twin is gone")
+	}
+	if _, ok := a.r().cfg.FindUserByName("Bo"); !ok {
+		t.Error("the waiting user's live twin is gone")
 	}
 }

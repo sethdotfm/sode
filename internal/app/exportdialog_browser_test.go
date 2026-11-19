@@ -11,9 +11,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Export & Import dialog at Sode's default size, with Export and Import tabs and Include PINs on. It lists
-// the nine categories with sizes and shows the footer order and the zip size on Export. A picked export sends
-// its ids. The phone gets the desktop-only message.
+// The Export & Import dialog at the default size: nine categories with sizes, footer order and zip size. A picked
+// export sends its ids. The phone gets the desktop-only message.
 func TestChromeExportDialog(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

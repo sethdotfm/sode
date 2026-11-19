@@ -3,10 +3,8 @@ package app
 import (
 	"bytes"
 	"encoding/json"
-	"mime/multipart"
 	"net/http/httptest"
 	"testing"
-	"testing/fstest"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -37,19 +35,7 @@ func importApp(t *testing.T) (*App, *client, string) {
 
 func postApply(t *testing.T, a *App, tok string, zipBytes []byte, req importReq) *httptest.ResponseRecorder {
 	t.Helper()
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
-	pw, _ := mw.CreateFormField("plan")
-	json.NewEncoder(pw).Encode(req)
-	fw, _ := mw.CreateFormFile("file", "export.zip")
-	fw.Write(zipBytes)
-	mw.Close()
-	r := httptest.NewRequest("POST", "/api/import/apply", &body)
-	r.Header.Set("Content-Type", mw.FormDataContentType())
-	r.Header.Set(sessionHeader, tok)
-	rec := httptest.NewRecorder()
-	a.Handler(fstest.MapFS{}).ServeHTTP(rec, r)
-	return rec
+	return ownMultipart(t, a, tok, "/api/import/apply", zipBytes, req)
 }
 
 func applied(t *testing.T, rec *httptest.ResponseRecorder) importResult {

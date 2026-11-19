@@ -3,13 +3,11 @@ package app
 import (
 	"bytes"
 	"encoding/json"
-	"mime/multipart"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -25,7 +23,6 @@ func backupReq(pins bool) exportReq {
 	}
 }
 
-// backupOf is a full install's Back up everything file.
 func backupOf(t *testing.T, pins bool) (*App, []byte) {
 	t.Helper()
 	a, tok := exportApp(t)
@@ -38,7 +35,6 @@ func backupOf(t *testing.T, pins bool) (*App, []byte) {
 	return a, exported(t, a, tok, backupReq(pins))
 }
 
-// restoreKey: the setup owner's key for the restore route.
 func restoreKey(t *testing.T, a *App) (*client, string) {
 	t.Helper()
 	c := &client{ip: "10.0.0.7", send: make(chan []byte, 4096)}
@@ -52,21 +48,11 @@ func restoreKey(t *testing.T, a *App) (*client, string) {
 
 func postRestore(t *testing.T, a *App, key string, file []byte, pin string) *httptest.ResponseRecorder {
 	t.Helper()
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
-	pw, _ := mw.CreateFormField("plan")
-	json.NewEncoder(pw).Encode(restoreReq{Pin: pin})
-	fw, _ := mw.CreateFormFile("file", "backup.zip")
-	fw.Write(file)
-	mw.Close()
-	r := httptest.NewRequest("POST", "/api/setup/restore", &body)
-	r.Header.Set("Content-Type", mw.FormDataContentType())
+	h := map[string]string{}
 	if key != "" {
-		r.Header.Set(setupKeyHeader, key)
+		h[setupKeyHeader] = key
 	}
-	rec := httptest.NewRecorder()
-	a.Handler(fstest.MapFS{}).ServeHTTP(rec, r)
-	return rec
+	return postMultipart(t, a, "/api/setup/restore", restoreReq{Pin: pin}, file, h)
 }
 
 func restored(t *testing.T, rec *httptest.ResponseRecorder) restoreResult {
