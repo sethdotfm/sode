@@ -65,9 +65,6 @@ func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 			keys = append(keys, k)
 		}
 	}
-	if was.SettingsPin != after.SettingsPin {
-		keys = append(keys, settingsPinKey)
-	}
 	a.recordSave(connActor(c), "save", a.savedFields(was, after, keys, &saveCtx{}), len(criticalEdits(was, after, config.User{})) > 0)
 	return nil
 }
