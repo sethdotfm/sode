@@ -22,11 +22,9 @@ let shownMode = '1';
 
 // Previewed before save: window border and the app icon the server draws (icon.go).
 function renderBrandPreview() {
-  const sel = $('cfg-brandborder');
-  const c = sel.value;
+  const c = $('cfg-brandborder').value;
   setBrand($('brand-swatch'), c);
   $('brand-icon').src = iconURL(180, c);
-  $('brand-name').textContent = sel.selectedOptions[0]?.textContent || 'Off';
 }
 function fillBrandColors() {
   const sel = $('cfg-brandborder');

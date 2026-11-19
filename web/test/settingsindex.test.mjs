@@ -116,7 +116,7 @@ test('the fire mode setting is found by its words', () => {
     {
       id: 'router',
       title: 'Router',
-      settings: [{ id: 'cfg-firemode', label: 'Multi destination behavior' }],
+      settings: [{ id: 'cfg-firemode', label: 'Multi destination' }],
     },
   ]);
   for (const q of ['native', 'fire mode', 'router salvo', 'preset']) {

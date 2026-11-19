@@ -196,7 +196,7 @@ func TestChromeStepInReviewNamesAuthor(t *testing.T) {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const head = [...d.querySelectorAll('thead th')].map((th) => th.textContent);
-		const row = [...d.querySelectorAll('tbody tr')].find((r) => r.cells[0]?.textContent === 'Logo text & Page title');
+		const row = [...d.querySelectorAll('tbody tr')].find((r) => r.cells[0]?.textContent === 'Logo text and page title');
 		return d.textContent.includes('1 change by Bo that your Role cannot see') && head.includes('Staged by')
 			&& row?.cells[1].textContent === 'Bo' && !d.textContent.includes('Lock Main page')
 			&& document.getElementById('review-save').textContent === 'Save 1 change';

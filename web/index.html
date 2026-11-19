@@ -299,16 +299,15 @@
       <legend>Branding</legend>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-brandtext">Logo text & Page title</label>
+          <label for="cfg-brandtext">Logo text and page title</label>
           <input id="cfg-brandtext" class="pb-input" data-key="brandText" placeholder="Sode" maxlength="24" spellcheck="false">
         </div>
         <div class="sode__field">
-          <label for="cfg-brandborder">Accent Color</label>
+          <label for="cfg-brandborder">Page border color</label>
           <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"></select></span>
           <span class="sode__brand-preview" id="brand-preview">
             <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
             <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
-            <span class="sode__hint" id="brand-name"></span>
           </span>
         </div>
       </div>
@@ -448,7 +447,7 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-firemode">Multi destination behavior</label>
+          <label for="cfg-firemode">Multi destination</label>
           <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">One after another</option><option value="native">Router salvo (stage, then Take all)</option></select></span>
         </div>
         <div class="sode__field">
@@ -474,7 +473,7 @@
           </div>
         </div>
         <div class="sode__field">
-          <label for="cfg-auto-lock">Auto-lock after idle (minutes)</label>
+          <label for="cfg-auto-lock" data-pb-tip="0 = off">Auto-lock after (min)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
         </div>
       </div>
