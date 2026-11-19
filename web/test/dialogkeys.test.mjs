@@ -97,3 +97,26 @@ test('trapDialog: hide drops the dialog from the Esc stack, show puts it back', 
   b.hide();
   assert.equal(heldDialogs(), before);
 });
+
+import { closeShown } from '../dialogkeys.js';
+
+test('closeShown: a Lock runs each shown dialog Esc and hides one that stays open', () => {
+  globalThis.document ??= { addEventListener() {} };
+  const node = (hidden = false) => ({ hidden, isConnected: true, addEventListener() {}, querySelectorAll: () => [] });
+  const shut = node();
+  const steps = node();
+  const asleep = node(true);
+  const ran = [];
+  const a = trapDialog(shut, node(), () => {
+    ran.push('shut');
+    a.hide();
+    shut.hidden = true;
+  });
+  const b = trapDialog(steps, node(), () => ran.push('steps'));
+  const c = trapDialog(asleep, node(), () => ran.push('asleep'));
+  closeShown();
+  assert.deepEqual(ran, ['shut', 'steps']);
+  assert.equal(steps.hidden, true);
+  b.hide();
+  c.hide();
+});

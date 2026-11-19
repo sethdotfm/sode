@@ -1,5 +1,6 @@
 // The Buttons panel body of a panel run (panelrun.js): cells, the state model, the Undo cell and the hold guard.
 // ctx is the run's adapter: { ui, art, embedded, page, id, call, callJSON, post, poll, ready, instance, touched }.
+import { showNote } from './core.js';
 import { envFrom, namesFrom, drawnCells, errorText, undoneText, undoMoved } from './panelrules.js';
 import {
   createState,
@@ -31,11 +32,6 @@ import { NAV_KINDS, landingPage, pageIndex, wrapOf } from './panelnav.js';
 import { savedPage, keepPage } from './pagekeep.js';
 
 const UNDO_MOVED = 'Undo target changed. Press again.';
-
-const say = (n, text) => {
-  n.textContent = text;
-  n.hidden = !text;
-};
 
 const cellsOf = (p, page) => drawnCells(p, pageIndex(pagesOf(p), page)).map((c) => withDefault(c, defaultsBy(p.artDefaults)));
 // Every Page's cells, so a live update keeps a Destination viewed on another Page.
@@ -79,7 +75,7 @@ export function buttonsBody(ctx, first) {
     paintGrid(grid, { st, env, names, now, panelName: panel.name, instance: ctx.instance(), pages: pagesOf(panel), wrap: wrapOf(panel), undo: undoNext });
     const err = errorOf(st, now);
     const undone = err ? null : undoneOf(st, now);
-    say(ui.status, err ? errorText(err, names) : undoneText(undone, names));
+    showNote(ui.status, err ? errorText(err, names) : undoneText(undone, names));
     ui.status.classList.toggle('sode-panel__status--ok', !!undone && !undone.failed.length);
   };
   const build = () => buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);

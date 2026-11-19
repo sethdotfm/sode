@@ -1,17 +1,13 @@
-// The Share modal on the panels page, with People first. Sharing is only the share field of PUT /api/v1/panels/{id}.
-// Another tab joins with a function pushed onto shareTabs, ctx {panel, api, close}: it returns {id, text, panel}, or null when it does not apply.
-import { el, on } from './core.js';
-import { check } from './formbits.js';
+// The Share modal on the panels page, with People first and Link with key (panelkeytab.js). Sharing is only the share
+// field of PUT /api/v1/panels/{id}.
+import { el } from './core.js';
+import { btn, check } from './formbits.js';
 import { linkRow } from './panellinkrow.js';
-import { trapDialog } from './dialogkeys.js';
+import { question } from './modal.js';
 import { makeTabs } from './tabs.js';
 import { firstShareTab } from './panelkeyrules.js';
+import { keyTab } from './panelkeytab.js';
 import { shareDraft, pickList, toggleUser, shareBody, shareChanged } from './panelsrules.js';
-
-export const shareTabs = [];
-
-let closeOpen = null;
-on('locking', () => closeOpen?.());
 
 const MODES = [
   ['me', 'Only me'],
@@ -26,15 +22,9 @@ export function openShare(panel, ctx) {
   let people = null; // null while loading, [] when the list failed
   let busy = false;
 
-  const note = el('span', 'sode__hint');
-  note.setAttribute('role', 'status');
-  const saveBtn = el('button', 'pb-btn pb-btn--ok', 'Save');
-  saveBtn.type = 'button';
-  const cancelBtn = el('button', 'pb-btn pb-btn--outline', 'Cancel');
-  cancelBtn.type = 'button';
-  const modes = el('div', 'pb-btn-group');
-  modes.setAttribute('role', 'radiogroup');
-  modes.setAttribute('aria-label', 'Who can use this panel');
+  const note = el('span', { class: 'sode__hint', role: 'status' });
+  const saveBtn = btn('pb-btn--ok', 'Save');
+  const modes = el('div', { class: 'pb-btn-group', role: 'radiogroup', 'aria-label': 'Who can use this panel' });
   const picker = el('div', 'sode-ov__people');
   const peopleTab = el('div', 'sode-ov__sharebody', modes, picker, linkRow(panel));
 
@@ -85,37 +75,19 @@ export function openShare(panel, ctx) {
     modes.querySelector(`[data-mode="${draft.mode}"]`).focus();
   });
 
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  const dialog = el('div', 'pb-modal sode-ov__share');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'share-title');
-  dialog.tabIndex = -1;
-  const items = [{ id: 'people', text: 'People', panel: peopleTab }];
-  const extra = { panel, api: ctx.api, close };
-  for (const make of shareTabs) {
-    const t = make(extra);
-    if (t) items.push(t);
-  }
+  const items = [{ id: 'people', text: 'People', panel: peopleTab }, keyTab({ panel, api: ctx.api })];
   const tabs = makeTabs(items);
   if (items.some((i) => i.id === firstShareTab(panel))) tabs.select(firstShareTab(panel));
-  dialog.append(
-    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `Share ${panel.name}`), { id: 'share-title' })),
-    el('div', 'pb-modal__body', tabs.node, ...items.map((i) => i.panel)),
-    el('div', 'pb-modal__footer', note, cancelBtn, saveBtn),
-  );
-  root.append(dialog);
-  document.body.append(root);
-  const dlg = trapDialog(root, dialog, close);
-
-  function close() {
-    closeOpen = null;
-    dlg.hide();
-    root.remove();
-    if (opener?.isConnected) opener.focus();
-  }
-  closeOpen = close;
-  cancelBtn.addEventListener('click', close);
+  const q = question({
+    back: opener,
+    titleId: 'share-title',
+    title: `Share ${panel.name}`,
+    cls: 'sode-ov__share',
+    body: [tabs.node, ...items.map((i) => i.panel)],
+    foot: [note, btn('pb-btn--outline', 'Cancel', () => close()), saveBtn],
+  });
+  const { root } = q;
+  const close = () => q.close(null);
   saveBtn.addEventListener('click', async () => {
     busy = true;
     sync();
@@ -139,8 +111,7 @@ export function openShare(panel, ctx) {
   });
 
   paint();
-  dlg.show();
-  dialog.focus();
+  q.dialog.focus();
   ctx
     .api('api/v1/panels/people')
     .then((r) => (people = r.users))

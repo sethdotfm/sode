@@ -21,7 +21,7 @@ import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restoreP
 import { edgeChoices, edgeNote } from './gridedge.js';
 import { askPasteEdge } from './editorpasteedge.js';
 import { pagesAfterSave, pagesOf, pageView, fitPages } from './panelpages.js';
-import { addPage, movePage, renamePage, enablePage, deletePage, copyPage, openClick } from './editorpagerules.js';
+import { addPage, movePage, renamePage, enablePage, deletePage, copyPage, openClick, settle } from './editorpagerules.js';
 import { createPageBar } from './editorpagebar.js';
 import { createPageView } from './editorpageview.js';
 import { askCopyTo } from './editorpagecopy.js';
@@ -147,10 +147,7 @@ export async function runEditor() {
     if (!top) return say('ed-status', back ? 'Nothing to undo.' : 'Nothing to redo.');
     const s = (back ? undo : redo)(steps, snap(!!top.grid.list));
     steps = s.undo;
-    pages = restorePages(livePages(), s.grid);
-    if (!pages.some((p) => p.id === focus)) focus = pages[0].id;
-    open = open.filter((id) => pages.some((p) => p.id === id));
-    if (!open.includes(focus)) open = [focus];
+    ({ pages, focus, open } = settle({ pages: restorePages(livePages(), s.grid), focus, open }));
     g = createGrid({ rows: s.grid.rows, cols: s.grid.cols });
     showFocused();
     if (s.grid.focus === focus && s.grid.sel) g = { ...g, sel: s.grid.sel };
@@ -162,9 +159,7 @@ export async function runEditor() {
 
   function focusPage(id) {
     if (id === focus) return;
-    pages = livePages();
-    focus = id;
-    if (!open.includes(id)) open = [id];
+    ({ pages, focus, open } = settle({ pages: livePages(), focus: id, open }));
     showFocused();
     menuAway = false;
   }
@@ -207,9 +202,9 @@ export async function runEditor() {
       const gone = live[i].id;
       pages = deletePage(live, i);
       if (pages === live) return say('ed-status', 'Nothing deleted: at least one Page stays on, so turn another Page on first.');
-      open = open.filter((id) => id !== gone);
-      if (focus === gone) focus = (open.length ? pages.find((p) => open.includes(p.id)) : pages[Math.min(i, pages.length - 1)]).id;
-      if (!open.length) open = [focus];
+      const left = open.filter((id) => id !== gone);
+      const next = focus !== gone ? focus : (left.length ? pages.find((p) => left.includes(p.id)) : pages[Math.min(i, pages.length - 1)]).id;
+      ({ pages, focus, open } = settle({ pages, focus: next, open: left }));
       showFocused();
       changed();
       say('ed-status', `Deleted Page ${i + 1}.`);
@@ -463,9 +458,8 @@ export async function runEditor() {
     art = panel ? createArt(sessionFetch, panel.id) : null;
     held = [];
     steps = emptyUndo();
-    pages = pagesOf(panel || newPanel());
-    focus = pages[0].id;
-    open = [focus];
+    const first = pagesOf(panel || newPanel());
+    ({ pages, focus, open } = settle({ pages: first, focus: first[0].id, open: [] }));
     g = holdOrPutBack(createGrid(pageView(panel || newPanel()))).shown;
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
@@ -570,17 +564,13 @@ export async function runEditor() {
     // Pages edited during the save stay as they are now; the rest take the stored copy. The first save gives an
     // unsaved Page 1 its id.
     const after = pagesAfterSave(sentPages, livePages(), pagesOf(stored));
-    pages = after.pages;
     const rekey = (id) => after.ids[id] ?? id;
-    focus = rekey(focus);
-    if (!pages.some((p) => p.id === focus)) focus = pages[0].id;
+    ({ pages, focus, open } = settle({ pages: after.pages, focus: rekey(focus), open: open.map(rekey) }));
     steps = rekeySaved(
       steps,
       sentPages.map((p) => p.id),
       sentPages.map((p) => rekey(p.id)),
     );
-    open = open.map(rekey).filter((id) => pages.some((p) => p.id === id));
-    if (!open.includes(focus)) open = [focus];
     // The server fills router references (internal/app/panelrefs.go). A focused Page not edited during the save takes
     // them, or it reads as Unsaved changes.
     if (pagesOf(stored).includes(pages[fi()])) {
@@ -703,9 +693,7 @@ export async function runEditor() {
       edit(
         'template',
         () => {
-          pages = list;
-          focus = list[0].id;
-          open = [focus];
+          ({ pages, focus, open } = settle({ pages: list, focus: list[0].id, open: [] }));
           held = [];
           g = holdOrPutBack(first).shown;
         },

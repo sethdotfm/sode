@@ -1,6 +1,8 @@
 // The elements runPanel (panelrun.js) draws into. The panel page has them as ids in panel.html; the editor's
 // live test builds the same shape inside #ed-live-view, so the one runtime serves both.
 import { $, el } from './core.js';
+import { btn } from './formbits.js';
+import { dialogAttrs } from './modal.js';
 
 export function pageUi() {
   return {
@@ -115,22 +117,12 @@ function levelsBox() {
 
 // Keep in step with #confirm in panel.html; the ids are keyconfirm.js's.
 function takeConfirm() {
-  const withId = (n, id) => Object.assign(n, { id });
-  const cancel = withId(el('button', 'pb-btn pb-btn--outline', 'Cancel'), 'confirm-cancel');
-  const ok = withId(el('button', 'pb-btn pb-btn--danger', 'Take'), 'confirm-ok');
-  cancel.type = ok.type = 'button';
   const dialog = el(
     'div',
-    'pb-modal',
-    el('div', 'pb-modal__header pb-modal__header--error', withId(el('span', 'pb-modal__title', 'Confirm take'), 'confirm-title')),
-    withId(el('div', 'pb-modal__body sode__confirm'), 'confirm-body'),
-    el('div', 'pb-modal__footer', cancel, ok),
+    { class: 'pb-modal', id: 'confirm-dialog', ...dialogAttrs('confirm-title') },
+    el('div', 'pb-modal__header pb-modal__header--error', el('span', { class: 'pb-modal__title', id: 'confirm-title' }, 'Confirm take')),
+    el('div', { class: 'pb-modal__body sode__confirm', id: 'confirm-body' }),
+    el('div', 'pb-modal__footer', btn('pb-btn--outline', 'Cancel', null, 'confirm-cancel'), btn('pb-btn--danger', 'Take', null, 'confirm-ok')),
   );
-  Object.assign(dialog, { id: 'confirm-dialog', tabIndex: -1 });
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'confirm-title');
-  const scrim = withId(el('div', 'pb-modal-backdrop sode__scrim', dialog), 'confirm');
-  scrim.hidden = true;
-  return scrim;
+  return el('div', { class: 'pb-modal-backdrop sode__scrim', id: 'confirm', hidden: true }, dialog);
 }

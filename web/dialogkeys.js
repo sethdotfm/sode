@@ -49,6 +49,15 @@ function listen() {
 // How many dialogs the Esc stack holds, for the tests.
 export const heldDialogs = () => stack.length;
 
+// A Lock closes every shown dialog as Esc would; one whose Esc only steps back is hidden as well.
+export function closeShown() {
+  for (const e of stack.slice()) {
+    if (e.root.hidden || !e.root.isConnected) continue;
+    e.onEsc();
+    e.root.hidden = true;
+  }
+}
+
 // Stopped at root so the layouts' own keys do not act behind it. The stack holds a dialog only while it is shown.
 // A modal built per open is removed from the page on close, and a held root would keep its whole tree alive.
 export function trapDialog(root, dialog, onEsc) {

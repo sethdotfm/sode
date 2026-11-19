@@ -11,9 +11,24 @@ export const LINK_DOWN = 'Server link down.';
 
 export const $ = (id) => document.getElementById(id);
 
-export function el(tag, cls, ...kids) {
+// A line that hides when empty; an unchanged text is not written again (a redraw each second must not restart a
+// screen reader).
+export function showNote(n, text) {
+  if (n.textContent !== text) n.textContent = text;
+  n.hidden = !text;
+}
+
+// props is a class string or an object; a key the element has as a property is set as one, any other as an attribute.
+export function el(tag, props, ...kids) {
   const e = document.createElement(tag);
-  if (cls) e.className = cls;
+  if (typeof props === 'string') e.className = props;
+  else if (props)
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null) continue;
+      if (k === 'class') e.className = v;
+      else if (k in e) e[k] = v;
+      else if (v !== false) e.setAttribute(k, v === true ? '' : v);
+    }
   for (const k of kids) if (k != null) e.append(k);
   return e;
 }
@@ -186,6 +201,31 @@ export function wsSend(m) {
   ws.send(JSON.stringify(m));
   return true;
 }
+
+// One message and its answer of type resultT, matched by id. msg keeps its literal t at the call site: the policy
+// test reads the types from the source. With no link, or when the socket closes first, it answers { ok: false, err }.
+const waiting = new Map();
+const asked = new Set();
+let askSeq = 0;
+export function request(resultT, msg) {
+  if (!asked.has(resultT)) {
+    asked.add(resultT);
+    onMsg(resultT, (m) => {
+      const done = waiting.get(m.id);
+      waiting.delete(m.id);
+      done?.(m);
+    });
+  }
+  const id = ++askSeq;
+  return new Promise((resolve) => {
+    if (!wsSend({ ...msg, id })) return resolve({ ok: false, err: LINK_DOWN });
+    waiting.set(id, resolve);
+  });
+}
+on('wsclose', () => {
+  for (const done of waiting.values()) done({ ok: false, err: LINK_DOWN });
+  waiting.clear();
+});
 
 function handle(m) {
   switch (m.t) {

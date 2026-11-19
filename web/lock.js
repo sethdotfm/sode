@@ -51,6 +51,8 @@ import {
   pinFreeView,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
+import { closeShown } from './dialogkeys.js';
+import { dialogAttrs } from './modal.js';
 import { stepLock, noteStepState, steppedIn } from './stepin.js';
 import { stepActive } from './stepinrules.js';
 import { createOwed } from './owed.js';
@@ -185,12 +187,12 @@ function build() {
   letterFoot = el('div', 'sode-lock__foot', signOutBtn, signInAsBtn);
   letterFoot.hidden = true;
   // The foot is the last row, in flow, so it cannot land on the pad.
-  root = el('div', 'sode-lock', el('div', 'sode-lock__main', brand, padBody, letterBody), letterFoot);
-  root.hidden = true;
-  root.tabIndex = -1;
-  root.setAttribute('role', 'dialog');
-  root.setAttribute('aria-modal', 'true');
-  root.setAttribute('aria-label', 'Locked');
+  root = el(
+    'div',
+    { class: 'sode-lock', ...dialogAttrs(), 'aria-label': 'Locked', hidden: true },
+    el('div', 'sode-lock__main', brand, padBody, letterBody),
+    letterFoot,
+  );
   document.body.append(root);
 
   chip = buildChip({ lock: localLock });
@@ -336,17 +338,12 @@ function inert(c) {
   inerted.push(c);
 }
 
-// Native <dialog>s close here; a module that owns a dialog or view listens for 'locking'
-// (Settings exits; an unsaved form keeps its warning, covered).
+// A module that needs more than Esc on a Lock listens for 'locking' (Settings exits; an unsaved form keeps its
+// warning, covered). Every other trapDialog dialog closes as on Esc.
 function closeModals() {
   for (const d of document.querySelectorAll('dialog[open]')) d.close();
   emit('locking');
-  // Fallback for modals with no 'locking' listener: their own Cancel or Close, else hide them.
-  for (const m of document.querySelectorAll('.pb-modal-backdrop:not([hidden])')) {
-    const b = [...m.querySelectorAll('button')].find((x) => /cancel|close/i.test(x.id));
-    if (b) b.click();
-    else m.hidden = true;
-  }
+  closeShown();
 }
 
 function hideLock() {

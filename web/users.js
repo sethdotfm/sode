@@ -7,11 +7,11 @@ import { diffRows } from './savereviewrules.js';
 import { makeUsersSource } from './usersstage.js';
 import { trusted } from './trusted.js';
 import { askRecheck } from './recheck.js';
-import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 import { accessReq, rightsTab } from './rightsrules.js';
 import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
+import { modal } from './modal.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
 import { ROLES, ownerChoices, pinPlaceholder } from './usersrules.js';
@@ -30,12 +30,8 @@ const rows = el('div', 'sode__users-list');
 const maxInput = number('usr-maxpin');
 maxInput.min = '4';
 maxInput.max = '12';
-const err = el('div', 'pb-note pb-note--error');
-err.setAttribute('role', 'alert');
-err.hidden = true;
-const note = el('span', 'sode__hint');
-note.setAttribute('role', 'status');
-note.setAttribute('aria-live', 'polite');
+const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
+const note = el('span', { class: 'sode__hint', role: 'status', 'aria-live': 'polite' });
 
 const roleSelect = (roles, value, label) => {
   const s = el('select', 'pb-select');
@@ -53,15 +49,7 @@ const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
   addRow().focus();
   touched();
 });
-const doneBtn = btn('pb-btn--outline', 'Done', () => closeUsers());
 
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal sode__filters sode__users-dlg');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'users-title');
-dialog.tabIndex = -1;
 let isOpen = false;
 let ridSeq = 0;
 const usersPanel = el(
@@ -93,13 +81,14 @@ const tabs = makeTabs(
     if (id === 'rights') rightsPanel.refresh();
   },
 );
-dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Manage users'), { id: 'users-title' })),
-  el('div', 'pb-modal__body', tabs.node, usersPanel, clientsTab.node, rightsPanel.node, err),
-  el('div', 'pb-modal__footer', note, doneBtn),
-);
-root.append(dialog);
-document.body.append(root);
+const dlg = modal({
+  titleId: 'users-title',
+  title: 'Manage users',
+  cls: 'sode__filters sode__users-dlg',
+  body: [tabs.node, usersPanel, clientsTab.node, rightsPanel.node, err],
+  foot: [note, btn('pb-btn--outline', 'Done', () => closeUsers())],
+  onEsc: () => closeUsers(),
+});
 
 let back = null;
 let outSeq = 0;
@@ -344,7 +333,7 @@ function openUsers() {
   if (!staged()) load();
   tabs.select('users');
   dlg.show();
-  dialog.focus();
+  dlg.dialog.focus();
 }
 
 // Closing keeps the edits: they are unsaved changes of Settings until its Save or exit.
@@ -355,10 +344,6 @@ function closeUsers() {
   if (back?.isConnected) back.focus();
 }
 manage.addEventListener('click', openUsers);
-const dlg = trapDialog(root, dialog, closeUsers);
-on('locking', () => {
-  if (isOpen) closeUsers();
-});
 
 function readRow(row) {
   const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;

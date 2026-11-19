@@ -33,7 +33,7 @@ import { CORNER, MOVES, moveCursor, pointOf, cursorAt, barOf, rangeCursor, range
 import { isLine, linePairs, lineShown, lineStage } from './gridpanelline.js';
 import { lineGestures } from './gridpanelgesture.js';
 import { levelTextOf } from './levels.js';
-import { el } from './core.js';
+import { el, LINK_DOWN, showNote } from './core.js';
 import { editHref } from './panelsrules.js';
 import { plural } from './gridmodel.js';
 import { shortcutList } from './shortcuts.js';
@@ -53,11 +53,6 @@ const UNDO_MOVED = 'The Undo target changed. Press u again.';
 const FIND_KEYS = new Set(['findSrcs', 'findDsts', 'nextMatch', 'prevMatch']);
 const sameList = (a, b) => a.length === b.length && a.every((x, k) => x === b[k]);
 const sameAxes = (a, b) => sameList(a.srcs, b.srcs) && sameList(a.dsts, b.dsts);
-
-const say = (n, text) => {
-  if (n.textContent !== text) n.textContent = text;
-  n.hidden = !text;
-};
 
 // A focused field or header button keeps its own Enter; the crosspoints are the grid's, the search boxes are not.
 const inControl = (grid) => {
@@ -185,7 +180,7 @@ export function gridBody(ctx, first) {
       preview();
     }
     const n = stagedCount(st);
-    say(count, n ? `${n} staged` : '');
+    showNote(count, n ? `${n} staged` : '');
     takeRow.paint(
       { mode: st.mode, staged: n, busy: st.busy },
       pickNote({ srcs: picks.srcs.length, dsts: picks.dsts.length, staged: n }),
@@ -208,7 +203,7 @@ export function gridBody(ctx, first) {
     const ok = !st.error && !!text && note.ok;
     const behind = held && fresh && fresh !== held ? `${note.at}` : undefined;
     const banner = head?.say({ text, kind: ok ? 'ok' : 'error', key: held || `${note.at}`, held: !!held, behind });
-    say(ui.status, banner ? '' : text);
+    showNote(ui.status, banner ? '' : text);
     ui.status.classList.toggle('sode-panel__status--ok', ok);
   };
   // The page's Copy: the same copy as /panels and the editor's Save a copy, then the editor opens on it.
@@ -217,7 +212,7 @@ export function gridBody(ctx, first) {
       const made = await ctx.callJSON(`api/v1/panels/${ctx.id}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       location.assign(editHref(made.id));
     } catch (e) {
-      note = noteOf(e.status === undefined ? 'Not connected to Sode. No copy made.' : e.message || 'Copy not saved');
+      note = noteOf(e.status === undefined ? `${LINK_DOWN} No copy made.` : e.message || 'Copy not saved');
       render();
     }
   }

@@ -43,15 +43,6 @@ const max = () => pinMax(S.cfg || {});
 const hint = (key, ...more) => [...more, envHint(filled, key)].filter(Boolean).join(' ');
 
 // h: el with attributes; a false or null attribute is left out.
-function h(tag, attrs, ...kids) {
-  const e = el(tag, attrs?.class || '', ...kids);
-  for (const [k, v] of Object.entries(attrs || {})) {
-    if (k === 'class' || v == null || v === false) continue;
-    e.setAttribute(k, v === true ? '' : v);
-  }
-  return e;
-}
-
 function iconWith(name, cls) {
   const svg = icon(name);
   if (cls) svg.classList.add(cls);
@@ -59,33 +50,39 @@ function iconWith(name, cls) {
 }
 
 function field(id, label, value, attrs = {}, hint = '', tip = '') {
-  const input = h('input', { id, class: 'pb-input', autocomplete: 'off', ...attrs });
+  const input = el('input', { id, class: 'pb-input', autocomplete: 'off', ...attrs });
   input.value = value;
-  return h('div', { class: 'sode__field' }, h('label', { for: id, 'data-pb-tip': tip }, label), input, hint ? h('span', { class: 'sode__hint' }, hint) : null);
+  return el(
+    'div',
+    { class: 'sode__field' },
+    el('label', { for: id, 'data-pb-tip': tip }, label),
+    input,
+    hint ? el('span', { class: 'sode__hint' }, hint) : null,
+  );
 }
 
 function choice(name, label, opts, hint = '') {
-  const group = h('span', { class: 'pb-btn-group', role: 'radiogroup', 'aria-labelledby': `setup-${name}-label` });
+  const group = el('span', { class: 'pb-btn-group', role: 'radiogroup', 'aria-labelledby': `setup-${name}-label` });
   for (const [v, t] of opts) {
     const id = `setup-${name}-${v}`;
-    const input = h('input', { type: 'radio', class: 'pb-btn-check', name, id, value: v });
+    const input = el('input', { type: 'radio', class: 'pb-btn-check', name, id, value: v });
     input.checked = d[name] === v;
-    group.append(input, h('label', { class: 'pb-btn pb-btn--outline', for: id }, t));
+    group.append(input, el('label', { class: 'pb-btn pb-btn--outline', for: id }, t));
   }
-  return h(
+  return el(
     'div',
     { class: 'sode__field' },
-    h('span', { class: 'sode__field-label', id: `setup-${name}-label` }, label),
+    el('span', { class: 'sode__field-label', id: `setup-${name}-label` }, label),
     group,
-    hint ? h('span', { class: 'sode__hint' }, hint) : null,
+    hint ? el('span', { class: 'sode__hint' }, hint) : null,
   );
 }
 
 const section = (title, sub, ...inner) =>
-  h('div', { class: 'sode-setup__section' }, h('h3', { class: 'sode-setup__h' }, title), sub ? h('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
+  el('div', { class: 'sode-setup__section' }, el('h3', { class: 'sode-setup__h' }, title), sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
 
-const lead = (text) => h('p', { class: 'sode-setup__lead' }, text);
-const strong = (text) => h('span', { class: 'pb-text-strong' }, text);
+const lead = (text) => el('p', { class: 'sode-setup__lead' }, text);
+const strong = (text) => el('span', { class: 'pb-text-strong' }, text);
 
 function statusLine() {
   // Run setup again moves no link before the save, so only the live address has a state.
@@ -95,11 +92,11 @@ function statusLine() {
       : routerLine(d.router, S.router, S.srcs.length + S.dsts.length);
   if (!line) return [];
   return [
-    h(
+    el(
       'span',
       { class: 'pb-status' },
-      h('span', { class: `pb-dot ${line.ok ? 'pb-dot--ok' : 'pb-dot--warn'}`, 'aria-hidden': 'true' }),
-      h('span', null, line.text),
+      el('span', { class: `pb-dot ${line.ok ? 'pb-dot--ok' : 'pb-dot--warn'}`, 'aria-hidden': 'true' }),
+      el('span', null, line.text),
     ),
   ];
 }
@@ -108,46 +105,46 @@ const presets = () => sheetPresets;
 const presetName = () => presets().find((p) => p.key === d.preset)?.name || d.preset;
 
 function swatches() {
-  const box = h('span', { class: 'sode-setup__swatches', role: 'radiogroup', 'aria-labelledby': 'setup-brand-label' });
+  const box = el('span', { class: 'sode-setup__swatches', role: 'radiogroup', 'aria-labelledby': 'setup-brand-label' });
   for (const c of [{ name: '', label: 'Off' }, ...S.brandColors]) {
-    const input = h('input', { type: 'radio', name: 'brandBorder', value: c.name, 'aria-label': c.label });
+    const input = el('input', { type: 'radio', name: 'brandBorder', value: c.name, 'aria-label': c.label });
     input.checked = d.brandBorder === c.name;
-    box.append(h('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
+    box.append(el('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
   }
-  return h('div', { class: 'sode__field' }, h('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box);
+  return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box);
 }
 
 function sheet() {
   const picked = (p) => (d.preset === p.key ? 'is-picked' : '');
-  const head = h('tr', null, h('th'));
+  const head = el('tr', null, el('th'));
   for (const p of presets()) {
-    const input = h('input', { type: 'radio', class: 'pb-check__input', name: 'preset', value: p.key });
+    const input = el('input', { type: 'radio', class: 'pb-check__input', name: 'preset', value: p.key });
     input.checked = d.preset === p.key;
     head.append(
-      h(
+      el(
         'th',
         { 'data-preset': p.key, class: picked(p) },
-        h('label', { class: 'pb-check' }, input, h('span', { class: 'pb-check__label pb-text-strong' }, p.name)),
-        h('span', { class: 'sode-setup__who' }, PRESET_WHO[p.key] || ''),
+        el('label', { class: 'pb-check' }, input, el('span', { class: 'pb-check__label pb-text-strong' }, p.name)),
+        el('span', { class: 'sode-setup__who' }, PRESET_WHO[p.key] || ''),
       ),
     );
   }
-  const body = h('tbody');
+  const body = el('tbody');
   for (const [key, text] of PRESET_ROWS) {
-    const row = h('tr', null, h('th', { scope: 'row' }, text));
+    const row = el('tr', null, el('th', { scope: 'row' }, text));
     for (const p of presets()) {
       const mark = p.rows[key]
-        ? h('span', { class: 'sode-setup__yes' }, iconWith('check', 'pb-icon--ok'), 'Yes')
-        : h('span', { class: 'sode-setup__no' }, icon('x'), 'No');
-      row.append(h('td', { 'data-preset': p.key, class: picked(p) }, mark));
+        ? el('span', { class: 'sode-setup__yes' }, iconWith('check', 'pb-icon--ok'), 'Yes')
+        : el('span', { class: 'sode-setup__no' }, icon('x'), 'No');
+      row.append(el('td', { 'data-preset': p.key, class: picked(p) }, mark));
     }
     body.append(row);
   }
-  return h('table', { class: 'sode-setup__sheet' }, h('thead', null, head), body);
+  return el('table', { class: 'sode-setup__sheet' }, el('thead', null, head), body);
 }
 
 function doneText() {
-  const addr = () => h('span', { class: 'pb-text-mono' }, d.router.trim());
+  const addr = () => el('span', { class: 'pb-text-mono' }, d.router.trim());
   const linked = routerLine(d.router, S.router, S.srcs.length + S.dsts.length)?.ok;
   return [
     'You are signed in as ',
@@ -159,7 +156,7 @@ function doneText() {
   ];
 }
 
-const nextLink = (text, section, href = '#settings') => h('li', null, h('a', { href, 'data-section': section }, text));
+const nextLink = (text, section, href = '#settings') => el('li', null, el('a', { href, 'data-section': section }, text));
 
 const VIEW = {
   welcome: () => [
@@ -184,7 +181,7 @@ const VIEW = {
       'Connection',
       '',
       field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router')),
-      h('div', { id: 'setup-router-status' }, ...statusLine()),
+      el('div', { id: 'setup-router-status' }, ...statusLine()),
     ),
     section(
       'Levels and numbers',
@@ -221,25 +218,25 @@ const VIEW = {
   access: () => [
     'Access',
     lead('Without sign-in:'),
-    ...(hint('preset') ? [h('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []),
+    ...(hint('preset') ? [el('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []),
     sheet(),
   ],
   done: () => [
     'Sode is set up',
-    h(
+    el(
       'div',
       { class: 'sode-setup__done' },
-      h(
+      el(
         'div',
         null,
-        h('p', { id: 'setup-done-text' }, ...doneText()),
-        h('button', { type: 'button', class: 'pb-btn pb-btn--ok pb-btn--lg', id: 'setup-open' }, 'Open Sode'),
+        el('p', { id: 'setup-done-text' }, ...doneText()),
+        el('button', { type: 'button', class: 'pb-btn pb-btn--ok pb-btn--lg', id: 'setup-open' }, 'Open Sode'),
       ),
-      h(
+      el(
         'nav',
         { class: 'sode-setup__next', 'aria-label': 'Next steps' },
-        h('h3', null, 'Next steps'),
-        h(
+        el('h3', null, 'Next steps'),
+        el(
           'ul',
           null,
           nextLink('Add more users', 'users'),
@@ -262,14 +259,14 @@ function renderSteps() {
     const now = i === at;
     const done = !now && (i < at || i <= reached);
     const go = chipGoes(i, at, reached, finished);
-    const chip = h(
+    const chip = el(
       'button',
       { type: 'button', class: 'sode-setup__chip', 'data-go': go ? String(i) : null, tabindex: go ? null : '-1', 'aria-current': now ? 'step' : null },
-      h('span', { class: 'sode-setup__dot' }, done ? icon('check') : String(i + 1)),
-      h('span', { class: 'sode-setup__label' }, name),
+      el('span', { class: 'sode-setup__dot' }, done ? icon('check') : String(i + 1)),
+      el('span', { class: 'sode-setup__label' }, name),
     );
-    list.push(h('li', { class: now ? 'is-now' : done ? 'is-done' : '' }, chip));
-    if (i < all.length - 1) list.push(h('span', { class: `sode-setup__line ${i < Math.max(at, reached) ? 'is-done' : ''}` }));
+    list.push(el('li', { class: now ? 'is-now' : done ? 'is-done' : '' }, chip));
+    if (i < all.length - 1) list.push(el('span', { class: `sode-setup__line ${i < Math.max(at, reached) ? 'is-done' : ''}` }));
   });
   $('setup-steps').replaceChildren(...list);
 }
@@ -449,12 +446,16 @@ function waitPage() {
   const phone = layout() === 'phone';
   $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup runs in another browser';
   const kids = [];
-  if (taken && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers are lost.'));
-  else if (free && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
+  if (taken && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers are lost.'));
+  else if (free && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
   if (phone) kids.push(desktopOnly('set it up'));
   else {
     kids.push(
-      h('button', { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take', 'data-pb-tip': "Discards the other browser's answers" }, 'Take control'),
+      el(
+        'button',
+        { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take', 'data-pb-tip': "Discards the other browser's answers" },
+        'Take control',
+      ),
     );
   }
   $('setup-wait-body').replaceChildren(...kids);

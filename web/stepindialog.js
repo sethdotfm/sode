@@ -1,121 +1,37 @@
 // The Step in and Step out controls in Settings > My user, the Step in popup and the "Step out?" question on
 // links that leave the page. stepin.js holds the state.
-import { $, el, S, on, sentence, LINK_DOWN } from './core.js';
-import { trapDialog } from './dialogkeys.js';
-import { namePicker } from './namepick.js';
+import { $, el, S, on } from './core.js';
+import { btn } from './formbits.js';
+import { modal } from './modal.js';
+import { pinPrompt } from './pinprompt.js';
 import { layout } from './layout.js';
 import { sendStepIn, stepOut, steppedIn } from './stepin.js';
 import { stepInOffered, stepsOut } from './stepinrules.js';
 
-let ui = null;
 let seq = 0;
 let waiting = 0;
-let back = null;
 
-function modal(id, title, body, buttons, onEsc) {
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  root.hidden = true;
-  const dialog = el('div', 'pb-modal sode__filters sode__pinprompt');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', `${id}-title`);
-  dialog.tabIndex = -1;
-  dialog.append(
-    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', title), { id: `${id}-title` })),
-    ...(body.length ? [el('div', 'pb-modal__body', ...body)] : []),
-    el('div', 'pb-modal__footer', ...buttons),
-  );
-  root.append(dialog);
-  document.body.append(root);
-  return trapDialog(root, dialog, onEsc);
-}
-
-function button(id, label, cls, fn) {
-  const b = el('button', `pb-btn ${cls}`, label);
-  b.type = 'button';
-  b.id = id;
-  b.addEventListener('click', fn);
-  return b;
-}
-
-function close() {
-  if (!ui) return;
-  ui.dlg.hide();
-  ui.pin.value = '';
-  ui.err.hidden = true;
-  ui.go.disabled = false;
-  waiting = 0;
-  if (back?.isConnected) back.focus();
-  back = null;
-}
-
-function fail(text) {
-  ui.err.textContent = sentence(text);
-  ui.err.hidden = false;
-}
-
-function submit() {
-  if (ui.go.disabled) return;
-  const name = ui.picker.value().trim();
-  if (!name) return fail('Enter your name.');
-  ui.err.hidden = true;
-  const id = ++seq;
-  if (!sendStepIn(name, ui.pin.value, id)) return fail(LINK_DOWN);
-  waiting = id;
-  ui.go.disabled = true;
-}
-
-on('stepInResult', (m) => {
-  if (!ui || m.id !== waiting) return;
-  waiting = 0;
-  ui.go.disabled = false;
-  if (m.ok) close();
-  else {
-    ui.pin.value = '';
-    fail(m.err || 'Wrong PIN.');
-  }
+const prompt = pinPrompt({
+  id: 'stepin',
+  title: 'Step in: this tab only',
+  go: 'Step in',
+  name: { placeholder: 'Your name', label: 'Your name', missing: 'Enter your name.' },
+  pin: { placeholder: 'Your PIN', 'aria-label': 'Your PIN' },
+  send(pin, name) {
+    const id = ++seq;
+    if (!sendStepIn(name, pin, id)) return false;
+    waiting = id;
+    return true;
+  },
+  onClose: () => (waiting = 0),
 });
 
-function build() {
-  if (ui) return;
-  const picker = namePicker({ id: 'stepin-name', users: () => S.users || [], onInput: () => {}, onPick: () => ui.pin.focus() });
-  picker.input.placeholder = 'Your name';
-  picker.input.setAttribute('aria-label', 'Your name');
-  const pin = el('input', 'pb-input');
-  pin.type = 'password';
-  pin.inputMode = 'numeric';
-  pin.id = 'stepin-pin';
-  pin.autocomplete = 'off';
-  pin.placeholder = 'Your PIN';
-  pin.setAttribute('aria-label', 'Your PIN');
-  const err = el('div', 'pb-note pb-note--error');
-  err.setAttribute('role', 'alert');
-  err.hidden = true;
-  const go = button('stepin-go', 'Step in', '', submit);
-  const dlg = modal('stepin', 'Step in: this tab only', [picker.root, pin, err], [button('stepin-cancel', 'Cancel', 'pb-btn--outline', close), go], close);
-  picker.input.addEventListener('keydown', (e) => {
-    // Esc closes the name list, not the popup.
-    if (picker.key(e)) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  });
-  pin.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    submit();
-  });
-  ui = { dlg, picker, pin, err, go };
-}
-
-function open() {
-  build();
-  back = document.activeElement;
-  ui.picker.set('');
-  ui.err.hidden = true;
-  ui.dlg.show();
-  ui.picker.input.focus();
-}
+on('stepInResult', (m) => {
+  if (m.id !== waiting) return;
+  waiting = 0;
+  if (m.ok) prompt.close();
+  else prompt.fail(m.err || 'Wrong PIN.');
+});
 
 let leave = null;
 let leaveFrom = null;
@@ -130,13 +46,13 @@ function askLeave(a) {
       leave.hide();
       location.href = leaveFrom.href;
     };
-    leave = modal(
-      'stepout-ask',
-      'Step out?',
-      [],
-      [button('stepout-ask-cancel', 'Cancel', 'pb-btn--outline', cancel), button('stepout-ask-go', 'Step out', '', go)],
-      cancel,
-    );
+    leave = modal({
+      titleId: 'stepout-ask-title',
+      title: 'Step out?',
+      cls: 'sode__filters sode__pinprompt',
+      foot: [btn('pb-btn--outline', 'Cancel', cancel, 'stepout-ask-cancel'), btn('', 'Step out', go, 'stepout-ask-go')],
+      onEsc: cancel,
+    });
   }
   leaveFrom = a;
   leave.show();
@@ -157,14 +73,14 @@ export function initStepIn() {
     }
     if (stepped) note.hidden = true;
     // Every Settings save sends a lockState, which must not drop a half-typed Step in.
-    if (!stepped && (was || !offered)) close();
+    if (!stepped && (was || !offered)) prompt.close();
     was = stepped;
   });
   on('stepEnded', (m) => {
     note.textContent = m.note || '';
     note.hidden = !m.note;
   });
-  $('account-stepin').addEventListener('click', open);
+  $('account-stepin').addEventListener('click', () => prompt.open());
   $('account-stepout').addEventListener('click', () => stepOut());
   document.addEventListener(
     'click',

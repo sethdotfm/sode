@@ -3,20 +3,14 @@
 import { el, off, S } from './core.js';
 import { call } from './exportcalls.js';
 import { recheckPin } from './recheck.js';
-import { check as checkBox, segmented } from './formbits.js';
+import { check as checkBox, segmented, btn } from './formbits.js';
+import { tick, caret, catHead, adminRow, planRow, keepFocus } from './transfertree.js';
 import { CATEGORIES, OWN_CATEGORIES, ADMIN_ONLY, sizeText } from './exportrules.js';
 import * as R from './importrules.js';
 import { stillBroken } from './remaprules.js';
 import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
 import { applyBrowser } from './browserapply.js';
 import { fmtTime } from './device.js';
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 
 const MODES = [
   ['add', 'Add import'],
@@ -111,79 +105,63 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     fileInput.value = '';
   });
 
-  function box(key, text, checked, mixed, disabled, onChange) {
-    const b = el('input', 'pb-check__input');
-    b.type = 'checkbox';
-    b.dataset.key = key;
-    b.checked = checked;
-    b.indeterminate = mixed;
-    b.disabled = disabled;
-    b.addEventListener('change', () => onChange(b.checked));
-    return el('label', 'pb-check', b, el('span', 'pb-check__label', text));
-  }
-
-  function choices(cat, it, i) {
-    const seg = segmented(`${ids}-choice-${cat}-${i}`, `${it.name} clash`, R.choicesFor(cat, it), (v) => {
-      pick.choices[cat][it.key] = v;
-      render();
-    });
-    seg.set(pick.choices[cat][it.key]);
-    for (const r of seg.node.querySelectorAll('input')) r.dataset.key = `choice:${cat}:${it.key}:${r.value}`;
-    seg.node.classList.add('sode__xi-choice');
-    return el('div', 'sode__xi-sub', seg.node);
-  }
-
   const missing = (it, list = it.broken) => list.map((m) => R.missingText(m, off())).join(', ');
 
   function itemRow(cat, c, it, i) {
     const ticked = pick.items[cat].has(it.key);
-    const hint = it.refused ? it.refused : it.same ? 'No change' : it.note || '';
     const broken = brk(it);
-    const row = el(
-      'div',
-      'sode__xi-item',
-      box(`item:${cat}:${it.key}`, it.name, ticked, false, !!c.refused || !!it.refused, (on) => {
+    return planRow({
+      cat,
+      it,
+      ticked,
+      disabled: !!c.refused || !!it.refused,
+      onTick: (on) => {
         if (on) pick.items[cat].add(it.key);
         else pick.items[cat].delete(it.key);
         render();
-      }),
-      el('span', 'sode__hint', ...(broken.length ? [el('span', 'pb-badge pb-badge--error', 'Broken'), ' '] : []), hint),
-      el('span', 'sode__xi-size', sizeText(it.size || 0)),
-    );
-    row.dataset.item = it.key;
-    if (ticked && R.hasChoice(c, it, pick)) row.append(choices(cat, it, i));
-    if (broken.length) row.append(el('span', 'sode__hint sode__xi-sub sode__error-text', `Missing ${missing(it, broken)}`));
-    return row;
+      },
+      broken: broken.length > 0,
+      hint: it.refused ? it.refused : it.same ? 'No change' : it.note || '',
+      size: it.size || 0,
+      choice: ticked &&
+        R.hasChoice(c, it, pick) && {
+          id: `${ids}-choice-${cat}-${i}`,
+          options: R.choicesFor(cat, it),
+          value: pick.choices[cat][it.key],
+          onPick: (v) => {
+            pick.choices[cat][it.key] = v;
+            render();
+          },
+        },
+      missing: broken.length ? missing(it, broken) : '',
+    });
   }
 
   function catRows(cat, text) {
     const c = check.plan.categories[cat];
     const items = c?.items || [];
     const state = R.catState(check, pick, cat);
-    const head = el('div', 'sode__xi-head');
-    head.dataset.cat = cat;
-    const caret = btn('pb-btn--ghost pb-btn--icon pb-btn--sm sode__xi-caret', expanded.has(cat) ? '▾' : '▸', () => {
-      if (expanded.has(cat)) expanded.delete(cat);
-      else expanded.add(cat);
-      render();
-    });
-    caret.dataset.key = `caret:${cat}`;
-    caret.setAttribute('aria-expanded', String(expanded.has(cat)));
-    caret.setAttribute('aria-label', `Show the ${text.toLowerCase()} items`);
-    caret.hidden = !items.length;
     const count = items.length > 1 ? ` ${pick.items[cat].size}/${items.length}` : '';
     // Replace import can empty a category the file holds with no items.
     const why = c?.refused || (!items.length && pick.mode === 'replace' ? 'Empties it here' : '');
-    head.append(
-      caret,
-      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', !!c?.refused || (!items.length && pick.mode !== 'replace'), (on) => {
+    const box = tick(`cat:${cat}`, text + count, {
+      checked: state !== 'none',
+      mixed: state === 'some',
+      disabled: !!c?.refused || (!items.length && pick.mode !== 'replace'),
+      onChange: (on) => {
         R.setCat(check, pick, cat, on);
         render();
-      }),
-      el('span', `sode__hint${c?.refused ? ' sode__error-text' : ''}`, why),
-      el('span', 'sode__xi-size', sizeText(R.catSize(check, pick, cat))),
+      },
+    });
+    const head = catHead(
+      cat,
+      items.length > 0 && caret(expanded, cat, text, render),
+      box,
+      why,
+      R.catSize(check, pick, cat),
+      c?.refused ? 'sode__error-text' : '',
     );
-    if (!expanded.has(cat) || caret.hidden) return [head];
+    if (!expanded.has(cat) || !items.length) return [head];
     return [head, el('div', 'sode__xi-items', ...items.map((it, i) => itemRow(cat, c, it, i)))];
   }
 
@@ -197,18 +175,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
       return lines.length ? [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list', ...lines)] : [];
     }
     return remapView(remap, { off, fmt: fmtTime, onChange: () => render(), onRouter: () => load(file, true) });
-  }
-
-  function adminRow(cat, text) {
-    const head = el(
-      'div',
-      'sode__xi-head',
-      el('span'),
-      box(`admin:${cat}`, text, false, false, true, () => {}),
-    );
-    head.append(el('span', 'sode__hint', 'Administrators only'), el('span', 'sode__xi-size'));
-    head.dataset.cat = `admin:${cat}`;
-    return head;
   }
 
   function fileHint() {
@@ -401,17 +367,17 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   }
 
   function render() {
-    const focused = panel.contains(document.activeElement) ? document.activeElement.dataset.key : '';
-    if (step === 'file') panel.replaceChildren(fileInput);
-    else if (step === 'list') panel.replaceChildren(...listView(), fileInput);
-    else if (step === 'review') panel.replaceChildren(...reviewView());
-    else panel.replaceChildren(...doneView());
-    if (reviewing !== (step === 'review')) {
-      reviewing = step === 'review';
-      setReview(reviewing ? 'Import from file?' : '');
-    }
-    showActs();
-    if (focused) [...panel.querySelectorAll('[data-key]')].find((x) => x.dataset.key === focused)?.focus();
+    keepFocus(panel, () => {
+      if (step === 'file') panel.replaceChildren(fileInput);
+      else if (step === 'list') panel.replaceChildren(...listView(), fileInput);
+      else if (step === 'review') panel.replaceChildren(...reviewView());
+      else panel.replaceChildren(...doneView());
+      if (reviewing !== (step === 'review')) {
+        reviewing = step === 'review';
+        setReview(reviewing ? 'Import from file?' : '');
+      }
+      showActs();
+    });
     if (step === 'review') (needsPin() ? pinInput : importBtn).focus();
   }
 

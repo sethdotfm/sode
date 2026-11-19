@@ -1,19 +1,12 @@
 // My API keys. A key acts as its user and ends with a PIN change (ADR 0003). Sode shows it one time and does not keep it.
 
 import { el, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
-import { trapDialog } from './dialogkeys.js';
+import { modal } from './modal.js';
 import { createReq, expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
 import { btn, field } from './formbits.js';
 
-const make = (id, type, auto) => {
-  const i = el('input', 'pb-input');
-  i.id = id;
-  i.type = type;
-  i.autocomplete = auto;
-  i.spellcheck = false;
-  return i;
-};
+const make = (id, type, auto) => el('input', { class: 'pb-input', id, type, autocomplete: auto, spellcheck: false });
 
 const nameIn = make('mykey-name', 'text', 'off');
 nameIn.placeholder = 'Panel 21';
@@ -22,19 +15,14 @@ const pinIn = make('mykey-pin', 'password', 'current-password');
 pinIn.inputMode = 'numeric';
 const list = el('div', 'sode__key-list');
 const shown = el('div');
-const note = el('div', 'pb-note pb-note--error');
-note.setAttribute('role', 'alert');
-note.hidden = true;
+const note = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
 const makeBtn = btn('pb-btn--ok', 'Make key');
-const close = btn('pb-btn--outline', 'Close');
 
-const dialog = el(
-  'div',
-  'pb-modal sode__filters sode__keys-dlg',
-  el('div', 'pb-modal__header', el('span', 'pb-modal__title', 'My API keys')),
-  el(
-    'div',
-    'pb-modal__body',
+const dlg = modal({
+  titleId: 'mykeys-title',
+  title: 'My API keys',
+  cls: 'sode__filters sode__keys-dlg',
+  body: [
     el(
       'p',
       'sode__hint',
@@ -50,16 +38,11 @@ const dialog = el(
       field('mykey-pin', 'Your PIN', pinIn),
     ),
     note,
-  ),
-  el('div', 'pb-modal__footer', close, makeBtn),
-);
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-label', 'My API keys');
-dialog.tabIndex = -1;
-const root = el('div', 'pb-modal-backdrop sode__scrim', dialog);
-root.hidden = true;
-document.body.append(root);
+    ,
+  ],
+  foot: [btn('pb-btn--outline', 'Close', () => closeKeys()), makeBtn],
+  onEsc: () => closeKeys(),
+});
 
 let isOpen = false;
 let back = null;
@@ -84,8 +67,6 @@ function closeKeys() {
   dlg.hide();
   if (back?.isConnected) back.focus({ preventScroll: true });
 }
-const dlg = trapDialog(root, dialog, closeKeys);
-close.addEventListener('click', closeKeys);
 
 onMsg('keyListOwnResult', (m) => {
   if (m.id !== listSeq || !isOpen) return;
@@ -135,14 +116,13 @@ on('openKeys', () => {
   say('');
   load();
   dlg.show();
-  dialog.focus();
+  dlg.dialog.focus();
 });
-// A sign out or a Lock forgets any key on show.
-on('locking', () => isOpen && closeKeys());
 on('wsclose', () => {
   if (isOpen && makeBtn.disabled) {
     makeBtn.disabled = false;
     say(LINK_DOWN);
   }
 });
+// A sign out forgets any key on show; a Lock closes it as Esc does.
 on('access', (L) => isOpen && !L.user && closeKeys());

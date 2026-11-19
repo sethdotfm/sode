@@ -2,7 +2,8 @@
 // (docs/agents/settings-saves.md).
 
 import { $, el } from './core.js';
-import { trapDialog } from './dialogkeys.js';
+import { btn } from './formbits.js';
+import { modal } from './modal.js';
 import { askRecheck } from './recheck.js';
 import { groupRows, saveLabel } from './savereviewrules.js';
 import { saveStopsLabel, endsSomething, NO_RETURN } from './interruptionrules.js';
@@ -14,29 +15,14 @@ let step = null; // the open run's handlers: { esc }
 
 function build() {
   if (ui) return;
-  const title = Object.assign(el('span', 'pb-modal__title'), { id: 'review-title' });
   const body = el('div', 'pb-modal__body');
-  const back = el('button', 'pb-btn pb-btn--outline');
-  back.type = 'button';
-  back.id = 'review-back';
-  const go = el('button', 'pb-btn pb-btn--ok');
-  go.type = 'button';
-  go.id = 'review-save';
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  root.hidden = true;
-  const dialog = el('div', 'pb-modal pb-modal--md');
-  dialog.id = 'review';
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'review-title');
-  dialog.tabIndex = -1;
-  dialog.append(el('div', 'pb-modal__header', title), body, el('div', 'pb-modal__footer', back, go));
-  root.append(dialog);
-  document.body.append(root);
-  ui = { title, body, back, go, dlg: trapDialog(root, dialog, () => step?.esc()) };
+  const back = btn('pb-btn--outline', '', null, 'review-back');
+  const go = btn('pb-btn--ok', '', null, 'review-save');
+  const dlg = modal({ titleId: 'review-title', title: '', cls: 'pb-modal--md', dialogId: 'review', body, foot: [back, go], onEsc: () => step?.esc() });
+  ui = { title: dlg.title, body, back, go, dlg };
 }
 
-function button(b, text, fn) {
+function relabel(b, text, fn) {
   b.textContent = text;
   b.onclick = fn;
 }
@@ -169,9 +155,9 @@ export function reviewSave({
             })
           : []),
       );
-      button(ui.back, 'Keep editing', () => end(false));
+      relabel(ui.back, 'Keep editing', () => end(false));
       const keep = rows.length - saves.length;
-      button(ui.go, saveStopsLabel(saves.length, keep, interruptions, saveLabel(saves.length, keep)), next);
+      relabel(ui.go, saveStopsLabel(saves.length, keep, interruptions, saveLabel(saves.length, keep)), next);
       ui.go.className = 'pb-btn pb-btn--ok';
       ui.go.disabled = !saves.length;
       ui.dlg.show();
@@ -192,8 +178,8 @@ export function reviewSave({
       step = { esc: review };
       ui.title.textContent = `Save and reconnect${address ? ` to ${address}` : ''}?`;
       ui.body.replaceChildren(el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take in progress fails.'));
-      button(ui.back, 'Back', review);
-      button(ui.go, 'Save and reconnect', () => end(true));
+      relabel(ui.back, 'Back', review);
+      relabel(ui.go, 'Save and reconnect', () => end(true));
       ui.go.className = 'pb-btn pb-btn--danger';
       ui.go.disabled = false;
       ui.dlg.show();

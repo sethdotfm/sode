@@ -1,6 +1,6 @@
 // browserCopy makes the server write one Settings saves row (docs/agents/profiles.md).
 
-import { S, on, onMsg, wsSend, LINK_DOWN } from './core.js';
+import { S, on, request } from './core.js';
 import { buildExport } from './exportfmt.js';
 import { browserValues } from './exportcalls.js';
 import { copyDoc, toClear } from './browsercopyrules.js';
@@ -9,26 +9,10 @@ import { setPref } from './device.js';
 import { moveLocalSets } from './filterstore.js';
 import { localPresets, putLocalPresets } from './presetstore.js';
 
-let seq = 0;
-const asks = new Map();
-onMsg('browserCopyResult', (m) => {
-  const done = asks.get(m.id);
-  if (!done) return;
-  asks.delete(m.id);
-  done({ ok: !!m.ok, err: m.err || '' });
-});
-on('wsclose', () => {
-  for (const done of asks.values()) done({ ok: false, err: LINK_DOWN });
-  asks.clear();
-});
-
-function send(parts) {
-  return new Promise((resolve) => {
-    const id = ++seq;
-    if (!wsSend({ t: 'browserCopy', id, ...parts })) return resolve({ ok: false, err: LINK_DOWN });
-    asks.set(id, resolve);
-  });
-}
+const send = async (parts) => {
+  const m = await request('browserCopyResult', { t: 'browserCopy', ...parts });
+  return { ok: !!m.ok, err: m.err || '' };
+};
 
 function clear(moved, keep) {
   const c = toClear(moved, keep);

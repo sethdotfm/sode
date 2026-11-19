@@ -1,8 +1,8 @@
 import { el } from './core.js';
 
-export const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
+// text is a string, a node or a list of them (an icon and its label).
+export const btn = (cls, text, fn, id) => {
+  const b = el('button', { class: `pb-btn ${cls}`, type: 'button', id }, ...[text].flat());
   if (fn) b.addEventListener('click', fn);
   return b;
 };
