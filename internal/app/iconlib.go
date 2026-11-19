@@ -239,6 +239,7 @@ func (s *iconLib) saveLocked(next iconLibData) error {
 }
 
 // rename keeps the id, so every `lib:<id>` still names it. freeName settles the name against the others.
+// found is false for an id the library does not hold.
 func (s *iconLib) rename(id, name string) (ic LibIcon, found bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
