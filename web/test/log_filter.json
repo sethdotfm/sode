@@ -1,0 +1,37 @@
+{
+  "offset": 1,
+  "rows": [
+    { "seq": 1, "time": "2026-11-19T10:00:00Z", "kind": "connect", "cmd": 2, "level": 1, "wire": 0, "dst": 0, "dstName": "MON 1", "src": 4, "srcName": "CAM 5", "why": "take", "by": "10.0.0.5", "tries": 1, "result": "ack", "hex": "02 01" },
+    { "seq": 2, "time": "2026-11-19T10:00:01Z", "kind": "interrogate", "cmd": 1, "level": 2, "wire": 1, "dst": 1, "dstName": "MON 2", "src": -1, "why": "check", "tries": 2, "result": "ack", "hex": "01 02" },
+    { "seq": 3, "time": "2026-11-19T10:00:02Z", "kind": "keepalive", "cmd": 1, "level": 0, "wire": -1, "dst": -1, "src": -1, "tries": 1, "result": "ack", "hex": "01 00" },
+    { "seq": 4, "time": "2026-11-19T10:00:03Z", "kind": "command", "cmd": -1, "level": 0, "wire": -1, "dst": -1, "src": -1, "why": "take", "by": "Ana", "tries": 0, "result": "ok", "hex": "" },
+    { "seq": 5, "time": "2026-11-19T10:00:04Z", "kind": "command", "cmd": -1, "level": 0, "wire": -1, "dst": -1, "src": -1, "why": "stepIn", "by": "Bo", "tries": 0, "result": "refused", "hex": "" },
+    { "seq": 6, "time": "2026-11-19T10:00:05Z", "kind": "link", "cmd": -1, "level": 0, "wire": -1, "dst": -1, "src": -1, "tries": 0, "result": "down", "hex": "" },
+    { "seq": 7, "id": 1, "time": "2026-11-19T10:00:05.500Z", "kind": "settings", "cmd": -1, "level": 0, "wire": -1, "dst": -1, "src": -1, "why": "save", "by": "Ada", "tries": 0, "result": "ok", "hex": "" },
+    { "seq": 7, "time": "2026-11-19T10:00:06Z", "kind": "server", "cmd": -1, "level": 0, "wire": -1, "dst": -1, "src": -1, "tries": 0, "result": "start", "err": "disk", "hex": "" },
+    { "seq": 8, "time": "2026-11-19T10:00:07Z", "kind": "salvoGo", "cmd": 121, "level": 1, "wire": 0, "dst": 9, "dstName": "VTR 10", "src": 2, "srcName": "CAM 3", "tries": 3, "result": "nak", "hex": "79 00" },
+    { "seq": 9, "time": "2026-11-19T10:00:08Z", "kind": "weirdKind", "cmd": 99, "level": 0, "wire": 5, "dst": 2, "dstName": "PIP 1", "src": -1, "tries": 1, "result": "ack", "hex": "63" },
+    { "seq": 10, "time": "2026-11-19T10:00:09Z", "kind": "tallyDump", "cmd": 21, "level": 3, "wire": 2, "dst": -1, "src": -1, "tries": 1, "result": "ack", "hex": "15 02" }
+  ],
+  "cases": [
+    { "name": "all kinds, newest first", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"] }, "want": ["10", "9", "8", "7", "s1", "6", "5", "4", "3", "2", "1"] },
+    { "name": "the page's default kinds", "filter": { "kinds": ["connect", "command", "api", "link", "settings"] }, "want": ["8", "7", "s1", "6", "5", "4", "1"] },
+    { "name": "no known kind means all", "filter": { "kinds": ["gone"] }, "want": ["10", "9", "8", "7", "s1", "6", "5", "4", "3", "2", "1"] },
+    { "name": "an unknown kind is Other", "filter": { "kinds": ["other"] }, "want": ["9"] },
+    { "name": "Router link holds server rows", "filter": { "kinds": ["link"] }, "want": ["7", "6"] },
+    { "name": "problems only", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"], "problems": true }, "want": ["8", "7", "6", "5", "2"] },
+    { "name": "time range, To included", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"], "from": 1795082402000, "to": 1795082405000 }, "want": ["6", "5", "4", "3"] },
+    { "name": "source number with the offset", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"], "src": "5" }, "want": ["1"] },
+    { "name": "destination name contains", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"], "dst": "mon" }, "want": ["2", "1"] },
+    { "name": "destination not a regex", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"], "dst": "!/^mon/" }, "want": ["9", "8"] },
+    { "name": "destination range", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"], "dst": "10 thru 9" }, "want": ["8"] },
+    { "name": "destination exact", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"], "dst": "\"mon 2\"" }, "want": ["2"] },
+    { "name": "sort by destination, blanks last", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"] }, "sort": { "col": "dst", "dir": "asc" }, "want": ["1", "2", "9", "8", "10", "7", "s1", "6", "5", "4", "3"] },
+    { "name": "oldest first", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"] }, "sort": { "col": "time", "dir": "asc" }, "want": ["1", "2", "3", "4", "5", "6", "s1", "7", "8", "9", "10"] },
+    { "name": "sort by result", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"] }, "sort": { "col": "result", "dir": "asc" }, "want": ["10", "9", "3", "1", "s1", "4", "2", "6", "8", "5", "7"] },
+    { "name": "sort by For, newest last", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"] }, "sort": { "col": "why", "dir": "desc" }, "want": ["4", "1", "5", "s1", "2", "10", "9", "8", "7", "6", "3"] },
+    { "name": "sort by level", "filter": { "kinds": ["connect", "interrogate", "keepalive", "dump", "names", "other", "browser", "command", "api", "link", "settings"] }, "sort": { "col": "level", "dir": "asc" }, "want": ["8", "1", "2", "10", "9", "7", "s1", "6", "5", "4", "3"] },
+    { "name": "sort by message", "filter": { "kinds": ["connect", "dump"] }, "sort": { "col": "message", "dir": "asc" }, "want": ["1", "8", "10"] },
+    { "name": "sort by bytes", "filter": { "kinds": ["connect", "keepalive", "other", "link"] }, "sort": { "col": "hex", "dir": "asc" }, "want": ["7", "6", "3", "1", "9", "8"] }
+  ]
+}

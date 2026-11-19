@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -303,6 +304,18 @@ func (u *Uptime) Run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// Record: every state change and every minute with bad or slow messages, oldest first. The
+// minute in progress is in it when it has a count.
+func (u *Uptime) Record() ([]UptimeTrans, []minute) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	mins := slices.Clone(u.mins)
+	if u.cur.Bad > 0 || u.cur.Slow > 0 {
+		mins = append(mins, u.cur)
+	}
+	return slices.Clone(u.trans), mins
 }
 
 func (u *Uptime) Range(from, to, slot int64) UptimeRange {

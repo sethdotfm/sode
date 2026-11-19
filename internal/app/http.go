@@ -91,6 +91,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		json.NewEncoder(w).Encode(st)
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
+	mux.HandleFunc("POST /api/log/download", a.serveLogDownload)
 	mux.HandleFunc("POST /api/export", a.serveExport)
 	mux.HandleFunc("POST /api/export/size", a.serveExportSize)
 	mux.HandleFunc("GET /api/export/items", a.serveExportItems)

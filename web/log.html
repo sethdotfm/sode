@@ -58,9 +58,11 @@
       <input class="pb-input sode-log__expr" id="log-dst" placeholder="Filter by Destination" aria-label="Filter by destination" spellcheck="false">
       <span class="sode__hint" id="log-count" aria-live="polite"></span>
       <span class="sode-log__spacer"></span>
-      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-csv">Download CSV</button>
+      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-download-rows" data-pb-tip="One CSV file: the rows that match these filters in the whole log, in this order">Download filtered rows</button>
+      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-download-full" data-pb-tip="One zip file: all Log rows, oldest first, and the uptime record">Download full log</button>
     </div>
   </form>
+  <div class="pb-note pb-note--error" id="log-download-err" role="alert" hidden></div>
   <div class="pb-note pb-note--warn" id="log-lost" role="status" hidden></div>
   <div class="pb-note sode-log__slot" id="log-slot" role="status" hidden></div>
 

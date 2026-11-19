@@ -17,7 +17,8 @@ export const KINDS = [
 ];
 export const KIND_IDS = KINDS.map((g) => g.id);
 
-// Words for a row's why. A why with no entry shows as written.
+// Words for a row's why. A why with no entry shows as written. Keep in step with logWhyLabel in
+// internal/app/logrules.go (TestLogRulesMatchPage), which writes them in the downloads.
 export const WHY_LABEL = {
   take: 'Take',
   undo: 'Undo',
@@ -67,6 +68,7 @@ export const WHY_LABEL = {
   inboxDecline: 'Copy declined',
   inboxWithdraw: 'Copy withdrawn',
   inboxExpired: 'Copy expired',
+  download: 'Communication Log downloaded',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server', 'settings']);
 const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };

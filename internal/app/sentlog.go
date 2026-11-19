@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -284,6 +285,69 @@ func (l *SentLog) Total() int64 {
 		return l.next - l.old.first
 	}
 	return l.next - l.cur.first
+}
+
+// Each calls fn for every entry, oldest first, up to the newest one at the call. The files are
+// opened under the lock, so a rotation after that does not cut the read. Lines are read after it.
+func (l *SentLog) Each(fn func(Sent) error) error {
+	l.mu.Lock()
+	if l.cur == nil {
+		mem := slices.Clone(l.mem)
+		l.mu.Unlock()
+		for _, e := range mem {
+			if err := fn(e); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	type part struct {
+		f    *os.File
+		size int64
+	}
+	var parts []part
+	var err error
+	open := func(path string, s *segment) {
+		if err != nil || s == nil || s.size == 0 {
+			return
+		}
+		var f *os.File
+		if f, err = os.Open(path); err == nil {
+			parts = append(parts, part{f, s.size})
+		}
+	}
+	open(rotatedPath(l.path), l.old)
+	open(l.path, l.cur)
+	l.mu.Unlock()
+	defer func() {
+		for _, p := range parts {
+			p.f.Close()
+		}
+	}()
+	if err != nil {
+		return err
+	}
+	for _, p := range parts {
+		r := bufio.NewReader(io.NewSectionReader(p.f, 0, p.size))
+		for {
+			line, rerr := r.ReadBytes('\n')
+			if len(line) > 0 {
+				var e Sent
+				if err := json.Unmarshal(line, &e); err != nil {
+					log.Printf("sent log: skipping a line: %v", err)
+				} else if err := fn(e); err != nil {
+					return err
+				}
+			}
+			if rerr == io.EOF {
+				break
+			}
+			if rerr != nil {
+				return rerr
+			}
+		}
+	}
+	return nil
 }
 
 // Page: n entries older than before (< 0 = newest), newest first. Lines are decoded after

@@ -4,8 +4,10 @@ import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
-import { newPager, rowKey, rowPos, byNewest } from './logpager.js';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, eventProblem, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
+import { newPager, rowKey, byNewest } from './logpager.js';
+import { KINDS, KIND_IDS, WHY_LABEL, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
+import { isEvent, problem, logPasses, sortKeys, cmpKeyed, newestFirst as newestOf, sortRows } from './logfilter.js';
+import { initDownloads } from './logdownload.js';
 import { fieldText, saveSummary } from './logsaves.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
@@ -28,6 +30,7 @@ on('brand', ({ text }) => {
 const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
 
+// Keep in step with logKindLabel in internal/app/logrules.go (TestLogRulesMatchPage).
 const KIND_LABEL = {
   connect: 'Connect',
   interrogate: 'Interrogate',
@@ -46,7 +49,6 @@ const KIND_LABEL = {
   server: 'Sode',
   settings: 'Settings save',
 };
-const isEvent = (e) => EVENT_KINDS.has(e.kind);
 
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
@@ -66,23 +68,15 @@ function saveFilter() {
   writeJSON(FILTER_KEY, { ...filter, known: KIND_IDS });
 }
 
-const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
-const problem = (e) => (isEvent(e) ? eventProblem(e) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 // Not kept: a range far back means reading the log back to it, which should not happen on every
 // open.
 const range = { from: null, to: null };
 
-function passes(e) {
-  if (range.from != null && e.t < range.from) return false;
-  if (range.to != null && e.t > range.to) return false;
-  if (!kindOn(KINDS.some((g) => g.kinds.includes(e.kind)) ? e.kind : 'other')) return false;
-  if (filter.problems && !problem(e)) return false;
-  if (filter.src.trim() && (e.src < 0 || !srcOk(e.src + off(), e.srcName || ''))) return false;
-  if (filter.dst.trim() && (e.dst < 0 || !dstOk(e.dst + off(), e.dstName || ''))) return false;
-  return true;
-}
+// What the page shows, and what Download filtered rows asks the server for.
+const pageFilter = () => ({ ...filter, from: range.from, to: range.to });
+const passes = (e) => logPasses(e, pageFilter(), off(), { src: srcOk, dst: dstOk });
 
 function initFilters() {
   const box = $('log-kinds');
@@ -361,58 +355,26 @@ function row(e, fresh = false) {
   return tr;
 }
 
-// ---- sorting: ties keep newest first. Rows without the column go last in both directions.
+// ---- sorting (logfilter.js): ties keep newest first. Rows without the column go last in both directions.
 
 const SORT_KEY = 'sode-log-sort';
-const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
-const SORTS = {
-  time: rowPos,
-  message: (e) => KIND_LABEL[e.kind] || e.kind,
-  level: (e) => (e.level ? e.level : e.wire >= 0 ? 1000 + e.wire : null),
-  dst: (e) => (e.dst >= 0 ? e.dst : null),
-  src: (e) => (e.src >= 0 ? e.src : null),
-  why: (e) => (e.why ? `${WHY_LABEL[e.why] || e.why} ${e.by || ''}` : null),
-  result: (e) => [resultRank(e), e.result, e.tries],
-  hex: (e) => e.hex,
-};
+const SORTS = sortKeys(KIND_LABEL);
 let sort = { col: 'time', dir: 'desc' };
 {
   const saved = readJSON(SORT_KEY);
   if (SORTS[saved?.col] && ['asc', 'desc'].includes(saved.dir)) sort = saved;
 }
-const newestFirst = () => sort.col === 'time' && sort.dir === 'desc';
-
-function cmp(a, b) {
-  if (Array.isArray(a)) {
-    for (let i = 0; i < a.length; i++) {
-      const c = cmp(a[i], b[i]);
-      if (c) return c;
-    }
-    return 0;
-  }
-  if (typeof a === 'string') return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-  return a - b;
-}
-
-function cmpKeyed(x, xv, y, yv) {
-  if (xv == null || yv == null) return xv == null ? (yv == null ? byNewest(x, y) : 1) : -1;
-  return (sort.dir === 'asc' ? 1 : -1) * cmp(xv, yv) || byNewest(x, y);
-}
+const newestFirst = () => newestOf(sort);
 
 function order(x, y) {
   if (newestFirst()) return byNewest(x, y);
   const key = SORTS[sort.col];
-  return cmpKeyed(x, key(x), y, key(y));
+  return cmpKeyed(sort, x, key(x), y, key(y));
 }
 
 function shownRows() {
   const rows = pager.list.filter(passes);
-  if (newestFirst()) return rows;
-  const key = SORTS[sort.col];
-  return rows
-    .map((e) => ({ e, v: key(e) }))
-    .sort((x, y) => cmpKeyed(x.e, x.v, y.e, y.v))
-    .map((x) => x.e);
+  return newestFirst() ? rows : sortRows(rows, sort, SORTS);
 }
 
 function appendRows(es) {
@@ -465,8 +427,6 @@ function render() {
 function renderMore() {
   const shown = tbody.childElementCount;
   $('log-count').textContent = pager.list.length ? `${shown.toLocaleString()} of ${pager.total.toLocaleString()} in log` : '';
-  $('log-csv').disabled = !shown;
-  $('log-csv').textContent = `Download CSV (${shown.toLocaleString()} rows)`;
   const older = $('log-older');
   const busy = pager.loading;
   const filling = busy && rangeNeedsMore();
@@ -484,46 +444,8 @@ function renderMore() {
       : 'Nothing loaded matches the filters.';
 }
 
-const CSV_COLS = [
-  ['time', (e) => e.time],
-  ['seq', (e) => e.seq],
-  ['message', (e) => KIND_LABEL[e.kind] || e.kind],
-  ['cmd', (e) => (isEvent(e) ? '' : `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`)],
-  ['level', (e) => S.levelBy.get(e.level)?.label ?? ''],
-  ['router level', (e) => (e.wire >= 0 ? e.wire : '')],
-  ['destination', (e) => (e.dst >= 0 ? e.dst + off() : '')],
-  ['destination name', (e) => e.dstName || ''],
-  ['source', (e) => (e.src >= 0 ? e.src + off() : '')],
-  ['source name', (e) => e.srcName || ''],
-  ['for', (e) => WHY_LABEL[e.why] || e.why || ''],
-  ['by', (e) => e.by || ''],
-  ['result', (e) => e.result],
-  ['tries', (e) => e.tries],
-  ['error', (e) => e.err || ''],
-  ['note', (e) => [e.note, ...(e.save?.fields || []).map(fieldText)].filter(Boolean).join('; ')],
-  ['ack ms', (e) => (e.ackMs ? e.ackMs : '')],
-  ['bytes', (e) => e.hex],
-];
-
-// A leading = + - @ is defused so a spreadsheet does not run a router-supplied name as a formula.
-function csvCell(v) {
-  let s = String(v);
-  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-$('log-csv').addEventListener('click', () => {
-  const rows = shownRows();
-  const text = [CSV_COLS.map(([h]) => h), ...rows.map((e) => CSV_COLS.map(([, f]) => f(e)))].map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
-  const d = new Date();
-  const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
-  const a = el('a');
-  a.href = url;
-  a.download = `sode-log-${stamp}.csv`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
+// The server builds both files from the whole log (logdownload.js).
+initDownloads(() => ({ filter: pageFilter(), sort }));
 
 const loadOlder = () => send(pager.older(pager.list.filter(passes).length));
 $('log-older').addEventListener('click', loadOlder);
