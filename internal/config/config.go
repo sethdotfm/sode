@@ -814,7 +814,7 @@ func copyFile(src, dst string) error {
 // syncWrites is false only under UseTestCosts.
 var syncWrites = true
 
-// app's history writer follows it too.
+// History's rewrite follows it too.
 func SyncWrites() bool { return syncWrites }
 
 func AtomicWrite(path string, parts ...[]byte) error {
