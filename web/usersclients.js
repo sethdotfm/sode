@@ -220,7 +220,6 @@ export function makeClientsTab({ users, touched, adopt }) {
     read,
     addRow,
     clear: () => rows.replaceChildren(),
-    count: () => rows.children.length,
     // The tab is on screen: list the keys, and forget a key shown before.
     shownNow(on_) {
       open = on_;
@@ -239,6 +238,5 @@ export function makeClientsTab({ users, touched, adopt }) {
       const row = [...rows.children].find((r) => !r.dataset.was && r.querySelector('input[data-field="client-name"]').value.trim() === name);
       if (row) row.dataset.was = name;
     },
-    say,
   };
 }
