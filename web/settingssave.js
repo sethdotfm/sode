@@ -57,6 +57,7 @@ const SPECIAL = {
   defaultLevels: 'cfg-default',
   browserDefaults: 'gcfg-theme',
   locks: 'cfg-lock-main',
+  newUserDefaults: 'cfg-new-persistent',
   [PIN]: 'cfg-pin-change',
 };
 const keyNode = (key) => (SPECIAL[key] ? $(SPECIAL[key]) : form.querySelector(`[data-key="${key}"]`));
@@ -74,6 +75,7 @@ function place(r) {
 function label(r) {
   if (r.key === PIN) return 'Advanced Settings PIN';
   if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
+  if (r.key === 'newUserDefaults') return `New user defaults: ${checkText($(r.sub === 'persistent' ? 'cfg-new-persistent' : 'cfg-new-no-auto-lock')) || r.sub}`;
   if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;
   if (r.key === 'levelColors') return $(`cfg-color-${r.sub + 1}`)?.getAttribute('aria-label') || `Level ${r.sub + 1} color`;
   if (r.key === 'levelNumbering') return $('cfg-lvlnum-label').textContent;

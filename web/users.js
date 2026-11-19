@@ -13,7 +13,7 @@ import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
-import { GUEST_ROLES, ROLES, ownerChoices, pinPlaceholder, usersReq } from './usersrules.js';
+import { ROLES, ownerChoices, pinPlaceholder, usersReq } from './usersrules.js';
 
 // ---- the Settings section (index.html #users-group)
 const manage = $('users-manage');
@@ -45,15 +45,6 @@ const roleSelect = (roles, value, label) => {
   s.setAttribute('aria-label', label);
   return s;
 };
-const guestSelect = roleSelect(GUEST_ROLES, 'standard', 'Guest role');
-guestSelect.id = 'usr-guest-role';
-const guestField = el(
-  'div',
-  'sode__field',
-  Object.assign(el('label', null, 'Guest role'), { htmlFor: 'usr-guest-role' }),
-  el('span', 'pb-select-wrap', guestSelect),
-  el('span', 'sode__hint', 'The Role of a browser with nobody signed in. Guest Rights still limit what it routes.'),
-);
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows);
 // A removed user's panels need a new owner in the same save (the server refuses it otherwise).
 const owners = el('div', 'sode__users-opts');
@@ -86,7 +77,7 @@ const usersPanel = el(
   table,
   el('div', 'sode__users-acts', addBtn),
   owners,
-  el('div', 'sode__users-opts', guestField, formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
+  el('div', 'sode__users-opts', formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
 );
 // The rights editor and the API clients tab read the live rows, and hand back their drafts on save.
 const userList = () =>
@@ -131,7 +122,6 @@ let back = null;
 let seq = 0;
 let outSeq = 0;
 let listSeq = 0;
-let listedGuestRole = 'standard'; // the saved Guest role, what the server keeps when none is sent
 let listed = []; // the directory the server sent; empty until it does.
 let listedMe = ''; // the id of the user asking, the default new owner
 const ownerPick = new Map(); // removed user id to the chosen new owner id
@@ -205,7 +195,8 @@ function addRow(u = { name: '', len: 0 }) {
   pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
   const role = roleSelect(ROLES, u.role || 'standard', 'Role');
   role.dataset.field = 'role';
-  const never = check('Never sign out', { checked: !!u.persistent });
+  // A new row starts at the New user defaults (Settings > Access > Users).
+  const never = check('Never sign out', { checked: saved ? !!u.persistent : !!S.cfg?.newUserDefaults?.persistent });
   never.input.dataset.flag = 'persistent';
   // No PIN: a saved user's PIN goes on Save, a new row saves with none. A typed PIN wins.
   const noPin = check('No PIN', { checked: saved && !u.len });
@@ -309,7 +300,6 @@ onMsg('userSignOutAllResult', (m) => {
 
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
-  guestSelect.value = listedGuestRole;
   rows.replaceChildren();
   clientsTab.clear();
   clientsTab.forget();
@@ -358,7 +348,6 @@ onMsg('usersListResult', (m) => {
   listed = m.users || [];
   listedMe = m.me || '';
   extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {} };
-  listedGuestRole = m.guestRole === 'trusted' ? 'trusted' : 'standard';
   loaded = true;
   emit('usersListed', m);
   paintSummary();
@@ -370,7 +359,6 @@ on('unlockResult', (m) => {
 on('locked', () => {
   listed = [];
   extras = { apiClients: [], guestRights: {} };
-  listedGuestRole = 'standard';
   loaded = false;
   paintSummary();
 });
@@ -453,7 +441,7 @@ function doSave() {
     levels: S.levels.length,
   });
   if (acc.error) return fail(acc.error);
-  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, guestSelect.value, listedGuestRole, panelOwners()), acc, loaded);
+  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, panelOwners()), acc, loaded);
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: req })) return fail('Not connected to Sode.');
   saveBtn.disabled = true;
@@ -473,7 +461,6 @@ onMsg('usersResult', async (m) => {
   fail(m.err);
 });
 
-guestSelect.addEventListener('change', touched);
 maxInput.addEventListener('input', () => {
   touched();
   for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;

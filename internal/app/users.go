@@ -376,23 +376,21 @@ func (a *App) SignOutAll(c *client, name string) error {
 // userEdit: ID names a saved user (a rename keeps everything of theirs); "" adds one. Pin is a
 // new PIN ("" keeps).
 type userEdit struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Pin        string `json:"pin"`
-	ClearPin   bool   `json:"clearPin"` // remove the user's PIN; a new Pin wins
-	Role       string `json:"role"`     // "" is Standard user
-	Persistent bool   `json:"persistent"`
-	// Rights and NoAutoLock: nil keeps the user's current value, so a page that does not
-	// know them cannot erase them.
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Pin      string `json:"pin"`
+	ClearPin bool   `json:"clearPin"` // remove the user's PIN; a new Pin wins
+	Role     string `json:"role"`     // "" is Standard user
+	// Rights, Persistent and NoAutoLock: nil keeps the user's current value, so a page that
+	// does not know them cannot erase them. A new user's nil is the New user defaults.
 	Rights     *config.Rights `json:"rights"`
+	Persistent *bool          `json:"persistent"`
 	NoAutoLock *bool          `json:"noAutoLock"`
 }
 
 type usersReq struct {
 	Users  []userEdit `json:"users"`
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// GuestRole: "" keeps the current one.
-	GuestRole string `json:"guestRole"`
 	// API clients and Guest rights: nil keeps the current ones. They ride this save so they
 	// need an Administrator. Keyless scopes save with the API settings (apisettings.go).
 	APIClients  *[]config.APIClient `json:"apiClients"`
@@ -400,15 +398,16 @@ type usersReq struct {
 	// PanelOwners maps a removed user's id to the id of a kept user who takes their panels.
 	// A removed user who owns panels needs one.
 	PanelOwners map[string]string `json:"panelOwners"`
-	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
-	Locks    json.RawMessage `json:"locks"`
-	AutoLock json.RawMessage `json:"autoLockMinutes"`
+	// Locks, AutoLock and GuestRole are read only to refuse them: a stale page must not look saved.
+	Locks     json.RawMessage `json:"locks"`
+	AutoLock  json.RawMessage `json:"autoLockMinutes"`
+	GuestRole json.RawMessage `json:"guestRole"`
 }
 
 // SaveUsers needs an Administrator (not the main lock). PINs need not be unique.
 func (a *App) SaveUsers(c *client, req usersReq) error {
-	if present(req.Locks) || present(req.AutoLock) {
-		return errors.New("the lock settings moved to Settings > Access: reload this page")
+	if present(req.Locks) || present(req.AutoLock) || present(req.GuestRole) {
+		return errors.New("the lock settings and Guest role moved to Settings > Access > Locks: reload this page")
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -422,16 +421,14 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			cur.MaxPinLen = req.MaxPin
 		}
 		maxLen := cur.MaxPinLen
-		if req.GuestRole != "" {
-			cur.GuestRole = req.GuestRole
-		}
 		if len(req.Users) == 0 && cur.Locks.Any() {
 			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
 		}
 		var out []config.User
 		kept := map[string]bool{} // one row per saved user
 		for _, e := range req.Users {
-			u := config.User{ID: config.NewUserID(), Name: strings.TrimSpace(e.Name), Role: e.Role, Persistent: e.Persistent}
+			u := config.User{ID: config.NewUserID(), Name: strings.TrimSpace(e.Name), Role: e.Role,
+				Persistent: cur.NewUserDefaults.Persistent, NoAutoLock: cur.NewUserDefaults.NoAutoLock}
 			if err := userNameRefusal(u.Name); err != nil {
 				return err
 			}
@@ -451,7 +448,10 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				u.PinNeeded = o.PinNeeded && config.RoleAtLeast(o.Role, cmp.Or(u.Role, config.RoleStandard))
 				u.Profile = o.Profile.Clone()
 				u.Extra = o.Extra
-				u.Rights, u.NoAutoLock = o.Rights.Clone(), o.NoAutoLock
+				u.Rights, u.Persistent, u.NoAutoLock = o.Rights.Clone(), o.Persistent, o.NoAutoLock
+			}
+			if e.Persistent != nil {
+				u.Persistent = *e.Persistent
 			}
 			if e.Rights != nil {
 				u.Rights = e.Rights.WithExtraOf(u.Rights)
@@ -616,11 +616,10 @@ func (a *App) serveUserSetPin(c *client, m *inMsg) {
 
 // Len: whether a PIN is set (0 = none); never a hash.
 type usersListMsg struct {
-	T         string     `json:"t"` // "usersListResult"
-	ID        int        `json:"id"`
-	OK        bool       `json:"ok"`
-	Users     []userView `json:"users"`
-	GuestRole string     `json:"guestRole"`
+	T     string     `json:"t"` // "usersListResult"
+	ID    int        `json:"id"`
+	OK    bool       `json:"ok"`
+	Users []userView `json:"users"`
 	// Me is the id of the user asking, the default new owner of a removed user's panels.
 	Me string `json:"me"`
 	// Rights and API clients: Administrator only, never before the PIN.
@@ -654,7 +653,7 @@ type presetNote struct {
 
 func (a *App) usersList(c *client, id int) usersListMsg {
 	cfg := a.r().cfg.Clone()
-	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Me: c.userID(), Users: []userView{}, GuestRole: cfg.GuestRole,
+	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Me: c.userID(), Users: []userView{},
 		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes}
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}

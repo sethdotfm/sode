@@ -387,19 +387,19 @@ func TestStepInEndsOnASaveThatChangesTheUser(t *testing.T) {
 		ends bool
 	}{
 		{"delete", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}}
+			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}}
 		}, true},
 		{"rename", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bob", Role: config.RoleTrusted}}
+			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bob", Role: config.RoleTrusted}}
 		}, true},
 		{"PIN reset", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo", Pin: "222222", Role: config.RoleTrusted}}
+			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo", Pin: "222222", Role: config.RoleTrusted}}
 		}, true},
 		{"Role lowered", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}
+			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}
 		}, true},
 		{"Persistent", func(a *App) []userEdit {
-			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo", Role: config.RoleTrusted, Persistent: true}}
+			return []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo", Role: config.RoleTrusted, Persistent: new(true)}}
 		}, false},
 	} {
 		t.Run(tc.what, func(t *testing.T) {

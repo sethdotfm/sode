@@ -342,6 +342,8 @@ export const DICT = {
   'cfg-pin2': ['pin', 'password', 'confirm', 'repeat', 'retype', 'again'],
   'cfg-pin-clear': ['remove pin', 'delete pin', 'no pin', 'unlock', 'disable', 'password off', 'clear'],
   'cfg-pin-waits': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'delay', 'wait', 'backoff'],
+  'cfg-guest-role': ['guest', 'signed out', 'nobody', 'anonymous', 'role', 'trusted', 'standard', 'visitor'],
+  'new-user-defaults': ['new user', 'default', 'never sign out', 'persistent', 'auto-lock', 'idle', 'stay signed in'],
 
   // ---- Audit
   'cfg-proxies': [

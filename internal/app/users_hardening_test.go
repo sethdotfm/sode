@@ -66,7 +66,7 @@ func TestRevocationIsDurable(t *testing.T) {
 		if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 			t.Fatal(err)
 		}
-		if err := saveUsers(a, admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+		if err := saveUsers(a, admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 			t.Fatal(err)
 		}
 		if tokenAlive(a, tok) {

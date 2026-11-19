@@ -51,6 +51,10 @@ func loadConfig(path string) config.Config {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+	// The setup wizard and env-only mode apply it; a typo stops here, not at the wizard.
+	if _, err := config.AccessPresetFromEnv(); err != nil {
+		log.Fatalf("config: %v", err)
+	}
 	c.Normalize()
 	if err := c.Validate(); err != nil {
 		log.Fatalf("config from environment: %v", err)
