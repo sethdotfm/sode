@@ -1,0 +1,135 @@
+// Pure parts of the Import tab (importtab.js). The check and the plan come from POST api/import; the request goes
+// back to it for the review and to POST api/import/apply. Item keys and choice values are the server's
+// (importItem and the clash choices in internal/app/importplan.go).
+
+// The categories the server plans, in its order. This browser and Artwork it does not import yet.
+export const PLANNED = ['settings', 'routers', 'users', 'presets', 'filterSets', 'apiClients', 'panels'];
+
+const CHOICES = [
+  ['new', 'Use new'],
+  ['current', 'Use current'],
+  ['skip', 'Skip'],
+  ['rename', 'Rename'],
+];
+// The server turns Rename into Use new for these (importPlanner.choice), so the page does not offer it.
+const NO_RENAME = new Set(['settings', 'routers']);
+
+export const choicesFor = (cat) => (NO_RENAME.has(cat) ? CHOICES.slice(0, 3) : CHOICES);
+
+const catOf = (check, cat) => check.plan.categories[cat] || { items: [] };
+
+// A clash the person decides: live, different, and in a category that imports.
+export const hasChoice = (c, it) => !c.refused && !it.refused && !it.same && !!it.clash && !!it.choice;
+
+// Everything ticked but Routers, which changes the router only when ticked, with the preselected choices.
+export function newPick(check) {
+  const pick = { items: {}, choices: {} };
+  for (const cat of PLANNED) {
+    const c = catOf(check, cat);
+    pick.items[cat] = new Set(cat === 'routers' || c.refused ? [] : c.items.map((i) => i.key));
+    pick.choices[cat] = {};
+    for (const it of c.items) if (hasChoice(c, it)) pick.choices[cat][it.key] = it.choice;
+  }
+  return pick;
+}
+
+// 'all', 'some' or 'none' for the category's box.
+export function catState(check, pick, cat) {
+  const total = catOf(check, cat).items.length;
+  const on = pick.items[cat]?.size || 0;
+  if (!on) return 'none';
+  return on === total ? 'all' : 'some';
+}
+
+export function setCat(check, pick, cat, on) {
+  const c = catOf(check, cat);
+  pick.items[cat] = new Set(on && !c.refused ? c.items.map((i) => i.key) : []);
+}
+
+export const catSize = (check, pick, cat) =>
+  catOf(check, cat)
+    .items.filter((i) => pick.items[cat]?.has(i.key))
+    .reduce((n, i) => n + (i.size || 0), 0);
+
+// The importReq. A category with nothing ticked is left out, since an empty pick means every item to the server.
+export function importReq(pick) {
+  const req = { mode: 'add', categories: [], sections: [], pick: {}, choices: {} };
+  for (const cat of PLANNED) {
+    const keys = [...(pick.items[cat] || [])];
+    if (!keys.length) continue;
+    req.categories.push(cat);
+    if (cat === 'settings') req.sections = keys;
+    else if (cat !== 'routers') req.pick[cat] = keys;
+    const ch = Object.entries(pick.choices[cat] || {}).filter(([k]) => pick.items[cat].has(k));
+    if (ch.length) req.choices[cat] = Object.fromEntries(ch);
+  }
+  return req;
+}
+
+// The names Use new writes over (importItem.overwrites). Any makes the import Critical.
+export function criticalNames(check, pick) {
+  const out = [];
+  for (const cat of PLANNED) {
+    const c = catOf(check, cat);
+    for (const it of c.items) if (pick.items[cat]?.has(it.key) && hasChoice(c, it) && pick.choices[cat][it.key] === 'new') out.push(it.name);
+  }
+  return out;
+}
+
+// importItem.writes, for a planned item.
+const writes = (it) => !it.same && !it.refused && (!it.clash || it.choice === 'new' || it.choice === 'rename');
+
+const plural = (n, w) => `${n} ${w}`;
+
+// One line per planned category: what the import does to it.
+export function reviewCounts(plan) {
+  const out = [];
+  for (const cat of PLANNED) {
+    const c = plan.categories[cat];
+    if (!c) continue;
+    if (c.refused) {
+      out.push({ cat, text: `Not imported: ${c.refused}` });
+      continue;
+    }
+    const n = { added: 0, updated: 0, kept: 0, 'no change': 0, 'not imported': 0, Broken: 0 };
+    for (const it of c.items) {
+      if (it.same) n['no change']++;
+      else if (it.refused) n['not imported']++;
+      else if (!writes(it)) n.kept++;
+      else if (it.clash && it.choice === 'new') n.updated++;
+      else n.added++;
+      if (writes(it) && it.broken?.length) n.Broken++;
+    }
+    const text = Object.entries(n)
+      .filter(([, v]) => v)
+      .map(([k, v]) => plural(v, k))
+      .join(', ');
+    out.push({ cat, text: text || 'Nothing' });
+  }
+  return out;
+}
+
+// The items that arrive Broken, with what each is missing.
+export function brokenItems(plan) {
+  const out = [];
+  for (const cat of PLANNED) {
+    const c = plan.categories[cat];
+    if (c && !c.refused) for (const it of c.items) if (writes(it) && it.broken?.length) out.push({ cat, ...it });
+  }
+  return out;
+}
+
+// offset: the shown number of source or destination 0.
+export function missingText(m, offset) {
+  const r = m.ref || {};
+  switch (m.kind) {
+    case 'source':
+    case 'destination':
+      return r.name ? `${m.kind} ${r.name} (${r.n + offset})` : `${m.kind} ${r.n + offset}`;
+    case 'level':
+      return `level ${r.n}`;
+    case 'router':
+      return `router ${r.router}`;
+  }
+  return `${m.kind} ${r.name || ''}`.trim();
+}

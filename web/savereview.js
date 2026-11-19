@@ -1,11 +1,13 @@
 // The one Save review dialog (GLOSSARY.md, Review). Its steps run in this order: the review, then the PIN recheck, then
 // the Save and reconnect confirm. Nothing is sent before the last step (spec #543, The one Save).
 
-import { el } from './core.js';
+import { $, el } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { askRecheck } from './recheck.js';
 import { groupRows, saveLabel } from './savereviewrules.js';
 import { saveStopsLabel, endsSomething, NO_RETURN } from './interruptionrules.js';
+import { offersBackup, lastBackupText } from './backuprules.js';
+import { downloadBackup, lastBackup } from './exportcalls.js';
 
 let ui = null;
 let step = null; // the open run's handlers: { esc }
@@ -81,17 +83,77 @@ function interruptionsBlock(list) {
   return out;
 }
 
+// The backup offer (backuprules.js). toExport: ends the review, then opens Export & Import.
+function backupBlock(toExport) {
+  const last = el('span', 'sode__hint', lastBackupText(lastBackup(), Date.now()));
+  const status = el('span', 'sode__hint');
+  status.id = 'review-backup-note';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  const get = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Download a backup');
+  get.type = 'button';
+  get.id = 'review-backup';
+  get.onclick = async () => {
+    get.disabled = true;
+    status.textContent = 'Making the file…';
+    status.classList.remove('sode__error-text');
+    try {
+      const got = await downloadBackup();
+      status.textContent = `Saved ${got.name}.`;
+      last.textContent = lastBackupText(lastBackup(), Date.now());
+    } catch (e) {
+      status.textContent = e.message;
+      status.classList.add('sode__error-text');
+    } finally {
+      get.disabled = false;
+    }
+  };
+  const link = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Export & Import');
+  link.type = 'button';
+  link.id = 'review-export';
+  link.onclick = toExport;
+  return [
+    el('h3', 'sode__label', 'Backup'),
+    el('p', 'sode__hint', 'You can download a full backup before you save, to go back if you must.'),
+    el('div', 'sode__review-backup', get, link, last),
+    status,
+  ];
+}
+
 // rows: the changes (savereviewrules.js diffRows). kept(row): why it stays unsaved, or ''. place(row): {topic, section,
 // order}. label(row), show(row, value): text. critical: a row the server checks for a PIN recheck. reconnects(row): a
 // router connection field. address: the router address it reconnects to. by(row): who staged it, or null. unseen: the
 // counts of edits the saver's Role cannot see (stagedrules.js); they are not in rows and do not save. interruptions:
-// the server's list for the fields that save (settingsReview), or null when it did not answer.
+// the server's list for the fields that save (settingsReview), or null when it did not answer. criticalAction: a row
+// that is a Critical action, also when an Approval saves it. role: the saver's Role. preset(row): the name of the
+// Access preset that staged it, or ''.
 // Resolves true when the save is to be sent, false when the person goes back to editing.
-export function reviewSave({ rows, kept, place, label, show, critical, reconnects, address, recheckNeeded, by = null, unseen = [], interruptions = [] }) {
+export function reviewSave({
+  rows,
+  kept,
+  place,
+  label,
+  show,
+  critical,
+  reconnects,
+  address,
+  recheckNeeded,
+  by = null,
+  unseen = [],
+  interruptions = [],
+  criticalAction = critical,
+  role = '',
+  preset = () => '',
+}) {
   build();
   step?.esc();
   const saves = rows.filter((r) => !kept(r));
-  const notes = (r) => [kept(r) && badge('warn', `Stays unsaved: ${kept(r)}`), reconnects(r) && badge('warn', 'Reconnects the router')].filter(Boolean);
+  const notes = (r) =>
+    [
+      preset(r) && badge('info', preset(r)),
+      kept(r) && badge('warn', `Stays unsaved: ${kept(r)}`),
+      reconnects(r) && badge('warn', 'Reconnects the router'),
+    ].filter(Boolean);
   let rechecked = false;
   return new Promise((resolve) => {
     const end = (send) => {
@@ -109,6 +171,12 @@ export function reviewSave({ rows, kept, place, label, show, critical, reconnect
         ...counts,
         ...(rows.length ? [table(groupRows(rows, place), { label, show, notes, by })] : []),
         ...interruptionsBlock(interruptions),
+        ...(offersBackup({ saves, isCritical: criticalAction, interruptions, role })
+          ? backupBlock(() => {
+              end(false);
+              $('xi-open')?.click();
+            })
+          : []),
       );
       button(ui.back, 'Keep editing', () => end(false));
       const keep = rows.length - saves.length;

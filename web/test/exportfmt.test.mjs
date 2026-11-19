@@ -165,6 +165,15 @@ test('applyChoices: replace in place, keep both renamed, skip, unique among rows
   assert.deepEqual(existing[0], { name: 'A', v: 1 }, 'input untouched');
 });
 
+test('applyChoices: Use current keeps the item here and adds nothing', () => {
+  const r = applyChoices([{ name: 'A', v: 1 }], [{ name: 'A', v: 2 }], [{ choice: 'current' }]);
+  assert.deepEqual(
+    r.list.map((x) => `${x.name}:${x.v}`),
+    ['A:1'],
+  );
+  assert.equal(r.added, 0);
+});
+
 test('applyChoices never creates a duplicate even when the choice is import', () => {
   const r = applyChoices([{ name: 'A' }], [{ name: 'A' }], [{ choice: 'import' }]);
   assert.deepEqual(

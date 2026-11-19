@@ -41,7 +41,14 @@ function submit() {
   ui.go.disabled = true;
 }
 
+const inline = new Map(); // id -> resolve, for recheckPin
+
 onMsg('pinRecheckResult', (m) => {
+  const own = inline.get(m.id);
+  if (own) {
+    inline.delete(m.id);
+    return own({ ok: !!m.ok, err: m.err || (m.ok ? '' : 'Wrong PIN.') });
+  }
   if (!ui || m.id !== waiting) return;
   waiting = 0;
   ui.go.disabled = false;
@@ -106,8 +113,18 @@ export function askRecheck(what) {
   });
 }
 
+// For a page with its own PIN field, such as the import review: sends the PIN and resolves {ok, err}.
+export function recheckPin(pin) {
+  const id = ++seq;
+  if (!wsSend({ t: 'pinRecheck', pin, id })) return Promise.resolve({ ok: false, err: 'Not connected to Sode.' });
+  return new Promise((resolve) => inline.set(id, resolve));
+}
+
 // A Lock or a socket drop ends the recheck on the server, so the prompt closes too.
 on('locking', () => close(false));
 on('conn', () => {
-  if (S.wsState !== 'up') close(false);
+  if (S.wsState === 'up') return;
+  close(false);
+  for (const done of inline.values()) done({ ok: false, err: 'Not connected to Sode.' });
+  inline.clear();
 });

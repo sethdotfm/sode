@@ -1,21 +1,16 @@
 // Settings > Server > Export & Import: the dialog with the Export and Import tabs (docs/agents/profiles.md).
-// The export routes take an Administrator's session token in a header; exportSession gives one to a
-// connection that has none. The token stays in memory here, so sign-in storage is not changed. Pure rules are
-// in exportrules.js. Import is a placeholder for now.
+// The routes and the session token are in exportcalls.js, pure rules in exportrules.js. The Import tab is importtab.js.
 
-import { $, el, on, onMsg, wsSend } from './core.js';
+import { $, el, on } from './core.js';
 import { trapDialog } from './widgets.js';
 import { makeTabs } from './tabs.js';
 import { layout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
-import { PREFS } from './prefs.js';
-import { ownPref } from './device.js';
-import { localSets } from './filterstore.js';
-import { localPresets } from './presetstore.js';
 import { ROLES } from './usersrules.js';
 import * as R from './exportrules.js';
+import { browserValues, post, call, downloadZip, downloadBackup } from './exportcalls.js';
+import { importTab } from './importtab.js';
 
-const SESSION_HEADER = 'X-Sode-Session'; // sessionHeader in internal/app/exportroute.go
 const SIZE_WAIT_MS = 300;
 
 const btn = (cls, text, fn) => {
@@ -45,20 +40,30 @@ const exportPanel = el(
   el('span', 'sode__hint', 'Sizes are before compression.'),
   cats,
 );
-const importPanel = el('div', null, el('p', 'sode__hint', 'Import comes in a later release.'));
 const phone = el('div');
 const note = el('span', 'sode__hint');
 note.id = 'xi-note';
 note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 
-const backupBtn = btn('pb-btn--outline', 'Back up everything', () => download(R.backupBody(browserValues())));
+const backupBtn = btn('pb-btn--outline', 'Back up everything', () => download(downloadBackup));
 backupBtn.id = 'xi-backup';
-const exportBtn = btn('pb-btn--ok', 'Export', () => download(R.exportBody(list, pick, browserValues())));
+const exportBtn = btn('pb-btn--ok', 'Export', () => download(() => downloadZip(R.exportBody(list, pick, browserValues()))));
 exportBtn.id = 'xi-export';
 const closeBtn = btn('pb-btn--outline', 'Close', () => close());
 closeBtn.id = 'xi-close';
 const exportActs = el('span', 'sode__xi-acts', backupBtn, exportBtn);
+const titleEl = Object.assign(el('span', 'pb-modal__title', 'Export & Import'), { id: 'xi-title' });
+const importer = importTab({
+  setNote: (t, error) => setNote(t, error),
+  // The review takes the whole body, so the tabs go while it shows.
+  setReview: (title) => {
+    titleEl.textContent = title || 'Export & Import';
+    tabs.node.hidden = !!title;
+  },
+  backup: () => download(downloadBackup),
+});
+const importPanel = importer.panel;
 
 const tabs = makeTabs(
   [
@@ -67,14 +72,11 @@ const tabs = makeTabs(
   ],
   (id) => {
     exportActs.hidden = id !== 'xi-export-tab';
+    importer.acts.hidden = id !== 'xi-import-tab';
   },
 );
 const body = el('div', 'pb-modal__body', tabs.node, exportPanel, importPanel, phone);
-dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Export & Import'), { id: 'xi-title' })),
-  body,
-  el('div', 'pb-modal__footer', closeBtn, note, exportActs),
-);
+dialog.append(el('div', 'pb-modal__header', titleEl), body, el('div', 'pb-modal__footer', closeBtn, note, exportActs, importer.acts));
 root.append(dialog);
 document.body.append(root);
 
@@ -82,7 +84,6 @@ let open = false;
 let back = null;
 let list = null;
 let pick = null;
-let token = null; // null: not asked yet; '' with no users
 const expanded = new Set();
 let sizeTimer = 0;
 let sizeSeq = 0;
@@ -91,53 +92,6 @@ const setNote = (t, error = false) => {
   note.textContent = t;
   note.classList.toggle('sode__error-text', error);
 };
-
-// This browser: its own device preferences as top-level keys, with its filter sets and presets (browser.yaml in
-// internal/app/testdata/export-v1).
-function browserValues() {
-  const out = {};
-  for (const n of Object.keys(PREFS)) if (ownPref(n)) out[n] = ownPref(n);
-  return { ...out, filterSets: localSets(), presets: localPresets() };
-}
-
-// ---- session token
-
-let askSeq = 0;
-const asks = new Map();
-onMsg('exportSessionResult', (m) => {
-  const done = asks.get(m.id);
-  if (!done) return;
-  asks.delete(m.id);
-  done(m);
-});
-
-function session() {
-  if (token !== null) return Promise.resolve(token);
-  const id = ++askSeq;
-  return new Promise((resolve, reject) => {
-    if (!wsSend({ t: 'exportSession', id })) return reject(new Error('Not connected to Sode. Try again when the link is back.'));
-    asks.set(id, (m) => {
-      if (!m.ok) return reject(new Error(m.err || 'Sode refused the export.'));
-      token = m.token || '';
-      resolve(token);
-    });
-  });
-}
-
-async function call(path, init = {}) {
-  const tok = await session();
-  const headers = { ...init.headers };
-  if (tok) headers[SESSION_HEADER] = tok;
-  const res = await fetch(path, { ...init, headers, cache: 'no-store' });
-  if (res.status === 401 || res.status === 403) token = null; // ask for a new session next time
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error?.message || err?.message || `Sode answered ${res.status}.`);
-  }
-  return res;
-}
-
-const post = (path, b) => call(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
 
 // ---- the list
 
@@ -280,20 +234,13 @@ async function load() {
   }
 }
 
-async function download(b) {
+// make: resolves { name, size } of the saved zip (exportcalls.js).
+async function download(make) {
   setNote('Making the file…');
   backupBtn.disabled = exportBtn.disabled = true;
   try {
-    const res = await post('api/export', b);
-    const blob = await res.blob();
-    const a = el('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = R.fileNameOf(res.headers.get('Content-Disposition'), new Date().toISOString().slice(0, 10));
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 0);
-    setNote(`Saved ${a.download} (${R.sizeText(blob.size)}).`);
+    const got = await make();
+    setNote(`Saved ${got.name} (${R.sizeText(got.size)}).`);
   } catch (e) {
     setNote(e.message, true);
   } finally {
@@ -316,6 +263,7 @@ function openDialog() {
   const desk = layout() !== 'phone';
   tabs.node.hidden = !desk;
   exportActs.hidden = !desk;
+  importer.acts.hidden = true;
   phone.replaceChildren(desk ? '' : desktopOnly('export or import'));
   setNote('');
   if (desk) {
@@ -331,6 +279,7 @@ function close() {
   clearTimeout(sizeTimer);
   list = pick = null;
   cats.replaceChildren();
+  importer.reset();
   exportBtn.textContent = 'Export';
   dlg.hide();
   if (back?.isConnected) back.focus();
@@ -340,8 +289,4 @@ const dlg = trapDialog(root, dialog, close);
 $('xi-open')?.addEventListener('click', openDialog);
 on('locking', () => {
   if (open) close();
-});
-// A sign-in as someone else, or a sign-out, ends what the token stood for.
-on('access', () => {
-  token = null;
 });

@@ -909,6 +909,44 @@ html[data-alt] .sode__chip-key {
   font-size: var(--pb-text-sm);
   white-space: nowrap;
 }
+/* Import tab (importtab.js) */
+.sode__xi-file {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1) var(--pb-space-3);
+}
+.sode__xi-file > .sode__xi-sub {
+  flex-basis: 100%;
+}
+.sode__xi-mode {
+  align-items: baseline;
+  display: flex;
+  gap: var(--pb-space-3);
+  margin-top: var(--pb-space-3);
+}
+.sode__xi-h {
+  margin: var(--pb-space-4) 0 var(--pb-space-2);
+}
+.sode__xi-list {
+  margin: 0;
+  padding-left: var(--pb-space-5);
+}
+.sode__xi-choice {
+  flex-wrap: wrap;
+}
+.sode__xi-crit {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  margin-top: var(--pb-space-3);
+}
+.sode__xi-crit > .sode__label {
+  margin-left: auto;
+}
+.sode__xi-pin {
+  width: 8rem;
+}
 .sode__scrim > .sode__rv {
   width: 56rem;
 }
