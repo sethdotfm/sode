@@ -61,3 +61,13 @@ func TestPresetFieldsAreCritical(t *testing.T) {
 		t.Errorf("AccessValues has %d fields, the Critical list %d preset entries", n, len(presetFields))
 	}
 }
+
+// Run setup again draws the Access step from usersList, so each preset there carries the setup
+// sheet's rows too.
+func TestAccessPresetViewsCarryTheSetupRows(t *testing.T) {
+	for i, v := range accessPresetViews() {
+		if want := setupRows(config.AccessPresets[i].Values); !reflect.DeepEqual(v.Rows, want) {
+			t.Errorf("%s rows %v, want %v", v.Name, v.Rows, want)
+		}
+	}
+}

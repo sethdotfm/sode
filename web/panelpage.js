@@ -17,6 +17,7 @@ import { bigScrollAll } from './bigscroll.js';
 import { linkInstall, OTHER_INSTALL } from './itemlink.js';
 import { layout, onLayout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
+import { showApprovalCards } from './approvalcards.js';
 
 const id = panelIdFrom(location.pathname);
 
@@ -48,6 +49,9 @@ function editorOnPhone() {
   head.after(desktopOnly('edit panels'));
   onLayout(() => location.reload());
 }
+
+// Approval cards show on /panels and the editor, never on a panel page.
+if (!id) showApprovalCards();
 
 if (id) runLinked();
 else if (document.getElementById('ed-grid') && layout() === 'phone') editorOnPhone();

@@ -2,8 +2,8 @@
 // back to it for the review and to POST api/import/apply. Item keys and choice values are the server's
 // (importItem and the clash choices in internal/app/importplan.go).
 
-// The categories the server plans, in its order. This browser and Artwork it does not import yet.
-export const PLANNED = ['settings', 'routers', 'users', 'presets', 'filterSets', 'apiClients', 'panels'];
+// The categories the server plans, in its order. This browser the page applies itself (browserimport.js).
+export const PLANNED = ['settings', 'routers', 'users', 'presets', 'filterSets', 'apiClients', 'artwork', 'panels', 'browser'];
 
 const CHOICES = [
   ['new', 'Use new'],
@@ -11,10 +11,11 @@ const CHOICES = [
   ['skip', 'Skip'],
   ['rename', 'Rename'],
 ];
-// The server turns Rename into Use new for these (importPlanner.choice), so the page does not offer it.
+// The server turns Rename into Use new for these (importPlanner.choice), so the page does not offer it. Default
+// artwork is one per item, so it has no Rename either.
 const NO_RENAME = new Set(['settings', 'routers']);
 
-export const choicesFor = (cat) => (NO_RENAME.has(cat) ? CHOICES.slice(0, 3) : CHOICES);
+export const choicesFor = (cat, it) => (NO_RENAME.has(cat) || it?.kind === 'default' ? CHOICES.slice(0, 3) : CHOICES);
 
 const catOf = (check, cat) => check.plan.categories[cat] || { items: [] };
 

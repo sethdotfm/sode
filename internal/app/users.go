@@ -59,6 +59,10 @@ type connUser struct {
 	inbox   bool
 	recheck recheck // under mu (recheck.go)
 	step    *stepIn // under mu; nil when not stepped in (stepin.go)
+	// cards: this page shows Approval cards (approvalCards); approvers: the last approvers
+	// message sent. Both under mu (approvalrequest.go).
+	cards     bool
+	approvers string
 }
 
 // userID is the signed-in user's id, or "".
@@ -210,6 +214,7 @@ func (a *App) pushAccessMu(c *client, hi bool) {
 	a.pushProfileMu(c) // only to the user it belongs to
 	a.pushRightsMu(c)
 	a.pushPanelsOfflineMu(c)
+	a.cardsSyncMu()
 	a.pushInboxMu(c, nil)
 }
 
