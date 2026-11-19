@@ -217,6 +217,9 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			delete(a.clients, c)
 			close(c.send)
 		}
+		if c.u.step != nil {
+			a.stepOutRowMu(c, "closed")
+		}
 		a.cardsSyncMu() // a page close cancels its request
 		a.mu.Unlock()
 		a.setupLeft(c)
@@ -400,6 +403,7 @@ type inMsg struct {
 	On           bool               `json:"on"`      // approvalCards
 	asRole       string             // Request approval: the requester's Role when sent (approvalrequest.go)
 	Inbox        *inboxReq          `json:"inbox"` // the inbox messages (inboxsend.go)
+	Swap         *swapReq           `json:"swap"`  // swapList, swapMine (swap.go)
 }
 
 func plural(n int, one, many string) string {

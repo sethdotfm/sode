@@ -16,6 +16,7 @@ import (
 func TestChromeSetupWizard(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
+	t.Setenv("SODE_ROUTER", sim) // cmd/sode puts it in the config, as the edit below does
 
 	a := setupApp(t, func(c *config.Config) { c.Address = sim })
 	ctx, cancel := context.WithCancel(context.Background())
@@ -49,6 +50,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(next + `.click(); true`)
 
 	b.waitFor("Router, filled from the config", `document.getElementById('setup-router')?.value === '`+sim+`'`)
+	b.waitFor("the env hint under Address", `document.getElementById('setup-router')?.parentElement.querySelector('.sode__hint')?.textContent === 'Filled from SODE_ROUTER.'`)
 	status := `(document.getElementById('setup-router-status')?.textContent || '')`
 	b.waitFor("the router answers", status+` === 'Connected. Names read.'`)
 	type_("setup-router", "127.0.0.1:1")

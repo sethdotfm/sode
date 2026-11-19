@@ -23,7 +23,6 @@ type cardPlanner struct {
 	rights     config.Rights
 	card       inboxCard
 	req        importReq
-	envOnly    bool
 	check      *refCheck
 	allPanels  []Panel
 	panels     []plannedPanel
@@ -34,8 +33,8 @@ type cardPlanner struct {
 }
 
 // planCard plans card onto user toID of live. src, dst are the live router's names.
-func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq, envOnly bool) (*cardPlanner, error) {
-	p, err := newCardPlanner(live, src, dst, allPanels, card, toID, req, envOnly)
+func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
+	p, err := newCardPlanner(live, src, dst, allPanels, card, toID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -43,14 +42,14 @@ func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, ca
 	return p, nil
 }
 
-func newCardPlanner(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq, envOnly bool) (*cardPlanner, error) {
+func newCardPlanner(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
 	u, ok := live.FindUserByID(toID)
 	if !ok {
 		return nil, errNoSuchUser
 	}
 	_, rights := live.ActsAs(u)
 	return &cardPlanner{
-		live: live, next: live.Clone(), user: toID, rights: rights, card: card, req: req, envOnly: envOnly, allPanels: allPanels,
+		live: live, next: live.Clone(), user: toID, rights: rights, card: card, req: req, allPanels: allPanels,
 		check: &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
 		plan:  importPlan{SameInstall: true, Categories: map[string]*importCat{}},
 	}, nil
@@ -82,7 +81,7 @@ func (p *cardPlanner) run(profile func(*config.Config, *importCat) error) {
 		}
 		if err == nil && s.cat != catPanels {
 			cand.Normalize()
-			err = validateSave(p.live, cand, p.envOnly)
+			err = validateSave(p.live, cand)
 		}
 		if err != nil {
 			cat.Refused = err.Error()
@@ -336,7 +335,7 @@ func (a *App) ReviewCard(c *client, card string, req importReq) (*importPlan, er
 		return nil, err
 	}
 	src, dst := a.liveNames()
-	p, err := planCard(a.r().cfg, src, dst, a.panels.list(), k, u.ID, req, a.cfgPath == "")
+	p, err := planCard(a.r().cfg, src, dst, a.panels.list(), k, u.ID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +369,7 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 		return nil, nil, k, err
 	}
 	src, dst := a.liveNames()
-	p, err := planCard(a.r().cfg, src, dst, a.panels.list(), k, u.ID, req, a.cfgPath == "")
+	p, err := planCard(a.r().cfg, src, dst, a.panels.list(), k, u.ID, req)
 	if err != nil {
 		return nil, nil, k, err
 	}

@@ -191,6 +191,10 @@ var policy = map[string]rule{
 	"inboxAccept":   {crit: critNever, role: roleAnyone, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxAccept(c, m) }},
 	"inboxDecline":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxDecline(c, m) }},
 	"inboxWithdraw": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxWithdraw(c, m) }},
+	// Swap (swap.go): everyone's list is Administrator only, checked in the handler. swapMine writes only the
+	// user's own items, so it is never Critical.
+	"swapList": {crit: critNever, role: config.RoleStandard, op: "swapList", handle: func(a *App, c *client, m *inMsg) { go a.serveSwapList(c, m) }},
+	"swapMine": {crit: critNever, role: config.RoleStandard, op: "swapMine", write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSwapMine(c, m) }},
 	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
 }

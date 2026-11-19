@@ -230,6 +230,22 @@ func FromEnv(c Config) (Config, error) {
 	return c, errors.Join(errs...)
 }
 
+// WizardEnv: the setup wizard's fields (web/setupwizardrules.js keys) that SODE_* set, each with
+// its variable, for the "Filled from" hints. Keep in step with FromEnv and AccessPresetFromEnv.
+func WizardEnv() map[string]string {
+	out := map[string]string{}
+	for _, f := range [][2]string{
+		{"router", "SODE_ROUTER"}, {"levels", "SODE_LEVEL_COUNT"}, {"levelNumbering", "SODE_LEVEL_NUMBERING"},
+		{"numberOffset", "SODE_NUM_OFFSET"}, {"fireMode", "SODE_FIRE_MODE"}, {"group", "SODE_SALVO_GROUP"},
+		{"preset", "SODE_ACCESS_PRESET"},
+	} {
+		if strings.TrimSpace(os.Getenv(f[1])) != "" {
+			out[f[0]] = f[1]
+		}
+	}
+	return out
+}
+
 // Clone shares no slices, so Normalize cannot touch a config others read.
 func (c Config) Clone() Config {
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)

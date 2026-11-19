@@ -8,6 +8,8 @@ import { recheckPin } from './recheck.js';
 import { segmented } from './formbits.js';
 import { CATEGORIES, OWN_CATEGORIES, ADMIN_ONLY, sizeText } from './exportrules.js';
 import * as R from './importrules.js';
+import { stillBroken } from './remaprules.js';
+import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
 import { browserPrefs, mergeByName } from './browserimport.js';
 import { setPref } from './device.js';
 import { localSets, normFilter, putLocalSets } from './filterstore.js';
@@ -57,6 +59,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   let file = null;
   let check = null;
   let pick = null;
+  let remap = null; // importremap.js state
   let planned = null; // the review's plan
   let step = 'file'; // file, list, review, done
   let seq = 0;
@@ -69,11 +72,15 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     reviewBtn.hidden = step !== 'list';
     backBtn.hidden = importBtn.hidden = step !== 'review';
     anotherBtn.hidden = step !== 'done';
-    const broken = step === 'list' ? R.brokenItems(check.plan).filter((it) => pick.items[it.cat]?.has(it.key)).length : 0;
+    const broken = step === 'list' ? R.brokenItems(check.plan).filter((it) => pick.items[it.cat]?.has(it.key) && brk(it).length).length : 0;
     brokenBadge.hidden = !broken;
     brokenBadge.textContent = `${broken} Broken`;
     reviewBtn.disabled = step === 'list' && !R.importReq(pick).categories.length;
   };
+
+  // In the list the plan is the check's; the remap choices made since take references off it.
+  const brk = (it) => stillBroken(it.broken, remap.rowsBy, remap.targets, remap.choices);
+  const fullReq = () => ({ ...R.importReq(pick), ...remapReq(remap) });
 
   function form(req) {
     const fd = new FormData();
@@ -82,18 +89,23 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     return fd;
   }
 
-  async function load(f) {
+  // again: a router target changed, so the check plans again with the ticks and choices kept.
+  async function load(f, again = false) {
     file = f;
     const my = ++seq;
     setNote('Reading the file…');
     try {
-      const res = await call(route, { method: 'POST', body: form({ mode: 'add', categories: R.PLANNED }) });
+      const routers = again ? { routers: { ...remap.targets } } : {};
+      const res = await call(route, { method: 'POST', body: form({ mode: 'add', categories: R.PLANNED, ...routers }) });
       const got = await res.json();
       if (my !== seq) return;
       check = got;
-      pick = R.newPick(check);
-      expanded.clear();
-      for (const cat of R.PLANNED) if (check.plan.categories[cat]?.items.length) expanded.add(cat);
+      remap = remapState(check, again ? remap : null);
+      if (!again) {
+        pick = R.newPick(check);
+        expanded.clear();
+        for (const cat of R.PLANNED) if (check.plan.categories[cat]?.items.length) expanded.add(cat);
+      }
       step = 'list';
       setNote('');
       render();
@@ -130,11 +142,12 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     return el('div', 'sode__xi-sub', seg.node);
   }
 
-  const missing = (it) => it.broken.map((m) => R.missingText(m, off())).join(', ');
+  const missing = (it, list = it.broken) => list.map((m) => R.missingText(m, off())).join(', ');
 
   function itemRow(cat, c, it, i) {
     const ticked = pick.items[cat].has(it.key);
     const hint = it.refused ? it.refused : it.same ? 'No change' : it.note || '';
+    const broken = brk(it);
     const row = el(
       'div',
       'sode__xi-item',
@@ -143,12 +156,12 @@ export function importTab({ setNote, setReview, backup, own = false }) {
         else pick.items[cat].delete(it.key);
         render();
       }),
-      el('span', 'sode__hint', ...(it.broken?.length ? [el('span', 'pb-badge pb-badge--error', 'Broken'), ' '] : []), hint),
+      el('span', 'sode__hint', ...(broken.length ? [el('span', 'pb-badge pb-badge--error', 'Broken'), ' '] : []), hint),
       el('span', 'sode__xi-size', sizeText(it.size || 0)),
     );
     row.dataset.item = it.key;
     if (ticked && R.hasChoice(c, it)) row.append(choices(cat, it, i));
-    if (it.broken?.length) row.append(el('span', 'sode__hint sode__xi-sub sode__error-text', `Missing ${missing(it)}`));
+    if (broken.length) row.append(el('span', 'sode__hint sode__xi-sub sode__error-text', `Missing ${missing(it, broken)}`));
     return row;
   }
 
@@ -182,17 +195,16 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     return [head, el('div', 'sode__xi-items', ...items.map((it, i) => itemRow(cat, c, it, i)))];
   }
 
-  // The file's routers against this one. Remapping onto another router is a later step.
   function routerNames() {
-    const live = check.plan.categories.routers?.items || [];
-    const lines = (check.routers || []).map((r) => {
-      // An own import plans no Routers category, so the check names the live router.
-      const here = own ? r.UID === check.router : live.some((it) => it.key === r.UID && !it.note);
-      const name = r.Title || r.Prefix;
-      return el('li', null, here ? `${name}: this router` : `${name}: another router. Items that use it arrive Broken.`);
-    });
-    if (!lines.length) return [];
-    return [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list', ...lines)];
+    // An own import plans no Routers category and no remap, so the check names the live router.
+    if (own) {
+      const lines = (check.routers || []).map((r) => {
+        const name = r.Title || r.Prefix;
+        return el('li', null, r.UID === check.router ? `${name}: this router` : `${name}: another router. Items that use it arrive Broken.`);
+      });
+      return lines.length ? [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list', ...lines)] : [];
+    }
+    return remapView(remap, { off, onChange: () => render(), onRouter: () => load(file, true) });
   }
 
   // A category of the file that only an Administrator imports, greyed.
@@ -242,7 +254,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     setNote('Checking your choices…');
     reviewBtn.disabled = true;
     try {
-      const res = await call(route, { method: 'POST', body: form(R.importReq(pick)) });
+      const res = await call(route, { method: 'POST', body: form(fullReq()) });
       const got = await res.json();
       if (my !== seq) return;
       planned = got.plan;
@@ -284,11 +296,9 @@ export function importTab({ setNote, setReview, backup, own = false }) {
         el('tbody', null, ...counts.map((c) => el('tr', null, el('th', null, label(c.cat)), el('td', null, c.text)))),
       ),
     ];
+    out.push(...remapReview(remap, goTo));
     if (broken.length)
-      out.push(
-        el('h3', 'sode__label sode__xi-h', `Broken (${broken.length})`),
-        el('ul', 'sode__xi-list sode__xi-broken', ...broken.map((it) => el('li', null, `${it.as || it.name}: missing ${missing(it)}`))),
-      );
+      out.push(el('h3', 'sode__label sode__xi-h', `Broken (${broken.length})`), el('ul', 'sode__xi-list sode__xi-broken', ...broken.map(brokenLine)));
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
     if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
@@ -296,6 +306,26 @@ export function importTab({ setNote, setReview, backup, own = false }) {
       out.push(el('div', 'pb-note pb-note--warn', 'Use new replaces what is here. This is a Critical action.'), row, pinErr);
     }
     return out;
+  }
+
+  // A Broken item links to the row of its first missing name.
+  function brokenLine(it) {
+    const li = el('li', null, `${it.as || it.name}: missing ${missing(it)}`);
+    const at = it.broken.map((m) => rowOf(remap, m)).find(Boolean);
+    if (at)
+      li.append(
+        ' ',
+        btn('pb-btn--ghost pb-btn--sm', 'Show', () => goTo(...at)),
+      );
+    return li;
+  }
+
+  function goTo(uid, key) {
+    if (remap.rowsBy[uid]?.some((x) => x.key === key && x.state === 'moved')) remap.open.add(uid);
+    back();
+    const sel = [...panel.querySelectorAll('[data-row]')].find((x) => x.dataset.row === key)?.querySelector('select');
+    sel?.scrollIntoView({ block: 'center' });
+    sel?.focus();
   }
 
   function back() {
@@ -320,7 +350,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
         }
       }
       setNote('Importing…');
-      const res = await call(`${route}/apply`, { method: 'POST', body: form(R.importReq(pick)) });
+      const res = await call(`${route}/apply`, { method: 'POST', body: form(fullReq()) });
       const got = await res.json();
       if (my !== seq) return;
       planned = got.plan;
@@ -369,7 +399,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
 
   function reset() {
     seq++;
-    file = check = pick = planned = null;
+    file = check = pick = planned = remap = null;
     failed = 0;
     step = 'file';
     pinInput.value = '';

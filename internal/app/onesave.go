@@ -191,6 +191,7 @@ func fieldRefusal(role, sec string) string {
 func (a *App) serveSettingsSave(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
+		by := c.who() // before the save, which can end c's step-in
 		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver, m.asRole, m.AccessPreset)
 		out := settingsSaveResult{opResult: opResultFor("settingsSave", &m.ID, err), Results: res, Interruptions: stops}
 		n := 0
@@ -200,7 +201,7 @@ func (a *App) serveSettingsSave(c *client, m *inMsg) {
 			}
 		}
 		note := fmt.Sprintf("%d of %d %s saved", n, len(res), plural(len(res), "field", "fields"))
-		a.command(c, "settingsSave", outcome(err), approvedNote(m.approver, note), err)
+		a.commandBy(by, "settingsSave", outcome(err), approvedNote(m.approver, note), err)
 		a.reply(c, out)
 	}()
 }
@@ -242,6 +243,7 @@ func (p *savePlan) refuse(key, reason string, err error) {
 func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User, asRole, preset string) (map[string]fieldResult, []interruption, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
+	by := connActor(c) // before the commit, which can end c's step-in (stepOutsOnSaveMu)
 	plan, err := a.planSave(c, edits, ap, asRole, false)
 	if err != nil {
 		return nil, nil, err
@@ -268,6 +270,8 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 		r := fieldResult{Status: "saved", Version: fieldVersion(now, key)}
 		if f, _ := lookupField(key); f.adds {
 			r.Value, r.Version = addedResult(now, key, x), ""
+		} else if f.action {
+			r.Version = ""
 		}
 		res[key] = r
 	}
@@ -275,11 +279,15 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 		return res, nil, err
 	}
 	if slices.Contains(keep, "requireHttps") {
-		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
+		a.auditRequireHTTPS(by, live.RequireHTTPS, now.RequireHTTPS)
 	}
-	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
+	saved := a.savedFields(live, now, keep, x)
+	if slices.Contains(keep, swapKey) {
+		saved = append(saved, a.swapPanelsAfter(x, edits, now))
+	}
+	a.recordSaveApproved(by, "save", saved, len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
 		presetOfSave(preset, keep))
-	a.auditAPISettings(connActor(c), live, now)
+	a.auditAPISettings(by, live, now)
 	a.panelsFollowUsers(live.Users, now.Users)
 	if n, err := a.panels.moveOwners(plan.moves); err != nil {
 		log.Printf("panels: new owner reached %d panels, then: %v", n, err)
@@ -322,6 +330,18 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	}
 	plan := &savePlan{live: live, actor: actor, res: make(map[string]fieldResult, len(edits)), edits: edits, x: &saveCtx{}}
 	res, x, refuse := plan.res, plan.x, plan.refuse
+	if e, ok := edits[swapKey]; ok {
+		req, err := decodeJSON[swapReq](e.Value)
+		if err == nil {
+			x.swap, err = a.newSwapper(live, req)
+		}
+		if err != nil {
+			refuse(swapKey, reasonInvalid, err)
+			edits = maps.Clone(edits)
+			delete(edits, swapKey)
+			plan.edits = edits
+		}
+	}
 	// First the checks that need no other field: section, unchanged, conflict.
 	var cands []string
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
@@ -352,11 +372,11 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 			}
 		}
 		one.Normalize()
-		if !f.adds && string(fieldJSON(one, key)) == string(fieldJSON(live, key)) {
+		if !f.adds && !f.action && string(fieldJSON(one, key)) == string(fieldJSON(live, key)) {
 			res[key] = fieldResult{Status: "unchanged"}
 			continue
 		}
-		if !f.adds && e.Version != fieldVersion(live, key) {
+		if !f.adds && !f.action && e.Version != fieldVersion(live, key) {
 			r := fieldResult{Status: "refused", Reason: reasonConflict, Err: "someone else saved this after you opened Settings",
 				Version: fieldVersion(live, key)}
 			if !f.secret {
@@ -385,12 +405,12 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	for _, key := range cands {
 		var err error
 		for scope := range 3 {
-			if err = validateSave(live, with(key, scope), a.cfgPath == ""); err == nil {
+			if err = validateSave(live, with(key, scope)); err == nil {
 				break
 			}
 		}
 		if err != nil {
-			if scoped := validateSave(live, with(key, 0), a.cfgPath == ""); scoped != nil {
+			if scoped := validateSave(live, with(key, 0)); scoped != nil {
 				err = scoped // the reason of the field alone reads best
 			}
 			refuse(key, reasonInvalid, err)
@@ -415,13 +435,13 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 }
 
 // validateSave: what update checks, so a field that would fail the commit is refused alone.
-func validateSave(live, next config.Config, envOnly bool) error {
+func validateSave(live, next config.Config) error {
 	n := next.Clone()
 	dropOwnerless(&n)
 	if err := n.Validate(); err != nil {
 		return err
 	}
-	return keepsAdministrator(live, n, envOnly)
+	return keepsAdministrator(live, n)
 }
 
 // removedUsersPanels gives the panels of each removed user a new owner. The owner is the one

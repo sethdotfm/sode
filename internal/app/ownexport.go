@@ -217,7 +217,7 @@ func (a *App) planOwn(id string, b *exportBundle, req importReq) (*cardPlanner, 
 	}
 	src, dst := a.liveNames()
 	card := inboxCard{Items: cardItems{Presets: from.Profile.Presets, FilterSets: from.Profile.FilterSets}}
-	p, err := newCardPlanner(live, src, dst, nil, card, id, req, a.cfgPath == "")
+	p, err := newCardPlanner(live, src, dst, nil, card, id, req)
 	if err != nil {
 		return nil, out, err
 	}

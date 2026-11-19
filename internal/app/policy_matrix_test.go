@@ -96,6 +96,8 @@ var policyExpect = map[string][nStates]error{
 	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
 
 	"settingsSave": standardRule, "settingsReview": standardRule,
+	// everyone's list needs an Administrator and swapMine a signed-in user, checked in the handlers (swap_test.go)
+	"swapList": standardRule, "swapMine": standardRule,
 
 	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,

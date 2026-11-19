@@ -30,7 +30,8 @@ export function groupActor(entries, users) {
   return who.size === 1 ? [...who][0] : '';
 }
 
-// The History row's "by Ana on panel Lobby Wall, instance Front desk". An API take by a user's key names the user
+// The History row's "by Ana on panel Lobby Wall, instance Front desk", or "by Bo (browser of Ana)" for a take made
+// while stepped in (browserOf: the original user or the address). An API take by a user's key names the user
 // through its actor, since its client text carries the key name. x is an entry or a Group ({entries}), which
 // shows only what all its takes share; '' when there is nothing to show.
 export function byText(x, users) {
@@ -40,10 +41,11 @@ export function byText(x, users) {
     return all.size === 1 ? [...all][0] : '';
   };
   const name = shared((e) => actorUser(e.actor?.kind === 'user' ? e.actor.name : e.client, users));
+  const of = name ? shared((e) => e.browserOf || '') : '';
   const panel = shared((e) => e.panel || '');
   const instance = panel ? shared((e) => e.instance || '') : '';
   const where = panel ? `on panel ${panel}${instance ? `, instance ${instance}` : ''}` : '';
-  return [name && `by ${name}`, where].filter(Boolean).join(' ');
+  return [name && `by ${name}${of ? ` (browser of ${of})` : ''}`, where].filter(Boolean).join(' ');
 }
 
 export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastActive >= minutes * 60_000;

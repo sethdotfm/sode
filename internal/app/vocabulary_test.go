@@ -118,6 +118,8 @@ var identAllow = []allowEntry{
 	{"salvo", "web/logkinds.js", `^\s*salvos?:`, "`log` command kinds, as the server logs them"},
 	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
 	{"salvo", "web/savereviewrules.js", `^\s*salvoGroup:`, "the router's own salvo group, a Config JSON key"},
+	{"salvo", "web/setupwizardrules.js", `cfg\.salvoGroup`, "the router's own salvo group, a Config JSON key"},
+	{"salvo", "web/test/setupwizardrules.test.mjs", `salvoGroup: \d+`, "the router's own salvo group, a Config JSON key"},
 	{"unlock", "web/logkinds.js", `^\s*adminUnlock:`, "a `log` command kind, as old rows hold it"},
 	{"unlock", "", `\bunlocked\b`, "the access a `userSignIn` grants (lock.js); it holds a wire value, not a UI word"},
 	{"follows", ".js", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},

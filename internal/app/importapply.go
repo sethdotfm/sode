@@ -91,6 +91,10 @@ func (a *App) readImportParts(w http.ResponseWriter, r *http.Request) (importReq
 		apiFail(w, http.StatusBadRequest, "bad_request", `mode must be "add"`)
 		return req, nil, none, false
 	}
+	if err := checkRouterTargets(req, a.r().cfg); err != nil {
+		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+		return req, nil, none, false
+	}
 	part, err = mr.NextPart()
 	if err != nil || part.FormName() != "file" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "the second part must be the file")
@@ -120,7 +124,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	defer a.cfgMu.Unlock()
 	live := a.r().cfg
 	src, dst := a.liveNames()
-	p := planImport(live, src, dst, a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies), a.cfgPath == "")
+	p := planImport(live, src, dst, a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies))
 	if p.plan.Critical && !a.tokenRechecked(r.Header.Get(sessionHeader)) {
 		apiFail(w, http.StatusForbidden, "recheck", recheckErr{what: p.overwrites}.Error())
 		return
