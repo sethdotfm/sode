@@ -3,7 +3,6 @@ package config
 import (
 	"cmp"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 	"unicode"
@@ -64,13 +63,13 @@ func sameRef(a, b Ref) bool {
 	return a.N == b.N && (a.Router == "" || b.Router == "" || a.Router == b.Router)
 }
 
-// inRefs matches the number on any router: v2.0 drives one router.
-func inRefs(l *[]Ref, n int) bool {
-	return l == nil || slices.ContainsFunc(*l, func(r Ref) bool { return r.N == n })
+func inRefs(l *[]Ref, x Ref) bool {
+	return l == nil || slices.ContainsFunc(*l, func(r Ref) bool { return sameRef(r, x) })
 }
 
-func (r Rights) AllowsSource(i int) bool    { return inRefs(r.Sources, i) }
-func (r Rights) AllowsDst(i int) bool       { return inRefs(r.Dsts, i) }
+// A blank router in x is the one router.
+func (r Rights) AllowsSource(x Ref) bool    { return inRefs(r.Sources, x) }
+func (r Rights) AllowsDst(x Ref) bool       { return inRefs(r.Dsts, x) }
 func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
 func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
 func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
@@ -208,16 +207,7 @@ func (r *Rights) fillRouter(uid string) {
 	}
 }
 
-// retiredAPIKeys: keys that dev builds wrote; load them without a warning. Clone shares Extra, hence the copy.
-var retiredAPIKeys = []string{"enabled", "maxUserKeys", "maxClientKeys"}
-
 func (c *Config) normalizeAPI() {
-	if slices.ContainsFunc(retiredAPIKeys, func(k string) bool { _, ok := c.API.Extra[k]; return ok }) {
-		c.API.Extra = maps.Clone(c.API.Extra)
-		for _, k := range retiredAPIKeys {
-			delete(c.API.Extra, k)
-		}
-	}
 	c.GuestRights.Visibility = strings.ToLower(strings.TrimSpace(c.GuestRights.Visibility))
 	c.GuestRights.fillRouter(c.UID)
 	for i := range c.Users {

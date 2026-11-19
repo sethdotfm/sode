@@ -61,7 +61,6 @@ var AccessPresets = []AccessPreset{
 	}},
 }
 
-// Env-only mode keeps its page locks off, so Apply puts c.Locks back.
 func (p AccessPreset) Apply(c *Config) {
 	v := p.Values
 	c.Locks = v.Locks
@@ -104,7 +103,8 @@ func ApplyEnvOnlyPreset(c *Config) error {
 	if p == nil {
 		return err
 	}
-	p.Apply(c)
-	c.Locks.Main, c.Locks.Log, c.Locks.Panel = false, false, false
+	q := *p
+	q.Values.Locks = Locks{}
+	q.Apply(c)
 	return nil
 }

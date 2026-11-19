@@ -382,10 +382,10 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	}
 	cfg := a.r().cfg
 	ana, _ := cfg.FindUserByName("Ana")
-	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(2) || ana.Rights.AllowsSource(3) {
+	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(config.Ref{N: 2}) || ana.Rights.AllowsSource(config.Ref{N: 3}) {
 		t.Fatalf("Ana %+v", ana)
 	}
-	if cfg.GuestRights.Dsts == nil || cfg.GuestRights.AllowsDst(0) {
+	if cfg.GuestRights.Dsts == nil || cfg.GuestRights.AllowsDst(config.Ref{N: 0}) {
 		t.Fatalf("guest %+v %v", cfg.GuestRights, cfg.GuestAPIScopes)
 	}
 

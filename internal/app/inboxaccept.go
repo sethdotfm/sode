@@ -128,9 +128,9 @@ func (p *cardPlanner) outside(kind string, r config.Ref) bool {
 	}
 	switch kind {
 	case config.MissingSource:
-		return !p.rights.AllowsSource(r.N)
+		return !p.rights.AllowsSource(r)
 	case config.MissingDestination:
-		return !p.rights.AllowsDst(r.N)
+		return !p.rights.AllowsDst(r)
 	}
 	return !p.rights.AllowsLevel(r.N)
 }

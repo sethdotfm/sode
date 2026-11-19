@@ -115,16 +115,6 @@ locks:
 	}
 }
 
-func TestRetiredAPIKeysAreDropped(t *testing.T) {
-	c, err := Parse([]byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\napi:\n  enabled: true\n  maxUserKeys: 8\n  maxClientKeys: 20\n  rateLimit: 9\n  future: 1\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := c.UnknownKeys(); !slices.Equal(got, []string{"api.future"}) {
-		t.Fatalf("UnknownKeys = %q", got)
-	}
-}
-
 // The key loads as nothing and no later write carries it.
 func TestSettingsPinIsDropped(t *testing.T) {
 	c, err := Parse([]byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\nsettingsPin: pbkdf2$1$x$y\nfuture: 1\n"))

@@ -65,7 +65,7 @@ func TestRightsStoreRouterReferences(t *testing.T) {
 	if got.GuestRights.Dsts == nil || len(*got.GuestRights.Dsts) != 0 {
 		t.Error("an empty list (nothing allowed) came back as unset (everything)")
 	}
-	if !got.GuestRights.AllowsSource(4) || got.GuestRights.AllowsSource(5) || got.GuestRights.AllowsDst(0) {
+	if !got.GuestRights.AllowsSource(Ref{N: 4}) || got.GuestRights.AllowsSource(Ref{N: 5}) || got.GuestRights.AllowsDst(Ref{N: 0}) {
 		t.Error("allow checks wrong after load")
 	}
 	if d := (*got.APIClients[0].Rights.Dsts)[0]; d.Router != c.UID || d.N != 2 {
@@ -78,7 +78,7 @@ func TestRightsJSONTakesReferences(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"sources":[{"n":1},{"router":"u","n":2,"name":"X"}],"dsts":[],"levels":[1],"presets":["id1"]}`), &r); err != nil {
 		t.Fatal(err)
 	}
-	if !r.AllowsSource(1) || !r.AllowsSource(2) || r.AllowsSource(3) || r.AllowsDst(0) || !r.AllowsPreset("id1") {
+	if !r.AllowsSource(Ref{N: 1}) || !r.AllowsSource(Ref{N: 2}) || r.AllowsSource(Ref{N: 3}) || r.AllowsDst(Ref{N: 0}) || !r.AllowsPreset("id1") {
 		t.Errorf("decoded %+v", r)
 	}
 	if (*r.Sources)[1].Name != "X" || (*r.Sources)[1].Router != "u" {
