@@ -171,15 +171,18 @@ const VIEW = {
       field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }),
       swatches(),
     ),
-    d.again
-      ? null
-      : section(
-          'Your user',
-          'You are the Administrator. Sode asks for your PIN again before a big change.',
-          field('setup-name', 'Name', d.name, { maxlength: '24' }),
-          field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric' }, `4 to ${max()} digits.`),
-          field('setup-pin2', 'PIN again', d.pin2, { type: 'password', inputmode: 'numeric' }),
-        ),
+    // replaceChildren draws a null as text, so Run setup again leaves the section out.
+    ...(d.again
+      ? []
+      : [
+          section(
+            'Your user',
+            'You are the Administrator. Sode asks for your PIN again before a big change.',
+            field('setup-name', 'Name', d.name, { maxlength: '24' }),
+            field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric' }, `4 to ${max()} digits.`),
+            field('setup-pin2', 'PIN again', d.pin2, { type: 'password', inputmode: 'numeric' }),
+          ),
+        ]),
   ],
   router: () => [
     'Router',
