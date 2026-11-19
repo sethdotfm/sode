@@ -23,3 +23,48 @@ export function sameRoutes(a, b) {
   const at = new Map(a.routes.map((r) => [`${r.dst} ${r.level}`, r.src]));
   return b.routes.every((r) => at.get(`${r.dst} ${r.level}`) === r.src);
 }
+
+// While the WebSocket is up its frames carry the tally, which is read only this often, as a check.
+export const CHECK_MS = 60000;
+
+// The feed, replaced whole on each event (panelrun.js holds it). live: a hello came since the socket last closed, so
+// frames hold every change since. trusted: no check found the kept tally wrong since that hello. shown: the last read
+// with every frame since put in. stale: frames from before a hello can have gaps, so the next poll reads. late: frames
+// that came while a read was out, put into its answer (null with no read out). rows: frames waiting for their draw.
+export const newFeed = (live, rights) => ({ live, trusted: true, rights, shown: null, stale: false, hellos: 0, late: null, rows: [], checkedAt: 0 });
+
+export const wantsRead = (f, now) => !f.live || !f.trusted || !f.shown || f.stale || now - f.checkedAt >= CHECK_MS || !framesApply(f.rights);
+
+export const readStarts = (f, read) => ({ ...f, late: read ? [] : null });
+
+// hellos: f.hellos when the read went out; a hello since then keeps the feed stale.
+export function readCame(f, tally, hellos, now) {
+  const read = f.late?.length ? withRoutes(tally, f.late) : tally;
+  const kept = f.shown && f.rows.length ? withRoutes(f.shown, f.rows) : f.shown;
+  const wrong = f.live && kept && !f.stale && f.trusted && !sameRoutes(kept, read);
+  return { ...f, shown: read, trusted: f.trusted && !wrong, checkedAt: now, stale: hellos === f.hellos ? false : f.stale };
+}
+
+export const readEnds = (f) => ({ ...f, late: null });
+
+// act: 'poll' asks for a read, 'queue' draws the rows soon, '' does nothing.
+export function framesCame(f, u) {
+  const g = f.late ? { ...f, late: [...f.late, ...u] } : f;
+  if (!framesApply(f.rights)) return { feed: g, act: 'poll' };
+  if (!f.live || !f.trusted) return { feed: g, act: '' };
+  if (!f.shown) return { feed: g, act: f.late ? '' : 'poll' };
+  return { feed: { ...g, rows: [...f.rows, ...u] }, act: 'queue' };
+}
+
+// The queued rows go into shown; changed is false when there was nothing to draw.
+export function drawRows(f) {
+  if (!f.shown || !f.rows.length) return { feed: { ...f, rows: [] }, changed: false };
+  return { feed: { ...f, shown: withRoutes(f.shown, f.rows), rows: [] }, changed: true };
+}
+
+export const helloCame = (f) => ({ ...f, live: true, trusted: true, stale: true, hellos: f.hellos + 1 });
+
+export const socketClosed = (f) => ({ ...f, live: false });
+
+// A tally read under Hidden leaves routes out, so frames on it after the Rights widen would never bring them back.
+export const rightsCame = (f, r) => ({ ...f, rights: r, stale: f.stale || framesApply(r) !== framesApply(f.rights) });

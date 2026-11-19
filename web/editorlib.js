@@ -1,7 +1,7 @@
 // Tiles draw through the panel's createArt, so their blob URLs go when the panel does.
 import { el, on, S } from './core.js';
 import { btn } from './formbits.js';
-import { trapDialog } from './dialogkeys.js';
+import { modal } from './modal.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { prepareArt } from './artcompress.js';
 import { artImage } from './panelview.js';
@@ -97,24 +97,15 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   open.setAttribute('aria-haspopup', 'dialog');
   const node = el('div', 'sode-side__lib-sec', el('div', 'sode-side__lib-head', el('span', 'sode-side__picker-h', 'Uploaded icons'), open), grid, empty);
 
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  root.id = 'ed-lib-dialog';
-  root.hidden = true;
-  const dialog = el('div', 'pb-modal');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'ed-lib-title');
-  dialog.tabIndex = -1;
-  const close = btn('pb-btn--outline', 'Close', () => closeDialog());
-  close.id = 'ed-lib-close';
-  dialog.append(
-    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Icon library'), { id: 'ed-lib-title' }), rescan),
-    el('div', 'pb-modal__body sode-side__lib-sec', el('div', 'sode-side__row', name, up), manageSec, confirmBox, note, file),
-    el('div', 'pb-modal__footer', close),
-  );
-  root.append(dialog);
-  document.body.append(root);
-  const dlg = trapDialog(root, dialog, () => closeDialog());
+  const dlg = modal({
+    titleId: 'ed-lib-title',
+    title: 'Icon library',
+    rootId: 'ed-lib-dialog',
+    head: [rescan],
+    body: el('div', 'pb-modal__body sode-side__lib-sec', el('div', 'sode-side__row', name, up), manageSec, confirmBox, note, file),
+    foot: [btn('pb-btn--outline', 'Close', () => closeDialog(), 'ed-lib-close')],
+    onEsc: () => closeDialog(),
+  });
   let back = null; // focus goes back here on close
   function openDialog() {
     back = document.activeElement;
@@ -125,12 +116,11 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     name.focus();
   }
   function closeDialog() {
-    if (root.hidden) return;
+    if (!dlg.shown()) return;
     cancelAsk();
     dlg.hide();
     if (back?.isConnected) back.focus({ preventScroll: true });
   }
-  on('locking', closeDialog);
 
   function paint() {
     const art = ed.art();
@@ -158,7 +148,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     empty.hidden = !!tiles.length;
     empty.textContent = icons.length ? 'No uploaded icon matches.' : 'No uploaded icons yet.';
     // The dialog lists every icon: the picker's search does not apply there.
-    chooseGrid.replaceChildren(...(trusted && !root.hidden ? pickerSections(icons, [], '')[0].tiles.map((t) => tile(t, true)) : []));
+    chooseGrid.replaceChildren(...(trusted && dlg.shown() ? pickerSections(icons, [], '')[0].tiles.map((t) => tile(t, true)) : []));
     manageSec.hidden = !trusted || !icons.length;
     rescan.hidden = !trusted;
     manageRow.hidden = !chosen;
@@ -209,7 +199,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     if (!ic) return;
     cancelAsk();
     const uses = await change(`api/v1/icon-library/${ic.id}/uses`).catch(() => null);
-    if (chosen !== ic.id || root.hidden) return;
+    if (chosen !== ic.id || !dlg.shown()) return;
     const key = churnKey();
     const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
     const ok = btn('pb-btn--danger pb-btn--sm', `Delete (${key.toUpperCase()})`, () => c.go());

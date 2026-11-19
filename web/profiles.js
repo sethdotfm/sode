@@ -2,38 +2,29 @@
 // A user's own Profile comes from profile.js; another's from fetchProfile (a Trusted user or higher).
 
 import { el, S, on, emit, sentence } from './core.js';
+import { btn } from './formbits.js';
 import { trusted } from './trusted.js';
-import { trapDialog } from './widgets.js';
+import { modal } from './modal.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
 import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles, PROFILE_NOTICE } from './profilesrules.js';
 
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
-
-const err = el('div', 'pb-note pb-note--error');
-err.setAttribute('role', 'alert');
-err.hidden = true;
-const note = el('span', 'sode__hint');
-note.setAttribute('role', 'status');
-note.setAttribute('aria-live', 'polite');
+const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
+const note = el('span', { class: 'sode__hint', role: 'status', 'aria-live': 'polite' });
 const body = el('div', 'sode__profiles-body');
-const title = Object.assign(el('span', 'pb-modal__title', 'Profile'), { id: 'profiles-title' });
-const closeBtn = btn('pb-btn--outline', 'Close', () => closeDialog());
-
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal sode__filters sode__profiles-dlg');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'profiles-title');
-dialog.tabIndex = -1;
-dialog.append(el('div', 'pb-modal__header', title), el('div', 'pb-modal__body', body, err), el('div', 'pb-modal__footer', note, closeBtn));
-root.append(dialog);
-document.body.append(root);
+const dlg = modal({
+  titleId: 'profiles-title',
+  title: 'Profile',
+  cls: 'sode__filters sode__profiles-dlg',
+  body: [body, err],
+  foot: [note, btn('pb-btn--outline', 'Close', () => closeDialog())],
+  onEsc() {
+    if (removing) {
+      removing = null;
+      paint();
+    } else closeDialog();
+  },
+});
+const { title, dialog } = dlg;
 
 let isOpen = false;
 let back = null;
@@ -153,7 +144,7 @@ async function load(name) {
   const r = await fetchProfile(name);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    fail(r.err || 'Could not read that profile.');
+    fail(r.err || 'Profile not read.');
     return paint();
   }
   prof = r.profile;
@@ -219,12 +210,6 @@ on('profileSaved', (m) => {
     return paint();
   }
   load(who).then(() => setNote('Saved.'));
-});
-const dlg = trapDialog(root, dialog, () => {
-  if (removing) {
-    removing = null;
-    paint();
-  } else closeDialog();
 });
 on('locking', () => {
   if (isOpen) closeDialog();

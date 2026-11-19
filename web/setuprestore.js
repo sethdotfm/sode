@@ -2,31 +2,21 @@
 // that runs setup a key for POST api/setup/restore. A file with no PINs is answered pin_needed, and the page asks
 // for a new PIN for the file's first Administrator. After the restore the page reloads into sign-in.
 
-import { $, el, onMsg, wsSend, LINK_DOWN } from './core.js';
+import { $, el, request } from './core.js';
 import { applyBrowser } from './browserapply.js';
 import { restorePinProblem } from './setupwizardrules.js';
 
 const KEY_HEADER = 'X-Sode-Setup'; // setupKeyHeader in internal/app/setuprestore.go
 
 let busy = false; // a restore is sent: its hello comes before its answer, so the wizard must stay
-let seq = 0;
 let hooks = null; // {max(), back()} from setupwizard.js
-const asks = new Map();
 
 export const restoring = () => busy;
 
-onMsg('setupRestoreKeyResult', (m) => {
-  const done = asks.get(m.id);
-  asks.delete(m.id);
-  done?.(m);
-});
-
-function restoreKey() {
-  const id = ++seq;
-  return new Promise((resolve, reject) => {
-    if (!wsSend({ t: 'setupRestoreKey', id })) return reject(new Error(LINK_DOWN));
-    asks.set(id, (m) => (m.ok ? resolve(m.key) : reject(new Error(m.err || 'Sode refused the restore.'))));
-  });
+async function restoreKey() {
+  const m = await request('setupRestoreKeyResult', { t: 'setupRestoreKey' });
+  if (!m.ok) throw new Error(m.err || 'Sode refused the restore.');
+  return m.key;
 }
 
 const say = (text) => ($('setup-err').textContent = text);

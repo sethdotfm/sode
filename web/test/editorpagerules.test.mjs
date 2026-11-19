@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addPage, movePage, renamePage, enablePage, deletePage, leadsTo, copyPage, openClick, OPEN_MAX } from '../editorpagerules.js';
+import { addPage, movePage, renamePage, enablePage, deletePage, leadsTo, copyPage, openClick, OPEN_MAX, settle } from '../editorpagerules.js';
 import { PAGE_MAX } from '../panelpages.js';
 import { emptyUndo, record, undo, redo, pageSnap, samePages, restorePages, rekeyUndo, rekeySaved } from '../gridundo.js';
 
@@ -12,6 +12,17 @@ const three = () => [
   { id: 'c', enabled: false, cells: [src(2, 2, 3)] },
 ];
 const ids = (pages) => pages.map((p) => p.id);
+
+test('settle keeps focus and open on Pages that exist', () => {
+  const pages = three();
+  assert.deepEqual(settle({ pages, focus: 'b', open: ['a', 'b'] }), { pages, focus: 'b', open: ['a', 'b'] });
+  // A gone focus falls back to the first Page, which then is the only one open.
+  assert.deepEqual(settle({ pages, focus: 'x', open: ['b'] }), { pages, focus: 'a', open: ['a'] });
+  assert.deepEqual(settle({ pages, focus: 'c', open: ['x', 'c', 'y'] }).open, ['c']);
+  // A focus that is not open opens alone.
+  assert.deepEqual(settle({ pages, focus: 'c', open: ['a', 'b'] }).open, ['c']);
+  assert.deepEqual(settle({ pages, focus: '', open: [] }), { pages, focus: 'a', open: ['a'] });
+});
 
 test('Add Page appends an enabled empty Page with a new id and stops at 16', () => {
   const p = addPage(three(), 'd');

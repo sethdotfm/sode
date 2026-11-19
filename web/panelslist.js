@@ -22,7 +22,6 @@ import {
 } from './panelsrules.js';
 import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
-import './panelkeytab.js';
 import { openPush } from './panelpush.js';
 import { artLeftOut, SIGN_IN_ENDED } from './panelrules.js';
 import { openAssign, askName } from './panelassign.js';
@@ -298,7 +297,8 @@ async function act(kind, id) {
     }
     if (kind === 'share') {
       const p = S.panels.find((x) => x.id === id);
-      if (p) openShare(p, { api, onSaved: (saved) => load(saved.id) });
+      // The redraw replaces the Share button, so focus goes to the new one.
+      if (p) openShare(p, { api, onSaved: (saved) => load(saved.id).then(() => document.querySelector('#panels-detail [data-act="share"]')?.focus()) });
       return;
     }
     if (kind === 'push') {

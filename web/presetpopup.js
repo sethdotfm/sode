@@ -3,7 +3,8 @@
 
 import { el, on, emit, icon, sentence } from './core.js';
 import { chord, mac } from './keys.js';
-import { trapDialog } from './widgets.js';
+import { modal } from './modal.js';
+import { btn } from './formbits.js';
 import { profileSaver } from './globalsave.js';
 import { fire, fillBoxes, openPresets } from './presets.js';
 import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, movePin, pinnedPresets } from './presetstore.js';
@@ -12,46 +13,40 @@ import { statusBadge, presetStatus } from './brokenview.js';
 import { inboxUser } from './inbox.js';
 import { sendCopy } from './sendcopy.js';
 
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal sode__presets-dlg sode__preset-pop');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'preset-pop-title');
-dialog.tabIndex = -1;
-
-const input = el('input', 'pb-input');
-input.type = 'search';
-input.placeholder = 'Search presets';
-input.autocomplete = 'off';
-input.spellcheck = false;
-input.setAttribute('aria-label', 'Search presets');
-input.setAttribute('role', 'combobox');
-input.setAttribute('aria-controls', 'preset-pop-list');
-input.setAttribute('aria-expanded', 'true');
-const list = el('div', 'sode__preset-list');
-list.id = 'preset-pop-list';
-list.setAttribute('role', 'listbox');
-list.setAttribute('aria-label', 'Presets');
-const noteEl = el('span', 'sode__hint');
-noteEl.setAttribute('aria-live', 'polite');
-const editorBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__head-link', 'Edit Presets');
-editorBtn.type = 'button';
-editorBtn.addEventListener('click', () => {
+const input = el('input', {
+  class: 'pb-input',
+  type: 'search',
+  placeholder: 'Search presets',
+  autocomplete: 'off',
+  spellcheck: false,
+  'aria-label': 'Search presets',
+  role: 'combobox',
+  'aria-controls': 'preset-pop-list',
+  'aria-expanded': 'true',
+});
+const list = el('div', { class: 'sode__preset-list', id: 'preset-pop-list', role: 'listbox', 'aria-label': 'Presets' });
+const noteEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
+const editorBtn = btn('pb-btn--outline pb-btn--sm sode__head-link', 'Edit Presets', () => {
   close();
   openPresets();
 });
-const done = el('button', 'pb-btn pb-btn--ok', 'Close');
-done.type = 'button';
-done.addEventListener('click', () => close());
-
-dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'All Presets'), { id: 'preset-pop-title' }), editorBtn),
-  el('div', 'pb-modal__body sode__filters-body', input, list, noteEl),
-  el('div', 'pb-modal__footer', done),
-);
-root.append(dialog);
-document.body.append(root);
+const dlg = modal({
+  titleId: 'preset-pop-title',
+  title: 'All Presets',
+  cls: 'sode__presets-dlg sode__preset-pop',
+  head: [editorBtn],
+  body: el('div', 'pb-modal__body sode__filters-body', input, list, noteEl),
+  foot: [btn('pb-btn--ok', 'Close', () => close())],
+  onEsc() {
+    if (input.value) {
+      input.value = '';
+      hi = 0;
+      draw();
+      input.focus();
+    } else close();
+  },
+});
+const { dialog } = dlg;
 
 let open = false,
   back = null,
@@ -71,7 +66,7 @@ const profSaver = profileSaver({
   render: () => draw(),
 });
 
-function btn(text, ic, tip, fn) {
+function rowBtn(text, ic, tip, fn) {
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', icon(ic), text);
   b.type = 'button';
   if (tip) b.dataset.pbTip = tip;
@@ -114,14 +109,14 @@ function draw() {
       main.tabIndex = -1;
       main.addEventListener('click', (e) => pressPreset(s, e.shiftKey));
       const tools = [
-        btn(
+        rowBtn(
           pinned ? 'Unpin' : 'Pin',
           pinned ? 'pin-off' : 'pin',
           s.scope === 'global' ? `This browser only (${mac ? '⌥' : 'Alt+'}P)` : `${mac ? '⌥' : 'Alt+'}P`,
           () => togglePin(s),
         ),
       ];
-      if (inboxUser()) tools.push(btn('Send a copy', 'send', '', () => sendCopy({ presets: [s] }, s.name)));
+      if (inboxUser()) tools.push(rowBtn('Send a copy', 'send', '', () => sendCopy({ presets: [s] }, s.name)));
       const slot = keySlot.get(presetKey(s));
       const keyCell = el('span', 'sode__preset-key', slot < 9 ? `${mac ? '⌥' : 'Alt+'}${slot + 1}` : '');
       const grip = pinned && reorder ? el('span', 'sode__preset-grip', icon('grip-vertical')) : null;
@@ -278,15 +273,6 @@ function close() {
   profSaver.close();
   if (back?.isConnected) back.focus();
 }
-
-const dlg = trapDialog(root, dialog, () => {
-  if (input.value) {
-    input.value = '';
-    hi = 0;
-    draw();
-    input.focus();
-  } else close();
-});
 
 on('presets', () => {
   if (open) draw();

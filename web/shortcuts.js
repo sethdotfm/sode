@@ -1,7 +1,11 @@
 // Shortcut list (? or Ctrl+?) dialog. A close from the keyboard returns to keyboard mode if it was on; a close with the mouse never does.
 
-import { $ } from './core.js';
+import { $, on } from './core.js';
 import { mac } from './keys.js';
+
+// The open list's close, which a Lock runs.
+let shut = null;
+on('locking', () => shut?.());
 
 export function shortcutList({ keyMode, fromHistory, enterKeys, focusFirst }) {
   let back = null;
@@ -18,9 +22,11 @@ export function shortcutList({ keyMode, fromHistory, enterKeys, focusFirst }) {
     wasKeys = keyMode();
     fromHist = fromHistory(back);
     $('keys').hidden = false;
+    shut = close;
     $('keys-dialog').focus();
   }
   function close(viaKeys = false) {
+    shut = null;
     $('keys').hidden = true;
     if (wasKeys && viaKeys) enterKeys();
     else if (back?.isConnected && !fromHist) back.focus();

@@ -1,20 +1,13 @@
 // A client gets a copy of the user's Rights, stays capped by them and goes with the user. Its keys outlive the user's PIN.
 
 import { el, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
-import { trapDialog } from './dialogkeys.js';
+import { modal } from './modal.js';
 import { expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
 import { btn, field, opt } from './formbits.js';
 import { OWN_SCOPES, clientNameProblem, saveReq, keyReq } from './myclientrules.js';
 
-const input = (id, type, auto) => {
-  const i = el('input', 'pb-input');
-  i.id = id;
-  i.type = type;
-  i.autocomplete = auto;
-  i.spellcheck = false;
-  return i;
-};
+const input = (id, type, auto) => el('input', { class: 'pb-input', id, type, autocomplete: auto, spellcheck: false });
 
 const nameIn = input('myclient-name', 'text', 'off');
 nameIn.placeholder = 'Desk app';
@@ -38,18 +31,13 @@ const keyBtn = btn('pb-btn--outline', 'Make key');
 
 const list = el('div', 'sode__key-list');
 const shown = el('div');
-const note = el('div', 'pb-note pb-note--error');
-note.setAttribute('role', 'alert');
-note.hidden = true;
-const close = btn('pb-btn--outline', 'Close');
+const note = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
 
-const dialog = el(
-  'div',
-  'pb-modal sode__filters sode__keys-dlg',
-  el('div', 'pb-modal__header', el('span', 'pb-modal__title', 'My API clients')),
-  el(
-    'div',
-    'pb-modal__body',
+const dlg = modal({
+  titleId: 'myclients-title',
+  title: 'My API clients',
+  cls: 'sode__filters sode__keys-dlg',
+  body: [
     list,
     shown,
     el('h3', 'sode__profiles-h', 'Make an API client'),
@@ -66,16 +54,11 @@ const dialog = el(
       el('div', null, keyBtn),
     ),
     note,
-  ),
-  el('div', 'pb-modal__footer', close),
-);
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-label', 'My API clients');
-dialog.tabIndex = -1;
-const root = el('div', 'pb-modal-backdrop sode__scrim', dialog);
-root.hidden = true;
-document.body.append(root);
+    ,
+  ],
+  foot: [btn('pb-btn--outline', 'Close', () => closeClients())],
+  onEsc: () => closeClients(),
+});
 
 let isOpen = false;
 let back = null;
@@ -101,8 +84,6 @@ function closeClients() {
   dlg.hide();
   if (back?.isConnected) back.focus({ preventScroll: true });
 }
-const dlg = trapDialog(root, dialog, closeClients);
-close.addEventListener('click', closeClients);
 
 const scopeText = (ids) =>
   OWN_SCOPES.filter((s) => ids.includes(s.id))
@@ -187,10 +168,8 @@ on('openClients', () => {
   say('');
   load();
   dlg.show();
-  dialog.focus();
+  dlg.dialog.focus();
 });
-// A Lock forgets any key on show.
-on('locking', () => isOpen && closeClients());
 on('wsclose', () => {
   if (!isOpen || !(addBtn.disabled || keyBtn.disabled)) return;
   addBtn.disabled = keyBtn.disabled = false;

@@ -1,6 +1,6 @@
 // The token stays in memory, so sign-in storage does not change.
 
-import { el, on, onMsg, wsSend, LINK_DOWN } from './core.js';
+import { el, on, request } from './core.js';
 import { PREFS } from './prefs.js';
 import { ownPref } from './device.js';
 import { localSets } from './filterstore.js';
@@ -21,26 +21,12 @@ export function browserValues() {
   return { ...out, filterSets: localSets(), presets: localPresets() };
 }
 
-let askSeq = 0;
-const asks = new Map();
-onMsg('exportSessionResult', (m) => {
-  const done = asks.get(m.id);
-  if (!done) return;
-  asks.delete(m.id);
-  done(m);
-});
-
-function session() {
-  if (token !== null) return Promise.resolve(token);
-  const id = ++askSeq;
-  return new Promise((resolve, reject) => {
-    if (!wsSend({ t: 'exportSession', id })) return reject(new Error(LINK_DOWN));
-    asks.set(id, (m) => {
-      if (!m.ok) return reject(new Error(m.err || 'Sode refused the export.'));
-      token = m.token || '';
-      resolve(token);
-    });
-  });
+async function session() {
+  if (token !== null) return token;
+  const m = await request('exportSessionResult', { t: 'exportSession' });
+  if (!m.ok) throw new Error(m.err || 'Sode refused the export.');
+  token = m.token || '';
+  return token;
 }
 
 export async function call(path, init = {}) {
