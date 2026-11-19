@@ -23,9 +23,13 @@ const (
 )
 
 // httpAdmin passes an Administrator's session, as roleMu judges a socket: no users at all is an
-// Administrator, a session under its Lock is not.
+// Administrator in env-only mode, a session under its Lock is not. Pending setup refuses all.
 func (a *App) httpAdmin(w http.ResponseWriter, r *http.Request) bool {
 	cfg := a.r().cfg
+	if a.setupPendingCfg(cfg) {
+		apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
+		return false
+	}
 	if len(cfg.Users) == 0 {
 		return true
 	}

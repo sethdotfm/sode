@@ -85,6 +85,11 @@ func TestSetupWizardRefusesTakesAndSavesBeforeFinish(t *testing.T) {
 	if rec := apiPost(a, "/api/v1/takes", "", `{"takes":[{"dst":0,"src":0}]}`, nil); rec.Code < 400 {
 		t.Fatalf("keyless API take before Finish: %d %s", rec.Code, rec.Body)
 	}
+	for _, path := range []string{"/api/export", "/api/import"} {
+		if rec := apiPost(a, path, "", `{}`, nil); rec.Code != 503 {
+			t.Errorf("%s before Finish: %d %s", path, rec.Code, rec.Body)
+		}
+	}
 	if rec := apiDo(a, "GET", "/api/health", "", nil); rec.Code == 403 || rec.Code == 409 {
 		t.Fatalf("health before Finish: %d", rec.Code)
 	}
