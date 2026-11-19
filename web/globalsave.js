@@ -1,8 +1,6 @@
-// One saver flow for filter sets and presets. globalSaver: server-side setting, so with a PIN it asks first (PIN row, relock after).
-// profileSaver: the user's own profile, no PIN.
+// One saver flow for filter sets and presets. globalSaver: server-side setting. profileSaver: the user's own profile.
 
 import { on, onMsg, wsSend, sentence } from './core.js';
-import { unlock, relock, needsPin } from './pin.js';
 import { showResult } from './plans.js';
 import { profile, saveProfile } from './profile.js';
 
@@ -27,15 +25,13 @@ function onResult(resultT, fn) {
 
 // how.send returns false if the request could not go out, else calls settle(result).
 function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote = '' }) {
-  const { pin } = how;
-  let pending = null; // { run, done, sent }
+  let pending = null; // { done, sent, id }
 
   function change(payload, done) {
     const big = how.check?.(payload);
     if (big) return setNote(big, true);
-    pending = { run: () => send(payload), done, sent: false };
-    if (pin && needsPin()) return askPin();
-    pending.run();
+    pending = { done, sent: false };
+    send(payload);
   }
 
   function send(payload) {
@@ -56,24 +52,16 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
 
   function answer(p, r) {
     const open = isOpen();
-    if (r.locked && pin) {
-      relock();
-      if (open) {
-        pending = { run: p.run, done: p.done, sent: false };
-        return askPin('Enter the PIN again.');
-      }
-    }
     pending = null;
     if (r.ok) p.done();
     if (open) {
       render();
-      if (!r.ok) setNote(sentence(r.err) || (pin ? '' : 'Not saved.'), true);
+      if (!r.ok) setNote(sentence(r.err) || 'Not saved.', true);
       else if (okNote) setNote(okNote);
       return;
     }
-    // Closed while saving: say if it failed (and relock).
-    if (!r.ok) showResult('error', failTitle, sentence(r.err) || (pin ? 'Settings are locked.' : 'Not saved.'));
-    if (pin) relock();
+    // Closed while saving: say if it failed.
+    if (!r.ok) showResult('error', failTitle, sentence(r.err) || 'Not saved.');
   }
 
   how.listen?.((m) => {
@@ -88,60 +76,20 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
     if (isOpen()) setNote('Connection lost; try again.', true);
   });
 
-  function askPin(err = '') {
-    pin.row.hidden = false;
-    pin.input.value = '';
-    setNote(err || 'Enter the Advanced Settings PIN.', !!err);
-    pin.input.focus();
-  }
-
   function cancel() {
-    if (pin) pin.row.hidden = true;
     pending = null;
     setNote('');
     render();
-  }
-
-  if (pin) {
-    const sendPin = async () => {
-      pin.ok.disabled = true;
-      const r = await unlock(pin.input.value);
-      if (r.superseded) return;
-      pin.ok.disabled = false;
-      if (r.stale) return;
-      if (!r.ok) {
-        setNote(r.err, true);
-        pin.input.select();
-        return;
-      }
-      pin.row.hidden = true;
-      pending?.run();
-    };
-    pin.ok.addEventListener('click', sendPin);
-    pin.input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        sendPin();
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        cancel();
-      }
-    });
   }
 
   return {
     change,
     cancel,
     busy: () => pending != null,
-    // Closing: true when a sent save is still to be answered (a PIN saver relocks after it). Else it drops anything
-    // that waits for the PIN, and relocks.
+    // Closing: true when a sent save is still to be answered.
     close() {
-      if (pin) pin.row.hidden = true;
       if (pending?.sent) return true;
       pending = null;
-      if (pin) relock();
       return false;
     },
   };
@@ -149,11 +97,10 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
 
 // t: message sent (a payload's own t wins); resultT: the answer. isOpen(): after close a failure becomes a result banner.
 // okNote: shown after a save; failTitle: banner title if a save fails after close.
-export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, ...rest }) {
+export function globalSaver({ t, resultT, ...rest }) {
   return makeSaver({
     ...rest,
     how: {
-      pin: { input: pinIn, row: pinRow, ok: pinOk },
       listen: (fn) => onResult(resultT, fn),
       send(p, payload) {
         p.id = ++seq;
@@ -170,7 +117,6 @@ export function profileSaver({ target, ...opts }) {
   return makeSaver({
     ...opts,
     how: {
-      pin: null,
       check: (parts) => profileProblem(tgt()?.profile || profile(), parts),
       send(p, parts, settle) {
         saveProfile(parts, tgt()?.user || undefined).then(settle);

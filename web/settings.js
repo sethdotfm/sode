@@ -1,6 +1,6 @@
 // Settings view, shared by both layouts. Lives at #settings so Back and reload work. Server
 // settings save together and the view stays open; This browser choices are per browser and apply
-// at once. Fields: settingsform.js; save: settingssave.js; PIN prompt: settingslock.js; search: settingsfind.js.
+// at once. Fields: settingsform.js; save: settingssave.js; search: settingsfind.js.
 
 import { $, S, on, onMsg, wsSend, sentence } from './core.js';
 import { initDeviceSettings } from './devicesettings.js';
@@ -8,13 +8,10 @@ import { showResult } from './plans.js';
 import { layout } from './layout.js';
 import { initToc } from './settingstoc.js';
 import { fillAbout } from './about.js';
-import { renderPinStatus, resetPinFields } from './settingspin.js';
-import { relock, unlocked, needsPin } from './pin.js';
-import { askPin, reask } from './pinprompt.js';
 import { askRecheck } from './recheck.js';
+import { askApproval } from './approval.js';
 import { form, isOpen, fillForm, fillGlobalDefaults, renderOffsetNote, renderHiddenNote, renderNamesStatus } from './settingsform.js';
-import { renderLock, showLockErr, resetLock, closeLockHelp } from './settingslock.js';
-import { initSave, markClean, warnUnsaved, unwarn, saving, showSaveErr } from './settingssave.js';
+import { initSave, markClean, warnUnsaved, unwarn, showSaveErr } from './settingssave.js';
 import { initFind } from './settingsfind.js';
 import { fillRouters, routerTitle } from './settingsrouters.js';
 import { initRoles } from './settingsroles.js';
@@ -56,9 +53,6 @@ function openSettings() {
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');
   fillForm();
   showRouters();
-  resetPinFields();
-  relock(); // opens locked; a reply to an unlock sent before is dropped
-  resetLock();
   renderPrefs();
   fillGlobalDefaults();
   resetClear();
@@ -72,14 +66,12 @@ function openSettings() {
   window.scrollTo(0, 0);
   markSection();
   markClean(false);
-  renderLock(true);
+  if (layout() === 'desktop') $('settings-find').focus({ preventScroll: true });
 }
 
 function closeSettings() {
   if (location.hash === '#settings') history.replaceState(null, '', location.pathname + location.search);
   delete root.dataset.view;
-  $('lock-help').hidden = true;
-  relock(true);
   if (layout() === 'desktop') $('src').focus();
 }
 
@@ -87,7 +79,6 @@ function closeSettings() {
 let reindex = () => {};
 const { renderPrefs } = initDeviceSettings({ form, reindex: () => reindex() });
 
-fillAbout($('lock-exit'));
 fillAbout($('settings-foot'), { id: 'open-log' });
 
 // Every section is in index.html, so the table of contents sees them all at load.
@@ -102,10 +93,8 @@ function showRouters() {
   reindex();
 }
 
-function syncLock() {
+function syncSave() {
   if (S.wsState !== 'up') $('settings-save').disabled = false;
-  if (isOpen()) renderPinStatus();
-  if (!saving()) renderLock();
 }
 
 function resetClear() {
@@ -124,28 +113,43 @@ $('clear-cancel').addEventListener('click', resetClear);
 let clearing = 0;
 const CLEAR_GRACE_MS = 5000;
 const clearPending = () => Date.now() - clearing < CLEAR_GRACE_MS;
-function sendClear() {
+let clearAnswer = null; // the Approval popup of a clear sent with an Approval
+let myRole = '';
+function sendClear(approval = null, answer = null) {
   clearing = Date.now();
-  if (!wsSend({ t: 'clearHistory' })) {
+  if (!wsSend({ t: 'clearHistory', ...(approval && { approval }) })) {
     clearing = 0;
-    showSaveErr('Not connected to Sode.');
-    return;
+    if (!answer) showSaveErr('Not connected to Sode.');
+    return false;
   }
+  clearAnswer = answer;
   resetClear();
+  return true;
 }
-$('clear-confirm').addEventListener('click', async () => {
-  if (S.pinSet && !unlocked() && !(await askPin('Clearing history needs the Advanced Settings PIN.'))) return;
-  sendClear();
+on('access', (a) => {
+  myRole = a.role || '';
 });
+$('clear-confirm').addEventListener('click', () => sendClear());
 on('historyCleared', () => {
   if (!clearPending()) return;
   clearing = 0;
+  clearAnswer?.done();
+  clearAnswer = null;
   showResult('ok', 'History cleared', 'History is empty for everyone.');
 });
-// A refusal: a PIN recheck is asked and the clear sent again; anything else (Sode shuts down) shows.
+// A refusal: a PIN recheck is asked and the clear sent again. Below an Administrator, an Approval is asked. Anything
+// else (Sode shuts down) shows.
 onMsg('clearHistoryResult', (m) => {
   if (m.ok || !clearPending()) return;
   clearing = 0;
+  const answer = clearAnswer;
+  clearAnswer = null;
+  if (answer && m.approval) return void answer.fail(m.err);
+  answer?.done();
+  if (!answer && !m.locked && myRole && myRole !== 'administrator') {
+    askApproval('Clearing History', 'an Administrator', (ap, ans) => sendClear(ap, ans));
+    return;
+  }
   if (m.recheck) {
     askRecheck('Clearing History').then((ok) => (ok ? sendClear() : showSaveErr(sentence(m.err))));
     return;
@@ -161,21 +165,9 @@ $('settings-exit').addEventListener('click', exitSettings);
 $('settings-back').addEventListener('click', () => {
   if (!toc.back()) exitSettings();
 });
-$('lock-cancel').addEventListener('click', exitSettings);
 
 initSave(toc);
 document.addEventListener('keydown', (e) => {
-  if (!$('lock-help').hidden) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closeLockHelp();
-    }
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      $('lock-help-close').focus();
-    }
-    return;
-  }
   if (isOpen() && e.key === 'Escape') {
     e.preventDefault();
     exitSettings();
@@ -186,27 +178,13 @@ window.addEventListener('popstate', showView);
 on('hello', () => {
   if (isOpen()) showRouters();
   showView();
-  syncLock();
+  syncSave();
 });
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
 on('conn', () => {
   renderNamesStatus();
-  syncLock();
-});
-on('access', () => {
-  if (isOpen() && !saving()) renderLock();
-});
-// A bare `locked`: this connection's unlock is gone (PIN changed elsewhere, or a clear-history
-// was refused). A request of ours that waits on it asks again in the popup. Otherwise only a
-// connection that needs the PIN for Settings drops to the PIN prompt.
-on('locked', () => {
-  if (clearPending()) {
-    clearing = 0;
-    reask('Clearing history needs the Advanced Settings PIN.').then((ok) => {
-      if (ok) sendClear();
-    });
-  } else if (isOpen() && !saving() && needsPin()) showLockErr('Settings are locked. Enter the PIN again.');
+  syncSave();
 });
 
 reindex = initFind({ sections, toc });

@@ -5,8 +5,7 @@
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
 import { diffRows } from './savereviewrules.js';
 import { makeUsersSource } from './usersstage.js';
-import { trusted, unlocked } from './pin.js';
-import { reask } from './pinprompt.js';
+import { trusted } from './trusted.js';
 import { askRecheck } from './recheck.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
@@ -276,14 +275,6 @@ onMsg('userSignOutAllResult', (m) => {
     });
     return;
   }
-  if (m.locked) {
-    // ask, then send it again; the error shows only if the PIN is not given
-    reask('Managing users needs the Advanced Settings PIN again.').then((ok) => {
-      if (ok) w?.out.click();
-      else fail(m.err);
-    });
-    return;
-  }
   fail(m.err);
 });
 
@@ -306,7 +297,7 @@ function fill() {
 
 function paintPeople() {
   const names = S.userNames || [];
-  const show = trusted() && !unlocked() && canSeeProfiles(names, true, false);
+  const show = canSeeProfiles(names, trusted());
   people.hidden = !show;
   if (!show) return people.replaceChildren();
   people.replaceChildren(
@@ -321,16 +312,14 @@ function paintPeople() {
 
 const paintSummary = paintPeople;
 
-// The directory is not in the hello (a locked page gets that too): the holder of the Advanced Settings PIN asks for it.
+// The directory is not in the hello (a locked page gets that too): an Administrator asks for it.
 const load = () => {
   wsSend({ t: 'usersList', id: ++listSeq });
 };
 onMsg('usersListResult', (m) => {
   if (m.id !== listSeq) return;
   if (!m.ok) {
-    // a stale unlock: ask, then read the directory again
-    if (m.locked && isOpen) reask('Managing users needs the Advanced Settings PIN.').then((ok) => (ok ? load() : closeUsers()));
-    else if (isOpen) fail(m.err); // a Role refusal: no PIN opens it
+    if (isOpen) fail(m.err); // a Role refusal: no PIN opens it
     return;
   }
   // Staged edits keep the list they were made against. So another person's save shows as a conflict, and
@@ -349,24 +338,12 @@ onMsg('usersListResult', (m) => {
     fill();
   }
 });
-on('unlockResult', (m) => {
-  if (m.ok) load();
-});
-on('locked', () => {
-  listed = [];
-  extras = { apiClients: [], guestRights: {} };
-  loaded = false;
-  lastList = null;
-  rows.replaceChildren();
-  stage.changed();
-  paintSummary();
-});
 // An Administrator who signs in gets the list at once, so Settings can show and stage it.
 on('access', (a) => {
   paintSummary();
   if (!loaded && a.role === 'administrator') load();
 });
-for (const ev of ['unlockResult', 'conn']) on(ev, paintPeople);
+on('conn', paintPeople);
 on('hello', () => {
   paintSummary();
   load();

@@ -2,7 +2,7 @@
 // list is grouped. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { saveTemplateBody, templateGrid, groupTemplates, templateNote, pinNeeded } from '../templaterules.js';
+import { saveTemplateBody, templateGrid, groupTemplates, templateNote } from '../templaterules.js';
 import { createGrid, select, setKind, isUnassigned, saved } from '../gridmodel.js';
 
 const grid = () => {
@@ -32,11 +32,9 @@ test('settings, Sources and Destinations go only when asked for, each on its own
     withSettings: true,
     withSources: true,
     withDests: true,
-    pin: '1234',
   });
   assert.deepEqual(b.settings, { mode: 'instant' });
   assert.deepEqual([b.sources, b.dests], [true, true]);
-  assert.equal(b.pin, '1234');
 });
 
 test('Sources and Destinations are separate flags', () => {
@@ -45,9 +43,9 @@ test('Sources and Destinations are separate flags', () => {
   assert.deepEqual([only({ withDests: true }).sources, only({ withDests: true }).dests], [false, true]);
 });
 
-test('no PIN is sent for a Me template, nor an empty one', () => {
+test('no save carries a PIN: a Role decides', () => {
   assert.equal('pin' in saveTemplateBody({ name: 'a', scope: 'me', grid: grid(), pin: '1234' }), false);
-  assert.equal('pin' in saveTemplateBody({ name: 'a', scope: 'everyone', grid: grid(), pin: '' }), false);
+  assert.equal('pin' in saveTemplateBody({ name: 'a', scope: 'everyone', grid: grid(), pin: '1234' }), false);
 });
 
 test('an applied template brings its cells back unassigned', () => {
@@ -90,10 +88,4 @@ test('the note says what a template carries', () => {
   assert.equal(templateNote({ rows: 2, cols: 3, sources: true }), '3 columns by 2 rows, with Sources, Destinations unassigned');
   assert.equal(templateNote({ rows: 2, cols: 3, dests: true }), '3 columns by 2 rows, with Destinations, Sources unassigned');
   assert.equal(templateNote({ rows: 2, cols: 3, settings: {} }), '3 columns by 2 rows, with settings, cells unassigned');
-});
-
-test('a PIN field is asked for only after the server refuses Everyone', () => {
-  assert.equal(pinNeeded(403, 'trusted_required'), true);
-  assert.equal(pinNeeded(403, 'scope'), false);
-  assert.equal(pinNeeded(409, 'conflict'), false);
 });

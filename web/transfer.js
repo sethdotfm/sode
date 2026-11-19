@@ -300,9 +300,7 @@ function openTransfer({ scope = '', user = '', what = '' } = {}) {
       const mine = other;
       fetchProfile(user).then((r) => {
         if (other !== mine) return;
-        other = r.ok
-          ? { name: user, state: 'ok', profile: r.profile }
-          : { name: user, state: 'err', err: r.locked ? 'Only a trusted user or the Advanced Settings PIN can read another user’s profile.' : sentence(r.err) };
+        other = r.ok ? { name: user, state: 'ok', profile: r.profile } : { name: user, state: 'err', err: sentence(r.err) };
         if (open) renderExport();
       });
     }

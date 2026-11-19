@@ -76,9 +76,8 @@ var exportSections = []exportSection{
 	{"proxy", []string{"trustedProxies", "requireHttps"}},
 }
 
-// exportNotSettings: top-level config keys in another category or in no export. settingsPin is a hash
-// that this release removes.
-var exportNotSettings = []string{"format", "installUid", "users", "presets", "filterSets", "apiClients", "settingsPin"}
+// exportNotSettings: top-level config keys in another category or in no export.
+var exportNotSettings = []string{"format", "installUid", "users", "presets", "filterSets", "apiClients"}
 
 type exportManifest struct {
 	Format     int            `yaml:"format"`

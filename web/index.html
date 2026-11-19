@@ -164,20 +164,6 @@
       <nav class="pb-tabs" id="settings-toc" aria-label="Settings sections"></nav>
     </div>
 
-    <div class="sode__group sode__lock" id="settings-lock" data-apart>
-      <div class="sode__field">
-        <label for="lock-pin">Advanced Settings</label>
-        <div class="sode__pinrow">
-          <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false" placeholder="Enter the Advanced Settings PIN">
-          <button type="submit" class="pb-btn" id="lock-unlock">Open</button>
-        </div>
-        <div class="sode__pinhelp">
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="lock-help-open">Forgot PIN?</button>
-        </div>
-      </div>
-      <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
-    </div>
-
     <h3 class="sode__topic" data-topic="preferences" id="topic-preferences">Preferences</h3>
     <fieldset class="sode__group sode__device" data-apart data-section="this-browser" data-topic="preferences">
       <legend>This browser</legend>
@@ -245,10 +231,6 @@
         <p class="sode__hint" id="account-step-note" role="status" hidden></p>
       </div>
     </fieldset>
-
-    <div class="sode__lock-exit" id="lock-exit">
-      <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
-    </div>
 
     <h3 class="sode__topic" data-topic="look-and-feel" id="topic-look-and-feel">Look and feel</h3>
     <fieldset class="sode__group" data-section="everyone-defaults" data-topic="look-and-feel">
@@ -321,7 +303,7 @@
 
     <fieldset class="sode__group" data-section="history" data-topic="look-and-feel">
       <legend>History</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
+      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
       <div class="sode__field">
         <label for="cfg-hidden">Hidden destinations in History</label>
         <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
@@ -343,7 +325,7 @@
 
     <fieldset class="sode__group" data-section="level-colors" data-topic="look-and-feel">
       <legend>Level colors</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
+      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <span class="sode__hint">Hex colors like <code><span class="sode__swatch" style="--sw: #3a7bd5" aria-hidden="true"></span>#3a7bd5</code>. Leave blank for default.</span>
       <div class="sode__colors" id="cfg-colors"></div>
       <div class="sode__names">
@@ -353,7 +335,7 @@
 
     <fieldset class="sode__group" data-section="confirm" data-topic="look-and-feel">
       <legend>Confirm and results</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
+      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-lockout" data-pb-tip="The wait before the Confirm letter key and OK work.">Confirm lockout (ms)</label>
@@ -378,9 +360,9 @@
     <h4 class="sode__router" data-router="1" id="router-1"><span class="sode__router-title" id="router-1-title">Router</span></h4>
     <fieldset class="sode__group" data-section="router-matrix" data-topic="routers" data-router="1">
       <legend>Router & matrix</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
+      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__field">
-        <label for="cfg-router">Address (advanced)</label>
+        <label for="cfg-router">Address</label>
         <input id="cfg-router" class="pb-input" data-key="router" placeholder="10.0.0.50:8910" spellcheck="false">
       </div>
       <div class="sode__fields">
@@ -395,15 +377,15 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-matrix">Matrix (advanced)</label>
+          <label for="cfg-matrix">Matrix</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-matrix" class="pb-input" data-key="matrix" data-type="int" min="0" max="255"></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-levels">Levels (advanced)</label>
+          <label for="cfg-levels">Levels</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-levels" class="pb-input" data-key="levels" data-type="int" min="1" max="256"></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-offset">Level offset (advanced)</label>
+          <label for="cfg-offset">Level offset</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-offset" class="pb-input" data-key="levelWireOffset" data-type="int"></span>
           <span class="sode__hint" id="cfg-offset-note"></span>
         </div>
@@ -425,7 +407,7 @@
 
     <fieldset class="sode__group" data-section="router-names" data-topic="routers" data-router="1">
       <legend>Router names</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
+      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__names">
         <span id="names-status"></span>
         <span class="sode__names-refresh">
@@ -440,11 +422,11 @@
           <span class="sode__hint">At 0s, Sode does not re-read names.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-namelen">Name character limit (advanced)</label>
+          <label for="cfg-namelen">Name character limit</label>
           <span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-namereq">Name requests (advanced)</label>
+          <label for="cfg-namereq">Name requests</label>
           <span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select" data-key="nameRequests"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
         </div>
       </div>
@@ -452,7 +434,7 @@
 
     <fieldset class="sode__group" data-section="takes" data-topic="routers" data-router="1">
       <legend>Takes</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
+      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-default">Default levels</label>
@@ -467,12 +449,12 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-firemode">Multi destination behavior (advanced)</label>
+          <label for="cfg-firemode">Multi destination behavior</label>
           <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">Sequential</option><option value="native">Native salvo</option></select></span>
           <span class="sode__hint">Native stages the changes on the router, then sends a "Take all" command.<br>Sequential sends the routes one after another, in quick succession.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-salvogroup">Router salvo group (advanced)</label>
+          <label for="cfg-salvogroup">Router salvo group</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
         </div>
       </div>
@@ -481,24 +463,7 @@
     <h3 class="sode__topic" data-topic="access" id="topic-access">Access</h3>
     <fieldset class="sode__group" data-section="locks" data-topic="access">
       <legend>Locks</legend>
-      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
-      <div class="sode__names sode__names--start">
-        <button type="button" class="pb-btn pb-btn--outline" id="cfg-pin-change" aria-expanded="false" aria-controls="cfg-pin-box">Change Advanced PIN</button>
-      </div>
-      <div class="sode__field" id="cfg-pin-box" hidden>
-        <div class="sode__fields">
-          <div class="sode__field">
-            <label for="cfg-pin">Advanced Settings PIN</label>
-            <input type="password" id="cfg-pin" class="pb-input" autocomplete="new-password" spellcheck="false">
-          </div>
-          <div class="sode__field">
-            <label for="cfg-pin2">Confirm PIN</label>
-            <input type="password" id="cfg-pin2" class="pb-input" autocomplete="new-password" spellcheck="false">
-          </div>
-        </div>
-        <span class="sode__hint" id="cfg-pin-status"></span>
-        <label class="pb-check" id="cfg-pin-clear-row"><input type="checkbox" class="pb-check__input" id="cfg-pin-clear"><span class="pb-check__label">Remove the PIN</span></label>
-      </div>
+      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-pin-waits" data-key="pinWaits" data-type="bool"><span class="pb-check__label">Wait after wrong PINs</span></label>
         <span class="sode__hint">After 4 wrong PINs for a name, that name waits before the next try. The wait doubles with each wrong PIN, up to 5 minutes. A right PIN stops it. Administrator names always wait.</span>
@@ -511,7 +476,7 @@
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Lock Communication Log</span></label>
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-panel"><span class="pb-check__label">Lock panels</span></label>
           </div>
-          <span class="sode__hint">A locked page asks for a user's PIN before it changes anything. Needs a user (Settings &gt; Users) and an Advanced Settings PIN. Only the Advanced Settings PIN can change these.</span>
+          <span class="sode__hint">A locked page asks for a user's PIN before it changes anything. Needs a user (Settings &gt; Users).</span>
         </div>
         <div class="sode__field">
           <label for="cfg-auto-lock">Auto-lock after idle (minutes)</label>
@@ -587,7 +552,7 @@
     <h3 class="sode__topic" data-topic="server" id="topic-server">Server</h3>
     <fieldset class="sode__group" data-section="proxy" data-topic="server">
       <legend>Proxy</legend>
-      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
+      <span class="sode__hint">Shared settings. Only an Administrator can change them.</span>
       <div class="sode__field">
         <label for="cfg-proxies">Trusted proxies</label>
         <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="10.0.0.2, 172.18.0.0/16" spellcheck="false">
@@ -727,11 +692,6 @@
           <button type="button" class="pb-btn pb-btn--commit" id="flt-set-name-ok">Save</button>
           <button type="button" class="pb-btn pb-btn--ghost" id="flt-set-name-cancel">Cancel</button>
         </div>
-        <div class="sode__filters-set" id="flt-pin-row" hidden>
-          <label class="sode__fld"><span class="sode__label">Advanced Settings PIN</span><input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="PIN" aria-label="Advanced Settings PIN"></label>
-          <button type="button" class="pb-btn pb-btn--ok" id="flt-pin-ok">Enter</button>
-          <button type="button" class="pb-btn pb-btn--ghost" id="flt-pin-cancel">Cancel</button>
-        </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
       </div>
       <fieldset class="sode__filters-show">
@@ -755,19 +715,6 @@
       <button type="button" class="pb-btn pb-btn--outline" id="flt-clear">Clear all</button>
       <button type="button" class="pb-btn pb-btn--outline" id="flt-done">Cancel</button>
       <button type="button" class="pb-btn pb-btn--commit" id="flt-save">Save</button>
-    </div>
-  </div>
-</div>
-<div class="pb-modal-backdrop sode__scrim" id="lock-help" hidden>
-  <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="lock-help-title" tabindex="-1" id="lock-help-dialog">
-    <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot your PIN</span></div>
-    <div class="pb-modal__body sode__lock-help">
-      <p>An Administrator can give you a new PIN in Manage users. If no Administrator knows their PIN, then on the machine that runs Sode, in the directory with its <code>docker-compose.yml</code>, run this command. It asks for a new PIN.</p>
-      <pre><code>docker compose exec sode /sode -make-administrator "NAME" &amp;&amp; docker compose restart sode</code></pre>
-      <p>Replace NAME with the name of a user. That user becomes an Administrator with the new PIN.</p>
-    </div>
-    <div class="pb-modal__footer">
-      <button type="button" class="pb-btn pb-btn--outline" id="lock-help-close">Close</button>
     </div>
   </div>
 </div>

@@ -1,5 +1,5 @@
 // The API clients tab of Manage users: a client's name and API scopes, and every key of every user
-// and client. A person needs the Advanced Settings PIN to make, list or revoke a key. Names and
+// and client. An Administrator makes, lists and revokes the keys. Names and
 // scopes save with Settings' one Save; keys act at once. A factory that gets hooks, so nothing imports
 // users.js back.
 

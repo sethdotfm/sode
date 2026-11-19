@@ -198,7 +198,6 @@ function handle(m) {
       S.cfg = m.cfg;
       S.versions = m.versions || {};
       emit('helloCfg', m.cfg);
-      S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.version = m.version || '';
       S.brandColors = m.brandColors || [];
@@ -247,15 +246,6 @@ function handle(m) {
       applyProtect(m.u);
       emit('protectedRows');
       emit('tally');
-      break;
-    case 'configResult':
-      emit('configResult', m);
-      break;
-    case 'unlockResult':
-      emit('unlockResult', m);
-      break;
-    case 'pinNeeded':
-      emit('locked');
       break;
     case 'status':
       setStatus(m);

@@ -26,10 +26,6 @@ type client struct {
 	// secure: the upgrade request came through a trusted proxy marked HTTPS (ADR 0005).
 	secure bool
 
-	// pin: Advanced Settings PIN hash this connection unlocked, guarded by App.mu; a changed or
-	// removed PIN stops matching.
-	pin string
-
 	// sent: a /log page receiving sent-log entries. Guarded by App.mu.
 	sent bool
 
@@ -282,6 +278,13 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		if !known {
 			continue // closed: an unlisted type is never dispatched
 		}
+		// In line, like stepIn: the approver's PIN is checked before this message is admitted.
+		if m.Approval != nil {
+			if err := a.approve(c, rl, &m); err != nil {
+				a.refuse(c, m.T, rl.forMsg(&m), &m, err)
+				continue
+			}
+		}
 		rl = rl.forMsg(&m)
 		if err := a.admit(c, rl); err != nil {
 			a.refuse(c, m.T, rl, &m, err)
@@ -322,10 +325,10 @@ func (a *App) serveConfig(c *client, m *inMsg) {
 		return
 	}
 	// Who saved, not what (settings hold the PIN hash).
-	go func(cfg json.RawMessage, pin string, clearPin bool) {
+	go func(cfg json.RawMessage) {
 		defer m.finish()
-		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin))
-	}(m.Config, m.Pin, m.ClearPin)
+		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg))
+	}(m.Config)
 }
 
 func present(r json.RawMessage) bool { return r != nil && string(r) != "null" }
@@ -334,7 +337,7 @@ func outcome(err error) string {
 	switch {
 	case err == nil:
 		return "ok"
-	case errors.Is(err, errLocked), errors.Is(err, errPageLocked):
+	case errors.Is(err, errPageLocked):
 		return "locked"
 	}
 	return "error"
@@ -353,8 +356,7 @@ type inMsg struct {
 	Fields     map[string]fieldEdit `json:"fields"` // settingsSave: changed fields only
 	Pin        string               `json:"pin"`
 	User       string               `json:"user"` // userSignIn: the user's name (name and PIN mode)
-	ClearPin   bool                 `json:"clearPin"`
-	ID         int                  `json:"id"` // echoed by unlock and save replies
+	ID         int                  `json:"id"`   // echoed by save replies
 	Items      []routeReq           `json:"items"`
 	Preset     string               `json:"preset"`   // take: the preset that was fired, if any
 	PresetID   string               `json:"presetId"` // ...and its hidden id
@@ -378,8 +380,10 @@ type inMsg struct {
 	Action     string               `json:"action"`   // panelAlarm: clear | stop
 	Instance   string               `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
 	MyClient   *myClientReq         `json:"client"`   // myClientSave
-	Router     string               `json:"router"`   // setupRouter: the address typed
-	Setup      *setupReq            `json:"setup"`    // setupFinish
+	Approval   *approvalReq         `json:"approval"` // an Approval in person for this one message
+	approver   *config.User         // set by approve once the Approval's PIN is checked
+	Router     string               `json:"router"` // setupRouter: the address typed
+	Setup      *setupReq            `json:"setup"`  // setupFinish
 }
 
 func plural(n int, one, many string) string {
@@ -411,9 +415,4 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 		m.Counts = []UptimeSlot{}
 	}
 	return m
-}
-
-func locked(err error) *bool {
-	l := errors.Is(err, errLocked)
-	return &l
 }

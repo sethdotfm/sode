@@ -5,7 +5,7 @@ import { layout, onLayout } from './layout.js';
 import { sectionView, SECTION_ROLES } from './settingsrolerules.js';
 import { desktopOnly } from './desktoponly.js';
 
-const WHO = { trusted: 'a Trusted user', administrator: 'an Administrator' };
+const WHO = { trusted: 'a Trusted user or an Administrator', administrator: 'an Administrator' };
 
 export function initRoles({ form, sections, toc, isOpen }) {
   let role = '';
@@ -20,11 +20,10 @@ export function initRoles({ form, sections, toc, isOpen }) {
       const view = sectionView(s.dataset.section, role, phone);
       s.hidden = view === 'hidden';
       if (s.hidden) off.push(i);
-      // A data-apart section saves on its own buttons; the Routers list only jumps to a router block.
-      s.disabled = view === 'read' && !('apart' in s.dataset);
+      // A read section stays editable: Save asks for an Approval for its changes.
       let note = s.querySelector(':scope > .sode__role-note');
       if (view === 'read' && !note) {
-        note = el('p', 'sode__hint sode__role-note', `View only. Changing this needs ${WHO[SECTION_ROLES[s.dataset.section].edit]}.`);
+        note = el('p', 'sode__hint sode__role-note', `Changes here need Approval from ${WHO[SECTION_ROLES[s.dataset.section].edit]}.`);
         s.querySelector(':scope > legend').after(note);
       }
       if (note) note.hidden = view !== 'read';

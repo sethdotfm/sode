@@ -35,10 +35,9 @@ test('without drops one index', () => {
 });
 
 test('canSeeProfiles', () => {
-  assert.equal(canSeeProfiles([], true, true), false);
-  assert.equal(canSeeProfiles(['Ana'], false, false), false);
-  assert.equal(canSeeProfiles(['Ana'], true, false), true);
-  assert.equal(canSeeProfiles(['Ana'], false, true), true);
+  assert.equal(canSeeProfiles([], true), false);
+  assert.equal(canSeeProfiles(['Ana'], false), false);
+  assert.equal(canSeeProfiles(['Ana'], true), true);
 });
 
 test('profileButtonOff: only a saved, unrenamed user has a profile to open', () => {
@@ -112,6 +111,6 @@ test('filterEntry and findByName', () => {
 
 test('PROFILE_NOTICE says a Profile is not private and who can see it', () => {
   assert.match(PROFILE_NOTICE, /not private/);
-  assert.match(PROFILE_NOTICE, /trusted users/i);
-  assert.match(PROFILE_NOTICE, /Advanced Settings PIN/);
+  assert.match(PROFILE_NOTICE, /Trusted users and Administrators/);
+  assert.doesNotMatch(PROFILE_NOTICE, /PIN/);
 });

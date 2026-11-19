@@ -36,7 +36,7 @@ func TestSaveOmittingKeysKeepsLiveValues(t *testing.T) {
 	w := a.r().cfg
 	w.AutoLockMinutes = 7
 	w.DeviceDefaults = config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
-	if err := a.SaveSettings(admin, w, "", false); err != nil {
+	if err := a.SaveSettings(admin, w); err != nil {
 		t.Fatal(err)
 	}
 	live := a.r().cfg
@@ -116,7 +116,7 @@ func TestSaveListFieldsReplace(t *testing.T) {
 	cfg := a.r().cfg
 	cfg.LevelColors = []string{"#111111", "#222222", "#333333"}
 	cfg.TrustedProxies = []string{"10.0.0.1", "10.0.0.2"}
-	if err := a.SaveSettings(admin, cfg, "", false); err != nil {
+	if err := a.SaveSettings(admin, cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := pageSave(t, a, admin, map[string]any{"levelColors": []string{"#999999"}, "trustedProxies": []string{}}); err != nil {

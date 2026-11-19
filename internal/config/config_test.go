@@ -90,7 +90,6 @@ func TestSaveLoad(t *testing.T) {
 	c.LevelNumbering, c.PinWaits = "va", false
 	c.HiddenDsts = "MV, !1-5"
 	c.FilterSets = []FilterSet{{Name: "All except shader", Dst: "!MON", Sode: true, Ext: true}, {Name: "Panels", Ext: true, Hidden: true}}
-	c.SettingsPin, _ = HashPin("1234")
 	c.Normalize()
 	if err := Save(path, c); err != nil {
 		t.Fatal(err)
@@ -188,11 +187,8 @@ func TestPin(t *testing.T) {
 	if !ValidPinHash(h) || ValidPinHash("1234") || ValidPinHash("") {
 		t.Fatal("ValidPinHash")
 	}
-	if CheckPinRules("123") == nil || CheckPinRules("1234") != nil {
-		t.Fatal("CheckPinRules")
-	}
 	c := Defaults()
-	c.SettingsPin = h
+	c.Users = []User{{ID: "u-1", Name: "Ana", Pin: h, Len: 4}}
 	b, _ := json.Marshal(c)
 	if strings.Contains(string(b), "pbkdf2") {
 		t.Fatal("PIN hash leaks into JSON")

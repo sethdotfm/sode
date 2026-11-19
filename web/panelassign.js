@@ -1,10 +1,9 @@
 // The Assign to modal on the panels page: the open Sode panel pages, and a click sends one to the chosen panel.
-// The server checks who can (a Trusted user or the Advanced Settings PIN) and sends the key to the instance alone.
+// The server checks who can (a Trusted user or higher) and sends the key to the instance alone.
 import { el, icon, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { segmented } from './formbits.js';
 import { assignRows, assignWays, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
-import { pinNeeded } from './templaterules.js';
 import { MON_POLL_MS } from './panelsmon.js';
 import { resultStep } from './keys.js';
 
@@ -150,14 +149,6 @@ export function openAssign(panel, ctx) {
   const closeBtn = el('button', 'pb-btn pb-btn--outline', 'Close');
   closeBtn.type = 'button';
 
-  const pin = el('input', 'pb-input');
-  pin.type = 'password';
-  pin.autocomplete = 'off';
-  pin.id = 'assign-pin';
-  pin.setAttribute('aria-label', 'Advanced Settings PIN');
-  const pinRow = el('label', 'sode-tpl__pin', 'Assign needs a Trusted user or the Advanced Settings PIN', pin);
-  pinRow.hidden = true;
-
   const find = el('input', 'pb-input');
   find.type = 'search';
   find.id = 'assign-find';
@@ -239,7 +230,7 @@ export function openAssign(panel, ctx) {
   dialog.tabIndex = -1;
   dialog.append(
     el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `Assign to ${panel.name}`), { id: 'assign-title' })),
-    el('div', 'pb-modal__body', intro, ...(choice ? [choice.node] : []), find, list, pinRow),
+    el('div', 'pb-modal__body', intro, ...(choice ? [choice.node] : []), find, list),
     el('div', 'pb-modal__footer', note, closeBtn),
   );
   root.append(dialog);
@@ -270,18 +261,13 @@ export function openAssign(panel, ctx) {
       const r = await ctx.api(`api/v1/panels/${panel.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(row.keyless ? { keyless: row.keyless } : { from: row.panel, instance: row.device }), name, pin: pin.value, as: way }),
+        body: JSON.stringify({ ...(row.keyless ? { keyless: row.keyless } : { from: row.panel, instance: row.device }), name, as: way }),
       });
-      pin.value = '';
       say(`Sent ${r.instance} to ${panel.name}.`);
       await ctx.onDone();
     } catch (err) {
       clash = clashOf(err);
       say(clash === null ? err.message : '');
-      if (pinNeeded(err.status, err.code)) {
-        pinRow.hidden = false;
-        pin.focus();
-      }
     }
     busy = false;
     if (!root.isConnected) return;

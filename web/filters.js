@@ -46,7 +46,7 @@ const browser = browserFilters({
   write: setFilter,
   snapshot,
   restore,
-  // A save already sent finishes first (its answer locks up after it); one waiting for the PIN is dropped.
+  // A save already sent finishes first.
   onClose: () => saver.close(),
 });
 let target = browser;
@@ -148,7 +148,6 @@ export function openFilters() {
   renderMode();
   loadDialog(filterState());
   $('flt-set-name-row').hidden = true;
-  $('flt-pin-row').hidden = true;
   deleting = false;
   renderSetBar();
   dlg.show();
@@ -251,7 +250,7 @@ on('openFilterEditor', (m) => {
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
 $('flt-done').addEventListener('click', cancelFilters);
 // Save closes after the write has landed (the server's answer for everyone or Me; stays open for
-// a PIN or an error).
+// an error).
 $('flt-save').addEventListener('click', () =>
   saveSet(() => {
     if (filtersOpen()) closeFilters();
@@ -279,7 +278,7 @@ $('flt-clear').addEventListener('click', () => {
 });
 
 // ---- the set bar. A saved set gets its new name when you edit the name and press Save. Sets for everyone are
-// settings saved on the server, so with a PIN they ask first.
+// settings saved on the server.
 
 const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false;
@@ -342,20 +341,16 @@ const setNote = (text, error = false) => {
   $('flt-set-note').classList.toggle('sode__error-text', error);
 };
 
-// ---- sets for everyone: send the whole list, after the PIN if needed. An unlock lasts while the dialog is open (or until a save sent before it closed is answered).
+// ---- sets for everyone: send the whole list.
 
 const saver = globalSaver({
   t: 'filterSets',
   resultT: 'filterSetsResult',
-  pinIn: $('flt-pin'),
-  pinRow: $('flt-pin-row'),
-  pinOk: $('flt-pin-ok'),
   setNote,
   isOpen: filtersOpen,
   failTitle: 'Filter set not saved',
   render: renderSetBar,
 });
-$('flt-pin-cancel').addEventListener('click', saver.cancel);
 const profSaver = profileSaver({ setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar });
 const wireSet = (s) => ({ name: s.name, ...s.f });
 const { saveIn, removeIn } = scopeWriter({

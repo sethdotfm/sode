@@ -125,3 +125,22 @@ func TestRetiredAPIKeysAreDropped(t *testing.T) {
 		t.Fatalf("UnknownKeys = %q", got)
 	}
 }
+
+// settingsPin held the Advanced Settings PIN hash, which v2.0 drops: the key loads as nothing
+// and no later write carries it.
+func TestSettingsPinIsDropped(t *testing.T) {
+	c, err := Parse([]byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\nsettingsPin: pbkdf2$1$x$y\nfuture: 1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.UnknownKeys(); !slices.Equal(got, []string{"future"}) {
+		t.Fatalf("UnknownKeys = %q", got)
+	}
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	if err := Save(p, c); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(p); strings.Contains(string(b), "settingsPin") {
+		t.Fatalf("a write carries settingsPin:\n%s", b)
+	}
+}

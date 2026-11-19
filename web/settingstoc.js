@@ -151,7 +151,7 @@ export function initToc({ form, sections, toc, isOpen }) {
     );
   }
   document.addEventListener('keydown', (e) => {
-    if (!isOpen() || e.defaultPrevented || form.hasAttribute('data-locked')) return;
+    if (!isOpen() || e.defaultPrevented) return;
     const step = STEP[chord(e)];
     if (!step || e.target.closest?.('dialog, [role="dialog"], .pb-modal')) return;
     e.preventDefault();

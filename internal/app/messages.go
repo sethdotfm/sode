@@ -62,9 +62,7 @@ type helloMsg struct {
 	Versions map[string]string `json:"versions"`
 	// Users: the sign-in list. It reaches locked pages, so it holds each name and PIN length (0 for
 	// none) and never more; cfg.users stays empty.
-	Users []helloUser `json:"users"`
-	// PinSet stays false: no PIN opens anything since Roles, so the page never asks for one.
-	PinSet      bool                `json:"pinSet"`
+	Users       []helloUser         `json:"users"`
 	ConfigPath  string              `json:"configPath"`
 	Version     string              `json:"version"`
 	BrandColors []config.BrandColor `json:"brandColors"`
@@ -135,16 +133,17 @@ type historyMsg struct {
 	More    bool    `json:"more"`
 }
 
-// opResult is shared by many result messages. ID, Locked and Kept are
-// omitted unless the sender sets them; Locked is for failures only.
+// opResult is shared by many result messages. ID and Kept are omitted unless the sender
+// sets them.
 type opResult struct {
-	T      string `json:"t"`
-	OK     bool   `json:"ok"`
-	ID     *int   `json:"id,omitempty"`
-	Err    string `json:"err,omitempty"`
-	Locked *bool  `json:"locked,omitempty"`
+	T   string `json:"t"`
+	OK  bool   `json:"ok"`
+	ID  *int   `json:"id,omitempty"`
+	Err string `json:"err,omitempty"`
 	// Recheck: refused for want of a PIN recheck; the page asks for it and sends again.
 	Recheck bool `json:"recheck,omitempty"`
+	// Approval: the Approval itself was refused; the page shows why in its Approval popup.
+	Approval bool `json:"approval,omitempty"`
 }
 
 type sentAddMsg struct {

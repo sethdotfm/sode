@@ -9,5 +9,4 @@
 - WebSocket messages `sent`, `sentAdd` and `sentPage` are now `log`, `logAdd` and `logPage`.
 - WebSocket messages `userUnlock` and `userUnlockResult` are now `userSignIn` and `userSignInResult`.
 - WebSocket message `protect` is now `protected`, also in the hello.
-- WebSocket message `locked` is now `pinNeeded`.
 - The Communication Log `why` values `refreshNames` and `userUnlock` are now `rereadNames` and `userSignIn`.

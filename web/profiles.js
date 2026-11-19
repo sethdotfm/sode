@@ -1,10 +1,9 @@
 // Profile dialog: the editor of one user's profile, opened by bus 'openProfile' {name}. Edit/Add open the Filters dialog or preset editor
 // aimed at this profile (they save through saveProfile; 'profileSaved' refreshes this dialog). The own profile reads profile.js's cache;
-// anyone else's goes through fetchProfile (trusted user or Advanced Settings PIN).
+// anyone else's goes through fetchProfile (a Trusted user or higher).
 
 import { el, S, on, emit, sentence } from './core.js';
-import { trusted, unlocked } from './pin.js';
-import { reask } from './pinprompt.js';
+import { trusted } from './trusted.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
 import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles, PROFILE_NOTICE } from './profilesrules.js';
@@ -58,7 +57,6 @@ function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
 }
-const askAgain = () => reask("Another user's profile needs the Advanced Settings PIN.");
 
 // Export / import opens on top; Esc closes it first.
 function transfer() {
@@ -168,8 +166,6 @@ async function load(name) {
   const r = await fetchProfile(name);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked && (await askAgain())) return load(name); // the PIN was entered: read it again
-    if (mine !== token || !isOpen) return;
     fail(r.err || 'Could not read that profile.');
     return paint();
   }
@@ -192,8 +188,6 @@ async function doSave(parts, done) {
   });
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked && (await askAgain())) return doSave(parts, done); // the PIN was entered: save again
-    if (mine !== token || !isOpen) return;
     fail(r.err || 'Could not save that profile.');
     if (own()) {
       prof = profile();
@@ -254,8 +248,8 @@ on('profile', () => {
     paint();
   }
 });
-for (const ev of ['access', 'conn', 'unlockResult', 'locked', 'hello']) {
+for (const ev of ['access', 'conn', 'hello']) {
   on(ev, () => {
-    if (isOpen && !own() && (!S.userNames?.includes(who) || !canSeeProfiles(S.userNames, trusted(), unlocked()))) closeDialog();
+    if (isOpen && !own() && (!S.userNames?.includes(who) || !canSeeProfiles(S.userNames, trusted()))) closeDialog();
   });
 }

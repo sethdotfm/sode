@@ -61,7 +61,7 @@ func TestTrustedSavesWithoutPin(t *testing.T) {
 			t.Fatalf("%s refused a trusted user: %v", m.T, err)
 		}
 	}
-	if err := a.SaveSettings(c, cfg, "", false); err != nil {
+	if err := a.SaveSettings(c, cfg); err != nil {
 		t.Fatalf("settings save: %v", err)
 	}
 	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: "X", Sode: true, Ext: true}}); err != nil {
@@ -84,8 +84,7 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 	}
 	for name, m := range map[string]inMsg{
 		"clearHistory": {T: "clearHistory"},
-		"set PIN":      {T: "config", Pin: "9999"},
-		"clear PIN":    {T: "config", ClearPin: true},
+		"usersList":    {T: "usersList"},
 	} {
 		if err := admitMsg(a, c, m); !isRoleErr(err) {
 			t.Errorf("%s admitted for a trusted user: %v", name, err)
@@ -94,19 +93,10 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 	if err := saveUsers(a, c, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana"}}}); !isRoleErr(err) {
 		t.Errorf("SaveUsers: %v", err)
 	}
-	if err := a.SaveSettings(c, a.r().cfg, "9999", false); !isRoleErr(err) {
-		t.Errorf("setting the PIN: %v", err)
-	}
-	if err := a.SaveSettings(c, a.r().cfg, "", true); !isRoleErr(err) {
-		t.Errorf("clearing the PIN: %v", err)
-	}
-	if a.r().cfg.SettingsPin == "" {
-		t.Fatal("PIN gone")
-	}
 	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	for _, m := range []inMsg{{T: "clearHistory"}, {T: "usersList"}, {T: "config", Pin: "9999"}} {
+	for _, m := range []inMsg{{T: "clearHistory"}, {T: "usersList"}} {
 		if err := admitMsg(a, c, m); err != nil {
 			t.Errorf("%s as the Administrator: %v", m.T, err)
 		}

@@ -79,7 +79,7 @@ var (
 // follows. profileSave runs with Name "Ana" here; the Name branches are below.
 var policyExpect = map[string][nStates]error{
 	"hi": openRule, "userSignIn": openRule, "userLock": openRule, "userSignOut": openRule,
-	"userSetPin": openRule, "unlock": openRule, "lock": openRule, "history": openRule, "pinRecheck": openRule,
+	"userSetPin": openRule, "history": openRule, "pinRecheck": openRule,
 	"stepIn": openRule, "stepOut": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
 	"myClients": openRule, "myClientSave": openRule, "myClientDelete": openRule, "myClientKey": openRule, "myClientKeyRevoke": openRule,
@@ -141,8 +141,8 @@ func TestPolicyMatrix(t *testing.T) {
 	}
 }
 
-// The branches that depend on the message body: config needs an Administrator when it sets or
-// clears the PIN. profileSave passes for the signed-in user's own name.
+// The branches that depend on the message body: profileSave passes for the signed-in user's
+// own name.
 func TestPolicyMatrixMessageBranches(t *testing.T) {
 	for _, r := range []struct {
 		name string
@@ -150,8 +150,6 @@ func TestPolicyMatrixMessageBranches(t *testing.T) {
 		want [nStates]error
 	}{
 		{"config plain", inMsg{T: "config"}, trustedRule},
-		{"config sets PIN", inMsg{T: "config", Pin: "9999"}, adminRule},
-		{"config clears PIN", inMsg{T: "config", ClearPin: true}, adminRule},
 		{"profileSave own", inMsg{T: "profileSave", Name: "Ana"}, selfRule},
 		{"profileSave other", inMsg{T: "profileSave", Name: "Bo"}, trustedRule},
 	} {
