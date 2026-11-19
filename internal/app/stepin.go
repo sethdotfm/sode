@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -32,8 +33,32 @@ type stepEndedMsg struct {
 	Note string `json:"note,omitempty"` // a status text when the original sign-in ended meanwhile
 }
 
+// serveStepIn writes the Log row: by the stepped-in user, or by the browser for a failed try.
 func (a *App) serveStepIn(c *client, m *inMsg) {
-	a.reply(c, opResultFor("stepIn", &m.ID, a.StepIn(c, m.User, m.Pin)))
+	before := c.who()
+	err := a.StepIn(c, m.User, m.Pin)
+	if err != nil {
+		a.commandBy(before, "stepIn", "refused", "as "+m.User, err)
+	} else {
+		a.commandBy(c.who(), "stepIn", "ok", "browser of "+a.browserOf(c), nil)
+	}
+	a.reply(c, opResultFor("stepIn", &m.ID, err))
+}
+
+// stepEndWords: how a step-in ended, for its Step out row. Keys are stepEndedMsg.Why, and
+// "closed" for a reload, page close or dropped connection.
+var stepEndWords = map[string]string{
+	"out":     "Step out",
+	"idle":    "idle",
+	"lock":    "a Lock",
+	"save":    "a save changed the user",
+	"signOut": "Sign out everywhere",
+	"closed":  "the page closed or the connection dropped",
+}
+
+// stepOutRowMu writes the Step out row before c returns to the original. Caller holds mu.
+func (a *App) stepOutRowMu(c *client, why string) {
+	a.commandBy(c.who(), "stepOut", "ok", stepEndWords[why]+", browser of "+a.browserOfMu(c), nil)
 }
 
 // StepIn checks the PIN in that name's pool, so wrong PINs count toward its wait.
@@ -123,6 +148,7 @@ func (a *App) stepOutMu(c *client, why string) {
 	if st == nil {
 		return
 	}
+	a.stepOutRowMu(c, why)
 	c.u.step = nil
 	c.u.recheck = recheck{}
 	cfg := a.r().cfg
@@ -143,6 +169,28 @@ func (a *App) stepOutMu(c *client, why string) {
 	b, _ := json.Marshal(stepEndedMsg{T: "stepEnded", Why: why, Note: note})
 	a.deliver(c, b)
 	a.syncAccessMu(c)
+}
+
+// browserOf: whose browser c is while stepped in, for History; "" when not stepped in.
+func (a *App) browserOf(c *client) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.browserOfMu(c)
+}
+
+// Caller holds mu.
+func (a *App) browserOfMu(c *client) string {
+	st := c.u.step
+	switch {
+	case st == nil:
+		return ""
+	case st.orig == nil:
+		return c.ip
+	}
+	if u, ok := a.r().cfg.FindUserByID(st.orig.ID); ok {
+		return u.Name // the live name, after a rename meanwhile
+	}
+	return st.orig.Name
 }
 
 // Caller holds mu.
@@ -172,17 +220,40 @@ func (a *App) stepOutsOnLockMu(s *session) {
 // stepped-in user ends their step-ins. Caller holds mu.
 func (a *App) stepOutsOnSaveMu(old, cfg config.Config) {
 	for cl := range a.clients {
-		if cl.u.step == nil {
-			continue
-		}
-		id := cl.userID()
-		was, _ := old.FindUserByID(id)
-		u, ok := cfg.FindUserByID(id)
-		if !ok || u.Name != was.Name || u.Pin != was.Pin ||
-			!config.RoleAtLeast(cmp.Or(u.Role, config.RoleStandard), cmp.Or(was.Role, config.RoleStandard)) {
+		if cl.u.step != nil && stepInEnds(old, cfg, cl.userID()) {
 			a.stepOutMu(cl, "save")
 		}
 	}
+}
+
+// stepInEnds: the change from old to cfg ends the step-ins of user id. Keep in step with the
+// Interruptions line (stepInStops).
+func stepInEnds(old, cfg config.Config, id string) bool {
+	was, _ := old.FindUserByID(id)
+	u, ok := cfg.FindUserByID(id)
+	return !ok || u.Name != was.Name || u.Pin != was.Pin ||
+		!config.RoleAtLeast(cmp.Or(u.Role, config.RoleStandard), cmp.Or(was.Role, config.RoleStandard))
+}
+
+// stepInStops: the Interruptions line "Step-ins of <user>" for each stepped-in user the commit
+// from live to next changes. Caller holds cfgMu, not mu.
+func (a *App) stepInStops(live, next config.Config) []interruption {
+	n := map[string]int{}
+	a.mu.Lock()
+	for cl := range a.clients {
+		if cl.u.step != nil && stepInEnds(live, next, cl.userID()) {
+			n[cl.userID()]++
+		}
+	}
+	a.mu.Unlock()
+	var out []interruption
+	for _, u := range live.Users {
+		if k := n[u.ID]; k > 0 {
+			out = append(out, interruption{StepIns: k, Ends: true,
+				Text: fmt.Sprintf("Step-ins of %s: this save ends %s.", u.Name, howMany(k, "step-in", "step-ins"))})
+		}
+	}
+	return out
 }
 
 // stepIdleMu ends c's step-in after stepInIdle without activity in this tab. A shorter

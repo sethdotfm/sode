@@ -1,0 +1,4 @@
+- A take made while stepped in shows in History as "by Bo (browser of Ana)". With nobody signed in, the browser is its address. History filters match the stepped-in user only.
+- The Communication Log has a row for each Step in, each Step out (with how it ended) and each failed try. The Settings saves record names the stepped-in user as who saved.
+- Stepping in cancels the browser's pending Request approval. Approval cards reach a stepped-in browser by the stepped-in user's Role and close on Step out.
+- The Save review's Interruptions name the step-ins a save ends ("Step-ins of Bo"), and the Save button counts them.

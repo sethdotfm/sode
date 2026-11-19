@@ -16,6 +16,7 @@ import (
 
 // sectionNames and topics: the words of index.html's legends and topic headings.
 var sectionNames = map[string]string{
+	"my-user":           "My user",
 	"everyone-defaults": "Everyone's defaults",
 	"branding":          "Branding",
 	"history":           "History",
@@ -36,6 +37,8 @@ var sectionNames = map[string]string{
 
 func topicOf(section string) string {
 	switch section {
+	case "this-browser", "my-user":
+		return "Preferences"
 	case "routers", "router-matrix", "router-names", "takes":
 		return "Routers"
 	case "locks", "users", "api", "panels":
@@ -176,7 +179,7 @@ func (a *App) savedFields(was, now config.Config, keys []string, x *saveCtx) []S
 	var out []SavedField
 	for _, key := range slices.Sorted(slices.Values(keys)) {
 		spec, ok := lookupField(key)
-		if !ok {
+		if !ok || spec.action {
 			continue
 		}
 		label := fieldLabels[key]

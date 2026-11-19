@@ -31,6 +31,9 @@ func TestFilterTermsMatchFilterJS(t *testing.T) {
 		if got == nil {
 			got = []filterTerm{}
 		}
+		for i := range got {
+			got[i].at, got[i].end = 0, 0
+		}
 		if !ok || !reflect.DeepEqual(got, *c.Terms) {
 			t.Errorf("%q: %+v, want %+v", c.Text, got, *c.Terms)
 		}

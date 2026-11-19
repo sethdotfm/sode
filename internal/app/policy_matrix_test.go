@@ -84,7 +84,7 @@ var policyExpect = map[string][nStates]error{
 	"approvalAsk": openRule, "approvalAnswer": openRule, "approvalCancel": openRule, "approvalCards": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
 	"myClients": openRule, "myClientSave": openRule, "myClientDelete": openRule, "myClientKey": openRule, "myClientKeyRevoke": openRule,
-	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,
+	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule, "browserCopy": openRule,
 	// a signed-in user only, checked in the handlers (inboxlife_test.go)
 	"inboxList": openRule, "inboxSend": openRule, "inboxReview": openRule, "inboxAccept": openRule,
 	"inboxDecline": openRule, "inboxWithdraw": openRule,
@@ -94,6 +94,8 @@ var policyExpect = map[string][nStates]error{
 	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
 
 	"settingsSave": standardRule, "settingsReview": standardRule,
+	// everyone's list needs an Administrator and swapMine a signed-in user, checked in the handlers (swap_test.go)
+	"swapList": standardRule, "swapMine": standardRule,
 
 	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,

@@ -26,6 +26,12 @@ test('stops and locks join', () => {
   assert.equal(stopsText([guest]), '');
 });
 
+test('the step-ins a save ends count on the Save button', () => {
+  const stepIns = { text: 'Step-ins of Bo: this save ends 1 step-in.', stepIns: 1, ends: true };
+  assert.equal(saveStopsLabel(1, 0, [stepIns], 'x'), 'Save and stop 1 step-in');
+  assert.equal(stopsText([{ sessions: 2 }, { ...stepIns, stepIns: 2 }]), 'stop 2 sessions, 2 step-ins');
+});
+
 test('the do not come back line shows only when something ends', () => {
   assert.equal(endsSomething([lobby]), true);
   assert.equal(endsSomething([mainLock, guest]), false);
