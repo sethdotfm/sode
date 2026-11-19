@@ -208,6 +208,18 @@ func (s *templateStore) create(t Template) (Template, error) {
 	return s.insert(t, templateMax, errTemplateCap, vet, func(t *Template) error { return s.writeLocked(*t) })
 }
 
+// put stores an imported template: over the one of its id, else as a new one that keeps a free id.
+func (s *templateStore) put(t Template) (Template, error) {
+	s.mu.Lock()
+	_, had := s.by[t.ID]
+	if had {
+		defer s.mu.Unlock()
+		return t, s.putLocked(t)
+	}
+	s.mu.Unlock()
+	return s.insertAs(t, templateMax, errTemplateCap, nil, func(t *Template) error { return s.writeLocked(*t) })
+}
+
 func (s *templateStore) delete(id string) (bool, error) {
 	return s.remove(id, nil)
 }
