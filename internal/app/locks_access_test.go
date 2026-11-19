@@ -39,7 +39,6 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	}
 }
 
-// Changing the locks or Auto-lock needs an Administrator; a Trusted user gets guardedErr.
 func TestLocksNeedAnAdministrator(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", true, false)
@@ -90,8 +89,7 @@ func TestLockNeedsAUser(t *testing.T) {
 	}
 }
 
-// Removing the last user while a lock is on says what to do (the locks are
-// Settings > Access fields, not part of the users save).
+// The locks are Settings > Access fields, not part of the users save, so the refusal says what to do.
 func TestRemoveLastUserWhileLockedSaysWhy(t *testing.T) {
 	a := userApp(t, true)
 	admin := &client{ip: "10.0.0.9"}

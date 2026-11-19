@@ -13,9 +13,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST seam for a Public panel. Anyone with its URL gets a short-lived key for the panel's own
-// client, asked for with the panel id alone.
-
 const publicPanel = `{"name":"Lobby","acts":"public"`
 
 func TestPublicNeedsAUserWithinTheirRights(t *testing.T) {
@@ -132,9 +129,6 @@ func TestAskingANonPublicPanelIsNotCountedAsAFailedKey(t *testing.T) {
 	}
 }
 
-// Asks are capped per address whatever the id. An unknown id, a panel that is not Public and a
-// Public panel asked from outside its networks get the same answers. So no run of asks says which
-// ids exist.
 func TestAskingSaysNothingAboutWhichIdsExist(t *testing.T) {
 	seq := func(mk func(a *App, cy string) string) []string {
 		a, _ := clientApp(t)
@@ -186,8 +180,7 @@ func TestAskingIsCappedWithTheRateLimitOff(t *testing.T) {
 	}
 }
 
-// Past the cap an address loses its own oldest key first. So one caller that loops the route cannot
-// push every other page's key out. The key that ends takes its streams with it.
+// The key that ends takes its streams with it.
 func TestPastTheCapAnAddressLosesItsOwnKeyFirst(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -323,7 +316,6 @@ func TestPublicKeysPerPanelAreCapped(t *testing.T) {
 	wantErr(t, apiSend(a, "GET", "/api/v1/panels/"+id, first, ""), 401, "key_revoked")
 }
 
-// Outside the client's networks a Public panel reads as not Public, as an unknown id does.
 func TestPublicKeyOnlyFromTheClientsNetworks(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")

@@ -88,7 +88,6 @@ func helloOf(t *testing.T, a *App) savedHello {
 	return h
 }
 
-// After a restart with the router offline the saved names show with their time, until the first read.
 func TestSavedNamesShowUntilFirstRead(t *testing.T) {
 	a := futureApp(t, "routers: [{address: 127.0.0.1:1}]\n")
 	readNames(a, []string{"CAM 1", "CAM 2"}, []string{"MON 1"})
@@ -107,7 +106,6 @@ func TestSavedNamesShowUntilFirstRead(t *testing.T) {
 		t.Fatalf("before the first read: at %v savedAt %v", h.At, h.SavedAt)
 	}
 
-	// A read that times out with no replies keeps the saved time.
 	b.mu.Lock()
 	b.router.newSrc, b.router.newDst = map[int]string{}, map[int]string{}
 	b.nameReqAt = time.Now().Add(-namesTimeout - time.Second)
@@ -124,7 +122,6 @@ func TestSavedNamesShowUntilFirstRead(t *testing.T) {
 	}
 }
 
-// A table for another router, or one that does not parse, is not loaded.
 func TestSavedNamesIgnoreOtherRouterAndBadFile(t *testing.T) {
 	a := futureApp(t, "routers: [{address: 127.0.0.1:1}]\n")
 	path := namesTablePath(a)

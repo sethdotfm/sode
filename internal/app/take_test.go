@@ -54,9 +54,9 @@ func TestConfirmedByIsDecidedOnce(t *testing.T) {
 type fakeRouter struct {
 	a      *App
 	mu     sync.Mutex
-	tally  map[[2]int]int  // dst, wire level → src
+	tally  map[[2]int]int  // dst, level (wire number) → src
 	ignore map[int]bool    // dsts the router never answers for
-	deaf   map[[2]int]bool // dst, wire level whose connects are ignored (interrogates still answer)
+	deaf   map[[2]int]bool // dst, level (wire number) whose connects are ignored (interrogates still answer)
 	lose   map[int]bool    // dsts whose Connected goes missing (interrogates still answer)
 	mute   map[int]bool    // dsts whose interrogates go unanswered (connects still do)
 	failAt int             // this send and every later one fail (1-based; 0 = never)
@@ -725,7 +725,7 @@ func TestTakeWaitsForQueue(t *testing.T) {
 	leftovers(t, a)
 }
 
-// A failing retry must not take over the first take's claim: both entries are amended.
+// A retry that fails must not claim what the first take claimed: Sode amends both entries.
 func TestTakeLateRetryKeepsBoth(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)

@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-// Seam: Request approval over the WebSocket, with peers for the requester and the approvers.
-
 func askApp(t *testing.T, wait time.Duration) *App {
 	t.Helper()
 	a := userApp(t, false)
@@ -23,8 +21,7 @@ func approver(t *testing.T, a *App, name, pin string) *wsPeer {
 	return p
 }
 
-// cardsOn turns cards on and waits until the server has it: messages run in order, so any
-// later answer proves it.
+// Messages run in order, so any later answer proves that the server has it.
 func (p *wsPeer) cardsOn() {
 	p.t.Helper()
 	p.send(map[string]any{"t": "approvalCards", "on": true})
@@ -86,8 +83,6 @@ func asked(t *testing.T, r map[string]any) {
 	}
 }
 
-// The approver's card shows the change list, the requester and the browser. Approve with the
-// approver's PIN runs the frozen save with the original id. The Log records both steps.
 func TestRequestApprovalApproved(t *testing.T) {
 	a := askApp(t, time.Minute)
 	defer startLog(t, a)()
@@ -143,7 +138,6 @@ func waitRequestRows(t *testing.T, a *App, want ...string) {
 	t.Fatalf("Request approval rows %v, want %v", got, want)
 }
 
-// Deny needs no PIN. First answer wins: the other approver's card closes with the answer.
 func TestRequestApprovalDeniedFirstAnswerWins(t *testing.T) {
 	a := askApp(t, time.Minute)
 	defer startLog(t, a)()
@@ -167,7 +161,6 @@ func TestRequestApprovalDeniedFirstAnswerWins(t *testing.T) {
 	waitRequestRows(t, a, "sent", "denied")
 }
 
-// A wrong PIN leaves the request open; the right one then approves it.
 func TestRequestApprovalWrongPinKeepsIt(t *testing.T) {
 	a := askApp(t, time.Minute)
 	ada := approver(t, a, "Ada", "2468")
@@ -184,7 +177,6 @@ func TestRequestApprovalWrongPinKeepsIt(t *testing.T) {
 	wantSaved(t, ana.until("settingsSaveResult"), "confirmLockoutMs")
 }
 
-// With nobody answering, the request ends after the wait and the cards close.
 func TestRequestApprovalTimeout(t *testing.T) {
 	a := askApp(t, 150*time.Millisecond)
 	defer startLog(t, a)()
@@ -198,7 +190,6 @@ func TestRequestApprovalTimeout(t *testing.T) {
 	waitRequestRows(t, a, "sent", "timeout")
 }
 
-// Every qualified browser leaving does not end the request: it waits out its time.
 func TestRequestApprovalWaitsWhenApproversLeave(t *testing.T) {
 	a := askApp(t, 300*time.Millisecond)
 	ada := approver(t, a, "Ada", "2468")
@@ -213,7 +204,6 @@ func TestRequestApprovalWaitsWhenApproversLeave(t *testing.T) {
 	wantEnd(t, ana.until("approvalEnded"), "timeout", "")
 }
 
-// Cancel, a page close and a sign-in change each cancel; the cards close with "cancelled".
 func TestRequestApprovalCancelled(t *testing.T) {
 	for _, how := range []string{"cancel", "close", "signOut", "stepIn"} {
 		t.Run(how, func(t *testing.T) {
@@ -243,7 +233,6 @@ func TestRequestApprovalCancelled(t *testing.T) {
 	}
 }
 
-// The requester's Lock keeps the request, and an approval still saves.
 func TestRequestApprovalSurvivesRequesterLock(t *testing.T) {
 	a := askApp(t, time.Minute)
 	ada := approver(t, a, "Ada", "2468")
@@ -264,8 +253,6 @@ func TestRequestApprovalSurvivesRequesterLock(t *testing.T) {
 	}
 }
 
-// Cards go only to browsers that could approve: a user with a PIN and a high enough Role, the Lock dismissed, cards on. A
-// late browser gets the time left.
 func TestRequestApprovalCardsReachOnlyQualified(t *testing.T) {
 	a := askApp(t, time.Minute)
 	bo := approver(t, a, "Bo", "567890") // Trusted is below the Administrator field
@@ -293,13 +280,10 @@ func TestRequestApprovalCardsReachOnlyQualified(t *testing.T) {
 			t.Fatalf("%s got a card: %v", name, m)
 		}
 	}
-	// Dismissing the Lock brings the card.
 	locked.send(map[string]any{"t": "userSignIn", "user": "Ada", "pin": "2468", "id": 1})
 	locked.until("approvalCard")
 }
 
-// approvers says live whether another browser could approve, so the page can disable Request
-// approval; with none, a request is refused.
 func TestRequestApprovalNeedsSomeoneSignedIn(t *testing.T) {
 	a := askApp(t, time.Minute)
 	ana := dialPeer(t, a)
@@ -316,7 +300,6 @@ func TestRequestApprovalNeedsSomeoneSignedIn(t *testing.T) {
 	}
 }
 
-// One pending request per browser; something that needs no Approval is refused.
 func TestRequestApprovalOnePerBrowser(t *testing.T) {
 	a := askApp(t, time.Minute)
 	approver(t, a, "Ada", "2468")
@@ -336,7 +319,6 @@ func TestRequestApprovalOnePerBrowser(t *testing.T) {
 	}
 }
 
-// The card lists only fields the requester's Role can see; a Hidden one is refused when it runs.
 func TestRequestApprovalCardLeavesOutHiddenFields(t *testing.T) {
 	a := askApp(t, time.Minute)
 	setFlags(t, a, "Bo", true, false)
@@ -350,7 +332,6 @@ func TestRequestApprovalCardLeavesOutHiddenFields(t *testing.T) {
 	}
 }
 
-// Clear History through Request approval: the Administrator's Approval counts as the PIN recheck.
 func TestRequestApprovalClearHistory(t *testing.T) {
 	a := askApp(t, time.Minute)
 	ada := approver(t, a, "Ada", "2468")

@@ -12,9 +12,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Secure mode on the panel page: a setup link opens the panel one time. The page keeps its own key and
-// drops the token from the address. A reload still works and the link does not. Rotating the key
-// from elsewhere ends the open page, which says so.
 func TestChromePanelSetupLink(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -58,9 +55,6 @@ func TestChromePanelSetupLink(t *testing.T) {
 	// No b.check(): the 401 that ended the page is a console line by design.
 }
 
-// The Link with key tab of the Share modal: Ana (Trusted) makes a link that stays masked until
-// shown and rotates it behind a Confirm. Then she revokes it with the letter key and limits the networks.
-// The server is asked each time, since only it knows whether a key is alive.
 func TestChromeShareModalKeyTab(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -119,7 +113,6 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 		return keyPrefix + strings.TrimPrefix(link[strings.Index(link, "#key="):], "#key=")
 	}
 	status := func(secret string) int { return apiSend(a, "GET", "/api/v1/tally", secret, "").Code }
-	// A make that gives a key shows it in its own dialog, whole with its prefix; Done removes the dialog and the key.
 	shownKey := func() string {
 		b.waitFor("the key dialog", `document.querySelector('.sode-ov__keyshow .sode__secret-key')?.value.startsWith('`+keyPrefix+`') && !!document.querySelector('.sode-ov__keyshow .sode__qr')`)
 		k, _ := b.eval(`document.querySelector('.sode-ov__keyshow .sode__secret-key').value`).(string)
@@ -128,7 +121,6 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 		return k
 	}
 
-	// A session panel opens on People, and its Link with key tab is greyed but readable, with no key action.
 	openTab(session)
 	b.waitFor("People is the first tab of a session panel", `document.querySelector('.sode-ov__share #tab-people').getAttribute('aria-selected') === 'true'`)
 	b.waitFor("the key tab is greyed", `document.querySelector('.sode-ov__share #tab-key').getAttribute('aria-disabled') === 'true'`)
@@ -137,7 +129,6 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	b.waitFor("no key action is offered", `!document.querySelector('.sode-ov__share #panel-key button') || ![...document.querySelectorAll('.sode-ov__share #panel-key button')].some(x => /Make|Rotate|Revoke/.test(x.textContent))`)
 	closeModal()
 
-	// An API panel opens on Link with key. A link needs a name.
 	openTab(id)
 	b.waitFor("Link with key is the first tab of a client panel", `document.querySelector('.sode-ov__share #tab-key').getAttribute('aria-selected') === 'true'`)
 	b.waitFor("no instances yet", tabText+`.includes('This panel has no instances.')`)
@@ -152,7 +143,6 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	if shown != lobby {
 		t.Fatal("the key dialog does not show the key in the link")
 	}
-	// The Kiosk switch puts kiosk=1 after the key, keeps ?instance=, and Copy link copies that link.
 	b.eval(`window.__copied = ''; navigator.clipboard.writeText = async (t) => { window.__copied = t; }`)
 	b.eval(`document.getElementById('key-view-kiosk').click()`)
 	click("Copy link")
@@ -164,7 +154,6 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	}
 	b.waitFor("the list names the instance", `!!document.querySelector('.sode-ov__keyitem') && document.querySelector('.sode-ov__keyitem').textContent.includes('Lobby') && document.querySelector('.sode-ov__keyitem').textContent.includes('Offline')`)
 
-	// A second instance has its own key, and rotating or revoking one leaves the other.
 	setName("Studio")
 	click("Make link")
 	shownKey()
@@ -187,7 +176,6 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 		t.Fatalf("rotate Lobby: Lobby %d, Studio %d", status(lobby), status(studio))
 	}
 
-	// Cancel on the shared Confirm (confirmbox.js) leaves the key alone.
 	b.eval(`document.querySelector('.sode-ov__share [aria-label="Revoke Studio"]').click()`)
 	b.waitFor("Confirm shown", `!!document.querySelector('.sode-ov__keyconfirm:not([hidden]) kbd')`)
 	b.eval(`[...document.querySelectorAll('.sode-ov__keyconfirm button')].find(x => x.textContent === 'Cancel').click()`)
@@ -214,9 +202,6 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	b.check()
 }
 
-// A plain key link: after the key works, the page keeps it in the browser and the address loses it. The address
-// keeps ?instance= and the rest of the fragment. A reload runs on the kept key, a rotate ends it, and with storage
-// blocked the key stays in the address.
 func TestChromePanelLinkKeyLeavesAddress(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

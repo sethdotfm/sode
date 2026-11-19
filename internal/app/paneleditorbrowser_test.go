@@ -12,8 +12,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Find in the panel editor: typing opens it, and the preview shows in the grid before anything changes. A click
-// on one square fills it and moves on. Read-only Rights grey a result and refuse it.
 func TestChromeEditorFind(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -56,7 +54,6 @@ func TestChromeEditorFind(t *testing.T) {
 	b.waitFor("lock gone", `!document.documentElement.dataset.sodeLock`)
 	b.waitFor("panel loaded", `document.getElementById('ed-name').value === 'Find panel'`)
 	b.waitFor("Find in the menu", `(document.querySelector('.is-sel') || press(grid, { key: 'ArrowDown' }), !!document.querySelector('.sode-find'))`)
-	// Two squares selected, then typing opens Find with that letter.
 	b.eval(`press(grid, { key: 'ArrowRight', shiftKey: true }); press(grid, { key: 'z' })`)
 	b.waitFor("Find open with the typed letter", `box() === document.activeElement && box().value === 'z'`)
 	b.eval(`find('zoom')`)
@@ -66,7 +63,6 @@ func TestChromeEditorFind(t *testing.T) {
 	b.eval(`press(box(), { key: 'Enter' })`)
 	b.waitFor("two Sources placed as previewed", `[...document.querySelectorAll('.sode-ed__sq--source .sode-ed__text')].map((n) => n.textContent).join() === 'Zoom 1,Zoom 2' && !document.querySelector('.is-preview')`)
 
-	// One square: a click fills it, the selection moves on and the next result is highlighted.
 	b.eval(`press(grid, { key: 'Escape' }); press(grid, { key: 'ArrowDown' }); press(grid, { key: 'ArrowDown' }); press(grid, { key: 'Enter' })`)
 	b.waitFor("Find open on the second row", `box() === document.activeElement && !!document.querySelector('.is-sel[data-r="2"][data-c="1"]')`)
 	b.eval(`find('zoom'); press(box(), { key: 'j', code: 'KeyJ', ctrlKey: true })`)
@@ -78,7 +74,6 @@ func TestChromeEditorFind(t *testing.T) {
 	b.eval(`document.querySelector('.sode-find__row.is-hi').click()`)
 	b.waitFor("the next square filled", `document.querySelector('.sode-ed__sq[data-r="2"][data-c="2"]')?.textContent.includes('Zoom 2')`)
 
-	// Read-only Rights: outside ones are greyed and marked, and choosing one places nothing.
 	b.eval(`find('cg1')`)
 	b.waitFor("greyed and marked", `document.querySelectorAll('.sode-find__row.sode__menu-off').length === 2 && [...document.querySelectorAll('.sode-find__row.sode__menu-off')].every((r) => r.textContent.includes('Outside rights'))`)
 	before := b.eval(`document.querySelectorAll('.sode-ed__sq.has-cell').length`)

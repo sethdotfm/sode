@@ -8,8 +8,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// life* helpers: an open stream follows its owner's rights, scopes and the API switches.
-
 func lifeCommit(t *testing.T, a *App, mut func(*config.Config)) {
 	t.Helper()
 	a.cfgMu.Lock()
@@ -101,8 +99,7 @@ func TestStreamSlowDropSaysWhy(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
 	s := lifeTally(t, a, "tally")
-	// The writer drains the queue without mu, so no fixed burst is sure to outrun it. Under -race
-	// it kept up with 5000. So the test sends bursts until the stream is dropped.
+	// The writer drains the queue without mu, so no fixed burst is sure to outrun it.
 	deadline := time.Now().Add(5 * time.Second * raceSlowdown)
 	for dropped := false; !dropped; {
 		if time.Now().After(deadline) {

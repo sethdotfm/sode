@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// ifNone reads path with If-None-Match set when tag is not empty. A 304 that carries a body gives -1.
+// -1 for a 304 that carries a body.
 func ifNone(a *App, path, key, tag string) (code int, etag string) {
 	var hdr map[string]string
 	if tag != "" {
@@ -35,8 +35,8 @@ func etagApp(t *testing.T) *App {
 
 const etagPanel = `{"name":"Wall","share":{"mode":"everyone"},"cells":[{"kind":"source","n":1}]}`
 
-// If-None-Match takes a list, a weak tag and *. A tag is over the caller's own body. So under narrower Rights, a
-// tag made under wider Rights gets the whole body, not 304.
+// If-None-Match accepts a list, a weak tag and *. A tag covers the caller's own body. So a tag made under wider
+// Rights gets the whole body under narrower Rights, not 304.
 func TestETagListWeakStarAndOtherRights(t *testing.T) {
 	a := etagApp(t)
 	ana := userKey(t, a, "Ana")
@@ -113,8 +113,7 @@ func TestPanelReadETagMovesWithRightsAndDefaultArtwork(t *testing.T) {
 	}
 }
 
-// An editor's read lists the instances with their uptime, which is measured to now. Only a change in what the
-// page shows moves the tag: time alone does not, a lost instance does.
+// An editor's read carries uptime measured to now. Time alone must not move the tag; a lost instance must.
 func TestPanelReadAnswers304ToAnEditorWhileTimePasses(t *testing.T) {
 	a, clk := monApp(t)
 	ana := userKey(t, a, "Ana")
@@ -156,9 +155,8 @@ func TestPanelReadCarriesTheConfirmSettings(t *testing.T) {
 	}
 }
 
-// The tally body is built once per change for every caller that is not hidden. A route, a level setting and a
-// router change each move the tag, and a hidden caller still gets its own filtered body.
-// The names read is built once per change for callers that are not hidden, so each input must move the tag.
+// Sode builds the names read one time per change for callers that are not hidden, so each thing in it must move the
+// tag.
 func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 	a := etagApp(t)
 	bot := botKey(t, a)

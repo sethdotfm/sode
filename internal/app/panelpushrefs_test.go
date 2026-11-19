@@ -32,8 +32,6 @@ func wantRef(t *testing.T, what string, c map[string]any, uid string, n int, nam
 	}
 }
 
-// Push checkpoints and Checkpoint sets hold {router, n, name}, also for a panel stored with bare numbers. A restore
-// and a set push give back cells whose numbers fire the same route.
 func TestPushCheckpointsAndSetsStoreRouterReferences(t *testing.T) {
 	a, f, bot := takerApp(t, nil)
 	uid := a.r().cfg.UID
@@ -67,7 +65,6 @@ func TestPushCheckpointsAndSetsStoreRouterReferences(t *testing.T) {
 	wantRef(t, "checkpoint", cps[0].Layout.Pages[0].Cells[0], uid, 3, "CAM 3")
 	wantRef(t, "checkpoint", cps[0].Layout.Pages[0].Cells[1], uid, 2, "MON 2")
 
-	// The checkpoint file holds the same, as a fresh store reads it.
 	again := loadPanels(a.cfgPath)
 	again.by = map[string]Panel{to: got}
 	if c := again.cpsLocked(to); len(c) != 1 {

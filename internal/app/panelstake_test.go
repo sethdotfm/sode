@@ -7,9 +7,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A Session-mode panel takes through /api/v1/takes with the user's session key. The server,
-// not the page, enforces Rights and Protected, and History names the user as the actor.
-
 func sessionTaker(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter, string) {
 	t.Helper()
 	a, f := apiTestApp(t, mut)

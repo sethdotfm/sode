@@ -375,7 +375,7 @@ func TestBrokenWithSimulator(t *testing.T) {
 		defer a.mu.Unlock()
 		return a.router.lastPoll
 	}
-	// poll reads the names once and waits until the Broken check has counted the read and run.
+	// poll reads the names one time and waits until the Broken check has counted the read and run.
 	poll := func() {
 		t.Helper()
 		was := lastPoll()
@@ -471,7 +471,7 @@ func TestImportBrokenSurvivesASave(t *testing.T) {
 	}
 }
 
-// A Broken exact term carries the name that took its place, so Replace term in the filter editor can offer it.
+// A Broken exact term carries the name that replaced it, so Replace term in the filter editor can offer it.
 func TestBrokenFilterTermNamesTheNewName(t *testing.T) {
 	a := brokenApp(t)
 	a.cfgMu.Lock()

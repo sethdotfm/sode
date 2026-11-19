@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// clock is a settable time source.
 type clock struct{ t time.Time }
 
 func (c *clock) now() time.Time      { return c.t }

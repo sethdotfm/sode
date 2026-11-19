@@ -20,7 +20,6 @@ func fixedOf(p map[string]any) any {
 	return wireNs(s["fixedDests"])
 }
 
-// The list is stored as {router, n, name} references; a read gives them back.
 func TestFixedDestsStoredAsReferences(t *testing.T) {
 	a := panelsApp(t)
 	uid := a.r().cfg.UID
@@ -39,7 +38,6 @@ func TestFixedDestsStoredAsReferences(t *testing.T) {
 	if first := got[0].(map[string]any); first["router"] != uid || first["n"] != 2.0 || first["name"] != "MON 2" {
 		t.Fatalf("read %v", got)
 	}
-	// A page sends the list back as it read it; the names stay.
 	rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Wall","settings":{"fixedDests":[{"router":"`+uid+`","n":2,"name":"MON 2"},{"n":40}]}}`)
 	if rec.Code != 200 || fmt.Sprint(fixedOf(readPanel(t, a, ana, id))) != "[2 40]" {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -65,7 +63,6 @@ func TestFixedDestsSaveAndRead(t *testing.T) {
 	}
 }
 
-// A panel file written before Fixed destination has no fixedDests; it loads as it was and the file is not touched.
 func TestFixedDestsOldPanelFileLoadsUnchanged(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "panels"), 0o755); err != nil {

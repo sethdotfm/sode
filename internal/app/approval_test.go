@@ -7,7 +7,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// saveApproved is saveFields with an Approval by name and PIN.
 func (p *wsPeer) saveApproved(id int, set map[string]any, name, pin string) map[string]any {
 	p.t.Helper()
 	vers, _ := p.hello["versions"].(map[string]any)
@@ -26,8 +25,6 @@ func approvalRefused(t *testing.T, what string, r map[string]any, says string) {
 	}
 }
 
-// A Standard user saves a Shown section field with an Administrator's Approval. The Approval
-// covers that one save: the next one is under the Standard user's own Role again.
 func TestApprovalCoversOneSave(t *testing.T) {
 	a := userApp(t, false)
 	defer startLog(t, a)()
@@ -48,7 +45,6 @@ func TestApprovalCoversOneSave(t *testing.T) {
 	wantRefused(t, p.saveFields(3, map[string]any{"confirmLockoutMs": 700}), "confirmLockoutMs", "needs Approval")
 }
 
-// The approver needs the Role the field needs; a Trusted user cannot approve an Administrator field.
 func TestApprovalNeedsApproverRole(t *testing.T) {
 	a := userApp(t, false)
 	setFlags(t, a, "Bo", true, false)
@@ -58,11 +54,10 @@ func TestApprovalNeedsApproverRole(t *testing.T) {
 	if a.r().cfg.ConfirmLockoutMs == 900 {
 		t.Fatal("a refused Approval saved the field")
 	}
-	// A Trusted user can approve a Trusted section.
 	wantSaved(t, p.saveApproved(2, map[string]any{"brandText": "Studio B"}, "Bo", "567890"), "brandText")
 }
 
-// Hidden sections need an Administrator signed in on that browser, so an Approval never opens them.
+// A Hidden section needs an Administrator signed in on that browser.
 func TestApprovalLeavesHiddenSectionsRefused(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
@@ -72,7 +67,6 @@ func TestApprovalLeavesHiddenSectionsRefused(t *testing.T) {
 	wantSaved(t, r, "brandText")
 }
 
-// A wrong Approval PIN counts toward the approver name's wait; a user without a PIN never approves.
 func TestApprovalPinCountsTowardApproverWait(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
@@ -112,7 +106,6 @@ func TestApprovalNeedsApproverWithPin(t *testing.T) {
 	approvalRefused(t, "approver without a PIN", p.saveApproved(1, map[string]any{"brandText": "X"}, "Bo", ""), "no PIN")
 }
 
-// An Approval needs the Lock dismissed.
 func TestApprovalRefusedUnderLock(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
@@ -131,7 +124,6 @@ func TestApprovalRefusedUnderLock(t *testing.T) {
 	}
 }
 
-// An Administrator's Approval of a Critical action counts as their PIN recheck for it.
 func TestAdministratorApprovalCountsAsRecheck(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
@@ -147,7 +139,7 @@ func TestAdministratorApprovalCountsAsRecheck(t *testing.T) {
 	p.until("historyCleared")
 }
 
-// Takes use the browser's own sign-in, so an Approval on a take is refused.
+// A take uses the browser's own sign-in.
 func TestApprovalNotForTakes(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)

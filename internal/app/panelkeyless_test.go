@@ -13,9 +13,6 @@ import (
 	"time"
 )
 
-// Keyless instances: a panel page with no working key announces itself, is listed for Assign and gets nothing until one.
-
-// keylessHold opens the announcement with no key and hands back every line after the first.
 func keylessHold(t *testing.T, a *App, seg, query string) (<-chan map[string]any, context.CancelFunc) {
 	t.Helper()
 	srv := strmServer(t, a)
@@ -56,7 +53,6 @@ func keylessRows(t *testing.T, a *App, id, key string) []map[string]any {
 	return rows
 }
 
-// keylessRow waits for the panel to list one keyless row named device.
 func keylessRow(t *testing.T, a *App, id, key, device string) map[string]any {
 	t.Helper()
 	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
@@ -104,7 +100,7 @@ func TestKeylessRowsAreNeverStoredFromASavedRead(t *testing.T) {
 		t.Errorf("a non-editor read keyless rows")
 	}
 
-	// A file saved before the fix still holds them; loading drops them and keeps fields from a newer Sode.
+	// An old file can hold them. The load drops them and keeps the fields from a newer Sode.
 	path := filepath.Join(filepath.Dir(a.cfgPath), panelsDir, id+".yaml")
 	raw, _ := os.ReadFile(path)
 	raw = append(raw, "keyless:\n  - addr: 10.0.0.9\nrights: {}\nfuture: 7\n"...)
@@ -117,7 +113,7 @@ func TestKeylessRowsAreNeverStoredFromASavedRead(t *testing.T) {
 	}
 }
 
-// A checkpoint or set saved before the fix carries keyless in its extra; a Push or restore of it stores none.
+// An old checkpoint or set can carry keyless in its extra; a Push or restore of it stores none.
 func TestKeylessRowsInAnOldLayoutAreNotStored(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
@@ -168,7 +164,6 @@ func TestKeylessNameFallsBackToTheAddressThenItsLastName(t *testing.T) {
 	id := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
 	keylessHold(t, a, id, "")
 	keylessRow(t, a, id, cy, "127.0.0.1")
-	// A stream from the same address that carried a name: the nameless page is shown under it.
 	monHold(t, a, id, instanceKey(t, a, id, cy, "Hall"), "Hall")
 	keylessRow(t, a, id, cy, "Hall")
 }
@@ -223,7 +218,6 @@ func TestKeylessPageGetsAKeyOnlyByAnAssign(t *testing.T) {
 	r := keylessRow(t, a, from, cy, "Lobby")
 	silent(t, lines)
 
-	// A user who is not Trusted, with no PIN, sends nothing.
 	if code, _ := keylessAssign(a, to, userKey(t, a, "Ana"), r["keyless"].(string), ""); code != 403 {
 		t.Fatalf("an untrusted Assign: %d", code)
 	}

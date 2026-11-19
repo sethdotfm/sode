@@ -7,8 +7,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// scrambled is a config in which every field an Access preset writes differs from every
-// preset's value, so applying any preset changes each of them.
+// Every field a preset writes differs from every preset's value, so any preset changes each of them.
 func scrambled() config.Config {
 	c := config.Defaults()
 	c.Users = []config.User{{ID: "ada", Name: "Ada", Role: config.RoleAdministrator}}
@@ -20,7 +19,6 @@ func scrambled() config.Config {
 	return c
 }
 
-// Each Config field that a preset writes is Critical alone, and each preset entry on the Critical list is a preset field.
 func TestPresetFieldsAreCritical(t *testing.T) {
 	cfgType := reflect.TypeFor[config.Config]()
 	fired := map[string]bool{}
@@ -60,8 +58,7 @@ func TestPresetFieldsAreCritical(t *testing.T) {
 	}
 }
 
-// Run setup again draws the Access step from usersList, so each preset there carries the setup
-// sheet's rows too.
+// Run setup again draws the Access step from usersList.
 func TestAccessPresetViewsCarryTheSetupRows(t *testing.T) {
 	for i, v := range accessPresetViews() {
 		if want := setupRows(config.AccessPresets[i].Values); !reflect.DeepEqual(v.Rows, want) {

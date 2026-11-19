@@ -172,7 +172,6 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 	ada, _ := a.r().cfg.FindUserByName("Ada")
 	adaRow := map[string]any{"id": ada.ID, "name": "Ada", "role": config.RoleAdministrator}
 
-	// The Settings form
 	saveForm := func(edit func(*config.Config)) map[string]any {
 		cfg := a.r().cfg.Clone()
 		edit(&cfg)
@@ -185,11 +184,9 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 	needsRecheck(t, "Wait after wrong PINs", saveForm(func(c *config.Config) { c.PinWaits = !c.PinWaits }))
 	needsRecheck(t, "Guest role", saveForm(func(c *config.Config) { c.GuestRole = config.RoleTrusted }))
 
-	// API settings
 	passed(t, "rate limit", p.askAPI(a, 1, map[string]any{"rateLimit": 7}))
 	needsRecheck(t, "keyless API", p.askAPI(a, 2, map[string]any{"guestEnabled": !a.r().cfg.API.GuestEnabled}))
 
-	// Manage users
 	addBob := map[string]any{"users": []any{adaRow, map[string]any{"name": "Bob", "pin": "1357"}}}
 	passed(t, "longest PIN", p.askUsers(a, 3, map[string]any{"users": []any{adaRow}, "maxPinLen": 9}))
 	needsRecheck(t, "add a user", p.askUsers(a, 4, addBob))
@@ -203,7 +200,6 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 	}
 }
 
-// The users save: each user field on the Critical list, and one that is not.
 func TestUsersSaveCriticalFields(t *testing.T) {
 	bobPin, _ := config.HashPin("1357")
 	a := newTestApp(t, withAdministrator, func(c *config.Config) {

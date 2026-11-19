@@ -16,7 +16,7 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// startLog runs the sent log writer; the returned func stops it and waits.
+// startLog runs the Communication Log writer. The returned func stops it and waits.
 func startLog(t *testing.T, a *App) (stop func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -32,7 +32,7 @@ func startLog(t *testing.T, a *App) (stop func()) {
 	}
 }
 
-// logged is the sent log, oldest first.
+// logged is the Communication Log, oldest first.
 func logged(t *testing.T, a *App) []Sent {
 	t.Helper()
 	page, _, err := a.sent.Page(-1, 500)
@@ -45,7 +45,6 @@ func logged(t *testing.T, a *App) []Sent {
 	return page
 }
 
-// waitLogged waits for at least n rows.
 func waitLogged(t *testing.T, a *App, n int) []Sent {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -69,8 +68,8 @@ func results(rows []Sent, kind string) string {
 	return strings.Join(out, ",")
 }
 
-// The retry cycle while the router is down is one row, and the router
-// being changed starts over so the next up is logged.
+// The retry cycle while the router is down is one row. A router change starts the cycle again, so Sode logs the next
+// up.
 func TestLinkLoggedOncePerOutage(t *testing.T) {
 	a := newTestApp(t)
 	stop := startLog(t, a)
@@ -155,7 +154,7 @@ func TestShutdownWritesStopAndOff(t *testing.T) {
 	}
 }
 
-// A failed write to the sent log still counts for the graph.
+// A failed write to the Communication Log still counts for the graph.
 func TestUptimeCountsEvenIfNotSaved(t *testing.T) {
 	a := newTestApp(t)
 	stop := startLog(t, a)
