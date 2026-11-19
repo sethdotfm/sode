@@ -947,6 +947,43 @@ html[data-alt] .sode__chip-key {
 .sode__xi-pin {
   width: 8rem;
 }
+/* Import remap rows (importremap.js) */
+.sode__xi-router {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-3);
+  margin-bottom: var(--pb-space-2);
+}
+.sode__xi-names {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  margin-bottom: var(--pb-space-3);
+}
+.sode__xi-name {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--pb-space-1) 0;
+}
+.sode__xi-pick {
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode__xi-router > .pb-select-wrap,
+.sode__xi-pick > .pb-select-wrap {
+  width: auto;
+}
+.sode__xi-pick .pb-select {
+  max-width: 16rem;
+}
+.sode__xi-other {
+  width: 12rem;
+}
+.sode__xi-moved {
+  margin: var(--pb-space-1) 0;
+}
 .sode__scrim > .sode__rv {
   width: 56rem;
 }
