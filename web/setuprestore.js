@@ -98,9 +98,16 @@ function askPin(file, text) {
   });
   back.addEventListener('click', () => hooks.back());
   for (const i of [pin, pin2]) {
-    i.addEventListener('input', check);
+    i.addEventListener('input', () => {
+      check();
+      if (!busy) say(problem());
+    });
     i.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !go.disabled) go.click();
+      if (e.key !== 'Enter') return;
+      // #setup-body would also press the hidden Next.
+      e.preventDefault();
+      e.stopPropagation();
+      if (!go.disabled) go.click();
     });
   }
   $('setup-title').textContent = 'Restore from a backup';

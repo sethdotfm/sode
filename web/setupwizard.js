@@ -350,6 +350,7 @@ $('setup-body').addEventListener('input', (e) => {
   }
   if (t.type === 'radio' || k === 'levels') render(t.type === 'radio' ? null : t.id);
   else check();
+  if (!finishing) $('setup-err').textContent = stepProblem(d, at, max());
 });
 
 $('setup-body').addEventListener('click', (e) => {
