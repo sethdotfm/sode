@@ -884,6 +884,7 @@ html {
 }
 /* Solid, unlike a result: it stays until SODE_CONFIG is set (look from prototype/setup-wizard). */
 .sode__notsaved {
+  align-self: stretch;
   background: var(--pb-status-warn-fill);
   border: 0;
   color: color-mix(in srgb, var(--pb-status-warn-fill) 12%, black);
