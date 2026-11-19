@@ -347,6 +347,62 @@ func (s *panelSetStore) replace(set PanelSet) error {
 	return s.putLocked(set)
 }
 
+// put stores an imported set: over the one of its id, else as a new one that keeps a free id.
+func (s *panelSetStore) put(set PanelSet) (PanelSet, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old, had := s.by[set.ID]
+	if !had {
+		if len(s.by) >= panelSetMax {
+			return set, errSetCap
+		}
+		if set.ID == "" {
+			set.ID = s.newIDLocked()
+		}
+	}
+	if err := s.putLocked(set); err != nil {
+		return set, err
+	}
+	// A set that changed scope or owner leaves the file it was in.
+	if had && setFileName(old) != setFileName(set) {
+		return set, s.persistLocked(old)
+	}
+	return set, nil
+}
+
+// putCheckpoints adds imported checkpoints to panel id's, by id, keeping the newest panelCheckpointMax.
+func (s *panelStore) putCheckpoints(id string, add []panelCheckpoint) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.by[id]; !ok {
+		return errNoPanel
+	}
+	cps := slices.Clone(s.cpsLocked(id))
+	for _, cp := range add {
+		if !slices.ContainsFunc(cps, func(x panelCheckpoint) bool { return x.ID == cp.ID }) {
+			cps = append(cps, cp)
+		}
+	}
+	slices.SortStableFunc(cps, func(a, b panelCheckpoint) int { return a.At.Compare(b.At) })
+	if len(cps) > panelCheckpointMax {
+		cps = cps[len(cps)-panelCheckpointMax:]
+	}
+	if s.dir != "" {
+		b, err := yaml.Marshal(cps)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(s.dir, 0o700); err != nil {
+			return err
+		}
+		if err := config.AtomicWrite(s.cpPath(id), b); err != nil {
+			return err
+		}
+	}
+	s.cps[id] = cps
+	return nil
+}
+
 func (s *panelSetStore) delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

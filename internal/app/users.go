@@ -55,8 +55,14 @@ type connUser struct {
 	rights string
 	// offline: last panelsOffline message sent (under mu); "" = none.
 	offline string
+	// inbox: an inbox message went out (under mu), so losing the user sends an empty one.
+	inbox   bool
 	recheck recheck // under mu (recheck.go)
 	step    *stepIn // under mu; nil when not stepped in (stepin.go)
+	// cards: this page shows Approval cards (approvalCards); approvers: the last approvers
+	// message sent. Both under mu (approvalrequest.go).
+	cards     bool
+	approvers string
 }
 
 // userID is the signed-in user's id, or "".
@@ -208,6 +214,8 @@ func (a *App) pushAccessMu(c *client, hi bool) {
 	a.pushProfileMu(c) // only to the user it belongs to
 	a.pushRightsMu(c)
 	a.pushPanelsOfflineMu(c)
+	a.cardsSyncMu()
+	a.pushInboxMu(c, nil)
 }
 
 func (a *App) syncAccess(c *client) {
@@ -406,6 +414,7 @@ func (a *App) panelsFollowUsers(before, after []config.User) {
 		return
 	}
 	a.mon.dropUsers(removedIDs)
+	a.inboxFollowUsers(removedIDs)
 	n, err := a.panels.followUsers(renames, removedNames)
 	if err != nil {
 		log.Printf("panels: user change reached %d panels, then: %v", n, err)

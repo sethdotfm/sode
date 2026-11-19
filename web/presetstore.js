@@ -26,6 +26,8 @@ export const normPreset = (s, read = itemNums) => ({
   id: typeof s?.id === 'string' ? s.id.trim() : '',
   name: String(s?.name ?? '').trim(),
   items: [].concat(s?.items ?? []).map(read),
+  // The server's Broken marks ride along, so a fire leaves those parts out (presetPlan). Never sent back.
+  ...(Array.isArray(s?.broken) && s.broken.length ? { broken: s.broken } : {}),
 });
 // A stored preset (server, profile, This browser, a file): a bare number is no reference.
 export const storedPreset = (s) => normPreset(s, storedItemNums);

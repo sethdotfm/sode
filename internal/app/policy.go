@@ -93,7 +93,13 @@ var policy = map[string]rule{
 	// Step in and Step out (stepin.go): in line, like userSignIn.
 	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveStepIn(c, m) }},
 	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.StepOut(c) }},
-	"history": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
+	// Request approval (approvalrequest.go). The handlers check who can ask, answer and see cards;
+	// the frozen action is checked again when it runs. Answer is in line, like pinRecheck.
+	"approvalAsk":    {crit: critNever, role: roleAnyone, op: "approvalAsk", handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAsk(c, m) }},
+	"approvalAnswer": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAnswer(c, m) }},
+	"approvalCancel": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.serveApprovalCancel(c) }},
+	"approvalCards":  {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalCards(c, m) }},
+	"history":        {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
 
 	// The setup wizard (setup.go). Finish is a write: shutdown waits for it.
 	"setupClaim":  {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupClaim(c, m) }},
@@ -185,6 +191,14 @@ var policy = map[string]rule{
 	"keyCreateFor": {crit: critNever, role: config.RoleAdministrator, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg) { a.serveKeyCreateFor(c, m) }},
 	"keyRevokeAny": {crit: critNever, role: config.RoleAdministrator, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAny(c, m) }},
 	"keyRevokeAll": {crit: critAlways, role: config.RoleAdministrator, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAll(c, m) }},
+	// Send a copy (inboxsend.go): any signed-in user, with or without a PIN, checked in the handler.
+	// Accepting writes only the user's own items, so it is never Critical.
+	"inboxList":     {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveInboxList(c, m) }},
+	"inboxSend":     {crit: critNever, role: roleAnyone, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxSend(c, m) }},
+	"inboxReview":   {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxReview(c, m) }},
+	"inboxAccept":   {crit: critNever, role: roleAnyone, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxAccept(c, m) }},
+	"inboxDecline":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxDecline(c, m) }},
+	"inboxWithdraw": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxWithdraw(c, m) }},
 	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
 }

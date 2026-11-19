@@ -110,6 +110,19 @@ test('popup search: all when empty, best name first when typed', async () => {
   assert.equal(m.rankPresets(l, 'mng')[0].name, 'Morning show');
 });
 
+test('a Broken part is left out though its number is still shown', async () => {
+  const m = await setup();
+  const s = { ...sv('Studio'), broken: [{ kind: 'source', ref: { router: 'r', n: 0, name: 'Cam 1' } }] };
+  s.items.push({ src: 1, dsts: [2], levels: [] });
+  const plan = m.presetPlan(m.normPreset(s), [1]);
+  assert.deepEqual(
+    plan.items.map((it) => [it.groups[0].src.n, it.dst.n]),
+    [[1, 2]],
+  );
+  assert.equal(plan.warnings.length, 1);
+  assert.equal(m.presetPlan(m.normPreset(sv('Studio')), [1]).items.length, 1);
+});
+
 test('preset trigger: plan carries the name, history shows it, search finds it', async () => {
   const m = await setup();
   const plan = m.presetPlan(m.normPreset(sv('Morning')), [1]);
