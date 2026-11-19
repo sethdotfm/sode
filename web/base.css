@@ -623,6 +623,12 @@ html {
 .sode__review-was {
   color: var(--pb-text-muted);
 }
+.sode__review-backup {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
 .sode__settings > .sode__topic:first-of-type {
   margin-top: 0;
 }
