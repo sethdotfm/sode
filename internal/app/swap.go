@@ -424,15 +424,38 @@ func swapSpec() fieldSpec {
 		}}
 }
 
-// swapPanelsAfter writes the panels of a saved Swap and returns the Settings saves field with every count.
-func (a *App) swapPanelsAfter(x *saveCtx, edits map[string]fieldEdit, now config.Config) SavedField {
-	req, _ := decodeJSON[swapReq](edits[swapKey].Value)
-	n := maps.Clone(x.swapped)
-	if n == nil {
-		n = swapCounts{}
+// swapCtx: the save context of edits, with the swapper when edits hold a Swap.
+func (a *App) swapCtx(live config.Config, edits map[string]fieldEdit) (*saveCtx, error) {
+	x := &saveCtx{}
+	e, ok := edits[swapKey]
+	if !ok {
+		return x, nil
 	}
-	if err := x.swap.panels(a.panels, now, "", pickOf(req.Items), n.add); err != nil {
-		log.Printf("swap: panels not all written: %v", err)
+	req, err := decodeJSON[swapReq](e.Value)
+	if err == nil {
+		x.swap, err = a.newSwapper(live, req)
+	}
+	return x, err
+}
+
+// swapPanelsField returns the Settings saves field of a Swap that config already ran on, with the panel counts.
+// write false only counts, for a Request approval card.
+func (a *App) swapPanelsField(x *saveCtx, edits map[string]fieldEdit, now config.Config, write bool) SavedField {
+	req, _ := decodeJSON[swapReq](edits[swapKey].Value)
+	pick := pickOf(req.Items)
+	n := swapCounts{}
+	maps.Copy(n, x.swapped)
+	if write {
+		if err := x.swap.panels(a.panels, now, "", pick, n.add); err != nil {
+			log.Printf("swap: panels not all written: %v", err)
+		}
+		return x.swap.field(n)
+	}
+	for _, p := range a.panels.list() {
+		if pick("panel/"+p.ID) && x.swap.panel(&p) {
+			u, _ := now.FindUserByID(p.Owner)
+			n.add(swapItem{Owner: u.Name})
+		}
 	}
 	return x.swap.field(n)
 }

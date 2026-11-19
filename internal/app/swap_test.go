@@ -59,6 +59,20 @@ func swapApp(t *testing.T) (*App, string) {
 	return a, uid
 }
 
+// A Request approval card shows the staged Swap with every count, panels too, and writes nothing.
+func TestSwapShowsOnApprovalCard(t *testing.T) {
+	a, _ := swapApp(t)
+	req, _ := json.Marshal(swapReq{Side: config.MissingDestination, From: 22, To: 39,
+		Items: []string{"preset/everyone/p1", "panel/" + panelNamed(t, a, "Ana desk").ID}})
+	ch, _ := a.askChanges(map[string]fieldEdit{swapKey: {Value: req}}, config.RoleAdministrator)
+	if len(ch) != 1 || ch[0].Key != swapKey || string(ch[0].New) != `{"Ana":1,"Everyone":1}` {
+		t.Fatalf("card changes: %+v", ch)
+	}
+	if dstCellN(panelNamed(t, a, "Ana desk")) != 22 {
+		t.Fatal("the card wrote the panel")
+	}
+}
+
 func swapItems(t *testing.T, r map[string]any) map[string]map[string]any {
 	t.Helper()
 	if r["ok"] != true {

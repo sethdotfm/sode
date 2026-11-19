@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
 	"time"
 
@@ -98,7 +99,8 @@ func (a *App) askChanges(fields map[string]fieldEdit, role string) ([]SavedField
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	live := a.r().cfg
-	next, x := live.Clone(), &saveCtx{}
+	next := live.Clone()
+	x, _ := a.swapCtx(live, fields)
 	var keys []string
 	for key, e := range fields {
 		if f, ok := lookupField(key); ok && fieldRefusal(role, f.section) != reasonRole && setField(&next, key, e.Value, x) == nil {
@@ -106,7 +108,11 @@ func (a *App) askChanges(fields map[string]fieldEdit, role string) ([]SavedField
 		}
 	}
 	next.Normalize()
-	return a.savedFields(live, next, keys, x), interruptionTexts(a.interruptions(live, next))
+	saved := a.savedFields(live, next, keys, x)
+	if slices.Contains(keys, swapKey) {
+		saved = append(saved, a.swapPanelsField(x, fields, next, false))
+	}
+	return saved, interruptionTexts(a.interruptions(live, next))
 }
 
 func (a *App) serveApprovalAsk(c *client, m *inMsg) {

@@ -283,7 +283,7 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 	}
 	saved := a.savedFields(live, now, keep, x)
 	if slices.Contains(keep, swapKey) {
-		saved = append(saved, a.swapPanelsAfter(x, edits, now))
+		saved = append(saved, a.swapPanelsField(x, edits, now, true))
 	}
 	a.recordSaveApproved(by, "save", saved, len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
 		presetOfSave(preset, keep))
@@ -328,19 +328,14 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 		actor = *ap
 		rechecked = rechecked || apRole == config.RoleAdministrator
 	}
-	plan := &savePlan{live: live, actor: actor, res: make(map[string]fieldResult, len(edits)), edits: edits, x: &saveCtx{}}
-	res, x, refuse := plan.res, plan.x, plan.refuse
-	if e, ok := edits[swapKey]; ok {
-		req, err := decodeJSON[swapReq](e.Value)
-		if err == nil {
-			x.swap, err = a.newSwapper(live, req)
-		}
-		if err != nil {
-			refuse(swapKey, reasonInvalid, err)
-			edits = maps.Clone(edits)
-			delete(edits, swapKey)
-			plan.edits = edits
-		}
+	x, swapErr := a.swapCtx(live, edits)
+	plan := &savePlan{live: live, actor: actor, res: make(map[string]fieldResult, len(edits)), edits: edits, x: x}
+	res, refuse := plan.res, plan.refuse
+	if swapErr != nil {
+		refuse(swapKey, reasonInvalid, swapErr)
+		edits = maps.Clone(edits)
+		delete(edits, swapKey)
+		plan.edits = edits
 	}
 	// First the checks that need no other field: section, unchanged, conflict.
 	var cands []string
