@@ -498,13 +498,26 @@
           <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
         </div>
       </div>
+      <div class="sode__field">
+        <label for="cfg-guest-role">Guest role</label>
+        <span class="pb-select-wrap"><select id="cfg-guest-role" class="pb-select" data-key="guestRole"><option value="standard">Standard user</option><option value="trusted">Trusted user</option></select></span>
+        <span class="sode__hint">The Role of a browser with nobody signed in. Guest Rights still limit what it routes.</span>
+      </div>
     </fieldset>
 
-    <!-- users.js. The dialog's edits save with the one Save (usersstage.js). -->
-    <fieldset class="sode__group" id="users-group" data-apart data-section="users" data-topic="access">
+    <!-- users.js: Manage users (usersstage.js) and New user defaults save with the one Save. -->
+    <fieldset class="sode__group" id="users-group" data-section="users" data-topic="access">
       <legend>Users</legend>
       <div class="sode__field">
         <button type="button" class="pb-btn pb-btn--outline" id="users-manage" data-find="users-manage" data-label="Manage users" aria-haspopup="dialog">Manage users</button>
+      </div>
+      <div class="sode__field" data-find="new-user-defaults" data-label="New user defaults">
+        <span class="sode__label" id="cfg-new-user-label">New user defaults</span>
+        <div role="group" aria-labelledby="cfg-new-user-label">
+          <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-new-persistent"><span class="pb-check__label">Never sign out</span></label>
+          <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-new-no-auto-lock"><span class="pb-check__label">No auto-lock</span></label>
+        </div>
+        <span class="sode__hint">What a new user starts with. Manage users can change it for each user.</span>
       </div>
       <div class="sode__field" id="users-people" role="group" aria-label="Profiles" hidden></div>
     </fieldset>

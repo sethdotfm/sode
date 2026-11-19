@@ -8,11 +8,11 @@ import { listedFields, splitKey, stageFields, stageLabel, stageShow } from './us
 // hooks: filled() is true when the dialog holds a list. state() is the dialog as stageFields reads it, or {error}.
 // refill() fills it again. pinSaved, userAdded and clientAdded update a row after its field saved.
 export function makeUsersSource(hooks) {
-  let list = { users: [], apiClients: [], guestRole: 'standard', guestRights: {}, maxPinLen: 8 };
+  let list = { users: [], apiClients: [], guestRights: {}, maxPinLen: 8 };
   let base = {};
   let vers = {};
 
-  const PLAIN = new Set(['maxPinLen', 'guestRole', 'guestRights']);
+  const PLAIN = new Set(['maxPinLen', 'guestRights']);
   const owns = (key) => PLAIN.has(key) || !!splitKey(key);
   const names = () => Object.fromEntries(list.users.map((u) => [u.id, u.name]));
   const now = () => {
@@ -29,7 +29,6 @@ export function makeUsersSource(hooks) {
     list = {
       users: (m.users || []).map((u) => ({ ...u })),
       apiClients: (m.apiClients || []).map((c) => ({ ...c })),
-      guestRole: m.guestRole === 'trusted' ? 'trusted' : 'standard',
       guestRights: m.guestRights || {},
       maxPinLen: S.cfg?.maxPinLen || 8,
     };

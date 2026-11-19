@@ -50,6 +50,8 @@ export const WHY_LABEL = {
   panelSetup: 'Panel instance set up',
   assign: 'Instance assigned',
   rename: 'Instance renamed',
+  reload: 'Panel page reloaded',
+  publicBack: 'Public panel page back',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server']);
 const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };

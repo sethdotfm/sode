@@ -5,13 +5,15 @@ import { readStr, writeStr } from './store.js';
 import { KEEPALIVE_MS, deviceFrom, keepaliveBody, streamPath, retryMs, renameTo } from './panelwatchrules.js';
 import { splitLines, assignOf, keylessPath, renameOf, renamedSearch } from './panelassignrules.js';
 import { instanceFrom } from './panellink.js';
+import { lineType } from './panelbackrules.js';
 
 export const DEVICE_KEY = 'sode-panel-device';
 
 // fetch with the Authorization header can stream where EventSource cannot. The server writes a line every 10 s,
-// and an Assign or a rename from the panels page as its last. Ends when gate.stop aborts it (a rename opens a new
-// hold under the new name). open(signal) answers the fetch.
-async function hold(open, gate, onAssign, onRename = () => {}) {
+// and an Assign, a rename or a reload from the panels page as its last. A keyless stream also hears public lines,
+// which leave it open. Ends when gate.stop aborts it (a rename opens a new hold under the new name). open(signal)
+// answers the fetch.
+async function hold(open, gate, onAssign, onRename = () => {}, onPublic = () => {}) {
   for (let tries = 0; !gate.ctl.signal.aborted; tries++) {
     try {
       const r = await open(gate.ctl.signal);
@@ -25,6 +27,13 @@ async function hold(open, gate, onAssign, onRename = () => {}) {
           for (const line of split.lines) {
             const msg = assignOf(line);
             if (msg) return onAssign(msg);
+            const t = lineType(line);
+            // Same address, same stored key and name; a Public page asks for a new key at open.
+            if (t === 'reload') return location.reload();
+            if (t === 'public') {
+              onPublic();
+              continue;
+            }
             const name = renameOf(line);
             if (name) return onRename(name);
           }
@@ -36,19 +45,35 @@ async function hold(open, gate, onAssign, onRename = () => {}) {
 }
 
 // A page with no working key (GLOSSARY.md, Keyless instance) holds the keyless announcement under the name it already
-// has, and never asks for one. No key rides it; ended says the page's key was ended. Returns { stop() }.
-export function announceKeyless(seg, ended, onAssign) {
+// has, and never asks for one. No key rides it; ended says the page's key was ended. A rename from the panels page
+// is kept in this browser and the announcement opens again under it. onPublic hears each public line. Returns { stop() }.
+export function announceKeyless(seg, ended, onAssign, onPublic = () => {}) {
   const gate = { ctl: new AbortController() };
-  const device = deviceFrom(instanceFrom(location.search)) || deviceFrom(readStr(DEVICE_KEY));
-  hold(
-    (signal) => fetch(keylessPath(seg, device, ended), { signal, cache: 'no-store' }),
-    gate,
-    (msg) => {
-      gate.ctl.abort();
-      onAssign(msg);
-    },
-  );
+  let device = deviceFrom(instanceFrom(location.search)) || deviceFrom(readStr(DEVICE_KEY));
+  const open = () =>
+    hold(
+      (signal) => fetch(keylessPath(seg, device, ended), { signal, cache: 'no-store' }),
+      gate,
+      (msg) => {
+        gate.ctl.abort();
+        onAssign(msg);
+      },
+      (name) => {
+        device = keepName(name);
+        open();
+      },
+      onPublic,
+    );
+  open();
   return { stop: () => gate.ctl.abort() };
+}
+
+// A name from the panels page. A link's name lives in the address, so the address carries the new one for a reload;
+// any other name is stored. Its #key= is left alone, since one still there is one the browser could not store.
+function keepName(name) {
+  if (instanceFrom(location.search)) history.replaceState(null, '', `${location.pathname}${renamedSearch(location.search, name)}${location.hash}`);
+  else writeStr(DEVICE_KEY, name);
+  return name;
 }
 
 // call(path, init) is the page's keyed fetch; form holds the name input and its Save button. preset is the link's
@@ -90,14 +115,9 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}, o
     run();
     return true;
   };
-  // Renamed from the panels page. A link's name lives in the address, so the address carries the new one for a reload.
-  // Its #key= is left alone, since one still there is one the browser could not store.
   function renamed(name) {
-    if (preset) {
-      preset = name;
-      history.replaceState(null, '', `${location.pathname}${renamedSearch(location.search, name)}${location.hash}`);
-    } else writeStr(DEVICE_KEY, name);
-    device = name;
+    if (preset) preset = name;
+    device = keepName(name);
     run();
   }
   // The page's key ended: no more beats or holds.

@@ -1,0 +1,2 @@
+- Guest role moved from Manage users to Settings > Access > Locks, beside the page locks, auto-lock and Wait after wrong PINs. Settings > Access > Users has New user defaults (Never sign out, No auto-lock), which a new user starts with. A change to either needs a PIN recheck.
+- `SODE_ACCESS_PRESET` names an Access preset (`open`, `standard` or `secured`) for the setup wizard and env-only mode. An unknown name stops the first start.

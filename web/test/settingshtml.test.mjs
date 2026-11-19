@@ -72,14 +72,15 @@ test('the router block has a sub-heading and holds the per-router sections', () 
 
 test('the Locks section holds the page locks and auto-lock', () => {
   const g = group('Locks');
-  for (const id of ['cfg-lock-main', 'cfg-lock-log', 'cfg-lock-panel', 'cfg-auto-lock', 'cfg-pin-waits']) assert.match(g.body, new RegExp(`id="${id}"`));
+  for (const id of ['cfg-lock-main', 'cfg-lock-log', 'cfg-lock-panel', 'cfg-auto-lock', 'cfg-pin-waits', 'cfg-guest-role'])
+    assert.match(g.body, new RegExp(`id="${id}"`));
 });
 
-test('the Users section holds Manage users and the profile list, saved apart from the form', () => {
+test('the Users section holds Manage users, New user defaults (saved with the form) and the profile list', () => {
   const g = group('Users');
   assert.match(g.attrs, /id="users-group"/);
-  assert.match(g.attrs, /data-apart/);
-  for (const id of ['users-manage', 'users-people']) assert.match(g.body, new RegExp(`id="${id}"`));
+  assert.doesNotMatch(g.attrs, /data-apart/);
+  for (const id of ['users-manage', 'cfg-new-persistent', 'cfg-new-no-auto-lock', 'users-people']) assert.match(g.body, new RegExp(`id="${id}"`));
 });
 
 test('the API section holds its fields and no Save of its own: they save with the one Save', () => {

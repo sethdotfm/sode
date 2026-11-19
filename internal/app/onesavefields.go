@@ -55,9 +55,6 @@ func decodeJSON[T any](v json.RawMessage) (T, error) {
 
 // hiddenFields: saveFields keys with json:"-".
 var hiddenFields = map[string]fieldSpec{
-	"guestRole": {get: func(c config.Config) any { return c.GuestRole }, set: func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
-		return json.Unmarshal(v, &c.GuestRole)
-	}},
 	"guestRights": {get: func(c config.Config) any { return c.GuestRights }, set: func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
 		r, err := decodeJSON[config.Rights](v)
 		c.GuestRights = r.WithExtraOf(c.GuestRights)
@@ -229,11 +226,12 @@ func hashNewPin(x *saveCtx, key, pin string, maxLen int) (string, error) {
 
 // newUser: what an add key carries.
 type newUser struct {
-	Name       string         `json:"name"`
-	Pin        string         `json:"pin"`
-	Role       string         `json:"role"`
-	Persistent bool           `json:"persistent"`
-	NoAutoLock bool           `json:"noAutoLock"`
+	Name string `json:"name"`
+	Pin  string `json:"pin"`
+	Role string `json:"role"`
+	// Persistent and NoAutoLock: nil is the New user defaults.
+	Persistent *bool          `json:"persistent"`
+	NoAutoLock *bool          `json:"noAutoLock"`
 	Rights     *config.Rights `json:"rights"`
 }
 
@@ -246,7 +244,14 @@ func addUserSpec(key string) fieldSpec {
 				return err
 			}
 			id, _ := x.once(key, func() (string, error) { return config.NewUserID(), nil })
-			u := config.User{ID: id, Name: strings.TrimSpace(n.Name), Role: n.Role, Persistent: n.Persistent, NoAutoLock: n.NoAutoLock}
+			u := config.User{ID: id, Name: strings.TrimSpace(n.Name), Role: n.Role,
+				Persistent: c.NewUserDefaults.Persistent, NoAutoLock: c.NewUserDefaults.NoAutoLock}
+			if n.Persistent != nil {
+				u.Persistent = *n.Persistent
+			}
+			if n.NoAutoLock != nil {
+				u.NoAutoLock = *n.NoAutoLock
+			}
 			if err := userNameRefusal(u.Name); err != nil {
 				return err
 			}

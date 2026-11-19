@@ -20,8 +20,9 @@ func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 	}
 	fieldset := regexp.MustCompile(`(?s)<fieldset class="sode__group[^"]*"[^>]*data-section="([^"]+)"[^>]*>(.*?)</fieldset>`)
 	// data-key fields, plus the form fields saveSettings reads by id (settingsform.js readForm).
-	field := regexp.MustCompile(`data-key="([^"]+)"|data-gpref="|id="(cfg-default|cfg-lvlnum|cfg-colors|cfg-lock-main)"`)
-	byID := map[string]string{"cfg-default": "defaultLevels", "cfg-lvlnum": "levelNumbering", "cfg-colors": "levelColors", "cfg-lock-main": "locks"}
+	field := regexp.MustCompile(`data-key="([^"]+)"|data-gpref="|id="(cfg-default|cfg-lvlnum|cfg-colors|cfg-lock-main|cfg-new-persistent)"`)
+	byID := map[string]string{"cfg-default": "defaultLevels", "cfg-lvlnum": "levelNumbering", "cfg-colors": "levelColors", "cfg-lock-main": "locks",
+		"cfg-new-persistent": "newUserDefaults"}
 	keys = map[string][]string{}
 	for _, m := range fieldset.FindAllStringSubmatch(string(b), -1) {
 		order = append(order, m[1])
@@ -48,7 +49,7 @@ func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 func TestEverySettingsSectionSaves(t *testing.T) {
 	order, keys := settingsSections(t)
 	// Saved apart from the form: their own messages, or nothing to save yet.
-	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "users": true, "api": true, "export-import": true, "run-setup-again": true}
+	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "api": true, "export-import": true, "run-setup-again": true}
 	values := map[string]any{
 		"browserDefaults":      config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "12", SetStack: "or", NextMode: "fuzzy", StackGap: "30"},
 		"brandText":            "Stage B",
@@ -76,6 +77,8 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 		"pinWaits":             false,
 		"locks":                config.Locks{Main: true, Log: true, Panel: true},
 		"autoLockMinutes":      9,
+		"guestRole":            config.RoleTrusted,
+		"newUserDefaults":      config.NewUserDefaults{Persistent: true, NoAutoLock: true},
 		"trustedProxies":       []string{"10.0.0.2"},
 		"publicPanels":         false,
 		"newPanelActs":         "session",

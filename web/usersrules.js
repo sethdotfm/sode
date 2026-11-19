@@ -6,8 +6,6 @@ export const ROLES = Object.freeze([
   { value: 'trusted', label: 'Trusted user' },
   { value: 'administrator', label: 'Administrator' },
 ]);
-// A Guest is never an Administrator.
-export const GUEST_ROLES = Object.freeze(ROLES.slice(0, 2));
 
 // The PIN box's placeholder for a row {id, hadPin, noPin, pinNeeded}: what an empty box saves.
 export function pinPlaceholder(r) {

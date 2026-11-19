@@ -434,6 +434,9 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
 		a.endPublicKeys(p.ID)
 	}
+	if old.Acts != panelActsPublic && p.Acts == panelActsPublic {
+		a.publicAgain(p.ID)
+	}
 	p, _ = a.panels.get(p.ID) // carries the new Rev
 	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
 	apiJSON(w, a.panelOut(p, true))

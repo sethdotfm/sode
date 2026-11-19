@@ -116,6 +116,7 @@ routers:
 | `SODE_TALLY_RESYNC_S` | `routeRereadSeconds` (router) | `300` | Re-read all routes and which destinations are protected this often (0 turns it off) |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` Sode believes (your proxy) |
 | `SODE_MAX_PIN_LEN` | `maxPinLen` | `8` | Longest user PIN (4-12 digits). The lock pad stops there and submits on its own only at the longest length in use. Shorter PINs are sent with the check key or Enter. Also set in Settings > Users |
+| `SODE_ACCESS_PRESET` | | | An Access preset: `open` (Open access), `standard` (Standard access) or `secured` (Secured access); the full names also work. The setup wizard preselects it, and env-only mode applies it. An unknown name stops the first start |
 
 Settings-only keys (no seed var):
 

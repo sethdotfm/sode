@@ -10,7 +10,6 @@ const listed = {
     { id: 'u-2', name: 'Ada', len: 4, role: 'administrator', persistent: true, noAutoLock: false, rights: {} },
   ],
   apiClients: [{ name: 'Desk', scopes: ['names'], rights: {} }],
-  guestRole: 'standard',
   guestRights: {},
   maxPinLen: 8,
 };
@@ -30,7 +29,6 @@ const row = (u, more = {}) => ({
 const state = (more = {}) => ({
   users: listed.users.map((u) => row(u)),
   clients: listed.apiClients.map((c) => ({ was: c.name, name: c.name, scopes: c.scopes, rights: c.rights })),
-  guestRole: 'standard',
   guestRights: {},
   maxPinLen: 8,
   owners: {},

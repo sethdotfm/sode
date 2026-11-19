@@ -50,18 +50,20 @@ type Config struct {
 	PinWaits       bool           `yaml:"pinWaits" json:"pinWaits" guard:"pin"`
 	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults"`
 	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (saveSettings).
-	Users           []User `yaml:"users,omitempty" json:"users"`
-	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
-	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
+	Users []User `yaml:"users,omitempty" json:"users"`
+	// NewUserDefaults has no value in Defaults: a file from before it loads both off, as new users started then.
+	NewUserDefaults NewUserDefaults `yaml:"newUserDefaults" json:"newUserDefaults" guard:"pin"`
+	Locks           Locks           `yaml:"locks" json:"locks" guard:"pin"`
+	AutoLockMinutes int             `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
 	// MaxPinLen is the longest user PIN (4-12).
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen"`
-	// API settings, clients, Guest rights and scopes change only through their own admin
-	// messages. Clients and Guest rights stay out of JSON: never sent before the PIN.
+	// API settings, clients, Guest rights and scopes save through the one Save. Clients, Guest
+	// rights and scopes stay out of JSON: never sent before the PIN.
 	API         APISettings `yaml:"api" json:"api"`
 	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-"`
 	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-"`
-	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator. Saved with the users.
-	GuestRole      string   `yaml:"guestRole" json:"-"`
+	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator.
+	GuestRole      string   `yaml:"guestRole" json:"guestRole" guard:"pin"`
 	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-"`
 	// PublicPanels is Public panels allowed: off, no panel hands out a Public key (panelpublic.go).
 	PublicPanels bool `yaml:"publicPanels" json:"publicPanels" guard:"pin"`

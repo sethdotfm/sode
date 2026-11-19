@@ -69,8 +69,9 @@ var exportSections = []exportSection{
 	{"history", []string{"hiddenDsts", "hiddenDstsRouter"}},
 	{"level-colors", []string{"levelColors"}},
 	{"confirm", []string{"confirmLockoutMs", "resultDismissSeconds", "confirmEnter"}},
-	{"locks", []string{"locks", "autoLockMinutes", "pinWaits", "maxPinLen"}},
-	{"api", []string{"api", "guestRights", "guestRole", "guestApiScopes"}},
+	{"locks", []string{"locks", "autoLockMinutes", "guestRole", "pinWaits", "maxPinLen"}},
+	{"users", []string{"newUserDefaults"}},
+	{"api", []string{"api", "guestRights", "guestApiScopes"}},
 	{"panels", []string{"publicPanels", "newPanelActs"}},
 	{"proxy", []string{"trustedProxies", "requireHttps"}},
 }

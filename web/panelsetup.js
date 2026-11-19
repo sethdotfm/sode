@@ -5,6 +5,7 @@ import { assignAddress } from './panelassignrules.js';
 import { instanceFrom } from './panellink.js';
 import { writeStr } from './store.js';
 import { DEVICE_KEY } from './panelkeepalive.js';
+import { publicAskPath } from './panelbackrules.js';
 
 export function storedKey(id) {
   try {
@@ -24,15 +25,37 @@ export function forgetKey(id) {
 
 // A Public panel's short-lived key (internal/app/panelpublic.go), or '' when Sode says the panel is not Public. Any
 // other answer throws: a lockout or a lost link must not read as "no longer Public". Held in memory only.
-export async function askPublic(id) {
-  const res = await fetch(`api/v1/panels/${id}/public`, { method: 'POST' });
+export async function askPublic(id, back = false) {
+  const res = await fetch(publicAskPath(id, back), { method: 'POST' });
   if (res.status === 200) return '';
   if (res.status !== 201) throw Object.assign(new Error('no Public key'), { status: res.status });
   return (await res.json()).key || '';
 }
 
-// At open, a failed ask leaves the page to its session.
-export const askPublicAtOpen = (id) => askPublic(id).catch(() => '');
+// At open, a failed ask leaves the page to its session. The first ask after a reload for a public line is marked.
+export const askPublicAtOpen = (id) => askPublic(id, takeBack(id)).catch(() => '');
+
+// The page reloads to come back after a public line (panelrun.js), and the next open marks its ask. The mark is no
+// key: a Public key never reaches storage.
+const BACK_KEY = 'sode-panel-back';
+
+export function markBack(id) {
+  try {
+    sessionStorage.setItem(BACK_KEY, id);
+  } catch {
+    /* the ask goes unmarked and writes no Log row */
+  }
+}
+
+function takeBack(id) {
+  try {
+    const was = sessionStorage.getItem(BACK_KEY);
+    sessionStorage.removeItem(BACK_KEY);
+    return was === id;
+  } catch {
+    return false;
+  }
+}
 
 // A link key that worked: keep it and drop it from the address. Read back before the address loses it, since
 // with storage blocked or full a reload has nothing else to use. Answers whether it was kept.

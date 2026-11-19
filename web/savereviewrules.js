@@ -31,12 +31,13 @@ export const SAVE_FIELDS = Object.freeze({
   pinWaits: 'locks',
   locks: 'locks',
   autoLockMinutes: 'locks',
+  guestRole: 'locks',
+  newUserDefaults: 'users',
   publicPanels: 'panels',
   newPanelActs: 'panels',
   trustedProxies: 'proxy',
   requireHttps: 'proxy',
   maxPinLen: 'users',
-  guestRole: 'users',
   guestRights: 'users',
   api: 'api',
   guestApiScopes: 'api',
@@ -53,7 +54,17 @@ export const reconnects = (key) => RECONNECT.has(key);
 
 // Critical fields of the form (criticalEdits in internal/app/recheck.go). The page asks the PIN recheck before it
 // sends them; a server refusal still asks if this list falls behind.
-const CRITICAL = new Set([...RECONNECT, 'locks', 'autoLockMinutes', 'pinWaits', 'publicPanels', 'newPanelActs', 'guestRole', 'guestApiScopes']);
+const CRITICAL = new Set([
+  ...RECONNECT,
+  'locks',
+  'autoLockMinutes',
+  'guestRole',
+  'pinWaits',
+  'publicPanels',
+  'newPanelActs',
+  'newUserDefaults',
+  'guestApiScopes',
+]);
 // Rights are Critical only when wider than the saver's own, which the server decides.
 const CRITICAL_ATTRS = /^user\/.+\/(role|pin|persistent|noAutoLock|remove|add)$/;
 export const critical = (key) => CRITICAL.has(key) || CRITICAL_ATTRS.test(key);

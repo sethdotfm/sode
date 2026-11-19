@@ -50,6 +50,12 @@
   flex-wrap: wrap;
   gap: var(--pb-space-3);
 }
+.sode-ov__openhead {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
 .sode-ov__name {
   align-items: center;
   display: inline-flex;

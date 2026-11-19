@@ -7,6 +7,7 @@ import { panelStatus, shownInstances, hiddenShown } from './panelsrules.js';
 import { slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import { renameState, renameProblem } from './panelassignrules.js';
+import { reloadButton, reloadAllButton, offlineNote } from './panelsopen.js';
 
 // Fast enough that the online mark follows an instance within a couple of seconds, with no push channel to the page.
 export const MON_POLL_MS = 2000;
@@ -58,8 +59,8 @@ function hideButton(p, i, setHide) {
 }
 
 // The instance's name with its Rename icon. A click turns the name into a field: Enter saves, and Escape or a move away
-// drops the edit. rename(id, device, name, pin) answers null when sent (or handed to the clash dialog), else {why, pin}.
-// pin shows the Advanced Settings PIN field, as the Assign to modal does.
+// drops the edit. rename(id, device, name, pin, keyless) answers null when sent (or handed to the clash dialog), else
+// {why, pin}. pin shows the Advanced Settings PIN field, as the Assign to modal does. keyless is a keyless page's id.
 function nameSlot(p, i, rename) {
   const slot = el('span', 'sode-ov__name');
   const state = rename ? renameState(i) : '';
@@ -72,7 +73,7 @@ function nameSlot(p, i, rename) {
     b.setAttribute('aria-label', state === 'offline' ? `Rename ${i.device}: offline` : `Rename ${i.device}`);
     b.dataset.pbTip = state === 'offline' ? 'Offline: it cannot hear a new name until it opens again' : 'Rename this instance';
     b.addEventListener('click', edit);
-    slot.replaceChildren(el('strong', '', i.device), b, ...(state === 'offline' ? [el('span', 'sode-ov__muted', 'offline')] : []));
+    slot.replaceChildren(el('strong', '', i.device), b);
   };
   function edit() {
     const input = el('input', 'pb-input sode-panels__device-input');
@@ -110,7 +111,7 @@ function nameSlot(p, i, rename) {
       const problem = renameProblem(name);
       if (problem) return fail(problem);
       busy = true;
-      const r = await rename(p.id, i.device, name, pin.value);
+      const r = await rename(p.id, i.device, name, pin.value, i.keyless || '');
       busy = false;
       pin.value = '';
       if (!r) return show();
@@ -148,18 +149,43 @@ function hiddenLine(p, setHide) {
   return el('p', 'sode-ov__muted sode-ov__hidden', `Hidden: ${shown.join(', ')}`, show);
 }
 
+// Offline after a row's controls: neither Reload nor a new name would reach it.
+const offlineAfter = (i, shown) => (shown && renameState(i) === 'offline' ? offlineNote() : null);
+
+// A page with no working key (GLOSSARY.md, Keyless instance): its name, address, and for a Trusted user Reload and
+// rename. Its name lives in its own browser.
+function keylessItem(p, k, rename, reload) {
+  const re = reloadButton(p, k, reload);
+  return el(
+    'li',
+    '',
+    el(
+      'div',
+      'sode-ov__inst',
+      el('span', 'pb-badge', 'No key'),
+      nameSlot(p, k, rename),
+      k.device === k.addr ? null : el('span', 'sode-ov__muted', k.addr),
+      re,
+      offlineAfter(k, rename || re),
+    ),
+  );
+}
+
 // Who has the panel open. Only an editor is sent the names. Each instance has its own Watch checkbox, uptime strip,
-// Hide and rename.
-export function openNow(p, { setWatch, setHide, rename } = {}, now = Date.now()) {
+// Hide, rename and, for a Trusted user, Reload. Keyless pages follow, and a Trusted user can reload and rename them.
+export function openNow(p, { setWatch, setHide, rename, reload, trusted } = {}, now = Date.now()) {
   const box = el('section', 'sode-ov__opennow');
   box.id = 'panels-open';
   box.dataset.for = p.id;
   if (!p.instances) return box;
-  box.append(el('h2', 'sode-ov__group', 'Open now'));
+  const trustedReload = trusted ? reload : null;
+  box.append(el('div', 'sode-ov__openhead', el('h2', 'sode-ov__group', 'Open now'), reloadAllButton(p, trustedReload)));
   const rows = shownInstances(p);
   const hidden = hiddenLine(p, setHide);
+  const keyless = (p.keyless || []).map((k) => keylessItem(p, k, trusted ? rename : null, trustedReload));
   if (!rows.length) {
     box.append(el('p', 'sode-ov__muted', hidden ? 'Every instance is hidden.' : 'No instance has opened this panel since Sode started.'));
+    if (keyless.length) box.append(el('ul', 'sode-ov__open', ...keyless));
     if (hidden) box.append(hidden);
     return box;
   }
@@ -172,6 +198,7 @@ export function openNow(p, { setWatch, setHide, rename } = {}, now = Date.now())
     input.checked = watched.has(i.device.toLowerCase());
     input.dataset.watchInstance = i.device;
     input.addEventListener('change', () => setWatch?.(p.id, input.checked, i.device));
+    const re = reloadButton(p, i, trustedReload);
     ul.append(
       el(
         'li',
@@ -183,13 +210,17 @@ export function openNow(p, { setWatch, setHide, rename } = {}, now = Date.now())
           nameSlot(p, i, rename),
           hideButton(p, i, setHide),
           ago && el('span', 'sode-ov__muted', ago),
+          re,
+          offlineAfter(i, rename || re),
           el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Notify on disconnect')),
         ),
         uptimeStrip(i),
       ),
     );
   }
+  ul.append(...keyless);
   box.append(ul);
+
   if (hidden) box.append(hidden);
   return box;
 }

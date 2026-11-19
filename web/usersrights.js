@@ -33,7 +33,7 @@ export function makeRightsTab({ users, clients, touched }) {
   const node = el('div', null, el('div', 'sode__rights-pick', selectField('rights-pick', 'Rights for', pickSel)), body);
 
   const entryOf = (key) => {
-    if (!entries.has(key)) entries.set(key, newEntry(undefined, off(), key.startsWith('user:') ? { noAutoLock: false } : {}));
+    if (!entries.has(key)) entries.set(key, newEntry(undefined, off(), key.startsWith('user:') ? { noAutoLock: !!S.cfg?.newUserDefaults?.noAutoLock } : {}));
     return entries.get(key);
   };
   const keys = () => entryKeys(users(), clients());

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ROLES, GUEST_ROLES, ownerChoices, pinPlaceholder } from '../usersrules.js';
+import { ROLES, ownerChoices, pinPlaceholder } from '../usersrules.js';
 
 test('the PIN placeholder says what Save does', () => {
   assert.equal(pinPlaceholder({ id: 'u-1', hadPin: true, noPin: false }), 'unchanged');
@@ -11,7 +11,7 @@ test('the PIN placeholder says what Save does', () => {
   assert.equal(pinPlaceholder({ id: '' }), 'new PIN');
 });
 
-test('the Roles and the Guest roles', () => {
+test('the Roles', () => {
   assert.deepEqual(
     ROLES.map((r) => [r.value, r.label]),
     [
@@ -19,10 +19,6 @@ test('the Roles and the Guest roles', () => {
       ['trusted', 'Trusted user'],
       ['administrator', 'Administrator'],
     ],
-  );
-  assert.deepEqual(
-    GUEST_ROLES.map((r) => r.value),
-    ['standard', 'trusted'],
   );
 });
 

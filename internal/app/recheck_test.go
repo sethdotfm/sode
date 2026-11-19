@@ -185,6 +185,7 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 	needsRecheck(t, "router address", saveForm(func(c *config.Config) { c.Address = "127.0.0.1:9" }))
 	needsRecheck(t, "a page lock", saveForm(func(c *config.Config) { c.Locks.Log = true }))
 	needsRecheck(t, "Wait after wrong PINs", saveForm(func(c *config.Config) { c.PinWaits = !c.PinWaits }))
+	needsRecheck(t, "Guest role", saveForm(func(c *config.Config) { c.GuestRole = config.RoleTrusted }))
 
 	// API settings
 	passed(t, "rate limit", p.askAPI(a, 1, map[string]any{"rateLimit": 7}))
@@ -194,7 +195,6 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 	addBob := map[string]any{"users": []any{adaRow, map[string]any{"name": "Bob", "pin": "1357"}}}
 	passed(t, "longest PIN", p.askUsers(a, 3, map[string]any{"users": []any{adaRow}, "maxPinLen": 9}))
 	needsRecheck(t, "add a user", p.askUsers(a, 4, addBob))
-	needsRecheck(t, "Guest role", p.askUsers(a, 5, map[string]any{"users": []any{adaRow}, "guestRole": config.RoleTrusted}))
 
 	passed(t, "recheck", p.recheck("2468"))
 	passed(t, "router address after a recheck", saveForm(func(c *config.Config) { c.Address = "127.0.0.1:9" }))

@@ -5,6 +5,9 @@ import { whenText } from './keyrules.js';
 import { hasClient, isPublic } from './panelsrules.js';
 import { renewable } from './sessionkeyrules.js';
 
+// Fixed and free of any reason or name: anyone can read a Public panel's page.
+export const PUBLIC_STOPPED = 'This panel is not public now. It comes back by itself when it is public again.';
+
 export const MODES = [
   ['key', 'Named instance link'],
   ['setup', 'One-time setup link'],
@@ -124,7 +127,9 @@ export function setupFailText(status, message) {
 // key the page runs on a session, which sessionkey.js renews. An ended answer that still reaches the page means
 // the renewal could not help. A 429 is not lost contact: the fetcher already waits out Retry-After.
 // forget: only a 401 ends a stored key. A refused network leaves it, since the key still works after the list is fixed.
-export function pollFail(status, code, message, hadKey) {
+export function pollFail(status, code, message, hadKey, isPublic = false) {
+  // A Public key that could not be renewed: the panel left Public, or Public panels allowed went off.
+  if (status === 401 && isPublic) return { stop: true, forget: false, text: PUBLIC_STOPPED };
   if (status === 401 && hadKey) return { stop: true, forget: true, text: "This link's key no longer works. It was rotated or revoked, so ask for a new link." };
   if (status === 401 && (code === 'key_revoked' || code === 'key_expired'))
     return { stop: true, forget: true, text: "This page's sign-in key was ended. Reload the page to sign in again." };

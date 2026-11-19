@@ -20,7 +20,7 @@ type userEdit struct {
 	Pin        string         `json:"pin"`
 	ClearPin   bool           `json:"clearPin"`
 	Role       string         `json:"role"`
-	Persistent bool           `json:"persistent"`
+	Persistent *bool          `json:"persistent"`
 	Rights     *config.Rights `json:"rights"`
 	NoAutoLock *bool          `json:"noAutoLock"`
 }
@@ -28,7 +28,7 @@ type userEdit struct {
 type usersReq struct {
 	Users       []userEdit          `json:"users"`
 	MaxPin      int                 `json:"maxPinLen"`
-	GuestRole   string              `json:"guestRole"`
+	GuestRole   json.RawMessage     `json:"guestRole"`
 	APIClients  *[]config.APIClient `json:"apiClients"`
 	GuestRights *config.Rights      `json:"guestRights"`
 	PanelOwners map[string]string   `json:"panelOwners"`
@@ -51,8 +51,8 @@ func jsonOf(v any) json.RawMessage {
 
 // usersFields: the one Save fields of a whole-list users save against live.
 func usersFields(live config.Config, req usersReq) (map[string]fieldEdit, error) {
-	if present(req.Locks) || present(req.AutoLock) {
-		return nil, errors.New("the lock settings moved to Settings > Access: reload this page")
+	if present(req.Locks) || present(req.AutoLock) || present(req.GuestRole) {
+		return nil, errors.New("the lock settings and Guest role moved to Settings > Access > Locks: reload this page")
 	}
 	if len(req.Users) == 0 && live.Locks.Any() {
 		return nil, errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
@@ -66,9 +66,6 @@ func usersFields(live config.Config, req usersReq) (map[string]fieldEdit, error)
 	if req.MaxPin != 0 {
 		put("maxPinLen", req.MaxPin)
 	}
-	if req.GuestRole != "" {
-		put("guestRole", req.GuestRole)
-	}
 	if req.GuestRights != nil {
 		put("guestRights", req.GuestRights)
 	}
@@ -76,7 +73,7 @@ func usersFields(live config.Config, req usersReq) (map[string]fieldEdit, error)
 	for i, e := range req.Users {
 		if e.ID == "" {
 			put(fmt.Sprintf("user/new:%d/add", i), newUser{Name: e.Name, Pin: e.Pin, Role: e.Role, Persistent: e.Persistent,
-				NoAutoLock: e.NoAutoLock != nil && *e.NoAutoLock, Rights: e.Rights})
+				NoAutoLock: e.NoAutoLock, Rights: e.Rights})
 			continue
 		}
 		if _, ok := live.FindUserByID(e.ID); !ok {
@@ -89,7 +86,9 @@ func usersFields(live config.Config, req usersReq) (map[string]fieldEdit, error)
 		k := "user/" + e.ID + "/"
 		put(k+"name", e.Name)
 		put(k+"role", e.Role)
-		put(k+"persistent", e.Persistent)
+		if e.Persistent != nil {
+			put(k+"persistent", *e.Persistent)
+		}
 		if e.Rights != nil {
 			put(k+"rights", e.Rights)
 		}

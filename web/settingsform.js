@@ -1,5 +1,6 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
-// previews beside the fields. data-apart sections (users.js, apisettings.js) own their own fields.
+// previews beside the fields. Manage users (users.js) and the API section (apisettings.js) are save sources of the
+// one Save (savesources.js).
 
 import { $, el, S, wsSend } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
@@ -51,6 +52,8 @@ export function fillForm() {
   $('cfg-lock-main').checked = !!S.cfg.locks?.main;
   $('cfg-lock-log').checked = !!S.cfg.locks?.log;
   $('cfg-lock-panel').checked = !!S.cfg.locks?.panel;
+  $('cfg-new-persistent').checked = !!S.cfg.newUserDefaults?.persistent;
+  $('cfg-new-no-auto-lock').checked = !!S.cfg.newUserDefaults?.noAutoLock;
 }
 
 // After renderPrefs (devicesettings.js), which draws the This browser section.
@@ -76,6 +79,7 @@ export function readSettings() {
   // Blank idle time means 0 (never).
   if (Number.isNaN(c.autoLockMinutes)) c.autoLockMinutes = 0;
   c.locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked, panel: $('cfg-lock-panel').checked };
+  c.newUserDefaults = { persistent: $('cfg-new-persistent').checked, noAutoLock: $('cfg-new-no-auto-lock').checked };
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
   c.browserDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));

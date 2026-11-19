@@ -177,7 +177,7 @@ func TestSaveUsersFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Role: config.RoleTrusted}, {ID: idOf(a, "Bo"), Name: "Bo", Persistent: true},
+		{ID: idOf(a, "Ana"), Name: "Ana", Role: config.RoleTrusted}, {ID: idOf(a, "Bo"), Name: "Bo", Persistent: new(true)},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -444,7 +444,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"},
+		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -461,7 +461,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 		t.Fatal("the pushed token does not log in")
 	}
 	if err := saveUsers(a, admin, usersReq{Users: []userEdit{
-		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"},
+		{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"},
 	}}); err != nil {
 		t.Fatal(err)
 	}

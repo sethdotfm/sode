@@ -8,7 +8,7 @@ const USER_ATTRS = ['name', 'role', 'rights', 'persistent', 'noAutoLock'];
 
 // list: the usersList answer plus maxPinLen. The base the dialog's changes are measured against.
 export function listedFields(list) {
-  const out = { maxPinLen: list.maxPinLen, guestRole: list.guestRole, guestRights: list.guestRights || {} };
+  const out = { maxPinLen: list.maxPinLen, guestRights: list.guestRights || {} };
   for (const u of list.users) {
     const k = `user/${u.id}/`;
     out[k + 'name'] = u.name;
@@ -34,7 +34,7 @@ const same = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
 // clients: rows {was, name, scopes, rights}. owners: removed user id to the id of the new owner of their panels.
 // A listed API client that belongs to a panel or a user is never removed here: the server keeps it.
 export function stageFields(list, st) {
-  const out = { maxPinLen: st.maxPinLen, guestRole: st.guestRole, guestRights: st.guestRights || {} };
+  const out = { maxPinLen: st.maxPinLen, guestRights: st.guestRights || {} };
   const rows = new Map(st.users.filter((r) => r.id).map((r) => [r.id, r]));
   for (const u of list.users) {
     const r = rows.get(u.id);
@@ -83,7 +83,7 @@ const ATTR_LABELS = {
   remove: 'Remove',
   scopes: 'Scopes',
 };
-const OTHER_LABELS = { maxPinLen: 'Longest PIN (digits)', guestRole: 'Guest role', guestRights: 'Guest Rights' };
+const OTHER_LABELS = { maxPinLen: 'Longest PIN (digits)', guestRights: 'Guest Rights' };
 
 // split: {kind, id, attr} of an item key, or null.
 export function splitKey(key) {
@@ -119,7 +119,6 @@ const plural = (n, one, many) => (n === 1 ? one : many);
 export function stageShow(r, v, list = { users: [] }) {
   const s = splitKey(r.key);
   if (r.key === 'guestRights') return rightsText(v);
-  if (r.key === 'guestRole') return roleText(v);
   if (!s) return v == null ? 'Blank' : String(v);
   if (v === undefined) return s.attr === 'pin' ? 'Unchanged' : 'Blank';
   switch (s.attr) {

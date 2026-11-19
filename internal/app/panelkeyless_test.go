@@ -184,7 +184,7 @@ func TestKeylessAnswersAlikeForAPanelThatDoesNotExist(t *testing.T) {
 func TestKeylessEntriesAreCappedOldestFirstAndForgottenAfterADay(t *testing.T) {
 	a, clk := monApp(t)
 	for i := range keylessMax + 1 {
-		done, _ := a.mon.openKeyless("wall", fmt.Sprintf("10.0.%d.%d", i/256, i%256), "", false, func() {})
+		done, _, _ := a.mon.openKeyless("wall", fmt.Sprintf("10.0.%d.%d", i/256, i%256), "", false, func() {})
 		done()
 		clk.advance(time.Second)
 	}
@@ -313,7 +313,7 @@ func TestKeylessPageNamedByAnIPv6AddressGetsAKey(t *testing.T) {
 	from := makePanel(t, a, cy, `{"name":"Studio A"}`)
 	to := makePanel(t, a, cy, assignTarget)
 	addr := "2001:db8:85a3:1234:5678:8a2e:370:7334%eth0"
-	done, out := a.mon.openKeyless(from, addr, "", false, func() {})
+	done, out, _ := a.mon.openKeyless(from, addr, "", false, func() {})
 	defer done()
 	line := make(chan []byte, 1)
 	go func() {

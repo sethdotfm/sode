@@ -238,7 +238,7 @@ func TestRemoveOwnPinEndsKeysAndClients(t *testing.T) {
 func TestAdministratorResetEndsSessionsAndKeys(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	admin := adminClient(t, a)
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	ana, anext := signedIn(t, a, "10.0.0.1", "1234")
@@ -251,7 +251,7 @@ func TestAdministratorResetEndsSessionsAndKeys(t *testing.T) {
 	if k["ok"] != true || sk["ok"] != true {
 		t.Fatalf("keys %v %v", k, sk)
 	}
-	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Pin: "8642", Persistent: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
+	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Pin: "8642", Persistent: new(true)}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := a.tokens.user(tok, a.r().cfg); ok {

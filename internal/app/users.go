@@ -462,11 +462,10 @@ func (a *App) serveUserSetPin(c *client, m *inMsg) {
 
 // Len: whether a PIN is set (0 = none); never a hash.
 type usersListMsg struct {
-	T         string     `json:"t"` // "usersListResult"
-	ID        int        `json:"id"`
-	OK        bool       `json:"ok"`
-	Users     []userView `json:"users"`
-	GuestRole string     `json:"guestRole"`
+	T     string     `json:"t"` // "usersListResult"
+	ID    int        `json:"id"`
+	OK    bool       `json:"ok"`
+	Users []userView `json:"users"`
 	// Me is the id of the user asking, the default new owner of a removed user's panels.
 	Me string `json:"me"`
 	// Rights and API clients: Administrator only, never before the PIN.
@@ -504,7 +503,7 @@ type presetNote struct {
 
 func (a *App) usersList(c *client, id int) usersListMsg {
 	cfg := a.r().cfg.Clone()
-	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Me: c.userID(), Users: []userView{}, GuestRole: cfg.GuestRole,
+	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Me: c.userID(), Users: []userView{},
 		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes, Versions: hiddenVersions(cfg)}
 	if m.APIClients == nil {
 		m.APIClients = []config.APIClient{}

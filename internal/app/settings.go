@@ -75,12 +75,14 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 	return err
 }
 
-// configKeys: the fields the config message still takes, the one Save's form fields. Manage
-// users and the API section save only through the one Save.
+// sourceKeys: one Save fields that only Manage users and the API section write, never the form.
+var sourceKeys = map[string]bool{"maxPinLen": true, "guestRights": true, "api": true, "guestApiScopes": true}
+
+// configKeys: the fields the config message still takes, the one Save's form fields.
 func configKeys() []string {
 	var out []string
-	for k, sec := range saveFields {
-		if sec != usersSection && sec != "api" {
+	for k := range saveFields {
+		if !sourceKeys[k] {
 			out = append(out, k)
 		}
 	}
@@ -157,6 +159,9 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	// After the swap, so an ask that read the old config cannot leave a key behind (endStreams takes mu).
 	if old.cfg.PublicPanels && !nr.cfg.PublicPanels {
 		a.endEveryPublicKey()
+	}
+	if !old.cfg.PublicPanels && nr.cfg.PublicPanels {
+		a.publicAgain()
 	}
 	return nil
 }
