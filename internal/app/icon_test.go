@@ -28,6 +28,7 @@ func TestIconColours(t *testing.T) {
 	}{
 		{"/icon.png?s=180", 180, [3]uint8{0x08, 0x08, 0x08}},
 		{"/icon.png?s=512&c=teal", 512, [3]uint8{0x5c, 0xcf, 0xc9}},
+		{"/icon.png?s=180&c=%23a1b2c3", 180, [3]uint8{0xa1, 0xb2, 0xc3}},
 		{"/icon.png?s=999&c=red", 192, [3]uint8{0x08, 0x08, 0x08}}, // unknown size and colour fall back
 	} {
 		rec := get(t, a, tc.path)

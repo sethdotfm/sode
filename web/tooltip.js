@@ -17,7 +17,7 @@ const rowTip = (n) => n instanceof Element && n.closest('.sode__sets [data-pb-ti
 
 function cutOff(n) {
   const t = rowTip(n);
-  if (t) return { n: t, text: t.dataset.pbTip };
+  if (t) return t.dataset.pbTip.trim() ? { n: t, text: t.dataset.pbTip } : null;
   for (; n instanceof HTMLElement; n = n.parentElement) {
     const cs = getComputedStyle(n);
     if (n.dataset.hint && cs.getPropertyValue('--sode-hint').trim() === 'on') return { n, text: n.dataset.hint };
@@ -56,7 +56,7 @@ document.addEventListener('mouseout', (e) => {
 });
 document.addEventListener('focusin', (e) => {
   const t = rowTip(e.target);
-  if (touchOnly.matches || !t || !t.matches(':focus-visible')) return;
+  if (touchOnly.matches || !t || !t.dataset.pbTip.trim() || !t.matches(':focus-visible')) return;
   cutFor = t;
   cutTip.textContent = t.dataset.pbTip;
   cutTip.hidden = false;

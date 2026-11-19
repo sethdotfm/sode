@@ -272,7 +272,7 @@ function showLock() {
   const text = S.cfg?.brandText?.trim() || 'Sode';
   brand.textContent = text;
   const frame = document.querySelector('.sode__brandframe');
-  setBrand(root, frame?.dataset.brand || frame?.style.getPropertyValue('--brand-color') || '');
+  setBrand(root, frame?.style.getPropertyValue('--brand-color').trim() || frame?.dataset.brand || '');
   // The page keeps its scroll; focus moves must not scroll it (desktop.js leaves its
   // focus-scroll alone while this is set).
   if (root.hidden) scrolled = { x: window.scrollX, y: window.scrollY };

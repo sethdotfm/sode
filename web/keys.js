@@ -15,6 +15,12 @@ export function listStep(e) {
   return (mod && !e.altKey && !e.shiftKey && { KeyJ: 1, KeyK: -1 }[e.code]) || 0;
 }
 
+// Opens a closed patch box list (Show all): plain arrows, or Ctrl/Cmd+J/K as in an open list.
+export function browseStep(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return listStep(e);
+  return e.shiftKey ? 0 : { ArrowDown: 1, ArrowUp: -1 }[e.key] || 0;
+}
+
 // Step for a search box's result list: arrows or Ctrl/Cmd+J/K. 0 when there are no results, so the key falls through to
 // other handlers (Settings steps sections then).
 export function resultStep(e, hasResults) {

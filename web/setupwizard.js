@@ -116,8 +116,8 @@ function swatches() {
     input.checked = d.brandBorder === c.name;
     box.append(el('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
   }
-  // A custom color is #rrggbb, the form the native picker gives. Run setup again writes into Settings' Page border
-  // color, which has no custom value yet, so it leaves the swatch out.
+  // A custom color is #rrggbb, the form the native picker gives. Run setup again writes each answer into its one
+  // Settings field, and a custom color there is two (the select's Custom and its picker), so it leaves the swatch out.
   const own = d.brandBorder.startsWith('#');
   if (!d.again) {
     const pick = el('input', { type: 'color', name: 'brandBorder', 'aria-label': 'Custom color' });

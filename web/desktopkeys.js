@@ -1,5 +1,5 @@
 import { $ } from './core.js';
-import { mac, chord } from './keys.js';
+import { mac, chord, browseStep } from './keys.js';
 import { layout } from './layout.js';
 import { flipped, toggleCompact } from './device.js';
 
@@ -65,7 +65,7 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
       return;
     }
 
-    if (b && !b.cb.open && (chord(e) === 'down' || chord(e) === 'up')) {
+    if (b && !b.cb.open && browseStep(e)) {
       e.preventDefault();
       b.all.open();
       return;

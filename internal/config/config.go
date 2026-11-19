@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -93,6 +94,20 @@ func BrandColorByName(name string) (BrandColor, bool) {
 		return BrandColor{}, false
 	}
 	return BrandColors[i], true
+}
+
+var customHex = regexp.MustCompile(`^#[0-9a-f]{6}$`)
+
+// BrandHex is the tile and border colour of a brandBorder value: a BrandColors name, or a custom "#rrggbb"
+// (lowercase, as Normalize leaves it).
+func BrandHex(v string) (string, bool) {
+	if c, ok := BrandColorByName(v); ok {
+		return c.Hex, true
+	}
+	if customHex.MatchString(v) {
+		return v, true
+	}
+	return "", false
 }
 
 func BrandNames() []string {

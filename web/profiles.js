@@ -11,11 +11,22 @@ import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, c
 const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
 const note = el('span', { class: 'sode__hint', role: 'status', 'aria-live': 'polite' });
 const body = el('div', 'sode__profiles-body');
+// Own profile only. Outside body, so #account-broken stays in the page for brokencount.js between opens.
+const brokenBox = el('div', { class: 'sode__broken-count', id: 'account-broken', hidden: true });
+const swapBtn = btn('pb-btn--outline pb-btn--sm', 'Swap…', () => emit('openSwap', { mine: true }));
+swapBtn.setAttribute('aria-haspopup', 'dialog');
+const mineSec = el(
+  'section',
+  { class: 'sode__profiles-sec', hidden: true },
+  el('h3', 'sode__profiles-h', 'Broken and Name moved'),
+  brokenBox,
+  el('div', null, swapBtn),
+);
 const dlg = modal({
   titleId: 'profiles-title',
   title: 'Profile',
   cls: 'sode__filters sode__profiles-dlg',
-  body: [body, err],
+  body: [body, mineSec, err],
   foot: [note, btn('pb-btn--outline', 'Close', () => closeDialog())],
   onEsc() {
     if (removing) {
@@ -97,6 +108,7 @@ function listSection(heading, rows, empty, addText, ev) {
 }
 
 function paint() {
+  mineSec.hidden = !prof || !own();
   title.textContent = who ? `Profile: ${who}` : 'Profile';
   if (!prof) {
     body.replaceChildren(el('p', 'sode__hint', `Reading ${who}'s profile…`));
@@ -210,6 +222,9 @@ on('profileSaved', (m) => {
     return paint();
   }
   load(who).then(() => setNote('Saved.'));
+});
+on('swapDone', (n) => {
+  if (isOpen && own()) setNote(`Swap changed ${n} ${n === 1 ? 'item' : 'items'}.`);
 });
 on('locking', () => {
   if (isOpen) closeDialog();

@@ -1,5 +1,5 @@
 // The Swap dialog (GLOSSARY.md, Swap). An Administrator opens it from Settings > Routers and stages one Swap into
-// the one Save (savesources.js). A user opens it from My user, and it saves their own items at once. Rules in
+// the one Save (savesources.js). A user opens it from their own Profile dialog, and it saves their own items at once. Rules in
 // swaprules.js.
 import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN } from './core.js';
 import { btn } from './formbits.js';
@@ -201,7 +201,7 @@ function build() {
   broken.addEventListener('change', paintList);
 }
 
-// opts.mine: the user's own items from My user, saved at once. Else everyone's, staged into the one Save.
+// opts.mine: the user's own items from their Profile dialog, saved at once. Else everyone's, staged into the one Save.
 function open(opts = {}) {
   build();
   mine = !!opts.mine;

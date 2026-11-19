@@ -4,11 +4,11 @@ export function iconURL(size, color) {
   return `icon.png?s=${size}${color ? `&c=${encodeURIComponent(color)}` : ''}`;
 }
 
-// A named color goes through its [data-brand] rule, a custom #rrggbb straight into --brand-color.
+// A named color comes from base.css's [data-brand] rules; a custom #rrggbb sets --brand-color itself.
 export function setBrand(el, color) {
-  const own = color?.startsWith('#');
-  if (color && !own) el.dataset.brand = color;
-  else delete el.dataset.brand;
-  if (own) el.style.setProperty('--brand-color', color);
+  const custom = /^#[0-9a-f]{6}$/i.test(color || '');
+  if (custom) el.style.setProperty('--brand-color', color);
   else el.style.removeProperty('--brand-color');
+  if (color) el.dataset.brand = custom ? 'custom' : color;
+  else delete el.dataset.brand;
 }
