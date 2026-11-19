@@ -156,6 +156,8 @@ function bulkBar(st, onChange) {
     onChange('');
   };
   const b = (id, text, action) => Object.assign(btn('pb-btn--outline pb-btn--sm', text, run(action)), { id });
+  const count = el('span', 'sode__hint sode__xi-count');
+  count.id = 'xi-selected';
   const help = el('span', 'sode__xi-help pb-tip--end', icon('circle-help'));
   help.tabIndex = 0;
   help.setAttribute('aria-label', 'Keys for the list');
@@ -166,6 +168,7 @@ function bulkBar(st, onChange) {
     b('xi-bulk-suggest', 'Use all suggestions', 'suggest'),
     b('xi-bulk-keep', 'Keep numbers for all blank names', 'keepBlank'),
     b('xi-bulk-skip', 'Reset to Skip', 'skip'),
+    count,
     help,
   );
 }
@@ -218,9 +221,13 @@ export function remapView(st, { off, onChange, onRouter, fmt }) {
     if (asIs) box.append(el('p', 'sode__hint', `${asIs} ${asIs === 1 ? 'name imports' : 'names import'} as is.`));
     list.append(box, ...termView(r, st.termsBy[r.uid] || [], st.terms, () => onChange('')), ...datalists(st, r.uid, o));
   }
-  selectList(list, st.sel);
   const any = Object.values(st.rowsBy).some((rows) => rows.some((x) => x.state !== 'as-is'));
-  return [el('h3', 'sode__label sode__xi-h', 'Router names'), any ? bulkBar(st, onChange) : '', list];
+  const bar = any ? bulkBar(st, onChange) : '';
+  const count = bar && bar.querySelector('.sode__xi-count');
+  selectList(list, st.sel, (n) => {
+    if (count) count.textContent = n ? `${n} selected` : '';
+  });
+  return [el('h3', 'sode__label sode__xi-h', 'Router names'), bar, list];
 }
 
 const linkTo = (text, fn) => el('li', null, btn('pb-btn--ghost pb-btn--sm', text, fn));

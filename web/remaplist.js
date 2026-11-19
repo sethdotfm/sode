@@ -10,8 +10,8 @@ export const LIST_HELP =
 
 const FIELD = 'select, input, button, a';
 
-// box holds the rows; s is the selection, kept by the caller across renders.
-export function selectList(box, s) {
+// box holds the rows; s is the selection, kept by the caller across renders. onPaint(n) gets the selected count.
+export function selectList(box, s, onPaint = () => {}) {
   const rows = () => [...box.querySelectorAll('[data-row]')];
   Sel.setKeys(
     s,
@@ -30,6 +30,7 @@ export function selectList(box, s) {
       r.setAttribute('aria-selected', String(on));
       r.tabIndex = r.dataset.row === cur ? 0 : -1;
     }
+    onPaint(s.sel.size);
   };
   const focusCur = () =>
     rows()
@@ -72,7 +73,8 @@ export function selectList(box, s) {
 
   box.addEventListener('pointerdown', (e) => {
     const row = e.target.closest('[data-row]');
-    if (!row || e.button !== 0 || e.target.closest(FIELD)) return;
+    // A finger that lands to scroll must not change the selection.
+    if (!row || e.button !== 0 || e.pointerType === 'touch' || e.target.closest(FIELD)) return;
     const add = addClick(e);
     if (e.shiftKey || add) Sel.click(s, row.dataset.row, { shift: e.shiftKey, add });
     else {

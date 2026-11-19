@@ -119,7 +119,7 @@ func TestChromeImportRemapSelect(t *testing.T) {
 	mouse(b, "mouseMoved", label(4), 0)
 	mouse(b, "mouseMoved", label(5), 0)
 	mouse(b, "mouseReleased", label(5), 0)
-	b.waitFor("a drag selects three rows", selected+` === 3`)
+	b.waitFor("a drag selects three rows", selected+` === 3 && document.getElementById("xi-selected").textContent === "3 selected"`)
 	b.shot("selected")
 
 	sel := row(2) + `.querySelector('select')`
