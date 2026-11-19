@@ -30,9 +30,10 @@ let seq = 0;
 let sentRouter = ''; // the address the server tries now
 let routerTimer = 0;
 let sheetPresets = []; // the hello's presets, kept: the hello after Finish has none
-let mode = ''; // '' closed, 'run' this browser runs setup, 'wait' the wait page.
+let mode = ''; // '' closed, 'claim' asked the server, 'run' this browser runs setup, 'wait' the wait page.
 let claiming = 0; // the id of the setupClaim with no answer yet.
 let taken = false; // another browser took control from this one.
+let free = false; // the browser that ran setup closed.
 
 const max = () => pinMax(S.cfg || {});
 
@@ -421,6 +422,7 @@ function waitPage() {
   $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup runs in another browser';
   const kids = [];
   if (taken && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control of setup. Your answers were not saved.'));
+  else if (free && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
   if (phone) kids.push(desktopOnly('set it up'));
   else {
     kids.push(
@@ -437,10 +439,11 @@ function waitPage() {
 
 function show() {
   const wizard = mode === 'run' && layout() !== 'phone';
+  const wait = !wizard && (mode === 'wait' || layout() === 'phone');
   $('setup-dialog').hidden = !wizard;
   $('setup-steps').hidden = !wizard;
-  $('setup-wait').hidden = wizard;
-  if (!wizard) waitPage();
+  $('setup-wait').hidden = !wait;
+  if (wait) waitPage();
 }
 
 // dropped: another browser took control, so this one's answers go.
@@ -461,7 +464,12 @@ onMsg('setupClaimResult', (m) => {
   if (!S.setup || finished || finishing) return;
   if (!m.ok) return toWait(mode === 'run');
   mode = 'run';
-  taken = false;
+  taken = free = false;
+  // A reconnect lost the hold, and the server put back the address this page had moved.
+  if (d && sentRouter && S.cfg.router !== sentRouter) {
+    sentRouter = '';
+    tryRouter();
+  }
   startWizard();
   show();
 });
@@ -470,15 +478,19 @@ onMsg('setupTaken', () => {
   if (S.setup && mode === 'run' && !finished) toWait(true);
 });
 
+// Take control stays the only way to move setup, since the browser that closed can be a reload.
 onMsg('setupFree', () => {
-  if (S.setup && mode === 'wait') claim();
+  if (!S.setup || mode !== 'wait') return;
+  free = true;
+  show();
 });
 
 on('hello', () => {
   if (S.setup) {
     if (!mode) {
       sheetPresets = S.setup.presets || [];
-      mode = 'wait';
+      // Desktop shows nothing until the claim answers, so the first browser never sees the wait page.
+      mode = layout() === 'phone' ? 'wait' : 'claim';
       root.setAttribute('data-sode-setup', '');
       $('setup').hidden = false;
       show();
