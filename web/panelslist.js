@@ -31,6 +31,7 @@ import { isGridPanel } from './gridpaneledges.js';
 import { sendCopy } from './sendcopy.js';
 import { layout, onLayout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
+import { statusBadge, panelStatus } from './brokenbadge.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
@@ -90,7 +91,10 @@ function row(p) {
   // Empty hook for the online dot, so monitoring can fill it without reshaping the row.
   const online = el('span', 'sode-ov__online');
   online.dataset.online = p.id;
-  b.append(thumb(p, true), el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsShort(p)}`)), online);
+  const who = el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsShort(p)}`));
+  const badge = statusBadge(panelStatus(p));
+  if (badge) who.append(badge);
+  b.append(thumb(p, true), who, online);
   return b;
 }
 
@@ -151,7 +155,7 @@ function detail(p) {
     el('dd', '', shareLabel(p.share)),
   );
   box.append(
-    el('h1', 'sode-ov__title', p.name),
+    el('h1', 'sode-ov__title', p.name, statusBadge(panelStatus(p)) || ''),
     el(
       'div',
       'sode-ov__big',

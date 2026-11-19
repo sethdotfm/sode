@@ -179,6 +179,9 @@ type routerState struct {
 	// lastPoll: the last full read the Broken check counted (brokencheck.go); at start the saved names table.
 	lastPoll  *namePoll
 	faultSeen bool // the last full read was ignored as a router fault; logged once per run
+	// renamedTo: per side (0 sources, 1 destinations), an old name in lower case to the name now at its number.
+	// Counted reads of this run fill it. A Broken exact filter term names it (Missing.Now).
+	renamedTo [2]map[string]string
 }
 
 func (rs *routerState) name(dst bool, n int) string {

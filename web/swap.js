@@ -231,9 +231,17 @@ function open(opts = {}) {
     b.input.min = String(off());
   }
   fail('');
+  // opts.side and opts.from (internal): a Broken item's reference, from the Broken banner or count list.
+  if (opts.side && opts.from != null) {
+    ui.side.value = opts.side;
+    ui.from.input.value = String(opts.from + off());
+  }
   paintList();
   ui.dlg.show();
-  ui.from.input.focus();
+  if (opts.side && opts.from != null) {
+    find();
+    ui.to.input.focus();
+  } else ui.from.input.focus();
 }
 
 on('openSwap', open);
