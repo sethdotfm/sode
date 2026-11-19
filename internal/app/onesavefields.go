@@ -28,11 +28,10 @@ type fieldSpec struct {
 	item    string // fields of one item also validate together ("" for none)
 }
 
-// saveCtx keeps what a save makes once, so the check and the commit agree: PIN hashes (PBKDF2 is
-// slow) and the ids of added users.
+// What a save makes one time, so the check and the commit agree: PIN hashes (PBKDF2 is slow) and ids of added users.
 type saveCtx struct {
 	made map[string]string
-	// swap: the Swap of this save, made once in planSave with the router's names. swapped: what the last set
+	// swap: the Swap of this save, made one time in planSave with the router's names. swapped: what the last set
 	// changed, per owner.
 	swap    *swapper
 	swapped swapCounts
@@ -110,8 +109,6 @@ func lookupField(key string) (fieldSpec, bool) {
 	}
 	return fieldSpec{}, false
 }
-
-// ---- users
 
 const usersSection = "users"
 
@@ -270,7 +267,7 @@ func addUserSpec(key string) fieldSpec {
 		}}
 }
 
-// ---- API clients (by name, as keys name them)
+// API clients go by name, as keys name them.
 
 var clientAttrs = []string{"scopes", "rights", "remove"}
 

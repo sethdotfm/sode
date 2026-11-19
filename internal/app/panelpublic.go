@@ -163,11 +163,11 @@ func (a *App) endPublicKeys(id string) {
 	a.endStreams(a.public.dropWhere(func(r keyRec) bool { return r.Owner.is(o) }, false), "the panel is no longer Public")
 }
 
-// errPublicOff refuses a panel that would become Public while Public panels allowed is off.
 var errPublicOff = &panelClientFail{http.StatusForbidden, "public_panels_off",
 	"Public panels are off (Settings > Access > Panels)"}
 
-// endEveryPublicKey: Public panels allowed went off. Each panel keeps its mode, so it opens again when the switch is back on.
+// endEveryPublicKey: Public panels allowed went off. Each panel keeps its mode, so it opens again when the switch is
+// back on.
 func (a *App) endEveryPublicKey() {
 	a.endStreams(a.public.dropWhere(func(keyRec) bool { return true }, false), "Public panels are off")
 }
@@ -202,7 +202,8 @@ func (a *App) apiPanelPublic(w http.ResponseWriter, r *http.Request, _ *apiCtx) 
 	}
 	secret, k, gone := a.public.issue(keyOwner{Kind: actorClient, Name: c.Name}, ip, now)
 	a.endStreams(gone, "key ended: the panel handed out too many keys")
-	// back: the page asks after a public line (publicback.go). Only a key handed out writes a row, so asks cannot fill the Log.
+	// back: the page asks after a public line (publicback.go). Only a key handed out writes a row, so asks cannot
+	// fill the Log.
 	if r.URL.Query().Get("back") == "1" {
 		a.apiEvent(Actor{Kind: actorAddress, Name: ip}, "publicBack", "ok", panelTag(p, "")+" is Public again", nil)
 	}

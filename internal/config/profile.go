@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Profile lives on the User; never in a hello (json:"-"), reaches only connections unlocked as that user.
+// Profile lives on the User. It is never in a hello (json:"-") and reaches only connections signed in as that user.
 
 // MaxProfileBytes keeps a profileSave message under the 64 KiB read limit.
 const MaxProfileBytes = 48 << 10
@@ -45,10 +45,6 @@ var PrefValues = map[string][]string{
 
 func (p Profile) Empty() bool {
 	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.PinOrder) == 0
-}
-
-func (p Profile) Items() int {
-	return len(p.Prefs) + len(p.FilterSets) + len(p.Presets) + len(p.PinOrder)
 }
 
 func (p Profile) Clone() Profile {

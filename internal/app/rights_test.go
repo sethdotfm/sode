@@ -39,7 +39,6 @@ func rightsSignedIn(t *testing.T, a *App, name string) *client {
 	return c
 }
 
-// takeResults runs a take and returns what the client was sent.
 func takeResults(t *testing.T, a *App, c *client, items []routeReq) []routeResult {
 	t.Helper()
 	a.take(c, items)
@@ -233,7 +232,7 @@ func TestRightsAPICaller(t *testing.T) {
 	}
 }
 
-// A browser batch takes the same path as the API: same failed result per item, same row.
+// A browser take of many routes uses the same path as the API: same failed result per item, same row.
 func TestRightsBrowserBatchParity(t *testing.T) {
 	a, f, c := rightsApp(t, config.Rights{Dsts: nums(5)})
 	defer startLog(t, a)()

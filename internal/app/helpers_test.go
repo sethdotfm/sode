@@ -23,8 +23,7 @@ func (a *App) SaveSettings(c *client, cfg config.Config) error {
 	return a.saveSettings(c, b)
 }
 
-// ApplyConfig validates, saves and applies new settings, skipping the
-// connection's checks.
+// ApplyConfig saves and applies new settings without the connection's checks.
 func (a *App) ApplyConfig(c config.Config) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -58,7 +57,6 @@ func (a *App) pageAllowed(c *client, g gate) bool {
 	return a.pageAllowedMu(c, g)
 }
 
-// Len is how many entries the history holds.
 func (h *History) Len() int {
 	h.mu.Lock()
 	defer h.mu.Unlock()

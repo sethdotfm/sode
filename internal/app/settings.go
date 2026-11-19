@@ -10,10 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// --- settings
-
-// One save at a time. msg decodes over a copy of the live config, so a key an old page lacks keeps its live value. Lists
-// replace; null clears a list.
+// One save at a time. msg decodes over a copy of the live config, so a key an old page lacks keeps its live value.
+// Lists replace; null clears a list.
 func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -44,7 +42,7 @@ func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 				return err
 			}
 		}
-		// Turning it on from a connection that is not secure would lock this page out (ADR 0005).
+		// A connection that is not secure must not turn it on: that locks this page out (ADR 0005).
 		if toggled, now = cfg.RequireHTTPS != live.RequireHTTPS, cfg.RequireHTTPS; toggled && now && !c.secure {
 			return errInsecureSave
 		}
@@ -90,13 +88,8 @@ func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	}, func(cfg config.Config) any { return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets} })
 }
 
-// update: mutate edits a copy, then Normalize, Validate, build a runtime, save. Stores
-// nothing; the caller swaps the runtime under mu. Caller holds cfgMu.
-func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err error) {
-	return a.updateWith(mutate, true)
-}
-
-// updateWith: save false keeps the change in memory only (the setup wizard's Router step).
+// updateWith: mutate edits a copy, then Normalize, Validate, build a runtime and, if save, write it.
+// Stores nothing; the caller swaps the runtime under mu. Caller holds cfgMu.
 func (a *App) updateWith(mutate func(*config.Config) error, save bool) (old, nw *runtime, err error) {
 	old = a.r()
 	cfg := old.cfg.Clone()
@@ -122,8 +115,8 @@ func (a *App) updateWith(mutate func(*config.Config) error, save bool) (old, nw 
 		}
 	}
 	a.promoted = a.tokens.promoteTabs(old.cfg, cfg, a.openTokens())
-	// Revocation is durable: invalidated tokens are deleted so undoing the change cannot
-	// revive them.
+	// Revocation is durable: prune deletes the tokens that are not valid, so an undo of the
+	// change cannot revive them.
 	a.tokens.prune(cfg)
 	a.pruneKeys(old.cfg, cfg)
 	return old, nw, nil
@@ -158,7 +151,7 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 		}
 	}
 	a.mu.Unlock()
-	// After the swap, so an ask that read the old config cannot leave a key behind (endStreams takes mu).
+	// After the swap, so an ask that read the old config cannot leave a key behind (endStreams locks mu).
 	if old.cfg.PublicPanels && !nr.cfg.PublicPanels {
 		a.endEveryPublicKey()
 	}

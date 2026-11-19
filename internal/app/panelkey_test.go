@@ -8,9 +8,6 @@ import (
 	"testing"
 )
 
-// REST seam for a panel's key and its fragment link: Cy (Trusted) owns an API panel, Ana is a
-// user with no Rights over it.
-
 func keyedPanel(t *testing.T) (*App, *fakeRouter, string, string) {
 	t.Helper()
 	a, f := clientApp(t)
@@ -128,7 +125,6 @@ func TestPanelKeyIsForOwnersAndTrustedOnly(t *testing.T) {
 	}
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+id+"/key", ana, ""), 403, "not_owner")
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key", ana, ""), 403, "not_owner")
-	// The panel's own key cannot make another.
 	secret, _ := mintKey(t, a, cy, id)
 	if rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", secret, ""); rec.Code != 403 {
 		t.Fatalf("a panel key made a key: %d", rec.Code)

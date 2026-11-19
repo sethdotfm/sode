@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The values the page stages are the ones Apply writes, so the server's one copy cannot drift.
 func TestPresetSaveFieldsMatchApply(t *testing.T) {
 	for _, p := range config.AccessPresets {
 		want := scrambled()
@@ -35,8 +34,7 @@ func valuesOf(c config.Config) config.AccessValues {
 		NewUserDefaults: config.NewUserDefaults{Persistent: c.NewUserDefaults.Persistent, NoAutoLock: c.NewUserDefaults.NoAutoLock}}
 }
 
-// applyPreset sends what the page stages for the preset named key. That is its fields from the
-// usersList answer, and Persistent and No auto-lock for each ticked user.
+// applyPreset sends what the page stages: the preset's fields from usersList, and both flags for each ticked user.
 func (p *wsPeer) applyPreset(id int, key string, ticked ...string) map[string]any {
 	p.t.Helper()
 	list := p.ask("usersList", 1000+id, nil)
@@ -83,8 +81,6 @@ func setUsers(t *testing.T, a *App, fn func(*config.Config)) {
 	}
 }
 
-// One recheck covers every field Secured access writes, ticked users' flags included. Unticked
-// users keep theirs, and the Settings saves row names the preset.
 func TestApplySecuredAccessNeedsOneRecheck(t *testing.T) {
 	a := userApp(t, false)
 	defer startLog(t, a)()
@@ -133,7 +129,6 @@ func withPreset(c config.Config, p config.AccessPreset) config.Config {
 	return n
 }
 
-// The saver who ticks their own row keeps this connection signed in, though Persistent goes off.
 func TestApplyPresetKeepsTheSaverSignedIn(t *testing.T) {
 	a := userApp(t, false)
 	setUsers(t, a, func(c *config.Config) {
@@ -153,7 +148,6 @@ func TestApplyPresetKeepsTheSaverSignedIn(t *testing.T) {
 	}
 }
 
-// A looser preset deletes nothing: users, Rights, keys, API clients and panels stay.
 func TestApplyOpenAfterSecuredDeletesNothing(t *testing.T) {
 	a := userApp(t, false)
 	ana := idOf(a, "Ana")

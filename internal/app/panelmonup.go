@@ -9,8 +9,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Per-instance uptime and hidden instances for the panels page. Both live in memory only, like the
-// instances themselves (docs/agents/panels.md).
+// Uptime and hidden instances live in memory only, as the instances do (docs/agents/panels.md).
 
 const (
 	monHistory  = monForget // an instance is dropped after this, so more history would describe nothing
@@ -25,8 +24,7 @@ func init() {
 	)
 }
 
-// mark records a state change, dropping what is older than monHistory but the last change before it,
-// which is the state the window starts in.
+// mark drops what is older than monHistory, except the last change before it: the window starts in that state.
 func (in *monInst) mark(s string, at time.Time) {
 	if n := len(in.trans); n > 0 && in.trans[n-1].S == s {
 		return
@@ -64,7 +62,7 @@ func (in *monInst) uptime(now time.Time) instUptime {
 	return out
 }
 
-// setHidden hides one instance from the user's panels page. It ends nothing: watches and keys stay.
+// A hide ends nothing: watches and keys stay.
 func (m *panelMon) setHidden(user, id, inst string, on bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -79,7 +77,6 @@ func (m *panelMon) setHidden(user, id, inst string, on bool) {
 	m.hide[u][k] = true
 }
 
-// hiddenInstances lists the lowercased device names the user hid on the panel.
 func (m *panelMon) hiddenInstances(user, id string) []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -93,7 +90,7 @@ func (m *panelMon) hiddenInstances(user, id string) []string {
 	return out
 }
 
-// unhideLocked shows the instance again to everyone who hid it; device "" does the whole panel.
+// device "" shows the whole panel again.
 func (m *panelMon) unhideLocked(id, device string) {
 	for _, set := range m.hide {
 		for k := range set {

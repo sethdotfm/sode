@@ -9,6 +9,19 @@ import (
 	"testing"
 )
 
+func TestHistoryBadLineHidesNothingOlder(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "h.jsonl")
+	os.WriteFile(path, []byte(`{"id":0,"src":1}`+"\n"+`{"id":1,"src":`+"\n"+`{"id":2,"src":3}`+"\n"), 0o600)
+	h, err := OpenHistory(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := h.Page(-1, 10)
+	if err != nil || len(page) != 2 || page[1].Src != 1 {
+		t.Fatalf("page %+v err %v", page, err)
+	}
+}
+
 func TestHistoryPagingAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "h.jsonl")
 	h, err := OpenHistory(path)

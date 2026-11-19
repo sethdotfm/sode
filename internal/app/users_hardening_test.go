@@ -274,7 +274,7 @@ func TestNoInlineScript(t *testing.T) {
 }
 
 // Over a real WebSocket: odd key casing, a cross-origin upgrade, and a token
-// connection that then unlocks by PIN as someone else.
+// connection that then signs in by PIN as someone else.
 func TestHardeningOverWebSocket(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", true, true)
@@ -349,8 +349,7 @@ func TestHardeningOverWebSocket(t *testing.T) {
 	}
 }
 
-// register adds a client with a buffered queue and returns a reader of the
-// lockState messages sent to it.
+// The return value reads the lockState messages sent to c.
 func register(a *App, c *client) func() []map[string]any {
 	a.mu.Lock()
 	c.send = make(chan []byte, 16)

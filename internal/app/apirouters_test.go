@@ -22,7 +22,6 @@ func TestAPIRoutersListsUIDPrefixAndTitle(t *testing.T) {
 	}
 }
 
-// The router parameter takes the router UID only; a prefix or an unknown UID is refused before the handler.
 func TestAPIRouterParameter(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	key, uid := botKey(t, a), a.r().cfg.UID

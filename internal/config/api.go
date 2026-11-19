@@ -74,11 +74,6 @@ func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
 func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
 func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
 
-// IsOpen: every list unset and read-only, the state of an old file.
-func (r Rights) IsOpen() bool {
-	return r.Sources == nil && r.Dsts == nil && r.Levels == nil && r.Presets == nil && !r.Hidden()
-}
-
 func subset[T comparable](l, of *[]T) bool {
 	return subsetBy(l, of, func(a, b T) bool { return a == b })
 }
@@ -150,8 +145,8 @@ func (r Rights) Clone() Rights {
 	return r
 }
 
-// PanelClientScopes is what a panel's own API client starts with: reading, tally and taking,
-// never `history`, `log` or `panelsmanage`. Only an administrator widens it.
+// PanelClientScopes: a panel's own API client starts with read, tally and take scopes,
+// never
 var PanelClientScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeLayouts, ScopeTake, ScopePanels}
 
 // APIClient is a non-person actor. Its keys live in the key store, not here. Panel is the id of
@@ -293,7 +288,7 @@ func (c Config) validateAPI() []error {
 	}
 	seen := map[string]bool{}
 	for _, cl := range c.APIClients {
-		key := strings.ToLower(cl.Name)
+		key := foldKey(cl.Name)
 		switch n := utf8.RuneCountInString(cl.Name); {
 		case n == 0:
 			bad("every API client needs a name")

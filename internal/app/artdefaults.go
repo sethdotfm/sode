@@ -1,6 +1,8 @@
 package app
 
 import (
+	"bytes"
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -18,9 +20,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Default artwork: one shared set, artdefaults.yaml beside the config, its images in artdefaults.art/
-// (memory only with no config path). Cells resolve it when drawn and never store it, so a Push or a
-// template carries a cell's own artwork only. Docs: docs/panels-design.md.
+// Default artwork (docs/panels-design.md): one shared set, artdefaults.yaml beside the config, images in
+// artdefaults.art/. Cells resolve it when drawn and never store it, so a Push or a template carries a cell's own
+// artwork only.
 
 const (
 	artDefaultsFile = "artdefaults.yaml"
@@ -36,7 +38,7 @@ var (
 	// A default's image id comes from its content, so the same image set twice is stored one time.
 	artDefaultIDRe = regexp.MustCompile(`^d-[0-9a-f]{8}$`)
 	artIconRe      = regexp.MustCompile(`^icon:[a-z0-9-]+$`)
-	// Icon B choices, as ART_B_CHOICES in web/panellook.js.
+	// Keep in step with ART_B_CHOICES in web/panellook.js.
 	artBRe = regexp.MustCompile(`^(?:[0-9]|1[0-6]|[A-Z])$`)
 
 	//lint:ignore ST1005 the panel editor shows this /api/v1 message as is
@@ -44,8 +46,8 @@ var (
 	errNoArtDefaultFile = errors.New("no such Default artwork image")
 )
 
-// A Preset default keys on the hidden ID, so a rename keeps it. A Source or Destination keeps the router name from when it
-// was set, so the editor can warn when the number names something else.
+// A Preset default keys on the hidden ID, so a rename keeps it. A Source or Destination default keeps the router name
+// from when it was set. Then the editor can warn when the number names a different item.
 type ArtDefault struct {
 	Kind     string `yaml:"kind" json:"kind"`
 	Router   string `yaml:"router,omitempty" json:"router,omitempty"`
@@ -58,7 +60,7 @@ type ArtDefault struct {
 	HideText bool   `yaml:"hideText,omitempty" json:"hideText,omitempty"`
 }
 
-// The router stays out of the key while there is one router. itemKey in web/panellook.js keeps in step.
+// Keep in step with itemKey in web/panellook.js.
 func (d ArtDefault) key() string {
 	if d.Kind == artKindPreset {
 		if d.ID != "" {
@@ -73,7 +75,7 @@ func (d ArtDefault) key() string {
 	return fmt.Sprintf("%s/%d", d.Kind, n)
 }
 
-// check fits the key fields to what the store keeps; the artwork fields are checked by set.
+// set checks the artwork fields.
 func (d *ArtDefault) check() error {
 	switch d.Kind {
 	case artKindSource, artKindDst:
@@ -103,7 +105,7 @@ type artDefaultsFileData struct {
 	Images   []PanelArt   `yaml:"images,omitempty"`
 }
 
-// artDefaultStore: values handed out are copies; every change writes the file before memory moves.
+// Values handed out are copies. Every change writes the file before memory moves.
 type artDefaultStore struct {
 	mu   sync.Mutex
 	path string // "" = memory only
@@ -165,7 +167,6 @@ func (s *artDefaultStore) list() []ArtDefault {
 
 func (s *artDefaultStore) imgDir() string { return filepath.Join(filepath.Dir(s.path), artDefaultsDir) }
 
-// writeLocked saves next, then drops images no default names any more.
 func (s *artDefaultStore) writeLocked(next artDefaultsFileData) error {
 	next.Rev = s.data.Rev + 1
 	used := map[string]bool{}
@@ -191,70 +192,87 @@ func (s *artDefaultStore) writeLocked(next artDefaultsFileData) error {
 	}
 	s.data = next
 	for _, id := range gone {
-		if s.path != "" {
-			os.Remove(filepath.Join(s.imgDir(), id))
-		}
-		delete(s.mem, id)
+		s.dropImageLocked(id)
 	}
 	return nil
 }
 
-// putImageLocked stores an image by content and returns its id. Callers check the bytes first.
-func (s *artDefaultStore) putImageLocked(next *artDefaultsFileData, data []byte, typ string) (string, error) {
+// Callers check the bytes first. added is false when the same bytes are stored already.
+func (s *artDefaultStore) putImageLocked(next *artDefaultsFileData, data []byte, typ string) (id string, added bool, err error) {
 	sum := sha256.Sum256(data)
-	id := "d-" + hex.EncodeToString(sum[:4])
-	if slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == id }) {
-		return id, nil
+	// The id keeps 4 bytes of the hash (exports name the file by it), so a clash with other bytes takes the next 4.
+	for i := 0; ; i += 4 {
+		if i+4 > len(sum) {
+			return "", false, errors.New("no free image id")
+		}
+		id = "d-" + hex.EncodeToString(sum[i:i+4])
+		if !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == id }) {
+			break
+		}
+		if b, ok := s.imageLocked(id); ok && bytes.Equal(b, data) {
+			return id, false, nil
+		}
 	}
 	if artBytes(Panel{Art: next.Images})+len(data) > panelArtTotal {
-		return "", errArtDefaultsCap
+		return "", false, errArtDefaultsCap
 	}
 	if s.path != "" {
 		if err := os.MkdirAll(s.imgDir(), 0o700); err != nil {
-			return "", err
+			return "", false, err
 		}
 		if err := config.AtomicWrite(filepath.Join(s.imgDir(), id), data); err != nil {
-			return "", err
+			return "", false, err
 		}
 	} else {
 		s.mem[id] = data
 	}
 	next.Images = append(next.Images, PanelArt{ID: id, Type: typ, Size: len(data)})
-	return id, nil
+	return id, true, nil
 }
 
-// artImage is an image to store with a default: bytes already checked by checkArtBytes.
+func (s *artDefaultStore) dropImageLocked(id string) {
+	if s.path != "" {
+		os.Remove(filepath.Join(s.imgDir(), id))
+	}
+	delete(s.mem, id)
+}
+
+// The bytes already passed checkArtBytes.
 type artImage struct {
 	data []byte
 	typ  string
 }
 
-// set stores d over any default for the same item. img, when given, becomes d.Art.
 func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	next := s.data
 	next.Images = slices.Clone(s.data.Images)
+	next.Defaults = slices.DeleteFunc(slices.Clone(s.data.Defaults), func(x ArtDefault) bool { return d.replaces(x) })
+	i := slices.IndexFunc(next.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
+	if i < 0 && len(next.Defaults) >= artDefaultsMax {
+		return d, fmt.Errorf("at most %d defaults", artDefaultsMax)
+	}
+	added := false
 	if img != nil {
-		id, err := s.putImageLocked(&next, img.data, img.typ)
+		id, add, err := s.putImageLocked(&next, img.data, img.typ)
 		if err != nil {
 			return d, err
 		}
-		d.Art = id
+		d.Art, added = id, add
 	} else if artDefaultIDRe.MatchString(d.Art) && !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == d.Art }) {
 		return d, errNoArtDefaultFile
 	}
-	next.Defaults = slices.DeleteFunc(slices.Clone(s.data.Defaults), func(x ArtDefault) bool { return d.replaces(x) })
-	i := slices.IndexFunc(next.Defaults, func(x ArtDefault) bool { return x.key() == d.key() })
 	if i >= 0 {
 		next.Defaults[i] = d
 	} else {
-		if len(next.Defaults) >= artDefaultsMax {
-			return d, fmt.Errorf("at most %d defaults", artDefaultsMax)
-		}
 		next.Defaults = append(next.Defaults, d)
 	}
-	return d, s.writeLocked(next)
+	err := s.writeLocked(next)
+	if err != nil && added {
+		s.dropImageLocked(d.Art)
+	}
+	return d, err
 }
 
 // false: d's item had no default.
@@ -270,7 +288,7 @@ func (s *artDefaultStore) clear(d ArtDefault) (bool, error) {
 	return true, s.writeLocked(next)
 }
 
-// replaces: x is a preset default stored by name before ids, for the preset d names by id.
+// x is a preset default stored by name with no id, for the preset that d names by id.
 func (d ArtDefault) replaces(x ArtDefault) bool {
 	return d.Kind == artKindPreset && d.ID != "" && x.Kind == artKindPreset && x.ID == "" && strings.EqualFold(x.Name, d.Name)
 }
@@ -282,10 +300,37 @@ func (s *artDefaultStore) image(id string) ([]byte, PanelArt, bool) {
 	if i < 0 || !artDefaultIDRe.MatchString(id) {
 		return nil, PanelArt{}, false
 	}
+	b, ok := s.imageLocked(id)
+	return b, s.data.Images[i], ok
+}
+
+func (s *artDefaultStore) imageLocked(id string) ([]byte, bool) {
 	if s.path == "" {
 		b, ok := s.mem[id]
-		return b, s.data.Images[i], ok
+		return b, ok
 	}
 	b, err := os.ReadFile(filepath.Join(s.imgDir(), id))
-	return b, s.data.Images[i], err == nil
+	return b, err == nil
+}
+
+// A default whose number is gone stays.
+func (s *artDefaultStore) rename(k *pollCheck) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next := s.data
+	next.Defaults = slices.Clone(s.data.Defaults)
+	changed := false
+	for i, d := range next.Defaults {
+		if d.Kind == artKindPreset || d.N == nil {
+			continue
+		}
+		r := config.Ref{Router: cmp.Or(d.Router, k.uid), N: *d.N, Name: d.Name}
+		if k.quiet(d.Kind == artKindDst, &r) {
+			next.Defaults[i].Name, changed = r.Name, true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return s.writeLocked(next)
 }

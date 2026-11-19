@@ -12,7 +12,7 @@ import (
 
 const defaultIdleEvery = 10 * time.Second
 
-// idleLimit: how long u is allowed to go without activity, 0 = never.
+// idleLimit: 0 = never.
 func idleLimit(cfg config.Config, u config.User) time.Duration {
 	if cfg.AutoLockMinutes <= 0 || u.NoAutoLock {
 		return 0
@@ -20,7 +20,7 @@ func idleLimit(cfg config.Config, u config.User) time.Duration {
 	return time.Duration(cfg.AutoLockMinutes) * time.Minute
 }
 
-// touchMu records activity on c's session and its token. Caller holds mu.
+// Caller holds mu.
 func (a *App) touchMu(c *client, now time.Time) {
 	s := c.sessMu()
 	s.seen = now

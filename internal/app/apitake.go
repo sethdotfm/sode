@@ -17,10 +17,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST writes: a take by routes or by preset, and Undo, Redo and Retry of a History entry.
-// Each request is synchronous. It returns after the router has answered or timed out every
-// route, with a Result per route and the History entry ids. Late Results reach the stream
-// as updates to those entries. Per ADR 0002 the request is its own Confirm.
+// REST writes. Each request returns after the router answered or timed out every route. Late Results reach the stream
+// as updates to the entries. ADR 0002: the request is its own Confirm.
 
 func init() {
 	registerAPI(
@@ -35,12 +33,10 @@ func init() {
 const (
 	apiTakeBody   = 64 << 10
 	apiTakeRoutes = config.MaxPresetTotal // routes in one request
-	// takeMargin is added to the computed worst case before the write deadline.
-	takeMargin = 10 * time.Second
+	takeMargin    = 10 * time.Second
 )
 
-// apiAnswer is a finished JSON answer. It is marshaled one time so Idempotency-Key can store and
-// replay the same bytes.
+// Marshaled one time, so Idempotency-Key can store and replay the same bytes.
 type apiAnswer struct {
 	Status int
 	Body   []byte
@@ -64,10 +60,8 @@ func (x apiAnswer) write(w http.ResponseWriter, replay bool) {
 	w.Write(x.Body)
 }
 
-// takeDeadline is the worst case of n routes. Each wave of routeLimit routes adds a per route
-// check, queue wait, route and grace (about 35 s by default). It becomes this
-// request's write deadline, so no server-wide WriteTimeout is needed (and none must be set:
-// it would cut /ws and the stream).
+// The worst case of n routes: each wave of routeLimit routes adds check, queue wait, route and grace (about 35 s by
+// default). It is this request's write deadline. Never set a server-wide WriteTimeout: it would cut /ws and the stream.
 func (a *App) takeDeadline(n int) time.Duration {
 	one := a.checkTimeout + a.queueMax + a.routeTimeout + a.routeGrace
 	return one*time.Duration((n+routeLimit-1)/routeLimit) + takeMargin
@@ -176,9 +170,8 @@ type apiRouteOut struct {
 
 type apiTakeOut struct {
 	OK bool `json:"ok"` // every route succeeded
-	// CheckSkipped: the take had bigTake or more routes, so Sode did not read each destination
-	// from the router first. Entries then get Prev from the cache. An unannounced change can make
-	// the cache stale. Then it is possible that a later Undo restores less accurately.
+	// CheckSkipped: a take of bigTake or more routes skips the check, so Prev comes from the cache. After a change that
+	// the router did not announce, an Undo can restore a stale route.
 	CheckSkipped bool          `json:"checkSkipped"`
 	Results      []apiRouteOut `json:"results"`
 	LeftOut      []string      `json:"leftOut,omitempty"`
@@ -186,7 +179,6 @@ type apiTakeOut struct {
 	Untouched    []int         `json:"untouchedLevels,omitempty"`
 }
 
-// sinkResults collects the takeResult replies of one request.
 type sinkResults struct {
 	mu sync.Mutex
 	by map[int]routeResult
@@ -202,8 +194,7 @@ func (s *sinkResults) put(b []byte) {
 	s.mu.Unlock()
 }
 
-// apiTakeRun is every write's one path: body, Idempotency-Key, plan, take cap, take with its
-// rights check, response. build turns the body into routes, or says why not.
+// The one path of every write: body, Idempotency-Key, plan, take cap, rights check, take, response.
 func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, build func(body []byte) (*takePlan, *apiProblem)) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, apiTakeBody))
 	if err != nil {
@@ -254,8 +245,8 @@ func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, bui
 	ans.write(w, false)
 }
 
-// apiTakeExec runs one write and returns its answer. keep says a repeat with the same
-// Idempotency-Key gets that answer back: only requests that reached the take or its rights check.
+// keep: a repeat with the same Idempotency-Key gets this answer back. Only a request that reached the rights check is
+// kept.
 func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build func([]byte) (*takePlan, *apiProblem)) (ans apiAnswer, keep bool) {
 	plan, p := build(body)
 	if p != nil {
@@ -286,7 +277,7 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
 	}
 	a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
-	// A write deadline for this request only; the recorder in tests has none.
+	// The recorder in tests has no write deadline.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))
 	a.takeAllowed(c, plan.Items)
 

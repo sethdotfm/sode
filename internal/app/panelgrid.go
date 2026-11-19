@@ -128,7 +128,6 @@ func (p *Panel) normalGrid() {
 	}
 }
 
-// checkGrid judges the type, the parts that belong to the other type, and each edge.
 func checkGrid(p *Panel) error {
 	switch p.Type {
 	case panelTypeButtons:

@@ -114,6 +114,11 @@ func OpenHistory(path string) (*History, error) {
 	if path == "" {
 		return h, nil
 	}
+	// A rewrite cut short by a kill leaves its temp file.
+	old, _ := filepath.Glob(path + ".tmp-*")
+	for _, p := range old {
+		os.Remove(p)
+	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
 	if err != nil {
 		return nil, err
@@ -142,9 +147,15 @@ func OpenHistory(path string) (*History, error) {
 	return h, nil
 }
 
-func (h *History) Append(e *Entry) error {
+// On error e.ID is -1, since the next entry takes the id.
+func (h *History) Append(e *Entry) (err error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	defer func() {
+		if err != nil {
+			e.ID = -1
+		}
+	}()
 	if h.f == nil {
 		e.ID = len(h.mem)
 		h.mem = append(h.mem, *e)
@@ -269,7 +280,7 @@ func (h *History) Clear() error {
 	return h.f.Truncate(0)
 }
 
-// A page ending inside a group runs to its end, so a confirm's takes come back together.
+// A page that ends inside a group runs to the end of the group, so a confirm's takes come back together.
 func (h *History) Page(before, n int) ([]Entry, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -283,8 +294,9 @@ func (h *History) Page(before, n int) ([]Entry, error) {
 	out := []Entry{}
 	for id := before - 1; id >= 0; id-- {
 		e, err := h.at(id)
-		if err != nil {
-			return out, err
+		if err != nil { // one bad line must not hide all older entries
+			log.Printf("history: entry %d skipped: %v", id, err)
+			continue
 		}
 		if len(out) >= n && (e.Group == "" || e.Group != out[len(out)-1].Group) {
 			break

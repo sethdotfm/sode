@@ -10,11 +10,9 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// Communication Log rows from a panel name the panel's short name and the instance (docs/agents/comm-log.md).
-
 const slugPanel = `{"name":"Wall","acts":"api","slug":"wall","clientRights":{"sources":[{"n":1},{"n":2},{"n":3}],"dsts":[{"n":2},{"n":4}]}}`
 
-// lastRow waits for the n-th row (from 1) with that why and returns it; the writer is a goroutine.
+// The writer is a goroutine, so lastRow waits for row n (from 1) with that why.
 func lastRow(t *testing.T, a *App, why string, n ...int) Sent {
 	t.Helper()
 	want := 1
@@ -60,7 +58,6 @@ func TestPanelClientTakeRowNamesPanelAndInstance(t *testing.T) {
 		t.Fatal("key in row")
 	}
 
-	// A refusal carries it too, and a call without the header falls back to the instance the key was made for.
 	rec = apiPost(a, "/api/v1/takes", secret, `{"routes":[{"src":3,"dst":5,"levels":[1]}]}`, nil)
 	wantErr(t, rec, 403, "outside_rights")
 	e = lastRow(t, a, "take", 2)
@@ -69,8 +66,6 @@ func TestPanelClientTakeRowNamesPanelAndInstance(t *testing.T) {
 	}
 }
 
-// The router messages of a panel's take carry the panel tag too. Its History entry names the panel and the
-// instance, with a panel key and with a Session-mode page's headers alike.
 func TestPanelTakeWireRowsAndHistoryNameInstance(t *testing.T) {
 	a, f := clientApp(t)
 	shortTimers(a)
@@ -80,7 +75,6 @@ func TestPanelTakeWireRowsAndHistoryNameInstance(t *testing.T) {
 	secret, _ := mintKey(t, a, cy, id)
 	f.seed(2, 1, 0)
 
-	// Every message the take sent (connect and interrogate) carries the tag, and the row shows it in Note.
 	sentNote := func() string {
 		t.Helper()
 		f.mu.Lock()
@@ -113,13 +107,11 @@ func TestPanelTakeWireRowsAndHistoryNameInstance(t *testing.T) {
 	if len(es) != 1 || es[0].Panel != "Wall" || es[0].Instance != "Front desk" {
 		t.Fatalf("history %+v", es)
 	}
-	// The history file keeps them across a restart.
 	var back Entry
 	if b, err := json.Marshal(es[0]); err != nil || json.Unmarshal(b, &back) != nil || back.Panel != "Wall" || back.Instance != "Front desk" {
 		t.Fatalf("round trip %+v (%v)", back, err)
 	}
 
-	// Session mode: the page names itself; a user's take with no panel names none.
 	other := makePanel(t, a, cy, `{"name":"Desk"}`)
 	rec = apiPost(a, "/api/v1/takes", cy, `{"routes":[{"src":2,"dst":2,"levels":[1]}]}`, map[string]string{"X-Sode-Panel": other, "X-Sode-Instance": "Lobby"})
 	if rec.Code != 200 {
@@ -161,7 +153,6 @@ func TestSessionPanelTakeRowNamesPanelFromHeaders(t *testing.T) {
 		t.Fatalf("row %+v", e)
 	}
 
-	// An id that is no panel names nothing, and a instance alone is not shown.
 	rec = apiPost(a, "/api/v1/takes", cy, `{"routes":[{"src":2,"dst":2,"levels":[1]}]}`, map[string]string{"X-Sode-Panel": "p-00000000", "X-Sode-Instance": "Lobby"})
 	if rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())

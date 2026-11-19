@@ -145,7 +145,7 @@ Sode always keeps one Administrator with a PIN. Use this command if no Administr
 docker compose exec sode /sode -make-administrator "NAME" && docker compose restart sode
 ```
 
-It asks for a new PIN on the terminal, and the PIN shows as you type it. The user named NAME (any case) becomes an Administrator with that PIN. A name that no user has adds a new Administrator, if Sode has fewer than 12 users. At 12 users, give the name of a user that exists. The command refuses a PIN that breaks the PIN rules. To pipe the PIN in, use `echo 1234 | docker compose exec -T sode /sode -make-administrator "NAME"`. Restart Sode at once: until the restart, the running server keeps its old user list, and a save from it writes the old list back. That user's API keys end at the restart, as for any PIN change.
+It asks for a new PIN on the terminal, and the PIN does not show as you type it (Linux and macOS). The user named NAME (any case) becomes an Administrator with that PIN. A name that no user has adds a new Administrator, if Sode has fewer than 12 users. At 12 users, give the name of a user that exists. The command refuses a PIN that breaks the PIN rules. To pipe the PIN in, use `echo 1234 | docker compose exec -T sode /sode -make-administrator "NAME"`. Restart Sode at once: until the restart, the running server keeps its old user list, and a save from it writes the old list back. That user's API keys end at the restart, as for any PIN change.
 
 A config with users and no Administrator still starts. Sode refuses every Administrator action and names the command in the refusal. The main page shows a banner with the command.
 

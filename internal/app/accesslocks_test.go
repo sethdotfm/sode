@@ -7,7 +7,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Guest role and Wait after wrong PINs save in Locks, New user defaults in Users.
 func TestLocksAndNewUserDefaultsSaveAndAct(t *testing.T) {
 	a := namedApp(t)
 	p := dialPeer(t, a)
@@ -47,7 +46,6 @@ func TestLocksAndNewUserDefaultsSaveAndAct(t *testing.T) {
 	if di, _ := cfg.FindUserByName("Di"); di.Persistent || di.NoAutoLock {
 		t.Errorf("Di, sent with both off: Persistent %v, No auto-lock %v", di.Persistent, di.NoAutoLock)
 	}
-	// A saved user sent without them keeps theirs.
 	setFlags(t, a, "Ana", false, true)
 	rows = rows[:0]
 	for _, u := range a.r().cfg.Users {
@@ -77,7 +75,6 @@ func TestUsersSaveRefusesGuestRole(t *testing.T) {
 	}
 }
 
-// Turning a page lock on is never refused, even while users without a PIN exist.
 func TestPageLockOnWithUsersWithoutPinSaves(t *testing.T) {
 	a := newTestApp(t, withAdministrator, func(c *config.Config) {
 		c.Users = append(c.Users, config.User{Name: "Cy", Role: config.RoleStandard})

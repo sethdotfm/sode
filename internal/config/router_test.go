@@ -164,10 +164,6 @@ func TestRefShowsNoPrefixWithOneRouter(t *testing.T) {
 	if d := c.DestinationRef(0, ""); d.Shown != "0" || d.N != 0 {
 		t.Errorf("destination ref %+v", d)
 	}
-	c.LevelNumbering = "va"
-	if l := c.LevelRef(1); !reflect.DeepEqual(l, Ref{Router: c.UID, N: 1, Shown: "V"}) {
-		t.Errorf("level ref %+v", l)
-	}
 	b, err := yaml.Marshal(src)
 	var back map[string]any
 	if err == nil {

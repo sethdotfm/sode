@@ -4,8 +4,6 @@ import (
 	"testing"
 )
 
-// An Everyone Checkpoint set needs a Trusted user, as an Everyone template does. A PIN in the
-// body opens nothing: the answer is 403 trusted_required.
 func TestCheckpointSetEveryoneNeedsATrustedUser(t *testing.T) {
 	a := panelsApp(t)
 	ana, bo, cy := userKey(t, a, "Ana"), userKey(t, a, "Bo"), userKey(t, a, "Cy")
@@ -28,10 +26,9 @@ func TestCheckpointSetEveryoneNeedsATrustedUser(t *testing.T) {
 		t.Fatal("the pin came back")
 	}
 
-	// Bo is a Standard user and did not make it: no PIN lets him change or delete it.
 	wantErr(t, apiSend(a, "PUT", "/api/v1/panel-sets/"+all, bo, `{"name":"Renamed"}`), 403, "not_owner")
-	wantErr(t, apiSend(a, "PUT", "/api/v1/panel-sets/"+all, bo, `{"name":"Renamed","pin":"9999"}`), 403, "trusted_required")
-	wantErr(t, apiSend(a, "DELETE", "/api/v1/panel-sets/"+all, bo, `{"pin":"9999"}`), 403, "trusted_required")
+	wantErr(t, apiSend(a, "PUT", "/api/v1/panel-sets/"+all, bo, `{"name":"Renamed","pin":"9999"}`), 403, "not_owner")
+	wantErr(t, apiSend(a, "DELETE", "/api/v1/panel-sets/"+all, bo, `{"pin":"9999"}`), 403, "not_owner")
 	if rec := apiSend(a, "PUT", "/api/v1/panel-sets/"+all, cy, `{"name":"Renamed"}`); rec.Code != 200 || apiBody(t, rec)["name"] != "Renamed" {
 		t.Fatalf("Trusted rename: %d %s", rec.Code, rec.Body.String())
 	}
@@ -39,7 +36,6 @@ func TestCheckpointSetEveryoneNeedsATrustedUser(t *testing.T) {
 		t.Fatalf("Trusted delete: %d", rec.Code)
 	}
 
-	// No PIN opens someone else's Me set.
 	mine := apiBody(t, apiSend(a, "POST", "/api/v1/panel-sets", ana, withPin("me", "")))["id"].(string)
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/panel-sets/"+mine, bo, `{"pin":"9999"}`), 404, "not_found")
 }

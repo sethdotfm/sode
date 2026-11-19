@@ -59,8 +59,6 @@ func instanceKey(t *testing.T, a *App, panel, key, name string) string {
 	return apiBody(t, rec)["key"].(string)
 }
 
-// A panel's own key does not read a panel that is not shared with everyone, even one of its owner's. It does not read
-// the people list for the Share picker.
 func TestPanelKeyReadsNoPrivatePanel(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
@@ -129,7 +127,6 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+to+"/keys", cy, ""); !strings.Contains(rec.Body.String(), `"name":"Lobby"`) {
 		t.Fatalf("keys: %s", rec.Body.String())
 	}
-	// The old key stays, and the target panel itself is not written.
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+from, lobbyKey, ""); rec.Code != 200 {
 		t.Fatalf("the old key ended: %d", rec.Code)
 	}
@@ -179,8 +176,6 @@ func TestAssignSendsTheKeyToTheNewestStreamOfADeviceOnly(t *testing.T) {
 	}
 }
 
-// A key whose line no stream wrote is revoked and the Assign fails: the stream closed with the line still queued,
-// or its write failed.
 func TestAssignFailsAndDropsTheKeyWhenNoStreamWroteTheLine(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -233,7 +228,7 @@ func TestAssignFailsAndDropsTheKeyWhenNoStreamWroteTheLine(t *testing.T) {
 }
 
 func openTestStream(a *App, from string, cancel context.CancelFunc) (string, func(), <-chan lastLine) {
-	done, out, _, err := a.mon.openStream(from, "Lobby", streamWho{addr: "192.0.2.7", signIn: "client"}, cancel)
+	done, out, _, err := a.mon.openStream(from, "Lobby", "", streamWho{addr: "192.0.2.7", signIn: "client"}, cancel)
 	if err != nil {
 		panic(err)
 	}
@@ -241,7 +236,7 @@ func openTestStream(a *App, from string, cancel context.CancelFunc) (string, fun
 }
 
 func openTestKeyless(a *App, from string, cancel context.CancelFunc) (string, func(), <-chan lastLine) {
-	done, out, _ := a.mon.openKeyless(from, "192.0.2.7", "Lobby", false, cancel)
+	done, out, _, _ := a.mon.openKeyless(from, "192.0.2.7", "Lobby", false, cancel)
 	return `{"keyless":"` + a.mon.keylessOf(Panel{ID: from})[0].Keyless + `"}`, sync.OnceFunc(done), out
 }
 
@@ -259,7 +254,7 @@ func TestAssignNeedsATrustedUser(t *testing.T) {
 	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")); rec.Code != 200 {
 		t.Fatalf("Trusted user: %d %s", rec.Code, rec.Body.String())
 	}
-	// A panel's own key cannot assign, even with the PIN.
+	// A panel's own key is not allowed to assign, even with the PIN.
 	client := instanceKey(t, a, to, cy, "Desk")
 	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", client, assignBody(from, "Lobby", "9999")); rec.Code != 403 {
 		t.Fatalf("a panel key assigned: %d %s", rec.Code, rec.Body.String())
@@ -327,7 +322,6 @@ func TestAssignNameClashAnswersASuggestionAndTakesTheChosenName(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+to, held, ""); rec.Code != 200 {
 		t.Fatalf("the held key ended: %d", rec.Code)
 	}
-	// A chosen name that clashes too is answered the same way.
 	rec = apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignAs(from, "Lobby", "LOBBY 2"))
 	wantErr(t, rec, 409, "name_taken")
 	if got := suggestOf(t, rec); got != "LOBBY 3" {
@@ -521,7 +515,6 @@ func TestATimedOutInstanceIsListedButCannotBeAssigned(t *testing.T) {
 	}
 }
 
-// assignLine waits for the instance's assign line.
 func assignLineOf(t *testing.T, ch <-chan map[string]any) map[string]any {
 	t.Helper()
 	select {
@@ -533,7 +526,6 @@ func assignLineOf(t *testing.T, ch <-chan map[string]any) map[string]any {
 	return nil
 }
 
-// A panel that acts as a user gets no key: the device opens it and shows its own sign-in.
 func TestAssignToAUserModePanelMakesNoKey(t *testing.T) {
 	a := panelsApp(t)
 	defer startLog(t, a)()
@@ -563,7 +555,6 @@ func TestAssignToAUserModePanelMakesNoKey(t *testing.T) {
 	}
 }
 
-// A panel that acts as both gives a key unless the Assign asks for the sign-in.
 func TestAssignToABothPanelHonoursTheChoice(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")

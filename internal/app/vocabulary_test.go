@@ -12,9 +12,8 @@ import (
 	"testing"
 )
 
-// Keeps the repo in step with GLOSSARY.md. Every retired word (the _Avoid_ lines) has a row in
-// retiredWords. A scope with a pending ticket is skipped until that ticket lands, and its
-// ticket then clears the field, so the list only shrinks. Kept names go in vocabAllow.
+// Keeps the repo in step with GLOSSARY.md (AGENTS.md, Vocabulary). A finished sweep clears its ticket,
+// so the pending list only shrinks. Kept names go in vocabAllow.
 
 // A word is matched as the whole token: not inside an identifier, class, key or path.
 const (
@@ -486,9 +485,7 @@ var (
 	identParts = regexp.MustCompile(`[A-Z]+[a-z0-9]*|[a-z0-9]+`)
 )
 
-// jsCode returns a script with its comments and string literals blanked, line breaks kept,
-// so what is left is identifiers and punctuation. Wire types and `sode-*` keys are strings
-// and so never reach the identifier scan.
+// jsCode blanks comments and string literals and keeps line breaks, so identifiers and punctuation are left.
 func jsCode(src string) string {
 	b := []byte(src)
 	blank := func(from, to int) {
@@ -553,8 +550,6 @@ func identRe(w retiredWord) *regexp.Regexp {
 	return regexp.MustCompile("(?i)" + w.Re.String())
 }
 
-// identFiles returns the code of every web script and test, and every file name under web/
-// and web/test/.
 func identFiles(t *testing.T) (code map[string]string, names []string) {
 	t.Helper()
 	code = map[string]string{}
@@ -602,8 +597,7 @@ func TestIdentifierScanMechanics(t *testing.T) {
 	}
 }
 
-// TestIdentifiersUseGlossaryWords scans names, not text: variables, functions, properties
-// and file names. Wire message types and `sode-*` keys are strings and stay out of scope.
+// Scans names, not text: variables, functions, properties and file names.
 func TestIdentifiersUseGlossaryWords(t *testing.T) {
 	code, names := identFiles(t)
 	files := make([]string, 0, len(code))

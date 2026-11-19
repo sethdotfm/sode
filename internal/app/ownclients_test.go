@@ -7,8 +7,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// API clients a user makes from My user: within their own Rights, owned by them, capped live by
-// their Rights and deleted with them. Seams: the browser messages and the REST API.
+// Seams: the browser messages and the REST API.
 
 const takeOne = `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`
 
@@ -58,7 +57,6 @@ func TestStandardUserMakesAPIClientWithinOwnRights(t *testing.T) {
 		t.Fatal("a refused save made a client")
 	}
 
-	// A key needs Ana's PIN, and acts with the client's Rights.
 	if r := send(t, a, c, next, inMsg{T: "myClientKey", ID: 3, Name: "Ana desk", KeyName: "Desk", Pin: "9999"}, "myClientKeyResult"); r["ok"] != false {
 		t.Fatalf("wrong PIN made a key: %v", r)
 	}
@@ -69,7 +67,6 @@ func TestStandardUserMakesAPIClientWithinOwnRights(t *testing.T) {
 	}
 	wantErr(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":2,"dst":2,"levels":[1]}]}`, nil), 403, "outside_rights")
 
-	// Someone else's client is not Ana's to change.
 	if r := saveOwn(t, a, c, next, myClientReq{Name: "PanelsBot", Scopes: []string{}}); r["ok"] != false {
 		t.Fatalf("took over an Administrator's client: %v", r)
 	}
@@ -97,7 +94,6 @@ func TestOwnClientNarrowsWithOwnerAndGoesWithThem(t *testing.T) {
 	setRights(t, a, "Ana", config.Rights{Sources: nums(2), Dsts: nums(2)})
 	wantErr(t, apiPost(a, "/api/v1/takes", key, takeOne, nil), 403, "outside_rights")
 
-	// Deleting Ana deletes the client and ends its key.
 	keep := []userEdit{}
 	for _, u := range a.r().cfg.Users {
 		if u.Name != "Ana" {
@@ -113,8 +109,6 @@ func TestOwnClientNarrowsWithOwnerAndGoesWithThem(t *testing.T) {
 	wantErr(t, apiPost(a, "/api/v1/takes", key, takeOne, nil), 401, "key_revoked")
 }
 
-// An Administrator's Users save lists clients by name. It keeps a user's client and its owner, and
-// a request cannot make a client someone's.
 func TestAdministratorSaveKeepsOwnClients(t *testing.T) {
 	a, _, c, next := ownClientApp(t)
 	saveOwn(t, a, c, next, myClientReq{Name: "Ana desk", Scopes: []string{config.ScopeTake}})

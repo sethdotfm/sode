@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST write seam: a POST through the real Handler and the fake router, with shortTimers.
-
 func apiPost(a *App, path, key, body string, hdr map[string]string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest("POST", path, strings.NewReader(body))
 	r.RemoteAddr = apiPeer
@@ -25,7 +23,6 @@ func apiPost(a *App, path, key, body string, hdr map[string]string) *httptest.Re
 	return rec
 }
 
-// takerApp is apiTestApp with the take scope on PanelsBot and shortened router timers.
 func takerApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter, string) {
 	t.Helper()
 	a, f := apiTestApp(t, func(c *config.Config) {

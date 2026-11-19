@@ -21,8 +21,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The table is the dispatch: every rule has a handler. The read loop has no switch
-// on the message type left to fall out of step with it.
+// The table is the dispatch: every rule has a handler.
 func TestPolicyCoversEveryMessage(t *testing.T) {
 	files, err := filepath.Glob("*.go")
 	if err != nil || len(files) == 0 {

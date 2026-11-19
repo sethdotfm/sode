@@ -66,7 +66,6 @@ func TestGroupLastHiddenShowsVisibleRoutesOnly(t *testing.T) {
 	if _, ok := body["entries"].([]any)[0].(map[string]any)["groupN"]; ok {
 		t.Error("groupN leaks the hidden route count")
 	}
-	// A Group with nothing visible is skipped for an older one.
 	grpAdd(a, "dark", 2, Entry{Src: 5, Dst: 7, Levels: []int{1}})
 	if body := apiBody(t, apiDo(a, "GET", "/api/v1/history/groups/last", key, nil)); body["group"] != "newer" {
 		t.Errorf("got %v", body["group"])

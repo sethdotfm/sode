@@ -50,7 +50,6 @@ func TestPanelClientCreatedWithinRights(t *testing.T) {
 	if got, _ := body["clientRights"].(map[string]any); got == nil || got["sources"] == nil {
 		t.Fatalf("clientRights not shown to its editor: %s", rec.Body.String())
 	}
-	// The creator's rights are the default.
 	rec = apiSend(a, "POST", "/api/v1/panels", key, apiPanel+`}`)
 	if rec.Code != 201 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -122,7 +121,6 @@ func TestPanelClientCheckedOnSave(t *testing.T) {
 	if cl, _ := clientOf(t, a, name); !refsAre(cl.Rights.Sources, 1, 2) {
 		t.Fatalf("refused save changed rights: %+v", cl.Rights)
 	}
-	// A save that leaves clientRights out keeps them, and the client keeps its name.
 	rec = apiSend(a, "PUT", path, key, apiPanel+`}`)
 	if rec.Code != 200 || apiBody(t, rec)["client"] != name {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -185,7 +183,7 @@ func TestPanelClientAdminWidens(t *testing.T) {
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, key, apiPanel+`}`); rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
-	// A client of that name cannot be added beside it.
+	// Sode refuses a second client of that name.
 	dup := []config.APIClient{{Name: name, Scopes: []string{}}}
 	if err := saveUsers(a, admin, usersReq{Users: users, APIClients: &dup}); err != nil {
 		t.Fatal(err)
@@ -209,7 +207,6 @@ func TestPanelClientGoesWithPanel(t *testing.T) {
 	id, name := apiBody(t, rec)["id"].(string), apiBody(t, rec)["client"].(string)
 	secret := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: name}, "Wall tablet", time.Time{})
 
-	// The client reads its panel, and nothing else of the panels.
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, secret, ""); rec.Code != 200 {
 		t.Fatalf("client reads own panel: %d %s", rec.Code, rec.Body.String())
 	} else if _, shown := apiBody(t, rec)["clientRights"]; shown {
@@ -249,7 +246,6 @@ func TestPanelClientEndsWhenPanelStopsActingAsOne(t *testing.T) {
 	if _, ok := clientOf(t, a, name); ok || len(a.keys.list()) != 1 { // only Cy's own key is left
 		t.Fatalf("client or its key kept: %v", a.keys.list())
 	}
-	// And back again: a new client.
 	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, key, apiPanel+`}`)
 	if rec.Code != 200 || apiBody(t, rec)["client"] != name {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -259,7 +255,6 @@ func TestPanelClientEndsWhenPanelStopsActingAsOne(t *testing.T) {
 	}
 }
 
-// Both: the panel has a client for its keyed links and still opens for a signed-in user.
 func TestPanelBothModeHasClientAndOpensForUsers(t *testing.T) {
 	a, _ := clientApp(t)
 	key := userKey(t, a, "Cy")
@@ -283,7 +278,6 @@ func TestPanelBothModeHasClientAndOpensForUsers(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, ana, ""); rec.Code != 200 || apiBody(t, rec)["acts"] != "both" {
 		t.Fatalf("a signed-in user cannot read a shared both panel: %d %s", rec.Code, rec.Body.String())
 	}
-	// Back to session: the client and its keys go, as for an api panel.
 	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, key, `{"name":"Wall","acts":"session"}`)
 	if rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -294,7 +288,6 @@ func TestPanelBothModeHasClientAndOpensForUsers(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/tally", secret, ""); rec.Code != 401 {
 		t.Fatalf("key alive after switching to session: %d", rec.Code)
 	}
-	// api to both keeps the same client.
 	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, key, apiPanel+`}`)
 	if rec.Code != 200 || apiBody(t, rec)["client"] != name {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -307,7 +300,6 @@ func TestPanelBothModeHasClientAndOpensForUsers(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/tally", secret, ""); rec.Code != 200 {
 		t.Fatalf("api to both ended the key: %d", rec.Code)
 	}
-	// A Standard user makes one too, as with api.
 	if rec := apiSend(a, "POST", "/api/v1/panels", ana, `{"name":"Mine","acts":"both"}`); rec.Code != 201 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}

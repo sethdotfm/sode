@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-// REST seam for the rest of a panel's sharing. That is the one-time setup link of secure mode,
-// the networks a key can be used from, and the hasKey flag the Share tab reads.
-
 func setupLink(t *testing.T, a *App, owner, id string) (token string, body map[string]any) {
 	t.Helper()
 	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", owner, `{"setup":true,"instance":"Lobby"}`)
@@ -64,7 +61,6 @@ func TestSetupTokenIsNotAKey(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	token, _ := setupLink(t, a, cy, id)
 	wantErr(t, apiSend(a, "GET", "/api/v1/tally", token, ""), 401, "invalid_key")
-	// A setup record never shows in a key list either.
 	for _, k := range a.keys.list() {
 		if k.Name == "Setup link" {
 			t.Fatal("a setup link is listed as a key")

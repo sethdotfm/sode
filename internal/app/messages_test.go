@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// keys marshals v and returns its top-level JSON keys, sorted.
 func keys(t *testing.T, v any) []string {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -27,10 +26,7 @@ func keys(t *testing.T, v any) []string {
 	return out
 }
 
-// TestMessageKeys pins the key set of every server -> browser message to
-// what the map[string]any versions sent before they were typed. The browser
-// reads these by name, and in places it treats a missing key and a zero one
-// differently.
+// The browser reads these keys by name, and in places it treats a missing key and a zero key differently.
 func TestMessageKeys(t *testing.T) {
 	zero, one := 0, 1
 	e := &Entry{}

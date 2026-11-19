@@ -1,0 +1,6 @@
+- An empty config.yaml (or one with only comments) starts Sode as a new install. Before, Sode took it for a v1 file and moved the data folder to `v1/`.
+- `sode -make-administrator` no longer shows the PIN as you type it (Linux and macOS).
+- A session key does not answer while its session is under the Lock.
+- A Guest with no key no longer sees user names in panel and template reads.
+- A Public panel key can name at most 4 instances, and the keyless instance stream has caps per address and per instance.
+- One bad line in the History file no longer hides all older History.

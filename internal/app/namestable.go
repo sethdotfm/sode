@@ -75,7 +75,6 @@ func (s *namesStore) path(uid string) string {
 	return filepath.Join(s.dir, uid+".yaml")
 }
 
-// load returns the saved table for uid, or false when there is none that this router can use.
 func (s *namesStore) load(uid string) (namesTable, bool) {
 	path := s.path(uid)
 	if path == "" {
@@ -103,7 +102,6 @@ func (s *namesStore) load(uid string) (namesTable, bool) {
 	return t, true
 }
 
-// save writes the table unless the file already holds these names.
 func (s *namesStore) save(uid string, at time.Time, src, dst map[int]string) {
 	path := s.path(uid)
 	if path == "" {
@@ -125,18 +123,4 @@ func (s *namesStore) save(uid string, at time.Time, src, dst map[int]string) {
 		return
 	}
 	s.src, s.dst = src, dst
-}
-
-func (s *namesStore) remove(uid string) error {
-	path := s.path(uid)
-	if path == "" {
-		return nil
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.src, s.dst = nil, nil
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
 }

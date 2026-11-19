@@ -10,8 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// pageSave sends a Settings save the way a page does: the live config as JSON, minus
-// the dropped keys, with set overriding or adding keys.
+// pageSave sends a Settings save the way a page does: the live config as JSON without the dropped keys.
+// The keys of set go on top.
 func pageSave(t *testing.T, a *App, c *client, set map[string]any, drop ...string) error {
 	t.Helper()
 	b, err := json.Marshal(a.r().cfg)
@@ -91,7 +91,6 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	}
 }
 
-// A partial browserDefaults object merges over the live values, key by key.
 func TestSavePartialDeviceDefaultsMerges(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
@@ -134,7 +133,7 @@ func TestSaveListFieldsReplace(t *testing.T) {
 	}
 }
 
-// Users are owned: a save carrying a users list (and the map inside a profile) cannot
+// Users are owned: a save with a users list (and the map inside a profile) cannot
 // change them, and cannot leak into the live copy.
 func TestSaveUsersListAndPrefsMapIgnored(t *testing.T) {
 	a := userApp(t, false)

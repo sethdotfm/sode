@@ -23,7 +23,7 @@ func init() {
 	registerAPI(apiRoute{Method: "PUT", Path: apiBase + "/panels/{id}/networks", Scope: config.ScopePanelsManage, Handle: (*App).apiPanelNetworks})
 }
 
-// parseNetworks validates and canonicalizes a list; blank entries are dropped.
+// parseNetworks drops blank entries.
 func parseNetworks(in []string) ([]string, error) {
 	out := []string{}
 	for _, s := range in {

@@ -247,7 +247,7 @@ func TestAPIChangeWritesASettingsSavesRow(t *testing.T) {
 	}
 }
 
-// A Standard user reading the Log sees labels, but values only for Shown sections.
+// A Standard user who reads the Log sees labels, but values only for Shown sections.
 func TestStandardReaderSeesNoAccessOrServerValues(t *testing.T) {
 	a := userApp(t, false)
 	defer startLog(t, a)()
