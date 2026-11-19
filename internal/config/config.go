@@ -662,7 +662,7 @@ func NameKeys(keys []string) string {
 	return fmt.Sprintf("%s and %d more", strings.Join(keys[:maxNamedKeys], ", "), len(keys)-maxNamedKeys)
 }
 
-// retiredKeys held v1's Advanced Settings PIN hash; v2.0 gates on Roles (ADR 0010). Extra is shared
+// retiredKeys held v1's settings secret, a PIN hash; v2.0 gates on Roles (ADR 0010). Extra is shared
 // by Clone, hence the copy.
 var retiredKeys = []string{"settingsPin"}
 

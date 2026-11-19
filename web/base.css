@@ -154,6 +154,42 @@ html {
 .sode__brandframe[hidden] {
   display: none;
 }
+/* Step in (stepinframe.js): one fixed colour that no Branding colour uses, over the Branding border and inside the
+   lost-link one. The bar is outside every Compact view fade rule in desktop.css. */
+.sode__stepframe {
+  border: var(--pb-space-3) solid var(--pb-signal-10);
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+[data-conn="down"] .sode__stepframe {
+  inset: var(--pb-space-3);
+}
+.sode__stepbar {
+  align-items: center;
+  background: var(--pb-signal-10);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-bold);
+  gap: var(--pb-space-4);
+  left: 50%;
+  padding: var(--pb-space-2) var(--pb-space-5);
+  position: fixed;
+  top: var(--sode-down-h, 0px);
+  transform: translateX(-50%);
+  z-index: var(--pb-z-tooltip);
+}
+.sode__stepbar .pb-btn {
+  background: var(--pb-surface-base);
+}
+[data-layout="phone"] .sode__stepbar {
+  top: calc(var(--sode-head-h, 3rem) + var(--sode-down-h, 0px));
+}
+:is(.sode__stepframe, .sode__stepbar)[hidden] {
+  display: none;
+}
 [data-brand="blue"] {
   --brand-color: var(--pb-signal-07);
 }

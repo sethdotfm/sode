@@ -52,7 +52,7 @@ func (a *App) replyOpResult(c *client, kind, note string, res opResult, err erro
 }
 
 // opResultFor: the "<kind>Result" reply without the PIN-failure flag; replyOpNote adds it,
-// and callers that log their own outcome (unlock, userSetPin) send it as is.
+// and callers that log their own outcome (userSetPin) send it as is.
 func opResultFor(kind string, id *int, err error) opResult {
 	res := opResult{T: kind + "Result", OK: err == nil, ID: id}
 	if err != nil {

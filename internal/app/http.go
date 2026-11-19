@@ -349,7 +349,7 @@ type inMsg struct {
 	Fields     map[string]fieldEdit `json:"fields"` // settingsSave: changed fields only
 	Pin        string               `json:"pin"`
 	User       string               `json:"user"` // userSignIn: the user's name (name and PIN mode)
-	ID         int                  `json:"id"`   // echoed by unlock and save replies
+	ID         int                  `json:"id"`   // echoed by save replies
 	Items      []routeReq           `json:"items"`
 	Preset     string               `json:"preset"`   // take: the preset that was fired, if any
 	PresetID   string               `json:"presetId"` // ...and its hidden id

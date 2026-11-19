@@ -9,7 +9,7 @@ import (
 // Message table: what each browser message needs and what runs for it, in one place. The
 // read loop looks the type up, checks access, then calls the handler; an unlisted type is
 // dropped (TestPolicyCoversEveryMessage: every rule has a handler). A handler picks inline
-// or goroutine itself: unlock and userSignIn stay inline so a following lock wins.
+// or goroutine itself: userSignIn stays inline so a following lock wins.
 // Locks cover actions, not data: hello, names, tally, History stream to a locked
 // browser (the lock screen is not a secret). Every rule names the Role it needs (roles.go,
 // TestPolicyCoversEveryMessage); settings changes need a Role, never the main lock.
