@@ -28,6 +28,7 @@ import { artLeftOut } from './panelrules.js';
 import { openAssign, askName } from './panelassign.js';
 import { clashOf, renameRefusal } from './panelassignrules.js';
 import { isGridPanel } from './gridpaneledges.js';
+import { sendCopy } from './sendcopy.js';
 import { layout, onLayout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
 import { statusBadge, panelStatus } from './brokenbadge.js';
@@ -135,6 +136,7 @@ function detail(p) {
   if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
+  if (!phone && S.me) bar.append(button('Send a copy', 'forward', '', 'send', p.id));
   // The server decides: a Trusted user or higher.
   if (!phone && (S.trusted || p.canEdit)) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
   // Link with key goes here.
@@ -300,6 +302,11 @@ async function act(kind, id) {
     if (kind === 'push') {
       const p = S.panels.find((x) => x.id === id);
       if (p) openPush(p, { api, panels: S.panels, me: S.me, trusted: S.trusted, onDone: () => load(id) });
+      return;
+    }
+    if (kind === 'send') {
+      const p = S.panels.find((x) => x.id === id);
+      if (p) sendCopy({ panels: [p] }, p.name);
       return;
     }
     if (kind === 'assign') {

@@ -87,12 +87,16 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		json.NewEncoder(w).Encode(st)
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
-	mux.HandleFunc("/api/yaml", a.serveYAML)
 	mux.HandleFunc("POST /api/export", a.serveExport)
 	mux.HandleFunc("POST /api/export/size", a.serveExportSize)
 	mux.HandleFunc("GET /api/export/items", a.serveExportItems)
 	mux.HandleFunc("POST /api/import", a.serveImportCheck)
 	mux.HandleFunc("POST /api/import/apply", a.serveImportApply)
+	mux.HandleFunc("POST /api/own/export", a.serveOwnExport)
+	mux.HandleFunc("POST /api/own/export/size", a.serveOwnExportSize)
+	mux.HandleFunc("GET /api/own/export/items", a.serveOwnExportItems)
+	mux.HandleFunc("POST /api/own/import", a.serveOwnImportCheck)
+	mux.HandleFunc("POST /api/own/import/apply", a.serveOwnImportApply)
 	a.mountAPI(mux)
 	return a.httpsGate(secureHeaders(mux))
 }
@@ -212,6 +216,9 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		if _, ok := a.clients[c]; ok {
 			delete(a.clients, c)
 			close(c.send)
+		}
+		if c.u.step != nil {
+			a.stepOutRowMu(c, "closed")
 		}
 		a.cardsSyncMu() // a page close cancels its request
 		a.mu.Unlock()

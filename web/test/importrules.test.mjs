@@ -87,6 +87,48 @@ test('the request names the ticked categories, items, sections and choices', () 
   assert.deepEqual(importReq(pick).categories, []);
 });
 
+test('Replace import sends no choices, and Keep current Administrators only when it is off', () => {
+  const c = check();
+  const pick = newPick(c);
+  pick.mode = 'replace';
+  assert.deepEqual(importReq(pick).choices, {});
+  assert.equal(importReq(pick).mode, 'replace');
+  assert.equal('keepAdmins' in importReq(pick), false);
+  pick.keepAdmins = false;
+  assert.equal(importReq(pick).keepAdmins, false);
+  assert.equal(hasChoice(c.plan.categories.presets, c.plan.categories.presets.items[0], pick), false);
+});
+
+test('Replace import can tick a category the file holds empty, so it empties that category here', () => {
+  const c = check();
+  c.categories.push('filterSets');
+  c.plan.categories.filterSets = { items: [] };
+  const pick = newPick(c);
+  assert.equal(catState(c, pick, 'filterSets'), 'all');
+  assert.equal(importReq(pick).categories.includes('filterSets'), false, 'Add import has nothing to add');
+  pick.mode = 'replace';
+  const req = importReq(pick);
+  assert.equal(req.categories.includes('filterSets'), true);
+  assert.equal('filterSets' in req.pick, false);
+  setCat(c, pick, 'filterSets', false);
+  assert.equal(catState(c, pick, 'filterSets'), 'none');
+  assert.equal(importReq(pick).categories.includes('filterSets'), false);
+});
+
+test('a Replace plan counts what it removes', () => {
+  const plan = {
+    categories: {
+      presets: {
+        items: [
+          { key: 'p1', name: 'Show', clash: 'Show', choice: 'new' },
+          { key: 'p9', name: 'Late', remove: true },
+        ],
+      },
+    },
+  };
+  assert.deepEqual(reviewCounts(plan), [{ cat: 'presets', text: '1 updated, 1 removed' }]);
+});
+
 test('Use new on a clash makes the import Critical; other choices do not', () => {
   const c = check();
   const pick = newPick(c);

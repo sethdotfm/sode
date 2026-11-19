@@ -2,6 +2,7 @@
 import { on, connect, S } from './core.js';
 import './brand.js';
 import './lock.js';
+import './inboxdialog.js';
 import { runPanel } from './panelrun.js';
 import { runPanelsList } from './panelslist.js';
 import { panelIdFrom } from './panelrules.js';

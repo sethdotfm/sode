@@ -242,9 +242,6 @@ const organizerBtn = btn('pb-btn--outline pb-btn--sm sode__head-link', 'Preset O
   closePresets();
   if (!open) emit('presetPopup');
 });
-const transferBtn = btn('pb-btn--outline', 'Import & Export…', () =>
-  emit('openTransfer', { scope: cur?.old ? cur.from : 'local', user: profileName() || '', what: 'presets' }),
-);
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closePresets());
 dialog.append(
   el('div', 'pb-modal__header', titleEl, organizerBtn),
@@ -273,7 +270,7 @@ dialog.append(
     ),
     rowsBox,
   ),
-  el('div', 'pb-modal__footer', transferBtn, noteEl, cancelBtn, saveBtn),
+  el('div', 'pb-modal__footer', noteEl, cancelBtn, saveBtn),
 );
 root.append(dialog);
 document.body.append(root);
@@ -460,7 +457,6 @@ function renderHead(keep = false) {
   pickRow.hidden = !own;
   scopeWrap.hidden = !own;
   saveAsBtn.hidden = !own;
-  transferBtn.hidden = !own;
   delBtn.hidden ||= !own;
   linkBtn.hidden ||= !own;
   asRow.hidden ||= !own;

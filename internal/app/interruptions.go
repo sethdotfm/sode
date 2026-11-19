@@ -23,6 +23,7 @@ type interruption struct {
 	Sessions int    `json:"sessions,omitempty"`
 	Keys     int    `json:"keys,omitempty"`
 	Browsers int    `json:"browsers,omitempty"`
+	StepIns  int    `json:"stepIns,omitempty"`
 	Ends     bool   `json:"ends,omitempty"`
 }
 
@@ -47,6 +48,7 @@ func (a *App) interruptions(live, next config.Config) []interruption {
 	out = append(out, a.publicStops(live, next)...)
 	out = append(out, a.keylessStops(live, next)...)
 	out = append(out, a.userStops(live, next)...)
+	out = append(out, a.stepInStops(live, next)...)
 	out = append(out, a.lockStops(live, next)...)
 	if live.GuestRole != next.GuestRole && config.RoleAtLeast(live.GuestRole, next.GuestRole) {
 		out = append(out, interruption{Text: fmt.Sprintf("Guest role goes down from %s to %s.",

@@ -48,4 +48,6 @@ test('an import row reads as counts per category, never values', () => {
     saveSummary({ fields: [], critical: true, import: im }),
     'Add import: Presets 2 added, 1 updated, 1 Broken; Filter sets 3 kept; Users not imported, Critical',
   );
+  const rep = { mode: 'replace', categories: [{ category: 'presets', updated: 1, removed: 2 }] };
+  assert.equal(saveSummary({ fields: [], critical: true, import: rep }), 'Replace import: Presets 1 updated, 2 removed, Critical');
 });

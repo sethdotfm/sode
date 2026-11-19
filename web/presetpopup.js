@@ -9,6 +9,8 @@ import { fire, fillBoxes, openPresets } from './presets.js';
 import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, movePin, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
 import { statusBadge, presetStatus } from './brokenview.js';
+import { inboxUser } from './inbox.js';
+import { sendCopy } from './sendcopy.js';
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -132,6 +134,7 @@ function draw() {
           () => togglePin(s),
         ),
       ];
+      if (inboxUser()) tools.push(btn('Send', 'send', 'Send a copy to another user', () => sendCopy({ presets: [s] }, s.name)));
       const slot = keySlot.get(presetKey(s));
       const keyCell = el('span', 'sode__preset-key', slot < 9 ? `${mac ? '⌥' : 'Alt+'}${slot + 1}` : '');
       const grip = pinned && reorder ? el('span', 'sode__preset-grip', icon('grip-vertical')) : null;

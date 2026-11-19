@@ -25,9 +25,7 @@ note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 const body = el('div', 'sode__profiles-body');
 const title = Object.assign(el('span', 'pb-modal__title', 'Profile'), { id: 'profiles-title' });
-const transferBtn = btn('pb-btn--outline', 'Import & Export…', () => transfer());
 const closeBtn = btn('pb-btn--outline', 'Close', () => closeDialog());
-transferBtn.disabled = true;
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -36,7 +34,7 @@ dialog.setAttribute('role', 'dialog');
 dialog.setAttribute('aria-modal', 'true');
 dialog.setAttribute('aria-labelledby', 'profiles-title');
 dialog.tabIndex = -1;
-dialog.append(el('div', 'pb-modal__header', title), el('div', 'pb-modal__body', body, err), el('div', 'pb-modal__footer', note, transferBtn, closeBtn));
+dialog.append(el('div', 'pb-modal__header', title), el('div', 'pb-modal__body', body, err), el('div', 'pb-modal__footer', note, closeBtn));
 // A later "Restrictions" section (sources and destinations a trusted user hides from a user) goes in `body` after presets.
 root.append(dialog);
 document.body.append(root);
@@ -56,12 +54,6 @@ const setNote = (t) => {
 function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
-}
-
-// Export / import opens on top; Esc closes it first.
-function transfer() {
-  if (!who) return;
-  emit('openTransfer', { scope: 'user', user: who });
 }
 
 function line(kind, i, name, summary) {
@@ -119,7 +111,6 @@ function listSection(heading, rows, empty, addText, ev) {
 
 function paint() {
   title.textContent = who ? `Profile: ${who}` : 'Profile';
-  transferBtn.disabled = !prof;
   if (!prof) {
     body.replaceChildren(el('p', 'sode__hint', who ? `Reading ${who}'s profile…` : 'No user chosen.'));
     return;

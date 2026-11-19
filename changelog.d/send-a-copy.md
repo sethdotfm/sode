@@ -1,0 +1,4 @@
+- Send a copy: a signed-in user sends a preset, filter set or panel to one or more other users. Use Send in the Presets popup, Send a copy… in Filters or Send a copy on `/panels`. Each user gets one card in their Inbox. A Guest has no Inbox.
+- The Inbox button shows the number of waiting cards. It is in the header of the Main page, Settings, `/panels`, the panel editor and the Communication Log. A panel page has no Inbox button. A new card shows one toast. A user who was offline sees the count at the next sign-in.
+- Accept shows the review with every item ticked and a choice for each clash with your own items. Untick what you do not want. Decline drops the card. Cards expire after 30 days, and an Inbox holds at most 100 waiting cards.
+- The Sent tab lists each card you sent as Waiting, Accepted (or "Accepted 4 of 5"), Declined, Expired or Withdrawn. You can withdraw a waiting card. On a phone, the Inbox and Sent tabs keep Decline only.
