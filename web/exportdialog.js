@@ -1,4 +1,5 @@
 import { $, el, on } from './core.js';
+import { btn } from './formbits.js';
 import { trapDialog } from './widgets.js';
 import { makeTabs } from './tabs.js';
 import { layout } from './layout.js';
@@ -9,13 +10,6 @@ import { browserValues, post, call, downloadZip, downloadBackup } from './export
 import { importTab } from './importtab.js';
 
 const SIZE_WAIT_MS = 300;
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;

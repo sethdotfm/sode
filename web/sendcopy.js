@@ -2,18 +2,12 @@
 // each. The server reads Me and Everyone items itself; This browser items go whole (inboxrules.js sendBody).
 
 import { el, on, S } from './core.js';
+import { btn } from './formbits.js';
 import { trapDialog } from './dialogkeys.js';
 import { layout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
 import { ask, inboxUser } from './inbox.js';
 import { sendBody } from './inboxrules.js';
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;

@@ -3,20 +3,13 @@
 import { el, off, S } from './core.js';
 import { call } from './exportcalls.js';
 import { recheckPin } from './recheck.js';
-import { check as checkBox, segmented } from './formbits.js';
+import { check as checkBox, segmented, btn } from './formbits.js';
 import { CATEGORIES, OWN_CATEGORIES, ADMIN_ONLY, sizeText } from './exportrules.js';
 import * as R from './importrules.js';
 import { stillBroken } from './remaprules.js';
 import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
 import { applyBrowser } from './browserapply.js';
 import { fmtTime } from './device.js';
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 
 const MODES = [
   ['add', 'Add import'],

@@ -51,6 +51,7 @@ import {
   pinFreeView,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
+import { closeShown } from './dialogkeys.js';
 import { stepLock, noteStepState, steppedIn } from './stepin.js';
 import { stepActive } from './stepinrules.js';
 import { createOwed } from './owed.js';
@@ -336,17 +337,12 @@ function inert(c) {
   inerted.push(c);
 }
 
-// Native <dialog>s close here; a module that owns a dialog or view listens for 'locking'
-// (Settings exits; an unsaved form keeps its warning, covered).
+// A module whose dialog or view needs more than its Esc on a Lock listens for 'locking' (Settings exits; an unsaved
+// form keeps its warning, covered). Every other trapDialog dialog closes as on Esc.
 function closeModals() {
   for (const d of document.querySelectorAll('dialog[open]')) d.close();
   emit('locking');
-  // Fallback for modals with no 'locking' listener: their own Cancel or Close, else hide them.
-  for (const m of document.querySelectorAll('.pb-modal-backdrop:not([hidden])')) {
-    const b = [...m.querySelectorAll('button')].find((x) => /cancel|close/i.test(x.id));
-    if (b) b.click();
-    else m.hidden = true;
-  }
+  closeShown();
 }
 
 function hideLock() {

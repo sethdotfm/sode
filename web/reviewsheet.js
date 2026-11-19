@@ -3,6 +3,7 @@
 // A save goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
 import { el, S, on, off, sentence } from './core.js';
+import { btn } from './formbits.js';
 import { trapDialog } from './widgets.js';
 import { showResult } from './plans.js';
 import { globalSaver, profileSaver } from './globalsave.js';
@@ -23,12 +24,6 @@ dialog.setAttribute('aria-modal', 'true');
 dialog.setAttribute('aria-labelledby', 'rv-title');
 dialog.tabIndex = -1;
 
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 const status = (dot, text) => {
   const d = el('span', `pb-dot pb-dot--${dot}`);
   d.setAttribute('aria-hidden', 'true');

@@ -1,18 +1,12 @@
 // The server applies the numbers (importReq.names).
 
 import { el, icon } from './core.js';
+import { btn } from './formbits.js';
 import * as M from './remaprules.js';
 import * as T from './remaptermrules.js';
 import { newSelection } from './remapselectrules.js';
 import { LIST_HELP, selectList } from './remaplist.js';
 import { TERM_CHOICE, termView } from './remapterms.js';
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 
 const KIND = { source: 'Source', destination: 'Destination' };
 

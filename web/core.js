@@ -11,9 +11,17 @@ export const LINK_DOWN = 'Server link down.';
 
 export const $ = (id) => document.getElementById(id);
 
-export function el(tag, cls, ...kids) {
+// props is a class string or an object; a key the element has as a property is set as one, any other as an attribute.
+export function el(tag, props, ...kids) {
   const e = document.createElement(tag);
-  if (cls) e.className = cls;
+  if (typeof props === 'string') e.className = props;
+  else if (props)
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k in e) e[k] = v;
+      else e.setAttribute(k, v === true ? '' : v);
+    }
   for (const k of kids) if (k != null) e.append(k);
   return e;
 }

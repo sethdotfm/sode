@@ -2,17 +2,11 @@
 // A user's own Profile comes from profile.js; another's from fetchProfile (a Trusted user or higher).
 
 import { el, S, on, emit, sentence } from './core.js';
+import { btn } from './formbits.js';
 import { trusted } from './trusted.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
 import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles, PROFILE_NOTICE } from './profilesrules.js';
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 
 const err = el('div', 'pb-note pb-note--error');
 err.setAttribute('role', 'alert');

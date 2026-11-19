@@ -1,6 +1,7 @@
 // The server sends cards only to pages that called showApprovalCards(); a panel page does not.
 
 import { el, S, on, emit, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
+import { btn } from './formbits.js';
 import { changeText, leftText, endText } from './approvalcardrules.js';
 
 {
@@ -30,13 +31,6 @@ function stackEl() {
     document.body.append(stack);
   }
   return stack;
-}
-
-function button(label, cls, fn) {
-  const b = el('button', `pb-btn pb-btn--sm ${cls}`, label);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
 }
 
 function toast(kind, title, ...body) {
@@ -102,7 +96,7 @@ onMsg('approvalWaiting', (m) => {
   mine.request = m.request;
   mine.until = Date.now() + m.left;
   mine.left = leftNode();
-  const cancel = button('Cancel', 'pb-btn--outline', cancelRequest);
+  const cancel = btn('pb-btn--sm pb-btn--outline', 'Cancel', cancelRequest);
   cancel.id = 'approval-wait-cancel';
   mine.card = toast('info', 'Waiting for approval', el('div', 'pb-toast__msg', `${mine.what}. `, mine.left), el('div', 'sode-approvals__actions', cancel));
   mine.card.node.id = 'approval-waiting';
@@ -116,7 +110,7 @@ onMsg('approvalEnded', (m) => {
   ticking();
   const text = endText(m.end, m.by);
   if (m.end === 'timeout') {
-    const here = button('Approve here', '', () => {
+    const here = btn('pb-btn--sm', 'Approve here', () => {
       card.node.remove();
       onTimeout();
     });
@@ -129,7 +123,7 @@ onMsg('approvalEnded', (m) => {
         'div',
         'sode-approvals__actions',
         here,
-        button('Close', 'pb-btn--outline', () => card.node.remove()),
+        btn('pb-btn--sm pb-btn--outline', 'Close', () => card.node.remove()),
       ),
     );
   } else if (m.end === 'denied') {
@@ -140,7 +134,7 @@ onMsg('approvalEnded', (m) => {
       el(
         'div',
         'sode-approvals__actions',
-        button('Close', 'pb-btn--outline', () => card.node.remove()),
+        btn('pb-btn--sm pb-btn--outline', 'Close', () => card.node.remove()),
       ),
     );
   } else ending(card, m.end === 'approved' ? 'ok' : 'info', text);
@@ -174,8 +168,8 @@ onMsg('approvalCard', (m) => {
   const err = el('div', 'pb-note pb-note--error');
   err.setAttribute('role', 'alert');
   err.hidden = true;
-  const deny = button('Deny', 'pb-btn--outline', () => answer(m.request, false));
-  const approve = button('Approve', 'pb-btn--ok', () => answer(m.request, true));
+  const deny = btn('pb-btn--sm pb-btn--outline', 'Deny', () => answer(m.request, false));
+  const approve = btn('pb-btn--sm pb-btn--ok', 'Approve', () => answer(m.request, true));
   deny.dataset.approvalDeny = approve.dataset.approvalApprove = m.request;
   const list = el('ul', 'sode-approvals__list', ...(m.changes || []).map((f) => el('li', '', changeText(f))));
   const stops = (m.interruptions || []).length

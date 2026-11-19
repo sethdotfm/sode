@@ -1,5 +1,6 @@
 // Each layout draws its own copy ([data-broken]).
 import { el, emit, icon, off, on } from './core.js';
+import { btn } from './formbits.js';
 import { profileName } from './profile.js';
 import { layout } from './layout.js';
 import { newBannerState, useItem, dismissItem, bannerItems, leftOutLines } from './brokenrules.js';
@@ -22,19 +23,12 @@ const swapOf = (it) => {
   return m ? { side: m.kind, from: m.ref.n } : null;
 };
 
-function button(label, cls, fn) {
-  const b = el('button', `pb-btn pb-btn--sm ${cls}`, label);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-}
-
 function itemNode(it) {
   const acts = [];
   // Routers, where a Swap is saved, is not on the phone.
   const sw = role === 'administrator' && layout() !== 'phone' && swapOf(it);
-  if (sw) acts.push(button('Swap…', 'pb-btn--outline', () => emit('swapAt', sw)));
-  if (canEdit(it)) acts.push(button('Edit', 'pb-btn--outline', () => emit(it.kind === 'preset' ? 'editPresetAt' : 'editFilterSetAt', it)));
+  if (sw) acts.push(btn('pb-btn--sm pb-btn--outline', 'Swap…', () => emit('swapAt', sw)));
+  if (canEdit(it)) acts.push(btn('pb-btn--sm pb-btn--outline', 'Edit', () => emit(it.kind === 'preset' ? 'editPresetAt' : 'editFilterSetAt', it)));
   const x = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('x'));
   x.type = 'button';
   x.setAttribute('aria-label', `Dismiss ${it.name}`);

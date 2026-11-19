@@ -1,7 +1,7 @@
 // Desktop confirm dialog (#confirm): churning key, lockout, Esc. The page wires its keys and decides what a close or send does.
 // The caller supplies the plan with its wording and summary, so a page without the plan module can use it.
 
-import { $, el } from './core.js';
+import { $, el, on } from './core.js';
 import { lockout } from './lockout.js';
 import { churnKey } from './lockrules.js';
 
@@ -80,6 +80,7 @@ export function keyConfirm({ prompt, verb: verbOf, summary, enter = () => false,
   };
 
   $('confirm-cancel').addEventListener('click', () => api.close());
+  on('locking', () => cur && api.close());
   $('confirm-ok').addEventListener('click', () => api.take());
   return api;
 }

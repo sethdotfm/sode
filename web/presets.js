@@ -2,6 +2,7 @@
 // and pure parts are presetstore.js, the plan is plans.js.
 
 import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem, icon } from './core.js';
+import { btn } from './formbits.js';
 import { mac } from './keys.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan, canRedo } from './plans.js';
@@ -178,12 +179,6 @@ dialog.tabIndex = -1;
 
 const pick = el('select', 'pb-select');
 pick.setAttribute('aria-label', 'Preset');
-const btn = (cls, text, fn = () => {}) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 const nameIn = el('input', 'pb-input');
 nameIn.maxLength = 32;
 nameIn.autocomplete = 'off';

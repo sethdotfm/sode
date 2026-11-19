@@ -3,19 +3,13 @@
 import { el, icon, off, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { makeTabs } from './tabs.js';
-import { segmented } from './formbits.js';
+import { segmented, btn } from './formbits.js';
 import { layout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
 import { inbox, ask, showToasts } from './inbox.js';
 import { choicesFor, missingText } from './importrules.js';
 import * as R from './inboxrules.js';
 
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 const CAT_TEXT = { presets: 'Presets', filterSets: 'Filter sets', panels: 'Panels' };
 const when = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 

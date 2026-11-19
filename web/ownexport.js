@@ -2,6 +2,7 @@
 // categories show greyed as Administrators only. Pure rules are in exportrules.js; the Import tab is importtab.js.
 
 import { el, on, icon } from './core.js';
+import { btn } from './formbits.js';
 import { trapDialog } from './widgets.js';
 import { makeTabs } from './tabs.js';
 import { layout } from './layout.js';
@@ -12,13 +13,6 @@ import { importTab } from './importtab.js';
 
 const SIZE_WAIT_MS = 300;
 const TITLE = 'Export & Import';
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
