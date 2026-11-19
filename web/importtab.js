@@ -5,7 +5,7 @@
 import { el, off, S } from './core.js';
 import { call } from './exportcalls.js';
 import { recheckPin } from './recheck.js';
-import { segmented } from './formbits.js';
+import { check as checkBox, segmented } from './formbits.js';
 import { CATEGORIES, sizeText } from './exportrules.js';
 import * as R from './importrules.js';
 import { stillBroken } from './remaprules.js';
@@ -21,6 +21,11 @@ const btn = (cls, text, fn) => {
   b.addEventListener('click', fn);
   return b;
 };
+
+const MODES = [
+  ['add', 'Add import'],
+  ['replace', 'Replace import'],
+];
 
 // This browser takes the file's values here, since they are this browser's own (browserimport.js).
 function applyBrowser(values, replace) {
@@ -72,6 +77,7 @@ export function importTab({ setNote, setReview, backup }) {
     brokenBadge.hidden = !broken;
     brokenBadge.textContent = `${broken} Broken`;
     reviewBtn.disabled = step === 'list' && !R.importReq(pick).categories.length;
+    importBtn.disabled = step === 'review' && !!planned?.refused;
   };
 
   // In the list the plan is the check's; the remap choices made since take references off it.
@@ -156,7 +162,7 @@ export function importTab({ setNote, setReview, backup }) {
       el('span', 'sode__xi-size', sizeText(it.size || 0)),
     );
     row.dataset.item = it.key;
-    if (ticked && R.hasChoice(c, it)) row.append(choices(cat, it, i));
+    if (ticked && R.hasChoice(c, it, pick)) row.append(choices(cat, it, i));
     if (broken.length) row.append(el('span', 'sode__hint sode__xi-sub sode__error-text', `Missing ${missing(it, broken)}`));
     return row;
   }
@@ -177,10 +183,11 @@ export function importTab({ setNote, setReview, backup }) {
     caret.setAttribute('aria-label', `Show the ${text.toLowerCase()} items`);
     caret.hidden = !items.length;
     const count = items.length > 1 ? ` ${pick.items[cat].size}/${items.length}` : '';
-    const why = c?.refused || '';
+    // Replace import can empty a category the file holds with no items.
+    const why = c?.refused || (!items.length && pick.mode === 'replace' ? 'Empties it here' : '');
     head.append(
       caret,
-      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', !!c?.refused || !items.length, (on) => {
+      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', !!c?.refused || (!items.length && pick.mode !== 'replace'), (on) => {
         R.setCat(check, pick, cat, on);
         render();
       }),
@@ -195,6 +202,31 @@ export function importTab({ setNote, setReview, backup }) {
     return remapView(remap, { off, onChange: () => render(), onRouter: () => load(file, true) });
   }
 
+  // Add import or Replace import. Replace import is for Administrators, and the dialog is only theirs.
+  function modeRow() {
+    const replace = pick.mode === 'replace';
+    const seg = segmented('xi-mode', 'Import mode', MODES, (v) => {
+      pick.mode = v;
+      render();
+    });
+    seg.set(pick.mode);
+    for (const r of seg.node.querySelectorAll('input')) r.dataset.key = `mode:${r.value}`;
+    const hint = replace ? 'Empties each ticked category first, then imports the file.' : 'Adds and updates. Deletes nothing.';
+    const row = el('div', 'sode__xi-mode', seg.node, el('span', 'sode__hint', hint));
+    if (replace) {
+      const keep = checkBox('Keep current Administrators', {
+        id: 'xi-keep-admins',
+        checked: pick.keepAdmins,
+        onChange: (on) => {
+          pick.keepAdmins = on;
+        },
+      });
+      keep.input.dataset.key = 'keepAdmins';
+      row.append(el('div', 'sode__xi-sub', keep.label));
+    }
+    return row;
+  }
+
   function listView() {
     const rows = [];
     for (const [cat, text] of CATEGORIES) if (check.categories.includes(cat)) rows.push(...catRows(cat, text));
@@ -207,7 +239,7 @@ export function importTab({ setNote, setReview, backup }) {
         btn('pb-btn--ghost pb-btn--sm', 'Change', () => fileInput.click()),
         el('span', 'sode__hint sode__xi-sub', `Sode ${check.sode}, ${check.sameInstall ? 'this install' : 'another install'}`),
       ),
-      el('div', 'sode__xi-mode', el('strong', null, 'Add import'), el('span', 'sode__hint', 'Adds and updates. Deletes nothing.')),
+      modeRow(),
       el('div', 'sode__xi-cats', ...rows),
       ...routerNames(),
     ];
@@ -254,8 +286,10 @@ export function importTab({ setNote, setReview, backup }) {
   function reviewView() {
     const counts = R.reviewCounts(planned);
     const broken = R.brokenItems(planned);
+    const replace = pick.mode === 'replace';
+    const ends = (planned.categories.users?.items || []).filter((it) => it.note?.startsWith('Ends ')).map((it) => it.note);
     const out = [
-      el('p', null, el('strong', null, 'Add import'), check.sameInstall ? ' from this install' : ' from another install'),
+      el('p', null, el('strong', null, replace ? 'Replace import' : 'Add import'), check.sameInstall ? ' from this install' : ' from another install'),
       el(
         'table',
         'pb-table pb-table--compact sode__xi-counts',
@@ -265,11 +299,18 @@ export function importTab({ setNote, setReview, backup }) {
     out.push(...remapReview(remap, goTo));
     if (broken.length)
       out.push(el('h3', 'sode__label sode__xi-h', `Broken (${broken.length})`), el('ul', 'sode__xi-list sode__xi-broken', ...broken.map(brokenLine)));
+    if (ends.length) out.push(el('ul', 'sode__xi-list', ...ends.map((t) => el('li', null, `${t}.`))));
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
-    if (planned.critical) {
+    // A backup of this install: what ended after it was made stays ended.
+    if (replace && check.sameInstall) out.push(el('p', 'sode__hint', 'Keys and sessions ended since the backup do not come back.'));
+    if (planned.refused) out.push(el('div', 'pb-alert pb-alert--error', `Sode refuses this import: ${planned.refused}.`));
+    else if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
       if (needsPin()) row.append(Object.assign(el('label', 'sode__label', 'PIN'), { htmlFor: 'xi-pin' }), pinInput);
-      out.push(el('div', 'pb-note pb-note--warn', 'Use new replaces what is here. This is a Critical action.'), row, pinErr);
+      const warn = replace
+        ? 'Replace import removes what the file does not hold. This is a Critical action.'
+        : 'Use new replaces what is here. This is a Critical action.';
+      out.push(el('div', 'pb-note pb-note--warn', warn), row, pinErr);
     }
     return out;
   }
@@ -323,7 +364,7 @@ export function importTab({ setNote, setReview, backup }) {
       step = 'done';
       setNote('');
       failed = Object.keys(got.failed || {}).length;
-      if (planned.categories.browser?.items.length) applyBrowser(check.browser, false);
+      if (planned.categories.browser?.items.length) applyBrowser(check.browser, pick.mode === 'replace');
       render();
     } catch (e) {
       if (my !== seq) return;
