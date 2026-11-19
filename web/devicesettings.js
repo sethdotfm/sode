@@ -113,16 +113,7 @@ export function initDeviceSettings({ form, reindex }) {
     const acct = !!L.user || signInOffered(L);
     $('account-name').hidden = !acct;
     $('account-name').replaceChildren(...(L.user ? ['Signed in as ', el('strong', null, L.user)] : ['Not signed in']));
-    for (const id of [
-      'account-profile',
-      'account-copy',
-      'account-swap',
-      'account-transfer',
-      'account-pin',
-      'account-keys',
-      'account-clients',
-      'account-logout',
-    ])
+    for (const id of ['account-profile', 'account-copy', 'account-transfer', 'account-pin', 'account-keys', 'account-clients', 'account-logout'])
       $(id).hidden = !L.user;
     // A user without a PIN holds no personal API keys or own API clients.
     const noPin = listedUser(S.users, L.user)?.len === 0;
@@ -137,12 +128,6 @@ export function initDeviceSettings({ form, reindex }) {
   $('account-profile').addEventListener('click', () => emit('openProfile', { name: acctUser }));
   $('account-copy').addEventListener('click', () => emit('openBrowserCopy'));
   $('account-transfer').addEventListener('click', () => emit('openOwnExport'));
-  $('account-swap').addEventListener('click', () => emit('openSwap', { mine: true }));
-  on('swapDone', (n) => {
-    const note = $('account-step-note');
-    note.textContent = `Swap changed ${n} ${n === 1 ? 'item' : 'items'}.`;
-    note.hidden = false;
-  });
   $('account-logout').addEventListener('click', () => emit('logout'));
   $('account-login').addEventListener('click', () => emit('login'));
   initStepIn(); // after the access handler above, which it overrides while stepped in

@@ -25,6 +25,7 @@ export function el(tag, props, ...kids) {
   else if (props)
     for (const [k, v] of Object.entries(props)) {
       if (v == null) continue;
+      if (k === 'data-pb-tip' && !String(v).trim()) continue; // a blank tip still draws an empty bubble
       if (k === 'class') e.className = v;
       else if (k in e) e[k] = v;
       else if (v !== false) e.setAttribute(k, v === true ? '' : v);

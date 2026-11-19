@@ -1,0 +1,6 @@
+- Ctrl+J and Ctrl+K (Cmd on a Mac) open Show all in an empty Source or Destination box, as the arrow keys do.
+- Settings > This browser shows its labels and selects in columns. Export & Import and Run setup again are one row each. Short fields are half width. Trusted proxies has no example text.
+- Swap in my items and the Broken and Name moved count moved from My user to your own Profile dialog.
+- Page border color has a Custom choice with a color picker (`brandBorder` also takes `#rrggbb`). Each level color has a color picker button.
+- Trusted and Administrator badges have their own colors.
+- No empty tooltips.
