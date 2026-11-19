@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chord, mac, listStep, resultStep, addClick } from '../keys.js';
+import { chord, mac, listStep, resultStep, addClick, browseStep } from '../keys.js';
 
 const k = (key, code, mods = {}) => ({ key, code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -39,6 +39,16 @@ test('search results take the arrows and Ctrl+J/K, and only when there are resul
   // No results: the key falls through, so Settings steps sections.
   assert.equal(resultStep(k('j', 'KeyJ', { ctrlKey: true }), false), 0);
   assert.equal(resultStep(k('ArrowDown', 'ArrowDown'), false), 0);
+});
+
+test('a closed patch box list opens on the arrows and on Ctrl/Cmd+J/K alike', () => {
+  assert.equal(browseStep(k('ArrowDown', 'ArrowDown')), 1);
+  assert.equal(browseStep(k('ArrowUp', 'ArrowUp')), -1);
+  assert.equal(browseStep(k('j', 'KeyJ', { ctrlKey: true })), 1);
+  assert.equal(browseStep(k('k', 'KeyK', { ctrlKey: true })), -1);
+  assert.equal(browseStep(k('k', 'KeyK', { metaKey: true })), mac ? -1 : 0);
+  assert.equal(browseStep(k('ArrowDown', 'ArrowDown', { altKey: true })), 0);
+  assert.equal(browseStep(k('j', 'KeyJ')), 0);
 });
 
 test('Ctrl-click adds a destination; Cmd-click only on a Mac; Shift and Alt do not', () => {
