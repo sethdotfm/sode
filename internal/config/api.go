@@ -190,16 +190,13 @@ func (c Config) FindAPIClient(name string) (APIClient, bool) {
 }
 
 func (r *Rights) fillRouter(uid string) {
-	for _, l := range []*[]Ref{r.Sources, r.Dsts} {
-		if l == nil {
-			continue
+	RefWalk{Fn: func(_ string, x Ref) []Ref {
+		if x.Router != "" {
+			return nil
 		}
-		for i := range *l {
-			if (*l)[i].Router == "" {
-				(*l)[i].Router = uid
-			}
-		}
-	}
+		x.Router = uid
+		return []Ref{x}
+	}}.Rights(r)
 }
 
 func (c *Config) normalizeAPI() {

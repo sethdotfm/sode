@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"maps"
-	"math"
 	"slices"
 	"strings"
 
@@ -72,25 +71,12 @@ func fixedList(v any) ([]config.Ref, error) {
 	return out, nil
 }
 
-func fixedNumber(x any) (int, bool) {
-	switch x := x.(type) {
-	case int:
-		return x, true
-	case float64:
-		if x != math.Trunc(x) || x < 0 || x > dstNumberMax {
-			return 0, false
-		}
-		return int(x), true
-	}
-	return 0, false
-}
-
 func fixedRef(x any) (config.Ref, bool) {
 	switch x := x.(type) {
 	case config.Ref:
 		return x, true
 	case map[string]any:
-		n, ok := fixedNumber(x["n"])
+		n, ok := cellInt(x["n"])
 		router, rok := x["router"].(string)
 		name, nok := x["name"].(string)
 		if !ok || (x["router"] != nil && !rok) || (x["name"] != nil && !nok) {

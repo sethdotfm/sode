@@ -20,22 +20,16 @@ func (a *App) SavePresets(c *client, presets []config.Preset) error {
 func (a *App) namePresets(uid string, ps []config.Preset) []config.Preset {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	name := func(f *config.Ref, names map[int]string) {
-		if f.Router != "" && f.Router != uid {
-			return
+	w := config.RefWalk{Fn: func(kind string, f config.Ref) []config.Ref {
+		n := sideNames(kind, a.router.srcNames, a.router.dstNames)[f.N]
+		if f.Router != "" && f.Router != uid || strings.TrimSpace(n) == "" {
+			return nil
 		}
-		if n, ok := names[f.N]; ok && strings.TrimSpace(n) != "" {
-			f.Name = n
-		}
-	}
+		f.Name = n
+		return []config.Ref{f}
+	}}
 	for i := range ps {
-		for j := range ps[i].Items {
-			it := &ps[i].Items[j]
-			name(&it.Src, a.router.srcNames)
-			for k := range it.Dsts {
-				name(&it.Dsts[k], a.router.dstNames)
-			}
-		}
+		w.Preset(&ps[i])
 	}
 	return ps
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -147,11 +148,7 @@ func (k *pollCheck) verdict(dst bool, r config.Ref) (refVerdict, string) {
 }
 
 func (k *pollCheck) noteRename(dst bool, r config.Ref, now string) {
-	side := "source"
-	if dst {
-		side = "destination"
-	}
-	s := fmt.Sprintf("%s %d %s to %s", side, r.N+k.off, strings.TrimSpace(r.Name), now)
+	s := fmt.Sprintf("%s %d %s to %s", refKind(dst), r.N+k.off, strings.TrimSpace(r.Name), now)
 	if !slices.Contains(k.renames, s) {
 		k.renames = append(k.renames, s)
 	}
@@ -294,12 +291,13 @@ func missingEqual(a, b []config.Missing) bool {
 
 func (k *pollCheck) preset(p *config.Preset, who string) bool {
 	c := k.item(p.Broken, p.Moved)
+	w := config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref {
+		c.ref(kind == config.MissingDestination, &r)
+		return []config.Ref{r}
+	}}
 	for i := range p.Items {
 		it := &p.Items[i]
-		c.ref(false, &it.Src)
-		for j := range it.Dsts {
-			c.ref(true, &it.Dsts[j])
-		}
+		w.Item(it)
 		for _, l := range it.Levels {
 			c.level(it.Src.Router, l)
 		}
@@ -350,7 +348,7 @@ func (k *pollCheck) filterSet(s *config.FilterSet, off int, who string) bool {
 				gone := !named(k.prev.side(side.dst)) && !named(k.cur.side(side.dst))
 				// N -1: a name term, which names no number.
 				m := config.Missing{Kind: refKind(side.dst), Ref: config.Ref{Router: k.uid, N: -1, Name: t.Text}}
-				m.Now = k.hints[sideIndex(side.dst)][strings.ToLower(strings.TrimSpace(t.Text))]
+				m.Now = k.hints[sideIndex(side.dst)][normName(t.Text)]
 				if i := slices.IndexFunc(s.Broken, func(o config.Missing) bool {
 					return o.Kind == m.Kind && o.Ref.N == -1 && sameName(o.Ref.Name, t.Text)
 				}); i >= 0 && m.Now == "" {
@@ -370,22 +368,6 @@ func (k *pollCheck) filterSet(s *config.FilterSet, off int, who string) bool {
 	return true
 }
 
-func (k *pollCheck) rights(r *config.Rights) bool {
-	changed := false
-	for _, side := range []struct {
-		l   *[]config.Ref
-		dst bool
-	}{{r.Sources, false}, {r.Dsts, true}} {
-		if side.l == nil {
-			continue
-		}
-		for i := range *side.l {
-			changed = k.quiet(side.dst, &(*side.l)[i]) || changed
-		}
-	}
-	return changed
-}
-
 var errNoCheckChange = errors.New("no change")
 
 // fits keeps a list whose new names would pass its byte cap as it was, so the next Load still reads the file.
@@ -400,116 +382,88 @@ func fits(what string, v any, max int) bool {
 
 func (k *pollCheck) config(c *config.Config) bool {
 	changed := false
-	presets := func(ps []config.Preset, who string) ([]config.Preset, bool) {
-		out := config.ClonePresets(ps)
-		ch := false
-		for i := range out {
-			ch = k.preset(&out[i], who) || ch
+	for _, s := range itemScopes(c, "") {
+		who := cmp.Or(s.Name, "Everyone")
+		ps, fs := config.ClonePresets(*s.Presets), slices.Clone(*s.FilterSets)
+		chP, chF := false, false
+		for i := range ps {
+			chP = k.preset(&ps[i], who) || chP
 		}
-		return out, ch
-	}
-	sets := func(fs []config.FilterSet, who string) ([]config.FilterSet, bool) {
-		out := slices.Clone(fs)
-		ch := false
-		for i := range out {
-			out[i].Broken = slices.Clone(out[i].Broken)
-			ch = k.filterSet(&out[i], c.NumberOffset, who) || ch
+		for i := range fs {
+			fs[i].Broken = slices.Clone(fs[i].Broken)
+			chF = k.filterSet(&fs[i], c.NumberOffset, who) || chF
 		}
-		return out, ch
-	}
-	if ps, ch := presets(c.Presets, "Everyone"); ch && fits("Everyone presets", ps, config.MaxPresetsBytes) {
-		c.Presets, changed = ps, true
-	}
-	if fs, ch := sets(c.FilterSets, "Everyone"); ch {
-		c.FilterSets, changed = fs, true
-	}
-	for i := range c.Users {
-		u := &c.Users[i]
-		pr := u.Profile.Clone()
-		ps, ch1 := presets(pr.Presets, u.Name)
-		fs, ch2 := sets(pr.FilterSets, u.Name)
+		if s.Profile == nil {
+			if chP && fits("Everyone presets", ps, config.MaxPresetsBytes) {
+				c.Presets, changed = ps, true
+			}
+			if chF {
+				c.FilterSets, changed = fs, true
+			}
+			continue
+		}
+		pr := s.Profile.Clone()
 		pr.Presets, pr.FilterSets = ps, fs
-		if (ch1 || ch2) && fits(u.Name+"'s Me items", pr, config.MaxProfileBytes) {
-			u.Profile, changed = pr, true
+		if (chP || chF) && fits(s.Name+"'s Me items", pr, config.MaxProfileBytes) {
+			*s.Profile, changed = pr, true
 		}
 	}
+	rights := config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref {
+		if !k.quiet(kind == config.MissingDestination, &r) {
+			return nil
+		}
+		changed = true
+		return []config.Ref{r}
+	}}
 	for _, r := range everyRights(c) {
-		if r.Sources != nil {
-			l := slices.Clone(*r.Sources)
-			r.Sources = &l
-		}
-		if r.Dsts != nil {
-			l := slices.Clone(*r.Dsts)
-			r.Dsts = &l
-		}
-		changed = k.rights(r) || changed
+		rights.Rights(r)
 	}
 	return changed
 }
 
-// Cells and lists are copies, since a stored panel shares them.
+// Cells and members carry Broken marks; hidden items, item settings and fixed destinations rename quietly.
 func (k *pollCheck) panel(p *Panel) bool {
 	c := k.item(p.Broken, p.Moved)
 	quiet := false
-	pages := make([]PanelPage, len(p.Pages))
-	for i, g := range p.Pages {
-		pages[i] = g
-		pages[i].Cells = slices.Clone(g.Cells)
-		for j, cell := range g.Cells {
-			r, ok := cellRef(cell)
-			if !ok || (cell["kind"] != "source" && cell["kind"] != "destination") {
-				continue
-			}
-			was := r.Name
-			c.ref(cell["kind"] == "destination", &r)
-			if r.Name != was {
-				cell = maps.Clone(cell)
-				cell["name"] = r.Name
-				pages[i].Cells[j] = cell
-			}
+	l := layoutOf(*p).walkRefs(func(s refSlot, kind string, r config.Ref) []config.Ref {
+		dst, was := kind == config.MissingDestination, r.Name
+		if s == slotCell || s == slotMember {
+			c.ref(dst, &r)
+		} else {
+			quiet = k.quiet(dst, &r) || quiet
 		}
-	}
-	p.Pages = pages
-	edge := func(e *GridEdge, dst bool) *GridEdge {
-		if e == nil {
+		if r.Name == was {
 			return nil
 		}
-		out := *e
-		out.Members.List = slices.Clone(e.Members.List)
-		for i := range out.Members.List {
-			c.ref(dst, &out.Members.List[i])
-		}
-		out.Hide = slices.Clone(e.Hide)
-		for i := range out.Hide {
-			quiet = k.quiet(dst, &out.Hide[i]) || quiet
-		}
-		out.Items = slices.Clone(e.Items)
-		for i := range out.Items {
-			r := out.Items[i].ref()
-			if k.quiet(dst, &r) {
-				out.Items[i].Name, quiet = r.Name, true
-			}
-		}
-		return &out
-	}
-	p.Sources, p.Destinations = edge(p.Sources, false), edge(p.Destinations, true)
-	if v, ok := p.Settings[panelFixedKey]; ok {
-		if list, err := fixedList(v); err == nil {
-			list = slices.Clone(list)
-			ch := false
-			for i := range list {
-				ch = k.quiet(true, &list[i]) || ch
-			}
-			if ch {
-				p.Settings = maps.Clone(p.Settings)
-				p.Settings[panelFixedKey] = list
-				quiet = true
-			}
-		}
-	}
+		return []config.Ref{r}
+	}, false)
+	p.Pages, p.Settings, p.Sources, p.Destinations = l.Pages, l.Settings, l.Sources, l.Destinations
 	var changed bool
 	p.Broken, p.Moved, changed = c.done(fmt.Sprintf("panel %q", p.Name))
 	return changed || quiet
+}
+
+// itemScope is Everyone's presets and filter sets (Profile nil) or one user's. ID is the owner part of an item id.
+type itemScope struct {
+	ID, Name   string
+	Presets    *[]config.Preset
+	FilterSets *[]config.FilterSet
+	Profile    *config.Profile
+}
+
+// itemScopes: Everyone's and every user's, or only user mine's. c gets its own Users list.
+func itemScopes(c *config.Config, mine string) []itemScope {
+	var out []itemScope
+	if mine == "" {
+		out = append(out, itemScope{ID: "everyone", Presets: &c.Presets, FilterSets: &c.FilterSets})
+	}
+	c.Users = slices.Clone(c.Users)
+	for i := range c.Users {
+		if u := &c.Users[i]; mine == "" || u.ID == mine {
+			out = append(out, itemScope{ID: u.ID, Name: u.Name, Presets: &u.Profile.Presets, FilterSets: &u.Profile.FilterSets, Profile: &u.Profile})
+		}
+	}
+	return out
 }
 
 // No Settings saves row: the Router names row says what changed.

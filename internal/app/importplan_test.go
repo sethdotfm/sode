@@ -401,6 +401,25 @@ func TestAddImportSettingsKeepKeysTheFileLacks(t *testing.T) {
 	}
 }
 
+// A nested key an older file lacks keeps its live value too.
+func TestAddImportSettingsKeepNestedKeysTheFileLacks(t *testing.T) {
+	a, c, tok := importApp(t)
+	files := map[string]string{}
+	secs := []string{"locks", "api", "everyone-defaults", "users"}
+	for name, b := range unzipAll(t, exported(t, a, tok, exportReq{Categories: []string{catSettings}, Sections: secs})) {
+		files[name] = string(b)
+	}
+	files["settings.yaml"] = regexp.MustCompile(`(?m)^\s+(panel|logReads|compact|noAutoLock): .*\n`).ReplaceAllString(files["settings.yaml"], "")
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.Locks.Panel, cfg.API.LogReads, cfg.DeviceDefaults.Compact, cfg.NewUserDefaults.NoAutoLock = true, true, true, true
+	})
+	grantRecheck(a, c)
+	applied(t, postApply(t, a, tok, zipOf(t, files), importReq{Mode: importAdd}))
+	if cfg := a.r().cfg; !cfg.Locks.Panel || !cfg.API.LogReads || !cfg.DeviceDefaults.Compact || !cfg.NewUserDefaults.NoAutoLock {
+		t.Fatalf("locks %+v, api %+v, compact %v, new users %+v", cfg.Locks, cfg.API, cfg.DeviceDefaults.Compact, cfg.NewUserDefaults)
+	}
+}
+
 // A foreign panel shared with Bo follows the file's Bo, here renamed "Bo 2", never the live Bo. A public
 // panel waits while Public panels allowed is off, and says so.
 func TestAddImportPanelShareFollowsUsers(t *testing.T) {

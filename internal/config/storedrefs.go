@@ -3,36 +3,33 @@ package config
 import (
 	"errors"
 	"fmt"
-	"slices"
 )
 
 // Only a request can leave the router out; Normalize fills it there.
 func (c Config) noRouterProblem() error {
-	blank := func(l []Ref) bool { return slices.ContainsFunc(l, func(r Ref) bool { return r.Router == "" }) }
+	bare := false
+	w := RefWalk{Fn: func(_ string, r Ref) []Ref { bare = bare || r.Router == ""; return nil }}
+	check := func(who string, visit func()) error {
+		bare = false
+		if visit(); bare {
+			return fmt.Errorf("%s: a source or destination has no router", who)
+		}
+		return nil
+	}
 	presets := func(who string, ps []Preset) error {
 		for _, p := range ps {
-			for _, it := range p.Items {
-				if it.Src.Router == "" || blank(it.Dsts) {
-					return fmt.Errorf("%s preset %q: a source or destination has no router", who, p.Name)
-				}
+			if err := check(fmt.Sprintf("%s preset %q", who, p.Name), func() { w.Preset(&p) }); err != nil {
+				return err
 			}
 		}
 		return nil
 	}
-	rights := func(who string, r Rights) error {
-		for _, l := range []*[]Ref{r.Sources, r.Dsts} {
-			if l != nil && blank(*l) {
-				return fmt.Errorf("%s: a source or destination has no router", who)
-			}
-		}
-		return nil
-	}
-	errs := []error{presets("Everyone", c.Presets), rights("Guest rights", c.GuestRights)}
+	errs := []error{presets("Everyone", c.Presets), check("Guest rights", func() { w.Rights(&c.GuestRights) })}
 	for _, u := range c.Users {
-		errs = append(errs, rights("rights of "+u.Name, u.Rights), presets(u.Name+"'s Me", u.Profile.Presets))
+		errs = append(errs, check("rights of "+u.Name, func() { w.Rights(&u.Rights) }), presets(u.Name+"'s Me", u.Profile.Presets))
 	}
 	for _, a := range c.APIClients {
-		errs = append(errs, rights("rights of API client "+a.Name, a.Rights))
+		errs = append(errs, check("rights of API client "+a.Name, func() { w.Rights(&a.Rights) }))
 	}
 	return errors.Join(errs...)
 }
