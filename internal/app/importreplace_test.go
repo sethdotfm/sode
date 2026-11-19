@@ -350,28 +350,56 @@ func TestReplaceImportRoundTripKeepsEverything(t *testing.T) {
 func TestReplaceImportKeepsTwinsOfRefusedItems(t *testing.T) {
 	a, tok := replaceApp(t)
 	_, _, _, ic := seedPanelExtras(t, a)
-	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")} })
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")}
+		srcs := []config.Ref{cfg.SourceRef(2, "CAM 2")}
+		for i := range cfg.Users {
+			if cfg.Users[i].Name == "Bo" {
+				cfg.Users[i].Rights.Sources = &srcs
+			}
+		}
+	})
+	cats := []string{catPanels, catArtwork, catPresets, catUsers}
 	files := map[string]string{}
-	for name, b := range unzipAll(t, exported(t, a, tok, exportReq{Categories: []string{catPanels, catArtwork, catPresets}})) {
+	for name, b := range unzipAll(t, exported(t, a, tok, exportReq{Categories: cats})) {
 		files[name] = string(b)
 	}
-	files["panels.yaml"] = strings.Replace(files["panels.yaml"], "rows: 1", "rows: 99", 1)
+	for _, bad := range [][2]string{{"rows: 1", "rows: 99"}, {"name: Row", `name: ""`}, {"name: Show A", `name: ""`}} {
+		files["panels.yaml"] = strings.Replace(files["panels.yaml"], bad[0], bad[1], 1)
+	}
+	files["artwork.yaml"] = strings.Replace(files["artwork.yaml"], "art: lib:", "art: bad:", 1)
 	files["art/icons/"+ic.fileName()] = "not an image"
 	a.mu.Lock()
 	clear(a.router.srcNames)
 	clear(a.router.dstNames)
 	a.mu.Unlock()
-	res := applied(t, postApply(t, a, tok, zipOf(t, files), replaceReq(catPanels, catArtwork, catPresets)))
+	res := applied(t, postApply(t, a, tok, zipOf(t, files), replaceReq(cats...)))
 	if len(res.Failed) != 0 {
 		t.Fatalf("failed: %v", res.Failed)
 	}
-	if n := len(a.panels.list()); n != 1 {
-		t.Errorf("%d panels: the refused panel's live twin is gone", n)
+	refused, waits := 0, 0
+	for _, c := range res.Plan.Categories {
+		for _, it := range c.Items {
+			switch it.Refused {
+			case "":
+			case waitsForNames:
+				waits++
+			default:
+				refused++
+			}
+		}
 	}
-	if n := len(a.icons.list()); n != 1 {
-		t.Errorf("%d icons: the refused icon's live twin is gone", n)
+	if refused != 5 || waits != 2 {
+		t.Fatalf("%d refused, %d waiting: %+v", refused, waits, res.Plan.Categories)
+	}
+	p, tp, set, i, d := len(a.panels.list()), len(a.templates.list()), len(a.panels.sets.sorted(nil)), len(a.icons.list()), len(a.artDefaults.list())
+	if p+tp+set+i+d != 5 {
+		t.Errorf("panels %d, templates %d, sets %d, icons %d, defaults %d", p, tp, set, i, d)
 	}
 	if _, ok := presetNamed(t, a, "Show"); !ok {
 		t.Error("the waiting preset's live twin is gone")
+	}
+	if _, ok := a.r().cfg.FindUserByName("Bo"); !ok {
+		t.Error("the waiting user's live twin is gone")
 	}
 }

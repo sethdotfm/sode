@@ -244,16 +244,6 @@ func refWalk(b *exportBundle, fn func(kind string, r config.Ref, use refUse, ite
 			layout(e.Pages, e.Settings, e.Sources, e.Destinations, "set/"+s.ID)
 		}
 	}
-	for i := range b.Artwork.Defaults {
-		d := &b.Artwork.Defaults[i]
-		kind := refKinds[d.Kind]
-		if kind == "" || d.N == nil {
-			continue
-		}
-		x := one(kind, config.Ref{Router: d.Router, N: *d.N, Name: d.Name}, useOther, "default/"+d.key())
-		n := x.N
-		d.Router, d.N = x.Router, &n
-	}
 	list, _ := b.Browser["presets"].([]any)
 	for _, sp := range list {
 		sp, _ := sp.(map[string]any)
@@ -346,7 +336,7 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 
 	idx := map[string]int{}
 	counted := map[string]bool{}
-	refWalk(p.b, func(kind string, r config.Ref, use refUse, item string) []config.Ref {
+	count := func(kind string, r config.Ref, use refUse, item string) []config.Ref {
 		rr := byRouter[r.Router]
 		if rr == nil {
 			return nil
@@ -374,7 +364,9 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 			}
 		}
 		return nil
-	})
+	}
+	refWalk(p.b, count)
+	p.defaultRefs(func(_ int, kind string, r config.Ref) { count(kind, r, useOther, "") })
 	for i := range info.Routers {
 		rr := byRouter[info.Routers[i].UID]
 		slices.SortFunc(rr.Refs, func(a, b remapRef) int { return cmp.Or(cmp.Compare(a.Kind, b.Kind), cmp.Compare(a.N, b.N)) })
@@ -383,7 +375,7 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 	p.plan.Remap = info
 
 	names := map[string]map[int]string{config.MissingSource: src, config.MissingDestination: dst}
-	refWalk(p.b, func(kind string, r config.Ref, _ refUse, _ string) []config.Ref {
+	move := func(kind string, r config.Ref, _ refUse, _ string) []config.Ref {
 		rr := byRouter[r.Router]
 		if rr == nil || rr.Target == "" {
 			return nil
@@ -405,6 +397,14 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 			out = []config.Ref{r}
 		}
 		return out
+	}
+	refWalk(p.b, move)
+	// Default artwork keys on its number, so the file's item stays as is and keeps the key the page picks by.
+	p.movedDefaults = map[int]config.Ref{}
+	p.defaultRefs(func(i int, kind string, r config.Ref) {
+		if out := move(kind, r, useOther, ""); len(out) > 0 {
+			p.movedDefaults[i] = out[0]
+		}
 	})
 	target := func(uid string) (string, bool) {
 		rr := byRouter[uid]
@@ -468,6 +468,14 @@ func (p *importPlanner) remapSets(uid string) []remapSet {
 		out = append(out, remapSet{Key: key, Name: s.Name, User: owner[user], Src: s.Src, Dst: s.Dst})
 	})
 	return out
+}
+
+func (p *importPlanner) defaultRefs(fn func(i int, kind string, r config.Ref)) {
+	for i, d := range p.b.Artwork.Defaults {
+		if kind := refKinds[d.Kind]; kind != "" && d.N != nil {
+			fn(i, kind, config.Ref{Router: d.Router, N: *d.N, Name: d.Name})
+		}
+	}
 }
 
 func normSet(m map[int]string) map[string]bool {

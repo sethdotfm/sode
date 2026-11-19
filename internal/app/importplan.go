@@ -182,6 +182,8 @@ type importPlanner struct {
 	icons      map[string]string // file icon id → live id, "" when skipped
 	panelIDs   map[string]string // file panel id → live id; a new panel's is added when it is stored
 	panels     []plannedPanel
+	// movedDefaults: Default artwork index → where the remap step moves its reference.
+	movedDefaults map[int]config.Ref
 
 	liveTemplates  []Template
 	liveSets       []PanelSet

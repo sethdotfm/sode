@@ -201,7 +201,7 @@ func TestImportRemapMovesEveryReferenceKind(t *testing.T) {
 	a.mu.Unlock()
 	grantRecheck(a, c)
 	req := importReq{Mode: importAdd, Categories: []string{catSettings, catPanels, catArtwork, catAPIClients, catBrowser},
-		Names: map[string][]int{remapKey(config.MissingSource, 23): {40}}}
+		Names: map[string][]int{remapKey(config.MissingSource, 23): {40}}, Pick: map[string][]string{catArtwork: {"source/23"}}}
 	moved := func(what string, r config.Ref) {
 		t.Helper()
 		if r.Router != uid || r.N != 40 {
@@ -243,7 +243,7 @@ func TestImportRemapMovesEveryReferenceKind(t *testing.T) {
 		r, _ := cellRef(s.Entries[0].Pages[0].Cells[0])
 		moved("Checkpoint set", r)
 	}
-	if ds := a.artDefaults.list(); len(ds) != 1 || ds[0].Router != uid || *ds[0].N != 40 {
+	if ds := a.artDefaults.list(); len(ds) != 1 || ds[0].Router != uid || *ds[0].N != 40 || ds[0].Name != "CAM 3" {
 		t.Errorf("Default artwork: %+v", ds)
 	}
 }

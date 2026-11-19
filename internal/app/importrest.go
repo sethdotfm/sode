@@ -227,7 +227,7 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 	for _, im := range p.b.Artwork.DefaultImages {
 		images[im.ID] = im
 	}
-	for _, d := range p.b.Artwork.Defaults {
+	for i, d := range p.b.Artwork.Defaults {
 		key := d.key()
 		if !p.picked(catArtwork, key) {
 			continue
@@ -244,6 +244,10 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 			}
 			d.ID = to
 		default:
+			if x, ok := p.movedDefaults[i]; ok {
+				n := x.N
+				d.Router, d.N, d.Name = x.Router, &n, cmp.Or(x.Name, d.Name)
+			}
 			if d.Router != p.live.UID {
 				it.Refused = "it is for another router"
 			}
