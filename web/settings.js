@@ -23,6 +23,7 @@ import './accesspreset.js';
 import './setupagain.js';
 import './profiles.js';
 import './exportdialog.js';
+import './swap.js';
 
 const root = document.documentElement;
 

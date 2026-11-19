@@ -179,7 +179,7 @@ func (a *App) savedFields(was, now config.Config, keys []string, x *saveCtx) []S
 	var out []SavedField
 	for _, key := range slices.Sorted(slices.Values(keys)) {
 		spec, ok := lookupField(key)
-		if !ok {
+		if !ok || spec.action {
 			continue
 		}
 		label := fieldLabels[key]

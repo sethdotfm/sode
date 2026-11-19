@@ -45,7 +45,7 @@ export const SAVE_FIELDS = Object.freeze({
 
 // Item keys, `user/<id>/<attribute>` and `client/<name>/<attribute>`, by their first part. Keep in step with
 // internal/app/onesavefields.go.
-const ITEM_SECTIONS = Object.freeze({ user: 'users', client: 'users' });
+const ITEM_SECTIONS = Object.freeze({ user: 'users', client: 'users', swap: 'routers' });
 export const sectionOfKey = (key) => SAVE_FIELDS[key] || ITEM_SECTIONS[key.split('/')[0]];
 
 // The router connection fields (reconnect:"true" in internal/config/router.go). A change reconnects the router.

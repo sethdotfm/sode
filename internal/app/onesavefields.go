@@ -23,6 +23,7 @@ type fieldSpec struct {
 	hidden  bool   // the version rides usersList, not the hello
 	secret  bool   // a conflict sends no value
 	adds    bool   // adds an item: never unchanged, no version check
+	action  bool   // an action such as Swap: never unchanged, no version check, its own Settings saves field
 	item    string // fields of one item also validate together ("" for none)
 }
 
@@ -30,6 +31,10 @@ type fieldSpec struct {
 // slow) and the ids of added users.
 type saveCtx struct {
 	made map[string]string
+	// swap: the Swap of this save, made once in planSave with the router's names. swapped: what the last set
+	// changed, per owner.
+	swap    *swapper
+	swapped swapCounts
 }
 
 func (x *saveCtx) once(key string, make func() (string, error)) (string, error) {
@@ -78,6 +83,9 @@ func lookupField(key string) (fieldSpec, bool) {
 			set: func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
 				return json.Unmarshal(v, fieldOf(c, key).Addr().Interface())
 			}}, true
+	}
+	if key == swapKey {
+		return swapSpec(), true
 	}
 	if rest, ok := strings.CutPrefix(key, "user/"); ok {
 		id, attr, ok := strings.Cut(rest, "/")

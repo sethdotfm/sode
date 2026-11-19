@@ -33,6 +33,8 @@ export const WHY_LABEL = {
   routerNames: 'Router names',
   clearHistory: 'Clear history',
   approvalRequest: 'Request approval',
+  stepIn: 'Step in',
+  stepOut: 'Step out',
   config: 'Settings saved',
   filterSets: 'Filter sets saved',
   presets: 'Presets saved',

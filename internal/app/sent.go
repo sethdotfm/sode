@@ -38,7 +38,12 @@ func (a *App) logEvent(e Sent) {
 }
 
 func (a *App) command(c *client, why, result, note string, err error) {
-	e := event(kindCommand, why, c.who(), result)
+	a.commandBy(c.who(), why, result, note, err)
+}
+
+// commandBy: a command row by a name taken before the command changed who c is.
+func (a *App) commandBy(by, why, result, note string, err error) {
+	e := event(kindCommand, why, by, result)
 	e.Note = note
 	if err != nil {
 		e.Err = err.Error()

@@ -386,6 +386,7 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 		w.why.Reason = swp08.ReasonRetry
 	}
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, PresetID: req.PresetID, Prev: [][2]int{}}
+	e.BrowserOf = a.browserOf(c)
 	if c.api != nil {
 		e.setActor(c.api.Actor)
 		e.Panel, e.Instance = a.panelNames(c.api.Actor)
