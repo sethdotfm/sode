@@ -402,3 +402,24 @@ func TestOrphanPanelClientsDropAtStartup(t *testing.T) {
 		t.Fatalf("live clients dropped: %+v", cfg.APIClients)
 	}
 }
+
+// A refused client change puts the panel back, so the file never names a client that is not there.
+func TestPanelUpdateRefusedClientKeepsPanel(t *testing.T) {
+	a, _ := clientApp(t)
+	key := userKey(t, a, "Cy")
+	rec := apiSend(a, "POST", "/api/v1/panels", key, `{"name":"Wall","acts":"session"}`)
+	id := apiBody(t, rec)["id"].(string)
+	if err := a.applyConfig(func(c *config.Config) error {
+		c.APIClients = append(c.APIClients, config.APIClient{Name: panelClientName(id), Scopes: []string{config.ScopePanels}})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, key, `{"name":"Wall 2","acts":"api"}`)
+	if rec.Code != 400 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if p, _ := a.panels.get(id); p.Name != "Wall" || p.Acts != panelActsSession || p.Client != "" {
+		t.Fatalf("panel not put back: %+v", p)
+	}
+}

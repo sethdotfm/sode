@@ -300,15 +300,50 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	apiCreated(w, a.panelOut(made, true))
 }
 
-// Id, owner, client and artwork are the server's. An unknown stored field that the body leaves out is kept.
 func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	old, ok := a.panelFor(w, r, cl, true)
 	if !ok {
 		return
 	}
-	p, ok := readPanelBody(w, r, false)
+	p, want, ok := a.readPanelUpdate(w, r, cl, old)
 	if !ok {
 		return
+	}
+	putClient, ok := a.panelClientChange(w, cl, old, &p, want)
+	if !ok {
+		return
+	}
+	// The panel is written before the client changes: a removed client's keys cannot come back, a file can.
+	if _, err := a.panels.replaceBody(p); err != nil {
+		failStore(w, err, panelSaveFail)
+		return
+	}
+	if putClient != nil {
+		if err := putClient(); err != nil {
+			if _, rerr := a.panels.replaceBody(old); rerr != nil {
+				log.Printf("panels: %s not put back after a refused client change: %v", p.ID, rerr)
+			}
+			failWith(w, err)
+			return
+		}
+	}
+	// After the write: an ask that read the panel as Public before it would get a key that outlives the switch.
+	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
+		a.endPublicKeys(p.ID)
+	}
+	if old.Acts != panelActsPublic && p.Acts == panelActsPublic {
+		a.publicAgain(p.ID)
+	}
+	p, _ = a.panels.get(p.ID) // carries the new Rev
+	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
+	apiJSON(w, a.panelOut(p, true))
+}
+
+// Id, owner, client and artwork are the server's. An unknown stored field that the body leaves out is kept.
+func (a *App) readPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx, old Panel) (Panel, *config.Rights, bool) {
+	p, ok := readPanelBody(w, r, false)
+	if !ok {
+		return p, nil, false
 	}
 	want := p.ClientRights
 	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
@@ -318,7 +353,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	if p.Type != old.Type {
 		apiFail(w, http.StatusConflict, "conflict", "a panel's type is fixed when the panel is made")
-		return
+		return p, nil, false
 	}
 	if p.Type == panelTypeButtons && p.Pages == nil && p.LegacyCells != nil {
 		// A body with cells and no Pages changes Page 1 only, so a client that does not know Pages still saves.
@@ -343,69 +378,49 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	if err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
+		return p, nil, false
 	}
 	if p.Type == panelTypeButtons {
 		p.Pages = a.refPages(p.Pages, cl.Actor.User)
 	}
-	// The panel is written before the client changes: a removed client's keys cannot come back, a file can.
+	return p, want, true
+}
+
+// panelClientChange sets p.Client and returns the client change to make after the panel write, or nil for none.
+func (a *App) panelClientChange(w http.ResponseWriter, cl *apiCtx, old Panel, p *Panel, want *config.Rights) (func() error, bool) {
 	cur, had := clientOfPanel(a.r().cfg, old)
-	var putClient func() error
-	switch {
-	case actsHasClient(p.Acts):
-		var curRights *config.Rights
+	p.Client = ""
+	if !actsHasClient(p.Acts) {
 		if had {
-			curRights = &cur.Rights
+			return func() error { return a.putPanelClient(cl.Actor, p.ID, nil, nil) }, true
 		}
-		// A change to Public checks the caller even when the Rights stay as stored.
-		if p.Acts == panelActsPublic && old.Acts != panelActsPublic {
-			if !a.r().cfg.PublicPanels {
-				failWith(w, errPublicOff)
-				return
-			}
-			if want == nil && had {
-				want = &cur.Rights
-			}
-			curRights = nil
+		return nil, true
+	}
+	var curRights *config.Rights
+	if had {
+		curRights = &cur.Rights
+	}
+	// A change to Public checks the caller even when the Rights stay as stored.
+	if p.Acts == panelActsPublic && old.Acts != panelActsPublic {
+		if !a.r().cfg.PublicPanels {
+			failWith(w, errPublicOff)
+			return nil, false
 		}
-		rights, changed, err := a.clientRightsFor(cl, want, curRights)
-		if err != nil {
-			failWith(w, err)
-			return
+		if want == nil && had {
+			want = &cur.Rights
 		}
-		if !had || changed {
-			putClient = func() error { return a.putPanelClient(cl.Actor, p.ID, &rights, nil) }
-		}
-		p.Client = panelClientName(p.ID)
-	case had:
-		putClient = func() error { return a.putPanelClient(cl.Actor, p.ID, nil, nil) }
-		p.Client = ""
-	default:
-		p.Client = ""
+		curRights = nil
 	}
-	if _, err := a.panels.replaceBody(p); err != nil {
-		failStore(w, err, panelSaveFail)
-		return
+	rights, changed, err := a.clientRightsFor(cl, want, curRights)
+	if err != nil {
+		failWith(w, err)
+		return nil, false
 	}
-	if putClient != nil {
-		if err := putClient(); err != nil {
-			if _, rerr := a.panels.replaceBody(old); rerr != nil {
-				log.Printf("panels: %s not put back after a refused client change: %v", p.ID, rerr)
-			}
-			failWith(w, err)
-			return
-		}
+	p.Client = panelClientName(p.ID)
+	if had && !changed {
+		return nil, true
 	}
-	// After the write: an ask that read the panel as Public before it would get a key that outlives the switch.
-	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
-		a.endPublicKeys(p.ID)
-	}
-	if old.Acts != panelActsPublic && p.Acts == panelActsPublic {
-		a.publicAgain(p.ID)
-	}
-	p, _ = a.panels.get(p.ID) // carries the new Rev
-	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
-	apiJSON(w, a.panelOut(p, true))
+	return func() error { return a.putPanelClient(cl.Actor, p.ID, &rights, nil) }, true
 }
 
 func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
