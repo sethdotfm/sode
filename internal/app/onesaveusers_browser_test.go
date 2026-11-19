@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Manage users has no Save: a new user stays staged after Done and saves with an API change through the one Save.
 func TestChromeOneSaveUsersAndAPI(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

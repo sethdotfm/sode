@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Apply an access preset stages its values in the form and in a ticked user row, each marked with
-// its name. The one Save sends them after one recheck and names the preset in the record.
 func TestChromeApplyAccessPreset(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

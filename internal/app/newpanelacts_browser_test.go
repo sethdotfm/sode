@@ -5,9 +5,7 @@ import (
 	"testing"
 )
 
-// A blank new panel saved from the editor is stored with the new-panel Authentication mode (Settings > Access >
-// Panels). While that mode is Public and Public panels are not allowed, it is stored as User. A new Public panel
-// asks no Confirm and its first save says who can open it. The node tests see only the rule, not what the editor sends.
+// The node tests see only the rule, not what the editor sends.
 func TestChromeEditorNewPanelTakesTheNewPanelMode(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

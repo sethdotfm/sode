@@ -11,8 +11,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Open now list reloads and renames a keyless page from the panels page, and a closed one reads Offline with its
-// controls off. Two browsers, since one tab runs the panel page and the other the panels page.
+// Two browsers: one tab runs the panel page and the other the panels page.
 func TestChromeOpenNowReloadsAndRenamesAKeylessPage(t *testing.T) {
 	page := startBrowser(t)
 	b := startBrowser(t)

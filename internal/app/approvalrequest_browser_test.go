@@ -9,9 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The two Request approval cards, with a socket peer on the other side. Ana (Trusted) asks Ada for an Administrator
-// field: the Waiting for approval card counts down, and Ada's approval saves it. Then Bo (Standard) asks for a
-// Trusted field, and Ana approves it on her card with her PIN.
 func TestChromeRequestApprovalCards(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

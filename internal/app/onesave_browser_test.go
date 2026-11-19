@@ -10,9 +10,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The one Save review. A router address change asks the PIN recheck, then Save and reconnect, and Back sends
-// nothing. A partly refused save writes the rest and marks each refused field with its reason; a conflict shows the
-// other person's value. The exit warning names each section with changes.
 func TestChromeOneSaveReview(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -56,7 +53,6 @@ func TestChromeOneSaveReview(t *testing.T) {
 		t.Fatalf("Back sent the save: brand %q, router %q", cfg.BrandText, cfg.Address)
 	}
 
-	// Someone else saves the confirm lockout after this page opened Settings.
 	set("cfg-router", `f.value = '`+sim+`'`)
 	a.cfgMu.Lock()
 	err := a.applyConfig(func(c *config.Config) error { c.ConfirmLockoutMs = 700; return nil })
@@ -79,7 +75,6 @@ func TestChromeOneSaveReview(t *testing.T) {
 		t.Fatalf("after the partial save: brand %q, lockout %d, requireHttps %v", got.BrandText, got.ConfirmLockoutMs, got.RequireHTTPS)
 	}
 
-	// A second Save shows their value as Was, then writes this page's value.
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("review Was is their value", `(() => {
 		const row = [...document.querySelectorAll('#review tbody tr')].find((r) => r.cells[0]?.textContent.startsWith('Confirm lockout'));

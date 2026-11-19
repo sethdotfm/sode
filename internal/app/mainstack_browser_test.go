@@ -9,9 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Three quick takes to one destination show as one stacked row in History: the source before
-// the first take, then the last source. Opened, it lists each take. Every source and destination
-// chip on the page has one size.
 func TestChromeMainStackedRow(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -46,13 +43,11 @@ func TestChromeMainStackedRow(t *testing.T) {
 	b.eval(row + `.querySelector('[aria-controls]').click(); true`)
 	b.waitFor("three changes and the before step", `document.querySelectorAll('#history .sode__hist-before .sode__step').length === 4`)
 
-	// A plain click on the row's destination fills the box, so Receiving from shows its chips.
 	b.eval(row + `.querySelector('.sode__hist-route > .sode__end--dst').click(); true`)
 	b.waitFor("Receiving from chips", `!!document.querySelector('#dst-under .sode__end--pick')`)
 	if got := b.eval(`(() => {
 		const st = (n) => { const c = getComputedStyle(n); return [c.fontSize, c.paddingTop, c.paddingLeft, c.borderTopWidth, n.getBoundingClientRect().height].join(' '); };
 		const r = ` + row + `;
-		// A destination chip under the Destination box, as + makes one.
 		const box = document.getElementById('dst-chips');
 		const added = document.createElement('span');
 		added.className = 'pb-chip pb-chip--static';
@@ -80,15 +75,12 @@ func TestChromeMainStackedRow(t *testing.T) {
 		t.Fatalf("source and destination chips differ in size: %v", got)
 	}
 
-	// The before chip is a source chip: a click fills Source.
 	b.eval(row + `.querySelector('.sode__hist-route > .sode__end--before').click(); true`)
 	b.waitFor("before chip fills Source", `document.getElementById('src').value !== ''`)
 
 	b.check()
 }
 
-// The stacked-row gap is a This browser setting. Three quick takes make one row at 30 seconds
-// (the default) and three rows with Off. The select applies at once, with no reload.
 func TestChromeMainStackGapSetting(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

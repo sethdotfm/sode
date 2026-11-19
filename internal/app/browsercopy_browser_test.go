@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// Copy this browser to My user: Move sends the values to Ana's profile and only then takes them
-// off this browser. The active filter set follows to Me, an unpinned preset stays unpinned and its pin
+// Move sends the values to Ana's profile before it removes them from this browser. The active filter set follows to Me and an unpinned preset stays unpinned.
 // order key moves to Me in place.
 func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 	b := startBrowser(t)

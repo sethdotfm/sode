@@ -12,8 +12,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Rename from the panels page: the running panel page, named by its link, gets the new name in its header and its
-// address. A reload keeps it. Two browsers, since one tab runs the panel page and the other the panels page.
+// Two browsers: one tab runs the panel page and the other the panels page.
 func TestChromeRenameARunningPanelPageFromThePanelsPage(t *testing.T) {
 	page := startBrowser(t)
 	b := startBrowser(t)

@@ -86,10 +86,7 @@ func (t *apiTap) len() int {
 	return len(t.rows)
 }
 
-// The user's failure: open pages kept polling with keys Sode had ended, and every call counted as a failed key.
-// So the address (every tab and the editor on that machine) was locked out. Two tabs that shared one session
-// also ended each other's key on every renewal. Now tabs keep their own keys, and an ended session key is
-// renewed one time. An ended link key stops its page, and the address is never locked.
+// Tabs keep their own keys, and an ended session key renews one time. An ended link key stops its page, and Sode never locks the address.
 func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -169,7 +166,6 @@ func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 	b.waitFor("the panel page runs on", `document.getElementById('panels-note')?.hidden`)
 	addressOK()
 
-	// A link with its own key, in this tab; the panels page keeps running in the other.
 	secret, _ := mintKey(t, a, ana, id)
 	b.open(srv.URL + "/panels/" + id + "?instance=Lobby#key=" + strings.TrimPrefix(secret, keyPrefix))
 	link := func(r tapRow) bool { return r.key == secret }

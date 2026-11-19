@@ -5,10 +5,6 @@ import (
 	"testing"
 )
 
-// The grid's scroll bars are Sode's own big ones (bigscroll.js) on both axes, with the same thickness. A corner
-// square is where they meet, and native bars take no room. Nothing in the grid paints over them. A wheel turned over
-// the horizontal one scrolls the grid across, not down; over the crosspoints the same wheel scrolls down. A press on
-// a scroll bar stages nothing, and a thumb drag scrolls.
 func TestChromeGridPanelScrollBars(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -35,7 +31,6 @@ func TestChromeGridPanelScrollBars(t *testing.T) {
 		return near(x.bottom, s.bottom) && near(x.left, s.left) && near(x.right, c.left) &&
 			near(y.right, s.right) && near(y.top, s.top) && near(y.bottom, c.top) && near(c.right, s.right) && near(c.bottom, s.bottom);
 	})()`)
-	// Each end of each bar, past the sticky name bars and pinned bands, finds the bar on top.
 	b.waitFor("nothing in the grid paints over the scroll bars", `(() => {
 		const on = (bar, x, y) => document.elementFromPoint(x, y)?.closest('.sode-bigscroll') === bar;
 		const x = `+xb+`, y = `+yb+`, xr = x.getBoundingClientRect(), yr = y.getBoundingClientRect();
@@ -59,7 +54,6 @@ func TestChromeGridPanelScrollBars(t *testing.T) {
 		b.call("Input.dispatchMouseEvent", ev)
 	}
 
-	// A press on each scroll bar's track pages the grid but stages nothing.
 	bx, by := mid(xb)
 	mouse("mousePressed", bx+200, by)
 	mouse("mouseReleased", bx+200, by)
@@ -71,7 +65,6 @@ func TestChromeGridPanelScrollBars(t *testing.T) {
 	b.eval(sc + `.scrollLeft = 0; ` + sc + `.scrollTop = 0; true`)
 	b.waitFor("back at the start", sc+`.scrollLeft === 0 && `+sc+`.scrollTop === 0`)
 
-	// P10: a wheel over the horizontal bar scrolls across.
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": bx, "y": by})
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseWheel", "x": bx, "y": by, "deltaX": 0, "deltaY": 240})
 	b.waitFor("a wheel over the horizontal bar scrolls across", sc+`.scrollLeft > 0 && `+sc+`.scrollTop === 0`)
@@ -81,7 +74,6 @@ func TestChromeGridPanelScrollBars(t *testing.T) {
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseWheel", "x": bx, "y": 400, "deltaX": 0, "deltaY": 240})
 	b.waitFor("over the crosspoints it scrolls down", fmt.Sprintf(`%s.scrollTop > 0 && %s.scrollLeft === %v`, sc, sc, left))
 
-	// A drag on the vertical thumb scrolls down.
 	_, top := pos()
 	th := yb + `.firstElementChild`
 	tx, ty := mid(th)
@@ -93,7 +85,6 @@ func TestChromeGridPanelScrollBars(t *testing.T) {
 	b.waitFor("a thumb drag scrolls down", fmt.Sprintf(`%s.scrollTop > %v + 100`, sc, top))
 	b.waitFor("still nothing staged", `!document.querySelector('.sode-gridpanel__xp[data-s="staged"]')`)
 
-	// The gutters: at the far end the last crosspoint sits clear of both bars.
 	b.eval(sc + `.scrollLeft = 1e9; ` + sc + `.scrollTop = 1e9; true`)
 	b.waitFor("the last crosspoint is clear of both scroll bars", `(() => {
 		const n = `+gridXp(199, 119)+`;

@@ -10,9 +10,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A fresh install with a config path opens the setup wizard. The steps fill and move, the
-// router line shows both states, and Finish leaves a signed-in Administrator with the
-// router and Standard access on disk. Nothing is written before Finish.
+// A fresh install with a config path opens the setup wizard. Finish leaves a signed-in Administrator with
+// the router and Standard access on disk, and nothing is written before it.
 func TestChromeSetupWizard(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

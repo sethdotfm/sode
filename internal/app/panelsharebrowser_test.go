@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Share modal on /panels: Ana names Bo, and Bo can use the panel and not change it. Then Ana
-// goes back to Only me and Bo loses it. The router is the simulator, which the page never uses here.
 func TestChromeShareModalPeople(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

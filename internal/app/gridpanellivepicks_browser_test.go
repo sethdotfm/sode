@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// liveGridPanel makes and saves a Grid panel that holds every router item, and answers its id.
 func liveGridPanel(t *testing.T, b *tab, srvURL string) string {
 	t.Helper()
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
@@ -18,9 +17,6 @@ func liveGridPanel(t *testing.T, b *tab, srvURL string) string {
 	return regexp.MustCompile(`panel=([\w-]+)`).FindStringSubmatch(b.eval(`location.search`).(string))[1]
 }
 
-// The Live Editor: names picked on the grid (click, Shift-click, Cmd-click) are the list's selection, and the drawer's
-// Move, Pin and Artwork act on them. The Preview bar keeps its copy of those buttons hidden. The kind picked last owns
-// the selection. The panel page gets none of this.
 func TestChromeGridPanelLivePicks(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

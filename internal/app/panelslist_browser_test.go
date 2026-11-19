@@ -8,8 +8,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The panels page's keyboard: the Find box is fuzzy, Ctrl+J and K move the highlight, and Enter hands
-// focus to Launch. Ctrl+E edits and Ctrl+Enter launches the highlighted panel from anywhere.
 func TestChromePanelsListKeys(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -61,7 +59,6 @@ func TestChromePanelsListKeys(t *testing.T) {
 	b.waitFor("Enter focuses Launch", `document.activeElement?.textContent.includes('Launch')`)
 	b.waitFor("hints on the buttons", `document.querySelector('#panels-detail a[href] kbd')?.textContent.endsWith('Enter') || document.querySelector('#panels-detail a[href] kbd')?.textContent === '⌘↵'`)
 
-	// Anywhere: Ctrl+E edits, Ctrl+Enter launches, Ctrl+J and K step.
 	b.eval(`document.activeElement.blur()`)
 	key(`document.body`, "e", "KeyE", true)
 	b.waitFor("Ctrl+E opens the editor", `location.pathname.startsWith('/panels/editor')`)

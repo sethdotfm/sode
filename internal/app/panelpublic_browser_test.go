@@ -12,10 +12,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A Public panel's plain URL opens with no sign-in and no PIN pad. This holds even with a stale key
-// in the fragment and the panel page lock on. A take inside the client's Rights works; one outside is
-// refused with the reason. The idle letter Lock still covers it, and a User or keyed API panel
-// behind the same lock still shows the PIN pad (docs/panels-design.md).
 const padShown = `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`
 
 func TestChromePublicPanel(t *testing.T) {
@@ -106,8 +102,6 @@ func TestChromePublicPanel(t *testing.T) {
 	}
 }
 
-// Public from the editor: the Access tab saves it at once with its note and warning. The Share
-// modal mutes Link with key and shows the plain link, and that link opens with no sign-in.
 func TestChromeEditorPublic(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

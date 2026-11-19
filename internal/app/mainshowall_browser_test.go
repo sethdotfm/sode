@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Show all destinations stays at one place, the bottom right of the Destination box, with 0, 3 and 12
-// destinations added with +. The chips start below it, and a press at its centre reaches it. The router and server status is not fixed.
 func TestChromeMainShowAllBelowChips(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -70,7 +68,6 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 	})()`); got != true {
 		t.Fatal("Show all destinations is not at the right of its box")
 	}
-	// The status at the top right is not fixed to the window.
 	if got := b.eval(`getComputedStyle(document.getElementById('conn')).position`); got == "fixed" || got == "sticky" {
 		t.Fatalf("router and server status is %v, want it to scroll with the page", got)
 	}

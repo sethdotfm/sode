@@ -10,8 +10,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Cmd+Z undoes a paste and Ctrl+Shift+Z redoes it; the redone paste is what Save stores, and Save leaves the steps
-// in place. The 100-step cap is a node test (gridundo.test.mjs).
+// The 100-step cap is a node test (gridundo.test.mjs).
 func TestChromeEditorUndoRedo(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -72,7 +71,6 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 		t.Fatalf("stored cells:\n got %q\nwant %q", got, want)
 	}
 
-	// Save keeps the steps; a selection move is not one, and Delete is.
 	b.eval(`goTo(1, 1); press('Delete', 'Delete'); goTo(2, 2)`)
 	b.waitFor("deleted", `state() === 'Unsaved changes'`)
 	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
@@ -81,7 +79,6 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
 	b.waitFor("paste undone after Save", `stat() === 'Undid paste.' && state() === 'Unsaved changes'`)
 
-	// A focused text field keeps its own Cmd+Z.
 	b.eval(`{ const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'z', code: 'KeyZ', metaKey: true }); n.dispatchEvent(e); window.fieldUndo = e.defaultPrevented }`)
 	if b.eval(`window.fieldUndo`) != false || b.eval(`stat()`) != "Undid paste." {
 		t.Fatal("Cmd+Z in the name field was taken by the grid")

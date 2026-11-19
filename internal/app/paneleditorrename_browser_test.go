@@ -2,8 +2,6 @@ package app
 
 import "testing"
 
-// The toolbar shows the panel name once, in the panel picker, with the Rename icon beside it. It opens the Panel
-// tab with the Name field focused, and a name typed there reaches the hidden toolbar field.
 func TestChromeEditorRenameButton(t *testing.T) {
 	b, _, _, _ := editorTab(t, `{"name":"Wall","rows":2,"cols":2,"cells":[]}`)
 	b.waitFor("panel loaded", `document.getElementById('ed-name').value === 'Wall'`)
@@ -11,7 +9,6 @@ func TestChromeEditorRenameButton(t *testing.T) {
 	if tip := b.eval(`document.getElementById('ed-name-btn').dataset.pbTip`); tip != "Rename this panel" {
 		t.Errorf("the Rename icon's tip is %v", tip)
 	}
-	// The picker's option is the one place: nothing else in the toolbar holds the name.
 	if n := b.eval(`(() => { const c = document.querySelector('.sode-ed__bar').cloneNode(true); c.querySelector('#ed-pick').remove(); return c.textContent.split('Wall').length - 1 + (document.getElementById('ed-pick').selectedOptions[0]?.text === 'Wall' ? 1 : 0); })()`); n != float64(1) {
 		t.Errorf("the toolbar shows the name %v times, want once", n)
 	}

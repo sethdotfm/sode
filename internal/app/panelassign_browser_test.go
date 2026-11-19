@@ -12,8 +12,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Assign from the panels page: a running panel page in another tab switches to the target with no prompt. It keeps
-// its instance name and kiosk and drops the old key from its address. Its address and stored key open the target again.
 func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -58,7 +56,6 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	b.waitFor("Lock overlay gone", `!document.documentElement.hasAttribute('data-sode-lock')`)
 
-	// A panel that acts as both offers its key first, or the device's own sign-in.
 	b.waitFor("row of the both panel", `!!document.querySelector('[data-id="`+both+`"].sode-ov__item')`)
 	b.eval(`document.querySelector('[data-id="` + both + `"].sode-ov__item').click()`)
 	b.waitFor("Assign to on the both panel", `document.querySelector('[data-act="assign"]')?.dataset.id === '`+both+`'`)
@@ -104,8 +101,6 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b.check()
 }
 
-// Assign to a panel that acts as a user: the running page drops its key, opens the target and shows its own sign-in.
-// The person at the device then types their own PIN.
 func TestChromeAssignToAUserModePanelShowsTheDevicesSignIn(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

@@ -8,9 +8,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The Inbox button with its count on the Main page, Settings, the Log, /panels and the panel editor. A card sent to
-// the signed-in user shows a toast and the count at once. Decline and Accept from the dialog lower the count. The phone
-// layout keeps Decline only. A panel page shows no button and no toast.
 func TestChromeInboxButton(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -75,7 +72,6 @@ func TestChromeInboxButton(t *testing.T) {
 	b.eval(`document.querySelector('#inbox-cards [data-decline]').click(); true`)
 	b.waitFor("Decline lowers the count with no toast", count(1)+` && document.querySelectorAll('[data-inbox-toast]').length === 0`)
 
-	// Accept reviews the card with every item ticked.
 	b.eval(`[...document.querySelectorAll('#inbox-cards button')].find((x) => x.textContent === 'Accept…').click(); true`)
 	b.waitFor("the review, item ticked", `!!document.getElementById('inbox-accept').offsetParent && document.querySelector('.sode-inbox__review [data-key="item:presets:`+show.ID+`"]')?.checked === true`)
 	b.eval(`document.getElementById('inbox-accept').click(); true`)
@@ -86,7 +82,6 @@ func TestChromeInboxButton(t *testing.T) {
 	send()
 	b.waitFor("a third card", count(1))
 
-	// The phone keeps Decline only: no Accept, no Withdraw.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": true})
 	b.call("Emulation.setTouchEmulationEnabled", map[string]any{"enabled": true, "maxTouchPoints": 5})
 	b.open(srv.URL + "/")
@@ -107,7 +102,6 @@ func TestChromeInboxButton(t *testing.T) {
 		}
 	}
 
-	// A panel page signed in as Ana gets the push but shows no button and no toast.
 	id := makePanel(t, a, userKey(t, a, "Ana"), `{"name":"Desk panel"}`)
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the PIN pad or the panel", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent || document.getElementById('panel-title')?.textContent === 'Desk panel'`)
