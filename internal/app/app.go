@@ -131,6 +131,7 @@ type App struct {
 	// promoted: token keys the last commit turned from tab to ordinary (promoteTabs), so
 	// catchUpSessions hands them to their pages to keep. Under cfgMu.
 	promoted map[string]bool
+	setup    setupHold // the browser that runs setup (setup.go). Under cfgMu.
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 

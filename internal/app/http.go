@@ -214,6 +214,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			close(c.send)
 		}
 		a.mu.Unlock()
+		a.setupLeft(c)
 		log.Printf("ws %s: disconnected", c.ip)
 		e := event(kindBrowser, "disconnect", c.ip, "disconnected")
 		e.Note = "connected " + time.Since(connected).Round(time.Second).String()
@@ -385,6 +386,7 @@ type inMsg struct {
 	approver   *config.User         // set by approve once the Approval's PIN is checked
 	Router     string               `json:"router"` // setupRouter: the address typed
 	Setup      *setupReq            `json:"setup"`  // setupFinish
+	TakeOver   bool                 `json:"take"`   // setupClaim: Take control from the browser that runs setup
 }
 
 func plural(n int, one, many string) string {

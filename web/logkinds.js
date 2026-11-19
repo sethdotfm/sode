@@ -55,6 +55,7 @@ export const WHY_LABEL = {
   import: 'Import',
   api: 'Settings saved through the API',
   setup: 'Setup finished',
+  setupClaim: 'Setup take control',
   setupRouter: 'Setup router address',
   setupFinish: 'Setup finished',
 };
