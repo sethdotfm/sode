@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The check answers each filter set on a file router and the file's names, and the apply takes the page's text.
+// The check answers each filter set on a file router and the file's names, and the apply uses the page's text.
 func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 	a, _, tok := importApp(t)
 	a.mu.Lock()
@@ -45,7 +45,7 @@ func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 	}
 }
 
-// Text that does not parse is not taken: the set keeps the file's text.
+// Sode refuses text that does not parse: the set keeps the file's text.
 func TestImportRemapFilterSetRefusesBadText(t *testing.T) {
 	a, _, tok := importApp(t)
 	uid := a.r().cfg.UID
@@ -84,7 +84,6 @@ func TestImportOfflineUsesSavedNamesAndRechecks(t *testing.T) {
 	file := exported(t, a, tok, exportReq{Categories: []string{catPresets}})
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = nil })
 
-	// Sode starts again with the router offline: its names are the saved names table.
 	hist, _ := OpenHistory("")
 	b, err := New(a.r().cfg, a.cfgPath, hist, nil, false)
 	if err != nil {
@@ -102,7 +101,7 @@ func TestImportOfflineUsesSavedNamesAndRechecks(t *testing.T) {
 		t.Fatalf("preset against the saved names: %+v", p)
 	}
 
-	// The router answers: MON 4 is gone. Two agreeing reads mark the imported preset Broken.
+	// The router answers: MON 4 is gone. Two reads that agree mark the imported preset Broken.
 	gone := with(dsts, 4, "")
 	readNames(b, srcs, gone)
 	readNames(b, srcs, gone)

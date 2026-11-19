@@ -12,8 +12,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Remap step (docs/agents/profiles.md): the page matches names (web/remaprules.js). A reference with no choice
-// keeps its number, so an unmatched name is Skip.
+// Remap step: docs/agents/profiles.md.
 
 type remapInfo struct {
 	Routers []remapRouter `json:"routers"`
@@ -38,7 +37,7 @@ type remapNames struct {
 	Destinations []namedItem `json:"destinations"`
 }
 
-// remapSet is a file filter set on the router. Key is what importReq.Filters takes: the owner's file user id
+// remapSet is a file filter set on the router. Key is the key in importReq.Filters: the owner's file user id
 // ("" for a shared set), "/" and the name.
 type remapSet struct {
 	Key  string `json:"key"`
@@ -62,7 +61,7 @@ type remapCand struct {
 	Total int    `json:"total"`
 }
 
-// remapRef is one distinct file source or destination. Key is what importReq.Names takes.
+// remapRef is one distinct file source or destination. Key is the key in importReq.Names.
 type remapRef struct {
 	Key     string `json:"key"`
 	Kind    string `json:"kind"`
@@ -97,7 +96,7 @@ func remapRefKey(router, kind string, n int) string {
 
 func normName(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
-// checkRouterTargets: a target is a live router or "", and two file routers cannot share one.
+// checkRouterTargets: a target is a live router or "". Two file routers must not share one target.
 func checkRouterTargets(req importReq, live config.Config) error {
 	taken := map[string]string{}
 	for _, from := range slices.Sorted(maps.Keys(req.Routers)) {
@@ -129,7 +128,7 @@ const (
 var refKinds = map[any]string{"source": config.MissingSource, "destination": config.MissingDestination}
 
 // refWalk calls fn on every source and destination reference the file's items hold. fn answers the references
-// to put in its place, none to keep it; a slot that holds one reference takes the first.
+// to put in its place, none to keep it; a slot that holds one reference gets the first.
 func refWalk(b *exportBundle, fn func(kind string, r config.Ref, use refUse, item string) []config.Ref) {
 	one := func(kind string, r config.Ref, use refUse, item string) config.Ref {
 		if out := fn(kind, r, use, item); len(out) > 0 {

@@ -9,8 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The Export tab's list: what each category holds, with sizes. An item's id is what exportReq.Pick takes
-// for it (buildExport's picked), so TestExportItemsRoundTripThroughPick keeps the two in step.
+// The Export tab's list: what each category holds, with sizes. An item's id is what exportReq.Pick accepts for it
+// (buildExport's picked), so TestExportItemsRoundTripThroughPick keeps the two in step.
 
 type exportList struct {
 	Categories []exportListCat `json:"categories"`
@@ -227,9 +227,7 @@ func (a *App) serveExportSize(w http.ResponseWriter, r *http.Request) {
 	}{len(b)})
 }
 
-// ExportSession is a session token for the export routes. A connection without a good one gets a tab
-// token, as a session key does (sessionkey.go). With no users every browser is an Administrator and
-// needs none. A Guest gets none, since every export route needs a user.
+// ExportSession: with no users every browser is an Administrator and needs no token.
 func (a *App) ExportSession(c *client) (string, error) {
 	cfg := a.r().cfg
 	if len(cfg.Users) == 0 {

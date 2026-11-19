@@ -10,9 +10,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Replace import (docs/agents/profiles.md): every file item is Use new, then emptyRest removes the live items of
-// the category that the file does not hold. So hidden ids, key links and Authentication modes of the items the
-// file holds stay, and an equal item writes nothing.
+// Replace import (docs/agents/profiles.md). Use new on each match keeps its hidden id, key link and Authentication mode.
 
 // importRemovals is what a Replace import removes from the stores outside the config, after the config commit.
 type importRemovals struct {
@@ -81,7 +79,7 @@ func (p *importPlanner) keptIDs(m map[string]string) map[string]bool {
 // keepWaiting keeps the live twins of the file items that wait for router names.
 func (p *importPlanner) keepWaiting(cat string, cand *config.Config) {
 	for key := range p.waits[cat] {
-		if !p.wantedItem(cat, key) {
+		if !picked(p.req.Pick, cat, key) {
 			continue
 		}
 		switch cat {
@@ -213,7 +211,7 @@ func (p *importPlanner) emptyRest(cat string, cand *config.Config, c *importCat)
 	return nil
 }
 
-// writeImportRemovals runs before the stores take the file's items, so a freed name or place is theirs.
+// writeImportRemovals runs before the stores get the file's items, so a freed name or place is theirs.
 func (a *App) writeImportRemovals(p *importPlanner, failed map[string]string) {
 	r := p.removed
 	fail := func(key, what string, err error) {
