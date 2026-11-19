@@ -932,7 +932,7 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__take[hidden] {
   display: none;
 }
-/* Outside the grid, so it runs the pulse itself, kept in step with the staged crosspoints (gridpanelrun.js). */
+/* Outside the grid, so it runs the pulse itself, kept in step with the staged crosspoints (gridpaneltake.js). */
 .sode-gridpanel__take.sode-panel__take--armed {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
 }
@@ -1448,7 +1448,7 @@ html:has(.sode-gridpanel) {
     display: none;
   }
 }
-/* A panel with no sources or no destinations (gridpanelrun.js paintEmpty): the note is in the flow under the corner.
+/* A panel with no sources or no destinations (gridpanelempty.js): the note is in the flow under the corner.
    No :has() on the scroller: a scroll toggles hidden on spare nodes, and each toggle would test it again. */
 .sode-gridpanel__empty {
   justify-content: center;
