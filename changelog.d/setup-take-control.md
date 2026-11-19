@@ -1,0 +1,1 @@
+- Only one browser runs setup. A second computer sees a wait page with Take control, which moves setup to it. The first browser gets a message, and its answers are not saved. A phone sees the wait page with Use desktop layout and never runs setup.
