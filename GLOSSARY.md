@@ -437,9 +437,6 @@ _Avoid_: command palette
 **Palette character**:
 The character that opens the Palette when it is the first one typed in an empty Source or Destination box. It is a setting for Everyone, Me or This browser, and no character turns it off. Type it twice to search for the character itself.
 
-**Palette pin**:
-A Palette row that a person keeps at the top of the Palette. It is saved to Me, or to This browser for a Guest. It is not a pinned preset.
-
 **Topic**:
 A top-level group of Settings sections, with a heading band on the page and a branch in the sidebar tree. With v2, Settings has five topics: Preferences, Look and feel, Routers, Access and Server.
 
