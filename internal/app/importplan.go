@@ -48,11 +48,15 @@ type importItem struct {
 	As     string           `json:"as,omitempty"`   // the name it imports as, when not Name
 	Broken []config.Missing `json:"broken,omitempty"`
 	Note   string           `json:"note,omitempty"`
+	// Refused: why this item alone is not imported; the others of its category are.
+	Refused string `json:"refused,omitempty"`
 }
 
 func (it importItem) writes() bool {
-	return !it.Same && (it.Clash == "" || it.Choice == useNew || it.Choice == useRename)
+	return !it.Same && it.Refused == "" && (it.Clash == "" || it.Choice == useNew || it.Choice == useRename)
 }
+
+func (it importItem) overwrites() bool { return it.writes() && it.Clash != "" && it.Choice == useNew }
 
 type importCat struct {
 	Items   []importItem `json:"items"`
@@ -153,6 +157,8 @@ type importPlanner struct {
 	presets    map[string]string // file preset id → live id, "" when skipped
 	panels     []plannedPanel
 	written    []string // config keys the commit takes from next
+	pending    []string // keys the step being planned adds to written when its category is accepted
+	overwrites []string // the names of the items Use new writes over: they make the import Critical
 	plan       importPlan
 }
 
@@ -185,7 +191,7 @@ func planImport(live config.Config, src, dst map[int]string, livePanels []Panel,
 		cat := &importCat{Items: []importItem{}}
 		p.plan.Categories[s.cat] = cat
 		cand := p.next.Clone()
-		p.check.waited = false
+		p.check.waited, p.pending = false, nil
 		err := s.run(&cand, cat)
 		if err == nil && p.check.waited {
 			err = errors.New("the router names are not read yet; import this after Sode reads them")
@@ -200,6 +206,7 @@ func planImport(live config.Config, src, dst map[int]string, livePanels []Panel,
 			continue
 		}
 		p.next = cand
+		p.written = append(p.written, p.pending...)
 		if slices.ContainsFunc(cat.Items, importItem.writes) {
 			p.written = append(p.written, s.keys...)
 		}
@@ -209,9 +216,13 @@ func planImport(live config.Config, src, dst map[int]string, livePanels []Panel,
 			continue
 		}
 		for _, it := range c.Items {
-			p.plan.Critical = p.plan.Critical || it.Clash != "" && it.Choice == useNew && !it.Same
+			if it.overwrites() {
+				p.overwrites = append(p.overwrites, it.Name)
+			}
 		}
 	}
+	slices.Sort(p.overwrites)
+	p.plan.Critical = len(p.overwrites) > 0
 	for _, d := range []struct {
 		on   bool
 		what string
@@ -354,7 +365,7 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 		for _, k := range sec.Keys {
 			if idx, ok := fields[k]; ok {
 				copyConfigKey(cand, &one, idx)
-				p.written = append(p.written, k)
+				p.pending = append(p.pending, k)
 			}
 		}
 	}
@@ -381,7 +392,7 @@ func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
 		cat.Items = append(cat.Items, it)
 		if !it.Same && it.Choice == useNew {
 			cand.Router = r
-			p.written = append(p.written, "router")
+			p.pending = append(p.pending, "router")
 		}
 	}
 	return nil
@@ -551,7 +562,11 @@ func (p *importPlanner) ownerFor(cfg config.Config, fileID string, needPin bool)
 // planAPIClients: keys never travel. A panel's own client stays with its panel, which needs a new key link.
 func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) error {
 	for _, c := range p.b.APIClients {
-		if c.Panel != "" || !p.picked(catAPIClients, c.Name) {
+		if !p.picked(catAPIClients, c.Name) {
+			continue
+		}
+		if c.Panel != "" {
+			cat.Items = append(cat.Items, importItem{Key: c.Name, Name: c.Name, Refused: "a panel's own client: the panel needs a new key link"})
 			continue
 		}
 		if c.Owner != "" {
@@ -599,7 +614,17 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		fp.Owner = p.ownerFor(*cand, fp.Owner, false)
 		fp.Broken = p.panelBroken(&fp, *cand)
 		fp.Rev, fp.Client = 0, ""
+		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)
 		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken}
+		if err := validatePanel(&fp); err != nil {
+			it.Refused = err.Error()
+		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
+			it.Refused = errPublicOff.Error()
+		}
+		if it.Refused != "" {
+			cat.Items = append(cat.Items, it)
+			continue
+		}
 		i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
 		if i >= 0 {
 			lp := p.livePanels[i]
@@ -641,6 +666,27 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		return errPanelCap
 	}
 	return nil
+}
+
+// shareNames maps the user names a panel is shared with through the users this import maps. A name from
+// a foreign file that the import does not map is left out, since here it can be another person.
+func (p *importPlanner) shareNames(cfg config.Config, names []string) []string {
+	var out []string
+	for _, n := range names {
+		i := slices.IndexFunc(p.b.Users, func(u config.User) bool { return strings.EqualFold(u.Name, n) })
+		if i >= 0 {
+			if id, ok := p.users[p.b.Users[i].ID]; ok {
+				if u, found := cfg.FindUserByID(id); found {
+					out = append(out, u.Name)
+				}
+				continue
+			}
+		}
+		if _, ok := cfg.FindUserByName(n); ok && p.same {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // panelBroken points preset buttons at the presets this import maps them to and lists what the target lacks.

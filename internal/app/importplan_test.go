@@ -295,3 +295,45 @@ func TestAddImportBringsPanelArt(t *testing.T) {
 		t.Fatalf("art: %q %v", data, ok)
 	}
 }
+
+// A foreign panel shared with Bo follows the file's Bo, here renamed "Bo 2", never the live Bo. A public
+// panel waits while Public panels allowed is off, and says so.
+func TestAddImportPanelShareFollowsUsers(t *testing.T) {
+	a, _, tok := importApp(t)
+	mk := func(p Panel) {
+		if _, err := a.panels.create(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk(Panel{Name: "Desk", Owner: userID(t, a, "Ada"), Rows: 1, Cols: 1, Share: PanelShare{Mode: panelShareNamed, Users: []string{"Bo"}}})
+	mk(Panel{Name: "Lobby", Owner: userID(t, a, "Ada"), Rows: 1, Cols: 1, Acts: panelActsPublic})
+	file := foreign(t, exported(t, a, tok, exportReq{Categories: []string{catUsers, catPanels}, Pick: map[string][]string{catUsers: {userID(t, a, "Bo")}}}))
+
+	b, _, tok2 := importApp(t)
+	lifeCommit(t, b, func(cfg *config.Config) {
+		cfg.PublicPanels = false
+		cfg.Users[1].Role = config.RoleTrusted // b's Bo is someone else
+	})
+	res := applied(t, postApply(t, b, tok2, file, importReq{Mode: importAdd}))
+	var desk Panel
+	for _, p := range b.panels.list() {
+		if p.Name == "Desk" {
+			desk = p
+		}
+		if p.Name == "Lobby" {
+			t.Errorf("a public panel arrived with Public panels allowed off: %+v", p)
+		}
+	}
+	if !slices.Equal(desk.Share.Users, []string{"Bo 2"}) {
+		t.Fatalf("Desk shared with %v", desk.Share.Users)
+	}
+	refused := 0
+	for _, it := range res.Plan.Categories[catPanels].Items {
+		if it.Refused != "" {
+			refused++
+		}
+	}
+	if refused != 1 {
+		t.Errorf("plan: %+v", res.Plan.Categories[catPanels])
+	}
+}

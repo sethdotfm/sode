@@ -122,7 +122,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	src, dst := a.liveNames()
 	p := planImport(live, src, dst, a.panels.list(), b, req, act.User, secureRequest(r, a.r().proxies), a.cfgPath == "")
 	if p.plan.Critical && !a.tokenRechecked(r.Header.Get(sessionHeader)) {
-		apiFail(w, http.StatusForbidden, "recheck", recheckErr{what: []string{"items this install has"}}.Error())
+		apiFail(w, http.StatusForbidden, "recheck", recheckErr{what: p.overwrites}.Error())
 		return
 	}
 	if len(p.written) > 0 {

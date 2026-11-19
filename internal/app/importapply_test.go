@@ -117,3 +117,28 @@ func TestAddImportSameInstallUpdatesAfterRecheck(t *testing.T) {
 		t.Fatalf("after import: %+v", ps)
 	}
 }
+
+// The page's way: the token from exportSession, the recheck over the same socket.
+func TestAddImportRecheckOverTheSocket(t *testing.T) {
+	a := userApp(t, false)
+	a.mu.Lock()
+	a.router.srcNames[2], a.router.dstNames[4] = "CAM 2", "MON 4"
+	a.mu.Unlock()
+	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")} })
+	p := dialPeer(t, a)
+	p.signIn("Ada", "2468")
+	tok, _ := p.ask("exportSession", 7, nil)["token"].(string)
+	if tok == "" {
+		t.Fatal("no token from exportSession")
+	}
+	file := exported(t, a, tok, exportReq{Categories: []string{catPresets}})
+	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets[0].Name = "Show live" })
+	if rec := postApply(t, a, tok, file, importReq{Mode: importAdd}); rec.Code != 403 {
+		t.Fatalf("without a recheck: %d %s", rec.Code, rec.Body)
+	}
+	passed(t, "recheck", p.recheck("2468"))
+	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	if _, ok := presetNamed(t, a, "Show"); !ok {
+		t.Fatalf("presets: %+v", a.r().cfg.Presets)
+	}
+}
