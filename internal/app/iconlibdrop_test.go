@@ -123,7 +123,6 @@ func TestIconLibraryRescan(t *testing.T) {
 	if len(a.icons.list()) != 0 {
 		t.Fatal("a refused rescan added icons")
 	}
-	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library/rescan", ana, `{"pin":"1111"}`), 403, "trusted_required")
 
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library/rescan", ana, `{"pin":"9999"}`), 403, "trusted_required")

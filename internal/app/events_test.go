@@ -169,16 +169,11 @@ func TestUptimeCountsEvenIfNotSaved(t *testing.T) {
 	}
 }
 
-// Browsers connecting and dropping and what they fire show in the log;
-// a PIN never does.
+// Browsers connecting and dropping and what they fire show in the log. The v1 unlock and
+// lock messages are unknown types now: nothing runs and nothing is logged.
 func TestBrowserAndCommandRows(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Normalize()
-	hash, err := config.HashPin("4711")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.SettingsPin = hash
 	hist, _ := OpenHistory("")
 	a, err := New(cfg, "", hist, nil, false)
 	if err != nil {
@@ -207,7 +202,7 @@ func TestBrowserAndCommandRows(t *testing.T) {
 	send(map[string]any{"t": "rereadNames"})
 	send(map[string]any{"t": "take", "items": []map[string]any{{"id": 1, "src": 1, "dst": 2, "levels": []int{1}}, {"id": 2, "src": 1, "dst": 3, "levels": []int{1}}}})
 	send(map[string]any{"t": "log", "before": -1}) // reads are not commands
-	rows := waitLogged(t, a, 8)
+	rows := waitLogged(t, a, 5)
 	c.Close(websocket.StatusNormalClosure, "")
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
 		if rows = logged(t, a); results(rows, kindBrowser) == "connected,disconnected" {
@@ -221,15 +216,12 @@ func TestBrowserAndCommandRows(t *testing.T) {
 			why = append(why, e.Why)
 			res = append(res, e.Result)
 		}
-		if strings.Contains(e.Err+e.Note+e.Hex+e.Why, "4711") || strings.Contains(e.Err+e.Note, "0000") {
-			t.Fatalf("a PIN is in the log: %+v", e)
-		}
 	}
-	if got := strings.Join(why, ","); got != "unlock,unlock,lock,clearHistory,rereadNames,take" {
+	if got := strings.Join(why, ","); got != "clearHistory,rereadNames,take" {
 		t.Fatalf("commands = %s", got)
 	}
 	// No users: every browser acts as an Administrator, so clearHistory runs.
-	if got := strings.Join(res, ","); got != "refused,ok,ok,ok,sent,sent" {
+	if got := strings.Join(res, ","); got != "ok,sent,sent" {
 		t.Fatalf("results = %s", got)
 	}
 	var take Sent

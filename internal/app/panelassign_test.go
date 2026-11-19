@@ -11,8 +11,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
 // REST and stream seam for Assign: a held instance stream, a Trusted user, a target that acts as an API client.
@@ -256,15 +254,6 @@ func TestAssignNeedsATrustedUser(t *testing.T) {
 	assignHold(t, a, from, ana, "Lobby")
 
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "")), 403, "trusted_required")
-	h, err := config.HashPin("9999")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := a.r().cfg
-	cfg.SettingsPin = h
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "1111")), 403, "trusted_required")
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "9999")), 403, "trusted_required")
 	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")); rec.Code != 200 {

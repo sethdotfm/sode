@@ -53,26 +53,12 @@ const sumEl = el('span', 'sode__hint');
 sumEl.setAttribute('aria-live', 'polite');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
-// A PIN row per saver for everyone (filter sets and presets are two messages); one shows at a time.
-function pinControls(cancel) {
-  const pinIn = el('input', 'pb-input');
-  pinIn.type = 'password';
-  pinIn.placeholder = 'PIN';
-  pinIn.autocomplete = 'current-password';
-  pinIn.setAttribute('aria-label', 'Advanced Settings PIN');
-  const pinOk = btn('pb-btn--ok pb-btn--sm', 'Enter', () => {});
-  const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, btn('pb-btn--ghost pb-btn--sm', 'Cancel', cancel));
-  pinRow.hidden = true;
-  return { pinIn, pinOk, pinRow };
-}
-const pinA = pinControls(() => gsave.cancel());
-const pinB = pinControls(() => gsavePresets.cancel());
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => close());
 const applyBtn = btn('pb-btn--ok', 'Apply', () => apply());
 
 dialog.append(
   el('div', 'pb-modal__header', titleEl),
-  el('div', 'pb-modal__body sode__filters-body', fromEl, targetBox, pinA.pinRow, pinB.pinRow, noteTop, prefsBox, rowsBox, sumEl, noteEl),
+  el('div', 'pb-modal__body sode__filters-body', fromEl, targetBox, noteTop, prefsBox, rowsBox, sumEl, noteEl),
   el('div', 'pb-modal__footer', cancelBtn, applyBtn),
 );
 root.append(dialog);
@@ -95,7 +81,6 @@ let fetched = null; // another user's profile during a review for them: { state:
 const gsave = globalSaver({
   t: 'filterSets',
   resultT: 'filterSetsResult',
-  ...pinA,
   setNote,
   isOpen: () => open,
   failTitle: 'Import not saved',
@@ -104,7 +89,6 @@ const gsave = globalSaver({
 const gsavePresets = globalSaver({
   t: 'presets',
   resultT: 'presetsResult',
-  ...pinB,
   setNote,
   isOpen: () => open,
   failTitle: 'Import not saved',
@@ -530,7 +514,7 @@ function apply() {
         if (!open) return;
         if (r.ok) return done();
         refresh();
-        setNote(r.locked ? 'Only a trusted user or the Advanced Settings PIN can change another user’s profile.' : sentence(r.err) || 'Not saved.', true);
+        setNote(sentence(r.err) || 'Not saved.', true);
       });
       return;
     }
@@ -555,8 +539,6 @@ export function openReview({ doc, scope: sc = 'local', user = '', source = '', t
   const bits = [doc.site && `From ${doc.site}`, doc.user && `profile of ${doc.user}`, doc.exported && `exported ${doc.exported.slice(0, 10)}`].filter(Boolean);
   fromEl.textContent = source || bits.join(', ');
   fromEl.hidden = !fromEl.textContent;
-  pinA.pinRow.hidden = true;
-  pinB.pinRow.hidden = true;
   setNote('');
   dlg.show();
   render();
@@ -567,9 +549,7 @@ export function openReview({ doc, scope: sc = 'local', user = '', source = '', t
     const mine = st;
     fetchProfile(user).then((r) => {
       if (st !== mine || !open) return;
-      fetched = r.ok
-        ? { state: 'ok', profile: r.profile }
-        : { state: 'err', err: r.locked ? 'Only a trusted user or the Advanced Settings PIN can read another user’s profile.' : sentence(r.err) };
+      fetched = r.ok ? { state: 'ok', profile: r.profile } : { state: 'err', err: sentence(r.err) };
       render();
     });
     render();
@@ -587,14 +567,7 @@ function close() {
   if (back?.isConnected) back.focus();
 }
 
-const dlg = trapDialog(root, dialog, () => {
-  if (!pinA.pinRow.hidden || !pinB.pinRow.hidden) {
-    gsave.cancel();
-    gsavePresets.cancel();
-    return;
-  }
-  close();
-});
+const dlg = trapDialog(root, dialog, () => close());
 
 on('locking', () => {
   if (open) close();

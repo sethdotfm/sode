@@ -192,20 +192,6 @@ const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label'
 const rowsBox = el('div', 'sode__preset-rows');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
-const pinIn = el('input', 'pb-input');
-pinIn.type = 'password';
-pinIn.placeholder = 'PIN';
-pinIn.autocomplete = 'current-password';
-pinIn.setAttribute('aria-label', 'Advanced Settings PIN');
-const pinOk = btn('pb-btn--ok', 'Enter');
-const pinRow = el(
-  'div',
-  'sode__filters-set',
-  labeled('Advanced Settings PIN', pinIn),
-  pinOk,
-  btn('pb-btn--ghost', 'Cancel', () => saver.cancel()),
-);
-pinRow.hidden = true;
 const delBtn = btn('pb-btn--outline', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit', 'Save', () => save());
 const linkUI = itemLinkBox();
@@ -261,7 +247,6 @@ dialog.append(
       el('div', 'sode__filters-set', labeled('Name', nameIn), scopeWrap, saveAsBtn, linkBtn, delBtn),
       asRow,
       pinnedBox,
-      pinRow,
       linkUI.box,
     ),
     el(
@@ -299,9 +284,6 @@ function paintSave() {
 const saver = globalSaver({
   t: 'presets',
   resultT: 'presetsResult',
-  pinIn,
-  pinRow,
-  pinOk,
   setNote,
   isOpen: () => open,
   failTitle: 'Presets not saved',
@@ -463,7 +445,6 @@ function renderHead(keep = false) {
   const own = target.own;
   pickRow.hidden = !own;
   scopeWrap.hidden = !own;
-  pinRow.hidden ||= !own;
   saveAsBtn.hidden = !own;
   transferBtn.hidden = !own;
   delBtn.hidden ||= !own;
@@ -712,7 +693,6 @@ export function openPresets(scope = '', name = '') {
   target = browser;
   const s = scope && findPreset(scope, name);
   open = true;
-  pinRow.hidden = true;
   load(s || null);
   dlg.show();
   dialog.focus();
@@ -749,7 +729,6 @@ on('openPresetEditor', (m) => {
   target = profilePresets(t, { save: saveThere, saver: tgtSaver });
   back = document.activeElement;
   open = true;
-  pinRow.hidden = true;
   const found = t.found;
   load(found ? { scope: 'user', ...storedPreset(found), pinned: found.pinned !== false } : null);
   dlg.show();

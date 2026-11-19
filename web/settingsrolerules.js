@@ -42,3 +42,9 @@ export function sectionView(slug, role, phone = false) {
   if (rank(role) >= RANK[t.edit]) return 'edit';
   return t.lower === 'shown' ? 'read' : 'hidden';
 }
+
+// Who can approve every one of these sections: the highest Role they need, in words.
+export function approvalWho(slugs) {
+  const admin = slugs.some((s) => SECTION_ROLES[s]?.edit === 'administrator');
+  return admin ? 'an Administrator' : 'a Trusted user or an Administrator';
+}

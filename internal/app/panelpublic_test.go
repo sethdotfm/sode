@@ -386,7 +386,6 @@ func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
 		cy.Rights = config.Rights{Sources: nums(1, 2, 3), Dsts: nums(2, 4)}
 		c.Users = append(c.Users, cy)
 		c.Locks = config.Locks{Panel: true}
-		c.SettingsPin = mkUser(t, "", "2468").Pin
 	})
 	shortTimers(a)
 	cy := userKey(t, a, "Cy")

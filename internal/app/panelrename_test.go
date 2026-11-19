@@ -102,7 +102,7 @@ func TestRenameRights(t *testing.T) {
 		t.Fatalf("a panel key renamed: %d %s", rec.Code, rec.Body.String())
 	}
 
-	// The Advanced Settings PIN opens nothing.
+	// A PIN in the body opens nothing.
 	wantErr(t, apiSend(a, "POST", renamePath(id), bo, renameBody("Lobby", "Hall", "2468")), 403, "trusted_required")
 
 	// The owner, then a Trusted user twice. Each rename ends the stream, so the page's reopen is held again.

@@ -425,7 +425,7 @@ type userResult struct {
 	Tab   bool   `json:"tab,omitempty"` // Token is a sign-in without a page lock's: for this tab only
 }
 
-// Sign-ins run inline like the Advanced Settings PIN entry, so a later lock is handled after.
+// Sign-ins run inline, so a later lock is handled after.
 func (a *App) serveUserUnlock(c *client, m *inMsg) {
 	res := userResult{T: "userSignInResult", OK: true, ID: m.ID}
 	err := a.UserUnlockAs(c, m.User, m.Pin)

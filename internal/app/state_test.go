@@ -53,10 +53,7 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	a := newTestApp(t)
 	cfg := a.r().cfg
 	cl := &client{ip: "10.0.0.9", send: make(chan []byte, 16)}
-	if err := a.SaveSettings(cl, cfg, "2468", false); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.Unlock(cl, "2468"); err != nil {
+	if err := a.SaveSettings(cl, cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SaveFilterSets(cl, []config.FilterSet{{Name: "mine", Src: "CAM"}}); err != nil {
@@ -138,10 +135,7 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 		t.Fatal("name/dump clock changed")
 	}
 	got := a.r().cfg
-	if len(got.FilterSets) != 1 || got.FilterSets[0].Name != "mine" || got.SettingsPin == "" || got.DeviceDefaults.Theme != "dark" {
+	if len(got.FilterSets) != 1 || got.FilterSets[0].Name != "mine" || got.DeviceDefaults.Theme != "dark" {
 		t.Fatalf("config not kept: %+v", got)
-	}
-	if cl.pin != got.SettingsPin {
-		t.Fatal("unlock lost")
 	}
 }

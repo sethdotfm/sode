@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { SECTION_ROLES, sectionView } from '../settingsrolerules.js';
+import { SECTION_ROLES, sectionView, approvalWho } from '../settingsrolerules.js';
 
 const web = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(web, 'index.html'), 'utf8');
@@ -75,4 +75,9 @@ test('the phone shows only the Preferences sections, whatever the Role', () => {
 
 test('an unknown section is hidden', () => {
   assert.equal(sectionView('no-such-section', 'administrator'), 'hidden');
+});
+
+test('the Approval names the highest Role its sections need', () => {
+  assert.equal(approvalWho(['branding', 'history']), 'a Trusted user or an Administrator');
+  assert.equal(approvalWho(['branding', 'confirm']), 'an Administrator');
 });

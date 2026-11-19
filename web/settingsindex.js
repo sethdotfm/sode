@@ -134,7 +134,6 @@ export const DICT = {
     'auto-lock',
     'permissions',
     'login',
-    'settings pin',
   ],
   proxy: [
     'audit',
@@ -337,9 +336,6 @@ export const DICT = {
   'cfg-numoff': ['number', 'numbers', 'offset', 'start at 0', 'start at 1', 'zero', 'one', 'sources', 'destinations', 'numbering', 'index'],
 
   // ---- Locks
-  'cfg-pin': ['pin', 'password', 'passcode', 'lock', 'secret', 'admin', 'protect settings', 'security', 'change pin'],
-  'cfg-pin2': ['pin', 'password', 'confirm', 'repeat', 'retype', 'again'],
-  'cfg-pin-clear': ['remove pin', 'delete pin', 'no pin', 'unlock', 'disable', 'password off', 'clear'],
   'cfg-pin-waits': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'delay', 'wait', 'backoff'],
   'cfg-guest-role': ['guest', 'signed out', 'nobody', 'anonymous', 'role', 'trusted', 'standard', 'visitor'],
   'new-user-defaults': ['new user', 'default', 'never sign out', 'persistent', 'auto-lock', 'idle', 'stay signed in'],

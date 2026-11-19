@@ -8,19 +8,19 @@ import (
 )
 
 func decodeAndSave(a *App, c *client, b []byte) error {
-	return a.saveSettings(c, b, "", false)
+	return a.saveSettings(c, b)
 }
 
 // Wrappers the tests call; the server itself goes through serveConfig and
 // saveSettings.
 
 // SaveSettings applies cfg from c as a message that carried every key.
-func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bool) error {
+func (a *App) SaveSettings(c *client, cfg config.Config) error {
 	b, err := json.Marshal(cfg)
 	if err != nil {
 		return err
 	}
-	return a.saveSettings(c, b, pin, clearPin)
+	return a.saveSettings(c, b)
 }
 
 // ApplyConfig validates, saves and applies new settings, skipping the
