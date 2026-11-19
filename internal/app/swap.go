@@ -353,18 +353,9 @@ type swapMineResult struct {
 }
 
 func (a *App) swapList(c *client, req swapReq) ([]swapItem, error) {
-	mine := ""
-	if req.Mine {
-		if mine = c.userID(); mine == "" {
-			return nil, errNoSuchUser
-		}
-	} else {
-		a.mu.Lock()
-		err := a.needRoleMu(c, config.RoleAdministrator)
-		a.mu.Unlock()
-		if err != nil {
-			return nil, err
-		}
+	mine, err := a.ownerScope(c, req.Mine)
+	if err != nil {
+		return nil, err
 	}
 	cfg := a.r().cfg
 	sw, err := a.newSwapper(cfg, req)

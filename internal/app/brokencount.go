@@ -97,19 +97,23 @@ func brokenItems(cfg config.Config, panels []Panel, mine string) []brokenEntry {
 	return out
 }
 
-func (a *App) brokenCount(c *client, mine bool) ([]brokenRouter, error) {
-	who := ""
+// ownerScope is the asking user's id for their own items, or "" (every owner) for an Administrator.
+func (a *App) ownerScope(c *client, mine bool) (string, error) {
 	if mine {
-		if who = c.userID(); who == "" {
-			return nil, errNoSuchUser
+		if id := c.userID(); id != "" {
+			return id, nil
 		}
-	} else {
-		a.mu.Lock()
-		err := a.needRoleMu(c, config.RoleAdministrator)
-		a.mu.Unlock()
-		if err != nil {
-			return nil, err
-		}
+		return "", errNoSuchUser
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return "", a.needRoleMu(c, config.RoleAdministrator)
+}
+
+func (a *App) brokenCount(c *client, mine bool) ([]brokenRouter, error) {
+	who, err := a.ownerScope(c, mine)
+	if err != nil {
+		return nil, err
 	}
 	cfg := a.r().cfg
 	r := brokenRouter{Router: cfg.UID, Title: cfg.Title, Items: brokenItems(cfg, a.panels.list(), who)}
