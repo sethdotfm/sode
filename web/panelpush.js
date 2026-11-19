@@ -219,7 +219,8 @@ export function openPush(panel, ctx) {
     closeOpen = null;
     dlg.hide();
     root.remove();
-    if (opener?.isConnected) opener.focus();
+    // A push reloads the list behind the modal, which replaces the opener.
+    (opener?.isConnected ? opener : document.querySelector('#panels-detail [data-act="push"]'))?.focus();
   }
   closeOpen = close;
   closeBtn.addEventListener('click', close);
