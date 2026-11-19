@@ -33,13 +33,15 @@ export function editor(key, { read, write, mode }) {
   const box = $(`flt-${key}`);
   const ed = { text: '', rows: [], error: null };
   let timer = 0;
+  // An unchanged write would still clear a stack of sets (filterstore.js setFilter).
+  const store = () => !ed.error && ed.text !== read()[key] && write({ ...read(), [key]: ed.text });
 
   function changed(now = false) {
     const p = parseFilter(ed.text);
     ed.error = p.error ? `${p.error}${p.at != null ? ` at “${ed.text.slice(p.at, p.at + 12)}”` : ''}` : null;
     clearTimeout(timer);
     const go = () => {
-      if (!ed.error) write({ ...read(), [key]: ed.text });
+      store();
       preview();
     };
     if (now) go();
@@ -239,7 +241,7 @@ export function editor(key, { read, write, mode }) {
     preview,
     flush() {
       clearTimeout(timer);
-      if (!ed.error) write({ ...read(), [key]: ed.text });
+      store();
       preview();
     },
   };

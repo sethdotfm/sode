@@ -573,6 +573,7 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 });
 
 const dlg = trapDialog(root, dialog, cancelFilters);
+on('locking', () => filtersOpen() && cancelFilters());
 
 on('filters', renderButtons);
 on('prefs', () => {

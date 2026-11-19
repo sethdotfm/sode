@@ -307,3 +307,4 @@ on('presets', () => {
   if (open) draw();
 });
 on('presetPopup', openPopup);
+on('locking', close);
