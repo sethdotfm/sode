@@ -422,6 +422,13 @@ func (s *panelStore) replaceBody(p Panel) (bool, error) {
 	defer s.mu.Unlock()
 	if cur, ok := s.by[p.ID]; ok {
 		p.Art, p.Owner, p.Rev = cur.Art, cur.Owner, cur.Rev
+		// An editor sends no marks; the Broken check keeps them.
+		if p.Broken == nil {
+			p.Broken = cur.Broken
+		}
+		if p.Moved == nil {
+			p.Moved = cur.Moved
+		}
 	}
 	return s.replaceLocked(p)
 }

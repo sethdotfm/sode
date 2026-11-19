@@ -399,7 +399,61 @@ func TestBrokenWithSimulator(t *testing.T) {
 		t.Fatalf("one poll made the preset Broken: %+v", p.Broken)
 	}
 	poll()
-	if p := studio(t, a); len(p.Broken) != 1 || p.Broken[0].Ref.N != 12 {
-		t.Fatalf("two polls: broken = %+v", p.Broken)
+	for end := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		p := studio(t, a)
+		if len(p.Broken) == 1 && p.Broken[0].Ref.N == 12 {
+			break
+		}
+		if time.Now().After(end) {
+			t.Fatalf("two polls: broken = %+v", p.Broken)
+		}
+	}
+}
+
+// echoPresets saves the Everyone presets as a browser sends them: references only, no marks.
+func echoPresets(t *testing.T, a *App) {
+	t.Helper()
+	var sent []config.Preset
+	for _, p := range a.r().cfg.Presets {
+		sent = append(sent, config.Preset{ID: p.ID, Name: p.Name, Items: p.Items})
+	}
+	if err := a.SavePresets(adminClient(t, a), sent); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A save names every reference with the name at its number now. The marks keep the stored name.
+func TestMarksSurviveASave(t *testing.T) {
+	a := brokenApp(t)
+	repatched := []string{"CAM 3", "CAM 2", "CAM X", "CAM 4"}
+	readNames(a, repatched, checkDsts)
+	readNames(a, repatched, checkDsts)
+	echoPresets(t, a)
+	readNames(a, repatched, checkDsts)
+	readNames(a, repatched, checkDsts)
+	if p := studio(t, a); len(p.Moved) != 1 || p.Items[0].Src.Name != "CAM 3" {
+		t.Fatalf("Name moved after a save: %+v", p)
+	}
+}
+
+func TestImportBrokenSurvivesASave(t *testing.T) {
+	a := brokenApp(t)
+	uid := a.r().cfg.UID
+	a.cfgMu.Lock()
+	a.commit(func(c *config.Config) error {
+		c.Presets[0].Items[0].Src.Name = "VTR 9" // the file's name; this router has CAM 3 at 2
+		c.Presets[0].Broken = []config.Missing{{Kind: config.MissingSource, Ref: config.Ref{Router: uid, N: 2, Name: "VTR 9"}}}
+		return nil
+	}, nil)
+	a.cfgMu.Unlock()
+	echoPresets(t, a)
+	readNames(a, checkSrcs, checkDsts)
+	readNames(a, checkSrcs, checkDsts)
+	p := studio(t, a)
+	if len(p.Broken) != 1 || p.Items[0].Src.Name != "VTR 9" {
+		t.Fatalf("a save cleared an import's Broken mark: %+v", p)
+	}
+	if plan, _ := planPreset(a, a.r(), p); plan != nil && len(plan.Items) != 0 {
+		t.Fatalf("the Broken source fired: %+v", plan.Items)
 	}
 }

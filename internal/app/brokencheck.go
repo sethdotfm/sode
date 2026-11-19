@@ -170,22 +170,44 @@ func refKind(dst bool) string {
 	return config.MissingSource
 }
 
-func hasMissing(l []config.Missing, kind string, r config.Ref) bool {
-	return slices.ContainsFunc(l, func(m config.Missing) bool {
+func markOf(l []config.Missing, kind string, r config.Ref) (config.Missing, bool) {
+	i := slices.IndexFunc(l, func(m config.Missing) bool {
 		return m.Kind == kind && m.Ref.Router == r.Router && m.Ref.N == r.N
 	})
+	if i < 0 {
+		return config.Missing{}, false
+	}
+	return l[i], true
 }
 
-// ref judges one source or destination reference, renaming it in place when the router renamed it. A reference
-// already Broken comes back only when its number holds its stored name again, so an import's mismatch stays.
+func hasMissing(l []config.Missing, kind string, r config.Ref) bool {
+	_, ok := markOf(l, kind, r)
+	return ok
+}
+
+// ref judges one source or destination reference, renaming it in place when the router renamed it. A save names
+// every reference with the name at its number now (namePresets, refCell). So the name in a mark decides for a
+// marked reference. A Broken one comes back only when its number holds that name again, and an import's mismatch
+// stays.
 func (c *itemCheck) ref(dst bool, r *config.Ref) {
 	kind := refKind(dst)
 	if r.Router != c.k.uid {
 		c.broken.add(config.Missing{Kind: config.MissingRouter, Ref: config.Ref{Router: r.Router}}, true)
 		return
 	}
+	broken, isBroken := markOf(c.oldBroken, kind, *r)
+	moved, isMoved := markOf(c.oldMoved, kind, *r)
+	for _, m := range []struct {
+		mark config.Missing
+		ok   bool
+	}{{broken, isBroken}, {moved, isMoved}} {
+		if m.ok && strings.TrimSpace(m.mark.Ref.Name) != "" && r.Name != m.mark.Ref.Name {
+			r.Name, c.renamed = m.mark.Ref.Name, true
+			break
+		}
+	}
 	v, now := c.k.verdict(dst, *r)
-	if hasMissing(c.oldBroken, kind, *r) {
+	if isBroken {
 		if v != refOK {
 			c.broken.add(config.Missing{Kind: kind, Ref: *r}, true)
 		}
@@ -204,7 +226,7 @@ func (c *itemCheck) ref(dst bool, r *config.Ref) {
 			r.Name, c.renamed = now, true
 		}
 	case refWait:
-		c.moved.add(config.Missing{Kind: kind, Ref: *r}, hasMissing(c.oldMoved, kind, *r))
+		c.moved.add(config.Missing{Kind: kind, Ref: *r}, isMoved)
 	}
 }
 
