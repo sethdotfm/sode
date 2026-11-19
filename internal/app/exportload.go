@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -131,44 +132,34 @@ func unpackEntry(f *zip.File, dst string) error {
 	return nil
 }
 
-// newerFormat: a newer Sode can add entry names, so its file gets newer_format, not bad_file.
+// newerFormat: a newer Sode can add entry names, so its file answers newer_format, not bad_file.
 func newerFormat(files []*zip.File) error {
-	for _, f := range files {
-		if f.Name != "manifest.yaml" {
-			continue
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return nil
-		}
-		defer rc.Close()
-		b, _ := io.ReadAll(io.LimitReader(rc, exportMaxEntry))
-		if v, err := manifestFormat(b); err == nil && v > exportFormat {
-			_, err = exportLoader(v)
-			return err
-		}
+	i := slices.IndexFunc(files, func(f *zip.File) bool { return f.Name == "manifest.yaml" })
+	if i < 0 {
+		return nil
+	}
+	rc, err := files[i].Open()
+	if err != nil {
+		return nil
+	}
+	defer rc.Close()
+	b, _ := io.ReadAll(io.LimitReader(rc, exportMaxEntry))
+	if v := manifestFormat(b); v > exportFormat {
+		return newerErr(v)
 	}
 	return nil
 }
 
-func manifestFormat(b []byte) (int, error) {
+func manifestFormat(b []byte) int {
 	var head struct {
 		Format int `yaml:"format"`
 	}
-	if err := yaml.Unmarshal(b, &head); err != nil || head.Format < 1 {
-		return 0, badExport("manifest.yaml has no format version, so the file is not a Sode export")
-	}
-	return head.Format, nil
+	yaml.Unmarshal(b, &head)
+	return head.Format
 }
 
-func exportLoader(v int) (func(string) (*exportBundle, error), error) {
-	if load, ok := exportLoaders[v]; ok {
-		return load, nil
-	}
-	if v > exportFormat {
-		return nil, &exportErr{422, "newer_format", fmt.Sprintf("made by a newer Sode: the file is export format %d, and this Sode reads up to %d", v, exportFormat)}
-	}
-	return nil, badExport("export format %d is not one this Sode reads", v)
+func newerErr(v int) error {
+	return &exportErr{422, "newer_format", fmt.Sprintf("made by a newer Sode: the file is export format %d, and this Sode reads up to %d", v, exportFormat)}
 }
 
 func loadExport(dir string) (*exportBundle, error) {
@@ -176,13 +167,16 @@ func loadExport(dir string) (*exportBundle, error) {
 	if err != nil {
 		return nil, badExport("the file has no manifest.yaml, so it is not a Sode export")
 	}
-	v, err := manifestFormat(b)
-	if err != nil {
-		return nil, err
+	v := manifestFormat(b)
+	if v < 1 {
+		return nil, badExport("manifest.yaml has no format version, so the file is not a Sode export")
 	}
-	load, err := exportLoader(v)
-	if err != nil {
-		return nil, err
+	load, ok := exportLoaders[v]
+	switch {
+	case !ok && v > exportFormat:
+		return nil, newerErr(v)
+	case !ok:
+		return nil, badExport("export format %d is not one this Sode reads", v)
 	}
 	return load(dir)
 }
