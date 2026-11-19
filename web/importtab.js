@@ -10,6 +10,10 @@ import { CATEGORIES, sizeText } from './exportrules.js';
 import * as R from './importrules.js';
 import { stillBroken } from './remaprules.js';
 import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
+import { browserPrefs, mergeByName } from './browserimport.js';
+import { setPref } from './device.js';
+import { localSets, normFilter, putLocalSets } from './filterstore.js';
+import { localPresets, putLocalPresets, storedPreset } from './presetstore.js';
 
 const btn = (cls, text, fn) => {
   const b = el('button', `pb-btn ${cls}`, text);
@@ -18,8 +22,15 @@ const btn = (cls, text, fn) => {
   return b;
 };
 
-// The Artwork and This browser steps are not on the server yet; the review lists them as not imported.
-const NOT_YET = new Set(['artwork', 'browser']);
+// This browser takes the file's values here, since they are this browser's own (browserimport.js).
+function applyBrowser(values, replace) {
+  for (const [name, v] of Object.entries(browserPrefs(values))) setPref(name, v);
+  const list = (x) => [].concat(x || []).filter((s) => s?.name);
+  const sets = list(values?.filterSets).map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
+  putLocalSets(mergeByName(localSets(), sets, replace));
+  const presets = list(values?.presets).map((s) => ({ scope: 'local', ...storedPreset(s), pinned: s.pinned !== false }));
+  putLocalPresets(mergeByName(localPresets(), presets, replace));
+}
 
 // opts: setNote(text, error), setReview(title or ''), backup() downloads Back up everything.
 export function importTab({ setNote, setReview, backup }) {
@@ -117,7 +128,7 @@ export function importTab({ setNote, setReview, backup }) {
   }
 
   function choices(cat, it, i) {
-    const seg = segmented(`xi-choice-${cat}-${i}`, `${it.name} clash`, R.choicesFor(cat), (v) => {
+    const seg = segmented(`xi-choice-${cat}-${i}`, `${it.name} clash`, R.choicesFor(cat, it), (v) => {
       pick.choices[cat][it.key] = v;
       render();
     });
@@ -152,7 +163,6 @@ export function importTab({ setNote, setReview, backup }) {
 
   function catRows(cat, text) {
     const c = check.plan.categories[cat];
-    const notYet = NOT_YET.has(cat);
     const items = c?.items || [];
     const state = R.catState(check, pick, cat);
     const head = el('div', 'sode__xi-head');
@@ -167,10 +177,10 @@ export function importTab({ setNote, setReview, backup }) {
     caret.setAttribute('aria-label', `Show the ${text.toLowerCase()} items`);
     caret.hidden = !items.length;
     const count = items.length > 1 ? ` ${pick.items[cat].size}/${items.length}` : '';
-    const why = notYet ? 'Not imported yet' : c?.refused || '';
+    const why = c?.refused || '';
     head.append(
       caret,
-      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', notYet || !!c?.refused || !items.length, (on) => {
+      box(`cat:${cat}`, text + count, state !== 'none', state === 'some', !!c?.refused || !items.length, (on) => {
         R.setCat(check, pick, cat, on);
         render();
       }),
@@ -244,8 +254,6 @@ export function importTab({ setNote, setReview, backup }) {
   function reviewView() {
     const counts = R.reviewCounts(planned);
     const broken = R.brokenItems(planned);
-    const notYet = [...(planned.deferred || [])];
-    for (const cat of NOT_YET) if (check.categories.includes(cat)) notYet.push(label(cat));
     const out = [
       el('p', null, el('strong', null, 'Add import'), check.sameInstall ? ' from this install' : ' from another install'),
       el(
@@ -257,7 +265,6 @@ export function importTab({ setNote, setReview, backup }) {
     out.push(...remapReview(remap, goTo));
     if (broken.length)
       out.push(el('h3', 'sode__label sode__xi-h', `Broken (${broken.length})`), el('ul', 'sode__xi-list sode__xi-broken', ...broken.map(brokenLine)));
-    if (notYet.length) out.push(el('p', 'sode__hint', `Not imported yet: ${notYet.join(', ')}.`));
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
     if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
@@ -316,6 +323,7 @@ export function importTab({ setNote, setReview, backup }) {
       step = 'done';
       setNote('');
       failed = Object.keys(got.failed || {}).length;
+      if (planned.categories.browser?.items.length) applyBrowser(check.browser, false);
       render();
     } catch (e) {
       if (my !== seq) return;
@@ -331,7 +339,7 @@ export function importTab({ setNote, setReview, backup }) {
   function doneView() {
     const counts = R.reviewCounts(planned);
     return [
-      el('div', 'pb-alert pb-alert--ok', failed ? `Imported. ${failed} panels were not written.` : 'Imported.'),
+      el('div', 'pb-alert pb-alert--ok', failed ? `Imported. ${failed} items were not written.` : 'Imported.'),
       el(
         'table',
         'pb-table pb-table--compact sode__xi-counts',
