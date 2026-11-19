@@ -717,7 +717,7 @@ body {
   white-space: nowrap;
 }
 /* A hidden copy of the longest state holds the slot's width, so the toolbar never re-wraps when the state changes.
-   Keep in step with refresh() in paneleditor.js. */
+   Keep in step with paintToolbar() in editortoolbar.js. */
 .sode-ed__state::before {
   content: "Unsaved changes";
   height: 0;

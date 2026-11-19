@@ -211,7 +211,7 @@ func TestChromeGridPanelLook(t *testing.T) {
 	held := `[...document.querySelectorAll('.sode-gridpanel__held:not([hidden])')].map((n) => n.parentNode.dataset.dst + ':' + n.textContent).join(',')`
 	note := `[...document.querySelectorAll('.sode-gridpanel__note > :not([hidden])')].map((n) => n.textContent).join('|')`
 	b.waitFor("the staged destination says so, and the note counts it with no help words", held+` === '3:staged' && `+note+` === '1 staged'`)
-	// Over a crosspoint the cursor is a ring. All three count from time zero (gridpanelview.js joinPulse).
+	// Over a crosspoint the cursor is a ring. All three count from time zero (gridpanelnodes.js joinPulse).
 	b.eval(`(() => {
 		const r = ` + gridXp(6, 5) + `.getBoundingClientRect();
 		document.querySelector('.sode-gridpanel__scroll').dispatchEvent(new PointerEvent('pointermove', { clientX: r.x + 20, clientY: r.y + 20, bubbles: true, pointerType: 'mouse' }));
