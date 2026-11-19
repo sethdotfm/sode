@@ -55,7 +55,7 @@ type rule struct {
 var policy = map[string]rule{
 	// declares the page type and session token; answered with the lock state
 	"hi": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { a.Hi(c, m.Page, m.Token) }},
-	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
+	// the way out of the lock; counted in the user PIN pool. Inline: a later lock is
 	// handled after.
 	"userSignIn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserUnlock(c, m) }},
 	// locking and signing out are never refused; with nobody signed in the Lock is page-only
@@ -85,7 +85,7 @@ var policy = map[string]rule{
 	"myClientDelete":    {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientDelete(c, m) }},
 	"myClientKey":       {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientKey(c, m) }},
 	"myClientKeyRevoke": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientKeyRevoke(c, m) }},
-	// The user's own PIN, in that name's pool. In line, like userSignIn.
+	// The user's own PIN, in that name's pool. Inline, like userSignIn.
 	"pinRecheck": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.servePinRecheck(c, m) }},
 	// Step in and Step out (stepin.go): in line, like userSignIn.
 	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveStepIn(c, m) }},

@@ -335,7 +335,7 @@ func TestInboxSendsPanel(t *testing.T) {
 		t.Fatal(err)
 	}
 	rights := config.Rights{}
-	if err := a.setPanelClient(sodeActor, src.ID, &rights); err != nil {
+	if err := a.putPanelClient(sodeActor, src.ID, &rights, nil); err != nil {
 		t.Fatal(err)
 	}
 	src.Client = panelClientName(src.ID)

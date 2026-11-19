@@ -97,14 +97,9 @@ func clean(r config.Rights) config.Rights {
 	return r
 }
 
-// setPanelClient adds, replaces the rights of, or (rights nil) removes the client of panel id.
-// Removing it ends its keys and open streams through the config commit. by is who asked, for the
-// Settings saves row.
-func (a *App) setPanelClient(by Actor, id string, rights *config.Rights) error {
-	return a.putPanelClient(by, id, rights, nil)
-}
-
-// putPanelClient is setPanelClient; nets are a new client's allowed networks (Save a copy keeps its source's).
+// putPanelClient adds, replaces the rights of, or (rights nil) removes the client of panel id. Removing it ends its
+// keys and open streams through the config commit. nets: a new client's allowed networks (Save a copy keeps its
+// source's).
 func (a *App) putPanelClient(by Actor, id string, rights *config.Rights, nets []string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

@@ -5,7 +5,7 @@ import "reflect"
 // Embedded Router fields count as Config's own; empty slices equal nil ones.
 func ReconnectChanged(a, b Config) bool {
 	va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
-	for _, f := range configFields() {
+	for _, f := range Fields() {
 		if f.Tag.Get("reconnect") != "true" {
 			continue
 		}
@@ -21,7 +21,7 @@ func ReconnectChanged(a, b Config) bool {
 }
 
 // Not reflect.VisibleFields: Config.Extra hides Router.Extra there.
-func configFields() []reflect.StructField {
+func Fields() []reflect.StructField {
 	var out []reflect.StructField
 	t := reflect.TypeOf(Config{})
 	for i := range t.NumField() {

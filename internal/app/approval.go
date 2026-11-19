@@ -54,12 +54,18 @@ func (a *App) approve(c *client, r rule, m *inMsg) error {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	live, ok := a.r().cfg.FindUserByID(hit.ID) // Read again: the PIN check ran outside mu.
-	if !ok || live.Pin != hit.Pin {
+	live, ok := a.livePinMu(hit)
+	if !ok {
 		return approvalErr{"that PIN changed; try again"}
 	}
 	m.approver = &live
 	return nil
+}
+
+// livePinMu reads hit again after a PIN check that ran outside mu; false when hit is gone or has a new PIN.
+func (a *App) livePinMu(hit *config.User) (config.User, bool) {
+	live, ok := a.r().cfg.FindUserByID(hit.ID)
+	return live, ok && live.Pin == hit.Pin
 }
 
 // approverRole: the approver's live Role; "" when the approver is gone or changed their PIN.

@@ -338,8 +338,8 @@ func (a *App) serveApprovalAnswer(c *client, m *inMsg) {
 		return
 	}
 	a.mu.Lock()
-	live, ok := a.r().cfg.FindUserByID(hit.ID) // Read again: the PIN check ran outside mu.
-	if !ok || live.Pin != hit.Pin || find() != r || !a.endAskMu(r, "approved", live.Name) {
+	live, ok := a.livePinMu(&hit)
+	if !ok || find() != r || !a.endAskMu(r, "approved", live.Name) {
 		a.mu.Unlock()
 		reply(errAskEnded)
 		return

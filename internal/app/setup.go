@@ -16,6 +16,9 @@ import (
 //lint:ignore ST1005 the page shows it as is
 var errSetup = errors.New("Sode is not set up yet")
 
+//lint:ignore ST1005 the page shows it as is
+var errSetUpDone = errors.New("Sode is already set up")
+
 func (a *App) setupPendingCfg(cfg config.Config) bool {
 	return a.cfgPath != "" && len(cfg.Users) == 0
 }
@@ -122,8 +125,7 @@ func (a *App) setupClaim(c *client, take bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if !a.setupPending() {
-		//lint:ignore ST1005 the page shows it as is
-		return errors.New("Sode is already set up")
+		return errSetUpDone
 	}
 	was := a.setup.owner
 	if a.setupOwnsLocked(c) {
@@ -166,8 +168,7 @@ func (a *App) setupRouter(c *client, addr string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if !a.setupPending() {
-		//lint:ignore ST1005 the page shows it as is
-		return errors.New("Sode is already set up")
+		return errSetUpDone
 	}
 	if !a.setupOwnsLocked(c) {
 		return errSetupElsewhere
