@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseLevelsAs } from '../levels.js';
+import { parseLevelsAs, levelsBoxShown } from '../levels.js';
 
 const p = (text, mode = '1', max = 17) => parseLevelsAs(text, mode, max);
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
@@ -50,4 +50,12 @@ test('invalid', () => {
   assert.equal(p('1-2-3'), null);
   assert.equal(p('!1-17'), null);
   assert.equal(p(''), null);
+});
+
+test('the Levels box shows only when some router has more than one level', () => {
+  assert.equal(levelsBoxShown([]), true);
+  assert.equal(levelsBoxShown([1]), false);
+  assert.equal(levelsBoxShown([1, 1]), false);
+  assert.equal(levelsBoxShown([2]), true);
+  assert.equal(levelsBoxShown([1, 17]), true);
 });

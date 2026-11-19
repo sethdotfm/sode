@@ -26,6 +26,7 @@ import './brokenbanner.js';
 import './setupwizard.js';
 import { bigScrollAll } from './bigscroll.js';
 import { showApprovalCards } from './approvalcards.js';
+import { registerShell } from './swreg.js';
 
 on('brand', ({ text }) => {
   document.title = text;
@@ -35,4 +36,5 @@ initTheme();
 openItemLinks();
 bigScrollAll();
 showApprovalCards();
+registerShell();
 connect();

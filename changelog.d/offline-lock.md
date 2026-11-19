@@ -1,0 +1,1 @@
+- When Sode is offline and the Lock is up, in either order, the Lock has the offline red outline and says "Offline, locked". This is on the main page, the phone layout and the panel pages. When the connection comes back, the Lock has its usual colors again.

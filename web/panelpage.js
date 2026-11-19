@@ -19,6 +19,7 @@ import { layout, onLayout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
 import { showApprovalCards } from './approvalcards.js';
 import './palette.js';
+import { registerShell } from './swreg.js';
 
 const id = panelIdFrom(location.pathname);
 
@@ -64,4 +65,5 @@ else if (document.getElementById('ed-grid'))
   });
 else runPanelsList();
 
+registerShell();
 connect();

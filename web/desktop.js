@@ -1,6 +1,6 @@
 import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
 import { paintConn } from './connview.js';
-import { levelBar, allLevels, levelSource } from './levelview.js';
+import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
@@ -52,6 +52,10 @@ for (const k of ['src', 'dst']) {
 }
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onChange: () => renderTally() });
+// With the Levels box hidden, a move to Levels goes to the last box before Take, where Enter takes.
+function toLevels() {
+  focusBox(levelsShown() ? lvlInput : flipped() ? boxes.src.input : boxes.dst.input);
+}
 
 const active = () =>
   layout() === 'desktop' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
@@ -210,7 +214,8 @@ function useLast(k, next = false) {
   if (k === 'src') {
     select('src', t.src);
     const dstEmpty = !sel.dst && !dsts.length && !boxes.dst.input.value.trim();
-    focusBox(dstEmpty ? boxes.dst.input : lvlInput);
+    if (dstEmpty) focusBox(boxes.dst.input);
+    else toLevels();
   } else if (k === 'dst') {
     const have = allDsts();
     const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
@@ -219,8 +224,9 @@ function useLast(k, next = false) {
       select('dst', add[add.length - 1]);
     }
     const srcEmpty = !sel.src && !boxes.src.input.value.trim();
-    focusBox(srcEmpty ? boxes.src.input : lvlInput);
-  } else {
+    if (srcEmpty) focusBox(boxes.src.input);
+    else toLevels();
+  } else if (levelsShown()) {
     lvl.set(t.levels);
     focusBox(lvlInput);
   }
@@ -239,14 +245,14 @@ function sendingRow(src, d, levels) {
       dsts = have;
       select('dst', dstItem(d));
     }
-    lvlInput.focus();
+    toLevels();
   });
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
 function pickSrc(n) {
   select('src', srcItem(n));
-  lvlInput.focus();
+  toLevels();
 }
 
 function renderTally() {
@@ -321,7 +327,7 @@ const confirm = keyConfirm({
     else focusBack(viaKeys);
   },
   onClose: (p, viaKeys) => {
-    if (p?.verb === 'patch') lvlInput.focus();
+    if (p?.verb === 'patch') toLevels();
     else focusBack(viaKeys);
   },
 });
@@ -357,7 +363,7 @@ function tryConfirm() {
   const levels = lvl.levels();
   if (!levels) {
     lvlInput.classList.add('pb-input--invalid');
-    lvlInput.focus();
+    toLevels();
     return;
   }
   openConfirm(patchPlan(sel.src, allDsts(), levels));
@@ -436,6 +442,13 @@ $('patch').addEventListener('click', patchNow);
 on('hello', () => {
   pager.reset();
   lvl.reset();
+  // A Settings save sends a new hello, so an open page follows a change of levels.
+  const box = lvlInput.closest('.sode__box');
+  box.hidden = !levelsShown();
+  if (box.hidden) {
+    lvl.clear();
+    if (document.activeElement === lvlInput) toLevels();
+  }
   renderTally();
   renderHistory();
 });
@@ -475,7 +488,7 @@ presetHost({
     select('dst', p.dsts[p.dsts.length - 1]);
     if (p.levels.length) lvl.set(p.levels);
     else lvl.clear();
-    focusBox(lvlInput);
+    toLevels();
   },
 });
 

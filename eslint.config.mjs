@@ -132,4 +132,6 @@ export default [
     languageOptions: { globals: { ...browser, ...node } },
   },
   { files: ['web/prepaint.js'], languageOptions: { sourceType: 'script' } },
+  // The service worker is a classic script with the worker's globals.
+  { files: ['web/sw.js'], languageOptions: { sourceType: 'script', globals: { ...browser, caches: 'readonly' } } },
 ];
