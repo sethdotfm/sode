@@ -46,28 +46,29 @@ func routerFault(base, cur namePoll) bool {
 	return lost*2 > had
 }
 
-// countPollMu takes a full read. It returns the check to run once mu is released, or nil. Caller holds mu.
-func (a *App) countPollMu(cur namePoll) func() {
+// countPollMu takes a full read and returns the check to run after mu is released, or nil. fault: the read
+// is a router fault, so it is neither shown nor saved. Caller holds mu.
+func (a *App) countPollMu(cur namePoll) (check func(), fault bool) {
 	base := a.router.lastPoll
 	if base == nil {
 		base = &namePoll{a.router.srcNames, a.router.dstNames}
 	}
 	if routerFault(*base, cur) {
 		if !a.router.faultSeen {
-			log.Printf("names: more than half the names went blank; read ignored for the Broken check")
+			log.Printf("names: more than half the names went blank; read ignored")
 		}
 		a.router.faultSeen = true
-		return nil
+		return nil, true
 	}
 	a.router.faultSeen = false
 	noteRenamed(&a.router.renamedTo, *base, cur)
 	prev := a.router.lastPoll
 	a.router.lastPoll = &cur
 	if prev == nil || a.setupPending() {
-		return nil
+		return nil, false
 	}
 	hints := [2]map[string]string{maps.Clone(a.router.renamedTo[0]), maps.Clone(a.router.renamedTo[1])}
-	return func() { a.recheckRefs(*prev, cur, hints) }
+	return func() { a.recheckRefs(*prev, cur, hints) }, false
 }
 
 func sideIndex(dst bool) int {
