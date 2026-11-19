@@ -18,8 +18,8 @@ const (
 
 const kindSettings = "settings" // a Settings save; Seq is its anchor, ID its own number
 
-// SettingsSave: one save. Approver and Preset stay empty until the tickets that make them fill
-// them. Interruptions: the review's lines at save time (interruptions.go).
+// SettingsSave: one save. Preset: the Access preset staged into it (accesspreset.go).
+// Interruptions: the review's lines at save time (interruptions.go).
 type SettingsSave struct {
 	Fields        []SavedField `json:"fields"`
 	Approver      string       `json:"approver,omitempty"`

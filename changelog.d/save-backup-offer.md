@@ -1,0 +1,1 @@
+- Before a save with a Critical change or with Interruptions, the Settings review offers Download a backup. It downloads the same file as Back up everything. The review also has a button to Export & Import and shows when this browser last downloaded a backup. It is a suggestion, and Save works without it.
