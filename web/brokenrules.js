@@ -114,7 +114,7 @@ export function leftOutLines(marks, offset) {
           ? `${upper(m.kind)} ${r.n + offset}${name ? ` ${name}` : ''}: not on the router now`
           : `${upper(m.kind)} "${name}": no ${m.kind} has this name now`;
       default:
-        return `${upper(String(m.kind || 'part'))}: not there`;
+        return `${upper(String(m.kind || 'part'))}: missing`;
     }
   });
 }

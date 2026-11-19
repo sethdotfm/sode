@@ -89,7 +89,7 @@ export function sendCopy(list, name) {
         })
       : [desktopOnly('send a copy')]),
   );
-  if (desk && !names.length) people.append(el('p', 'sode__hint', 'There is no other user to send to.'));
+  if (desk && !names.length) people.append(el('p', 'sode__hint', 'No other users'));
   sendBtn.disabled = true;
   dlg.show();
   (people.querySelector('input') || dialog).focus();

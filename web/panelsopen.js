@@ -11,7 +11,7 @@ function button(label, tip, state, onClick) {
   const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('rotate-cw'), ` ${label}`);
   b.type = 'button';
   b.disabled = state !== 'ready';
-  b.dataset.pbTip = state === 'ready' ? tip : 'Offline: no page holds a stream now';
+  b.dataset.pbTip = state === 'ready' ? tip : 'Offline: no open page';
   b.classList.add('pb-tip--end');
   b.addEventListener('click', onClick);
   return b;
@@ -20,9 +20,7 @@ function button(label, tip, state, onClick) {
 export function reloadButton(p, row, reload) {
   const state = reload ? streamState(row) : '';
   if (!state) return null;
-  const b = button('Reload', 'Reload this page. It keeps its key and name.', state, () =>
-    reload(p.id, row.keyless ? { keyless: row.keyless } : { instance: row.device }),
-  );
+  const b = button('Reload', 'Keeps key and name', state, () => reload(p.id, row.keyless ? { keyless: row.keyless } : { instance: row.device }));
   b.dataset.reloadInstance = row.device;
   return b;
 }
@@ -30,7 +28,7 @@ export function reloadButton(p, row, reload) {
 export function reloadAllButton(p, reload) {
   const state = reload ? reloadAllState(p) : '';
   if (!state) return null;
-  const b = button('Reload all', 'Reload every open page of this panel', state, () => reload(p.id, { all: true }));
+  const b = button('Reload all', 'All open pages', state, () => reload(p.id, { all: true }));
   b.dataset.reloadAll = '';
   return b;
 }

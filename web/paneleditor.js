@@ -636,7 +636,7 @@ export async function runEditor() {
   });
 
   $('ed-copylink').addEventListener('click', async () => {
-    say('ed-status', (await copyText(itemLink(loaded))) ? 'Link copied.' : 'Copy failed. Use the Link field in Share instead.');
+    say('ed-status', (await copyText(itemLink(loaded))) ? 'Link copied.' : 'Copy failed: use Share > Link.');
   });
 
   $('ed-copy').addEventListener('click', async () => {

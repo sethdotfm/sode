@@ -454,7 +454,7 @@ function render() {
   rowsBox.replaceChildren(
     ...(st.rows.length
       ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))]
-      : [el('span', 'sode__hint', st.copy ? 'This browser has no filter sets or presets.' : 'Nothing to import in this file.')]),
+      : [el('span', 'sode__hint', st.copy ? 'No filter sets or presets' : 'Nothing to import')]),
   );
   refresh();
 }

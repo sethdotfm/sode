@@ -26,7 +26,7 @@ onMsg('inboxResult', (m) => {
 export function ask(m) {
   const id = ++seq;
   return new Promise((resolve) => {
-    if (!wsSend({ ...m, id })) return resolve({ ok: false, err: 'Not connected to Sode. Try again when the link is back.' });
+    if (!wsSend({ ...m, id })) return resolve({ ok: false, err: 'Not connected to Sode.' });
     asks.set(id, resolve);
   });
 }

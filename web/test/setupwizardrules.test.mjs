@@ -54,7 +54,7 @@ test('Welcome needs a name and the same PIN twice', () => {
   assert.match(stepProblem({ ...d, pin: '12', pin2: '12' }, 0, 8), /4 to 8 digits/);
   assert.match(stepProblem({ ...d, pin: '12ab', pin2: '12ab' }, 0, 8), /digits/);
   assert.match(stepProblem({ ...d, pin: '123456789', pin2: '123456789' }, 0, 8), /4 to 8/);
-  assert.match(stepProblem({ ...d, pin2: '2469' }, 0, 8), /not the same/);
+  assert.match(stepProblem({ ...d, pin2: '2469' }, 0, 8), /differ/);
 });
 
 test('Router needs an address and levels; a router salvo needs a group', () => {
@@ -108,12 +108,12 @@ test('the router line has two states', () => {
   assert.equal(routerLine('', 'up', 3), null);
   assert.deepEqual(routerLine('10.0.0.5:8910', 'up', 3), { ok: true, text: 'Connected. Names read.' });
   assert.equal(routerLine('10.0.0.5:8910', 'up', 0).ok, false);
-  assert.equal(routerLine('10.0.0.5:8910', 'connecting', 0).text, 'No answer yet. You can go on, and Sode keeps trying.');
+  assert.equal(routerLine('10.0.0.5:8910', 'connecting', 0).text, 'No answer yet. Sode keeps trying.');
 });
 
 test('a restore without PINs takes a new PIN only when both entries agree', () => {
   assert.equal(restorePinProblem('2468', '2468', 8), '');
   assert.match(restorePinProblem('24', '24', 8), /4 to 8 digits/);
   assert.match(restorePinProblem('24a8', '24a8', 8), /4 to 8 digits/);
-  assert.match(restorePinProblem('2468', '2469', 8), /not the same/);
+  assert.match(restorePinProblem('2468', '2469', 8), /differ/);
 });

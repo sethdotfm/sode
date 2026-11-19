@@ -190,7 +190,7 @@ export function routerTermsProblem(text, router, routers) {
   if (router || routers < 2) return '';
   const p = parseFilter(text || '');
   if (!p.rules || !p.rules.some((r) => r.kind === 'num' || r.kind === 'range')) return '';
-  return 'Pick a router for number and range terms, or use names.';
+  return 'Number terms need a router.';
 }
 
 export function filterFn(text, opts) {

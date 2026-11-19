@@ -32,13 +32,13 @@ export function itemLinkBox() {
     } catch {
       input.select();
       copiedOff();
-      return status.replaceChildren('The link is selected: copy it by hand.');
+      return status.replaceChildren('Copy failed: link selected.');
     }
     status.replaceChildren();
     clearTimeout(timer);
     copy.style.minWidth = `${copy.offsetWidth}px`; // keeps Copy link's width
     copy.classList.replace('pb-btn--outline', 'pb-btn--ok');
-    copy.textContent = 'Copied!';
+    copy.textContent = 'Copied';
     timer = setTimeout(copiedOff, COPIED_MS);
   });
   return {
@@ -48,7 +48,7 @@ export function itemLinkBox() {
       // The main page has no <base>, so its base URI holds the address's own query and fragment.
       input.value = presetLink(new URL('./', linkBase()).href, id, S.installUid);
       const qr = qrNode(input.value, 'QR code of the Item link');
-      qrBox.replaceChildren(qr || el('p', 'sode__hint', 'This link is too long for a QR code. Copy it instead.'));
+      qrBox.replaceChildren(qr || el('p', 'sode__hint', 'Too long for a QR code.'));
       status.replaceChildren();
       copiedOff();
       box.hidden = false;

@@ -34,7 +34,7 @@ test('only the ask after a public line is marked, for its Log row', () => {
 });
 
 test('a stopped Public page says it comes back by itself', () => {
-  assert.equal(PUBLIC_STOPPED, 'This panel is not public now. It comes back by itself when it is public again.');
+  assert.equal(PUBLIC_STOPPED, 'Not Public now. Reconnects when Public again.');
   const f = pollFail(401, 'key_revoked', undefined, false, true);
   assert.deepEqual(f, { stop: true, forget: false, text: PUBLIC_STOPPED });
   // A link's key that ended still says to ask for a new link.

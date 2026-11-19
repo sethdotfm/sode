@@ -68,7 +68,7 @@ export function buildChangePin() {
     oldF.row.hidden = !mode.current;
     remove.hidden = !mode.remove;
     save.textContent = mode.save;
-    lead.textContent = me.pinNeeded ? 'Set a PIN to act with your Role. Until then you act as a user without a PIN.' : '';
+    lead.textContent = me.pinNeeded ? 'No PIN: you act with Guest Rights.' : '';
     lead.hidden = !me.pinNeeded;
     focusBack = document.activeElement;
     say('');
@@ -95,7 +95,7 @@ export function buildChangePin() {
   };
   remove.addEventListener('click', () => {
     const o = oldF.input.value;
-    if (!/^[0-9]+$/.test(o)) return say('Enter your current PIN to remove it.', true);
+    if (!/^[0-9]+$/.test(o)) return say('Enter your current PIN.', true);
     sendSet({ old: o, new: '', remove: true });
   });
   form.addEventListener('submit', (e) => {
@@ -104,7 +104,7 @@ export function buildChangePin() {
     const [o, n, a] = [oldF.input.value, newF.input.value, againF.input.value];
     if (mode.current && !/^[0-9]+$/.test(o)) return say('Enter your current PIN.', true);
     if (!/^[0-9]+$/.test(n) || n.length < 4 || n.length > max) return say(`A PIN is 4 to ${max} digits.`, true);
-    if (n !== a) return say('The new PINs differ.', true);
+    if (n !== a) return say('The PINs differ.', true);
     sendSet({ old: mode.current ? o : '', new: n });
   });
   onMsg('userSetPinResult', (m) => {

@@ -145,10 +145,10 @@ function sentRow(c) {
 function drawLists() {
   if (!open || reviewing) return;
   const cards = inbox.cards.map(cardRow);
-  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'No copies wait for you.')]));
+  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'Inbox empty')]));
   // Newest first, as the server sends them oldest first.
   const sent = [...inbox.sent].reverse().map(sentRow);
-  sentList.replaceChildren(...(sent.length ? sent : [el('p', 'sode__hint', 'You sent no copies in the last 30 days.')]));
+  sentList.replaceChildren(...(sent.length ? sent : [el('p', 'sode__hint', 'None sent (30 days)')]));
   phoneNote.replaceChildren(phone() ? desktopOnly('accept a copy or withdraw one') : '');
 }
 
@@ -220,7 +220,7 @@ function drawReview() {
     rows.push(el('div', 'sode__xi-items', ...c.items.map((it, i) => itemRow(cat, c, it, i))));
   }
   const focused = review.contains(document.activeElement) ? document.activeElement.dataset.key : '';
-  review.replaceChildren(el('p', null, `${R.fromText(card)}. Untick what you do not want.`), el('div', 'sode__xi-cats', ...rows));
+  review.replaceChildren(el('p', null, R.fromText(card)), el('div', 'sode__xi-cats', ...rows));
   if (focused) [...review.querySelectorAll('[data-key]')].find((x) => x.dataset.key === focused)?.focus();
   showReview(true);
   acceptBtn.disabled = !R.pickedCount(pick);

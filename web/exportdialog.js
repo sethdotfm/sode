@@ -30,13 +30,7 @@ pinsBox.type = 'checkbox';
 pinsBox.id = 'xi-pins';
 pinsBox.setAttribute('role', 'switch');
 const cats = el('div', 'sode__xi-cats');
-const exportPanel = el(
-  'div',
-  null,
-  el('div', 'sode__field', el('label', 'pb-check', pinsBox, el('span', 'pb-check__label', 'Include PINs'))),
-  el('span', 'sode__hint', 'Sizes are before compression.'),
-  cats,
-);
+const exportPanel = el('div', null, el('div', 'sode__field', el('label', 'pb-check', pinsBox, el('span', 'pb-check__label', 'Include PINs'))), cats);
 const phone = el('div');
 const note = el('span', 'sode__hint');
 note.id = 'xi-note';
@@ -215,7 +209,7 @@ function sizeLater() {
 }
 
 async function load() {
-  setNote('Reading what Sode holds…');
+  setNote('Reading…');
   try {
     const res = await call('api/export/items');
     const got = await res.json();

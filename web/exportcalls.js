@@ -34,7 +34,7 @@ function session() {
   if (token !== null) return Promise.resolve(token);
   const id = ++askSeq;
   return new Promise((resolve, reject) => {
-    if (!wsSend({ t: 'exportSession', id })) return reject(new Error('Not connected to Sode. Try again when the link is back.'));
+    if (!wsSend({ t: 'exportSession', id })) return reject(new Error('Not connected to Sode.'));
     asks.set(id, (m) => {
       if (!m.ok) return reject(new Error(m.err || 'Sode refused the export.'));
       token = m.token || '';

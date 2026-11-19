@@ -91,7 +91,7 @@ function statusLine() {
   // Run setup again moves no link before the save, so only the live address has a state.
   const line =
     d.again && d.router.trim() !== (S.cfg.router || '')
-      ? { ok: false, text: 'Sode connects to this address after you save.' }
+      ? { ok: false, text: 'Connects on Finish' }
       : routerLine(d.router, S.router, S.srcs.length + S.dsts.length);
   if (!line) return [];
   return [
@@ -114,7 +114,7 @@ function swatches() {
     input.checked = d.brandBorder === c.name;
     box.append(h('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
   }
-  return h('div', { class: 'sode__field' }, h('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border colour'), box);
+  return h('div', { class: 'sode__field' }, h('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box);
 }
 
 function sheet() {
@@ -163,14 +163,14 @@ const nextLink = (text, section, href = '#settings') => h('li', null, h('a', { h
 
 const VIEW = {
   welcome: () => [
-    d.again ? 'Run setup again' : 'Welcome to Sode',
+    d.again ? 'Run setup again' : 'Set up Sode',
     lead(
       d.again
         ? 'Change the name, the router and the access in three steps. Finish shows each change before Sode saves it.'
         : 'Sode patches your router from the keyboard. Set up this install in three short steps.',
     ),
     section(
-      'Name and colour',
+      'Name and color',
       'Shown on every page, so people can tell this Sode from another.',
       field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }),
       swatches(),
@@ -181,7 +181,7 @@ const VIEW = {
       : [
           section(
             'Your user',
-            'You are the Administrator. Sode asks for your PIN again before a big change.',
+            'Administrator',
             field('setup-name', 'Name', d.name, { maxlength: '24' }),
             field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric' }, `4 to ${max()} digits.`),
             field('setup-pin2', 'PIN again', d.pin2, { type: 'password', inputmode: 'numeric' }),
@@ -209,7 +209,7 @@ const VIEW = {
           ['1', 'Start at 1'],
           ['0', 'Start at 0'],
         ],
-        hint('numberOffset', 'Ultrix shows numbers starting at 1.'),
+        hint('numberOffset', 'Ultrix: 1'),
       ),
     ),
     section(
@@ -225,19 +225,13 @@ const VIEW = {
         hint('fireMode'),
       ),
       d.fireMode === 'native'
-        ? field(
-            'setup-group',
-            'Router salvo group',
-            d.group,
-            { type: 'number', min: '0', max: '127' },
-            hint('group', 'Pick a group nothing else on the router uses.'),
-          )
+        ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, hint('group', 'Must be unused on the router'))
         : null,
     ),
   ],
   access: () => [
     'Access',
-    lead('What people can do without signing in. You can change any part of it later in Settings.'),
+    lead('Without sign-in:'),
     ...(hint('preset') ? [h('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []),
     sheet(),
   ],
@@ -465,17 +459,11 @@ function waitPage() {
   const phone = layout() === 'phone';
   $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup runs in another browser';
   const kids = [];
-  if (taken && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control of setup. Your answers were not saved.'));
+  if (taken && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers are lost.'));
   else if (free && !phone) kids.push(h('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
   if (phone) kids.push(desktopOnly('set it up'));
   else {
-    kids.push(
-      h(
-        'p',
-        null,
-        'Only one browser can run setup. If nobody uses the other browser, take control here. The other browser stops, and its answers are not saved.',
-      ),
-    );
+    kids.push(h('p', null, "Setup runs in one browser at a time. Take control discards the other browser's answers."));
     kids.push(h('button', { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take' }, 'Take control'));
   }
   $('setup-wait-body').replaceChildren(...kids);

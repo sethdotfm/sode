@@ -99,14 +99,14 @@ function paintList() {
     }
     kids.push(ul);
   }
-  if (asked && !groups.length) kids.push(el('p', 'sode__hint', ui.broken.checked ? 'No Broken item uses it.' : 'No item uses it.'));
+  if (asked && !groups.length) kids.push(el('p', 'sode__hint', ui.broken.checked ? 'No Broken items' : 'No items'));
   ui.list.replaceChildren(...kids);
   paintNames();
 }
 
 function find() {
   const f = fields();
-  if (f.from == null) return fail('Type the number to swap out.');
+  if (f.from == null) return fail('Enter the old number.');
   fail('');
   waiting = ++seq;
   if (!wsSend({ t: 'swapList', id: waiting, swap: { router: S.routerUid, side: f.side, from: f.from, mine } })) fail('Not connected to Sode.');

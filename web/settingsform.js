@@ -200,7 +200,7 @@ export function renderNamesStatus() {
   $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations`;
   const btn = $('names-refresh');
   btn.disabled = S.router !== 'up';
-  btn.textContent = 'Refresh now';
+  btn.textContent = 'Re-read now';
 }
 
 $('cfg-offset').addEventListener('input', renderOffsetNote);
@@ -219,6 +219,6 @@ for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListene
 $('names-refresh').addEventListener('click', () => {
   if (wsSend({ t: 'rereadNames' })) {
     $('names-refresh').disabled = true;
-    $('names-refresh').textContent = 'Refreshing…';
+    $('names-refresh').textContent = 'Re-reading…';
   }
 });

@@ -439,7 +439,7 @@ function press(k) {
   if (k === 'enter') {
     if (canSend(L, pin, who())) sendPin();
     else if (asksName(L) && !nameValue().trim()) say('Enter your name.', true);
-    else if (asksName(L) && !who()) say('Pick your name from the list.', true);
+    else if (asksName(L) && !who()) say('Unknown name.', true);
     else say(pin ? 'That PIN has the wrong number of digits.' : 'Enter your PIN.', true);
     return;
   }

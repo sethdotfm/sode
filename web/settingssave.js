@@ -167,8 +167,7 @@ function unsavedText() {
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
   const what = [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
-  // Save skips edits the Role cannot see, so with only those it is not offered.
-  return `${what}. ${names.length ? 'Save them, or exit' : 'Exit'} again to discard them.`;
+  return `${what}. Exit again to discard.`;
 }
 
 export function markClean(saved) {
@@ -345,7 +344,7 @@ function done(saved) {
   paintMarks();
   const gaps = applied ? presetGaps(applied.target, liveNow()) : [];
   if (refused.size) {
-    showSaveErr(`${refused.size} ${refused.size === 1 ? 'change is' : 'changes are'} not saved. Each one says why.`);
+    showSaveErr(`${refused.size} ${refused.size === 1 ? 'change' : 'changes'} not saved.`);
     if (gaps.length) $('settings-err').append(stillDiffers(gaps));
   } else $('settings-err').hidden = true;
   if (!gaps.length || !refused.size) applied = null;
@@ -375,7 +374,7 @@ async function review({ focusField }) {
   if (srcBad) return void showSaveErr(srcBad);
   noteEdits();
   const all = changes();
-  if (!all.length) return void showSaveErr('There are no changes to save.');
+  if (!all.length) return void showSaveErr('No changes');
   const { shown: rows, unseen } = splitSeen(all, seen);
   $('settings-err').hidden = true;
   // Fields the page expects refused are sent too: the server's answer gives each its reason.

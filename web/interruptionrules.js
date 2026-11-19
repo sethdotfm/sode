@@ -34,4 +34,4 @@ export function saveStopsLabel(save, keep, list, plain) {
 
 export const endsSomething = (list) => (list || []).some((x) => x.ends);
 
-export const NO_RETURN = 'Keys, streams and sessions that this save ends do not come back, even after a restore.';
+export const NO_RETURN = 'Ended keys, streams and sessions do not come back, even after a restore.';

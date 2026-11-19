@@ -136,7 +136,7 @@ onMsg('myClientsResult', (m) => {
             .filter((k) => k.owner.name.toLowerCase() === c.name.toLowerCase())
             .map((k) => keyRow(k, now, () => send({ t: 'myClientKeyRevoke', keyId: k.id, id: ++listSeq }))),
         ])
-      : [el('p', 'sode__hint', 'You have no API clients.')]),
+      : [el('p', 'sode__hint', 'No API clients')]),
   );
 });
 for (const t of ['myClientDeleteResult', 'myClientKeyRevokeResult'])
@@ -167,7 +167,7 @@ keyBtn.addEventListener('click', () => {
   if (!who.value) return say('Make an API client first, then make its key.');
   const problem = keyNameProblem(keyName.value);
   if (problem) return say(problem);
-  if (!pinIn.value) return say('Enter your PIN to make a key.');
+  if (!pinIn.value) return say('Enter your PIN.');
   const exp = expiryFrom(keyExp.value, Date.now());
   if (exp.error) return say(exp.error);
   if (send(keyReq({ client: who.value, name: keyName.value, pin: pinIn.value, expires: exp.ms, id: ++keySeq }))) keyBtn.disabled = true;

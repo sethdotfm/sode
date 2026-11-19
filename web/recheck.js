@@ -103,7 +103,7 @@ function build() {
 export function askRecheck(what) {
   build();
   settle(false); // a second ask replaces the first
-  ui.why.textContent = `${what} is a Critical action. Type your PIN again.`;
+  ui.why.textContent = `${what}: Critical. Enter your PIN.`;
   ui.dlg.show();
   ui.input.focus();
   return new Promise((resolve) => {

@@ -80,7 +80,7 @@ export function stepProblem(d, i, max = 8) {
 // Your user and a restore without PINs use it.
 export function restorePinProblem(pin, pin2, max = 8) {
   if (!/^\d+$/.test(pin) || pin.length < PIN_MIN || pin.length > max) return `A PIN has ${PIN_MIN} to ${max} digits.`;
-  if (pin !== pin2) return 'The two PINs are not the same.';
+  if (pin !== pin2) return 'The PINs differ.';
   return '';
 }
 
@@ -128,5 +128,5 @@ export function finishMessage(d, id) {
 export function routerLine(address, router, names) {
   if (!address.trim()) return null;
   if (router === 'up' && names > 0) return { ok: true, text: 'Connected. Names read.' };
-  return { ok: false, text: 'No answer yet. You can go on, and Sode keeps trying.' };
+  return { ok: false, text: 'No answer yet. Sode keeps trying.' };
 }

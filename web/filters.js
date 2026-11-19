@@ -354,7 +354,7 @@ function renderSetBar() {
   $('flt-set-send').disabled = busy || !named;
   if (busy) return;
   if (stack.length) {
-    return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]}). Changing a filter leaves the stack.`);
+    return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]})`);
   }
   if (named && moveTo) return setNote(`Save moves it from ${scopeLabel(a.scope)} to ${scopeLabel(moveTo)}.`);
   setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' (edited)' : ''}` : '');

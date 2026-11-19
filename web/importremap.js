@@ -215,7 +215,7 @@ export function remapView(st, { off, onChange, onRouter, fmt }) {
       box.append(caret);
       if (open) box.append(...moved.map((x) => nameRow(st, r.uid, x, o, onChange)));
     }
-    if (asIs) box.append(el('p', 'sode__hint', `${asIs} ${asIs === 1 ? 'name imports' : 'names import'} as is.`));
+    if (asIs) box.append(el('p', 'sode__hint', `${asIs} unchanged`));
     list.append(box, ...termView(r, st.termsBy[r.uid] || [], st.terms, () => onChange('')), ...datalists(st, r.uid, o));
   }
   const any = Object.values(st.rowsBy).some((rows) => rows.some((x) => x.state !== 'as-is'));
@@ -247,7 +247,7 @@ export function remapReview(st, goTo) {
       links.push(
         linkTo(`${t.side === 'src' ? 'Sources' : 'Destinations'} ${t.label} in ${t.sets.join(', ')}: ${TERM_CHOICE[t.choice]}`, () => goTo(r.uid, t.key)),
       );
-    for (const name of ch.open) links.push(el('li', 'sode__hint', `${name}: no number or name term is left on one side, so that side matches all.`));
+    for (const name of ch.open) links.push(el('li', 'sode__hint', `${name}: one side now matches all.`));
     for (const x of rows.filter((x) => x.note && (st.choices[x.key] || []).length)) links.push(linkTo(`${x.name.trim()}: ${x.note}`, () => goTo(r.uid, x.key)));
     if (links.length) li.append(el('ul', 'sode__xi-list', ...links));
     out.push(li);

@@ -119,8 +119,8 @@ test('bulk buttons and a choice with rows selected change every selected row', (
 test('the names note: offline, saved names table, none', () => {
   const fmt = (t) => `<${t}>`;
   assert.equal(namesNote({}, fmt), '');
-  assert.match(namesNote({ offline: true, savedAt: 'S' }, fmt), /offline.*saved names table from <S>.*when the router answers/);
-  assert.match(namesNote({ savedAt: 'S' }, fmt), /saved names table from <S> until it reads the router/);
+  assert.match(namesNote({ offline: true, savedAt: 'S' }, fmt), /offline.*saved names table from <S>.*on connect/);
+  assert.match(namesNote({ savedAt: 'S' }, fmt), /saved names table from <S> until Sode reads the router/);
   assert.match(namesNote({ offline: true, namesAt: 'N' }, fmt), /names read at <N>/);
-  assert.match(namesNote({ noNames: true, offline: true }, fmt), /no names.*wait/);
+  assert.match(namesNote({ noNames: true, offline: true }, fmt), /No router names yet/);
 });

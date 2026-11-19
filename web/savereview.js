@@ -77,7 +77,7 @@ const badge = (kind, text) => el('span', `pb-badge pb-badge--${kind}`, text);
 function interruptionsBlock(list) {
   if (list && !list.length) return [];
   const head = el('h3', 'sode__label', 'Interruptions');
-  if (!list) return [head, el('div', 'pb-note pb-note--warn', 'Sode did not send the Interruptions. Save finds them again.')];
+  if (!list) return [head, el('div', 'pb-note pb-note--warn', 'Interruptions not loaded. Save checks them again.')];
   const out = [head, el('ul', 'sode__review-stops', ...list.map((x) => el('li', null, x.text)))];
   if (endsSomething(list)) out.push(el('div', 'pb-note pb-note--warn', NO_RETURN));
   return out;
@@ -196,7 +196,7 @@ export function reviewSave({
       ui.title.textContent = 'Save and reconnect?';
       ui.body.replaceChildren(
         el('p', null, `Saving reconnects Sode to the router${address ? ` at ${address}` : ''}.`),
-        el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take that is in progress when Sode reconnects fails.'),
+        el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take in progress fails.'),
       );
       button(ui.back, 'Back', review);
       button(ui.go, 'Save and reconnect', () => end(true));

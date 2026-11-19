@@ -213,7 +213,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   function fileHint() {
     const where = `Sode ${check.sode}, ${check.sameInstall ? 'this install' : 'another install'}`;
     if (!own) return where;
-    return check.from ? `${where}, from ${check.from}` : `${where}. It holds no profile for you.`;
+    return check.from ? `${where}, from ${check.from}` : `${where}. No profile for you.`;
   }
 
   // Add import or Replace import. Replace import is for Administrators, and the dialog is only theirs.
@@ -318,14 +318,11 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     if (ends.length) out.push(el('ul', 'sode__xi-list', ...ends.map((t) => el('li', null, `${t}.`))));
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
     // A backup of this install: what ended after it was made stays ended.
-    if (replace && check.sameInstall) out.push(el('p', 'sode__hint', 'Keys and sessions ended since the backup do not come back.'));
     if (planned.refused) out.push(el('div', 'pb-alert pb-alert--error', `Sode refuses this import: ${planned.refused}.`));
     else if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
       if (needsPin()) row.append(Object.assign(el('label', 'sode__label', 'PIN'), { htmlFor: pinInput.id }), pinInput);
-      const warn = replace
-        ? 'Replace import removes what the file does not hold. This is a Critical action.'
-        : 'Use new replaces what is here. This is a Critical action.';
+      const warn = replace ? 'Critical: removes what the file does not hold.' : 'Critical: Use new overwrites current items.';
       out.push(el('div', 'pb-note pb-note--warn', warn), row, pinErr);
     }
     return out;
@@ -406,7 +403,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
 
   function render() {
     const focused = panel.contains(document.activeElement) ? document.activeElement.dataset.key : '';
-    if (step === 'file') panel.replaceChildren(el('p', 'sode__hint', 'Choose an export file (.zip).'), fileInput);
+    if (step === 'file') panel.replaceChildren(fileInput);
     else if (step === 'list') panel.replaceChildren(...listView(), fileInput);
     else if (step === 'review') panel.replaceChildren(...reviewView());
     else panel.replaceChildren(...doneView());

@@ -123,10 +123,10 @@ export function usedBy(r) {
 
 // The note above a target's rows when its names are not a fresh read. fmt formats an ISO time.
 export function namesNote(t, fmt) {
-  if (t.noNames) return 'Sode has no names for this router yet. Items that hold references wait. Import them after Sode reads the names.';
+  if (t.noNames) return 'No router names yet. Import after Sode reads them.';
   const from = t.savedAt ? `the saved names table from ${fmt(t.savedAt)}` : t.namesAt ? `the names read at ${fmt(t.namesAt)}` : 'the last names read';
-  if (t.offline) return `The router is offline. Sode uses ${from}, and checks the imported items again when the router answers.`;
-  if (t.savedAt) return `Sode uses ${from} until it reads the router, then checks the imported items again.`;
+  if (t.offline) return `Router offline: using ${from}. Sode checks again on connect.`;
+  if (t.savedAt) return `Using ${from} until Sode reads the router.`;
   return '';
 }
 
