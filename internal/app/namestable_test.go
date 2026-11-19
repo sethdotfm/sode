@@ -18,6 +18,7 @@ func settleNames(a *App) {
 	a.nameReqAt = a.nameReqAt.Add(-time.Second)
 	a.mu.Unlock()
 	a.flush()
+	a.writes.wg.Wait()
 }
 
 func giveNames(a *App, dest bool, names ...string) {

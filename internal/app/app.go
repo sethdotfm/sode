@@ -87,6 +87,7 @@ type App struct {
 
 	// Run waits up to drainLimit for them (shutdown.go).
 	writes     inflight
+	checkMu    sync.Mutex // one Broken check at a time
 	drainLimit time.Duration
 
 	// idle.go; tests change both (lock_idle_test.go).
@@ -567,8 +568,19 @@ func (a *App) flush() {
 		if save != nil {
 			save()
 		}
-		if check != nil {
+		if check == nil {
+			return
+		}
+		// Off the tick: the check waits for cfgMu, which a save holds across a PBKDF2 hash.
+		run := func() {
+			a.checkMu.Lock()
+			defer a.checkMu.Unlock()
 			check()
+		}
+		if done, ok := a.writes.start("brokenCheck"); ok {
+			go func() { defer done(); run() }()
+		} else {
+			run()
 		}
 	}()
 	a.mu.Lock()
