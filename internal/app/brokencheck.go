@@ -1,7 +1,6 @@
 package app
 
 import (
-	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -560,43 +559,4 @@ func (k *pollCheck) logRow(a *App) {
 	e := event(kindLink, "routerNames", "Sode", result)
 	e.Note = strings.Join(parts, "; ")
 	a.logEvent(e)
-}
-
-func (s *panelStore) rewrite(fn func(*Panel) bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var first error
-	for id, p := range s.by {
-		if !fn(&p) {
-			continue
-		}
-		if err := s.writeLocked(&p); err != nil {
-			first = cmp.Or(first, err)
-			continue
-		}
-		s.by[id] = p
-	}
-	return first
-}
-
-// A default whose number is gone stays.
-func (s *artDefaultStore) rename(k *pollCheck) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	next := s.data
-	next.Defaults = slices.Clone(s.data.Defaults)
-	changed := false
-	for i, d := range next.Defaults {
-		if d.Kind == artKindPreset || d.N == nil {
-			continue
-		}
-		r := config.Ref{Router: cmp.Or(d.Router, k.uid), N: *d.N, Name: d.Name}
-		if k.quiet(d.Kind == artKindDst, &r) {
-			next.Defaults[i].Name, changed = r.Name, true
-		}
-	}
-	if !changed {
-		return nil
-	}
-	return s.writeLocked(next)
 }

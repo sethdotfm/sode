@@ -546,3 +546,20 @@ func (s *panelStore) delete(id string) (bool, error) {
 		s.dropCheckpoints(id)
 	})
 }
+
+func (s *panelStore) rewrite(fn func(*Panel) bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var first error
+	for id, p := range s.by {
+		if !fn(&p) {
+			continue
+		}
+		if err := s.writeLocked(&p); err != nil {
+			first = cmp.Or(first, err)
+			continue
+		}
+		s.by[id] = p
+	}
+	return first
+}

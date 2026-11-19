@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -310,4 +311,26 @@ func (s *artDefaultStore) imageLocked(id string) ([]byte, bool) {
 	}
 	b, err := os.ReadFile(filepath.Join(s.imgDir(), id))
 	return b, err == nil
+}
+
+// A default whose number is gone stays.
+func (s *artDefaultStore) rename(k *pollCheck) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next := s.data
+	next.Defaults = slices.Clone(s.data.Defaults)
+	changed := false
+	for i, d := range next.Defaults {
+		if d.Kind == artKindPreset || d.N == nil {
+			continue
+		}
+		r := config.Ref{Router: cmp.Or(d.Router, k.uid), N: *d.N, Name: d.Name}
+		if k.quiet(d.Kind == artKindDst, &r) {
+			next.Defaults[i].Name, changed = r.Name, true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return s.writeLocked(next)
 }
