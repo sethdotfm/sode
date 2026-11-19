@@ -14,6 +14,7 @@ import { openItemLinks } from './itemlinkopen.js';
 import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
+import './browsercopy.js';
 import './panelwatch.js';
 import './noadmin.js';
 import './notsaved.js';

@@ -84,7 +84,7 @@ var policyExpect = map[string][nStates]error{
 	"approvalAsk": openRule, "approvalAnswer": openRule, "approvalCancel": openRule, "approvalCards": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
 	"myClients": openRule, "myClientSave": openRule, "myClientDelete": openRule, "myClientKey": openRule, "myClientKeyRevoke": openRule,
-	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,
+	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule, "browserCopy": openRule,
 	// a signed-in user only, checked in the handlers (inboxlife_test.go)
 	"inboxList": openRule, "inboxSend": openRule, "inboxReview": openRule, "inboxAccept": openRule,
 	"inboxDecline": openRule, "inboxWithdraw": openRule,

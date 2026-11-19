@@ -105,29 +105,37 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 				continue
 			}
 			owner = u.Name
-			if req.Prefs != nil {
-				u.Profile.Prefs = config.WithUnknownPrefs(req.Prefs, u.Profile.Prefs)
-			}
-			if req.FilterSets != nil {
-				u.Profile.FilterSets = config.WithFilterSetExtras(req.FilterSets, u.Profile.FilterSets)
-			}
-			if req.Presets != nil {
-				u.Profile.Presets = a.namePresets(cfg.UID, config.WithPresetExtras(req.Presets, u.Profile.Presets))
-			}
-			if req.PinOrder != nil {
-				u.Profile.PinOrder = slices.Clone(req.PinOrder)
-			}
+			a.applyProfileReq(cfg, u, req)
 			return nil
 		}
 		return errNoSuchUser
-	}, func(_, _ *runtime) {
-		for cl := range a.clients {
-			if a.signedInAsMu(cl, owner) {
-				a.pushProfileMu(cl)
-			}
-		}
-	})
+	}, func(_, _ *runtime) { a.pushProfileOfMu(owner) })
 	return n, err
+}
+
+// applyProfileReq: a nil part is kept. Prefs and items this release does not know stay.
+func (a *App) applyProfileReq(cfg *config.Config, u *config.User, req profileReq) {
+	if req.Prefs != nil {
+		u.Profile.Prefs = config.WithUnknownPrefs(req.Prefs, u.Profile.Prefs)
+	}
+	if req.FilterSets != nil {
+		u.Profile.FilterSets = config.WithFilterSetExtras(req.FilterSets, u.Profile.FilterSets)
+	}
+	if req.Presets != nil {
+		u.Profile.Presets = a.namePresets(cfg.UID, config.WithPresetExtras(req.Presets, u.Profile.Presets))
+	}
+	if req.PinOrder != nil {
+		u.Profile.PinOrder = slices.Clone(req.PinOrder)
+	}
+}
+
+// Caller holds mu.
+func (a *App) pushProfileOfMu(owner string) {
+	for cl := range a.clients {
+		if a.signedInAsMu(cl, owner) {
+			a.pushProfileMu(cl)
+		}
+	}
 }
 
 // Logs whose profile and how many things, never a value.
