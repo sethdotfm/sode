@@ -27,8 +27,8 @@ func TestCheckpointSetEveryoneNeedsATrustedUser(t *testing.T) {
 	}
 
 	wantErr(t, apiSend(a, "PUT", "/api/v1/panel-sets/"+all, bo, `{"name":"Renamed"}`), 403, "not_owner")
-	wantErr(t, apiSend(a, "PUT", "/api/v1/panel-sets/"+all, bo, `{"name":"Renamed","pin":"9999"}`), 403, "trusted_required")
-	wantErr(t, apiSend(a, "DELETE", "/api/v1/panel-sets/"+all, bo, `{"pin":"9999"}`), 403, "trusted_required")
+	wantErr(t, apiSend(a, "PUT", "/api/v1/panel-sets/"+all, bo, `{"name":"Renamed","pin":"9999"}`), 403, "not_owner")
+	wantErr(t, apiSend(a, "DELETE", "/api/v1/panel-sets/"+all, bo, `{"pin":"9999"}`), 403, "not_owner")
 	if rec := apiSend(a, "PUT", "/api/v1/panel-sets/"+all, cy, `{"name":"Renamed"}`); rec.Code != 200 || apiBody(t, rec)["name"] != "Renamed" {
 		t.Fatalf("Trusted rename: %d %s", rec.Code, rec.Body.String())
 	}

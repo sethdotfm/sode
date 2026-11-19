@@ -209,15 +209,8 @@ func setOut(cfg config.Config, set PanelSet, change bool) map[string]any {
 const setEveryoneMsg = "only a Trusted user can save or change a checkpoint set for Everyone"
 
 // An Everyone set with a PIN in the body answers trusted_required; without one, 403 not_owner (setFor).
-func (a *App) mayChangeSet(w http.ResponseWriter, cl *apiCtx, set PanelSet, pin string) bool {
+func (a *App) mayChangeSet(w http.ResponseWriter, cl *apiCtx, set PanelSet) bool {
 	use, change := a.setReach(cl, set)
-	if !change && set.Scope == panelShareAll && pin != "" {
-		if err := a.mayEveryone(cl, setEveryoneMsg); err != nil {
-			failWith(w, err)
-			return false
-		}
-		return true
-	}
 	return !refuseReach(w, use, change, true, "no checkpoint set "+set.ID+" that this key can use",
 		"this checkpoint set is use only for this key: only its owner or a Trusted user can change it")
 }
@@ -279,7 +272,6 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		Name   string   `json:"name"`
 		Scope  string   `json:"scope"`
 		Panels []string `json:"panels"`
-		Pin    string   `json:"pin"` // only read for Everyone, never stored
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -327,9 +319,8 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	var in struct {
 		Name   *string  `json:"name"`
 		Panels []string `json:"panels"`
-		Pin    string   `json:"pin"` // opens an Everyone set, never stored
 	}
-	if !readJSON(w, r, &in) || !a.mayChangeSet(w, cl, set, in.Pin) {
+	if !readJSON(w, r, &in) || !a.mayChangeSet(w, cl, set) {
 		return
 	}
 	if in.Name != nil {
@@ -361,10 +352,7 @@ func (a *App) apiSetDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ok {
 		return
 	}
-	var in struct {
-		Pin string `json:"pin"` // opens an Everyone set, never stored
-	}
-	if !readJSON(w, r, &in) || !a.mayChangeSet(w, cl, set, in.Pin) {
+	if !a.mayChangeSet(w, cl, set) {
 		return
 	}
 	if err := a.panels.sets.delete(set.ID); err != nil {

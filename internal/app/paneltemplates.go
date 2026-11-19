@@ -40,8 +40,7 @@ var (
 )
 
 // Owner is a user id; as sent it is the live name. Contents is the old single flag: a file that sets it means both,
-// and it
-// is never stored.
+// and it is never stored.
 type Template struct {
 	ID       string      `yaml:"id" json:"id"`
 	Name     string      `yaml:"name" json:"name"`
@@ -56,12 +55,6 @@ type Template struct {
 	// LegacyCells is a template from before Pages; migrate makes it one Page.
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings,omitempty" json:"settings,omitempty"`
-}
-
-// templateIn is the body of a save. Pin is only read for Everyone, and never stored.
-type templateIn struct {
-	Template
-	Pin string `json:"pin"`
 }
 
 // keepsContents reports whether a cell of this kind keeps its Source, Destination or Preset and its
@@ -301,12 +294,11 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 	if !ok {
 		return
 	}
-	var in templateIn
-	if err := json.Unmarshal(body, &in); err != nil {
+	var t Template
+	if err := json.Unmarshal(body, &t); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", "send a template as JSON: "+err.Error())
 		return
 	}
-	t := in.Template
 	t.ID, t.Owner = "", cl.Actor.User
 	err := t.clean()
 	if err == nil {

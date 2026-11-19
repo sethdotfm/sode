@@ -87,7 +87,6 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		Instance string `json:"instance"`
 		Keyless  string `json:"keyless"` // a keyless page's id, in place of instance
 		Name     string `json:"name"`
-		Pin      string `json:"pin"`
 	}
 	if err := json.Unmarshal(body, &in); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"instance":"<its name now>","name":"<its new name>"}`)
