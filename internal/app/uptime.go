@@ -12,8 +12,9 @@ import (
 	"time"
 )
 
-// uptimeKeep: older lines are dropped at start; older ranges show no data.
-const uptimeKeep = 400 * 24 * time.Hour
+// uptimeKeep: older lines are dropped; older ranges show no data. The file also keeps under
+// keepBytes (savelog.go has the rule).
+const uptimeKeep = keepAge
 
 // slowAckMs: ACK time above which a message is slow (yellow in the graph); under the
 // client's 1 s ACK timeout.
@@ -65,6 +66,8 @@ type Uptime struct {
 	mins  []minute // completed minutes with problems, oldest first
 	cur   minute   // the minute being counted
 	pend  []byte   // lines not yet in the file
+	size  int      // bytes in the file
+	cap   int
 }
 
 func OpenUptime(path string) (*Uptime, error) {
@@ -72,7 +75,11 @@ func OpenUptime(path string) (*Uptime, error) {
 }
 
 func openUptime(path string, now func() time.Time) (*Uptime, error) {
-	u := &Uptime{path: path, now: now}
+	return openUptimeCap(path, now, keepBytes)
+}
+
+func openUptimeCap(path string, now func() time.Time, capBytes int) (*Uptime, error) {
+	u := &Uptime{path: path, now: now, cap: capBytes}
 	t := now()
 	if path != "" {
 		f, err := os.Open(path)
@@ -130,7 +137,7 @@ func alivePath(path string) string { return path + ".alive" }
 // prune keeps the last transition before the cutoff: the state the oldest kept range
 // starts in.
 func (u *Uptime) prune(now time.Time) {
-	cut := now.Add(-uptimeKeep).UnixMilli()
+	cut := max(now.Add(-uptimeKeep).UnixMilli(), u.sizeCut())
 	i := sort.Search(len(u.trans), func(i int) bool { return u.trans[i].T > cut })
 	if i > 1 {
 		u.trans = u.trans[i-1:]
@@ -139,7 +146,43 @@ func (u *Uptime) prune(now time.Time) {
 	u.mins = u.mins[j:]
 }
 
-func (u *Uptime) rewrite() error {
+// sizeCut: the time before which lines go so the file keeps under cap, with room for the kept
+// state line. Caller holds mu or owns u.
+func (u *Uptime) sizeCut() int64 {
+	type line struct {
+		t int64
+		n int
+	}
+	var ls []line
+	for _, t := range u.trans {
+		l, _ := json.Marshal(uptimeLine{T: t.T, S: t.S})
+		ls = append(ls, line{t.T, len(l) + 1})
+	}
+	for _, m := range u.mins {
+		l, _ := json.Marshal(uptimeLine{M: m.M, Bad: m.Bad, Slow: m.Slow})
+		ls = append(ls, line{m.M * 60_000, len(l) + 1})
+	}
+	sort.Slice(ls, func(i, j int) bool { return ls[i].t > ls[j].t })
+	total := 0
+	for _, l := range ls {
+		total += l.n
+	}
+	if total <= u.cap {
+		return 0
+	}
+	room := lowWater(u.cap)
+	for _, l := range ls {
+		if room -= l.n; room < 0 {
+			return l.t
+		}
+	}
+	return 0
+}
+
+func (u *Uptime) rewrite() error { return replaceFile(u.path, u.lines()) }
+
+// lines: the whole file. Caller holds mu or owns u.
+func (u *Uptime) lines() []byte {
 	var b []byte
 	for _, t := range u.trans {
 		l, _ := json.Marshal(uptimeLine{T: t.T, S: t.S})
@@ -149,7 +192,8 @@ func (u *Uptime) rewrite() error {
 		l, _ := json.Marshal(uptimeLine{M: m.M, Bad: m.Bad, Slow: m.Slow})
 		b = append(append(b, l...), '\n')
 	}
-	return replaceFile(u.path, b)
+	u.size = len(b)
+	return b
 }
 
 func replaceFile(path string, b []byte) error {
@@ -229,14 +273,20 @@ func (u *Uptime) flush(final ...bool) {
 	if len(b) == 0 || u.path == "" {
 		return
 	}
-	f, err := os.OpenFile(u.path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
-	if err == nil {
-		_, err = f.Write(b)
-		if cerr := f.Close(); err == nil {
-			err = cerr
+	u.mu.Lock()
+	u.size += len(b)
+	over := u.size > u.cap
+	if over { // disk is written outside mu, so State and Note never wait on it
+		u.prune(u.now())
+		all := u.lines()
+		u.mu.Unlock()
+		if err := replaceFile(u.path, all); err != nil {
+			log.Printf("uptime: not saved: %v", err)
 		}
+		return
 	}
-	if err != nil {
+	u.mu.Unlock()
+	if err := appendFile(u.path, b); err != nil {
 		log.Printf("uptime: not saved: %v", err)
 	}
 }

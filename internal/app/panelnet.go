@@ -97,6 +97,7 @@ func (a *App) apiPanelNetworks(w http.ResponseWriter, r *http.Request, cl *apiCt
 		return
 	}
 	a.cfgMu.Lock()
+	was := a.r().cfg
 	err = a.applyConfig(func(cur *config.Config) error {
 		cur.APIClients = slices.Clone(cur.APIClients)
 		for i := range cur.APIClients {
@@ -112,5 +113,12 @@ func (a *App) apiPanelNetworks(w http.ResponseWriter, r *http.Request, cl *apiCt
 		return
 	}
 	a.apiEvent(cl.Actor, "panelNetworks", "ok", "panel "+p.ID+" "+p.Name, nil)
+	var fields []SavedField
+	for _, old := range was.APIClients {
+		if old.Panel == p.ID {
+			fields = append(fields, clientChanges(was, a.r().cfg, old.Name)...)
+		}
+	}
+	a.recordSave(cl.Actor, "api", fields, false)
 	apiJSON(w, map[string]any{"networks": nets})
 }

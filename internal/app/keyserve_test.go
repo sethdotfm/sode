@@ -195,7 +195,7 @@ func TestKeyExpiryAtCreateAndSweep(t *testing.T) {
 		t.Fatal("expired key kept")
 	}
 	var found bool
-	for _, e := range waitLogged(t, a, 2) {
+	for _, e := range waitLogged(t, a, 1) {
 		found = found || e.Kind == kindAPI && e.Why == "keyExpired" && strings.Contains(e.Note, "temp")
 	}
 	if !found {
@@ -222,7 +222,7 @@ func TestRevokeOwnKeyOnlyOwn(t *testing.T) {
 		t.Fatalf("own revoke: %v", r)
 	}
 	var found bool
-	for _, e := range waitLogged(t, a, 3) {
+	for _, e := range waitLogged(t, a, 2) {
 		found = found || e.Kind == kindAPI && e.Why == "keyRevoke" && e.Result == "ok" && e.By == "Ana"
 	}
 	if !found {
@@ -267,7 +267,7 @@ func TestUserKeysDieWithPinChangeAndRemoval(t *testing.T) {
 				t.Error("an API client key died with a user edit")
 			}
 			var found bool
-			for _, e := range waitLogged(t, a, 2) {
+			for _, e := range waitLogged(t, a, 1) {
 				found = found || e.Kind == kindAPI && e.Why == "keyEnded"
 			}
 			if !found {
@@ -407,16 +407,21 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 		}
 	}
 
-	rows := waitLogged(t, a, 4)
-	got := map[string]bool{}
-	for _, e := range rows {
-		if e.Kind == kindAPI {
-			got[e.Why] = true
-		}
+	// The fixture's API client add, then the first save; the stale save changed nothing.
+	waitSaves(t, a, 2)
+	time.Sleep(50 * time.Millisecond)
+	rows := a.saves.Between(-1, 1<<62)
+	if len(rows) != 2 {
+		t.Fatalf("%d Settings saves rows, want 2", len(rows))
 	}
-	for _, why := range []string{"rightsEdit", "noAutoLockEdit", "clientEdit"} {
-		if !got[why] {
-			t.Errorf("no %s row in %v", why, got)
+	got := map[string]bool{}
+	for _, f := range rows[0].Save.Fields {
+		parts := strings.SplitN(f.Label, ":", 3)
+		got[parts[0]+":"+parts[1]] = true
+	}
+	for _, want := range []string{"User Ana: Rights", "User Ana: No auto-lock", "Guest rights: dsts"} {
+		if !got[want] {
+			t.Errorf("no %q field in %v", want, got)
 		}
 	}
 }

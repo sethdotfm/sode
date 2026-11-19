@@ -170,12 +170,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("uptime: %v", err)
 	}
+	saves, err := app.OpenSaveLog(os.Getenv("SODE_SETTINGS_SAVES"))
+	if err != nil {
+		log.Fatalf("settings saves: %v", err)
+	}
 	debug, _ := strconv.ParseBool(os.Getenv("SODE_DEBUG"))
 	a, err := app.New(cfg, cfgPath, hist, sent, debug)
 	if err != nil {
 		log.Fatal(err)
 	}
 	a.SetUptime(up)
+	a.SetSettingsSaves(saves)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

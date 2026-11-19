@@ -140,3 +140,10 @@
 .sode-log__why-part {
   margin-inline-start: var(--pb-space-2);
 }
+.sode-log__save > summary {
+  cursor: pointer;
+}
+.sode-log__save-fields {
+  margin: var(--pb-space-1) 0 0;
+  padding-inline-start: var(--pb-space-4);
+}

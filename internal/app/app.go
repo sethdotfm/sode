@@ -78,6 +78,7 @@ type App struct {
 	evq     chan Sent
 	txLost  atomic.Int64 // events dropped because txq or evq was full, or not saved
 	up      *Uptime
+	saves   *SaveLog // the Settings saves record
 	cfgPath string
 	rt      atomic.Pointer[runtime]
 
@@ -240,6 +241,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
 	}
 	a.up, _ = openUptime("", time.Now)
+	a.saves, _ = OpenSaveLog("")
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Address, r.probe())
 	a.sw.Debug = debug
@@ -374,6 +376,11 @@ func (a *App) send(m []byte, reason swp08.Reason) {
 }
 
 func (a *App) SetUptime(u *Uptime) { a.up = u }
+
+func (a *App) SetSettingsSaves(l *SaveLog) {
+	l.Reanchor(a.sent.Next(), a.sent.Oldest())
+	a.saves = l
+}
 
 func (a *App) onRouterState(s swp08.State, err error) {
 	a.mu.Lock()

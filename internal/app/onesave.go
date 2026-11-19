@@ -345,7 +345,7 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit) (map[str
 	if slices.Contains(keep, "requireHttps") {
 		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
 	}
-	a.auditRights(c, live, now)
+	a.recordSave(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0)
 	a.auditAPISettings(connActor(c), live, now)
 	a.panelsFollowUsers(live.Users, now.Users)
 	if n, err := a.panels.moveOwners(moves); err != nil {

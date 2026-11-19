@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 
 	"github.com/sethdotfm/sode/internal/swp08"
 )
@@ -52,7 +55,14 @@ func (a *App) logSent(ctx context.Context) {
 			cfg := a.r().cfg
 			e.Router, e.RouterTitle = cfg.UID, cfg.Title
 		}
-		if err := a.sent.Append(&e); err != nil {
+		var err error
+		if e.Kind == kindSettings {
+			e.Seq = a.sent.Next()
+			err = a.saves.Append(&e)
+		} else {
+			err = a.sent.Append(&e)
+		}
+		if err != nil {
 			// Not saved, so not shown live; its seq goes to the next entry. Counted with
 			// queue drops.
 			a.txLost.Add(1)
@@ -143,17 +153,27 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 	return e
 }
 
-// Caller holds mu.
+// Caller holds mu. Settings saves rows go out in two forms, by the reader's Role.
 func (a *App) broadcastSent(es []Sent) {
-	b, err := json.Marshal(sentAddMsg{T: "logAdd", Entries: es, Total: a.sent.Total(), Lost: a.txLost.Load()})
-	if err != nil {
-		log.Printf("marshal: %v", err)
-		return
-	}
+	hasSaves := slices.ContainsFunc(es, func(e Sent) bool { return e.Save != nil })
+	var forms [2][]byte // by admin: 1 for an Administrator reader
 	for c := range a.clients {
-		if c.sent {
-			a.deliver(c, b)
+		if !c.sent {
+			continue
 		}
+		admin := 0
+		if !hasSaves || a.roleMu(c) == config.RoleAdministrator {
+			admin = 1
+		}
+		if forms[admin] == nil {
+			b, err := json.Marshal(sentAddMsg{T: "logAdd", Entries: forReader(es, admin == 1), Total: a.sent.Total(), Lost: a.txLost.Load()})
+			if err != nil {
+				log.Printf("marshal: %v", err)
+				return
+			}
+			forms[admin] = b
+		}
+		a.deliver(c, forms[admin])
 	}
 }
 
@@ -166,5 +186,6 @@ func (a *App) sentHistory(c *client, before int64, n int) {
 	if err != nil {
 		log.Printf("sent log: %v", err)
 	}
+	page = forReader(a.mergeSaves(page, before, more), a.role(c) == config.RoleAdministrator)
 	a.reply(c, sentPageMsg{T: "logPage", Before: before, Entries: page, More: more, Total: a.sent.Total(), Lost: a.txLost.Load()})
 }

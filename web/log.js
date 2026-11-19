@@ -6,8 +6,9 @@ import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
-import { newPager } from './logpager.js';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, eventProblem, normalizeKinds, allKinds, pressKind } from './logkinds.js';
+import { newPager, rowKey, rowPos, byNewest } from './logpager.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, eventProblem, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
+import { fieldText, saveSummary } from './logsaves.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
@@ -42,13 +43,14 @@ const KIND_LABEL = {
   api: 'API',
   link: 'Router link',
   server: 'Sode',
+  settings: 'Settings save',
 };
 const isEvent = (e) => EVENT_KINDS.has(e.kind);
 
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
   return {
-    kinds: normalizeKinds(f.kinds, ['connect', 'command', 'api', 'link']),
+    kinds: Array.isArray(f.kinds) ? normalizeKinds(addNewKinds(f.kinds, f.known), []) : ['connect', 'command', 'api', 'link', 'settings'],
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
     dst: typeof f.dst === 'string' ? f.dst : '',
@@ -60,7 +62,7 @@ let srcOk = filterFn(filter.src) || anything;
 let dstOk = filterFn(filter.dst) || anything;
 
 function saveFilter() {
-  writeJSON(FILTER_KEY, filter);
+  writeJSON(FILTER_KEY, { ...filter, known: KIND_IDS });
 }
 
 const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
@@ -242,9 +244,9 @@ on('logAdd', (m) => {
 // shown and tbody's rows stay in step, so an entry's row sits at its index in shown.
 function dropRows(es) {
   if (!es.length) return;
-  const gone = new Set(es.map((e) => e.seq));
+  const gone = new Set(es.map(rowKey));
   for (let i = shown.length - 1; i >= 0; i--) {
-    if (!gone.has(shown[i].seq)) continue;
+    if (!gone.has(rowKey(shown[i]))) continue;
     tbody.children[i].remove();
     shown.splice(i, 1);
   }
@@ -320,6 +322,15 @@ function levelCell(e) {
 
 const side = (n, name) => (n >= 0 ? labelNode(item(n, name || '')) : '');
 
+// A Settings saves row opens to one line per field.
+const saveFields = (s) =>
+  el(
+    'details',
+    'sode-log__save',
+    el('summary', null, saveSummary(s)),
+    el('ul', 'sode-log__save-fields', ...(s.fields || []).map((f) => el('li', null, fieldText(f)))),
+  );
+
 function row(e, fresh = false) {
   const why = WHY_LABEL[e.why] || e.why || '';
   const tr = el(
@@ -337,6 +348,7 @@ function row(e, fresh = false) {
       e.by ? el('span', 'pb-text-muted sode-log__why-part', e.by) : '',
       e.note ? el('span', 'pb-text-muted sode-log__why-part', e.note) : '',
       e.kind === 'server' && e.err ? el('span', 'pb-text-muted sode-log__why-part', e.err) : '',
+      e.save ? saveFields(e.save) : '',
     ),
     el('td', null, outcome(e)),
     el('td', 'sode-log__hex', e.hex),
@@ -350,7 +362,7 @@ function row(e, fresh = false) {
 const SORT_KEY = 'sode-log-sort';
 const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
 const SORTS = {
-  time: (e) => e.seq,
+  time: rowPos,
   message: (e) => KIND_LABEL[e.kind] || e.kind,
   level: (e) => (e.level ? e.level : e.wire >= 0 ? 1000 + e.wire : null),
   dst: (e) => (e.dst >= 0 ? e.dst : null),
@@ -379,12 +391,12 @@ function cmp(a, b) {
 }
 
 function cmpKeyed(x, xv, y, yv) {
-  if (xv == null || yv == null) return xv == null ? (yv == null ? y.seq - x.seq : 1) : -1;
-  return (sort.dir === 'asc' ? 1 : -1) * cmp(xv, yv) || y.seq - x.seq;
+  if (xv == null || yv == null) return xv == null ? (yv == null ? byNewest(x, y) : 1) : -1;
+  return (sort.dir === 'asc' ? 1 : -1) * cmp(xv, yv) || byNewest(x, y);
 }
 
 function order(x, y) {
-  if (newestFirst()) return y.seq - x.seq;
+  if (newestFirst()) return byNewest(x, y);
   const key = SORTS[sort.col];
   return cmpKeyed(x, key(x), y, key(y));
 }
@@ -483,7 +495,7 @@ const CSV_COLS = [
   ['result', (e) => e.result],
   ['tries', (e) => e.tries],
   ['error', (e) => e.err || ''],
-  ['note', (e) => e.note || ''],
+  ['note', (e) => [e.note, ...(e.save?.fields || []).map(fieldText)].filter(Boolean).join('; ')],
   ['ack ms', (e) => (e.ackMs ? e.ackMs : '')],
   ['bytes', (e) => e.hex],
 ];
