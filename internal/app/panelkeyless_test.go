@@ -176,10 +176,43 @@ func TestKeylessAnswersAlikeForAPanelThatDoesNotExist(t *testing.T) {
 	}
 }
 
+// The route has no key and no rate limit, so it must not hold streams without bound or end a live one.
+func TestKeylessStreamsAreCapped(t *testing.T) {
+	a, _ := monApp(t)
+	for range 50 {
+		a.mon.openKeyless("wall", "10.0.0.1", "Lobby", false, func() {})
+	}
+	a.mon.mu.Lock()
+	n := len(a.mon.keyless[keylessKey("wall", "10.0.0.1", "lobby")].conns)
+	a.mon.mu.Unlock()
+	if n > keylessConnsMax {
+		t.Fatalf("one entry holds %d streams", n)
+	}
+	for i := range keylessPerAddr + 1 {
+		_, _, _, ok := a.mon.openKeyless("wall", "10.0.0.2", fmt.Sprint(i), false, func() {})
+		if ok != (i < keylessPerAddr) {
+			t.Fatalf("entry %d from one address: ok %v", i, ok)
+		}
+	}
+	cancelled := 0
+	for i := 0; ; i++ {
+		a.mon.mu.Lock()
+		full := len(a.mon.keyless) >= keylessMax
+		a.mon.mu.Unlock()
+		if full {
+			break
+		}
+		a.mon.openKeyless("wall", fmt.Sprintf("10.1.%d.%d", i/256, i%256), "", false, func() { cancelled++ })
+	}
+	if _, _, _, ok := a.mon.openKeyless("wall", "10.9.9.9", "", false, func() { cancelled++ }); ok || cancelled != 0 {
+		t.Fatalf("a full table took a new entry (%v) or ended %d live streams", ok, cancelled)
+	}
+}
+
 func TestKeylessEntriesAreCappedOldestFirstAndForgottenAfterADay(t *testing.T) {
 	a, clk := monApp(t)
 	for i := range keylessMax + 1 {
-		done, _, _ := a.mon.openKeyless("wall", fmt.Sprintf("10.0.%d.%d", i/256, i%256), "", false, func() {})
+		done, _, _, _ := a.mon.openKeyless("wall", fmt.Sprintf("10.0.%d.%d", i/256, i%256), "", false, func() {})
 		done()
 		clk.advance(time.Second)
 	}
@@ -307,7 +340,7 @@ func TestKeylessPageNamedByAnIPv6AddressGetsAKey(t *testing.T) {
 	from := makePanel(t, a, cy, `{"name":"Studio A"}`)
 	to := makePanel(t, a, cy, assignTarget)
 	addr := "2001:db8:85a3:1234:5678:8a2e:370:7334%eth0"
-	done, out, _ := a.mon.openKeyless(from, addr, "", false, func() {})
+	done, out, _, _ := a.mon.openKeyless(from, addr, "", false, func() {})
 	defer done()
 	line := make(chan []byte, 1)
 	go func() {

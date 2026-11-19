@@ -121,7 +121,7 @@ func TestPanelReadAnswers304ToAnEditorWhileTimePasses(t *testing.T) {
 	if code := keepalive(a, id, ana, "Desk"); code != 200 {
 		t.Fatalf("keepalive: %d", code)
 	}
-	done, _, _ := a.mon.openKeyless(id, "192.0.2.7", "Lobby", false, func() {})
+	done, _, _, _ := a.mon.openKeyless(id, "192.0.2.7", "Lobby", false, func() {})
 	defer done()
 	path := "/api/v1/panels/" + id
 	_, tag := ifNone(a, path, ana, "")
