@@ -9,6 +9,7 @@ import { askRecheck } from './recheck.js';
 import { askApproval } from './approval.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
+import { askInterruptions, initInterruptions } from './interruptions.js';
 import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical, sectionOfKey } from './savereviewrules.js';
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
@@ -203,9 +204,13 @@ function valuesOf(keys) {
   return out;
 }
 
-function sendFields(keys, sent, retried, approval = null, answer = null) {
+function fieldsOf(keys, sent) {
   const version = (k) => (sourceOf(k) ? sourceOf(k).version(k) : versions[k]) ?? '';
-  const fields = Object.fromEntries(keys.map((k) => [k, { value: sent[k], version: version(k) }]));
+  return Object.fromEntries(keys.map((k) => [k, { value: sent[k], version: version(k) }]));
+}
+
+function sendFields(keys, sent, retried, approval = null, answer = null) {
+  const fields = fieldsOf(keys, sent);
   if (!keys.length) return;
   const id = ++seq;
   if (!wsSend({ t: 'settingsSave', id, fields, ...(approval && { approval }) })) {
@@ -292,7 +297,13 @@ async function review({ focusField }) {
   if (!all.length) return void showSaveErr('There are no changes to save.');
   const { shown: rows, unseen } = splitSeen(all, seen);
   $('settings-err').hidden = true;
+  // Fields the page expects refused are sent too: the server's answer gives each its reason.
+  // Edits the Role cannot see stay unsaved and stay staged; the rest are sent.
+  const keys = sentKeys(all, seen);
+  const interruptions = await askInterruptions(fieldsOf(keys, valuesOf(keys)));
+  if (!isOpen()) return;
   const send = await reviewSave({
+    interruptions,
     rows,
     unseen: unseenNotes(unseen, by),
     by: namesAuthors(rows, by, me) ? by : null,
@@ -307,9 +318,6 @@ async function review({ focusField }) {
     recheckNeeded: S.users.length > 0,
   });
   if (!send || !isOpen()) return;
-  // Fields the page expects refused are sent too: the server's answer gives each its reason.
-  // Edits the Role cannot see stay unsaved and stay staged; the rest are sent.
-  const keys = sentKeys(all, seen);
   sendFields(keys, valuesOf(keys), false);
 }
 
@@ -346,4 +354,5 @@ export function initSave(toc) {
     return warned() ? unwarn() : renderSaveState();
   });
   onMsg('settingsSaveResult', settingsSaveResult);
+  initInterruptions();
 }

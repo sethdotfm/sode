@@ -92,6 +92,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/export/size", a.serveExportSize)
 	mux.HandleFunc("GET /api/export/items", a.serveExportItems)
 	mux.HandleFunc("POST /api/import", a.serveImportCheck)
+	mux.HandleFunc("POST /api/import/apply", a.serveImportApply)
 	a.mountAPI(mux)
 	return a.httpsGate(secureHeaders(mux))
 }
@@ -353,7 +354,7 @@ type inMsg struct {
 	To         int64                `json:"to"`
 	Slot       int64                `json:"slot"`   // ...and its slot length, ms
 	Config     json.RawMessage      `json:"config"` // decoded in saveSettings, over the live config
-	Fields     map[string]fieldEdit `json:"fields"` // settingsSave: changed fields only
+	Fields     map[string]fieldEdit `json:"fields"` // settingsSave, settingsReview: changed fields only
 	Pin        string               `json:"pin"`
 	User       string               `json:"user"` // userSignIn: the user's name (name and PIN mode)
 	ID         int                  `json:"id"`   // echoed by save replies

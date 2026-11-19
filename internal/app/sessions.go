@@ -1,6 +1,9 @@
 package app
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Sessions: tokens issued to signed-in connections and the server-held Lock that rides them
 // (docs/adr/0001-server-held-lock.md). users.go has the access state they act on.
@@ -178,7 +181,14 @@ func (a *App) catchUpSessions() {
 	a.mu.Lock()
 	cfg := a.r().cfg
 	var todo []*client
+	promoted := a.promoted
+	a.promoted = nil
 	for cl := range a.clients {
+		if tok := cl.u.tokenMu(); promoted[tokenKey(tok)] {
+			b, _ := json.Marshal(sessionMsg{T: "session", Token: tok})
+			a.deliver(cl, b) // the page moves it from the tab to the browser
+			continue
+		}
 		if who := cl.u.user.Load(); who != nil && a.userOKMu(cl, cfg) && !a.sessionGoodMu(cl) {
 			if u, ok := cfg.FindUserByID(who.ID); ok && u.Persistent {
 				todo = append(todo, cl)

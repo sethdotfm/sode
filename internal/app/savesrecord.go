@@ -266,17 +266,18 @@ func clientChanges(was, now config.Config, name string) []SavedField {
 
 // recordSave writes one Settings saves row. why is how it came: "save" (Settings) or "api".
 func (a *App) recordSave(by Actor, why string, fields []SavedField, critical bool) {
-	a.recordSaveApproved(by, why, fields, critical, nil)
+	a.recordSaveApproved(by, why, fields, critical, nil, nil)
 }
 
-// recordSaveApproved: ap is the approver of an Approval, nil without one.
-func (a *App) recordSaveApproved(by Actor, why string, fields []SavedField, critical bool, ap *config.User) {
+// recordSaveApproved: ap is the approver of an Approval, nil without one. stops: the Interruptions
+// at save time.
+func (a *App) recordSaveApproved(by Actor, why string, fields []SavedField, critical bool, ap *config.User, stops []string) {
 	if len(fields) == 0 {
 		return
 	}
 	e := event(kindSettings, why, redactKeys(by.String()), "ok")
 	e.Note = a.panelNote(by)
-	e.Save = &SettingsSave{Fields: fields, Critical: critical}
+	e.Save = &SettingsSave{Fields: fields, Critical: critical, Interruptions: stops}
 	if ap != nil {
 		e.Save.Approver = ap.Name
 	}
@@ -310,6 +311,7 @@ func forReader(es []Sent, admin bool) []Sent {
 				s.Fields[j] = SavedField{Topic: f.Topic, Section: f.Section, SectionID: f.SectionID, Key: f.Key, Label: f.Label, Changed: true}
 			}
 		}
+		s.HiddenInterruptions, s.Interruptions = len(s.Interruptions), nil
 		out[i].Save = &s
 	}
 	return out

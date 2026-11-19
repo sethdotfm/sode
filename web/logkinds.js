@@ -52,6 +52,7 @@ export const WHY_LABEL = {
   reload: 'Panel page reloaded',
   publicBack: 'Public panel page back',
   save: 'Settings saved',
+  import: 'Import',
   api: 'Settings saved through the API',
   setup: 'Setup finished',
   setupRouter: 'Setup router address',

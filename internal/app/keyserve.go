@@ -251,7 +251,7 @@ func (a *App) pruneKeys(was, now config.Config) {
 		return false
 	})
 	a.endStreams(gone, "key ended: its owner changed or was removed")
-	a.endSessionKeys()
+	a.endSessionKeysAt(now)
 	for _, k := range gone {
 		why := "its API client was removed or renamed"
 		if k.Owner.Kind == actorUser {

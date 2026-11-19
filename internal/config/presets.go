@@ -26,7 +26,9 @@ type Preset struct {
 	Name  string       `yaml:"name" json:"name"`
 	Items []PresetItem `yaml:"items" json:"items"`
 	// Pinned: nil (older file) = true; normalizePresets always fills it.
-	Pinned *bool          `yaml:"pinned,omitempty" json:"pinned,omitempty"`
+	Pinned *bool `yaml:"pinned,omitempty" json:"pinned,omitempty"`
+	// Broken: the references the target lacked when the preset was imported.
+	Broken []Missing      `yaml:"broken,omitempty" json:"broken,omitempty"`
 	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 
@@ -44,7 +46,7 @@ func ClonePresets(in []Preset) []Preset {
 	}
 	out := make([]Preset, len(in))
 	for i, s := range in {
-		out[i] = Preset{ID: s.ID, Name: s.Name, Items: make([]PresetItem, len(s.Items)), Extra: s.Extra}
+		out[i] = Preset{ID: s.ID, Name: s.Name, Items: make([]PresetItem, len(s.Items)), Broken: slices.Clone(s.Broken), Extra: s.Extra}
 		if s.Pinned != nil {
 			p := *s.Pinned
 			out[i].Pinned = &p
