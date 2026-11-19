@@ -77,7 +77,7 @@ type SentLog struct {
 	cur, old *segment // old is nil until the first rotation (or a .1 on disk)
 	next     int64
 	mem      []Sent
-	torn     bool // cur may hold part of a line past cur.size
+	torn     bool // cur can hold part of a line past cur.size
 }
 
 func rotatedPath(path string) string {
