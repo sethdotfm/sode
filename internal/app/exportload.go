@@ -381,7 +381,6 @@ func loadExportV1(dir string) (*exportBundle, error) {
 	return out, err
 }
 
-// settingsFromSections decodes the sections into one Config over the defaults, and lists them.
 func settingsFromSections(n *yaml.Node, out *exportBundle) error {
 	if n.Kind == yaml.DocumentNode && len(n.Content) == 1 {
 		n = n.Content[0]

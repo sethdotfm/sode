@@ -3,13 +3,11 @@ package app
 import (
 	"bytes"
 	"encoding/json"
-	"mime/multipart"
 	"net/http/httptest"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -33,20 +31,7 @@ func signInToken(t *testing.T, a *App, name, pin string) string {
 // postApplyWith is postApply from a trusted proxy that says the request came over proto.
 func postApplyWith(t *testing.T, a *App, tok string, zipBytes []byte, req importReq, proto string) *httptest.ResponseRecorder {
 	t.Helper()
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
-	pw, _ := mw.CreateFormField("plan")
-	json.NewEncoder(pw).Encode(req)
-	fw, _ := mw.CreateFormFile("file", "export.zip")
-	fw.Write(zipBytes)
-	mw.Close()
-	r := httptest.NewRequest("POST", "/api/import/apply", &body)
-	r.Header.Set("Content-Type", mw.FormDataContentType())
-	r.Header.Set(sessionHeader, tok)
-	r.Header.Set("X-Forwarded-Proto", proto)
-	rec := httptest.NewRecorder()
-	a.Handler(fstest.MapFS{}).ServeHTTP(rec, r)
-	return rec
+	return postMultipart(t, a, "/api/import/apply", req, zipBytes, map[string]string{sessionHeader: tok, "X-Forwarded-Proto": proto})
 }
 
 func lastSavesRow(t *testing.T, a *App) Sent {

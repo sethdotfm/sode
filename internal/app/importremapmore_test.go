@@ -61,7 +61,6 @@ func TestImportRemapFilterSetRefusesBadText(t *testing.T) {
 	}
 }
 
-// sessionOn gives an App made from importApp's config a session token for Ada.
 func sessionOn(t *testing.T, a *App) string {
 	t.Helper()
 	c := &client{ip: "10.0.0.9", send: make(chan []byte, 4096)}

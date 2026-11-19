@@ -121,7 +121,6 @@ func (k *refCheck) missing(kind string, r config.Ref) (config.Missing, bool) {
 	if kind == config.MissingDestination {
 		names = k.dst
 	}
-	// Number and name agree, or both are blank.
 	return config.Missing{Kind: kind, Ref: r}, !strings.EqualFold(strings.TrimSpace(names[r.N]), strings.TrimSpace(r.Name))
 }
 
@@ -250,7 +249,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 			err = p.emptyRest(s.cat, &cand, cat)
 		}
 		if err == nil && p.check.waited {
-			err = errors.New("the router names are not read yet; import this after Sode reads them")
+			err = errors.New("router names not read yet: try again after the re-read")
 		}
 		if err == nil && !slices.Contains([]string{catPanels, catArtwork, catBrowser}, s.cat) { // kept outside the config
 			cand.Normalize()
@@ -343,7 +342,6 @@ func (p *importPlanner) wantedItem(cat, key string) bool {
 
 const waitsForNames = "it holds router references; import it after Sode reads the router names"
 
-// itemsWithRefs names the file's users, presets and panels that hold a source or destination reference.
 func (p *importPlanner) itemsWithRefs() map[string]map[string]string {
 	held := map[string]bool{}
 	refWalk(p.b, func(_ string, _ config.Ref, _ refUse, item string) []config.Ref {
@@ -610,7 +608,6 @@ func (p *importPlanner) mapRightsPresets(r config.Rights) config.Rights {
 	return r
 }
 
-// checkedPresets marks each preset with what the target lacks.
 func (p *importPlanner) checkedPresets(ps []config.Preset) []config.Preset {
 	out := config.ClonePresets(ps)
 	for i := range out {

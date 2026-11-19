@@ -46,7 +46,6 @@ type plannedSet struct {
 	S   PanelSet
 }
 
-// importLive is what the planner reads from the stores outside the config.
 type importLive struct {
 	Panels    []Panel
 	Templates []Template
@@ -125,7 +124,6 @@ func (p *importPlanner) relibLayout(l panelLayout) panelLayout {
 	return l
 }
 
-// artFile finds a staged image entry of dir/id with one of the types' extensions.
 func (p *importPlanner) artFile(dir, id, typ string) ([]byte, bool) {
 	path, ok := p.b.Art[dir+id+"."+artExt[typ]]
 	if !ok || artExt[typ] == "" {
@@ -289,7 +287,6 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 	return nil
 }
 
-// planPanelsAll is the Panels category: panels with their Push checkpoints, then templates and sets.
 func (p *importPlanner) planPanelsAll(cand *config.Config, cat *importCat) error {
 	if err := p.planPanels(cand, cat); err != nil {
 		return err
@@ -308,7 +305,6 @@ func (p *importPlanner) planBrowser(_ *config.Config, cat *importCat) error {
 	return nil
 }
 
-// planCheckpoints gives a planned panel the file's checkpoints, with icons moved as the import moves them.
 func (p *importPlanner) planCheckpoints(fileID string) []panelCheckpoint {
 	var out []panelCheckpoint
 	for _, cp := range p.b.Panels.Checkpoints[fileID] {

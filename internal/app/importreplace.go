@@ -57,7 +57,7 @@ func removeItem(cat *importCat, key, name, kind string) {
 	cat.Items = append(cat.Items, importItem{Key: key, Name: name, Kind: kind, Remove: true})
 }
 
-// keptNames is the live names a step's items match or add, lowercased. A refused item keeps its twin too.
+// A refused item keeps its twin too.
 func keptNames(cat *importCat) map[string]bool {
 	out := map[string]bool{}
 	for _, it := range cat.Items {
@@ -243,8 +243,7 @@ func (a *App) writeImportRemovals(p *importPlanner, failed map[string]string) {
 	}
 }
 
-// moveRemovedUsersPanels gives the panels of the users the import removed to the importing Administrator, as
-// removing a user in Settings does.
+// As removing a user in Settings does.
 func (a *App) moveRemovedUsersPanels(p *importPlanner) {
 	if len(p.removed.users) == 0 || p.actor == "" {
 		return

@@ -12,11 +12,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The remap step (docs/agents/profiles.md): the server answers each file router's target and its distinct
-// references; the page matches names (web/remaprules.js) and sends its choices back. Here the choices are only
-// applied. A reference with no choice keeps its number and is checked as before, so an unmatched name is Skip.
+// Remap step (docs/agents/profiles.md): the page matches names (web/remaprules.js). A reference with no choice
+// keeps its number, so an unmatched name is Skip.
 
-// remapInfo is the plan's remap part.
 type remapInfo struct {
 	Routers []remapRouter `json:"routers"`
 	Targets []remapTarget `json:"targets"`
@@ -75,7 +73,6 @@ type remapRef struct {
 	Users   int    `json:"users,omitempty"`
 }
 
-// remapTarget is a live router with the names the page matches against.
 type remapTarget struct {
 	UID          string      `json:"uid"`
 	Title        string      `json:"title"`
@@ -89,7 +86,6 @@ type remapTarget struct {
 	NoNames bool      `json:"noNames,omitempty"` // no names at all: items with references wait
 }
 
-// namesState is what the remap step tells about the live names.
 type namesState struct {
 	Offline          bool
 	SavedAt, NamesAt time.Time
@@ -289,8 +285,7 @@ func refWalk(b *exportBundle, fn func(kind string, r config.Ref, use refUse, ite
 	}
 }
 
-// planRemap answers the remap part and rewrites the file's references to what req chooses. It runs before
-// the items are checked, so a moved reference is not Broken.
+// Runs before the item check, so a moved reference is not Broken.
 func (p *importPlanner) planRemap(src, dst map[int]string) {
 	if len(p.b.Manifest.Routers) == 0 {
 		return
@@ -349,7 +344,6 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 		info.Routers = append(info.Routers, *rr)
 	}
 
-	// The distinct references, before any rewrite.
 	idx := map[string]int{}
 	counted := map[string]bool{}
 	refWalk(p.b, func(kind string, r config.Ref, use refUse, item string) []config.Ref {
@@ -388,7 +382,6 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 	}
 	p.plan.Remap = info
 
-	// The rewrite: a targeted router's references move to the target; a chosen number replaces the file's.
 	names := map[string]map[int]string{config.MissingSource: src, config.MissingDestination: dst}
 	refWalk(p.b, func(kind string, r config.Ref, _ refUse, _ string) []config.Ref {
 		rr := byRouter[r.Router]
@@ -449,7 +442,6 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 	})
 }
 
-// eachFileSet calls fn on every filter set of the file with its remapSet key.
 func (p *importPlanner) eachFileSet(fn func(key string, s *config.FilterSet)) {
 	for i := range p.b.FilterSets {
 		fn("/"+p.b.FilterSets[i].Name, &p.b.FilterSets[i])

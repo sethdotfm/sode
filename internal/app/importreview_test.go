@@ -1,12 +1,8 @@
 package app
 
 import (
-	"bytes"
 	"encoding/json"
-	"mime/multipart"
-	"net/http/httptest"
 	"testing"
-	"testing/fstest"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -14,18 +10,7 @@ import (
 // postCheck sends the import check as the review does: the page's plan, then the file.
 func postCheck(t *testing.T, a *App, tok string, zipBytes []byte, req importReq) importCheck {
 	t.Helper()
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
-	pw, _ := mw.CreateFormField("plan")
-	json.NewEncoder(pw).Encode(req)
-	fw, _ := mw.CreateFormFile("file", "export.zip")
-	fw.Write(zipBytes)
-	mw.Close()
-	r := httptest.NewRequest("POST", "/api/import", &body)
-	r.Header.Set("Content-Type", mw.FormDataContentType())
-	r.Header.Set(sessionHeader, tok)
-	rec := httptest.NewRecorder()
-	a.Handler(fstest.MapFS{}).ServeHTTP(rec, r)
+	rec := ownMultipart(t, a, tok, "/api/import", zipBytes, req)
 	var check importCheck
 	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &check) != nil {
 		t.Fatalf("check: %d %s", rec.Code, rec.Body)
