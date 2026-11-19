@@ -70,6 +70,33 @@ export const WHY_LABEL = {
   inboxExpired: 'Copy expired',
   download: 'Communication Log downloaded',
 };
+const KIND_LABEL = {
+  connect: 'Connect',
+  interrogate: 'Interrogate',
+  keepalive: 'Keepalive',
+  tallyDump: 'Tally dump',
+  protectDump: 'Protect dump',
+  srcNames: 'Source names',
+  dstNames: 'Destination names',
+  other: 'Other',
+  salvoStage: 'Router salvo stage',
+  salvoStageExt: 'Router salvo extended stage',
+  salvoGo: 'Router salvo go',
+  browser: 'Browser',
+  command: 'Command',
+  api: 'API',
+  link: 'Router link',
+  server: 'Sode',
+  settings: 'Settings save',
+};
+
+// A row's message words. The stored kind `salvoGo` is both the Go and the clear of a router salvo (121). The
+// message's second byte tells them apart, so rows in old log files get the right words too.
+export function kindLabel(e) {
+  if (e.kind === 'salvoGo' && typeof e.hex === 'string' && e.hex.split(' ')[1] === '01') return 'Router salvo clear';
+  return KIND_LABEL[e.kind] || e.kind;
+}
+
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server', 'settings']);
 const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };
 // Only server rows count an err as a problem: a browser disconnect also carries one for an abnormal close.

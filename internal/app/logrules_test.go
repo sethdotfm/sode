@@ -83,17 +83,20 @@ func jsObject(t *testing.T, file, name string) map[string]string {
 // The server's copy of the page's words and kind groups. The filter rules themselves are checked by
 // TestLogFilterCases.
 func TestLogRulesMatchPage(t *testing.T) {
-	if page := jsObject(t, "log.js", "KIND_LABEL"); !reflect.DeepEqual(page, logKindLabel) {
-		t.Errorf("KIND_LABEL in log.js %v\nlogKindLabel %v", page, logKindLabel)
-	}
-	if page := jsObject(t, "logkinds.js", "WHY_LABEL"); !reflect.DeepEqual(page, logWhyLabel) {
-		t.Errorf("WHY_LABEL in logkinds.js %v\nlogWhyLabel %v", page, logWhyLabel)
+	if page := jsObject(t, "logkinds.js", "KIND_LABEL"); !reflect.DeepEqual(page, logKindLabel) {
+		t.Errorf("KIND_LABEL in logkinds.js %v\nlogKindLabel %v", page, logKindLabel)
 	}
 	b, err := os.ReadFile("../../web/logkinds.js")
 	if err != nil {
 		t.Fatal(err)
 	}
 	src := string(b)
+	if !strings.Contains(src, "e.kind === 'salvoGo' && typeof e.hex === 'string' && e.hex.split(' ')[1] === '01') return 'Router salvo clear'") {
+		t.Error("kindLabel in logkinds.js changed its salvo clear rule; change logKindText to match")
+	}
+	if page := jsObject(t, "logkinds.js", "WHY_LABEL"); !reflect.DeepEqual(page, logWhyLabel) {
+		t.Errorf("WHY_LABEL in logkinds.js %v\nlogWhyLabel %v", page, logWhyLabel)
+	}
 	var page []logKindGroup
 	for _, m := range regexp.MustCompile(`\{ id: '(\w+)', label: '[^']*', kinds: \[([^\]]*)\] \}`).FindAllStringSubmatch(src, -1) {
 		g := logKindGroup{id: m[1]}

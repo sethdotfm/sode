@@ -1,6 +1,6 @@
 // /log filter and sort rules. Pure (node tests). The server builds Download filtered rows with the same rules
 // (internal/app/logrules.go). web/test/log_filter.json holds cases that both sides must pass.
-import { KINDS, EVENT_KINDS, WHY_LABEL, eventProblem } from './logkinds.js';
+import { KINDS, EVENT_KINDS, WHY_LABEL, kindLabel, eventProblem } from './logkinds.js';
 import { filterFn } from './filter.js';
 import { rowPos, byNewest } from './logpager.js';
 
@@ -29,11 +29,10 @@ export function logPasses(e, f, off = 0, m = logMatch(f)) {
 // Sorting: ties keep newest first. Rows without the column go last in both directions.
 const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
 
-// kindLabel: KIND_LABEL in log.js.
-export function sortKeys(kindLabel) {
+export function sortKeys() {
   return {
     time: rowPos,
-    message: (e) => kindLabel[e.kind] || e.kind,
+    message: kindLabel,
     level: (e) => (e.level ? e.level : e.wire >= 0 ? 1000 + e.wire : null),
     dst: (e) => (e.dst >= 0 ? e.dst : null),
     src: (e) => (e.src >= 0 ? e.src : null),
@@ -62,7 +61,7 @@ export function cmpKeyed(sort, x, xv, y, yv) {
   return (sort.dir === 'asc' ? 1 : -1) * cmp(xv, yv) || byNewest(x, y);
 }
 
-// rows in the page's order. keys: sortKeys(kindLabel).
+// rows in the page's order. keys: sortKeys().
 export function sortRows(rows, sort, keys) {
   if (newestFirst(sort) || !keys[sort.col]) return rows.slice().sort(byNewest);
   const key = keys[sort.col];

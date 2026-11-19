@@ -7,18 +7,11 @@ import { rowKey } from '../logpager.js';
 // TestLogFilterCases in internal/app/logrules_test.go runs the same cases against the server's rules.
 const data = JSON.parse(readFileSync(new URL('./log_filter.json', import.meta.url), 'utf8'));
 
-// KIND_LABEL lives in log.js, which needs a page; read it as the Go test does.
-function kindLabel() {
-  const src = readFileSync(new URL('../log.js', import.meta.url), 'utf8');
-  const body = src.slice(src.indexOf('const KIND_LABEL = {'), src.indexOf('};', src.indexOf('const KIND_LABEL = {')));
-  return Object.fromEntries([...body.matchAll(/(\w+): '([^']*)'/g)].map((m) => [m[1], m[2]]));
-}
-
 for (const c of data.cases) {
   test(c.name, () => {
     const f = { kinds: [], problems: false, src: '', dst: '', from: null, to: null, ...c.filter };
     const rows = data.rows.filter((e) => logPasses(e, f, data.offset));
-    const out = sortRows(rows, c.sort || { col: 'time', dir: 'desc' }, sortKeys(kindLabel()));
+    const out = sortRows(rows, c.sort || { col: 'time', dir: 'desc' }, sortKeys());
     assert.deepEqual(
       out.map((e) => String(rowKey(e))),
       c.want,

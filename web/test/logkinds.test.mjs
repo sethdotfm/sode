@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind, eventProblem, addNewKinds } from '../logkinds.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, kindLabel, normalizeKinds, allKinds, pressKind, eventProblem, addNewKinds } from '../logkinds.js';
 
 const [a, b, c] = KIND_IDS;
 
@@ -84,4 +84,17 @@ test('Settings saves is an event kind, and a saved filter from before it gets it
   assert.ok(EVENT_KINDS.has('settings'));
   assert.deepEqual(addNewKinds(['connect'], undefined), ['connect', 'settings']);
   assert.deepEqual(addNewKinds(['connect'], KIND_IDS), ['connect']);
+});
+
+test('kindLabel: each router salvo row has its own words, old rows too', () => {
+  const words = [
+    { kind: 'salvoGo', hex: '79 01 7F' },
+    { kind: 'salvoStage', hex: '78 00 05 00 07 7F' },
+    { kind: 'salvoStageExt', hex: 'F8 00 10 04 4D 05 DD 7F' },
+    { kind: 'salvoGo', hex: '79 00 7F' },
+  ].map(kindLabel);
+  assert.deepEqual(words, ['Router salvo clear', 'Router salvo stage', 'Router salvo extended stage', 'Router salvo go']);
+  assert.equal(kindLabel({ kind: 'salvoGo' }), 'Router salvo go');
+  assert.equal(kindLabel({ kind: 'mystery' }), 'mystery');
+  assert.equal(kindLabel({ kind: 'command', hex: '' }), 'Command');
 });

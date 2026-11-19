@@ -64,9 +64,9 @@ info:
 
     Limits. Sode caps the takes in flight across all callers (default 4), because the router
     answers one message at a time. Over the cap, the answer is 429 `take_cap`, with no `Retry-After`. A request
-    holds 1 to 200 routes and a body of at most 64 KiB. A take of 6 or more routes does not
-    read each destination first, to spare the router, and says `checkSkipped: true`. Prev then
-    comes from Sode's cache, so it is possible that a later Undo restores less accurately.
+    holds 1 to 200 routes and a body of at most 64 KiB. Every take reads its destinations from
+    the router first. If the router does not answer in time, Prev comes from Sode's cache and the
+    answer says `checkSkipped: true`. It is then possible that a later Undo restores less accurately.
 
     Rights. If any route in a take is outside the key's rights, Sode refuses the whole take
     before it sends anything. The answer is 403 `outside_rights`, with no results and no History
@@ -2286,7 +2286,7 @@ components:
       required: [ok, checkSkipped, results]
       properties:
         ok: { type: boolean, description: Every route succeeded }
-        checkSkipped: { type: boolean, description: "The destinations were not read from the router first (6 or more routes), so it is possible that Prev is stale" }
+        checkSkipped: { type: boolean, description: "The read before the take did not finish for some route (no answer in time, or the link was down), so Prev came from the cache and it is possible that it is stale" }
         results:
           type: array
           items:

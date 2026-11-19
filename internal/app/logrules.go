@@ -10,7 +10,7 @@ import (
 )
 
 // The /log page's filter, sort and words, for the files the server builds. Keep in step with
-// web/logfilter.js, KINDS and WHY_LABEL in web/logkinds.js and KIND_LABEL in web/log.js.
+// web/logfilter.js and with KINDS, WHY_LABEL, KIND_LABEL and kindLabel in web/logkinds.js.
 // TestLogRulesMatchPage and web/test/log_filter.json check that they agree.
 
 type logKindGroup struct {
@@ -33,24 +33,25 @@ var logKindGroups = []logKindGroup{
 	{"settings", []string{"settings"}},
 }
 
-// logKindLabel: KIND_LABEL in web/log.js.
+// logKindLabel: KIND_LABEL in web/logkinds.js.
 var logKindLabel = map[string]string{
-	"connect":     "Connect",
-	"interrogate": "Interrogate",
-	"keepalive":   "Keepalive",
-	"tallyDump":   "Tally dump",
-	"protectDump": "Protect dump",
-	"srcNames":    "Source names",
-	"dstNames":    "Destination names",
-	"other":       "Other",
-	"salvoStage":  "Router salvo stage",
-	"salvoGo":     "Router salvo go",
-	"browser":     "Browser",
-	"command":     "Command",
-	"api":         "API",
-	"link":        "Router link",
-	"server":      "Sode",
-	"settings":    "Settings save",
+	"connect":       "Connect",
+	"interrogate":   "Interrogate",
+	"keepalive":     "Keepalive",
+	"tallyDump":     "Tally dump",
+	"protectDump":   "Protect dump",
+	"srcNames":      "Source names",
+	"dstNames":      "Destination names",
+	"other":         "Other",
+	"salvoStage":    "Router salvo stage",
+	"salvoStageExt": "Router salvo extended stage",
+	"salvoGo":       "Router salvo go",
+	"browser":       "Browser",
+	"command":       "Command",
+	"api":           "API",
+	"link":          "Router link",
+	"server":        "Sode",
+	"settings":      "Settings save",
 }
 
 // logWhyLabel: WHY_LABEL in web/logkinds.js. A why with no entry shows as written.
@@ -312,11 +313,16 @@ func logWhyText(why string) string {
 	return why
 }
 
-func logKindText(kind string) string {
-	if l, ok := logKindLabel[kind]; ok {
+// logKindText: kindLabel in web/logkinds.js. The stored kind salvoGo is both the Go and the clear of a
+// router salvo. The message's second byte tells them apart.
+func logKindText(e Sent) string {
+	if f := strings.Fields(e.Hex); e.Kind == "salvoGo" && len(f) > 1 && f[1] == "01" {
+		return "Router salvo clear"
+	}
+	if l, ok := logKindLabel[e.Kind]; ok {
 		return l
 	}
-	return kind
+	return e.Kind
 }
 
 // logSortKey: SORTS in web/logfilter.js. nil is a row without the column. Each value is a
@@ -326,7 +332,7 @@ func logSortKey(col string, e Sent) any {
 	case "time":
 		return logRowPos(e)
 	case "message":
-		return logKindText(e.Kind)
+		return logKindText(e)
 	case "level":
 		if e.Level != 0 {
 			return float64(e.Level)

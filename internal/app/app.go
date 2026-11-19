@@ -127,6 +127,8 @@ type App struct {
 	gapHook func() // test seam: runs between a take's finish and unregister
 
 	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
+	// fireHolder: what holds fireMu now, for the wait in the next fire's lock row. Guarded by mu.
+	fireHolder string
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 

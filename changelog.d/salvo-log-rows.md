@@ -1,0 +1,1 @@
+- In native fire mode, the Communication Log now shows when a fire gets and lets go of the fire lock. The rows give the wait and hold times. "N crosspoints set in X ms" no longer counts the wait for another fire. The Go-clear and Go-set rows now read Router salvo clear and Router salvo go, and the extended stage has its own label.

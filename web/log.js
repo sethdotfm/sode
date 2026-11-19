@@ -5,7 +5,7 @@ import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
 import { newPager, rowKey, byNewest } from './logpager.js';
-import { KINDS, KIND_IDS, WHY_LABEL, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
+import { KINDS, KIND_IDS, WHY_LABEL, kindLabel, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
 import { isEvent, problem, logPasses, sortKeys, cmpKeyed, newestFirst as newestOf, sortRows } from './logfilter.js';
 import { initDownloads } from './logdownload.js';
 import { fieldText, saveSummary } from './logsaves.js';
@@ -29,26 +29,6 @@ on('brand', ({ text }) => {
 // for a range goes this much past its start to catch those.
 const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
-
-// Keep in step with logKindLabel in internal/app/logrules.go (TestLogRulesMatchPage).
-const KIND_LABEL = {
-  connect: 'Connect',
-  interrogate: 'Interrogate',
-  keepalive: 'Keepalive',
-  tallyDump: 'Tally dump',
-  protectDump: 'Protect dump',
-  srcNames: 'Source names',
-  dstNames: 'Destination names',
-  other: 'Other',
-  salvoStage: 'Router salvo stage',
-  salvoGo: 'Router salvo go',
-  browser: 'Browser',
-  command: 'Command',
-  api: 'API',
-  link: 'Router link',
-  server: 'Sode',
-  settings: 'Settings save',
-};
 
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
@@ -335,7 +315,7 @@ function row(e, fresh = false) {
     'tr',
     fresh ? 'sode--enter' : null,
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
-    el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), KIND_LABEL[e.kind] || e.kind),
+    el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), kindLabel(e)),
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),
@@ -358,7 +338,7 @@ function row(e, fresh = false) {
 // ---- sorting (logfilter.js): ties keep newest first. Rows without the column go last in both directions.
 
 const SORT_KEY = 'sode-log-sort';
-const SORTS = sortKeys(KIND_LABEL);
+const SORTS = sortKeys();
 let sort = { col: 'time', dir: 'desc' };
 {
   const saved = readJSON(SORT_KEY);

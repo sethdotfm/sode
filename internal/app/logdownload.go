@@ -107,7 +107,7 @@ func (b *logBuild) csvRow(e Sent) []string {
 	if e.Why != "" {
 		why = logWhyText(e.Why)
 	}
-	return []string{e.Time.Format(time.RFC3339Nano), strconv.FormatInt(e.Seq, 10), logKindText(e.Kind), cmd,
+	return []string{e.Time.Format(time.RFC3339Nano), strconv.FormatInt(e.Seq, 10), logKindText(e), cmd,
 		b.rt.byUI[e.Level].Label, wire, num(e.Dst), e.DstName, num(e.Src), e.SrcName, why, e.By, e.Result,
 		strconv.Itoa(e.Tries), e.Err, logNote(e), ack, e.Hex}
 }
