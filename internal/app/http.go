@@ -80,6 +80,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		}
 		panelPage(w, r)
 	})
+	worker := &shellWorker{fsys: static}
+	mux.HandleFunc("GET /sw.js", worker.serve)
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)

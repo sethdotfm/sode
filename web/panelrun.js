@@ -3,6 +3,7 @@
 import { emit, on, S, showNote } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
+import { paintOffline, waitForSode } from './panelwait.js';
 import { startKeepalive, announceKeyless } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
@@ -333,6 +334,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     clearTimeout(door.backTimer);
   };
 
+  if (!embedded) await waitForSode(ui, () => door.ended);
   let panel = await door.open();
   if (!panel) return;
   const { call, callJSON, id } = door;
@@ -384,14 +386,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     body,
     ui,
     rights: panel.rights,
-    // Blur the whole panel and say Offline, so nobody mistakes a stale grid for a working one.
-    showOffline(o) {
-      ui.main.classList.toggle('sode-panels--offline', !!o);
-      ui.offline.hidden = !o;
-      if (o) ui.offlineDetail.textContent = o.detail;
-      // The Lock reads it: offline wins over its colors (lock.css).
-      document.documentElement.dataset.conn = o ? 'down' : 'up';
-    },
+    showOffline: (o) => paintOffline(ui, o),
     onFail(e) {
       const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!door.key && !door.keyIsPublic, door.keyIsPublic);
       showNote(ui.note, f.text);

@@ -16,7 +16,7 @@ Require HTTPS (Settings > Proxy, `requireHttps`, an advanced setting) refuses ev
 
 ### Install as an app
 
-Sode is a web app. Use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS or on localhost, so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Border colour** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own. On iOS, remove the app and add it again. The app still needs the server to run, so there is no offline mode.
+Sode is a web app. Use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS or on localhost, so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Border colour** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own. On iOS, remove the app and add it again. The app still needs the server to work. On a secure origin, a page that the device opened once also opens while Sode is down (README). It shows its Offline state and connects when Sode comes back.
 
 ## Using it
 
