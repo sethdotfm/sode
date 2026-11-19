@@ -291,23 +291,10 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return
 		}
 	}
-	made, err := a.panels.create(p)
+	made, err := a.createPanelWithClient(cl.Actor, p, &rights, nil)
 	if err != nil {
 		failStore(w, err, panelSaveFail)
 		return
-	}
-	if actsHasClient(made.Acts) {
-		made.Client = panelClientName(made.ID)
-		err := a.putPanelClient(cl.Actor, made.ID, &rights, nil)
-		if err == nil {
-			_, err = a.panels.replace(made)
-		}
-		if err != nil {
-			a.panels.delete(made.ID)
-			a.putPanelClient(cl.Actor, made.ID, nil, nil)
-			failWith(w, err)
-			return
-		}
 	}
 	a.apiEvent(cl.Actor, "panelCreate", "ok", "panel "+made.ID+" "+made.Name, nil)
 	apiCreated(w, a.panelOut(made, true))
@@ -480,23 +467,10 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 			rights = cl.Rights.Clone()
 		}
 	}
-	made, err := a.panels.create(c)
+	made, err := a.createPanelWithClient(cl.Actor, c, &rights, nets)
 	if err != nil {
 		failStore(w, err, panelSaveFail)
 		return
-	}
-	if actsHasClient(made.Acts) {
-		made.Client = panelClientName(made.ID)
-		err := a.putPanelClient(cl.Actor, made.ID, &rights, nets)
-		if err == nil {
-			_, err = a.panels.replace(made)
-		}
-		if err != nil {
-			a.panels.delete(made.ID)
-			a.putPanelClient(cl.Actor, made.ID, nil, nil)
-			failWith(w, err)
-			return
-		}
 	}
 	skipped := a.panels.copyArt(src, made.ID)
 	made, _ = a.panels.get(made.ID)

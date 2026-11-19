@@ -116,6 +116,30 @@ func (a *App) putPanelClient(by Actor, id string, rights *config.Rights, nets []
 	return a.putPanelClientLocked(by, id, rights, nets)
 }
 
+// createPanelWithClient writes p, then its API client when its acts need one; a refused client deletes the panel
+// again. A fault after the panel write answers 400 unless it carries its own status, as failWith does.
+func (a *App) createPanelWithClient(by Actor, p Panel, rights *config.Rights, nets []string) (Panel, error) {
+	made, err := a.panels.create(p)
+	if err != nil || !actsHasClient(made.Acts) {
+		return made, err
+	}
+	made.Client = panelClientName(made.ID)
+	err = a.putPanelClient(by, made.ID, rights, nets)
+	if err == nil {
+		_, err = a.panels.replace(made)
+	}
+	if err == nil {
+		return made, nil
+	}
+	a.panels.delete(made.ID)
+	a.putPanelClient(by, made.ID, nil, nil)
+	var f *panelClientFail
+	if !errors.As(err, &f) {
+		f = &panelClientFail{http.StatusBadRequest, "bad_request", err.Error()}
+	}
+	return Panel{}, f
+}
+
 // Caller holds cfgMu.
 func (a *App) putPanelClientLocked(by Actor, id string, rights *config.Rights, nets []string) error {
 	name := panelClientName(id)
