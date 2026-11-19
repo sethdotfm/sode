@@ -161,15 +161,18 @@ func (p *importPlanner) planArtwork(_ *config.Config, cat *importCat) error {
 			continue
 		}
 		it := importItem{Key: ic.ID, Name: ic.Name, Kind: kindIcon}
+		i := slices.IndexFunc(live, func(x LibIcon) bool { return x.ID == ic.ID })
+		if i < 0 {
+			i = slices.IndexFunc(live, func(x LibIcon) bool { return strings.EqualFold(x.Name, strings.TrimSpace(ic.Name)) })
+		}
+		if i >= 0 {
+			p.removed.keep(live[i].ID)
+		}
 		data, ok := p.artFile("art/icons/", ic.ID, ic.Type)
 		if !iconIDRe.MatchString(ic.ID) || !ok || ic.Type != "image/png" && ic.Type != "image/svg+xml" {
 			it.Refused = "the icon's image is not in the file or is not a PNG or SVG image"
 			cat.Items = append(cat.Items, it)
 			continue
-		}
-		i := slices.IndexFunc(live, func(x LibIcon) bool { return x.ID == ic.ID })
-		if i < 0 {
-			i = slices.IndexFunc(live, func(x LibIcon) bool { return strings.EqualFold(x.Name, strings.TrimSpace(ic.Name)) })
 		}
 		ic.Size = len(data)
 		if i >= 0 {
@@ -260,11 +263,15 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 		if it.Refused == "" && (d.check() != nil || !storedArtOK(d)) {
 			it.Refused = "it is not valid"
 		}
+		i := slices.IndexFunc(p.liveDefaults, func(x ArtDefault) bool { return x.key() == d.key() })
+		if i >= 0 {
+			p.removed.keep(p.liveDefaults[i].key())
+		}
 		if it.Refused != "" {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
-		if i := slices.IndexFunc(p.liveDefaults, func(x ArtDefault) bool { return x.key() == d.key() }); i >= 0 {
+		if i >= 0 {
 			it.Clash = p.liveDefaults[i].Name
 			if sameYAML(d, p.liveDefaults[i]) {
 				it.Same = true
@@ -326,14 +333,7 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 		t.Owner = p.ownerFor(*cand, t.Owner, false)
 		t.Pages = p.relibPages(t.Pages)
 		it := importItem{Key: fileID, Name: t.Name, Kind: kindTemplate}
-		if err := t.clean(); err != nil {
-			it.Refused = err.Error()
-			cat.Items = append(cat.Items, it)
-			continue
-		}
-		if !validTemplateID(t.ID) {
-			t.ID = ""
-		}
+		err := t.clean()
 		i := -1
 		if p.same {
 			i = slices.IndexFunc(p.liveTemplates, func(x Template) bool { return x.ID == fileID })
@@ -342,8 +342,18 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 			i = slices.IndexFunc(p.liveTemplates, func(x Template) bool { return sameBucket(x, t) && strings.EqualFold(x.Name, t.Name) })
 		}
 		if i >= 0 {
+			p.removed.keep(p.liveTemplates[i].ID)
+		}
+		if err != nil {
+			it.Refused = err.Error()
+			cat.Items = append(cat.Items, it)
+			continue
+		}
+		if !validTemplateID(t.ID) {
+			t.ID = ""
+		}
+		if i >= 0 {
 			lt := p.liveTemplates[i]
-			p.removed.keep(&p.removed.keepTemplates, lt.ID)
 			t.ID, it.Clash = lt.ID, lt.Name
 			if sameYAML(t, lt) {
 				it.Same = true
@@ -393,11 +403,6 @@ func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 			s.Entries[i].panelLayout = p.relibLayout(s.Entries[i].panelLayout)
 		}
 		it := importItem{Key: fileID, Name: s.Name, Kind: kindSet}
-		if s.Scope != panelShareAll && s.Scope != panelShareMe || strings.TrimSpace(s.Name) == "" {
-			it.Refused = "it is not valid"
-			cat.Items = append(cat.Items, it)
-			continue
-		}
 		bucket := func(x PanelSet) bool { return x.Scope == s.Scope && (s.Scope == panelShareAll || x.Owner == s.Owner) }
 		i := -1
 		if p.same {
@@ -407,8 +412,15 @@ func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 			i = slices.IndexFunc(p.liveSets, func(x PanelSet) bool { return bucket(x) && strings.EqualFold(x.Name, s.Name) })
 		}
 		if i >= 0 {
+			p.removed.keep(p.liveSets[i].ID)
+		}
+		if s.Scope != panelShareAll && s.Scope != panelShareMe || strings.TrimSpace(s.Name) == "" {
+			it.Refused = "it is not valid"
+			cat.Items = append(cat.Items, it)
+			continue
+		}
+		if i >= 0 {
 			ls := p.liveSets[i]
-			p.removed.keep(&p.removed.keepSets, ls.ID)
 			s.ID, it.Clash = ls.ID, ls.Name
 			if sameYAML(s, ls) {
 				it.Same = true

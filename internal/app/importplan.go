@@ -396,6 +396,23 @@ func matchIdx[T any](same bool, list []T, id, name string, idOf, nameOf func(T) 
 	return slices.IndexFunc(list, func(x T) bool { return strings.EqualFold(strings.TrimSpace(nameOf(x)), name) })
 }
 
+func matchUser(same bool, list []config.User, u config.User) int {
+	return matchIdx(same, list, u.ID, u.Name, func(x config.User) string { return x.ID }, func(x config.User) string { return x.Name })
+}
+
+func matchPreset(same bool, list []config.Preset, s config.Preset) int {
+	return matchIdx(same, list, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
+}
+
+// keepLivePanel finds fp's live twin and keeps it from Replace import's removals.
+func (p *importPlanner) keepLivePanel(fp Panel) int {
+	i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
+	if i >= 0 {
+		p.removed.keep(p.livePanels[i].ID)
+	}
+	return i
+}
+
 // nextName is "Name 2", or the first number after it that taken does not hold.
 func nextName(name string, taken func(string) bool) string {
 	for n := 2; ; n++ {
@@ -522,7 +539,7 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			u.Profile.FilterSets[i].Broken = p.check.filterSetBroken(u.Profile.FilterSets[i])
 		}
 		it := importItem{Key: key, Name: u.Name}
-		i := matchIdx(p.same, cand.Users, u.ID, u.Name, func(x config.User) string { return x.ID }, func(x config.User) string { return x.Name })
+		i := matchUser(p.same, cand.Users, u)
 		if i >= 0 {
 			lu := cand.Users[i]
 			hashed := fileHash(u)
@@ -588,7 +605,7 @@ func (p *importPlanner) planPresets(cand *config.Config, cat *importCat) error {
 	for _, s := range p.checkedPresets(picked) {
 		fileID := s.ID
 		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
-		i := matchIdx(p.same, cand.Presets, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
+		i := matchPreset(p.same, cand.Presets, s)
 		if i >= 0 {
 			lp := cand.Presets[i]
 			s.ID = lp.ID
@@ -740,6 +757,7 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)
 		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken, Kind: kindPanel}
 		cps := p.planCheckpoints(fileID)
+		i := p.keepLivePanel(fp)
 		if err := validatePanel(&fp); err != nil {
 			it.Refused = err.Error()
 		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
@@ -749,7 +767,6 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
-		i := matchIdx(p.same, p.livePanels, fp.ID, fp.Name, func(x Panel) string { return x.ID }, func(x Panel) string { return x.Name })
 		if i >= 0 {
 			lp := p.livePanels[i]
 			fp.ID, fp.Acts, fp.Client, fp.Rev = lp.ID, lp.Acts, lp.Client, lp.Rev

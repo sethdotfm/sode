@@ -345,3 +345,48 @@ func TestReplaceImportEndsRemovedUsersCards(t *testing.T) {
 		t.Fatalf("card to Ana: %s", got.State)
 	}
 }
+
+// A same-install backup restored through Replace keeps what it holds, Default artwork included.
+func TestReplaceImportRoundTripKeepsEverything(t *testing.T) {
+	a, tok := replaceApp(t)
+	seedPanelExtras(t, a)
+	file := exported(t, a, tok, exportReq{Categories: []string{catPanels, catArtwork}})
+	res := applied(t, postApply(t, a, tok, file, replaceReq(catPanels, catArtwork)))
+	if len(res.Failed) != 0 {
+		t.Fatalf("failed: %v", res.Failed)
+	}
+	p, tp, s, i, d := len(a.panels.list()), len(a.templates.list()), len(a.panels.sets.sorted(nil)), len(a.icons.list()), len(a.artDefaults.list())
+	if p+tp+s+i+d != 5 {
+		t.Fatalf("panels %d, templates %d, sets %d, icons %d, defaults %d", p, tp, s, i, d)
+	}
+}
+
+// A file item that is refused or waits for names keeps its live twin: nothing would replace it.
+func TestReplaceImportKeepsTwinsOfRefusedItems(t *testing.T) {
+	a, tok := replaceApp(t)
+	_, _, _, ic := seedPanelExtras(t, a)
+	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")} })
+	files := map[string]string{}
+	for name, b := range unzipAll(t, exported(t, a, tok, exportReq{Categories: []string{catPanels, catArtwork, catPresets}})) {
+		files[name] = string(b)
+	}
+	files["panels.yaml"] = strings.Replace(files["panels.yaml"], "rows: 1", "rows: 99", 1)
+	files["art/icons/"+ic.fileName()] = "not an image"
+	a.mu.Lock()
+	clear(a.router.srcNames)
+	clear(a.router.dstNames)
+	a.mu.Unlock()
+	res := applied(t, postApply(t, a, tok, zipOf(t, files), replaceReq(catPanels, catArtwork, catPresets)))
+	if len(res.Failed) != 0 {
+		t.Fatalf("failed: %v", res.Failed)
+	}
+	if n := len(a.panels.list()); n != 1 {
+		t.Errorf("%d panels: the refused panel's live twin is gone", n)
+	}
+	if n := len(a.icons.list()); n != 1 {
+		t.Errorf("%d icons: the refused icon's live twin is gone", n)
+	}
+	if _, ok := presetNamed(t, a, "Show"); !ok {
+		t.Error("the waiting preset's live twin is gone")
+	}
+}
