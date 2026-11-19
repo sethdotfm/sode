@@ -21,8 +21,11 @@ const (
 	CmdExtConnect             = 0x82
 	CmdExtTally               = 0x83
 	CmdExtConnected           = 0x84
+	CmdExtProtectInterrogate  = 0x8A
 	CmdExtProtectTally        = 0x8B
+	CmdExtProtectConnect      = 0x8C
 	CmdExtProtectConnected    = 0x8D
+	CmdExtProtectDisconnect   = 0x8E
 	CmdExtProtectDisconnected = 0x8F
 	CmdExtProtectDumpReq      = 0x93
 	CmdExtProtectDump         = 0x94
@@ -106,6 +109,12 @@ func ExtConnected(matrix, level, dst, src int) []byte {
 
 func xp(cmd byte, matrix, level, dst, src int) []byte {
 	return []byte{cmd, byte(matrix), byte(level), byte(dst >> 8), byte(dst), byte(src >> 8), byte(src)}
+}
+
+// ExtProtectChange builds a 7-byte 0x8B, 0x8D or 0x8F in the Ultrix's order. Details is 0 when not
+// Protected.
+func ExtProtectChange(cmd byte, matrix, level, details, dst, device int) []byte {
+	return []byte{cmd, byte(matrix), byte(level), byte(details), byte(dst >> 8), byte(dst), byte(device >> 8), byte(device)}
 }
 
 func ExtProtectDumpReq(matrix, level, firstDst int) []byte {
@@ -290,9 +299,9 @@ func Parse(msg []byte) (Event, error) {
 		case 6: // matrix, level, dst(2), state+device(2) — same packing as the dump
 			p = Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: int(d[2])<<8 | int(d[3])}
 			p.Protected, p.Device = protectWord(d[4], d[5])
-		case 7: // details, matrix, level, dst(2), device(2)
-			p = Protect{Matrix: int(d[1]), Level: int(d[2]), Dst: int(d[3])<<8 | int(d[4]),
-				Protected: d[0]&0x03 != 0, Device: int(d[5])<<8 | int(d[6])}
+		case 7: // matrix, level, details, dst(2), device(2): the Ultrix's order (docs/research/protect-probe/)
+			p = Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: int(d[3])<<8 | int(d[4]),
+				Protected: d[2] != 0, Device: int(d[5])<<8 | int(d[6])}
 		default:
 			return ev, fmt.Errorf("swp08: cmd 0x%02X: unexpected length %d", msg[0], len(d))
 		}

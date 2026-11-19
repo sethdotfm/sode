@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
@@ -82,6 +83,39 @@ func TestProtectDumpRefusesTake(t *testing.T) {
 	a.onRouterMsg([]byte{swp08.CmdExtProtectDump, 0x00, 0x01, 0x01, 0x00, 0x05, 0x00, 0x00})
 	if e := routeOne(t, a, 7, 5, 1, 2, 3); !e.OK {
 		t.Fatalf("take after unprotect %+v", e)
+	}
+}
+
+// A DashBoard Lock on a Ross Ultrix is 17 0x8D frames, one for each level; its release is 17 0x8F
+// frames. Real frames: dst 27, device 10.
+func TestDashBoardLockAndReleaseAllLevels(t *testing.T) {
+	h, _ := OpenHistory("")
+	cfg := config.Defaults()
+	cfg.Levels = 17
+	cfg.Normalize()
+	a, err := New(cfg, "", h, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	protect := func() map[int]int {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		return maps.Clone(a.router.protect[27])
+	}
+	want := map[int]int{}
+	for ll := byte(0); ll <= 0x10; ll++ {
+		a.onRouterMsg([]byte{0x8D, 0x00, ll, 0x02, 0x00, 0x1B, 0x00, 0x0A})
+		want[int(ll)+1] = 10
+		if got := protect(); !maps.Equal(got, want) {
+			t.Fatalf("after 0x8D level %d: %v, want %v", ll, got, want)
+		}
+	}
+	for ll := byte(0); ll <= 0x10; ll++ {
+		a.onRouterMsg([]byte{0x8F, 0x00, ll, 0x00, 0x00, 0x1B, 0x00, 0x00})
+		delete(want, int(ll)+1)
+		if got := protect(); !maps.Equal(got, want) {
+			t.Fatalf("after 0x8F level %d: %v, want %v", ll, got, want)
+		}
 	}
 }
 

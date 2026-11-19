@@ -1,0 +1,1 @@
+- Sode now reads the router's protect change messages (0x8B, 0x8D, 0x8F) in the Ultrix's byte order. When DashBoard, a panel or another SW-P-08 client protects or clears a destination, Sode now shows it at once on every level. Before, it showed only after the next resync.

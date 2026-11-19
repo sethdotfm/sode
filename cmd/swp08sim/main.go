@@ -1,5 +1,8 @@
 // Command swp08sim is a fake SW-P-08 router for development. Group salvos (120-123, extended stage 248/250)
 // mimic the Ultrix. All clients share one staged list per group.
+// Protect messages (138-143) mimic the Ultrix. Each message covers one level. Replies have 7 bytes: matrix, level,
+// details, dst(2), device(2). 0x8D and 0x8F go to every client that has sent a message. Only the device that
+// protected a level can clear it. Dst 12 ("Rec B") starts protected by device 9 on every level.
 package main
 
 import (
@@ -24,6 +27,8 @@ type sim struct {
 	dsts       []string
 	tally      map[int][]int // wire level → dst → src
 	clients    map[net.Conn]*sync.Mutex
+	spoke      map[net.Conn]bool     // clients that have sent a message; only they get 0x8D and 0x8F
+	protect    map[[2]int]hold       // wire level, dst → who protected it
 	deaf       map[int]bool          // dsts: the simulator ACKs a connect but does not do it
 	silent     map[int]bool          // dsts: the simulator does a connect but does not announce it
 	slow       map[int]time.Duration // dsts: the simulator does a connect but announces it late
@@ -33,6 +38,10 @@ type sim struct {
 	announceGo bool
 	namesFile  string
 }
+
+// hold is one protected level of one dst. Details is byte 3 of the Ultrix's 0x8B. It is 1 after a 0x8C. It is 2
+// for a hold from a panel or DashBoard, as on dst 12. The dump packs it in bits 4-5.
+type hold struct{ details, device int }
 
 const salvoDelay = 6 * time.Millisecond
 
@@ -47,7 +56,8 @@ func main() {
 	addr := ":" + strconv.Itoa(envInt("SIM_PORT", 8910))
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
-	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}, staged: map[int][]swp08.Staged{}, noSalvo: os.Getenv("SIM_NO_SALVO") == "1", announceGo: os.Getenv("SIM_SALVO_ANNOUNCE") == "1", namesFile: os.Getenv("SIM_NAMES_FILE")}
+	s := newSim(ns, nd, nl)
+	s.noSalvo, s.announceGo, s.namesFile = os.Getenv("SIM_NO_SALVO") == "1", os.Getenv("SIM_SALVO_ANNOUNCE") == "1", os.Getenv("SIM_NAMES_FILE")
 	// SIM_IGNORE_DSTS=5,7 (0-based): the simulator ACKs a connect but does not do it, to test timeout and retry.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
@@ -79,6 +89,28 @@ func main() {
 			s.follows[a] = append(s.follows[a], b)
 		}
 	}
+	// SIM_EXTERNAL_SECONDS=5 makes a route every 5 s, as a panel does. Each second one goes to SIM_EXTERNAL_DST
+	// (0-based, default 3).
+	if n := envInt("SIM_EXTERNAL_SECONDS", 0); n > 0 {
+		go s.panel(time.Duration(n)*time.Second, envInt("SIM_EXTERNAL_DST", 3), nl+1, envInt("SIM_EXTERNAL_SILENT", 0) == 1)
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("swp08sim on %s: %d sources, %d destinations, levels 0-%d", addr, ns, nd, nl)
+	for {
+		c, err := ln.Accept()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go s.serve(c)
+	}
+}
+
+func newSim(ns, nd, nl int) *sim {
+	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, spoke: map[net.Conn]bool{}, protect: map[[2]int]hold{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}, staged: map[int][]swp08.Staged{}}
 	named := []string{"Black", "Bars", "CG1 Fill", "CG1 Key", "CG2 Fill", "CG2 Key", "CG3 Fill", "CG3 Key", "Replay A", "Replay B", "Zoom 1", "Zoom 2"}
 	for i := 0; i < ns; i++ {
 		switch {
@@ -104,26 +136,11 @@ func main() {
 			t[d] = d % ns
 		}
 		s.tally[l] = t
-	}
-
-	// SIM_EXTERNAL_SECONDS=5 makes a route every 5 s, as a panel does. Each second one goes to SIM_EXTERNAL_DST
-	// (0-based, default 3).
-	if n := envInt("SIM_EXTERNAL_SECONDS", 0); n > 0 {
-		go s.panel(time.Duration(n)*time.Second, envInt("SIM_EXTERNAL_DST", 3), nl+1, envInt("SIM_EXTERNAL_SILENT", 0) == 1)
-	}
-
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("swp08sim on %s: %d sources, %d destinations, levels 0-%d", addr, ns, nd, nl)
-	for {
-		c, err := ln.Accept()
-		if err != nil {
-			log.Fatal(err)
+		if nd > 12 {
+			s.protect[[2]int{l, 12}] = hold{details: 2, device: 9}
 		}
-		go s.serve(c)
 	}
+	return s
 }
 
 func (s *sim) panel(every time.Duration, monitor, levels int, silent bool) {
@@ -227,6 +244,7 @@ func (s *sim) serve(c net.Conn) {
 	defer func() {
 		s.mu.Lock()
 		delete(s.clients, c)
+		delete(s.spoke, c)
 		s.mu.Unlock()
 		c.Close()
 		log.Printf("client %s gone", c.RemoteAddr())
@@ -253,6 +271,9 @@ func (s *sim) serve(c net.Conn) {
 
 func (s *sim) handle(c net.Conn, m []byte) {
 	reply := func(msg []byte) { s.write(c, swp08.Encode(msg)) }
+	s.mu.Lock()
+	s.spoke[c] = true
+	s.mu.Unlock()
 	switch m[0] {
 	case swp08.CmdExtConnect:
 		if len(m) < 7 {
@@ -295,24 +316,39 @@ func (s *sim) handle(c net.Conn, m []byte) {
 		}
 
 	case swp08.CmdExtProtectDumpReq:
-		// Device 9 protects destination 12 ("Rec B") on every level. The Ultrix packs the state in bits 4-5, then the
-		// device.
 		if len(m) < 3 {
 			return
 		}
 		mx, l := int(m[1]), int(m[2])
+		s.mu.Lock()
+		var msgs [][]byte
 		for i := 0; i < len(s.dsts); i += 64 {
 			n := min(64, len(s.dsts)-i)
 			msg := []byte{swp08.CmdExtProtectDump, byte(mx), byte(l), byte(n), byte(i >> 8), byte(i)}
 			for d := i; d < i+n; d++ {
-				if d == 12 {
-					msg = append(msg, 0x20, 0x09)
-				} else {
-					msg = append(msg, 0, 0)
-				}
+				h := s.protect[[2]int{l, d}]
+				hi, lo := swp08.ProtectWord(h.details, h.device)
+				msg = append(msg, hi, lo)
 			}
+			msgs = append(msgs, msg)
+		}
+		s.mu.Unlock()
+		for _, msg := range msgs {
 			reply(msg)
 		}
+
+	case swp08.CmdExtProtectInterrogate:
+		if len(m) < 5 {
+			return
+		}
+		mx, l, dst := int(m[1]), int(m[2]), int(m[3])<<8|int(m[4])
+		s.mu.Lock()
+		h := s.protect[[2]int{l, dst}]
+		s.mu.Unlock()
+		reply(swp08.ExtProtectChange(swp08.CmdExtProtectTally, mx, l, h.details, dst, h.device))
+
+	case swp08.CmdExtProtectConnect, swp08.CmdExtProtectDisconnect:
+		s.protectMsg(m)
 
 	case swp08.CmdSrcNamesReq, swp08.CmdDstNamesReq, swp08.CmdExtSrcNamesReq, swp08.CmdExtDstNamesReq:
 		dest := m[0] == swp08.CmdDstNamesReq || m[0] == swp08.CmdExtDstNamesReq
@@ -437,4 +473,42 @@ func (s *sim) renamed(list []string, dest bool) []string {
 		out[n] = name
 	}
 	return out
+}
+
+// protectMsg protects (0x8C) or clears (0x8E) one level. A 0x8E from a device that did not protect the level gets an
+// ACK, no change and no reply, as on the Ultrix. A 0x8C on a level held by another device is treated the same (not
+// tried on the Ultrix).
+func (s *sim) protectMsg(m []byte) {
+	if len(m) < 7 {
+		return
+	}
+	set := m[0] == swp08.CmdExtProtectConnect
+	mx, l, dst, dev := int(m[1]), int(m[2]), int(m[3])<<8|int(m[4]), int(m[5])<<8|int(m[6])
+	k := [2]int{l, dst}
+	s.mu.Lock()
+	h, held := s.protect[k]
+	_, levelOK := s.tally[l]
+	ok := levelOK && dst < len(s.dsts) && (!held || h.device == dev)
+	if ok && set {
+		s.protect[k] = hold{details: 1, device: dev}
+	} else if ok {
+		delete(s.protect, k)
+	}
+	var to []net.Conn
+	for cc := range s.spoke {
+		to = append(to, cc)
+	}
+	s.mu.Unlock()
+	if !ok {
+		log.Printf("protect level %d dst %d device %d: no change (set %t, held by %+v)", l, dst, dev, set, h)
+		return
+	}
+	reply := swp08.ExtProtectChange(swp08.CmdExtProtectConnected, mx, l, 1, dst, dev)
+	if !set {
+		reply = swp08.ExtProtectChange(swp08.CmdExtProtectDisconnected, mx, l, 0, dst, 0)
+	}
+	log.Printf("protect level %d dst %d device %d: set %t", l, dst, dev, set)
+	for _, cc := range to {
+		s.write(cc, swp08.Encode(reply))
+	}
 }

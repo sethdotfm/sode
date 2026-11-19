@@ -104,6 +104,42 @@ func TestParseProtectDump(t *testing.T) {
 	}
 }
 
+// Frames from swp08probe against a Ross Ultrix (docs/research/protect-probe/). The 7-byte order is
+// matrix, level, details, dst(2), device(2).
+func TestParseProtectChangeRouterOrder(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		msg  []byte
+		want Protect
+	}{
+		{"0x8D protect dst 26 level 0 device 126", []byte{0x8D, 0x00, 0x00, 0x01, 0x00, 0x1A, 0x00, 0x7E},
+			Protect{Matrix: 0, Level: 0, Dst: 26, Protected: true, Device: 126}},
+		{"0x8B dst 64 level 0 device 9", []byte{0x8B, 0x00, 0x00, 0x02, 0x00, 0x40, 0x00, 0x09},
+			Protect{Matrix: 0, Level: 0, Dst: 64, Protected: true, Device: 9}},
+		{"0x8B dst 64 level 16 device 9", []byte{0x8B, 0x00, 0x10, 0x02, 0x00, 0x40, 0x00, 0x09},
+			Protect{Matrix: 0, Level: 16, Dst: 64, Protected: true, Device: 9}},
+		{"0x8F clear dst 26 level 0", []byte{0x8F, 0x00, 0x00, 0x00, 0x00, 0x1A, 0x00, 0x00},
+			Protect{Matrix: 0, Level: 0, Dst: 26}},
+		{"0x8F with details set still clears", []byte{0x8F, 0x00, 0x05, 0x01, 0x00, 0x1A, 0x00, 0x7E},
+			Protect{Matrix: 0, Level: 5, Dst: 26, Device: 126}},
+	} {
+		ev, err := Parse(c.msg)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if !reflect.DeepEqual(ev.Protects, []Protect{c.want}) {
+			t.Errorf("%s: got %+v, want %+v", c.name, ev.Protects, c.want)
+		}
+	}
+}
+
+func TestExtProtectChangeRoundTrips(t *testing.T) {
+	m := ExtProtectChange(CmdExtProtectConnected, 0, 16, 2, 0x140, 10)
+	if want := []byte{0x8D, 0x00, 0x10, 0x02, 0x01, 0x40, 0x00, 0x0A}; !reflect.DeepEqual(m, want) {
+		t.Fatalf("% X, want % X", m, want)
+	}
+}
+
 func TestDescribeTx(t *testing.T) {
 	for _, c := range []struct {
 		m    []byte
