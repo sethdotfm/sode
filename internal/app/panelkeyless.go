@@ -2,13 +2,13 @@ package app
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Keyless instances (GLOSSARY.md, ADR 0009): a panel page with no working key announces itself on an open stream so
@@ -59,9 +59,7 @@ func keylessKey(ref, addr, device string) string {
 }
 
 func newKeylessID() string {
-	b := make([]byte, 8)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+	return config.RandomHexID(8)
 }
 
 // noteAddrLocked records the name a stream from addr carried. Caller holds mu.

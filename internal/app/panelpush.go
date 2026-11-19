@@ -1,7 +1,6 @@
 package app
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -75,9 +74,7 @@ type panelCheckpoint struct {
 }
 
 func newShortID(prefix string) string {
-	b := make([]byte, 4)
-	rand.Read(b)
-	return prefix + hex.EncodeToString(b)
+	return prefix + config.RandomHexID(4)
 }
 
 // Checkpoints sit in panels/<id>.checkpoints, a name loadPanels does not read as a panel.
