@@ -1,6 +1,5 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
-// previews beside the fields. Manage users (users.js) and the API section (apisettings.js) are save sources of the
-// one Save (savesources.js).
+// previews beside the fields. settingssave.js wraps the form as formSource, a save source of the one Save.
 
 import { $, el, S, wsSend } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
