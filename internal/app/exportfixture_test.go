@@ -31,7 +31,8 @@ func zipDir(t *testing.T, dir string) []byte {
 // The format 1 fixture is written by hand, so this catches a loader change that would misread a released file.
 func TestExportFormat1Fixture(t *testing.T) {
 	a := newTestApp(t)
-	b, err := a.stageAndLoad(bytes.NewReader(zipDir(t, "testdata/export-v1")))
+	b, done, err := a.stageImport(bytes.NewReader(zipDir(t, "testdata/export-v1")))
+	defer done()
 	if err != nil {
 		t.Fatal(err)
 	}

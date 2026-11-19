@@ -225,13 +225,7 @@ func sizeImport(plan *importPlan, b *exportBundle) {
 	}
 }
 
-func (a *App) stageAndLoad(body io.Reader) (*exportBundle, error) {
-	b, done, err := a.stageImport(body)
-	done()
-	return b, err
-}
-
-// stageImport is stageAndLoad that keeps the directory, where the bundle's Art files are, until done.
+// stageImport keeps the directory, where the bundle's Art files are, until done.
 func (a *App) stageImport(body io.Reader) (_ *exportBundle, done func(), _ error) {
 	done = func() {}
 	parent := a.stagesDir()

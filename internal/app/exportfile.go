@@ -74,9 +74,6 @@ var exportSections = []exportSection{
 	{"proxy", []string{"trustedProxies", "requireHttps"}},
 }
 
-// exportNotSettings: top-level config keys in another category or in no export.
-var exportNotSettings = []string{"format", "installUid", "users", "presets", "filterSets", "apiClients"}
-
 type exportManifest struct {
 	Format     int            `yaml:"format"`
 	Sode       string         `yaml:"sode"`

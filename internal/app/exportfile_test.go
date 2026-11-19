@@ -212,7 +212,8 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 		check.Counts[catPanels] != 1 || check.Counts["icons"] != 1 || check.Counts["artDefaults"] != 1 || check.Counts[catAPIClients] != 1 {
 		t.Errorf("import check: %+v", check)
 	}
-	b, err := a.stageAndLoad(bytes.NewReader(rec.Body.Bytes()))
+	b, done, err := a.stageImport(bytes.NewReader(rec.Body.Bytes()))
+	defer done()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,6 +355,7 @@ func TestImportRefusesBadFiles(t *testing.T) {
 // Every top-level config key is in one Settings section, or in exportNotSettings, so a new setting cannot
 // miss the export. The sections are the page's own.
 func TestExportSectionsCoverTheConfig(t *testing.T) {
+	exportNotSettings := []string{"format", "installUid", "users", "presets", "filterSets", "apiClients"}
 	where := map[string][]string{}
 	for _, s := range exportSections {
 		for _, k := range s.Keys {
