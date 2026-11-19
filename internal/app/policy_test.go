@@ -73,7 +73,14 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 }
 
 // Rules no page sends yet, with what will send them. Drop the entry when a page does.
-var notSentYet = map[string]string{}
+var notSentYet = map[string]string{
+	"inboxList":     "the Inbox and Sent list page work",
+	"inboxSend":     "the Send a copy dialog page work",
+	"inboxReview":   "the Inbox review page work",
+	"inboxAccept":   "the Inbox review page work",
+	"inboxDecline":  "the Inbox page work",
+	"inboxWithdraw": "the Sent list page work",
+}
 
 // Rules no page sends any more, with why the rule stays.
 var noPageSends = map[string]string{

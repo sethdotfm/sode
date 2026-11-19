@@ -152,6 +152,11 @@ type App struct {
 	namesCache namesBody // apireads.go, guarded by mu
 
 	names *namesStore // the saved names table (namestable.go)
+
+	inbox *inboxStore // Send a copy (inbox.go)
+	// inboxTTL: how long a card waits before it expires; tests shorten it. inboxAt: the last sweep.
+	inboxTTL time.Duration
+	inboxAt  time.Time
 }
 
 // routerState is replaced as a whole on a router change. Guarded by App.mu.
@@ -245,6 +250,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.icons = loadIconLib(cfgPath)
 	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
+	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.names = newNamesStore(cfgPath)
 	if t, ok := a.names.load(cfg.UID); ok {
 		a.router.srcNames, a.router.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
@@ -333,9 +339,16 @@ func (a *App) periodic() {
 	if idle {
 		a.idleAt = a.now()
 	}
+	inbox := a.now().Sub(a.inboxAt) >= inboxSweepEvery
+	if inbox {
+		a.inboxAt = a.now()
+	}
 	a.mu.Unlock()
 	if sessions {
 		a.touchSessions()
+	}
+	if inbox {
+		a.inboxSweep()
 	}
 	if idle {
 		a.idleSweep()
