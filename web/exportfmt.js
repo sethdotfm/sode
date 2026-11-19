@@ -58,8 +58,7 @@ export const itemIn = (it) => ({
   levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
 });
 
-
-// Names compare ignoring case and outer spaces. Statuses, best to worst: same, byName (one live
+// Names compare without regard to case and outer spaces. Statuses, best to worst: same, byName (one live
 // item has that name: number remapped), ambiguous (several do: never the first), unmatched.
 const STATUS = ['same', 'byName', 'ambiguous', 'unmatched'];
 export const worst = (a, b) => (STATUS.indexOf(a) >= STATUS.indexOf(b) ? a : b);
@@ -125,7 +124,7 @@ export function renameFor(name, taken) {
 
 export const defaultChoice = (clash) => (clash ? 'both' : 'import');
 
-// Use new ('replace') swaps in place; Use current and Skip leave the item out. Names stay unique ignoring case.
+// Use new ('replace') swaps in place; Use current and Skip leave the item out. Names stay unique without regard to case.
 export function applyChoices(existing, incoming, picks) {
   const list = existing.map((x) => ({ ...x }));
   const out = { list, added: 0, replaced: 0, kept: 0, skipped: 0 };

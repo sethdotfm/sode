@@ -1,5 +1,4 @@
-// Recent's Filters dialog, shared by both layouts. Applies as you type; kept per browser
-// (filterstore.js).
+// History's Filters dialog, for both layouts. The filter applies while you type. filterstore.js keeps it per browser.
 
 import { $, el, S, on, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
@@ -100,8 +99,7 @@ function renderButtons() {
     b.classList.toggle('sode__filters-btn--on', lit);
     b.setAttribute('aria-label', aria);
   }
-  // Active sets are selected (click again to take one off; none left is All); * when a single
-  // one's filter was edited since.
+  // * marks a single active set whose filter changed after it was picked.
   const sets = allSets();
   const a = activeSet();
   const chip = (s) => {
@@ -451,7 +449,7 @@ function saveSet(done = () => {}) {
     const to = moveTo,
       from = a.scope,
       was = a.name;
-    if (to === 'user' && !profileName()) return setNote('Sign in to save a set for yourself.', true);
+    if (to === 'user' && !profileName()) return setNote('Sign in to save to Me.', true);
     nameDirty = false;
     moveTo = null;
     if (to === 'local') {
@@ -543,7 +541,7 @@ function saveName() {
     return landed();
   }
   const fNow = filterState();
-  if (scope === 'user' && !profileName()) return setNote('Sign in to save a set for yourself.', true);
+  if (scope === 'user' && !profileName()) return setNote('Sign in to save to Me.', true);
   saveIn(
     scope,
     sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),

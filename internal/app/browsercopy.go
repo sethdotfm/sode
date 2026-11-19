@@ -27,7 +27,7 @@ var prefLabels = map[string]string{
 	"setStack":      "Stacked filters behavior",
 	"stackGap":      "Stack quick changes to one destination",
 	"nextMode":      "Next match behavior",
-	"compact":       "Compact view (no History, centred)",
+	"compact":       "Compact view",
 }
 
 // BrowserCopy saves req to the profile of the user signed in on c.

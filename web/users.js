@@ -16,11 +16,9 @@ import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
 import { ROLES, ownerChoices, pinPlaceholder } from './usersrules.js';
 
-// ---- the Settings section (index.html #users-group)
 const manage = $('users-manage');
 const people = $('users-people');
 
-// ---- the dialog
 const number = (id) => {
   const i = el('input', 'pb-input');
   i.type = 'number';
@@ -72,7 +70,7 @@ const usersPanel = el(
   table,
   el('div', 'sode__users-acts', addBtn),
   owners,
-  el('div', 'sode__users-opts', formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
+  el('div', 'sode__users-opts', formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput))),
 );
 // The rights editor and the API clients tab read the live rows, and hand back their drafts on save.
 const userList = () =>
@@ -161,7 +159,6 @@ function addRow(u = { name: '', len: 0 }) {
   name.value = u.name;
   name.spellcheck = false;
   name.autocomplete = 'off';
-  name.placeholder = 'Name';
   name.setAttribute('aria-label', 'Name');
   name.dataset.field = 'name';
   const pin = el('input', 'pb-input');
@@ -196,7 +193,7 @@ function addRow(u = { name: '', len: 0 }) {
       rm.dataset.armed = '1';
       rm.textContent = 'Confirm remove';
       rm.classList.replace('pb-btn--ghost', 'pb-btn--danger');
-      setNote(`Remove "${row.dataset.was}"? After you save, this cannot be undone: their PIN and profile are deleted.`);
+      setNote(`Remove "${row.dataset.was}": Save deletes their PIN and Profile.`);
       return;
     }
     setNote('');
@@ -218,9 +215,10 @@ function addRow(u = { name: '', len: 0 }) {
   prof.setAttribute('aria-haspopup', 'dialog');
   const paintProf = () => {
     prof.disabled = profileButtonOff(row.dataset.was, name.value);
-    prof.title = prof.disabled ? 'Save the user first' : '';
+    if (prof.disabled) prof.dataset.pbTip = 'Save the user first';
+    else delete prof.dataset.pbTip;
   };
-  const rights = btn('pb-btn--outline pb-btn--sm', 'Edit user rights', () => {
+  const rights = btn('pb-btn--outline pb-btn--sm', 'Edit Rights', () => {
     const t = rightsTab(rid);
     tabs.select(t.tab);
     rightsPanel.show(t.pick);
@@ -294,12 +292,11 @@ function paintPeople() {
     ...names.map((n) => {
       const b = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: n }));
       b.setAttribute('aria-haspopup', 'dialog');
-      b.setAttribute('aria-label', `Profile of ${n}`);
+      b.setAttribute('aria-label', `Edit Profile of ${n}`);
       return el('div', 'sode__names', el('span', 'sode__label', n), b);
     }),
   );
 }
-
 
 const load = () => {
   wsSend({ t: 'usersList', id: ++listSeq });
@@ -326,7 +323,7 @@ onMsg('usersListResult', (m) => {
     fill();
   }
 });
-// policy.go answers usersList to an Administrator only; anyone else would only add a refused row to the Log.
+// policy.go answers usersList to an Administrator only; anyone else would only add a refused row to the Communication Log.
 let admin = false;
 on('access', (a) => {
   paintPeople();
@@ -340,7 +337,6 @@ on('hello', () => {
   if (admin) load();
 });
 
-// ---- open / close / save
 function openUsers() {
   back = document.activeElement;
   isOpen = true;
@@ -439,7 +435,7 @@ const stage = makeUsersSource({
   },
   clientAdded: (name) => clientsTab.saved(name),
 });
-// Apply an access preset (accesspreset.js) stages a listed user's flags as a hand edit would.
+// Apply an Access preset (accesspreset.js) stages a listed user's flags as a hand edit would.
 export function stageUserFlags(id, { persistent, noAutoLock }) {
   const row = rowOf((r) => r.dataset.uid === id);
   if (!row) return;

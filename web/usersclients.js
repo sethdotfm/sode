@@ -79,7 +79,6 @@ export function makeClientsTab({ users, touched, adopt }) {
       scopes: SCOPES.filter((s) => row.querySelector(`input[data-scope="${s.id}"]`).checked).map((s) => s.id),
     }));
 
-  // ---- keys
   function paintKeys(keys) {
     const now = Date.now();
     const groups = keysByOwner(keys);
@@ -113,7 +112,7 @@ export function makeClientsTab({ users, touched, adopt }) {
   onMsg('keyRevokeAllResult', async (m) => {
     const was = revoking?.id === m.id ? revoking : null;
     revoking = null;
-    if (!m.ok && m.recheck && was && (await askRecheck('Revoke all keys'))) return revokeAll(was.owner);
+    if (!m.ok && m.recheck && was && (await askRecheck('Revoking all keys'))) return revokeAll(was.owner);
     if (!m.ok) say(m.err);
     load();
   });
@@ -199,8 +198,7 @@ export function makeClientsTab({ users, touched, adopt }) {
         touched();
       }),
     ),
-    el('h3', 'sode__profiles-h', 'Keys'),
-    el('p', 'sode__hint', 'Every key of every user and API client. Sode shows a key one time, when it makes the key, and keeps only a hash of it.'),
+    el('h3', 'sode__profiles-h', 'All keys'),
     keyHost,
     el('h3', 'sode__profiles-h', 'Make a key'),
     el(
@@ -208,7 +206,7 @@ export function makeClientsTab({ users, touched, adopt }) {
       'sode__keys-new',
       labeled('clients-key-owner', 'For', el('span', 'pb-select-wrap', who)),
       labeled('clients-key-name', 'Key name', kname),
-      labeled('clients-key-expires', 'Expires (optional)', kexp),
+      labeled('clients-key-expires', 'Expires', kexp),
       el('div', null, make),
     ),
     shown,

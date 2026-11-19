@@ -32,9 +32,8 @@ export const normPreset = (s, read = itemNums) => ({
 export const storedPreset = (s) => normPreset(s, storedItemNums);
 
 const liveName = (kind, n) => (kind === 'src' ? S.srcBy : S.dstBy)?.get(n)?.name || '';
-// The stored and sent form: references named as the router names them now. A preset saved before
-// the pinned flag existed is pinned. Stored and sent without scope. A new Everyone or Me preset
-// goes with id '' and the server makes one.
+// Stored and sent form, without scope: references with the router's names now. No pinned flag (old data) means pinned.
+// A new Everyone or Me preset has id ''; the server makes one.
 export const saved = ({ id, name, items, pinned }) => ({
   id: id || '',
   name,
@@ -58,8 +57,8 @@ export const presetsIn = (scope) => (PRESET_LISTS[scope] || (() => []))();
 export const findPreset = (scope, name) => allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
 export function presetProblem(s) {
-  if (!s.items.length) return 'Add at least one take.';
-  if (s.items.length > MAX_ITEMS) return `At most ${MAX_ITEMS} sources.`;
+  if (!s.items.length) return 'Add at least one row.';
+  if (s.items.length > MAX_ITEMS) return `At most ${MAX_ITEMS} rows.`;
   let total = 0;
   for (const it of s.items) {
     if (it.src < 0) return 'Every row needs a source.';
@@ -72,7 +71,7 @@ export function presetProblem(s) {
     if (l != null) return `Level ${l} must be 1-${MAX_LEVEL}.`;
     total += it.dsts.length;
   }
-  if (total > MAX_TOTAL) return `A preset can hold at most ${MAX_TOTAL} destinations in total.`;
+  if (total > MAX_TOTAL) return `At most ${MAX_TOTAL} destinations in a preset.`;
   return presetConflict(s);
 }
 
@@ -80,7 +79,7 @@ export function presetsProblem(list) {
   if (list.length > MAX_PRESETS) return `At most ${MAX_PRESETS} presets.`;
   // A new preset has no id until the server makes one; count it as one.
   const bytes = JSON.stringify(list.map((s) => saved(s.id ? s : { ...s, id: 'x'.repeat(16) }))).length;
-  return bytes > MAX_BYTES ? `The presets are too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB).` : '';
+  return bytes > MAX_BYTES ? `Presets too big: ${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB.` : '';
 }
 
 // Different sources to one destination on overlapping levels (blank = default, overlaps
@@ -137,7 +136,7 @@ export function deleteLocalPreset(name) {
   emit('presets');
 }
 
-// ---- pinning: a preset carries its own flag; a browser can override it for everyone's presets, by id.
+// A preset carries its own pinned flag. This browser can override it for an Everyone preset, by id.
 
 // Sode ignores an unknown id or a non-boolean value.
 export function pinOverrides(list = globalPresets()) {
@@ -238,14 +237,14 @@ export function clearPinOverride(id) {
 }
 export const withUserPin = (id, on) => userPresets().map((s) => saved(s.id === id ? { ...s, pinned: on } : s));
 
-// ---- the popup's list: all presets, or the best matches (core.js search). Matches keep their order among equal scores.
+// Matches keep their order among equal scores.
 export function rankPresets(list, q) {
   if (!String(q).trim()) return list;
   const items = list.map((s, n) => ({ num: '', lname: s.name.toLowerCase(), n }));
   return search(items, q, list.length).map((it) => list[it.n]);
 }
 
-// ---- typed references: a bare number or range a-b is a display number (internal + off()), anything else is looked up by name with lookup(token). → { ns: [internal], bad: [tokens] }
+// A bare number or a range a-b is a display number (internal + off()); other text goes to lookup(token). Returns { ns: [internal], bad: [tokens] }.
 
 export function parseRefs(text, offset, lookup) {
   const ns = [],
@@ -274,7 +273,7 @@ export const isBlankRow = (r) => !String(r.src).trim() && !String(r.dsts).trim()
 export function presetTip(s, srcLabel, dstLabel) {
   const srcs = [...new Set(s.items.map((it) => it.src))];
   const dsts = [...new Set(s.items.flatMap((it) => it.dsts))];
-  if (!srcs.length || !dsts.length) return 'No takes';
+  if (!srcs.length || !dsts.length) return 'No rows';
   const from = srcs.length === 1 ? srcLabel(srcs[0]) : `${srcs.length} Sources`;
   const to = dsts.length === 1 ? dstLabel(dsts[0]) : `${dsts.length} Destinations`;
   return `${from} to ${to}`;

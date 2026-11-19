@@ -119,7 +119,7 @@ function find() {
 onMsg('swapListResult', (m) => {
   if (!ui || m.id !== waiting) return;
   waiting = 0;
-  if (!m.ok) return fail(m.err || 'The list did not load.');
+  if (!m.ok) return fail(m.err || 'List not loaded.');
   const f = fields();
   asked = { side: f.side, from: f.from };
   items = m.items || [];
@@ -138,7 +138,7 @@ onMsg('swapMineResult', (m) => {
   if (!ui || m.id !== waiting) return;
   waiting = 0;
   ui.go.disabled = false;
-  if (!m.ok) return fail(m.err || 'The Swap did not save.');
+  if (!m.ok) return fail(m.err || 'Swap not saved.');
   emit('swapDone', m.count);
   close();
 });
@@ -180,7 +180,7 @@ function build() {
   const side = el('select', 'pb-select');
   side.id = 'swap-side';
   side.append(Object.assign(el('option', null, 'Destination'), { value: 'destination' }), Object.assign(el('option', null, 'Source'), { value: 'source' }));
-  const sideField = el('div', 'sode__field', Object.assign(el('label', null, 'Swap a'), { htmlFor: 'swap-side' }), el('span', 'pb-select-wrap', side));
+  const sideField = el('div', 'sode__field', Object.assign(el('label', null, 'Swap'), { htmlFor: 'swap-side' }), el('span', 'pb-select-wrap', side));
   const from = numberBox('swap-from', 'Old number');
   const to = numberBox('swap-to', 'New number');
   const broken = el('input', 'pb-check__input');
@@ -191,7 +191,7 @@ function build() {
   const err = el('div', 'pb-note pb-note--error');
   err.setAttribute('role', 'alert');
   err.hidden = true;
-  const go = button('swap-go', 'Done', 'pb-btn--ok', done);
+  const go = button('swap-go', '', 'pb-btn--ok', done);
   dialog.append(
     el('div', 'pb-modal__header', title),
     el(

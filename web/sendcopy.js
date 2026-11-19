@@ -22,22 +22,18 @@ dialog.setAttribute('role', 'dialog');
 dialog.setAttribute('aria-modal', 'true');
 dialog.setAttribute('aria-labelledby', 'send-title');
 dialog.tabIndex = -1;
-const what = el('p');
 const people = el('div', 'sode-send__people');
 people.setAttribute('role', 'group');
 people.setAttribute('aria-label', 'Send to');
-const body = el('div', 'pb-modal__body', what, el('span', 'sode__label', 'Send to'), people);
+const body = el('div', 'pb-modal__body', el('span', 'sode__label', 'Send to'), people);
 const note = el('span', 'sode__hint');
 note.id = 'send-note';
 note.setAttribute('role', 'status');
+const title = Object.assign(el('span', 'pb-modal__title', 'Send a copy'), { id: 'send-title' });
 const sendBtn = btn('pb-btn--ok', 'Send', () => send());
 sendBtn.id = 'send-go';
 const closeBtn = btn('pb-btn--outline', 'Close', () => close());
-dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Send a copy'), { id: 'send-title' })),
-  body,
-  el('div', 'pb-modal__footer', closeBtn, note, sendBtn),
-);
+dialog.append(el('div', 'pb-modal__header', title), body, el('div', 'pb-modal__footer', closeBtn, note, sendBtn));
 root.append(dialog);
 
 let dlg = null;
@@ -74,7 +70,7 @@ export function sendCopy(list, name) {
   items = list;
   back = document.activeElement;
   setNote('');
-  what.textContent = `Send a copy of ${name}`;
+  title.textContent = `Send a copy of ${name}`;
   const desk = layout() !== 'phone';
   sendBtn.hidden = !desk;
   const names = (S.users || []).map((u) => u.name).filter((n) => n.toLowerCase() !== inboxUser().toLowerCase());

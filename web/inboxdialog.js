@@ -155,7 +155,7 @@ function drawLists() {
 async function startReview(c) {
   if (busy) return;
   busy = true;
-  setNote('Checking the card…');
+  setNote('Checking…');
   const r = await ask({ t: 'inboxReview', inbox: { card: c.id, plan: { pick: {}, choices: {} } } });
   busy = false;
   if (!open) return;

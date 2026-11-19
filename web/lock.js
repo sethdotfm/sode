@@ -229,9 +229,8 @@ const logo = () =>
 const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const motionMs = () => (calmMotion.matches ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0);
 
-// Every run starts from the brand at rest with its own keyframes, so it restarts reliably. A
-// CSS transition measured while the last run was in progress did not. Flies only when shouldFly,
-// else the logo fades with the overlay.
+// Every run starts from the brand at rest with its own keyframes, so it restarts reliably. A CSS transition
+// measured during the last run does not. Flies only when shouldFly, else the logo fades with the overlay.
 function moveBrand(dir) {
   for (const a of brand.getAnimations()) a.cancel();
   const ms = motionMs();
@@ -342,8 +341,7 @@ function inert(c) {
 function closeModals() {
   for (const d of document.querySelectorAll('dialog[open]')) d.close();
   emit('locking');
-  // Fallback for modals with no 'locking' listener yet: take their own Cancel/Close, else hide
-  // them.
+  // Fallback for modals with no 'locking' listener: their own Cancel or Close, else hide them.
   for (const m of document.querySelectorAll('.pb-modal-backdrop:not([hidden])')) {
     const b = [...m.querySelectorAll('button')].find((x) => /cancel|close/i.test(x.id));
     if (b) b.click();
@@ -441,7 +439,7 @@ function press(k) {
     if (canSend(L, pin, who())) sendPin();
     else if (asksName(L) && !nameValue().trim()) say('Enter your name.', true);
     else if (asksName(L) && !who()) say('Unknown name.', true);
-    else say(pin ? 'That PIN has the wrong number of digits.' : 'Enter your PIN.', true);
+    else say(pin ? 'Wrong number of digits.' : 'Enter your PIN.', true);
     return;
   }
   pin = padKey(pin, k, padLens(L, who()), S.cfg?.maxPinLen || 0);
@@ -495,7 +493,7 @@ onMsg('lockState', (m) => {
   L.pinNeeded = !!m.pinNeeded;
   L.lens = m.lens || [];
   applyCover(m);
-  // The Lock ended without this tab's PIN: it stays covered, as when signing out of the letter Lock.
+  // The Lock ended without this tab's PIN: it stays covered, as after a sign-out from the Lock with nobody signed in.
   if (ended && !L.enforced) localLock();
   // Only the answer to our `hi` says whether the token was honored; a state sent for another
   // reason says nothing. A token the server no longer honors is forgotten.
@@ -525,7 +523,7 @@ onMsg('lockState', (m) => {
   done();
 });
 
-// enforced and locked from m, as a Public panel's page sees them; a lock that covers ends the letter Lock.
+// enforced and locked from m, as a Public panel's page sees them. A lock that covers ends the Lock with nobody signed in.
 function applyCover(m) {
   Object.assign(L, pinFreeView(m, pinFree));
   if (lockCovers(L) && letterLock) {
@@ -642,8 +640,7 @@ function lockNow() {
   emit('access', { ...L });
 }
 
-// Sign out ends the session: the server forgets the unlock and revokes the token (so a
-// reload cannot undo it).
+// Sign out ends the session: the server ends the sign-in and revokes the token, so a reload cannot undo it.
 function signOutNow() {
   if (!L.user && !L.held) return;
   forgetSignIn();

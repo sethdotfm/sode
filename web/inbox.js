@@ -25,8 +25,7 @@ on('wsclose', () => {
   asks.clear();
 });
 
-// m is the whole message with its literal type (the policy test reads the types from the source). Resolves the
-// inboxResult, or { ok: false, err } with no link.
+// m keeps its literal type: the policy test reads the types from this source. Resolves the inboxResult, or { ok: false, err } with no link.
 export function ask(m) {
   const id = ++seq;
   return new Promise((resolve) => {
@@ -51,7 +50,7 @@ function toast(c) {
     stack.setAttribute('aria-live', 'polite');
     document.body.append(stack);
   }
-  const title = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-inbox__toast-open', 'Open the Inbox');
+  const title = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-inbox__toast-open', 'Open Inbox');
   title.type = 'button';
   const close = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-toast__close sode__toast-timed', icon('x'));
   close.type = 'button';

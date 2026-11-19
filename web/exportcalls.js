@@ -13,7 +13,7 @@ const LAST_BACKUP = 'sode-last-backup'; // ISO time (docs/persisted-names.md)
 
 let token = null; // null: not asked yet; '' with no users
 
-// This browser: its own device preferences as top-level keys, with its filter sets and presets (browser.yaml in
+// This browser: its own preferences as top-level keys, with its filter sets and presets (browser.yaml in
 // internal/app/testdata/export-v1).
 export function browserValues() {
   const out = {};

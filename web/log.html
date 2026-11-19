@@ -36,8 +36,8 @@
     <div class="sode-up__bars" id="log-uptime-bars" role="group" aria-label="Router uptime: loading"></div>
     <p class="sode__hint sode-log__legend">
       <span><i class="sode-up__key sode-up__bar--ok"></i>Up</span>
-      <span title="Down for part of the slot, or messages failed or were slow"><i class="sode-up__key sode-up__bar--warn"></i>Partial</span>
-      <span title="Router down, or Sode not running"><i class="sode-up__key sode-up__bar--error"></i>Down</span>
+      <span data-pb-tip="Down for part of the slot, or messages failed or were slow"><i class="sode-up__key sode-up__bar--warn"></i>Partial</span>
+      <span data-pb-tip="Router down, or Sode not running"><i class="sode-up__key sode-up__bar--error"></i>Down</span>
       <span><i class="sode-up__key sode-up__bar--none"></i>No data</span>
     </p>
   </section>
@@ -58,7 +58,7 @@
       <input class="pb-input sode-log__expr" id="log-dst" placeholder="Filter by Destination" aria-label="Filter by destination" spellcheck="false">
       <span class="sode__hint" id="log-count" aria-live="polite"></span>
       <span class="sode-log__spacer"></span>
-      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-csv" title="The rows shown, in the order shown: loaded entries that match the filters. Load older first to include more.">Download CSV</button>
+      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-csv">Download CSV</button>
     </div>
   </form>
   <div class="pb-note pb-note--warn" id="log-lost" role="status" hidden></div>

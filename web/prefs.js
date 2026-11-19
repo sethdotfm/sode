@@ -5,21 +5,30 @@
 const browserClock = () => (/h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'numeric' }).resolvedOptions().hourCycle || '') ? '12-hour' : '24-hour');
 
 export const PREFS = {
-  theme: { label: 'Theme', key: 'sode-theme', def: 'system', values: { system: 'System', light: 'Light', dark: 'Dark' } },
-  layout: { label: 'Layout', key: 'sode-layout', def: 'auto', values: { auto: 'Automatic', phone: 'Phone', desktop: 'Desktop' } },
-  clock: { label: 'Clock', key: 'sode-clock', def: '24', values: { 24: '24-hour', 12: '12-hour', locale: 'Browser language' } },
-  flip: { label: 'Destination before Source', key: 'sode-flip', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
-  scrollTop: { label: 'Scroll to top on focus', key: 'sode-scroll-top', def: 'on', bool: true, values: { on: 'Yes', off: 'No' } },
-  setStack: { label: 'Stacked filters behavior', key: 'sode-set-stack', def: 'and', values: { and: 'All must match', or: 'At least one must match' } },
-  nextMode: { label: 'Next match behavior', key: 'sode-next-mode', def: 'number', values: { number: 'Next number', fuzzy: 'Next match of the name' } },
-  stackGap: {
-    label: 'Stack quick changes to one destination',
-    key: 'sode-stack-gap',
-    def: '30',
-    values: { 0: 'Off', 10: '10 seconds', 30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes' },
-  },
-  searchFilters: { label: 'Searching history respects filters', key: 'sode-search-filters', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
-  compact: { label: 'Compact view', key: 'sode-compact', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
+  theme: { key: 'sode-theme', def: 'system', values: { system: 'System', light: 'Light', dark: 'Dark' } },
+  layout: { key: 'sode-layout', def: 'auto', values: { auto: 'Automatic', phone: 'Phone', desktop: 'Desktop' } },
+  clock: { key: 'sode-clock', def: '24', values: { 24: '24-hour', 12: '12-hour', locale: 'Browser language' } },
+  flip: { key: 'sode-flip', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
+  scrollTop: { key: 'sode-scroll-top', def: 'on', bool: true, values: { on: 'Yes', off: 'No' } },
+  setStack: { key: 'sode-set-stack', def: 'and', values: { and: 'All must match', or: 'At least one must match' } },
+  nextMode: { key: 'sode-next-mode', def: 'number', values: { number: 'Next number', fuzzy: 'Next match of the name' } },
+  stackGap: { key: 'sode-stack-gap', def: '30', values: { 0: 'Off', 10: '10 seconds', 30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes' } },
+  searchFilters: { key: 'sode-search-filters', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
+  compact: { key: 'sode-compact', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
+};
+
+// Settings labels; index.html and internal/app/browsercopy.go keep the same words (tests check both).
+export const PREF_LABELS = {
+  theme: 'Theme',
+  layout: 'Layout',
+  clock: 'Clock',
+  flip: 'Destination before Source',
+  scrollTop: 'Scroll to top on focus',
+  setStack: 'Stacked filters behavior',
+  nextMode: 'Next match behavior',
+  stackGap: 'Stack quick changes to one destination',
+  searchFilters: 'Searching history respects filters',
+  compact: 'Compact view',
 };
 
 // The Browser language option says what it gives (still one table entry, as the Go test reads it).

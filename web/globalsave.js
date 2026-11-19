@@ -129,7 +129,7 @@ export function profileSaver({ target, ...opts }) {
 //   listOf(scope): the scope's current list as it is sent.
 //   same(a, b): do two names mean one item?   dropLocal(name): delete from localStorage.
 export function scopeWriter({ global, user, target, key, globalKey = key, listOf, same, dropLocal }) {
-  // The whole next list into a remote scope; done() runs after it has landed. Local scopes are written by the caller.
+  // The whole next list into a remote scope; done() runs after it lands. The caller writes local scopes.
   function saveIn(scope, list, done) {
     const t = target?.();
     const [saver, k] = t ? [t, key] : scope === 'user' ? [user, key] : [global, globalKey];

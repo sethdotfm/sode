@@ -7,15 +7,13 @@ import { trapDialog } from './widgets.js';
 import { showResult } from './plans.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { profile, profileName, fetchProfile, saveProfile } from './profile.js';
-import { PREFS } from './prefs.js';
+import { PREFS, PREF_LABELS } from './prefs.js';
 import { ownPref, setPref } from './device.js';
 import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.js';
 import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
 import { toClear, moveText, movedPinOrder } from './browsercopyrules.js';
-
-// ---- the dialog
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -70,8 +68,6 @@ const setNote = (t, error = false) => {
   noteEl.textContent = t;
   noteEl.classList.toggle('sode__error-text', error);
 };
-
-// ---- state
 
 let open = false,
   back = null,
@@ -223,8 +219,6 @@ function currentPref(name) {
   return prefTarget() === 'user' ? curPrefs('user')[name] || '' : ownPref(name);
 }
 
-// ---- drawing
-
 const pluralize = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const dnum = (n) => String(n + off());
 
@@ -253,10 +247,7 @@ function matchLines(r) {
       lines.push(l);
     }
   }
-  if (m.count.ambiguous)
-    lines.push(
-      status('warn', 'Sode does not guess ambiguous names. It skips this preset until you change the choice. Then the preset keeps those numbers as written.'),
-    );
+  if (m.count.ambiguous) lines.push(status('warn', 'Skip by default. Import keeps the numbers as written.'));
   if (m.levelsOver.length) lines.push(status('warn', `Level ${m.levelsOver.join(', ')} is above this router’s ${S.levels.length}`));
   return lines;
 }
@@ -304,9 +295,7 @@ function rowNode(r, i, choices) {
   const curCell = el(
     'div',
     'sode__rv-cur',
-    cur
-      ? el('div', 'sode__rv-line', el('strong', null, cur.name), el('span', 'sode__hint', summaryOf(r.kind, cur)))
-      : status('idle', 'Nothing with this name yet'),
+    cur ? el('div', 'sode__rv-line', el('strong', null, cur.name), el('span', 'sode__hint', summaryOf(r.kind, cur))) : status('idle', 'New'),
   );
   const choice = choices[i];
   const opts = cur
@@ -351,12 +340,12 @@ function prefsNode() {
   const opts = forUser() ? [] : [['local', 'This browser']];
   if (profileName() || forUser()) opts.push(['user', forUser() ? `${st.user}’s profile` : 'Me']);
   const rows = list.map((p) => {
-    const label = PREFS[p.name]?.label || p.name;
+    const label = PREF_LABELS[p.name] || p.name;
     if (!p.ok) {
       return el(
         'div',
         'sode__rv-row is-skip',
-        el('div', 'sode__rv-in', el('strong', null, label), status('warn', `“${p.value}” is not a setting this Sode knows, so it is skipped`)),
+        el('div', 'sode__rv-in', el('strong', null, label), status('warn', `“${p.value}”: unknown value, skipped`)),
         el('div', 'sode__rv-cur'),
         el('div', 'sode__rv-pick'),
       );
@@ -381,23 +370,13 @@ function prefsNode() {
     return el(
       'div',
       `sode__rv-row${on ? '' : ' is-skip'}`,
-      el(
-        'div',
-        'sode__rv-in',
-        el('strong', null, label),
-        el('div', 'sode__hint', valText(p.value)),
-        same ? status('ok', 'Already set to this') : status('info', 'Changes this setting'),
-      ),
-      el(
-        'div',
-        'sode__rv-cur',
-        now ? el('div', 'sode__hint', valText(now)) : status('idle', sc === 'user' ? 'Not set in the profile' : 'Following the default'),
-      ),
+      el('div', 'sode__rv-in', el('strong', null, label), el('div', 'sode__hint', valText(p.value)), same ? status('ok', 'Same as now') : ''),
+      el('div', 'sode__rv-cur', now ? el('div', 'sode__hint', valText(now)) : status('idle', 'Not set')),
       el('div', 'sode__rv-pick', pick),
     );
   });
   for (const p of only) {
-    const label = PREFS[p.name]?.label || p.name;
+    const label = PREF_LABELS[p.name] || p.name;
     rows.push(
       el(
         'div',
@@ -413,13 +392,7 @@ function prefsNode() {
     st.prefsTo = v;
     render();
   });
-  return el(
-    'div',
-    'sode__rv-sec',
-    el('div', 'sode__filters-set', el('strong', null, 'This browser settings'), el('span', 'sode__hint', 'go to'), to),
-    el('span', 'sode__hint', 'Everyone’s defaults are set in Settings, not here.'),
-    ...rows,
-  );
+  return el('div', 'sode__rv-sec', el('div', 'sode__filters-set', el('strong', null, 'This browser settings'), el('span', 'sode__hint', 'go to'), to), ...rows);
 }
 
 // Each draw replaces every control, so the focused one is found again by its label.
@@ -494,8 +467,6 @@ function refresh() {
   }
 }
 
-// ---- applying
-
 function summaryText(p) {
   const bits = [];
   const c = (k, key) => p.res[k]?.[key] || 0;
@@ -510,7 +481,7 @@ function summaryText(p) {
 
 function finish(p) {
   if (prefTarget() === 'local') for (const [name, v] of Object.entries(p.prefs)) setPref(name, v);
-  const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope).toLowerCase();
+  const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope);
   const text = `${summaryText(p)} imported to ${where}.`;
   close();
   showResult('ok', 'Import done', text);
@@ -565,8 +536,6 @@ function apply() {
   else sendPresets();
 }
 
-// ---- Copy this browser to My user
-
 // What reached Me: prefs with their Import or Skip, and each row's choice (browsercopyrules.js toClear).
 function moved() {
   const choices = st.rows.map(choiceOf);
@@ -591,7 +560,7 @@ function keepSwitch() {
     applyBtn.textContent = st.copy.keep ? 'Copy' : 'Move';
     refresh();
   });
-  return el('label', 'pb-check', keepBox, el('span', 'pb-check__label', 'Keep on this browser'));
+  return el('label', 'pb-check', keepBox, el('span', 'pb-check__label', 'Keep in This browser'));
 }
 
 // The server writes the profile and one Settings saves row; the browser lets go only after that.
@@ -618,8 +587,6 @@ function copyApply(p) {
     setNote(sentence(r.err) || 'Not saved.', true);
   });
 }
-
-// ---- open / close
 
 // Options: scope, user (review for that user's profile, saved by name), source (where it came from).
 // copy: { send(parts), clear(moved, keep) } for Copy this browser to My user (browsercopy.js).

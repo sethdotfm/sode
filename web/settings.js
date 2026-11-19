@@ -141,7 +141,7 @@ on('historyCleared', () => {
   clearing = 0;
   clearAnswer?.done();
   clearAnswer = null;
-  showResult('ok', 'History cleared', 'History is empty for everyone.');
+  showResult('ok', 'History cleared for everyone', '');
 });
 // A refusal asks a PIN recheck and sends the clear again; below an Administrator it asks an Approval.
 onMsg('clearHistoryResult', (m) => {

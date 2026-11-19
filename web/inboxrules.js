@@ -43,8 +43,7 @@ export function acceptPick(plan) {
   return pick;
 }
 
-// The plan part of inboxReview and inboxAccept. Every category goes, empty or not: the server reads a missing one as
-// every item (cardPlanner.picked).
+// The plan part of inboxReview and inboxAccept. Every category goes, empty or not: the server reads a missing one as every item.
 export function acceptReq(pick) {
   const req = { pick: {}, choices: {} };
   for (const cat of CARD_CATS) {

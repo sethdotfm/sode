@@ -18,8 +18,6 @@ export function el(tag, cls, ...kids) {
   return e;
 }
 
-// ---- state & events
-
 export const S = {
   cfg: null,
   configPath: '',
@@ -122,8 +120,6 @@ export const srcLabel = (n) => srcItem(n).label;
 export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', it.num), ...(it.name ? [' ', it.name] : []));
 export const dstLabel = (n) => dstItem(n).label;
 export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
-
-// ---- websocket
 
 let retry = 1000;
 
@@ -440,8 +436,6 @@ export function protectedOn(dst, levels) {
   const hit = t ? levels.filter((u) => t.has(u)) : [];
   return { levels: hit, devices: [...new Set(hit.map((u) => t.get(u)))].sort((a, b) => a - b) };
 }
-// ---- fuzzy finder (scoring in fuzzy.js)
-
 // A.23 searches 23.
 export function search(list, q, n = 8) {
   q = searchText(q, S.prefix, [], [S.prefix]);

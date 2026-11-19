@@ -4,13 +4,13 @@ import { setSummary, presetSummary, without, canSeeProfiles, profileButtonOff, P
 
 test('setSummary', () => {
   assert.equal(setSummary({}), 'Shows everything');
-  assert.equal(setSummary({ src: 'CAM', ext: false, hidden: true }), 'sources CAM; hides changes made elsewhere; shows hidden destinations');
+  assert.equal(setSummary({ src: 'CAM', ext: false, hidden: true }), 'sources CAM; hides Externals; shows hidden destinations');
 });
 
 test('presetSummary counts takes and destinations', () => {
-  assert.equal(presetSummary({ items: [{ dsts: [1, 2] }, { dsts: [3] }] }), '2 takes, 3 destinations');
-  assert.equal(presetSummary({ items: [{ dsts: [1] }] }), '1 take, 1 destination');
-  assert.equal(presetSummary({}), '0 takes, 0 destinations');
+  assert.equal(presetSummary({ items: [{ dsts: [1, 2] }, { dsts: [3] }] }), '2 rows, 3 destinations');
+  assert.equal(presetSummary({ items: [{ dsts: [1] }] }), '1 row, 1 destination');
+  assert.equal(presetSummary({}), '0 rows, 0 destinations');
 });
 
 test('without drops one index', () => {

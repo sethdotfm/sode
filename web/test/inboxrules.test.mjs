@@ -57,7 +57,7 @@ test('Accept starts with every item ticked and the clash choices', () => {
   assert.deepEqual(pick.choices.presets, { p1: 'rename' });
 });
 
-// An empty list is sent, never left out: the server takes a missing category as every item (cardPlanner.picked).
+// An empty list is sent, never left out: the server takes a missing category as every item.
 test('an unticked category goes as an empty list', () => {
   const pick = acceptPick(plan());
   pick.items.presets.delete('p1');

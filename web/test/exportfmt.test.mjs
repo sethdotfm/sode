@@ -63,7 +63,7 @@ test('matching: number and name agree', () => {
 test('matching: unique name elsewhere remaps the number', () => {
   const m = matchEnd(7, 'CAM 2', live.srcs);
   assert.deepEqual(m, { status: 'byName', n: 1, was: 7 });
-  // the number exists but names a different thing: the name wins
+  // The number exists but names a different item: the name wins.
   assert.equal(matchEnd(0, 'CAM 2', live.srcs).n, 1);
 });
 
@@ -72,7 +72,7 @@ test('matching: a name on several is ambiguous, never the first', () => {
   assert.equal(m.status, 'ambiguous');
   assert.equal(m.n, 9);
   assert.equal(m.count, 2);
-  // number + name still agree when the number is one of them
+  // The number and the name still agree when the number is one of them.
   assert.equal(matchEnd(4, 'dup', live.srcs).status, 'same');
 });
 

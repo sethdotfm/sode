@@ -20,7 +20,6 @@ import { form, isOpen, readSettings, formProblem } from './settingsform.js';
 
 const saving = () => $('settings-save').disabled;
 
-
 let base = {}; // the fields as last opened or saved
 let versions = {}; // each field's version as loaded
 const refused = new Map(); // key -> refused result; marked until it saves or goes back
@@ -63,8 +62,6 @@ const by = (r) => authors.get(rowId(r))?.by || me;
 // Save skips edits in a section the saver's Role cannot see; they show only as a count.
 const seen = (r) => sectionView(sectionOfKey(r.key), role) !== 'hidden';
 const warned = () => !$('settings-unsaved').hidden;
-
-// ---- what each change is called on the page
 
 const SPECIAL = {
   levelColors: 'cfg-colors',
@@ -118,9 +115,7 @@ function show(r, v) {
 }
 
 // A read section (Shown) saves through an Approval, so its rows are sent.
-const kept = (r) => (sectionView(sectionOfKey(r.key), role, layout() === 'phone') === 'hidden' ? 'your Role cannot change this' : '');
-
-// ---- marks, the exit warning and the footer text
+const kept = (r) => (sectionView(sectionOfKey(r.key), role, layout() === 'phone') === 'hidden' ? 'your Role is not allowed to change this' : '');
 
 function paintMarks() {
   for (const m of form.querySelectorAll('.sode__refused, .sode__preset-mark')) m.remove();
@@ -165,8 +160,7 @@ function unsavedText() {
   const names = sections()
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
-  const what = [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
-  return `${what}. Exit again to discard.`;
+  return [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
 }
 
 export function markClean(saved) {
@@ -219,8 +213,6 @@ export function showSaveErr(text) {
   $('settings-err').textContent = text;
   $('settings-err').hidden = false;
 }
-
-// ---- sending and the answers
 
 function valuesOf(keys) {
   const form = readSettings();

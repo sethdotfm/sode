@@ -1,4 +1,4 @@
-// The Step in and Step out controls in Settings > My user, the Step in popup and the "This steps you out" question on
+// The Step in and Step out controls in Settings > My user, the Step in popup and the "Step out?" question on
 // links that leave the page. stepin.js holds the state.
 import { $, el, S, on, sentence, LINK_DOWN } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -92,8 +92,7 @@ function build() {
   err.setAttribute('role', 'alert');
   err.hidden = true;
   const go = button('stepin-go', 'Step in', '', submit);
-  const hint = el('p', 'sode__hint', 'This tab only. Not saved in this browser.');
-  const dlg = modal('stepin', 'Step in', [hint, picker.root, pin, err], [button('stepin-cancel', 'Cancel', 'pb-btn--outline', close), go], close);
+  const dlg = modal('stepin', 'Step in: this tab only', [picker.root, pin, err], [button('stepin-cancel', 'Cancel', 'pb-btn--outline', close), go], close);
   picker.input.addEventListener('keydown', (e) => {
     // Esc closes the name list, not the popup.
     if (picker.key(e)) {

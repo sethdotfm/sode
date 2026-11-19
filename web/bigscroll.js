@@ -193,7 +193,7 @@ function track(scroller, axis, little, page) {
   let geo = null; // { track, len, travel, max } from the last layout read
   let at = -1;
   let laid = false;
-  let pad = null; // the scroller's own end padding in px, read once while it is drawn
+  let pad = null; // the scroller's own end padding in px, read one time while it is drawn
 
   const view = () => (y ? scroller.clientHeight : scroller.clientWidth);
   const content = () => (y ? scroller.scrollHeight : scroller.scrollWidth);

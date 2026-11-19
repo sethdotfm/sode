@@ -29,8 +29,7 @@ const NAME_MAX = 24;
 const PIN_MIN = 4;
 const GROUP = 127; // the router's last group, which other control systems seldom use
 
-// startAnswers: the wizard's fields from the hello's config, which SODE_* filled. Multi destination
-// and its group take the config's value only when SODE_* set it (setup.env), else the wizard's own.
+// The wizard's fields from the hello's config, which SODE_* filled. Multi destination and its group use the config's value only when SODE_* set it (setup.env).
 export function startAnswers(cfg = {}, setup = {}) {
   const env = setup.env || {};
   return {
@@ -84,13 +83,13 @@ export function restorePinProblem(pin, pin2, max = 8) {
   return '';
 }
 
-// stopAt: the furthest step at or before want that every earlier step lets through.
+// The furthest step at or before want that every earlier step lets through.
 export function stopAt(d, want, max) {
   for (let i = 0; i < want; i++) if (stepProblem(d, i, max)) return i;
   return want;
 }
 
-// chipGoes: a chip moves to a visited step until Finish; after it every step is locked.
+// A chip moves to a visited step until Finish; after it every step is locked.
 export const chipGoes = (i, at, reached, finished) => !finished && i !== at && i <= reached;
 
 export function numberingChoices(n) {
@@ -124,7 +123,7 @@ export function finishMessage(d, id) {
   };
 }
 
-// routerLine: the Router step's status line, or null before an address is typed.
+// The Router step's status line, or null before an address is typed.
 export function routerLine(address, router, names) {
   if (!address.trim()) return null;
   if (router === 'up' && names > 0) return { ok: true, text: 'Connected. Names read.' };

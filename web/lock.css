@@ -1,5 +1,4 @@
-/* Lock screen (lock.js). One class (is-on) grows the brand border so the same transitions run backwards on unlock; the logo's flight is the Web Animations API in lock.js.
-The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames fade slowly. */
+/* The Lock (lock.js). One class (is-on) grows the brand border, so the same transitions run backwards on the way out. The way out is 1.5 times as long (OUT_FACTOR in lockrules.js). */
 
 :root {
   --sode-lock-motion: 700ms;
@@ -23,7 +22,7 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   display: flex;
   flex-direction: column;
   height: 100vh;
-  height: 100dvh; /* the visible height: a phone's address bar doesn't hide the foot */
+  height: 100dvh; /* the visible height: a phone's address bar does not hide the foot */
   inset: 0 0 auto 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -206,12 +205,11 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
 [data-layout="phone"] .sode-lock__who-slot > .pb-btn {
   display: none;
 }
-/* The phone's chip shows only under a lock screen (is-hand); the name is in Settings' Account row otherwise. */
+/* The phone's chip shows only under a Lock (is-hand). At other times the name is in Settings, My user. */
 [data-layout="phone"] .sode-lock__who:not(.is-hand) {
   display: none;
 }
-/* The chip slides inside the border at its rate. It has no background while any lock overlay is up (data-sode-lock, set before and cleared after it shows):
-a grey box rising under the fading overlay looked wrong behind the lock button. */
+/* The chip has no background while a lock overlay is up (data-sode-lock): a grey box under the fading overlay shows behind the lock button. */
 /* `top` also follows the lost-link banner (--sode-down-h), and that must jump, not float. */
 [data-sode-lock] .sode-lock__who {
   transition:
@@ -298,7 +296,7 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   left: calc(var(--pb-space-5) + var(--pb-space-4));
   top: calc(var(--pb-space-5) + var(--pb-space-4) + var(--sode-down-h, 0px));
 }
-/* The chip slides under a stationary pointer, so its button must not take hover (a flickering grey box) while it moves: through the way in (an animation that holds pointer-events off) and the whole way out. */
+/* The chip slides under a pointer that does not move. Its button takes no hover while it moves, or a grey box flickers. */
 [data-sode-lock-on] .sode-lock__who {
   animation: sode-chip-quiet var(--sode-lock-motion) linear;
 }
@@ -459,7 +457,6 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   color: var(--pb-text-muted);
 }
 
-/* API keys: one-time key display, key rows, the rights editor */
 .sode__scrim > .sode__filters.sode__keys-dlg {
   width: min(40rem, calc(100vw - var(--pb-space-8) * 2));
 }

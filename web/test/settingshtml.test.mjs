@@ -1,4 +1,3 @@
-// The Settings sections are in index.html: each topic owns its sections in the page HTML.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -50,7 +49,6 @@ test('each topic holds its sections in order', () => {
     access: ['locks', 'users', 'api', 'panels'],
     server: ['proxy', 'export-import', 'run-setup-again'],
   });
-  // Sections follow their topic's band in the page.
   const order = [...view.matchAll(/data-topic="([^"]+)"/g)].map((m) => m[1]);
   const firsts = [...new Set(order)];
   assert.deepEqual(firsts, ['preferences', 'look-and-feel', 'routers', 'access', 'server']);
@@ -106,8 +104,8 @@ test('no module adds a Settings section of its own', () => {
 });
 
 test('Preferences labels are the PREFS labels', async () => {
-  const { PREFS } = await import('../prefs.js');
+  const { PREFS, PREF_LABELS } = await import('../prefs.js');
   const found = [...html.matchAll(/<label for="([\w-]+)">([^<]+)<\/label>\s*<span class="pb-select-wrap"><select id="\1"[^>]*data-g?pref="(\w+)"/g)];
   assert.equal(found.length, 2 * Object.keys(PREFS).length);
-  for (const [, , text, key] of found) assert.equal(text, PREFS[key].label, key);
+  for (const [, , text, key] of found) assert.equal(text, PREF_LABELS[key], key);
 });

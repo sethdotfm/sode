@@ -96,11 +96,11 @@
           <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div></div>
           <div class="sode__menu-all" id="dst-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div>
         </div>
-        <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to take to" hidden></div>
+        <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations of this plan" hidden></div>
       </div>
       <div class="sode__box sode__box--add">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-pb-tip="Add destination (+, Ctrl+Enter, ⌘Enter)">+</button>
+        <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add destination" data-pb-tip="Add destination (+, Ctrl+Enter, ⌘Enter)">+</button>
       </div>
       <div class="sode__box sode__box--levels">
         <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
@@ -134,16 +134,16 @@
       <div class="sode__recent-tools">
         <div class="sode__search" data-search id="history-search">
           <span class="sode__search-box">
-            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
+            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter History by Source" spellcheck="false" autocomplete="off">
             <ul class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
             <kbd class="sode__key-note" aria-hidden="true">⇧s</kbd>
           </span>
           <span class="sode__search-box">
-            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter History by Destination" spellcheck="false" autocomplete="off">
             <ul class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
             <kbd class="sode__key-note" aria-hidden="true">⇧d</kbd>
           </span>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" disabled>Clear</button>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear disabled>Clear</button>
           <span class="sode__hint" data-search-note aria-live="polite"></span>
         </div>
         <div class="sode__sets-bar">
@@ -181,7 +181,6 @@
     <h3 class="sode__topic" data-topic="preferences" id="topic-preferences">Preferences</h3>
     <fieldset class="sode__group sode__device" data-apart data-section="this-browser" data-topic="preferences">
       <legend>This browser</legend>
-      <span class="sode__hint">Personal choices, saved in this browser only. Anyone can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-theme">Theme</label>
@@ -242,7 +241,7 @@
           <button type="button" class="pb-btn pb-btn--outline" id="account-swap" data-find="account-swap" data-label="Swap" aria-haspopup="dialog" hidden>Swap…</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export &amp; Import" aria-haspopup="dialog">Export &amp; Import…</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Sign out">Sign out</button>
-          <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="lock-btn" data-find="lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-lock"/></svg>Lock the screen</button>
+          <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="lock-btn" data-find="lock-btn" data-label="Lock"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-lock"/></svg>Lock</button>
         </div>
         <p class="sode__hint" id="account-step-note" role="status" hidden></p>
         <div class="sode__broken-count" id="account-broken" hidden></div>
@@ -306,7 +305,6 @@
         <div class="sode__field">
           <label for="cfg-brandborder">Accent Color</label>
           <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"></select></span>
-          <span class="sode__hint">Adds a colored border to all pages, so they are easy to identify.</span>
           <span class="sode__brand-preview" id="brand-preview">
             <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
             <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
@@ -324,14 +322,13 @@
         <span class="sode__hint" id="cfg-hidden-note"></span>
       </div>
       <div class="sode__field" data-find="clear-history" data-label="Clear History">
-        <span>Advanced setting. Clears History for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect the Communication Log.</span>
         <div class="sode__names" id="clear-step1">
           <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
         </div>
         <div class="sode__names" id="clear-step2" hidden>
           <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Keep it</button>
-            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm">Clear all history</button>
+            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Cancel</button>
+            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
           </span>
         </div>
       </div>
@@ -471,9 +468,9 @@
         <div class="sode__field" data-find="lock-pages" data-label="Page locks">
           <span class="sode__label" id="cfg-locks-label" data-pb-tip="Needs a user with a PIN">Page locks</span>
           <div role="group" aria-labelledby="cfg-locks-label">
-            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Lock Main page</span></label>
-            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Lock Communication Log</span></label>
-            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-panel"><span class="pb-check__label">Lock panels</span></label>
+            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Main page</span></label>
+            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Communication Log</span></label>
+            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-panel"><span class="pb-check__label">Panels</span></label>
           </div>
         </div>
         <div class="sode__field">
@@ -486,7 +483,7 @@
         <span class="pb-select-wrap"><select id="cfg-guest-role" class="pb-select" data-key="guestRole"><option value="standard">Standard user</option><option value="trusted">Trusted user</option></select></span>
       </div>
       <div class="sode__field">
-        <button type="button" class="pb-btn pb-btn--outline" id="cfg-apply-preset" data-find="apply-preset" data-label="Apply an access preset" aria-haspopup="dialog" hidden>Apply an access preset…</button>
+        <button type="button" class="pb-btn pb-btn--outline" id="cfg-apply-preset" data-find="apply-preset" data-label="Apply an Access preset" aria-haspopup="dialog" hidden>Apply an Access preset…</button>
       </div>
     </fieldset>
 
@@ -507,7 +504,6 @@
 
     <fieldset class="sode__group" id="api-group" data-section="api" data-topic="access">
       <legend>API</legend>
-      <span class="sode__hint">Keys act with their owner's Rights. 50 keys a user, 200 an API client.</span>
       <div class="sode__field">
         <label class="pb-check" data-pb-tip="No key: Keyless scopes within Guest Rights. Guest role does not apply."><input type="checkbox" class="pb-check__input" id="api-guest"><span class="pb-check__label">Keyless API</span></label>
       </div>
@@ -516,17 +512,15 @@
         <div class="sode__scopes" id="api-scopes" role="group" aria-labelledby="api-scopes-label"></div>
       </div>
       <div class="sode__field">
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>
-        <span class="sode__hint">Off: commands, refusals and key events only.</span>
+        <label class="pb-check" data-pb-tip="Off: commands, refusals and key events only"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>
       </div>
       <div class="sode__field">
         <label for="api-rate" data-pb-tip="0 = off">Rate limit (requests/min per key)</label>
         <span class="pb-number-wrap"><input type="number" id="api-rate" class="pb-input" min="0" max="100000"></span>
       </div>
       <div class="sode__field">
-        <label for="api-cap">Take cap (API takes in flight)</label>
+        <label for="api-cap">API takes in flight (max)</label>
         <span class="pb-number-wrap"><input type="number" id="api-cap" class="pb-input" min="1" max="64"></span>
-        <span class="sode__hint">1-64.</span>
       </div>
     </fieldset>
 
@@ -545,9 +539,8 @@
     <fieldset class="sode__group" data-section="proxy" data-topic="server">
       <legend>Proxy</legend>
       <div class="sode__field">
-        <label for="cfg-proxies">Trusted proxies</label>
+        <label for="cfg-proxies" data-pb-tip="X-Forwarded-For counts only from these">Trusted proxies</label>
         <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="10.0.0.2, 172.18.0.0/16" spellcheck="false">
-        <span class="sode__hint">Client IPs in history come from <code>X-Forwarded-For</code> only through these.</span>
       </div>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-require-https" data-key="requireHttps" data-type="bool"><span class="pb-check__label">Require HTTPS</span></label>
@@ -575,7 +568,7 @@
 
     <div class="sode__savebar">
       <div class="pb-note pb-note--error" id="settings-err" role="alert" hidden></div>
-      <div class="pb-note pb-note--error" id="settings-unsaved" role="alert" hidden>Unsaved changes. Save them, or exit again to discard them.</div>
+      <div class="pb-note pb-note--error" id="settings-unsaved" role="alert" hidden>Unsaved changes</div>
       <div class="sode__savebar-row">
         <button type="button" class="pb-btn pb-btn--outline" id="settings-exit">Exit</button>
         <span class="sode__hint" id="settings-path"></span>
@@ -611,20 +604,20 @@
       <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head">
         <div class="sode__recent-head">
-          <span class="sode__label" id="m-recent-head">History <span class="sode__hint">(swipe left to undo, right to redo)</span></span>
+          <span class="sode__label" id="m-recent-head">History</span>
           <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
         <div class="sode__search" data-search>
           <span class="sode__search-box">
-            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
+            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter History by Source" spellcheck="false" autocomplete="off">
             <ul class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
           </span>
           <span class="sode__search-box">
-            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter History by Destination" spellcheck="false" autocomplete="off">
             <ul class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
           </span>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" disabled>Clear</button>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear disabled>Clear</button>
           <span class="sode__hint" data-search-note aria-live="polite"></span>
         </div>
         <ul class="sode-m__recent-list" id="m-recent-list"></ul>
@@ -650,7 +643,7 @@
         <input id="m-dst" class="pb-input sode-m__input" placeholder="Destination" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <span class="sode-m__actions">
-          <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add another destination" hidden>+</button>
+          <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add destination" hidden>+</button>
           <button type="button" class="pb-btn sode-m__go" id="m-go">Next</button>
         </span>
         <div class="sode-m__ops" id="m-ops" role="group" aria-label="Level words" hidden>
@@ -682,14 +675,14 @@
           <label class="sode__fld"><span class="sode__label">Filter set</span><span class="pb-select-wrap"><select id="flt-set" class="pb-select" aria-label="Filter set"></select></span></label>
         </div>
         <div class="sode__filters-set">
-          <label class="sode__fld"><span class="sode__label">Name</span><input class="pb-input" id="flt-set-cur" maxlength="32" placeholder="Name" aria-label="Name of the set" autocomplete="off"></label>
+          <label class="sode__fld"><span class="sode__label">Name</span><input class="pb-input" id="flt-set-cur" maxlength="32" placeholder="Name" aria-label="Filter set name" autocomplete="off"></label>
           <label class="sode__fld sode__filters-scope"><span class="sode__label">Save for</span><span class="pb-select-wrap"><select class="pb-select" id="flt-set-cur-scope" aria-label="Save for"></select></span></label>
           <button type="button" class="pb-btn pb-btn--outline" id="flt-set-saveas">Save as…</button>
           <button type="button" class="pb-btn pb-btn--outline" id="flt-set-del">Delete</button>
           <button type="button" class="pb-btn pb-btn--outline" id="flt-set-send" hidden>Send a copy…</button>
         </div>
         <div class="sode__filters-set" id="flt-set-name-row" hidden>
-          <label class="sode__fld"><span class="sode__label">Name of the copy</span><input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name" aria-label="Set name" autocomplete="off"></label>
+          <label class="sode__fld"><span class="sode__label">Name of the copy</span><input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name" aria-label="Filter set name" autocomplete="off"></label>
           <label class="sode__fld sode__filters-scope" id="flt-set-scope-wrap"><span class="sode__label">Save the copy for</span><span class="pb-select-wrap"><select class="pb-select" id="flt-set-scope" aria-label="Save for"><option value="local">This browser</option><option value="global">Everyone</option></select></span></label>
           <button type="button" class="pb-btn pb-btn--commit" id="flt-set-name-ok">Save</button>
           <button type="button" class="pb-btn pb-btn--ghost" id="flt-set-name-cancel">Cancel</button>
@@ -730,37 +723,37 @@
         <dt><kbd>+</kbd> <kbd data-mac="⌘Enter">Ctrl+Enter</kbd> <kbd data-mac="⌃Enter" hidden></kbd></dt><dd>Add destination</dd>
         <dt><kbd data-mac="⌘click">Ctrl+click</kbd> <kbd data-mac="⌃click" hidden></kbd></dt><dd>Add a destination from History or the match list</dd>
         <dt><kbd data-mac="⌃s">Ctrl+s</kbd> <kbd data-mac="⌃d">Ctrl+d</kbd> <kbd data-mac="⌃f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
-        <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Last take's source, destination, the next one (repeat for more)</dd>
+        <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Next source, destination</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
-        <dt><kbd>Esc</kbd></dt><dd>Close the match list; clear a box; with all empty, keyboard mode (not in Compact view)</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Close the match list, then clear the box, then Keyboard mode</dd>
       </dl>
       <div class="sode__label">Match lists (Source, Destination)</div>
       <dl>
-        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move through the list; it opens with every item when you enter a box</dd>
-        <dt><kbd>Enter</kbd> <kbd>Tab</kbd></dt><dd>Pick the highlighted match (after typing or moving)</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move through the list</dd>
+        <dt><kbd>Enter</kbd> <kbd>Tab</kbd></dt><dd>Pick the highlighted match</dd>
         <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>A page at a time</dd>
       </dl>
       <div class="sode__label">Presets</div>
       <dl>
-        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Fire the first nine pinned presets (hold Option or Alt to see the keys on the buttons)</dd>
-        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the patch boxes from one of them, without a take (like Shift+click)</dd>
-        <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Open the Presets popup (every preset, searchable)</dd>
-        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the patch boxes from a preset, without a take (a preset of several takes fills its first)</dd>
-        <dt><kbd>p</kbd></dt><dd>In keyboard mode: the pinned presets (← → to move, Enter fires, Esc back)</dd>
+        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Fire pinned preset 1 to 9</dd>
+        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the Patch boxes, no take</dd>
+        <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Presets popup</dd>
+        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the Patch boxes, no take</dd>
+        <dt><kbd>p</kbd></dt><dd>In Keyboard mode: the pinned presets (← → to move, Enter fires, Esc back)</dd>
       </dl>
       <div class="sode__label">Presets popup</div>
       <dl>
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move</dd>
-        <dt><kbd>Enter</kbd></dt><dd>Fire (opens the usual confirm)</dd>
-        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the patch boxes instead, without a take</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Fire</dd>
+        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the Patch boxes, no take</dd>
         <dt><kbd data-mac="⌥p">Alt+p</kbd></dt><dd>Pin or unpin</dd>
         <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd> <kbd data-mac="⌥⌘j">Ctrl+Alt+j</kbd> <kbd data-mac="⌥⌘k">Ctrl+Alt+k</kbd></dt><dd>Move a pinned preset up or down</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>
       </dl>
       <div class="sode__label">Keyboard mode (History)</div>
       <dl>
-        <dt><kbd>Esc</kbd></dt><dd>Start it: with the boxes empty (or on a button in History); a click leaves</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Start, from empty Patch boxes. A click ends it</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source, Destination, Levels</dd>
         <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous (<kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> work too)</dd>
         <dt><kbd>⇧j</kbd> <kbd>⇧↓</kbd></dt><dd>Next group</dd>
@@ -777,17 +770,17 @@
       </dl>
       <div class="sode__label">Add from Patch Boxes (in the preset editor)</div>
       <dl>
-        <dt><kbd>Enter</kbd></dt><dd>Add the patch in the boxes as a row; Done returns</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Add the plan as a row</dd>
       </dl>
       <div class="sode__label">Settings</div>
       <dl>
-        <dt><kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move through the search results when the search box has some, otherwise step between sections</dd>
+        <dt><kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Next, previous search result or section</dd>
       </dl>
       <div class="sode__label">Anywhere</div>
       <dl>
         <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings</dd>
-        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock the screen</dd>
-        <dt><kbd data-mac="⌥⇧c">Alt+Shift+c</kbd></dt><dd>Compact view on or off: History hidden, the rest centred (This browser)</dd>
+        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock</dd>
+        <dt><kbd data-mac="⌥⇧c">Alt+Shift+c</kbd></dt><dd>Compact view on or off</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
       </dl>
     </div>
@@ -802,7 +795,7 @@
     <div class="sode-m__sheet-body sode__confirm" id="m-sheet-body"></div>
     <div class="sode__slide sode__slide--locked" id="m-slide">
       <span class="sode__slide-label" id="m-slide-label">Slide to take</span>
-      <div class="sode__slide-handle" id="m-slide-handle" role="slider" tabindex="0" aria-label="Slide to confirm" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">→</div>
+      <div class="sode__slide-handle" id="m-slide-handle" role="slider" tabindex="0" aria-label="Slide to take" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">→</div>
     </div>
     <button type="button" class="pb-btn pb-btn--outline pb-btn--block" id="m-sheet-cancel">Cancel</button>
   </div>
