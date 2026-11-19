@@ -404,6 +404,7 @@ type inMsg struct {
 	asRole       string             // Request approval: the requester's Role when sent (approvalrequest.go)
 	Inbox        *inboxReq          `json:"inbox"` // the inbox messages (inboxsend.go)
 	Swap         *swapReq           `json:"swap"`  // swapList, swapMine (swap.go)
+	Mine         bool               `json:"mine"`  // brokenCount: only the user's own items
 }
 
 func plural(n int, one, many string) string {

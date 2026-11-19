@@ -119,7 +119,7 @@ test('a Broken part is left out though its number is still shown', async () => {
     plan.items.map((it) => [it.groups[0].src.n, it.dst.n]),
     [[1, 2]],
   );
-  assert.equal(plan.warnings.length, 1);
+  assert.equal(plan.warnings.length, 0, 'the Broken banner names it, not the confirm');
   assert.equal(m.presetPlan(m.normPreset(sv('Studio')), [1]).items.length, 1);
 });
 

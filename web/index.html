@@ -123,6 +123,8 @@
     </form>
 
     <div class="sode__result" id="result" aria-live="polite"></div>
+    <!-- The Broken banner (brokenbanner.js). The phone view has its own copy. -->
+    <div class="pb-alert pb-alert--warn sode__broken" data-broken role="status" hidden></div>
 
     <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
 
@@ -244,6 +246,8 @@
           <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="lock-btn" data-find="lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-lock"/></svg>Lock the screen</button>
         </div>
         <p class="sode__hint" id="account-step-note" role="status" hidden></p>
+        <!-- My own Broken and Name moved count (brokencount.js). -->
+        <div class="sode__broken-count" id="account-broken" hidden></div>
       </div>
     </fieldset>
 
@@ -633,6 +637,7 @@
       <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
     </div>
     <div class="sode-m__result" id="m-result" aria-live="polite"></div>
+    <div class="pb-alert pb-alert--warn sode__broken" data-broken role="status" hidden></div>
 
     <div class="sode-m__stage">
     <div class="sode-m__thread" id="m-thread">

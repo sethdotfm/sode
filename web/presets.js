@@ -14,6 +14,8 @@ import { itemLinkBox } from './itemlinkview.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
 import { carryNames } from './presetref.js';
+import { statusBadge, presetStatus } from './brokenview.js';
+import { STATUS_TEXT } from './brokenrules.js';
 import {
   allPresets,
   presetsIn,
@@ -51,11 +53,18 @@ export function fire(scope, name) {
   if (!s || !host) return;
   if (!S.srcBy.size) return showResult('warn', 'Preset not sent', 'The router’s names have not loaded yet.');
   const plan = presetPlan(s, parseLevels('') || []);
+  emit('itemUsed', { kind: 'preset', scope: s.scope, id: s.id, name: s.name });
   if (!plan.items.length) {
     return showResult('error', `Preset ${s.name} not sent`, plan.warnings.length ? plan.warnings.join('; ') + '.' : 'It has no takes.');
   }
   host.confirm(plan);
 }
+
+// An option holds text only, so the status is words.
+const statusSuffix = (s) => {
+  const st = presetStatus(s).status;
+  return st ? `, ${STATUS_TEXT[st]}` : '';
+};
 
 const phone = () => document.documentElement.dataset.pbLayout === 'phone';
 const askPopup = () => emit('presetPopup');
@@ -88,6 +97,8 @@ function renderStrips() {
     edit.addEventListener('click', () => openPresets());
     const chips = list.map((s, i) => {
       const b = el('button', 'pb-chip sode__set', s.name);
+      const badge = statusBadge(presetStatus(s).status);
+      if (badge) b.append(badge);
       // Alt+1-9 fire the first nine: the key slides in over the chip while Option is held.
       if (i < 9) {
         const k = `${mac ? '⌥' : 'Alt+'}${i + 1}`;
@@ -428,7 +439,10 @@ function focusLast() {
 
 // keep: what is being typed (the name) stays as it is.
 function renderHead(keep = false) {
-  pick.replaceChildren(new Option('New preset…', ''), ...allPresets().map((s) => new Option(`${s.name} (${scopeLabel(s.scope)})`, `${s.scope}:${s.name}`)));
+  pick.replaceChildren(
+    new Option('New preset…', ''),
+    ...allPresets().map((s) => new Option(`${s.name} (${scopeLabel(s.scope)})${statusSuffix(s)}`, `${s.scope}:${s.name}`)),
+  );
   pick.value = cur.old ? `${cur.from}:${cur.old}` : '';
   if (!keep) nameIn.value = cur.name;
   scopeIn.replaceChildren(...scopeOpts());
@@ -718,6 +732,9 @@ on('locking', () => {
   discard = true;
   closePresets();
 });
+
+// The Broken banner's and the Broken lists' Edit.
+on('editPresetAt', (m) => openPresets(m.scope, m.name));
 
 on('openPresetEditor', (m) => {
   const t = editTarget(m, 'presets');

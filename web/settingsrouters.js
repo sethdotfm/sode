@@ -6,8 +6,10 @@ import { $, S, el, emit, on } from './core.js';
 let admin = false;
 on('access', (a) => {
   admin = a.role === 'administrator';
-  const b = $('router-1-swap');
-  if (b) b.hidden = !admin;
+  for (const id of ['router-1-swap', 'router-1-broken']) {
+    const b = $(id);
+    if (b) b.hidden = !admin;
+  }
 });
 
 export const routerTitle = () => S.cfg?.routerName?.trim() || 'Router';
@@ -27,5 +29,9 @@ export function fillRouters(onPick) {
   swap.setAttribute('aria-haspopup', 'dialog');
   swap.hidden = !admin;
   swap.addEventListener('click', () => emit('openSwap', { mine: false }));
-  $('routers-list').replaceChildren(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), swap));
+  // The Broken and Name moved count (brokencount.js), Administrator only since it covers everyone's items.
+  const broken = el('div', 'sode__broken-count');
+  broken.id = 'router-1-broken';
+  broken.hidden = !admin;
+  $('routers-list').replaceChildren(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), swap, broken));
 }

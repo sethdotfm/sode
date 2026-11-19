@@ -4,6 +4,7 @@ import { el, icon } from './core.js';
 import { artOf, artBOf, artBBadge, cellScale, textHidden } from './panellook.js';
 import { currentLabel, nameCellText, presetKey, presetName, SHOW_KINDS } from './panelrules.js';
 import { PAGE_KINDS, pageCellText } from './pagecells.js';
+import { cellStatus, STATUS_TEXT } from './brokenrules.js';
 import {
   sourceState,
   destinationState,
@@ -70,10 +71,21 @@ export function artImage(cls, art, id, lib) {
 // Replaces a cell's children apart from its artwork, and only when they differ from the last paint. So the one-second
 // redraw does not touch an idle cell.
 function fill(b, ...kids) {
-  const now = [...b.childNodes].filter((n) => n !== b._art);
+  const now = [...b.childNodes].filter((n) => n !== b._art && n !== b._status);
   if (now.length === kids.length && now.every((n, i) => n.isEqualNode(kids[i]))) return;
   for (const n of now) n.remove();
   b.append(...kids);
+}
+
+// A Broken or Name moved cell's status: an icon only, as panel pages show status (docs/panels-design.md). No banner.
+function statusIcon(status) {
+  if (!status) return null;
+  const i = icon(status === 'broken' ? 'unlink' : 'arrow-right-left');
+  i.classList.add('sode-panel__status-mark');
+  i.setAttribute('role', 'img');
+  i.setAttribute('aria-label', STATUS_TEXT[status]);
+  i.dataset.status = status;
+  return i;
 }
 
 // hold is { down(cell), cancel() } for a Take cell with a hold guard: pointer or Enter and Space start it, and a leave ends it.
@@ -90,6 +102,8 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
     if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
     b._art = artNode(cell, art);
     if (b._art) b.append(b._art);
+    b._status = statusIcon(cellStatus(panel, cell));
+    if (b._status) b.append(b._status);
     if (textHidden(cell)) b.dataset.hideText = '1';
     b.style.gridArea = `${cell.r} / ${cell.c} / span ${cell.rs} / span ${cell.cs}`;
     b.addEventListener('click', () => onPress(cell));

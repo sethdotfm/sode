@@ -1,0 +1,5 @@
+- Firing a Broken preset or turning on a Broken filter set shows a banner on the Main page. It names each part that was left out and why. An Administrator gets Swap… and the owner gets Edit. The banner shows each item one time and stays until you dismiss it or fix the item. It replaces the "left out" lines in the confirm. A Name moved item fires with no banner.
+- Settings > Routers shows "N Broken, M Name moved" for everyone's items (Administrator), and My user shows the count for your own items. Press the count to list the items, each with Swap… or Edit.
+- The preset popup, the preset chips, the filter sets and the panels list show Broken or Name moved beside an item, with an icon. A panel cell whose source or destination is Broken or Name moved shows the icon.
+- In the Filters dialog, a Broken term of the active filter set gets a Replace term row. When a name read saw the new name, the box already holds it.
+- This browser's presets and filter sets get the same check against the names the page has. Presets can show Name moved. A filter set is Broken when an exact term matches no name.

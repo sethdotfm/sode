@@ -457,3 +457,22 @@ func TestImportBrokenSurvivesASave(t *testing.T) {
 		t.Fatalf("the Broken source fired: %+v", plan.Items)
 	}
 }
+
+// A Broken exact term carries the name that took its place, so Replace term in the filter editor can offer it.
+func TestBrokenFilterTermNamesTheNewName(t *testing.T) {
+	a := brokenApp(t)
+	a.cfgMu.Lock()
+	a.commit(func(c *config.Config) error {
+		c.FilterSets = []config.FilterSet{{Name: "Exact", Src: `"CAM 3"`, Sode: true}}
+		return nil
+	}, nil)
+	a.cfgMu.Unlock()
+	srcs := with(checkSrcs, 2, "CAM C")
+	readNames(a, srcs, checkDsts)
+	readNames(a, srcs, checkDsts)
+	readNames(a, srcs, checkDsts)
+	b := a.r().cfg.FilterSets[0].Broken
+	if len(b) != 1 || b[0].Now != "CAM C" {
+		t.Fatalf("Broken = %+v, want one mark naming CAM C", b)
+	}
+}

@@ -19,6 +19,7 @@ import './panelwatch.js';
 import './inboxdialog.js';
 import './noadmin.js';
 import './notsaved.js';
+import './brokenbanner.js';
 import './setupwizard.js';
 import { bigScrollAll } from './bigscroll.js';
 import { showApprovalCards } from './approvalcards.js';

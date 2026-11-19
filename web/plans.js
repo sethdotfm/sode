@@ -82,11 +82,14 @@ export function presetPlan(preset, defaults) {
     },
     defaults,
   );
-  const warnings = r.missing.map(
-    (m) =>
-      (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) +
-      ' on the router now',
-  );
+  // A marked part is named by the Broken banner (brokenbanner.js), which stays until dismissed or fixed.
+  const warnings = r.missing
+    .filter((m) => !marked(m.kind, m.n))
+    .map(
+      (m) =>
+        (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) +
+        ' on the router now',
+    );
   return {
     verb: 'preset',
     preset: preset.name,
