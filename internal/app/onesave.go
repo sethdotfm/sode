@@ -268,6 +268,8 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 		r := fieldResult{Status: "saved", Version: fieldVersion(now, key)}
 		if f, _ := lookupField(key); f.adds {
 			r.Value, r.Version = addedResult(now, key, x), ""
+		} else if f.action {
+			r.Version = ""
 		}
 		res[key] = r
 	}
@@ -277,7 +279,11 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 	if slices.Contains(keep, "requireHttps") {
 		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
 	}
-	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
+	saved := a.savedFields(live, now, keep, x)
+	if slices.Contains(keep, swapKey) {
+		saved = append(saved, a.swapPanelsAfter(x, edits, now))
+	}
+	a.recordSaveApproved(connActor(c), "save", saved, len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
 		presetOfSave(preset, keep))
 	a.auditAPISettings(connActor(c), live, now)
 	a.panelsFollowUsers(live.Users, now.Users)
@@ -322,6 +328,18 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	}
 	plan := &savePlan{live: live, actor: actor, res: make(map[string]fieldResult, len(edits)), edits: edits, x: &saveCtx{}}
 	res, x, refuse := plan.res, plan.x, plan.refuse
+	if e, ok := edits[swapKey]; ok {
+		req, err := decodeJSON[swapReq](e.Value)
+		if err == nil {
+			x.swap, err = a.newSwapper(live, req)
+		}
+		if err != nil {
+			refuse(swapKey, reasonInvalid, err)
+			edits = maps.Clone(edits)
+			delete(edits, swapKey)
+			plan.edits = edits
+		}
+	}
 	// First the checks that need no other field: section, unchanged, conflict.
 	var cands []string
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
@@ -352,11 +370,11 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 			}
 		}
 		one.Normalize()
-		if !f.adds && string(fieldJSON(one, key)) == string(fieldJSON(live, key)) {
+		if !f.adds && !f.action && string(fieldJSON(one, key)) == string(fieldJSON(live, key)) {
 			res[key] = fieldResult{Status: "unchanged"}
 			continue
 		}
-		if !f.adds && e.Version != fieldVersion(live, key) {
+		if !f.adds && !f.action && e.Version != fieldVersion(live, key) {
 			r := fieldResult{Status: "refused", Reason: reasonConflict, Err: "someone else saved this after you opened Settings",
 				Version: fieldVersion(live, key)}
 			if !f.secret {
