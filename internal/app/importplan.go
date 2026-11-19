@@ -48,6 +48,7 @@ type importItem struct {
 	As     string           `json:"as,omitempty"`   // the name it imports as, when not Name
 	Broken []config.Missing `json:"broken,omitempty"`
 	Note   string           `json:"note,omitempty"`
+	Kind   string           `json:"kind,omitempty"` // panels: panel, template, checkpointSet; artwork: icon, default
 	// Refused: why this item alone is not imported; the others of its category are.
 	Refused string `json:"refused,omitempty"`
 	Size    int    `json:"size,omitempty"` // bytes of the file item before compression, images included
@@ -68,8 +69,6 @@ type importPlan struct {
 	SameInstall bool                  `json:"sameInstall"`
 	Critical    bool                  `json:"critical"`
 	Categories  map[string]*importCat `json:"categories"`
-	// Deferred: parts of the file this release does not import yet.
-	Deferred []string `json:"deferred,omitempty"`
 }
 
 // plannedPanel is a panel write that waits for the config commit. Live is the panel it replaces, if any.
@@ -77,6 +76,7 @@ type plannedPanel struct {
 	P      Panel
 	FileID string
 	Live   *Panel
+	Cps    []panelCheckpoint // the file's Push checkpoints, added to the panel's
 }
 
 // refCheck checks references against the live router's names. With no names read yet a source or
@@ -155,7 +155,20 @@ type importPlanner struct {
 	livePanels []Panel
 	users      map[string]string // file user id → live id, "" when skipped
 	presets    map[string]string // file preset id → live id, "" when skipped
+	icons      map[string]string // file icon id → live id, "" when skipped
+	panelIDs   map[string]string // file panel id → live id; a new panel's is added when it is stored
 	panels     []plannedPanel
+
+	liveTemplates  []Template
+	liveSets       []PanelSet
+	liveIcons      []LibIcon
+	liveDefaults   []ArtDefault
+	liveIconFile   func(id string) ([]byte, LibIcon, bool)
+	iconWrites     []plannedIcon
+	defaultWrites  []plannedDefault
+	templateWrites []plannedTemplate
+	setWrites      []plannedSet
+
 	written    []string // config keys the commit takes from next
 	pending    []string // keys the step being planned adds to written when its category is accepted
 	overwrites []string // the names of the items Use new writes over: they make the import Critical
@@ -163,12 +176,17 @@ type importPlanner struct {
 }
 
 // planImport plans b onto live. src, dst are the live router's names; livePanels the panel store's list.
-func planImport(live config.Config, src, dst map[int]string, livePanels []Panel, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
+func planImport(live config.Config, src, dst map[int]string, lv importLive, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
 	p := &importPlanner{
 		live: live, next: live.Clone(), b: b, req: req, actor: actor, secure: secure,
 		same:       b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID,
 		check:      &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
-		livePanels: livePanels, users: map[string]string{}, presets: map[string]string{},
+		livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{},
+		icons: map[string]string{}, panelIDs: map[string]string{},
+		liveTemplates: lv.Templates, liveSets: lv.Sets, liveIcons: lv.Icons, liveDefaults: lv.Defaults, liveIconFile: lv.IconFile,
+	}
+	if p.liveIconFile == nil {
+		p.liveIconFile = func(string) ([]byte, LibIcon, bool) { return nil, LibIcon{}, false }
 	}
 	p.plan = importPlan{SameInstall: p.same, Categories: map[string]*importCat{}}
 	steps := []struct {
@@ -182,7 +200,9 @@ func planImport(live config.Config, src, dst map[int]string, livePanels []Panel,
 		{catPresets, []string{"presets"}, p.planPresets},
 		{catFilterSets, []string{"filterSets"}, p.planFilterSets},
 		{catAPIClients, []string{"apiClients"}, p.planAPIClients},
-		{catPanels, nil, p.planPanels},
+		{catArtwork, nil, p.planArtwork},
+		{catPanels, nil, p.planPanelsAll},
+		{catBrowser, nil, p.planBrowser},
 	}
 	for _, s := range steps {
 		if !p.wanted(s.cat) {
@@ -196,7 +216,7 @@ func planImport(live config.Config, src, dst map[int]string, livePanels []Panel,
 		if err == nil && p.check.waited {
 			err = errors.New("the router names are not read yet; import this after Sode reads them")
 		}
-		if err == nil && s.cat != catPanels {
+		if err == nil && !slices.Contains([]string{catPanels, catArtwork, catBrowser}, s.cat) { // kept outside the config
 			cand.Normalize()
 			err = validateSave(p.live, cand)
 		}
@@ -223,19 +243,6 @@ func planImport(live config.Config, src, dst map[int]string, livePanels []Panel,
 	}
 	slices.Sort(p.overwrites)
 	p.plan.Critical = len(p.overwrites) > 0
-	for _, d := range []struct {
-		on   bool
-		what string
-	}{
-		{p.wanted(catPanels) && len(b.Panels.Templates) > 0, "templates"},
-		{p.wanted(catPanels) && len(b.Panels.CheckpointSets) > 0, "Checkpoint sets"},
-		{p.wanted(catPanels) && len(b.Panels.Checkpoints) > 0, "Push checkpoints"},
-		{p.wanted(catArtwork), "Artwork"},
-	} {
-		if d.on {
-			p.plan.Deferred = append(p.plan.Deferred, d.what)
-		}
-	}
 	return p
 }
 
@@ -246,8 +253,10 @@ func (p *importPlanner) refused(cat string) {
 		p.users = map[string]string{}
 	case catPresets:
 		p.presets = map[string]string{}
+	case catArtwork:
+		p.icons, p.iconWrites, p.defaultWrites = map[string]string{}, nil, nil
 	case catPanels:
-		p.panels = nil
+		p.panels, p.templateWrites, p.setWrites = nil, nil, nil
 	}
 }
 
@@ -612,10 +621,13 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		}
 		fileID := fp.ID
 		fp.Owner = p.ownerFor(*cand, fp.Owner, false)
+		fp.Pages = p.relibPages(fp.Pages)
+		fp.Sources, fp.Destinations = p.relibEdge(fp.Sources), p.relibEdge(fp.Destinations)
 		fp.Broken = p.panelBroken(&fp, *cand)
 		fp.Rev, fp.Client = 0, ""
 		fp.Share.Users = p.shareNames(*cand, fp.Share.Users)
-		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken}
+		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken, Kind: kindPanel}
+		cps := p.planCheckpoints(fileID)
 		if err := validatePanel(&fp); err != nil {
 			it.Refused = err.Error()
 		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
@@ -632,6 +644,7 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			it.Clash = lp.Name
 			if sameYAML(fp, lp) {
 				it.Same = true
+				p.panelIDs[fileID] = lp.ID
 				cat.Items = append(cat.Items, it)
 				continue
 			}
@@ -639,7 +652,10 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			switch it.Choice {
 			case useNew:
 				fp.Rev = lp.Rev + 1
-				p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Live: &lp})
+				p.panelIDs[fileID] = lp.ID
+				p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Live: &lp, Cps: cps})
+			case useCurrent:
+				p.panelIDs[fileID] = lp.ID
 			case useRename:
 				fp.Name = nextName(fp.Name, func(n string) bool {
 					return slices.ContainsFunc(p.livePanels, func(x Panel) bool { return strings.EqualFold(x.Name, n) })
@@ -652,6 +668,9 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			}
 		}
 		fp.Rev = 0
+		if it.Choice == useRename || slices.ContainsFunc(p.livePanels, func(x Panel) bool { return x.ID == fp.ID }) {
+			fp.ID = "" // createAs keeps a free id, so a link to this panel still opens it
+		}
 		if slices.ContainsFunc(p.livePanels, func(x Panel) bool { return fp.Slug != "" && x.Slug == fp.Slug }) {
 			fp.Slug = ""
 		}
@@ -659,7 +678,7 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 			it.Note = "needs a new key link"
 		}
 		adds++
-		p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID})
+		p.panels = append(p.panels, plannedPanel{P: fp, FileID: fileID, Cps: cps})
 		cat.Items = append(cat.Items, it)
 	}
 	if len(p.livePanels)+adds > panelMax {

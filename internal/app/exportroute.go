@@ -99,6 +99,8 @@ type importCheck struct {
 	Counts      map[string]int `json:"counts"`
 	Unknown     []string       `json:"unknown"`
 	Plan        importPlan     `json:"plan"`
+	// Browser: the file's This browser values, which the page applies itself after the import.
+	Browser map[string]any `json:"browser,omitempty"`
 }
 
 // stagesDir is beside the config, so a large file stays on the data volume; a memory-only Sode uses the
@@ -139,9 +141,9 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	m := bundle.Manifest
 	src, dst := a.liveNames()
-	plan := planImport(a.r().cfg, src, dst, a.panels.list(), bundle, req, a.importActor(r).User, secureRequest(r, a.r().proxies)).plan
+	plan := planImport(a.r().cfg, src, dst, a.importLive(), bundle, req, a.importActor(r).User, secureRequest(r, a.r().proxies)).plan
 	sizeImport(&plan, bundle)
-	apiJSON(w, importCheck{Plan: plan,
+	apiJSON(w, importCheck{Plan: plan, Browser: bundle.Browser,
 		Format: m.Format, Sode: m.Sode, SameInstall: m.Install != "" && m.Install == a.r().cfg.InstallUID,
 		Categories: m.Categories, Routers: m.Routers, Unknown: bundle.Unknown,
 		Counts: map[string]int{
@@ -196,6 +198,31 @@ func sizeImport(plan *importPlan, b *exportBundle) {
 			}
 		}
 		put(catPanels, p.ID, p, art)
+	}
+	for _, t := range b.Panels.Templates {
+		put(catPanels, t.ID, t, 0)
+	}
+	for _, s := range b.Panels.CheckpointSets {
+		put(catPanels, s.ID, s, 0)
+	}
+	fileSize := func(name string) int {
+		if fi, err := os.Stat(b.Art[name]); err == nil && b.Art[name] != "" {
+			return int(fi.Size())
+		}
+		return 0
+	}
+	for _, ic := range b.Artwork.Icons {
+		put(catArtwork, ic.ID, ic, fileSize("art/icons/"+ic.fileName()))
+	}
+	types := map[string]string{}
+	for _, im := range b.Artwork.DefaultImages {
+		types[im.ID] = im.Type
+	}
+	for _, d := range b.Artwork.Defaults {
+		put(catArtwork, d.key(), d, fileSize("art/defaults/"+d.Art+"."+artExt[types[d.Art]]))
+	}
+	if b.Browser != nil {
+		put(catBrowser, catBrowser, b.Browser, 0)
 	}
 	for cat, c := range plan.Categories {
 		for i := range c.Items {
