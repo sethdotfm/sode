@@ -35,7 +35,10 @@ const (
 	monForget    = 24 * time.Hour   // a lost instance is dropped so a retired tablet stops showing
 	monDevices   = 100              // per panel
 	monDeviceMax = 40
-	watchFile    = "panelwatch.yaml"
+	// A Public key is anyone's, so it must not fill monDevices for the panel's real instances.
+	monPublicPerKey = 4
+	monPublicMax    = monDevices / 2
+	watchFile       = "panelwatch.yaml"
 )
 
 var errMonCap = errors.New("too many devices on this panel")
@@ -52,6 +55,7 @@ func init() {
 
 type monInst struct {
 	device   string
+	pubKey   string    // the Public key that named it; "" for any other caller
 	seen     time.Time // the last keepalive, stream open or stream close
 	lost     bool      // a lost notice went out
 	streamed bool      // it held a stream and no keepalive has come since the last one closed
@@ -374,12 +378,13 @@ func (m *panelMon) online(id string) bool {
 	return m.onlineLocked(id, m.now())
 }
 
-func (m *panelMon) liveCount(id string) int {
+// Instances a Public key named are left out with keyedOnly: each Public page has its own key and rate.
+func (m *panelMon) liveCount(id string, keyedOnly bool) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now, n := m.now(), 0
 	for _, in := range m.inst[id] {
-		if in.live(now) {
+		if in.live(now) && (!keyedOnly || in.pubKey == "") {
 			n++
 		}
 	}
@@ -422,10 +427,10 @@ func (m *panelMon) instances(id string) []instOut {
 	return out
 }
 
-func (m *panelMon) beat(id, device string) (*monEvent, error) {
+func (m *panelMon) beat(id, device, pubKey string) (*monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	in, ev, err := m.touchLocked(id, device)
+	in, ev, err := m.touchLocked(id, device, pubKey)
 	if err == nil && len(in.conns) == 0 {
 		// A page alive without its stream falls back to the keepalive timing instead of flapping.
 		in.streamed = false
@@ -434,10 +439,10 @@ func (m *panelMon) beat(id, device string) (*monEvent, error) {
 }
 
 // The returned func drops the stream.
-func (m *panelMon) openStream(id, device string, who streamWho, cancel context.CancelFunc) (func(), <-chan lastLine, *monEvent, error) {
+func (m *panelMon) openStream(id, device, pubKey string, who streamWho, cancel context.CancelFunc) (func(), <-chan lastLine, *monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	in, ev, err := m.touchLocked(id, device)
+	in, ev, err := m.touchLocked(id, device, pubKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -465,7 +470,7 @@ func (m *panelMon) openStream(id, device string, who streamWho, cancel context.C
 }
 
 // A device that was lost yields "back".
-func (m *panelMon) touchLocked(id, device string) (*monInst, *monEvent, error) {
+func (m *panelMon) touchLocked(id, device, pubKey string) (*monInst, *monEvent, error) {
 	now := m.now()
 	k := strings.ToLower(device)
 	set := m.inst[id]
@@ -478,7 +483,21 @@ func (m *panelMon) touchLocked(id, device string) (*monInst, *monEvent, error) {
 		if len(set) >= monDevices {
 			return nil, nil, errMonCap
 		}
-		in = &monInst{}
+		if pubKey != "" {
+			all, mine := 0, 0
+			for _, x := range set {
+				if x.pubKey != "" {
+					all++
+				}
+				if x.pubKey == pubKey {
+					mine++
+				}
+			}
+			if all >= monPublicMax || mine >= monPublicPerKey {
+				return nil, nil, errMonCap
+			}
+		}
+		in = &monInst{pubKey: pubKey}
 		set[k] = in
 	}
 	was, lost := in.seen, in.lost
@@ -758,7 +777,7 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	done, out, ev, err := a.mon.openStream(p.ID, device, streamWhoOf(cl), cancel)
+	done, out, ev, err := a.mon.openStream(p.ID, device, publicKeyID(cl), streamWhoOf(cl), cancel)
 	if err != nil {
 		apiFail(w, http.StatusConflict, "conflict", err.Error())
 		return
@@ -830,6 +849,13 @@ func (a *App) streamKeyLive(cl *apiCtx) bool {
 	return a.resolveKey(cfg, *cl.Key, cl.IP) != nil
 }
 
+func publicKeyID(cl *apiCtx) string {
+	if cl.Key != nil && cl.Key.public {
+		return cl.Key.ID
+	}
+	return ""
+}
+
 func streamWhoOf(cl *apiCtx) streamWho {
 	switch cl.Actor.Kind {
 	case actorClient:
@@ -874,7 +900,7 @@ func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiC
 	if !ok {
 		return
 	}
-	ev, err := a.mon.beat(p.ID, device)
+	ev, err := a.mon.beat(p.ID, device, publicKeyID(cl))
 	if err != nil {
 		apiFail(w, http.StatusConflict, "conflict", err.Error())
 		return

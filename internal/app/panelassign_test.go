@@ -228,7 +228,7 @@ func TestAssignFailsAndDropsTheKeyWhenNoStreamWroteTheLine(t *testing.T) {
 }
 
 func openTestStream(a *App, from string, cancel context.CancelFunc) (string, func(), <-chan lastLine) {
-	done, out, _, err := a.mon.openStream(from, "Lobby", streamWho{addr: "192.0.2.7", signIn: "client"}, cancel)
+	done, out, _, err := a.mon.openStream(from, "Lobby", "", streamWho{addr: "192.0.2.7", signIn: "client"}, cancel)
 	if err != nil {
 		panic(err)
 	}

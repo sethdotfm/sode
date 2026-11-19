@@ -199,10 +199,10 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 
 // A panel client's live devices share one key, and each polls the router every 2 s.
 func (a *App) rateLimitFor(limit int, cl *apiCtx) int {
-	if limit <= 0 || cl.Panel == "" {
+	if limit <= 0 || cl.Panel == "" || publicKeyID(cl) != "" {
 		return limit
 	}
-	return limit * max(1, a.mon.liveCount(cl.Panel))
+	return limit * max(1, a.mon.liveCount(cl.Panel, true))
 }
 
 func apiRetry(w http.ResponseWriter, wait time.Duration, msg string) {

@@ -71,7 +71,7 @@ func (a *App) publicStops(live, next config.Config) []interruption {
 		name := cmp.Or(p.Name, p.ID)
 		out = append(out, interruption{Panels: 1, Ends: true, Text: fmt.Sprintf(
 			"Public panel %s stops: %s %s it open now.",
-			name, howMany(a.mon.liveCount(p.ID), "tablet", "tablets"), plural(a.mon.liveCount(p.ID), "has", "have"))})
+			name, howMany(a.mon.liveCount(p.ID, false), "tablet", "tablets"), plural(a.mon.liveCount(p.ID, false), "has", "have"))})
 	}
 	return out
 }

@@ -87,7 +87,7 @@ func TestPanelKeyListShowsInstancesNotSecrets(t *testing.T) {
 	secret := mintFor(t, a, cy, id, "Studio")
 	mintFor(t, a, cy, id, "Lobby")
 	token, _ := setupLink(t, a, cy, id)
-	a.mon.beat(id, "studio")
+	a.mon.beat(id, "studio", "")
 	apiSend(a, "GET", "/api/v1/tally", secret, "")
 
 	rec := apiSend(a, "GET", "/api/v1/panels/"+id+"/keys", cy, "")
@@ -114,8 +114,8 @@ func TestRotatingOneInstanceKeepsTheOthersOnline(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	mintFor(t, a, cy, id, "Lobby")
 	mintFor(t, a, cy, id, "Studio")
-	a.mon.beat(id, "Lobby")
-	a.mon.beat(id, "Studio")
+	a.mon.beat(id, "Lobby", "")
+	a.mon.beat(id, "Studio", "")
 	mintFor(t, a, cy, id, "Lobby")
 	if a.mon.deviceOnline(id, "Lobby") || !a.mon.deviceOnline(id, "Studio") {
 		t.Fatal("rotating forgot the wrong instance")

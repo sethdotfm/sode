@@ -419,6 +419,24 @@ func TestPublicKeyReadsNoUserNames(t *testing.T) {
 	}
 }
 
+func TestPublicKeyCannotFillThePanel(t *testing.T) {
+	a, _ := clientApp(t)
+	id := makePanel(t, a, userKey(t, a, "Cy"), publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
+	key := publicKeyOf(t, a, id)
+	ok := 0
+	for i := range monDevices {
+		if apiSend(a, "POST", "/api/v1/panels/"+id+"/instances", key, fmt.Sprintf(`{"device":"d%d"}`, i)).Code == 200 {
+			ok++
+		}
+	}
+	if ok > monPublicPerKey {
+		t.Fatalf("one Public key named %d devices", ok)
+	}
+	if got := a.rateLimitFor(600, &apiCtx{Panel: id}); got != 600 {
+		t.Fatalf("rate limit %d", got)
+	}
+}
+
 func TestKeylessGuestReadsNoUserNames(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
