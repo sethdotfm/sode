@@ -142,9 +142,15 @@ func OpenHistory(path string) (*History, error) {
 	return h, nil
 }
 
-func (h *History) Append(e *Entry) error {
+// On error e.ID is -1, since the next entry takes the id.
+func (h *History) Append(e *Entry) (err error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	defer func() {
+		if err != nil {
+			e.ID = -1
+		}
+	}()
 	if h.f == nil {
 		e.ID = len(h.mem)
 		h.mem = append(h.mem, *e)
@@ -283,8 +289,9 @@ func (h *History) Page(before, n int) ([]Entry, error) {
 	out := []Entry{}
 	for id := before - 1; id >= 0; id-- {
 		e, err := h.at(id)
-		if err != nil {
-			return out, err
+		if err != nil { // one bad line must not hide all older entries
+			log.Printf("history: entry %d skipped: %v", id, err)
+			continue
 		}
 		if len(out) >= n && (e.Group == "" || e.Group != out[len(out)-1].Group) {
 			break
