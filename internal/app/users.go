@@ -548,8 +548,6 @@ func (a *App) setOwnPin(c *client, oldPin, newPin string, remove bool) error {
 	if who == nil {
 		return errors.New("unlock with your PIN first")
 	}
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
 	a.mu.Lock()
 	cur := a.r().cfg
 	ok := a.userOKMu(c, cur)
@@ -582,6 +580,12 @@ func (a *App) setOwnPin(c *client, oldPin, newPin string, remove bool) error {
 		if h, err = config.HashPin(newPin); err != nil {
 			return err
 		}
+	}
+	// PBKDF2 runs before cfgMu, so other saves do not wait on it; the user must not have changed since.
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if live, ok := a.r().cfg.FindUserByID(who.ID); !ok || live.Pin != u.Pin || live.Role != u.Role {
+		return errors.New("your user changed meanwhile; try again")
 	}
 	page := a.readHello() // the hello's PIN length changes; history read stays outside mu
 	err := a.commit(func(cfg *config.Config) error {
