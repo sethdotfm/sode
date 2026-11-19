@@ -390,6 +390,7 @@ type inMsg struct {
 	Setup        *setupReq          `json:"setup"`  // setupFinish
 	TakeOver     bool               `json:"take"`   // setupClaim: Take control from the browser that runs setup
 	Inbox        *inboxReq          `json:"inbox"`  // the inbox messages (inboxsend.go)
+	Swap         *swapReq           `json:"swap"`   // swapList, swapMine (swap.go)
 }
 
 func plural(n int, one, many string) string {

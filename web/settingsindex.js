@@ -239,6 +239,7 @@ export const DICT = {
 
   // ---- Me (inside This browser; only shown while signed in as a user)
   'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],
+  'account-swap': ['swap', 'swap source', 'swap destination', 'broken', 'name moved', 're-patch', 'presets', 'filter sets', 'panels'],
   'account-transfer': ['export', 'import', 'backup', 'restore', 'share', 'transfer', 'my settings', 'presets', 'filter sets', 'account'],
   'apply-preset': ['access preset', 'preset', 'open access', 'standard access', 'secured access', 'secure', 'access level'],
   'lock-pages': ['lock', 'lock main screen', 'lock communication log', 'lock log', 'pin', 'users', 'protect', 'screen lock'],
