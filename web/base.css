@@ -603,6 +603,20 @@ html {
   padding: var(--pb-space-5) 0 0;
   width: 100%;
 }
+/* Heading and one button on a single row. A floated legend is an ordinary grid item, not the fieldset's rendered legend. */
+.sode__group--row {
+  align-items: center;
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  padding-top: var(--pb-space-5);
+}
+.sode__group--row > legend {
+  border-top: 0;
+  float: left;
+  margin: 0;
+  padding: 0;
+}
 .sode__topic {
   background: var(--pb-surface-raised);
   border-top: calc(var(--pb-accent-bar-w) * 2) solid var(--pb-accent);
@@ -740,6 +754,10 @@ html {
 .sode__field .pb-number-wrap,
 .sode__field .pb-select-wrap {
   width: 100%;
+}
+/* Short values: the control takes half the column. */
+:root:not([data-layout="phone"]) .sode__field--half > :is(.pb-input, .pb-select-wrap, .pb-number-wrap) {
+  width: 50%;
 }
 /* The down arrow is ::before, so the positioned input paints over it. Lift both glyphs. */
 .pb-number-wrap::before,
@@ -1235,6 +1253,18 @@ html[data-shift] .sode__next > .sode__next-open {
   padding: var(--pb-space-2) var(--pb-space-3);
 }
 
+/* Label, select and the my-default buttons line up in three columns; a subgrid keeps each .sode__field one box. */
+:root:not([data-layout="phone"]) .sode__prefgrid {
+  align-items: center;
+  gap: var(--pb-space-3) var(--pb-space-5);
+  grid-template-columns: max-content minmax(0, 22rem) 1fr;
+}
+:root:not([data-layout="phone"]) .sode__prefgrid > .sode__field {
+  align-items: center;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
 :root:not([data-layout="phone"]) .sode__device + .sode__device > legend {
   border-top: var(--pb-border-w) solid var(--pb-edge);
   padding-top: var(--pb-space-5);
