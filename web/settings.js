@@ -24,6 +24,7 @@ import './setupagain.js';
 import './profiles.js';
 import './exportdialog.js';
 import './swap.js';
+import { askBrokenCounts } from './brokencount.js';
 
 const root = document.documentElement;
 
@@ -92,6 +93,7 @@ const roles = initRoles({ form, sections, toc, isOpen });
 
 function showRouters() {
   fillRouters((id) => toc.goRouter(id));
+  askBrokenCounts();
   toc.renameRouter('1', routerTitle());
   reindex();
 }

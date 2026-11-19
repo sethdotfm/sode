@@ -15,9 +15,8 @@ const (
 	statusMoved  = "moved"
 )
 
-// brokenEntry: one Broken or Name moved item. ID is the swapItem id. Swap is the side and number of its first
-// Broken (else Name moved) source or destination reference, for the Swap dialog; nil when it has none, as for a
-// filter set's name term.
+// brokenEntry: one Broken or Name moved item. ID is the swapItem id. Swap is for the Swap dialog: the side and
+// number of the first marked source or destination, Broken first. It is nil for a filter set's name term.
 type brokenEntry struct {
 	ID     string    `json:"id"`
 	Kind   string    `json:"kind"` // preset, filterSet or panel

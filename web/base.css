@@ -935,6 +935,24 @@ html {
   gap: var(--pb-space-2);
   margin-top: var(--pb-space-2);
 }
+/* The count lines in Settings > Routers and My user (brokencount.js). */
+.sode__broken-count[hidden] {
+  display: none;
+}
+.sode__broken-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: var(--pb-space-2) 0 0;
+  padding: 0;
+}
+.sode__broken-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
 .sode__status-badge {
   align-items: center;
   display: inline-flex;

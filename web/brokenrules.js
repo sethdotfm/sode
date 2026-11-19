@@ -87,8 +87,8 @@ export function leftOutLines(marks, offset) {
   });
 }
 
-// ---- Banner: one entry per used Broken item. A dismissed entry stays dismissed while its marks stay the same (for the
-// page's lifetime), so a fire after Dismiss does not bring it back; a new missing part does.
+// ---- Banner: one entry per used Broken item. A dismissed entry stays dismissed while its marks stay the same, for
+// the page's lifetime. So a fire after Dismiss does not bring it back, but a new missing part does.
 
 const sig = (marks) =>
   marks
@@ -128,8 +128,8 @@ export function bannerItems(st, now) {
 }
 
 // ---- This browser's items (no server marks): the same rules against the names the page has. The page's names keep a
-// gone number's old name, so a gone number is not seen here: only Name moved for presets, and an exact term that no
-// name matches for filter sets.
+// gone number's old name, so this check cannot see a gone number. It finds Name moved for presets. For filter sets
+// it finds an exact term that no name matches.
 
 const at = (map, name, not) => {
   for (const [n, v] of map) if (n !== not && same(v, name)) return true;

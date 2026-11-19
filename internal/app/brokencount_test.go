@@ -6,8 +6,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// brokenCountApp: swapApp with Studio Broken, Spare both Broken and Name moved (it counts as Broken), Bo's "Keep"
-// Name moved, Bo's filter set Broken and Bo's panel Broken.
+// brokenCountApp: swapApp with Studio Broken and Spare both Broken and Name moved, which counts as Broken. Bo's
+// "Keep" is Name moved. Bo's filter set and Bo's panel are Broken.
 func brokenCountApp(t *testing.T) *App {
 	t.Helper()
 	a, uid := swapApp(t)
