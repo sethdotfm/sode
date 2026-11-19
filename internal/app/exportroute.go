@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -92,6 +91,7 @@ type importCheck struct {
 	Routers     []exportRouter `json:"routers"`
 	Counts      map[string]int `json:"counts"`
 	Unknown     []string       `json:"unknown"`
+	Plan        importPlan     `json:"plan"`
 }
 
 // stagesDir is beside the config, so a large file stays on the data volume; a memory-only Sode uses the
@@ -103,27 +103,21 @@ func (a *App) stagesDir() string {
 	return filepath.Join(filepath.Dir(a.cfgPath), exportStagesDir)
 }
 
-// serveImportCheck stages and checks the file, then removes the staging directory: applying a file is later work.
+// serveImportCheck stages and checks the file, answers what it holds and the Add import plan with the
+// preselected choices, then removes the staging directory. The apply route stages it again.
 func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 	if !a.httpAdmin(w, r) {
 		return
 	}
 	bundle, err := a.stageAndLoad(http.MaxBytesReader(w, r.Body, exportMaxUpload))
 	if err != nil {
-		var tooBig *http.MaxBytesError
-		var ee *exportErr
-		switch {
-		case errors.As(err, &tooBig):
-			apiFail(w, http.StatusRequestEntityTooLarge, "too_large", "the file is over the upload limit")
-		case errors.As(err, &ee):
-			apiFail(w, ee.status, ee.code, ee.msg)
-		default:
-			apiFail(w, http.StatusInternalServerError, "internal", "the file could not be staged: "+err.Error())
-		}
+		importFail(w, err)
 		return
 	}
 	m := bundle.Manifest
-	apiJSON(w, importCheck{
+	src, dst := a.liveNames()
+	plan := planImport(a.r().cfg, src, dst, a.panels.list(), bundle, importReq{Mode: importAdd}, a.importActor(r).User, secureRequest(r, a.r().proxies), a.cfgPath == "").plan
+	apiJSON(w, importCheck{Plan: plan,
 		Format: m.Format, Sode: m.Sode, SameInstall: m.Install != "" && m.Install == a.r().cfg.InstallUID,
 		Categories: m.Categories, Routers: m.Routers, Unknown: bundle.Unknown,
 		Counts: map[string]int{
@@ -137,15 +131,28 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 
 // stageAndLoad copies body to a staging directory, unpacks and loads it, and removes the directory.
 func (a *App) stageAndLoad(body io.Reader) (*exportBundle, error) {
+	b, done, err := a.stageImport(body)
+	done()
+	return b, err
+}
+
+// stageImport is stageAndLoad that keeps the directory, where the bundle's Art files are, until done.
+func (a *App) stageImport(body io.Reader) (_ *exportBundle, done func(), _ error) {
+	done = func() {}
 	parent := a.stagesDir()
 	if err := os.MkdirAll(parent, 0o700); err != nil {
-		return nil, err
+		return nil, done, err
 	}
 	dir, err := os.MkdirTemp(parent, "import-")
 	if err != nil {
-		return nil, err
+		return nil, done, err
 	}
-	defer os.RemoveAll(dir)
+	done = func() { os.RemoveAll(dir) }
+	b, err := stageInto(dir, body)
+	return b, done, err
+}
+
+func stageInto(dir string, body io.Reader) (*exportBundle, error) {
 	zipPath := filepath.Join(dir, "upload.zip")
 	f, err := os.Create(zipPath)
 	if err != nil {

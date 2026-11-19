@@ -29,6 +29,7 @@ type SettingsSave struct {
 	// HiddenInterruptions: how many lines a reader below Administrator does not see. They name
 	// users, Public panels and sessions from Access (forReader).
 	HiddenInterruptions int `json:"hiddenInterruptions,omitempty"`
+	Import        *ImportSave  `json:"import,omitempty"` // an import: counts only, no values
 }
 
 // SavedField: one written field. A list gives Added and Removed in place of Old and New. Changed
