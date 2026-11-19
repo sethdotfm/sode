@@ -60,6 +60,7 @@ func opResultFor(kind string, id *int, err error) opResult {
 	if err != nil {
 		res.Err = err.Error()
 		res.Recheck = isRecheckErr(err)
+		res.Approval = isApprovalErr(err)
 	}
 	return res
 }

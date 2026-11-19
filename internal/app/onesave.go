@@ -189,7 +189,7 @@ func fieldRefusal(role, sec string) string {
 func (a *App) serveSettingsSave(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
-		res, err := a.saveSettingsFields(c, m.Fields)
+		res, err := a.saveSettingsFields(c, m.Fields, m.approver)
 		out := settingsSaveResult{opResult: opResultFor("settingsSave", &m.ID, err), Results: res}
 		n := 0
 		for _, r := range res {
@@ -197,7 +197,8 @@ func (a *App) serveSettingsSave(c *client, m *inMsg) {
 				n++
 			}
 		}
-		a.command(c, "settingsSave", outcome(err), fmt.Sprintf("%d of %d %s saved", n, len(res), plural(len(res), "field", "fields")), err)
+		note := fmt.Sprintf("%d of %d %s saved", n, len(res), plural(len(res), "field", "fields"))
+		a.command(c, "settingsSave", outcome(err), approvedNote(m.approver, note), err)
 		if err != nil {
 			out.Locked = locked(err)
 		}
@@ -206,8 +207,9 @@ func (a *App) serveSettingsSave(c *client, m *inMsg) {
 }
 
 // saveSettingsFields checks each field on its own against live, then writes the ones that
-// pass in one commit. No commit when none changes anything.
-func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit) (map[string]fieldResult, error) {
+// pass in one commit. No commit when none changes anything. ap, the approver of an Approval
+// (approval.go), stands in for the Role only in Shown sections; it is nil without one.
+func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User) (map[string]fieldResult, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	a.mu.Lock()
@@ -220,6 +222,20 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit) (map[str
 	a.mu.Unlock()
 	if role == "" {
 		return nil, errPageLocked
+	}
+	apRole := ""
+	if ap != nil {
+		if apRole = approverRole(live, ap); apRole == "" {
+			return nil, approvalErr{ap.Name + " changed meanwhile: ask for the Approval again"}
+		}
+		// The whole Approval is refused when the approver cannot approve every field that needs it.
+		for key := range edits {
+			if f, ok := lookupField(key); ok && fieldRefusal(role, f.section) == reasonApproval && fieldRefusal(apRole, f.section) != "" {
+				return nil, cannotApprove(ap, sectionRoles[f.section].edit)
+			}
+		}
+		actor = *ap
+		rechecked = rechecked || apRole == config.RoleAdministrator
 	}
 	res := make(map[string]fieldResult, len(edits))
 	refuse := func(key, reason string, err error) {
@@ -240,7 +256,7 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit) (map[str
 			continue
 		}
 		// Before the conflict check, so a conflict never shows a value hidden from that Role.
-		if why := fieldRefusal(role, f.section); why != "" {
+		if why := fieldRefusal(role, f.section); why != "" && (why != reasonApproval || ap == nil) {
 			refuse(key, why, roleErr{need: sectionRoles[f.section].edit})
 			continue
 		}
@@ -348,7 +364,7 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit) (map[str
 	if slices.Contains(keep, "requireHttps") {
 		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
 	}
-	a.recordSave(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0)
+	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap)
 	a.auditAPISettings(connActor(c), live, now)
 	a.panelsFollowUsers(live.Users, now.Users)
 	if n, err := a.panels.moveOwners(moves); err != nil {

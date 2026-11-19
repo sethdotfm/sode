@@ -277,12 +277,20 @@ func clientChanges(was, now config.Config, name string) []SavedField {
 
 // recordSave writes one Settings saves row. why is how it came: "save" (Settings) or "api".
 func (a *App) recordSave(by Actor, why string, fields []SavedField, critical bool) {
+	a.recordSaveApproved(by, why, fields, critical, nil)
+}
+
+// recordSaveApproved: ap is the approver of an Approval, nil without one.
+func (a *App) recordSaveApproved(by Actor, why string, fields []SavedField, critical bool, ap *config.User) {
 	if len(fields) == 0 {
 		return
 	}
 	e := event(kindSettings, why, redactKeys(by.String()), "ok")
 	e.Note = a.panelNote(by)
 	e.Save = &SettingsSave{Fields: fields, Critical: critical}
+	if ap != nil {
+		e.Save.Approver = ap.Name
+	}
 	a.logEvent(e)
 }
 

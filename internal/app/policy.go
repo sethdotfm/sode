@@ -48,6 +48,10 @@ type rule struct {
 	write bool
 	// onRefuse: extra replies after a refusal is logged (a take fails each route).
 	onRefuse func(a *App, c *client, m *inMsg, err error)
+	// approvable: an Approval can stand in for the Role (approval.go). approver: the checked
+	// approver of this one message; forMsg fills it.
+	approvable bool
+	approver   *config.User
 }
 
 var policy = map[string]rule{
@@ -116,8 +120,8 @@ var policy = map[string]rule{
 		go a.RefreshNames()
 	}},
 	// Erasing history is more than a take.
-	"clearHistory": {crit: critAlways, role: config.RoleAdministrator, need: needMain, write: true, handle: func(a *App, c *client, m *inMsg) {
-		a.command(c, "clearHistory", "ok", "", nil)
+	"clearHistory": {crit: critAlways, role: config.RoleAdministrator, need: needMain, write: true, approvable: true, handle: func(a *App, c *client, m *inMsg) {
+		a.command(c, "clearHistory", "ok", approvedNote(m.approver, ""), nil)
 		go func() {
 			defer m.finish()
 			a.ClearHistory(c.who())
@@ -141,7 +145,7 @@ var policy = map[string]rule{
 		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin },
 		handle: func(a *App, c *client, m *inMsg) { a.serveConfig(c, m) }},
 	// the one Save: a Standard user passes here and gets a result per field (onesave.go)
-	"settingsSave": {crit: critByFields, role: config.RoleStandard, op: "settingsSave", write: true,
+	"settingsSave": {crit: critByFields, role: config.RoleStandard, op: "settingsSave", write: true, approvable: true,
 		handle: func(a *App, c *client, m *inMsg) { a.serveSettingsSave(c, m) }},
 	"filterSets": {crit: critNever, role: config.RoleTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(sets []config.FilterSet, id int) {
@@ -190,6 +194,7 @@ func (r rule) forMsg(m *inMsg) rule {
 	if r.strict != nil && r.strict(m) {
 		r.role = config.RoleAdministrator
 	}
+	r.approver = m.approver
 	return r
 }
 
@@ -202,12 +207,18 @@ func (a *App) admit(c *client, r rule) error {
 		r.need&needLog != 0 && !a.pageAllowedMu(c, gateLog):
 		return errPageLocked
 	case r.self != "" && a.signedInAsMu(c, r.self):
+	case r.approver != nil:
+		if r.role != roleAnyone && !config.RoleAtLeast(approverRole(a.r().cfg, r.approver), r.role) {
+			return cannotApprove(r.approver, r.role)
+		}
 	default:
 		if err := a.needRoleMu(c, r.role); err != nil {
 			return err
 		}
 	}
-	if r.crit == critAlways && !a.recheckedMu(c) {
+	// An Administrator's Approval counts as their PIN recheck for this one action.
+	adminApproved := r.approver != nil && approverRole(a.r().cfg, r.approver) == config.RoleAdministrator
+	if r.crit == critAlways && !a.recheckedMu(c) && !adminApproved {
 		return recheckErr{}
 	}
 	if r.admitted != nil {

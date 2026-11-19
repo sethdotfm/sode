@@ -282,6 +282,13 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		if !known {
 			continue // closed: an unlisted type is never dispatched
 		}
+		// In line, like stepIn: the approver's PIN is checked before this message is admitted.
+		if m.Approval != nil {
+			if err := a.approve(c, rl, &m); err != nil {
+				a.refuse(c, m.T, rl.forMsg(&m), &m, err)
+				continue
+			}
+		}
 		rl = rl.forMsg(&m)
 		if err := a.admit(c, rl); err != nil {
 			a.refuse(c, m.T, rl, &m, err)
@@ -378,6 +385,8 @@ type inMsg struct {
 	Action     string               `json:"action"`   // panelAlarm: clear | stop
 	Instance   string               `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
 	MyClient   *myClientReq         `json:"client"`   // myClientSave
+	Approval   *approvalReq         `json:"approval"` // an Approval in person for this one message
+	approver   *config.User         // set by approve once the Approval's PIN is checked
 }
 
 func plural(n int, one, many string) string {
