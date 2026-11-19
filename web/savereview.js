@@ -85,13 +85,33 @@ function interruptionsBlock(list) {
 // order}. label(row), show(row, value): text. critical: a row the server checks for a PIN recheck. reconnects(row): a
 // router connection field. address: the router address it reconnects to. by(row): who staged it, or null. unseen: the
 // counts of edits the saver's Role cannot see (stagedrules.js); they are not in rows and do not save. interruptions:
-// the server's list for the fields that save (settingsReview), or null when it did not answer.
+// the server's list for the fields that save (settingsReview), or null when it did not answer. preset(row): the name of
+// the Access preset that staged it, or ''.
 // Resolves true when the save is to be sent, false when the person goes back to editing.
-export function reviewSave({ rows, kept, place, label, show, critical, reconnects, address, recheckNeeded, by = null, unseen = [], interruptions = [] }) {
+export function reviewSave({
+  rows,
+  kept,
+  place,
+  label,
+  show,
+  critical,
+  reconnects,
+  address,
+  recheckNeeded,
+  by = null,
+  unseen = [],
+  interruptions = [],
+  preset = () => '',
+}) {
   build();
   step?.esc();
   const saves = rows.filter((r) => !kept(r));
-  const notes = (r) => [kept(r) && badge('warn', `Stays unsaved: ${kept(r)}`), reconnects(r) && badge('warn', 'Reconnects the router')].filter(Boolean);
+  const notes = (r) =>
+    [
+      preset(r) && badge('info', preset(r)),
+      kept(r) && badge('warn', `Stays unsaved: ${kept(r)}`),
+      reconnects(r) && badge('warn', 'Reconnects the router'),
+    ].filter(Boolean);
   let rechecked = false;
   return new Promise((resolve) => {
     const end = (send) => {

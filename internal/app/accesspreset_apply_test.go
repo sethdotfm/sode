@@ -35,8 +35,8 @@ func valuesOf(c config.Config) config.AccessValues {
 		NewUserDefaults: config.NewUserDefaults{Persistent: c.NewUserDefaults.Persistent, NoAutoLock: c.NewUserDefaults.NoAutoLock}}
 }
 
-// applyPreset sends what the page stages for the preset named key: its fields from the
-// usersList answer and, for each ticked user, Persistent and No auto-lock.
+// applyPreset sends what the page stages for the preset named key. That is its fields from the
+// usersList answer, and Persistent and No auto-lock for each ticked user.
 func (p *wsPeer) applyPreset(id int, key string, ticked ...string) map[string]any {
 	p.t.Helper()
 	list := p.ask("usersList", 1000+id, nil)

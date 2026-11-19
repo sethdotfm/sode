@@ -8,8 +8,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Applying an Access preset from Settings (spec #543, Access presets): the page stages these
-// values into the one Save, so the server's only parts are the values and the record's name.
+// Apply an access preset (spec #543, Access presets): the page stages these values into the
+// one Save. The server gives the values and puts the preset's name in the record.
 
 // presetKeys: the one Save keys a preset writes. `api` carries only guestEnabled, since an
 // object merges key by key and the other API settings are not the preset's.
