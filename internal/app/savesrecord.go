@@ -266,18 +266,18 @@ func clientChanges(was, now config.Config, name string) []SavedField {
 
 // recordSave writes one Settings saves row. why is how it came: "save" (Settings) or "api".
 func (a *App) recordSave(by Actor, why string, fields []SavedField, critical bool) {
-	a.recordSaveApproved(by, why, fields, critical, nil, nil)
+	a.recordSaveApproved(by, why, fields, critical, nil, nil, "")
 }
 
 // recordSaveApproved: ap is the approver of an Approval, nil without one. stops: the Interruptions
-// at save time.
-func (a *App) recordSaveApproved(by Actor, why string, fields []SavedField, critical bool, ap *config.User, stops []string) {
+// at save time. preset: the Access preset's full name, or "".
+func (a *App) recordSaveApproved(by Actor, why string, fields []SavedField, critical bool, ap *config.User, stops []string, preset string) {
 	if len(fields) == 0 {
 		return
 	}
 	e := event(kindSettings, why, redactKeys(by.String()), "ok")
 	e.Note = a.panelNote(by)
-	e.Save = &SettingsSave{Fields: fields, Critical: critical, Interruptions: stops}
+	e.Save = &SettingsSave{Fields: fields, Critical: critical, Interruptions: stops, Preset: preset}
 	if ap != nil {
 		e.Save.Approver = ap.Name
 	}

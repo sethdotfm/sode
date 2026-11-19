@@ -83,6 +83,12 @@ function show(r, v) {
   return showValue(v);
 }
 
+// Apply an access preset (accesspreset.js) stages the keyless API as a hand edit would. Callers emit the change.
+export function stageKeyless({ guestEnabled, scopes }) {
+  if (guestEnabled !== undefined) guest.checked = guestEnabled;
+  if (scopes) for (const b of boxes) b.checked = scopes.includes(b.dataset.scope);
+}
+
 addSaveSource({
   owns: (key) => key === 'api' || key === 'guestApiScopes',
   base: () => base,

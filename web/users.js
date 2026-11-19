@@ -448,6 +448,15 @@ const stage = makeUsersSource({
   },
   clientAdded: (name) => clientsTab.saved(name),
 });
+// Apply an access preset (accesspreset.js) stages a listed user's flags as a hand edit would.
+export function stageUserFlags(id, { persistent, noAutoLock }) {
+  const row = rowOf((r) => r.dataset.uid === id);
+  if (!row) return;
+  row.querySelector('input[data-flag="persistent"]').checked = persistent;
+  rightsPanel.setNoAutoLock(Number(row.dataset.rid), noAutoLock);
+  touched();
+}
+
 // Edits wait in the dialog until Settings saves them or opens again.
 const staged = () => {
   const src = stage.source;
