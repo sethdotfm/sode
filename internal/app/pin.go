@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// --- wrong-PIN pools
-
 type pinState struct {
 	n     int
 	until time.Time // no tries before this

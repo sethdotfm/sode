@@ -156,10 +156,8 @@ func TestSeamArtworkLimitsHoldAcrossPushCopyTemplateAndDefaults(t *testing.T) {
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload("Huge", big, "")), 413, "too_large")
 }
 
-// The idle Lock reaches a panel page signed in over its page socket, as an assigned-to-sign-in or keyless page is.
-// Known limit (docs/agents/users-locks.md): the Session-mode panel's session key still answers while the Lock is
-// up, since apiAuth checks only tokens.live. The page itself drops the key on the Lock (sessionkey.js).
-func TestIdleLockCoversAPanelPageSessionKeyStillAnswers(t *testing.T) {
+// The idle Lock reaches a panel page signed in over its page socket.
+func TestIdleLockCoversAPanelPageSessionKey(t *testing.T) {
 	for _, panelLock := range []bool{false, true} {
 		a := sessionKeyApp(t)
 		if panelLock {
@@ -195,8 +193,8 @@ func TestIdleLockCoversAPanelPageSessionKeyStillAnswers(t *testing.T) {
 		if r["ok"] != false {
 			t.Fatalf("panelLock=%v: a new session key under the Lock: %v", panelLock, r)
 		}
-		if got := panelsStatus(a, key); got != 200 {
-			t.Fatalf("panelLock=%v: the session key under the Lock answers %d; update the known limit", panelLock, got)
+		if got := panelsStatus(a, key); got != 401 {
+			t.Fatalf("panelLock=%v: the session key under the Lock answers %d", panelLock, got)
 		}
 
 		if err := a.UserUnlock(c, "1234"); err != nil {

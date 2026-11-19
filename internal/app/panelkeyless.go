@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -11,21 +12,22 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Keyless instances (GLOSSARY.md, ADR 0009): the stream grants nothing; no key, session or user rides it. Besides beats,
-// it carries public lines (publicback.go) and a last Assign, rename or reload line. Memory only.
+// Keyless instances (GLOSSARY.md, ADR 0009): the stream grants nothing; no key, session or user rides it. Besides
+// beats, it carries public lines (publicback.go) and a last Assign, rename or reload line. Memory only.
 
 const (
-	keylessMax  = 1000 // entries; the oldest is dropped past it
-	keylessKeep = 24 * time.Hour
-	keylessRef  = 64 // the address segment as the page sent it
+	keylessMax      = 1000 // entries; past it the oldest without a stream is dropped, else a new one is refused
+	keylessKeep     = 24 * time.Hour
+	keylessRef      = 64 // the address segment as the page sent it
+	keylessConnsMax = 4  // per entry; a reload can overlap the old stream, so the oldest ends
+	keylessPerAddr  = 64 // entries per address; many tablets can share one NAT address
 )
 
 func init() {
 	registerAPI(apiRoute{"GET", apiBase + "/panels/{id}/instances/keyless", scopeOpen, (*App).apiPanelKeyless})
 }
 
-// keylessInst is one announcing device: one per address segment, address and name the page holds, so a reload
-// finds its row again.
+// One entry per address segment, address and name that the page holds, so a reload finds its row again.
 type keylessInst struct {
 	id     string // names it in an Assign
 	ref    string // the panel id or short name in the page's address, if it exists or not
@@ -60,7 +62,7 @@ func newKeylessID() string {
 	return config.RandomHexID(8)
 }
 
-// noteAddrLocked records the name a stream from addr carried. Caller holds mu.
+// Caller holds mu.
 func (m *panelMon) noteAddrLocked(addr, device string) {
 	if addr == "" || device == "" {
 		return
@@ -80,8 +82,9 @@ func (m *panelMon) noteAddrLocked(addr, device string) {
 	m.addrs[addr] = addrName{device, m.now()}
 }
 
-// openKeyless registers a held keyless stream. The returned func drops it.
-func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel context.CancelFunc) (func(), <-chan lastLine, <-chan struct{}) {
+// The returned func drops the stream.
+// ok is false when the table or the address is full.
+func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel context.CancelFunc) (func(), <-chan lastLine, <-chan struct{}, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now := m.now()
@@ -91,8 +94,8 @@ func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel cont
 	k := keylessKey(ref, addr, device)
 	in := m.keyless[k]
 	if in == nil {
-		if len(m.keyless) >= keylessMax {
-			m.dropOldestKeylessLocked(now)
+		if m.keylessFromLocked(addr) >= keylessPerAddr || len(m.keyless) >= keylessMax && !m.dropOldestKeylessLocked() {
+			return nil, nil, nil, false
 		}
 		in = &keylessInst{id: newKeylessID(), ref: ref, device: device, addr: addr}
 		m.keyless[k] = in
@@ -100,6 +103,11 @@ func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel cont
 	if len(in.conns) == 0 {
 		in.conns = map[int]monConn{}
 		in.since = now
+	}
+	if len(in.conns) >= keylessConnsMax {
+		old := slices.Min(slices.Collect(maps.Keys(in.conns)))
+		in.conns[old].cancel()
+		delete(in.conns, old)
 	}
 	in.ended, in.seen = ended, now
 	m.noteAddrLocked(addr, device)
@@ -116,23 +124,32 @@ func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel cont
 		if len(in.conns) == 0 {
 			in.seen = m.now()
 		}
-	}, out, pub
+	}, out, pub, true
 }
 
-func (m *panelMon) dropOldestKeylessLocked(now time.Time) {
+func (m *panelMon) keylessFromLocked(addr string) int {
+	n := 0
+	for _, in := range m.keyless {
+		if in.addr == addr {
+			n++
+		}
+	}
+	return n
+}
+
+// A live stream is never ended to make room. False when every entry holds one.
+func (m *panelMon) dropOldestKeylessLocked() bool {
 	old := ""
 	for k, in := range m.keyless {
-		if old == "" || in.lastSeen(now).Before(m.keyless[old].lastSeen(now)) {
+		if len(in.conns) == 0 && (old == "" || in.seen.Before(m.keyless[old].seen)) {
 			old = k
 		}
 	}
-	for _, c := range m.keyless[old].conns {
-		c.cancel()
-	}
 	delete(m.keyless, old)
+	return old != ""
 }
 
-// sweepKeylessLocked drops closed entries and address names older than keylessKeep. Caller holds mu.
+// Caller holds mu.
 func (m *panelMon) sweepKeylessLocked(now time.Time) {
 	for k, in := range m.keyless {
 		if len(in.conns) == 0 && now.Sub(in.seen) > keylessKeep {
@@ -180,7 +197,6 @@ func (m *panelMon) outLocked(in *keylessInst, now time.Time) keylessOut {
 	return o
 }
 
-// keylessOf lists the keyless pages whose address names p, by id or short name.
 func (m *panelMon) keylessOf(p Panel) []keylessOut {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -197,7 +213,6 @@ func (m *panelMon) keylessOf(p Panel) []keylessOut {
 	return out
 }
 
-// keylessLive finds an entry that holds a stream now.
 func (m *panelMon) keylessLive(id string) (ref string, row keylessOut, ok bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -222,7 +237,6 @@ func (m *panelMon) sendKeyless(id string, b []byte) <-chan bool {
 	return nil
 }
 
-// dropKeyless forgets an entry after its page has left for the target.
 func (m *panelMon) dropKeyless(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -247,7 +261,11 @@ func (a *App) apiPanelKeyless(w http.ResponseWriter, r *http.Request, _ *apiCtx)
 	addr := clientIP(r, a.r().proxies)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	done, out, pub := a.mon.openKeyless(ref, addr, device, ended, cancel)
+	done, out, pub, ok := a.mon.openKeyless(ref, addr, device, ended, cancel)
+	if !ok {
+		apiFail(w, http.StatusTooManyRequests, "too_many_streams", "too many keyless instances")
+		return
+	}
 	defer done()
 	rc := http.NewResponseController(w)
 	// The closing chunk needs a live deadline; see apiPanelInstanceStream.

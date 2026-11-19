@@ -14,33 +14,28 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST under /api/v1. Every route is one apiRoute in apiRoutes, added by registerAPI from
-// the init of its area's file (apireads.go, apihistory.go, ...). mountAPI turns the table
-// into mux patterns, each wrapped in the same steps: Bearer auth (apiAuth),
-// rate limit, scope, optional read row. A handler then receives the resolved caller.
-// Numbers on the wire are the router's own (0-based, add numberOffset to display them) and
-// levels are UI levels, the same as the rights lists. Keep docs in step: openapi.yaml.
+// Each area's file adds its routes to apiRoutes from init (registerAPI). mountAPI wraps each in the same steps:
+// Bearer auth (apiAuth), rate limit, scope, optional read row. Numbers on the wire are the router's own (0-based;
+// add numberOffset to show them) and levels are UI levels. Keep openapi.yaml in step.
 
 const apiBase = "/api/v1"
 
-// apiCtx is who a request is, resolved one time by apiAuth. Writes and the stream reuse it:
-// Actor goes in History and the log, and the take path reads Rights through client().
+// apiAuth resolves it one time. Actor goes in History and the log, and the take path reads Rights through client().
 type apiCtx struct {
 	Actor  Actor
 	Rights config.Rights
 	Scopes []string
 	Key    *apiKey // nil for a keyless Guest call
-	Panel  string  // the panel whose own API client this is, else ""
+	Panel  string  // "" unless this is a panel's own API client
 	IP     string
 
-	// sink gets every reply of a take run for this request instead of a.clients. A REST
-	// request is not a registered connection and must not see broadcasts.
+	// sink gets every reply of this request's take, not a.clients: a REST request must not see broadcasts.
 	sink func([]byte)
 }
 
 func (c *apiCtx) has(scope string) bool { return slices.Contains(c.Scopes, scope) }
 
-// missing is the first scope of the space-separated list the caller lacks, or "".
+// "" when the caller has every scope of the space-separated list.
 func (c *apiCtx) missing(scopes string) string {
 	for _, s := range strings.Fields(scopes) {
 		if !c.has(s) {
@@ -50,23 +45,19 @@ func (c *apiCtx) missing(scopes string) string {
 	return ""
 }
 
-// client is the take path's view of this caller (see rights.go). It has no send channel:
-// deliver answers through sink.
+// The take path's view of this caller (rights.go). It has no send channel: deliver answers through sink.
 func (c *apiCtx) client() *client { return &client{ip: c.IP, api: c} }
 
-// apiHandler runs after auth, rate limit and scope checks passed.
 type apiHandler func(a *App, w http.ResponseWriter, r *http.Request, cl *apiCtx)
 
-// apiRoute: Scope "" means any authenticated caller (the stream, /routers); several scopes are
-// separated by spaces and the caller needs all of them. Path includes apiBase.
+// Scope "" means any authenticated caller. Several scopes are separated by spaces, and the caller needs all of them.
 type apiRoute struct {
 	Method, Path, Scope string
 	Handle              apiHandler
 }
 
-// scopeOpen as a route's Scope skips the key check: the handler gets a nil apiCtx. Only the setup-link
-// exchange and the keyless announcement (panelkeyless.go) use it. The exchange is how a tablet gets its
-// key, and it throttles with authWait. The announcement grants nothing and is bounded only by keylessMax.
+// scopeOpen skips the key check, so the handler gets a nil apiCtx. Only the setup-link exchange (throttled by authWait)
+// and the keyless announcement (panelkeyless.go, bounded by keylessMax, grants nothing) use it.
 const scopeOpen = "none"
 
 var apiRoutes []apiRoute
@@ -93,14 +84,12 @@ func apiJSON(w http.ResponseWriter, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
-// apiJSONTagged is apiJSON for a read a page repeats. The ETag hashes the body the caller would get, so a Rights or Default artwork
-// change moves it. A match answers 304 with no body.
+// The ETag hashes the body the caller would get, so a change of Rights or Default artwork moves it.
 func apiJSONTagged(w http.ResponseWriter, r *http.Request, v any) {
 	apiJSONTaggedBy(w, r, v, nil)
 }
 
-// apiJSONTaggedBy tags v by the JSON of tagOf, when tagOf is not nil. tagOf leaves out a field that moves
-// with time alone, so an unchanged read still gets 304.
+// tagOf, when not nil, is v without the fields that move with time alone, so an unchanged read still gets 304.
 func apiJSONTaggedBy(w http.ResponseWriter, r *http.Request, v, tagOf any) {
 	body, err := json.Marshal(v)
 	if err != nil {
@@ -122,7 +111,6 @@ func etagOf(b []byte) string {
 	return `"` + hex.EncodeToString(sum[:16]) + `"`
 }
 
-// apiWriteTagged writes a body already built and tagged, or 304 when the caller has it.
 func apiWriteTagged(w http.ResponseWriter, r *http.Request, body []byte, tag string) {
 	w.Header().Set("ETag", tag)
 	w.Header().Set("Cache-Control", "no-store")
@@ -135,7 +123,7 @@ func apiWriteTagged(w http.ResponseWriter, r *http.Request, body []byte, tag str
 	w.Write([]byte{'\n'})
 }
 
-// tagMatches: a weak tag compares equal to its strong form, as RFC 9110 says for If-None-Match.
+// RFC 9110: for If-None-Match a weak tag equals its strong form.
 func tagMatches(header, tag string) bool {
 	for _, t := range strings.Split(header, ",") {
 		t = strings.TrimPrefix(strings.TrimSpace(t), "W/")
@@ -146,7 +134,7 @@ func tagMatches(header, tag string) bool {
 	return false
 }
 
-// apiCreated is apiJSON with status 201; headers must precede the status line.
+// Headers must precede the status line.
 func apiCreated(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
@@ -154,7 +142,7 @@ func apiCreated(w http.ResponseWriter, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
-// readBody reads a request body of at most limit bytes. what names it in the 413 message.
+// what names the body in the 413 message.
 func readBody(w http.ResponseWriter, r *http.Request, limit int64, what string) ([]byte, bool) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
 	if err != nil {
@@ -171,8 +159,7 @@ func readBody(w http.ResponseWriter, r *http.Request, limit int64, what string) 
 
 func isAPIPath(p string) bool { return strings.HasPrefix(p, apiBase+"/") }
 
-// mountAPI adds the table, the open OpenAPI file and a fallback that answers unknown paths
-// and wrong methods as JSON. No CORS headers are ever set (v1).
+// Unknown paths and wrong methods are answered as JSON. v1 sets no CORS headers.
 func (a *App) mountAPI(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+apiBase+"/openapi.yaml", serveOpenAPI)
 	for _, rt := range apiRoutes {
@@ -194,8 +181,7 @@ func (a *App) mountAPI(mux *http.ServeMux) {
 	})
 }
 
-// routerOK refuses a router parameter that names no router. It takes the router UID, never a
-// prefix, since a prefix can change. Optional while there is one router.
+// The router parameter is the router UID, never a prefix, since a prefix can change.
 func (a *App) routerOK(w http.ResponseWriter, r *http.Request) bool {
 	uid := r.URL.Query().Get("router")
 	if uid == "" || uid == a.r().cfg.UID {
@@ -205,7 +191,7 @@ func (a *App) routerOK(w http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
-// pathMatches compares a route path with a request path; a {name} segment matches any one segment.
+// A {name} segment matches any one segment.
 func pathMatches(pattern, path string) bool {
 	ps, qs := strings.Split(pattern, "/"), strings.Split(path, "/")
 	if len(ps) != len(qs) {

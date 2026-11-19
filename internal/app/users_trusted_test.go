@@ -176,7 +176,7 @@ func TestSaveUsersFlags(t *testing.T) {
 	}
 }
 
-// persistentApp: Ana is persistent (and the first connection unlocks her).
+// persistentApp: Ana is persistent, and the first connection signs her in.
 func persistentApp(t *testing.T) (*App, *client, string) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", false, true)
@@ -328,8 +328,8 @@ func TestOldAdminTokensIgnored(t *testing.T) {
 	}
 }
 
-// Over the wire: a persistent user's unlock returns a token, a second socket
-// that presents it in hi is unlocked, and userLock revokes it.
+// The sign-in of a persistent user returns a token. A second socket that presents it in hi is signed in.
+// userLock revokes it.
 func TestSessionOverWebSocket(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", true, true)
@@ -390,7 +390,7 @@ func TestSessionOverWebSocket(t *testing.T) {
 	}
 }
 
-// watched: a connection the app can deliver to, unlocked as the user whose PIN is pin.
+// watched: a connection the app can deliver to, signed in as the user whose PIN is pin.
 func watched(t *testing.T, a *App, ip, pin string) *client {
 	t.Helper()
 	c := &client{ip: ip, send: make(chan []byte, 16)}
@@ -420,9 +420,8 @@ func sessionSent(c *client) string {
 	}
 }
 
-// Ticking Never log out for someone already logged in gives their open
-// connection a token at once (only the PIN did before). So a reload keeps
-// them in. A connection that is not logged in gets nothing.
+// A tick on Never sign out for a signed-in user gives their open connection a token at once,
+// so a reload keeps them in. A connection that is not signed in gets nothing.
 func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	a := userApp(t, true)
 	ana := watched(t, a, "10.0.0.1", "1234")

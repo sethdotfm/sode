@@ -34,6 +34,8 @@ func writeTree(t *testing.T, dir string, names []string, body func(string) strin
 	}
 }
 
+func v1Body(n string) string { return "router: 10.0.0.5:8910\n# " + n }
+
 func logsOf(t *testing.T, f func()) []string {
 	t.Helper()
 	var buf bytes.Buffer
@@ -95,7 +97,7 @@ func TestV1DataStartsFresh(t *testing.T) {
 }
 
 func TestV2DataStays(t *testing.T) {
-	for name, body := range map[string]string{"v2": "format: 2\nrouters: [{address: 10.0.0.5:8910}]\n", "none": ""} {
+	for name, body := range map[string]string{"v2": "format: 2\nrouters: [{address: 10.0.0.5:8910}]\n", "none": "", "comments": "# x\n", "braces": "{}\n"} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			names := []string{"tokens.json", "history.jsonl"}
@@ -123,12 +125,12 @@ func TestV2DataStays(t *testing.T) {
 
 func TestV1MoveKeepsAnEarlierV1Directory(t *testing.T) {
 	dir := t.TempDir()
-	writeTree(t, dir, []string{"v1/config.yaml", "config.yaml", "tokens.json"}, func(n string) string { return "# " + n })
+	writeTree(t, dir, []string{"v1/config.yaml", "config.yaml", "tokens.json"}, v1Body)
 	moved, _ := moveV1(t, dir)
 	if moved != filepath.Join(dir, "v1-2") {
 		t.Fatalf("moved to %q", moved)
 	}
-	if b, _ := os.ReadFile(filepath.Join(dir, "v1", "config.yaml")); string(b) != "# v1/config.yaml" {
+	if b, _ := os.ReadFile(filepath.Join(dir, "v1", "config.yaml")); string(b) != v1Body("v1/config.yaml") {
 		t.Fatalf("earlier v1 directory changed: %q", b)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "v1-2", "tokens.json")); err != nil {
@@ -160,7 +162,7 @@ func TestV1MoveTakesLogsFromElsewhere(t *testing.T) {
 
 func TestV1MoveTakesImageLogsWithoutPaths(t *testing.T) {
 	dir := t.TempDir()
-	writeTree(t, dir, []string{"config.yaml", "history.jsonl", "sent.jsonl", "sent.1.jsonl", "uptime.jsonl"}, func(n string) string { return "# " + n })
+	writeTree(t, dir, []string{"config.yaml", "history.jsonl", "sent.jsonl", "sent.1.jsonl", "uptime.jsonl"}, v1Body)
 	var moved string
 	logsOf(t, func() {
 		var err error

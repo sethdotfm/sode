@@ -199,7 +199,7 @@ func TestProfileUntrustedRefused(t *testing.T) {
 	if !anasProfile(t, a).Empty() {
 		t.Fatal("a refused save changed the profile")
 	}
-	// A refusal answers as a failed result echoing the id.
+	// A refusal answers as a failed result with the same id.
 	c := watched(t, a, "10.0.0.7", "")
 	rl := policy["profileSave"].forMsg(&inMsg{T: "profileSave", Name: "Ana", ID: 7})
 	m := inMsg{T: "profileSave", Name: "Ana", ID: 7}
@@ -435,8 +435,8 @@ func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
 	}
 }
 
-// The pinned presets' order is part of the profile. It is saved by the user, kept
-// when other parts are saved, and cleaned (no repeats; keys kept as sent).
+// The pinned presets' order is part of the profile. A save of other parts keeps it.
+// The server cleans it (no repeats; keys kept as sent).
 func TestProfileSavePinOrder(t *testing.T) {
 	a := userApp(t, false)
 	ana := watched(t, a, "10.0.0.1", "1234")

@@ -33,6 +33,10 @@ type staticFile struct {
 }
 
 func (s *staticFiles) get(name string) *staticFile {
+	// Unauthenticated callers pick the name, so only a real file gets an entry.
+	if _, err := fs.Stat(s.fsys, name); err != nil {
+		return nil
+	}
 	v, _ := s.files.LoadOrStore(name, &staticFile{})
 	f := v.(*staticFile)
 	f.once.Do(func() {

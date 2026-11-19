@@ -2,7 +2,10 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Sessions: tokens issued to signed-in connections and the server-held Lock that rides them
@@ -49,7 +52,7 @@ func (a *App) adoptMu(c *client, tok string, locked bool) {
 }
 
 // eachOnSessionMu runs fn for every connection on c's session, c last (it is possible
-// that c is not registered). The one loop over connections sharing a token. Caller holds mu.
+// that c is not registered). Caller holds mu.
 func (a *App) eachOnSessionMu(c *client, fn func(*client)) {
 	s := c.sessMu()
 	for cl := range a.clients {
@@ -155,7 +158,7 @@ type sessionMsg struct {
 	Tab   bool   `json:"tab,omitempty"` // for this tab only
 }
 
-// Renews open connections' tokens so a never-reloading page outlasts tokenMaxAge. Off mu.
+// Renews the tokens of open connections so a page that never reloads outlasts tokenMaxAge. Off mu.
 func (a *App) touchSessions() {
 	a.mu.Lock()
 	cfg := a.r().cfg
@@ -285,4 +288,34 @@ func (a *App) SignOut(c *client) {
 	a.mu.Unlock()
 	a.tokens.forget(tok)
 	a.endSessionKeys()
+}
+
+func (a *App) SignOutAll(c *client, name string) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
+		return err
+	}
+	who, ok := a.r().cfg.FindUserByName(name)
+	if !ok {
+		return errors.New("no such user")
+	}
+	a.tokens.dropUser(who.ID)
+	a.endSessionKeys()
+	a.mu.Lock()
+	for cl := range a.clients {
+		if st := cl.u.step; st != nil && st.orig != nil && st.orig.ID == who.ID {
+			st.ended = true
+		}
+		if st := cl.u.step; st != nil && cl.userID() == who.ID {
+			a.stepOutMu(cl, "signOut")
+		}
+	}
+	for cl := range a.clients {
+		if u := cl.u.user.Load(); u != nil && u.ID == who.ID {
+			a.signOutMu(cl)
+		}
+	}
+	a.mu.Unlock()
+	return nil
 }

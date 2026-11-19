@@ -78,14 +78,16 @@ func backupBeforeRelease(path string) {
 	}
 }
 
-// The PIN comes from stdin, not a flag, so it stays out of ps and shell history. With no
-// terminal package (no new deps) the typed PIN shows.
+// The PIN comes from stdin, not a flag, so it stays out of ps and shell history.
 func makeAdministrator(path, name string) {
 	if path == "" {
 		log.Fatal("make-administrator: SODE_CONFIG is not set")
 	}
-	fmt.Fprintf(os.Stderr, "New PIN for %s (digits; it shows as you type): ", name)
+	fmt.Fprintf(os.Stderr, "New PIN for %s (digits): ", name)
+	restore := noEcho(int(os.Stdin.Fd()))
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	restore()
+	fmt.Fprintln(os.Stderr)
 	if err != nil && line == "" {
 		log.Fatalf("make-administrator: reading the PIN: %v", err)
 	}

@@ -15,28 +15,10 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The stream: GET /api/v1/stream upgrades to a WebSocket that only sends. The caller names
-// its topics in ?topics=a,b at connect. Every frame but hello and ping is {"t","topic","data"?},
-// so a client can match on topic alone. Keep docs in step: docs/api.md, openapi.yaml.
-//
-//	hello          {v, topics, numberOffset}, always first
-//	snapshot       one per names, tally and status topic, topic set, data as the REST read
-//	names          full names, filtered
-//	tally          {routes:[{dst,level,src}]} changed routes only
-//	status         {router, routerUp, error}, plus address and err for a caller with the log scope
-//	entry          a new History entry (topic history)
-//	entryUpdate    a changed entry, such as a Late Result (sent one time; topic history, or results when history was not chosen)
-//	historyCleared (topic history)
-//	ping           heartbeat, ignore
-//
-// Visibility (apiView) filters every frame, so a hidden caller never sees an out-of-rights
-// route or entry. A tally change whose Source is hidden is left out, as the REST read
-// leaves it out. So a client never sees -1 for a route that has a hidden source. Frames go
-// out in the order the server saw the changes.
-//
-// refreshStreams re-resolves each open stream on a config commit. A rights change filters the
-// next frame only. Loss of the API, Guest, a topic scope or the log scope ends the stream.
-// Liveness is the text ping frame alone; the per-key and per-address caps are below.
+// GET /api/v1/stream upgrades to a WebSocket that only sends. The frames and topics are in docs/api.md and
+// openapi.yaml; keep them in step. Visibility (apiView) filters every frame, and a tally change with a hidden Source
+// is left out,
+// as in the REST read. Frames go out in the order the server saw the changes.
 
 func init() {
 	registerAPI(apiRoute{"GET", apiBase + "/stream", "", (*App).apiStreamServe})
@@ -44,22 +26,21 @@ func init() {
 
 const apiStreamVersion = 1
 
-// Open streams allowed at once. Vars so tests can isolate one cap.
+// Vars so a test can isolate one cap.
 var (
 	apiStreamMaxPerKey  = 8
 	apiStreamMaxPerAddr = 8
 
-	apiStreamMaxPerPanelKey = 64
+	apiStreamMaxPerPanelKey  = 64
+	apiStreamMaxPanelPerAddr = 4 * apiStreamMaxPerPanelKey
 )
 
-// streamTopics maps a topic to the scope that allows it. results (entry updates only) rides
-// the history scope.
+// The scope that allows each topic. results (entry updates only) rides the history scope.
 var streamTopics = map[string]string{
 	"names": config.ScopeNames, "tally": config.ScopeTally, "status": config.ScopeStatus,
 	"history": config.ScopeHistory, "results": config.ScopeHistory,
 }
 
-// streamOrder fixes the order of snapshots.
 var streamOrder = []string{"names", "tally", "status", "history", "results"}
 
 type streamMsg struct {
@@ -68,15 +49,15 @@ type streamMsg struct {
 	Data  any    `json:"data,omitempty"`
 }
 
-// apiStream is one attached caller. Guarded by App.mu like a browser client's send channel.
+// Guarded by App.mu.
 type apiStream struct {
 	view   apiView
 	topics map[string]bool
 	send   chan []byte
-	detail bool               // the caller has the log scope: status frames carry address and err
-	panel  bool               // the key is a panel's own: its kiosks share it, so the caps differ
-	keyID  string             // "" for a keyless Guest call
-	ip     string             // the caller's address, for the per-address cap
+	detail bool   // the caller has the log scope: status frames carry address and err
+	panel  bool   // the key is a panel's own: its instances share it, so the caps differ
+	keyID  string // "" for a keyless Guest call
+	ip     string
 	owner  keyOwner           // who the key acts as, re-read on every config commit
 	cancel context.CancelFunc // ends the connection; safe from any goroutine
 	ended  string             // why a key lifecycle path cut it, set under App.mu
@@ -127,30 +108,34 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		st.topics[t] = true
 	}
 
-	// Register (after the caps) and queue the snapshots under one lock so no change arrives
-	// ahead of them. Registering before the upgrade keeps the caps exact under a burst.
+	// One lock covers the register (after the caps) and the snapshots, so no change arrives before them.
+	// The register comes before the upgrade, which keeps the caps exact in a burst.
 	a.mu.Lock()
 	if a.streams == nil {
 		a.streams = map[*apiStream]struct{}{}
 	}
+	st.panel = cl.Panel != ""
 	perKey, perAddr := 0, 0
 	for o := range a.streams {
 		if st.keyID != "" && o.keyID == st.keyID {
 			perKey++
 		}
-		if o.ip == st.ip && !o.panel {
+		if o.ip == st.ip && o.panel == st.panel {
 			perAddr++
 		}
 	}
-	// A panel's kiosks share one key and often one address. So its streams get a higher cap of
-	// their own and do not count against an address's.
+	// The instances of a panel share one key and often one address. So their streams have higher caps, per key and
+	// per address, apart from other streams.
 	keyMax, addrMax := apiStreamMaxPerKey, apiStreamMaxPerAddr
-	if st.panel = cl.Panel != ""; st.panel {
-		keyMax, addrMax = apiStreamMaxPerPanelKey, perAddr+1
+	if st.panel {
+		addrMax = apiStreamMaxPanelPerAddr
+		if publicKeyID(cl) == "" { // a Public page holds a key of its own
+			keyMax = apiStreamMaxPerPanelKey
+		}
 	}
 	if perKey >= keyMax || perAddr >= addrMax {
 		a.mu.Unlock()
-		msg := fmt.Sprintf("too many open streams: %d for a key and %d for an address at most", keyMax, apiStreamMaxPerAddr)
+		msg := fmt.Sprintf("too many open streams: %d for a key and %d for an address at most", keyMax, addrMax)
 		a.apiEvent(cl.Actor, "refused", "refused", "stream "+strings.Join(topics, ","), fmt.Errorf("%s", msg))
 		apiFail(w, http.StatusTooManyRequests, "too_many_streams", msg)
 		return
@@ -178,9 +163,9 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	defer conn.CloseNow()
-	conn.SetReadLimit(1 << 10) // the stream takes no input
+	conn.SetReadLimit(1 << 10) // the client sends nothing on the stream
 
-	// A key ended between auth and registering is not seen by endStreams.
+	// endStreams does not see a key that ended between auth and the register.
 	if st.keyID != "" && !a.keys.alive(st.keyID) && !a.public.alive(st.keyID) {
 		a.endStreams([]apiKey{*cl.Key}, "key ended")
 	}
@@ -208,8 +193,8 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		a.apiEvent(cl.Actor, "streamDisconnect", "ok", note, cerr)
 	}()
 
-	// streamWriteTimeout bounds one write so a stalled client closes its stream instead of
-	// backing up the writer. Same length as wsHeartbeat, but independent of it.
+	// So a stalled client closes its stream and does not back up the writer. Equal to wsHeartbeat, but independent of
+	// it.
 	const streamWriteTimeout = 5 * time.Second
 	go func() {
 		defer cancel()
@@ -248,7 +233,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 }
 
-// dropStream unregisters st and closes its queue one time. Acquires mu.
+// Acquires mu.
 func (a *App) dropStream(st *apiStream) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -258,8 +243,7 @@ func (a *App) dropStream(st *apiStream) {
 	}
 }
 
-// endStreams closes the open streams of keys that ended, so a stream cannot outlive its
-// key. Each closes through its own disconnect row, which carries why. Acquires mu.
+// A stream must not outlive its key. Each closes through its own disconnect row, which carries why. Acquires mu.
 func (a *App) endStreams(keys []apiKey, why string) {
 	if len(keys) == 0 {
 		return
@@ -280,9 +264,9 @@ func (a *App) endStreams(keys []apiKey, why string) {
 	}
 }
 
-// refreshStreams applies a config commit to the open streams as the next REST call would see
-// it. A changed view applies at once. A stream ends when its caller lost the keyless API, a
-// scope it uses or its log detail. Caller holds mu.
+// A changed view applies immediately. A stream ends when its caller lost the keyless API, a scope it uses or its log
+// detail.
+// Caller holds mu.
 func (a *App) refreshStreams(cfg config.Config) {
 	for st := range a.streams {
 		if st.ended != "" {
@@ -338,8 +322,7 @@ func (a *App) streamQueue(st *apiStream, m streamMsg) {
 	}
 }
 
-// streamFan turns what broadcast sends to browsers into frames for each stream that chose
-// the topic. Caller holds mu.
+// Caller holds mu.
 func (a *App) streamFan(v any) {
 	if len(a.streams) == 0 {
 		return

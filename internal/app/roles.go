@@ -30,11 +30,6 @@ func (e roleErr) Error() string {
 	return "this needs a " + config.RoleLabel(e.need) + " or an Administrator signed in on this browser"
 }
 
-func isRoleErr(err error) bool {
-	var r roleErr
-	return errors.As(err, &r)
-}
-
 // "" is no Role (a held Lock, or a Guest under its page's lock). With no users, env-only mode makes every browser an
 // Administrator; with a config file, needRoleMu refuses everything until the setup wizard's Finish.
 func (a *App) roleMu(c *client) string {

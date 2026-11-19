@@ -146,7 +146,7 @@ func ownClientRights(u config.User, want, stored *config.Rights) (config.Rights,
 	return r, nil
 }
 
-// DeleteOwnClient removes one of c's user's clients. Its keys end through the config commit.
+// The client's keys end through the config commit.
 func (a *App) DeleteOwnClient(c *client, name string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

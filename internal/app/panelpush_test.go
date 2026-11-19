@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// REST seam for Push, checkpoints and checkpoint sets.
-
 func pushTo(a *App, key, src string, targets ...string) (code int, body map[string]any) {
 	b, _ := json.Marshal(map[string]any{"targets": targets})
 	rec := apiSend(a, "POST", "/api/v1/panels/"+src+"/push", key, string(b))
@@ -70,7 +68,6 @@ func TestPushWhoMayAndAllOrNothing(t *testing.T) {
 		t.Fatal("a refused push changed a panel")
 	}
 
-	// A user who can only use the source cannot push it.
 	apiSend(a, "PUT", "/api/v1/panels/"+src, ana, `{"name":"Src","share":{"mode":"everyone"},"cells":[{"r":1,"c":1,"kind":"take"}]}`)
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+src+"/push", bo, fmt.Sprintf(`{"targets":[%q]}`, open)), 403, "not_owner")
 
@@ -80,7 +77,6 @@ func TestPushWhoMayAndAllOrNothing(t *testing.T) {
 		}
 	}
 
-	// A Trusted user pushes anybody's panel to anybody's.
 	if code, body := pushTo(a, cy, src, private, open, mine); code != 200 {
 		t.Fatalf("Trusted push: %d %v", code, body)
 	}
@@ -161,7 +157,6 @@ func TestPushKeepsACheckpointAndRestorePutsItBack(t *testing.T) {
 		t.Fatal("push did not land")
 	}
 
-	// Use only is not allowed to list or restore.
 	wantErr(t, apiDo(a, "GET", "/api/v1/panels/"+dst+"/checkpoints", bo, nil), 403, "not_owner")
 	path := "/api/v1/panels/" + dst + "/checkpoints/" + cps[0]["id"].(string) + "/restore"
 	wantErr(t, apiSend(a, "POST", path, bo, ``), 403, "not_owner")
@@ -175,7 +170,6 @@ func TestPushKeepsACheckpointAndRestorePutsItBack(t *testing.T) {
 	if cellCount(got) != 1 || got["rows"] != 3.0 || got["name"] != "Dst" {
 		t.Fatalf("restore: %v", got)
 	}
-	// Restoring is itself kept, so it can be put back too.
 	if n := len(checkpointsOf(t, a, ana, dst)); n != 2 {
 		t.Fatalf("checkpoints after restore %d", n)
 	}
@@ -240,7 +234,6 @@ func TestCheckpointSetGivesEachPanelItsOwnLayout(t *testing.T) {
 		t.Fatalf("set %v", set)
 	}
 
-	// The panels move on, then the set puts each one's own layout back.
 	apiSend(a, "PUT", "/api/v1/panels/"+e1, ana, `{"name":"EVS 1","cells":[]}`)
 	apiSend(a, "PUT", "/api/v1/panels/"+e2, ana, `{"name":"EVS 2","cells":[{"r":1,"c":1,"kind":"clear"}]}`)
 
@@ -258,7 +251,6 @@ func TestCheckpointSetGivesEachPanelItsOwnLayout(t *testing.T) {
 		t.Fatal("a set push keeps no checkpoint")
 	}
 
-	// A subset of targets pushes only those.
 	apiSend(a, "PUT", "/api/v1/panels/"+e1, ana, `{"name":"EVS 1","cells":[]}`)
 	apiSend(a, "PUT", "/api/v1/panels/"+e2, ana, `{"name":"EVS 2","cells":[]}`)
 	apiSend(a, "POST", "/api/v1/panel-sets/"+sid+"/push", ana, fmt.Sprintf(`{"targets":[%q]}`, e2))
@@ -267,7 +259,6 @@ func TestCheckpointSetGivesEachPanelItsOwnLayout(t *testing.T) {
 	}
 	wantErr(t, apiSend(a, "POST", "/api/v1/panel-sets/"+sid+"/push", ana, `{"targets":["p-00000000"]}`), 400, "bad_request")
 
-	// A panel that was deleted is skipped and named.
 	apiDo(a, "DELETE", "/api/v1/panels/"+e1, ana, nil)
 	rec = apiSend(a, "POST", "/api/v1/panel-sets/"+sid+"/push", ana, `{}`)
 	body := apiBody(t, rec)
@@ -282,7 +273,6 @@ func TestCheckpointSetScopeAndAccess(t *testing.T) {
 	p1 := makePanel(t, a, ana, `{"name":"P1"}`)
 	bp := makePanel(t, a, bo, `{"name":"Bo's"}`)
 
-	// Everyone sets need a Trusted user, and a set holds only panels its maker can change.
 	wantErr(t, apiSend(a, "POST", "/api/v1/panel-sets", ana, setBody("All", "everyone", p1)), 403, "trusted_required")
 	wantErr(t, apiSend(a, "POST", "/api/v1/panel-sets", ana, setBody("Bad", "me", p1, bp)), 404, "not_found")
 	wantErr(t, apiSend(a, "POST", "/api/v1/panel-sets", ana, setBody("", "me", p1)), 400, "bad_request")
@@ -304,7 +294,6 @@ func TestCheckpointSetScopeAndAccess(t *testing.T) {
 	}
 	wantErr(t, apiSend(a, "POST", "/api/v1/panel-sets/"+mine+"/push", bo, `{}`), 404, "not_found")
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/panel-sets/"+mine, bo, ``), 404, "not_found")
-	// Bo can use the Everyone set but not change it, and is not allowed to push to Ana's panel.
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/panel-sets/"+all, bo, ``), 403, "not_owner")
 	wantErr(t, apiSend(a, "POST", "/api/v1/panel-sets/"+all+"/push", bo, `{}`), 404, "not_found")
 
@@ -314,7 +303,6 @@ func TestCheckpointSetScopeAndAccess(t *testing.T) {
 	if rec := apiSend(a, "DELETE", "/api/v1/panel-sets/"+mine, ana, ``); rec.Code != 204 {
 		t.Fatalf("delete: %d", rec.Code)
 	}
-	// Trusted can change an Everyone set that someone else made.
 	if rec := apiSend(a, "DELETE", "/api/v1/panel-sets/"+all, cy, ``); rec.Code != 204 {
 		t.Fatalf("Trusted delete: %d", rec.Code)
 	}

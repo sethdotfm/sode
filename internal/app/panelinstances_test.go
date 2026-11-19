@@ -6,9 +6,6 @@ import (
 	"testing"
 )
 
-// REST seam for a panel's named instances: one key per instance name, listed and revoked or
-// rotated one at a time.
-
 func mintFor(t *testing.T, a *App, owner, id, name string) string {
 	t.Helper()
 	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", owner, fmt.Sprintf(`{"instance":%q}`, name))
@@ -51,7 +48,6 @@ func TestPanelHoldsOneKeyPerInstance(t *testing.T) {
 			t.Fatalf("a key of the panel: %d", rec.Code)
 		}
 	}
-	// Rotating Lobby, by any case, leaves Studio alone.
 	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, `{"instance":"LOBBY"}`)
 	body := apiBody(t, rec)
 	if rec.Code != 201 || body["rotated"] != true || body["instance"] != "LOBBY" {
@@ -91,7 +87,7 @@ func TestPanelKeyListShowsInstancesNotSecrets(t *testing.T) {
 	secret := mintFor(t, a, cy, id, "Studio")
 	mintFor(t, a, cy, id, "Lobby")
 	token, _ := setupLink(t, a, cy, id)
-	a.mon.beat(id, "studio")
+	a.mon.beat(id, "studio", "")
 	apiSend(a, "GET", "/api/v1/tally", secret, "")
 
 	rec := apiSend(a, "GET", "/api/v1/panels/"+id+"/keys", cy, "")
@@ -106,7 +102,6 @@ func TestPanelKeyListShowsInstancesNotSecrets(t *testing.T) {
 	if list[1]["online"] != true || list[1]["lastUsed"] == nil || list[1]["created"] == nil || list[0]["online"] != false {
 		t.Fatalf("Studio state %v", list)
 	}
-	// Exchanging the setup link makes a key under the same name.
 	if r := exchangeSetup(a, apiPeer, id, token); r.Code != 201 || apiBody(t, r)["instance"] != "Lobby" {
 		t.Fatalf("exchange: %d %s", r.Code, r.Body.String())
 	}
@@ -119,8 +114,8 @@ func TestRotatingOneInstanceKeepsTheOthersOnline(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	mintFor(t, a, cy, id, "Lobby")
 	mintFor(t, a, cy, id, "Studio")
-	a.mon.beat(id, "Lobby")
-	a.mon.beat(id, "Studio")
+	a.mon.beat(id, "Lobby", "")
+	a.mon.beat(id, "Studio", "")
 	mintFor(t, a, cy, id, "Lobby")
 	if a.mon.deviceOnline(id, "Lobby") || !a.mon.deviceOnline(id, "Studio") {
 		t.Fatal("rotating forgot the wrong instance")
@@ -143,7 +138,6 @@ func TestPanelInstancesAreCapped(t *testing.T) {
 	}
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, `{"instance":"One more"}`), 409, "conflict")
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, `{"instance":"One more","setup":true}`), 409, "conflict")
-	// Rotating a held name still works, and nothing was lost to the refusals.
 	mintFor(t, a, cy, id, "screen 3")
 	if got := len(keyList(t, a, cy, id)); got != panelKeyMax {
 		t.Fatalf("%d instances, want %d", got, panelKeyMax)

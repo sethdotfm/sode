@@ -19,7 +19,7 @@ func asMap(t *testing.T, b []byte) map[string]any {
 	return m
 }
 
-// legacyHello is the hello as it was built from a map[string]any.
+// legacyHello builds the hello from a map[string]any, the reference shape for the typed one.
 func legacyHello(a *App, p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
@@ -48,7 +48,7 @@ func legacyHello(a *App, p helloPage) []byte {
 	return b
 }
 
-// legacyTriples is the bare [dst, level, value] arrays a hello carries.
+// legacyTriples: the bare [dst, level, value] arrays of a hello.
 func legacyTriples(m map[int]map[int]int) [][3]int {
 	out := [][3]int{}
 	for d, t := range m {
@@ -72,8 +72,8 @@ func TestHelloMatchesLegacy(t *testing.T) {
 	}
 }
 
-// TestRouteChangeWire pins routeChange to the bare [dst, level, src] arrays
-// it replaced, in a delta, a hello's tally and protect, and back.
+// routeChange must marshal as a bare [dst, level, src] array. Open pages read that shape in a delta,
+// in a hello's tally and protect, and back.
 func TestRouteChangeWire(t *testing.T) {
 	old := map[string]any{"t": "tally", "u": [][3]int{{5, 1, 7}, {6, 2, -1}}}
 	want, _ := json.Marshal(old)
@@ -106,8 +106,7 @@ func TestRouteChangeWire(t *testing.T) {
 	}
 }
 
-// TestRecentWire: a recent message keeps its old shape, and omitempty keys
-// stay absent.
+// Open pages read this shape of recent; omitempty keys stay absent.
 func TestRecentWire(t *testing.T) {
 	e := &Entry{ID: 4, Src: 7, Dst: 2, Levels: []int{1}, Prev: [][2]int{{1, 5}}, OK: true}
 	got, err := json.Marshal(recentMsg{T: "entry", E: e})
@@ -129,8 +128,7 @@ func TestRecentWire(t *testing.T) {
 	}
 }
 
-// TestHistoryLineRoundTrip reads a history line as written before this
-// change and writes it back unchanged (as JSON values).
+// History files hold lines in this shape: a line must read and write back unchanged (as JSON values).
 func TestHistoryLineRoundTrip(t *testing.T) {
 	line := `{"id":12,"time":"2026-10-23T18:01:40.123456789Z","client":"10.0.0.7","src":50,"srcName":"CAM 51","dst":3,"dstName":"KiPro 4","levels":[1,2,3],"prev":[[1,4],[2,4],[3,-1]],"ok":false,"err":"level 3 no answer","failed":[3],"now":[[3,9]],"already":[1],"late":[2]}`
 	var e Entry

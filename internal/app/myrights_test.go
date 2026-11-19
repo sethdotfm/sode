@@ -63,7 +63,6 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 		t.Fatalf("Bo's rights %s", got)
 	}
 
-	// An administrator's edit reaches the open page at once.
 	dsts := *nums(3)
 	mrSet(t, a, []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Dsts: &dsts}}, {ID: idOf(a, "Bo"), Name: "Bo"}})
 	m = mrLast(anext(), "myRights")
@@ -74,7 +73,6 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 		t.Fatalf("Ana's rights after the edit %s", got)
 	}
 
-	// The held Lock covers the page: the rights are cleared.
 	a.UserLock(ana)
 	m = mrLast(anext(), "myRights")
 	if m == nil || m["rights"] != nil {

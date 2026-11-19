@@ -7,17 +7,15 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Approval in person (GLOSSARY.md, docs/agents/users-locks.md): a message carries the approver's
-// name and PIN, and the server checks that one action against the approver's Role. Nothing stays
-// on the connection, so the next message is under the browser's own sign-in again.
+// Approval in person (GLOSSARY.md, docs/agents/users-locks.md). Nothing stays on the connection, so the next message
+// is under the browser's own sign-in again.
 
 type approvalReq struct {
 	User string `json:"user"`
 	Pin  string `json:"pin"`
 }
 
-// approvalErr: the Approval itself is refused (wrong PIN, the approver's Role). The page keeps its
-// Approval popup open and shows it there.
+// The Approval itself is refused (wrong PIN, the approver's Role). The page shows it in the open Approval popup.
 type approvalErr struct{ msg string }
 
 func (e approvalErr) Error() string { return e.msg }
@@ -29,8 +27,8 @@ func isApprovalErr(err error) bool {
 
 var errApprovalTake = approvalErr{"takes use this browser's own sign-in: an Approval does not cover them"}
 
-// approve checks m's Approval and sets m.approver. The browser's own state comes first, so a
-// browser under the Lock spends no PIN try. Wrong PINs count toward the approver name's wait.
+// The browser's own state is checked first, so a browser under the Lock uses no PIN try. A wrong PIN counts toward
+// the wait of the approver's name.
 func (a *App) approve(c *client, r rule, m *inMsg) error {
 	switch {
 	case m.T == "take":
@@ -62,13 +60,13 @@ func (a *App) approve(c *client, r rule, m *inMsg) error {
 	return nil
 }
 
-// livePinMu reads hit again after a PIN check that ran outside mu; false when hit is gone or has a new PIN.
+// The PIN check ran outside mu. false when hit is gone or has a new PIN.
 func (a *App) livePinMu(hit *config.User) (config.User, bool) {
 	live, ok := a.r().cfg.FindUserByID(hit.ID)
 	return live, ok && live.Pin == hit.Pin
 }
 
-// approverRole: the approver's live Role; "" when the approver is gone or changed their PIN.
+// "" when the approver is gone or changed their PIN.
 func approverRole(cfg config.Config, ap *config.User) string {
 	u, ok := cfg.FindUserByID(ap.ID)
 	if !ok || u.Pin != ap.Pin {

@@ -8,7 +8,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A fresh install has no API switch to turn on: a panel made and read over the API works on Defaults.
 func TestAPIAlwaysOnPanelsWorkOnFreshInstall(t *testing.T) {
 	a := newTestApp(t, withAdministrator)
 	ada := apiTestKey(t, a, ownerOf(a, "Ada"), "Desk", time.Time{})
@@ -22,7 +21,6 @@ func TestAPIAlwaysOnPanelsWorkOnFreshInstall(t *testing.T) {
 	}
 }
 
-// Settings > Access > API edits the keyless scopes. They are on the Critical list, so a change needs a PIN recheck.
 func TestKeylessScopesSaveFromAPISettingsWithRecheck(t *testing.T) {
 	a := newTestApp(t, withAdministrator)
 	defer startLog(t, a)()
@@ -47,7 +45,6 @@ func TestKeylessScopesSaveFromAPISettingsWithRecheck(t *testing.T) {
 	}
 }
 
-// Keyless calls get Guest Rights and keyless scopes only. Guest role (here Trusted user) never reaches them.
 func TestKeylessCallsAreBoundByGuestRightsAndScopes(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		c.GuestRole = config.RoleTrusted

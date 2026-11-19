@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// A key a read adds that panelKnown lacks lands in Extra when an editor saves the read back. It is then
-// stored and shown to non-editors (it happened with artDefaults, then keyless).
+// A key that a read adds and panelKnown lacks lands in Extra when an editor saves the read. Sode then stores it and
+// shows it to non-editors.
 func TestPanelReadsAddOnlyPanelKnownKeys(t *testing.T) {
 	a, _ := clientApp(t)
 	cy, bo := userKey(t, a, "Cy"), userKey(t, a, "Bo")

@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A Settings save that changes the address keeps the router UID in the runtime and the file.
 func TestAddressChangeKeepsRouterUID(t *testing.T) {
 	a := futureApp(t, "routers: [{address: 127.0.0.1:1}]\n")
 	uid := a.r().cfg.UID

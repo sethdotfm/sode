@@ -12,7 +12,7 @@ import (
 
 // JSON keys stay flat so the config message and hello keep their shape; the file nests them under routers.
 type Router struct {
-	// UID is made once (Normalize) and never changes, not even with the address. Never shown.
+	// Normalize makes UID one time. It never changes, not even with the address. Never shown.
 	UID string `yaml:"uid" json:"-"`
 	// Prefix is A-Z, hidden while there is one router.
 	Prefix  string `yaml:"prefix" json:"-"`
@@ -29,7 +29,7 @@ type Router struct {
 	DefaultLevels  string `yaml:"defaultLevels" json:"defaultLevels"`
 	NameLength     int    `yaml:"nameLength" json:"nameLength" reconnect:"true"`
 	NameRequests   string `yaml:"nameRequests" json:"nameRequests" reconnect:"true"`
-	// NameRefreshSeconds is the router name re-read interval; 0 is off.
+	// NameRefreshSeconds: how often Sode reads the router names again, in seconds; 0 is off.
 	NameRefreshSeconds int `yaml:"nameRereadSeconds" json:"nameRereadSeconds"`
 	// TallyResyncSeconds is the Re-read routes interval; 0 is off.
 	TallyResyncSeconds int `yaml:"routeRereadSeconds" json:"tallyResyncSeconds"`
@@ -55,10 +55,6 @@ func (c Config) SourceRef(n int, name string) Ref {
 }
 
 func (c Config) DestinationRef(n int, name string) Ref { return c.SourceRef(n, name) }
-
-func (c Config) LevelRef(ui int) Ref {
-	return Ref{Router: c.UID, N: ui, Shown: c.LevelLabel(ui)}
-}
 
 func newRouterUID() string { return RandomHexID(8) }
 

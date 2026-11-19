@@ -66,7 +66,6 @@ func TestOneSaveTrustedSavesBrandingNotLevelColors(t *testing.T) {
 	}
 }
 
-// The config message keeps the same section rule as the one Save.
 func TestConfigMessageKeepsSectionRoles(t *testing.T) {
 	a := userApp(t, false)
 	setFlags(t, a, "Ana", true, false)
@@ -100,8 +99,6 @@ func TestOneSaveStandardUserGetsRoleForAccess(t *testing.T) {
 	}
 }
 
-// Two connections load the same versions. The second save of one field is refused with the
-// first one's value; its other field saves.
 func TestOneSaveConflictIsRefusedAlone(t *testing.T) {
 	a := userApp(t, false)
 	p1, p2 := dialPeer(t, a), dialPeer(t, a)
@@ -117,12 +114,10 @@ func TestOneSaveConflictIsRefusedAlone(t *testing.T) {
 	if got := a.r().cfg; got.BrandText != "First" || got.ResultDismissSeconds != 9 {
 		t.Fatalf("got brandText %q, resultDismissSeconds %d", got.BrandText, got.ResultDismissSeconds)
 	}
-	// With the version from the conflict, a save goes through.
 	p2.hello["versions"].(map[string]any)["brandText"] = f["version"]
 	wantSaved(t, p2.saveFields(3, map[string]any{"brandText": "Second"}), "brandText")
 }
 
-// Fields that fail only together are refused; the rest of the save goes through.
 func TestOneSaveRefusesOnlyTheFieldsThatFailTogether(t *testing.T) {
 	a := userApp(t, false)
 	a.cfgMu.Lock()
@@ -143,8 +138,6 @@ func TestOneSaveRefusesOnlyTheFieldsThatFailTogether(t *testing.T) {
 	wantRefused(t, r, bo, "invalid")
 }
 
-// A field not sent keeps another connection's later value, and a save that changes nothing
-// writes nothing.
 func TestOneSaveWritesOnlyChangedFields(t *testing.T) {
 	a := userApp(t, false)
 	p1, p2 := dialPeer(t, a), dialPeer(t, a)
@@ -165,7 +158,6 @@ func TestOneSaveWritesOnlyChangedFields(t *testing.T) {
 	}
 }
 
-// Signed in over the socket with no recheck: the Critical field alone is refused.
 func TestOneSaveCriticalFieldNeedsRecheck(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
@@ -180,7 +172,6 @@ func TestOneSaveCriticalFieldNeedsRecheck(t *testing.T) {
 	}
 }
 
-// A held Lock refuses the whole save, as for every settings change.
 func TestOneSaveUnderLockIsRefused(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
@@ -199,8 +190,6 @@ func TestOneSaveUnderLockIsRefused(t *testing.T) {
 // savedApart: Config JSON keys with their own messages, never the one Save's.
 var savedApart = map[string]bool{"filterSets": true, "presets": true, "users": true}
 
-// Every Config field the page sees is a field of the one Save, in a known section, or saved
-// apart.
 func TestEveryFormFieldHasSection(t *testing.T) {
 	for _, f := range config.Fields() {
 		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
@@ -226,7 +215,6 @@ func TestEveryFormFieldHasSection(t *testing.T) {
 	}
 }
 
-// sectionRoles keeps in step with SECTION_ROLES in web/settingsrolerules.js.
 func TestSectionRolesMatchPage(t *testing.T) {
 	b, err := os.ReadFile("../../web/settingsrolerules.js")
 	if err != nil {

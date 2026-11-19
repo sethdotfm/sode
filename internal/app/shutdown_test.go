@@ -148,7 +148,6 @@ func TestShutdownWaitsForTakeInFlight(t *testing.T) {
 	}
 }
 
-// readResult reads the socket until the takeResult for id.
 func (r *shutdownRig) readResult(t *testing.T, id int) routeResult {
 	t.Helper()
 	for {

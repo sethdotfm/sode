@@ -2,8 +2,6 @@ package app
 
 import "testing"
 
-// Page Name and Info cells' show list (checkShowParts): kept when it names that kind's parts, refused otherwise.
-
 func TestPageCellsShowListIsKept(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

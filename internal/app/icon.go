@@ -16,9 +16,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// App icon: Lucide "route" glyph on a solid tile. Default accent on dark; with a brand
-// colour the tile takes it and the glyph goes dark. Colours are config.BrandColors (dark
-// signal tokens of web/base.css).
+// App icon: Lucide "route" glyph on a solid tile. The default is the accent on dark. A brand colour fills the tile
+// and the glyph goes dark. Colours are config.BrandColors (dark signal tokens of web/base.css).
 var (
 	iconDark   = color.NRGBA{0x08, 0x08, 0x08, 0xff}
 	iconAccent = color.NRGBA{0x8b, 0x93, 0xff, 0xff}

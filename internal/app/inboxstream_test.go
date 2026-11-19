@@ -82,8 +82,7 @@ func (w *wsUser) signIn(user, pin string) {
 	})
 }
 
-// The Inbox count on every page comes from the `inbox` push. A user who was offline at the send gets the
-// count at sign-in. Their other pages follow each answer live. An answer never asks for a toast.
+// The Inbox count comes from the
 func TestInboxStreamCount(t *testing.T) {
 	a := userApp(t, false)
 	setProfile(t, a, "Ana", config.Profile{Presets: []config.Preset{mePreset("Show", 1, 2)}})
@@ -105,7 +104,6 @@ func TestInboxStreamCount(t *testing.T) {
 	})
 	ana.inbox(func(m inboxMsg) bool { return len(m.Sent) == 1 && m.Sent[0].State == cardWaiting })
 
-	// Bo was offline: the count comes with the sign-in, on each page he signs in on (Main page and Log).
 	main, log := dialUser(t, ctx, srv.URL), dialUser(t, ctx, srv.URL)
 	main.signIn("Bo", "567890")
 	log.signIn("Bo", "567890")

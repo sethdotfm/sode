@@ -159,8 +159,7 @@ func (sw *swapper) filterSet(s *config.FilterSet) bool {
 	return changed
 }
 
-// panel swaps cells, the Grid edge on its side (members, hidden items, item settings) and fixed destinations. It
-// copies what it changes, since a stored panel shares its lists.
+// panel copies what it changes, since a stored panel shares its lists.
 func (sw *swapper) panel(p *Panel) bool {
 	changed := false
 	pages := slices.Clone(p.Pages)
@@ -242,8 +241,7 @@ func (sw *swapper) panel(p *Panel) bool {
 // For a list, an item the Swap would change. Broken is from before the Swap.
 type swapHit func(it swapItem)
 
-// config swaps the presets and filter sets of c that pick allows and calls hit for each it changed. mine: a user
-// id, which limits the Swap to that user's own items; "" for every owner.
+// mine is a user id and limits the Swap to the items of that user; "" is every owner.
 func (sw *swapper) config(c *config.Config, mine string, pick func(id string) bool, hit swapHit) {
 	presets := func(ps []config.Preset, owner, ownerName string) []config.Preset {
 		out := config.ClonePresets(ps)
@@ -305,7 +303,7 @@ func (sw *swapper) panels(s *panelStore, cfg config.Config, mine string, pick fu
 
 var errSwapSide = errors.New("swap: side is source or destination")
 
-// newSwapper checks req against cfg and reads the names it needs. Caller does not hold mu.
+// Caller does not hold mu.
 func (a *App) newSwapper(cfg config.Config, req swapReq) (*swapper, error) {
 	if req.Side != config.MissingSource && req.Side != config.MissingDestination {
 		return nil, errSwapSide
@@ -424,7 +422,6 @@ func swapSpec() fieldSpec {
 		}}
 }
 
-// swapCtx: the save context of edits, with the swapper when edits hold a Swap.
 func (a *App) swapCtx(live config.Config, edits map[string]fieldEdit) (*saveCtx, error) {
 	x := &saveCtx{}
 	e, ok := edits[swapKey]
@@ -438,8 +435,7 @@ func (a *App) swapCtx(live config.Config, edits map[string]fieldEdit) (*saveCtx,
 	return x, err
 }
 
-// swapPanelsField returns the Settings saves field of a Swap that config already ran on, with the panel counts.
-// write false only counts, for a Request approval card.
+// The Swap already ran on config. write false only counts, for a Request approval card.
 func (a *App) swapPanelsField(x *saveCtx, edits map[string]fieldEdit, now config.Config, write bool) SavedField {
 	req, _ := decodeJSON[swapReq](edits[swapKey].Value)
 	pick := pickOf(req.Items)

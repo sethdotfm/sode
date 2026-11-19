@@ -17,8 +17,6 @@ func defaultOf(t *testing.T, list []any, kind string) map[string]any {
 	return nil
 }
 
-// A preset's Default artwork is kept by the preset's hidden id, so a preset or user rename keeps it. A Source or
-// Destination default names its router.
 func TestArtDefaultSurvivesPresetAndUserRename(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
@@ -56,7 +54,6 @@ func TestArtDefaultSurvivesPresetAndUserRename(t *testing.T) {
 	if len(ds) != 1 || ds[0].(map[string]any)["id"] != pid {
 		t.Fatalf("panel read %v", ds)
 	}
-	// Set by the new name replaces the same default; the renamed user can still change it.
 	if rec := apiSend(a, "PUT", "/api/v1/default-artwork", cy, `{"kind":"preset","scope":"everyone","name":"Studio B","artB":"B"}`); rec.Code != 200 {
 		t.Fatalf("set by new name: %d %s", rec.Code, rec.Body.String())
 	}
@@ -68,7 +65,6 @@ func TestArtDefaultSurvivesPresetAndUserRename(t *testing.T) {
 	}
 }
 
-// A preset default stored by name with no id still reaches a Preset cell, and a set or clear by id replaces it.
 func TestArtDefaultStoredByNameStillApplies(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")

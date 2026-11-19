@@ -15,7 +15,7 @@ import (
 
 const sessionKeyName = "Session"
 
-// SessionKey makes the key for c's session, replacing any earlier one for it. A connection
+// SessionKey makes the key for c's session and replaces any earlier one. A connection
 // with no session token gets a tab token first, so a reload in that tab keeps the key.
 func (a *App) SessionKey(c *client, keyName string) (string, apiKey, error) {
 	u, err := a.ownUser(c)

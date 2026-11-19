@@ -32,7 +32,7 @@ type iconRescanResult struct {
 	Skipped []iconSkip `json:"skipped"`
 }
 
-// checkLibBytes is checkArtBytes narrowed to the library's PNG and SVG, so upload and drop-in take the same files.
+// checkLibBytes is checkArtBytes narrowed to the library's PNG and SVG, so upload and drop-in accept the same files.
 func checkLibBytes(data []byte) (string, error) {
 	typ, err := checkArtBytes(data)
 	if err != nil {
@@ -50,8 +50,8 @@ func dropName(file string) string {
 	return cleanText(strings.TrimSuffix(file, filepath.Ext(file)), iconNameMax)
 }
 
-// rescan adds the drop-in directory's files. Links are never followed: a linked directory is refused and a linked file is
-// skipped. Reads go through an os.Root, so nothing outside the directory opens.
+// rescan never follows links: it refuses a linked directory and skips a linked file. Reads go through an os.Root, so
+// nothing outside the directory opens.
 func (s *iconLib) rescan() iconRescanResult {
 	out := iconRescanResult{Added: []LibIcon{}, Skipped: []iconSkip{}}
 	if s.path == "" {

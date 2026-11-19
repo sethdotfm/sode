@@ -20,7 +20,7 @@ type Sent struct {
 	Kind    string    `json:"kind"` // swp08.Request kinds, plus keepalive and the event kinds (kindBrowser…)
 	Cmd     int       `json:"cmd"`
 	Level   int       `json:"level"` // UI level; 0 = none or not one of ours
-	Wire    int       `json:"wire"`  // wire level; -1 = none
+	Wire    int       `json:"wire"`  // level on the wire; -1 = none
 	Dst     int       `json:"dst"`   // -1 = none
 	DstName string    `json:"dstName,omitempty"`
 	Src     int       `json:"src"` // -1 = none
@@ -41,8 +41,8 @@ type Sent struct {
 	Save *SettingsSave `json:"save,omitempty"`
 }
 
-// Event kinds: link events share the log (seqs, paging, live view); cmd, wire level, dst
-// and src are -1 and hex is empty.
+// Event kinds: link events share the log (seqs, paging, live view). Cmd, Wire, Dst and Src
+// are -1 and hex is empty.
 const (
 	kindBrowser = "browser" // a browser's WebSocket connected or dropped
 	kindCommand = "command" // something a browser asked for that acts
@@ -77,6 +77,7 @@ type SentLog struct {
 	cur, old *segment // old is nil until the first rotation (or a .1 on disk)
 	next     int64
 	mem      []Sent
+	torn     bool // cur can hold part of a line past cur.size
 }
 
 func rotatedPath(path string) string {
@@ -220,8 +221,17 @@ func (l *SentLog) Append(e *Sent) error {
 			log.Printf("sent log: rotating: %v", err)
 		}
 	}
+	// A failed write can leave part of a line past size; cut it before the next line, as openSegment does.
+	if l.torn {
+		if err := l.cur.f.Truncate(l.cur.size); err != nil {
+			return err
+		}
+		l.torn = false
+	}
 	if _, err := l.cur.f.WriteAt(b, l.cur.size); err != nil {
-		l.cur.f.Truncate(l.cur.size) // best effort: no partial line left behind
+		if l.cur.f.Truncate(l.cur.size) != nil {
+			l.torn = true
+		}
 		return err
 	}
 	l.next++

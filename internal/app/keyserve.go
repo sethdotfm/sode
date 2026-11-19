@@ -43,7 +43,7 @@ type keyCreateMsg struct {
 	ID  int     `json:"id"`
 	OK  bool    `json:"ok"`
 	Err string  `json:"err,omitempty"`
-	Key string  `json:"key,omitempty"` // the secret, shown once
+	Key string  `json:"key,omitempty"` // the secret, shown one time
 	Rec *apiKey `json:"info,omitempty"`
 }
 
@@ -160,7 +160,6 @@ func (a *App) serveKeyListAll(c *client, m *inMsg) {
 	a.reply(c, keyListMsg{T: "keyListAllResult", ID: m.ID, OK: true, Keys: withLiveNames(a.r().cfg, a.keys.list())})
 }
 
-// CreateKeyFor makes a key for an API client or another user.
 func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int64) (string, apiKey, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

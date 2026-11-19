@@ -78,26 +78,15 @@ func TestStartupKeepsClientKeysWhenUserPinsChange(t *testing.T) {
 	}
 }
 
-// A keys.json from before the fingerprint has none. Those keys are kept and stamped at the
-// first startup, so a PIN change after that ends them.
-func TestStartupStampsLegacyUserKeys(t *testing.T) {
+func TestStartupEndsUnstampedUserKeys(t *testing.T) {
 	a := userApp(t, false)
-	secret := apiTestKey(t, a, ownerOf(a, "Ana"), "Old", time.Time{})
-
-	kept := fixRestart(t, a, func(*config.Config) {})
-	if _, _, ok := kept.keys.find(secret, time.Now()); !ok {
-		t.Fatal("legacy key not kept at first startup")
-	}
-	b, err := os.ReadFile(filepath.Join(filepath.Dir(a.cfgPath), "keys.json"))
+	secret, _, err := a.keys.createCapped(ownerOf(a, "Ana"), "Old", time.Time{}, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(b), `"pinFp"`) {
-		t.Fatalf("fingerprint not stored: %s", b)
-	}
-	gone := fixRestart(t, a, fixNewPin(t, "Ana", "9999"))
-	if _, _, ok := gone.keys.find(secret, time.Now()); ok {
-		t.Fatal("stamped key survived a PIN change while down")
+	b := fixRestart(t, a, func(*config.Config) {})
+	if _, _, ok := b.keys.find(secret, time.Now()); ok {
+		t.Fatal("unstamped user key survived startup")
 	}
 }
 

@@ -175,8 +175,6 @@ func TestAPIWPresetRights(t *testing.T) {
 	}
 }
 
-// A hidden caller gets the 404 of an unknown preset for one that names a hidden number, and
-// nothing is sent. A preset that passes WholePreset only ever leaves out numbers the caller sees.
 func TestAPIWHiddenCallerCannotFirePresetListHides(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
 		c.APIClients[0].Rights = config.Rights{Sources: nums(1), Dsts: nums(2, 99), Presets: &[]string{"studio-a", "mixed", "gone"}, Visibility: config.VisHidden}
@@ -250,7 +248,6 @@ func TestAPIWIdempotencyKey(t *testing.T) {
 	}
 	wantErr(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":5,"dst":2,"levels":[1]}]}`, h), 422, "idempotency_mismatch")
 	wantErr(t, apiPost(a, "/api/v1/takes", key, body, map[string]string{"Idempotency-Key": "bad key"}), 400, "bad_request")
-	// another key does not share the answer
 	other := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: "PanelsBot"}, "Panel 44", time.Time{})
 	if rec := apiPost(a, "/api/v1/takes", other, body, h); rec.Header().Get("Idempotent-Replay") != "" {
 		t.Error("an Idempotency-Key leaked across keys")
@@ -305,7 +302,6 @@ func TestAPIWTakeCap(t *testing.T) {
 	rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":3,"levels":[1]}]}`, nil)
 	wantErr(t, rec, 429, "take_cap")
 	<-done
-	// the slot is free again
 	if rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":3,"levels":[1]}]}`, nil); rec.Code != 200 {
 		t.Fatalf("after: %d %s", rec.Code, rec.Body.String())
 	}

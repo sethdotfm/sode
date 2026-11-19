@@ -1,7 +1,6 @@
 package app
 
 import (
-	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,9 +12,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Broken and Name moved after a router name change (GLOSSARY.md; docs/agents/server.md, Broken check). On one
-// router the number decides. A check runs after each counted name poll. It acts only where the last two counted
-// polls agree, so one bad read changes nothing.
+// Broken check: docs/agents/server.md. It acts only where the last two counted polls agree, so one bad read changes
+// nothing.
 
 // namePoll is one full name read as the router sent it, before refreshed lays old names over a short reply.
 type namePoll struct{ src, dst map[int]string }
@@ -27,8 +25,7 @@ func (p *namePoll) side(dst bool) map[int]string {
 	return p.src
 }
 
-// routerFault: more than half the names the base held go blank or missing at once. base is the last counted
-// poll, else the names shown now (the saved names table at boot).
+// base is the last counted poll, else the names shown now (the saved names table at boot).
 func routerFault(base, cur namePoll) bool {
 	had, lost := 0, 0
 	for _, dst := range []bool{false, true} {
@@ -46,8 +43,8 @@ func routerFault(base, cur namePoll) bool {
 	return lost*2 > had
 }
 
-// countPollMu takes a full read and returns the check to run after mu is released, or nil. fault: the read
-// is a router fault, so it is neither shown nor saved. Caller holds mu.
+// countPollMu returns the check to run after the caller releases mu, or nil. A fault read is not shown or saved.
+// Caller holds mu.
 func (a *App) countPollMu(cur namePoll) (check func(), fault bool) {
 	base := a.router.lastPoll
 	if base == nil {
@@ -63,7 +60,7 @@ func (a *App) countPollMu(cur namePoll) (check func(), fault bool) {
 	a.router.faultSeen = false
 	noteRenamed(&a.router.renamedTo, *base, cur)
 	prev := a.router.lastPoll
-	a.router.lastPoll = &cur
+	a.router.lastPoll = &namePoll{maps.Clone(cur.src), maps.Clone(cur.dst)} // flush can hand cur on as the live names
 	if prev == nil || a.setupPending() {
 		return nil, false
 	}
@@ -114,8 +111,8 @@ type pollCheck struct {
 	prev, cur namePoll
 	hints     [2]map[string]string // routerState.renamedTo when the read was counted
 	renames   []string
-	broke     []string // items that became Broken
-	moved     []string // items that became Name moved
+	broke     []string
+	moved     []string
 }
 
 func sameName(a, b string) bool { return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b)) }
@@ -213,8 +210,8 @@ func hasMissing(l []config.Missing, kind string, r config.Ref) bool {
 	return ok
 }
 
-// A save stores each reference with the name now at its number, so the name in a mark decides. A Broken reference recovers
-// only when its number holds that name again.
+// A save stores each reference with the name now at its number, so the name in a mark decides. A Broken reference
+// recovers only when its number holds that name again.
 func (c *itemCheck) ref(dst bool, r *config.Ref) {
 	kind := refKind(dst)
 	if r.Router != c.k.uid {
@@ -561,43 +558,4 @@ func (k *pollCheck) logRow(a *App) {
 	e := event(kindLink, "routerNames", "Sode", result)
 	e.Note = strings.Join(parts, "; ")
 	a.logEvent(e)
-}
-
-func (s *panelStore) rewrite(fn func(*Panel) bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var first error
-	for id, p := range s.by {
-		if !fn(&p) {
-			continue
-		}
-		if err := s.writeLocked(&p); err != nil {
-			first = cmp.Or(first, err)
-			continue
-		}
-		s.by[id] = p
-	}
-	return first
-}
-
-// A default whose number is gone stays.
-func (s *artDefaultStore) rename(k *pollCheck) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	next := s.data
-	next.Defaults = slices.Clone(s.data.Defaults)
-	changed := false
-	for i, d := range next.Defaults {
-		if d.Kind == artKindPreset || d.N == nil {
-			continue
-		}
-		r := config.Ref{Router: cmp.Or(d.Router, k.uid), N: *d.N, Name: d.Name}
-		if k.quiet(d.Kind == artKindDst, &r) {
-			next.Defaults[i].Name, changed = r.Name, true
-		}
-	}
-	if !changed {
-		return nil
-	}
-	return s.writeLocked(next)
 }

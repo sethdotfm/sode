@@ -65,7 +65,6 @@ func TestPublicPanelsOffRefusesASwitchToPublic(t *testing.T) {
 	}
 }
 
-// Both Panels fields are on the Critical list: the Settings form saves them only after a PIN recheck.
 func TestPanelsFieldsNeedRecheck(t *testing.T) {
 	a := newTestApp(t, withAdministrator)
 	p := dialPeer(t, a)
@@ -88,7 +87,6 @@ func TestPanelsFieldsNeedRecheck(t *testing.T) {
 	}
 }
 
-// The one Save refuses each Panels field alone without a recheck.
 func TestOneSavePanelsFieldsNeedRecheck(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
@@ -128,7 +126,8 @@ func TestACopyKeepsItsSourcesMode(t *testing.T) {
 	}
 }
 
-// While the switch is off, a copy of a Public panel acts as a user, as a blank new panel does. So Save a copy still works.
+// While the switch is off, a copy of a Public panel acts as a user, as a blank new panel does. So Save a copy still
+// works.
 func TestACopyOfAPublicPanelWhilePublicIsOffActsAsAUser(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")

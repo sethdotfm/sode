@@ -48,7 +48,6 @@ func jsonOf(v any) json.RawMessage {
 	return b
 }
 
-// usersFields: the one Save fields of a whole-list users save against live.
 func usersFields(live config.Config, req usersReq) (map[string]fieldEdit, error) {
 	if present(req.Locks) || present(req.AutoLock) || present(req.GuestRole) {
 		return nil, errors.New("the lock settings and Guest role moved to Settings > Access > Locks: reload this page")

@@ -16,11 +16,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A panel that acts as an API client holds one key per named instance (docs/panels-design.md).
-// The key's name is the instance's device name, unique on the panel ignoring case. Making a link
-// for a name that already holds one rotates that instance only. A key is shown one time, in the
-// response. The link carries it in the URL fragment so it never reaches a request line, a
-// proxy log or a Referer.
+// One key per named instance of a panel that acts as an API client (docs/panels-design.md).
+// The link carries the key in the URL fragment, so it never reaches a request line, a proxy log or a Referer.
 
 const (
 	panelKeyMax      = 20 // keys and pending setup links on one panel: a wall of kiosks, not a fleet
@@ -36,7 +33,6 @@ func init() {
 	)
 }
 
-// panelKeyFor loads the panel for its editor and checks it has a client to hold a key.
 func (a *App) panelKeyFor(w http.ResponseWriter, r *http.Request, cl *apiCtx) (Panel, keyOwner, bool) {
 	if !ownerOnly(w, cl) {
 		return Panel{}, keyOwner{}, false
@@ -53,15 +49,14 @@ func (a *App) panelKeyFor(w http.ResponseWriter, r *http.Request, cl *apiCtx) (P
 	return p, keyOwner{Kind: actorClient, Name: c.Name}, true
 }
 
-// instanceName cleans a requested instance name; "" says it is unusable.
+// "" means the name is not usable.
 func instanceName(s string) string { return cleanText(s, panelInstanceMax) }
 
-// sameInstance matches a key record to an instance name, ignoring case like the monitor does.
+// The match ignores case, as the monitor does.
 func sameInstance(r keyRec, name string) bool { return strings.EqualFold(r.Name, name) }
 
 var errKeyCap = errors.New("the panel is at its instance limit")
 
-// instanceMade is what making a link for an instance did.
 type instanceMade struct {
 	gone    []apiKey // live keys that ended, not setup links
 	id      string
@@ -70,9 +65,7 @@ type instanceMade struct {
 	expires time.Time
 }
 
-// replaceInstance ends the owner's key and pending setup link named name and makes the new
-// one under one lock. So two requests cannot both leave a key behind. At the cap it changes
-// nothing.
+// One lock for the end and the make, so two requests cannot both leave a key. At the cap it changes nothing.
 func (s *keyStore) replaceInstance(o keyOwner, name string, setup bool, now time.Time) (instanceMade, error) {
 	var m instanceMade
 	secret := newShortSecret()
@@ -117,8 +110,7 @@ func (s *keyStore) replaceInstance(o keyOwner, name string, setup bool, now time
 	return m, nil
 }
 
-// dropLive drops what gone picks and returns the live keys among them, since a setup link
-// ending is not a key ending.
+// dropLive returns only the live keys it dropped: the end of a setup link is not the end of a key.
 func (s *keyStore) dropLive(gone func(keyRec) bool) []apiKey {
 	var live []apiKey
 	s.dropWhere(func(r keyRec) bool {
@@ -133,8 +125,7 @@ func (s *keyStore) dropLive(gone func(keyRec) bool) []apiKey {
 	return live
 }
 
-// instanceKeys lists the owner's keys and pending setup links by name. Making either kind
-// replaces the other for the same name, so a name appears once.
+// A new key or setup link replaces the other kind for the same name, so each name appears one time.
 func (s *keyStore) instanceKeys(o keyOwner) []keyRec {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -148,7 +139,6 @@ func (s *keyStore) instanceKeys(o keyOwner) []keyRec {
 	return out
 }
 
-// deviceOnline says an instance of that name counts as online now.
 func (m *panelMon) deviceOnline(id, device string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -170,7 +160,7 @@ func (m *panelMon) forgetDevice(id, device string) {
 	m.unhideLocked(id, k)
 }
 
-// panelKeyOut is one instance in the key list. Setup says only a one-time link is pending.
+// Setup: only a one-time link is pending.
 type panelKeyOut struct {
 	ID       string    `json:"id"`
 	Name     string    `json:"name"`
@@ -181,7 +171,6 @@ type panelKeyOut struct {
 	Expires  time.Time `json:"expires,omitzero"`
 }
 
-// apiPanelKeys lists the panel's instances: a key, or a setup link not yet used.
 func (a *App) apiPanelKeys(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, owner, ok := a.panelKeyFor(w, r, cl)
 	if !ok {
@@ -204,7 +193,6 @@ func (a *App) apiPanelKeys(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	apiJSON(w, map[string]any{"keys": out, "max": panelKeyMax})
 }
 
-// apiPanelKeyMake answers 201 with the secret. rotated says the instance's older key was ended.
 func (a *App) apiPanelKeyMake(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, owner, ok := a.panelKeyFor(w, r, cl)
 	if !ok {
@@ -261,8 +249,7 @@ func (a *App) apiPanelKeyMake(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	})
 }
 
-// apiPanelKeyRevoke ends one instance: its key and any pending setup link. The panel and its
-// client stay. Revoking an instance that has none is not an error.
+// The panel and its client stay. A revoke of an instance that has no key is not an error.
 func (a *App) apiPanelKeyRevoke(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, owner, ok := a.panelKeyFor(w, r, cl)
 	if !ok {

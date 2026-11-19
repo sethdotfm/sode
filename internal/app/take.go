@@ -1,11 +1,9 @@
 package app
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
-	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -16,15 +14,13 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// --- takes
-
 type routeReq struct {
 	ID     int   `json:"id"`
 	Src    int   `json:"src"`
 	Dst    int   `json:"dst"`
 	Levels []int `json:"levels"`
-	Undo   *int  `json:"undo"`  // history ID being undone
-	Retry  *int  `json:"retry"` // history ID of the failed take being retried
+	Undo   *int  `json:"undo"`  // history ID of the take to undo
+	Retry  *int  `json:"retry"` // history ID of the failed take to retry
 
 	Group  string `json:"-"` // set by take for confirms of more than one route
 	GroupN int    `json:"-"`
@@ -33,22 +29,20 @@ type routeReq struct {
 	PresetID string `json:"-"`
 	// NoCheck: use the cache for Prev instead of reading dst first.
 	NoCheck bool `json:"-"`
-	// Stage: wire levels sent in a native group salvo (fire.go); other levels go as
-	// ordinary connects.
+	// Stage: levels, by wire number, that go in a native group salvo (fire.go); other levels go as ordinary connects.
 	Stage map[int]bool `json:"-"`
 }
 
-// routeLimit: routes of one take running at once; the link sends one message per ACK, so
-// more would time out waiting.
+// routeLimit: one take runs this many routes at one time; the link sends one message per ACK, so more would time out.
 const routeLimit = 8
 
 // bigTake: routes per confirm above which dst is not read first (17 interrogates each);
 // the cache is used.
 const bigTake = 6
 
-// take is the one entry point for every confirmed take (browser batch, Undo, Redo, Retry,
-// presets, API). Results go to c.send, or to c.api.sink for an API caller. It returns the
-// refusal when the caller's rights do not cover every route; nothing ran then.
+// take is the one entry point for every confirmed take (browser plan, Undo, Redo, Retry, presets, API).
+// Results go to c.send, or to c.api.sink for an API caller. It returns the refusal when the rights of
+// the caller do not cover every route; nothing ran then.
 func (a *App) take(c *client, items []routeReq) (refused string) {
 	if msg := a.rightsPass(a.r(), c, items); msg != "" {
 		return msg
@@ -99,241 +93,11 @@ func runLimited(limit, n int, fn func(i int)) {
 	wg.Wait()
 }
 
-// confirmedBy: how the router answered a level; set once in waiter.see.
-type confirmedBy uint8
-
-const (
-	pending        confirmedBy = iota // no answer yet
-	byConnected                       // a Connected: the route changed
-	byTally                           // a tally for a staged level that was elsewhere before the Go
-	byTallyAlready                    // a tally: it was on src before the take
-)
-
-func (l *routeLevel) confirmed() bool { return l.by != pending }
-func (l *routeLevel) tallied() bool   { return l.by == byTally || l.by == byTallyAlready }
-func (l *routeLevel) already() bool   { return l.by == byTallyAlready }
-
-type routeLevel struct {
-	ui, wire int
-	connect  []byte
-	same     bool        // the cache said it was already on src
-	unsent   bool        // the router link refused it
-	by       confirmedBy // how the router confirmed it (decided once, in see)
-	at       time.Time   // when it was confirmed
-	native   bool        // staged in the take's group salvo (fire.go): confirmed by a Connected or a tally
-	seen     bool        // the router reported some other route for the level...
-	now      int         // ...this src (-1 = nothing routed), the latest report
-}
-
-type waiter struct {
-	dst, src int
-	why      swp08.Why // the connects' reason and browser, for the sent log
-	levels   []*routeLevel
-	done     chan struct{}
-	closed   bool
-	cause    *cause // for changes that follow this take
-	// ext: tracker of the router the take started on; a different a.ext means stale.
-	ext  *extTracker
-	cut  bool      // the router changed under the take
-	goAt time.Time // when a native salvo's Go set its staged levels (fire.go); zero if none
-}
-
-var errRouterChanged = errors.New("the router changed")
-
-func wanted(l *routeLevel) bool { return !l.confirmed() && !l.unsent }
-
-func (w *waiter) filter(keep func(*routeLevel) bool) []*routeLevel {
-	var ls []*routeLevel
-	for _, l := range w.levels {
-		if keep(l) {
-			ls = append(ls, l)
-		}
-	}
-	return ls
-}
-
-// see marks a level confirmed when the router reports the requested route. Routers
-// announce only changes, so a level already on src is confirmed by an interrogate answer.
-// Other reports are kept (seen, now) for the failure reason. Caller holds mu.
-func (w *waiter) see(xp swp08.Crosspoint) bool {
-	if xp.Dst != w.dst {
-		return false
-	}
-	for _, l := range w.levels {
-		if l.wire != xp.Level || !wanted(l) {
-			continue
-		}
-		if xp.Src != w.src {
-			l.seen, l.now = true, xp.Src
-			return false
-		}
-		// The router does not always announce a Go: confirmed by Connected or tally, "already
-		// there" only if the cache said so.
-		l.by, l.at = byConnected, time.Now()
-		if !xp.Changed() {
-			l.by = byTally
-			if !l.native || l.same {
-				l.by = byTallyAlready
-			}
-		}
-		w.finishIfDone()
-		return true
-	}
-	return false
-}
-
-// awaited: a take in flight (or recently given up) asked for xp, so its tally is ours without
-// a Connected. Caller holds mu.
-func (a *App) awaited(xp swp08.Crosspoint) bool {
-	if until, ok := a.ext.late[ownKey{xp.Dst, xp.Level, xp.Src}]; ok && time.Now().Before(until) {
-		return true
-	}
-	for w := range a.waiters {
-		if w.dst == xp.Dst && w.src == xp.Src && slices.ContainsFunc(w.levels, func(l *routeLevel) bool { return l.wire == xp.Level }) {
-			return true
-		}
-	}
-	return false
-}
-
-// Caller holds mu.
-func (w *waiter) finishIfDone() {
-	if len(w.filter(wanted)) == 0 {
-		w.finish()
-	}
-}
-
-func (w *waiter) finish() {
-	if !w.closed {
-		w.closed = true
-		close(w.done)
-	}
-}
-
-// register: own keys keep the take's answers out of changes made elsewhere. Only levels
-// answered with a Connected get one (a level already on src would swallow a real change
-// back to it). Staged levels get one too, as the Ultrix sometimes announces a Go's
-// crosspoints (fire.go). Nothing for a replaced router. Caller holds mu.
-func (w *waiter) register(a *App) {
-	if a.ext != w.ext {
-		return
-	}
-	a.waiters[w] = struct{}{}
-	a.ext.causes = append(a.ext.causes, w.cause)
-	// Connects can queue up to a.queueMax; sendRoute shortens the keys to ownFor after they are sent.
-	w.ownKeys(a)
-}
-
-// Caller holds mu and has checked a.ext == w.ext.
-func (w *waiter) ownKeys(a *App) {
-	until := time.Now().Add(a.queueMax + ownFor)
-	for _, l := range w.levels {
-		if !l.same {
-			a.ext.own[ownKey{w.dst, l.wire, w.src}] = until
-		}
-	}
-}
-
-// unregister: unconfirmed, unsent and tally-confirmed levels lose their own keys, which
-// would swallow a real change to src.
-func (w *waiter) unregister(a *App, id int) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	w.cause.id, w.cause.done = id, true
-	delete(a.waiters, w)
-	if w.ext != a.ext {
-		return // the router changed: its keys have no place in the new one's tracker
-	}
-	for _, l := range w.levels {
-		k := ownKey{w.dst, l.wire, w.src}
-		if !l.confirmed() || l.unsent || l.already() {
-			delete(a.ext.own, k)
-		} else if until, ok := a.ext.own[k]; ok && l.native && l.tallied() && !w.goAt.IsZero() && w.goAt.Add(salvoAnnounceFor).Before(until) {
-			// Set by a Go and confirmed by a tally. It is possible that a Connected follows up to
-			// about 340 ms later, or never, so the key waits salvoAnnounceFor.
-			a.ext.own[k] = w.goAt.Add(salvoAnnounceFor)
-		}
-		// A late interrogate answer or slow Connected is still ours; the entry gets amended.
-		if !l.confirmed() && !l.unsent {
-			until := time.Now().Add(lateFor)
-			a.ext.late[k] = until
-			// Only a level the router said nothing about can be answered late; retries of
-			// one route each wait for the answer.
-			if !l.seen {
-				a.ext.lateRoute[k] = append(a.ext.lateRoute[k], lateRoute{id: id, until: until, cause: w.cause})
-			}
-		}
-	}
-}
-
-// tallyCheck waits for interrogate answers so a route reads dst's real state, not a cache
-// that misses unannounced changes.
-type tallyCheck struct {
-	dst   int
-	wires map[int]bool // still unanswered
-	done  chan struct{}
-	shut  bool // done is closed
-}
-
-func (c *tallyCheck) finish() {
-	if !c.shut {
-		c.shut = true
-		close(c.done)
-	}
-}
-
-// Caller holds mu.
-func (c *tallyCheck) see(xp swp08.Crosspoint) {
-	if xp.Dst != c.dst || !c.wires[xp.Level] {
-		return
-	}
-	delete(c.wires, xp.Level)
-	if len(c.wires) == 0 {
-		c.finish()
-	}
-}
-
-func (a *App) checkTally(r *runtime, w *waiter) bool {
-	c := &tallyCheck{dst: w.dst, wires: map[int]bool{}, done: make(chan struct{})}
-	// Levels reported lately are skipped: undo and retry follow the Connected that set them.
-	var ls []*routeLevel
-	a.mu.Lock()
-	for _, l := range w.levels {
-		if at, ok := a.router.seenAt[[2]int{w.dst, l.ui}]; !ok || time.Since(at) > checkFresh {
-			ls = append(ls, l)
-			c.wires[l.wire] = true
-		}
-	}
-	if len(ls) > 0 {
-		a.checks[c] = struct{}{}
-	}
-	a.mu.Unlock()
-	if len(ls) == 0 {
-		return true
-	}
-	defer func() {
-		a.mu.Lock()
-		delete(a.checks, c)
-		a.mu.Unlock()
-	}()
-	done, err := a.interrogate(r, w, ls, "check")
-	if err != nil {
-		return false // the link is down or full: no answers are coming
-	}
-	a.leftQueue(done)
-	select {
-	case <-c.done:
-		return true
-	case <-time.After(a.checkTimeout):
-		return false
-	}
-}
-
 const (
 	defaultCheckTimeout = time.Second
 	checkFresh          = 15 * time.Second
-	// defaultQueueMax: default for App.queueMax, the cap on waiting in the send queue (one message per ACK, shared by all
-	// takes); then timeouts start anyway.
+	// defaultQueueMax: default for App.queueMax, the cap on waiting in the send queue (one message per ACK, shared
+	// by all takes); then timeouts start anyway.
 	defaultQueueMax = 30 * time.Second
 	// A tally of a route a take gave up on stays its own this long.
 	lateFor             = 15 * time.Second
@@ -513,119 +277,6 @@ func (a *App) gapPhase(w *waiter, e *Entry) {
 	}
 }
 
-type lateRoute struct {
-	id    int
-	until time.Time
-	cause *cause // so a late answer counts as one of the take's changes: what follows it follows this take
-}
-
-type lateHit struct{ id, ui int }
-
-// claimLate queues amendments for every take that gave up on k, retries too (history I/O
-// stays out of mu). Claims are used up. Caller holds mu.
-func (a *App) claimLate(k ownKey, ui int) bool {
-	lts, ok := a.ext.lateRoute[k]
-	if !ok {
-		return false
-	}
-	delete(a.ext.lateRoute, k)
-	claimed := false
-	for _, lt := range lts {
-		if !time.Now().Before(lt.until) {
-			continue
-		}
-		claimed = true
-		a.ext.lateHits = append(a.ext.lateHits, lateHit{lt.id, ui})
-		// Followers of this destination change with it now; it is possible that the cause was dropped.
-		lt.cause.saw(time.Now())
-		if !slices.Contains(a.ext.causes, lt.cause) {
-			a.ext.causes = append(a.ext.causes, lt.cause)
-		}
-	}
-	return claimed
-}
-
-type lateJob struct {
-	id  int
-	uis []int
-}
-
-// flushLate hands late entries to the worker so the 100ms tick does not wait on a history
-// rewrite; without a worker (tests) it runs inline.
-func (a *App) flushLate() {
-	a.mu.Lock()
-	hits := a.ext.lateHits
-	a.ext.lateHits = nil
-	a.mu.Unlock()
-	var jobs []lateJob
-	for _, h := range hits {
-		i := slices.IndexFunc(jobs, func(j lateJob) bool { return j.id == h.id })
-		if i < 0 {
-			jobs = append(jobs, lateJob{id: h.id})
-			i = len(jobs) - 1
-		}
-		jobs[i].uis = append(jobs[i].uis, h.ui)
-	}
-	for _, j := range jobs {
-		if a.lateQ == nil {
-			a.lateConfirm(j.id, j.uis)
-			continue
-		}
-		a.lateQ <- j // buffered; if the worker is far behind this waits rather than lose the amendment
-	}
-}
-
-func (a *App) lateWorker(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case j := <-a.lateQ:
-			a.lateConfirm(j.id, j.uis)
-		}
-	}
-}
-
-// lateConfirm: levels uis confirmed after the give-up leave Failed/Now, join Late; entry
-// turns OK when nothing fails. Caller does not hold mu. Source names are copied first
-// because the update runs under the history lock and must not lock mu.
-func (a *App) lateConfirm(id int, uis []int) {
-	r := a.r()
-	a.mu.Lock()
-	names := maps.Clone(a.router.srcNames)
-	a.mu.Unlock()
-	var done []int
-	e, ok := a.hist.Update(id, func(e *Entry) {
-		for _, ui := range uis {
-			if !slices.Contains(e.Failed, ui) {
-				continue
-			}
-			done = append(done, ui)
-			e.Failed = slices.DeleteFunc(e.Failed, func(x int) bool { return x == ui })
-			e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[0] == ui })
-			e.Unsent = slices.DeleteFunc(e.Unsent, func(x int) bool { return x == ui })
-			e.Late = append(e.Late, ui)
-		}
-		if len(done) == 0 {
-			return
-		}
-		sort.Ints(e.Late)
-		if len(e.Unsent) == 0 {
-			e.SendErr = ""
-		}
-		e.Err = entryErr(r, names, e)
-		e.OK = len(e.Failed) == 0
-	})
-	if !ok || len(done) == 0 {
-		return
-	}
-	log.Printf("LATE #%d src=%d %q dst=%d %q level %s confirmed after the take gave up (ok=%t)",
-		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, levelList(r, done), e.OK)
-	a.mu.Lock()
-	a.broadcast(recentMsg{T: "entry", E: &e, Update: true})
-	a.mu.Unlock()
-}
-
 // whyMissing fills Failed and Now for unconfirmed levels. On its previous src = ignored;
 // on another src = someone else's route; no answer = unknown. Caller holds mu.
 func (a *App) whyMissing(e *Entry, missing []*routeLevel) {
@@ -638,8 +289,8 @@ func (a *App) whyMissing(e *Entry, missing []*routeLevel) {
 	}
 }
 
-// nowNames copies the names entryErr can read: the sources in e.Now. A whole copy of a large
-// router's names on every take was most of a take's garbage. Caller holds mu.
+// nowNames copies only the names entryErr can read: the sources in e.Now. A whole copy of a large
+// router's names on every take makes too much garbage. Caller holds mu.
 func (a *App) nowNames(e *Entry) map[int]string {
 	if len(e.Now) == 0 {
 		return nil
@@ -758,7 +409,7 @@ func (a *App) sendRoute(r *runtime, w *waiter) error {
 
 // sendTracked refuses after the router changed: applyConfig swaps a.ext under mu before
 // retargeting, so an earlier send would land in the old session's queue. Holding mu across
-// Send is fine (Send and onTx never block or take it).
+// Send is fine (Send and onTx never block or lock it).
 func (a *App) sendTracked(ext *extTracker, m []byte, why swp08.Why) (<-chan struct{}, error) {
 	why.Done = make(chan struct{})
 	a.mu.Lock()

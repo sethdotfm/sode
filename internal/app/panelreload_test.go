@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// REST and stream seam for Reload from the Open now list: a reload line down a live stream, a Trusted user, a Log row.
-
 func reloadPath(id string) string { return "/api/v1/panels/" + id + "/instances/reload" }
 
 func TestReloadSendsAReloadLineToOneInstanceAndLogsIt(t *testing.T) {
@@ -54,7 +52,6 @@ func TestReloadAKeylessPageAndEveryPageOfAPanel(t *testing.T) {
 	lastRow(t, a, "reload", 3)
 }
 
-// No command waits in a queue: a closed page is refused as Offline.
 func TestReloadRefusals(t *testing.T) {
 	a := panelsApp(t)
 	cy, bo := userKey(t, a, "Cy"), userKey(t, a, "Bo")

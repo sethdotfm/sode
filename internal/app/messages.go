@@ -135,7 +135,6 @@ type historyMsg struct {
 	More    bool    `json:"more"`
 }
 
-// opResult is shared by many result messages.
 type opResult struct {
 	T   string `json:"t"`
 	OK  bool   `json:"ok"`

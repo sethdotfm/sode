@@ -30,7 +30,6 @@ func TestKeyStoreLifecycle(t *testing.T) {
 		t.Fatalf("rec %+v", rec)
 	}
 
-	// Disk holds the hash and never the secret.
 	raw, err := os.ReadFile(filepath.Join(dir, "keys.json"))
 	if err != nil {
 		t.Fatal(err)

@@ -122,8 +122,8 @@ func runClient(t *testing.T, addr string, onUp func(*Client)) *stateLog {
 	return log
 }
 
-// A router that takes the TCP connection but never answers is never shown
-// as up, and the session is dropped.
+// A router that accepts the TCP connection but never answers never shows
+// as up, and Sode drops the session.
 func TestSilentRouterNeverUp(t *testing.T) {
 	addr := fakeRouter(t, func([]byte) bool { return false })
 	log := runClient(t, addr, nil)

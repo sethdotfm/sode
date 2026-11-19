@@ -10,7 +10,8 @@ import (
 
 const actorGuest = "guest" // a browser with nobody signed in
 
-// callerOf is who a take acts as. An API caller brings its own (client.api). A browser is its signed-in user (rights read live from the
+// callerOf is who a take acts as. An API caller brings its own (client.api). A browser is its signed-in user (rights
+// read live from the
 // config, so an edit applies at once). It is Guest when nobody is signed in or the Lock is on.
 func (a *App) callerOf(c *client) (Actor, config.Rights) {
 	if c.api != nil {
@@ -60,7 +61,7 @@ func (a *App) pushRightsMu(c *client) {
 	a.deliver(c, []byte(msg))
 }
 
-// takeWhy names a batch for the log: undo and retry win over a plain take.
+// takeWhy names a take for the log: undo and retry win over a plain take.
 func takeWhy(items []routeReq) string {
 	why := "take"
 	for _, it := range items {
@@ -128,9 +129,8 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 	return ""
 }
 
-// rightsPass refuses the whole take, before anything is sent, if any route is outside the
-// caller's rights. Each item gets the failed result a refused route gets, with no History
-// entry (nothing happened), and one `api` row records it. Returns the refusal, or "".
+// rightsPass refuses the whole take before anything is sent. Each item gets a failed result with no History
+// entry, and one
 func (a *App) rightsPass(r *runtime, c *client, items []routeReq) string {
 	if len(items) == 0 {
 		return ""

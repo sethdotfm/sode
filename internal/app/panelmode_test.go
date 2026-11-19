@@ -8,8 +8,6 @@ import (
 	"testing"
 )
 
-// The take flow, `settings.mode`: the server refuses a value the pages do not know.
-
 func TestPanelModeRefusesUnknownValue(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -31,7 +29,6 @@ func TestPanelModeRefusesUnknownValue(t *testing.T) {
 	}
 }
 
-// A file on disk with a known value loads as written, and nothing rewrites it.
 func TestPanelModeOldFilesLoadUnchanged(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

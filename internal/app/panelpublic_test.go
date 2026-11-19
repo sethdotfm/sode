@@ -13,9 +13,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST seam for a Public panel. Anyone with its URL gets a short-lived key for the panel's own
-// client, asked for with the panel id alone.
-
 const publicPanel = `{"name":"Lobby","acts":"public"`
 
 func TestPublicNeedsAUserWithinTheirRights(t *testing.T) {
@@ -132,9 +129,6 @@ func TestAskingANonPublicPanelIsNotCountedAsAFailedKey(t *testing.T) {
 	}
 }
 
-// Asks are capped per address whatever the id. An unknown id, a panel that is not Public and a
-// Public panel asked from outside its networks get the same answers. So no run of asks says which
-// ids exist.
 func TestAskingSaysNothingAboutWhichIdsExist(t *testing.T) {
 	seq := func(mk func(a *App, cy string) string) []string {
 		a, _ := clientApp(t)
@@ -186,8 +180,7 @@ func TestAskingIsCappedWithTheRateLimitOff(t *testing.T) {
 	}
 }
 
-// Past the cap an address loses its own oldest key first. So one caller that loops the route cannot
-// push every other page's key out. The key that ends takes its streams with it.
+// The key that ends takes its streams with it.
 func TestPastTheCapAnAddressLosesItsOwnKeyFirst(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -323,7 +316,6 @@ func TestPublicKeysPerPanelAreCapped(t *testing.T) {
 	wantErr(t, apiSend(a, "GET", "/api/v1/panels/"+id, first, ""), 401, "key_revoked")
 }
 
-// Outside the client's networks a Public panel reads as not Public, as an unknown id does.
 func TestPublicKeyOnlyFromTheClientsNetworks(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -424,6 +416,52 @@ func TestPublicKeyReadsNoUserNames(t *testing.T) {
 		if b := rec.Body.String(); strings.Contains(b, `"Cy"`) || strings.Contains(b, `"Ana"`) {
 			t.Fatalf("%s names a user: %s", path, b)
 		}
+	}
+}
+
+func TestPublicKeyCannotFillThePanel(t *testing.T) {
+	a, _ := clientApp(t)
+	id := makePanel(t, a, userKey(t, a, "Cy"), publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
+	key := publicKeyOf(t, a, id)
+	ok := 0
+	for i := range monDevices {
+		if apiSend(a, "POST", "/api/v1/panels/"+id+"/instances", key, fmt.Sprintf(`{"device":"d%d"}`, i)).Code == 200 {
+			ok++
+		}
+	}
+	if ok > monPublicPerKey {
+		t.Fatalf("one Public key named %d devices", ok)
+	}
+	if got := a.rateLimitFor(600, &apiCtx{Panel: id}); got != 600 {
+		t.Fatalf("rate limit %d", got)
+	}
+}
+
+func TestKeylessGuestReadsNoUserNames(t *testing.T) {
+	a, _ := clientApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`,"share":{"mode":"everyone"},"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
+	if rec := apiSend(a, "POST", "/api/v1/panel-templates", cy, `{"name":"Grid","scope":"everyone","from":"`+id+`"}`); rec.Code != 201 {
+		t.Fatalf("template: %d %s", rec.Code, rec.Body.String())
+	}
+	cfg := a.r().cfg
+	cfg.API.GuestEnabled = true
+	cfg.GuestAPIScopes = append(cfg.GuestAPIScopes, config.ScopePanels)
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	read := 0
+	for _, path := range []string{"/api/v1/panels/" + id, "/api/v1/panels", "/api/v1/panel-templates"} {
+		rec := apiDo(a, "GET", path, "", nil)
+		if rec.Code == 200 {
+			read++
+		}
+		if strings.Contains(rec.Body.String(), `"Cy"`) {
+			t.Fatalf("%s names a user: %s", path, rec.Body.String())
+		}
+	}
+	if read == 0 {
+		t.Fatal("the Guest read nothing, so the test shows nothing")
 	}
 }
 

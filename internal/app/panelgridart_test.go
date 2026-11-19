@@ -6,7 +6,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A Default artwork of an item a Grid panel shows reaches the panel read, so its ETag moves and an open page sees it.
 func TestGridDefaultArtworkChangeMovesTheETag(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -36,7 +35,6 @@ func TestGridDefaultArtworkChangeMovesTheETag(t *testing.T) {
 	}
 }
 
-// A destination default shows only when the destination edge shows the item.
 func TestGridDefaultArtworkFollowsTheEdge(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -56,7 +54,6 @@ func TestGridDefaultArtworkFollowsTheEdge(t *testing.T) {
 	}
 }
 
-// An item keeps its own Icon A and Icon B.
 func TestGridItemStoresIconB(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -71,8 +68,7 @@ func TestGridItemStoresIconB(t *testing.T) {
 	}
 }
 
-// Hide text is true, false (shows the name against a Default artwork that hides it) or absent (follows the default),
-// as on a cell. All three survive a save and a restart.
+// Hide text: true, false (shows the name against a Default artwork that hides it) or absent (follows the default).
 func TestGridItemKeepsHideTextAllThreeWays(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

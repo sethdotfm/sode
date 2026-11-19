@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // uptimeKeep: prune drops older lines, so older ranges show no data. The byte cap is in savelog.go.
@@ -63,9 +65,9 @@ type Uptime struct {
 	now   func() time.Time
 	trans []UptimeTrans
 	mins  []minute // completed minutes with problems, oldest first
-	cur   minute   // the minute being counted
-	pend  []byte   // lines not yet in the file
-	size  int      // bytes
+	cur   minute
+	pend  []byte // lines not yet in the file
+	size  int    // bytes
 	cap   int
 }
 
@@ -178,7 +180,7 @@ func (u *Uptime) sizeCut() int64 {
 	return 0
 }
 
-func (u *Uptime) rewrite() error { return replaceFile(u.path, u.lines()) }
+func (u *Uptime) rewrite() error { return config.AtomicWrite(u.path, u.lines()) }
 
 // Caller holds mu or owns u.
 func (u *Uptime) lines() []byte {
@@ -195,16 +197,8 @@ func (u *Uptime) lines() []byte {
 	return b
 }
 
-func replaceFile(path string, b []byte) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
-}
-
 func (u *Uptime) writeAlive() {
-	if err := replaceFile(alivePath(u.path), []byte(u.now().UTC().Format(time.RFC3339Nano))); err != nil {
+	if err := config.AtomicWrite(alivePath(u.path), []byte(u.now().UTC().Format(time.RFC3339Nano))); err != nil {
 		log.Printf("uptime: %v", err)
 	}
 }
@@ -268,18 +262,16 @@ func (u *Uptime) flush(final ...bool) {
 	u.roll(len(final) > 0 && final[0])
 	b := u.pend
 	u.pend = nil
-	u.mu.Unlock()
 	if len(b) == 0 || u.path == "" {
+		u.mu.Unlock()
 		return
 	}
-	u.mu.Lock()
 	u.size += len(b)
-	over := u.size > u.cap
-	if over { // disk is written outside mu, so State and Note never wait on it
+	if u.size > u.cap { // disk is written outside mu, so State and Note never wait on it
 		u.prune(u.now())
 		all := u.lines()
 		u.mu.Unlock()
-		if err := replaceFile(u.path, all); err != nil {
+		if err := config.AtomicWrite(u.path, all); err != nil {
 			log.Printf("uptime: not saved: %v", err)
 		}
 		return

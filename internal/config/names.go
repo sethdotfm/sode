@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"strings"
 )
 
 // validateNames: at most max, each named, 32 runes, unique ignoring case. kind is singular.
@@ -14,7 +13,7 @@ func validateNames(kind string, names []string, max int) []error {
 	}
 	seen := map[string]bool{}
 	for _, name := range names {
-		key := strings.ToLower(name)
+		key := foldKey(name)
 		switch n := len([]rune(name)); {
 		case n == 0:
 			bad("every %s needs a name", kind)

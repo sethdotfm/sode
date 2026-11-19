@@ -41,7 +41,6 @@ func TestPanelPagesAreServed(t *testing.T) {
 	}
 }
 
-// The panel gate is the Locks.Panel switch, apart from main and log.
 func TestPanelGate(t *testing.T) {
 	a := userApp(t, false)
 	cfg := a.r().cfg

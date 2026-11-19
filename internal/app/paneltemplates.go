@@ -39,8 +39,8 @@ var (
 	contentKeys = []string{"n", "router", "scope", "id", "name", "caption"}
 )
 
-// Owner is a user id; as sent it is the live name. Contents is the old single flag: a file that sets it means both, and it
-// is never stored.
+// Owner is a user id; as sent it is the live name. Contents is the old single flag: a file that sets it means both,
+// and it is never stored.
 type Template struct {
 	ID       string      `yaml:"id" json:"id"`
 	Name     string      `yaml:"name" json:"name"`
@@ -55,12 +55,6 @@ type Template struct {
 	// LegacyCells is a template from before Pages; migrate makes it one Page.
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings,omitempty" json:"settings,omitempty"`
-}
-
-// templateIn is the body of a save. Pin is only read for Everyone, and never stored.
-type templateIn struct {
-	Template
-	Pin string `json:"pin"`
 }
 
 // keepsContents reports whether a cell of this kind keeps its Source, Destination or Preset and its
@@ -151,7 +145,7 @@ type templateStore struct {
 	yamlDir[Template]
 }
 
-// loadTemplates runs once from New. A file that does not parse, or whose id or folder
+// loadTemplates runs one time, from New. A file that does not parse, or whose id or folder
 // differs from what it holds, is logged and skipped.
 func loadTemplates(cfgPath string) *templateStore {
 	s := &templateStore{}
@@ -189,7 +183,7 @@ func loadTemplates(cfgPath string) *templateStore {
 
 func (s *templateStore) list() []Template { return s.sorted(nil) }
 
-// sameBucket: one name once per place it is listed, Everyone for all or Me for one owner.
+// sameBucket: a name is used one time in each place it is listed, Everyone for all or Me for one owner.
 func sameBucket(a, b Template) bool {
 	return a.Scope == b.Scope && (a.Scope == templateEveryone || a.Owner == b.Owner)
 }
@@ -249,7 +243,7 @@ func (a *App) templateOut(cl *apiCtx, t Template) map[string]any {
 	json.Unmarshal(b, &m)
 	m["canEdit"] = edit
 	m["owner"] = a.r().cfg.UserName(t.Owner)
-	hideNamesFromPublic(m, cl)
+	hideUserNames(m, cl)
 	return m
 }
 
@@ -300,12 +294,11 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 	if !ok {
 		return
 	}
-	var in templateIn
-	if err := json.Unmarshal(body, &in); err != nil {
+	var t Template
+	if err := json.Unmarshal(body, &t); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", "send a template as JSON: "+err.Error())
 		return
 	}
-	t := in.Template
 	t.ID, t.Owner = "", cl.Actor.User
 	err := t.clean()
 	if err == nil {

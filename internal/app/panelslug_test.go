@@ -7,8 +7,6 @@ import (
 	"testing/fstest"
 )
 
-// REST seam for a panel's short name: validation, uniqueness, reading by it and the HTML route.
-
 func slugPut(a *App, key, id, body string) int {
 	return apiSend(a, "PUT", "/api/v1/panels/"+id, key, body).Code
 }
@@ -45,11 +43,10 @@ func TestPanelSlugIsUnique(t *testing.T) {
 	if c := slugPut(a, bo, two, `{"name":"Two","slug":"lobby"}`); c != 409 {
 		t.Errorf("update to a used slug: %d", c)
 	}
-	// Keeping its own slug on a save is not a clash.
+	// A save that keeps its own slug is not a clash.
 	if c := slugPut(a, ana, one, `{"name":"One","slug":"lobby"}`); c != 200 {
 		t.Errorf("resave: %d", c)
 	}
-	// Clearing frees it.
 	if c := slugPut(a, ana, one, `{"name":"One"}`); c != 200 {
 		t.Errorf("clear: %d", c)
 	}
@@ -109,7 +106,6 @@ func TestPanelPageRouteShape(t *testing.T) {
 			t.Errorf("%s: %d %q", p, c, b)
 		}
 	}
-	// A segment that can be neither an id nor a slug never reaches the page.
 	for _, p := range []string{"/panels/Studio", "/panels/a_b", "/panels/-x"} {
 		if c, _ := get(p); c != 404 {
 			t.Errorf("%s: %d", p, c)
@@ -136,7 +132,6 @@ func TestPanelLinkSecretsAreShort(t *testing.T) {
 	if n := len(strings.TrimPrefix(apiBody(t, rec)["key"].(string), keyPrefix)); n != 22 {
 		t.Errorf("exchanged key body is %d characters", n)
 	}
-	// Setup by short name trades the same token.
 	made := apiSend(a, "PUT", "/api/v1/panels/"+id, cy, apiPanel+`,"slug":"desk"}`)
 	if made.Code != 200 {
 		t.Fatalf("slug: %d %s", made.Code, made.Body.String())
