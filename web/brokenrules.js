@@ -61,6 +61,13 @@ export function filterSetMarks(s, offset) {
   return { broken: list(s.broken).filter(keep), moved: [] };
 }
 
+// A panel's source or destination cell: the status of the panel's mark on its number (panelstore.go keeps the marks).
+export function cellStatus(panel, cell) {
+  if (cell?.kind !== 'source' && cell?.kind !== 'destination') return '';
+  const on = (l) => list(l).some((m) => m.kind === cell.kind && m.ref.n === cell.n);
+  return on(panel?.broken) ? 'broken' : on(panel?.moved) ? 'moved' : '';
+}
+
 export const statusOf = (m) => (m.broken.length ? 'broken' : m.moved.length ? 'moved' : '');
 export const STATUS_TEXT = { broken: 'Broken', moved: 'Name moved' };
 

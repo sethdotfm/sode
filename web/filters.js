@@ -31,6 +31,8 @@ import { browserFilters, profileFilters } from './editortargets.js';
 import { FILTER_DEFAULT, normFilter, snapshot, restore } from './filterstore.js';
 import { trapDialog, labeled } from './widgets.js';
 import { editor } from './filtereditor.js';
+import { statusBadge, setStatus } from './brokenview.js';
+import { STATUS_TEXT } from './brokenrules.js';
 
 const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]);
 const root = $('filters');
@@ -104,6 +106,8 @@ function renderButtons() {
     const on = s.scope === 'all' ? !!a && a.scope === 'all' : isActive(s.scope, s.name);
     const edited = on && !!a && a.scope !== 'all' && a.edited;
     const b = el('button', 'pb-chip sode__set', s.name + (edited ? '*' : ''));
+    const badge = s.scope === 'all' ? null : statusBadge(setStatus(s).status);
+    if (badge) b.append(badge);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(on));
     if (edited) b.setAttribute('aria-label', `${s.name} (edited)`);
@@ -309,7 +313,8 @@ function renderSetBar() {
     const g = el('optgroup');
     g.label = label;
     for (const s of these) {
-      const o = el('option', null, s.name + (a && setKey(a) === setKey(s) && a.edited ? ' (edited)' : ''));
+      const st = s.scope === 'all' ? '' : setStatus(s).status;
+      const o = el('option', null, s.name + (a && setKey(a) === setKey(s) && a.edited ? ' (edited)' : '') + (st ? `, ${STATUS_TEXT[st]}` : ''));
       o.value = setKey(s);
       g.append(o);
     }

@@ -8,6 +8,7 @@ import { profileSaver } from './globalsave.js';
 import { fire, fillBoxes, openPresets } from './presets.js';
 import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, movePin, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
+import { statusBadge, presetStatus } from './brokenview.js';
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -118,6 +119,7 @@ function draw() {
         el('strong', null, s.name),
         el('span', 'sode__hint', ` ${scopeText(s)}`),
         pinned ? '' : el('span', 'sode__hint sode__preset-flag', 'not pinned'),
+        statusBadge(presetStatus(s).status) || '',
       );
       main.type = 'button';
       main.tabIndex = -1;

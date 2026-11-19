@@ -1,19 +1,11 @@
 // Broken and Name moved in the page's lists and the Main-page banner (rules in brokenrules.js). The page's own
 // presets and filter sets (Everyone, Me, This browser) with their marks now, by banner key.
-import { S, el, icon, off } from './core.js';
+import { S, off } from './core.js';
 import { allPresets } from './presetstore.js';
 import { allSets } from './filterstore.js';
-import { presetMarks, filterSetMarks, localPresetMarks, localFilterMarks, statusOf, STATUS_TEXT } from './brokenrules.js';
+import { presetMarks, filterSetMarks, localPresetMarks, localFilterMarks, statusOf } from './brokenrules.js';
 
-const ICON = { broken: 'unlink', moved: 'arrow-right-left' };
-
-// A status icon with its text, or null for an item with no marks.
-export function statusBadge(status) {
-  if (!status) return null;
-  const b = el('span', `pb-badge ${status === 'broken' ? 'pb-badge--warn' : 'pb-badge--info'} sode__status-badge`, icon(ICON[status]), STATUS_TEXT[status]);
-  b.dataset.status = status;
-  return b;
-}
+export { statusBadge } from './brokenbadge.js';
 
 const nameMaps = () => {
   const map = (by) => new Map([...(by || new Map())].map(([n, it]) => [n, it?.name || '']));

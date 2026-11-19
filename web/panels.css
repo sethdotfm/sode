@@ -166,6 +166,13 @@ body {
   position: absolute;
   translate: -50% 0;
 }
+/* A Broken or Name moved cell (panelview.js statusIcon). */
+.sode-panel__status-mark {
+  color: var(--pb-status-warn-fill);
+  inset-block-start: var(--pb-space-1);
+  inset-inline-start: var(--pb-space-1);
+  position: absolute;
+}
 .sode-panel__staged {
   font-size: var(--pb-text-xs);
   font-weight: var(--pb-weight-bold);

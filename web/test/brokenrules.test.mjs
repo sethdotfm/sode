@@ -11,6 +11,7 @@ import {
   bannerItems,
   localPresetMarks,
   localFilterMarks,
+  cellStatus,
 } from '../brokenrules.js';
 
 const dst = (n, name) => ({ kind: 'destination', ref: { router: 'R', n, name } });
@@ -85,6 +86,14 @@ test('the banner shows an item once, until dismissed or fixed', () => {
   useItem(st, worse);
   assert.equal(bannerItems(st, new Map([[broken.key, worse]])).length, 1, 'a new missing part shows it again');
   assert.equal(bannerItems(st, new Map()).length, 0, 'a deleted item goes');
+});
+
+test('a panel cell takes the status of the mark on its number', () => {
+  const p = { broken: [dst(22, 'MON 23')], moved: [src(0, 'CAM 1')] };
+  assert.equal(cellStatus(p, { kind: 'destination', n: 22 }), 'broken');
+  assert.equal(cellStatus(p, { kind: 'source', n: 0 }), 'moved');
+  assert.equal(cellStatus(p, { kind: 'source', n: 22 }), '');
+  assert.equal(cellStatus(p, { kind: 'take' }), '');
 });
 
 test('Name moved alone never shows the banner', () => {
