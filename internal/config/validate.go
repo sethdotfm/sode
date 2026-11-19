@@ -95,8 +95,8 @@ func (c Config) Validate() error {
 	if n := len([]rune(c.BrandText)); n > 24 {
 		bad("logo text must be at most 24 characters")
 	}
-	if _, ok := BrandColorByName(c.BrandBorder); c.BrandBorder != "" && !ok {
-		bad("border colour must be one of %s", strings.Join(BrandNames(), ", "))
+	if _, ok := BrandHex(c.BrandBorder); c.BrandBorder != "" && !ok {
+		bad("border colour must be one of %s, or #rrggbb", strings.Join(BrandNames(), ", "))
 	}
 	for _, e := range deviceEnums {
 		if !slices.Contains(PrefValues[e.pref], *e.get(&c.DeviceDefaults)) {

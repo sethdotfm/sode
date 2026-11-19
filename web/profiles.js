@@ -15,7 +15,13 @@ const body = el('div', 'sode__profiles-body');
 const brokenBox = el('div', { class: 'sode__broken-count', id: 'account-broken', hidden: true });
 const swapBtn = btn('pb-btn--outline pb-btn--sm', 'Swap…', () => emit('openSwap', { mine: true }));
 swapBtn.setAttribute('aria-haspopup', 'dialog');
-const mineSec = el('section', { class: 'sode__profiles-sec', hidden: true }, el('h3', 'sode__profiles-h', 'Broken and Name moved'), brokenBox, el('div', null, swapBtn));
+const mineSec = el(
+  'section',
+  { class: 'sode__profiles-sec', hidden: true },
+  el('h3', 'sode__profiles-h', 'Broken and Name moved'),
+  brokenBox,
+  el('div', null, swapBtn),
+);
 const dlg = modal({
   titleId: 'profiles-title',
   title: 'Profile',

@@ -113,15 +113,7 @@ export function initDeviceSettings({ form, reindex }) {
     const acct = !!L.user || signInOffered(L);
     $('account-name').hidden = !acct;
     $('account-name').replaceChildren(...(L.user ? ['Signed in as ', el('strong', null, L.user)] : ['Not signed in']));
-    for (const id of [
-      'account-profile',
-      'account-copy',
-      'account-transfer',
-      'account-pin',
-      'account-keys',
-      'account-clients',
-      'account-logout',
-    ])
+    for (const id of ['account-profile', 'account-copy', 'account-transfer', 'account-pin', 'account-keys', 'account-clients', 'account-logout'])
       $(id).hidden = !L.user;
     // A user without a PIN holds no personal API keys or own API clients.
     const noPin = listedUser(S.users, L.user)?.len === 0;

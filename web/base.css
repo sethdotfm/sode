@@ -724,6 +724,13 @@ html {
 .sode__settings > :is(.sode__group, .sode__topic, .sode__router)[hidden] {
   display: none;
 }
+/* One hue per Role tier; Approval keeps warn. */
+.sode__role-badge--trusted {
+  --pb-badge-c: var(--pb-signal-07);
+}
+.sode__role-badge--administrator {
+  --pb-badge-c: var(--pb-signal-09);
+}
 .sode__group > legend > .pb-badge[hidden] {
   display: none;
 }
@@ -778,6 +785,20 @@ html {
   flex: 1 1 auto;
   font-family: var(--pb-font-mono);
   min-width: 0;
+}
+.sode__colorpick-wrap {
+  position: relative;
+}
+.sode__colorpick-under {
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.sode__colorpick {
+  block-size: calc(var(--pb-space-10) + var(--pb-space-5));
+  inline-size: calc(var(--pb-space-10) + var(--pb-space-5));
+  padding: 0;
 }
 .sode__hint {
   color: var(--pb-text-muted);
