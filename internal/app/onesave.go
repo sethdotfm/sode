@@ -191,7 +191,7 @@ func fieldRefusal(role, sec string) string {
 func (a *App) serveSettingsSave(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
-		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver)
+		res, stops, err := a.saveSettingsFields(c, m.Fields, m.approver, m.AccessPreset)
 		out := settingsSaveResult{opResult: opResultFor("settingsSave", &m.ID, err), Results: res, Interruptions: stops}
 		n := 0
 		for _, r := range res {
@@ -236,8 +236,9 @@ func (p *savePlan) refuse(key, reason string, err error) {
 
 // saveSettingsFields checks each field on its own against live, then writes the ones that
 // pass in one commit. No commit when none changes anything. ap, the approver of an Approval
-// (approval.go), stands in for the Role only in Shown sections; it is nil without one.
-func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User) (map[string]fieldResult, []interruption, error) {
+// (approval.go), stands in for the Role only in Shown sections; it is nil without one. preset:
+// the Access preset the page staged, named in the Settings saves row.
+func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *config.User, preset string) (map[string]fieldResult, []interruption, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	plan, err := a.planSave(c, edits, ap, false)
@@ -275,7 +276,8 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 	if slices.Contains(keep, "requireHttps") {
 		a.auditRequireHTTPS(connActor(c), live.RequireHTTPS, now.RequireHTTPS)
 	}
-	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops))
+	a.recordSaveApproved(connActor(c), "save", a.savedFields(live, now, keep, x), len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
+		presetOfSave(preset, keep))
 	a.auditAPISettings(connActor(c), live, now)
 	a.panelsFollowUsers(live.Users, now.Users)
 	if n, err := a.panels.moveOwners(plan.moves); err != nil {

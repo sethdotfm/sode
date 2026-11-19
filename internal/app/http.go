@@ -346,45 +346,47 @@ func outcome(err error) string {
 
 // inMsg: every type read here must be in policy.go.
 type inMsg struct {
-	T          string               `json:"t"`
-	done       func()               // ends the shutdown count for a write (rule.write); see finish
-	Before     int                  `json:"before"`
-	N          int                  `json:"n"`    // history page size; 0 = the default
-	From       int64                `json:"from"` // uptime range, unix ms
-	To         int64                `json:"to"`
-	Slot       int64                `json:"slot"`   // ...and its slot length, ms
-	Config     json.RawMessage      `json:"config"` // decoded in saveSettings, over the live config
-	Fields     map[string]fieldEdit `json:"fields"` // settingsSave, settingsReview: changed fields only
-	Pin        string               `json:"pin"`
-	User       string               `json:"user"` // userSignIn: the user's name (name and PIN mode)
-	ID         int                  `json:"id"`   // echoed by save replies
-	Items      []routeReq           `json:"items"`
-	Preset     string               `json:"preset"`   // take: the preset that was fired, if any
-	PresetID   string               `json:"presetId"` // ...and its hidden id
-	Sets       []config.FilterSet   `json:"sets"`
-	Prefs      map[string]string    `json:"prefs"`
-	FilterSets []config.FilterSet   `json:"filterSets"`
-	Presets    []config.Preset      `json:"presets"`
-	PinOrder   []string             `json:"pinOrder"`
-	Page       string               `json:"page"`  // hi: main | log
-	Token      string               `json:"token"` // hi: session token of a persistent user or a tab login
-	Tab        bool                 `json:"tab"`   // userSignIn: no lock on, wants a tab session token
-	Name       string               `json:"name"`  // userSignOutAll, profileSave, profileGet
-	Old        string               `json:"old"`
-	New        string               `json:"new"`
-	Remove     bool                 `json:"remove"`   // userSetPin: remove my PIN
-	KeyName    string               `json:"keyName"`  // keyCreate, keyCreateFor
-	KeyID      string               `json:"keyId"`    // keyRevoke, keyRevokeAny
-	Expires    int64                `json:"expires"`  // key expiry, unix ms; 0 = never
-	Owner      *keyOwner            `json:"owner"`    // keyCreateFor, keyRevokeAll
-	Panel      string               `json:"panel"`    // panelAlarm: the panel id
-	Action     string               `json:"action"`   // panelAlarm: clear | stop
-	Instance   string               `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
-	MyClient   *myClientReq         `json:"client"`   // myClientSave
-	Approval   *approvalReq         `json:"approval"` // an Approval in person for this one message
-	approver   *config.User         // set by approve once the Approval's PIN is checked
-	Router     string               `json:"router"` // setupRouter: the address typed
-	Setup      *setupReq            `json:"setup"`  // setupFinish
+	T      string               `json:"t"`
+	done   func()               // ends the shutdown count for a write (rule.write); see finish
+	Before int                  `json:"before"`
+	N      int                  `json:"n"`    // history page size; 0 = the default
+	From   int64                `json:"from"` // uptime range, unix ms
+	To     int64                `json:"to"`
+	Slot   int64                `json:"slot"`   // ...and its slot length, ms
+	Config json.RawMessage      `json:"config"` // decoded in saveSettings, over the live config
+	Fields map[string]fieldEdit `json:"fields"` // settingsSave, settingsReview: changed fields only
+	// AccessPreset: settingsSave, the Access preset staged into it, for the Settings saves row.
+	AccessPreset string             `json:"accessPreset"`
+	Pin          string             `json:"pin"`
+	User         string             `json:"user"` // userSignIn: the user's name (name and PIN mode)
+	ID           int                `json:"id"`   // echoed by save replies
+	Items        []routeReq         `json:"items"`
+	Preset       string             `json:"preset"`   // take: the preset that was fired, if any
+	PresetID     string             `json:"presetId"` // ...and its hidden id
+	Sets         []config.FilterSet `json:"sets"`
+	Prefs        map[string]string  `json:"prefs"`
+	FilterSets   []config.FilterSet `json:"filterSets"`
+	Presets      []config.Preset    `json:"presets"`
+	PinOrder     []string           `json:"pinOrder"`
+	Page         string             `json:"page"`  // hi: main | log
+	Token        string             `json:"token"` // hi: session token of a persistent user or a tab login
+	Tab          bool               `json:"tab"`   // userSignIn: no lock on, wants a tab session token
+	Name         string             `json:"name"`  // userSignOutAll, profileSave, profileGet
+	Old          string             `json:"old"`
+	New          string             `json:"new"`
+	Remove       bool               `json:"remove"`   // userSetPin: remove my PIN
+	KeyName      string             `json:"keyName"`  // keyCreate, keyCreateFor
+	KeyID        string             `json:"keyId"`    // keyRevoke, keyRevokeAny
+	Expires      int64              `json:"expires"`  // key expiry, unix ms; 0 = never
+	Owner        *keyOwner          `json:"owner"`    // keyCreateFor, keyRevokeAll
+	Panel        string             `json:"panel"`    // panelAlarm: the panel id
+	Action       string             `json:"action"`   // panelAlarm: clear | stop
+	Instance     string             `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
+	MyClient     *myClientReq       `json:"client"`   // myClientSave
+	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
+	approver     *config.User       // set by approve once the Approval's PIN is checked
+	Router       string             `json:"router"` // setupRouter: the address typed
+	Setup        *setupReq          `json:"setup"`  // setupFinish
 }
 
 func plural(n int, one, many string) string {
