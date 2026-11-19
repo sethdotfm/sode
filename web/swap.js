@@ -3,7 +3,7 @@
 // swaprules.js.
 import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN } from './core.js';
 import { btn } from './formbits.js';
-import { trapDialog } from './dialogkeys.js';
+import { modal } from './modal.js';
 import { addSaveSource } from './savesources.js';
 import { groupByOwner, parseShown, swapLabel, swapShow, swapValue } from './swaprules.js';
 
@@ -162,46 +162,30 @@ function close() {
 
 function build() {
   if (ui) return;
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  root.hidden = true;
-  const dialog = el('div', 'pb-modal sode__filters sode__swap');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'swap-title');
-  dialog.tabIndex = -1;
-  const title = Object.assign(el('span', 'pb-modal__title', 'Swap'), { id: 'swap-title' });
-  const side = el('select', 'pb-select');
-  side.id = 'swap-side';
+  const side = el('select', { class: 'pb-select', id: 'swap-side' });
   side.append(Object.assign(el('option', null, 'Destination'), { value: 'destination' }), Object.assign(el('option', null, 'Source'), { value: 'source' }));
   const sideField = el('div', 'sode__field', Object.assign(el('label', null, 'Swap'), { htmlFor: 'swap-side' }), el('span', 'pb-select-wrap', side));
   const from = numberBox('swap-from', 'Old number');
   const to = numberBox('swap-to', 'New number');
-  const broken = el('input', 'pb-check__input');
-  broken.type = 'checkbox';
-  broken.id = 'swap-broken';
-  const list = el('div', 'sode__swap-list');
-  list.setAttribute('aria-label', 'Items that use the old number');
-  const err = el('div', 'pb-note pb-note--error');
-  err.setAttribute('role', 'alert');
-  err.hidden = true;
+  const broken = el('input', { class: 'pb-check__input', type: 'checkbox', id: 'swap-broken' });
+  const list = el('div', { class: 'sode__swap-list', 'aria-label': 'Items that use the old number' });
+  const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
   const go = btn('pb-btn--ok', '', done, 'swap-go');
-  dialog.append(
-    el('div', 'pb-modal__header', title),
-    el(
-      'div',
-      'pb-modal__body',
+  const dlg = modal({
+    titleId: 'swap-title',
+    title: 'Swap',
+    cls: 'sode__filters sode__swap',
+    body: [
       el('div', 'sode__fields', sideField, from.field, to.field),
       btn('pb-btn--outline', 'Find items', find, 'swap-find'),
       el('label', 'pb-check', broken, el('span', 'pb-check__label', 'Only Broken')),
       list,
       err,
-    ),
-    el('div', 'pb-modal__footer', btn('pb-btn--outline', 'Cancel', close, 'swap-cancel'), go),
-  );
-  root.append(dialog);
-  document.body.append(root);
-  const dlg = trapDialog(root, dialog, close);
-  ui = { dlg, title, side, from, to, broken, list, err, go };
+    ],
+    foot: [btn('pb-btn--outline', 'Cancel', close, 'swap-cancel'), go],
+    onEsc: close,
+  });
+  ui = { dlg, title: dlg.title, side, from, to, broken, list, err, go };
   side.addEventListener('change', () => {
     asked = null;
     items = [];

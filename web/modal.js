@@ -6,7 +6,7 @@ export const dialogAttrs = (titleId) => ({ role: 'dialog', 'aria-modal': 'true',
 
 // body is a list of nodes for a pb-modal__body (none: no body), or one node used as it is. A modal built per open calls
 // remove() when it closes, so nothing it holds outlives it.
-export function modal({ titleId, title, cls = '', rootId, dialogId, head = [], headCls = '', body = [], foot = [], onEsc, describedBy }) {
+export function modal({ titleId, title, cls = '', rootCls = '', rootId, dialogId, head = [], headCls = '', body = [], foot = [], onEsc, describedBy }) {
   const titleEl = el('span', { class: 'pb-modal__title', id: titleId }, title);
   const dialog = el(
     'div',
@@ -15,7 +15,7 @@ export function modal({ titleId, title, cls = '', rootId, dialogId, head = [], h
     ...(Array.isArray(body) ? (body.length ? [el('div', 'pb-modal__body', ...body)] : []) : [body]),
     el('div', 'pb-modal__footer', ...foot),
   );
-  const root = el('div', { class: 'pb-modal-backdrop sode__scrim', id: rootId, hidden: true }, dialog);
+  const root = el('div', { class: `pb-modal-backdrop sode__scrim ${rootCls}`.trim(), id: rootId, hidden: true }, dialog);
   document.body.append(root);
   const { show, hide } = trapDialog(root, dialog, onEsc);
   return {

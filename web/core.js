@@ -17,10 +17,10 @@ export function el(tag, props, ...kids) {
   if (typeof props === 'string') e.className = props;
   else if (props)
     for (const [k, v] of Object.entries(props)) {
-      if (v == null || v === false) continue;
+      if (v == null) continue;
       if (k === 'class') e.className = v;
       else if (k in e) e[k] = v;
-      else e.setAttribute(k, v === true ? '' : v);
+      else if (v !== false) e.setAttribute(k, v === true ? '' : v);
     }
   for (const k of kids) if (k != null) e.append(k);
   return e;

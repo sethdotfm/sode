@@ -1,7 +1,7 @@
 // Stages the preset as unsaved changes; the one Save sends them (docs/agents/settings-saves.md).
 
 import { $, el, on, emit } from './core.js';
-import { trapDialog } from './widgets.js';
+import { modal } from './modal.js';
 import { btn, check, segmented } from './formbits.js';
 import { form } from './settingsform.js';
 import { markPreset } from './settingssave.js';
@@ -15,13 +15,6 @@ let users = [];
 let me = '';
 let pick = '';
 
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal pb-modal--md');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'preset-apply-title');
-dialog.tabIndex = -1;
 const pickBox = el('div', 'sode__field');
 const userBox = el('div', 'sode__field', el('span', 'sode__label', 'Set Never sign out and No auto-lock for'));
 const rows = el('div', 'sode__preset-users');
@@ -30,14 +23,14 @@ const tickAll = btn('pb-btn--outline pb-btn--sm', 'Tick all', () => {
 });
 userBox.append(tickAll, rows);
 const applyBtn = btn('pb-btn--ok', 'Stage changes', apply);
-dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Apply an access preset'), { id: 'preset-apply-title' })),
-  el('div', 'pb-modal__body', pickBox, userBox),
-  el('div', 'pb-modal__footer', btn('pb-btn--outline', 'Cancel', close), applyBtn),
-);
-root.append(dialog);
-document.body.append(root);
-const dlg = trapDialog(root, dialog, close);
+const dlg = modal({
+  titleId: 'preset-apply-title',
+  title: 'Apply an access preset',
+  cls: 'pb-modal--md',
+  body: [pickBox, userBox],
+  foot: [btn('pb-btn--outline', 'Cancel', close), applyBtn],
+  onEsc: close,
+});
 let back = null;
 
 function fillPick() {
@@ -73,7 +66,7 @@ function show() {
   fillPick();
   fillUsers();
   dlg.show();
-  dialog.focus();
+  dlg.dialog.focus();
 }
 
 function close() {
@@ -123,5 +116,5 @@ on('usersListed', (m) => {
 // Every field it writes is Critical, so only an Administrator sees it.
 on('access', (a) => {
   open.hidden = a.role !== 'administrator';
-  if (open.hidden && !root.hidden) close();
+  if (open.hidden && dlg.shown()) close();
 });

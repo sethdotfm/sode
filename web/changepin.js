@@ -1,17 +1,13 @@
 // Opens by itself one time per sign-in for a PIN needed user. Rules in lockrules.js (pinForm).
 
 import { el, S, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
-import { trapDialog } from './dialogkeys.js';
+import { btn } from './formbits.js';
+import { modal } from './modal.js';
 import { listedUser } from './namepickrules.js';
 import { pinForm, pinNeededAsk } from './lockrules.js';
 
 const field = (id, label, auto) => {
-  const input = el('input', 'pb-input');
-  input.type = 'password';
-  input.id = id;
-  input.inputMode = 'numeric';
-  input.autocomplete = auto;
-  input.spellcheck = false;
+  const input = el('input', { class: 'pb-input', type: 'password', id, inputMode: 'numeric', autocomplete: auto, spellcheck: false });
   return { input, row: el('div', 'sode-lock__field', Object.assign(el('label', null, label), { htmlFor: id }), input) };
 };
 
@@ -19,33 +15,24 @@ export function buildChangePin() {
   const oldF = field('sode-pin-old', 'Current PIN', 'current-password');
   const newF = field('sode-pin-new', 'New PIN', 'new-password');
   const againF = field('sode-pin-again', 'New PIN again', 'new-password');
-  const note = el('p', 'sode-lock__pin-note');
-  note.setAttribute('role', 'status');
-  const cancel = el('button', 'pb-btn pb-btn--outline', 'Cancel');
-  cancel.type = 'button';
+  const note = el('p', { class: 'sode-lock__pin-note', role: 'status' });
+  const cancel = btn('pb-btn--outline', 'Cancel', () => closePin());
   // Remove reads the current PIN from the same field.
-  const remove = el('button', 'pb-btn pb-btn--ghost', 'Remove my PIN');
-  remove.type = 'button';
-  const save = el('button', 'pb-btn pb-btn--ok', 'Change PIN');
-  save.type = 'submit';
+  const remove = btn('pb-btn--ghost', 'Remove my PIN');
   const lead = el('p', 'sode-lock__pin-note');
-  const form = el('form', 'pb-modal__body sode-lock__pin-form', lead, oldF.row, newF.row, againF.row, note);
-  form.id = 'sode-pin-form';
+  const form = el('form', { class: 'pb-modal__body sode-lock__pin-form', id: 'sode-pin-form' }, lead, oldF.row, newF.row, againF.row, note);
+  const save = el('button', { class: 'pb-btn pb-btn--ok', type: 'submit' }, 'Change PIN');
   save.setAttribute('form', form.id); // the footer is the form's sibling
-  const dialog = el(
-    'div',
-    'pb-modal sode-lock__pin-dlg',
-    el('div', 'pb-modal__header', el('span', 'pb-modal__title', 'Change my PIN')),
-    form,
-    el('div', 'pb-modal__footer', remove, cancel, save),
-  );
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-label', 'Change my PIN');
-  dialog.tabIndex = -1;
-  const back = el('div', 'pb-modal-backdrop sode__scrim sode-lock__pin', dialog);
-  back.hidden = true;
-  document.body.append(back);
+  const dlg = modal({
+    titleId: 'sode-pin-title',
+    title: 'Change my PIN',
+    cls: 'sode-lock__pin-dlg',
+    rootCls: 'sode-lock__pin',
+    body: form,
+    foot: [remove, cancel, save],
+    onEsc: () => closePin(),
+  });
+  const back = dlg.root;
 
   let seq = 0;
   let focusBack = null;
@@ -75,7 +62,6 @@ export function buildChangePin() {
     dlg.show();
     (mode.current ? oldF : newF).input.focus({ preventScroll: true });
   }
-  const dlg = trapDialog(back, dialog, closePin);
   on('changePin', openPin);
   on('access', (L) => {
     me = { user: L.user || '', role: L.role || '', pinNeeded: !!L.pinNeeded };
@@ -86,7 +72,6 @@ export function buildChangePin() {
       openPin();
     }
   });
-  cancel.addEventListener('click', closePin);
   on('wsclose', () => {
     if (back.hidden || !save.disabled) return;
     save.disabled = remove.disabled = false;
