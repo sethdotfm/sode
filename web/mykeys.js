@@ -5,6 +5,7 @@ import { modal } from './modal.js';
 import { createReq, expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
 import { btn, field } from './formbits.js';
+import { pinShow, hidePin } from './pinshow.js';
 
 const make = (id, type, auto) => el('input', { class: 'pb-input', id, type, autocomplete: auto, spellcheck: false });
 
@@ -35,7 +36,7 @@ const dlg = modal({
       'sode__keys-new',
       field('mykey-name', 'Key name', nameIn),
       field('mykey-expires', 'Expires (optional)', expIn),
-      field('mykey-pin', 'Your PIN', pinIn),
+      field('mykey-pin', 'Your PIN', pinShow(pinIn)),
     ),
     note,
     ,
@@ -61,6 +62,7 @@ function closeKeys() {
   isOpen = false;
   shown.replaceChildren(); // the one-time key goes with the dialog
   for (const i of [nameIn, expIn, pinIn]) i.value = '';
+  hidePin(pinIn);
   say('');
   seq++;
   makeBtn.disabled = false;

@@ -1,8 +1,9 @@
 // The setup wizard's rules (pure): its steps, what each step needs before Next, and the Finish
 // message. setupwizard.js draws them; internal/app/setup.go checks the answers again.
+import { levelLabelOf } from './levels.js';
 
 export const STEPS = [
-  ['welcome', 'Welcome'],
+  ['welcome', 'Style & User'],
   ['router', 'Router'],
   ['access', 'Access'],
   ['done', 'Done'],
@@ -11,19 +12,12 @@ export const DONE = STEPS.length - 1;
 
 // The Access step's rows. The server sends each preset's Yes or No by these keys (setupRows).
 export const PRESET_ROWS = [
-  ['takeNoSignIn', 'Take without signing in'],
+  ['takeNoSignIn', 'Change routes without signing in'],
   ['sharedNoSignIn', 'Change shared presets and filters without signing in'],
-  ['panelLinks', 'Panels open from their link'],
-  ['appsRead', 'Other apps read names and tally without a key'],
-  ['appsTake', 'Other apps take without a key'],
-  ['pinWaits', 'Wrong PINs make you wait'],
+  ['panelLinks', 'Public panels open without signing in'],
+  ['appsRead', 'Other apps can read names and tally without a key'],
+  ['appsTake', 'Other apps can take without a key'],
 ];
-
-export const PRESET_WHO = {
-  open: 'One person, or a crew that trusts each other.',
-  standard: 'A shared crew. Shared settings need a Trusted user.',
-  secured: 'A fixed studio. Everyone signs in.',
-};
 
 const NAME_MAX = 24;
 const PIN_MIN = 4;
@@ -61,7 +55,7 @@ const wholeIn = (s, lo, hi) => /^\d+$/.test(String(s).trim()) && +s >= lo && +s 
 export function stepProblem(d, i, max = 8) {
   switch (STEPS[i]?.[0]) {
     case 'welcome': {
-      if (d.again) return ''; // Run setup again skips Your user
+      if (d.again) return ''; // Run setup again skips Add a first user
       const name = d.name.trim();
       if (!name) return 'Enter your name.';
       if ([...name].length > NAME_MAX) return `A name has at most ${NAME_MAX} characters.`;
@@ -76,7 +70,7 @@ export function stepProblem(d, i, max = 8) {
   return '';
 }
 
-// Your user and a restore without PINs use it.
+// Add a first user and a restore without PINs use it.
 export function restorePinProblem(pin, pin2, max = 8) {
   if (!/^\d+$/.test(pin) || pin.length < PIN_MIN || pin.length > max) return `A PIN has ${PIN_MIN} to ${max} digits.`;
   if (pin !== pin2) return 'The PINs differ.';
@@ -102,7 +96,7 @@ export function numberingChoices(n) {
   ];
 }
 
-// PIN again stays on the page.
+// Repeat your PIN stays on the page.
 export function finishMessage(d, id) {
   return {
     t: 'setupFinish',
@@ -123,9 +117,24 @@ export function finishMessage(d, id) {
   };
 }
 
+const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
 // The Router step's status line, or null before an address is typed.
-export function routerLine(address, router, names) {
+export function routerLine(address, router, srcs, dsts) {
   if (!address.trim()) return null;
-  if (router === 'up' && names > 0) return { ok: true, text: 'Connected. Names read.' };
+  if (router === 'up' && srcs + dsts > 0) return { ok: true, text: `Connected: ${count(srcs, 'source')} and ${count(dsts, 'destination')} discovered.` };
   return { ok: false, text: 'No answer yet. Sode keeps trying.' };
+}
+
+// The Level numbering guide's chips: the typed count in the picked numbering, colored as the router's levels are.
+// known is the hello's levels; a level past them gets the swatch the server would give it (config.LevelMap).
+export function guideLevels(n, numbering, known = []) {
+  const top = wholeIn(n, 1, 256) ? +n : 0;
+  return Array.from({ length: top }, (_, i) => {
+    const ui = i + 1;
+    const label = levelLabelOf([], numbering, ui);
+    const k = known[i];
+    if (k?.color) return { ui, label, color: k.color };
+    return { ui, label, swatch: k?.swatch || (ui === 1 ? 'video' : String(((ui - 2) % 16) + 1).padStart(2, '0')) };
+  });
 }

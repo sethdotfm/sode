@@ -1,12 +1,13 @@
 [data-sode-setup] .sode > :not(#setup, #conn) {
   display: none !important;
 }
-.sode-setup {
-  max-width: 38rem;
-  margin: 2.5rem auto 4rem;
+[data-sode-setup] .sode {
+  max-width: none;
 }
-.sode-setup--wide {
-  max-width: 60rem;
+/* .sode centres its children, so without a width the dialog shrinks to its title. */
+.sode-setup {
+  width: min(100%, 76rem);
+  margin: 2.5rem auto 4rem;
 }
 .sode-setup .sode__mark {
   text-align: center;
@@ -19,6 +20,9 @@
 .sode-setup .pb-modal__title {
   font-size: var(--pb-text-lg);
   margin: 0;
+}
+.sode-setup .pb-modal__body {
+  padding-top: var(--pb-space-5);
 }
 
 .sode-setup__steps {
@@ -105,6 +109,22 @@
   flex-direction: column;
   gap: var(--pb-space-4);
 }
+.sode-setup__section:first-child {
+  margin-top: 0;
+}
+.sode-setup__hr {
+  margin: var(--pb-space-7) 0 0;
+}
+.sode-setup__hr + .sode-setup__section {
+  margin-top: var(--pb-space-6);
+}
+/* Two fields side by side; an empty second cell keeps a lone field at half width. */
+.sode-setup__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--pb-space-6);
+  align-items: end;
+}
 .sode-setup__h {
   font-size: var(--pb-text-md);
   font-weight: var(--pb-weight-bold);
@@ -148,9 +168,22 @@
   opacity: 0;
   pointer-events: none;
 }
-.sode-setup__swatch:has(input:checked) {
+.sode-setup__swatch:has(input:checked),
+.sode-setup__swatch.is-picked {
   outline: 2px solid var(--pb-text-strong);
   outline-offset: 2px;
+}
+/* The native picker fills the swatch and opens on click. */
+.sode-setup__swatch--own input {
+  position: static;
+  opacity: 1;
+  pointer-events: auto;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
 }
 .sode-setup__swatch:has(input:focus-visible) {
   outline: 2px solid var(--pb-accent);
@@ -159,7 +192,6 @@
 
 .sode-setup__sheet {
   width: 100%;
-  margin-top: var(--pb-space-6);
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -184,6 +216,12 @@
   cursor: default;
   width: auto;
 }
+.sode-setup__sheet thead .sode-setup__corner {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  vertical-align: bottom;
+}
 .sode-setup__sheet td {
   text-align: center;
   cursor: pointer;
@@ -202,13 +240,6 @@
 }
 .sode-setup__no {
   color: var(--pb-text-muted);
-}
-.sode-setup__who {
-  display: block;
-  font-weight: normal;
-  color: var(--pb-text-muted);
-  font-size: var(--pb-text-sm);
-  margin-top: var(--pb-space-2);
 }
 
 .sode-setup__done {

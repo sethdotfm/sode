@@ -51,11 +51,12 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("Router, filled from the config", `document.getElementById('setup-router')?.value === '`+sim+`'`)
 	b.waitFor("the env hint under Address", `document.getElementById('setup-router')?.parentElement.querySelector('.sode__hint')?.textContent === 'Filled from SODE_ROUTER.'`)
 	status := `(document.getElementById('setup-router-status')?.textContent || '')`
-	b.waitFor("the router answers", status+` === 'Connected. Names read.'`)
+	found := `/^Connected: \d+ sources? and \d+ destinations? discovered\.$/.test(` + status + `)`
+	b.waitFor("the router answers with its counts", found)
 	type_("setup-router", "127.0.0.1:1")
 	b.waitFor("a dead address", status+` === 'No answer yet. Sode keeps trying.'`)
 	type_("setup-router", sim)
-	b.waitFor("the router answers again", status+` === 'Connected. Names read.'`)
+	b.waitFor("the router answers again", found)
 	b.eval(`document.getElementById('setup-fireMode-native').click(); true`)
 	b.waitFor("Router salvo shows group 127", `document.getElementById('setup-group')?.value === '127'`)
 	b.eval(`document.getElementById('setup-fireMode-sequential').click(); true`)

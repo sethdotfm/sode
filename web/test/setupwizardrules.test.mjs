@@ -9,6 +9,7 @@ import {
   numberingChoices,
   finishMessage,
   routerLine,
+  guideLevels,
   envHint,
   restorePinProblem,
 } from '../setupwizardrules.js';
@@ -91,7 +92,7 @@ test('level numbering reads from the level count', () => {
   ]);
 });
 
-test('Finish sends the answers once, without PIN again', () => {
+test('Finish sends the answers once, without Repeat your PIN', () => {
   const m = finishMessage({ ...filled(), fireMode: 'native', group: '120' }, 4);
   assert.equal(m.t, 'setupFinish');
   assert.equal(m.id, 4);
@@ -104,11 +105,29 @@ test('Finish sends the answers once, without PIN again', () => {
   assert.equal(finishMessage(filled(), 5).setup.group, 127);
 });
 
-test('the router line has two states', () => {
-  assert.equal(routerLine('', 'up', 3), null);
-  assert.deepEqual(routerLine('10.0.0.5:8910', 'up', 3), { ok: true, text: 'Connected. Names read.' });
-  assert.equal(routerLine('10.0.0.5:8910', 'up', 0).ok, false);
-  assert.equal(routerLine('10.0.0.5:8910', 'connecting', 0).text, 'No answer yet. Sode keeps trying.');
+test('the router line has two states and counts what it found', () => {
+  assert.equal(routerLine('', 'up', 3, 2), null);
+  assert.deepEqual(routerLine('10.0.0.5:8910', 'up', 1234, 123), { ok: true, text: 'Connected: 1234 sources and 123 destinations discovered.' });
+  assert.equal(routerLine('10.0.0.5:8910', 'up', 1, 1).text, 'Connected: 1 source and 1 destination discovered.');
+  assert.equal(routerLine('10.0.0.5:8910', 'up', 0, 0).ok, false);
+  assert.equal(routerLine('10.0.0.5:8910', 'connecting', 0, 0).text, 'No answer yet. Sode keeps trying.');
+});
+
+test('the level guide labels the typed count in the picked numbering and keeps the router colors', () => {
+  assert.deepEqual(guideLevels('', '1'), []);
+  assert.deepEqual(guideLevels('300', '1'), []);
+  assert.deepEqual(
+    guideLevels('3', 'va').map((l) => l.label),
+    ['V', '1', '2'],
+  );
+  assert.deepEqual(
+    guideLevels('2', '0').map((l) => l.label),
+    ['0', '1'],
+  );
+  const l = guideLevels('19', '1', [{ ui: 1, color: '#7ae85a' }]);
+  assert.equal(l[0].color, '#7ae85a');
+  assert.equal(l[1].swatch, '01');
+  assert.equal(l[17].swatch, '01'); // 16 audio swatches, then round again
 });
 
 test('a restore without PINs takes a new PIN only when both entries agree', () => {

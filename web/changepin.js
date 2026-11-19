@@ -3,12 +3,13 @@
 import { el, S, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
+import { pinShow, hidePin } from './pinshow.js';
 import { listedUser } from './namepickrules.js';
 import { pinForm, pinNeededAsk } from './lockrules.js';
 
 const field = (id, label, auto) => {
   const input = el('input', { class: 'pb-input', type: 'password', id, inputMode: 'numeric', autocomplete: auto, spellcheck: false });
-  return { input, row: el('div', 'sode-lock__field', Object.assign(el('label', null, label), { htmlFor: id }), input) };
+  return { input, row: el('div', 'sode-lock__field', Object.assign(el('label', null, label), { htmlFor: id }), pinShow(input)) };
 };
 
 export function buildChangePin() {
@@ -46,7 +47,10 @@ export function buildChangePin() {
   function closePin() {
     dlg.hide();
     seq++; // a late answer no longer counts
-    for (const f of [oldF, newF, againF]) f.input.value = '';
+    for (const f of [oldF, newF, againF]) {
+      f.input.value = '';
+      hidePin(f.input);
+    }
     save.disabled = remove.disabled = false;
     if (focusBack?.isConnected) focusBack.focus({ preventScroll: true });
   }

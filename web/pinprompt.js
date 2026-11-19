@@ -3,6 +3,7 @@ import { el, S, on, sentence, LINK_DOWN } from './core.js';
 import { btn } from './formbits.js';
 import { namePicker } from './namepick.js';
 import { modal } from './modal.js';
+import { pinShow, hidePin } from './pinshow.js';
 
 // name: {placeholder, label, missing} adds a name picker. send(pin, name) returns false when it could not send; the
 // caller then calls fail or close. onClose(sent) runs on every close. dropCloses: a socket drop loses the answer.
@@ -28,7 +29,7 @@ export function pinPrompt({ id, title, go: goText, name, pin: pinProps, extra = 
     titleId: `${id}-title`,
     title,
     cls: 'sode__filters sode__pinprompt',
-    body: [why, ...(picker ? [picker.root] : []), pin, err, ...extra],
+    body: [why, ...(picker ? [picker.root] : []), pinShow(pin), err, ...extra],
     foot: [btn('pb-btn--outline', 'Cancel', () => close(false), `${id}-cancel`), go],
     onEsc: () => close(false),
   });
@@ -43,6 +44,7 @@ export function pinPrompt({ id, title, go: goText, name, pin: pinProps, extra = 
     open = false;
     m.hide();
     pin.value = '';
+    hidePin(pin);
     err.hidden = true;
     go.disabled = false;
     if (back?.isConnected) back.focus();

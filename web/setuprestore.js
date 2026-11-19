@@ -5,6 +5,7 @@
 import { $, el, request } from './core.js';
 import { applyBrowser } from './browserapply.js';
 import { restorePinProblem } from './setupwizardrules.js';
+import { pinShow } from './pinshow.js';
 
 const KEY_HEADER = 'X-Sode-Setup'; // setupKeyHeader in internal/app/setuprestore.go
 
@@ -71,10 +72,10 @@ function askPin(file, text) {
     Object.assign(input, { id, type: 'password', inputMode: 'numeric', autocomplete: 'off' });
     const lab = el('label', '', label);
     lab.htmlFor = id;
-    return [el('div', 'sode__field', lab, input), input];
+    return [el('div', 'sode__field', lab, pinShow(input)), input];
   };
   const [pinBox, pin] = field('setup-restore-pin', 'New PIN');
-  const [pin2Box, pin2] = field('setup-restore-pin2', 'PIN again');
+  const [pin2Box, pin2] = field('setup-restore-pin2', 'Repeat your PIN');
   const go = el('button', 'pb-btn pb-btn--ok', 'Restore');
   const back = el('button', 'pb-btn pb-btn--outline', 'Back');
   go.type = back.type = 'button';

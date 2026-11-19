@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Run setup again opens the wizard with the current values and no Your user. Finish stages only
+// Run setup again opens the wizard with the current values and no Add a first user. Finish stages only
 // what changed into the one Save, which needs one recheck and deletes nothing.
 func TestChromeRunSetupAgain(t *testing.T) {
 	b := startBrowser(t)
@@ -38,7 +38,7 @@ func TestChromeRunSetupAgain(t *testing.T) {
 	b.eval(`document.getElementById('setup-again-open').click(); true`)
 
 	b.waitFor("the wizard over Settings", `!document.getElementById('setup').hidden && document.documentElement.hasAttribute('data-sode-setup')`)
-	b.waitFor("Welcome with the current name and no Your user", `document.getElementById('setup-brandText')?.value === 'Studio B' &&
+	b.waitFor("Welcome with the current name and no Add a first user", `document.getElementById('setup-brandText')?.value === 'Studio B' &&
 		!document.getElementById('setup-name') && document.getElementById('setup-restore').hidden && !`+next+`.disabled &&
 		document.querySelectorAll('#setup-body .sode-setup__section').length === 1 && !document.getElementById('setup-body').textContent.includes('null')`)
 	b.eval(`(() => { const i = document.getElementById('setup-brandText'); i.value = 'Studio C'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
