@@ -29,7 +29,7 @@ dialog.setAttribute('aria-labelledby', 'own-xi-title');
 dialog.tabIndex = -1;
 
 const cats = el('div', 'sode__xi-cats');
-const exportPanel = el('div', null, el('span', 'sode__hint', 'Your own items only. Sizes are before compression.'), cats);
+const exportPanel = el('div', null, cats);
 const phone = el('div');
 const note = el('span', 'sode__hint');
 note.id = 'own-xi-note';
@@ -183,7 +183,7 @@ function changed() {
 }
 
 async function load() {
-  setNote('Reading your items…');
+  setNote('Reading…');
   try {
     const got = await (await call('api/own/export/items')).json();
     if (!open) return;

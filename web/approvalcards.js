@@ -1,6 +1,4 @@
-// Request approval (GLOSSARY.md, docs/agents/users-locks.md): the requester's Waiting for approval card and the
-// approver's cards, bottom right. A page that shows approver cards calls showApprovalCards(); a panel page does not,
-// and the server sends cards only to pages that asked for them.
+// The server sends cards only to pages that called showApprovalCards(); a panel page does not.
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { changeText, leftText, endText } from './approvalcardrules.js';
@@ -12,7 +10,7 @@ import { changeText, leftText, endText } from './approvalcardrules.js';
   document.head.append(css);
 }
 
-// Whether another browser could approve an action that needs this Role, live from the server.
+// Live from the server: another browser can approve an action that needs this Role.
 const approvers = { trusted: false, administrator: false };
 export const canApprove = (key) => !!approvers[key];
 
@@ -50,7 +48,6 @@ function toast(kind, title, ...body) {
   return { node, head, box };
 }
 
-// The card shows only the end text from now on, then goes.
 function ending(card, kind, text, ...extra) {
   card.node.className = `pb-toast pb-toast--${kind} sode-approvals__card`;
   card.head.textContent = text;
@@ -63,7 +60,7 @@ function ending(card, kind, text, ...extra) {
 
 const leftNode = () => el('span', 'sode-approvals__left');
 
-// One timer for every countdown, and only while one shows.
+// One timer for every countdown, only while one shows.
 function ticking() {
   const live = [...cards.values(), ...(mine?.left ? [mine] : [])];
   if (!live.length) {
@@ -79,9 +76,9 @@ function ticking() {
 
 export const requesting = () => !!(asking || mine);
 
-// Sends the action for approval. Resolves '' when the server took it, else the reason it did not.
+// Resolves '' when the server accepted it, else the reason.
 export function requestApproval(action, { what, onEnd = () => {}, onTimeout = () => {} }) {
-  if (requesting()) return Promise.resolve('This browser waits for an Approval already.');
+  if (requesting()) return Promise.resolve('An Approval request is already open.');
   const id = ++seq;
   if (!wsSend({ t: 'approvalAsk', id, for: action })) return Promise.resolve('Not connected to Sode.');
   return new Promise((resolve) => {
@@ -158,7 +155,7 @@ function answer(request, approve) {
   const c = cards.get(request);
   if (!c) return;
   if (approve && !c.pin.value) {
-    c.err.textContent = 'Type your PIN to approve.';
+    c.err.textContent = 'Enter your PIN.';
     c.err.hidden = false;
     return c.pin.focus();
   }
@@ -242,7 +239,6 @@ on('wsclose', () => {
   ticking();
 });
 
-// Under the Lock the cards stay out of sight; the result shows when it is dismissed.
 on('access', (a) => {
   if (!stack) return;
   stack.hidden = !!a.locked;

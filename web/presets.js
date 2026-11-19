@@ -733,7 +733,6 @@ on('locking', () => {
   closePresets();
 });
 
-// The Broken banner's and the Broken lists' Edit.
 on('editPresetAt', (m) => openPresets(m.scope, m.name));
 
 on('openPresetEditor', (m) => {

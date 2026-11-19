@@ -13,7 +13,7 @@ import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.j
 import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
-import { toClear, moveText } from './browsercopyrules.js';
+import { toClear, moveText, movedPinOrder } from './browsercopyrules.js';
 
 // ---- the dialog
 
@@ -152,12 +152,19 @@ function plan() {
     const rs = st.rows.filter((r) => r.kind === kind);
     if (!rs.length) continue;
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
-    const incoming = rs.map((r) =>
+    const choices = rs.map(choiceOf);
+    const meIds = st.copy ? presetsIn('user').map((s) => s.id) : [];
+    // A new Me preset keeps its This browser id, so its pin key can follow it (movedPinOrder).
+    const keepId = (r, i) => st.copy && r.src.id && choices[i] !== 'replace' && !meIds.includes(r.src.id);
+    const incoming = rs.map((r, i) =>
       kind === 'filter'
         ? { name: r.name, f: r.f }
-        : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: !st.copy || r.src.pinned !== false },
+        : {
+            ...normPreset({ name: r.name, items: matched(r).saved.items }),
+            ...(keepId(r, i) ? { id: r.src.id } : {}),
+            pinned: !st.copy || r.src.pinned !== false,
+          },
     );
-    const choices = rs.map(choiceOf);
     const picks = rs.map((r, i) => {
       if (choices[i] !== 'both') return { choice: choices[i] };
       const others = [...existing.map((x) => x.name), ...rs.filter((x, j) => j !== i && choices[j] !== 'skip').map((x) => x.name)];
@@ -447,7 +454,7 @@ function render() {
   rowsBox.replaceChildren(
     ...(st.rows.length
       ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))]
-      : [el('span', 'sode__hint', st.copy ? 'This browser has no filter sets or presets.' : 'Nothing to import in this file.')]),
+      : [el('span', 'sode__hint', st.copy ? 'No filter sets or presets' : 'Nothing to import')]),
   );
   refresh();
 }
@@ -595,7 +602,9 @@ function copyApply(p) {
   busy = true;
   refresh();
   setNote('Saving…');
-  send(p.parts).then((r) => {
+  const ids = (p.parts.presets || []).map((s) => s.id).filter(Boolean);
+  const parts = !keep && ids.length ? { ...p.parts, pinOrder: movedPinOrder(profile().pinOrder, ids) } : p.parts;
+  send(parts).then((r) => {
     busy = false;
     if (!open) return;
     if (r.ok) return after();

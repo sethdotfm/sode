@@ -80,7 +80,7 @@ body {
 }
 :root {
   --panel-pulse-s: 2s;
-  --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state colour */
+  --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state color */
 }
 .sode-panel__grid:has([data-s="staged"], [data-s="pending"], .sode-panel__take--armed) {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
@@ -183,7 +183,7 @@ body {
 }
 
 /* Cell states. Viewed destination: solid orange. Current source: solid green. Staged destination and
-   pending source: a static ring plus a fill that swells between the idle colour and the state colour. */
+   pending source: a static ring plus a fill that swells between the idle color and the state color. */
 .sode-panel__cell--source[data-s="idle"] {
   background-color: var(--pb-current-idle);
 }
@@ -339,7 +339,7 @@ body {
 }
 
 /* Look: font size scales from the panel's --panel-fs and the cell's --cell-fs (both multipliers). Artwork sits
-   dimmed behind the caption so the state colour still reads; it is only ever an <img> or a CSS background. */
+   dimmed behind the caption so the state color still reads; it is only ever an <img> or a CSS background. */
 .sode-panel__grid {
   font-size: calc(var(--pb-text-md) * var(--panel-fs, 1));
 }
@@ -426,7 +426,7 @@ body {
   flex: 1 1 100%;
   width: 100%;
 }
-/* An Icon library SVG (artImage in panelview.js): its shape in the text colour, as the Panels logo in base.css. */
+/* An Icon library SVG (artImage in panelview.js): its shape in the text color, as the Panels logo in base.css. */
 .sode-panel__art-mask {
   background-color: currentColor;
   display: inline-block;
@@ -448,7 +448,7 @@ body {
   font-size: min(30cqh, 18cqw);
 }
 
-/* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
+/* The panels page. Cell colors follow the panel's kinds: a source reads green, a destination orange. */
 .sode-ov__cols {
   display: grid;
   gap: var(--pb-space-5);
@@ -650,7 +650,7 @@ body {
   background: var(--pb-hue-red);
 }
 
-/* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never colour alone. */
+/* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never color alone. */
 /* Groups keep related controls together and a rule between them; a wrapped bar breaks between groups first. */
 .sode-ed__bar {
   align-items: center;
@@ -717,7 +717,7 @@ body {
   white-space: nowrap;
 }
 /* A hidden copy of the longest state holds the slot's width, so the toolbar never re-wraps when the state changes.
-   Keep in step with refresh() in paneleditor.js. */
+   Keep in step with paintToolbar() in editortoolbar.js. */
 .sode-ed__state::before {
   content: "Unsaved changes";
   height: 0;
@@ -1895,7 +1895,7 @@ body {
 .sode-ov__thumb--grid:not(.sode-ov__thumb--sm) .sode-ov__tile--half {
   translate: none;
 }
-/* A Grid panel's picture (panelsrules.js gridThumb): the role colours of the grid's bars, a field and routes. */
+/* A Grid panel's picture (panelsrules.js gridThumb): the role colors of the grid's bars, a field and routes. */
 .sode-ov__thumb--grid .sode-ov__k-source {
   background: var(--pb-source);
 }

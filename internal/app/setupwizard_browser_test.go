@@ -34,7 +34,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.open(srv.URL + "/")
 	b.waitFor("the wizard", `!document.getElementById('setup').hidden && document.documentElement.hasAttribute('data-sode-setup')`)
 	b.waitFor("the patch page is hidden", `getComputedStyle(document.getElementById('patch-view')).display === 'none'`)
-	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Welcome to Sode'`)
+	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Set up Sode'`)
 
 	type_("setup-brandText", "Studio B")
 	b.waitFor("the name shows live", `document.querySelector('#setup .sode__mark').textContent === 'Studio B'`)
@@ -54,7 +54,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	status := `(document.getElementById('setup-router-status')?.textContent || '')`
 	b.waitFor("the router answers", status+` === 'Connected. Names read.'`)
 	type_("setup-router", "127.0.0.1:1")
-	b.waitFor("a dead address", status+` === 'No answer yet. You can go on, and Sode keeps trying.'`)
+	b.waitFor("a dead address", status+` === 'No answer yet. Sode keeps trying.'`)
 	type_("setup-router", sim)
 	b.waitFor("the router answers again", status+` === 'Connected. Names read.'`)
 	b.eval(`document.getElementById('setup-fireMode-native').click(); true`)

@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { nameMatches, listedUser, pickName } from '../namepickrules.js';
 import { asksName, padLens, canSend, padDelay, signInMsg, prefillName, focusName, sendsOnPick, pinNeededAsk, pinForm } from '../lockrules.js';
 
-// The hello's sign-in list.
 const users = [
   { name: 'Ana Kis', len: 4 },
   { name: 'Bo', len: 6 },

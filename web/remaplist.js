@@ -4,9 +4,7 @@
 import { addClick, chord, mac } from './keys.js';
 import * as Sel from './remapselectrules.js';
 
-export const LIST_HELP =
-  '↑ ↓ move. Space selects. ⇧ with ↑ ↓ or a click selects a range. ' +
-  `${mac ? 'Cmd' : 'Ctrl'}-click adds a row. Drag selects the rows it passes. Enter opens the choice. Esc clears.`;
+export const LIST_HELP = `↑↓ move · Space select · ⇧↑↓ or ⇧-click range · ${mac ? 'Cmd' : 'Ctrl'}-click add · drag select · Enter open · Esc clear.`;
 
 const FIELD = 'select, input, button, a';
 

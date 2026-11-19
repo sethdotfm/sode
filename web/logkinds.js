@@ -1,7 +1,7 @@
 // /log kind chips. Pure, no imports. "All" is not stored (every kind selected), so saved filters stay a list of ids.
 
 export const KINDS = [
-  // Native salvo messages (120/248 stage, 121 go/clear) route too, so they show with connects.
+  // Router salvo messages (120/248 stage, 121 go/clear) route too, so they show with connects.
   { id: 'connect', label: 'Connects', kinds: ['connect', 'salvoStage', 'salvoStageExt', 'salvoGo'] },
   { id: 'interrogate', label: 'Interrogates', kinds: ['interrogate'] },
   { id: 'keepalive', label: 'Keepalives', kinds: ['keepalive'] },
@@ -39,7 +39,7 @@ export const WHY_LABEL = {
   filterSets: 'Filter sets saved',
   presets: 'Presets saved',
   salvos: 'Presets saved', // salvos: rows logged before the rename
-  salvo: 'Native salvo',
+  salvo: 'Router salvo',
   userSignIn: 'User PIN',
   userLock: 'User locked',
   userSignOut: 'User signed out',
@@ -84,8 +84,7 @@ export function normalizeKinds(saved, dflt) {
   return known.length ? known : KIND_IDS.slice();
 }
 
-// Kinds a saved filter has not met yet start on: known is KIND_IDS when it was saved. A filter saved
-// before `known` was stored knew every kind but Settings saves.
+// A filter saved before `known` existed knew every kind but Settings saves.
 export function addNewKinds(kinds, known) {
   const met = Array.isArray(known) ? known : KIND_IDS.filter((id) => id !== 'settings');
   return [...kinds, ...KIND_IDS.filter((id) => !met.includes(id) && !kinds.includes(id))];

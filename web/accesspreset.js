@@ -1,5 +1,4 @@
-// Apply an access preset (Settings > Access > Locks, Administrator only; docs/agents/settings-saves.md). It stages the
-// preset's values as unsaved changes; the one Save sends them. Values and users come from the usersList answer.
+// Stages the preset as unsaved changes; the one Save sends them (docs/agents/settings-saves.md).
 
 import { $, el, on, emit } from './core.js';
 import { trapDialog } from './widgets.js';
@@ -24,22 +23,16 @@ dialog.setAttribute('aria-modal', 'true');
 dialog.setAttribute('aria-labelledby', 'preset-apply-title');
 dialog.tabIndex = -1;
 const pickBox = el('div', 'sode__field');
-const userBox = el('div', 'sode__field', el('span', 'sode__label', 'Users'));
+const userBox = el('div', 'sode__field', el('span', 'sode__label', 'Set Never sign out and No auto-lock for'));
 const rows = el('div', 'sode__preset-users');
 const tickAll = btn('pb-btn--outline pb-btn--sm', 'Tick all', () => {
   for (const b of rows.querySelectorAll('input')) b.checked = true;
 });
-userBox.append(el('span', 'sode__hint', 'A preset changes Never sign out and No auto-lock only for the users you tick. It removes nothing.'), tickAll, rows);
-const applyBtn = btn('pb-btn--ok', 'Apply', apply);
+userBox.append(tickAll, rows);
+const applyBtn = btn('pb-btn--ok', 'Stage changes', apply);
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Apply an access preset'), { id: 'preset-apply-title' })),
-  el(
-    'div',
-    'pb-modal__body',
-    el('p', 'sode__hint', 'The preset changes the fields here as unsaved changes. Save shows each change before it saves it.'),
-    pickBox,
-    userBox,
-  ),
+  el('div', 'pb-modal__body', pickBox, userBox),
   el('div', 'pb-modal__footer', btn('pb-btn--outline', 'Cancel', close), applyBtn),
 );
 root.append(dialog);
@@ -100,7 +93,7 @@ function apply() {
   close();
 }
 
-// stagePreset writes preset p (a usersList accessPresets entry) as unsaved changes; ticked: user ids whose flags change.
+// ticked: user ids whose flags change.
 export function stagePreset(p, ticked) {
   const f = p.fields;
   setCheck('cfg-lock-main', f.locks.main);

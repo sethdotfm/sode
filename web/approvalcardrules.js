@@ -1,4 +1,4 @@
-// Words for the Request approval cards (approvalcards.js). Pure, no imports.
+// Pure, no imports.
 
 // A change from the server's SavedField (internal/app/savelog.go): secrets show only as changed.
 export function changeText(f) {
@@ -11,13 +11,12 @@ export function changeText(f) {
   return `${f.label}: ${parts.join('; ')}`;
 }
 
-// ms left as m:ss
 export function leftText(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-// How a request ended, as the cards say it. '' when a card goes with no text (its browser stopped qualifying).
+// '' when the card goes with no text (its browser can no longer approve).
 export function endText(end, by) {
   switch (end) {
     case 'approved':

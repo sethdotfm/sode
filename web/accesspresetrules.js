@@ -1,13 +1,11 @@
-// Apply an access preset (docs/agents/settings-saves.md): what it stages, the marks with its name, and what still
-// differs after a partly refused save. Pure, no imports (Node-tested). A preset is the usersList answer's
-// accessPresets entry {key, name, fields, users} (internal/app/accesspreset.go).
+// Pure, no imports (Node-tested). A preset is a usersList accessPresets entry (internal/app/accesspreset.go).
 
 const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 // Scopes come back in the page's order, so a list compares as a set.
 const norm = (v) => (Array.isArray(v) ? [...v].sort() : (v ?? null));
 const same = (a, b) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 
-// The one Save keys and values the preset writes. ticked: the ids of the user rows ticked; only they change.
+// ticked: only those user rows change.
 export function presetTarget(preset, ticked) {
   const out = structuredClone(preset.fields);
   for (const id of ticked) {
@@ -17,7 +15,7 @@ export function presetTarget(preset, ticked) {
   return out;
 }
 
-// One leaf per diffRows row: an object field gives one per key the preset sets, any other field one with sub null.
+// One leaf per diffRows row.
 function leaves(target) {
   const out = [];
   for (const [key, v] of Object.entries(target)) {
@@ -28,8 +26,7 @@ function leaves(target) {
 }
 const leafId = (l) => `${l.key}/${l.sub}`;
 
-// marks: rowId -> {preset, now}. With a preset, rows that equal its value take its name. A mark stays only while its
-// row is unchanged, so a hand edit after Apply drops it.
+// A mark stays only while its row is unchanged, so a hand edit after Apply drops it.
 export function presetMarks(marks, rows, name, target) {
   const want = new Map(target ? leaves(target).map((l) => [leafId(l), l.want]) : []);
   const out = new Map();
@@ -42,7 +39,6 @@ export function presetMarks(marks, rows, name, target) {
   return out;
 }
 
-// The leaves of target that live (the values as saved now) does not match: {key, sub, live, want}.
 export function presetGaps(target, live) {
   const out = [];
   for (const l of leaves(target)) {
@@ -55,31 +51,30 @@ export function presetGaps(target, live) {
 const PAGES = { main: 'The Main page', log: 'The Communication Log', panel: 'The panel pages' };
 const ACTS = { public: 'Public', session: 'User', both: 'Both', api: 'API' };
 
-// What a gap's live value does now.
 export function gapText(g) {
   const v = g.live;
   switch (g.key) {
     case 'locks':
       return `${PAGES[g.sub] || g.sub} ${v ? 'asks for a PIN' : 'opens with no PIN'}`;
     case 'autoLockMinutes':
-      return v ? `Pages lock after ${v} minutes with no use` : 'Auto-lock is off';
+      return v ? `Auto-lock after ${v} min` : 'Auto-lock: off';
     case 'guestRole':
-      return `A browser with nobody signed in is a ${v === 'trusted' ? 'Trusted' : 'Standard'} user`;
+      return `Guest role: ${v === 'trusted' ? 'Trusted' : 'Standard'}`;
     case 'pinWaits':
-      return v ? 'Wrong PINs make a name wait' : 'Wrong PINs do not make a name wait';
+      return `Wait after wrong PINs: ${v ? 'on' : 'off'}`;
     case 'publicPanels':
       return v ? 'Public panels work' : 'No panel can be Public';
     case 'newPanelActs':
       return `A new panel starts in ${ACTS[v] || v} mode`;
     case 'api':
-      return v ? 'Apps with no key can use the API' : 'Apps with no key cannot use the API';
+      return `Keyless API: ${v ? 'on' : 'off'}`;
     case 'guestApiScopes':
-      return v.includes('take') ? 'Apps with no key can make takes' : 'Apps with no key cannot make takes';
+      return `Keyless takes: ${v.includes('take') ? 'on' : 'off'}`;
     case 'newUserDefaults':
-      return `A new user starts with ${g.sub === 'persistent' ? 'Never sign out' : 'No auto-lock'} ${v ? 'on' : 'off'}`;
+      return `New user defaults: ${g.sub === 'persistent' ? 'Never sign out' : 'No auto-lock'} ${v ? 'on' : 'off'}`;
   }
   const attr = g.key.split('/')[2];
-  if (attr === 'persistent') return v ? 'This user never signs out' : 'This user signs out';
-  if (attr === 'noAutoLock') return v ? 'Auto-lock skips this user' : 'Auto-lock locks this user';
+  if (attr === 'persistent') return `Never sign out: ${v ? 'on' : 'off'}`;
+  if (attr === 'noAutoLock') return `No auto-lock: ${v ? 'on' : 'off'}`;
   return '';
 }

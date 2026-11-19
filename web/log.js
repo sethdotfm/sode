@@ -291,7 +291,6 @@ const EVENT_RESULT = {
   error: ['error', 'Failed'],
   start: ['ok', 'Started'],
   stop: ['idle', 'Stopped'],
-  // Request approval rows (approvalrequest.go)
   approved: ['ok', 'Approved'],
   denied: ['warn', 'Denied'],
   timeout: ['warn', 'No one answered'],
@@ -329,7 +328,6 @@ function levelCell(e) {
 
 const side = (n, name) => (n >= 0 ? labelNode(item(n, name || '')) : '');
 
-// A Settings saves row opens to one line per field.
 const saveFields = (s) =>
   el(
     'details',

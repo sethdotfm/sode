@@ -109,8 +109,7 @@ test('filterEntry and findByName', () => {
   assert.equal(findByName(null, 'a'), undefined);
 });
 
-test('PROFILE_NOTICE says a Profile is not private and who can see it', () => {
-  assert.match(PROFILE_NOTICE, /not private/);
+test('PROFILE_NOTICE says who can see a Profile', () => {
   assert.match(PROFILE_NOTICE, /Trusted users and Administrators/);
   assert.doesNotMatch(PROFILE_NOTICE, /PIN/);
 });

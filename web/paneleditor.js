@@ -1,46 +1,18 @@
 // Runs /panels/editor: the panel picker, the toolbar, the grid and the smart menu, over /api/v1/panels as
 // the signed-in user. The grid rules are gridmodel.js and the page text is editorrules.js; this file wires
 // them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
-import { $, el, on, S } from './core.js';
+import { $, on, S } from './core.js';
 import { newPanelActs, actsSavedNote } from './panelsrules.js';
-import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
+import { sessionFetch, jsonCall, startSession } from './sessionkey.js';
 import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
 import { defaultsBy } from './panellook.js';
-import {
-  createGrid,
-  cellsLost,
-  resize,
-  select,
-  deselect,
-  selectAll,
-  rectOf,
-  selCells,
-  setKind,
-  clearSelection,
-  canMerge,
-  merge,
-  canUnmerge,
-  unmerge,
-  setAside,
-  putBack,
-  heldThatFit,
-  saved,
-} from './gridmodel.js';
-import {
-  editorTarget,
-  groupPanels,
-  newPanel,
-  saveBody,
-  isDirty,
-  kindChoices,
-  typeLabel,
-  menuArea,
-  saveChord,
-  signInNote,
-  openFailNote,
-} from './editorrules.js';
+import { createGrid, cellsLost, resize, select, deselect, selectAll, rectOf, clearSelection, setAside, putBack, heldThatFit, saved } from './gridmodel.js';
+import { editorTarget, newPanel, saveBody, isDirty, menuArea, saveChord, openFailNote } from './editorrules.js';
 import { copyText, itemLink } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
+import { editorSignIn } from './editorsignin.js';
+import { drawPicker, paintToolbar } from './editortoolbar.js';
+import { menuItems } from './editormenuitems.js';
 import { createArt } from './panelart.js';
 import { createSmartMenu } from './editormenu.js';
 import { gridCommand } from './gridchords.js';
@@ -432,29 +404,6 @@ export async function runEditor() {
     }
   }
 
-  function menuItems() {
-    const cells = selCells(g);
-    const items = [
-      // One item that toggles, so Ctrl+M merges a group and unmerges a merged square.
-      canUnmerge(g)
-        ? { chord: 'm', label: 'Unmerge', icon: 'split', run: () => setGrid(unmerge(g), { what: 'unmerge' }) }
-        : { chord: 'm', label: 'Merge', icon: 'combine', disabled: !canMerge(g), run: () => setGrid(merge(g), { what: 'merge' }) },
-      {
-        label: typeLabel(cells),
-        icon: 'type',
-        sub: kindChoices({ fixed: fixedOn() }).map(({ kind, label, disabled, hint }) => ({
-          label,
-          disabled,
-          hint,
-          current: kind === '' ? !cells.length : cells.length > 0 && cells.every((c) => c.kind === kind),
-          run: () => setGrid(setKind(g, kind), { what: 'type change' }),
-        })),
-      },
-    ];
-    for (const section of menuSections) items.push(...section(g));
-    return items;
-  }
-
   // A key without the panels scope, or a failed read, leaves the defaults as they were.
   async function loadDefaults() {
     const r = await sessionFetch('api/v1/default-artwork').catch(() => null);
@@ -473,25 +422,12 @@ export async function runEditor() {
     openView.paint(live, open, focus, { rows: g.rows, cols: g.cols, names, fixed: fixedOn(), readOnly: ro, art, defaults });
     bar.paint({ pages: live, open, focus, readOnly: ro });
     const box = ro ? null : grid.selectionBox();
-    menu.show(menuAway ? null : box, menuItems());
+    menu.show(
+      menuAway ? null : box,
+      menuItems(() => g, fixedOn(), menuSections, setGrid),
+    );
     for (const fn of paintWatchers) fn(g, box);
-    nameBox.disabled = ro;
-    const saveBtn = $('ed-save');
-    const failed = !ro && !!saveState.failed;
-    saveBtn.disabled = ro || saveState.busy || (!dirty() && !failed);
-    saveBtn.textContent = failed ? 'Retry save' : 'Save';
-    saveBtn.classList.toggle('pb-btn--ok', !failed);
-    saveBtn.classList.toggle('pb-btn--danger', failed);
-    $('ed-banner').hidden = !ro;
-    // Not say(): the slot keeps its size whatever it holds, so the toolbar never re-wraps (panels.css).
-    $('ed-state').textContent = ro ? '' : saveState.busy ? 'Saving' : failed ? 'Not saved' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '';
-    const link = $('ed-open');
-    link.hidden = !loaded;
-    if (loaded) link.href = `panels/${loaded.id}`;
-    // A panel that only acts as its API client has no link without its key (Share, Link with key).
-    // A Both panel's plain link opens in Session mode, and a Public panel's opens for anyone.
-    const copy = $('ed-copylink');
-    copy.hidden = !loaded || loaded.acts === 'api';
+    paintToolbar(ro, saveState, dirty, loaded);
   }
 
   // The Panel tab's Rows and Columns call this; a bad value keeps the current size.
@@ -520,26 +456,6 @@ export async function runEditor() {
 
   // ---- panels
 
-  function drawPicker() {
-    const pick = $('ed-pick');
-    const { mine, shared } = groupPanels(list);
-    const group = (label, panels) => {
-      if (!panels.length) return null;
-      const og = el('optgroup');
-      og.label = label;
-      for (const p of panels) {
-        const o = el('option', '', p.name);
-        o.value = p.id;
-        og.append(o);
-      }
-      return og;
-    };
-    const fresh = el('option', '', 'New panel');
-    fresh.value = '';
-    pick.replaceChildren(...[group('My panels', mine), group('Shared with me (use only)', shared), fresh].filter(Boolean));
-    pick.value = loaded?.id || '';
-  }
-
   async function loadList() {
     list =
       (
@@ -548,7 +464,7 @@ export async function runEditor() {
           'Sode did not answer, so the panel list could not be read. Check the network, then reload.',
         )('api/v1/panels')
       ).panels || [];
-    drawPicker();
+    drawPicker(list, loaded);
   }
 
   function show(panel) {
@@ -588,7 +504,7 @@ export async function runEditor() {
       if (mine !== opening) return;
       if (e.status === undefined) throw e;
       say('ed-status', openFailNote(e));
-      drawPicker();
+      drawPicker(list, loaded);
       return;
     }
     if (mine !== opening) return;
@@ -720,7 +636,7 @@ export async function runEditor() {
   });
 
   $('ed-copylink').addEventListener('click', async () => {
-    say('ed-status', (await copyText(itemLink(loaded))) ? 'Link copied.' : 'Copy failed. Use the Link field in Share instead.');
+    say('ed-status', (await copyText(itemLink(loaded))) ? 'Link copied.' : 'Copy failed: use Share > Link.');
   });
 
   $('ed-copy').addEventListener('click', async () => {
@@ -742,22 +658,7 @@ export async function runEditor() {
 
   // ---- start
 
-  // The editor never sits blank: each way it cannot reach the panel puts a note and, where it helps, a button.
-  let signInFix = signInAgain;
-  let bootFail = ''; // why the panel list or panel did not load; a later sign-in event must not wipe it
-  let lastStep = '';
-  const note = (step, err) => {
-    lastStep = step;
-    const { text, button } = signInNote(step, err);
-    say('panels-note', text || bootFail);
-    const b = $('panels-signin');
-    b.hidden = !button;
-    b.textContent = button || 'Sign in';
-    signInFix = step === 'ended' ? () => location.reload() : signInAgain;
-  };
-  $('panels-signin').addEventListener('click', () => signInFix());
-  onSessionKey((k, step, err) => note(k ? 'ready' : step, err));
-  on('wsclose', () => note('offline'));
+  const bootFailed = editorSignIn(say);
   // Names come from the REST read, which applies the user's Rights. The socket says when the router's names change,
   // so the cells and the Grid lists show a rename at once, as an open panel does.
   // Returns false when the read was refused; the names already shown stay.
@@ -791,10 +692,7 @@ export async function runEditor() {
       await loadDefaults();
       await openPanel(editorTarget(location.search).id, false);
     } catch (err) {
-      // An ended or refused key already has its note from onSessionKey.
-      if (lastStep === 'ended' || lastStep === 'refused') return;
-      bootFail = openFailNote(err.status === undefined ? { status: 0 } : err);
-      say('panels-note', bootFail);
+      bootFailed(err);
     }
   })();
 

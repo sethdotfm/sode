@@ -1,6 +1,4 @@
-// My API clients: API clients a signed-in user makes from My user (internal/app/ownclients.go). A client
-// saves at once, gets a copy of the user's Rights and stays capped by them, and goes when the user is
-// removed. Its keys do not end with the user's PIN; making one asks that PIN.
+// A client gets a copy of the user's Rights, stays capped by them and goes with the user. Its keys outlive the user's PIN.
 
 import { el, on, onMsg, wsSend, sentence } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -52,11 +50,6 @@ const dialog = el(
   el(
     'div',
     'pb-modal__body',
-    el(
-      'p',
-      'sode__hint',
-      'An API client is an app with its own name in History. It gets a copy of your Rights and never more than your Rights. Its keys work after you change your PIN. It is removed when your user is removed.',
-    ),
     list,
     shown,
     el('h3', 'sode__profiles-h', 'Make an API client'),
@@ -123,6 +116,9 @@ onMsg('myClientsResult', (m) => {
   const keep = who.value;
   who.replaceChildren(...mine.map((n) => opt(n, n)));
   if (mine.includes(keep)) who.value = keep;
+  keyBtn.disabled = !mine.length;
+  if (mine.length) delete keyBtn.dataset.pbTip;
+  else keyBtn.dataset.pbTip = 'Make an API client first';
   const now = Date.now();
   list.replaceChildren(
     ...(m.clients.length
@@ -138,7 +134,7 @@ onMsg('myClientsResult', (m) => {
             .filter((k) => k.owner.name.toLowerCase() === c.name.toLowerCase())
             .map((k) => keyRow(k, now, () => send({ t: 'myClientKeyRevoke', keyId: k.id, id: ++listSeq }))),
         ])
-      : [el('p', 'sode__hint', 'You have no API clients.')]),
+      : [el('p', 'sode__hint', 'No API clients')]),
   );
 });
 for (const t of ['myClientDeleteResult', 'myClientKeyRevokeResult'])
@@ -166,10 +162,10 @@ onMsg('myClientSaveResult', (m) => {
 
 keyBtn.addEventListener('click', () => {
   say('');
-  if (!who.value) return say('Make an API client first, then make its key.');
+  if (!who.value) return;
   const problem = keyNameProblem(keyName.value);
   if (problem) return say(problem);
-  if (!pinIn.value) return say('Enter your PIN to make a key.');
+  if (!pinIn.value) return say('Enter your PIN.');
   const exp = expiryFrom(keyExp.value, Date.now());
   if (exp.error) return say(exp.error);
   if (send(keyReq({ client: who.value, name: keyName.value, pin: pinIn.value, expires: exp.ms, id: ++keySeq }))) keyBtn.disabled = true;
@@ -193,6 +189,6 @@ on('openClients', () => {
   dlg.show();
   dialog.focus();
 });
-// Signing out or a Lock closes it, forgetting any key on show.
+// A Lock forgets any key on show.
 on('locking', () => isOpen && closeClients());
 on('access', (L) => isOpen && !L.user && closeClients());

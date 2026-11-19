@@ -4,8 +4,6 @@
 // The rules are pure modules (gridpanel*.js); this file joins them to the DOM.
 import { envFrom, namesFrom } from './panelrules.js';
 import { arrange } from './gridpanelarrange.js';
-import { nameArt } from './gridpanelart.js';
-import { defaultsBy } from './panellook.js';
 import {
   createStage,
   restage,
@@ -20,7 +18,7 @@ import {
   stageText,
 } from './gridpanelstage.js';
 import { createPicks, pickName, pickCount, dropPicks, diagonal, extendPick, dragPick, enterGrid } from './gridpanelpick.js';
-import { stageLevels, offeredLevels, boxFill, pieOn } from './gridpanellevels.js';
+import { pieOn } from './gridpanellevels.js';
 import { otherSources, otherText, stageable, skippedText, refusalText, leftOut, keepLive, leftOutText, leftOutLine } from './gridpanelrights.js';
 import { gridKeyAction, findBoxAction, clearAction } from './gridpanelkeys.js';
 import { sourceJump, holderJump, jumpText } from './gridpaneljump.js';
@@ -29,23 +27,25 @@ import { createFind, typed, currentMatch, stepMatch, switchMode, clearFind, step
 import { findBoxes } from './gridpanelfindbox.js';
 import { planOf } from './gridpanelplan.js';
 import { gridConfirm } from './gridpanelconfirm.js';
-import { buildGridPanel, joinPulse } from './gridpanelview.js';
+import { buildGridPanel } from './gridpanelview.js';
 import { pinsOf } from './gridpanelwindow.js';
 import { CORNER, MOVES, moveCursor, pointOf, cursorAt, barOf, rangeCursor, rangeKind } from './gridpanelcursor.js';
 import { isLine, linePairs, lineShown, lineStage } from './gridpanelline.js';
 import { lineGestures } from './gridpanelgesture.js';
-import { levelTextOf, parseLevelsIn } from './levels.js';
-import { levelBox } from './levelbox.js';
-import { el, icon } from './core.js';
+import { levelTextOf } from './levels.js';
+import { el } from './core.js';
 import { editHref } from './panelsrules.js';
 import { plural } from './gridmodel.js';
 import { shortcutList } from './shortcuts.js';
-import { restPoint, takeButton, tapMods, pickNote } from './gridpanelphone.js';
-import { clearNote } from './gridpanelnote.js';
+import { restPoint, tapMods, pickNote } from './gridpanelphone.js';
 import { onLayout } from './layout.js';
 import { gridHead } from './gridpanelheadview.js';
 import { emptyText } from './gridpanelhead.js';
 import { gridPosition } from './gridpanelpos.js';
+import { gridArtwork } from './gridpanelartwork.js';
+import { gridLevelBox } from './gridpanellevelbox.js';
+import { gridEmpty } from './gridpanelempty.js';
+import { gridTake } from './gridpaneltake.js';
 
 const NOTE_MS = 4000;
 const UNDO_MOVED = 'What Undo would undo has changed; press u again';
@@ -114,50 +114,14 @@ export function gridBody(ctx, first) {
   let note = { text: '', at: 0 }; // a result or refusal, shown for NOTE_MS
   const noteOf = (text, ok = false) => ({ text, at: Date.now(), ok });
   const phone = () => document.documentElement.dataset.layout === 'phone';
-  // The Take button (gridpanelphone.js) at the end of the Levels box, since Kiosk mode hides the header, not the box.
-  // It is the main page's red Take. An embedded run has neither.
-  const take = ctx.embedded ? null : el('button', 'pb-btn pb-btn--danger sode-panel__take sode-gridpanel__take', 'Take');
-  if (take) {
-    take.type = 'button';
-    take.id = 'panel-take';
-    take.hidden = true;
-    take.addEventListener('click', () => openConfirm());
-    ui.levels?.append(take);
-  }
-  const clearer = take?.parentNode ? clearNote(take.parentNode, take, () => clearStep(clearAction(clearCtx()))) : null;
-
-  // Artwork images load with the panel's key, so a name paints without one until its fetch lands, then paints again.
-  const images = new Map(); // artwork id -> { url, type }, or null while it loads or after it failed
+  const takeRow = gridTake(ctx, ui, { onTake: () => openConfirm(), onClear: () => clearStep(clearAction(clearCtx())) });
   let stopped = false;
-  const imageOf = (id) => {
-    if (!images.has(id)) {
-      images.set(id, null);
-      ctx.art?.look(id).then((l) => {
-        if (!l || stopped) return;
-        images.set(id, l);
-        render();
-      });
-    }
-    return images.get(id);
-  };
-  let defaultsFor = null; // the artDefaults list that defaults was made from
-  let defaults = new Map();
-  function nameArtOf(kind, n) {
-    if (defaultsFor !== panel.artDefaults) {
-      defaultsFor = panel.artDefaults;
-      defaults = defaultsBy(defaultsFor);
-    }
-    const art = kind === 'srcs' ? nameArt(panel.sources, 'source', n, defaults) : nameArt(panel.destinations, 'destination', n, defaults);
-    if (!art) return null;
-    const out = { b: art.b };
-    if (art.hide) out.hide = true;
-    if (art.a?.icon) out.icon = art.a.icon;
-    else if (art.a) {
-      const l = imageOf(art.a.id);
-      if (l) out[art.a.lib && l.type.startsWith('image/svg+xml') ? 'mask' : 'url'] = l.url;
-    }
-    return out;
-  }
+  const nameArtOf = gridArtwork(
+    ctx,
+    () => panel,
+    () => render(),
+    () => stopped,
+  );
 
   // What the last polls said, for the staged routes that no longer apply.
   const world = () => ({ env, rights: panel.rights, names: namesReply });
@@ -222,45 +186,18 @@ export function gridBody(ctx, first) {
     }
     const n = stagedCount(st);
     say(count, n ? `${n} staged` : '');
-    if (take) {
-      const t = takeButton({ mode: st.mode, staged: n, busy: st.busy });
-      if (take.hidden === t.shown) take.hidden = !t.shown;
-      if (take.disabled !== t.disabled) take.disabled = t.disabled;
-      const starts = t.armed && !take.classList.contains('sode-panel__take--armed');
-      take.classList.toggle('sode-panel__take--armed', t.armed);
-      if (starts) joinPulse(take);
-    }
-    paintEmpty();
-    clearer?.paint(pickNote({ srcs: picks.srcs.length, dsts: picks.dsts.length, staged: n }), !!clearAction(clearCtx()));
+    takeRow.paint(
+      { mode: st.mode, staged: n, busy: st.busy },
+      pickNote({ srcs: picks.srcs.length, dsts: picks.dsts.length, staged: n }),
+      !!clearAction(clearCtx()),
+    );
+    paintEmpty(g, g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded }));
     // The Live Editor only (editorlive.js): the picks are also the lists' selection. picks is replaced on every change.
     if (ui.onPicks && picks !== toldPicks) ui.onPicks((toldPicks = picks));
     boxes?.paint(find, countsOf());
     status();
   };
-  // A panel with no items on an axis has no crosspoints, so the grid says so (pb-empty) under the corner.
-  let empty = null;
-  function paintEmpty() {
-    const t = g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded });
-    if (!t) {
-      if (empty) empty.node.hidden = true;
-      return;
-    }
-    if (!empty) {
-      const title = el('p', 'pb-empty__title', document.createTextNode(''));
-      const msg = el('p', 'pb-empty__msg', document.createTextNode(''));
-      const edit = el('a', 'pb-btn pb-btn--outline pb-btn--sm', icon('pencil'), 'Edit panel');
-      edit.href = editHref(ctx.id);
-      const node = el('div', 'pb-empty sode-gridpanel__empty', title, msg, el('div', 'pb-empty__actions', edit));
-      node.setAttribute('role', 'status');
-      g.scroll.append(node);
-      empty = { node, title, msg, edit };
-    }
-    say(empty.title, t.title);
-    say(empty.msg, t.msg);
-    // In the Live Editor (ui.back) the editor is already open, so the note has no link.
-    empty.edit.hidden = !t.edit || !!ui.back;
-    empty.node.hidden = false;
-  }
+  const paintEmpty = gridEmpty(ctx, ui);
   // Results and errors fade on the clock, so the status line is what the tick paints each time. On the panel page's
   // desktop layout they show in the banner (gridpanelheadview.js). A note is new by its time. A state's text goes when
   // the state clears.
@@ -432,51 +369,14 @@ export function gridBody(ctx, first) {
     if (!st.error && st.mode === 'instant') openConfirm();
   }
 
-  // The Levels box (levelbox.js). An embedded run has none, so the panel's levels setting stands in.
-  const boxNode = ui.levels;
-  let boxKey = '';
-  let filledKey = null;
-  // The numbering the box text was typed in, so a change of Level numbering relabels it (levelbox.js reset).
-  let typedIn = null;
-  const boxSource = () =>
-    tally && {
-      levels: tally.levels,
-      offered: offeredLevels(tally, panel.rights),
-      numbering: tally.levelNumbering,
-      defaultLevels: tally.defaultLevels || '',
-      prev: typedIn,
-    };
-  const lvl = boxNode
-    ? levelBox(document.getElementById('panel-lvl'), document.getElementById('panel-lvl-pick'), document.getElementById('panel-lvl-all'), boxSource, {
-        hold: 'pointerdown',
-        onChange: () => paintLevels(),
-      })
-    : null;
-  if (boxNode) boxNode.hidden = false;
-
-  // The picker is made again when the offered levels or the numbering change. The setting fills the box on load,
-  // and again only when a live update changes the setting, so typed text survives other updates.
-  function syncBox() {
-    if (!lvl || !tally) return;
-    const key = JSON.stringify([offeredLevels(tally, panel.rights).map((l) => l.level), tally.levels.length, tally.levelNumbering]);
-    if (key !== boxKey) {
-      boxKey = key;
-      lvl.reset();
-      typedIn = { mode: tally.levelNumbering, max: tally.levels.length };
-    }
-    const fk = JSON.stringify(panel.settings?.levels ?? null);
-    if (fk === filledKey) return;
-    filledKey = fk;
-    const fill = boxFill(panel.settings, tally, panel.rights);
-    if (fill) lvl.set(fill);
-  }
-
+  const box = gridLevelBox(
+    ui,
+    () => tally,
+    () => panel,
+    () => paintLevels(),
+  );
   const paintLevels = () => head?.paintLevels(levelTextOf(pressLevels(), tally?.levels || [], tally?.levelNumbering));
-  const pressLevels = () => {
-    if (lvl) return stageLevels(lvl.levels(), tally, panel.rights);
-    const src = boxSource();
-    return src ? stageLevels(boxFill(panel.settings, tally, panel.rights) || parseLevelsIn('', src) || [], tally, panel.rights) : [];
-  };
+  const pressLevels = () => box.levels();
 
   const confirm = document.getElementById('confirm')
     ? gridConfirm({
@@ -835,7 +735,7 @@ export function gridBody(ctx, first) {
         namesReply = nm;
         names = namesFrom(nm);
       }
-      syncBox();
+      box.sync();
       // The axes come from the panel and the names, not the tally.
       if (renamed) rebuild();
     },
@@ -850,7 +750,7 @@ export function gridBody(ctx, first) {
       // env reads the panel's Rights, so the next poll makes it again.
       dataSig = '';
       dataOf = null;
-      syncBox();
+      box.sync();
       rebuild();
       render();
     },
@@ -864,7 +764,7 @@ export function gridBody(ctx, first) {
       panel = { ...panel, rights: r };
       dataSig = '';
       dataOf = null;
-      syncBox();
+      box.sync();
       rebuild();
       render();
     },
@@ -876,10 +776,9 @@ export function gridBody(ctx, first) {
       g?.stop();
       count.remove();
       head?.stop();
-      take?.remove();
-      clearer?.remove();
+      takeRow.stop();
       offLayout();
-      if (boxNode) boxNode.hidden = true;
+      box.stop();
       if (confirm?.isOpen()) confirm.close();
       if (keyList?.shown()) keyList.close();
     },

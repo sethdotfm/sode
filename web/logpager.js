@@ -20,7 +20,7 @@ export const byNewest = (a, b) => rowPos(b) - rowPos(a) || (b.id || 0) - (a.id |
 export function newPager() {
   let list = []; // loaded entries, newest first.
   const seen = new Set(); // their rowKeys.
-  let more = false; // the server has older ones.
+  let more = false;
   let total = 0; // entries in the log, as last reported.
   let pending = null; // the `before` of the request that waits for its reply.
   let started = false; // asked for the newest page on this connection.

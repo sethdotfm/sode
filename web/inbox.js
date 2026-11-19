@@ -1,6 +1,3 @@
-// The Inbox's state on a page: the last `inbox` push, the inbox requests and one toast per new card (docs/agents/profiles.md,
-// Inbox). The header button and the dialog are inboxdialog.js; the Send dialog is sendcopy.js.
-
 import { el, emit, icon, on, onMsg, wsSend } from './core.js';
 import { toastText } from './inboxrules.js';
 
@@ -29,7 +26,7 @@ onMsg('inboxResult', (m) => {
 export function ask(m) {
   const id = ++seq;
   return new Promise((resolve) => {
-    if (!wsSend({ ...m, id })) return resolve({ ok: false, err: 'Not connected to Sode. Try again when the link is back.' });
+    if (!wsSend({ ...m, id })) return resolve({ ok: false, err: 'Not connected to Sode.' });
     asks.set(id, resolve);
   });
 }

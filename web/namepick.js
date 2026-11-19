@@ -107,7 +107,6 @@ export function namePicker({ id, users, onInput, onPick }) {
       if (document.activeElement === input) open();
       else close();
     },
-    // A new hello: an open list shows the new names.
     refresh() {
       if (!list.hidden) open();
     },

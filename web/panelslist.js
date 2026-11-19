@@ -127,7 +127,7 @@ function detail(p) {
   const box = $('panels-detail');
   box.replaceChildren();
   if (!p) return;
-  // The phone keeps Launch and Open now (spec #543, Phone); the rest says to use a computer.
+  // The phone keeps Launch and Open now (docs/panels-design.md, Phone and touch).
   const phone = layout() === 'phone';
   const acts = phone ? [] : actionsFor(p);
   const bar = el('div', 'sode-ov__acts');
@@ -137,7 +137,6 @@ function detail(p) {
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
   if (!phone && S.me) bar.append(button('Send a copy', 'forward', '', 'send', p.id));
-  // The server decides: a Trusted user or higher.
   if (!phone && (S.trusted || p.canEdit)) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
   // Link with key goes here.
   const slot = el('span', 'sode-ov__more');

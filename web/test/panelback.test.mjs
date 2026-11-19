@@ -1,7 +1,8 @@
 // A Public panel page that comes back by itself, and the Open now list's Reload and keyless rename. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lineType, backWaitMs, publicAskPath, reloadState, reloadAllState } from '../panelbackrules.js';
+import { lineType, backWaitMs, publicAskPath, reloadAllState } from '../panelbackrules.js';
+import { streamState } from '../panelassignrules.js';
 import { pollFail, PUBLIC_STOPPED } from '../panelkeyrules.js';
 
 test('the stream lines the page acts on', () => {
@@ -33,7 +34,7 @@ test('only the ask after a public line is marked, for its Log row', () => {
 });
 
 test('a stopped Public page says it comes back by itself', () => {
-  assert.equal(PUBLIC_STOPPED, 'This panel is not public now. It comes back by itself when it is public again.');
+  assert.equal(PUBLIC_STOPPED, 'Not Public now. Reconnects when Public again.');
   const f = pollFail(401, 'key_revoked', undefined, false, true);
   assert.deepEqual(f, { stop: true, forget: false, text: PUBLIC_STOPPED });
   // A link's key that ended still says to ask for a new link.
@@ -41,10 +42,10 @@ test('a stopped Public page says it comes back by itself', () => {
 });
 
 test('Reload and rename reach only a live stream; an offline row says Offline', () => {
-  assert.equal(reloadState({ device: 'Lobby', page: true, stream: true }), 'ready');
-  assert.equal(reloadState({ device: 'Lobby', page: true, stream: false }), 'offline');
-  assert.equal(reloadState({ device: 'Lobby', online: true }), '');
-  assert.equal(reloadState({ keyless: 'ab', stream: false }), 'offline');
+  assert.equal(streamState({ device: 'Lobby', page: true, stream: true }), 'ready');
+  assert.equal(streamState({ device: 'Lobby', page: true, stream: false }), 'offline');
+  assert.equal(streamState({ device: 'Lobby', online: true }), '');
+  assert.equal(streamState({ keyless: 'ab', stream: false }), 'offline');
   assert.equal(reloadAllState({ instances: [{ page: true, stream: false }], keyless: [{ keyless: 'ab', stream: true }] }), 'ready');
   assert.equal(reloadAllState({ instances: [{ page: true, stream: false }], keyless: [] }), 'offline');
   assert.equal(reloadAllState({ instances: [] }), '');

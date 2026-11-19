@@ -67,11 +67,7 @@ function showFailed(n) {
   open.addEventListener('click', () => location.reload());
   $('setup-title').textContent = 'Restore from a backup';
   $('setup-body').replaceChildren(
-    el(
-      'p',
-      'sode-setup__lead',
-      `Sode restored the backup, but ${n} ${n === 1 ? 'item was' : 'items were'} not written. Check panels and artwork after you sign in.`,
-    ),
+    el('p', 'sode-setup__lead', `Restored. ${n} ${n === 1 ? 'item' : 'items'} not written: check panels and artwork.`),
     el('div', 'sode-setup__restore', open),
   );
   for (const id of ['setup-back', 'setup-restore', 'setup-next']) $(id).hidden = true;

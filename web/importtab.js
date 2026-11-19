@@ -1,6 +1,4 @@
-// The Import tab of the Export & Import dialogs (exportdialog.js; ownexport.js with own) is one long review of the
-// file. Review… puts the one Save review in the dialog body. The server plans every step (POST api/import,
-// docs/agents/profiles.md); the page sends its ticks and choices and shows what the server answers. Pure rules are in importrules.js.
+// The server plans every step (POST api/import, docs/agents/profiles.md); the page sends ticks and choices.
 
 import { el, off, S } from './core.js';
 import { call } from './exportcalls.js';
@@ -70,6 +68,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     brokenBadge.textContent = `${broken} Broken`;
     reviewBtn.disabled = step === 'list' && !R.importReq(pick).categories.length;
     importBtn.disabled = step === 'review' && !!planned?.refused;
+    importBtn.textContent = own ? 'Import' : pick?.mode === 'replace' ? 'Replace and import' : 'Import (add)';
   };
 
   // In the list the plan is the check's; the remap choices made since take references off it.
@@ -111,8 +110,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     if (fileInput.files[0]) load(fileInput.files[0]);
     fileInput.value = '';
   });
-
-  // ---- the list
 
   function box(key, text, checked, mixed, disabled, onChange) {
     const b = el('input', 'pb-check__input');
@@ -202,7 +199,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     return remapView(remap, { off, fmt: fmtTime, onChange: () => render(), onRouter: () => load(file, true) });
   }
 
-  // A category of the file that only an Administrator imports, greyed.
   function adminRow(cat, text) {
     const head = el(
       'div',
@@ -218,13 +214,12 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   function fileHint() {
     const where = `Sode ${check.sode}, ${check.sameInstall ? 'this install' : 'another install'}`;
     if (!own) return where;
-    return check.from ? `${where}, from ${check.from}` : `${where}. It holds no profile for you.`;
+    return check.from ? `${where}, from ${check.from}` : `${where}. No profile for you.`;
   }
 
   // Add import or Replace import. Replace import is for Administrators, and the dialog is only theirs.
   function modeRow() {
-    // An own import has no Replace import.
-    if (own) return el('div', 'sode__xi-mode', el('strong', null, 'Add import'), el('span', 'sode__hint', 'Adds and updates. Deletes nothing.'));
+    if (own) return el('div', 'sode__xi-mode', el('strong', null, 'Add import'));
     const replace = pick.mode === 'replace';
     const seg = segmented('xi-mode', 'Import mode', MODES, (v) => {
       pick.mode = v;
@@ -232,8 +227,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     });
     seg.set(pick.mode);
     for (const r of seg.node.querySelectorAll('input')) r.dataset.key = `mode:${r.value}`;
-    const hint = replace ? 'Empties each ticked category first, then imports the file.' : 'Adds and updates. Deletes nothing.';
-    const row = el('div', 'sode__xi-mode', seg.node, el('span', 'sode__hint', hint));
+    const row = el('div', 'sode__xi-mode', seg.node);
     if (replace) {
       const keep = checkBox('Keep current Administrators', {
         id: 'xi-keep-admins',
@@ -268,8 +262,6 @@ export function importTab({ setNote, setReview, backup, own = false }) {
       ...routerNames(),
     ];
   }
-
-  // ---- the review
 
   async function review() {
     const my = ++seq;
@@ -326,20 +318,16 @@ export function importTab({ setNote, setReview, backup, own = false }) {
     if (ends.length) out.push(el('ul', 'sode__xi-list', ...ends.map((t) => el('li', null, `${t}.`))));
     if (check.unknown?.length) out.push(el('p', 'sode__hint', `Dropped, unknown to this Sode: ${check.unknown.join(', ')}.`));
     // A backup of this install: what ended after it was made stays ended.
-    if (replace && check.sameInstall) out.push(el('p', 'sode__hint', 'Keys and sessions ended since the backup do not come back.'));
     if (planned.refused) out.push(el('div', 'pb-alert pb-alert--error', `Sode refuses this import: ${planned.refused}.`));
     else if (planned.critical) {
       const row = el('div', 'sode__xi-crit', btn('pb-btn--outline pb-btn--sm', 'Back up everything first', backup));
       if (needsPin()) row.append(Object.assign(el('label', 'sode__label', 'PIN'), { htmlFor: pinInput.id }), pinInput);
-      const warn = replace
-        ? 'Replace import removes what the file does not hold. This is a Critical action.'
-        : 'Use new replaces what is here. This is a Critical action.';
+      const warn = replace ? 'Critical: removes what the file does not hold.' : 'Critical: Use new overwrites current items.';
       out.push(el('div', 'pb-note pb-note--warn', warn), row, pinErr);
     }
     return out;
   }
 
-  // A Broken item links to the row of its first missing name.
   function brokenLine(it) {
     const li = el('li', null, `${it.as || it.name}: missing ${missing(it)}`);
     const at = it.broken.map((m) => rowOf(remap, m)).find(Boolean);
@@ -415,7 +403,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
 
   function render() {
     const focused = panel.contains(document.activeElement) ? document.activeElement.dataset.key : '';
-    if (step === 'file') panel.replaceChildren(el('p', 'sode__hint', 'Choose an export file (.zip).'), fileInput);
+    if (step === 'file') panel.replaceChildren(fileInput);
     else if (step === 'list') panel.replaceChildren(...listView(), fileInput);
     else if (step === 'review') panel.replaceChildren(...reviewView());
     else panel.replaceChildren(...doneView());

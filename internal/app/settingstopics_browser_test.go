@@ -73,5 +73,15 @@ func TestChromeSettingsTopics(t *testing.T) {
 		f.value = ''; f.dispatchEvent(new Event('input'));
 		return ok;
 	})()`)
+
+	// At 1280px (125% root) the sidebar and the form both fit, side by side.
+	for _, w := range []int{1280, 1180} {
+		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": w, "height": 800, "deviceScaleFactor": 1, "mobile": false})
+		b.waitFor("sidebar in view, left of the form", `(() => {
+			const toc = document.querySelector('.sode__toc').getBoundingClientRect();
+			const group = document.querySelector('#settings-view > .sode__group').getBoundingClientRect();
+			return getComputedStyle(document.querySelector('.sode__toc')).position === 'fixed' && toc.left >= 0 && toc.right <= group.left && group.right <= innerWidth;
+		})()`)
+	}
 	b.check()
 }

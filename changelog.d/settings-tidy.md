@@ -1,0 +1,5 @@
+- At 1180px to 1380px wide, the Settings sidebar no longer runs off the left edge. The form moves right to make room.
+- Each Settings section shows the Role that changes it as a badge on its title, and an Approval badge when your Role is lower. These badges replace the "Shared settings" lines.
+- Settings hints that only said what a control does are gone or are tooltips. Buttons say what they do: "Stage changes" in Apply an access preset, "Swap and save" or "Stage N items" in Swap, "Import (add)" or "Replace and import" in Import.
+- Multi destination behavior reads "One after another" or "Router salvo (stage, then Take all)", the same as the setup wizard.
+- Copy this browser to My user keeps each moved preset's place in the pinned row.

@@ -1,5 +1,4 @@
-// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js
-// and routerprefix.js: an import cycle must not occur.
+// Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js and routerprefix.js, so no import cycle occurs.
 
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
@@ -84,6 +83,13 @@ export const on = (ev, fn) => {
     const i = l.indexOf(fn);
     if (i >= 0) l.splice(i, 1);
   };
+};
+// The removal waits a microtask: one inside emit would skip the next listener.
+export const once = (ev, fn) => {
+  const off = on(ev, (...a) => {
+    queueMicrotask(off);
+    fn(...a);
+  });
 };
 // Runs before earlier listeners: for a module that must refresh its memo before views read it.
 export const onFirst = (ev, fn) => {
@@ -255,7 +261,6 @@ function handle(m) {
       break;
     case 'ping':
       break;
-    // The router prefix changed: typed text and stored items on this page name the old one.
     case 'reload':
       globalThis.location?.reload();
       break;
@@ -434,7 +439,7 @@ export function protectedOn(dst, levels) {
 }
 // ---- fuzzy finder (scoring in fuzzy.js)
 
-// One router, so no other field can pin the route elsewhere; A.23 searches 23.
+// A.23 searches 23.
 export function search(list, q, n = 8) {
   q = searchText(q, S.prefix, [], [S.prefix]);
   q = q?.trim().toLowerCase();

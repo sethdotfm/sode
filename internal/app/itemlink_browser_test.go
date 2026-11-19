@@ -49,11 +49,11 @@ func TestChromeItemLinkWorksOnlyOnItsInstall(t *testing.T) {
 	b.check()
 
 	b.open(srv.URL + "/?other#preset=pshow&install=0000000000000000")
-	b.waitFor("another install's link says so", `document.body.innerText.includes('made on another Sode install')`)
+	b.waitFor("another install's link says so", `document.body.innerText.includes('Item link from another Sode install')`)
 	b.waitFor("and opens no popup", `document.querySelector('.sode__preset-pop').closest('.pb-modal-backdrop').hidden`)
 	b.check()
 
 	b.open(srv.URL + "/panels/p-00000000#install=0000000000000000")
-	b.waitFor("a panel link from another install says so", `document.getElementById('panels-note')?.textContent.includes('made on another Sode install')`)
+	b.waitFor("a panel link from another install says so", `document.getElementById('panels-note')?.textContent.includes('Item link from another Sode install')`)
 	b.check()
 }

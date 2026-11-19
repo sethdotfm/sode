@@ -1,6 +1,3 @@
-// Asks the server for the review's Interruptions (`settingsReview`, internal/app/interruptions.go). The words are in
-// interruptionrules.js.
-
 import { onMsg, wsSend } from './core.js';
 
 const WAIT_MS = 5000;

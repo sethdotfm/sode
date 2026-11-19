@@ -1,5 +1,4 @@
-// This browser takes a file's values here, since they are this browser's own (browserimport.js holds the pure
-// parts). The Import tab and the wizard's Restore from a backup use it.
+// Writes a file's values to this browser; pure parts are in browserimport.js.
 
 import { browserPrefs, mergeByName } from './browserimport.js';
 import { setPref } from './device.js';

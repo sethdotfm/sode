@@ -178,21 +178,19 @@ function test(r, fuzzyNames, router) {
   }
 }
 
-// No rules matches everything; fuzzy makes bare name terms fuzzy (for searching). router: the set's
-// router UID (blank: any); the matcher then takes the entry's router UID as a third argument.
+// fuzzy: bare name terms match fuzzily (search). With router set, the matcher takes the entry's router UID third.
 export function compileFilter(rules, { fuzzy = false, router = '' } = {}) {
   const inc = rules.filter((r) => !r.not).map((r) => test(r, fuzzy, router));
   const exc = rules.filter((r) => r.not).map((r) => test(r, fuzzy, router));
   return (num, name = '', at = '') => (!inc.length || inc.some((f) => f(num, name, at))) && !exc.some((f) => f(num, name, at));
 }
 
-// Once a second router exists, a set with no router has no number to mean: it allows only name,
-// exact and regex terms. No prefix in filter text. Text that does not parse is left to the parser.
+// After a second router exists, a set with no router has no number to mean, so only name, exact and regex terms pass.
 export function routerTermsProblem(text, router, routers) {
   if (router || routers < 2) return '';
   const p = parseFilter(text || '');
   if (!p.rules || !p.rules.some((r) => r.kind === 'num' || r.kind === 'range')) return '';
-  return 'Pick a router for number and range terms, or use names.';
+  return 'Number terms need a router.';
 }
 
 export function filterFn(text, opts) {

@@ -1,5 +1,4 @@
-// Pure parts of Send a copy and the Inbox (inbox.js, inboxdialog.js, sendcopy.js). Card views, the plan and the
-// request bodies are the server's (cardView, importPlan and inboxReq in internal/app/inboxsend.go).
+// Card views, the plan and request bodies are the server's (internal/app/inboxsend.go).
 
 export const CARD_CATS = ['presets', 'filterSets', 'panels'];
 const WORDS = { presets: ['preset', 'presets'], filterSets: ['filter set', 'filter sets'], panels: ['panel', 'panels'] };
@@ -31,7 +30,6 @@ export function toastText(c) {
   return `${c.from || 'A removed user'} sent you ${what}.`;
 }
 
-// Every item ticked, with the server's choice for each clash. A refused category ticks nothing.
 export function acceptPick(plan) {
   const pick = { items: {}, choices: {} };
   for (const cat of CARD_CATS) {

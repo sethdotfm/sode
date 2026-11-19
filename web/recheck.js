@@ -1,6 +1,4 @@
-// PIN recheck (GLOSSARY.md): the server refused a Critical action with `recheck: true`. askRecheck() asks the signed-in
-// user's own PIN, sends `pinRecheck`, and resolves true when the server accepts it, so the caller sends its action again.
-// The recheck is per connection and holds one minute (docs/agents/users-locks.md).
+// PIN recheck (GLOSSARY.md, docs/agents/users-locks.md): per connection, for one minute.
 
 import { el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -105,7 +103,7 @@ function build() {
 export function askRecheck(what) {
   build();
   settle(false); // a second ask replaces the first
-  ui.why.textContent = `${what} is a Critical action. Type your PIN again.`;
+  ui.why.textContent = `${what}: Critical. Enter your PIN.`;
   ui.dlg.show();
   ui.input.focus();
   return new Promise((resolve) => {
