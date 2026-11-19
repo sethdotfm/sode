@@ -73,14 +73,14 @@ func (a *App) StepIn(c *client, name, pin string) error {
 	if hit != nil && !hit.HasPin() {
 		return errors.New(hit.Name + " has no PIN: only a user with a PIN can step in")
 	}
-	if err := a.tryUserPin(hit, c.ip, func() bool { return pinMatches(hit, pin) }); err != nil {
+	if err := a.provePin(c, nil, hit, pin); err != nil {
 		return err
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	cfg = a.r().cfg // the PIN check can wait: it is possible that the user or this connection changed since
-	live, ok := cfg.FindUserByID(hit.ID)
-	if !ok || live.Pin != hit.Pin {
+	cfg = a.r().cfg
+	live, ok := a.livePinMu(hit)
+	if !ok {
 		return errors.New("that PIN changed; try again")
 	}
 	if err := a.stepInRefusalMu(c, live.Name); err != nil {

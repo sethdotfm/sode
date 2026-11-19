@@ -34,7 +34,7 @@ func TestParallelWrongPins(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := a.tryUserPin(&u, fmt.Sprintf("10.0.1.%d", i), func() bool { return config.CheckPin(u.Pin, "0000") })
+			err := a.provePin(&client{ip: fmt.Sprintf("10.0.1.%d", i)}, nil, &u, "0000")
 			if err != nil && strings.HasPrefix(err.Error(), "wrong PIN") {
 				mu.Lock()
 				wrong++

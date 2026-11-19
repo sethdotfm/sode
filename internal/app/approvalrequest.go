@@ -329,7 +329,7 @@ func (a *App) serveApprovalAnswer(c *client, m *inMsg) {
 		return
 	}
 	a.mu.Unlock()
-	if err := a.tryUserPin(&hit, c.ip, func() bool { return pinMatches(&hit, m.Pin) }); err != nil {
+	if err := a.provePin(c, nil, &hit, m.Pin); err != nil {
 		reply(err)
 		return
 	}

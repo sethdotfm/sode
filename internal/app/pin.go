@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"log"
@@ -71,11 +72,19 @@ func (a *App) userPoolMu(u *config.User) *pinPool {
 	return p
 }
 
-func (a *App) tryUserPin(u *config.User, from string, check func() bool) error {
+// provePin checks pin against hit in the pool of counts (hit when nil). It runs with mu free; the
+// caller re-reads the user under its own lock (livePinMu), since the check can wait.
+func (a *App) provePin(c *client, counts, hit *config.User, pin string) error {
 	a.mu.Lock()
-	p := a.userPoolMu(u)
+	p := a.userPoolMu(cmp.Or(counts, hit))
 	a.mu.Unlock()
-	return a.tryPin(p, from, check)
+	return a.tryPin(p, c.ip, func() bool { return pinMatches(hit, pin) })
+}
+
+// livePinMu: hit as it is now; false when it is gone or has a new PIN.
+func (a *App) livePinMu(hit *config.User) (config.User, bool) {
+	live, ok := a.r().cfg.FindUserByID(hit.ID)
+	return live, ok && live.Pin == hit.Pin
 }
 
 // check runs with mu free, since hashing is slow; a caller that needs a stable state checks again under its own lock.
