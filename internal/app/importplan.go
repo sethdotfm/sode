@@ -860,7 +860,7 @@ func (p *importPlanner) panelBroken(fp *Panel, cfg config.Config) []config.Missi
 		pages[i] = g
 		pages[i].Cells = make([]map[string]any, len(g.Cells))
 		for j, c := range g.Cells {
-			c = cloneCell(c)
+			c = maps.Clone(c)
 			switch c["kind"] {
 			case "source", "destination":
 				if r, ok := cellRef(c); ok {
@@ -902,14 +902,6 @@ func (p *importPlanner) panelBroken(fp *Panel, cfg config.Config) []config.Missi
 		}
 	}
 	return b.out
-}
-
-func cloneCell(c map[string]any) map[string]any {
-	out := make(map[string]any, len(c))
-	for k, v := range c {
-		out[k] = v
-	}
-	return out
 }
 
 // A cell with no number is unassigned.

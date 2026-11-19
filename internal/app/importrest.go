@@ -3,6 +3,7 @@ package app
 import (
 	"cmp"
 	"log"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -90,7 +91,7 @@ func (p *importPlanner) relibPages(pages []PanelPage) []PanelPage {
 		out[i] = g
 		out[i].Cells = make([]map[string]any, len(g.Cells))
 		for j, c := range g.Cells {
-			c = cloneCell(c)
+			c = maps.Clone(c)
 			for _, k := range []string{"art", "artB"} {
 				if s, ok := c[k].(string); ok {
 					if s = p.libTo(s); s == "" {
