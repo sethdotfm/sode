@@ -10,6 +10,7 @@ import { stepInOffered, stepsOut } from './stepinrules.js';
 let ui = null;
 let seq = 0;
 let waiting = 0;
+let back = null;
 
 function modal(id, title, body, buttons, onEsc) {
   const root = el('div', 'pb-modal-backdrop sode__scrim');
@@ -44,6 +45,8 @@ function close() {
   ui.err.hidden = true;
   ui.go.disabled = false;
   waiting = 0;
+  if (back?.isConnected) back.focus();
+  back = null;
 }
 
 function fail(text) {
@@ -92,7 +95,11 @@ function build() {
   const hint = el('p', 'sode__hint', 'This tab only. Not saved in this browser.');
   const dlg = modal('stepin', 'Step in', [hint, picker.root, pin, err], [button('stepin-cancel', 'Cancel', 'pb-btn--outline', close), go], close);
   picker.input.addEventListener('keydown', (e) => {
-    if (picker.key(e)) e.preventDefault();
+    // Esc closes the name list, not the popup.
+    if (picker.key(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   });
   pin.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
@@ -104,6 +111,7 @@ function build() {
 
 function open() {
   build();
+  back = document.activeElement;
   ui.picker.set('');
   ui.err.hidden = true;
   ui.dlg.show();
@@ -111,38 +119,47 @@ function open() {
 }
 
 let leave = null;
-let leaveTo = '';
+let leaveFrom = null;
 
-function askLeave(href) {
+function askLeave(a) {
   if (!leave) {
+    const cancel = () => {
+      leave.hide();
+      if (leaveFrom?.isConnected) leaveFrom.focus();
+    };
     const go = () => {
       leave.hide();
-      location.href = leaveTo;
+      location.href = leaveFrom.href;
     };
     leave = modal(
       'stepout-ask',
       'Step out?',
       [],
-      [button('stepout-ask-cancel', 'Cancel', 'pb-btn--outline', () => leave.hide()), button('stepout-ask-go', 'Step out', '', go)],
-      () => leave.hide(),
+      [button('stepout-ask-cancel', 'Cancel', 'pb-btn--outline', cancel), button('stepout-ask-go', 'Step out', '', go)],
+      cancel,
     );
   }
-  leaveTo = href;
+  leaveFrom = a;
   leave.show();
+  $('stepout-ask-go').focus();
 }
 
 export function initStepIn() {
   const note = $('account-step-note');
+  let was = false;
   on('access', (L) => {
     const stepped = steppedIn();
-    $('account-stepin').hidden = !stepInOffered({ locked: L.locked, phone: layout() === 'phone', stepped, user: L.user, users: S.users });
+    const offered = stepInOffered({ locked: L.locked, phone: layout() === 'phone', stepped, user: L.user, users: S.users });
+    $('account-stepin').hidden = !offered;
     $('account-stepout').hidden = !stepped;
     if (stepped) {
       $('account-name').replaceChildren('Stepped in as ', el('strong', null, L.user));
       for (const id of ['account-login', 'account-logout']) $(id).hidden = true;
     }
     if (stepped) note.hidden = true;
-    if (!stepped) close();
+    // Every Settings save sends a lockState, which must not drop a half-typed Step in.
+    if (!stepped && (was || !offered)) close();
+    was = stepped;
   });
   on('stepEnded', (m) => {
     note.textContent = m.note || '';
@@ -157,7 +174,7 @@ export function initStepIn() {
       if (!a || !steppedIn() || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
       if (!stepsOut(a.href, location.href, a.target)) return;
       e.preventDefault();
-      askLeave(a.href);
+      askLeave(a);
     },
     true,
   );

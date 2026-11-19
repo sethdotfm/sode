@@ -7,6 +7,7 @@ let ui = null;
 let done = null; // resolves the askRecheck in flight
 let seq = 0;
 let waiting = 0; // id of the pinRecheck in flight
+let back = null;
 
 function settle(ok) {
   const d = done;
@@ -21,6 +22,8 @@ function close(ok) {
   ui.err.hidden = true;
   ui.go.disabled = false;
   waiting = 0;
+  if (back?.isConnected) back.focus();
+  back = null;
   settle(ok);
 }
 
@@ -103,6 +106,7 @@ function build() {
 export function askRecheck(what) {
   build();
   settle(false); // a second ask replaces the first
+  back ||= document.activeElement;
   ui.why.textContent = `${what}: Critical. Enter your PIN.`;
   ui.dlg.show();
   ui.input.focus();

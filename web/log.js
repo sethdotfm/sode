@@ -12,7 +12,8 @@ import { fieldText, saveSummary } from './logsaves.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
-import './lock.js';
+import { lockState } from './lock.js';
+import { lockCovers } from './lockrules.js';
 import './inboxdialog.js';
 import { showApprovalCards } from './approvalcards.js';
 import { bigScrollAll } from './bigscroll.js';
@@ -199,17 +200,15 @@ const rangeDone = () => range.from != null && pager.list.length > 0 && !rangeNee
 
 const fill = () => rangeNeedsMore() && send(pager.back());
 
-on('unlocked', () => {
+// A locked page's asks are refused, and each refusal writes a row; 'unlocked' loads.
+const reload = () => {
+  if (lockCovers(lockState())) return;
   send(pager.open());
   render();
   refreshUptime();
-});
-
-on('hello', () => {
-  send(pager.open());
-  render();
-  refreshUptime();
-});
+};
+on('unlocked', reload);
+on('hello', reload);
 
 on('logPage', (m) => {
   const r = pager.receive(m);
@@ -675,7 +674,7 @@ on('uptimeResult', (m) => {
   upSum.textContent = text;
 });
 
-setInterval(refreshUptime, 60_000);
+setInterval(() => lockCovers(lockState()) || refreshUptime(), 60_000);
 
 initFilters();
 initUptime();

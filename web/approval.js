@@ -11,6 +11,7 @@ import { approverKey } from './approvalcardrules.js';
 let ui = null;
 let send = null;
 let ask = null; // { what, who, sendFn, req } of the open popup
+let back = null;
 
 function close() {
   if (!ui) return;
@@ -20,6 +21,8 @@ function close() {
   ui.go.disabled = false;
   send = null;
   ask = null;
+  if (back?.isConnected) back.focus();
+  back = null;
 }
 
 function fail(text) {
@@ -103,7 +106,11 @@ function build() {
   root.append(dialog);
   document.body.append(root);
   picker.input.addEventListener('keydown', (e) => {
-    if (picker.key(e)) e.preventDefault();
+    // Esc closes the name list, not the popup.
+    if (picker.key(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   });
   pin.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
@@ -117,6 +124,7 @@ function build() {
 export function askApproval(what, who, sendFn, req = null) {
   build();
   close();
+  back = document.activeElement;
   send = sendFn;
   ask = { what, who, sendFn, req };
   ui.requestRow.hidden = !req;

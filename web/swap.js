@@ -14,6 +14,7 @@ let items = []; // the last list the server sent
 let ticked = new Set();
 let asked = null; // {side, from, to} of that list
 let seq = 0;
+let back = null;
 let waiting = 0;
 let staged = null; // {value, items}: the Swap that the next Save sends
 
@@ -155,6 +156,8 @@ function done() {
 function close() {
   ui?.dlg.hide();
   waiting = 0;
+  if (back?.isConnected) back.focus();
+  back = null;
 }
 
 function build() {
@@ -234,6 +237,7 @@ function open(opts = {}) {
     ui.from.input.value = String(opts.from + off());
   }
   paintList();
+  back ||= document.activeElement;
   ui.dlg.show();
   if (opts.side && opts.from != null) {
     find();
