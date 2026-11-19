@@ -91,7 +91,7 @@ func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 
 	b.eval(`document.querySelector('#ed-lib-manage-icons [data-lib]').click(); document.getElementById('ed-lib-delete').click(); true`)
 	// One read: a second call after the text shows can land after the 500 ms lockout under load.
-	b.waitFor("the Confirm with the count, locked out at first", `/2 cells or names on 1 panel use it/.test(document.getElementById('ed-lib-confirm')?.textContent || '') && document.getElementById('ed-lib-delete-ok').disabled`)
+	b.waitFor("the Confirm with the count, locked out at first", `/2 cells or names on 1 panel lose Icon A/.test(document.getElementById('ed-lib-confirm')?.textContent || '') && document.getElementById('ed-lib-delete-ok').disabled`)
 	b.waitFor("the lockout ends", `!document.getElementById('ed-lib-delete-ok').disabled`)
 	b.eval(`(() => { const k = /\((.)\)/.exec(document.getElementById('ed-lib-delete-ok').textContent)[1].toLowerCase(); document.getElementById('ed-lib-confirm').dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true })); return true; })()`)
 	b.waitFor("deleted", `/Deleted Station/.test(document.querySelector('#ed-lib-dialog [role=status]').textContent)`)
