@@ -10,10 +10,7 @@ import { CATEGORIES, sizeText } from './exportrules.js';
 import * as R from './importrules.js';
 import { stillBroken } from './remaprules.js';
 import { remapState, remapReq, remapView, remapReview, rowOf } from './importremap.js';
-import { browserPrefs, mergeByName } from './browserimport.js';
-import { setPref } from './device.js';
-import { localSets, normFilter, putLocalSets } from './filterstore.js';
-import { localPresets, putLocalPresets, storedPreset } from './presetstore.js';
+import { applyBrowser } from './browserapply.js';
 
 const btn = (cls, text, fn) => {
   const b = el('button', `pb-btn ${cls}`, text);
@@ -26,16 +23,6 @@ const MODES = [
   ['add', 'Add import'],
   ['replace', 'Replace import'],
 ];
-
-// This browser takes the file's values here, since they are this browser's own (browserimport.js).
-function applyBrowser(values, replace) {
-  for (const [name, v] of Object.entries(browserPrefs(values))) setPref(name, v);
-  const list = (x) => [].concat(x || []).filter((s) => s?.name);
-  const sets = list(values?.filterSets).map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
-  putLocalSets(mergeByName(localSets(), sets, replace));
-  const presets = list(values?.presets).map((s) => ({ scope: 'local', ...storedPreset(s), pinned: s.pinned !== false }));
-  putLocalPresets(mergeByName(localPresets(), presets, replace));
-}
 
 // opts: setNote(text, error), setReview(title or ''), backup() downloads Back up everything.
 export function importTab({ setNote, setReview, backup }) {

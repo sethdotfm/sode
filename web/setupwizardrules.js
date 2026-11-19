@@ -67,9 +67,7 @@ export function stepProblem(d, i, max = 8) {
       const name = d.name.trim();
       if (!name) return 'Enter your name.';
       if ([...name].length > NAME_MAX) return `A name has at most ${NAME_MAX} characters.`;
-      if (!/^\d+$/.test(d.pin) || d.pin.length < PIN_MIN || d.pin.length > max) return `A PIN has ${PIN_MIN} to ${max} digits.`;
-      if (d.pin !== d.pin2) return 'The two PINs are not the same.';
-      return '';
+      return restorePinProblem(d.pin, d.pin2, max);
     }
     case 'router':
       if (!d.router.trim()) return 'Enter the router address.';
@@ -77,6 +75,13 @@ export function stepProblem(d, i, max = 8) {
       if (d.fireMode === 'native' && !wholeIn(d.group, 0, 127)) return 'Router salvo group is a number from 0 to 127.';
       return '';
   }
+  return '';
+}
+
+// restorePinProblem: why a new PIN and PIN again cannot be used, or ''. Your user and a restore without PINs use it.
+export function restorePinProblem(pin, pin2, max = 8) {
+  if (!/^\d+$/.test(pin) || pin.length < PIN_MIN || pin.length > max) return `A PIN has ${PIN_MIN} to ${max} digits.`;
+  if (pin !== pin2) return 'The two PINs are not the same.';
   return '';
 }
 

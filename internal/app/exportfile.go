@@ -494,7 +494,11 @@ func (a *App) liveNamesTable(uid string) namesTable {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	rs := a.router
-	return namesTable{Router: uid, At: rs.namesAt.UTC(), Sources: tableList(rs.srcNames), Destinations: tableList(rs.dstNames)}
+	at := rs.namesAt
+	if at.IsZero() { // no read yet: the names are the saved table's, from its time
+		at = rs.savedAt
+	}
+	return namesTable{Router: uid, At: at.UTC(), Sources: tableList(rs.srcNames), Destinations: tableList(rs.dstNames)}
 }
 
 // namesHash depends on the names only, not on when they were read, so the remap step can match a router

@@ -69,44 +69,52 @@ func (a *App) liveNames() (src, dst map[int]string) {
 	return maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
 }
 
-// readImportParts reads the two parts; the plan must come first, so the file streams to the staging directory.
+// readImportParts reads the two parts of an import.
 func (a *App) readImportParts(w http.ResponseWriter, r *http.Request) (importReq, *exportBundle, func(), bool) {
 	var req importReq
+	b, done, ok := a.readPlanAndFile(w, r, &req, func() error {
+		if req.Mode != importAdd && req.Mode != importReplace {
+			return errors.New(`mode must be "add" or "replace"`)
+		}
+		return checkRouterTargets(req, a.r().cfg)
+	})
+	return req, b, done, ok
+}
+
+// readPlanAndFile decodes the "plan" part into plan and stages the "file" part. The plan must come first, so the
+// file streams to the staging directory after check passes; a check error answers 400.
+func (a *App) readPlanAndFile(w http.ResponseWriter, r *http.Request, plan any, check func() error) (*exportBundle, func(), bool) {
 	none := func() {}
 	mr, err := r.MultipartReader()
 	if err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", "send the plan and the file as multipart/form-data")
-		return req, nil, none, false
+		return nil, none, false
 	}
 	part, err := mr.NextPart()
 	if err != nil || part.FormName() != "plan" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "the first part must be the plan")
-		return req, nil, none, false
+		return nil, none, false
 	}
-	if err := json.NewDecoder(io.LimitReader(part, exportReqMax)).Decode(&req); err != nil {
+	if err := json.NewDecoder(io.LimitReader(part, exportReqMax)).Decode(plan); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", "the plan is not valid JSON")
-		return req, nil, none, false
+		return nil, none, false
 	}
-	if req.Mode != importAdd && req.Mode != importReplace {
-		apiFail(w, http.StatusBadRequest, "bad_request", `mode must be "add" or "replace"`)
-		return req, nil, none, false
-	}
-	if err := checkRouterTargets(req, a.r().cfg); err != nil {
+	if err := check(); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
-		return req, nil, none, false
+		return nil, none, false
 	}
 	part, err = mr.NextPart()
 	if err != nil || part.FormName() != "file" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "the second part must be the file")
-		return req, nil, none, false
+		return nil, none, false
 	}
 	b, done, err := a.stageImport(part)
 	if err != nil {
 		done()
 		importFail(w, err)
-		return req, nil, none, false
+		return nil, none, false
 	}
-	return req, b, done, true
+	return b, done, true
 }
 
 func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +141,18 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 		apiFail(w, http.StatusForbidden, "recheck", recheckErr{what: p.overwrites}.Error())
 		return
 	}
-	if len(p.written) > 0 {
+	res, err := a.writeImport(p, b, act, req.Mode, live, nil)
+	if err != nil {
+		apiFail(w, http.StatusConflict, "refused", err.Error())
+		return
+	}
+	apiJSON(w, res)
+}
+
+// writeImport commits the plan, then writes the stores outside the config. more, when set, also runs in the
+// commit. Caller holds cfgMu.
+func (a *App) writeImport(p *importPlanner, b *exportBundle, act Actor, mode string, live config.Config, more func(*config.Config)) (importResult, error) {
+	if len(p.written) > 0 || more != nil {
 		fields := configFieldsByYAML()
 		err := a.applyConfig(func(cur *config.Config) error {
 			for _, k := range p.written {
@@ -143,11 +162,13 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 					copyConfigKey(cur, &p.next, idx)
 				}
 			}
+			if more != nil {
+				more(cur)
+			}
 			return nil
 		})
 		if err != nil {
-			apiFail(w, http.StatusConflict, "refused", err.Error())
-			return
+			return importResult{}, err
 		}
 	}
 	now := a.r().cfg
@@ -163,8 +184,8 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	a.auditRequireHTTPS(act, live.RequireHTTPS, now.RequireHTTPS)
 	a.auditAPISettings(act, live, now)
 	a.panelsFollowUsers(live.Users, now.Users)
-	a.recordImport(act, req.Mode, &p.plan, failed)
-	apiJSON(w, importResult{Plan: p.plan, Failed: failed})
+	a.recordImport(act, mode, &p.plan, failed)
+	return importResult{Plan: p.plan, Failed: failed}, nil
 }
 
 // writeImportPanels writes the planned panels, their artwork and Push checkpoints. Each panel is its own

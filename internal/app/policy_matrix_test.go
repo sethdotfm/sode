@@ -89,7 +89,7 @@ var policyExpect = map[string][nStates]error{
 	"inboxList": openRule, "inboxSend": openRule, "inboxReview": openRule, "inboxAccept": openRule,
 	"inboxDecline": openRule, "inboxWithdraw": openRule,
 	// the handlers refuse once set up; while setup is pending see TestSetupWizardAdmitsOnlySetupMessages
-	"setupClaim": openRule, "setupRouter": openRule, "setupFinish": openRule,
+	"setupClaim": openRule, "setupRouter": openRule, "setupRestoreKey": openRule, "setupFinish": openRule,
 
 	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
 

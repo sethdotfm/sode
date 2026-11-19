@@ -1,7 +1,18 @@
 // The setup wizard's step rules and its Finish message.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { STEPS, startAnswers, stepProblem, stopAt, chipGoes, numberingChoices, finishMessage, routerLine, envHint } from '../setupwizardrules.js';
+import {
+  STEPS,
+  startAnswers,
+  stepProblem,
+  stopAt,
+  chipGoes,
+  numberingChoices,
+  finishMessage,
+  routerLine,
+  envHint,
+  restorePinProblem,
+} from '../setupwizardrules.js';
 
 const filled = () => ({
   ...startAnswers({ router: '10.0.0.5:8910', levels: 17, numberOffset: 1 }, { preset: 'standard' }),
@@ -99,4 +110,11 @@ test('the router line has two states', () => {
   assert.deepEqual(routerLine('10.0.0.5:8910', 'up', 3), { ok: true, text: 'Connected. Names read.' });
   assert.equal(routerLine('10.0.0.5:8910', 'up', 0).ok, false);
   assert.equal(routerLine('10.0.0.5:8910', 'connecting', 0).text, 'No answer yet. You can go on, and Sode keeps trying.');
+});
+
+test('a restore without PINs takes a new PIN only when both entries agree', () => {
+  assert.equal(restorePinProblem('2468', '2468', 8), '');
+  assert.match(restorePinProblem('24', '24', 8), /4 to 8 digits/);
+  assert.match(restorePinProblem('24a8', '24a8', 8), /4 to 8 digits/);
+  assert.match(restorePinProblem('2468', '2469', 8), /not the same/);
 });

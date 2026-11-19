@@ -93,6 +93,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/export/items", a.serveExportItems)
 	mux.HandleFunc("POST /api/import", a.serveImportCheck)
 	mux.HandleFunc("POST /api/import/apply", a.serveImportApply)
+	mux.HandleFunc("POST /api/setup/restore", a.serveSetupRestore)
 	a.mountAPI(mux)
 	return a.httpsGate(secureHeaders(mux))
 }

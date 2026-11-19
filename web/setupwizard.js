@@ -5,6 +5,7 @@ import { showBrand } from './brand.js';
 import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
 import { layout, onLayout } from './layout.js';
+import { restoring, wireRestore } from './setuprestore.js';
 import {
   STEPS,
   DONE,
@@ -311,6 +312,7 @@ function render(focus) {
   $('setup-back').hidden = at === 0 && !d.again;
   $('setup-back').textContent = at === 0 ? 'Cancel' : 'Back';
   $('setup-restore').hidden = step !== 'welcome' || !!d.again;
+  $('setup-next').hidden = false;
   $('setup-next').textContent = { welcome: 'Set up', access: 'Finish' }[step] || 'Next';
   $('setup-err').textContent = '';
   check();
@@ -433,6 +435,8 @@ onMsg('setupFinishResult', (m) => {
   render();
 });
 
+wireRestore({ max, back: () => render() });
+
 function openSode() {
   d = null;
   mode = '';
@@ -543,7 +547,7 @@ on('hello', () => {
     return;
   }
   // Another browser finished setup: this one has nothing to save any more.
-  if (mode && !finished && !finishing) openSode();
+  if (mode && !finished && !finishing && !restoring()) openSode();
   paintDone();
 });
 
