@@ -104,6 +104,42 @@ func (d *yamlDir[T]) insert(v T, limit int, full error, vet func(T) error, save 
 	return v, nil
 }
 
+// insertAs is insert, but v keeps its own id when it has one nobody holds. Callers check the id's form.
+func (d *yamlDir[T]) insertAs(v T, limit int, full error, vet func(T) error, save func(*T) error) (T, error) {
+	var zero T
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.by) >= limit {
+		return zero, full
+	}
+	if vet != nil {
+		if err := vet(v); err != nil {
+			return zero, err
+		}
+	}
+	if _, taken := d.by[*d.idOf(&v)]; taken || *d.idOf(&v) == "" {
+		*d.idOf(&v) = d.newIDLocked()
+	}
+	if err := save(&v); err != nil {
+		return zero, err
+	}
+	d.by[*d.idOf(&v)] = v
+	return v, nil
+}
+
+// putLocked stores v over the record of its id. A record that moves to another file leaves the old one.
+func (d *yamlDir[T]) putLocked(v T) error {
+	old, had := d.by[*d.idOf(&v)]
+	if err := d.writeLocked(v); err != nil {
+		return err
+	}
+	if had && d.dir != "" && d.pathOf != nil && d.pathOf(d.dir, old) != d.pathOf(d.dir, v) {
+		os.Remove(d.pathOf(d.dir, old))
+	}
+	d.by[*d.idOf(&v)] = v
+	return nil
+}
+
 // writeLocked marshals v into its file; memory-only stores write nothing.
 func (d *yamlDir[T]) writeLocked(v T) error {
 	if d.dir == "" {

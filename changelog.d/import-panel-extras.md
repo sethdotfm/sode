@@ -1,0 +1,1 @@
+- Import now brings templates, Checkpoint sets, Push checkpoints, the Icon library, Default artwork and This browser. An imported icon that clashes by name can arrive renamed, and the panels and templates that use it follow. An imported panel keeps its links when its id is free here.

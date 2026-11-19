@@ -1,0 +1,15 @@
+[
+  { "text": "", "terms": [] },
+  { "text": "65", "terms": [{ "not": false, "kind": "num", "a": 65 }] },
+  { "text": "1-50, 3 thru 9", "terms": [{ "not": false, "kind": "range" }, { "not": false, "kind": "range" }] },
+  { "text": "\"CAM 1\"", "terms": [{ "not": false, "kind": "exact", "text": "CAM 1" }] },
+  { "text": "\"say \"\"hi\"\"\"", "terms": [{ "not": false, "kind": "exact", "text": "say \"hi\"" }] },
+  { "text": "'NOT USED', PIP", "terms": [{ "not": false, "kind": "name", "text": "NOT USED" }, { "not": false, "kind": "name", "text": "PIP" }] },
+  { "text": "/cam \\d/i", "terms": [{ "not": false, "kind": "re" }] },
+  { "text": "!\"MON 4\", not 7, not 'X'", "terms": [{ "not": true, "kind": "exact", "text": "MON 4" }, { "not": true, "kind": "num", "a": 7 }, { "not": true, "kind": "name", "text": "X" }] },
+  { "text": "nothing here", "terms": [{ "not": false, "kind": "name", "text": "nothing here" }] },
+  { "text": "\"open", "terms": null },
+  { "text": "\"\"", "terms": null },
+  { "text": "\"A\" B", "terms": null },
+  { "text": "!", "terms": null }
+]
