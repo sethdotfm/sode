@@ -12,9 +12,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The export file's keys are the yaml tags of the Go types that read it. pruneUnknown walks a node beside its
-// type and removes, and lists, each key the type does not name. Free-form values (map[string]any, cells,
-// settings) and types that read themselves (yaml.Unmarshaler) are not walked.
+// The export file's keys are the yaml tags of the Go types that read it. Free-form values (map[string]any,
+// cells, settings) and types that read themselves (yaml.Unmarshaler) are not walked.
 
 var (
 	yamlUnmarshalerType = reflect.TypeFor[yaml.Unmarshaler]()

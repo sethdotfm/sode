@@ -124,8 +124,6 @@ func (a *App) sweepStages() {
 	}
 }
 
-// The check writes nothing and removes the staging directory; the apply route stages the file again. A zip body
-// gets the preselected choices; the review sends multipart, as to the apply route, to see what its picks do.
 func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 	if !a.httpAdmin(w, r) {
 		return

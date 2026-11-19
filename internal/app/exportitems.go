@@ -227,9 +227,7 @@ func (a *App) serveExportSize(w http.ResponseWriter, r *http.Request) {
 	}{len(b)})
 }
 
-// ExportSession is a session token for the export routes. A connection without a good one gets a tab
-// token, as a session key does (sessionkey.go). With no users every browser is an Administrator and
-// needs none. A Guest gets none, since every export route needs a user.
+// ExportSession: with no users every browser is an Administrator and needs no token.
 func (a *App) ExportSession(c *client) (string, error) {
 	cfg := a.r().cfg
 	if len(cfg.Users) == 0 {

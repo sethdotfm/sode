@@ -12,8 +12,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Remap step (docs/agents/profiles.md): the page matches names (web/remaprules.js). A reference with no choice
-// keeps its number, so an unmatched name is Skip.
+// Remap step: docs/agents/profiles.md.
 
 type remapInfo struct {
 	Routers []remapRouter `json:"routers"`

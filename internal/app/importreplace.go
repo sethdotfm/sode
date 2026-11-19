@@ -10,9 +10,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Replace import (docs/agents/profiles.md): every file item is Use new, then emptyRest removes the live items of
-// the category that the file does not hold. So hidden ids, key links and Authentication modes of the items the
-// file holds stay, and an equal item writes nothing.
+// Replace import (docs/agents/profiles.md). Use new on each match keeps its hidden id, key link and Authentication mode.
 
 // importRemovals is what a Replace import removes from the stores outside the config, after the config commit.
 type importRemovals struct {
