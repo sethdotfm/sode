@@ -1,0 +1,3 @@
+- The Communication Log has a new Settings saves kind, on by default. Each save of shared settings, in Settings or through the API, writes one row. Open the row to see each field with its old and new value. A PIN shows only "changed", and only an Administrator sees the values of Access and Server fields. The rows are kept for 365 days, and at most 5 MB, in `SODE_SETTINGS_SAVES` (`/data/settings-saves.jsonl` in the image).
+- The `rightsEdit`, `clientEdit` and `noAutoLockEdit` API rows are gone. The Settings saves row holds these changes.
+- The router uptime graph keeps 365 days, and at most 5 MB, in place of 400 days.

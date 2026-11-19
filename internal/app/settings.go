@@ -29,6 +29,7 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 	// A Trusted user must not change the fields an Administrator guards.
 	admin := a.role(c) == config.RoleAdministrator
 	toggled, now := false, false
+	was := a.r().cfg
 	err := a.applyConfig(a.critical(c, func(cur *config.Config) error {
 		// cur is a copy of live. Only the form's fields come from msg (configKeys), so a
 		// stale browser copy cannot undo users, lists or anything else saved apart.
@@ -69,10 +70,24 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 		}
 		return nil
 	}))
-	if err == nil && toggled {
+	if err != nil {
+		return err
+	}
+	if toggled {
 		a.auditRequireHTTPS(connActor(c), !now, now)
 	}
-	return err
+	after := a.r().cfg
+	var keys []string
+	for _, k := range configKeys() {
+		if string(fieldJSON(was, k)) != string(fieldJSON(after, k)) {
+			keys = append(keys, k)
+		}
+	}
+	if was.SettingsPin != after.SettingsPin {
+		keys = append(keys, settingsPinKey)
+	}
+	a.recordSave(connActor(c), "save", a.savedFields(was, after, keys, &saveCtx{}), len(criticalEdits(was, after, config.User{})) > 0)
+	return nil
 }
 
 // sourceKeys: one Save fields that only Manage users and the API section write, never the form.

@@ -133,3 +133,22 @@ test('live entries past the cap drop the oldest and Load older raises the cap', 
   r = p.live(add(10));
   assert.equal(p.list.length, P.LIVE_CAP + P.PAGE);
 });
+
+test('a Settings saves row sorts below its anchor, keyed apart from the seq it shares', () => {
+  const p = P.newPager();
+  const req = p.open();
+  const t = '2026-10-29T10:00:00Z';
+  p.receive({
+    before: req.before,
+    more: false,
+    entries: [
+      { seq: 5, time: t, kind: 'keepalive' },
+      { seq: 5, id: 1, time: t, kind: 'settings' },
+      { seq: 4, time: t, kind: 'keepalive' },
+      { seq: 5, id: 2, time: t, kind: 'settings' },
+    ],
+  });
+  assert.deepEqual(p.list.map(P.rowKey), [5, 's2', 's1', 4]);
+  const { fresh } = p.live({ entries: [{ seq: 5, id: 2, time: t, kind: 'settings' }] });
+  assert.equal(fresh.length, 0);
+});

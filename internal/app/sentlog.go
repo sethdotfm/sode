@@ -36,6 +36,9 @@ type Sent struct {
 	// Router messages and link events only; as on Entry.
 	Router      string `json:"router,omitempty"`
 	RouterTitle string `json:"routerTitle,omitempty"`
+	// Settings saves rows only (savelog.go).
+	ID   int64         `json:"id,omitempty"`
+	Save *SettingsSave `json:"save,omitempty"`
 }
 
 // Event kinds: link events share the log (seqs, paging, live view); cmd, wire level, dst
@@ -240,6 +243,13 @@ func (l *SentLog) rotate() error {
 	}
 	l.old, l.cur = l.cur, &segment{f: f, first: l.next}
 	return nil
+}
+
+// Next is the seq the next entry gets.
+func (l *SentLog) Next() int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.next
 }
 
 func (l *SentLog) Total() int64 {

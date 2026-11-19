@@ -110,6 +110,8 @@ func (a *App) apiLog(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	if err != nil {
 		log.Printf("api log: %v", err)
 	}
+	// A key never acts as an Administrator, so it never gets Hidden values.
+	page = forReader(a.mergeSaves(page, before, more), false)
 	if page == nil {
 		page = []Sent{}
 	}
