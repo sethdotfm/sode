@@ -145,6 +145,8 @@ type exportReq struct {
 	Sections    []string            `json:"sections"` // Settings sections; none is every section
 	IncludePins bool                `json:"includePins"`
 	Browser     json.RawMessage     `json:"browser"` // This browser's values, an object the page sends
+	// only: Users writes these in place of the config's (an own export, ownexport.go).
+	only []config.User
 }
 
 var artExt = map[string]string{"image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/svg+xml": "svg"}
@@ -200,7 +202,11 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	}
 	if want(catUsers) {
 		var out exportUsers
-		for _, u := range cfg.Users {
+		users := cfg.Users
+		if req.only != nil {
+			users = req.only
+		}
+		for _, u := range users {
 			if !picked(catUsers, u.ID) {
 				continue
 			}

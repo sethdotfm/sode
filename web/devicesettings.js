@@ -137,7 +137,7 @@ export function initDeviceSettings({ form, reindex }) {
   $('account-clients').addEventListener('click', () => emit('openClients'));
   $('account-profile').addEventListener('click', () => emit('openProfile', { name: acctUser }));
   $('account-copy').addEventListener('click', () => emit('openBrowserCopy'));
-  $('account-transfer').addEventListener('click', () => emit('openTransfer', { scope: 'user', user: acctUser }));
+  $('account-transfer').addEventListener('click', () => emit('openOwnExport'));
   $('account-swap').addEventListener('click', () => emit('openSwap', { mine: true }));
   on('swapDone', (n) => {
     const note = $('account-step-note');

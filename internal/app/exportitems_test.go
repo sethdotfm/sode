@@ -259,7 +259,7 @@ func TestExportItemsNeedAnAdministrator(t *testing.T) {
 }
 
 // A non-persistent Administrator signed in at the PIN lock has no token; exportSession gives one that the
-// export routes accept. A Standard user is refused, and an install with no users needs none.
+// export routes accept. A Standard user gets one for the own routes, a Guest none, and an install with no users needs none.
 func TestExportSessionGivesTheRoutesAToken(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.9", send: make(chan []byte, 64)}
@@ -287,8 +287,10 @@ func TestExportSessionGivesTheRoutesAToken(t *testing.T) {
 	if err := a.UserUnlockAs(bo, "Bo", "567890"); err != nil {
 		t.Fatal(err)
 	}
-	if err := admitMsg(a, bo, inMsg{T: "exportSession"}); err == nil {
-		t.Error("a Standard user got an export session")
+	if tok, err := a.ExportSession(bo); err != nil || tok == "" {
+		t.Errorf("a Standard user: token %q, %v", tok, err)
+	} else if rec := getItems(t, a, tok); rec.Code != http.StatusForbidden {
+		t.Errorf("a Standard user's token on the Administrator items: %d", rec.Code)
 	}
 
 	none := newTestApp(t)
