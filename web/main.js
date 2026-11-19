@@ -5,6 +5,7 @@ import { initTheme } from './device.js';
 import './desktop.js';
 import './settings.js';
 import './brand.js';
+import './stepinframe.js';
 import './lock.js';
 import './profile.js';
 import './filters.js';

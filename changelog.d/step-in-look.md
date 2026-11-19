@@ -1,0 +1,2 @@
+- While a user is stepped in, the whole page border has one fixed colour. "<name> stepped in" and a Step out button show at the top of the page. Compact view does not fade it, and it stays on the phone layout.
+- Staged Settings edits stay across Step in and Step out and keep who made them. The review names who staged each edit. Edits in sections that your Role cannot see show only as a count ("3 changes by Bo that your Role cannot see"); Save skips them and they stay unsaved.

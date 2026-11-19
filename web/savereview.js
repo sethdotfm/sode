@@ -38,21 +38,24 @@ function button(b, text, fn) {
   b.onclick = fn;
 }
 
-function table(groups, { label, show, notes }) {
+// by(row): who staged it, or null when every row is the saver's own.
+function table(groups, { label, show, notes, by }) {
+  const cols = by ? 5 : 4;
   const tbody = el('tbody');
   for (const t of groups) {
     const head = el('th', 'sode__review-topic', t.topic);
-    head.colSpan = 4;
+    head.colSpan = cols;
     tbody.append(el('tr', null, head));
     for (const s of t.sections) {
       const sec = el('th', 'sode__label', s.section);
-      sec.colSpan = 4;
+      sec.colSpan = cols;
       tbody.append(el('tr', null, sec));
       for (const r of s.rows) {
         const row = el(
           'tr',
           null,
           el('td', null, label(r)),
+          ...(by ? [el('td', null, by(r))] : []),
           el('td', 'sode__review-was', show(r, r.was)),
           el('td', null, show(r, r.now)),
           el('td', null, ...notes(r)),
@@ -61,7 +64,7 @@ function table(groups, { label, show, notes }) {
       }
     }
   }
-  const head = el('tr', null, el('th', null, 'Setting'), el('th', null, 'Was'), el('th', null, 'Now'), el('th'));
+  const head = el('tr', null, el('th', null, 'Setting'), ...(by ? [el('th', null, 'Staged by')] : []), el('th', null, 'Was'), el('th', null, 'Now'), el('th'));
   return el('table', 'pb-table pb-table--compact', el('thead', null, head), tbody);
 }
 
@@ -69,9 +72,10 @@ const badge = (kind, text) => el('span', `pb-badge pb-badge--${kind}`, text);
 
 // rows: the changes (savereviewrules.js diffRows). kept(row): why it stays unsaved, or ''. place(row): {topic, section,
 // order}. label(row), show(row, value): text. critical: a row the server checks for a PIN recheck. reconnects(row): a
-// router connection field. address: the router address it reconnects to.
+// router connection field. address: the router address it reconnects to. by(row): who staged it, or null. unseen: the
+// counts of edits the saver's Role cannot see (stagedrules.js); they are not in rows and do not save.
 // Resolves true when the save is to be sent, false when the person goes back to editing.
-export function reviewSave({ rows, kept, place, label, show, critical, reconnects, address, recheckNeeded }) {
+export function reviewSave({ rows, kept, place, label, show, critical, reconnects, address, recheckNeeded, by = null, unseen = [] }) {
   build();
   step?.esc();
   const saves = rows.filter((r) => !kept(r));
@@ -86,9 +90,10 @@ export function reviewSave({ rows, kept, place, label, show, critical, reconnect
 
     function review() {
       step = { esc: () => end(false) };
-      const n = rows.length;
+      const n = rows.length + unseen.length;
       ui.title.textContent = `Review ${n} ${n === 1 ? 'change' : 'changes'}`;
-      ui.body.replaceChildren(table(groupRows(rows, place), { label, show, notes }));
+      const counts = unseen.map((t) => el('div', 'pb-note pb-note--warn', `${t}. They stay unsaved.`));
+      ui.body.replaceChildren(...counts, ...(rows.length ? [table(groupRows(rows, place), { label, show, notes, by })] : []));
       button(ui.back, 'Keep editing', () => end(false));
       button(ui.go, saveLabel(saves.length, rows.length - saves.length), next);
       ui.go.className = 'pb-btn pb-btn--ok';
