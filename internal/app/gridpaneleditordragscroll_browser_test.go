@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// A row drag held near the bottom edge of a Grid list scrolls the list to its end, and the big scroll bar moves with it. A
+// A row drag held near the bottom edge of a Grid list scrolls the list to its end. The big scroll bar moves with it. A
 // drop there puts the row at the end. The same works up to the top, and the scroll stops with the drag.
 func TestChromeGridPanelEditorDragScroll(t *testing.T) {
 	b := startBrowser(t)
