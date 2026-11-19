@@ -61,7 +61,7 @@ func (a *App) countPollMu(cur namePoll) (check func(), fault bool) {
 	a.router.faultSeen = false
 	noteRenamed(&a.router.renamedTo, *base, cur)
 	prev := a.router.lastPoll
-	a.router.lastPoll = &cur
+	a.router.lastPoll = &namePoll{maps.Clone(cur.src), maps.Clone(cur.dst)} // flush can hand cur on as the live names
 	if prev == nil || a.setupPending() {
 		return nil, false
 	}

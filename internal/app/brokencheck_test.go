@@ -75,6 +75,25 @@ func TestBrokenNeedsTwoPolls(t *testing.T) {
 	}
 }
 
+// The counted read is the base of the next check, so a later write to the live names must not reach it.
+func TestCountedPollIsACopy(t *testing.T) {
+	a := brokenApp(t)
+	cur := namePoll{map[int]string{}, map[int]string{}}
+	for i := range checkSrcs {
+		cur.src[i], cur.dst[i] = checkSrcs[i], checkDsts[i]
+	}
+	a.mu.Lock()
+	if _, fault := a.countPollMu(cur); fault {
+		t.Fatal("read taken for a fault")
+	}
+	cur.src[0] = "changed"
+	got := a.router.lastPoll.src[0]
+	a.mu.Unlock()
+	if got != "CAM 1" {
+		t.Fatalf("counted read changed to %q", got)
+	}
+}
+
 func TestBrokenIgnoresPollWithMostNamesBlank(t *testing.T) {
 	a := brokenApp(t)
 	blank := []string{"", "", "", ""}
