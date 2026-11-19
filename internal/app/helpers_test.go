@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -28,21 +27,6 @@ func (a *App) ApplyConfig(c config.Config) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	return a.applyConfig(func(cur *config.Config) error { *cur = c; return nil })
-}
-
-// adminClient is a connection signed in as Ada (withAdministrator), or a Guest on an app with
-// no users, where every browser acts as an Administrator.
-func adminClient(t *testing.T, a *App) *client {
-	t.Helper()
-	c := &client{ip: "10.0.0.9"}
-	if len(a.r().cfg.Users) == 0 {
-		return c
-	}
-	if err := a.UserUnlockAs(c, "Ada", "2468"); err != nil {
-		t.Fatal(err)
-	}
-	grantRecheck(a, c)
-	return c
 }
 
 func (a *App) UserLock(c *client) { a.setHeld(c, true) }

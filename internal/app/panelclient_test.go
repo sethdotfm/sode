@@ -11,16 +11,6 @@ import (
 
 // REST seam for a panel's own API client (ADR 0006): Cy is Trusted with narrow Rights, Ana is not.
 
-func clientApp(t *testing.T) (*App, *fakeRouter) {
-	t.Helper()
-	return apiTestApp(t, func(c *config.Config) {
-		cy := mkUser(t, "Cy", "4321")
-		cy.Role = config.RoleTrusted
-		cy.Rights = config.Rights{Sources: nums(1, 2, 3), Dsts: nums(2, 4)}
-		c.Users = append(c.Users, cy)
-	})
-}
-
 const apiPanel = `{"name":"Wall","acts":"api"`
 
 func clientOf(t *testing.T, a *App, name string) (config.APIClient, bool) {

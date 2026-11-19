@@ -9,49 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// keyTestApp: users Ana (1234) and Bo (567890), an API client PanelsBot, the Administrator Ada (2468).
-func keyTestApp(t *testing.T) *App {
-	t.Helper()
-	a := userApp(t, false)
-	cfg := a.r().cfg.Clone()
-	cfg.APIClients = []config.APIClient{{Name: "PanelsBot", Scopes: []string{config.ScopeTake}}}
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
-	return a
-}
-
-func signedIn(t *testing.T, a *App, ip, pin string) (*client, func() []map[string]any) {
-	t.Helper()
-	c := &client{ip: ip}
-	next := registerAll(a, c)
-	if err := a.UserUnlock(c, pin); err != nil {
-		t.Fatal(err)
-	}
-	return c, next
-}
-
-// registerAll is register but keeps every message type.
-func registerAll(a *App, c *client) func() []map[string]any {
-	a.mu.Lock()
-	c.send = make(chan []byte, 64)
-	a.clients[c] = struct{}{}
-	a.mu.Unlock()
-	return func() []map[string]any {
-		var out []map[string]any
-		for {
-			select {
-			case b := <-c.send:
-				var m map[string]any
-				json.Unmarshal(b, &m)
-				out = append(out, m)
-			default:
-				return out
-			}
-		}
-	}
-}
-
 // send runs a message the way the read loop does and returns the reply of type want.
 func send(t *testing.T, a *App, c *client, next func() []map[string]any, m inMsg, want string) map[string]any {
 	t.Helper()

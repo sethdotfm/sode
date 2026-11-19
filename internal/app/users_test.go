@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -16,56 +14,6 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 )
-
-func mkUser(t *testing.T, name, pin string) config.User {
-	t.Helper()
-	h, err := config.HashPin(pin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return config.User{Name: name, Pin: h, Len: len(pin)}
-}
-
-// The app saves tokens.json off the lock, so a save can land when the test ends.
-// A plain RemoveAll then fails with "directory not empty".
-func settledTempDir(t *testing.T) string {
-	t.Helper()
-	dir, err := os.MkdirTemp("", "sode-test-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		for i := 0; i < 50; i++ {
-			if os.RemoveAll(dir) == nil {
-				return
-			}
-			time.Sleep(20 * time.Millisecond)
-		}
-	})
-	return dir
-}
-
-// userApp is an app with Standard users Ana (1234) and Bo (567890), the Administrator Ada
-// (2468) and, if locks, the main and log locks on.
-func userApp(t *testing.T, locks bool) *App {
-	t.Helper()
-	cfgPath := filepath.Join(settledTempDir(t), "config.yaml")
-	cfg := config.Defaults()
-	cfg.Normalize()
-	cfg.Users = []config.User{mkUser(t, "Ana", "1234"), mkUser(t, "Bo", "567890")}
-	withAdministrator(&cfg)
-	cfg.Locks = config.Locks{Main: locks, Log: locks}
-	hist, _ := OpenHistory("")
-	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a, err := New(cfg, cfgPath, hist, sl, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return a
-}
 
 func TestUsersConfigValidation(t *testing.T) {
 	good := mkUser(t, "Ana", "1234")

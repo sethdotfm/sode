@@ -17,30 +17,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The PIN hash stays.
-func setFlags(t *testing.T, a *App, name string, trusted, persistent bool) {
-	t.Helper()
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	_, nr, err := a.update(func(cfg *config.Config) error {
-		for i := range cfg.Users {
-			if cfg.Users[i].Name == name {
-				cfg.Users[i].Role, cfg.Users[i].Persistent = config.RoleStandard, persistent
-				if trusted {
-					cfg.Users[i].Role = config.RoleTrusted
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	a.mu.Lock()
-	a.rt.Store(nr)
-	a.mu.Unlock()
-}
-
 // admitMsg runs a message through the same two steps as the read loop.
 func admitMsg(a *App, c *client, m inMsg) error {
 	return a.admit(c, policy[m.T].forMsg(&m))

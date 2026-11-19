@@ -9,24 +9,6 @@ import (
 
 // Users without a PIN (GLOSSARY.md) and PIN needed. Seam: the App's messages and the REST API.
 
-// noPinApp: apiTestApp plus Cy, a Standard user an Administrator saved with no PIN.
-func noPinApp(t *testing.T) (*App, *fakeRouter) {
-	t.Helper()
-	a, f := apiTestApp(t, nil)
-	mustSave(t, a, adminClient(t, a), map[string]any{"user/new:0/add": newUser{Name: "Cy"}})
-	return a, f
-}
-
-func signInNoPin(t *testing.T, a *App, ip, name string) (*client, func() []map[string]any) {
-	t.Helper()
-	c := &client{ip: ip}
-	next := registerAll(a, c)
-	if err := a.UserUnlockAs(c, name, ""); err != nil {
-		t.Fatal(err)
-	}
-	return c, next
-}
-
 func setGuest(t *testing.T, a *App, role string, rights config.Rights) {
 	t.Helper()
 	cfg := a.r().cfg.Clone()

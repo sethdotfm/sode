@@ -3,8 +3,6 @@ package app
 import (
 	"errors"
 	"testing"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Connection states the matrix runs every rule against. A Guest is nobody signed in on an
@@ -23,44 +21,6 @@ const (
 )
 
 var stateNames = [nStates]string{"noAccess", "guest", "guestTrusted", "standard", "trusted", "administrator", "locked", "noUsers", "noPin"}
-
-func stateClient(t *testing.T, st int) (*App, *client) {
-	t.Helper()
-	if st == stNoUsers {
-		return newTestApp(t), &client{ip: "10.0.0.1"}
-	}
-	a := userApp(t, st == stNoAccess || st == stLocked)
-	c := &client{ip: "10.0.0.1"}
-	switch st {
-	case stGuestTrusted:
-		cfg := a.r().cfg.Clone()
-		cfg.GuestRole = config.RoleTrusted
-		if err := a.ApplyConfig(cfg); err != nil {
-			t.Fatal(err)
-		}
-	case stTrusted:
-		setFlags(t, a, "Ana", true, false)
-	case stNoPin:
-		cfg := a.r().cfg.Clone()
-		cfg.Users = append(cfg.Users, config.User{Name: "Cy", Role: config.RoleAdministrator, PinNeeded: true})
-		if err := a.ApplyConfig(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if err := a.UserUnlockAs(c, "Cy", ""); err != nil {
-			t.Fatal(err)
-		}
-	}
-	pin := map[int]string{stStandard: "1234", stTrusted: "1234", stAdmin: "2468", stLocked: "2468"}[st]
-	if pin != "" {
-		if err := a.UserUnlock(c, pin); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if st == stLocked {
-		a.UserLock(c)
-	}
-	return a, c
-}
 
 var (
 	pl = errPageLocked

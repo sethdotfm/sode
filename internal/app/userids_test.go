@@ -7,11 +7,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-func idOf(a *App, name string) string {
-	u, _ := a.r().cfg.FindUserByName(name)
-	return u.ID
-}
-
 // ownerOf is the key owner for the user named name; a missing user gives an owner nobody is.
 func ownerOf(a *App, name string) keyOwner {
 	if u, ok := a.r().cfg.FindUserByName(name); ok {

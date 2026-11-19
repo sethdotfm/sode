@@ -72,15 +72,6 @@ func (p *wsPeer) applyPreset(id int, key string, ticked ...string) map[string]an
 	return p.ask("settingsSave", id, map[string]any{"fields": fields, "accessPreset": view.Name})
 }
 
-func setUsers(t *testing.T, a *App, fn func(*config.Config)) {
-	t.Helper()
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	if err := a.applyConfig(func(c *config.Config) error { fn(c); return nil }); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestApplySecuredAccessNeedsOneRecheck(t *testing.T) {
 	a := userApp(t, false)
 	defer startLog(t, a)()

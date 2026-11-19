@@ -11,15 +11,6 @@ import (
 
 const takeOne = `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`
 
-// ownClientApp: Ana is a Standard user with sources 1-2 and destination 2, signed in.
-func ownClientApp(t *testing.T) (*App, *fakeRouter, *client, func() []map[string]any) {
-	t.Helper()
-	a, f := apiTestApp(t, nil)
-	setRights(t, a, "Ana", config.Rights{Sources: nums(1, 2), Dsts: nums(2)})
-	c, next := signedIn(t, a, "10.0.0.1", "1234")
-	return a, f, c, next
-}
-
 func saveOwn(t *testing.T, a *App, c *client, next func() []map[string]any, cl myClientReq) map[string]any {
 	t.Helper()
 	return send(t, a, c, next, inMsg{T: "myClientSave", ID: 1, MyClient: &cl}, "myClientSaveResult")

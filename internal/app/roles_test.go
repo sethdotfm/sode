@@ -15,19 +15,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-func setRole(t *testing.T, a *App, name, role string) {
-	t.Helper()
-	cfg := a.r().cfg.Clone()
-	for i := range cfg.Users {
-		if cfg.Users[i].Name == name {
-			cfg.Users[i].Role = role
-		}
-	}
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
-}
-
 type wsPeer struct {
 	t     *testing.T
 	ctx   context.Context

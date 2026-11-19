@@ -4,48 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
 )
-
-// newTestApp has no users, so every browser acts as an Administrator. Pass withAdministrator
-// for an app where Roles apply.
-func newTestApp(t *testing.T, opts ...func(*config.Config)) *App {
-	t.Helper()
-	h, _ := OpenHistory("")
-	cfg := config.Defaults()
-	cfg.Levels = 3
-	for _, o := range opts {
-		o(&cfg)
-	}
-	cfg.Normalize()
-	a, err := New(cfg, "", h, nil, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	shortTimers(a)
-	return a
-}
-
-// withAdministrator seeds Ada, an Administrator with PIN 2468.
-func withAdministrator(cfg *config.Config) {
-	h, err := config.HashPin("2468")
-	if err != nil {
-		panic(err)
-	}
-	cfg.Users = append(cfg.Users, config.User{Name: "Ada", Pin: h, Len: 4, Role: config.RoleAdministrator})
-}
-
-// shortTimers keeps tests that wait on an unanswered router fast. queueMax stays well above
-// the others so a held reply still counts as queued, not lost.
-func shortTimers(a *App) {
-	a.checkTimeout = 40 * time.Millisecond
-	a.routeTimeout = 40 * time.Millisecond
-	a.routeGrace = 40 * time.Millisecond
-	a.queueMax = 500 * time.Millisecond
-	a.drainLimit = 2 * time.Second
-	a.pinFirstWait = 20 * time.Millisecond
-}
 
 // endBurst makes the pending burst old enough to be written.
 func endBurst(a *App) {
