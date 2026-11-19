@@ -292,7 +292,7 @@ func (s *panelStore) bySlug(slug string) (Panel, bool) {
 // one, so a copy returned by get stays valid. Never call with App.mu held: changes write files.
 type panelStore struct {
 	yamlDir[Panel]
-	art   map[string][]byte // memory only: "<id>/<artID>"
+	art   blobDir // "<id>.art/<artID>" under the panels folder
 	probs []string
 	// skipped holds ids of panel files on disk that failed to load; dirFailed is set when the
 	// folder itself could not be read. Startup keeps their clients (dropOrphanPanelClients).
@@ -305,7 +305,7 @@ type panelStore struct {
 // loadPanels runs one time, from New. A missing folder is empty. A file that does not parse, or
 // whose id differs from its name, is logged, kept in problems and skipped.
 func loadPanels(cfgPath string) *panelStore {
-	s := &panelStore{art: map[string][]byte{}, skipped: map[string]bool{}, sets: loadPanelSets(cfgPath)}
+	s := &panelStore{skipped: map[string]bool{}, sets: loadPanelSets(cfgPath)}
 	s.by = map[string]Panel{}
 	s.prefix = "p-"
 	s.idOf = func(p *Panel) *string { return &p.ID }
@@ -315,6 +315,7 @@ func loadPanels(cfgPath string) *panelStore {
 		return s
 	}
 	s.dir = filepath.Join(filepath.Dir(cfgPath), panelsDir)
+	s.art.dir = s.dir
 	slugSeen := map[string]bool{}
 	err := s.loadDir(s.dir, func(path, id string, b []byte, err error) (Panel, bool) {
 		var p Panel
@@ -536,12 +537,9 @@ func (s *panelStore) moveOwners(to map[string]string) (int, error) {
 }
 
 func (s *panelStore) delete(id string) (bool, error) {
-	return s.remove(id, func(p Panel) {
-		if s.dir != "" && panelIDRe.MatchString(id) { // as dropCheckpoints
-			os.RemoveAll(filepath.Join(s.dir, id+".art"))
-		}
-		for _, a := range p.Art {
-			delete(s.art, id+"/"+a.ID)
+	return s.remove(id, func(Panel) {
+		if panelIDRe.MatchString(id) { // as dropCheckpoints
+			s.art.delPrefix(id + ".art")
 		}
 		s.dropCheckpoints(id)
 	})

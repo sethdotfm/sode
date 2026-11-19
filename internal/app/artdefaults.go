@@ -107,18 +107,19 @@ type artDefaultsFileData struct {
 
 // Values handed out are copies. Every change writes the file before memory moves.
 type artDefaultStore struct {
-	mu   sync.Mutex
-	path string // "" = memory only
-	data artDefaultsFileData
-	mem  map[string][]byte // image bytes when memory only
+	mu     sync.Mutex
+	path   string // "" = memory only
+	data   artDefaultsFileData
+	images blobDir // named by image id
 }
 
 func loadArtDefaults(cfgPath string) *artDefaultStore {
-	s := &artDefaultStore{mem: map[string][]byte{}}
+	s := &artDefaultStore{}
 	if cfgPath == "" {
 		return s
 	}
 	s.path = filepath.Join(filepath.Dir(cfgPath), artDefaultsFile)
+	s.images.dir = filepath.Join(filepath.Dir(cfgPath), artDefaultsDir)
 	b, err := os.ReadFile(s.path)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -165,8 +166,6 @@ func (s *artDefaultStore) list() []ArtDefault {
 	return slices.Clone(s.data.Defaults)
 }
 
-func (s *artDefaultStore) imgDir() string { return filepath.Join(filepath.Dir(s.path), artDefaultsDir) }
-
 func (s *artDefaultStore) writeLocked(next artDefaultsFileData) error {
 	next.Rev = s.data.Rev + 1
 	used := map[string]bool{}
@@ -192,7 +191,7 @@ func (s *artDefaultStore) writeLocked(next artDefaultsFileData) error {
 	}
 	s.data = next
 	for _, id := range gone {
-		s.dropImageLocked(id)
+		s.images.del(id)
 	}
 	return nil
 }
@@ -209,32 +208,18 @@ func (s *artDefaultStore) putImageLocked(next *artDefaultsFileData, data []byte,
 		if !slices.ContainsFunc(next.Images, func(im PanelArt) bool { return im.ID == id }) {
 			break
 		}
-		if b, ok := s.imageLocked(id); ok && bytes.Equal(b, data) {
+		if b, ok := s.images.get(id); ok && bytes.Equal(b, data) {
 			return id, false, nil
 		}
 	}
 	if artBytes(Panel{Art: next.Images})+len(data) > panelArtTotal {
 		return "", false, errArtDefaultsCap
 	}
-	if s.path != "" {
-		if err := os.MkdirAll(s.imgDir(), 0o700); err != nil {
-			return "", false, err
-		}
-		if err := config.AtomicWrite(filepath.Join(s.imgDir(), id), data); err != nil {
-			return "", false, err
-		}
-	} else {
-		s.mem[id] = data
+	if err := s.images.put(id, data); err != nil {
+		return "", false, err
 	}
 	next.Images = append(next.Images, PanelArt{ID: id, Type: typ, Size: len(data)})
 	return id, true, nil
-}
-
-func (s *artDefaultStore) dropImageLocked(id string) {
-	if s.path != "" {
-		os.Remove(filepath.Join(s.imgDir(), id))
-	}
-	delete(s.mem, id)
 }
 
 // The bytes already passed checkArtBytes.
@@ -270,7 +255,7 @@ func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 	}
 	err := s.writeLocked(next)
 	if err != nil && added {
-		s.dropImageLocked(d.Art)
+		s.images.del(d.Art)
 	}
 	return d, err
 }
@@ -300,17 +285,8 @@ func (s *artDefaultStore) image(id string) ([]byte, PanelArt, bool) {
 	if i < 0 || !artDefaultIDRe.MatchString(id) {
 		return nil, PanelArt{}, false
 	}
-	b, ok := s.imageLocked(id)
+	b, ok := s.images.get(id)
 	return b, s.data.Images[i], ok
-}
-
-func (s *artDefaultStore) imageLocked(id string) ([]byte, bool) {
-	if s.path == "" {
-		b, ok := s.mem[id]
-		return b, ok
-	}
-	b, err := os.ReadFile(filepath.Join(s.imgDir(), id))
-	return b, err == nil
 }
 
 // A default whose number is gone stays.

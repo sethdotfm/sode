@@ -10,11 +10,7 @@ import (
 	"image"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"slices"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
 func artBytes(p Panel) int {
@@ -25,9 +21,7 @@ func artBytes(p Panel) int {
 	return n
 }
 
-func (s *panelStore) artPath(id, art string) string {
-	return filepath.Join(s.dir, id+".art", art)
-}
+func artName(id, art string) string { return id + ".art/" + art }
 
 // data is already type-checked.
 func (s *panelStore) addArt(id string, data []byte, typ string) (PanelArt, bool, error) {
@@ -43,15 +37,8 @@ func (s *panelStore) addArt(id string, data []byte, typ string) (PanelArt, bool,
 	b := make([]byte, 4)
 	rand.Read(b)
 	art := PanelArt{ID: "a-" + hex.EncodeToString(b), Type: typ, Size: len(data)}
-	if s.dir != "" {
-		if err := os.MkdirAll(filepath.Join(s.dir, id+".art"), 0o700); err != nil {
-			return PanelArt{}, true, err
-		}
-		if err := config.AtomicWrite(s.artPath(id, art.ID), data); err != nil {
-			return PanelArt{}, true, err
-		}
-	} else {
-		s.art[id+"/"+art.ID] = data
+	if err := s.art.put(artName(id, art.ID), data); err != nil {
+		return PanelArt{}, true, err
 	}
 	p.Art = append(slices.Clone(p.Art), art)
 	if err := s.writeLocked(&p); err != nil {
@@ -72,12 +59,8 @@ func (s *panelStore) artData(id, art string) ([]byte, PanelArt, bool) {
 	if i < 0 {
 		return nil, PanelArt{}, false
 	}
-	if s.dir == "" {
-		b, ok := s.art[id+"/"+art]
-		return b, p.Art[i], ok
-	}
-	b, err := os.ReadFile(s.artPath(id, art))
-	return b, p.Art[i], err == nil
+	b, ok := s.art.get(artName(id, art))
+	return b, p.Art[i], ok
 }
 
 func (s *panelStore) delArt(id, art string) (bool, error) {
@@ -96,10 +79,7 @@ func (s *panelStore) delArt(id, art string) (bool, error) {
 		return true, err
 	}
 	s.by[id] = p
-	if s.dir != "" {
-		os.Remove(s.artPath(id, art))
-	}
-	delete(s.art, id+"/"+art)
+	s.art.del(artName(id, art))
 	return true, nil
 }
 
@@ -141,12 +121,8 @@ func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) bool {
 	if artBytes(p)+art.Size > panelArtTotal {
 		return false
 	}
-	if s.dir != "" {
-		if os.MkdirAll(filepath.Join(s.dir, id+".art"), 0o700) != nil || config.AtomicWrite(s.artPath(id, art.ID), data) != nil {
-			return false
-		}
-	} else {
-		s.art[id+"/"+art.ID] = data
+	if s.art.put(artName(id, art.ID), data) != nil {
+		return false
 	}
 	p.Art = append(slices.Clone(p.Art), art)
 	if s.writeLocked(&p) != nil {
