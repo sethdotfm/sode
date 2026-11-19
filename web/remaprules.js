@@ -121,3 +121,33 @@ export function usedBy(r) {
   if (r.users) parts.push(count(r.users, 'user'));
   return parts.length ? `used by ${parts.join(', ')}` : '';
 }
+
+// The bulk buttons. keys: the selected rows, or none for every row that needs a choice. suggest: Use all
+// suggestions. keepBlank: Keep numbers for all blank names. skip: Reset to Skip.
+export function bulk(rows, choices, action, keys) {
+  const on = rows.filter((r) => r.state !== 'as-is' && (keys?.size ? keys.has(r.key) : needsChoice(r)));
+  for (const r of on) {
+    if (action === 'skip') choices[r.key] = [];
+    else if (action === 'suggest' && r.suggestion !== undefined) choices[r.key] = [r.suggestion];
+    else if (action === 'keepBlank' && r.state === 'blank') choices[r.key] = [r.n];
+  }
+}
+
+// A picker value (skip, keep, suggest, all, n:<number>) on one row. With that row selected it goes to every
+// selected row where it means something: Keep number on blank rows, a suggestion or Add both where the row has
+// one, a number on rows of the same kind.
+export function applyChoice(rows, choices, key, value, keys) {
+  const row = rows.find((r) => r.key === key);
+  if (!row) return;
+  const on = keys?.has(key) ? rows.filter((r) => r.state !== 'as-is' && keys.has(r.key)) : [row];
+  for (const r of on) {
+    if (value === 'skip') choices[r.key] = [];
+    else if (value === 'keep') {
+      if (r.state === 'blank') choices[r.key] = [r.n];
+    } else if (value === 'suggest') {
+      if (r.suggestion !== undefined) choices[r.key] = [r.suggestion];
+    } else if (value === 'all') {
+      if (r.addBoth) choices[r.key] = [...r.candidates];
+    } else if (value.startsWith('n:') && r.kind === row.kind) choices[r.key] = [+value.slice(2)];
+  }
+}
