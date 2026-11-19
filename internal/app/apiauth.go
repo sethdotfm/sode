@@ -79,8 +79,9 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 		}
 		if found {
 			cl = a.resolveKey(cfg, k, ip)
-			if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.User, cfg) {
-				cl = nil // its session ended; endSessionKeys has not yet swept the record
+			// A session that ended (endSessionKeys has not yet swept the record) or is under the Lock.
+			if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && (!a.tokens.live(sess, k.Owner.User, cfg) || a.tokens.lockedHash(sess)) {
+				cl = nil
 			}
 			ended = cl == nil
 		} else if !expired {

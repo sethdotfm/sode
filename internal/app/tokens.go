@@ -240,9 +240,13 @@ func (s *tokenStore) locked(t string) bool {
 	if t == "" {
 		return false
 	}
+	return s.lockedHash(tokenKey(t))
+}
+
+func (s *tokenStore) lockedHash(hash string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.toks[tokenKey(t)].Locked
+	return s.toks[hash].Locked
 }
 
 // setLocked changes the flag in memory only, cheap enough under App.mu; save writes it. A token the store does not
