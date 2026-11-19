@@ -11,7 +11,9 @@ import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, sessionNote, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail, publicFetch, withoutKey } from './panelkeyrules.js';
-import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen, keepLinkKey, followAssign } from './panelsetup.js';
+import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen, keepLinkKey, followAssign, markBack } from './panelsetup.js';
+import { backWaitMs } from './panelbackrules.js';
+import { showStopped } from './panelstopped.js';
 import { buttonsBody } from './panelbuttons.js';
 import { gridBody } from './gridpanelrun.js';
 import { isGridPanel } from './gridpaneledges.js';
@@ -82,18 +84,34 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     body?.stop();
     art?.revoke();
     unannounce();
+    clearTimeout(backTimer);
   };
   // lock.js drops the page lock's PIN pad for a Public panel, never for the editor's live test.
   const tellLock = (on) => embedded || emit('publicPanel', { on });
+  // A public line: it is possible that the panel is Public again. After a random wait the page reloads and asks one time at open, a
+  // marked ask. Refused, it is a keyless page again and waits for the next line.
+  let backTimer = 0;
+  const comeBack = () => {
+    if (backTimer) return;
+    backTimer = setTimeout(() => {
+      markBack(seg);
+      location.reload();
+    }, backWaitMs());
+  };
   const announce = (keyEnded) => {
     if (embedded || (keyless && keyless.keyEnded === keyEnded)) return;
     unannounce();
     keyless = {
       keyEnded,
-      ...announceKeyless(seg, keyEnded, (msg) => {
-        run.stop();
-        followAssign(msg);
-      }),
+      ...announceKeyless(
+        seg,
+        keyEnded,
+        (msg) => {
+          run.stop();
+          followAssign(msg);
+        },
+        comeBack,
+      ),
     };
   };
   const endedCode = (code) => code === 'key_revoked' || code === 'key_expired';
@@ -322,7 +340,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       ready = !off;
       say(ui.note, '');
     } catch (e) {
-      const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key && !keyIsPublic);
+      const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key && !keyIsPublic, keyIsPublic);
       say(ui.note, f.text);
       if (!f.stop) {
         ready = false;
@@ -342,6 +360,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
         keep?.stop();
         // Only the keyless announcement, which carries no key.
         if (e.status === 401) announce(endedCode(e.code));
+        if (e.status === 401 && keyIsPublic) showStopped(ui);
       }
     }
     polling = false;

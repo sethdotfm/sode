@@ -88,6 +88,7 @@ func (in *monInst) live(now time.Time) bool { return now.Sub(in.seen) <= in.limi
 type monConn struct {
 	cancel context.CancelFunc
 	out    chan lastLine
+	pub    chan struct{} // keyless streams only: a public line, which does not end the stream (publicback.go)
 }
 
 // lastLine is a stream's last line. got (buffered 1) answers whether the handler wrote it, false when the
@@ -456,7 +457,7 @@ func (m *panelMon) openStream(id, device string, who streamWho, cancel context.C
 	in.next++
 	n := in.next
 	out := make(chan lastLine, 1)
-	in.conns[n] = monConn{cancel, out}
+	in.conns[n] = monConn{cancel: cancel, out: out}
 	in.streamed = true
 	closeFn := func() {
 		m.mu.Lock()

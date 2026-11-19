@@ -189,9 +189,10 @@ export function assignNameProblem(text, clashed) {
   return '';
 }
 
-// The Open now row's rename control (POST /api/v1/panels/{id}/instances/rename). It is '' for none, since only a Sode
-// panel page (page) hears the name. It is 'offline' when its stream is gone and nothing would hear it.
-export const renameState = (i) => (!i?.page ? '' : i.stream ? 'ready' : 'offline');
+// The Open now row's rename control (POST /api/v1/panels/{id}/instances/rename), for an instance or a keyless page.
+// It is '' for none, since only a Sode panel page (page) hears the name. It is 'offline' when its stream is gone and
+// nothing would hear it.
+export const renameState = (i) => (!i?.page && !i?.keyless ? '' : i.stream ? 'ready' : 'offline');
 
 // A refused rename: the reason to show beside the field, and whether to ask for the Advanced Settings PIN.
 export const renameRefusal = (err) => ({ why: err?.message || '', pin: pinNeeded(err?.status, err?.code) });

@@ -87,6 +87,7 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	var in struct {
 		Instance string `json:"instance"`
+		Keyless  string `json:"keyless"` // a keyless page's id, in place of instance
 		Name     string `json:"name"`
 		Pin      string `json:"pin"`
 	}
@@ -95,6 +96,10 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	device, name := cleanDevice(in.Instance), instanceName(strings.TrimSpace(in.Name))
+	if in.Keyless != "" && name != "" {
+		a.renameKeyless(w, r, cl, in.Keyless, name)
+		return
+	}
 	if device == "" || name == "" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "name the instance in instance and its new name in name")
 		return
@@ -150,6 +155,40 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	a.mon.followRename(p.ID, old, name)
-	a.apiEvent(cl.Actor, "rename", "ok", panelTag(p, old)+" to "+name, nil)
+	a.apiEvent(cl.Actor, "rename", "ok", panelTag(p, old)+" to "+name+atAddr(a.mon.streamAddr(p.ID, old)), nil)
 	apiJSON(w, map[string]any{"panel": p.ID, "from": old, "instance": name})
+}
+
+// streamAddr is the address of the device's last stream, for a Log row.
+func (m *panelMon) streamAddr(id, device string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if in := m.inst[id][strings.ToLower(device)]; in != nil {
+		return in.who.addr
+	}
+	return ""
+}
+
+// renameKeyless names a keyless page. It has no key and no watch, so the name only goes down its streams and the
+// page keeps it in its own browser. A Trusted user, as for an Assign; a name clash waits for the Assign.
+func (a *App) renameKeyless(w http.ResponseWriter, r *http.Request, cl *apiCtx, kid, name string) {
+	if err := a.mayEveryone(cl, renameMsg); err != nil {
+		failWith(w, err)
+		return
+	}
+	p, ok := a.panels.get(r.PathValue("id"))
+	if !ok || !validPanelID(p.ID) {
+		apiFail(w, http.StatusNotFound, "not_found", "no panel "+r.PathValue("id"))
+		return
+	}
+	line, _ := json.Marshal(renameLine{T: "rename", Instance: name})
+	sent := a.mon.lineToKeyless(kid, refsOf(p), line)
+	if len(sent) == 0 {
+		apiFail(w, http.StatusConflict, "offline", "Offline: that page holds no stream now, so it cannot be told a new name")
+		return
+	}
+	// The page opens again under the new name, which is a new entry.
+	a.mon.dropKeyless(kid)
+	a.apiEvent(cl.Actor, "rename", "ok", panelTag(p, sent[0].device)+" to "+name+", keyless"+atAddr(sent[0].addr), nil)
+	apiJSON(w, map[string]any{"panel": p.ID, "from": sent[0].device, "instance": name})
 }

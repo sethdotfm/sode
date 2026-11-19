@@ -278,6 +278,12 @@ body {
   pointer-events: none;
   user-select: none;
 }
+/* A Public page that stopped (panelstopped.js): the grid stays, inert and greyed, under its status. */
+.sode-panels--stopped .sode-panel__grid,
+.sode-panels--stopped .sode-gridpanel__levels {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
 .sode-panel__offline {
   align-items: center;
   background-color: color-mix(in oklab, var(--pb-surface-base) 55%, transparent);

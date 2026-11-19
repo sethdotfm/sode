@@ -197,6 +197,8 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	how := ""
 	if addr != "" {
 		how = ", keyless from " + addr
+	} else {
+		how = atAddr(a.mon.streamAddr(from.ID, name))
 	}
 	done := func(note string) {
 		if in.Keyless != "" {
