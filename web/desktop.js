@@ -55,7 +55,8 @@ for (const k of ['src', 'dst']) {
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onChange: () => renderTally() });
 
-const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
+const active = () =>
+  layout() === 'desktop' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
 
 // ---- connection
 

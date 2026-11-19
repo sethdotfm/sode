@@ -383,6 +383,8 @@ type inMsg struct {
 	MyClient   *myClientReq         `json:"client"`   // myClientSave
 	Approval   *approvalReq         `json:"approval"` // an Approval in person for this one message
 	approver   *config.User         // set by approve once the Approval's PIN is checked
+	Router     string               `json:"router"` // setupRouter: the address typed
+	Setup      *setupReq            `json:"setup"`  // setupFinish
 }
 
 func plural(n int, one, many string) string {

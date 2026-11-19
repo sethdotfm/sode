@@ -6,9 +6,10 @@ import { chord, mac } from './keys.js';
 import { fire, fillBoxes, presetShown } from './presets.js';
 import { pinnedPresets } from './presetstore.js';
 
-// Modal, Settings, lock screen, phone sheet or pick bar (html[data-sode-pick]) over the page.
+// Modal, Settings, setup wizard, lock screen, phone sheet or pick bar (html[data-sode-pick]) over the page.
 const blocked = () =>
   document.documentElement.dataset.view === 'settings' ||
+  document.documentElement.hasAttribute('data-sode-setup') ||
   'sodePick' in document.documentElement.dataset ||
   !!document.querySelector('.pb-modal-backdrop:not([hidden]), .sode-lock.is-on, #m-sheet:not([hidden])');
 

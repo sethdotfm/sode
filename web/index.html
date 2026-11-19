@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="mobile.css">
 <link rel="stylesheet" href="history.css">
 <link rel="stylesheet" href="touch.css">
+<link rel="stylesheet" href="setup.css">
 </head>
 <body>
 
@@ -36,6 +37,25 @@
       <p>Sode has users but no Administrator, so it refuses every Administrator action. On the machine that runs Sode, in the directory with its <code>docker-compose.yml</code>, run this command. It asks for a new PIN.</p>
       <pre><code>docker compose exec sode /sode -make-administrator "NAME" &amp;&amp; docker compose restart sode</code></pre>
       <p>Replace NAME with the name of a user. A new name adds a user, if Sode has fewer than 12.</p>
+    </div>
+  </div>
+
+  <!-- The setup wizard (setupwizard.js): a config file with no users. html[data-sode-setup] hides the rest. -->
+  <div class="sode-setup" id="setup" hidden>
+    <h1 class="sode__mark">Sode</h1>
+    <ol class="sode-setup__steps" id="setup-steps" aria-label="Setup steps"></ol>
+    <div class="sode-setup__phone" id="setup-phone" hidden></div>
+    <div class="pb-modal sode-setup__dialog" id="setup-dialog" role="dialog" aria-labelledby="setup-title">
+      <div class="pb-modal__header"><h2 class="pb-modal__title" id="setup-title"></h2></div>
+      <div class="pb-modal__body" id="setup-body"></div>
+      <div class="pb-modal__footer" id="setup-foot">
+        <button type="button" class="pb-btn pb-btn--outline" id="setup-back">Back</button>
+        <!-- Restore from a backup is wired by the import ticket; until then it is off. -->
+        <button type="button" class="pb-btn pb-btn--outline" id="setup-restore" disabled>Restore from a backup</button>
+        <span class="pb-grow"></span>
+        <span class="sode-setup__err" id="setup-err" role="alert"></span>
+        <button type="button" class="pb-btn pb-btn--ok" id="setup-next">Next</button>
+      </div>
     </div>
   </div>
 

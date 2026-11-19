@@ -11,7 +11,7 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
   // Modifier rule: docs/agents/web-layout.md (Keys). Each check excludes the other two modifiers.
   document.addEventListener('keydown', (e) => {
     if (confirm.isOpen()) return confirm.key(e);
-    if (layout() !== 'desktop') return;
+    if (layout() !== 'desktop' || document.documentElement.hasAttribute('data-sode-setup')) return;
     // Ctrl+? toggles the shortcut list anywhere, even mid-typing. Matched by character (any
     // layout) and by the / key, for browsers reporting e.key without Shift under Ctrl.
     if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {

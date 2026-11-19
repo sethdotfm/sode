@@ -40,7 +40,7 @@ func loadConfig(path string) config.Config {
 			if p := c.UnknownKeysProblem(); p != "" {
 				log.Printf("config: %s", p)
 			}
-			log.Printf("config: loaded %s (SODE_* seed variables are ignored once it exists)", path)
+			log.Printf("config: loaded %s (SODE_* variables only fill the setup wizard)", path)
 			return c
 		}
 	}
@@ -60,10 +60,8 @@ func loadConfig(path string) config.Config {
 		log.Printf("config: SODE_CONFIG not set; settings changes will not survive a restart")
 		return c
 	}
-	if err := config.Save(path, c); err != nil {
-		log.Fatalf("config: writing %s: %v", path, err)
-	}
-	log.Printf("config: created %s from environment", path)
+	// The setup wizard's Finish writes the file; SODE_* only fill the wizard.
+	log.Printf("config: no %s yet; open Sode in a browser to run setup", path)
 	return c
 }
 

@@ -8,10 +8,13 @@ frame.setAttribute('aria-hidden', 'true');
 frame.hidden = true;
 document.body.append(frame);
 
-on('helloCfg', (cfg) => {
-  const text = (cfg.brandText || '').trim() || 'Sode';
+on('helloCfg', (cfg) => showBrand(cfg.brandText, cfg.brandBorder));
+
+// showBrand draws a name and colour; the setup wizard calls it as they are typed, before any save.
+export function showBrand(brandText, brandBorder) {
+  const text = (brandText || '').trim() || 'Sode';
   for (const m of document.querySelectorAll('.sode__mark, .sode-m__mark')) m.textContent = text;
-  const color = cfg.brandBorder || '';
+  const color = brandBorder || '';
   setBrand(frame, color);
   frame.hidden = !color;
   // The server draws the tab and home-screen icons in this colour (icon.go).
@@ -20,4 +23,4 @@ on('helloCfg', (cfg) => {
   const touch = document.querySelector('link[rel="apple-touch-icon"]');
   if (touch) touch.href = iconURL(180, color);
   emit('brand', { text, color });
-});
+}

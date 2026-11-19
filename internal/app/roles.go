@@ -36,8 +36,8 @@ func isRoleErr(err error) bool {
 }
 
 // roleMu is the Role c acts with now, read live; "" is none (a held Lock, or a Guest under
-// its page's lock). A config with no users makes every browser an Administrator until the
-// setup wizard ends that for installs with a config file. Caller holds mu.
+// its page's lock). Env-only mode with no users makes every browser an Administrator; with a
+// config file, needRoleMu refuses everything until the setup wizard's Finish. Caller holds mu.
 func (a *App) roleMu(c *client) string {
 	cfg := a.r().cfg
 	switch {
@@ -65,6 +65,9 @@ func (a *App) role(c *client) string {
 func (a *App) needRoleMu(c *client, need string) error {
 	if need == roleAnyone {
 		return nil
+	}
+	if a.setupPending() {
+		return errSetup
 	}
 	switch have := a.roleMu(c); {
 	case have == "":

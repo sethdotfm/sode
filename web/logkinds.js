@@ -54,6 +54,9 @@ export const WHY_LABEL = {
   save: 'Settings saved',
   import: 'Import',
   api: 'Settings saved through the API',
+  setup: 'Setup finished',
+  setupRouter: 'Setup router address',
+  setupFinish: 'Setup finished',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server', 'settings']);
 const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };
