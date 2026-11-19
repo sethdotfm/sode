@@ -45,21 +45,21 @@ type deltaMsg struct {
 
 // helloMsg: every key always sent (none omitempty).
 type helloMsg struct {
-	T             string          `json:"t"` // "hello"
-	Srcs          [][2]any        `json:"srcs"`
-	Dsts          [][2]any        `json:"dsts"`
-	At            time.Time       `json:"at"`
-	SavedAt       time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
-	Tally         json.RawMessage `json:"tally"`            // routeTriples
-	Protect       json.RawMessage `json:"protected"`        // protectRows: [dst, level, device, kind]
+	T       string          `json:"t"` // "hello"
+	Srcs    [][2]any        `json:"srcs"`
+	Dsts    [][2]any        `json:"dsts"`
+	At      time.Time       `json:"at"`
+	SavedAt time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
+	Tally   json.RawMessage `json:"tally"`            // routeTriples
+	Protect json.RawMessage `json:"protected"`        // protectRows: [dst, level, device, kind]
 	// ProtectBy: the Protects in Sode's own record, with who set each (protect.go).
-	ProtectBy []protectBy `json:"protectBy"`
-	Status        statusMsg       `json:"status"`
-	Recent        []Entry         `json:"history"`
-	More          bool            `json:"more"`
-	Levels        []config.Level  `json:"levels"`
-	LevelDefaults []string        `json:"levelDefaults"`
-	Cfg           config.Config   `json:"cfg"`
+	ProtectBy     []protectBy    `json:"protectBy"`
+	Status        statusMsg      `json:"status"`
+	Recent        []Entry        `json:"history"`
+	More          bool           `json:"more"`
+	Levels        []config.Level `json:"levels"`
+	LevelDefaults []string       `json:"levelDefaults"`
+	Cfg           config.Config  `json:"cfg"`
 	// Versions: each one Save field's version (onesave.go); a save sends back the one it loaded.
 	Versions map[string]string `json:"versions"`
 	// Users: the sign-in list. It reaches locked pages, so it holds each name and PIN length (0 for

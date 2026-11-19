@@ -463,6 +463,7 @@ on('names', () => {
   renderTally();
 });
 on('tally', renderTally);
+on('myRights', renderTally); // the route view's Protect follows the Protect right
 // Done (or Cancel) in a pick bar: a match list must not stay open over the page.
 on('pick', () => {
   if (!boxPicking()) for (const k of ['src', 'dst']) boxes[k].cb.close();

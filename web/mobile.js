@@ -470,6 +470,7 @@ on('names', () => {
   if (phone()) renderThread();
 });
 on('tally', () => phone() && renderThread());
+on('myRights', () => phone() && renderThread());
 on('conn', renderConn);
 on('history', () => {
   if (!phone()) return;

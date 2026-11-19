@@ -155,11 +155,11 @@ type App struct {
 type routerState struct {
 	srcNames map[int]string
 	dstNames map[int]string
-	tally    map[int]map[int]int // dst → UI level → src (-1 = nothing routed)
+	tally    map[int]map[int]int      // dst → UI level → src (-1 = nothing routed)
 	protect  map[int]map[int]protHold // dst → UI level → the device and kind (protect.go)
-	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
-	tallyGen int                  // bumped on every tally change; keys App.tallyCache
-	namesGen int                  // bumped on every change to the names or namesAt; keys App.namesCache
+	seenAt   map[[2]int]time.Time     // dst, UI level → when the router last reported its route
+	tallyGen int                      // bumped on every tally change; keys App.tallyCache
+	namesGen int                      // bumped on every change to the names or namesAt; keys App.namesCache
 	pend     []routeChange
 	pendProt []protChange
 

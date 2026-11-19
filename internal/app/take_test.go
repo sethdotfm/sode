@@ -65,8 +65,8 @@ type fakeRouter struct {
 	n      int
 	whys   []sentWhy // every message's reason, in order
 	out    chan []byte
-	salvo  fakeSalvo // group salvos (fire_test.go)
-	dsts   int       // destinations a tally dump answers for; 0 = up to the highest one in tally
+	salvo  fakeSalvo   // group salvos (fire_test.go)
+	dsts   int         // destinations a tally dump answers for; 0 = up to the highest one in tally
 	prot   fakeProtect // Protects (protect_test.go)
 }
 
