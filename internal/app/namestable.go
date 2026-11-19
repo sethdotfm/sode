@@ -28,8 +28,8 @@ type namesTable struct {
 }
 
 type namedItem struct {
-	N    int    `yaml:"n"`
-	Name string `yaml:"name"`
+	N    int    `yaml:"n" json:"n"`
+	Name string `yaml:"name" json:"name"`
 }
 
 func tableList(m map[int]string) []namedItem {

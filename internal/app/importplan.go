@@ -35,6 +35,10 @@ type importReq struct {
 	Pick       map[string][]string          `json:"pick"`
 	Sections   []string                     `json:"sections"`
 	Choices    map[string]map[string]string `json:"choices"`
+	// Routers: file router UID → target UID, "" for none. A file router left out gets its default target.
+	Routers map[string]string `json:"routers,omitempty"`
+	// Names: remapRef key → the target numbers it moves to. Two are Add both (destinations only); none is Skip.
+	Names map[string][]int `json:"names,omitempty"`
 }
 
 // importItem is one file item. Key is what pick and choices take. Users, presets and panels use the hidden
@@ -69,7 +73,8 @@ type importPlan struct {
 	Critical    bool                  `json:"critical"`
 	Categories  map[string]*importCat `json:"categories"`
 	// Deferred: parts of the file this release does not import yet.
-	Deferred []string `json:"deferred,omitempty"`
+	Deferred []string   `json:"deferred,omitempty"`
+	Remap    *remapInfo `json:"remap,omitempty"`
 }
 
 // plannedPanel is a panel write that waits for the config commit. Live is the panel it replaces, if any.
@@ -172,6 +177,7 @@ func planImport(live config.Config, src, dst map[int]string, livePanels []Panel,
 		livePanels: livePanels, users: map[string]string{}, presets: map[string]string{},
 	}
 	p.plan = importPlan{SameInstall: p.same, Categories: map[string]*importCat{}}
+	p.planRemap(src, dst)
 	steps := []struct {
 		cat  string
 		keys []string
