@@ -141,7 +141,7 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	m := bundle.Manifest
 	src, dst := a.liveNames()
-	plan := planImport(a.r().cfg, src, dst, a.importLive(), bundle, req, a.importActor(r).User, secureRequest(r, a.r().proxies), a.cfgPath == "").plan
+	plan := planImport(a.r().cfg, src, dst, a.importLive(), bundle, req, a.importActor(r).User, secureRequest(r, a.r().proxies)).plan
 	sizeImport(&plan, bundle)
 	apiJSON(w, importCheck{Plan: plan, Browser: bundle.Browser,
 		Format: m.Format, Sode: m.Sode, SameInstall: m.Install != "" && m.Install == a.r().cfg.InstallUID,

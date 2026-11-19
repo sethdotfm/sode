@@ -18,6 +18,7 @@ import {
   numberingChoices,
   finishMessage,
   routerLine,
+  envHint,
 } from './setupwizardrules.js';
 
 const root = document.documentElement;
@@ -30,6 +31,7 @@ let seq = 0;
 let sentRouter = ''; // the address the server tries now
 let routerTimer = 0;
 let sheetPresets = []; // the hello's presets, kept: the hello after Finish has none
+let filled = {}; // the hello's setup, for the "Filled from" hints.
 let mode = ''; // '' closed, 'claim' asked the server, 'run' this browser runs setup, 'wait' the wait page.
 let claiming = 0; // the id of the setupClaim with no answer yet.
 let taken = false; // another browser took control from this one.
@@ -37,6 +39,7 @@ let free = false; // the browser that ran setup closed.
 let again = null; // Run setup again (mode 'again'): {finish(d), cancel()} from setupagain.js
 
 const max = () => pinMax(S.cfg || {});
+const hint = (key, ...more) => [...more, envHint(filled, key)].filter(Boolean).join(' ');
 
 // h: el with attributes; a false or null attribute is left out.
 function h(tag, attrs, ...kids) {
@@ -190,14 +193,14 @@ const VIEW = {
     section(
       'Connection',
       '',
-      field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }),
+      field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router')),
       h('div', { id: 'setup-router-status' }, ...statusLine()),
     ),
     section(
       'Levels and numbers',
       '',
-      field('setup-levels', 'Levels', d.levels, { type: 'number', min: '1', max: '256' }),
-      choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), 'How levels are shown and typed.'),
+      field('setup-levels', 'Levels', d.levels, { type: 'number', min: '1', max: '256' }, hint('levels')),
+      choice('levelNumbering', 'Level numbering', numberingChoices(d.levels), hint('levelNumbering', 'How levels are shown and typed.')),
       choice(
         'numberOffset',
         'Source and destination numbers',
@@ -205,22 +208,38 @@ const VIEW = {
           ['1', 'Start at 1'],
           ['0', 'Start at 0'],
         ],
-        'Ultrix shows numbers starting at 1.',
+        hint('numberOffset', 'Ultrix shows numbers starting at 1.'),
       ),
     ),
     section(
       'Takes',
       '',
-      choice('fireMode', 'Multi destination', [
-        ['sequential', 'One after another'],
-        ['native', 'Router salvo'],
-      ]),
+      choice(
+        'fireMode',
+        'Multi destination',
+        [
+          ['sequential', 'One after another'],
+          ['native', 'Router salvo'],
+        ],
+        hint('fireMode'),
+      ),
       d.fireMode === 'native'
-        ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, 'Pick a group nothing else on the router uses.')
+        ? field(
+            'setup-group',
+            'Router salvo group',
+            d.group,
+            { type: 'number', min: '0', max: '127' },
+            hint('group', 'Pick a group nothing else on the router uses.'),
+          )
         : null,
     ),
   ],
-  access: () => ['Access', lead('What people can do without signing in. You can change any part of it later in Settings.'), sheet()],
+  access: () => [
+    'Access',
+    lead('What people can do without signing in. You can change any part of it later in Settings.'),
+    ...(hint('preset') ? [h('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []),
+    sheet(),
+  ],
   done: () => [
     'Sode is set up',
     h(
@@ -432,6 +451,7 @@ function claim(take = false) {
 function startWizard() {
   if (d) return;
   d = startAnswers(S.cfg, S.setup);
+  filled = S.setup;
   sentRouter = d.router.trim();
   at = reached = 0;
   finished = finishing = false;

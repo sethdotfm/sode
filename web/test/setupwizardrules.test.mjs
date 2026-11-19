@@ -1,7 +1,7 @@
 // The setup wizard's step rules and its Finish message.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { STEPS, startAnswers, stepProblem, stopAt, chipGoes, numberingChoices, finishMessage, routerLine } from '../setupwizardrules.js';
+import { STEPS, startAnswers, stepProblem, stopAt, chipGoes, numberingChoices, finishMessage, routerLine, envHint } from '../setupwizardrules.js';
 
 const filled = () => ({
   ...startAnswers({ router: '10.0.0.5:8910', levels: 17, numberOffset: 1 }, { preset: 'standard' }),
@@ -19,6 +19,21 @@ test('the hello config fills the fields, and Standard access is the default', ()
   assert.equal(d.preset, 'standard');
   assert.equal(d.fireMode, 'sequential');
   assert.equal(startAnswers({}, { preset: 'secured' }).preset, 'secured');
+});
+
+test('SODE_* fills Multi destination and its group, and each filled field names its variable', () => {
+  const env = { router: 'SODE_ROUTER', fireMode: 'SODE_FIRE_MODE', group: 'SODE_SALVO_GROUP' };
+  const d = startAnswers({ router: '10.0.0.5:8910', fireMode: 'native', salvoGroup: 120 }, { env });
+  assert.equal(d.fireMode, 'native');
+  assert.equal(d.group, '120');
+  // Without the variable the wizard keeps its own choice, whatever the config says.
+  const plain = startAnswers({ fireMode: 'native', salvoGroup: 3 }, {});
+  assert.equal(plain.fireMode, 'sequential');
+  assert.equal(plain.group, '127');
+  assert.equal(envHint({ env }, 'router'), 'Filled from SODE_ROUTER.');
+  assert.equal(envHint({ env }, 'levels'), '');
+  assert.equal(envHint({}, 'router'), '');
+  assert.equal(envHint(null, 'router'), '');
 });
 
 test('Welcome needs a name and the same PIN twice', () => {

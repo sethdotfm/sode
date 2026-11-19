@@ -38,6 +38,7 @@ func legacyHello(a *App, p helloPage) []byte {
 	m["versions"] = fieldVersions(r.cfg)
 	m["users"] = []any{} // the sign-in list; this app has no users
 	m["configPath"] = a.cfgPath
+	m["notSaved"] = a.cfgPath == ""
 	m["version"] = VersionLabel()
 	m["brandColors"] = config.BrandColors
 	m["routerUid"] = r.cfg.UID

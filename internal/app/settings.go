@@ -111,7 +111,7 @@ func (a *App) updateWith(mutate func(*config.Config) error, save bool) (old, nw 
 	if err := cfg.Validate(); err != nil {
 		return nil, nil, err
 	}
-	if err := keepsAdministrator(old.cfg, cfg, a.cfgPath == ""); err != nil {
+	if err := keepsAdministrator(old.cfg, cfg); err != nil {
 		return nil, nil, err
 	}
 	nw, err = newRuntime(cfg)
