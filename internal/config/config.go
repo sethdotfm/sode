@@ -37,7 +37,8 @@ type Config struct {
 	ResultDismissSeconds int      `yaml:"resultDismissSeconds" json:"resultDismissSeconds"`
 	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter"`
 	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies"`
-	// HiddenDsts is a History filter expression (web/filter.js) hiding Externals on these destinations; still recorded.
+	// HiddenDsts is a History filter expression (web/filter.js) that hides Externals on these destinations; Sode
+	// records them anyway.
 	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts"`
 	// HiddenDstsRouter: the router UID whose numbers HiddenDsts's number and range terms mean; blank is the one router.
 	HiddenDstsRouter string      `yaml:"hiddenDstsRouter,omitempty" json:"hiddenDstsRouter,omitempty"`
@@ -74,7 +75,8 @@ type Config struct {
 	idsFilled bool
 }
 
-// PanelActs are a panel's Authentication modes as stored (acts); keep in step with panelActs* in internal/app/panelstore.go.
+// PanelActs are a panel's Authentication modes as stored (acts); keep in step with panelActs* in
+// internal/app/panelstore.go.
 var PanelActs = []string{"session", "api", "both", "public"}
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
@@ -650,8 +652,7 @@ func Parse(b []byte) (Config, error) {
 	return c, nil
 }
 
-// UnknownKeysProblem is the startup warning for UnknownKeys, or "" when there are none.
-// Names only: a newer release's key could hold a secret.
+// Names only: a key from a newer release could hold a secret. "" when there are none.
 func (c Config) UnknownKeysProblem() string {
 	keys := c.UnknownKeys()
 	if len(keys) == 0 {
@@ -663,7 +664,6 @@ func (c Config) UnknownKeysProblem() string {
 // maxNamedKeys bounds key lists in the startup row and the import reply.
 const maxNamedKeys = 10
 
-// NameKeys joins keys for a message, naming at most maxNamedKeys.
 func NameKeys(keys []string) string {
 	if len(keys) == 0 {
 		return "none"
@@ -811,7 +811,7 @@ func copyFile(src, dst string) error {
 // syncWrites is false only under UseTestCosts.
 var syncWrites = true
 
-// SyncWrites says whether saves fsync; app's history writer follows it too.
+// app's history writer follows it too.
 func SyncWrites() bool { return syncWrites }
 
 func AtomicWrite(path string, parts ...[]byte) error {

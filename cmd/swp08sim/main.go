@@ -1,10 +1,5 @@
-// Command swp08sim is a fake SW-P-08 router for development: name requests, tally dumps, interrogates,
-// extended connects, Connected broadcast. SIM_EXTERNAL_SECONDS makes routes of its own; SIM_EXTERNAL_SILENT=1
-// leaves them unannounced, as the Ultrix sometimes does.
-// Group salvos (120-123; extended stage 248/250) mimic the Ultrix. All clients share one staged list per group.
-// 122 echoes each stage, and 123 answers each Go (00 set, 01 cleared, 02 nothing). Replies come after about 6 ms.
-// A Go set sends no Connected unless SIM_SALVO_ANNOUNCE=1 (one per changed crosspoint, about 110 ms on, 4 ms
-// apart). SIM_NO_SALVO=1 ignores 120, 248 and 121.
+// Command swp08sim is a fake SW-P-08 router for development. Group salvos (120-123, extended stage 248/250)
+// mimic the Ultrix. All clients share one staged list per group.
 package main
 
 import (
@@ -24,18 +19,17 @@ import (
 )
 
 type sim struct {
-	mu      sync.Mutex
-	srcs    []string
-	dsts    []string
-	tally   map[int][]int // wire level → dst → src
-	clients map[net.Conn]*sync.Mutex
-	deaf    map[int]bool          // dsts whose connects are ACKed but never carried out
-	silent  map[int]bool          // dsts whose connects are carried out but never announced
-	slow    map[int]time.Duration // dsts whose connects are carried out but announced late
-	follows map[int][]int         // dst → dsts that follow it, like a multiviewer PiP
-	staged  map[int][]swp08.Staged
-	noSalvo bool
-	// SIM_SALVO_ANNOUNCE: a Go set's changes are announced, late
+	mu         sync.Mutex
+	srcs       []string
+	dsts       []string
+	tally      map[int][]int // wire level → dst → src
+	clients    map[net.Conn]*sync.Mutex
+	deaf       map[int]bool          // dsts: the simulator ACKs a connect but does not do it
+	silent     map[int]bool          // dsts: the simulator does a connect but does not announce it
+	slow       map[int]time.Duration // dsts: the simulator does a connect but announces it late
+	follows    map[int][]int         // dst → dsts that follow it, like a multiviewer PiP
+	staged     map[int][]swp08.Staged
+	noSalvo    bool
 	announceGo bool
 	namesFile  string
 }
@@ -54,20 +48,20 @@ func main() {
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
 	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}, staged: map[int][]swp08.Staged{}, noSalvo: os.Getenv("SIM_NO_SALVO") == "1", announceGo: os.Getenv("SIM_SALVO_ANNOUNCE") == "1", namesFile: os.Getenv("SIM_NAMES_FILE")}
-	// SIM_IGNORE_DSTS=5,7 (0-based): connects are ACKed but never carried out, to exercise timeout and retry.
+	// SIM_IGNORE_DSTS=5,7 (0-based): the simulator ACKs a connect but does not do it, to test timeout and retry.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
 			s.deaf[n] = true
 		}
 	}
-	// SIM_SILENT_DSTS=5,7: switch without a Connected; Sode only learns of it from its interrogate.
+	// SIM_SILENT_DSTS=5,7: a connect sends no Connected, so Sode learns of it only from its interrogate.
 	for _, f := range strings.Split(os.Getenv("SIM_SILENT_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
 			s.silent[n] = true
 		}
 	}
-	// SIM_SLOW_DSTS=9:6000,11:8000 (0-based dst:ms): carried out at once, Connected announced after the delay;
-	// interrogate replies stay immediate.
+	// SIM_SLOW_DSTS=9:6000,11:8000 (0-based dst:ms): the connect is immediate and its Connected comes after the delay.
+	// Interrogate replies stay immediate.
 	for _, f := range strings.Split(os.Getenv("SIM_SLOW_DSTS"), ",") {
 		dst, ms, ok := strings.Cut(strings.TrimSpace(f), ":")
 		n, err1 := strconv.Atoi(dst)
@@ -112,7 +106,8 @@ func main() {
 		s.tally[l] = t
 	}
 
-	// SIM_EXTERNAL_SECONDS=5 routes every 5s as from a panel; SIM_EXTERNAL_DST (0-based, default 3) gets every other punch.
+	// SIM_EXTERNAL_SECONDS=5 makes a route every 5 s, as a panel does. Each second one goes to SIM_EXTERNAL_DST
+	// (0-based, default 3).
 	if n := envInt("SIM_EXTERNAL_SECONDS", 0); n > 0 {
 		go s.panel(time.Duration(n)*time.Second, envInt("SIM_EXTERNAL_DST", 3), nl+1, envInt("SIM_EXTERNAL_SILENT", 0) == 1)
 	}
@@ -178,7 +173,7 @@ func (s *sim) route(mx, l, dst, src int, announce bool) {
 		log.Printf("connect out of range: level %d dst %d src %d", l, dst, src)
 		return
 	}
-	// Like a real router, only a change is announced.
+	// A real router announces only a change.
 	if !changed {
 		log.Printf("connect level %d: dst %d already on src %d (no Connected)", l, dst, src)
 		return
@@ -300,8 +295,8 @@ func (s *sim) handle(c net.Conn, m []byte) {
 		}
 
 	case swp08.CmdExtProtectDumpReq:
-		// Destination 12 ("Rec B") is protected by device 9 on every level,
-		// packed as the Ultrix does: state in bits 4-5, then the device.
+		// Device 9 protects destination 12 ("Rec B") on every level. The Ultrix packs the state in bits 4-5, then the
+		// device.
 		if len(m) < 3 {
 			return
 		}
@@ -391,9 +386,9 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 		s.later(c, swp08.GoDoneAck(swp08.GoNothing, g))
 		return
 	}
-	// The Ultrix sometimes announces a Go's crosspoints and sometimes not. By default none is announced (followers
-	// follow silently). SIM_SALVO_ANNOUNCE=1 gives each changed one a Connected in dst and level order, 4 ms apart,
-	// from about 110 ms after the Go (measured).
+	// The Ultrix announces a Go's crosspoints only sometimes, so the default is no Connected. SIM_SALVO_ANNOUNCE=1
+	// sends one for
+	// each changed crosspoint in dst and level order, 4 ms apart, from about 110 ms after the Go (measured).
 	var changed []swp08.Staged
 	s.mu.Lock()
 	for _, x := range xs {
@@ -421,7 +416,7 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 	s.later(c, swp08.GoDoneAck(swp08.GoSet, g))
 }
 
-// Read again on every name request, so a test can rename while the simulator runs. Lines: "src 12 CAM C", "dst 0 PGM
+// Read again on every name request, so a test can rename while the simulator runs. Lines: "src 12 CAM C", "dst 0 PGM".
 func (s *sim) renamed(list []string, dest bool) []string {
 	if s.namesFile == "" {
 		return list

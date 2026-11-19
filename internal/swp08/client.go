@@ -49,7 +49,8 @@ type Why struct {
 	By     string
 	// Note goes in the Communication Log row's Note, after any of its own (a panel page's tag).
 	Note string
-	// Done, if set, is closed when the message's fate is known, so callers count timeouts from when the router could have seen it.
+	// Done, if set, closes when the fate of the message is known. Callers count timeouts from when the router could
+	// have seen it.
 	Done chan struct{}
 }
 
@@ -132,7 +133,7 @@ func (c *Client) target() (string, []byte) {
 }
 
 // Messages queued on a connection that drops are discarded, never replayed: a stale take must not fire later.
-// The push happens under mu, so once a session has cleared c.q nothing more lands in its queue.
+// The push happens under mu, so after a session has cleared c.q nothing more lands in its queue.
 func (c *Client) Send(msg []byte, why Why) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -268,7 +269,7 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 		}
 	}
 
-	// Up only once the router answers (a hung one still accepts TCP); until then Send says ErrDown.
+	// Up only after the router answers (a hung router accepts TCP); before that Send says ErrDown.
 	if _, probe := c.target(); probe != nil {
 		if err := wait(rx.heard); err != nil {
 			return err

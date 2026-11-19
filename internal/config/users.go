@@ -27,7 +27,7 @@ type User struct {
 	NoAutoLock bool `yaml:"noAutoLock,omitempty" json:"noAutoLock,omitempty"`
 	// Rights and its Visibility bind this user's browser and keys.
 	Rights Rights `yaml:"rights,omitempty" json:"rights"`
-	// Profile is never in JSON: sent only to connections unlocked as this user.
+	// Profile is never in JSON: sent only to connections signed in as this user.
 	Profile Profile        `yaml:"profile,omitempty" json:"-"`
 	Extra   map[string]any `yaml:",inline" json:"-"`
 }

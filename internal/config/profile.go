@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Profile lives on the User; never in a hello (json:"-"), reaches only connections unlocked as that user.
+// Profile lives on the User. It is never in a hello (json:"-") and reaches only connections signed in as that user.
 
 // MaxProfileBytes keeps a profileSave message under the 64 KiB read limit.
 const MaxProfileBytes = 48 << 10

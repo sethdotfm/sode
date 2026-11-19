@@ -150,8 +150,8 @@ func (r Rights) Clone() Rights {
 	return r
 }
 
-// PanelClientScopes is what a panel's own API client starts with: reading, tally and taking,
-// never `history`, `log` or `panelsmanage`. Only an administrator widens it.
+// PanelClientScopes: a panel's own API client starts with read, tally and take scopes,
+// never
 var PanelClientScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeLayouts, ScopeTake, ScopePanels}
 
 // APIClient is a non-person actor. Its keys live in the key store, not here. Panel is the id of
