@@ -32,6 +32,24 @@ func startLog(t *testing.T, a *App) (stop func()) {
 	}
 }
 
+// Any socket can send these, so with nobody signed in they must not write rows.
+func TestLockWithNobodySignedInWritesNoRow(t *testing.T) {
+	a := userApp(t, false)
+	defer startLog(t, a)()
+	c := &client{ip: "10.0.0.9"}
+	for range 3 {
+		for _, typ := range []string{"userLock", "userSignOut"} {
+			policy[typ].handle(a, c, &inMsg{T: typ})
+		}
+	}
+	a.command(c, "marker", "ok", "", nil)
+	for _, r := range waitLogged(t, a, 1) {
+		if r.Why == "userLock" || r.Why == "userSignOut" {
+			t.Fatalf("row %+v", r)
+		}
+	}
+}
+
 // logged is the Communication Log, oldest first.
 func logged(t *testing.T, a *App) []Sent {
 	t.Helper()

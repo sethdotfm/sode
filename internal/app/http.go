@@ -39,6 +39,9 @@ type client struct {
 // wsReadLimit: see TestMessageSizes (largest are a Settings save and a presets save).
 const wsReadLimit = 64 << 10
 
+// A page sends one message per action. Past this a socket is closed, since each refusal writes a log row.
+const wsMsgsPerSec = 100
+
 func (a *App) Handler(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	files := http.FileServerFS(static)
@@ -274,10 +277,19 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	var win time.Time
+	n := 0
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
 			gone = err
+			return
+		}
+		if now := time.Now(); now.Sub(win) >= time.Second {
+			win, n = now, 0
+		}
+		if n++; n > wsMsgsPerSec {
+			conn.Close(websocket.StatusPolicyViolation, "too many messages")
 			return
 		}
 		var m inMsg

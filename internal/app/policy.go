@@ -55,11 +55,16 @@ var policy = map[string]rule{
 	// and the server does nothing
 	"userLock": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) {
 		a.setHeld(c, true)
-		a.command(c, "userLock", "ok", "", nil)
+		if c.u.user.Load() != nil {
+			a.command(c, "userLock", "ok", "", nil)
+		}
 	}},
 	"userSignOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) {
+		who := c.u.user.Load()
 		a.SignOut(c)
-		a.command(c, "userSignOut", "ok", "", nil)
+		if who != nil {
+			a.command(c, "userSignOut", "ok", "", nil)
+		}
 	}},
 	// the page's ping while its user is active (idle.go); never refused, never logged
 	"activity":   {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, _ *inMsg) { a.Activity(c) }},
