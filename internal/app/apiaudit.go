@@ -9,34 +9,30 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Actor kinds.
 const (
 	actorUser   = "user"
-	actorClient = "client" // an API client
-	actorSode   = "sode"   // Sode itself, for rows nobody caused
+	actorClient = "client"
+	actorSode   = "sode" // Sode itself, for rows nobody caused
 )
 
-// Actor is who did something over the API or a user's key. Key is the key name, set when
-// the key was made, so it is verified. `Via` is the caller's own free text: unverified.
+// Key is the key name, set when the key was made, so it is verified. `Via` is the caller's own text, not verified.
 type Actor struct {
 	Kind string `json:"kind"`
 	Name string `json:"name"`
 	// User is the id of a user actor, for ownership checks; History keeps only the name.
 	User string `json:"-"`
 	Key  string `json:"key,omitempty"`
-	// Owner is who made a panel's own API client; it only gives the label a person to read.
+	// Owner is who made a panel's own API client. It only adds a person's name to the client's name.
 	Owner string `json:"owner,omitempty"`
 	Via   string `json:"via,omitempty"`
 
-	// Which panel page made the call, for Communication Log rows only (unexported, so History keeps
-	// its label). panel is the id. A panel's own key proves the panel; panelSaid marks one the page
-	// named itself in `X-Sode-Panel`, with a user's key. instance is the page's word (`X-Sode-Instance`),
-	// as the keepalive's device name is.
+	// For Communication Log rows only; unexported, so History keeps its own names. A panel's own key proves panel.
+	// panelSaid marks a panel that a page with a user's key named in `X-Sode-Panel`. instance is the page's
+	// `X-Sode-Instance`.
 	panel, instance string
 	panelSaid       bool
 }
 
-// panelShort is how log rows name a panel: its short name, else its id.
 func panelShort(p Panel) string {
 	if p.Slug != "" {
 		return p.Slug
@@ -44,7 +40,7 @@ func panelShort(p Panel) string {
 	return p.ID
 }
 
-// panelTag is the one wording for a panel in a row's Note: "panel wall (Lobby Wall), instance Front desk".
+// "panel wall (Lobby Wall), instance Front desk"
 func panelTag(p Panel, instance string) string {
 	s := "panel " + panelShort(p)
 	if p.Name != "" {
@@ -56,9 +52,7 @@ func panelTag(p Panel, instance string) string {
 	return s
 }
 
-// panelNames is what History shows for a take from a panel page: the panel's name (its short name when it has
-// none) and the instance. Both are "" for a call no panel page made. They are recorded at the take, so a later
-// rename leaves them.
+// Recorded at the take, so a later rename leaves them. Both are "" for a call no panel page made.
 func (a *App) panelNames(act Actor) (panel, instance string) {
 	if act.panel == "" {
 		return "", ""
@@ -73,8 +67,7 @@ func (a *App) panelNames(act Actor) (panel, instance string) {
 	return panelShort(p), act.instance
 }
 
-// panelNote is the actor's panel tag, or "" for a call no panel page made. A panel deleted since
-// auth is named by its id.
+// A panel deleted since auth is named by its id.
 func (a *App) panelNote(act Actor) string {
 	if act.panel == "" {
 		return ""
@@ -90,7 +83,7 @@ func (a *App) panelNote(act Actor) string {
 	return tag
 }
 
-// String is "Seth (Panel 21)", or the bare name with no key. Sode itself reads "Sode (system)".
+// "Seth (Panel 21)", the bare name with no key, "Sode (system)" for Sode itself.
 func (a Actor) String() string {
 	if a.Kind == actorSode {
 		return a.Name + " (system)"
@@ -104,8 +97,7 @@ func (a Actor) String() string {
 	return a.Name + " (" + a.Key + ")"
 }
 
-// setActor records an API actor on an entry. Client carries the label so nothing that reads
-// it shows an address.
+// Client carries the actor's text, so nothing that reads it shows an address.
 func (e *Entry) setActor(a Actor) {
 	e.Actor = &a
 	e.Client = a.String()
@@ -113,13 +105,13 @@ func (e *Entry) setActor(a Actor) {
 
 const kindAPI = "api" // an API command, refusal, key event, stream attach or failed sign-in
 
-// keyShape matches a key anywhere in text; apiEvent redacts it as a last line of defence.
+// apiEvent redacts any key in text, as a last defence.
 var keyShape = regexp.MustCompile(keyPrefix + `(?:ses\.)?[A-Za-z0-9_-]{20,}`)
 
 func redactKeys(s string) string { return keyShape.ReplaceAllString(s, "[key]") }
 
-// apiEvent is the one writer of `api` rows. By is the actor and key name. Note is the detail, then
-// the panel tag, then the `Via` text. Callers never pass a key, hash or PIN; keys are redacted anyway.
+// The one writer of `api` rows. Note is the detail, then the panel tag, then the `Via` text. Never pass a key, hash
+// or PIN.
 func (a *App) apiEvent(act Actor, why, result, note string, err error) {
 	e := event(kindAPI, why, redactKeys(act.String()), result)
 	e.Note = redactKeys(note)
@@ -141,11 +133,9 @@ func (a *App) apiEvent(act Actor, why, result, note string, err error) {
 	a.logEvent(e)
 }
 
-// sodeActor is the actor on rows no connection caused (a key that expired or died with a PIN).
-// Its own kind keeps a user named Sode from passing for it in the log.
+// For rows no connection caused. Its own kind keeps a user named Sode from passing for it in the log.
 var sodeActor = Actor{Kind: actorSode, Name: "Sode"}
 
-// connActor is the signed-in user, or the address, behind a browser connection.
 func connActor(c *client) Actor { return Actor{Kind: actorUser, Name: c.who(), User: c.userID()} }
 
 func onOff(b bool) string {

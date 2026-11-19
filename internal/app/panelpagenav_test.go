@@ -2,9 +2,6 @@ package app
 
 import "testing"
 
-// Go to Page targets on save (checkPageTargets): a well-formed target is kept. A missing one is stored as is and read as
-// unassigned by the pages. Only a malformed one is refused.
-
 const navPages = `"pages":[
  {"id":"one","cells":[{"r":1,"c":1,"kind":"goToPage","page":"two"},{"r":1,"c":2,"kind":"nextPage"},{"r":1,"c":3,"kind":"previousPage"}]},
  {"id":"two","cells":[{"r":1,"c":1,"kind":"goToPage","page":"gone"},{"r":1,"c":2,"kind":"goToPage"},{"r":1,"c":3,"kind":"goToPage","page":"","caption":"Later"}]}]`

@@ -9,13 +9,12 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Waiting cards and their artwork survive a restart.
 func TestInboxStoreReloads(t *testing.T) {
 	path := t.TempDir() + "/config.yaml"
 	s := loadInbox(path)
 	cards, full, err := s.add([]inboxCard{{From: "u-a", To: "u-b", ToName: "Bo", State: cardWaiting, Count: 1,
 		Items: cardItems{Panels: []Panel{{ID: "p-00000001", Name: "Desk", Art: []PanelArt{{ID: "a-00000001", Type: "image/png"}}}}}}},
-		map[string][]byte{"p-00000001/a-00000001": []byte("png")})
+		map[string][]byte{"p-00000001/a-00000001": []byte("png")}, func(string) bool { return true })
 	if err != nil || full != "" || len(cards) != 1 {
 		t.Fatalf("add: %v %q %+v", err, full, cards)
 	}
@@ -29,7 +28,6 @@ func TestInboxStoreReloads(t *testing.T) {
 	}
 }
 
-// The socket messages answer inboxResult and write one Log row each, with names and counts.
 func TestInboxMessagesLog(t *testing.T) {
 	a, ana, bo := inboxApp(t)
 	p := mePreset("Show", 1, 2)
@@ -118,7 +116,6 @@ func TestInboxMessagesLog(t *testing.T) {
 	}
 }
 
-// A card expires after the wait; the sweep logs it as Sode and the sender sees Expired.
 func TestInboxExpires(t *testing.T) {
 	a, ana, bo := inboxApp(t)
 	p := mePreset("Show", 1, 2)
@@ -154,7 +151,6 @@ func TestInboxExpires(t *testing.T) {
 	}
 }
 
-// 100 waiting cards fill an Inbox; the next send is refused by name, and answering one frees a place.
 func TestInboxFull(t *testing.T) {
 	a, ana, bo := inboxApp(t)
 	p := mePreset("Show", 1, 2)
@@ -212,8 +208,7 @@ func TestInboxGuestAndNoPin(t *testing.T) {
 	}
 }
 
-// A clash with the recipient's own preset defaults to Rename; an unticked item is not written, and the
-// Sent list says Accepted 1 of 2. Routes outside the recipient's Rights import with a note.
+// A clash with the recipient's own preset defaults to Rename.
 func TestInboxPartialAcceptAndRights(t *testing.T) {
 	a, ana, bo := inboxApp(t)
 	show, wide := mePreset("Show", 1, 2), mePreset("Wide", 7, 8)
@@ -260,8 +255,7 @@ func TestInboxPartialAcceptAndRights(t *testing.T) {
 	}
 }
 
-// Removing the recipient drops their cards, and the sender sees Expired. Removing the sender keeps the
-// card, now from a removed user.
+// A removed recipient loses their cards, and the sender sees Expired. A removed sender's card stays.
 func TestInboxUserRemoved(t *testing.T) {
 	a, ana, bo := inboxApp(t)
 	p := mePreset("Show", 1, 2)
@@ -295,10 +289,6 @@ func TestInboxUserRemoved(t *testing.T) {
 	}
 }
 
-// A sent panel brings its Pages, cells, settings and artwork, owned by the recipient and shared with
-// nobody. It brings no short name, keys, checkpoints or Checkpoint set membership. A panel that is
-// its own API client arrives with a new client that has the recipient's Rights.
-// An Accept that writes nothing because every ticked item is refused keeps the card waiting.
 func TestInboxAcceptOfOnlyRefusedItemsKeepsCard(t *testing.T) {
 	a, ana, bo := inboxApp(t)
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.PublicPanels = true })

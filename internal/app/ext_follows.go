@@ -60,9 +60,9 @@ func (f *follows) awaitsRoute(pending map[int]map[int]*extLevel) bool {
 	return false
 }
 
-// followed: a salvo of one source leaves several fits that timing cannot separate. A destination
-// follows the same take each time (a PiP its DSM), so a lone fit is remembered and a salvo
-// goes by it. Otherwise it is the take whose last change came latest. Caller holds mu.
+// followed: a take of one source to many destinations leaves several fits that timing cannot separate. A destination
+// follows the same take each time (a PiP follows its DSM), so Sode remembers a lone fit and uses it. Otherwise it is
+// the take whose last change came latest. Caller holds mu.
 func (f *follows) followed(src, dst int, t time.Time) *cause {
 	var fits []*cause
 	for _, c := range f.causes {

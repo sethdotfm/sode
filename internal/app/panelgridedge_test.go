@@ -110,7 +110,6 @@ func gridBody(t *testing.T, body string) string {
 	return string(b)
 }
 
-// A pin or a hidden item never stops an "all" edge from following the router.
 func TestGridPanelPinOnAllEdgeKeepsFollowingTheRouter(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -125,7 +124,6 @@ func TestGridPanelPinOnAllEdgeKeepsFollowingTheRouter(t *testing.T) {
 	}
 }
 
-// The editor sends a reorder as an explicit list. The list keeps its order and its pins.
 func TestGridPanelReorderStoresAList(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -180,7 +178,7 @@ func TestGridPanelRefusesBadEdges(t *testing.T) {
 	}
 }
 
-// The editor's Clear stores an empty list. It must load again after a restart and go back unchanged.
+// The editor's Clear stores an empty list.
 func TestGridPanelEmptyListSurvivesARestart(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -223,8 +221,6 @@ func TestGridPanelCopyKeepsListsHiddenItemsAndPins(t *testing.T) {
 	}
 }
 
-// An editor whose Rights are narrower than the panel's lists saves what the read gave back. The members, hidden
-// items and item settings outside those Rights are still there for a user who can see them.
 func TestGridSaveKeepsItemsOutsideTheEditorsRights(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
@@ -259,7 +255,6 @@ func TestGridSaveKeepsItemsOutsideTheEditorsRights(t *testing.T) {
 	}
 }
 
-// gridEdgeNums is gridEdgeJSON decoded, for a test that looks at one part.
 func gridEdgeNums(t *testing.T, p map[string]any, edge string) map[string]any {
 	t.Helper()
 	var out map[string]any

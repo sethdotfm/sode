@@ -17,7 +17,6 @@ func (p *wsPeer) usersVersions(id int) map[string]any {
 	return v
 }
 
-// saveWith sends the one Save with the given versions.
 func (p *wsPeer) saveWith(id int, vers map[string]any, set map[string]any) map[string]any {
 	p.t.Helper()
 	fields := map[string]any{}
@@ -35,7 +34,6 @@ func adminPeer(t *testing.T, a *App) *wsPeer {
 	return p
 }
 
-// Adding a user, editing Rights and editing an API client go in one save.
 func TestOneSaveUsersRightsAndClientTogether(t *testing.T) {
 	a := userApp(t, false)
 	cfg := a.r().cfg
@@ -74,7 +72,6 @@ func TestOneSaveUsersRightsAndClientTogether(t *testing.T) {
 	}
 }
 
-// Two people change different attributes of one user: both save.
 func TestOneSaveUserAttributesDoNotConflict(t *testing.T) {
 	a := userApp(t, false)
 	p1, p2 := adminPeer(t, a), adminPeer(t, a)
@@ -92,7 +89,6 @@ func TestOneSaveUserAttributesDoNotConflict(t *testing.T) {
 	}
 }
 
-// A PIN conflict never carries the hash.
 func TestOneSavePinConflictHidesTheHash(t *testing.T) {
 	a := userApp(t, false)
 	p1, p2 := adminPeer(t, a), adminPeer(t, a)
@@ -106,7 +102,6 @@ func TestOneSavePinConflictHidesTheHash(t *testing.T) {
 	}
 }
 
-// Removing a user removes the API clients they own; the user list names them.
 func TestOneSaveRemoveUserNamesTheirClients(t *testing.T) {
 	a := userApp(t, false)
 	cfg := a.r().cfg
@@ -137,7 +132,6 @@ func TestOneSaveRemoveUserNamesTheirClients(t *testing.T) {
 	}
 }
 
-// Keyless API settings save with the one Save; a Trusted user is refused by Role.
 func TestOneSaveAPISection(t *testing.T) {
 	a := userApp(t, false)
 	p := adminPeer(t, a)

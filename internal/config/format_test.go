@@ -24,6 +24,17 @@ func TestV2ConfigLoadsUnchanged(t *testing.T) {
 	}
 }
 
+// A file with no keys (touch config.yaml) is a new install, not v1.
+func TestEmptyConfigLoadsAsNew(t *testing.T) {
+	for _, body := range []string{"", "# x\n", "{}\n", "~\n"} {
+		p := filepath.Join(t.TempDir(), "config.yaml")
+		os.WriteFile(p, []byte(body), 0o600)
+		if _, exists, err := Load(p); err != nil || exists {
+			t.Errorf("%q: exists=%v err=%v", body, exists, err)
+		}
+	}
+}
+
 func TestV1ConfigIsNeverReadAsV2(t *testing.T) {
 	v1 := []byte("router: 10.0.0.5:8910\nlevels: 4\n")
 	if _, err := Parse(v1); !errors.Is(err, ErrV1) {
@@ -49,7 +60,9 @@ func TestIsV1(t *testing.T) {
 		"v2":       {"format: 2\nrouters: [{address: a:1}]\n", false},
 		"newer":    {"format: 9\nrouters: [{address: a:1}]\n", false},
 		"v1":       {"router: a:1\n", true},
-		"v1 empty": {"# Sode settings\n", true},
+		"comments": {"# Sode settings\n", false},
+		"empty":    {"\n", false},
+		"braces":   {"{}\n", false},
 	} {
 		p := filepath.Join(dir, strings.ReplaceAll(name, " ", "-")+".yaml")
 		if name != "missing" {

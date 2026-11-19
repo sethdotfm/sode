@@ -9,6 +9,11 @@ import (
 	"testing"
 )
 
+// Every list unset and read-only: the state of an old file.
+func isOpen(r Rights) bool {
+	return r.Sources == nil && r.Dsts == nil && r.Levels == nil && r.Presets == nil && !r.Hidden()
+}
+
 // A file from before the API loads with it off and nothing restricted.
 func TestOldFileLoadsWithAPIOff(t *testing.T) {
 	h, err := HashPin("1234")
@@ -33,10 +38,10 @@ func TestOldFileLoadsWithAPIOff(t *testing.T) {
 	if !reflect.DeepEqual(c.GuestAPIScopes, DefaultGuestScopes) {
 		t.Errorf("guest scopes %v, want %v", c.GuestAPIScopes, DefaultGuestScopes)
 	}
-	if len(c.APIClients) != 0 || !c.GuestRights.IsOpen() {
+	if len(c.APIClients) != 0 || !isOpen(c.GuestRights) {
 		t.Errorf("clients %v, guest rights %+v", c.APIClients, c.GuestRights)
 	}
-	if u := c.Users[0]; u.NoAutoLock || !u.Rights.IsOpen() {
+	if u := c.Users[0]; u.NoAutoLock || !isOpen(u.Rights) {
 		t.Errorf("user %+v", u)
 	}
 }

@@ -11,9 +11,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// A saved Grid panel holds {router, n, name} for its members, hidden items and item settings. A number the router
-// has no name for keeps the name it came with, also through a resave that sends no name. The stored numbers fire
-// the same route as before references.
 func TestGridPanelEdgesStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	a, f, bot := takerApp(t, nil)
 	uid := a.r().cfg.UID
@@ -70,7 +67,6 @@ func TestGridPanelEdgesStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	}
 }
 
-// Two entries for one router item are refused, and so is an items map keyed by number.
 func TestGridPanelRefusesTwoReferencesToOneItem(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -88,8 +84,6 @@ func TestGridPanelRefusesTwoReferencesToOneItem(t *testing.T) {
 	}
 }
 
-// Push checkpoints and Checkpoint sets hold Grid edges as {router, n, name}. This is also true for a panel stored
-// with no router or name past the API's save.
 func TestGridCheckpointsAndSetsStoreRouterReferences(t *testing.T) {
 	a, _, _ := takerApp(t, nil)
 	uid := a.r().cfg.UID

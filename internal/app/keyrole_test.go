@@ -25,7 +25,6 @@ func TestKeyActsWithOwnersLiveRole(t *testing.T) {
 	if rec := apiSend(a, "GET", path, ada, ""); rec.Code != 404 {
 		t.Fatalf("demoted key still acts above Standard user: %d %s", rec.Code, rec.Body.String())
 	}
-	// The key itself still works, at the lower role.
 	if rec := apiSend(a, "GET", "/api/v1/panels", ada, ""); rec.Code != 200 {
 		t.Fatalf("demotion ended the key: %d", rec.Code)
 	}

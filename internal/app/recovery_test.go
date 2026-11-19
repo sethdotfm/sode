@@ -155,7 +155,7 @@ func helloSays(t *testing.T, a *App, field string) bool {
 	return m[field] == true
 }
 
-// Deleting a user who owns panels needs a new owner in the same save. The page offers the
+// A save that deletes a user who owns panels must name a new owner. The page offers the
 // owner counts and the acting user's id as the default.
 func TestDeletingAPanelOwnerNeedsANewOwner(t *testing.T) {
 	a := userApp(t, false)

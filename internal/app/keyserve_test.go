@@ -439,7 +439,6 @@ func TestUsersSaveRefusesBadRights(t *testing.T) {
 	}
 }
 
-// Rights, key lists and No auto-lock stay out of everything sent before the PIN.
 func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	a := keyTestApp(t)
 	admin := adminClient(t, a)
@@ -475,7 +474,6 @@ func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 		}
 	}
 
-	// A signed-in user is told their own No auto-lock flag and nothing of rights or keys.
 	a.mu.Lock()
 	m := a.lockStateMu(ana)
 	a.mu.Unlock()
@@ -483,7 +481,6 @@ func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	if !m.NoAutoLock || strings.Contains(string(b), "rights") || strings.Contains(string(b), "Panel 21") {
 		t.Fatalf("own lock state %s", b)
 	}
-	// Another user is not.
 	bo, _ := signedIn(t, a, "10.0.0.2", "567890")
 	a.mu.Lock()
 	m = a.lockStateMu(bo)

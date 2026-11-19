@@ -7,7 +7,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Firing a preset is an ordinary take and needs no PIN.
+// A fired preset is an ordinary take and needs no PIN.
 func (a *App) SavePresets(c *client, presets []config.Preset) error {
 	return a.saveList(c, func(cur *config.Config) error {
 		cur.Presets = a.namePresets(cur.UID, config.WithPresetExtras(presets, cur.Presets))
@@ -44,7 +44,6 @@ func (a *App) namePresets(uid string, ps []config.Preset) []config.Preset {
 // against cfg.Presets: a browser's own presets exist only there.
 func cleanPresetName(s string) string { return cleanText(s, 32) }
 
-// cleanText drops non-printing runes, keeps at most max runes, then trims.
 func cleanText(s string, max int) string {
 	r := make([]rune, 0, max)
 	for _, c := range s {

@@ -138,7 +138,6 @@ func interruptionsOf(t *testing.T, r map[string]any) []map[string]any {
 	return out
 }
 
-// review asks for the Interruptions of set, then saves set; it returns both lists.
 func (f *floor) reviewAndSave(set map[string]any) (review, saved []map[string]any) {
 	f.t.Helper()
 	r := f.admin.ask("settingsReview", 1, map[string]any{"fields": f.fields(set)})
@@ -268,8 +267,7 @@ func TestInterruptionsPanelLockOnEndsSessionKeysOfUsersWithoutAPin(t *testing.T)
 	f.wantEnded(before, map[string]int{"session keys Di": 0})
 }
 
-// Main and Log locks, Guest role, auto-lock and Wait after wrong PINs end nothing. They are still
-// listed: browsers that drop to a lock screen, a Guest role demotion and an auto-lock reset.
+// They are still listed: browsers that drop to a lock screen, a Guest role demotion and an auto-lock reset.
 func TestInterruptionsLocksGuestRoleAndAutoLockEndNothing(t *testing.T) {
 	f := newFloor(t)
 	cfg := f.a.r().cfg
@@ -303,7 +301,6 @@ func TestInterruptionsLocksGuestRoleAndAutoLockEndNothing(t *testing.T) {
 	f.wantEnded(before, nil)
 }
 
-// The record of the save keeps the Interruptions.
 func TestInterruptionsGoInTheSettingsSavesRow(t *testing.T) {
 	f := newFloor(t)
 	defer startLog(t, f.a)()
@@ -333,7 +330,6 @@ func TestInterruptionsReviewShowsNothingARoleCannotSave(t *testing.T) {
 	}
 }
 
-// Readers below Administrator see a row's Interruptions only as a count.
 func TestInterruptionsInTheLogAreForAdministrators(t *testing.T) {
 	f := newFloor(t)
 	defer startLog(t, f.a)()

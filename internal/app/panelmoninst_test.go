@@ -12,9 +12,6 @@ import (
 	"time"
 )
 
-// Per-instance watch: a user watches a whole panel, one named instance, or both. The names are
-// the device names of panelmon.go; the clock is the fake one from panelmon_test.go.
-
 func watchInst(t *testing.T, a *App, id, key, device string, want int) {
 	t.Helper()
 	if rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/watch?instance="+url.QueryEscape(device), key, ""); rec.Code != want {

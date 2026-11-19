@@ -8,7 +8,6 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// changeRouter applies the current settings with another router address.
 func changeRouter(t *testing.T, a *App) {
 	t.Helper()
 	cfg := a.r().cfg
@@ -18,7 +17,6 @@ func changeRouter(t *testing.T, a *App) {
 	}
 }
 
-// waitFor polls cond until it holds, failing after a few seconds.
 func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)

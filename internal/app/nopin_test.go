@@ -190,7 +190,6 @@ func TestUserWithoutPinHoldsNoPersonalKeys(t *testing.T) {
 	if r := send(t, a, c, next, inMsg{T: "myClientSave", ID: 3, MyClient: &myClientReq{Name: "Cy desk", Scopes: []string{}}}, "myClientSaveResult"); r["ok"] != false {
 		t.Fatalf("own client: %v", r)
 	}
-	// A session key is allowed, and acts within Guest Rights.
 	setGuest(t, a, config.RoleStandard, config.Rights{Dsts: nums(5)})
 	r = send(t, a, c, next, inMsg{T: "sessionKey", ID: 4, KeyName: "tab"}, "sessionKeyResult")
 	if r["ok"] != true {
@@ -199,8 +198,6 @@ func TestUserWithoutPinHoldsNoPersonalKeys(t *testing.T) {
 	wantErr(t, apiPost(a, "/api/v1/takes", r["key"].(string), takeOne, nil), 403, "outside_rights")
 }
 
-// Change my PIN: a Standard user removes their own PIN. Their personal keys and My user API
-// clients end. A Trusted user cannot remove theirs.
 func TestRemoveOwnPinEndsKeysAndClients(t *testing.T) {
 	a, _, c, next := ownClientApp(t)
 	if r := saveOwn(t, a, c, next, myClientReq{Name: "Ana desk", Scopes: []string{config.ScopeTake}}); r["ok"] != true {
@@ -266,7 +263,6 @@ func TestAdministratorResetEndsSessionsAndKeys(t *testing.T) {
 		t.Fatal("Ana's open browser stayed signed in")
 	}
 
-	// Remove: Ana keeps her name and acts as a user without a PIN.
 	if err := saveUsers(a, admin, usersReq{Users: []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", ClearPin: true}, {ID: idOf(a, "Bo"), Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +297,6 @@ func TestSaveRefusesTrustedUserWithoutPin(t *testing.T) {
 	}
 }
 
-// An unchanged PIN needed row does not block a later save.
 func TestSaveKeepsPinNeededTrustedUser(t *testing.T) {
 	a, _ := noPinApp(t)
 	cfg := a.r().cfg.Clone()

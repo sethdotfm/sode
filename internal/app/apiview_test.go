@@ -8,8 +8,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// view* helpers: a client PanelsBot whose rights allow source 1 and destination 2 only,
-// hidden or read-only. The router also has source 5 and destination 7.
+// PanelsBot's rights allow source 1 and destination 2 only. The router also has source 5 and destination 7.
 
 func viewRights(vis string) config.Rights {
 	return config.Rights{Sources: nums(1), Dsts: nums(2), Presets: &[]string{"studio-a"}, Visibility: vis}
@@ -77,8 +76,6 @@ func TestHiddenRightsDropNamesTallyAndProtected(t *testing.T) {
 	}
 }
 
-// A preset the caller can see by name still names sources and destinations. One that names
-// anything hidden is not listed, so /presets teaches no hidden number.
 func TestHiddenRightsDropPresetsNamingHiddenNumbers(t *testing.T) {
 	setup := func(vis string) (*App, string) {
 		a, _ := apiTestApp(t, func(c *config.Config) {
@@ -121,7 +118,6 @@ func TestHiddenRightsDropHistoryEntries(t *testing.T) {
 	ok := Entry{Src: 1, SrcName: "CAM 1", Dst: 2, DstName: "MON 2", Levels: []int{1}, Prev: [][2]int{{1, 1}}, OK: true}
 	hiddenDst := Entry{Src: 1, Dst: 7, Levels: []int{1}, Prev: [][2]int{{1, -1}}, OK: true}
 	hiddenSrc := Entry{Src: 5, SrcName: "SECRET SRC", Dst: 2, Levels: []int{1}, OK: true}
-	// Visible entry whose level 2 came from a hidden source: that level goes, level 1 stays.
 	partial := Entry{Src: 1, Dst: 2, Levels: []int{1, 2}, Prev: [][2]int{{1, 1}, {2, 5}}, Failed: []int{2}, Now: [][2]int{{2, 5}}, OK: false,
 		Preset: "Secret mix", Group: "g", GroupN: 3}
 	for _, e := range []Entry{ok, hiddenDst, hiddenSrc, partial} {
@@ -145,8 +141,6 @@ func TestHiddenRightsDropHistoryEntries(t *testing.T) {
 	}
 }
 
-// The view check that Undo, Redo and Retry planning uses. A hidden caller gets the entry as
-// it sees it, or false when it is not theirs to see.
 func TestViewEntryIsTheCheckForUndoPlans(t *testing.T) {
 	hid := apiView{viewRights(config.VisHidden)}
 	if _, ok := hid.Entry(Entry{Src: 1, Dst: 7, Levels: []int{1}}); ok {

@@ -36,12 +36,11 @@ type panelLayout struct {
 	Cols  int         `yaml:"cols" json:"cols"`
 	Pages []PanelPage `yaml:"pages,omitempty" json:"pages,omitempty"`
 	// LegacyCells is a checkpoint or set entry saved before Pages; withLayout hands it to normalize.
-	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
-	Settings    map[string]any   `yaml:"settings" json:"settings"`
-	Extra       map[string]any   `yaml:"extra,omitempty" json:"extra,omitempty"`
-	// Sources and Destinations are a Grid panel's edges with their hidden items, pins and item artwork.
-	Sources      *GridEdge `yaml:"sources,omitempty" json:"sources,omitempty"`
-	Destinations *GridEdge `yaml:"destinations,omitempty" json:"destinations,omitempty"`
+	LegacyCells  []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
+	Settings     map[string]any   `yaml:"settings" json:"settings"`
+	Extra        map[string]any   `yaml:"extra,omitempty" json:"extra,omitempty"`
+	Sources      *GridEdge        `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Destinations *GridEdge        `yaml:"destinations,omitempty" json:"destinations,omitempty"`
 }
 
 func layoutOf(p Panel) panelLayout {
@@ -80,7 +79,7 @@ func newShortID(prefix string) string {
 // Checkpoints sit in panels/<id>.checkpoints, a name loadPanels does not read as a panel.
 func (s *panelStore) cpPath(id string) string { return filepath.Join(s.dir, id+".checkpoints") }
 
-// cpsLocked reads a panel's checkpoints once, then serves them from memory.
+// cpsLocked reads a panel's checkpoints from the file one time, then serves them from memory.
 func (s *panelStore) cpsLocked(id string) []panelCheckpoint {
 	if c, ok := s.cps[id]; ok {
 		return c
@@ -107,7 +106,7 @@ func (s *panelStore) cpsLocked(id string) []panelCheckpoint {
 	return c
 }
 
-// checkpoints lists a panel's, oldest first. The bool is false for an unknown panel.
+// Oldest first. The bool is false for an unknown panel.
 func (s *panelStore) checkpoints(id string) ([]panelCheckpoint, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -162,22 +161,20 @@ func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string, ref
 	return q, cp, nil
 }
 
-// pushLayout is a Push to one panel. The target keeps its own fixed destinations.
+// The target keeps its own fixed destinations.
 func (s *panelStore) pushLayout(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.applyLocked(id, keepFixedDests(lay, s.by[id]), by, why, refer)
 }
 
-// applyLayout puts a whole layout on one panel, as a Checkpoint set does.
 func (s *panelStore) applyLayout(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.applyLocked(id, lay, by, why, refer)
 }
 
-// restoreCheckpoint puts checkpoint cp back on panel id; ok is false for an unknown one. What
-// it replaces is itself kept as a checkpoint.
+// ok is false for an unknown checkpoint. The layout it replaces is kept as a checkpoint.
 func (s *panelStore) restoreCheckpoint(id, cp, by string, refer layoutRefer) (p Panel, ok bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -280,7 +277,6 @@ func setFileName(set PanelSet) string {
 	return "me-" + hex.EncodeToString([]byte(set.Owner)) + ".yaml"
 }
 
-// persistLocked rewrites the file that holds set's scope and owner.
 func (s *panelSetStore) persistLocked(set PanelSet) error {
 	if s.dir == "" {
 		return nil
@@ -310,7 +306,7 @@ func (s *panelSetStore) persistLocked(set PanelSet) error {
 	return config.AtomicWrite(path, b)
 }
 
-// putLocked stores set; a failed write leaves memory as the file is.
+// A failed write leaves memory as the file is.
 func (s *panelSetStore) putLocked(set PanelSet) error {
 	old, had := s.by[set.ID]
 	s.by[set.ID] = set

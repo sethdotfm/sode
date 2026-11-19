@@ -8,8 +8,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A blank router is this one; a reference to another router stays. The name: the router's now, else the body's, else old's
-// (nil on create). Runs before validatePanel, so two entries for one item are caught when only one names the router.
+// A blank router is this one; a reference to another router stays. The name: the router's now, else the body's, else
+// old's (nil on create). Runs before validatePanel, so two entries for one item are caught when only one names the
+// router.
 func (a *App) refEdges(p *Panel, old *Panel) {
 	var oldSrc, oldDst *GridEdge
 	if old != nil {
@@ -92,7 +93,6 @@ func withRouter(r config.Ref, uid string) config.Ref {
 	return r
 }
 
-// edgeRefs yields every reference an edge holds: members, hidden items and items with settings.
 func edgeRefs(e *GridEdge) iter.Seq[config.Ref] {
 	return func(yield func(config.Ref) bool) {
 		for _, r := range e.Members.List {

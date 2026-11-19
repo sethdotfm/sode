@@ -6,8 +6,7 @@ import (
 )
 
 // These pin the session paths (sign in, Lock, resume, sign out, sign out all, token
-// file) through the same calls the policy handlers make. So the session struct refactor
-// can move code without a change to what a page sees.
+// file) through the same calls the policy handlers make.
 
 func heldState(t *testing.T, read func() []map[string]any) bool {
 	t.Helper()
@@ -64,7 +63,7 @@ func TestSwitchingUserLeavesTheSharedSession(t *testing.T) {
 	twin := &client{ip: "10.0.0.2"}
 	register(a, twin)
 	a.Hi(twin, "main", tok)
-	if err := a.UserUnlock(c, "567890"); err != nil { // Bo takes over c
+	if err := a.UserUnlock(c, "567890"); err != nil { // Bo signs in on c
 		t.Fatal(err)
 	}
 	a.UserLock(c)

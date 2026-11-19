@@ -9,8 +9,6 @@ import (
 	"testing"
 )
 
-// REST seam for a panel's Pages (ADR 0007): the stored shape, its checks, and every copy of a layout carrying them.
-
 func pagesOf(t *testing.T, p map[string]any) []map[string]any {
 	t.Helper()
 	raw, ok := p["pages"].([]any)
@@ -24,7 +22,6 @@ func pagesOf(t *testing.T, p map[string]any) []map[string]any {
 	return out
 }
 
-// page1Cells is the cells of a read panel or template's first Page.
 func page1Cells(p map[string]any) []any {
 	return p["pages"].([]any)[0].(map[string]any)["cells"].([]any)
 }
@@ -84,7 +81,6 @@ func TestPagesRoundTripOverREST(t *testing.T) {
 		t.Fatalf("an unnamed Page carries a name: %v", pages[1])
 	}
 
-	// A Page sent without id or enabled gets a fresh id and is on; one with no pages at all is one empty Page.
 	id2 := makePanel(t, a, ana, `{"name":"New","pages":[{"cells":[]},{"name":" Two "}]}`)
 	p2 := pagesOf(t, readPanel(t, a, ana, id2))
 	if len(p2) != 2 || p2[0]["id"] == "" || p2[0]["id"] == p2[1]["id"] || p2[0]["enabled"] != true || p2[1]["name"] != "Two" {
@@ -130,7 +126,6 @@ func TestPagesValidation(t *testing.T) {
 	}
 }
 
-// An API client from before Pages sends cells: they are Page 1's, and the other Pages stay.
 func TestPagesCellsOnlyBodyIsPageOne(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -229,7 +224,6 @@ func TestPagesTravelWithPushCopyRestoreSetAndTemplate(t *testing.T) {
 	}
 }
 
-// An old template file and an old checkpoint hold cells: each comes back as one Page.
 func TestPagesOldTemplateAndCheckpointLoadAsOnePage(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "templates", "me"), 0o755)
@@ -248,7 +242,6 @@ func TestPagesOldTemplateAndCheckpointLoadAsOnePage(t *testing.T) {
 	}
 }
 
-// Icon uses and Default artwork read every Page, not only the first.
 func TestPagesIconUsesCountEveryPage(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

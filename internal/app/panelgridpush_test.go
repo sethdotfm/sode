@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// Push, checkpoints and checkpoint sets of Grid panels (ADR 0011).
-
 func gridWithEdges(t *testing.T, a *App, key, name string) string {
 	t.Helper()
 	id := makeGridPanel(t, a, key, name)
@@ -103,7 +101,6 @@ func TestCheckpointSetCarriesGridEdges(t *testing.T) {
 	}
 }
 
-// A layout of the other type is refused whatever the way in, so a Checkpoint set entry never blanks a panel.
 func TestApplyLayoutRefusesTheOtherType(t *testing.T) {
 	a := panelsApp(t)
 	b, err := a.panels.create(Panel{Name: "B", Owner: "Ana"})

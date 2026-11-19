@@ -25,7 +25,7 @@ const (
 	inboxKeep       = 30 * 24 * time.Hour // how long an answered card stays in the Sent list
 )
 
-// Card states. A card leaves cardWaiting once and never comes back.
+// Card states. A card that leaves cardWaiting never comes back.
 const (
 	cardWaiting   = "waiting"
 	cardAccepted  = "accepted"
@@ -123,8 +123,9 @@ func (s *inboxStore) waitingForLocked(to string) int {
 }
 
 // add stores one card per recipient, or none: full names the first recipient whose Inbox is full.
-// art is keyed "<panel>/<art>" and goes with every card.
-func (s *inboxStore) add(cards []inboxCard, art map[string][]byte) (stored []inboxCard, full string, err error) {
+// art is keyed "<panel>/<art>" and goes with every card. live is read after the write: a user removed
+// before it loses the card here, one removed after it is caught by usersRemoved.
+func (s *inboxStore) add(cards []inboxCard, art map[string][]byte, live func(user string) bool) (stored []inboxCard, full string, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, c := range cards {
@@ -134,18 +135,27 @@ func (s *inboxStore) add(cards []inboxCard, art map[string][]byte) (stored []inb
 	}
 	for _, c := range cards {
 		c.ID = s.newIDLocked()
-		if err := s.putArtLocked(c.ID, art); err != nil {
-			s.dropArtLocked(c.ID)
-			return stored, "", err
+		err := s.putArtLocked(c.ID, art)
+		if err == nil {
+			err = s.writeLocked(c)
 		}
-		if err := s.writeLocked(c); err != nil {
+		if err != nil {
 			s.dropArtLocked(c.ID)
-			return stored, "", err
+			for _, k := range stored {
+				s.forgetLocked(k)
+			}
+			return nil, "", err
 		}
 		s.by[c.ID] = c
 		stored = append(stored, c)
 	}
-	return stored, "", nil
+	return slices.DeleteFunc(stored, func(c inboxCard) bool {
+		if live(c.To) {
+			return false
+		}
+		s.forgetLocked(c)
+		return true
+	}), "", nil
 }
 
 func (s *inboxStore) putArtLocked(card string, art map[string][]byte) error {
@@ -197,8 +207,7 @@ func (s *inboxStore) endLocked(id, state string, accepted int, now time.Time) (i
 	return c, nil
 }
 
-// sweep expires waiting cards older than ttl and forgets answered cards older than keep. It returns
-// the cards it expired.
+// sweep returns the cards it expired.
 func (s *inboxStore) sweep(now time.Time, ttl, keep time.Duration) []inboxCard {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -224,8 +233,8 @@ func (s *inboxStore) forgetLocked(c inboxCard) {
 	delete(s.by, c.ID)
 }
 
-// usersRemoved: a removed recipient's waiting cards end as Expired for the sender, and the cards
-// the recipient answered go. A removed sender's cards stay. It returns the cards it expired.
+// usersRemoved: a removed recipient's waiting cards end as Expired for the sender. A card goes only when
+// its sender is removed too. It returns the cards it expired.
 func (s *inboxStore) usersRemoved(removed map[string]bool, now time.Time) []inboxCard {
 	s.mu.Lock()
 	defer s.mu.Unlock()

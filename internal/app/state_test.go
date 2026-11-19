@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// fillRouterDerived puts something in every router-derived field.
 func fillRouterDerived(a *App) {
 	until := time.Now().Add(time.Minute)
 	a.mu.Lock()

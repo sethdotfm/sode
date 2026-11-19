@@ -126,7 +126,7 @@ func TestSessionKeysStayWithTheirOwnUser(t *testing.T) {
 	if pa.Owner != idOf(a, "Ana") || pb.Owner != idOf(a, "Bo") {
 		t.Fatalf("owners %q %q", pa.Owner, pb.Owner)
 	}
-	// Signing one browser out leaves the other's key alone.
+	// A sign-out of one browser leaves the other's key alone.
 	a.SignOut(ca)
 	if panelsStatus(a, ka) != 401 || panelsStatus(a, kb) != 200 {
 		t.Fatal("sign out reached the wrong key")

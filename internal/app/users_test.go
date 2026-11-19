@@ -26,10 +26,8 @@ func mkUser(t *testing.T, name, pin string) config.User {
 	return config.User{Name: name, Pin: h, Len: len(pin)}
 }
 
-// settledTempDir is t.TempDir for a directory. It is possible that the app still writes to it.
-// tokens.json is saved off the lock, so a save can land at the moment the test
-// ends. That makes a plain RemoveAll fail with "directory not empty", which
-// failed the release image build once. Removal is retried briefly.
+// The app saves tokens.json off the lock, so a save can land when the test ends.
+// A plain RemoveAll then fails with "directory not empty".
 func settledTempDir(t *testing.T) string {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "sode-test-")

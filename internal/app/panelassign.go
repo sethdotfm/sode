@@ -120,8 +120,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		Instance string `json:"instance"`
 		Keyless  string `json:"keyless"` // a keyless instance's id, in place of from and instance
 		Name     string `json:"name"`    // its name on the target, after a name_taken; "" keeps its own
-		Pin      string `json:"pin"`
-		As       string `json:"as"` // "client" or "user", for a target that acts as both
+		As       string `json:"as"`      // "client" or "user", for a target that acts as both
 	}
 	if err := json.Unmarshal(body, &in); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"from":"<panel id>","instance":"<instance name>"}`)

@@ -19,8 +19,6 @@ func cellsOf(t *testing.T, body map[string]any) []map[string]any {
 	return out
 }
 
-// Buttons cells hold {router, n, name}; a Preset cell holds the preset's id. A preset rename keeps the cell, and the cell
-// fires the same route.
 func TestPanelCellsStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	a, f, bot := takerApp(t, nil)
 	uid := a.r().cfg.UID
@@ -80,7 +78,6 @@ func TestPanelCellsStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	}
 }
 
-// Templates store the same shape. A template that leaves contents out drops the references too.
 func TestTemplateCellsStoreRouterReferences(t *testing.T) {
 	a := panelsApp(t)
 	uid := a.r().cfg.UID

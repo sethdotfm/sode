@@ -13,12 +13,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// apiT* helpers are the REST seam: a real Handler, a recorder, the fake router.
-
 const apiPeer = "192.0.2.7:4000"
 
-// apiTestApp has the API on, a client "PanelsBot" with every read scope but log, and names
-// and tally seeded through the fake router.
+// The client "PanelsBot" has every read scope but log. The fake router seeds names and tally.
 func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 	t.Helper()
 	a := userApp(t, false)
@@ -47,7 +44,11 @@ func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 
 func apiTestKey(t *testing.T, a *App, o keyOwner, name string, exp time.Time) string {
 	t.Helper()
-	secret, _, err := a.keys.createCapped(o, name, exp, 0, "")
+	fp := ""
+	if u, ok := a.r().cfg.FindUserByID(o.User); ok && o.Kind == actorUser {
+		fp = pinFP(u.Pin)
+	}
+	secret, _, err := a.keys.createCapped(o, name, exp, 0, fp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +86,6 @@ func apiBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 	return m
 }
 
-// apiErrCode is the machine-readable reason of an error response.
 func apiErrCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	e, _ := apiBody(t, rec)["error"].(map[string]any)
@@ -277,12 +277,10 @@ func TestAPIRateLimitPerKeyAndPerGuestAddress(t *testing.T) {
 	if rec.Header().Get("Retry-After") == "" {
 		t.Error("no Retry-After")
 	}
-	// another key is unaffected
 	other := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: "PanelsBot"}, "Panel 44", time.Time{})
 	if rec := apiDo(a, "GET", "/api/v1/names", other, nil); rec.Code != 200 {
 		t.Errorf("other key: %d", rec.Code)
 	}
-	// keyless calls count per address
 	for range 3 {
 		apiDoFrom(a, "192.0.2.50:1", "GET", "/api/v1/names", "", nil)
 	}
@@ -302,7 +300,6 @@ func TestAPIFailedAuthThrottleAndOneRowPerMinute(t *testing.T) {
 	wantErr(t, last, 429, "rate_limited")
 	// the real key from that address waits too: the throttle is per address
 	wantErr(t, apiDo(a, "GET", "/api/v1/names", botKey(t, a), nil), 429, "rate_limited")
-	// another address is fine
 	if rec := apiDoFrom(a, "192.0.2.99:1", "GET", "/api/v1/names", botKey(t, a), nil); rec.Code != 200 {
 		t.Errorf("other address: %d", rec.Code)
 	}

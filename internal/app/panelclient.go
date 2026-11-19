@@ -16,7 +16,6 @@ import (
 
 func panelClientName(id string) string { return "Panel " + id }
 
-// clientOfPanel is the panel's own API client, if it has one.
 func clientOfPanel(cfg config.Config, p Panel) (config.APIClient, bool) {
 	if p.Client == "" {
 		return config.APIClient{}, false

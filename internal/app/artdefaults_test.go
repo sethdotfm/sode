@@ -33,7 +33,6 @@ func TestArtDefaultNeedsATrustedUser(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("defaults %v", got)
 	}
-	// The router's name when it was set, for the editor's warning.
 	if d := got[0].(map[string]any); d["name"] != "CAM 1" || d["art"] != "icon:camera" || d["artB"] != "2" || d["hideText"] != true {
 		t.Fatalf("default %v", d)
 	}
@@ -51,7 +50,7 @@ func TestArtDefaultNeedsATrustedUser(t *testing.T) {
 	}
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/default-artwork", cy, clear), 404, "not_found")
 
-	// An API client is refused even with the PIN (the config already refuses a client named like a user).
+	// The config already refuses a client named like a user.
 	cfg := a.r().cfg
 	cfg.APIClients[0].Scopes = append(cfg.APIClients[0].Scopes, config.ScopePanels, config.ScopePanelsManage)
 	if err := a.ApplyConfig(cfg); err != nil {
@@ -70,7 +69,6 @@ func TestArtDefaultValidation(t *testing.T) {
 		`{"kind":"source","n":1}`,
 		`{"kind":"source","n":1,"art":"https://example.com/x.png"}`,
 		`{"kind":"source","n":1,"artB":"17"}`,
-		// No Me scope: one shared set, so a Me preset's default would reach every user's preset of that name.
 		`{"kind":"preset","scope":"me","name":"X","art":"icon:camera"}`,
 	} {
 		wantErr(t, apiSend(a, "PUT", "/api/v1/default-artwork", cy, body), 400, "bad_request")
@@ -78,7 +76,6 @@ func TestArtDefaultValidation(t *testing.T) {
 	wantErr(t, apiSend(a, "PUT", "/api/v1/default-artwork", cy, `{"kind":"source","n":1,"art":"d-00000000"}`), 404, "not_found")
 }
 
-// A panel's own image is copied by content, outlives the panel, and is served from its own route.
 func TestArtDefaultCopiesPanelImage(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy, bo := userKey(t, a, "Ana"), userKey(t, a, "Cy"), userKey(t, a, "Bo")
@@ -86,7 +83,6 @@ func TestArtDefaultCopiesPanelImage(t *testing.T) {
 	png := b64(t, tinyPNG)
 	art := apiBody(t, apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, png))["id"].(string)
 
-	// Bo cannot reach Ana's panel, so cannot lift its image.
 	wantErr(t, apiSend(a, "PUT", "/api/v1/default-artwork", bo, `{"kind":"destination","n":2,"art":"`+art+`","panel":"`+id+`"}`), 403, "trusted_required")
 	rec := apiSend(a, "PUT", "/api/v1/default-artwork", cy, `{"kind":"destination","n":2,"art":"`+art+`","panel":"`+id+`"}`)
 	if rec.Code != 200 {
@@ -107,13 +103,11 @@ func TestArtDefaultCopiesPanelImage(t *testing.T) {
 		t.Errorf("csp %q", got.Header().Get("Content-Security-Policy"))
 	}
 
-	// The file is beside the config and a fresh store reads it back.
 	again := loadArtDefaults(a.cfgPath)
 	if b, _, ok := again.image(img); !ok || !bytes.Equal(b, png) || len(again.list()) != 1 {
 		t.Fatalf("reload: %v %d", ok, len(again.list()))
 	}
 
-	// Replacing the default drops the image nothing names any more.
 	apiSend(a, "PUT", "/api/v1/default-artwork", cy, `{"kind":"destination","n":2,"art":"icon:tv"}`)
 	if _, err := os.Stat(filepath.Join(filepath.Dir(a.cfgPath), artDefaultsDir, img)); !os.IsNotExist(err) {
 		t.Fatalf("old image kept: %v", err)
@@ -121,7 +115,6 @@ func TestArtDefaultCopiesPanelImage(t *testing.T) {
 	wantErr(t, apiDo(a, "GET", "/api/v1/default-artwork/images/"+img, bo, nil), 404, "not_found")
 }
 
-// The copied image is served as the type its bytes show, never the panel record's.
 func TestArtDefaultStoresTheSniffedType(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
@@ -139,8 +132,6 @@ func TestArtDefaultStoresTheSniffedType(t *testing.T) {
 	}
 }
 
-// A hand-edited artdefaults.yaml. Sode drops an image whose type is not an allowed image type. It also drops a
-// default whose art is not one of the stored forms, a bad Icon B and a Me scope preset.
 func TestArtDefaultLoadDropsBadEntries(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
@@ -172,7 +163,6 @@ images:
 	}
 }
 
-// Hidden: a default for an item outside the Rights is not in the list, the panel read or the image route.
 func TestArtDefaultHiddenFromHiddenKey(t *testing.T) {
 	for _, vis := range []string{config.VisHidden, ""} {
 		a, bot := viewApp(t, vis)
@@ -202,7 +192,6 @@ func TestArtDefaultHiddenFromHiddenKey(t *testing.T) {
 			t.Errorf("%q: list %v", vis, got)
 		}
 
-		// An image named only by a hidden item's default is not served, and a panel read carries only visible ones.
 		dst := 7
 		if _, err := a.artDefaults.set(ArtDefault{Kind: artKindDst, N: &dst, Name: "SECRET DST"}, &artImage{b64(t, tinyPNG), "image/png"}); err != nil {
 			t.Fatal(err)
@@ -237,7 +226,7 @@ func TestArtDefaultRidesPanelRead(t *testing.T) {
 	if len(ds) != 1 || ds[0].(map[string]any)["art"] != "icon:camera" {
 		t.Fatalf("artDefaults %v", ds)
 	}
-	// Stored cells never take the default: a save of the read leaves the cell bare.
+	// A stored cell never holds the default: a save of the read leaves the cell bare.
 	if c := page1Cells(p)[0].(map[string]any); c["art"] != nil {
 		t.Fatalf("cell froze the default: %v", c)
 	}
@@ -251,7 +240,6 @@ func TestArtDefaultRidesPanelRead(t *testing.T) {
 	}
 }
 
-// Push and templates copy a cell's own artwork only, never the default it shows.
 func TestArtDefaultNotFrozenByPushOrTemplate(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")

@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// makeGridPanel is a Grid panel owned by the key's user, every edge "all".
 func makeGridPanel(t *testing.T, a *App, key, name string) string {
 	t.Helper()
 	return makePanel(t, a, key, `{"name":"`+name+`","type":"grid"}`)
@@ -45,7 +44,6 @@ func TestPanelWithNoTypeIsAButtonsPanel(t *testing.T) {
 	}
 }
 
-// A file saved before Grid panels has no type: it loads as a Buttons panel with its Pages as they were.
 func TestPanelFileFromBeforeGridLoadsAsButtons(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -83,8 +81,7 @@ rev: 3
 	}
 }
 
-// settings.mode is free-form to the server (the page reads it, gridpanelstage.js createStage). Each of its three
-// values, and a Grid file saved before takeOnly with mode take, must come back as stored after a restart.
+// The server does not interpret settings.mode; the page reads it (gridpanelstage.js createStage).
 func TestGridPanelTakeModesSurviveARestart(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -204,7 +201,6 @@ func TestPanelBodyRefusesBadTypeAndEdges(t *testing.T) {
 	}
 }
 
-// A Push between a Grid panel and a Buttons panel changes neither.
 func TestPushRefusesTheOtherType(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -222,7 +218,6 @@ func TestPushRefusesTheOtherType(t *testing.T) {
 	}
 }
 
-// Copy keeps the type and the edges.
 func TestGridPanelCopyIsAGridPanel(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

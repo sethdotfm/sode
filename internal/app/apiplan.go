@@ -10,21 +10,18 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The server-side planner. From a History entry or a preset, it builds what the browser builds
-// in web/plans.js (undoItem, againItem, resolvePreset) and sends as plain routes.
-// Keep the rules in step with plans.js.
+// The server-side planner. Keep the rules in step with web/plans.js (undoItem, againItem, resolvePreset).
 
-// takePlan is routes ready for a.take plus what the plan left out, for the response.
 type takePlan struct {
 	Items     []routeReq
 	Preset    string
 	PresetID  string
-	LeftOut   []string // preset parts the router no longer has
+	LeftOut   []string // preset parts the router does not have
 	Skipped   []int    // undo: levels with nothing routed before, left as is
 	Untouched []int    // undo: levels a failed take never changed, left as is
 }
 
-// apiProblem is every API error: a status, a code listed in openapi.yaml and a message.
+// The code is one listed in openapi.yaml.
 type apiProblem struct {
 	Status    int
 	Code, Msg string
@@ -40,7 +37,6 @@ func (p *apiProblem) answer() apiAnswer {
 
 func (p *apiProblem) write(w http.ResponseWriter) { p.answer().write(w, false) }
 
-// Get returns one entry by id.
 func (h *History) Get(id int) (Entry, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -55,10 +51,8 @@ func (h *History) Get(id int) (Entry, bool) {
 	return e, true
 }
 
-// planUndo restores Prev. Levels the take did not change stay as they are (a failed take the
-// router answered for, unless the answer came late). Levels with nothing routed or no answer
-// before also stay as they are. Rights skip the Before source (rights.go); visibility drops
-// routes the caller is not allowed to see.
+// Levels the take did not change stay: a failed take the router answered for, unless the answer came late.
+// So do levels with nothing routed or no answer before. Rights skip the Before source (rights.go).
 func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 	untouched := map[int]bool{}
 	if !e.OK {
@@ -112,8 +106,8 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 	return p
 }
 
-// planAgain repeats an entry's take: a Retry when it failed (linked to the entry), else a
-// Redo sent as a plain new take. Needs a real source and a level that still exists.
+// A Retry is linked to the failed entry; a Redo is a plain new take. Both need a real source and a level that still
+// exists.
 func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProblem) {
 	switch {
 	case retry && e.OK:
@@ -141,13 +135,12 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 	return &takePlan{Items: []routeReq{req}}, nil
 }
 
-// planPreset resolves a preset the way resolvePreset does: one route per source and destination,
-// with levels merged. Parts the router lacks are left out and listed. Order follows the preset.
+// Keep in step with resolvePreset: one route per source and destination with levels merged, in the preset's order.
+// Parts the router lacks are left out and listed.
 func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	defaults, _ := config.ParseLevels(r.cfg.DefaultLevels, r.cfg.Levels)
 	a.mu.Lock()
-	// A reference to another router names one this release does not drive: left out like a gone number.
-	// A reference the Broken check marked is left out too: the shown names keep a gone number (refreshed).
+	// A reference to another router, or one the Broken check marked, is left out like a gone number.
 	has := func(f config.Ref, kind string, names map[int]string) bool {
 		_, ok := names[f.N]
 		return ok && f.Router == r.cfg.UID && !hasMissing(p.Broken, kind, f)
@@ -164,7 +157,7 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 		}
 	}
 	off := r.cfg.NumberOffset
-	// "CAM 3 (source 13)": the stored name says what was meant, the number which one is gone.
+	// "CAM 3 (source 13)": the stored name says what was meant, the number says which one is gone.
 	gone := func(side string, f config.Ref) string {
 		if name := strings.TrimSpace(f.Name); name != "" {
 			return fmt.Sprintf("%s (%s %d)", name, side, f.N+off)

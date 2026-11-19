@@ -65,7 +65,7 @@ func TestRightsKeepStoredNamesWithoutRouterNames(t *testing.T) {
 	}
 }
 
-// Rights name presets by hidden id, so renaming a preset does not change who can fire it.
+// Rights name presets by hidden id, so a rename of a preset does not change who can fire it.
 func TestRenamedPresetKeepsWhoMayFireIt(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
 		c.Presets = append(c.Presets, config.Preset{Name: "Other", Items: []config.PresetItem{presetItem(1, nil, 2)}})

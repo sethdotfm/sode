@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -26,18 +27,21 @@ type client struct {
 	// secure: the upgrade request came through a trusted proxy marked HTTPS (ADR 0005).
 	secure bool
 
-	// sent: a /log page receiving sent-log entries. Guarded by App.mu.
+	// sent: a /log page that gets Communication Log rows. Guarded by App.mu.
 	sent bool
 
 	// api: set for a caller that is not a browser session; its Actor and Rights replace
 	// the lookup callerOf does for a browser.
 	api *apiCtx
 
-	u connUser // page type, unlocked user, session token (users.go)
+	u connUser // page type, signed-in user, session token (users.go)
 }
 
 // wsReadLimit: see TestMessageSizes (largest are a Settings save and a presets save).
 const wsReadLimit = 64 << 10
+
+// A page sends one message per action. Past this a socket is closed, since each refusal writes a log row.
+const wsMsgsPerSec = 100
 
 func (a *App) Handler(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
@@ -148,8 +152,7 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(healthMsg{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
 }
 
-// clientIP: a hop that is not an address ends the search at the peer rather than trusting
-// what lies beyond.
+// clientIP: a hop that is not an address ends the search at the peer. Sode does not trust what lies beyond it.
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	host, ok := trustedPeer(r, trusted)
 	if !ok {
@@ -275,10 +278,19 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	var win time.Time
+	n := 0
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
 			gone = err
+			return
+		}
+		if now := time.Now(); now.Sub(win) >= time.Second {
+			win, n = now, 0
+		}
+		if n++; n > wsMsgsPerSec {
+			conn.Close(websocket.StatusPolicyViolation, "too many messages")
 			return
 		}
 		var m inMsg
@@ -394,7 +406,7 @@ type inMsg struct {
 	Instance     string             `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
 	MyClient     *myClientReq       `json:"client"`   // myClientSave
 	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
-	approver     *config.User       // set by approve once the Approval's PIN is checked
+	approver     *config.User       // approve sets it after it checks the Approval's PIN
 	Router       string             `json:"router"`  // setupRouter: the address typed
 	Setup        *setupReq          `json:"setup"`   // setupFinish
 	TakeOver     bool               `json:"take"`    // setupClaim: Take control from the browser that runs setup
@@ -437,4 +449,19 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 		m.Counts = []UptimeSlot{}
 	}
 	return m
+}
+
+// KeepAliveListener probes an idle connection after 2 s, every 1 s, and drops it after 3 misses. So a
+// peer that vanished without a FIN (power cut, lost Wi-Fi) ends its stream in about 5 s. The kernel
+// default is 2 hours. A proxy in front only gets this on its own leg of the connection.
+func KeepAliveListener(ln net.Listener) net.Listener { return keepAliveLn{ln} }
+
+type keepAliveLn struct{ net.Listener }
+
+func (l keepAliveLn) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if tc, ok := c.(*net.TCPConn); ok && err == nil {
+		_ = tc.SetKeepAliveConfig(net.KeepAliveConfig{Enable: true, Idle: 2 * time.Second, Interval: time.Second, Count: 3})
+	}
+	return c, err
 }

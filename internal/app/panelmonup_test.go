@@ -6,9 +6,6 @@ import (
 	"time"
 )
 
-// Per-instance uptime, hidden instances and the counts behind the panels page's All, Some or All
-// Offline badge. The clock is the fake one from panelmon_test.go.
-
 func hide(t *testing.T, a *App, method, id, key, device string, want int) {
 	t.Helper()
 	if rec := apiSend(a, method, "/api/v1/panels/"+id+"/instances/hide?instance="+url.QueryEscape(device), key, ""); rec.Code != want {
@@ -95,7 +92,7 @@ func TestHiddenInstanceLeavesTheCountUntilItIsBack(t *testing.T) {
 	clk.advance(40 * time.Second)
 	keepalive(a, id, ana, "Lobby")
 	clk.advance(10 * time.Second)
-	a.monSweep() // Desk is lost
+	a.monSweep()
 	if on, known := countsOf(panelOf(t, a, id, ana)); on != 1 || known != 2 {
 		t.Fatalf("counts %v of %v", on, known)
 	}
@@ -117,7 +114,7 @@ func TestHiddenInstanceLeavesTheCountUntilItIsBack(t *testing.T) {
 		t.Fatalf("Cy's counts %v of %v", on, known)
 	}
 
-	keepalive(a, id, ana, "Desk") // back
+	keepalive(a, id, ana, "Desk")
 	p = panelOf(t, a, id, ana)
 	if h := p["hiddenInstances"].([]any); len(h) != 0 {
 		t.Fatalf("still hidden after coming back: %v", h)

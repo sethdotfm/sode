@@ -6,9 +6,6 @@ import (
 	"testing"
 )
 
-// Renaming a keyless page from the Open now list: the name goes down its keyless stream and the page keeps it in its
-// own browser. It has no key, so nothing else is renamed.
-
 func keylessRenameBody(id any, name string) string {
 	return fmt.Sprintf(`{"keyless":%q,"name":%q}`, id, name)
 }
@@ -36,7 +33,6 @@ func TestRenameAKeylessPage(t *testing.T) {
 	if !strings.Contains(log.By, "Cy") || !strings.Contains(log.Note, "Wall") || !strings.Contains(log.Note, "Porch") || !strings.Contains(log.Note, "at 127.0.0.1") {
 		t.Fatalf("row %+v", log)
 	}
-	// The page reopens under its new name, and the old row goes.
 	keylessHold(t, a, "studio-a", "?instance=Porch")
 	keylessRow(t, a, id, cy, "Porch")
 	for _, r := range keylessRows(t, a, id, cy) {

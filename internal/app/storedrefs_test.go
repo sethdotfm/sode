@@ -19,7 +19,7 @@ import (
 )
 
 // refKeys hold sources, destinations or levels. A number under one of them needs a router UID in its own mapping
-// or in one around it. History rows and names tables name the router once for the row or file.
+// or in one around it. History rows and names tables name the router one time for the row or file.
 var refKeys = map[string]bool{
 	"n": true, "src": true, "dst": true, "dsts": true, "sources": true, "destinations": true,
 	"members": true, "hide": true, "fixedDests": true, "levels": true,
@@ -55,7 +55,7 @@ func bareNumbers(v any, path string, routed bool) []string {
 		if r, _ := x["router"].(string); r != "" || strings.HasPrefix(path, ".routers[") {
 			routed = true
 		}
-		// A preset item names its router once, in src; its levels are that router's.
+		// A preset item names its router one time, in src; its levels are that router's.
 		src, _ := x["src"].(map[string]any)
 		itemRouted := src != nil && src["router"] != nil && src["router"] != ""
 		for k, e := range x {

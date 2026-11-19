@@ -9,28 +9,14 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// Native fire mode: Sode stages a confirm's takes in a SW-P-08 group salvo (120, answered
-// 122) and sets them with one Go (121, answered 123). On the Ultrix (2026-11-02) the router
-// announces a Go's crosspoints about 4 ms apart, compared with about 16 ms for ordinary
-// connects. True simultaneity is unproven.
-// The Ultrix sometimes announces a Go's crosspoints (0x84), sometimes not. So a staged level
-// has an own key. Its Connected confirms it, else the tally of the interrogate that each take
-// sends after the Go. Failure and late handling are those of the sequential take. A
-// tally-confirmed key lives salvoAnnounceFor after the Go.
-// Staging: levels the standard layout carries (wire level 0-15, numbers 0-1023) use 120,
-// the rest 248 (extended). A destination level used twice in a take is not staged. Fewer
-// than two staged takes: sequential throughout.
-// All clients share the staged list. So fire holds fireMu from the first clear to the last,
-// one salvo command at a time. It clears the group before it stages and after every fire. A
-// failure before the Go (no 122, no 123 for the first clear, link refusal) clears the
-// group and sends the take as ordinary connects. After Sode sends the Go, it never sends it
-// again and never follows it with connects; the takes' interrogates say what happened.
+// Native fire mode: docs/agents/salvos.md. All clients share the staged list, so fire holds fireMu from the first
+// clear to the last. After Sode sends the Go, it never sends it again and never follows it with connects.
 
 // salvoReply: acknowledge wait after the command was ACKed; the Ultrix answers in 5-7 ms.
 const salvoReply = time.Second
 
-// salvoAnnounceFor: a Connected for a tally-confirmed staged level still counts this long
-// after the Go (Ultrix: 100-340 ms for ~50 crosspoints).
+// salvoAnnounceFor: a Connected for a tally-confirmed staged level still counts this long after the Go (Ultrix:
+// 100-340 ms for about 50 crosspoints).
 const salvoAnnounceFor = 2 * time.Second
 
 // stageChunk: caps queued stage messages so a big salvo does not fill the send queue.

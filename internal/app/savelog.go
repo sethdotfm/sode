@@ -8,6 +8,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Retention of the Settings saves record and the uptime graph: whichever limit comes first.
@@ -137,7 +139,7 @@ func (l *SaveLog) rewrite() error {
 		line, _ := json.Marshal(e)
 		b = append(append(b, line...), '\n')
 	}
-	return replaceFile(l.path, b)
+	return config.AtomicWrite(l.path, b)
 }
 
 // Over the cap or past keepAge, the file is written again without the oldest rows.

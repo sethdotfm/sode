@@ -12,9 +12,8 @@ const (
 	idemKeyMax = 128
 )
 
-// idemSlot is one Idempotency-Key. The first request owns it and fills status and body;
-// a repeat waits on done and replays them. fp ties the key to one request, so reusing a key
-// for something else is refused instead of answered with the wrong take.
+// The first request owns the slot; a repeat waits on done and replays status and body. fp ties the key to one request,
+// so a key used again for something else is refused, not answered with the wrong take.
 type idemSlot struct {
 	fp     string
 	at     time.Time
@@ -35,7 +34,6 @@ func validIdemKey(k string) bool {
 	return true
 }
 
-// takeStart reserves one in-flight take; false when the cap is reached.
 func (s *apiState) takeStart(limit int) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -52,8 +50,8 @@ func (s *apiState) takeEnd() {
 	s.mu.Unlock()
 }
 
-// idemBegin returns the slot and whether the caller owns it. A non-owner gets the finished
-// slot to replay (or mismatch=true). A slot the owner abandoned is gone, so the wait loops.
+// A caller that is not the owner gets the finished slot to replay, or mismatch. An abandoned slot is gone, so the
+// wait loops.
 func (s *apiState) idemBegin(ctx context.Context, subject, key, fp string, now time.Time) (slot *idemSlot, owner, mismatch bool) {
 	id := subject + "\x00" + key
 	for {
@@ -84,8 +82,7 @@ func (s *apiState) idemBegin(ctx context.Context, subject, key, fp string, now t
 		case <-ctx.Done():
 			return nil, false, false
 		}
-		// A committed answer is replayed even if the map dropped the slot meanwhile; running
-		// again would take twice.
+		// Replay a committed answer even if the map dropped the slot meanwhile: a second run would send the take twice.
 		s.mu.Lock()
 		committed := sl.body != nil
 		s.mu.Unlock()
@@ -95,9 +92,7 @@ func (s *apiState) idemBegin(ctx context.Context, subject, key, fp string, now t
 	}
 }
 
-// idemPruneLocked drops expired slots, then the oldest committed one if the map is still
-// full. A slot in flight stays, so it is possible that the map passes idemMax by the requests running now.
-// Caller holds s.mu.
+// A slot in flight stays, so the map can pass idemMax by the requests that run now. Caller holds s.mu.
 func (s *apiState) idemPruneLocked(now time.Time) {
 	var oldest string
 	var at time.Time
@@ -115,7 +110,12 @@ func (s *apiState) idemPruneLocked(now time.Time) {
 	}
 }
 
-// idemCommit stores the first answer and wakes repeats.
+func (s *apiState) idemSweep(now time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.idemPruneLocked(now)
+}
+
 func (s *apiState) idemCommit(sl *idemSlot, status int, body []byte) {
 	s.mu.Lock()
 	sl.status, sl.body = status, body
@@ -123,7 +123,7 @@ func (s *apiState) idemCommit(sl *idemSlot, status int, body []byte) {
 	close(sl.done)
 }
 
-// idemAbandon forgets a slot whose request did nothing (bad input, cap), so a repeat runs.
+// The request did nothing (bad body, cap), so a repeat must run.
 func (s *apiState) idemAbandon(subject, key string, sl *idemSlot) {
 	s.mu.Lock()
 	if s.idem[subject+"\x00"+key] == sl {

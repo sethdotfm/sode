@@ -10,8 +10,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST seam for /api/v1/panel-templates: users Ana and Bo, Cy (Trusted).
-
 const tplBody = `{"name":"Show layout","scope":"me","rows":2,"cols":3,"settings":{"mode":"instant"},"cells":[
  {"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":5,"caption":"CAM 5","levels":[1],"fontSize":2},
  {"r":1,"c":2,"rs":1,"cs":1,"kind":"preset","scope":"everyone","name":"Opening"},
@@ -71,7 +69,6 @@ const tplMixed = `{"name":"%s","scope":"me",%s"cells":[
  {"r":1,"c":3,"rs":1,"cs":1,"kind":"preset","scope":"everyone","name":"Opening"},
  {"r":2,"c":1,"rs":1,"cs":1,"kind":"take","caption":"GO"}]}`
 
-// tplCells saves a template of tplMixed with the given flags and returns its cells by kind.
 func tplCells(t *testing.T, a *App, key, name, flags string) (map[string]map[string]any, map[string]any) {
 	t.Helper()
 	rec := apiSend(a, "POST", "/api/v1/panel-templates", key, fmt.Sprintf(tplMixed, name, flags))
@@ -116,7 +113,6 @@ func TestTemplateSourcesAndDestsAreStoredApart(t *testing.T) {
 	}
 }
 
-// Undo is layout as Clear is: its caption goes when either option is on, and nothing else of it changes.
 func TestTemplateTreatsUndoAsClear(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -145,7 +141,6 @@ func TestTemplateTreatsUndoAsClear(t *testing.T) {
 	}
 }
 
-// A request from before the split sends contents:true and means both.
 func TestTemplateLegacyContentsMeansBoth(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -158,7 +153,6 @@ func TestTemplateLegacyContentsMeansBoth(t *testing.T) {
 	}
 }
 
-// A template file written before the split holds contents: true; it loads as both.
 func TestTemplateStoredBeforeTheSplitLoadsAsBoth(t *testing.T) {
 	dir := t.TempDir()
 	cfg := filepath.Join(dir, "config.yaml")
@@ -204,7 +198,6 @@ func TestTemplateEveryoneNeedsATrustedUser(t *testing.T) {
 		t.Fatalf("refused template stored: %q", got)
 	}
 
-	// A pin in the body opens nothing.
 	if rec = apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Shared","scope":"everyone","pin":"9999"}`); rec.Code != 403 {
 		t.Fatalf("no PIN set: %d", rec.Code)
 	}
