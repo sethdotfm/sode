@@ -55,6 +55,12 @@ func simBinary(t *testing.T) string {
 func startSimStoppable(t *testing.T, env ...string) (string, func()) {
 	t.Helper()
 	browserTest(t)
+	return simServer(t, env...)
+}
+
+// simServer is startSimStoppable for a server test that needs the simulator and no browser; call slowTest first.
+func simServer(t *testing.T, env ...string) (string, func()) {
+	t.Helper()
 	if _, err := exec.LookPath("go"); err != nil {
 		browserSkip(t, "browser checks skipped: go is not on PATH, so swp08sim cannot be built")
 	}

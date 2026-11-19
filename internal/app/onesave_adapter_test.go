@@ -163,7 +163,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	if err != nil {
 		return err
 	}
-	err = saveErr(a.saveSettingsFields(c, fields, nil))
+	err = saveErr(a.saveSettingsFields(c, fields, nil, ""))
 	if err != nil {
 		a.cfgMu.Lock()
 		_ = a.applyConfig(func(cur *config.Config) error { *cur = before; return nil })
@@ -173,7 +173,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 }
 
 func (a *App) SaveAPISettings(c *client, req apiSettingsReq) error {
-	return saveErr(a.saveSettingsFields(c, apiFields(a.r().cfg, req), nil))
+	return saveErr(a.saveSettingsFields(c, apiFields(a.r().cfg, req), nil, ""))
 }
 
 // askUsers sends a whole-list users save as one Save over p and answers in the old result's

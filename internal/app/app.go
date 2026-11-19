@@ -131,6 +131,7 @@ type App struct {
 	// promoted: token keys the last commit turned from tab to ordinary (promoteTabs), so
 	// catchUpSessions hands them to their pages to keep. Under cfgMu.
 	promoted map[string]bool
+	setup    setupHold // the browser that runs setup (setup.go). Under cfgMu.
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
@@ -165,6 +166,9 @@ type routerState struct {
 	namesAt        time.Time
 	// savedAt: the names came from the saved names table at start and no read has finished yet.
 	savedAt time.Time
+	// lastPoll: the last full read the Broken check counted (brokencheck.go); at start the saved names table.
+	lastPoll  *namePoll
+	faultSeen bool // the last full read was ignored as a router fault; logged once per run
 }
 
 func (rs *routerState) name(dst bool, n int) string {
@@ -239,6 +243,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	if t, ok := a.names.load(cfg.UID); ok {
 		a.router.srcNames, a.router.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
 		a.router.savedAt = t.At
+		a.router.lastPoll = &namePoll{maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)}
 	}
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
@@ -550,10 +555,13 @@ const (
 )
 
 func (a *App) flush() {
-	var save func()
+	var save, check func()
 	defer func() { // runs after mu is released: no disk work under mu
 		if save != nil {
 			save()
+		}
+		if check != nil {
+			check()
 		}
 	}()
 	a.mu.Lock()
@@ -573,7 +581,12 @@ func (a *App) flush() {
 
 	if a.router.newSrc != nil {
 		got := a.nameRxAt.After(a.nameReqAt)
-		if (got && time.Since(a.nameRxAt) > namesQuiet) || time.Since(a.nameReqAt) > namesTimeout {
+		quiet := got && time.Since(a.nameRxAt) > namesQuiet
+		if quiet || time.Since(a.nameReqAt) > namesTimeout {
+			// A read cut short by the timeout is not a full poll; neither is one with a side that never answered.
+			if quiet && len(a.router.newSrc) > 0 && len(a.router.newDst) > 0 {
+				check = a.countPollMu(namePoll{a.router.newSrc, a.router.newDst})
+			}
 			changed := false
 			// A side with no replies keeps its old names.
 			if next := refreshed(a.router.srcNames, a.router.newSrc); next != nil {

@@ -123,12 +123,13 @@ function makeRows(doc) {
 const matched = (r) => fmt.matchPreset(r.src, live());
 const clashOf = (r) => fmt.conflict(r.name, curNames(r.kind, scope()));
 
-// Own choice, else default (Keep both on a clash, else import; an ambiguous preset match waits as Skip).
+// Own choice, else default (Rename on a clash, else import; an ambiguous preset match waits as Skip).
 function choiceOf(r) {
   const clash = clashOf(r);
   const c = r.choice || (r.kind === 'preset' && matched(r).count.ambiguous ? 'skip' : fmt.defaultChoice(clash));
   if (c === 'skip') return 'skip';
   if (!clash) return 'import';
+  if (c === 'current') return 'current';
   return c === 'replace' ? 'replace' : 'both';
 }
 
@@ -299,9 +300,10 @@ function rowNode(r, i, choices) {
   const choice = choices[i];
   const opts = cur
     ? [
-        ['replace', 'Replace'],
-        ['both', 'Keep both'],
+        ['replace', 'Use new'],
+        ['current', 'Use current'],
         ['skip', 'Skip'],
+        ['both', 'Rename'],
       ]
     : [
         ['import', 'Import'],
@@ -327,7 +329,7 @@ function rowNode(r, i, choices) {
     });
     pickCell.append(as, prob);
   }
-  return el('div', `sode__rv-row${choice === 'skip' ? ' is-skip' : ''}`, inCell, curCell, pickCell);
+  return el('div', `sode__rv-row${choice === 'skip' || choice === 'current' ? ' is-skip' : ''}`, inCell, curCell, pickCell);
 }
 
 function prefsNode() {

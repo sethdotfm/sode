@@ -38,6 +38,9 @@ func WithFilterSetExtras(in, saved []FilterSet) []FilterSet {
 	out := slices.Clone(in)
 	for i, j := range savedMatch(out, saved, func(f FilterSet) string { return f.Name }) {
 		out[i].Extra = extraAt(saved, j, func(f FilterSet) map[string]any { return f.Extra })
+		if j >= 0 && out[i].Broken == nil {
+			out[i].Broken = slices.Clone(saved[j].Broken)
+		}
 	}
 	return out
 }
@@ -62,6 +65,13 @@ func WithPresetExtras(in, saved []Preset) []Preset {
 		p := &out[i]
 		j := slices.IndexFunc(saved, func(s Preset) bool { return s.ID != "" && s.ID == p.ID })
 		p.Extra = extraAt(saved, j, func(s Preset) map[string]any { return s.Extra })
+		// Browsers send no marks; the Broken check keeps them (internal/app/brokencheck.go).
+		if j >= 0 && p.Broken == nil {
+			p.Broken = slices.Clone(saved[j].Broken)
+		}
+		if j >= 0 && p.Moved == nil {
+			p.Moved = slices.Clone(saved[j].Moved)
+		}
 		var savedItems []PresetItem
 		if j >= 0 {
 			savedItems = saved[j].Items

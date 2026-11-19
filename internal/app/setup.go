@@ -84,23 +84,109 @@ var setupKeys = []string{"brandText", "brandBorder", "router", "levels", "levelN
 	"fireMode", "salvoGroup", "locks", "autoLockMinutes", "guestRole", "pinWaits", "publicPanels",
 	"api", "guestApiScopes", "newPanelActs", "newUserDefaults"}
 
-// setupRouter moves the live link to the address the Router step typed, without saving, so the
-// page can say whether it answers.
-func (a *App) setupRouter(addr string) error {
+// setupHold: the one browser that runs setup. addr is the address before its Router step moved
+// the link. Sode puts it back when that browser closes or loses control, since its answers go.
+type setupHold struct {
+	owner *client
+	addr  string
+	moved bool
+}
+
+var errSetupElsewhere = errors.New("another browser runs setup now: take control to run it here")
+
+// setupOwnsLocked: the first browser to claim or act runs setup. Caller holds cfgMu.
+func (a *App) setupOwnsLocked(c *client) bool {
+	if a.setup.owner == nil {
+		a.setup.owner = c
+	}
+	return a.setup.owner == c
+}
+
+// setupDropLocked puts back the address the last owner's Router step moved. Caller holds cfgMu.
+func (a *App) setupDropLocked() {
+	if !a.setup.moved {
+		return
+	}
+	addr := a.setup.addr
+	a.setup.moved = false
+	if err := a.applyConfigWith(func(cfg *config.Config) error {
+		cfg.Address = addr
+		return nil
+	}, false); err != nil {
+		log.Printf("setup: put back the router address: %v", err)
+	}
+}
+
+// setupClaim: the page asks to run setup. take is Take control: the browser that ran it is told
+// and its answers are dropped. A phone never sends it (web/setupwizard.js).
+func (a *App) setupClaim(c *client, take bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if !a.setupPending() {
 		//lint:ignore ST1005 the page shows it as is
 		return errors.New("Sode is already set up")
 	}
+	was := a.setup.owner
+	if a.setupOwnsLocked(c) {
+		return nil
+	}
+	if !take {
+		return errSetupElsewhere
+	}
+	a.setup.owner = c
+	a.setupDropLocked()
+	a.reply(was, struct {
+		T string `json:"t"`
+	}{"setupTaken"})
+	log.Printf("setup: %s took control from %s", c.ip, was.ip)
+	return nil
+}
+
+// setupLeft: the browser that ran setup closed, so the waiting ones can claim it.
+func (a *App) setupLeft(c *client) {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if a.setup.owner != c {
+		return
+	}
+	a.setup.owner = nil
+	if !a.setupPending() {
+		return
+	}
+	a.setupDropLocked()
+	free := []byte(`{"t":"setupFree"}`)
+	a.mu.Lock()
+	for cl := range a.clients {
+		a.deliver(cl, free)
+	}
+	a.mu.Unlock()
+}
+
+// setupRouter moves the live link to the address the Router step typed, without saving, so the
+// page can say whether it answers.
+func (a *App) setupRouter(c *client, addr string) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if !a.setupPending() {
+		//lint:ignore ST1005 the page shows it as is
+		return errors.New("Sode is already set up")
+	}
+	if !a.setupOwnsLocked(c) {
+		return errSetupElsewhere
+	}
 	addr = strings.TrimSpace(addr)
 	if addr == "" {
 		return errors.New("enter the router's address")
 	}
-	return a.applyConfigWith(func(c *config.Config) error {
+	was := a.r().cfg.Address
+	err := a.applyConfigWith(func(c *config.Config) error {
 		c.Address = addr
 		return nil
 	}, false)
+	if err == nil && !a.setup.moved {
+		a.setup.addr, a.setup.moved = was, true
+	}
+	return err
 }
 
 const setupAddKey = "user/new:0/add"
@@ -112,6 +198,9 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	if !a.setupPending() {
 		//lint:ignore ST1005 the page shows it as is
 		return config.User{}, errors.New("Sode is already set up: sign in instead")
+	}
+	if !a.setupOwnsLocked(c) {
+		return config.User{}, errSetupElsewhere
 	}
 	preset, err := config.AccessPresetByName(s.Preset)
 	if err != nil {
@@ -149,6 +238,7 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	if err != nil {
 		return config.User{}, err
 	}
+	a.setup = setupHold{}
 	after := a.r().cfg
 	a.recordSetup(c, was, after, u.ID)
 	a.mu.Lock()
@@ -190,7 +280,7 @@ func (a *App) recordSetup(c *client, was, now config.Config, id string) {
 }
 
 func (a *App) serveSetupRouter(c *client, m *inMsg) {
-	err := a.setupRouter(m.Router)
+	err := a.setupRouter(c, m.Router)
 	a.command(c, "setupRouter", outcome(err), "", err)
 	a.reply(c, opResultFor("setupRouter", &m.ID, err))
 }
@@ -216,4 +306,12 @@ func (a *App) serveSetupFinish(c *client, m *inMsg) {
 	a.syncAccessMu(c)
 	a.mu.Unlock()
 	a.reply(c, res)
+}
+
+func (a *App) serveSetupClaim(c *client, m *inMsg) {
+	err := a.setupClaim(c, m.TakeOver)
+	if m.TakeOver {
+		a.command(c, "setupClaim", outcome(err), "take control", err)
+	}
+	a.reply(c, opResultFor("setupClaim", &m.ID, err))
 }

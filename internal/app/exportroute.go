@@ -1,14 +1,17 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // The export routes: POST /api/export answers the zip, POST /api/import unpacks an uploaded zip to a staging
@@ -107,20 +110,37 @@ func (a *App) stagesDir() string {
 	return filepath.Join(filepath.Dir(a.cfgPath), exportStagesDir)
 }
 
-// serveImportCheck stages and checks the file, answers what it holds and the Add import plan with the
-// preselected choices, then removes the staging directory. The apply route stages it again.
+// serveImportCheck stages and checks the file and answers what it holds and the Add import plan. Then it removes
+// the staging directory; the apply route stages it again. A zip body gets the preselected choices. The review
+// sends multipart as to the apply route, to see what its ticks and choices do. The check writes nothing.
 func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 	if !a.httpAdmin(w, r) {
 		return
 	}
-	bundle, err := a.stageAndLoad(http.MaxBytesReader(w, r.Body, exportMaxUpload))
-	if err != nil {
-		importFail(w, err)
-		return
+	req := importReq{Mode: importAdd}
+	var bundle *exportBundle
+	var done func()
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
+		r.Body = http.MaxBytesReader(w, r.Body, exportMaxUpload+exportReqMax+64<<10)
+		var ok bool
+		req, bundle, done, ok = a.readImportParts(w, r)
+		defer done()
+		if !ok {
+			return
+		}
+	} else {
+		var err error
+		bundle, done, err = a.stageImport(http.MaxBytesReader(w, r.Body, exportMaxUpload))
+		defer done()
+		if err != nil {
+			importFail(w, err)
+			return
+		}
 	}
 	m := bundle.Manifest
 	src, dst := a.liveNames()
-	plan := planImport(a.r().cfg, src, dst, a.panels.list(), bundle, importReq{Mode: importAdd}, a.importActor(r).User, secureRequest(r, a.r().proxies)).plan
+	plan := planImport(a.r().cfg, src, dst, a.panels.list(), bundle, req, a.importActor(r).User, secureRequest(r, a.r().proxies)).plan
+	sizeImport(&plan, bundle)
 	apiJSON(w, importCheck{Plan: plan,
 		Format: m.Format, Sode: m.Sode, SameInstall: m.Install != "" && m.Install == a.r().cfg.InstallUID,
 		Categories: m.Categories, Routers: m.Routers, Unknown: bundle.Unknown,
@@ -131,6 +151,57 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 			"artDefaults": len(bundle.Artwork.Defaults), "icons": len(bundle.Artwork.Icons), catRouters: len(bundle.Routers),
 		},
 	})
+}
+
+// sizeImport gives each plan item the size of its file item. It runs while the staged images are there.
+func sizeImport(plan *importPlan, b *exportBundle) {
+	sizes := map[string]map[string]int{}
+	put := func(cat, key string, v any, extra int) {
+		y, err := yaml.Marshal(v)
+		if err != nil {
+			return
+		}
+		if sizes[cat] == nil {
+			sizes[cat] = map[string]int{}
+		}
+		sizes[cat][key] = len(y) + extra
+	}
+	if b.Settings != nil {
+		for _, s := range b.Sections {
+			if node, err := exportSettings(*b.Settings, []string{s}); err == nil {
+				put(catSettings, s, node, 0)
+			}
+		}
+	}
+	for _, r := range b.Routers {
+		put(catRouters, r.UID, r, 0)
+	}
+	for _, u := range b.Users {
+		put(catUsers, cmp.Or(u.ID, u.Name), u, 0)
+	}
+	for _, p := range b.Presets {
+		put(catPresets, p.ID, p, 0)
+	}
+	for _, s := range b.FilterSets {
+		put(catFilterSets, s.Name, s, 0)
+	}
+	for _, c := range b.APIClients {
+		put(catAPIClients, c.Name, c, 0)
+	}
+	for _, p := range b.Panels.Panels {
+		art := 0
+		for name, path := range b.Art {
+			if fi, err := os.Stat(path); err == nil && strings.HasPrefix(name, "art/panels/"+p.ID+"/") {
+				art += int(fi.Size())
+			}
+		}
+		put(catPanels, p.ID, p, art)
+	}
+	for cat, c := range plan.Categories {
+		for i := range c.Items {
+			c.Items[i].Size = sizes[cat][c.Items[i].Key]
+		}
+	}
 }
 
 // stageAndLoad copies body to a staging directory, unpacks and loads it, and removes the directory.

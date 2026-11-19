@@ -50,6 +50,7 @@ type importItem struct {
 	Note   string           `json:"note,omitempty"`
 	// Refused: why this item alone is not imported; the others of its category are.
 	Refused string `json:"refused,omitempty"`
+	Size    int    `json:"size,omitempty"` // bytes of the file item before compression, images included
 }
 
 func (it importItem) writes() bool {

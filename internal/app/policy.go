@@ -96,6 +96,7 @@ var policy = map[string]rule{
 	"history": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
 
 	// The setup wizard (setup.go). Finish is a write: shutdown waits for it.
+	"setupClaim":  {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupClaim(c, m) }},
 	"setupRouter": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupRouter(c, m) }},
 	"setupFinish": {crit: critNever, role: roleAnyone, setup: true, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupFinish(c, m) }},
 
