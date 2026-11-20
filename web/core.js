@@ -50,7 +50,8 @@ export const S = {
   srcBy: new Map(),
   dstBy: new Map(),
   tally: new Map(),
-  prot: new Map(),
+  prot: new Map(), // dst → Map(level → {dev, kind}), from the router
+  protBy: new Map(), // dst → {by, device, levels}: the Protects in Sode's own record
   levels: [],
   levelDefaults: [],
   levelBy: new Map(),
@@ -266,6 +267,7 @@ function handle(m) {
       applyTally(m.tally || []);
       S.prot = new Map();
       applyProtect(m.protected || []);
+      applyProtectBy(m.protectBy || []);
       setStatus(m.status);
       S.hist = m.history || [];
       S.histMore = m.more;
@@ -292,6 +294,7 @@ function handle(m) {
       break;
     case 'protected':
       applyProtect(m.u);
+      if (m.by) applyProtectBy(m.by);
       emit('protectedRows');
       emit('tally');
       break;
@@ -331,16 +334,22 @@ function applyTally(list) {
   }
 }
 
+// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect.
 function applyProtect(list) {
-  for (const [d, l, dev] of list) {
+  for (const [d, l, dev, kind = 1] of list) {
     let t = S.prot.get(d);
     if (dev < 0) {
       if (t) t.delete(l);
+      if (t && !t.size) S.prot.delete(d);
       continue;
     }
     if (!t) S.prot.set(d, (t = new Map()));
-    t.set(l, dev);
+    t.set(l, { dev, kind });
   }
+}
+
+function applyProtectBy(list) {
+  S.protBy = new Map(list.map((r) => [r.dst, r]));
 }
 
 function setStatus(st) {
@@ -470,13 +479,6 @@ export function setDot(dotEl, textEl, [state, text]) {
   textEl.textContent = text;
 }
 
-export const protectedLabel = (devices) => `Protected by ${devices.join(', ')}`;
-
-export function protectedOn(dst, levels) {
-  const t = S.prot.get(dst);
-  const hit = t ? levels.filter((u) => t.has(u)) : [];
-  return { levels: hit, devices: [...new Set(hit.map((u) => t.get(u)))].sort((a, b) => a - b) };
-}
 // A.23 searches 23.
 export function search(list, q, n = 8) {
   q = searchText(q, S.prefix, [], [S.prefix]);

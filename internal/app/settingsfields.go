@@ -51,6 +51,7 @@ var settingFields = []settingField{
 	{"tallyResyncSeconds", "takes", "Re-read routes every (s)", "", false},
 	{"fireMode", "takes", "Multi destination", "", false},
 	{"salvoGroup", "takes", "Router salvo group", "", false},
+	{"protectDevice", "protects", "Sode's device number", "", false},
 }
 
 // saveFields: key to section. Every Config JSON key is here or saved apart

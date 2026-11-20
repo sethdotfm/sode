@@ -25,7 +25,7 @@ func viewApp(t *testing.T, vis string) (*App, string) {
 	a.router.dstNames[7] = "SECRET DST"
 	a.router.tally[7] = map[int]int{1: 5}
 	a.router.tally[2][2] = 5 // visible destination, hidden source
-	a.router.protect[7] = map[int]int{1: 0}
+	a.router.protect[7] = map[int]protHold{1: {0, 1}}
 	a.mu.Unlock()
 	return a, botKey(t, a)
 }
@@ -61,12 +61,12 @@ func TestHiddenRightsDropNamesTallyAndProtected(t *testing.T) {
 		t.Errorf("protected %v", got) // dst 3 and 7 are both outside the rights
 	}
 	// The value in protect is a device, not a source. Device 5 must not hide a visible
-	// destination, and the row carries only dst and level.
+	// destination. The row carries dst, level, kind and device, and no Sode user for a Protect Sode did not set.
 	a.mu.Lock()
-	a.router.protect[2] = map[int]int{1: 5}
+	a.router.protect[2] = map[int]protHold{1: {5, 1}}
 	a.mu.Unlock()
 	got := viewGet(t, a, key, "/api/v1/protected")["protected"].([]any)
-	if len(got) != 1 || len(got[0].(map[string]any)) != 2 || got[0].(map[string]any)["dst"] != float64(2) {
+	if len(got) != 1 || len(got[0].(map[string]any)) != 4 || got[0].(map[string]any)["dst"] != float64(2) {
 		t.Errorf("protected %v", got)
 	}
 

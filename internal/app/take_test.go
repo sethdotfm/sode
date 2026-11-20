@@ -65,8 +65,9 @@ type fakeRouter struct {
 	n      int
 	whys   []sentWhy // every message's reason, in order
 	out    chan []byte
-	salvo  fakeSalvo // group salvos (fire_test.go)
-	dsts   int       // destinations a tally dump answers for; 0 = up to the highest one in tally
+	salvo  fakeSalvo   // group salvos (fire_test.go)
+	dsts   int         // destinations a tally dump answers for; 0 = up to the highest one in tally
+	prot   fakeProtect // Protects (protect_test.go)
 }
 
 type sentWhy struct {
@@ -131,6 +132,9 @@ func (f *fakeRouter) deliver(m []byte, why swp08.Why) error {
 		if f.ignore[dst] || f.deaf[k] {
 			return nil
 		}
+		if _, held := f.prot.holds[k]; held {
+			return nil // refused in silence, as the Ultrix does
+		}
 		if old, ok := f.tally[k]; ok && old == src {
 			return nil // no change, no Connected
 		}
@@ -150,6 +154,8 @@ func (f *fakeRouter) deliver(m []byte, why swp08.Why) error {
 		f.out <- swp08.ExtTally(int(m[1]), l, dst, src)
 	case swp08.CmdExtTallyDumpReq:
 		f.dump(int(m[1]), int(m[2]))
+	case swp08.CmdExtProtectConnect, swp08.CmdExtProtectDisconnect:
+		f.protectMsg(m)
 	case swp08.CmdConnectOnGo, swp08.CmdExtConnectOnGo, swp08.CmdGoSalvo:
 		f.salvoMsg(m)
 	}
@@ -251,7 +257,7 @@ func TestTakeProtected(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	a.mu.Lock()
-	a.router.protect[5] = map[int]int{2: 9}
+	a.router.protect[5] = map[int]protHold{2: {9, 1}}
 	a.mu.Unlock()
 	n := f.sends()
 	e := routeOne(t, a, 7, 5, 1, 2, 3)

@@ -191,7 +191,9 @@ paths:
       operationId: listProtected
       tags: [reads]
       summary: Protected destinations
-      description: Scope `protected`. A take to one is refused before anything is sent.
+      description: |
+        Scope `protected`. A take to one is refused before anything is sent. Each row is one level
+        with its kind and the device that set it; Sode's own Protects also name the Sode user.
       parameters:
         - { $ref: "#/components/parameters/IfNoneMatch" }
       responses:
@@ -210,6 +212,54 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /protected/{dst}:
+    parameters:
+      - { name: dst, in: path, required: true, schema: { type: integer }, description: "The router's number, 0-based" }
+    post:
+      operationId: setProtect
+      tags: [writes]
+      summary: Set a Protect
+      description: |
+        Scope `protect`, and the Protect right in the caller's Rights with the destination and every
+        level. Sode sets a Protect on every level with its device number for the router, and the
+        call is its own Confirm. A level the router does not confirm rolls back the others; read
+        `ok` and `still`. Sode then refuses takes to the destination, also its own. The body is
+        ignored.
+      responses:
+        "200":
+          description: Sode sent the Protect; read `ok`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProtectResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: clearProtect
+      tags: [writes]
+      summary: Clear Sode's Protect
+      description: |
+        Scope `protect`, as for a set. Clears only a Protect that Sode set, and only one that the
+        same user or API client set. Another user's gets 403 `administrator_only`: an
+        Administrator clears it in Settings. 404 `not_found` when Sode holds no level of it.
+      responses:
+        "200":
+          description: Sode sent the clear; read `ok`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProtectResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
   /presets:
     get:
@@ -2342,6 +2392,8 @@ components:
                 - unsupported_type
                 - invalid_setup
                 - network_not_allowed
+                - protected
+                - router_down
                 - internal
               description: |
                 401 key_required, invalid_key, key_revoked
@@ -2358,7 +2410,10 @@ components:
                 artwork the caller is not allowed to use). 404 unknown_router (the `router` parameter
                 names no router UID). 405 method_not_allowed (see `Allow`).
                 409 conflict (Redo of a failed entry, Retry of a successful one, or a full panel or
-                artwork limit). 409 name_taken (an Assign's target, or a renamed instance's panel,
+                artwork limit). 409 conflict also for a Protect that Sode has already or cannot set
+                yet. 409 protected (a
+                Protect or Router lock that Sode did not set holds the destination). 503 router_down
+                (Sode is not connected to the router). 409 name_taken (an Assign's target, or a renamed instance's panel,
                 already has an instance of that name; `suggest` is a free one). 422 nothing_to_do
                 (no route left to run), idempotency_mismatch. 429 rate_limited, take_cap,
                 too_many_streams. 500 internal (Sode could not write a panel to disk).
@@ -2788,10 +2843,24 @@ components:
         src: { type: integer, description: -1 = nothing routed }
     ProtectedRow:
       type: object
-      required: [dst, level]
+      required: [dst, level, kind, device]
       properties:
         dst: { type: integer }
         level: { type: integer, description: UI level }
+        kind: { type: string, enum: [protect, routerLock], description: "A Protect (only the device that set it clears it) or a Router lock (set from DashBoard or a panel)" }
+        device: { type: integer, description: The device number that set it }
+        sodeUser: { type: string, description: "Only on a Protect that Sode set: the Sode user or API client that set it" }
+    ProtectResult:
+      type: object
+      required: [ok, dst, levels]
+      properties:
+        ok: { type: boolean, description: The router confirmed every level }
+        dst: { type: integer }
+        levels: { type: array, items: { type: integer }, description: Every level of the destination }
+        failed: { type: array, items: { type: integer }, description: Levels the router did not confirm }
+        still: { type: array, items: { type: integer }, description: "Levels that Sode still holds after a failed Protect (its rollback failed too) or a failed clear" }
+        error: { type: string }
+        entry: { type: integer, description: The History entry id }
     Preset:
       type: object
       required: [scope, id, name, items]

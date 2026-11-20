@@ -16,10 +16,10 @@ export function tallyReplyOf({ levels, levelNumbering, defaultLevels, tally }) {
   };
 }
 
-// GET /protected. prot is dst -> (level -> device).
+// GET /protected. prot is dst -> (level -> { dev, kind }).
 export function protectedReplyOf(prot) {
   const rows = [];
-  for (const [dst, t] of prot) for (const [level, device] of t) rows.push({ dst, level, device });
+  for (const [dst, t] of prot) for (const [level, { dev }] of t) rows.push({ dst, level, device: dev });
   return { protected: rows };
 }
 

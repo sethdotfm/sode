@@ -20,7 +20,7 @@ type logKindGroup struct {
 
 // logKindGroups: KINDS in web/logkinds.js, in its order.
 var logKindGroups = []logKindGroup{
-	{"connect", []string{"connect", "salvoStage", "salvoStageExt", "salvoGo"}},
+	{"connect", []string{"connect", "salvoStage", "salvoStageExt", "salvoGo", "protectSet", "protectClear"}},
 	{"interrogate", []string{"interrogate"}},
 	{"keepalive", []string{"keepalive"}},
 	{"dump", []string{"tallyDump", "protectDump"}},
@@ -46,6 +46,8 @@ var logKindLabel = map[string]string{
 	"salvoStage":    "Router salvo stage",
 	"salvoStageExt": "Router salvo extended stage",
 	"salvoGo":       "Router salvo go",
+	"protectSet":    "Protect set",
+	"protectClear":  "Protect clear",
 	"browser":       "Browser",
 	"command":       "Command",
 	"api":           "API",
@@ -105,6 +107,10 @@ var logWhyLabel = map[string]string{
 	"inboxWithdraw":    "Copy withdrawn",
 	"inboxExpired":     "Copy expired",
 	"download":         "Communication Log downloaded",
+	"protect":          "Protect",
+	"protectClear":     "Clear Protect",
+	"protectRollback":  "Protect rolled back",
+	"protectUndo":      "Undo of a Protect",
 }
 
 // logEventKinds: EVENT_KINDS in web/logkinds.js. Event rows have no router message.

@@ -28,6 +28,7 @@ export const SAVE_FIELDS = Object.freeze({
   tallyResyncSeconds: 'takes',
   fireMode: 'takes',
   salvoGroup: 'takes',
+  protectDevice: 'protects',
   pinWaits: 'locks',
   locks: 'locks',
   autoLockMinutes: 'locks',

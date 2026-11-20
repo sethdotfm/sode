@@ -5,6 +5,7 @@ import { srcItem, dstItem } from './core.js';
 import { undoPlan, againPlan, groupUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
 import { groupPartial, groupIds } from './history.js';
 import { UNDO_TIP_ALL } from './widgets.js';
+import { protectRow, protectState } from './protects.js';
 
 const noun = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
@@ -26,6 +27,7 @@ export function rowActions(row) {
     };
   }
   const e = row.e;
+  if (e.protect) return protectActions(e);
   const src = srcItem(e.src, e.srcName),
     dst = dstItem(e.dst, e.dstName);
   const again = againPlan({ e });
@@ -38,6 +40,17 @@ export function rowActions(row) {
       }
     : { plan: undoPlan(e), label: `Undo ${src.label} to ${dst.label}`, text: 'Undo', tip: undefined };
   return { undo, again: { plan: again, label: `${againWord(again)} ${src.label} to ${dst.label}` } };
+}
+
+// Undo works only on Sode's own Protect: a clear while Sode still holds it, a set while nothing holds it.
+function protectActions(e) {
+  const r = protectRow(e);
+  const p = protectState(e.dst);
+  const can = e.protect === 'set' ? !!p.sode : !p.levels.length;
+  return {
+    undo: { plan: can ? r.undo : { verb: 'undo', items: [] }, label: r.undoLabel, text: 'Undo', tip: r.undoLabel },
+    again: { plan: { verb: 'redo', items: [] }, label: '' },
+  };
 }
 
 // Aria label of a Group's disclosure: "Show the 3 takes", "Hide the 2 followers".

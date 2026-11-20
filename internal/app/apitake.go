@@ -144,6 +144,9 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 		if !ok {
 			return nil, problem(http.StatusNotFound, "not_found", "no History entry %d", id)
 		}
+		if e.Protect != "" {
+			return nil, problem(http.StatusConflict, "conflict", "entry %d is a Protect: use POST or DELETE /protected/%d", id, e.Dst)
+		}
 		rt := a.r()
 		if verb == "undo" {
 			p := planUndo(rt, cl.view(), e)

@@ -484,6 +484,24 @@
       </div>
     </fieldset>
 
+    <fieldset class="sode__group" data-section="protects" data-topic="routers" data-router="1">
+      <legend>Protects</legend>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-protectdevice" data-pb-tip="0 = off. A panel with the same ID can clear Sode's Protects, so use a number no panel uses">Sode's device number</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-protectdevice" class="pb-input" data-key="protectDevice" data-type="int" min="0" max="4095"></span>
+        </div>
+      </div>
+      <div class="sode__field" data-apart data-find="protects-list" data-label="Protects and Router locks">
+        <span class="sode__label">Protects and Router locks</span>
+        <ul class="sode__protects" id="protects-list"></ul>
+        <div class="sode__protects-acts">
+          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Clear Sode's Protects" data-pb-tip="Clears every Protect with Sode's device number, also with no record. Asks your PIN again">Clear Sode's Protects</button>
+        </div>
+        <div id="protects-confirm"></div>
+      </div>
+    </fieldset>
+
     <h3 class="sode__topic" data-topic="access" id="topic-access">Access</h3>
     <fieldset class="sode__group" data-section="locks" data-topic="access">
       <legend>Locks</legend>
@@ -799,6 +817,7 @@
         <dt><kbd>l</kbd> <kbd>→</kbd> <kbd>Enter</kbd></dt><dd>Open</dd>
         <dt><kbd>h</kbd> <kbd>←</kbd> <kbd>⇧Enter</kbd></dt><dd>Close</dd>
         <dt><kbd>u</kbd></dt><dd>Undo</dd>
+        <dt><kbd>x</kbd> <kbd>⇧x</kbd></dt><dd>Protect the destination in the Patch boxes, or clear Sode's Protect on it (Source box empty)</dd>
         <dt><kbd>r</kbd></dt><dd>Retry (failed takes) or Redo (any other)</dd>
         <dt><kbd>/</kbd></dt><dd>Filters</dd>
         <dt><kbd>⇧s</kbd> <kbd>⇧d</kbd></dt><dd>Filter by Source, Destination</dd>

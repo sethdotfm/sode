@@ -27,7 +27,7 @@ test('the tally answer has the GET /tally shape, so the Grid body reads it as a 
   ]);
   assert.equal(t.levelNumbering, '1');
   assert.equal(t.defaultLevels, '1-2');
-  const env = envFrom(t, protectedReplyOf(new Map([[3, new Map([[1, 9]])]])));
+  const env = envFrom(t, protectedReplyOf(new Map([[3, new Map([[1, { dev: 9, kind: 1 }]])]])));
   assert.equal(env.tally.get(0).get(2), 5);
   assert.equal(env.tally.get(3).get(1), 7);
   assert.deepEqual([...env.protectedDsts], [3]);

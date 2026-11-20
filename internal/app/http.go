@@ -419,9 +419,10 @@ type inMsg struct {
 	Approve      bool               `json:"approve"` // approvalAnswer: false denies
 	On           bool               `json:"on"`      // approvalCards
 	asRole       string             // Request approval: the requester's Role when sent (approvalrequest.go)
-	Inbox        *inboxReq          `json:"inbox"` // the inbox messages (inboxsend.go)
-	Swap         *swapReq           `json:"swap"`  // swapList, swapMine (swap.go)
-	Mine         bool               `json:"mine"`  // brokenCount: only the user's own items
+	Inbox        *inboxReq          `json:"inbox"`   // the inbox messages (inboxsend.go)
+	Swap         *swapReq           `json:"swap"`    // swapList, swapMine (swap.go)
+	Mine         bool               `json:"mine"`    // brokenCount: only the user's own items
+	Protect      *protectReq        `json:"protect"` // protectSet, protectClear
 }
 
 func plural(n int, one, many string) string {

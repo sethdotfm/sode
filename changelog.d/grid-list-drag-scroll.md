@@ -1,0 +1,1 @@
+- In the Grid panel editor and the Live Editor drawer, a row drag near the top or bottom of a list now scrolls the list. It goes faster nearer the edge, so a drop can reach rows out of view.

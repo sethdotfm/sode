@@ -394,6 +394,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     reveal(n);
   });
   list.addEventListener('scroll', drawRows, { passive: true });
+  rows.scrollWhileDragging(list);
   // Shown, resized or a new font size: the rows that fit, and their height, can change.
   new ResizeObserver(() => {
     pitch = 0;
