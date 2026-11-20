@@ -1,0 +1,1 @@
+- Fixed: the "Show all sources" and "Show all destinations" buttons no longer show through the Palette, the Grid popup and other dialogs.

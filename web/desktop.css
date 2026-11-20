@@ -156,12 +156,13 @@
   display: none;
 }
 /* Show all hangs off the input row at its right, the same in Source and Destination. So its place never depends on the
-   chips, which start below its row. */
+   chips, which start below its row. It is always on the page, so it stacks with the page, under every overlay: the
+   dropdown layer is over dialogs. */
 .sode__entry > .sode__menu-all {
   position: absolute;
   right: 0;
   top: 100%;
-  z-index: var(--pb-z-dropdown, 10);
+  z-index: 1;
 }
 /* Chips add nothing to the box's width (width 0, then fill), so the button's right edge stays put. */
 .sode__entry ~ .sode__chips:not([hidden]) {
