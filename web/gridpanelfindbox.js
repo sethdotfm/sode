@@ -11,12 +11,12 @@ const MODE = { find: 'Find', filter: 'Filter' };
 // Each bar's step buttons point along it. Keep the key names in step with BOX in gridpanelkeys.js.
 const STEPS = {
   srcs: [
-    [-1, 'chevron-left', `Previous match. ${keyLabel('shift+enter')} or ${keyLabel('ctrl+p')}`],
-    [1, 'chevron-right', `Next match. Enter or ${keyLabel('ctrl+n')}`],
+    [-1, 'chevron-left', `Previous match. ${keyLabel('shift+enter')} or ${keyLabel('mod+k')}`],
+    [1, 'chevron-right', `Next match. Enter or ${keyLabel('mod+j')}`],
   ],
   dsts: [
-    [-1, 'chevron-up', `Previous match. ${keyLabel('shift+enter')} or ${keyLabel('ctrl+p')}`],
-    [1, 'chevron-down', `Next match. Enter or ${keyLabel('ctrl+n')}`],
+    [-1, 'chevron-up', `Previous match. ${keyLabel('shift+enter')} or ${keyLabel('mod+k')}`],
+    [1, 'chevron-down', `Next match. Enter or ${keyLabel('mod+j')}`],
   ],
 };
 

@@ -126,13 +126,16 @@ test('in a search box: Enter and Shift+Enter step, Esc clears, Tab and Shift+Tab
   assert.equal(findBoxAction(key('/', { code: 'Slash', ctrlKey: true })), 'mode');
 });
 
-test('in a search box, Ctrl+N and Ctrl+P step as Vim does', () => {
-  assert.equal(findBoxAction(code('KeyN', { ctrlKey: true })), 'nextMatch');
-  assert.equal(findBoxAction(code('KeyP', { ctrlKey: true })), 'prevMatch');
-  // Cmd+N is the browser's new window and Shift is not part of the key.
-  assert.equal(findBoxAction(code('KeyN', { metaKey: true })), null);
-  assert.equal(findBoxAction(code('KeyP', { ctrlKey: true, shiftKey: true })), null);
-  assert.equal(findBoxAction(code('KeyP')), null);
+test("in a search box, Ctrl+J and Ctrl+K step as in every other list, and Ctrl+N and Ctrl+P stay the browser's", () => {
+  for (const isMac of [true, false]) {
+    assert.equal(findBoxAction(code('KeyJ', { ctrlKey: true }), isMac), 'nextMatch');
+    assert.equal(findBoxAction(code('KeyK', { ctrlKey: true }), isMac), 'prevMatch');
+    assert.equal(findBoxAction(code('KeyJ', { metaKey: true }), isMac), isMac ? 'nextMatch' : null);
+    assert.equal(findBoxAction(code('KeyN', { ctrlKey: true }), isMac), null);
+    assert.equal(findBoxAction(code('KeyP', { ctrlKey: true }), isMac), null);
+  }
+  assert.equal(findBoxAction(code('KeyK', { ctrlKey: true, shiftKey: true })), null);
+  assert.equal(findBoxAction(code('KeyJ')), null);
 });
 
 test('other keys in a search box are typing', () => {
