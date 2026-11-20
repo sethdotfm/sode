@@ -62,14 +62,18 @@ const againItem = (e) =>
   );
 
 // The Grid popup's staged routes (routesOf, gridpanelstage.js) as one take: one item for each destination, one group
-// for each source on it. Route ends are router numbers.
+// for each source on it. Route ends are router numbers. A route with box set is the patch boxes' route (One Take,
+// gridpopup.js). Then the plan is mixed and each group says if it is staged, so the Confirm keeps the two apart.
 export function gridPlan(routes, warnings) {
+  const mixed = routes.some((r) => r.box);
   const by = new Map();
   for (const r of routes) {
     if (!by.has(r.dst)) by.set(r.dst, []);
-    by.get(r.dst).push({ src: srcItem(r.src), levels: r.levels });
+    const g = { src: srcItem(r.src), levels: r.levels };
+    by.get(r.dst).push(mixed ? { ...g, staged: !r.box } : g);
   }
-  return { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(dstItem(dst), groups)) };
+  const plan = { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(dstItem(dst), groups)) };
+  return mixed ? { ...plan, mixed } : plan;
 }
 
 export const patchPlan = (src, dsts, levels) => ({
@@ -302,6 +306,11 @@ function planQuestion(plan) {
   }
   const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
   const what = VERBS[plan.verb].ask;
+  // A take of staged routes names each destination, so the count is never all the Confirm says. A mixed plan names
+  // them in the order mixedParts shows them: the boxes' destinations first.
+  const boxed = (i) => i.groups.some((g) => !g.staged);
+  const order = plan.mixed ? [...plan.items.filter(boxed), ...plan.items.filter((i) => !boxed(i))] : plan.items;
+  const names = plan.verb === 'grid' && n > 1 ? [': ', ...nameList(order.map((i) => strong(labelNode(i.dst))))] : [];
   return el(
     'div',
     null,
@@ -309,9 +318,13 @@ function planQuestion(plan) {
     ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]),
     ' to ',
     ...to,
+    ...names,
     '?',
   );
 }
+
+// "a, b and c" from nodes.
+const nameList = (nodes) => nodes.flatMap((x, i) => (i === 0 ? [x] : [i === nodes.length - 1 ? ' and ' : ', ', x]));
 
 // Levels an undo would overwrite besides the take's own: those restored where dst no longer has
 // the take's source. Levels the take never confirmed cannot tell, so only the rest are checked;
@@ -378,21 +391,47 @@ export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) 
         )
       : null,
   ];
+  if (plan.mixed) return [...head, planQuestion(plan), ...mixedParts(plan, prot)].filter(Boolean);
   if (plan.items.length === 1)
     return [...head, planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
   return [
     ...head,
     planQuestion(plan),
-    ...plan.items.map((i, n) =>
-      el(
-        'section',
-        'sode__plan-item',
-        el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
-        ...itemSummary(i, true, prot.get(i), since),
-      ),
-    ),
+    ...plan.items.map((i, n) => planItemBox(i, `${n + 1}/${plan.items.length}`, prot.get(i), since)),
     extraBox(plan, spaceHint),
   ].filter(Boolean);
+}
+
+function planItemBox(item, count, prot, since, badge = null) {
+  return el(
+    'section',
+    'sode__plan-item',
+    el('div', 'sode__plan-head', el('span', 'sode__plan-n', count), el('strong', null, labelNode(item.dst)), badge),
+    ...itemSummary(item, true, prot, since),
+  );
+}
+
+// One Take with staged routes and the patch boxes' route (gridPlan, mixed). The boxes' route shows first, under its own
+// label. Then each staged route shows with a Staged badge. A destination in both shows in both parts, each with what it
+// replaces on its own levels. Its protected levels show once, in the first part.
+function mixedParts(plan, prot) {
+  const part = (staged) => plan.items.map((i) => ({ i, staged, groups: i.groups.filter((g) => !!g.staged === staged) })).filter((x) => x.groups.length);
+  const box = part(false);
+  const staged = part(true);
+  const total = box.length + staged.length;
+  const shown = new Set();
+  const itemBox = (x, n) => {
+    const p = shown.has(x.i) ? null : prot.get(x.i);
+    shown.add(x.i);
+    const badge = x.staged ? el('span', 'pb-badge sode__plan-staged', 'Staged') : null;
+    return planItemBox({ ...x.i, groups: x.groups }, `${n + 1}/${total}`, p, false, badge);
+  };
+  return [
+    box.length ? el('div', 'sode__label', 'Patch boxes') : null,
+    ...box.map((x, n) => itemBox(x, n)),
+    staged.length ? el('div', 'sode__label', staged.flatMap((x) => x.groups).length === 1 ? 'Staged route' : 'Staged routes') : null,
+    ...staged.map((x, n) => itemBox(x, box.length + n)),
+  ];
 }
 
 function extraBox(plan, spaceHint) {

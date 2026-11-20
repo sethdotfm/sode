@@ -202,7 +202,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     if (chosen !== ic.id || !dlg.shown()) return;
     const key = churnKey();
     const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
-    const ok = btn('pb-btn--danger pb-btn--sm', `Delete (${key.toUpperCase()})`, () => c.go());
+    const ok = btn('pb-btn--danger sode__confirm-ok', `Delete (${key.toUpperCase()})`, () => c.go());
     ok.id = 'ed-lib-delete-ok';
     ok.disabled = true;
     const cancel = btn('pb-btn--outline pb-btn--sm', 'Cancel', () => cancelAsk());

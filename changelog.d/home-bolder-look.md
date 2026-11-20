@@ -1,5 +1,5 @@
 - Every page: edges are twice as thick. A field has a bright edge on its sunken well. A button has a fill. Text has neither. So you can tell them apart in the dark theme and in the light theme.
-- Home: the level picks are squares in two rows again, as large as an action button. Only an odd number of levels makes the first level two rows high.
+- Home: the level picks are squares in two rows again. Only an odd number of levels makes the first level two rows high.
 - Home: the Server, Router and "Signed in as" text at the top is larger and heavier.
 - Home: source and destination chips have an edge on all four sides. Their color is a bar inside the edge, as in the patch boxes.
 - Home: the staged list and its "Staged" label have normal text, not faint text. The crosshair in each staged row is an action high.

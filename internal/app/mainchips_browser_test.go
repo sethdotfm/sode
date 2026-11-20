@@ -35,21 +35,23 @@ func TestChromeMainChips(t *testing.T) {
 	b.waitFor("History has the take", `!!document.querySelector('#history .sode__end--dst.sode__end--pick')`)
 	b.waitFor("Last destination chip", `!!document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)')`)
 
-	// Last is a light ghost chip on the label's line, with its key in a kbd. Both boxes end Last and Next at the box's
-	// right edge.
+	// Last is a compact chip (--sode-h-compact) with the full edge of every other chip, and its key in a kbd. Both boxes
+	// end Last and Next at the box's right edge. History's route ends are compact chips too.
 	if got := b.eval(`(() => {
 		const last = document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)');
 		const c = getComputedStyle(last), k = getComputedStyle(last.querySelector('kbd'));
-		const head = last.closest('.sode__box-head').getBoundingClientRect(), r = last.getBoundingClientRect();
-		const ghost = c.borderTopColor === 'rgba(0, 0, 0, 0)' && c.backgroundColor === 'rgba(0, 0, 0, 0)';
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize), r = last.getBoundingClientRect();
+		const edge = ['Top', 'Right', 'Bottom', 'Left'].every((s) => c['border' + s + 'Style'] === 'solid' && parseFloat(c['border' + s + 'Width']) >= 2 && c['border' + s + 'Color'] !== 'rgba(0, 0, 0, 0)');
 		const ends = ['src', 'dst'].map((k) => {
 			const slot = document.querySelector('[data-last="' + k + '"]').getBoundingClientRect();
 			return Math.round(document.querySelector('.sode__box--' + k).getBoundingClientRect().right - slot.right);
 		});
-		const ok = ghost && r.height <= head.height && k.borderTopStyle === 'solid' && ends[0] === ends[1];
-		return ok || [c.borderTopColor, c.backgroundColor, r.height, head.height, k.borderTopStyle, ends].join(' ');
+		const hist = [...document.querySelectorAll('#history .sode__end')].map((n) => n.getBoundingClientRect().height);
+		const compact = (h) => Math.abs(h - 2 * rem) < 0.5;
+		const ok = edge && compact(r.height) && hist.length > 0 && hist.every(compact) && k.borderTopStyle === 'solid' && ends[0] === ends[1];
+		return ok || [c.borderTopColor, c.borderTopWidth, r.height, hist.join('/'), k.borderTopStyle, ends].join(' ');
 	})()`); got != true {
-		t.Fatalf("Last chip is not a ghost on the label's line with a kbd, or the boxes end it apart: %v", got)
+		t.Fatalf("Last chip or a History chip is not a compact chip with a full edge, or the boxes end Last apart: %v", got)
 	}
 
 	// Ctrl-click: a click with ctrlKey, or on a Mac the contextmenu that a Ctrl-click fires instead.

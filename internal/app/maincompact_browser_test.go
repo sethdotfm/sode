@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
 )
 
@@ -188,6 +190,28 @@ func TestChromeMainCompact(t *testing.T) {
 	b.waitFor("not centred while picking", `getComputedStyle(document.querySelector('.sode')).display !== 'grid' && getComputedStyle(document.getElementById('result')).position !== 'absolute'`)
 	b.eval(`delete document.documentElement.dataset.sodePick; true`)
 	b.waitFor("Compact again", `!(`+shown("#patch-view > .sode__history")+`)`)
+
+	// The level picks in Compact view: up to 17 levels in two rows with no scroll at 1440 and 1600 px, 24 levels scroll
+	// sideways. The boxes stay at the centre.
+	for _, n := range []int{4, 5, 11, 12, 17, 24} {
+		if err := a.applyConfig(func(c *config.Config) error { c.Levels, c.DefaultLevels = n, "1-"+strconv.Itoa(n); return nil }); err != nil {
+			t.Fatal(err)
+		}
+		b.waitFor(strconv.Itoa(n)+" level picks", `document.querySelectorAll('#lvl-pick > button').length === `+strconv.Itoa(n))
+		for _, w := range []int{1440, 1600} {
+			b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": w, "height": 900, "deviceScaleFactor": 1, "mobile": false})
+			b.waitFor("the page is "+strconv.Itoa(w)+" px", `innerWidth === `+strconv.Itoa(w))
+			b.waitFor("boxes at the viewport centre", `(() => { const [x, y] = `+boxes+`; return Math.abs(x) <= 1 && Math.abs(y) <= 1; })()`)
+			rows, scrolls, inside := levelPicksAt(b)
+			if rows != 2 || scrolls != (n > 17) || !inside {
+				t.Fatalf("Compact view at %d px with %d levels: picks on %d rows, scroll %v, inside the box %v; want 2 rows, scroll %v, inside", w, n, rows, scrolls, inside, n > 17)
+			}
+			if msg, _ := pickShape(b); msg != "" {
+				t.Fatalf("Compact view at %d px with %d levels: %s", w, n, msg)
+			}
+		}
+		b.call("Emulation.clearDeviceMetricsOverride", map[string]any{})
+	}
 
 	stopSim()
 	b.waitFor("lost link shows in Compact view", `!document.getElementById('conn-down').hidden && `+shown("#conn-down"))
