@@ -3,6 +3,7 @@
 // Inbox and the status. base.css lays it out. Panel pages keep their own.
 import { el, icon, on } from './core.js';
 import { connBox, paintConn } from './connview.js';
+import { mac } from './keys.js';
 
 // core.js's on() has no unsubscribe, so one subscription paints every bar's status.
 const conns = new Set();
@@ -39,13 +40,21 @@ function guard(a, leave) {
   });
 }
 
+// Home, with the Home key that presses it from any focus (homekey.js).
+function homeLink() {
+  const n = iconLink('sode-bar__home', 'house', 'Sode', './');
+  n.dataset.pbTip = `Sode (${mac ? '⌥⇧h' : 'Alt+Shift+h'})`;
+  n.setAttribute('aria-keyshortcuts', 'Alt+Shift+H');
+  return n;
+}
+
 // Settings, then Panels (with panels), then Home. leave is the page's unsaved-edits rule (paneleditor.js).
 export function barLinks({ panels = false, leave = null } = {}) {
   const links = [
     // The main page's Settings button (index.html #settings-open), as a link: settings.js opens the view at #settings.
     iconLink('sode-bar__settings', 'settings', 'Settings', './#settings'),
     panels ? panelsLink() : null,
-    iconLink('sode-bar__home', 'house', 'Sode', './'),
+    homeLink(),
   ].filter(Boolean);
   if (leave) for (const a of links) guard(a, leave);
   return links;

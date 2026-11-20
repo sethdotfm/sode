@@ -444,7 +444,7 @@ The state where keys act on History entries instead of the patch boxes. Alt+Shif
 The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
 
 **Home**:
-The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page.
+The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page. Alt+Shift+h opens Home from every page, and on Home it closes what is open and puts the focus in the Source box.
 
 **Palette**:
 A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. To search in one category, type its name first, then a space and the search, for example "panel studio". A short form, a part of the name or one typo is also correct ("p", "pnl", "sett", "panle"). The rows of that category come first, and other matches follow under Other matches. A row outside a person's Rights or Role does not show. But a bookmark with Show in Palette stays as a grey row. Picking it tells why and offers Step in or Request approval.
