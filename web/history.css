@@ -600,7 +600,6 @@
 }
 .sode__search > [data-search-clear] {
   flex: none;
-  font-size: var(--pb-text-xs);
 }
 .sode__search > .sode__hint {
   min-width: 0;

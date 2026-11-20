@@ -84,7 +84,7 @@ export function fillBoxes(scope, name) {
   if (notes.length) showResult('info', `Preset ${s.name}`, notes.join(' '));
 }
 
-// Keyboard mode `p` (desktop): first bookmark chip, ←/→ in DOM order (Edit, Show all, chips);
+// Keyboard mode `p` (desktop): first bookmark chip, ←/→ in DOM order (Edit, All presets, chips);
 // Enter presses, Esc goes back to Source.
 on('presetStrip', () => {
   const b =
