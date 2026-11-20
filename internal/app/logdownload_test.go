@@ -2,11 +2,11 @@ package app
 
 import (
 	"bytes"
-	"encoding/csv"
 	"encoding/json"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -25,13 +25,27 @@ func logDownload(t *testing.T, a *App, tok string, req any) *httptest.ResponseRe
 	return rec
 }
 
-func readCSV(t *testing.T, b []byte) [][]string {
+// logReply: the parts of a download reply.
+type logReply struct {
+	Log           []Sent        `json:"log"`
+	UptimeStates  []UptimeTrans `json:"uptimeStates"`
+	UptimeMinutes []struct {
+		M    int64 `json:"m"`
+		Bad  int64 `json:"bad"`
+		Slow int64 `json:"slow"`
+	} `json:"uptimeMinutes"`
+}
+
+func readReply(t *testing.T, rec *httptest.ResponseRecorder) logReply {
 	t.Helper()
-	rows, err := csv.NewReader(bytes.NewReader(b)).ReadAll()
-	if err != nil {
-		t.Fatalf("%v in %s", err, b)
+	if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("%d %s %s", rec.Code, rec.Header().Get("Content-Type"), rec.Body)
 	}
-	return rows
+	var out logReply
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("%v in %s", err, rec.Body)
+	}
+	return out
 }
 
 // downloadRow: the command row the download queued (no log writer runs in these tests).
@@ -66,8 +80,8 @@ func tokenFor(t *testing.T, a *App, name, pin string) string {
 	return tok
 }
 
-// The full zip holds every row of both log files, oldest first, with the Settings saves row in
-// place, and the uptime record.
+// The reply holds every row of both log files, oldest first, with the Settings saves row in place,
+// and the uptime record.
 func TestLogDownloadFullHasBothFilesAndUptime(t *testing.T) {
 	a := newTestApp(t)
 	dir := t.TempDir()
@@ -80,9 +94,6 @@ func TestLogDownloadFullHasBothFilesAndUptime(t *testing.T) {
 	for i := range 15 {
 		e := Sent{Time: base.Add(time.Duration(i) * time.Second), Kind: "connect", Cmd: 2, Level: 1, Wire: 0, Dst: 3, Src: 4,
 			SrcName: "CAM 5", DstName: "MON 4", Tries: 1, Result: "ack", Hex: "02 00", AckMs: 1.5}
-		if i == 2 {
-			e.DstName = "=SUM(A1)"
-		}
 		if err := a.sent.Append(&e); err != nil {
 			t.Fatal(err)
 		}
@@ -100,75 +111,49 @@ func TestLogDownloadFullHasBothFilesAndUptime(t *testing.T) {
 	a.up.State(false)
 	a.up.Note(Sent{Result: "nak", Tries: 3})
 
-	rec := logDownload(t, a, "", logDownloadReq{Parts: []string{partLog, partUptimeStates, partUptimeMinutes}})
-	if rec.Code != 200 || rec.Header().Get("Content-Type") != "application/zip" {
-		t.Fatalf("%d %s", rec.Code, rec.Body)
-	}
-	files := unzipAll(t, rec.Body.Bytes())
-	rows := readCSV(t, files["log.csv"])
-	if strings.Join(rows[0], ",") != strings.Join(logCSVCols, ",") {
-		t.Fatalf("header %v", rows[0])
-	}
-	if got, want := len(rows)-1, int(a.sent.Total())+1; got != want {
-		t.Fatalf("%d rows, want %d", got, want)
+	got := readReply(t, logDownload(t, a, "", logDownloadReq{Parts: []string{partLog, partUptimeStates, partUptimeMinutes}, For: "full"}))
+	if n, want := len(got.Log), int(a.sent.Total())+1; n != want {
+		t.Fatalf("%d rows, want %d", n, want)
 	}
 	var seqs []string
-	for _, r := range rows[1:] {
-		seqs = append(seqs, r[1]+":"+r[2])
+	for _, e := range got.Log {
+		seqs = append(seqs, e.Kind+":"+strconv.FormatInt(e.Seq, 10))
 	}
-	if !strings.Contains(strings.Join(seqs, " "), "4:Connect 5:Settings save 5:Connect") || seqs[0] != "0:Connect" {
+	if !strings.Contains(strings.Join(seqs, " "), "connect:4 settings:5 connect:5") || seqs[0] != "connect:0" {
 		t.Fatalf("order %v", seqs)
 	}
-	row2 := rows[3]
-	if row2[7] != "'=SUM(A1)" || row2[3] != "0x02" || row2[6] != "4" || row2[16] != "1.5" || row2[4] == "" {
-		t.Fatalf("row %v", row2)
+	n := len(got.UptimeStates)
+	if n < 2 || got.UptimeStates[n-2].S != "up" || got.UptimeStates[n-1].S != "down" {
+		t.Fatalf("states %+v", got.UptimeStates)
 	}
-	for _, r := range rows[1:] {
-		if r[2] == "Settings save" && !strings.Contains(r[15], `Branding: Logo text and page title: Blank → "Studio B"`) {
-			t.Fatalf("save note %q", r[15])
-		}
-	}
-	states := readCSV(t, files["uptime-states.csv"])
-	n := len(states)
-	if n < 3 || states[n-2][1] != "up" || states[n-1][1] != "down" || states[n-1][2] == "" {
-		t.Fatalf("states %v", states)
-	}
-	mins := readCSV(t, files["uptime-minutes.csv"])
-	if len(mins) != 2 || mins[1][1] != "1" || mins[1][2] != "0" {
-		t.Fatalf("minutes %v", mins)
+	if len(got.UptimeMinutes) != 1 || got.UptimeMinutes[0].Bad != 1 || got.UptimeMinutes[0].Slow != 0 {
+		t.Fatalf("minutes %+v", got.UptimeMinutes)
 	}
 	if e := downloadRow(t, a); !strings.Contains(e.Note, "full log, 16 Log rows") || e.Result != "ok" {
 		t.Fatalf("download row %+v", e)
 	}
 }
 
-// Filtered rows: the page's filters over the whole log, in the page's order, as one CSV.
-func TestLogDownloadFilteredRows(t *testing.T) {
+// Filtered rows: the page gets every row and applies its filters itself, so the row says what was sent.
+func TestLogDownloadForFilteredRowsSendsEveryRow(t *testing.T) {
 	a := newTestApp(t)
 	base := time.Date(2026, 11, 19, 10, 0, 0, 0, time.UTC)
 	for i := range 700 {
 		e := event(kindCommand, "take", "Ana", "ok")
-		if i%2 == 1 {
-			e = Sent{Kind: "keepalive", Cmd: 1, Wire: -1, Dst: -1, Src: -1, Tries: 1, Result: "ack", Hex: "01"}
-		}
 		e.Time = base.Add(time.Duration(i) * time.Second)
 		a.sent.Append(&e)
 	}
-	from := base.Add(10 * time.Second).UnixMilli()
-	rec := logDownload(t, a, "", logDownloadReq{Parts: []string{partLog}, Filter: &logFilter{Kinds: []string{"command"}, From: &from},
-		Sort: logSort{Col: "time", Dir: "asc"}})
-	if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/csv") {
-		t.Fatalf("%d %s", rec.Code, rec.Body)
+	got := readReply(t, logDownload(t, a, "", logDownloadReq{Parts: []string{partLog}, For: "filtered"}))
+	if len(got.Log) != 700 || got.Log[0].Seq != 0 || got.Log[699].Seq != 699 || got.UptimeStates != nil {
+		t.Fatalf("%d rows", len(got.Log))
 	}
-	rows := readCSV(t, rec.Body.Bytes())[1:]
-	if len(rows) != 345 || rows[0][1] != "10" || rows[344][1] != "698" {
-		t.Fatalf("%d rows, first %v, last %v", len(rows), rows[0], rows[len(rows)-1])
-	}
-	if e := downloadRow(t, a); !strings.Contains(e.Note, "filtered rows, from 2026-11-19 10:00:10 to now UTC, 345 Log rows") {
+	if e := downloadRow(t, a); e.Note != "filtered rows, 700 Log rows sent to the page, 2026-11-19 10:00:00 to 2026-11-19 10:11:39 UTC" {
 		t.Fatalf("download row %q", e.Note)
 	}
-	if rec := logDownload(t, a, "", logDownloadReq{Parts: []string{"history"}}); rec.Code != 400 {
-		t.Fatalf("an unknown part: %d", rec.Code)
+	for _, bad := range []logDownloadReq{{Parts: []string{"history"}, For: "full"}, {Parts: []string{partLog}, For: "some"}, {For: "full"}} {
+		if rec := logDownload(t, a, "", bad); rec.Code != 400 {
+			t.Fatalf("%+v: %d", bad, rec.Code)
+		}
 	}
 }
 
@@ -179,35 +164,34 @@ func TestLogDownloadFollowsReaderRole(t *testing.T) {
 	adminSave(t, a)
 	waitSaves(t, a, 1)
 	stop()
-	req := logDownloadReq{Parts: []string{partLog}, Filter: &logFilter{Kinds: []string{"settings"}}}
-	note := func(tok string) string {
-		rec := logDownload(t, a, tok, req)
-		if rec.Code != 200 {
-			t.Fatalf("%d %s", rec.Code, rec.Body)
+	req := logDownloadReq{Parts: []string{partLog}, For: "filtered"}
+	save := func(tok string) string {
+		for _, e := range readReply(t, logDownload(t, a, tok, req)).Log {
+			if e.Save != nil {
+				b, _ := json.Marshal(e.Save)
+				return string(b)
+			}
 		}
-		rows := readCSV(t, rec.Body.Bytes())
-		if len(rows) != 2 {
-			t.Fatalf("rows %v", rows)
-		}
-		return rows[1][15]
+		t.Fatal("no Settings saves row")
+		return ""
 	}
-	bo, ada := note(tokenFor(t, a, "Bo", "567890")), note(tokenFor(t, a, "Ada", "2468"))
-	for who, n := range map[string]string{"Bo": bo, "Ada": ada} {
-		if !strings.Contains(n, `Logo text and page title: Blank → "Studio B"`) || !strings.Contains(n, "User Ana: PIN: changed") || strings.Contains(n, "9753") {
-			t.Errorf("%s's note: %q", who, n)
+	bo, ada := save(tokenFor(t, a, "Bo", "567890")), save(tokenFor(t, a, "Ada", "2468"))
+	for who, s := range map[string]string{"Bo": bo, "Ada": ada} {
+		if !strings.Contains(s, `Studio B`) || strings.Contains(s, "9753") {
+			t.Errorf("%s's row: %s", who, s)
 		}
 	}
-	if strings.Contains(bo, "10.1.0.0/16") || !strings.Contains(bo, "Trusted proxies: changed") {
-		t.Errorf("a Standard user sees the Server value: %q", bo)
+	if strings.Contains(bo, "10.1.0.0/16") {
+		t.Errorf("a Standard user sees the Server value: %s", bo)
 	}
-	if !strings.Contains(ada, "Trusted proxies: added 10.1.0.0/16") {
-		t.Errorf("the Administrator does not see the value: %q", ada)
+	if !strings.Contains(ada, "10.1.0.0/16") {
+		t.Errorf("the Administrator does not see the value: %s", ada)
 	}
 }
 
 // Whoever can open /log can download. A Guest under the log lock cannot.
 func TestLogDownloadNeedsLogAccess(t *testing.T) {
-	req := logDownloadReq{Parts: []string{partLog}}
+	req := logDownloadReq{Parts: []string{partLog}, For: "full"}
 	locked := userApp(t, true)
 	if rec := logDownload(t, locked, "", req); rec.Code != 401 {
 		t.Fatalf("a Guest under the log lock: %d", rec.Code)

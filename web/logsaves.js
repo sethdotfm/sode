@@ -1,14 +1,14 @@
 // Words for a Settings saves row on /log (docs/agents/comm-log.md). Pure, no imports. The server
 // already took out the values the reader's Role cannot see: those fields come with changed only.
 
-function show(v) {
+export function show(v) {
   if (v === true) return 'On';
   if (v === false) return 'Off';
   if (v == null || v === '') return 'Blank';
   return JSON.stringify(v);
 }
 
-const list = (vs) => vs.map((v) => (typeof v === 'string' ? v : JSON.stringify(v))).join(', ');
+export const list = (vs) => vs.map((v) => (typeof v === 'string' ? v : JSON.stringify(v))).join(', ');
 
 export function fieldText(f) {
   let what;

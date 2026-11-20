@@ -55,7 +55,7 @@ const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 // open.
 const range = { from: null, to: null };
 
-// What the page shows, and what Download filtered rows asks the server for.
+// What the page shows, and what Download filtered rows keeps of the whole log.
 const pageFilter = () => ({ ...filter, from: range.from, to: range.to });
 const passes = (e) => logPasses(e, pageFilter(), off(), { src: srcOk, dst: dstOk });
 
@@ -426,7 +426,7 @@ function renderMore() {
 }
 
 // The server builds both files from the whole log (logdownload.js).
-initDownloads(() => ({ filter: pageFilter(), sort }));
+initDownloads((rows) => sortRows(rows.filter(passes), sort, SORTS));
 
 const loadOlder = () => send(pager.older(pager.list.filter(passes).length));
 $('log-older').addEventListener('click', loadOlder);

@@ -1,5 +1,5 @@
-// /log filter and sort rules. Pure (node tests). The server builds Download filtered rows with the same rules
-// (internal/app/logrules.go). web/test/log_filter.json holds cases that both sides must pass.
+// /log filter and sort rules. Pure (node tests). Download filtered rows uses them too, on every row the server
+// sends (logdownload.js), so the server has no copy of them. web/test/log_filter.json holds the cases.
 import { KINDS, EVENT_KINDS, WHY_LABEL, kindLabel, eventProblem } from './logkinds.js';
 import { filterFn } from './filter.js';
 import { rowPos, byNewest } from './logpager.js';

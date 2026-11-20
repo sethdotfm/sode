@@ -1,9 +1,11 @@
-// /log downloads. The server builds each file from the whole log for this reader (internal/app/logdownload.go).
-// A request names parts, so a new part needs no new route.
-import { $, el, request } from './core.js';
+// /log downloads. The server sends every Log row for this reader, with the values the reader's Role cannot see taken
+// out (internal/app/logdownload.go). The page makes the file with its own filter, sort and words (logfile.js), so
+// those rules exist only here. A request names parts, so a new part needs no new route.
+import { $, el, S, request } from './core.js';
+import { logCSV, statesCSV, minutesCSV } from './logfile.js';
+import { zipFiles } from './zipfile.js';
 
 const SESSION_HEADER = 'X-Sode-Session'; // sessionHeader in internal/app/exportroute.go
-const FULL = ['log', 'uptimeStates', 'uptimeMinutes'];
 
 // A Guest gets no token. The server then reads the browser as a Guest, which works while /log has no lock.
 async function token() {
@@ -16,20 +18,26 @@ const stamp = (d) => {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 };
 
-async function download(body, ext) {
+// purpose is the button, full or filtered: the server's download row says which.
+async function read(parts, purpose) {
   const tok = await token();
   const res = await fetch('api/log/download', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(tok ? { [SESSION_HEADER]: tok } : {}) },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ parts, for: purpose }),
     cache: 'no-store',
   });
   if (!res.ok) {
     const err = await res.json().catch(() => null);
     throw new Error(err?.error?.message || `Sode answered ${res.status}.`);
   }
+  // A reply cut by an error on the server is not valid JSON, so the download fails and makes no part file.
+  return res.json();
+}
+
+function save(blob, ext) {
   const a = el('a');
-  a.href = URL.createObjectURL(await res.blob());
+  a.href = URL.createObjectURL(blob);
   a.download = `sode-log-${stamp(new Date())}.${ext}`;
   document.body.append(a);
   a.click();
@@ -37,10 +45,30 @@ async function download(body, ext) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// view() gives the page's filter and sort when the button is pressed.
-export function initDownloads(view) {
+const csvBlob = (text) => new Blob([text], { type: 'text/csv;charset=utf-8' });
+
+// Numbers and level names as the page shows them.
+const words = () => ({ off: S.cfg ? S.cfg.numberOffset : 0, level: (ui) => S.levelBy.get(ui)?.label });
+
+async function fullLog() {
+  const data = await read(['log', 'uptimeStates', 'uptimeMinutes'], 'full');
+  const files = [
+    { name: 'log.csv', text: logCSV(data.log, words()) },
+    { name: 'uptime-states.csv', text: statesCSV(data.uptimeStates) },
+    { name: 'uptime-minutes.csv', text: minutesCSV(data.uptimeMinutes) },
+  ];
+  save(await zipFiles(files), 'zip');
+}
+
+// pick(rows) gives the rows that the page's filters pass, in the page's order.
+async function filteredRows(pick) {
+  const data = await read(['log'], 'filtered');
+  save(csvBlob(logCSV(pick(data.log), words())), 'csv');
+}
+
+export function initDownloads(pick) {
   const note = $('log-download-err');
-  const wire = (id, build) => {
+  const wire = (id, make) => {
     const b = $(id);
     const label = b.textContent;
     b.addEventListener('click', async () => {
@@ -49,7 +77,7 @@ export function initDownloads(view) {
       b.textContent = 'Preparing…';
       note.hidden = true;
       try {
-        await download(...build());
+        await make();
       } catch (e) {
         note.textContent = `Download failed: ${e.message}`;
         note.hidden = false;
@@ -59,9 +87,6 @@ export function initDownloads(view) {
       }
     });
   };
-  wire('log-download-full', () => [{ parts: FULL }, 'zip']);
-  wire('log-download-rows', () => {
-    const { filter, sort } = view();
-    return [{ parts: ['log'], filter, sort }, 'csv'];
-  });
+  wire('log-download-full', fullLog);
+  wire('log-download-rows', () => filteredRows(pick));
 }

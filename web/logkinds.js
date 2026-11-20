@@ -18,8 +18,7 @@ export const KINDS = [
 ];
 export const KIND_IDS = KINDS.map((g) => g.id);
 
-// Words for a row's why. A why with no entry shows as written. Keep in step with logWhyLabel in
-// internal/app/logrules.go (TestLogRulesMatchPage), which writes them in the downloads.
+// Words for a row's why. A why with no entry shows as written. The download files use them too (logfile.js).
 export const WHY_LABEL = {
   take: 'Take',
   undo: 'Undo',
