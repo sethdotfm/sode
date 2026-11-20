@@ -17,6 +17,7 @@ import { gridBody } from './gridpanelrun.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { edgesIn } from './gridedgerefs.js';
 import { lookOf } from './panellook.js';
+import { pref } from './device.js';
 import { createArt } from './panelart.js';
 import { createWake, enterFullscreen, featureNotes, wantsFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
@@ -177,11 +178,11 @@ function makeDoor(seg, ui, embedded, given, run) {
   return d;
 }
 
-// Title, header, font scale and theme come from the stored panel, so a live update runs it again. Auto restores
-// whatever the page started with (the browser's own choice or the device setting).
+// Title, header, font scale and theme come from the stored panel, so a live update runs it again. Auto is the device
+// setting as it is now, which the theme key (themekey.js) changes. A stored theme marks the page, and the key then
+// does nothing.
 function lookApplier(ui, embedded) {
   const root = document.documentElement;
-  const startTheme = root.dataset.theme;
   const chrome = embedded ? null : initChrome(ui);
   const setTheme = (t) => {
     // Embedded, the panel's tokens switch with color-scheme and the editor around it keeps its own theme.
@@ -189,8 +190,9 @@ function lookApplier(ui, embedded) {
       ui.main.style.colorScheme = t === 'auto' ? '' : t;
       return;
     }
-    const want = t === 'auto' ? startTheme : t;
-    if (want) root.dataset.theme = want;
+    root.toggleAttribute('data-sode-panel-theme', t !== 'auto');
+    const want = t === 'auto' ? pref('theme') : t;
+    if (want !== 'system') root.dataset.theme = want;
     else delete root.dataset.theme;
   };
   return (p) => {

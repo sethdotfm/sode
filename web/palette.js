@@ -18,7 +18,7 @@ import { closeShown } from './dialogkeys.js';
 import { closeOpenConfirm } from './keyconfirm.js';
 import { lockState } from './lock.js';
 import { lockCovers } from './lockrules.js';
-import { pref, setPref } from './device.js';
+import { pref, flipTheme } from './device.js';
 import { profileName, profile, saveProfile } from './profile.js';
 import { readJSON, writeJSON, readTab, writeTab } from './store.js';
 import { myRights } from './editorrights.js';
@@ -325,11 +325,7 @@ function runHere(row) {
   // The Settings Sign out button's own path (lock.js signOutNow).
   else if (id === 'signOut') emit('logout');
   else if (id === 'stepOut') stepOut();
-  else if (id === 'theme') {
-    const root = document.documentElement;
-    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-    setPref('theme', dark ? 'light' : 'dark');
-  }
+  else if (id === 'theme') flipTheme();
 }
 
 function pick(fill = false) {

@@ -54,7 +54,8 @@ function setTheme(next) {
     else root.dataset.theme = next;
   };
   if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.startViewTransition(apply);
+    // A second change before the first has run skips it, and ready then rejects.
+    document.startViewTransition(apply).ready.catch(() => {});
     return;
   }
   const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
@@ -120,21 +121,9 @@ export const timeNodes = (iso) => {
   return [el('span', 'sode__date', `${isoDate(d)} `), timeFormat().format(d)];
 };
 
-export function initTheme() {
-  const root = document.documentElement;
-  const osDark = matchMedia('(prefers-color-scheme: dark)');
-  const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : osDark.matches);
-
-  // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
-  // Matched by e.code because Option changes e.key on macOS.
-  document.addEventListener(
-    'keydown',
-    (e) => {
-      if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      setPref('theme', isDark() ? 'light' : 'dark');
-    },
-    true,
-  );
+export function isDark() {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
 }
+// The theme key (themekey.js) and the Palette's Theme row.
+export const flipTheme = () => setPref('theme', isDark() ? 'light' : 'dark');
