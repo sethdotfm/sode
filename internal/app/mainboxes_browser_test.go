@@ -12,7 +12,8 @@ import (
 )
 
 // The desktop main page's boxes. Show all sources is in the place of Show all destinations. Levels shrinks with Source
-// and Destination. No router with more than one level gives no Levels box.
+// and Destination, and its picks are tiles an action high in even rows of at most six. No router with more than one
+// level gives no Levels box.
 func TestChromeMainBoxesLayout(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -71,8 +72,11 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	if !inside {
 		t.Fatal("at 1600 px a level pick or Select All is outside the Levels box")
 	}
-	if n := rows(); n != 2 {
-		t.Fatalf("at 1600 px the 17 picks are on %d rows, want 2 as before", n)
+	if n := rows(); n != 3 {
+		t.Fatalf("at 1600 px the 17 picks are on %d rows, want 3 even rows of at most six", n)
+	}
+	if b.eval(`[...document.querySelectorAll('#lvl-pick > button, #lvl-all')].every((n) => Math.abs(n.getBoundingClientRect().height - parseFloat(getComputedStyle(document.documentElement).fontSize) * 2.5) < 1)`) != true {
+		t.Fatal("at 1600 px a level pick or Select All is not an action high")
 	}
 	if b.eval(`(() => { const a = document.getElementById('lvl-all').getBoundingClientRect(), p = document.getElementById('lvl-pick').getBoundingClientRect(); return a.left > p.right && a.top === p.top; })()`) != true {
 		t.Fatal("at 1600 px Select All is not beside the picks")
@@ -83,7 +87,8 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	if !inside {
 		t.Fatal("at 850 px a level pick or Select All is outside the Levels box")
 	}
-	if src != dst {
+	// A 64th of a px apart is layout rounding.
+	if math.Abs(src-dst) > 0.5 {
 		t.Fatalf("at 850 px Source is %v px and Destination %v px, want the same", src, dst)
 	}
 	// The margin before Levels is not part of its box, so compare the shares with it in.
@@ -92,8 +97,8 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	if math.Abs(wide-narrow) > 0.02 {
 		t.Fatalf("Source to Levels is %.3f at 1600 px and %.3f at 850 px, want the same ratio", wide, narrow)
 	}
-	if rows() <= 2 {
-		t.Fatal("at 850 px the picks did not wrap onto more rows")
+	if n := rows(); n != 3 {
+		t.Fatalf("at 850 px the 17 picks are on %d rows, want the same 3 rows", n)
 	}
 	if b.eval(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`) != true {
 		t.Fatal("at 850 px the main page scrolls sideways")

@@ -35,21 +35,21 @@ func TestChromeMainChips(t *testing.T) {
 	b.waitFor("History has the take", `!!document.querySelector('#history .sode__end--dst.sode__end--pick')`)
 	b.waitFor("Last destination chip", `!!document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)')`)
 
+	// Last is a light ghost chip on the label's line, with its key in a kbd. Both boxes end Last and Next at the box's
+	// right edge.
 	if got := b.eval(`(() => {
-		const st = (n) => { const c = getComputedStyle(n); return [c.borderTopColor, c.fontSize, c.paddingLeft, c.paddingTop].join(' '); };
-		const box = document.getElementById('dst-chips');
-		const chip = document.createElement('span');
-		chip.className = 'pb-chip pb-chip--static';
-		chip.textContent = '1 DSM1';
-		box.hidden = false;
-		box.append(chip);
-		const want = st(chip);
-		chip.remove();
-		box.hidden = true;
-		const last = st(document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)'));
-		return last === want || last + ' / ' + want;
+		const last = document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)');
+		const c = getComputedStyle(last), k = getComputedStyle(last.querySelector('kbd'));
+		const head = last.closest('.sode__box-head').getBoundingClientRect(), r = last.getBoundingClientRect();
+		const ghost = c.borderTopColor === 'rgba(0, 0, 0, 0)' && c.backgroundColor === 'rgba(0, 0, 0, 0)';
+		const ends = ['src', 'dst'].map((k) => {
+			const slot = document.querySelector('[data-last="' + k + '"]').getBoundingClientRect();
+			return Math.round(document.querySelector('.sode__box--' + k).getBoundingClientRect().right - slot.right);
+		});
+		const ok = ghost && r.height <= head.height && k.borderTopStyle === 'solid' && ends[0] === ends[1];
+		return ok || [c.borderTopColor, c.backgroundColor, r.height, head.height, k.borderTopStyle, ends].join(' ');
 	})()`); got != true {
-		t.Fatalf("Last chip and destination chip differ (Last / destination): %v", got)
+		t.Fatalf("Last chip is not a ghost on the label's line with a kbd, or the boxes end it apart: %v", got)
 	}
 
 	// Ctrl-click: a click with ctrlKey, or on a Mac the contextmenu that a Ctrl-click fires instead.

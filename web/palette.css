@@ -1,11 +1,11 @@
 /* The Palette (palette.js): one list dialog on every page. */
 .sode-palette__scrim > .sode-palette {
   align-self: flex-start;
-  margin-top: 12vh;
+  margin-top: 8vh;
   max-width: calc(100vw - 2 * var(--pb-space-4));
   min-width: 0;
   transform-origin: top left;
-  width: 40rem;
+  width: min(60vw, 60rem);
 }
 .sode-palette--grow {
   transition: transform var(--pb-motion-normal) var(--pb-ease);
@@ -27,7 +27,8 @@
   flex-direction: column;
   list-style: none;
   margin: 0;
-  max-height: 50vh;
+  /* About 70vh, less what the box, the search field and the key hint need on a short window. */
+  max-height: min(70vh, calc(100dvh - 8vh - 12rem));
   overflow-y: auto;
   padding: 0;
 }
@@ -38,6 +39,34 @@
   gap: var(--pb-space-2);
   min-height: var(--pb-control-h);
   padding: var(--pb-space-1) var(--pb-space-2);
+}
+/* On the desktop the right-hand parts sit in fixed columns: icon, name, where it is, status, Bookmark. */
+:root:not([data-pb-layout="phone"]) .sode-palette__row {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) minmax(0, 18rem) 8.5rem var(--pb-control-h-sm);
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .pb-icon {
+  grid-column: 1;
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .sode-palette__label {
+  grid-column: 2;
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .sode-palette__hint {
+  grid-column: 3;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .sode-palette__tag {
+  grid-column: 4;
+  margin: 0;
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .sode-palette__mark,
+:root:not([data-pb-layout="phone"]) .sode-palette__row--cat > .pb-icon {
+  grid-column: 5;
+  justify-self: center;
+  margin: 0;
 }
 .sode-palette__row[aria-selected="true"] {
   background: var(--pb-surface-hover);
@@ -93,7 +122,13 @@
   gap: var(--pb-space-2);
 }
 .sode-palette__keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-6);
   margin: 0;
+}
+.sode-palette__key {
+  white-space: nowrap;
 }
 .sode-palette__warn {
   color: var(--pb-status-warn);

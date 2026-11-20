@@ -102,7 +102,13 @@ export function renderStrips() {
   for (const box of document.querySelectorAll('[data-presets]')) {
     const edit = el('button', { type: 'button', class: 'pb-btn pb-btn--ghost pb-btn--sm sode__chipbtn', 'aria-haspopup': 'dialog' }, 'Edit');
     edit.addEventListener('click', () => emit('bookmarkEditor'));
-    const more = el('button', { type: 'button', class: 'pb-chip sode__set sode__presets-all', 'aria-haspopup': 'dialog' }, icon('list'), 'Show all');
+    // Edit and Show all are the same button, beside the heading, so the strip is one row with or without bookmarks.
+    const more = el(
+      'button',
+      { type: 'button', class: 'pb-btn pb-btn--ghost pb-btn--sm sode__chipbtn sode__presets-all', 'aria-haspopup': 'dialog' },
+      icon('list'),
+      'Show all',
+    );
     if (document.documentElement.dataset.pbLayout !== 'phone') more.dataset.pbTip = `All Presets (${mac ? '⌘' : 'Ctrl+'}G)`;
     more.addEventListener('click', () => emit('presetPopup'));
     const sep = el('span', { class: 'sode__sets-sep', 'aria-hidden': 'true' }, '|');
@@ -110,7 +116,8 @@ export function renderStrips() {
     box.replaceChildren(
       el('span', 'sode__label', 'Bookmarks'),
       edit,
-      el('div', 'sode__sets', more, ...(chips.length ? [sep] : []), el('div', 'sode__sets-run', ...chips)),
+      more,
+      el('div', 'sode__sets', ...(chips.length ? [sep] : []), el('div', 'sode__sets-run', ...chips)),
     );
   }
 }

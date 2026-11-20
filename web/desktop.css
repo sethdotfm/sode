@@ -170,9 +170,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin-left: var(--pb-space-8);
-  /* At most 9 picks on a row, as for 17 levels. A narrower box wraps them onto more rows. */
-  --sode-picker-cols: 9;
-  --sode-pick-w: calc(var(--pb-space-8) + var(--pb-space-1));
 }
 .sode__box--levels[hidden] {
   display: none;
@@ -187,18 +184,31 @@
   min-width: 100%;
   width: 0;
 }
-/* Select All stays beside the picks while both fit, else it goes below them. The picks fill as many columns as fit, up
-   to the two rows of the router's levels, and wrap onto more rows. An odd first level still stands two rows high. */
+/* The picks are wide tiles that fill the box, as in v1, an action high. They go in rows of at most six (evenCols in
+   levels.js sets --sode-row-cols), so 11 levels are two even rows. Select All ends the first row at the same height. */
 .sode__box--levels > .sode__picker {
-  column-gap: var(--pb-space-3);
-  flex-wrap: wrap;
+  align-items: start;
+  gap: var(--pb-space-2);
   min-width: 0;
-  row-gap: var(--pb-space-2);
 }
 .sode__box--levels .sode__levels {
-  flex: 0 1 calc(min(var(--sode-bar-cols, 1), var(--sode-picker-cols)) * (var(--sode-pick-w) + var(--pb-space-1)) - var(--pb-space-1));
-  grid-template-columns: repeat(auto-fill, var(--sode-pick-w));
-  min-width: var(--sode-pick-w);
+  flex: 1 1 0;
+  grid-template-columns: repeat(var(--sode-row-cols, 1), minmax(0, 1fr));
+  min-width: 0;
+}
+.sode__box--levels .sode__pick {
+  font-size: var(--pb-text-sm);
+  height: var(--sode-h-action);
+  min-width: 0;
+}
+/* A first level of 0 or V stands two rows high only in the two-row picker (base.css); here it is a tile as the rest. */
+.sode__box--levels .sode__levels--odd > .sode__pick:first-child {
+  grid-row: auto;
+  height: var(--sode-h-action);
+}
+.sode__box--levels .pb-btn.sode__all {
+  flex: none;
+  height: var(--sode-h-action);
 }
 
 .sode__under {
@@ -275,14 +285,22 @@
   padding-top: var(--pb-space-6);
   width: 100%;
 }
+/* The icon bar (Settings, Sode Panels, Grid) is a column fixed at the bottom left. The page's side gutters are never
+   narrower than the bar, so it covers no History row at any width or scroll. */
 :root:not([data-layout="phone"]) .sode__footer {
   background: var(--pb-surface-base);
   bottom: var(--pb-space-4);
+  flex-direction: column;
+  gap: var(--pb-space-2);
   left: var(--pb-space-5);
-  padding: var(--pb-space-2) var(--pb-space-3);
+  padding: var(--pb-space-2);
   position: fixed;
   width: auto;
   z-index: var(--pb-z-sticky);
+}
+:root:not([data-layout="phone"]):not([data-view="settings"]) .sode {
+  --sode-rail-w: calc(var(--pb-space-5) + var(--sode-h-action) + 2 * var(--pb-space-2) + var(--pb-space-3));
+  padding-inline: max(var(--pb-space-8), calc(var(--sode-rail-w) - max(0px, (100vw - var(--sode-page-bar) - 75rem) / 2)));
 }
 
 /* Compact view (pref compact, html[data-compact]): desktop only, and the usual page again while a preset picks takes from

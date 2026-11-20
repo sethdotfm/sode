@@ -108,3 +108,10 @@ export function levelStyle(l) {
 // The desktop main page shows its Levels box only when some router has more than one level. counts: each router's
 // levels setting. With no counts yet (before the hello), the box shows, as it did before this rule.
 export const levelsBoxShown = (counts) => !counts.length || counts.some((n) => n > 1);
+
+// The columns of the desktop main page's level picks: at most max on a row, and the rows as even as they can be. So 11
+// levels are two rows of 6 and 5.
+export function evenCols(n, max) {
+  if (n <= 0) return 1;
+  return Math.ceil(n / Math.ceil(n / max));
+}
