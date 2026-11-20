@@ -95,8 +95,8 @@ export function liveUi(host, onBack, edit = null) {
   };
 }
 
-// Keep in step with #panel-levels in panel.html. Only a Grid panel shows it (gridpanellevelbox.js).
-function levelsBox() {
+// Keep in step with #panel-levels in panel.html. Only a Grid panel and the Grid popup show it (gridpanellevelbox.js).
+export function levelsBox() {
   const input = el('input', 'pb-input sode__input');
   Object.assign(input, { id: 'panel-lvl', spellcheck: false, autocomplete: 'off' });
   input.setAttribute('aria-keyshortcuts', 'f');

@@ -501,6 +501,7 @@ presetHost({
   active,
   confirm: sheetFor,
   patch: () => boxPatch(M.sel.src, [...M.dsts], lvl),
+  picks: () => ({ src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: reset,
   focus: () => setStep(order()[0], false),
 });

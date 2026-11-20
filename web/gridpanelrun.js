@@ -1,7 +1,7 @@
 // The Grid panel body of a panel run (panelrun.js). It reads and sends only through ctx, the run's /api/v1 adapter.
 // So another adapter can drive the same view. ctx is panelrun.js's: { ui, art, embedded, page, id, call, callJSON, post,
 // poll, ready, instance, keyed, touched }. The main page's Grid popup (gridpopup.js) is an adapter with no saved panel.
-// It gives confirm(routes, { warnings, onSent }), asking(), undo() and onStage(staged) in place of a panel id and post.
+// It gives confirm(routes, { warnings, onSent }), asking(), shown(), undo() and onStage(staged) in place of an id and post.
 // gridpanelmode.js says which parts the body then has.
 // The rules are pure modules (gridpanel*.js); this file joins them to the DOM.
 import { envFrom, namesFrom } from './panelrules.js';
@@ -659,6 +659,8 @@ export function gridBody(ctx, first) {
   }
 
   const onKey = (e) => {
+    // The Grid popup stays alive while it is closed, to keep its state. Then the main page has every key.
+    if (ctx.shown && !ctx.shown()) return;
     // The editor's list drawer beside the Live Editor (editorlive.js) keeps every key of its own.
     if (ui.aside?.contains(e.target)) return;
     if (confirm?.isOpen()) return confirm.key(e);
