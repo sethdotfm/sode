@@ -2,6 +2,7 @@ package app
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -62,4 +63,40 @@ func TestChromeEditorSignOutLeavesEditing(t *testing.T) {
 		t.Fatalf("the panel changed after the sign-out: rev %d, was %d", now.Rev, was.Rev)
 	}
 	b.check()
+}
+
+// A new owner keeps the user and the Role, so nothing on the socket says the edit right went. The editor reads the
+// panel again when Settings change, and leaves once the panel is not its user's to edit.
+func TestChromeEditorLostEditRightLeavesEditing(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim)
+	srv := seamServer(t, a)
+	ana := userKey(t, a, "Ana")
+	waitNamesAndTally(t, a, ana)
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
+
+	b.open(srv.URL + "/panels/editor?new")
+	signInOnPad(b)
+	b.waitFor("the lock goes", `!document.documentElement.dataset.sodeLock`)
+	asGrid(b, true)
+	b.eval(`document.getElementById('ed-save').click(); true`)
+	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved' && location.search.startsWith('?panel=')`)
+	id := regexp.MustCompile(`panel=([\w-]+)`).FindStringSubmatch(b.eval(`location.search`).(string))[1]
+	b.eval(`window.before = 1; document.getElementById('ed-live').click(); true`)
+	b.waitFor("the Live Editor opens", `!document.getElementById('ed-live-view').hidden`)
+
+	p, _ := a.panels.get(id)
+	p.Owner = "u-another"
+	if _, err := a.panels.replace(p); err != nil {
+		t.Fatal(err)
+	}
+	b.eval(`import('./core.js').then((m) => { m.emit('helloCfg', {}); return true })`)
+	b.waitFor("the page left the editor", `!window.before`)
+	// After the reload the page cannot read the panel any more, so its 404 is expected.
+	for _, e := range b.problems() {
+		if !strings.Contains(e, "404") || !strings.Contains(e, "/api/v1/panels/"+id) {
+			t.Errorf("page error: %s", e)
+		}
+	}
 }

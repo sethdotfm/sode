@@ -40,6 +40,7 @@ const say = (id, text) => {
 const LEFT = 'Signed out. Not saved.';
 
 // One call whose failures read "<what> (status)" unless the server says why; down words a dead network.
+const RECHECK_MS = 15000;
 const edCall = (what, down) => jsonCall(sessionFetch, { failed: (s) => `${what} (${s})`, down });
 
 export async function runEditor() {
@@ -696,7 +697,20 @@ export async function runEditor() {
     const next = editorAccess(owner, a);
     owner = next.owner;
     if (next.leave) leaveEditing();
+    else recheckEdit();
   });
+  // A new owner keeps the user and the Role, and no message says so. So the page reads the open panel again when
+  // access or Settings change, when the tab shows again, and every RECHECK_MS. The server refuses a save in any case.
+  async function recheckEdit() {
+    if (leaving || !loaded?.id || !loaded.canEdit) return;
+    const r = await sessionFetch(`api/v1/panels/${loaded.id}`, { noWait: true }).catch(() => null);
+    if (!r || r.status === 401) return; // offline, or a sign-out, which the access rule handles
+    const now = r.ok ? await r.json().catch(() => null) : r.status === 403 || r.status === 404 ? {} : null;
+    if (now && !now.canEdit) leaveEditing();
+  }
+  on('helloCfg', recheckEdit);
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && recheckEdit());
+  setInterval(recheckEdit, RECHECK_MS);
   function leaveEditing() {
     if (leaving) return;
     leaving = true;

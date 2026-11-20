@@ -183,7 +183,7 @@ func protectResultOf(kind string, id int, o protectOutcome) protectResultMsg {
 	return m
 }
 
-// protectByMsg: Sode's own Protects for the page, dst → who set it. It reaches locked pages, as History does.
+// protectBy: Sode's own Protects for the page, dst → who set it. It reaches locked pages, as History does.
 type protectBy struct {
 	Dst    int    `json:"dst"`
 	By     string `json:"by"`

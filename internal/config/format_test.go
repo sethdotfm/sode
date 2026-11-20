@@ -145,3 +145,32 @@ func TestSettingsPinIsDropped(t *testing.T) {
 		t.Fatalf("a write carries settingsPin:\n%s", b)
 	}
 }
+
+// Bookmarks replaced preset pins with no migration (v2 is a clean install). A file from before still loads: the
+// preset and the profile keep everything else, and the pin keys are only unknown keys.
+func TestPresetPinsFromAnOldFileLoad(t *testing.T) {
+	c, err := Parse([]byte(`format: 2
+routers: [{uid: r1, address: 127.0.0.1:8910}]
+users:
+  - name: a
+    profile:
+      pinOrder: [a1]
+presets:
+  - id: a1
+    name: Morning
+    pinned: true
+    items:
+      - src: {router: r1, n: 1}
+        dsts: [{router: r1, n: 2}]
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Presets) != 1 || c.Presets[0].Name != "Morning" || len(c.Presets[0].Items) != 1 {
+		t.Fatalf("presets %+v", c.Presets)
+	}
+	want := []string{"presets[0].pinned", "users[0].profile.pinOrder"}
+	if got := c.UnknownKeys(); !slices.Equal(got, want) {
+		t.Fatalf("UnknownKeys = %q, want %q", got, want)
+	}
+}

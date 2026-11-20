@@ -45,7 +45,8 @@ export function bookmarkProblem(b) {
   const url = String(b?.url ?? '').trim();
   if (!label) return 'a bookmark needs a name';
   if ([...label].length > LABEL_MAX) return `a bookmark name has at most ${LABEL_MAX} characters`;
-  if (/\p{C}/u.test(label)) return 'a bookmark name has only characters you can see';
+  // As Go's unicode.IsPrint on the server: no control or format characters, and no space but U+0020.
+  if (/[\p{C}\p{Z}]/u.test(label.replaceAll(' ', ''))) return 'a bookmark name has only characters you can see';
   if (key && url) return 'a bookmark opens a Palette row or a web address, not both';
   if (key)
     return KINDS.includes(key.split(':')[0]) && key.includes(':') && [...key].length <= KEY_MAX ? '' : 'a bookmark names a Palette row that Sode does not know';
