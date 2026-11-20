@@ -308,7 +308,9 @@
   width: var(--pb-control-h-sm);
 }
 .sode-lock__who-name {
-  font-size: var(--pb-text-xs);
+  color: var(--pb-text);
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-medium);
 }
 .sode-lock__pin[hidden] {
   display: none;

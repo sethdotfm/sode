@@ -2,7 +2,7 @@
 // so a page with no History, plans or routes can use it. Imports only core.js and levels.js.
 
 import { el } from './core.js';
-import { levelStyle, levelInputOf, parseLevelsIn, relabelLevelsFor, evenCols } from './levels.js';
+import { levelStyle, levelInputOf, parseLevelsIn, relabelLevelsFor } from './levels.js';
 
 // ui: levels from the hello have {ui}, levels from /api/v1 have {level}.
 const uiOf = (l) => l.ui ?? l.level;
@@ -111,8 +111,6 @@ export function levelBox(input, picker, allBtn, source, { hold = 'mousedown', on
       const odd = picks.length % 2;
       picker.classList.toggle('sode__levels--odd', !!odd);
       picker.style.setProperty('--sode-bar-cols', Math.floor(picks.length / 2) + odd);
-      // The desktop main page lays the picks out in rows of at most six (desktop.css).
-      picker.style.setProperty('--sode-row-cols', evenCols(picks.length, 6));
       render();
     },
   };

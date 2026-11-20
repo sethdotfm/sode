@@ -42,6 +42,14 @@
 .sode-gridpop__box {
   position: relative;
 }
+/* A short fade in, and the box rises a little. Not a scale: the grid measures its cells from their boxes on screen in
+   the first frame (gridpanelview.js), and a scale would change those sizes. */
+.sode-gridpop:not(.sode-fade-out) {
+  animation: sode-fade-in var(--sode-motion-pop) var(--pb-ease);
+}
+.sode-gridpop > .sode-gridpop__box {
+  animation: sode-pop-in var(--sode-motion-pop) var(--pb-ease);
+}
 /* The shield over a destination name (gridpopshield.js), above the grid's sticky bands. */
 .sode-gridpop__shield {
   background: var(--pb-surface-overlay);
@@ -129,7 +137,7 @@
   gap: var(--pb-space-2);
   list-style: none;
   margin: 0;
-  max-height: calc(6 * (var(--pb-control-h-sm) + var(--pb-space-2)));
+  max-height: calc(6 * (var(--sode-h-action) + var(--pb-space-2)));
   overflow-y: auto;
   padding: 0;
 }
@@ -138,5 +146,34 @@
   display: none;
 }
 .sode__staged-row {
+  color: var(--pb-text);
   flex-wrap: nowrap;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-3);
+}
+/* The list is read at a glance before a take, so it has the text color and size of the page, not a muted label's. */
+.sode__staged-head > .sode__label {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__staged-row .sode__end {
+  font-size: var(--pb-text-md);
+}
+.sode__staged-row .sode__arrow {
+  color: var(--pb-text);
+}
+/* The crosshair is a press target in the patch flow, so it is an action high, as the other buttons near the boxes. */
+.pb-btn.sode__staged-find {
+  background-color: var(--pb-surface-hover);
+  flex: none;
+  height: var(--sode-h-action);
+  width: var(--sode-h-action);
+}
+.pb-btn.sode__staged-find:hover {
+  border-color: var(--pb-text-muted);
+}
+.sode__staged-find > .pb-icon {
+  height: 1.5rem;
+  width: 1.5rem;
 }

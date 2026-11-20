@@ -1,4 +1,3 @@
-- Home: the level picks are wide tiles that fill the Levels box again, as in v1, in even rows of at most six. Select All ends the first row at the same height.
 - Home: Grid moved from under Take to the icon bar at the bottom left, beside Settings and Sode Panels. The icon bar is a column that never covers History rows.
 - Home: Last and Next over Source and Destination are light chips on the label's line. Last uses the free width, so names are cut less.
 - Home: Bookmarks is one row, with Edit and Show all at the same size beside the heading.

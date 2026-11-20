@@ -1,7 +1,7 @@
 // Levels and numbering come in as arguments: a panel page has no socket.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelLabelOf, levelStyle, parseLevelsIn, levelInputOf, levelTextOf, relabelLevelsFor, evenCols } from '../levels.js';
+import { levelLabelOf, levelStyle, parseLevelsIn, levelInputOf, levelTextOf, relabelLevelsFor } from '../levels.js';
 
 const apiLevels = (n, mode = '1') => Array.from({ length: n }, (_, i) => ({ level: i + 1, label: levelLabelOf([], mode, i + 1), swatch: 'x' }));
 
@@ -43,11 +43,4 @@ test('relabelLevelsFor: text keeps its levels when the numbering changes', () =>
   assert.equal(relabelLevelsFor('1-3', apiLevels(17, 'va'), 'va', { mode: '1', max: 17 }), 'V-2');
   assert.equal(relabelLevelsFor('1-3', lv, '1', { mode: '1', max: 17 }), '1-3');
   assert.equal(relabelLevelsFor('1-3', lv, 'va', null), '1-3');
-});
-
-test('evenCols: at most max a row, rows as even as they can be', () => {
-  assert.deepEqual(
-    [0, 1, 4, 6, 7, 11, 12, 13, 17].map((n) => evenCols(n, 6)),
-    [1, 1, 4, 6, 4, 6, 6, 5, 6],
-  );
 });

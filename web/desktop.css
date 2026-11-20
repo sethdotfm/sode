@@ -170,6 +170,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin-left: var(--pb-space-8);
+  /* At most 9 picks on a row, as for 17 levels. A pick is an action high while the box has room, and gets smaller down
+     to min before the picks wrap onto more rows. */
+  --sode-picker-cols: 9;
+  --sode-pick-w: var(--sode-h-action);
+  --sode-pick-min: calc(var(--pb-space-8) + var(--pb-space-1));
+  --sode-pick-gap: var(--pb-space-2);
 }
 .sode__box--levels[hidden] {
   display: none;
@@ -184,31 +190,43 @@
   min-width: 100%;
   width: 0;
 }
-/* The picks are wide tiles that fill the box, as in v1, an action high. They go in rows of at most six (evenCols in
-   levels.js sets --sode-row-cols), so 11 levels are two even rows. Select All ends the first row at the same height. */
+/* Select All stays beside the picks while both fit, else it goes below them. The picks are squares in two rows
+   (levelbox.js sets --sode-bar-cols), up to 9 columns. A column is the width over the columns, but never under min, so a
+   narrow box first makes the squares smaller and then wraps them onto more rows. Only an odd number of levels makes the
+   first pick two rows high (base.css), so every other pick stays a square. */
 .sode__box--levels > .sode__picker {
-  align-items: start;
-  gap: var(--pb-space-2);
+  column-gap: var(--pb-space-3);
+  flex-wrap: wrap;
   min-width: 0;
+  row-gap: var(--pb-space-2);
 }
 .sode__box--levels .sode__levels {
-  flex: 1 1 0;
-  grid-template-columns: repeat(var(--sode-row-cols, 1), minmax(0, 1fr));
-  min-width: 0;
+  --sode-cols: min(var(--sode-bar-cols, 1), var(--sode-picker-cols));
+  flex: 0 1 calc(var(--sode-cols) * (var(--sode-pick-w) + var(--sode-pick-gap)) - var(--sode-pick-gap));
+  gap: var(--sode-pick-gap);
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(max(var(--sode-pick-min), calc((100% - (var(--sode-cols) - 1) * var(--sode-pick-gap)) / var(--sode-cols))), 1fr)
+  );
+  min-width: var(--sode-pick-min);
 }
 .sode__box--levels .sode__pick {
+  aspect-ratio: 1;
   font-size: var(--pb-text-sm);
-  height: var(--sode-h-action);
+  height: auto;
+  line-height: 1;
+  min-height: 0;
   min-width: 0;
 }
-/* A first level of 0 or V stands two rows high only in the two-row picker (base.css); here it is a tile as the rest. */
 .sode__box--levels .sode__levels--odd > .sode__pick:first-child {
-  grid-row: auto;
-  height: var(--sode-h-action);
+  aspect-ratio: auto;
 }
+/* Two rows high beside the picks; alone on its own row it keeps that height at the largest pick size. */
 .sode__box--levels .pb-btn.sode__all {
-  flex: none;
-  height: var(--sode-h-action);
+  align-self: stretch;
+  height: auto;
+  max-height: calc(2 * var(--sode-pick-w) + var(--sode-pick-gap));
+  min-height: calc(2 * var(--sode-pick-min) + var(--sode-pick-gap));
 }
 
 .sode__under {

@@ -24,7 +24,8 @@ export function modal({ titleId, title, cls = '', rootCls = '', rootId, dialogId
     title: titleEl,
     show,
     hide,
-    shown: () => !root.hidden,
+    // A modal that fades out after a close (fadeOut) is already closed.
+    shown: () => !root.hidden && !root.classList.contains('sode-fade-out'),
     remove() {
       hide();
       root.remove();
@@ -46,4 +47,32 @@ export function question({ back, ...opts }) {
   }
   m.show();
   return { ...m, answer, close };
+}
+
+// A popup that closes fades out over --sode-motion-out (base.css .sode-fade-out), then hides. The fade is only a look:
+// the caller takes its keys and focus away at once, so focus leaves the node now. With no motion (reduced motion, or no
+// layout in the Node tests) it hides at once. A show before the fade ends calls stopFade first.
+const fades = new WeakMap();
+export function stopFade(node) {
+  clearTimeout(fades.get(node));
+  fades.delete(node);
+  node.classList.remove('sode-fade-out');
+}
+export function fadeOut(node) {
+  stopFade(node);
+  const ms = parseFloat(globalThis.getComputedStyle?.(document.documentElement).getPropertyValue('--sode-motion-out')) || 0;
+  if (node.contains(document.activeElement)) document.activeElement.blur();
+  if (!ms) {
+    node.hidden = true;
+    return;
+  }
+  node.hidden = false;
+  node.classList.add('sode-fade-out');
+  fades.set(
+    node,
+    setTimeout(() => {
+      stopFade(node);
+      node.hidden = true;
+    }, ms),
+  );
 }

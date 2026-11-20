@@ -33,6 +33,9 @@ html:has(.sode-gridpanel) {
 }
 .sode-gridpanel__frame {
   max-height: calc(100dvh - 12rem);
+  /* base.css doubles patchbay's edge for the controls. The grid's frame, lines, crosshairs and cursor are sized from
+     it, so the grid keeps patchbay's 1px. */
+  --pb-border-w: 1px;
 }
 /* On both layouts the page is one viewport high: the header and the Levels box are bands, the grid fills the rest
    edge to edge, and the page does not scroll. The bottom padding stays clear for the Panels link; the phone's

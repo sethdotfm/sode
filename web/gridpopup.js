@@ -14,6 +14,7 @@ import { routesOf } from './gridpanelstage.js';
 import { gridShield } from './gridpopshield.js';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord } from './gridpoprules.js';
 import { gridPlan } from './plans.js';
+import { fadeOut, stopFade } from './modal.js';
 
 // The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
 const PANEL = { id: '', name: 'Grid', type: 'grid', sources: { members: 'all' }, destinations: { members: 'all' }, pages: [], settings: {} };
@@ -148,6 +149,7 @@ export function showGrid() {
   const aim = aimOf({ src: p.src?.n ?? null, dst: p.dsts[0]?.n ?? null, first: !opened });
   if (!shown) back = document.activeElement;
   pop.msg.replaceChildren();
+  stopFade(pop.root);
   pop.root.hidden = false;
   shown = true;
   body ||= gridBody(adapter(), { ...PANEL, rights: S.myRights });
@@ -172,7 +174,7 @@ export function hideGrid(refocus = true) {
   if (!shown) return;
   const sc = scroller();
   scroll = sc && { left: sc.scrollLeft, top: sc.scrollTop };
-  pop.root.hidden = true;
+  fadeOut(pop.root);
   pop.shield.hide();
   shown = false;
   clearInterval(tick);

@@ -21,7 +21,31 @@ html {
   --sode-motion-enter: 400ms;
   --sode-motion-found: 600ms;
   --sode-motion-reveal: 250ms;
+  /* A popup that opens comes in over pop, and one that closes goes out over out (the Grid popup and the Palette). */
+  --sode-motion-pop: 140ms;
+  --sode-motion-out: 100ms;
   --pb-font-num: var(--pb-font);
+  /* Edges are twice patchbay's, so a field, a button and a box show at a glance in both themes. The grid canvas keeps
+     patchbay's thin lines (gridpanel.css). */
+  --pb-border-w: 2px;
+  --pb-accent-bar-w: 4px;
+}
+/* A field is a sunken well with a bright edge. A button is a filled control (an outline button too) whose edge shows
+   on hover. Text has no edge and no fill. Only the resting edge changes: focus, invalid and disabled keep patchbay's. */
+:is(.pb-input, .pb-select, .pb-textarea, .pb-chip-input) {
+  --pb-edge: var(--pb-text-muted);
+}
+.pb-btn--outline {
+  background-color: var(--pb-surface-hover);
+  border-color: transparent;
+}
+.pb-btn--outline:hover {
+  background-color: var(--pb-surface-hover);
+  border-color: var(--pb-text-muted);
+}
+/* Patchbay's chip edge is a dark overlay, which shows nothing on a dark page: a chip gets the full edge of a field. */
+.pb-chip:not(.pb-chip--selected, [aria-pressed="true"]) {
+  border: var(--pb-border-w) solid var(--pb-edge);
 }
 /* Patchbay's control sizes on the desktop layout: plain and small controls are compact, large ones are actions, and an
    icon button is square. A page part used live lifts its controls to the action height (below). The phone keeps
@@ -49,6 +73,8 @@ html {
     --sode-motion-enter: 0ms;
     --sode-motion-found: 0ms;
     --sode-motion-reveal: 0ms;
+    --sode-motion-pop: 0ms;
+    --sode-motion-out: 0ms;
   }
 }
 
@@ -60,6 +86,27 @@ html {
 }
 .sode--enter {
   animation: sode-enter var(--sode-motion-enter) var(--pb-ease);
+}
+/* A popup's open and close (gridpopup.css, palette.css; fadeOut in modal.js hides the node when the fade ends). */
+@keyframes sode-pop-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--pb-space-4);
+  }
+}
+@keyframes sode-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sode-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+.sode-fade-out {
+  animation: sode-fade-out var(--sode-motion-out) var(--pb-ease) forwards;
+  pointer-events: none;
 }
 
 .sode {
@@ -76,9 +123,10 @@ html {
 .sode__conn {
   align-items: center;
   background: var(--pb-surface-base);
-  color: var(--pb-text-muted);
+  color: var(--pb-text);
   display: flex;
-  font-size: var(--pb-text-xs);
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-medium);
   gap: var(--pb-space-4);
   padding: var(--pb-space-2) var(--pb-space-3);
   position: absolute;
@@ -244,6 +292,35 @@ html {
   height: 3rem;
   width: 3rem;
 }
+/* tooltip.js moves a tip that would be cut off by the window or a box that clips: sideways by --sode-tip-x, and to the
+   other side with data-sode-tip-flip. It measures the tip's text in .sode__tip-measure, so that copy has the tip's font
+   and padding. */
+[data-pb-tip]::after {
+  translate: var(--sode-tip-x, 0px) 0;
+}
+[data-pb-tip][data-sode-tip-flip]:not(.pb-tip--top)::after {
+  bottom: calc(100% + var(--pb-space-2));
+  top: auto;
+}
+.pb-tip--top[data-pb-tip][data-sode-tip-flip]::after {
+  bottom: auto;
+  top: calc(100% + var(--pb-space-2));
+}
+/* No room on either side: the floating tip shows it. */
+[data-pb-tip][data-sode-tip-float]::after {
+  display: none;
+}
+.pb-tip.sode__tip-measure {
+  font-family: var(--pb-font);
+  font-weight: var(--pb-weight-normal);
+  left: 0;
+  letter-spacing: normal;
+  max-width: none;
+  text-transform: none;
+  top: 0;
+  visibility: hidden;
+  white-space: nowrap;
+}
 /* A tip set from a value that came out blank draws no empty bubble (web/test/tips.test.mjs keeps blank literals out). */
 [data-pb-tip=""]::after {
   display: none;
@@ -353,19 +430,20 @@ html {
   background-image: linear-gradient(var(--pb-dest), var(--pb-dest));
 }
 /* One size for every source and destination chip, buttons (sode__end--pick) included: the height of
-   patchbay's .pb-chip under the Destination box. Its edge is 2px, this one is 1px, so the padding takes the other px. */
+   patchbay's .pb-chip under the Destination box, whose edge is 2px as --pb-border-w is. The edge goes all the way round,
+   as a field's does, and the source or destination color is a bar inside it, as in the patch boxes. */
 .sode__end {
   border: var(--pb-border-w) solid var(--pb-edge);
   color: var(--pb-text-strong);
   font-size: var(--pb-text-sm);
   line-height: 0.875rem;
-  padding: calc(var(--pb-space-1) + var(--pb-border-w)) var(--pb-space-4);
+  padding: var(--pb-space-1) var(--pb-space-4) var(--pb-space-1) calc(var(--pb-space-4) + var(--sode-side-w));
 }
 .sode__end--src {
-  border-left: var(--sode-side-w) solid var(--pb-source);
+  box-shadow: inset var(--sode-side-w) 0 0 var(--pb-source);
 }
 .sode__end--dst {
-  border-left: var(--sode-side-w) solid var(--pb-dest);
+  box-shadow: inset var(--sode-side-w) 0 0 var(--pb-dest);
 }
 .sode__arrow {
   color: var(--pb-text-muted);
