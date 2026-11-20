@@ -78,7 +78,7 @@ const rows = [
   { key: 'preset:global:a1', kind: 'preset', label: 'Morning', access: OK },
   { key: 'page:log', kind: 'page', label: 'Communication Log', access: { ...OK, lock: true } },
   { key: 'setting:locks/cfg-lock', kind: 'setting', label: 'Locks', access: { ok: false, lock: false, why: 'Outside your Role.', offer: ['approval'] } },
-  { key: 'page:settings', kind: 'page', label: 'Settings', access: OK },
+  { key: 'page:settings', kind: 'page', label: 'Settings', home: true, access: OK },
 ];
 
 test('bookmarkView: ok, Missing, No access and Sign in', () => {
@@ -97,6 +97,12 @@ test('canNewTab: pages, panels and web addresses only', () => {
   assert.equal(canNewTab({ key: 'page:log' }, rows[1]), true);
   assert.equal(canNewTab({ key: 'page:settings' }, rows[3]), false);
   assert.equal(canNewTab({ key: 'preset:global:a1' }, rows[0]), false);
+});
+
+test('canNewTab: a page that runs on Home has no new tab, whatever its key', () => {
+  const page = { key: 'page:other', kind: 'page', label: 'Other', home: true, access: OK };
+  assert.equal(canNewTab({ key: page.key }, page), false);
+  assert.equal(canNewTab({ key: page.key }, { ...page, home: false }), true);
 });
 
 test('paletteMarks: ticked bookmarks as rows, in list order, Missing ones left out', () => {

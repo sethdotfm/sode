@@ -4,6 +4,8 @@
 //
 // The stored shape: { key } or { url }, plus label, newTab and inPalette (Show in Palette).
 
+import { rowByKey } from './palettecatalogue.js';
+
 // Keep in step with MaxBookmarks and MaxBookmarkLabel in internal/config/bookmarks.go.
 export const BOOKMARKS_MAX = 30;
 export const LABEL_MAX = 40;
@@ -109,15 +111,15 @@ export function fromUrl(url, label = '') {
   return { url: u, label: name.slice(0, LABEL_MAX), newTab: true, inPalette: true };
 }
 
-// "Open in a new tab" is for pages, panels and web addresses. Settings runs on Home, so it has no new tab.
-export const canNewTab = (b, row) => !!b.url || (!!row && (row.kind === 'page' || row.kind === 'panel') && row.key !== 'page:settings');
+// "Open in a new tab" is for pages, panels and web addresses. A page that runs on Home (Settings) has no new tab.
+export const canNewTab = (b, row) => !!b.url || (!!row && (row.kind === 'page' || row.kind === 'panel') && !row.home);
 
 // What a bookmark shows. rows: the catalogue, or null while it is not read yet (then no Missing).
 // state: 'ok', 'missing' (the target is gone), 'noAccess' (outside Rights or Role) or 'signIn' (a locked page).
 export function bookmarkView(b, rows) {
   if (b.url) return { state: 'ok', label: b.label, row: null };
   if (!rows) return { state: 'ok', label: b.label, row: null };
-  const row = rows.find((r) => r.key === b.key) || null;
+  const row = rowByKey(rows, b.key);
   if (!row) return { state: 'missing', label: b.label, row: null };
   const label = row.label || b.label;
   if (!row.access.ok) return { state: 'noAccess', label, row };
@@ -147,7 +149,7 @@ export function paletteMarks(list, rows) {
       });
       continue;
     }
-    const row = rows.find((r) => r.key === b.key);
+    const row = rowByKey(rows, b.key);
     if (row) out.push(row);
   }
   return out;
