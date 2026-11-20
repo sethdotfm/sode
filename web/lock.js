@@ -143,18 +143,19 @@ function build() {
   checkKey = key('✓', 'enter', 'sode-lock__key--go');
   checkKey.setAttribute('aria-label', 'Submit PIN');
   checkKey.disabled = true;
+  // Cancel shares the last row with ✓, so a sign-in adds no row to the Lock.
+  cancelBtn = el('button', 'pb-btn pb-btn--outline sode-lock__key sode-lock__key--word sode-lock__cancel', 'Cancel');
+  cancelBtn.type = 'button';
+  cancelBtn.hidden = true;
+  cancelBtn.addEventListener('click', cancelSignIn);
   pad.append(
     ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => key(d, d)),
     key('Clear', 'clear', 'sode-lock__key--word'),
     key('0', '0'),
     key('Del', 'back', 'sode-lock__key--word'),
+    cancelBtn,
     checkKey,
   );
-
-  cancelBtn = el('button', 'pb-btn pb-btn--outline', 'Cancel');
-  cancelBtn.type = 'button';
-  cancelBtn.hidden = true;
-  cancelBtn.addEventListener('click', cancelSignIn);
   picker = namePicker({
     id: 'lock-name',
     users: () => S.users,
@@ -178,7 +179,7 @@ function build() {
   nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Name'), { htmlFor: 'lock-name' }), picker.root);
   nameField.hidden = true;
   // The name sits on the pad, so name and digits are typed in one place.
-  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, pad, cancelBtn);
+  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, pad);
 
   letterKey = el('kbd', 'sode__key sode__key--locked');
   letterBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');

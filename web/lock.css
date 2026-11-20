@@ -228,6 +228,12 @@
   font-size: var(--pb-text-xl);
   grid-column: 1 / -1;
 }
+.sode-lock__cancel:not([hidden]) + .sode-lock__key--go {
+  grid-column: 2 / -1;
+}
+.sode-lock__cancel[hidden] {
+  display: none;
+}
 
 /* Top left, below the lost-link banner (--sode-down-h); the bottom left belongs to the shortcut tip. On the phone: under the header at --sode-head-h (measured by lock.js from .sode-m__head). */
 /* It floats and adds no height. A page header clears its width (--sode-who-w, set by lockchip.js) beside the header

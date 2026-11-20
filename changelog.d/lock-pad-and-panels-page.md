@@ -1,4 +1,4 @@
-- Lock screen: the user list under the Name box pushes the PIN pad down and does not cover it. On a small screen the pad keys get shorter. So the name, the list and the pad fit a 1366 x 768 screen with no scroll.
+- Lock screen: the user list under the Name box pushes the PIN pad down and does not cover it. Cancel shares the last pad row with ✓. On a small screen the pad keys get shorter. So the name, the list and the pad fit a 1366 x 768 screen with no scroll.
 - A Lock in the panel editor stays on the page. Before, the editor reloaded under the Lock, so the Lock animation played two times.
 - Panels page: the Find box and New panel have one height. Launch and Edit are the first row, with Delete apart at its end. Push to panels, Send a copy, Assign to and Share are an equal grid under them.
 - Panels page: a list row shows its owner line on one line, and its status as a dot and words. The size label is no longer on top of the pictures. With no panels, the list says "No panels yet." and points to New panel.
