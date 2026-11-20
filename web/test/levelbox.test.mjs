@@ -90,6 +90,34 @@ test('All selects every level, then clears to none', () => {
   assert.equal(input.placeholder, 'none');
 });
 
+test('a pick click while every level is on selects only that level, as typing it does', () => {
+  const { box, input, picker, all } = make();
+  all.listeners.click[0]();
+  picker.kids[1].listeners.click[0]();
+  assert.deepEqual(box.levels(), [2]);
+  assert.equal(input.value, '2');
+});
+
+test('further clicks add and remove levels, also after every level is on again', () => {
+  const { box, input, picker } = make();
+  input.value = '1-4';
+  input.listeners.input[0]();
+  picker.kids[1].listeners.click[0]();
+  for (const i of [0, 2, 3]) picker.kids[i].listeners.click[0]();
+  assert.deepEqual(box.levels(), [1, 2, 3, 4]);
+  picker.kids[3].listeners.click[0]();
+  assert.deepEqual(box.levels(), [1, 2, 3]);
+});
+
+test('Select All after picks returns to All, and the next click selects only that level', () => {
+  const { box, picker, all } = make();
+  picker.kids[3].listeners.click[0]();
+  all.listeners.click[0]();
+  assert.deepEqual(box.levels(), [1, 2, 3, 4]);
+  picker.kids[0].listeners.click[0]();
+  assert.deepEqual(box.levels(), [1]);
+});
+
 test('typed text that is not a level list marks the input invalid', () => {
   const { input } = make();
   input.value = '9';

@@ -108,6 +108,27 @@ func TestChromeMainOneTake(t *testing.T) {
 	if body := b.eval(`document.getElementById('confirm-body').textContent`).(string); !strings.Contains(body, "3 destinations") || !strings.Contains(body, "DSM1") {
 		t.Fatalf("the confirm says %q, want the 2 staged routes and the boxes' route", body)
 	}
+	// The Confirm keeps the boxes' route apart from the staged routes, which each say Staged, and names every
+	// destination in its question.
+	parts := b.eval(`(() => {
+		const body = document.getElementById('confirm-body');
+		const items = [...body.querySelectorAll('.sode__plan-item')].map((s) => [s.querySelector('.sode__plan-head strong').textContent, s.querySelector('.sode__plan-staged')?.textContent || '']);
+		const labels = [...body.children].filter((n) => n.classList.contains('sode__label')).map((n) => n.textContent);
+		return JSON.stringify({ q: body.firstElementChild.textContent, items, labels });
+	})()`).(string)
+	if !strings.Contains(parts, `"labels":["Patch boxes","Staged routes"]`) || !strings.Contains(parts, `DSM1",""],[`) || strings.Count(parts, `"Staged"]`) != 2 {
+		t.Fatalf("the confirm parts are %s, want the boxes' route first with no badge, then 2 routes marked Staged", parts)
+	}
+	if q := b.eval(`document.getElementById('confirm-body').firstElementChild.textContent`).(string); !strings.Contains(q, "DSM1") || strings.Count(q, ",")+strings.Count(q, " and ") < 2 {
+		t.Fatalf("the question is %q, want each destination by name", q)
+	}
+	// The Confirm's Take is as high as the main Take, and the dialog has a fixed place: a shorter plan later must not
+	// move it.
+	if b.eval(`Math.abs(document.getElementById('confirm-ok').getBoundingClientRect().height - document.getElementById('patch').getBoundingClientRect().height) < 0.5`) != true {
+		t.Fatal("the Confirm's Take is not as high as the main Take")
+	}
+	dialogAt := `(() => { const r = document.getElementById('confirm-dialog').getBoundingClientRect(); return [r.top, r.left, r.width].map(Math.round).join(','); })()`
+	tall := b.eval(dialogAt).(string)
 	gridConfirm(b)
 	lastGroup(t, a, ana, 3)
 	tallyHas(t, a, ana, 5, 3)
@@ -121,6 +142,10 @@ func TestChromeMainOneTake(t *testing.T) {
 	stage([2]int{8, 9}, [2]int{9, 10})
 	b.waitFor("Take counts the staged routes", take+` === 'Take 2'`)
 	b.eval(`document.getElementById('patch').click(); true`)
+	b.waitFor("the confirm", `!document.getElementById('confirm').hidden`)
+	if short := b.eval(dialogAt).(string); short != tall {
+		t.Fatalf("the Confirm moved with a shorter plan: top, left and width %s, was %s", short, tall)
+	}
 	gridConfirm(b)
 	lastGroup(t, a, ana, 2)
 	b.waitFor("the staged routes went", `document.getElementById('grid-staged').hidden`)

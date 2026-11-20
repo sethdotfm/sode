@@ -126,7 +126,10 @@ function confirmRoutes(routes, { warnings, onSent }) {
   asked = true;
   const box = host.route?.();
   if (!box) return host.confirm({ ...gridPlan(routes, warnings), onSent });
-  const all = withBoxRoute(routes, boxNumbers(box));
+  const b = boxNumbers(box);
+  // A route from the boxes' source to a box destination is the boxes' route, and a same staged route joins it. The
+  // Confirm shows it apart from the staged ones.
+  const all = withBoxRoute(routes, b).map((r) => ({ ...r, box: r.src === b.src && b.dsts.includes(r.dst) }));
   host.confirm({ ...gridPlan(all, warnings), onSent, resets: true, lastOf: patchPlan(box.src, box.dsts, box.levels) });
 }
 

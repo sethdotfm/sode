@@ -203,10 +203,6 @@
   font-size: var(--pb-text-md);
   margin: 0;
 }
-.sode-lock__letter-line .sode__key {
-  font-size: var(--pb-text-lg);
-  padding: 0 var(--pb-space-3);
-}
 .sode-lock__pad {
   display: grid;
   flex: 0 1 auto;

@@ -35,3 +35,27 @@ test('gridPlan: one item for each destination, a breakaway as two groups', async
     item(11, [{ src: S.srcBy.get(3), levels: [1, 2] }]),
   ]);
 });
+
+test('gridPlan with the patch boxes route: a mixed plan whose groups say which are staged', async () => {
+  const { gridPlan } = await setup();
+  const plan = gridPlan(
+    [
+      { src: 1, dst: 10, levels: [1], box: false },
+      { src: 2, dst: 10, levels: [2], box: true },
+      { src: 2, dst: 11, levels: [2], box: true },
+    ],
+    [],
+  );
+  assert.equal(plan.mixed, true);
+  assert.deepEqual(
+    plan.items.map((i) => i.groups.map((g) => [g.src.n, g.staged])),
+    [
+      [
+        [1, true],
+        [2, false],
+      ],
+      [[2, false]],
+    ],
+  );
+  assert.equal(gridPlan([{ src: 3, dst: 11, levels: [1] }], []).mixed, undefined, 'staged routes alone are not mixed');
+});
