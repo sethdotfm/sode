@@ -6,28 +6,28 @@ import (
 )
 
 // The Palette lists panels by the browser's own sign-in: a Guest gets Everyone's, a user their own and shared ones, a
-// Trusted user all. Under the panel page lock a Guest gets none.
+// Trusted user all. Under the panel page lock a Guest gets none. hidden counts the panels left out.
 func TestPalettePanelsFollowTheSignIn(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	mine := makePanel(t, a, ana, `{"name":"Ana desk","cells":[{"kind":"source","n":1}]}`)
 	shared := makePanel(t, a, ana, `{"name":"Wall","share":{"mode":"everyone"},"cells":[{"kind":"source","n":1}]}`)
 
-	ids := func(c *client) ([]string, bool) {
-		list, locked := a.palettePanels(c)
+	ids := func(c *client) ([]string, int, bool) {
+		list, hidden, locked := a.palettePanels(c)
 		var out []string
 		for _, p := range list {
 			out = append(out, p.ID)
 		}
 		slices.Sort(out)
-		return out, locked
+		return out, hidden, locked
 	}
 	want := func(who string, c *client, exp ...string) {
 		t.Helper()
 		slices.Sort(exp)
-		got, locked := ids(c)
-		if locked || !slices.Equal(got, exp) {
-			t.Errorf("%s: got %v locked %v, want %v", who, got, locked, exp)
+		got, hidden, locked := ids(c)
+		if locked || !slices.Equal(got, exp) || hidden != 2-len(exp) {
+			t.Errorf("%s: got %v hidden %d locked %v, want %v", who, got, hidden, locked, exp)
 		}
 	}
 
@@ -49,7 +49,7 @@ func TestPalettePanelsFollowTheSignIn(t *testing.T) {
 	a.mu.Lock()
 	guest.u.page = "panel"
 	a.mu.Unlock()
-	if got, locked := ids(guest); !locked || len(got) != 0 {
-		t.Errorf("Guest under the panel lock: got %v locked %v, want none and locked", got, locked)
+	if got, hidden, locked := ids(guest); !locked || len(got) != 0 || hidden != 2 {
+		t.Errorf("Guest under the panel lock: got %v hidden %d locked %v, want none, 2 hidden and locked", got, hidden, locked)
 	}
 }

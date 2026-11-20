@@ -77,6 +77,7 @@ test('last picks: newest first, five at most, no repeats', () => {
   assert.deepEqual(cleanPicks('x'), []);
 });
 
+const keys = (items) => items.map((x) => (x.type === 'cat' ? `> ${x.id}` : x.row?.key || `# ${x.label}`));
 const who = (more = {}) => ({
   role: 'standard',
   user: 'Ana',
@@ -127,7 +128,8 @@ test('catalogue: every kind, keyed by kind and target', () => {
   assert.equal(rowByKey(rows, 'filterSet:all:All').label, 'All (no filter set)');
   assert.equal(rowByKey(rows, 'filterSet:global:c1').label, 'Cameras', 'a filter set row key holds its hidden id');
   assert.equal(rowByKey(rows, 'setting:users/users-manage').kind, 'settingsButton');
-  assert.ok(rowByKey(rows, 'action:reread').home);
+  assert.ok(!rowByKey(rows, 'action:reread').home, 'Re-read needs only the socket, so it runs on every page');
+  assert.ok(rowByKey(rows, 'action:undo').home);
   assert.ok(!rowByKey(rows, 'action:lock').home);
   assert.equal(new Set(rows.map((r) => r.key)).size, rows.length, 'keys are unique');
   for (const r of rows)
@@ -137,8 +139,11 @@ test('catalogue: every kind, keyed by kind and target', () => {
     );
 });
 
-test('catalogue: Home on every page but Home', () => {
-  assert.equal(rowByKey(catalogue(src()), 'page:home'), null);
+test('catalogue: Home on every page, in the empty Palette on every page but Home', () => {
+  const here = rowByKey(catalogue(src()), 'page:home');
+  assert.deepEqual([here.here, here.home], [true, true], 'on Home it runs there, as the Home key');
+  assert.ok(!paletteView(catalogue(src())).some((x) => x.row?.key === 'page:home'));
+  assert.equal(keys(paletteView(catalogue(src()), { query: 'home' }))[0], 'page:home');
   for (const page of ['log', 'panels', 'editor', 'panel']) {
     const rows = catalogue(src({ page }));
     assert.equal(rowByKey(rows, 'page:home').target.href, './', page);
@@ -337,7 +342,6 @@ const searchSrc = (more = {}) =>
     who: who({ role: 'administrator' }),
     ...more,
   });
-const keys = (items) => items.map((x) => x.row?.key || `# ${x.label}`);
 
 test('paletteScope: one clear category, never a tie, never over a name that starts with the query', () => {
   const rows = catalogue(searchSrc());
@@ -355,15 +359,26 @@ test('search: user rows beat settings, and a scope lists its category first', ()
   const v = (query) => keys(paletteView(rows, { query }));
   assert.equal(v('new panel')[0], 'panel:x1', 'the panel New Panel beats the New-panel setting');
   assert.deepEqual(v('pnl new'), ['panel:x1']);
-  assert.deepEqual(v('p').slice(0, 3), ['panel:x1', 'panel:x2', '# Other matches']);
-  assert.deepEqual(v('panel').slice(0, 3), ['panel:x1', 'panel:x2', '# Other matches']);
-  assert.ok(v('panel').includes('page:panels'), 'the Panels page is still there, under Other matches');
+  assert.deepEqual(v('p').slice(0, 4), ['> panels', 'panel:x1', 'panel:x2', '# Other matches'], 'the category first, so Enter opens it');
+  assert.deepEqual(v('panel').slice(0, 4), ['> panels', 'panel:x1', 'panel:x2', '# Other matches']);
+  assert.deepEqual(v('panels').slice(0, 2), ['> panels', 'page:panels'], 'a page with the word as its full label comes next');
+  assert.deepEqual(v('settings').slice(0, 2), ['> settings', 'page:settings']);
   assert.deepEqual(v('set new'), ['setting:panels/cfg-np']);
   assert.equal(v('p 1')[0], 'preset:global:p1', 'a real name that starts with the category word');
   assert.deepEqual(v('pnl zzz'), ['# No match in Panels']);
   // A tie lists the rows of both categories first.
   const pa = v('pa');
-  assert.deepEqual(pa.slice(0, pa.indexOf('# Other matches')).sort(), ['page:editor', 'page:log', 'page:panels', 'page:settings', 'panel:x1', 'panel:x2']);
+  assert.deepEqual(pa.slice(0, pa.indexOf('# Other matches')).sort(), [
+    '> pages',
+    '> panels',
+    'page:editor',
+    'page:home',
+    'page:log',
+    'page:panels',
+    'page:settings',
+    'panel:x1',
+    'panel:x2',
+  ]);
   // A label match beats a match of the words only.
   const word = { key: 'a', cat: 'panels', label: 'Zed', words: ['alpha'], access: { ok: true } };
   const label = { key: 'b', cat: 'settings', label: 'Mode alpha', words: [], access: { ok: true } };
@@ -371,7 +386,8 @@ test('search: user rows beat settings, and a scope lists its category first', ()
     rankRows([word, label], 'alpha').map((r) => r.key),
     ['b', 'a'],
   );
-  assert.equal(v('theme')[0], 'setting:this-browser/cfg-theme', 'an exact label beats a contained one');
+  assert.equal(v('theme')[0], 'action:theme', 'the action beats the setting with the same word');
+  assert.equal(v('theme')[1], 'setting:this-browser/cfg-theme');
 });
 
 test('search: grey rows show only as bookmarks with Show in Palette', () => {

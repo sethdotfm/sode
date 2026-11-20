@@ -10,6 +10,8 @@
 //   is the button's id, or '' for a setting.
 // - who: { role, user, rights, locks, users, phone, stepped }. This is the browser's own sign-in, never a panel key.
 //   It holds lockState's role and user, myRights, and the hello's cfg.locks and users.
+// - keyList: true when this page has its own key list (Home and a Grid panel page). Keyboard shortcuts opens it here,
+//   else it opens Home and says so.
 //
 // The fields of a Row:
 // - key: stable text that names the row, '<kind>:<target>'. Last picks and Bookmarks keep it. rowByKey finds it.
@@ -19,6 +21,8 @@
 //   A filter set has { scope, name }, a setting { section, sectionTitle, id }. A Settings button also has button (its
 //   id) and mode (buttonMode).
 // - home: true when the row runs on Home. Another page sends it to Home first (palette.js).
+// - here: true for the row of the page that the Palette is on (Home on Home).
+// - danger: true for a Settings button that deletes or resets something (BUTTONS_DANGER).
 // - access: { ok, lock, why, offer }. When ok is false, the row is grey and why says why.
 //   offer lists what can still get it: 'stepIn' (v2's Step in) or 'approval' (its Save asks for v2's Approval).
 //   lock: the page asks for a sign-in first, and the row leads there.
@@ -41,9 +45,10 @@ export function pageOf(rel) {
   return 'main';
 }
 
-// Actions that Sode already has. home: runs on Home. desktop: the phone layout has no such control.
+// Actions that Sode already has. home: runs on Home. desktop: the phone layout has no such control. Re-read needs only
+// the socket, so it runs on every page.
 export const ACTIONS = Object.freeze([
-  { id: 'reread', label: 'Re-read router names', icon: 'refresh-cw', home: true, words: ['refresh', 'names', 'reload'] },
+  { id: 'reread', label: 'Re-read router names', icon: 'refresh-cw', words: ['refresh', 'names', 'reload'] },
   { id: 'undo', label: 'Undo the last Sode take', icon: 'undo-2', home: true, desktop: true, words: ['undo', 'back'] },
   { id: 'presets', label: 'All presets', icon: 'list', home: true, words: ['presets popup', 'fire'] },
   { id: 'filters', label: 'Filters', icon: 'filter', home: true, words: ['history', 'filter sets'] },
@@ -52,8 +57,15 @@ export const ACTIONS = Object.freeze([
   { id: 'shortcuts', label: 'Keyboard shortcuts', icon: 'keyboard', home: true, desktop: true, words: ['keys', 'help', 'shortcut list'] },
   { id: 'lock', label: 'Lock', icon: 'lock', words: ['lock screen', 'away'] },
   { id: 'signIn', label: 'Sign in', icon: 'key-round', signedOut: true, words: ['pin', 'user', 'log in', 'login'] },
-  { id: 'signOut', label: 'Sign out', icon: 'door-open', signedIn: true, words: ['log out', 'logout', 'user', 'leave'] },
-  { id: 'stepIn', label: 'Step in', icon: 'user', home: true, desktop: true, words: ['step in', 'pin', 'user'] },
+  // Signed in, a search for sign in finds the ways to change the user: Sign out and Step in.
+  {
+    id: 'signOut',
+    label: 'Sign out',
+    icon: 'door-open',
+    signedIn: true,
+    words: ['log out', 'logout', 'user', 'leave', 'sign in', 'log in', 'login', 'switch user'],
+  },
+  { id: 'stepIn', label: 'Step in', icon: 'user', home: true, desktop: true, words: ['step in', 'pin', 'user', 'sign in', 'log in', 'login', 'switch user'] },
   { id: 'stepOut', label: 'Step out', icon: 'door-open', stepped: true, words: ['step out', 'user', 'back'] },
 ]);
 
@@ -75,6 +87,9 @@ const BUTTONS_IN_SETTINGS = new Set(['clear-history', 'protects-clear-all', 'cfg
 // Only a signed-in user has these, and only a user with a PIN has API keys and API clients (devicesettings.js).
 const BUTTONS_SIGNED_IN = new Set(['account-pin', 'account-keys', 'account-clients', 'account-profile', 'account-copy', 'account-transfer']);
 const BUTTONS_PIN = new Set(['account-keys', 'account-clients']);
+// Buttons that delete or reset something that a Save cannot give back, or that start setup again. Their rows are danger
+// rows (isDanger in paletterules.js): last in a search and never the row that Enter picks first.
+const BUTTONS_DANGER = new Set(['clear-history', 'protects-clear-all', 'setup-again-open']);
 
 // What a Palette row of a Settings button does. 'action': an ACTIONS row does it. 'run': press it here. 'settings':
 // open Settings at it, then press it. 'locate': open Settings at it (a button that no list names).
@@ -125,21 +140,36 @@ export function catalogue(src) {
   const rows = [];
   const add = (row) => rows.push({ hint: '', words: [], icon: '', home: false, access: OK, ...row });
 
-  if (src.page !== 'main')
-    add({
-      key: 'page:home',
-      kind: 'page',
-      cat: 'pages',
-      label: 'Home',
-      icon: 'house',
-      target: { href: './' },
-      access: pageLock(who, 'main'),
-      words: ['main', 'patch'],
-    });
+  // On Home the row does what the Home key does (palettehome.js): it closes what is open and puts the cursor in Source.
+  // The empty Palette lists it only on the other pages (here).
+  add({
+    key: 'page:home',
+    kind: 'page',
+    cat: 'pages',
+    label: 'Home',
+    icon: 'house',
+    target: { href: './' },
+    home: src.page === 'main',
+    here: src.page === 'main',
+    access: pageLock(who, 'main'),
+    words: ['main', 'patch'],
+  });
 
   for (const a of ACTIONS) {
     if (!actionApplies(a, who)) continue;
-    add({ key: `action:${a.id}`, kind: 'action', cat: 'actions', label: a.label, icon: a.icon, words: a.words, home: !!a.home, target: { id: a.id } });
+    const own = a.id === 'shortcuts' && src.page !== 'main' && src.keyList;
+    const hint = a.home && !own && src.page !== 'main' ? 'Opens Home' : '';
+    add({
+      key: `action:${a.id}`,
+      kind: 'action',
+      cat: 'actions',
+      label: a.label,
+      icon: a.icon,
+      words: a.words,
+      home: !!a.home && !own,
+      hint,
+      target: { id: a.id },
+    });
   }
 
   for (const p of src.presets || []) {
@@ -238,6 +268,7 @@ export function catalogue(src) {
       hint,
       icon: acts ? 'mouse-pointer-click' : 'settings',
       home: true,
+      danger: BUTTONS_DANGER.has(s.button),
       target: { section: s.section, sectionTitle: s.sectionTitle, id: s.id, ...(s.button ? { button: s.button, mode } : {}) },
       access: settingAccess(s.section, who),
     });

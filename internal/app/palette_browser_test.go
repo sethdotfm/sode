@@ -137,7 +137,7 @@ func TestChromePaletteMain(t *testing.T) {
 	paletteFind(b, "set theme", "setting:this-browser/cfg-theme")
 	b.waitFor("the line above the list names the category", `document.querySelector('.sode-palette__where').textContent === 'Settings first'`)
 
-	paletteFind(b, "Theme", "setting:this-browser/cfg-theme")
+	paletteFind(b, "set theme", "setting:this-browser/cfg-theme")
 	paletteKey(b, "Enter", false)
 	b.waitFor("a setting row opens Settings at it", `document.documentElement.dataset.view === 'settings' && document.activeElement.id === 'cfg-theme'`)
 	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(50 * time.Millisecond) {
@@ -233,5 +233,140 @@ func TestChromePalettePanelPage(t *testing.T) {
 	if b.eval(paletteShown) == true {
 		t.Error("Ctrl+Shift+P opened the Palette on a Kiosk panel")
 	}
+	b.check()
+}
+
+// The Palette's keys and focus, with real key presses, as an Administrator. Enter and Backspace in an empty box do
+// nothing. "theme" finds the action before the setting, and "history" does not pick Clear History. After a row runs,
+// and after the dialog that it opened closes, the focus is in Source again, so the next digit reaches it.
+func TestChromePaletteFocus(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) {
+		c.Users[0].Role = config.RoleAdministrator
+		c.Presets = []config.Preset{{ID: "p-in", Name: "Studio In", Items: []config.PresetItem{presetItem(simSrc, []int{1}, simDst)}}}
+	})
+	srv := seamServer(t, a)
+	waitNamesAndTally(t, a, userKey(t, a, "Ana"))
+
+	b.open(srv.URL + "/")
+	b.waitFor("Sign in offered", `!document.getElementById('account-login').hidden`)
+	b.eval(`document.getElementById('settings-open').click(); document.getElementById('account-login').click(); true`)
+	signInAs(b, "Ana", "1234")
+	b.eval(`document.getElementById('settings-back').click(); true`)
+	b.waitFor("Home", `document.documentElement.dataset.view !== 'settings'`)
+	focusSrc := `(() => { const t = document.getElementById('src'); t.value = ''; t.dispatchEvent(new Event('input', { bubbles: true })); t.focus(); return document.activeElement === t; })()`
+	b.waitFor("Source has focus", focusSrc)
+	// The digit reaches Source: the focus is really there, not only on paper.
+	digitInSrc := func(what string) {
+		b.t.Helper()
+		b.waitFor(what, `document.getElementById('palette').hidden && document.activeElement?.id === 'src'`)
+		realKey(b, "1", "Digit1", 49)
+		b.waitFor(what+": a digit reaches Source", `document.getElementById('src').value === '1'`)
+		b.eval(focusSrc)
+	}
+	open := func() {
+		b.t.Helper()
+		b.eval(ctrlShiftP)
+		b.waitFor("the Palette opens", paletteShown+` && document.activeElement.matches('.sode-palette__q')`)
+	}
+
+	// A bookmarked preset with Show in Palette is first in the empty list, but Enter does not fire it.
+	b.eval(`localStorage.setItem('sode-bookmarks', JSON.stringify([{ key: 'preset:global:p-in', label: 'Studio In', newTab: false, inPalette: true }])); import('./core.js').then((m) => { m.emit('bookmarks'); return true })`)
+	open()
+	b.waitFor("the bookmark shows", `!!document.querySelector('#palette-list [data-key="preset:global:p-in"]')`)
+	if b.eval(`!!document.querySelector('#palette-list [aria-selected="true"]')`) == true {
+		t.Error("the empty Palette has a row that Enter picks")
+	}
+	realKey(b, "Enter", "Enter", 13)
+	realKey(b, "Backspace", "Backspace", 8)
+	realKey(b, "Backspace", "Backspace", 8)
+	if b.eval(paletteShown) != true || b.eval(`document.getElementById('confirm').hidden`) != true {
+		t.Fatal("Enter or Backspace in the empty Palette closed it or fired the preset")
+	}
+	// Tab keeps the focus in the box and moves the cursor.
+	realKey(b, "Tab", "Tab", 9)
+	b.waitFor("Tab moves the cursor in the box", `document.activeElement.matches('.sode-palette__q') && !!document.querySelector('#palette-list [aria-selected="true"]')`)
+
+	paletteFind(b, "theme", "action:theme")
+	theme := b.eval(`document.documentElement.dataset.theme || ''`)
+	realKey(b, "Enter", "Enter", 13)
+	b.waitFor("the theme changes", fmt.Sprintf(`(document.documentElement.dataset.theme || '') !== %q`, theme))
+	digitInSrc("after the theme action")
+
+	// "history" is not Clear History: Enter opens Filters. Esc closes it, and the focus goes back to Source.
+	open()
+	paletteFind(b, "history", "action:filters")
+	realKey(b, "Enter", "Enter", 13)
+	b.waitFor("Filters opens", `!!document.getElementById('filters-dialog')?.offsetParent && document.getElementById('clear-step2').hidden`)
+	b.waitFor("Filters has the focus", `document.getElementById('filters-dialog').contains(document.activeElement)`)
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("Filters closes", `!document.getElementById('filters-dialog')?.offsetParent`)
+	digitInSrc("after Filters closes")
+
+	// The take Confirm of a preset drops the focus to body when it closes. The focus still goes back to Source.
+	open()
+	paletteFind(b, "Studio In", "preset:global:p-in")
+	realKey(b, "Enter", "Enter", 13)
+	b.waitFor("the Confirm opens", `!document.getElementById('confirm').hidden`)
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("the Confirm closes", `document.getElementById('confirm').hidden`)
+	digitInSrc("after the Confirm closes")
+
+	// Clear History is under Other matches, and Enter picks nothing there.
+	open()
+	b.eval(`(() => { const i = document.querySelector('.sode-palette__q'); i.value = 'clear history'; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
+	b.waitFor("Clear History is listed", `!!document.querySelector('#palette-list [data-key="setting:history/clear-history"]')`)
+	if b.eval(`!!document.querySelector('#palette-list [aria-selected="true"]')`) == true {
+		t.Error("Enter picks a row for clear history")
+	}
+	realKey(b, "Escape", "Escape", 27)
+	realKey(b, "Escape", "Escape", 27)
+	digitInSrc("after Esc")
+	b.check()
+}
+
+// A Guest's search that only hidden rows match shows one line with their count, and Enter on it signs in. Then the
+// Palette opens again with the same query. On the Communication Log, Re-read router names runs there: the Palette
+// stays open and shows the result.
+func TestChromePaletteHiddenMatches(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
+	srv := seamServer(t, a)
+	ana := userKey(t, a, "Ana")
+	makePanel(t, a, ana, `{"name":"Ana desk","cells":[{"kind":"source","n":1}]}`)
+	waitNamesAndTally(t, a, ana)
+
+	b.open(srv.URL + "/")
+	b.waitFor("Sign in offered", `!document.getElementById('account-login').hidden`)
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette opens", paletteShown)
+	hidden := `document.querySelector('#palette-list .sode-palette__row--hidden')`
+	find := func(q string) {
+		b.eval(fmt.Sprintf(`(() => { const i = document.querySelector('.sode-palette__q'); i.value = %q; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`, q))
+	}
+	find("new panel")
+	b.waitFor("a private panel counts for a Guest, with no name", `/^1 panel\b.*sign-in/.test(`+hidden+`?.textContent)`)
+	find("manage users")
+	b.waitFor("the hidden Users editor counts, and the line is the only pick", hidden+`?.getAttribute('aria-selected') === 'true' && `+hidden+`.textContent.includes('Enter: Sign in')`)
+	if b.eval(`!!document.querySelector('#palette-list [data-key="setting:users/users-manage"]')`) == true {
+		t.Error("the Palette lists the Users editor to a Guest")
+	}
+	paletteKey(b, "Enter", false)
+	b.waitFor("Enter on the line opens the sign-in", `document.activeElement?.id === 'lock-name'`)
+	signInAs(b, "Ana", "1234")
+	b.waitFor("the Palette opens again with the query", paletteShown+` && document.querySelector('.sode-palette__q').value === 'manage users'`)
+	b.waitFor("and finds the Users editor now", `document.querySelector('#palette-list [aria-selected="true"]')?.dataset.key === 'setting:users/users-manage'`)
+	paletteKey(b, "Escape", false)
+	paletteKey(b, "Escape", false)
+
+	b.open(srv.URL + "/log")
+	b.waitFor("the Log", `!!document.querySelector('.sode-palette__q')`)
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette opens on the Log", paletteShown)
+	paletteFind(b, "re-read", "action:reread")
+	paletteKey(b, "Enter", false)
+	b.waitFor("Re-read runs on the Log, and the Palette shows the result", `location.pathname === '/log' && `+paletteShown+` && /^Router names (re-read|updated)/.test(document.querySelector('.sode-palette__note').textContent)`)
 	b.check()
 }
