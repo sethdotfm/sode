@@ -1,6 +1,7 @@
 // Palette rules: pure, so Node tests load them. The Palette character, last picks, the lists the Palette shows and
 // how a query ranks the rows. The rows come from palettecatalogue.js.
 import { fuzzyScore } from './fuzzy.js';
+import { rowByKey } from './palettecatalogue.js';
 
 // The Palette character is a pref, so its values are a fixed list (prefs.js). Keep in step with PaletteChars in
 // internal/config/palette.go (TestPrefTable). Each one passes paletteCharProblem.
@@ -58,7 +59,6 @@ export function startsNamesText(ch, names, max = 5) {
 export const PICKS_MAX = 5;
 export const cleanPicks = (v) => (Array.isArray(v) ? [...new Set(v.filter((k) => typeof k === 'string' && k))].slice(0, PICKS_MAX) : []);
 export const addPick = (keys, key) => [key, ...cleanPicks(keys).filter((k) => k !== key)].slice(0, PICKS_MAX);
-export const picksScope = (signedIn) => (signedIn ? 'user' : 'local');
 
 // The categories, in the order the empty Palette lists them. A row's cat is one of these ids.
 export const CATEGORIES = Object.freeze([
@@ -116,10 +116,10 @@ export function paletteView(rows, { path = [], query = '', last = [], marks = []
   const rowItems = (list) => list.map((row) => ({ type: 'row', row }));
   if (!path.length) {
     if (q) return rowItems(rankRows(rows, q));
-    const home = rows.find((r) => r.key === 'page:home');
+    const home = rowByKey(rows, 'page:home');
     const marked = marks.filter((r) => r !== home);
     const picks = cleanPicks(last)
-      .map((k) => rows.find((r) => r.key === k))
+      .map((k) => rowByKey(rows, k))
       .filter((r) => r && r !== home && !marked.includes(r));
     const cats = CATEGORIES.map((c) => ({ type: 'cat', id: c.id, label: c.label, count: rows.filter((r) => r.cat === c.id).length })).filter((c) => c.count);
     return [

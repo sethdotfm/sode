@@ -12,7 +12,6 @@ import {
   startsNamesText,
   addPick,
   cleanPicks,
-  picksScope,
   CATEGORIES,
   paletteView,
   rankRows,
@@ -74,8 +73,6 @@ test('last picks: newest first, five at most, no repeats', () => {
   assert.deepEqual(addPick(r, 'd'), ['d', 'f', 'e', 'c', 'b']);
   assert.deepEqual(cleanPicks(['a', 1, '', 'a', null, 'b']), ['a', 'b']);
   assert.deepEqual(cleanPicks('x'), []);
-  assert.equal(picksScope(true), 'user');
-  assert.equal(picksScope(false), 'local');
 });
 
 const who = (more = {}) => ({

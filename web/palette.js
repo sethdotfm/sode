@@ -207,10 +207,10 @@ function showWhy(row) {
   picked = row;
   const offers = row.access.offer.map((o) =>
     o === 'stepIn'
-      ? el('button', { type: 'button', class: 'pb-btn pb-btn--outline pb-btn--sm', onclick: () => run(row, { offer: 'stepIn' }) }, 'Step in…')
+      ? el('button', { type: 'button', class: 'pb-btn pb-btn--outline pb-btn--sm', onclick: () => runRow(row, { offer: 'stepIn' }) }, 'Step in…')
       : el(
           'button',
-          { type: 'button', class: 'pb-btn pb-btn--outline pb-btn--sm', onclick: () => run(row, { offer: 'approval' }) },
+          { type: 'button', class: 'pb-btn pb-btn--outline pb-btn--sm', onclick: () => runRow(row, { offer: 'approval' }) },
           'Open and ask for Approval on Save',
         ),
   );
@@ -242,14 +242,13 @@ export function runRow(row, { fill = false, offer = '', newTab = false, press = 
   if (!offer) notePick(row.key);
   if (offer === 'stepIn' && !homeRunner) return toHome({ key: 'action:stepIn' });
   if (row.kind === 'action' && !row.home) return runHere(row);
-  if ((row.kind === 'page' || row.kind === 'panel') && row.key !== 'page:settings') {
+  if ((row.kind === 'page' || row.kind === 'panel') && !row.home) {
     const to = new URL(row.target.href, appRoot());
     return newTab ? window.open(to, '_blank', 'noopener') : location.assign(to);
   }
   if (homeRunner) return homeRunner(row, { fill, offer, press });
   toHome({ key: row.key, fill, offer, press });
 }
-const run = runRow;
 
 // A grey row from outside the Palette (a bookmark with No access): the Palette opens with its why and offers.
 export function explainRow(row) {
@@ -316,7 +315,7 @@ function pick(fill = false) {
     return fn(it.row);
   }
   if (!it.row.access.ok) return showWhy(it.row);
-  run(it.row, { fill });
+  runRow(it.row, { fill });
 }
 
 // Esc and Backspace: the why line, then the search, then one level up, then close.
