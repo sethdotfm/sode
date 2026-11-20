@@ -26,6 +26,11 @@ type protHold struct{ dev, kind int }
 
 func (h protHold) sodes(dev int) bool { return h.kind == swp08.KindProtect && dev > 0 && h.dev == dev }
 
+// sodesHold: the one rule for a Protect that is Sode's. dev is Sode's device number now; recDev is the device in
+// Sode's record (0 with no record), for a Protect set before the number changed. Keep in step with holdsOn in
+// web/protectrules.js.
+func sodesHold(h protHold, dev, recDev int) bool { return h.sodes(dev) || h.sodes(recDev) }
+
 // protectRec is Sode's record of one Protect it set. Levels are the UI levels Sode set and has not cleared.
 type protectRec struct {
 	Router  string    `json:"router"`
@@ -37,6 +42,16 @@ type protectRec struct {
 	User    string    `json:"user,omitempty"`   // the user's id, also for that user's key or own API client
 	Client  string    `json:"client,omitempty"` // an API client's name
 	At      time.Time `json:"at"`
+}
+
+// ownedBy: the caller (as recOwner gives it) set this Protect. A guest owns only a record with no user and no
+// client. A nil record has no owner.
+func (rec *protectRec) ownedBy(user, client string, act Actor) bool {
+	if rec == nil {
+		return false
+	}
+	return (user != "" && rec.User == user) || (client != "" && rec.Client == client) ||
+		(user == "" && client == "" && rec.User == "" && rec.Client == "" && act.Kind == actorGuest)
 }
 
 type protectFile struct {
@@ -323,14 +338,30 @@ func (a *App) protectSend(r *runtime, dst int, devOf func(ui int) int, set bool,
 	return ok, failed
 }
 
+// sodeHoldsProtLocked: Sode's record of dst (nil when it has none), then dst's holds as protectLevelsMu splits them.
+// Caller holds protMu. It takes mu itself after it reads the record, since the lock order is protMu, then mu.
+func (a *App) sodeHoldsProtLocked(r *runtime, dst int) (rec *protectRec, own []int, others map[int]protHold) {
+	if got, ok := a.protects.get(r.cfg.UID, dst); ok {
+		rec = &got
+	}
+	a.mu.Lock()
+	own, others = a.protectLevelsMu(r, dst, rec)
+	a.mu.Unlock()
+	return rec, own, others
+}
+
 // protectLevels: dst's holds, Sode's own levels (by its device or the record's) and the others. Caller holds mu.
 func (a *App) protectLevelsMu(r *runtime, dst int, rec *protectRec) (own []int, others map[int]protHold) {
 	others = map[int]protHold{}
+	recDev := 0
+	if rec != nil {
+		recDev = rec.Device
+	}
 	for _, l := range r.levels {
 		h, held := a.router.protect[dst][l.UI]
 		switch {
 		case !held:
-		case h.sodes(r.cfg.ProtectDevice) || (rec != nil && h.sodes(rec.Device)):
+		case sodesHold(h, r.cfg.ProtectDevice, recDev):
 			own = append(own, l.UI)
 		default:
 			others[l.UI] = h
@@ -406,7 +437,7 @@ func (a *App) protectReady(r *runtime, dst int) error {
 }
 
 // recOwner: what Sode stores as who set a Protect. A user's own API client counts as that user.
-func recOwner(cfg config.Config, c *client, act Actor) (user, client string) {
+func recOwner(cfg config.Config, act Actor) (user, client string) {
 	switch act.Kind {
 	case actorUser:
 		return act.User, ""
@@ -470,21 +501,14 @@ func (a *App) protectSet(c *client, dst int, undo *int) protectOutcome {
 	}
 	a.protMu.Lock()
 	defer a.protMu.Unlock()
-	rec, had := a.protects.get(r.cfg.UID, dst)
-	var recp *protectRec
-	if had {
-		recp = &rec
-	}
-	a.mu.Lock()
-	own, others := a.protectLevelsMu(r, dst, recp)
-	a.mu.Unlock()
+	rec, own, others := a.sodeHoldsProtLocked(r, dst)
 	if len(others) > 0 {
 		return protectOutcome{Err: refusal(409, "protected", "%s", holdText(r, others))}
 	}
 	if len(own) == len(r.levels) {
 		return protectOutcome{Err: refusal(409, "conflict", "Sode has a Protect on this destination already")}
 	}
-	if had && rec.Device != r.cfg.ProtectDevice {
+	if rec != nil && rec.Device != r.cfg.ProtectDevice {
 		return protectOutcome{Err: refusal(409, "protected", "Sode holds some levels with device %d; clear them first", rec.Device)}
 	}
 	var todo []int
@@ -500,7 +524,7 @@ func (a *App) protectSet(c *client, dst int, undo *int) protectOutcome {
 	dev := r.cfg.ProtectDevice
 	devOf := func(int) int { return dev }
 	e := a.protectEntry(r, c, true, dst, uiLevels(r), undo)
-	user, client := recOwner(r.cfg, c, act)
+	user, client := recOwner(r.cfg, act)
 	setOK, failed := a.protectSend(r, dst, devOf, true, todo, protectWhy(c, reason))
 	held := append(slices.Clone(own), setOK...)
 	if len(failed) > 0 {
@@ -517,7 +541,7 @@ func (a *App) protectSet(c *client, dst int, undo *int) protectOutcome {
 	}
 	e.OK = len(failed) == 0
 	next := protectRec{Router: r.cfg.UID, Dst: dst, DstName: e.DstName, Device: dev, Levels: held, By: c.who(), User: user, Client: client, At: e.Time}
-	if had && len(failed) > 0 {
+	if rec != nil && len(failed) > 0 {
 		next.By, next.User, next.Client, next.At = rec.By, rec.User, rec.Client, rec.At
 	}
 	a.protectDone(next, e)
@@ -541,30 +565,21 @@ func (a *App) protectClear(c *client, dst int, undo *int, approver *config.User)
 	}
 	a.protMu.Lock()
 	defer a.protMu.Unlock()
-	rec, had := a.protects.get(r.cfg.UID, dst)
-	var recp *protectRec
-	if had {
-		recp = &rec
-	}
-	a.mu.Lock()
-	own, _ := a.protectLevelsMu(r, dst, recp)
-	a.mu.Unlock()
-	if !had && len(own) == 0 {
+	rec, own, _ := a.sodeHoldsProtLocked(r, dst)
+	if rec == nil && len(own) == 0 {
 		return protectOutcome{Err: refusal(404, "not_found", "Sode has no Protect on this destination")}
 	}
-	user, client := recOwner(r.cfg, c, act)
-	mine := had && ((user != "" && rec.User == user) || (client != "" && rec.Client == client) ||
-		(user == "" && client == "" && rec.User == "" && rec.Client == "" && act.Kind == actorGuest))
-	if !mine && !admin {
+	user, client := recOwner(r.cfg, act)
+	if !rec.ownedBy(user, client, act) && !admin {
 		who := "a Sode user"
-		if had {
+		if rec != nil {
 			who = rec.By
 		}
 		pe := refusal(403, "administrator_only", "%s set this Protect: clearing it needs an Administrator", who)
 		pe.admin = true
 		return protectOutcome{Err: pe}
 	}
-	return protectOutcome{Entry: a.clearOne(r, c, dst, recp, own, undo, approver)}
+	return protectOutcome{Entry: a.clearOne(r, c, dst, rec, own, undo, approver)}
 }
 
 // protectAdmin: the caller or the approver is an Administrator.
@@ -649,15 +664,8 @@ func (a *App) clearSodeProtects(c *client) (cleared int, still []int, err error)
 	}
 	sort.Ints(order)
 	for _, d := range order {
-		rec, had := a.protects.get(r.cfg.UID, d)
-		var recp *protectRec
-		if had {
-			recp = &rec
-		}
-		a.mu.Lock()
-		own, _ := a.protectLevelsMu(r, d, recp)
-		a.mu.Unlock()
-		e := a.clearOne(r, c, d, recp, own, nil, nil)
+		rec, own, _ := a.sodeHoldsProtLocked(r, d)
+		e := a.clearOne(r, c, d, rec, own, nil, nil)
 		if e.OK {
 			cleared++
 		} else {

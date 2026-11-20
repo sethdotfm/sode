@@ -222,7 +222,8 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 			if h.kind == swp08.KindRouterLock {
 				row.Kind = "routerLock"
 			}
-			if b, ok := by[d]; ok && h.kind == swp08.KindProtect && h.dev == b.Device {
+			// The rule of protectLevelsMu. A Sode hold with no record has no name, so sodeUser stays empty.
+			if b, ok := by[d]; ok && sodesHold(h, rt.cfg.ProtectDevice, b.Device) {
 				row.SodeUser = b.By
 			}
 			rows = append(rows, row)
