@@ -19,6 +19,7 @@ import { layout, onLayout } from './layout.js';
 import { desktopOnly } from './desktoponly.js';
 import { showApprovalCards } from './approvalcards.js';
 import './palette.js';
+import './homekey.js';
 import { registerShell } from './swreg.js';
 import { panelsBar, barTitle } from './panelsbar.js';
 

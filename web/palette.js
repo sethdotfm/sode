@@ -99,16 +99,25 @@ export async function paletteRowsReady() {
   return paletteRows();
 }
 
-// Why the Palette does not open now, or ''. Under the Lock, on a Kiosk panel and over unsaved edits it does nothing.
-export function paletteRefusal() {
+// The page's own refusal, or '': under the Lock, on a Kiosk panel and during setup. The Home key (homekey.js) has it too.
+export function pageRefusal() {
   const root = document.documentElement;
   if (lockCovers(lockState()) || document.querySelector('.sode-lock.is-on')) return 'lock';
   if (root.hasAttribute('data-sode-kiosk')) return 'kiosk';
   if (root.hasAttribute('data-sode-setup')) return 'setup';
-  // A dialog with edits answers through the bus (settingssave.js, presets.js, filters.js).
+  return '';
+}
+
+// Why the Palette does not open now, or ''. Under the Lock, on a Kiosk panel and over unsaved edits it does nothing.
+export function paletteRefusal() {
+  return pageRefusal() || (unsavedEdits() ? 'unsaved' : '');
+}
+
+// A dialog or view with edits answers through the bus (settingssave.js, presets.js, filters.js, bookmarkeditor.js).
+export function unsavedEdits() {
   const ask = { unsaved: false };
   emit('unsavedAsk', ask);
-  return ask.unsaved ? 'unsaved' : '';
+  return ask.unsaved;
 }
 
 const input = el('input', {
@@ -462,6 +471,7 @@ function close(toBox) {
   if (toBox && to?.isConnected) to.focus({ preventScroll: true });
 }
 export const paletteOpen = () => dlg.shown();
+export const closePalette = () => close(false);
 
 // Ctrl+Shift+P, Control on every OS. Capture, so it works from any focus, also inside a dialog.
 document.addEventListener(

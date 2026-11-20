@@ -38,7 +38,7 @@ func TestChromePanelsTopBar(t *testing.T) {
 	b.waitFor("/panels has Settings and Home, and the status at the right", `(() => {
 		const head = document.querySelector('.sode-panels__head'), conn = head.querySelector(':scope > .sode__conn');
 		return links(head) === './#settings:#pb-i-settings ./:#pb-i-house' && noBack() && !!conn && conn.getBoundingClientRect().right > head.getBoundingClientRect().right - 2
-			&& document.querySelector('.sode-bar__home').dataset.pbTip === 'Sode';
+			&& document.querySelector('.sode-bar__home').dataset.pbTip === 'Sode (Alt+Shift+h)' && document.querySelector('.sode-bar__home').getAttribute('aria-keyshortcuts') === 'Alt+Shift+H';
 	})()`)
 	b.waitFor("the Lock bar, the site name and the status are on one line, inside the content's edges", `lined(document.querySelector('.sode-panels__head'))`)
 	b.eval(`window.connAt = document.querySelector('.sode-panels__head > .sode__conn').getBoundingClientRect().left; document.querySelector('.sode-panels__title .sode-bar__name').textContent = 'SodeExtremev2222222222'.repeat(4) + ' Panels'; true`)

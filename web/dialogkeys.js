@@ -58,6 +58,17 @@ export function closeShown() {
   }
 }
 
+// The Home key over unsaved edits (homeview.js): each shown dialog gets its own Esc, newest first, and is not hidden
+// after it. So a dialog with edits stays and warns, as on Esc. True when a dialog still shows.
+export function escShown() {
+  for (const e of stack.slice().sort((a, b) => b.order - a.order)) {
+    if (e.root.hidden || !e.root.isConnected) continue;
+    e.onEsc();
+  }
+  return dialogShown();
+}
+export const dialogShown = () => topDialog(stack) !== null;
+
 // Stopped at root so the layouts' own keys do not act behind it. The stack holds a dialog only while it is shown.
 // A modal built per open is removed from the page on close, and a held root would keep its whole tree alive.
 export function trapDialog(root, dialog, onEsc) {
