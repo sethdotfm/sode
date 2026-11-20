@@ -436,8 +436,10 @@ const validLast = (t) =>
   !!t && isPair(t.src) && Array.isArray(t.dsts) && t.dsts.length > 0 && t.dsts.every(isPair) && Array.isArray(t.levels) && t.levels.every(isNum);
 
 // A redo counts when all its routes share one source and one set of levels; Retry, Preset and
-// undo never set Last. Null means leave Last as it is.
+// undo never set Last. Null means leave Last as it is. lastOf is the patch inside a larger take that
+// sets Last (the Grid popup's One Take, gridpopup.js).
 export function lastFromPlan(p) {
+  if (p.lastOf) return lastFromPlan(p.lastOf);
   if ((p.verb !== 'patch' && p.verb !== 'redo') || p.ofUndo) return null;
   const gs = p.items.flatMap((i) => i.groups.map((g) => ({ dst: i.dst, g })));
   if (!gs.length) return null;

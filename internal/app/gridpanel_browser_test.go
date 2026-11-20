@@ -98,6 +98,7 @@ func TestChromeGridPanelTake(t *testing.T) {
 	staged := func(src, dst int) string { return gridXp(src, dst) + `.dataset.s === 'staged'` }
 	b.eval(gridXp(12, 4) + `.click()`)
 	b.waitFor("a press stages", staged(12, 4))
+	b.waitFor("Take with one route has no count", `document.getElementById('panel-take').textContent === 'Take'`)
 	b.eval(gridXp(12, 4) + `.click()`)
 	b.waitFor("a second press opens the take confirm", `!document.getElementById('confirm').hidden && document.getElementById('confirm-body').textContent.includes('Destination ')`)
 	b.eval(`document.getElementById('confirm-cancel').click(); true`)
@@ -109,7 +110,7 @@ func TestChromeGridPanelTake(t *testing.T) {
 	b.waitFor("another source in the row replaces the route", staged(simSrc, 2)+` && !(`+staged(11, 2)+`)`)
 	b.eval(gridXp(11, 3) + `.click()`)
 	b.waitFor("two routes staged", staged(11, 3))
-	b.waitFor("the desktop layout's Take button is on and says only Take", `(() => { const t = document.getElementById('panel-take'); return !!t.offsetParent && !t.disabled && t.textContent === 'Take'; })()`)
+	b.waitFor("the desktop layout's Take button is on and counts the two routes", `(() => { const t = document.getElementById('panel-take'); return !!t.offsetParent && !t.disabled && t.textContent === 'Take 2'; })()`)
 
 	// A real Enter with focus on the last crosspoint pressed, as a mouse leaves it.
 	b.eval(gridXp(11, 3) + `.focus(); true`)

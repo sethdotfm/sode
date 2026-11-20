@@ -17,13 +17,16 @@ export function restPoint(picks, axes, cur) {
   };
 }
 
-// The Take button, on every layout: Enter for a phone. Its word never changes, so the band does not move; the note
-// beside it counts the staged routes. Instant mode holds nothing staged, so it has none. Armed is the look of a Take
-// with routes waiting.
+// The word on every Take that sends staged routes (here and the main page's, desktop.js). It counts the routes only when
+// it sends more than one, so the operator sees how many go. CSS gives the button room for the count, so it does not move.
+export const takeWord = (n) => (n > 1 ? `Take ${n}` : 'Take');
+
+// The Take button, on every layout: Enter for a phone. Instant mode holds nothing staged, so it has none. Armed is the
+// look of a Take with routes waiting.
 export function takeButton({ mode, staged, busy }) {
   const shown = mode === 'take';
   const n = shown ? staged : 0;
-  return { shown, disabled: !n || busy, armed: !!n && !busy };
+  return { shown, disabled: !n || busy, armed: !!n && !busy, label: takeWord(n) };
 }
 
 // pickName's mods for a click on a name. On the phone a tap adds or removes one name, as Cmd-click does, and a

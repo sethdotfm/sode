@@ -184,3 +184,23 @@ test('againPlan: a redo of an undo row is still offered but leaves Last alone', 
   assert.equal(lastTake().src.n, 1);
   assert.equal(lastFromPlan(againPlan({ e: { ...undoRow, undo: null } })).src[0], 2, 'a plain take still sets Last');
 });
+
+test('a Grid take sets Last only from the boxes route it holds (lastOf)', async () => {
+  const { sendTakes, lastTake, patchPlan, gridPlan, lastFromPlan } = await setup();
+  sendTakes(patchPlan(it(1), [it(5)], [1]));
+  const staged = [
+    { src: 2, dst: 6, levels: [1] },
+    { src: 3, dst: 7, levels: [2] },
+  ];
+  assert.equal(lastFromPlan(gridPlan(staged, [])), null, 'staged routes alone');
+  sendTakes(gridPlan(staged, []));
+  assert.equal(lastTake().src.n, 1, 'Last stays as it was');
+  sendTakes({ ...gridPlan([...staged, { src: 4, dst: 8, levels: [1, 2] }], []), lastOf: patchPlan(it(4), [it(8)], [1, 2]) });
+  const t = lastTake();
+  assert.equal(t.src.n, 4);
+  assert.deepEqual(
+    t.dsts.map((d) => d.n),
+    [8],
+  );
+  assert.deepEqual(t.levels, [1, 2]);
+});

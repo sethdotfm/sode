@@ -30,7 +30,8 @@ import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
-import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged } from './gridpopup.js';
+import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged, takeRoutes } from './gridpopup.js';
+import { takeWord } from './gridpanelphone.js';
 import { protectKey } from './protects.js';
 
 const sel = { src: null, dst: null };
@@ -263,7 +264,7 @@ function pickSrc(n) {
 
 function renderTally() {
   renderLast();
-  paintClear();
+  paintTakes();
   const srcUnder = $('src-under'),
     dstUnder = $('dst-under');
   if (!S.cfg) {
@@ -369,6 +370,15 @@ function boxRoute() {
 // part of a route stay out of the take, because one box can find an item on the grid (Ctrl+e). An Enter that picks a
 // match only picks it, as with nothing staged. It goes on to the empty box and opens no Confirm.
 function patchNow() {
+  const picked = pickTyped();
+  if (boxPicking()) return addPatch();
+  if (stagedCount() && (!picked || boxRoute()) && takeStaged()) return;
+  tryConfirm();
+}
+
+// Typed text not yet picked takes its best match, as Enter picks it: before a Take, and before Ctrl+e finds the box on
+// the grid. True when it picked one. With no match the box keeps its text.
+function pickTyped() {
   let picked = false;
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
@@ -377,9 +387,13 @@ function patchNow() {
       picked = !!b.cb.accept() || picked;
     }
   }
-  if (boxPicking()) return addPatch();
-  if (stagedCount() && (!picked || boxRoute()) && takeStaged()) return;
-  tryConfirm();
+  return picked;
+}
+
+// Ctrl+e opens the popup on what the boxes hold, so a typed name finds its best match, not the last place.
+function toggleFind() {
+  if (!gridShown()) pickTyped();
+  toggleGrid();
 }
 
 // The one Clear (#clear-all) and Esc: the boxes and the staged routes.
@@ -388,8 +402,11 @@ function clearEverything() {
   dropStaged();
   clearAll();
 }
-function paintClear() {
+// Take counts what it sends when that is more than one route (One Take). A plain patch says Take.
+function paintTakes() {
   $('clear-all').disabled = nothingToClear();
+  const word = takeWord(takeRoutes(boxRoute()));
+  if ($('patch').textContent !== word) $('patch').textContent = word;
 }
 
 function tryConfirm() {
@@ -489,7 +506,7 @@ desktopKeys({
   patchNow,
   clearEverything,
   nothingToClear,
-  grid: { shown: gridShown, toggle: toggleGrid },
+  grid: { shown: gridShown, toggle: toggleFind },
 });
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
@@ -498,7 +515,7 @@ $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep foc
 $('patch').addEventListener('click', patchNow);
 $('clear-all').addEventListener('mousedown', (e) => e.preventDefault());
 $('clear-all').addEventListener('click', clearEverything);
-on('staged', paintClear);
+on('staged', paintTakes);
 
 on('hello', () => {
   pager.reset();

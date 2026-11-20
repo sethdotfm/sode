@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPicks, pickName } from '../gridpanelpick.js';
-import { restPoint, takeButton, tapMods, pickNote } from '../gridpanelphone.js';
+import { restPoint, takeButton, takeWord, tapMods, pickNote } from '../gridpanelphone.js';
 
 const axes = { srcs: [30, 10, 20, 40, 50], dsts: [7, 3, 5, 9, 1, 2] };
 const picked = (srcs, dsts) => ({ ...createPicks(), srcs, dsts });
@@ -31,10 +31,17 @@ test('picks hidden by a Filter are not a rest point', () => {
 
 test('the Take button shows in Take mode on every layout and works only with staged routes', () => {
   const at = (o) => takeButton({ mode: 'take', staged: 2, busy: false, ...o });
-  assert.deepEqual(at({}), { shown: true, disabled: false, armed: true });
-  assert.deepEqual(at({ staged: 0 }), { shown: true, disabled: true, armed: false });
-  assert.deepEqual(at({ busy: true }), { shown: true, disabled: true, armed: false });
-  assert.deepEqual(at({ mode: 'instant' }), { shown: false, disabled: true, armed: false });
+  assert.deepEqual(at({}), { shown: true, disabled: false, armed: true, label: 'Take 2' });
+  assert.deepEqual(at({ staged: 0 }), { shown: true, disabled: true, armed: false, label: 'Take' });
+  assert.deepEqual(at({ busy: true }), { shown: true, disabled: true, armed: false, label: 'Take 2' });
+  assert.deepEqual(at({ mode: 'instant' }), { shown: false, disabled: true, armed: false, label: 'Take' });
+});
+
+test('Take counts its routes only when it sends more than one', () => {
+  assert.equal(takeWord(0), 'Take');
+  assert.equal(takeWord(1), 'Take');
+  assert.equal(takeWord(3), 'Take 3');
+  assert.equal(takeWord(128), 'Take 128');
 });
 
 test('a tap on the phone layout adds or removes one name, so a finger can pick a set', () => {

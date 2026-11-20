@@ -22,6 +22,7 @@ export function gridTake(ctx, ui, { onTake, onClear }) {
         const t = takeButton(state);
         if (take.hidden === t.shown) take.hidden = !t.shown;
         if (take.disabled !== t.disabled) take.disabled = t.disabled;
+        if (take.textContent !== t.label) take.textContent = t.label;
         const starts = t.armed && !take.classList.contains('sode-panel__take--armed');
         take.classList.toggle('sode-panel__take--armed', t.armed);
         if (starts) joinPulse(take);

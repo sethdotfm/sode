@@ -9,6 +9,7 @@ import (
 // The Home page's one Take and one Clear with the Grid popup's staged routes. Ctrl+e finds one filled box on the grid.
 // A staged route's chips fill the boxes. Esc closes the popup only, then clears the boxes and the staged routes, then
 // starts Keyboard mode. Take sends the staged routes and the boxes' route in one Confirm, and Clear drops them all.
+// Take counts its routes at one width. Only a whole route in the boxes makes Last. Ctrl+e picks typed text first.
 func TestChromeMainOneTake(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -42,6 +43,15 @@ func TestChromeMainOneTake(t *testing.T) {
 		b.waitFor("the staged list", `document.querySelectorAll('#grid-staged-list li').length === `+strconv.Itoa(len(pairs)))
 	}
 	b.waitFor("nothing to clear", clearOff)
+	take := `document.getElementById('patch').textContent`
+	takeWidth := `document.getElementById('patch').getBoundingClientRect().width`
+	lastText := func(k string) string {
+		return `(document.querySelector('[data-last="` + k + `"] .sode__last:not(.sode__next) .sode__last-text')?.textContent || '')`
+	}
+	if w := b.eval(take).(string); w != "Take" {
+		t.Fatalf("Take with nothing staged says %q", w)
+	}
+	width := b.eval(takeWidth).(float64)
 
 	// Only the Source box: Ctrl+e opens the popup on that source, far to the right.
 	popTyped(b, "src", "SRC 150")
@@ -82,10 +92,17 @@ func TestChromeMainOneTake(t *testing.T) {
 	esc("src")
 	b.waitFor("Esc clears everything", `!document.getElementById('src').value && !document.getElementById('dst').value && document.getElementById('grid-staged').hidden && `+clearOff)
 
-	// One Take: the staged routes and the boxes' route in one Confirm, sent as one Group.
+	// One Take: the staged routes and the boxes' route in one Confirm, sent as one Group. Take counts the routes it
+	// sends, and its width does not change. Partial boxes add nothing to the count.
 	stage([2]int{3, 5}, [2]int{4, 6})
+	b.waitFor("Take counts the staged routes", take+` === 'Take 2'`)
 	popTyped(b, "src", "CAM 1")
+	b.waitFor("a lone Source adds no route", take+` === 'Take 2'`)
 	popTyped(b, "dst", "DSM1")
+	b.waitFor("Take counts the boxes' route", take+` === 'Take 3'`)
+	if w := b.eval(takeWidth).(float64); w != width {
+		t.Fatalf("Take is %vpx wide with a count, %vpx without", w, width)
+	}
 	b.eval(`document.getElementById('patch').click(); true`)
 	b.waitFor("one confirm", `!document.getElementById('confirm').hidden`)
 	if body := b.eval(`document.getElementById('confirm-body').textContent`).(string); !strings.Contains(body, "3 destinations") || !strings.Contains(body, "DSM1") {
@@ -96,6 +113,20 @@ func TestChromeMainOneTake(t *testing.T) {
 	tallyHas(t, a, ana, 5, 3)
 	tallyHas(t, a, ana, 6, 4)
 	b.waitFor("the take clears the boxes and the staged list", `document.getElementById('grid-staged').hidden && !document.getElementById('src').value && !document.getElementById('dst').value && `+clearOff)
+	b.waitFor("Take has no count again", take+` === 'Take'`)
+	// The boxes held a whole route, so it is Last, as a patch of the boxes makes it.
+	b.waitFor("the boxes' route is Last", lastText("src")+`.endsWith('CAM 1') && `+lastText("dst")+`.endsWith('DSM1')`)
+
+	// With empty boxes, the staged routes alone make no Last: Last stays as it was.
+	stage([2]int{8, 9}, [2]int{9, 10})
+	b.waitFor("Take counts the staged routes", take+` === 'Take 2'`)
+	b.eval(`document.getElementById('patch').click(); true`)
+	gridConfirm(b)
+	lastGroup(t, a, ana, 2)
+	b.waitFor("the staged routes went", `document.getElementById('grid-staged').hidden`)
+	if src, dst := b.eval(lastText("src")).(string), b.eval(lastText("dst")).(string); !strings.HasSuffix(src, "CAM 1") || !strings.HasSuffix(dst, "DSM1") {
+		t.Fatalf("Last is %q to %q after a take of staged routes alone, want CAM 1 to DSM1", src, dst)
+	}
 
 	// With staged routes, an Enter that picks a match only picks it.
 	stage([2]int{7, 7})
@@ -115,5 +146,49 @@ func TestChromeMainOneTake(t *testing.T) {
 	// Nothing to clear: Esc starts Keyboard mode.
 	esc("src")
 	b.waitFor("Keyboard mode", `document.activeElement === document.getElementById('history')`)
+
+	// Ctrl+e with typed text not yet picked: it picks the best match, as Enter does, then finds it on the grid.
+	typed := func(id, text string) {
+		b.eval(`document.getElementById('` + id + `').focus(); true`)
+		b.call("Input.insertText", map[string]any{"text": text})
+		b.waitFor(id+" lists matches", `!document.getElementById('`+id+`-menu').hidden`)
+	}
+	typed("src", "SRC 150")
+	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	b.waitFor("the popup", shown)
+	b.waitFor("Ctrl+e picks the source", `/^\d+ SRC 150$/.test(document.getElementById('src').value)`)
+	b.waitFor("the cursor is on the source", cursor+` === '-1,149'`)
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("closed", hidden)
+	esc("src")
+	b.waitFor("Esc clears the box", `!document.getElementById('src').value`)
+	typed("dst", "MV 107")
+	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	b.waitFor("the popup", shown)
+	b.waitFor("Ctrl+e picks the destination", `/^\d+ MV 107$/.test(document.getElementById('dst').value)`)
+	b.waitFor("the cursor is on the destination", cursor+` === '119,-1'`)
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("closed", hidden)
+	esc("dst")
+	// Both boxes typed: Ctrl+e picks both and aims at their crosspoint.
+	typed("src", "CAM 2")
+	typed("dst", "DSM3")
+	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	b.waitFor("the popup", shown)
+	b.waitFor("Ctrl+e picks both", `/^\d+ CAM 2$/.test(document.getElementById('src').value) && /^\d+ DSM3$/.test(document.getElementById('dst').value)`)
+	b.waitFor("the cursor is on their crosspoint", cursor+` === '4,13'`)
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("closed", hidden)
+	esc("src")
+	// Text with no match stays as typed, and the popup aims at nothing new.
+	b.eval(`document.getElementById('src').focus(); true`)
+	b.call("Input.insertText", map[string]any{"text": "qqqqzzzz"})
+	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	b.waitFor("the popup", shown)
+	if v := b.eval(`document.getElementById('src').value`).(string); v != "qqqqzzzz" {
+		t.Fatalf("Ctrl+e with no match changed the Source box to %q", v)
+	}
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("closed", hidden)
 	b.check()
 }

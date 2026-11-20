@@ -177,6 +177,13 @@
   height: var(--sode-h-field);
   padding: 0 var(--pb-space-8);
 }
+/* Room for "Take 128" (One Take, desktop.js), so Take and Clear do not move as the count changes. */
+.pb-btn.sode__patch {
+  font-family: var(--pb-font-num);
+  font-variant-numeric: tabular-nums;
+  min-width: 8rem;
+  white-space: nowrap;
+}
 .sode__hist-route {
   min-width: 0;
   overflow: hidden;

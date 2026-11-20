@@ -878,11 +878,14 @@ html:has(.sode-gridpanel) {
 }
 .sode-gridpanel__take {
   align-self: end;
+  font-family: var(--pb-font-num);
+  font-variant-numeric: tabular-nums;
   grid-column: 3;
   grid-row: 1 / 4;
   justify-self: end;
   min-height: 4rem;
   min-width: 12rem;
+  white-space: nowrap;
 }
 /* Clear and the note beside Take (gridpanelnote.js). Clear drops what Esc drops. */
 .sode-gridpanel__clear {

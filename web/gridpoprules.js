@@ -73,3 +73,7 @@ export function withBoxRoute(routes, { src, dsts, levels }) {
   }
   return out;
 }
+
+// How many routes the main page's Take sends (desktop.js): the staged routes, with the boxes' route when they hold one
+// (withBoxRoute). Without staged routes it is 0: a plain patch says Take with no count.
+export const takeCount = (routes, box) => (!routes.length ? 0 : box ? withBoxRoute(routes, box).length : routes.length);

@@ -155,7 +155,7 @@ func TestChromeGridPanelPhone(t *testing.T) {
 	tap(b, gridXp(11, 0))
 	staged := func(s, d int) string { return gridXp(s, d) + `.dataset.s === 'staged'` }
 	b.waitFor("a tap on a crosspoint stages the Diagonal", staged(11, 0)+` && `+staged(12, 1)+` && `+staged(13, 2))
-	b.waitFor("the Take button works and says only Take", `(() => { const t = document.getElementById('panel-take'); return !t.disabled && t.textContent === 'Take'; })()`)
+	b.waitFor("the Take button works and counts the three routes", `(() => { const t = document.getElementById('panel-take'); return !t.disabled && t.textContent === 'Take 3'; })()`)
 	tap(b, `document.getElementById('panel-take')`)
 	b.waitFor("the confirm lists all three", `document.getElementById('confirm-body').textContent.includes('3 destinations')`)
 	b.shot("phone-confirm")

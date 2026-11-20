@@ -13,8 +13,8 @@ import { confirmShown } from './keyconfirm.js';
 import { levelBar } from './levelview.js';
 import { routesOf } from './gridpanelstage.js';
 import { gridShield } from './gridpopshield.js';
-import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute } from './gridpoprules.js';
-import { gridPlan } from './plans.js';
+import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from './gridpoprules.js';
+import { gridPlan, patchPlan } from './plans.js';
 import { fadeOut, stopFade } from './modal.js';
 
 // The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
@@ -117,16 +117,20 @@ on('lockcover', ({ on: covers }) => {
 let asked = false; // the last openConfirm of the body reached confirmRoutes
 
 // The staged routes as the main page's plan, through the layout's own Confirm. It sends them as one take, with the
-// patch boxes' route (host.route, desktop only) when the boxes hold one. Then a send clears the boxes too (resets).
+// patch boxes' route (host.route, desktop only) when the boxes hold one. Then a send clears the boxes too (resets), and
+// the boxes' route becomes Last, as a patch of the boxes makes it (lastOf). The staged routes never make a Last: they
+// can have many sources, so Last and Next would guess.
 function confirmRoutes(routes, { warnings, onSent }) {
   const host = boxHost();
   if (!host) return;
   asked = true;
   const box = host.route?.();
   if (!box) return host.confirm({ ...gridPlan(routes, warnings), onSent });
-  const all = withBoxRoute(routes, { src: box.src.n, dsts: box.dsts.map((d) => d.n), levels: box.levels });
-  host.confirm({ ...gridPlan(all, warnings), onSent, resets: true });
+  const all = withBoxRoute(routes, boxNumbers(box));
+  host.confirm({ ...gridPlan(all, warnings), onSent, resets: true, lastOf: patchPlan(box.src, box.dsts, box.levels) });
 }
+
+const boxNumbers = (box) => ({ src: box.src.n, dsts: box.dsts.map((d) => d.n), levels: box.levels });
 
 const adapter = () => ({
   ui: pop.ui,
@@ -254,6 +258,8 @@ function fillRow(row) {
 
 // The main page's Take with staged routes (desktop.js). False when no confirm opened: no staged route applies now.
 export const stagedCount = () => routesOf({ staged }).length;
+// The routes the main page's Take sends now: box is host.route(), or null. 0 with nothing staged.
+export const takeRoutes = (box) => takeCount(routesOf({ staged }), box && boxNumbers(box));
 export function takeStaged() {
   if (!body) return false;
   push();

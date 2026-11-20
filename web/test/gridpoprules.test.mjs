@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute } from '../gridpoprules.js';
+import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from '../gridpoprules.js';
 import { envFrom, namesFrom } from '../panelrules.js';
 import { gridAxes } from '../gridpaneledges.js';
 
@@ -123,4 +123,18 @@ test('One Take adds the boxes route to the staged routes, and the boxes win on a
     { src: 3, dst: 7, levels: [1] },
   ]);
   assert.deepEqual(staged[0].levels, [1, 2], 'the staged routes stay as they are');
+});
+
+test('the main Take counts the staged routes and the boxes route as one take sends them', () => {
+  const staged = [
+    { src: 1, dst: 5, levels: [1, 2] },
+    { src: 2, dst: 6, levels: [1] },
+  ];
+  assert.equal(takeCount([], { src: 9, dsts: [6, 8], levels: [1] }), 0);
+  assert.equal(takeCount(staged, null), 2);
+  assert.equal(takeCount(staged, { src: 9, dsts: [7, 8], levels: [1] }), 4);
+  // The boxes take all the levels of a staged destination: that staged route goes.
+  assert.equal(takeCount(staged, { src: 9, dsts: [6], levels: [1] }), 2);
+  // The same route as a staged one stays one route.
+  assert.equal(takeCount(staged, { src: 2, dsts: [6], levels: [2] }), 2);
 });
