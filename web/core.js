@@ -81,11 +81,15 @@ export function toggle(set, k) {
 }
 
 // is() is true while the box still holds the search left by the last + (not a destination
-// waiting to be picked).
+// waiting to be picked). The phone's + keeps the search (mobile.js). A box that holds other text ends it, so the
+// same text typed again later is a new search.
 export function keepSearch(read) {
   let kept = null;
   return {
-    is: () => kept !== null && read() === kept,
+    is: () => {
+      if (kept !== null && read() !== kept) kept = null;
+      return kept !== null;
+    },
     set: (keep, text) => {
       kept = keep && text.trim() ? text : null;
     },

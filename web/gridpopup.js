@@ -160,6 +160,8 @@ export function showGrid() {
   const host = boxHost();
   if (!host || !S.cfg || document.documentElement.dataset.sodeLock) return;
   pop ||= build();
+  // Ctrl+e and the Grid button alike: typed text that is not picked takes its best match first (desktop only).
+  if (!shown) host.pickTyped?.();
   const p = host.picks();
   const aim = aimOf({ src: p.src?.n ?? null, dst: p.dsts[0]?.n ?? null, first: !opened });
   if (!shown) back = document.activeElement;

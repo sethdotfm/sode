@@ -20,7 +20,7 @@ Sode is a web app. Use *Install* in Chrome or Edge, or *Add to Home Screen* in S
 
 ## Using it
 
-Type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key. For the shortcut list, press `?` in keyboard mode, which you enter with Esc while every box is empty.
+Type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key. For the shortcut list, press `?` in keyboard mode, which Alt+Shift+k (⌥⇧k on a Mac) starts and ends.
 
 ### Levels
 
@@ -28,7 +28,9 @@ Levels accept `1`, `1-3`, `1,3,5-8` (or `+`), `!1` (all but 1), `1-8!3`, and wor
 
 ### Several destinations
 
-Press `+` or Ctrl+Enter after each destination instead of Tab. The routes land in History as one Group with **Undo all**.
+Press `+` or Ctrl+Enter after each destination instead of Tab. The Destination box then empties, so the next digits start a new search. Directly after an add, `+` or Ctrl+Enter on the empty box adds the next destination by router number, and the box shows which one ("Ctrl+Enter adds 12 Rec 2"). So Cam 1, Tab, Rec 1 and Ctrl+Enter four times, then Enter, takes Cam 1 to Rec 1 to Rec 4. The routes land in History as one Group with **Undo all**.
+
+A list or a range in the Destination box, such as `11-13`, `11,12,13`, `Rec 1-4` or `Rec 1-Rec 4`, shows all its destinations selected in the match list. Enter, Tab, `+` or Ctrl+Enter adds them all. The list tells you which numbers or names the router does not have. A destination with a name that starts with the text makes it a normal search. The Source box takes one source: for many routes, use the Grid (Ctrl+e).
 
 Ctrl-click a destination in History, in a Followed by list or in the Destination match list to add it the same way. On a Mac, Cmd-click also adds it. A click without Ctrl fills the box as before.
 

@@ -17,7 +17,8 @@ let boxSeq = 0;
 // picks and keeps focus; 'click' stops pointerdown (keeps a phone's keyboard up) and picks on
 // click so a scroll does not pick. reverse: drawn bottom-up, ↑ moves to the next match. foot:
 // hidden element for the count line. add: + button on every row; canAdd() says whether the list
-// has them now.
+// has them now. The array from source can have a note: one line over the rows, also with no rows. With all set,
+// every row is selected, and Enter, Tab and accept give them all to onPickAll. addTip: the row +'s tip.
 export function combobox(
   input,
   menu,
@@ -33,6 +34,8 @@ export function combobox(
     foot = null,
     onRender = null,
     outside = null,
+    onPickAll = null,
+    addTip = 'Add and keep searching',
   },
 ) {
   const box = typeof input === 'function' ? input : () => input;
@@ -48,12 +51,14 @@ export function combobox(
   let browsed = false;
   let win = { lo: 0, hi: 0 };
   let rows = [];
+  let note = '';
+  let all = false;
 
   function addButton(it) {
     const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', icon('plus', false));
     b.type = 'button';
     b.tabIndex = -1;
-    b.dataset.pbTip = 'Add and keep searching';
+    b.dataset.pbTip = addTip;
     b.setAttribute('aria-label', `Add ${it.name}`);
     // pointerdown too: the phone's rows pick on click and keep the keyboard up.
     for (const t of ['mousedown', 'pointerdown'])
@@ -78,7 +83,7 @@ export function combobox(
   }
 
   function render() {
-    const open = matches.length > 0;
+    const open = matches.length > 0 || !!note;
     const input = box();
     if (last && last !== input) {
       last.setAttribute('aria-expanded', 'false');
@@ -96,9 +101,10 @@ export function combobox(
     }
     if (!browsed) win = { lo: 0, hi: matches.length };
     rows = rowsFor(win.lo, win.hi);
-    menu.replaceChildren(...rows);
+    menu.replaceChildren(...(note ? [el('li', 'sode__menu-note', note)] : []), ...rows);
+    menu.setAttribute('aria-multiselectable', String(all));
     placeFoot();
-    if (browsing) input.removeAttribute('aria-activedescendant');
+    if (browsing || all) input.removeAttribute('aria-activedescendant');
     else input.setAttribute('aria-activedescendant', pre + hi);
   }
 
@@ -107,7 +113,7 @@ export function combobox(
     const out = [];
     for (let i = from; i < to; i++) {
       const it = matches[i];
-      const on = i === hi && !browsing;
+      const on = all || (i === hi && !browsing);
       const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
       li.id = pre + i;
       li.dataset.i = String(i);
@@ -192,6 +198,10 @@ export function combobox(
   }
 
   function accept() {
+    if (all && onPickAll) {
+      onPickAll(matches);
+      return true;
+    }
     const it = matches[hi];
     if (!it || browsing) return false;
     onPick(it);
@@ -206,6 +216,8 @@ export function combobox(
   // moved through stays one that Enter can pick from.
   function show(items, at, isBrowse, keepMoved = false) {
     matches = items;
+    note = items.note || '';
+    all = !!items.all && items.length > 0;
     browsed = isBrowse && items.length > 0;
     browsing = browsed && !keepMoved;
     hi = at;
@@ -236,7 +248,7 @@ export function combobox(
     accept,
     current: () => matches[hi],
     get open() {
-      return matches.length > 0;
+      return matches.length > 0 || !!note;
     },
     get moved() {
       return browsed && !browsing;
@@ -251,6 +263,8 @@ export function combobox(
         return !!ctrlJK;
       }
       e.preventDefault();
+      // A multiselection has no one row to move to: what shows is what Enter adds.
+      if (all) return true;
       const n = matches.length;
       const fwd = (key === 'ArrowDown' || key === 'PageDown') !== reverse;
       const step = key === 'ArrowDown' || key === 'ArrowUp';

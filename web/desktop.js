@@ -1,4 +1,7 @@
-import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
+import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem } from './core.js';
+import { mac } from './keys.js';
+import { searchText } from './routerprefix.js';
+import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
@@ -45,14 +48,32 @@ const boxes = {
 for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.cb = combobox(b.input, $(`${k}-menu`), {
-    source: (text) => search(b.list(), text, MAX_MATCHES),
+    source: (text) => matchesOf(k, text),
     onPick: (it) => select(k, it),
     add: k === 'dst' ? (it) => addDst(it) : undefined,
+    addTip: 'Add as a destination',
+    onPickAll: k === 'dst' ? (items) => addAll(items) : undefined,
     foot: $(`${k}-count`),
     onRender: () => b.all?.sync(),
     outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it.n),
   });
 }
+// A typed list ("11-13", "Rec 1-4", boxlist.js) in the Destination box shows its destinations all selected, so Enter,
+// Tab, + and Ctrl+Enter add exactly what shows. A text that starts a name is a search. The Source box takes one source:
+// a list there gets a note that points to the Grid.
+function matchesOf(k, text) {
+  const all = k === 'src' ? S.srcs : S.dsts;
+  const q = searchText(text, S.prefix, [], [S.prefix]);
+  const list = q && parseList(q);
+  if (!list || namedAs(q, all)) return search(boxes[k].list(), text, MAX_MATCHES);
+  if (k === 'src') return Object.assign([], { note: 'One source only. For many routes, use the Grid (Ctrl+e).' });
+  if (list.tooMany) return Object.assign([], { note: `A list can have ${LIST_MAX} destinations or fewer.` });
+  const { found, missing } = listMatches(list, S.dsts);
+  const rows = found.filter((d) => !chosen(d));
+  const note = missingNote(missing) || (found.length && !rows.length ? 'These destinations are added.' : '');
+  return Object.assign(rows, { all: true, note });
+}
+
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onChange: () => renderTally() });
 // With the Levels box hidden, a move to Levels goes to the last box before Take, where Enter takes.
@@ -79,6 +100,7 @@ needsLink($('patch'));
 
 function select(k, it) {
   sel[k] = it;
+  if (k === 'dst') lastAdd = null;
   const b = boxes[k];
   b.input.value = it ? it.label : '';
   b.input.classList.remove('pb-input--invalid');
@@ -89,39 +111,51 @@ function select(k, it) {
 
 const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...dsts]);
 
-// The typed search stays after +, so the next match is one + away; while the box holds exactly
-// it, Enter/Tab/Patch go on with the chips.
-const kept = keepSearch(() => boxes.dst.input.value);
-const keptText = kept.is;
+// After an add the box is empty, so the next digits start a new search. The last add's router number arms the next
+// add: on the empty box, +, Ctrl+Enter and the + button add nextAdd's destination, which the box shows (paintArmed).
+// Typing, any pick, a take and Clear end it. With no add directly before, an add on the empty box does nothing.
+let lastAdd = null;
+const armed = () => (lastAdd !== null && !sel.dst && !boxes.dst.input.value ? nextAdd(lastAdd, S.dsts, chosen) : null);
 
 function addDst(pick) {
   const b = boxes.dst;
   b.input.focus();
   // A row moved to in the browse list counts though the box holds no text.
   if (!pick && b.cb.moved) pick = b.cb.current();
-  let typed = b.input.value;
-  if (pick) sel.dst = pick;
-  else if (!sel.dst) {
-    if (!typed.trim()) return;
-    if (!b.cb.open) b.cb.refresh();
-    if (!b.cb.accept()) {
-      b.input.classList.add('pb-input--invalid');
-      return;
-    }
-  } else typed = '';
-  const added = sel.dst.n;
-  if (!chosen(sel.dst)) dsts.push(sel.dst);
+  if (!pick && !sel.dst && !b.input.value.trim()) {
+    pick = armed();
+    if (!pick) return;
+  }
+  if (pick) return addAll([pick]);
+  if (sel.dst) return addAll([sel.dst]);
+  if (!b.cb.open) b.cb.refresh();
+  // A typed list adds all its destinations through onPickAll; a match comes back as sel.dst.
+  if (!b.cb.accept()) b.input.classList.add('pb-input--invalid');
+  else if (sel.dst) addAll([sel.dst]);
+}
+
+function addAll(items) {
+  const b = boxes.dst;
+  for (const d of items) if (!chosen(d)) dsts.push(d);
   sel.dst = null;
-  b.input.value = typed;
-  kept.set(true, typed);
+  b.input.value = '';
   b.input.classList.remove('pb-input--invalid');
+  b.cb.close();
+  lastAdd = Math.max(...items.map((d) => d.n));
   renderChips();
   renderTally();
-  showList('dst', b.list().find((d) => d.n > added)?.n);
+}
+
+// The armed next add shows in the empty box. A placeholder of one space keeps :placeholder-shown for the key note.
+function paintArmed() {
+  const d = armed();
+  const text = d ? `${mac ? '⌘Enter' : 'Ctrl+Enter'} adds ${d.label}` : ' ';
+  if (boxes.dst.input.placeholder !== text) boxes.dst.input.placeholder = text;
 }
 
 // Ctrl-click on a destination elsewhere on the page: it joins the chips, with the box's own pick.
 function addEnd(it) {
+  lastAdd = null;
   const have = allDsts();
   dsts = have.some((x) => x.n === it.n) ? have : [...have, it];
   if (sel.dst) {
@@ -145,6 +179,7 @@ function renderChips() {
       x.addEventListener('mousedown', (e) => e.preventDefault());
       x.addEventListener('click', () => {
         dsts.splice(i, 1);
+        lastAdd = null;
         renderChips();
         renderTally();
       });
@@ -265,6 +300,7 @@ function pickSrc(n) {
 function renderTally() {
   renderLast();
   paintTakes();
+  paintArmed();
   const srcUnder = $('src-under'),
     dstUnder = $('dst-under');
   if (!S.cfg) {
@@ -353,7 +389,7 @@ const confirm = keyConfirm({
 
 function wantsMatch(k) {
   const b = boxes[k];
-  return b.cb.moved || (!sel[k] && !!b.input.value.trim() && !(k === 'dst' && keptText()));
+  return b.cb.moved || (!sel[k] && !!b.input.value.trim());
 }
 
 const boxesEmpty = () => !sel.src && !sel.dst && !dsts.length && !boxes.src.input.value.trim() && !boxes.dst.input.value.trim();
@@ -361,7 +397,7 @@ const boxesEmpty = () => !sel.src && !sel.dst && !dsts.length && !boxes.src.inpu
 // The route the boxes hold, as tryConfirm would send it, or null. It marks nothing and moves no focus.
 function boxRoute() {
   const ds = allDsts();
-  const dstText = !sel.dst && boxes.dst.input.value.trim() && !keptText();
+  const dstText = !sel.dst && boxes.dst.input.value.trim();
   const levels = lvl.levels();
   return sel.src && ds.length && !dstText && levels ? { src: sel.src, dsts: ds, levels } : null;
 }
@@ -390,12 +426,6 @@ function pickTyped() {
   return picked;
 }
 
-// Ctrl+e opens the popup on what the boxes hold, so a typed name finds its best match, not the last place.
-function toggleFind() {
-  if (!gridShown()) pickTyped();
-  toggleGrid();
-}
-
 // The one Clear (#clear-all) and Esc: the boxes and the staged routes.
 const nothingToClear = () => boxesEmpty() && lvl.empty() && !stagedCount();
 function clearEverything() {
@@ -414,7 +444,7 @@ function tryConfirm() {
   for (const k of ['src', 'dst']) {
     // Chips alone are fine, but text that matched nothing still stops the patch.
     const b = boxes[k];
-    if (!sel[k] && (k === 'src' || !dsts.length || (b.input.value.trim() && !(k === 'dst' && keptText())))) {
+    if (!sel[k] && (k === 'src' || !dsts.length || b.input.value.trim())) {
       b.input.classList.add('pb-input--invalid');
       b.input.focus();
       return;
@@ -458,6 +488,7 @@ for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.input.addEventListener('input', () => {
     sel[k] = null;
+    if (k === 'dst') lastAdd = null;
     b.input.classList.remove('pb-input--invalid');
     b.cb.refresh();
     renderTally();
@@ -506,7 +537,7 @@ desktopKeys({
   patchNow,
   clearEverything,
   nothingToClear,
-  grid: { shown: gridShown, toggle: toggleFind },
+  grid: { shown: gridShown, toggle: toggleGrid },
 });
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
@@ -563,6 +594,8 @@ presetHost({
   clear: clearAll,
   focus: () => boxes.src.input.focus(),
   route: boxRoute,
+  // showGrid picks typed text first, so the popup opens on what the boxes show, not on the last place.
+  pickTyped,
   // A staged route's chips (gridpopup.js), as a History row's.
   useEnd,
   addEnd,

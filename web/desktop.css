@@ -120,6 +120,17 @@
 .sode__menu-add {
   margin-left: auto;
 }
+/* The armed next add in the empty Destination box (paintArmed in desktop.js): smaller than typed text, so the name fits. */
+.sode__box--dst .sode__input::placeholder {
+  font-size: var(--pb-text-md);
+}
+/* One line over the match rows: what a typed list skips, or why the Source box lists nothing (boxlist.js). */
+.sode__menu-note {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  list-style: none;
+  padding: var(--pb-space-2) var(--pb-space-4);
+}
 .sode__menu-count {
   background: var(--pb-surface-overlay);
   border: var(--pb-border-w) solid var(--pb-edge);

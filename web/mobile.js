@@ -170,6 +170,7 @@ function reset() {
   M.dsts = [];
   M.dstFirst = false;
   for (const k of ['src', 'dst']) inputs[k].value = '';
+  kept.set(false, '');
   lvl.clear();
   setStep(order()[0], false);
 }
@@ -359,6 +360,7 @@ inputs.dst.addEventListener('input', () => {
     plus();
     return;
   }
+  keptText(); // an edit ends the kept search, so the same text typed again is a new search
   matches.refresh();
   renderThread();
 });

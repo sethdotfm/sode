@@ -7,9 +7,10 @@ import (
 )
 
 // The Home page's one Take and one Clear with the Grid popup's staged routes. Ctrl+e finds one filled box on the grid.
-// A staged route's chips fill the boxes. Esc closes the popup only, then clears the boxes and the staged routes, then
-// starts Keyboard mode. Take sends the staged routes and the boxes' route in one Confirm, and Clear drops them all.
-// Take counts its routes at one width. Only a whole route in the boxes makes Last. Ctrl+e picks typed text first.
+// A staged route's chips fill the boxes. Esc closes the popup only, then clears the boxes and the staged routes, and
+// with nothing to clear does nothing. Take sends the staged routes and the boxes' route in one Confirm, and Clear drops them all.
+// Take counts its routes at one width. Only a whole route in the boxes makes Last. Ctrl+e and the Grid button pick typed
+// text first.
 func TestChromeMainOneTake(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -143,9 +144,11 @@ func TestChromeMainOneTake(t *testing.T) {
 	b.eval(`document.getElementById('clear-all').click(); true`)
 	b.waitFor("Clear clears everything", `document.getElementById('grid-staged').hidden && !document.getElementById('src').value && !document.getElementById('dst').value && `+clearOff)
 
-	// Nothing to clear: Esc starts Keyboard mode.
+	// Nothing to clear: Esc does nothing (Alt+Shift+k starts Keyboard mode, TestChromeMainMultiAdd).
 	esc("src")
-	b.waitFor("Keyboard mode", `document.activeElement === document.getElementById('history')`)
+	if id := b.eval(`document.activeElement.id`).(string); id != "src" {
+		t.Fatalf("Esc with nothing to clear moved focus to %q", id)
+	}
 
 	// Ctrl+e with typed text not yet picked: it picks the best match, as Enter does, then finds it on the grid.
 	typed := func(id, text string) {
@@ -188,6 +191,17 @@ func TestChromeMainOneTake(t *testing.T) {
 	if v := b.eval(`document.getElementById('src').value`).(string); v != "qqqqzzzz" {
 		t.Fatalf("Ctrl+e with no match changed the Source box to %q", v)
 	}
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("closed", hidden)
+	esc("src")
+
+	// The Grid button at the bottom left picks typed text first, as Ctrl+e does.
+	b.waitFor("the boxes are empty", `!document.getElementById('src').value && `+clearOff)
+	typed("dst", "MV 107")
+	b.eval(`document.getElementById('grid-open').click(); true`)
+	b.waitFor("the popup", shown)
+	b.waitFor("the Grid button picks the destination", `/^\d+ MV 107$/.test(document.getElementById('dst').value)`)
+	b.waitFor("the cursor is on the destination", cursor+` === '119,-1'`)
 	realKey(b, "Escape", "Escape", 27)
 	b.waitFor("closed", hidden)
 	b.check()
