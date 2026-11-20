@@ -48,3 +48,24 @@ export function protectOffer(p, { right, device, linked }) {
   if (p.sode) return 'clear';
   return device > 0 && !p.levels.length ? 'set' : '';
 }
+
+// The Protect right of the browser's sign-in. rights: myRights, or null with nobody signed in. Then only a Sode with
+// no users (every browser an Administrator) has it. Keep in step with AllowsProtect on the server.
+export const protectRight = (rights, role, users) => (rights ? rights.protect === true : role === 'administrator' && !users?.length);
+
+// The Protect picker's rows (protectpick.js): the destinations in dsts where offerOf(n) is want ('set' or 'clear') and
+// inRights(n) is true, in the list's order.
+export const pickRows = (dsts, want, offerOf, inRights) => dsts.filter((d) => inRights(d.n) && offerOf(d.n) === want);
+
+// The rows that match q, best first; all rows in order for an empty q. score is fuzzyScore (fuzzy.js).
+export function filterRows(rows, q, score) {
+  const t = String(q || '')
+    .trim()
+    .toLowerCase();
+  if (!t) return rows.slice();
+  return rows
+    .map((r, i) => ({ r, i, s: score(r, t) }))
+    .filter((m) => m.s >= 0)
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((m) => m.r);
+}

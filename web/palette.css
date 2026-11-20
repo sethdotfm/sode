@@ -156,3 +156,52 @@
 .sode-palette__list [data-pb-tip]::after {
   display: none;
 }
+
+/* The Protect picker (protectpick.js), opened from the Palette's Protect and Clear Protect rows. */
+#protpick > .sode-protpick {
+  max-width: calc(100vw - 2 * var(--pb-space-4));
+  width: min(50vw, 44rem);
+}
+.sode-protpick .pb-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-protpick__list {
+  display: flex;
+  flex-direction: column;
+  max-height: min(55vh, calc(100dvh - 18rem));
+  overflow-y: auto;
+}
+.sode-protpick__row {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-height: var(--pb-control-h);
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+.sode-protpick__row:hover {
+  background: var(--pb-surface-hover);
+}
+.sode-protpick__row[data-cue] {
+  background: var(--pb-surface-hover);
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
+}
+.sode-protpick__row > .pb-check__input {
+  pointer-events: none;
+}
+.sode-protpick__hint {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+.sode-protpick__count {
+  color: var(--pb-text-muted);
+  margin-right: auto;
+}
+.sode-protpick__plan {
+  display: flex;
+  flex-direction: column;
+  max-height: 40vh;
+  overflow-y: auto;
+}

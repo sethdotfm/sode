@@ -10,6 +10,7 @@ import { openFilters } from './filters.js';
 import { toggleCompact, compactOn } from './device.js';
 import { showResult } from './banner.js';
 import { rowByKey } from './palettecatalogue.js';
+import { openProtectPick } from './protectpick.js';
 
 function openSettingsAt(t) {
   if (document.documentElement.dataset.view !== 'settings') $('settings-open').click();
@@ -25,6 +26,7 @@ function runAction(id) {
     showResult('ok', 'Compact view changed', `Compact view is ${compactOn() ? 'on' : 'off'} now.`);
   } else if (id === 'shortcuts') emit('openShortcuts');
   else if (id === 'stepIn') $('account-stepin').click();
+  else if (id === 'protect' || id === 'unprotect') openProtectPick(id === 'protect');
 }
 
 // A Settings button (buttonMode in palettecatalogue.js) is pressed, so its own guards run, such as the PIN of a dialog

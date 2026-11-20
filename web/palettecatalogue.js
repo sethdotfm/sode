@@ -9,7 +9,8 @@
 // - settings: [{ section, sectionTitle, topic, id, label, button }], from the Settings form (palettesettings.js). button
 //   is the button's id, or '' for a setting.
 // - who: { role, user, rights, locks, users, phone, stepped }. This is the browser's own sign-in, never a panel key.
-//   It holds lockState's role and user, myRights, and the hello's cfg.locks and users.
+//   It holds lockState's role and user, myRights, and the hello's cfg.locks and users. protectDevice is Sode's device
+//   number for Protects (0 is off).
 // - keyList: true when this page has its own key list (Home and a Grid panel page). Keyboard shortcuts opens it here,
 //   else it opens Home and says so.
 //
@@ -31,6 +32,7 @@
 import { allowed } from './rightsrules.js';
 import { sectionView, SECTION_ROLES, ROLE_WHO } from './settingsrolerules.js';
 import { stepInOffered } from './stepinrules.js';
+import { protectRight } from './protectrules.js';
 
 const SCOPE_WORD = { global: 'Everyone', user: 'Me', local: 'This browser', all: '' };
 
@@ -52,6 +54,16 @@ export const ACTIONS = Object.freeze([
   { id: 'undo', label: 'Undo the last Sode take', icon: 'undo-2', home: true, desktop: true, words: ['undo', 'back'] },
   { id: 'presets', label: 'All presets', icon: 'list', home: true, words: ['presets popup', 'fire'] },
   { id: 'filters', label: 'Filters', icon: 'filter', home: true, words: ['history', 'filter sets'] },
+  // The Protect picker (protectpick.js): pick destinations, then the Confirm. protect: needs the Protect right.
+  { id: 'protect', label: 'Protect', icon: 'shield', home: true, protect: true, words: ['protect destinations', 'shield'] },
+  {
+    id: 'unprotect',
+    label: 'Clear Protect',
+    icon: 'shield-off',
+    home: true,
+    protect: true,
+    words: ['unprotect', 'clear protects', 'protect', 'shield'],
+  },
   { id: 'compact', label: 'Compact view on or off', icon: 'minimize-2', home: true, desktop: true, words: ['compact', 'hide history'] },
   { id: 'theme', label: 'Dark or light theme', icon: 'moon', words: ['theme', 'dark', 'light', 'colour', 'color'] },
   { id: 'shortcuts', label: 'Keyboard shortcuts', icon: 'keyboard', home: true, desktop: true, words: ['keys', 'help', 'shortcut list'] },
@@ -132,6 +144,12 @@ function settingAccess(section, who) {
   return { ok: false, lock: false, why: `Outside your Role. Only ${by} can see this.`, offer: stepOffer(who) };
 }
 
+function protectAccess(who) {
+  if (!protectRight(who.rights, who.role, who.users)) return { ok: false, lock: false, why: 'Outside your Rights: Protect.', offer: stepOffer(who) };
+  if (!(who.protectDevice > 0)) return { ok: false, lock: false, why: "Set Sode's device number in Settings > Routers > Protects first.", offer: [] };
+  return OK;
+}
+
 const presetAccess = (p, who) =>
   allowed(who.rights, 'presets', p.id) ? OK : { ok: false, lock: false, why: `Outside your Rights: preset ${p.name}.`, offer: stepOffer(who) };
 
@@ -169,6 +187,7 @@ export function catalogue(src) {
       home: !!a.home && !own,
       hint,
       target: { id: a.id },
+      ...(a.protect ? { access: protectAccess(who) } : {}),
     });
   }
 

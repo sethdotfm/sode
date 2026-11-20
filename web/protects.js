@@ -7,7 +7,7 @@ import { el, S, on, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_DOWN }
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
-import { holdsOn, holdLabel, protectOffer } from './protectrules.js';
+import { holdsOn, holdLabel, protectOffer, protectRight } from './protectrules.js';
 
 let seq = 0;
 const pending = new Map(); // id → { plan, answer }
@@ -18,9 +18,8 @@ on('access', (a) => {
 
 const device = () => S.cfg?.protectDevice || 0;
 
-// The signed-in Rights carry the Protect right set from the Role. With nobody signed in there are none: only a
-// Sode with no users (every browser an Administrator) offers it then.
-const right = () => (S.myRights ? S.myRights.protect === true : role === 'administrator' && !S.users?.length);
+// The signed-in Rights carry the Protect right set from the Role (protectRight).
+const right = () => protectRight(S.myRights, role, S.users);
 
 export const protectState = (n) => holdsOn(S.prot, S.protBy, n, allLevels(), device());
 
@@ -29,7 +28,28 @@ export function protectPlan(dst, on, undo = null) {
   return { verb: on ? 'protect' : 'unprotect', protect: { dst, on, undo }, items: [] };
 }
 
+// The Protect picker's plan (protectpick.js): one Confirm for many destinations. One destination is a usual plan.
+export function protectManyPlan(dsts, on) {
+  if (dsts.length === 1) return protectPlan(dsts[0], on);
+  return { verb: on ? 'protect' : 'unprotect', protect: { dst: dsts[0], dsts, on, undo: null }, items: [] };
+}
+
+function manySummary(dsts, on) {
+  const rows = dsts.map((d) => {
+    const p = protectState(d.n);
+    const hold = !on && p.sode ? [el('span', 'pb-badge pb-badge--warn', holdLabel(p.sode))] : [];
+    return el('div', 'sode__route', el('strong', null, labelNode(d)), ...hold);
+  });
+  return [
+    el('div', null, on ? `Protect these ${dsts.length} destinations on every level?` : `Clear the Protect on these ${dsts.length} destinations?`),
+    ...(on ? [el('div', 'sode__route', levelBar(allLevels()), el('span', 'pb-badge pb-badge--warn', 'Protected by Sode'))] : []),
+    el('div', 'sode-protpick__plan', ...rows),
+    ...(on ? [el('div', 'sode__hist-note', 'Nobody can change them until they are cleared: not panels, not DashBoard, not Sode.')] : []),
+  ];
+}
+
 export function protectSummary(plan) {
+  if (plan.protect.dsts) return manySummary(plan.protect.dsts, plan.protect.on);
   const { dst, on, undo } = plan.protect;
   const strong = el('strong', null, labelNode(dst));
   const all = allLevels();
@@ -84,8 +104,37 @@ export function protectKey(dst, set, confirm) {
   return true;
 }
 
+// A plan of many destinations sends one request each. The server sets each one alone, so each gets its own History
+// row, and one banner tells the result of all.
+function sendMany(plan) {
+  const { dsts, on } = plan.protect;
+  const many = { on, left: dsts.length, done: [], failed: [] };
+  for (const dst of dsts) {
+    const id = ++seq;
+    if (!wsSend({ t: on ? 'protectSet' : 'protectClear', id, protect: { dst: dst.n } })) {
+      for (const [k, p] of pending) if (p.many === many) pending.delete(k);
+      showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
+      return false;
+    }
+    pending.set(id, { plan: protectPlan(dst, on), many });
+  }
+  showResult('info', on ? 'Protecting…' : 'Clearing the Protects…', `${dsts.length} destinations, every level`);
+  return true;
+}
+
+function manyResult(many, dst, m) {
+  if (m.ok) many.done.push(dst);
+  else many.failed.push(`${dst.label}: ${m.admin ? 'another user set it, so an Administrator must clear it' : m.err || 'refused'}`);
+  if (--many.left > 0) return;
+  const n = many.done.length;
+  const head = many.on ? `${n} Protected` : `${n} Protects cleared`;
+  if (!many.failed.length) return showResult('ok', head, 'Every level.');
+  showResult(n ? 'warn' : 'error', `${head}, ${many.failed.length} failed`, `${many.failed.join('. ')}.`);
+}
+
 // ap: an Approval in person; answer: the Approval popup's { fail, done }.
 export function sendProtect(plan, ap = null, answer = null) {
+  if (plan.protect.dsts) return sendMany(plan);
   const { dst, on, undo } = plan.protect;
   const id = ++seq;
   const msg = on ? { t: 'protectSet', id, protect: { dst: dst.n } } : { t: 'protectClear', id, protect: { dst: dst.n } };
@@ -106,6 +155,7 @@ function onResult(m) {
   if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('ok', 'Protect cleared', 'Approved.'));
   pending.delete(m.id);
   const { dst, on } = p.plan.protect;
+  if (p.many) return manyResult(p.many, dst, m);
   if (p.answer && m.approval) return void p.answer.fail(m.err);
   p.answer?.done();
   if (m.ok) {
