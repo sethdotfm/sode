@@ -1,12 +1,11 @@
 import { $ } from './core.js';
-import { chord, modChord, undoKey, browseStep } from './keys.js';
+import { chord, modChord, undoKey, ctrlChar, browseStep } from './keys.js';
 import { layout } from './layout.js';
 import { flipped, toggleCompact } from './device.js';
 import { levelsShown } from './levelview.js';
 
 // A box with text keeps the OS text-undo chord to undo its typing.
 const typedUndo = (e, undo) => undo.own && e.target instanceof HTMLInputElement && !!e.target.value;
-const KEY_LIST = new Set(['ctrl+?', 'ctrl+shift+?', 'ctrl+shift+/']);
 // [box, Next]. Levels has no Next.
 const LAST = { 'ctrl+s': ['src', false], 'ctrl+d': ['dst', false], 'ctrl+f': ['lvl', false], 'ctrl+shift+s': ['src', true], 'ctrl+shift+d': ['dst', true] };
 
@@ -35,7 +34,7 @@ export function desktopKeys({
     if (layout() !== 'desktop' || document.documentElement.hasAttribute('data-sode-setup')) return;
     // Ctrl+? toggles the shortcut list anywhere, even mid-typing. Matched by character (any
     // layout) and by the / key, for browsers reporting e.key without Shift under Ctrl.
-    if (KEY_LIST.has(chord(e))) {
+    if (ctrlChar(e, '?') || (ctrlChar(e, e.key) && e.shiftKey && e.code === 'Slash')) {
       e.preventDefault();
       e.stopImmediatePropagation(); // not Settings' own keys
       if (keys.shown()) keys.close(true);
@@ -90,7 +89,7 @@ export function desktopKeys({
       else enterKeys();
       return;
     }
-    if (chord(e) === 'ctrl+,') {
+    if (ctrlChar(e, ',')) {
       e.preventDefault();
       $('settings-open').click();
       return;

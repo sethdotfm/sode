@@ -20,6 +20,10 @@ export function modChord(e, isMac = mac) {
   return `mod+${e.altKey ? 'alt+' : ''}${e.shiftKey ? 'shift+' : ''}${keyName(e)}`;
 }
 
+// Control with a typed character, for a sign that sits on a letter key on some layouts (AZERTY has , and ? on KeyM,
+// which chord() would name m).
+export const ctrlChar = (e, ch) => e.ctrlKey && !e.metaKey && !e.altKey && e.key === ch;
+
 // Undo: Ctrl+Z, or Cmd+Z on a Mac, by the typed letter so a QWERTZ keyboard keeps its Z. own is true for the OS's
 // own text-undo chord, which a box with text keeps. null for any other key.
 export function undoKey(e, isMac = mac) {

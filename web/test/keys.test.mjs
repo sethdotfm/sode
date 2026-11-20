@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chord, mac, listStep, resultStep, addClick, browseStep, primary, modChord, undoKey, keyLabel, ariaKeys } from '../keys.js';
+import { chord, mac, listStep, resultStep, addClick, browseStep, primary, modChord, undoKey, ctrlChar, keyLabel, ariaKeys } from '../keys.js';
 
 const k = (key, code, mods = {}) => ({ key, code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -127,4 +127,13 @@ test("undo goes by the typed z, and only the OS text-undo chord is a text box's 
   assert.equal(undoKey(k('y', 'KeyZ', { ctrlKey: true }), false), null);
   assert.equal(undoKey(k('Z', 'KeyZ', { ctrlKey: true, shiftKey: true }), false), null);
   assert.equal(undoKey(k('z', 'KeyZ'), true), null);
+});
+
+test('Ctrl+? and Ctrl+, go by the typed character, so AZERTY (both on KeyM) keeps them', () => {
+  assert.equal(ctrlChar(k('?', 'KeyM', { ctrlKey: true, shiftKey: true }), '?'), true);
+  assert.equal(ctrlChar(k(',', 'KeyM', { ctrlKey: true }), ','), true);
+  assert.equal(ctrlChar(k('?', 'Slash', { ctrlKey: true, shiftKey: true }), '?'), true);
+  assert.equal(ctrlChar(k(',', 'Comma', { metaKey: true }), ','), false);
+  assert.equal(ctrlChar(k(',', 'Comma', { ctrlKey: true, altKey: true }), ','), false);
+  assert.equal(ctrlChar(k('m', 'KeyM', { ctrlKey: true }), ','), false);
 });
