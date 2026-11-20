@@ -30,8 +30,8 @@ func TestChromeGridPanelTakeFlow(t *testing.T) {
 	gridKey(b, "Enter")
 	b.waitFor("the take confirm", `!document.getElementById('confirm').hidden`)
 	body := b.eval(`document.getElementById('confirm-body').textContent`).(string)
-	if !strings.Contains(body, "Currently") || !strings.Contains(body, "CG1 Fill") {
-		t.Errorf("the confirm does not show Currently with CG1 Fill: %q", body)
+	if !strings.Contains(body, "Replacing") || !strings.Contains(body, "CG1 Fill") {
+		t.Errorf("the confirm does not show Replacing with CG1 Fill: %q", body)
 	}
 	gridKey(b, "Escape")
 	b.waitFor("the confirm closes", `document.getElementById('confirm').hidden`)

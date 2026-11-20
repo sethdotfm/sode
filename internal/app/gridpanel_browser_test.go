@@ -118,6 +118,14 @@ func TestChromeGridPanelTake(t *testing.T) {
 		b.call("Input.dispatchKeyEvent", map[string]any{"type": typ, "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13})
 	}
 	b.waitFor("the confirm lists both destinations", `document.getElementById('confirm-body').textContent.includes('2 destinations')`)
+	// It reads and looks as Home's Confirm. The question names each destination by number and name. The boxes show
+	// numbered ends under a numbered head.
+	if q := b.eval(`document.querySelector('#confirm-body > div').textContent`).(string); q != "Take 2 sources to 2 destinations: 3 DSM1 and 4 DSM2?" {
+		t.Errorf("the confirm asks %q", q)
+	}
+	if got := b.eval(`[...document.querySelectorAll('#confirm-body .sode__plan-head')].map((h) => h.firstChild.textContent + ' ' + h.children[1].textContent).join('|') + ' ' + document.querySelector('#confirm-body .sode__end--dst .sode__lbl-n')?.textContent`).(string); got != "1/2 3 DSM1|2/2 4 DSM2 3" {
+		t.Errorf("the confirm's boxes are %q", got)
+	}
 	b.shot("confirm")
 	gridConfirm(b)
 	tallyHas(t, a, ana, 2, simSrc)

@@ -21,12 +21,18 @@ test('one item per destination, with each source and its levels, in staged order
       {
         dst: 1,
         dstName: 'MON B',
+        dstLabel: { num: '2', name: 'MON B' },
         groups: [
-          { src: 0, srcName: 'CAM 1', levels: [1] },
-          { src: 1, srcName: 'CAM 2', levels: [2] },
+          { src: 0, srcName: 'CAM 1', srcLabel: { num: '1', name: 'CAM 1' }, levels: [1] },
+          { src: 1, srcName: 'CAM 2', srcLabel: { num: '2', name: 'CAM 2' }, levels: [2] },
         ],
       },
-      { dst: 0, dstName: 'MON A', groups: [{ src: 2, srcName: 'VT 1', levels: [1, 2] }] },
+      {
+        dst: 0,
+        dstName: 'MON A',
+        dstLabel: { num: '1', name: 'MON A' },
+        groups: [{ src: 2, srcName: 'VT 1', srcLabel: { num: '3', name: 'VT 1' }, levels: [1, 2] }],
+      },
     ],
   });
 });
@@ -34,6 +40,7 @@ test('one item per destination, with each source and its levels, in staged order
 test('a name the router has not given reads as the number shown', () => {
   const plan = planOf([{ src: 9, dst: 0, levels: [1] }], names);
   assert.equal(plan.items[0].groups[0].srcName, 'Source 10');
+  assert.deepEqual(plan.items[0].groups[0].srcLabel, { num: '10', name: '' }, 'the confirm shows only the number');
 });
 
 test('with the tally, each item has Currently: what the destination has on the take levels, by source', () => {
@@ -54,7 +61,7 @@ test('with the tally, each item has Currently: what the destination has on the t
     tally,
   );
   assert.deepEqual(plan.items[0].now, [
-    { src: 2, srcName: 'VT 1', levels: [1, 2] },
+    { src: 2, srcName: 'VT 1', srcLabel: { num: '3', name: 'VT 1' }, levels: [1, 2] },
     { src: -1, srcName: 'nothing', levels: [3] },
     { src: null, srcName: 'unknown', levels: [4] },
   ]);
@@ -75,5 +82,5 @@ test('Currently covers the levels of every source the destination takes, once ea
       { dst: 0, level: 2, src: 2 },
     ],
   };
-  assert.deepEqual(currentlyOf(item, tally, names), [{ src: 2, srcName: 'VT 1', levels: [1, 2] }]);
+  assert.deepEqual(currentlyOf(item, tally, names), [{ src: 2, srcName: 'VT 1', srcLabel: { num: '3', name: 'VT 1' }, levels: [1, 2] }]);
 });

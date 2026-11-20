@@ -46,7 +46,11 @@ test('parseList: plain searches and half-typed lists are not lists', () => {
     'DSM-1',
     'Cam 1, Rec',
     '1-4 PIP 1',
-    'MV 1-4 PIP 1-2',
+    '1-4 PIP 1-2',
+    'MV 1-4 PIP 1-2 X 1-2',
+    'MV 1-4 PIP 1-Cam 2',
+    'MV 1-4 PIP 1-2-3',
+    'Rec 1-2 DSM-1',
   ]) {
     assert.equal(parseList(t), null, JSON.stringify(t));
   }
@@ -63,7 +67,21 @@ test('parseList reads a tail after a range of names', () => {
   assert.equal(parseList('MV 1-4 PIP 1').count, 4);
 });
 
+test('parseList reads a second range in the tail', () => {
+  const mv = { stem: 'MV', from: 1, to: 4, sub: { stem: 'PIP', from: 1, to: 2, tail: '' } };
+  assert.deepEqual(parts('MV 1-4 PIP 1-2'), [mv]);
+  assert.deepEqual(parts('MV1-4PIP1-2'), [mv]);
+  assert.deepEqual(parts('MV 1-MV 4 PIP 1-PIP 2'), [mv]);
+  assert.deepEqual(parts('MV 4-1 PIP 2-1'), [mv], 'ranges written high to low');
+  assert.deepEqual(parts('MV 1-4 PIP 1-2 L'), [{ ...mv, sub: { ...mv.sub, tail: 'L' } }]);
+  assert.deepEqual(parts('MV 1-4 PIP 1-2, Rec 3'), [mv, { stem: 'Rec', from: 3, to: 3 }]);
+  assert.equal(parseList('MV 1-4 PIP 1-2').count, 8);
+  assert.equal(parseList('MV 1-4 PIP 1-2, 7').count, 9);
+});
+
 test('parseList marks a list with too many items', () => {
+  assert.equal(parseList('MV 1-10 PIP 1-10').tooMany, false);
+  assert.equal(parseList('MV 1-10 PIP 1-11').tooMany, true, 'the product counts');
   assert.equal(parseList(`1-${LIST_MAX}`).tooMany, false);
   assert.equal(parseList(`1-${LIST_MAX + 1}`).tooMany, true);
   assert.equal(parseList('1-99999').tooMany, true);
@@ -117,6 +135,24 @@ test('listMatches: a tail filters the range, with spaces between words and numbe
     listMatches(parseList('MV 1-1 PIP 1'), mv).found.map((it) => it.n),
     [20],
     'MV 11 PIP 1 is not MV 1 PIP 1',
+  );
+});
+
+test('listMatches: a second range in the tail runs inside the first range', () => {
+  const mv = [];
+  for (let k = 1; k <= 3; k++) for (let j = 1; j <= 2; j++) mv.push({ n: mv.length, num: String(mv.length + 1), name: `MV ${k} PIP ${j}` });
+  mv.push({ n: 20, num: '21', name: 'mv4pip1' });
+  mv.push({ n: 21, num: '22', name: 'MV 1 PIP 11' });
+  const m = listMatches(parseList('MV 1-4 PIP 1-2'), mv);
+  assert.deepEqual(
+    m.found.map((it) => it.name),
+    ['MV 1 PIP 1', 'MV 1 PIP 2', 'MV 2 PIP 1', 'MV 2 PIP 2', 'MV 3 PIP 1', 'MV 3 PIP 2', 'mv4pip1'],
+  );
+  assert.deepEqual(m.missing, ['MV 4 PIP 2']);
+  assert.deepEqual(
+    listMatches(parseList('MV 2-1 PIP 02-01'), mv).found.map((it) => it.name),
+    ['MV 1 PIP 1', 'MV 1 PIP 2', 'MV 2 PIP 1', 'MV 2 PIP 2'],
+    'the list order stays, with no leading zeros',
   );
 });
 

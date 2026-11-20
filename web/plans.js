@@ -11,6 +11,7 @@ import { showResult, setResult } from './banner.js';
 import { writeJSON, writeStr } from './store.js';
 import { onMyRights } from './editorrights.js';
 import { nextAfter } from './boxlist.js';
+import { strong, destPart, takeQuestion, planItemHead } from './confirmtext.js';
 export { showResult, resultNode } from './banner.js';
 export { nameStem } from './boxlist.js';
 
@@ -291,14 +292,12 @@ export function planBlocked(plan) {
 }
 
 function planQuestion(plan) {
-  const strong = (t) => el('strong', null, t);
-  const n = plan.items.length;
-  const to = n === 1 ? ['Destination ', strong(labelNode(plan.items[0].dst))] : [strong(`${n} destinations`)];
+  const to = destPart(plan.items.map((i) => i.dst));
   const uniq = (its) => [...new Map(its.map((it) => [it.n, it])).values()];
   if (plan.at) {
     return el('div', null, 'Go back to ', strong(labelNode(srcItem(plan.at.src, plan.at.srcName))), ' on ', ...to, `, as at ${fmtClock(plan.at.time)}?`);
   }
-  const stack = n === 1 && plan.items[0].undo?.chain;
+  const stack = plan.items.length === 1 && plan.items[0].undo?.chain;
   if (stack) {
     return el('div', null, `Undo ${stack.length} changes on `, ...to, `, back to before ${fmtClock(stack[stack.length - 1].time)}?`);
   }
@@ -307,32 +306,15 @@ function planQuestion(plan) {
     return el('div', null, 'Undo the take of ', srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`, ' to ', ...to, '?');
   }
   const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
-  const what = VERBS[plan.verb].ask;
-  // A take to many destinations names each one by number and name. So the count is never all the Confirm says, and the
-  // operator reads what will change before the take. A mixed plan names them in the order mixedParts shows them: the
-  // boxes' destinations first. Past NAMED the boxes below still name each one.
+  // A mixed plan names the destinations in the order mixedParts shows them: the boxes' destinations first.
   const boxed = (i) => i.groups.some((g) => !g.staged);
   const order = plan.mixed ? [...plan.items.filter(boxed), ...plan.items.filter((i) => !boxed(i))] : plan.items;
-  const shown = order.slice(0, order.length > NAMED ? NAMED - 1 : NAMED).map((i) => strong(labelNode(i.dst)));
-  const more = order.length - shown.length;
-  const names = n > 1 ? [': ', ...nameList(more ? [...shown, `${more} more`] : shown)] : [];
-  return el(
-    'div',
-    null,
-    `${what[0].toUpperCase()}${what.slice(1)} `,
-    ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]),
-    ' to ',
-    ...to,
-    ...names,
-    '?',
+  return takeQuestion(
+    VERBS[plan.verb].ask,
+    srcs,
+    order.map((i) => i.dst),
   );
 }
-
-// The most destinations the Confirm's question names one by one.
-const NAMED = 8;
-
-// "a, b and c" from nodes.
-const nameList = (nodes) => nodes.flatMap((x, i) => (i === 0 ? [x] : [i === nodes.length - 1 ? ' and ' : ', ', x]));
 
 // Levels an undo would overwrite besides the take's own: those restored where dst no longer has
 // the take's source. Levels the take never confirmed cannot tell, so only the rest are checked;
@@ -411,12 +393,7 @@ export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) 
 }
 
 function planItemBox(item, count, prot, since, badge = null) {
-  return el(
-    'section',
-    'sode__plan-item',
-    el('div', 'sode__plan-head', el('span', 'sode__plan-n', count), el('strong', null, labelNode(item.dst)), badge),
-    ...itemSummary(item, true, prot, since),
-  );
+  return el('section', 'sode__plan-item', planItemHead(count, item.dst, badge), ...itemSummary(item, true, prot, since));
 }
 
 // One Take with staged routes and the patch boxes' route (gridPlan, mixed). The boxes' route shows first, under its own
