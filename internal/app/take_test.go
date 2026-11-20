@@ -196,7 +196,7 @@ func (f *fakeRouter) sends() int {
 
 func routeOne(t *testing.T, a *App, src, dst int, levels ...int) Entry {
 	t.Helper()
-	a.route(&client{ip: "10.0.0.1"}, routeReq{ID: 1, Src: src, Dst: dst, Levels: levels})
+	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{{ID: 1, Src: src, Dst: dst, Levels: levels}})
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].Ext {
 		t.Fatalf("no take recorded: %+v", es)
@@ -873,6 +873,30 @@ func TestTakeBigCheckUnanswered(t *testing.T) {
 	if len(es) != len(dsts) || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK || !equalPrev(e.Prev, [][2]int{{1, 1}, {2, 1}, {3, 1}}) }) {
 		t.Fatalf("takes %+v", es)
 	}
+}
+
+// A small take waits for one check of all its routes. One silent destination delays every route by checkTimeout,
+// then each route takes Prev from the cache and the take reports the check unread.
+func TestTakeSmallCheckUnanswered(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	for _, d := range []int{0, 1} {
+		f.seed(d, 1, 0, 1, 2)
+	}
+	f.mute[1] = true
+	start := time.Now()
+	if !a.takeAllowed(&client{ip: "10.0.0.1"}, bigItems(7, 0, 1)) {
+		t.Fatal("a check with no answer for dst 1 reported every route read")
+	}
+	if d := time.Since(start); d < a.checkTimeout {
+		t.Fatalf("took %v, under checkTimeout", d)
+	}
+	es, _ := a.hist.Page(-1, 20)
+	if len(es) != 2 || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK || !equalPrev(e.Prev, [][2]int{{1, 1}, {2, 1}, {3, 1}}) }) {
+		t.Fatalf("takes %+v", es)
+	}
+	leftovers(t, a)
 }
 
 func TestTakeSmallChecksEachRoute(t *testing.T) {

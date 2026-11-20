@@ -34,7 +34,7 @@ func runTake(a *App, req routeReq) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		a.route(&client{ip: "10.0.0.1"}, req)
+		a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{req})
 	}()
 	return done
 }
@@ -55,7 +55,7 @@ func TestRouterChangeCutsTake(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true // the connects go out and nobody answers
-	done := runTake(a, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2}, NoCheck: true})
+	done := runTake(a, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2}})
 	waitFor(t, "the take to register", func() bool {
 		a.mu.Lock()
 		registered := len(a.waiters) == 1

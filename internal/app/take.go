@@ -3,13 +3,11 @@ package app
 import (
 	"errors"
 	"fmt"
-	"log"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -28,8 +26,6 @@ type routeReq struct {
 	Preset string `json:"-"` // set by the take handler: the preset this route came from (cleanPresetName)
 	// PresetID is that preset's hidden id, which Rights check, so a rename keeps who can fire it.
 	PresetID string `json:"-"`
-	// NoCheck: prepare does not read dst first. A big take read it already (checkRoutes), and tests turn the check off.
-	NoCheck bool `json:"-"`
 	// Stage: levels, by wire number, that go in a native group salvo (fire.go); other levels go as ordinary connects.
 	Stage map[int]bool `json:"-"`
 }
@@ -37,8 +33,8 @@ type routeReq struct {
 // routeLimit: one take runs this many routes at one time; the link sends one message per ACK, so more would time out.
 const routeLimit = 8
 
-// bigTake: from this many routes per confirm, the check before take reads the whole take at once, one level at a
-// time. It can use a tally dump (takecheck.go). Under it, each route reads its own levels.
+// bigTake: from this many routes per confirm, the check before take can read a level with a tally dump
+// (takecheck.go). Under it, the check interrogates each destination level.
 const bigTake = 6
 
 // take is the one entry point for every confirmed take (browser plan, Undo, Redo, Retry, presets, API).
@@ -57,12 +53,8 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 // some route, so its Prev came from the cache.
 func (a *App) takeAllowed(c *client, items []routeReq) (unread bool) {
 	r := a.r()
-	if len(items) >= bigTake {
-		unread = !a.checkRoutes(r, c, items)
-		for i := range items {
-			items[i].NoCheck = true
-		}
-	}
+	ext, read := a.checkRoutes(r, c, items)
+	unread = !read
 	if len(items) > 1 {
 		g := strconv.FormatInt(time.Now().UnixNano(), 36)
 		for i := range items {
@@ -71,20 +63,16 @@ func (a *App) takeAllowed(c *client, items []routeReq) (unread bool) {
 	}
 	if r.cfg.FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
-			return a.takeNative(r, c, items) || unread
+			a.takeNative(r, c, items, ext)
+			return unread
 		}
 		// A lone staged take would wait for a Go that never comes.
 		for i := range items {
 			items[i].Stage = nil
 		}
 	}
-	var missed atomic.Bool
-	runLimited(routeLimit, len(items), func(i int) {
-		if a.route(c, items[i]) {
-			missed.Store(true)
-		}
-	})
-	return unread || missed.Load()
+	runLimited(routeLimit, len(items), func(i int) { a.route(c, items[i], ext) })
+	return unread
 }
 
 func runLimited(limit, n int, fn func(i int)) {
@@ -171,7 +159,6 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	w.ext = a.ext
 	e.SrcName, e.DstName = a.router.srcNames[w.src], a.router.dstNames[w.dst]
 	for _, l := range w.levels {
 		if _, ok := a.router.protect[w.dst][l.ui]; ok {
@@ -184,21 +171,15 @@ func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 	return protected
 }
 
-// checkPhase returns unread when the check got no answer for some level; Prev then comes from the cache.
-func (a *App) checkPhase(r *runtime, w *waiter, e *Entry, noCheck bool) (unread bool) {
-	// Prev from the router, not a cache, since it is possible that the cache missed a change; differing answers
-	// are logged as found.
-	if !noCheck && !a.checkTally(r, w) {
-		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", w.dst, a.checkTimeout)
-		unread = true
-	}
+// registerPhase takes Prev from the cache, which the check before take (takeAllowed) read from the router.
+// The check's answers that differ from the cache are logged as found first.
+func (a *App) registerPhase(w *waiter, e *Entry) {
 	a.flushFound(w.dst)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	e.Time = time.Now()
 	a.cachePrev(w, e)
 	w.register(a)
-	return unread
 }
 
 func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*routeLevel, sendErr error) error {
@@ -226,15 +207,14 @@ func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*routeLeve
 	return nil
 }
 
-// route runs one route; unread as in routeRun.
-func (a *App) route(c *client, req routeReq) (unread bool) {
+// route runs one route on ext. It does not read the router first: takeAllowed does that for the whole take.
+func (a *App) route(c *client, req routeReq, ext *extTracker) {
 	r := a.r()
-	t := a.prepare(r, c, req)
+	t := a.prepare(r, c, req, ext)
 	if t == nil {
-		return false
+		return
 	}
 	a.complete(r, t, a.sendRoute(r, t.w))
-	return t.unread
 }
 
 type routeRun struct {
@@ -242,13 +222,11 @@ type routeRun struct {
 	res *routeResult
 	w   *waiter
 	e   *Entry
-	// unread: prepare's check got no answer for some level, so Prev came from the cache.
-	unread bool
 }
 
 // prepare returns nil when the route is over (bad request or protected dst), already
-// answered and recorded.
-func (a *App) prepare(r *runtime, c *client, req routeReq) *routeRun {
+// answered and recorded. ext is the tracker that the take's check started on (checkRoutes).
+func (a *App) prepare(r *runtime, c *client, req routeReq, ext *extTracker) *routeRun {
 	res := &routeResult{T: "takeResult", ID: req.ID}
 	w, e, err := a.planPhase(r, c, req)
 	if err != nil {
@@ -256,6 +234,7 @@ func (a *App) prepare(r *runtime, c *client, req routeReq) *routeRun {
 		a.reply(c, res)
 		return nil
 	}
+	w.ext = ext
 	for _, l := range w.levels {
 		l.native = req.Stage[l.wire]
 	}
@@ -263,8 +242,8 @@ func (a *App) prepare(r *runtime, c *client, req routeReq) *routeRun {
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
 		return nil
 	}
-	unread := a.checkPhase(r, w, e, req.NoCheck)
-	return &routeRun{c: c, res: res, w: w, e: e, unread: unread}
+	a.registerPhase(w, e)
+	return &routeRun{c: c, res: res, w: w, e: e}
 }
 
 func (a *App) complete(r *runtime, t *routeRun, sendErr error) {
