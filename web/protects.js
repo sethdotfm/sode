@@ -44,7 +44,6 @@ function manySummary(dsts, on) {
     el('div', null, on ? `Protect these ${dsts.length} destinations on every level?` : `Clear the Protect on these ${dsts.length} destinations?`),
     ...(on ? [el('div', 'sode__route', levelBar(allLevels()), el('span', 'pb-badge pb-badge--warn', 'Protected by Sode'))] : []),
     el('div', 'sode-protpick__plan', ...rows),
-    ...(on ? [el('div', 'sode__hist-note', 'Nobody can change them until they are cleared: not panels, not DashBoard, not Sode.')] : []),
   ];
 }
 
@@ -57,7 +56,6 @@ export function protectSummary(plan) {
     return [
       el('div', null, undo ? 'Undo the Clear Protect: Protect ' : 'Protect ', strong, ' on every level?'),
       el('div', 'sode__route', levelBar(all), el('span', 'pb-badge pb-badge--warn', 'Protected by Sode')),
-      el('div', 'sode__hist-note', 'Nobody can change it until it is cleared: not panels, not DashBoard, not Sode.'),
     ];
   }
   const p = protectState(dst.n);

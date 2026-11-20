@@ -3,7 +3,7 @@
 // filters the list; the user picks one or more, then the usual Confirm (the host's, with its churning letter) sends
 // them. The server checks each one again.
 import { el, S, on as onBus, icon, labelNode } from './core.js';
-import { keyLabel } from './keys.js';
+import { keyLabel, listStep } from './keys.js';
 import { question } from './modal.js';
 import { fuzzyScore } from './fuzzy.js';
 import { boxHost } from './presets.js';
@@ -24,6 +24,8 @@ export function openProtectPick(set) {
   const picked = new Set(); // destination numbers
   let shown = [];
   let cur = 0;
+  // After a move with the keys, Space picks; after typing, Space types, since names have spaces.
+  let browsing = false;
 
   const find = el('input', {
     class: 'pb-input sode-protpick__find',
@@ -45,9 +47,13 @@ export function openProtectPick(set) {
   const hint = el(
     'div',
     'sode-protpick__hint',
-    el('kbd', null, keyLabel('enter')),
+    el('kbd', null, '↑ ↓'),
+    ' or ',
+    el('kbd', null, `${keyLabel('mod+j')}/k`),
+    ' move. ',
+    el('kbd', null, keyLabel('space')),
     ' picks the outlined row. ',
-    el('kbd', null, keyLabel('ctrl+enter')),
+    el('kbd', null, keyLabel('enter')),
     ' goes to the Confirm.',
   );
 
@@ -129,7 +135,9 @@ export function openProtectPick(set) {
     paint();
   }
 
+  // With nothing picked, Enter goes on with the outlined row.
   function confirm() {
+    if (!picked.size && shown[cur]) picked.add(shown[cur].n);
     const live = rows().filter((d) => picked.has(d.n));
     if (!live.length) return;
     q.close(true);
@@ -138,20 +146,24 @@ export function openProtectPick(set) {
 
   find.addEventListener('input', () => {
     cur = 0;
+    browsing = false;
     paint();
   });
   find.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    const plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+    const step = listStep(e) || (plain && { ArrowDown: 1, ArrowUp: -1 }[e.key]) || 0;
+    if (step) {
       e.preventDefault();
       if (!shown.length) return;
-      cur = (cur + (e.key === 'ArrowDown' ? 1 : -1) + shown.length) % shown.length;
+      cur = (cur + step + shown.length) % shown.length;
+      browsing = true;
       paint();
-    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      confirm();
-    } else if (e.key === 'Enter') {
+    } else if (e.key === ' ' && plain && (browsing || !find.value)) {
       e.preventDefault();
       if (shown[cur]) flip(shown[cur].n);
+    } else if (e.key === 'Enter' && plain) {
+      e.preventDefault();
+      confirm();
     }
   });
   all.addEventListener('click', () => {

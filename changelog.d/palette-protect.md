@@ -1,1 +1,3 @@
 - Palette: Protect and Clear Protect open a list of destinations on Home. Type to filter the list, pick one or more, then confirm them all in one Confirm. Each destination gets its own History row. The rows show only for a user with the Protect right, and only when Sode's device number for Protects is set. Clear Protect is a danger row: Enter does not pick it first, and its button is red.
+- In the Protect and Clear Protect list, the arrows or Ctrl+J/K (Cmd+J/K on a Mac) move the outline. Space picks the outlined row after a move, or while the find box is empty. Enter goes to the Confirm. With nothing picked, it uses the outlined row.
+- The Protect Confirm no longer has the line "Nobody can change it until it is cleared".

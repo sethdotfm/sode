@@ -84,7 +84,7 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 }
 
 // The Palette's Protect opens the picker on Home. A find narrows the list, and two picks go through one Confirm. The
-// simulator holds both on every level. Clear Protect lists only those two; Pick all shown and Ctrl+Enter clear them.
+// simulator holds both on every level. Clear Protect lists only those two; Pick all shown and Enter clear them.
 func TestChromePaletteProtectPick(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -135,9 +135,21 @@ func TestChromePaletteProtectPick(t *testing.T) {
 	pick("action:protect", "Protect")
 	b.eval(`(() => { const i = document.getElementById('protpick-find'); i.value = 'DSM'; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	b.waitFor("the find narrows the list", `[...document.querySelectorAll('#protpick-list [role=option]')].every((r) => r.textContent.includes('DSM'))`)
-	b.eval(`document.querySelector('#protpick-list [data-dst="2"]').click(); document.querySelector('#protpick-list [data-dst="3"]').click(); true`)
-	b.waitFor("two picked", `document.getElementById('protpick-go').textContent === 'Protect 2'`)
-	b.eval(`document.getElementById('protpick-go').click(); true`)
+	b.eval(`document.querySelector('#protpick-list [data-dst="2"]').click(); true`)
+	b.waitFor("one picked", `document.getElementById('protpick-go').textContent === 'Protect 1'`)
+	// After typing, Space types; after Ctrl+J, Space picks the outlined row, and Enter goes to the Confirm.
+	findKey := func(key, code string, ctrl bool) {
+		b.eval(fmt.Sprintf(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: %q, code: %q, ctrlKey: %v, bubbles: true, cancelable: true })); true`, key, code, ctrl))
+	}
+	findKey(" ", "Space", false)
+	if got := b.eval(`document.getElementById('protpick-go').textContent`).(string); got != "Protect 1" {
+		t.Fatalf("Space after typing picked a row: %q", got)
+	}
+	findKey("j", "KeyJ", true)
+	b.waitFor("Ctrl+J outlines the next row", `document.querySelector('#protpick-list [data-cue]')?.dataset.dst === '3'`)
+	findKey(" ", "Space", false)
+	b.waitFor("Space picks it", `document.getElementById('protpick-go').textContent === 'Protect 2'`)
+	findKey("Enter", "Enter", false)
 	b.waitFor("the picker closes", `!document.getElementById('protpick')`)
 	if got := b.eval(`document.querySelector('#confirm-body > div').textContent`).(string); got != "Protect these 2 destinations on every level?" {
 		t.Fatalf("Confirm asks %q", got)
@@ -152,7 +164,7 @@ func TestChromePaletteProtectPick(t *testing.T) {
 	b.waitFor("only Sode's two", `[...document.querySelectorAll('#protpick-list [role=option]')].map((r) => r.dataset.dst).join() === '2,3'`)
 	b.eval(`document.getElementById('protpick-all').click(); true`)
 	b.waitFor("both picked", `document.getElementById('protpick-go').textContent === 'Clear 2'`)
-	b.eval(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true })); true`)
+	b.eval(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); true`)
 	confirm("Confirm clear protect")
 	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protects cleared')`)
 	if n := sodeRows(); n != 0 {
