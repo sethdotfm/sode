@@ -37,8 +37,7 @@ html {
   --sode-motion-enter: 400ms;
   --sode-motion-found: 600ms;
   --sode-motion-reveal: 250ms;
-  /* A popup that opens comes in over pop, and one that closes goes out over out (the Grid popup and the Palette). */
-  --sode-motion-pop: 140ms;
+  /* A popup that closes goes out over out (the Palette). */
   --sode-motion-out: 100ms;
   --pb-font-num: var(--pb-font);
   /* Edges are twice patchbay's, so a field, a button and a box show at a glance in both themes. The grid canvas keeps
@@ -89,7 +88,6 @@ html {
     --sode-motion-enter: 0ms;
     --sode-motion-found: 0ms;
     --sode-motion-reveal: 0ms;
-    --sode-motion-pop: 0ms;
     --sode-motion-out: 0ms;
   }
 }
@@ -103,18 +101,7 @@ html {
 .sode--enter {
   animation: sode-enter var(--sode-motion-enter) var(--pb-ease);
 }
-/* A popup's open and close (gridpopup.css, palette.css; fadeOut in modal.js hides the node when the fade ends). */
-@keyframes sode-pop-in {
-  from {
-    opacity: 0;
-    translate: 0 var(--pb-space-4);
-  }
-}
-@keyframes sode-fade-in {
-  from {
-    opacity: 0;
-  }
-}
+/* A popup's close (palette.css; fadeOut in modal.js hides the node when the fade ends). */
 @keyframes sode-fade-out {
   to {
     opacity: 0;

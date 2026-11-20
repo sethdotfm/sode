@@ -42,14 +42,7 @@
 .sode-gridpop__box {
   position: relative;
 }
-/* A short fade in, and the box rises a little. Not a scale: the grid measures its cells from their boxes on screen in
-   the first frame (gridpanelview.js), and a scale would change those sizes. */
-.sode-gridpop:not(.sode-fade-out) {
-  animation: sode-fade-in var(--sode-motion-pop) var(--pb-ease);
-}
-.sode-gridpop > .sode-gridpop__box {
-  animation: sode-pop-in var(--sode-motion-pop) var(--pb-ease);
-}
+/* No open or close motion: with a full grid behind it, a fade and a rise looked unsteady (owner's call). */
 /* The shield over a destination name (gridpopshield.js), above the grid's sticky bands. */
 .sode-gridpop__shield {
   background: var(--pb-surface-overlay);

@@ -1,0 +1,1 @@
+- The Grid popup on the main page opens and closes at once, with no fade or rise.
