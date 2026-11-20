@@ -178,3 +178,15 @@ func TestSimGoLeavesProtectedCrosspoints(t *testing.T) {
 	a.send(swp08.ExtInterrogate(0, 0, 5))
 	a.want("dst 5 set", swp08.ExtTally(0, 0, 5, 9))
 }
+
+// dst and device go out as 16 bits, so a bigger number must not wrap to another one.
+func TestSimProtectSpecRefusesPast16Bits(t *testing.T) {
+	for _, f := range []string{"65536:1:1", "1:1:65536", "1:4:1"} {
+		if _, _, _, ok := protectSpec(f); ok {
+			t.Errorf("protectSpec(%q) took it", f)
+		}
+	}
+	if dst, kind, dev, ok := protectSpec("65535:3:65535"); !ok || dst != 65535 || kind != 3 || dev != 65535 {
+		t.Errorf("protectSpec at the limit = %d %d %d %v", dst, kind, dev, ok)
+	}
+}

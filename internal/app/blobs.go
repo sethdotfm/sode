@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,16 @@ type blobDir struct {
 	mem map[string][]byte
 }
 
-func (b *blobDir) path(name string) string { return filepath.Join(b.dir, filepath.FromSlash(name)) }
+var errBlobName = errors.New("blob name leaves its folder")
+
+// Callers check their ids already; this keeps a missed check from reaching a file outside dir.
+func (b *blobDir) path(name string) (string, bool) {
+	name = filepath.FromSlash(name)
+	if !filepath.IsLocal(name) {
+		return "", false
+	}
+	return filepath.Join(b.dir, name), true
+}
 
 func (b *blobDir) put(name string, data []byte) error {
 	if b.dir == "" {
@@ -30,7 +40,10 @@ func (b *blobDir) put(name string, data []byte) error {
 		b.mem[name] = data
 		return nil
 	}
-	p := b.path(name)
+	p, ok := b.path(name)
+	if !ok {
+		return errBlobName
+	}
 	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 		return err
 	}
@@ -44,7 +57,11 @@ func (b *blobDir) get(name string) ([]byte, bool) {
 		d, ok := b.mem[name]
 		return d, ok
 	}
-	d, err := os.ReadFile(b.path(name))
+	p, ok := b.path(name)
+	if !ok {
+		return nil, false
+	}
+	d, err := os.ReadFile(p)
 	return d, err == nil
 }
 
@@ -56,7 +73,11 @@ func (b *blobDir) del(name string) error {
 		delete(b.mem, name)
 		return nil
 	}
-	if err := os.Remove(b.path(name)); err != nil && !os.IsNotExist(err) {
+	p, ok := b.path(name)
+	if !ok {
+		return errBlobName
+	}
+	if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
@@ -74,7 +95,9 @@ func (b *blobDir) delPrefix(prefix string) {
 		}
 		return
 	}
-	os.RemoveAll(b.path(prefix))
+	if p, ok := b.path(prefix); ok {
+		os.RemoveAll(p)
+	}
 }
 
 // "" is memory only and writes nothing.
