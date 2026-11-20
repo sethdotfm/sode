@@ -26,6 +26,7 @@ import { saveAsName } from './exportfmt.js';
 import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
+import { renameLocalBookmarks } from './bookmarkstore.js';
 import { browserFilters, profileFilters } from './editortargets.js';
 import { FILTER_DEFAULT, normFilter, snapshot, restore } from './filterstore.js';
 import { trapDialog, labeled } from './widgets.js';
@@ -467,7 +468,10 @@ function saveSet(done = () => {}) {
     );
   }
   if (a.scope === 'local') {
-    if (renamed) renameLocalSet(a.name, name);
+    if (renamed) {
+      renameLocalSet(a.name, name);
+      renameLocalBookmarks(`filterSet:local:${a.name}`, `filterSet:local:${name}`, name);
+    }
     nameDirty = false;
     saveLocalSet(name);
     landed();
@@ -483,6 +487,7 @@ function saveSet(done = () => {}) {
       landed();
       done();
     },
+    renamed ? { renameSet: { from: a.name, to: name } } : {},
   );
 }
 

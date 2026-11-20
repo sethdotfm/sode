@@ -33,6 +33,8 @@ type Config struct {
 	HiddenDstsRouter string      `yaml:"hiddenDstsRouter,omitempty" json:"hiddenDstsRouter,omitempty"`
 	FilterSets       []FilterSet `yaml:"filterSets,omitempty" json:"filterSets"`
 	Presets          []Preset    `yaml:"presets,omitempty" json:"presets"`
+	// Bookmarks is Everyone's list (GLOSSARY.md, Bookmark).
+	Bookmarks []Bookmark `yaml:"bookmarks,omitempty" json:"bookmarks"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
 	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
@@ -270,6 +272,7 @@ func (c Config) Clone() Config {
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Presets = ClonePresets(c.Presets)
+	c.Bookmarks = CloneBookmarks(c.Bookmarks)
 	c.Users = slices.Clone(c.Users)
 	for i := range c.Users {
 		c.Users[i].Profile = c.Users[i].Profile.Clone()
@@ -339,6 +342,7 @@ func (c *Config) Normalize() {
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
 	c.FilterSets = normalizeFilterSets(c.FilterSets)
 	c.normalizePresets()
+	c.Bookmarks = normalizeBookmarks(c.Bookmarks)
 	c.normalizeProfiles()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)

@@ -5,7 +5,7 @@
 import { on, onMsg, emit, wsSend, LINK_DOWN } from './core.js';
 import { findByName } from './profilesrules.js';
 
-const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [], pinOrder: [], palettePicks: [] });
+const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [], bookmarks: [], palettePicks: [] });
 let cur = EMPTY;
 
 export const profile = () => cur;
@@ -18,7 +18,7 @@ export function toProfile(m) {
     prefs: m.prefs && typeof m.prefs === 'object' ? m.prefs : {},
     filterSets: Array.isArray(m.filterSets) ? m.filterSets : [],
     presets: Array.isArray(m.presets) ? m.presets : [],
-    pinOrder: Array.isArray(m.pinOrder) ? m.pinOrder.filter((k) => typeof k === 'string') : [],
+    bookmarks: Array.isArray(m.bookmarks) ? m.bookmarks : [],
     palettePicks: Array.isArray(m.palettePicks) ? m.palettePicks.filter((k) => typeof k === 'string') : [],
   };
 }
@@ -69,7 +69,7 @@ on('wsclose', () => {
 // save replaces whole parts.
 let chain = Promise.resolve();
 
-// Saves some parts ({prefs}, {filterSets}, {presets}, {pinOrder}, {palettePicks}); a part left out is kept, a part sent replaces the whole list/map.
+// Saves some parts ({prefs}, {filterSets}, {presets}, {bookmarks}, {palettePicks}); a part left out is kept, a part sent replaces the whole list/map.
 // `name` defaults to the signed-in user; a Trusted user can name another. The server decides, so no PIN is asked here.
 // The own profile's local copy gets the parts at once so the next save builds on them; a failed save puts it back.
 export function saveProfile(parts, name = cur.name) {

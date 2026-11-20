@@ -207,6 +207,21 @@ test('paletteView: empty query lists last picks, then the categories', () => {
   assert.equal(v.find((x) => x.id === 'presets').count, 2);
 });
 
+test('paletteView: ticked bookmarks come first, then the last picks without them', () => {
+  const rows = catalogue(src({ page: 'log' }));
+  const marks = [rowByKey(rows, 'page:panels'), rowByKey(rows, 'preset:global:p1')];
+  const v = paletteView(rows, { last: ['preset:global:p1', 'page:log'], marks });
+  assert.deepEqual(
+    v.slice(0, 7).map((x) => x.row?.key || x.label),
+    ['page:home', 'Bookmarks', 'page:panels', 'preset:global:p1', 'Last picks', 'page:log', 'Categories'],
+  );
+  // A query searches every row; the bookmarks have no heading of their own there.
+  assert.equal(
+    paletteView(rows, { query: 'panels', marks }).some((x) => x.type === 'head'),
+    false,
+  );
+});
+
 test('paletteView: a category, Settings sections, and a search inside a level', () => {
   const rows = catalogue(src());
   assert.deepEqual(

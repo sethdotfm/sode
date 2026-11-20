@@ -23,8 +23,6 @@ type Preset struct {
 	ID    string       `yaml:"id" json:"id"`
 	Name  string       `yaml:"name" json:"name"`
 	Items []PresetItem `yaml:"items" json:"items"`
-	// Pinned: nil (older file) = true; normalizePresets always fills it.
-	Pinned *bool `yaml:"pinned,omitempty" json:"pinned,omitempty"`
 	// Broken: references the target lacked at import, or that two name polls found gone (GLOSSARY.md, Broken).
 	Broken []Missing `yaml:"broken,omitempty" json:"broken,omitempty"`
 	// Moved: references whose stored name now sits at another number (GLOSSARY.md, Name moved).
@@ -47,10 +45,6 @@ func ClonePresets(in []Preset) []Preset {
 	out := make([]Preset, len(in))
 	for i, s := range in {
 		out[i] = Preset{ID: s.ID, Name: s.Name, Items: make([]PresetItem, len(s.Items)), Broken: slices.Clone(s.Broken), Moved: slices.Clone(s.Moved), Extra: s.Extra}
-		if s.Pinned != nil {
-			p := *s.Pinned
-			out[i].Pinned = &p
-		}
 		for j, it := range s.Items {
 			out[i].Items[j] = PresetItem{Src: it.Src, Dsts: slices.Clone(it.Dsts), Levels: slices.Clone(it.Levels), Extra: it.Extra}
 		}
@@ -86,10 +80,6 @@ func normalizePresets(ps []Preset, router string) []Preset {
 			s.ID = newRouterUID()
 		}
 		ids[s.ID] = true
-		if s.Pinned == nil {
-			t := true
-			s.Pinned = &t
-		}
 		if s.Items == nil {
 			s.Items = []PresetItem{}
 		}

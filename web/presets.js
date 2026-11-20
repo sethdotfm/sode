@@ -1,9 +1,8 @@
-// Presets in the page: the buttons above History (both layouts) and the editor dialog. Storage
-// and pure parts are presetstore.js, the plan is plans.js.
+// Presets in the page: firing, filling the boxes and the editor dialog. The strip above History is the Bookmarks
+// strip (bookmarks.js). Storage and pure parts are presetstore.js, the plan is plans.js.
 
-import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem, icon } from './core.js';
+import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem } from './core.js';
 import { btn } from './formbits.js';
-import { mac } from './keys.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan, canRedo } from './plans.js';
 import { startPick, endPick } from './historypick.js';
@@ -16,8 +15,9 @@ import { itemLinkBox } from './itemlinkview.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
 import { carryNames } from './presetref.js';
-import { statusBadge, presetStatus } from './brokenview.js';
+import { presetStatus } from './brokenview.js';
 import { STATUS_TEXT } from './brokenrules.js';
+import { renameLocalBookmarks } from './bookmarkstore.js';
 import {
   allPresets,
   presetsIn,
@@ -29,12 +29,9 @@ import {
   replacePreset,
   saveLocalPreset,
   deleteLocalPreset,
-  pinnedPresets,
   saved,
-  clearPinOverride,
   parseRefs,
   itemsFromEntries,
-  presetTip,
   isBlankRow,
   fillFrom,
 } from './presetstore.js';
@@ -68,9 +65,6 @@ const statusSuffix = (s) => {
   return st ? `, ${STATUS_TEXT[st]}` : '';
 };
 
-const phone = () => document.documentElement.dataset.pbLayout === 'phone';
-const askPopup = () => emit('presetPopup');
-
 // Shift-click (or Shift+Enter in the popup) fills the boxes and sends nothing. The boxes hold one
 // source, so a preset with more rows fills the first row that the router still has.
 export function fillBoxes(scope, name) {
@@ -88,61 +82,7 @@ export function fillBoxes(scope, name) {
   if (notes.length) showResult('info', `Preset ${s.name}`, notes.join(' '));
 }
 
-function renderStrips() {
-  const all = allPresets();
-  const list = pinnedPresets(all);
-  for (const box of document.querySelectorAll('[data-presets]')) {
-    const edit = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__chipbtn', all.length ? 'Edit' : 'Presets…');
-    edit.type = 'button';
-    edit.setAttribute('aria-haspopup', 'dialog');
-    edit.addEventListener('click', () => openPresets());
-    const chips = list.map((s, i) => {
-      const b = el('button', 'pb-chip sode__set', s.name);
-      const badge = statusBadge(presetStatus(s).status);
-      if (badge) b.append(badge);
-      // Alt+1-9 fire the first nine: the key slides in over the chip while Option is held.
-      if (i < 9) {
-        const k = `${mac ? '⌥' : 'Alt+'}${i + 1}`;
-        const hint = el('span', 'sode__chip-key', el('kbd', 'sode__key-note', k));
-        hint.setAttribute('aria-hidden', 'true');
-        b.append(hint);
-        b.setAttribute('aria-keyshortcuts', `Alt+${i + 1}`);
-      }
-      b.type = 'button';
-      // Names change (re-poll, late load): the tip is worked out when the pointer or focus arrives.
-      const tip = () => {
-        b.dataset.pbTip = presetTip(
-          s,
-          (n) => srcItem(n).label,
-          (n) => dstItem(n).label,
-        );
-      };
-      tip();
-      b.addEventListener('pointerenter', tip);
-      b.addEventListener('focus', tip);
-      b.addEventListener('click', (e) => (e.shiftKey ? fillBoxes(s.scope, s.name) : fire(s.scope, s.name)));
-      return b;
-    });
-    const more = all.length ? el('button', 'pb-chip sode__set sode__presets-all', icon('list'), 'Show all') : null;
-    if (more) {
-      more.type = 'button';
-      if (!phone()) more.dataset.pbTip = `${mac ? '⌘' : 'Ctrl+'}G`;
-      more.setAttribute('aria-haspopup', 'dialog');
-      more.addEventListener('click', askPopup);
-    }
-    const sep = () => {
-      const x = el('span', 'sode__sets-sep', '|');
-      x.setAttribute('aria-hidden', 'true');
-      return x;
-    };
-    box.replaceChildren(
-      el('span', 'sode__label', 'Presets'),
-      edit,
-      el('div', 'sode__sets', ...(more ? [more, ...(chips.length ? [sep()] : [])] : []), el('div', 'sode__sets-run', ...chips)),
-    );
-  }
-}
-// Keyboard mode `p` (desktop): first preset chip, ←/→ in DOM order (Show all, chips, Edit);
+// Keyboard mode `p` (desktop): first bookmark chip, ←/→ in DOM order (Edit, Show all, chips);
 // Enter presses, Esc goes back to Source.
 on('presetStrip', () => {
   const b =
@@ -165,10 +105,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
 on('presets', () => {
-  renderStrips();
   if (open && target.own) renderEditor(true);
 });
-renderStrips();
 
 const pick = el('select', 'pb-select');
 pick.setAttribute('aria-label', 'Preset');
@@ -179,10 +117,6 @@ const scopeIn = el('select', 'pb-select');
 scopeIn.setAttribute('aria-label', 'Save for');
 const scopeOpts = () => scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id));
 scopeIn.append(...scopeOpts());
-const pinnedIn = el('input', 'pb-check__input');
-pinnedIn.type = 'checkbox';
-pinnedIn.checked = true;
-const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label', 'Pinned'));
 const rowsBox = el('div', 'sode__preset-rows');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
@@ -231,15 +165,7 @@ const dlg = modal({
   body: el(
     'div',
     'pb-modal__body sode__filters-body',
-    el(
-      'div',
-      'sode__filters-sets',
-      pickRow,
-      el('div', 'sode__filters-set', labeled('Name', nameIn), scopeWrap, saveAsBtn, linkBtn, delBtn),
-      asRow,
-      pinnedBox,
-      linkUI.box,
-    ),
+    el('div', 'sode__filters-sets', pickRow, el('div', 'sode__filters-set', labeled('Name', nameIn), scopeWrap, saveAsBtn, linkBtn, delBtn), asRow, linkUI.box),
     el(
       'div',
       'sode__filters-set',
@@ -344,8 +270,8 @@ function load(s) {
   dirty = false;
   discard = false;
   cur = s
-    ? { id: s.id, was: s.items, scope: s.scope, from: s.scope, old: s.name, name: s.name, pinned: s.pinned !== false, items: s.items.map(rowFromItem) }
-    : { id: '', was: [], scope: 'local', from: '', old: '', name: '', pinned: true, items: [blankRow()] };
+    ? { id: s.id, was: s.items, scope: s.scope, from: s.scope, old: s.name, name: s.name, items: s.items.map(rowFromItem) }
+    : { id: '', was: [], scope: 'local', from: '', old: '', name: '', items: [blankRow()] };
   renderEditor();
 }
 
@@ -429,7 +355,6 @@ function renderHead(keep = false) {
   scopeIn.replaceChildren(...scopeOpts());
   scopeIn.value = [...scopeIn.options].some((o) => o.value === cur.scope) ? cur.scope : 'local';
   cur.scope = scopeIn.value;
-  pinnedIn.checked = cur.pinned;
   delBtn.hidden = !cur.old;
   linkBtn.hidden = !hasItemLink();
   delBtn.textContent = deleting ? 'Confirm delete' : 'Delete';
@@ -465,10 +390,6 @@ nameIn.addEventListener('input', () => {
   cur.name = nameIn.value;
   touch();
   setNote('');
-});
-pinnedIn.addEventListener('change', () => {
-  cur.pinned = pinnedIn.checked;
-  touch();
 });
 scopeIn.addEventListener('change', () => {
   cur.scope = scopeIn.value;
@@ -546,7 +467,7 @@ function build(name, list, { dupes, old, replace, id = cur.id }) {
     if (p.error) return { err: p.text };
     items.push(p.item);
   }
-  const s = { ...normPreset({ id, name, items: carryNames(items, cur.was) }), pinned: cur.pinned };
+  const s = normPreset({ id, name, items: carryNames(items, cur.was) });
   const err = nameProblem(s.name, dupes, { noun: 'preset', old }) || presetProblem(s);
   if (err) return { err };
   const next = replacePreset(list, s, replace);
@@ -581,7 +502,6 @@ function saveHere(b, moving) {
     nameIn.value = cur.name;
     dirty = false;
     if (!moving) return finish();
-    if (from === 'global') clearPinOverride(cur.id);
     removeIn(from, was, () => {
       cur.scope = to;
       finish();
@@ -593,6 +513,8 @@ function saveHere(b, moving) {
   };
   if (to === 'local') {
     saveLocalPreset(b.s, moving ? '' : cur.old);
+    // The server renames Everyone's and Me bookmarks in its own save.
+    if (!moving && was && was !== b.s.name) renameLocalBookmarks(`preset:local:${cur.id}`, `preset:local:${cur.id}`, b.s.name);
     return landed();
   }
   saveIn(to, b.next, landed);
@@ -722,7 +644,7 @@ on('openPresetEditor', (m) => {
   back = document.activeElement;
   open = true;
   const found = t.found;
-  load(found ? { scope: 'user', ...storedPreset(found), pinned: found.pinned !== false } : null);
+  load(found ? { scope: 'user', ...storedPreset(found) } : null);
   dlg.show();
   dialog.focus();
 });

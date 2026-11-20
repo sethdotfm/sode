@@ -14,6 +14,8 @@ import { openItemLinks } from './itemlinkopen.js';
 import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
+import './bookmarks.js';
+import './bookmarkeditor.js';
 import './palette.js';
 import './palettehome.js';
 import './palettechar.js';

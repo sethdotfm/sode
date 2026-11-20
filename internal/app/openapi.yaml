@@ -2868,7 +2868,6 @@ components:
         scope: { type: string, enum: [everyone, me] }
         id: { type: string, description: "Hidden id; it stays when the preset is renamed" }
         name: { type: string }
-        pinned: { type: boolean }
         items:
           type: array
           description: Each item is one route on one router

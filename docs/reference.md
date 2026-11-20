@@ -38,7 +38,7 @@ A preset is a saved plan of sources to destinations, fired in one confirm. **Edi
 
 Sode stores presets as numbers, so a rename on the router changes nothing. A number the router no longer has is left out and listed in the confirm. A preset fires as one take, so it is one Group in History, marked "Preset: name", and Undo all undoes it. Quick search finds it by that name too.
 
-Only pinned presets show as buttons above History. Ctrl+g (⌘g on a Mac, the **Presets** button on a phone) opens a popup that lists all of them with a search box. Arrows or Ctrl+j/k move, Enter fires through the usual confirm, and Esc closes. Each row has **Pin/Unpin** for this browser. Pinning for everyone and sharing are in the editor, under the Pinned checkbox and Share. In keyboard mode, `p` jumps to the pinned presets.
+The Bookmarks strip above History holds your bookmarks: presets, pages, filter sets, settings or web addresses. Alt+1 to 9 open the first nine. Ctrl+g (⌘g on a Mac, **Show all** on the strip) opens a popup that lists all presets with a search box. Arrows or Ctrl+j/k move, Enter fires through the usual confirm, and Esc closes. In keyboard mode, `p` jumps to the bookmarks.
 
 Because a preset is one confirm of several routes, Sode sends it the way the **Multi destination** setting says, under Settings > Routers > Takes. See `SODE_FIRE_MODE` in the settings table below.
 

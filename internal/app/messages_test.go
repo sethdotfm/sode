@@ -39,7 +39,7 @@ func TestMessageKeys(t *testing.T) {
 		{"protected", deltaMsg{T: "protected"}, []string{"t", "u"}},
 		{"namesChecked", namesCheckedMsg{T: "namesChecked", At: time.Now()}, []string{"at", "t"}},
 		{"names", namesMsg{T: "names"}, []string{"at", "dsts", "srcs", "t"}},
-		{"filterSets", filterSetsMsg{T: "filterSets"}, []string{"sets", "t"}},
+		{"filterSets", filterSetsMsg{T: "filterSets"}, []string{"bookmarks", "sets", "t"}},
 		{"historyCleared", simpleMsg{T: "historyCleared"}, []string{"t"}},
 		{"reload", simpleMsg{T: "reload"}, []string{"t"}},
 		{"takeResult bare", routeResult{T: "takeResult"}, []string{"id", "ok", "t"}},

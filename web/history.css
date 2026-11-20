@@ -1039,3 +1039,57 @@ html[data-alt] .sode__chip-key {
 .sode__filters-count {
   margin-inline-start: var(--pb-space-2);
 }
+/* The Bookmarks editor (bookmarkeditor.js) and the strip's grey bookmarks (bookmarks.js). */
+.sode__set--off {
+  color: var(--pb-text-disabled);
+}
+.sode__set .sode__status-badge {
+  margin-inline-start: var(--pb-space-1);
+}
+.sode-bm__list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: var(--pb-space-3) 0 0;
+  padding: 0;
+}
+.sode-bm__row {
+  align-items: center;
+  border-left: var(--sode-side-w) solid transparent;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  padding: var(--pb-space-2);
+}
+.sode-bm__row:focus-visible {
+  border-left-color: var(--pb-accent);
+  outline: none;
+}
+.sode-bm__row[draggable="true"] {
+  cursor: grab;
+}
+.sode-bm__row.is-dragging {
+  opacity: 0.4;
+}
+.sode-bm__grip {
+  color: var(--pb-text-muted);
+  display: inline-flex;
+}
+.sode-bm__grip svg {
+  pointer-events: none;
+}
+.sode-bm__main {
+  align-items: center;
+  display: flex;
+  flex: 1 1 14rem;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode-bm__name {
+  overflow-wrap: anywhere;
+}
+.sode-bm__what {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+}

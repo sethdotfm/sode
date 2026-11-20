@@ -130,7 +130,7 @@
     <!-- The Broken banner (brokenbanner.js). The phone view has its own copy. -->
     <div class="pb-alert pb-alert--warn sode__broken" data-broken role="status" hidden></div>
 
-    <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
+    <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Bookmarks"></div>
 
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__recent-head" id="history-bar">
@@ -630,7 +630,7 @@
     <div class="sode-m__stage">
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
-      <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
+      <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Bookmarks"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head">
         <div class="sode__recent-head">
           <span class="sode__label" id="m-recent-head">History</span>
@@ -763,21 +763,23 @@
         <dt><kbd>Enter</kbd> <kbd>Tab</kbd></dt><dd>Pick the highlighted match</dd>
         <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>A page at a time</dd>
       </dl>
-      <div class="sode__label">Presets</div>
+      <div class="sode__label">Bookmarks and presets</div>
       <dl>
-        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Fire pinned preset 1 to 9</dd>
-        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the Patch boxes, no take</dd>
+        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Open bookmark 1 to 9. A preset still asks for a Confirm</dd>
+        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the Patch boxes from a preset bookmark, no take</dd>
         <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Presets popup</dd>
-        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the Patch boxes, no take</dd>
-        <dt><kbd>p</kbd></dt><dd>In Keyboard mode: the pinned presets (← → to move, Enter fires, Esc back)</dd>
+        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the Patch boxes from a preset, no take</dd>
+        <dt><kbd>p</kbd></dt><dd>In Keyboard mode: the bookmarks (← → to move, Enter opens, Esc back)</dd>
+      </dl>
+      <div class="sode__label">Bookmarks editor</div>
+      <dl>
+        <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd></dt><dd>Move the focused bookmark up or down</dd>
       </dl>
       <div class="sode__label">Presets popup</div>
       <dl>
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move</dd>
         <dt><kbd>Enter</kbd></dt><dd>Fire</dd>
         <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the Patch boxes, no take</dd>
-        <dt><kbd data-mac="⌥p">Alt+p</kbd></dt><dd>Pin or unpin</dd>
-        <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd> <kbd data-mac="⌥⌘j">Ctrl+Alt+j</kbd> <kbd data-mac="⌥⌘k">Ctrl+Alt+k</kbd></dt><dd>Move a pinned preset up or down</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>
       </dl>
       <div class="sode__label">Keyboard mode (History)</div>
@@ -819,6 +821,7 @@
         <dt><kbd>&gt;</kbd></dt><dd>First in an empty Source or Destination box: open the Palette. Type it again to search for <kbd>&gt;</kbd>. Settings › This browser sets the character</dd>
         <dt><kbd>Enter</kbd></dt><dd>Open the row. A preset still asks for a Confirm</dd>
         <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the Patch boxes from a preset, no take. Add a filter set to the stack</dd>
+        <dt><kbd data-mac="⌥b">Alt+b</kbd></dt><dd>Bookmark the row: to Me, or to This browser for a Guest</dd>
         <dt><kbd>Esc</kbd> <kbd>Backspace</kbd></dt><dd>Back one step, then close</dd>
       </dl>
     </div>

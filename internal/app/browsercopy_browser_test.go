@@ -5,16 +5,14 @@ import (
 	"testing"
 )
 
-// Move sends the values to Ana's profile before it removes them from this browser. The active filter set follows to Me and an unpinned preset stays unpinned.
-// order key moves to Me in place.
+// Move sends the values to Ana's profile before it removes them from this browser. The active filter set follows to Me
+// and the preset keeps its id.
 func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim)
 	srv := seamServer(t, a)
-	if _, err := a.ProfileSave(watched(t, a, "10.0.0.9", "1234"), profileReq{Name: "Ana", PinOrder: []string{"global:x", "local:p1", "user:y"}}); err != nil {
-		t.Fatal(err)
-	}
+	watched(t, a, "10.0.0.9", "1234")
 
 	b.open(srv.URL + "/")
 	b.waitFor("the page", `document.readyState === 'complete' && localStorage.getItem('sode-format') === '2'`)
@@ -22,7 +20,7 @@ func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 		localStorage.setItem('sode-theme', 'dark');
 		localStorage.setItem('sode-filter-sets', JSON.stringify([{ name: 'Cams', f: { src: 'cam', dst: '', sode: true, ext: true, hidden: false } }]));
 		localStorage.setItem('sode-filter-active', JSON.stringify({ scope: 'local', name: 'Cams', base: { src: 'cam', dst: '', sode: true, ext: true, hidden: false } }));
-		localStorage.setItem('sode-presets', JSON.stringify([{ id: 'p1', name: 'Open', items: [{ src: { n: 1 }, dsts: [{ n: 2 }], levels: [1] }], pinned: false }]));
+		localStorage.setItem('sode-presets', JSON.stringify([{ id: 'p1', name: 'Open', items: [{ src: { n: 1 }, dsts: [{ n: 2 }], levels: [1] }] }]));
 		return true;
 	})()`)
 	b.open(srv.URL + "/?seeded#settings") // a new document, so the stores read what was seeded
@@ -53,12 +51,11 @@ func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 		t.Fatalf("the active filter set is %v, want Ana's Cams", got)
 	}
 	p := anasProfile(t, a)
-	if p.Prefs["theme"] != "dark" || len(p.FilterSets) != 1 || p.FilterSets[0].Name != "Cams" || len(p.Presets) != 1 || p.Presets[0].Name != "Open" ||
-		p.Presets[0].Pinned == nil || *p.Presets[0].Pinned {
+	if p.Prefs["theme"] != "dark" || len(p.FilterSets) != 1 || p.FilterSets[0].Name != "Cams" || len(p.Presets) != 1 || p.Presets[0].Name != "Open" {
 		t.Fatalf("Ana's profile %+v", p)
 	}
-	if p.Presets[0].ID != "p1" || fmt.Sprint(p.PinOrder) != "[global:x user:p1 user:y]" {
-		t.Fatalf("preset id %q, pin order %v", p.Presets[0].ID, p.PinOrder)
+	if p.Presets[0].ID != "p1" {
+		t.Fatalf("preset id %q", p.Presets[0].ID)
 	}
 	n := 0
 	for _, e := range waitSaves(t, a, 1) {

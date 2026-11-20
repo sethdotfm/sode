@@ -46,7 +46,7 @@ export const CATEGORY_LABEL = {
 export const CATEGORY_ICON = {
   source: 'arrow-right-from-line',
   destination: 'arrow-right-to-line',
-  preset: 'bookmark',
+  preset: 'layers',
   take: 'zap',
   clear: 'eraser',
   undo: 'undo-2',

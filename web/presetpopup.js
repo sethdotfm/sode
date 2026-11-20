@@ -1,13 +1,12 @@
-// Presets popup (Ctrl+G / Cmd+G): every preset with search; Enter fires through presets.js.
-// Pins here are for This browser or the user's Profile. The editor sets the pin for Everyone.
+// Presets popup (Ctrl+G / Cmd+G): every preset with search; Enter fires through presets.js. The Bookmarks strip and
+// the Palette hold the presets a person uses most.
 
-import { el, on, emit, icon, sentence } from './core.js';
+import { el, on, icon } from './core.js';
 import { chord, mac } from './keys.js';
 import { modal } from './modal.js';
 import { btn } from './formbits.js';
-import { profileSaver } from './globalsave.js';
 import { fire, fillBoxes, openPresets } from './presets.js';
-import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, movePin, pinnedPresets } from './presetstore.js';
+import { allPresets, rankPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
 import { statusBadge, presetStatus } from './brokenview.js';
 import { inboxUser } from './inbox.js';
@@ -57,14 +56,6 @@ const setNote = (t, error = false) => {
   noteEl.classList.toggle('sode__error-text', error);
 };
 const scopeText = (s) => scopeLabel(s.scope);
-// Pins of the user's own (Me) presets save to their profile: no PIN row.
-const profSaver = profileSaver({
-  setNote,
-  isOpen: () => open,
-  failTitle: 'Presets not saved',
-  okNote: 'Saved.',
-  render: () => draw(),
-});
 
 function rowBtn(text, ic, tip, fn) {
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', icon(ic), text);
@@ -84,45 +75,23 @@ function draw() {
     list.contains(f) && f.closest('.sode__preset-item')
       ? [f.closest('.sode__preset-item').id, [...f.closest('.sode__preset-item').querySelectorAll('button')].indexOf(f)]
       : null;
-  const ov = pinOverrides();
-  const ranked = rankPresets(allPresets(), input.value);
-  const isPinned = (s) => effectivePin(s, ov);
-  const searching = !!input.value.trim();
-  const pins = searching ? ranked.filter(isPinned) : pinnedPresets();
-  shownList = [...pins, ...ranked.filter((s) => !isPinned(s))];
+  shownList = rankPresets(allPresets(), input.value);
   hi = Math.max(0, Math.min(hi, shownList.length - 1));
-  const reorder = !searching && pins.length > 1;
-  const keySlot = new Map(pinnedPresets().map((s, i) => [presetKey(s), i]));
   list.replaceChildren(
     ...shownList.map((s, i) => {
-      const pinned = isPinned(s);
       const main = el(
         'button',
         'sode__preset-main',
         el('strong', null, s.name),
         el('span', 'sode__hint', ` ${scopeText(s)}`),
-        pinned ? '' : el('span', 'sode__hint sode__preset-flag', 'not pinned'),
         statusBadge(presetStatus(s).status) || '',
       );
       main.type = 'button';
       main.dataset.pbTip = `${mac ? '⇧' : 'Shift'}: fill the patch boxes`;
       main.tabIndex = -1;
       main.addEventListener('click', (e) => pressPreset(s, e.shiftKey));
-      const tools = [
-        rowBtn(
-          pinned ? 'Unpin' : 'Pin',
-          pinned ? 'pin-off' : 'pin',
-          s.scope === 'global' ? `This browser only (${mac ? '⌥' : 'Alt+'}P)` : `${mac ? '⌥' : 'Alt+'}P`,
-          () => togglePin(s),
-        ),
-      ];
-      if (inboxUser()) tools.push(rowBtn('Send a copy', 'send', '', () => sendCopy({ presets: [s] }, s.name)));
-      const slot = keySlot.get(presetKey(s));
-      const keyCell = el('span', 'sode__preset-key', slot < 9 ? `${mac ? '⌥' : 'Alt+'}${slot + 1}` : '');
-      const grip = pinned && reorder ? el('span', 'sode__preset-grip', icon('grip-vertical')) : null;
-      if (grip) grip.dataset.pbTip = `Drag or ${mac ? '⌥' : 'Alt+'}↑/↓`;
-      const row = el('div', `sode__preset-item${i === hi ? ' is-hi' : ''}`, keyCell, ...(grip ? [grip] : []), main, el('span', 'sode__preset-tools', ...tools));
-      if (grip) dragRow(row, s);
+      const tools = inboxUser() ? [rowBtn('Send a copy', 'send', '', () => sendCopy({ presets: [s] }, s.name))] : [];
+      const row = el('div', `sode__preset-item${i === hi ? ' is-hi' : ''}`, main, el('span', 'sode__preset-tools', ...tools));
       row.id = `preset-pop-${i}`;
       row.setAttribute('role', 'option');
       row.setAttribute('aria-selected', String(i === hi));
@@ -134,57 +103,6 @@ function draw() {
   else input.removeAttribute('aria-activedescendant');
   list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });
   if (at) (document.getElementById(at[0])?.querySelectorAll('button')[at[1]] || input).focus();
-}
-
-function togglePin(s) {
-  const pinned = effectivePin(s, pinOverrides());
-  if (s.scope === 'user') profSaver.change({ presets: withUserPin(s.id, !pinned) }, () => {});
-  else setLocalPin(s, !pinned);
-}
-
-let dragKey = '';
-// The order shows at once; a failed save restores the real order and says why.
-function reorder(saved) {
-  saved?.then((r) => {
-    if (r.ok) return;
-    emit('presets'); // redraws the strip and this list from the saved order
-    setNote(sentence(r.err) || 'Order not saved.', true);
-  });
-  return !!saved;
-}
-function dragRow(row, s) {
-  const key = presetKey(s);
-  row.draggable = true;
-  row.addEventListener('dragstart', (e) => {
-    dragKey = key;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', s.name);
-    row.classList.add('is-dragging');
-  });
-  row.addEventListener('dragend', () => {
-    dragKey = '';
-    row.classList.remove('is-dragging');
-    for (const r of list.querySelectorAll('.is-over')) r.classList.remove('is-over');
-  });
-  row.addEventListener('dragover', (e) => {
-    if (dragKey && dragKey !== key) {
-      e.preventDefault();
-      row.classList.add('is-over');
-    }
-  });
-  row.addEventListener('dragleave', () => row.classList.remove('is-over'));
-  row.addEventListener('drop', (e) => {
-    e.preventDefault();
-    row.classList.remove('is-over');
-    reorder(movePin(dragKey, { before: key }));
-    dragKey = '';
-  });
-}
-function nudge(d) {
-  const s = shownList[hi];
-  if (!s || input.value.trim() || !effectivePin(s, pinOverrides())) return;
-  hi += d; // pins are the top rows, so the row follows; set before the move redraws the list
-  if (!reorder(movePin(presetKey(s), { by: d }))) hi -= d;
 }
 
 function move(d) {
@@ -205,36 +123,19 @@ input.addEventListener('input', () => {
   setNote('');
   draw();
 });
-// A click on empty space must not steal focus from the search box. A draggable row is left alone on mousedown so its drag still starts.
+// A click on empty space must not steal focus from the search box.
 dialog.addEventListener('mousedown', (e) => {
-  if (e.target.closest('button, input, [draggable="true"]')) return;
+  if (e.target.closest('button, input')) return;
   e.preventDefault();
   input.focus();
 });
 dialog.addEventListener('click', (e) => {
   if (!e.target.closest('button, input')) input.focus();
 });
-const NUDGE = { 'alt+up': -1, 'alt+down': 1, 'alt+meta+k': -1, 'alt+meta+j': 1, 'ctrl+alt+k': -1, 'ctrl+alt+j': 1 };
 const MOVE = { down: 1, up: -1, 'ctrl+j': 1, 'ctrl+k': -1, 'meta+j': 1, 'meta+k': -1 };
 dialog.addEventListener('keydown', (e) => {
   const onButton = !!e.target.closest?.('button');
   const c = chord(e);
-  const slot = /^alt\+(shift\+)?([1-9])$/.exec(c);
-  if (c in NUDGE) {
-    e.preventDefault();
-    nudge(NUDGE[c]);
-    return;
-  }
-  if (c === 'alt+p') {
-    e.preventDefault();
-    if (!e.repeat && shownList[hi]) togglePin(shownList[hi]);
-    return;
-  }
-  if (slot) {
-    e.preventDefault();
-    if (!e.repeat) pressPreset(pinnedPresets()[+slot[2] - 1], !!slot[1]);
-    return;
-  }
   if (c in MOVE) {
     e.preventDefault();
     move(MOVE[c]);
@@ -270,7 +171,6 @@ function close() {
   if (!open) return;
   open = false;
   dlg.hide();
-  profSaver.close();
   if (back?.isConnected) back.focus();
 }
 
