@@ -34,9 +34,9 @@ func TestChromeBigScroll(t *testing.T) {
 	b.waitFor("no native bar beside it", menu+`.offsetWidth - `+menu+`.clientWidth === `+menu+`.clientLeft * 2`)
 
 	num := func(expr string) float64 { return b.eval(expr).(float64) }
-	// 1.4rem is 22.4 px at the 100% root.
-	geo := b.eval(`(() => { const m = ` + menu + `, r = m.getBoundingClientRect(), g = ` + bar + `.getBoundingClientRect(); return [g.width, g.height, m.clientHeight, Math.round(r.right - m.clientLeft - g.right), Math.round(g.top - r.top - m.clientTop)]; })()`).([]any)
-	if math.Abs(geo[0].(float64)-22.4) > 0.1 || geo[1] != geo[2] || geo[3].(float64) != 0 || geo[4].(float64) != 0 {
+	// 1.4rem is 22.4 px at the 100% root. clientWidth is whole px, so the right gap can be less than a px either way.
+	geo := b.eval(`(() => { const m = ` + menu + `, r = m.getBoundingClientRect(), g = ` + bar + `.getBoundingClientRect(); return [g.width, g.height, m.clientHeight, r.right - m.clientLeft - g.right, Math.round(g.top - r.top - m.clientTop)]; })()`).([]any)
+	if math.Abs(geo[0].(float64)-22.4) > 0.1 || geo[1] != geo[2] || math.Abs(geo[3].(float64)) >= 1 || geo[4].(float64) != 0 {
 		t.Fatalf("bar width, height, list height, right gap, top gap = %v, want 22.4 px, the list's height, 0 and 0", geo)
 	}
 	thumb := bar + `.firstElementChild`

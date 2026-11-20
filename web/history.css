@@ -316,13 +316,14 @@
 .sode__recent-head[hidden] {
   display: none;
 }
+/* These are buttons, so they have a button's fill (base.css, outline buttons). */
 :root:not([data-layout="phone"]) .sode__chipbtn {
-  background-color: transparent;
-  border-color: var(--pb-surface-control);
+  background-color: var(--pb-surface-hover);
+  border-color: transparent;
 }
 :root:not([data-layout="phone"]) .sode__chipbtn:hover {
-  background-color: var(--pb-overlay-hover);
-  border-color: var(--pb-surface-hover);
+  background-color: var(--pb-surface-hover);
+  border-color: var(--pb-text-muted);
 }
 .sode__filters-btn--on,
 :root:not([data-layout="phone"]) .sode__filters-btn--on,

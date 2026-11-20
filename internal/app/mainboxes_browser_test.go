@@ -12,8 +12,8 @@ import (
 )
 
 // The desktop main page's boxes. Show all sources is in the place of Show all destinations. Levels shrinks with Source
-// and Destination, and its picks are tiles an action high in even rows of at most six. No router with more than one
-// level gives no Levels box.
+// and Destination. Its picks are squares an action high in two rows, and only an odd number of levels makes the first
+// pick two rows high. No router with more than one level gives no Levels box.
 func TestChromeMainBoxesLayout(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -72,14 +72,11 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	if !inside {
 		t.Fatal("at 1600 px a level pick or Select All is outside the Levels box")
 	}
-	if n := rows(); n != 3 {
-		t.Fatalf("at 1600 px the 17 picks are on %d rows, want 3 even rows of at most six", n)
+	if n := rows(); n < 2 {
+		t.Fatalf("at 1600 px the 17 picks are on %d rows, want 2 or more", n)
 	}
-	if b.eval(`[...document.querySelectorAll('#lvl-pick > button, #lvl-all')].every((n) => Math.abs(n.getBoundingClientRect().height - parseFloat(getComputedStyle(document.documentElement).fontSize) * 2.5) < 1)`) != true {
-		t.Fatal("at 1600 px a level pick or Select All is not an action high")
-	}
-	if b.eval(`(() => { const a = document.getElementById('lvl-all').getBoundingClientRect(), p = document.getElementById('lvl-pick').getBoundingClientRect(); return a.left > p.right && a.top === p.top; })()`) != true {
-		t.Fatal("at 1600 px Select All is not beside the picks")
+	if msg, _ := pickShape(b); msg != "" {
+		t.Fatalf("at 1600 px with 17 levels: %s", msg)
 	}
 	size(850)
 	b.waitFor("the boxes shrink", `document.querySelector('.sode__box--src').getBoundingClientRect().width < `+strconv.FormatFloat(wideSrc-50, 'f', 1, 64))
@@ -97,8 +94,11 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	if math.Abs(wide-narrow) > 0.02 {
 		t.Fatalf("Source to Levels is %.3f at 1600 px and %.3f at 850 px, want the same ratio", wide, narrow)
 	}
-	if n := rows(); n != 3 {
-		t.Fatalf("at 850 px the 17 picks are on %d rows, want the same 3 rows", n)
+	if rows() <= 2 {
+		t.Fatal("at 850 px the picks did not wrap onto more rows")
+	}
+	if msg, _ := pickShape(b); msg != "" {
+		t.Fatalf("at 850 px with 17 levels: %s", msg)
 	}
 	if b.eval(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`) != true {
 		t.Fatal("at 850 px the main page scrolls sideways")
@@ -109,6 +109,24 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	setLevels := func(n int, def string) {
 		if err := a.applyConfig(func(c *config.Config) error { c.Levels, c.DefaultLevels = n, def; return nil }); err != nil {
 			t.Fatal(err)
+		}
+	}
+	// An even number of levels gives two rows of squares an action high, and an odd number a first pick two rows high.
+	for _, n := range []int{4, 5, 11, 12} {
+		setLevels(n, "1-"+strconv.Itoa(n))
+		b.waitFor(strconv.Itoa(n)+" level picks", `document.querySelectorAll('#lvl-pick > button').length === `+strconv.Itoa(n))
+		msg, side := pickShape(b)
+		if msg != "" {
+			t.Fatalf("at 1600 px with %d levels: %s", n, msg)
+		}
+		if math.Abs(side-40) > 0.5 {
+			t.Fatalf("at 1600 px with %d levels a pick is %v px, want an action high (40 px)", n, side)
+		}
+		if got := rows(); got != 2 {
+			t.Fatalf("at 1600 px the %d picks are on %d rows, want 2", n, got)
+		}
+		if _, _, _, inside := widths(); !inside {
+			t.Fatalf("at 1600 px with %d levels a pick or Select All is outside the Levels box", n)
 		}
 	}
 	setLevels(1, "1")
@@ -140,4 +158,27 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	setLevels(17, "1-17")
 	b.waitFor("the Levels box shows again", `!document.querySelector('.sode__box--levels').hidden && document.querySelectorAll('#lvl-pick > button').length === 17`)
 	b.check()
+}
+
+// pickShape says what is wrong with the level picks, or "", and the side of a pick in px. Each pick is a square, an
+// action high at most and never under the old 1.375rem. The first is two rows high (two squares and the gap) only when
+// the number of picks is odd. Select All beside the picks is two rows high.
+func pickShape(b *tab) (string, float64) {
+	r := b.eval(`(() => {
+		const picks = [...document.querySelectorAll('#lvl-pick > button')].map((n) => n.getBoundingClientRect());
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		const gap = parseFloat(getComputedStyle(document.getElementById('lvl-pick')).rowGap);
+		const near = (a, b) => Math.abs(a - b) < 1;
+		const odd = picks.length % 2 === 1;
+		const side = picks[picks.length - 1].width;
+		if (side > 2.5 * rem + 0.5 || side < 1.375 * rem - 0.5) return ['a pick is ' + side + ' px wide, want 22 to 40', side];
+		for (const [i, r] of picks.entries()) {
+			const high = odd && i === 0 ? 2 * side + gap : side;
+			if (!near(r.width, side) || !near(r.height, high)) return ['pick ' + (i + 1) + ' is ' + r.width + ' by ' + r.height + ' px, want ' + side + ' by ' + high, side];
+		}
+		const all = document.getElementById('lvl-all').getBoundingClientRect();
+		if (near(all.top, picks[0].top) && !near(all.height, 2 * side + gap)) return ['Select All is ' + all.height + ' px high, want ' + (2 * side + gap), side];
+		return ['', side];
+	})()`).([]any)
+	return r[0].(string), r[1].(float64)
 }

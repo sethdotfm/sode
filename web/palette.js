@@ -11,7 +11,7 @@
 // browser for a Guest. openPalette({ pick }) hands the picked row to pick instead (the Bookmarks editor's Add).
 import { $, el, S, on, emit, icon, request, sentence, LINK_DOWN } from './core.js';
 import { chord, listStep } from './keys.js';
-import { modal } from './modal.js';
+import { modal, fadeOut, stopFade } from './modal.js';
 import { bigScroll } from './bigscroll.js';
 import { closeShown } from './dialogkeys.js';
 import { closeOpenConfirm } from './keyconfirm.js';
@@ -433,6 +433,7 @@ export function openPalette({ from = null, pick = null, cancel = null } = {}) {
   why.hidden = true;
   note.textContent = '';
   foot.replaceChildren(...footOf(pick ? PICK_FOOT : FOOT));
+  stopFade(dlg.root);
   dlg.show();
   draw();
   if (from) grow(from);
@@ -448,6 +449,7 @@ export function openPalette({ from = null, pick = null, cancel = null } = {}) {
 function close(toBox) {
   if (!dlg.shown()) return;
   dlg.hide();
+  fadeOut(dlg.root);
   why.hidden = true;
   picked = null;
   pickFn = null;
