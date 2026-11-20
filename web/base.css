@@ -7,6 +7,17 @@ html {
 :root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) {
   font-size: 90%;
 }
+/* A desktop window wider than 2400 px is a big screen with no OS scale, so the root grows by 1px for each 360 px over
+   2400, to 125% at 3840 px. The Grid panel page grows the same way from its 90%, to 112.5%. At 2400 px both stay as
+   above, so the size has no step. Most 4K screens have an OS scale and are not this wide. */
+@media (min-width: 2400px) {
+  html:not([data-layout="phone"]) {
+    font-size: min(125%, 100% + (100vw - 2400px) / 360);
+  }
+  :root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) {
+    font-size: min(112.5%, 90% + (100vw - 2400px) / 400);
+  }
+}
 :root {
   /* The three control heights. field: the big patch boxes. action: anything used live (patching, panels, Take, chips,
      list rows that take a press); nothing used live is lower. compact: toolbars and forms away from the patch flow.
