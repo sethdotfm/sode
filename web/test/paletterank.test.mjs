@@ -58,7 +58,9 @@ test('a loose match is never the row that Enter picks first', () => {
     if (first) assert.ok(!items[firstIndex(items)].weak, q);
     for (const it of items) if (it.weak) assert.ok(keys(items).indexOf('# Other matches') < items.indexOf(it), `${q}: a weak row is under the heading`);
   }
-  assert.equal(enterRow(find('sing in')), '', '"sing in" has only loose matches: nothing is picked');
+  // "sing in" is one typo from the search word "sign in" (palettematch.js), so it finds Sign out, not a loose match.
+  assert.equal(enterRow(find('sing in')), 'action:signOut', '"sing in" is a typo of sign in');
+  assert.equal(enterRow(find('lgo')), '', '"lgo" has only loose matches: nothing is picked');
   assert.equal(enterRow(find('ip')), '', '"ip" is not Export & Import');
   assert.equal(enterRow(find('salvo')), 'setting:takes/cfg-salvogroup', 'a whole word beats letters in order');
   assert.equal(enterRow(find('patch')), 'page:home', 'patch is a word of Home');

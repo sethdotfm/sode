@@ -5,9 +5,13 @@ import { mac } from './keys.js';
 
 // The open list's close, which a Lock runs.
 let shut = null;
+// The page made a key list, so the Palette's Keyboard shortcuts row opens it here (palettecatalogue.js keyList).
+let made = false;
+export const hasKeyList = () => made;
 on('locking', () => shut?.());
 
 export function shortcutList({ keyMode, fromHistory, enterKeys, focusFirst }) {
+  made = true;
   let back = null;
   let wasKeys = false;
   let fromHist = false;

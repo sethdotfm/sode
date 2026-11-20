@@ -40,9 +40,16 @@ import {
   cleanPicks,
   addUse,
   cleanUses,
+  countsAsUse,
+  dropPick,
+  dropUse,
+  PICK_UNDO_MS,
   paletteCharOf,
   opensPalette,
 } from './paletterules.js';
+import { hiddenCounts, hiddenLine, numberHint, footKeys } from './palettehints.js';
+import { hasKeyList } from './shortcuts.js';
+import { rereadNames } from './rereadnames.js';
 import { shownBookmarks, bookmarksIn, saveBookmarks } from './bookmarkstore.js';
 import { paletteMarks, ownScope, addBookmark, fromRow } from './bookmarkrules.js';
 
@@ -65,6 +72,7 @@ export const setHomeRunner = (fn) => {
 };
 
 let panels = [];
+let panelsHidden = 0; // panels the server did not list for this sign-in (palettePanels hidden)
 let settings = [];
 let rows = [];
 let items = [];
@@ -79,12 +87,29 @@ let pickCancel = null; // ...and a close with no row runs this
 // Last picks: Me for a signed-in user, else This browser.
 const picks = () => cleanPicks(profileName() ? profile().palettePicks : readJSON(PICKS_KEY, []));
 const uses = () => cleanUses(readJSON(USES_KEY, {})?.[profileName()]);
-function notePick(key) {
+function saveUses(next) {
   const all = readJSON(USES_KEY, {});
-  writeJSON(USES_KEY, { ...(all && typeof all === 'object' && !Array.isArray(all) ? all : {}), [profileName()]: addUse(uses(), key) });
-  const next = addPick(picks(), key);
+  writeJSON(USES_KEY, { ...(all && typeof all === 'object' && !Array.isArray(all) ? all : {}), [profileName()]: next });
+}
+function savePicks(next) {
   if (profileName()) saveProfile({ palettePicks: next });
   else writeJSON(PICKS_KEY, next);
+}
+// The last first pick, in memory only: a page that opens on a pick starts with none (PICK_UNDO_MS).
+let lastFirst = null;
+function notePick(key) {
+  if (!countsAsUse(key)) return;
+  const first = !uses()[key];
+  saveUses(addUse(uses(), key));
+  savePicks(addPick(picks(), key));
+  lastFirst = first ? { key, name: profileName(), at: Date.now() } : null;
+}
+function undoFirstPick() {
+  const f = lastFirst;
+  lastFirst = null;
+  if (!f || f.name !== profileName() || Date.now() - f.at > PICK_UNDO_MS) return;
+  saveUses(dropUse(uses(), f.key));
+  savePicks(dropPick(picks(), f.key));
 }
 
 function who() {
@@ -108,6 +133,7 @@ export function paletteRows() {
     panels,
     settings,
     who: who(),
+    keyList: hasKeyList(),
   });
 }
 
@@ -156,19 +182,8 @@ const where = el('div', 'sode-palette__where');
 const list = el('ul', { class: 'sode-palette__list', id: 'palette-list', role: 'listbox', 'aria-label': 'Palette' });
 const why = el('div', { class: 'sode-palette__why', role: 'status', hidden: true });
 const note = el('p', { class: 'sode__hint sode-palette__note', role: 'status' });
-// The key hint: short words, each key in a kbd.
-const FOOT = [
-  ['↑↓', 'move'],
-  ['Enter', 'open'],
-  ['⇧Enter', 'fill the Patch boxes'],
-  ['Alt+B', 'bookmark'],
-  ['Esc', 'back'],
-];
-const PICK_FOOT = [
-  ['↑↓', 'move'],
-  ['Enter', 'add'],
-  ['Esc', 'back'],
-];
+// The key hint: short words, each key in a kbd. It shows only the keys that do something on the item under the cursor
+// (footKeys in palettehints.js).
 const foot = el('p', 'sode__hint sode-palette__keys');
 const footOf = (keys) => keys.flatMap(([k, what]) => [el('span', 'sode-palette__key', el('kbd', null, k), ' ', what)]);
 
@@ -219,13 +234,20 @@ function rowNode(row, i) {
 function draw(keep = false) {
   rows = paletteRows();
   const marks = pickFn ? [] : paletteMarks(shownBookmarks().list, rows);
-  items = paletteView(rows, { path, query: input.value, last: pickFn ? [] : picks(), marks, uses: pickFn ? {} : uses() });
+  items = [...paletteView(rows, { path, query: input.value, last: pickFn ? [] : picks(), marks, uses: pickFn ? {} : uses() }), ...extraLines(marks)];
   if (!keep || !items[cur] || items[cur].type === 'head') cur = firstIndex(items, { empty: !input.value.trim() });
   where.textContent = pathText(path, rows, input.value);
   where.hidden = !where.textContent;
   list.replaceChildren(
     ...items.map((it, i) => {
-      if (it.type === 'head') return el('li', { role: 'presentation', class: 'sode-palette__head' }, it.label);
+      if (it.type === 'head') return el('li', { role: 'presentation', class: it.note ? 'sode-palette__none' : 'sode-palette__head' }, it.label);
+      if (it.type === 'hidden')
+        return el(
+          'li',
+          { id: `palette-opt-${i}`, role: 'option', class: 'sode-palette__row sode-palette__row--hidden', 'data-i': i },
+          icon(it.act === 'stepIn' ? 'user' : 'key-round'),
+          el('span', 'sode-palette__label', it.label),
+        );
       if (it.type === 'cat')
         return el(
           'li',
@@ -247,7 +269,24 @@ function pageRows() {
   return Math.max(1, Math.floor(list.clientHeight / (row?.offsetHeight || 1)) - 1);
 }
 
+// The lines after the rows: a hint for a number, and the count of matches that the user cannot use (Enter signs in).
+function extraLines(marks) {
+  const out = [];
+  const hint = path.length ? '' : numberHint(input.value, PAGE);
+  if (hint) out.push({ type: 'head', note: true, label: hint });
+  if (pickFn || path.length) return out;
+  const w = who();
+  const line = hiddenLine(hiddenCounts(rows, input.value, { marks, panels: panelsHidden }), {
+    signedIn: !!w.user,
+    canSignIn: rows.some((r) => r.key === 'action:signIn'),
+    canStepIn: rows.some((r) => r.key === 'action:stepIn'),
+  });
+  if (line) out.push({ type: 'hidden', ...line });
+  return out;
+}
+
 function mark() {
+  foot.replaceChildren(...footOf(footKeys(items[cur], { query: input.value, path, pick: !!pickFn, why: !!picked })));
   for (const n of list.querySelectorAll('[role="option"]')) n.setAttribute('aria-selected', String(+n.dataset.i === cur));
   if (cur >= 0) input.setAttribute('aria-activedescendant', `palette-opt-${cur}`);
   else input.removeAttribute('aria-activedescendant');
@@ -271,11 +310,13 @@ function showWhy(row) {
   );
   why.hidden = false;
   (why.querySelector('button') || input).focus();
+  mark();
 }
 function hideWhy() {
   picked = null;
   why.hidden = true;
   input.focus();
+  mark();
 }
 
 // An outside web address. A new tab never gets this page as its opener.
@@ -288,6 +329,13 @@ export function openUrl(url, newTab) {
 // to Home with the row. A row of kind 'url' is a bookmark's web address. press: a bookmark also presses a Settings
 // button that the Palette only shows (palettehome.js).
 export function runRow(row, { fill = false, offer = '', newTab = false, press = false } = {}) {
+  // Off Home there is often no result banner, so the Palette stays open and shows the result itself.
+  if (row.key === 'action:reread' && PAGE !== 'main' && dlg.shown()) {
+    notePick(row.key);
+    // The Palette stays open, so this pick is not one that the user left at once.
+    lastFirst = null;
+    return rereadInPalette();
+  }
   close(false);
   if (row.kind === 'url') return openUrl(row.target.url, row.target.newTab);
   if (!offer) notePick(row.key);
@@ -314,7 +362,7 @@ async function bookmarkRow(row) {
   const r = addBookmark(bookmarksIn(scope), fromRow(row));
   if (r.err) return say(sentence(r.err));
   const res = await saveBookmarks(scope, r.list);
-  say(res.ok ? `${row.label}: bookmarked in ${scope === 'user' ? 'Me' : 'This browser'}.` : sentence(res.err) || 'Bookmark not saved.');
+  say(res.ok ? `${row.label}: bookmarked ${scope === 'user' ? 'for you' : 'in this browser only'}.` : sentence(res.err) || 'Bookmark not saved.');
 }
 function say(text) {
   note.textContent = text;
@@ -338,9 +386,23 @@ export function takeHandoff(now = Date.now()) {
   }
 }
 
+// Re-read with the Palette open: its note line shows the banner's words until the router answers.
+let rereadShown = false;
+function rereadInPalette() {
+  if (!rereadNames()) return say('Not sent: the link to the server is down.');
+  rereadShown = true;
+}
+on('result', (r) => {
+  if (!rereadShown || !dlg.shown()) return;
+  if (r.kind !== 'info') rereadShown = false;
+  say([r.title, typeof r.text === 'string' ? r.text : ''].filter(Boolean).join('. '));
+});
+
 function runHere(row) {
   const id = row.target.id;
-  if (id === 'lock') emit('localLock');
+  if (id === 'reread') rereadNames();
+  else if (id === 'shortcuts') emit('openShortcuts');
+  else if (id === 'lock') emit('localLock');
   else if (id === 'signIn') emit('login');
   // The Settings Sign out button's own path (lock.js signOutNow).
   else if (id === 'signOut') emit('logout');
@@ -356,6 +418,7 @@ function runHere(row) {
 function pick(fill = false) {
   const it = items[cur];
   if (!it) return;
+  if (it.type === 'hidden') return signInFromLine(it.act);
   if (it.type === 'cat') {
     path = [...path, it.id];
     input.value = '';
@@ -372,6 +435,32 @@ function pick(fill = false) {
   if (!it.row.access.ok) return showWhy(it.row);
   runRow(it.row, { fill });
 }
+
+// Enter on the hidden matches line: Sign in (or Step in), then the Palette opens again with the same query.
+let reopen = null;
+const REOPEN_MS = 120_000;
+function signInFromLine(act) {
+  if (!act) return;
+  const step = rows.find((r) => r.key === 'action:stepIn');
+  reopen = { query: input.value, user: lockState().user || '', at: Date.now() };
+  if (act === 'stepIn' && step) return runRow(step);
+  close(false);
+  emit('login');
+}
+on('access', () => {
+  if (!reopen) return;
+  const L = lockState();
+  if (Date.now() - reopen.at > REOPEN_MS) reopen = null;
+  // A sign-in that the user stopped: no user and no sign-in screen.
+  else if (!L.user && !document.querySelector('.sode-lock.is-on')) reopen = null;
+  else if (L.user && L.user !== reopen.user && !pageRefusal()) {
+    const q = reopen.query;
+    reopen = null;
+    openPalette();
+    input.value = q;
+    draw();
+  }
+});
 
 // Esc: the why line, then the search, then one level up, then close.
 function back1() {
@@ -447,6 +536,7 @@ async function readPanels() {
   const r = await request('palettePanelsResult', { t: 'palettePanels' });
   if (r.err === LINK_DOWN) return;
   panels = r.ok && Array.isArray(r.panels) ? r.panels : [];
+  panelsHidden = r.ok && Number.isInteger(r.hidden) ? r.hidden : 0;
   if (dlg.shown()) draw(true);
   emit('paletteRows');
 }
@@ -469,6 +559,7 @@ function grow(from) {
 export function openPalette({ from = null, pick = null, cancel = null } = {}) {
   if (dlg.shown()) return;
   stopWatch();
+  undoFirstPick();
   origin = from;
   pickFn = pick;
   pickCancel = pick ? cancel : null;
@@ -478,7 +569,7 @@ export function openPalette({ from = null, pick = null, cancel = null } = {}) {
   picked = null;
   why.hidden = true;
   note.textContent = '';
-  foot.replaceChildren(...footOf(pick ? PICK_FOOT : FOOT));
+  rereadShown = false;
   stopFade(dlg.root);
   dlg.show();
   draw();

@@ -10,6 +10,8 @@
 //   is the button's id, or '' for a setting.
 // - who: { role, user, rights, locks, users, phone, stepped }. This is the browser's own sign-in, never a panel key.
 //   It holds lockState's role and user, myRights, and the hello's cfg.locks and users.
+// - keyList: true when this page has its own key list (Home and a Grid panel page). Keyboard shortcuts opens it here,
+//   else it opens Home and says so.
 //
 // The fields of a Row:
 // - key: stable text that names the row, '<kind>:<target>'. Last picks and Bookmarks keep it. rowByKey finds it.
@@ -43,9 +45,10 @@ export function pageOf(rel) {
   return 'main';
 }
 
-// Actions that Sode already has. home: runs on Home. desktop: the phone layout has no such control.
+// Actions that Sode already has. home: runs on Home. desktop: the phone layout has no such control. Re-read needs only
+// the socket, so it runs on every page.
 export const ACTIONS = Object.freeze([
-  { id: 'reread', label: 'Re-read router names', icon: 'refresh-cw', home: true, words: ['refresh', 'names', 'reload'] },
+  { id: 'reread', label: 'Re-read router names', icon: 'refresh-cw', words: ['refresh', 'names', 'reload'] },
   { id: 'undo', label: 'Undo the last Sode take', icon: 'undo-2', home: true, desktop: true, words: ['undo', 'back'] },
   { id: 'presets', label: 'All presets', icon: 'list', home: true, words: ['presets popup', 'fire'] },
   { id: 'filters', label: 'Filters', icon: 'filter', home: true, words: ['history', 'filter sets'] },
@@ -154,7 +157,19 @@ export function catalogue(src) {
 
   for (const a of ACTIONS) {
     if (!actionApplies(a, who)) continue;
-    add({ key: `action:${a.id}`, kind: 'action', cat: 'actions', label: a.label, icon: a.icon, words: a.words, home: !!a.home, target: { id: a.id } });
+    const own = a.id === 'shortcuts' && src.page !== 'main' && src.keyList;
+    const hint = a.home && !own && src.page !== 'main' ? 'Opens Home' : '';
+    add({
+      key: `action:${a.id}`,
+      kind: 'action',
+      cat: 'actions',
+      label: a.label,
+      icon: a.icon,
+      words: a.words,
+      home: !!a.home && !own,
+      hint,
+      target: { id: a.id },
+    });
   }
 
   for (const p of src.presets || []) {

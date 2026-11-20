@@ -2,6 +2,7 @@
 // how a query ranks the rows. The rows come from palettecatalogue.js.
 import { fuzzyScore } from './fuzzy.js';
 import { rowByKey } from './palettecatalogue.js';
+import { oneEdit, moreMatch } from './palettematch.js';
 
 // The Palette character is a pref, so its values are a fixed list (prefs.js). Keep in step with PaletteChars in
 // internal/config/palette.go (TestPrefTable). Each one passes paletteCharProblem.
@@ -77,16 +78,6 @@ const catLabel = (id) => CATEGORIES.find((c) => c.id === id)?.label || id;
 // boost of an action or a page is more than one strength step (STRENGTH), so "theme" finds the theme action before the
 // Theme setting.
 const CAT_BOOST = { panels: 250, presets: 250, filterSets: 250, pages: 150, actions: 150 };
-
-// One edit (Damerau: a swap of two letters next to each other counts as one).
-function oneEdit(a, b) {
-  if (a === b) return true;
-  if (Math.abs(a.length - b.length) > 1) return false;
-  let i = 0;
-  while (i < a.length && i < b.length && a[i] === b[i]) i++;
-  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1) || (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2));
-  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
-}
 
 // w is in s in order, and the first letters agree ("pnl" in "panel").
 function subsequence(w, s) {
@@ -221,6 +212,19 @@ function match(row, q) {
   return looseIn(q, row.label.toLowerCase()) ? { strength: STRENGTH.loose + boost, loose: true } : null;
 }
 
+// match, then moreMatch (palettematch.js) when match finds nothing better than a loose match. A search word counts as a
+// whole word of the label. Words across the name and path, and one typo, count a little more than the hint. These are
+// not loose, so Enter can pick them.
+const MORE = { word: STRENGTH.word, across: STRENGTH.hint + 50, typo: STRENGTH.hint + 25 };
+function matchAll(row, q) {
+  const m = match(row, q);
+  if (m && !m.loose) return m;
+  const x = moreMatch(row, q);
+  if (!x) return m;
+  const boost = CAT_BOOST[row.cat] || 0;
+  return { strength: MORE[x.kind] + boost, loose: false };
+}
+
 // Commonly used first. The rows most people want get a small fixed boost, so they come first among equal matches.
 // A row's own use adds up to USE_TOP points: more for more picks (log scale), less as the last pick gets older. It only
 // moves a row inside its match tier (match).
@@ -245,14 +249,35 @@ export function addUse(uses, key, now = Date.now()) {
   return cleanUses({ ...u, [key]: { n: (u[key]?.n || 0) + 1, at: now } });
 }
 
+// Rows that clear or reset something. A pick of one is not a use and not a last pick, so it never comes back to the
+// top by chance.
+const NO_USE = new Set([
+  'setting:history/clear-history',
+  'setting:protects/protects-clear-all',
+  'setting:run-setup-again/setup-again-open',
+  'setting:locks/apply-preset',
+]);
+export const countsAsUse = (key) => !NO_USE.has(key);
+
+// A first pick that the user leaves at once (the Palette opens again within PICK_UNDO_MS) was a mistake. It goes
+// out of the last picks and the uses. A row picked before stays.
+export const PICK_UNDO_MS = 10_000;
+export const dropPick = (keys, key) => cleanPicks(keys).filter((k) => k !== key);
+export function dropUse(uses, key) {
+  const u = cleanUses(uses);
+  delete u[key];
+  return u;
+}
+
 // A row outside the Rights or Role is grey: it only explains why it does nothing. The Palette lists one only when it
 // is a bookmark with Show in Palette.
 const usable = (row) => row?.access?.ok !== false;
 
 // Rows that match q, best first, as [{ row, weak }]. weak: a loose match or a danger row (isDanger). Such a row is never
 // the row that Enter picks first, so it comes after every other match. Then every usable row comes before every grey
-// row. Then the strength with the category boost (match). Only among equal strengths do COMMON and the use boost count
-// (uses: cleanUses, now), then the shorter label, then the catalogue order.
+// row. Then the strength with the category boost (match, or moreMatch for a search word, a typo or words across the name
+// and path). Only among equal strengths do COMMON and the use boost count (uses: cleanUses, now), then the shorter
+// label, then the catalogue order.
 export function rankMatches(rows, q, n = 50, { uses = {}, now = Date.now() } = {}) {
   q = String(q || '')
     .trim()
@@ -260,7 +285,7 @@ export function rankMatches(rows, q, n = 50, { uses = {}, now = Date.now() } = {
   const scored = rows
     .map((row, i) => {
       if (!q) return { row, weak: false, s: 0, use: 0, i };
-      const m = match(row, q);
+      const m = matchAll(row, q);
       return m && { row, weak: m.loose || isDanger(row), s: m.strength, use: (COMMON[row.key] || 0) + useBoost(uses[row.key], now), i };
     })
     .filter(Boolean);
@@ -434,5 +459,8 @@ export function firstIndex(items, { empty = false } = {}) {
     return items[i]?.type === 'cat' ? i : -1;
   }
   const i = items.findIndex((it) => it.type === 'cat' || (it.type === 'row' && !it.weak && usable(it.row)));
-  return i >= 0 ? i : items.findIndex((it) => it.type === 'row' && !it.weak);
+  if (i >= 0) return i;
+  const j = items.findIndex((it) => it.type === 'row' && !it.weak);
+  // With no row to run, the hidden matches line (Enter: Sign in) is the pick.
+  return j >= 0 ? j : items.findIndex((it) => it.type === 'hidden');
 }
