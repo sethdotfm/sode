@@ -14,7 +14,7 @@ import { myRights, onMyRights } from './editorrights.js';
 import { artNode } from './panelview.js';
 import { plural } from './gridclip.js';
 import { defaultFor } from './panellook.js';
-import { mac, keyLabel } from './keys.js';
+import { keyLabel } from './keys.js';
 import { gridCommand } from './gridchords.js';
 import { createPasteReader } from './editorclip.js';
 import {
@@ -33,12 +33,7 @@ import {
 
 const FIRST = 30; // rows drawn before the list has a height
 const NONE = () => ({ selected: new Set(), anchor: null });
-export const MOVE_KEYS = {
-  top: keyLabel('alt+home'),
-  up: keyLabel(mac ? 'mod+shift+up' : 'alt+up'),
-  down: keyLabel(mac ? 'mod+shift+down' : 'alt+down'),
-  end: keyLabel('alt+end'),
-};
+export const MOVE_KEYS = { top: keyLabel('alt+home'), up: keyLabel('alt+up'), down: keyLabel('alt+down'), end: keyLabel('alt+end') };
 
 // key is the panel field and the /names list ('sources' or 'destinations'). rights is the Rights key, what the item
 // word, side the edge of the grid it is drawn on. onPick(list) runs when the selection changes.

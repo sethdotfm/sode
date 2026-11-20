@@ -118,13 +118,6 @@ const EDGE_KEYS = {
   'alt+down': { move: 'down' },
   'alt+home': { move: 'top' },
   'alt+end': { move: 'end' },
-  // macOS gives Ctrl+Up and Ctrl+Down to Mission Control unless that is turned off, so Ctrl+Shift and Cmd+Shift also move.
-  'ctrl+up': { move: 'up' },
-  'ctrl+down': { move: 'down' },
-  'ctrl+shift+up': { move: 'up' },
-  'ctrl+shift+down': { move: 'down' },
-  'shift+meta+up': { move: 'up' },
-  'shift+meta+down': { move: 'down' },
   'mod+a': { all: true },
   ' ': { toggle: true },
   escape: { none: true },
