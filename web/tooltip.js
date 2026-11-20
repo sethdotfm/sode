@@ -12,9 +12,9 @@ const hideCutTip = () => {
   cutFor = null;
 };
 
-// A CSS tip in a scroller (the .sode__sets rows, the Grid popup's staged list) is clipped or makes it scroll. So the
-// floating tip shows these tips, and CSS hides its own.
-const rowTip = (n) => n instanceof Element && n.closest(':is(.sode__sets, .sode__staged-list) [data-pb-tip]');
+// A CSS tip in a scroller (the .sode__sets rows, the Grid popup's staged list, the editor's Pages list) is clipped or
+// makes it scroll. So the floating tip shows these tips, and CSS hides its own.
+const rowTip = (n) => n instanceof Element && n.closest(':is(.sode__sets, .sode__staged-list, .sode-pages__list) [data-pb-tip]');
 
 function cutOff(n) {
   const t = rowTip(n);

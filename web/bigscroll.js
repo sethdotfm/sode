@@ -24,6 +24,7 @@ export const SCROLLERS = [
   ['.sode__sets-run', 'x'],
   ['.sode-log__scroll', 'x'],
   ['.sode-ed__side', 'y'],
+  ['.sode-pages__list', 'y', 'little'],
   ['.sode-live__art', 'y'],
   ['.sode-edge__list', 'y'],
   ['.sode-rlist', 'y'],

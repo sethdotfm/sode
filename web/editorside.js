@@ -2,7 +2,7 @@
 // Destinations lists (#ed-lists). It opens on Panel and switches to Cell when the selection moves to new squares or
 // rows. On a Grid panel the Cell tab edits the rows selected in one list; a selection in the other list ends it.
 // initSidebar(editor) takes what runEditor returns.
-import { $, S, on } from './core.js';
+import { $, S, el, on } from './core.js';
 import { makeTabs } from './tabs.js';
 import { rectOf } from './gridmodel.js';
 import { createCellTab } from './editorcell.js';
@@ -40,7 +40,16 @@ export function initSidebar(ed) {
   const srcs = list('sources', 'sources', 'source', 'left to right on the top edge');
   const dsts = list('destinations', 'dsts', 'destination', 'top to bottom on the left edge');
   clip = createRowClip(ed, { sources: srcs, destinations: dsts });
-  $('ed-lists').append(srcs.node, dsts.node);
+  // One note over both lists while either follows the router, in place of one in each list.
+  const follow = el('p', 'sode__hint sode-ed__follow');
+  follow.id = 'ed-lists-following';
+  $('ed-lists').append(follow, srcs.node, dsts.node);
+  const paintFollow = () => {
+    const on = [srcs, dsts].filter((l) => l.following());
+    const who = on.length === 2 ? 'Sources and destinations follow' : on[0] === srcs ? 'Sources follow' : 'Destinations follow';
+    follow.hidden = !on.length;
+    follow.textContent = on.length ? `${who} the router, which sets the order. Pins and artwork still apply. Change it in the Panel tab.` : '';
+  };
   ed.useEdgeLists({ srcs, dsts, clip });
 
   const cell = createCellTab(ed, { picked });
@@ -73,6 +82,7 @@ export function initSidebar(ed) {
     access.update();
     srcs.update();
     dsts.update();
+    paintFollow();
   };
 
   let sel = '';

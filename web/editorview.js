@@ -70,6 +70,8 @@ export function createEditorGrid(host, on) {
       host.replaceChildren();
       host.style.gridTemplate = `repeat(${g.rows}, 1fr) / repeat(${g.cols}, 1fr)`;
       host.style.aspectRatio = `${g.cols} / ${g.rows}`;
+      host.style.setProperty('--sode-cols', g.cols);
+      host.style.setProperty('--sode-rows', g.rows);
       host.dataset.readonly = readOnly ? '1' : '';
       const q = rectOf(g);
       const inSel = (r, c, rs = 1, cs = 1) => q && !(r + rs - 1 < q.r1 || r > q.r2 || c + cs - 1 < q.c1 || c > q.c2);

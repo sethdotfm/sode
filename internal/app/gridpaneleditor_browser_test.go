@@ -37,7 +37,7 @@ func TestChromeGridPanelEditor(t *testing.T) {
 		const row = document.querySelector('#ed-sources-list li[data-id="0"]');
 		const off = ['up', 'down', 'delete'].every((a) => row.querySelector('[data-act="' + a + '"]').disabled);
 		return off && !row.querySelector('[data-act="pin"]').disabled && document.getElementById('ed-sources-clear').disabled && document.getElementById('ed-sources-find').disabled
-			&& !document.getElementById('ed-sources-following').hidden && /Panel tab/.test(document.getElementById('ed-sources-following').textContent);
+			&& !document.getElementById('ed-lists-following').hidden && /Panel tab/.test(document.getElementById('ed-lists-following').textContent);
 	})()`)
 	b.shot("sources")
 
@@ -79,7 +79,7 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	b.shot("live")
 	b.eval(`document.getElementById('ed-live-back').click(); true`)
 	b.waitFor("Back to editing puts the editor back, with both lists in their place", `!!document.querySelector('.sode-ed__bar').offsetParent && !document.getElementById('confirm') && !document.getElementById('panel-levels')
-		&& [...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent`)
+		&& [...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-lists-following,ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent`)
 
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the panel opens as a Grid panel", `!!document.querySelector('.sode-gridpanel__xp')`)

@@ -43,10 +43,10 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 		return d.width > 300 && sc.right <= d.left + 1 && sc.width < gridW - 300 && d.top >= deck.bottom - 1 && liveBand() === bandWas &&
 			document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2) === take;
 	})()`)
-	b.waitFor("Edit lists opens the drawer with the editor's own Sources list, and each part of it has height", `(() => {
+	b.waitFor("Edit lists opens the drawer with the editor's own Sources list, which has height, and Add from the router folds away with nothing to add", `(() => {
 		const d = document.getElementById('ed-live-drawer');
 		return d.classList.contains('pb-drawer--open') && !d.inert && document.getElementById('ed-live-lists').getAttribute('aria-pressed') === 'true' && d.contains(document.getElementById('ed-sources-col'))
-			&& document.getElementById('ed-sources-list').clientHeight > 0 && document.querySelector('#ed-sources-col .sode-rlist').clientHeight > 0
+			&& document.getElementById('ed-sources-list').clientHeight > 0 && document.querySelector('#ed-sources-col .sode-rlist').hidden
 			&& !!document.getElementById('ed-sources-list').offsetParent && !document.getElementById('ed-destinations-list').offsetParent;
 	})()`)
 	b.waitFor("the drawer has its full width", `document.getElementById('ed-live-drawer').getBoundingClientRect().width > 300`)
@@ -163,6 +163,6 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 		return Math.abs(r.width - gridW) < 1 && hit.some((n) => n.classList?.contains('sode-gridpanel__xp'));
 	})()`)
 	b.eval(`document.getElementById('ed-live-back').click(); true`)
-	b.waitFor("Back to editing puts both lists back, with the edits", `[...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent && document.querySelector('#ed-sources-list li').dataset.id === '3'`)
+	b.waitFor("Back to editing puts both lists back, with the edits", `[...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-lists-following,ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent && document.querySelector('#ed-sources-list li').dataset.id === '3'`)
 	b.check()
 }
