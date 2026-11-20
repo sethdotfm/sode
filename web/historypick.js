@@ -166,7 +166,7 @@ function update() {
 function clearChip() {
   const chip = document.querySelector('.sode-lock__who');
   const r = chip && !chip.hidden ? chip.getBoundingClientRect() : null;
-  bar.style.paddingLeft = r && r.width ? `${Math.ceil(r.right) + 16}px` : '';
+  bar.style.paddingLeft = r && r.width ? `calc(${Math.ceil(r.right)}px + var(--pb-space-7))` : '';
 }
 globalThis.addEventListener?.('resize', () => {
   if (st) clearChip();
