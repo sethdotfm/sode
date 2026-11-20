@@ -126,7 +126,7 @@ func protectSpec(f string) (dst, kind, dev int, ok bool) {
 	var n [3]int
 	for i, p := range parts {
 		v, err := strconv.Atoi(p)
-		if err != nil || v < 0 {
+		if err != nil || v < 0 || v > 0xFFFF {
 			return 0, 0, 0, false
 		}
 		n[i] = v
