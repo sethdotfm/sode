@@ -56,3 +56,20 @@ export function stagedRows(routes) {
 }
 
 export const routesWord = (n) => (n === 1 ? '1 route' : `${n} routes`);
+
+// One Take (desktop.js): the staged routes with the patch boxes' route, as one list of routes. box is { src, dsts,
+// levels } in router numbers. On a destination in both, the boxes' levels replace the staged ones, as a later press on
+// the grid does. The same source on the same destination stays one route.
+export function withBoxRoute(routes, { src, dsts, levels }) {
+  const out = [];
+  for (const r of routes) {
+    const left = dsts.includes(r.dst) ? r.levels.filter((l) => !levels.includes(l)) : r.levels;
+    if (left.length) out.push({ ...r, levels: left });
+  }
+  for (const dst of dsts) {
+    const same = out.find((r) => r.src === src && r.dst === dst);
+    if (same) same.levels = [...same.levels, ...levels].sort((a, b) => a - b);
+    else out.push({ src, dst, levels: [...levels] });
+  }
+  return out;
+}

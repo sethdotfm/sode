@@ -472,5 +472,5 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     return !!n && (histList.contains(n) || $('history-more').contains(n));
   }
 
-  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, pager };
+  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, pager, useEnd };
 }

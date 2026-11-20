@@ -30,7 +30,7 @@ import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
-import { gridShown, toggleGrid, stagedCount, takeStaged } from './gridpopup.js';
+import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged } from './gridpopup.js';
 import { protectKey } from './protects.js';
 
 const sel = { src: null, dst: null };
@@ -263,6 +263,7 @@ function pickSrc(n) {
 
 function renderTally() {
   renderLast();
+  paintClear();
   const srcUnder = $('src-under'),
     dstUnder = $('dst-under');
   if (!S.cfg) {
@@ -305,7 +306,7 @@ const historyView = desktopHistory({
   active,
   protect: (set) => protectFromKeys(set),
 });
-const { renderHistory, enterKeys, keyMode, histList, histArea, pager } = historyView;
+const { renderHistory, enterKeys, keyMode, histList, histArea, pager, useEnd } = historyView;
 
 // Per browser; index.html applies it before first paint.
 
@@ -339,7 +340,8 @@ const confirm = keyConfirm({
   spaceHint: true,
   prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, Esc to cancel.'],
   onTake: (p, viaKeys) => {
-    if (sendTakes(p) && VERBS[p.verb].resets) clearAll();
+    // A One Take of the staged routes with the boxes' route (gridpopup.js) clears the boxes as a patch does.
+    if (sendTakes(p) && (VERBS[p.verb].resets || p.resets)) clearAll();
     else focusBack(viaKeys);
   },
   onClose: (p, viaKeys) => {
@@ -353,20 +355,41 @@ function wantsMatch(k) {
   return b.cb.moved || (!sel[k] && !!b.input.value.trim() && !(k === 'dst' && keptText()));
 }
 
-// With every box empty, Take sends what the Grid popup staged, through the same Confirm.
 const boxesEmpty = () => !sel.src && !sel.dst && !dsts.length && !boxes.src.input.value.trim() && !boxes.dst.input.value.trim();
 
+// The route the boxes hold, as tryConfirm would send it, or null. It marks nothing and moves no focus.
+function boxRoute() {
+  const ds = allDsts();
+  const dstText = !sel.dst && boxes.dst.input.value.trim() && !keptText();
+  const levels = lvl.levels();
+  return sel.src && ds.length && !dstText && levels ? { src: sel.src, dsts: ds, levels } : null;
+}
+
+// One Take: with staged routes, Take sends them and the boxes' route in one Confirm (gridpopup.js). Boxes with only
+// part of a route stay out of the take, because one box can find an item on the grid (Ctrl+e). An Enter that picks a
+// match only picks it, as with nothing staged. It goes on to the empty box and opens no Confirm.
 function patchNow() {
-  if (!boxPicking() && boxesEmpty() && stagedCount()) return takeStaged();
+  let picked = false;
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
     if (wantsMatch(k)) {
       if (!b.cb.open) b.cb.refresh();
-      b.cb.accept();
+      picked = !!b.cb.accept() || picked;
     }
   }
   if (boxPicking()) return addPatch();
+  if (stagedCount() && (!picked || boxRoute()) && takeStaged()) return;
   tryConfirm();
+}
+
+// The one Clear (#clear-all) and Esc: the boxes and the staged routes.
+const nothingToClear = () => boxesEmpty() && lvl.empty() && !stagedCount();
+function clearEverything() {
+  dropStaged();
+  clearAll();
+}
+function paintClear() {
+  $('clear-all').disabled = nothingToClear();
 }
 
 function tryConfirm() {
@@ -455,7 +478,6 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
 desktopKeys({
   boxes,
   dsts: () => dsts,
-  lvl,
   confirm,
   keys,
   historyView,
@@ -465,8 +487,8 @@ desktopKeys({
   useLast,
   wantsMatch,
   patchNow,
-  clearAll,
-  renderTally,
+  clearEverything,
+  nothingToClear,
   grid: { shown: gridShown, toggle: toggleGrid },
 });
 
@@ -474,6 +496,9 @@ $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
+$('clear-all').addEventListener('mousedown', (e) => e.preventDefault());
+$('clear-all').addEventListener('click', clearEverything);
+on('staged', paintClear);
 
 on('hello', () => {
   pager.reset();
@@ -520,6 +545,10 @@ presetHost({
   picks: () => ({ src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: clearAll,
   focus: () => boxes.src.input.focus(),
+  route: boxRoute,
+  // A staged route's chips (gridpopup.js), as a History row's.
+  useEnd,
+  addEnd,
   fill: (p) => {
     dsts = p.dsts.slice(0, -1);
     select('src', p.src);

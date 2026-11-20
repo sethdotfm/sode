@@ -1,0 +1,5 @@
+- One Take on Home: with routes staged in the Grid popup, Take and Enter send them and the route in the patch boxes. One Confirm lists all of them. The Staged list has no Take of its own. An Enter that picks a match only picks it.
+- One Clear on Home, next to Take: it clears the patch boxes and the Staged list. It is disabled when there is nothing to clear. Esc in a patch box does the same in one press, after it closes an open match list. Only with nothing to clear does Esc start Keyboard mode. An open popup or dialog takes the first Esc and only closes.
+- Ctrl+e finds the Source or the Destination on the grid when only one patch box holds an item. This also works when the popup opens again.
+- The source and destination chips of a staged route fill the patch boxes, as History chips do. The crosshair fills the patch boxes with the route and no longer opens the Grid popup: Ctrl+e then finds it.
+- The Grid popup shows its staged count at the right, next to Close, and a short help line. It no longer shows the take result, so it does not move when a take runs.

@@ -8,11 +8,10 @@ import { levelsShown } from './levelview.js';
 const undoChord = (e) => ((mac && e.metaKey && !e.ctrlKey) || (e.ctrlKey && !e.metaKey)) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z';
 
 // dsts is an accessor: desktop.js replaces the array. historyView is what desktopHistory returned. grid is the Grid
-// popup's { shown, toggle } (gridpopup.js).
+// popup's { shown, toggle } (gridpopup.js). clearEverything is the one Clear: the boxes and the staged routes.
 export function desktopKeys({
   boxes,
   dsts,
-  lvl,
   confirm,
   keys,
   historyView,
@@ -22,8 +21,8 @@ export function desktopKeys({
   useLast,
   wantsMatch,
   patchNow,
-  clearAll,
-  renderTally,
+  clearEverything,
+  nothingToClear,
   grid,
 }) {
   const { histList, histArea, onListKey, enterKeys, undoLast, historyShown } = historyView;
@@ -158,20 +157,14 @@ export function desktopKeys({
       patchNow();
       return;
     }
+    // One Esc: an open match list closes first. Then everything clears, as Clear does. Only then Keyboard mode.
     if (e.key === 'Escape') {
       if (b && b.cb.open) {
         b.cb.close();
         return;
       }
-      if (e.target.value) {
-        if (k) select(k, null);
-        else lvl.clear();
-        renderTally();
-      } else if (!dsts().length && !boxes.src.input.value && !boxes.dst.input.value && lvl.empty()) {
-        if (historyShown()) enterKeys();
-      } else {
-        clearAll();
-      }
+      if (!nothingToClear()) clearEverything();
+      else if (historyShown()) enterKeys();
     }
   });
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord } from '../gridpoprules.js';
+import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute } from '../gridpoprules.js';
 import { envFrom, namesFrom } from '../panelrules.js';
 import { gridAxes } from '../gridpaneledges.js';
 
@@ -93,7 +93,34 @@ test('the staged list has one row for each source and level set, in the order fi
   ]);
 });
 
-test('the list Take names its routes', () => {
+test('the staged list names its routes', () => {
   assert.equal(routesWord(1), '1 route');
   assert.equal(routesWord(12), '12 routes');
+});
+
+test('One Take adds the boxes route to the staged routes, and the boxes win on a destination and level in both', () => {
+  const staged = [
+    { src: 1, dst: 5, levels: [1, 2] },
+    { src: 2, dst: 6, levels: [1, 2] },
+    { src: 3, dst: 7, levels: [1] },
+  ];
+  assert.deepEqual(withBoxRoute(staged, { src: 9, dsts: [6, 8], levels: [1] }), [
+    { src: 1, dst: 5, levels: [1, 2] },
+    { src: 2, dst: 6, levels: [2] },
+    { src: 3, dst: 7, levels: [1] },
+    { src: 9, dst: 6, levels: [1] },
+    { src: 9, dst: 8, levels: [1] },
+  ]);
+  // A staged route that the boxes cover on every level goes; the same route again stays one route.
+  assert.deepEqual(withBoxRoute(staged, { src: 3, dsts: [7], levels: [1] }), [
+    { src: 1, dst: 5, levels: [1, 2] },
+    { src: 2, dst: 6, levels: [1, 2] },
+    { src: 3, dst: 7, levels: [1] },
+  ]);
+  assert.deepEqual(withBoxRoute(staged, { src: 1, dsts: [5], levels: [2, 3] }), [
+    { src: 1, dst: 5, levels: [1, 2, 3] },
+    { src: 2, dst: 6, levels: [1, 2] },
+    { src: 3, dst: 7, levels: [1] },
+  ]);
+  assert.deepEqual(staged[0].levels, [1, 2], 'the staged routes stay as they are');
 });

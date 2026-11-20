@@ -45,6 +45,15 @@
   height: var(--sode-h-field);
   padding: 0 var(--pb-space-5);
 }
+/* The one Clear sits next to Take, as high as Take. */
+.sode__takes {
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.pb-btn.sode__clear-all {
+  height: var(--sode-h-field);
+  padding: 0 var(--pb-space-5);
+}
 /* A click flips the boxes. prepaint.js sets the order before first paint. */
 .pb-btn.sode__to {
   font-size: var(--pb-text-xl);

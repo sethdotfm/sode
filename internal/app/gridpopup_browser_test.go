@@ -36,9 +36,9 @@ func lastGroup(t *testing.T, a *App, key string, n int) {
 }
 
 // The Grid popup on the main page. Ctrl+e opens it centred on the patch boxes. It is the grid and its search band, with
-// no Levels box, Take or Clear. A Diagonal stages four routes that stay in the staged list, and the crosshair finds a
-// row. One confirm sends one Group, and Ctrl+Z prepares its undo. The main Take sends the staged routes when the boxes
-// are empty, at the main page's levels.
+// no Levels box, Take or Clear. A Diagonal stages four routes that stay in the staged list, and the crosshair fills the
+// boxes from a row. One confirm sends one Group, and Ctrl+Z prepares its undo. The main Take sends the staged routes
+// with the boxes' route, at the main page's levels.
 func TestChromeMainGridPopup(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -95,29 +95,39 @@ func TestChromeMainGridPopup(t *testing.T) {
 	realKey(b, "Escape", "Escape", 27)
 	b.waitFor("the next Esc closes the popup", `document.getElementById('grid-pop').hidden`)
 	b.waitFor("the staged list shows 4 rows", `!document.getElementById('grid-staged').hidden && document.querySelectorAll('#grid-staged-list li').length === 4`)
-	if got := b.eval(`document.getElementById('grid-staged-take').textContent`); got != "Take 4 routes" {
-		t.Fatalf("the list's Take says %q", got)
+	if got := b.eval(`document.getElementById('grid-staged-count').textContent`); got != "4 routes" {
+		t.Fatalf("the list's count says %q", got)
 	}
 
-	// Enter in the boxes sends only what the boxes hold.
+	// One Take: Enter in the boxes confirms the staged routes and the boxes' route together.
 	b.eval(`document.getElementById('dst').focus(); true`)
 	realKey(b, "Enter", "Enter", 13)
 	b.waitFor("the confirm opens", `!document.getElementById('confirm').hidden`)
-	if body := b.eval(`document.getElementById('confirm-body').textContent`).(string); strings.Contains(body, "destinations") || !strings.Contains(body, "DSM1") {
-		t.Fatalf("Enter in the boxes confirms %q, want only the boxes", body)
+	if body := b.eval(`document.getElementById('confirm-body').textContent`).(string); !strings.Contains(body, "5 destinations") || !strings.Contains(body, "DSM1") {
+		t.Fatalf("Enter in the boxes confirms %q, want the 4 staged routes and the boxes", body)
 	}
 	b.eval(`document.getElementById('confirm-cancel').click(); true`)
 	b.waitFor("the confirm closes", `document.getElementById('confirm').hidden`)
 	b.waitFor("the list stays", `document.querySelectorAll('#grid-staged-list li').length === 4`)
 
-	// The crosshair fills the boxes from the second row and opens the grid on it.
+	// The crosshair fills the boxes from the second row and opens nothing. Ctrl+e then finds the boxes on the grid.
 	b.eval(`document.querySelectorAll('#grid-staged-list .sode__staged-find')[1].click(); true`)
-	b.waitFor("the crosshair opens the popup", shown)
 	b.waitFor("the boxes hold the row", `document.getElementById('src').value === document.querySelector('#grid-staged-list li:nth-child(2) .sode__end--src').textContent && document.getElementById('dst').value !== ''`)
+	if b.eval(shown).(bool) {
+		t.Fatal("the crosshair opened the popup")
+	}
+	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	b.waitFor("Ctrl+e opens the popup", shown)
 	b.waitFor("the cursor is on the row's crosspoint", cursor+` === '6,2'`)
 	b.waitFor("reopened, the routes still show as staged", staged(2, 6))
+	b.waitFor("a help line, and the staged badge at the right next to Close", `(() => {
+		const help = document.querySelector('#grid-pop .sode-gridpop__help'), n = document.getElementById('panel-staged'), x = document.querySelector('#grid-pop .sode-gridpop__close');
+		const h = help.getBoundingClientRect(), r = n.getBoundingClientRect(), c = x.getBoundingClientRect();
+		return /Esc or Ctrl\+e closes the grid/.test(help.textContent) && h.right <= r.left && r.right <= c.left && c.left - r.right < 40;
+	})()`)
 
-	// One confirm sends one take: History shows one Group of 4 routes. The popup banner shows the Result.
+	// One confirm sends one take: History shows one Group of 4 routes. The boxes hold one of them, so it goes once.
+	// The Result shows on the main page, never in the popup.
 	b.eval(`document.querySelector('#grid-pop .sode-gridpanel__scroll').focus(); true`)
 	realKey(b, "Enter", "Enter", 13)
 	b.waitFor("Enter opens the main page's confirm for 4 destinations", `!document.getElementById('confirm').hidden && document.getElementById('confirm-body').textContent.includes('4 destinations')`)
@@ -126,8 +136,12 @@ func TestChromeMainGridPopup(t *testing.T) {
 		tallyHas(t, a, ana, s+4, s)
 	}
 	lastGroup(t, a, ana, 4)
-	b.waitFor("the popup banner shows the Result", `/Success/.test(document.querySelector('.sode-gridpop__msg')?.textContent || '')`)
+	b.waitFor("the main page shows the Result", `/Success/.test(document.getElementById('result').textContent)`)
+	if b.eval(`!!document.querySelector('#grid-pop .sode-gridpop__msg') || /Success/.test(document.getElementById('grid-pop').textContent)`).(bool) {
+		t.Fatal("the popup shows the take result")
+	}
 	b.waitFor("the staged list goes", `document.getElementById('grid-staged').hidden && !document.querySelector('#grid-pop .sode-gridpanel__xp[data-s="staged"]:not([hidden])')`)
+	b.waitFor("the boxes clear, as after a take", `!document.getElementById('src').value && !document.getElementById('dst').value`)
 
 	// Ctrl+Z in the popup prepares the undo of the whole Group.
 	realKeyMods(b, "z", "KeyZ", 90, modCtrl)
@@ -137,28 +151,26 @@ func TestChromeMainGridPopup(t *testing.T) {
 		tallyHas(t, a, ana, s+4, s+4)
 	}
 
-	// The list's own Take and Clear.
+	// The main page's Clear drops the staged routes; its Take sends them.
 	gridShow(b, 9, 9)
 	b.eval(gridXp(9, 9) + `.click()`)
 	b.waitFor("one route staged", staged(9, 9))
 	realKeyMods(b, "e", "KeyE", 69, modCtrl)
 	b.waitFor("Ctrl+e closes the popup", `document.getElementById('grid-pop').hidden`)
-	b.waitFor("the list has the route", `document.getElementById('grid-staged-take').textContent === 'Take 1 route'`)
-	b.eval(`document.getElementById('grid-staged-clear').click(); true`)
-	b.waitFor("Clear empties the list", `document.getElementById('grid-staged').hidden`)
+	b.waitFor("the list has the route", `document.getElementById('grid-staged-count').textContent === '1 route'`)
+	b.eval(`document.getElementById('clear-all').click(); true`)
+	b.waitFor("Clear empties the list", `document.getElementById('grid-staged').hidden && document.getElementById('clear-all').disabled`)
 	b.eval(`document.getElementById('grid-open').click(); true`)
 	b.waitFor("the icon bar's Grid button opens the popup", shown)
-	// The boxes still hold the crosshair's pair, so the popup opened on it.
-	b.waitFor("the cursor is on the boxes' pair", cursor+` === '6,2'`)
 	gridShow(b, 9, 9)
 	b.eval(gridXp(9, 9) + `.click()`)
 	b.waitFor("staged again", staged(9, 9))
 	b.eval(`document.querySelector('#grid-pop .sode-gridpop__close').click(); true`)
 	b.waitFor("Close closes the popup", `document.getElementById('grid-pop').hidden`)
-	b.eval(`document.getElementById('grid-staged-take').click(); true`)
+	b.eval(`document.getElementById('patch').click(); true`)
 	gridConfirm(b)
 	tallyHas(t, a, ana, 9, 9)
-	b.waitFor("the list's Take empties the list", `document.getElementById('grid-staged').hidden`)
+	b.waitFor("Take empties the list", `document.getElementById('grid-staged').hidden`)
 
 	// With no valid pair, the popup comes back as it was left: its search and scroll.
 	b.eval(`document.getElementById('grid-open').click(); true`)

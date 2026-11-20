@@ -89,11 +89,21 @@
 :root[data-layout="phone"] .sode-gridpop .sode-gridpanel__levels {
   margin: var(--pb-space-4) var(--pb-space-5) 0;
 }
-.sode-gridpop__msg {
-  margin: 0 var(--pb-space-5);
+/* The help line fills the room between the search boxes and the "N staged" badge, which sits next to Close. */
+.sode-gridpop__band > .sode-gridpop__help {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.sode-gridpop__msg:empty {
-  display: none;
+.sode-gridpop__band > .sode-gridpanel__count {
+  order: 1;
+}
+.sode-gridpop__band > .sode-gridpop__close {
+  order: 2;
+}
+:root[data-layout="phone"] .sode-gridpop__help {
+  visibility: hidden;
 }
 .sode-gridpop .sode-panel__status {
   color: var(--pb-status-error);
