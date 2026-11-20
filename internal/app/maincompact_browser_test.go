@@ -50,7 +50,7 @@ func TestChromeMainCompact(t *testing.T) {
 		xy := b.eval(`(() => { const r = document.querySelector('` + sel + `').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`).([]any)
 		mouse(xy[0], xy[1])
 	}
-	// near points 5rem (100px at 125%) past the item's inner corner, inside the apron but off the item.
+	// near points 5rem (80px at the 100% root) past the item's inner corner, inside the apron but off the item.
 	near := func(sel string, dx, dy int) {
 		xy := b.eval(fmt.Sprintf(`(() => { const r = document.querySelector('%s').getBoundingClientRect(); return [(%d > 0 ? r.right : r.left) + %d, (%d > 0 ? r.bottom : r.top) + %d]; })()`, sel, dx, dx, dy, dy)).([]any)
 		mouse(xy[0], xy[1])
@@ -64,7 +64,7 @@ func TestChromeMainCompact(t *testing.T) {
 	for _, c := range []struct {
 		sel    string
 		dx, dy int
-	}{{".sode__footer", 100, -80}, {"#conn", -100, 80}} {
+	}{{".sode__footer", 80, -64}, {"#conn", -80, 64}} {
 		sel := c.sel
 		b.waitFor(sel+" faded", opacity(sel, "0")+` && `+shown(sel))
 		hover(sel)
@@ -175,7 +175,7 @@ func TestChromeMainCompact(t *testing.T) {
 	b.waitFor("Lock bar back on hover", opacity(bar, "1"))
 	rest()
 	b.waitFor("Lock bar faded again", opacity(bar, "0"))
-	near(".sode-lock__who", 100, 80)
+	near(".sode-lock__who", 80, 64)
 	b.waitFor("Lock bar back with the pointer near it", opacity(bar, "1"))
 	rest()
 	b.waitFor("Lock bar faded once the pointer leaves", opacity(bar, "0"))

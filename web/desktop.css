@@ -42,13 +42,13 @@
 .pb-btn.sode__add {
   border-color: var(--pb-edge);
   font-size: var(--pb-text-xl);
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
   padding: 0 var(--pb-space-5);
 }
 /* A click flips the boxes. prepaint.js sets the order before first paint. */
 .pb-btn.sode__to {
   font-size: var(--pb-text-xl);
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
   padding: 0 var(--pb-space-5);
 }
 .sode__to::before {

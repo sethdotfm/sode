@@ -4,7 +4,7 @@
    corner holds what is pinned on both axes. */
 .sode-panel__grid.sode-gridpanel {
   display: block;
-  /* At the Grid page's 112.5% root (base.css): 72 px crosspoints, a 202 by 108 px corner. The scroll bars are Sode's
+  /* At the Grid page's 90% root (base.css): 57.6 px crosspoints, a 161 by 86 px corner. The scroll bars are Sode's
      own big ones (bigscroll.js), the same on both axes; the phone scrolls by touch and keeps thin native ones. */
   --sode-xp: 4rem;
   --sode-name-w: 11.2rem;

@@ -1,14 +1,18 @@
-/* The root font size scales the whole UI (AGENTS.md, Frontend). The :not() keeps this rule under the phone's 100%. */
+/* The root font size scales the whole UI (AGENTS.md, Frontend): 100%, and 90% on a Grid panel's page and its Live
+   Editor so more of the grid shows. The phone stays at 100% on every page. Only a grid in a panel page's main counts:
+   the Grid popup's grid on the main page must not resize the page behind it. */
 html {
-  font-size: 125%;
-}
-[data-layout="phone"] {
   font-size: 100%;
 }
-:root:not([data-layout="phone"]):has(.sode-gridpanel) {
-  font-size: 112.5%;
+:root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) {
+  font-size: 90%;
 }
 :root {
+  /* The three control heights. field: the big patch boxes. action: anything used live (patching, panels, Take, chips,
+     list rows that take a press); nothing used live is lower. compact: toolbars and forms away from the patch flow. */
+  --sode-h-field: 4rem;
+  --sode-h-action: 2.5rem;
+  --sode-h-compact: 2rem;
   --sode-side-w: 0.3125rem;
   --sode-bigscroll-w: 1.4rem;
   --sode-littlescroll-w: 0.7rem;
@@ -18,6 +22,27 @@ html {
   --sode-motion-found: 600ms;
   --sode-motion-reveal: 250ms;
   --pb-font-num: var(--pb-font);
+}
+/* Patchbay's control sizes on the desktop layout: plain and small controls are compact, large ones are actions, and an
+   icon button is square. A page part used live lifts its controls to the action height (below). The phone keeps
+   patchbay's own sizes (mobile.css sets its touch sizes). */
+:root:not([data-layout="phone"]) {
+  --pb-control-h: var(--sode-h-compact);
+  --pb-control-h-sm: var(--sode-h-compact);
+  --pb-control-h-lg: var(--sode-h-action);
+  --pb-icon-btn-w: var(--sode-h-compact);
+}
+/* The patch page is used live, so its buttons (Edit, Filters, Clear, Select None and the others) are actions. :where()
+   keeps these at patchbay's weight, so a button with its own size (Take, the field-high + and arrow) keeps it. A
+   History row is the press target and is an action high with compact buttons in it, so they stay compact. */
+:where(:root:not([data-layout="phone"]) #patch-view) .pb-btn:where(:not(#history *)) {
+  height: var(--sode-h-action);
+}
+:where(:root:not([data-layout="phone"]) #patch-view) .pb-btn--icon:where(:not(#history *)) {
+  width: var(--sode-h-action);
+}
+:where(:root:not([data-layout="phone"]) #patch-view) .sode__search-box {
+  --sode-search-h: var(--sode-h-action);
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
@@ -256,7 +281,7 @@ html {
 /* The main page's Source, Destination and Levels boxes; a Grid panel's Levels box is the same box (gridpanel.css). */
 .pb-input.sode__input {
   font-size: var(--pb-text-xl);
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
 }
 /* The level picker: the main page and the panel editor use it. */
 .sode__levels {
@@ -911,7 +936,7 @@ html {
   background: var(--pb-surface-sunken);
   border: var(--pb-border-w) solid var(--pb-edge);
   display: flex;
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
   justify-content: center;
   position: relative;
   touch-action: none;
@@ -948,7 +973,7 @@ html {
   position: absolute;
   top: 0;
   transition: transform var(--pb-motion-normal) var(--pb-ease);
-  width: calc(var(--pb-control-h-lg) * 1.6);
+  width: var(--sode-h-field);
 }
 .sode__slide--drag .sode__slide-handle,
 .sode__slide--drag::before {
@@ -1511,7 +1536,10 @@ button.sode-up__bar:not(:disabled):hover,
 :root:not([data-layout="phone"]) [data-bigscroll]::-webkit-scrollbar {
   display: none;
 }
-:root[data-bigscroll-on]:not([data-layout="phone"]) {
+/* The page bar's room is kept while the bar is hidden too, so the page never moves sideways when the bar shows or
+   goes. A Grid panel's Live Editor is one window high and never scrolls, so it keeps the room only while its bar
+   shows. */
+:root[data-bigscroll]:not([data-layout="phone"]):is([data-bigscroll-on], :not(:has(.sode-panels .sode-gridpanel))) {
   --sode-page-bar: var(--sode-bigscroll-w);
   padding-right: var(--sode-bigscroll-w);
 }

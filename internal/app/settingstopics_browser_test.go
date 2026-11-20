@@ -71,7 +71,7 @@ func TestChromeSettingsTopics(t *testing.T) {
 		return ok;
 	})()`)
 
-	// At 1280px (125% root) the sidebar and the form both fit, side by side.
+	// At 1280px the sidebar and the form both fit, side by side.
 	for _, w := range []int{1280, 1180} {
 		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": w, "height": 800, "deviceScaleFactor": 1, "mobile": false})
 		b.waitFor("sidebar in view, left of the form", `(() => {

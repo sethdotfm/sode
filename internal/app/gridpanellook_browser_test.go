@@ -87,7 +87,7 @@ func TestChromeGridPanelLook(t *testing.T) {
 		const c = document.createElement('canvas').getContext('2d');
 		c.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
 		const fits = c.measureText(i.placeholder).width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) <= i.clientWidth;
-		return i.classList.contains('sode__input') && r.width >= 151 && cs.fontSize === '24.75px' && fits &&
+		return i.classList.contains('sode__input') && r.width >= 120 && cs.fontSize === '19.8px' && fits &&
 			Math.abs(r.top - p.top) < 1 && Math.abs(a.bottom - p.bottom) < 1 && a.top > r.bottom && a.height < r.height &&
 			Math.abs(a.left - r.left) < 1 && Math.abs(a.width - r.width) < 1;
 	})()`)
@@ -126,9 +126,9 @@ func TestChromeGridPanelLook(t *testing.T) {
 			document.querySelector('.sode-gridpanel__tools').contains(document.getElementById('panel-home')) &&
 			!!document.querySelector('#panel-home a[href="panels"]');
 	})()`)
-	b.waitFor("big scroll bars: 25 px on both axes", `(() => {
+	b.waitFor("big scroll bars: 20 px on both axes", `(() => {
 		const x = document.querySelector('.sode-gridpanel__frame > .sode-bigscroll--x'), y = document.querySelector('.sode-gridpanel__frame > .sode-bigscroll--y');
-		return !!x && !!y && !x.hidden && !y.hidden && x.offsetHeight === 25 && y.offsetWidth === 25;
+		return !!x && !!y && !x.hidden && !y.hidden && x.offsetHeight === 20 && y.offsetWidth === 20;
 	})()`)
 	b.waitFor("the grid reaches the window's bottom", `Math.abs(document.querySelector('.sode-gridpanel__scroll').getBoundingClientRect().bottom - innerHeight) < 2 && document.documentElement.scrollHeight === innerHeight`)
 	b.waitFor("each name shows its router number before it, in the number font, and its text is the name alone", `(() => {
@@ -154,9 +154,9 @@ func TestChromeGridPanelLook(t *testing.T) {
 			arrows === '#pb-i-arrow-left,#pb-i-arrow-down';
 	})()`)
 
-	b.waitFor("the Grid page's root is 112.5%: 72 px crosspoints with 15 px names", `getComputedStyle(document.documentElement).fontSize === '18px' && `+
-		`Math.round(document.querySelector('.sode-gridpanel__probe-xp').getBoundingClientRect().width) === 72 && `+
-		`getComputedStyle(document.querySelector('.sode-gridpanel__src')).fontSize === '14.625px'`)
+	b.waitFor("the Grid page's root is 90%: 58 px crosspoints with 12 px names", `getComputedStyle(document.documentElement).fontSize === '14.4px' && `+
+		`Math.round(document.querySelector('.sode-gridpanel__probe-xp').getBoundingClientRect().width) === 58 && `+
+		`getComputedStyle(document.querySelector('.sode-gridpanel__src')).fontSize === '11.7px'`)
 
 	b.eval(bandRects)
 	b.eval(`document.querySelector('.sode-gridpanel__dst[data-dst="2"]').click(); document.querySelector('.sode-gridpanel__src[data-src="4"]').click(); true`)
@@ -279,7 +279,7 @@ func TestChromeGridPanelLook(t *testing.T) {
 	makePanel(t, a, ana, gridBody(t, `{"name":"Medium grid","type":"grid","settings":{"mode":"take","levels":[1]},"sources":`+members(40)+`,"destinations":`+members(20)+`}`))
 
 	b.open(srv.URL + "/panels")
-	b.waitFor("the Grid panel in the list, on a page that keeps the 125% root", `!!document.querySelector('.sode-ov__item[data-id="`+id+`"]') && getComputedStyle(document.documentElement).fontSize === '20px'`)
+	b.waitFor("the Grid panel in the list, on a page that keeps the 100% root", `!!document.querySelector('.sode-ov__item[data-id="`+id+`"]') && getComputedStyle(document.documentElement).fontSize === '16px'`)
 	b.eval(`document.querySelector('.sode-ov__item[data-id="` + id + `"]').click(); true`)
 	b.waitFor("its picture and words", `(() => {
 		const big = document.querySelector('.sode-ov__big');

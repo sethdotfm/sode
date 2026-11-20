@@ -1,0 +1,3 @@
+- On the desktop, Sode draws at the browser's usual text size (100% in place of 125%), so more fits on a screen. The Grid panel page and its Live Editor are at 90%. The phone layout does not change.
+- Buttons and fields have three heights. Controls that you use while you patch are never lower than 2.5rem, so Edit, Filters, Clear and Select None stay easy to hit.
+- The page no longer moves sideways when its scroll bar shows, or behind an open Grid popup.

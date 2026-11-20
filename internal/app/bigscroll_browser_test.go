@@ -34,15 +34,15 @@ func TestChromeBigScroll(t *testing.T) {
 	b.waitFor("no native bar beside it", menu+`.offsetWidth - `+menu+`.clientWidth === `+menu+`.clientLeft * 2`)
 
 	num := func(expr string) float64 { return b.eval(expr).(float64) }
-	// 1.4rem is 28 px at 125%.
+	// 1.4rem is 22.4 px at the 100% root.
 	geo := b.eval(`(() => { const m = ` + menu + `, r = m.getBoundingClientRect(), g = ` + bar + `.getBoundingClientRect(); return [g.width, g.height, m.clientHeight, Math.round(r.right - m.clientLeft - g.right), Math.round(g.top - r.top - m.clientTop)]; })()`).([]any)
-	if geo[0].(float64) != 28 || geo[1] != geo[2] || geo[3].(float64) != 0 || geo[4].(float64) != 0 {
-		t.Fatalf("bar width, height, list height, right gap, top gap = %v, want 28 px, the list's height, 0 and 0", geo)
+	if math.Abs(geo[0].(float64)-22.4) > 0.1 || geo[1] != geo[2] || geo[3].(float64) != 0 || geo[4].(float64) != 0 {
+		t.Fatalf("bar width, height, list height, right gap, top gap = %v, want 22.4 px, the list's height, 0 and 0", geo)
 	}
 	thumb := bar + `.firstElementChild`
 	track := num(bar + `.clientHeight`)
 	view, content := num(menu+`.clientHeight`), num(menu+`.scrollHeight`)
-	want := math.Max(60, math.Round(track*view/content)) // min-height 3rem
+	want := math.Max(48, math.Round(track*view/content)) // min-height 3rem
 	if got := num(thumb + `.offsetHeight`); math.Abs(got-want) > 1 {
 		t.Fatalf("thumb %v px, want %v (track %v, view %v of %v)", got, want, track, view, content)
 	}
@@ -77,8 +77,8 @@ func TestChromeBigScroll(t *testing.T) {
 	little := `document.querySelector('#history-search .sode__menu')`
 	lbar := little + `.nextElementSibling`
 	b.waitFor("its little bar shows", lbar+`.classList.contains('sode-bigscroll--little') && !`+lbar+`.hidden`)
-	if w := num(lbar + `.getBoundingClientRect().width`); w != 14 {
-		t.Fatalf("little bar is %v px wide, want 14 (0.7rem at 125%%)", w)
+	if w := num(lbar + `.getBoundingClientRect().width`); math.Abs(w-11.2) > 0.1 {
+		t.Fatalf("little bar is %v px wide, want 11.2 (0.7rem at the 100%% root)", w)
 	}
 	b.eval(`document.querySelector('#history-search [data-search-src]').blur(); true`)
 
