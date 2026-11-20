@@ -37,14 +37,16 @@ import {
 } from './presetstore.js';
 
 const hosts = [];
-// host: { active(), confirm(plan), patch(), clear(), focus(), fill?(take) }. patch() gives {
+// host: { active(), confirm(plan), patch(), picks(), clear(), focus(), fill?(take) }. patch() gives {
 // src: item, dsts: [item], levels: [ui] } (levels [] = default), or null while the boxes hold
-// no patch. fill(take) is desktop only.
+// no patch. picks() gives the same with src null while Source has no pick. fill(take) is desktop only.
 export const presetHost = (host) => {
   hosts.push(host);
 };
 const shown = () => hosts.find((h) => h.active());
 export const presetShown = () => !!shown();
+// The layout's host, for the Grid popup (gridpopup.js), or undefined while neither layout shows.
+export const boxHost = () => shown();
 
 export function fire(scope, name) {
   const s = findPreset(scope, name);

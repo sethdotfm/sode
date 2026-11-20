@@ -1,0 +1,120 @@
+/* The main page's Grid popup (gridpopup.js) and its staged list. The grid itself is gridpanel.css. Load after it. */
+
+/* The pulse that a staged crosspoint and the armed Take run (gridpanel.css). Keep in step with panels.css, which the
+   main page does not load. */
+@property --pulse {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+@keyframes sode-panel-pulse {
+  0%,
+  100% {
+    --pulse: 0;
+  }
+  50% {
+    --pulse: 1;
+  }
+}
+.sode-gridpop {
+  --panel-pulse-s: 2s;
+  background-color: var(--pb-overlay-scrim);
+  /* Under the Confirm and the other dialogs, which open over it. */
+  z-index: var(--pb-z-scrim);
+}
+.sode-gridpop > .pb-modal.sode-gridpop__box {
+  height: 80vh;
+  max-height: none;
+  max-width: none;
+  min-width: 0;
+  width: 80vw;
+}
+/* The phone layout: the whole window. */
+:root[data-layout="phone"] .sode-gridpop {
+  padding: 0;
+}
+:root[data-layout="phone"] .sode-gridpop > .pb-modal.sode-gridpop__box {
+  height: 100%;
+  max-width: none;
+  width: 100%;
+}
+.sode-gridpop__box {
+  position: relative;
+}
+/* The shield over a destination name (gridpopshield.js), above the grid's sticky bands. */
+.sode-gridpop__shield {
+  background: var(--pb-surface-overlay);
+  position: absolute;
+  z-index: var(--pb-z-sticky);
+}
+.sode-gridpop__shield[hidden] {
+  display: none;
+}
+.sode-gridpop .sode-panels__spacer {
+  flex: 1 1 auto;
+}
+.sode-gridpop__head {
+  gap: var(--pb-space-4);
+}
+.sode-gridpop .sode-gridpanel__levels {
+  margin: var(--pb-space-4) var(--pb-space-5) 0;
+}
+.sode-gridpop__msg {
+  margin: 0 var(--pb-space-5);
+}
+.sode-gridpop__msg:empty {
+  display: none;
+}
+.sode-gridpop .sode-panel__status {
+  color: var(--pb-status-error);
+  font-weight: var(--pb-weight-bold);
+  margin: 0 var(--pb-space-5);
+}
+.sode-gridpop .sode-panel__status--ok {
+  color: var(--pb-status-ok);
+}
+.sode-gridpop .sode-panel__status[hidden] {
+  display: none;
+}
+
+/* Grid sits under Take, in the Take column of the patch boxes, so the column keeps Take's width. */
+.sode__take-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.pb-btn.sode__grid-open {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-2);
+  justify-content: center;
+}
+
+/* The staged list under the patch boxes: about six rows, then a little scroll bar (bigscroll.js). */
+.sode__staged {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  margin-top: var(--pb-space-5);
+}
+.sode__staged[hidden] {
+  display: none;
+}
+.sode__staged-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__staged-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  max-height: calc(6 * (var(--pb-control-h-sm) + var(--pb-space-2)));
+  overflow-y: auto;
+  padding: 0;
+}
+.sode__staged-row {
+  flex-wrap: nowrap;
+}

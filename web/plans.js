@@ -135,6 +135,8 @@ export const VERBS = {
   retry: { word: 'retry', ask: 'retry the take of', busy: 'Retrying…', resets: false },
   redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
   preset: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
+  // The Grid popup's staged routes (gridpopup.js). They are not the patch boxes, so a send leaves the boxes alone.
+  grid: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
   // A Protect is no take: protects.js sends it (plan.protect).
   protect: { word: 'protect', ask: 'protect', busy: 'Protecting…', resets: false },
   unprotect: { word: 'clear protect', ask: 'clear the Protect on', busy: 'Clearing…', resets: false },
@@ -542,6 +544,8 @@ export function sendTakes(p) {
     return false;
   }
   for (const id of take.byId.keys()) takes.set(id, take);
+  // The Grid popup drops its staged routes only once they went out.
+  p.onSent?.();
   const last = lastFromPlan(p);
   if (last) {
     lastPatch = last;

@@ -57,6 +57,13 @@ export function gridLevelBox(ui, tally, panel, onChange) {
       const src = boxSource();
       return src ? stageLevels(boxFill(p.settings, t, p.rights) || parseLevelsIn('', src) || [], t, p.rights) : [];
     },
+    // The Grid popup fills the box from the main page's Level box. An empty list is an empty box: the default levels.
+    fill(list) {
+      if (!lvl) return;
+      if (list?.length) return lvl.set(list);
+      lvl.clear();
+      onChange();
+    },
     stop() {
       if (boxNode) boxNode.hidden = true;
     },

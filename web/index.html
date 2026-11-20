@@ -22,6 +22,9 @@
 <link rel="stylesheet" href="exportimport.css">
 <link rel="stylesheet" href="touch.css">
 <link rel="stylesheet" href="setup.css">
+<link rel="stylesheet" href="gridpanel.css">
+<link rel="stylesheet" href="gridpanelphone.css">
+<link rel="stylesheet" href="gridpopup.css">
 </head>
 <body>
 
@@ -120,12 +123,24 @@
       </div>
       <div class="sode__box">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
+        <div class="sode__take-row">
+          <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm pb-tip--end sode__grid-open" id="grid-open" tabindex="-1" aria-keyshortcuts="Control+E" data-pb-tip="Grid popup (Ctrl+e)"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-grid-3x3"/></svg><span>Grid</span></button>
+        </div>
       </div>
       <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
       <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
     </form>
 
+    <!-- The Grid popup's staged routes (gridpopup.js), kept in this page's memory only. -->
+    <section class="sode__staged" id="grid-staged" aria-labelledby="grid-staged-head" hidden>
+      <div class="sode__staged-head">
+        <span class="sode__label" id="grid-staged-head">Staged</span>
+        <button type="button" class="pb-btn pb-btn--danger pb-btn--sm" id="grid-staged-take">Take</button>
+        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="grid-staged-clear">Clear</button>
+      </div>
+      <ul class="sode__staged-list" id="grid-staged-list" aria-label="Staged routes"></ul>
+    </section>
     <div class="sode__result" id="result" aria-live="polite"></div>
     <!-- The Broken banner (brokenbanner.js). The phone view has its own copy. -->
     <div class="pb-alert pb-alert--warn sode__broken" data-broken role="status" hidden></div>
@@ -615,6 +630,7 @@
       <span class="sode__conn-addr sode-m__addr" id="m-rt-addr"></span>
       <span class="sode-m__spacer"></span>
       <span class="sode-inbox__slot" data-inbox></span>
+      <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" id="m-grid" aria-label="Grid popup"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-grid-3x3"/></svg></button>
       <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" id="m-settings" aria-label="Settings"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-settings"/></svg></button>
     </header>
 
@@ -755,7 +771,18 @@
         <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Next source, destination</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
+        <dt><kbd data-mac="⌃e">Ctrl+e</kbd></dt><dd>Grid popup, open or close</dd>
         <dt><kbd>Esc</kbd></dt><dd>Close the match list, then clear the box, then Keyboard mode</dd>
+      </dl>
+      <div class="sode__label">Grid popup</div>
+      <dl>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></dt><dd>Move the cursor</dd>
+        <dt><kbd>Space</kbd></dt><dd>On a name: pick it. On a crosspoint: stage the route, or the Diagonal of the picks</dd>
+        <dt><kbd>v</kbd></dt><dd>Draw a line from the cursor: move to stretch it, Space stages it</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Confirm the staged routes as one take</dd>
+        <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source search, Destination search, Levels box</dd>
+        <dt><kbd>u</kbd> <kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Remove the line, then the picks, then close. The staged routes stay</dd>
       </dl>
       <div class="sode__label">Match lists (Source, Destination)</div>
       <dl>

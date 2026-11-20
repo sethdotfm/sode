@@ -63,7 +63,7 @@ html:has(.sode-gridpanel) {
 :root:not([data-sode-kiosk]) .sode-panels:has(.sode-gridpanel) > .sode-panel__foot {
   margin: var(--pb-space-4) var(--pb-space-5);
 }
-:root:not([data-layout="phone"]):has(.sode-gridpanel) .sode-lock__who {
+:root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) .sode-lock__who {
   background: transparent;
 }
 :root:not([data-layout="phone"]) .sode-panels:has(.sode-gridpanel) .sode-panels__title {

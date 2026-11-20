@@ -30,6 +30,7 @@ import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
+import { gridShown, toggleGrid } from './gridpopup.js';
 import { protectKey } from './protects.js';
 
 const sel = { src: null, dst: null };
@@ -447,7 +448,23 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   });
 }
 
-desktopKeys({ boxes, dsts: () => dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally });
+desktopKeys({
+  boxes,
+  dsts: () => dsts,
+  lvl,
+  confirm,
+  keys,
+  historyView,
+  active,
+  select,
+  addDst,
+  useLast,
+  wantsMatch,
+  patchNow,
+  clearAll,
+  renderTally,
+  grid: { shown: gridShown, toggle: toggleGrid },
+});
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
@@ -496,6 +513,7 @@ presetHost({
   active,
   confirm: openConfirm,
   patch: () => boxPatch(sel.src, allDsts(), lvl),
+  picks: () => ({ src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: clearAll,
   focus: () => boxes.src.input.focus(),
   fill: (p) => {
