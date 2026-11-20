@@ -1,6 +1,8 @@
 package app
 
 import (
+	"encoding/json"
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -123,10 +125,16 @@ func TestChromeMainOneTake(t *testing.T) {
 	if q := b.eval(`document.getElementById('confirm-body').firstElementChild.textContent`).(string); !strings.Contains(q, "DSM1") || strings.Count(q, ",")+strings.Count(q, " and ") < 2 {
 		t.Fatalf("the question is %q, want each destination by name", q)
 	}
-	// The Confirm's Take is as high as the main Take, and the dialog has a fixed place: a shorter plan later must not
-	// move it.
-	if b.eval(`Math.abs(document.getElementById('confirm-ok').getBoundingClientRect().height - document.getElementById('patch').getBoundingClientRect().height) < 0.5`) != true {
-		t.Fatal("the Confirm's Take is not as high as the main Take")
+	// The Confirm's Take has the one Confirm button height (3rem): lower than the main Take, higher than Cancel. The
+	// dialog has a fixed place: a shorter plan later must not move it.
+	heights := `(() => {
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		const h = (id) => document.getElementById(id).getBoundingClientRect().height / rem;
+		return JSON.stringify({ ok: h('confirm-ok'), take: h('patch'), cancel: h('confirm-cancel') });
+	})()`
+	var hs struct{ OK, Take, Cancel float64 }
+	if err := json.Unmarshal([]byte(b.eval(heights).(string)), &hs); err != nil || math.Abs(hs.OK-3) > 0.05 || hs.OK >= hs.Take || hs.OK <= hs.Cancel {
+		t.Fatalf("the Confirm's Take, the main Take and Cancel are %+v rem high, want 3 rem, between the other two", hs)
 	}
 	dialogAt := `(() => { const r = document.getElementById('confirm-dialog').getBoundingClientRect(); return [r.top, r.left, r.width].map(Math.round).join(','); })()`
 	tall := b.eval(dialogAt).(string)

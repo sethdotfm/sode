@@ -1,18 +1,25 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 // Home's Destination box after an add: the box empties, so new digits start a new search. Directly after an add, + and
-// Ctrl+Enter on the empty box add the next destination by router number, and the box shows which one. With no add directly
-// before, they do nothing. A take after + does not refuse the same text later. A typed list shows its destinations all
-// selected and adds them all; the Source box gives a note instead. Esc with nothing to clear does nothing, and
+// Ctrl+Enter on the empty box add the next destination, and the box shows which one. They use the Next match behavior
+// setting. With no add directly before, they do nothing. A take after + does not refuse the same text later. A typed list shows
+// its destinations all selected and adds them all, a range with a tail too; the Source box gives a note instead. Esc with nothing to clear does nothing, and
 // Alt+Shift+k starts and ends Keyboard mode.
 func TestChromeMainMultiAdd(t *testing.T) {
 	b := startBrowser(t)
-	sim := startSim(t)
+	// Names for the tail list and the Next match of the name: numbers 41 to 48.
+	names := filepath.Join(t.TempDir(), "names")
+	if err := os.WriteFile(names, []byte("dst 40 Mon 1 PIP 1\ndst 41 Mon 1 PIP 2\ndst 42 Mon2 PIP1\ndst 43 Mon 2 PIP 2\ndst 44 Mon 3 PIP 1\ndst 45 Mon 9\ndst 46 Bars X\ndst 47 Mon 10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sim := startSim(t, "SIM_NAMES_FILE="+names)
 	a := simApp(t, sim)
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
@@ -137,6 +144,27 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	}
 	ctrlEnter()
 	b.waitFor("Ctrl+Enter adds the list", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && !document.getElementById('dst').value && `+hint+` === 'Ctrl+Enter adds 18 MV 5'`)
+	clear()
+
+	// A range with a tail: Mon 1-4 PIP 1 finds three destinations. The note names the one that is not there.
+	typed("dst", "Mon 1-4 PIP 1")
+	listed("dst")
+	b.waitFor("three rows and a note", rows+`.length === 3 && `+selected+` && `+note("dst")+` === 'Not found: Mon 4 PIP 1'`)
+	b.shot("tail-list")
+	ctrlEnter()
+	b.waitFor("Ctrl+Enter adds the three", chips+` === '41 Mon 1 PIP 1|43 Mon2 PIP1|45 Mon 3 PIP 1'`)
+	clear()
+
+	// The next add uses the Next match behavior setting: after Mon 9, by number Bars X, by name Mon 10.
+	typed("dst", "Mon 9")
+	listed("dst")
+	plus()
+	b.waitFor("by number", chips+` === '46 Mon 9' && `+hint+` === 'Ctrl+Enter adds 47 Bars X'`)
+	b.eval(`import('./device.js').then((m) => { m.setPref('nextMode', 'fuzzy'); return true })`)
+	b.waitFor("by name", hint+` === 'Ctrl+Enter adds 48 Mon 10'`)
+	ctrlEnter()
+	b.waitFor("Ctrl+Enter adds Mon 10", chips+` === '46 Mon 9|48 Mon 10'`)
+	b.eval(`import('./device.js').then((m) => { m.setPref('nextMode', ''); return true })`)
 	clear()
 
 	// Numbers the router does not have are left out, and the note says so.

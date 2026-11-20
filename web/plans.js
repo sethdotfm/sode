@@ -10,7 +10,9 @@ import { resolvePreset } from './presetstore.js';
 import { showResult, setResult } from './banner.js';
 import { writeJSON, writeStr } from './store.js';
 import { onMyRights } from './editorrights.js';
+import { nextAfter } from './boxlist.js';
 export { showResult, resultNode } from './banner.js';
+export { nameStem } from './boxlist.js';
 
 let takeSeq = 0;
 const takes = new Map();
@@ -306,11 +308,14 @@ function planQuestion(plan) {
   }
   const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
   const what = VERBS[plan.verb].ask;
-  // A take of staged routes names each destination, so the count is never all the Confirm says. A mixed plan names
-  // them in the order mixedParts shows them: the boxes' destinations first.
+  // A take to many destinations names each one by number and name. So the count is never all the Confirm says, and the
+  // operator reads what will change before the take. A mixed plan names them in the order mixedParts shows them: the
+  // boxes' destinations first. Past NAMED the boxes below still name each one.
   const boxed = (i) => i.groups.some((g) => !g.staged);
   const order = plan.mixed ? [...plan.items.filter(boxed), ...plan.items.filter((i) => !boxed(i))] : plan.items;
-  const names = plan.verb === 'grid' && n > 1 ? [': ', ...nameList(order.map((i) => strong(labelNode(i.dst))))] : [];
+  const shown = order.slice(0, order.length > NAMED ? NAMED - 1 : NAMED).map((i) => strong(labelNode(i.dst)));
+  const more = order.length - shown.length;
+  const names = n > 1 ? [': ', ...nameList(more ? [...shown, `${more} more`] : shown)] : [];
   return el(
     'div',
     null,
@@ -322,6 +327,9 @@ function planQuestion(plan) {
     '?',
   );
 }
+
+// The most destinations the Confirm's question names one by one.
+const NAMED = 8;
 
 // "a, b and c" from nodes.
 const nameList = (nodes) => nodes.flatMap((x, i) => (i === 0 ? [x] : [i === nodes.length - 1 ? ' and ' : ', ', x]));
@@ -536,31 +544,16 @@ export function resetNext() {
   run = { src: null, dsts: null };
 }
 
-// ("Cam 3" → "Cam", "Prmpt A" → "Prmpt", "Mon 2 B" → "Mon"): trailing digits and single letters
-// set apart by a space.
-export function nameStem(name) {
-  let s = name.trim();
-  for (let prev = ''; s !== prev; ) {
-    prev = s;
-    s = s.replace(/\s+[A-Za-z]$/, '').replace(/[\s\d]+$/, '');
-  }
-  return s;
+// The name search nextAfter (boxlist.js) uses for the Next match behavior setting: null for Next number. The Next chip
+// and the next add both take it, so they use the one setting.
+export function nextFind(items) {
+  return pref('nextMode') === 'fuzzy' ? (q) => search(items, q, items.length) : null;
 }
 
-// number + 1, or with nextMode fuzzy the next router-order match on the name's text. Falls back
-// to the number when the name is only a counter or no higher match is left.
+// The next number, or with Next match of the name the next router-order match on the name's text.
 function nextOf(it, by) {
-  if (pref('nextMode') === 'fuzzy') {
-    const q = nameStem(it.name || '');
-    if (q) {
-      const all = [...by.values()];
-      const hit = search(all, q, all.length)
-        .filter((x) => x.n > it.n)
-        .sort((a, b) => a.n - b.n)[0];
-      if (hit) return hit;
-    }
-  }
-  return by.get(it.n + 1) || null;
+  const all = [...by.values()];
+  return nextAfter(it, all, { find: nextFind(all) });
 }
 
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);

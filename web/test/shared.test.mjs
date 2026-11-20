@@ -16,22 +16,6 @@ test('toggle adds, then removes', async () => {
   assert.deepEqual([...s], ['b']);
 });
 
-test('keepSearch holds only a non-blank search that is still in the box', async () => {
-  const { keepSearch } = await import('./all.mjs');
-  let text = 'cam';
-  const k = keepSearch(() => text);
-  assert.equal(k.is(), false);
-  k.set(true, 'cam');
-  assert.equal(k.is(), true);
-  text = 'cam 2';
-  assert.equal(k.is(), false);
-  k.set(false, 'cam 2');
-  assert.equal(k.is(), false);
-  k.set(true, '  ');
-  text = '  ';
-  assert.equal(k.is(), false);
-});
-
 // Last is this browser's own: sendTakes sets it, History never does.
 async function patched(src, dsts, levels = [1], srcName = `X${src}`) {
   const { S, sendTakes } = await import('./all.mjs');

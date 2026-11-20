@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from '../boxlist.js';
+import { parseList, namedAs, listMatches, missingNote, nextAdd, nextAfter, nameStem, LIST_MAX } from '../boxlist.js';
 
-const parts = (text) => parseList(text)?.parts ?? null;
+const parts = (text) => parseList(text)?.parts.map(({ tail, ...p }) => (tail ? { ...p, tail } : p)) ?? null;
 
 test('parseList reads ranges and lists of numbers and names', () => {
   assert.deepEqual(parts('11-13'), [{ stem: '', from: 11, to: 13 }]);
@@ -31,9 +31,36 @@ test('parseList reads ranges and lists of numbers and names', () => {
 });
 
 test('parseList: plain searches and half-typed lists are not lists', () => {
-  for (const t of ['', '11', 'Rec 1', 'Rec', '11-', '11,', ',11', '-4', 'Rec 1-Cam 4', '1-Rec 4', 'Rec 1-2-3', 'DSM-1', 'Cam 1, Rec']) {
+  for (const t of [
+    '',
+    '11',
+    'Rec 1',
+    'Rec',
+    '11-',
+    '11,',
+    ',11',
+    '-4',
+    'Rec 1-Cam 4',
+    '1-Rec 4',
+    'Rec 1-2-3',
+    'DSM-1',
+    'Cam 1, Rec',
+    '1-4 PIP 1',
+    'MV 1-4 PIP 1-2',
+  ]) {
     assert.equal(parseList(t), null, JSON.stringify(t));
   }
+});
+
+test('parseList reads a tail after a range of names', () => {
+  assert.deepEqual(parts('MV 1-4 PIP 1'), [{ stem: 'MV', from: 1, to: 4, tail: 'PIP 1' }]);
+  assert.deepEqual(parts('MV1-4PIP1'), [{ stem: 'MV', from: 1, to: 4, tail: 'PIP1' }]);
+  assert.deepEqual(parts('MV 1-MV 4 PIP 1'), [{ stem: 'MV', from: 1, to: 4, tail: 'PIP 1' }]);
+  assert.deepEqual(parts('MV 1-2 PIP 1, Rec 3'), [
+    { stem: 'MV', from: 1, to: 2, tail: 'PIP 1' },
+    { stem: 'Rec', from: 3, to: 3 },
+  ]);
+  assert.equal(parseList('MV 1-4 PIP 1').count, 4);
 });
 
 test('parseList marks a list with too many items', () => {
@@ -67,6 +94,32 @@ test('listMatches finds names and numbers in the order of the list, and names wh
   assert.deepEqual(nums.missing, ['4']);
 });
 
+test('listMatches: a tail filters the range, with spaces between words and numbers optional', () => {
+  const mv = [
+    { n: 20, num: '21', name: 'MV 1 PIP 1' },
+    { n: 21, num: '22', name: 'MV 1 PIP 2' },
+    { n: 22, num: '23', name: 'MV2 PIP1' },
+    { n: 23, num: '24', name: 'MV 2 PIP 2' },
+    { n: 24, num: '25', name: 'mv  3 pip 1' },
+    { n: 25, num: '26', name: 'MV 11 PIP 1' },
+  ];
+  const m = listMatches(parseList('MV 1-4 PIP 1'), mv);
+  assert.deepEqual(
+    m.found.map((it) => it.n),
+    [20, 22, 24],
+  );
+  assert.deepEqual(m.missing, ['MV 4 PIP 1']);
+  assert.deepEqual(
+    listMatches(parseList('MV1-2 PIP2'), mv).found.map((it) => it.n),
+    [21, 23],
+  );
+  assert.deepEqual(
+    listMatches(parseList('MV 1-1 PIP 1'), mv).found.map((it) => it.n),
+    [20],
+    'MV 11 PIP 1 is not MV 1 PIP 1',
+  );
+});
+
 test('namedAs: a name that starts with the text makes it a search', () => {
   assert.equal(namedAs('MV 1-4', items), true);
   assert.equal(namedAs('mv  1-4 pip', items), true);
@@ -83,7 +136,26 @@ test('missingNote is short', () => {
 test('nextAdd: the lowest number above the last add that is not added', () => {
   const added = new Set([1]);
   const has = (it) => added.has(it.n);
-  assert.equal(nextAdd(0, items, has).n, 2, 'skips an added one');
-  assert.equal(nextAdd(2, items, has).n, 4, 'skips a number the router does not have');
-  assert.equal(nextAdd(10, items, has), null);
+  assert.equal(nextAdd(items[0], items, has).n, 2, 'skips an added one');
+  assert.equal(nextAdd(items[2], items, has).n, 4, 'skips a number the router does not have');
+  assert.equal(nextAdd(items[5], items, has), null);
+});
+
+test('nextAdd uses Next match of the name when given the name search', () => {
+  const list = [
+    { n: 0, name: 'Cam 1' },
+    { n: 1, name: 'Rec 1' },
+    { n: 2, name: 'Cam 2' },
+    { n: 3, name: 'Rec 2' },
+    { n: 4, name: 'Rec 3' },
+    { n: 5, name: 'Bars' },
+  ];
+  const find = (q) => list.filter((it) => it.name.toLowerCase().includes(q.toLowerCase()));
+  const added = new Set([3]);
+  const has = (it) => added.has(it.n);
+  assert.equal(nextAdd(list[1], list, has).n, 2, 'by number');
+  assert.equal(nextAdd(list[1], list, has, find).n, 4, 'by name, skipping an added one');
+  assert.equal(nextAdd(list[4], list, has, find).n, 5, 'no higher name match: the next number');
+  assert.equal(nextAfter(list[5], list, { find }), null);
+  assert.equal(nameStem('Rec 12'), 'Rec');
 });

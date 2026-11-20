@@ -191,7 +191,7 @@ test('keyConfirm: a main-page plan of 1 route', async () => {
 
 test('keyConfirm: a main-page plan of 128 routes lists every one', async () => {
   const { c, got, plan, body } = await mainPage(128);
-  assert.match(body, /Source Cam 1 to 128 destinations\?/);
+  assert.match(body, /Source Cam 1 to 128 destinations: (Mon \d+, ){6}Mon 7 and 121 more\?/, 'the question names the first ones');
   for (const i of [1, 64, 128]) assert.ok(body.includes(`${i}/128 Mon ${i} `), `item ${i} listed`);
   c.key(key(shownKey()));
   assert.equal(got.take[0], plan);

@@ -2,12 +2,13 @@
 // confirms. A blank Source or Destination goes to the other first (to see what is on it) and
 // comes back.
 
-import { $, el, S, on, connState, routerTitle, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode, keepSearch } from './core.js';
+import { $, el, S, on, connState, routerTitle, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode } from './core.js';
 import { defaultLevelsWord, allLevels, levelText, levelSource } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped } from './device.js';
-import { resultNode, patchPlan, rightsOff, lastTake, nextTake, boxPatch, lastChip } from './plans.js';
+import { resultNode, patchPlan, rightsOff, lastTake, nextTake, nextFind, boxPatch, lastChip } from './plans.js';
+import { nextAdd } from './boxlist.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { presetHost } from './presets.js';
@@ -111,7 +112,7 @@ function advance() {
   }
   if (step === 'dst') {
     if (!inputs.dst.value.trim() && !M.dsts.length && !M.sel.src) return setStep('src');
-    if ((inputs.dst.value.trim() && !keptText()) || !M.dsts.length) {
+    if (inputs.dst.value.trim() || !M.dsts.length) {
       const it = matches.current();
       if (!it) return shake(inputs.dst);
       addDst(it);
@@ -127,10 +128,11 @@ function advance() {
   sheet.open(patchPlan(M.sel.src, M.dsts, levels));
 }
 
-// + keeps the typed search and its list (minus the bubbles), so the next match is one + away.
+// + empties the box after the add, as the desktop does, so the next digits start a new search. On the empty box, +
+// adds the next add (nextAdd, boxlist.js), which the box shows (paintArmed).
 function plus() {
   if (M.step !== 'dst') return;
-  const it = matches.current();
+  const it = matches.current() || (!inputs.dst.value.trim() && armed());
   if (!it) return shake(inputs.dst);
   addDst(it, true);
   inputs.dst.focus();
@@ -144,20 +146,28 @@ function choose(it) {
   renderThread();
 }
 
-// The search left by the last +: while the box holds exactly it, Next goes on with the bubbles.
-const kept = keepSearch(() => inputs.dst.value);
-const keptText = kept.is;
+// The last + add arms the next add on the empty box, by the Next match behavior setting as on the desktop. Typing, a
+// Next, an edit and a reset end it.
+let lastAdd = null;
+const armed = () => (lastAdd && !inputs.dst.value ? nextAdd(lastAdd, S.dsts, (d) => M.dsts.some((x) => x.n === d.n), nextFind(S.dsts)) : null);
 
-function addDst(it, keep = false) {
+function paintArmed() {
+  const d = armed();
+  const text = d ? `+ adds ${d.label}` : 'Destination';
+  if (inputs.dst.placeholder !== text) inputs.dst.placeholder = text;
+}
+
+// plus: the add came from +, so it arms the next add.
+function addDst(it, plus = false) {
   if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
-  if (!keep) inputs.dst.value = '';
-  kept.set(keep, inputs.dst.value);
+  inputs.dst.value = '';
+  lastAdd = plus ? it : null;
   renderThread();
-  if (keep) matches.refresh();
-  else matches.close();
+  matches.close();
 }
 
 function editDst(i) {
+  lastAdd = null;
   const [it] = M.dsts.splice(i, 1);
   inputs.dst.value = editText(it);
   setStep('dst');
@@ -170,7 +180,7 @@ function reset() {
   M.dsts = [];
   M.dstFirst = false;
   for (const k of ['src', 'dst']) inputs[k].value = '';
-  kept.set(false, '');
+  lastAdd = null;
   lvl.clear();
   setStep(order()[0], false);
 }
@@ -287,6 +297,7 @@ function summary() {
 }
 
 function renderThread() {
+  paintArmed();
   if (!S.cfg) return;
   const end = atEnd();
   const nodes = [];
@@ -360,7 +371,7 @@ inputs.dst.addEventListener('input', () => {
     plus();
     return;
   }
-  keptText(); // an edit ends the kept search, so the same text typed again is a new search
+  lastAdd = null;
   matches.refresh();
   renderThread();
 });
@@ -478,6 +489,8 @@ on('history', () => {
   if (!phone()) return;
   hist.renderHistory();
   renderLast();
+  // A Next match behavior change comes as history (device.js).
+  paintArmed();
 });
 on('last', renderLast);
 on('result', (r) => {

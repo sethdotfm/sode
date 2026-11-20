@@ -16,6 +16,7 @@ import {
   sendTakes,
   lastTake,
   nextTake,
+  nextFind,
   boxPatch,
   lastChip,
   VERBS,
@@ -111,11 +112,12 @@ function select(k, it) {
 
 const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...dsts]);
 
-// After an add the box is empty, so the next digits start a new search. The last add's router number arms the next
-// add: on the empty box, +, Ctrl+Enter and the + button add nextAdd's destination, which the box shows (paintArmed).
-// Typing, any pick, a take and Clear end it. With no add directly before, an add on the empty box does nothing.
+// After an add the box is empty, so the next digits start a new search. The last add arms the next add (of a list, the
+// one with the highest router number). On the empty box, +, Ctrl+Enter and the + button add nextAdd's destination. The
+// box shows it (paintArmed). It uses the Next match behavior setting, as the Next chip does. Typing, any pick, a take and
+// Clear end it. With no add directly before, an add on the empty box does nothing.
 let lastAdd = null;
-const armed = () => (lastAdd !== null && !sel.dst && !boxes.dst.input.value ? nextAdd(lastAdd, S.dsts, chosen) : null);
+const armed = () => (lastAdd !== null && !sel.dst && !boxes.dst.input.value ? nextAdd(lastAdd, S.dsts, chosen, nextFind(S.dsts)) : null);
 
 function addDst(pick) {
   const b = boxes.dst;
@@ -141,7 +143,7 @@ function addAll(items) {
   b.input.value = '';
   b.input.classList.remove('pb-input--invalid');
   b.cb.close();
-  lastAdd = Math.max(...items.map((d) => d.n));
+  lastAdd = items.reduce((a, d) => (!a || d.n > a.n ? d : a), null);
   renderChips();
   renderTally();
 }
@@ -239,7 +241,11 @@ function renderLast() {
     slot.replaceChildren(...chips);
   }
 }
-on('history', renderLast);
+// A Next match behavior change comes as history (device.js), so the next add's hint changes with it.
+on('history', () => {
+  renderLast();
+  paintArmed();
+});
 on('last', renderLast);
 
 // Fills one box from the last take, then focuses the opposite box only if empty, else Levels.
