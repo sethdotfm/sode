@@ -53,7 +53,8 @@ func signInAs(b *tab, name, pin string) {
 
 // The Palette on Home. It checks the Palette character, the doubled character and Ctrl+Shift+P. It checks a preset
 // through the Confirm and into the boxes, grey rows only as bookmarks with their offers, a category word and a
-// setting. It checks the last picks of a Guest and of a user, and no Palette under the Lock.
+// setting. It checks the last picks of a Guest and of a user. It checks Sign in and Sign out from the Palette, and no
+// Palette under the Lock.
 func TestChromePaletteMain(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -99,10 +100,16 @@ func TestChromePaletteMain(t *testing.T) {
 	b.eval(`document.getElementById('confirm-cancel').click(); true`)
 	b.waitFor("a Guest's picks stay in This browser", `JSON.parse(localStorage.getItem('sode-palette-picks') || '[]')[0] === 'preset:global:p-in'`)
 
-	b.eval(`document.getElementById('settings-open').click(); true`)
-	b.eval(`document.getElementById('account-login').click(); true`)
+	// Sign in is one row, and Enter opens the pad in place, with the focus in the Name box.
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette opens", paletteShown)
+	paletteFind(b, "sign in", "action:signIn")
+	if n := b.eval(`[...document.querySelectorAll('#palette-list .sode-palette__label')].filter((n) => n.textContent === 'Sign in').length`); n != float64(1) {
+		t.Errorf("Sign in rows: %v", n)
+	}
+	paletteKey(b, "Enter", false)
+	b.waitFor("Sign in opens the pad with the focus in the Name box", `document.activeElement?.id === 'lock-name' && document.documentElement.dataset.view !== 'settings'`)
 	signInAs(b, "Bo", "5678")
-	b.eval(`document.getElementById('settings-back').click(); true`)
 
 	b.eval(ctrlShiftP)
 	b.waitFor("the Palette opens for Bo", paletteShown)
@@ -142,6 +149,27 @@ func TestChromePaletteMain(t *testing.T) {
 			t.Fatalf("Bo's picks in Me: %v", u.Profile.PalettePicks)
 		}
 	}
+
+	// A Settings button that opens a dialog runs it in place.
+	b.eval(`document.getElementById('settings-back').click(); true`)
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette opens for Bo", paletteShown)
+	paletteFind(b, "change my pin", "setting:my-user/account-pin")
+	paletteKey(b, "Enter", false)
+	pinDlg := `document.getElementById('sode-pin-title')?.closest('.pb-modal-root, [role="dialog"]')`
+	b.waitFor("Change my PIN opens its dialog without Settings", `!!`+pinDlg+`?.offsetParent && document.documentElement.dataset.view !== 'settings'`)
+	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); true`)
+	b.waitFor("the PIN dialog closes", `!`+pinDlg+`?.offsetParent`)
+
+	// "sig" is Sign out, not the Settings category. Enter signs out and leaves Settings closed.
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette opens for Bo", paletteShown)
+	paletteFind(b, "sig", "action:signOut")
+	if n := b.eval(`[...document.querySelectorAll('#palette-list .sode-palette__label')].filter((n) => n.textContent === 'Sign out').length`); n != float64(1) {
+		t.Errorf("Sign out rows: %v", n)
+	}
+	paletteKey(b, "Enter", false)
+	b.waitFor("Sign out signs out without Settings", `document.getElementById('palette').hidden && !document.getElementById('account-login').hidden && document.documentElement.dataset.view !== 'settings'`)
 
 	b.eval(`document.getElementById('lock-btn').click(); true`)
 	b.waitFor("the Lock is up", `document.documentElement.hasAttribute('data-sode-lock')`)
