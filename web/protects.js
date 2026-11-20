@@ -71,6 +71,9 @@ function protectButton(dst, p, confirm) {
   return b;
 }
 
+// What the route view would offer on destination n: 'set', 'clear' or ''. The Grid popup's shield uses it.
+export const protectOfferOf = (n) => protectOffer(protectState(n), { right: right(), device: device(), linked: linked() });
+
 // The keyboard mode key: x sets, Shift+x clears, when the route view offers it. false when it does not.
 export function protectKey(dst, set, confirm) {
   if (!dst) return false;

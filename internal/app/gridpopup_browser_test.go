@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // popTyped types text into a patch box and takes the best match with Tab.
@@ -181,5 +183,60 @@ func TestChromeMainGridPopup(t *testing.T) {
 	b.waitFor("names", `document.getElementById('m-ws-dot').classList.contains('pb-dot--ok')`)
 	b.eval(`document.getElementById('m-grid').click(); true`)
 	b.waitFor("the button opens the popup full screen", shown+` && (() => { const r = document.querySelector('.sode-gridpop__box').getBoundingClientRect(), v = visualViewport; return r.left <= 0 && r.top <= 0 && r.width >= v.width && r.height >= v.height; })()`)
+	b.check()
+}
+
+// The shield on a Grid popup destination name sets Sode's Protect through the Confirm, then offers Clear Protect.
+func TestChromeMainGridPopupShield(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) {
+		c.Users[0].Role = config.RoleAdministrator
+		c.ProtectDevice = 126
+	})
+	srv := seamServer(t, a)
+	key := userKey(t, a, "Ana")
+	waitNamesAndTally(t, a, key)
+	sodeRows := func() int {
+		return strings.Count(apiDo(a, "GET", "/api/v1/protected", key, nil).Body.String(), `"sodeUser":"Ana"`)
+	}
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("Settings button", `!!document.getElementById('settings-open')`)
+	b.eval(`document.getElementById('settings-open').click(); true`)
+	signInSettings(b)
+	b.eval(`document.getElementById('settings-exit').click(); true`)
+	b.waitFor("main page", `document.documentElement.dataset.view !== 'settings'`)
+
+	b.eval(`document.getElementById('grid-open').click(); true`)
+	b.waitFor("the popup", `!document.getElementById('grid-pop').hidden && !!document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="1"]:not([hidden])')`)
+	name := `document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="1"]:not([hidden])')`
+	hover := func() {
+		r := b.eval(`(() => { const r = ` + name + `.getBoundingClientRect(); return [r.left + 10, r.top + r.height / 2]; })()`).([]any)
+		b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": r[0], "y": r[1]})
+	}
+	hover()
+	b.waitFor("the shield offers Protect", `document.querySelector('.sode-gridpop__shield')?.dataset.protect === 'set' && !document.querySelector('.sode-gridpop__shield').hidden`)
+	b.eval(`document.querySelector('.sode-gridpop__shield').click(); true`)
+	b.waitFor("Confirm protect", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm protect'`)
+	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
+	b.eval(`document.getElementById('confirm-ok').click(); true`)
+	for deadline := time.Now().Add(10 * time.Second); sodeRows() != 17; time.Sleep(50 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("Sode's Protect on %d levels, want 17", sodeRows())
+		}
+	}
+	b.waitFor("the name shows Protected", name+`.classList.contains('pb-xpt--protected')`)
+	hover()
+	b.waitFor("the shield offers Clear Protect", `document.querySelector('.sode-gridpop__shield')?.dataset.protect === 'clear'`)
+	b.eval(`document.querySelector('.sode-gridpop__shield').click(); true`)
+	b.waitFor("Confirm clear protect", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm clear protect'`)
+	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
+	b.eval(`document.getElementById('confirm-ok').click(); true`)
+	for deadline := time.Now().Add(10 * time.Second); sodeRows() != 0; time.Sleep(50 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("Sode's Protect left on %d levels", sodeRows())
+		}
+	}
 	b.check()
 }

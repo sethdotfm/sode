@@ -11,6 +11,7 @@ import { confirmShown } from './keyconfirm.js';
 import { resultNode } from './banner.js';
 import { levelBar } from './levelview.js';
 import { routesOf } from './gridpanelstage.js';
+import { gridShield } from './gridpopshield.js';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, planRoutes } from './gridpoprules.js';
 
 // The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
@@ -50,8 +51,11 @@ function build() {
   );
   const root = el('div', { class: 'sode__scrim sode-gridpop', id: 'grid-pop', hidden: true }, box);
   root.addEventListener('keydown', popKey);
+  const shield = gridShield(box, grid, (plan) => boxHost()?.confirm(plan));
+  // A key move puts the shield on the cursor's destination name.
+  root.addEventListener('keyup', (e) => !e.target.closest?.('input') && shield.cursor());
   document.body.append(root);
-  return { root, msg, ui: { main: box, head, status, grid, levels } };
+  return { root, msg, shield, ui: { main: box, head, status, grid, levels } };
 }
 
 // After the grid's own keys (a capture listener on document), so its search boxes, line and picks take Esc first.
@@ -170,6 +174,7 @@ export function hideGrid(refocus = true) {
   const sc = scroller();
   scroll = sc && { left: sc.scrollLeft, top: sc.scrollTop };
   pop.root.hidden = true;
+  pop.shield.hide();
   shown = false;
   clearInterval(tick);
   if (refocus && back?.isConnected && !pop.root.contains(back)) back.focus({ preventScroll: true });

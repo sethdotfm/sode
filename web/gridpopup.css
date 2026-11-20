@@ -38,6 +38,18 @@
   max-width: none;
   width: 100%;
 }
+.sode-gridpop__box {
+  position: relative;
+}
+/* The shield over a destination name (gridpopshield.js), above the grid's sticky bands. */
+.sode-gridpop__shield {
+  background: var(--pb-surface-overlay);
+  position: absolute;
+  z-index: var(--pb-z-sticky);
+}
+.sode-gridpop__shield[hidden] {
+  display: none;
+}
 .sode-gridpop .sode-panels__spacer {
   flex: 1 1 auto;
 }
