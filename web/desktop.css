@@ -342,7 +342,7 @@
 }
 :root:not([data-layout="phone"]):not([data-view="settings"]) .sode {
   --sode-rail-w: calc(var(--pb-space-5) + var(--sode-h-action) + 2 * var(--pb-space-2) + var(--pb-space-3));
-  padding-inline: max(var(--pb-space-8), calc(var(--sode-rail-w) - max(0px, (100vw - var(--sode-page-bar) - 75rem) / 2)));
+  padding-inline: max(var(--pb-space-8), calc(var(--sode-rail-w) - max(0px, (100vw - var(--sode-page-bar) - var(--sode-main-w)) / 2)));
 }
 
 /* Compact view (pref compact, html[data-compact]): desktop only, and the usual page again while a preset picks takes from
@@ -356,7 +356,7 @@
   display: grid;
   /* The page's width plus the pad that balances Take, so the boxes keep the width they have outside Compact view and
      17 level picks still fit. */
-  --sode-compact-w: calc(75rem + var(--sode-take-w, 0px) + var(--pb-space-6));
+  --sode-compact-w: calc(var(--sode-main-w) + var(--sode-take-w, 0px) + var(--pb-space-6));
   grid-template-columns: minmax(0, var(--sode-compact-w));
   max-width: var(--sode-compact-w);
   min-height: 100dvh;

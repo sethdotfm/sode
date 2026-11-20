@@ -20,6 +20,9 @@ html {
   --sode-littlescroll-w: 0.7rem;
   /* The page's big scroll bar width while it shows, so fixed items at the right edge keep clear of it. */
   --sode-page-bar: 0rem;
+  /* The main page's width. Up to a 1920 px window it is 75rem, as before. On a wider window it grows with the window and
+     keeps 45rem of side space, so a 3840 px window uses about 80% of its width. */
+  --sode-main-w: max(75rem, 100vw - var(--sode-page-bar) - 45rem);
   --sode-motion-enter: 400ms;
   --sode-motion-found: 600ms;
   --sode-motion-reveal: 250ms;
@@ -117,7 +120,7 @@ html {
   flex-direction: column;
   gap: var(--pb-space-8);
   margin: 0 auto;
-  max-width: 75rem;
+  max-width: var(--sode-main-w);
   padding: calc(10vh + var(--sode-down-h, 0px)) var(--pb-space-8) var(--sode-pad-bottom);
   --sode-pad-bottom: var(--pb-space-8);
 }
