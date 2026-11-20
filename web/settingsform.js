@@ -1,7 +1,7 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
 // previews beside the fields. settingssave.js wraps the form as formSource, a save source of the one Save.
 
-import { $, el, S, wsSend, icon } from './core.js';
+import { $, el, S, icon } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
 import { fmtTime } from './device.js';
 import { parseLevelsAs } from './levels.js';
@@ -9,6 +9,7 @@ import { resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { intProblem, namesTimeText } from './settingsrules.js';
+import { rereadNames } from './rereadnames.js';
 
 const root = document.documentElement;
 export const form = $('settings-view');
@@ -258,7 +259,7 @@ $('cfg-levels').addEventListener('input', () => {
 });
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
 $('names-refresh').addEventListener('click', () => {
-  if (wsSend({ t: 'rereadNames' })) {
+  if (rereadNames()) {
     $('names-refresh').disabled = true;
     $('names-refresh').textContent = 'Re-reading…';
   }

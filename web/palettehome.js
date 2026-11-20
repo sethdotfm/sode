@@ -1,6 +1,6 @@
 // The Palette's rows that run on Home (main.js only): presets, filter sets, settings and Home's own actions. Another
 // page sends its row here (palette.js takeHandoff); Home runs it once the hello, the names and the sign-in are known.
-import { $, S, on, emit, wsSend } from './core.js';
+import { $, S, on, emit } from './core.js';
 import { setHomeRunner, takeHandoff, paletteRowsReady, openPalette } from './palette.js';
 import { fire, fillBoxes } from './presets.js';
 import { allPresets } from './presetstore.js';
@@ -9,6 +9,7 @@ import { openFilters } from './filters.js';
 import { toggleCompact } from './device.js';
 import { showResult } from './banner.js';
 import { rowByKey } from './palettecatalogue.js';
+import { rereadNames } from './rereadnames.js';
 
 function openSettingsAt(t) {
   if (document.documentElement.dataset.view !== 'settings') $('settings-open').click();
@@ -17,7 +18,7 @@ function openSettingsAt(t) {
 
 function runAction(id) {
   if (id === 'reread') {
-    if (wsSend({ t: 'rereadNames' })) showResult('info', 'Re-reading router names', 'The names update when the router answers.');
+    rereadNames();
   } else if (id === 'undo') emit('undoLast');
   else if (id === 'presets') emit('presetPopup');
   else if (id === 'filters') openFilters();
