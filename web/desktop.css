@@ -121,7 +121,7 @@
   margin-left: auto;
 }
 /* The armed next add in the empty Destination box (paintArmed in desktop.js): the key, then the destination's chip,
-   where the placeholder text goes. It goes away with the first typed character. */
+   where the placeholder text goes. It shows only while the box has focus, and goes away with the first typed character. */
 .sode__armed {
   align-items: center;
   color: var(--pb-text-muted);
@@ -138,6 +138,7 @@
   white-space: nowrap;
 }
 .sode__armed[hidden],
+.sode__keyed > .pb-input:not(:focus) ~ .sode__armed,
 .sode__keyed > .pb-input:not(:placeholder-shown) ~ .sode__armed {
   display: none;
 }
