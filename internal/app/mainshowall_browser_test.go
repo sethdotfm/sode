@@ -64,7 +64,7 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 			b.waitFor(name+" match list", `(() => { const t = document.getElementById('dst'); t.focus(); t.value = '`+name+`'; t.dispatchEvent(new Event('input', {bubbles: true})); return !!document.getElementById('dst-opt-0'); })()`)
 			b.eval(`document.getElementById('dst-add').click(); true`)
 		}
-		b.waitFor("destinations added", `document.querySelectorAll('#dst-chips > .pb-chip').length === `+strconv.Itoa(n))
+		b.waitFor("destinations added", `document.querySelectorAll('#dst-chips > .sode__dst-chip').length === `+strconv.Itoa(n))
 		if got := shown(strconv.Itoa(n) + " added"); got != want {
 			t.Fatalf("Show all destinations is at %v with %d destinations added, want %v as with none", got, n, want)
 		}

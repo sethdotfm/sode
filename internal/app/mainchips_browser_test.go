@@ -61,7 +61,7 @@ func TestChromeMainChips(t *testing.T) {
 			n.dispatchEvent(new MouseEvent(mac ? 'contextmenu' : 'click', { bubbles: true, cancelable: true, ctrlKey: true }));
 			return true; })()`
 	}
-	chips := `[...document.querySelectorAll('#dst-chips > .pb-chip')].map((c) => c.firstChild.textContent).join('|')`
+	chips := `[...document.querySelectorAll('#dst-chips > .sode__dst-chip')].map((c) => c.firstChild.textContent).join('|')`
 
 	pick("dst", "DSM2")
 	b.eval(ctrlClick(`document.querySelector('#history .sode__end--dst.sode__end--pick')`))

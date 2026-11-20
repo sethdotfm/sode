@@ -28,8 +28,9 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	b.open(srv.URL + "/")
 	b.waitFor("17 level picks", `document.querySelectorAll('#lvl-pick > button').length === 17`)
 
-	chips := `[...document.querySelectorAll('#dst-chips .pb-chip')].map((c) => c.firstChild.textContent).join('|')`
-	hint := `document.getElementById('dst').placeholder`
+	chips := `[...document.querySelectorAll('#dst-chips .sode__dst-chip')].map((c) => c.firstChild.textContent).join('|')`
+	// The armed add: the key text and the destination's chip over the empty box, or one space with nothing armed.
+	hint := `(() => { const a = document.getElementById('dst-armed'); return a.hidden || getComputedStyle(a).display === 'none' ? ' ' : [...a.children].map((c) => c.textContent).join(' '); })()`
 	typed := func(id, text string) {
 		b.eval(`document.getElementById('` + id + `').focus(); true`)
 		b.call("Input.insertText", map[string]any{"text": text})
@@ -60,12 +61,12 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	typed("dst", "MV 1")
 	listed("dst")
 	ctrlEnter()
-	b.waitFor("the box empties and shows the next add", `document.getElementById('dst').value === '' && `+hint+`.endsWith('Enter adds 15 MV 2')`)
+	b.waitFor("the box empties and shows the next add", `document.getElementById('dst').value === '' && `+hint+`.endsWith('Enter adds: 15 MV 2')`)
 	b.shot("armed")
 	ctrlEnter()
 	ctrlEnter()
 	ctrlEnter()
-	b.waitFor("four destinations in number order", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && `+hint+`.endsWith('Enter adds 18 MV 5')`)
+	b.waitFor("four destinations in number order", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && `+hint+`.endsWith('Enter adds: 18 MV 5')`)
 	realKey(b, "Enter", "Enter", 13)
 	b.waitFor("Enter opens the confirm", `!document.getElementById('confirm').hidden`)
 	if body := b.eval(confirmBody).(string); !strings.Contains(body, "4 destinations") || !strings.Contains(body, "MV 4") || strings.Contains(body, "MV 5") {
@@ -93,7 +94,7 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	typed("dst", "11")
 	listed("dst")
 	plus()
-	b.waitFor("11 is added", chips+` === '10 TX 1|11 TX 2' && `+hint+`.endsWith('Enter adds 12 Rec A')`)
+	b.waitFor("11 is added", chips+` === '10 TX 1|11 TX 2' && `+hint+`.endsWith('Enter adds: 12 Rec A')`)
 	// Typing replaces the hint, and a box emptied by hand does not arm again.
 	typed("dst", "x")
 	b.waitFor("typing ends the next add", hint+` === ' '`)
@@ -143,7 +144,7 @@ func TestChromeMainMultiAdd(t *testing.T) {
 		t.Fatal("an arrow changed the multiselection")
 	}
 	ctrlEnter()
-	b.waitFor("Ctrl+Enter adds the list", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && !document.getElementById('dst').value && `+hint+`.endsWith('Enter adds 18 MV 5')`)
+	b.waitFor("Ctrl+Enter adds the list", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && !document.getElementById('dst').value && `+hint+`.endsWith('Enter adds: 18 MV 5')`)
 	clear()
 
 	// A range with a tail: Mon 1-4 PIP 1 finds three destinations. The note names the one that is not there.
@@ -168,9 +169,9 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	typed("dst", "Mon 9")
 	listed("dst")
 	plus()
-	b.waitFor("by number", chips+` === '46 Mon 9' && `+hint+`.endsWith('Enter adds 47 Bars X')`)
+	b.waitFor("by number", chips+` === '46 Mon 9' && `+hint+`.endsWith('Enter adds: 47 Bars X')`)
 	b.eval(`import('./device.js').then((m) => { m.setPref('nextMode', 'fuzzy'); return true })`)
-	b.waitFor("by name", hint+`.endsWith('Enter adds 48 Mon 10')`)
+	b.waitFor("by name", hint+`.endsWith('Enter adds: 48 Mon 10')`)
 	ctrlEnter()
 	b.waitFor("Ctrl+Enter adds Mon 10", chips+` === '46 Mon 9|48 Mon 10'`)
 	b.eval(`import('./device.js').then((m) => { m.setPref('nextMode', ''); return true })`)

@@ -50,7 +50,7 @@ func TestChromeMainStackedRow(t *testing.T) {
 		const r = ` + row + `;
 		const box = document.getElementById('dst-chips');
 		const added = document.createElement('span');
-		added.className = 'pb-chip pb-chip--static';
+		added.className = 'sode__end sode__end--dst sode__dst-chip';
 		const x = document.createElement('button');
 		x.className = 'pb-chip__remove';
 		x.textContent = '×';
@@ -64,7 +64,7 @@ func TestChromeMainStackedRow(t *testing.T) {
 			step: r.querySelector('.sode__hist-before .sode__step .sode__end'),
 			receiving: document.querySelector('#dst-under .sode__end--pick'),
 		};
-		// The added chip has patchbay's 2px edge, so it matches on text size and height only.
+		// The added chip has the remove button, so it matches on text size and height only.
 		const want = st(chips.row);
 		const look = (k, n) => (k === 'added' ? [want.split(' ')[0], want.split(' ')[4]].join(' ') === [st(n).split(' ')[0], st(n).split(' ')[4]].join(' ') : st(n) === want);
 		const off = Object.entries(chips).filter(([k, n]) => !look(k, n)).map(([k, n]) => k + ': ' + st(n));
