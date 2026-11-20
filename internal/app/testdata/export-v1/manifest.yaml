@@ -3,7 +3,7 @@ format: 1
 sode: v2.0.0
 install: 0123456789abcdef0123456789abcdef
 made: 2026-11-18T10:00:00Z
-categories: [settings, routers, users, presets, filterSets, panels, artwork, apiClients, browser]
+categories: [settings, routers, users, presets, filterSets, bookmarks, panels, artwork, apiClients, browser]
 routers:
   - uid: 5f3a9c1e7b2d4a60
     prefix: A

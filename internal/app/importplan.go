@@ -47,7 +47,8 @@ type importReq struct {
 }
 
 // importItem is one file item. Key is the key in pick and choices. Users, presets and panels use the hidden
-// id, filter sets and API clients the name. Settings use the section name, Routers the UID.
+// id, filter sets and API clients the name. Settings use the section name, Routers the UID, and Everyone
+// bookmarks its category name.
 type importItem struct {
 	Key    string           `json:"key"`
 	Name   string           `json:"name"`
@@ -282,6 +283,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 		{catPresets, []string{"presets"}, p.planPresets}, // before Users and API clients, whose Rights map preset ids
 		{catUsers, []string{"users"}, p.planUsers},
 		{catFilterSets, []string{"filterSets"}, p.planFilterSets},
+		{catBookmarks, []string{"bookmarks"}, p.planBookmarks}, // after Presets, whose ids its keys can hold
 		{catAPIClients, []string{"apiClients"}, p.planAPIClients},
 		{catArtwork, nil, p.planArtwork},
 		{catPanels, nil, p.planPanelsAll},

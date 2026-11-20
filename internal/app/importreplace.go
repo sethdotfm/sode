@@ -148,6 +148,11 @@ func (p *importPlanner) emptyRest(cat string, cand *config.Config, c *importCat)
 			}
 			return !keep[x.ID]
 		})
+	case catBookmarks:
+		if len(c.Items) == 0 && len(cand.Bookmarks) > 0 {
+			cand.Bookmarks = nil
+			removeItem(c, catBookmarks, everyoneBookmarksName, "")
+		}
 	case catFilterSets:
 		cand.FilterSets = dropUnkept(c, cand.FilterSets, setName, func(config.FilterSet) bool { return true })
 	case catAPIClients:

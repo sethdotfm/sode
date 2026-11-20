@@ -163,7 +163,7 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 		Categories: m.Categories, Routers: m.Routers, Unknown: bundle.Unknown,
 		Counts: map[string]int{
 			catUsers: len(bundle.Users), catPresets: len(bundle.Presets), catFilterSets: len(bundle.FilterSets),
-			catPanels: len(bundle.Panels.Panels), "templates": len(bundle.Panels.Templates),
+			catBookmarks: len(bundle.Bookmarks), catPanels: len(bundle.Panels.Panels), "templates": len(bundle.Panels.Templates),
 			"checkpointSets": len(bundle.Panels.CheckpointSets), catAPIClients: len(bundle.APIClients),
 			"artDefaults": len(bundle.Artwork.Defaults), "icons": len(bundle.Artwork.Icons), catRouters: len(bundle.Routers),
 		},
@@ -201,6 +201,9 @@ func sizeImport(plan *importPlan, b *exportBundle) {
 	}
 	for _, s := range b.FilterSets {
 		put(catFilterSets, s.Name, s, 0)
+	}
+	if len(b.Bookmarks) > 0 {
+		put(catBookmarks, catBookmarks, b.Bookmarks, 0)
 	}
 	for _, c := range b.APIClients {
 		put(catAPIClients, c.Name, c, 0)

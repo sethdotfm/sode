@@ -2,7 +2,7 @@
 
 // The categories the server plans, in its order. The page applies This browser itself (browserapply.js). Profile is
 // only in an own import (internal/app/ownexport.go).
-export const PLANNED = ['profile', 'settings', 'routers', 'users', 'presets', 'filterSets', 'apiClients', 'artwork', 'panels', 'browser'];
+export const PLANNED = ['profile', 'settings', 'routers', 'users', 'presets', 'filterSets', 'bookmarks', 'apiClients', 'artwork', 'panels', 'browser'];
 
 const CHOICES = [
   ['new', 'Use new'],
@@ -11,8 +11,8 @@ const CHOICES = [
   ['rename', 'Rename'],
 ];
 // The server turns Rename into Use new for these (importPlanner.choice), so the page does not offer it. Default
-// artwork is one per item, so it has no Rename either.
-const NO_RENAME = new Set(['settings', 'routers']);
+// artwork is one per item, and Everyone bookmarks is one list, so they have no Rename either.
+const NO_RENAME = new Set(['settings', 'routers', 'bookmarks']);
 
 export const choicesFor = (cat, it) => (NO_RENAME.has(cat) || it?.kind === 'default' ? CHOICES.slice(0, 3) : CHOICES);
 
