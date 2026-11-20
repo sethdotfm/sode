@@ -307,6 +307,10 @@
   padding: 0;
   width: var(--pb-control-h-sm);
 }
+.sode-lock__who-name:empty,
+.sode-lock__who-signin[hidden] {
+  display: none;
+}
 .sode-lock__who-name {
   color: var(--pb-text);
   font-size: var(--pb-text-sm);

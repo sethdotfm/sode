@@ -231,6 +231,10 @@ export const signInWon = (v, { enforced, unlocked, user }) => (v.mode === MODE.S
 // heldUser: whose held Lock this tab shows (the server's held state carries no name).
 export const chipShown = ({ covered, letter, user, heldUser = '' }) => (letter ? !!user : !covered || !!heldUser);
 
+// The chip's Sign in button: a guest on the page with nothing over it. Its words are the guest state on Home (patchbay: status
+// always with text). It opens the same pad as Settings > My user > Sign in (bus `login`).
+export const chipSignInShown = (s, v, covered) => v.mode === MODE.PAGE && !covered && signInOffered(s);
+
 // The server fills `user` only for a session that is signed in and not locked. So if a held Lock
 // ends with no user, a sign out, a removed user or a changed PIN ended it. With a user, it was resumed.
 export const heldEnded = (prev, next) => !!prev.held && !next.held && !next.user;
