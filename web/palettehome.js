@@ -1,5 +1,6 @@
-// The Palette's rows that run on Home (main.js only): presets, filter sets, settings and Home's own actions. Another
-// page sends its row here (palette.js takeHandoff); Home runs it once the hello, the names and the sign-in are known.
+// The Palette's rows that run on Home (main.js only): presets, filter sets, settings, Settings buttons and Home's own
+// actions. Another page sends its row here (palette.js takeHandoff); Home runs it once the hello, the names and the
+// sign-in are known.
 import { $, S, on, emit } from './core.js';
 import { setHomeRunner, takeHandoff, paletteRowsReady, openPalette } from './palette.js';
 import { fire, fillBoxes } from './presets.js';
@@ -27,9 +28,21 @@ function runAction(id) {
   else if (id === 'stepIn') $('account-stepin').click();
 }
 
+// A Settings button (buttonMode in palettecatalogue.js) is pressed, so its own guards run, such as the PIN of a dialog
+// or the Clear History confirm. 'run' presses it over this view; 'settings' opens Settings at it first. A button that
+// cannot be pressed now (disabled, or hidden for this user) is shown in Settings, which tells why. press (a bookmark)
+// also presses a 'locate' button.
+function pressButton(t, press) {
+  const mode = t.mode === 'locate' && press ? 'settings' : t.mode;
+  if (mode !== 'run' && mode !== 'settings') return openSettingsAt(t);
+  const b = document.getElementById(t.button);
+  const ok = b && !b.disabled && !b.closest('[hidden]');
+  if (mode === 'settings' || !ok) openSettingsAt(t);
+  if (ok) b.click();
+}
+
 // fill: Shift+Enter. A preset fills the Patch boxes and sends nothing; a filter set adds to the stack. A preset fires
-// only through the usual Confirm (fire opens it). press (a bookmark): a Settings button is pressed, so its own guards
-// run, such as the Clear History confirm or the PIN of Step in.
+// only through the usual Confirm (fire opens it).
 function runRow(row, { fill = false, offer = '', press = false } = {}) {
   if (offer === 'stepIn') return runAction('stepIn');
   const t = row.target;
@@ -39,13 +52,8 @@ function runRow(row, { fill = false, offer = '', press = false } = {}) {
     return (fill ? fillBoxes : fire)(p.scope, p.name);
   }
   if (row.kind === 'filterSet') return (fill && t.scope !== 'all' ? toggleSet : pickSet)(t.scope, t.id);
-  if (row.kind === 'settingsButton' && press) {
-    openSettingsAt(t);
-    const b = document.getElementById(t.id);
-    if (b && !b.disabled && !b.closest('[hidden]')) b.click();
-    return;
-  }
-  if (row.kind === 'setting' || row.kind === 'settingsButton') return openSettingsAt(t);
+  if (row.kind === 'settingsButton') return pressButton(t, press);
+  if (row.kind === 'setting') return openSettingsAt(t);
   if (row.key === 'page:settings') return openSettingsAt(null);
   if (row.kind === 'action') return runAction(t.id);
 }

@@ -34,6 +34,8 @@ export function initDeviceSettings({ form, reindex }) {
     const mk = (id, label) => {
       const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__my-default', label);
       b.type = 'button';
+      // The id lets a Palette row press it.
+      b.id = id;
       b.dataset.find = id;
       b.dataset.label = label;
       return b;

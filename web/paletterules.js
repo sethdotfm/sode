@@ -105,14 +105,15 @@ function nameStrength(w, names) {
   return best;
 }
 
-// The categories a typed word names, best first: [] none, one id a clear guess, more ids a tie. A short word from the
-// table is always one clear guess. A single letter names a category only through the table.
-export function guessCategories(word) {
+// The categories a typed word names, with how well. ids: [] none, one id a clear guess, more ids a tie. strength: 4 a
+// short word from the table, 3 a prefix, 2 the letters in order, 1 one typo. A single letter names a category only
+// through the table.
+function categoryGuess(word) {
   const w = String(word || '').toLowerCase();
-  if (!w) return [];
+  if (!w) return { ids: [], strength: 0 };
   const fixed = CATEGORIES.find((c) => c.short.includes(w));
-  if (fixed) return [fixed.id];
-  if (w.length < 2) return [];
+  if (fixed) return { ids: [fixed.id], strength: 4 };
+  if (w.length < 2) return { ids: [], strength: 0 };
   let best = 0;
   let out = [];
   for (const c of CATEGORIES) {
@@ -120,8 +121,9 @@ export function guessCategories(word) {
     if (s > best) [best, out] = [s, [c.id]];
     else if (s && s === best) out.push(c.id);
   }
-  return out;
+  return { ids: out, strength: best };
 }
+export const guessCategories = (word) => categoryGuess(word).ids;
 
 const USER_CATS = new Set(['panels', 'presets', 'filterSets']);
 
@@ -131,32 +133,77 @@ function paletteNamed(query, rows, cat = '') {
   return q.length > 1 && rows.some((r) => r.cat !== cat && USER_CATS.has(r.cat) && r.label.toLowerCase().replace(/\s+/g, ' ').startsWith(q));
 }
 
+// The label as words, each after one space: ' new panel mode' for "New-panel mode".
+const wordsOf = (text) =>
+  ' ' +
+  String(text)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+
+// A usable row whose label has a word that starts with w ("sig" and Sign in).
+const labelStarts = (w, rows) => {
+  const q = wordsOf(w);
+  return q.length > 1 && rows.some((r) => usable(r) && !r.alias && wordsOf(r.label).includes(q));
+};
+
+// A guess by the letters in order or a typo (strength 2 or less) is weak. A row label that starts with the word wins
+// over it, so "sig" is Sign in, not "settings". A prefix of a category name and a short word from the table stay.
+const weakGuess = (g, word, rows) => g.strength < 3 && labelStarts(word, rows);
+
 // The category that the first word of a query names, or null. The fields: cat, word, rest (the text after the word).
-// There is no scope for a tie. A name of a panel, preset or filter set in a different category can start with the
-// whole query. Then there is no scope either (a preset "P 1" for "p 1"). A single letter alone always gives its category.
+// There is no scope for a tie or for a weak guess. A name of a panel, preset or filter set in a different category can
+// start with the whole query. Then there is no scope either (a preset "P 1" for "p 1"). A single letter alone always
+// gives its category.
 export function paletteScope(query, rows = []) {
   const m = /^\s*(\S+)(?:\s+([\s\S]*))?$/.exec(String(query || ''));
   if (!m) return null;
-  const cats = guessCategories(m[1]);
-  if (cats.length !== 1) return null;
-  const cat = cats[0];
+  const g = categoryGuess(m[1]);
+  if (g.ids.length !== 1 || weakGuess(g, m[1], rows)) return null;
+  const cat = g.ids[0];
   if (paletteNamed(query, rows, cat)) return null;
   return { cat, word: m[1], rest: String(m[2] || '').trim() };
 }
 
-// Higher is a better match, -1 none. A label match always beats a match of the hint (scope, section) or the words
-// only. On the label, the letters-in-order match must start at the start of a word. The hint and the words count only
-// when they hold the query as it is, so a long hint does not match by chance.
+// How well a row matches q: { tier, s }, or null for none. tier 2: the label, or a word of it, starts with q. tier 1:
+// another label match. tier 0: the hint (scope, section) or the words only. A higher tier always wins, so a row that
+// is obviously not the target never comes first, however often it is used. On the label, the letters-in-order match
+// must start at the start of a word. The hint and the words count only when they hold the query as it is, so a long
+// hint does not match by chance.
 const SUBSEQ_TOP = 500;
-function score(row, q) {
+function match(row, q) {
   const lname = row.label.toLowerCase();
   let s = fuzzyScore({ num: '', lname }, q);
   if (s >= 0 && s < SUBSEQ_TOP && !lname.split(/[^\p{L}\p{N}]+/u).some((w) => w.startsWith(q[0]))) s = -1;
   const boost = CAT_BOOST[row.cat] || 0;
-  if (s >= 0) return 2000 + s + boost;
+  if (s >= 0) return { tier: wordsOf(lname).includes(wordsOf(q)) ? 2 : 1, s: 2000 + s + boost };
   const extra = [row.hint, ...(row.words || [])].filter(Boolean).join(' ').toLowerCase();
   const e = extra ? fuzzyScore({ num: '', lname: extra }, q) : -1;
-  return e >= SUBSEQ_TOP ? (e + boost) / 10 : -1;
+  return e >= SUBSEQ_TOP ? { tier: 0, s: (e + boost) / 10 } : null;
+}
+
+// Commonly used first. The rows most people want get a small fixed boost, so they come first among equal matches.
+// A row's own use adds up to USE_TOP points: more for more picks (log scale), less as the last pick gets older. It only
+// moves a row inside its match tier (match).
+export const COMMON = Object.freeze({ 'action:signIn': 20, 'action:signOut': 20, 'action:lock': 20, 'page:settings': 20, 'page:home': 20 });
+export const USE_TOP = 120;
+const USE_HALF_DAYS = 14;
+export const USES_MAX = 50;
+export function useBoost(use, now = Date.now()) {
+  if (!use || !(use.n > 0)) return 0;
+  const days = Math.max(0, (now - (use.at || 0)) / 86_400_000);
+  return Math.min(USE_TOP, 40 * Math.log2(1 + use.n)) * 0.5 ** (days / USE_HALF_DAYS);
+}
+// Uses: { [row key]: { n, at } }, the pick count and the time of the last pick. The USES_MAX newest stay.
+export function cleanUses(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const ok = Object.entries(v).filter(([k, u]) => k && u && Number.isFinite(u.n) && u.n > 0 && Number.isFinite(u.at));
+  ok.sort((x, y) => y[1].at - x[1].at);
+  return Object.fromEntries(ok.slice(0, USES_MAX).map(([k, u]) => [k, { n: Math.floor(u.n), at: u.at }]));
+}
+export function addUse(uses, key, now = Date.now()) {
+  const u = cleanUses(uses);
+  return cleanUses({ ...u, [key]: { n: (u[key]?.n || 0) + 1, at: now } });
 }
 
 // A row outside the Rights or Role is grey: it only explains why it does nothing. The Palette lists one only when it
@@ -164,16 +211,22 @@ function score(row, q) {
 const usable = (row) => row?.access?.ok !== false;
 
 // Rows that match q, best first; equal scores keep the catalogue order. Every usable row comes before every grey row,
-// so Enter on the first match does something.
-export function rankRows(rows, q, n = 50) {
+// so Enter on the first match does something. uses (cleanUses) and now give the use boost.
+export function rankRows(rows, q, n = 50, { uses = {}, now = Date.now() } = {}) {
   q = String(q || '')
     .trim()
     .toLowerCase();
-  const scored = rows.map((r, i) => [q ? score(r, q) : 0, i, r]).filter(([s]) => s >= 0);
+  const scored = rows
+    .map((r, i) => {
+      if (!q) return [0, 0, i, r];
+      const m = match(r, q);
+      return m ? [m.tier, m.s + (COMMON[r.key] || 0) + useBoost(uses[r.key], now), i, r] : null;
+    })
+    .filter(Boolean);
   return scored
-    .sort((a, b) => usable(b[2]) - usable(a[2]) || b[0] - a[0] || a[1] - b[1])
+    .sort((a, b) => usable(b[3]) - usable(a[3]) || b[0] - a[0] || b[1] - a[1] || a[2] - b[2])
     .slice(0, n)
-    .map(([, , r]) => r);
+    .map(([, , , r]) => r);
 }
 
 // The Settings sections in the order of their first setting, as [{ id, label, count }].
@@ -194,12 +247,14 @@ export function settingsSections(rows) {
 // - { type: 'head', label }: a heading line, never picked.
 // The empty top lists Home (on every page but Home), the bookmarks with Show in Palette (marks, as rows), the last
 // picks, then the categories. A query at the top searches every row (searchView). Grey rows show only as marks.
-export function paletteView(rows, { path = [], query = '', last = [], marks = [] } = {}) {
+export function paletteView(rows, { path = [], query = '', last = [], marks = [], uses = {}, now = Date.now() } = {}) {
+  const use = { uses, now };
   const q = String(query || '').trim();
-  rows = rows.filter((r) => usable(r) || marks.includes(r));
+  // An alias (a Settings button that an action row does) shows only as a bookmark, so a search finds one Sign out.
+  rows = rows.filter((r) => (usable(r) && !r.alias) || marks.includes(r));
   const rowItems = (list) => list.map((row) => ({ type: 'row', row }));
   if (!path.length) {
-    if (q) return searchView(rows, String(query));
+    if (q) return searchView(rows, String(query), use);
     const home = rowByKey(rows, 'page:home');
     const marked = marks.filter((r) => r !== home);
     const picks = cleanPicks(last)
@@ -218,25 +273,28 @@ export function paletteView(rows, { path = [], query = '', last = [], marks = []
   let list = rows.filter((r) => r.cat === cat);
   if (cat === 'settings' && !section && !q) return settingsSections(list).map((s) => ({ type: 'cat', ...s }));
   if (section) list = list.filter((r) => r.target.section === section);
-  return rowItems(rankRows(list, q, Infinity));
+  return rowItems(rankRows(list, q, Infinity, use));
 }
 
 // A search at the top. When the first word names a category (paletteScope), its rows come first. The word alone lists
 // all of them, else the rows that match the rest come first. The other matches of the whole query follow under a
 // heading, so a wrong guess hides nothing. When no row of the category matches, the list says so and shows every
 // match. A word alone that names two categories (a tie) lists the rows of both first.
-function searchView(rows, query) {
+function searchView(rows, query, use) {
   const rowItems = (list) => list.map((row) => ({ type: 'row', row }));
   const sc = paletteScope(query, rows);
   const word = /^\s*(\S+)\s*$/.exec(query)?.[1];
-  const tie = !sc && word ? guessCategories(word) : [];
+  const g = !sc && word ? categoryGuess(word) : { ids: [] };
+  const tie = g.ids.length > 1 && !weakGuess(g, word, rows) ? g.ids : [];
   const cats = sc ? [sc.cat] : tie.length > 1 && !paletteNamed(query, rows) ? tie : [];
-  if (!cats.length) return rowItems(rankRows(rows, query));
+  if (!cats.length) return rowItems(rankRows(rows, query, 50, use));
   const inCats = rows.filter((r) => cats.includes(r.cat));
-  const first = sc?.rest ? rankRows(inCats, sc.rest) : inCats.slice(0, 50);
+  const first = sc?.rest ? rankRows(inCats, sc.rest, 50, use) : inCats.slice(0, 50);
   const others = rankRows(
     rows.filter((r) => !cats.includes(r.cat)),
     query,
+    50,
+    use,
   );
   if (!first.length) return [{ type: 'head', label: `No match in ${cats.map(catLabel).join(' or ')}` }, ...rowItems(others)];
   return [...rowItems(first), ...(others.length ? [{ type: 'head', label: 'Other matches' }, ...rowItems(others)] : [])];

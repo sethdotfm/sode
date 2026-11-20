@@ -102,7 +102,7 @@ const src = (more = {}) => ({
   settings: [
     { section: 'this-browser', sectionTitle: 'This browser', topic: 'Preferences', id: 'cfg-theme', label: 'Theme' },
     { section: 'branding', sectionTitle: 'Branding', topic: 'Look and feel', id: 'cfg-brand', label: 'Logo text' },
-    { section: 'users', sectionTitle: 'Users', topic: 'Access', id: 'users-open', label: 'Manage users', button: true },
+    { section: 'users', sectionTitle: 'Users', topic: 'Access', id: 'users-manage', label: 'Manage users', button: 'users-manage' },
   ],
   who: who(),
   ...more,
@@ -126,7 +126,7 @@ test('catalogue: every kind, keyed by kind and target', () => {
   assert.equal(rowByKey(rows, 'panel:x1').target.href, 'panels/x1');
   assert.equal(rowByKey(rows, 'filterSet:all:All').label, 'All (no filter set)');
   assert.equal(rowByKey(rows, 'filterSet:global:c1').label, 'Cameras', 'a filter set row key holds its hidden id');
-  assert.equal(rowByKey(rows, 'setting:users/users-open').kind, 'settingsButton');
+  assert.equal(rowByKey(rows, 'setting:users/users-manage').kind, 'settingsButton');
   assert.ok(rowByKey(rows, 'action:reread').home);
   assert.ok(!rowByKey(rows, 'action:lock').home);
   assert.equal(new Set(rows.map((r) => r.key)).size, rows.length, 'keys are unique');
@@ -158,7 +158,7 @@ test('catalogue: grey rows outside Rights or Role offer Step in or Approval', ()
   const brand = rowByKey(rows, 'setting:branding/cfg-brand');
   assert.equal(brand.access.ok, false);
   assert.deepEqual(brand.access.offer, ['approval', 'stepIn']);
-  const users = rowByKey(rows, 'setting:users/users-open');
+  const users = rowByKey(rows, 'setting:users/users-manage');
   assert.equal(users.access.ok, false);
   assert.deepEqual(users.access.offer, ['stepIn']);
 
@@ -170,7 +170,7 @@ test('catalogue: grey rows outside Rights or Role offer Step in or Approval', ()
 
   // Step in needs another user with a PIN.
   const alone = catalogue(src({ who: who({ users: [{ name: 'Ana', len: 4 }] }) }));
-  assert.deepEqual(rowByKey(alone, 'setting:users/users-open').access.offer, []);
+  assert.deepEqual(rowByKey(alone, 'setting:users/users-manage').access.offer, []);
   assert.equal(rowByKey(alone, 'action:stepIn'), null);
 });
 

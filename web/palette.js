@@ -25,14 +25,17 @@ import { myRights } from './editorrights.js';
 import { allPresets } from './presetstore.js';
 import { allSets } from './filterstore.js';
 import { layout } from './layout.js';
-import { steppedIn } from './stepin.js';
+import { steppedIn, stepOut } from './stepin.js';
 import { settingsRows } from './palettesettings.js';
 import { catalogue, pageOf } from './palettecatalogue.js';
-import { paletteView, pathText, stepIndex, firstIndex, addPick, cleanPicks, paletteCharOf, opensPalette } from './paletterules.js';
+import { paletteView, pathText, stepIndex, firstIndex, addPick, cleanPicks, addUse, cleanUses, paletteCharOf, opensPalette } from './paletterules.js';
 import { shownBookmarks, bookmarksIn, saveBookmarks } from './bookmarkstore.js';
 import { paletteMarks, ownScope, addBookmark, fromRow } from './bookmarkrules.js';
 
 const PICKS_KEY = 'sode-palette-picks';
+// How often each row was picked, per user name ('' a Guest): { [name]: uses } (paletterules.js cleanUses). This browser
+// only for now, also for a signed-in user.
+const USES_KEY = 'sode-palette-uses';
 // A row sent to Home: { key, fill, offer, at }. Home runs it once, while it is fresh.
 export const HANDOFF_KEY = 'sode-palette-run';
 export const HANDOFF_MS = 60_000;
@@ -61,7 +64,10 @@ let pickCancel = null; // ...and a close with no row runs this
 
 // Last picks: Me for a signed-in user, else This browser.
 const picks = () => cleanPicks(profileName() ? profile().palettePicks : readJSON(PICKS_KEY, []));
+const uses = () => cleanUses(readJSON(USES_KEY, {})?.[profileName()]);
 function notePick(key) {
+  const all = readJSON(USES_KEY, {});
+  writeJSON(USES_KEY, { ...(all && typeof all === 'object' && !Array.isArray(all) ? all : {}), [profileName()]: addUse(uses(), key) });
   const next = addPick(picks(), key);
   if (profileName()) saveProfile({ palettePicks: next });
   else writeJSON(PICKS_KEY, next);
@@ -199,7 +205,7 @@ function rowNode(row, i) {
 function draw(keep = false) {
   rows = paletteRows();
   const marks = pickFn ? [] : paletteMarks(shownBookmarks().list, rows);
-  items = paletteView(rows, { path, query: input.value, last: pickFn ? [] : picks(), marks });
+  items = paletteView(rows, { path, query: input.value, last: pickFn ? [] : picks(), marks, uses: pickFn ? {} : uses() });
   if (!keep || !items[cur] || items[cur].type === 'head') cur = firstIndex(items);
   where.textContent = pathText(path, rows, input.value);
   where.hidden = !where.textContent;
@@ -259,8 +265,8 @@ export function openUrl(url, newTab) {
 }
 
 // Pages and panels open in this tab, or in a new one (newTab, from a bookmark). Home's rows run here on Home, else go
-// to Home with the row. A row of kind 'url' is a bookmark's web address. press: a bookmark presses a Settings button
-// (palettehome.js), where the Palette only shows it.
+// to Home with the row. A row of kind 'url' is a bookmark's web address. press: a bookmark also presses a Settings
+// button that the Palette only shows (palettehome.js).
 export function runRow(row, { fill = false, offer = '', newTab = false, press = false } = {}) {
   close(false);
   if (row.kind === 'url') return openUrl(row.target.url, row.target.newTab);
@@ -316,6 +322,9 @@ function runHere(row) {
   const id = row.target.id;
   if (id === 'lock') emit('localLock');
   else if (id === 'signIn') emit('login');
+  // The Settings Sign out button's own path (lock.js signOutNow).
+  else if (id === 'signOut') emit('logout');
+  else if (id === 'stepOut') stepOut();
   else if (id === 'theme') {
     const root = document.documentElement;
     const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
