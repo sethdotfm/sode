@@ -73,9 +73,15 @@ func jsObject(t *testing.T, file, name string) map[string]string {
 		t.Fatalf("no %s in %s", name, file)
 	}
 	end := strings.Index(src[start:], "};")
+	block := src[start : start+end]
+	// Prettier picks the quote style for each value, so both are read. Every key line must parse, so a line the
+	// pattern misses fails here instead of going unchecked.
 	out := map[string]string{}
-	for _, m := range regexp.MustCompile(`(\w+): '([^']*)'`).FindAllStringSubmatch(src[start:start+end], -1) {
-		out[m[1]] = m[2]
+	for _, m := range regexp.MustCompile(`(\w+): (?:'([^']*)'|"([^"]*)")`).FindAllStringSubmatch(block, -1) {
+		out[m[1]] = m[2] + m[3]
+	}
+	if keys := regexp.MustCompile(`(?m)^\s*\w+:`).FindAllString(block, -1); len(keys) != len(out) {
+		t.Fatalf("%s in %s: %d key lines, %d parsed", name, file, len(keys), len(out))
 	}
 	return out
 }

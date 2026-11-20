@@ -111,6 +111,7 @@ var logWhyLabel = map[string]string{
 	"protectClear":     "Clear Protect",
 	"protectRollback":  "Protect rolled back",
 	"protectUndo":      "Undo of a Protect",
+	"protectClearAll":  "Clear Sode's Protects",
 }
 
 // logEventKinds: EVENT_KINDS in web/logkinds.js. Event rows have no router message.
