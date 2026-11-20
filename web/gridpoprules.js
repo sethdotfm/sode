@@ -56,14 +56,3 @@ export function stagedRows(routes) {
 }
 
 export const routesWord = (n) => (n === 1 ? '1 route' : `${n} routes`);
-
-// The main page's plan items (plans.js) from routesOf: one item for each destination, one group for each source on it.
-// Item and group ends are router numbers here; the page turns them into its items.
-export function planRoutes(routes) {
-  const by = new Map();
-  for (const r of routes) {
-    if (!by.has(r.dst)) by.set(r.dst, { dst: r.dst, groups: [] });
-    by.get(r.dst).groups.push({ src: r.src, levels: r.levels });
-  }
-  return [...by.values()];
-}

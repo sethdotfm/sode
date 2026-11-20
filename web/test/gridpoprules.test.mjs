@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, planRoutes } from '../gridpoprules.js';
+import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord } from '../gridpoprules.js';
 import { envFrom, namesFrom } from '../panelrules.js';
 import { gridAxes } from '../gridpaneledges.js';
 
@@ -96,22 +96,4 @@ test('the staged list has one row for each source and level set, in the order fi
 test('the list Take names its routes', () => {
   assert.equal(routesWord(1), '1 route');
   assert.equal(routesWord(12), '12 routes');
-});
-
-test('the routes become one plan item for each destination, a breakaway as two groups', () => {
-  const items = planRoutes([
-    { src: 1, dst: 10, levels: [1] },
-    { src: 2, dst: 10, levels: [2] },
-    { src: 3, dst: 11, levels: [1, 2] },
-  ]);
-  assert.deepEqual(items, [
-    {
-      dst: 10,
-      groups: [
-        { src: 1, levels: [1] },
-        { src: 2, levels: [2] },
-      ],
-    },
-    { dst: 11, groups: [{ src: 3, levels: [1, 2] }] },
-  ]);
 });

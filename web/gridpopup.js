@@ -12,7 +12,8 @@ import { resultNode } from './banner.js';
 import { levelBar } from './levelview.js';
 import { routesOf } from './gridpanelstage.js';
 import { gridShield } from './gridpopshield.js';
-import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, planRoutes } from './gridpoprules.js';
+import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord } from './gridpoprules.js';
+import { gridPlan } from './plans.js';
 
 // The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
 const PANEL = { id: '', name: 'Grid', type: 'grid', sources: { members: 'all' }, destinations: { members: 'all' }, pages: [], settings: {} };
@@ -28,6 +29,8 @@ let scroll = null; // { left, top } of the grid when it closed
 let tick = 0;
 let frame = 0;
 let namesNew = true;
+// Counts the changes to what the tally and protected answers carry, so the body need not compare the answers as text.
+let version = 0;
 
 const scroller = () => pop?.ui.grid.querySelector('.sode-gridpanel__scroll');
 
@@ -82,20 +85,28 @@ function push() {
   const nm = namesNew ? namesReplyOf({ srcs: S.srcs, dsts: S.dsts, numberOffset: off() }) : null;
   namesNew = false;
   const tally = tallyReplyOf({ levels: S.levels, levelNumbering: S.cfg.levelNumbering, defaultLevels: S.cfg.defaultLevels, tally: S.tally });
-  body.data({ tally, prot: protectedReplyOf(S.prot), nm });
+  body.data({ tally, prot: protectedReplyOf(S.prot), nm, version });
   body.render();
 }
 // A large router sends many rows at once, so the popup reads them once a frame, and only while it shows.
 const later = () => {
   if (shown) frame ||= requestAnimationFrame(() => ((frame = 0), push()));
 };
-on('tally', later);
+// Only a tally, a protected change or a hello changes the tally, the protected list, the levels or the settings.
+on('tally', () => {
+  version++;
+  later();
+});
 on('conn', later);
-for (const ev of ['names', 'hello'])
-  on(ev, () => {
-    namesNew = true;
-    later();
-  });
+on('names', () => {
+  namesNew = true;
+  later();
+});
+on('hello', () => {
+  version++;
+  namesNew = true;
+  later();
+});
 on('myRights', () => body?.read({ ...PANEL, rights: S.myRights }));
 on('result', (r) => shown && pop.msg.replaceChildren(resultNode(r)));
 on('lockcover', ({ on: covers }) => {
@@ -106,17 +117,7 @@ on('lockcover', ({ on: covers }) => {
 
 // The staged routes as the main page's plan, through the layout's own Confirm. It sends them as one take.
 function confirmRoutes(routes, { warnings, onSent }) {
-  const host = boxHost();
-  if (!host) return;
-  const items = planRoutes(routes).map((it) => ({
-    dst: dstItem(it.dst),
-    groups: it.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })),
-    skipped: [],
-    untouched: [],
-    undo: null,
-    retry: null,
-  }));
-  host.confirm({ verb: 'grid', warnings, items, onSent });
+  boxHost()?.confirm({ ...gridPlan(routes, warnings), onSent });
 }
 
 const adapter = () => ({

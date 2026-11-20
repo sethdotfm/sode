@@ -61,6 +61,17 @@ const againItem = (e) =>
     e.ok ? null : e,
   );
 
+// The Grid popup's staged routes (routesOf, gridpanelstage.js) as one take: one item for each destination, one group
+// for each source on it. Route ends are router numbers.
+export function gridPlan(routes, warnings) {
+  const by = new Map();
+  for (const r of routes) {
+    if (!by.has(r.dst)) by.set(r.dst, []);
+    by.get(r.dst).push({ src: srcItem(r.src), levels: r.levels });
+  }
+  return { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(dstItem(dst), groups)) };
+}
+
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
   items: dsts.map((dst) => routeItem(dst, [{ src, levels }])),

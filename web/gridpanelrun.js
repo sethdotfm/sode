@@ -768,10 +768,11 @@ export function gridBody(ctx, first) {
 
   return {
     render: tick,
-    data({ tally: t, prot, nm }) {
+    // version is optional. The Grid popup counts its own changes, so a version stands in for the tally and protected text.
+    data({ tally: t, prot, nm, version }) {
       if (!nm && dataOf?.[0] === t && dataOf[1] === prot) return;
       dataOf = [t, prot];
-      const sig = JSON.stringify([t, prot]);
+      const sig = version == null ? JSON.stringify([t, prot]) : `v${version}`;
       // A 304 on names gives the same object (etagfetch.js), so the 90 KB stringify runs only on a change.
       const nmSig = nm && nm !== namesReply ? JSON.stringify(nm) : namesSig;
       if (sig === dataSig && nmSig === namesSig) return;
