@@ -152,3 +152,7 @@
 .sode-palette__note:empty {
   display: none;
 }
+/* Placed by tooltip.js: a CSS tip under the last row would make the list scroll. */
+.sode-palette__list [data-pb-tip]::after {
+  display: none;
+}

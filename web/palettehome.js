@@ -10,7 +10,6 @@ import { openFilters } from './filters.js';
 import { toggleCompact } from './device.js';
 import { showResult } from './banner.js';
 import { rowByKey } from './palettecatalogue.js';
-import { rereadNames } from './rereadnames.js';
 
 function openSettingsAt(t) {
   if (document.documentElement.dataset.view !== 'settings') $('settings-open').click();
@@ -18,9 +17,7 @@ function openSettingsAt(t) {
 }
 
 function runAction(id) {
-  if (id === 'reread') {
-    rereadNames();
-  } else if (id === 'undo') emit('undoLast');
+  if (id === 'undo') emit('undoLast');
   else if (id === 'presets') emit('presetPopup');
   else if (id === 'filters') openFilters();
   else if (id === 'compact') toggleCompact();

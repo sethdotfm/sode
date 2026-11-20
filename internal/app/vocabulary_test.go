@@ -96,6 +96,7 @@ var vocabAllow = []allowEntry{
 	{"account", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"log in", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"log in", "web/palettecatalogue.js", `^log (in|out)$`, "the Palette's search words keep the retired words so a search for them still finds Sign in and Sign out"},
+	{"log in", "web/palettematch.js", `^log in$`, "the Palette's search words keep the retired words so a search for them still finds Sign out"},
 	{"unlock", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"hand lock", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"This device", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},

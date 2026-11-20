@@ -2,6 +2,7 @@
 // how a query ranks the rows. The rows come from palettecatalogue.js.
 import { fuzzyScore } from './fuzzy.js';
 import { rowByKey } from './palettecatalogue.js';
+import { oneEdit, moreMatch } from './palettematch.js';
 
 // The Palette character is a pref, so its values are a fixed list (prefs.js). Keep in step with PaletteChars in
 // internal/config/palette.go (TestPrefTable). Each one passes paletteCharProblem.
@@ -75,16 +76,6 @@ const catLabel = (id) => CATEGORIES.find((c) => c.id === id)?.label || id;
 
 // Rows that people name themselves. They and the pages and actions come before settings when the match is close.
 const CAT_BOOST = { panels: 50, presets: 50, filterSets: 50, pages: 30, actions: 30 };
-
-// One edit (Damerau: a swap of two letters next to each other counts as one).
-function oneEdit(a, b) {
-  if (a === b) return true;
-  if (Math.abs(a.length - b.length) > 1) return false;
-  let i = 0;
-  while (i < a.length && i < b.length && a[i] === b[i]) i++;
-  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1) || (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2));
-  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
-}
 
 // w is in s in order, and the first letters agree ("pnl" in "panel").
 function subsequence(w, s) {
@@ -206,11 +197,32 @@ export function addUse(uses, key, now = Date.now()) {
   return cleanUses({ ...u, [key]: { n: (u[key]?.n || 0) + 1, at: now } });
 }
 
+// Rows that clear or reset something. A pick of one is not a use and not a last pick, so it never comes back to the
+// top by chance.
+const NO_USE = new Set([
+  'setting:history/clear-history',
+  'setting:protects/protects-clear-all',
+  'setting:run-setup-again/setup-again-open',
+  'setting:locks/apply-preset',
+]);
+export const countsAsUse = (key) => !NO_USE.has(key);
+
+// A first pick that the user leaves at once (the Palette opens again within PICK_UNDO_MS) was a mistake. It goes
+// out of the last picks and the uses. A row picked before stays.
+export const PICK_UNDO_MS = 10_000;
+export const dropPick = (keys, key) => cleanPicks(keys).filter((k) => k !== key);
+export function dropUse(uses, key) {
+  const u = cleanUses(uses);
+  delete u[key];
+  return u;
+}
+
 // A row outside the Rights or Role is grey: it only explains why it does nothing. The Palette lists one only when it
 // is a bookmark with Show in Palette.
 const usable = (row) => row?.access?.ok !== false;
 
-// Rows that match q, best first; equal scores keep the catalogue order. Every usable row comes before every grey row,
+// Rows that match q, best first; equal scores keep the catalogue order. moreMatch (palettematch.js) finds more rows:
+// a search word, a typo, or words across the name and path. They come after the label matches. Every usable row comes before every grey row,
 // so Enter on the first match does something. uses (cleanUses) and now give the use boost.
 export function rankRows(rows, q, n = 50, { uses = {}, now = Date.now() } = {}) {
   q = String(q || '')
@@ -219,7 +231,7 @@ export function rankRows(rows, q, n = 50, { uses = {}, now = Date.now() } = {}) 
   const scored = rows
     .map((r, i) => {
       if (!q) return [0, 0, i, r];
-      const m = match(r, q);
+      const m = match(r, q) || moreMatch(r, q);
       return m ? [m.tier, m.s + (COMMON[r.key] || 0) + useBoost(uses[r.key], now), i, r] : null;
     })
     .filter(Boolean);

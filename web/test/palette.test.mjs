@@ -127,7 +127,8 @@ test('catalogue: every kind, keyed by kind and target', () => {
   assert.equal(rowByKey(rows, 'filterSet:all:All').label, 'All (no filter set)');
   assert.equal(rowByKey(rows, 'filterSet:global:c1').label, 'Cameras', 'a filter set row key holds its hidden id');
   assert.equal(rowByKey(rows, 'setting:users/users-manage').kind, 'settingsButton');
-  assert.ok(rowByKey(rows, 'action:reread').home);
+  assert.ok(!rowByKey(rows, 'action:reread').home, 'Re-read needs only the socket, so it runs on every page');
+  assert.ok(rowByKey(rows, 'action:undo').home);
   assert.ok(!rowByKey(rows, 'action:lock').home);
   assert.equal(new Set(rows.map((r) => r.key)).size, rows.length, 'keys are unique');
   for (const r of rows)

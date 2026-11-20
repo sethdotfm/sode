@@ -235,3 +235,48 @@ func TestChromePalettePanelPage(t *testing.T) {
 	}
 	b.check()
 }
+
+// A Guest's search that only hidden rows match shows one line with their count, and Enter on it signs in. Then the
+// Palette opens again with the same query. On the Communication Log, Re-read router names runs there: the Palette
+// stays open and shows the result.
+func TestChromePaletteHiddenMatches(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
+	srv := seamServer(t, a)
+	ana := userKey(t, a, "Ana")
+	makePanel(t, a, ana, `{"name":"Ana desk","cells":[{"kind":"source","n":1}]}`)
+	waitNamesAndTally(t, a, ana)
+
+	b.open(srv.URL + "/")
+	b.waitFor("Sign in offered", `!document.getElementById('account-login').hidden`)
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette opens", paletteShown)
+	hidden := `document.querySelector('#palette-list .sode-palette__row--hidden')`
+	find := func(q string) {
+		b.eval(fmt.Sprintf(`(() => { const i = document.querySelector('.sode-palette__q'); i.value = %q; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`, q))
+	}
+	find("new panel")
+	b.waitFor("a private panel counts for a Guest, with no name", `/^1 panel\b.*sign-in/.test(`+hidden+`?.textContent)`)
+	find("manage users")
+	b.waitFor("the hidden Users editor counts, and the line is the only pick", hidden+`?.getAttribute('aria-selected') === 'true' && `+hidden+`.textContent.includes('Enter: Sign in')`)
+	if b.eval(`!!document.querySelector('#palette-list [data-key="setting:users/users-manage"]')`) == true {
+		t.Error("the Palette lists the Users editor to a Guest")
+	}
+	paletteKey(b, "Enter", false)
+	b.waitFor("Enter on the line opens the sign-in", `document.activeElement?.id === 'lock-name'`)
+	signInAs(b, "Ana", "1234")
+	b.waitFor("the Palette opens again with the query", paletteShown+` && document.querySelector('.sode-palette__q').value === 'manage users'`)
+	b.waitFor("and finds the Users editor now", `document.querySelector('#palette-list [aria-selected="true"]')?.dataset.key === 'setting:users/users-manage'`)
+	paletteKey(b, "Escape", false)
+	paletteKey(b, "Escape", false)
+
+	b.open(srv.URL + "/log")
+	b.waitFor("the Log", `!!document.querySelector('.sode-palette__q')`)
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette opens on the Log", paletteShown)
+	paletteFind(b, "re-read", "action:reread")
+	paletteKey(b, "Enter", false)
+	b.waitFor("Re-read runs on the Log, and the Palette shows the result", `location.pathname === '/log' && `+paletteShown+` && /^Router names (re-read|updated)/.test(document.querySelector('.sode-palette__note').textContent)`)
+	b.check()
+}
