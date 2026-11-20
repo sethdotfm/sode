@@ -2,4 +2,4 @@
 - Directly after an add, `+` or Ctrl+Enter on the empty Destination box adds the next destination by router number. The box shows which one, for example "Ctrl+Enter adds 12 Rec 2" (⌘Enter on a Mac). Cam 1, Tab, Rec 1, Ctrl+Enter four times and Enter takes Cam 1 to Rec 1 to Rec 4. With no add directly before, an add on the empty box does nothing.
 - A take after `+` no longer refuses the same destination text in the next route.
 - A list or a range in the Destination box, such as `11-13`, `11,12,13`, `Rec 1-4` or `Rec 1-Rec 4`, shows all its destinations selected in the match list. Enter or Ctrl+Enter adds them all. The list names what the router does not have. A list in the Source box shows a note that points to the Grid (Ctrl+e).
-- Esc with nothing to clear does nothing. Keyboard mode has its own key: Alt+Shift+k (⌥⇧k on a Mac) starts and ends it.
+- Keyboard mode has its own key: Alt+Shift+k (⌥⇧k on a Mac) starts and ends it. Esc with nothing to clear still starts it.

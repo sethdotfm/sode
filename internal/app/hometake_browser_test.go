@@ -177,11 +177,9 @@ func TestChromeMainOneTake(t *testing.T) {
 	b.eval(`document.getElementById('clear-all').click(); true`)
 	b.waitFor("Clear clears everything", `document.getElementById('grid-staged').hidden && !document.getElementById('src').value && !document.getElementById('dst').value && `+clearOff)
 
-	// Nothing to clear: Esc does nothing (Alt+Shift+k starts Keyboard mode, TestChromeMainMultiAdd).
+	// Nothing to clear: Esc starts Keyboard mode (TestChromeMainMultiAdd checks Alt+Shift+k).
 	esc("src")
-	if id := b.eval(`document.activeElement.id`).(string); id != "src" {
-		t.Fatalf("Esc with nothing to clear moved focus to %q", id)
-	}
+	b.waitFor("Esc starts Keyboard mode", `document.activeElement === document.getElementById('history')`)
 
 	// Ctrl+e with typed text not yet picked: it picks the best match, as Enter does, then finds it on the grid.
 	typed := func(id, text string) {

@@ -438,7 +438,7 @@ The chip in a patch box that fills it with that box's value from this browser's 
 The chip in a patch box that fills it with the value after Last. That value is the number plus one or the next router name match, as the browser's Next match behavior says. Pressing it again keeps stepping. It is per browser.
 
 **Keyboard mode**:
-The state where keys act on History entries instead of the patch boxes. Alt+Shift+k starts and ends it, and any click ends it. Compact view has none.
+The state where keys act on History entries instead of the patch boxes. Alt+Shift+k starts and ends it. Esc with empty boxes, or on a History button, also starts it. Any click ends it. Compact view has none.
 
 **Compact view**:
 The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.

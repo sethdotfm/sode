@@ -20,7 +20,7 @@ Sode is a web app. Use *Install* in Chrome or Edge, or *Add to Home Screen* in S
 
 ## Using it
 
-Type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key. For the shortcut list, press `?` in keyboard mode, which Alt+Shift+k (⌥⇧k on a Mac) starts and ends.
+Type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key. For the shortcut list, press `?` in keyboard mode. Esc with empty boxes starts it, and Alt+Shift+k (⌥⇧k on a Mac) starts and ends it.
 
 ### Levels
 

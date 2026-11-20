@@ -25,7 +25,7 @@ export function desktopKeys({
   nothingToClear,
   grid,
 }) {
-  const { histList, onListKey, enterKeys, keyMode, undoLast, historyShown } = historyView;
+  const { histList, histArea, onListKey, enterKeys, keyMode, undoLast, historyShown } = historyView;
   // Modifier rule: docs/agents/web-layout.md (Keys). Each check excludes the other two modifiers.
   document.addEventListener('keydown', (e) => {
     if (confirm.isOpen()) return confirm.key(e);
@@ -77,8 +77,9 @@ export function desktopKeys({
       if (!e.repeat) toggleCompact();
       return;
     }
-    // Keyboard mode has its own key, also from a box; Esc never starts it. A second press goes back to Source. Compact
-    // view has no keyboard mode: History is hidden. preventDefault keeps macOS Option+Shift+K from typing a character.
+    // Keyboard mode's own key works also from a box. Esc with nothing to clear starts it too (below). A second press goes
+    // back to Source. Compact view has no keyboard mode: History is hidden. preventDefault keeps macOS Option+Shift+K
+    // from typing a character.
     if (chord(e) === 'alt+shift+k') {
       e.preventDefault();
       if (e.repeat || !historyShown()) return;
@@ -155,20 +156,26 @@ export function desktopKeys({
       if (onListKey(e)) e.preventDefault();
       return;
     }
+    // Esc on a History button starts Keyboard mode at that row.
+    if (e.key === 'Escape' && e.target !== histList && histArea(e.target)) {
+      e.preventDefault();
+      enterKeys(e.target.closest('[data-key]')?.dataset.key);
+      return;
+    }
     if (!inBox) return; // leave buttons to the browser
     if (e.key === 'Enter') {
       e.preventDefault();
       patchNow();
       return;
     }
-    // One Esc: an open match list closes first. Then everything clears, as Clear does. With nothing to clear it does
-    // nothing.
+    // One Esc: an open match list closes first. Then everything clears, as Clear does. Only then Keyboard mode.
     if (e.key === 'Escape') {
       if (b && b.cb.open) {
         b.cb.close();
         return;
       }
       if (!nothingToClear()) clearEverything();
+      else if (historyShown()) enterKeys();
     }
   });
 }

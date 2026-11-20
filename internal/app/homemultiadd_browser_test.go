@@ -10,8 +10,8 @@ import (
 // Home's Destination box after an add: the box empties, so new digits start a new search. Directly after an add, + and
 // Ctrl+Enter on the empty box add the next destination, and the box shows which one. They use the Next match behavior
 // setting. With no add directly before, they do nothing. A take after + does not refuse the same text later. A typed list shows
-// its destinations all selected and adds them all. A range with a tail and two ranges do too; the Source box gives a note instead. Esc with nothing to clear does nothing, and
-// Alt+Shift+k starts and ends Keyboard mode.
+// its destinations all selected and adds them all. A range with a tail and two ranges do too; the Source box gives a note instead. Esc with nothing to clear starts Keyboard mode,
+// and Alt+Shift+k ends and starts it.
 func TestChromeMainMultiAdd(t *testing.T) {
 	b := startBrowser(t)
 	// Names for the tail list and the Next match of the name: numbers 41 to 48.
@@ -207,11 +207,11 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	b.waitFor("Enter takes nothing", `document.getElementById('confirm').hidden && document.getElementById('src').classList.contains('pb-input--invalid')`)
 	clear()
 
-	// Esc with nothing to clear does nothing. Alt+Shift+k starts Keyboard mode, and a second press goes back to Source.
+	// Esc with nothing to clear starts Keyboard mode, and Alt+Shift+k goes back to Source. Alt+Shift+k also starts it.
 	esc("src")
-	if id := b.eval(`document.activeElement.id`).(string); id != "src" {
-		t.Fatalf("Esc with nothing to clear moved focus to %q", id)
-	}
+	b.waitFor("Esc starts Keyboard mode", `document.activeElement === document.getElementById('history') && document.documentElement.hasAttribute('data-keys-on')`)
+	realKeyMods(b, "K", "KeyK", 75, modAlt|modShift)
+	b.waitFor("Alt+Shift+k goes back to Source", `document.activeElement === document.getElementById('src')`)
 	realKeyMods(b, "K", "KeyK", 75, modAlt|modShift)
 	b.waitFor("Keyboard mode", `document.activeElement === document.getElementById('history') && document.documentElement.hasAttribute('data-keys-on')`)
 	realKeyMods(b, "K", "KeyK", 75, modAlt|modShift)
