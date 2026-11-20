@@ -1,0 +1,1 @@
+- Live Editor of a Grid panel: a Smart menu opens beside the names picked on the live grid. It holds Artwork, Pin or Unpin, Move, Insert and Remove from the panel. Insert adds names from the router after the picked name. With Follow the router on, it holds only Artwork and Pin. Its keys match the Buttons editor. The phone layout keeps the drawer only.
