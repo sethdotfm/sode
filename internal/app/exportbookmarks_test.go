@@ -164,3 +164,25 @@ func TestReplaceImportEmptiesBookmarks(t *testing.T) {
 		t.Fatalf("bookmarks: %+v", a.r().cfg.Bookmarks)
 	}
 }
+
+// A filter set that arrives with a new id takes its Everyone bookmark with it, as a preset does.
+func TestAddImportBookmarkFollowsImportedFilterSet(t *testing.T) {
+	a, _, tok := importApp(t)
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.FilterSets = []config.FilterSet{{ID: "cams1", Name: "Cams", Src: "CAM"}}
+		cfg.Bookmarks = []config.Bookmark{{Key: "filterSet:global:cams1", Label: "Cams"}}
+	})
+	file := foreign(t, exported(t, a, tok, exportReq{Categories: []string{catFilterSets, catBookmarks}}))
+	lifeCommit(t, a, func(cfg *config.Config) {
+		cfg.FilterSets[0].Src = "MON"
+		cfg.Bookmarks = nil
+	})
+	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	i := slices.IndexFunc(a.r().cfg.FilterSets, func(s config.FilterSet) bool { return s.Name == "Cams 2" })
+	if i < 0 || a.r().cfg.FilterSets[i].ID == "cams1" {
+		t.Fatalf("filter sets: %+v", a.r().cfg.FilterSets)
+	}
+	if got := a.r().cfg.Bookmarks; len(got) != 1 || got[0].Key != "filterSet:global:"+a.r().cfg.FilterSets[i].ID {
+		t.Fatalf("bookmarks: %+v", got)
+	}
+}

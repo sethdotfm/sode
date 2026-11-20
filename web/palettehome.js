@@ -37,7 +37,7 @@ function runRow(row, { fill = false, offer = '', press = false } = {}) {
     if (!p) return showResult('warn', 'Preset not found', `${t.name} is not there now.`);
     return (fill ? fillBoxes : fire)(p.scope, p.name);
   }
-  if (row.kind === 'filterSet') return (fill && t.scope !== 'all' ? toggleSet : pickSet)(t.scope, t.name);
+  if (row.kind === 'filterSet') return (fill && t.scope !== 'all' ? toggleSet : pickSet)(t.scope, t.id);
   if (row.kind === 'settingsButton' && press) {
     openSettingsAt(t);
     const b = document.getElementById(t.id);

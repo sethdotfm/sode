@@ -84,8 +84,9 @@ const live = () => ({ srcs: S.srcs, dsts: S.dsts, levelCount: S.levels.length })
 const scope = () => st.scope;
 
 function curSets(sc) {
-  if (sc === 'user' && forUser()) return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ name: String(s.name), f: normFilter(s) }));
-  return setsIn(sc).map((s) => ({ name: s.name, f: s.f }));
+  if (sc === 'user' && forUser())
+    return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ id: s.id || '', name: String(s.name), f: normFilter(s) }));
+  return setsIn(sc).map((s) => ({ id: s.id, name: s.name, f: s.f }));
 }
 function curPresets(sc) {
   if (sc === 'user' && forUser()) return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => storedPreset(s));
@@ -97,7 +98,14 @@ const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs :
 // A preset row's match is made fresh each time, so names loaded after the sheet opened count.
 function makeRows(doc) {
   return [
-    ...(doc.filterSets || []).map((s) => ({ kind: 'filter', name: String(s.name), f: fmt.filterOf(s), choice: '', as: '' })),
+    ...(doc.filterSets || []).map((s) => ({
+      kind: 'filter',
+      name: String(s.name),
+      id: typeof s.id === 'string' ? s.id : '',
+      f: fmt.filterOf(s),
+      choice: '',
+      as: '',
+    })),
     ...(doc.presets || []).map((p) => ({ kind: 'preset', name: String(p.name), src: p, choice: '', as: '' })),
   ];
 }
@@ -132,12 +140,13 @@ function plan() {
     if (!rs.length) continue;
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
     const choices = rs.map(choiceOf);
-    const meIds = st.copy ? presetsIn('user').map((s) => s.id) : [];
-    // A new Me preset keeps its This browser id.
-    const keepId = (r, i) => st.copy && r.src.id && choices[i] !== 'replace' && !meIds.includes(r.src.id);
+    const meIds = st.copy ? (kind === 'filter' ? setsIn('user') : presetsIn('user')).map((s) => s.id) : [];
+    // A new Me preset or filter set keeps its This browser id, so an active set follows it (moveLocalSets).
+    const idOf = (r) => (kind === 'filter' ? r.id : r.src.id);
+    const keepId = (r, i) => st.copy && idOf(r) && choices[i] !== 'replace' && !meIds.includes(idOf(r));
     const incoming = rs.map((r, i) =>
       kind === 'filter'
-        ? { name: r.name, f: r.f }
+        ? { ...(keepId(r, i) ? { id: r.id } : {}), name: r.name, f: r.f }
         : {
             ...normPreset({ name: r.name, items: matched(r).saved.items }),
             ...(keepId(r, i) ? { id: r.src.id } : {}),
@@ -170,7 +179,8 @@ function plan() {
       }
     }
     if (res.added + res.replaced) {
-      out.parts[kind === 'filter' ? 'filterSets' : 'presets'] = kind === 'filter' ? res.list.map((s) => ({ name: s.name, ...s.f })) : res.list.map(saved);
+      out.parts[kind === 'filter' ? 'filterSets' : 'presets'] =
+        kind === 'filter' ? res.list.map((s) => ({ ...(s.id ? { id: s.id } : {}), name: s.name, ...s.f })) : res.list.map(saved);
     }
   }
   const pl = prefList().filter((p) => p.ok && st.prefOn[p.name] !== false && p.value !== currentPref(p.name));

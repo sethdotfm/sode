@@ -9,9 +9,8 @@ import (
 // Everyone bookmarks in the export file (docs/agents/profiles.md): one item, written whole, as the own export's
 // Profile item. A bookmark's place in the list is its Alt+1-9 key, so a merge by item would move them.
 const (
-	everyoneBookmarksName  = "Everyone bookmarks"
-	noteReplacesBookmarks  = "Replaces Everyone bookmarks"
-	everyonePresetKeyStart = "preset:global:"
+	everyoneBookmarksName = "Everyone bookmarks"
+	noteReplacesBookmarks = "Replaces Everyone bookmarks"
 )
 
 // planBookmarks: an empty file list adds nothing; Replace import then empties the live list (emptyRest). The step
@@ -34,14 +33,23 @@ func (p *importPlanner) planBookmarks(cand *config.Config, cat *importCat) error
 	return nil
 }
 
-// bookmarksHere gives a bookmark on an Everyone preset the id that preset has here, when this import moved it. Other
-// keys are opaque and stay as the file has them; a target that is not here shows Missing.
+// bookmarksHere gives a bookmark on an Everyone preset or filter set the id that item has here, when this import
+// moved it. Other keys are opaque and stay as the file has them; a target that is not here shows Missing.
 func (p *importPlanner) bookmarksHere(in []config.Bookmark) []config.Bookmark {
 	out := config.CloneBookmarks(in)
+	moved := []struct {
+		start string
+		to    func(string) string
+	}{
+		{"preset:global:", p.presetTo},
+		{"filterSet:global:", p.setTo},
+	}
 	for i, b := range out {
-		if id, ok := strings.CutPrefix(b.Key, everyonePresetKeyStart); ok {
-			if to := p.presetTo(id); to != "" {
-				out[i].Key = everyonePresetKeyStart + to
+		for _, m := range moved {
+			if id, ok := strings.CutPrefix(b.Key, m.start); ok {
+				if to := m.to(id); to != "" {
+					out[i].Key = m.start + to
+				}
 			}
 		}
 	}

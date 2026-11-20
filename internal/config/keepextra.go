@@ -37,12 +37,25 @@ func extraAt[T any](saved []T, j int, extra func(T) map[string]any) map[string]a
 	return extra(saved[j])
 }
 
+// A set sent with no id gets the saved id of its name, as a preset does (WithPresetExtras).
 func WithFilterSetExtras(in, saved []FilterSet) []FilterSet {
 	out := slices.Clone(in)
+	sent := map[string]bool{}
+	for _, f := range out {
+		sent[f.ID] = f.ID != ""
+	}
 	for i, j := range savedMatch(out, saved, func(f FilterSet) string { return f.Name }) {
-		out[i].Extra = extraAt(saved, j, func(f FilterSet) map[string]any { return f.Extra })
-		if j >= 0 && out[i].Broken == nil {
-			out[i].Broken = slices.Clone(saved[j].Broken)
+		if out[i].ID == "" && j >= 0 && saved[j].ID != "" && !sent[saved[j].ID] {
+			out[i].ID = saved[j].ID
+			sent[saved[j].ID] = true
+		}
+	}
+	for i := range out {
+		f := &out[i]
+		j := slices.IndexFunc(saved, func(s FilterSet) bool { return s.ID != "" && s.ID == f.ID })
+		f.Extra = extraAt(saved, j, func(s FilterSet) map[string]any { return s.Extra })
+		if j >= 0 && f.Broken == nil {
+			f.Broken = slices.Clone(saved[j].Broken)
 		}
 	}
 	return out

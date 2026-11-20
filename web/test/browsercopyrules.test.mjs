@@ -7,6 +7,7 @@ const values = {
   flip: 'on',
   filterSets: [{ name: 'Cams', src: 'cam' }],
   presets: [{ id: 'p1', name: 'Open', items: [] }],
+  bookmarks: [{ key: 'page:log', label: 'Log' }],
 };
 
 test('every This browser pref has a Me counterpart today', () => {

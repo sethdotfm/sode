@@ -17,7 +17,7 @@ import { scopeLabel, scopeOptions } from './scopes.js';
 import { carryNames } from './presetref.js';
 import { presetStatus } from './brokenview.js';
 import { STATUS_TEXT } from './brokenrules.js';
-import { renameLocalBookmarks } from './bookmarkstore.js';
+import { relabelLocalBookmarks } from './bookmarkstore.js';
 import {
   allPresets,
   presetsIn,
@@ -516,7 +516,7 @@ function saveHere(b, moving) {
   if (to === 'local') {
     saveLocalPreset(b.s, moving ? '' : cur.old);
     // The server renames Everyone's and Me bookmarks in its own save.
-    if (!moving && was && was !== b.s.name) renameLocalBookmarks(`preset:local:${cur.id}`, `preset:local:${cur.id}`, b.s.name);
+    if (!moving && was && was !== b.s.name) relabelLocalBookmarks(`preset:local:${cur.id}`, b.s.name);
     return landed();
   }
   saveIn(to, b.next, landed);

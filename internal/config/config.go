@@ -151,8 +151,10 @@ var deviceEnums = []struct {
 	{"paletteChar", "default Palette character must be one of " + PaletteChars + " or off", func(d *DeviceDefaults) *string { return &d.PaletteChar }},
 }
 
-// Blank is the one router.
+// Router: blank is the one router. ID is hidden and stays through a rename, as a preset's does. Bookmarks and the
+// active set name a set by it.
 type FilterSet struct {
+	ID     string         `yaml:"id" json:"id"`
 	Name   string         `yaml:"name" json:"name"`
 	Router string         `yaml:"router,omitempty" json:"router,omitempty"`
 	Src    string         `yaml:"src,omitempty" json:"src"`

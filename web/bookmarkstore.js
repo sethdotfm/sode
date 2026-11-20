@@ -5,7 +5,7 @@
 import { S, on, onMsg, emit, request } from './core.js';
 import { readJSON, writeJSON } from './store.js';
 import { profile, profileName, saveProfile } from './profile.js';
-import { cleanBookmarks, shownList, renameKey } from './bookmarkrules.js';
+import { cleanBookmarks, shownList, relabel } from './bookmarkrules.js';
 
 const KEY = 'sode-bookmarks';
 
@@ -33,10 +33,10 @@ export function saveBookmarks(scope, list) {
 }
 
 // A rename of This browser's filter set or preset. The server does Everyone's and Me in the same save.
-export function renameLocalBookmarks(from, to, label) {
+export function relabelLocalBookmarks(key, label) {
   const list = localBookmarks();
-  if (!list.some((b) => b.key === from)) return;
-  writeJSON(KEY, renameKey(list, from, to, label));
+  if (!list.some((b) => b.key === key)) return;
+  writeJSON(KEY, relabel(list, key, label));
   emit('bookmarks');
 }
 

@@ -200,7 +200,7 @@ func sizeImport(plan *importPlan, b *exportBundle) {
 		put(catPresets, p.ID, p, 0)
 	}
 	for _, s := range b.FilterSets {
-		put(catFilterSets, s.Name, s, 0)
+		put(catFilterSets, s.ID, s, 0)
 	}
 	if len(b.Bookmarks) > 0 {
 		put(catBookmarks, catBookmarks, b.Bookmarks, 0)

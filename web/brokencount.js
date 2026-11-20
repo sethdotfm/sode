@@ -12,7 +12,7 @@ const asked = { all: 0, mine: 0 };
 
 export const countText = (r) => `${r.broken} Broken, ${r.moved} Name moved`;
 
-// id is the swapItem id: preset/<owner>/<id>, filterSet/<owner>/<name> or panel/<id>; owner "everyone" is Everyone.
+// id is the swapItem id: preset/<owner>/<id>, filterSet/<owner>/<id> or panel/<id>; owner "everyone" is Everyone.
 function editOf(it) {
   const [kind, owner, ...rest] = it.id.split('/');
   if (kind === 'panel') return it.owner && it.owner === profileName() ? { href: editHref(owner) } : null;
@@ -20,7 +20,7 @@ function editOf(it) {
   const everyone = owner === 'everyone' && (role === 'administrator' || role === 'trusted');
   if (!mine && !everyone) return null;
   const scope = mine ? 'user' : 'global';
-  return { ev: kind === 'preset' ? 'editPresetAt' : 'editFilterSetAt', at: { scope, name: kind === 'preset' ? it.name : rest.join('/') } };
+  return { ev: kind === 'preset' ? 'editPresetAt' : 'editFilterSetAt', at: { scope, id: rest.join('/'), name: it.name } };
 }
 
 function row(it) {

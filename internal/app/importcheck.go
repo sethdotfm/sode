@@ -132,6 +132,10 @@ func matchPreset(same bool, list []config.Preset, s config.Preset) int {
 	return matchIdx(same, list, s.ID, s.Name, func(x config.Preset) string { return x.ID }, func(x config.Preset) string { return x.Name })
 }
 
+func matchSet(same bool, list []config.FilterSet, s config.FilterSet) int {
+	return matchIdx(same, list, s.ID, s.Name, func(x config.FilterSet) string { return x.ID }, setName)
+}
+
 // nextName is "Name 2", or the first number after it that taken does not hold.
 func nextName(name string, taken func(string) bool) string {
 	for n := 2; ; n++ {

@@ -134,7 +134,7 @@ func (a *App) exportList() (exportList, error) {
 	}
 	sets := cat(catFilterSets)
 	for _, s := range cfg.FilterSets {
-		item(sets, s.Name, s.Name, "", &exportFilterSets{FilterSets: []config.FilterSet{s}})
+		item(sets, s.ID, s.Name, "", &exportFilterSets{FilterSets: []config.FilterSet{s}})
 	}
 
 	bookmarks := cat(catBookmarks)

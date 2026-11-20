@@ -93,8 +93,8 @@ const src = (more = {}) => ({
     { scope: 'local', id: 'p2', name: 'Desk' },
   ],
   filterSets: [
-    { scope: 'all', name: 'All' },
-    { scope: 'global', name: 'Cameras' },
+    { scope: 'all', id: 'All', name: 'All' },
+    { scope: 'global', id: 'c1', name: 'Cameras' },
   ],
   panels: [{ id: 'x1', name: 'Wall', type: 'grid' }],
   settings: [
@@ -123,6 +123,7 @@ test('catalogue: every kind, keyed by kind and target', () => {
   assert.equal(rowByKey(rows, 'preset:local:p2').hint, 'This browser');
   assert.equal(rowByKey(rows, 'panel:x1').target.href, 'panels/x1');
   assert.equal(rowByKey(rows, 'filterSet:all:All').label, 'All (no filter set)');
+  assert.equal(rowByKey(rows, 'filterSet:global:c1').label, 'Cameras', 'a filter set row key holds its hidden id');
   assert.equal(rowByKey(rows, 'setting:users/users-open').kind, 'settingsButton');
   assert.ok(rowByKey(rows, 'action:reread').home);
   assert.ok(!rowByKey(rows, 'action:lock').home);

@@ -83,7 +83,7 @@ export function paletteRows() {
   return catalogue({
     page: PAGE,
     presets: S.cfg ? allPresets().map((p) => ({ scope: p.scope, id: p.id, name: p.name })) : [],
-    filterSets: S.cfg ? allSets().map((s) => ({ scope: s.scope, name: s.name })) : [],
+    filterSets: S.cfg ? allSets().map((s) => ({ scope: s.scope, id: s.id, name: s.name })) : [],
     panels,
     settings,
     who: who(),

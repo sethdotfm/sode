@@ -4,7 +4,7 @@
 // catalogue(src) gives Row[]. The fields of src:
 // - page: 'main', 'log', 'panels', 'editor' or 'panel', the page the Palette is on (pageOf).
 // - presets: [{ scope, id, name }]. The scope is 'global' (Everyone), 'user' (Me) or 'local' (This browser).
-// - filterSets: [{ scope, name }]. The scope 'all' is the built-in All.
+// - filterSets: [{ scope, id, name }]. The scope 'all' is the built-in All, id All. A row key holds the hidden id.
 // - panels: [{ id, name, type }], the panels that the browser's own sign-in reaches (palettePanels).
 // - settings: [{ section, sectionTitle, topic, id, label, button }], from the Settings form (palettesettings.js).
 // - who: { role, user, rights, locks, users, phone, stepped }. This is the browser's own sign-in, never a panel key.
@@ -159,7 +159,7 @@ export function catalogue(src) {
 
   for (const s of src.filterSets || []) {
     add({
-      key: `filterSet:${s.scope}:${s.name}`,
+      key: `filterSet:${s.scope}:${s.id}`,
       kind: 'filterSet',
       cat: 'filterSets',
       label: s.scope === 'all' ? 'All (no filter set)' : s.name,
@@ -167,7 +167,7 @@ export function catalogue(src) {
       icon: 'filter',
       words: ['filter set', 'history'],
       home: true,
-      target: { scope: s.scope, name: s.name },
+      target: { scope: s.scope, id: s.id },
     });
   }
 

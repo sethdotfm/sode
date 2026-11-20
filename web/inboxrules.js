@@ -63,7 +63,7 @@ export function sendBody(router, to, { presets = [], filterSets = [], panels = [
   return {
     to,
     presets: presets.map((p) => (p.scope === 'local' ? { scope: p.scope, preset: stored(p) } : { scope: p.scope, id: p.id })),
-    filterSets: filterSets.map((s) => (s.scope === 'local' ? { scope: s.scope, set: { name: s.name, ...s.f } } : { scope: s.scope, name: s.name })),
+    filterSets: filterSets.map((s) => (s.scope === 'local' ? { scope: s.scope, set: { name: s.name, ...s.f } } : { scope: s.scope, id: s.id })),
     panels: panels.map((p) => p.id),
   };
 }
