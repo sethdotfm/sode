@@ -117,7 +117,7 @@ ADR 0011 and the Grid panels section of docs/panels-design.md say what a Grid pa
 
 ### Input
 
-- `gridpanelkeys.js` is an exact `chord(e)` map (`keys.js`). h, j, k and l are physical keys. A move and Space return null while `inControl`. A Ctrl or Cmd chord needs its own entry by exact name. `gridKeyAction(e, ctx)` takes `{ staged, picks, inControl, bar, finding, line }`. Shift with a move gives a range pick on a bar only.
+- `gridpanelkeys.js` is an exact `chord(e)` map (`keys.js`). h, j, k and l are physical keys. A move and Space return null while `inControl`. A `mod+` row is Ctrl, or Cmd on a Mac (`modChord` in `keys.js`). `gridKeyAction(e, ctx)` takes `{ staged, picks, inControl, bar, finding, line }`. Shift with a move gives a range pick on a bar only.
 - Order in the run's `onKey`: the key list, the confirm, a search box's own keys (`findBoxAction`), then `gridKeyAction`. A box's Esc clears the box and never drops picks. The grid's keydown returns when `e.defaultPrevented`, so the page lock and dialogs keep their keys. The key handler calls `preventDefault` on every action, which also stops a focused crosspoint button's own Space click.
 - Esc runs in a capture listener on `document` that `stop()` removes. It beats Kiosk mode's own (`panelfull.js`). The order is the line, the picks, then the staged routes.
 - Add a row to the key list in `panel.html` (`#keys`) for each new key. `shortcutList` builds it, and only when `#keys` exists. "screen" is an `_Avoid_` word in UI strings.
