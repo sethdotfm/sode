@@ -2,7 +2,7 @@
 // the Palette hold the presets a person uses most.
 
 import { el, on, icon } from './core.js';
-import { chord, mac } from './keys.js';
+import { chord, keyLabel } from './keys.js';
 import { modal } from './modal.js';
 import { btn } from './formbits.js';
 import { fire, fillBoxes, openPresets } from './presets.js';
@@ -87,7 +87,7 @@ function draw() {
         statusBadge(presetStatus(s).status) || '',
       );
       main.type = 'button';
-      main.dataset.pbTip = `${mac ? '⇧' : 'Shift'}: fill the patch boxes`;
+      main.dataset.pbTip = `${keyLabel('shift')}: fill the patch boxes`;
       main.tabIndex = -1;
       main.addEventListener('click', (e) => pressPreset(s, e.shiftKey));
       const tools = inboxUser() ? [rowBtn('Send a copy', 'send', '', () => sendCopy({ presets: [s] }, s.name))] : [];

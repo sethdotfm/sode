@@ -80,7 +80,7 @@ test('homeStep: Settings with unsaved changes warns on the first press and close
 });
 
 test('one module binds the Home key, every page loads it, and each key list shows it once', () => {
-  const binds = readdirSync(web).filter((f) => f.endsWith('.js') && !f.endsWith('rules.js') && /alt\+shift\+h'|HOME_CHORD/.test(read(f)));
+  const binds = readdirSync(web).filter((f) => f.endsWith('.js') && !f.endsWith('rules.js') && /alt\+shift\+h'|[!=]== HOME_CHORD/.test(read(f)));
   assert.deepEqual(binds, ['homekey.js']);
   for (const entry of ['main.js', 'log.js', 'panelpage.js']) assert.match(read(entry), /import '\.\/homekey\.js';/, entry);
   assert.match(read('main.js'), /import '\.\/homeview\.js';/);

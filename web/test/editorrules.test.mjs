@@ -247,9 +247,9 @@ test('a disabled Merge ignores its chord, and a read-only editor has no menu to 
   assert.equal(menuChord([], key('m')), null);
 });
 
-test('the chord reads Ctrl+M, or the Control sign on a Mac, never the Cmd sign', () => {
-  assert.equal(chordText('m', false), 'Ctrl+M');
-  assert.equal(chordText('m', true), '\u2303M');
+test('the chord reads Ctrl+m, or the Control sign on a Mac, never the Cmd sign', () => {
+  assert.equal(chordText('m', false), 'Ctrl+m');
+  assert.equal(chordText('m', true), '\u2303m');
 });
 
 test('Ctrl or Cmd+S saves, in a field too; with Shift or Alt it is something else', () => {

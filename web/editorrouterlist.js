@@ -3,6 +3,7 @@
 // keyboard has one highlight, moved by the arrows; hover does not move it. Only the rows in view have nodes, since a
 // router can have thousands. Rules are editorgridrules.js.
 import { el, icon } from './core.js';
+import { keyLabel } from './keys.js';
 import { btn } from './formbits.js';
 import { axisSpan, spanMax, OVER } from './gridpanelwindow.js';
 import { routerRows, findRows, addItems, selectRows } from './editorgridrules.js';
@@ -24,13 +25,13 @@ export function createRouterList(o) {
   find.setAttribute('aria-expanded', 'true');
   find.setAttribute('aria-controls', `ed-${key}-router`);
   find.setAttribute('aria-label', `Find ${what}s on the router`);
-  const FIND_TIP = 'Enter: add the highlighted. Shift+Enter: add all.';
+  const FIND_TIP = `Enter: add the highlighted. ${keyLabel('shift+enter')}: add all.`;
   find.dataset.pbTip = FIND_TIP;
   const count = el('span', 'sode-edge__count');
   count.id = `ed-${key}-shown`;
   const addAll = btn('pb-btn--outline pb-btn--sm', '', () => addMatches());
   addAll.id = `ed-${key}-add`;
-  addAll.dataset.pbTip = 'Shift+Enter';
+  addAll.dataset.pbTip = keyLabel('shift+enter');
   const box = el('div', 'sode-rlist');
   box.id = `ed-${key}-router`;
   box.setAttribute('role', 'listbox');

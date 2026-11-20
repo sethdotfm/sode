@@ -2,7 +2,7 @@
 
 import { byText } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
-import { mac, listStep, addClick, pickOrAdd } from './keys.js';
+import { listStep, addClick, pickOrAdd, keyLabel } from './keys.js';
 import { levelBar, levelText } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
 import { fmtClock } from './device.js';
@@ -79,7 +79,7 @@ export function combobox(
     foot.hidden = !long;
     if (!long) return;
     const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${mac ? '⌘j/k' : 'Ctrl+j/k'}`));
+    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${keyLabel('mod+j')}/k`));
   }
 
   function render() {

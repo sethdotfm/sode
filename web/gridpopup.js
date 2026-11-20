@@ -5,7 +5,7 @@
 // One Take: a confirm of the staged routes also holds the route in the patch boxes, when they hold one. The rules are in
 // gridpoprules.js.
 import { $, el, icon, S, on, emit, off, linked, srcItem, dstItem, labelNode } from './core.js';
-import { pickOrAdd } from './keys.js';
+import { pickOrAdd, keyLabel } from './keys.js';
 import { gridBody } from './gridpanelrun.js';
 import { levelsBox } from './panelmount.js';
 import { boxHost } from './presets.js';
@@ -45,7 +45,7 @@ function build() {
   // The body puts the search boxes in finds and its "N staged" badge before the spacer; gridpopup.css moves the badge
   // next to Close. The take result shows only on the main page, so the popup never changes height when a take runs.
   const finds = el('div', 'sode-gridpanel__finds');
-  const help = el('span', 'sode-panels__spacer sode-gridpop__help sode__hint', 'Esc or Ctrl+e closes the grid. Take sends the staged routes.');
+  const help = el('span', 'sode-panels__spacer sode-gridpop__help sode__hint', `Esc or ${keyLabel('ctrl+e')} closes the grid. Take sends the staged routes.`);
   const head = el('div', 'sode-gridpop__band', finds, help, close);
   const status = el('p', { class: 'sode-panel__status', role: 'status', hidden: true });
   const levels = levelsBox();
@@ -236,7 +236,7 @@ function stagedRow(row) {
     { class: 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__staged-find', type: 'button', 'aria-label': 'Fill the patch boxes' },
     icon('crosshair'),
   );
-  find.dataset.pbTip = 'Fill the patch boxes with this route. Ctrl+e finds it on the grid';
+  find.dataset.pbTip = `Fill the patch boxes with this route. ${keyLabel('ctrl+e')} finds it on the grid`;
   find.addEventListener('mousedown', (e) => e.preventDefault());
   find.addEventListener('click', () => fillRow(row));
   const host = () => boxHost();
@@ -284,6 +284,9 @@ for (const [id, fn] of [
   const b = $(id);
   if (!b) continue;
   // The patch boxes keep focus, as for Take.
-  if (id === 'grid-open') b.addEventListener('mousedown', (e) => e.preventDefault());
+  if (id === 'grid-open') {
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.dataset.pbTip = `Grid popup (${keyLabel('ctrl+e')})`;
+  }
   b.addEventListener('click', fn);
 }

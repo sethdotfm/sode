@@ -108,7 +108,7 @@
       </div>
       <div class="sode__box sode__box--add">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add destination" data-pb-tip="Add destination (+, Ctrl+Enter, ⌘Enter)">+</button>
+        <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add destination">+</button>
       </div>
       <div class="sode__box sode__box--levels">
         <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
@@ -178,7 +178,7 @@
     <footer class="sode__footer">
       <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="settings-open" aria-label="Settings" data-pb-tip="Settings"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-settings"/></svg></button>
       <a class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="panels-open" href="panels" aria-label="Sode Panels" data-pb-tip="Sode Panels"><span class="sode-logo" aria-hidden="true"></span></a>
-      <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="grid-open" aria-label="Grid popup" aria-keyshortcuts="Control+E" data-pb-tip="Grid popup (Ctrl+e)"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-grid-3x3"/></svg></button>
+      <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="grid-open" aria-label="Grid popup" aria-keyshortcuts="Control+E" data-pb-tip="Grid popup"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-grid-3x3"/></svg></button>
     </footer>
   </div>
 
@@ -766,14 +766,14 @@
       <div class="sode__label">Patch boxes</div>
       <dl>
         <dt><kbd>Tab</kbd></dt><dd>Next box</dd>
-        <dt><kbd>+</kbd> <kbd data-mac="⌘Enter">Ctrl+Enter</kbd> <kbd data-mac="⌃Enter" hidden></kbd></dt><dd>Add destination. The box empties. Directly after an add, on the empty box: add the next destination, which the box shows</dd>
-        <dt><kbd>11-13</kbd> <kbd>Rec 1-4</kbd> <kbd>MV 1-4 PIP 1</kbd> <kbd>MV 1-4 PIP 1-2</kbd></dt><dd>In the Destination box: a list. Two ranges give MV 1 PIP 1, MV 1 PIP 2, MV 2 PIP 1 and so on. The match list selects all of them, and Enter or Ctrl+Enter adds them</dd>
-        <dt><kbd data-mac="⌘click">Ctrl+click</kbd> <kbd data-mac="⌃click" hidden></kbd></dt><dd>Add a destination from History or the match list</dd>
-        <dt><kbd data-mac="⌃s">Ctrl+s</kbd> <kbd data-mac="⌃d">Ctrl+d</kbd> <kbd data-mac="⌃f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
-        <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Next source, destination</dd>
+        <dt><kbd>+</kbd> <kbd data-key="mod+enter">Ctrl+Enter</kbd></dt><dd>Add destination. The box empties. Directly after an add, on the empty box: add the next destination, which the box shows</dd>
+        <dt><kbd>11-13</kbd> <kbd>Rec 1-4</kbd> <kbd>MV 1-4 PIP 1</kbd> <kbd>MV 1-4 PIP 1-2</kbd></dt><dd>In the Destination box: a list. Two ranges give MV 1 PIP 1, MV 1 PIP 2, MV 2 PIP 1 and so on. The match list selects all of them, and <kbd>Enter</kbd> or <kbd data-key="mod+enter">Ctrl+Enter</kbd> adds them</dd>
+        <dt><kbd data-key="mod">Ctrl</kbd>+click</dt><dd>Add a destination from History or the match list</dd>
+        <dt><kbd data-key="ctrl+s">Ctrl+s</kbd> <kbd data-key="ctrl+d">Ctrl+d</kbd> <kbd data-key="ctrl+f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
+        <dt><kbd data-key="ctrl+shift+s">Ctrl+Shift+s</kbd> <kbd data-key="ctrl+shift+d">Ctrl+Shift+d</kbd></dt><dd>Next source, destination</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take: the staged routes and the route in the boxes, in one Confirm</dd>
-        <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
-        <dt><kbd data-mac="⌃e">Ctrl+e</kbd></dt><dd>Grid popup, open or close. It finds what the Source box or the Destination box holds</dd>
+        <dt><kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take</dd>
+        <dt><kbd data-key="ctrl+e">Ctrl+e</kbd></dt><dd>Grid popup, open or close. It finds what the Source box or the Destination box holds</dd>
         <dt><kbd>Esc</kbd></dt><dd>Close the match list. Then clear the boxes and the staged routes. Then Keyboard mode</dd>
       </dl>
       <div class="sode__label">Grid popup</div>
@@ -783,39 +783,39 @@
         <dt><kbd>v</kbd></dt><dd>Draw a line from the cursor: move to stretch it, Space stages it</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take: the staged routes and the route in the boxes, in one Confirm</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source search, Destination search, Levels box</dd>
-        <dt><kbd>u</kbd> <kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
+        <dt><kbd>u</kbd> <kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take</dd>
         <dt><kbd>Esc</kbd></dt><dd>Remove the line, then the picks, then close. The staged routes stay</dd>
       </dl>
       <div class="sode__label">Match lists (Source, Destination)</div>
       <dl>
-        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move through the list</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd></dt><dd>Move through the list</dd>
         <dt><kbd>Enter</kbd> <kbd>Tab</kbd></dt><dd>Pick the highlighted match</dd>
         <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>A page at a time</dd>
       </dl>
       <div class="sode__label">Bookmarks and presets</div>
       <dl>
-        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Open bookmark 1 to 9. A preset still asks for a Confirm</dd>
-        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the Patch boxes from a preset bookmark, no take</dd>
-        <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Presets popup</dd>
-        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the Patch boxes from a preset, no take</dd>
+        <dt><kbd data-key="alt+1">Alt+1</kbd> to <kbd data-key="alt+9">Alt+9</kbd></dt><dd>Open bookmark 1 to 9. A preset still asks for a Confirm</dd>
+        <dt><kbd data-key="alt+shift+1">Alt+Shift+1</kbd> to <kbd data-key="alt+shift+9">Alt+Shift+9</kbd></dt><dd>Fill the Patch boxes from a preset bookmark, no take</dd>
+        <dt><kbd data-key="mod+g">Ctrl+g</kbd></dt><dd>Presets popup</dd>
+        <dt><kbd>⇧</kbd>+click</dt><dd>Fill the Patch boxes from a preset, no take</dd>
         <dt><kbd>p</kbd></dt><dd>In Keyboard mode: the bookmarks (← → to move, Enter opens, Esc back)</dd>
       </dl>
       <div class="sode__label">Bookmarks editor</div>
       <dl>
-        <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd></dt><dd>Move the focused bookmark up or down</dd>
+        <dt><kbd data-key="alt+up">Alt+↑</kbd> <kbd data-key="alt+down">Alt+↓</kbd></dt><dd>Move the focused bookmark up or down</dd>
       </dl>
       <div class="sode__label">Presets popup</div>
       <dl>
-        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd></dt><dd>Move</dd>
         <dt><kbd>Enter</kbd></dt><dd>Fire</dd>
-        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the Patch boxes, no take</dd>
+        <dt><kbd>⇧Enter</kbd></dt><dd>Fill the Patch boxes, no take</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>
       </dl>
       <div class="sode__label">Keyboard mode (History)</div>
       <dl>
-        <dt><kbd data-mac="⌥⇧k">Alt+Shift+k</kbd></dt><dd>Start or end. A click ends it too</dd>
+        <dt><kbd data-key="alt+shift+k">Alt+Shift+k</kbd></dt><dd>Start or end. A click ends it too</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source, Destination, Levels</dd>
-        <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous (<kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> work too)</dd>
+        <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous (<kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd> work too)</dd>
         <dt><kbd>⇧j</kbd> <kbd>⇧↓</kbd></dt><dd>Next group</dd>
         <dt><kbd>⇧k</kbd> <kbd>⇧↑</kbd></dt><dd>Latest take</dd>
         <dt><kbd>l</kbd> <kbd>→</kbd> <kbd>Enter</kbd></dt><dd>Open</dd>
@@ -835,23 +835,23 @@
       </dl>
       <div class="sode__label">Settings</div>
       <dl>
-        <dt><kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Next, previous search result or section</dd>
+        <dt><kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd></dt><dd>Next, previous search result or section</dd>
       </dl>
       <div class="sode__label">Anywhere</div>
       <dl>
-        <dt><kbd data-mac="⌥⇧h">Alt+Shift+h</kbd></dt><dd>Home: close what is open and go to the Source box. Works on every page</dd>
-        <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings</dd>
-        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock</dd>
-        <dt><kbd data-mac="⌥⇧c">Alt+Shift+c</kbd></dt><dd>Compact view on or off</dd>
-        <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
-        <dt><kbd data-mac="⌃⇧p">Ctrl+Shift+p</kbd></dt><dd>Palette. Firefox on Windows and Linux keeps this key for a private window, so there type the Palette character (default <kbd>&gt;</kbd>) first in an empty Source or Destination box</dd>
+        <dt><kbd data-key="alt+shift+h">Alt+Shift+h</kbd></dt><dd>Home: close what is open and go to the Source box. Works on every page</dd>
+        <dt><kbd data-key="ctrl+,">Ctrl+,</kbd></dt><dd>Settings</dd>
+        <dt><kbd data-key="ctrl+l">Ctrl+l</kbd></dt><dd>Lock</dd>
+        <dt><kbd data-key="alt+shift+c">Alt+Shift+c</kbd></dt><dd>Compact view on or off</dd>
+        <dt><kbd data-key="ctrl+?">Ctrl+?</kbd></dt><dd>This list</dd>
+        <dt><kbd data-key="ctrl+shift+p">Ctrl+Shift+p</kbd></dt><dd>Palette. Firefox on Windows and Linux keeps this key for a private window, so there type the Palette character (default <kbd>&gt;</kbd>) first in an empty Source or Destination box</dd>
       </dl>
       <div class="sode__label">Palette</div>
       <dl>
         <dt><kbd>&gt;</kbd></dt><dd>First in an empty Source or Destination box: open the Palette. Type it again to search for <kbd>&gt;</kbd>. Settings › This browser sets the character</dd>
         <dt><kbd>Enter</kbd></dt><dd>Open the row. A preset still asks for a Confirm</dd>
-        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the Patch boxes from a preset, no take. Add a filter set to the stack</dd>
-        <dt><kbd data-mac="⌥b">Alt+b</kbd></dt><dd>Bookmark the row: to Me, or to This browser for a Guest</dd>
+        <dt><kbd>⇧Enter</kbd></dt><dd>Fill the Patch boxes from a preset, no take. Add a filter set to the stack</dd>
+        <dt><kbd data-key="alt+b">Alt+b</kbd></dt><dd>Bookmark the row: to Me, or to This browser for a Guest</dd>
         <dt><kbd>Esc</kbd> <kbd>Backspace</kbd></dt><dd>Back one step, then close</dd>
       </dl>
     </div>

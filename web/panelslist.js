@@ -21,7 +21,7 @@ import {
   stepPanel,
   emptyText,
 } from './panelsrules.js';
-import { resultStep, mac } from './keys.js';
+import { resultStep, mac, keyLabel } from './keys.js';
 import { openShare } from './panelshare.js';
 import { openPush } from './panelpush.js';
 import { artLeftOut, SIGN_IN_ENDED } from './panelrules.js';
@@ -139,8 +139,8 @@ function detail(p) {
   const phone = layout() === 'phone';
   const acts = phone ? [] : actionsFor(p);
   const main = el('div', 'sode-ov__acts-main');
-  main.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), mac ? '⌘↵' : 'Ctrl+Enter'));
-  if (acts.includes('edit')) main.append(link('Edit', 'pencil', '', editHref(p.id), mac ? '⌘E' : 'Ctrl+E'));
+  main.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), keyLabel('mod+enter')));
+  if (acts.includes('edit')) main.append(link('Edit', 'pencil', '', editHref(p.id), keyLabel('mod+e')));
   if (acts.includes('copy')) main.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('delete'))
     main.append(button(S.armed === p.id ? 'Delete? Press again' : 'Delete', 'trash-2', 'pb-btn--ghost sode-ov__delete', 'delete', p.id));

@@ -60,12 +60,12 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	typed("dst", "MV 1")
 	listed("dst")
 	ctrlEnter()
-	b.waitFor("the box empties and shows the next add", `document.getElementById('dst').value === '' && `+hint+` === 'Ctrl+Enter adds 15 MV 2'`)
+	b.waitFor("the box empties and shows the next add", `document.getElementById('dst').value === '' && `+hint+`.endsWith('Enter adds 15 MV 2')`)
 	b.shot("armed")
 	ctrlEnter()
 	ctrlEnter()
 	ctrlEnter()
-	b.waitFor("four destinations in number order", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && `+hint+` === 'Ctrl+Enter adds 18 MV 5'`)
+	b.waitFor("four destinations in number order", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && `+hint+`.endsWith('Enter adds 18 MV 5')`)
 	realKey(b, "Enter", "Enter", 13)
 	b.waitFor("Enter opens the confirm", `!document.getElementById('confirm').hidden`)
 	if body := b.eval(confirmBody).(string); !strings.Contains(body, "4 destinations") || !strings.Contains(body, "MV 4") || strings.Contains(body, "MV 5") {
@@ -93,7 +93,7 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	typed("dst", "11")
 	listed("dst")
 	plus()
-	b.waitFor("11 is added", chips+` === '10 TX 1|11 TX 2' && `+hint+` === 'Ctrl+Enter adds 12 Rec A'`)
+	b.waitFor("11 is added", chips+` === '10 TX 1|11 TX 2' && `+hint+`.endsWith('Enter adds 12 Rec A')`)
 	// Typing replaces the hint, and a box emptied by hand does not arm again.
 	typed("dst", "x")
 	b.waitFor("typing ends the next add", hint+` === ' '`)
@@ -143,7 +143,7 @@ func TestChromeMainMultiAdd(t *testing.T) {
 		t.Fatal("an arrow changed the multiselection")
 	}
 	ctrlEnter()
-	b.waitFor("Ctrl+Enter adds the list", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && !document.getElementById('dst').value && `+hint+` === 'Ctrl+Enter adds 18 MV 5'`)
+	b.waitFor("Ctrl+Enter adds the list", chips+` === '14 MV 1|15 MV 2|16 MV 3|17 MV 4' && !document.getElementById('dst').value && `+hint+`.endsWith('Enter adds 18 MV 5')`)
 	clear()
 
 	// A range with a tail: Mon 1-4 PIP 1 finds three destinations. The note names the one that is not there.
@@ -168,9 +168,9 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	typed("dst", "Mon 9")
 	listed("dst")
 	plus()
-	b.waitFor("by number", chips+` === '46 Mon 9' && `+hint+` === 'Ctrl+Enter adds 47 Bars X'`)
+	b.waitFor("by number", chips+` === '46 Mon 9' && `+hint+`.endsWith('Enter adds 47 Bars X')`)
 	b.eval(`import('./device.js').then((m) => { m.setPref('nextMode', 'fuzzy'); return true })`)
-	b.waitFor("by name", hint+` === 'Ctrl+Enter adds 48 Mon 10'`)
+	b.waitFor("by name", hint+`.endsWith('Enter adds 48 Mon 10')`)
 	ctrlEnter()
 	b.waitFor("Ctrl+Enter adds Mon 10", chips+` === '46 Mon 9|48 Mon 10'`)
 	b.eval(`import('./device.js').then((m) => { m.setPref('nextMode', ''); return true })`)
@@ -201,7 +201,7 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	// The Source box takes one source: a list there shows a note that points to the Grid, and no rows.
 	typed("src", "CAM 1-3")
 	listed("src")
-	b.waitFor("the Source note", note("src")+`.includes('Grid (Ctrl+e)') && document.querySelectorAll('#src-menu [role="option"]').length === 0`)
+	b.waitFor("the Source note", `/Grid \((Ctrl\+|⌃)e\)/.test(`+note("src")+`)`+` && document.querySelectorAll('#src-menu [role="option"]').length === 0`)
 	b.shot("source-note")
 	realKey(b, "Enter", "Enter", 13)
 	b.waitFor("Enter takes nothing", `document.getElementById('confirm').hidden && document.getElementById('src').classList.contains('pb-input--invalid')`)

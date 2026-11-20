@@ -2,7 +2,7 @@
 import { KINDS } from './panelrules.js';
 import { saved, createGrid, DEFAULT_ROWS, DEFAULT_COLS } from './gridmodel.js';
 import { pagesOf, pageView, storedPages } from './panelpages.js';
-import { chord } from './keys.js';
+import { chord, keyLabel } from './keys.js';
 import { nameMismatch } from './panellook.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { edgesOut } from './gridedgerefs.js';
@@ -201,7 +201,7 @@ export function flyoutShift(rect, vp, gap) {
 export const menuChord = (items, e) => items.find((it) => it.chord && chord(e) === `ctrl+${it.chord}` && !it.disabled) ?? null;
 
 // U+2303 is the Mac's Control sign.
-export const chordText = (letter, mac) => (mac ? `\u2303${letter.toUpperCase()}` : `Ctrl+${letter.toUpperCase()}`);
+export const chordText = (letter, mac) => keyLabel(`ctrl+${letter}`, mac);
 
 // Ctrl or Cmd+S saves the panel instead of the browser saving the page. By e.code (chord), so any keyboard layout.
 export const saveChord = (e) => ['ctrl+s', 'meta+s'].includes(chord(e));

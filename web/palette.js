@@ -11,7 +11,7 @@
 // bookmark. Alt+B or a row's Bookmark button adds the row to Me, or to This
 // browser for a Guest. openPalette({ pick }) hands the picked row to pick instead (the Bookmarks editor's Add).
 import { $, el, S, on, emit, icon, request, sentence, LINK_DOWN } from './core.js';
-import { chord, listStep } from './keys.js';
+import { chord, listStep, keyLabel } from './keys.js';
 import { modal, fadeOut, stopFade } from './modal.js';
 import { bigScroll } from './bigscroll.js';
 import { closeShown } from './dialogkeys.js';
@@ -147,7 +147,7 @@ const FOOT = [
   ['↑↓', 'move'],
   ['Enter', 'open'],
   ['⇧Enter', 'fill the Patch boxes'],
-  ['Alt+B', 'bookmark'],
+  [keyLabel('alt+b'), 'bookmark'],
   ['Esc', 'back'],
 ];
 const PICK_FOOT = [
@@ -193,7 +193,7 @@ function rowNode(row, i) {
           tabindex: -1,
           class: 'pb-btn pb-btn--ghost pb-btn--sm pb-btn--icon pb-tip--end sode-palette__mark',
           'aria-label': `Bookmark ${row.label}`,
-          'data-pb-tip': 'Bookmark (Alt+B)',
+          'data-pb-tip': `Bookmark (${keyLabel('alt+b')})`,
           'data-mark': '',
         },
         icon('bookmark-plus'),
