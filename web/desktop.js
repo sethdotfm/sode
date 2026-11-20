@@ -599,6 +599,8 @@ presetHost({
   picks: () => ({ src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: clearAll,
   focus: () => boxes.src.input.focus(),
+  // Back from the Grid popup: the first empty box, else Levels, so the next Enter takes (owner's rule).
+  entry: () => (!sel.src ? focusBox(boxes.src.input) : !allDsts().length ? focusBox(boxes.dst.input) : toLevels()),
   route: boxRoute,
   // showGrid picks typed text first, so the popup opens on what the boxes show, not on the last place.
   pickTyped,

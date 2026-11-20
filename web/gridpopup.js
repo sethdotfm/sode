@@ -197,7 +197,10 @@ export function hideGrid(refocus = true) {
   pop.shield.hide();
   shown = false;
   clearInterval(tick);
-  if (refocus && back?.isConnected && !pop.root.contains(back)) back.focus({ preventScroll: true });
+  // The desktop goes back to the patch boxes (host.entry), so the next Enter takes. The phone goes back where it was.
+  const entry = boxHost()?.entry;
+  if (refocus && entry) entry();
+  else if (refocus && back?.isConnected && !pop.root.contains(back)) back.focus({ preventScroll: true });
   back = null;
 }
 

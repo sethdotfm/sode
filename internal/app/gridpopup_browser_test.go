@@ -99,8 +99,9 @@ func TestChromeMainGridPopup(t *testing.T) {
 		t.Fatalf("the list's count says %q", got)
 	}
 
-	// One Take: Enter in the boxes confirms the staged routes and the boxes' route together.
-	b.eval(`document.getElementById('dst').focus(); true`)
+	// Leaving the popup puts focus back in the patch boxes. So the next Enter is the one Take: it confirms the staged routes
+	// and the boxes' route together.
+	b.waitFor("focus is back in a patch box", `['src', 'dst', 'lvl'].includes(document.activeElement.id)`)
 	realKey(b, "Enter", "Enter", 13)
 	b.waitFor("the confirm opens", `!document.getElementById('confirm').hidden`)
 	if body := b.eval(`document.getElementById('confirm-body').textContent`).(string); !strings.Contains(body, "5 destinations") || !strings.Contains(body, "DSM1") {
