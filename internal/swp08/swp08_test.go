@@ -174,3 +174,23 @@ func TestDescribeTx(t *testing.T) {
 		}
 	}
 }
+
+// ProtectWord packs what protectWord unpacks: the simulator's dump and Sode's parse must agree.
+func TestProtectWordRoundTrips(t *testing.T) {
+	for _, c := range []struct{ state, device int }{{0, 0}, {1, 126}, {2, 9}, {3, 0x0FFF}, {1, 0x100}} {
+		hi, lo := ProtectWord(c.state, c.device)
+		kind, dev := protectWord(hi, lo)
+		if kind != c.state || dev != c.device {
+			t.Errorf("state %d device %d: got %d %d", c.state, c.device, kind, dev)
+		}
+	}
+}
+
+func TestExtProtectSendersUseTheConnectLayout(t *testing.T) {
+	if got, want := ExtProtectConnect(0, 16, 0x140, 126), []byte{CmdExtProtectConnect, 0, 16, 0x01, 0x40, 0, 126}; !reflect.DeepEqual(got, want) {
+		t.Errorf("0x8C % X, want % X", got, want)
+	}
+	if got, want := ExtProtectDisconnect(0, 0, 26, 126), []byte{CmdExtProtectDisconnect, 0, 0, 0, 26, 0, 126}; !reflect.DeepEqual(got, want) {
+		t.Errorf("0x8E % X, want % X", got, want)
+	}
+}

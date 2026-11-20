@@ -51,13 +51,13 @@ export function protectSummary(plan) {
 export function protectNodes(dst, confirm = null) {
   const p = protectState(dst.n);
   const rows = p.holds.map((h) => el('div', 'sode__route', levelBar(h.levels), el('span', 'pb-badge pb-badge--warn', holdLabel(h))));
-  const b = confirm && protectButton(dst, p, confirm);
+  const b = confirm && protectButton(dst, confirm);
   if (b) rows.push(el('div', 'sode__route sode__protect', b));
   return rows;
 }
 
-function protectButton(dst, p, confirm) {
-  const offer = protectOffer(p, { right: right(), device: device(), linked: linked() });
+function protectButton(dst, confirm) {
+  const offer = protectOfferOf(dst.n);
   if (!offer) return null;
   const set = offer === 'set';
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon(set ? 'shield' : 'shield-off'));
@@ -78,7 +78,7 @@ export const protectOfferOf = (n) => protectOffer(protectState(n), { right: righ
 export function protectKey(dst, set, confirm) {
   if (!dst) return false;
   const want = set ? 'set' : 'clear';
-  if (protectOffer(protectState(dst.n), { right: right(), device: device(), linked: linked() }) !== want) return false;
+  if (protectOfferOf(dst.n) !== want) return false;
   confirm(protectPlan(dst, set));
   return true;
 }
