@@ -114,7 +114,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   let hidden = false;
   const hide = btn('pb-btn--outline pb-btn--sm', 'Hide text', () => setHideText(!hidden));
   hide.hidden = true;
-  const bar = el('div', 'sode-side__row', up, ...(icons ? [choose] : []), clearImage, clearIcon, ...(setHideText ? [hide] : []));
+  // Two even pairs: the image and its Remove, then the icon and its Remove (panels.css .sode-side__artbtns).
+  const bar = el('div', 'sode-side__artbtns', up, clearImage, ...(icons ? [choose] : []), clearIcon, ...(setHideText ? [hide] : []));
   // The cell's own file input comes before the Uploaded section's, so it is the Cell tab's first.
   const node = el('div', 'sode__field', el('span', 'sode__field-label', 'Artwork'), preview, bar, file, ...(icons ? [picker] : []), note);
 

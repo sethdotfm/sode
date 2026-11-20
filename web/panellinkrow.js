@@ -1,5 +1,5 @@
 import { el, icon, once, S } from './core.js';
-import { linkFor } from './panellink.js';
+import { linkFor, pathFor } from './panellink.js';
 import { panelLink } from './itemlink.js';
 import { qrNode } from './keyview.js';
 import { isPublic } from './panelsrules.js';
@@ -22,7 +22,8 @@ export const itemLink = (panel) => {
   return S.installUid ? panelLink(link, S.installUid) : link;
 };
 
-// withHost false leaves out the address field and the QR code; the Share modal still offers them.
+// withHost false leaves out the address field and the QR code; the Share modal still offers them. It also shows only
+// the link's path (panels/<slug or id>), which fits a narrow sidebar, and Copy link copies the full link.
 export function linkRow(panel, { withHost = true } = {}) {
   const box = el('div', 'sode__field sode-linkrow');
   if (panel.acts === 'api') {
@@ -30,10 +31,9 @@ export function linkRow(panel, { withHost = true } = {}) {
     return box;
   }
   let link = itemLink(panel);
-  const input = el('input', 'pb-input sode-linkrow__text');
+  const input = el('input', `pb-input sode-linkrow__text${withHost ? '' : ' sode-linkrow__text--path'}`);
   input.readOnly = true;
   input.spellcheck = false;
-  input.value = link;
   input.setAttribute('aria-label', 'Item link');
   input.addEventListener('focus', () => input.select());
   const note = el('span', 'sode__hint');
@@ -48,6 +48,7 @@ export function linkRow(panel, { withHost = true } = {}) {
       note.textContent = 'Copied.';
       setTimeout(() => (note.textContent = rest), COPIED_MS);
     } else {
+      input.value = link;
       input.select();
       note.textContent = 'Copy failed. The link is selected: copy it by hand.';
     }
@@ -55,7 +56,7 @@ export function linkRow(panel, { withHost = true } = {}) {
   const qrBox = el('div', 'sode-linkrow__qr');
   const redraw = () => {
     link = itemLink(panel);
-    input.value = link;
+    input.value = withHost ? link : pathFor(panel);
     if (withHost) qrBox.replaceChildren(qrNode(link, 'QR code of the Item link') || el('p', 'sode__hint', 'Too long for a QR code.'));
   };
   redraw();

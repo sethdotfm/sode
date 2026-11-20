@@ -1,6 +1,8 @@
 // The Live Editor: the saved panel runs in place of the grid and sidebar (panelrun.js, embedded), over the editor's own
-// session. It is not an instance of the panel, so it sends no keepalive. A Grid panel gets a bar that marks it as a
-// preview. It also gets a drawer for the editor's own lists (editorgridlist.js), moved in for the run.
+// session. It is not an instance of the panel, so it sends no keepalive. Both panel types get one bar that marks the
+// run as a preview and holds Back to editing. The editor's toolbar hides while it runs (panels.css). A Grid panel's bar
+// also holds Save and Edit lists. A Grid panel also gets a drawer for the editor's own lists (editorgridlist.js), moved
+// in for the run.
 import { el, icon } from './core.js';
 import { sessionFetch } from './sessionkey.js';
 import { runPanel } from './panelrun.js';
@@ -16,7 +18,7 @@ import { createLiveMenu } from './editorlivemenu.js';
 // Grid head row's links. edges() is { sources, destinations, rev } as the editor
 // has them. lists() gives the two list columns, cellTab() the sidebar's Cell tab and edgeLists() the lists' own apis.
 export function createLive(host, body, button, ed) {
-  const label = button.textContent;
+  const editor = body.parentElement;
   let run = null;
   let grid = null; // the bar and drawer of a Grid panel's run
   let ui = null;
@@ -26,10 +28,10 @@ export function createLive(host, body, button, ed) {
     start(id, page = '', isGrid = false) {
       api.stop();
       grid = isGrid ? gridParts(ed) : null;
-      ui = liveUi(host, () => api.stop(), grid);
+      ui = liveUi(host, () => api.stop(), grid, grid?.bar || liveBar());
       host.hidden = false;
       body.hidden = true;
-      button.textContent = 'Back to editing';
+      editor.dataset.live = '';
       run = runPanel(id, { ui, call: sessionFetch, page });
       grid?.started(run);
       ui.back.focus();
@@ -45,7 +47,8 @@ export function createLive(host, body, button, ed) {
       host.replaceChildren();
       host.hidden = true;
       body.hidden = false;
-      button.textContent = label;
+      delete editor.dataset.live;
+      button.focus({ preventScroll: true });
     },
     // A note in the Grid bar's state, in place of "Unsaved changes" until the next change.
     note: (text) => grid?.note(text),
@@ -55,6 +58,18 @@ export function createLive(host, body, button, ed) {
     openArt: () => !!grid?.openArt(),
   };
   return api;
+}
+
+// The bar over a run: "Panel Live Editor", Preview, then end, all from the left. liveUi (panelmount.js) adds
+// Back to editing.
+function liveBar(...end) {
+  const title = el('h2', 'sode-live__title', 'Panel Live Editor');
+  title.id = 'ed-live-title';
+  const bar = el('div', 'pb-banner pb-banner--info sode-live__bar', title, el('span', 'pb-badge pb-badge--info', 'Preview'), ...end);
+  bar.id = 'ed-live-bar';
+  bar.setAttribute('role', 'toolbar');
+  bar.setAttribute('aria-labelledby', title.id);
+  return bar;
 }
 
 function gridParts(ed) {
@@ -73,27 +88,13 @@ function gridParts(ed) {
   });
   save.id = 'ed-live-save';
   // Back to editing goes to its left (panelmount.js).
-  const open = btn('pb-btn--lg', '', () => setOpen(!opened));
+  const open = btn('pb-btn--outline pb-btn--lg', '', () => setOpen(!opened));
   open.id = 'ed-live-lists';
   let openIcon = icon('panel-right-open');
   open.append(openIcon, el('span', null, 'Edit lists'));
   open.setAttribute('aria-controls', 'ed-live-drawer');
   open.hidden = ro;
-  const title = el('h2', 'sode-live__title', 'Panel Live Editor');
-  title.id = 'ed-live-title';
-  const bar = el(
-    'div',
-    'pb-banner pb-banner--info sode-live__bar',
-    title,
-    el('span', 'pb-badge pb-badge--info', 'Preview'),
-    el('span', 'sode-panels__spacer'),
-    state,
-    save,
-    open,
-  );
-  bar.id = 'ed-live-bar';
-  bar.setAttribute('role', 'toolbar');
-  bar.setAttribute('aria-labelledby', title.id);
+  const bar = liveBar(state, save, open);
 
   const close = btn('pb-btn--ghost pb-btn--icon pb-btn--sm', '', () => {
     setOpen(false);

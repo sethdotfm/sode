@@ -12,8 +12,9 @@ const hideCutTip = () => {
   cutFor = null;
 };
 
-// Tips in a scrolling row (.sode__sets) would be clipped, so the floating tip shows them (the CSS one is hidden there).
-const rowTip = (n) => n instanceof Element && n.closest('.sode__sets [data-pb-tip]');
+// A CSS tip in a scrolling row (.sode__sets) is clipped, and one in the editor's Pages list makes the list scroll. So the
+// floating tip shows them, and the CSS one is hidden there.
+const rowTip = (n) => n instanceof Element && n.closest('.sode__sets [data-pb-tip], .sode-pages__list [data-pb-tip]');
 
 function cutOff(n) {
   const t = rowTip(n);

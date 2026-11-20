@@ -33,10 +33,11 @@ export function pageUi() {
 
 // Fills host with a live panel; onBack goes back to editing. A Grid panel also gets panel.html's instance name, Levels box
 // and take confirm, made again for each run because keyconfirm.js never removes its listeners.
-// edit: a Grid panel's { bar, open, aside, onPicks, leave, topBar } (editorlive.js). Its bar goes over the band, and
-// Full screen goes in the editor's page header (topBar); stopScreen ends that button.
-export function liveUi(host, onBack, edit = null) {
-  const back = el('button', `pb-btn pb-btn--outline ${edit ? 'pb-btn--lg' : 'pb-btn--sm'}`, 'Back to editing');
+// top is the Live Editor's bar (editorlive.js), which gets Back to editing. edit: a Grid panel's { bar, open, aside,
+// onPicks, leave, topBar } (editorlive.js). Its bar goes over the band, and Full screen goes in the editor's page header
+// (topBar); stopScreen ends that button.
+export function liveUi(host, onBack, edit, top) {
+  const back = el('button', 'pb-btn pb-btn--outline pb-btn--lg', 'Back to editing');
   back.id = 'ed-live-back';
   back.type = 'button';
   back.addEventListener('click', onBack);
@@ -45,7 +46,9 @@ export function liveUi(host, onBack, edit = null) {
   name.hidden = true;
   const head = el('div', 'sode-panels__head', title, name, el('span', 'sode-panels__spacer'));
   if (edit) edit.open.before(back);
-  else head.append(back);
+  else top.append(back);
+  // A Buttons panel's title would repeat the panel picker over it, and the bar says what runs.
+  head.hidden = !edit;
   const note = el('p', 'sode__hint');
   const status = el('p', 'sode-panel__status');
   status.setAttribute('role', 'status');
@@ -75,17 +78,17 @@ export function liveUi(host, onBack, edit = null) {
   const stopScreen = screen ? initScreen(screen) : () => {};
   note.hidden = true;
   const levels = levelsBox();
-  // A Grid panel's list drawer sits beside the grid, under the band, so the grid narrows and Take stays in reach.
-  const field = edit ? el('div', 'sode-live__row', grid, edit.aside) : grid;
+  // A Grid panel's list drawer sits beside the grid, under the band, so the grid narrows and Take stays in reach. A
+  // Buttons panel's grid fits the room left under the bar (panels.css .sode-live__fit).
+  const field = edit ? el('div', 'sode-live__row', grid, edit.aside) : el('div', 'sode-live__fit', grid);
   const main = el('div', 'sode-live', head, note, el('div', 'sode-panel__foot', status, update), levels, field, offline, takeConfirm());
-  host.replaceChildren(...(edit ? [edit.bar] : []), main);
-  // home: the run puts it with the header buttons, where the panel page has its Panels link.
+  host.replaceChildren(top, main);
   return {
     main,
     head,
     title,
     name,
-    home: edit ? null : back,
+    home: null,
     note,
     status,
     update,

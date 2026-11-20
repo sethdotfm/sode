@@ -650,7 +650,7 @@ body {
 }
 
 /* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never color alone. */
-/* Groups keep related controls together and a rule between them; a wrapped bar breaks between groups first. */
+/* Groups keep related controls together; a wrapped bar breaks between groups first. */
 .sode-ed__bar {
   align-items: center;
   flex-wrap: wrap;
@@ -662,10 +662,6 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
-}
-.sode-ed__grp + .sode-ed__grp {
-  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
-  padding-inline-start: var(--pb-space-5);
 }
 .sode-ed__pick {
   font-size: var(--pb-text-md);
@@ -685,6 +681,10 @@ body {
   flex: 1 1 14rem;
   font-family: var(--pb-font-mono);
   min-width: 0;
+}
+.sode-linkrow__text--path {
+  flex-basis: 8rem;
+  font-family: var(--pb-font);
 }
 .sode-linkrow__qr .sode__qr {
   display: block;
@@ -1006,14 +1006,43 @@ body {
 .sode-live .sode-panel__offline-title {
   font-size: 3rem;
 }
-/* A Grid panel runs as on /panels/<id>: the editor's own bars hide, except the page header, and the run fills the
-   window. gridpanel.css lays out .sode-panels:has(.sode-gridpanel), which is the editor's main here. It has no padding,
-   so the header gets the deck's edges (base.css --sode-head-x) and the Lock bar's top. */
+/* While a panel runs, the editor's own bars hide, except the page header: the Live Editor's bar holds the way back
+   (editorlive.js sets data-live). */
+.sode-ed[data-live] > :not(#ed-live-view, .sode-bar) {
+  display: none;
+}
+#ed-live-view .sode-panels__head[hidden] {
+  display: none;
+}
+/* A Buttons panel fits the room under the bar, as wide as that lets it be, so the page does not scroll. --sode-cols and
+   --sode-rows are the grid's size (panelview.js). */
+@media (min-width: 64.0625rem) {
+  :root:not([data-layout="phone"]) #ed-live-view {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--pb-space-5);
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) #ed-live-view > .sode-live {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-live__fit {
+    container-type: size;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-live__fit > .sode-panel__grid {
+    margin-inline: auto;
+    width: min(100%, 100cqh * var(--sode-cols) / var(--sode-rows));
+  }
+}
+/* A Grid panel runs as on /panels/<id> and fills the window. gridpanel.css lays out .sode-panels:has(.sode-gridpanel),
+   which is the editor's main here. It has no padding, so the header gets the deck's edges (base.css --sode-head-x) and
+   the Lock bar's top. */
 .sode-ed:has(> #ed-live-view .sode-gridpanel) {
   padding-bottom: 0;
-}
-.sode-ed:has(> #ed-live-view .sode-gridpanel) > :not(#ed-live-view, .sode-bar) {
-  display: none;
 }
 .sode-ed:has(> #ed-live-view .sode-gridpanel) > .sode-bar {
   flex: none;
@@ -1046,6 +1075,7 @@ body {
   transition: none;
 }
 .sode-live__bar {
+  align-items: center;
   flex-wrap: wrap;
   position: static;
 }
@@ -1115,7 +1145,7 @@ body {
 .sode-live__tab .sode-edge__on {
   flex: 3 1 0;
 }
-.sode-live__tab .sode-edge__add {
+.sode-live__tab .sode-edge__add:has(> .sode-rlist:not([hidden])) {
   flex: 2 1 0;
 }
 .sode-live__tab :is(.sode-edge__list, .sode-rlist) {
@@ -1129,7 +1159,7 @@ body {
   align-items: start;
   display: grid;
   gap: var(--pb-space-5);
-  grid-template-columns: minmax(0, 1fr) 22rem;
+  grid-template-columns: minmax(0, 1fr) 26rem;
 }
 @media (max-width: 64rem) {
   .sode-ed__body {
@@ -1142,55 +1172,102 @@ body {
   display: none;
 }
 .sode-ed[data-type="grid"] .sode-ed__body {
-  grid-template-columns: minmax(0, 2fr) minmax(22rem, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(26rem, 1fr);
 }
 .sode-ed[data-type="grid"] .sode-ed__lists {
   align-items: start;
   display: grid;
-  gap: var(--pb-space-7);
+  gap: var(--pb-space-4) var(--pb-space-7);
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto;
   min-width: 0;
+}
+/* The one Follow the router note (editorside.js) sits over both lists, which keep the row under it when it hides. */
+.sode-ed__follow {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.sode-ed[data-type="grid"] .sode-ed__lists > .sode-edge {
+  grid-row: 2;
 }
 @media (max-width: 64rem) {
   .sode-ed[data-type="grid"] .sode-ed__body,
   .sode-ed[data-type="grid"] .sode-ed__lists {
     grid-template-columns: minmax(0, 1fr);
   }
+  .sode-ed[data-type="grid"] .sode-ed__lists > .sode-edge {
+    grid-row: auto;
+  }
 }
-/* On a desktop the Grid editor is one window high and the page does not scroll. Each list column has fixed shares
-   for the panel's list and Add from the router, each scrolling inside, so an add never moves the rows under the
-   pointer. The status line keeps its height for the same reason. */
+/* On a desktop the editor is one window high and the page does not scroll: only the sidebar, the Pages list and a
+   Grid panel's lists scroll, each inside itself. The status line keeps its height, so a message never moves the grid.
+   The grid fits its room by width and by height (.sode-ed__fit). In a Grid panel's lists the panel's list takes the
+   free height and Add from the router opens only for search results (editorgridlist.js), so an add never moves the
+   rows under the pointer. */
 @media (min-width: 64.0625rem) {
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] {
+  :root:not([data-layout="phone"]) .sode-ed {
     box-sizing: border-box;
     height: 100dvh;
     padding-bottom: var(--pb-space-5);
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] > #ed-status {
+  :root:not([data-layout="phone"]) .sode-ed > #ed-status {
     min-height: 1lh;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] > #ed-status[hidden] {
+  :root:not([data-layout="phone"]) .sode-ed > #ed-status[hidden] {
     display: block;
     visibility: hidden;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__body {
+  :root:not([data-layout="phone"]) .sode-ed__body {
     align-items: stretch;
     flex: 1 1 0;
     grid-template-rows: minmax(0, 1fr);
     min-height: 0;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__lists {
+  /* Relative, so what is absolute in it (patchbay's hidden radio inputs) scrolls with it and never makes the page scroll. */
+  :root:not([data-layout="phone"]) .sode-ed__side {
+    max-height: none;
+    position: relative;
+    top: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed__main {
     align-items: stretch;
     grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__side {
-    align-self: start;
-    max-height: min(85dvh, 100%);
+  :root:not([data-layout="phone"]) .sode-pages {
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-pages__list {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  :root:not([data-layout="phone"]) .sode-ed__open {
+    grid-auto-rows: minmax(0, 1fr);
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed__frame {
+    min-height: 0;
+  }
+  /* A square grows to 10rem at most, so a small panel does not turn into a wall of huge squares. --sode-cols and
+     --sode-rows are the grid's size (editorview.js). */
+  :root:not([data-layout="phone"]) .sode-ed__fit {
+    container-type: size;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed__fit > .sode-ed__grid {
+    width: min(100%, 100cqh * var(--sode-cols) / var(--sode-rows), var(--sode-cols) * 10rem);
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__lists {
+    align-items: stretch;
+    grid-template-rows: auto minmax(0, 1fr);
   }
   :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__on {
     flex: 3 1 0;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__add {
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__add:has(> .sode-rlist:not([hidden])) {
     flex: 2 1 0;
   }
   :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] :is(.sode-edge__list, .sode-rlist) {
@@ -1270,7 +1347,7 @@ body {
 .sode-edge__empty > p {
   margin: 0;
 }
-:is(.sode-edge__acts, .sode-edge__list, .sode-edge__empty)[hidden] {
+:is(.sode-edge__part, .sode-edge__acts, .sode-edge__list, .sode-edge__empty, .sode-rlist)[hidden] {
   display: none;
 }
 .sode-rlist__bar {
@@ -1408,7 +1485,7 @@ body {
   align-items: start;
   display: grid;
   gap: var(--pb-space-5);
-  grid-template-columns: 12rem minmax(0, 1fr);
+  grid-template-columns: 14rem minmax(0, 1fr);
   min-width: 0;
 }
 @media (max-width: 48rem) {
@@ -1438,6 +1515,10 @@ body {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+/* Tips here are placed by tooltip.js: the list scrolls, and a CSS tip would make it overflow. */
+.sode-pages__list [data-pb-tip]::after {
+  display: none;
 }
 .sode-pages__row {
   background: var(--pb-surface-raised);
@@ -1495,6 +1576,14 @@ body {
 }
 .sode-pages__on {
   flex: 0 0 auto;
+  margin-inline-start: var(--pb-space-4);
+}
+/* A disabled row icon keeps a clear background, so the row reads as one line of icons and not as grey boxes. */
+.sode-pages__tools .pb-btn--ghost:disabled {
+  background-color: transparent;
+}
+.sode-pages__tools .pb-btn--ghost:not(:disabled) {
+  color: var(--pb-text-strong);
 }
 .sode-pages__add {
   align-self: flex-start;
@@ -1566,7 +1655,15 @@ body {
   gap: var(--pb-space-4);
 }
 .sode-side__sec[hidden],
-.sode-side__sec .sode__hint:empty {
+.sode-ed__side .sode__hint:empty {
+  display: none;
+}
+.sode-side__artbtns {
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.sode-side__artbtns > [hidden] {
   display: none;
 }
 .sode-side__sec + .sode-side__sec {
@@ -1620,7 +1717,7 @@ body {
 .sode-side__sizerow {
   flex-wrap: wrap;
 }
-.sode-side__sizerow > .sode-side__inline {
+.sode-side__sizerow > .sode-side__inline:not(:first-child) {
   border-inline-start: var(--pb-border-w) solid var(--pb-edge);
   padding-inline-start: var(--pb-space-4);
 }
@@ -1802,8 +1899,15 @@ body {
   overscroll-behavior-x: contain;
   padding-bottom: var(--pb-space-1);
 }
+/* Select All is as high as the two rows of picks, without the room their little scroll bar keeps under them. */
+.sode-ed__side .sode__picker {
+  align-items: stretch;
+}
 .sode-ed__side .sode__picker > .sode__all {
+  align-self: stretch;
   flex: none;
+  height: auto;
+  margin-bottom: var(--pb-space-1);
 }
 .sode-side__col-top {
   align-items: center;

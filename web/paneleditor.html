@@ -48,10 +48,11 @@
       </label>
     </div>
     <span class="sode-panels__spacer"></span>
+    <!-- Copy link and Open panel keep their place before the first save, disabled, so nothing moves (editortoolbar.js). -->
     <div class="sode-ed__grp">
       <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-share" type="button" disabled>Share</button>
-      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-copylink" type="button" hidden>Copy link</button>
-      <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" hidden>Open panel</a>
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-copylink" type="button" disabled>Copy link</button>
+      <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" aria-disabled="true">Open panel</a>
       <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Runs the saved panel here, without unassigned squares. Saves first.">Live Editor</button>
     </div>
     <div class="sode-ed__grp">
@@ -69,7 +70,8 @@
       <div class="sode-ed__open" id="ed-open-pages">
         <section class="sode-ed__frame" id="ed-frame">
           <h2 class="sode-ed__frame-title" id="ed-frame-title"></h2>
-          <div class="sode-ed__grid" id="ed-grid" aria-label="Panel grid"></div>
+          <!-- The grid's room: the grid fits it by width and height (panels.css .sode-ed__fit). -->
+          <div class="sode-ed__fit"><div class="sode-ed__grid" id="ed-grid" aria-label="Panel grid"></div></div>
         </section>
       </div>
     </div>

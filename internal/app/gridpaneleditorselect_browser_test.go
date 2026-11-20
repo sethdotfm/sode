@@ -15,7 +15,7 @@ func asGrid(b *tab, all bool) {
 	b.waitFor("the lists show", `!!document.getElementById('ed-sources-col')?.offsetParent`)
 	if all {
 		b.eval(`for (const k of ['sources', 'destinations']) { const s = document.getElementById('ed-' + k + '-all'); s.click(); s.click(); } true`)
-		b.waitFor("both lists hold every router item, not following", `!document.getElementById('ed-sources-all').checked && !document.getElementById('ed-destinations-all').checked && document.getElementById('ed-sources-following').hidden`)
+		b.waitFor("both lists hold every router item, not following", `!document.getElementById('ed-sources-all').checked && !document.getElementById('ed-destinations-all').checked && document.getElementById('ed-lists-following').hidden`)
 	}
 }
 
@@ -39,9 +39,10 @@ func TestChromeGridPanelEditorSelect(t *testing.T) {
 		return s.width > 0 && s.right <= d.left && d.right <= side.left && Math.abs(s.top - d.top) < 4 && side.width <= innerWidth / 3 + 1;
 	})()`)
 	b.waitFor("the sidebar keeps Cell, Panel and Access", `[...document.querySelectorAll('#ed-side .pb-tab')].map((x) => x.textContent).join() === 'Cell,Panel,Access'`)
-	b.waitFor("the sidebar is at most 85% of the window and scrolls inside itself", `(() => {
+	b.waitFor("the sidebar ends inside the window and scrolls inside itself, and the page does not scroll", `(() => {
 		const s = document.getElementById('ed-side');
-		return s.getBoundingClientRect().height <= innerHeight * 0.85 + 1 && s.scrollHeight > s.clientHeight && getComputedStyle(s).overflowY === 'auto';
+		return s.getBoundingClientRect().bottom <= innerHeight + 1 && s.scrollHeight > s.clientHeight && getComputedStyle(s).overflowY === 'auto'
+			&& document.scrollingElement.scrollHeight <= innerHeight + 1;
 	})()`)
 	b.shot("lists-wide")
 	if n := int(b.eval(`document.getElementsByTagName('*').length`).(float64)); n > 8000 {

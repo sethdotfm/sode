@@ -93,6 +93,8 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
   host.replaceChildren();
   host.style.gridTemplate = `repeat(${panel.rows}, 1fr) / repeat(${panel.cols}, 1fr)`;
   host.style.aspectRatio = `${panel.cols} / ${panel.rows}`;
+  host.style.setProperty('--sode-cols', panel.cols);
+  host.style.setProperty('--sode-rows', panel.rows);
   const nodes = cells.map((cell) => {
     const cls = cell.kind === 'take' ? 'pb-btn pb-btn--commit sode-panel__take' : 'pb-btn pb-xpt';
     const b = el('button', `sode-panel__cell sode-panel__cell--${cell.kind} ${cls}`);

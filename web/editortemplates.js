@@ -14,9 +14,7 @@ const call = jsonCall(sessionFetch, { down: 'Sode did not answer.', failed: (s) 
 
 export function initTemplates(editor) {
   const open = el('button', { class: 'pb-btn pb-btn--outline pb-btn--sm', type: 'button', id: 'ed-templates', 'aria-haspopup': 'dialog' }, 'Templates');
-  $('ed-name')
-    .closest('.sode-ed__grp')
-    .after(el('div', 'sode-ed__grp', open));
+  $('ed-name').closest('.sode-ed__grp').append(open);
   open.addEventListener('click', openDialog);
 
   function openDialog() {

@@ -110,20 +110,26 @@ export function createSmartMenu(host, { onEscape, area = viewport, place = place
     return li;
   }
 
-  // A flyout opens away from the selection, or the other way when there is no room there. Its width is read with it
-  // shown but invisible for a moment, since a closed one has none.
+  // Every flyout opens away from the selection, or the other way when the widest has no room there. One side for all
+  // of them, so the chevrons all point the same way. Widths are read with each shown but invisible for a moment, since
+  // a closed one has none.
   function placeSubs(at) {
-    for (const li of root.children) {
-      const sub = li._sub;
-      if (!sub) continue;
-      sub.style.display = 'block';
-      sub.style.visibility = 'hidden';
-      const w = sub.offsetWidth;
-      sub.style.display = '';
-      sub.style.visibility = '';
-      const side = subSide(at, root.offsetWidth, w, bounds, GAP);
+    const lis = [...root.children].filter((li) => li._sub);
+    if (!lis.length) return;
+    const w = Math.max(
+      ...lis.map(({ _sub: sub }) => {
+        sub.style.display = 'block';
+        sub.style.visibility = 'hidden';
+        const width = sub.offsetWidth;
+        sub.style.display = '';
+        sub.style.visibility = '';
+        return width;
+      }),
+    );
+    const side = subSide(at, root.offsetWidth, w, bounds, GAP);
+    for (const li of lis) {
       li.dataset.subSide = side;
-      sub.classList.toggle('pb-menu__sub--left', side === 'left');
+      li._sub.classList.toggle('pb-menu__sub--left', side === 'left');
       li._chevron.replaceChildren(icon(side === 'left' ? 'chevron-left' : 'chevron-right'));
     }
   }

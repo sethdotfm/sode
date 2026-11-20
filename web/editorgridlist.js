@@ -54,9 +54,8 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     paint(true);
   });
   pinsBtn.id = `ed-${key}-pins`;
+  // The tip of what Follow the router turns off. The lists' one note (editorside.js) says the same over both lists.
   const FOLLOWING = `Follow the router is on for ${what}s, so the router sets the order. Pin and artwork still apply. Switch it off in the Panel tab.`;
-  const following = el('p', 'sode__hint');
-  following.id = `ed-${key}-following`;
   const clear = btn('pb-btn--outline pb-btn--sm', 'Clear', () => set(clearEdge(edge(), myRights(), rights), 'clear'));
   clear.id = `ed-${key}-clear`;
   clear.dataset.pbTip = `Removes every ${what} from the panel`;
@@ -141,7 +140,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
   acts.setAttribute('role', 'toolbar');
   acts.setAttribute('aria-label', `Selected ${what}s`);
   const head = el('div', 'sode-edge__head', el('h2', 'sode-edge__h', Whats, count), pinsBtn, el('span', 'sode-panels__spacer'), clear);
-  const on = el('section', 'sode-edge__part sode-edge__on', acts, following, outside, list, empty);
+  const on = el('section', 'sode-edge__part sode-edge__on', acts, outside, list, empty);
   on.setAttribute('aria-label', `${Whats} on the panel`);
   const node = el('section', 'sode-edge', head, on, routerList.node);
   node.id = `ed-${key}-col`;
@@ -261,8 +260,6 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     pinsBtn.dataset.pbTip = pinOnly ? 'Show all' : 'Show pinned only';
     outside.textContent = v.outside ? `${plural(v.outside, what)} outside your Rights, kept.` : '';
     outside.hidden = !v.outside;
-    following.textContent = FOLLOWING;
-    following.hidden = !fixed || !n;
     acts.hidden = list.hidden = !n;
     empty.hidden = !!n;
     clear.disabled = ro || fixed || !n;

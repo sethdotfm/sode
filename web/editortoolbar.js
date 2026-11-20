@@ -34,10 +34,20 @@ export function paintToolbar(ro, saveState, dirty, loaded) {
   $('ed-banner').hidden = !ro;
   // Not say(): the slot keeps its size whatever it holds, so the toolbar never re-wraps (panels.css).
   $('ed-state').textContent = ro ? '' : saveState.busy ? 'Saving' : failed ? 'Not saved' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '';
+  // Before the first save Open panel and Copy link stay in place, disabled, so the toolbar never moves.
   const link = $('ed-open');
-  link.hidden = !loaded;
-  if (loaded) link.href = `panels/${loaded.id}`;
+  link.classList.toggle('disabled', !loaded);
+  if (loaded) {
+    link.href = `panels/${loaded.id}`;
+    link.removeAttribute('aria-disabled');
+  } else {
+    link.removeAttribute('href');
+    link.setAttribute('aria-disabled', 'true');
+  }
   // A panel that only acts as its API client has no link without its key (Share, Link with key). A Both panel's
   // plain link opens in Session mode, and a Public panel's opens for anyone.
-  $('ed-copylink').hidden = !loaded || loaded.acts === 'api';
+  const copy = $('ed-copylink');
+  copy.disabled = !loaded || loaded.acts === 'api';
+  if (loaded?.acts === 'api') copy.dataset.pbTip = 'Share, Link with key gives the link of this panel.';
+  else delete copy.dataset.pbTip;
 }

@@ -146,6 +146,10 @@ export function createRouterList(o) {
     find.disabled = !!why;
     find.dataset.pbTip = why || FIND_TIP;
     node.toggleAttribute('data-off', !!why);
+    // While Follow the router is on nothing can be added, so the part hides. An empty list folds away and leaves its
+    // room to the panel's list; Find stays, and the list opens again for what it finds.
+    node.hidden = !!why;
+    box.hidden = acts.hidden = !shown.length;
   }
 
   function paint() {
