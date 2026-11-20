@@ -18,6 +18,8 @@ import {
   stepIndex,
   firstIndex,
   pathText,
+  guessCategories,
+  paletteScope,
 } from '../paletterules.js';
 import { catalogue, pageOf, rowByKey, ACTIONS } from '../palettecatalogue.js';
 import { PREFS } from '../prefs.js';
@@ -215,13 +217,13 @@ test('paletteView: ticked bookmarks come first, then the last picks without them
   );
   // A query searches every row; the bookmarks have no heading of their own there.
   assert.equal(
-    paletteView(rows, { query: 'panels', marks }).some((x) => x.type === 'head'),
+    paletteView(rows, { query: 'log', marks }).some((x) => x.type === 'head'),
     false,
   );
 });
 
 test('paletteView: a category, Settings sections, and a search inside a level', () => {
-  const rows = catalogue(src());
+  const rows = catalogue(src({ who: who({ role: 'administrator' }) }));
   assert.deepEqual(
     paletteView(rows, { path: ['presets'] }).map((x) => x.row.key),
     ['preset:global:p1', 'preset:local:p2'],
@@ -271,7 +273,8 @@ test('rankRows: grey rows come after every usable row, and the cursor starts on 
   const rows = [off('a', 'Record'), on('b', 'Page border color'), on('c', 'Recall preset')];
   assert.deepEqual(
     rankRows(rows, 'rec').map((r) => r.key),
-    ['c', 'b', 'a'],
+    ['c', 'a'],
+    'the letters in order must start a word: "rec" does not find "Page border color"',
   );
   assert.deepEqual(
     rankRows(rows, '').map((r) => r.key),
@@ -280,4 +283,110 @@ test('rankRows: grey rows come after every usable row, and the cursor starts on 
   const items = [{ type: 'head' }, { type: 'row', row: rows[0] }, { type: 'row', row: rows[1] }];
   assert.equal(firstIndex(items), 2);
   assert.equal(firstIndex([{ type: 'row', row: rows[0] }]), 0);
+});
+
+test('guessCategories: the first word names a category by prefix, letters in order or one typo', () => {
+  const table = {
+    p: ['panels'],
+    pan: ['panels'],
+    panel: ['panels'],
+    panels: ['panels'],
+    pnl: ['panels'],
+    pnls: ['panels'],
+    panle: ['panels'],
+    pannel: ['panels'],
+    pre: ['presets'],
+    ps: ['presets'],
+    presset: ['presets'],
+    pg: ['pages'],
+    pgs: ['pages'],
+    page: ['pages'],
+    a: ['actions'],
+    act: ['actions'],
+    acton: ['actions'],
+    f: ['filterSets'],
+    fs: ['filterSets'],
+    fltr: ['filterSets'],
+    filter: ['filterSets'],
+    s: ['settings'],
+    set: ['settings'],
+    sett: ['settings'],
+    stg: ['settings'],
+    setings: ['settings'],
+    cfg: ['settings'],
+    pa: ['pages', 'panels'],
+    x: [],
+    c: [],
+    studio: [],
+    wall: [],
+  };
+  for (const [w, want] of Object.entries(table)) assert.deepEqual(guessCategories(w), want, w);
+});
+
+const searchSrc = (more = {}) =>
+  src({
+    presets: [{ scope: 'global', id: 'p1', name: 'P 1' }],
+    panels: [
+      { id: 'x1', name: 'New Panel', type: 'buttons' },
+      { id: 'x2', name: 'Wall', type: 'grid' },
+    ],
+    settings: [
+      { section: 'panels', sectionTitle: 'Panels', topic: 'Access', id: 'cfg-np', label: 'New-panel Authentication mode' },
+      { section: 'this-browser', sectionTitle: 'This browser', topic: 'Preferences', id: 'cfg-theme', label: 'Theme' },
+    ],
+    who: who({ role: 'administrator' }),
+    ...more,
+  });
+const keys = (items) => items.map((x) => x.row?.key || `# ${x.label}`);
+
+test('paletteScope: one clear category, never a tie, never over a name that starts with the query', () => {
+  const rows = catalogue(searchSrc());
+  assert.deepEqual(paletteScope('pnl new', rows), { cat: 'panels', word: 'pnl', rest: 'new' });
+  assert.deepEqual(paletteScope('p', rows), { cat: 'panels', word: 'p', rest: '' });
+  assert.equal(paletteScope('pa new', rows), null, 'a tie does not scope');
+  assert.equal(paletteScope('p 1', rows), null, 'the preset P 1 starts with the query');
+  assert.equal(paletteScope('studio', rows), null);
+  assert.equal(pathText([], rows, 'set new'), 'Settings first');
+  assert.equal(pathText([], rows, 'new panel'), '');
+});
+
+test('search: user rows beat settings, and a scope lists its category first', () => {
+  const rows = catalogue(searchSrc());
+  const v = (query) => keys(paletteView(rows, { query }));
+  assert.equal(v('new panel')[0], 'panel:x1', 'the panel New Panel beats the New-panel setting');
+  assert.deepEqual(v('pnl new'), ['panel:x1']);
+  assert.deepEqual(v('p').slice(0, 3), ['panel:x1', 'panel:x2', '# Other matches']);
+  assert.deepEqual(v('panel').slice(0, 3), ['panel:x1', 'panel:x2', '# Other matches']);
+  assert.ok(v('panel').includes('page:panels'), 'the Panels page is still there, under Other matches');
+  assert.deepEqual(v('set new'), ['setting:panels/cfg-np']);
+  assert.equal(v('p 1')[0], 'preset:global:p1', 'a real name that starts with the category word');
+  assert.deepEqual(v('pnl zzz'), ['# No match in Panels']);
+  // A tie lists the rows of both categories first.
+  const pa = v('pa');
+  assert.deepEqual(pa.slice(0, pa.indexOf('# Other matches')).sort(), ['page:editor', 'page:log', 'page:panels', 'page:settings', 'panel:x1', 'panel:x2']);
+  // A label match beats a match of the words only.
+  const word = { key: 'a', cat: 'panels', label: 'Zed', words: ['alpha'], access: { ok: true } };
+  const label = { key: 'b', cat: 'settings', label: 'Mode alpha', words: [], access: { ok: true } };
+  assert.deepEqual(
+    rankRows([word, label], 'alpha').map((r) => r.key),
+    ['b', 'a'],
+  );
+  assert.equal(v('theme')[0], 'setting:this-browser/cfg-theme', 'an exact label beats a contained one');
+});
+
+test('search: grey rows show only as bookmarks with Show in Palette', () => {
+  const rows = catalogue(src({ who: who({ rights: { presets: ['p2'] } }) }));
+  const studio = rowByKey(rows, 'preset:global:p1');
+  assert.equal(studio.access.ok, false);
+  assert.ok(!keys(paletteView(rows, { query: 'studio' })).includes(studio.key));
+  assert.ok(!keys(paletteView(rows, { path: ['presets'] })).includes(studio.key));
+  assert.equal(paletteView(rows).find((x) => x.id === 'presets').count, 1);
+  assert.ok(!keys(paletteView(rows, { last: [studio.key] })).includes(studio.key), 'a grey last pick is gone');
+  assert.ok(keys(paletteView(rows, { marks: [studio] })).includes(studio.key));
+  assert.equal(keys(paletteView(rows, { query: 'studio', marks: [studio] }))[0], studio.key);
+  assert.deepEqual(
+    paletteView(rows, { path: ['settings'] }).map((x) => x.id),
+    ['this-browser'],
+    'a Settings section with only grey rows is gone',
+  );
 });

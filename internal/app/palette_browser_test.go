@@ -52,8 +52,8 @@ func signInAs(b *tab, name, pin string) {
 }
 
 // The Palette on Home. It checks the Palette character, the doubled character and Ctrl+Shift+P. It checks a preset
-// through the Confirm and into the boxes, grey rows with their offers and a setting. It checks the last picks of a
-// Guest and of a user, and no Palette under the Lock.
+// through the Confirm and into the boxes, grey rows only as bookmarks with their offers, a category word and a
+// setting. It checks the last picks of a Guest and of a user, and no Palette under the Lock.
 func TestChromePaletteMain(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -106,18 +106,29 @@ func TestChromePaletteMain(t *testing.T) {
 
 	b.eval(ctrlShiftP)
 	b.waitFor("the Palette opens for Bo", paletteShown)
+	paletteFind(b, "Studio", "preset:global:p-in")
+	if b.eval(`!!document.querySelector('#palette-list [data-key="preset:global:p-out"]')`) == true {
+		t.Error("the Palette lists a preset outside Bo's Rights")
+	}
+	// A bookmark with Show in Palette keeps its grey row, with the reason and the offers.
+	b.eval(`localStorage.setItem('sode-bookmarks', JSON.stringify([{ key: 'preset:global:p-out', label: 'Studio Out', newTab: false, inPalette: true }])); import('./core.js').then((m) => { m.emit('bookmarks'); return true })`)
 	paletteFind(b, "Studio Out", "preset:global:p-out")
-	b.waitFor("a preset outside Bo's Rights is grey", `document.querySelector('#palette-list [data-key="preset:global:p-out"]').matches('.sode-palette__row--off') && document.querySelector('#palette-list [data-key="preset:global:p-out"]').textContent.includes('Outside your Rights')`)
+	b.waitFor("a bookmarked preset outside Bo's Rights is grey", `document.querySelector('#palette-list [data-key="preset:global:p-out"]').matches('.sode-palette__row--off') && document.querySelector('#palette-list [data-key="preset:global:p-out"]').textContent.includes('Outside your Rights')`)
 	paletteKey(b, "Enter", false)
 	b.waitFor("picking it says why and offers Step in", `!document.querySelector('.sode-palette__why').hidden && document.querySelector('.sode-palette__why').textContent.includes('Step in')`)
 	if b.eval(`document.getElementById('confirm').hidden`) != true {
 		t.Error("a grey preset opened the Confirm")
 	}
 	b.eval(`document.querySelector('.sode-palette__q').focus(); document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); true`)
+	b.eval(`localStorage.setItem('sode-bookmarks', JSON.stringify([{ key: 'setting:branding/cfg-brandtext', label: 'Logo text', newTab: false, inPalette: true }])); import('./core.js').then((m) => { m.emit('bookmarks'); return true })`)
 	paletteFind(b, "Logo text", "setting:branding/cfg-brandtext")
 	paletteKey(b, "Enter", false)
-	b.waitFor("a setting outside Bo's Role offers the Approval flow", `document.querySelector('.sode-palette__why').textContent.includes('Approval')`)
-	b.eval(`document.querySelector('.sode-palette__q').focus(); document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); true`)
+	b.waitFor("a bookmarked setting outside Bo's Role offers the Approval flow", `document.querySelector('.sode-palette__why').textContent.includes('Approval')`)
+	b.eval(`document.querySelector('.sode-palette__q').focus(); document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); localStorage.removeItem('sode-bookmarks'); true`)
+
+	// The first word picks a category: its rows come first, the other matches follow.
+	paletteFind(b, "set theme", "setting:this-browser/cfg-theme")
+	b.waitFor("the line above the list names the category", `document.querySelector('.sode-palette__where').textContent === 'Settings first'`)
 
 	paletteFind(b, "Theme", "setting:this-browser/cfg-theme")
 	paletteKey(b, "Enter", false)
@@ -141,7 +152,7 @@ func TestChromePaletteMain(t *testing.T) {
 	b.check()
 }
 
-// On a panel page with a key, the Palette follows the browser's own sign-in. Bo's Rights grey a preset that the panel's
+// On a panel page with a key, the Palette follows the browser's own sign-in. Bo's Rights hide a preset that the panel's
 // client can fire, and the panels are Bo's. A preset fires on Home as Bo. On a Kiosk panel the Palette does nothing.
 func TestChromePalettePanelPage(t *testing.T) {
 	b := startBrowser(t)
@@ -170,8 +181,10 @@ func TestChromePalettePanelPage(t *testing.T) {
 	if b.eval(`!!document.querySelector('#palette-list [data-key="panel:`+keyed+`"]')`) == true {
 		t.Error("the Palette lists a panel that only the panel's key reaches")
 	}
-	paletteFind(b, "Studio Out", "preset:global:p-out")
-	b.waitFor("grey by Bo's Rights, not the panel client's", `document.querySelector('#palette-list [data-key="preset:global:p-out"]').matches('.sode-palette__row--off')`)
+	paletteFind(b, "Studio", "preset:global:p-in")
+	if b.eval(`!!document.querySelector('#palette-list [data-key="preset:global:p-out"]')`) == true {
+		t.Error("the Palette lists a preset outside Bo's Rights, which the panel's client can fire")
+	}
 	paletteFind(b, "Studio In", "preset:global:p-in")
 	paletteKey(b, "Enter", false)
 	b.waitFor("the preset opens its Confirm on Home", `location.pathname === '/' && !document.getElementById('confirm').hidden && !document.getElementById('confirm-ok').disabled`)

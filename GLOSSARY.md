@@ -447,7 +447,7 @@ The desktop main page with History hidden and the title, patch boxes and a small
 The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page.
 
 **Palette**:
-A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. Rows outside a person's Rights or Role show grey, and picking one offers Step in or Request approval.
+A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. To search in one category, type its name first, then a space and the search, for example "panel studio". A short form, a part of the name or one typo is also correct ("p", "pnl", "sett", "panle"). The rows of that category come first, and other matches follow under Other matches. A row outside a person's Rights or Role does not show. But a bookmark with Show in Palette stays as a grey row. Picking it tells why and offers Step in or Request approval.
 _Avoid_: command palette
 
 **Palette character**:
