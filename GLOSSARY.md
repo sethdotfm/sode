@@ -35,8 +35,14 @@ The hidden identity Sode gives a router when it is added. It never changes, neve
 One source connected to one destination on a set of levels. A take sends one or more routes.
 
 **Protected**:
-Describes a destination that the router will not change because something has protected it. Sode refuses a plan that includes a protected destination before it sends anything.
-_Avoid_: protect (as a noun), locked
+Describes a destination with a Protect or a Router lock on one or more levels, so the router will not change those levels. Sode refuses a plan that includes a protected destination before it sends anything.
+_Avoid_: locked
+
+**Protect**:
+A mark on one level of a destination that stops other clients from changing it. Only the device number that set it can clear it, and the router does not check who sends that number. Sode, DashBoard and panels can set one. Sode sets and clears a Protect on every level of a destination, with its one device number for the router. It keeps its own record of which user or API client set each one. Sode refuses its own takes to a destination it Protected too. "Protect" is also the verb.
+
+**Router lock**:
+The router's second kind of mark on a level of a destination, set only from DashBoard or a panel. Sode shows it with the device that set it and never sets or clears it. Keep it apart from Sode's own Lock, the cover over the page.
 
 ### Actions
 
@@ -55,8 +61,12 @@ What Sode intends to send but has not yet sent. A plan becomes a take when a per
 _Avoid_: pending take
 
 **Preset**:
-A saved plan that can be fired in one confirm and pinned. It is Sode's own feature.
+A saved plan that can be fired in one confirm and bookmarked. It is Sode's own feature.
 _Avoid_: salvo
+
+**Bookmark**:
+A saved link that opens a Palette row or an outside web address. A Palette row can be a preset, a filter set, a page, a Settings button or a setting. The Bookmarks strip shows them, and a bookmark with Show in Palette also shows at the top of the Palette. Bookmarks are saved to Me, This browser or Everyone, and the strip shows one list: This browser's, else Me, else Everyone. A bookmark that the user cannot use shows No access, and one whose target is gone shows Missing.
+_Avoid_: pinned preset, preset pin
 
 **Salvo**:
 The router's own stored group of routes, fired by number on the router. Sode does not use this word for anything of its own, so "fire salvo 12" always means the router's.
@@ -96,11 +106,14 @@ A Result that the router confirmed after Sode had stopped waiting. Sode amends t
 One rule on Source or Destination that limits which entries History shows.
 
 **Filter set**:
-A named, savable group of filters, scoped to Me, This browser or Everyone. Several sets can be stacked, and Stacked filters behavior says whether an entry must match all of them or any one.
+A named, savable group of filters, scoped to Me, This browser or Everyone. Several sets can be stacked, and Stacked filters behavior says whether an entry must match all of them or any one. Each set has a hidden id that stays through a rename, as a preset has. So a bookmark on a set still works after a rename.
 
 **Communication Log**:
 The page that shows every command and the raw messages Sode sent to the router, plus a router uptime graph.
 _Avoid_: sent log
+
+**Log row**:
+One line in the Communication Log: a message Sode sent to the router, or an event such as a connect or a Settings save. Not an Entry, which is a History row.
 
 ### Changes Sode did not make
 
@@ -294,6 +307,9 @@ An editor setting for each edge of a Grid panel. While it is on, the edge holds 
 The editor's button and view that runs the saved panel in the editor, as its page does. Takes made there change the router. Unsaved edits are saved first.
 _Avoid_: Test it live
 
+**Smart menu**:
+The panel editor's menu that opens by itself beside what is selected, with the actions for it. In a Buttons panel it is beside the selected cells. In the Live Editor of a Grid panel it is beside the picked sources or destinations, and it edits them.
+
 **Public panel**:
 A panel that anyone with its URL can use, with no sign-in, PIN or key in the link. It acts as its own API client, with that client's Rights, which a Trusted user sets within their own. History names the client.
 _Avoid_: anonymous panel, open panel (for a Public panel; an open panel page is any panel page that is open)
@@ -412,6 +428,9 @@ One saved layout per panel in a group, so a single Push gives each panel in the 
 **Patch boxes**:
 The Source box, the Destination box and the Level box, where a plan is typed. What they hold is a plan until Confirm.
 
+**Grid popup**:
+A grid that opens over the main page to stage several routes and send them in one take. It shows every source and destination in the person's Rights. It is part of the main page, not a panel. Keep it apart from a Grid panel, which is a saved panel.
+
 **Last**:
 The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser and kept across reloads, and the chip is hidden until this browser has made a take.
 
@@ -423,6 +442,16 @@ The state where keys act on History entries instead of the patch boxes. Esc from
 
 **Compact view**:
 The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
+
+**Home**:
+The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page.
+
+**Palette**:
+A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. Rows outside a person's Rights or Role show grey, and picking one offers Step in or Request approval.
+_Avoid_: command palette
+
+**Palette character**:
+The character that opens the Palette when it is the first one typed in an empty Source or Destination box. It is a setting for Everyone, Me or This browser, and no character turns it off. Type it twice to search for the character itself.
 
 **Topic**:
 A top-level group of Settings sections, with a heading band on the page and a branch in the sidebar tree. With v2, Settings has five topics: Preferences, Look and feel, Routers, Access and Server.

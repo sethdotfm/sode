@@ -92,13 +92,17 @@ export function selectRows(s, shown, n, { shift = false, toggle = false } = {}) 
   return { selected: shift ? new Set([...s.selected, n]) : new Set([n]), anchor: n };
 }
 
-// Appends the selected items in router order, less the members the edge has. An "all" edge becomes a list first.
-export function addItems(edge, router, selected) {
+// Adds the selected items, less the members the edge has, which stay where they are. A Set adds in router order (Add
+// from the router), an array in its own order. at is an index in the members as they show (an "all" edge resolved).
+// Without it, or past the end, the items go at the end. An "all" edge becomes a list first.
+export function addItems(edge, router, selected, { at } = {}) {
   const list = membersOf(edge, router);
   const has = new Set(list);
-  const add = [...selected].filter((n) => !has.has(n)).sort((a, b) => a - b);
+  const add = [...new Set(selected)].filter((n) => !has.has(n));
+  if (selected instanceof Set) add.sort((a, b) => a - b);
   if (!add.length) return edge;
-  return { ...withoutHide(edge), members: [...list, ...add] };
+  const i = Number.isInteger(at) ? Math.max(0, Math.min(at, list.length)) : list.length;
+  return { ...withoutHide(edge), members: [...list.slice(0, i), ...add, ...list.slice(i)] };
 }
 
 // The panel's list keys, by chord (keys.js), while the list itself has focus. go moves the cursor (extend: Shift
@@ -145,7 +149,7 @@ const selectedShown = (edge, router, rights, kind, ns) => {
 
 // A list edge's members with the pinned ones first, in the order the list and the panel draw them. An item pinned
 // moves up with them, and stays at the top of the rest when unpinned.
-const pinsFirst = (edge, list) => [...list.filter((n) => pinnedIn(edge, n)), ...list.filter((n) => !pinnedIn(edge, n))];
+export const pinsFirst = (edge, list) => [...list.filter((n) => pinnedIn(edge, n)), ...list.filter((n) => !pinnedIn(edge, n))];
 
 // Moves the selected rows, in drawn order, to before the row before (a router number), or to the end when before is
 // null. A selected row is not a place, so the block lands before the next row that is not selected. Pinned rows stay

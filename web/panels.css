@@ -60,6 +60,59 @@ body {
 .sode-panels__spacer {
   flex: 1 1 auto;
 }
+/* The top bar of /panels and the editor (panelsbar.js), as the Grid head row: one row with a line under it, the links
+   after the title and the Server and Router status at the right end. */
+.sode-bar {
+  flex-wrap: nowrap;
+  position: relative;
+}
+/* The line sits in the gap under the bar, so the bar is no taller than the header it replaced. */
+.sode-bar::after {
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  bottom: calc(-1 * var(--pb-space-2));
+  content: "";
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+.sode-bar > .sode-panels__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-bar__tools {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: var(--pb-space-2);
+}
+.sode-bar__panels .sode-panels__logo {
+  margin: 0;
+}
+.sode-bar > .sode__conn {
+  background: none;
+  flex: none;
+  padding: 0;
+  position: static;
+}
+/* The phone keeps one row: the status shows its dots only. */
+[data-layout="phone"]:not([data-conn="down"]) .sode-bar > .sode__conn {
+  display: flex;
+}
+[data-layout="phone"] .sode-bar > .sode__conn :is(.pb-status > :not(.pb-dot), .sode__conn-addr) {
+  display: none;
+}
+/* A narrow mouse window keeps the desktop layout and the Lock bar beside the bar, so the bar wraps and the status
+   shows its dots only. */
+@media (max-width: 47.9rem) {
+  :root:not([data-layout="phone"]) .sode-bar {
+    flex-wrap: wrap;
+  }
+  .sode-bar > .sode__conn :is(.pb-status > :not(.pb-dot), .sode__conn-addr) {
+    display: none;
+  }
+}
 
 /* A panel's grid. One animated number on the grid drives every pulse, so cells stay in phase. It runs only while a
    cell pulses: an inherited registered property animated higher up restyles everything under it every frame, and
@@ -775,6 +828,7 @@ body {
 }
 
 .sode-ed__menu {
+  list-style: none;
   position: fixed;
 }
 .sode-ed__menu li:focus-within > .pb-menu__sub {
@@ -1039,11 +1093,8 @@ body {
   flex-wrap: wrap;
   position: static;
 }
-/* The Lock bar sits at the window's top left, so the bar clears its width as the header does above. The panel's own
-   header is under the bar, so its title goes back to the left corner. */
-[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-live__bar {
-  padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-5));
-}
+/* The Grid head row is the top bar (gridpanelheadview.js), and its rule clears the Lock bar, so the title goes back to
+   the left corner. */
 [data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) #ed-live-view .sode-panels__head {
   padding-inline-start: 0;
 }
@@ -1052,10 +1103,6 @@ body {
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
   margin: 0;
-}
-/* The run's Settings link leaves the editor for the main page, so the Live Editor does not show it. */
-#ed-live-view .sode-gridpanel__settings {
-  display: none;
 }
 .sode-live__state {
   color: var(--pb-text-muted);
@@ -1874,4 +1921,10 @@ body {
 }
 .sode-ov__thumb--grid .sode-ov__k-on {
   background: radial-gradient(circle closest-side, var(--pb-text-muted) 70%, var(--pb-surface-sunken) 75%);
+}
+
+/* The Live Editor's Smart menu fades out of the way while a pointer is down on the grid (editorlivemenu.js). */
+.sode-ed__menu[data-away] {
+  opacity: 0;
+  pointer-events: none;
 }

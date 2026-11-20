@@ -42,7 +42,6 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"layer"}, Re: wordRe(`(?i)signal layers?`)},
 	{Terms: []string{"label"}, Re: wordRe(`(?i)(?:router|source|destination) labels?`)},
 	{Terms: []string{"refresh"}, Re: wordRe(`(?i)names? refreshe?s?|refresh(?:es|ed|ing)? (?:of )?(?:the )?(?:router )?names?`)},
-	{Terms: []string{"protect"}, Re: wordRe(`(?i)protects|the protect|protect (?:flag|state|status|badge|icon)`)},
 	{Terms: []string{"locked"}, Re: wordRe(`(?i)locked (?:destination|dst)s?`)},
 	{Terms: []string{"batch"}, Re: wordRe(`(?i)batch(?:es)?`)},
 	{
@@ -76,8 +75,10 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"screen"}, Re: wordRe(`(?i)(?:this|that|one|each|every|per|no|watched|named|lost an?) screens?|screens?(?:'s)? (?:names?|offline|drops|signs? out|signed out|has opened|of (?:one|a|the) panel)|panels? (?:and|or) screens?`)},
 	{Terms: []string{"What this stops"}, Re: wordRe(`(?i)what this (?:save )?stops`)},
 	{Terms: []string{"anonymous panel"}, Re: wordRe(`(?i)anonymous panels?`)},
+	{Terms: []string{"command palette"}, Re: wordRe(`(?i)command palettes?`)},
 	{Terms: []string{"Test it live"}, Re: wordRe(`(?i)test it live`)},
 	{Terms: []string{"open panel"}, Why: "an open panel page is any panel page that is open, so a scan cannot tell it from a Public panel; a reviewer judges it by hand"},
+	{Terms: []string{"pinned preset", "preset pin"}, Re: wordRe(`(?i)pinned presets?|preset pins?`)},
 }
 
 // vocabMask keeps phrases with a retired word that are correct: the router's own `salvo` and fireMode `native`.
@@ -111,8 +112,7 @@ var vocabAllow = []allowEntry{
 // identAllow exempts web identifiers only, so a UI string or a doc line gets no pass. Wire message
 // types and `sode-*` keys are strings and never reach that scan; these names hold a wire or logged value.
 var identAllow = []allowEntry{
-	{"salvo", "web/log.js", `^\s*salvos?(?:Stage|Go)?:`, "`log` command kinds and the router's own salvo"},
-	{"salvo", "web/logkinds.js", `^\s*salvos?:`, "`log` command kinds, as the server logs them"},
+	{"salvo", "web/logkinds.js", `^\s*salvos?(?:Stage|StageExt|Go)?:`, "`log` command kinds and the router's own salvo, as the server logs them"},
 	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
 	{"salvo", "web/savereviewrules.js", `^\s*salvoGroup:`, "the router's own salvo group, a Config JSON key"},
 	{"salvo", "web/setupwizardrules.js", `cfg\.salvoGroup`, "the router's own salvo group, a Config JSON key"},
@@ -592,7 +592,7 @@ func TestIdentifierScanMechanics(t *testing.T) {
 	if strings.Contains(code, "'Recent'") {
 		t.Error("string literal not blanked")
 	}
-	if !identRe(retiredWords[7]).MatchString("send batch") || !identRe(retiredWords[11]).MatchString("recent row") {
+	if !identRe(retiredWords[6]).MatchString("send batch") || !identRe(retiredWords[10]).MatchString("recent row") {
 		t.Error("identRe does not match identifier words")
 	}
 }

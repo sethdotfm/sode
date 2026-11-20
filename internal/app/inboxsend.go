@@ -42,9 +42,10 @@ type cardPresetReq struct {
 	Preset *config.Preset `json:"preset"`
 }
 
+// cardSetReq names a Me or Everyone filter set by id; a This browser set comes whole.
 type cardSetReq struct {
 	Scope string            `json:"scope"`
-	Name  string            `json:"name"`
+	ID    string            `json:"id"`
 	Set   *config.FilterSet `json:"set"`
 }
 
@@ -116,7 +117,7 @@ func (a *App) cardView(cfg config.Config, c inboxCard) cardView {
 			v.Items = append(v.Items, cardLine{catPresets, p.ID, p.Name})
 		}
 		for _, s := range c.Items.FilterSets {
-			v.Items = append(v.Items, cardLine{catFilterSets, s.Name, s.Name})
+			v.Items = append(v.Items, cardLine{catFilterSets, s.ID, s.Name})
 		}
 		for _, p := range c.Items.Panels {
 			v.Items = append(v.Items, cardLine{catPanels, p.ID, p.Name})
@@ -297,7 +298,7 @@ func (a *App) freezeItems(cfg config.Config, from config.User, req inboxReq) (ca
 		var s config.FilterSet
 		ok := false
 		find := func(list []config.FilterSet) {
-			i := slices.IndexFunc(list, func(x config.FilterSet) bool { return strings.EqualFold(x.Name, f.Name) })
+			i := slices.IndexFunc(list, func(x config.FilterSet) bool { return x.ID == f.ID })
 			if i >= 0 {
 				s, ok = list[i], true
 			}
@@ -313,11 +314,14 @@ func (a *App) freezeItems(cfg config.Config, from config.User, req inboxReq) (ca
 			}
 		}
 		if !ok {
-			return it, nil, fmt.Errorf("no %s filter set %q to send", scopeWord(f.Scope), f.Name)
+			return it, nil, fmt.Errorf("no %s filter set %q to send", scopeWord(f.Scope), f.ID)
 		}
 		s.Broken = nil
 		if slices.ContainsFunc(it.FilterSets, func(x config.FilterSet) bool { return strings.EqualFold(x.Name, s.Name) }) {
 			continue
+		}
+		if s.ID == "" || f.Scope == scopeBrowser || slices.ContainsFunc(it.FilterSets, func(x config.FilterSet) bool { return x.ID == s.ID }) {
+			s.ID = config.NewFilterSetID()
 		}
 		it.FilterSets = append(it.FilterSets, s)
 	}

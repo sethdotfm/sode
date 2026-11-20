@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
@@ -67,7 +68,7 @@ func TestProtectDumpRefusesTake(t *testing.T) {
 	got := maps.Clone(a.router.protect[5])
 	_, other := a.router.protect[6]
 	a.mu.Unlock()
-	if !maps.Equal(got, map[int]int{2: 9}) || other {
+	if !maps.Equal(got, map[int]protHold{2: {9, swp08.KindRouterLock}}) || other {
 		t.Fatalf("protect state %v, dst 6 protected %v", got, other)
 	}
 	n := f.sends()
@@ -82,6 +83,32 @@ func TestProtectDumpRefusesTake(t *testing.T) {
 	a.onRouterMsg([]byte{swp08.CmdExtProtectDump, 0x00, 0x01, 0x01, 0x00, 0x05, 0x00, 0x00})
 	if e := routeOne(t, a, 7, 5, 1, 2, 3); !e.OK {
 		t.Fatalf("take after unprotect %+v", e)
+	}
+}
+
+// One DashBoard press on a Ross Ultrix protects all 17 levels with 17 0x8D frames, one for each level. The
+// next press clears them with 17 0x8F frames. Real frames: dst 27, device 10.
+func TestDashBoardProtectAndClearAllLevels(t *testing.T) {
+	a := newTestApp(t, func(c *config.Config) { c.Levels = 17 })
+	protect := func() map[int]protHold {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		return maps.Clone(a.router.protect[27])
+	}
+	want := map[int]protHold{}
+	for ll := byte(0); ll <= 0x10; ll++ {
+		a.onRouterMsg([]byte{0x8D, 0x00, ll, 0x02, 0x00, 0x1B, 0x00, 0x0A})
+		want[int(ll)+1] = protHold{10, swp08.KindRouterLock}
+		if got := protect(); !maps.Equal(got, want) {
+			t.Fatalf("after 0x8D level %d: %v, want %v", ll, got, want)
+		}
+	}
+	for ll := byte(0); ll <= 0x10; ll++ {
+		a.onRouterMsg([]byte{0x8F, 0x00, ll, 0x00, 0x00, 0x1B, 0x00, 0x00})
+		delete(want, int(ll)+1)
+		if got := protect(); !maps.Equal(got, want) {
+			t.Fatalf("after 0x8F level %d: %v, want %v", ll, got, want)
+		}
 	}
 }
 

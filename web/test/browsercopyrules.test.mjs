@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyDoc, toClear, moveText, movedPinOrder } from '../browsercopyrules.js';
+import { copyDoc, toClear, moveText } from '../browsercopyrules.js';
 
 const values = {
   theme: 'dark',
   flip: 'on',
   filterSets: [{ name: 'Cams', src: 'cam' }],
   presets: [{ id: 'p1', name: 'Open', items: [] }],
+  bookmarks: [{ key: 'page:log', label: 'Log' }],
 };
 
 test('every This browser pref has a Me counterpart today', () => {
@@ -59,9 +60,4 @@ test('Keep on this browser clears nothing', () => {
 test('the result says moved or copied', () => {
   assert.equal(moveText('2 presets', false), '2 presets moved to Me.');
   assert.equal(moveText('2 presets', true), '2 presets copied to Me. This browser keeps them too.');
-});
-
-test('a moved preset keeps its place in the pin order', () => {
-  assert.deepEqual(movedPinOrder(['global:a', 'local:b', 'user:c', 'local:d'], ['b']), ['global:a', 'user:b', 'user:c', 'local:d']);
-  assert.deepEqual(movedPinOrder(['local:b'], []), ['local:b']);
 });

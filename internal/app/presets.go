@@ -10,9 +10,13 @@ import (
 // A fired preset is an ordinary take and needs no PIN.
 func (a *App) SavePresets(c *client, presets []config.Preset) error {
 	return a.saveList(c, func(cur *config.Config) error {
+		was := cur.Presets
 		cur.Presets = a.namePresets(cur.UID, config.WithPresetExtras(presets, cur.Presets))
+		cur.Bookmarks = config.RenamedPresetBookmarks(cur.Bookmarks, "global", was, cur.Presets)
 		return nil
-	}, func(cfg config.Config) any { return presetsMsg{T: "presets", Presets: cfg.Presets} })
+	}, func(cfg config.Config) any {
+		return presetsMsg{T: "presets", Presets: cfg.Presets, Bookmarks: cfg.Bookmarks}
+	})
 }
 
 // The file keeps the save-time name for import and Broken checks; a number with no router name keeps its stored name.

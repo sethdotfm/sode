@@ -104,3 +104,7 @@ export function levelStyle(l) {
   if (l.color) return { color: l.color, ink: inkFor(l.color) };
   return { color: `var(--pb-signal-${l.swatch})`, ink: null };
 }
+
+// The desktop main page shows its Levels box only when some router has more than one level. counts: each router's
+// levels setting. With no counts yet (before the hello), the box shows, as it did before this rule.
+export const levelsBoxShown = (counts) => !counts.length || counts.some((n) => n > 1);

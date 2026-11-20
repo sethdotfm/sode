@@ -34,9 +34,12 @@ type Router struct {
 	// TallyResyncSeconds is the Re-read routes interval; 0 is off.
 	TallyResyncSeconds int `yaml:"routeRereadSeconds" json:"tallyResyncSeconds"`
 	// SalvoGroup (0-127): every client shares the router's list, so pick one only Sode uses.
-	FireMode   string         `yaml:"fireMode" json:"fireMode"`
-	SalvoGroup int            `yaml:"salvoGroup" json:"salvoGroup"`
-	Extra      map[string]any `yaml:",inline" json:"-"`
+	FireMode   string `yaml:"fireMode" json:"fireMode"`
+	SalvoGroup int    `yaml:"salvoGroup" json:"salvoGroup"`
+	// ProtectDevice is the device number Sode sets Protects with (ADR 0012); 0 is off. Panel IDs share the
+	// number space and the router checks no sender, so pick one no panel uses.
+	ProtectDevice int            `yaml:"protectDevice" json:"protectDevice"`
+	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
 // N: sources and destinations 0-based, levels 1..N. Import ignores Shown. Only a request leaves Router blank

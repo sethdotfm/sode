@@ -66,6 +66,7 @@ export const DICT = {
   ],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
   takes: ['take', 'patch', 'route', 'default levels', 'resync', 'reread', 'multi destination', 'fire mode', 'salvo group'],
+  protects: ['protect', 'protects', 'protected', 'router lock', 'device number', 'device', 'panel id', 'clear', 'hold'],
   confirm: ['confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'delay', 'safety', 'result', 'success', 'banner', 'dismiss'],
   routers: ['router', 'routers', 'router list', 'ultrix', 'matrix', 'block'],
   panels: [
@@ -212,6 +213,7 @@ export const DICT = {
   ...both('set-stack', ['stack', 'stacked', 'filter sets', 'sets', 'and', 'or', 'combine', 'all', 'any', 'filter']),
   ...both('stack-gap', ['stack', 'stacked', 'rows', 'gap', 'merge', 'quick changes', 'seconds', 'history', 'off', 'time']),
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
+  ...both('palette-char', ['palette', 'palette character', 'command', 'search everything', 'greater than', 'ctrl shift p', 'off']),
   ...both('compact', [
     'compact',
     'compact view',
@@ -229,7 +231,7 @@ export const DICT = {
 
   // ---- My defaults (per-row buttons shown while signed in)
   ...Object.fromEntries(
-    ['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'stackGap', 'nextMode', 'compact'].flatMap((n) => [
+    ['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'stackGap', 'nextMode', 'compact', 'paletteChar'].flatMap((n) => [
       ['my-default-' + n, ['my default', 'save as my default', 'set as my default', 'profile', 'personal', 'follow me', 'account']],
       ['my-default-clear-' + n, ['my default', 'clear my default', 'remove', 'profile', 'personal', 'account']],
     ]),

@@ -80,6 +80,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		}
 		panelPage(w, r)
 	})
+	worker := &shellWorker{fsys: static}
+	mux.HandleFunc("GET /sw.js", worker.serve)
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
@@ -91,6 +93,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		json.NewEncoder(w).Encode(st)
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
+	mux.HandleFunc("POST /api/log/download", a.serveLogDownload)
 	mux.HandleFunc("POST /api/export", a.serveExport)
 	mux.HandleFunc("POST /api/export/size", a.serveExportSize)
 	mux.HandleFunc("GET /api/export/items", a.serveExportItems)
@@ -389,11 +392,12 @@ type inMsg struct {
 	Prefs        map[string]string  `json:"prefs"`
 	FilterSets   []config.FilterSet `json:"filterSets"`
 	Presets      []config.Preset    `json:"presets"`
-	PinOrder     []string           `json:"pinOrder"`
-	Page         string             `json:"page"`  // hi: main | log
-	Token        string             `json:"token"` // hi: session token of a persistent user or a tab sign-in
-	Tab          bool               `json:"tab"`   // userSignIn: no lock on, wants a tab session token
-	Name         string             `json:"name"`  // userSignOutAll, profileSave, profileGet
+	Bookmarks    []config.Bookmark  `json:"bookmarks"`    // bookmarks (Everyone), profileSave (Me)
+	PalettePicks []string           `json:"palettePicks"` // profileSave: the Palette's last picks
+	Page         string             `json:"page"`         // hi: main | log
+	Token        string             `json:"token"`        // hi: session token of a persistent user or a tab sign-in
+	Tab          bool               `json:"tab"`          // userSignIn: no lock on, wants a tab session token
+	Name         string             `json:"name"`         // userSignOutAll, profileSave, profileGet
 	Old          string             `json:"old"`
 	New          string             `json:"new"`
 	Remove       bool               `json:"remove"`   // userSetPin: remove my PIN
@@ -415,9 +419,10 @@ type inMsg struct {
 	Approve      bool               `json:"approve"` // approvalAnswer: false denies
 	On           bool               `json:"on"`      // approvalCards
 	asRole       string             // Request approval: the requester's Role when sent (approvalrequest.go)
-	Inbox        *inboxReq          `json:"inbox"` // the inbox messages (inboxsend.go)
-	Swap         *swapReq           `json:"swap"`  // swapList, swapMine (swap.go)
-	Mine         bool               `json:"mine"`  // brokenCount: only the user's own items
+	Inbox        *inboxReq          `json:"inbox"`   // the inbox messages (inboxsend.go)
+	Swap         *swapReq           `json:"swap"`    // swapList, swapMine (swap.go)
+	Mine         bool               `json:"mine"`    // brokenCount: only the user's own items
+	Protect      *protectReq        `json:"protect"` // protectSet, protectClear
 }
 
 func plural(n int, one, many string) string {

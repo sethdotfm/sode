@@ -127,8 +127,9 @@ export function profileSaver({ target, ...opts }) {
 // user's profile: with target() set, every scope goes to that profile's saver.
 //   key: payload key for the whole list (profile saver, and the global one unless globalKey differs).
 //   listOf(scope): the scope's current list as it is sent.
-//   same(a, b): do two names mean one item?   dropLocal(name): delete from localStorage.
-export function scopeWriter({ global, user, target, key, globalKey = key, listOf, same, dropLocal }) {
+//   keyOf(item): what names an item (default its name; a filter set's hidden id).
+//   same(a, b): do two keys mean one item?   dropLocal(key): delete from localStorage.
+export function scopeWriter({ global, user, target, key, globalKey = key, listOf, keyOf = (x) => x.name, same, dropLocal }) {
   // The whole next list into a remote scope; done() runs after it lands. The caller writes local scopes.
   function saveIn(scope, list, done) {
     const t = target?.();
@@ -136,14 +137,14 @@ export function scopeWriter({ global, user, target, key, globalKey = key, listOf
     saver.change({ [k]: list }, done);
   }
   // Without the item; local deletes immediately. done() runs after it is gone.
-  function removeIn(scope, name, done) {
+  function removeIn(scope, item, done) {
     if (scope === 'local') {
-      dropLocal(name);
+      dropLocal(item);
       return done();
     }
     saveIn(
       scope,
-      listOf(scope).filter((x) => !same(x.name, name)),
+      listOf(scope).filter((x) => !same(keyOf(x), item)),
       done,
     );
   }

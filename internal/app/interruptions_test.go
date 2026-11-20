@@ -301,12 +301,29 @@ func TestInterruptionsLocksGuestRoleAndAutoLockEndNothing(t *testing.T) {
 	f.wantEnded(before, nil)
 }
 
+// publicPanelsRow finds the save of publicPanels. The floor's panel instance also writes a Settings saves row (its
+// API client), at its own time, so the order of the two rows changes.
+func publicPanelsRow(t *testing.T, rows []Sent) Sent {
+	t.Helper()
+	for _, e := range rows {
+		if e.Kind != kindSettings {
+			continue
+		}
+		for k := range fieldsByKey(e) {
+			if strings.Contains(k, "publicPanels") {
+				return e
+			}
+		}
+	}
+	t.Fatal("no Settings saves row for publicPanels")
+	return Sent{}
+}
+
 func TestInterruptionsGoInTheSettingsSavesRow(t *testing.T) {
 	f := newFloor(t)
 	defer startLog(t, f.a)()
 	_, sv := f.reviewAndSave(map[string]any{"publicPanels": false})
-	rows := waitSaves(t, f.a, 1)
-	got := rows[0].Save.Interruptions
+	got := publicPanelsRow(t, waitSaves(t, f.a, 2)).Save.Interruptions
 	var want []string
 	for _, x := range sv {
 		want = append(want, x["text"].(string))
@@ -334,7 +351,7 @@ func TestInterruptionsInTheLogAreForAdministrators(t *testing.T) {
 	f := newFloor(t)
 	defer startLog(t, f.a)()
 	f.reviewAndSave(map[string]any{"publicPanels": false})
-	waitSaves(t, f.a, 1)
+	waitSaves(t, f.a, 2)
 	read := func(name, pin string) Sent {
 		p := dialPeer(t, f.a)
 		p.signIn(name, pin)
@@ -343,13 +360,7 @@ func TestInterruptionsInTheLogAreForAdministrators(t *testing.T) {
 		if err := json.Unmarshal(jsonOf(p.until("logPage")), &page); err != nil {
 			t.Fatal(err)
 		}
-		for _, e := range page.Entries {
-			if e.Kind == kindSettings {
-				return e
-			}
-		}
-		t.Fatalf("no Settings saves row for %s", name)
-		return Sent{}
+		return publicPanelsRow(t, page.Entries)
 	}
 	if row := read("Ada", "2468"); !strings.Contains(strings.Join(row.Save.Interruptions, " "), "Lobby") {
 		t.Fatalf("Administrator's row: %+v", row.Save)

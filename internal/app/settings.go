@@ -68,11 +68,16 @@ func (a *App) saveSettings(c *client, msg json.RawMessage) error {
 
 var errInsecureSave = errors.New("to turn on Require HTTPS, save from a request that came over HTTPS through a trusted proxy. This stops a lock-out. Open Sode through your HTTPS address and save again")
 
+// A set keeps its id through a rename, so bookmarks keep their key and only the stored label follows.
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	return a.saveList(c, func(cur *config.Config) error {
+		was := cur.FilterSets
 		cur.FilterSets = config.WithFilterSetExtras(sets, cur.FilterSets)
+		cur.Bookmarks = config.RenamedSetBookmarks(cur.Bookmarks, "global", was, cur.FilterSets)
 		return nil
-	}, func(cfg config.Config) any { return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets} })
+	}, func(cfg config.Config) any {
+		return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets, Bookmarks: cfg.Bookmarks}
+	})
 }
 
 // updateWith: mutate edits a copy, then Normalize, Validate, build a runtime and, if save, write it.

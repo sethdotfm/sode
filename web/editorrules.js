@@ -150,6 +150,14 @@ export function placeMenu(rect, menu, area, gap) {
   return { side: 'below', left: Math.max(area.left, Math.min(rect.left, area.right - menu.w)), top: rect.bottom + gap };
 }
 
+// The Live Editor's Smart menu on a Source bar name: above the name, over the band, so it keeps off the crosspoints. Else
+// below it when there is no room above. Lined up with the name's left edge, inside the area.
+export function placeAbove(rect, menu, area, gap) {
+  const left = Math.max(area.left, Math.min(rect.left, area.right - menu.w));
+  if (rect.top - gap - menu.h >= area.top) return { side: 'above', left, top: rect.top - gap - menu.h };
+  return { side: 'below', left, top: rect.bottom + gap };
+}
+
 // The box the menu and its flyouts stay inside: the viewport, cut at the sidebar when the sidebar sits beside the
 // grid. The sidebar edits the selected cell, so the menu must not cover it. Under the grid, in the narrow layout, it does
 // not bound them. side and grid are screen rects, or side is null.
@@ -254,6 +262,15 @@ export const kindChoices = ({ fixed = false } = {}) =>
   [...KINDS, ''].map((kind) =>
     fixed && kind === 'destination' ? { kind, label: kindLabel(kind), disabled: true, hint: 'Fixed destination is on' } : { kind, label: kindLabel(kind) },
   );
+
+// The editor belongs to the access it opened with (lock.js `access`). owner is null until a user signs in. A sign-out,
+// another user or another Role leaves the editor. A Lock keeps the user, so it does not.
+export function editorAccess(owner, a) {
+  const now = { user: a.user || '', role: a.role || '' };
+  if (!owner) return { owner: now.user ? now : null, leave: false };
+  if (now.user !== owner.user) return { owner, leave: true };
+  return { owner, leave: !a.locked && !a.held && !!now.role && now.role !== owner.role };
+}
 
 // The tip beside the grip while it is dragged: how many squares, and the first and last name placed.
 export function gripTip(plan, nameOf) {

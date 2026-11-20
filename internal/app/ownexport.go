@@ -16,7 +16,7 @@ import (
 // The import writes only the importer's profile: no Replace import, nothing global, never Critical.
 
 const (
-	catProfile          = "profile" // prefs and pin order, one item overwritten whole
+	catProfile          = "profile" // prefs and bookmarks, one item overwritten whole
 	noteReplacesProfile = "Replaces your profile"
 )
 
@@ -38,7 +38,7 @@ func ownFileUser(u config.User, req exportReq) config.User {
 	out := u
 	out.Profile = config.Profile{}
 	if want(catProfile) {
-		out.Profile.Prefs, out.Profile.PinOrder = maps.Clone(u.Profile.Prefs), slices.Clone(u.Profile.PinOrder)
+		out.Profile.Prefs, out.Profile.Bookmarks = maps.Clone(u.Profile.Prefs), config.CloneBookmarks(u.Profile.Bookmarks)
 	}
 	if want(catPresets) {
 		for _, p := range u.Profile.Presets {
@@ -49,7 +49,7 @@ func ownFileUser(u config.User, req exportReq) config.User {
 	}
 	if want(catFilterSets) {
 		for _, s := range u.Profile.FilterSets {
-			if picked(req.Pick, catFilterSets, s.Name) {
+			if picked(req.Pick, catFilterSets, s.ID) {
 				out.Profile.FilterSets = append(out.Profile.FilterSets, s)
 			}
 		}
@@ -130,14 +130,14 @@ func (a *App) serveOwnExportItems(w http.ResponseWriter, r *http.Request) {
 		c.Size += len(b)
 	}
 	prof := exportListCat{Name: catProfile}
-	add(&prof, catProfile, "Profile", config.Profile{Prefs: u.Profile.Prefs, PinOrder: u.Profile.PinOrder})
+	add(&prof, catProfile, "Profile", config.Profile{Prefs: u.Profile.Prefs, Bookmarks: u.Profile.Bookmarks})
 	presets := exportListCat{Name: catPresets}
 	for _, p := range u.Profile.Presets {
 		add(&presets, p.ID, p.Name, &exportPresets{Presets: []config.Preset{p}})
 	}
 	sets := exportListCat{Name: catFilterSets}
 	for _, s := range u.Profile.FilterSets {
-		add(&sets, s.Name, s.Name, &exportFilterSets{FilterSets: []config.FilterSet{s}})
+		add(&sets, s.ID, s.Name, &exportFilterSets{FilterSets: []config.FilterSet{s}})
 	}
 	out.Categories = []exportListCat{prof, presets, sets}
 	if err == nil {
@@ -203,7 +203,7 @@ func (a *App) planOwn(id string, b *exportBundle, req importReq) (*cardPlanner, 
 	}
 	p.file, p.same, p.plan.SameInstall = true, same, same
 	var profile func(*config.Config, *importCat) error
-	if len(from.Profile.Prefs) > 0 || len(from.Profile.PinOrder) > 0 {
+	if len(from.Profile.Prefs) > 0 || len(from.Profile.Bookmarks) > 0 {
 		profile = p.planProfile(from.Profile)
 	}
 	p.run(profile)
@@ -218,10 +218,10 @@ func (p *cardPlanner) planProfile(from config.Profile) func(*config.Config, *imp
 		}
 		prof := p.profile(cand)
 		it := importItem{Key: catProfile, Name: "Profile", Note: noteReplacesProfile}
-		if maps.Equal(prof.Prefs, from.Prefs) && slices.Equal(prof.PinOrder, from.PinOrder) {
+		if maps.Equal(prof.Prefs, from.Prefs) && sameBookmarks(prof.Bookmarks, from.Bookmarks) {
 			it.Same = true
 		} else {
-			prof.Prefs, prof.PinOrder = maps.Clone(from.Prefs), slices.Clone(from.PinOrder)
+			prof.Prefs, prof.Bookmarks = maps.Clone(from.Prefs), config.CloneBookmarks(from.Bookmarks)
 		}
 		cat.Items = append(cat.Items, it)
 		return nil
@@ -288,7 +288,7 @@ func (a *App) serveOwnImportApply(w http.ResponseWriter, r *http.Request) {
 			}
 			to := &cur.Users[i].Profile
 			if writes(catProfile) {
-				to.Prefs, to.PinOrder = next.Prefs, next.PinOrder
+				to.Prefs, to.Bookmarks = next.Prefs, next.Bookmarks
 			}
 			if writes(catPresets) {
 				to.Presets = next.Presets
@@ -305,4 +305,10 @@ func (a *App) serveOwnImportApply(w http.ResponseWriter, r *http.Request) {
 	}
 	a.recordImport(a.importActor(r), req.Mode, &p.plan, nil)
 	apiJSON(w, importResult{Plan: p.plan})
+}
+
+func sameBookmarks(a, b []config.Bookmark) bool {
+	ja, _ := json.Marshal(a)
+	jb, _ := json.Marshal(b)
+	return len(a) == len(b) && string(ja) == string(jb)
 }

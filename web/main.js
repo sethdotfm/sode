@@ -14,6 +14,11 @@ import { openItemLinks } from './itemlinkopen.js';
 import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
+import './bookmarks.js';
+import './bookmarkeditor.js';
+import './palette.js';
+import './palettehome.js';
+import './palettechar.js';
 import './browsercopy.js';
 import './panelwatch.js';
 import './inboxdialog.js';
@@ -23,6 +28,7 @@ import './brokenbanner.js';
 import './setupwizard.js';
 import { bigScrollAll } from './bigscroll.js';
 import { showApprovalCards } from './approvalcards.js';
+import { registerShell } from './swreg.js';
 
 on('brand', ({ text }) => {
   document.title = text;
@@ -32,4 +38,5 @@ initTheme();
 openItemLinks();
 bigScrollAll();
 showApprovalCards();
+registerShell();
 connect();

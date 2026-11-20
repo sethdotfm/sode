@@ -101,14 +101,14 @@ func sendOne(t *testing.T, a *App, from *client, req inboxReq) inboxCard {
 func TestInboxSendAndAccept(t *testing.T) {
 	a, ana, bo := inboxApp(t)
 	show := mePreset("Show", 1, 2)
-	setProfile(t, a, "Ana", config.Profile{Presets: []config.Preset{show}, FilterSets: []config.FilterSet{{Name: "Cams", Src: "CAM", Sode: true, Ext: true}}})
+	setProfile(t, a, "Ana", config.Profile{Presets: []config.Preset{show}, FilterSets: []config.FilterSet{{ID: "set1", Name: "Cams", Src: "CAM", Sode: true, Ext: true}}})
 	drainSend(ana)
 	drainSend(bo)
 	browser := mePreset("Desk", 3, 4)
 	k := sendOne(t, a, ana, inboxReq{
 		To:         []string{"bo"},
 		Presets:    []cardPresetReq{{Scope: scopeMe, ID: show.ID}, {Scope: scopeBrowser, Preset: &browser}},
-		FilterSets: []cardSetReq{{Scope: scopeMe, Name: "cams"}},
+		FilterSets: []cardSetReq{{Scope: scopeMe, ID: "set1"}},
 	})
 	if k.Count != 3 {
 		t.Fatalf("card count %d", k.Count)

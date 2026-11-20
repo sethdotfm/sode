@@ -1,4 +1,6 @@
-import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, linked, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
+import { holdsOn, protectedText } from './protectrules.js';
+import { protectSummary, sendProtect, protectRow } from './protects.js';
 import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
@@ -7,6 +9,7 @@ import { failureGroups } from './history.js';
 import { resolvePreset } from './presetstore.js';
 import { showResult, setResult } from './banner.js';
 import { writeJSON, writeStr } from './store.js';
+import { onMyRights } from './editorrights.js';
 export { showResult, resultNode } from './banner.js';
 
 let takeSeq = 0;
@@ -58,6 +61,17 @@ const againItem = (e) =>
     e.ok ? null : e,
   );
 
+// The Grid popup's staged routes (routesOf, gridpanelstage.js) as one take: one item for each destination, one group
+// for each source on it. Route ends are router numbers.
+export function gridPlan(routes, warnings) {
+  const by = new Map();
+  for (const r of routes) {
+    if (!by.has(r.dst)) by.set(r.dst, []);
+    by.get(r.dst).push({ src: srcItem(r.src), levels: r.levels });
+  }
+  return { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(dstItem(dst), groups)) };
+}
+
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
   items: dsts.map((dst) => routeItem(dst, [{ src, levels }])),
@@ -107,7 +121,7 @@ function withFollows(plan, follows) {
   return oldest.size ? { ...plan, extra: { items: [...oldest.values()].map(undoItem), on: false } } : plan;
 }
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
-export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
+export const undoPlan = (e) => (e.protect ? protectRow(e).undo : withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []));
 export const groupUndoPlan = (f) =>
   withFollows(
     { verb: 'undo', items: f.entries.map(undoItem) },
@@ -132,9 +146,14 @@ export const VERBS = {
   retry: { word: 'retry', ask: 'retry the take of', busy: 'Retrying…', resets: false },
   redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
   preset: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
+  // The Grid popup's staged routes (gridpopup.js). They are not the patch boxes, so a send leaves the boxes alone.
+  grid: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
+  // A Protect is no take: protects.js sends it (plan.protect).
+  protect: { word: 'protect', ask: 'protect', busy: 'Protecting…', resets: false },
+  unprotect: { word: 'clear protect', ask: 'clear the Protect on', busy: 'Clearing…', resets: false },
 };
 export const planVerb = (plan) => VERBS[plan.verb].word;
-export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
+export const planEmpty = (plan) => !plan.protect && !plan.items.some((i) => i.groups.length);
 
 function routeText(t, already = []) {
   return (
@@ -231,13 +250,17 @@ export function planBlocked(plan) {
   if (!linked()) {
     return { block: { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' }, prot };
   }
+  if (plan.protect) return { block: null, prot };
   const outside = planOutside(S.myRights, plan, off(), levelLabel);
   if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   for (const i of live) {
-    const p = protectedOn(
+    const p = holdsOn(
+      S.prot,
+      S.protBy,
       i.dst.n,
       i.groups.flatMap((g) => g.levels),
+      S.cfg?.protectDevice || 0,
     );
     if (p.levels.length) prot.set(i, p);
   }
@@ -250,7 +273,7 @@ export function planBlocked(plan) {
       block: {
         kind: 'error',
         title: 'Destination protected',
-        text: `${i.dst.label} is protected on levels ${levelText(p.levels)} by device ${p.devices.join(', ')}.`,
+        text: `${i.dst.label}: ${protectedText(p)}.`,
       },
       prot,
     };
@@ -322,7 +345,7 @@ function itemSummary(item, boxed, prot, since) {
       el('div', 'sode__route', levelBar(r.levels), el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`),
     ),
     alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there')) : null,
-    prot ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(prot.devices)), 'will be refused') : null,
+    prot ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedText(prot)), 'will be refused') : null,
     item.untouched?.length
       ? el(
           'div',
@@ -342,6 +365,7 @@ function itemSummary(item, boxed, prot, since) {
 }
 
 export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
+  if (plan.protect) return protectSummary(plan);
   // Restore goes back past newer changes on purpose; other undos warn.
   const since = plan.verb === 'undo' && !plan.at;
   const head = [
@@ -511,6 +535,7 @@ export function lastChip(t, state) {
 }
 
 export function sendTakes(p) {
+  if (p.protect) return sendProtect(p);
   const take = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
   for (const it of [...p.items, ...(p.extra?.on ? p.extra.items : [])]) {
@@ -530,6 +555,8 @@ export function sendTakes(p) {
     return false;
   }
   for (const id of take.byId.keys()) takes.set(id, take);
+  // The Grid popup drops its staged routes only once they went out.
+  p.onSent?.();
   const last = lastFromPlan(p);
   if (last) {
     lastPatch = last;
@@ -554,8 +581,8 @@ export const applyMyRights = (r) => {
   emit('myRights');
 };
 export const rightsOff = (kind, n) => !allowed(S.myRights, kind, n);
-onMsg('myRights', (m) => applyMyRights(m.rights));
-on('wsclose', () => applyMyRights(null));
+// editorrights.js owns the message on every page, so the Palette reads the same Rights.
+onMyRights(applyMyRights);
 
 onMsg('takeResult', takeResult);
 on('wsclose', () => {

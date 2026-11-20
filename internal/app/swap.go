@@ -184,7 +184,7 @@ func (sw *swapper) config(c *config.Config, mine string, pick func(id string) bo
 			}
 		}
 		for i := range fs {
-			id, was := "filterSet/"+s.ID+"/"+fs[i].Name, sw.brokenIn(fs[i].Broken)
+			id, was := "filterSet/"+s.ID+"/"+fs[i].ID, sw.brokenIn(fs[i].Broken)
 			if pick(id) && sw.filterSet(&fs[i]) {
 				hit(swapItem{ID: id, Kind: "filterSet", Name: fs[i].Name, Owner: s.Name, Broken: was})
 			}

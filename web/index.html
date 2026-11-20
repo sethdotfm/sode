@@ -15,12 +15,16 @@
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
 <link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="palette.css">
 <link rel="stylesheet" href="desktop.css">
 <link rel="stylesheet" href="mobile.css">
 <link rel="stylesheet" href="history.css">
 <link rel="stylesheet" href="exportimport.css">
 <link rel="stylesheet" href="touch.css">
 <link rel="stylesheet" href="setup.css">
+<link rel="stylesheet" href="gridpanel.css">
+<link rel="stylesheet" href="gridpanelphone.css">
+<link rel="stylesheet" href="gridpopup.css">
 </head>
 <body>
 
@@ -77,11 +81,14 @@
     <form class="sode__boxes" autocomplete="off">
       <div class="sode__box sode__box--src">
         <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
-        <span class="sode__keyed">
-          <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
-          <kbd class="sode__key-note" aria-hidden="true">s</kbd>
-        </span>
-        <div class="sode__menu-pop"><ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul><div class="sode__menu-count" id="src-count" aria-hidden="true" hidden></div><div class="sode__menu-all" id="src-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all sources</button></div></div>
+        <div class="sode__entry">
+          <span class="sode__keyed">
+            <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
+            <kbd class="sode__key-note" aria-hidden="true">s</kbd>
+          </span>
+          <div class="sode__menu-pop"><ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul><div class="sode__menu-count" id="src-count" aria-hidden="true" hidden></div></div>
+          <div class="sode__menu-all" id="src-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all sources</button></div>
+        </div>
       </div>
       <div class="sode__box sode__box--to">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
@@ -116,17 +123,29 @@
       </div>
       <div class="sode__box">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
+        <div class="sode__take-row">
+          <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm pb-tip--end sode__grid-open" id="grid-open" tabindex="-1" aria-keyshortcuts="Control+E" data-pb-tip="Grid popup (Ctrl+e)"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-grid-3x3"/></svg><span>Grid</span></button>
+        </div>
       </div>
       <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
       <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
     </form>
 
+    <!-- The Grid popup's staged routes (gridpopup.js), kept in this page's memory only. -->
+    <section class="sode__staged" id="grid-staged" aria-labelledby="grid-staged-head" hidden>
+      <div class="sode__staged-head">
+        <span class="sode__label" id="grid-staged-head">Staged</span>
+        <button type="button" class="pb-btn pb-btn--danger pb-btn--sm" id="grid-staged-take">Take</button>
+        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="grid-staged-clear">Clear</button>
+      </div>
+      <ul class="sode__staged-list" id="grid-staged-list" aria-label="Staged routes"></ul>
+    </section>
     <div class="sode__result" id="result" aria-live="polite"></div>
     <!-- The Broken banner (brokenbanner.js). The phone view has its own copy. -->
     <div class="pb-alert pb-alert--warn sode__broken" data-broken role="status" hidden></div>
 
-    <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
+    <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Bookmarks"></div>
 
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__recent-head" id="history-bar">
@@ -223,6 +242,10 @@
           <label for="cfg-compact">Compact view</label>
           <span class="pb-select-wrap"><select id="cfg-compact" class="pb-select" data-pref="compact"></select></span>
         </div>
+        <div class="sode__field">
+          <label for="cfg-palette-char">Palette character</label>
+          <span class="pb-select-wrap"><select id="cfg-palette-char" class="pb-select" data-pref="paletteChar"></select></span>
+        </div>
       </div>
     </fieldset>
 
@@ -290,6 +313,10 @@
         <div class="sode__field">
           <label for="gcfg-compact">Compact view</label>
           <span class="pb-select-wrap"><select id="gcfg-compact" class="pb-select" data-gpref="compact"></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="gcfg-palette-char">Palette character</label>
+          <span class="pb-select-wrap"><select id="gcfg-palette-char" class="pb-select" data-gpref="paletteChar"></select></span>
         </div>
       </div>
     </fieldset>
@@ -457,6 +484,24 @@
       </div>
     </fieldset>
 
+    <fieldset class="sode__group" data-section="protects" data-topic="routers" data-router="1">
+      <legend>Protects</legend>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-protectdevice" data-pb-tip="0 = off. A panel with the same ID can clear Sode's Protects, so use a number no panel uses">Sode's device number</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-protectdevice" class="pb-input" data-key="protectDevice" data-type="int" min="0" max="4095"></span>
+        </div>
+      </div>
+      <div class="sode__field" data-apart data-find="protects-list" data-label="Protects and Router locks">
+        <span class="sode__label">Protects and Router locks</span>
+        <ul class="sode__protects" id="protects-list"></ul>
+        <div class="sode__protects-acts">
+          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Clear Sode's Protects" data-pb-tip="Clears every Protect with Sode's device number, also with no record. Asks your PIN again">Clear Sode's Protects</button>
+        </div>
+        <div id="protects-confirm"></div>
+      </div>
+    </fieldset>
+
     <h3 class="sode__topic" data-topic="access" id="topic-access">Access</h3>
     <fieldset class="sode__group" data-section="locks" data-topic="access">
       <legend>Locks</legend>
@@ -585,6 +630,7 @@
       <span class="sode__conn-addr sode-m__addr" id="m-rt-addr"></span>
       <span class="sode-m__spacer"></span>
       <span class="sode-inbox__slot" data-inbox></span>
+      <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" id="m-grid" aria-label="Grid popup"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-grid-3x3"/></svg></button>
       <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" id="m-settings" aria-label="Settings"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-settings"/></svg></button>
     </header>
 
@@ -600,7 +646,7 @@
     <div class="sode-m__stage">
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
-      <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
+      <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Bookmarks"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head">
         <div class="sode__recent-head">
           <span class="sode__label" id="m-recent-head">History</span>
@@ -725,7 +771,18 @@
         <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Next source, destination</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
+        <dt><kbd data-mac="⌃e">Ctrl+e</kbd></dt><dd>Grid popup, open or close</dd>
         <dt><kbd>Esc</kbd></dt><dd>Close the match list, then clear the box, then Keyboard mode</dd>
+      </dl>
+      <div class="sode__label">Grid popup</div>
+      <dl>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></dt><dd>Move the cursor</dd>
+        <dt><kbd>Space</kbd></dt><dd>On a name: pick it. On a crosspoint: stage the route, or the Diagonal of the picks</dd>
+        <dt><kbd>v</kbd></dt><dd>Draw a line from the cursor: move to stretch it, Space stages it</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Confirm the staged routes as one take</dd>
+        <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source search, Destination search, Levels box</dd>
+        <dt><kbd>u</kbd> <kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Remove the line, then the picks, then close. The staged routes stay</dd>
       </dl>
       <div class="sode__label">Match lists (Source, Destination)</div>
       <dl>
@@ -733,21 +790,23 @@
         <dt><kbd>Enter</kbd> <kbd>Tab</kbd></dt><dd>Pick the highlighted match</dd>
         <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>A page at a time</dd>
       </dl>
-      <div class="sode__label">Presets</div>
+      <div class="sode__label">Bookmarks and presets</div>
       <dl>
-        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Fire pinned preset 1 to 9</dd>
-        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the Patch boxes, no take</dd>
+        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Open bookmark 1 to 9. A preset still asks for a Confirm</dd>
+        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the Patch boxes from a preset bookmark, no take</dd>
         <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Presets popup</dd>
-        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the Patch boxes, no take</dd>
-        <dt><kbd>p</kbd></dt><dd>In Keyboard mode: the pinned presets (← → to move, Enter fires, Esc back)</dd>
+        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the Patch boxes from a preset, no take</dd>
+        <dt><kbd>p</kbd></dt><dd>In Keyboard mode: the bookmarks (← → to move, Enter opens, Esc back)</dd>
+      </dl>
+      <div class="sode__label">Bookmarks editor</div>
+      <dl>
+        <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd></dt><dd>Move the focused bookmark up or down</dd>
       </dl>
       <div class="sode__label">Presets popup</div>
       <dl>
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move</dd>
         <dt><kbd>Enter</kbd></dt><dd>Fire</dd>
         <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the Patch boxes, no take</dd>
-        <dt><kbd data-mac="⌥p">Alt+p</kbd></dt><dd>Pin or unpin</dd>
-        <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd> <kbd data-mac="⌥⌘j">Ctrl+Alt+j</kbd> <kbd data-mac="⌥⌘k">Ctrl+Alt+k</kbd></dt><dd>Move a pinned preset up or down</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>
       </dl>
       <div class="sode__label">Keyboard mode (History)</div>
@@ -760,6 +819,7 @@
         <dt><kbd>l</kbd> <kbd>→</kbd> <kbd>Enter</kbd></dt><dd>Open</dd>
         <dt><kbd>h</kbd> <kbd>←</kbd> <kbd>⇧Enter</kbd></dt><dd>Close</dd>
         <dt><kbd>u</kbd></dt><dd>Undo</dd>
+        <dt><kbd>x</kbd> <kbd>⇧x</kbd></dt><dd>Protect the destination in the Patch boxes, or clear Sode's Protect on it (Source box empty)</dd>
         <dt><kbd>r</kbd></dt><dd>Retry (failed takes) or Redo (any other)</dd>
         <dt><kbd>/</kbd></dt><dd>Filters</dd>
         <dt><kbd>⇧s</kbd> <kbd>⇧d</kbd></dt><dd>Filter by Source, Destination</dd>
@@ -781,6 +841,15 @@
         <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock</dd>
         <dt><kbd data-mac="⌥⇧c">Alt+Shift+c</kbd></dt><dd>Compact view on or off</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
+        <dt><kbd data-mac="⌃⇧p">Ctrl+Shift+p</kbd></dt><dd>Palette. Firefox on Windows and Linux keeps this key for a private window, so there type the Palette character (default <kbd>&gt;</kbd>) first in an empty Source or Destination box</dd>
+      </dl>
+      <div class="sode__label">Palette</div>
+      <dl>
+        <dt><kbd>&gt;</kbd></dt><dd>First in an empty Source or Destination box: open the Palette. Type it again to search for <kbd>&gt;</kbd>. Settings › This browser sets the character</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Open the row. A preset still asks for a Confirm</dd>
+        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the Patch boxes from a preset, no take. Add a filter set to the stack</dd>
+        <dt><kbd data-mac="⌥b">Alt+b</kbd></dt><dd>Bookmark the row: to Me, or to This browser for a Guest</dd>
+        <dt><kbd>Esc</kbd> <kbd>Backspace</kbd></dt><dd>Back one step, then close</dd>
       </dl>
     </div>
     <div class="pb-modal__footer">

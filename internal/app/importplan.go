@@ -47,7 +47,8 @@ type importReq struct {
 }
 
 // importItem is one file item. Key is the key in pick and choices. Users, presets and panels use the hidden
-// id, filter sets and API clients the name. Settings use the section name, Routers the UID.
+// id, filter sets and API clients the name. Settings use the section name, Routers the UID, and Everyone
+// bookmarks its category name.
 type importItem struct {
 	Key    string           `json:"key"`
 	Name   string           `json:"name"`
@@ -232,6 +233,7 @@ type importPlanner struct {
 	removed    importRemovals
 	users      map[string]string // file user id → live id, "" when skipped
 	presets    map[string]string // file preset id → live id, "" when skipped
+	sets       map[string]string // file filter set id → live id, "" when skipped
 	icons      map[string]string // file icon id → live id, "" when skipped
 	panelIDs   map[string]string // file panel id → live id; a new panel's is added when it is stored
 	panels     []plannedPanel
@@ -257,7 +259,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 	p := &importPlanner{
 		planBase: newPlanBase(live, src, dst, req, b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID),
 		b:        b, actor: actor, secure: secure,
-		names: lv.Names, livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{},
+		names: lv.Names, livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{}, sets: map[string]string{},
 		icons: map[string]string{}, panelIDs: map[string]string{},
 		liveTemplates: lv.Templates, liveSets: lv.Sets, liveIcons: lv.Icons, liveDefaults: lv.Defaults, liveIconFile: lv.IconFile,
 	}
@@ -282,6 +284,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 		{catPresets, []string{"presets"}, p.planPresets}, // before Users and API clients, whose Rights map preset ids
 		{catUsers, []string{"users"}, p.planUsers},
 		{catFilterSets, []string{"filterSets"}, p.planFilterSets},
+		{catBookmarks, []string{"bookmarks"}, p.planBookmarks}, // after Presets, whose ids its keys can hold
 		{catAPIClients, []string{"apiClients"}, p.planAPIClients},
 		{catArtwork, nil, p.planArtwork},
 		{catPanels, nil, p.planPanelsAll},
@@ -354,6 +357,8 @@ func (p *importPlanner) refused(cat string) {
 		p.removed.users = map[string]bool{}
 	case catPresets:
 		p.presets = map[string]string{}
+	case catFilterSets:
+		p.sets = map[string]string{}
 	case catArtwork:
 		p.icons, p.iconWrites, p.defaultWrites = map[string]string{}, nil, nil
 		p.removed.icons, p.removed.defaults = nil, nil
@@ -373,10 +378,13 @@ func (p *importPlanner) wanted(cat string) bool {
 	return slices.Contains(p.req.Categories, cat)
 }
 
-// presetTo is the id here of a file preset, as this import maps it. Else a file from this install keeps the id and
-// another gets "".
-func (p *importPlanner) presetTo(id string) string {
-	to, mapped := p.presets[id]
+// presetTo and setTo give the id here of a file preset or filter set, as this import maps it. Else a file from this
+// install keeps the id and another gets "".
+func (p *importPlanner) presetTo(id string) string { return p.idHere(p.presets, id) }
+func (p *importPlanner) setTo(id string) string    { return p.idHere(p.sets, id) }
+
+func (p *importPlanner) idHere(m map[string]string, id string) string {
+	to, mapped := m[id]
 	if !mapped && p.same {
 		to = id
 	}
@@ -620,23 +628,36 @@ func (p *importPlanner) planPresets(cand *config.Config, cat *importCat) error {
 
 func (p *importPlanner) planFilterSets(cand *config.Config, cat *importCat) error {
 	for _, s := range p.b.FilterSets {
-		if !p.picked(catFilterSets, s.Name) {
+		if !p.picked(catFilterSets, s.ID) {
 			continue
 		}
+		fileID := s.ID
 		s.Broken = p.check.filterSetBroken(s)
-		it := importItem{Key: s.Name, Name: s.Name, Broken: s.Broken}
+		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
 		out := addItem
-		if i := matchIdx(false, cand.FilterSets, "", s.Name, nil, setName); i >= 0 {
+		if i := matchSet(p.same, cand.FilterSets, s); i >= 0 {
 			lf := cand.FilterSets[i]
 			s.Extra = lf.Extra
-			if out = p.settle(&it, catFilterSets, lf.Name, sameYAML(s, lf), namesIn(cand.FilterSets, setName)); out == overwrite {
+			if sameName(s.Name, lf.Name) { // keep the live spelling
 				s.Name = lf.Name
-				cand.FilterSets[i] = s
+			}
+			s.ID = lf.ID
+			p.removed.keep(lf.ID)
+			switch out = p.settle(&it, catFilterSets, lf.Name, sameYAML(s, lf), namesIn(cand.FilterSets, setName)); out {
+			case keepLive:
+				p.sets[fileID] = it.liveID(lf.ID)
+			case overwrite:
+				cand.FilterSets[i], p.sets[fileID] = s, lf.ID
 			}
 		}
 		if out == addItem {
 			s.Name = cmp.Or(it.As, s.Name)
+			if s.ID == "" || it.Choice == useRename || slices.ContainsFunc(cand.FilterSets, func(x config.FilterSet) bool { return x.ID == s.ID }) {
+				s.ID = config.NewFilterSetID()
+			}
 			cand.FilterSets = append(cand.FilterSets, s)
+			p.removed.keep(s.ID)
+			p.sets[fileID] = s.ID
 		}
 		cat.Items = append(cat.Items, it)
 	}

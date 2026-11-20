@@ -58,6 +58,10 @@ type Entry struct {
 	// the entry readable after a rename or a delete.
 	Router      string `json:"router,omitempty"`
 	RouterTitle string `json:"routerTitle,omitempty"`
+	// Protect: "set" or "clear" for a Protect Sode set or cleared on every level (protect.go); Src is -1. Still is
+	// the levels Sode still holds after a failed one.
+	Protect string `json:"protect,omitempty"`
+	Still   []int  `json:"still,omitempty"`
 }
 
 // logLine: off turns 0-based numbers into the router's display numbers.

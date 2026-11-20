@@ -6,6 +6,7 @@ import { layout, onLayout } from './layout.js';
 import { setResult, resultNode, dismissResult } from './banner.js';
 import { actionsFor, editHref } from './panelsrules.js';
 import { bannerStep } from './gridpanelhead.js';
+import { barLinks } from './panelsbar.js';
 
 // core.js's on() has no unsubscribe, so one subscription at import paints every head a run has made.
 const conns = new Set();
@@ -44,6 +45,7 @@ export function gridHead(ui, count, { onCopy } = {}) {
   settings.href = './#settings';
   // The Panels link joins this group (panelfull.js). Kiosk mode and Full width stay for their code; gridpanel.css hides them.
   // Order on the panel page: Settings, Panels, Edit or Copy, a rule, Full screen. Edit and Copy use the rules of /panels (actionsFor, see access).
+  // The Live Editor has the bar of /panels and the editor (panelsbar.js): Settings, Panels and Home, a rule, Full screen.
   const btns = [ui.kiosk, ui.screen, ui.full].filter(Boolean);
   const after = btns.at(-1)?.nextSibling ?? null;
   const home = page ? el('span', 'sode-gridpanel__home') : null;
@@ -56,7 +58,9 @@ export function gridHead(ui, count, { onCopy } = {}) {
     copy.addEventListener('click', () => onCopy?.());
   }
   for (const n of [edit, copy]) if (n) n.hidden = true;
-  const parts = page ? [settings, home, edit, copy, rule('sode-gridpanel__toolrule'), ...btns] : [settings, ...btns];
+  const parts = page
+    ? [settings, home, edit, copy, rule('sode-gridpanel__toolrule'), ...btns]
+    : [...barLinks({ panels: true, leave: ui.leave }), rule('sode-gridpanel__toolrule'), ...btns];
   const tools = el('div', 'sode-gridpanel__tools', ...parts);
   ui.head.insertBefore(tools, after);
   // On the panel page the link joins the buttons even with the Title bar setting off; panelfull.js moves it out in kiosk mode.
@@ -81,9 +85,18 @@ export function gridHead(ui, count, { onCopy } = {}) {
   const msg = page ? el('div', 'sode-gridpanel__msg', res, held, said) : null;
   const top = el('div', 'sode-gridpanel__headrow');
   ui.head.before(deck);
-  // On the panel page a rule follows the Lock chip's "Signed in as" (gridpanel.css shows it only beside the chip).
-  top.append(...[page ? rule('sode-gridpanel__whorule') : null, ui.head, slot, conn.root].filter(Boolean));
-  deck.append(top, ...(box ? [box] : []), rule('sode-gridpanel__rule sode-gridpanel__rule--1'), finds, rule('sode-gridpanel__rule sode-gridpanel__rule--2'));
+  // A rule follows the Lock chip's "Signed in as" (gridpanel.css shows it only beside the chip).
+  top.append(rule('sode-gridpanel__whorule'), ui.head, ...[slot, conn.root].filter(Boolean));
+  // The Live Editor's bar (editorlive.js) goes under the header row, so the header row is the top bar there too.
+  if (ui.liveBar) deck.classList.add('sode-gridpanel__deck--live');
+  deck.append(
+    top,
+    ...(ui.liveBar ? [ui.liveBar] : []),
+    ...(box ? [box] : []),
+    rule('sode-gridpanel__rule sode-gridpanel__rule--1'),
+    finds,
+    rule('sode-gridpanel__rule sode-gridpanel__rule--2'),
+  );
   if (msg) deck.append(rule('sode-gridpanel__rule sode-gridpanel__rule--3'), msg);
   // The phone's band (gridpanel.css): More and the levels in words open the rest of the deck under it.
   const more = el('button', 'pb-btn pb-btn--ghost pb-btn--icon sode-gridpanel__more', icon('menu', false));
@@ -207,6 +220,7 @@ export function gridHead(ui, count, { onCopy } = {}) {
       place('phone');
       tools.replaceWith(...btns);
       if (ui.home && (ui.home.parentNode === tools || ui.home.parentNode === home)) ui.head.append(ui.home);
+      if (ui.liveBar) deck.before(ui.liveBar);
       deck.replaceWith(ui.head);
       if (box) ui.grid.before(box);
     },

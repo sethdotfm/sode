@@ -23,28 +23,34 @@ const (
 	exportStagesDir = "import-staging"
 )
 
+// httpSigned answers setup and a session under its Lock. signed is false with no users, or when the
+// token signs in no user; each caller judges that case itself. false in ok: it answered already.
+func (a *App) httpSigned(w http.ResponseWriter, r *http.Request) (u config.User, signed bool, cfg config.Config, ok bool) {
+	cfg = a.r().cfg
+	if a.setupPendingCfg(cfg) {
+		apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
+		return u, false, cfg, false
+	}
+	if len(cfg.Users) == 0 {
+		return u, false, cfg, true
+	}
+	tok := r.Header.Get(sessionHeader)
+	if u, signed = a.tokens.user(tok, cfg); signed && a.tokens.locked(tok) {
+		apiFail(w, http.StatusForbidden, "locked", errPageLocked.Error())
+		return u, signed, cfg, false
+	}
+	return u, signed, cfg, true
+}
+
 // httpSession is the user the session token signs in, not under its Lock. With no users it passes with
 // no user. false: it answered already.
 func (a *App) httpSession(w http.ResponseWriter, r *http.Request, signIn string) (config.User, config.Config, bool) {
-	cfg := a.r().cfg
-	if a.setupPendingCfg(cfg) {
-		apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
-		return config.User{}, cfg, false
-	}
-	if len(cfg.Users) == 0 {
-		return config.User{}, cfg, true
-	}
-	tok := r.Header.Get(sessionHeader)
-	u, ok := a.tokens.user(tok, cfg)
-	switch {
-	case !ok:
+	u, signed, cfg, ok := a.httpSigned(w, r)
+	if ok && !signed && len(cfg.Users) > 0 {
 		apiFail(w, http.StatusUnauthorized, "sign_in", signIn)
 		return u, cfg, false
-	case a.tokens.locked(tok):
-		apiFail(w, http.StatusForbidden, "locked", errPageLocked.Error())
-		return u, cfg, false
 	}
-	return u, cfg, true
+	return u, cfg, ok
 }
 
 // httpAdmin passes an Administrator's session, as roleMu judges a socket. In env-only mode with no
@@ -157,7 +163,7 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 		Categories: m.Categories, Routers: m.Routers, Unknown: bundle.Unknown,
 		Counts: map[string]int{
 			catUsers: len(bundle.Users), catPresets: len(bundle.Presets), catFilterSets: len(bundle.FilterSets),
-			catPanels: len(bundle.Panels.Panels), "templates": len(bundle.Panels.Templates),
+			catBookmarks: len(bundle.Bookmarks), catPanels: len(bundle.Panels.Panels), "templates": len(bundle.Panels.Templates),
 			"checkpointSets": len(bundle.Panels.CheckpointSets), catAPIClients: len(bundle.APIClients),
 			"artDefaults": len(bundle.Artwork.Defaults), "icons": len(bundle.Artwork.Icons), catRouters: len(bundle.Routers),
 		},
@@ -194,7 +200,10 @@ func sizeImport(plan *importPlan, b *exportBundle) {
 		put(catPresets, p.ID, p, 0)
 	}
 	for _, s := range b.FilterSets {
-		put(catFilterSets, s.Name, s, 0)
+		put(catFilterSets, s.ID, s, 0)
+	}
+	if len(b.Bookmarks) > 0 {
+		put(catBookmarks, catBookmarks, b.Bookmarks, 0)
 	}
 	for _, c := range b.APIClients {
 		put(catAPIClients, c.Name, c, 0)

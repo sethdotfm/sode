@@ -11,6 +11,10 @@ import { churnKey } from './lockrules.js';
 // The open confirm, which a Lock closes.
 let shown = null;
 on('locking', () => shown?.close());
+// The Palette closes an open confirm before it opens.
+export const closeOpenConfirm = () => shown?.close();
+// The Grid popup leaves its keys to an open confirm.
+export const confirmShown = () => shown != null;
 
 export function keyConfirm({ prompt, verb: verbOf, summary, enter = () => false, cfg = () => undefined, spaceHint = false, refocus = false, onTake, onClose }) {
   let cur = null; // { plan, prot, key, lock }

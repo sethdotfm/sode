@@ -3,7 +3,6 @@ package app
 import (
 	"errors"
 	"fmt"
-	"log"
 	"slices"
 	"sort"
 	"strconv"
@@ -27,8 +26,6 @@ type routeReq struct {
 	Preset string `json:"-"` // set by the take handler: the preset this route came from (cleanPresetName)
 	// PresetID is that preset's hidden id, which Rights check, so a rename keeps who can fire it.
 	PresetID string `json:"-"`
-	// NoCheck: use the cache for Prev instead of reading dst first.
-	NoCheck bool `json:"-"`
 	// Stage: levels, by wire number, that go in a native group salvo (fire.go); other levels go as ordinary connects.
 	Stage map[int]bool `json:"-"`
 }
@@ -36,8 +33,8 @@ type routeReq struct {
 // routeLimit: one take runs this many routes at one time; the link sends one message per ACK, so more would time out.
 const routeLimit = 8
 
-// bigTake: routes per confirm above which dst is not read first (17 interrogates each);
-// the cache is used.
+// bigTake: from this many routes per confirm, the check before take can read a level with a tally dump
+// (takecheck.go). Under it, the check interrogates each destination level.
 const bigTake = 6
 
 // take is the one entry point for every confirmed take (browser plan, Undo, Redo, Retry, presets, API).
@@ -52,31 +49,30 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 }
 
 // takeAllowed runs items that already passed rightsPass. The API path calls it directly so its
-// take cap sits between the rights check and the run.
-func (a *App) takeAllowed(c *client, items []routeReq) {
-	if len(items) >= bigTake {
-		log.Printf("take of %d routes: not reading routes from the router first, to spare it", len(items))
-		for i := range items {
-			items[i].NoCheck = true
-		}
-	}
+// take cap sits between the rights check and the run. unread: the check before take did not finish for
+// some route, so its Prev came from the cache.
+func (a *App) takeAllowed(c *client, items []routeReq) (unread bool) {
+	r := a.r()
+	ext, read := a.checkRoutes(r, c, items)
+	unread = !read
 	if len(items) > 1 {
 		g := strconv.FormatInt(time.Now().UnixNano(), 36)
 		for i := range items {
 			items[i].Group, items[i].GroupN = g, len(items)
 		}
 	}
-	if r := a.r(); r.cfg.FireMode == "native" && len(items) > 1 {
+	if r.cfg.FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
-			a.takeNative(r, c, items)
-			return
+			a.takeNative(r, c, items, ext)
+			return unread
 		}
 		// A lone staged take would wait for a Go that never comes.
 		for i := range items {
 			items[i].Stage = nil
 		}
 	}
-	runLimited(routeLimit, len(items), func(i int) { a.route(c, items[i]) })
+	runLimited(routeLimit, len(items), func(i int) { a.route(c, items[i], ext) })
+	return unread
 }
 
 func runLimited(limit, n int, fn func(i int)) {
@@ -163,7 +159,6 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	w.ext = a.ext
 	e.SrcName, e.DstName = a.router.srcNames[w.src], a.router.dstNames[w.dst]
 	for _, l := range w.levels {
 		if _, ok := a.router.protect[w.dst][l.ui]; ok {
@@ -176,12 +171,9 @@ func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 	return protected
 }
 
-func (a *App) checkPhase(r *runtime, w *waiter, e *Entry, noCheck bool) {
-	// Prev from the router, not a cache, since it is possible that the cache missed a change; differing answers
-	// are logged as found.
-	if !noCheck && !a.checkTally(r, w) {
-		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", w.dst, a.checkTimeout)
-	}
+// registerPhase takes Prev from the cache, which the check before take (takeAllowed) read from the router.
+// The check's answers that differ from the cache are logged as found first.
+func (a *App) registerPhase(w *waiter, e *Entry) {
 	a.flushFound(w.dst)
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -215,11 +207,14 @@ func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*routeLeve
 	return nil
 }
 
-func (a *App) route(c *client, req routeReq) {
+// route runs one route on ext. It does not read the router first: takeAllowed does that for the whole take.
+func (a *App) route(c *client, req routeReq, ext *extTracker) {
 	r := a.r()
-	if t := a.prepare(r, c, req); t != nil {
-		a.complete(r, t, a.sendRoute(r, t.w))
+	t := a.prepare(r, c, req, ext)
+	if t == nil {
+		return
 	}
+	a.complete(r, t, a.sendRoute(r, t.w))
 }
 
 type routeRun struct {
@@ -230,8 +225,8 @@ type routeRun struct {
 }
 
 // prepare returns nil when the route is over (bad request or protected dst), already
-// answered and recorded.
-func (a *App) prepare(r *runtime, c *client, req routeReq) *routeRun {
+// answered and recorded. ext is the tracker that the take's check started on (checkRoutes).
+func (a *App) prepare(r *runtime, c *client, req routeReq, ext *extTracker) *routeRun {
 	res := &routeResult{T: "takeResult", ID: req.ID}
 	w, e, err := a.planPhase(r, c, req)
 	if err != nil {
@@ -239,6 +234,7 @@ func (a *App) prepare(r *runtime, c *client, req routeReq) *routeRun {
 		a.reply(c, res)
 		return nil
 	}
+	w.ext = ext
 	for _, l := range w.levels {
 		l.native = req.Stage[l.wire]
 	}
@@ -246,7 +242,7 @@ func (a *App) prepare(r *runtime, c *client, req routeReq) *routeRun {
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
 		return nil
 	}
-	a.checkPhase(r, w, e, req.NoCheck)
+	a.registerPhase(w, e)
 	return &routeRun{c: c, res: res, w: w, e: e}
 }
 

@@ -18,10 +18,10 @@ func fillRouterDerived(a *App) {
 	a.router.tally[5] = map[int]int{1: 7}
 	a.router.tallyGen = 1
 	a.router.namesGen = 1
-	a.router.protect[5] = map[int]int{1: 9}
+	a.router.protect[5] = map[int]protHold{1: {9, 1}}
 	a.router.seenAt[[2]int{5, 1}] = time.Now()
 	a.router.pend = []routeChange{{5, 1, 7}}
-	a.router.pendProt = []routeChange{{5, 1, 9}}
+	a.router.pendProt = []protChange{{5, 1, 9, 1}}
 	a.router.newSrc, a.router.newDst = map[int]string{1: "x"}, map[int]string{2: "y"}
 	a.router.namesAt = time.Now()
 	a.router.savedAt = time.Now()

@@ -1,8 +1,9 @@
 // /log kind chips. Pure, no imports. "All" is not stored (every kind selected), so saved filters stay a list of ids.
 
 export const KINDS = [
-  // Router salvo messages (120/248 stage, 121 go/clear) route too, so they show with connects.
-  { id: 'connect', label: 'Connects', kinds: ['connect', 'salvoStage', 'salvoStageExt', 'salvoGo'] },
+  // Router salvo messages (120/248 stage, 121 go/clear) route too, so they show with connects. A Protect set or clear
+  // (140/142) changes what a connect can do, so it shows there too.
+  { id: 'connect', label: 'Connects', kinds: ['connect', 'salvoStage', 'salvoStageExt', 'salvoGo', 'protectSet', 'protectClear'] },
   { id: 'interrogate', label: 'Interrogates', kinds: ['interrogate'] },
   { id: 'keepalive', label: 'Keepalives', kinds: ['keepalive'] },
   { id: 'dump', label: 'Dumps', kinds: ['tallyDump', 'protectDump'] },
@@ -17,7 +18,7 @@ export const KINDS = [
 ];
 export const KIND_IDS = KINDS.map((g) => g.id);
 
-// Words for a row's why. A why with no entry shows as written.
+// Words for a row's why. A why with no entry shows as written. The download files use them too (logfile.js).
 export const WHY_LABEL = {
   take: 'Take',
   undo: 'Undo',
@@ -40,6 +41,11 @@ export const WHY_LABEL = {
   presets: 'Presets saved',
   salvos: 'Presets saved', // salvos: rows logged before the rename
   salvo: 'Router salvo',
+  protect: 'Protect',
+  protectClear: 'Clear Protect',
+  protectUndo: 'Undo of a Protect',
+  protectRollback: 'Protect rolled back',
+  protectClearAll: "Clear Sode's Protects",
   userSignIn: 'Sign in',
   userLock: 'User locked',
   userSignOut: 'User signed out',
@@ -67,7 +73,37 @@ export const WHY_LABEL = {
   inboxDecline: 'Copy declined',
   inboxWithdraw: 'Copy withdrawn',
   inboxExpired: 'Copy expired',
+  download: 'Communication Log downloaded',
 };
+const KIND_LABEL = {
+  connect: 'Connect',
+  interrogate: 'Interrogate',
+  keepalive: 'Keepalive',
+  tallyDump: 'Tally dump',
+  protectDump: 'Protect dump',
+  protectSet: 'Protect set',
+  protectClear: 'Protect clear',
+  srcNames: 'Source names',
+  dstNames: 'Destination names',
+  other: 'Other',
+  salvoStage: 'Router salvo stage',
+  salvoStageExt: 'Router salvo extended stage',
+  salvoGo: 'Router salvo go',
+  browser: 'Browser',
+  command: 'Command',
+  api: 'API',
+  link: 'Router link',
+  server: 'Sode',
+  settings: 'Settings save',
+};
+
+// A row's message words. The stored kind `salvoGo` is both the Go and the clear of a router salvo (121). The
+// message's second byte tells them apart, so rows in old log files get the right words too.
+export function kindLabel(e) {
+  if (e.kind === 'salvoGo' && typeof e.hex === 'string' && e.hex.split(' ')[1] === '01') return 'Router salvo clear';
+  return KIND_LABEL[e.kind] || e.kind;
+}
+
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server', 'settings']);
 const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };
 // Only server rows count an err as a problem: a browser disconnect also carries one for an abnormal close.

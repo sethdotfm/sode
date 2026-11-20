@@ -1,6 +1,6 @@
 import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
 import { paintConn } from './connview.js';
-import { levelBar, allLevels, levelSource } from './levelview.js';
+import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
@@ -30,6 +30,8 @@ import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
+import { gridShown, toggleGrid } from './gridpopup.js';
+import { protectKey } from './protects.js';
 
 const sel = { src: null, dst: null };
 let dsts = [];
@@ -52,6 +54,10 @@ for (const k of ['src', 'dst']) {
 }
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onChange: () => renderTally() });
+// With the Levels box hidden, a move to Levels goes to the last box before Take, where Enter takes.
+function toLevels() {
+  focusBox(levelsShown() ? lvlInput : flipped() ? boxes.src.input : boxes.dst.input);
+}
 
 const active = () =>
   layout() === 'desktop' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
@@ -210,7 +216,8 @@ function useLast(k, next = false) {
   if (k === 'src') {
     select('src', t.src);
     const dstEmpty = !sel.dst && !dsts.length && !boxes.dst.input.value.trim();
-    focusBox(dstEmpty ? boxes.dst.input : lvlInput);
+    if (dstEmpty) focusBox(boxes.dst.input);
+    else toLevels();
   } else if (k === 'dst') {
     const have = allDsts();
     const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
@@ -219,8 +226,9 @@ function useLast(k, next = false) {
       select('dst', add[add.length - 1]);
     }
     const srcEmpty = !sel.src && !boxes.src.input.value.trim();
-    focusBox(srcEmpty ? boxes.src.input : lvlInput);
-  } else {
+    if (srcEmpty) focusBox(boxes.src.input);
+    else toLevels();
+  } else if (levelsShown()) {
     lvl.set(t.levels);
     focusBox(lvlInput);
   }
@@ -239,14 +247,18 @@ function sendingRow(src, d, levels) {
       dsts = have;
       select('dst', dstItem(d));
     }
-    lvlInput.focus();
+    toLevels();
   });
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
+// The route view of one destination: no source, one destination. It offers Protect and Clear Protect.
+const routeView = () => !sel.src && !boxes.src.input.value.trim() && allDsts().length === 1;
+const protectFromKeys = (set) => routeView() && protectKey(allDsts()[0], set, openConfirm);
+
 function pickSrc(n) {
   select('src', srcItem(n));
-  lvlInput.focus();
+  toLevels();
 }
 
 function renderTally() {
@@ -273,7 +285,7 @@ function renderTally() {
     const srcs = new Set(ds.flatMap((d) => bySource(d.n, allLevels()).map((r) => r.src)).filter((s) => s != null && s >= 0));
     dstUnder.replaceChildren(
       underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving', true),
-      el('div', 'sode__scroll', ...ds.flatMap((d) => currentlyNodes(d, pickSrc))),
+      el('div', 'sode__scroll', ...ds.flatMap((d) => currentlyNodes(d, pickSrc, routeView() ? openConfirm : null))),
     );
   } else dstUnder.replaceChildren();
   [srcUnder, dstUnder].forEach((u, i) => {
@@ -282,7 +294,17 @@ function renderTally() {
   });
 }
 
-const historyView = desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys: () => keys.open(), boxes, active });
+const historyView = desktopHistory({
+  select,
+  addEnd,
+  focusBox,
+  openConfirm,
+  focusSearch,
+  openKeys: () => keys.open(),
+  boxes,
+  active,
+  protect: (set) => protectFromKeys(set),
+});
 const { renderHistory, enterKeys, keyMode, histList, histArea, pager } = historyView;
 
 // Per browser; index.html applies it before first paint.
@@ -321,7 +343,7 @@ const confirm = keyConfirm({
     else focusBack(viaKeys);
   },
   onClose: (p, viaKeys) => {
-    if (p?.verb === 'patch') lvlInput.focus();
+    if (p?.verb === 'patch') toLevels();
     else focusBack(viaKeys);
   },
 });
@@ -357,7 +379,7 @@ function tryConfirm() {
   const levels = lvl.levels();
   if (!levels) {
     lvlInput.classList.add('pb-input--invalid');
-    lvlInput.focus();
+    toLevels();
     return;
   }
   openConfirm(patchPlan(sel.src, allDsts(), levels));
@@ -426,7 +448,23 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   });
 }
 
-desktopKeys({ boxes, dsts: () => dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally });
+desktopKeys({
+  boxes,
+  dsts: () => dsts,
+  lvl,
+  confirm,
+  keys,
+  historyView,
+  active,
+  select,
+  addDst,
+  useLast,
+  wantsMatch,
+  patchNow,
+  clearAll,
+  renderTally,
+  grid: { shown: gridShown, toggle: toggleGrid },
+});
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
@@ -436,6 +474,13 @@ $('patch').addEventListener('click', patchNow);
 on('hello', () => {
   pager.reset();
   lvl.reset();
+  // A Settings save sends a new hello, so an open page follows a change of levels.
+  const box = lvlInput.closest('.sode__box');
+  box.hidden = !levelsShown();
+  if (box.hidden) {
+    lvl.clear();
+    if (document.activeElement === lvlInput) toLevels();
+  }
   renderTally();
   renderHistory();
 });
@@ -448,6 +493,7 @@ on('names', () => {
   renderTally();
 });
 on('tally', renderTally);
+on('myRights', renderTally); // the route view's Protect follows the Protect right
 // Done (or Cancel) in a pick bar: a match list must not stay open over the page.
 on('pick', () => {
   if (!boxPicking()) for (const k of ['src', 'dst']) boxes[k].cb.close();
@@ -467,6 +513,7 @@ presetHost({
   active,
   confirm: openConfirm,
   patch: () => boxPatch(sel.src, allDsts(), lvl),
+  picks: () => ({ src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: clearAll,
   focus: () => boxes.src.input.focus(),
   fill: (p) => {
@@ -475,7 +522,7 @@ presetHost({
     select('dst', p.dsts[p.dsts.length - 1]);
     if (p.levels.length) lvl.set(p.levels);
     else lvl.clear();
-    focusBox(lvlInput);
+    toLevels();
   },
 });
 

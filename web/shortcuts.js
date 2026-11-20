@@ -33,5 +33,7 @@ export function shortcutList({ keyMode, fromHistory, enterKeys, focusFirst }) {
     else focusFirst();
   }
   $('keys-close').addEventListener('click', () => close());
+  // The Palette's Keyboard shortcuts row.
+  on('openShortcuts', () => $('keys').hidden && open());
   return { open, close, shown: () => !$('keys').hidden };
 }

@@ -36,26 +36,28 @@ func Load(path string) (c Config, exists bool, err error) {
 	}
 	if !bytes.Contains(b, []byte(c.UID)) || !bytes.Contains(b, []byte(c.InstallUID)) || c.idsFilled || !hasPresetIDs(b, c) {
 		if err := Save(path, c); err != nil {
-			return c, true, fmt.Errorf("%s: keeping the new install UID, router UID, user ids or preset ids: %w", path, err)
+			return c, true, fmt.Errorf("%s: keeping the new install UID, router UID, user ids, preset ids or filter set ids: %w", path, err)
 		}
 	}
 	return c, true, nil
 }
 
-// Pins and other items name a preset by its id, so Load writes back any id it made.
+// Pins, bookmarks and other items name a preset or a filter set by its id, so Load writes back any id it made.
 func hasPresetIDs(b []byte, c Config) bool {
-	lists := [][]Preset{c.Presets}
-	for _, u := range c.Users {
-		lists = append(lists, u.Profile.Presets)
-	}
-	for _, l := range lists {
-		for _, p := range l {
-			if !bytes.Contains(b, []byte(p.ID)) {
-				return false
-			}
+	var ids []string
+	add := func(ps []Preset, fs []FilterSet) {
+		for _, p := range ps {
+			ids = append(ids, p.ID)
+		}
+		for _, f := range fs {
+			ids = append(ids, f.ID)
 		}
 	}
-	return true
+	add(c.Presets, c.FilterSets)
+	for _, u := range c.Users {
+		add(u.Profile.Presets, u.Profile.FilterSets)
+	}
+	return !slices.ContainsFunc(ids, func(id string) bool { return !bytes.Contains(b, []byte(id)) })
 }
 
 // Parse is Load's decoder (also config import). Unknown keys are kept (see UnknownKeys) and legacy

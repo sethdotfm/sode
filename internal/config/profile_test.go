@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -115,6 +114,21 @@ func TestPrefTable(t *testing.T) {
 			found[m[1]] = append(found[m[1]], k[1])
 		}
 	}
+	// The Palette character's values are PALETTE_CHARS in paletterules.js, then off.
+	if regexp.MustCompile(`(?m)^  paletteChar: \{ key: 'sode-palette-char', def: PALETTE_DEFAULT, values: PALETTE_VALUES \},$`).Match(b) {
+		r, err := os.ReadFile("../../web/paletterules.js")
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := regexp.MustCompile(`export const PALETTE_CHARS = '([^']*)';`).FindSubmatch(r)
+		if m == nil {
+			t.Fatal("no PALETTE_CHARS in paletterules.js")
+		}
+		for _, c := range string(m[1]) {
+			found["paletteChar"] = append(found["paletteChar"], string(c))
+		}
+		found["paletteChar"] = append(found["paletteChar"], PaletteOff)
+	}
 	if len(found) != len(PrefValues) {
 		t.Fatalf("prefs.js has %v, Go has %v", found, PrefValues)
 	}
@@ -125,28 +139,15 @@ func TestPrefTable(t *testing.T) {
 	}
 }
 
-func TestProfilePinOrderNormalized(t *testing.T) {
-	p := Profile{PinOrder: []string{" global:cam ", "global:cam", "", "user:mon 1", strings.Repeat("x", MaxPinKey+1)}}
-	got := p.Normalized().PinOrder
-	if len(got) != 2 || got[0] != "global:cam" || got[1] != "user:mon 1" {
-		t.Fatalf("pin order %q", got)
+func TestProfileBookmarksNormalized(t *testing.T) {
+	p := Profile{Bookmarks: []Bookmark{{Key: " page:log ", Label: " Log "}}}
+	if got := p.Normalized().Bookmarks; len(got) != 1 || got[0].Key != "page:log" || got[0].Label != "Log" {
+		t.Fatalf("bookmarks %+v", got)
 	}
-	// Keys are opaque: JS lowercases İ differently from Go.
-	istanbul := "local:i\u0307stanbul"
-	if got := (Profile{PinOrder: []string{istanbul, "local:Mixed"}}).Normalized().PinOrder; len(got) != 2 || got[0] != istanbul || got[1] != "local:Mixed" {
-		t.Fatalf("keys rewritten: %q", got)
+	if p.Empty() {
+		t.Fatal("a profile with only bookmarks is not empty")
 	}
-	if (Profile{PinOrder: []string{"a"}}).Empty() {
-		t.Fatal("a profile with only a pin order is not empty")
-	}
-	if n := (Profile{}).Normalized().PinOrder; n == nil || len(n) != 0 {
-		t.Fatalf("empty pin order must be [] not %v", n)
-	}
-	long := make([]string, MaxPinOrder+50)
-	for i := range long {
-		long[i] = fmt.Sprintf("local:p%d", i)
-	}
-	if n := len((Profile{PinOrder: long}).Normalized().PinOrder); n != MaxPinOrder {
-		t.Fatalf("cut at %d, got %d", MaxPinOrder, n)
+	if n := (Profile{}).Normalized().Bookmarks; n == nil || len(n) != 0 {
+		t.Fatalf("no bookmarks must be [] not %v", n)
 	}
 }

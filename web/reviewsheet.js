@@ -14,7 +14,7 @@ import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.j
 import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
-import { toClear, moveText, movedPinOrder } from './browsercopyrules.js';
+import { toClear, moveText } from './browsercopyrules.js';
 
 const status = (dot, text) => {
   const d = el('span', `pb-dot pb-dot--${dot}`);
@@ -84,13 +84,13 @@ const live = () => ({ srcs: S.srcs, dsts: S.dsts, levelCount: S.levels.length })
 const scope = () => st.scope;
 
 function curSets(sc) {
-  if (sc === 'user' && forUser()) return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ name: String(s.name), f: normFilter(s) }));
-  return setsIn(sc).map((s) => ({ name: s.name, f: s.f }));
+  if (sc === 'user' && forUser())
+    return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ id: s.id || '', name: String(s.name), f: normFilter(s) }));
+  return setsIn(sc).map((s) => ({ id: s.id, name: s.name, f: s.f }));
 }
 function curPresets(sc) {
-  if (sc === 'user' && forUser())
-    return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => ({ ...storedPreset(s), pinned: s.pinned !== false }));
-  return presetsIn(sc).map((s) => ({ name: s.name, items: s.items, pinned: s.pinned !== false }));
+  if (sc === 'user' && forUser()) return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => storedPreset(s));
+  return presetsIn(sc).map((s) => ({ name: s.name, items: s.items }));
 }
 const curNames = (kind, sc) => (kind === 'filter' ? curSets(sc) : curPresets(sc)).map((x) => x.name);
 const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs : profile().prefs) || {} : null);
@@ -98,7 +98,14 @@ const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs :
 // A preset row's match is made fresh each time, so names loaded after the sheet opened count.
 function makeRows(doc) {
   return [
-    ...(doc.filterSets || []).map((s) => ({ kind: 'filter', name: String(s.name), f: fmt.filterOf(s), choice: '', as: '' })),
+    ...(doc.filterSets || []).map((s) => ({
+      kind: 'filter',
+      name: String(s.name),
+      id: typeof s.id === 'string' ? s.id : '',
+      f: fmt.filterOf(s),
+      choice: '',
+      as: '',
+    })),
     ...(doc.presets || []).map((p) => ({ kind: 'preset', name: String(p.name), src: p, choice: '', as: '' })),
   ];
 }
@@ -133,16 +140,16 @@ function plan() {
     if (!rs.length) continue;
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
     const choices = rs.map(choiceOf);
-    const meIds = st.copy ? presetsIn('user').map((s) => s.id) : [];
-    // A new Me preset keeps its This browser id, so its pin key can follow it (movedPinOrder).
-    const keepId = (r, i) => st.copy && r.src.id && choices[i] !== 'replace' && !meIds.includes(r.src.id);
+    const meIds = st.copy ? (kind === 'filter' ? setsIn('user') : presetsIn('user')).map((s) => s.id) : [];
+    // A new Me preset or filter set keeps its This browser id, so an active set follows it (moveLocalSets).
+    const idOf = (r) => (kind === 'filter' ? r.id : r.src.id);
+    const keepId = (r, i) => st.copy && idOf(r) && choices[i] !== 'replace' && !meIds.includes(idOf(r));
     const incoming = rs.map((r, i) =>
       kind === 'filter'
-        ? { name: r.name, f: r.f }
+        ? { ...(keepId(r, i) ? { id: r.id } : {}), name: r.name, f: r.f }
         : {
             ...normPreset({ name: r.name, items: matched(r).saved.items }),
             ...(keepId(r, i) ? { id: r.src.id } : {}),
-            pinned: !st.copy || r.src.pinned !== false,
           },
     );
     const picks = rs.map((r, i) => {
@@ -172,7 +179,8 @@ function plan() {
       }
     }
     if (res.added + res.replaced) {
-      out.parts[kind === 'filter' ? 'filterSets' : 'presets'] = kind === 'filter' ? res.list.map((s) => ({ name: s.name, ...s.f })) : res.list.map(saved);
+      out.parts[kind === 'filter' ? 'filterSets' : 'presets'] =
+        kind === 'filter' ? res.list.map((s) => ({ ...(s.id ? { id: s.id } : {}), name: s.name, ...s.f })) : res.list.map(saved);
     }
   }
   const pl = prefList().filter((p) => p.ok && st.prefOn[p.name] !== false && p.value !== currentPref(p.name));
@@ -561,9 +569,7 @@ function copyApply(p) {
   busy = true;
   refresh();
   setNote('Saving…');
-  const ids = (p.parts.presets || []).map((s) => s.id).filter(Boolean);
-  const parts = !keep && ids.length ? { ...p.parts, pinOrder: movedPinOrder(profile().pinOrder, ids) } : p.parts;
-  send(parts).then((r) => {
+  send(p.parts).then((r) => {
     busy = false;
     if (!open) return;
     if (r.ok) return after();

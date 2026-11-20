@@ -1,0 +1,1 @@
+- A filter set keeps a hidden id through a rename, as a preset does. Bookmarks, Palette picks and active or stacked sets on it keep working after a rename. This is true in every scope and in every user's profile, so they no longer show Missing. An import from this install matches a filter set by this id, then by name.

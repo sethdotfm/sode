@@ -29,7 +29,9 @@ type profileReq struct {
 	Prefs      map[string]string
 	FilterSets []config.FilterSet
 	Presets    []config.Preset
-	PinOrder   []string
+	Bookmarks  []config.Bookmark
+	// PalettePicks: the Palette's last picks (config.Profile.PalettePicks).
+	PalettePicks []string
 }
 
 type profileGetResult struct {
@@ -90,7 +92,7 @@ func (a *App) pushProfileMu(c *client) {
 }
 
 func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
-	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets) + len(req.PinOrder)
+	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets) + len(req.Bookmarks) + len(req.PalettePicks)
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if err := a.guardProfile(c, req.Name); err != nil {
@@ -117,14 +119,21 @@ func (a *App) applyProfileReq(cfg *config.Config, u *config.User, req profileReq
 	if req.Prefs != nil {
 		u.Profile.Prefs = config.WithUnknownPrefs(req.Prefs, u.Profile.Prefs)
 	}
+	if req.Bookmarks != nil {
+		u.Profile.Bookmarks = config.CloneBookmarks(req.Bookmarks)
+	}
 	if req.FilterSets != nil {
+		was := u.Profile.FilterSets
 		u.Profile.FilterSets = config.WithFilterSetExtras(req.FilterSets, u.Profile.FilterSets)
+		u.Profile.Bookmarks = config.RenamedSetBookmarks(u.Profile.Bookmarks, "user", was, u.Profile.FilterSets)
 	}
 	if req.Presets != nil {
+		was := u.Profile.Presets
 		u.Profile.Presets = a.namePresets(cfg.UID, config.WithPresetExtras(req.Presets, u.Profile.Presets))
+		u.Profile.Bookmarks = config.RenamedPresetBookmarks(u.Profile.Bookmarks, "user", was, u.Profile.Presets)
 	}
-	if req.PinOrder != nil {
-		u.Profile.PinOrder = slices.Clone(req.PinOrder)
+	if req.PalettePicks != nil {
+		u.Profile.PalettePicks = slices.Clone(req.PalettePicks)
 	}
 }
 
@@ -138,7 +147,7 @@ func (a *App) pushProfileOfMu(owner string) {
 
 // Logs whose profile and how many things, never a value.
 func (a *App) serveProfileSave(c *client, m *inMsg) {
-	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, PinOrder: m.PinOrder})
+	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, Bookmarks: m.Bookmarks, PalettePicks: m.PalettePicks})
 	note := fmt.Sprintf("%s: %d %s", cleanPresetName(m.Name), n, plural(n, "item", "items"))
 	a.replyOpNote(c, "profileSave", m.ID, note, err)
 }

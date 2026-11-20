@@ -74,7 +74,7 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	b.waitFor("a bar over it says Preview and holds Back to editing and Edit lists, with no Save while nothing is unsaved", `(() => {
 		const bar = document.getElementById('ed-live-bar');
 		return !!bar?.offsetParent && /Preview/.test(bar.textContent) && bar.contains(document.getElementById('ed-live-back')) && bar.lastElementChild === document.getElementById('ed-live-lists') && document.getElementById('ed-live-lists').previousElementSibling === document.getElementById('ed-live-back')
-			&& !document.querySelector('.sode-gridpanel__deck #ed-live-back') && !!document.getElementById('ed-live-lists').offsetParent && document.getElementById('ed-live-save').hidden;
+			&& !document.querySelector('.sode-gridpanel__headrow #ed-live-back') && !!document.getElementById('ed-live-lists').offsetParent && document.getElementById('ed-live-save').hidden;
 	})()`)
 	b.shot("live")
 	b.eval(`document.getElementById('ed-live-back').click(); true`)

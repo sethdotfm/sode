@@ -127,6 +127,17 @@ var policy = map[string]rule{
 			}
 		}},
 
+	// Protects (protect.go): the Protect right and the destination's Rights are checked in the handler. Another
+	// Sode user's Protect needs an Administrator, so an Approval can stand in for the Role.
+	"protectSet": {crit: critNever, role: config.RoleStandard, need: needMain, why: "protect", write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtect(c, m, true) }, onRefuse: refuseProtect},
+	"protectClear": {crit: critNever, role: config.RoleStandard, need: needMain, why: "protectClear", write: true, approvable: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtect(c, m, false) }, onRefuse: refuseProtect},
+	// Clear Sode's Protects: every Protect with Sode's device number, record or not. Critical, as it can free
+	// destinations other users hold.
+	"protectClearAll": {crit: critAlways, role: config.RoleAdministrator, need: needMain, why: "protectClearAll", write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtectClearAll(c, m) }, onRefuse: refuseProtect},
+
 	// Admitting log subscribes to the feed in the same step, so a lock cannot slip in.
 	"log": {crit: critNever, role: config.RoleStandard, need: needLog, admitted: func(c *client) { c.sent = true },
 		handle: func(a *App, c *client, m *inMsg) { go a.sentHistory(c, int64(m.Before), m.N) }},
@@ -147,6 +158,12 @@ var policy = map[string]rule{
 			defer m.finish()
 			a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
 		}(m.Sets, m.ID)
+	}},
+	"bookmarks": {crit: critNever, role: config.RoleTrusted, op: "bookmarks", write: true, handle: func(a *App, c *client, m *inMsg) {
+		go func(list []config.Bookmark, id int) {
+			defer m.finish()
+			a.replyOp(c, "bookmarks", id, len(list), "bookmark", a.SaveBookmarks(c, list))
+		}(m.Bookmarks, m.ID)
 	}},
 	"presets": {crit: critNever, role: config.RoleTrusted, op: "presets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(presets []config.Preset, id int) {
@@ -199,6 +216,8 @@ var policy = map[string]rule{
 	"swapMine": {crit: critNever, role: config.RoleStandard, op: "swapMine", write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSwapMine(c, m) }},
 	// Broken and Name moved counts (brokencount.go): everyone's is Administrator only, checked in the handler.
 	"brokenCount": {crit: critNever, role: config.RoleStandard, handle: func(a *App, c *client, m *inMsg) { go a.serveBrokenCount(c, m) }},
+	// The Palette's Panels rows (palette.go): the reach of the browser's own sign-in, never a panel key.
+	"palettePanels": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.servePalettePanels(c, m) }},
 	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
 }

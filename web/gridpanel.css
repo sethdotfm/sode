@@ -63,7 +63,7 @@ html:has(.sode-gridpanel) {
 :root:not([data-sode-kiosk]) .sode-panels:has(.sode-gridpanel) > .sode-panel__foot {
   margin: var(--pb-space-4) var(--pb-space-5);
 }
-:root:not([data-layout="phone"]):has(.sode-gridpanel) .sode-lock__who {
+:root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) .sode-lock__who {
   background: transparent;
 }
 :root:not([data-layout="phone"]) .sode-panels:has(.sode-gridpanel) .sode-panels__title {
@@ -1358,6 +1358,20 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__msg > .sode-panel__update .sode__banner-body {
   flex: 1 1 100%;
 }
+/* The Live Editor's bar (editorlive.js) runs across the deck under the header row. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck--live {
+  grid-template-areas:
+    "top   top   top  top  top  top  top  top   top"
+    "live  live  live live live live live live  live"
+    "lab   lab   .    .    .    .    note note  note"
+    "picks input r1   fsrc mode .    r2   clear take"
+    "picks input r1   fdst mode .    r2   clear take";
+  grid-template-rows: auto auto auto var(--sode-pick) var(--sode-pick);
+}
+.sode-gridpanel__deck > .sode-live__bar {
+  grid-area: live;
+  margin: 0 calc(-1 * var(--pb-space-5)) var(--pb-space-2);
+}
 /* Less room above and below, so the words and the buttons fit in the Find box's height. */
 :root:not([data-layout="phone"]) .sode-gridpanel__msg > .sode-panel__update .pb-alert {
   padding-block: var(--pb-space-1);
@@ -1389,7 +1403,7 @@ html:has(.sode-gridpanel) {
 [data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-gridpanel__whorule ~ .sode-panels__head {
   padding-inline-start: 0;
 }
-.sode-gridpanel__tools:has(> #panel-screen[hidden]) > .sode-gridpanel__toolrule,
+.sode-gridpanel__tools:has(> :is(#panel-screen, #ed-live-screen)[hidden]) > .sode-gridpanel__toolrule,
 :root[data-layout="phone"] :is(.sode-gridpanel__namerule, .sode-gridpanel__toolrule, .sode-gridpanel__edit, .sode-gridpanel__copy, .sode-gridpanel__msg) {
   display: none;
 }

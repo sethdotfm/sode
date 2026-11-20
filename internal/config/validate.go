@@ -49,6 +49,10 @@ func (c Config) Validate() error {
 	if c.SalvoGroup < 0 || c.SalvoGroup > 127 {
 		bad("salvo group must be 0-127")
 	}
+	// The dump packs the device in 12 bits. Not proved on the router: whether other messages split at 128 or 256.
+	if c.ProtectDevice < 0 || c.ProtectDevice > MaxProtectDevice {
+		bad("Protect device number must be 0 (off) to %d", MaxProtectDevice)
+	}
 	if c.Levels < 1 || c.Levels > 256 {
 		bad("levels must be 1-256")
 	} else if lo, hi := 1+c.LevelWireOffset, c.Levels+c.LevelWireOffset; lo < 0 || hi > 255 {
@@ -113,6 +117,7 @@ func (c Config) Validate() error {
 	}
 	errs = append(errs, validateFilterSets(c.FilterSets)...)
 	errs = append(errs, c.validatePresets()...)
+	errs = append(errs, validateBookmarks(c.Bookmarks)...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}

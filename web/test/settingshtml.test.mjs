@@ -45,7 +45,7 @@ test('each topic holds its sections in order', () => {
   assert.deepEqual(byTopic, {
     preferences: ['this-browser', 'my-user'],
     'look-and-feel': ['everyone-defaults', 'branding', 'history', 'level-colors', 'confirm'],
-    routers: ['routers', 'router-matrix', 'router-names', 'takes'],
+    routers: ['routers', 'router-matrix', 'router-names', 'takes', 'protects'],
     access: ['locks', 'users', 'api', 'panels'],
     server: ['proxy', 'export-import', 'run-setup-again'],
   });
@@ -59,12 +59,13 @@ test('the router block has a sub-heading and holds the per-router sections', () 
   const routers = heads.filter((h) => h.kind === 'router');
   assert.equal(routers.length, 1);
   const inBlock = groups.filter((g) => g.router === routers[0].id).map((g) => g.slug);
-  assert.deepEqual(inBlock, ['router-matrix', 'router-names', 'takes']);
+  assert.deepEqual(inBlock, ['router-matrix', 'router-names', 'takes', 'protects']);
   const ids = (slug) => [...groups.find((g) => g.slug === slug).body.matchAll(/\bid="(cfg-[a-z0-9-]+)"/g)].map((m) => m[1]);
   for (const id of ['cfg-router', 'cfg-routername', 'cfg-routershow', 'cfg-matrix', 'cfg-levels', 'cfg-offset', 'cfg-lvlnum', 'cfg-numoff'])
     assert.ok(ids('router-matrix').includes(id), id);
   for (const id of ['cfg-namerefresh', 'cfg-namelen', 'cfg-namereq']) assert.ok(ids('router-names').includes(id), id);
   assert.deepEqual(ids('takes'), ['cfg-default', 'cfg-resync', 'cfg-firemode', 'cfg-salvogroup']);
+  assert.deepEqual(ids('protects'), ['cfg-protectdevice']);
   assert.deepEqual(ids('confirm'), ['cfg-lockout', 'cfg-dismiss', 'cfg-enter']);
 });
 

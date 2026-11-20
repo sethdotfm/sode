@@ -28,6 +28,7 @@ const (
 	catUsers      = "users"
 	catPresets    = "presets"
 	catFilterSets = "filterSets"
+	catBookmarks  = "bookmarks" // Everyone bookmarks: one item, written whole, whose key is this name
 	catPanels     = "panels"
 	catArtwork    = "artwork"
 	catAPIClients = "apiClients"
@@ -40,6 +41,7 @@ var exportCategories = []struct{ Name, File string }{
 	{catUsers, "users.yaml"},
 	{catPresets, "presets.yaml"},
 	{catFilterSets, "filtersets.yaml"},
+	{catBookmarks, "bookmarks.yaml"},
 	{catPanels, "panels.yaml"},
 	{catArtwork, "artwork.yaml"},
 	{catAPIClients, "apiclients.yaml"},
@@ -99,6 +101,10 @@ type exportFilterSets struct {
 	FilterSets []config.FilterSet `yaml:"filterSets"`
 }
 
+type exportBookmarks struct {
+	Bookmarks []config.Bookmark `yaml:"bookmarks"`
+}
+
 type exportAPIClients struct {
 	APIClients []config.APIClient `yaml:"apiClients"`
 }
@@ -120,7 +126,7 @@ type exportArtwork struct {
 
 // exportReq is the export route's body. A category in Pick exports only the ids listed. A category not in
 // Pick exports whole. Users and presets are picked by hidden id, filter sets and API clients by name.
-// Panels are picked by panel, template or Checkpoint set id. Artwork is picked by icon id or Default artwork key.
+// Everyone bookmarks is one item, picked by its category name. Panels are picked by panel, template or Checkpoint set id. Artwork is picked by icon id or Default artwork key.
 type exportReq struct {
 	Categories  []string            `json:"categories"`
 	Pick        map[string][]string `json:"pick"`
@@ -210,11 +216,20 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	if want(catFilterSets) {
 		var out exportFilterSets
 		for _, s := range cfg.FilterSets {
-			if picked(req.Pick, catFilterSets, s.Name) {
+			if picked(req.Pick, catFilterSets, s.ID) {
 				out.FilterSets = append(out.FilterSets, s)
 			}
 		}
 		if err := add(catFilterSets, &out); err != nil {
+			return nil, err
+		}
+	}
+	if want(catBookmarks) {
+		var out exportBookmarks
+		if picked(req.Pick, catBookmarks, catBookmarks) {
+			out.Bookmarks = cfg.Bookmarks
+		}
+		if err := add(catBookmarks, &out); err != nil {
 			return nil, err
 		}
 	}

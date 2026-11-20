@@ -55,7 +55,7 @@ func TestChromeSettingsTopics(t *testing.T) {
 	b.eval(`document.getElementById('users-group').scrollIntoView({ block: 'start', behavior: 'instant' }); true`)
 	b.waitFor("Users marked under Access", tree+` === JSON.stringify({ open: ['Access'], cur: 'Users', shown: ['Locks', 'Users', 'API', 'Panels'] })`)
 	b.eval(`document.querySelector('[data-section="takes"]').scrollIntoView({ block: 'start', behavior: 'instant' }); true`)
-	b.waitFor("Takes marked under Routers", `(() => { const s = JSON.parse(`+tree+`); return s.open[0] === 'Routers' && s.cur === 'Takes' && s.shown.join() === 'Routers,Router & matrix,Router names,Takes'; })()`)
+	b.waitFor("Takes marked under Routers", `(() => { const s = JSON.parse(`+tree+`); return s.open[0] === 'Routers' && s.cur === 'Takes' && s.shown.join() === 'Routers,Router & matrix,Router names,Takes,Protects'; })()`)
 
 	// A topic entry scrolls to its band.
 	b.eval(`document.querySelector('.sode__toc-topic[data-topic="server"]').click(); true`)

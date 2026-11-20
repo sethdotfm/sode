@@ -7,6 +7,7 @@ export const CATEGORIES = [
   ['users', 'Users'],
   ['presets', 'Presets'],
   ['filterSets', 'Filter sets'],
+  ['bookmarks', 'Bookmarks'],
   ['panels', 'Panels'],
   ['artwork', 'Artwork'],
   ['apiClients', 'API clients'],
@@ -19,13 +20,15 @@ export const OWN_CATEGORIES = [
   ['presets', 'Presets'],
   ['filterSets', 'Filter sets'],
 ];
-// Greyed in the own dialog. The keys are the file's categories, so presets and filterSets here are Everyone's.
+// Greyed in the own dialog. The keys are the file's categories, so presets, filterSets and bookmarks here are
+// Everyone's.
 export const ADMIN_ONLY = [
   ['settings', 'Settings'],
   ['routers', 'Routers'],
   ['users', 'Users'],
   ['presets', 'Everyone presets'],
   ['filterSets', 'Everyone filter sets'],
+  ['bookmarks', 'Everyone bookmarks'],
   ['panels', 'Panels'],
   ['artwork', 'Artwork'],
   ['apiClients', 'API clients'],
@@ -58,7 +61,8 @@ export function ownBody(pick) {
   return body;
 }
 
-export const ITEM_CATS = ['users', 'presets', 'filterSets', 'panels', 'artwork', 'apiClients'];
+// Everyone bookmarks has one item, the whole list, with the id 'bookmarks'.
+export const ITEM_CATS = ['users', 'presets', 'filterSets', 'bookmarks', 'panels', 'artwork', 'apiClients'];
 
 export const KIND_LABEL = { panel: 'Panel', template: 'Template', checkpointSet: 'Checkpoint set', default: 'Default artwork', icon: 'Icon' };
 

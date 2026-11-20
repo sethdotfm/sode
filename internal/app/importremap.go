@@ -374,12 +374,12 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 
 func (p *importPlanner) eachFileSet(fn func(key string, s *config.FilterSet)) {
 	for i := range p.b.FilterSets {
-		fn("/"+p.b.FilterSets[i].Name, &p.b.FilterSets[i])
+		fn("/"+p.b.FilterSets[i].ID, &p.b.FilterSets[i])
 	}
 	for i := range p.b.Users {
 		u := &p.b.Users[i]
 		for j := range u.Profile.FilterSets {
-			fn(u.ID+"/"+u.Profile.FilterSets[j].Name, &u.Profile.FilterSets[j])
+			fn(u.ID+"/"+u.Profile.FilterSets[j].ID, &u.Profile.FilterSets[j])
 		}
 	}
 }

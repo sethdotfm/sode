@@ -27,7 +27,7 @@ func TestPolicyClassifiesEveryMessageCritical(t *testing.T) {
 	}
 	slices.Sort(always)
 	slices.Sort(byFields)
-	if want := []string{"clearHistory", "keyRevokeAll", "userSignOutAll"}; !slices.Equal(always, want) {
+	if want := []string{"clearHistory", "keyRevokeAll", "protectClearAll", "userSignOutAll"}; !slices.Equal(always, want) {
 		t.Errorf("always Critical: %v, want %v", always, want)
 	}
 	if want := []string{"config", "settingsSave"}; !slices.Equal(byFields, want) {

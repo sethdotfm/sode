@@ -125,11 +125,10 @@ func browserFilterSets() []config.FilterSet {
 }
 
 func browserPresets() []config.Preset {
-	off := false
 	planted := map[string]any{"browserKey": 1}
 	return []config.Preset{
 		{Name: "Q", Items: []config.PresetItem{withItemExtra(presetItem(3, nil, 4, 5), planted)}},
-		{Name: "P", Pinned: &off, Items: []config.PresetItem{presetItem(1, nil, 2)}, Extra: planted},
+		{Name: "P", Items: []config.PresetItem{presetItem(1, nil, 2)}, Extra: planted},
 	}
 }
 
@@ -143,8 +142,7 @@ func TestWholeListSavesKeepUnknownKeys(t *testing.T) {
 		},
 		"profile lists": func(t *testing.T, a *App) error {
 			ana := watched(t, a, "10.0.0.1", "1234")
-			_, err := a.ProfileSave(ana, profileReq{Name: "Ana", FilterSets: browserFilterSets(), Presets: browserPresets(),
-				PinOrder: []string{"user:q", "user:p"}})
+			_, err := a.ProfileSave(ana, profileReq{Name: "Ana", FilterSets: browserFilterSets(), Presets: browserPresets()})
 			return err
 		},
 		"users editor": func(t *testing.T, a *App) error {

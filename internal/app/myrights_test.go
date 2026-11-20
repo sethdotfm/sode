@@ -40,7 +40,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if m == nil {
 		t.Fatal("Ana got no myRights after sign-in")
 	}
-	if got := mrJSON(m); got != `{"dsts":[],"sources":[{"n":7,"router":"`+a.r().cfg.UID+`"}],"visibility":"hidden"}` {
+	if got := mrJSON(m); got != `{"dsts":[],"protect":false,"sources":[{"n":7,"router":"`+a.r().cfg.UID+`"}],"visibility":"hidden"}` {
 		t.Fatalf("Ana's rights %s", got)
 	}
 
@@ -49,7 +49,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if bm == nil {
 		t.Fatal("Bo got no myRights")
 	}
-	if got := mrJSON(bm); got != `{}` {
+	if got := mrJSON(bm); got != `{"protect":false}` {
 		t.Fatalf("Bo's rights %s", got)
 	}
 
@@ -59,7 +59,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if m == nil {
 		t.Fatal("no myRights after the edit")
 	}
-	if got := mrJSON(m); got != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}]}` {
+	if got := mrJSON(m); got != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":false}` {
 		t.Fatalf("Ana's rights after the edit %s", got)
 	}
 

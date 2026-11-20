@@ -2,7 +2,8 @@
 // has a grip, Pin, Move and Remove. Add from the router is under it (editorrouterlist.js). The bar's buttons act on every
 // selected row; the Cell tab sets their artwork through art(), and the bar's Artwork calls onArt to show it. While
 // Follow the router is on (the Panel tab's switch), only Pin and artwork change it. Rules are editorgridrules.js; each
-// edit is one ed.setFields of the edge.
+// edit is one ed.editEdges of the edge, one editor undo step. Cmd or Ctrl+Z, X, C and V work in the list; clip() is
+// the rows clipboard (editorrowclip.js).
 import { el, icon } from './core.js';
 import { axisSpan, OVER } from './gridpanelwindow.js';
 import { btn } from './formbits.js';
@@ -14,6 +15,8 @@ import { artNode } from './panelview.js';
 import { plural } from './gridclip.js';
 import { defaultFor } from './panellook.js';
 import { mac } from './keys.js';
+import { gridCommand } from './gridchords.js';
+import { createPasteReader } from './editorclip.js';
 import {
   edgeRows,
   clearEdge,
@@ -30,14 +33,15 @@ import {
 
 const FIRST = 30; // rows drawn before the list has a height
 const NONE = () => ({ selected: new Set(), anchor: null });
-const MOVE_KEYS = { top: 'Alt+Home', up: mac ? 'Cmd+Shift+Up' : 'Alt+Up', down: mac ? 'Cmd+Shift+Down' : 'Alt+Down', end: 'Alt+End' };
+export const MOVE_KEYS = { top: 'Alt+Home', up: mac ? 'Cmd+Shift+Up' : 'Alt+Up', down: mac ? 'Cmd+Shift+Down' : 'Alt+Down', end: 'Alt+End' };
 
 // key is the panel field and the /names list ('sources' or 'destinations'). rights is the Rights key, what the item
 // word, side the edge of the grid it is drawn on. onPick(list) runs when the selection changes.
-export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
+export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, clip }) {
   const edge = () => ed.fields()[key];
   const router = () => ed.routerNames()?.[key] || [];
-  const set = (next) => next !== edge() && ed.setFields({ [key]: next });
+  // what names the step on the status line ("Undid move.").
+  const set = (next, step) => next !== edge() && ed.editEdges({ [key]: next }, step);
   const Whats = `${what[0].toUpperCase()}${what.slice(1)}s`;
 
   const count = el('span', 'sode-edge__count');
@@ -53,7 +57,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
   const FOLLOWING = `Follow the router is on for ${what}s, so the router sets the order. Pin and artwork still apply. Switch it off in the Panel tab.`;
   const following = el('p', 'sode__hint');
   following.id = `ed-${key}-following`;
-  const clear = btn('pb-btn--outline pb-btn--sm', 'Clear', () => set(clearEdge(edge(), myRights(), rights)));
+  const clear = btn('pb-btn--outline pb-btn--sm', 'Clear', () => set(clearEdge(edge(), myRights(), rights), 'clear'));
   clear.id = `ed-${key}-clear`;
   clear.dataset.pbTip = `Removes every ${what} from the panel`;
   const outside = el('p', 'sode__hint');
@@ -83,7 +87,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     off: () => ed.routerNames()?.numberOffset || 0,
     readOnly: () => ed.readOnly(),
     fixed: () => fixed && FOLLOWING,
-    set,
+    set: (next) => set(next, 'add'),
   });
 
   // The selection: router numbers, so it stays through moves and edits. cur is the keyboard's row.
@@ -104,9 +108,9 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     return b;
   };
   const tipOf = new WeakMap();
-  const pinSel = (on) => set(pinItems(edge(), router(), myRights(), rights, many(), on));
+  const pinSel = (on) => set(pinItems(edge(), router(), myRights(), rights, many(), on), on ? 'pin' : 'unpin');
   const removeSel = () => {
-    set(removeItems(edge(), many()));
+    set(removeItems(edge(), many()), 'remove');
     setSel(NONE());
   };
   const selArt = barBtn('art', 'image', 'Artwork', () => onArt?.(api));
@@ -152,13 +156,13 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     move: (from, to) => {
       const n = shown[from].n;
       if (inMany(n)) return moveSel(to < from ? 'up' : 'down');
-      set(stepRows(edge(), router(), myRights(), rights, new Set([n]), to < from ? 'up' : 'down'));
+      set(stepRows(edge(), router(), myRights(), rights, new Set([n]), to < from ? 'up' : 'down'), 'move');
     },
     // Dragging a selected row drags the selection; any other row goes alone.
     drop: (from, over, after) => {
       const ns = dragSet(from);
       const before = after ? (shown[over + 1]?.n ?? null) : shown[over].n;
-      set(moveRows(edge(), router(), myRights(), rights, ns, before));
+      set(moveRows(edge(), router(), myRights(), rights, ns, before), 'move');
     },
     grip: (i) => {
       const ns = dragSet(i);
@@ -170,7 +174,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     },
     remove: (i) => {
       const n = shown[i].n;
-      set(removeItems(edge(), inMany(n) ? many() : new Set([n])));
+      set(removeItems(edge(), inMany(n) ? many() : new Set([n])), 'remove');
       if (inMany(n)) setSel(NONE());
     },
     removeTip: 'Remove',
@@ -186,7 +190,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
   }
   function moveSel(dir) {
     if (!many().size || fixed) return;
-    set(stepRows(edge(), router(), myRights(), rights, many(), dir));
+    set(stepRows(edge(), router(), myRights(), rights, many(), dir), 'move');
     reveal(cur ?? [...many()][0]);
   }
 
@@ -303,7 +307,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
           icon: r.pinned ? 'pin-off' : 'pin',
           tip: r.pinned ? 'Unpin' : 'Pin to the edge',
           act: 'pin',
-          run: () => set(pinItems(edge(), router(), myRights(), rights, inMany(r.n) ? many() : new Set([r.n]), !r.pinned)),
+          run: () => set(pinItems(edge(), router(), myRights(), rights, inMany(r.n) ? many() : new Set([r.n]), !r.pinned), r.pinned ? 'unpin' : 'pin'),
         },
       ],
     });
@@ -393,7 +397,24 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
     } else setSel({ selected: new Set([n]), anchor: n }, true);
     reveal(n);
   });
+  // Editor undo and redo anywhere in the column but a text field (gridCommand), so Add from the router has them too.
+  // Cut, copy and paste only in the list itself; Add from the router has none.
+  const paste = createPasteReader(on, (text) => clip?.()?.paste(text, key));
+  node.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || ed.readOnly()) return;
+    const cmd = gridCommand(e);
+    if (cmd === 'undo' || cmd === 'redo') {
+      e.preventDefault();
+      return ed.step(cmd === 'undo');
+    }
+    if (!['copy', 'cut', 'paste'].includes(cmd) || !on.contains(e.target) || !clip?.()) return;
+    // The paste event reads the clipboard with no permission prompt, so the key stays the browser's.
+    if (cmd === 'paste') return paste.key();
+    e.preventDefault();
+    clip()[cmd](key);
+  });
   list.addEventListener('scroll', drawRows, { passive: true });
+  rows.scrollWhileDragging(list);
   // Shown, resized or a new font size: the rows that fit, and their height, can change.
   new ResizeObserver(() => {
     pitch = 0;
@@ -416,15 +437,43 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt }) {
         api.picked().map((r) => r.n),
         choice,
       );
-      set(out.edge);
+      set(out.edge, 'artwork');
       return out.left;
     },
     // Hide text on the selected rows, as the Cell tab sets it on cells.
     hideText(on) {
       const ns = api.picked().map((r) => r.n);
-      set(itemsHideText(edge(), ns, on, (n) => !!defaultFor({ kind: what, n }, ed.defaults())));
+      set(
+        itemsHideText(edge(), ns, on, (n) => !!defaultFor({ kind: what, n }, ed.defaults())),
+        'Hide text',
+      );
     },
     clearPicks: () => many().size && setSel(NONE()),
+    key,
+    // Follow the router is on: the router sets the list, so cut and paste are refused.
+    following: () => !Array.isArray(edge()?.members),
+    // Where a paste goes: after the keyboard's row, else the last selected row. null (the end) with nothing selected.
+    after: () => (many().size ? (many().has(cur) ? cur : (api.picked().at(-1)?.n ?? null)) : null),
+    // Selects ns after an edit added them, and shows the first.
+    selectNew(ns) {
+      paint();
+      api.select(ns);
+      if (ns.length) {
+        cur = ns[0];
+        drawSel();
+        reveal(ns[0]);
+      }
+    },
+    // A Remove from the Live Editor's Smart menu, one undo step.
+    remove(ns) {
+      set(removeItems(edge(), new Set(ns)), 'remove');
+    },
+    pin(ns, on) {
+      set(pinItems(edge(), router(), myRights(), rights, new Set(ns), on), on ? 'pin' : 'unpin');
+    },
+    move: (dir) => moveSel(dir),
+    // The rows in drawn order, as the list shows them.
+    shown: () => shown.map((r) => r.n),
     // The Live Editor's grid picks (editorlive.js): the same selection as a click here. Rows not in the list are left out.
     select(ns) {
       const keep = ns.filter((n) => at.has(n));

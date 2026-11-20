@@ -2,7 +2,7 @@
 
 import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem, dstItem } from './core.js';
 import { mac, pickOrAdd } from './keys.js';
-import { levelBar } from './levelview.js';
+import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
 import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupTitle, groupLevels, groupIds } from './history.js';
@@ -11,6 +11,7 @@ import { layout } from './layout.js';
 import { openFilters } from './filters.js';
 import { emptyNote } from './searchbox.js';
 import { rowActions, disclosureAria, followersHead } from './historyrows.js';
+import { protectRow } from './protects.js';
 import { isPicked, picking, pickBox, togglePick, bindPick } from './historypick.js';
 import {
   byLabel,
@@ -27,16 +28,16 @@ import {
 } from './widgets.js';
 
 // From desktop.js: select(k, item), focusBox(input), openConfirm(plan), focusSearch(k), openKeys() (built after this),
-// boxes and active(). The module owns the list state: expanded rows, open Groups and External follows, the arrival
+// boxes, active() and protect(set), the route view's Protect key (false when it offers none). The module owns the list state: expanded rows, open Groups and External follows, the arrival
 // marks, the keyboard cursor.
-export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys, boxes, active }) {
+export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys, boxes, active, protect }) {
   const expanded = new Set();
   const openGroups = new Set();
   const openFollowers = new Set();
   const arrived = arrivals();
 
   function histRow(e) {
-    const src = srcItem(e.src, e.srcName),
+    const src = e.protect ? el('span', 'pb-badge pb-badge--warn', protectRow(e).text) : srcItem(e.src, e.srcName),
       dst = dstItem(e.dst, e.dstName);
     const known = e.levels.filter((u) => S.levelBy.has(u));
 
@@ -383,7 +384,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     const jk = e.ctrlKey !== e.metaKey && (e.ctrlKey || mac) && !e.altKey && !e.shiftKey && /^Key[JK]$/.test(e.code) ? e.code[3].toLowerCase() : '';
     if (!jk && (e.ctrlKey || e.metaKey || e.altKey)) return false;
     const k = jk || e.key;
-    if (BOXES[k]) {
+    if (BOXES[k] && (k !== 'f' || levelsShown())) {
       focusBox($(BOXES[k]));
       return true;
     }
@@ -407,6 +408,8 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       emit('presetStrip');
       return true;
     }
+    // x Protects the route view's destination, Shift+x clears Sode's Protect; only in Keyboard mode.
+    if ((k === 'x' || k === 'X') && keyMode()) return protect(k === 'x');
     if (k === 'Escape') {
       focusBox(boxes.src.input);
       return true;
@@ -446,7 +449,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
   // Undo the newest take made in Sode (a whole Group). Externals are skipped, whatever the filters show.
   function undoLast() {
-    const last = S.hist.find((x) => !x.ext);
+    const last = S.hist.find((x) => !x.ext && !x.protect);
     if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
     const e = attachFollows(last);
     const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group).map(attachFollows);
@@ -461,6 +464,9 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     }
     openConfirm(plan);
   }
+
+  // The Palette's Undo row.
+  on('undoLast', undoLast);
 
   function histArea(n) {
     return !!n && (histList.contains(n) || $('history-more').contains(n));

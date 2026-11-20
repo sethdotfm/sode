@@ -1,0 +1,1 @@
+- A take of 6 or more routes now reads its routes from the router before the first connect, as smaller takes do. So Undo puts back the true previous source. For each level, Sode sends one interrogate per destination or one tally dump request, whichever needs fewer messages. The API's `checkSkipped` is now true only when the router did not answer the read in time.

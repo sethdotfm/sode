@@ -16,7 +16,7 @@ Require HTTPS (Settings > Proxy, `requireHttps`, an advanced setting) refuses ev
 
 ### Install as an app
 
-Sode is a web app. Use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS or on localhost, so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Border colour** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own. On iOS, remove the app and add it again. The app still needs the server to run, so there is no offline mode.
+Sode is a web app. Use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS or on localhost, so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Border colour** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own. On iOS, remove the app and add it again. The app still needs the server to work. On a secure origin, a page that the device opened once also opens while Sode is down (README). It shows its Offline state and connects when Sode comes back.
 
 ## Using it
 
@@ -38,7 +38,7 @@ A preset is a saved plan of sources to destinations, fired in one confirm. **Edi
 
 Sode stores presets as numbers, so a rename on the router changes nothing. A number the router no longer has is left out and listed in the confirm. A preset fires as one take, so it is one Group in History, marked "Preset: name", and Undo all undoes it. Quick search finds it by that name too.
 
-Only pinned presets show as buttons above History. Ctrl+g (⌘g on a Mac, the **Presets** button on a phone) opens a popup that lists all of them with a search box. Arrows or Ctrl+j/k move, Enter fires through the usual confirm, and Esc closes. Each row has **Pin/Unpin** for this browser. Pinning for everyone and sharing are in the editor, under the Pinned checkbox and Share. In keyboard mode, `p` jumps to the pinned presets.
+The Bookmarks strip above History holds your bookmarks: presets, pages, filter sets, settings or web addresses. Alt+1 to 9 open the first nine. Ctrl+g (⌘g on a Mac, **Show all** on the strip) opens a popup that lists all presets with a search box. Arrows or Ctrl+j/k move, Enter fires through the usual confirm, and Esc closes. In keyboard mode, `p` jumps to the bookmarks.
 
 Because a preset is one confirm of several routes, Sode sends it the way the **Multi destination** setting says, under Settings > Routers > Takes. See `SODE_FIRE_MODE` in the settings table below.
 
@@ -108,6 +108,7 @@ routers:
 | `SODE_NAMES` | `nameRequests` (router) | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
 | `SODE_FIRE_MODE` | `fireMode` (router) | `sequential` | How Sode sends a confirm of several takes: `sequential` (one connect after another, about 16 ms per crosspoint on the Ultrix) or `native` (the router's own salvos: a SW-P-08 group send, cmd 120/248 and 121, which needs a router that supports them; verified on the Ross Ultrix). Measured on the Ultrix on 2026-11-02, a group Go announces its crosspoints about 4 ms apart (51 in about 210 ms), against about 16 ms each for ordinary connects (51 in about 840 ms). Whether the switch itself is simultaneous is unproven. Level 17 and numbers past 1023 are staged with the extended stage command (248) in the same group send. If the router does not acknowledge it, Sode clears the router's own salvo group and sends the takes one after another as before |
 | `SODE_SALVO_GROUP` | `salvoGroup` (router) | `127` | The router's salvo group (0-127) that native salvos use. Every controller shares the router's staged list, so pick a group nothing else uses |
+| (none) | `protectDevice` (router) | `0` | Sode's device number for Protects (0 turns them off, at most 4095). Settings > Routers > Protects. Panel IDs and device numbers are one number space, and the router does not check who sends a number. So pick a number no panel uses (ADR 0012) |
 | `SODE_NUM_OFFSET` | `numberOffset` (router) | `1` | Added to router numbers for display (Ultrix shows 1-based) |
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | How long the confirm key is ignored after the dialog opens |
 | `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 keeps it open). Failures always stay until closed |
@@ -127,7 +128,7 @@ Settings-only keys (no seed var):
 - `levelColors`
 - `filterSets`
 - `hiddenDsts`
-- `browserDefaults`: what a browser uses until it chooses its own under Settings > This browser. It holds theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`), stackGap and compact. The stackGap field is a number of seconds written as text: `0` (off), `10`, `30` (the default), `60`, `120` or `300`. The compact field is Compact view, off by default (see Compact view above).
+- `browserDefaults`: what a browser uses until it chooses its own under Settings > This browser. It holds theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`), stackGap and compact. The stackGap field is a number of seconds written as text: `0` (off), `10`, `30` (the default), `60`, `120` or `300`. The compact field is Compact view, off by default (see Compact view above). The paletteChar field is the Palette character: one of `>~!/;:=#@$%^&*|?<_()[]{}§°¬£€¤`, or `off` for no character. The default is `>`.
 
 Process settings stay in env. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_COMMLOG` (`/data/sent.jsonl`), `SODE_COMMLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true`, which hex-dumps all SW-P-08 traffic. `SODE_SETTINGS_SAVES` (`/data/settings-saves.jsonl`) holds the Settings saves record. Without `SODE_UPTIME`, the router uptime is kept in memory only.
 
@@ -228,11 +229,11 @@ Each bar is a slot: a minute for an hour, 15 minutes for a day and an hour for a
 
 ## Protocol notes
 
-Crosspoints use extended commands: 0x82 connect, 0x84 connected and 0x95/0x97 tally dump. A take succeeds when the router sends Connected for every requested level, with a 3s timeout. Routers send nothing for a connect that changes nothing, so Sode interrogates and counts those as "already". Sode reads which destinations are protected with the extended protect dump (0x93, answered by 0x94) and refuses takes to protected destinations before it sends anything. Sode discards messages queued while it is disconnected. Names are polled, since the router does not announce renames.
+Crosspoints use extended commands: 0x82 connect, 0x84 connected and 0x95/0x97 tally dump. A take succeeds when the router sends Connected for every requested level, with a 3s timeout. Routers send nothing for a connect that changes nothing, so Sode interrogates and counts those as "already". Sode reads which destinations are protected with the extended protect dump (0x93, answered by 0x94). It also applies the 0x8D and 0x8F the router sends, one for each level, when a client changes which levels of a destination are protected. Sode refuses takes to protected destinations before it sends anything, also to a destination that Sode itself Protected. Sode sets a Protect with 0x8C and clears it with 0x8E, on every level of the destination. Each message covers one level, and 0x8D or 0x8F confirms it. Sode discards messages queued while it is disconnected. Names are polled, since the router does not announce renames.
 
 ## Simulator
 
-The simulator (`go run ./cmd/swp08sim`, on :8910) has 200 sources, 120 destinations and 17 levels. `SIM_SOURCES`, `SIM_DESTS` and `SIM_LEVELS` change these sizes, for example `SIM_SOURCES=2500 SIM_DESTS=750` for a large router. It also reads `SIM_*` variables to fake misbehaving routers: `SIM_IGNORE_DSTS`, `SIM_SILENT_DSTS`, `SIM_SLOW_DSTS`, `SIM_EXTERNAL_FOLLOW`, `SIM_EXTERNAL_SECONDS` and `SIM_EXTERNAL_SILENT`. `SIM_NO_SALVO=1` fakes a router that lacks the group send commands. `SIM_SALVO_ANNOUNCE=1` announces a group Go's routes with Connected, as the Ultrix sometimes does. `SIM_NAMES_FILE` names a file that the simulator reads again on every name request, so a test can rename while it runs. Lines are such as `src 12 CAM C` or `dst 0 PGM` (0-based); no name makes that number blank. See `cmd/swp08sim`.
+The simulator (`go run ./cmd/swp08sim`, on :8910) has 200 sources, 120 destinations and 17 levels. `SIM_SOURCES`, `SIM_DESTS` and `SIM_LEVELS` change these sizes, for example `SIM_SOURCES=2500 SIM_DESTS=750` for a large router. It also reads `SIM_*` variables to fake misbehaving routers: `SIM_IGNORE_DSTS`, `SIM_SILENT_DSTS`, `SIM_SLOW_DSTS`, `SIM_EXTERNAL_FOLLOW`, `SIM_EXTERNAL_SECONDS` and `SIM_EXTERNAL_SILENT`. `SIM_NO_SALVO=1` fakes a router that lacks the group send commands. `SIM_SALVO_ANNOUNCE=1` announces a group Go's routes with Connected, as the Ultrix sometimes does. `SIM_PROTECTS=12:2:9,20:1:112` (0-based dst:kind:device) starts those destinations Protected on every level. Kind 1 is a Protect and kind 2 a Router lock. Dst 12 starts with a Router lock by device 9, and `12:0:0` frees it. A connect to a Protected level gets an ACK and no other reply. `SIM_NAMES_FILE` names a file that the simulator reads again on every name request, so a test can rename while it runs. Lines are such as `src 12 CAM C` or `dst 0 PGM` (0-based); no name makes that number blank. See `cmd/swp08sim`.
 
 ## Releases and image tags
 

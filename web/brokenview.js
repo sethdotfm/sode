@@ -11,7 +11,7 @@ const nameMaps = () => {
 };
 
 export const presetKey = (s) => `preset:${s.scope}:${s.id || s.name}`;
-export const setKey = (s) => `filterSet:${s.scope}:${s.name}`;
+export const setKey = (s) => `filterSet:${s.scope}:${s.id}`;
 
 export function presetStatus(s, names = null) {
   const m = s.scope === 'local' ? localPresetMarks(s, names || nameMaps(), S.routerUid) : presetMarks(s);
@@ -34,7 +34,7 @@ export function pageItems() {
   for (const s of allSets()) {
     if (s.scope === 'all') continue;
     const k = setKey(s);
-    out.set(k, { key: k, kind: 'filterSet', scope: s.scope, name: s.name, ...setStatus(s, names) });
+    out.set(k, { key: k, kind: 'filterSet', scope: s.scope, id: s.id, name: s.name, ...setStatus(s, names) });
   }
   return out;
 }

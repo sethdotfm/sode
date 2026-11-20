@@ -43,6 +43,10 @@ const srcOf = (key) => sourceOf(key) || formSource;
 const changes = () => sources().flatMap((src) => diffRows(src.base(), src.now()));
 
 export const dirty = () => isOpen() && changes().length > 0;
+// The Palette does not open over unsaved Settings.
+on('unsavedAsk', (a) => {
+  if (dirty()) a.unsaved = true;
+});
 
 // Called on each edit, never on a Step in or Step out, so an edit keeps the name of who made it.
 const noteEdits = () => {

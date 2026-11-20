@@ -1,3 +1,5 @@
 theme: light
 presets:
   - {name: Here, items: [{src: {n: 1}, dsts: [{n: 0}]}]}
+bookmarks:
+  - {url: "https://example.com/rota", label: Rota, newTab: true, inPalette: false}

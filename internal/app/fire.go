@@ -90,9 +90,10 @@ func markStages(r *runtime, items []routeReq) int {
 	return n
 }
 
-func (a *App) takeNative(r *runtime, c *client, items []routeReq) {
+// takeNative runs a take whose routes stage levels in a native group salvo. takeAllowed read the routes first.
+func (a *App) takeNative(r *runtime, c *client, items []routeReq, ext *extTracker) {
 	runs := make([]*routeRun, len(items))
-	runLimited(routeLimit, len(items), func(i int) { runs[i] = a.prepare(r, c, items[i]) })
+	runLimited(routeLimit, len(items), func(i int) { runs[i] = a.prepare(r, c, items[i], ext) })
 	var live, staged []*routeRun
 	for _, t := range runs {
 		if t == nil {
@@ -104,8 +105,7 @@ func (a *App) takeNative(r *runtime, c *client, items []routeReq) {
 		}
 	}
 	if len(staged) >= 2 {
-		start := time.Now()
-		sent, err := a.fireSalvo(r, staged)
+		got, sent, err := a.fireSalvo(r, c, staged)
 		n := 0
 		for _, t := range staged {
 			n += len(t.w.filter(func(l *routeLevel) bool { return l.native }))
@@ -118,7 +118,7 @@ func (a *App) takeNative(r *runtime, c *client, items []routeReq) {
 			log.Printf("salvo: Go sent for %d crosspoints, %v; the takes' interrogates will tell", n, err)
 			a.command(c, "salvo", "error", fmt.Sprintf("%d crosspoints", n), err)
 		default:
-			a.command(c, "salvo", "ok", fmt.Sprintf("%d crosspoints set in %d ms", n, time.Since(start).Milliseconds()), nil)
+			a.command(c, "salvo", "ok", fmt.Sprintf("%d crosspoints set in %d ms", n, time.Since(got).Milliseconds()), nil)
 		}
 		if !sent {
 			for _, t := range staged {
@@ -205,10 +205,53 @@ var (
 )
 
 // fireSalvo: sent reports whether the Go was sent. If not, the takes can go as connects. err
-// with sent means that the Go's acknowledge was missing or odd.
-func (a *App) fireSalvo(r *runtime, staged []*routeRun) (sent bool, err error) {
-	a.fireMu.Lock()
-	defer a.fireMu.Unlock()
+// with sent means that the Go's acknowledge was missing or odd. got is when the fire got fireMu.
+// A salvo command row by c marks when the fire gets fireMu and when it lets go, so a wait for another fire shows.
+func (a *App) fireSalvo(r *runtime, c *client, staged []*routeRun) (got time.Time, sent bool, err error) {
+	waited, holder := a.lockFire("a fire by " + c.who())
+	got = time.Now()
+	note := "fire lock: no wait"
+	if holder != "" {
+		note = fmt.Sprintf("fire lock: waited %d ms for %s", waited.Milliseconds(), holder)
+	}
+	a.command(c, "salvo", "lock", note, nil)
+	// Deferred first, so it runs after the last Go-clear.
+	defer func() {
+		a.command(c, "salvo", "release", fmt.Sprintf("fire lock: held %d ms", time.Since(got).Milliseconds()), nil)
+		a.unlockFire()
+	}()
+	sent, err = a.fireLocked(r, staged)
+	return got, sent, err
+}
+
+// lockFire takes fireMu for what. When it had to wait, holder names what held the lock then.
+func (a *App) lockFire(what string) (waited time.Duration, holder string) {
+	if !a.fireMu.TryLock() {
+		a.mu.Lock()
+		holder = a.fireHolder
+		a.mu.Unlock()
+		if holder == "" {
+			holder = "another fire" // it let go between the two reads
+		}
+		start := time.Now()
+		a.fireMu.Lock()
+		waited = time.Since(start)
+	}
+	a.mu.Lock()
+	a.fireHolder = what
+	a.mu.Unlock()
+	return waited, holder
+}
+
+func (a *App) unlockFire() {
+	a.mu.Lock()
+	a.fireHolder = ""
+	a.mu.Unlock()
+	a.fireMu.Unlock()
+}
+
+// fireLocked is the fire itself. Caller holds fireMu.
+func (a *App) fireLocked(r *runtime, staged []*routeRun) (sent bool, err error) {
 	n := 0
 	for _, t := range staged {
 		n += len(t.w.levels)
@@ -341,8 +384,8 @@ func (a *App) clearStaleSalvo() {
 	if r.cfg.FireMode != "native" {
 		return
 	}
-	a.fireMu.Lock()
-	defer a.fireMu.Unlock()
+	a.lockFire("the salvo clear after a connect")
+	defer a.unlockFire()
 	fs := &fireState{acks: make(chan swp08.SalvoAck, 16)}
 	a.mu.Lock()
 	a.fire = fs

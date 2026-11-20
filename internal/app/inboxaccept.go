@@ -113,6 +113,11 @@ func withID(s config.Preset, id string) config.Preset {
 	return s
 }
 
+func withSetID(s config.FilterSet, id string) config.FilterSet {
+	s.ID = id
+	return s
+}
+
 func (p *cardPlanner) planPresets(cand *config.Config, cat *importCat) error {
 	prof := p.profile(cand)
 	for _, s := range p.check.checked(p.card.Items.Presets) {
@@ -149,25 +154,31 @@ func (p *cardPlanner) planPresets(cand *config.Config, cat *importCat) error {
 func (p *cardPlanner) planFilterSets(cand *config.Config, cat *importCat) error {
 	prof := p.profile(cand)
 	for _, s := range p.card.Items.FilterSets {
-		if !p.picked(catFilterSets, s.Name) {
+		if !p.picked(catFilterSets, s.ID) {
 			continue
 		}
 		s.Broken = p.check.filterSetBroken(s)
-		it := importItem{Key: s.Name, Name: s.Name, Broken: s.Broken}
+		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
 		out := addItem
-		if i := matchIdx(false, prof.FilterSets, "", s.Name, nil, setName); i >= 0 {
+		if i := matchSet(p.same, prof.FilterSets, s); i >= 0 {
 			lf, same := prof.FilterSets[i], false
 			if p.file {
 				s.Extra = lf.Extra
-				same = sameYAML(s, lf)
+				same = sameYAML(withSetID(s, lf.ID), lf)
 			}
 			if out = p.settle(&it, catFilterSets, lf.Name, same, namesIn(prof.FilterSets, setName)); out == overwrite {
-				s.Name, s.Extra = lf.Name, lf.Extra
+				s.ID, s.Extra = lf.ID, lf.Extra
+				if !p.same { // matched by name: keep the live spelling
+					s.Name = lf.Name
+				}
 				prof.FilterSets[i] = s
 			}
 		}
 		if out == addItem {
 			s.Name = cmp.Or(it.As, s.Name)
+			if s.ID == "" || slices.ContainsFunc(prof.FilterSets, func(x config.FilterSet) bool { return x.ID == s.ID }) {
+				s.ID = config.NewFilterSetID()
+			}
 			prof.FilterSets = append(prof.FilterSets, s)
 		}
 		cat.Items = append(cat.Items, it)

@@ -1,9 +1,8 @@
-// In memory items are numbers (UI levels, [] = default levels). The hidden id survives a rename, so pins name a preset by it.
+// In memory items are numbers (UI levels, [] = default levels). The hidden id survives a rename, so bookmarks name a preset by it.
 
 import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON } from './store.js';
-import { profile, profileName, saveProfile } from './profile.js';
-import { profileProblem } from './profilesrules.js';
+import { profile, profileName } from './profile.js';
 import { itemNums, itemPlain, itemRefs, newPresetId, storedItemNums } from './presetref.js';
 
 // Limits the server enforces too (internal/config/presets.go); test/preset_cases.json keeps the
@@ -16,8 +15,6 @@ const MAX_NUM = 0xfffe;
 const MAX_LEVEL = 64;
 export const MAX_BYTES = 48 * 1024;
 const KEY = 'sode-presets';
-const ORDER = 'sode-preset-order';
-const PINS = 'sode-preset-pins';
 
 export const normPreset = (s, read = itemNums) => ({
   id: typeof s?.id === 'string' ? s.id.trim() : '',
@@ -32,25 +29,22 @@ export const normPreset = (s, read = itemNums) => ({
 export const storedPreset = (s) => normPreset(s, storedItemNums);
 
 const liveName = (kind, n) => (kind === 'src' ? S.srcBy : S.dstBy)?.get(n)?.name || '';
-// Stored and sent form, without scope: references with the router's names now. No pinned flag (old data) means pinned.
+// Stored and sent form, without scope: references with the router's names now.
 // A new Everyone or Me preset has id ''; the server makes one.
-export const saved = ({ id, name, items, pinned }) => ({
+export const saved = ({ id, name, items }) => ({
   id: id || '',
   name,
   items: items.map((it) => itemRefs(itemNums(it), S.routerUid, liveName)),
-  pinned: pinned !== false,
 });
 const withId = (s) => (s.id ? s : { ...s, id: newPresetId() });
 
-export const globalPresets = () =>
-  (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...storedPreset(s), pinned: s.pinned !== false }));
+export const globalPresets = () => (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...storedPreset(s) }));
 export const localPresets = () =>
   []
     .concat(readJSON(KEY, []))
     .filter((s) => s?.name)
-    .map((s) => ({ scope: 'local', ...storedPreset(s), pinned: s.pinned !== false }));
-export const userPresets = () =>
-  (profileName() ? profile().presets : []).filter((s) => s?.name).map((s) => ({ scope: 'user', ...storedPreset(s), pinned: s.pinned !== false }));
+    .map((s) => ({ scope: 'local', ...storedPreset(s) }));
+export const userPresets = () => (profileName() ? profile().presets : []).filter((s) => s?.name).map((s) => ({ scope: 'user', ...storedPreset(s) }));
 export const allPresets = () => [...globalPresets(), ...userPresets(), ...localPresets()];
 const PRESET_LISTS = { global: globalPresets, user: userPresets, local: localPresets };
 export const presetsIn = (scope) => (PRESET_LISTS[scope] || (() => []))();
@@ -114,7 +108,7 @@ export function saveLocalPreset(s, old = '') {
   emit('presets');
 }
 // As the server's WithPresetExtras: an entry without an id gets the id of this browser's preset
-// of its name. That id must be free in the list. So a Replace import keeps pins and order.
+// of its name. That id must be free in the list. So a Replace import keeps its bookmarks.
 export function putLocalPresets(list) {
   const was = localPresets();
   const taken = new Set(list.map((s) => s.id).filter(Boolean));
@@ -135,107 +129,6 @@ export function deleteLocalPreset(name) {
   writeJSON(KEY, list.length ? list : null);
   emit('presets');
 }
-
-// A preset carries its own pinned flag. This browser can override it for an Everyone preset, by id.
-
-// Sode ignores an unknown id or a non-boolean value.
-export function pinOverrides(list = globalPresets()) {
-  const raw = readJSON(PINS, {});
-  const out = {};
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  for (const s of list) {
-    if (s.scope !== 'global' || !s.id) continue;
-    const v = raw[s.id];
-    if (typeof v === 'boolean') out[s.id] = v;
-  }
-  return out;
-}
-export function effectivePin(s, overrides = pinOverrides()) {
-  if (s.scope === 'global') {
-    const v = overrides[s.id];
-    if (typeof v === 'boolean') return v;
-  }
-  return s.pinned !== false;
-}
-// Pin order keys (Profile.PinOrder, sode-preset-order) name a preset by scope and id.
-export const presetKey = (s) => `${s.scope}:${s.id}`;
-export function pinOrder() {
-  const raw = profileName() ? profile().pinOrder : readJSON(ORDER, []);
-  return Array.isArray(raw) ? raw.filter((k) => typeof k === 'string') : [];
-}
-export function orderPins(list, order = pinOrder()) {
-  const at = new Map(order.map((k, i) => [k, i]));
-  const rank = (s) => at.get(presetKey(s)) ?? Infinity;
-  return list
-    .map((s, i) => [s, i])
-    .sort((a, b) => (rank(a[0]) === rank(b[0]) ? a[1] - b[1] : rank(a[0]) - rank(b[0])))
-    .map((x) => x[0]);
-}
-export function moveKey(keys, key, to) {
-  const rest = keys.filter((k) => k !== key);
-  rest.splice(Math.max(0, Math.min(to, rest.length)), 0, key);
-  return rest;
-}
-// The order shows at once; a caller whose save fails redraws from the real one (saveProfile
-// puts the old copy back).
-export function setPinOrder(keys) {
-  if (profileName()) {
-    const why = profileProblem(profile(), { pinOrder: keys });
-    if (why) return Promise.resolve({ ok: false, err: why });
-    const saved = saveProfile({ pinOrder: keys });
-    emit('presets');
-    return saved;
-  }
-  writeJSON(ORDER, keys.length ? keys : null);
-  emit('presets');
-  return Promise.resolve({ ok: true });
-}
-export function movePin(key, where) {
-  const keys = pinnedPresets().map(presetKey);
-  const i = keys.indexOf(key);
-  if (i < 0) return null;
-  let to;
-  if ('by' in where) {
-    to = i + where.by;
-    if (to < 0 || to >= keys.length) return null;
-  } else {
-    if (where.before === key) return null;
-    to = keys.filter((k) => k !== key).indexOf(where.before);
-    if (to < 0) return null;
-  }
-  return setPinOrder(moveKey(keys, key, to));
-}
-export function pinnedPresets(list = allPresets()) {
-  const o = pinOverrides(list);
-  return orderPins(list.filter((s) => effectivePin(s, o)));
-}
-// A global preset gets an override (dropped when it equals the preset's own flag). A scope
-// 'user' preset is saved to the profile instead (withUserPin).
-export function setLocalPin(s, on) {
-  if (s.scope === 'user') return;
-  if (s.scope === 'global') {
-    const raw = readJSON(PINS, {});
-    const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...raw } : {};
-    if (on === (s.pinned !== false)) delete o[s.id];
-    else o[s.id] = on;
-    writeJSON(PINS, Object.keys(o).length ? o : null);
-  } else {
-    writeJSON(
-      KEY,
-      localPresets().map((x) => withId(saved(x.id === s.id ? { ...x, pinned: on } : x))),
-    );
-  }
-  emit('presets');
-}
-export function clearPinOverride(id) {
-  const raw = readJSON(PINS, {});
-  if (!raw || typeof raw !== 'object' || !(id in raw)) return;
-  const o = { ...raw };
-  delete o[id];
-  writeJSON(PINS, Object.keys(o).length ? o : null);
-  emit('presets');
-}
-export const withUserPin = (id, on) => userPresets().map((s) => saved(s.id === id ? { ...s, pinned: on } : s));
 
 // Matches keep their order among equal scores.
 export function rankPresets(list, q) {
@@ -344,7 +237,8 @@ export function itemsFromEntries(entries) {
 }
 
 onMsg('presets', (m) => {
-  S.cfg = { ...S.cfg, presets: m.presets };
+  // A rename changes the names of Everyone's bookmarks on the preset in the same save.
+  S.cfg = { ...S.cfg, presets: m.presets, ...(Array.isArray(m.bookmarks) ? { bookmarks: m.bookmarks } : {}) };
   emit('presets');
 });
 on('helloData', () => emit('presets'));

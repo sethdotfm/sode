@@ -148,8 +148,19 @@ func (p *importPlanner) emptyRest(cat string, cand *config.Config, c *importCat)
 			}
 			return !keep[x.ID]
 		})
+	case catBookmarks:
+		if len(c.Items) == 0 && len(cand.Bookmarks) > 0 {
+			cand.Bookmarks = nil
+			removeItem(c, catBookmarks, everyoneBookmarksName, "")
+		}
 	case catFilterSets:
-		cand.FilterSets = dropUnkept(c, cand.FilterSets, setName, func(config.FilterSet) bool { return true })
+		keep := p.keptIDs(nil)
+		cand.FilterSets = slices.DeleteFunc(cand.FilterSets, func(x config.FilterSet) bool {
+			if !keep[x.ID] {
+				removeItem(c, x.ID, x.Name, "")
+			}
+			return !keep[x.ID]
+		})
 	case catAPIClients:
 		// A panel's own client goes with its panel, not with this category.
 		cand.APIClients = dropUnkept(c, cand.APIClients, func(x config.APIClient) string { return x.Name },

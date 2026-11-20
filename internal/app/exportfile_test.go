@@ -112,7 +112,7 @@ func slicesSorted(m map[string]string) []string {
 	return out
 }
 
-var everyCategory = []string{catSettings, catRouters, catUsers, catPresets, catFilterSets, catPanels, catArtwork, catAPIClients, catBrowser}
+var everyCategory = []string{catSettings, catRouters, catUsers, catPresets, catFilterSets, catBookmarks, catPanels, catArtwork, catAPIClients, catBrowser}
 
 // seedEverything puts one item in every category. Each item names the router where it can.
 func seedEverything(t *testing.T, a *App) {
@@ -128,6 +128,7 @@ func seedEverything(t *testing.T, a *App) {
 		c.FilterSets = []config.FilterSet{{Name: "Cams", Router: uid, Src: "1-4"}}
 		c.HiddenDsts, c.HiddenDstsRouter = "9", uid
 		c.APIClients = []config.APIClient{{Name: "Bot", Scopes: []string{config.ScopeNames}, Owner: ana}}
+		c.Bookmarks = everyoneBookmarks("pr-1")
 	})
 	p, err := a.panels.create(Panel{Name: "Desk", Owner: ana, Rows: 1, Cols: 1,
 		Pages: []PanelPage{{ID: "pg-1", Enabled: true, Cells: []map[string]any{{"kind": "source", "n": 2, "router": uid, "name": "CAM 2"}}}}})
@@ -162,7 +163,7 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 	}
 	files := unzipAll(t, rec.Body.Bytes())
 	for _, want := range []string{"manifest.yaml", "settings.yaml", "routers.yaml", "users.yaml", "presets.yaml", "filtersets.yaml",
-		"panels.yaml", "artwork.yaml", "apiclients.yaml", "browser.yaml", "names/" + cfg.UID + ".yaml"} {
+		"bookmarks.yaml", "panels.yaml", "artwork.yaml", "apiclients.yaml", "browser.yaml", "names/" + cfg.UID + ".yaml"} {
 		if _, ok := files[want]; !ok {
 			t.Errorf("no %s in %v", want, slices.Sorted(maps.Keys(files)))
 		}
@@ -235,6 +236,9 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 	}
 	if b.Browser["theme"] != "dark" || len(b.Names[cfg.UID].Sources) != 1 || len(b.Art) != 3 {
 		t.Errorf("browser %v, names %+v, art %v", b.Browser, b.Names, b.Art)
+	}
+	if !sameBookmarks(b.Bookmarks, cfg.Bookmarks) || len(b.Bookmarks) != 2 {
+		t.Errorf("bookmarks: %+v", b.Bookmarks)
 	}
 	if b.Routers[0].UID != cfg.UID || b.Routers[0].Address != cfg.Address {
 		t.Errorf("routers: %+v", b.Routers)
@@ -378,7 +382,7 @@ func TestStartRemovesImportStaging(t *testing.T) {
 // Every top-level config key is in one Settings section, or in exportNotSettings, so a new setting cannot
 // miss the export. The sections are the page's own.
 func TestExportSectionsCoverTheConfig(t *testing.T) {
-	exportNotSettings := []string{"format", "installUid", "users", "presets", "filterSets", "apiClients"}
+	exportNotSettings := []string{"format", "installUid", "users", "presets", "filterSets", "apiClients", "bookmarks"}
 	where := map[string][]string{}
 	for _, s := range exportSections {
 		for _, k := range s.Keys {
