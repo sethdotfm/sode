@@ -14,9 +14,9 @@ import (
 // undo restores) comes from the router, not from a cache that misses changes the router did not announce. A level
 // that the router reported within checkFresh is not read again, since that report is as good as a read.
 //
-// A take of fewer than bigTake routes reads in prepare, one route at a time (checkTally). A bigger take reads before
-// any route is prepared, one level at a time for the whole take (checkRoutes). Each level then gets the cheaper of
-// one interrogate per destination or one extended tally dump request.
+// takeAllowed reads the whole take before any route is prepared, one level at a time (checkRoutes). From bigTake
+// routes, each level gets the cheaper of one interrogate per destination or one extended tally dump request. A
+// smaller take interrogates each destination level.
 
 // dumpPerAnswer: destinations in one extended tally dump answer (0x97), on the Ultrix and in swp08sim.
 const dumpPerAnswer = 64
@@ -58,29 +58,16 @@ type levelRead struct {
 	dumpAnswers int
 }
 
-// checkTally reads one route's stale levels with an interrogate each. False: some level got no answer.
-func (a *App) checkTally(r *runtime, w *waiter) bool {
-	var reads []levelRead
-	a.mu.Lock()
-	for _, l := range w.levels {
-		if !a.freshMu(w.dst, l.ui) {
-			reads = append(reads, levelRead{wire: l.wire, ui: l.ui, dsts: []int{w.dst}})
-		}
-	}
-	a.mu.Unlock()
-	why := swp08.Why{Reason: swp08.ReasonCheck, By: w.why.By, Note: w.why.Note}
-	return len(a.runCheck(r, w.ext, why, reads)) == 0
-}
-
-// checkRoutes reads every route of a big take before the first route is prepared. False: some level got no answer,
-// so Prev comes from the cache for it.
-func (a *App) checkRoutes(r *runtime, c *client, items []routeReq) bool {
+// checkRoutes reads every route of a take before the first route is prepared. read is false when some level got no
+// answer, so Prev comes from the cache for it. The take's routes use ext, the tracker that the check started on.
+// Then a router change during the check refuses the routes too.
+func (a *App) checkRoutes(r *runtime, c *client, items []routeReq) (ext *extTracker, read bool) {
 	why := swp08.Why{Reason: swp08.ReasonCheck, By: c.who()}
 	if c.api != nil {
 		why.Note = a.panelNote(c.api.Actor)
 	}
 	a.mu.Lock()
-	ext := a.ext
+	ext = a.ext
 	reads := a.planReadsMu(r, items)
 	a.mu.Unlock()
 	unread := a.runCheck(r, ext, why, reads)
@@ -89,9 +76,9 @@ func (a *App) checkRoutes(r *runtime, c *client, items []routeReq) bool {
 		for i, u := range unread {
 			parts[i] = fmt.Sprintf("level %s (%d %s)", r.cfg.LevelLabel(u.ui), len(u.dsts), plural(len(u.dsts), "destination", "destinations"))
 		}
-		log.Printf("take of %d routes: not read from the router: %s; using cached routes", len(items), strings.Join(parts, ", "))
+		log.Printf("take of %d %s: not read from the router: %s; using cached routes", len(items), plural(len(items), "route", "routes"), strings.Join(parts, ", "))
 	}
-	return len(unread) == 0
+	return ext, len(unread) == 0
 }
 
 // freshMu: the router reported this destination level within checkFresh. Caller holds mu.
@@ -101,31 +88,33 @@ func (a *App) freshMu(dst, ui int) bool {
 }
 
 // planReadsMu groups the take's stale destination levels by level. It leaves out what prepare refuses anyway: a bad
-// route and a protected level. Caller holds mu.
+// route (planRoute) and a route with a protected level (guardPhase). So no read goes to a protected destination.
+// Only a take of bigTake routes or more can use a dump. Caller holds mu.
 func (a *App) planReadsMu(r *runtime, items []routeReq) []levelRead {
 	by := map[int]*levelRead{}
 	seen := map[dstLevel]bool{}
 	top := 0
 	for _, it := range items {
-		if it.Src < 0 || it.Src > 0xFFFE || it.Dst < 0 || it.Dst > 0xFFFE {
+		w, err := planRoute(r, it)
+		if err != nil || slices.ContainsFunc(w.levels, func(l *routeLevel) bool {
+			_, p := a.router.protect[w.dst][l.ui]
+			return p
+		}) {
 			continue
 		}
-		for _, ui := range it.Levels {
-			l, ok := r.byUI[ui]
-			if !ok || seen[dstLevel{it.Dst, l.Wire}] || a.freshMu(it.Dst, ui) {
+		for _, l := range w.levels {
+			k := dstLevel{w.dst, l.wire}
+			if seen[k] || a.freshMu(w.dst, l.ui) {
 				continue
 			}
-			if _, p := a.router.protect[it.Dst][ui]; p {
-				continue
-			}
-			seen[dstLevel{it.Dst, l.Wire}] = true
-			lr := by[l.Wire]
+			seen[k] = true
+			lr := by[l.wire]
 			if lr == nil {
-				lr = &levelRead{wire: l.Wire, ui: ui}
-				by[l.Wire] = lr
+				lr = &levelRead{wire: l.wire, ui: l.ui}
+				by[l.wire] = lr
 			}
-			lr.dsts = append(lr.dsts, it.Dst)
-			top = max(top, it.Dst+1)
+			lr.dsts = append(lr.dsts, w.dst)
+			top = max(top, w.dst+1)
 		}
 	}
 	n := a.routerDstsMu()
@@ -137,7 +126,7 @@ func (a *App) planReadsMu(r *runtime, items []routeReq) []levelRead {
 	for _, lr := range by {
 		slices.Sort(lr.dsts)
 		// With no destination count known, a dump could cost more than it saves: interrogate.
-		if n > 0 && answers < len(lr.dsts) {
+		if len(items) >= bigTake && n > 0 && answers < len(lr.dsts) {
 			lr.dumpAnswers = answers
 		}
 		reads = append(reads, *lr)

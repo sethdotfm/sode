@@ -14,7 +14,7 @@ import (
 
 func takeAs(t *testing.T, a *App, c *client) Entry {
 	t.Helper()
-	a.route(c, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1}})
+	a.takeAllowed(c, []routeReq{{ID: 1, Src: 7, Dst: 5, Levels: []int{1}}})
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].Ext {
 		t.Fatalf("no take recorded: %+v", es)
