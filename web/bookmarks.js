@@ -32,7 +32,7 @@ export async function openBookmark(b, { fill = false } = {}) {
   if (v.state === 'missing') return showResult('warn', `Bookmark ${b.label} is missing`, 'What it opens is gone. Edit Bookmarks to remove it.');
   if (fill) return v.row.kind === 'preset' && v.state === 'ok' ? runRow(v.row, { fill: true }) : undefined;
   if (v.state === 'noAccess') return explainRow(v.row);
-  runRow(v.row, { newTab: b.newTab && canNewTab(b, v.row) });
+  runRow(v.row, { newTab: b.newTab && canNewTab(b, v.row), press: true });
 }
 
 // Alt+1-9: the first nine of the shown list.
@@ -52,6 +52,7 @@ const presetOf = (row) => allPresets().find((x) => x.scope === row.target.scope 
 function tipOf(b, v) {
   if (b.url) return b.url;
   if (v.state === 'missing') return 'What this bookmark opens is gone';
+  if (!v.row) return b.label;
   if (v.state === 'noAccess') return v.row.access.why;
   if (v.row.kind === 'preset') {
     const p = presetOf(v.row);

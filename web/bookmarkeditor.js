@@ -17,6 +17,7 @@ import {
   LABEL_MAX,
   addBookmark,
   bookmarkProblem,
+  urlProblem,
   bookmarkView,
   canEditEveryone,
   canNewTab,
@@ -199,7 +200,7 @@ function addFromPalette() {
 
 function addUrl() {
   const b = fromUrl(urlIn.value, urlName.value);
-  const why = bookmarkProblem(b);
+  const why = urlProblem(b.url) || bookmarkProblem(b);
   if (why) {
     urlIn.classList.add('pb-input--invalid');
     setNote(sentence(why), true);

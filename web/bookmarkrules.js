@@ -100,7 +100,7 @@ export function fromUrl(url, label = '') {
   let name = String(label).trim();
   if (!name) {
     try {
-      name = new URL(u).host;
+      name = new URL(u).host || u;
     } catch {
       name = u;
     }

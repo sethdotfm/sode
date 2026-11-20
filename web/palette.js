@@ -234,8 +234,9 @@ export function openUrl(url, newTab) {
 }
 
 // Pages and panels open in this tab, or in a new one (newTab, from a bookmark). Home's rows run here on Home, else go
-// to Home with the row. A row of kind 'url' is a bookmark's web address.
-export function runRow(row, { fill = false, offer = '', newTab = false } = {}) {
+// to Home with the row. A row of kind 'url' is a bookmark's web address. press: a bookmark presses a Settings button
+// (palettehome.js), where the Palette only shows it.
+export function runRow(row, { fill = false, offer = '', newTab = false, press = false } = {}) {
   close(false);
   if (row.kind === 'url') return openUrl(row.target.url, row.target.newTab);
   if (!offer) notePick(row.key);
@@ -245,8 +246,8 @@ export function runRow(row, { fill = false, offer = '', newTab = false } = {}) {
     const to = new URL(row.target.href, appRoot());
     return newTab ? window.open(to, '_blank', 'noopener') : location.assign(to);
   }
-  if (homeRunner) return homeRunner(row, { fill, offer });
-  toHome({ key: row.key, fill, offer });
+  if (homeRunner) return homeRunner(row, { fill, offer, press });
+  toHome({ key: row.key, fill, offer, press });
 }
 const run = runRow;
 

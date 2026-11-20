@@ -27,8 +27,9 @@ function runAction(id) {
 }
 
 // fill: Shift+Enter. A preset fills the Patch boxes and sends nothing; a filter set adds to the stack. A preset fires
-// only through the usual Confirm (fire opens it).
-function runRow(row, { fill = false, offer = '' } = {}) {
+// only through the usual Confirm (fire opens it). press (a bookmark): a Settings button is pressed, so its own guards
+// run, such as the Clear History confirm or the PIN of Step in.
+function runRow(row, { fill = false, offer = '', press = false } = {}) {
   if (offer === 'stepIn') return runAction('stepIn');
   const t = row.target;
   if (row.kind === 'preset') {
@@ -37,6 +38,12 @@ function runRow(row, { fill = false, offer = '' } = {}) {
     return (fill ? fillBoxes : fire)(p.scope, p.name);
   }
   if (row.kind === 'filterSet') return (fill && t.scope !== 'all' ? toggleSet : pickSet)(t.scope, t.name);
+  if (row.kind === 'settingsButton' && press) {
+    openSettingsAt(t);
+    const b = document.getElementById(t.id);
+    if (b && !b.disabled && !b.closest('[hidden]')) b.click();
+    return;
+  }
   if (row.kind === 'setting' || row.kind === 'settingsButton') return openSettingsAt(t);
   if (row.key === 'page:settings') return openSettingsAt(null);
   if (row.kind === 'action') return runAction(t.id);
