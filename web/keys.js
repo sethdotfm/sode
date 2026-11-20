@@ -20,6 +20,13 @@ export function modChord(e, isMac = mac) {
   return `mod+${e.altKey ? 'alt+' : ''}${e.shiftKey ? 'shift+' : ''}${keyName(e)}`;
 }
 
+// Undo: Ctrl+Z, or Cmd+Z on a Mac, by the typed letter so a QWERTZ keyboard keeps its Z. own is true for the OS's
+// own text-undo chord, which a box with text keeps. null for any other key.
+export function undoKey(e, isMac = mac) {
+  if (!primary(e, isMac) || e.shiftKey || e.altKey || (e.key || '').toLowerCase() !== 'z') return null;
+  return { own: !!e.metaKey === isMac };
+}
+
 // Keep in step with the combobox and Settings search: both get their Ctrl/Cmd+J/K from here.
 export function listStep(e, isMac = mac) {
   return (primary(e, isMac) && !e.altKey && !e.shiftKey && { KeyJ: 1, KeyK: -1 }[e.code]) || 0;

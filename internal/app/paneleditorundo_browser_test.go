@@ -46,17 +46,17 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 		window.state = () => document.getElementById('ed-state').textContent;
 		true`)
 
-	b.eval(`goTo(1, 1); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { metaKey: true })`)
+	b.eval(`goTo(1, 1); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { ctrlKey: true })`)
 	b.waitFor("copied", `stat() === 'Copied 2 cells.'`)
 	b.eval(`goTo(3, 1); press('v', 'KeyV', { ctrlKey: true })`)
 	b.waitFor("pasted", `stat() === 'Pasted 2 cells.' && state() === 'Unsaved changes'`)
 
-	if b.eval(`press('z', 'KeyZ', { metaKey: true })`) != true {
+	if b.eval(`press('z', 'KeyZ', { ctrlKey: true })`) != true {
 		t.Fatal("Cmd+Z on the grid was not taken by the editor")
 	}
 	b.waitFor("undone", `stat() === 'Undid paste.'`)
 	b.waitSaved("undone to the saved state")
-	b.eval(`press('z', 'KeyZ', { metaKey: true })`)
+	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
 	b.waitFor("nothing more to undo", `stat() === 'Nothing to undo.'`)
 	if b.eval(`press('Z', 'KeyZ', { ctrlKey: true, shiftKey: true })`) != true {
 		t.Fatal("Ctrl+Shift+Z on the grid was not taken by the editor")
@@ -79,7 +79,7 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
 	b.waitFor("paste undone after Save", `stat() === 'Undid paste.' && state() === 'Unsaved changes'`)
 
-	b.eval(`{ const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'z', code: 'KeyZ', metaKey: true }); n.dispatchEvent(e); window.fieldUndo = e.defaultPrevented }`)
+	b.eval(`{ const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'z', code: 'KeyZ', ctrlKey: true }); n.dispatchEvent(e); window.fieldUndo = e.defaultPrevented }`)
 	if b.eval(`window.fieldUndo`) != false || b.eval(`stat()`) != "Undid paste." {
 		t.Fatal("Cmd+Z in the name field was taken by the grid")
 	}

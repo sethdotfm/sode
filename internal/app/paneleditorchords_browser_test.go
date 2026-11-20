@@ -39,7 +39,7 @@ func TestChromeEditorSelectAll(t *testing.T) {
 		window.picked = () => document.querySelectorAll('#ed-grid .is-sel').length;
 		window.squares = () => document.querySelectorAll('#ed-grid .sode-ed__sq').length;
 		true`)
-	for _, mod := range []string{"ctrlKey", "metaKey"} {
+	for _, mod := range []string{"ctrlKey"} {
 		b.eval(`press(grid, { key: 'Escape', code: 'Escape' })`)
 		b.waitFor("nothing selected", `picked() === 0`)
 		if b.eval(fmt.Sprintf(`grid.focus(), press(grid, { %s: true })`, mod)) != true {

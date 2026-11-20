@@ -32,7 +32,7 @@ func TestChromeGridPanelLiveMenu(t *testing.T) {
 	b.eval(`press('src', 2); true`)
 	b.waitFor("a picked source opens the menu above its name, with the items in order", `shown() && labels() === 'Artwork,Pin,Move,Insert,|,Remove from the panel'
 		&& menu().getBoundingClientRect().bottom <= nameOf('src', 2).getBoundingClientRect().top + 1`)
-	b.waitFor("Pin and Insert show their chords, Remove its key", `/P$/.test(item('Pin').textContent) && /I$/.test(item('Insert').textContent) && item('Remove from the panel').textContent.endsWith('Delete')`)
+	b.waitFor("Pin and Insert show their chords, Remove its key", `/p$/.test(item('Pin').textContent) && /i$/.test(item('Insert').textContent) && item('Remove from the panel').textContent.endsWith('Delete')`)
 	b.shot("menu-source")
 	b.eval(`press('src', 4, { shiftKey: true }); true`)
 	b.waitFor("Shift-click picks a range, and the list selection follows", `picked('src') === '2,3,4' && document.getElementById('ed-sources-sel').textContent === '3 selected'`)

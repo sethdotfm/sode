@@ -220,7 +220,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 		t.Errorf("stored %s", raw)
 	}
 
-	b.eval(`const g = document.getElementById('ed-grid'); g.focus(); g.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: true, bubbles: true, cancelable: true })); true`)
+	b.eval(`const g = document.getElementById('ed-grid'); g.focus(); g.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("merge undone", status+` === 'Undid merge.'`)
 	b.eval(`document.getElementById('ed-grid').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("resize undone, Destination cells still set aside", status+` === 'Undid resize.' && document.getElementById('ed-cols').value === '3' && !document.querySelector('#ed-grid .sode-ed__sq--destination')`)

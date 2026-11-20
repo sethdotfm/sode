@@ -125,7 +125,8 @@ test('edgeListKey names the list keys by chord; other keys are null', () => {
   assert.deepEqual(k('ArrowUp', { ctrlKey: true }), { move: 'up' });
   assert.deepEqual(k('ArrowDown', { ctrlKey: true }), { move: 'down' });
   assert.deepEqual(edgeListKey({ key: 'a', code: 'KeyA', ctrlKey: true }), { all: true });
-  assert.deepEqual(edgeListKey({ key: 'a', code: 'KeyA', metaKey: true }), { all: true });
+  assert.deepEqual(edgeListKey({ key: 'a', code: 'KeyA', metaKey: true }, true), { all: true });
+  assert.equal(edgeListKey({ key: 'a', code: 'KeyA', metaKey: true }, false), null, 'the Windows key');
   assert.deepEqual(k(' '), { toggle: true });
   assert.deepEqual(k('Escape'), { none: true });
   assert.equal(k('x'), null);

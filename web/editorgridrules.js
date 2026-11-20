@@ -3,7 +3,7 @@
 // same edge when nothing changed.
 import { allowed } from './rightsrules.js';
 import { filterFn } from './filter.js';
-import { chord } from './keys.js';
+import { chord, modChord } from './keys.js';
 import { artRun } from './arttoolrules.js';
 
 const isAll = (edge) => !Array.isArray(edge?.members);
@@ -106,7 +106,7 @@ export function addItems(edge, router, selected, { at } = {}) {
 }
 
 // The panel's list keys, by chord (keys.js), while the list itself has focus. go moves the cursor (extend: Shift
-// selects from the anchor), move moves the selected rows. Ctrl+A is also Cmd+A, as in a text field.
+// selects from the anchor), move moves the selected rows. A mod+ row is Ctrl, or Cmd on a Mac (modChord).
 const EDGE_KEYS = {
   up: { go: 'up' },
   down: { go: 'down' },
@@ -125,14 +125,13 @@ const EDGE_KEYS = {
   'ctrl+shift+down': { move: 'down' },
   'shift+meta+up': { move: 'up' },
   'shift+meta+down': { move: 'down' },
-  'ctrl+a': { all: true },
-  'meta+a': { all: true },
+  'mod+a': { all: true },
   ' ': { toggle: true },
   escape: { none: true },
 };
-export function edgeListKey(e) {
+export function edgeListKey(e, isMac) {
   const c = chord(e);
-  const plain = EDGE_KEYS[c];
+  const plain = EDGE_KEYS[c] ?? EDGE_KEYS[modChord(e, isMac)];
   if (plain) return plain;
   const go = c.startsWith('shift+') && EDGE_KEYS[c.slice(6)]?.go;
   return go ? { go, extend: true } : null;

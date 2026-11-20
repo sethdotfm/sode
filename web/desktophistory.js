@@ -1,7 +1,7 @@
 // Desktop History list: rows, Groups, External follows, the pager and keyboard mode (single keys on the list).
 
 import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem, dstItem } from './core.js';
-import { mac, pickOrAdd } from './keys.js';
+import { listStep, pickOrAdd } from './keys.js';
 import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
@@ -381,7 +381,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   const BOXES = { s: 'src', d: 'dst', f: 'lvl' };
 
   function onListKey(e) {
-    const jk = e.ctrlKey !== e.metaKey && (e.ctrlKey || mac) && !e.altKey && !e.shiftKey && /^Key[JK]$/.test(e.code) ? e.code[3].toLowerCase() : '';
+    const jk = { 1: 'j', [-1]: 'k' }[listStep(e)] || '';
     if (!jk && (e.ctrlKey || e.metaKey || e.altKey)) return false;
     const k = jk || e.key;
     if (BOXES[k] && (k !== 'f' || levelsShown())) {

@@ -72,10 +72,15 @@ test('PageUp, PageDown and Alt+arrows move one screen', () => {
 test('Home goes to the corner, Ctrl or Cmd+Home and End to the row edges, End to the column end', () => {
   assert.equal(gridKeyAction(code('Home'), ctx()), 'corner');
   assert.equal(gridKeyAction(code('End'), ctx()), 'colEnd');
-  for (const mod of ['ctrlKey', 'metaKey']) {
-    assert.equal(gridKeyAction(code('Home', { [mod]: true }), ctx()), 'rowStart', mod);
-    assert.equal(gridKeyAction(code('End', { [mod]: true }), ctx()), 'rowEnd', mod);
+  for (const [mod, isMac] of [
+    ['ctrlKey', true],
+    ['ctrlKey', false],
+    ['metaKey', true],
+  ]) {
+    assert.equal(gridKeyAction(code('Home', { [mod]: true }), ctx(), isMac), 'rowStart', mod);
+    assert.equal(gridKeyAction(code('End', { [mod]: true }), ctx(), isMac), 'rowEnd', mod);
   }
+  assert.equal(gridKeyAction(code('Home', { metaKey: true }), ctx(), false), null, 'the Windows key');
 });
 
 test('Space presses at the cursor', () => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chord, mac, listStep, resultStep, addClick, browseStep, primary, modChord, keyLabel, ariaKeys } from '../keys.js';
+import { chord, mac, listStep, resultStep, addClick, browseStep, primary, modChord, undoKey, keyLabel, ariaKeys } from '../keys.js';
 
 const k = (key, code, mods = {}) => ({ key, code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -116,4 +116,15 @@ test('aria-keyshortcuts names', () => {
   assert.equal(ariaKeys('mod+g', false), 'Control+G');
   assert.equal(ariaKeys('escape'), 'Escape');
   assert.equal(ariaKeys('f'), 'F');
+});
+
+test("undo goes by the typed z, and only the OS text-undo chord is a text box's own", () => {
+  assert.deepEqual(undoKey(k('z', 'KeyZ', { ctrlKey: true }), false), { own: true });
+  assert.deepEqual(undoKey(k('z', 'KeyZ', { metaKey: true }), true), { own: true });
+  assert.deepEqual(undoKey(k('z', 'KeyZ', { ctrlKey: true }), true), { own: false }, 'Ctrl+Z on a Mac always undoes the take');
+  assert.equal(undoKey(k('z', 'KeyZ', { metaKey: true }), false), null, 'the Windows key');
+  assert.deepEqual(undoKey(k('z', 'KeyY', { ctrlKey: true }), false), { own: true }, 'QWERTZ');
+  assert.equal(undoKey(k('y', 'KeyZ', { ctrlKey: true }), false), null);
+  assert.equal(undoKey(k('Z', 'KeyZ', { ctrlKey: true, shiftKey: true }), false), null);
+  assert.equal(undoKey(k('z', 'KeyZ'), true), null);
 });

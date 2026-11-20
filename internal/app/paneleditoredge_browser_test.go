@@ -48,7 +48,7 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 		window.pasteAt = (r, c) => { goTo(r, c); press('v', 'KeyV', { ctrlKey: true }); };
 		true`)
 
-	b.eval(`goTo(1, 1); press('ArrowDown', 'ArrowDown', { shiftKey: true }); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { metaKey: true })`)
+	b.eval(`goTo(1, 1); press('ArrowDown', 'ArrowDown', { shiftKey: true }); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { ctrlKey: true })`)
 	b.waitFor("copied", `stat() === 'Copied 3 cells.'`)
 
 	b.eval(`pasteAt(3, 8)`)
@@ -73,7 +73,7 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	if got := storedCells(t, a, ana, id); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("after Clip:\n got %q\nwant %q", got, want)
 	}
-	b.eval(`press('z', 'KeyZ', { metaKey: true })`)
+	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
 	b.waitFor("Clip undone", `stat() === 'Undid paste.' && state() === 'Unsaved changes' && !document.querySelector('.sode-ed__sq[data-r="4"][data-c="8"]')?.textContent.includes('C')`)
 
 	b.eval(`pasteAt(3, 8)`)
@@ -86,7 +86,7 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	if got := storedCells(t, a, ana, id); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("after Wrap:\n got %q\nwant %q", got, want)
 	}
-	b.eval(`press('z', 'KeyZ', { metaKey: true })`)
+	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
 	b.waitFor("Wrap undone", `stat() === 'Undid paste.' && state() === 'Unsaved changes'`)
 
 	b.eval(`goTo(3, 1); press('z', 'KeyZ')`)

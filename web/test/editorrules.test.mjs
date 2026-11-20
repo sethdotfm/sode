@@ -252,12 +252,14 @@ test('the chord reads Ctrl+m, or the Control sign on a Mac, never the Cmd sign',
   assert.equal(chordText('m', true), '\u2303m');
 });
 
-test('Ctrl or Cmd+S saves, in a field too; with Shift or Alt it is something else', () => {
+test('Ctrl+S saves, and Cmd+S on a Mac, in a field too; with Shift or Alt it is something else', () => {
   assert.equal(saveChord({ key: 's', ctrlKey: true }), true);
-  assert.equal(saveChord({ key: 's', metaKey: true }), true);
-  assert.equal(saveChord({ key: 'S', metaKey: true }), true);
+  assert.equal(saveChord({ key: 's', ctrlKey: true }, false), true);
+  assert.equal(saveChord({ key: 's', metaKey: true }, true), true);
+  assert.equal(saveChord({ key: 'S', metaKey: true }, true), true);
+  assert.equal(saveChord({ key: 's', metaKey: true }, false), false, 'the Windows key');
   assert.equal(saveChord({ key: 's' }), false);
-  assert.equal(saveChord({ key: 's', metaKey: true, shiftKey: true }), false);
+  assert.equal(saveChord({ key: 's', metaKey: true, shiftKey: true }, true), false);
   assert.equal(saveChord({ key: 's', ctrlKey: true, altKey: true }), false);
   assert.equal(saveChord({ key: 'd', ctrlKey: true }), false);
   assert.equal(saveChord({ key: 'ы', code: 'KeyS', ctrlKey: true }), true, 'a Cyrillic layout still saves');

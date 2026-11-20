@@ -5,7 +5,7 @@
 // is barOf(cursor) in gridpanelcursor.js. finding is true while a box has text. line is true while a Drawn line
 // shows. A move action is a name in gridpanelcursor.js MOVES. 'range:<move>' is a Shift move along a bar or across
 // the crosspoints, which extends the pick.
-import { chord } from './keys.js';
+import { chord, modChord } from './keys.js';
 import { MOVES } from './gridpanelcursor.js';
 
 const free = (act) => (c) => (c.inControl ? null : act);
@@ -68,10 +68,8 @@ const ACTIONS = {
   'alt+right': free('pageRight'),
   home: free('corner'),
   end: free('colEnd'),
-  'ctrl+home': free('rowStart'),
-  'meta+home': free('rowStart'),
-  'ctrl+end': free('rowEnd'),
-  'meta+end': free('rowEnd'),
+  'mod+home': free('rowStart'),
+  'mod+end': free('rowEnd'),
   // Find and Filter (gridpanelfind.js). n and N stay free while no box has text.
   s: free('findSrcs'),
   d: free('findDsts'),
@@ -82,8 +80,9 @@ const ACTIONS = {
 // While a line is drawn, Space stages it and only moves and Esc work besides.
 const LINE_KEEPS = new Set(['press', 'unline', 'leave']);
 
-export function gridKeyAction(e, ctx) {
-  const act = ACTIONS[chord(e)]?.(ctx) ?? null;
+// A mod+ row is Ctrl, or Cmd on a Mac (modChord in keys.js). isMac is for the tests.
+export function gridKeyAction(e, ctx, isMac) {
+  const act = (ACTIONS[chord(e)] ?? ACTIONS[modChord(e, isMac)])?.(ctx) ?? null;
   return ctx.line && act && !MOVES.has(act) && !LINE_KEEPS.has(act) ? null : act;
 }
 
