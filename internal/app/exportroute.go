@@ -23,28 +23,34 @@ const (
 	exportStagesDir = "import-staging"
 )
 
+// httpSigned answers setup and a session under its Lock. signed is false with no users, or when the
+// token signs in no user; each caller judges that case itself. false in ok: it answered already.
+func (a *App) httpSigned(w http.ResponseWriter, r *http.Request) (u config.User, signed bool, cfg config.Config, ok bool) {
+	cfg = a.r().cfg
+	if a.setupPendingCfg(cfg) {
+		apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
+		return u, false, cfg, false
+	}
+	if len(cfg.Users) == 0 {
+		return u, false, cfg, true
+	}
+	tok := r.Header.Get(sessionHeader)
+	if u, signed = a.tokens.user(tok, cfg); signed && a.tokens.locked(tok) {
+		apiFail(w, http.StatusForbidden, "locked", errPageLocked.Error())
+		return u, signed, cfg, false
+	}
+	return u, signed, cfg, true
+}
+
 // httpSession is the user the session token signs in, not under its Lock. With no users it passes with
 // no user. false: it answered already.
 func (a *App) httpSession(w http.ResponseWriter, r *http.Request, signIn string) (config.User, config.Config, bool) {
-	cfg := a.r().cfg
-	if a.setupPendingCfg(cfg) {
-		apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
-		return config.User{}, cfg, false
-	}
-	if len(cfg.Users) == 0 {
-		return config.User{}, cfg, true
-	}
-	tok := r.Header.Get(sessionHeader)
-	u, ok := a.tokens.user(tok, cfg)
-	switch {
-	case !ok:
+	u, signed, cfg, ok := a.httpSigned(w, r)
+	if ok && !signed && len(cfg.Users) > 0 {
 		apiFail(w, http.StatusUnauthorized, "sign_in", signIn)
 		return u, cfg, false
-	case a.tokens.locked(tok):
-		apiFail(w, http.StatusForbidden, "locked", errPageLocked.Error())
-		return u, cfg, false
 	}
-	return u, cfg, true
+	return u, cfg, ok
 }
 
 // httpAdmin passes an Administrator's session, as roleMu judges a socket. In env-only mode with no

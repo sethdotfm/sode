@@ -411,30 +411,20 @@ func (b *logBuild) note() string {
 // httpLogReader passes whoever can open /log, as admit judges a socket for the log rule. by
 // names the reader for the download row: the user, else the address.
 func (a *App) httpLogReader(w http.ResponseWriter, r *http.Request) (by string, admin, ok bool) {
-	rt := a.r()
-	cfg := rt.cfg
-	ip := clientIP(r, rt.proxies)
-	if a.setupPendingCfg(cfg) {
-		apiFail(w, http.StatusServiceUnavailable, "setup_pending", errSetup.Error())
+	u, signed, cfg, ok := a.httpSigned(w, r)
+	switch {
+	case !ok:
 		return "", false, false
-	}
-	if len(cfg.Users) == 0 {
-		return ip, true, true
-	}
-	tok := r.Header.Get(sessionHeader)
-	if u, signed := a.tokens.user(tok, cfg); signed {
-		if a.tokens.locked(tok) {
-			apiFail(w, http.StatusForbidden, "locked", errPageLocked.Error())
-			return "", false, false
-		}
+	case len(cfg.Users) == 0:
+		return clientIP(r, a.r().proxies), true, true
+	case signed:
 		role, _ := cfg.ActsAs(u)
 		return u.Name, role == config.RoleAdministrator, true
-	}
-	if cfg.Locks.Log {
+	case cfg.Locks.Log:
 		apiFail(w, http.StatusUnauthorized, "sign_in", "sign in on this browser first")
 		return "", false, false
 	}
-	return ip, cfg.GuestRole == config.RoleAdministrator, true
+	return clientIP(r, a.r().proxies), cfg.GuestRole == config.RoleAdministrator, true
 }
 
 func (a *App) serveLogDownload(w http.ResponseWriter, r *http.Request) {
