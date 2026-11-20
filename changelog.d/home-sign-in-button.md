@@ -1,0 +1,2 @@
+- Home shows a Sign in button beside the lock button at the top left when users exist and nobody is signed in. It opens the same sign-in pad as Settings > My user > Sign in, with the focus in the Name box. When someone is signed in, Home shows Signed in as <name> as before.
+- After Lock (Ctrl+L) > Sign in as…, the Name box has the focus, so a typed name is not lost.

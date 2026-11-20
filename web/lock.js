@@ -44,6 +44,7 @@ import {
   lockArrived,
   signInWon,
   chipShown,
+  chipSignInShown,
   heldEnded,
   heldWho,
   prefillName,
@@ -211,7 +212,7 @@ function build() {
   sayOffline();
   new MutationObserver(sayOffline).observe(document.documentElement, { attributes: true, attributeFilter: ['data-conn'] });
 
-  chip = buildChip({ lock: localLock });
+  chip = buildChip({ lock: localLock, signIn: () => emit('login') });
   document.body.append(chip.root);
 }
 
@@ -228,7 +229,7 @@ function render() {
   if (covered) showLock();
   else hideLock();
   build();
-  chip.update(L, showChip, V.mode === MODE.LOCK || L.held, L.user || who);
+  chip.update(L, showChip, V.mode === MODE.LOCK || L.held, L.user || who, chipSignInShown(L, V, covered));
   document.documentElement.toggleAttribute('data-sode-chip', !!showChip);
   if (showChip) placeChip();
 }
@@ -309,6 +310,10 @@ function showLock() {
   const had = document.activeElement;
   if (had && had !== document.body && !root.contains(had)) before = had;
   had?.blur?.();
+  focusPad();
+}
+
+function focusPad() {
   if (focusName(L, nameValue()) && V.mode !== MODE.LOCK) nameInput.focus({ preventScroll: true });
   else root.focus({ preventScroll: true });
 }
@@ -629,6 +634,9 @@ function signInFromLock() {
   clearFeedback();
   say('');
   render();
+  // The overlay stays up, so showLock skips its focus step. The clicked button is now hidden and took the focus with it,
+  // and letters would go nowhere.
+  focusPad();
 }
 
 // From the held Lock, or under the Lock with nobody signed in, with someone signed in: the session ends.

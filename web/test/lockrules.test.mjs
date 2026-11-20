@@ -38,6 +38,7 @@ import {
   lockArrived,
   signInWon,
   chipShown,
+  chipSignInShown,
   heldEnded,
   heldWho,
   wantsTab,
@@ -328,6 +329,17 @@ test('Lock: the chip shows for a logged-in user under it only', () => {
   assert.equal(chipShown({ covered: true, letter: false, user: 'Ana' }), false);
   assert.equal(chipShown({ covered: true, letter: false, user: '', heldUser: 'Ana' }), true); // the held pad says whose it is
   assert.equal(chipShown({ covered: true, letter: false, user: '', heldUser: '' }), false);
+});
+
+test('Lock: the chip offers Sign in to a guest on the open page only', () => {
+  const guest = { enforced: false, user: '', lens: [4] };
+  assert.equal(chipSignInShown(guest, PAGE_VIEW, false), true);
+  assert.equal(chipSignInShown({ ...guest, user: 'Ana' }, PAGE_VIEW, false), false); // Signed in as Ana instead
+  assert.equal(chipSignInShown({ ...guest, lens: [] }, PAGE_VIEW, false), false); // no users
+  assert.equal(chipSignInShown({ ...guest, enforced: true }, PAGE_VIEW, false), false);
+  assert.equal(chipSignInShown(guest, PAGE_VIEW, true), false); // a lock from the server is up
+  assert.equal(chipSignInShown(guest, lockView(PAGE_VIEW, false), false), false);
+  assert.equal(chipSignInShown(guest, startSignIn(PAGE_VIEW, false), false), false);
 });
 
 test('Lock: Sign out offered only with a user and no PIN lock; the view stays Lock', () => {
