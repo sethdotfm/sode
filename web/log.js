@@ -1,5 +1,5 @@
 // The /log page: Communication Log rows, newest first and live, with this browser's filters and the uptime graph.
-import { $, el, S, on, connect, wsSend, connState, routerTitle, setDot, item, labelNode } from './core.js';
+import { $, el, S, on, connect, wsSend, connState, item, labelNode } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
@@ -19,9 +19,12 @@ import { showApprovalCards } from './approvalcards.js';
 import './palette.js';
 import { bigScrollAll } from './bigscroll.js';
 import { pullToLoad } from './widgets.js';
+import { panelsBar, barTitle } from './panelsbar.js';
+
+panelsBar(document.querySelector('.sode-log__head'));
 
 on('brand', ({ text }) => {
-  document.querySelector('.sode-log__title').textContent = `${text} Communication Log`;
+  barTitle(document.querySelector('.sode-log__title'), `${text} Communication Log`);
   document.title = `${text} Communication Log`;
 });
 
@@ -443,9 +446,6 @@ on('conn', () => {
   const c = connState();
   if (routerWas !== null && c.rt[0] !== routerWas) refreshUptime();
   routerWas = c.rt[0];
-  setDot($('log-ws-dot'), $('log-ws-text'), [c.ws[0], 'Server']);
-  setDot($('log-rt-dot'), $('log-rt-text'), [c.rt[0], 'Router']);
-  $('log-addr').textContent = routerTitle()[0];
   if (S.wsState !== 'up') {
     pager.close();
     renderMore();

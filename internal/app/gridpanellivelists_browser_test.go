@@ -145,7 +145,7 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 	// One panel check every 5 s: past it, the saved copy must not show as a change from somewhere else. A banner
 	// goes by itself when its countdown ends, so an observer records one that showed at any time in the wait.
 	b.eval(`(() => {
-		const u = document.querySelector('#ed-live-view .sode-panel__update');
+		const u = document.querySelector('.sode-ed .sode-panel__update');
 		window.bannerShown = !u.hidden;
 		new MutationObserver(() => { if (!u.hidden) window.bannerShown = true; }).observe(u, { attributes: true });
 		return true;

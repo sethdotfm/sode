@@ -1358,15 +1358,23 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__msg > .sode-panel__update .sode__banner-body {
   flex: 1 1 100%;
 }
-/* The Live Editor's bar (editorlive.js) runs across the deck under the header row. */
+/* The Live Editor's bar (editorlive.js) runs across the top of the deck. The editor's page header is over the deck, so
+   the deck has no header row (gridpanelheadview.js). */
 :root:not([data-layout="phone"]) .sode-gridpanel__deck--live {
   grid-template-areas:
-    "top   top   top  top  top  top  top  top   top"
     "live  live  live live live live live live  live"
     "lab   lab   .    .    .    .    note note  note"
     "picks input r1   fsrc mode .    r2   clear take"
     "picks input r1   fdst mode .    r2   clear take";
-  grid-template-rows: auto auto auto var(--sode-pick) var(--sode-pick);
+  grid-template-rows: auto auto var(--sode-pick) var(--sode-pick);
+}
+/* The status slot in the editor's page header (base.css .sode-bar): it takes the gap before Inbox, at the header's
+   height. */
+:root:not([data-layout="phone"]) .sode-bar > .sode-gridpanel__slot {
+  height: var(--sode-h-action);
+}
+.sode-bar:has(> .sode-gridpanel__slot) > .sode-panels__spacer {
+  display: none;
 }
 .sode-gridpanel__deck > .sode-live__bar {
   grid-area: live;

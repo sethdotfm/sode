@@ -7,14 +7,8 @@
   margin: 0 auto;
   max-width: 100rem;
   padding: var(--pb-space-8);
-}
-.sode-log__head {
-  align-items: center;
-  color: var(--pb-text-muted);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: var(--pb-text-xs);
-  gap: var(--pb-space-4);
+  /* The header (base.css .sode-bar) starts on the Lock bar's top, under the lost-link banner. */
+  padding-top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
 }
 .sode-log__title {
   color: var(--pb-text-strong);

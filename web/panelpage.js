@@ -20,13 +20,13 @@ import { desktopOnly } from './desktoponly.js';
 import { showApprovalCards } from './approvalcards.js';
 import './palette.js';
 import { registerShell } from './swreg.js';
-import { panelsBar } from './panelsbar.js';
+import { panelsBar, barTitle } from './panelsbar.js';
 
 const id = panelIdFrom(location.pathname);
 
 on('brand', ({ text }) => {
   const title = document.querySelector('.sode-panels__title');
-  title.textContent = title.textContent.replace(/^Sode/, text);
+  barTitle(title, title.textContent.replace(/^Sode/, text));
   if (!id) document.title = title.textContent;
 });
 

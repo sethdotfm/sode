@@ -43,11 +43,11 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 	b.eval(`document.getElementById('ed-live-lists').click(); true`)
 	b.waitFor("a second press closes it", `document.getElementById('ed-live-lists').getAttribute('aria-pressed') === 'false' && !document.getElementById('ed-live-drawer').classList.contains('pb-drawer--open')`)
 
-	b.waitFor("the bar says Panel Live Editor, the head row has the top bar's Settings link, and the run has no take note", `document.getElementById('ed-live-title').textContent === 'Panel Live Editor' && document.getElementById('ed-live-bar').getAttribute('aria-labelledby') === 'ed-live-title'
-		&& !!document.querySelector('#ed-live-view .sode-gridpanel__headrow .sode-bar__settings')?.offsetParent && !document.querySelector('.sode-live__what')`)
-	b.waitFor("the head row is the top bar: the panel title clears the Lock bar, and the Preview bar is under the row", `(() => {
-		const t = document.querySelector('#ed-live-view .sode-panels__title').getBoundingClientRect(), who = document.querySelector('.sode-lock__who').getBoundingClientRect();
-		return t.width > 0 && t.left >= who.right && document.getElementById('ed-live-bar').getBoundingClientRect().top >= document.querySelector('#ed-live-view .sode-gridpanel__headrow').getBoundingClientRect().bottom - 1;
+	b.waitFor("the bar says Panel Live Editor, the page header keeps its Settings link, and the run has no take note", `document.getElementById('ed-live-title').textContent === 'Panel Live Editor' && document.getElementById('ed-live-bar').getAttribute('aria-labelledby') === 'ed-live-title'
+		&& !!document.querySelector('.sode-ed > .sode-bar .sode-bar__settings')?.offsetParent && !document.querySelector('.sode-live__what')`)
+	b.waitFor("the page header is the top bar: its title clears the Lock bar, and the Preview bar is under it", `(() => {
+		const head = document.querySelector('.sode-ed > .sode-bar'), t = head.querySelector('.sode-panels__title').getBoundingClientRect(), who = document.querySelector('.sode-lock__who').getBoundingClientRect();
+		return t.width > 0 && t.left >= who.right && document.getElementById('ed-live-bar').getBoundingClientRect().top >= head.getBoundingClientRect().bottom;
 	})()`)
 	b.eval(`window.topWas = gridTop(); press(nameOf('src', 3)); press(nameOf('src', 5), { shiftKey: true }); true`)
 	b.waitFor("a click and a Shift-click on the grid select those sources in the list", `document.getElementById('ed-sources-sel').textContent === '3 selected'`)

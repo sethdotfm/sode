@@ -1698,3 +1698,90 @@ button.sode-up__bar:not(:disabled):hover,
   top: 50%;
   transform: translateY(-50%);
 }
+
+/* The one page header (panelsbar.js) of /panels, the panel editor and its Live Editor, and /log: one row on the Lock
+   bar's line and inside the page's edges. The Lock bar floats at its left (lock.css), then come the site name, the
+   links, a gap, Inbox and the Server and Router status. The main page and a panel page have their own. */
+.sode-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--pb-space-4);
+  min-height: var(--sode-h-action);
+  position: relative;
+}
+/* The line sits in the gap under the bar, as wide as the page's content. */
+.sode-bar::after {
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  bottom: calc(-1 * var(--pb-space-2));
+  content: "";
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+/* A long site name is cut with an ellipsis (its tip gives it in full), so it never pushes the rest of the row. */
+.sode-bar > .sode-panels__title {
+  display: flex;
+  flex: 0 1 auto;
+  margin: 0;
+  min-width: 0;
+}
+.sode-bar__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-bar__tools {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: var(--pb-space-2);
+}
+.sode-bar__panels .sode-panels__logo {
+  margin: 0;
+}
+.sode-bar > .sode-inbox__slot {
+  flex: none;
+}
+.sode-bar > .sode__conn {
+  background: none;
+  flex: none;
+  padding: 0;
+  position: static;
+}
+/* The header's left edge is the page content's (.sode-panels and .sode-log: 100rem at most, padded by space-8).
+   Keep in step with them. A Grid panel's Live Editor runs edge to edge, and its header has the deck's edges. */
+:root {
+  --sode-head-x: var(--pb-space-8);
+  --sode-head-max: 100rem;
+}
+:root:has(.sode-ed > #ed-live-view .sode-gridpanel) {
+  --sode-head-x: var(--pb-space-5);
+  --sode-head-max: 100vw;
+}
+/* The Lock bar stays at its own top, and the header starts there too; the lock button lines up with the content's
+   left edge. :where() keeps this under the Lock's own moves (lock.css [data-sode-lock-on]). */
+:where(:root:not([data-layout="phone"], [data-sode-kiosk]):has(.sode-bar)) div.sode-lock__who {
+  left: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x) - var(--pb-space-3));
+}
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-bar {
+  padding-inline-start: calc(var(--sode-who-w, 0px) - var(--pb-space-3) + var(--pb-space-4));
+}
+/* The phone keeps one row: the status shows its dots only. */
+[data-layout="phone"]:not([data-conn="down"]) .sode-bar > .sode__conn {
+  display: flex;
+}
+[data-layout="phone"] .sode-bar > .sode__conn :is(.pb-status > :not(.pb-dot), .sode__conn-addr) {
+  display: none;
+}
+/* A narrow mouse window keeps the desktop layout and the Lock bar beside the bar, so the bar wraps and the status
+   shows its dots only. */
+@media (max-width: 47.9rem) {
+  :root:not([data-layout="phone"]) .sode-bar {
+    flex-wrap: wrap;
+  }
+  .sode-bar > .sode__conn :is(.pb-status > :not(.pb-dot), .sode__conn-addr) {
+    display: none;
+  }
+}

@@ -33,8 +33,8 @@ export function pageUi() {
 
 // Fills host with a live panel; onBack goes back to editing. A Grid panel also gets panel.html's instance name, Levels box
 // and take confirm, made again for each run because keyconfirm.js never removes its listeners.
-// edit: a Grid panel's { bar, open, aside, onPicks, leave } (editorlive.js). Its bar goes under the Grid head row, which
-// gets Full screen; stopScreen ends that button.
+// edit: a Grid panel's { bar, open, aside, onPicks, leave, topBar } (editorlive.js). Its bar goes over the band, and
+// Full screen goes in the editor's page header (topBar); stopScreen ends that button.
 export function liveUi(host, onBack, edit = null) {
   const back = el('button', `pb-btn pb-btn--outline ${edit ? 'pb-btn--lg' : 'pb-btn--sm'}`, 'Back to editing');
   back.id = 'ed-live-back';
@@ -103,6 +103,7 @@ export function liveUi(host, onBack, edit = null) {
     screen,
     stopScreen,
     liveBar: edit?.bar,
+    topBar: edit?.topBar,
     leave: edit?.leave,
     // The Live Editor's keys and its hold on the run's picks (editorlivemenu.js); the panel page has neither.
     editKey: edit?.editKey,

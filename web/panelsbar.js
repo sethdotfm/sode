@@ -1,5 +1,6 @@
-// The top bar of /panels, the panel editor and the Live Editor, made after the Grid head row (gridpanelheadview.js).
-// It has the title, a group of icon links, and the Server and Router status at the right. Panel pages keep their own.
+// The one page header of every page but the main page and a panel page: /panels, the panel editor (its Live Editor
+// too) and /log. The Lock bar floats at its left (lock.css). Then come the site name, a group of icon links, a gap,
+// Inbox and the status. base.css lays it out. Panel pages keep their own.
 import { el, icon, on } from './core.js';
 import { connBox, paintConn } from './connview.js';
 
@@ -50,10 +51,26 @@ export function barLinks({ panels = false, leave = null } = {}) {
   return links;
 }
 
-// Makes head (a .sode-panels__head with its title) the bar: the links go after the title and the status goes last.
+// Sets the site name in a bar's title. The name can be cut with an ellipsis, so the tip gives it in full.
+export function barTitle(title, text) {
+  const name = title.querySelector('.sode-bar__name');
+  if (!name) {
+    title.textContent = text;
+    return;
+  }
+  name.textContent = text;
+  title.dataset.pbTip = text;
+}
+
+// Makes head (a header with its .sode-panels__title) the bar: the links go after the title and the status goes last.
 export function panelsBar(head, opts = {}) {
+  const title = head.querySelector('.sode-panels__title');
+  // The ellipsis goes on an inner span, since the title's own overflow would cut its tip.
+  const text = title.textContent;
+  title.replaceChildren(el('span', 'sode-bar__name'));
+  barTitle(title, text);
   const tools = el('div', 'sode-bar__tools', ...barLinks(opts));
-  head.querySelector('.sode-panels__title').after(tools);
+  title.after(tools);
   const conn = connBox();
   conns.add(conn);
   paintConn(conn);

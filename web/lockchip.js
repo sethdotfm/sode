@@ -16,10 +16,10 @@ export function buildChip(api) {
   const slot = el('div', 'sode-lock__who-slot', lockBtn, ico);
   const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', slot, name));
   root.hidden = true;
-  // The bar floats and takes no room; the panel pages keep their header clear of its width (panels.css). The main
-  // page has no such header, so it skips the observer. px, not rem: a measured box, and the observer redoes it when
+  // The bar floats and takes no room. A page with a header keeps it clear of the bar's width (base.css .sode-bar, and
+  // panels.css on a panel page). The main page has no such header, so it skips the observer. px, not rem: a measured box, and the observer redoes it when
   // the root font size changes the bar.
-  if (document.querySelector('.sode-panels__head'))
+  if (document.querySelector('.sode-panels__head, .sode-log__head'))
     new ResizeObserver(() => {
       document.documentElement.style.setProperty('--sode-who-w', `${Math.ceil(root.getBoundingClientRect().width)}px`);
     }).observe(root);

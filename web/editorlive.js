@@ -184,6 +184,8 @@ function gridParts(ed) {
     bar,
     open,
     aside,
+    // The run puts its status slot and Full screen in the editor's page header (gridpanelheadview.js).
+    topBar: document.querySelector('.sode-ed > .sode-bar'),
     onPicks,
     leave: ed.leave,
     editKey: (e, ctx) => menu.key(e, ctx),
