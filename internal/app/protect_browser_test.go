@@ -12,7 +12,8 @@ import (
 )
 
 // The route view of one destination with no source offers Protect. It goes through the Confirm, the simulator
-// holds it on every level, and the view then says "Protected by Sode (Ana)". Shift+x in Keyboard mode clears it.
+// holds it on every level, and the view then says "Protected by Sode (Ana)". Shift+x in Keyboard mode clears it,
+// and Ctrl+Z undoes the clear.
 // Ana is an Administrator here, for Clear Sode's Protects.
 func TestChromeProtectFromRouteView(t *testing.T) {
 	b := startBrowser(t)
@@ -63,6 +64,18 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	b.waitFor("the shield again", `!!document.querySelector('#dst-under [data-protect="set"]')`)
 	if n := sodeRows(); n != 0 {
 		t.Fatalf("Sode's Protect left on %d levels", n)
+	}
+	// The Clear Protect row has the badge where the source box is, with no box and no arrow.
+	b.waitFor("Clear Protect row", `(() => { const r = [...document.querySelectorAll('#history .sode__hist-route')].find((n) => n.querySelector(':scope > .pb-badge')?.textContent === 'Clear Protect'); return !!r && !r.querySelector('.sode__end--src, .sode__arrow') && r.querySelector('.sode__end--dst')?.textContent.includes('DSM1'); })()`)
+
+	// Ctrl+Z (Cmd+Z on a Mac) undoes the Clear Protect: the Confirm sets the Protect again.
+	b.eval(`(() => { const mac = /Mac/.test(navigator.platform); document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: !mac, metaKey: mac, bubbles: true, cancelable: true})); return true; })()`)
+	b.waitFor("Confirm protect for the undo", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm protect' && document.getElementById('confirm').textContent.includes('Undo the Clear Protect')`)
+	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
+	b.eval(`document.getElementById('confirm-ok').click(); true`)
+	b.waitFor("Clear Protect offered again", `!!document.querySelector('#dst-under [data-protect="clear"]')`)
+	if n := sodeRows(); n != 17 {
+		t.Fatalf("after the undo, Sode's Protect on %d levels, want 17", n)
 	}
 
 	// Settings > Routers > Protects lists one set over the API, and Clear Sode's Protects asks the PIN again.
