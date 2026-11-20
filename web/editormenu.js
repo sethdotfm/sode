@@ -1,14 +1,16 @@
 // The smart menu: a small list beside the selection (right, else left, else below). It knows nothing about cells: the page gives it items.
-// An item is { label, icon, run, chord?, disabled?, sub?: [{ label, run, current?, disabled?, hint? }] }; chord is the letter that,
-// with Ctrl (on a Mac too), runs it, and is shown beside it. Esc and the arrows are the menu's own.
-// area() is the box the menu and its flyouts stay inside (editorrules.js menuArea); the viewport when not given.
+// An item is { label, icon, run, chord?, keys?, disabled?, sub?: [{ label, run, current?, disabled?, hint? }] }; chord is the letter that,
+// with Ctrl (on a Mac too), runs it, and is shown beside it. keys is the text of another key that runs it, shown the same
+// way. { divider: true } is a rule between items. Esc and the arrows are the menu's own.
+// area() is the box the menu and its flyouts stay inside (editorrules.js menuArea); the viewport when not given. place
+// is placeMenu's stand-in (the Live Editor's Smart menu sits above a Source bar name).
 import { el, icon } from './core.js';
 import { mac } from './keys.js';
 import { placeMenu, subSide, flyoutShift, menuChord, chordText, EDGE_GAP as GAP } from './editorrules.js';
 
 const viewport = () => ({ left: 0, top: 0, right: document.documentElement.clientWidth, bottom: document.documentElement.clientHeight });
 
-export function createSmartMenu(host, { onEscape, area = viewport }) {
+export function createSmartMenu(host, { onEscape, area = viewport, place = placeMenu }) {
   const root = el('ul', 'pb-menu sode-ed__menu');
   root.setAttribute('role', 'menu');
   root.hidden = true;
@@ -59,6 +61,11 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
 
   // Opens right; placeSubs turns a flyout left once the menu is placed and measured.
   function item(it) {
+    if (it.divider) {
+      const hr = el('li', 'pb-menu__divider');
+      hr.setAttribute('role', 'separator');
+      return hr;
+    }
     const li = el('li');
     const b = el('button', 'pb-menu__item');
     b.type = 'button';
@@ -66,6 +73,7 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
     b.disabled = !!it.disabled;
     b.append(icon(it.icon), el('span', '', it.label));
     if (it.chord) b.append(el('span', 'pb-menu__hint sode-ed__keys', chordText(it.chord, mac)));
+    else if (it.keys) b.append(el('span', 'pb-menu__hint sode-ed__keys', it.keys));
     if (it.panel) {
       // A flyout the page owns and keeps between rebuilds (Find's box and list), so it carries its own classes.
       b.setAttribute('aria-haspopup', 'true');
@@ -129,9 +137,10 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
       const focused = root.contains(document.activeElement) ? [...root.querySelectorAll('.pb-menu__item')].findIndex((n) => n === document.activeElement) : -1;
       current = items;
       root.hidden = false;
+      root.style.visibility = '';
       bounds = area();
       root.replaceChildren(...items.map(item));
-      const at = placeMenu(box, { w: root.offsetWidth, h: root.offsetHeight }, bounds, GAP);
+      const at = place(box, { w: root.offsetWidth, h: root.offsetHeight }, bounds, GAP);
       root.dataset.side = at.side;
       root.style.left = `${at.left}px`;
       root.style.top = `${at.top}px`;
@@ -141,6 +150,19 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
     hide() {
       current = [];
       root.hidden = true;
+    },
+    // Places the shown menu at a new box without a rebuild, so focus and an open flyout stay. A null box hides it until
+    // the next move or show.
+    move(box) {
+      if (root.hidden) return;
+      root.style.visibility = box ? '' : 'hidden';
+      if (!box) return;
+      bounds = area();
+      const at = place(box, { w: root.offsetWidth, h: root.offsetHeight }, bounds, GAP);
+      root.dataset.side = at.side;
+      root.style.left = `${at.left}px`;
+      root.style.top = `${at.top}px`;
+      placeSubs(at);
     },
     focus(label) {
       buttons()

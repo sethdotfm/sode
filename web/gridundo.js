@@ -1,4 +1,4 @@
-// The panel editor's undo stack for cell edits, one for the whole panel. Pure, so the rules test directly
+// The panel editor's undo stack, one for the whole panel: cell edits, or a Grid panel's list edits. Pure, so the rules test directly
 // (test/gridundo.test.mjs, test/editorpagerules.test.mjs); paneleditor.js records in its edits and restores outside
 // them. A step keeps a pageSnap from before an edit (Destination cells set aside by Fixed destination included) and a
 // short name for the status line.
@@ -82,3 +82,13 @@ export function rekeyUndo(h, from, to) {
 // before and after are the Page ids in list order around a save; any Page that had id '' follows its new one.
 export const rekeySaved = (h, before, after) =>
   before.reduce((acc, id, i) => (id === '' && after[i] && after[i] !== id ? rekeyUndo(acc, id, after[i]) : acc), h);
+
+// A Grid panel's step: the lists an edit changed, as the panel stores them (members, hide, items with pins and
+// artwork). keys names them ('sources', 'destinations'). Only those go back, so an undo never undoes a Follow the
+// router switch on the other list. The Panel tab's fields are not steps, so they stay out.
+export const edgeSnap = (fields, keys = ['sources', 'destinations']) => ({ edges: Object.fromEntries(keys.map((k) => [k, fields[k]])) });
+
+const edgeKey = (e) => JSON.stringify(canon(e ?? null));
+
+// True when an edit changed none of a's lists.
+export const sameEdges = (a, b) => Object.keys(a.edges).every((k) => a.edges[k] === b.edges[k] || edgeKey(a.edges[k]) === edgeKey(b.edges[k]));

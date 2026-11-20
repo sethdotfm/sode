@@ -104,6 +104,9 @@ export function liveUi(host, onBack, edit = null) {
     stopScreen,
     liveBar: edit?.bar,
     leave: edit?.leave,
+    // The Live Editor's keys and its hold on the run's picks (editorlivemenu.js); the panel page has neither.
+    editKey: edit?.editKey,
+    useRun: edit && ((r) => edit.useRun(r, grid)),
   };
 }
 

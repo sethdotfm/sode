@@ -149,7 +149,7 @@ const selectedShown = (edge, router, rights, kind, ns) => {
 
 // A list edge's members with the pinned ones first, in the order the list and the panel draw them. An item pinned
 // moves up with them, and stays at the top of the rest when unpinned.
-const pinsFirst = (edge, list) => [...list.filter((n) => pinnedIn(edge, n)), ...list.filter((n) => !pinnedIn(edge, n))];
+export const pinsFirst = (edge, list) => [...list.filter((n) => pinnedIn(edge, n)), ...list.filter((n) => !pinnedIn(edge, n))];
 
 // Moves the selected rows, in drawn order, to before the row before (a router number), or to the end when before is
 // null. A selected row is not a place, so the block lands before the next row that is not selected. Pinned rows stay

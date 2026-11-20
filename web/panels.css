@@ -828,6 +828,7 @@ body {
 }
 
 .sode-ed__menu {
+  list-style: none;
   position: fixed;
 }
 .sode-ed__menu li:focus-within > .pb-menu__sub {
@@ -1920,4 +1921,10 @@ body {
 }
 .sode-ov__thumb--grid .sode-ov__k-on {
   background: radial-gradient(circle closest-side, var(--pb-text-muted) 70%, var(--pb-surface-sunken) 75%);
+}
+
+/* The Live Editor's Smart menu fades out of the way while a pointer is down on the grid (editorlivemenu.js). */
+.sode-ed__menu[data-away] {
+  opacity: 0;
+  pointer-events: none;
 }

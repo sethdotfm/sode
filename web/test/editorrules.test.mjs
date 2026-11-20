@@ -8,6 +8,7 @@ import {
   saveBody,
   isDirty,
   placeMenu,
+  placeAbove,
   kindLabel,
   kindChoices,
   menuChord,
@@ -302,4 +303,11 @@ test('the editor leaves on a sign-out, another user or another Role, not on a Lo
   assert.equal(editorAccess(ana, { user: '' }).leave, true);
   assert.equal(editorAccess(ana, { user: 'Bo', role: 'trusted' }).leave, true);
   assert.equal(editorAccess(ana, { user: 'Ana', role: 'standard' }).leave, true);
+});
+
+test('placeAbove puts the Live Editor menu over a Source bar name, else under it, inside the area', () => {
+  const area = { left: 0, top: 0, right: 1000, bottom: 800 };
+  const menu = { w: 200, h: 150 };
+  assert.deepEqual(placeAbove({ left: 100, top: 300, right: 160, bottom: 400 }, menu, area, 8), { side: 'above', left: 100, top: 142 });
+  assert.deepEqual(placeAbove({ left: 900, top: 100, right: 960, bottom: 200 }, menu, area, 8), { side: 'below', left: 800, top: 208 });
 });

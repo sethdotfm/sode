@@ -150,6 +150,14 @@ export function placeMenu(rect, menu, area, gap) {
   return { side: 'below', left: Math.max(area.left, Math.min(rect.left, area.right - menu.w)), top: rect.bottom + gap };
 }
 
+// The Live Editor's Smart menu on a Source bar name: above the name, over the band, so it keeps off the crosspoints. Else
+// below it when there is no room above. Lined up with the name's left edge, inside the area.
+export function placeAbove(rect, menu, area, gap) {
+  const left = Math.max(area.left, Math.min(rect.left, area.right - menu.w));
+  if (rect.top - gap - menu.h >= area.top) return { side: 'above', left, top: rect.top - gap - menu.h };
+  return { side: 'below', left, top: rect.bottom + gap };
+}
+
 // The box the menu and its flyouts stay inside: the viewport, cut at the sidebar when the sidebar sits beside the
 // grid. The sidebar edits the selected cell, so the menu must not cover it. Under the grid, in the narrow layout, it does
 // not bound them. side and grid are screen rects, or side is null.
