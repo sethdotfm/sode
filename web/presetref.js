@@ -72,7 +72,7 @@ export function carryNames(items, from) {
   }));
 }
 
-// A hidden preset id for This browser presets; the server makes the others.
+// A hidden id for a This browser preset or filter set; the server makes the others.
 export function newPresetId() {
   const b = new Uint8Array(8);
   globalThis.crypto.getRandomValues(b);

@@ -68,13 +68,13 @@ test('an unticked category goes as an empty list', () => {
   assert.deepEqual(acceptReq(pick).choices, { presets: { p1: 'skip' } });
 });
 
-test('send body: Me and Everyone by id or name, This browser whole', () => {
+test('send body: Me and Everyone by id, This browser whole', () => {
   const local = { scope: 'local', id: 'l1', name: 'Desk', pinned: true, items: [{ src: 3, dsts: [7], levels: [], srcName: 'CAM 3', dstNames: {} }] };
   const body = sendBody('r1', ['Bo', 'Cy'], {
     presets: [{ scope: 'user', id: 'p1', name: 'Show' }, local],
     filterSets: [
-      { scope: 'global', name: 'Cams' },
-      { scope: 'local', name: 'Mine', f: { src: 'CAM' } },
+      { scope: 'global', id: 's1', name: 'Cams' },
+      { scope: 'local', id: 'l2', name: 'Mine', f: { src: 'CAM' } },
     ],
     panels: [{ id: 'x' }],
   });
@@ -93,7 +93,7 @@ test('send body: Me and Everyone by id or name, This browser whole', () => {
       },
     ],
     filterSets: [
-      { scope: 'global', name: 'Cams' },
+      { scope: 'global', id: 's1' },
       { scope: 'local', set: { name: 'Mine', src: 'CAM' } },
     ],
     panels: ['x'],

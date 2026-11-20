@@ -30,8 +30,6 @@ type profileReq struct {
 	FilterSets []config.FilterSet
 	Presets    []config.Preset
 	Bookmarks  []config.Bookmark
-	// RenameSet: the save renames this Me filter set, so Me bookmarks on it follow in the same save.
-	RenameSet *setRename
 	// PalettePicks: the Palette's last picks (config.Profile.PalettePicks).
 	PalettePicks []string
 }
@@ -125,8 +123,9 @@ func (a *App) applyProfileReq(cfg *config.Config, u *config.User, req profileReq
 		u.Profile.Bookmarks = config.CloneBookmarks(req.Bookmarks)
 	}
 	if req.FilterSets != nil {
+		was := u.Profile.FilterSets
 		u.Profile.FilterSets = config.WithFilterSetExtras(req.FilterSets, u.Profile.FilterSets)
-		u.Profile.Bookmarks = req.RenameSet.apply(u.Profile.Bookmarks, "user")
+		u.Profile.Bookmarks = config.RenamedSetBookmarks(u.Profile.Bookmarks, "user", was, u.Profile.FilterSets)
 	}
 	if req.Presets != nil {
 		was := u.Profile.Presets
@@ -148,7 +147,7 @@ func (a *App) pushProfileOfMu(owner string) {
 
 // Logs whose profile and how many things, never a value.
 func (a *App) serveProfileSave(c *client, m *inMsg) {
-	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, Bookmarks: m.Bookmarks, RenameSet: m.RenameSet, PalettePicks: m.PalettePicks})
+	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, Bookmarks: m.Bookmarks, PalettePicks: m.PalettePicks})
 	note := fmt.Sprintf("%s: %d %s", cleanPresetName(m.Name), n, plural(n, "item", "items"))
 	a.replyOpNote(c, "profileSave", m.ID, note, err)
 }

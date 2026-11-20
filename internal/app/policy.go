@@ -156,7 +156,7 @@ var policy = map[string]rule{
 	"filterSets": {crit: critNever, role: config.RoleTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(sets []config.FilterSet, id int) {
 			defer m.finish()
-			a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSetsRenamed(c, sets, m.RenameSet))
+			a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
 		}(m.Sets, m.ID)
 	}},
 	"bookmarks": {crit: critNever, role: config.RoleTrusted, op: "bookmarks", write: true, handle: func(a *App, c *client, m *inMsg) {

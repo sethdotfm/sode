@@ -20,3 +20,5 @@ const (
 )
 
 func NewPresetID() string { return newRouterUID() }
+
+func NewFilterSetID() string { return newRouterUID() }

@@ -99,7 +99,7 @@ test('profile filters: a new set is titled Add', () => {
 
 test('profile filters: build replaces the edited entry, adds a new one, refuses bad names', () => {
   const sets = [
-    { name: 'One', src: 'a' },
+    { id: 'k1', name: 'One', src: 'a' },
     { name: 'Two', src: 'b' },
   ];
   const t = profileFilters(prof('filterSets', sets, 'One'), { normalize: norm, saver: null });
@@ -110,6 +110,7 @@ test('profile filters: build replaces the edited entry, adds a new one, refuses 
     ['Uno', 'Two'],
   );
   assert.equal(r.list[0].src, 'q');
+  assert.equal(r.list[0].id, 'k1', 'a rename keeps the hidden id');
   assert.match(t.build('two').err, /already a filter set named/);
   assert.match(t.build('All').err, /already in use/);
   assert.equal(t.build('').err, 'Name required.');

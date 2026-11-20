@@ -620,23 +620,31 @@ func (p *importPlanner) planPresets(cand *config.Config, cat *importCat) error {
 
 func (p *importPlanner) planFilterSets(cand *config.Config, cat *importCat) error {
 	for _, s := range p.b.FilterSets {
-		if !p.picked(catFilterSets, s.Name) {
+		if !p.picked(catFilterSets, s.ID) {
 			continue
 		}
 		s.Broken = p.check.filterSetBroken(s)
-		it := importItem{Key: s.Name, Name: s.Name, Broken: s.Broken}
+		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
 		out := addItem
-		if i := matchIdx(false, cand.FilterSets, "", s.Name, nil, setName); i >= 0 {
+		if i := matchSet(p.same, cand.FilterSets, s); i >= 0 {
 			lf := cand.FilterSets[i]
 			s.Extra = lf.Extra
-			if out = p.settle(&it, catFilterSets, lf.Name, sameYAML(s, lf), namesIn(cand.FilterSets, setName)); out == overwrite {
+			if sameName(s.Name, lf.Name) { // keep the live spelling
 				s.Name = lf.Name
+			}
+			s.ID = lf.ID
+			p.removed.keep(lf.ID)
+			if out = p.settle(&it, catFilterSets, lf.Name, sameYAML(s, lf), namesIn(cand.FilterSets, setName)); out == overwrite {
 				cand.FilterSets[i] = s
 			}
 		}
 		if out == addItem {
 			s.Name = cmp.Or(it.As, s.Name)
+			if s.ID == "" || it.Choice == useRename || slices.ContainsFunc(cand.FilterSets, func(x config.FilterSet) bool { return x.ID == s.ID }) {
+				s.ID = config.NewFilterSetID()
+			}
 			cand.FilterSets = append(cand.FilterSets, s)
+			p.removed.keep(s.ID)
 		}
 		cat.Items = append(cat.Items, it)
 	}

@@ -139,14 +139,36 @@ func RenameBookmarks(list []Bookmark, from, to, label string) []Bookmark {
 // RenamedPresetBookmarks: a preset keeps its id through a rename, so its key stays and only the label follows.
 // scope is the key's scope word: "global" for Everyone, "user" for Me.
 func RenamedPresetBookmarks(list []Bookmark, scope string, was, now []Preset) []Bookmark {
-	old := map[string]string{}
-	for _, p := range was {
-		old[p.ID] = p.Name
+	return renamedBookmarks(list, "preset:"+scope+":", idNames(was, presetIDName), idNames(now, presetIDName))
+}
+
+// RenamedSetBookmarks is the same for a filter set, which also keeps its id through a rename.
+func RenamedSetBookmarks(list []Bookmark, scope string, was, now []FilterSet) []Bookmark {
+	return renamedBookmarks(list, "filterSet:"+scope+":", idNames(was, setIDName), idNames(now, setIDName))
+}
+
+func presetIDName(p Preset) (string, string) { return p.ID, p.Name }
+func setIDName(f FilterSet) (string, string) { return f.ID, f.Name }
+
+type idName struct{ id, name string }
+
+func idNames[T any](l []T, of func(T) (string, string)) []idName {
+	out := make([]idName, len(l))
+	for i, x := range l {
+		out[i].id, out[i].name = of(x)
 	}
-	for _, p := range now {
-		if n, ok := old[p.ID]; ok && n != p.Name {
-			k := "preset:" + scope + ":" + p.ID
-			list = RenameBookmarks(list, k, k, p.Name)
+	return out
+}
+
+func renamedBookmarks(list []Bookmark, prefix string, was, now []idName) []Bookmark {
+	old := map[string]string{}
+	for _, x := range was {
+		old[x.id] = x.name
+	}
+	for _, x := range now {
+		if n, ok := old[x.id]; ok && n != x.name {
+			k := prefix + x.id
+			list = RenameBookmarks(list, k, k, x.name)
 		}
 	}
 	return list

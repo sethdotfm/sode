@@ -155,8 +155,9 @@ export function paletteMarks(list, rows) {
   return out;
 }
 
-// A rename in the same scope: the bookmarks on from point at to, with the new name.
-export const renameKey = (list, from, to, label) => list.map((b) => (b.key === from ? { ...b, key: to, label: label || b.label } : b));
+// A rename in the same scope. A preset and a filter set keep their hidden id, so the key stays. Only the stored
+// label follows.
+export const relabel = (list, key, label) => list.map((b) => (b.key === key ? { ...b, label: label || b.label } : b));
 
 // Move: { by } (Alt+arrows, buttons) or { before } (a drag onto another row's index). null when nothing moves.
 export function moveBookmark(list, i, where) {

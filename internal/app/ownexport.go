@@ -49,7 +49,7 @@ func ownFileUser(u config.User, req exportReq) config.User {
 	}
 	if want(catFilterSets) {
 		for _, s := range u.Profile.FilterSets {
-			if picked(req.Pick, catFilterSets, s.Name) {
+			if picked(req.Pick, catFilterSets, s.ID) {
 				out.Profile.FilterSets = append(out.Profile.FilterSets, s)
 			}
 		}
@@ -137,7 +137,7 @@ func (a *App) serveOwnExportItems(w http.ResponseWriter, r *http.Request) {
 	}
 	sets := exportListCat{Name: catFilterSets}
 	for _, s := range u.Profile.FilterSets {
-		add(&sets, s.Name, s.Name, &exportFilterSets{FilterSets: []config.FilterSet{s}})
+		add(&sets, s.ID, s.Name, &exportFilterSets{FilterSets: []config.FilterSet{s}})
 	}
 	out.Categories = []exportListCat{prof, presets, sets}
 	if err == nil {

@@ -106,7 +106,7 @@ A Result that the router confirmed after Sode had stopped waiting. Sode amends t
 One rule on Source or Destination that limits which entries History shows.
 
 **Filter set**:
-A named, savable group of filters, scoped to Me, This browser or Everyone. Several sets can be stacked, and Stacked filters behavior says whether an entry must match all of them or any one.
+A named, savable group of filters, scoped to Me, This browser or Everyone. Several sets can be stacked, and Stacked filters behavior says whether an entry must match all of them or any one. Each set has a hidden id that stays through a rename, as a preset has. So a bookmark on a set still works after a rename.
 
 **Communication Log**:
 The page that shows every command and the raw messages Sode sent to the router, plus a router uptime graph.

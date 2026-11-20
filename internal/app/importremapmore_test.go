@@ -17,7 +17,7 @@ func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 	a.mu.Unlock()
 	uid := a.r().cfg.UID
 	lifeCommit(t, a, func(cfg *config.Config) {
-		cfg.FilterSets = []config.FilterSet{{Name: "Cams", Router: uid, Src: "23, 2", Sode: true}}
+		cfg.FilterSets = []config.FilterSet{{ID: "cams1", Name: "Cams", Router: uid, Src: "23, 2", Sode: true}}
 	})
 	file := otherRouter(t, a, exported(t, a, tok, exportReq{Categories: []string{catFilterSets}}))
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.FilterSets = nil })
@@ -27,7 +27,7 @@ func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 
 	check := postCheck(t, a, tok, file, importReq{Mode: importAdd})
 	r := check.Plan.Remap.Routers[0]
-	if len(r.Sets) != 1 || r.Sets[0].Key != "/Cams" || r.Sets[0].Src != "23, 2" {
+	if len(r.Sets) != 1 || r.Sets[0].Key != "/cams1" || r.Sets[0].Src != "23, 2" {
 		t.Fatalf("sets: %+v", r.Sets)
 	}
 	if r.Names == nil || !slices.ContainsFunc(r.Names.Sources, func(x namedItem) bool { return x.N == 23 && x.Name == "CAM 3" }) {
@@ -38,7 +38,7 @@ func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 	}
 
 	text := `"CAM 3", 2`
-	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Filters: map[string]remapFilter{"/Cams": {Src: &text}}}))
+	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Filters: map[string]remapFilter{"/cams1": {Src: &text}}}))
 	fs := a.r().cfg.FilterSets
 	if len(fs) != 1 || fs[0].Src != text || fs[0].Router != uid || len(fs[0].Broken) != 0 {
 		t.Fatalf("filter sets: %+v", fs)
@@ -50,12 +50,12 @@ func TestImportRemapFilterSetRefusesBadText(t *testing.T) {
 	a, _, tok := importApp(t)
 	uid := a.r().cfg.UID
 	lifeCommit(t, a, func(cfg *config.Config) {
-		cfg.FilterSets = []config.FilterSet{{Name: "Cams", Router: uid, Src: "2", Sode: true}}
+		cfg.FilterSets = []config.FilterSet{{ID: "cams1", Name: "Cams", Router: uid, Src: "2", Sode: true}}
 	})
 	file := otherRouter(t, a, exported(t, a, tok, exportReq{Categories: []string{catFilterSets}}))
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.FilterSets = nil })
 	bad := `"CAM`
-	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Filters: map[string]remapFilter{"/Cams": {Src: &bad}}}))
+	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Filters: map[string]remapFilter{"/cams1": {Src: &bad}}}))
 	if fs := a.r().cfg.FilterSets; len(fs) != 1 || fs[0].Src != "2" {
 		t.Fatalf("filter sets: %+v", fs)
 	}

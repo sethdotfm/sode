@@ -210,7 +210,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	if want(catFilterSets) {
 		var out exportFilterSets
 		for _, s := range cfg.FilterSets {
-			if picked(req.Pick, catFilterSets, s.Name) {
+			if picked(req.Pick, catFilterSets, s.ID) {
 				out.FilterSets = append(out.FilterSets, s)
 			}
 		}

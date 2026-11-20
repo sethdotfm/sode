@@ -81,7 +81,7 @@ func brokenItems(cfg config.Config, panels []Panel, mine string) []brokenEntry {
 			add(markedEntry("preset/"+s.ID+"/"+p.ID, "preset", p.Name, s.Name, p.Broken, p.Moved))
 		}
 		for _, f := range *s.FilterSets {
-			add(markedEntry("filterSet/"+s.ID+"/"+f.Name, "filterSet", f.Name, s.Name, f.Broken, nil))
+			add(markedEntry("filterSet/"+s.ID+"/"+f.ID, "filterSet", f.Name, s.Name, f.Broken, nil))
 		}
 	}
 	for _, p := range panels {

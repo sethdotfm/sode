@@ -14,7 +14,7 @@ import {
   canNewTab,
   bookmarkView,
   paletteMarks,
-  renameKey,
+  relabel,
   moveBookmark,
 } from '../bookmarkrules.js';
 
@@ -121,14 +121,14 @@ test('paletteMarks: ticked bookmarks as rows, in list order, Missing ones left o
   assert.deepEqual(m[0].target, { url: 'https://x.test/', newTab: true });
 });
 
-test('renameKey: only the renamed key moves', () => {
+test('relabel: a rename keeps the key (the hidden id) and changes only that label', () => {
   const list = [
-    { key: 'filterSet:local:Cams', label: 'Cams' },
-    { key: 'filterSet:global:Cams', label: 'Cams' },
+    { key: 'filterSet:local:k1', label: 'Cams' },
+    { key: 'filterSet:global:k1', label: 'Cams' },
   ];
-  assert.deepEqual(renameKey(list, 'filterSet:local:Cams', 'filterSet:local:Cameras', 'Cameras'), [
-    { key: 'filterSet:local:Cameras', label: 'Cameras' },
-    { key: 'filterSet:global:Cams', label: 'Cams' },
+  assert.deepEqual(relabel(list, 'filterSet:local:k1', 'Cameras'), [
+    { key: 'filterSet:local:k1', label: 'Cameras' },
+    { key: 'filterSet:global:k1', label: 'Cams' },
   ]);
 });
 

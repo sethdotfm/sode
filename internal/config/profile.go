@@ -135,9 +135,15 @@ func normalizeFilterSets(in []FilterSet) []FilterSet {
 	if in == nil {
 		return []FilterSet{}
 	}
+	ids := map[string]bool{}
 	for i := range in {
 		f := &in[i]
 		f.Name, f.Src, f.Dst = strings.TrimSpace(f.Name), strings.TrimSpace(f.Src), strings.TrimSpace(f.Dst)
+		f.ID = strings.TrimSpace(f.ID)
+		for f.ID == "" || ids[f.ID] {
+			f.ID = NewFilterSetID()
+		}
+		ids[f.ID] = true
 	}
 	return in
 }
