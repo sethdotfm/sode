@@ -1081,6 +1081,11 @@ html:has(.sode-gridpanel) {
   flex: none;
   gap: var(--pb-space-2);
 }
+/* One raised band over the grid: the panel page's deck, and the main page's Grid popup band (gridpopup.css). */
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) {
+  background: var(--pb-surface-raised);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-light);
+}
 :root:not([data-layout="phone"]) .sode-gridpanel__deck {
   /* One pick (--sode-pick): the picks, the search boxes, Clear and Take line up with it. The Levels box is four
      picks wide, with Select all under it. */
@@ -1088,8 +1093,6 @@ html:has(.sode-gridpanel) {
   --sode-lvl-w: calc(4 * var(--sode-pick) + 3 * var(--pb-space-1));
   --sode-all-h: var(--pb-control-h-sm);
   align-items: stretch;
-  background: var(--pb-surface-raised);
-  border-bottom: var(--pb-border-w) solid var(--pb-edge-light);
   column-gap: var(--pb-space-2);
   display: grid;
   grid-template-areas:
@@ -1258,14 +1261,14 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find[data-kind="dsts"] {
   grid-area: fdst;
 }
-:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find {
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) .sode-gridpanel__find {
   align-items: stretch;
 }
-:root:not([data-layout="phone"]) .sode-gridpanel__deck :is(.sode-gridpanel__find-input, .sode-gridpanel__find-step) {
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) :is(.sode-gridpanel__find-input, .sode-gridpanel__find-step) {
   height: 100%;
 }
 /* The word over the switch. The column is as wide as "Filter", so the band does not move as the word changes. */
-:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find-mode {
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) .sode-gridpanel__find-mode {
   align-items: center;
   background: var(--pb-surface-control);
   border: var(--pb-border-w) solid var(--pb-edge);
@@ -1277,7 +1280,7 @@ html:has(.sode-gridpanel) {
   padding: 0 var(--pb-space-2);
 }
 /* On, the switch's box takes the accent edge, so the mode shows from across the room. */
-:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find-mode:has(> :checked) {
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) .sode-gridpanel__find-mode:has(> :checked) {
   border-color: var(--pb-accent);
 }
 /* The panel page (gridpanelheadview.js): messages fill the gap between the search boxes and Clear. contain: size, so a message never moves the grid. The gap keeps 10rem for the banner. */

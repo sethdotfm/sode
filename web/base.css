@@ -1103,9 +1103,31 @@ html {
   min-width: 0;
   padding: 0 var(--pb-space-2);
 }
+:root:not([data-layout="phone"]) .sode__box-head > [data-last] {
+  flex: 1 1 auto;
+  gap: var(--pb-space-3);
+  justify-content: flex-end;
+}
+/* On the desktop Last and Next are light ghost chips at the label's line height: they take the free width of the row
+   (a long name is cut only when the row is full), and both boxes end them at the box's right edge. */
 :root:not([data-layout="phone"]) .pb-chip.sode__last {
+  background: transparent;
+  border-color: transparent;
   font-size: var(--pb-text-sm);
-  padding: var(--pb-space-1) var(--pb-space-4);
+  line-height: var(--pb-leading-tight);
+  padding: 0 var(--pb-space-2);
+}
+:root:not([data-layout="phone"]) .pb-chip.sode__last:is(:hover, :focus-visible) {
+  background: var(--pb-overlay-hover);
+}
+/* The keys in patchbay's kbd look, as everywhere else they are named. */
+:root:not([data-layout="phone"]) :is(.sode__last, .sode__next-in) > .sode__key-note {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  color: var(--pb-text);
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-2xs);
+  padding: 0 var(--pb-space-1);
 }
 .sode__last-text {
   min-width: 0;

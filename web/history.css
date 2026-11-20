@@ -728,9 +728,16 @@ html[data-alt] .sode__chip-key {
   margin: var(--pb-space-3) 0;
   width: 100%;
 }
+/* One row: the heading, Edit, Show all, then the bookmark chips, which take the rest of the row. */
+#patch-view .sode__presets {
+  flex-wrap: nowrap;
+}
+#patch-view .sode__presets > .sode__label {
+  flex: none;
+}
 .sode__presets > .sode__sets {
   flex: 1;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .sode__presets .sode__set {
   font-size: var(--pb-text-sm);
@@ -763,7 +770,7 @@ html[data-alt] .sode__chip-key {
 .sode__presets-all {
   align-items: center;
   display: inline-flex;
-  gap: var(--pb-space-1);
+  gap: var(--pb-space-2);
 }
 @media (max-width: 599.98px) {
   .sode__scrim > .sode__presets-dlg {

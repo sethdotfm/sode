@@ -35,8 +35,10 @@ func lastGroup(t *testing.T, a *App, key string, n int) {
 	}
 }
 
-// The Grid popup on the main page. Ctrl+e opens it centred on the patch boxes. A Diagonal stages four routes that stay
-// in the staged list, and the crosshair finds a row. One confirm sends one Group, and Ctrl+Z prepares its undo.
+// The Grid popup on the main page. Ctrl+e opens it centred on the patch boxes. It is the grid and its search band, with
+// no Levels box, Take or Clear. A Diagonal stages four routes that stay in the staged list, and the crosshair finds a
+// row. One confirm sends one Group, and Ctrl+Z prepares its undo. The main Take sends the staged routes when the boxes
+// are empty, at the main page's levels.
 func TestChromeMainGridPopup(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -62,8 +64,15 @@ func TestChromeMainGridPopup(t *testing.T) {
 	// is the router number.
 	b.waitFor("the cursor is on DSM1", cursor+`.startsWith('2,')`)
 	b.waitFor("and on CAM 1", `(() => { const j = `+cursor+`.split(',')[1]; return document.querySelector('#grid-pop .sode-gridpanel__src[data-src="' + j + '"]')?.textContent.trim() === 'CAM 1'; })()`)
-	b.waitFor("the popup is about 80% of the window", `(() => { const r = document.querySelector('.sode-gridpop__box').getBoundingClientRect(); return r.width > innerWidth * 0.7 && r.width < innerWidth * 0.9 && r.height > innerHeight * 0.7; })()`)
-	b.waitFor("the Levels box is there", `!document.getElementById('panel-levels').hidden`)
+	b.waitFor("the popup fills the window but for a small margin", `(() => { const r = document.querySelector('.sode-gridpop__box').getBoundingClientRect(); return r.width > innerWidth * 0.9 && r.right < innerWidth && r.height > innerHeight * 0.9 && r.bottom < innerHeight; })()`)
+	b.waitFor("no title, and the dialog keeps its name", `!document.querySelector('#grid-pop .pb-modal__title') && document.querySelector('#grid-pop [role=dialog]').getAttribute('aria-label') === 'Grid'`)
+	b.waitFor("no Levels box, Take or Clear", `!document.getElementById('panel-levels').offsetParent && !document.getElementById('panel-take')?.offsetParent && !document.getElementById('panel-clear')?.offsetParent`)
+	b.waitFor("the search boxes are side by side in the band, out of the corner", `(() => {
+		const f = (k) => document.querySelector('#grid-pop .sode-gridpop__band .sode-gridpanel__find[data-kind="' + k + '"]')?.getBoundingClientRect();
+		const s = f('srcs'), d = f('dsts');
+		return !!s && !!d && Math.abs(s.top - d.top) < 1 && d.left >= s.right && s.width > 200 && !document.querySelector('#grid-pop .sode-gridpanel__head .sode-gridpanel__find');
+	})()`)
+	b.waitFor("the corner shows its whole Destinations word", `(() => { const w = document.querySelector('#grid-pop .sode-gridpanel__label--dst'); return !!w && w.scrollWidth <= w.clientWidth + 1; })()`)
 
 	// A 4 by 4 Diagonal: sources 1 to 4 picked, then a press on source 1's crosspoint with destination 5.
 	click := func(sel, mods string) {
@@ -138,13 +147,13 @@ func TestChromeMainGridPopup(t *testing.T) {
 	b.eval(`document.getElementById('grid-staged-clear').click(); true`)
 	b.waitFor("Clear empties the list", `document.getElementById('grid-staged').hidden`)
 	b.eval(`document.getElementById('grid-open').click(); true`)
-	b.waitFor("the Grid button opens the popup", shown)
+	b.waitFor("the icon bar's Grid button opens the popup", shown)
 	// The boxes still hold the crosshair's pair, so the popup opened on it.
 	b.waitFor("the cursor is on the boxes' pair", cursor+` === '6,2'`)
 	gridShow(b, 9, 9)
 	b.eval(gridXp(9, 9) + `.click()`)
 	b.waitFor("staged again", staged(9, 9))
-	b.eval(`document.querySelector('#grid-pop .sode-gridpop__head button').click(); true`)
+	b.eval(`document.querySelector('#grid-pop .sode-gridpop__close').click(); true`)
 	b.waitFor("Close closes the popup", `document.getElementById('grid-pop').hidden`)
 	b.eval(`document.getElementById('grid-staged-take').click(); true`)
 	gridConfirm(b)
@@ -173,6 +182,21 @@ func TestChromeMainGridPopup(t *testing.T) {
 	if got := b.eval(`document.querySelector('#grid-pop .sode-gridpanel__scroll').scrollLeft`).(float64); got != left {
 		t.Errorf("reopened at scrollLeft %v, want %v as left", got, left)
 	}
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("closed again", `document.getElementById('grid-pop').hidden`)
+
+	// With the boxes empty, a press stages at the main page's levels and the main Take sends it.
+	b.eval(`(() => { const i = document.getElementById('lvl'); i.focus(); i.value = '3'; i.dispatchEvent(new Event('input', { bubbles: true })); i.blur(); return true; })()`)
+	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	b.waitFor("reopened for the main Take", shown)
+	gridShow(b, 11, 11)
+	b.eval(gridXp(11, 11) + `.click()`)
+	b.waitFor("staged at level 3", staged(11, 11))
+	b.eval(`document.querySelector('#grid-pop .sode-gridpop__close').click(); true`)
+	b.waitFor("the staged row has only level 3", `document.querySelector('#grid-staged-list .sode__bar')?.getAttribute('aria-label') === 'Levels 3'`)
+	b.eval(`document.getElementById('patch').click(); true`)
+	gridConfirm(b)
+	b.waitFor("the main Take empties the staged list", `document.getElementById('grid-staged').hidden`)
 	b.check()
 
 	// The phone layout: a button opens the popup over the whole window.

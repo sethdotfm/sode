@@ -126,12 +126,27 @@ const where = el('div', 'sode-palette__where');
 const list = el('ul', { class: 'sode-palette__list', id: 'palette-list', role: 'listbox', 'aria-label': 'Palette' });
 const why = el('div', { class: 'sode-palette__why', role: 'status', hidden: true });
 const note = el('p', { class: 'sode__hint sode-palette__note', role: 'status' });
-const FOOT = '↑ ↓ move · Enter opens · Shift+Enter fills the Patch boxes from a preset · Alt+B bookmarks · Esc goes back';
-const foot = el('p', 'sode__hint sode-palette__keys', FOOT);
+// The key hint: short words, each key in a kbd.
+const FOOT = [
+  ['↑↓', 'move'],
+  ['Enter', 'open'],
+  ['⇧Enter', 'fill the Patch boxes'],
+  ['Alt+B', 'bookmark'],
+  ['Esc', 'back'],
+];
+const PICK_FOOT = [
+  ['↑↓', 'move'],
+  ['Enter', 'add'],
+  ['Esc', 'back'],
+];
+const foot = el('p', 'sode__hint sode-palette__keys');
+const footOf = (keys) => keys.flatMap(([k, what]) => [el('span', 'sode-palette__key', el('kbd', null, k), ' ', what)]);
 
 const dlg = modal({
   titleId: 'palette-title',
   title: 'Palette',
+  // The search box says what this is, so the title is for screen readers only.
+  headCls: 'pb-sr-only',
   cls: 'sode-palette',
   rootCls: 'sode-palette__scrim',
   rootId: 'palette',
@@ -417,7 +432,7 @@ export function openPalette({ from = null, pick = null, cancel = null } = {}) {
   picked = null;
   why.hidden = true;
   note.textContent = '';
-  foot.textContent = pick ? '↑ ↓ move · Enter adds the row as a bookmark · Esc goes back' : FOOT;
+  foot.replaceChildren(...footOf(pick ? PICK_FOOT : FOOT));
   dlg.show();
   draw();
   if (from) grow(from);

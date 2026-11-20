@@ -264,3 +264,20 @@ test('stepIndex skips heading lines and wraps', () => {
   assert.equal(stepIndex(items, 0, -1), 2);
   assert.equal(firstIndex([{ type: 'head' }]), -1);
 });
+
+test('rankRows: grey rows come after every usable row, and the cursor starts on a usable one', () => {
+  const off = (key, label) => ({ key, label, access: { ok: false, why: 'Outside your Role' } });
+  const on = (key, label) => ({ key, label, access: { ok: true } });
+  const rows = [off('a', 'Record'), on('b', 'Page border color'), on('c', 'Recall preset')];
+  assert.deepEqual(
+    rankRows(rows, 'rec').map((r) => r.key),
+    ['c', 'b', 'a'],
+  );
+  assert.deepEqual(
+    rankRows(rows, '').map((r) => r.key),
+    ['b', 'c', 'a'],
+  );
+  const items = [{ type: 'head' }, { type: 'row', row: rows[0] }, { type: 'row', row: rows[1] }];
+  assert.equal(firstIndex(items), 2);
+  assert.equal(firstIndex([{ type: 'row', row: rows[0] }]), 0);
+});

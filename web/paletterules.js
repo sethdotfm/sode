@@ -79,16 +79,18 @@ function score(row, q) {
   return Math.max(s, e >= 0 ? e - 400 : -1);
 }
 
-// Rows that match q, best first; equal scores keep the catalogue order.
+// A row outside the Rights or Role is grey: it only explains why it does nothing.
+const usable = (row) => row?.access?.ok !== false;
+
+// Rows that match q, best first; equal scores keep the catalogue order. Every usable row comes before every grey row,
+// so Enter on the first match does something.
 export function rankRows(rows, q, n = 50) {
   q = String(q || '')
     .trim()
     .toLowerCase();
-  if (!q) return rows.slice(0, n);
-  return rows
-    .map((r, i) => [score(r, q), i, r])
-    .filter(([s]) => s >= 0)
-    .sort((a, b) => b[0] - a[0] || a[1] - b[1])
+  const scored = rows.map((r, i) => [q ? score(r, q) : 0, i, r]).filter(([s]) => s >= 0);
+  return scored
+    .sort((a, b) => usable(b[2]) - usable(a[2]) || b[0] - a[0] || a[1] - b[1])
     .slice(0, n)
     .map(([, , r]) => r);
 }
@@ -157,4 +159,8 @@ export function stepIndex(items, from, by) {
   }
   return -1;
 }
-export const firstIndex = (items) => stepIndex(items, -1, 1);
+// Where the cursor starts: the first row that does something, never a grey one while another can be picked.
+export function firstIndex(items) {
+  const i = items.findIndex((it) => it.type === 'cat' || (it.type === 'row' && usable(it.row)));
+  return i >= 0 ? i : stepIndex(items, -1, 1);
+}

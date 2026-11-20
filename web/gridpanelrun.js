@@ -247,7 +247,7 @@ export function gridBody(ctx, first) {
       g = buildGridPanel(ui.grid, all, { onPress, onName, onPoint, onJump });
       g.onDraw(() => ptr && pointAt(ptr.x, ptr.y));
       if (head) pos = gridPosition(g, g.scroll.parentNode, phone);
-      boxes = findBoxes(head?.finds || g.head, { onText: findText, onMode: findMode, onStep: findStep });
+      boxes = findBoxes(head?.finds || ui.finds || g.head, { onText: findText, onMode: findMode, onStep: findStep });
       gest = lineGestures(g, {
         start: lineStart,
         move: lineMove,

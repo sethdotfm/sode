@@ -30,7 +30,7 @@ import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
-import { gridShown, toggleGrid } from './gridpopup.js';
+import { gridShown, toggleGrid, stagedCount, takeStaged } from './gridpopup.js';
 import { protectKey } from './protects.js';
 
 const sel = { src: null, dst: null };
@@ -353,7 +353,11 @@ function wantsMatch(k) {
   return b.cb.moved || (!sel[k] && !!b.input.value.trim() && !(k === 'dst' && keptText()));
 }
 
+// With every box empty, Take sends what the Grid popup staged, through the same Confirm.
+const boxesEmpty = () => !sel.src && !sel.dst && !dsts.length && !boxes.src.input.value.trim() && !boxes.dst.input.value.trim();
+
 function patchNow() {
+  if (!boxPicking() && boxesEmpty() && stagedCount()) return takeStaged();
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
     if (wantsMatch(k)) {

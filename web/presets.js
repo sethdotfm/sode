@@ -88,8 +88,8 @@ export function fillBoxes(scope, name) {
 // Enter presses, Esc goes back to Source.
 on('presetStrip', () => {
   const b =
-    document.querySelector('[data-presets] .sode__set:not(.sode__presets-all)') ||
     document.querySelector('[data-presets] .sode__set') ||
+    document.querySelector('[data-presets] .sode__presets-all') ||
     document.querySelector('[data-presets] button');
   b?.focus();
 });

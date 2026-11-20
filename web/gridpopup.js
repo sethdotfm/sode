@@ -34,31 +34,28 @@ let version = 0;
 
 const scroller = () => pop?.ui.grid.querySelector('.sode-gridpanel__scroll');
 
+// The popup only fills the staged list under the patch boxes. So on the desktop layout it is the grid and its search
+// boxes. A press stages at the main page's levels, and the main page's Take sends it. The phone has no staged list, so
+// there the Levels box, Take and Clear show (gridpopup.css).
 function build() {
-  const title = el('span', { class: 'pb-modal__title', id: 'grid-pop-title' }, 'Grid');
   const close = el('button', { class: 'pb-btn pb-btn--ghost pb-btn--icon', type: 'button', 'aria-label': 'Close', 'data-pb-tip': 'Close (Esc)' }, icon('x'));
+  close.classList.add('pb-tip--end', 'sode-gridpop__close');
   close.addEventListener('click', () => hideGrid());
-  const head = el('div', 'pb-modal__header sode-gridpop__head', title, el('span', 'sode-panels__spacer'), close);
+  // The body puts the search boxes in finds and its "N staged" badge before the spacer.
+  const finds = el('div', 'sode-gridpanel__finds');
+  const head = el('div', 'sode-gridpop__band', finds, el('span', 'sode-panels__spacer'), close);
   const status = el('p', { class: 'sode-panel__status', role: 'status', hidden: true });
   const msg = el('div', { class: 'sode-gridpop__msg', 'aria-live': 'polite' });
   const levels = levelsBox();
   const grid = el('div', 'sode-panel__grid');
-  const box = el(
-    'div',
-    { class: 'pb-modal sode-gridpop__box', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'grid-pop-title' },
-    head,
-    levels,
-    msg,
-    status,
-    grid,
-  );
+  const box = el('div', { class: 'pb-modal sode-gridpop__box', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Grid' }, head, levels, msg, status, grid);
   const root = el('div', { class: 'sode__scrim sode-gridpop', id: 'grid-pop', hidden: true }, box);
   root.addEventListener('keydown', popKey);
   const shield = gridShield(box, grid, (plan) => boxHost()?.confirm(plan));
   // A key move puts the shield on the cursor's destination name.
   root.addEventListener('keyup', (e) => !e.target.closest?.('input') && shield.cursor());
   document.body.append(root);
-  return { root, msg, shield, ui: { main: box, head, status, grid, levels } };
+  return { root, msg, shield, ui: { main: box, head, finds, status, grid, levels } };
 }
 
 // After the grid's own keys (a capture listener on document), so its search boxes, line and picks take Esc first.
@@ -155,7 +152,8 @@ export function showGrid() {
   shown = true;
   body ||= gridBody(adapter(), { ...PANEL, rights: S.myRights });
   push();
-  if (aim?.levels) body.levels(p.levels);
+  // The desktop popup has no Levels box of its own: a press stages at the main page's levels.
+  if (aim?.levels || document.documentElement.dataset.layout !== 'phone') body.levels(p.levels);
   const sc = scroller();
   if (!aim && scroll && sc) sc.scrollTo(scroll.left, scroll.top);
   opened = true;
@@ -228,6 +226,10 @@ function listTake() {
   push();
   body.openConfirm();
 }
+
+// The main page's Take with empty patch boxes sends the staged routes (desktop.js).
+export const stagedCount = () => routesOf({ staged }).length;
+export const takeStaged = listTake;
 
 for (const [id, fn] of [
   ['grid-staged-take', listTake],
