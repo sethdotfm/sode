@@ -7,7 +7,8 @@
 // setHomeRunner. Another page puts the row in sessionStorage and opens Home.
 //
 // Bookmarks (bookmarks.js) open their rows through runRow, and a grey one through explainRow. The empty query lists
-// the shown list's bookmarks that have Show in Palette. Alt+B or a row's Bookmark button adds the row to Me, or to This
+// the shown list's bookmarks that have Show in Palette. A grey row (outside the Rights or Role) shows only as such a
+// bookmark. Alt+B or a row's Bookmark button adds the row to Me, or to This
 // browser for a Guest. openPalette({ pick }) hands the picked row to pick instead (the Bookmarks editor's Add).
 import { $, el, S, on, emit, icon, request, sentence, LINK_DOWN } from './core.js';
 import { chord, listStep } from './keys.js';
@@ -118,7 +119,7 @@ const input = el('input', {
   'aria-controls': 'palette-list',
   'aria-autocomplete': 'list',
   'aria-label': 'Search the Palette',
-  placeholder: 'Search actions, presets, pages and settings',
+  placeholder: 'Search, or start with panel, preset, page or setting',
   spellcheck: false,
   autocomplete: 'off',
 });
@@ -191,8 +192,8 @@ function draw(keep = false) {
   const marks = pickFn ? [] : paletteMarks(shownBookmarks().list, rows);
   items = paletteView(rows, { path, query: input.value, last: pickFn ? [] : picks(), marks });
   if (!keep || !items[cur] || items[cur].type === 'head') cur = firstIndex(items);
-  where.textContent = pathText(path, rows);
-  where.hidden = !path.length;
+  where.textContent = pathText(path, rows, input.value);
+  where.hidden = !where.textContent;
   list.replaceChildren(
     ...items.map((it, i) => {
       if (it.type === 'head') return el('li', { role: 'presentation', class: 'sode-palette__head' }, it.label);
@@ -207,7 +208,7 @@ function draw(keep = false) {
       return rowNode(it.row, i);
     }),
   );
-  if (!items.some((it) => it.type !== 'head')) list.append(el('li', { role: 'presentation', class: 'sode-palette__none' }, 'Nothing found'));
+  if (!items.length) list.append(el('li', { role: 'presentation', class: 'sode-palette__none' }, 'Nothing found'));
   mark();
 }
 
@@ -419,7 +420,7 @@ function grow(from) {
   d.style.transform = '';
 }
 
-// pick(row): the Bookmarks editor's Add. Enter hands the row there, grey or not, and runs nothing. cancel() runs when
+// pick(row): the Bookmarks editor's Add. Enter hands the row there and runs nothing. Grey rows do not show. cancel() runs when
 // the Palette closes with no row.
 export function openPalette({ from = null, pick = null, cancel = null } = {}) {
   if (dlg.shown()) return;
