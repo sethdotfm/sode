@@ -10,7 +10,7 @@ import (
 // Home's Destination box after an add: the box empties, so new digits start a new search. Directly after an add, + and
 // Ctrl+Enter on the empty box add the next destination, and the box shows which one. They use the Next match behavior
 // setting. With no add directly before, they do nothing. A take after + does not refuse the same text later. A typed list shows
-// its destinations all selected and adds them all, a range with a tail too; the Source box gives a note instead. Esc with nothing to clear does nothing, and
+// its destinations all selected and adds them all. A range with a tail and two ranges do too; the Source box gives a note instead. Esc with nothing to clear does nothing, and
 // Alt+Shift+k starts and ends Keyboard mode.
 func TestChromeMainMultiAdd(t *testing.T) {
 	b := startBrowser(t)
@@ -153,6 +153,15 @@ func TestChromeMainMultiAdd(t *testing.T) {
 	b.shot("tail-list")
 	ctrlEnter()
 	b.waitFor("Ctrl+Enter adds the three", chips+` === '41 Mon 1 PIP 1|43 Mon2 PIP1|45 Mon 3 PIP 1'`)
+	clear()
+
+	// Two ranges: Mon 1-4 PIP 1-2 finds five destinations in the order of the list, by Mon and then by PIP.
+	typed("dst", "Mon 1-4 PIP 1-2")
+	listed("dst")
+	b.waitFor("five rows and a note", rows+`.length === 5 && `+selected+` && `+note("dst")+` === 'Not found: Mon 3 PIP 2, Mon 4 PIP 1, Mon 4 PIP 2'`)
+	b.shot("two-range-list")
+	ctrlEnter()
+	b.waitFor("Ctrl+Enter adds the five", chips+` === '41 Mon 1 PIP 1|42 Mon 1 PIP 2|43 Mon2 PIP1|44 Mon 2 PIP 2|45 Mon 3 PIP 1'`)
 	clear()
 
 	// The next add uses the Next match behavior setting: after Mon 9, by number Bars X, by name Mon 10.
