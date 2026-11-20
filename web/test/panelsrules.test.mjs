@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   groupPanels,
   actionsFor,
+  emptyText,
   deleteStep,
   thumbCells,
   actsLabel,
@@ -342,4 +343,10 @@ test('a Grid panel on the list says how many sources and destinations it holds, 
     }
     assert.ok(g.cells.filter((c) => c.kind === 'on').every((c) => c.c >= 2 && c.c <= g.cols && c.r >= 2 && c.r <= g.rows));
   }
+});
+
+test('the empty list says no panels yet, apart from a Find with no hits', () => {
+  assert.equal(emptyText(false, false), '');
+  assert.equal(emptyText(true, false), 'No panels yet. Press New panel to make one.');
+  assert.equal(emptyText(true, true), 'No panel matches.');
 });

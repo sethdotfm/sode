@@ -468,6 +468,16 @@ body {
   gap: var(--pb-space-3);
   padding-bottom: var(--pb-space-3);
 }
+/* One height for the row: the Find box and New panel. */
+.sode-ov__find > .pb-input,
+.sode-ov__find > .pb-btn {
+  flex: none;
+  height: var(--sode-h-action);
+}
+.sode-ov__find > .pb-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .sode-ov__group {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
@@ -498,6 +508,16 @@ body {
   flex-direction: column;
   min-width: 0;
 }
+.sode-ov__line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-ov__status {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-2);
+}
 .sode-ov__muted {
   color: var(--pb-text-muted);
 }
@@ -527,8 +547,30 @@ body {
 }
 .sode-ov__acts {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--pb-space-3);
+  margin-bottom: var(--pb-space-3);
+}
+.sode-ov__acts .pb-btn {
+  height: var(--sode-h-action);
+  min-width: 0;
+}
+/* Both rows share two equal columns, so a key hint or a long label does not change a width. Delete stays apart
+   at the end of the first row. */
+.sode-ov__acts-main,
+.sode-ov__acts-more {
+  --sode-ov-act: minmax(0, 13rem);
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: repeat(2, var(--sode-ov-act));
+}
+.sode-ov__acts-main {
+  grid-template-columns: repeat(2, var(--sode-ov-act)) 1fr;
+}
+.sode-ov__delete {
+  grid-column: 3;
+  justify-self: end;
 }
 .sode-ov__kbd {
   color: var(--pb-text-muted);
@@ -604,25 +646,6 @@ body {
 }
 .sode-ov__thumb i {
   background: var(--pb-surface-control);
-}
-/* The count sits over the picture on its own plate so it stays legible on any squares. */
-.sode-ov__count {
-  background: var(--pb-surface-base);
-  border: var(--pb-border-w) solid var(--pb-border);
-  color: var(--pb-text-strong);
-  font-family: var(--pb-font-num);
-  font-size: var(--pb-text-sm);
-  left: 50%;
-  line-height: 1;
-  padding: var(--pb-space-1) var(--pb-space-2);
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  white-space: nowrap;
-}
-.sode-ov__thumb--sm .sode-ov__count {
-  font-size: var(--pb-text-xs);
-  padding: 0 var(--pb-space-1);
 }
 /* A Grid panel's picture has three sizes with one square size (--sode-ov-sq): the picture grows with its squares
    (--sode-ov-cols). The width counts the gaps, padding and border (border-box). In the list the Large picture is 6rem

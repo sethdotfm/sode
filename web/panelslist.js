@@ -19,6 +19,7 @@ import {
   editHref,
   listKey,
   stepPanel,
+  emptyText,
 } from './panelsrules.js';
 import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
@@ -72,14 +73,12 @@ function thumb(p, small) {
     i.style.gridArea = `${c.r} / ${c.c} / span ${c.rs} / span ${c.cs}`;
     box.append(i);
   }
-  // A Grid panel's counts are tiles in its two bars. A Buttons panel's picture has no bars, so its count is text on the picture.
-  if (g) {
-    for (const t of g.tiles) {
-      const i = el('i', `sode-ov__k-${t.kind} sode-ov__tile sode-ov__tile--${t.kind}${t.half ? ' sode-ov__tile--half' : ''}`, t.label);
-      i.style.gridArea = `${t.r} / ${t.c} / span ${t.rs} / span ${t.cs}`;
-      box.append(i);
-    }
-  } else box.append(el('span', 'sode-ov__count', `${p.cols} \u00d7 ${p.rows}`));
+  // A Grid panel's counts are tiles in its two bars. A Buttons panel's size is the caption under the large picture only.
+  for (const t of g ? g.tiles : []) {
+    const i = el('i', `sode-ov__k-${t.kind} sode-ov__tile sode-ov__tile--${t.kind}${t.half ? ' sode-ov__tile--half' : ''}`, t.label);
+    i.style.gridArea = `${t.r} / ${t.c} / span ${t.rs} / span ${t.cs}`;
+    box.append(i);
+  }
   return box;
 }
 
@@ -94,7 +93,13 @@ function row(p) {
   b.setAttribute('aria-current', String(p.id === S.cur));
   const online = el('span', 'sode-ov__online');
   online.dataset.online = p.id;
-  const who = el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsShort(p)}`));
+  const sub = `${owner(p)}, ${actsShort(p)}`;
+  const who = el(
+    'span',
+    'sode-ov__who',
+    el('strong', { class: 'sode-ov__line', title: p.name }, p.name),
+    el('span', { class: 'sode-ov__muted sode-ov__line', title: sub }, sub),
+  );
   const badge = statusBadge(panelStatus(p));
   if (badge) who.append(badge);
   b.append(thumb(p, true), who, online);
@@ -108,7 +113,7 @@ function list(groups) {
     nav.append(el('h2', 'sode-ov__group', g.title));
     for (const p of g.panels) nav.append(row(p));
   }
-  if (!groups.length) nav.append(el('p', 'sode-ov__muted sode-ov__empty', S.loaded ? 'No panel matches.' : ''));
+  if (!groups.length) nav.append(el('p', 'sode-ov__muted sode-ov__empty', emptyText(S.loaded, S.panels.length > 0)));
 }
 
 function button(label, ico, cls, act, id) {
@@ -133,15 +138,18 @@ function detail(p) {
   // The phone keeps Launch and Open now (docs/panels-design.md, Phone and touch).
   const phone = layout() === 'phone';
   const acts = phone ? [] : actionsFor(p);
-  const bar = el('div', 'sode-ov__acts');
-  bar.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), mac ? '⌘↵' : 'Ctrl+Enter'));
-  if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id), mac ? '⌘E' : 'Ctrl+E'));
-  if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
-  if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
-  if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
-  if (!phone && S.me) bar.append(button('Send a copy', 'forward', '', 'send', p.id));
-  if (!phone && (S.trusted || p.canEdit)) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
-  if (acts.includes('delete')) bar.append(button(S.armed === p.id ? 'Delete? Press again' : 'Delete', 'trash-2', 'pb-btn--ghost', 'delete', p.id));
+  const main = el('div', 'sode-ov__acts-main');
+  main.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), mac ? '⌘↵' : 'Ctrl+Enter'));
+  if (acts.includes('edit')) main.append(link('Edit', 'pencil', '', editHref(p.id), mac ? '⌘E' : 'Ctrl+E'));
+  if (acts.includes('copy')) main.append(button('Save a copy', 'copy', '', 'copy', p.id));
+  if (acts.includes('delete'))
+    main.append(button(S.armed === p.id ? 'Delete? Press again' : 'Delete', 'trash-2', 'pb-btn--ghost sode-ov__delete', 'delete', p.id));
+  const more = el('div', 'sode-ov__acts-more');
+  if (acts.includes('push')) more.append(button('Push to panels', 'send', '', 'push', p.id));
+  if (!phone && S.me) more.append(button('Send a copy', 'forward', '', 'send', p.id));
+  if (!phone && (S.trusted || p.canEdit)) more.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
+  if (acts.includes('share')) more.append(button('Share', 'share-2', '', 'share', p.id));
+  const bar = el('div', 'sode-ov__acts', main, more.childElementCount ? more : null);
   const kv = el(
     'dl',
     'sode-ov__kv',

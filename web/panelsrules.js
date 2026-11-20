@@ -47,6 +47,9 @@ export function groupPanels(panels, me, trusted, filter = '') {
   return out;
 }
 
+// The list's empty line: nothing yet differs from a Find with no hits. Blank until the list loads.
+export const emptyText = (loaded, any) => (!loaded ? '' : any ? 'No panel matches.' : 'No panels yet. Press New panel to make one.');
+
 export const actionsFor = (p) => (p.canEdit ? ['launch', 'edit', 'share', 'push', 'delete'] : ['launch', 'copy']);
 
 // The server keeps names for Named users only.
