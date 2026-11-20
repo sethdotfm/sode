@@ -17,9 +17,9 @@ import (
 // backupReq is Back up everything (web/exportrules.js backupBody).
 func backupReq(pins bool) exportReq {
 	return exportReq{
-		Categories:  []string{catSettings, catRouters, catUsers, catPresets, catFilterSets, catPanels, catArtwork, catAPIClients, catBrowser},
+		Categories:  everyCategory,
 		IncludePins: pins,
-		Browser:     json.RawMessage(`{"theme":"dark","filterSets":[{"name":"Mine","src":"CAM"}],"presets":[]}`),
+		Browser:     json.RawMessage(`{"theme":"dark","filterSets":[{"name":"Mine","src":"CAM"}],"presets":[],"bookmarks":[{"url":"https://example.com/","label":"Docs"}]}`),
 	}
 }
 

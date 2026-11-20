@@ -1,9 +1,10 @@
 // Writes a file's values to this browser; pure parts are in browserimport.js.
 
-import { browserPrefs, mergeByName } from './browserimport.js';
+import { browserBookmarks, browserPrefs, mergeByName } from './browserimport.js';
 import { setPref } from './device.js';
 import { localSets, normFilter, putLocalSets } from './filterstore.js';
 import { localPresets, putLocalPresets, storedPreset } from './presetstore.js';
+import { saveBookmarks } from './bookmarkstore.js';
 
 export function applyBrowser(values, replace) {
   for (const [name, v] of Object.entries(browserPrefs(values))) setPref(name, v);
@@ -12,4 +13,6 @@ export function applyBrowser(values, replace) {
   putLocalSets(mergeByName(localSets(), sets, replace));
   const presets = list(values?.presets).map((s) => ({ scope: 'local', ...storedPreset(s) }));
   putLocalPresets(mergeByName(localPresets(), presets, replace));
+  const bookmarks = browserBookmarks(values, replace);
+  if (bookmarks) saveBookmarks('local', bookmarks);
 }

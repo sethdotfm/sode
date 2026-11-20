@@ -215,20 +215,21 @@ func countItems(t *testing.T, cat string, files map[string][]byte) int {
 		CheckpointSets []any `yaml:"checkpointSets"`
 		Defaults       []any `yaml:"defaults"`
 		Icons          []any `yaml:"icons"`
+		Bookmarks      []any `yaml:"bookmarks"` // one item: the whole list
 	}
 	if err := yaml.Unmarshal(files[categoryFile(cat)], &v); err != nil {
 		t.Fatal(err)
 	}
 	return len(v.Users) + len(v.Presets) + len(v.FilterSets) + len(v.APIClients) + len(v.Panels) + len(v.Templates) +
-		len(v.CheckpointSets) + len(v.Defaults) + len(v.Icons)
+		len(v.CheckpointSets) + len(v.Defaults) + len(v.Icons) + min(len(v.Bookmarks), 1)
 }
 
 // Keep in step with backupBody in web/exportrules.js: every category, with PINs.
 func TestExportBackUpEverything(t *testing.T) {
 	a, tok := exportApp(t)
 	seedEverything(t, a)
-	body := json.RawMessage(`{"categories":["settings","routers","users","presets","filterSets","panels","artwork","apiClients","browser"],` +
-		`"includePins":true,"browser":{"theme":"dark","filterSets":[],"presets":[]}}`)
+	body := json.RawMessage(`{"categories":["settings","routers","users","presets","filterSets","bookmarks","panels","artwork","apiClients","browser"],` +
+		`"includePins":true,"browser":{"theme":"dark","filterSets":[],"presets":[],"bookmarks":[]}}`)
 	rec := postExport(t, a, tok, body)
 	if rec.Code != 200 {
 		t.Fatalf("export: %d %s", rec.Code, rec.Body)

@@ -30,6 +30,7 @@ const IMPORT_CAT = {
   users: 'Users',
   presets: 'Presets',
   filterSets: 'Filter sets',
+  bookmarks: 'Bookmarks',
   panels: 'Panels',
   apiClients: 'API clients',
 };

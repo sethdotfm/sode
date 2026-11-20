@@ -27,7 +27,7 @@ func TestChromeExportDialog(t *testing.T) {
 	signInSettings(b)
 	b.waitFor("Export & Import button shown", `!!document.getElementById('xi-open')?.offsetParent`)
 	b.eval(`document.getElementById('xi-open').click(); true`)
-	b.waitFor("nine categories listed", `document.querySelectorAll('.sode__xi-head').length === 9`)
+	b.waitFor("ten categories listed", `document.querySelectorAll('.sode__xi-head').length === 10`)
 
 	var got struct {
 		Width, Rem     float64

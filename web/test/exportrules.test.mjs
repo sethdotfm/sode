@@ -44,6 +44,7 @@ const list = {
       ],
     },
     { name: 'filterSets', size: 0, items: [] },
+    { name: 'bookmarks', size: 60, items: [{ id: 'bookmarks', name: 'Everyone bookmarks', size: 60 }] },
     { name: 'panels', size: 50, items: [{ id: 'p-1', name: 'Desk', kind: 'panel', size: 50, icons: ['ic-1'] }] },
     {
       name: 'artwork',
@@ -158,9 +159,17 @@ test('own export: everything ticked; the body sends only own categories, presets
     OWN_CATEGORIES.map(([c]) => c),
     ['profile', 'presets', 'filterSets'],
   );
-  for (const [c] of ADMIN_ONLY)
-    assert.ok(
-      CATEGORIES.some(([x]) => x === c),
-      c,
-    );
+  assert.deepEqual(
+    ADMIN_ONLY.map(([c]) => c),
+    CATEGORIES.map(([c]) => c),
+  );
+});
+
+test('Everyone bookmarks is one item, sent by its id', () => {
+  const p = newPick(list);
+  for (const [c] of CATEGORIES) setCat(list, p, c, false);
+  p.items.bookmarks.add('bookmarks');
+  assert.equal(catState(list, p, 'bookmarks'), 'all');
+  assert.equal(catSize(list, p, 'bookmarks'), 60);
+  assert.deepEqual(exportBody(list, p, {}), { categories: ['bookmarks'], pick: { bookmarks: ['bookmarks'] }, sections: [], includePins: true });
 });

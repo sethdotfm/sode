@@ -82,7 +82,10 @@ func TestExportFormat1Fixture(t *testing.T) {
 	if n := b.Names[uid]; len(n.Sources) != 2 || n.Destinations[0].Name != "MON 1" {
 		t.Errorf("names: %+v", n)
 	}
-	if b.Browser["theme"] != "light" {
+	if bm := b.Bookmarks; len(bm) != 2 || bm[0].Key != "preset:global:pr-0001" || !bm[0].InPalette || bm[1].URL != "https://example.com/run" || !bm[1].NewTab {
+		t.Errorf("bookmarks: %+v", bm)
+	}
+	if bl, _ := b.Browser["bookmarks"].([]any); b.Browser["theme"] != "light" || len(bl) != 1 {
 		t.Errorf("browser: %v", b.Browser)
 	}
 }

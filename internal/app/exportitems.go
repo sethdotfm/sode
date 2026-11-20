@@ -137,6 +137,11 @@ func (a *App) exportList() (exportList, error) {
 		item(sets, s.Name, s.Name, "", &exportFilterSets{FilterSets: []config.FilterSet{s}})
 	}
 
+	bookmarks := cat(catBookmarks)
+	if len(cfg.Bookmarks) > 0 {
+		item(bookmarks, catBookmarks, everyoneBookmarksName, "", &exportBookmarks{Bookmarks: cfg.Bookmarks})
+	}
+
 	panels := cat(catPanels)
 	for _, p := range a.panels.list() {
 		p.Rev = 0

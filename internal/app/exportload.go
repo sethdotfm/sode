@@ -29,7 +29,7 @@ var (
 // exportEntryRe is every entry name a file can hold: the fixed names and the art and names directories, built on
 // the stores' own id forms. Anything else, such as "..", a backslash or an absolute path, is refused.
 var exportEntryRe = regexp.MustCompile(`^(?:manifest\.yaml` +
-	`|(?:settings|routers|users|presets|filtersets|panels|artwork|apiclients|browser)\.yaml` +
+	`|(?:settings|routers|users|presets|filtersets|bookmarks|panels|artwork|apiclients|browser)\.yaml` +
 	`|names/[A-Za-z0-9_-]{1,64}\.yaml` +
 	`|art/panels/p-[0-9a-f]{8}/a-[0-9a-f]{8}\.(?:png|jpg|gif|svg)` +
 	`|art/defaults/d-[0-9a-f]{8}\.(?:png|jpg|gif|svg)` +
@@ -63,6 +63,7 @@ type exportBundle struct {
 	Users       []config.User
 	Presets     []config.Preset
 	FilterSets  []config.FilterSet
+	Bookmarks   []config.Bookmark // Everyone bookmarks
 	Panels      exportPanels
 	Artwork     exportArtwork
 	APIClients  []config.APIClient
@@ -305,6 +306,7 @@ func loadExportV1(dir string) (*exportBundle, error) {
 	var users exportUsers
 	var presets exportPresets
 	var sets exportFilterSets
+	var bookmarks exportBookmarks
 	var clients exportAPIClients
 	var routers exportRouters
 	entries := []entry{
@@ -312,6 +314,7 @@ func loadExportV1(dir string) (*exportBundle, error) {
 		{"users.yaml", pruneAs(reflect.TypeFor[exportUsers]()), &users},
 		{"presets.yaml", pruneAs(reflect.TypeFor[exportPresets]()), &presets},
 		{"filtersets.yaml", pruneAs(reflect.TypeFor[exportFilterSets]()), &sets},
+		{"bookmarks.yaml", pruneAs(reflect.TypeFor[exportBookmarks]()), &bookmarks},
 		{"panels.yaml", pruneAs(reflect.TypeFor[exportPanels]()), &out.Panels},
 		{"artwork.yaml", pruneAs(reflect.TypeFor[exportArtwork]()), &out.Artwork},
 		{"apiclients.yaml", pruneAs(reflect.TypeFor[exportAPIClients]()), &clients},
@@ -329,6 +332,7 @@ func loadExportV1(dir string) (*exportBundle, error) {
 		}
 	}
 	out.Routers, out.Users, out.Presets, out.FilterSets, out.APIClients = routers.Routers, users.Users, presets.Presets, sets.FilterSets, clients.APIClients
+	out.Bookmarks = bookmarks.Bookmarks
 	seen := map[string]bool{}
 	for _, r := range out.Routers {
 		switch {
