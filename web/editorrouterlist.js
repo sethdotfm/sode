@@ -10,6 +10,8 @@ import { routerRows, findRows, addItems, selectRows } from './editorgridrules.js
 const ROW_REM = 2; // keep in step with .sode-rlist__row in panels.css
 
 // o: { key, what, edge(), router(), rights(), kind, off(), readOnly(), fixed() (why adding is off, or ''), set(edge) }.
+// The Live Editor's Insert (editorlivemenu.js) also gives title, at() and onAdd(ns). at() is the members index where
+// the items go in (addItems), and onAdd gets the items added, in list order.
 export function createRouterList(o) {
   const { key, what } = o;
   const find = el('input', 'pb-input');
@@ -52,7 +54,7 @@ export function createRouterList(o) {
   const node = el(
     'section',
     'sode-edge__part sode-edge__add',
-    el('div', 'sode-edge__head', el('h3', 'sode-edge__h3', 'Add from the router', count)),
+    el('div', 'sode-edge__head', el('h3', 'sode-edge__h3', o.title || 'Add from the router', count)),
     el('div', 'sode-rlist__bar', search),
     acts,
     box,
@@ -153,7 +155,15 @@ export function createRouterList(o) {
   }
 
   // An add on an "all" edge would make it a list and end Follow the router, so fixed() stops it.
-  const add = (ns) => o.readOnly() || o.fixed?.() || o.set(addItems(o.edge(), o.router(), new Set(ns)));
+  const add = (ns) => {
+    if (o.readOnly() || o.fixed?.()) return;
+    const was = o.edge();
+    const next = addItems(was, o.router(), new Set(ns), o.at ? { at: o.at() } : {});
+    if (next === was) return;
+    o.set(next);
+    const had = new Set(Array.isArray(was?.members) ? was.members : []);
+    o.onAdd?.(next.members.filter((n) => !had.has(n)));
+  };
   function addMatches() {
     if (text && shown.length) add(shown.map((r) => r.n));
   }

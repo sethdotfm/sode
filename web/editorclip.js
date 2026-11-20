@@ -26,17 +26,23 @@ export async function writeClip(text) {
 // Paste reads the browser's own paste event, which asks no permission and works over plain HTTP. So the paste chord
 // leaves its key to the browser and calls key(). When no paste event follows in that task (Safari on an element that
 // accepts no typing, a synthetic key), readText asks instead. onText gets the text, or null when the browser refused.
+// stop() is for a root that goes away (the Live Editor's grid).
 export function createPasteReader(root, onText) {
   let waiting = 0;
   let seq = 0;
-  document.addEventListener('paste', (e) => {
+  const onPaste = (e) => {
     const at = document.activeElement;
     if (!root.contains(at) || typing(at)) return;
     waiting = 0;
     e.preventDefault();
     onText(e.clipboardData?.getData('text/plain') ?? '');
-  });
+  };
+  document.addEventListener('paste', onPaste);
   return {
+    stop() {
+      document.removeEventListener('paste', onPaste);
+      waiting = 0;
+    },
     key() {
       const id = ++seq;
       waiting = id;

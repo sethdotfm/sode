@@ -9,6 +9,7 @@ import { createCellTab } from './editorcell.js';
 import { createPanelTab } from './editorpanel.js';
 import { createAccessTab } from './editoraccess.js';
 import { createEdgeList } from './editorgridlist.js';
+import { createRowClip } from './editorrowclip.js';
 
 export function initSidebar(ed) {
   const host = $('ed-side');
@@ -34,10 +35,13 @@ export function initSidebar(ed) {
     tabs.select('ed-cell');
     cell.openPicker();
   };
-  const srcs = createEdgeList(ed, { key: 'sources', rights: 'sources', what: 'source', side: 'left to right on the top edge', onPick, onArt });
-  const dsts = createEdgeList(ed, { key: 'destinations', rights: 'dsts', what: 'destination', side: 'top to bottom on the left edge', onPick, onArt });
+  let clip = null; // the rows clipboard, made once both lists exist
+  const list = (key, rights, what, side) => createEdgeList(ed, { key, rights, what, side, onPick, onArt, clip: () => clip });
+  const srcs = list('sources', 'sources', 'source', 'left to right on the top edge');
+  const dsts = list('destinations', 'dsts', 'destination', 'top to bottom on the left edge');
+  clip = createRowClip(ed, { sources: srcs, destinations: dsts });
   $('ed-lists').append(srcs.node, dsts.node);
-  ed.useEdgeLists({ srcs, dsts });
+  ed.useEdgeLists({ srcs, dsts, clip });
 
   const cell = createCellTab(ed, { picked });
   const panel = createPanelTab(ed);

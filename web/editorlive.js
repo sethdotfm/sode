@@ -8,9 +8,11 @@ import { liveUi } from './panelmount.js';
 import { makeTabs } from './tabs.js';
 import { btn } from './formbits.js';
 import { createLiveArt } from './editorliveart.js';
+import { createLiveMenu } from './editorlivemenu.js';
 
 // host holds the live panel, body is the editor it replaces, button is the toolbar's Live Editor button. ed is
-// { save, dirty, readOnly, edges, lists, cellTab, edgeLists, leave }. leave(href) is the unsaved-edits rule of the
+// { save, dirty, readOnly, edges, lists, cellTab, edgeLists, leave, editor }. editor is runEditor's seams, for the
+// Smart menu (editorlivemenu.js). leave(href) is the unsaved-edits rule of the
 // Grid head row's links. edges() is { sources, destinations, rev } as the editor
 // has them. lists() gives the two list columns, cellTab() the sidebar's Cell tab and edgeLists() the lists' own apis.
 export function createLive(host, body, button, ed) {
@@ -152,7 +154,7 @@ function gridParts(ed) {
   let kind = null; // the kind whose grid picks the list holds
   const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   function onPicks(p) {
-    if (!lists) return;
+    if (!lists) return menu.picks(p);
     const changed = KINDS.filter((k) => !same(p[k], had[k]));
     had = { srcs: p.srcs, dsts: p.dsts };
     if (!changed.length) return;
@@ -160,7 +162,13 @@ function gridParts(ed) {
     if (next) lists[next].select(p[next]);
     else if (kind) lists[kind].clearPicks();
     kind = next;
+    menu.picks(p);
   }
+  const menu = createLiveMenu(ed.editor(), lists, {
+    kind: () => kind,
+    openArt: () => api.openArt(),
+    drawer: () => (opened ? aside : null),
+  });
   setOpen(false);
 
   let run = null;
@@ -172,18 +180,21 @@ function gridParts(ed) {
   }
   paint();
 
-  return {
+  const api = {
     bar,
     open,
     aside,
     onPicks,
     leave: ed.leave,
+    editKey: (e, ctx) => menu.key(e, ctx),
+    useRun: (r, node) => menu.useRun(r, node),
     note: paint,
     started(r) {
       run = r;
     },
     changed() {
       paint();
+      menu.changed();
       const now = ed.edges();
       if (now.sources === shown.sources && now.destinations === shown.destinations && now.rev === shown.rev) return;
       const saved = now.rev !== shown.rev;
@@ -206,8 +217,10 @@ function gridParts(ed) {
     },
     stop() {
       art.close();
+      menu.stop();
       kind = null;
       home.append(srcs, dsts);
     },
   };
+  return api;
 }

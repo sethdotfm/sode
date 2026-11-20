@@ -17,7 +17,7 @@ import { gridCommand } from './gridchords.js';
 import { createLive } from './editorlive.js';
 import { copyBlock, blockText, readBlock, pastePlan, applyPaste, pasteNote } from './gridclip.js';
 import { writeClip, createPasteReader } from './editorclip.js';
-import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restorePages, rekeySaved } from './gridundo.js';
+import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restorePages, rekeySaved, edgeSnap, sameEdges } from './gridundo.js';
 import { edgeChoices, edgeNote } from './gridedge.js';
 import { askPasteEdge } from './editorpasteedge.js';
 import { pagesAfterSave, pagesOf, pageView, fitPages } from './panelpages.js';
@@ -144,11 +144,31 @@ export async function runEditor() {
     if (g !== was) changed();
     return dropped;
   };
+  // A Grid panel's list edit (editorgridlist.js): the same stack, with a snapshot of the two lists. The Panel tab and
+  // Follow the router go through setFields and make no step.
+  function editEdges(patch, what) {
+    const keys = Object.keys(patch);
+    const before = edgeSnap(fields(), keys);
+    setFields(patch);
+    if (!sameEdges(before, edgeSnap(fields(), keys))) steps = record(steps, { what, before });
+  }
+  // The Live Editor's bar shows the status line too, since the editor's own is hidden while it runs.
+  const tell = (text) => {
+    say('ed-status', text);
+    live.note(text);
+  };
+
   // Not through edit, which would record the step back. Cells go back by Page id, so Page names, order and
-  // deletions stay as they are; the focused Page stays focused while it exists.
+  // deletions stay as they are; the focused Page stays focused while it exists. A list step puts both lists back.
   function step(back) {
     const top = (back ? steps.past : steps.future).at(-1);
-    if (!top) return say('ed-status', back ? 'Nothing to undo.' : 'Nothing to redo.');
+    if (!top) return tell(back ? 'Nothing to undo.' : 'Nothing to redo.');
+    if (top.grid.edges) {
+      const s = (back ? undo : redo)(steps, edgeSnap(fields(), Object.keys(top.grid.edges)));
+      steps = s.undo;
+      setFields(s.grid.edges);
+      return tell(`${back ? 'Undid' : 'Redid'} ${s.what}.`);
+    }
     const s = (back ? undo : redo)(steps, snap(!!top.grid.list));
     steps = s.undo;
     ({ pages, focus, open } = settle({ pages: restorePages(livePages(), s.grid), focus, open }));
@@ -156,7 +176,7 @@ export async function runEditor() {
     showFocused();
     if (s.grid.focus === focus && s.grid.sel) g = { ...g, sel: s.grid.sel };
     changed();
-    say('ed-status', `${back ? 'Undid' : 'Redid'} ${s.what}.`);
+    tell(`${back ? 'Undid' : 'Redid'} ${s.what}.`);
   }
 
   // Only Copy to is an undo step (editorpagebar.js).
@@ -264,6 +284,7 @@ export async function runEditor() {
     cellTab: () => cellTab,
     edgeLists: () => edgeLists,
     leave: (href) => mayLeave(href),
+    editor: () => seams,
   });
   fieldWatchers.push(() => live.changed());
   // The menu and its flyouts keep off the sidebar when it sits beside the grid (menuArea).
@@ -398,6 +419,18 @@ export async function runEditor() {
       e.preventDefault();
       menu.focus();
     }
+  }
+
+  function setFields(patch) {
+    edits = { ...edits, ...patch };
+    const { shown, dropped } = holdOrPutBack(g);
+    sayDropped(dropped);
+    if (shown !== g) {
+      g = shown;
+      for (const fn of changeWatchers) fn(g);
+    }
+    refresh();
+    fieldsChanged();
   }
 
   // A key without the panels scope, or a failed read, leaves the defaults as they were.
@@ -709,7 +742,7 @@ export async function runEditor() {
   })();
 
   // Seams: Find adds menu items; the sidebars and live update read and replace the grid.
-  return {
+  const seams = {
     // The focused Page's grid; Find, the grip, the art tool and the Cell tab work on it.
     grid: () => g,
     // Page 1 as stored, with any Destination cells Fixed destination set aside, for templates and the Cell tab's
@@ -753,17 +786,11 @@ export async function runEditor() {
     art: () => art,
     defaults: () => defaults,
     loadDefaults,
-    setFields(patch) {
-      edits = { ...edits, ...patch };
-      const { shown, dropped } = holdOrPutBack(g);
-      sayDropped(dropped);
-      if (shown !== g) {
-        g = shown;
-        for (const fn of changeWatchers) fn(g);
-      }
-      refresh();
-      fieldsChanged();
-    },
+    setFields,
+    // A Grid panel's list edit, one undo step named what.
+    editEdges,
+    // Editor undo (true) or redo (false), for the Grid lists and the Live Editor.
+    step,
     fixedOn,
     // A panel stored elsewhere (the Share modal): the grid and unsaved fields stay as they are.
     replaceLoaded(panel) {
@@ -775,6 +802,7 @@ export async function runEditor() {
     onFields: (fn) => fieldWatchers.push(fn),
     onPaint: (fn) => paintWatchers.push(fn),
     refresh,
-    status: (text) => say('ed-status', text),
+    status: tell,
   };
+  return seams;
 }

@@ -634,6 +634,8 @@ export function gridBody(ctx, first) {
     if (e.target.closest?.('.pb-modal-backdrop:not([hidden])')) return;
     // The page lock's sign-in and dialogs handle their keys first.
     if (e.defaultPrevented) return;
+    // The Live Editor's own keys (editorlivemenu.js): editor undo, the rows clipboard and the Smart menu win over the run's.
+    if (ui.editKey?.(e, { bar: barOf(cur), inControl: inControl(ui.grid), line: !!line })) return;
     // A search box's own keys come before the grid's, so Esc there clears the box and does not drop picks.
     const box = boxes?.kindOf(e.target);
     if (box) {
@@ -708,6 +710,23 @@ export function gridBody(ctx, first) {
   };
   // Capture, so the grid's Esc is handled before Kiosk mode's own (panelfull.js).
   document.addEventListener('keydown', onKey, true);
+  // The Live Editor moves the picks and the cursor to names after it edits its lists, and places its Smart menu at the
+  // cursor's name.
+  ui.useRun?.({
+    pick(kind, ns) {
+      const shown = ns.filter((n) => axes[kind].includes(n));
+      picks = { ...dropPicks(picks), [kind]: shown, anchor: { srcs: null, dsts: null, [kind]: shown[0] ?? null } };
+      const k = axes[kind].indexOf(shown[0]);
+      if (k >= 0 && g) {
+        ptr = null;
+        keyed = true;
+        setCursor(kind === 'srcs' ? { i: -1, j: k } : { i: k, j: -1 });
+        g.reveal(cur);
+      }
+      render();
+    },
+    cursor: () => ({ bar: barOf(cur), ...cursorAt(cur, axes) }),
+  });
   // A turned phone or a changed Layout setting shows or hides the rest-point targets.
   const offLayout = onLayout(render);
 
