@@ -120,9 +120,39 @@
 .sode__menu-add {
   margin-left: auto;
 }
-/* The armed next add in the empty Destination box (paintArmed in desktop.js): smaller than typed text, so the name fits. */
-.sode__box--dst .sode__input::placeholder {
+/* The armed next add in the empty Destination box (paintArmed in desktop.js): the key, then the destination's chip,
+   where the placeholder text goes. It goes away with the first typed character. */
+.sode__armed {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
   font-size: var(--pb-text-md);
+  gap: var(--pb-space-2);
+  left: calc(var(--pb-space-3) + var(--sode-side-w));
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 3em;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+.sode__armed[hidden],
+.sode__keyed > .pb-input:not(:placeholder-shown) ~ .sode__armed {
+  display: none;
+}
+.sode__armed > .sode__end {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The chosen destinations under the box: the same destination chip as History's, with patchbay's remove button. */
+:root:not([data-layout="phone"]) .sode__end.sode__dst-chip {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-2);
+  padding-right: var(--pb-space-2);
 }
 /* One line over the match rows: what a typed list skips, or why the Source box lists nothing (boxlist.js). */
 .sode__menu-note {

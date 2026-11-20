@@ -1,4 +1,4 @@
-import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem } from './core.js';
+import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, labelNode } from './core.js';
 import { keyLabel } from './keys.js';
 import { searchText } from './routerprefix.js';
 import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
@@ -148,11 +148,19 @@ function addAll(items) {
   renderTally();
 }
 
-// The armed next add shows in the empty box. A placeholder of one space keeps :placeholder-shown for the key note.
+// The armed next add shows in the empty box as a destination chip, laid over the input (CSS hides it once there is text).
+// A placeholder cannot hold a chip, so it stays one space, which keeps :placeholder-shown; aria-description says the add.
+let armedAt = null;
 function paintArmed() {
   const d = armed();
-  const text = d ? `${keyLabel('mod+enter')} adds ${d.label}` : ' ';
-  if (boxes.dst.input.placeholder !== text) boxes.dst.input.placeholder = text;
+  if (d === armedAt) return;
+  armedAt = d;
+  const slot = $('dst-armed');
+  slot.hidden = !d;
+  const key = keyLabel('mod+enter');
+  slot.replaceChildren(...(d ? [el('span', null, `${key} adds:`), el('span', 'sode__end sode__end--dst', labelNode(d))] : []));
+  if (d) boxes.dst.input.setAttribute('aria-description', `${key} adds ${d.label}`);
+  else boxes.dst.input.removeAttribute('aria-description');
 }
 
 // Ctrl-click on a destination elsewhere on the page: it joins the chips, with the box's own pick.
@@ -185,7 +193,7 @@ function renderChips() {
         renderChips();
         renderTally();
       });
-      const chip = el('span', 'pb-chip pb-chip--static', d.label, x);
+      const chip = el('span', 'sode__end sode__end--dst sode__dst-chip', labelNode(d), x);
       chip.setAttribute('role', 'listitem');
       return chip;
     }),
