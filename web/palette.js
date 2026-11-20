@@ -122,6 +122,7 @@ function who() {
     users: S.users,
     phone: layout() === 'phone',
     stepped: steppedIn(),
+    protectDevice: S.cfg?.protectDevice || 0,
   };
 }
 

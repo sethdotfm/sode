@@ -17,6 +17,8 @@ export const SCROLLERS = [
   ['#settings-toc', 'y'],
   ['.sode-inbox__list', 'y'],
   ['.sode-palette__list', 'y'],
+  ['.sode-protpick__list', 'y'],
+  ['.sode-protpick__plan', 'y'],
   ['.pb-modal__body', 'y'],
   ['.sode__preset-list', 'y'],
   ['.sode__key-list', 'y', 'little'],

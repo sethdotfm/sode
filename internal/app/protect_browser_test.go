@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -80,4 +81,81 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 		t.Fatalf("Clear Sode's Protects left %d levels", n)
 	}
 	b.check()
+}
+
+// The Palette's Protect opens the picker on Home. A find narrows the list, and two picks go through one Confirm. The
+// simulator holds both on every level. Clear Protect lists only those two; Pick all shown and Ctrl+Enter clear them.
+func TestChromePaletteProtectPick(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) {
+		c.Users[0].Role = config.RoleAdministrator
+		c.ProtectDevice = 126
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+	key := userKey(t, a, "Ana")
+	waitNamesAndTally(t, a, key)
+	sodeRows := func() int {
+		return strings.Count(apiDo(a, "GET", "/api/v1/protected", key, nil).Body.String(), `"sodeUser":"Ana"`)
+	}
+
+	b.open(srv.URL + "/")
+	b.waitFor("Settings button", `!!document.getElementById('settings-open')`)
+	b.eval(`document.getElementById('settings-open').click(); true`)
+	signInSettings(b)
+	b.eval(`document.getElementById('settings-exit').click(); true`)
+	b.waitFor("main page", `document.documentElement.dataset.view !== 'settings'`)
+
+	pick := func(row, title string) {
+		b.eval(`document.activeElement.blur(); true`)
+		b.eval(ctrlShiftP)
+		b.waitFor("the Palette", paletteShown)
+		if row == "action:protect" {
+			paletteFind(b, title, row)
+			paletteKey(b, "Enter", false)
+		} else {
+			// A danger row: Enter does not pick it first, so a press on it does.
+			b.eval(fmt.Sprintf(`(() => { const i = document.querySelector('.sode-palette__q'); i.value = %q; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`, title))
+			b.waitFor("the danger row", `!!document.querySelector('#palette-list [data-key="`+row+`"]')`)
+			b.eval(`document.querySelector('#palette-list [data-key="` + row + `"]').click(); true`)
+		}
+		b.waitFor("the picker", `!document.getElementById('protpick').hidden && document.activeElement.id === 'protpick-find'`)
+	}
+	confirm := func(title string) {
+		b.waitFor(title, `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === '`+title+`'`)
+		b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
+		b.eval(`document.getElementById('confirm-ok').click(); true`)
+	}
+
+	pick("action:protect", "Protect")
+	b.eval(`(() => { const i = document.getElementById('protpick-find'); i.value = 'DSM'; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
+	b.waitFor("the find narrows the list", `[...document.querySelectorAll('#protpick-list [role=option]')].every((r) => r.textContent.includes('DSM'))`)
+	b.eval(`document.querySelector('#protpick-list [data-dst="2"]').click(); document.querySelector('#protpick-list [data-dst="3"]').click(); true`)
+	b.waitFor("two picked", `document.getElementById('protpick-go').textContent === 'Protect 2'`)
+	b.eval(`document.getElementById('protpick-go').click(); true`)
+	b.waitFor("the picker closes", `!document.getElementById('protpick')`)
+	if got := b.eval(`document.querySelector('#confirm-body > div').textContent`).(string); got != "Protect these 2 destinations on every level?" {
+		t.Fatalf("Confirm asks %q", got)
+	}
+	confirm("Confirm protect")
+	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protected')`)
+	if n := sodeRows(); n != 34 {
+		t.Fatalf("Sode's Protect on %d levels, want 2 × 17", n)
+	}
+
+	pick("action:unprotect", "Clear Protect")
+	b.waitFor("only Sode's two", `[...document.querySelectorAll('#protpick-list [role=option]')].map((r) => r.dataset.dst).join() === '2,3'`)
+	b.eval(`document.getElementById('protpick-all').click(); true`)
+	b.waitFor("both picked", `document.getElementById('protpick-go').textContent === 'Clear 2'`)
+	b.eval(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true })); true`)
+	confirm("Confirm clear protect")
+	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protects cleared')`)
+	if n := sodeRows(); n != 0 {
+		t.Fatalf("Sode's Protect left on %d levels", n)
+	}
 }

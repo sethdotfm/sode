@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { holdsOn, holdLabel, protectedText, protectOffer, KIND_PROTECT, KIND_ROUTER_LOCK } from '../protectrules.js';
+import { holdsOn, holdLabel, protectedText, protectOffer, protectRight, pickRows, filterRows, KIND_PROTECT, KIND_ROUTER_LOCK } from '../protectrules.js';
+import { fuzzyScore } from '../fuzzy.js';
 
 const prot = (rows) => {
   const m = new Map();
@@ -62,4 +63,32 @@ test("the route view offers set on a free destination, clear on Sode's own, noth
     ),
     '',
   );
+});
+
+test('protectRight: the Rights decide; with nobody signed in only a Sode with no users has it', () => {
+  assert.equal(protectRight({ protect: true }, 'standard', [{ name: 'Ana' }]), true);
+  assert.equal(protectRight({}, 'administrator', [{ name: 'Ana' }]), false);
+  assert.equal(protectRight(null, 'administrator', []), true);
+  assert.equal(protectRight(null, 'administrator', [{ name: 'Ana' }]), false);
+});
+
+test('pickRows and filterRows: the offered destinations in Rights, then the find', () => {
+  const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase() });
+  const dsts = [it(0, 'CAM 1'), it(1, 'CAM 2'), it(2, 'MON 1'), it(3, 'CAM 3')];
+  const offer = (n) => (n === 1 ? 'clear' : 'set');
+  const rows = pickRows(dsts, 'set', offer, (n) => n !== 3);
+  assert.deepEqual(
+    rows.map((d) => d.n),
+    [0, 2],
+  );
+  assert.deepEqual(
+    pickRows(dsts, 'clear', offer, () => true).map((d) => d.n),
+    [1],
+  );
+  assert.deepEqual(filterRows(rows, '  ', fuzzyScore), rows);
+  assert.deepEqual(
+    filterRows(rows, 'MON', fuzzyScore).map((d) => d.n),
+    [2],
+  );
+  assert.deepEqual(filterRows(rows, 'zzz', fuzzyScore), []);
 });
