@@ -300,6 +300,8 @@ test('the editor leaves on a sign-out, another user or another Role, not on a Lo
   const ana = s.owner;
   assert.equal(editorAccess(ana, { user: 'Ana', role: 'trusted' }).leave, false);
   assert.equal(editorAccess(ana, { user: 'Ana', role: '', locked: true, held: true }).leave, false);
+  // lock.js's own Lock (raiseLock) and the server's held lockState carry no user.
+  assert.equal(editorAccess(ana, { user: '', role: '', locked: true, held: true }).leave, false);
   assert.equal(editorAccess(ana, { user: '' }).leave, true);
   assert.equal(editorAccess(ana, { user: 'Bo', role: 'trusted' }).leave, true);
   assert.equal(editorAccess(ana, { user: 'Ana', role: 'standard' }).leave, true);

@@ -100,3 +100,43 @@ func TestChromeEditorLostEditRightLeavesEditing(t *testing.T) {
 		}
 	}
 }
+
+// A Lock in the editor. lock.js sends the held Lock with no user, so the editor read it as a sign-out and reloaded,
+// and the Lock played twice. The page must stay, with one brand animation, and go on after the PIN.
+func TestChromeEditorLockStaysOnPage(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim)
+	srv := seamServer(t, a)
+	ana := userKey(t, a, "Ana")
+	waitNamesAndTally(t, a, ana)
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
+
+	b.open(srv.URL + "/panels/editor?new")
+	signInOnPad(b)
+	b.waitFor("the lock goes", `!document.documentElement.dataset.sodeLock && !document.querySelector('.sode-lock.is-on')`)
+	b.eval(`(() => {
+		window.before = 1;
+		window.brandRuns = 0;
+		const brand = document.querySelector('.sode-lock__brand');
+		const run = brand.animate;
+		brand.animate = function (...a) { window.brandRuns++; return run.apply(this, a); };
+		return true;
+	})()`)
+	b.eval(`import('./core.js').then((m) => { m.emit('localLock'); return true })`)
+	b.waitFor("the held pad", `!!document.querySelector('.sode-lock.is-on') && !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.waitFor("a moment passes", `new Promise((ok) => setTimeout(() => ok(true), 1500))`)
+	if b.eval(`window.before === 1`) != true {
+		t.Fatal("the Lock reloaded the editor")
+	}
+	if n := b.eval(`window.brandRuns`); n != float64(1) {
+		t.Errorf("the Lock's brand ran %v times, want 1", n)
+	}
+
+	for _, d := range "1234" {
+		b.eval(`document.querySelector('.sode-lock__key[data-key="` + string(d) + `"]').click()`)
+	}
+	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]')?.offsetParent && document.querySelector('.sode-lock__key[data-key="enter"]').click(); true`)
+	b.waitFor("the Lock ends on the same page", `!document.documentElement.dataset.sodeLock && window.before === 1`)
+	b.check()
+}

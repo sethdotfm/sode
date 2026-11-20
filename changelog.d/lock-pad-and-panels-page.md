@@ -1,0 +1,2 @@
+- Lock screen: the user list under the Name box pushes the PIN pad down and does not cover it. On a small screen the pad keys get shorter. So the name, the list and the pad fit a 1366 x 768 screen with no scroll.
+- A Lock in the panel editor stays on the page. Before, the editor reloaded under the Lock, so the Lock animation played two times.

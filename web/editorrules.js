@@ -264,10 +264,12 @@ export const kindChoices = ({ fixed = false } = {}) =>
   );
 
 // The editor belongs to the access it opened with (lock.js `access`). owner is null until a user signs in. A sign-out,
-// another user or another Role leaves the editor. A Lock keeps the user, so it does not.
+// another user or another Role leaves the editor. A Lock does not. lock.js sends a held Lock with no user (raiseLock).
+// Only the holder's PIN ends it, so the page waits under the pad. A reload there played the Lock twice.
 export function editorAccess(owner, a) {
   const now = { user: a.user || '', role: a.role || '' };
   if (!owner) return { owner: now.user ? now : null, leave: false };
+  if (a.held) return { owner, leave: false };
   if (now.user !== owner.user) return { owner, leave: true };
   return { owner, leave: !a.locked && !a.held && !!now.role && now.role !== owner.role };
 }
