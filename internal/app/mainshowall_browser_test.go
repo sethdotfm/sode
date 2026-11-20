@@ -23,6 +23,11 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 
 	b.open(srv.URL + "/")
 	b.waitFor("Destination box", `!!document.getElementById('dst')`)
+	// Both show from the first load with no box focused, so a user with only a mouse has a place to start.
+	b.eval(`document.activeElement?.blur(); true`)
+	for _, k := range []string{"src", "dst"} {
+		b.waitFor("Show all "+k+" shown with no focus", `!document.getElementById('`+k+`-all').hidden && !!document.querySelector('#`+k+`-all button').offsetParent && document.activeElement !== document.getElementById('`+k+`')`)
+	}
 	names := []string{"PGM", "PVW", "DSM1", "DSM2", "DSM3", "DSM4", "DSM5", "Rec B", "MV 2", "TX 1", "TX 2", "Rec A"}
 	const pos = `(() => {
 		const all = document.querySelector('#dst-all button').getBoundingClientRect();
@@ -34,6 +39,12 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 		return b.eval(pos).(string)
 	}
 	b.waitFor("fonts loaded", `document.fonts.status === 'loaded'`)
+	// The server has the names before the page does. Ctrl+J in a box with no names opens no list, so wait for them here.
+	b.waitFor("names on the page", `(() => { const t = document.getElementById('dst'); t.value = 'PGM'; t.dispatchEvent(new Event('input', {bubbles: true})); const ok = !!document.getElementById('dst-opt-0'); t.value = ''; t.dispatchEvent(new Event('input', {bubbles: true})); return ok; })()`)
+	b.eval(`document.activeElement?.blur(); document.querySelector('#src-all button').click(); true`)
+	b.waitFor("a click on Show all sources with no focus lists the sources", `!document.getElementById('src-menu').hidden && document.activeElement === document.getElementById('src') && document.getElementById('src-all').hidden`)
+	realKeyMods(b, "Escape", "Escape", 27, 0)
+	b.waitFor("source list closed and Show all sources back", `document.getElementById('src-menu').hidden && !document.getElementById('src-all').hidden`)
 	want := shown("with no destinations added")
 	// Ctrl+J and Ctrl+K open Show all in an empty box, as the arrows do.
 	for _, k := range []struct {

@@ -29,6 +29,12 @@ func fieldsByKey(e Sent) map[string]SavedField {
 	return out
 }
 
+// holdsPin: the row text holds the PIN. A user id is random hex, so it can hold the PIN's digits by chance; it is
+// taken out first.
+func holdsPin(row, id, pin string) bool {
+	return strings.Contains(strings.ReplaceAll(row, id, ""), pin)
+}
+
 // adminSave: Ada (Administrator, rechecked) saves Branding, a user's PIN and Trusted proxies in one
 // Save. It returns Ana's user id.
 func adminSave(t *testing.T, a *App) string {
@@ -72,7 +78,7 @@ func TestSettingsSaveRowHasOldAndNewAndHidesSecrets(t *testing.T) {
 	}
 	b, _ := json.Marshal(e)
 	u, _ := a.r().cfg.FindUserByID(ana)
-	if strings.Contains(string(b), "9753") || strings.Contains(string(b), u.Pin) {
+	if holdsPin(string(b), ana, "9753") || strings.Contains(string(b), u.Pin) {
 		t.Fatalf("row holds the PIN: %s", b)
 	}
 	// History gets nothing for a settings save.

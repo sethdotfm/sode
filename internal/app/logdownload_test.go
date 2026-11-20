@@ -161,7 +161,7 @@ func TestLogDownloadForFilteredRowsSendsEveryRow(t *testing.T) {
 func TestLogDownloadFollowsReaderRole(t *testing.T) {
 	a := userApp(t, false)
 	stop := startLog(t, a)
-	adminSave(t, a)
+	ana := adminSave(t, a)
 	waitSaves(t, a, 1)
 	stop()
 	req := logDownloadReq{Parts: []string{partLog}, For: "filtered"}
@@ -177,7 +177,7 @@ func TestLogDownloadFollowsReaderRole(t *testing.T) {
 	}
 	bo, ada := save(tokenFor(t, a, "Bo", "567890")), save(tokenFor(t, a, "Ada", "2468"))
 	for who, s := range map[string]string{"Bo": bo, "Ada": ada} {
-		if !strings.Contains(s, `Studio B`) || strings.Contains(s, "9753") {
+		if !strings.Contains(s, `Studio B`) || holdsPin(s, ana, "9753") {
 			t.Errorf("%s's row: %s", who, s)
 		}
 	}

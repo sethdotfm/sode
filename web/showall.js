@@ -1,9 +1,10 @@
 // "Show all" button under a patch box: an empty or confirmed box lists nothing on focus; this (or arrows) opens the whole list.
+// It shows also while no box has focus, so a user with only a mouse has a place to start. An open list hides it.
 
 // box: { input, cb, list }; chosen(): the confirmed item. sync() is for the combobox onRender and focus; open() for the button and arrows.
 export function showAll(box, btn, chosen) {
   const sync = () => {
-    btn.hidden = box.cb.open || document.activeElement !== box.input;
+    btn.hidden = box.cb.open;
   };
   const open = () => {
     box.input.focus();
@@ -12,5 +13,6 @@ export function showAll(box, btn, chosen) {
   btn.addEventListener('mousedown', (e) => e.preventDefault()); // the box keeps focus
   btn.addEventListener('click', open);
   box.input.addEventListener('blur', sync);
+  sync();
   return { sync, open };
 }
