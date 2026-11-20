@@ -28,7 +28,21 @@ import { layout } from './layout.js';
 import { steppedIn, stepOut } from './stepin.js';
 import { settingsRows } from './palettesettings.js';
 import { catalogue, pageOf } from './palettecatalogue.js';
-import { paletteView, pathText, stepIndex, firstIndex, addPick, cleanPicks, addUse, cleanUses, paletteCharOf, opensPalette } from './paletterules.js';
+import { showResult } from './banner.js';
+import {
+  paletteView,
+  pathText,
+  stepIndex,
+  firstIndex,
+  keyMove,
+  emptyBackspace,
+  addPick,
+  cleanPicks,
+  addUse,
+  cleanUses,
+  paletteCharOf,
+  opensPalette,
+} from './paletterules.js';
 import { shownBookmarks, bookmarksIn, saveBookmarks } from './bookmarkstore.js';
 import { paletteMarks, ownScope, addBookmark, fromRow } from './bookmarkrules.js';
 
@@ -206,7 +220,7 @@ function draw(keep = false) {
   rows = paletteRows();
   const marks = pickFn ? [] : paletteMarks(shownBookmarks().list, rows);
   items = paletteView(rows, { path, query: input.value, last: pickFn ? [] : picks(), marks, uses: pickFn ? {} : uses() });
-  if (!keep || !items[cur] || items[cur].type === 'head') cur = firstIndex(items);
+  if (!keep || !items[cur] || items[cur].type === 'head') cur = firstIndex(items, { empty: !input.value.trim() });
   where.textContent = pathText(path, rows, input.value);
   where.hidden = !where.textContent;
   list.replaceChildren(
@@ -225,6 +239,12 @@ function draw(keep = false) {
   );
   if (!items.length) list.append(el('li', { role: 'presentation', class: 'sode-palette__none' }, 'Nothing found'));
   mark();
+}
+
+// The rows that the list shows at one time, for PageUp and PageDown.
+function pageRows() {
+  const row = list.querySelector('.sode-palette__row');
+  return Math.max(1, Math.floor(list.clientHeight / (row?.offsetHeight || 1)) - 1);
 }
 
 function mark() {
@@ -329,6 +349,7 @@ function runHere(row) {
     const root = document.documentElement;
     const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     setPref('theme', dark ? 'light' : 'dark');
+    showResult('ok', 'Theme changed', `The theme is ${dark ? 'light' : 'dark'} now.`);
   }
 }
 
@@ -352,7 +373,7 @@ function pick(fill = false) {
   runRow(it.row, { fill });
 }
 
-// Esc and Backspace: the why line, then the search, then one level up, then close.
+// Esc: the why line, then the search, then one level up, then close.
 function back1() {
   if (picked) return hideWhy();
   if (input.value) {
@@ -371,10 +392,12 @@ function back1() {
 input.addEventListener('input', () => draw());
 input.addEventListener('keydown', (e) => {
   const step = listStep(e) || (!e.ctrlKey && !e.metaKey && !e.altKey && { ArrowDown: 1, ArrowUp: -1 }[e.key]) || 0;
-  if (step) {
+  const to = step ? stepIndex(items, cur, step) : keyMove(e, items, cur, pageRows());
+  if (to !== null) {
     e.preventDefault();
-    const i = stepIndex(items, cur, step);
-    if (i >= 0) cur = i;
+    // The dialog's own Tab trap must not move the focus out of the box.
+    if (e.key === 'Tab') e.stopPropagation();
+    if (to >= 0) cur = to;
     mark();
     return;
   }
@@ -390,7 +413,10 @@ input.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Backspace' && !input.value) {
     e.preventDefault();
-    back1();
+    if (emptyBackspace(path) === 'up' && !picked) {
+      path = path.slice(0, -1);
+      draw();
+    }
     return;
   }
   // The Palette character again, first: the box searches for the character itself.
@@ -442,6 +468,7 @@ function grow(from) {
 // the Palette closes with no row.
 export function openPalette({ from = null, pick = null, cancel = null } = {}) {
   if (dlg.shown()) return;
+  stopWatch();
   origin = from;
   pickFn = pick;
   pickCancel = pick ? cancel : null;
@@ -471,13 +498,62 @@ function close(toBox) {
   fadeOut(dlg.root);
   why.hidden = true;
   picked = null;
+  const picking = !!pickFn;
   pickFn = null;
   const to = origin || back;
   origin = back = null;
   const cancel = pickCancel;
   pickCancel = null;
   if (cancel) return cancel();
-  if (toBox && to?.isConnected) to.focus({ preventScroll: true });
+  // A picked row's action runs after this, so it can move the focus again: to a dialog or a field. A row picked for
+  // the Bookmarks editor leaves the focus to the editor.
+  if (toBox || !picking) giveBack(to);
+}
+
+// Focus goes back to where it was before the Palette opened, else to Source on Home. So after an action the next keys
+// reach a box. A row can open a dialog or a confirm. That keeps its own focus while it is open. When it closes, the
+// focus drops to body, and the watch puts it back. The watch stops after it puts the focus back, or at a pointer press.
+// A key outside a dialog stops it too, since the person works on. The next open and WATCH_MS stop it too.
+const WATCH_MS = 10 * 60_000;
+let watch = 0;
+let watchEnd = 0;
+let backTo = null;
+const shownNode = (n) => !!n?.isConnected && n.getClientRects().length > 0 && !n.closest('[hidden], [inert]');
+const homeBox = () => document.getElementById(layout() === 'phone' ? 'm-src' : 'src');
+// A dialog or the Lock that is open and has no focus: the focus waits for it to close.
+const covered = () =>
+  document.documentElement.hasAttribute('data-sode-lock') || [...document.querySelectorAll('[aria-modal="true"], .sode-lock.is-on')].some(shownNode);
+function stopWatch() {
+  clearInterval(watch);
+  clearTimeout(watchEnd);
+  watch = watchEnd = 0;
+  backTo = null;
+  document.removeEventListener('pointerdown', stopWatch, true);
+  document.removeEventListener('keydown', keyOutside, true);
+}
+// A key that reaches body puts the focus back first, so the key reaches the box (a focus change in keydown moves the
+// text too).
+function keyOutside(e) {
+  const t = e.target;
+  if (t === document.body || t === document.documentElement) watchTick();
+  else if (!(t instanceof Element) || !t.closest('[aria-modal="true"], .sode-lock, #palette')) stopWatch();
+}
+function watchTick() {
+  const a = document.activeElement;
+  if ((a && a !== document.body && a !== document.documentElement) || covered()) return;
+  const to = shownNode(backTo) ? backTo : homeBox();
+  stopWatch();
+  if (shownNode(to)) to.focus({ preventScroll: true });
+}
+function giveBack(to) {
+  stopWatch();
+  backTo = to && to !== document.body ? to : null;
+  if (!backTo && !homeBox()) return;
+  if (shownNode(backTo)) backTo.focus({ preventScroll: true });
+  watch = setInterval(watchTick, 150);
+  watchEnd = setTimeout(stopWatch, WATCH_MS);
+  document.addEventListener('pointerdown', stopWatch, true);
+  document.addEventListener('keydown', keyOutside, true);
 }
 export const paletteOpen = () => dlg.shown();
 export const closePalette = () => close(false);

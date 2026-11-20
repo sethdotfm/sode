@@ -31,31 +31,37 @@ export function initDeviceSettings({ form, reindex }) {
     const name = select.dataset.pref;
     let mb = myButtons.get(name);
     if (mb) return mb;
-    const mk = (id, label) => {
+    // The search name holds the setting, since each preference has the same two buttons (the Palette, Settings search).
+    const what = form.querySelector(`label[for="${select.id}"]`)?.textContent.trim() || name;
+    const mk = (id, label, findLabel) => {
       const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__my-default', label);
       b.type = 'button';
       // The id lets a Palette row press it.
       b.id = id;
       b.dataset.find = id;
-      b.dataset.label = label;
+      b.dataset.label = findLabel;
       return b;
     };
-    const save = mk(`my-default-${name}`, 'Save as my default');
-    const clear = mk(`my-default-clear-${name}`, 'Clear my default');
+    const save = mk(`my-default-${name}`, 'Save as my default', `Save ${what} as my default`);
+    const clear = mk(`my-default-clear-${name}`, 'Clear my default', `Clear my default for ${what}`);
     const note = el('span', 'sode__hint');
     note.hidden = true;
     note.setAttribute('role', 'status');
-    const run = (change, after) => async () => {
+    // btn: the button. Its done event says what changed, for the result banner of a Palette row (palettehome.js).
+    const run = (change, after, btn) => async () => {
       const p = profile();
       if (!p.name) return;
       const prefs = { ...p.prefs };
       change(prefs);
+      const text = btn === save ? `My default for ${what} is ${PREFS[name].values[prefs[name]]} now.` : `${what} uses Everyone's default now.`;
       save.disabled = clear.disabled = true;
       const r = await saveProfile({ prefs });
       save.disabled = clear.disabled = false;
       note.hidden = r.ok;
       note.textContent = r.ok ? '' : r.err || 'Could not save.';
-      if (r.ok) after();
+      if (!r.ok) return;
+      after();
+      emit('myDefaultDone', { id: btn.id, field: select.id, text });
     };
     save.addEventListener(
       'click',
@@ -64,6 +70,7 @@ export function initDeviceSettings({ form, reindex }) {
           prefs[name] = pref(name);
         },
         () => setPref(name, ''),
+        save,
       ),
     );
     clear.addEventListener(
@@ -73,6 +80,7 @@ export function initDeviceSettings({ form, reindex }) {
           delete prefs[name];
         },
         () => renderPrefs(),
+        clear,
       ),
     );
     const row = el('div', 'sode__my-defaults');
