@@ -18,7 +18,7 @@ func TestChromeEditorChrome(t *testing.T) {
 	b.eval(`window.grid = document.getElementById('ed-grid');
 		window.press = (init) => grid.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
 		press({ key: 'ArrowDown' }); press({ key: 'ArrowRight', shiftKey: true }); true`)
-	b.waitFor("only Merge shows a shortcut, Ctrl+M (the Control sign on a Mac)", `/^(Ctrl\+|⌃)M$/.test([...document.querySelectorAll('.sode-ed__menu .sode-ed__keys')].map(n => n.textContent).join()) && document.querySelector('.sode-ed__menu').textContent.includes('Type: Source')`)
+	b.waitFor("only Merge shows a shortcut, Ctrl+m (the Control sign on a Mac)", `/^(Ctrl\+|⌃)m$/.test([...document.querySelectorAll('.sode-ed__menu .sode-ed__keys')].map(n => n.textContent).join()) && document.querySelector('.sode-ed__menu').textContent.includes('Type: Source')`)
 	// Cmd+M is left to macOS, which minimises the window with it.
 	b.eval(`window.menuKey = (key, mods = {}) => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...mods }));
 		document.querySelector('.sode-ed__menu .pb-menu__item').focus(); menuKey('m')`)

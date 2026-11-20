@@ -18,6 +18,7 @@ import './inboxdialog.js';
 import { showApprovalCards } from './approvalcards.js';
 import './palette.js';
 import './homekey.js';
+import './themekey.js';
 import { bigScrollAll } from './bigscroll.js';
 import { pullToLoad } from './widgets.js';
 import { panelsBar, barTitle } from './panelsbar.js';

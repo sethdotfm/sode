@@ -1,7 +1,6 @@
 import './layout.js';
 import './keys.js';
 import { connect, on } from './core.js';
-import { initTheme } from './device.js';
 import './desktop.js';
 import './settings.js';
 import './brand.js';
@@ -18,6 +17,7 @@ import './bookmarks.js';
 import './bookmarkeditor.js';
 import './palette.js';
 import './homekey.js';
+import './themekey.js';
 import './palettehome.js';
 import './homeview.js';
 import './palettechar.js';
@@ -36,7 +36,6 @@ on('brand', ({ text }) => {
   document.title = text;
 });
 
-initTheme();
 openItemLinks();
 bigScrollAll();
 showApprovalCards();

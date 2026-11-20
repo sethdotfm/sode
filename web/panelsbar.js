@@ -3,7 +3,8 @@
 // Inbox and the status. base.css lays it out. Panel pages keep their own.
 import { el, icon, on } from './core.js';
 import { connBox, paintConn } from './connview.js';
-import { mac } from './keys.js';
+import { keyLabel, ariaKeys } from './keys.js';
+import { HOME_CHORD } from './homekeyrules.js';
 
 // core.js's on() has no unsubscribe, so one subscription paints every bar's status.
 const conns = new Set();
@@ -43,8 +44,8 @@ function guard(a, leave) {
 // Home, with the Home key that presses it from any focus (homekey.js).
 function homeLink() {
   const n = iconLink('sode-bar__home', 'house', 'Sode', './');
-  n.dataset.pbTip = `Sode (${mac ? '⌥⇧h' : 'Alt+Shift+h'})`;
-  n.setAttribute('aria-keyshortcuts', 'Alt+Shift+H');
+  n.dataset.pbTip = `Sode (${keyLabel(HOME_CHORD)})`;
+  n.setAttribute('aria-keyshortcuts', ariaKeys(HOME_CHORD));
   return n;
 }
 

@@ -2,7 +2,7 @@
 // the Palette hold the presets a person uses most.
 
 import { el, on, icon } from './core.js';
-import { chord, mac } from './keys.js';
+import { chord, listStep, keyLabel } from './keys.js';
 import { modal } from './modal.js';
 import { btn } from './formbits.js';
 import { fire, fillBoxes, openPresets } from './presets.js';
@@ -87,7 +87,7 @@ function draw() {
         statusBadge(presetStatus(s).status) || '',
       );
       main.type = 'button';
-      main.dataset.pbTip = `${mac ? '⇧' : 'Shift'}: fill the patch boxes`;
+      main.dataset.pbTip = `${keyLabel('shift')}: fill the patch boxes`;
       main.tabIndex = -1;
       main.addEventListener('click', (e) => pressPreset(s, e.shiftKey));
       const tools = inboxUser() ? [rowBtn('Send a copy', 'send', '', () => sendCopy({ presets: [s] }, s.name))] : [];
@@ -132,13 +132,14 @@ dialog.addEventListener('mousedown', (e) => {
 dialog.addEventListener('click', (e) => {
   if (!e.target.closest('button, input')) input.focus();
 });
-const MOVE = { down: 1, up: -1, 'ctrl+j': 1, 'ctrl+k': -1, 'meta+j': 1, 'meta+k': -1 };
+const MOVE = { down: 1, up: -1 };
 dialog.addEventListener('keydown', (e) => {
   const onButton = !!e.target.closest?.('button');
   const c = chord(e);
-  if (c in MOVE) {
+  const step = MOVE[c] || listStep(e);
+  if (step) {
     e.preventDefault();
-    move(MOVE[c]);
+    move(step);
   } else if ((c === 'enter' || c === 'shift+enter') && !onButton) {
     e.preventDefault();
     pressPreset(shownList[hi], e.shiftKey);

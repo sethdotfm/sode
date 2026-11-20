@@ -144,7 +144,8 @@ test('key hint: only the keys that apply to the row and the level', () => {
   assert.ok(keys(theme, { query: 'th' }).includes('Esc clear'));
   assert.ok(keys({ type: 'cat', id: 'settings' }, { path: ['settings'] }).includes('Esc back'));
   assert.ok(keys({ type: 'hidden', act: 'signIn' }).includes('Enter sign in'));
-  assert.ok(!keys(preset, { pick: true }).includes('Alt+B bookmark'));
+  assert.ok(keys(preset).some((k) => k.endsWith(' bookmark')));
+  assert.ok(!keys(preset, { pick: true }).some((k) => k.endsWith(' bookmark')));
 });
 
 test('uses: a clear or reset row is no use, and a first pick left at once goes', () => {

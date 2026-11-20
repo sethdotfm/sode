@@ -1,11 +1,13 @@
 import { $ } from './core.js';
-import { mac, chord, browseStep } from './keys.js';
+import { chord, modChord, undoKey, ctrlChar, browseStep } from './keys.js';
 import { layout } from './layout.js';
 import { flipped, toggleCompact } from './device.js';
 import { levelsShown } from './levelview.js';
 
-// Ctrl+Z, or Cmd+Z on a Mac.
-const undoChord = (e) => ((mac && e.metaKey && !e.ctrlKey) || (e.ctrlKey && !e.metaKey)) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z';
+// A box with text keeps the OS text-undo chord to undo its typing.
+const typedUndo = (e, undo) => undo.own && e.target instanceof HTMLInputElement && !!e.target.value;
+// [box, Next]. Levels has no Next.
+const LAST = { 'ctrl+s': ['src', false], 'ctrl+d': ['dst', false], 'ctrl+f': ['lvl', false], 'ctrl+shift+s': ['src', true], 'ctrl+shift+d': ['dst', true] };
 
 // dsts is an accessor: desktop.js replaces the array. historyView is what desktopHistory returned. grid is the Grid
 // popup's { shown, toggle } (gridpopup.js). clearEverything is the one Clear: the boxes and the staged routes.
@@ -32,7 +34,7 @@ export function desktopKeys({
     if (layout() !== 'desktop' || document.documentElement.hasAttribute('data-sode-setup')) return;
     // Ctrl+? toggles the shortcut list anywhere, even mid-typing. Matched by character (any
     // layout) and by the / key, for browsers reporting e.key without Shift under Ctrl.
-    if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {
+    if (ctrlChar(e, '?') || (ctrlChar(e, e.key) && e.shiftKey && e.code === 'Slash')) {
       e.preventDefault();
       e.stopImmediatePropagation(); // not Settings' own keys
       if (keys.shown()) keys.close(true);
@@ -61,8 +63,8 @@ export function desktopKeys({
     }
     // The open Grid popup has its own keys (gridpanelrun.js). Of the page's, only undo and the key list reach it.
     if (grid.shown()) {
-      // As below: the OS text-undo chord leaves a search box with text to undo its typing.
-      if (undoChord(e) && !((mac && e.metaKey) === mac && e.target instanceof HTMLInputElement && e.target.value)) {
+      const undo = undoKey(e);
+      if (undo && !typedUndo(e, undo)) {
         e.preventDefault();
         undoLast();
       } else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey && !(e.target instanceof HTMLInputElement)) {
@@ -87,15 +89,15 @@ export function desktopKeys({
       else enterKeys();
       return;
     }
-    if (e.ctrlKey && !e.metaKey && !e.altKey && e.key === ',') {
+    if (ctrlChar(e, ',')) {
       e.preventDefault();
       $('settings-open').click();
       return;
     }
-    const last = e.ctrlKey && !e.metaKey && !e.altKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
-    if (last && (!e.shiftKey || last !== 'lvl')) {
+    const last = LAST[chord(e)];
+    if (last) {
       e.preventDefault();
-      useLast(last, e.shiftKey);
+      useLast(...last);
       return;
     }
     const id = e.target.id;
@@ -103,11 +105,9 @@ export function desktopKeys({
     const b = k && boxes[k];
     const inBox = k || id === 'lvl';
 
-    // Ctrl+Z / ⌘Z undoes the last Sode take; the OS text-undo chord leaves a box with text to
-    // undo its typing.
-    const cmdZ = mac && e.metaKey && !e.ctrlKey;
-    if ((cmdZ || (e.ctrlKey && !e.metaKey)) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
-      if (cmdZ === mac && e.target instanceof HTMLInputElement && e.target.value) return;
+    const undo = undoKey(e);
+    if (undo) {
+      if (typedUndo(e, undo)) return;
       e.preventDefault();
       undoLast();
       return;
@@ -119,7 +119,7 @@ export function desktopKeys({
       return;
     }
     if (b && b.cb.nav(e)) return;
-    if (k === 'dst' && e.key === 'Enter' && e.ctrlKey !== e.metaKey && !e.shiftKey && !e.altKey) {
+    if (k === 'dst' && modChord(e) === 'mod+enter') {
       e.preventDefault();
       addDst();
       return;

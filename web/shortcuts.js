@@ -1,7 +1,7 @@
 // Shortcut list (? or Ctrl+?) dialog. A close from the keyboard returns to keyboard mode if it was on; a close with the mouse never does.
 
-import { $, on } from './core.js';
-import { mac } from './keys.js';
+import { $, el, on } from './core.js';
+import { mac, keyLabel } from './keys.js';
 
 // The open list's close, which a Lock runs.
 let shut = null;
@@ -15,11 +15,12 @@ export function shortcutList({ keyMode, fromHistory, enterKeys, focusFirst }) {
   let back = null;
   let wasKeys = false;
   let fromHist = false;
-  // A Mac-only key (⌃Z beside ⌘Z) is hidden elsewhere.
+  // The HTML holds the label for other platforms. A mod key takes Control too on a Mac (⌃z beside ⌘z).
   if (mac)
-    for (const k of $('keys').querySelectorAll('[data-mac]')) {
-      k.textContent = k.dataset.mac;
-      k.hidden = false;
+    for (const k of $('keys').querySelectorAll('kbd[data-key]')) {
+      const spec = k.dataset.key;
+      k.textContent = keyLabel(spec);
+      if (/^mod(\+|$)/.test(spec)) k.after(' ', el('kbd', null, keyLabel(spec.replace('mod', 'ctrl'))));
     }
   function open() {
     back = document.activeElement;

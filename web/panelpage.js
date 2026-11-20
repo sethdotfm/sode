@@ -20,6 +20,7 @@ import { desktopOnly } from './desktoponly.js';
 import { showApprovalCards } from './approvalcards.js';
 import './palette.js';
 import './homekey.js';
+import './themekey.js';
 import { registerShell } from './swreg.js';
 import { panelsBar, barTitle } from './panelsbar.js';
 

@@ -1,6 +1,7 @@
 // Change my PIN and Sign out live in Settings > My user (changepin.js); lock.js owns the state.
 
 import { el, icon } from './core.js';
+import { keyLabel } from './keys.js';
 import { buildChangePin } from './changepin.js';
 
 export function buildChip(api) {
@@ -8,7 +9,7 @@ export function buildChip(api) {
   const name = el('span', 'sode-lock__who-name');
   const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start', icon('lock-open'));
   lockBtn.type = 'button';
-  lockBtn.dataset.pbTip = 'Lock (Ctrl+L)';
+  lockBtn.dataset.pbTip = `Lock (${keyLabel('ctrl+l')})`;
   lockBtn.setAttribute('aria-label', 'Lock');
   lockBtn.addEventListener('click', () => api.lock());
   // Status with words, cross-faded with the button (is-hand) so the icon does not snap against the lock screen's border.

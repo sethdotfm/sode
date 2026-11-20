@@ -31,9 +31,9 @@ func TestChromeEditorSaveKeyAndSteadyToolbar(t *testing.T) {
 		t.Errorf("the toolbar moved after the save:\nbefore %v\nafter  %v", b.eval(`before`), after)
 	}
 	b.eval(`rename('Wall three');
-		window.prevented = !document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true, cancelable: true })); true`)
-	b.waitSaved("Cmd+S saved too")
-	b.waitFor("Cmd+S was prevented and kept the name", `prevented && document.getElementById('ed-name').value === 'Wall three'`)
+		window.prevented = !document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })); true`)
+	b.waitSaved("Ctrl+S on the page saved too")
+	b.waitFor("that Ctrl+S was prevented and kept the name", `prevented && document.getElementById('ed-name').value === 'Wall three'`)
 	b.eval(`window.prevented = !document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("with nothing to save the browser's Save is still kept away", `prevented`)
 	b.check()

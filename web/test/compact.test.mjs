@@ -84,6 +84,5 @@ test('Alt+Shift+C collides with no other binding or shortcut-list entry', () => 
   assert.deepEqual(hits, ["desktopkeys.js: 'alt+shift+c'"]);
   const html = readFileSync(join(web, 'index.html'), 'utf8');
   const list = html.slice(html.indexOf('id="keys-dialog"'));
-  assert.equal([...list.matchAll(/<kbd[^>]*>(?:Alt|⌥)\+?(?:Shift|⇧)\+?c<\/kbd>/gi)].length, 1);
-  assert.equal([...list.matchAll(/data-mac="⌥⇧c"/g)].length, 1);
+  assert.equal([...list.matchAll(/<kbd data-key="alt\+shift\+c">/g)].length, 1);
 });

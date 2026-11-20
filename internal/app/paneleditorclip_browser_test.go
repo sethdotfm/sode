@@ -55,7 +55,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 		true`)
 
 	b.eval(`goTo(1, 1); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('ArrowRight', 'ArrowRight', { shiftKey: true })`)
-	if b.eval(`press('c', 'KeyC', { metaKey: true })`) != true {
+	if b.eval(`press('c', 'KeyC', { ctrlKey: true })`) != true {
 		t.Fatal("Cmd+C on the grid was not taken by the editor")
 	}
 	b.waitFor("copied", `window.copied.includes('sode-panel-cells') && stat() === 'Copied 3 cells.'`)
@@ -98,7 +98,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	}
 
 	b.eval(`goTo(2, 5); press('ArrowRight', 'ArrowRight', { shiftKey: true }); window.copied = ''`)
-	if b.eval(`press('x', 'KeyX', { metaKey: true })`) != true {
+	if b.eval(`press('x', 'KeyX', { ctrlKey: true })`) != true {
 		t.Fatal("Cmd+X on the grid was not taken by the editor")
 	}
 	b.waitFor("cut", `window.copied.includes('sode-panel-cells') && stat() === 'Cut 2 cells.' && document.getElementById('ed-state').textContent !== 'Saved'`)
@@ -111,7 +111,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	}
 	b.eval(`goTo(4, 1); press('v', 'KeyV', { ctrlKey: true })`)
 	b.waitFor("cut cells paste back", `stat().startsWith('Pasted 2 cells.')`)
-	b.eval(`window.copied = ''; { const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'x', code: 'KeyX', metaKey: true }); n.dispatchEvent(e); window.fieldCut = e.defaultPrevented }`)
+	b.eval(`window.copied = ''; { const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'x', code: 'KeyX', ctrlKey: true }); n.dispatchEvent(e); window.fieldCut = e.defaultPrevented }`)
 	if b.eval(`window.fieldCut`) != false || b.eval(`window.copied`) != "" {
 		t.Fatal("Cmd+X in the name field was taken by the grid")
 	}

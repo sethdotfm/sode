@@ -7,12 +7,10 @@ import { GRID_CHORDS } from '../gridchords.js';
 const grid = (cells, size = { rows: 4, cols: 8 }) => createGrid({ ...size, cells });
 const pick = (g, r1, c1, r2 = r1, c2 = c1) => select(select(g, r1, c1), r2, c2, true);
 
-test('copy, cut and paste are in the chord table for Cmd and Ctrl', () => {
-  for (const m of ['ctrl', 'meta']) {
-    assert.equal(GRID_CHORDS[`${m}+x`], 'cut');
-    assert.equal(GRID_CHORDS[`${m}+c`], 'copy');
-    assert.equal(GRID_CHORDS[`${m}+v`], 'paste');
-  }
+test('copy, cut and paste are in the chord table', () => {
+  assert.equal(GRID_CHORDS['mod+x'], 'cut');
+  assert.equal(GRID_CHORDS['mod+c'], 'copy');
+  assert.equal(GRID_CHORDS['mod+v'], 'paste');
 });
 
 test('a copy holds the selected cells whole, relative to the selection, with every field', () => {

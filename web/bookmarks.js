@@ -7,7 +7,7 @@
 // the Palette (explainRow), with Step in or Approval.
 
 import { el, on, emit, icon, srcItem, dstItem } from './core.js';
-import { mac } from './keys.js';
+import { keyLabel, ariaKeys } from './keys.js';
 import { showResult } from './plans.js';
 import { paletteRows, paletteRowsReady, runRow, explainRow, openUrl } from './palette.js';
 import { shownBookmarks } from './bookmarkstore.js';
@@ -81,9 +81,9 @@ function chip(b, i, rows) {
   if (broken) c.append(broken);
   // Alt+1-9 open the first nine: the key slides in over the chip while Option is held.
   if (i < 9) {
-    const hint = el('span', { class: 'sode__chip-key', 'aria-hidden': 'true' }, el('kbd', 'sode__key-note', `${mac ? '⌥' : 'Alt+'}${i + 1}`));
+    const hint = el('span', { class: 'sode__chip-key', 'aria-hidden': 'true' }, el('kbd', 'sode__key-note', keyLabel(`alt+${i + 1}`)));
     c.append(hint);
-    c.setAttribute('aria-keyshortcuts', `Alt+${i + 1}`);
+    c.setAttribute('aria-keyshortcuts', ariaKeys(`alt+${i + 1}`));
   }
   // Names change (re-read, late load): the tip is worked out when the pointer or focus arrives.
   const tip = () => {
@@ -110,7 +110,7 @@ export function renderStrips() {
       icon('list'),
       'All presets',
     );
-    if (document.documentElement.dataset.pbLayout !== 'phone') more.dataset.pbTip = `All Presets (${mac ? '⌘' : 'Ctrl+'}G)`;
+    if (document.documentElement.dataset.pbLayout !== 'phone') more.dataset.pbTip = `All Presets (${keyLabel('mod+g')})`;
     more.addEventListener('click', () => emit('presetPopup'));
     const sep = el('span', { class: 'sode__sets-sep', 'aria-hidden': 'true' }, '|');
     const chips = list.map((b, i) => chip(b, i, rows));

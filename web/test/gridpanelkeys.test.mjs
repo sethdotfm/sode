@@ -72,10 +72,15 @@ test('PageUp, PageDown and Alt+arrows move one screen', () => {
 test('Home goes to the corner, Ctrl or Cmd+Home and End to the row edges, End to the column end', () => {
   assert.equal(gridKeyAction(code('Home'), ctx()), 'corner');
   assert.equal(gridKeyAction(code('End'), ctx()), 'colEnd');
-  for (const mod of ['ctrlKey', 'metaKey']) {
-    assert.equal(gridKeyAction(code('Home', { [mod]: true }), ctx()), 'rowStart', mod);
-    assert.equal(gridKeyAction(code('End', { [mod]: true }), ctx()), 'rowEnd', mod);
+  for (const [mod, isMac] of [
+    ['ctrlKey', true],
+    ['ctrlKey', false],
+    ['metaKey', true],
+  ]) {
+    assert.equal(gridKeyAction(code('Home', { [mod]: true }), ctx(), isMac), 'rowStart', mod);
+    assert.equal(gridKeyAction(code('End', { [mod]: true }), ctx(), isMac), 'rowEnd', mod);
   }
+  assert.equal(gridKeyAction(code('Home', { metaKey: true }), ctx(), false), null, 'the Windows key');
 });
 
 test('Space presses at the cursor', () => {
@@ -121,13 +126,16 @@ test('in a search box: Enter and Shift+Enter step, Esc clears, Tab and Shift+Tab
   assert.equal(findBoxAction(key('/', { code: 'Slash', ctrlKey: true })), 'mode');
 });
 
-test('in a search box, Ctrl+N and Ctrl+P step as Vim does', () => {
-  assert.equal(findBoxAction(code('KeyN', { ctrlKey: true })), 'nextMatch');
-  assert.equal(findBoxAction(code('KeyP', { ctrlKey: true })), 'prevMatch');
-  // Cmd+N is the browser's new window and Shift is not part of the key.
-  assert.equal(findBoxAction(code('KeyN', { metaKey: true })), null);
-  assert.equal(findBoxAction(code('KeyP', { ctrlKey: true, shiftKey: true })), null);
-  assert.equal(findBoxAction(code('KeyP')), null);
+test("in a search box, Ctrl+J and Ctrl+K step as in every other list, and Ctrl+N and Ctrl+P stay the browser's", () => {
+  for (const isMac of [true, false]) {
+    assert.equal(findBoxAction(code('KeyJ', { ctrlKey: true }), isMac), 'nextMatch');
+    assert.equal(findBoxAction(code('KeyK', { ctrlKey: true }), isMac), 'prevMatch');
+    assert.equal(findBoxAction(code('KeyJ', { metaKey: true }), isMac), isMac ? 'nextMatch' : null);
+    assert.equal(findBoxAction(code('KeyN', { ctrlKey: true }), isMac), null);
+    assert.equal(findBoxAction(code('KeyP', { ctrlKey: true }), isMac), null);
+  }
+  assert.equal(findBoxAction(code('KeyK', { ctrlKey: true, shiftKey: true })), null);
+  assert.equal(findBoxAction(code('KeyJ')), null);
 });
 
 test('other keys in a search box are typing', () => {

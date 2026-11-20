@@ -11,14 +11,14 @@
 // bookmark. Alt+B or a row's Bookmark button adds the row to Me, or to This
 // browser for a Guest. openPalette({ pick }) hands the picked row to pick instead (the Bookmarks editor's Add).
 import { $, el, S, on, emit, icon, request, sentence, LINK_DOWN } from './core.js';
-import { chord, listStep } from './keys.js';
+import { chord, listStep, keyLabel } from './keys.js';
 import { modal, fadeOut, stopFade } from './modal.js';
 import { bigScroll } from './bigscroll.js';
 import { closeShown } from './dialogkeys.js';
 import { closeOpenConfirm } from './keyconfirm.js';
 import { lockState } from './lock.js';
 import { lockCovers } from './lockrules.js';
-import { pref, setPref } from './device.js';
+import { pref, isDark, flipTheme } from './device.js';
 import { profileName, profile, saveProfile } from './profile.js';
 import { readJSON, writeJSON, readTab, writeTab } from './store.js';
 import { myRights } from './editorrights.js';
@@ -222,7 +222,7 @@ function rowNode(row, i) {
           tabindex: -1,
           class: 'pb-btn pb-btn--ghost pb-btn--sm pb-btn--icon pb-tip--end sode-palette__mark',
           'aria-label': `Bookmark ${row.label}`,
-          'data-pb-tip': 'Bookmark (Alt+B)',
+          'data-pb-tip': `Bookmark (${keyLabel('alt+b')})`,
           'data-mark': '',
         },
         icon('bookmark-plus'),
@@ -408,9 +408,8 @@ function runHere(row) {
   else if (id === 'signOut') emit('logout');
   else if (id === 'stepOut') stepOut();
   else if (id === 'theme') {
-    const root = document.documentElement;
-    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-    setPref('theme', dark ? 'light' : 'dark');
+    const dark = isDark();
+    flipTheme();
     showResult('ok', 'Theme changed', `The theme is ${dark ? 'light' : 'dark'} now.`);
   }
 }

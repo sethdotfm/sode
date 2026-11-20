@@ -2,7 +2,7 @@
 // boxes. Ctrl/Cmd+G opens the Presets popup. Windows/Linux bare-Alt cancel. The chip reveal is in keys.js.
 
 import { S, emit } from './core.js';
-import { chord, mac } from './keys.js';
+import { chord, modChord, mac } from './keys.js';
 import { presetShown } from './presets.js';
 import { openSlot } from './bookmarks.js';
 
@@ -23,7 +23,7 @@ document.addEventListener('keydown', (e) => {
     // Alt+1-9 must not reach the browser (Firefox switches tabs), even with no bookmark in the slot or while blocked.
     e.preventDefault();
     if (!blocked()) openSlot(+slot[2] - 1, !!slot[1]);
-  } else if (c === 'ctrl+g' || (mac && c === 'meta+g')) {
+  } else if (modChord(e) === 'mod+g') {
     e.preventDefault();
     if (!blocked()) emit('presetPopup');
   }

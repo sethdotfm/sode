@@ -4,6 +4,7 @@
 // stays free of their page setup.
 
 import { el, S, on, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_DOWN } from './core.js';
+import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
 import { holdsOn, holdLabel, protectOffer } from './protectrules.js';
@@ -64,7 +65,7 @@ function protectButton(dst, confirm) {
   b.type = 'button';
   b.dataset.protect = offer;
   const tip = set ? `Protect ${dst.label} on every level` : `Clear the Protect on ${dst.label}`;
-  b.dataset.pbTip = `${tip} (x${set ? '' : ', Shift+x'} in Keyboard mode)`;
+  b.dataset.pbTip = `${tip} (x${set ? '' : `, ${keyLabel('shift+x')}`} in Keyboard mode)`;
   b.setAttribute('aria-label', tip);
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', () => confirm(protectPlan(dst, set)));

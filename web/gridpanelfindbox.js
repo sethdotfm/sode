@@ -1,6 +1,7 @@
 // The Source bar and Destination bar search boxes of a Grid panel. The rules are in gridpanelfind.js and
 // the keys in gridpanelkeys.js (findBoxAction); the run (gridpanelrun.js) joins them.
 import { el, icon } from './core.js';
+import { keyLabel } from './keys.js';
 import { segmented } from './formbits.js';
 
 const NOUN = { srcs: 'sources', dsts: 'destinations' };
@@ -10,12 +11,12 @@ const MODE = { find: 'Find', filter: 'Filter' };
 // Each bar's step buttons point along it. Keep the key names in step with BOX in gridpanelkeys.js.
 const STEPS = {
   srcs: [
-    [-1, 'chevron-left', 'Previous match. Shift+Enter or Ctrl+P'],
-    [1, 'chevron-right', 'Next match. Enter or Ctrl+N'],
+    [-1, 'chevron-left', `Previous match. ${keyLabel('shift+enter')} or ${keyLabel('mod+k')}`],
+    [1, 'chevron-right', `Next match. Enter or ${keyLabel('mod+j')}`],
   ],
   dsts: [
-    [-1, 'chevron-up', 'Previous match. Shift+Enter or Ctrl+P'],
-    [1, 'chevron-down', 'Next match. Enter or Ctrl+N'],
+    [-1, 'chevron-up', `Previous match. ${keyLabel('shift+enter')} or ${keyLabel('mod+k')}`],
+    [1, 'chevron-down', `Next match. Enter or ${keyLabel('mod+j')}`],
   ],
 };
 
@@ -72,7 +73,7 @@ export function findBoxes(host, { onText, onMode, onStep }) {
   word.setAttribute('aria-hidden', 'true');
   sw.setAttribute('aria-label', MODE.filter);
   const mode = el('label', 'pb-check sode-gridpanel__find-mode', sw, words);
-  mode.dataset.pbTip = 'Filter: only the matches show. Find: marks the matches. Ctrl+/';
+  mode.dataset.pbTip = `Filter: only the matches show. Find: marks the matches. ${keyLabel('ctrl+/')}`;
   // On a phone a focused box opens the keyboard, so a mode change leaves focus where it is.
   mode.addEventListener('click', () => document.documentElement.dataset.layout !== 'phone' && boxes[last].input.focus());
   // The phone shows the mode as two named choices in place of the switch (gridpanelphone.css).

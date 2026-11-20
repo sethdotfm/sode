@@ -1,0 +1,5 @@
+- Key labels are the same everywhere: the key lists, tooltips, chips and menus show one spelling, with lower-case letters. A Mac shows the Mac signs, and other systems show Ctrl, Alt and Shift as words.
+- Alt+Shift+t changes the theme on every page, and the key lists show it. A panel that stores its own theme keeps it.
+- In a Grid panel's search box, Ctrl+J and Ctrl+K step the matches, as in every other list. Ctrl+N and Ctrl+P no longer do, so Ctrl+P is the browser's Print again.
+- In the panel editor, only Alt with Up, Down, Home or End moves the selected rows. Ctrl+Up, Ctrl+Down, Ctrl+Shift and Cmd+Shift no longer move them.
+- On Windows and Linux, the Windows key no longer acts as Ctrl for a Sode shortcut.

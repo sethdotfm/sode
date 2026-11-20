@@ -120,12 +120,15 @@ test('edgeListKey names the list keys by chord; other keys are null', () => {
   assert.deepEqual(k('ArrowUp', { altKey: true }), { move: 'up' });
   assert.deepEqual(k('Home', { altKey: true }), { move: 'top' });
   assert.deepEqual(k('End', { altKey: true }), { move: 'end' });
-  assert.deepEqual(k('ArrowUp', { metaKey: true, shiftKey: true }), { move: 'up' });
-  assert.deepEqual(k('ArrowDown', { ctrlKey: true, shiftKey: true }), { move: 'down' });
-  assert.deepEqual(k('ArrowUp', { ctrlKey: true }), { move: 'up' });
-  assert.deepEqual(k('ArrowDown', { ctrlKey: true }), { move: 'down' });
+  assert.deepEqual(k('ArrowDown', { altKey: true }), { move: 'down' });
+  // Only Alt moves rows.
+  for (const mods of [{ metaKey: true, shiftKey: true }, { ctrlKey: true, shiftKey: true }, { ctrlKey: true }]) {
+    assert.equal(edgeListKey({ key: 'ArrowUp', code: '', ...mods }, true), null, JSON.stringify(mods));
+    assert.equal(edgeListKey({ key: 'ArrowDown', code: '', ...mods }, false), null, JSON.stringify(mods));
+  }
   assert.deepEqual(edgeListKey({ key: 'a', code: 'KeyA', ctrlKey: true }), { all: true });
-  assert.deepEqual(edgeListKey({ key: 'a', code: 'KeyA', metaKey: true }), { all: true });
+  assert.deepEqual(edgeListKey({ key: 'a', code: 'KeyA', metaKey: true }, true), { all: true });
+  assert.equal(edgeListKey({ key: 'a', code: 'KeyA', metaKey: true }, false), null, 'the Windows key');
   assert.deepEqual(k(' '), { toggle: true });
   assert.deepEqual(k('Escape'), { none: true });
   assert.equal(k('x'), null);

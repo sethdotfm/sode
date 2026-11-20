@@ -53,6 +53,7 @@ import {
 } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { closeShown } from './dialogkeys.js';
+import { chord } from './keys.js';
 import { dialogAttrs } from './modal.js';
 import { stepLock, noteStepState, steppedIn } from './stepin.js';
 import { stepActive } from './stepinrules.js';
@@ -714,7 +715,7 @@ document.addEventListener(
       }
       return;
     }
-    if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat) {
+    if (chord(e) === 'ctrl+l' && !e.repeat) {
       if (L.user) {
         e.preventDefault();
         e.stopPropagation();

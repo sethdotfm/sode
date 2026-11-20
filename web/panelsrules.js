@@ -1,6 +1,7 @@
 // What the panels page (/panels) groups, labels and offers. canEdit comes from the server, which alone decides who can change a panel.
 import { cellsIn } from './panelrules.js';
 import { wordScore } from './findrules.js';
+import { primary } from './keys.js';
 
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
@@ -213,7 +214,7 @@ export const editHref = (id) => `panels/editor?panel=${id}`;
 // (as listStep in keys.js), so the shortcuts work in a field too.
 export function listKey(e, mac = false) {
   if (e.defaultPrevented || e.altKey || e.shiftKey) return '';
-  if (!((e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey))) return '';
+  if (!primary(e, mac)) return '';
   const key = e.code === 'Enter' || e.key === 'Enter' ? 'Enter' : String(e.key || '').toLowerCase();
   return { e: 'edit', Enter: 'launch', j: 'next', k: 'prev' }[key] || '';
 }

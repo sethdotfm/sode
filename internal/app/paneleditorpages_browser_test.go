@@ -44,11 +44,11 @@ func TestChromeEditorPages(t *testing.T) {
 	b.waitFor("three Pages side by side", `cellsOn(1) === 4 && cellsOn(2) === 0 && cellsOn(3) === 0`)
 	b.shot("pages-side-by-side")
 
-	b.eval(`pressSq(1, 1, 1); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { metaKey: true })`)
+	b.eval(`pressSq(1, 1, 1); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { ctrlKey: true })`)
 	b.waitFor("copied on Page 1", `stat() === 'Copied 2 cells.' && row(1).classList.contains('is-focus')`)
 	b.eval(`pressSq(2, 2, 1); press('v', 'KeyV', { ctrlKey: true })`)
 	b.waitFor("pasted on Page 2", `stat() === 'Pasted 2 cells.' && cellsOn(2) === 2 && row(2).classList.contains('is-focus')`)
-	b.eval(`pressSq(3, 1, 1); press('v', 'KeyV', { metaKey: true })`)
+	b.eval(`pressSq(3, 1, 1); press('v', 'KeyV', { ctrlKey: true })`)
 	b.waitFor("pasted on Page 3", `stat() === 'Pasted 2 cells.' && cellsOn(3) === 2`)
 
 	b.eval(`row(1).querySelector('[data-act="copy"]').click()`)
@@ -61,7 +61,7 @@ func TestChromeEditorPages(t *testing.T) {
 	// One stack for the panel: an undo pressed on Page 1 undoes the Copy to on Page 3.
 	b.eval(`pressSq(1, 2, 4)`)
 	b.waitFor("Page 1 focused", `row(1).classList.contains('is-focus')`)
-	if b.eval(`press('z', 'KeyZ', { metaKey: true })`) != true {
+	if b.eval(`press('z', 'KeyZ', { ctrlKey: true })`) != true {
 		t.Fatal("Cmd+Z on the grid was not taken by the editor")
 	}
 	b.waitFor("Copy to undone from Page 1", `stat() === 'Undid Copy to.' && cellsOn(3) === 2 && cellsOn(1) === 4`)

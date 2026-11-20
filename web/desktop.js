@@ -1,5 +1,5 @@
 import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem } from './core.js';
-import { mac } from './keys.js';
+import { keyLabel } from './keys.js';
 import { searchText } from './routerprefix.js';
 import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
@@ -67,7 +67,7 @@ function matchesOf(k, text) {
   const q = searchText(text, S.prefix, [], [S.prefix]);
   const list = q && parseList(q);
   if (!list || namedAs(q, all)) return search(boxes[k].list(), text, MAX_MATCHES);
-  if (k === 'src') return Object.assign([], { note: 'One source only. For many routes, use the Grid (Ctrl+e).' });
+  if (k === 'src') return Object.assign([], { note: `One source only. For many routes, use the Grid (${keyLabel('ctrl+e')}).` });
   if (list.tooMany) return Object.assign([], { note: `A list can have ${LIST_MAX} destinations or fewer.` });
   const { found, missing } = listMatches(list, S.dsts);
   const rows = found.filter((d) => !chosen(d));
@@ -151,7 +151,7 @@ function addAll(items) {
 // The armed next add shows in the empty box. A placeholder of one space keeps :placeholder-shown for the key note.
 function paintArmed() {
   const d = armed();
-  const text = d ? `${mac ? '⌘Enter' : 'Ctrl+Enter'} adds ${d.label}` : ' ';
+  const text = d ? `${keyLabel('mod+enter')} adds ${d.label}` : ' ';
   if (boxes.dst.input.placeholder !== text) boxes.dst.input.placeholder = text;
 }
 
@@ -214,9 +214,9 @@ function renderLast() {
         'pb-chip sode__last',
         el('span', 'sode__tag', 'Last'),
         el('span', 'sode__last-text', ...last[k]),
-        el('kbd', 'sode__key-note', `⌃${key}`),
+        el('kbd', 'sode__key-note', keyLabel(`ctrl+${key}`)),
       );
-      b.dataset.pbTip = `Last ${what} (Ctrl+${key})`;
+      b.dataset.pbTip = `Last ${what} (${keyLabel(`ctrl+${key}`)})`;
       b.addEventListener('click', () => useLast(k));
       chips.push(b);
     }
@@ -225,13 +225,19 @@ function renderLast() {
         'button',
         'pb-chip sode__last sode__next',
         el('span', 'sode__tag', 'Next'),
-        el('kbd', 'sode__key-note sode__tag-key', `⌃⇧${key}`),
-        el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))),
+        el('kbd', 'sode__key-note sode__tag-key', keyLabel(`ctrl+shift+${key}`)),
+        el(
+          'span',
+          'sode__next-open',
+          el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', keyLabel(`ctrl+shift+${key}`))),
+        ),
       );
-      b.dataset.pbTip = `Next ${what} (Ctrl+Shift+${key.toUpperCase()})`;
+      b.dataset.pbTip = `Next ${what} (${keyLabel(`ctrl+shift+${key}`)})`;
       b.addEventListener('click', () => useLast(k, true));
       // The closed chip's room stays in the slot so nothing in the row moves.
-      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', `⌃⇧${key}`)), b));
+      chips.push(
+        el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', keyLabel(`ctrl+shift+${key}`))), b),
+      );
     }
     for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';
@@ -548,6 +554,7 @@ desktopKeys({
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
+$('dst-add').dataset.pbTip = `Add destination (+, ${keyLabel('mod+enter')})`;
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
 $('clear-all').addEventListener('mousedown', (e) => e.preventDefault());

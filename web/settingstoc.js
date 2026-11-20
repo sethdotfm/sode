@@ -4,7 +4,7 @@
 
 import { el } from './core.js';
 import { layout } from './layout.js';
-import { mac, chord } from './keys.js';
+import { listStep } from './keys.js';
 import { topicTree, topicOf } from './settingstree.js';
 
 const sectionTitle = (s) => s.dataset.toc || s.querySelector('legend').firstChild.textContent.trim();
@@ -136,12 +136,11 @@ export function initToc({ form, sections, toc, isOpen }) {
     { passive: true },
   );
   // Ctrl+J/K (Cmd on a Mac) step sections, also from the search box; not while a dialog is over Settings.
-  const STEP = { 'ctrl+j': 1, 'ctrl+k': -1, ...(mac ? { 'meta+j': 1, 'meta+k': -1 } : {}) };
   for (const ev of ['scrollend', 'wheel', 'touchstart', 'pointerdown', 'keydown']) {
     window.addEventListener(
       ev,
       (e) => {
-        if (picked < 0 || (stepping && (ev === 'scrollend' || STEP[chord(e)]))) return;
+        if (picked < 0 || (stepping && (ev === 'scrollend' || (ev === 'keydown' && listStep(e))))) return;
         picked = -1;
         stepping = false;
         if (ev !== 'scrollend') markSection();
@@ -151,7 +150,7 @@ export function initToc({ form, sections, toc, isOpen }) {
   }
   document.addEventListener('keydown', (e) => {
     if (!isOpen() || e.defaultPrevented) return;
-    const step = STEP[chord(e)];
+    const step = listStep(e);
     if (!step || e.target.closest?.('dialog, [role="dialog"], .pb-modal')) return;
     e.preventDefault();
     let to = picked >= 0 ? picked : marked;

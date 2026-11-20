@@ -1,6 +1,7 @@
 // Palette lines that are not rows: the count of matches the user cannot use, the hint for a number and the key hint.
 // Pure, so Node tests load them. palette.js draws them.
 import { CATEGORIES, paletteScope, rankRows } from './paletterules.js';
+import { keyLabel } from './keys.js';
 
 const NOUN = { actions: 'action', presets: 'preset', pages: 'page', panels: 'panel', filterSets: 'filter set', settings: 'setting' };
 const counted = (n, id) => `${n} ${NOUN[id] || id}${n === 1 ? '' : 's'}`;
@@ -82,7 +83,7 @@ export function footKeys(item, { query = '', path = [], pick = false, why = fals
       keys.push(['Enter', row.kind === 'action' || row.kind === 'settingsButton' ? 'do' : 'open']);
       const shift = shiftEnterDoes(row);
       if (shift) keys.push(['⇧Enter', shift]);
-      if (row.kind !== 'url') keys.push(['Alt+B', 'bookmark']);
+      if (row.kind !== 'url') keys.push([keyLabel('alt+b'), 'bookmark']);
     }
   }
   keys.push(['Esc', query ? 'clear' : path.length ? 'back' : 'close']);

@@ -3,7 +3,7 @@
 // Everyone's list needs a Trusted user or an Administrator, and the server checks that again.
 
 import { el, S, on, icon, sentence } from './core.js';
-import { chord } from './keys.js';
+import { chord, keyLabel } from './keys.js';
 import { modal } from './modal.js';
 import { btn } from './formbits.js';
 import { labeled } from './widgets.js';
@@ -115,12 +115,12 @@ function rowNode(b, i) {
     'li',
     { class: 'sode-bm__row', tabIndex: 0, 'data-i': i, draggable: !ro },
     el('span', 'sode-bm__grip', icon('grip-vertical')),
-    el('span', 'sode__preset-key', i < 9 ? `Alt+${i + 1}` : ''),
+    el('span', 'sode__preset-key', i < 9 ? keyLabel(`alt+${i + 1}`) : ''),
     el('span', 'sode-bm__main', name, state, what),
     tick('Open in a new tab', 'newTab', canNewTab(b, v.row)),
     tick('Show in Palette', 'inPalette', true),
-    tool('arrow-up', 'Move up (Alt+↑)', () => move(i, { by: -1 }), i === 0),
-    tool('arrow-down', 'Move down (Alt+↓)', () => move(i, { by: 1 }), i === draft.length - 1),
+    tool('arrow-up', `Move up (${keyLabel('alt+up')})`, () => move(i, { by: -1 }), i === 0),
+    tool('arrow-down', `Move down (${keyLabel('alt+down')})`, () => move(i, { by: 1 }), i === draft.length - 1),
     tool('trash-2', 'Remove', () => {
       draft.splice(i, 1);
       touch();
