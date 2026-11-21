@@ -102,7 +102,7 @@ function actions() {
   };
   return [
     act('pb-btn--outline sode-gridpop__clear', 'Clear', 'Clear the staged routes and the patch boxes', 'clear-all'),
-    needsLink(act('pb-btn--ok sode-gridpop__take', 'Take', 'Take the staged routes', 'patch')),
+    needsLink(act('pb-btn--danger sode-gridpop__take', 'Take', 'Take the staged routes', 'patch')),
   ];
 }
 
