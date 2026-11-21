@@ -196,7 +196,7 @@ export function gridBody(ctx, first) {
     const n = stagedCount(st);
     showNote(count, n ? `${n} staged` : '');
     takeRow.paint(
-      { mode: st.mode, staged: n, busy: st.busy },
+      { mode: st.mode, staged: n, busy: st.busy, adding: adding() },
       pickNote({ srcs: picks.srcs.length, dsts: picks.dsts.length, staged: n }),
       !!clearAction(clearCtx()),
     );

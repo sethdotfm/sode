@@ -34,11 +34,12 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 		window.sentTakes = [];
 		const send = WebSocket.prototype.send;
 		WebSocket.prototype.send = function (d) {
-			if (typeof d === 'string' && /"type":"(take|salvo\w*|undo\w*)"/.test(d)) window.sentTakes.push(d);
+			if (typeof d === 'string' && /"t":"(take|undo|redo|retry|salvo|protect)\w*"/.test(d)) window.sentTakes.push(d);
 			return send.call(this, d);
 		};
 		return true;
 	})()`)
+	tallyBefore := apiDo(a, "GET", "/api/v1/tally", ana, nil).Body.String()
 	takeW := b.eval(`document.getElementById('patch').getBoundingClientRect().width`).(float64)
 
 	b.eval(`import('/presets.js').then((m) => (m.openPresets(), true))`)
@@ -63,8 +64,10 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	})()`)
 	b.shot("bar-light")
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "dark"}}})
+	settle(b)
 	b.shot("bar-dark")
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{}})
+	settle(b)
 
 	// Add adds the boxes' patch to the preset and clears the boxes.
 	popTyped(b, "src", "CAM 1")
@@ -83,8 +86,10 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	})()`)
 	b.shot("popup-light")
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "dark"}}})
+	settle(b)
 	b.shot("popup-dark")
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{}})
+	settle(b)
 
 	note := `(document.querySelector('#grid-pop .sode-panel__status')?.textContent ?? '')`
 	// A crosspoint adds its route and stages nothing.
@@ -124,6 +129,23 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	if got := b.eval(`window.sentTakes.length`).(float64); got != 0 {
 		t.Fatalf("the page sent %v take messages: %v", got, b.eval(`window.sentTakes`))
 	}
-	tallyHas(t, a, ana, 5, 3)
+	if now := apiDo(a, "GET", "/api/v1/tally", ana, nil).Body.String(); now != tallyBefore {
+		t.Fatal("the router's tally changed while adding to the preset")
+	}
+	// The spy sees a real take: Take again takes.
+	// The rows are unsaved, so Cancel warns once and closes on the second press.
+	cancel := `[...document.querySelectorAll('.sode__presets-dlg button')].find((x) => x.textContent === 'Cancel').click()`
+	b.eval(cancel + `; ` + cancel + `; true`)
+	b.waitFor("the editor closes", `!document.querySelector('.sode__presets-dlg')?.offsetParent`)
+	popTyped(b, "src", "CAM 1")
+	popTyped(b, "dst", "DSM1")
+	b.eval(`document.getElementById('patch').click(); true`)
+	gridConfirm(b)
+	b.waitFor("the spy sees the take", `window.sentTakes.length === 1`)
 	b.check()
+}
+
+// settle waits for the theme's colour transitions to end before a shot.
+func settle(b *tab) {
+	b.eval(`new Promise((r) => setTimeout(() => requestAnimationFrame(() => r(true)), 600))`)
 }

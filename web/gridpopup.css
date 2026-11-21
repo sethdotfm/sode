@@ -166,9 +166,20 @@
 .sode-gridpop__adding-sub {
   font-size: var(--pb-text-sm);
 }
-/* The phone has the popup's own Take and Clear under the grid. */
+/* The phone has the popup's own Take and Clear under the grid. While it adds to a preset, Done still shows. */
 :root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act {
   display: none;
+}
+:root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act.sode-gridpop__done:not([hidden]) {
+  display: inline-flex;
+}
+/* The phone band has no room for Done and the note side by side, so the note gets its own row under them. */
+:root[data-layout="phone"] .sode-gridpop[data-adding] .sode-gridpop__band {
+  flex-wrap: wrap;
+}
+:root[data-layout="phone"] .sode-gridpop[data-adding] .sode-gridpop__band > .sode-gridpop__note {
+  flex-basis: 100%;
+  order: 3;
 }
 
 /* The staged list under the patch boxes: about six rows, then a little scroll bar (bigscroll.js). */
