@@ -99,44 +99,49 @@
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
         <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--end sode__to" id="flip" tabindex="-1" aria-label="Show Destination before Source" aria-pressed="false"></button>
       </div>
-      <div class="sode__box sode__box--dst">
-        <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
-        <div class="sode__entry">
+      <!-- The three groups (Source, Destination with +, Levels with Take and Clear) share one width (desktop.css). -->
+      <div class="sode__group sode__group--dst">
+        <div class="sode__box sode__box--dst">
+          <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
+          <div class="sode__entry">
+            <span class="sode__keyed">
+              <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
+              <span class="sode__armed" id="dst-armed" aria-hidden="true" hidden></span>
+              <kbd class="sode__key-note" aria-hidden="true">d</kbd>
+            </span>
+            <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div></div>
+            <div class="sode__menu-all" id="dst-all"><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div>
+          </div>
+          <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations of this plan" hidden></div>
+        </div>
+        <div class="sode__box sode__box--add">
+          <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
+          <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add destination">+</button>
+        </div>
+        <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
+      </div>
+      <div class="sode__group sode__group--levels">
+        <div class="sode__box sode__box--levels">
+          <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
           <span class="sode__keyed">
-            <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
-            <span class="sode__armed" id="dst-armed" aria-hidden="true" hidden></span>
-            <kbd class="sode__key-note" aria-hidden="true">d</kbd>
+            <input id="lvl" class="pb-input sode__input" spellcheck="false">
+            <kbd class="sode__key-note" aria-hidden="true">f</kbd>
           </span>
-          <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div></div>
-          <div class="sode__menu-all" id="dst-all"><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div>
+          <div class="sode__picker">
+            <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
+            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode__all" id="lvl-all" tabindex="-1"><span>Select</span><span>All</span></button>
+          </div>
         </div>
-        <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations of this plan" hidden></div>
-      </div>
-      <div class="sode__box sode__box--add">
-        <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add destination">+</button>
-      </div>
-      <div class="sode__box sode__box--levels">
-        <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
-        <span class="sode__keyed">
-          <input id="lvl" class="pb-input sode__input" spellcheck="false">
-          <kbd class="sode__key-note" aria-hidden="true">f</kbd>
-        </span>
-        <div class="sode__picker">
-          <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode__all" id="lvl-all" tabindex="-1"><span>Select</span><span>All</span></button>
-        </div>
-      </div>
-      <div class="sode__box">
-        <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <!-- The one Take and the one Clear: both act on the boxes and the staged routes (desktop.js). -->
-        <div class="sode__takes">
-          <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
-          <button type="button" class="pb-btn pb-btn--outline sode__clear-all" id="clear-all" tabindex="-1" data-pb-tip="Clear the boxes and the staged routes (Esc)" disabled>Clear</button>
+        <div class="sode__box sode__box--take">
+          <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
+          <!-- The one Take and the one Clear: both act on the boxes and the staged routes (desktop.js). -->
+          <div class="sode__takes">
+            <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
+            <button type="button" class="pb-btn pb-btn--outline sode__clear-all" id="clear-all" tabindex="-1" data-pb-tip="Clear the boxes and the staged routes (Esc)" disabled>Clear</button>
+          </div>
         </div>
       </div>
       <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
-      <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
     </form>
 
     <!-- The Grid popup's staged routes (gridpopup.js), kept in this page's memory only. -->

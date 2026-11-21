@@ -11,9 +11,10 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The desktop main page's boxes. Show all sources is in the place of Show all destinations. Levels shrinks with Source
-// and Destination. Its picks are the old small squares in two rows, and only an odd number of levels makes the first
-// pick two rows high. 17 levels fit with no scroll at 1440 and 1600 px. More columns than fit scroll inside the picks,
+// The desktop main page's boxes. Show all sources is in the place of Show all destinations. The three groups (Source,
+// Destination with +, Levels with Take and Clear) have one width. On a narrow window the last group keeps the room of
+// its controls. The picks are the old small squares in two rows, and only an odd number of levels makes the first
+// pick two rows high. 17 levels fit with no scroll from 850 to 1600 px. More columns than fit scroll inside the picks,
 // and Select All stays in its place. A click from All selects only that level. No router with more than one level
 // gives no Levels box.
 func TestChromeMainBoxesLayout(t *testing.T) {
@@ -66,6 +67,21 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 		})()`).([]any)
 		return r[0].(float64), r[1].(float64), r[2].(float64), r[3].(bool)
 	}
+	// groups gives the three groups' widths: Source, Destination to +, and Levels to Clear.
+	groups := func() [3]float64 {
+		r := b.eval(`(() => {
+			const w = (s) => document.querySelector(s).getBoundingClientRect();
+			return [w('.sode__box--src').width, w('.sode__box--add').right - w('.sode__box--dst').left, w('#clear-all').right - w('.sode__box--levels').left];
+		})()`).([]any)
+		return [3]float64{r[0].(float64), r[1].(float64), r[2].(float64)}
+	}
+	sameGroups := func(w int) {
+		t.Helper()
+		// A 64th of a px apart is layout rounding.
+		if g := groups(); math.Abs(g[0]-g[1]) > 0.5 || math.Abs(g[0]-g[2]) > 0.5 {
+			t.Fatalf("at %d px the groups are %v px wide, want one width", w, g)
+		}
+	}
 	rows := func() int {
 		return int(b.eval(`new Set([...document.querySelectorAll('#lvl-pick > button')].map((n) => Math.round(n.getBoundingClientRect().top))).size`).(float64))
 	}
@@ -113,8 +129,8 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 		}
 		b.waitFor("no bar at "+at, barHidden)
 	}
-	wideSrc, _, wideLvl, _ := widths()
-	t.Logf("at 1600 px: Source %.1f px, Levels %.1f px", wideSrc, wideLvl)
+	sameGroups(1600)
+	t.Logf("at 1600 px the groups are %v px wide", groups())
 	fits(1600, 17)
 	all17 := allLeft()
 
@@ -136,31 +152,19 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	b.eval(`(() => { const i = document.getElementById('lvl'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); })(); true`)
 	lvlIs("the box is empty again", "")
 
-	width(1440)
-	fits(1440, 17)
+	for _, w := range []int{1440, 1280} {
+		width(w)
+		sameGroups(w)
+		fits(w, 17)
+	}
 
+	// Narrow: Source and Destination keep one width, and the Levels group keeps the room of its text box, Take, Clear,
+	// 17 picks and Select All.
 	width(850)
-	src, dst, lvl, inside := widths()
-	if !inside {
-		t.Fatal("at 850 px the picks or Select All are outside the Levels box")
+	if g := groups(); math.Abs(g[0]-g[1]) > 0.5 || g[2] < g[0] {
+		t.Fatalf("at 850 px the groups are %v px wide, want the first two the same and the last no narrower", g)
 	}
-	// A 64th of a px apart is layout rounding.
-	if math.Abs(src-dst) > 0.5 {
-		t.Fatalf("at 850 px Source is %v px and Destination %v px, want the same", src, dst)
-	}
-	// The margin before Levels is not part of its box, so compare the shares with it in.
-	margin := b.eval(`parseFloat(getComputedStyle(document.querySelector('.sode__box--levels')).marginLeft)`).(float64)
-	wide, narrow := wideSrc/(wideLvl+margin), src/(lvl+margin)
-	if math.Abs(wide-narrow) > 0.02 {
-		t.Fatalf("Source to Levels is %.3f at 1600 px and %.3f at 850 px, want the same ratio", wide, narrow)
-	}
-	if rows() != 2 || !scrolls() || !wholeCols() {
-		t.Fatalf("at 850 px the 17 picks are on %d rows (scroll %v, whole columns %v), want 2 rows that scroll and show whole columns", rows(), scrolls(), wholeCols())
-	}
-	b.waitFor("the picks' big bar shows at 850 px", barShown)
-	if msg, _ := pickShape(b); msg != "" {
-		t.Fatalf("at 850 px with 17 levels: %s", msg)
-	}
+	fits(850, 17)
 	if b.eval(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`) != true {
 		t.Fatal("at 850 px the main page scrolls sideways")
 	}
