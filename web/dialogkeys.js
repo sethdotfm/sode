@@ -18,6 +18,26 @@ export function backdropClose(downTarget, upTarget, root) {
   return downTarget === root && upTarget === root;
 }
 
+// A press on root itself, as on a modal's backdrop (backdropClose). Shared by trapDialog and the Grid popup, whose keys
+// must come after the grid's own.
+export function onBackdropPress(root, fn) {
+  let down = null;
+  let up = null;
+  root.addEventListener('mousedown', (e) => {
+    down = e.target;
+    up = null;
+  });
+  root.addEventListener('mouseup', (e) => {
+    up = e.target;
+  });
+  root.addEventListener('click', (e) => {
+    const d = down;
+    const u = up;
+    down = up = null;
+    if (e.target === root && backdropClose(d, u, root)) fn();
+  });
+}
+
 // Scrims share one z-index, so moving root last in its parent puts it in front; no-op if already last (keeps focus and scroll).
 export function bringToFront(root) {
   const parent = root.parentNode;
@@ -75,21 +95,7 @@ export function trapDialog(root, dialog, onEsc) {
   const entry = { root, onEsc, order: 0 };
   stack.push(entry);
   listen();
-  let down = null,
-    up = null;
-  root.addEventListener('mousedown', (e) => {
-    down = e.target;
-    up = null;
-  });
-  root.addEventListener('mouseup', (e) => {
-    up = e.target;
-  });
-  root.addEventListener('click', (e) => {
-    const d = down,
-      u = up;
-    down = up = null;
-    if (e.target === root && backdropClose(d, u, root)) onEsc();
-  });
+  onBackdropPress(root, onEsc);
   root.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Escape') {
