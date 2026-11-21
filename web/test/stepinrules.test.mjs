@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stepInOffered, stepsOut, stepActive } from '../stepinrules.js';
+import { stepInOffered, stepInUsers, stepsOut, stepActive } from '../stepinrules.js';
 
 const users = [
   { name: 'Ana', len: 4 },
@@ -16,6 +16,12 @@ test('Step in shows beside Sign in, never on the Lock screen, the phone or a sec
   assert.equal(stepInOffered({ ...base, phone: true }), false);
   assert.equal(stepInOffered({ ...base, stepped: true }), false);
   assert.equal(stepInOffered({ ...base, users: [{ name: 'Cy', len: 0 }] }), false);
+});
+
+test('the Step in pad lists other users with a PIN', () => {
+  assert.deepEqual(stepInUsers([...users, { name: 'Bo', len: 6 }], 'Bo'), [{ name: 'Ana', len: 4 }]);
+  assert.deepEqual(stepInUsers(users, ''), [{ name: 'Ana', len: 4 }]);
+  assert.deepEqual(stepInUsers(undefined, ''), []);
 });
 
 test('only a link to another page of Sode steps out', () => {

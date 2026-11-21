@@ -36,6 +36,9 @@ import {
   startSignIn,
   signInCancelled,
   lockArrived,
+  startStepIn,
+  stepInKept,
+  padAsked,
   signInWon,
   chipShown,
   chipSignInShown,
@@ -311,6 +314,23 @@ test('lock view: transitions', () => {
   assert.equal(lockArrived(lock, true), PAGE_VIEW);
   assert.equal(lockArrived(lock, false), lock);
   assert.equal(lockArrived(fromLock, true), fromLock);
+});
+
+test('lock view: Step in uses the pad, Cancel and a Lock end it, other states keep it', () => {
+  const step = startStepIn(PAGE_VIEW);
+  assert.deepEqual(step, { mode: MODE.STEP_IN, back: 'page' });
+  assert.equal(viewBody(step, false), 'pad');
+  assert.equal(padAsked(step), true);
+  assert.equal(padAsked(PAGE_VIEW), false);
+  const lock = lockView(PAGE_VIEW, false);
+  assert.equal(startStepIn(lock), lock);
+  assert.equal(signInCancelled(step), PAGE_VIEW);
+  assert.equal(lockArrived(step, true), PAGE_VIEW);
+  assert.equal(lockArrived(step, false), step);
+  assert.equal(signInWon(step, { enforced: false, unlocked: true, user: 'Bo' }), step); // only stepInKept closes it
+  assert.equal(stepInKept(step, true), step); // a Settings save's lockState keeps a half-typed PIN
+  assert.equal(stepInKept(step, false), PAGE_VIEW); // stepped in, phone layout or nobody left
+  assert.equal(stepInKept(lock, false), lock);
 });
 
 test('lock view: a signedIn ends only with a real unlock or an enforced lock', () => {
