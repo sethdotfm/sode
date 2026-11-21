@@ -55,17 +55,15 @@ export function gridHold(n) {
 // The badge Sode's own new Protect gets: it is the signed-in user's, or Sode's with nobody signed in.
 const newHold = () => holdBadge(me ? { mine: true, owner: 'you' } : { sode: true, owner: 'sode', by: '' });
 
-// on: true sets, false frees. undo: the History entry this undoes.
-export function protectPlan(dst, on, undo = null) {
-  return { verb: on ? 'protect' : 'unprotect', protect: { dst, on, undo }, items: [] };
+// One Protect action on one or many destinations: one message and one History Group. on: true sets, false frees.
+// protect.dsts is [{dst, undo}], as the wire's protect.dsts (docs/agents/server.md); undo is the History entry or null.
+// skipped: entries of the row it cannot undo.
+export function protectManyPlan(dsts, on, { undos = null, skipped = 0 } = {}) {
+  const rows = dsts.map((dst, i) => ({ dst, undo: undos?.[i] || null }));
+  return { verb: on ? 'protect' : 'unprotect', protect: { on, dsts: rows }, items: [], skipped };
 }
 
-// The Protect picker's plan (protectpick.js): one Confirm for many destinations. One destination is a usual plan.
-// undos: the History entry each destination undoes, in the same order; skipped: entries of the row it cannot undo.
-export function protectManyPlan(dsts, on, { undos = null, skipped = 0 } = {}) {
-  if (dsts.length === 1) return { ...protectPlan(dsts[0], on, undos?.[0] || null), skipped };
-  return { verb: on ? 'protect' : 'unprotect', protect: { dst: dsts[0], dsts, on, undo: null, undos }, items: [], skipped };
-}
+export const protectPlan = (dst, on, undo = null) => protectManyPlan([dst], on, { undos: [undo] });
 
 // Undo all of a History Group of Protect entries: the opposite on each entry that protectUndoable allows. The rest
 // are skipped and the Confirm says how many. No entry to undo gives an empty plan.
@@ -109,16 +107,20 @@ export function protectSummary(plan) {
 }
 
 function oneSummary(plan) {
-  if (plan.protect.dsts) {
-    const { dsts, on, undos } = plan.protect;
-    const nodes = manySummary(dsts, on);
-    if (undos)
+  const { dsts, on } = plan.protect;
+  const undo = dsts.some((d) => d.undo);
+  if (dsts.length > 1) {
+    const nodes = manySummary(
+      dsts.map((d) => d.dst),
+      on,
+    );
+    if (undo)
       nodes[0].textContent = on
         ? `Undo the Free Protects: Protect these ${dsts.length} destinations on every level?`
         : `Undo the Protects: free the Protect on these ${dsts.length} destinations?`;
     return nodes;
   }
-  const { dst, on, undo } = plan.protect;
+  const { dst } = dsts[0];
   const strong = el('strong', null, labelNode(dst));
   const all = allLevels();
   if (on) {
@@ -177,74 +179,75 @@ export function protectKey(dst, set, confirm) {
   return true;
 }
 
-// A plan of many destinations is one request, so the server writes one History Group. One result comes back, with a
-// result for each destination, and one banner tells them all.
-function sendMany(plan) {
-  const { dsts, on, undos } = plan.protect;
-  const id = ++seq;
-  const list = dsts.map((d, i) => (undos ? { dst: d.n, undo: undos[i].id } : { dst: d.n }));
-  if (!wsSend({ t: on ? 'protectSet' : 'protectClear', id, protect: { dsts: list } })) {
-    showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
-    return false;
-  }
-  pending.set(id, { plan, many: true });
-  showResult('info', on ? 'Protecting…' : 'Freeing the Protects…', `${dsts.length} destinations, every level`);
-  return true;
-}
+const wireDsts = (dsts) => dsts.map(({ dst, undo }) => (undo ? { dst: dst.n, undo: undo.id } : { dst: dst.n }));
+const where = (dsts) => (dsts.length === 1 ? dsts[0].dst.label : `${dsts.length} destinations`);
 
-function manyResult(plan, m) {
-  const { dsts, on } = plan.protect;
-  if (!m.results) return showResult('error', on ? 'Protect failed' : 'Free Protect failed', `${m.err || 'refused'}.`);
-  const label = new Map(dsts.map((d) => [d.n, d.label]));
-  const failed = m.results
-    .filter((r) => !r.ok)
-    .map((r) => `${label.get(r.dst) ?? r.dst}: ${r.admin ? 'another user set it, so an Administrator must free it' : r.err || 'refused'}`);
-  const n = m.results.length - failed.length;
-  const head = on ? `${n} Protected` : `${n} Protects freed`;
-  if (!failed.length) return showResult('ok', head, 'Every level.');
-  showResult(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, `${failed.join('. ')}.`);
-}
-
-// ap: an Approval in person; answer: the Approval popup's { fail, done }.
+// One message for any number of destinations, so the server writes one History Group. ap: an Approval in person;
+// answer: the Approval popup's { fail, done }.
 export function sendProtect(plan, ap = null, answer = null) {
-  if (plan.protect.dsts) return sendMany(plan);
-  const { dst, on, undo } = plan.protect;
+  const { dsts, on } = plan.protect;
   const id = ++seq;
-  const msg = on ? { t: 'protectSet', id, protect: { dst: dst.n } } : { t: 'protectClear', id, protect: { dst: dst.n } };
-  if (undo) msg.protect.undo = undo.id;
+  const msg = { t: on ? 'protectSet' : 'protectClear', id, protect: { dsts: wireDsts(dsts) } };
   if (ap) msg.approval = ap;
   if (!wsSend(msg)) {
     showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
     return false;
   }
   pending.set(id, { plan, answer });
-  showResult('info', on ? 'Protecting…' : 'Freeing the Protect…', `${dst.label}, every level`);
+  showResult('info', on ? 'Protecting…' : dsts.length === 1 ? 'Freeing the Protect…' : 'Freeing the Protects…', `${where(dsts)}, every level`);
   return true;
 }
 
+const ADMIN_WHY = 'another user set it, so an Administrator must free it';
+
+// m.results has one row for each destination; none, with m.err, is a refusal of the whole message. Rows that another
+// Sode user holds ask one Approval when this browser has a Role; one banner tells the rest.
 function onResult(m) {
   const p = pending.get(m.id);
   // A request the server ran after an Approval answers with the frozen id, which this page no longer holds.
   if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('ok', 'Protect freed', 'Approved.'));
   pending.delete(m.id);
-  if (p.many) return manyResult(p.plan, m);
-  const { dst, on } = p.plan.protect;
-  if (p.answer && m.approval) return void p.answer.fail(m.err);
+  const { dsts, on } = p.plan.protect;
+  const rows = m.results || [];
+  const refused = rows.find((r) => r.approval);
+  if (p.answer && refused) return void p.answer.fail(refused.err || m.err);
   p.answer?.done();
-  if (m.ok) {
-    return showResult('ok', on ? 'Protected' : 'Protect freed', `${dst.label}, every level`);
-  }
-  if (m.admin && !p.answer && role && role !== 'administrator') {
-    const send = (ap, ans) => sendProtect(p.plan, ap, ans);
-    import('./approval.js').then(({ askApproval }) =>
-      askApproval(`Freeing another user's Protect on ${dst.label}`, 'an Administrator', send, {
-        action: () => ({ t: 'protectClear', id: m.id, protect: { dst: dst.n } }),
-      }),
-    );
-    return;
-  }
-  const still = m.still?.length ? ` Still Protected on levels ${levelText(m.still)}.` : '';
-  showResult('error', on ? 'Protect failed' : 'Free Protect failed', `${dst.label}: ${m.err || 'refused'}.${still}`);
+  const fail = on ? 'Protect failed' : 'Free Protect failed';
+  if (!rows.length) return showResult('error', fail, `${dsts.length === 1 ? `${dsts[0].dst.label}: ` : ''}${m.err || 'refused'}.`);
+  const asks = !p.answer && role && role !== 'administrator' ? rows.filter((r) => r.admin) : [];
+  if (asks.length) askAdmin(p.plan, asks, m.id);
+  const rest = rows.filter((r) => !asks.includes(r));
+  if (!rest.length) return;
+  const label = new Map(dsts.map((d) => [d.dst.n, d.dst.label]));
+  const failed = rest
+    .filter((r) => !r.ok)
+    .map((r) => {
+      const still = r.still?.length ? ` Still Protected on levels ${levelText(r.still)}.` : '';
+      return `${label.get(r.dst) ?? r.dst}: ${r.admin ? ADMIN_WHY : r.err || 'refused'}.${still}`;
+    });
+  const n = rest.length - failed.length;
+  if (dsts.length === 1)
+    return failed.length ? showResult('error', fail, failed[0]) : showResult('ok', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
+  const head = on ? `${n} Protected` : `${n} Protects freed`;
+  if (!failed.length) return showResult('ok', head, 'Every level.');
+  showResult(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, failed.join(' '));
+}
+
+// Another Sode user's Protects: one Approval frees every one of rows, each with its own undo.
+function askAdmin(plan, rows, id) {
+  const hit = new Set(rows.map((r) => r.dst));
+  const dsts = plan.protect.dsts.filter((d) => hit.has(d.dst.n));
+  const sub = { ...plan, protect: { ...plan.protect, dsts }, skipped: 0 };
+  const what =
+    dsts.length === 1
+      ? `Freeing another user's Protect on ${dsts[0].dst.label}`
+      : `Freeing other users' Protects on ${dsts.map((d) => d.dst.label).join(', ')}`;
+  const send = (ap, ans) => sendProtect(sub, ap, ans);
+  import('./approval.js').then(({ askApproval }) =>
+    askApproval(what, 'an Administrator', send, {
+      action: () => ({ t: 'protectClear', id, protect: { dsts: wireDsts(dsts) } }),
+    }),
+  );
 }
 onMsg('protectSetResult', onResult);
 onMsg('protectClearResult', onResult);

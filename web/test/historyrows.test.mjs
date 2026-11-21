@@ -106,11 +106,11 @@ test('rowActions: a Group of Protect entries offers Undo all of what it can, and
   const p = a.undo.plan.protect;
   assert.equal(p.on, false);
   assert.deepEqual(
-    p.dsts.map((d) => d.n),
+    p.dsts.map((d) => d.dst.n),
     [1, 2],
   );
   assert.deepEqual(
-    p.undos.map((e) => e.id),
+    p.dsts.map((d) => d.undo.id),
     [9, 8],
   );
   assert.equal(a.undo.plan.skipped, 1);
