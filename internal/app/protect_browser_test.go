@@ -12,7 +12,7 @@ import (
 )
 
 // The route view of one destination with no source offers Protect. It goes through the Confirm, the simulator
-// holds it on every level, and the view then says "Protected by Sode (Ana)". Shift+x in Keyboard mode clears it.
+// holds it on every level, and the view then says "Protected by you", with the badge's owner mark. Shift+x in Keyboard mode clears it.
 // Ana is an Administrator here, for Clear Sode's Protects.
 func TestChromeProtectFromRouteView(t *testing.T) {
 	b := startBrowser(t)
@@ -47,7 +47,7 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	b.waitFor("Confirm protect", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm protect'`)
 	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
 	b.eval(`document.getElementById('confirm-ok').click(); true`)
-	b.waitFor("Protected by Sode (Ana)", `[...document.querySelectorAll('#dst-under .pb-badge')].some((n) => n.textContent === 'Protected by Sode (Ana)')`)
+	b.waitFor("Protected by you", `[...document.querySelectorAll('#dst-under .pb-badge')].some((n) => n.textContent === 'Protected by you' && n.dataset.owner === 'you')`)
 	b.waitFor("Clear Protect offered", `!!document.querySelector('#dst-under [data-protect="clear"]')`)
 	if n := sodeRows(); n != 17 {
 		t.Fatalf("Sode's Protect on %d levels, want 17", n)
@@ -70,7 +70,7 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 		t.Fatalf("API Protect: %d %s", rec.Code, rec.Body.String())
 	}
 	b.eval(`document.getElementById('settings-open').click(); true`)
-	b.waitFor("the Protects list", `[...document.querySelectorAll('#protects-list li')].some((n) => n.textContent.includes('DSM2') && n.textContent.includes('Protected by Sode (Ana)'))`)
+	b.waitFor("the Protects list", `[...document.querySelectorAll('#protects-list li')].some((n) => n.textContent.includes('DSM2') && n.textContent.includes('Protected by you'))`)
 	b.eval(`document.getElementById('protects-clear-all').click(); true`)
 	b.waitFor("the Confirm unlocks", `!!document.querySelector('#protects-confirm .pb-btn--ok:not(:disabled)')`)
 	b.eval(`document.querySelector('#protects-confirm .pb-btn--ok').click(); true`)

@@ -9,8 +9,8 @@ import { fuzzyScore } from './fuzzy.js';
 import { boxHost } from './presets.js';
 import { showResult } from './banner.js';
 import { allowed } from './rightsrules.js';
-import { holdLabel, pickRows, filterRows } from './protectrules.js';
-import { protectOfferOf, protectManyPlan, protectState } from './protects.js';
+import { pickRows, filterRows } from './protectrules.js';
+import { protectOfferOf, protectManyPlan, protectState, holdBadge } from './protects.js';
 
 let open = null; // the shown picker's { close }
 
@@ -112,7 +112,7 @@ export function openProtectPick(set) {
     const box = el('input', { class: 'pb-check__input', type: 'checkbox', tabIndex: -1 });
     box.checked = picked.has(d.n);
     const p = protectState(d.n);
-    const hold = !set && p.sode ? [el('span', 'pb-badge pb-badge--warn', holdLabel(p.sode))] : [];
+    const hold = !set && p.sode ? [holdBadge(p.sode)] : [];
     const r = el(
       'div',
       { class: 'sode-protpick__row', id: `protpick-opt-${i}`, role: 'option', 'aria-selected': String(box.checked), 'data-dst': String(d.n) },

@@ -112,7 +112,7 @@ export const makeSrc = () => {
   n.append(makeArt());
   return n;
 };
-// After the name's Text: the protected mark (the lock never stands alone) and the staged word. Then the current
+// After the name's Text: the protected mark (its icon never stands alone) and the staged word. Then the current
 // sources the grid does not show, then the artwork.
 export const makeDst = () => {
   const n = makeName('pb-xpt--dest sode-gridpanel__dst')();
@@ -158,7 +158,15 @@ export function paintDstMarks(n, d, view) {
   const p = view.protected(d);
   n.classList.toggle('pb-xpt--protected', p);
   if (prot.hidden === p) prot.hidden = !p;
-  if (prot.lastChild.data !== (p ? ' Protected' : '')) prot.lastChild.data = p ? ' Protected' : '';
+  // With a hold from the host, the mark names the owner, and its icon and tip say the rest; else a lock and Protected.
+  const hold = p ? view.hold?.(d) : null;
+  const word = p ? ` ${hold?.text || 'Protected'}` : '';
+  if (prot.lastChild.data !== word) prot.lastChild.data = word;
+  const href = iconHref(hold?.icon || 'lock');
+  const use = prot.firstChild.firstChild;
+  if (use.getAttribute('href') !== href) use.setAttribute('href', href);
+  setData(prot, 'owner', hold?.owner);
+  setData(prot, 'pbTip', hold?.tip);
   // Protected wins: a protected destination has nothing staged.
   const h = !p && view.held(d);
   setText(held, h ? 'staged' : '');

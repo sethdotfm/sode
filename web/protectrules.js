@@ -1,5 +1,5 @@
 // Protects and Router locks on a destination (GLOSSARY.md). Pure, no imports, so Node tests them. prot is S.prot:
-// dst → Map(level → {dev, kind}); by is S.protBy: dst → {by, device, levels}, Sode's own record.
+// dst → Map(level → {dev, kind}); by is S.protBy: dst → {by, kind, device, levels}, Sode's own record.
 
 // The router's kinds; keep in step with swp08.KindProtect and swp08.KindRouterLock.
 export const KIND_PROTECT = 1;
@@ -8,9 +8,16 @@ export const KIND_ROUTER_LOCK = 2;
 // One hold of a destination: Sode's own (with who set it), another device's Protect, or a Router lock.
 const holdKey = (h) => `${h.sode ? 's' : h.kind === KIND_ROUTER_LOCK ? 'l' : 'p'}${h.device}`;
 
+// The kinds of who set one of Sode's own Protects (protectBy.kind); keep in step with byUser, byGone, byClient and
+// byGuest in internal/app/protect.go.
+export const BY_USER = 'user';
+export const BY_CLIENT = 'client';
+export const BY_GUEST = 'guest';
+
 // device: Sode's device number for the router (0 is off). The record's device counts too, for a Protect set before
-// the number changed.
-export function holdsOn(prot, by, dst, levels, device) {
+// the number changed. me: the signed-in user's name ('' for none). Each hold gets an owner. 'you' is Sode's, set by me.
+// 'sode' is Sode's, set by someone else. 'other' is another system: a panel, DashBoard or another SW-P-08 client.
+export function holdsOn(prot, by, dst, levels, device, me = '') {
   const t = prot.get(dst);
   const rec = by.get(dst) || null;
   const hit = t ? levels.filter((u) => t.has(u)) : [];
@@ -18,7 +25,18 @@ export function holdsOn(prot, by, dst, levels, device) {
   for (const u of hit) {
     const { dev, kind } = t.get(u);
     const sode = kind === KIND_PROTECT && ((device > 0 && dev === device) || (rec && dev === rec.device));
-    const h = { kind, device: dev, sode, by: sode ? rec?.by || '' : '', levels: [] };
+    const mine = sode && !!me && rec?.kind === BY_USER && rec.by === me;
+    const h = {
+      kind,
+      device: dev,
+      sode,
+      mine,
+      owner: mine ? 'you' : sode ? 'sode' : 'other',
+      by: sode ? rec?.by || '' : '',
+      client: sode && rec?.kind === BY_CLIENT,
+      guest: sode && rec?.kind === BY_GUEST,
+      levels: [],
+    };
     const k = holdKey(h);
     if (!groups.has(k)) groups.set(k, h);
     groups.get(k).levels.push(u);
@@ -33,11 +51,42 @@ export function holdsOn(prot, by, dst, levels, device) {
   };
 }
 
-// "Protected by Sode (Ana)", "Protected by 112", "Router lock by 9".
+// "Protected by you", "Protected by Ana in Sode", "Protected by API client Desk in Sode", "Protected by a guest in Sode
+// (10.0.0.9)", "Protected by another system
+// (device 112)", "Router lock by another system (device 9)". The words name the owner first, so the three owners read
+// apart at a glance. The badge's icon and color say the same (holdBadge in protects.js).
 export function holdLabel(h) {
-  if (h.sode) return h.by ? `Protected by Sode (${h.by})` : 'Protected by Sode';
-  return `${h.kind === KIND_ROUTER_LOCK ? 'Router lock' : 'Protected'} by ${h.device}`;
+  if (h.mine) return 'Protected by you';
+  if (h.guest) return h.by ? `Protected by a guest in Sode (${h.by})` : 'Protected by a guest in Sode';
+  if (h.sode) return h.by ? `Protected by ${h.client ? 'API client ' : ''}${h.by} in Sode` : 'Protected by Sode';
+  return `${h.kind === KIND_ROUTER_LOCK ? 'Router lock' : 'Protected'} by another system (device ${h.device})`;
 }
+
+// The short words for a Grid name's mark, where room is small: the owner's icon says Sode or another system, and the
+// tip holds holdLabel. "Protected by you", "Protected by Bo", "Protected by device 112", "Router lock by device 9".
+export function holdShort(h) {
+  if (h.mine) return 'Protected by you';
+  if (h.guest) return 'Protected by a guest';
+  if (h.sode) return h.by ? `Protected by ${h.by}` : 'Protected by Sode';
+  return `${h.kind === KIND_ROUTER_LOCK ? 'Router lock' : 'Protected'} by device ${h.device}`;
+}
+
+// What the Grid popup's shield does on name n: the offer ('set' or 'clear') and the destinations. A picked name acts on
+// every picked destination with the same offer, so one press protects or clears them all. null when n has no offer.
+export function shieldTargets(n, picked, offerOf) {
+  const offer = offerOf(n);
+  if (!offer) return null;
+  if (!picked.includes(n)) return { offer, dsts: [n] };
+  return { offer, dsts: picked.filter((d) => d === n || offerOf(d) === offer) };
+}
+
+// The badge look of each owner: the icon and the patchbay status. Yours is info, since you can clear it; the others
+// are warn, since they stop you.
+export const HOLD_LOOK = {
+  you: { icon: 'user', status: 'info' },
+  sode: { icon: 'users', status: 'warn' },
+  other: { icon: 'router', status: 'warn' },
+};
 
 export const protectedText = (p) => p.holds.map(holdLabel).join('; ');
 
