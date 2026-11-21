@@ -445,7 +445,8 @@ func TestRequestApprovalClearsAnotherUsersProtect(t *testing.T) {
 	ada := approver(t, a, "Ada", "2468")
 	bo := dialPeer(t, a)
 	bo.signIn("Bo", "567890")
-	if r := bo.ask("protectClear", 3, map[string]any{"protect": map[string]any{"dst": 4}}); r["ok"] == true || r["admin"] != true {
+	r := bo.ask("protectClear", 3, map[string]any{"protect": map[string]any{"dsts": []map[string]any{{"dst": 4}}}})
+	if res, _ := r["results"].([]any); r["ok"] == true || len(res) != 1 || res[0].(map[string]any)["admin"] != true {
 		t.Fatalf("Bo's clear: %v", r)
 	}
 	asked(t, bo.ask("approvalAsk", 50, map[string]any{"for": map[string]any{"t": "protectClear", "id": 4, "protect": map[string]any{"dst": 4}}}))

@@ -72,10 +72,15 @@ var errNoApprover = errors.New("no one signed in can approve this")
 
 var approvalWhat = map[string]string{"settingsSave": "Saving these changes", "clearHistory": "Clearing History"}
 
-// askWhat: the words the approver and the Log see. A Free Protect names its destination as the page does.
+// askWhat: the words the approver and the Log see. A Free Protect names every destination it frees, as the page does.
 func (a *App) askWhat(act *inMsg) string {
-	if act.T == "protectClear" && act.Protect != nil {
-		return freeWhat(a.dstLabels(act.Protect.Dst))
+	if act.T == "protectClear" {
+		reqs, _ := act.Protect.reqs()
+		dsts := make([]int, len(reqs))
+		for i, q := range reqs {
+			dsts[i] = q.Dst
+		}
+		return freeWhat(a.dstLabels(dsts...))
 	}
 	return approvalWhat[act.T]
 }

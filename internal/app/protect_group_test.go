@@ -25,7 +25,7 @@ func TestProtectManySharesOneGroup(t *testing.T) {
 	a, f := protectApp(t)
 	ana := signedClient(t, a, "Ana", "1234")
 	a.onRouterMsg(swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 1, 2, 6, 9))
-	outs := a.protectMany(ana, []protectReq{{Dst: 1}, {Dst: 2}, {Dst: 6}, {Dst: 3}}, true, nil)
+	outs := a.protectMany(ana, []protectDst{{Dst: 1}, {Dst: 2}, {Dst: 6}, {Dst: 3}}, true, nil)
 	protRefused(t, outs[2], "protected", "Router lock")
 	set := []*Entry{protEntry(t, outs[0]), protEntry(t, outs[1]), protEntry(t, outs[3])}
 	g, n := groupOf(t, set...)
@@ -38,9 +38,9 @@ func TestProtectManySharesOneGroup(t *testing.T) {
 		}
 	}
 
-	var undo []protectReq
+	var undo []protectDst
 	for _, e := range set {
-		undo = append(undo, protectReq{Dst: e.Dst, Undo: &e.ID})
+		undo = append(undo, protectDst{Dst: e.Dst, Undo: &e.ID})
 	}
 	outs = a.protectMany(ana, undo, false, nil)
 	free := []*Entry{protEntry(t, outs[0]), protEntry(t, outs[1]), protEntry(t, outs[2])}
@@ -99,6 +99,38 @@ func TestProtectMessageWithDsts(t *testing.T) {
 	e1, _ := a.hist.Get(int(res[0].(map[string]any)["entry"].(float64)))
 	e2, _ := a.hist.Get(int(res[2].(map[string]any)["entry"].(float64)))
 	groupOf(t, &e1, &e2)
+}
+
+// A lone dst is dsts of one. Both fields, no destination, or a destination two times refuse the whole message.
+func TestProtectReqDsts(t *testing.T) {
+	four, undo := 4, 7
+	if got, err := (&protectReq{Dst: &four, Undo: &undo}).reqs(); err != nil || len(got) != 1 || got[0].Dst != 4 || got[0].Undo != &undo {
+		t.Fatalf("lone dst: %v %v", got, err)
+	}
+	for name, p := range map[string]*protectReq{
+		"nil":        nil,
+		"empty":      {},
+		"empty dsts": {Dsts: []protectDst{}},
+		"both":       {Dst: &four, Dsts: []protectDst{{Dst: 5}}},
+		"undo, dsts": {Undo: &undo, Dsts: []protectDst{{Dst: 5}}},
+		"two times":  {Dsts: []protectDst{{Dst: 5}, {Dst: 6}, {Dst: 5}}},
+		"too many":   {Dsts: make([]protectDst, protectManyMax+1)},
+	} {
+		if _, err := p.reqs(); err == nil {
+			t.Errorf("%s: no refusal", name)
+		}
+	}
+}
+
+// A refused message answers with an empty results list, never none.
+func TestProtectMessageRefusedHasResults(t *testing.T) {
+	a, _ := protectApp(t)
+	p := dialPeer(t, a)
+	p.signIn("Ana", "1234")
+	r := p.ask("protectSet", 3, map[string]any{"protect": map[string]any{"dst": 1, "dsts": []map[string]any{{"dst": 2}}}})
+	if res, ok := r["results"].([]any); r["ok"] != false || r["err"] == nil || !ok || len(res) != 0 {
+		t.Fatalf("result %v", r)
+	}
 }
 
 // Another system's Protects in one burst share a Group for each kind, direction and found; a lone one has none.

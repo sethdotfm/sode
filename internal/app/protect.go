@@ -153,12 +153,43 @@ func refusal(status int, code, format string, args ...any) protectErr {
 	return protectErr{status: status, code: code, msg: fmt.Sprintf(format, args...)}
 }
 
-// protectReq is the page's Protect or Free Protect. Undo names the History entry it undoes. Dsts, when set, is one
-// action on many destinations (Dst and Undo are then unused), with one History Group.
+// protectReq is the page's Protect or Free Protect: one action on the destinations of dsts, with one History Group.
+// A lone dst (with undo) is the same as dsts of one. Wire fields: docs/agents/server.md.
 type protectReq struct {
-	Dst  int          `json:"dst"`
+	Dst  *int         `json:"dst"`
 	Undo *int         `json:"undo"`
-	Dsts []protectReq `json:"dsts"`
+	Dsts []protectDst `json:"dsts"`
+}
+
+// protectDst is one destination of a protectReq. Undo names the History entry it undoes.
+type protectDst struct {
+	Dst  int  `json:"dst"`
+	Undo *int `json:"undo"`
+}
+
+// reqs: the destinations to act on, in the page's order. Two rows for one destination would both pass the checks
+// before anything is sent, so a duplicate refuses the message.
+func (p *protectReq) reqs() ([]protectDst, error) {
+	switch {
+	case p == nil || (p.Dst == nil && p.Dsts == nil):
+		return nil, refusal(400, "bad_request", "nothing to Protect")
+	case p.Dst != nil && p.Dsts != nil, p.Undo != nil && p.Dsts != nil:
+		return nil, refusal(400, "bad_request", "send dst or dsts, not both")
+	case p.Dsts == nil:
+		return []protectDst{{Dst: *p.Dst, Undo: p.Undo}}, nil
+	case len(p.Dsts) == 0:
+		return nil, refusal(400, "bad_request", "nothing to Protect")
+	case len(p.Dsts) > protectManyMax:
+		return nil, refusal(400, "bad_request", "more than %d destinations", protectManyMax)
+	}
+	seen := make(map[int]bool, len(p.Dsts))
+	for _, q := range p.Dsts {
+		if seen[q.Dst] {
+			return nil, refusal(400, "bad_request", "destination %d is in the list two times", q.Dst)
+		}
+		seen[q.Dst] = true
+	}
+	return p.Dsts, nil
 }
 
 // protectManyMax: more destinations than any router has, so a bad page cannot hold protMu for long.
@@ -170,9 +201,19 @@ type protectOutcome struct {
 	Err   error
 }
 
+// protectResultMsg answers protectSet and protectClear. OK only when every row is. Err is a refusal of the whole
+// message, which then has no rows.
 type protectResultMsg struct {
-	T     string `json:"t"` // "<kind>Result": protectSetResult, protectClearResult, protectClearAllResult
-	ID    int    `json:"id"`
+	T       string            `json:"t"` // protectSetResult or protectClearResult
+	ID      int               `json:"id"`
+	OK      bool              `json:"ok"`
+	Err     string            `json:"err,omitempty"`
+	Results []protectDstReply `json:"results"`
+}
+
+// protectDstReply: one destination of a protectResultMsg, in the order of the request.
+type protectDstReply struct {
+	Dst   int    `json:"dst"`
 	OK    bool   `json:"ok"`
 	Err   string `json:"err,omitempty"`
 	Entry *int   `json:"entry,omitempty"`
@@ -182,15 +223,20 @@ type protectResultMsg struct {
 	Admin    bool `json:"admin,omitempty"`
 	Recheck  bool `json:"recheck,omitempty"`
 	Approval bool `json:"approval,omitempty"`
-	// Cleared: Free Sode's Protects, the destinations it freed.
-	Cleared int `json:"cleared,omitempty"`
-	// Results: a request with dsts, one result for each destination in its order. Each has Dst and no T or ID.
-	Results []protectResultMsg `json:"results,omitempty"`
-	Dst     *int               `json:"dst,omitempty"`
 }
 
-func protectResultOf(kind string, id int, o protectOutcome) protectResultMsg {
-	m := protectResultMsg{T: kind + "Result", ID: id, OK: o.Err == nil}
+type protectClearAllResultMsg struct {
+	T        string `json:"t"` // protectClearAllResult
+	ID       int    `json:"id"`
+	OK       bool   `json:"ok"`
+	Err      string `json:"err,omitempty"`
+	Cleared  int    `json:"cleared,omitempty"` // the destinations it freed
+	Recheck  bool   `json:"recheck,omitempty"`
+	Approval bool   `json:"approval,omitempty"`
+}
+
+func protectReplyOf(dst int, o protectOutcome) protectDstReply {
+	m := protectDstReply{Dst: dst, OK: o.Err == nil}
 	if o.Entry != nil {
 		e := o.Entry.ID
 		m.Entry, m.Still = &e, o.Entry.Still
@@ -205,6 +251,15 @@ func protectResultOf(kind string, id int, o protectOutcome) protectResultMsg {
 		m.Recheck, m.Approval = isRecheckErr(o.Err), isApprovalErr(o.Err)
 	}
 	return m
+}
+
+func protectResult(kind string, id int, reqs []protectDst, outs []protectOutcome) protectResultMsg {
+	res := protectResultMsg{T: kind + "Result", ID: id, OK: true, Results: make([]protectDstReply, len(outs))}
+	for i, o := range outs {
+		res.Results[i] = protectReplyOf(reqs[i].Dst, o)
+		res.OK = res.OK && res.Results[i].OK
+	}
+	return res
 }
 
 // protectBy: Sode's own Protects for the page, dst → who set it. It reaches locked pages, as History does, so it
@@ -541,13 +596,13 @@ func (g protGroup) mark(e *Entry) { e.Group, e.GroupN = g.id, g.n }
 // protectSet sets a Protect on every level of dst. A level the router does not confirm rolls back the levels that
 // were set. What the rollback cannot free stays in Sode's record and in the entry's Still.
 func (a *App) protectSet(c *client, dst int, undo *int) protectOutcome {
-	return a.protectMany(c, []protectReq{{Dst: dst, Undo: undo}}, true, nil)[0]
+	return a.protectMany(c, []protectDst{{Dst: dst, Undo: undo}}, true, nil)[0]
 }
 
 // protectClear frees Sode's Protect on dst. Another Sode user's Protect, or one with no record, needs an
 // Administrator: the caller's Role or the approver's.
 func (a *App) protectClear(c *client, dst int, undo *int, approver *config.User) protectOutcome {
-	return a.protectMany(c, []protectReq{{Dst: dst, Undo: undo}}, false, approver)[0]
+	return a.protectMany(c, []protectDst{{Dst: dst, Undo: undo}}, false, approver)[0]
 }
 
 // protRun is one destination of protectMany that passed every check, with what the checks read.
@@ -559,7 +614,7 @@ type protRun struct {
 
 // protectMany sets (set) or frees each destination of reqs, one outcome for each in order. It checks them all under
 // protMu before it sends anything, so the ones that run share one Group of the right size.
-func (a *App) protectMany(c *client, reqs []protectReq, set bool, approver *config.User) []protectOutcome {
+func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *config.User) []protectOutcome {
 	r := a.r()
 	outs := make([]protectOutcome, len(reqs))
 	admin := !set && a.protectAdmin(c, approver)
@@ -804,22 +859,14 @@ func uiLevels(r *runtime) []int {
 func (a *App) serveProtect(c *client, m *inMsg, set bool) {
 	go func() {
 		defer m.finish()
-		p := m.Protect
-		if p == nil {
-			a.reply(c, protectResultMsg{T: m.T + "Result", ID: m.ID, Err: "nothing to Protect"})
+		reqs, err := m.Protect.reqs()
+		if err != nil {
+			a.reply(c, protectResultMsg{T: m.T + "Result", ID: m.ID, Err: err.Error(), Results: []protectDstReply{}})
 			return
 		}
 		why := "protect"
 		if !set {
 			why = "protectClear"
-		}
-		reqs := p.Dsts
-		if reqs == nil {
-			reqs = []protectReq{{Dst: p.Dst, Undo: p.Undo}}
-		}
-		if len(reqs) == 0 || len(reqs) > protectManyMax {
-			a.reply(c, protectResultMsg{T: m.T + "Result", ID: m.ID, Err: "nothing to Protect"})
-			return
 		}
 		outs := a.protectMany(c, reqs, set, m.approver)
 		for i, o := range outs {
@@ -827,35 +874,33 @@ func (a *App) serveProtect(c *client, m *inMsg, set bool) {
 				a.command(c, why, outcome(o.Err), approvedNote(m.approver, "destination "+a.dstLabels(reqs[i].Dst)[0]), o.Err)
 			}
 		}
-		if p.Dsts == nil {
-			a.reply(c, protectResultOf(m.T, m.ID, outs[0]))
-			return
-		}
-		a.reply(c, protectManyResult(m.T, m.ID, reqs, outs))
+		a.reply(c, protectResult(m.T, m.ID, reqs, outs))
 	}()
 }
 
-// protectManyResult: OK only when every destination is.
-func protectManyResult(kind string, id int, reqs []protectReq, outs []protectOutcome) protectResultMsg {
-	res := protectResultMsg{T: kind + "Result", ID: id, OK: true, Results: make([]protectResultMsg, len(outs))}
-	for i, o := range outs {
-		one := protectResultOf("", 0, o)
-		one.T, one.Dst = "", &reqs[i].Dst
-		res.OK = res.OK && one.OK
-		res.Results[i] = one
-	}
-	return res
-}
-
+// refuseProtect: a policy refusal (a lock, the Role, an Approval) answers every destination with it.
 func refuseProtect(a *App, c *client, m *inMsg, err error) {
-	a.reply(c, protectResultOf(m.T, m.ID, protectOutcome{Err: err}))
+	if m.T == "protectClearAll" {
+		a.reply(c, protectClearAllResultMsg{T: m.T + "Result", ID: m.ID, Err: err.Error(), Recheck: isRecheckErr(err), Approval: isApprovalErr(err)})
+		return
+	}
+	reqs, bad := m.Protect.reqs()
+	if bad != nil {
+		a.reply(c, protectResultMsg{T: m.T + "Result", ID: m.ID, Err: bad.Error(), Results: []protectDstReply{}})
+		return
+	}
+	outs := make([]protectOutcome, len(reqs))
+	for i := range outs {
+		outs[i].Err = err
+	}
+	a.reply(c, protectResult(m.T, m.ID, reqs, outs))
 }
 
 func (a *App) serveProtectClearAll(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
 		n, still, err := a.clearSodeProtects(c)
-		res := protectResultMsg{T: "protectClearAllResult", ID: m.ID, OK: err == nil && len(still) == 0, Cleared: n}
+		res := protectClearAllResultMsg{T: "protectClearAllResult", ID: m.ID, OK: err == nil && len(still) == 0, Cleared: n}
 		note := fmt.Sprintf("%d freed", n)
 		if err == nil && len(still) > 0 {
 			err = fmt.Errorf("%d %s still Protected", len(still), plural(len(still), "destination is", "destinations are"))
