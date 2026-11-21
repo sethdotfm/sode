@@ -5,13 +5,24 @@ import { listStep, pickOrAdd } from './keys.js';
 import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
-import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupTitle, groupLevels, groupIds } from './history.js';
+import {
+  historyPager,
+  beforeGroups,
+  attachFollows,
+  entryNote,
+  statusNode,
+  groupTitle,
+  groupLevels,
+  groupIds,
+  protectGroup,
+  protectGroupNote,
+} from './history.js';
 import { rowUndoPlan, planEmpty, showResult, againPlan } from './plans.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
 import { emptyNote } from './searchbox.js';
 import { rowActions, disclosureAria, followersHead } from './historyrows.js';
-import { protectRow } from './protects.js';
+import { protectRow, protectGroupHead } from './protects.js';
 import { isPicked, picking, pickBox, togglePick, bindPick } from './historypick.js';
 import {
   byLabel,
@@ -140,7 +151,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   function groupRow(f) {
     const open = openGroups.has(f.group);
     const kidsId = `hist-folder-${f.group}`;
-    const title = groupTitle(f);
+    const title = protectGroup(f) ? null : groupTitle(f);
     const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
 
     const acts = rowActions({ f });
@@ -152,7 +163,12 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       autoOpen.delete(f.group); // opened by hand: stays open
       renderHistory();
     });
-    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, 'takes'));
+    const prot = protectGroup(f) && protectGroupHead(f);
+    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, prot ? 'destinations' : 'takes'));
+    // A Group of Protect entries has no source: its chip stands where the source box is, as on a Protect row.
+    const route = prot
+      ? [prot.chip, routeBox('dst', prot.dsts.length === 1 ? prot.dsts[0] : el('strong', null, prot.label), manyDsts(f)), protectGroupNote(f)]
+      : [...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild, manyDsts(f)), ...title.slice(3)];
 
     const row = el(
       'li',
@@ -160,13 +176,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', groupIds(f)),
       histTime(f.entries[0].time),
       levelBar(groupLevels(f)),
-      el(
-        'span',
-        'sode__hist-route sode__hist-route--boxes',
-        ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild, manyDsts(f)),
-        ...title.slice(3),
-        byLabel(f),
-      ),
+      el('span', 'sode__hist-route sode__hist-route--boxes', ...route, byLabel(f)),
       statusNode({ f }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [retry, undo])),
@@ -465,6 +475,12 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   function undoRow(row) {
     const plan = rowUndoPlan(row);
     if (planEmpty(plan)) {
+      if (row.f && protectGroup(row.f))
+        return showResult(
+          'warn',
+          'Nothing to undo',
+          row.f.entries[0].ext ? `${groupIds(row.f)}: another system made these changes.` : `${groupIds(row.f)}: the Protects changed after it.`,
+        );
       if (row.e?.protect && row.e.ext) return showResult('warn', 'Nothing to undo', `#${row.e.id}: another system made this change.`);
       if (row.e?.protect)
         return showResult('warn', 'Nothing to undo', `#${row.e.id}: the Protect on ${dstItem(row.e.dst, row.e.dstName).label} changed after it.`);

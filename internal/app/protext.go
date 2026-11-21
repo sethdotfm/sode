@@ -2,6 +2,7 @@ package app
 
 import (
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -120,6 +121,26 @@ func (a *App) protExtEntriesMu(now time.Time) []*Entry {
 		}
 		return x.Device < y.Device
 	})
+	// One Group for each kind, direction and found in the burst, so each Group has one chip, as ext routes have
+	// (ext_burst.go). The "p" keeps them apart from those.
+	groups := map[[3]string][]*Entry{}
+	for _, e := range es {
+		k := [3]string{e.HoldKind, e.Protect, strconv.FormatBool(e.Found)}
+		groups[k] = append(groups[k], e)
+	}
+	for k, g := range groups {
+		if len(g) < 2 {
+			continue
+		}
+		p := "xp"
+		if k[2] == "true" {
+			p = "fp"
+		}
+		id := p + strconv.FormatInt(rs.protAt[0].UnixNano(), 36) + k[0] + k[1]
+		for _, e := range g {
+			e.Group, e.GroupN = id, len(g)
+		}
+	}
 	rs.protExt = map[protExtKey]*protExtLevels{}
 	rs.protAt = [2]time.Time{}
 	return es

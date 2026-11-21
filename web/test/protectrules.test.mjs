@@ -17,6 +17,8 @@ import {
   shieldTargets,
   protectUndoable,
   entryChip,
+  protectFoldKey,
+  foldProtects,
 } from '../protectrules.js';
 import { fuzzyScore } from '../fuzzy.js';
 
@@ -223,4 +225,49 @@ test('protectUndoable: an External Protect entry has no Undo, and blocks the Und
   assert.equal(protectUndoable(hist[0], hist, 'set'), false);
   assert.equal(protectUndoable(hist[0], hist, 'clear'), false);
   assert.equal(protectUndoable(hist[1], hist, 'set'), false);
+});
+
+// History rows of Protect actions (newest first). t is seconds after a fixed start.
+const pe = (id, t, o = {}) => ({ id, time: new Date(Date.UTC(2026, 0, 1, 0, 0, t)).toISOString(), protect: 'set', client: 'Ana', dst: id, ok: true, ...o });
+const grp = (group, ...es) => ({ f: { group, n: es.length, entries: es, shown: es } });
+
+test('protectFoldKey: the same direction by the same person; no undo and no other system', () => {
+  assert.equal(protectFoldKey([pe(1, 0)]), protectFoldKey([pe(2, 5)]));
+  assert.notEqual(protectFoldKey([pe(1, 0)]), protectFoldKey([pe(2, 0, { protect: 'clear' })]));
+  assert.notEqual(protectFoldKey([pe(1, 0)]), protectFoldKey([pe(2, 0, { client: 'Bo' })]));
+  assert.notEqual(protectFoldKey([pe(1, 0)]), protectFoldKey([pe(2, 0, { browserOf: 'Bo' })]));
+  assert.equal(protectFoldKey([pe(1, 0, { undo: 4 })]), '');
+  assert.equal(protectFoldKey([pe(1, 0, { ext: true })]), '');
+  assert.equal(protectFoldKey([{ id: 1, src: 3, dst: 1 }]), '');
+  assert.equal(protectFoldKey([pe(1, 0), pe(2, 0, { protect: 'clear' })]), '');
+});
+
+test('foldProtects: neighbours within the gap fold into one Group, keyed by the oldest', () => {
+  const rows = [grp('p2', pe(40, 20), pe(39, 20)), { e: pe(30, 10) }, grp('p1', pe(20, 0), pe(19, 0))];
+  const out = foldProtects(rows, 15000);
+  assert.equal(out.length, 1);
+  const f = out[0].f;
+  assert.equal(f.group, 'p1');
+  assert.equal(f.n, 5);
+  assert.equal(f.folded, 3);
+  assert.deepEqual(
+    f.entries.map((e) => e.id),
+    [40, 39, 30, 20, 19],
+  );
+  // The gap is between neighbours, not the whole span.
+  assert.equal(foldProtects(rows, 9000).length, 3);
+  assert.equal(foldProtects(rows, 0), rows);
+});
+
+test('foldProtects: another row, the other direction or an undo ends the fold', () => {
+  const take = { e: { id: 25, time: pe(0, 5).time, src: 3, dst: 9, ok: true } };
+  assert.equal(foldProtects([{ e: pe(30, 10) }, take, { e: pe(20, 0) }], 30000).length, 3);
+  assert.equal(foldProtects([{ e: pe(30, 10, { protect: 'clear' }) }, { e: pe(20, 0) }], 30000).length, 2);
+  assert.equal(foldProtects([{ e: pe(30, 10, { undo: 20 }) }, { e: pe(20, 0) }], 30000).length, 2);
+  // A row the filters hide ends it too.
+  assert.equal(foldProtects([{ e: pe(30, 10) }, { hidden: true }, { e: pe(20, 0) }], 30000).length, 3);
+  const hiddenGroup = { f: { group: 'g', n: 1, entries: [pe(25, 5)], shown: [] } };
+  assert.equal(foldProtects([{ e: pe(30, 10) }, hiddenGroup, { e: pe(20, 0) }], 30000).length, 3);
+  const one = [{ e: pe(30, 10) }];
+  assert.deepEqual(foldProtects(one, 30000), one);
 });
