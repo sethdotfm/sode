@@ -511,30 +511,8 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   top: calc(var(--pb-space-4) * -1 - var(--sode-down-h, 0px));
 }
 
-/* The main page's page header (homebar.js): the bar of /panels and /log at their top and edges (base.css .sode-bar,
-   --sode-head-x and --sode-head-max), over both views. The phone keeps its own header (mobile.css). */
-.sode > .sode-home-bar {
-  --sode-head-edge: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x));
-  left: var(--sode-head-edge);
-  position: absolute;
-  right: var(--sode-head-edge);
-  top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
-  z-index: var(--pb-z-sticky);
-}
-.sode-home-bar > .sode-panels__title {
-  color: var(--pb-text-strong);
-  font-size: var(--pb-text-xl);
-  font-weight: var(--pb-weight-bold);
-}
-/* Home's big heading already shows the site name. */
-:root:not([data-view="settings"]) .sode-home-bar > .sode-panels__title {
-  display: none;
-}
-.sode-home-bar > .sode-panels__spacer {
-  flex: 1 1 auto;
-}
-/* The bar's edges are the page content's. */
-:root:has(.sode-home-bar) {
+/* Home's bar (bar.css) has the page content's edges. */
+:root {
   --sode-head-max: var(--sode-main-w);
 }
 /* Positioned, so the Compact view's apron (above) stays on the status; inset drops .sode__conn's own corner offsets. */
@@ -544,13 +522,6 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
 }
 /* The bar has the footer's buttons. They stay for the code that clicks them (settings.js, desktopkeys.js). */
 :root[data-layout="desktop"] .sode__footer {
-  display: none;
-}
-/* With no Lock bar and no site name on Home, nothing is left of the start rule. */
-:root:not([data-sode-chip], [data-view="settings"]) .sode-home-bar > .sode-bar__rule--start {
-  display: none;
-}
-[data-layout="phone"] .sode-home-bar {
   display: none;
 }
 /* The page starts below the bar and its line. */
