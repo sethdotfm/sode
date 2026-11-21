@@ -31,6 +31,13 @@ func TestChromeOneSaveOfUsersAndAPI(t *testing.T) {
 		const d = document.querySelector('.sode__users-dlg');
 		return !!d?.offsetParent && [...d.querySelectorAll('input[data-field="name"]')].some((i) => i.value === 'Ana');
 	})()`)
+	// Ana's own PIN changes only in My user, which asks for the current PIN (ownPinChange).
+	if got := b.eval(`(() => {
+		const row = [...document.querySelectorAll('.sode__users-dlg .sode__users-row')].find((r) => r.querySelector('input[data-field="name"]').value === 'Ana');
+		return row.querySelector('input[data-field="pin"]').disabled && row.querySelector('input[data-flag="noPin"]').disabled;
+	})()`); got != true {
+		t.Fatal("Ana's own PIN can be edited in Manage users")
+	}
 	if got := b.eval(`[...document.querySelectorAll('.sode__users-dlg .pb-modal__footer button')].map((x) => x.textContent).join(',')`); got != "Done" {
 		t.Fatalf("dialog footer buttons %q, want only Done", got)
 	}
