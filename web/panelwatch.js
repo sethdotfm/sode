@@ -85,7 +85,7 @@ let offline = [];
 let menuOpen = false;
 
 function mountBanners() {
-  if (banners.length || !document.getElementById('conn')) return;
+  if (banners.length) return;
   for (const next of [document.getElementById('home-bar'), document.getElementById('m-result')]) {
     if (!next) continue;
     const box = el('div', 'sode__outage');

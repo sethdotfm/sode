@@ -44,7 +44,7 @@ export function gridHead(ui, count, { onCopy } = {}) {
   const screenCls = ['pb-btn--outline', 'pb-btn--sm'].filter((c) => ui.screen?.classList.contains(c));
   ui.screen?.classList.remove(...screenCls);
   ui.screen?.classList.add('pb-btn--ghost');
-  // The main page's Settings button (index.html #settings-open), as a link: settings.js opens the view at #settings.
+  // Settings on Home, as a link: settings.js opens the view at #settings.
   const settings = iconLink('sode-gridpanel__settings', 'settings', 'Settings');
   settings.href = './#settings';
   // The Panels link joins this group (panelfull.js). Kiosk mode and Full width stay for their code; gridpanel.css hides them.

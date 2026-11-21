@@ -223,7 +223,7 @@ function build() {
   sayOffline();
   new MutationObserver(sayOffline).observe(document.documentElement, { attributes: true, attributeFilter: ['data-conn'] });
 
-  chip = buildChip({ lock: localLock, signIn: () => emit('login') });
+  chip = buildChip({ lock: localLock, signIn: () => emit('login'), home: page === 'main' });
   document.body.append(chip.root);
 }
 

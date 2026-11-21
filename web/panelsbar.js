@@ -1,6 +1,6 @@
 // The one page header of every page but a panel page: the main page (homebar.js), /panels, the panel editor (its
 // Live Editor too) and /log. The Lock bar floats at its left (lock.css). Then come the site name, a rule, the icon
-// links, a gap, Inbox, a rule and the status. base.css lays it out. Panel pages keep their own.
+// links, a gap, Inbox, a rule and the status. bar.css lays it out. Panel pages keep their own.
 import { el, icon, on, emit } from './core.js';
 import { connBox, paintConn } from './connview.js';
 import { keyLabel, ariaKeys } from './keys.js';
@@ -61,18 +61,20 @@ function paletteButton() {
   return n;
 }
 
-// Home (or home, a page's own first button), Panels (with panels), Palette, Settings. leave is the page's
-// unsaved-edits rule (paneleditor.js).
-export function barLinks({ panels = false, leave = null, home = null } = {}) {
-  const links = [
-    home ? null : homeLink(),
-    panels ? panelsLink() : null,
-    // The main page's Settings button (index.html #settings-open), as a link: settings.js opens the view at #settings.
-    iconLink('sode-bar__settings', 'settings', 'Settings', './#settings'),
+// In display order: first (Home's Grid button, else the Home link), Panels (with panels), Palette, settings (Home's own
+// button, else a link: settings.js opens the view at #settings). leave is the page's unsaved-edits rule
+// (paneleditor.js); it guards only the links made here.
+export function barLinks({ panels = false, leave = null, first = null, settings = null } = {}) {
+  const link = (a) => {
+    if (leave) guard(a, leave);
+    return a;
+  };
+  return [
+    first ?? link(homeLink()),
+    panels && link(panelsLink()),
+    paletteButton(),
+    settings ?? link(iconLink('sode-bar__settings', 'settings', 'Settings', './#settings')),
   ].filter(Boolean);
-  if (leave) for (const a of links) guard(a, leave);
-  const settings = links.pop();
-  return [home ?? links.shift(), ...links, paletteButton(), settings];
 }
 
 // Sets the site name in a bar's title. The name can be cut with an ellipsis, so the tip gives it in full.
@@ -93,7 +95,7 @@ function rule(cls) {
 }
 
 // Makes head (a header with its .sode-panels__title) the bar: the links go after the title and the status goes last.
-// A head that already holds its status (the main page's #conn) keeps it, and its page paints it.
+// opts.conn is a status the head already holds (Home's #conn), which its page paints; without it the bar makes one.
 export function panelsBar(head, opts = {}) {
   const title = head.querySelector('.sode-panels__title');
   // The ellipsis goes on an inner span, since the title's own overflow would cut its tip.
@@ -103,7 +105,7 @@ export function panelsBar(head, opts = {}) {
   const tools = el('div', 'sode-bar__tools', ...barLinks(opts));
   title.after(rule('sode-bar__rule--start'), tools);
   head.classList.add('sode-bar');
-  let conn = head.querySelector(':scope > .sode__conn');
+  let conn = opts.conn;
   if (!conn) {
     const box = connBox();
     conns.add(box);

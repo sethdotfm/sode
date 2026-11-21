@@ -30,8 +30,8 @@
 <body>
 
 <main class="sode">
-  <!-- The page header of every page (panelsbar.js). homebar.js adds the links; #conn stays, since desktop.js paints it. -->
-  <header class="sode-panels__head sode-home-bar" id="home-bar">
+  <!-- The page header of every page (panelsbar.js). homebar.js adds the links; desktop.js paints #conn. -->
+  <header class="sode-bar sode-home-bar" id="home-bar">
     <h1 class="sode-panels__title">Sode</h1>
     <span class="sode-panels__spacer"></span>
     <span class="sode-inbox__slot" data-inbox></span>
@@ -186,12 +186,6 @@
       <ul class="sode__hist" id="history" tabindex="-1" aria-label="History"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
-
-    <footer class="sode__footer">
-      <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="settings-open" aria-label="Settings" data-pb-tip="Settings"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-settings"/></svg></button>
-      <a class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="panels-open" href="panels" aria-label="Sode Panels" data-pb-tip="Sode Panels"><span class="sode-logo" aria-hidden="true"></span></a>
-      <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="grid-open" aria-label="Grid popup" aria-keyshortcuts="Control+E" data-pb-tip="Grid popup"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-grid-3x3"/></svg></button>
-    </footer>
   </div>
 
   <form class="sode__view sode__settings" id="settings-view" novalidate aria-labelledby="settings-title">
