@@ -47,6 +47,8 @@ import {
   wantsTab,
   hiToken,
   tokenHome,
+  padOf,
+  stepInWon,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -340,6 +342,51 @@ test('lock view: a signedIn ends only with a real unlock or an enforced lock', (
   assert.equal(signInWon(signedIn, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
   assert.equal(signInWon(signedIn, { enforced: true, unlocked: false, user: '' }), PAGE_VIEW);
   assert.equal(signInWon(PAGE_VIEW, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
+});
+
+test('pad: Step in lists other users with a PIN, sends a stepIn and prefills nothing', () => {
+  const step = startStepIn(PAGE_VIEW);
+  const users = [
+    { name: 'Ana', len: 4 },
+    { name: 'Bo', len: 4 },
+    { name: 'Cy', len: 0 },
+  ];
+  const s = { user: 'Ana', lens: [4, 0] };
+  const p = padOf(step);
+  assert.equal(p.send, 'stepIn');
+  assert.deepEqual(
+    p.users(s, users).map((u) => u.name),
+    ['Bo'],
+  );
+  assert.equal(p.prefill(s, 'Bo', users), '');
+  assert.equal(p.pickSends(s, users[2]), false);
+  assert.equal(p.note, 'Step in: this tab only');
+  assert.deepEqual([p.label, p.offLabel, p.offline, p.lapses], ['Step in', 'Step in, offline', 'Offline', true]);
+});
+
+test('pad: every other view signs in, lists every user and sends at once for a user with no PIN', () => {
+  const users = [
+    { name: 'Ana', len: 4 },
+    { name: 'Cy', len: 0 },
+  ];
+  const s = { lens: [4, 0] };
+  for (const v of [PAGE_VIEW, lockView(PAGE_VIEW, false), startSignIn(PAGE_VIEW, false)]) {
+    const p = padOf(v);
+    assert.equal(p.send, 'signIn');
+    assert.equal(p.users(s, users), users);
+    assert.equal(p.prefill(s, 'ana', users), 'Ana');
+    assert.equal(p.pickSends(s, users[1]), true);
+    assert.equal(p.pickSends(s, users[0]), false);
+    assert.deepEqual([p.note, p.label, p.offLabel, p.offline, p.lapses], ['', 'Locked', 'Offline, locked', 'Offline, locked', false]);
+  }
+});
+
+test('stepInWon: only the Step in pad, and only when this tab becomes stepped in', () => {
+  const step = startStepIn(PAGE_VIEW);
+  assert.equal(stepInWon(step, false, true), true);
+  assert.equal(stepInWon(step, true, true), false); // already stepped in before this state
+  assert.equal(stepInWon(step, false, false), false);
+  assert.equal(stepInWon(PAGE_VIEW, false, true), false);
 });
 
 test('Lock: the chip shows for a logged-in user under it only', () => {

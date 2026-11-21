@@ -12,9 +12,6 @@ import {
   idleLock,
   pingDue,
   pageType,
-  liftFrom,
-  shouldFly,
-  brandFrames,
   OUT_FACTOR,
   dots,
   wrongFeedback,
@@ -26,7 +23,6 @@ import {
   padLens,
   canSend,
   padDelay,
-  sendsOnPick,
   signInMsg,
   signInAsOffered,
   signOutOffered,
@@ -53,13 +49,15 @@ import {
   padAsked,
   startStepIn,
   stepInKept,
+  padOf,
+  stepInWon,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { closeShown } from './dialogkeys.js';
 import { chord } from './keys.js';
 import { dialogAttrs } from './modal.js';
 import { stepLock, noteStepState, steppedIn, sendStepIn } from './stepin.js';
-import { stepActive, stepInOffered, stepInUsers } from './stepinrules.js';
+import { stepActive, stepInOffered } from './stepinrules.js';
 import { createOwed } from './owed.js';
 import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
@@ -67,6 +65,7 @@ import { layout, onLayout } from './layout.js';
 import { namePicker } from './namepick.js';
 import { listedUser } from './namepickrules.js';
 import { setBrand } from './brandicon.js';
+import { motionMs, moveBrand, fitBrand } from './lockbrand.js';
 
 let heldUser = heldUserKept();
 const page = pageType(location.pathname);
@@ -122,12 +121,17 @@ let offlineLine;
 function sayOffline() {
   if (!root) return;
   const off = document.documentElement.dataset.conn === 'down';
-  const step = V.mode === MODE.STEP_IN;
+  const p = pad();
   offlineLine.hidden = !off;
-  offlineLine.textContent = step ? 'Offline' : 'Offline, locked';
-  root.setAttribute('aria-label', step ? (off ? 'Step in, offline' : 'Step in') : off ? 'Offline, locked' : 'Locked');
+  offlineLine.textContent = p.offline;
+  root.setAttribute('aria-label', off ? p.offLabel : p.label);
 }
 
+const pad = () => padOf(V);
+const SEND = {
+  signIn: (user, pin, id) => wsSend(signInMsg(L, { pin, id, user })),
+  stepIn: (user, pin, id) => sendStepIn(user?.name || '', pin, id),
+};
 const stepping = () => V.mode === MODE.STEP_IN;
 const stepOpen = () => stepInOffered({ locked: L.locked, phone: layout() === 'phone', stepped: steppedIn(), user: L.user, users: S.users });
 
@@ -135,7 +139,7 @@ function build() {
   if (root) return;
   brand = el('h1', 'sode-lock__brand', 'Sode');
   offlineLine = el('p', 'sode-lock__offline', 'Offline, locked');
-  modeLine = el('p', 'sode-lock__mode', 'Step in: this tab only');
+  modeLine = el('p', 'sode-lock__mode');
   modeLine.hidden = true;
   state = el('p', 'sode-lock__state', 'Locked');
   dotsEl = el('div', 'sode-lock__dots');
@@ -144,7 +148,7 @@ function build() {
   msg.setAttribute('role', 'status');
   msg.setAttribute('aria-live', 'polite');
 
-  const pad = el('div', 'sode-lock__pad');
+  const digits = el('div', 'sode-lock__pad');
   const key = (label, k, cls = '') => {
     const b = el('button', `pb-btn pb-btn--outline sode-lock__key ${cls}`, label);
     b.type = 'button';
@@ -160,7 +164,7 @@ function build() {
   cancelBtn.type = 'button';
   cancelBtn.hidden = true;
   cancelBtn.addEventListener('click', cancelSignIn);
-  pad.append(
+  digits.append(
     ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => key(d, d)),
     key('Clear', 'clear', 'sode-lock__key--word'),
     key('0', '0'),
@@ -170,7 +174,7 @@ function build() {
   );
   picker = namePicker({
     id: 'lock-name',
-    users: () => (stepping() ? stepInUsers(S.users, L.user) : S.users),
+    users: () => pad().users(L, S.users),
     onInput: () => {
       if (dotsEl.classList.contains('is-text')) clearFeedback();
       say('');
@@ -180,7 +184,7 @@ function build() {
       if (wait != null && pin) timer = setTimeout(sendPin, wait);
     },
     onPick: () => {
-      if (!stepping() && sendsOnPick(L, who())) {
+      if (pad().pickSends(L, who())) {
         pin = '';
         return sendPin();
       }
@@ -191,7 +195,7 @@ function build() {
   nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Name'), { htmlFor: 'lock-name' }), picker.root);
   nameField.hidden = true;
   // The name sits on the pad, so name and digits are typed in one place.
-  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, pad);
+  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, digits);
 
   letterKey = el('kbd', 'sode__key sode__key--locked');
   letterBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
@@ -255,27 +259,6 @@ addEventListener('resize', () => {
   if (chip && !chip.root.hidden) placeChip();
 });
 
-const logo = () =>
-  [...document.querySelectorAll('.sode__mark, .sode-m__mark, .sode-log__title, .sode-panels__title')].find((e) => e.getBoundingClientRect().width > 0);
-const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const motionMs = () => (calmMotion.matches ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0);
-
-// Every run starts from the brand at rest with its own keyframes, so it restarts reliably. A CSS transition
-// measured during the last run does not. Flies only when shouldFly, else the logo fades with the overlay.
-function moveBrand(dir) {
-  for (const a of brand.getAnimations()) a.cancel();
-  const ms = motionMs();
-  if (!ms || !brand.animate) return;
-  const from = logo()?.getBoundingClientRect();
-  const fly = !logo()?.classList.contains('sode-log__title') && shouldFly(from, window.scrollY, window.innerHeight); // /log's heading is text: it fades, not scales
-  const t = fly ? liftFrom(from, brand.getBoundingClientRect()) : { x: 0, y: 0, scale: 1 };
-  brand.animate(brandFrames(dir, fly, t), {
-    duration: dir === 'in' ? ms : ms * OUT_FACTOR,
-    easing: dir === 'in' ? 'cubic-bezier(0.2, 0, 0, 1)' : 'cubic-bezier(0.4, 0, 0.2, 1)',
-    fill: dir === 'out' ? 'forwards' : 'none',
-  });
-}
-
 let scrolled = null;
 let keptOpen = false;
 
@@ -284,7 +267,8 @@ function showLock() {
   const body = viewBody(V, lockCovers(L));
   padBody.hidden = body !== 'pad';
   cancelBtn.hidden = !padAsked(V);
-  modeLine.hidden = !stepping();
+  modeLine.textContent = pad().note;
+  modeLine.hidden = !pad().note;
   nameField.hidden = !asksName(L);
   letterBody.hidden = body !== 'letter';
   signOutBtn.hidden = !(L.held || signOutOffered(L));
@@ -301,7 +285,7 @@ function showLock() {
     return;
   }
   pin = '';
-  picker.set(stepping() ? '' : prefillName(L, lastUser(), S.users));
+  picker.set(pad().prefill(L, lastUser(), S.users));
   welcoming = false;
   clearFeedback();
   say('');
@@ -315,8 +299,8 @@ function showLock() {
   document.documentElement.dataset.sodeLock = 'on';
   setHand(true);
   root.hidden = false;
-  fitBrand();
-  moveBrand('in');
+  fitBrand(root, brand);
+  moveBrand(brand, 'in');
   void root.offsetWidth;
   root.classList.add('is-on');
   document.documentElement.dataset.sodeLockOn = 'on';
@@ -341,33 +325,14 @@ function focusPad() {
   else root.focus({ preventScroll: true });
 }
 
-// A site name wider than the screen scales down to one line (under 1.25rem it wraps instead).
-// Phone only.
-function fitBrand() {
-  brand.style.fontSize = '';
-  brand.style.whiteSpace = '';
-  if (layout() !== 'phone') return;
-  const cs = getComputedStyle(root);
-  const room = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  brand.style.whiteSpace = 'nowrap';
-  const w = brand.getBoundingClientRect().width;
-  if (w <= room) return;
-  const size = (parseFloat(getComputedStyle(brand).fontSize) * (room - 1)) / w;
-  const min = 1.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);
-  if (size >= min) brand.style.fontSize = `${size}px`;
-  else {
-    brand.style.whiteSpace = '';
-    brand.style.fontSize = `${min}px`;
-  }
-}
 const refit = () => {
-  if (root && !root.hidden) fitBrand();
+  if (root && !root.hidden) fitBrand(root, brand);
 };
 addEventListener('resize', refit);
 onLayout(refit);
 // The phone layout offers no Step in.
 onLayout(() => {
-  if (stepping()) render();
+  if (pad().lapses) render();
 });
 
 function setHand(on) {
@@ -408,7 +373,7 @@ function hideLock() {
   // the longest transition is over.
   const ms = motionMs();
   const out = ms * OUT_FACTOR;
-  if (wasOn) moveBrand('out');
+  if (wasOn) moveBrand(brand, 'out');
   clearTimeout(hideTimer);
   hideTimer = setTimeout(() => {
     root.hidden = true;
@@ -498,7 +463,7 @@ function press(k) {
 
 function sendPin() {
   const id = ++seq;
-  const sent = stepping() ? sendStepIn(who()?.name || '', pin, id) : wsSend(signInMsg(L, { pin, id, user: who() }));
+  const sent = SEND[pad().send](who(), pin, id);
   if (!sent) return say(LINK_DOWN, true);
   say('Checking…');
 }
@@ -544,7 +509,7 @@ onMsg('lockState', (m) => {
   noteStepState(m);
   if (owed.arrived(m)) return;
   if (settle) settle();
-  const stepWon = stepping() && !wasStepped && steppedIn();
+  const stepWon = stepInWon(V, wasStepped, steppedIn());
   const was = lockCovers(L) || V.mode === MODE.SIGN_IN || stepWon;
   const ended = heldEnded(L, m);
   heldUser = heldWho(heldUser, L, m);
@@ -612,10 +577,10 @@ on('publicPanel', ({ on: free }) => {
 on('hello', () => {
   if (!picker) return;
   picker.refresh();
-  if (!root.hidden && !nameValue() && !stepping()) picker.set(prefillName(L, lastUser(), S.users));
+  if (!root.hidden && !nameValue()) picker.set(pad().prefill(L, lastUser(), S.users));
   paint();
   // A hello can leave nobody to step in as.
-  if (stepping()) render();
+  if (pad().lapses) render();
 });
 
 on('logout', () => signOutNow());

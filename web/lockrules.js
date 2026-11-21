@@ -1,4 +1,6 @@
-// The lock screen's pure rules. No imports, so Node tests them.
+// The lock screen's pure rules. No DOM, so Node tests them.
+
+import { stepInUsers } from './stepinrules.js';
 
 // maxLen: the configured longest PIN (0 = none given, 12 is the hard limit).
 export const padCap = (lens, maxLen = 0) => Math.min(Math.max(...lens, 0), maxLen > 0 ? maxLen : 12);
@@ -256,3 +258,37 @@ export const prefillName = (s, last, users) => (asksName(s) && last ? users?.fin
 
 // The pad gets the keys when the box already holds a name.
 export const focusName = (s, name) => asksName(s) && !name.trim();
+
+// What the pad does in a view: one entry for Step in, one for every other pad (the Lock's and a sign-in's). lock.js
+// reads these and has no mode checks of its own. send: the message kind lock.js sends. note: the line under the site
+// name ('' = none). label and offLabel: the overlay's name, online and offline. offline: the offline line. users: the
+// names the box lists. prefill: the name the box starts with. pickSends: a pick sends at once (a user with no PIN).
+// lapses: the pad can stop being offered while it shows, so a hello or a layout change looks again (stepInKept).
+const PADS = Object.freeze({
+  signIn: Object.freeze({
+    send: 'signIn',
+    note: '',
+    label: 'Locked',
+    offLabel: 'Offline, locked',
+    offline: 'Offline, locked',
+    users: (s, users) => users,
+    prefill: prefillName,
+    pickSends: sendsOnPick,
+    lapses: false,
+  }),
+  stepIn: Object.freeze({
+    send: 'stepIn',
+    note: 'Step in: this tab only',
+    label: 'Step in',
+    offLabel: 'Step in, offline',
+    offline: 'Offline',
+    users: (s, users) => stepInUsers(users, s.user),
+    prefill: () => '',
+    pickSends: () => false,
+    lapses: true,
+  }),
+});
+export const padOf = (v) => (v.mode === MODE.STEP_IN ? PADS.stepIn : PADS.signIn);
+
+// The lockState that ends a Step in pad: this tab was not stepped in before it and is now.
+export const stepInWon = (v, wasStepped, stepped) => v.mode === MODE.STEP_IN && !wasStepped && stepped;

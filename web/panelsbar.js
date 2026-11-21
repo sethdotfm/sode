@@ -61,9 +61,9 @@ function paletteButton() {
   return n;
 }
 
-// In display order: first (Home's Grid button, else the Home link), Panels (with panels), Palette, settings (Home's own
-// button, else a link: settings.js opens the view at #settings). leave is the page's unsaved-edits rule
-// (paneleditor.js); it guards only the links made here.
+// The bar's buttons in display order: first, Panels (with panels), Palette, settings. first is Home's Grid button, else
+// the Home link. settings is Home's own button, else a link (settings.js opens the view at #settings). leave is the
+// page's unsaved-edits rule (paneleditor.js); it guards only the links made here.
 export function barLinks({ panels = false, leave = null, first = null, settings = null } = {}) {
   const link = (a) => {
     if (leave) guard(a, leave);
