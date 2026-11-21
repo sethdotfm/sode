@@ -91,11 +91,12 @@ export const HOLD_LOOK = {
 export const protectedText = (p) => p.holds.map(holdLabel).join('; ');
 
 // What the route view offers for p (holdsOn of every level): 'set', 'clear' or ''. A hold Sode did not set gets no
-// button. right: the signed-in Rights allow a Protect; device: Sode's device number, 0 when off.
-export function protectOffer(p, { right, device, linked }) {
-  if (!linked || !right || p.others.length) return '';
-  if (p.sode) return 'clear';
-  return device > 0 && !p.levels.length ? 'set' : '';
+// button. right: the signed-in Rights allow a Protect. admin: an Administrator, who clears any of Sode's Protects
+// without the right (protectClear on the server). device: Sode's device number, 0 when off.
+export function protectOffer(p, { right, admin = false, device, linked }) {
+  if (!linked || p.others.length) return '';
+  if (p.sode) return right || admin ? 'clear' : '';
+  return right && device > 0 && !p.levels.length ? 'set' : '';
 }
 
 // The Protect right of the browser's sign-in. rights: myRights, or null with nobody signed in. Then only a Sode with
