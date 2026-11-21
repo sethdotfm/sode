@@ -121,10 +121,15 @@ func TestChromeMainGridPopup(t *testing.T) {
 	b.waitFor("Ctrl+e opens the popup", shown)
 	b.waitFor("the cursor is on the row's crosspoint", cursor+` === '6,2'`)
 	b.waitFor("reopened, the routes still show as staged", staged(2, 6))
-	b.waitFor("a help line, and the staged badge at the right next to Close", `(() => {
-		const help = document.querySelector('#grid-pop .sode-gridpop__help'), n = document.getElementById('panel-staged'), x = document.querySelector('#grid-pop .sode-gridpop__close');
-		const h = help.getBoundingClientRect(), r = n.getBoundingClientRect(), c = x.getBoundingClientRect();
-		return /Esc or Ctrl\+e closes the grid/.test(help.textContent) && h.right <= r.left && r.right <= c.left && c.left - r.right < 40;
+	b.waitFor("no help line, its keys in the dialog's description; at the right the staged badge, Clear, Take and Close", `(() => {
+		const q = (s) => document.querySelector('#grid-pop ' + s);
+		if (q('.sode-gridpop__help') || !/^Esc or .+ closes the grid\./.test(q('[role=dialog]').getAttribute('aria-description'))) return false;
+		const [n, c, k, x] = ['#panel-staged', '.sode-gridpop__clear', '.sode-gridpop__take', '.sode-gridpop__close'].map((s) => q(s).getBoundingClientRect());
+		return n.right <= c.left && c.right <= k.left && k.right <= x.left && x.left - n.right < 300;
+	})()`)
+	b.waitFor("the badge is a button high, with no status square", `(() => {
+		const n = document.getElementById('panel-staged'), k = document.querySelector('#grid-pop .sode-gridpop__take');
+		return Math.abs(n.getBoundingClientRect().height - k.getBoundingClientRect().height) < 2 && getComputedStyle(n, '::before').display === 'none';
 	})()`)
 
 	// One confirm sends one take: History shows one Group of 4 routes. The boxes hold one of them, so it goes once.
@@ -280,7 +285,7 @@ func TestChromeMainGridPopupShield(t *testing.T) {
 		}
 	}
 
-	// Pick three names (a click, then Ctrl+click two more): the shield on a picked name covers all three.
+	// Pick three names (a click, then a Meta click on two more): the shield on a picked name covers all three.
 	nameOf := func(d int) string {
 		return fmt.Sprintf(`document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="%d"]:not([hidden])')`, d)
 	}
@@ -289,8 +294,9 @@ func TestChromeMainGridPopupShield(t *testing.T) {
 	}
 	for i, d := range []int{1, 2, 3} {
 		r, mods := at(d), 0
+		// Meta, not Ctrl: Chrome on macOS makes a Ctrl+click a right click. The grid takes either (tapMods).
 		if i > 0 {
-			mods = modCtrl
+			mods = modMeta
 		}
 		for _, ty := range []string{"mouseMoved", "mousePressed", "mouseReleased"} {
 			b.call("Input.dispatchMouseEvent", map[string]any{"type": ty, "x": r[0], "y": r[1], "button": "left", "clickCount": 1, "modifiers": mods})
@@ -319,5 +325,122 @@ func TestChromeMainGridPopupShield(t *testing.T) {
 			t.Fatalf("Sode's Protects left on %d levels", sodeRows())
 		}
 	}
+	b.check()
+}
+
+// A press on the Grid popup's margin closes it and puts focus back in the patch boxes. A press in the popup, or a drag
+// that starts in it and ends on the margin, keeps it open.
+func TestChromeMainGridPopupOutsideClick(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim)
+	srv := seamServer(t, a)
+	waitNamesAndTally(t, a, userKey(t, a, "Ana"))
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("17 level picks", `document.querySelectorAll('#lvl-pick > button').length === 17`)
+
+	shown := `!document.getElementById('grid-pop')?.hidden`
+	shownLater := `new Promise((r) => setTimeout(() => r(` + shown + `), 200))`
+	mouse := func(ty string, x, y float64) {
+		b.call("Input.dispatchMouseEvent", map[string]any{"type": ty, "x": x, "y": y, "button": "left", "buttons": 1, "clickCount": 1})
+	}
+	press := func(x0, y0, x1, y1 float64) {
+		mouse("mouseMoved", x0, y0)
+		mouse("mousePressed", x0, y0)
+		mouse("mouseMoved", x1, y1)
+		mouse("mouseReleased", x1, y1)
+	}
+	pt := func(js string) (float64, float64) {
+		r := b.eval(js).([]any)
+		return r[0].(float64), r[1].(float64)
+	}
+	hit := func(x, y float64) any { return b.eval(fmt.Sprintf(`document.elementFromPoint(%v, %v)?.id`, x, y)) }
+	open := func() {
+		realKeyMods(b, "e", "KeyE", 69, modCtrl)
+		b.waitFor("Ctrl+e opens the popup", shown)
+		b.waitFor("the grid draws", `!!document.querySelector('#grid-pop .sode-gridpanel__xp:not([hidden])')`)
+	}
+
+	b.eval(`document.getElementById('src').focus(); true`)
+	open()
+	// The left margin: the right one has the page's big scroll bar.
+	mx, my := pt(`(() => { const r = document.querySelector('.sode-gridpop__box').getBoundingClientRect(); return [r.left / 2, innerHeight / 2]; })()`)
+	// The empty room in the band, where a refusal shows.
+	ix, iy := pt(`(() => { const r = document.querySelector('#grid-pop .sode-gridpop__note').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`)
+	if id := hit(mx, my); id != "grid-pop" {
+		t.Fatalf("the margin point hits %v, want the popup's margin", id)
+	}
+	press(ix, iy, ix, iy)
+	if !b.eval(shownLater).(bool) {
+		t.Fatal("a press in the popup closed it")
+	}
+	press(ix, iy, mx, my)
+	if !b.eval(shownLater).(bool) {
+		t.Fatal("a drag from the popup to the margin closed it")
+	}
+	press(mx, my, mx, my)
+	b.waitFor("a press on the margin closes the popup", `document.getElementById('grid-pop').hidden`)
+	b.waitFor("focus is back in a patch box", `['src', 'dst', 'lvl'].includes(document.activeElement.id)`)
+
+	// The popup covers the Grid button. So a press cannot close the popup and then open it again.
+	open()
+	if !b.eval(`(() => { const r = document.getElementById('grid-open').getBoundingClientRect(); return document.getElementById('grid-pop').contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); })()`).(bool) {
+		t.Fatal("the Grid button shows above the popup")
+	}
+	b.check()
+}
+
+// The popup's Clear and Take press the main page's own. Both are off with nothing staged, and Take counts the staged
+// routes. A refusal shows in the band, so the grid does not move.
+func TestChromeMainGridPopupTakeClear(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim)
+	srv := seamServer(t, a)
+	ana := userKey(t, a, "Ana")
+	waitNamesAndTally(t, a, ana)
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1280, "height": 800, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("17 level picks", `document.querySelectorAll('#lvl-pick > button').length === 17`)
+
+	shown := `!document.getElementById('grid-pop')?.hidden`
+	take := `document.querySelector('#grid-pop .sode-gridpop__take')`
+	clear := `document.querySelector('#grid-pop .sode-gridpop__clear')`
+	staged := func(s, d int) string { return gridXp(s, d) + `?.dataset.s === 'staged'` }
+	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	b.waitFor("Ctrl+e opens the popup", shown)
+	b.waitFor("the grid draws", `!!document.querySelector('#grid-pop .sode-gridpanel__xp:not([hidden])')`)
+	b.waitFor("Clear and Take are off with nothing staged", take+`.disabled && `+clear+`.disabled && `+take+`.textContent === 'Take'`)
+
+	gridShow(b, 1, 5)
+	b.eval(gridXp(1, 5) + `.click()`)
+	b.eval(gridXp(2, 6) + `.click()`)
+	b.waitFor("two routes staged", staged(1, 5)+` && `+staged(2, 6))
+	b.waitFor("Take counts them, and both are on", `!`+take+`.disabled && !`+clear+`.disabled && `+take+`.textContent === 'Take 2'`)
+
+	// The simulator's destination 12 starts Protected.
+	top := `document.querySelector('#grid-pop .sode-gridpanel__scroll').getBoundingClientRect().top`
+	before := b.eval(top).(float64)
+	gridShow(b, 3, 12)
+	b.eval(gridXp(3, 12) + `.click()`)
+	b.waitFor("the refusal shows in the band", `(() => { const s = document.querySelector('#grid-pop .sode-panel__status'); return !s.hidden && /protected/.test(s.textContent) && !!s.closest('.sode-gridpop__band') && s.getBoundingClientRect().height > 0; })()`)
+	if after := b.eval(top).(float64); after != before {
+		t.Fatalf("the refusal moved the grid from %v to %v px", before, after)
+	}
+
+	realClick(b, "#grid-pop .sode-gridpop__clear")
+	b.waitFor("Clear drops the staged routes", `document.getElementById('grid-staged').hidden && !document.querySelector('#grid-pop .sode-gridpanel__xp[data-s="staged"]:not([hidden])')`)
+	b.waitFor("the popup stays, with focus in it", shown+` && document.getElementById('grid-pop').contains(document.activeElement)`)
+	b.waitFor("Clear and Take are off again", take+`.disabled && `+clear+`.disabled`)
+
+	gridShow(b, 1, 5)
+	b.eval(gridXp(1, 5) + `.click()`)
+	b.waitFor("one route staged", staged(1, 5)+` && `+take+`.textContent === 'Take'`)
+	realClick(b, "#grid-pop .sode-gridpop__take")
+	b.waitFor("Take opens the main page's Confirm", `!document.getElementById('confirm').hidden && document.getElementById('confirm-body').textContent.includes('DSM')`)
+	gridConfirm(b)
+	tallyHas(t, a, ana, 5, 1)
+	b.waitFor("the staged list empties", `document.getElementById('grid-staged').hidden && `+take+`.disabled`)
 	b.check()
 }
