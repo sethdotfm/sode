@@ -204,7 +204,12 @@ func TestImportKeepsImportersOwnPin(t *testing.T) {
 	tok = a.issueSessionTab(c, true)
 	grantRecheck(a, c)
 	adaPin := pinOf(a, "Ada")
-	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	for _, it := range res.Plan.Categories[catUsers].Items {
+		if it.Name == "Ada" && it.Note != "Keeps your own PIN. Change it in My user." {
+			t.Errorf("Ada's row note %q", it.Note)
+		}
+	}
 	if pinOf(a, "Ada") != adaPin {
 		t.Fatal("the import changed the importer's own PIN")
 	}
