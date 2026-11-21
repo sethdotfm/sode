@@ -114,7 +114,7 @@ const sourceWord = (groups) => (groups.length > 1 ? 'Sources' : 'Source');
 // History's descriptor of a Protect entry (historyrows.js rowView has the fields). It has no source, so its chip
 // stands where the source is, and its detail lists the sources on the destination when it ran (prev).
 export const PROTECT_ENTRY = {
-  route: (e) => ({ lead: chipOf(e), src: null, dst: dstItem(e.dst, e.dstName) }),
+  route: (e) => ({ lead: chipOf(e), src: null, dst: dstItem(e.dst, e.dstName), many: null, notes: [] }),
   disc: (e, groups) => sourceWord(groups),
   detail: (e, dst, groups) => `${sourceWord(groups)} on ${dst.label}`,
   actions(e) {

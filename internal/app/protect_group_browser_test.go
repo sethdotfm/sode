@@ -68,6 +68,11 @@ func TestChromeProtectGroupInHistory(t *testing.T) {
 	b.waitFor("one History row for the 32", top+`.length === 1 && (() => { const r = `+topRow+`; return r.chip === 'Protect' && r.dst === '32 destinations' && r.status === 'ok'; })()`)
 	b.eval(`document.querySelector('#history > .sode__hist-row [aria-controls^="hist-folder-"]').click(); true`)
 	b.waitFor("it opens to 32 rows", `document.querySelectorAll('#history .sode__hist-folder > .sode__hist-row').length === 32`)
+	b.waitFor("the Group's destination has the weight of a row's destination chip, not bold", `(() => {
+		const head = document.querySelector('#history > .sode__hist-row .sode__end--dst');
+		const kid = document.querySelector('#history .sode__hist-folder .sode__end--dst');
+		return !head.querySelector('strong') && getComputedStyle(head).fontWeight === getComputedStyle(kid).fontWeight;
+	})()`)
 
 	// A second Protect within the stack gap folds into the same row.
 	pick()

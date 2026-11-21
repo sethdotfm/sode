@@ -125,6 +125,21 @@ test('rowActions: a Group of Protect entries offers Undo all of what it can, and
   assert.equal(rowActions({ f: { group: 'x', n: 3, entries: ext, shown: ext } }).undo.plan.protect, undefined);
 });
 
+test('rowView: every kind gives the whole route the layouts draw', async () => {
+  const { rowView } = await setup();
+  const p = prot(2, 5, 0);
+  const rows = [
+    { e: take() },
+    { f: { group: 'g', entries: [take(), take({ id: 2 })], shown: [] } },
+    { e: p },
+    { f: { group: 'pA', entries: [p], shown: [p] } },
+  ];
+  for (const row of rows) {
+    const r = rowView(row).route(row.f || row.e);
+    assert.ok(Array.isArray(r.notes) && 'lead' in r && 'src' in r && r.dst && 'many' in r, JSON.stringify(Object.keys(r)));
+  }
+});
+
 test('disclosureAria and followersHead', async () => {
   const { disclosureAria, followersHead } = await setup();
   assert.equal(disclosureAria(true, 3, 'takes'), 'Hide the 3 takes');
