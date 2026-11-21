@@ -106,6 +106,10 @@ func (e *Entry) logLine(off int) string {
 	if e.BrowserOf != "" {
 		client += " (browser of " + e.BrowserOf + ")"
 	}
+	if e.Protect != "" {
+		return fmt.Sprintf("PROTECT client=%s protect=%s dst=%d %q levels=%v still=%v undo=%s group=%s result=%q",
+			client, e.Protect, e.Dst+off, e.DstName, e.Levels, e.Still, undo, group, result)
+	}
 	return fmt.Sprintf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
 		client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
 }

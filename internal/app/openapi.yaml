@@ -244,12 +244,12 @@ paths:
       tags: [writes]
       summary: Free Sode's Protect
       description: |
-        Scope `protect`, as for a set. Clears only a Protect that Sode set, and only one that the
+        Scope `protect`, as for a set. Frees only a Protect that Sode set, and only one that the
         same user or API client set. Another user's gets 403 `administrator_only`: an
-        Administrator clears it in Settings. 404 `not_found` when Sode holds no level of it.
+        Administrator frees it in Settings. 404 `not_found` when Sode holds no level of it.
       responses:
         "200":
-          description: Sode sent the clear; read `ok`
+          description: Sode sent the Free Protect; read `ok`
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ProtectResult" }

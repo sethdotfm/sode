@@ -1,17 +1,13 @@
 package app
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -32,112 +28,6 @@ func (h protHold) sodes(dev int) bool { return h.kind == swp08.KindProtect && de
 // web/protectrules.js.
 func sodesHold(h protHold, dev, recDev int) bool { return h.sodes(dev) || h.sodes(recDev) }
 
-// protectRec is Sode's record of one Protect it set. Levels are the UI levels Sode set and has not freed.
-type protectRec struct {
-	Router  string    `json:"router"`
-	Dst     int       `json:"dst"`
-	DstName string    `json:"dstName,omitempty"`
-	Device  int       `json:"device"`
-	Levels  []int     `json:"levels"`
-	By      string    `json:"by"`               // the name when set, for a user that is gone
-	User    string    `json:"user,omitempty"`   // the user's id, also for that user's key or own API client
-	Client  string    `json:"client,omitempty"` // an API client's name
-	At      time.Time `json:"at"`
-}
-
-// ownedBy: the caller (as recOwner gives it) set this Protect. A guest owns only a record with no user and no
-// client. A nil record has no owner.
-func (rec *protectRec) ownedBy(user, client string, act Actor) bool {
-	if rec == nil {
-		return false
-	}
-	return (user != "" && rec.User == user) || (client != "" && rec.Client == client) ||
-		(user == "" && client == "" && rec.User == "" && rec.Client == "" && act.Kind == actorGuest)
-}
-
-type protectFile struct {
-	Protects []protectRec `json:"protects"`
-}
-
-// protectStore keeps every router's records, so a router change does not drop them. Its own lock; never take mu
-// while holding it.
-type protectStore struct {
-	path string
-	mu   sync.Mutex
-	recs []protectRec
-}
-
-func loadProtects(cfgPath string) *protectStore {
-	s := &protectStore{}
-	if cfgPath == "" {
-		return s
-	}
-	s.path = filepath.Join(filepath.Dir(cfgPath), "protects.json")
-	b, err := os.ReadFile(s.path)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			log.Printf("protects: %v", err)
-		}
-		return s
-	}
-	var f protectFile
-	if err := json.Unmarshal(b, &f); err != nil {
-		log.Printf("protects: %s: %v", s.path, err)
-		return s
-	}
-	for _, r := range f.Protects {
-		if r.Router != "" && len(r.Levels) > 0 {
-			s.recs = append(s.recs, r)
-		}
-	}
-	return s
-}
-
-func (s *protectStore) get(router string, dst int) (protectRec, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, r := range s.recs {
-		if r.Router == router && r.Dst == dst {
-			r.Levels = slices.Clone(r.Levels)
-			return r, true
-		}
-	}
-	return protectRec{}, false
-}
-
-func (s *protectStore) list(router string) []protectRec {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var out []protectRec
-	for _, r := range s.recs {
-		if r.Router == router {
-			r.Levels = slices.Clone(r.Levels)
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
-// put replaces the record of rec's router and destination; with no levels it removes it. It writes the file before
-// it returns.
-func (s *protectStore) put(rec protectRec) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.recs = slices.DeleteFunc(s.recs, func(r protectRec) bool { return r.Router == rec.Router && r.Dst == rec.Dst })
-	if len(rec.Levels) > 0 {
-		sort.Ints(rec.Levels)
-		s.recs = append(s.recs, rec)
-	}
-	if s.path == "" {
-		return nil
-	}
-	b, err := json.MarshalIndent(protectFile{Protects: s.recs}, "", "  ")
-	if err != nil {
-		return err
-	}
-	return config.AtomicWrite(s.path, b)
-}
-
 // protectErr is a refusal. Code and status are for /api/v1; the text is for the page and the Log row.
 type protectErr struct {
 	status int
@@ -153,186 +43,10 @@ func refusal(status int, code, format string, args ...any) protectErr {
 	return protectErr{status: status, code: code, msg: fmt.Sprintf(format, args...)}
 }
 
-// protectReq is the page's Protect or Free Protect: one action on the destinations of dsts, with one History Group.
-// A lone dst (with undo) is the same as dsts of one. Wire fields: docs/agents/server.md.
-type protectReq struct {
-	Dst  *int         `json:"dst"`
-	Undo *int         `json:"undo"`
-	Dsts []protectDst `json:"dsts"`
-}
-
-// protectDst is one destination of a protectReq. Undo names the History entry it undoes.
-type protectDst struct {
-	Dst  int  `json:"dst"`
-	Undo *int `json:"undo"`
-}
-
-// reqs: the destinations to act on, in the page's order. Two rows for one destination would both pass the checks
-// before anything is sent, so a duplicate refuses the message.
-func (p *protectReq) reqs() ([]protectDst, error) {
-	switch {
-	case p == nil || (p.Dst == nil && p.Dsts == nil):
-		return nil, refusal(400, "bad_request", "nothing to Protect")
-	case p.Dst != nil && p.Dsts != nil, p.Undo != nil && p.Dsts != nil:
-		return nil, refusal(400, "bad_request", "send dst or dsts, not both")
-	case p.Dsts == nil:
-		return []protectDst{{Dst: *p.Dst, Undo: p.Undo}}, nil
-	case len(p.Dsts) == 0:
-		return nil, refusal(400, "bad_request", "nothing to Protect")
-	case len(p.Dsts) > protectManyMax:
-		return nil, refusal(400, "bad_request", "more than %d destinations", protectManyMax)
-	}
-	seen := make(map[int]bool, len(p.Dsts))
-	for _, q := range p.Dsts {
-		if seen[q.Dst] {
-			return nil, refusal(400, "bad_request", "destination %d is in the list two times", q.Dst)
-		}
-		seen[q.Dst] = true
-	}
-	return p.Dsts, nil
-}
-
-// protectManyMax: more destinations than any router has, so a bad page cannot hold protMu for long.
-const protectManyMax = 4096
-
 // protectOutcome: a refusal (Err with no Entry), or the History entry of what Sode did.
 type protectOutcome struct {
 	Entry *Entry
 	Err   error
-}
-
-// protectResultMsg answers protectSet and protectClear. OK only when every row is. Err is a refusal of the whole
-// message, which then has no rows.
-type protectResultMsg struct {
-	T       string            `json:"t"` // protectSetResult or protectClearResult
-	ID      int               `json:"id"`
-	OK      bool              `json:"ok"`
-	Err     string            `json:"err,omitempty"`
-	Results []protectDstReply `json:"results"`
-}
-
-// protectDstReply: one destination of a protectResultMsg, in the order of the request.
-type protectDstReply struct {
-	Dst   int    `json:"dst"`
-	OK    bool   `json:"ok"`
-	Err   string `json:"err,omitempty"`
-	Entry *int   `json:"entry,omitempty"`
-	// Still: the levels Sode still holds after a failed Protect or Free Protect.
-	Still []int `json:"still,omitempty"`
-	// Admin: the Protect is another Sode user's; the page asks an Approval. Recheck and Approval as in opResult.
-	Admin    bool `json:"admin,omitempty"`
-	Recheck  bool `json:"recheck,omitempty"`
-	Approval bool `json:"approval,omitempty"`
-}
-
-type protectClearAllResultMsg struct {
-	T        string `json:"t"` // protectClearAllResult
-	ID       int    `json:"id"`
-	OK       bool   `json:"ok"`
-	Err      string `json:"err,omitempty"`
-	Cleared  int    `json:"cleared,omitempty"` // the destinations it freed
-	Recheck  bool   `json:"recheck,omitempty"`
-	Approval bool   `json:"approval,omitempty"`
-}
-
-func protectReplyOf(dst int, o protectOutcome) protectDstReply {
-	m := protectDstReply{Dst: dst, OK: o.Err == nil}
-	if o.Entry != nil {
-		e := o.Entry.ID
-		m.Entry, m.Still = &e, o.Entry.Still
-		if !o.Entry.OK {
-			m.OK, m.Err = false, o.Entry.Err
-		}
-	}
-	if o.Err != nil {
-		m.Err = o.Err.Error()
-		var pe protectErr
-		m.Admin = errors.As(o.Err, &pe) && pe.admin
-		m.Recheck, m.Approval = isRecheckErr(o.Err), isApprovalErr(o.Err)
-	}
-	return m
-}
-
-func protectResult(kind string, id int, reqs []protectDst, outs []protectOutcome) protectResultMsg {
-	res := protectResultMsg{T: kind + "Result", ID: id, OK: true, Results: make([]protectDstReply, len(outs))}
-	for i, o := range outs {
-		res.Results[i] = protectReplyOf(reqs[i].Dst, o)
-		res.OK = res.OK && res.Results[i].OK
-	}
-	return res
-}
-
-// protectBy: Sode's own Protects for the page, dst → who set it. It reaches locked pages, as History does, so it
-// carries names and never a user's id. Kind lets the page tell its own signed-in user from another user of the same
-// name, such as an API client.
-type protectBy struct {
-	Dst    int    `json:"dst"`
-	By     string `json:"by"`
-	Kind   string `json:"kind"` // byUser, byGone, byClient or byGuest; keep in step with web/protectrules.js
-	Device int    `json:"device"`
-	Levels []int  `json:"levels"`
-}
-
-const (
-	byUser   = "user"   // a user who still exists, also through their own API client
-	byGone   = "gone"   // a user who is gone: By is the name when set
-	byClient = "client" // an API client with no owner
-	byGuest  = "guest"  // a guest: By is where they were (an IP address)
-)
-
-type protectMsg struct {
-	T  string       `json:"t"`  // "protected"
-	U  []protChange `json:"u"`  // [dst, level, device, kind]; device -1 when cleared
-	By []protectBy  `json:"by"` // every Protect in Sode's record
-}
-
-type protChange struct {
-	Dst, Level, Dev, Kind int
-}
-
-func (c protChange) MarshalJSON() ([]byte, error) {
-	return fmt.Appendf(nil, "[%d,%d,%d,%d]", c.Dst, c.Level, c.Dev, c.Kind), nil
-}
-
-// [[dst, level, device, kind], ...] for the hello.
-func protectRows(m map[int]map[int]protHold) json.RawMessage {
-	rows := make([]protChange, 0, len(m))
-	for d, t := range m {
-		for l, h := range t {
-			rows = append(rows, protChange{d, l, h.dev, h.kind})
-		}
-	}
-	b, _ := json.Marshal(rows)
-	return b
-}
-
-// protectByList: the live name of a user who set one, else the name when set.
-func (a *App) protectByList(r *runtime) []protectBy {
-	out := []protectBy{}
-	for _, rec := range a.protects.list(r.cfg.UID) {
-		by, kind := rec.By, byGuest
-		if u, ok := r.cfg.FindUserByID(rec.User); ok && rec.Client == "" {
-			by, kind = u.Name, byUser
-		} else if rec.Client != "" {
-			kind = byClient
-		} else if rec.User != "" {
-			kind = byGone
-		}
-		out = append(out, protectBy{Dst: rec.Dst, By: by, Kind: kind, Device: rec.Device, Levels: rec.Levels})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Dst < out[j].Dst })
-	return out
-}
-
-// It sends the router's pending hold changes too, so the page has the state with the entry and History's Undo
-// follows at once. Caller holds mu.
-func (a *App) broadcastProtectsMu() {
-	u := a.router.pendProt
-	if u == nil {
-		u = []protChange{}
-	}
-	a.router.pendProt = nil
-	a.broadcast(protectMsg{T: "protected", U: u, By: a.protectByList(a.r())})
 }
 
 // protWait waits for the router to report each level in the state that the messages ask for.
@@ -519,20 +233,6 @@ func (a *App) protectReady(r *runtime, dst int) error {
 	return nil
 }
 
-// recOwner: what Sode stores as who set a Protect. A user's own API client counts as that user.
-func recOwner(cfg config.Config, act Actor) (user, client string) {
-	switch act.Kind {
-	case actorUser:
-		return act.User, ""
-	case actorClient:
-		if cl, ok := cfg.FindAPIClient(act.Name); ok && cl.Owner != "" {
-			return cl.Owner, ""
-		}
-		return "", act.Name
-	}
-	return "", ""
-}
-
 func (a *App) protectEntry(r *runtime, c *client, set bool, dst int, levels []int, undo *int) *Entry {
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: -1, Dst: dst, Levels: levels, Prev: [][2]int{}, Undo: undo,
 		Protect: "clear"}
@@ -567,11 +267,6 @@ func (a *App) undoOf(undo *int, dst int, want string) error {
 		return refusal(400, "bad_request", "that History entry is not a Protect to undo on this destination")
 	}
 	return nil
-}
-
-func protectWhy(c *client, reason swp08.Reason) swp08.Why {
-	w := swp08.Why{Reason: reason, By: c.who()}
-	return w
 }
 
 // protGroup is the History Group of one Protect or Free Protect on many destinations, as a take's Group is
@@ -715,11 +410,11 @@ func (a *App) setOne(r *runtime, c *client, act Actor, dst int, rec *protectRec,
 	e := a.protectEntry(r, c, true, dst, uiLevels(r), undo)
 	g.mark(e)
 	user, client := recOwner(r.cfg, act)
-	setOK, failed := a.protectSend(r, dst, devOf, true, todo, protectWhy(c, reason))
+	setOK, failed := a.protectSend(r, dst, devOf, true, todo, swp08.Why{Reason: reason, By: c.who()})
 	held := append(slices.Clone(own), setOK...)
 	if len(failed) > 0 {
 		e.Failed = failed
-		_, stuck := a.protectSend(r, dst, devOf, false, setOK, protectWhy(c, "protectRollback"))
+		_, stuck := a.protectSend(r, dst, devOf, false, setOK, swp08.Why{Reason: "protectRollback", By: c.who()})
 		held = append(slices.Clone(own), stuck...)
 		e.Still = slices.Clone(held)
 		sort.Ints(e.Still)
@@ -746,7 +441,7 @@ func protectAdmin(cfg config.Config, act acting, approver *config.User) bool {
 	return act.role == config.RoleAdministrator
 }
 
-// clearOne clears the levels Sode holds on dst, each with the device that holds it. Caller holds protMu.
+// clearOne frees the levels Sode holds on dst, each with the device that holds it. Caller holds protMu.
 func (a *App) clearOne(r *runtime, c *client, dst int, rec *protectRec, own []int, undo *int, approver *config.User, g protGroup) *Entry {
 	devs := map[int]int{}
 	a.mu.Lock()
@@ -768,7 +463,7 @@ func (a *App) clearOne(r *runtime, c *client, dst int, rec *protectRec, own []in
 	if undo != nil {
 		reason = "protectUndo"
 	}
-	why := protectWhy(c, reason)
+	why := swp08.Why{Reason: reason, By: c.who()}
 	why.Note = approvedNote(approver, "")
 	e := a.protectEntry(r, c, false, dst, uiLevels(r), undo)
 	g.mark(e)
@@ -848,61 +543,4 @@ func uiLevels(r *runtime) []int {
 		out = append(out, l.UI)
 	}
 	return out
-}
-
-func (a *App) serveProtect(c *client, m *inMsg, set bool) {
-	go func() {
-		defer m.finish()
-		reqs, err := m.Protect.reqs()
-		if err != nil {
-			a.reply(c, protectResultMsg{T: m.T + "Result", ID: m.ID, Err: err.Error(), Results: []protectDstReply{}})
-			return
-		}
-		why := "protect"
-		if !set {
-			why = "protectClear"
-		}
-		outs := a.protectMany(c, reqs, set, m.approver)
-		for i, o := range outs {
-			if o.Err != nil {
-				a.command(c, why, outcome(o.Err), approvedNote(m.approver, "destination "+a.dstLabels(reqs[i].Dst)[0]), o.Err)
-			}
-		}
-		a.reply(c, protectResult(m.T, m.ID, reqs, outs))
-	}()
-}
-
-// refuseProtect: a policy refusal (a lock, the Role, an Approval) answers every destination with it.
-func refuseProtect(a *App, c *client, m *inMsg, err error) {
-	if m.T == "protectClearAll" {
-		a.reply(c, protectClearAllResultMsg{T: m.T + "Result", ID: m.ID, Err: err.Error(), Recheck: isRecheckErr(err), Approval: isApprovalErr(err)})
-		return
-	}
-	reqs, bad := m.Protect.reqs()
-	if bad != nil {
-		a.reply(c, protectResultMsg{T: m.T + "Result", ID: m.ID, Err: bad.Error(), Results: []protectDstReply{}})
-		return
-	}
-	outs := make([]protectOutcome, len(reqs))
-	for i := range outs {
-		outs[i].Err = err
-	}
-	a.reply(c, protectResult(m.T, m.ID, reqs, outs))
-}
-
-func (a *App) serveProtectClearAll(c *client, m *inMsg) {
-	go func() {
-		defer m.finish()
-		n, still, err := a.clearSodeProtects(c)
-		res := protectClearAllResultMsg{T: "protectClearAllResult", ID: m.ID, OK: err == nil && len(still) == 0, Cleared: n}
-		note := fmt.Sprintf("%d freed", n)
-		if err == nil && len(still) > 0 {
-			err = fmt.Errorf("%d %s still Protected", len(still), plural(len(still), "destination is", "destinations are"))
-		}
-		if err != nil {
-			res.Err = err.Error()
-		}
-		a.command(c, "protectClearAll", outcome(err), approvedNote(m.approver, note), err)
-		a.reply(c, res)
-	}()
 }
