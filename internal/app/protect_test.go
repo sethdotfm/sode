@@ -201,6 +201,7 @@ func TestProtectRefusals(t *testing.T) {
 			cfg.Users[i].Rights = config.Rights{Protect: ptr(true), Dsts: nums(5)}
 		}
 	}
+	cfg.Locks.Main = true // else Bo has the guest's destinations too (config.ActsWithGuest)
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}

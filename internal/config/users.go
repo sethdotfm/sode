@@ -92,6 +92,17 @@ func (c Config) ActsAs(u User) (string, Rights) {
 	return role, u.Rights.ProtectFor(role).Intersect(guest)
 }
 
+// ActsWithGuest: what u acts with on a page open to guests. Signing in never gives less than a guest has there, so the
+// Role is the higher of the two and the Rights are the union. Approvals and PIN rechecks use ActsAs alone.
+func (c Config) ActsWithGuest(u User) (string, Rights) {
+	role, rt := c.ActsAs(u)
+	grole, grt := c.GuestActs()
+	if roleRank(grole) > roleRank(role) {
+		role = grole
+	}
+	return role, rt.Union(grt)
+}
+
 // GuestActs: the Role and Rights of a guest. An unset Protect right follows the Guest role, as a user's follows
 // theirs. With no users every browser is an Administrator.
 func (c Config) GuestActs() (string, Rights) {

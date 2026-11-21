@@ -15,6 +15,7 @@ func paletteApp(t *testing.T, sim string) *App {
 	return simApp(t, sim, func(c *config.Config) {
 		bo := mkUser(t, "Bo", "5678")
 		bo.Rights = config.Rights{Presets: &[]string{"p-in"}}
+		c.GuestRights = config.Rights{Presets: &[]string{"p-in"}} // as Bo, else Bo has the guest's presets too (ActsWithGuest)
 		c.Users = append(c.Users, bo)
 		c.Presets = []config.Preset{
 			{ID: "p-in", Name: "Studio In", Items: []config.PresetItem{presetItem(simSrc, []int{1}, simDst)}},

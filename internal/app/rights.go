@@ -19,11 +19,11 @@ func (a *App) callerOf(c *client) (Actor, config.Rights) {
 	}
 	cfg := a.r().cfg
 	a.mu.Lock()
-	ok := a.userOKMu(c, cfg)
+	ok, open := a.userOKMu(c, cfg), guestOpenMu(c, cfg)
 	a.mu.Unlock()
 	if u := c.u.user.Load(); ok && u != nil {
 		if cur, found := cfg.FindUserByID(u.ID); found {
-			_, rights := cfg.ActsAs(cur)
+			_, rights := actsAs(cfg, cur, open)
 			return Actor{Kind: actorUser, Name: cur.Name, User: cur.ID}, rights
 		}
 	}
@@ -44,7 +44,7 @@ func (a *App) pushRightsMu(c *client) {
 	var rt *config.Rights
 	if a.userOKMu(c, cfg) {
 		if u, ok := cfg.FindUserByID(c.u.user.Load().ID); ok {
-			_, r := cfg.ActsAs(u)
+			_, r := actsAs(cfg, u, guestOpenMu(c, cfg))
 			rt = &r
 		}
 	} else if a.roleMu(c) != "" {

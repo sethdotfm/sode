@@ -102,6 +102,20 @@ func (a *App) userOKMu(c *client, cfg config.Config) bool {
 	return c.u.user.Load().HasPin() || !pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks)
 }
 
+// guestOpenMu: guests can use c's page, since its page lock is off. Caller holds mu.
+func guestOpenMu(c *client, cfg config.Config) bool {
+	return !pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks)
+}
+
+// actsAs: u on c's page. Where guests can use the page, signing in never gives less than a guest has
+// (config.ActsWithGuest). open is guestOpenMu.
+func actsAs(cfg config.Config, u config.User, open bool) (string, config.Rights) {
+	if open {
+		return cfg.ActsWithGuest(u)
+	}
+	return cfg.ActsAs(u)
+}
+
 // heldMu: the session's Lock is on and its user can still resume it. Caller holds mu.
 func (a *App) heldMu(c *client, cfg config.Config) bool {
 	return c.u.lockedMu() && a.userSameMu(c, cfg)

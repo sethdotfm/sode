@@ -40,3 +40,29 @@ func TestChromeProtectTrustedGuest(t *testing.T) {
 	b.waitFor("the shield offers Protect", `document.querySelector('.sode-gridpop__shield')?.dataset.protect === 'set' && !document.querySelector('.sode-gridpop__shield').hidden`)
 	b.check()
 }
+
+// Signing in never gives less than a guest has: a Standard user on the same open page still gets Protect.
+func TestChromeProtectSignedInKeepsTheGuests(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) {
+		c.Locks = config.Locks{}
+		c.GuestRole = config.RoleTrusted
+		c.ProtectDevice = 127
+	})
+	srv := seamServer(t, a)
+	waitNamesAndTally(t, a, userKey(t, a, "Ana"))
+	b.open(srv.URL + "/")
+	b.waitFor("Settings button", `!!document.getElementById('settings-open')`)
+	b.eval(`document.getElementById('settings-open').click(); true`)
+	signInSettings(b)
+	b.eval(`document.getElementById('settings-exit').click(); true`)
+	b.waitFor("main page", `document.documentElement.dataset.view !== 'settings'`)
+	b.eval(`document.activeElement.blur(); true`)
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette", paletteShown)
+	paletteFind(b, "Protect", "action:protect")
+	paletteKey(b, "Enter", false)
+	b.waitFor("the picker", `!!document.getElementById('protpick') && !document.getElementById('protpick').hidden`)
+	b.check()
+}

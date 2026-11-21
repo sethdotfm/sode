@@ -41,7 +41,7 @@ func (a *App) roleMu(c *client) string {
 		return config.RoleAdministrator
 	case a.userOKMu(c, cfg):
 		u, _ := cfg.FindUserByID(c.u.user.Load().ID)
-		role, _ := cfg.ActsAs(u)
+		role, _ := actsAs(cfg, u, guestOpenMu(c, cfg))
 		return role
 	case pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks):
 		return ""
