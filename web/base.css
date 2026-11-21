@@ -45,6 +45,19 @@ html {
   --pb-border-w: 2px;
   --pb-accent-bar-w: 4px;
 }
+/* Patchbay's switch knob offset suits a 1px edge, so the knob sits off centre on Sode's wider edge. These numbers keep
+   in step with patchbay's track (1.125rem high) and knob (0.75rem). A wider track sets only --sode-switch-w. */
+.pb-switch__input {
+  --sode-knob-gap: calc((1.125rem - 2 * var(--pb-border-w) - 0.75rem) / 2);
+  width: var(--sode-switch-w, 2rem);
+}
+.pb-switch__input::after {
+  left: var(--sode-knob-gap);
+  top: var(--sode-knob-gap);
+}
+.pb-switch__input:checked::after {
+  transform: translateX(calc(var(--sode-switch-w, 2rem) - 2 * var(--pb-border-w) - 0.75rem - 2 * var(--sode-knob-gap)));
+}
 /* A field is a sunken well with a bright edge. A button is a filled control (an outline button too) whose edge shows
    on hover. Text has no edge and no fill. Only the resting edge changes: focus, invalid and disabled keep patchbay's. */
 :is(.pb-input, .pb-select, .pb-textarea, .pb-chip-input) {
