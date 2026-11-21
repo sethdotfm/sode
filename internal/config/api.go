@@ -174,38 +174,6 @@ func (r Rights) Intersect(o Rights) Rights {
 	return out
 }
 
-func unionBy[T any](l, o *[]T, same func(a, b T) bool) *[]T {
-	if l == nil || o == nil {
-		return nil
-	}
-	out := slices.Clone(*l)
-	for _, w := range *o {
-		if !slices.ContainsFunc(out, func(v T) bool { return same(v, w) }) {
-			out = append(out, w)
-		}
-	}
-	if out == nil {
-		out = []T{}
-	}
-	return &out
-}
-
-// Union: everything either grants. Protect is on when either is on, so an explicit off in r does not take away o's.
-// Hidden only when both are; r's Extra is kept.
-func (r Rights) Union(o Rights) Rights {
-	out := Rights{Sources: unionBy(r.Sources, o.Sources, sameRef), Dsts: unionBy(r.Dsts, o.Dsts, sameRef),
-		Levels: unionBy(r.Levels, o.Levels, eq[int]), Presets: unionBy(r.Presets, o.Presets, eq[string]),
-		Visibility: r.Visibility, Extra: r.Extra}
-	if r.Protect != nil || o.Protect != nil {
-		on := r.AllowsProtect() || o.AllowsProtect()
-		out.Protect = &on
-	}
-	if !o.Hidden() {
-		out.Visibility = o.Visibility
-	}
-	return out
-}
-
 func cloneList[T any](l *[]T) *[]T {
 	if l == nil {
 		return nil

@@ -107,11 +107,11 @@ func guestOpenMu(c *client, cfg config.Config) bool {
 	return !pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks)
 }
 
-// actsAs: u on c's page. Where guests can use the page, signing in never gives less than a guest has
-// (config.ActsWithGuest). open is guestOpenMu.
+// actsAs: u on c's page. Where guests can use the page, signing in never gives a lower Role than a guest has, and
+// an unset Protect right follows it (config.ActsOnOpenPage). open is guestOpenMu.
 func actsAs(cfg config.Config, u config.User, open bool) (string, config.Rights) {
 	if open {
-		return cfg.ActsWithGuest(u)
+		return cfg.ActsOnOpenPage(u)
 	}
 	return cfg.ActsAs(u)
 }

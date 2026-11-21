@@ -70,9 +70,10 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if got := mrJSON(m); got != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":false}` {
 		t.Fatalf("Ana's rights after the edit %s", got)
 	}
-	// Without it she has at least what a guest has (config.ActsWithGuest).
+	// Without it her Role is at least the Guest role, so her unset Protect right is on; her lists stay
+	// (config.ActsOnOpenPage).
 	editCfg(t, a, func(cfg *config.Config) { cfg.Locks.Main = false })
-	if m = mrLast(anext(), "myRights"); m == nil || mrJSON(m) != `{"protect":true}` {
+	if m = mrLast(anext(), "myRights"); m == nil || mrJSON(m) != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":true}` {
 		t.Fatalf("Ana's rights on a page open to guests: %v", m)
 	}
 
