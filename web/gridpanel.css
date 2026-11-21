@@ -698,20 +698,46 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__find-step[hidden] {
   display: none;
 }
-/* The Filter switch (gridpanelfindbox.js), in the corner in the Live Editor. Its words never change, so the band does not move. */
+/* Find or Filter (gridpanelfindbox.js): Find, the switch, Filter. The mode now on has the strong word. Its own
+   cell in the band; in the grid's corner when the run has no band. */
 .sode-gridpanel__find-mode {
+  align-items: center;
+  display: flex;
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-2);
   grid-column: 2;
   grid-row: 3;
   min-height: 0;
 }
-.sode-gridpanel__find-mode > .pb-check__label {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
+/* Patchbay's knob offset suits a 1px edge; Sode's edge is wider, so the gap is worked out to centre the knob. */
+.sode-gridpanel__find-mode > .pb-switch__input {
+  --sode-knob-gap: calc((1.125rem - 2 * var(--pb-border-w) - 0.75rem) / 2);
+  width: 2.5rem;
 }
-.sode-gridpanel__find-word {
+.sode-gridpanel__find-mode > .pb-switch__input::after {
+  left: var(--sode-knob-gap);
+  top: var(--sode-knob-gap);
+}
+.sode-gridpanel__find-mode > .pb-switch__input:checked::after {
+  transform: translateX(calc(2.5rem - 2 * var(--pb-border-w) - 0.75rem - 2 * var(--sode-knob-gap)));
+}
+.sode-gridpanel__find-side {
+  color: var(--pb-text-muted);
+  cursor: pointer;
+  display: inline-grid;
+  line-height: 1.2;
+  text-align: center;
+}
+/* A hidden bold copy of the word keeps its width, so the band does not move when the word goes bold. */
+.sode-gridpanel__find-side::after {
+  content: attr(data-word);
+  font-weight: var(--pb-weight-bold);
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+.sode-gridpanel__find-mode[data-mode="find"] > [data-side="find"],
+.sode-gridpanel__find-mode[data-mode="filter"] > [data-side="filter"] {
   color: var(--pb-text-strong);
   font-weight: var(--pb-weight-bold);
 }
@@ -1107,7 +1133,7 @@ html:has(.sode-gridpanel) {
     "picks input r1   fsrc mode .    r2   clear take"
     "picks input r1   fdst mode .    r2   clear take";
   /* The search boxes are as wide as their words need; the room left is the empty column before Clear and Take. */
-  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) 4.5rem 1fr auto 5rem 7rem;
+  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto 1fr auto 5rem 7rem;
   grid-template-rows: auto auto var(--sode-pick) var(--sode-pick);
   /* The top matches the Lock chip's, so the title lines up with the chip's button. */
   padding: var(--pb-space-4) var(--pb-space-5) var(--pb-space-3);
@@ -1273,17 +1299,15 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) :is(.sode-gridpanel__find-input, .sode-gridpanel__find-step) {
   height: 100%;
 }
-/* The word over the switch. The column is as wide as "Filter", so the band does not move as the word changes. */
+/* In the band the switch has a box as tall as the two search boxes. Its column is auto: the words keep their width. */
 :root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) .sode-gridpanel__find-mode {
-  align-items: center;
   background: var(--pb-surface-control);
   border: var(--pb-border-w) solid var(--pb-edge);
-  flex-direction: column-reverse;
   font-size: var(--pb-text-sm);
-  gap: var(--pb-space-2);
+  gap: var(--pb-space-3);
   grid-area: mode;
   justify-content: center;
-  padding: 0 var(--pb-space-2);
+  padding: 0 var(--pb-space-3);
 }
 /* On, the switch's box takes the accent edge, so the mode shows from across the room. */
 :root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) .sode-gridpanel__find-mode:has(> :checked) {
@@ -1296,7 +1320,7 @@ html:has(.sode-gridpanel) {
     "lab   lab   .    .    .    .    .    note note  note"
     "picks input r1   fsrc mode r3   msg  r2   clear take"
     "picks input r1   fdst mode r3   msg  r2   clear take";
-  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) 4.5rem auto minmax(10rem, 1fr) auto 5rem 7rem;
+  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto auto minmax(10rem, 1fr) auto 5rem 7rem;
 }
 .sode-gridpanel__rule--3 {
   grid-area: r3;
@@ -1375,7 +1399,7 @@ html:has(.sode-gridpanel) {
     "lab   lab   .    .    .    .    note note  note"
     "picks input r1   fsrc mode .    r2   clear take"
     "picks input r1   fdst mode .    r2   clear take";
-  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) 6rem 1fr auto 5rem 7rem;
+  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto 1fr auto 5rem 7rem;
   grid-template-rows: auto auto var(--sode-pick) var(--sode-pick);
 }
 /* In the Live Editor the Filter switch sits beside the two search boxes at one box's height, with no box of its own. */
@@ -1383,7 +1407,6 @@ html:has(.sode-gridpanel) {
   align-self: center;
   background: none;
   border: 0;
-  flex-direction: row;
   height: var(--sode-pick);
   justify-content: flex-start;
 }
