@@ -52,7 +52,7 @@ function homeLink() {
 // The Palette, as Ctrl+Shift+P (palette.js).
 const PALETTE_CHORD = 'ctrl+shift+p';
 function paletteButton() {
-  const n = el('button', 'pb-btn pb-btn--ghost pb-btn--icon sode-bar__palette', icon('chevron-right', false));
+  const n = el('button', 'pb-btn pb-btn--ghost pb-btn--icon sode-bar__palette', icon('terminal', false));
   n.type = 'button';
   n.setAttribute('aria-label', 'Palette');
   n.setAttribute('aria-keyshortcuts', ariaKeys(PALETTE_CHORD));
