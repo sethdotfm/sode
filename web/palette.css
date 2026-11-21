@@ -157,7 +157,7 @@
   display: none;
 }
 
-/* The Protect picker (protectpick.js), opened from the Palette's Protect and Clear Protect rows. */
+/* The Protect picker (protectpick.js), opened from the Palette's Protect row. */
 #protpick > .sode-protpick {
   max-width: calc(100vw - 2 * var(--pb-space-4));
   width: min(50vw, 44rem);

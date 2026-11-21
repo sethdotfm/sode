@@ -131,7 +131,7 @@ func ExtProtectConnect(matrix, level, dst, device int) []byte {
 	return xp(CmdExtProtectConnect, matrix, level, dst, device)
 }
 
-// ExtProtectDisconnect clears the Protect on one level of dst (0x8E); the router answers 0x8F. Only the device that
+// ExtProtectDisconnect frees the Protect on one level of dst (0x8E); the router answers 0x8F. Only the device that
 // set it clears it: another number gets an ACK and nothing else.
 func ExtProtectDisconnect(matrix, level, dst, device int) []byte {
 	return xp(CmdExtProtectDisconnect, matrix, level, dst, device)

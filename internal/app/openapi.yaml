@@ -242,7 +242,7 @@ paths:
     delete:
       operationId: clearProtect
       tags: [writes]
-      summary: Clear Sode's Protect
+      summary: Free Sode's Protect
       description: |
         Scope `protect`, as for a set. Clears only a Protect that Sode set, and only one that the
         same user or API client set. Another user's gets 403 `administrator_only`: an

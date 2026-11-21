@@ -223,7 +223,7 @@ func TestChromeMainGridPopup(t *testing.T) {
 	b.check()
 }
 
-// The shield on a Grid popup destination name sets Sode's Protect through the Confirm, then offers Clear Protect. It is
+// The shield on a Grid popup destination name sets Sode's Protect through the Confirm, then offers Free Protect. It is
 // small, bare and on the name's outer edge, and the name's mark says who holds it. With names picked, the shield on a
 // picked name protects and then clears all of them through one Confirm each.
 func TestChromeMainGridPopupShield(t *testing.T) {
@@ -269,9 +269,9 @@ func TestChromeMainGridPopupShield(t *testing.T) {
 	b.waitFor("the mark names the owner", `(() => { const m = `+name+`.querySelector('.sode-gridpanel__prot'); return m.textContent.trim() === 'Protected by you' && m.dataset.owner === 'you'; })()`)
 	hover()
 	b.waitFor("the shield sits small and bare on the name's outer edge", `(() => { const s = document.querySelector('.sode-gridpop__shield'), n = `+name+`; const r = s.getBoundingClientRect(), q = n.getBoundingClientRect(); return !s.hidden && Math.abs(r.left - q.left) < 1 && r.height < q.height && getComputedStyle(s).backgroundColor === 'rgba(0, 0, 0, 0)'; })()`)
-	b.waitFor("the shield offers Clear Protect", `document.querySelector('.sode-gridpop__shield')?.dataset.protect === 'clear'`)
+	b.waitFor("the shield offers Free Protect", `document.querySelector('.sode-gridpop__shield')?.dataset.protect === 'clear'`)
 	b.eval(`document.querySelector('.sode-gridpop__shield').click(); true`)
-	b.waitFor("Confirm clear protect", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm clear protect'`)
+	b.waitFor("Confirm free protect", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm free protect'`)
 	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
 	b.eval(`document.getElementById('confirm-ok').click(); true`)
 	for deadline := time.Now().Add(10 * time.Second); sodeRows() != 0; time.Sleep(50 * time.Millisecond) {

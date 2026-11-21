@@ -157,7 +157,7 @@ export const VERBS = {
   grid: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
   // A Protect is no take: protects.js sends it (plan.protect).
   protect: { word: 'protect', ask: 'protect', busy: 'Protecting…', resets: false },
-  unprotect: { word: 'clear protect', ask: 'clear the Protect on', busy: 'Clearing…', resets: false },
+  unprotect: { word: 'free protect', ask: 'free the Protect on', busy: 'Freeing…', resets: false },
 };
 export const planVerb = (plan) => VERBS[plan.verb].word;
 export const planEmpty = (plan) => !plan.protect && !plan.items.some((i) => i.groups.length);

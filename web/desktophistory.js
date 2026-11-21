@@ -413,7 +413,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       emit('presetStrip');
       return true;
     }
-    // x Protects the route view's destination, Shift+x clears Sode's Protect; only in Keyboard mode.
+    // x Protects the route view's destination, Shift+x frees Sode's Protect; only in Keyboard mode.
     if ((k === 'x' || k === 'X') && keyMode()) return protect(k === 'x');
     if (k === 'Escape') {
       focusBox(boxes.src.input);
@@ -454,7 +454,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
   // Undo the newest take made in Sode (a whole Group). Externals are skipped, whatever the filters show.
   function undoLast() {
-    // A Clear Protect counts (its Undo sets the Protect again); a Protect does not, since its Undo clears one.
+    // A Free Protect counts (its Undo sets the Protect again); a Protect does not, since its Undo clears one.
     const last = S.hist.find((x) => !x.ext && x.protect !== 'set');
     if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
     const e = attachFollows(last);

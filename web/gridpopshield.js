@@ -1,4 +1,4 @@
-// The Grid popup's shield: Protect or Clear Protect on a destination name (GLOSSARY.md Protect). One small button sits
+// The Grid popup's shield: Protect or Free Protect on a destination name (GLOSSARY.md Protect). One small button sits
 // at the outer edge of the name under the pointer, or of the cursor's name after a key. So it covers no crosspoint,
 // and the grid's own name nodes stay as they are. On a picked name it acts on every picked destination with the same offer
 // (shieldTargets). A protected name always shows its owner mark (gridpanelnodes.js). protects.js decides what is
@@ -12,9 +12,9 @@ const NAME = '.sode-gridpanel__dst:not([hidden])';
 // One name, or many picked names, in the button's tip and label.
 function shieldTip(set, dsts) {
   if (dsts.length > 1)
-    return set ? `Protect the ${dsts.length} picked destinations on every level` : `Clear the Protect on the ${dsts.length} picked destinations`;
+    return set ? `Protect the ${dsts.length} picked destinations on every level` : `Free the Protect on the ${dsts.length} picked destinations`;
   const label = dstItem(dsts[0]).label;
-  return set ? `Protect ${label} on every level` : `Clear the Protect on ${label}`;
+  return set ? `Protect ${label} on every level` : `Free the Protect on ${label}`;
 }
 
 export function gridShield(box, grid, confirm) {

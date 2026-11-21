@@ -168,7 +168,7 @@ func TestProtectRollsBackAFailedLevel(t *testing.T) {
 	a, f := protectApp(t)
 	f.prot.deafSet[1] = true
 	e := protEntry(t, a.protectSet(signedClient(t, a, "Ana", "1234"), 4, nil))
-	if e.OK || !slices.Equal(e.Failed, []int{2}) || len(e.Still) != 0 || !strings.Contains(e.Err, "cleared the other levels") {
+	if e.OK || !slices.Equal(e.Failed, []int{2}) || len(e.Still) != 0 || !strings.Contains(e.Err, "freed the other levels") {
 		t.Fatalf("entry %+v", e)
 	}
 	if got := f.holdsOn(4); len(got) != 0 {
@@ -278,7 +278,7 @@ func TestProtectUndoFromHistory(t *testing.T) {
 	}
 }
 
-// Clear Sode's Protects clears every Protect with Sode's device number, record or not, and asks the PIN again.
+// Free Sode's Protects frees every Protect with Sode's device number, record or not, and asks the PIN again.
 func TestClearSodeProtectsNeedsRecheck(t *testing.T) {
 	a, f := protectApp(t)
 	protEntry(t, a.protectSet(signedClient(t, a, "Ana", "1234"), 4, nil))
@@ -450,7 +450,7 @@ func TestRequestApprovalClearsAnotherUsersProtect(t *testing.T) {
 	}
 	asked(t, bo.ask("approvalAsk", 50, map[string]any{"for": map[string]any{"t": "protectClear", "id": 4, "protect": map[string]any{"dst": 4}}}))
 	card := ada.until("approvalCard")
-	if card["what"] != "Clearing another user's Protect" || card["from"] != "Bo" {
+	if card["what"] != "Freeing another user's Protect" || card["from"] != "Bo" {
 		t.Fatalf("card %v", card)
 	}
 	if r := ada.answer(card["request"], true, "2468"); r["ok"] != true {

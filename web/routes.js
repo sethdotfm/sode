@@ -51,7 +51,7 @@ export function pickEnd(side, text, title, onPick) {
   return b;
 }
 
-// confirm: the route view of one destination with no source offers Protect or Clear Protect through it.
+// confirm: the route view of one destination with no source offers Protect or Free Protect through it.
 export function currentlyNodes(dst, onPick, confirm = null) {
   const all = allLevels();
   const rows = bySource(dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src), r.src, onPick));

@@ -100,7 +100,7 @@ export function makeRightsTab({ users, clients, touched }) {
       dirty('rights');
     });
     parts.push(selectField('rights-visibility', 'Visibility', vis));
-    // The Protect right: set and clear Sode's Protects on the destinations above. Unset follows a user's Role.
+    // The Protect right: set and free Sode's Protects on the destinations above. Unset follows a user's Role.
     const unset = kind === 'user' ? 'From the Role (on for a Trusted user)' : 'No';
     const prot = select('rights-protect', [opt('', unset), opt('yes', 'Yes'), ...(kind === 'user' ? [opt('no', 'No')] : [])]);
     prot.value = e.draft.protect;
@@ -108,7 +108,7 @@ export function makeRightsTab({ users, clients, touched }) {
       e.draft.protect = prot.value;
       dirty('rights');
     });
-    parts.push(selectField('rights-protect', 'Protect', prot, "Set and clear Sode's Protects"));
+    parts.push(selectField('rights-protect', 'Protect', prot, "Set and free Sode's Protects"));
     if (kind === 'user') parts.push(flagBox(e, dirty));
     body.replaceChildren(el('h3', 'sode__profiles-h', titleOf(pick)), ...parts);
   }

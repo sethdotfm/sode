@@ -1,4 +1,4 @@
-// Protect and Clear Protect from the page (GLOSSARY.md Protect). Both go through the Confirm as a plan with
+// Protect and Free Protect from the page (GLOSSARY.md Protect). Both go through the Confirm as a plan with
 // plan.protect, so the desktop key Confirm and the phone sheet send them like a take. The server decides; the page
 // only offers what it would allow. The Approval and PIN recheck popups load when a refusal needs them, so plans.js
 // stays free of their page setup.
@@ -53,7 +53,7 @@ export function gridHold(n) {
 // The badge Sode's own new Protect gets: it is the signed-in user's, or Sode's with nobody signed in.
 const newHold = () => holdBadge(me ? { mine: true, owner: 'you' } : { sode: true, owner: 'sode', by: '' });
 
-// on: true sets, false clears. undo: the History entry this undoes.
+// on: true sets, false frees. undo: the History entry this undoes.
 export function protectPlan(dst, on, undo = null) {
   return { verb: on ? 'protect' : 'unprotect', protect: { dst, on, undo }, items: [] };
 }
@@ -71,7 +71,7 @@ function manySummary(dsts, on) {
     return el('div', 'sode__route', el('strong', null, labelNode(d)), ...hold);
   });
   return [
-    el('div', null, on ? `Protect these ${dsts.length} destinations on every level?` : `Clear the Protect on these ${dsts.length} destinations?`),
+    el('div', null, on ? `Protect these ${dsts.length} destinations on every level?` : `Free the Protect on these ${dsts.length} destinations?`),
     ...(on ? [el('div', 'sode__route', levelBar(allLevels()), newHold())] : []),
     el('div', 'sode-protpick__plan', ...rows),
   ];
@@ -84,13 +84,13 @@ export function protectSummary(plan) {
   const all = allLevels();
   if (on) {
     return [
-      el('div', null, undo ? 'Undo the Clear Protect: Protect ' : 'Protect ', strong, ' on every level?'),
+      el('div', null, undo ? 'Undo the Free Protect: Protect ' : 'Protect ', strong, ' on every level?'),
       el('div', 'sode__route', levelBar(all), newHold()),
     ];
   }
   const p = protectState(dst.n);
   return [
-    el('div', null, undo ? 'Undo the Protect: clear it on ' : 'Clear the Protect on ', strong, '?'),
+    el('div', null, undo ? 'Undo the Protect: free it on ' : 'Free the Protect on ', strong, '?'),
     ...(p.sode ? [el('div', 'sode__route', levelBar(p.sode.levels), holdBadge(p.sode))] : []),
   ];
 }
@@ -112,7 +112,7 @@ function protectButton(dst, confirm) {
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon(set ? 'shield' : 'shield-off'));
   b.type = 'button';
   b.dataset.protect = offer;
-  const tip = set ? `Protect ${dst.label} on every level` : `Clear the Protect on ${dst.label}`;
+  const tip = set ? `Protect ${dst.label} on every level` : `Free the Protect on ${dst.label}`;
   b.dataset.pbTip = `${tip} (x${set ? '' : `, ${keyLabel('shift+x')}`} in Keyboard mode)`;
   b.setAttribute('aria-label', tip);
   b.addEventListener('mousedown', (e) => e.preventDefault());
@@ -123,7 +123,7 @@ function protectButton(dst, confirm) {
 // What the route view would offer on destination n: 'set', 'clear' or ''. The Grid popup's shield uses it.
 export const protectOfferOf = (n) => protectOffer(protectState(n), { right: right(), device: device(), linked: linked() });
 
-// The keyboard mode key: x sets, Shift+x clears, when the route view offers it. false when it does not.
+// The keyboard mode key: x sets, Shift+x frees, when the route view offers it. false when it does not.
 export function protectKey(dst, set, confirm) {
   if (!dst) return false;
   const want = set ? 'set' : 'clear';
@@ -146,16 +146,16 @@ function sendMany(plan) {
     }
     pending.set(id, { plan: protectPlan(dst, on), many });
   }
-  showResult('info', on ? 'Protecting…' : 'Clearing the Protects…', `${dsts.length} destinations, every level`);
+  showResult('info', on ? 'Protecting…' : 'Freeing the Protects…', `${dsts.length} destinations, every level`);
   return true;
 }
 
 function manyResult(many, dst, m) {
   if (m.ok) many.done.push(dst);
-  else many.failed.push(`${dst.label}: ${m.admin ? 'another user set it, so an Administrator must clear it' : m.err || 'refused'}`);
+  else many.failed.push(`${dst.label}: ${m.admin ? 'another user set it, so an Administrator must free it' : m.err || 'refused'}`);
   if (--many.left > 0) return;
   const n = many.done.length;
-  const head = many.on ? `${n} Protected` : `${n} Protects cleared`;
+  const head = many.on ? `${n} Protected` : `${n} Protects freed`;
   if (!many.failed.length) return showResult('ok', head, 'Every level.');
   showResult(n ? 'warn' : 'error', `${head}, ${many.failed.length} failed`, `${many.failed.join('. ')}.`);
 }
@@ -173,39 +173,39 @@ export function sendProtect(plan, ap = null, answer = null) {
     return false;
   }
   pending.set(id, { plan, answer });
-  showResult('info', on ? 'Protecting…' : 'Clearing the Protect…', `${dst.label}, every level`);
+  showResult('info', on ? 'Protecting…' : 'Freeing the Protect…', `${dst.label}, every level`);
   return true;
 }
 
 function onResult(m) {
   const p = pending.get(m.id);
   // A request the server ran after an Approval answers with the frozen id, which this page no longer holds.
-  if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('ok', 'Protect cleared', 'Approved.'));
+  if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('ok', 'Protect freed', 'Approved.'));
   pending.delete(m.id);
   const { dst, on } = p.plan.protect;
   if (p.many) return manyResult(p.many, dst, m);
   if (p.answer && m.approval) return void p.answer.fail(m.err);
   p.answer?.done();
   if (m.ok) {
-    return showResult('ok', on ? 'Protected' : 'Protect cleared', `${dst.label}, every level`);
+    return showResult('ok', on ? 'Protected' : 'Protect freed', `${dst.label}, every level`);
   }
   if (m.admin && !p.answer && role && role !== 'administrator') {
     const send = (ap, ans) => sendProtect(p.plan, ap, ans);
     import('./approval.js').then(({ askApproval }) =>
-      askApproval("Clearing another user's Protect", 'an Administrator', send, {
+      askApproval("Freeing another user's Protect", 'an Administrator', send, {
         action: () => ({ t: 'protectClear', id: m.id, protect: { dst: dst.n } }),
       }),
     );
     return;
   }
   const still = m.still?.length ? ` Still Protected on levels ${levelText(m.still)}.` : '';
-  showResult('error', on ? 'Protect failed' : 'Clear Protect failed', `${dst.label}: ${m.err || 'refused'}.${still}`);
+  showResult('error', on ? 'Protect failed' : 'Free Protect failed', `${dst.label}: ${m.err || 'refused'}.${still}`);
 }
 onMsg('protectSetResult', onResult);
 onMsg('protectClearResult', onResult);
 
 const clearing = new Map(); // id → done
-// Clear Sode's Protects (Settings > Routers > Protects): Critical, so a refusal asks the PIN again and sends once more.
+// Free Sode's Protects (Settings > Routers > Protects): Critical, so a refusal asks the PIN again and sends once more.
 // done(ok, text).
 export function clearSodeProtects(done) {
   const id = ++seq;
@@ -217,10 +217,10 @@ onMsg('protectClearAllResult', (m) => {
   if (!done) return;
   clearing.delete(m.id);
   if (m.recheck) {
-    import('./recheck.js').then(({ askRecheck }) => askRecheck("Clearing Sode's Protects")).then((ok) => (ok ? clearSodeProtects(done) : done(false, m.err)));
+    import('./recheck.js').then(({ askRecheck }) => askRecheck("Freeing Sode's Protects")).then((ok) => (ok ? clearSodeProtects(done) : done(false, m.err)));
     return;
   }
-  done(m.ok, m.ok ? `${m.cleared || 0} cleared` : m.err);
+  done(m.ok, m.ok ? `${m.cleared || 0} freed` : m.err);
 });
 
 // What a History row of a Protect says and what its Undo does. null for a take.
@@ -229,8 +229,8 @@ export function protectRow(e) {
   const dst = dstItem(e.dst, e.dstName);
   const set = e.protect === 'set';
   return {
-    text: set ? 'Protect' : 'Clear Protect',
+    text: set ? 'Protect' : 'Free Protect',
     undo: protectPlan(dst, !set, e),
-    undoLabel: set ? `Clear the Protect on ${dst.label}` : `Protect ${dst.label} again`,
+    undoLabel: set ? `Free the Protect on ${dst.label}` : `Protect ${dst.label} again`,
   };
 }
