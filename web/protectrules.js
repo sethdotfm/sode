@@ -98,15 +98,16 @@ export function entryChip(e) {
 export const protectedText = (p) => p.holds.map(holdLabel).join('; ');
 
 // What the route view offers for p (holdsOn of every level): 'set', 'clear' or ''. A hold Sode did not set gets no
-// button. right: the signed-in Rights allow a Protect; device: Sode's device number, 0 when off.
-export function protectOffer(p, { right, device, linked }) {
-  if (!linked || !right || p.others.length) return '';
-  if (p.sode) return 'clear';
-  return device > 0 && !p.levels.length ? 'set' : '';
+// button. right: the signed-in Rights allow a Protect. admin: an Administrator, who clears any of Sode's Protects
+// without the right (protectClear on the server). device: Sode's device number, 0 when off.
+export function protectOffer(p, { right, admin = false, device, linked }) {
+  if (!linked || p.others.length) return '';
+  if (p.sode) return right || admin ? 'clear' : '';
+  return right && device > 0 && !p.levels.length ? 'set' : '';
 }
 
-// The Protect right of the browser's sign-in. rights: myRights, or null with nobody signed in. Then only a Sode with
-// no users (every browser an Administrator) has it. Keep in step with AllowsProtect on the server.
+// The Protect right of the browser. rights: myRights, a user's or the guest's (pushRightsMu), or null before it comes.
+// Then only a Sode with no users (every browser an Administrator) has it. Keep in step with AllowsProtect on the server.
 export const protectRight = (rights, role, users) => (rights ? rights.protect === true : role === 'administrator' && !users?.length);
 
 // A Protect History entry e can be undone when two things are true. It is the newest ok Protect entry of its

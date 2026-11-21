@@ -83,7 +83,7 @@ func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
 func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
 func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
 
-// AllowsProtect: an unset right is off, so Guest Rights and an API client need it ticked. ActsAs sets it for a user.
+// AllowsProtect: an unset right is off, so an API client needs it ticked. ActsAs and GuestActs set it from the Role.
 func (r Rights) AllowsProtect() bool { return r.Protect != nil && *r.Protect }
 
 // ProtectFor fills an unset Protect right from the Role: on for a Trusted user and an Administrator.
@@ -95,8 +95,8 @@ func (r Rights) ProtectFor(role string) Rights {
 	return r
 }
 
-// protectWithin: only a right that is on needs it on in o. Unset is off for an API client and Guest, and ActsAs sets a
-// user's from the Role.
+// protectWithin: only a right that is on needs it on in o. Unset is off for an API client, and ActsAs and GuestActs
+// set it from the Role.
 func protectWithin(r, o *bool) bool { return r == nil || !*r || o == nil || *o }
 
 // protectBoth: off when either is off; unset only when both are.

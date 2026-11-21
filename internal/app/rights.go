@@ -27,7 +27,8 @@ func (a *App) callerOf(c *client) (Actor, config.Rights) {
 			return Actor{Kind: actorUser, Name: cur.Name, User: cur.ID}, rights
 		}
 	}
-	return Actor{Kind: actorGuest, Name: "Guest"}, cfg.GuestRights
+	_, rights := cfg.GuestActs()
+	return Actor{Kind: actorGuest, Name: "Guest"}, rights
 }
 
 type myRightsMsg struct {
@@ -35,20 +36,26 @@ type myRightsMsg struct {
 	Rights *config.Rights `json:"rights,omitempty"`
 }
 
-// pushRightsMu tells a signed-in connection its own user's Rights so the page can grey out
-// what the server would refuse. Never in the hello or lock state (ADR 0004); a guest or a
-// Lock-covered page gets nothing, and a clear follows a loss. The server stays the
-// authority. Caller holds mu.
+// pushRightsMu tells a connection the Rights it acts with, a user's or the guest's, so the page can grey out what the
+// server would refuse. Never in the hello or lock state (ADR 0004); a Lock-covered page gets nothing, and a clear
+// follows a loss. The server stays the authority. Caller holds mu.
 func (a *App) pushRightsMu(c *client) {
 	cfg := a.r().cfg
-	var msg string
+	var rt *config.Rights
 	if a.userOKMu(c, cfg) {
 		if u, ok := cfg.FindUserByID(c.u.user.Load().ID); ok {
-			_, rt := cfg.ActsAs(u)
-			rt = rt.Clone()
-			j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &rt})
-			msg = string(j)
+			_, r := cfg.ActsAs(u)
+			rt = &r
 		}
+	} else if a.roleMu(c) != "" {
+		_, r := cfg.GuestActs()
+		rt = &r
+	}
+	var msg string
+	if rt != nil {
+		r := rt.Clone()
+		j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &r})
+		msg = string(j)
 	}
 	if msg == c.u.rights {
 		return

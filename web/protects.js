@@ -123,7 +123,13 @@ function protectButton(dst, confirm) {
 }
 
 // What the route view would offer on destination n: 'set', 'clear' or ''. The Grid popup's shield uses it.
-export const protectOfferOf = (n) => protectOffer(protectState(n), { right: right(), device: device(), linked: linked() });
+export const protectOfferOf = (n) =>
+  protectOffer(protectState(n), {
+    right: right(),
+    admin: role === 'administrator',
+    device: device(),
+    linked: linked(),
+  });
 
 // The keyboard mode key: x sets, Shift+x frees, when the route view offers it. false when it does not.
 export function protectKey(dst, set, confirm) {
@@ -194,7 +200,7 @@ function onResult(m) {
   if (m.admin && !p.answer && role && role !== 'administrator') {
     const send = (ap, ans) => sendProtect(p.plan, ap, ans);
     import('./approval.js').then(({ askApproval }) =>
-      askApproval("Freeing another user's Protect", 'an Administrator', send, {
+      askApproval(`Freeing another user's Protect on ${dst.label}`, 'an Administrator', send, {
         action: () => ({ t: 'protectClear', id: m.id, protect: { dst: dst.n } }),
       }),
     );
