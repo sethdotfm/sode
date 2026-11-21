@@ -37,8 +37,10 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   const arrived = arrivals();
 
   function histRow(e) {
-    const src = e.protect ? el('span', 'pb-badge pb-badge--warn', protectRow(e).text) : srcItem(e.src, e.srcName),
+    const src = srcItem(e.src, e.srcName),
       dst = dstItem(e.dst, e.dstName);
+    // A Protect entry has no source (src -1): the badge alone stands in its place, with no box and no arrow.
+    const route = e.protect ? [protectRow(e).chip(), routeBox('dst', dst)] : routeBoxes(src, dst);
     const known = e.levels.filter((u) => S.levelBy.has(u));
 
     const acts = rowActions({ e });
@@ -47,7 +49,10 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
 
     const open = expanded.has(e.id);
     const detailId = `hist-before-${e.id}`;
-    const disc = disclosure(open, e.chain ? `${e.chain.length}` : 'Before', detailId, () => {
+    // A Protect changes no route: its detail lists the sources on the destination when it ran (prev), not a Before.
+    const groups = beforeGroups(e);
+    const srcWord = groups.length > 1 ? 'Sources' : 'Source';
+    const disc = disclosure(open, e.chain ? `${e.chain.length}` : e.protect ? srcWord : 'Before', detailId, () => {
       toggle(expanded, e.id);
       renderHistory();
     });
@@ -59,7 +64,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', e.chain ? `#${e.chain[e.chain.length - 1].id}–#${e.id}` : `#${e.id}`),
       histTime(e.time),
       levelBar(known),
-      el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...routeBoxes(src, dst), entryNote(e), byLabel(e)),
+      el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...route, entryNote(e), byLabel(e)),
       statusNode({ e }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`e${e.id}`)] : [retry, btn])),
@@ -77,8 +82,8 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
               ...stackSteps(e, { restore: openConfirm, pickSrc: useRowSrc, pickDst: useRowDst, addDst: addEnd }),
             ]
           : [
-              el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
-              ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc)),
+              el('div', 'sode__label', e.protect ? `${srcWord} on ${dst.label}` : `Before #${e.id}, on ${dst.label}`),
+              ...groups.map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc)),
             ]),
         ...failureRows(e),
         ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst, addEnd))] : []),
@@ -408,7 +413,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       emit('presetStrip');
       return true;
     }
-    // x Protects the route view's destination, Shift+x clears Sode's Protect; only in Keyboard mode.
+    // x Protects the route view's destination, Shift+x frees Sode's Protect; only in Keyboard mode.
     if ((k === 'x' || k === 'X') && keyMode()) return protect(k === 'x');
     if (k === 'Escape') {
       focusBox(boxes.src.input);
@@ -449,7 +454,8 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
   // Undo the newest take made in Sode (a whole Group). Externals are skipped, whatever the filters show.
   function undoLast() {
-    const last = S.hist.find((x) => !x.ext && !x.protect);
+    // A Free Protect counts (its Undo sets the Protect again); a Protect does not, since its Undo clears one.
+    const last = S.hist.find((x) => !x.ext && x.protect !== 'set');
     if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
     const e = attachFollows(last);
     const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group).map(attachFollows);
@@ -459,6 +465,9 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   function undoRow(row) {
     const plan = rowUndoPlan(row);
     if (planEmpty(plan)) {
+      if (row.e?.protect && row.e.ext) return showResult('warn', 'Nothing to undo', `#${row.e.id}: another system made this change.`);
+      if (row.e?.protect)
+        return showResult('warn', 'Nothing to undo', `#${row.e.id}: the Protect on ${dstItem(row.e.dst, row.e.dstName).label} changed after it.`);
       const what = row.f ? groupIds(row.f) : `#${row.e.id}`;
       return showResult('warn', 'Nothing to undo', `Nothing was routed before ${what}.`);
     }

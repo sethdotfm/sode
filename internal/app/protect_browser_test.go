@@ -13,8 +13,9 @@ import (
 
 // The route view of one destination with no source offers Protect. It goes through the Confirm, the simulator
 // holds it on every level, and the view then says "Protected by you", with the badge's owner mark. Shift+x in
-// Keyboard mode clears it. History then offers Undo only on the newest Protect entry, and follows a later change.
-// Ana is an Administrator here, for Clear Sode's Protects.
+// Keyboard mode frees it. History then offers Undo only on the newest Protect entry, and follows a later change.
+// Ctrl+Z undoes the newest Free Protect.
+// Ana is an Administrator here, for Free Sode's Protects.
 func TestChromeProtectFromRouteView(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -49,16 +50,19 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
 	b.eval(`document.getElementById('confirm-ok').click(); true`)
 	b.waitFor("Protected by you", `[...document.querySelectorAll('#dst-under .pb-badge')].some((n) => n.textContent === 'Protected by you' && n.dataset.owner === 'you')`)
-	b.waitFor("Clear Protect offered", `!!document.querySelector('#dst-under [data-protect="clear"]')`)
+	b.waitFor("Free Protect offered", `!!document.querySelector('#dst-under [data-protect="clear"]')`)
 	if n := sodeRows(); n != 17 {
 		t.Fatalf("Sode's Protect on %d levels, want 17", n)
 	}
 	b.waitFor("History names the Protect", `[...document.querySelectorAll('#history .pb-badge')].some((n) => n.textContent === 'Protect')`)
+	// Its detail lists the sources on DSM1 when it ran, in place of Before.
+	b.eval(`[...document.querySelectorAll('#history .sode__hist-row')].find((r) => r.querySelector('.sode__hist-route > .pb-badge')?.textContent === 'Protect').querySelector('.pb-disclosure, [aria-controls^="hist-before-"]').click(); true`)
+	b.waitFor("Source on DSM1", `[...document.querySelectorAll('#history .sode__hist-before .sode__label')].some((n) => /^Sources? on .*DSM1/.test(n.textContent))`)
 
-	// Keyboard mode: j starts it, Shift+x opens the Confirm for Clear Protect.
+	// Keyboard mode: j starts it, Shift+x opens the Confirm for Free Protect.
 	b.eval(`document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'j', code: 'KeyJ', bubbles: true, cancelable: true})); true`)
 	b.eval(`document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'X', code: 'KeyX', shiftKey: true, bubbles: true, cancelable: true})); true`)
-	b.waitFor("Confirm clear protect", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm clear protect'`)
+	b.waitFor("Confirm free protect", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm free protect'`)
 	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
 	b.eval(`document.getElementById('confirm-ok').click(); true`)
 	b.waitFor("the shield again", `!!document.querySelector('#dst-under [data-protect="set"]')`)
@@ -67,17 +71,29 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	}
 	// Only the newest Protect entry of a destination offers Undo, and only while the opposite is possible.
 	undoOn := `((word) => { const r = [...document.querySelectorAll('#history .sode__hist-row')].find((r) => [...r.querySelectorAll('.pb-badge')].some((b) => b.textContent === word)); const u = r && [...r.querySelectorAll('.sode__hist-actions button')].find((b) => b.textContent.includes('Undo')); return u ? (u.disabled ? 'off' : 'on') : 'none'; })`
-	b.waitFor("Undo on the Clear Protect, not on the older Protect", undoOn+`('Clear Protect') === 'on' && `+undoOn+`('Protect') === 'off'`)
+	b.waitFor("Undo on the Free Protect, not on the older Protect", undoOn+`('Free Protect') === 'on' && `+undoOn+`('Protect') === 'off'`)
 	// A newer Protect entry (here from the API) turns that Undo off at once.
 	if rec := apiSend(a, "POST", "/api/v1/protected/2", key, ""); rec.Code != 200 {
 		t.Fatalf("API Protect: %d %s", rec.Code, rec.Body.String())
 	}
-	b.waitFor("the Clear Protect's Undo follows", undoOn+`('Clear Protect') === 'off'`)
+	b.waitFor("the Free Protect's Undo follows", undoOn+`('Free Protect') === 'off'`)
 	if rec := apiSend(a, "DELETE", "/api/v1/protected/2", key, ""); rec.Code != 200 {
-		t.Fatalf("API Clear Protect: %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("API Free Protect: %d %s", rec.Code, rec.Body.String())
+	}
+	// The newest Free Protect row has the badge where the source box is, with no box and no arrow.
+	b.waitFor("Free Protect row", `(() => { const r = [...document.querySelectorAll('#history .sode__hist-route')].find((n) => n.querySelector(':scope > .pb-badge')?.textContent === 'Free Protect'); return !!r && !r.querySelector('.sode__end--src, .sode__arrow') && r.querySelector('.sode__end--dst')?.textContent.includes('DSM1'); })()`)
+
+	// Ctrl+Z (Cmd+Z on a Mac) undoes the Free Protect: the Confirm sets the Protect again.
+	b.eval(`(() => { const mac = /Mac/.test(navigator.platform); document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: !mac, metaKey: mac, bubbles: true, cancelable: true})); return true; })()`)
+	b.waitFor("Confirm protect for the undo", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm protect' && document.getElementById('confirm').textContent.includes('Undo the Free Protect')`)
+	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
+	b.eval(`document.getElementById('confirm-ok').click(); true`)
+	b.waitFor("Free Protect offered again", `!!document.querySelector('#dst-under [data-protect="clear"]')`)
+	if n := sodeRows(); n != 17 {
+		t.Fatalf("after the undo, Sode's Protect on %d levels, want 17", n)
 	}
 
-	// Settings > Routers > Protects lists one set over the API, and Clear Sode's Protects asks the PIN again.
+	// Settings > Routers > Protects lists one set over the API, and Free Sode's Protects asks the PIN again.
 	if rec := apiSend(a, "POST", "/api/v1/protected/3", key, ""); rec.Code != 200 {
 		t.Fatalf("API Protect: %d %s", rec.Code, rec.Body.String())
 	}
@@ -88,15 +104,15 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	b.eval(`document.querySelector('#protects-confirm .pb-btn--ok').click(); true`)
 	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
-	b.waitFor("cleared", `!!document.querySelector('#protects-confirm + .sode__hint')?.textContent.startsWith("Sode's Protects cleared")`)
+	b.waitFor("cleared", `!!document.querySelector('#protects-confirm + .sode__hint')?.textContent.startsWith("Sode's Protects freed")`)
 	if n := sodeRows(); n != 0 {
-		t.Fatalf("Clear Sode's Protects left %d levels", n)
+		t.Fatalf("Free Sode's Protects left %d levels", n)
 	}
 	b.check()
 }
 
 // The Palette's Protect opens the picker on Home. A find narrows the list, and two picks go through one Confirm. The
-// simulator holds both on every level. Clear Protect lists only those two; Pick all shown and Enter clear them.
+// simulator holds both on every level. Free Protect lists only those two; Pick all shown and Enter free them.
 func TestChromePaletteProtectPick(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -175,15 +191,15 @@ func TestChromePaletteProtectPick(t *testing.T) {
 	// A click, then a Shift+click: the range picks Sode's two and leaves the Router lock out.
 	b.eval(`document.querySelector('#protpick-list [data-dst="2"]').click(); true`)
 	b.eval(`document.querySelector('#protpick-list [data-dst="12"]').dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true })); true`)
-	b.waitFor("both picked", `document.getElementById('protpick-go').textContent === 'Clear 2' && document.getElementById('protpick-alt').hidden`)
-	// With a free one picked too, Protect comes first, and Clear is the second button.
+	b.waitFor("both picked", `document.getElementById('protpick-go').textContent === 'Free 2' && document.getElementById('protpick-alt').hidden`)
+	// With a free one picked too, Protect comes first, and Free is the second button.
 	b.eval(`document.querySelector('#protpick [data-filter="free"]').click(); true`)
 	b.waitFor("only free ones", `!document.querySelector('#protpick-list [data-dst="2"]') && !!document.querySelector('#protpick-list [data-dst="5"]')`)
 	b.eval(`document.querySelector('#protpick-list [data-dst="5"]').click(); true`)
-	b.waitFor("a mix protects first", `document.getElementById('protpick-go').textContent === 'Protect 1' && !document.getElementById('protpick-alt').hidden && document.getElementById('protpick-alt').textContent === 'Clear 2' && document.getElementById('protpick-count').textContent === '3 picked'`)
+	b.waitFor("a mix protects first", `document.getElementById('protpick-go').textContent === 'Protect 1' && !document.getElementById('protpick-alt').hidden && document.getElementById('protpick-alt').textContent === 'Free 2' && document.getElementById('protpick-count').textContent === '3 picked'`)
 	b.eval(`document.getElementById('protpick-alt').click(); true`)
-	confirm("Confirm clear protect")
-	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protects cleared')`)
+	confirm("Confirm free protect")
+	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protects freed')`)
 	if n := sodeRows(); n != 0 {
 		t.Fatalf("Sode's Protect left on %d levels", n)
 	}

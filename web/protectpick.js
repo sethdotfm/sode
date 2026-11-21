@@ -1,8 +1,8 @@
 // The Protect picker: the Palette's Protect row (palettehome.js) opens it on Home. It lists the destinations in the
 // Rights, with chips for All destinations, Currently protected and Currently free. A row can be picked when the route
-// view would offer Protect or Clear Protect on it (protectOfferOf); the other rows show who holds them. A find box
+// view would offer Protect or Free Protect on it (protectOfferOf); the other rows show who holds them. A find box
 // filters the list. The usual Confirm (the host's, with its churning letter) then sends the picks. A mix of free and
-// protected picks protects first, so the safe action is the default; Clear stays one button away. The server checks
+// protected picks protects first, so the safe action is the default; Free stays one button away. The server checks
 // each one again.
 import { el, S, on as onBus, icon, labelNode } from './core.js';
 import { keyLabel, listStep } from './keys.js';
@@ -98,7 +98,7 @@ export function openProtectPick() {
   });
 
   function paint() {
-    // A pick that can no longer be acted on (cleared or taken elsewhere) drops out.
+    // A pick that can no longer be acted on (freed or taken elsewhere) drops out.
     for (const n of picked) if (!protectOfferOf(n)) picked.delete(n);
     for (const c of chips) c.setAttribute('aria-pressed', String(c.dataset.filter === filter));
     const live = rows();
@@ -115,11 +115,11 @@ export function openProtectPick() {
     const s = pickSplit([...picked], protectOfferOf);
     const main = s.first === 'clear' ? 'clear' : 'set';
     go.className = `pb-btn ${main === 'set' ? 'pb-btn--primary' : 'pb-btn--danger'}`;
-    go.textContent = main === 'set' ? (s.protect.length ? `Protect ${s.protect.length}` : 'Protect') : `Clear ${s.clear.length}`;
+    go.textContent = main === 'set' ? (s.protect.length ? `Protect ${s.protect.length}` : 'Protect') : `Free ${s.clear.length}`;
     go.disabled = !s.first;
-    // With a mix, Clear is the second button: Enter and the main button protect.
+    // With a mix, Free is the second button: Enter and the main button protect.
     alt.hidden = !(s.protect.length && s.clear.length);
-    alt.textContent = `Clear ${s.clear.length}`;
+    alt.textContent = `Free ${s.clear.length}`;
   }
 
   function row(d, i) {
@@ -206,7 +206,7 @@ export function openProtectPick() {
   go.addEventListener('click', () => send(null));
   alt.addEventListener('click', () => send(false));
   cancel.addEventListener('click', () => q.close(null));
-  // A change on the router (a Protect set or cleared elsewhere) changes what the list offers.
+  // A change on the router (a Protect set or freed elsewhere) changes what the list offers.
   const offs = ['protectedRows', 'names', 'hello', 'conn'].map((ev) => onBus(ev, paint));
 
   paint();

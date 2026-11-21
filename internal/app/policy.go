@@ -133,7 +133,7 @@ var policy = map[string]rule{
 		handle: func(a *App, c *client, m *inMsg) { a.serveProtect(c, m, true) }, onRefuse: refuseProtect},
 	"protectClear": {crit: critNever, role: config.RoleStandard, need: needMain, why: "protectClear", write: true, approvable: true,
 		handle: func(a *App, c *client, m *inMsg) { a.serveProtect(c, m, false) }, onRefuse: refuseProtect},
-	// Clear Sode's Protects: every Protect with Sode's device number, record or not. Critical, as it can free
+	// Free Sode's Protects: every Protect with Sode's device number, record or not. Critical, as it can free
 	// destinations other users hold.
 	"protectClearAll": {crit: critAlways, role: config.RoleAdministrator, need: needMain, why: "protectClearAll", write: true,
 		handle: func(a *App, c *client, m *inMsg) { a.serveProtectClearAll(c, m) }, onRefuse: refuseProtect},

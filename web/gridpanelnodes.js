@@ -116,7 +116,7 @@ export const makeSrc = () => {
 // sources the grid does not show, then the artwork.
 export const makeDst = () => {
   const n = makeName('pb-xpt--dest sode-gridpanel__dst')();
-  const prot = el('small', 'sode-gridpanel__prot', icon('lock'), document.createTextNode(''));
+  const prot = el('small', 'sode-gridpanel__prot', icon('shield'), document.createTextNode(''));
   const held = el('small', 'sode-gridpanel__held', document.createTextNode(''));
   const other = el('small', 'sode-gridpanel__other', document.createTextNode(''));
   prot.hidden = held.hidden = other.hidden = true;
@@ -158,11 +158,11 @@ export function paintDstMarks(n, d, view) {
   const p = view.protected(d);
   n.classList.toggle('pb-xpt--protected', p);
   if (prot.hidden === p) prot.hidden = !p;
-  // With a hold from the host, the mark names the owner, and its icon and tip say the rest; else a lock and Protected.
+  // With a hold from the host, the mark names the owner, and its icon and tip say the rest; else a shield and Protected.
   const hold = p ? view.hold?.(d) : null;
   const word = p ? ` ${hold?.text || 'Protected'}` : '';
   if (prot.lastChild.data !== word) prot.lastChild.data = word;
-  const href = iconHref(hold?.icon || 'lock');
+  const href = iconHref(hold?.icon || 'shield');
   const use = prot.firstChild.firstChild;
   if (use.getAttribute('href') !== href) use.setAttribute('href', href);
   setData(prot, 'owner', hold?.owner);

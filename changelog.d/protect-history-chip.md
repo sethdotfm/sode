@@ -1,0 +1,2 @@
+- Protect and Router lock chips show their icon and words with no colored square, the same in the route view, the Confirm, Settings and History. Free Protect has its own icon.
+- History shows a Protect or a Router lock that another system set or freed, such as a panel or DashBoard. The row shows the destination, the levels and the device. A change that Sode sees only when it reads the router again is Found.

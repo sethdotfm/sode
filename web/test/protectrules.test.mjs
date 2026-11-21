@@ -12,10 +12,11 @@ import {
   filterRows,
   KIND_PROTECT,
   KIND_ROUTER_LOCK,
-  HOLD_LOOK,
+  holdLook,
   holdShort,
   shieldTargets,
   protectUndoable,
+  entryChip,
 } from '../protectrules.js';
 import { fuzzyScore } from '../fuzzy.js';
 
@@ -73,9 +74,17 @@ test('the three owners: you, another Sode user, another system', () => {
   assert.equal(holdLabel(holdsOn(p, gone, 4, all, 126, 'Cy').sode), 'Protected by Cy in Sode');
   const client = new Map([[4, { dst: 4, by: 'Desk', kind: 'client', device: 126, levels: [1] }]]);
   assert.equal(holdLabel(holdsOn(p, client, 4, all, 126, 'Ana').sode), 'Protected by API client Desk in Sode');
-  // Each owner has its own icon; yours is the one you can clear.
-  assert.equal(new Set(Object.values(HOLD_LOOK).map((l) => l.icon)).size, 3);
-  assert.equal(HOLD_LOOK.you.status, 'info');
+  // Every Protect has the shield, whoever holds it; a Router lock has shield-ban. Only yours is info.
+  const look = (owner, kind = KIND_PROTECT) => holdLook({ owner, kind });
+  assert.deepEqual(
+    [look('you'), look('sode'), look('other')].map((l) => l.icon),
+    ['shield', 'shield', 'shield'],
+  );
+  assert.deepEqual(look('other', KIND_ROUTER_LOCK), { icon: 'shield-ban', status: 'warn' });
+  assert.deepEqual(
+    [look('you'), look('sode'), look('other')].map((l) => l.status),
+    ['info', 'warn', 'warn'],
+  );
 });
 
 test("a Protect with the device of an old record is still Sode's", () => {
@@ -182,4 +191,30 @@ test('protectUndoable: only the newest ok Protect entry of a destination, and on
   assert.equal(protectUndoable(hist[0], hist, 'clear'), false, 'an older entry');
   assert.equal(protectUndoable(hist[1], hist, 'set'), false, 'an older entry');
   assert.equal(protectUndoable(hist[3], hist, 'set'), false, 'failed');
+});
+
+test('entryChip: one chip for each History Protect entry, Free with its own icon', () => {
+  const chip = (e) => {
+    const c = entryChip(e);
+    return `${c.icon} ${c.text}`;
+  };
+  assert.equal(chip({ protect: 'set' }), 'shield Protect');
+  assert.equal(chip({ protect: 'clear' }), 'shield-off Free Protect');
+  assert.equal(chip({ protect: 'set', ext: true, holdKind: 'protect' }), 'shield Protect');
+  assert.equal(chip({ protect: 'clear', ext: true, holdKind: 'protect' }), 'shield-off Free Protect');
+  assert.equal(chip({ protect: 'set', ext: true, holdKind: 'routerLock' }), 'shield-ban Router lock');
+  assert.equal(chip({ protect: 'clear', ext: true, holdKind: 'routerLock' }), 'shield-off Free Router lock');
+  // The icons are the route view's (holdLook), so a chip looks the same in every place.
+  assert.equal(entryChip({ protect: 'set', ext: true, holdKind: 'routerLock' }).icon, holdLook({ kind: KIND_ROUTER_LOCK, owner: 'other' }).icon);
+  assert.equal(entryChip({ protect: 'set' }).icon, holdLook({ kind: KIND_PROTECT, owner: 'other' }).icon);
+});
+
+test('protectUndoable: an External Protect entry has no Undo, and blocks the Undo of an older one of Sode', () => {
+  const hist = [
+    { id: 2, ok: true, protect: 'set', ext: true, holdKind: 'protect', dst: 4 },
+    { id: 1, ok: true, protect: 'clear', dst: 4 },
+  ];
+  assert.equal(protectUndoable(hist[0], hist, 'set'), false);
+  assert.equal(protectUndoable(hist[0], hist, 'clear'), false);
+  assert.equal(protectUndoable(hist[1], hist, 'set'), false);
 });

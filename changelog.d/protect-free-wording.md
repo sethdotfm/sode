@@ -1,0 +1,1 @@
+- Protects: "Clear" is now "Free" everywhere: Free Protect, Free the Protect on…, Protect freed, Free Sode's Protects. The Palette still finds the row by "clear protect".

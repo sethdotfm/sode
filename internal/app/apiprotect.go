@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Set and clear Sode's Protect on one destination (protect.go). An API call is its own Confirm (ADR 0002).
+// Set and free Sode's Protect on one destination (protect.go). An API call is its own Confirm (ADR 0002).
 
 func init() {
 	registerAPI(

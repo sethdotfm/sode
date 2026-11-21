@@ -19,6 +19,9 @@ func fillRouterDerived(a *App) {
 	a.router.tallyGen = 1
 	a.router.namesGen = 1
 	a.router.protect[5] = map[int]protHold{1: {9, 1}}
+	a.router.protSeen[[2]int{5, 1}] = true
+	a.router.protExt[protExtKey{dst: 5, dev: 9, kind: 1, set: true}] = &protExtLevels{levels: map[int]bool{1: true}, first: time.Now()}
+	a.router.protAt = [2]time.Time{time.Now(), time.Now()}
 	a.router.seenAt[[2]int{5, 1}] = time.Now()
 	a.router.pend = []routeChange{{5, 1, 7}}
 	a.router.pendProt = []protChange{{5, 1, 9, 1}}

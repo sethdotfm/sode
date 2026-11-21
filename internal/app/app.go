@@ -155,11 +155,14 @@ type App struct {
 type routerState struct {
 	srcNames map[int]string
 	dstNames map[int]string
-	tally    map[int]map[int]int      // dst → UI level → src (-1 = nothing routed)
-	protect  map[int]map[int]protHold // dst → UI level → the device and kind (protect.go)
-	seenAt   map[[2]int]time.Time     // dst, UI level → when the router last reported its route
-	tallyGen int                      // bumped on every tally change; keys App.tallyCache
-	namesGen int                      // bumped on every change to the names or namesAt; keys App.namesCache
+	tally    map[int]map[int]int           // dst → UI level → src (-1 = nothing routed)
+	protect  map[int]map[int]protHold      // dst → UI level → the device and kind (protect.go)
+	protSeen map[[2]int]bool               // dst, UI level → the router has reported its Protect state (protext.go)
+	protExt  map[protExtKey]*protExtLevels // Protect changes another system made, until the burst ends (protext.go)
+	protAt   [2]time.Time                  // the protExt burst's first and last change
+	seenAt   map[[2]int]time.Time          // dst, UI level → when the router last reported its route
+	tallyGen int                           // bumped on every tally change; keys App.tallyCache
+	namesGen int                           // bumped on every change to the names or namesAt; keys App.namesCache
 	pend     []routeChange
 	pendProt []protChange
 
@@ -189,6 +192,8 @@ func newRouterState() *routerState {
 		dstNames: map[int]string{},
 		tally:    map[int]map[int]int{},
 		protect:  map[int]map[int]protHold{},
+		protSeen: map[[2]int]bool{},
+		protExt:  map[protExtKey]*protExtLevels{},
 		seenAt:   map[[2]int]time.Time{},
 	}
 }
@@ -316,6 +321,7 @@ func (a *App) Run(ctx context.Context) {
 		case <-t.C:
 			a.flush()
 			a.flushExt()
+			a.flushProtExt()
 			a.periodic()
 		}
 	}
@@ -442,7 +448,7 @@ func (a *App) onRouterMsg(msg []byte) {
 		a.applyTally(r, xp)
 	}
 	for _, p := range ev.Protects {
-		a.applyProtect(r, p)
+		a.applyProtect(r, p, ev.Cmd != swp08.CmdExtProtectTally && ev.Cmd != swp08.CmdExtProtectDump)
 	}
 	if nb := ev.Names; nb != nil {
 		a.applyNames(nb)
@@ -498,8 +504,8 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 	}
 }
 
-// Caller holds mu.
-func (a *App) applyProtect(r *runtime, p swp08.Protect) {
+// announced: a 0x8D or 0x8F, not an answer to a re-read. Caller holds mu.
+func (a *App) applyProtect(r *runtime, p swp08.Protect, announced bool) {
 	if p.Matrix != r.cfg.Matrix {
 		return
 	}
@@ -515,17 +521,25 @@ func (a *App) applyProtect(r *runtime, p swp08.Protect) {
 	}
 	t := a.router.protect[p.Dst]
 	old, had := t[l.UI]
+	k := [2]int{p.Dst, l.UI}
+	known := a.router.protSeen[k]
+	a.router.protSeen[k] = true
 	if !p.Protected {
 		if !had {
 			return
 		}
 		delete(t, l.UI)
 		a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, -1, 0})
+		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
 		return
 	}
 	if had && old == h {
 		return
 	}
+	if had {
+		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
+	}
+	a.noteProtect(r, p.Dst, l.UI, h, true, known, announced)
 	if t == nil {
 		t = map[int]protHold{}
 		a.router.protect[p.Dst] = t

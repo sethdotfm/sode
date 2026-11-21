@@ -495,7 +495,7 @@
       <legend>Protects</legend>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-protectdevice" data-pb-tip="0 = off. A panel with the same ID can clear Sode's Protects, so use a number no panel uses">Sode's device number</label>
+          <label for="cfg-protectdevice" data-pb-tip="0 = off. A panel with the same ID can free Sode's Protects, so use a number no panel uses">Sode's device number</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-protectdevice" class="pb-input" data-key="protectDevice" data-type="int" min="0" max="4095"></span>
         </div>
       </div>
@@ -503,7 +503,7 @@
         <span class="sode__label">Protects and Router locks</span>
         <ul class="sode__protects" id="protects-list"></ul>
         <div class="sode__protects-acts">
-          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Clear Sode's Protects" data-pb-tip="Clears every Protect with Sode's device number, also with no record. Asks your PIN again">Clear Sode's Protects</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Free Sode's Protects" data-pb-tip="Frees every Protect with Sode's device number, also with no record. Asks your PIN again">Free Sode's Protects</button>
         </div>
         <div id="protects-confirm"></div>
       </div>
@@ -778,7 +778,7 @@
         <dt><kbd data-key="ctrl+s">Ctrl+s</kbd> <kbd data-key="ctrl+d">Ctrl+d</kbd> <kbd data-key="ctrl+f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
         <dt><kbd data-key="ctrl+shift+s">Ctrl+Shift+s</kbd> <kbd data-key="ctrl+shift+d">Ctrl+Shift+d</kbd></dt><dd>Next source, destination</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take: the staged routes and the route in the boxes, in one Confirm</dd>
-        <dt><kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take</dd>
+        <dt><kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take or Free Protect</dd>
         <dt><kbd data-key="ctrl+e">Ctrl+e</kbd></dt><dd>Grid popup, open or close. It finds what the Source box or the Destination box holds</dd>
         <dt><kbd>Esc</kbd></dt><dd>Close the match list. Then clear the boxes and the staged routes. Then Keyboard mode</dd>
       </dl>
@@ -789,7 +789,7 @@
         <dt><kbd>v</kbd></dt><dd>Draw a line from the cursor: move to stretch it, Space stages it</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take: the staged routes and the route in the boxes, in one Confirm</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source search, Destination search, Levels box</dd>
-        <dt><kbd>u</kbd> <kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take</dd>
+        <dt><kbd>u</kbd> <kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take or Free Protect</dd>
         <dt><kbd>Esc</kbd></dt><dd>Remove the line, then the picks, then close. The staged routes stay</dd>
       </dl>
       <div class="sode__label">Match lists (Source, Destination)</div>
@@ -827,7 +827,7 @@
         <dt><kbd>l</kbd> <kbd>→</kbd> <kbd>Enter</kbd></dt><dd>Open</dd>
         <dt><kbd>h</kbd> <kbd>←</kbd> <kbd>⇧Enter</kbd></dt><dd>Close</dd>
         <dt><kbd>u</kbd></dt><dd>Undo</dd>
-        <dt><kbd>x</kbd> <kbd>⇧x</kbd></dt><dd>Protect the destination in the Patch boxes, or clear Sode's Protect on it (Source box empty)</dd>
+        <dt><kbd>x</kbd> <kbd>⇧x</kbd></dt><dd>Protect the destination in the Patch boxes, or free Sode's Protect on it (Source box empty)</dd>
         <dt><kbd>r</kbd></dt><dd>Retry (failed takes) or Redo (any other)</dd>
         <dt><kbd>/</kbd></dt><dd>Filters</dd>
         <dt><kbd>⇧s</kbd> <kbd>⇧d</kbd></dt><dd>Filter by Source, Destination</dd>

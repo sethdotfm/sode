@@ -80,13 +80,20 @@ export function shieldTargets(n, picked, offerOf) {
   return { offer, dsts: picked.filter((d) => d === n || offerOf(d) === offer) };
 }
 
-// The badge look of each owner: the icon and the patchbay status. Yours is info, since you can clear it; the others
-// are warn, since they stop you.
-export const HOLD_LOOK = {
-  you: { icon: 'user', status: 'info' },
-  sode: { icon: 'users', status: 'warn' },
-  other: { icon: 'router', status: 'warn' },
-};
+// The badge look of one hold. The icon names the mark: shield for every Protect, shield-ban for a Router lock. The
+// `lock` icon is the Lock's alone (GLOSSARY.md). The words name the owner, and the status says if you can clear it:
+// yours is info, the others are warn, since they stop you.
+export const holdLook = (h) => ({ icon: h.kind === KIND_ROUTER_LOCK ? 'shield-ban' : 'shield', status: h.owner === 'you' ? 'info' : 'warn' });
+
+// The chip of a History Protect entry (e.protect 'set' or 'clear'). It is Sode's own Protect or Free Protect, or a
+// Protect or Router lock that another system set or freed (e.ext; holdKind in internal/app/protext.go). Free has its
+// own icon. History has no owner to tell apart, so every one is warn.
+export function entryChip(e) {
+  const lock = e.ext && e.holdKind === 'routerLock';
+  const set = e.protect === 'set';
+  const what = lock ? 'Router lock' : 'Protect';
+  return { icon: set ? (lock ? 'shield-ban' : 'shield') : 'shield-off', status: 'warn', text: set ? what : `Free ${what}` };
+}
 
 export const protectedText = (p) => p.holds.map(holdLabel).join('; ');
 
@@ -105,7 +112,8 @@ export const protectRight = (rights, role, users) => (rights ? rights.protect ==
 // A Protect History entry e can be undone when two things are true. It is the newest ok Protect entry of its
 // destination in hist. And offer (protectOfferOf now) is the opposite of what e did. Else Undo would undo another thing.
 export function protectUndoable(e, hist, offer) {
-  if (!e.ok || !e.protect) return false;
+  // A Protect another system set or freed is not Sode's to undo; it still counts as the newest entry below.
+  if (!e.ok || !e.protect || e.ext) return false;
   const newest = hist.reduce((m, x) => (x.protect && x.ok && x.dst === e.dst && (!m || x.id > m.id) ? x : m), null);
   if (newest && newest.id !== e.id) return false;
   return offer === (e.protect === 'set' ? 'clear' : 'set');

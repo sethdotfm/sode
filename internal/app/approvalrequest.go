@@ -69,7 +69,7 @@ type approversMsg struct {
 var errNoApprover = errors.New("no one signed in can approve this")
 
 var approvalWhat = map[string]string{"settingsSave": "Saving these changes", "clearHistory": "Clearing History",
-	"protectClear": "Clearing another user's Protect"}
+	"protectClear": "Freeing another user's Protect"}
 
 // For a save, the highest Role among the fields that need an Approval from this Role; "" when none does.
 func askNeed(act *inMsg, rl rule, role string) string {
@@ -127,7 +127,7 @@ func (a *App) approvalAsk(c *client, act *inMsg, id int) error {
 	}
 	rl, ok := ruleOf(act.T)
 	if !ok || !rl.approvable {
-		return errors.New("only a Settings save, Clear History or a Clear Protect can go through Request approval")
+		return errors.New("only a Settings save, Clear History or a Free Protect can go through Request approval")
 	}
 	var changes []SavedField
 	var stops []string

@@ -136,9 +136,16 @@ func readProtects(t *testing.T, a *App) []protectRec {
 func TestProtectSetsEveryLevelAndRefusesTakes(t *testing.T) {
 	a, f := protectApp(t)
 	ana := signedClient(t, a, "Ana", "1234")
+	a.mu.Lock()
+	a.router.tally[4] = map[int]int{1: 7, 2: 7, 3: -1}
+	a.mu.Unlock()
 	e := protEntry(t, a.protectSet(ana, 4, nil))
 	if !e.OK || e.Protect != "set" || !slices.Equal(e.Levels, []int{1, 2, 3}) || e.Src != -1 || e.Client != "Ana" {
 		t.Fatalf("entry %+v", e)
+	}
+	// Prev holds the routes on the destination when it ran, for History's Source detail.
+	if !slices.Equal(e.Prev, [][2]int{{1, 7}, {2, 7}, {3, -1}}) {
+		t.Fatalf("prev %v", e.Prev)
 	}
 	want := map[int]protHold{0: {126, 1}, 1: {126, 1}, 2: {126, 1}}
 	if got := f.holdsOn(4); len(got) != 3 || got[0] != want[0] || got[2] != want[2] {
@@ -161,7 +168,7 @@ func TestProtectRollsBackAFailedLevel(t *testing.T) {
 	a, f := protectApp(t)
 	f.prot.deafSet[1] = true
 	e := protEntry(t, a.protectSet(signedClient(t, a, "Ana", "1234"), 4, nil))
-	if e.OK || !slices.Equal(e.Failed, []int{2}) || len(e.Still) != 0 || !strings.Contains(e.Err, "cleared the other levels") {
+	if e.OK || !slices.Equal(e.Failed, []int{2}) || len(e.Still) != 0 || !strings.Contains(e.Err, "freed the other levels") {
 		t.Fatalf("entry %+v", e)
 	}
 	if got := f.holdsOn(4); len(got) != 0 {
@@ -271,7 +278,7 @@ func TestProtectUndoFromHistory(t *testing.T) {
 	}
 }
 
-// Clear Sode's Protects clears every Protect with Sode's device number, record or not, and asks the PIN again.
+// Free Sode's Protects frees every Protect with Sode's device number, record or not, and asks the PIN again.
 func TestClearSodeProtectsNeedsRecheck(t *testing.T) {
 	a, f := protectApp(t)
 	protEntry(t, a.protectSet(signedClient(t, a, "Ana", "1234"), 4, nil))
@@ -443,7 +450,7 @@ func TestRequestApprovalClearsAnotherUsersProtect(t *testing.T) {
 	}
 	asked(t, bo.ask("approvalAsk", 50, map[string]any{"for": map[string]any{"t": "protectClear", "id": 4, "protect": map[string]any{"dst": 4}}}))
 	card := ada.until("approvalCard")
-	if card["what"] != "Clearing another user's Protect" || card["from"] != "Bo" {
+	if card["what"] != "Freeing another user's Protect" || card["from"] != "Bo" {
 		t.Fatalf("card %v", card)
 	}
 	if r := ada.answer(card["request"], true, "2468"); r["ok"] != true {

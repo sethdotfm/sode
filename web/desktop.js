@@ -308,7 +308,7 @@ function sendingRow(src, d, levels) {
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
-// The route view of one destination: no source, one destination. It offers Protect and Clear Protect.
+// The route view of one destination: no source, one destination. It offers Protect and Free Protect.
 const routeView = () => !sel.src && !boxes.src.input.value.trim() && allDsts().length === 1;
 const protectFromKeys = (set) => routeView() && protectKey(allDsts()[0], set, openConfirm);
 
