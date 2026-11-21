@@ -14,7 +14,7 @@ export const MON_POLL_MS = 2000;
 
 const badge = (online) => el('span', `pb-badge${online ? ' pb-badge--ok' : ''}`, online ? 'Online' : 'Offline');
 
-// A list row's status is a dot and its words, so it does not read as a button.
+// A list row's status is plain words, not a badge, so it does not read as a button. base.css hides the dot.
 const rowBadge = (p) => {
   const s = panelStatus(p);
   return el('span', 'pb-status sode-ov__status', el('span', `pb-dot pb-dot--${s.tone || 'idle'}`), s.text);

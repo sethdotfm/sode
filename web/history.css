@@ -241,7 +241,7 @@
 .sode-m__recent-route > .sode__hist-by {
   display: block;
 }
-/* Below 1000px a row's status is color alone (text on hover, still read out) and its level bar moves into the Before panel. */
+/* Below 1000px a row's level bar moves into the Before panel. */
 .sode__hist-levels {
   display: none;
 }
@@ -257,14 +257,6 @@
   }
   .sode__hist-row > .pb-status {
     --sode-hint: on;
-  }
-  .sode__hist-row > .pb-status > .sode__status-text {
-    clip: rect(0, 0, 0, 0);
-    height: 1px;
-    overflow: hidden;
-    position: absolute;
-    white-space: nowrap;
-    width: 1px;
   }
   /* Stacked, so the bars of an open panel do not widen the levels column for every row. */
   .sode__hist-before {

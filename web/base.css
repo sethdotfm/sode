@@ -62,6 +62,14 @@ html {
 .pb-chip:not(.pb-chip--selected, [aria-pressed="true"]) {
   border: var(--pb-border-w) solid var(--pb-edge);
 }
+/* The owner wants no colored square in a badge or a status. The word gives the status, with a badge's text, edge and
+   fill color. Only the Server and Router status (.sode__conn, the phone's .sode-m__head, .sode__state) keeps its dot. */
+.pb-badge::before {
+  content: none;
+}
+.pb-dot:not(.sode__state, .sode__conn .pb-dot, .sode-m__head .pb-dot) {
+  display: none;
+}
 /* Patchbay's control sizes on the desktop layout: plain and small controls are compact, large ones are actions, and an
    icon button is square. A page part used live lifts its controls to the action height (below). The phone keeps
    patchbay's own sizes (mobile.css sets its touch sizes). */
