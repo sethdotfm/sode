@@ -63,11 +63,11 @@ html {
   border: var(--pb-border-w) solid var(--pb-edge);
 }
 /* The owner wants no colored square in a badge or a status. The word gives the status, with a badge's text, edge and
-   fill color. Only the Server and Router status (.sode__conn, the phone's .sode-m__head, .sode__state) keeps its dot. */
+   fill color. The Server and Router status has no dot either: it shows a state glyph (.sode__state, bar.css). */
 .pb-badge::before {
   content: none;
 }
-.pb-dot:not(.sode__state, .sode__conn .pb-dot, .sode-m__head .pb-dot) {
+.pb-dot {
   display: none;
 }
 /* Patchbay's control sizes on the desktop layout: plain and small controls are compact, large ones are actions, and an
@@ -1190,10 +1190,6 @@ html {
   display: inline-flex;
   gap: var(--pb-space-1);
 }
-/* A Protect or Router lock chip (protectChip in protects.js): its icon is the mark, so patchbay's status square goes. */
-.sode__hold-chip::before {
-  content: none;
-}
 .sode__notsaved .pb-chip {
   background: color-mix(in srgb, var(--pb-status-warn-fill) 70%, black);
   border-color: transparent;
@@ -1908,30 +1904,33 @@ button.sode-up__bar:not(:disabled):hover,
   flex: none;
 }
 /* The Server and Router state glyph (core.js setDot) in place of patchbay's square: the glyph takes the status colour. */
-.pb-dot.sode__state {
-  background: none;
+.sode__state {
   display: inline-flex;
-  height: auto;
-  width: auto;
 }
 .sode__state > .pb-icon {
   height: var(--pb-icon-size-sm);
   width: var(--pb-icon-size-sm);
 }
-.sode__state.pb-dot--ok {
+.sode__state[data-state="ok"] {
   color: var(--pb-status-ok);
 }
-.sode__state.pb-dot--warn {
+.sode__state[data-state="warn"] {
   color: var(--pb-status-warn);
 }
-.sode__state.pb-dot--error {
+.sode__state[data-state="error"] {
   color: var(--pb-status-error);
 }
-.sode__state.pb-dot--idle {
+.sode__state[data-state="idle"] {
   color: var(--pb-status-idle);
 }
-.sode__state.pb-dot--info {
+.sode__state[data-state="info"] {
   color: var(--pb-status-info);
+}
+/* Connecting: the spinner turns. Patchbay keeps its own spinners under reduced motion; this one is still there. */
+@media (prefers-reduced-motion: no-preference) {
+  .sode__state[data-state="warn"] > .pb-icon {
+    animation: pb-spin 1s linear infinite;
+  }
 }
 /* The start pad matches an icon button's room around its icon, so the rule has the same space on both sides. */
 .sode-bar > .sode__conn {
@@ -1963,7 +1962,7 @@ button.sode-up__bar:not(:disabled):hover,
 [data-layout="phone"]:not([data-conn="down"]) .sode-bar > .sode__conn {
   display: flex;
 }
-[data-layout="phone"] .sode-bar > .sode__conn :is(.pb-status > :not(.pb-dot), .sode__conn-addr) {
+[data-layout="phone"] .sode-bar > .sode__conn :is(.pb-status > :not(.sode__state), .sode__conn-addr) {
   display: none;
 }
 /* A narrow mouse window keeps the desktop layout and the Lock bar beside the bar, so the bar wraps and the status
@@ -1972,7 +1971,7 @@ button.sode-up__bar:not(:disabled):hover,
   :root:not([data-layout="phone"]) .sode-bar {
     flex-wrap: wrap;
   }
-  .sode-bar > .sode__conn :is(.pb-status > :not(.pb-dot), .sode__conn-addr) {
+  .sode-bar > .sode__conn :is(.pb-status > :not(.sode__state), .sode__conn-addr) {
     display: none;
   }
 }

@@ -1476,7 +1476,7 @@ html:has(.sode-gridpanel) {
 }
 /* Below 1152 px the status shows only its dots and the router: the main page's words do not fit beside the title. */
 @media (max-width: 71.9rem) {
-  :root:not([data-layout="phone"]) .sode-gridpanel__headrow > .sode__conn .pb-status > :not(.pb-dot) {
+  :root:not([data-layout="phone"]) .sode-gridpanel__headrow > .sode__conn .pb-status > :not(.sode__state) {
     display: none;
   }
 }

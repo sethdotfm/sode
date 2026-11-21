@@ -95,8 +95,8 @@ func TestChromePanelsTopBar(t *testing.T) {
 	b.waitFor("the phone bar is one row: the title, the icons and the status dots, with no words and no side scroll", `(() => {
 		const head = document.querySelector('.sode-panels__head'), parts = [head.querySelector('.sode-panels__title'), ...head.querySelectorAll('.sode-bar__tools > a'), head.querySelector('.sode__conn')];
 		const mid = (n) => { const r = n.getBoundingClientRect(); return r.top + r.height / 2; };
-		const dots = [...head.querySelectorAll('.sode__conn .pb-dot')].filter((d) => d.getClientRects().length);
-		const words = [...head.querySelectorAll('.sode__conn .pb-status > :not(.pb-dot), .sode__conn-addr')].filter((n) => n.getClientRects().length);
+		const dots = [...head.querySelectorAll('.sode__conn .sode__state')].filter((d) => d.getClientRects().length);
+		const words = [...head.querySelectorAll('.sode__conn .pb-status > :not(.sode__state), .sode__conn-addr')].filter((n) => n.getClientRects().length);
 		return parts.every((n) => n && n.getClientRects().length && Math.abs(mid(n) - mid(parts[0])) < 12) && dots.length === 2 && !words.length
 			&& document.documentElement.scrollWidth <= innerWidth && head.getBoundingClientRect().right <= innerWidth;
 	})()`)
