@@ -15,8 +15,8 @@ export function buildChip(api) {
   // Status with words, cross-faded with the button (is-hand) so the icon does not snap against the lock screen's border.
   const ico = el('span', 'sode-lock__who-ico', icon('lock'));
   const slot = el('div', 'sode-lock__who-slot', lockBtn, ico);
-  // Home only: a panel page has its own Sign in (#panels-signin).
-  const home = !document.querySelector('.sode-panels__head, .sode-log__head');
+  // Home only: a panel page has its own Sign in (#panels-signin). Home's own bar (#home-bar) shares the panels class.
+  const home = !document.querySelector('.sode-panels__head:not(#home-bar), .sode-log__head');
   const signInBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode-lock__who-signin', 'Sign in');
   signInBtn.type = 'button';
   signInBtn.id = 'lock-chip-signin';
@@ -24,10 +24,9 @@ export function buildChip(api) {
   signInBtn.addEventListener('click', () => api.signIn());
   const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', slot, name, signInBtn));
   root.hidden = true;
-  // The bar floats and takes no room. A page with a header keeps it clear of the bar's width (base.css .sode-bar, and
-  // panels.css on a panel page). The main page has no such header, so it skips the observer. px, not rem: a measured box, and the observer redoes it when
-  // the root font size changes the bar.
-  if (!home)
+  // The bar floats and takes no room. A page header keeps clear of its width (base.css .sode-bar, and panels.css on a
+  // panel page). px, not rem: a measured box, and the observer redoes it when the root font size changes the bar.
+  if (document.querySelector('.sode-bar, .sode-panels__head, .sode-log__head'))
     new ResizeObserver(() => {
       document.documentElement.style.setProperty('--sode-who-w', `${Math.ceil(root.getBoundingClientRect().width)}px`);
     }).observe(root);
