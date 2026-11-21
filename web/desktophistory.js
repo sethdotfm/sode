@@ -1,28 +1,16 @@
 // Desktop History list: rows, Groups, External follows, the pager and keyboard mode (single keys on the list).
 
-import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem, dstItem } from './core.js';
+import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem } from './core.js';
 import { listStep, pickOrAdd } from './keys.js';
 import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
-import {
-  historyPager,
-  beforeGroups,
-  attachFollows,
-  entryNote,
-  statusNode,
-  groupTitle,
-  groupLevels,
-  groupIds,
-  protectGroup,
-  protectGroupNote,
-} from './history.js';
-import { rowUndoPlan, planEmpty, showResult, againPlan } from './plans.js';
+import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupLevels, groupIds, routeNote } from './history.js';
+import { planEmpty, showResult } from './plans.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
 import { emptyNote } from './searchbox.js';
-import { rowActions, disclosureAria, followersHead } from './historyrows.js';
-import { protectRow, protectGroupHead } from './protects.js';
+import { rowView, rowActions, disclosureAria, followersHead } from './historyrows.js';
 import { isPicked, picking, pickBox, togglePick, bindPick } from './historypick.js';
 import {
   byLabel,
@@ -48,22 +36,19 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   const arrived = arrivals();
 
   function histRow(e) {
-    const src = srcItem(e.src, e.srcName),
-      dst = dstItem(e.dst, e.dstName);
-    // A Protect entry has no source (src -1): the badge alone stands in its place, with no box and no arrow.
-    const route = e.protect ? [protectRow(e).chip(), routeBox('dst', dst)] : routeBoxes(src, dst);
+    const view = rowView({ e });
+    const r = view.route(e);
+    const dst = r.dst;
     const known = e.levels.filter((u) => S.levelBy.has(u));
 
-    const acts = rowActions({ e });
+    const acts = view.actions(e);
     const btn = undoButton(acts.undo.plan, acts.undo.label, openConfirm, { text: acts.undo.text, tip: acts.undo.tip });
     const retry = againButton(acts.again.plan, acts.again.label, openConfirm);
 
     const open = expanded.has(e.id);
     const detailId = `hist-before-${e.id}`;
-    // A Protect changes no route: its detail lists the sources on the destination when it ran (prev), not a Before.
     const groups = beforeGroups(e);
-    const srcWord = groups.length > 1 ? 'Sources' : 'Source';
-    const disc = disclosure(open, e.chain ? `${e.chain.length}` : e.protect ? srcWord : 'Before', detailId, () => {
+    const disc = disclosure(open, e.chain ? `${e.chain.length}` : view.disc(e, groups), detailId, () => {
       toggle(expanded, e.id);
       renderHistory();
     });
@@ -75,7 +60,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', e.chain ? `#${e.chain[e.chain.length - 1].id}–#${e.id}` : `#${e.id}`),
       histTime(e.time),
       levelBar(known),
-      el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...route, entryNote(e), byLabel(e)),
+      el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...routeNodes(r), entryNote(e), byLabel(e)),
       statusNode({ e }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`e${e.id}`)] : [retry, btn])),
@@ -92,10 +77,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
               el('div', 'sode__label', `Changes on ${dst.label}`),
               ...stackSteps(e, { restore: openConfirm, pickSrc: useRowSrc, pickDst: useRowDst, addDst: addEnd }),
             ]
-          : [
-              el('div', 'sode__label', e.protect ? `${srcWord} on ${dst.label}` : `Before #${e.id}, on ${dst.label}`),
-              ...groups.map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc)),
-            ]),
+          : [el('div', 'sode__label', view.detail(e, dst, groups)), ...groups.map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc))]),
         ...failureRows(e),
         ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst, addEnd))] : []),
       );
@@ -107,7 +89,13 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     return row;
   }
 
-  const routeBoxes = (src, dst, all) => [routeBox('src', src), el('span', 'sode__arrow', '→'), routeBox('dst', dst, all)];
+  // r: rowView's route. A lead (a Protect chip) stands where the source box is, with no arrow.
+  const words = (x) => (typeof x === 'string' ? document.createTextNode(x) : x);
+  const routeNodes = (r) => [
+    ...(r.lead ? [r.lead] : [routeBox('src', words(r.src)), el('span', 'sode__arrow', '→')]),
+    routeBox('dst', words(r.dst), r.many),
+    routeNote(r.notes),
+  ];
   // all: the Group's destinations; a chip that names several adds them all, with any click.
   function routeBox(k, it, all) {
     const cls = `sode__end sode__end--${k}`;
@@ -143,18 +131,11 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
   const useRowDst = (it) => useEnd('dst', it);
 
-  function manyDsts(f) {
-    const seen = new Map(f.entries.map((e) => [e.dst, e.dstName]));
-    return seen.size > 1 ? [...seen].map(([n, name]) => dstItem(n, name)) : null;
-  }
-
   function groupRow(f) {
     const open = openGroups.has(f.group);
     const kidsId = `hist-folder-${f.group}`;
-    const title = protectGroup(f) ? null : groupTitle(f);
-    const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
-
-    const acts = rowActions({ f });
+    const view = rowView({ f });
+    const acts = view.actions(f);
     const undo = undoButton(acts.undo.plan, acts.undo.label, openConfirm, { text: acts.undo.text, tip: acts.undo.tip });
     const retry = againButton(acts.again.plan, acts.again.label, openConfirm);
 
@@ -163,12 +144,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       autoOpen.delete(f.group); // opened by hand: stays open
       renderHistory();
     });
-    const prot = protectGroup(f) && protectGroupHead(f);
-    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, prot ? 'destinations' : 'takes'));
-    // A Group of Protect entries has no source: its chip stands where the source box is, as on a Protect row.
-    const route = prot
-      ? [prot.chip, routeBox('dst', prot.dsts.length === 1 ? prot.dsts[0] : el('strong', null, prot.label), manyDsts(f)), protectGroupNote(f)]
-      : [...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild, manyDsts(f)), ...title.slice(3)];
+    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, view.noun));
 
     const row = el(
       'li',
@@ -176,7 +152,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', groupIds(f)),
       histTime(f.entries[0].time),
       levelBar(groupLevels(f)),
-      el('span', 'sode__hist-route sode__hist-route--boxes', ...route, byLabel(f)),
+      el('span', 'sode__hist-route sode__hist-route--boxes', ...routeNodes(view.route(f)), byLabel(f)),
       statusNode({ f }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [retry, undo])),
@@ -380,7 +356,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   function retryCur() {
     const s = curStop();
     if (!s) return;
-    const plan = againPlan(s.f ? { f: s.f } : { e: s.e });
+    const plan = rowActions(s.f ? { f: s.f } : { e: s.e }).again.plan;
     if (plan.items.length) openConfirm(plan);
     else showResult('info', 'Nothing to redo', 'This row has no source or level to take again.');
   }
@@ -473,20 +449,10 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
 
   function undoRow(row) {
-    const plan = rowUndoPlan(row);
-    if (planEmpty(plan)) {
-      if (row.f && protectGroup(row.f))
-        return showResult(
-          'warn',
-          'Nothing to undo',
-          row.f.entries[0].ext ? `${groupIds(row.f)}: another system made these changes.` : `${groupIds(row.f)}: the Protects changed after it.`,
-        );
-      if (row.e?.protect && row.e.ext) return showResult('warn', 'Nothing to undo', `#${row.e.id}: another system made this change.`);
-      if (row.e?.protect)
-        return showResult('warn', 'Nothing to undo', `#${row.e.id}: the Protect on ${dstItem(row.e.dst, row.e.dstName).label} changed after it.`);
-      const what = row.f ? groupIds(row.f) : `#${row.e.id}`;
-      return showResult('warn', 'Nothing to undo', `Nothing was routed before ${what}.`);
-    }
+    const view = rowView(row);
+    const x = row.f || row.e;
+    const plan = view.actions(x).undo.plan;
+    if (planEmpty(plan)) return showResult('warn', 'Nothing to undo', view.empty(x));
     openConfirm(plan);
   }
 

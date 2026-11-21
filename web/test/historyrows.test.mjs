@@ -69,7 +69,7 @@ const prot = (id, dst, t, o = {}) => ({
 });
 
 test('histRows: one Protect action on many destinations is one Group, and quick actions fold', async () => {
-  const { histRows, emit } = await setup();
+  const { histRows, emit, rowView } = await setup();
   const a = [prot(3, 2, 0, { group: 'pA', groupN: 2 }), prot(2, 1, 0, { group: 'pA', groupN: 2 })];
   const b = [prot(5, 4, 10, { group: 'pB', groupN: 2 }), prot(4, 3, 10, { group: 'pB', groupN: 2 })];
   emit('history');
@@ -78,6 +78,12 @@ test('histRows: one Protect action on many destinations is one Group, and quick 
   assert.equal(rows[0].f.group, 'pA');
   assert.equal(rows[0].f.entries.length, 4);
   assert.equal(rows[0].f.folded, 2);
+  const route = (f) => rowView({ f }).route(f);
+  assert.deepEqual([route(rows[0].f).dst, route(rows[0].f).notes], ['4 destinations', ['2 actions']]);
+  // Two actions of one destination each say no more than "2 destinations".
+  emit('history');
+  const two = histRows([prot(8, 6, 1), prot(7, 5, 0)])[0].f;
+  assert.deepEqual([route(two).dst, route(two).notes], ['2 destinations', []]);
   // A Free Protect stays apart.
   emit('history');
   rows = histRows([prot(6, 1, 12, { protect: 'clear' }), ...b, ...a]);

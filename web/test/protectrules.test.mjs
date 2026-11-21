@@ -18,9 +18,12 @@ import {
   protectUndoable,
   entryChip,
   protectFoldKey,
-  foldProtects,
+  protectFoldOpts,
+  foldedNote,
+  newestProtects,
 } from '../protectrules.js';
 import { fuzzyScore } from '../fuzzy.js';
+import { mergeRuns } from '../historyruns.js';
 
 const prot = (rows) => {
   const m = new Map();
@@ -193,12 +196,12 @@ test('protectUndoable: only the newest ok Protect entry of a destination, and on
     { id: 8, dst: 9, protect: 'set', ok: false },
     { id: 9, dst: 4, src: 2, ok: true },
   ];
-  assert.equal(protectUndoable(hist[2], hist, 'clear'), true);
-  assert.equal(protectUndoable(hist[2], hist, ''), false, 'someone else holds it now');
-  assert.equal(protectUndoable(hist[2], hist, 'set'), false, 'cleared since');
-  assert.equal(protectUndoable(hist[0], hist, 'clear'), false, 'an older entry');
-  assert.equal(protectUndoable(hist[1], hist, 'set'), false, 'an older entry');
-  assert.equal(protectUndoable(hist[3], hist, 'set'), false, 'failed');
+  assert.equal(protectUndoable(hist[2], newestProtects(hist), 'clear'), true);
+  assert.equal(protectUndoable(hist[2], newestProtects(hist), ''), false, 'someone else holds it now');
+  assert.equal(protectUndoable(hist[2], newestProtects(hist), 'set'), false, 'cleared since');
+  assert.equal(protectUndoable(hist[0], newestProtects(hist), 'clear'), false, 'an older entry');
+  assert.equal(protectUndoable(hist[1], newestProtects(hist), 'set'), false, 'an older entry');
+  assert.equal(protectUndoable(hist[3], newestProtects(hist), 'set'), false, 'failed');
 });
 
 test('entryChip: one chip for each History Protect entry, Free with its own icon', () => {
@@ -222,9 +225,9 @@ test('protectUndoable: an External Protect entry has no Undo, and blocks the Und
     { id: 2, ok: true, protect: 'set', ext: true, holdKind: 'protect', dst: 4 },
     { id: 1, ok: true, protect: 'clear', dst: 4 },
   ];
-  assert.equal(protectUndoable(hist[0], hist, 'set'), false);
-  assert.equal(protectUndoable(hist[0], hist, 'clear'), false);
-  assert.equal(protectUndoable(hist[1], hist, 'set'), false);
+  assert.equal(protectUndoable(hist[0], newestProtects(hist), 'set'), false);
+  assert.equal(protectUndoable(hist[0], newestProtects(hist), 'clear'), false);
+  assert.equal(protectUndoable(hist[1], newestProtects(hist), 'set'), false);
 });
 
 // History rows of Protect actions (newest first). t is seconds after a fixed start.
@@ -242,9 +245,12 @@ test('protectFoldKey: the same direction by the same person; no undo and no othe
   assert.equal(protectFoldKey([pe(1, 0), pe(2, 0, { protect: 'clear' })]), '');
 });
 
-test('foldProtects: neighbours within the gap fold into one Group, keyed by the oldest', () => {
-  const rows = [grp('p2', pe(40, 20), pe(39, 20)), { e: pe(30, 10) }, grp('p1', pe(20, 0), pe(19, 0))];
-  const out = foldProtects(rows, 15000);
+const fold = (rows, gap) => mergeRuns(rows, protectFoldOpts(gap));
+const show = (r) => ({ ...r, shows: true });
+
+test('folding: neighbours within the gap fold into one Group, keyed by the oldest', () => {
+  const rows = [grp('p2', pe(40, 20), pe(39, 20)), { e: pe(30, 10) }, grp('p1', pe(20, 0), pe(19, 0))].map(show);
+  const out = fold(rows, 15000);
   assert.equal(out.length, 1);
   const f = out[0].f;
   assert.equal(f.group, 'p1');
@@ -255,19 +261,35 @@ test('foldProtects: neighbours within the gap fold into one Group, keyed by the 
     [40, 39, 30, 20, 19],
   );
   // The gap is between neighbours, not the whole span.
-  assert.equal(foldProtects(rows, 9000).length, 3);
-  assert.equal(foldProtects(rows, 0), rows);
+  assert.equal(fold(rows, 9000).length, 3);
+  assert.equal(fold(rows, 0), rows);
+  // A lone oldest entry gives an id no server Group has.
+  assert.equal(fold([{ e: pe(30, 10) }, { e: pe(20, 0) }].map(show), 30000)[0].f.group, 'fold-20');
 });
 
-test('foldProtects: another row, the other direction or an undo ends the fold', () => {
-  const take = { e: { id: 25, time: pe(0, 5).time, src: 3, dst: 9, ok: true } };
-  assert.equal(foldProtects([{ e: pe(30, 10) }, take, { e: pe(20, 0) }], 30000).length, 3);
-  assert.equal(foldProtects([{ e: pe(30, 10, { protect: 'clear' }) }, { e: pe(20, 0) }], 30000).length, 2);
-  assert.equal(foldProtects([{ e: pe(30, 10, { undo: 20 }) }, { e: pe(20, 0) }], 30000).length, 2);
-  // A row the filters hide ends it too.
-  assert.equal(foldProtects([{ e: pe(30, 10) }, { hidden: true }, { e: pe(20, 0) }], 30000).length, 3);
-  const hiddenGroup = { f: { group: 'g', n: 1, entries: [pe(25, 5)], shown: [] } };
-  assert.equal(foldProtects([{ e: pe(30, 10) }, hiddenGroup, { e: pe(20, 0) }], 30000).length, 3);
-  const one = [{ e: pe(30, 10) }];
-  assert.deepEqual(foldProtects(one, 30000), one);
+test('folding: another row, the other direction, an undo or a hidden row ends the fold', () => {
+  const take = show({ e: { id: 25, time: pe(0, 5).time, src: 3, dst: 9, ok: true } });
+  assert.equal(fold([show({ e: pe(30, 10) }), take, show({ e: pe(20, 0) })], 30000).length, 3);
+  assert.equal(fold([{ e: pe(30, 10, { protect: 'clear' }) }, { e: pe(20, 0) }].map(show), 30000).length, 2);
+  assert.equal(fold([{ e: pe(30, 10, { undo: 20 }) }, { e: pe(20, 0) }].map(show), 30000).length, 2);
+  assert.equal(fold([show({ e: pe(30, 10) }), { e: pe(25, 5), shows: false }, show({ e: pe(20, 0) })], 30000).length, 3);
+  const one = [show({ e: pe(30, 10) })];
+  assert.deepEqual(fold(one, 30000), one);
+});
+
+test('mergeRuns: a run goes on through other lanes, and a row of its lane that does not join ends it', () => {
+  const r = (id, lane, t, k = 'k', shows = true) => ({ id, lane, t, k, shows });
+  const opts = { lane: (x) => x.lane, key: (x) => x.k, gapMs: 10, span: (x) => [x.t, x.t], join: (run) => ({ id: run.map((x) => x.id).join('+') }) };
+  const ids = (rows) => mergeRuns(rows, opts).map((x) => x.id);
+  assert.deepEqual(ids([r(3, 'a', 20), r(2, 'b', 15), r(1, 'a', 10)]), ['3+1', 2]);
+  assert.deepEqual(ids([r(3, 'a', 20), r(2, 'a', 15, ''), r(1, 'a', 10)]), [3, 2, 1]);
+  assert.deepEqual(ids([r(3, 'a', 20), r(2, 'a', 15, 'k', false), r(1, 'a', 10)]), [3, 2, 1]);
+  assert.deepEqual(ids([r(3, 'a', 20), r(1, 'a', 9)]), [3, 1]);
+});
+
+test('foldedNote: "N actions" only when an action had more than one destination', () => {
+  const f = (folded, dsts) => ({ folded, entries: dsts.map((dst) => ({ dst })) });
+  assert.equal(foldedNote(f(2, [1, 2])), '');
+  assert.equal(foldedNote(f(2, [1, 2, 3, 4])), '2 actions');
+  assert.equal(foldedNote(f(undefined, [1, 2])), '');
 });

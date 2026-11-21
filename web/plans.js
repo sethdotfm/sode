@@ -1,6 +1,6 @@
 import { el, S, search, on, onMsg, emit, wsSend, off, linked, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
 import { protectedText } from './protectrules.js';
-import { protectSummary, sendProtect, protectRow, holdsAt, holdBadge, protectGroupUndo } from './protects.js';
+import { protectSummary, sendProtect, holdsAt, holdBadge } from './protects.js';
 import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
@@ -128,14 +128,13 @@ function withFollows(plan, follows) {
   return oldest.size ? { ...plan, extra: { items: [...oldest.values()].map(undoItem), on: false } } : plan;
 }
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
-export const undoPlan = (e) => (e.protect ? protectRow(e).undo : withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []));
+export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
+// A take's plans; a Protect row's Undo is its own (protects.js PROTECT_ENTRY, PROTECT_GROUP).
 export const groupUndoPlan = (f) =>
-  f.entries.every((e) => e.protect)
-    ? protectGroupUndo(f)
-    : withFollows(
-        { verb: 'undo', items: f.entries.map(undoItem) },
-        f.entries.flatMap((e) => e.follows || []),
-      );
+  withFollows(
+    { verb: 'undo', items: f.entries.map(undoItem) },
+    f.entries.flatMap((e) => e.follows || []),
+  );
 // A group with failed takes retries only those; otherwise it redoes every redoable take. Empty
 // items = nothing to offer. ofUndo marks a redo of an undo row, which leaves Last alone.
 export function againPlan(row) {
@@ -145,7 +144,6 @@ export function againPlan(row) {
   const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
   return use.some((e) => e.undo) ? { ...plan, ofUndo: true } : plan;
 }
-export const rowUndoPlan = (row) => (row.f ? groupUndoPlan(row.f) : undoPlan(row.e));
 
 // The one table of verb wording. busy: banner while it sends; resets: whether a send clears the
 // patch boxes (only a new patch does).

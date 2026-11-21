@@ -104,11 +104,7 @@ test('preset trigger: plan carries the name, history shows it, search finds it',
     entries: [e({ id: 2, src: 0, dst: 1, group: 'g', groupN: 2, preset: 'Morning' }), e({ id: 3, src: 0, dst: 2, group: 'g', groupN: 2, preset: 'Morning' })],
   };
   f.shown = f.entries;
-  const title = m
-    .groupTitle(f)
-    .map((n) => (typeof n === 'string' ? n : text(n)))
-    .join('');
-  assert.match(title, /Preset: Morning/);
+  assert.ok(m.rowView({ f }).route(f).notes.includes('Preset: Morning'));
   const hist = [
     e({ id: 5, src: 0, dst: 1, srcName: 'Cam 1', dstName: 'Rec 2', preset: 'Morning' }),
     e({ id: 6, src: 1, dst: 2, srcName: 'Cam 2', dstName: 'Rec 3' }),

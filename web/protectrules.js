@@ -110,13 +110,20 @@ export function protectOffer(p, { right, admin = false, device, linked }) {
 // Then only a Sode with no users (every browser an Administrator) has it. Keep in step with AllowsProtect on the server.
 export const protectRight = (rights, role, users) => (rights ? rights.protect === true : role === 'administrator' && !users?.length);
 
+// dst → the id of the newest ok Protect entry of that destination in hist, another system's too.
+export function newestProtects(hist) {
+  const m = new Map();
+  for (const x of hist) if (x.protect && x.ok && !(m.get(x.dst) > x.id)) m.set(x.dst, x.id);
+  return m;
+}
+
 // A Protect History entry e can be undone when two things are true. It is the newest ok Protect entry of its
-// destination in hist. And offer (protectOfferOf now) is the opposite of what e did. Else Undo would undo another thing.
-export function protectUndoable(e, hist, offer) {
-  // A Protect another system set or freed is not Sode's to undo; it still counts as the newest entry below.
+// destination (newest: newestProtects of History). And offer (protectOfferOf now) is the opposite of what e did.
+// Else Undo would undo another thing.
+export function protectUndoable(e, newest, offer) {
+  // A Protect another system set or freed is not Sode's to undo; it still counts as the newest entry.
   if (!e.ok || !e.protect || e.ext) return false;
-  const newest = hist.reduce((m, x) => (x.protect && x.ok && x.dst === e.dst && (!m || x.id > m.id) ? x : m), null);
-  if (newest && newest.id !== e.id) return false;
+  if (newest.has(e.dst) && newest.get(e.dst) !== e.id) return false;
   return offer === (e.protect === 'set' ? 'clear' : 'set');
 }
 
@@ -129,50 +136,42 @@ export function protectFoldKey(entries) {
   return key && entries.every((x) => k(x) === key) ? key : '';
 }
 
-// Folds neighbouring History rows ({e} or {f}, newest first) of Protect actions into one Group row. Each must come at
-// most gapMs before the one above (docs/agents/history.md, stackGap). A folded row is {f} with every entry, newest
-// first. Its group comes from its oldest row, so a new action that joins it keeps it open. n adds up each row's
-// size, so a Group still on its way reads as one.
-export function foldProtects(rows, gapMs) {
-  if (!(gapMs > 0)) return rows;
-  const out = [];
-  let run = null;
-  for (const r of rows) {
-    // A row the filters hide ({hidden} or a Group with nothing shown) ends the fold, as it ends a stacked row.
-    if (r.hidden || (r.f && !r.f.shown.length)) {
-      run = null;
-      out.push(r);
-      continue;
-    }
-    const es = r.f ? r.f.entries : [r.e];
-    const key = protectFoldKey(es);
-    const times = es.map((e) => Date.parse(e.time));
-    const newest = Math.max(...times);
-    if (key && run && run.key === key && run.oldest - newest <= gapMs) {
-      run.rows.push(r);
-      run.oldest = Math.min(...times);
-      continue;
-    }
-    run = key ? { key, rows: [r], oldest: Math.min(...times) } : null;
-    out.push(run || r);
-  }
-  return out.map((x) => (x.rows ? foldRow(x.rows) : x));
+const rowEntries = (r) => (r.f ? r.f.entries : [r.e]);
+
+// [newest, oldest] time of a History row ({e} or {f}), in ms.
+export function rowSpan(r) {
+  const times = rowEntries(r).map((e) => Date.parse(e.time));
+  return [Math.max(...times), Math.min(...times)];
 }
 
-function foldRow(rows) {
-  if (rows.length === 1) return rows[0];
+export const protectFoldOpts = (gapMs) => ({ key: (r) => protectFoldKey(rowEntries(r)), gapMs, span: rowSpan, join: foldRow });
+
+// One Group row of folded Protect rows (newest first), with every entry. Its group is its oldest row's, so a new
+// action that joins it keeps an open row open. A lone oldest entry gives `fold-<id>`, which no server Group has. n adds
+// up each row's size, so a Group still on its way reads as one.
+export function foldRow(rows) {
   const last = rows[rows.length - 1];
   const part = (r) => (r.f ? { entries: r.f.entries, shown: r.f.shown, n: r.f.n } : { entries: [r.e], shown: [r.e], n: 1 });
   const parts = rows.map(part);
   return {
     f: {
-      group: last.f ? last.f.group : `s${last.e.id}`,
+      group: last.f ? last.f.group : `fold-${last.e.id}`,
       n: parts.reduce((s, p) => s + p.n, 0),
       entries: parts.flatMap((p) => p.entries),
       shown: parts.flatMap((p) => p.shown),
       folded: rows.length,
     },
+    shows: true,
   };
+}
+
+// A Group of Protect entries: one action on many destinations, or folded actions.
+export const protectGroup = (f) => f.entries.every((e) => e.protect);
+
+// "(N actions)" after a folded row says something only when an action had more than one destination.
+export function foldedNote(f) {
+  if (!(f.folded > 1)) return '';
+  return f.folded === new Set(f.entries.map((e) => e.dst)).size ? '' : `${f.folded} actions`;
 }
 
 // The Protect picker's filters (protectpick.js), in the order of its chips.

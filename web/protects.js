@@ -7,7 +7,20 @@ import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
-import { holdsOn, holdLabel, holdShort, protectedText, protectOffer, protectRight, holdLook, entryChip, protectUndoable } from './protectrules.js';
+import {
+  holdsOn,
+  holdLabel,
+  holdShort,
+  protectedText,
+  protectOffer,
+  protectRight,
+  holdLook,
+  entryChip,
+  protectUndoable,
+  newestProtects,
+  foldedNote,
+} from './protectrules.js';
+import { groupIds, groupPartial } from './history.js';
 
 let seq = 0;
 const pending = new Map(); // id → { plan, answer }
@@ -65,23 +78,79 @@ export function protectManyPlan(dsts, on, { undos = null, skipped = 0 } = {}) {
 
 export const protectPlan = (dst, on, undo = null) => protectManyPlan([dst], on, { undos: [undo] });
 
-// Undo all of a History Group of Protect entries: the opposite on each entry that protectUndoable allows. The rest
-// are skipped and the Confirm says how many. No entry to undo gives an empty plan.
-export function protectGroupUndo(f) {
-  const can = f.entries.filter((e) => protectUndoable(e, S.hist, protectOfferOf(e.dst)));
-  if (!can.length) return { verb: 'undo', items: [] };
+// The newest ok Protect entry of each destination in S.hist, once for each History draw. takePage adds to S.hist in
+// place, so the length is part of the key, as in histRows.
+let newestCache = null;
+function newest() {
+  const h = S.hist;
+  const c = newestCache;
+  if (c && c.list === h && c.len === h.length && c.first === h[0]) return c.map;
+  newestCache = { list: h, len: h.length, first: h[0], map: newestProtects(h) };
+  return newestCache.map;
+}
+
+// Undo works only on the newest Protect entry of its destination, and only when the route view would offer the
+// opposite now (protectUndoable). The layouts draw the rows again on a Protect change, so the button follows it.
+const undoable = (e) => protectUndoable(e, newest(), protectOfferOf(e.dst));
+const NO_UNDO = { verb: 'undo', items: [] };
+const NO_REDO = { plan: { verb: 'redo', items: [] }, label: '' };
+
+// Undo all of Protect entries: the opposite on each entry that protectUndoable allows. The rest are skipped and the
+// Confirm says how many. No entry to undo gives an empty plan.
+function groupUndo(f) {
+  const can = f.entries.filter(undoable);
+  if (!can.length) return NO_UNDO;
   const set = can[0].protect === 'set';
   const dsts = can.map((e) => dstItem(e.dst, e.dstName));
   return protectManyPlan(dsts, !set, { undos: can, skipped: f.entries.length - can.length });
 }
 
-// The chip and destination of a Group of Protect entries (all of one kind), for its History row.
-export function protectGroupHead(f) {
-  const look = entryChip(f.entries[0]);
-  const seen = new Map(f.entries.map((e) => [e.dst, e.dstName]));
-  const dsts = [...seen].map(([n, name]) => dstItem(n, name));
-  return { chip: protectChip(look, look.text), text: look.text, dsts, label: dsts.length === 1 ? dsts[0].label : `${dsts.length} destinations` };
-}
+const chipOf = (e) => {
+  const look = entryChip(e);
+  return protectChip(look, look.text);
+};
+const sourceWord = (groups) => (groups.length > 1 ? 'Sources' : 'Source');
+
+// History's descriptor of a Protect entry (historyrows.js rowView has the fields). It has no source, so its chip
+// stands where the source is, and its detail lists the sources on the destination when it ran (prev).
+export const PROTECT_ENTRY = {
+  route: (e) => ({ lead: chipOf(e), src: null, dst: dstItem(e.dst, e.dstName) }),
+  disc: (e, groups) => sourceWord(groups),
+  detail: (e, dst, groups) => `${sourceWord(groups)} on ${dst.label}`,
+  actions(e) {
+    const dst = dstItem(e.dst, e.dstName);
+    const set = e.protect === 'set';
+    const label = e.ext ? 'Another system made this change; Sode cannot undo it' : set ? `Free the Protect on ${dst.label}` : `Protect ${dst.label} again`;
+    const plan = !e.ext && undoable(e) ? protectPlan(dst, !set, e) : NO_UNDO;
+    return { undo: { plan, label, text: 'Undo', tip: label }, again: NO_REDO };
+  },
+  empty: (e) => (e.ext ? `#${e.id}: another system made this change.` : `#${e.id}: the Protect on ${dstItem(e.dst, e.dstName).label} changed after it.`),
+};
+
+// A Group of Protect entries, all of one kind: one action on many destinations, or folded actions. Undo all undoes
+// each entry that PROTECT_ENTRY would. A Protect has no Redo.
+export const PROTECT_GROUP = {
+  route(f) {
+    const seen = new Map(f.entries.map((e) => [e.dst, e.dstName]));
+    const dsts = [...seen].map(([n, name]) => dstItem(n, name));
+    const notes = [foldedNote(f), f.entries.every((e) => e.undo != null) && 'undo', groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`];
+    return {
+      lead: chipOf(f.entries[0]),
+      src: null,
+      dst: dsts.length === 1 ? dsts[0] : `${dsts.length} destinations`,
+      many: dsts.length > 1 ? dsts : null,
+      notes: notes.filter(Boolean),
+    };
+  },
+  noun: 'destinations',
+  actions(f) {
+    const n = f.entries.length;
+    const what = f.entries[0].protect === 'set' ? 'Protects' : 'Free Protects';
+    const label = f.entries[0].ext ? 'Another system made these changes; Sode cannot undo them' : `Undo all ${n} ${what} of ${groupIds(f)}`;
+    return { undo: { plan: groupUndo(f), label, text: groupPartial(f) ? `Undo all ${n}` : 'Undo all', tip: label }, again: NO_REDO };
+  },
+  empty: (f) => (f.entries[0].ext ? `${groupIds(f)}: another system made these changes.` : `${groupIds(f)}: the Protects changed after it.`),
+};
 
 // The Confirm's line for the entries an Undo all leaves.
 const skippedNote = (plan) =>
@@ -187,7 +256,9 @@ const where = (dsts) => (dsts.length === 1 ? dsts[0].dst.label : `${dsts.length}
 export function sendProtect(plan, ap = null, answer = null) {
   const { dsts, on } = plan.protect;
   const id = ++seq;
-  const msg = { t: on ? 'protectSet' : 'protectClear', id, protect: { dsts: wireDsts(dsts) } };
+  const protect = { dsts: wireDsts(dsts) };
+  // Each type written out, so policy_test.go finds both sent.
+  const msg = on ? { t: 'protectSet', id, protect } : { t: 'protectClear', id, protect };
   if (ap) msg.approval = ap;
   if (!wsSend(msg)) {
     showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
@@ -270,18 +341,3 @@ onMsg('protectClearAllResult', (m) => {
   }
   done(m.ok, m.ok ? `${m.cleared || 0} freed` : m.err);
 });
-
-// What a History row of a Protect says (its chip) and what its Undo does. null for a take. Another system's change has
-// no Undo.
-export function protectRow(e) {
-  if (!e.protect) return null;
-  const dst = dstItem(e.dst, e.dstName);
-  const set = e.protect === 'set';
-  const look = entryChip(e);
-  return {
-    text: look.text,
-    chip: () => protectChip(look, look.text),
-    undo: e.ext ? { verb: 'undo', items: [] } : protectPlan(dst, !set, e),
-    undoLabel: e.ext ? `Another system made this change; Sode cannot undo it` : set ? `Free the Protect on ${dst.label}` : `Protect ${dst.label} again`,
-  };
-}

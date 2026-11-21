@@ -1,12 +1,11 @@
 // The phone's History rows: swipe left to show Undo, right to show Redo (Retry for failed takes).
-import { $, el, S, on, dstItem, srcItem, labelNode, toggle } from './core.js';
+import { $, el, S, on, dstItem, labelNode, toggle } from './core.js';
 import { levelBar } from './levelview.js';
 import { fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, groupTitle, groupLevels, stackBefore, protectGroup, protectGroupNote } from './history.js';
+import { entryNote, historyPager, statusNode, groupLevels, stackBefore, routeNote } from './history.js';
 import { layout } from './layout.js';
 import { emptyNote } from './searchbox.js';
-import { rowActions, disclosureAria, followersHead } from './historyrows.js';
-import { protectRow, protectGroupHead } from './protects.js';
+import { rowView, disclosureAria, followersHead } from './historyrows.js';
 import { picking, isPicked, pickBox, bindPick, pickBar } from './historypick.js';
 import { byLabel, disclosure, undoButton, againButton, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
@@ -22,6 +21,10 @@ export function closeSwipes(except) {
   }
 }
 
+// r: rowView's route. A lead (a Protect chip) stands where the source is, with no arrow.
+const strong = (x) => el('strong', null, typeof x === 'string' ? x : labelNode(x));
+const routeNodes = (r) => [...(r.lead ? [r.lead, ' '] : [strong(r.src), ' → ']), strong(r.dst), routeNote(r.notes)];
+
 // sheetFor(plan) opens the Confirm sheet; pickSrc(n) puts a source in the composer.
 export function mobileHistory({ sheetFor, pickSrc }) {
   const arrived = arrivals();
@@ -34,9 +37,8 @@ export function mobileHistory({ sheetFor, pickSrc }) {
   const redoBtn = (plan, label) => againButton(plan, label, sheetFor, { placeholder: false, cls: 'sode-m__redo' });
 
   function historyRow(e) {
-    const src = srcItem(e.src, e.srcName),
-      dst = dstItem(e.dst, e.dstName);
-    const acts = rowActions({ e });
+    const view = rowView({ e });
+    const acts = view.actions(e);
     const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
     const status = statusNode({ e });
     const retry = redoBtn(acts.again.plan, acts.again.label);
@@ -66,8 +68,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         'div',
         'sode-m__recent-route',
         ...(e.chain ? [el('span', 'sode__hist-note', stackBefore(e).text), ' to '] : []),
-        ...(e.protect ? [protectRow(e).chip(), ' '] : [el('strong', null, labelNode(src)), ' → ']),
-        el('strong', null, labelNode(dst)),
+        ...routeNodes(view.route(e)),
         entryNote(e),
         byLabel(e),
       ),
@@ -92,16 +93,16 @@ export function mobileHistory({ sheetFor, pickSrc }) {
   function groupRows(f) {
     const open = openGroups.has(f.group);
     const kidsId = `m-folder-${f.group}`;
-    const acts = rowActions({ f });
+    const view = rowView({ f });
+    const acts = view.actions(f);
     const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
     const retry = redoBtn(acts.again.plan, acts.again.label);
     const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
       toggle(openGroups, f.group);
       renderHistory();
     });
-    const prot = protectGroup(f) && protectGroupHead(f);
-    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, prot ? 'destinations' : 'takes'));
-    const title = prot ? [prot.chip, ' ', el('strong', null, prot.label), protectGroupNote(f)] : groupTitle(f);
+    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, view.noun));
+    const title = routeNodes(view.route(f));
 
     const face = el(
       'div',

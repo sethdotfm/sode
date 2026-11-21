@@ -1,12 +1,13 @@
 // History as the views show it: rows and Groups from S.hist. Owns the rows memo (histRows),
 // dropped when anything it reads changes.
 
-import { el, S, on, onFirst, onMsg, emit, off, wsSend, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, on, onFirst, onMsg, emit, off, wsSend, srcItem, dstItem, tallyText } from './core.js';
 import { levelText } from './levelview.js';
 import { filterFn } from './filter.js';
 import { filterAllows } from './filterstore.js';
 import { pref } from './device.js';
-import { entryChip, foldProtects } from './protectrules.js';
+import { entryChip, protectFoldOpts } from './protectrules.js';
+import { mergeRuns } from './historyruns.js';
 import { statusText } from './statustext.js';
 
 // Quick search above History. It reads back through the whole log. It ignores the filters unless this browser's setting says otherwise. Not kept.
@@ -92,11 +93,9 @@ export function histRows(list) {
   return rows;
 }
 
+// No search stacks or folds.
 function buildRows(list) {
-  const rows = [];
-  const byGroup = new Map();
-  const chains = new Map();
-  const gap = stackGapMs();
+  const gap = searchActive() ? 0 : stackGapMs();
   // External follow entries go with the take they probably followed (e.follows) when it is loaded and shown. One whose take is
   // hidden stands alone if it passes the filters itself.
   const byId = new Map(list.map((e) => [e.id, e]));
@@ -122,55 +121,54 @@ function buildRows(list) {
     if (!followers.has(e.followGroup)) followers.set(e.followGroup, []);
     followers.get(e.followGroup).push(e);
   }
-  for (const orig of list) {
-    if (attached.has(orig)) {
-      chains.delete(orig.dst);
-      continue;
-    }
+  // Each entry first stands alone, because a hidden entry, a Group's entry and an attached follow end a stack. Then it
+  // goes to its Group or its take.
+  const items = list.map((orig) => {
     const e = followsOf.has(orig.id) ? { ...orig, follows: followsOf.get(orig.id) } : orig;
-    // Merge into the row above if it is a change to the same destination and levels with
-    // nothing else on it between. One the filters hide ends the row instead.
-    const solo = !e.group || e.groupN < 2;
-    const k = `${e.levels.join(',')}${e.found ? ' found' : ''}`; // found and announced do not mix
     const t = Date.parse(e.time);
-    const c = chains.get(e.dst);
-    if (stacks(e) && c && c.k === k && gap > 0 && c.t - t <= gap && !searchActive() && passes(e)) {
-      c.list.push(orig);
-      const follows = [...(c.row.e.follows || []), ...(e.follows || [])];
-      c.row.e = { ...c.row.e, prev: e.prev, merged: c.list.length, chain: c.list, ...(follows.length ? { follows } : {}) };
-      c.t = t;
+    return { e, orig, span: [t, t], attached: attached.has(orig), shows: !attached.has(orig) && passes(e) };
+  });
+  const stacked = mergeRuns(items, {
+    lane: (r) => r.e.dst,
+    key: (r) => (stacks(r.e) ? `${r.e.levels.join(',')}${r.e.found ? ' found' : ''}` : ''), // found and announced do not mix
+    gapMs: gap,
+    span: (r) => r.span,
+    join: stackRow,
+  });
+  const rows = [];
+  const byGroup = new Map();
+  for (const r of stacked) {
+    if (r.attached) continue;
+    if (!r.e.group || r.e.groupN < 2) {
+      rows.push({ e: r.e, shows: r.shows });
       continue;
     }
-    chains.delete(e.dst);
-    if (solo) {
-      // A marker, so foldProtects does not fold across a hidden row; dropped below.
-      if (!passes(e)) {
-        rows.push({ hidden: true });
-        continue;
-      }
-      const row = { e };
-      if (stacks(e)) chains.set(e.dst, { k, row, t, list: [orig] });
+    let row = byGroup.get(r.e.group);
+    if (!row) {
+      row = { f: { group: r.e.group, n: r.e.groupN, entries: [], shown: [] } };
+      byGroup.set(r.e.group, row);
       rows.push(row);
-      continue;
     }
-    let f = byGroup.get(e.group);
-    if (!f) {
-      f = { group: e.group, n: e.groupN, entries: [], shown: [] };
-      byGroup.set(e.group, f);
-      rows.push({ f });
-    }
-    f.entries.push(e);
-    if (passes(e)) f.shown.push(e);
+    row.f.entries.push(r.e);
+    if (r.shows) row.f.shown.push(r.e);
   }
   for (const [g, fs] of followers) {
-    const f = byGroup.get(g);
+    const f = byGroup.get(g)?.f;
     if (!f) continue;
     const shown = fs.filter(passes);
     if (shown.length) f.followers = shown;
     if (shown.length && searchActive() && !f.shown.length) f.shown = f.entries;
   }
-  const real = (r) => !r.hidden && (!r.f || r.f.shown.length);
-  return (searchActive() ? rows : foldProtects(rows, gap)).filter(real);
+  for (const row of byGroup.values()) row.shows = row.f.shown.length > 0;
+  return mergeRuns(rows, protectFoldOpts(gap)).filter((r) => r.shows);
+}
+
+// A stacked row: the newest change, with the oldest's prev, merged = count and chain = each change, newest first.
+function stackRow(run) {
+  const [top] = run;
+  const follows = run.flatMap((r) => r.e.follows || []);
+  const e = { ...top.e, prev: run[run.length - 1].e.prev, merged: run.length, chain: run.map((r) => r.orig), ...(follows.length ? { follows } : {}) };
+  return { ...top, e };
 }
 
 // A Group's entries arrive one at a time; a Group that still fills is "in flight" for a while. After that,
@@ -214,36 +212,8 @@ export function statusNode(row) {
   return node;
 }
 
-export function groupTitle(f) {
-  const srcs = [...new Set(f.entries.map((e) => e.src))];
-  const dsts = [...new Set(f.entries.map((e) => e.dst))];
-  const strong = (t) => el('strong', null, t);
-  const src = srcs.length === 1 ? labelNode(srcItem(srcs[0], f.entries[0].srcName)) : `${srcs.length} sources`;
-  const dst = dsts.length === 1 ? labelNode(dstItem(dsts[0], f.entries[0].dstName)) : `${dsts.length} destinations`;
-  const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
-  const nFollow = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
-  const preset = f.entries.find((e) => e.preset)?.preset;
-  const notes = [
-    preset && `Preset: ${preset}`,
-    kind,
-    groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
-    nFollow && `+${nFollow} External follow ${nFollow === 1 ? 'entry' : 'entries'}`,
-  ].filter(Boolean);
-  return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
-}
-
-// A Group of Protect entries (one action on many destinations, or folded actions); the views draw its chip.
-export const protectGroup = (f) => f.entries.every((e) => e.protect);
-
-// The note after a Group of Protect entries: the actions it folds (foldProtects), undo, and what the filters hide.
-export function protectGroupNote(f) {
-  const notes = [
-    f.folded > 1 && `${f.folded} actions`,
-    f.entries.every((e) => e.undo != null) && 'undo',
-    groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
-  ].filter(Boolean);
-  return notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null;
-}
+// The words in brackets after a row's route (rowView's route notes); null for none.
+export const routeNote = (notes) => (notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null);
 
 export const groupPartial = (f) => !!f.shown && f.shown.length < f.entries.length;
 
