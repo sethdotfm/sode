@@ -28,7 +28,7 @@ export const PREF_LABELS = {
   scrollTop: 'Scroll to top on focus',
   setStack: 'Stacked filters behavior',
   nextMode: 'Next match behavior',
-  stackGap: 'Stack quick changes to one destination',
+  stackGap: 'Stack quick changes in History',
   searchFilters: 'Searching history respects filters',
   compact: 'Compact view',
   paletteChar: 'Palette character',
