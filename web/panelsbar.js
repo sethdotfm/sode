@@ -1,7 +1,7 @@
 // The one page header of every page but a panel page: the main page (homebar.js), /panels, the panel editor (its
-// Live Editor too) and /log. The Lock bar floats at its left (lock.css). Then come the site name, a group of icon links, a gap,
-// Inbox and the status. base.css lays it out. Panel pages keep their own.
-import { el, icon, on } from './core.js';
+// Live Editor too) and /log. The Lock bar floats at its left (lock.css). Then come the site name, a rule, the icon
+// links, a gap, Inbox, a rule and the status. base.css lays it out. Panel pages keep their own.
+import { el, icon, on, emit } from './core.js';
 import { connBox, paintConn } from './connview.js';
 import { keyLabel, ariaKeys } from './keys.js';
 import { HOME_CHORD } from './homekeyrules.js';
@@ -49,16 +49,30 @@ function homeLink() {
   return n;
 }
 
-// Settings, then Panels (with panels), then Home. leave is the page's unsaved-edits rule (paneleditor.js).
-export function barLinks({ panels = false, leave = null } = {}) {
+// The Palette, as Ctrl+Shift+P (palette.js).
+const PALETTE_CHORD = 'ctrl+shift+p';
+function paletteButton() {
+  const n = el('button', 'pb-btn pb-btn--ghost pb-btn--icon sode-bar__palette', icon('chevron-right', false));
+  n.type = 'button';
+  n.setAttribute('aria-label', 'Palette');
+  n.setAttribute('aria-keyshortcuts', ariaKeys(PALETTE_CHORD));
+  n.dataset.pbTip = `Palette (${keyLabel(PALETTE_CHORD)})`;
+  n.addEventListener('click', () => emit('paletteButton'));
+  return n;
+}
+
+// Home (or home, a page's own first button), Panels (with panels), Palette, Settings. leave is the page's
+// unsaved-edits rule (paneleditor.js).
+export function barLinks({ panels = false, leave = null, home = null } = {}) {
   const links = [
+    home ? null : homeLink(),
+    panels ? panelsLink() : null,
     // The main page's Settings button (index.html #settings-open), as a link: settings.js opens the view at #settings.
     iconLink('sode-bar__settings', 'settings', 'Settings', './#settings'),
-    panels ? panelsLink() : null,
-    homeLink(),
   ].filter(Boolean);
   if (leave) for (const a of links) guard(a, leave);
-  return links;
+  const settings = links.pop();
+  return [home ?? links.shift(), ...links, paletteButton(), settings];
 }
 
 // Sets the site name in a bar's title. The name can be cut with an ellipsis, so the tip gives it in full.
@@ -72,6 +86,12 @@ export function barTitle(title, text) {
   title.dataset.pbTip = text;
 }
 
+function rule(cls) {
+  const n = el('span', `sode-bar__rule ${cls}`);
+  n.setAttribute('aria-hidden', 'true');
+  return n;
+}
+
 // Makes head (a header with its .sode-panels__title) the bar: the links go after the title and the status goes last.
 // A head that already holds its status (the main page's #conn) keeps it, and its page paints it.
 export function panelsBar(head, opts = {}) {
@@ -81,12 +101,16 @@ export function panelsBar(head, opts = {}) {
   title.replaceChildren(el('span', 'sode-bar__name'));
   barTitle(title, text);
   const tools = el('div', 'sode-bar__tools', ...barLinks(opts));
-  title.after(tools);
+  title.after(rule('sode-bar__rule--start'), tools);
   head.classList.add('sode-bar');
-  if (head.querySelector(':scope > .sode__conn')) return tools;
-  const conn = connBox();
-  conns.add(conn);
-  paintConn(conn);
-  head.append(conn.root);
+  let conn = head.querySelector(':scope > .sode__conn');
+  if (!conn) {
+    const box = connBox();
+    conns.add(box);
+    paintConn(box);
+    head.append(box.root);
+    conn = box.root;
+  }
+  conn.before(rule('sode-bar__rule--end'));
   return tools;
 }

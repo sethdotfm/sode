@@ -35,9 +35,9 @@ func TestChromePanelsTopBar(t *testing.T) {
 	signInOnPad(b)
 	b.waitFor("the lock goes", `!document.documentElement.dataset.sodeLock`)
 	b.eval(links)
-	b.waitFor("/panels has Settings and Home, and the status at the right", `(() => {
+	b.waitFor("/panels has Home and Settings, and the status at the right", `(() => {
 		const head = document.querySelector('.sode-panels__head'), conn = head.querySelector(':scope > .sode__conn');
-		return links(head) === './#settings:#pb-i-settings ./:#pb-i-house' && noBack() && !!conn && conn.getBoundingClientRect().right > head.getBoundingClientRect().right - 2
+		return links(head) === './:#pb-i-house ./#settings:#pb-i-settings' && noBack() && !!conn && conn.getBoundingClientRect().right > head.getBoundingClientRect().right - 2
 			&& /^Sode \((Alt\+Shift\+|⌥⇧)h\)$/.test(document.querySelector('.sode-bar__home').dataset.pbTip) && document.querySelector('.sode-bar__home').getAttribute('aria-keyshortcuts') === 'Alt+Shift+H';
 	})()`)
 	b.waitFor("the Lock bar, the site name and the status are on one line, inside the content's edges", `lined(document.querySelector('.sode-panels__head'))`)
@@ -53,7 +53,7 @@ func TestChromePanelsTopBar(t *testing.T) {
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("the lists show", `!!document.getElementById('ed-sources-col')?.offsetParent`)
 	b.eval(links)
-	b.waitFor("the editor has Settings, Panels and Home", `links(document.querySelector('.sode-ed > .sode-panels__head')) === './#settings:#pb-i-settings panels:logo ./:#pb-i-house' && noBack()`)
+	b.waitFor("the editor has Home, Panels and Settings", `links(document.querySelector('.sode-ed > .sode-panels__head')) === './:#pb-i-house panels:logo ./#settings:#pb-i-settings' && noBack()`)
 	b.shot("editor")
 	b.eval(`{ const n = document.getElementById('ed-name'); n.value = 'Studio grid 2'; n.dispatchEvent(new Event('input', { bubbles: true })); } true`)
 	b.waitFor("an unsaved edit", `!document.getElementById('ed-save').disabled`)
@@ -65,11 +65,11 @@ func TestChromePanelsTopBar(t *testing.T) {
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("the lists show", `!!document.getElementById('ed-sources-col')?.offsetParent`)
 	b.eval(links + `; document.getElementById('ed-live').click(); true`)
-	b.waitFor("the Live Editor keeps the page header: Settings, Panels, Home, a rule, Full screen, and the run has no header row", `(() => {
+	b.waitFor("the Live Editor keeps the page header: Home, Panels, Settings, a rule, Full screen, and the run has no header row", `(() => {
 		const head = document.querySelector('.sode-ed > .sode-panels__head'), bar = document.getElementById('ed-live-bar');
 		if (!head?.getClientRects().length || !bar) return false;
 		const r = head.getBoundingClientRect(), b = bar.getBoundingClientRect();
-		return links(head) === './#settings:#pb-i-settings panels:logo ./:#pb-i-house | screen' && b.top >= r.bottom && r.top < 40 && lined(head, document.querySelector('#ed-live-view .sode-gridpanel__deck'))
+		return links(head) === './:#pb-i-house panels:logo ./#settings:#pb-i-settings | screen' && b.top >= r.bottom && r.top < 40 && lined(head, document.querySelector('#ed-live-view .sode-gridpanel__deck'))
 			&& !document.querySelector('#ed-live-view .sode-gridpanel__headrow') && !document.querySelector('#ed-live-view .sode__conn') && !!head.querySelector(':scope > .sode-gridpanel__slot');
 	})()`)
 	b.shot("live")
@@ -82,9 +82,9 @@ func TestChromePanelsTopBar(t *testing.T) {
 
 	b.open(srv.URL + "/log")
 	b.eval(links)
-	b.waitFor("/log has the same header: Settings and Home, Inbox and the status at the right, on the Lock bar's line", `(() => {
+	b.waitFor("/log has the same header: Home and Settings, Inbox and the status at the right, on the Lock bar's line", `(() => {
 		const head = document.querySelector('.sode-log__head');
-		return head.classList.contains('sode-bar') && links(head) === './#settings:#pb-i-settings ./:#pb-i-house' && noBack() && !!head.querySelector('[data-inbox-button]') && lined(head);
+		return head.classList.contains('sode-bar') && links(head) === './:#pb-i-house ./#settings:#pb-i-settings' && noBack() && !!head.querySelector('[data-inbox-button]') && lined(head);
 	})()`)
 	b.shot("log")
 

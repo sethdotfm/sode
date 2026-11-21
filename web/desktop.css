@@ -508,8 +508,12 @@
   inset: auto;
   position: relative;
 }
-/* The bar has Settings and Panels. The buttons stay for the code that clicks them (settings.js, desktopkeys.js). */
-.sode__footer > :is(#settings-open, #panels-open) {
+/* The bar has the footer's buttons. They stay for the code that clicks them (settings.js, desktopkeys.js). */
+:root[data-layout="desktop"] .sode__footer {
+  display: none;
+}
+/* With no Lock bar and no site name on Home, nothing is left of the start rule. */
+:root:not([data-sode-chip], [data-view="settings"]) .sode-home-bar > .sode-bar__rule--start {
   display: none;
 }
 [data-layout="phone"] .sode-home-bar {

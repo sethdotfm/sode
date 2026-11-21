@@ -1,1 +1,1 @@
-- The main page and Settings show the same page header as /panels, the panel editor and /log. It has the site name, links, Inbox and the status. The phone layout keeps its own header.
+- Every page header (Home, Settings, /panels, the panel editor and /log) has the same buttons in this order: Home, Panels, Palette and Settings. On Home, the Grid popup takes the place of Home. A rule comes before the buttons and between Inbox and the status.
