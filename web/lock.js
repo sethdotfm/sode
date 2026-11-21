@@ -50,13 +50,16 @@ import {
   prefillName,
   focusName,
   pinFreeView,
+  padAsked,
+  startStepIn,
+  stepInKept,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { closeShown } from './dialogkeys.js';
 import { chord } from './keys.js';
 import { dialogAttrs } from './modal.js';
-import { stepLock, noteStepState, steppedIn } from './stepin.js';
-import { stepActive } from './stepinrules.js';
+import { stepLock, noteStepState, steppedIn, sendStepIn } from './stepin.js';
+import { stepActive, stepInOffered, stepInUsers } from './stepinrules.js';
 import { createOwed } from './owed.js';
 import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
@@ -95,7 +98,7 @@ startHandshake(page);
 onSessionToken(() => !!L.user);
 
 let root = null;
-let brand, dotsEl, msg, state, chip, checkKey;
+let brand, modeLine, dotsEl, msg, state, chip, checkKey;
 let nameField, nameInput, picker;
 let padBody, letterBody, letterKey, letterBtn, letterNote, signInAsBtn, signOutBtn, letterFoot;
 const owed = createOwed(wsSend); // a Lock the server has not got yet
@@ -119,14 +122,21 @@ let offlineLine;
 function sayOffline() {
   if (!root) return;
   const off = document.documentElement.dataset.conn === 'down';
+  const step = V.mode === MODE.STEP_IN;
   offlineLine.hidden = !off;
-  root.setAttribute('aria-label', off ? 'Offline, locked' : 'Locked');
+  offlineLine.textContent = step ? 'Offline' : 'Offline, locked';
+  root.setAttribute('aria-label', step ? (off ? 'Step in, offline' : 'Step in') : off ? 'Offline, locked' : 'Locked');
 }
+
+const stepping = () => V.mode === MODE.STEP_IN;
+const stepOpen = () => stepInOffered({ locked: L.locked, phone: layout() === 'phone', stepped: steppedIn(), user: L.user, users: S.users });
 
 function build() {
   if (root) return;
   brand = el('h1', 'sode-lock__brand', 'Sode');
   offlineLine = el('p', 'sode-lock__offline', 'Offline, locked');
+  modeLine = el('p', 'sode-lock__mode', 'Step in: this tab only');
+  modeLine.hidden = true;
   state = el('p', 'sode-lock__state', 'Locked');
   dotsEl = el('div', 'sode-lock__dots');
   dotsEl.setAttribute('aria-hidden', 'true');
@@ -160,7 +170,7 @@ function build() {
   );
   picker = namePicker({
     id: 'lock-name',
-    users: () => S.users,
+    users: () => (stepping() ? stepInUsers(S.users, L.user) : S.users),
     onInput: () => {
       if (dotsEl.classList.contains('is-text')) clearFeedback();
       say('');
@@ -170,7 +180,7 @@ function build() {
       if (wait != null && pin) timer = setTimeout(sendPin, wait);
     },
     onPick: () => {
-      if (sendsOnPick(L, who())) {
+      if (!stepping() && sendsOnPick(L, who())) {
         pin = '';
         return sendPin();
       }
@@ -206,7 +216,7 @@ function build() {
   root = el(
     'div',
     { class: 'sode-lock', ...dialogAttrs(), 'aria-label': 'Locked', hidden: true },
-    el('div', 'sode-lock__main', brand, offlineLine, padBody, letterBody),
+    el('div', 'sode-lock__main', brand, modeLine, offlineLine, padBody, letterBody),
     letterFoot,
   );
   document.body.append(root);
@@ -224,6 +234,7 @@ function say(text, bad = false) {
 }
 
 function render() {
+  V = stepInKept(V, stepOpen());
   const covered = viewBody(V, lockCovers(L)) !== '';
   const who = L.held ? heldUser : '';
   const showChip = chipShown({ covered, letter: V.mode === MODE.LOCK, user: L.user, heldUser: who });
@@ -266,12 +277,14 @@ function moveBrand(dir) {
 }
 
 let scrolled = null;
+let keptOpen = false;
 
 function showLock() {
   build();
   const body = viewBody(V, lockCovers(L));
   padBody.hidden = body !== 'pad';
-  cancelBtn.hidden = V.mode !== MODE.SIGN_IN;
+  cancelBtn.hidden = !padAsked(V);
+  modeLine.hidden = !stepping();
   nameField.hidden = !asksName(L);
   letterBody.hidden = body !== 'letter';
   signOutBtn.hidden = !(L.held || signOutOffered(L));
@@ -279,9 +292,16 @@ function showLock() {
   letterFoot.hidden = !L.held && (body !== 'letter' || (signOutBtn.hidden && signInAsBtn.hidden));
   sayOffline();
   clearTimeout(hideTimer);
-  if (!root.hidden && root.classList.contains('is-on')) return;
+  if (!root.hidden && root.classList.contains('is-on')) {
+    // A Lock came over a sign-in or Step in pad that kept Settings open.
+    if (keptOpen && !padAsked(V)) {
+      keptOpen = false;
+      closeModals();
+    }
+    return;
+  }
   pin = '';
-  picker.set(prefillName(L, lastUser(), S.users));
+  picker.set(stepping() ? '' : prefillName(L, lastUser(), S.users));
   welcoming = false;
   clearFeedback();
   say('');
@@ -301,7 +321,9 @@ function showLock() {
   root.classList.add('is-on');
   document.documentElement.dataset.sodeLockOn = 'on';
   chip?.setLocked(true);
-  if (V.mode !== MODE.SIGN_IN) closeModals();
+  // A sign-in or Step in from Settings keeps it open: Cancel goes back to it.
+  keptOpen = padAsked(V);
+  if (!keptOpen) closeModals();
   inerted = [];
   for (const c of document.body.children) inert(c);
   watch ||= new MutationObserver((list) => {
@@ -343,6 +365,10 @@ const refit = () => {
 };
 addEventListener('resize', refit);
 onLayout(refit);
+// The phone layout offers no Step in.
+onLayout(() => {
+  if (stepping()) render();
+});
 
 function setHand(on) {
   if (covering === on) return;
@@ -447,7 +473,7 @@ function paint() {
 }
 
 const nameValue = () => nameInput?.value ?? '';
-const who = () => listedUser(S.users, asksName(L) ? nameValue() : heldUser);
+const who = () => listedUser(stepping() ? stepInUsers(S.users, L.user) : S.users, asksName(L) ? nameValue() : heldUser);
 
 function press(k) {
   clearTimeout(timer);
@@ -472,8 +498,17 @@ function press(k) {
 
 function sendPin() {
   const id = ++seq;
-  if (!wsSend(signInMsg(L, { pin, id, user: who() }))) return say(LINK_DOWN, true);
+  const sent = stepping() ? sendStepIn(who()?.name || '', pin, id) : wsSend(signInMsg(L, { pin, id, user: who() }));
+  if (!sent) return say(LINK_DOWN, true);
   say('Checking…');
+}
+
+function refused(err) {
+  pin = '';
+  const w = wrongFeedback(err);
+  clearFeedback();
+  feedback(w.text, 'bad', w.ms, true);
+  say(w.note, !!w.note);
 }
 
 onMsg('userSignInResult', (m) => {
@@ -486,18 +521,31 @@ onMsg('userSignInResult', (m) => {
     keepSignInToken(m);
     return;
   }
+  refused(m.err);
+});
+
+// The step-in's lockState comes before its result and closes the pad (stepInKept), so only a refusal is left here.
+on('stepInResult', (m) => {
+  if (m.id !== seq || !stepping() || m.ok) return;
+  refused(m.err);
+});
+
+on('stepInOpen', () => {
+  if (!stepOpen()) return;
+  V = startStepIn(V);
+  if (!stepping()) return;
   pin = '';
-  const w = wrongFeedback(m.err);
-  clearFeedback();
-  feedback(w.text, 'bad', w.ms, true);
-  say(w.note, !!w.note);
+  clearTimeout(timer);
+  render();
 });
 
 onMsg('lockState', (m) => {
+  const wasStepped = steppedIn();
   noteStepState(m);
   if (owed.arrived(m)) return;
   if (settle) settle();
-  const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
+  const stepWon = stepping() && !wasStepped && steppedIn();
+  const was = lockCovers(L) || V.mode === MODE.SIGN_IN || stepWon;
   const ended = heldEnded(L, m);
   heldUser = heldWho(heldUser, L, m);
   keepHeldUser(heldUser);
@@ -524,7 +572,7 @@ onMsg('lockState', (m) => {
     unlocked = false;
     render();
     emit('access', { ...L });
-    if (was && !lockCovers(L)) emit('unlocked');
+    if (was && !stepWon && !lockCovers(L)) emit('unlocked');
   };
   if (was && !L.locked && L.user && root && !root.hidden && root.classList.contains('is-on') && !welcoming) {
     welcoming = true;
@@ -564,8 +612,10 @@ on('publicPanel', ({ on: free }) => {
 on('hello', () => {
   if (!picker) return;
   picker.refresh();
-  if (!root.hidden && !nameValue()) picker.set(prefillName(L, lastUser(), S.users));
+  if (!root.hidden && !nameValue() && !stepping()) picker.set(prefillName(L, lastUser(), S.users));
   paint();
+  // A hello can leave nobody to step in as.
+  if (stepping()) render();
 });
 
 on('logout', () => signOutNow());
@@ -583,7 +633,7 @@ on('login', () => {
 });
 
 function cancelSignIn() {
-  if (V.mode !== MODE.SIGN_IN) return;
+  if (!padAsked(V)) return;
   const back = V.back === 'lock';
   V = signInCancelled(V);
   clearTimeout(timer);
@@ -699,7 +749,7 @@ document.addEventListener(
         e.stopPropagation();
         return;
       }
-      if (V.mode === MODE.SIGN_IN && e.key === 'Escape') {
+      if (padAsked(V) && e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
         cancelSignIn();

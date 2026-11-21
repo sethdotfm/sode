@@ -1,37 +1,11 @@
-// The Step in and Step out controls in Settings > My user, the Step in popup and the "Step out?" question on
-// links that leave the page. stepin.js holds the state.
-import { $, el, S, on } from './core.js';
+// The Step in and Step out controls in Settings > My user and the "Step out?" question on links that leave the
+// page. stepin.js holds the state; Step in opens the lock screen's pad (lock.js, bus `stepInOpen`).
+import { $, el, S, on, emit } from './core.js';
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
-import { pinPrompt } from './pinprompt.js';
 import { layout } from './layout.js';
-import { sendStepIn, stepOut, steppedIn } from './stepin.js';
+import { stepOut, steppedIn } from './stepin.js';
 import { stepInOffered, stepsOut } from './stepinrules.js';
-
-let seq = 0;
-let waiting = 0;
-
-const prompt = pinPrompt({
-  id: 'stepin',
-  title: 'Step in: this tab only',
-  go: 'Step in',
-  name: { placeholder: 'Your name', label: 'Your name', missing: 'Enter your name.' },
-  pin: { placeholder: 'Your PIN', 'aria-label': 'Your PIN' },
-  send(pin, name) {
-    const id = ++seq;
-    if (!sendStepIn(name, pin, id)) return false;
-    waiting = id;
-    return true;
-  },
-  onClose: () => (waiting = 0),
-});
-
-on('stepInResult', (m) => {
-  if (m.id !== waiting) return;
-  waiting = 0;
-  if (m.ok) prompt.close();
-  else prompt.fail(m.err || 'Wrong PIN.');
-});
 
 let leave = null;
 let leaveFrom = null;
@@ -61,7 +35,6 @@ function askLeave(a) {
 
 export function initStepIn() {
   const note = $('account-step-note');
-  let was = false;
   on('access', (L) => {
     const stepped = steppedIn();
     const offered = stepInOffered({ locked: L.locked, phone: layout() === 'phone', stepped, user: L.user, users: S.users });
@@ -72,15 +45,12 @@ export function initStepIn() {
       for (const id of ['account-login', 'account-logout']) $(id).hidden = true;
     }
     if (stepped) note.hidden = true;
-    // Every Settings save sends a lockState, which must not drop a half-typed Step in.
-    if (!stepped && (was || !offered)) prompt.close();
-    was = stepped;
   });
   on('stepEnded', (m) => {
     note.textContent = m.note || '';
     note.hidden = !m.note;
   });
-  $('account-stepin').addEventListener('click', () => prompt.open());
+  $('account-stepin').addEventListener('click', () => emit('stepInOpen'));
   $('account-stepout').addEventListener('click', () => stepOut());
   document.addEventListener(
     'click',
