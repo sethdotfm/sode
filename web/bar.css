@@ -55,7 +55,7 @@
   height: 1.5rem;
   width: var(--pb-border-w);
 }
-.sode-bar > .sode-inbox__slot:not(:has(> :not([hidden]))) + .sode-bar__rule--end {
+.sode-bar > .sode-inbox__slot[hidden] + .sode-bar__rule--end {
   display: none;
 }
 .sode-bar__panels .sode-panels__logo {

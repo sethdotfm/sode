@@ -17,20 +17,21 @@ const when = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric'
 let signedIn = false;
 const buttons = [];
 
-function headButton() {
+function headButton(slot) {
   const count = el('span', 'pb-badge pb-badge--info sode-inbox__count');
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-inbox__btn', icon('inbox'), el('span', 'sode-inbox__word', 'Inbox'), count);
   b.type = 'button';
   b.dataset.inboxButton = '';
   b.addEventListener('click', () => openDialog());
-  buttons.push({ b, count });
+  buttons.push({ b, count, slot });
   return b;
 }
 
+// The slot hides with its button, so a page header's rule beside it goes too (bar.css).
 function drawButtons() {
   const n = inbox.cards.length;
-  for (const { b, count } of buttons) {
-    b.hidden = !signedIn;
+  for (const { b, count, slot } of buttons) {
+    slot.hidden = b.hidden = !signedIn;
     count.textContent = String(n);
     count.hidden = !n;
     b.setAttribute('aria-label', R.countLabel(n));
@@ -247,7 +248,7 @@ if (slots.length) {
     foot: [btn('pb-btn--outline', 'Close', () => close()), note, reviewActs],
     onEsc: close,
   });
-  for (const s of slots) s.append(headButton());
+  for (const s of slots) s.append(headButton(s));
   showToasts(openDialog);
   drawButtons();
   on('inbox', () => {
