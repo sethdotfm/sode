@@ -64,7 +64,7 @@ func (a *App) apiHistory(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	apiJSON(w, map[string]any{"before": before, "entries": out, "more": morePages(page)})
 }
 
-// Entries are in take order (oldest id first). Externals are not takes, so their groups do not count.
+// Entries are in take order (oldest id first). Externals and Protects are not takes, so their groups do not count.
 // A Group with no route the caller can see is skipped for an older one.
 func (a *App) apiLastGroup(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	v := cl.view()
@@ -77,7 +77,7 @@ func (a *App) apiLastGroup(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 		var id string
 		var out []Entry
 		for _, e := range page { // newest first
-			if e.Ext || e.Group == "" || (id != "" && e.Group != id) {
+			if e.Ext || e.Protect != "" || e.Group == "" || (id != "" && e.Group != id) {
 				continue
 			}
 			if e, ok := v.Entry(e); ok {

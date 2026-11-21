@@ -1,6 +1,6 @@
 import { el, S, search, on, onMsg, emit, wsSend, off, linked, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
 import { protectedText } from './protectrules.js';
-import { protectSummary, sendProtect, protectRow, holdsAt, holdBadge } from './protects.js';
+import { protectSummary, sendProtect, protectRow, holdsAt, holdBadge, protectGroupUndo } from './protects.js';
 import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
@@ -130,10 +130,12 @@ function withFollows(plan, follows) {
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => (e.protect ? protectRow(e).undo : withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []));
 export const groupUndoPlan = (f) =>
-  withFollows(
-    { verb: 'undo', items: f.entries.map(undoItem) },
-    f.entries.flatMap((e) => e.follows || []),
-  );
+  f.entries.every((e) => e.protect)
+    ? protectGroupUndo(f)
+    : withFollows(
+        { verb: 'undo', items: f.entries.map(undoItem) },
+        f.entries.flatMap((e) => e.follows || []),
+      );
 // A group with failed takes retries only those; otherwise it redoes every redoable take. Empty
 // items = nothing to offer. ofUndo marks a redo of an undo row, which leaves Last alone.
 export function againPlan(row) {

@@ -3,7 +3,7 @@
 
 import { S, srcItem, dstItem } from './core.js';
 import { undoPlan, againPlan, groupUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
-import { groupPartial, groupIds } from './history.js';
+import { groupPartial, groupIds, protectGroup } from './history.js';
 import { UNDO_TIP_ALL } from './widgets.js';
 import { protectRow, protectOfferOf } from './protects.js';
 import { protectUndoable } from './protectrules.js';
@@ -14,6 +14,7 @@ const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
 // What a row offers: undo {plan, label, text, tip} and again {plan, label}. tip is undefined unless the
 // row has its own wording (the buttons then use their default). row is {e} or {f}.
 export function rowActions(row) {
+  if (row.f && protectGroup(row.f)) return protectGroupActions(row.f);
   if (row.f) {
     const f = row.f;
     const again = againPlan({ f });
@@ -50,6 +51,17 @@ function protectActions(e) {
   const can = protectUndoable(e, S.hist, protectOfferOf(e.dst));
   return {
     undo: { plan: can ? r.undo : { verb: 'undo', items: [] }, label: r.undoLabel, text: 'Undo', tip: r.undoLabel },
+    again: { plan: { verb: 'redo', items: [] }, label: '' },
+  };
+}
+
+// Undo all undoes each entry that protectActions would; groupUndoPlan skips the rest. A Protect has no Redo.
+function protectGroupActions(f) {
+  const n = f.entries.length;
+  const what = f.entries[0].protect === 'set' ? 'Protects' : 'Free Protects';
+  const label = f.entries[0].ext ? 'Another system made these changes; Sode cannot undo them' : `Undo all ${n} ${what} of ${groupIds(f)}`;
+  return {
+    undo: { plan: groupUndoPlan(f), label, text: groupPartial(f) ? `Undo all ${n}` : 'Undo all', tip: label },
     again: { plan: { verb: 'redo', items: [] }, label: '' },
   };
 }

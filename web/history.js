@@ -6,7 +6,7 @@ import { levelText } from './levelview.js';
 import { filterFn } from './filter.js';
 import { filterAllows } from './filterstore.js';
 import { pref } from './device.js';
-import { entryChip } from './protectrules.js';
+import { entryChip, foldProtects } from './protectrules.js';
 
 // Quick search above History. It reads back through the whole log. It ignores the filters unless this browser's setting says otherwise. Not kept.
 
@@ -164,7 +164,8 @@ function buildRows(list) {
     if (shown.length) f.followers = shown;
     if (shown.length && searchActive() && !f.shown.length) f.shown = f.entries;
   }
-  return rows.filter((r) => !r.f || r.f.shown.length);
+  const shown = rows.filter((r) => !r.f || r.f.shown.length);
+  return searchActive() ? shown : foldProtects(shown, gap);
 }
 
 // A Group's entries arrive one at a time; a Group that still fills is "in flight" for a while. After that,
@@ -226,6 +227,19 @@ export function groupTitle(f) {
     nFollow && `+${nFollow} External follow ${nFollow === 1 ? 'entry' : 'entries'}`,
   ].filter(Boolean);
   return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
+}
+
+// A Group of Protect entries (one action on many destinations, or folded actions); the views draw its chip.
+export const protectGroup = (f) => f.entries.every((e) => e.protect);
+
+// The note after a Group of Protect entries: the actions it folds (foldProtects), undo, and what the filters hide.
+export function protectGroupNote(f) {
+  const notes = [
+    f.folded > 1 && `${f.folded} actions`,
+    f.entries.every((e) => e.undo != null) && 'undo',
+    groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
+  ].filter(Boolean);
+  return notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null;
 }
 
 export const groupPartial = (f) => !!f.shown && f.shown.length < f.entries.length;

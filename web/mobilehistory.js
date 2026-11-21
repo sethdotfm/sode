@@ -2,11 +2,11 @@
 import { $, el, S, on, dstItem, srcItem, labelNode, toggle } from './core.js';
 import { levelBar } from './levelview.js';
 import { fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, groupTitle, groupLevels, stackBefore } from './history.js';
+import { entryNote, historyPager, statusNode, groupTitle, groupLevels, stackBefore, protectGroup, protectGroupNote } from './history.js';
 import { layout } from './layout.js';
 import { emptyNote } from './searchbox.js';
 import { rowActions, disclosureAria, followersHead } from './historyrows.js';
-import { protectRow } from './protects.js';
+import { protectRow, protectGroupHead } from './protects.js';
 import { picking, isPicked, pickBox, bindPick, pickBar } from './historypick.js';
 import { byLabel, disclosure, undoButton, againButton, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
@@ -99,7 +99,9 @@ export function mobileHistory({ sheetFor, pickSrc }) {
       toggle(openGroups, f.group);
       renderHistory();
     });
-    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, 'takes'));
+    const prot = protectGroup(f) && protectGroupHead(f);
+    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, prot ? 'destinations' : 'takes'));
+    const title = prot ? [prot.chip, ' ', el('strong', null, prot.label), protectGroupNote(f)] : groupTitle(f);
 
     const face = el(
       'div',
@@ -110,7 +112,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
         el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
       ),
-      el('div', 'sode-m__recent-route', ...groupTitle(f), byLabel(f)),
+      el('div', 'sode-m__recent-route', ...title, byLabel(f)),
       levelBar(groupLevels(f)),
     );
     clickToToggle(face, disc);

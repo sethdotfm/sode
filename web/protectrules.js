@@ -119,6 +119,55 @@ export function protectUndoable(e, hist, offer) {
   return offer === (e.protect === 'set' ? 'clear' : 'set');
 }
 
+// What makes History rows of Sode's own Protect entries fold together: the same direction by the same person. An
+// undo stays apart, as a take's undo does, and so does another system's change. '' never folds.
+export function protectFoldKey(entries) {
+  const [e] = entries;
+  const k = (x) => (x.protect && !x.ext && x.undo == null ? `${x.protect}\n${x.client}\n${x.browserOf || ''}` : '');
+  const key = k(e);
+  return key && entries.every((x) => k(x) === key) ? key : '';
+}
+
+// Folds neighbouring History rows ({e} or {f}, newest first) of Protect actions into one Group row. Each must come at
+// most gapMs before the one above (docs/agents/history.md, stackGap). A folded row is {f} with every entry, newest
+// first. Its group comes from its oldest row, so a new action that joins it keeps it open. n adds up each row's
+// size, so a Group still on its way reads as one.
+export function foldProtects(rows, gapMs) {
+  if (!(gapMs > 0)) return rows;
+  const out = [];
+  let run = null;
+  for (const r of rows) {
+    const es = r.f ? r.f.entries : [r.e];
+    const key = protectFoldKey(es);
+    const times = es.map((e) => Date.parse(e.time));
+    const newest = Math.max(...times);
+    if (key && run && run.key === key && run.oldest - newest <= gapMs) {
+      run.rows.push(r);
+      run.oldest = Math.min(...times);
+      continue;
+    }
+    run = key ? { key, rows: [r], oldest: Math.min(...times) } : null;
+    out.push(run || r);
+  }
+  return out.map((x) => (x.rows ? foldRow(x.rows) : x));
+}
+
+function foldRow(rows) {
+  if (rows.length === 1) return rows[0];
+  const last = rows[rows.length - 1];
+  const part = (r) => (r.f ? { entries: r.f.entries, shown: r.f.shown, n: r.f.n } : { entries: [r.e], shown: [r.e], n: 1 });
+  const parts = rows.map(part);
+  return {
+    f: {
+      group: `s${last.f ? last.f.group : last.e.id}`,
+      n: parts.reduce((s, p) => s + p.n, 0),
+      entries: parts.flatMap((p) => p.entries),
+      shown: parts.flatMap((p) => p.shown),
+      folded: rows.length,
+    },
+  };
+}
+
 // The Protect picker's filters (protectpick.js), in the order of its chips.
 export const PICK_FILTERS = Object.freeze([
   { id: 'all', label: 'All destinations' },

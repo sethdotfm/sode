@@ -7,7 +7,7 @@ import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
-import { holdsOn, holdLabel, holdShort, protectedText, protectOffer, protectRight, holdLook, entryChip } from './protectrules.js';
+import { holdsOn, holdLabel, holdShort, protectedText, protectOffer, protectRight, holdLook, entryChip, protectUndoable } from './protectrules.js';
 
 let seq = 0;
 const pending = new Map(); // id → { plan, answer }
@@ -61,10 +61,35 @@ export function protectPlan(dst, on, undo = null) {
 }
 
 // The Protect picker's plan (protectpick.js): one Confirm for many destinations. One destination is a usual plan.
-export function protectManyPlan(dsts, on) {
-  if (dsts.length === 1) return protectPlan(dsts[0], on);
-  return { verb: on ? 'protect' : 'unprotect', protect: { dst: dsts[0], dsts, on, undo: null }, items: [] };
+// undos: the History entry each destination undoes, in the same order; skipped: entries of the row it cannot undo.
+export function protectManyPlan(dsts, on, { undos = null, skipped = 0 } = {}) {
+  if (dsts.length === 1) return { ...protectPlan(dsts[0], on, undos?.[0] || null), skipped };
+  return { verb: on ? 'protect' : 'unprotect', protect: { dst: dsts[0], dsts, on, undo: null, undos }, items: [], skipped };
 }
+
+// Undo all of a History Group of Protect entries: the opposite on each entry that protectUndoable allows. The rest
+// are skipped and the Confirm says how many. No entry to undo gives an empty plan.
+export function protectGroupUndo(f) {
+  const can = f.entries.filter((e) => protectUndoable(e, S.hist, protectOfferOf(e.dst)));
+  if (!can.length) return { verb: 'undo', items: [] };
+  const set = can[0].protect === 'set';
+  const dsts = can.map((e) => dstItem(e.dst, e.dstName));
+  return protectManyPlan(dsts, !set, { undos: can, skipped: f.entries.length - can.length });
+}
+
+// The chip and destination of a Group of Protect entries (all of one kind), for its History row.
+export function protectGroupHead(f) {
+  const look = entryChip(f.entries[0]);
+  const seen = new Map(f.entries.map((e) => [e.dst, e.dstName]));
+  const dsts = [...seen].map(([n, name]) => dstItem(n, name));
+  return { chip: protectChip(look, look.text), text: look.text, dsts, label: dsts.length === 1 ? dsts[0].label : `${dsts.length} destinations` };
+}
+
+// The Confirm's line for the entries an Undo all leaves.
+const skippedNote = (plan) =>
+  plan.skipped
+    ? [el('div', 'sode__hint', `${plan.skipped} skipped: the Protect on ${plan.skipped === 1 ? 'that destination' : 'those destinations'} changed after this.`)]
+    : [];
 
 function manySummary(dsts, on) {
   const rows = dsts.map((d) => {
@@ -80,7 +105,19 @@ function manySummary(dsts, on) {
 }
 
 export function protectSummary(plan) {
-  if (plan.protect.dsts) return manySummary(plan.protect.dsts, plan.protect.on);
+  return [...oneSummary(plan), ...skippedNote(plan)];
+}
+
+function oneSummary(plan) {
+  if (plan.protect.dsts) {
+    const { dsts, on, undos } = plan.protect;
+    const nodes = manySummary(dsts, on);
+    if (undos)
+      nodes[0].textContent = on
+        ? `Undo the Free Protects: Protect these ${dsts.length} destinations on every level?`
+        : `Undo the Protects: free the Protect on these ${dsts.length} destinations?`;
+    return nodes;
+  }
   const { dst, on, undo } = plan.protect;
   const strong = el('strong', null, labelNode(dst));
   const all = allLevels();
@@ -134,32 +171,32 @@ export function protectKey(dst, set, confirm) {
   return true;
 }
 
-// A plan of many destinations sends one request each. The server sets each one alone, so each gets its own History
-// row, and one banner tells the result of all.
+// A plan of many destinations is one request, so the server writes one History Group. One result comes back, with a
+// result for each destination, and one banner tells them all.
 function sendMany(plan) {
-  const { dsts, on } = plan.protect;
-  const many = { on, left: dsts.length, done: [], failed: [] };
-  for (const dst of dsts) {
-    const id = ++seq;
-    if (!wsSend({ t: on ? 'protectSet' : 'protectClear', id, protect: { dst: dst.n } })) {
-      for (const [k, p] of pending) if (p.many === many) pending.delete(k);
-      showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
-      return false;
-    }
-    pending.set(id, { plan: protectPlan(dst, on), many });
+  const { dsts, on, undos } = plan.protect;
+  const id = ++seq;
+  const list = dsts.map((d, i) => (undos ? { dst: d.n, undo: undos[i].id } : { dst: d.n }));
+  if (!wsSend({ t: on ? 'protectSet' : 'protectClear', id, protect: { dsts: list } })) {
+    showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
+    return false;
   }
+  pending.set(id, { plan, many: true });
   showResult('info', on ? 'Protecting…' : 'Freeing the Protects…', `${dsts.length} destinations, every level`);
   return true;
 }
 
-function manyResult(many, dst, m) {
-  if (m.ok) many.done.push(dst);
-  else many.failed.push(`${dst.label}: ${m.admin ? 'another user set it, so an Administrator must free it' : m.err || 'refused'}`);
-  if (--many.left > 0) return;
-  const n = many.done.length;
-  const head = many.on ? `${n} Protected` : `${n} Protects freed`;
-  if (!many.failed.length) return showResult('ok', head, 'Every level.');
-  showResult(n ? 'warn' : 'error', `${head}, ${many.failed.length} failed`, `${many.failed.join('. ')}.`);
+function manyResult(plan, m) {
+  const { dsts, on } = plan.protect;
+  if (!m.results) return showResult('error', on ? 'Protect failed' : 'Free Protect failed', `${m.err || 'refused'}.`);
+  const label = new Map(dsts.map((d) => [d.n, d.label]));
+  const failed = m.results
+    .filter((r) => !r.ok)
+    .map((r) => `${label.get(r.dst) ?? r.dst}: ${r.admin ? 'another user set it, so an Administrator must free it' : r.err || 'refused'}`);
+  const n = m.results.length - failed.length;
+  const head = on ? `${n} Protected` : `${n} Protects freed`;
+  if (!failed.length) return showResult('ok', head, 'Every level.');
+  showResult(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, `${failed.join('. ')}.`);
 }
 
 // ap: an Approval in person; answer: the Approval popup's { fail, done }.
@@ -184,8 +221,8 @@ function onResult(m) {
   // A request the server ran after an Approval answers with the frozen id, which this page no longer holds.
   if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('ok', 'Protect freed', 'Approved.'));
   pending.delete(m.id);
+  if (p.many) return manyResult(p.plan, m);
   const { dst, on } = p.plan.protect;
-  if (p.many) return manyResult(p.many, dst, m);
   if (p.answer && m.approval) return void p.answer.fail(m.err);
   p.answer?.done();
   if (m.ok) {
