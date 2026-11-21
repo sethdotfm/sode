@@ -74,6 +74,23 @@
 .sode-lock__offline[hidden] {
   display: none;
 }
+/* Step in mode: the pad acts for this tab only (lock.js). It sits outside .sode-lock__body, so it fades with it here. */
+.sode-lock__mode {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+  opacity: 0;
+  text-align: center;
+  transition: opacity calc(var(--sode-lock-motion) * 0.5) var(--pb-ease);
+}
+.sode-lock.is-on .sode-lock__mode {
+  opacity: 1;
+  transition-delay: calc(var(--sode-lock-motion) * 0.5);
+}
+.sode-lock__mode[hidden] {
+  display: none;
+}
 
 /* The pad shrinks (to keys of --sode-h-action) before the Lock scrolls, so the open name list
    pushes the pad down and everything still fits a 768 px screen. main and body pass the space down. */

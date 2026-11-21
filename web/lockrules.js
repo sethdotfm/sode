@@ -1,4 +1,6 @@
-// The lock screen's pure rules. No imports, so Node tests them.
+// The lock screen's pure rules. No DOM, so Node tests them.
+
+import { stepInUsers } from './stepinrules.js';
 
 // maxLen: the configured longest PIN (0 = none given, 12 is the hard limit).
 export const padCap = (lens, maxLen = 0) => Math.min(Math.max(...lens, 0), maxLen > 0 ? maxLen : 12);
@@ -190,11 +192,14 @@ export const signInAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
 // One value {mode, back}. mode is one of MODE. PAGE: a lock from the server can still cover it
 // (see viewBody). LOCK: the Lock with nobody signed in. SIGN_IN: a pad by request, dismissable.
+// STEP_IN: the same pad sends a stepIn (stepin.js), dismissable, and the page under it stays as it is.
 // back: where Cancel / Esc of a sign-in returns to ('page' or 'lock'). Pure; lock.js does the DOM.
-export const MODE = Object.freeze({ PAGE: 'page', LOCK: 'lock', SIGN_IN: 'signIn' });
+export const MODE = Object.freeze({ PAGE: 'page', LOCK: 'lock', SIGN_IN: 'signIn', STEP_IN: 'stepIn' });
 export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
 
-export const viewBody = (v, covered) => (v.mode === MODE.LOCK ? 'letter' : covered || v.mode === MODE.SIGN_IN ? 'pad' : '');
+export const padAsked = (v) => v.mode === MODE.SIGN_IN || v.mode === MODE.STEP_IN;
+
+export const viewBody = (v, covered) => (v.mode === MODE.LOCK ? 'letter' : covered || padAsked(v) ? 'pad' : '');
 
 export const lockCovers = (s) => !!s.locked && !!(s.enforced || s.held);
 
@@ -219,10 +224,16 @@ export const startSignIn = (v, fromLock) =>
 // The view stays LOCK so the page stays covered; "Sign in as…" remains when users exist.
 export const signOutOffered = (s) => !s.enforced && !!s.user;
 
-export const signInCancelled = (v) => (v.mode === MODE.SIGN_IN ? PAGE_VIEW : v);
+export const signInCancelled = (v) => (padAsked(v) ? PAGE_VIEW : v);
 
-// covered: a lock from the server is up (lockCovers).
-export const lockArrived = (v, covered) => (covered && v.mode === MODE.LOCK ? PAGE_VIEW : v);
+// covered: a lock from the server is up (lockCovers). Its pad replaces a Step in.
+export const lockArrived = (v, covered) => (covered && (v.mode === MODE.LOCK || v.mode === MODE.STEP_IN) ? PAGE_VIEW : v);
+
+export const startStepIn = (v) => (v.mode === MODE.PAGE ? { mode: MODE.STEP_IN, back: 'page' } : v);
+
+// The Step in pad closes once the step-in is in, or when Step in is no longer offered (stepInOffered). Any other
+// lockState, such as one after a Settings save, keeps a half-typed PIN.
+export const stepInKept = (v, offered) => (v.mode === MODE.STEP_IN && !offered ? PAGE_VIEW : v);
 
 // A sign-in ends only with an enforced lock or a real unlock. Any other state (someone else saved
 // settings, a token catch-up) says nothing about the pad.
@@ -247,3 +258,37 @@ export const prefillName = (s, last, users) => (asksName(s) && last ? users?.fin
 
 // The pad gets the keys when the box already holds a name.
 export const focusName = (s, name) => asksName(s) && !name.trim();
+
+// What the pad does in a view: one entry for Step in, one for every other pad (the Lock's and a sign-in's). lock.js
+// reads these and has no mode checks of its own. send: the message kind lock.js sends. note: the line under the site
+// name ('' = none). label and offLabel: the overlay's name, online and offline. offline: the offline line. users: the
+// names the box lists. prefill: the name the box starts with. pickSends: a pick sends at once (a user with no PIN).
+// lapses: the pad can stop being offered while it shows, so a hello or a layout change looks again (stepInKept).
+const PADS = Object.freeze({
+  signIn: Object.freeze({
+    send: 'signIn',
+    note: '',
+    label: 'Locked',
+    offLabel: 'Offline, locked',
+    offline: 'Offline, locked',
+    users: (s, users) => users,
+    prefill: prefillName,
+    pickSends: sendsOnPick,
+    lapses: false,
+  }),
+  stepIn: Object.freeze({
+    send: 'stepIn',
+    note: 'Step in: this tab only',
+    label: 'Step in',
+    offLabel: 'Step in, offline',
+    offline: 'Offline',
+    users: (s, users) => stepInUsers(users, s.user),
+    prefill: () => '',
+    pickSends: () => false,
+    lapses: true,
+  }),
+});
+export const padOf = (v) => (v.mode === MODE.STEP_IN ? PADS.stepIn : PADS.signIn);
+
+// The lockState that ends a Step in pad: this tab was not stepped in before it and is now.
+export const stepInWon = (v, wasStepped, stepped) => v.mode === MODE.STEP_IN && !wasStepped && stepped;

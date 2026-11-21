@@ -26,7 +26,7 @@ import {
 import { layout } from './layout.js';
 import { presetHost } from './presets.js';
 import { lastFill } from './historyrows.js';
-import { boxPicking, addPatch } from './historypick.js';
+import { presetAdd } from './presetadd.js';
 import { keyConfirm } from './keyconfirm.js';
 import { showAll } from './showall.js';
 import { shortcutList } from './shortcuts.js';
@@ -34,7 +34,7 @@ import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
-import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged, takeRoutes } from './gridpopup.js';
+import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged, takeRoutes, paintTake } from './gridpopup.js';
 import { takeWord } from './gridpanelphone.js';
 import { protectKey } from './protects.js';
 
@@ -308,7 +308,7 @@ function sendingRow(src, d, levels) {
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
-// The route view of one destination: no source, one destination. It offers Protect and Clear Protect.
+// The route view of one destination: no source, one destination. It offers Protect and Free Protect.
 const routeView = () => !sel.src && !boxes.src.input.value.trim() && allDsts().length === 1;
 const protectFromKeys = (set) => routeView() && protectKey(allDsts()[0], set, openConfirm);
 
@@ -424,12 +424,19 @@ function boxRoute() {
 
 // One Take: with staged routes, Take sends them and the boxes' route in one Confirm (gridpopup.js). Boxes with only
 // part of a route stay out of the take, because one box can find an item on the grid (Ctrl+e). An Enter that picks a
-// match only picks it, as with nothing staged. It goes on to the empty box and opens no Confirm.
-function patchNow() {
+// match only picks it, as with nothing staged. It goes on to the empty box and opens no Confirm. While a preset adds
+// patches (presetadd.js) it adds the boxes' patch, sends nothing and gives { ok, text }. focus false keeps focus where
+// it is (the Grid popup's Take).
+function patchNow(focus = true) {
   const picked = pickTyped();
-  if (boxPicking()) return addPatch();
-  if (stagedCount() && (!picked || boxRoute()) && takeStaged()) return;
+  if (presetAdd.active()) {
+    const r = presetAdd.addPatch(boxPatch(sel.src, allDsts(), lvl));
+    if (r.ok) clearAll(focus);
+    return r;
+  }
+  if (stagedCount() && (!picked || boxRoute()) && takeStaged()) return null;
   tryConfirm();
+  return null;
 }
 
 // Typed text not yet picked takes its best match, as Enter picks it: before a Take, and before Ctrl+e finds the box on
@@ -448,15 +455,25 @@ function pickTyped() {
 
 // The one Clear (#clear-all) and Esc: the boxes and the staged routes.
 const nothingToClear = () => boxesEmpty() && lvl.empty() && !stagedCount();
-function clearEverything() {
+function clearEverything(focus = true) {
   dropStaged();
-  clearAll();
+  clearAll(focus);
 }
-// Take counts what it sends when that is more than one route (One Take). A plain patch says Take.
+// Take counts what it sends when that is more than one route (One Take). A plain patch says Take. While a preset adds
+// patches it is Add in the add colour. disabled is for the Grid popup's Take: the page's own stays live, so a press with
+// empty boxes marks the box to fill.
+function takeState() {
+  const adding = presetAdd.active();
+  const box = boxRoute();
+  return { word: adding ? 'Add' : takeWord(takeRoutes(box)), ok: adding, disabled: !adding && !box && !stagedCount() };
+}
 function paintTakes() {
   $('clear-all').disabled = nothingToClear();
-  const word = takeWord(takeRoutes(boxRoute()));
-  if ($('patch').textContent !== word) $('patch').textContent = word;
+  const t = takeState();
+  if ($('patch').textContent !== t.word) $('patch').textContent = t.word;
+  $('patch').classList.toggle('pb-btn--danger', !t.ok);
+  $('patch').classList.toggle('pb-btn--ok', t.ok);
+  paintTake();
 }
 
 function tryConfirm() {
@@ -496,12 +513,12 @@ function focusBack(viaKeys) {
   else focusBox(boxes.src.input);
 }
 
-function clearAll() {
+function clearAll(focus = true) {
   dsts = [];
   for (const k of ['src', 'dst']) select(k, null);
   lvl.clear();
   renderTally();
-  boxes.src.input.focus();
+  if (focus) boxes.src.input.focus();
 }
 
 for (const k of ['src', 'dst']) {
@@ -564,10 +581,11 @@ $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
 $('dst-add').dataset.pbTip = `Add destination (+, ${keyLabel('mod+enter')})`;
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
-$('patch').addEventListener('click', patchNow);
+$('patch').addEventListener('click', () => patchNow());
 $('clear-all').addEventListener('mousedown', (e) => e.preventDefault());
-$('clear-all').addEventListener('click', clearEverything);
+$('clear-all').addEventListener('click', () => clearEverything());
 on('staged', paintTakes);
+on('presetAdd', paintTakes);
 
 on('hello', () => {
   pager.reset();
@@ -594,7 +612,7 @@ on('tally', renderTally);
 on('myRights', renderTally); // the route view's Protect follows the Protect right
 // Done (or Cancel) in a pick bar: a match list must not stay open over the page.
 on('pick', () => {
-  if (!boxPicking()) for (const k of ['src', 'dst']) boxes[k].cb.close();
+  if (!presetAdd.active()) for (const k of ['src', 'dst']) boxes[k].cb.close();
 });
 on('conn', renderConn);
 // One redraw per frame: each take in a burst sends an entry, and a redraw rebuilds every row.
@@ -618,6 +636,10 @@ presetHost({
   patch: () => boxPatch(sel.src, allDsts(), lvl),
   picks: () => ({ src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: clearAll,
+  // The Grid popup's Take and Clear (gridpopup.js), with no focus move: the boxes are under the popup.
+  take: () => patchNow(false),
+  clearAll: () => clearEverything(false),
+  takeState,
   focus: () => boxes.src.input.focus(),
   // Back from the Grid popup: the first empty box, else Levels, so the next Enter takes (owner's rule).
   entry: () => (!sel.src ? focusBox(boxes.src.input) : !allDsts().length ? focusBox(boxes.dst.input) : toLevels()),

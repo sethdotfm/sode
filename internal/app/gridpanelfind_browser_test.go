@@ -96,7 +96,7 @@ func TestChromeGridPanelFind(t *testing.T) {
 		x.font = cs.font;
 		return x.measureText(i.placeholder).width <= i.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
 	})()`)
-	b.waitFor("one Filter switch, on", `[...document.querySelectorAll('.sode-gridpanel__find-mode input[role="switch"]:checked')].map((n) => n.labels[0].querySelector('.sode-gridpanel__find-word').textContent).join() === 'Filter'`)
+	b.waitFor("one Filter switch, on", `[...document.querySelectorAll('.sode-gridpanel__find-mode input[role="switch"]:checked')].map((n) => n.parentNode.dataset.mode).join() === 'filter'`)
 	b.waitFor("the box stays focused and keeps its text", `document.activeElement === `+gridFindBox("srcs")+` && document.activeElement.value === 'cam 1'`)
 	gridCursorOn(b, "the cursor stays on its source", -1, 0)
 	b.shot("filter")

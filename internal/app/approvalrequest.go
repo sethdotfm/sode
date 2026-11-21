@@ -3,8 +3,10 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -68,8 +70,51 @@ type approversMsg struct {
 
 var errNoApprover = errors.New("no one signed in can approve this")
 
-var approvalWhat = map[string]string{"settingsSave": "Saving these changes", "clearHistory": "Clearing History",
-	"protectClear": "Clearing another user's Protect"}
+var approvalWhat = map[string]string{"settingsSave": "Saving these changes", "clearHistory": "Clearing History"}
+
+// askWhat: the words the approver and the Log see. A Free Protect names every destination it frees, as the page does.
+func (a *App) askWhat(act *inMsg) string {
+	if act.T == "protectClear" {
+		reqs, _ := act.Protect.reqs()
+		dsts := make([]int, len(reqs))
+		for i, q := range reqs {
+			dsts[i] = q.Dst
+		}
+		return freeWhat(a.dstLabels(dsts...))
+	}
+	return approvalWhat[act.T]
+}
+
+// freeWhat: "Freeing another user's Protect on 4 DSM2"; past freeShown destinations, a count of the others.
+func freeWhat(labels []string) string {
+	if len(labels) == 1 {
+		return "Freeing another user's Protect on " + labels[0]
+	}
+	shown := labels[:min(len(labels), freeShown)]
+	text := fmt.Sprintf("Freeing other users' Protects on %d destinations: %s", len(labels), strings.Join(shown, ", "))
+	if more := len(labels) - len(shown); more > 0 {
+		text += fmt.Sprintf(" and %d more", more)
+	}
+	return text
+}
+
+const freeShown = 5
+
+// dstLabels: "4 DSM2" for each destination, the number as the page shows it and the router's name.
+func (a *App) dstLabels(dsts ...int) []string {
+	off := a.r().cfg.NumberOffset
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := make([]string, 0, len(dsts))
+	for _, d := range dsts {
+		l := strconv.Itoa(d + off)
+		if n := a.router.dstNames[d]; n != "" {
+			l += " " + n
+		}
+		out = append(out, l)
+	}
+	return out
+}
 
 // For a save, the highest Role among the fields that need an Approval from this Role; "" when none does.
 func askNeed(act *inMsg, rl rule, role string) string {
@@ -127,17 +172,24 @@ func (a *App) approvalAsk(c *client, act *inMsg, id int) error {
 	}
 	rl, ok := ruleOf(act.T)
 	if !ok || !rl.approvable {
-		return errors.New("only a Settings save, Clear History or a Clear Protect can go through Request approval")
+		return errors.New("only a Settings save, Clear History or freeing a Protect can go through Request approval")
+	}
+	if act.T == "protectClear" {
+		// The card must name every destination the frozen message frees.
+		if _, err := act.Protect.reqs(); err != nil {
+			return err
+		}
 	}
 	var changes []SavedField
 	var stops []string
 	if act.T == "settingsSave" {
 		changes, stops = a.askChanges(act.Fields, a.role(c))
 	}
+	what := a.askWhat(act)
 	a.mu.Lock()
 	role := a.roleMu(c)
 	r := &approvalRequest{from: c, userID: c.userID(), who: c.who(), ip: c.ip, role: role, need: askNeed(act, rl, role),
-		what: approvalWhat[act.T], msg: *act, changes: changes, stops: stops, cards: map[*client]string{}}
+		what: what, msg: *act, changes: changes, stops: stops, cards: map[*client]string{}}
 	switch {
 	case role == "":
 		a.mu.Unlock()
@@ -179,7 +231,10 @@ func (a *App) qualifiesMu(q *client, r *approvalRequest) bool {
 	case !a.userOKMu(q, cfg) || !q.u.user.Load().HasPin():
 		return false
 	}
-	return config.RoleAtLeast(a.roleMu(q), r.need)
+	// The approver's own Role: the Guest role never lifts it (config.Acts).
+	u, _ := cfg.FindUserByID(q.u.user.Load().ID)
+	role, _ := cfg.ActsAs(u)
+	return config.RoleAtLeast(role, r.need)
 }
 
 func (a *App) anyApproverMu(r *approvalRequest) bool {

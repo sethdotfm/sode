@@ -20,7 +20,7 @@ const (
 	ScopeLayouts   = "layouts"
 	ScopeLog       = "log"
 	ScopeTake      = "take"
-	// ScopeProtect sets and clears Sode's Protects; the caller's Rights need the Protect right too.
+	// ScopeProtect sets and frees Sode's Protects; the caller's Rights need the Protect right too.
 	ScopeProtect = "protect"
 	// Panels: reading is for any panel the caller can use. Managing is create, update, delete,
 	// Save a copy and artwork uploads, and needs a user's key to own what it makes.
@@ -53,7 +53,7 @@ const (
 // before the PIN: the hello blanks Users and the owning Config fields carry json:"-".
 // Sources and destinations are router references; Presets are preset ids, so a rename keeps them.
 //
-// Protect is the Protect right: set and clear Sode's Protects on the destinations the lists allow. Unset means the
+// Protect is the Protect right: set and free Sode's Protects on the destinations the lists allow. Unset means the
 // Role decides (ProtectFor): on for a Trusted user and an Administrator, off for everyone else.
 type Rights struct {
 	Sources    *[]Ref         `yaml:"sources,omitempty" json:"sources,omitempty"`
@@ -83,7 +83,7 @@ func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
 func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
 func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
 
-// AllowsProtect: an unset right is off, so Guest Rights and an API client need it ticked. ActsAs sets it for a user.
+// AllowsProtect: an unset right is off, so an API client needs it ticked. ActsAs and GuestActs set it from the Role.
 func (r Rights) AllowsProtect() bool { return r.Protect != nil && *r.Protect }
 
 // ProtectFor fills an unset Protect right from the Role: on for a Trusted user and an Administrator.
@@ -95,8 +95,8 @@ func (r Rights) ProtectFor(role string) Rights {
 	return r
 }
 
-// protectWithin: only a right that is on needs it on in o. Unset is off for an API client and Guest, and ActsAs sets a
-// user's from the Role.
+// protectWithin: only a right that is on needs it on in o. Unset is off for an API client, and ActsAs and GuestActs
+// set it from the Role.
 func protectWithin(r, o *bool) bool { return r == nil || !*r || o == nil || *o }
 
 // protectBoth: off when either is off; unset only when both are.

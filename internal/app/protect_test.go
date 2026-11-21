@@ -136,9 +136,16 @@ func readProtects(t *testing.T, a *App) []protectRec {
 func TestProtectSetsEveryLevelAndRefusesTakes(t *testing.T) {
 	a, f := protectApp(t)
 	ana := signedClient(t, a, "Ana", "1234")
+	a.mu.Lock()
+	a.router.tally[4] = map[int]int{1: 7, 2: 7, 3: -1}
+	a.mu.Unlock()
 	e := protEntry(t, a.protectSet(ana, 4, nil))
 	if !e.OK || e.Protect != "set" || !slices.Equal(e.Levels, []int{1, 2, 3}) || e.Src != -1 || e.Client != "Ana" {
 		t.Fatalf("entry %+v", e)
+	}
+	// Prev holds the routes on the destination when it ran, for History's Source detail.
+	if !slices.Equal(e.Prev, [][2]int{{1, 7}, {2, 7}, {3, -1}}) {
+		t.Fatalf("prev %v", e.Prev)
 	}
 	want := map[int]protHold{0: {126, 1}, 1: {126, 1}, 2: {126, 1}}
 	if got := f.holdsOn(4); len(got) != 3 || got[0] != want[0] || got[2] != want[2] {
@@ -161,7 +168,7 @@ func TestProtectRollsBackAFailedLevel(t *testing.T) {
 	a, f := protectApp(t)
 	f.prot.deafSet[1] = true
 	e := protEntry(t, a.protectSet(signedClient(t, a, "Ana", "1234"), 4, nil))
-	if e.OK || !slices.Equal(e.Failed, []int{2}) || len(e.Still) != 0 || !strings.Contains(e.Err, "cleared the other levels") {
+	if e.OK || !slices.Equal(e.Failed, []int{2}) || len(e.Still) != 0 || !strings.Contains(e.Err, "freed the other levels") {
 		t.Fatalf("entry %+v", e)
 	}
 	if got := f.holdsOn(4); len(got) != 0 {
@@ -271,7 +278,7 @@ func TestProtectUndoFromHistory(t *testing.T) {
 	}
 }
 
-// Clear Sode's Protects clears every Protect with Sode's device number, record or not, and asks the PIN again.
+// Free Sode's Protects frees every Protect with Sode's device number, record or not, and asks the PIN again.
 func TestClearSodeProtectsNeedsRecheck(t *testing.T) {
 	a, f := protectApp(t)
 	protEntry(t, a.protectSet(signedClient(t, a, "Ana", "1234"), 4, nil))
@@ -438,12 +445,13 @@ func TestRequestApprovalClearsAnotherUsersProtect(t *testing.T) {
 	ada := approver(t, a, "Ada", "2468")
 	bo := dialPeer(t, a)
 	bo.signIn("Bo", "567890")
-	if r := bo.ask("protectClear", 3, map[string]any{"protect": map[string]any{"dst": 4}}); r["ok"] == true || r["admin"] != true {
+	r := bo.ask("protectClear", 3, map[string]any{"protect": map[string]any{"dsts": []map[string]any{{"dst": 4}}}})
+	if res, _ := r["results"].([]any); r["ok"] == true || len(res) != 1 || res[0].(map[string]any)["admin"] != true {
 		t.Fatalf("Bo's clear: %v", r)
 	}
 	asked(t, bo.ask("approvalAsk", 50, map[string]any{"for": map[string]any{"t": "protectClear", "id": 4, "protect": map[string]any{"dst": 4}}}))
 	card := ada.until("approvalCard")
-	if card["what"] != "Clearing another user's Protect" || card["from"] != "Bo" {
+	if card["what"] != "Freeing another user's Protect on 5 MON 4" || card["from"] != "Bo" {
 		t.Fatalf("card %v", card)
 	}
 	if r := ada.answer(card["request"], true, "2468"); r["ok"] != true {
@@ -454,5 +462,39 @@ func TestRequestApprovalClearsAnotherUsersProtect(t *testing.T) {
 	}
 	if got := f.holdsOn(4); len(got) != 0 {
 		t.Fatalf("holds %v", got)
+	}
+}
+
+// An Approval to free many names every destination on the card and frees only those. A message with both dst and
+// dsts cannot ask one, so a card cannot name one destination and free others.
+func TestRequestApprovalNamesEveryDestination(t *testing.T) {
+	a, f := protectApp(t)
+	a.approvalWait = time.Minute
+	ana := signedClient(t, a, "Ana", "1234")
+	for _, d := range []int{4, 5, 6} {
+		protEntry(t, a.protectSet(ana, d, nil))
+	}
+	setRole(t, a, "Bo", config.RoleTrusted)
+	ada := approver(t, a, "Ada", "2468")
+	bo := dialPeer(t, a)
+	bo.signIn("Bo", "567890")
+	both := map[string]any{"t": "protectClear", "id": 4, "protect": map[string]any{"dst": 4, "dsts": []map[string]any{{"dst": 5}, {"dst": 6}}}}
+	if r := bo.ask("approvalAsk", 50, map[string]any{"for": both}); r["ok"] == true {
+		t.Fatalf("both fields asked: %v", r)
+	}
+	two := map[string]any{"t": "protectClear", "id": 5, "protect": map[string]any{"dsts": []map[string]any{{"dst": 4}, {"dst": 6}}}}
+	asked(t, bo.ask("approvalAsk", 51, map[string]any{"for": two}))
+	card := ada.until("approvalCard")
+	if card["what"] != "Freeing other users' Protects on 2 destinations: 5 MON 4, 7 MON 6" {
+		t.Fatalf("card %v", card)
+	}
+	if r := ada.answer(card["request"], true, "2468"); r["ok"] != true {
+		t.Fatalf("approve: %v", r)
+	}
+	if r := bo.until("protectClearResult"); r["ok"] != true || len(r["results"].([]any)) != 2 {
+		t.Fatalf("result %v", r)
+	}
+	if len(f.holdsOn(4)) != 0 || len(f.holdsOn(6)) != 0 || len(f.holdsOn(5)) == 0 {
+		t.Fatalf("holds 4 %v, 5 %v, 6 %v", f.holdsOn(4), f.holdsOn(5), f.holdsOn(6))
 	}
 }

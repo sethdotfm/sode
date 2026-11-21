@@ -17,7 +17,7 @@ const pref = (id, label) => [
 const settings = [
   ...pref('theme', 'Theme'),
   ...pref('set-stack', 'Stacked filters behavior'),
-  ...pref('stack-gap', 'Stack quick changes to one destination'),
+  ...pref('stack-gap', 'Stack quick changes in History'),
   ...pref('palette-char', 'Palette character'),
   set('this-browser', 'This browser', 'Preferences', 'my-default-theme', 'Save Theme as my default', 'my-default-theme'),
   set('this-browser', 'This browser', 'Preferences', 'my-default-clock', 'Save Clock as my default', 'my-default-clock'),

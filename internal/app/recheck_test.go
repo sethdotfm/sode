@@ -232,8 +232,6 @@ func TestUsersSaveCriticalFields(t *testing.T) {
 		{"nothing", bob + "name", "Robert", false},
 		{"Guest Rights wider than Ada's", "guestRights", src(3), true},
 		{"an API client wider than Ada's Rights", "client/Wall/add", map[string]any{"scopes": []string{"tally"}}, true},
-		// last: it signs this page out
-		{"Ada's own PIN", ukey(a, "Ada", "pin"), "8642", false},
 	}
 	for i, c := range cases {
 		r := p.saveLive(a, 10+i, map[string]any{c.key: c.value})
@@ -243,6 +241,8 @@ func TestUsersSaveCriticalFields(t *testing.T) {
 			allSaved(t, c.what, r)
 		}
 	}
+	own := ukey(a, "Ada", "pin") // only Change my PIN, which asks for the current PIN (ownpin_test.go)
+	wantRefused(t, p.saveLive(a, 99, map[string]any{own: "8642"}), own, reasonOwnPin)
 }
 
 // Manage users sends the loaded API clients and Guest Rights back as they came, and Settings > API the

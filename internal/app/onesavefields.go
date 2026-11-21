@@ -35,7 +35,13 @@ type saveCtx struct {
 	// changed, per owner.
 	swap    *swapper
 	swapped swapCounts
+	// self: the saver's user id (the stepped-in user during a step-in), "" for none. Their own PIN is refused.
+	self string
 }
+
+// The one Save has no field for the current PIN. So only userSetPin (setOwnPin), which checks it, changes or removes
+// your own PIN. A first PIN is not a change.
+var errOwnPinHere = errors.New("change your own PIN with Change my PIN in My user, which asks for your current PIN")
 
 func (x *saveCtx) once(key string, make func() (string, error)) (string, error) {
 	if v, ok := x.made[key]; ok {
@@ -169,6 +175,9 @@ func userSpec(id, attr string) (fieldSpec, bool) {
 				return errUserGone
 			}
 			u := &c.Users[i]
+			if id == x.self && u.HasPin() {
+				return errOwnPinHere
+			}
 			p, err := decodeJSON[string](v)
 			if err != nil {
 				return err

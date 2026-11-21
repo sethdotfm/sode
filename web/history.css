@@ -241,7 +241,7 @@
 .sode-m__recent-route > .sode__hist-by {
   display: block;
 }
-/* Below 1000px a row's status is color alone (text on hover, still read out) and its level bar moves into the Before panel. */
+/* Below 1000px a row's level bar moves into the Before panel. */
 .sode__hist-levels {
   display: none;
 }
@@ -257,14 +257,6 @@
   }
   .sode__hist-row > .pb-status {
     --sode-hint: on;
-  }
-  .sode__hist-row > .pb-status > .sode__status-text {
-    clip: rect(0, 0, 0, 0);
-    height: 1px;
-    overflow: hidden;
-    position: absolute;
-    white-space: nowrap;
-    width: 1px;
   }
   /* Stacked, so the bars of an open panel do not widen the levels column for every row. */
   .sode__hist-before {
@@ -305,10 +297,6 @@
 .sode-m__recent-more {
   display: flex;
   justify-content: center;
-}
-.sode__hist-more > .pb-btn,
-.sode-m__recent-more > .pb-btn {
-  background-image: linear-gradient(to right, var(--pb-surface-hover) calc(var(--sode-pull, 0) * 100%), transparent 0);
 }
 .sode-m__recent-more:empty,
 .sode__hist-more:empty {
@@ -987,13 +975,23 @@ html[data-alt] .sode__chip-key {
 }
 .sode__pickbar-controls {
   align-items: center;
-  background: var(--pb-surface-base);
-  color: var(--pb-text);
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
   margin-left: auto;
-  padding: var(--pb-space-3) var(--pb-space-4);
+}
+/* The controls sit on the accent itself: text and the outline button take the on-accent colour. */
+.sode__pickbar-controls :is(.sode__hint, .pb-check__label) {
+  color: var(--pb-text-on-accent);
+}
+.sode__pickbar-controls .pb-btn--outline {
+  background-color: transparent;
+  border-color: var(--pb-text-on-accent);
+  color: var(--pb-text-on-accent);
+}
+.sode__pickbar-controls .pb-btn--outline:hover {
+  background-color: var(--pb-overlay-hover);
+  border-color: var(--pb-text-on-accent);
 }
 [data-sode-pick=""] .sode-m__composer {
   opacity: 0.35;
@@ -1004,9 +1002,6 @@ html[data-alt] .sode__chip-key {
 [data-sode-pick] [data-presets] {
   opacity: 0.35;
   pointer-events: none;
-}
-[data-sode-pick="boxes"] #patch {
-  display: none;
 }
 [data-sode-pick=""] .sode__hist-row,
 [data-sode-pick=""] .sode-m__recent-face {
@@ -1032,7 +1027,7 @@ html[data-alt] .sode__chip-key {
   color: var(--pb-text-on-accent);
 }
 [data-sode-pick] .sode-lock__who .pb-btn,
-[data-sode-pick] .sode-lock__who .sode-lock__who-ico {
+[data-sode-pick] .sode-lock__who :is(.sode-lock__who-ico, .sode-lock__who-name) {
   color: inherit;
 }
 

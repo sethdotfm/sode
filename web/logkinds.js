@@ -42,10 +42,10 @@ export const WHY_LABEL = {
   salvos: 'Presets saved', // salvos: rows logged before the rename
   salvo: 'Router salvo',
   protect: 'Protect',
-  protectClear: 'Clear Protect',
+  protectClear: 'Free Protect',
   protectUndo: 'Undo of a Protect',
   protectRollback: 'Protect rolled back',
-  protectClearAll: "Clear Sode's Protects",
+  protectClearAll: "Free Sode's Protects",
   userSignIn: 'Sign in',
   userLock: 'User locked',
   userSignOut: 'User signed out',

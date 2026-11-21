@@ -166,6 +166,8 @@ func TestEntryLogLine(t *testing.T) {
 			`TAKE client=10.0.0.7 src=2 "CAM 2" dst=5 "MON 5" levels=[1] undo=3 retry=- group=g1/2 result="no answer"`},
 		{Entry{Ext: true, Found: true, Src: 1, SrcName: "CAM 2", Dst: 4, DstName: "MON 5", Levels: []int{1}, Follow: &follow, FollowGroup: "g9"},
 			`EXT src=2 "CAM 2" dst=5 "MON 5" levels=[1] group=- follow=4 followGroup=g9 found=true`},
+		{Entry{Client: "Ana", Src: -1, Dst: 4, DstName: "MON 5", Levels: []int{1, 2}, Protect: "set", Still: []int{2}, Group: "p1", GroupN: 2, Err: "no answer"},
+			`PROTECT client=Ana protect=set dst=5 "MON 5" levels=[1 2] still=[2] undo=- group=p1/2 result="no answer"`},
 	}
 	for _, c := range cases {
 		if got := c.e.logLine(1); got != c.want {

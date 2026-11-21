@@ -77,3 +77,31 @@ export function withBoxRoute(routes, { src, dsts, levels }) {
 // How many routes the main page's Take sends (desktop.js): the staged routes, with the boxes' route when they hold one
 // (withBoxRoute). Without staged routes it is 0: a plain patch says Take with no count.
 export const takeCount = (routes, box) => (!routes.length ? 0 : box ? withBoxRoute(routes, box).length : routes.length);
+
+const many = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
+
+// The popup's note after a click adds to a preset. r is the body's { kind, n, items, outside } (gridpanelnow.js), rows
+// what the editor added. src(n) and dst(n) are labels.
+export function addedLine(r, rows, { src, dst }) {
+  const left = r.outside ? ` ${many(r.outside, 'level')} left out: the source is not in your Rights.` : '';
+  if (r.kind === 'xp') return `Added ${src(r.n.src)} to ${dst(r.n.dst)}.`;
+  if (r.kind === 'dsts') {
+    const from = r.items.length === 1 ? src(r.items[0].src) : many(r.items.length, 'source');
+    return `Added ${dst(r.n)} from ${from}.${left}`;
+  }
+  const n = r.items.reduce((k, it) => k + it.dsts.length, 0);
+  const to = n === 1 ? dst(r.items[0].dsts[0]) : many(n, 'destination');
+  return `Added ${src(r.n)} to ${to}${rows > 1 ? ` (${many(rows, 'row')})` : ''}.`;
+}
+
+// The note when a click on a name finds no route to add.
+export function noRouteLine(r, { src, dst }) {
+  if (r.kind === 'srcs') return `${src(r.n)} goes to no destination on these levels.`;
+  return r.outside ? `${dst(r.n)} gets its source from outside your Rights.` : `${dst(r.n)} has no source on these levels.`;
+}
+
+// The preset items a press adds. A crosspoint stores what the boxes' Add stores: no levels (the default levels) while
+// the main Levels box is empty (boxLevels []). A name stores the levels its routes have now.
+export const storedItems = (r, boxLevels) => (r.kind === 'xp' && !boxLevels.length ? [{ ...r.items[0], levels: [] }] : r.items);
+
+export const rowsWord = (n) => `${many(n, 'row')} in the preset`;

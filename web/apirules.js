@@ -11,7 +11,7 @@ export const SCOPES = [
   { id: 'layouts', text: 'Panel layouts' },
   { id: 'log', text: 'Communication Log' },
   { id: 'take', text: 'Takes, Undo, Redo and Retry' },
-  { id: 'protect', text: "Set and clear Sode's Protects" },
+  { id: 'protect', text: "Set and free Sode's Protects" },
   { id: 'panels', text: 'Read panels' },
   { id: 'panelsmanage', text: 'Manage panels' },
 ];

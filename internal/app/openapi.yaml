@@ -242,14 +242,14 @@ paths:
     delete:
       operationId: clearProtect
       tags: [writes]
-      summary: Clear Sode's Protect
+      summary: Free Sode's Protect
       description: |
-        Scope `protect`, as for a set. Clears only a Protect that Sode set, and only one that the
+        Scope `protect`, as for a set. Frees only a Protect that Sode set, and only one that the
         same user or API client set. Another user's gets 403 `administrator_only`: an
-        Administrator clears it in Settings. 404 `not_found` when Sode holds no level of it.
+        Administrator frees it in Settings. 404 `not_found` when Sode holds no level of it.
       responses:
         "200":
-          description: Sode sent the clear; read `ok`
+          description: Sode sent the Free Protect; read `ok`
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ProtectResult" }
@@ -2940,6 +2940,10 @@ components:
         ext: { type: boolean, description: An External change }
         found: { type: boolean, description: "External only, changed without a Connected and seen when Sode re-read the router" }
         follow: { type: integer, description: "External only, the id of the take this seems to follow" }
+        protect: { type: string, enum: [set, clear], description: "A Protect entry, with src -1 and every level: Sode set (set) or freed (clear) a Protect. With ext, another system set or freed a Protect or a Router lock on these levels" }
+        still: { type: array, items: { type: integer }, description: "Levels that Sode still holds after a failed Protect or Free Protect" }
+        holdKind: { type: string, enum: [protect, routerLock], description: "External Protect entries only, the kind of hold" }
+        device: { type: integer, description: "External Protect entries only, the device number that set the hold. Absent for device 0" }
         followGroup: { type: string, description: "External only, the Group of that take" }
         router: { type: string, description: "The router UID. Absent on entries from before v2" }
         routerTitle: { type: string, description: "The router title when the entry was made, kept after a rename" }

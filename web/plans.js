@@ -1,6 +1,6 @@
 import { el, S, search, on, onMsg, emit, wsSend, off, linked, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
 import { protectedText } from './protectrules.js';
-import { protectSummary, sendProtect, protectRow, holdsAt, holdBadge } from './protects.js';
+import { protectSummary, sendProtect, holdsAt, holdBadge } from './protects.js';
 import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
@@ -128,7 +128,8 @@ function withFollows(plan, follows) {
   return oldest.size ? { ...plan, extra: { items: [...oldest.values()].map(undoItem), on: false } } : plan;
 }
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
-export const undoPlan = (e) => (e.protect ? protectRow(e).undo : withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []));
+export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
+// A take's plans; a Protect row's Undo is its own (protects.js PROTECT_ENTRY, PROTECT_GROUP).
 export const groupUndoPlan = (f) =>
   withFollows(
     { verb: 'undo', items: f.entries.map(undoItem) },
@@ -143,7 +144,6 @@ export function againPlan(row) {
   const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
   return use.some((e) => e.undo) ? { ...plan, ofUndo: true } : plan;
 }
-export const rowUndoPlan = (row) => (row.f ? groupUndoPlan(row.f) : undoPlan(row.e));
 
 // The one table of verb wording. busy: banner while it sends; resets: whether a send clears the
 // patch boxes (only a new patch does).
@@ -157,7 +157,7 @@ export const VERBS = {
   grid: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
   // A Protect is no take: protects.js sends it (plan.protect).
   protect: { word: 'protect', ask: 'protect', busy: 'Protecting…', resets: false },
-  unprotect: { word: 'clear protect', ask: 'clear the Protect on', busy: 'Clearing…', resets: false },
+  unprotect: { word: 'free protect', ask: 'free the Protect on', busy: 'Freeing…', resets: false },
 };
 export const planVerb = (plan) => VERBS[plan.verb].word;
 export const planEmpty = (plan) => !plan.protect && !plan.items.some((i) => i.groups.length);

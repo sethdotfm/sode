@@ -69,9 +69,11 @@ export function paintXp(xp, s, d, view) {
   setData(xp, 's', st);
   if (starts) joinPulse(xp);
   setData(xp, 'on', on.length ? on.join(',') : undefined);
+  const marked = !!view.marks?.xps.has(`${s},${d}`);
+  setData(xp, 'mark', marked ? '' : undefined);
   if (xp.getAttribute('aria-disabled') !== String(prot)) xp.setAttribute('aria-disabled', String(prot));
   const state = out ? ', staged, left out of the take' : staged.length ? ', staged. Right-click or Alt-click to unstage' : '';
-  const label = `${view.names.source(s)} to ${view.names.destination(d)}${on.length ? `, levels ${view.levelText(on)}` : ''}${prot ? ', protected' : ''}${state}`;
+  const label = `${view.names.source(s)} to ${view.names.destination(d)}${on.length ? `, levels ${view.levelText(on)}` : ''}${prot ? ', protected' : ''}${state}${marked ? view.marks.words.route : ''}`;
   if (xp.getAttribute('aria-label') !== label) xp.setAttribute('aria-label', label);
 }
 
@@ -116,7 +118,7 @@ export const makeSrc = () => {
 // sources the grid does not show, then the artwork.
 export const makeDst = () => {
   const n = makeName('pb-xpt--dest sode-gridpanel__dst')();
-  const prot = el('small', 'sode-gridpanel__prot', icon('lock'), document.createTextNode(''));
+  const prot = el('small', 'sode-gridpanel__prot', icon('shield'), document.createTextNode(''));
   const held = el('small', 'sode-gridpanel__held', document.createTextNode(''));
   const other = el('small', 'sode-gridpanel__other', document.createTextNode(''));
   prot.hidden = held.hidden = other.hidden = true;
@@ -158,18 +160,21 @@ export function paintDstMarks(n, d, view) {
   const p = view.protected(d);
   n.classList.toggle('pb-xpt--protected', p);
   if (prot.hidden === p) prot.hidden = !p;
-  // With a hold from the host, the mark names the owner, and its icon and tip say the rest; else a lock and Protected.
+  // With a hold from the host, the mark names the owner, and its icon and tip say the rest; else a shield and Protected.
   const hold = p ? view.hold?.(d) : null;
   const word = p ? ` ${hold?.text || 'Protected'}` : '';
   if (prot.lastChild.data !== word) prot.lastChild.data = word;
-  const href = iconHref(hold?.icon || 'lock');
+  const href = iconHref(hold?.icon || 'shield');
   const use = prot.firstChild.firstChild;
   if (use.getAttribute('href') !== href) use.setAttribute('href', href);
   setData(prot, 'owner', hold?.owner);
   setData(prot, 'pbTip', hold?.tip);
-  // Protected wins: a protected destination has nothing staged.
-  const h = !p && view.held(d);
-  setText(held, h ? 'staged' : '');
+  // Protected wins: a protected destination has nothing staged. Then a press policy's mark (gridpaneladd.js).
+  const marked = !p && !view.held(d) && !!view.marks?.dsts.has(d);
+  const heldText = p ? '' : marked ? view.marks.words.name : view.held(d) ? 'staged' : '';
+  const h = !!heldText;
+  setText(held, heldText);
+  setData(held, 'mark', marked ? '' : undefined);
   if (held.hidden === h) held.hidden = !h;
   const o = view.other(d);
   setText(other, o.text);

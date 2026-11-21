@@ -13,7 +13,7 @@ import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { presetHost } from './presets.js';
 import { lastFill } from './historyrows.js';
-import { boxPicking, addPatch } from './historypick.js';
+import { presetAdd } from './presetadd.js';
 import { combobox, feeding } from './widgets.js';
 import { mobileHistory, closeSwipes } from './mobilehistory.js';
 import { mobileConfirm } from './mobileconfirm.js';
@@ -71,15 +71,26 @@ function syncGo() {
   setLinkDisabled($('m-go'), M.step === 'lvl' && !linked());
 }
 
+// Go on the last step. While a preset adds patches (presetadd.js) it is Add in the add colour: it adds the patch and
+// sends nothing.
+const takeState = () => ({ word: presetAdd.active() ? 'Add' : 'Go', ok: presetAdd.active(), disabled: false });
+function paintGo() {
+  const last = M.step === 'lvl';
+  const t = takeState();
+  $('m-go').textContent = last ? t.word : 'Next';
+  $('m-go').classList.toggle('pb-btn--danger', last && !t.ok);
+  $('m-go').classList.toggle('pb-btn--ok', last && t.ok);
+  syncGo();
+}
+on('presetAdd', paintGo);
+
 function setStep(step, focus = true) {
   M.step = step;
   $('m-bar').dataset.step = step;
   for (const k of STEPS) inputs[k].hidden = k !== step;
   $('m-step').textContent = PROMPT[step];
   $('m-step').htmlFor = inputs[step].id;
-  $('m-go').textContent = step === 'lvl' ? 'Go' : 'Next';
-  $('m-go').classList.toggle('pb-btn--danger', step === 'lvl');
-  syncGo();
+  paintGo();
   $('m-add').hidden = step !== 'dst';
   $('m-picker').hidden = step !== 'lvl';
   $('m-ops').hidden = step !== 'lvl';
@@ -124,8 +135,15 @@ function advance() {
   const levels = lvl.levels();
   if (!levels) return shake(inputs.lvl);
   inputs.lvl.blur();
-  if (boxPicking()) return addPatch();
+  if (presetAdd.active()) return addBoxes();
   sheet.open(patchPlan(M.sel.src, M.dsts, levels));
+}
+
+// The boxes' patch as a preset row: { ok, text }. The boxes clear after an add.
+function addBoxes() {
+  const r = presetAdd.addPatch(boxPatch(M.sel.src, [...M.dsts], lvl));
+  if (r.ok) reset();
+  return r;
 }
 
 // + empties the box after the add, as the desktop does, so the next digits start a new search. On the empty box, +
@@ -307,7 +325,7 @@ function renderThread() {
   const last = M.dsts[M.dsts.length - 1] || maybe('dst');
   const others = M.dsts.length - 1;
   if (last) {
-    // With no source, the route view of one destination offers Protect and Clear Protect.
+    // With no source, the route view of one destination offers Protect and Free Protect.
     const protect = !M.sel.src && others <= 0 ? (p) => sheetFor(p) : null;
     nodes.push(el('div', 'sode-m__card', ...currentlyNodes(last, null, protect), others > 0 ? el('div', 'sode__hint', `+${others} more`) : null));
   } else if (M.sel.src) {
@@ -521,6 +539,10 @@ presetHost({
   active,
   confirm: sheetFor,
   patch: () => boxPatch(M.sel.src, [...M.dsts], lvl),
+  // The phone's Grid popup has its own Take and Clear (gridpaneltake.js), so these are Go and the reset.
+  take: () => (presetAdd.active() ? addBoxes() : (advance(), null)),
+  clearAll: reset,
+  takeState,
   picks: () => ({ src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: reset,
   focus: () => setStep(order()[0], false),

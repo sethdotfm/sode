@@ -25,7 +25,7 @@ var prefLabels = map[string]string{
 	"scrollTop":     "Scroll to top on focus",
 	"searchFilters": "Searching history respects filters",
 	"setStack":      "Stacked filters behavior",
-	"stackGap":      "Stack quick changes to one destination",
+	"stackGap":      "Stack quick changes in History",
 	"nextMode":      "Next match behavior",
 	"compact":       "Compact view",
 	"paletteChar":   "Palette character",

@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"log"
@@ -55,6 +56,7 @@ const (
 	reasonConflict = "conflict"
 	reasonPrereq   = "missing prerequisite"
 	reasonInvalid  = "invalid"
+	reasonOwnPin   = "own PIN" // the saver's own PIN, which only Change my PIN changes
 )
 
 type fieldEdit struct {
@@ -210,7 +212,11 @@ func (p *savePlan) screen(key, role string, ap *config.User) bool {
 			}
 		}
 		if f.set(&one, e.Value, p.x) != nil {
-			p.refuse(key, reasonInvalid, err)
+			reason := reasonInvalid
+			if errors.Is(err, errOwnPinHere) {
+				reason = reasonOwnPin
+			}
+			p.refuse(key, reason, err)
 			return false
 		}
 	}
@@ -376,6 +382,7 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 		plan.edits = edits
 	}
 	var cands []string
+	x.self = c.userID() // during a step-in, the stepped-in user
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
 		if plan.screen(key, role, ap) {
 			cands = append(cands, key)

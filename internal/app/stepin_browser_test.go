@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
@@ -14,6 +15,33 @@ const sessionKeysJS = `JSON.stringify([
 	...['sode-session', 'sode-last-user', 'sode-profile-prefs'].map((k) => [k, localStorage.getItem(k)]),
 	...['sode-tab-session', 'sode-held-user'].map((k) => [k, sessionStorage.getItem(k)]),
 ])`
+
+// openStepIn presses Step in in Settings > My user and waits for the lock screen's pad in Step in mode.
+func openStepIn(b *tab) {
+	b.t.Helper()
+	b.waitFor("Step in shown", `!document.getElementById('account-stepin').hidden`)
+	// Focused first, as a person's click or Enter does, so Cancel can give the focus back.
+	b.eval(`{ const s = document.getElementById('account-stepin'); s.focus(); s.click(); } true`)
+	b.waitFor("Step in pad", `!!document.querySelector('.sode-lock.is-on') && !!document.querySelector('.sode-lock__mode:not([hidden])') &&
+		!!document.querySelector('.sode-lock__cancel:not([hidden])') && document.activeElement?.id === 'lock-name'`)
+}
+
+// padDigits presses each digit on the lock screen's pad.
+func padDigits(b *tab, pin string) {
+	b.t.Helper()
+	for _, d := range pin {
+		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click(); true`, d))
+	}
+}
+
+// stepInAs steps in on the lock screen's pad. The PIN is the user's full length, so the pad sends it.
+func stepInAs(b *tab, name, pin string) {
+	b.t.Helper()
+	openStepIn(b)
+	b.padName(name)
+	padDigits(b, pin)
+	b.waitFor("Step in pad gone", `!document.documentElement.hasAttribute('data-sode-lock')`)
+}
 
 // A step-in acts as Bo in this tab and writes none of the session keys. A reload is Ana again; so is Step out.
 func TestChromeStepInWritesNoSessionKeys(t *testing.T) {
@@ -38,11 +66,7 @@ func TestChromeStepInWritesNoSessionKeys(t *testing.T) {
 	b.waitFor("Ana's token kept", `!!localStorage.getItem('sode-session')`)
 	before := b.eval(sessionKeysJS)
 
-	b.waitFor("Step in shown", `!document.getElementById('account-stepin').hidden`)
-	b.eval(`document.getElementById('account-stepin').click(); true`)
-	b.waitFor("Step in popup", `!!document.getElementById('stepin-pin')?.offsetParent`)
-	b.eval(`document.getElementById('stepin-name').value = 'Bo'; document.getElementById('stepin-pin').value = '567890';
-		document.getElementById('stepin-go').click(); true`)
+	stepInAs(b, "Bo", "567890")
 	b.waitFor("stepped in as Bo", `!document.getElementById('account-stepout').hidden &&
 		document.getElementById('account-name').textContent.includes('Bo')`)
 	if got := b.eval(sessionKeysJS); got != before {
@@ -56,11 +80,7 @@ func TestChromeStepInWritesNoSessionKeys(t *testing.T) {
 		t.Fatalf("session keys after the reload:\nbefore %v\nafter  %v", before, got)
 	}
 
-	b.waitFor("Step in shown", `!document.getElementById('account-stepin').hidden`)
-	b.eval(`document.getElementById('account-stepin').click(); true`)
-	b.waitFor("Step in popup", `!!document.getElementById('stepin-pin')?.offsetParent`)
-	b.eval(`document.getElementById('stepin-name').value = 'Bo'; document.getElementById('stepin-pin').value = '567890';
-		document.getElementById('stepin-go').click(); true`)
+	stepInAs(b, "Bo", "567890")
 	b.waitFor("stepped in again", `!document.getElementById('account-stepout').hidden`)
 	b.eval(`document.getElementById('account-stepout').click(); true`)
 	b.waitFor("Ana after Step out", `document.getElementById('account-name').textContent.includes('Signed in as Ana') &&
@@ -101,11 +121,7 @@ func TestChromeStepInBorderAndLabel(t *testing.T) {
 	b.eval(`document.getElementById('settings-open').click(); true`)
 	b.waitFor("Settings open again", `document.documentElement.dataset.view === 'settings'`)
 
-	b.waitFor("Step in shown", `!document.getElementById('account-stepin').hidden`)
-	b.eval(`document.getElementById('account-stepin').click(); true`)
-	b.waitFor("Step in popup", `!!document.getElementById('stepin-pin')?.offsetParent`)
-	b.eval(`document.getElementById('stepin-name').value = 'Bo'; document.getElementById('stepin-pin').value = '567890';
-		document.getElementById('stepin-go').click(); true`)
+	stepInAs(b, "Bo", "567890")
 	b.waitFor("stepped in as Bo", `!document.getElementById('account-stepout').hidden`)
 	b.eval(`document.getElementById('settings-exit').click(); true`)
 	b.waitFor("Settings closed in Compact view", `!document.documentElement.dataset.view && document.documentElement.hasAttribute('data-compact')`)
@@ -124,9 +140,9 @@ func TestChromeStepInBorderAndLabel(t *testing.T) {
 		return true;
 	})()`
 	b.waitFor("step-in border, not the Branding colour", frame)
-	// A real pointer at rest away from the faded chrome, as in TestChromeMainCompact: the footer fades, the label does not.
+	// A real pointer at rest away from the faded chrome, as in TestChromeMainCompact: the status fades, the label does not.
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 640, "y": 400})
-	b.waitFor("Compact view faded the footer", `getComputedStyle(document.querySelector('#patch-view .sode__footer')).opacity === '0'`)
+	b.waitFor("Compact view faded the status", `document.getElementById('conn').classList.contains('sode__conn--ok') && getComputedStyle(document.getElementById('conn')).opacity === '0'`)
 	b.waitFor("label shows in Compact view", label)
 	b.shot("compact")
 	if got := b.eval(`document.getElementById('src').value`); got != "cam" {
@@ -172,11 +188,7 @@ func TestChromeStepInReviewNamesAuthor(t *testing.T) {
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	b.waitFor("Step in shown", `!document.getElementById('account-stepin').hidden`)
-	b.eval(`document.getElementById('account-stepin').click(); true`)
-	b.waitFor("Step in popup", `!!document.getElementById('stepin-pin')?.offsetParent`)
-	b.eval(`document.getElementById('stepin-name').value = 'Bo'; document.getElementById('stepin-pin').value = '567890';
-		document.getElementById('stepin-go').click(); true`)
+	stepInAs(b, "Bo", "567890")
 	b.waitFor("stepped in as Bo, Locks shown", `!document.getElementById('stepbar').hidden &&
 		!document.querySelector('fieldset[data-section="locks"]').hidden`)
 	if got := b.eval(`document.getElementById('settings-path').textContent`); got == "Unsaved changes" {
@@ -207,5 +219,71 @@ func TestChromeStepInReviewNamesAuthor(t *testing.T) {
 	if cfg := a.r().cfg; cfg.BrandText != "Truck 4" || cfg.Locks.Main {
 		t.Fatalf("after Ana's Save: brandText %q, main lock %v; want Truck 4 and no main lock", cfg.BrandText, cfg.Locks.Main)
 	}
+	b.check()
+}
+
+// Esc and Cancel each close the Step in pad and leave Ana's page as it was: Settings open, the staged edit kept. A
+// wrong PIN keeps the pad in Step in mode. Shots in both themes at desktop width and at a phone's width.
+func TestChromeStepInCancelKeepsPage(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) {
+		c.Users[0].Role, c.Users[0].Persistent = config.RoleAdministrator, true
+		c.Users = append(c.Users, mkUser(t, "Bo", "567890"), config.User{Name: "Cy"}) // Cy has no PIN
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	b.open(srv.URL + "/#settings")
+	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
+	signInSettings(b)
+	b.eval(`const t = document.getElementById('cfg-brandtext'); t.value = 'Truck 4'; t.dispatchEvent(new Event('input', { bubbles: true })); true`)
+	b.waitFor("edit staged", `document.getElementById('settings-path').textContent === 'Unsaved changes'`)
+	kept := `document.documentElement.dataset.view === 'settings' && !document.documentElement.hasAttribute('data-sode-lock') &&
+		document.getElementById('account-name').textContent.includes('Signed in as Ana') && document.getElementById('account-stepout').hidden &&
+		document.getElementById('cfg-brandtext').value === 'Truck 4' && document.getElementById('settings-path').textContent === 'Unsaved changes'`
+
+	openStepIn(b)
+	// The list has only other users with a PIN.
+	b.waitFor("Bo alone in the list", `[...document.querySelectorAll('#lock-name-list [role="option"]')].map((o) => o.textContent).join() === 'Bo'`)
+	b.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); true`)
+	b.waitFor("Esc left the page as it was", kept)
+	b.waitFor("focus back on Step in", `document.activeElement?.id === 'account-stepin'`)
+
+	openStepIn(b)
+	b.padName("Bo")
+	padDigits(b, "111111")
+	b.waitFor("wrong PIN told, still Step in", `document.querySelector('.sode-lock__dots').textContent === 'Incorrect' &&
+		!!document.querySelector('.sode-lock__mode:not([hidden])') && document.getElementById('account-stepout').hidden`)
+	// A name the list leaves out still goes to the server, which tells why.
+	b.padName("Cy")
+	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click(); true`)
+	b.waitFor("the server's refusal for Cy", `document.querySelector('.sode-lock__dots').textContent === 'Cy has no PIN: only a user with a PIN can step in'`)
+	b.padName("Bo")
+
+	shots := func(width int, name string) {
+		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": width, "height": 844, "deviceScaleFactor": 1, "mobile": false})
+		for _, theme := range []string{"light", "dark"} {
+			b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": theme}}})
+			b.waitFor("pad shown", `(() => {
+				const r = document.querySelector('.sode-lock__cancel').getBoundingClientRect();
+				return getComputedStyle(document.querySelector('.sode-lock__body:not([hidden])')).opacity === '1' && r.width > 0 && r.left >= 0 && r.right <= innerWidth;
+			})()`)
+			b.shot(theme + "-" + name)
+		}
+	}
+	shots(1280, "desktop")
+	shots(390, "narrow")
+	b.call("Emulation.clearDeviceMetricsOverride", nil)
+	b.eval(`document.querySelector('.sode-lock__cancel').click(); true`)
+	b.waitFor("Cancel left the page as it was", kept)
+
+	stepInAs(b, "Bo", "567890")
+	b.waitFor("stepped in as Bo, Settings still open", `!document.getElementById('account-stepout').hidden &&
+		document.documentElement.dataset.view === 'settings'`)
 	b.check()
 }

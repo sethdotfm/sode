@@ -1,0 +1,1 @@
+- Badges and status words have no colored square. The word gives the status, with the color of its text. History rows below 1000 px wide now show their status word. The Server and Router status shows a symbol in place of its square.

@@ -28,7 +28,7 @@ type Entry struct {
 	Dst         int      `json:"dst"`
 	DstName     string   `json:"dstName"`
 	Levels      []int    `json:"levels"`
-	Prev        [][2]int `json:"prev"` // [UI level, src] before the take; src -1 = nothing routed
+	Prev        [][2]int `json:"prev"` // [UI level, src] before the take, or on dst for a Protect entry; src -1 = nothing routed
 	OK          bool     `json:"ok"`
 	Err         string   `json:"err,omitempty"`
 	Undo        *int     `json:"undo,omitempty"`
@@ -62,6 +62,10 @@ type Entry struct {
 	// the levels Sode still holds after a failed one.
 	Protect string `json:"protect,omitempty"`
 	Still   []int  `json:"still,omitempty"`
+	// HoldKind and Device: an External Protect entry (protext.go), "protect" or "routerLock" (holdKindWord) and
+	// the device that set the hold.
+	HoldKind string `json:"holdKind,omitempty"`
+	Device   int    `json:"device,omitempty"`
 }
 
 // logLine: off turns 0-based numbers into the router's display numbers.
@@ -82,6 +86,10 @@ func (e *Entry) logLine(off int) string {
 	if e.Group != "" {
 		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
 	}
+	if e.Ext && e.Protect != "" {
+		return fmt.Sprintf("EXT protect=%s kind=%s device=%d dst=%d %q levels=%v found=%t",
+			e.Protect, e.HoldKind, e.Device, e.Dst+off, e.DstName, e.Levels, e.Found)
+	}
 	if e.Ext {
 		follow := "-"
 		if e.Follow != nil {
@@ -97,6 +105,10 @@ func (e *Entry) logLine(off int) string {
 	client := e.Client
 	if e.BrowserOf != "" {
 		client += " (browser of " + e.BrowserOf + ")"
+	}
+	if e.Protect != "" {
+		return fmt.Sprintf("PROTECT client=%s protect=%s dst=%d %q levels=%v still=%v undo=%s group=%s result=%q",
+			client, e.Protect, e.Dst+off, e.DstName, e.Levels, e.Still, undo, group, result)
 	}
 	return fmt.Sprintf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
 		client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)

@@ -15,12 +15,8 @@ import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, pr
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
 import { toClear, moveText } from './browsercopyrules.js';
+import { statusText as status } from './statustext.js';
 
-const status = (dot, text) => {
-  const d = el('span', `pb-dot pb-dot--${dot}`);
-  d.setAttribute('aria-hidden', 'true');
-  return el('span', 'pb-status', d, text);
-};
 const select = (label, options, value, onChange) => {
   const s = el('select', 'pb-select');
   s.setAttribute('aria-label', label);
@@ -245,7 +241,7 @@ function matchLines(r) {
 }
 
 const RANK = { warn: 0, error: 0, info: 1, ok: 2, idle: 3 };
-const rankOf = (n) => RANK[[...n.firstChild.classList].find((c) => c.startsWith('pb-dot--'))?.slice(8)] ?? 3;
+const rankOf = (n) => RANK[n.dataset.tone] ?? 3;
 function worstFirst(lines) {
   const sorted = lines
     .map((n, i) => [n, i])

@@ -544,7 +544,9 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 		out := addItem
 		if i := matchUser(p.same, cand.Users, u); i >= 0 {
 			lu := cand.Users[i]
-			if !hashed {
+			// The importer's own PIN changes only with Change my PIN, which asks for the current PIN.
+			keptOwn := hashed && lu.ID == p.actor && u.Pin != lu.Pin
+			if !hashed || lu.ID == p.actor {
 				u.Pin, u.Len, u.PinNeeded = lu.Pin, lu.Len, lu.PinNeeded
 			}
 			if p.noHashes && lu.ID == p.actor {
@@ -562,6 +564,9 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 				p.users[key] = lu.ID
 			case addItem:
 				u.Name, u.Role = it.As, role
+			}
+			if keptOwn && out != addItem {
+				it.Note = "Keeps your own PIN. Change it in My user."
 			}
 		}
 		if out == addItem {

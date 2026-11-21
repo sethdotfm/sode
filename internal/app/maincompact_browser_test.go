@@ -39,7 +39,7 @@ func TestChromeMainCompact(t *testing.T) {
 	b.open(srv.URL + "/")
 	b.waitFor("data-compact set before the modules run", `document.documentElement.hasAttribute('data-compact')`)
 	b.waitFor("History hidden", `!(`+shown("#patch-view > .sode__history")+`)`)
-	for _, sel := range []string{"#patch-view .sode__boxes", "#patch-view [data-presets]", "#patch-view .sode__footer", "#settings-open", "#patch"} {
+	for _, sel := range []string{"#patch-view .sode__boxes", "#patch-view [data-presets]", "#home-bar .sode-bar__grid", "#home-bar .sode-bar__settings", "#patch"} {
 		b.waitFor(sel+" still shown", shown(sel))
 	}
 
@@ -66,7 +66,7 @@ func TestChromeMainCompact(t *testing.T) {
 	for _, c := range []struct {
 		sel    string
 		dx, dy int
-	}{{".sode__footer", 80, -64}, {"#conn", -80, 64}} {
+	}{{"#conn", -80, 64}} {
 		sel := c.sel
 		b.waitFor(sel+" faded", opacity(sel, "0")+` && `+shown(sel))
 		hover(sel)
@@ -82,22 +82,15 @@ func TestChromeMainCompact(t *testing.T) {
 	for _, sel := range []string{"#src", "#dst", "#patch", "#patch-view [data-presets]"} {
 		b.waitFor(sel+" not under an apron", `(() => { const e = document.querySelector('`+sel+`'), r = e.getBoundingClientRect(), h = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return e === h || e.contains(h); })()`)
 	}
-	if got := b.eval(`[document.getElementById('settings-open').getAttribute('aria-label'), document.getElementById('settings-open').dataset.pbTip].join('|')`); got != "Settings|Settings" {
-		t.Fatalf("faded Settings button lost its name or tip: %v", got)
-	}
-	b.eval(`document.getElementById('settings-open').focus(); true`)
-	b.waitFor("footer back on focus", opacity(".sode__footer", "1"))
-	b.eval(`document.getElementById('settings-open').blur(); true`)
-	b.waitFor("footer faded after blur", opacity(".sode__footer", "0"))
-	dur := `getComputedStyle(document.querySelector('.sode__footer')).transitionDuration`
+	dur := `getComputedStyle(document.getElementById('conn')).transitionDuration`
 	b.waitFor("reveal fades over a quarter second", dur+` === '0.25s'`)
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-reduced-motion", "value": "reduce"}}})
 	b.waitFor("reveal snaps under reduced motion", dur+` === '0s'`)
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{}})
 
-	// Centred: the span from Source's left edge to Levels' right edge, at the height of the boxes,
-	// sits at the viewport's centre. This check ignores where the title and Presets fall.
-	const boxes = `(() => { const a = document.getElementById('src').getBoundingClientRect(), z = document.getElementById('lvl').getBoundingClientRect(); return [(a.left + z.right) / 2 - innerWidth / 2, (a.top + a.bottom) / 2 - innerHeight / 2]; })()`
+	// Centred: the three groups, from Source's left edge to Clear's right edge, at the height of the boxes,
+	// sit at the viewport's centre. This check ignores where the title and Presets fall.
+	const boxes = `(() => { const a = document.getElementById('src').getBoundingClientRect(), z = document.getElementById('clear-all').getBoundingClientRect(); return [(a.left + z.right) / 2 - innerWidth / 2, (a.top + a.bottom) / 2 - innerHeight / 2]; })()`
 	b.waitFor("boxes at the viewport centre", `(() => { const [x, y] = `+boxes+`; return Math.abs(x) <= 1 && Math.abs(y) <= 1; })()`)
 	const presets = `(() => { const p = document.querySelector('#patch-view [data-presets]'), k = [...p.children].filter((c) => c.getBoundingClientRect().width > 0).map((c) => c.getBoundingClientRect()); return (Math.min(...k.map((r) => r.left)) + Math.max(...k.map((r) => r.right))) / 2 - innerWidth / 2; })()`
 	b.waitFor("Presets centred under the boxes", `Math.abs(`+presets+`) <= 1`)

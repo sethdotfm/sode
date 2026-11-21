@@ -12,12 +12,18 @@ import {
   filterRows,
   KIND_PROTECT,
   KIND_ROUTER_LOCK,
-  HOLD_LOOK,
+  holdLook,
   holdShort,
   shieldTargets,
   protectUndoable,
+  entryChip,
+  protectFoldKey,
+  protectFoldOpts,
+  foldedNote,
+  newestProtects,
 } from '../protectrules.js';
 import { fuzzyScore } from '../fuzzy.js';
+import { mergeRuns } from '../historyruns.js';
 
 const prot = (rows) => {
   const m = new Map();
@@ -73,9 +79,17 @@ test('the three owners: you, another Sode user, another system', () => {
   assert.equal(holdLabel(holdsOn(p, gone, 4, all, 126, 'Cy').sode), 'Protected by Cy in Sode');
   const client = new Map([[4, { dst: 4, by: 'Desk', kind: 'client', device: 126, levels: [1] }]]);
   assert.equal(holdLabel(holdsOn(p, client, 4, all, 126, 'Ana').sode), 'Protected by API client Desk in Sode');
-  // Each owner has its own icon; yours is the one you can clear.
-  assert.equal(new Set(Object.values(HOLD_LOOK).map((l) => l.icon)).size, 3);
-  assert.equal(HOLD_LOOK.you.status, 'info');
+  // Every Protect has the shield, whoever holds it; a Router lock has shield-ban. Only yours is info.
+  const look = (owner, kind = KIND_PROTECT) => holdLook({ owner, kind });
+  assert.deepEqual(
+    [look('you'), look('sode'), look('other')].map((l) => l.icon),
+    ['shield', 'shield', 'shield'],
+  );
+  assert.deepEqual(look('other', KIND_ROUTER_LOCK), { icon: 'shield-ban', status: 'warn' });
+  assert.deepEqual(
+    [look('you'), look('sode'), look('other')].map((l) => l.status),
+    ['info', 'warn', 'warn'],
+  );
 });
 
 test("a Protect with the device of an old record is still Sode's", () => {
@@ -95,6 +109,12 @@ test("the route view offers set on a free destination, clear on Sode's own, noth
   assert.equal(protectOffer(free, { ...env, linked: false }), '');
   assert.equal(protectOffer(holdsOn(prot([[4, 1, 126, 1]]), by, 4, all, 126), env), 'clear');
   assert.equal(protectOffer(holdsOn(prot([[6, 1, 112, 1]]), by, 6, all, 126), env), '');
+  // An Administrator clears any of Sode's Protects without the Protect right, but sets none without it.
+  const noRight = { ...env, right: false };
+  assert.equal(protectOffer(holdsOn(prot([[4, 1, 126, 1]]), by, 4, all, 126), noRight), '');
+  assert.equal(protectOffer(holdsOn(prot([[4, 1, 126, 1]]), by, 4, all, 126), { ...noRight, admin: true }), 'clear');
+  assert.equal(protectOffer(free, { ...noRight, admin: true }), '');
+  assert.equal(protectOffer(holdsOn(prot([[6, 1, 112, 1]]), by, 6, all, 126), { ...noRight, admin: true }), '');
   assert.equal(
     protectOffer(
       holdsOn(
@@ -176,10 +196,100 @@ test('protectUndoable: only the newest ok Protect entry of a destination, and on
     { id: 8, dst: 9, protect: 'set', ok: false },
     { id: 9, dst: 4, src: 2, ok: true },
   ];
-  assert.equal(protectUndoable(hist[2], hist, 'clear'), true);
-  assert.equal(protectUndoable(hist[2], hist, ''), false, 'someone else holds it now');
-  assert.equal(protectUndoable(hist[2], hist, 'set'), false, 'cleared since');
-  assert.equal(protectUndoable(hist[0], hist, 'clear'), false, 'an older entry');
-  assert.equal(protectUndoable(hist[1], hist, 'set'), false, 'an older entry');
-  assert.equal(protectUndoable(hist[3], hist, 'set'), false, 'failed');
+  assert.equal(protectUndoable(hist[2], newestProtects(hist), 'clear'), true);
+  assert.equal(protectUndoable(hist[2], newestProtects(hist), ''), false, 'someone else holds it now');
+  assert.equal(protectUndoable(hist[2], newestProtects(hist), 'set'), false, 'cleared since');
+  assert.equal(protectUndoable(hist[0], newestProtects(hist), 'clear'), false, 'an older entry');
+  assert.equal(protectUndoable(hist[1], newestProtects(hist), 'set'), false, 'an older entry');
+  assert.equal(protectUndoable(hist[3], newestProtects(hist), 'set'), false, 'failed');
+});
+
+test('entryChip: one chip for each History Protect entry, Free with its own icon', () => {
+  const chip = (e) => {
+    const c = entryChip(e);
+    return `${c.icon} ${c.text}`;
+  };
+  assert.equal(chip({ protect: 'set' }), 'shield Protect');
+  assert.equal(chip({ protect: 'clear' }), 'shield-off Free Protect');
+  assert.equal(chip({ protect: 'set', ext: true, holdKind: 'protect' }), 'shield Protect');
+  assert.equal(chip({ protect: 'clear', ext: true, holdKind: 'protect' }), 'shield-off Free Protect');
+  assert.equal(chip({ protect: 'set', ext: true, holdKind: 'routerLock' }), 'shield-ban Router lock');
+  assert.equal(chip({ protect: 'clear', ext: true, holdKind: 'routerLock' }), 'shield-off Free Router lock');
+  // The icons are the route view's (holdLook), so a chip looks the same in every place.
+  assert.equal(entryChip({ protect: 'set', ext: true, holdKind: 'routerLock' }).icon, holdLook({ kind: KIND_ROUTER_LOCK, owner: 'other' }).icon);
+  assert.equal(entryChip({ protect: 'set' }).icon, holdLook({ kind: KIND_PROTECT, owner: 'other' }).icon);
+});
+
+test('protectUndoable: an External Protect entry has no Undo, and blocks the Undo of an older one of Sode', () => {
+  const hist = [
+    { id: 2, ok: true, protect: 'set', ext: true, holdKind: 'protect', dst: 4 },
+    { id: 1, ok: true, protect: 'clear', dst: 4 },
+  ];
+  assert.equal(protectUndoable(hist[0], newestProtects(hist), 'set'), false);
+  assert.equal(protectUndoable(hist[0], newestProtects(hist), 'clear'), false);
+  assert.equal(protectUndoable(hist[1], newestProtects(hist), 'set'), false);
+});
+
+// History rows of Protect actions (newest first). t is seconds after a fixed start.
+const pe = (id, t, o = {}) => ({ id, time: new Date(Date.UTC(2026, 0, 1, 0, 0, t)).toISOString(), protect: 'set', client: 'Ana', dst: id, ok: true, ...o });
+const grp = (group, ...es) => ({ f: { group, n: es.length, entries: es, shown: es } });
+
+test('protectFoldKey: the same direction by the same person; no undo and no other system', () => {
+  assert.equal(protectFoldKey([pe(1, 0)]), protectFoldKey([pe(2, 5)]));
+  assert.notEqual(protectFoldKey([pe(1, 0)]), protectFoldKey([pe(2, 0, { protect: 'clear' })]));
+  assert.notEqual(protectFoldKey([pe(1, 0)]), protectFoldKey([pe(2, 0, { client: 'Bo' })]));
+  assert.notEqual(protectFoldKey([pe(1, 0)]), protectFoldKey([pe(2, 0, { browserOf: 'Bo' })]));
+  assert.equal(protectFoldKey([pe(1, 0, { undo: 4 })]), '');
+  assert.equal(protectFoldKey([pe(1, 0, { ext: true })]), '');
+  assert.equal(protectFoldKey([{ id: 1, src: 3, dst: 1 }]), '');
+  assert.equal(protectFoldKey([pe(1, 0), pe(2, 0, { protect: 'clear' })]), '');
+});
+
+const fold = (rows, gap) => mergeRuns(rows, protectFoldOpts(gap));
+const show = (r) => ({ ...r, shows: true });
+
+test('folding: neighbours within the gap fold into one Group, keyed by the oldest', () => {
+  const rows = [grp('p2', pe(40, 20), pe(39, 20)), { e: pe(30, 10) }, grp('p1', pe(20, 0), pe(19, 0))].map(show);
+  const out = fold(rows, 15000);
+  assert.equal(out.length, 1);
+  const f = out[0].f;
+  assert.equal(f.group, 'p1');
+  assert.equal(f.n, 5);
+  assert.equal(f.folded, 3);
+  assert.deepEqual(
+    f.entries.map((e) => e.id),
+    [40, 39, 30, 20, 19],
+  );
+  // The gap is between neighbours, not the whole span.
+  assert.equal(fold(rows, 9000).length, 3);
+  assert.equal(fold(rows, 0), rows);
+  // A lone oldest entry gives an id no server Group has.
+  assert.equal(fold([{ e: pe(30, 10) }, { e: pe(20, 0) }].map(show), 30000)[0].f.group, 'fold-20');
+});
+
+test('folding: another row, the other direction, an undo or a hidden row ends the fold', () => {
+  const take = show({ e: { id: 25, time: pe(0, 5).time, src: 3, dst: 9, ok: true } });
+  assert.equal(fold([show({ e: pe(30, 10) }), take, show({ e: pe(20, 0) })], 30000).length, 3);
+  assert.equal(fold([{ e: pe(30, 10, { protect: 'clear' }) }, { e: pe(20, 0) }].map(show), 30000).length, 2);
+  assert.equal(fold([{ e: pe(30, 10, { undo: 20 }) }, { e: pe(20, 0) }].map(show), 30000).length, 2);
+  assert.equal(fold([show({ e: pe(30, 10) }), { e: pe(25, 5), shows: false }, show({ e: pe(20, 0) })], 30000).length, 3);
+  const one = [show({ e: pe(30, 10) })];
+  assert.deepEqual(fold(one, 30000), one);
+});
+
+test('mergeRuns: a run goes on through other lanes, and a row of its lane that does not join ends it', () => {
+  const r = (id, lane, t, k = 'k', shows = true) => ({ id, lane, t, k, shows });
+  const opts = { lane: (x) => x.lane, key: (x) => x.k, gapMs: 10, span: (x) => [x.t, x.t], join: (run) => ({ id: run.map((x) => x.id).join('+') }) };
+  const ids = (rows) => mergeRuns(rows, opts).map((x) => x.id);
+  assert.deepEqual(ids([r(3, 'a', 20), r(2, 'b', 15), r(1, 'a', 10)]), ['3+1', 2]);
+  assert.deepEqual(ids([r(3, 'a', 20), r(2, 'a', 15, ''), r(1, 'a', 10)]), [3, 2, 1]);
+  assert.deepEqual(ids([r(3, 'a', 20), r(2, 'a', 15, 'k', false), r(1, 'a', 10)]), [3, 2, 1]);
+  assert.deepEqual(ids([r(3, 'a', 20), r(1, 'a', 9)]), [3, 1]);
+});
+
+test('foldedNote: "N actions" only when an action had more than one destination', () => {
+  const f = (folded, dsts) => ({ folded, entries: dsts.map((dst) => ({ dst })) });
+  assert.equal(foldedNote(f(2, [1, 2])), '');
+  assert.equal(foldedNote(f(2, [1, 2, 3, 4])), '2 actions');
+  assert.equal(foldedNote(f(undefined, [1, 2])), '');
 });

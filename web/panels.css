@@ -33,8 +33,8 @@ body {
 [data-sode-kiosk] .sode-lock__who {
   display: none;
 }
-/* The Panels link sits bottom left as the main page's footer does (desktop.css .sode__footer): fixed on the desktop
-   layout, with the page padded so it never covers the grid, and in the flow on a phone. A kiosk hides it. */
+/* The Panels link sits bottom left: fixed on the desktop layout, with the page padded so it never covers the grid, and
+   in the flow on a phone. A kiosk hides it. */
 .sode-panels__home {
   display: flex;
   padding-top: var(--pb-space-6);

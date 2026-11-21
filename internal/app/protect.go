@@ -1,23 +1,20 @@
 package app
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// Protects that Sode sets (GLOSSARY.md Protect, ADR 0012). Sode sets and clears a Protect on every level of a
+// Protects that Sode sets (GLOSSARY.md Protect, ADR 0012). Sode sets and frees a Protect on every level of a
 // destination with its one device number for the router. The router knows only that number, so Sode keeps its own
 // record of who set each one (protects.json beside the config).
 
@@ -31,118 +28,12 @@ func (h protHold) sodes(dev int) bool { return h.kind == swp08.KindProtect && de
 // web/protectrules.js.
 func sodesHold(h protHold, dev, recDev int) bool { return h.sodes(dev) || h.sodes(recDev) }
 
-// protectRec is Sode's record of one Protect it set. Levels are the UI levels Sode set and has not cleared.
-type protectRec struct {
-	Router  string    `json:"router"`
-	Dst     int       `json:"dst"`
-	DstName string    `json:"dstName,omitempty"`
-	Device  int       `json:"device"`
-	Levels  []int     `json:"levels"`
-	By      string    `json:"by"`               // the name when set, for a user that is gone
-	User    string    `json:"user,omitempty"`   // the user's id, also for that user's key or own API client
-	Client  string    `json:"client,omitempty"` // an API client's name
-	At      time.Time `json:"at"`
-}
-
-// ownedBy: the caller (as recOwner gives it) set this Protect. A guest owns only a record with no user and no
-// client. A nil record has no owner.
-func (rec *protectRec) ownedBy(user, client string, act Actor) bool {
-	if rec == nil {
-		return false
-	}
-	return (user != "" && rec.User == user) || (client != "" && rec.Client == client) ||
-		(user == "" && client == "" && rec.User == "" && rec.Client == "" && act.Kind == actorGuest)
-}
-
-type protectFile struct {
-	Protects []protectRec `json:"protects"`
-}
-
-// protectStore keeps every router's records, so a router change does not drop them. Its own lock; never take mu
-// while holding it.
-type protectStore struct {
-	path string
-	mu   sync.Mutex
-	recs []protectRec
-}
-
-func loadProtects(cfgPath string) *protectStore {
-	s := &protectStore{}
-	if cfgPath == "" {
-		return s
-	}
-	s.path = filepath.Join(filepath.Dir(cfgPath), "protects.json")
-	b, err := os.ReadFile(s.path)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			log.Printf("protects: %v", err)
-		}
-		return s
-	}
-	var f protectFile
-	if err := json.Unmarshal(b, &f); err != nil {
-		log.Printf("protects: %s: %v", s.path, err)
-		return s
-	}
-	for _, r := range f.Protects {
-		if r.Router != "" && len(r.Levels) > 0 {
-			s.recs = append(s.recs, r)
-		}
-	}
-	return s
-}
-
-func (s *protectStore) get(router string, dst int) (protectRec, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, r := range s.recs {
-		if r.Router == router && r.Dst == dst {
-			r.Levels = slices.Clone(r.Levels)
-			return r, true
-		}
-	}
-	return protectRec{}, false
-}
-
-func (s *protectStore) list(router string) []protectRec {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var out []protectRec
-	for _, r := range s.recs {
-		if r.Router == router {
-			r.Levels = slices.Clone(r.Levels)
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
-// put replaces the record of rec's router and destination; with no levels it removes it. It writes the file before
-// it returns.
-func (s *protectStore) put(rec protectRec) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.recs = slices.DeleteFunc(s.recs, func(r protectRec) bool { return r.Router == rec.Router && r.Dst == rec.Dst })
-	if len(rec.Levels) > 0 {
-		sort.Ints(rec.Levels)
-		s.recs = append(s.recs, rec)
-	}
-	if s.path == "" {
-		return nil
-	}
-	b, err := json.MarshalIndent(protectFile{Protects: s.recs}, "", "  ")
-	if err != nil {
-		return err
-	}
-	return config.AtomicWrite(s.path, b)
-}
-
 // protectErr is a refusal. Code and status are for /api/v1; the text is for the page and the Log row.
 type protectErr struct {
 	status int
 	code   string
 	msg    string
-	// admin: the Protect is another Sode user's, so an Administrator or an Approval clears it.
+	// admin: the Protect is another Sode user's, so an Administrator or an Approval frees it.
 	admin bool
 }
 
@@ -152,117 +43,10 @@ func refusal(status int, code, format string, args ...any) protectErr {
 	return protectErr{status: status, code: code, msg: fmt.Sprintf(format, args...)}
 }
 
-// protectReq is the page's set or clear. Undo names the History entry it undoes.
-type protectReq struct {
-	Dst  int  `json:"dst"`
-	Undo *int `json:"undo"`
-}
-
 // protectOutcome: a refusal (Err with no Entry), or the History entry of what Sode did.
 type protectOutcome struct {
 	Entry *Entry
 	Err   error
-}
-
-type protectResultMsg struct {
-	T     string `json:"t"` // "<kind>Result": protectSetResult, protectClearResult, protectClearAllResult
-	ID    int    `json:"id"`
-	OK    bool   `json:"ok"`
-	Err   string `json:"err,omitempty"`
-	Entry *int   `json:"entry,omitempty"`
-	// Still: the levels Sode still holds after a failed Protect or Clear Protect.
-	Still []int `json:"still,omitempty"`
-	// Admin: the Protect is another Sode user's; the page asks an Approval. Recheck and Approval as in opResult.
-	Admin    bool `json:"admin,omitempty"`
-	Recheck  bool `json:"recheck,omitempty"`
-	Approval bool `json:"approval,omitempty"`
-	// Cleared: Clear Sode's Protects, the destinations it cleared.
-	Cleared int `json:"cleared,omitempty"`
-}
-
-func protectResultOf(kind string, id int, o protectOutcome) protectResultMsg {
-	m := protectResultMsg{T: kind + "Result", ID: id, OK: o.Err == nil}
-	if o.Entry != nil {
-		e := o.Entry.ID
-		m.Entry, m.Still = &e, o.Entry.Still
-		if !o.Entry.OK {
-			m.OK, m.Err = false, o.Entry.Err
-		}
-	}
-	if o.Err != nil {
-		m.Err = o.Err.Error()
-		var pe protectErr
-		m.Admin = errors.As(o.Err, &pe) && pe.admin
-		m.Recheck, m.Approval = isRecheckErr(o.Err), isApprovalErr(o.Err)
-	}
-	return m
-}
-
-// protectBy: Sode's own Protects for the page, dst → who set it. It reaches locked pages, as History does, so it
-// carries names and never a user's id. Kind lets the page tell its own signed-in user from another user of the same
-// name, such as an API client.
-type protectBy struct {
-	Dst    int    `json:"dst"`
-	By     string `json:"by"`
-	Kind   string `json:"kind"` // byUser, byGone, byClient or byGuest; keep in step with web/protectrules.js
-	Device int    `json:"device"`
-	Levels []int  `json:"levels"`
-}
-
-const (
-	byUser   = "user"   // a user who still exists, also through their own API client
-	byGone   = "gone"   // a user who is gone: By is the name when set
-	byClient = "client" // an API client with no owner
-	byGuest  = "guest"  // a guest: By is where they were (an IP address)
-)
-
-type protectMsg struct {
-	T  string       `json:"t"`  // "protected"
-	U  []protChange `json:"u"`  // [dst, level, device, kind]; device -1 when cleared
-	By []protectBy  `json:"by"` // every Protect in Sode's record
-}
-
-type protChange struct {
-	Dst, Level, Dev, Kind int
-}
-
-func (c protChange) MarshalJSON() ([]byte, error) {
-	return fmt.Appendf(nil, "[%d,%d,%d,%d]", c.Dst, c.Level, c.Dev, c.Kind), nil
-}
-
-// [[dst, level, device, kind], ...] for the hello.
-func protectRows(m map[int]map[int]protHold) json.RawMessage {
-	rows := make([]protChange, 0, len(m))
-	for d, t := range m {
-		for l, h := range t {
-			rows = append(rows, protChange{d, l, h.dev, h.kind})
-		}
-	}
-	b, _ := json.Marshal(rows)
-	return b
-}
-
-// protectByList: the live name of a user who set one, else the name when set.
-func (a *App) protectByList(r *runtime) []protectBy {
-	out := []protectBy{}
-	for _, rec := range a.protects.list(r.cfg.UID) {
-		by, kind := rec.By, byGuest
-		if u, ok := r.cfg.FindUserByID(rec.User); ok && rec.Client == "" {
-			by, kind = u.Name, byUser
-		} else if rec.Client != "" {
-			kind = byClient
-		} else if rec.User != "" {
-			kind = byGone
-		}
-		out = append(out, protectBy{Dst: rec.Dst, By: by, Kind: kind, Device: rec.Device, Levels: rec.Levels})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Dst < out[j].Dst })
-	return out
-}
-
-// Caller holds mu.
-func (a *App) broadcastProtectsMu() {
-	a.broadcast(protectMsg{T: "protected", U: []protChange{}, By: a.protectByList(a.r())})
 }
 
 // protWait waits for the router to report each level in the state that the messages ask for.
@@ -411,26 +195,25 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-// protectCaller: who acts, with the Protect right and dst in their Rights. Every level must be in their Rights,
-// since a Protect covers them all.
-func (a *App) protectCaller(r *runtime, c *client, dst int) (Actor, error) {
-	act, rt := a.callerOf(c)
+// protectRights: nil when rt has the Protect right and dst. Every level must be in rt, since a Protect covers them
+// all.
+func protectRights(r *runtime, rt config.Rights, dst int) error {
 	off := r.cfg.NumberOffset
 	switch {
 	case !rt.AllowsProtect():
-		return act, refusal(403, "outside_rights", "Protect is outside your Rights")
+		return refusal(403, "outside_rights", "Protect is outside your Rights")
 	case !rt.AllowsDst(config.Ref{N: dst}):
 		if rt.Hidden() {
-			return act, refusal(403, "outside_rights", "destination is outside your rights")
+			return refusal(403, "outside_rights", "destination is outside your rights")
 		}
-		return act, refusal(403, "outside_rights", "destination %d is outside your rights", dst+off)
+		return refusal(403, "outside_rights", "destination %d is outside your rights", dst+off)
 	}
 	for _, l := range r.levels {
 		if !rt.AllowsLevel(l.UI) {
-			return act, refusal(403, "outside_rights", "a Protect covers every level, and level %s is outside your rights", r.cfg.LevelLabel(l.UI))
+			return refusal(403, "outside_rights", "a Protect covers every level, and level %s is outside your rights", r.cfg.LevelLabel(l.UI))
 		}
 	}
-	return act, nil
+	return nil
 }
 
 // protectReady: the checks before anything is sent.
@@ -450,20 +233,6 @@ func (a *App) protectReady(r *runtime, dst int) error {
 	return nil
 }
 
-// recOwner: what Sode stores as who set a Protect. A user's own API client counts as that user.
-func recOwner(cfg config.Config, act Actor) (user, client string) {
-	switch act.Kind {
-	case actorUser:
-		return act.User, ""
-	case actorClient:
-		if cl, ok := cfg.FindAPIClient(act.Name); ok && cl.Owner != "" {
-			return cl.Owner, ""
-		}
-		return "", act.Name
-	}
-	return "", ""
-}
-
 func (a *App) protectEntry(r *runtime, c *client, set bool, dst int, levels []int, undo *int) *Entry {
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: -1, Dst: dst, Levels: levels, Prev: [][2]int{}, Undo: undo,
 		Protect: "clear"}
@@ -472,6 +241,12 @@ func (a *App) protectEntry(r *runtime, c *client, set bool, dst int, levels []in
 	}
 	a.mu.Lock()
 	e.DstName = a.router.dstNames[dst]
+	// The routes on dst when it ran, so History can show what the Protect holds there.
+	for _, u := range levels {
+		if s, ok := a.router.tally[dst][u]; ok {
+			e.Prev = append(e.Prev, [2]int{u, s})
+		}
+	}
 	a.mu.Unlock()
 	e.BrowserOf = a.browserOf(c)
 	if c.api != nil {
@@ -488,42 +263,114 @@ func (a *App) undoOf(undo *int, dst int, want string) error {
 		return nil
 	}
 	e, ok := a.hist.Get(*undo)
-	if !ok || e.Protect != want || e.Dst != dst {
+	if !ok || e.Ext || e.Protect != want || e.Dst != dst {
 		return refusal(400, "bad_request", "that History entry is not a Protect to undo on this destination")
 	}
 	return nil
 }
 
-func protectWhy(c *client, reason swp08.Reason) swp08.Why {
-	w := swp08.Why{Reason: reason, By: c.who()}
-	return w
+// protGroup is the History Group of one Protect or Free Protect on many destinations, as a take's Group is
+// (docs/agents/history.md). The zero value is no Group. n counts only the entries the action writes, since the page
+// waits for that many.
+type protGroup struct {
+	id string
+	n  int
 }
 
+// The "p" keeps it apart from a take's Group and from the ext "x" and "f" Groups made in the same nanosecond.
+func newProtGroup(n int) protGroup {
+	if n < 2 {
+		return protGroup{}
+	}
+	return protGroup{id: "p" + strconv.FormatInt(time.Now().UnixNano(), 36), n: n}
+}
+
+func (g protGroup) mark(e *Entry) { e.Group, e.GroupN = g.id, g.n }
+
 // protectSet sets a Protect on every level of dst. A level the router does not confirm rolls back the levels that
-// were set. What the rollback cannot clear stays in Sode's record and in the entry's Still.
+// were set. What the rollback cannot free stays in Sode's record and in the entry's Still.
 func (a *App) protectSet(c *client, dst int, undo *int) protectOutcome {
+	return a.protectMany(c, []protectDst{{Dst: dst, Undo: undo}}, true, nil)[0]
+}
+
+// protectClear frees Sode's Protect on dst. Another Sode user's Protect, or one with no record, needs an
+// Administrator: the caller's Role or the approver's.
+func (a *App) protectClear(c *client, dst int, undo *int, approver *config.User) protectOutcome {
+	return a.protectMany(c, []protectDst{{Dst: dst, Undo: undo}}, false, approver)[0]
+}
+
+// protRun is one destination of protectMany that passed every check, with what the checks read.
+type protRun struct {
+	i         int
+	rec       *protectRec
+	own, todo []int
+}
+
+// protectMany sets (set) or frees each destination of reqs, one outcome for each in order. It checks them all under
+// protMu before it sends anything, so the ones that run share one Group of the right size.
+func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *config.User) []protectOutcome {
 	r := a.r()
-	if err := a.protectReady(r, dst); err != nil {
-		return protectOutcome{Err: err}
+	outs := make([]protectOutcome, len(reqs))
+	act := a.caller(c)
+	admin := !set && protectAdmin(r.cfg, act, approver)
+	want := "set" // the kind an Undo names
+	if set {
+		want = "clear"
 	}
-	act, err := a.protectCaller(r, c, dst)
-	if err != nil {
-		return protectOutcome{Err: err}
-	}
-	if err := a.undoOf(undo, dst, "clear"); err != nil {
-		return protectOutcome{Err: err}
+	for i, q := range reqs {
+		if err := a.protectReady(r, q.Dst); err != nil {
+			outs[i].Err = err
+			continue
+		}
+		if err := protectRights(r, act.rights, q.Dst); err != nil && !admin {
+			outs[i].Err = err
+			continue
+		}
+		outs[i].Err = a.undoOf(q.Undo, q.Dst, want)
 	}
 	a.protMu.Lock()
 	defer a.protMu.Unlock()
-	rec, own, others := a.sodeHoldsProtLocked(r, dst)
+	var runs []protRun
+	for i, q := range reqs {
+		if outs[i].Err != nil {
+			continue
+		}
+		rec, own, others := a.sodeHoldsProtLocked(r, q.Dst)
+		var err error
+		var todo []int
+		if set {
+			todo, err = setCheck(r, rec, own, others)
+		} else {
+			err = clearCheck(r, act.Actor, rec, own, admin)
+		}
+		if err != nil {
+			outs[i].Err = err
+			continue
+		}
+		runs = append(runs, protRun{i: i, rec: rec, own: own, todo: todo})
+	}
+	g := newProtGroup(len(runs))
+	for _, p := range runs {
+		q := reqs[p.i]
+		if set {
+			outs[p.i].Entry = a.setOne(r, c, act.Actor, q.Dst, p.rec, p.own, p.todo, q.Undo, g)
+		} else {
+			outs[p.i].Entry = a.clearOne(r, c, q.Dst, p.rec, p.own, q.Undo, approver, g)
+		}
+	}
+	return outs
+}
+
+// setCheck: the levels a Protect sets on a destination, or why it refuses.
+func setCheck(r *runtime, rec *protectRec, own []int, others map[int]protHold) ([]int, error) {
 	if len(others) > 0 {
-		return protectOutcome{Err: refusal(409, "protected", "%s", holdText(r, others))}
+		return nil, refusal(409, "protected", "%s", holdText(r, others))
 	}
 	if len(own) == len(r.levels) {
-		return protectOutcome{Err: refusal(409, "conflict", "Sode has a Protect on this destination already")}
+		return nil, refusal(409, "conflict", "Sode has a Protect on this destination already")
 	}
 	if rec != nil && rec.Device != r.cfg.ProtectDevice {
-		return protectOutcome{Err: refusal(409, "protected", "Sode holds some levels with device %d; clear them first", rec.Device)}
+		return nil, refusal(409, "protected", "Sode holds some levels with device %d; free them first", rec.Device)
 	}
 	var todo []int
 	for _, l := range r.levels {
@@ -531,6 +378,29 @@ func (a *App) protectSet(c *client, dst int, undo *int) protectOutcome {
 			todo = append(todo, l.UI)
 		}
 	}
+	return todo, nil
+}
+
+// clearCheck: why a Free Protect refuses, or nil.
+func clearCheck(r *runtime, act Actor, rec *protectRec, own []int, admin bool) error {
+	if rec == nil && len(own) == 0 {
+		return refusal(404, "not_found", "Sode has no Protect on this destination")
+	}
+	user, client := recOwner(r.cfg, act)
+	if !rec.ownedBy(user, client, act) && !admin {
+		who := "a Sode user"
+		if rec != nil {
+			who = rec.By
+		}
+		pe := refusal(403, "administrator_only", "%s set this Protect: freeing it needs an Administrator", who)
+		pe.admin = true
+		return pe
+	}
+	return nil
+}
+
+// setOne sets the todo levels of dst after setCheck. Caller holds protMu.
+func (a *App) setOne(r *runtime, c *client, act Actor, dst int, rec *protectRec, own, todo []int, undo *int, g protGroup) *Entry {
 	reason := swp08.Reason("protect")
 	if undo != nil {
 		reason = "protectUndo"
@@ -538,17 +408,18 @@ func (a *App) protectSet(c *client, dst int, undo *int) protectOutcome {
 	dev := r.cfg.ProtectDevice
 	devOf := func(int) int { return dev }
 	e := a.protectEntry(r, c, true, dst, uiLevels(r), undo)
+	g.mark(e)
 	user, client := recOwner(r.cfg, act)
-	setOK, failed := a.protectSend(r, dst, devOf, true, todo, protectWhy(c, reason))
+	setOK, failed := a.protectSend(r, dst, devOf, true, todo, swp08.Why{Reason: reason, By: c.who()})
 	held := append(slices.Clone(own), setOK...)
 	if len(failed) > 0 {
 		e.Failed = failed
-		_, stuck := a.protectSend(r, dst, devOf, false, setOK, protectWhy(c, "protectRollback"))
+		_, stuck := a.protectSend(r, dst, devOf, false, setOK, swp08.Why{Reason: "protectRollback", By: c.who()})
 		held = append(slices.Clone(own), stuck...)
 		e.Still = slices.Clone(held)
 		sort.Ints(e.Still)
 		if len(e.Still) == 0 {
-			e.Err = fmt.Sprintf("the router did not confirm levels %s; Sode cleared the other levels again", levelList(r, failed))
+			e.Err = fmt.Sprintf("the router did not confirm levels %s; Sode freed the other levels again", levelList(r, failed))
 		} else {
 			e.Err = fmt.Sprintf("the router did not confirm levels %s, and levels %s are still Protected", levelList(r, failed), levelList(r, e.Still))
 		}
@@ -559,56 +430,19 @@ func (a *App) protectSet(c *client, dst int, undo *int) protectOutcome {
 		next.By, next.User, next.Client, next.At = rec.By, rec.User, rec.Client, rec.At
 	}
 	a.protectDone(next, e)
-	return protectOutcome{Entry: e}
+	return e
 }
 
-// protectClear clears Sode's Protect on dst. Another Sode user's Protect, or one with no record, needs an
-// Administrator: the caller's Role or the approver's.
-func (a *App) protectClear(c *client, dst int, undo *int, approver *config.User) protectOutcome {
-	r := a.r()
-	if err := a.protectReady(r, dst); err != nil {
-		return protectOutcome{Err: err}
-	}
-	act, err := a.protectCaller(r, c, dst)
-	admin := a.protectAdmin(c, approver)
-	if err != nil && !admin {
-		return protectOutcome{Err: err}
-	}
-	if err := a.undoOf(undo, dst, "set"); err != nil {
-		return protectOutcome{Err: err}
-	}
-	a.protMu.Lock()
-	defer a.protMu.Unlock()
-	rec, own, _ := a.sodeHoldsProtLocked(r, dst)
-	if rec == nil && len(own) == 0 {
-		return protectOutcome{Err: refusal(404, "not_found", "Sode has no Protect on this destination")}
-	}
-	user, client := recOwner(r.cfg, act)
-	if !rec.ownedBy(user, client, act) && !admin {
-		who := "a Sode user"
-		if rec != nil {
-			who = rec.By
-		}
-		pe := refusal(403, "administrator_only", "%s set this Protect: clearing it needs an Administrator", who)
-		pe.admin = true
-		return protectOutcome{Err: pe}
-	}
-	return protectOutcome{Entry: a.clearOne(r, c, dst, rec, own, undo, approver)}
-}
-
-// protectAdmin: the caller or the approver is an Administrator.
-func (a *App) protectAdmin(c *client, approver *config.User) bool {
+// protectAdmin: the caller or the approver is an Administrator. An API caller has no Role.
+func protectAdmin(cfg config.Config, act acting, approver *config.User) bool {
 	if approver != nil {
-		return approverRole(a.r().cfg, approver) == config.RoleAdministrator
+		return approverRole(cfg, approver) == config.RoleAdministrator
 	}
-	if c.api != nil {
-		return false
-	}
-	return a.role(c) == config.RoleAdministrator
+	return act.role == config.RoleAdministrator
 }
 
-// clearOne clears the levels Sode holds on dst, each with the device that holds it. Caller holds protMu.
-func (a *App) clearOne(r *runtime, c *client, dst int, rec *protectRec, own []int, undo *int, approver *config.User) *Entry {
+// clearOne frees the levels Sode holds on dst, each with the device that holds it. Caller holds protMu.
+func (a *App) clearOne(r *runtime, c *client, dst int, rec *protectRec, own []int, undo *int, approver *config.User, g protGroup) *Entry {
 	devs := map[int]int{}
 	a.mu.Lock()
 	for _, ui := range own {
@@ -629,9 +463,10 @@ func (a *App) clearOne(r *runtime, c *client, dst int, rec *protectRec, own []in
 	if undo != nil {
 		reason = "protectUndo"
 	}
-	why := protectWhy(c, reason)
+	why := swp08.Why{Reason: reason, By: c.who()}
 	why.Note = approvedNote(approver, "")
 	e := a.protectEntry(r, c, false, dst, uiLevels(r), undo)
+	g.mark(e)
 	_, failed := a.protectSend(r, dst, func(ui int) int { return devs[ui] }, false, levels, why)
 	e.OK = len(failed) == 0
 	if !e.OK {
@@ -647,8 +482,8 @@ func (a *App) clearOne(r *runtime, c *client, dst int, rec *protectRec, own []in
 	return e
 }
 
-// clearSodeProtects clears every Protect the router reports with Sode's device number, and every one in Sode's
-// record, with or without the other. One History entry for each destination.
+// clearSodeProtects frees every Protect the router reports with Sode's device number, and every one in Sode's
+// record, with or without the other. One History entry for each destination, all in one Group.
 func (a *App) clearSodeProtects(c *client) (cleared int, still []int, err error) {
 	r := a.r()
 	if err := a.protectReady(r, 0); err != nil {
@@ -677,9 +512,10 @@ func (a *App) clearSodeProtects(c *client) (cleared int, still []int, err error)
 		order = append(order, d)
 	}
 	sort.Ints(order)
+	g := newProtGroup(len(order))
 	for _, d := range order {
 		rec, own, _ := a.sodeHoldsProtLocked(r, d)
-		e := a.clearOne(r, c, d, rec, own, nil, nil)
+		e := a.clearOne(r, c, d, rec, own, nil, nil, g)
 		if e.OK {
 			cleared++
 		} else {
@@ -689,15 +525,16 @@ func (a *App) clearSodeProtects(c *client) (cleared int, still []int, err error)
 	return cleared, still, nil
 }
 
-// protectDone writes Sode's record, then the History entry, then tells the pages.
+// protectDone writes Sode's record, tells the pages, then writes the History entry. The pages get the new state
+// first, so the entry's row draws with its Undo right.
 func (a *App) protectDone(rec protectRec, e *Entry) {
 	if err := a.protects.put(rec); err != nil {
 		log.Printf("protects: %v", err)
 	}
-	a.record(e)
 	a.mu.Lock()
 	a.broadcastProtectsMu()
 	a.mu.Unlock()
+	a.record(e)
 }
 
 func uiLevels(r *runtime) []int {
@@ -706,48 +543,4 @@ func uiLevels(r *runtime) []int {
 		out = append(out, l.UI)
 	}
 	return out
-}
-
-func (a *App) serveProtect(c *client, m *inMsg, set bool) {
-	go func() {
-		defer m.finish()
-		p := m.Protect
-		if p == nil {
-			a.reply(c, protectResultMsg{T: m.T + "Result", ID: m.ID, Err: "nothing to Protect"})
-			return
-		}
-		var o protectOutcome
-		why := "protect"
-		if set {
-			o = a.protectSet(c, p.Dst, p.Undo)
-		} else {
-			why = "protectClear"
-			o = a.protectClear(c, p.Dst, p.Undo, m.approver)
-		}
-		if o.Err != nil {
-			a.command(c, why, outcome(o.Err), approvedNote(m.approver, fmt.Sprintf("destination %d", p.Dst+a.r().cfg.NumberOffset)), o.Err)
-		}
-		a.reply(c, protectResultOf(m.T, m.ID, o))
-	}()
-}
-
-func refuseProtect(a *App, c *client, m *inMsg, err error) {
-	a.reply(c, protectResultOf(m.T, m.ID, protectOutcome{Err: err}))
-}
-
-func (a *App) serveProtectClearAll(c *client, m *inMsg) {
-	go func() {
-		defer m.finish()
-		n, still, err := a.clearSodeProtects(c)
-		res := protectResultMsg{T: "protectClearAllResult", ID: m.ID, OK: err == nil && len(still) == 0, Cleared: n}
-		note := fmt.Sprintf("%d cleared", n)
-		if err == nil && len(still) > 0 {
-			err = fmt.Errorf("%d %s still Protected", len(still), plural(len(still), "destination is", "destinations are"))
-		}
-		if err != nil {
-			res.Err = err.Error()
-		}
-		a.command(c, "protectClearAll", outcome(err), approvedNote(m.approver, note), err)
-		a.reply(c, res)
-	}()
 }

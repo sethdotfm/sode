@@ -16,11 +16,13 @@ export function gridTake(ctx, ui, { onTake, onClear }) {
   }
   const clearer = take?.parentNode ? clearNote(take.parentNode, take, onClear) : null;
   return {
-    // state is takeButton's { mode, staged, busy }; note and canClear are the Clear note's.
+    // state is takeButton's { mode, staged, busy } and canSend: with a press policy (gridpaneladd.js) there is no Take.
+    // note and canClear are the Clear note's.
     paint(state, note, canClear) {
       if (take) {
         const t = takeButton(state);
-        if (take.hidden === t.shown) take.hidden = !t.shown;
+        const shown = t.shown && state.canSend;
+        if (take.hidden === shown) take.hidden = !shown;
         if (take.disabled !== t.disabled) take.disabled = t.disabled;
         if (take.textContent !== t.label) take.textContent = t.label;
         const starts = t.armed && !take.classList.contains('sode-panel__take--armed');

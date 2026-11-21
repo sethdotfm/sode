@@ -1,0 +1,3 @@
+- A click or tap outside the Grid popup closes it, as on other dialogs. A drag that starts in the popup does not close it.
+- The Grid popup has its own Clear and Take buttons at the top, next to a larger "N staged" badge. They do the same as the main page's Clear and Take.
+- A refusal in the Grid popup, such as a protected destination, shows in the top row. The grid no longer moves down. The help line is gone.

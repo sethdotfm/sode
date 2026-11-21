@@ -10,24 +10,22 @@ import (
 
 const actorGuest = "guest" // a browser with nobody signed in
 
-// callerOf is who a take acts as. An API caller brings its own (client.api). A browser is its signed-in user (rights
-// read live from the
-// config, so an edit applies at once). It is Guest when nobody is signed in or the Lock is on.
+// callerOf is who a take, a Protect or a panel's Undo acts as, all behind the main page lock. An API caller brings its
+// own (client.api). A browser gets what actingMu gives, with Rights read live from the config, so an edit applies at
+// once.
 func (a *App) callerOf(c *client) (Actor, config.Rights) {
+	act := a.caller(c)
+	return act.Actor, act.rights
+}
+
+// caller: callerOf with the Role; an API caller has none.
+func (a *App) caller(c *client) acting {
 	if c.api != nil {
-		return c.api.Actor, c.api.Rights
+		return acting{Actor: c.api.Actor, rights: c.api.Rights}
 	}
-	cfg := a.r().cfg
 	a.mu.Lock()
-	ok := a.userOKMu(c, cfg)
-	a.mu.Unlock()
-	if u := c.u.user.Load(); ok && u != nil {
-		if cur, found := cfg.FindUserByID(u.ID); found {
-			_, rights := cfg.ActsAs(cur)
-			return Actor{Kind: actorUser, Name: cur.Name, User: cur.ID}, rights
-		}
-	}
-	return Actor{Kind: actorGuest, Name: "Guest"}, cfg.GuestRights
+	defer a.mu.Unlock()
+	return a.actingMu(c, needMain)
 }
 
 type myRightsMsg struct {
@@ -35,20 +33,15 @@ type myRightsMsg struct {
 	Rights *config.Rights `json:"rights,omitempty"`
 }
 
-// pushRightsMu tells a signed-in connection its own user's Rights so the page can grey out
-// what the server would refuse. Never in the hello or lock state (ADR 0004); a guest or a
-// Lock-covered page gets nothing, and a clear follows a loss. The server stays the
-// authority. Caller holds mu.
+// pushRightsMu tells a connection the Rights it acts with, a user's or the guest's, so the page can grey out what the
+// server would refuse. Never in the hello or lock state (ADR 0004); a Lock-covered page gets nothing, and a clear
+// follows a loss. The server stays the authority, so the page's own gate is enough here. Caller holds mu.
 func (a *App) pushRightsMu(c *client) {
-	cfg := a.r().cfg
 	var msg string
-	if a.userOKMu(c, cfg) {
-		if u, ok := cfg.FindUserByID(c.u.user.Load().ID); ok {
-			_, rt := cfg.ActsAs(u)
-			rt = rt.Clone()
-			j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &rt})
-			msg = string(j)
-		}
+	if act := a.actingMu(c, 0); act.Kind == actorUser || act.role != "" {
+		r := act.rights.Clone()
+		j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &r})
+		msg = string(j)
 	}
 	if msg == c.u.rights {
 		return

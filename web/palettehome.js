@@ -13,7 +13,7 @@ import { rowByKey } from './palettecatalogue.js';
 import { openProtectPick } from './protectpick.js';
 
 function openSettingsAt(t) {
-  if (document.documentElement.dataset.view !== 'settings') $('settings-open').click();
+  if (document.documentElement.dataset.view !== 'settings') emit('settingsOpen');
   if (t) emit('settingsFind', t);
 }
 
