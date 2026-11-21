@@ -1895,10 +1895,12 @@ button.sode-up__bar:not(:disabled):hover,
 .sode-bar > .sode-inbox__slot {
   flex: none;
 }
+/* The start pad matches an icon button's room around its icon, so the rule has the same space on both sides. */
 .sode-bar > .sode__conn {
   background: none;
   flex: none;
   padding: 0;
+  padding-inline-start: calc((var(--pb-icon-btn-w) - var(--pb-icon-size)) / 2);
   position: static;
 }
 /* The header's left edge is the page content's (.sode-panels and .sode-log: 100rem at most, padded by space-8).
