@@ -75,7 +75,7 @@
 :root:not([data-layout="phone"]) .sode-gridpop__band > .sode-gridpanel__finds {
   column-gap: var(--pb-space-2);
   grid-template-areas: "fsrc fdst mode";
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 4.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   height: var(--sode-h-action);
 }
 :root:not([data-layout="phone"]) .sode-gridpop__band .sode-gridpanel__find[data-kind="srcs"] {

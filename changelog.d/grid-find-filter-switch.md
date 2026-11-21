@@ -1,0 +1,1 @@
+- Grid panel: the Find or Filter switch has Find at its left and Filter at its right. The mode that is on shows in bold, and a click on a word sets that mode. The word over the switch is gone.

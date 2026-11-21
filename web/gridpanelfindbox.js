@@ -64,16 +64,22 @@ export function findBoxes(host, { onText, onMode, onStep }) {
   const sw = el('input', 'pb-switch__input');
   sw.type = 'checkbox';
   sw.setAttribute('role', 'switch');
+  sw.setAttribute('aria-label', MODE.filter);
   sw.tabIndex = -1;
   sw.addEventListener('change', () => (sw.checked ? 'filter' : 'find') !== now && onMode());
-  // The word names the mode now on (paint), and the tip says what each does. The name stays "Filter", so a screen
-  // reader reads "Filter, on" or "Filter, off".
-  const word = el('span', 'sode-gridpanel__find-word', document.createTextNode(MODE.find));
-  const words = el('span', 'pb-check__label', word);
-  word.setAttribute('aria-hidden', 'true');
-  sw.setAttribute('aria-label', MODE.filter);
-  const mode = el('label', 'pb-check sode-gridpanel__find-mode', sw, words);
-  mode.dataset.pbTip = `Filter: only the matches show. Find: marks the matches. ${keyLabel('ctrl+/')}`;
+  // A word sets its own mode, so it is not in a label: a label click toggles. A screen reader gets "Filter, on" or
+  // "Filter, off" from the switch, so the words are hidden from it. data-word holds the bold width (gridpanel.css).
+  const side = (m) => {
+    const w = el('span', 'sode-gridpanel__find-side', MODE[m]);
+    w.dataset.side = m;
+    w.dataset.word = MODE[m];
+    w.setAttribute('aria-hidden', 'true');
+    w.addEventListener('click', () => m !== now && onMode());
+    return w;
+  };
+  const mode = el('div', 'sode-gridpanel__find-mode', side('find'), sw, side('filter'));
+  mode.dataset.mode = now;
+  mode.dataset.pbTip = `Find marks the matches. Filter shows only the matches. ${keyLabel('ctrl+/')}`;
   // On a phone a focused box opens the keyboard, so a mode change leaves focus where it is.
   mode.addEventListener('click', () => document.documentElement.dataset.layout !== 'phone' && boxes[last].input.focus());
   // The phone shows the mode as two named choices in place of the switch (gridpanelphone.css).
@@ -101,7 +107,7 @@ export function findBoxes(host, { onText, onMode, onStep }) {
       last = find.last;
       now = find.mode;
       if (sw.checked !== (now === 'filter')) sw.checked = now === 'filter';
-      if (word.firstChild.data !== MODE[now]) word.firstChild.data = MODE[now];
+      if (mode.dataset.mode !== now) mode.dataset.mode = now;
       choice.set(now);
       for (const k of ['srcs', 'dsts']) {
         const b = boxes[k];

@@ -9,13 +9,16 @@ import (
 // bandRects keeps the band's control rects in window.__band; bandSame is true while none has moved.
 const bandRects = `(() => {
 	const ids = ['#panel-lvl', '#panel-lvl-all', '#panel-lvl-pick', '.sode-gridpanel__find[data-kind="srcs"] input', '.sode-gridpanel__find[data-kind="dsts"] input',
-		'.sode-gridpanel__find-mode', '#panel-clear', '#panel-take', '.sode-gridpanel__scroll', '#panel-title'];
+		'.sode-gridpanel__find-mode', '.sode-gridpanel__find-mode input', '#panel-clear', '#panel-take', '.sode-gridpanel__scroll', '#panel-title'];
 	window.__bandAt = () => ids.map((s) => { const r = document.querySelector(s).getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round).join(','); }).join('|');
 	window.__band = window.__bandAt();
 	return true;
 })()`
 
 const bandSame = `window.__bandAt() === window.__band`
+
+// modeWord is the bold word beside the Find or Filter switch, the mode now on.
+const modeWord = `[...document.querySelectorAll('.sode-gridpanel__find-mode > [data-side]')].filter((n) => getComputedStyle(n).fontWeight === '600').map((n) => n.textContent).join()`
 
 // bandFits is true when the deck's controls are whole, inside the deck and apart from each other, and the page does
 // not scroll sideways.
@@ -106,14 +109,14 @@ func TestChromeGridPanelLook(t *testing.T) {
 		const c = getComputedStyle(i);
 		return c.borderLeftWidth === c.borderRightWidth && c.borderLeftColor === c.borderRightColor && c.backgroundImage.startsWith('linear-gradient');
 	})`)
-	b.waitFor("the switch is one switch, off, that says Find, as tall as both search boxes; the boxes are at most 14 rem wide", `(() => {
+	b.waitFor("the switch is one switch, off, with Find at its left in bold and Filter at its right, as tall as both search boxes; the boxes are at most 14 rem wide", `(() => {
 		const m = document.querySelector('.sode-gridpanel__find-mode');
 		const sw = m.querySelector('input[role="switch"]');
 		const top = document.querySelector('.sode-gridpanel__find[data-kind="srcs"] input').getBoundingClientRect();
 		const bot = document.querySelector('.sode-gridpanel__find[data-kind="dsts"] input').getBoundingClientRect();
 		const r = m.getBoundingClientRect();
 		const boxes = [...document.querySelectorAll('.sode-gridpanel__find')].map((n) => n.getBoundingClientRect().width);
-		return m.tagName === 'LABEL' && m.textContent === 'Find' && sw.getAttribute('aria-label') === 'Filter' && sw.type === 'checkbox' && !sw.checked &&
+		return m.textContent === 'FindFilter' && m.firstElementChild.nextElementSibling === sw && `+modeWord+` === 'Find' && sw.getAttribute('aria-label') === 'Filter' && sw.type === 'checkbox' && !sw.checked &&
 			boxes.length === 2 && boxes.every((w) => w > 100 && w <= 14 * 18 + 1) &&
 			Math.abs(r.top - top.top) < 2 && Math.abs(r.bottom - bot.bottom) < 2;
 	})()`)
@@ -223,10 +226,18 @@ func TestChromeGridPanelLook(t *testing.T) {
 	b.waitFor("at 1280 the note is whole too", `innerWidth === 1280 && (() => { const c = document.querySelector('.sode-gridpanel__chip'); return c.scrollWidth <= c.clientWidth; })()`)
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
 	b.waitFor("back at 1440", `innerWidth === 1440`)
-	b.eval(`document.getElementById('panel-lvl-all').click(); document.querySelector('.sode-gridpanel__find-mode input').click(); true`)
-	b.waitFor("Select all changes its words and Filter is on, and the switch says so", `document.getElementById('panel-lvl-all').textContent === 'SelectNone' && document.querySelector('.sode-gridpanel__find-mode input').checked && `+
-		`document.querySelector('.sode-gridpanel__find-mode').textContent === 'Filter'`)
+	b.eval(`document.getElementById('panel-lvl-all').click(); document.querySelector('.sode-gridpanel__find-mode [data-side="filter"]').click(); true`)
+	b.waitFor("Select all changes its words, and a click on the word Filter sets Filter", `document.getElementById('panel-lvl-all').textContent === 'SelectNone' && document.querySelector('.sode-gridpanel__find-mode input').checked && `+
+		modeWord+` === 'Filter'`)
 	b.waitFor("nothing in the band moved", bandSame)
+	b.waitFor("the switch has moved", `!document.getAnimations().some((a) => a instanceof CSSTransition)`)
+	if got := b.eval(`document.querySelector('.sode-gridpanel__find-mode [data-side="filter"]').click(); ` + modeWord); got != "Filter" {
+		t.Errorf("a second click on Filter: %v, want Filter", got)
+	}
+	b.eval(`document.querySelector('.sode-gridpanel__find-mode [data-side="find"]').click(); true`)
+	b.waitFor("a click on the word Find sets Find", `!document.querySelector('.sode-gridpanel__find-mode input').checked && `+modeWord+` === 'Find' && `+bandSame)
+	b.eval(`document.querySelector('.sode-gridpanel__find-mode input').click(); true`)
+	b.waitFor("a click on the switch sets Filter again", `document.querySelector('.sode-gridpanel__find-mode input').checked && `+modeWord+` === 'Filter' && `+bandSame)
 	b.waitFor("the switch has moved", `!document.getAnimations().some((a) => a instanceof CSSTransition)`)
 	b.shot("filter-on")
 	b.eval(`document.getElementById('panel-lvl-all').click(); document.querySelector('.sode-gridpanel__find-mode input').click(); ` +
