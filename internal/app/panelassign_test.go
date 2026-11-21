@@ -603,3 +603,66 @@ func TestAssignSendsNoKeyDownAStreamWhoseKeyEnded(t *testing.T) {
 	case <-time.After(300 * time.Millisecond):
 	}
 }
+
+// Anyone who can use the panel can open a stream under any instance name. The key goes only to a
+// stream of the instance's holder, the first to open it, even when another stream opened later.
+func TestAssignSendsNoKeyToALaterStreamUnderTheSameName(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	lobby := assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
+	spoof := assignHold(t, a, from, cy, "Lobby")
+
+	rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", ""))
+	if rec.Code != 200 {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	select {
+	case m := <-lobby:
+		if m["key"] == nil {
+			t.Fatalf("the holder got no key: %v", m)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the holder heard nothing")
+	}
+	select {
+	case m, open := <-spoof:
+		if open {
+			t.Fatalf("the later stream heard it: %v", m)
+		}
+	case <-time.After(300 * time.Millisecond):
+	}
+}
+
+// With only the later stream open, there is no stream of the holder to give a key to.
+func TestAssignRefusesWhenOnlyAnotherStreamHoldsTheName(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	srv := strmServer(t, a)
+	ctx, cancel := context.WithCancel(context.Background())
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/v1/panels/"+from+"/instances/stream?device=Lobby", nil)
+	req.Header.Set("Authorization", "Bearer "+instanceKey(t, a, from, cy, "Lobby"))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("stream: %v %v", resp, err)
+	}
+	bufio.NewReader(resp.Body).ReadString('\n')
+	spoof := assignHold(t, a, from, cy, "Lobby")
+	cancel()
+	waitFor(t, "the holder stream closed", func() bool { _, held := a.mon.streamHolder(from, "Lobby"); return !held })
+
+	rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", ""))
+	if rec.Code != 409 {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	select {
+	case m, open := <-spoof:
+		if open {
+			t.Fatalf("the later stream heard it: %v", m)
+		}
+	case <-time.After(300 * time.Millisecond):
+	}
+}

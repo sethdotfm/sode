@@ -47,6 +47,10 @@ type monInst struct {
 	// streamed: a keepalive clears streamed, and a timed-out page must still be told from an API client.
 	page bool
 	who  streamWho
+	// holder: who opened the first stream under this name. Anyone who can use the panel can open a
+	// stream under any name. So a key from an Assign goes only to a stream of the holder.
+	holder streamWho
+	held   bool
 }
 
 // streamWho is who opened a stream and from where. signIn is "client" or "user" ("none" for a guest),
@@ -71,6 +75,7 @@ type monConn struct {
 	cancel context.CancelFunc
 	out    chan lastLine
 	pub    chan struct{} // keyless streams only: a public line, which does not end the stream (publicback.go)
+	who    streamWho     // named streams only
 }
 
 // lastLine is a stream's last line. got (buffered 1) answers whether the handler wrote it, false when the
@@ -320,10 +325,13 @@ func (m *panelMon) openStream(id, device, pubKey string, who streamWho, cancel c
 		return nil, nil, nil, err
 	}
 	in.page, in.who = true, who
+	if !in.held {
+		in.holder, in.held = who, true
+	}
 	m.noteAddrLocked(who.addr, device)
 	out := make(chan lastLine, 1)
 	in.streamed = true
-	return in.holdLocked(m, monConn{cancel: cancel, out: out}), out, ev, nil
+	return in.holdLocked(m, monConn{cancel: cancel, out: out, who: who}), out, ev, nil
 }
 
 // A device that was lost yields "back".

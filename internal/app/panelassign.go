@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -60,16 +61,42 @@ func (m *panelMon) streamDevice(id, device string) (string, bool) {
 	return in.device, true
 }
 
-// sendNewest offers b to the device's newest stream only. Anyone who can use the panel can hold a stream under
-// any device name. So the others are not known to be the picked instance. nil when none is held.
+// holderConnsLocked: the streams opened by the instance's holder. Anyone who can use the panel can hold a
+// stream under any device name. So a stream from another caller is not known to be the picked instance.
+func holderConnsLocked(in *monInst) map[int]monConn {
+	out := map[int]monConn{}
+	for n, c := range in.conns {
+		if in.held && c.who == in.holder {
+			out[n] = c
+		}
+	}
+	return out
+}
+
+// streamHolder: the address of the device's holder, and whether a stream of the holder is open now.
+func (m *panelMon) streamHolder(id, device string) (string, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	in := m.inst[id][strings.ToLower(device)]
+	if in == nil {
+		return "", false
+	}
+	return in.holder.addr, len(holderConnsLocked(in)) > 0
+}
+
+// sendNewest offers b to the newest stream of the device's holder only. nil when none is open.
 func (m *panelMon) sendNewest(id, device string, b []byte) <-chan bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	in := m.inst[id][strings.ToLower(device)]
-	if in == nil || len(in.conns) == 0 {
+	if in == nil {
 		return nil
 	}
-	return newestConn(in.conns).offer(b)
+	conns := holderConnsLocked(in)
+	if len(conns) == 0 {
+		return nil
+	}
+	return newestConn(conns).offer(b)
 }
 
 // sendEvery queues b on every stream the device holds and answers how many queued it. A queued line means
@@ -141,10 +168,11 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	var (
-		from Panel
-		name string
-		addr string // a keyless instance's, checked against the target's allowed networks
-		send func([]byte) bool
+		from       Panel
+		name       string
+		addr       string // a keyless instance's, checked against the target's allowed networks
+		holderAddr string // a named instance's holder, checked the same way
+		send       func([]byte) bool
 	)
 	if in.Keyless != "" {
 		ref, row, live := a.mon.keylessLive(in.Keyless)
@@ -170,6 +198,11 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		var live bool
 		if name, live = a.mon.streamDevice(from.ID, device); !live {
 			apiFail(w, http.StatusConflict, "conflict", "no instance "+device+" of "+from.Name+" is open now")
+			return
+		}
+		var held bool
+		if holderAddr, held = a.mon.streamHolder(from.ID, name); !held {
+			apiFail(w, http.StatusConflict, "conflict", "instance "+name+" of "+from.Name+" is not open from "+holderAddr+", where it first opened")
 			return
 		}
 		send = func(b []byte) bool { return written(a.mon.sendNewest(from.ID, name, b)) }
@@ -215,8 +248,8 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	// An empty list allows any address, as it does for the key itself.
-	if addr != "" && !networkAllowed(c.Networks, addr) {
-		apiFail(w, http.StatusForbidden, "network_not_allowed", name+" is at "+addr+", outside the allowed networks of "+to.Name+". It is not allowed to get a key for it")
+	if at := cmp.Or(addr, holderAddr); at != "" && !networkAllowed(c.Networks, at) {
+		apiFail(w, http.StatusForbidden, "network_not_allowed", name+" is at "+at+", outside the allowed networks of "+to.Name+". It is not allowed to get a key for it")
 		return
 	}
 	owner := keyOwner{Kind: actorClient, Name: c.Name}

@@ -54,12 +54,13 @@ type keyListMsg struct {
 	Keys []apiKey `json:"keys"`
 }
 
-// ownUser is the live user c is signed in as, not under the Lock.
+// ownUser is the live user c is signed in as, not under the Lock. Its callers make keys and
+// clients that act as the user, so it is judged by actGateMu, not the page type.
 func (a *App) ownUser(c *client) (config.User, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	cfg := a.r().cfg
-	if !a.userOKMu(c, cfg) {
+	if !a.userOKAtMu(c, cfg, actGateMu(c)) {
 		return config.User{}, errUnlockFirst
 	}
 	u, _ := cfg.FindUserByID(c.u.user.Load().ID)

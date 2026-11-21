@@ -298,3 +298,41 @@ func TestUsersListAndHelloNameUsersWithoutPin(t *testing.T) {
 		t.Fatalf("usersList %+v", l.Users)
 	}
 }
+
+// The page type comes from the browser's own hi, so it must not weaken a lock. Here a user without
+// a PIN says they are on the Communication Log page, and its lock is off. Under the main page lock
+// they still count as nobody: no take, no Protect, no key that acts as them.
+func TestUserWithoutPinOnLogPagePassesNoMainLock(t *testing.T) {
+	a, f := noPinApp(t)
+	setRole(t, a, "Cy", config.RoleStandard)
+	cfg := a.r().cfg.Clone()
+	cfg.Locks.Main, cfg.Locks.Log = true, false
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	c := &client{ip: "10.0.0.5"}
+	next := registerAll(a, c)
+	a.Hi(c, "log", "")
+	if err := a.UserUnlockAs(c, "Cy", ""); err != nil {
+		t.Fatalf("sign-in on the unlocked Log page: %v", err)
+	}
+	if err := admitMsg(a, c, inMsg{T: "log"}); err != nil {
+		t.Fatalf("the Log page itself: %v", err)
+	}
+	n := f.sends()
+	if canTake(a, c) == nil {
+		t.Fatal("took under the main page lock")
+	}
+	if f.sends() != n {
+		t.Fatal("sent")
+	}
+	if err := admitMsg(a, c, inMsg{T: "protectSet"}); err == nil {
+		t.Fatal("Protect under the main page lock")
+	}
+	for _, kind := range []string{"sessionKey", "keyCreate"} {
+		if r := send(t, a, c, next, inMsg{T: kind, ID: 1, KeyName: "x"}, kind+"Result"); r["ok"] != false {
+			t.Fatalf("%s under the main page lock: %v", kind, r)
+		}
+	}
+
+}

@@ -96,10 +96,26 @@ func (a *App) userSameMu(c *client, cfg config.Config) bool {
 // userOKMu: signed in and not under the Lock. A user without a PIN opens no page lock, so under
 // their page's lock they count as nobody. Caller holds mu.
 func (a *App) userOKMu(c *client, cfg config.Config) bool {
+	return a.userOKAtMu(c, cfg, pageGates[cmp.Or(c.u.page, "main")])
+}
+
+// userOKAtMu: userOKMu judged under gate g, not the page type. The page type is what the
+// browser's own hi said, so an action's lock must come from the action. Caller holds mu.
+func (a *App) userOKAtMu(c *client, cfg config.Config, g gate) bool {
 	if c.u.lockedMu() || !a.userSameMu(c, cfg) {
 		return false
 	}
-	return c.u.user.Load().HasPin() || !pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks)
+	return c.u.user.Load().HasPin() || !g.on(cfg.Locks)
+}
+
+// actGateMu: the lock that covers a key or an act as the user on this connection. A key acts
+// outside any page. Panel pages need keys for their sessions, so the Panel pages lock covers
+// them. The main page lock covers every other page type. Caller holds mu.
+func actGateMu(c *client) gate {
+	if c.u.page == "panel" {
+		return gatePanel
+	}
+	return gateMain
 }
 
 // heldMu: the session's Lock is on and its user can still resume it. Caller holds mu.
@@ -141,7 +157,7 @@ func (a *App) pageAllowedMu(c *client, g gate) bool {
 	if a.heldMu(c, cfg) {
 		return false
 	}
-	return !g.on(cfg.Locks) || a.userOKMu(c, cfg)
+	return !g.on(cfg.Locks) || a.userOKAtMu(c, cfg, g)
 }
 
 type lockStateMsg struct {
