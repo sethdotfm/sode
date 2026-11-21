@@ -1,7 +1,7 @@
 // The main page's page header: the same bar as /panels and /log (panelsbar.js), over both the Home and the Settings
 // view. Its Settings and Home links switch the view in this page, so Settings' unsaved-edits rule still applies.
-import { $, emit } from './core.js';
-import { panelsBar } from './panelsbar.js';
+import { $, emit, on } from './core.js';
+import { panelsBar, barTitle } from './panelsbar.js';
 
 function leave(href) {
   if (href === './#settings') {
@@ -16,3 +16,5 @@ function leave(href) {
 }
 
 panelsBar($('home-bar'), { panels: true, leave });
+
+on('brand', ({ text }) => barTitle($('home-bar').querySelector('.sode-panels__title'), text));

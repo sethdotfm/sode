@@ -39,7 +39,7 @@ func TestChromeMainCompact(t *testing.T) {
 	b.open(srv.URL + "/")
 	b.waitFor("data-compact set before the modules run", `document.documentElement.hasAttribute('data-compact')`)
 	b.waitFor("History hidden", `!(`+shown("#patch-view > .sode__history")+`)`)
-	for _, sel := range []string{"#patch-view .sode__boxes", "#patch-view [data-presets]", "#patch-view .sode__footer", "#settings-open", "#patch"} {
+	for _, sel := range []string{"#patch-view .sode__boxes", "#patch-view [data-presets]", "#patch-view .sode__footer", "#grid-open", "#home-bar .sode-bar__settings", "#patch"} {
 		b.waitFor(sel+" still shown", shown(sel))
 	}
 
@@ -82,12 +82,12 @@ func TestChromeMainCompact(t *testing.T) {
 	for _, sel := range []string{"#src", "#dst", "#patch", "#patch-view [data-presets]"} {
 		b.waitFor(sel+" not under an apron", `(() => { const e = document.querySelector('`+sel+`'), r = e.getBoundingClientRect(), h = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return e === h || e.contains(h); })()`)
 	}
-	if got := b.eval(`[document.getElementById('settings-open').getAttribute('aria-label'), document.getElementById('settings-open').dataset.pbTip].join('|')`); got != "Settings|Settings" {
-		t.Fatalf("faded Settings button lost its name or tip: %v", got)
+	if got := b.eval(`[document.getElementById('grid-open').getAttribute('aria-label'), document.getElementById('grid-open').dataset.pbTip].join('|')`); !strings.HasPrefix(fmt.Sprint(got), "Grid popup|Grid popup") {
+		t.Fatalf("faded Grid popup button lost its name or tip: %v", got)
 	}
-	b.eval(`document.getElementById('settings-open').focus(); true`)
+	b.eval(`document.getElementById('grid-open').focus(); true`)
 	b.waitFor("footer back on focus", opacity(".sode__footer", "1"))
-	b.eval(`document.getElementById('settings-open').blur(); true`)
+	b.eval(`document.getElementById('grid-open').blur(); true`)
 	b.waitFor("footer faded after blur", opacity(".sode__footer", "0"))
 	dur := `getComputedStyle(document.querySelector('.sode__footer')).transitionDuration`
 	b.waitFor("reveal fades over a quarter second", dur+` === '0.25s'`)

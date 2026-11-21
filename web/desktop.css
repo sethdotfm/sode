@@ -483,7 +483,7 @@
   --sode-head-edge: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x));
   left: var(--sode-head-edge);
   position: absolute;
-  right: calc(var(--sode-head-edge) + var(--sode-page-bar));
+  right: var(--sode-head-edge);
   top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
   z-index: var(--pb-z-sticky);
 }
@@ -495,9 +495,18 @@
 .sode-home-bar > .sode-panels__spacer {
   flex: 1 1 auto;
 }
-/* Positioned, so the Compact view's apron (above) stays on the status. */
+/* The bar's edges are the page content's. */
+:root:has(.sode-home-bar) {
+  --sode-head-max: var(--sode-main-w);
+}
+/* Positioned, so the Compact view's apron (above) stays on the status; inset drops .sode__conn's own corner offsets. */
 .sode-home-bar > .sode__conn {
+  inset: auto;
   position: relative;
+}
+/* The bar has Settings and Panels. The buttons stay for the code that clicks them (settings.js, desktopkeys.js). */
+.sode__footer > :is(#settings-open, #panels-open) {
+  display: none;
 }
 [data-layout="phone"] .sode-home-bar {
   display: none;
