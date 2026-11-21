@@ -2,6 +2,7 @@ import './layout.js';
 import './keys.js';
 import { connect, on } from './core.js';
 import './desktop.js';
+import './homebar.js';
 import './settings.js';
 import './brand.js';
 import './stepinframe.js';

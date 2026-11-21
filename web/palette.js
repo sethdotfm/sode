@@ -649,6 +649,17 @@ function giveBack(to) {
 export const paletteOpen = () => dlg.shown();
 export const closePalette = () => close(false);
 
+function togglePalette() {
+  if (dlg.shown()) return close(true);
+  if (paletteRefusal()) return;
+  closeOpenConfirm();
+  closeShown();
+  $('keys')?.querySelector('#keys-close')?.click();
+  openPalette();
+}
+// The page header's Palette button (panelsbar.js).
+on('paletteButton', togglePalette);
+
 // Ctrl+Shift+P, Control on every OS. Capture, so it works from any focus, also inside a dialog.
 document.addEventListener(
   'keydown',
@@ -657,12 +668,7 @@ document.addEventListener(
     e.preventDefault();
     e.stopImmediatePropagation();
     if (e.repeat) return;
-    if (dlg.shown()) return close(true);
-    if (paletteRefusal()) return;
-    closeOpenConfirm();
-    closeShown();
-    $('keys')?.querySelector('#keys-close')?.click();
-    openPalette();
+    togglePalette();
   },
   true,
 );
