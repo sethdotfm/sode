@@ -151,8 +151,9 @@ func (s *tokenStore) dropWhere(gone func(tokenRec) bool) {
 
 // heldOnly: under a PIN lock a non-persistent user's token only carries a held Lock, never
 // a sign-in. Hi refuses it after the Lock has ended, issueToken gives none for a sign-in, a resume drops it.
+// The page type is the browser's own word, so the lock that covers acts as the user counts too.
 func heldOnly(u config.User, page string, locks config.Locks) bool {
-	return !u.Persistent && pageGates[page].on(locks)
+	return !u.Persistent && (pageGates[page].on(locks) || actGateOf(page).on(locks))
 }
 
 func (s *tokenStore) dropUser(id string) {

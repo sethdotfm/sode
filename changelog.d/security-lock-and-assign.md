@@ -1,2 +1,3 @@
 - Fixed: a user without a PIN can no longer pass the main page lock by opening the connection as a Communication Log page. Take, Protect and keys that act as the user follow the main page lock. On the Panel pages, they follow the Panel pages lock.
 - Fixed: an Assign sends the new panel key only to the first stream that opened under that instance name. The address of that stream must be in the target's allowed networks. Before, another person who could use the panel could open a stream under the same name and get the key.
+- Fixed: a sign-in on a connection that says it is the Communication Log page gets no tab token past the main page lock. After a reload, a user who is not set to Never sign out types their PIN again.

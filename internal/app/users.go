@@ -111,8 +111,10 @@ func (a *App) userOKAtMu(c *client, cfg config.Config, g gate) bool {
 // actGateMu: the lock that covers a key or an act as the user on this connection. A key acts
 // outside any page. Panel pages need keys for their sessions, so the Panel pages lock covers
 // them. The main page lock covers every other page type. Caller holds mu.
-func actGateMu(c *client) gate {
-	if c.u.page == "panel" {
+func actGateMu(c *client) gate { return actGateOf(c.u.page) }
+
+func actGateOf(page string) gate {
+	if page == "panel" {
 		return gatePanel
 	}
 	return gateMain

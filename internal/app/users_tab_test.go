@@ -103,3 +103,26 @@ func TestTabTokenDiesWhenUserBecomesPersistent(t *testing.T) {
 		t.Fatal("tab token survived the user becoming persistent")
 	}
 }
+
+// The page type is the browser's own word. Here a connection says it is the Communication Log page,
+// and its lock is off. Its tab token must not bring a reload back in past the main page lock.
+func TestTabSessionRefusedOnLogPageUnderMainLock(t *testing.T) {
+	a := userApp(t, false)
+	cfg := a.r().cfg.Clone()
+	cfg.Locks.Main, cfg.Locks.Log = true, false
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	c := &client{ip: "10.0.0.1"}
+	a.Hi(c, "log", "")
+	if err := a.UserUnlock(c, "1234"); err != nil {
+		t.Fatal(err)
+	}
+	if tok := a.issueSessionTab(c, true); tok != "" {
+		fresh := &client{ip: "10.0.0.2"}
+		a.Hi(fresh, "log", tok)
+		if fresh.who() == "Ana" {
+			t.Fatal("a tab token from the Log page signed in a reload under the main page lock")
+		}
+	}
+}
