@@ -99,8 +99,8 @@ export function protectOffer(p, { right, admin = false, device, linked }) {
   return right && device > 0 && !p.levels.length ? 'set' : '';
 }
 
-// The Protect right of the browser's sign-in. rights: myRights, or null with nobody signed in. Then only a Sode with
-// no users (every browser an Administrator) has it. Keep in step with AllowsProtect on the server.
+// The Protect right of the browser. rights: myRights, a user's or the guest's (pushRightsMu), or null before it comes.
+// Then only a Sode with no users (every browser an Administrator) has it. Keep in step with AllowsProtect on the server.
 export const protectRight = (rights, role, users) => (rights ? rights.protect === true : role === 'administrator' && !users?.length);
 
 // A Protect History entry e can be undone when two things are true. It is the newest ok Protect entry of its

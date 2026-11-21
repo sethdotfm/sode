@@ -31,8 +31,14 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	guest := &client{ip: "10.0.0.7"}
 	gnext := registerAll(a, guest)
 	a.syncAccess(guest)
-	if m := mrLast(gnext(), "myRights"); m != nil {
-		t.Fatalf("guest got rights: %v", m)
+	// A guest gets the guest's Rights, never a user's; the Guest role sets the Protect right.
+	if m := mrLast(gnext(), "myRights"); m == nil || mrJSON(m) != `{"protect":false}` {
+		t.Fatalf("guest rights: %v", m)
+	}
+	editCfg(t, a, func(cfg *config.Config) { cfg.GuestRole = config.RoleTrusted })
+	a.syncAccess(guest)
+	if m := mrLast(gnext(), "myRights"); m == nil || mrJSON(m) != `{"protect":true}` {
+		t.Fatalf("Trusted user guest rights: %v", m)
 	}
 
 	ana, anext := signedIn(t, a, "10.0.0.1", "1234")
@@ -67,5 +73,16 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	m = mrLast(anext(), "myRights")
 	if m == nil || m["rights"] != nil {
 		t.Fatalf("held Lock left rights on the page: %v", m)
+	}
+}
+
+// A guest under the page lock acts as nobody, so it gets no Rights.
+func TestMyRightsSkipAGuestUnderThePageLock(t *testing.T) {
+	a := userApp(t, true)
+	guest := &client{ip: "10.0.0.7"}
+	gnext := registerAll(a, guest)
+	a.syncAccess(guest)
+	if m := mrLast(gnext(), "myRights"); m != nil && m["rights"] != nil {
+		t.Fatalf("locked guest got rights: %v", m)
 	}
 }

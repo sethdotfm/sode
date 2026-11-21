@@ -62,8 +62,9 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 		if !a.apiRateOK(w, "ip:"+ip, cfg.API.RateLimit, now) {
 			return nil, false
 		}
-		return &apiCtx{Actor: Actor{Kind: actorGuest, Name: "Guest", Via: via}, Rights: cfg.GuestRights,
-			Scopes: cfg.GuestAPIScopes, IP: ip}, true
+		_, rights := cfg.GuestActs()
+		return &apiCtx{Actor: Actor{Kind: actorGuest, Name: "Guest", Via: via}, Rights: rights, Scopes: cfg.GuestAPIScopes,
+			IP: ip}, true
 	}
 
 	secret, bearer := strings.CutPrefix(hdr, "Bearer ")

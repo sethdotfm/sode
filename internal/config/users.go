@@ -88,8 +88,18 @@ func (c Config) ActsAs(u User) (string, Rights) {
 	if roleRank(c.GuestRole) > roleRank(role) && c.GuestRole != RoleAdministrator {
 		role = c.GuestRole
 	}
-	// Guest Rights leave Protect unset when off, so a user without a PIN gets it only from both.
-	return role, u.Rights.ProtectFor(role).Intersect(c.GuestRights.ProtectFor(RoleStandard))
+	_, guest := c.GuestActs()
+	return role, u.Rights.ProtectFor(role).Intersect(guest)
+}
+
+// GuestActs: the Role and Rights of a guest. An unset Protect right follows the Guest role, as a user's follows
+// theirs. With no users every browser is an Administrator.
+func (c Config) GuestActs() (string, Rights) {
+	role := c.GuestRole
+	if len(c.Users) == 0 {
+		role = RoleAdministrator
+	}
+	return role, c.GuestRights.ProtectFor(role)
 }
 
 // NoPinRefusal names a user above Standard user left without a PIN; PIN needed users are allowed.

@@ -415,10 +415,6 @@ func sortedKeys[V any](m map[string]V) []string {
 // since a Protect covers them all.
 func (a *App) protectCaller(r *runtime, c *client, dst int) (Actor, error) {
 	act, rt := a.callerOf(c)
-	if c.api == nil && len(r.cfg.Users) == 0 {
-		// With no users every browser is an Administrator; keep in step with protectRight in web/protectrules.js.
-		rt = rt.ProtectFor(config.RoleAdministrator)
-	}
 	off := r.cfg.NumberOffset
 	switch {
 	case !rt.AllowsProtect():

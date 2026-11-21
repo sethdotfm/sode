@@ -100,9 +100,10 @@ export function makeRightsTab({ users, clients, touched }) {
       dirty('rights');
     });
     parts.push(selectField('rights-visibility', 'Visibility', vis));
-    // The Protect right: set and clear Sode's Protects on the destinations above. Unset follows a user's Role.
-    const unset = kind === 'user' ? 'From the Role (on for a Trusted user)' : 'No';
-    const prot = select('rights-protect', [opt('', unset), opt('yes', 'Yes'), ...(kind === 'user' ? [opt('no', 'No')] : [])]);
+    // The Protect right: set and free Sode's Protects on the destinations above. Unset follows a user's Role or the
+    // Guest role (GuestActs on the server); an API client has no Role, so unset is off.
+    const unsetText = { user: 'From the Role (on for a Trusted user)', guest: 'From the Guest role (on for Trusted user)' };
+    const prot = select('rights-protect', [opt('', unsetText[kind] || 'No'), opt('yes', 'Yes'), ...(unsetText[kind] ? [opt('no', 'No')] : [])]);
     prot.value = e.draft.protect;
     prot.addEventListener('change', () => {
       e.draft.protect = prot.value;

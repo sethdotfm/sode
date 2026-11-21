@@ -118,6 +118,10 @@ func TestProtectByRole(t *testing.T) {
 		{"guest role trusted", func(t *testing.T, a *App) protCall {
 			editCfg(t, a, func(cfg *config.Config) { cfg.GuestRole = config.RoleTrusted })
 			return wsCall(a, &client{ip: "10.0.0.50"})
+		}, [4]string{pOK, pOK, pAdmin, pOK}},
+		{"guest role trusted with the right off", func(t *testing.T, a *App) protCall {
+			editCfg(t, a, func(cfg *config.Config) { cfg.GuestRole, cfg.GuestRights = config.RoleTrusted, off })
+			return wsCall(a, &client{ip: "10.0.0.50"})
 		}, [4]string{pRights, pNone, pRights, pOK}},
 		{"API client", func(t *testing.T, a *App) protCall {
 			editCfg(t, a, func(cfg *config.Config) {
@@ -171,5 +175,17 @@ func TestProtectWithNoUsers(t *testing.T) {
 	}
 	if got := call(false, 5, nil); got != pOK || len(f.holdsOn(5)) != 0 {
 		t.Fatalf("clear: %s", got)
+	}
+}
+
+// Guests share one owner, so one guest frees the Protect another guest set.
+func TestProtectGuestsShareOneOwner(t *testing.T) {
+	a, _ := protectApp(t)
+	editCfg(t, a, func(cfg *config.Config) { cfg.GuestRole = config.RoleTrusted })
+	if got := wsCall(a, &client{ip: "10.0.0.50"})(true, 5, nil); got != pOK {
+		t.Fatalf("set: %s", got)
+	}
+	if got := wsCall(a, &client{ip: "10.0.0.51"})(false, 5, nil); got != pOK {
+		t.Fatalf("free: %s", got)
 	}
 }
