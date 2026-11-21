@@ -1895,6 +1895,32 @@ button.sode-up__bar:not(:disabled):hover,
 .sode-bar > .sode-inbox__slot {
   flex: none;
 }
+/* The Server and Router state glyph (core.js setDot) in place of patchbay's square: the glyph takes the status colour. */
+.pb-dot.sode__state {
+  background: none;
+  display: inline-flex;
+  height: auto;
+  width: auto;
+}
+.sode__state > .pb-icon {
+  height: var(--pb-icon-size-sm);
+  width: var(--pb-icon-size-sm);
+}
+.sode__state.pb-dot--ok {
+  color: var(--pb-status-ok);
+}
+.sode__state.pb-dot--warn {
+  color: var(--pb-status-warn);
+}
+.sode__state.pb-dot--error {
+  color: var(--pb-status-error);
+}
+.sode__state.pb-dot--idle {
+  color: var(--pb-status-idle);
+}
+.sode__state.pb-dot--info {
+  color: var(--pb-status-info);
+}
 /* The start pad matches an icon button's room around its icon, so the rule has the same space on both sides. */
 .sode-bar > .sode__conn {
   background: none;

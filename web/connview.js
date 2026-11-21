@@ -18,7 +18,7 @@ export function paintConn(n) {
 // The block made in code, with index.html's markup and classes, for a page whose HTML has none.
 export function connBox() {
   const status = (word) => {
-    const dot = el('span', 'pb-dot pb-dot--idle');
+    const dot = el('span', 'pb-dot sode__state pb-dot--idle');
     dot.setAttribute('aria-hidden', 'true');
     const text = el('span', null, word);
     return { box: el('span', 'pb-status', dot, text), dot, text };
