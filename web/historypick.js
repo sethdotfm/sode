@@ -1,7 +1,7 @@
 // Pick mode for History (the preset editor's "Add from History..."): rows get check boxes, and a bar says what Add does.
 // Mode 'boxes' ("Add from Patch Boxes...") uses the same bar and state, and the patch boxes stay live.
 // Each layout asks picking()/pickBox() while it builds rows, redraws on 'pick' and calls bindPick(list) one time.
-import { el, on, emit, S } from './core.js';
+import { el, on, emit, S, icon } from './core.js';
 import { histRows } from './history.js';
 
 // Keys: 'e<id>' (an entry, or a stacked row's newest) and 'f<group>' (a Group: all its entries).
@@ -103,8 +103,9 @@ export function togglePick(key) {
 }
 
 // opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() }.
-// Mode 'boxes' has { label, onAddPatch(), onAddItems(items), onCancel() }. onAddPatch adds the boxes' patch and returns
-// a line to show. onAddItems answers { ok, rows, text, count }. onCancel is Done.
+// Mode 'boxes' has { label, onAddPatch(), onAddItems(items), rows(), onCancel() }. onAddPatch adds the boxes' patch
+// and returns a line to show. onAddItems answers { ok, rows, text, count }. rows gives the preset's rows as items.
+// onCancel is Done.
 export function startPick(opts) {
   if (st) return;
   st = { mode: 'history', ...opts, picked: new Set(), follows: false, note: '' };
@@ -129,6 +130,8 @@ export const addPatch = () => st?.mode === 'boxes' && MODES.boxes.add(st);
 // The Grid popup's seams: its clicks add here, its Done ends the mode, and its header names the preset.
 export const addItems = (items) => (st?.mode === 'boxes' ? MODES.boxes.addItems(st, items) : { ok: false, text: '' });
 export const donePick = () => cancel();
+// The rows of the preset being edited, as preset items ([] when not adding from the boxes).
+export const pickRows = () => (st?.mode === 'boxes' ? st.rows?.() || [] : []);
 // The bar's last line after an Add of the boxes' patch, and whether it added: { text, ok }.
 export const pickNote = () => ({ text: st?.note || '', ok: !!st?.ok });
 export const pickLabel = () => (st?.label ? `“${st.label}”` : 'the preset');
@@ -146,7 +149,12 @@ const addBtn = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Add');
 addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
 cancelBtn.type = 'button';
-const controls = el('div', 'sode__pickbar-controls', followsBox, count, addBtn, cancelBtn);
+// The bar covers the page's top bar and its Grid button, so it has its own (gridpopup.js opens on 'gridOpen').
+const gridBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__pickbar-grid', icon('grid-3x3'), 'Switch to grid view');
+gridBtn.type = 'button';
+gridBtn.addEventListener('mousedown', (e) => e.preventDefault());
+gridBtn.addEventListener('click', () => emit('gridOpen'));
+const controls = el('div', 'sode__pickbar-controls', followsBox, count, addBtn, gridBtn, cancelBtn);
 const bar = el('div', 'sode__pickbar', el('div', 'sode__pickbar-title', msg, sub), controls);
 bar.setAttribute('role', 'region');
 bar.setAttribute('aria-label', 'Choose entries from History');
@@ -179,6 +187,7 @@ function update() {
     addBtn.textContent = m.addText(st, t);
     addBtn.disabled = !m.canAdd(st, t);
     addBtn.hidden = m.addShown === false;
+    gridBtn.hidden = st.mode !== 'boxes';
   }
   emit('pick');
 }

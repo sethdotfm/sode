@@ -99,3 +99,18 @@ export function noRouteLine(r, { src, dst }) {
   if (r.kind === 'srcs') return `${src(r.n)} goes to no destination on these levels.`;
   return r.outside ? `${dst(r.n)} gets its source from outside your Rights.` : `${dst(r.n)} has no source on these levels.`;
 }
+
+// The rows of a preset as marks: each route's "src,dst", and the sources and destinations that have a row.
+export function presetMarks(items) {
+  const m = { rows: items.length, xps: new Set(), srcs: new Set(), dsts: new Set() };
+  for (const it of items) {
+    m.srcs.add(it.src);
+    for (const d of it.dsts) {
+      m.dsts.add(d);
+      m.xps.add(`${it.src},${d}`);
+    }
+  }
+  return m;
+}
+
+export const rowsWord = (n) => `${many(n, 'row')} in the preset`;
