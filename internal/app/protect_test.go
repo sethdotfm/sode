@@ -464,3 +464,37 @@ func TestRequestApprovalClearsAnotherUsersProtect(t *testing.T) {
 		t.Fatalf("holds %v", got)
 	}
 }
+
+// An Approval to free many names every destination on the card and frees only those. A message with both dst and
+// dsts cannot ask one, so a card cannot name one destination and free others.
+func TestRequestApprovalNamesEveryDestination(t *testing.T) {
+	a, f := protectApp(t)
+	a.approvalWait = time.Minute
+	ana := signedClient(t, a, "Ana", "1234")
+	for _, d := range []int{4, 5, 6} {
+		protEntry(t, a.protectSet(ana, d, nil))
+	}
+	setRole(t, a, "Bo", config.RoleTrusted)
+	ada := approver(t, a, "Ada", "2468")
+	bo := dialPeer(t, a)
+	bo.signIn("Bo", "567890")
+	both := map[string]any{"t": "protectClear", "id": 4, "protect": map[string]any{"dst": 4, "dsts": []map[string]any{{"dst": 5}, {"dst": 6}}}}
+	if r := bo.ask("approvalAsk", 50, map[string]any{"for": both}); r["ok"] == true {
+		t.Fatalf("both fields asked: %v", r)
+	}
+	two := map[string]any{"t": "protectClear", "id": 5, "protect": map[string]any{"dsts": []map[string]any{{"dst": 4}, {"dst": 6}}}}
+	asked(t, bo.ask("approvalAsk", 51, map[string]any{"for": two}))
+	card := ada.until("approvalCard")
+	if card["what"] != "Freeing other users' Protects on 2 destinations: 5 MON 4, 7 MON 6" {
+		t.Fatalf("card %v", card)
+	}
+	if r := ada.answer(card["request"], true, "2468"); r["ok"] != true {
+		t.Fatalf("approve: %v", r)
+	}
+	if r := bo.until("protectClearResult"); r["ok"] != true || len(r["results"].([]any)) != 2 {
+		t.Fatalf("result %v", r)
+	}
+	if len(f.holdsOn(4)) != 0 || len(f.holdsOn(6)) != 0 || len(f.holdsOn(5)) == 0 {
+		t.Fatalf("holds 4 %v, 5 %v, 6 %v", f.holdsOn(4), f.holdsOn(5), f.holdsOn(6))
+	}
+}

@@ -174,6 +174,12 @@ func (a *App) approvalAsk(c *client, act *inMsg, id int) error {
 	if !ok || !rl.approvable {
 		return errors.New("only a Settings save, Clear History or freeing a Protect can go through Request approval")
 	}
+	if act.T == "protectClear" {
+		// The card must name every destination the frozen message frees.
+		if _, err := act.Protect.reqs(); err != nil {
+			return err
+		}
+	}
 	var changes []SavedField
 	var stops []string
 	if act.T == "settingsSave" {
