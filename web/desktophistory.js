@@ -440,7 +440,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
   // Undo the newest take made in Sode (a whole Group). Externals are skipped, whatever the filters show.
   function undoLast() {
-    // A Free Protect counts (its Undo sets the Protect again); a Protect does not, since its Undo clears one.
+    // A Free Protect counts (its Undo sets the Protect again); a Protect does not, since its Undo frees one.
     const last = S.hist.find((x) => !x.ext && x.protect !== 'set');
     if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
     const e = attachFollows(last);

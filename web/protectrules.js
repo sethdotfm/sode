@@ -72,7 +72,7 @@ export function holdShort(h) {
 }
 
 // What the Grid popup's shield does on name n: the offer ('set' or 'clear') and the destinations. A picked name acts on
-// every picked destination with the same offer, so one press protects or clears them all. null when n has no offer.
+// every picked destination with the same offer, so one press protects or frees them all. null when n has no offer.
 export function shieldTargets(n, picked, offerOf) {
   const offer = offerOf(n);
   if (!offer) return null;
@@ -81,7 +81,7 @@ export function shieldTargets(n, picked, offerOf) {
 }
 
 // The badge look of one hold. The icon names the mark: shield for every Protect, shield-ban for a Router lock. The
-// `lock` icon is the Lock's alone (GLOSSARY.md). The words name the owner, and the status says if you can clear it:
+// `lock` icon is the Lock's alone (GLOSSARY.md). The words name the owner, and the status says if you can free it:
 // yours is info, the others are warn, since they stop you.
 export const holdLook = (h) => ({ icon: h.kind === KIND_ROUTER_LOCK ? 'shield-ban' : 'shield', status: h.owner === 'you' ? 'info' : 'warn' });
 
@@ -98,7 +98,7 @@ export function entryChip(e) {
 export const protectedText = (p) => p.holds.map(holdLabel).join('; ');
 
 // What the route view offers for p (holdsOn of every level): 'set', 'clear' or ''. A hold Sode did not set gets no
-// button. right: the signed-in Rights allow a Protect. admin: an Administrator, who clears any of Sode's Protects
+// button. right: the signed-in Rights allow a Protect. admin: an Administrator, who frees any of Sode's Protects
 // without the right (protectClear on the server). device: Sode's device number, 0 when off.
 export function protectOffer(p, { right, admin = false, device, linked }) {
   if (!linked || p.others.length) return '';
@@ -195,8 +195,8 @@ export function pickRows(dsts, filter, { inRights, held, offerOf }) {
   return out;
 }
 
-// What the picked destinations ask: protect (the free ones) and clear (Sode's own Protects). With both, the picker
-// protects first, so the safe action is the default.
+// What the picked destinations ask: protect (the free ones) and clear, which frees Sode's own Protects. With both, the
+// picker protects first, so the safe action is the default.
 export function pickSplit(picked, offerOf) {
   const protect = [];
   const clear = [];
