@@ -1,2 +1,2 @@
-- An Administrator can clear another user's Protect in the page when their Rights take away the Protect right. The route view, the Grid popup and the Protect picker now offer it.
+- An Administrator can clear another user's Protect in the page when their Rights take away the Protect right. The route view, the Grid popup and History's Undo now offer it. The Protect picker still needs the Protect right.
 - With no users, Protect works from the route view. Before, the button showed and Sode refused it with "Protect is outside your Rights".
