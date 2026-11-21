@@ -137,6 +137,12 @@ export function foldProtects(rows, gapMs) {
   const out = [];
   let run = null;
   for (const r of rows) {
+    // A row the filters hide ({hidden} or a Group with nothing shown) ends the fold, as it ends a stacked row.
+    if (r.hidden || (r.f && !r.f.shown.length)) {
+      run = null;
+      out.push(r);
+      continue;
+    }
     const es = r.f ? r.f.entries : [r.e];
     const key = protectFoldKey(es);
     const times = es.map((e) => Date.parse(e.time));
@@ -159,7 +165,7 @@ function foldRow(rows) {
   const parts = rows.map(part);
   return {
     f: {
-      group: `s${last.f ? last.f.group : last.e.id}`,
+      group: last.f ? last.f.group : `s${last.e.id}`,
       n: parts.reduce((s, p) => s + p.n, 0),
       entries: parts.flatMap((p) => p.entries),
       shown: parts.flatMap((p) => p.shown),

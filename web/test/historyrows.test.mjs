@@ -74,7 +74,7 @@ test('histRows: one Protect action on many destinations is one Group, and quick 
   emit('history');
   let rows = histRows([...b, ...a]);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0].f.group, 'spA');
+  assert.equal(rows[0].f.group, 'pA');
   assert.equal(rows[0].f.entries.length, 4);
   assert.equal(rows[0].f.folded, 2);
   // A Free Protect stays apart.

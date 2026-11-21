@@ -241,7 +241,7 @@ test('foldProtects: neighbours within the gap fold into one Group, keyed by the 
   const out = foldProtects(rows, 15000);
   assert.equal(out.length, 1);
   const f = out[0].f;
-  assert.equal(f.group, 'sp1');
+  assert.equal(f.group, 'p1');
   assert.equal(f.n, 5);
   assert.equal(f.folded, 3);
   assert.deepEqual(
@@ -258,6 +258,10 @@ test('foldProtects: another row, the other direction or an undo ends the fold', 
   assert.equal(foldProtects([{ e: pe(30, 10) }, take, { e: pe(20, 0) }], 30000).length, 3);
   assert.equal(foldProtects([{ e: pe(30, 10, { protect: 'clear' }) }, { e: pe(20, 0) }], 30000).length, 2);
   assert.equal(foldProtects([{ e: pe(30, 10, { undo: 20 }) }, { e: pe(20, 0) }], 30000).length, 2);
+  // A row the filters hide ends it too.
+  assert.equal(foldProtects([{ e: pe(30, 10) }, { hidden: true }, { e: pe(20, 0) }], 30000).length, 3);
+  const hiddenGroup = { f: { group: 'g', n: 1, entries: [pe(25, 5)], shown: [] } };
+  assert.equal(foldProtects([{ e: pe(30, 10) }, hiddenGroup, { e: pe(20, 0) }], 30000).length, 3);
   const one = [{ e: pe(30, 10) }];
   assert.deepEqual(foldProtects(one, 30000), one);
 });

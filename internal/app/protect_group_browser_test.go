@@ -78,10 +78,9 @@ func TestChromeProtectGroupInHistory(t *testing.T) {
 	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protected')`)
 	b.waitFor("the two actions fold into one row", top+`.length === 1 && (() => { const r = `+topRow+`; return r.dst === '34 destinations' && r.note.includes('2 actions'); })()`)
 
-	// Undo all frees all 34 in one Confirm. The router's Protect state reaches the page a moment after the entries, so
-	// this waits until each row inside offers its Undo.
-	b.eval(`(() => { const d = document.querySelector('#history > .sode__hist-row [aria-controls^="hist-folder-"]'); if (d.getAttribute('aria-expanded') !== 'true') d.click(); return true; })()`)
-	b.waitFor("each of the 34 offers Undo", `[...document.querySelectorAll('#history .sode__hist-folder > .sode__hist-row .sode__hist-actions button')].filter((x) => x.textContent.includes('Undo') && !x.disabled).length === 34`)
+	// The Group that folded the new action stays open. Undo all, pressed at once, frees all 34 in one Confirm: the
+	// router's Protect state reaches the page before each entry.
+	b.waitFor("the row stays open", `document.querySelectorAll('#history .sode__hist-folder > .sode__hist-row').length === 34`)
 	b.eval(`[...document.querySelectorAll('#history > .sode__hist-row > .sode__hist-actions button')].find((x) => x.textContent.includes('Undo all')).click(); true`)
 	b.waitFor("the Confirm asks for all 34", `!document.getElementById('confirm').hidden && document.getElementById('confirm').textContent.includes('Undo the Protects: free the Protect on these 34 destinations?')`)
 	confirm("Confirm free protect")
@@ -90,5 +89,14 @@ func TestChromeProtectGroupInHistory(t *testing.T) {
 		t.Fatalf("Sode's Protect left on %d levels", n)
 	}
 	b.waitFor("one Free Protect row for the undo", `(() => { const r = `+topRow+`; return r.chip === 'Free Protect' && r.dst === '34 destinations' && r.note.includes('undo'); })()`)
+
+	// Ctrl+Z (Cmd+Z on a Mac) undoes that whole Free Protect Group.
+	b.eval(`(() => { const mac = /Mac/.test(navigator.platform); document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: !mac, metaKey: mac, bubbles: true, cancelable: true})); return true; })()`)
+	b.waitFor("the Confirm protects all 34", `!document.getElementById('confirm').hidden && document.getElementById('confirm').textContent.includes('Undo the Free Protects: Protect these 34 destinations')`)
+	confirm("Confirm protect")
+	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('34 Protected')`)
+	if n := sodeRows(); n != 34*17 {
+		t.Fatalf("after Ctrl+Z, Sode's Protect on %d levels, want 34 × 17", n)
+	}
 	b.check()
 }

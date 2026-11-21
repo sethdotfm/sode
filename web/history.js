@@ -142,7 +142,11 @@ function buildRows(list) {
     }
     chains.delete(e.dst);
     if (solo) {
-      if (!passes(e)) continue;
+      // A marker, so foldProtects does not fold across a hidden row; dropped below.
+      if (!passes(e)) {
+        rows.push({ hidden: true });
+        continue;
+      }
       const row = { e };
       if (stacks(e)) chains.set(e.dst, { k, row, t, list: [orig] });
       rows.push(row);
@@ -164,8 +168,8 @@ function buildRows(list) {
     if (shown.length) f.followers = shown;
     if (shown.length && searchActive() && !f.shown.length) f.shown = f.entries;
   }
-  const shown = rows.filter((r) => !r.f || r.f.shown.length);
-  return searchActive() ? shown : foldProtects(shown, gap);
+  const real = (r) => !r.hidden && (!r.f || r.f.shown.length);
+  return (searchActive() ? rows : foldProtects(rows, gap)).filter(real);
 }
 
 // A Group's entries arrive one at a time; a Group that still fills is "in flight" for a while. After that,

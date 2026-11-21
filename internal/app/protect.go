@@ -269,9 +269,15 @@ func (a *App) protectByList(r *runtime) []protectBy {
 	return out
 }
 
-// Caller holds mu.
+// It sends the router's pending hold changes too, so the page has the state with the entry and History's Undo
+// follows at once. Caller holds mu.
 func (a *App) broadcastProtectsMu() {
-	a.broadcast(protectMsg{T: "protected", U: []protChange{}, By: a.protectByList(a.r())})
+	u := a.router.pendProt
+	if u == nil {
+		u = []protChange{}
+	}
+	a.router.pendProt = nil
+	a.broadcast(protectMsg{T: "protected", U: u, By: a.protectByList(a.r())})
 }
 
 // protWait waits for the router to report each level in the state that the messages ask for.
@@ -775,15 +781,16 @@ func (a *App) clearSodeProtects(c *client) (cleared int, still []int, err error)
 	return cleared, still, nil
 }
 
-// protectDone writes Sode's record, then the History entry, then tells the pages.
+// protectDone writes Sode's record, tells the pages, then writes the History entry. The pages get the new state
+// first, so the entry's row draws with its Undo right.
 func (a *App) protectDone(rec protectRec, e *Entry) {
 	if err := a.protects.put(rec); err != nil {
 		log.Printf("protects: %v", err)
 	}
-	a.record(e)
 	a.mu.Lock()
 	a.broadcastProtectsMu()
 	a.mu.Unlock()
+	a.record(e)
 }
 
 func uiLevels(r *runtime) []int {
