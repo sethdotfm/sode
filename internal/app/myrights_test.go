@@ -71,7 +71,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 		t.Fatalf("Ana's rights after the edit %s", got)
 	}
 	// Without it her Role is at least the Guest role, so her unset Protect right is on; her lists stay
-	// (config.ActsOnOpenPage).
+	// (config.Acts).
 	editCfg(t, a, func(cfg *config.Config) { cfg.Locks.Main = false })
 	if m = mrLast(anext(), "myRights"); m == nil || mrJSON(m) != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":true}` {
 		t.Fatalf("Ana's rights on a page open to guests: %v", m)

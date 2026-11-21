@@ -78,29 +78,26 @@ func RoleLabel(r string) string {
 
 func (u User) HasPin() bool { return u.Pin != "" }
 
-// A user without a PIN acts as Standard user or Guest role, whichever is higher, with no more than Guest Rights.
-// The Protect right comes back set, from the Role when the user's Rights leave it unset.
-func (c Config) ActsAs(u User) (string, Rights) {
-	if u.HasPin() {
+// ActsAs: u's own Role and Rights, as Acts gives them behind a page lock. Approvals and PIN rechecks use it.
+func (c Config) ActsAs(u User) (string, Rights) { return c.Acts(u, false) }
+
+// Acts: what u acts with. A user without a PIN acts as Standard user or Guest role, whichever is higher, with no
+// more than Guest Rights. The Protect right comes back set, from the Role when the user's Rights leave it unset.
+// open: the action's page is open to guests, so the Role is the higher of u's and the Guest role. The Rights stay
+// u's own; only an unset Protect right is on when the raised Role or the guest gives it.
+func (c Config) Acts(u User, open bool) (string, Rights) {
+	if u.HasPin() && !open {
 		return u.Role, u.Rights.ProtectFor(u.Role)
 	}
-	role := RoleStandard
-	if roleRank(c.GuestRole) > roleRank(role) && c.GuestRole != RoleAdministrator {
-		role = c.GuestRole
-	}
-	_, guest := c.GuestActs()
-	return role, u.Rights.ProtectFor(role).Intersect(guest)
-}
-
-// ActsOnOpenPage: what u acts with on a page open to guests. The Role is the higher of theirs and the Guest role.
-// The Rights stay u's own; only an unset Protect right is on when the raised Role or the guest gives it. Approvals and
-// PIN rechecks use ActsAs alone.
-func (c Config) ActsOnOpenPage(u User) (string, Rights) {
-	role, rt := c.ActsAs(u)
-	if !u.HasPin() { // ActsAs gives such a user the Guest role already, with no more than Guest Rights
-		return role, rt
-	}
 	grole, guest := c.GuestActs()
+	if !u.HasPin() {
+		role := RoleStandard
+		if roleRank(c.GuestRole) > roleRank(role) && c.GuestRole != RoleAdministrator {
+			role = c.GuestRole
+		}
+		return role, u.Rights.ProtectFor(role).Intersect(guest)
+	}
+	role, rt := u.Role, u.Rights.ProtectFor(u.Role)
 	if roleRank(grole) > roleRank(role) {
 		role = grole
 	}

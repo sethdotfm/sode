@@ -93,27 +93,20 @@ func (a *App) userSameMu(c *client, cfg config.Config) bool {
 	return ok && u.Pin == was.Pin
 }
 
-// userOKMu: signed in and not under the Lock. A user without a PIN opens no page lock, so under
-// their page's lock they count as nobody. Caller holds mu.
-func (a *App) userOKMu(c *client, cfg config.Config) bool {
+// pageGate: the lock of the page c declared in its hi. The page names itself, so use it only for what informs that
+// page. An action behind another page's lock uses that lock (gateFor).
+func (c *client) pageGate() gate { return pageGates[cmp.Or(c.u.page, "main")] }
+
+// userOKMu: userOKOnMu on c's own page. Caller holds mu.
+func (a *App) userOKMu(c *client, cfg config.Config) bool { return a.userOKOnMu(c, cfg, c.pageGate()) }
+
+// userOKOnMu: signed in and not under the Lock, for an action behind g. A user without a PIN opens no page lock, so
+// under g's lock they count as nobody. Caller holds mu.
+func (a *App) userOKOnMu(c *client, cfg config.Config, g gate) bool {
 	if c.u.lockedMu() || !a.userSameMu(c, cfg) {
 		return false
 	}
-	return c.u.user.Load().HasPin() || !pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks)
-}
-
-// guestOpenMu: guests can use c's page, since its page lock is off. Caller holds mu.
-func guestOpenMu(c *client, cfg config.Config) bool {
-	return !pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks)
-}
-
-// actsAs: u on c's page. Where guests can use the page, signing in never gives a lower Role than a guest has, and
-// an unset Protect right follows it (config.ActsOnOpenPage). open is guestOpenMu.
-func actsAs(cfg config.Config, u config.User, open bool) (string, config.Rights) {
-	if open {
-		return cfg.ActsOnOpenPage(u)
-	}
-	return cfg.ActsAs(u)
+	return c.u.user.Load().HasPin() || !g.on(cfg.Locks)
 }
 
 // heldMu: the session's Lock is on and its user can still resume it. Caller holds mu.
@@ -155,7 +148,7 @@ func (a *App) pageAllowedMu(c *client, g gate) bool {
 	if a.heldMu(c, cfg) {
 		return false
 	}
-	return !g.on(cfg.Locks) || a.userOKMu(c, cfg)
+	return !g.on(cfg.Locks) || a.userOKOnMu(c, cfg, g)
 }
 
 type lockStateMsg struct {

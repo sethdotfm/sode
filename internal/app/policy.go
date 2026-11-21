@@ -247,7 +247,7 @@ func (a *App) admit(c *client, r rule) error {
 			return cannotApprove(r.approver, r.role)
 		}
 	default:
-		if err := a.needRoleMu(c, r.role); err != nil {
+		if err := a.needRoleForMu(c, r.need, r.role); err != nil {
 			return err
 		}
 	}

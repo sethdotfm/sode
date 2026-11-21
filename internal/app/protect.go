@@ -481,26 +481,25 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-// protectCaller: who acts, with the Protect right and dst in their Rights. Every level must be in their Rights,
-// since a Protect covers them all.
-func (a *App) protectCaller(r *runtime, c *client, dst int) (Actor, error) {
-	act, rt := a.callerOf(c)
+// protectRights: nil when rt has the Protect right and dst. Every level must be in rt, since a Protect covers them
+// all.
+func protectRights(r *runtime, rt config.Rights, dst int) error {
 	off := r.cfg.NumberOffset
 	switch {
 	case !rt.AllowsProtect():
-		return act, refusal(403, "outside_rights", "Protect is outside your Rights")
+		return refusal(403, "outside_rights", "Protect is outside your Rights")
 	case !rt.AllowsDst(config.Ref{N: dst}):
 		if rt.Hidden() {
-			return act, refusal(403, "outside_rights", "destination is outside your rights")
+			return refusal(403, "outside_rights", "destination is outside your rights")
 		}
-		return act, refusal(403, "outside_rights", "destination %d is outside your rights", dst+off)
+		return refusal(403, "outside_rights", "destination %d is outside your rights", dst+off)
 	}
 	for _, l := range r.levels {
 		if !rt.AllowsLevel(l.UI) {
-			return act, refusal(403, "outside_rights", "a Protect covers every level, and level %s is outside your rights", r.cfg.LevelLabel(l.UI))
+			return refusal(403, "outside_rights", "a Protect covers every level, and level %s is outside your rights", r.cfg.LevelLabel(l.UI))
 		}
 	}
-	return act, nil
+	return nil
 }
 
 // protectReady: the checks before anything is sent.
@@ -617,20 +616,18 @@ type protRun struct {
 func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *config.User) []protectOutcome {
 	r := a.r()
 	outs := make([]protectOutcome, len(reqs))
-	admin := !set && a.protectAdmin(c, approver)
+	act := a.caller(c)
+	admin := !set && protectAdmin(r.cfg, act, approver)
 	want := "set" // the kind an Undo names
 	if set {
 		want = "clear"
 	}
-	acts := make([]Actor, len(reqs))
 	for i, q := range reqs {
 		if err := a.protectReady(r, q.Dst); err != nil {
 			outs[i].Err = err
 			continue
 		}
-		act, err := a.protectCaller(r, c, q.Dst)
-		acts[i] = act
-		if err != nil && !admin {
+		if err := protectRights(r, act.rights, q.Dst); err != nil && !admin {
 			outs[i].Err = err
 			continue
 		}
@@ -649,7 +646,7 @@ func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *conf
 		if set {
 			todo, err = setCheck(r, rec, own, others)
 		} else {
-			err = clearCheck(r, acts[i], rec, own, admin)
+			err = clearCheck(r, act.Actor, rec, own, admin)
 		}
 		if err != nil {
 			outs[i].Err = err
@@ -661,7 +658,7 @@ func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *conf
 	for _, p := range runs {
 		q := reqs[p.i]
 		if set {
-			outs[p.i].Entry = a.setOne(r, c, acts[p.i], q.Dst, p.rec, p.own, p.todo, q.Undo, g)
+			outs[p.i].Entry = a.setOne(r, c, act.Actor, q.Dst, p.rec, p.own, p.todo, q.Undo, g)
 		} else {
 			outs[p.i].Entry = a.clearOne(r, c, q.Dst, p.rec, p.own, q.Undo, approver, g)
 		}
@@ -741,15 +738,12 @@ func (a *App) setOne(r *runtime, c *client, act Actor, dst int, rec *protectRec,
 	return e
 }
 
-// protectAdmin: the caller or the approver is an Administrator.
-func (a *App) protectAdmin(c *client, approver *config.User) bool {
+// protectAdmin: the caller or the approver is an Administrator. An API caller has no Role.
+func protectAdmin(cfg config.Config, act acting, approver *config.User) bool {
 	if approver != nil {
-		return approverRole(a.r().cfg, approver) == config.RoleAdministrator
+		return approverRole(cfg, approver) == config.RoleAdministrator
 	}
-	if c.api != nil {
-		return false
-	}
-	return a.role(c) == config.RoleAdministrator
+	return act.role == config.RoleAdministrator
 }
 
 // clearOne clears the levels Sode holds on dst, each with the device that holds it. Caller holds protMu.

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"cmp"
 	"errors"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -30,24 +29,49 @@ func (e roleErr) Error() string {
 	return "this needs a " + config.RoleLabel(e.need) + " or an Administrator signed in on this browser"
 }
 
-// "" is no Role (a held Lock, or a Guest under its page's lock). With no users, env-only mode makes every browser an
-// Administrator; with a config file, needRoleMu refuses everything until the setup wizard's Finish.
-func (a *App) roleMu(c *client) string {
-	cfg := a.r().cfg
-	switch {
-	case a.heldMu(c, cfg):
-		return ""
-	case len(cfg.Users) == 0:
-		return config.RoleAdministrator
-	case a.userOKMu(c, cfg):
-		u, _ := cfg.FindUserByID(c.u.user.Load().ID)
-		role, _ := actsAs(cfg, u, guestOpenMu(c, cfg))
-		return role
-	case pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks):
-		return ""
-	}
-	return cfg.GuestRole
+// acting: who a browser acts as for one action, with its Role and Rights. role "" is no Role: a held Lock, or a
+// Guest under the action's page lock. The rights are then the guest's, for an action that admit let through.
+type acting struct {
+	Actor
+	role   string
+	rights config.Rights
 }
+
+// gateFor: the page lock that decides whether an action that needs n is on a page open to guests. A rule with no
+// page need uses the page c declared. That is safe: a guest that claims another open page gets the same Guest role
+// there, so the claim raises nothing.
+func gateFor(c *client, n need) gate {
+	switch {
+	case n&needMain != 0:
+		return gateMain
+	case n&needLog != 0:
+		return gateLog
+	}
+	return c.pageGate()
+}
+
+// actingMu is the one place that decides a browser's Role and Rights (docs/agents/users-locks.md). An API caller
+// brings its own (callerOf). With no users GuestActs makes every browser an Administrator; with a config file,
+// needRoleMu refuses everything until the setup wizard's Finish. Caller holds mu.
+func (a *App) actingMu(c *client, n need) acting {
+	cfg := a.r().cfg
+	g := gateFor(c, n)
+	open := !g.on(cfg.Locks)
+	if a.userOKOnMu(c, cfg, g) {
+		if u, ok := cfg.FindUserByID(c.u.user.Load().ID); ok {
+			role, rt := cfg.Acts(u, open)
+			return acting{Actor{Kind: actorUser, Name: u.Name, User: u.ID}, role, rt}
+		}
+	}
+	role, rt := cfg.GuestActs()
+	if !open || a.heldMu(c, cfg) {
+		role = ""
+	}
+	return acting{Actor{Kind: actorGuest, Name: "Guest"}, role, rt}
+}
+
+// roleMu: c's Role on its own page, for what informs the page. Caller holds mu.
+func (a *App) roleMu(c *client) string { return a.actingMu(c, 0).role }
 
 func (a *App) role(c *client) string {
 	a.mu.Lock()
@@ -55,19 +79,21 @@ func (a *App) role(c *client) string {
 	return a.roleMu(c)
 }
 
-// errPageLocked when c acts with no Role, else a roleErr.
-func (a *App) needRoleMu(c *client, need string) error {
-	if need == roleAnyone {
+func (a *App) needRoleMu(c *client, role string) error { return a.needRoleForMu(c, 0, role) }
+
+// needRoleForMu: errPageLocked when c acts with no Role for an action that needs n, else a roleErr.
+func (a *App) needRoleForMu(c *client, n need, role string) error {
+	if role == roleAnyone {
 		return nil
 	}
 	if a.setupPending() {
 		return errSetup
 	}
-	switch have := a.roleMu(c); {
+	switch have := a.actingMu(c, n).role; {
 	case have == "":
 		return errPageLocked
-	case !config.RoleAtLeast(have, need):
-		return roleErr{need: need, noAdmin: need == config.RoleAdministrator && noAdministrator(a.r().cfg)}
+	case !config.RoleAtLeast(have, role):
+		return roleErr{need: role, noAdmin: role == config.RoleAdministrator && noAdministrator(a.r().cfg)}
 	}
 	return nil
 }

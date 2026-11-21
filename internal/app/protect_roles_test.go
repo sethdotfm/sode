@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 	"time"
@@ -207,7 +208,7 @@ func TestFreeWhatNamesTheDestinations(t *testing.T) {
 }
 
 // On a page open to guests a user's Role is at least the Guest role, and an unset Protect right follows it
-// (config.ActsOnOpenPage). What the user's own Rights set wins. Under the page lock only the user's own Role counts.
+// (config.Acts). What the user's own Rights set wins. Under the page lock only the user's own Role counts.
 func TestProtectSignedInHasAtLeastTheGuests(t *testing.T) {
 	for _, r := range []struct {
 		name string
@@ -231,6 +232,52 @@ func TestProtectSignedInHasAtLeastTheGuests(t *testing.T) {
 				t.Fatalf("set, free own: got %v, want %v", got, r.want)
 			}
 		})
+	}
+}
+
+// An action behind the main page lock takes "open" from that lock, never from the page the browser says it is. With
+// the main lock on and the log page open, a Standard user who says hi as the log page gets no Guest role Trusted.
+func TestClaimedOpenPageRaisesNothingBehindMainLock(t *testing.T) {
+	a, _ := protectApp(t)
+	editCfg(t, a, func(cfg *config.Config) {
+		cfg.GuestRole, cfg.Locks = config.RoleTrusted, config.Locks{Main: true}
+	})
+	bo := &client{ip: "10.0.0.8"}
+	bo.u.page = "log"
+	if err := a.UserUnlockAs(bo, "Bo", "567890"); err != nil {
+		t.Fatal(err)
+	}
+	if got := wsCall(a, bo)(true, 5, nil); got != pRights {
+		t.Fatalf("protectSet: %s, want %s", got, pRights)
+	}
+	trusted := rule{need: needMain, role: config.RoleTrusted, crit: critNever}
+	var re roleErr
+	if err := a.admit(bo, trusted); !errors.As(err, &re) {
+		t.Fatalf("a Trusted user rule behind the main lock: %v", err)
+	}
+	trusted.need = 0
+	if err := a.admit(bo, trusted); err != nil {
+		t.Fatalf("the same rule with no page need, on the open log page: %v", err)
+	}
+}
+
+// A user without a PIN who signs in on the open log page is nobody behind the main lock.
+func TestPinlessUserOnOpenPageIsNobodyBehindMainLock(t *testing.T) {
+	a, _ := noPinApp(t)
+	editCfg(t, a, func(cfg *config.Config) { cfg.Locks = config.Locks{Main: true} })
+	cy := &client{ip: "10.0.0.5"}
+	cy.u.page = "log"
+	if err := a.UserUnlockAs(cy, "Cy", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := admitMsg(a, cy, inMsg{T: "take"}); !errors.Is(err, errPageLocked) {
+		t.Fatalf("take: %v, want the page lock", err)
+	}
+	if err := admitMsg(a, cy, inMsg{T: "log"}); err != nil {
+		t.Fatalf("log: %v", err)
+	}
+	if act, _ := a.callerOf(cy); act.Kind != actorGuest {
+		t.Fatalf("callerOf: %+v", act)
 	}
 }
 
