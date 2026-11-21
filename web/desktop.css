@@ -11,16 +11,74 @@
 .sode__boxes {
   /* Boxes keep their own height so a dropdown hangs right off its input. */
   align-items: start;
+  column-gap: var(--pb-space-6);
   display: grid;
-  gap: var(--pb-space-6);
-  /* Source, Destination and Levels share the width 2 : 2 : 2.25, so they shrink together. At the widest page, 2.25
-     gives Levels the room of 17 picks and Select All. */
-  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto minmax(0, 2.25fr) auto;
+  /* Three groups of one width: Source, Destination with +, and Levels with Take and Clear. The arrow is between the
+     first two. The empty track keeps the old space-8 more between the last two. The last group is never narrower than
+     its controls, so on a narrow window (below about 1100 px) it is wider than the other two. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) calc(var(--pb-space-8) - var(--pb-space-6)) minmax(min-content, 1fr);
+  /* No row gap, so an empty row of routes under the boxes adds no height (.sode__under has the gap). */
+  row-gap: 0;
   width: 100%;
 }
-/* No router has more than one level (levelview.js): no Levels column. */
-.sode__boxes:has(> .sode__box--levels[hidden]) {
-  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto;
+/* No router has more than one level (levelview.js): Take and Clear are the last group, only as wide as they are. */
+.sode__boxes:has(.sode__box--levels[hidden]) {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+}
+.sode__boxes > .sode__box--src {
+  grid-column: 1;
+  grid-row: 1;
+}
+.sode__boxes > .sode__box--to {
+  grid-column: 2;
+  grid-row: 1;
+}
+/* Destination and + share a group. The routes under Destination are in row 2 of the page's grid (subgrid), under the
+   box only and level with the routes under Source. */
+.sode__group--dst {
+  column-gap: var(--pb-space-2);
+  display: grid;
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: subgrid;
+}
+.sode__group--dst > .sode__box {
+  grid-row: 1;
+}
+/* Levels spans its group: its text box is in the first column beside Take and Clear, and the picks go under all three
+   (subgrid), so 17 levels show with no scroll. */
+.sode__group--levels {
+  align-items: start;
+  column-gap: var(--pb-space-6);
+  display: grid;
+  grid-column: -2;
+  grid-row: 1;
+  /* The text box keeps room for a short list of levels. */
+  grid-template-columns: minmax(6rem, 1fr) auto;
+}
+.sode__group--levels > .sode__box--levels {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  grid-template-columns: subgrid;
+  margin-left: 0;
+}
+.sode__group--levels > .sode__box--levels > .sode__box-head,
+.sode__group--levels > .sode__box--levels > .sode__keyed {
+  grid-column: 1;
+}
+.sode__group--levels > .sode__box--levels > .sode__picker {
+  grid-column: 1 / -1;
+}
+.sode__group--levels > .sode__box--take {
+  grid-column: 2;
+  grid-row: 1;
+}
+.sode__group--levels:has(> .sode__box--levels[hidden]) {
+  grid-template-columns: auto;
+}
+.sode__group--levels:has(> .sode__box--levels[hidden]) > .sode__box--take {
+  grid-column: 1;
 }
 .sode__box {
   display: flex;
@@ -35,9 +93,6 @@
 }
 .sode__entry > .sode__keyed {
   flex: 1 1 auto;
-}
-.sode__box--add {
-  margin-left: calc(var(--pb-space-2) - var(--pb-space-6));
 }
 .pb-btn.sode__add {
   border-color: var(--pb-edge);
@@ -66,27 +121,12 @@
 [data-flip] .sode__to::before {
   content: "←";
 }
-[data-flip] .sode__boxes {
-  grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) minmax(0, 2.25fr) auto;
+[data-flip] .sode__group--dst {
+  grid-column: 1;
 }
-[data-flip] .sode__boxes:has(> .sode__box--levels[hidden]) {
-  grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) auto;
-}
-[data-flip] .sode__box--dst {
-  order: 1;
-}
-[data-flip] .sode__box--add {
-  order: 2;
-}
-[data-flip] .sode__box--to {
-  order: 3;
-}
-[data-flip] .sode__box--src {
-  order: 4;
-}
-[data-flip] .sode__box--levels,
-[data-flip] .sode__box--levels ~ .sode__box {
-  order: 5;
+[data-flip] .sode__boxes > .sode__box--src,
+[data-flip] .sode__under--src {
+  grid-column: 3;
 }
 .sode__chips[hidden] {
   display: none;
@@ -222,8 +262,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin-left: var(--pb-space-8);
-  /* The picks are the old small squares in two rows. 9 columns (17 levels) and Select All fit the box on the widest
-     page; more columns scroll sideways inside the picks, so the box never grows a tall stack of picks. */
+  /* The picks are the old small squares in two rows. 9 columns (17 levels) and Select All fit under the Levels group; more columns scroll sideways inside the picks, so the box never grows a tall stack of picks. */
   --sode-picker-cols: 9;
   --sode-pick-w: calc(var(--pb-space-8) + var(--pb-space-1));
   --sode-pick-gap: var(--pb-space-1);
@@ -288,6 +327,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
+  margin-top: var(--pb-space-6);
 }
 .sode__under:empty {
   display: none;
@@ -297,14 +337,8 @@
   grid-row: 2;
 }
 .sode__under--dst {
-  grid-column: 3;
-  grid-row: 2;
-}
-[data-flip] .sode__under--src {
-  grid-column: 4;
-}
-[data-flip] .sode__under--dst {
   grid-column: 1;
+  grid-row: 2;
 }
 .sode__under-head {
   align-items: center;
@@ -385,11 +419,9 @@
    out of flow too, so a failed take does not move the boxes. */
 :root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]):not([data-view="settings"]) .sode {
   display: grid;
-  /* The page's width plus the pad that balances Take, so the boxes keep the width they have outside Compact view and
-     17 level picks still fit. */
-  --sode-compact-w: calc(var(--sode-main-w) + var(--sode-take-w, 0px) + var(--pb-space-6));
-  grid-template-columns: minmax(0, var(--sode-compact-w));
-  max-width: var(--sode-compact-w);
+  /* The page's width, so the boxes keep the width they have outside Compact view. */
+  grid-template-columns: minmax(0, var(--sode-main-w));
+  max-width: var(--sode-main-w);
   min-height: 100dvh;
   padding: calc(var(--sode-pad-bottom) + var(--sode-down-h, 0px)) var(--pb-space-8) var(--sode-pad-bottom);
   place-content: center;
@@ -403,9 +435,6 @@
 :root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]):not([data-view="settings"]) #patch-view {
   left: var(--sode-centre-x, 0px);
   top: var(--sode-centre-y, 0px);
-}
-:root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]):not([data-view="settings"]) .sode__boxes {
-  padding-left: calc(var(--sode-take-w, 0px) + var(--pb-space-6));
 }
 :root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]) #patch-view > .sode__result {
   left: 0;
