@@ -16,6 +16,7 @@ import {
   holdShort,
   shieldTargets,
   protectUndoable,
+  entryChip,
 } from '../protectrules.js';
 import { fuzzyScore } from '../fuzzy.js';
 
@@ -190,4 +191,30 @@ test('protectUndoable: only the newest ok Protect entry of a destination, and on
   assert.equal(protectUndoable(hist[0], hist, 'clear'), false, 'an older entry');
   assert.equal(protectUndoable(hist[1], hist, 'set'), false, 'an older entry');
   assert.equal(protectUndoable(hist[3], hist, 'set'), false, 'failed');
+});
+
+test('entryChip: one chip for each History Protect entry, Free with its own icon', () => {
+  const chip = (e) => {
+    const c = entryChip(e);
+    return `${c.icon} ${c.text}`;
+  };
+  assert.equal(chip({ protect: 'set' }), 'shield Protect');
+  assert.equal(chip({ protect: 'clear' }), 'shield-off Free Protect');
+  assert.equal(chip({ protect: 'set', ext: true, holdKind: 'protect' }), 'shield Protect');
+  assert.equal(chip({ protect: 'clear', ext: true, holdKind: 'protect' }), 'shield-off Free Protect');
+  assert.equal(chip({ protect: 'set', ext: true, holdKind: 'routerLock' }), 'shield-ban Router lock');
+  assert.equal(chip({ protect: 'clear', ext: true, holdKind: 'routerLock' }), 'shield-off Free Router lock');
+  // The icons are the route view's (holdLook), so a chip looks the same in every place.
+  assert.equal(entryChip({ protect: 'set', ext: true, holdKind: 'routerLock' }).icon, holdLook({ kind: KIND_ROUTER_LOCK, owner: 'other' }).icon);
+  assert.equal(entryChip({ protect: 'set' }).icon, holdLook({ kind: KIND_PROTECT, owner: 'other' }).icon);
+});
+
+test('protectUndoable: an External Protect entry has no Undo, and blocks the Undo of an older one of Sode', () => {
+  const hist = [
+    { id: 2, ok: true, protect: 'set', ext: true, holdKind: 'protect', dst: 4 },
+    { id: 1, ok: true, protect: 'clear', dst: 4 },
+  ];
+  assert.equal(protectUndoable(hist[0], hist, 'set'), false);
+  assert.equal(protectUndoable(hist[0], hist, 'clear'), false);
+  assert.equal(protectUndoable(hist[1], hist, 'set'), false);
 });

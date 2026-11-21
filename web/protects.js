@@ -7,7 +7,7 @@ import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
-import { holdsOn, holdLabel, holdShort, protectedText, protectOffer, protectRight, holdLook } from './protectrules.js';
+import { holdsOn, holdLabel, holdShort, protectedText, protectOffer, protectRight, holdLook, entryChip } from './protectrules.js';
 
 let seq = 0;
 const pending = new Map(); // id → { plan, answer }
@@ -32,10 +32,12 @@ export const holdsAt = (n, levels = allLevels()) => holdsOn(S.prot, S.protBy, n,
 
 export const protectState = (n) => holdsAt(n);
 
-// The badge of one hold: its icon and color (holdLook), and the words (holdLabel).
+// The one chip of a Protect or Router lock, in every view and in History: icon and words, with no status square.
+export const protectChip = (look, text) => el('span', `pb-badge pb-badge--${look.status} sode__status-badge sode__hold-chip`, icon(look.icon), text);
+
+// The chip of one hold: its icon and color (holdLook), and the words (holdLabel).
 export function holdBadge(h) {
-  const look = holdLook(h);
-  const b = el('span', `pb-badge pb-badge--${look.status} sode__status-badge`, icon(look.icon), holdLabel(h));
+  const b = protectChip(holdLook(h), holdLabel(h));
   b.dataset.owner = h.owner;
   return b;
 }
@@ -223,14 +225,17 @@ onMsg('protectClearAllResult', (m) => {
   done(m.ok, m.ok ? `${m.cleared || 0} freed` : m.err);
 });
 
-// What a History row of a Protect says and what its Undo does. null for a take.
+// What a History row of a Protect says (its chip) and what its Undo does. null for a take. Another system's change has
+// no Undo.
 export function protectRow(e) {
   if (!e.protect) return null;
   const dst = dstItem(e.dst, e.dstName);
   const set = e.protect === 'set';
+  const look = entryChip(e);
   return {
-    text: set ? 'Protect' : 'Free Protect',
-    undo: protectPlan(dst, !set, e),
-    undoLabel: set ? `Free the Protect on ${dst.label}` : `Protect ${dst.label} again`,
+    text: look.text,
+    chip: () => protectChip(look, look.text),
+    undo: e.ext ? { verb: 'undo', items: [] } : protectPlan(dst, !set, e),
+    undoLabel: e.ext ? `Another system made this change; Sode cannot undo it` : set ? `Free the Protect on ${dst.label}` : `Protect ${dst.label} again`,
   };
 }

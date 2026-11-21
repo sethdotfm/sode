@@ -6,6 +6,7 @@ import { levelText } from './levelview.js';
 import { filterFn } from './filter.js';
 import { filterAllows } from './filterstore.js';
 import { pref } from './device.js';
+import { entryChip } from './protectrules.js';
 
 // Quick search above History. It reads back through the whole log. It ignores the filters unless this browser's setting says otherwise. Not kept.
 
@@ -48,7 +49,9 @@ function trimHist() {
 // changed (or another router is connected).
 function found(e) {
   const either = (fn, n, now, then) => fn(n + off(), now) || (!!then && then !== now && fn(n + off(), then));
-  const hit = (x) => either(searchSrc, x.src, srcItem(x.src, x.srcName).name, x.srcName) && either(searchDst, x.dst, dstItem(x.dst, x.dstName).name, x.dstName);
+  // A Protect entry has no source: the Source search matches its chip words (Protect, Router lock) instead.
+  const srcHit = (x) => (x.protect ? searchSrc(-1, entryChip(x).text) : either(searchSrc, x.src, srcItem(x.src, x.srcName).name, x.srcName));
+  const hit = (x) => srcHit(x) && either(searchDst, x.dst, dstItem(x.dst, x.dstName).name, x.dstName);
   const byPreset = !!e.preset && searchActive() && (!query.src.trim() || searchSrc(-1, e.preset)) && (!query.dst.trim() || searchDst(-1, e.preset));
   return hit(e) || byPreset || !!e.follows?.some(hit);
 }
@@ -363,6 +366,7 @@ export function entryNote(e) {
   if (e.follows?.length) parts.push(`+${e.follows.length} External follow ${e.follows.length === 1 ? 'entry' : 'entries'}`);
   if (e.follow != null) parts.push(`External follow of #${e.follow}`);
   if (e.followGroup) parts.push('External follow of this take');
+  if (e.protect && e.ext) parts.push(`device ${e.device ?? 0}`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);

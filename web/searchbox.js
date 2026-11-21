@@ -49,7 +49,8 @@ function buildCandidates(k, live) {
       const n = x[k],
         name = k === 'src' ? x.srcName : x.dstName;
       const key = `${n}\u0000${name || ''}`;
-      if (seen.has(key) || (by.has(n) && !name)) continue;
+      // A Protect entry has no source (-1), so nothing to pick.
+      if (n < 0 || seen.has(key) || (by.has(n) && !name)) continue;
       seen.add(key);
       extra.push(item(n, name || ''));
     }

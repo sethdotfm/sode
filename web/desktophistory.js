@@ -40,7 +40,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     const src = srcItem(e.src, e.srcName),
       dst = dstItem(e.dst, e.dstName);
     // A Protect entry has no source (src -1): the badge alone stands in its place, with no box and no arrow.
-    const route = e.protect ? [el('span', 'pb-badge pb-badge--warn', protectRow(e).text), routeBox('dst', dst)] : routeBoxes(src, dst);
+    const route = e.protect ? [protectRow(e).chip(), routeBox('dst', dst)] : routeBoxes(src, dst);
     const known = e.levels.filter((u) => S.levelBy.has(u));
 
     const acts = rowActions({ e });
@@ -465,6 +465,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   function undoRow(row) {
     const plan = rowUndoPlan(row);
     if (planEmpty(plan)) {
+      if (row.e?.protect && row.e.ext) return showResult('warn', 'Nothing to undo', `#${row.e.id}: another system made this change.`);
       if (row.e?.protect)
         return showResult('warn', 'Nothing to undo', `#${row.e.id}: the Protect on ${dstItem(row.e.dst, row.e.dstName).label} changed after it.`);
       const what = row.f ? groupIds(row.f) : `#${row.e.id}`;

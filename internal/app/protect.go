@@ -494,7 +494,7 @@ func (a *App) undoOf(undo *int, dst int, want string) error {
 		return nil
 	}
 	e, ok := a.hist.Get(*undo)
-	if !ok || e.Protect != want || e.Dst != dst {
+	if !ok || e.Ext || e.Protect != want || e.Dst != dst {
 		return refusal(400, "bad_request", "that History entry is not a Protect to undo on this destination")
 	}
 	return nil

@@ -1182,6 +1182,10 @@ html {
   display: inline-flex;
   gap: var(--pb-space-1);
 }
+/* A Protect or Router lock chip (protectChip in protects.js): its icon is the mark, so patchbay's status square goes. */
+.sode__hold-chip::before {
+  content: none;
+}
 .sode__notsaved .pb-chip {
   background: color-mix(in srgb, var(--pb-status-warn-fill) 70%, black);
   border-color: transparent;

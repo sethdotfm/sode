@@ -85,6 +85,16 @@ export function shieldTargets(n, picked, offerOf) {
 // yours is info, the others are warn, since they stop you.
 export const holdLook = (h) => ({ icon: h.kind === KIND_ROUTER_LOCK ? 'shield-ban' : 'shield', status: h.owner === 'you' ? 'info' : 'warn' });
 
+// The chip of a History Protect entry (e.protect 'set' or 'clear'). It is Sode's own Protect or Free Protect, or a
+// Protect or Router lock that another system set or freed (e.ext; holdKind in internal/app/protext.go). Free has its
+// own icon. History has no owner to tell apart, so every one is warn.
+export function entryChip(e) {
+  const lock = e.ext && e.holdKind === 'routerLock';
+  const set = e.protect === 'set';
+  const what = lock ? 'Router lock' : 'Protect';
+  return { icon: set ? (lock ? 'shield-ban' : 'shield') : 'shield-off', status: 'warn', text: set ? what : `Free ${what}` };
+}
+
 export const protectedText = (p) => p.holds.map(holdLabel).join('; ');
 
 // What the route view offers for p (holdsOn of every level): 'set', 'clear' or ''. A hold Sode did not set gets no
@@ -102,7 +112,8 @@ export const protectRight = (rights, role, users) => (rights ? rights.protect ==
 // A Protect History entry e can be undone when two things are true. It is the newest ok Protect entry of its
 // destination in hist. And offer (protectOfferOf now) is the opposite of what e did. Else Undo would undo another thing.
 export function protectUndoable(e, hist, offer) {
-  if (!e.ok || !e.protect) return false;
+  // A Protect another system set or freed is not Sode's to undo; it still counts as the newest entry below.
+  if (!e.ok || !e.protect || e.ext) return false;
   const newest = hist.reduce((m, x) => (x.protect && x.ok && x.dst === e.dst && (!m || x.id > m.id) ? x : m), null);
   if (newest && newest.id !== e.id) return false;
   return offer === (e.protect === 'set' ? 'clear' : 'set');

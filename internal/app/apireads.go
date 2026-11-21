@@ -218,10 +218,7 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 			continue
 		}
 		for l, h := range t {
-			row := apiProtectedRow{Dst: d, Level: l, Kind: "protect", Device: h.dev}
-			if h.kind == swp08.KindRouterLock {
-				row.Kind = "routerLock"
-			}
+			row := apiProtectedRow{Dst: d, Level: l, Kind: holdKindWord(h.kind), Device: h.dev}
 			// The rule of protectLevelsMu. A Sode hold with no record has no name, so sodeUser stays empty.
 			if b, ok := by[d]; ok && sodesHold(h, rt.cfg.ProtectDevice, b.Device) {
 				row.SodeUser = b.By
