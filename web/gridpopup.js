@@ -18,6 +18,8 @@ import { gridHold } from './protects.js';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from './gridpoprules.js';
 import { gridPlan, patchPlan } from './plans.js';
 import { backdropClose } from './dialogkeys.js';
+import { boxPicking, addItems, donePick, pickLabel, pickNote } from './historypick.js';
+import { addedLine, noRouteLine } from './gridpoprules.js';
 
 // The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
 const PANEL = { id: '', name: 'Grid', type: 'grid', sources: { members: 'all' }, destinations: { members: 'all' }, pages: [], settings: {} };
@@ -52,6 +54,13 @@ function build() {
   const status = el('p', { class: 'sode-panel__status', role: 'status', hidden: true });
   const note = el('div', 'sode-panels__spacer sode-gridpop__note', status);
   const head = el('div', 'sode-gridpop__band', finds, note, ...actions(), close);
+  // While the preset editor adds patches (historypick.js mode 'boxes'): a click adds to the preset, Take is Add.
+  const adding = el(
+    'div',
+    { class: 'sode-gridpop__adding', hidden: true },
+    el('strong', 'sode-gridpop__adding-msg'),
+    el('span', 'sode-gridpop__adding-sub', 'Click a crosspoint to add that route, or a name to add the routes it has now. Nothing goes to the router.'),
+  );
   const levels = levelsBox();
   const grid = el('div', 'sode-panel__grid');
   const box = el(
@@ -63,6 +72,7 @@ function build() {
       'aria-label': 'Grid',
       'aria-description': `Esc or ${keyLabel('ctrl+e')} closes the grid. Take sends the staged routes.`,
     },
+    adding,
     head,
     levels,
     grid,
@@ -84,7 +94,7 @@ function build() {
   // A key move puts the shield on the cursor's destination name.
   root.addEventListener('keyup', (e) => !e.target.closest?.('input') && shield.cursor());
   document.body.append(root);
-  return { root, shield, ui: { main: box, head, finds, status, grid, levels, onPicks: (p) => shield.picks(p) } };
+  return { root, shield, adding, ui: { main: box, head, finds, status, grid, levels, onPicks: (p) => shield.picks(p) } };
 }
 
 // The main page's Clear and Take for the mouse (desktop only, gridpopup.css). They press the page's own buttons. So
@@ -95,16 +105,49 @@ function actions() {
     b.addEventListener('mousedown', (e) => e.preventDefault());
     b.addEventListener('click', () => {
       $(id)?.click();
+      // The page's Add answers in the bar under the popup, so the popup says it too.
+      if (id === 'patch' && boxPicking()) body?.say(pickNote().text, pickNote().ok);
       // The page's Clear puts focus in the Source box, which is under the popup.
       if (shown && !pop.root.contains(document.activeElement) && !confirmShown()) scroller()?.focus({ preventScroll: true });
     });
     return b;
   };
+  const done = el('button', { class: 'pb-btn pb-btn--outline sode-gridpop__act sode-gridpop__done', type: 'button', hidden: true }, 'Done');
+  done.dataset.pbTip = 'Stop adding and go back to the preset';
+  done.addEventListener('click', () => {
+    hideGrid(false);
+    donePick();
+  });
   return [
     act('pb-btn--outline sode-gridpop__clear', 'Clear', 'Clear the staged routes and the patch boxes', 'clear-all'),
     needsLink(act('pb-btn--danger sode-gridpop__take', 'Take', 'Take the staged routes', 'patch')),
+    done,
   ];
 }
+
+// The header while the preset editor adds patches. Take presses the page's Take, which is Add then (desktop.js).
+function paintMode() {
+  if (!pop) return;
+  const on = boxPicking();
+  const q = (s) => pop.ui.head.querySelector(s);
+  pop.adding.hidden = !on;
+  if (on) pop.adding.firstChild.textContent = `Add patches to ${pickLabel()}`;
+  pop.root.toggleAttribute('data-adding', on);
+  q('.sode-gridpop__clear').hidden = on;
+  q('.sode-gridpop__done').hidden = !on;
+  const take = q('.sode-gridpop__take');
+  take.classList.toggle('pb-btn--danger', !on);
+  take.classList.toggle('pb-btn--ok', on);
+  take.dataset.pbTip = on ? "Add the patch boxes' route to the preset" : 'Take the staged routes';
+  pop.ui.main.setAttribute(
+    'aria-description',
+    on
+      ? `Adding to ${pickLabel()}: a click adds and nothing is sent. Esc or ${keyLabel('ctrl+e')} closes the grid.`
+      : `Esc or ${keyLabel('ctrl+e')} closes the grid. Take sends the staged routes.`,
+  );
+  paintActs();
+}
+on('pick', paintMode);
 
 // After the grid's own keys (a capture listener on document), so its search boxes, line and picks take Esc first.
 function popKey(e) {
@@ -194,6 +237,15 @@ const adapter = () => ({
   asking: () => confirmShown() || !$('m-sheet').hidden,
   shown: () => shown,
   undo: () => emit('undoLast'),
+  adding: boxPicking,
+  // A crosspoint stores what the boxes' Add stores: no levels (the default levels) while the Levels box is empty.
+  add(r) {
+    const labels = { src: (n) => srcItem(n).label, dst: (n) => dstItem(n).label };
+    if (!r.items.length) return { ok: false, text: noRouteLine(r, labels) };
+    const plain = r.kind === 'xp' && !boxHost()?.picks().levels.length;
+    const a = addItems(plain ? [{ ...r.items[0], levels: [] }] : r.items);
+    return a.ok ? { ok: true, text: addedLine(r, a.rows, labels) } : { ok: false, text: a.text };
+  },
   holdOf: gridHold,
   onStage(list) {
     staged = list;
@@ -218,7 +270,7 @@ export function showGrid() {
   shown = true;
   body ||= gridBody(adapter(), { ...PANEL, rights: S.myRights });
   push();
-  paintActs();
+  paintMode();
   // The desktop popup has no Levels box of its own: a press stages at the main page's levels.
   if (aim?.levels || document.documentElement.dataset.layout !== 'phone') body.levels(p.levels);
   const sc = scroller();
@@ -272,9 +324,10 @@ function paintActs() {
   if (!pop) return;
   const n = stagedCount();
   const take = pop.ui.head.querySelector('.sode-gridpop__take');
-  const word = takeWord(n ? takeRoutes(boxHost()?.route?.()) : 0);
+  const adding = boxPicking();
+  const word = adding ? 'Add' : takeWord(n ? takeRoutes(boxHost()?.route?.()) : 0);
   if (take.textContent !== word) take.textContent = word;
-  take.disabled = !n;
+  take.disabled = !n && !adding;
   pop.ui.head.querySelector('.sode-gridpop__clear').disabled = !n;
 }
 

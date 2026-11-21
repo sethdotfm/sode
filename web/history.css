@@ -987,13 +987,23 @@ html[data-alt] .sode__chip-key {
 }
 .sode__pickbar-controls {
   align-items: center;
-  background: var(--pb-surface-base);
-  color: var(--pb-text);
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
   margin-left: auto;
-  padding: var(--pb-space-3) var(--pb-space-4);
+}
+/* The controls sit on the accent itself: text and the outline button take the on-accent colour. */
+.sode__pickbar-controls :is(.sode__hint, .pb-check__label) {
+  color: var(--pb-text-on-accent);
+}
+.sode__pickbar-controls .pb-btn--outline {
+  background-color: transparent;
+  border-color: var(--pb-text-on-accent);
+  color: var(--pb-text-on-accent);
+}
+.sode__pickbar-controls .pb-btn--outline:hover {
+  background-color: var(--pb-overlay-hover);
+  border-color: var(--pb-text-on-accent);
 }
 [data-sode-pick=""] .sode-m__composer {
   opacity: 0.35;
@@ -1005,7 +1015,8 @@ html[data-alt] .sode__chip-key {
   opacity: 0.35;
   pointer-events: none;
 }
-[data-sode-pick="boxes"] #patch {
+/* The Grid popup's shield sets Protect on the router; adding to a preset sends nothing. */
+[data-sode-pick="boxes"] .sode-gridpop__shield.pb-btn--icon {
   display: none;
 }
 [data-sode-pick=""] .sode__hist-row,
@@ -1032,7 +1043,7 @@ html[data-alt] .sode__chip-key {
   color: var(--pb-text-on-accent);
 }
 [data-sode-pick] .sode-lock__who .pb-btn,
-[data-sode-pick] .sode-lock__who .sode-lock__who-ico {
+[data-sode-pick] .sode-lock__who :is(.sode-lock__who-ico, .sode-lock__who-name) {
   color: inherit;
 }
 

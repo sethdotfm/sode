@@ -1,10 +1,10 @@
 // Grid panel keys to actions. Pure apart from keys.js. The run does the action and marks the key handled when this
 // returns one. Keys are exact chord(e) names, so h/j/k/l are physical keys and a chord with an extra modifier is not
-// the grid's. ctx is { staged, picks, inControl, inField, bar, finding, line }. staged counts staged routes and picks
+// the grid's. ctx is { staged, picks, inControl, inField, bar, finding, line, adding }. staged counts staged routes and picks
 // counts picked names. inControl is true when focus is on a header button or a field, inField only for the Levels box. bar
 // is barOf(cursor) in gridpanelcursor.js. finding is true while a box has text. line is true while a Drawn line
-// shows. A move action is a name in gridpanelcursor.js MOVES. 'range:<move>' is a Shift move along a bar or across
-// the crosspoints, which extends the pick.
+// shows. adding is true while the Grid popup adds to a preset. A move action is a name in gridpanelcursor.js MOVES.
+// 'range:<move>' is a Shift move along a bar or across the crosspoints, which extends the pick.
 import { chord, modChord, listStep } from './keys.js';
 import { MOVES } from './gridpanelcursor.js';
 
@@ -19,7 +19,8 @@ const keys = () => 'keys';
 export const clearAction = (c) => (c.line ? 'unline' : c.picks ? 'unpick' : c.staged ? 'drop' : null);
 
 const ACTIONS = {
-  enter: (c) => (c.staged && !c.inControl ? 'confirm' : null),
+  // While the Grid popup adds to a preset (adding), Enter adds as Space does: there is no take to confirm.
+  enter: (c) => (c.adding ? ACTIONS[' '](c) : c.staged && !c.inControl ? 'confirm' : null),
   f: free('levels'),
   // With nothing to clear, Kiosk mode's own Esc works. In a field (the Levels box) Esc only leaves it, so typing
   // there never drops picks or staged routes.

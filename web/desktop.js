@@ -453,10 +453,14 @@ function clearEverything() {
   clearAll();
 }
 // Take counts what it sends when that is more than one route (One Take). A plain patch says Take.
+// While the preset editor adds patches, Take is Add (historypick.js): it adds the boxes' patch and sends nothing.
 function paintTakes() {
   $('clear-all').disabled = nothingToClear();
-  const word = takeWord(takeRoutes(boxRoute()));
+  const adding = boxPicking();
+  const word = adding ? 'Add' : takeWord(takeRoutes(boxRoute()));
   if ($('patch').textContent !== word) $('patch').textContent = word;
+  $('patch').classList.toggle('pb-btn--danger', !adding);
+  $('patch').classList.toggle('pb-btn--ok', adding);
 }
 
 function tryConfirm() {
@@ -568,6 +572,7 @@ $('patch').addEventListener('click', patchNow);
 $('clear-all').addEventListener('mousedown', (e) => e.preventDefault());
 $('clear-all').addEventListener('click', clearEverything);
 on('staged', paintTakes);
+on('pick', paintTakes);
 
 on('hello', () => {
   pager.reset();

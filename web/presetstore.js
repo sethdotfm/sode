@@ -69,6 +69,18 @@ export function presetProblem(s) {
   return presetConflict(s);
 }
 
+// Preset items to add to the rows the editor holds now (have, the rows it can read). Items already there go, and a
+// problem the new ones would make at Save is said now: { items, err }. Empty have is fine.
+export function itemsToAdd(have, items) {
+  const key = (it) => `${it.src}|${[...it.dsts].sort((a, b) => a - b)}|${[...it.levels].sort((a, b) => a - b)}`;
+  const seen = new Set(have.map(key));
+  const fresh = items.filter((it) => !seen.has(key(it)) && seen.add(key(it)));
+  if (!fresh.length) return { items: [], err: '' };
+  const was = have.length ? presetProblem({ items: have }) : '';
+  const now = presetProblem({ items: [...have, ...fresh] });
+  return { items: fresh, err: now && now !== was ? now : '' };
+}
+
 export function presetsProblem(list) {
   if (list.length > MAX_PRESETS) return `At most ${MAX_PRESETS} presets.`;
   // A new preset has no id until the server makes one; count it as one.

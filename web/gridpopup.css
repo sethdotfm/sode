@@ -141,6 +141,31 @@
 .sode-gridpop__band > .sode-gridpop__act {
   height: var(--sode-h-action);
 }
+.sode-gridpop__band > .sode-gridpop__act[hidden] {
+  display: none;
+}
+/* Adding to a preset (gridpopup.js paintMode): the page's accent bar over the band, and an accent edge round the box,
+   so the popup never reads as the take grid. */
+.sode-gridpop[data-adding] > .sode-gridpop__box {
+  border-color: var(--pb-accent);
+  box-shadow: 0 0 0 var(--sode-side-w) var(--pb-accent);
+}
+.sode-gridpop__adding {
+  background: var(--pb-accent);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  flex-direction: column;
+  padding: var(--pb-space-3) var(--pb-space-5);
+}
+.sode-gridpop__adding[hidden] {
+  display: none;
+}
+.sode-gridpop__adding-msg {
+  font-size: var(--pb-text-lg);
+}
+.sode-gridpop__adding-sub {
+  font-size: var(--pb-text-sm);
+}
 /* The phone has the popup's own Take and Clear under the grid. */
 :root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act {
   display: none;
