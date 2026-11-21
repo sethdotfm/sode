@@ -49,7 +49,10 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
 
     const open = expanded.has(e.id);
     const detailId = `hist-before-${e.id}`;
-    const disc = disclosure(open, e.chain ? `${e.chain.length}` : 'Before', detailId, () => {
+    // A Protect changes no route: its detail lists the sources on the destination when it ran (prev), not a Before.
+    const groups = beforeGroups(e);
+    const srcWord = groups.length > 1 ? 'Sources' : 'Source';
+    const disc = disclosure(open, e.chain ? `${e.chain.length}` : e.protect ? srcWord : 'Before', detailId, () => {
       toggle(expanded, e.id);
       renderHistory();
     });
@@ -79,8 +82,8 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
               ...stackSteps(e, { restore: openConfirm, pickSrc: useRowSrc, pickDst: useRowDst, addDst: addEnd }),
             ]
           : [
-              el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
-              ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc)),
+              el('div', 'sode__label', e.protect ? `${srcWord} on ${dst.label}` : `Before #${e.id}, on ${dst.label}`),
+              ...groups.map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc)),
             ]),
         ...failureRows(e),
         ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst, addEnd))] : []),

@@ -472,6 +472,12 @@ func (a *App) protectEntry(r *runtime, c *client, set bool, dst int, levels []in
 	}
 	a.mu.Lock()
 	e.DstName = a.router.dstNames[dst]
+	// The routes on dst when it ran, so History can show what the Protect holds there.
+	for _, u := range levels {
+		if s, ok := a.router.tally[dst][u]; ok {
+			e.Prev = append(e.Prev, [2]int{u, s})
+		}
+	}
 	a.mu.Unlock()
 	e.BrowserOf = a.browserOf(c)
 	if c.api != nil {

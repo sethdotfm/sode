@@ -1,2 +1,3 @@
 - History: a Protect or Clear Protect row shows the badge with the destination, with no source box or arrow.
 - Ctrl+Z and the Palette's Undo now undo a Clear Protect when it is the newest entry. The Protect comes back after the usual Confirm.
+- History: a Protect or Clear Protect row's detail lists the Source or Sources on the destination when it ran, in place of Before.

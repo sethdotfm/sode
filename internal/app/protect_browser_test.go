@@ -55,6 +55,9 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 		t.Fatalf("Sode's Protect on %d levels, want 17", n)
 	}
 	b.waitFor("History names the Protect", `[...document.querySelectorAll('#history .pb-badge')].some((n) => n.textContent === 'Protect')`)
+	// Its detail lists the sources on DSM1 when it ran, in place of Before.
+	b.eval(`[...document.querySelectorAll('#history .sode__hist-row')].find((r) => r.querySelector('.sode__hist-route > .pb-badge')?.textContent === 'Protect').querySelector('.pb-disclosure, [aria-controls^="hist-before-"]').click(); true`)
+	b.waitFor("Source on DSM1", `[...document.querySelectorAll('#history .sode__hist-before .sode__label')].some((n) => /^Sources? on .*DSM1/.test(n.textContent))`)
 
 	// Keyboard mode: j starts it, Shift+x opens the Confirm for Clear Protect.
 	b.eval(`document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'j', code: 'KeyJ', bubbles: true, cancelable: true})); true`)

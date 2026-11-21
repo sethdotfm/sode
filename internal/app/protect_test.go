@@ -136,9 +136,16 @@ func readProtects(t *testing.T, a *App) []protectRec {
 func TestProtectSetsEveryLevelAndRefusesTakes(t *testing.T) {
 	a, f := protectApp(t)
 	ana := signedClient(t, a, "Ana", "1234")
+	a.mu.Lock()
+	a.router.tally[4] = map[int]int{1: 7, 2: 7, 3: -1}
+	a.mu.Unlock()
 	e := protEntry(t, a.protectSet(ana, 4, nil))
 	if !e.OK || e.Protect != "set" || !slices.Equal(e.Levels, []int{1, 2, 3}) || e.Src != -1 || e.Client != "Ana" {
 		t.Fatalf("entry %+v", e)
+	}
+	// Prev holds the routes on the destination when it ran, for History's Source detail.
+	if !slices.Equal(e.Prev, [][2]int{{1, 7}, {2, 7}, {3, -1}}) {
+		t.Fatalf("prev %v", e.Prev)
 	}
 	want := map[int]protHold{0: {126, 1}, 1: {126, 1}, 2: {126, 1}}
 	if got := f.holdsOn(4); len(got) != 3 || got[0] != want[0] || got[2] != want[2] {
