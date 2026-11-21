@@ -205,3 +205,50 @@ func TestFreeWhatNamesTheDestinations(t *testing.T) {
 		}
 	}
 }
+
+// Signing in never gives less than a guest has on a page open to guests (config.ActsWithGuest). Under the page lock a
+// user has only their own Rights.
+func TestProtectSignedInHasAtLeastTheGuests(t *testing.T) {
+	for _, r := range []struct {
+		name string
+		edit func(*config.Config)
+		want [2]string // set, free own
+	}{
+		{"page open to guests", func(*config.Config) {}, [2]string{pOK, pOK}},
+		{"own Rights say No", userRights("Bo", config.Rights{Protect: ptr(false)}), [2]string{pOK, pOK}},
+		{"page lock on", func(cfg *config.Config) { cfg.Locks.Main = true }, [2]string{pRights, pNone}},
+	} {
+		t.Run(r.name, func(t *testing.T) {
+			a, _ := protectApp(t)
+			editCfg(t, a, func(cfg *config.Config) { cfg.GuestRole = config.RoleTrusted; r.edit(cfg) })
+			call := wsCall(a, signedClient(t, a, "Bo", "567890"))
+			got := [2]string{call(true, 5, nil), pNone}
+			if got[0] == pOK {
+				got[1] = call(false, 5, nil)
+			}
+			if got != r.want {
+				t.Fatalf("set, free own: got %v, want %v", got, r.want)
+			}
+		})
+	}
+}
+
+// The Guest role lifts what a user does, never what they approve. A Standard user gets no card for a request that
+// needs a Trusted user. Their PIN does not approve one.
+func TestGuestRoleDoesNotMakeAnApprover(t *testing.T) {
+	a := userApp(t, false)
+	editCfg(t, a, func(cfg *config.Config) { cfg.GuestRole = config.RoleTrusted })
+	bo := signedClient(t, a, "Bo", "567890")
+	bo.u.cards = true
+	r := &approvalRequest{from: &client{ip: "10.0.0.99"}, need: config.RoleTrusted}
+	a.mu.Lock()
+	role, qualifies := a.roleMu(bo), a.qualifiesMu(bo, r)
+	a.mu.Unlock()
+	if role != config.RoleTrusted || qualifies {
+		t.Fatalf("role %s, qualifies %v: want Trusted user and no card", role, qualifies)
+	}
+	u, _ := a.r().cfg.FindUserByName("Bo")
+	if got := approverRole(a.r().cfg, &u); got != config.RoleStandard {
+		t.Fatalf("approver role %s", got)
+	}
+}

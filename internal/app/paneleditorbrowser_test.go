@@ -19,6 +19,7 @@ func TestChromeEditorFind(t *testing.T) {
 	a := simApp(t, sim, func(c *config.Config) {
 		zoom := *nums(10, 11)
 		c.Users[0].Rights = config.Rights{Sources: &zoom}
+		c.GuestRights = config.Rights{Sources: &[]config.Ref{}} // else Ana has the guest's sources too (ActsWithGuest)
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

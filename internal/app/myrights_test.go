@@ -40,6 +40,8 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if m := mrLast(gnext(), "myRights"); m == nil || mrJSON(m) != `{"protect":true}` {
 		t.Fatalf("Trusted user guest rights: %v", m)
 	}
+	// Under the page lock a user has only their own Rights.
+	editCfg(t, a, func(cfg *config.Config) { cfg.Locks.Main = true })
 
 	ana, anext := signedIn(t, a, "10.0.0.1", "1234")
 	m := mrLast(anext(), "myRights")
@@ -67,6 +69,11 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	}
 	if got := mrJSON(m); got != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":false}` {
 		t.Fatalf("Ana's rights after the edit %s", got)
+	}
+	// Without it she has at least what a guest has (config.ActsWithGuest).
+	editCfg(t, a, func(cfg *config.Config) { cfg.Locks.Main = false })
+	if m = mrLast(anext(), "myRights"); m == nil || mrJSON(m) != `{"protect":true}` {
+		t.Fatalf("Ana's rights on a page open to guests: %v", m)
 	}
 
 	a.UserLock(ana)
