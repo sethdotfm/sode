@@ -1,0 +1,1 @@
+- A click or tap outside the Grid popup closes it, as on other dialogs. A drag that starts in the popup does not close it.
