@@ -39,7 +39,7 @@ Describes a destination with a Protect or a Router lock on one or more levels, s
 _Avoid_: locked
 
 **Protect**:
-A mark on one level of a destination that stops other clients from changing it. Only the device number that set it can clear it, and the router does not check who sends that number. Sode, DashBoard and panels can set one. Sode sets and clears a Protect on every level of a destination, with its one device number for the router. It keeps its own record of which user or API client set each one. Sode refuses its own takes to a destination it Protected too. "Protect" is also the verb.
+A mark on one level of a destination that stops other clients from changing it. Only the device number that set it can clear it, and the router does not check who sends that number. Sode, DashBoard and panels can set one. Sode sets and clears a Protect on every level of a destination, with its one device number for the router. It keeps its own record of which user or API client set each one. A Trusted user and an Administrator have the Protect right unless their Rights take it away. A user or API client clears the Protects they set. An Administrator clears any of Sode's Protects, and an Approval from one lets another user do it. Sode refuses its own takes to a destination it Protected too. "Protect" is also the verb.
 
 **Router lock**:
 The router's second kind of mark on a level of a destination, set only from DashBoard or a panel. Sode shows it with the device that set it and never sets or clears it. Keep it apart from Sode's own Lock, the cover over the page.

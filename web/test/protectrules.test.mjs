@@ -95,6 +95,12 @@ test("the route view offers set on a free destination, clear on Sode's own, noth
   assert.equal(protectOffer(free, { ...env, linked: false }), '');
   assert.equal(protectOffer(holdsOn(prot([[4, 1, 126, 1]]), by, 4, all, 126), env), 'clear');
   assert.equal(protectOffer(holdsOn(prot([[6, 1, 112, 1]]), by, 6, all, 126), env), '');
+  // An Administrator clears any of Sode's Protects without the Protect right, but sets none without it.
+  const noRight = { ...env, right: false };
+  assert.equal(protectOffer(holdsOn(prot([[4, 1, 126, 1]]), by, 4, all, 126), noRight), '');
+  assert.equal(protectOffer(holdsOn(prot([[4, 1, 126, 1]]), by, 4, all, 126), { ...noRight, admin: true }), 'clear');
+  assert.equal(protectOffer(free, { ...noRight, admin: true }), '');
+  assert.equal(protectOffer(holdsOn(prot([[6, 1, 112, 1]]), by, 6, all, 126), { ...noRight, admin: true }), '');
   assert.equal(
     protectOffer(
       holdsOn(
