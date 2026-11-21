@@ -7,6 +7,7 @@ import { filterFn } from './filter.js';
 import { filterAllows } from './filterstore.js';
 import { pref } from './device.js';
 import { entryChip, foldProtects } from './protectrules.js';
+import { statusText } from './statustext.js';
 
 // Quick search above History. It reads back through the whole log. It ignores the filters unless this browser's setting says otherwise. Not kept.
 
@@ -180,7 +181,7 @@ function groupStatus(f) {
   const got = f.entries.length;
   const bad = f.entries.filter((e) => !e.ok).length;
   if (got < f.n && Date.now() - Date.parse(f.entries[0].time) < IN_FLIGHT_MS) {
-    return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
+    return { tone: bad ? 'warn' : 'info', text: `${got}/${f.n} done…` };
   }
   const title = got < f.n ? `${got} of ${f.n} loaded` : '';
   if (f.entries.every((e) => e.ext))
@@ -188,27 +189,25 @@ function groupStatus(f) {
       f.entries.every((e) => e.found),
       title,
     );
-  if (!bad) return { dot: 'ok', text: 'ok', title };
-  if (bad === got) return { dot: 'error', text: 'failed', title };
-  return { dot: 'warn', text: `${bad}/${got} failed`, title };
+  if (!bad) return { tone: 'ok', text: 'ok', title };
+  if (bad === got) return { tone: 'error', text: 'failed', title };
+  return { tone: 'warn', text: `${bad}/${got} failed`, title };
 }
 
 const extStatus = (found, title = '') =>
   found
-    ? { dot: 'warn', text: 'Found', title: title || 'External with no announcement. Sode found it at a re-read.' }
-    : { dot: 'info', text: 'External', title: title || 'A change on the router that Sode did not make' };
+    ? { tone: 'warn', text: 'Found', title: title || 'External with no announcement. Sode found it at a re-read.' }
+    : { tone: 'info', text: 'External', title: title || 'A change on the router that Sode did not make' };
 
 export function statusNode(row) {
   const st = row.f
     ? groupStatus(row.f)
     : row.e.ext && row.e.followGroup
-      ? { dot: 'info', text: 'External follow', title: 'Changed with this take, probably because of it' }
+      ? { tone: 'info', text: 'External follow', title: 'Changed with this take, probably because of it' }
       : row.e.ext
         ? extStatus(row.e.found)
-        : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
-  const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
-  dot.setAttribute('aria-hidden', 'true');
-  const node = el('span', 'pb-status', dot, el('span', 'sode__status-text', st.text));
+        : { tone: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
+  const node = statusText(st.tone, el('span', 'sode__status-text', st.text));
   if (row.e && !row.e.ok) node.title = row.e.err || '';
   if (st.title) node.title = st.title;
   node.dataset.hint = node.title ? `${st.text}: ${node.title}` : st.text;

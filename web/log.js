@@ -9,6 +9,7 @@ import { KINDS, KIND_IDS, WHY_LABEL, kindLabel, normalizeKinds, allKinds, pressK
 import { isEvent, problem, logPasses, sortKeys, cmpKeyed, newestFirst as newestOf, sortRows } from './logfilter.js';
 import { initDownloads } from './logdownload.js';
 import { fieldText, saveSummary } from './logsaves.js';
+import { statusText } from './statustext.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
@@ -273,13 +274,13 @@ const EVENT_RESULT = {
 
 function outcome(e) {
   if (isEvent(e)) {
-    const [dot, text] = e.kind === 'server' && e.err ? ['warn', 'Started with a problem'] : EVENT_RESULT[e.result] || ['idle', e.result];
-    const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
+    const [tone, text] = e.kind === 'server' && e.err ? ['warn', 'Started with a problem'] : EVENT_RESULT[e.result] || ['idle', e.result];
+    const s = statusText(tone, text);
     if (e.err) s.dataset.pbTip = e.err;
     return s;
   }
   const tries = `${e.tries} ${e.tries === 1 ? 'try' : 'tries'}`;
-  const [dot, text] = {
+  const [tone, text] = {
     ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', e.ackMs ? `ACK in ${fmtMs(e.ackMs)}` : 'ACK'],
     nak: ['error', `NAK, gave up after ${tries}`],
     noack: ['error', `No ACK after ${tries}`],
@@ -287,7 +288,7 @@ function outcome(e) {
     dropped: ['error', 'Not sent: link dropped'],
     unsent: ['error', 'Not sent'],
   }[e.result] || ['idle', e.result];
-  const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
+  const s = statusText(tone, text);
   if (e.err) s.dataset.pbTip = e.err;
   return s;
 }

@@ -1,5 +1,6 @@
 // /panels monitoring: row status, Watch and the Open now list.
 import { el, icon } from './core.js';
+import { statusText } from './statustext.js';
 import { askNotifyPermission, notifyPermission } from './panelwatch.js';
 import { durationText, permissionText } from './panelwatchrules.js';
 import { panelStatus, shownInstances, hiddenShown } from './panelsrules.js';
@@ -14,10 +15,12 @@ export const MON_POLL_MS = 2000;
 
 const badge = (online) => el('span', `pb-badge${online ? ' pb-badge--ok' : ''}`, online ? 'Online' : 'Offline');
 
-// A list row's status is plain words, not a badge, so it does not read as a button. base.css hides the dot.
+// A list row's status is plain words, not a badge, so it does not read as a button. It has no colored square.
 const rowBadge = (p) => {
   const s = panelStatus(p);
-  return el('span', 'pb-status sode-ov__status', el('span', `pb-dot pb-dot--${s.tone || 'idle'}`), s.text);
+  const node = statusText(s.tone || 'idle', s.text);
+  node.classList.add('sode-ov__status');
+  return node;
 };
 
 const INSTANCE_WORDS = { up: 'online', down: 'offline' };

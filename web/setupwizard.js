@@ -2,6 +2,7 @@
 // place of the patch page. Nothing is sent but the Router step's address until Finish.
 import { $, S, el, on, onMsg, wsSend, icon, LINK_DOWN } from './core.js';
 import { showBrand } from './brand.js';
+import { statusText } from './statustext.js';
 import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
 import { layout, onLayout } from './layout.js';
@@ -96,14 +97,7 @@ function statusLine() {
       ? { ok: false, text: 'Connects on Save' }
       : routerLine(d.router, S.router, S.srcs.length, S.dsts.length);
   if (!line) return [];
-  return [
-    el(
-      'span',
-      { class: 'pb-status' },
-      el('span', { class: `pb-dot ${line.ok ? 'pb-dot--ok' : 'pb-dot--warn'}`, 'aria-hidden': 'true' }),
-      el('span', null, line.text),
-    ),
-  ];
+  return [statusText(line.ok ? 'ok' : 'warn', el('span', null, line.text))];
 }
 
 const presets = () => sheetPresets;

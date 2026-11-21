@@ -31,8 +31,6 @@ const COPIED_MS = 2000;
 const REFRESH_MS = 5000; // how often the list asks again, so Online follows the instances
 const FAIL = Symbol('failed'); // a call that said why in the note
 
-const dot = (kind) => el('span', { class: `pb-dot pb-dot--${kind}`, 'aria-hidden': 'true' });
-
 export function keyTab({ panel, api }) {
   const root = el('div', 'sode-ov__keytab');
   const tab = { id: 'key', text: 'Link with key', panel: root };
@@ -98,7 +96,7 @@ export function keyTab({ panel, api }) {
         return el(
           'li',
           'sode-ov__keyitem',
-          el('span', 'sode-ov__keyname', el('strong', null, k.name), el('span', 'sode-ov__muted', dot(row.state.kind), ` ${row.state.text}`)),
+          el('span', 'sode-ov__keyname', el('strong', null, k.name), el('span', 'sode-ov__muted', ` ${row.state.text}`)),
           el('span', 'sode-ov__muted', `${row.created}. ${row.used}.`),
           el('span', 'sode-ov__keyrow', rotate, revoke),
         );
@@ -107,7 +105,7 @@ export function keyTab({ panel, api }) {
   }
 
   function paintTop() {
-    status.replaceChildren(dot(keys.length ? 'ok' : 'idle'), ` ${keys.length} of ${max} instances`);
+    status.replaceChildren(`${keys.length} of ${max} instances`);
     modes.replaceChildren(
       ...MODES.flatMap(([m, text]) => {
         const r = el('input', 'pb-btn-check');
