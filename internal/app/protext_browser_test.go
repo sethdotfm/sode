@@ -49,9 +49,9 @@ func TestChromeExternalProtectInHistory(t *testing.T) {
 	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 	key := userKey(t, a, "Ana")
 	waitNamesAndTally(t, a, key)
-	for deadline := time.Now().Add(10 * time.Second); !strings.Contains(apiDo(a, "GET", "/api/v1/protected", key, nil).Body.String(), `"routerLock"`); time.Sleep(50 * time.Millisecond) {
+	for deadline := time.Now().Add(10 * time.Second); strings.Count(apiDo(a, "GET", "/api/v1/protected", key, nil).Body.String(), `"routerLock"`) < 17; time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
-			t.Fatal("the simulator's Router lock never arrived")
+			t.Fatal("the simulator's Router lock did not arrive on all 17 levels")
 		}
 	}
 
@@ -62,7 +62,7 @@ func TestChromeExternalProtectInHistory(t *testing.T) {
 	b.eval(`document.getElementById('settings-exit').click(); true`)
 	b.waitFor("main page", `document.documentElement.dataset.view !== 'settings'`)
 
-	// DSM1 is dst 2 (0-based) on the simulator; 17 levels.
+	// The startup dump is in before the second client acts. DSM1 is dst 2 (0-based) on the simulator; 17 levels.
 	simProtect(t, sim, true, 2, 112, 17)
 	// row(word): the History row whose chip says word, as [icon, square, note, status, undo].
 	row := `((word) => { const c = [...document.querySelectorAll('#history .sode__hold-chip')].find((n) => n.textContent === word); if (!c) return null; const r = c.closest('.sode__hist-row'); const u = [...r.querySelectorAll('.sode__hist-actions button')].find((b) => b.textContent.includes('Undo')); return [c.querySelector('use')?.getAttribute('href').split('#')[1].replace(/^pb-i-/, ''), getComputedStyle(c, '::before').content, r.querySelector('.sode__hist-note')?.textContent.trim(), r.querySelector('.sode__status-text')?.textContent, !u || u.disabled]; })`
