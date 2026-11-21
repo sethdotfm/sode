@@ -80,13 +80,10 @@ export function shieldTargets(n, picked, offerOf) {
   return { offer, dsts: picked.filter((d) => d === n || offerOf(d) === offer) };
 }
 
-// The badge look of each owner: the icon and the patchbay status. Yours is info, since you can clear it; the others
-// are warn, since they stop you.
-export const HOLD_LOOK = {
-  you: { icon: 'user', status: 'info' },
-  sode: { icon: 'users', status: 'warn' },
-  other: { icon: 'router', status: 'warn' },
-};
+// The badge look of one hold. The icon names the mark: shield for every Protect, shield-ban for a Router lock. The
+// `lock` icon is the Lock's alone (GLOSSARY.md). The words name the owner, and the status says if you can clear it:
+// yours is info, the others are warn, since they stop you.
+export const holdLook = (h) => ({ icon: h.kind === KIND_ROUTER_LOCK ? 'shield-ban' : 'shield', status: h.owner === 'you' ? 'info' : 'warn' });
 
 export const protectedText = (p) => p.holds.map(holdLabel).join('; ');
 

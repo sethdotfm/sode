@@ -7,7 +7,7 @@ import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
-import { holdsOn, holdLabel, holdShort, protectedText, protectOffer, protectRight, HOLD_LOOK } from './protectrules.js';
+import { holdsOn, holdLabel, holdShort, protectedText, protectOffer, protectRight, holdLook } from './protectrules.js';
 
 let seq = 0;
 const pending = new Map(); // id → { plan, answer }
@@ -32,22 +32,22 @@ export const holdsAt = (n, levels = allLevels()) => holdsOn(S.prot, S.protBy, n,
 
 export const protectState = (n) => holdsAt(n);
 
-// The badge of one hold: the owner's icon and color, and the words (holdLabel).
+// The badge of one hold: its icon and color (holdLook), and the words (holdLabel).
 export function holdBadge(h) {
-  const look = HOLD_LOOK[h.owner] || HOLD_LOOK.other;
+  const look = holdLook(h);
   const b = el('span', `pb-badge pb-badge--${look.status} sode__status-badge`, icon(look.icon), holdLabel(h));
   b.dataset.owner = h.owner;
   return b;
 }
 
-// A Grid name's mark (gridpanelnodes.js paintDstMarks): the first hold's owner icon and short words, with every hold in
+// A Grid name's mark (gridpanelnodes.js paintDstMarks): the first hold's icon and short words, with every hold in
 // the tip. null when n is free.
 export function gridHold(n) {
   const p = holdsAt(n);
   const [h] = p.holds;
   if (!h) return null;
   const more = p.holds.length > 1 ? ` +${p.holds.length - 1}` : '';
-  return { icon: (HOLD_LOOK[h.owner] || HOLD_LOOK.other).icon, text: holdShort(h) + more, tip: protectedText(p), owner: h.owner };
+  return { icon: holdLook(h).icon, text: holdShort(h) + more, tip: protectedText(p), owner: h.owner };
 }
 
 // The badge Sode's own new Protect gets: it is the signed-in user's, or Sode's with nobody signed in.
