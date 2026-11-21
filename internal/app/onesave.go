@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"log"
@@ -376,7 +377,12 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 		plan.edits = edits
 	}
 	var cands []string
+	self := c.userID() // during a step-in, the stepped-in user
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
+		if ownPinChange(live, key, self) {
+			refuse(key, reasonInvalid, errOwnPinHere)
+			continue
+		}
 		if plan.screen(key, role, ap) {
 			cands = append(cands, key)
 		}
@@ -413,6 +419,18 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	keep = plan.pruneTogether(keep)
 	plan.moves, plan.keep = a.removedUsersPanels(c, live, edits, keep, refuse)
 	return plan, nil
+}
+
+// The one Save has no field for the current PIN. So only userSetPin (setOwnPin), which checks it, changes
+// or removes your own PIN. A first PIN is not a change.
+var errOwnPinHere = errors.New("change your own PIN with Change my PIN in My user, which asks for your current PIN")
+
+func ownPinChange(live config.Config, key, self string) bool {
+	if self == "" || key != "user/"+self+"/pin" {
+		return false
+	}
+	u, ok := live.FindUserByID(self)
+	return ok && u.HasPin()
 }
 
 // validateSave: what update checks, so a field that would fail the commit is refused alone.

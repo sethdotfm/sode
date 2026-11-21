@@ -167,6 +167,9 @@ function addRow(u = { name: '', len: 0 }) {
   // No PIN: a saved user's PIN goes on Save, a new row saves with none. A typed PIN wins.
   const noPin = check('No PIN', { checked: saved && !u.len });
   noPin.input.dataset.flag = 'noPin';
+  // The server refuses your own PIN here (ownPinChange in onesave.go): Change my PIN asks for the current one.
+  const own = saved && !!u.len && u.id === listedMe;
+  pin.disabled = noPin.input.disabled = own;
   // A saved user needs two clicks; a row never saved has nothing to lose.
   const disarm = () => {
     rm.dataset.armed = '';
@@ -217,7 +220,7 @@ function addRow(u = { name: '', len: 0 }) {
     'div',
     'sode__users-row',
     el('div', 'sode__users-in', name),
-    el('div', 'sode__users-in', pinShow(pin)),
+    el('div', { class: 'sode__users-in', ...(own ? { 'data-pb-tip': 'Change your own PIN in My user' } : {}) }, pinShow(pin)),
     el('span', 'pb-select-wrap', role),
     noPin.label,
     never.label,
