@@ -14,15 +14,16 @@
   column-gap: var(--pb-space-6);
   display: grid;
   /* Three groups of one width: Source, Destination with +, and Levels with Take and Clear. The arrow is between the
-     first two. The empty track keeps the old space-8 more between the last two. The last group is never narrower than
-     its controls, so on a narrow window (below about 1100 px) it is wider than the other two. */
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) calc(var(--pb-space-8) - var(--pb-space-6)) minmax(min-content, 1fr);
+     first two. The last group is never narrower than its controls, so on a narrow window (below about 1100 px) it is
+     wider than the other two. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(min-content, 1fr);
   /* No row gap, so an empty row of routes under the boxes adds no height (.sode__under has the gap). */
   row-gap: 0;
   width: 100%;
 }
-/* No router has more than one level (levelview.js): Take and Clear are the last group, only as wide as they are. */
-.sode__boxes:has(.sode__box--levels[hidden]) {
+/* No router has more than one level (levelview.js sets data-levels): Take and Clear are the last group, only as wide
+   as they are. */
+.sode__boxes[data-levels="off"] {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
 }
 .sode__boxes > .sode__box--src {
@@ -56,6 +57,8 @@
   grid-row: 1;
   /* The text box keeps room for a short list of levels. */
   grid-template-columns: minmax(6rem, 1fr) auto;
+  /* With the column gap, space-8 between Destination's group and this one. */
+  margin-inline-start: calc(var(--pb-space-8) - var(--pb-space-6));
 }
 .sode__group--levels > .sode__box--levels {
   grid-column: 1 / -1;
@@ -79,10 +82,11 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   grid-column: 2;
   grid-row: 1;
 }
-.sode__group--levels:has(> .sode__box--levels[hidden]) {
+.sode__boxes[data-levels="off"] > .sode__group--levels {
   grid-template-columns: auto;
+  margin-inline-start: 0;
 }
-.sode__group--levels:has(> .sode__box--levels[hidden]) > .sode__box--take {
+.sode__boxes[data-levels="off"] > .sode__group--levels > .sode__box--take {
   grid-column: 1;
 }
 .sode__box {
@@ -267,7 +271,8 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin-left: var(--pb-space-8);
-  /* The picks are the old small squares in two rows. 9 columns (17 levels) and Select All fit under the Levels group; more columns scroll sideways inside the picks, so the box never grows a tall stack of picks. */
+  /* The picks are small squares in two rows. 9 columns (17 levels) and Select All fit under the Levels group; more
+     columns scroll sideways inside the picks, so the box never grows a tall stack of picks. */
   --sode-picker-cols: 9;
   --sode-pick-w: calc(var(--pb-space-8) + var(--pb-space-1));
   --sode-pick-gap: var(--pb-space-1);
