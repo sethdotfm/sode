@@ -321,3 +321,65 @@ func TestChromeMainGridPopupShield(t *testing.T) {
 	}
 	b.check()
 }
+
+// A press on the Grid popup's margin closes it and puts focus back in the patch boxes. A press in the popup, or a drag
+// that starts in it and ends on the margin, keeps it open.
+func TestChromeMainGridPopupOutsideClick(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim)
+	srv := seamServer(t, a)
+	waitNamesAndTally(t, a, userKey(t, a, "Ana"))
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("17 level picks", `document.querySelectorAll('#lvl-pick > button').length === 17`)
+
+	shown := `!document.getElementById('grid-pop')?.hidden`
+	shownLater := `new Promise((r) => setTimeout(() => r(` + shown + `), 200))`
+	mouse := func(ty string, x, y float64) {
+		b.call("Input.dispatchMouseEvent", map[string]any{"type": ty, "x": x, "y": y, "button": "left", "buttons": 1, "clickCount": 1})
+	}
+	press := func(x0, y0, x1, y1 float64) {
+		mouse("mouseMoved", x0, y0)
+		mouse("mousePressed", x0, y0)
+		mouse("mouseMoved", x1, y1)
+		mouse("mouseReleased", x1, y1)
+	}
+	pt := func(js string) (float64, float64) {
+		r := b.eval(js).([]any)
+		return r[0].(float64), r[1].(float64)
+	}
+	hit := func(x, y float64) any { return b.eval(fmt.Sprintf(`document.elementFromPoint(%v, %v)?.id`, x, y)) }
+	open := func() {
+		realKeyMods(b, "e", "KeyE", 69, modCtrl)
+		b.waitFor("Ctrl+e opens the popup", shown)
+		b.waitFor("the grid draws", `!!document.querySelector('#grid-pop .sode-gridpanel__xp:not([hidden])')`)
+	}
+
+	b.eval(`document.getElementById('src').focus(); true`)
+	open()
+	// The left margin: the right one has the page's big scroll bar.
+	mx, my := pt(`(() => { const r = document.querySelector('.sode-gridpop__box').getBoundingClientRect(); return [r.left / 2, innerHeight / 2]; })()`)
+	ix, iy := pt(`(() => { const r = document.querySelector('#grid-pop .sode-gridpop__help').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`)
+	if id := hit(mx, my); id != "grid-pop" {
+		t.Fatalf("the margin point hits %v, want the popup's margin", id)
+	}
+	press(ix, iy, ix, iy)
+	if !b.eval(shownLater).(bool) {
+		t.Fatal("a press in the popup closed it")
+	}
+	press(ix, iy, mx, my)
+	if !b.eval(shownLater).(bool) {
+		t.Fatal("a drag from the popup to the margin closed it")
+	}
+	press(mx, my, mx, my)
+	b.waitFor("a press on the margin closes the popup", `document.getElementById('grid-pop').hidden`)
+	b.waitFor("focus is back in a patch box", `['src', 'dst', 'lvl'].includes(document.activeElement.id)`)
+
+	// The popup covers the Grid button. So a press cannot close the popup and then open it again.
+	open()
+	if !b.eval(`(() => { const r = document.getElementById('grid-open').getBoundingClientRect(); return document.getElementById('grid-pop').contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); })()`).(bool) {
+		t.Fatal("the Grid button shows above the popup")
+	}
+	b.check()
+}

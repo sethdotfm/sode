@@ -16,6 +16,7 @@ import { gridShield } from './gridpopshield.js';
 import { gridHold } from './protects.js';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from './gridpoprules.js';
 import { gridPlan, patchPlan } from './plans.js';
+import { backdropClose } from './dialogkeys.js';
 
 // The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
 const PANEL = { id: '', name: 'Grid', type: 'grid', sources: { members: 'all' }, destinations: { members: 'all' }, pages: [], settings: {} };
@@ -54,6 +55,17 @@ function build() {
   const box = el('div', { class: 'pb-modal sode-gridpop__box', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Grid' }, head, levels, status, grid);
   const root = el('div', { class: 'sode__scrim sode-gridpop', id: 'grid-pop', hidden: true }, box);
   root.addEventListener('keydown', popKey);
+  // A press on the margin closes, as on a modal's backdrop (dialogkeys.js trapDialog). Not trapDialog itself: its keys
+  // would come before the grid's own.
+  let down = null;
+  let up = null;
+  root.addEventListener('mousedown', (e) => ((down = e.target), (up = null)));
+  root.addEventListener('mouseup', (e) => (up = e.target));
+  root.addEventListener('click', (e) => {
+    const shut = e.target === root && backdropClose(down, up, root);
+    down = up = null;
+    if (shut) hideGrid();
+  });
   const shield = gridShield(box, grid, (plan) => boxHost()?.confirm(plan));
   // A key move puts the shield on the cursor's destination name.
   root.addEventListener('keyup', (e) => !e.target.closest?.('input') && shield.cursor());
