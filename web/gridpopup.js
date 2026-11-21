@@ -5,7 +5,6 @@
 // One Take: a confirm of the staged routes also holds the route in the patch boxes, when they hold one. The rules are in
 // gridpoprules.js.
 import { $, el, icon, S, on, emit, off, linked, needsLink, srcItem, dstItem, labelNode } from './core.js';
-import { takeWord } from './gridpanelphone.js';
 import { pickOrAdd, keyLabel } from './keys.js';
 import { gridBody } from './gridpanelrun.js';
 import { levelsBox } from './panelmount.js';
@@ -16,16 +15,17 @@ import { routesOf } from './gridpanelstage.js';
 import { gridShield } from './gridpopshield.js';
 import { gridHold } from './protects.js';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from './gridpoprules.js';
+import { addedLine, noRouteLine, rowsWord, storedItems } from './gridpoprules.js';
 import { gridPlan, patchPlan } from './plans.js';
-import { backdropClose } from './dialogkeys.js';
-import { boxPicking, addItems, donePick, pickLabel, pickNote, pickRows } from './historypick.js';
-import { addedLine, noRouteLine, presetMarks, rowsWord } from './gridpoprules.js';
+import { onBackdropPress } from './dialogkeys.js';
+import { presetAdd } from './presetadd.js';
+import { addPolicy } from './gridpaneladd.js';
 
 // The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
 const PANEL = { id: '', name: 'Grid', type: 'grid', sources: { members: 'all' }, destinations: { members: 'all' }, pages: [], settings: {} };
 const FOCUSABLE = 'button:not([disabled]):not([hidden]), input:not([hidden]), [tabindex]:not([tabindex="-1"])';
 
-let pop = null; // { root, shield, ui }, made on the first open
+let pop = null; // { root, shield, adding, acts, ui }, made on the first open
 let body = null;
 let opened = false; // this tab opened the popup before, so a reopen with no valid pair comes back as left
 let shown = false;
@@ -53,8 +53,9 @@ function build() {
   const finds = el('div', 'sode-gridpanel__finds');
   const status = el('p', { class: 'sode-panel__status', role: 'status', hidden: true });
   const note = el('div', 'sode-panels__spacer sode-gridpop__note', status);
-  const head = el('div', 'sode-gridpop__band', finds, note, ...actions(), close);
-  // While the preset editor adds patches (historypick.js mode 'boxes'): a click adds to the preset, Take is Add.
+  const acts = actions();
+  const head = el('div', 'sode-gridpop__band', finds, note, acts.rows, acts.clear, acts.take, acts.done, close);
+  // While a preset adds patches (presetadd.js): a click adds to the preset, Take is Add.
   const adding = el(
     'div',
     { class: 'sode-gridpop__adding', hidden: true },
@@ -79,93 +80,85 @@ function build() {
   );
   const root = el('div', { class: 'sode__scrim sode-gridpop', id: 'grid-pop', hidden: true }, box);
   root.addEventListener('keydown', popKey);
-  // A press on the margin closes, as on a modal's backdrop (dialogkeys.js trapDialog). Not trapDialog itself: its keys
-  // would come before the grid's own.
-  let down = null;
-  let up = null;
-  root.addEventListener('mousedown', (e) => ((down = e.target), (up = null)));
-  root.addEventListener('mouseup', (e) => (up = e.target));
-  root.addEventListener('click', (e) => {
-    const shut = e.target === root && backdropClose(down, up, root);
-    down = up = null;
-    if (shut) hideGrid();
-  });
-  const shield = gridShield(box, grid, (plan) => boxHost()?.confirm(plan));
+  // A press on the margin closes, as on a modal's backdrop. Not trapDialog: its keys would come before the grid's own.
+  onBackdropPress(root, () => hideGrid());
+  const shield = gridShield(
+    box,
+    grid,
+    (plan) => boxHost()?.confirm(plan),
+    () => presetAdd.active(),
+  );
   // A key move puts the shield on the cursor's destination name.
   root.addEventListener('keyup', (e) => !e.target.closest?.('input') && shield.cursor());
   document.body.append(root);
-  return { root, shield, adding, ui: { main: box, head, finds, status, grid, levels, onPicks: (p) => shield.picks(p) } };
+  return { root, shield, adding, acts, ui: { main: box, head, finds, status, grid, levels, onPicks: (p) => shield.picks(p) } };
 }
 
-// The main page's Clear and Take for the mouse (desktop only, gridpopup.css). They press the page's own buttons. So
-// Take is the One Take with the boxes' route, and Clear also clears the boxes.
+// The main page's Clear and Take for the mouse (desktop only, gridpopup.css), through the layout's host (presets.js
+// presetHost). So Take is the One Take with the boxes' route, or Add, and Clear also clears the boxes.
 function actions() {
-  const act = (cls, text, tip, id) => {
+  const act = (cls, text, tip, fn) => {
     const b = el('button', { class: `pb-btn ${cls} sode-gridpop__act`, type: 'button', 'data-pb-tip': tip, disabled: true }, text);
     b.addEventListener('mousedown', (e) => e.preventDefault());
-    b.addEventListener('click', () => {
-      $(id)?.click();
-      // The page's Add answers in the bar under the popup, so the popup says it too.
-      if (id === 'patch' && boxPicking()) body?.say(pickNote().text, pickNote().ok);
-      // The page's Clear puts focus in the Source box, which is under the popup.
-      if (shown && !pop.root.contains(document.activeElement) && !confirmShown()) scroller()?.focus({ preventScroll: true });
-    });
+    b.addEventListener('click', fn);
     return b;
   };
   // The rows of the preset while adding, read from a distance as the staged badge is.
   const rows = el('span', { class: 'pb-badge pb-badge--info sode-gridpop__act sode-gridpop__rows', role: 'status', hidden: true });
-  const done = el('button', { class: 'pb-btn pb-btn--outline sode-gridpop__act sode-gridpop__done', type: 'button', hidden: true }, 'Done');
-  done.dataset.pbTip = 'Stop adding and go back to the preset';
-  done.addEventListener('click', () => {
+  const done = act('pb-btn--outline sode-gridpop__done', 'Done', 'Stop adding and go back to the preset', () => {
     hideGrid(false);
-    donePick();
+    presetAdd.done();
   });
-  return [
-    rows,
-    act('pb-btn--outline sode-gridpop__clear', 'Clear', 'Clear the staged routes and the patch boxes', 'clear-all'),
-    needsLink(act('pb-btn--danger sode-gridpop__take', 'Take', 'Take the staged routes', 'patch')),
-    done,
-  ];
+  done.disabled = false;
+  done.hidden = true;
+  const clear = act('pb-btn--outline sode-gridpop__clear', 'Clear', 'Clear the staged routes and the patch boxes', () => boxHost()?.clearAll());
+  // The page's Add answers in the bar under the popup, so the popup says it too.
+  const take = needsLink(
+    act('pb-btn--danger sode-gridpop__take', 'Take', 'Take the staged routes', () => {
+      const r = boxHost()?.take();
+      if (r?.text) body?.say(r);
+    }),
+  );
+  return { rows, clear, take, done };
 }
 
-// The header while the preset editor adds patches. Take presses the page's Take, which is Add then (desktop.js).
+// The press policy while a preset adds patches (presetadd.js): a press adds to the preset and nothing is sent.
+const adds = addPolicy({
+  rows: () => presetAdd.rows(),
+  words: { name: 'in preset', route: ', in the preset' },
+  add(r) {
+    const labels = { src: (n) => srcItem(n).label, dst: (n) => dstItem(n).label };
+    if (!r.items.length) return { ok: false, text: noRouteLine(r, labels) };
+    const a = presetAdd.add(storedItems(r, boxHost()?.picks().levels || []));
+    return a.ok ? { ok: true, text: addedLine(r, a.rows, labels) } : a;
+  },
+});
+// The header follows the session: an accent band names the preset, Take is Add, Done ends it and the shield is off.
 function paintMode() {
+  adds.fresh();
   if (!pop) return;
-  const on = boxPicking();
-  const q = (s) => pop.ui.head.querySelector(s);
+  const on = presetAdd.active();
+  const { rows, clear, done } = pop.acts;
+  presetAdd.cover(shown);
   pop.adding.hidden = !on;
-  if (on) pop.adding.firstChild.textContent = `Add patches to ${pickLabel()}`;
+  if (on) pop.adding.firstChild.textContent = `Add patches to ${presetAdd.label()}`;
   pop.root.toggleAttribute('data-adding', on);
-  q('.sode-gridpop__clear').hidden = on;
-  q('.sode-gridpop__done').hidden = !on;
-  paintRows();
-  const take = q('.sode-gridpop__take');
-  take.classList.toggle('pb-btn--danger', !on);
-  take.classList.toggle('pb-btn--ok', on);
-  take.dataset.pbTip = on ? "Add the patch boxes' route to the preset" : 'Take the staged routes';
+  clear.hidden = on;
+  done.hidden = !on;
+  rows.hidden = !on;
+  const word = on ? rowsWord(presetAdd.rows().length) : '';
+  if (rows.textContent !== word) rows.textContent = word;
+  if (on) pop.shield.hide();
   pop.ui.main.setAttribute(
     'aria-description',
     on
-      ? `Adding to ${pickLabel()}: a click adds and nothing is sent. Esc or ${keyLabel('ctrl+e')} closes the grid.`
+      ? `Adding to ${presetAdd.label()}: a click adds and nothing is sent. Esc or ${keyLabel('ctrl+e')} closes the grid.`
       : `Esc or ${keyLabel('ctrl+e')} closes the grid. Take sends the staged routes.`,
   );
-  paintActs();
+  paintTake();
+  if (shown) body?.render();
 }
-on('pick', paintMode);
-
-// The preset's rows as marks on the grid and a count in the band. kept is presetMarks of pickRows, made again on a
-// change of the rows, so the body's paint only reads it.
-let kept = null;
-function paintRows() {
-  kept = boxPicking() ? presetMarks(pickRows()) : null;
-  const badge = pop?.ui.head.querySelector('.sode-gridpop__rows');
-  if (!badge) return;
-  badge.hidden = !kept;
-  const word = kept ? rowsWord(kept.rows) : '';
-  if (badge.textContent !== word) badge.textContent = word;
-  if (shown) body?.repaint();
-}
-on('presetRows', paintRows);
+on('presetAdd', paintMode);
 on('gridOpen', () => showGrid());
 
 // After the grid's own keys (a capture listener on document), so its search boxes, line and picks take Esc first.
@@ -256,16 +249,7 @@ const adapter = () => ({
   asking: () => confirmShown() || !$('m-sheet').hidden,
   shown: () => shown,
   undo: () => emit('undoLast'),
-  adding: boxPicking,
-  preset: () => kept,
-  // A crosspoint stores what the boxes' Add stores: no levels (the default levels) while the Levels box is empty.
-  add(r) {
-    const labels = { src: (n) => srcItem(n).label, dst: (n) => dstItem(n).label };
-    if (!r.items.length) return { ok: false, text: noRouteLine(r, labels) };
-    const plain = r.kind === 'xp' && !boxHost()?.picks().levels.length;
-    const a = addItems(plain ? [{ ...r.items[0], levels: [] }] : r.items);
-    return a.ok ? { ok: true, text: addedLine(r, a.rows, labels) } : { ok: false, text: a.text };
-  },
+  pressMode: () => (presetAdd.active() ? adds : null),
   holdOf: gridHold,
   onStage(list) {
     staged = list;
@@ -316,6 +300,7 @@ export function hideGrid(refocus = true) {
   pop.root.hidden = true;
   pop.shield.hide();
   shown = false;
+  presetAdd.cover(false);
   clearInterval(tick);
   // The desktop goes back to the patch boxes (host.entry), so the next Enter takes. The phone goes back where it was.
   const entry = boxHost()?.entry;
@@ -329,7 +314,7 @@ export const toggleGrid = () => (shown ? hideGrid() : showGrid());
 // The staged list under the patch boxes (desktop). The phone has the popup's own Take and Clear. The main page's Take
 // and Clear act on the list (desktop.js), so it has no buttons of its own.
 function paintList() {
-  paintActs();
+  paintTake();
   const box = $('grid-staged');
   if (!box) return;
   const routes = routesOf({ staged });
@@ -339,16 +324,18 @@ function paintList() {
   $('grid-staged-list').replaceChildren(...rows.map(stagedRow));
 }
 
-// Take counts what the page's Take sends (desktop.js paintTakes). Both are off with nothing staged.
-function paintActs() {
+// The one painter of the popup's Take and Clear, from the layout's takeState (presets.js presetHost). Take is on
+// whenever there is something to send or add, Clear while routes are staged. desktop.js paintTakes calls it too.
+export function paintTake() {
   if (!pop) return;
-  const n = stagedCount();
-  const take = pop.ui.head.querySelector('.sode-gridpop__take');
-  const adding = boxPicking();
-  const word = adding ? 'Add' : takeWord(n ? takeRoutes(boxHost()?.route?.()) : 0);
-  if (take.textContent !== word) take.textContent = word;
-  take.disabled = !n && !adding;
-  pop.ui.head.querySelector('.sode-gridpop__clear').disabled = !n;
+  const { take, clear } = pop.acts;
+  const t = boxHost()?.takeState() || { word: 'Take', ok: false, disabled: true };
+  if (take.textContent !== t.word) take.textContent = t.word;
+  take.disabled = t.disabled;
+  take.classList.toggle('pb-btn--danger', !t.ok);
+  take.classList.toggle('pb-btn--ok', t.ok);
+  take.dataset.pbTip = t.ok ? "Add the patch boxes' route to the preset" : 'Take the staged routes';
+  clear.disabled = !stagedCount();
 }
 
 // As a History row's route chips: a press puts the end in its patch box, Ctrl+click adds a destination. A chip of

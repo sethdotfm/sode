@@ -2,7 +2,8 @@
 // So another adapter can drive the same view. ctx is panelrun.js's: { ui, art, embedded, page, id, call, callJSON, post,
 // poll, ready, instance, keyed, touched }. The main page's Grid popup (gridpopup.js) is an adapter with no saved panel.
 // It gives confirm(routes, { warnings, onSent }), asking(), shown(), undo() and onStage(staged) in place of an id and post.
-// gridpanelmode.js says which parts the body then has.
+// gridpanelmode.js says which parts the body then has. An adapter's optional pressMode() gives a press policy
+// (gridpaneladd.js) or null. A policy takes the presses, and then nothing is staged or sent.
 // The rules are pure modules (gridpanel*.js); this file joins them to the DOM.
 import { envFrom, namesFrom } from './panelrules.js';
 import { arrange } from './gridpanelarrange.js';
@@ -49,14 +50,11 @@ import { gridLevelBox } from './gridpanellevelbox.js';
 import { gridEmpty } from './gridpanelempty.js';
 import { gridTake } from './gridpaneltake.js';
 import { gridParts } from './gridpanelmode.js';
-import { dstNow, srcNow } from './gridpanelnow.js';
 
 const NOTE_MS = 4000;
 const UNDO_MOVED = 'The Undo target changed. Press u again.';
 // Like the moves, these work in an embedded run only with focus in the grid.
 const FIND_KEYS = new Set(['findSrcs', 'findDsts', 'nextMatch', 'prevMatch']);
-// Keys that stage, send or undo. While the Grid popup adds to a preset they do nothing.
-const SEND_KEYS = new Set(['line', 'unstage', 'undo', 'confirm']);
 const sameList = (a, b) => a.length === b.length && a.every((x, k) => x === b[k]);
 const sameAxes = (a, b) => sameList(a.srcs, b.srcs) && sameList(a.dsts, b.dsts);
 
@@ -70,9 +68,7 @@ const inControl = (grid) => {
 export function gridBody(ctx, first) {
   const { ui } = ctx;
   const parts = gridParts(ctx, first);
-  // The Grid popup while the preset editor adds patches (gridpopup.js ctx.adding and ctx.add): a press adds to the
-  // preset and stages and sends nothing.
-  const adding = () => !!ctx.adding?.();
+  const pressMode = () => ctx.pressMode?.() || null;
   let panel = first;
   let st = createStage({ mode: parts.mode });
   let tally = null;
@@ -101,9 +97,7 @@ export function gridBody(ctx, first) {
   let picks = createPicks();
   let toldPicks = null;
   let toldStaged = null;
-  let at = null; // the crosspoint under the cursor, whose press the preview shows.
-  // { xps, srcs, dsts } of the preset the Grid popup adds to, as of the last render.
-  let kept = null;
+  let at = null; // the crosspoint under the cursor, whose press the preview shows
   let cur = CORNER;
   // After a pointer move a scroll moves the cursor to what is under the pointer; after a key it does not.
   let ptr = null; // { x, y } in client px while the pointer leads, else null.
@@ -145,9 +139,7 @@ export function gridBody(ctx, first) {
     pie: (s, d) => pieOn(env, s, d),
     staged,
     held: (d) => st.staged.some((x) => x.dst === d),
-    // The Grid popup's add mode (ctx.preset): the routes already in the preset, and the names that have rows there.
-    inPreset: (s, d) => !!kept?.xps.has(`${s},${d}`),
-    presetName: (kind, n) => !!kept?.[kind].has(n),
+    marks: null, // the press policy's marks and words (gridpaneladd.js) as of the last render
     picked: (kind, n) => picks[kind].includes(n),
     // Filter shows only matches, so only Find marks them.
     found: (kind, n) => find.mode === 'find' && matched[kind].has(n),
@@ -178,10 +170,6 @@ export function gridBody(ctx, first) {
   // Numbered targets only while names are picked; a press with none is the crosspoint itself. A phone has no hover,
   // so with no crosspoint under the cursor the targets show from the picks' rest point.
   const preview = () => {
-    if (adding()) {
-      g.line(null);
-      return g.preview([]);
-    }
     if (line) {
       const { kept, r } = lineDry();
       g.line(lineShown(picks, line.a, line.b, axes));
@@ -189,12 +177,12 @@ export function gridBody(ctx, first) {
     }
     g.line(null);
     const from = at || (phone() && restPoint(picks, axes, cur));
-    const pairs = from && pickCount(picks) ? pairsAt(from) : [];
+    const pairs = from && pickCount(picks) && !pressMode() ? pairsAt(from) : [];
     g.preview(pairs, pairs.length > 1 && stageRoutes(st, pairs, pressLevels()).st.error?.code === 'cap');
   };
 
   const render = () => {
-    kept = adding() ? ctx.preset?.() || null : null;
+    view.marks = pressMode()?.marks() || null;
     paintLevels();
     dirty = false;
     out = leftOut(st, world());
@@ -205,7 +193,7 @@ export function gridBody(ctx, first) {
     const n = stagedCount(st);
     showNote(count, n ? `${n} staged` : '');
     takeRow.paint(
-      { mode: st.mode, staged: n, busy: st.busy, adding: adding() },
+      { mode: st.mode, staged: n, busy: st.busy, canSend: !pressMode() },
       pickNote({ srcs: picks.srcs.length, dsts: picks.dsts.length, staged: n }),
       !!clearAction(clearCtx()),
     );
@@ -242,8 +230,8 @@ export function gridBody(ctx, first) {
       render();
     }
   }
-  // From the run after each poll and every second.
-  const tick = () => (dirty ? render() : status());
+  // From the run after each poll and every second. New policy marks (the host's fresh()) paint in full.
+  const tick = () => (dirty || (pressMode()?.marks() || null) !== view.marks ? render() : status());
 
   // The view moves its nodes to the new items only when the shown sources or destinations change.
   const rebuild = () => {
@@ -418,7 +406,6 @@ export function gridBody(ctx, first) {
   // Routes that no longer apply are left out with the reason and dropped here. With the box off (st.ask false), this
   // is the Confirm and sends at once; Instant mode always asks.
   function openConfirm() {
-    if (adding()) return;
     if (!parts.ownConfirm) return askPage();
     if (!confirm || st.busy) return;
     const ask = st.ask || st.mode === 'instant';
@@ -457,21 +444,20 @@ export function gridBody(ctx, first) {
     render();
   }
 
-  function addNow(kind, n) {
-    const levels = pressLevels();
-    const r =
-      kind === 'xp'
-        ? { items: [{ src: n.src, dsts: [n.dst], levels }], outside: 0 }
-        : kind === 'dsts'
-          ? dstNow(env.tally, n, levels, (s) => shownSrcs.has(s))
-          : srcNow(env.tally, n, levels, full.dsts);
-    const said = ctx.add({ kind, n, levels, ...r });
-    note = noteOf(said.text, said.ok);
+  // A press policy takes the press: true when there is one. An Alt-click or an open Confirm adds nothing.
+  function policyPress(kind, n, e) {
+    const m = pressMode();
+    if (m && !e?.altKey && !asking()) say(m.press(kind, n, { levels: pressLevels(), tally: env.tally, srcs: shownSrcs, dsts: full.dsts }));
+    return !!m;
+  }
+  // A result as a press's own note; the host's too (the Grid popup's Add).
+  function say({ text, ok }) {
+    note = noteOf(text, ok);
     render();
   }
 
   function onPress(xp, e) {
-    if (adding()) return e?.altKey || asking() ? undefined : addNow('xp', xp);
+    if (policyPress('xp', xp, e)) return;
     if (!ctx.ready() || st.busy || asking()) return;
     if (e?.altKey) return unstageAt(xp);
     ctx.touched();
@@ -506,10 +492,10 @@ export function gridBody(ctx, first) {
     render();
   }
 
-  const canStage = () => ctx.ready() && !st.busy && !asking();
+  const canStage = () => ctx.ready() && !st.busy && !asking() && !pressMode();
 
   function lineStart(a) {
-    if (!canStage() || adding()) return gest.cancel();
+    if (!canStage()) return gest.cancel();
     ctx.touched();
     line = { a, b: a, keys: false };
     // A full render, so the Clear button can drop the line.
@@ -576,7 +562,7 @@ export function gridBody(ctx, first) {
   let spanBase = null;
   let spanFrame = 0;
   function onSpan(kind, from, to, add) {
-    if (!ctx.ready() || adding()) return;
+    if (!ctx.ready() || pressMode()) return;
     spanBase ??= picks;
     picks = dragPick(spanBase, kind, from, to, add, axes[kind]);
     spanFrame ||= requestAnimationFrame(() => {
@@ -586,7 +572,7 @@ export function gridBody(ctx, first) {
   }
 
   function onName(kind, n, e) {
-    if (adding()) return asking() ? undefined : addNow(kind, n);
+    if (policyPress(kind, n)) return;
     if (!ctx.ready()) return;
     // A finger has no modifier keys on any layout, so a touch tap adds or removes too.
     picks = pickName(picks, kind, n, tapMods(e, phone() || e.pointerType === 'touch'), axes[kind]);
@@ -658,7 +644,7 @@ export function gridBody(ctx, first) {
     const kind = ranged ? rangeKind(cur, act.slice('range:'.length)) : barOf(cur);
     const name = (c) => cursorAt(c, axes)[kind === 'srcs' ? 'src' : 'dst'];
     if (!ctx.ready() || !g || (kind !== 'srcs' && kind !== 'dsts')) return;
-    if (adding()) return act === 'pick' || act === 'add' ? addNow(kind, name(cur)) : undefined;
+    if (pressMode()) return ranged || policyPress(kind, name(cur));
     if (act === 'pick' || act === 'add') picks = pickName(picks, kind, name(cur), { toggle: act === 'add' }, axes[kind]);
     else {
       const from = name(cur);
@@ -728,11 +714,10 @@ export function gridBody(ctx, first) {
       bar: barOf(cur),
       finding,
       line: !!line,
-      adding: adding(),
+      canSend: !pressMode(),
     });
     // A phone has no key list. With no saved panel, Esc never drops the staged routes: they stay for the page's list.
     if (!act || (act === 'keys' && (!keyList || phone())) || (act === 'drop' && !parts.panel)) return;
-    if (adding() && SEND_KEYS.has(act)) return;
     const moves =
       MOVES.has(act) ||
       act === 'pick' ||
@@ -857,13 +842,7 @@ export function gridBody(ctx, first) {
       render();
     },
     openConfirm,
-    // A full paint: the host's own state changed (the Grid popup's preset rows).
-    repaint: () => render(),
-    // A note from the host, as a press's own (the Grid popup's Add).
-    say(text, ok) {
-      note = noteOf(text, ok);
-      render();
-    },
+    say,
     drop() {
       clearStep('drop');
     },

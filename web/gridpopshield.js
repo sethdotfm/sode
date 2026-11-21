@@ -2,7 +2,8 @@
 // at the outer edge of the name under the pointer, or of the cursor's name after a key. So it covers no crosspoint,
 // and the grid's own name nodes stay as they are. On a picked name it acts on every picked destination with the same offer
 // (shieldTargets). A protected name always shows its owner mark (gridpanelnodes.js). protects.js decides what is
-// offered and makes the plan; confirm(plan) opens the main page's Confirm.
+// offered and makes the plan; confirm(plan) opens the main page's Confirm. off() is true while the popup's press policy
+// sends nothing (gridpopup.js), so the shield never shows then.
 import { el, icon, on, dstItem } from './core.js';
 import { protectOfferOf, protectManyPlan } from './protects.js';
 import { shieldTargets } from './protectrules.js';
@@ -17,7 +18,7 @@ function shieldTip(set, dsts) {
   return set ? `Protect ${label} on every level` : `Free the Protect on ${label}`;
 }
 
-export function gridShield(box, grid, confirm) {
+export function gridShield(box, grid, confirm, off) {
   const b = el('button', { class: 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode-gridpop__shield', type: 'button', hidden: true });
   b.addEventListener('mousedown', (e) => e.preventDefault());
   let targets = []; // the destination numbers the button acts on
@@ -36,7 +37,7 @@ export function gridShield(box, grid, confirm) {
   function place(node) {
     at = node;
     const n = node ? Number(node.dataset.dst) : NaN;
-    const t = Number.isNaN(n) ? null : shieldTargets(n, picked, protectOfferOf);
+    const t = Number.isNaN(n) || off() ? null : shieldTargets(n, picked, protectOfferOf);
     if (!t) {
       b.hidden = true;
       targets = [];

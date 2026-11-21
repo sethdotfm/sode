@@ -3,7 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { dstNow, srcNow } from '../gridpanelnow.js';
-import { addedLine, noRouteLine, presetMarks, rowsWord } from '../gridpoprules.js';
+import { addedLine, noRouteLine, rowsWord } from '../gridpoprules.js';
+import { presetMarks, pressItems, addPolicy } from '../gridpaneladd.js';
 import { gridKeyAction } from '../gridpanelkeys.js';
 
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
@@ -81,12 +82,42 @@ test('the popup says why a name added nothing', () => {
 
 const key = (k) => ({ key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false });
 
-test('while adding, Enter adds as Space does and never confirms a take', () => {
-  assert.equal(gridKeyAction(key('Enter'), { staged: 2, adding: true, bar: null }), 'press');
-  assert.equal(gridKeyAction(key('Enter'), { staged: 0, adding: true, bar: 'dsts' }), 'pick');
-  assert.equal(gridKeyAction(key('Enter'), { staged: 0, adding: true, bar: 'corner' }), null);
-  assert.equal(gridKeyAction(key('Enter'), { staged: 2, adding: true, inControl: true }), null);
-  assert.equal(gridKeyAction(key('Enter'), { staged: 2, adding: false, bar: null }), 'confirm');
+test('with no sending, Enter presses as Space does and never confirms a take', () => {
+  assert.equal(gridKeyAction(key('Enter'), { staged: 2, canSend: false, bar: null }), 'press');
+  assert.equal(gridKeyAction(key('Enter'), { staged: 0, canSend: false, bar: 'dsts' }), 'pick');
+  assert.equal(gridKeyAction(key('Enter'), { staged: 0, canSend: false, bar: 'corner' }), null);
+  assert.equal(gridKeyAction(key('Enter'), { staged: 2, canSend: false, inControl: true }), null);
+  assert.equal(gridKeyAction(key('Enter'), { staged: 2, bar: null }), 'confirm');
+});
+
+test('with no sending, the keys that stage a line, unstage, undo or confirm do nothing', () => {
+  const c = { staged: 2, canSend: false, bar: null };
+  for (const k of ['v', 'u', 'Delete', 'Backspace']) assert.equal(gridKeyAction(key(k), c), null, k);
+  assert.equal(gridKeyAction(key('u'), { staged: 2, bar: null }), 'undo');
+  assert.equal(gridKeyAction(key(' '), c), 'press');
+  assert.equal(gridKeyAction(key('ArrowDown'), c), 'down');
+});
+
+test('the add policy adds what a press names, and its marks follow the rows after fresh()', () => {
+  const w = { levels: [1, 2], tally, srcs: new Set([3]), dsts: [5, 6, 8] };
+  assert.deepEqual(pressItems('xp', { src: 4, dst: 7 }, w), { items: [{ src: 4, dsts: [7], levels: [1, 2] }], outside: 0 });
+  assert.deepEqual(pressItems('dsts', 5, { ...w, levels: [1, 2, 3] }), { items: [{ src: 3, dsts: [5], levels: [1, 2] }], outside: 1 });
+  assert.deepEqual(pressItems('srcs', 3, w).items, [
+    { src: 3, dsts: [5, 8], levels: [1, 2] },
+    { src: 3, dsts: [6], levels: [1] },
+  ]);
+  let rows = [];
+  const got = [];
+  const p = addPolicy({ add: (r) => (got.push(r), { ok: true, text: 'ok' }), rows: () => rows, words: { name: 'in preset', route: ', in the preset' } });
+  assert.deepEqual(p.press('xp', { src: 4, dst: 7 }, w), { ok: true, text: 'ok' });
+  assert.equal(got[0].kind, 'xp');
+  assert.deepEqual(got[0].levels, [1, 2]);
+  assert.equal(p.marks().rows, 0);
+  rows = [{ src: 4, dsts: [7], levels: [] }];
+  assert.equal(p.marks().rows, 0);
+  p.fresh();
+  assert.equal(p.marks().xps.has('4,7'), true);
+  assert.equal(p.marks().words.name, 'in preset');
 });
 
 const it = (src, dsts, levels = []) => ({ src, dsts, levels });
