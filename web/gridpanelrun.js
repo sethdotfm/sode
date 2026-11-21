@@ -49,11 +49,14 @@ import { gridLevelBox } from './gridpanellevelbox.js';
 import { gridEmpty } from './gridpanelempty.js';
 import { gridTake } from './gridpaneltake.js';
 import { gridParts } from './gridpanelmode.js';
+import { dstNow, srcNow } from './gridpanelnow.js';
 
 const NOTE_MS = 4000;
 const UNDO_MOVED = 'The Undo target changed. Press u again.';
 // Like the moves, these work in an embedded run only with focus in the grid.
 const FIND_KEYS = new Set(['findSrcs', 'findDsts', 'nextMatch', 'prevMatch']);
+// Keys that stage, send or undo. While the Grid popup adds to a preset they do nothing.
+const SEND_KEYS = new Set(['line', 'unstage', 'undo', 'confirm']);
 const sameList = (a, b) => a.length === b.length && a.every((x, k) => x === b[k]);
 const sameAxes = (a, b) => sameList(a.srcs, b.srcs) && sameList(a.dsts, b.dsts);
 
@@ -167,6 +170,10 @@ export function gridBody(ctx, first) {
   // Numbered targets only while names are picked; a press with none is the crosspoint itself. A phone has no hover,
   // so with no crosspoint under the cursor the targets show from the picks' rest point.
   const preview = () => {
+    if (adding()) {
+      g.line(null);
+      return g.preview([]);
+    }
     if (line) {
       const { kept, r } = lineDry();
       g.line(lineShown(picks, line.a, line.b, axes));
@@ -189,7 +196,7 @@ export function gridBody(ctx, first) {
     const n = stagedCount(st);
     showNote(count, n ? `${n} staged` : '');
     takeRow.paint(
-      { mode: st.mode, staged: n, busy: st.busy },
+      { mode: st.mode, staged: n, busy: st.busy, adding: adding() },
       pickNote({ srcs: picks.srcs.length, dsts: picks.dsts.length, staged: n }),
       !!clearAction(clearCtx()),
     );
@@ -402,6 +409,7 @@ export function gridBody(ctx, first) {
   // Routes that no longer apply are left out with the reason and dropped here. With the box off (st.ask false), this
   // is the Confirm and sends at once; Instant mode always asks.
   function openConfirm() {
+    if (adding()) return;
     if (!parts.ownConfirm) return askPage();
     if (!confirm || st.busy) return;
     const ask = st.ask || st.mode === 'instant';
@@ -440,7 +448,24 @@ export function gridBody(ctx, first) {
     render();
   }
 
+  // The Grid popup while the preset editor adds patches (gridpopup.js ctx.adding and ctx.add): a press adds to the
+  // preset and stages and sends nothing.
+  const adding = () => !!ctx.adding?.();
+  function addNow(kind, n) {
+    const levels = pressLevels();
+    const r =
+      kind === 'xp'
+        ? { items: [{ src: n.src, dsts: [n.dst], levels }], outside: 0 }
+        : kind === 'dsts'
+          ? dstNow(env.tally, n, levels, (s) => shownSrcs.has(s))
+          : srcNow(env.tally, n, levels, full.dsts);
+    const said = ctx.add({ kind, n, levels, ...r });
+    note = noteOf(said.text, said.ok);
+    render();
+  }
+
   function onPress(xp, e) {
+    if (adding()) return e?.altKey || asking() ? undefined : addNow('xp', xp);
     if (!ctx.ready() || st.busy || asking()) return;
     if (e?.altKey) return unstageAt(xp);
     ctx.touched();
@@ -478,7 +503,7 @@ export function gridBody(ctx, first) {
   const canStage = () => ctx.ready() && !st.busy && !asking();
 
   function lineStart(a) {
-    if (!canStage()) return gest.cancel();
+    if (!canStage() || adding()) return gest.cancel();
     ctx.touched();
     line = { a, b: a, keys: false };
     // A full render, so the Clear button can drop the line.
@@ -545,7 +570,7 @@ export function gridBody(ctx, first) {
   let spanBase = null;
   let spanFrame = 0;
   function onSpan(kind, from, to, add) {
-    if (!ctx.ready()) return;
+    if (!ctx.ready() || adding()) return;
     spanBase ??= picks;
     picks = dragPick(spanBase, kind, from, to, add, axes[kind]);
     spanFrame ||= requestAnimationFrame(() => {
@@ -555,6 +580,7 @@ export function gridBody(ctx, first) {
   }
 
   function onName(kind, n, e) {
+    if (adding()) return asking() ? undefined : addNow(kind, n);
     if (!ctx.ready()) return;
     // A finger has no modifier keys on any layout, so a touch tap adds or removes too.
     picks = pickName(picks, kind, n, tapMods(e, phone() || e.pointerType === 'touch'), axes[kind]);
@@ -626,6 +652,7 @@ export function gridBody(ctx, first) {
     const kind = ranged ? rangeKind(cur, act.slice('range:'.length)) : barOf(cur);
     const name = (c) => cursorAt(c, axes)[kind === 'srcs' ? 'src' : 'dst'];
     if (!ctx.ready() || !g || (kind !== 'srcs' && kind !== 'dsts')) return;
+    if (adding()) return act === 'pick' || act === 'add' ? addNow(kind, name(cur)) : undefined;
     if (act === 'pick' || act === 'add') picks = pickName(picks, kind, name(cur), { toggle: act === 'add' }, axes[kind]);
     else {
       const from = name(cur);
@@ -695,9 +722,11 @@ export function gridBody(ctx, first) {
       bar: barOf(cur),
       finding,
       line: !!line,
+      adding: adding(),
     });
     // A phone has no key list. With no saved panel, Esc never drops the staged routes: they stay for the page's list.
     if (!act || (act === 'keys' && (!keyList || phone())) || (act === 'drop' && !parts.panel)) return;
+    if (adding() && SEND_KEYS.has(act)) return;
     const moves =
       MOVES.has(act) ||
       act === 'pick' ||
@@ -822,6 +851,11 @@ export function gridBody(ctx, first) {
       render();
     },
     openConfirm,
+    // A note from the host, as a press's own (the Grid popup's Add).
+    say(text, ok) {
+      note = noteOf(text, ok);
+      render();
+    },
     drop() {
       clearStep('drop');
     },

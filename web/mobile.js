@@ -71,15 +71,24 @@ function syncGo() {
   setLinkDisabled($('m-go'), M.step === 'lvl' && !linked());
 }
 
+// While the preset editor adds patches, Go is Add (historypick.js): advance adds the patch and sends nothing.
+function paintGo() {
+  const last = M.step === 'lvl';
+  const adding = boxPicking();
+  $('m-go').textContent = !last ? 'Next' : adding ? 'Add' : 'Go';
+  $('m-go').classList.toggle('pb-btn--danger', last && !adding);
+  $('m-go').classList.toggle('pb-btn--ok', last && adding);
+  syncGo();
+}
+on('pick', paintGo);
+
 function setStep(step, focus = true) {
   M.step = step;
   $('m-bar').dataset.step = step;
   for (const k of STEPS) inputs[k].hidden = k !== step;
   $('m-step').textContent = PROMPT[step];
   $('m-step').htmlFor = inputs[step].id;
-  $('m-go').textContent = step === 'lvl' ? 'Go' : 'Next';
-  $('m-go').classList.toggle('pb-btn--danger', step === 'lvl');
-  syncGo();
+  paintGo();
   $('m-add').hidden = step !== 'dst';
   $('m-picker').hidden = step !== 'lvl';
   $('m-ops').hidden = step !== 'lvl';

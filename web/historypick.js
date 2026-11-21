@@ -64,15 +64,26 @@ export const MODES = {
     aria: 'Add patches from the patch boxes',
     follows: false,
     cancelText: 'Done',
+    // The patch boxes' Take reads Add in this mode (desktop.js, mobile.js), so the bar has no Add of its own.
+    addShown: false,
     count: (s) => s.note,
     addText: () => 'Add',
     canAdd: () => true,
     add(s) {
       s.note = s.onAddPatch();
+      // onAddPatch says "Added N rows" or why it added nothing.
+      s.ok = /^Added /.test(s.note);
       update();
     },
     // Esc still clears a box or closes its list first.
     escCancels: (e) => !(e.target instanceof HTMLInputElement && (e.target.value || e.target.getAttribute('aria-expanded') === 'true')),
+    // From the Grid popup (gridpopup.js): items are preset items, the routes a click picked.
+    addItems(s, items) {
+      const r = s.onAddItems(items);
+      s.note = r.count;
+      update();
+      return r;
+    },
   },
 };
 
@@ -91,14 +102,16 @@ export function togglePick(key) {
   update();
 }
 
-// opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() };
-// mode 'boxes': { label, onAddPatch() (adds the boxes' patch, returns a line
-// to show), onCancel() (Done) }.
+// opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() }.
+// Mode 'boxes' has { label, onAddPatch(), onAddItems(items), onCancel() }. onAddPatch adds the boxes' patch and returns
+// a line to show. onAddItems answers { ok, rows, text, count }. onCancel is Done.
 export function startPick(opts) {
   if (st) return;
   st = { mode: 'history', ...opts, picked: new Set(), follows: false, note: '' };
   followsIn.checked = false;
   document.documentElement.dataset.sodePick = st.mode === 'boxes' ? 'boxes' : '';
+  const chip = document.querySelector('.sode-lock__who');
+  if (chip) chipSize?.observe(chip);
   update();
 }
 
@@ -113,6 +126,12 @@ function finish(fn) {
 export const endPick = () => finish(null);
 const cancel = () => finish((s) => s.onCancel?.());
 export const addPatch = () => st?.mode === 'boxes' && MODES.boxes.add(st);
+// The Grid popup's seams: its clicks add here, its Done ends the mode, and its header names the preset.
+export const addItems = (items) => (st?.mode === 'boxes' ? MODES.boxes.addItems(st, items) : { ok: false, text: '' });
+export const donePick = () => cancel();
+// The bar's last line after an Add of the boxes' patch, and whether it added: { text, ok }.
+export const pickNote = () => ({ text: st?.note || '', ok: !!st?.ok });
+export const pickLabel = () => (st?.label ? `“${st.label}”` : 'the preset');
 const add = () => st && MODES[st.mode].add(st);
 
 const msg = el('strong', 'sode__pickbar-msg');
@@ -150,7 +169,7 @@ function update() {
   if (st) {
     const m = MODES[st.mode];
     const t = m.taken?.(st) || [];
-    msg.textContent = m.msg(st.label ? `“${st.label}”` : 'the preset');
+    msg.textContent = m.msg(pickLabel());
     sub.textContent = m.sub || '';
     bar.setAttribute('aria-label', m.aria);
     followsBox.hidden = !m.follows;
@@ -159,24 +178,36 @@ function update() {
     count.textContent = m.count(st, t);
     addBtn.textContent = m.addText(st, t);
     addBtn.disabled = !m.canAdd(st, t);
+    addBtn.hidden = m.addShown === false;
   }
   emit('pick');
 }
 
+// The title starts at the page content's left edge and Done ends at its right edge, as the boxes below them. The lock
+// chip at the left can push the title further in.
 function clearChip() {
   const chip = document.querySelector('.sode-lock__who');
   const r = chip && !chip.hidden ? chip.getBoundingClientRect() : null;
-  bar.style.paddingLeft = r && r.width ? `calc(${Math.ceil(r.right)}px + var(--pb-space-7))` : '';
+  const page = document.documentElement.dataset.layout === 'phone' ? null : document.getElementById('patch-view')?.getBoundingClientRect();
+  const left = page?.width ? Math.floor(page.left) : 0;
+  const past = r && r.width ? `${Math.ceil(r.right)}px + var(--pb-space-7)` : '0px';
+  bar.style.paddingLeft = left || (r && r.width) ? `max(var(--pb-space-6), ${left}px, ${past})` : '';
+  const right = page?.width ? Math.floor(bar.getBoundingClientRect().right - page.right) : 0;
+  bar.style.paddingRight = right > 0 ? `max(var(--pb-space-6), ${right}px)` : '';
 }
 globalThis.addEventListener?.('resize', () => {
   if (st) clearChip();
 });
+// The chip moves when the Lock goes and grows on a sign-in, both while the bar can show.
+document.addEventListener('transitionend', (e) => st && e.target.closest?.('.sode-lock__who') && clearChip());
+const chipSize = globalThis.ResizeObserver ? new ResizeObserver(() => st && clearChip()) : null;
 
 document.addEventListener(
   'keydown',
   (e) => {
     if (!st || e.key !== 'Escape') return;
-    if (!MODES[st.mode].escCancels(e)) return;
+    // While the Grid popup shows, Esc closes the popup only (gridpopup.js).
+    if (document.getElementById('grid-pop')?.hidden === false || !MODES[st.mode].escCancels(e)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     cancel();

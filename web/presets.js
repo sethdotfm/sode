@@ -26,6 +26,7 @@ import {
   storedPreset,
   presetProblem,
   presetsProblem,
+  itemsToAdd,
   replacePreset,
   saveLocalPreset,
   deleteLocalPreset,
@@ -402,6 +403,7 @@ scopeIn.addEventListener('change', () => {
 
 // The editor hides while the patch boxes stay live (historypick.js).
 let added = 0;
+const addedText = () => `Added ${added} row${added === 1 ? '' : 's'}`;
 function addFromBoxes() {
   if (!shown()) return setNote('The patch boxes are not showing.', true);
   picking = true;
@@ -424,7 +426,20 @@ function addFromBoxes() {
       addRows([{ src: p.src.n, dsts: p.dsts.map((d) => d.n), levels: p.levels }], '');
       host.clear();
       added++;
-      return `Added ${added} row${added === 1 ? '' : 's'}`;
+      return addedText();
+    },
+    // From the Grid popup (gridpopup.js): the routes a click picked, as preset items.
+    onAddItems: (items) => {
+      const have = cur.items.map(parseRow).filter((p) => !p.error && p.item.src >= 0 && p.item.dsts.length);
+      const r = itemsToAdd(
+        have.map((p) => p.item),
+        items,
+      );
+      if (r.err) return { ok: false, text: r.err, count: added ? addedText() : '' };
+      if (!r.items.length) return { ok: false, text: 'Already in the preset.', count: added ? addedText() : '' };
+      addRows(r.items, '');
+      added += r.items.length;
+      return { ok: true, rows: r.items.length, count: addedText() };
     },
   });
   shown().focus();

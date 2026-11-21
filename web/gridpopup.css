@@ -141,9 +141,45 @@
 .sode-gridpop__band > .sode-gridpop__act {
   height: var(--sode-h-action);
 }
-/* The phone has the popup's own Take and Clear under the grid. */
+.sode-gridpop__band > .sode-gridpop__act[hidden] {
+  display: none;
+}
+/* Adding to a preset (gridpopup.js paintMode): the page's accent bar over the band, and an accent edge round the box,
+   so the popup never reads as the take grid. */
+.sode-gridpop[data-adding] > .sode-gridpop__box {
+  border-color: var(--pb-accent);
+  box-shadow: 0 0 0 var(--sode-side-w) var(--pb-accent);
+}
+.sode-gridpop__adding {
+  background: var(--pb-accent);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  flex-direction: column;
+  padding: var(--pb-space-3) var(--pb-space-5);
+}
+.sode-gridpop__adding[hidden] {
+  display: none;
+}
+.sode-gridpop__adding-msg {
+  font-size: var(--pb-text-lg);
+}
+.sode-gridpop__adding-sub {
+  font-size: var(--pb-text-sm);
+}
+/* The phone has the popup's own Take and Clear under the grid. While it adds to a preset, Done still shows. */
 :root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act {
   display: none;
+}
+:root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act.sode-gridpop__done:not([hidden]) {
+  display: inline-flex;
+}
+/* The phone band has no room for Done and the note side by side, so the note gets its own row under them. */
+:root[data-layout="phone"] .sode-gridpop[data-adding] .sode-gridpop__band {
+  flex-wrap: wrap;
+}
+:root[data-layout="phone"] .sode-gridpop[data-adding] .sode-gridpop__band > .sode-gridpop__note {
+  flex-basis: 100%;
+  order: 3;
 }
 
 /* The staged list under the patch boxes: about six rows, then a little scroll bar (bigscroll.js). */
