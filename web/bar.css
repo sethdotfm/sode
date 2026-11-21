@@ -117,6 +117,11 @@
 :where(:root:not([data-layout="phone"], [data-sode-kiosk]):has(.sode-bar)) div.sode-lock__who {
   left: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x) - var(--pb-space-3));
 }
+/* The Lock bar scrolls with the header: both sit at the page's top (space-4 under the lost-link banner), not the
+   viewport's. Under a lock overlay it is fixed again, so lock.css can move it inside the overlay's border. */
+:root:not([data-layout="phone"], [data-sode-kiosk], [data-sode-lock]):has(.sode-bar) .sode-lock__who {
+  position: absolute;
+}
 [data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-bar {
   padding-inline-start: calc(var(--sode-who-w, 0px) - var(--pb-space-3) + var(--pb-space-4));
 }

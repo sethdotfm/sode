@@ -30,6 +30,18 @@ func TestChromePanelsTopBar(t *testing.T) {
 			const right = box ? r(box).right - parseFloat(cs.paddingRight) : Math.max(...content.map((n) => r(n).right));
 			return [lock, title, conn].every((n) => Math.abs(mid(n) - mid(head)) < 2) && Math.abs(r(lock).left - r(head).left) < 1.5 && r(title).left >= r(document.querySelector('.sode-lock__who')).right
 				&& Math.abs(r(head).left - left) < 1.5 && Math.abs(r(head).right - right) < 1.5 && Math.abs(r(conn).right - r(head).right) < 1.5;
+		};
+		// The Lock bar scrolls with the header: after a scroll it keeps its offset to the bar's first button.
+		window.sticks = () => {
+			const pad = document.body.appendChild(Object.assign(document.createElement('div'), { style: 'height: 3000px' }));
+			const first = document.querySelector('.sode-bar .sode-bar__tools > *'), lock = document.querySelector('.sode-lock__who-slot');
+			const off = () => lock.getBoundingClientRect().top - first.getBoundingClientRect().top;
+			const before = off();
+			window.scrollTo({ left: 0, top: 400, behavior: 'instant' });
+			const ok = window.scrollY === 400 && first.getBoundingClientRect().top < 0 && Math.abs(off() - before) < 1;
+			window.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+			pad.remove();
+			return ok;
 		}; true`
 	b.open(srv.URL + "/panels")
 	signInOnPad(b)
@@ -41,6 +53,7 @@ func TestChromePanelsTopBar(t *testing.T) {
 			&& /^Sode \((Alt\+Shift\+|⌥⇧)h\)$/.test(document.querySelector('.sode-bar__home').dataset.pbTip) && document.querySelector('.sode-bar__home').getAttribute('aria-keyshortcuts') === 'Alt+Shift+H';
 	})()`)
 	b.waitFor("the Lock bar, the site name and the status are on one line, inside the content's edges", `lined(document.querySelector('.sode-panels__head'))`)
+	b.waitFor("on /panels the Lock bar scrolls with the header", `sticks()`)
 	b.eval(`window.connAt = document.querySelector('.sode-panels__head > .sode__conn').getBoundingClientRect().left; document.querySelector('.sode-panels__title .sode-bar__name').textContent = 'SodeExtremev2222222222'.repeat(4) + ' Panels'; true`)
 	b.waitFor("a long site name is cut and moves nothing", `(() => {
 		const head = document.querySelector('.sode-panels__head'), name = head.querySelector('.sode-bar__name');
@@ -49,6 +62,8 @@ func TestChromePanelsTopBar(t *testing.T) {
 	b.shot("panels")
 	b.eval(`document.querySelector('.sode-bar__home').click(); true`)
 	b.waitFor("Home opens Sode", `location.pathname === '/'`)
+	b.eval(links)
+	b.waitFor("on Home the Lock bar scrolls with the header", `!document.querySelector('.sode-lock__who').hidden && sticks()`)
 
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("the lists show", `!!document.getElementById('ed-sources-col')?.offsetParent`)
@@ -86,6 +101,7 @@ func TestChromePanelsTopBar(t *testing.T) {
 		const head = document.querySelector('.sode-log__head');
 		return head.classList.contains('sode-bar') && links(head) === './:#pb-i-house ./#settings:#pb-i-settings' && noBack() && !!head.querySelector('[data-inbox-button]') && lined(head);
 	})()`)
+	b.waitFor("on /log the Lock bar scrolls with the header", `sticks()`)
 	b.shot("log")
 
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": true})
