@@ -220,7 +220,7 @@ func (a *App) qualifiesMu(q *client, r *approvalRequest) bool {
 	case !a.userOKMu(q, cfg) || !q.u.user.Load().HasPin():
 		return false
 	}
-	// The approver's own Role: the Guest role never lifts it (config.ActsWithGuest).
+	// The approver's own Role: the Guest role never lifts it (config.ActsOnOpenPage).
 	u, _ := cfg.FindUserByID(q.u.user.Load().ID)
 	role, _ := cfg.ActsAs(u)
 	return config.RoleAtLeast(role, r.need)

@@ -92,15 +92,23 @@ func (c Config) ActsAs(u User) (string, Rights) {
 	return role, u.Rights.ProtectFor(role).Intersect(guest)
 }
 
-// ActsWithGuest: what u acts with on a page open to guests. Signing in never gives less than a guest has there, so the
-// Role is the higher of the two and the Rights are the union. Approvals and PIN rechecks use ActsAs alone.
-func (c Config) ActsWithGuest(u User) (string, Rights) {
+// ActsOnOpenPage: what u acts with on a page open to guests. The Role is the higher of theirs and the Guest role.
+// The Rights stay u's own; only an unset Protect right is on when the raised Role or the guest gives it. Approvals and
+// PIN rechecks use ActsAs alone.
+func (c Config) ActsOnOpenPage(u User) (string, Rights) {
 	role, rt := c.ActsAs(u)
-	grole, grt := c.GuestActs()
+	if !u.HasPin() { // ActsAs gives such a user the Guest role already, with no more than Guest Rights
+		return role, rt
+	}
+	grole, guest := c.GuestActs()
 	if roleRank(grole) > roleRank(role) {
 		role = grole
 	}
-	return role, rt.Union(grt)
+	if u.Rights.Protect == nil {
+		on := RoleAtLeast(role, RoleTrusted) || guest.AllowsProtect()
+		rt.Protect = &on
+	}
+	return role, rt
 }
 
 // GuestActs: the Role and Rights of a guest. An unset Protect right follows the Guest role, as a user's follows

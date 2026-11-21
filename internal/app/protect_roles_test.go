@@ -206,8 +206,8 @@ func TestFreeWhatNamesTheDestinations(t *testing.T) {
 	}
 }
 
-// Signing in never gives less than a guest has on a page open to guests (config.ActsWithGuest). Under the page lock a
-// user has only their own Rights.
+// On a page open to guests a user's Role is at least the Guest role, and an unset Protect right follows it
+// (config.ActsOnOpenPage). What the user's own Rights set wins. Under the page lock only the user's own Role counts.
 func TestProtectSignedInHasAtLeastTheGuests(t *testing.T) {
 	for _, r := range []struct {
 		name string
@@ -215,7 +215,8 @@ func TestProtectSignedInHasAtLeastTheGuests(t *testing.T) {
 		want [2]string // set, free own
 	}{
 		{"page open to guests", func(*config.Config) {}, [2]string{pOK, pOK}},
-		{"own Rights say No", userRights("Bo", config.Rights{Protect: ptr(false)}), [2]string{pOK, pOK}},
+		{"own Rights say No", userRights("Bo", config.Rights{Protect: ptr(false)}), [2]string{pRights, pNone}},
+		{"own destinations narrowed", userRights("Bo", config.Rights{Dsts: nums(2)}), [2]string{pRights, pNone}},
 		{"page lock on", func(cfg *config.Config) { cfg.Locks.Main = true }, [2]string{pRights, pNone}},
 	} {
 		t.Run(r.name, func(t *testing.T) {

@@ -11,11 +11,10 @@ import (
 
 func ints(v ...int) *[]int { return &v }
 
-// rightsApp is userApp with Ana's rights set and a fake router. The page locks are on: on a page open to guests a
-// user acts with the guest's Rights too (config.ActsWithGuest).
+// rightsApp is userApp with Ana's rights set and a fake router.
 func rightsApp(t *testing.T, r config.Rights) (*App, *fakeRouter, *client) {
 	t.Helper()
-	a := userApp(t, true)
+	a := userApp(t, false)
 	f := newFakeRouter(t, a)
 	cfg := a.r().cfg
 	for i := range cfg.Users {
@@ -172,7 +171,6 @@ func TestRightsGuestApplyToSignedOutBrowser(t *testing.T) {
 	a, f, _ := rightsApp(t, config.Rights{})
 	cfg := a.r().cfg
 	cfg.GuestRights = config.Rights{Dsts: nums(5)}
-	cfg.Locks = config.Locks{}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -278,21 +276,5 @@ func TestRightsRefusalHidesNumbersFromHiddenCaller(t *testing.T) {
 	readOnly.Visibility = ""
 	if msg := a.outsideRights(rt, readOnly, []routeReq{{Src: 42, Dst: 5, Levels: []int{1}}}); !strings.Contains(msg, "source 43") {
 		t.Errorf("read-only caller: %q", msg)
-	}
-}
-
-// On a page open to guests a user has the guest's Rights too (config.ActsWithGuest). Their own narrower Rights do
-// not refuse a take that a guest could make.
-func TestRightsUnionWithGuestOnAnOpenPage(t *testing.T) {
-	a, _, c := rightsApp(t, config.Rights{Dsts: nums(5)})
-	cfg := a.r().cfg
-	cfg.Locks = config.Locks{}
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
-	for _, r := range takeResults(t, a, c, []routeReq{{ID: 1, Src: 7, Dst: 6, Levels: []int{1}}}) {
-		if !r.OK {
-			t.Fatalf("refused: %+v", r)
-		}
 	}
 }

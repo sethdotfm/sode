@@ -39,29 +39,6 @@ func TestRightsIntersect(t *testing.T) {
 	}
 }
 
-func TestRightsUnion(t *testing.T) {
-	on, off := true, false
-	for _, c := range []struct {
-		name string
-		a, b Rights
-		want string
-	}{
-		{"one open", Rights{Sources: nums(1)}, Rights{}, `{}`},
-		{"merged", Rights{Dsts: nums(1, 2)}, Rights{Dsts: nums(2, 3)}, `{"dsts":[{"router":"","n":1},{"router":"","n":2},{"router":"","n":3}]}`},
-		{"an explicit off keeps the other's on", Rights{Protect: &off}, Rights{Protect: &on}, `{"protect":true}`},
-		{"hidden only when both", Rights{Visibility: VisHidden}, Rights{}, `{}`},
-		{"both hidden", Rights{Visibility: VisHidden}, Rights{Visibility: VisHidden}, `{"visibility":"hidden"}`},
-	} {
-		got := c.a.Union(c.b)
-		if s := rightsJSON(got); s != c.want {
-			t.Errorf("%s: %s, want %s", c.name, s, c.want)
-		}
-		if !c.a.Within(got) || !c.b.Within(got) {
-			t.Errorf("%s: does not hold both", c.name)
-		}
-	}
-}
-
 func TestOwnClientsCountPerUser(t *testing.T) {
 	c := Defaults()
 	c.Users = []User{{ID: "u-1", Name: "Ana", Pin: "x"}}
