@@ -54,15 +54,15 @@ export const ACTIONS = Object.freeze([
   { id: 'undo', label: 'Undo the last Sode take', icon: 'undo-2', home: true, desktop: true, words: ['undo', 'back'] },
   { id: 'presets', label: 'All presets', icon: 'list', home: true, words: ['presets popup', 'fire'] },
   { id: 'filters', label: 'Filters', icon: 'filter', home: true, words: ['history', 'filter sets'] },
-  // The Protect picker (protectpick.js): pick destinations, then the Confirm. protect: needs the Protect right.
-  { id: 'protect', label: 'Protect', icon: 'shield', home: true, protect: true, words: ['protect destinations', 'shield'] },
+  // The Protect picker (protectpick.js): pick destinations to protect or clear, then the Confirm. protect: needs the
+  // Protect right.
   {
-    id: 'unprotect',
-    label: 'Clear Protect',
-    icon: 'shield-off',
+    id: 'protect',
+    label: 'Protect',
+    icon: 'shield',
     home: true,
     protect: true,
-    words: ['unprotect', 'clear protects', 'protect', 'shield'],
+    words: ['protect destinations', 'shield', 'clear protect', 'clear protects', 'unprotect'],
   },
   { id: 'compact', label: 'Compact view on or off', icon: 'minimize-2', home: true, desktop: true, words: ['compact', 'hide history'] },
   { id: 'theme', label: 'Dark or light theme', icon: 'moon', words: ['theme', 'dark', 'light', 'colour', 'color'] },

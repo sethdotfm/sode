@@ -102,9 +102,57 @@ export function protectOffer(p, { right, device, linked }) {
 // no users (every browser an Administrator) has it. Keep in step with AllowsProtect on the server.
 export const protectRight = (rights, role, users) => (rights ? rights.protect === true : role === 'administrator' && !users?.length);
 
-// The Protect picker's rows (protectpick.js): the destinations in dsts where offerOf(n) is want ('set' or 'clear') and
-// inRights(n) is true, in the list's order.
-export const pickRows = (dsts, want, offerOf, inRights) => dsts.filter((d) => inRights(d.n) && offerOf(d.n) === want);
+// A Protect History entry e can be undone when two things are true. It is the newest ok Protect entry of its
+// destination in hist. And offer (protectOfferOf now) is the opposite of what e did. Else Undo would undo another thing.
+export function protectUndoable(e, hist, offer) {
+  if (!e.ok || !e.protect) return false;
+  const newest = hist.reduce((m, x) => (x.protect && x.ok && x.dst === e.dst && (!m || x.id > m.id) ? x : m), null);
+  if (newest && newest.id !== e.id) return false;
+  return offer === (e.protect === 'set' ? 'clear' : 'set');
+}
+
+// The Protect picker's filters (protectpick.js), in the order of its chips.
+export const PICK_FILTERS = Object.freeze([
+  { id: 'all', label: 'All destinations' },
+  { id: 'protected', label: 'Currently protected' },
+  { id: 'free', label: 'Currently free' },
+]);
+
+// The Protect picker's rows: the destinations in dsts in the Rights (inRights(n)) that pass filter, in the list's order.
+// held(n): n has a Protect or a Router lock on a level. offerOf(n): 'set', 'clear' or '' (protectOfferOf); a row with
+// no offer shows, but cannot be picked.
+export function pickRows(dsts, filter, { inRights, held, offerOf }) {
+  const out = [];
+  for (const d of dsts) {
+    if (!inRights(d.n)) continue;
+    const h = held(d.n);
+    if ((filter === 'protected' && !h) || (filter === 'free' && h)) continue;
+    out.push({ ...d, held: h, offer: offerOf(d.n) });
+  }
+  return out;
+}
+
+// What the picked destinations ask: protect (the free ones) and clear (Sode's own Protects). With both, the picker
+// protects first, so the safe action is the default.
+export function pickSplit(picked, offerOf) {
+  const protect = [];
+  const clear = [];
+  for (const n of picked) {
+    const o = offerOf(n);
+    if (o === 'set') protect.push(n);
+    else if (o === 'clear') clear.push(n);
+  }
+  return { protect, clear, first: protect.length ? 'set' : clear.length ? 'clear' : '' };
+}
+
+// A Shift+click: the pickable rows from index a to index b, both ends in.
+export function pickRange(rows, a, b) {
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  return rows
+    .slice(Math.max(0, lo), hi + 1)
+    .filter((r) => r.offer)
+    .map((r) => r.n);
+}
 
 // The rows that match q, best first; all rows in order for an empty q. score is fuzzyScore (fuzzy.js).
 export function filterRows(rows, q, score) {

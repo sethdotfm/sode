@@ -485,6 +485,8 @@ on('names', () => {
 on('tally', () => phone() && renderThread());
 on('myRights', () => phone() && renderThread());
 on('conn', renderConn);
+// A Protect row's Undo follows the router's state, the sign-in and the Rights (historyrows.js protectActions).
+for (const ev of ['protectedRows', 'myRights', 'conn']) on(ev, () => phone() && hist.renderHistory());
 on('history', () => {
   if (!phone()) return;
   hist.renderHistory();

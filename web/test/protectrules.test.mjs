@@ -7,12 +7,15 @@ import {
   protectOffer,
   protectRight,
   pickRows,
+  pickSplit,
+  pickRange,
   filterRows,
   KIND_PROTECT,
   KIND_ROUTER_LOCK,
   HOLD_LOOK,
   holdShort,
   shieldTargets,
+  protectUndoable,
 } from '../protectrules.js';
 import { fuzzyScore } from '../fuzzy.js';
 
@@ -117,27 +120,33 @@ test('protectRight: the Rights decide; with nobody signed in only a Sode with no
   assert.equal(protectRight(null, 'administrator', [{ name: 'Ana' }]), false);
 });
 
-test('pickRows and filterRows: the offered destinations in Rights, then the find', () => {
+test('pickRows: the destinations in Rights, by filter, each with its offer; filterRows then finds', () => {
   const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase() });
-  const dsts = [it(0, 'CAM 1'), it(1, 'CAM 2'), it(2, 'MON 1'), it(3, 'CAM 3')];
-  const offer = (n) => (n === 1 ? 'clear' : 'set');
-  const rows = pickRows(dsts, 'set', offer, (n) => n !== 3);
+  const dsts = [it(0, 'CAM 1'), it(1, 'CAM 2'), it(2, 'MON 1'), it(3, 'CAM 3'), it(4, 'MON 2')];
+  // 1 is Sode's own Protect, 4 another system's; 3 is outside the Rights.
+  const env = { inRights: (n) => n !== 3, held: (n) => n === 1 || n === 4, offerOf: (n) => ({ 1: 'clear', 4: '' })[n] ?? 'set' };
+  const ns = (rows) => rows.map((d) => d.n);
+  assert.deepEqual(ns(pickRows(dsts, 'all', env)), [0, 1, 2, 4]);
+  assert.deepEqual(ns(pickRows(dsts, 'protected', env)), [1, 4]);
+  assert.deepEqual(ns(pickRows(dsts, 'free', env)), [0, 2]);
+  const rows = pickRows(dsts, 'all', env);
   assert.deepEqual(
-    rows.map((d) => d.n),
-    [0, 2],
-  );
-  assert.deepEqual(
-    pickRows(dsts, 'clear', offer, () => true).map((d) => d.n),
-    [1],
+    rows.map((d) => d.offer),
+    ['set', 'clear', 'set', ''],
   );
   assert.deepEqual(filterRows(rows, '  ', fuzzyScore), rows);
-  assert.deepEqual(
-    filterRows(rows, 'MON', fuzzyScore).map((d) => d.n),
-    [2],
-  );
+  assert.deepEqual(ns(filterRows(rows, 'MON', fuzzyScore)), [2, 4]);
   assert.deepEqual(filterRows(rows, 'zzz', fuzzyScore), []);
+  // A Shift+click range takes only the rows that can be picked.
+  assert.deepEqual(pickRange(rows, 3, 0), [0, 1, 2]);
 });
 
+test('pickSplit: a mix of free and protected picks protects first', () => {
+  const offerOf = (n) => ({ 1: 'set', 2: 'clear', 3: 'set', 4: '' })[n];
+  assert.deepEqual(pickSplit([1, 2, 3, 4], offerOf), { protect: [1, 3], clear: [2], first: 'set' });
+  assert.deepEqual(pickSplit([2], offerOf), { protect: [], clear: [2], first: 'clear' });
+  assert.equal(pickSplit([4], offerOf).first, '');
+});
 test('holdShort: the Grid mark names the owner in few words', () => {
   const p = prot([
     [4, 1, 126, KIND_PROTECT],
@@ -157,4 +166,20 @@ test('shieldTargets: a picked name acts on every picked destination with the sam
   assert.deepEqual(shieldTargets(2, [1, 2, 3, 4], offerOf), { offer: 'set', dsts: [1, 2] });
   assert.deepEqual(shieldTargets(3, [1, 2, 3], offerOf), { offer: 'clear', dsts: [3] });
   assert.equal(shieldTargets(4, [1, 4], offerOf), null);
+});
+
+test('protectUndoable: only the newest ok Protect entry of a destination, and only when the opposite is offered', () => {
+  const hist = [
+    { id: 5, dst: 4, protect: 'set', ok: true },
+    { id: 6, dst: 4, protect: 'clear', ok: true },
+    { id: 7, dst: 4, protect: 'set', ok: true },
+    { id: 8, dst: 9, protect: 'set', ok: false },
+    { id: 9, dst: 4, src: 2, ok: true },
+  ];
+  assert.equal(protectUndoable(hist[2], hist, 'clear'), true);
+  assert.equal(protectUndoable(hist[2], hist, ''), false, 'someone else holds it now');
+  assert.equal(protectUndoable(hist[2], hist, 'set'), false, 'cleared since');
+  assert.equal(protectUndoable(hist[0], hist, 'clear'), false, 'an older entry');
+  assert.equal(protectUndoable(hist[1], hist, 'set'), false, 'an older entry');
+  assert.equal(protectUndoable(hist[3], hist, 'set'), false, 'failed');
 });

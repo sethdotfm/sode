@@ -12,7 +12,8 @@ import (
 )
 
 // The route view of one destination with no source offers Protect. It goes through the Confirm, the simulator
-// holds it on every level, and the view then says "Protected by you", with the badge's owner mark. Shift+x in Keyboard mode clears it.
+// holds it on every level, and the view then says "Protected by you", with the badge's owner mark. Shift+x in
+// Keyboard mode clears it. History then offers Undo only on the newest Protect entry, and follows a later change.
 // Ana is an Administrator here, for Clear Sode's Protects.
 func TestChromeProtectFromRouteView(t *testing.T) {
 	b := startBrowser(t)
@@ -64,6 +65,17 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	if n := sodeRows(); n != 0 {
 		t.Fatalf("Sode's Protect left on %d levels", n)
 	}
+	// Only the newest Protect entry of a destination offers Undo, and only while the opposite is possible.
+	undoOn := `((word) => { const r = [...document.querySelectorAll('#history .sode__hist-row')].find((r) => [...r.querySelectorAll('.pb-badge')].some((b) => b.textContent === word)); const u = r && [...r.querySelectorAll('.sode__hist-actions button')].find((b) => b.textContent.includes('Undo')); return u ? (u.disabled ? 'off' : 'on') : 'none'; })`
+	b.waitFor("Undo on the Clear Protect, not on the older Protect", undoOn+`('Clear Protect') === 'on' && `+undoOn+`('Protect') === 'off'`)
+	// A newer Protect entry (here from the API) turns that Undo off at once.
+	if rec := apiSend(a, "POST", "/api/v1/protected/2", key, ""); rec.Code != 200 {
+		t.Fatalf("API Protect: %d %s", rec.Code, rec.Body.String())
+	}
+	b.waitFor("the Clear Protect's Undo follows", undoOn+`('Clear Protect') === 'off'`)
+	if rec := apiSend(a, "DELETE", "/api/v1/protected/2", key, ""); rec.Code != 200 {
+		t.Fatalf("API Clear Protect: %d %s", rec.Code, rec.Body.String())
+	}
 
 	// Settings > Routers > Protects lists one set over the API, and Clear Sode's Protects asks the PIN again.
 	if rec := apiSend(a, "POST", "/api/v1/protected/3", key, ""); rec.Code != 200 {
@@ -111,19 +123,12 @@ func TestChromePaletteProtectPick(t *testing.T) {
 	b.eval(`document.getElementById('settings-exit').click(); true`)
 	b.waitFor("main page", `document.documentElement.dataset.view !== 'settings'`)
 
-	pick := func(row, title string) {
+	pick := func() {
 		b.eval(`document.activeElement.blur(); true`)
 		b.eval(ctrlShiftP)
 		b.waitFor("the Palette", paletteShown)
-		if row == "action:protect" {
-			paletteFind(b, title, row)
-			paletteKey(b, "Enter", false)
-		} else {
-			// A danger row: Enter does not pick it first, so a press on it does.
-			b.eval(fmt.Sprintf(`(() => { const i = document.querySelector('.sode-palette__q'); i.value = %q; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`, title))
-			b.waitFor("the danger row", `!!document.querySelector('#palette-list [data-key="`+row+`"]')`)
-			b.eval(`document.querySelector('#palette-list [data-key="` + row + `"]').click(); true`)
-		}
+		paletteFind(b, "Protect", "action:protect")
+		paletteKey(b, "Enter", false)
 		b.waitFor("the picker", `!document.getElementById('protpick').hidden && document.activeElement.id === 'protpick-find'`)
 	}
 	confirm := func(title string) {
@@ -132,24 +137,26 @@ func TestChromePaletteProtectPick(t *testing.T) {
 		b.eval(`document.getElementById('confirm-ok').click(); true`)
 	}
 
-	pick("action:protect", "Protect")
+	pick()
+	b.waitFor("All destinations is the filter", `document.querySelector('#protpick [data-filter="all"]').getAttribute('aria-pressed') === 'true'`)
 	b.eval(`(() => { const i = document.getElementById('protpick-find'); i.value = 'DSM'; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	b.waitFor("the find narrows the list", `[...document.querySelectorAll('#protpick-list [role=option]')].every((r) => r.textContent.includes('DSM'))`)
 	b.eval(`document.querySelector('#protpick-list [data-dst="2"]').click(); true`)
-	b.waitFor("one picked", `document.getElementById('protpick-go').textContent === 'Protect 1'`)
-	// After typing, Space types; after Ctrl+J, Space picks the outlined row, and Enter goes to the Confirm.
-	findKey := func(key, code string, ctrl bool) {
-		b.eval(fmt.Sprintf(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: %q, code: %q, ctrlKey: %v, bubbles: true, cancelable: true })); true`, key, code, ctrl))
+	b.waitFor("one picked, in the blue chip", `document.getElementById('protpick-go').textContent === 'Protect 1' && document.getElementById('protpick-count').textContent === '1 picked' && document.getElementById('protpick-count').classList.contains('pb-badge--info')`)
+	// After typing, Space types and Cmd+Space does nothing; Ctrl+J outlines the next row, and Ctrl+Space picks it.
+	findKey := func(key, code string, ctrl, meta bool) {
+		b.eval(fmt.Sprintf(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: %q, code: %q, ctrlKey: %v, metaKey: %v, bubbles: true, cancelable: true })); true`, key, code, ctrl, meta))
 	}
-	findKey(" ", "Space", false)
+	findKey(" ", "Space", false, false)
+	findKey(" ", "Space", false, true)
 	if got := b.eval(`document.getElementById('protpick-go').textContent`).(string); got != "Protect 1" {
-		t.Fatalf("Space after typing picked a row: %q", got)
+		t.Fatalf("Space or Cmd+Space after typing picked a row: %q", got)
 	}
-	findKey("j", "KeyJ", true)
+	findKey("j", "KeyJ", true, false)
 	b.waitFor("Ctrl+J outlines the next row", `document.querySelector('#protpick-list [data-cue]')?.dataset.dst === '3'`)
-	findKey(" ", "Space", false)
-	b.waitFor("Space picks it", `document.getElementById('protpick-go').textContent === 'Protect 2'`)
-	findKey("Enter", "Enter", false)
+	findKey(" ", "Space", true, false)
+	b.waitFor("Ctrl+Space picks it", `document.getElementById('protpick-go').textContent === 'Protect 2'`)
+	findKey("Enter", "Enter", false, false)
 	b.waitFor("the picker closes", `!document.getElementById('protpick')`)
 	if got := b.eval(`document.querySelector('#confirm-body > div').textContent`).(string); got != "Protect these 2 destinations on every level?" {
 		t.Fatalf("Confirm asks %q", got)
@@ -160,11 +167,21 @@ func TestChromePaletteProtectPick(t *testing.T) {
 		t.Fatalf("Sode's Protect on %d levels, want 2 × 17", n)
 	}
 
-	pick("action:unprotect", "Clear Protect")
-	b.waitFor("only Sode's two", `[...document.querySelectorAll('#protpick-list [role=option]')].map((r) => r.dataset.dst).join() === '2,3'`)
-	b.eval(`document.getElementById('protpick-all').click(); true`)
-	b.waitFor("both picked", `document.getElementById('protpick-go').textContent === 'Clear 2'`)
-	b.eval(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); true`)
+	// Currently protected lists Sode's two and the simulator's Router lock, which shows its owner and cannot be picked.
+	pick()
+	b.eval(`document.querySelector('#protpick [data-filter="protected"]').click(); true`)
+	b.waitFor("the protected ones", `[...document.querySelectorAll('#protpick-list [role=option]')].map((r) => r.dataset.dst).join() === '2,3,12'`)
+	b.waitFor("the Router lock cannot be picked", `(() => { const r = document.querySelector('#protpick-list [data-dst="12"]'); return r.getAttribute('aria-disabled') === 'true' && r.textContent.includes('another system'); })()`)
+	// A click, then a Shift+click: the range picks Sode's two and leaves the Router lock out.
+	b.eval(`document.querySelector('#protpick-list [data-dst="2"]').click(); true`)
+	b.eval(`document.querySelector('#protpick-list [data-dst="12"]').dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true })); true`)
+	b.waitFor("both picked", `document.getElementById('protpick-go').textContent === 'Clear 2' && document.getElementById('protpick-alt').hidden`)
+	// With a free one picked too, Protect comes first, and Clear is the second button.
+	b.eval(`document.querySelector('#protpick [data-filter="free"]').click(); true`)
+	b.waitFor("only free ones", `!document.querySelector('#protpick-list [data-dst="2"]') && !!document.querySelector('#protpick-list [data-dst="5"]')`)
+	b.eval(`document.querySelector('#protpick-list [data-dst="5"]').click(); true`)
+	b.waitFor("a mix protects first", `document.getElementById('protpick-go').textContent === 'Protect 1' && !document.getElementById('protpick-alt').hidden && document.getElementById('protpick-alt').textContent === 'Clear 2' && document.getElementById('protpick-count').textContent === '3 picked'`)
+	b.eval(`document.getElementById('protpick-alt').click(); true`)
 	confirm("Confirm clear protect")
 	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protects cleared')`)
 	if n := sodeRows(); n != 0 {

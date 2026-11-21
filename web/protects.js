@@ -17,7 +17,9 @@ on('access', (a) => {
   role = a.role || '';
   if ((a.user || '') === me) return;
   me = a.user || '';
-  emit('tally'); // the views that show holds draw again with the new owner words
+  // The views that show holds, and History's Protect Undo, draw again for the new user.
+  emit('tally');
+  emit('protectedRows');
 });
 
 const device = () => S.cfg?.protectDevice || 0;

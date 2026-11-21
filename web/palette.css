@@ -195,10 +195,27 @@
   color: var(--pb-text-muted);
   font-size: var(--pb-text-sm);
 }
+/* The "N picked" chip: the Home grid's staged count chip (pb-badge--info), at the foot's start. */
 .sode-protpick__count {
-  color: var(--pb-text-muted);
   margin-right: auto;
 }
+.sode-protpick__count[hidden] {
+  display: none;
+}
+.sode-protpick__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+/* A row that cannot be picked shows who holds it, and does nothing on a click. */
+.sode-protpick__row--off {
+  color: var(--pb-text-muted);
+  cursor: default;
+}
+.sode-protpick__row--off:hover {
+  background: none;
+}
+
 .sode-protpick__plan {
   display: flex;
   flex-direction: column;
