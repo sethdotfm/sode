@@ -13,6 +13,7 @@ import { confirmShown } from './keyconfirm.js';
 import { levelBar } from './levelview.js';
 import { routesOf } from './gridpanelstage.js';
 import { gridShield } from './gridpopshield.js';
+import { gridHold } from './protects.js';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from './gridpoprules.js';
 import { gridPlan, patchPlan } from './plans.js';
 
@@ -57,7 +58,7 @@ function build() {
   // A key move puts the shield on the cursor's destination name.
   root.addEventListener('keyup', (e) => !e.target.closest?.('input') && shield.cursor());
   document.body.append(root);
-  return { root, shield, ui: { main: box, head, finds, status, grid, levels } };
+  return { root, shield, ui: { main: box, head, finds, status, grid, levels, onPicks: (p) => shield.picks(p) } };
 }
 
 // After the grid's own keys (a capture listener on document), so its search boxes, line and picks take Esc first.
@@ -148,6 +149,7 @@ const adapter = () => ({
   asking: () => confirmShown() || !$('m-sheet').hidden,
   shown: () => shown,
   undo: () => emit('undoLast'),
+  holdOf: gridHold,
   onStage(list) {
     staged = list;
     paintList();

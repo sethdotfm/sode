@@ -223,7 +223,9 @@ func TestChromeMainGridPopup(t *testing.T) {
 	b.check()
 }
 
-// The shield on a Grid popup destination name sets Sode's Protect through the Confirm, then offers Clear Protect.
+// The shield on a Grid popup destination name sets Sode's Protect through the Confirm, then offers Clear Protect. It is
+// small, bare and on the name's outer edge, and the name's mark says who holds it. With names picked, the shield on a
+// picked name protects and then clears all of them through one Confirm each.
 func TestChromeMainGridPopupShield(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -264,7 +266,9 @@ func TestChromeMainGridPopupShield(t *testing.T) {
 		}
 	}
 	b.waitFor("the name shows Protected", name+`.classList.contains('pb-xpt--protected')`)
+	b.waitFor("the mark names the owner", `(() => { const m = `+name+`.querySelector('.sode-gridpanel__prot'); return m.textContent.trim() === 'Protected by you' && m.dataset.owner === 'you'; })()`)
 	hover()
+	b.waitFor("the shield sits small and bare on the name's outer edge", `(() => { const s = document.querySelector('.sode-gridpop__shield'), n = `+name+`; const r = s.getBoundingClientRect(), q = n.getBoundingClientRect(); return !s.hidden && Math.abs(r.left - q.left) < 1 && r.height < q.height && getComputedStyle(s).backgroundColor === 'rgba(0, 0, 0, 0)'; })()`)
 	b.waitFor("the shield offers Clear Protect", `document.querySelector('.sode-gridpop__shield')?.dataset.protect === 'clear'`)
 	b.eval(`document.querySelector('.sode-gridpop__shield').click(); true`)
 	b.waitFor("Confirm clear protect", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm clear protect'`)
@@ -273,6 +277,46 @@ func TestChromeMainGridPopupShield(t *testing.T) {
 	for deadline := time.Now().Add(10 * time.Second); sodeRows() != 0; time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatalf("Sode's Protect left on %d levels", sodeRows())
+		}
+	}
+
+	// Pick three names (a click, then Ctrl+click two more): the shield on a picked name covers all three.
+	nameOf := func(d int) string {
+		return fmt.Sprintf(`document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="%d"]:not([hidden])')`, d)
+	}
+	at := func(d int) []any {
+		return b.eval(`(() => { const r = ` + nameOf(d) + `.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`).([]any)
+	}
+	for i, d := range []int{1, 2, 3} {
+		r, mods := at(d), 0
+		if i > 0 {
+			mods = modCtrl
+		}
+		for _, ty := range []string{"mouseMoved", "mousePressed", "mouseReleased"} {
+			b.call("Input.dispatchMouseEvent", map[string]any{"type": ty, "x": r[0], "y": r[1], "button": "left", "clickCount": 1, "modifiers": mods})
+		}
+	}
+	b.waitFor("three names picked", `[1, 2, 3].every((d) => document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="' + d + '"]:not([hidden])')?.hasAttribute('data-picked'))`)
+	many := func(offer string) {
+		r := at(2)
+		b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": r[0].(float64) + 5, "y": r[1]})
+		b.waitFor("the shield covers the picks", `(() => { const s = document.querySelector('.sode-gridpop__shield'); return !s.hidden && s.dataset.protect === '`+offer+`' && s.dataset.count === '3'; })()`)
+		b.eval(`document.querySelector('.sode-gridpop__shield').click(); true`)
+		b.waitFor("one Confirm for three", `!document.getElementById('confirm').hidden && document.querySelectorAll('#confirm .sode-protpick__plan > .sode__route').length === 3`)
+		b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
+		b.eval(`document.getElementById('confirm-ok').click(); true`)
+	}
+	many("set")
+	for deadline := time.Now().Add(10 * time.Second); sodeRows() != 3*17; time.Sleep(50 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("Sode's Protects on %d levels, want 3 x 17", sodeRows())
+		}
+	}
+	b.waitFor("three names protected", `[1, 2, 3].every((d) => document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="' + d + '"]:not([hidden])')?.classList.contains('pb-xpt--protected'))`)
+	many("clear")
+	for deadline := time.Now().Add(10 * time.Second); sodeRows() != 0; time.Sleep(50 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("Sode's Protects left on %d levels", sodeRows())
 		}
 	}
 	b.check()

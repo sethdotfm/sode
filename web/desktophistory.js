@@ -462,7 +462,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   function undoRow(row) {
     const plan = rowUndoPlan(row);
     if (planEmpty(plan)) {
-      if (row.e?.protect) return showResult('warn', 'Nothing to undo', `#${row.e.id}: ${dstItem(row.e.dst, row.e.dstName).label} has a Protect now.`);
+      if (row.e?.protect) return showResult('warn', 'Nothing to undo', `#${row.e.id}: the Protect on ${dstItem(row.e.dst, row.e.dstName).label} changed after it.`);
       const what = row.f ? groupIds(row.f) : `#${row.e.id}`;
       return showResult('warn', 'Nothing to undo', `Nothing was routed before ${what}.`);
     }

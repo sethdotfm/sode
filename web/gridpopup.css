@@ -44,9 +44,13 @@
 }
 /* No open or close motion: with a full grid behind it, a fade and a rise looked unsteady (owner's call). */
 /* The shield over a destination name (gridpopshield.js), above the grid's sticky bands. */
-.sode-gridpop__shield {
-  background: var(--pb-surface-overlay);
+/* Small and bare, on the name's outer edge, so it hides neither the name nor a crosspoint. */
+.sode-gridpop__shield.pb-btn--icon {
+  background: transparent;
+  border-color: transparent;
+  height: var(--pb-control-h-sm);
   position: absolute;
+  width: var(--pb-control-h-sm);
   z-index: var(--pb-z-sticky);
 }
 .sode-gridpop__shield[hidden] {

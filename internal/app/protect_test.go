@@ -208,9 +208,9 @@ func TestProtectRefusals(t *testing.T) {
 
 	ana := signedClient(t, a, "Ana", "1234")
 	a.onRouterMsg(swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 1, 2, 6, 9))
-	protRefused(t, a.protectSet(ana, 6, nil), "protected", "Router lock by 9 on levels 2")
+	protRefused(t, a.protectSet(ana, 6, nil), "protected", "Router lock by another system (device 9) on levels 2")
 	a.onRouterMsg(swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 0, 1, 7, 112))
-	protRefused(t, a.protectSet(ana, 7, nil), "protected", "Protected by 112 on levels 1")
+	protRefused(t, a.protectSet(ana, 7, nil), "protected", "Protected by another system (device 112) on levels 1")
 	if n := f.sends(); n != 0 {
 		t.Fatalf("%d messages sent for refusals", n)
 	}
@@ -392,8 +392,37 @@ func TestProtectMessageCarriesKindAndSodeUser(t *testing.T) {
 			}
 		}
 	}
-	if len(by) != 1 || by[0].(map[string]any)["by"] != "Ana" || by[0].(map[string]any)["dst"] != float64(4) || !lock {
+	if len(by) != 1 || by[0].(map[string]any)["by"] != "Ana" || by[0].(map[string]any)["kind"] != byUser || by[0].(map[string]any)["dst"] != float64(4) || !lock {
 		t.Fatalf("by %v, Router lock seen %v", by, lock)
+	}
+}
+
+// The page tells "Protected by you" from another Sode user by the name and the kind. The message reaches locked pages,
+// so it carries no user id. A user who is gone, a guest and an API client each have their own kind.
+func TestProtectByKindTellsOwnersApart(t *testing.T) {
+	a, _ := protectApp(t)
+	r := a.r()
+	ana, _ := r.cfg.FindUserByName("Ana")
+	recs := []protectRec{
+		{Router: r.cfg.UID, Dst: 1, Device: 126, Levels: []int{1}, By: "Ana old", User: ana.ID},
+		{Router: r.cfg.UID, Dst: 2, Device: 126, Levels: []int{1}, By: "Desk", Client: "Desk"},
+		{Router: r.cfg.UID, Dst: 3, Device: 126, Levels: []int{1}, By: "10.0.0.9"},
+		{Router: r.cfg.UID, Dst: 5, Device: 126, Levels: []int{1}, By: "Cy", User: "u-gone"},
+	}
+	for _, rec := range recs {
+		if err := a.protects.put(rec); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := map[int][2]string{}
+	for _, b := range a.protectByList(r) {
+		got[b.Dst] = [2]string{b.By, b.Kind}
+	}
+	want := map[int][2]string{1: {"Ana", byUser}, 2: {"Desk", byClient}, 3: {"10.0.0.9", byGuest}, 5: {"Cy", byGone}}
+	for d, w := range want {
+		if got[d] != w {
+			t.Fatalf("dst %d: got %v, want %v", d, got[d], w)
+		}
 	}
 }
 

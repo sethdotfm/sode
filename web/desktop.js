@@ -599,12 +599,17 @@ on('pick', () => {
 on('conn', renderConn);
 // One redraw per frame: each take in a burst sends an entry, and a redraw rebuilds every row.
 let histFrame = 0;
-on('history', () => {
+const redrawHistory = () => {
   histFrame ||= requestAnimationFrame(() => {
     histFrame = 0;
     renderHistory();
   });
-});
+};
+on('history', redrawHistory);
+// A Protect row's Undo follows the router's state, the sign-in and the Rights (historyrows.js protectActions).
+on('protectedRows', redrawHistory);
+on('myRights', redrawHistory);
+on('conn', redrawHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
 
 presetHost({

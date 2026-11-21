@@ -142,6 +142,8 @@ export function gridBody(ctx, first) {
     found: (kind, n) => find.mode === 'find' && matched[kind].has(n),
     leftOut: (s, d) => out.some((r) => r.src === s && r.dst === d),
     protected: (d) => env.protectedDsts.has(d),
+    // Who holds a protected destination, when the host knows ({ icon, text, tip, owner }); the Grid popup does.
+    hold: (d) => (env.protectedDsts.has(d) && ctx.holdOf?.(d)) || null,
     art: (kind, n) => nameArtOf(kind, n),
     other(d) {
       const o = otherSources(env, d, shownSrcs);
@@ -194,7 +196,8 @@ export function gridBody(ctx, first) {
     // The Grid popup's staged list (gridpopup.js). A new array is a new stage.
     if (ctx.onStage && st.staged !== toldStaged) ctx.onStage((toldStaged = st.staged));
     paintEmpty(g, g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded }));
-    // The Live Editor only (editorlive.js): the picks are also the lists' selection. picks is replaced on every change.
+    // The Live Editor (editorlive.js), where the picks are also the lists' selection, and the Grid popup's shield
+    // (gridpopshield.js). picks is replaced on every change.
     if (ui.onPicks && picks !== toldPicks) ui.onPicks((toldPicks = picks));
     boxes?.paint(find, countsOf());
     status();

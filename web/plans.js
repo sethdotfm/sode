@@ -1,6 +1,6 @@
 import { el, S, search, on, onMsg, emit, wsSend, off, linked, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
-import { holdsOn, protectedText } from './protectrules.js';
-import { protectSummary, sendProtect, protectRow } from './protects.js';
+import { protectedText } from './protectrules.js';
+import { protectSummary, sendProtect, protectRow, holdsAt, holdBadge } from './protects.js';
 import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
@@ -262,12 +262,9 @@ export function planBlocked(plan) {
   if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   for (const i of live) {
-    const p = holdsOn(
-      S.prot,
-      S.protBy,
+    const p = holdsAt(
       i.dst.n,
       i.groups.flatMap((g) => g.levels),
-      S.cfg?.protectDevice || 0,
     );
     if (p.levels.length) prot.set(i, p);
   }
@@ -348,7 +345,7 @@ function itemSummary(item, boxed, prot, since) {
       el('div', 'sode__route', levelBar(r.levels), el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`),
     ),
     alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there')) : null,
-    prot ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedText(prot)), 'will be refused') : null,
+    prot ? el('div', 'sode__route', levelBar(prot.levels), ...prot.holds.map(holdBadge), 'will be refused') : null,
     item.untouched?.length
       ? el(
           'div',

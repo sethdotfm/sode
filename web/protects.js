@@ -3,17 +3,23 @@
 // only offers what it would allow. The Approval and PIN recheck popups load when a refusal needs them, so plans.js
 // stays free of their page setup.
 
-import { el, S, on, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_DOWN } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_DOWN } from './core.js';
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
-import { holdsOn, holdLabel, protectOffer, protectRight } from './protectrules.js';
+import { holdsOn, holdLabel, holdShort, protectedText, protectOffer, protectRight, HOLD_LOOK } from './protectrules.js';
 
 let seq = 0;
 const pending = new Map(); // id → { plan, answer }
 let role = '';
+let me = ''; // the signed-in user's name, so a Protect they set reads "Protected by you"
 on('access', (a) => {
   role = a.role || '';
+  if ((a.user || '') === me) return;
+  me = a.user || '';
+  // The views that show holds, and History's Protect Undo, draw again for the new user.
+  emit('tally');
+  emit('protectedRows');
 });
 
 const device = () => S.cfg?.protectDevice || 0;
@@ -21,7 +27,31 @@ const device = () => S.cfg?.protectDevice || 0;
 // The signed-in Rights carry the Protect right set from the Role (protectRight).
 const right = () => protectRight(S.myRights, role, S.users);
 
-export const protectState = (n) => holdsOn(S.prot, S.protBy, n, allLevels(), device());
+// The holds on dst n over levels (every level when none), with the owner of each seen from this browser's sign-in.
+export const holdsAt = (n, levels = allLevels()) => holdsOn(S.prot, S.protBy, n, levels, device(), me);
+
+export const protectState = (n) => holdsAt(n);
+
+// The badge of one hold: the owner's icon and color, and the words (holdLabel).
+export function holdBadge(h) {
+  const look = HOLD_LOOK[h.owner] || HOLD_LOOK.other;
+  const b = el('span', `pb-badge pb-badge--${look.status} sode__status-badge`, icon(look.icon), holdLabel(h));
+  b.dataset.owner = h.owner;
+  return b;
+}
+
+// A Grid name's mark (gridpanelnodes.js paintDstMarks): the first hold's owner icon and short words, with every hold in
+// the tip. null when n is free.
+export function gridHold(n) {
+  const p = holdsAt(n);
+  const [h] = p.holds;
+  if (!h) return null;
+  const more = p.holds.length > 1 ? ` +${p.holds.length - 1}` : '';
+  return { icon: (HOLD_LOOK[h.owner] || HOLD_LOOK.other).icon, text: holdShort(h) + more, tip: protectedText(p), owner: h.owner };
+}
+
+// The badge Sode's own new Protect gets: it is the signed-in user's, or Sode's with nobody signed in.
+const newHold = () => holdBadge(me ? { mine: true, owner: 'you' } : { sode: true, owner: 'sode', by: '' });
 
 // on: true sets, false clears. undo: the History entry this undoes.
 export function protectPlan(dst, on, undo = null) {
@@ -37,12 +67,12 @@ export function protectManyPlan(dsts, on) {
 function manySummary(dsts, on) {
   const rows = dsts.map((d) => {
     const p = protectState(d.n);
-    const hold = !on && p.sode ? [el('span', 'pb-badge pb-badge--warn', holdLabel(p.sode))] : [];
+    const hold = !on && p.sode ? [holdBadge(p.sode)] : [];
     return el('div', 'sode__route', el('strong', null, labelNode(d)), ...hold);
   });
   return [
     el('div', null, on ? `Protect these ${dsts.length} destinations on every level?` : `Clear the Protect on these ${dsts.length} destinations?`),
-    ...(on ? [el('div', 'sode__route', levelBar(allLevels()), el('span', 'pb-badge pb-badge--warn', 'Protected by Sode'))] : []),
+    ...(on ? [el('div', 'sode__route', levelBar(allLevels()), newHold())] : []),
     el('div', 'sode-protpick__plan', ...rows),
   ];
 }
@@ -55,13 +85,13 @@ export function protectSummary(plan) {
   if (on) {
     return [
       el('div', null, undo ? 'Undo the Clear Protect: Protect ' : 'Protect ', strong, ' on every level?'),
-      el('div', 'sode__route', levelBar(all), el('span', 'pb-badge pb-badge--warn', 'Protected by Sode')),
+      el('div', 'sode__route', levelBar(all), newHold()),
     ];
   }
   const p = protectState(dst.n);
   return [
     el('div', null, undo ? 'Undo the Protect: clear it on ' : 'Clear the Protect on ', strong, '?'),
-    ...(p.sode ? [el('div', 'sode__route', levelBar(p.sode.levels), el('span', 'pb-badge pb-badge--warn', holdLabel(p.sode)))] : []),
+    ...(p.sode ? [el('div', 'sode__route', levelBar(p.sode.levels), holdBadge(p.sode))] : []),
   ];
 }
 
@@ -69,7 +99,7 @@ export function protectSummary(plan) {
 // none means badges only.
 export function protectNodes(dst, confirm = null) {
   const p = protectState(dst.n);
-  const rows = p.holds.map((h) => el('div', 'sode__route', levelBar(h.levels), el('span', 'pb-badge pb-badge--warn', holdLabel(h))));
+  const rows = p.holds.map((h) => el('div', 'sode__route', levelBar(h.levels), holdBadge(h)));
   const b = confirm && protectButton(dst, confirm);
   if (b) rows.push(el('div', 'sode__route sode__protect', b));
   return rows;

@@ -198,13 +198,23 @@ func protectResultOf(kind string, id int, o protectOutcome) protectResultMsg {
 	return m
 }
 
-// protectBy: Sode's own Protects for the page, dst → who set it. It reaches locked pages, as History does.
+// protectBy: Sode's own Protects for the page, dst → who set it. It reaches locked pages, as History does, so it
+// carries names and never a user's id. Kind lets the page tell its own signed-in user from another user of the same
+// name, such as an API client.
 type protectBy struct {
 	Dst    int    `json:"dst"`
 	By     string `json:"by"`
+	Kind   string `json:"kind"` // byUser, byGone, byClient or byGuest; keep in step with web/protectrules.js
 	Device int    `json:"device"`
 	Levels []int  `json:"levels"`
 }
+
+const (
+	byUser   = "user"   // a user who still exists, also through their own API client
+	byGone   = "gone"   // a user who is gone: By is the name when set
+	byClient = "client" // an API client with no owner
+	byGuest  = "guest"  // a guest: By is where they were (an IP address)
+)
 
 type protectMsg struct {
 	T  string       `json:"t"`  // "protected"
@@ -236,11 +246,15 @@ func protectRows(m map[int]map[int]protHold) json.RawMessage {
 func (a *App) protectByList(r *runtime) []protectBy {
 	out := []protectBy{}
 	for _, rec := range a.protects.list(r.cfg.UID) {
-		by := rec.By
+		by, kind := rec.By, byGuest
 		if u, ok := r.cfg.FindUserByID(rec.User); ok && rec.Client == "" {
-			by = u.Name
+			by, kind = u.Name, byUser
+		} else if rec.Client != "" {
+			kind = byClient
+		} else if rec.User != "" {
+			kind = byGone
 		}
-		out = append(out, protectBy{Dst: rec.Dst, By: by, Device: rec.Device, Levels: rec.Levels})
+		out = append(out, protectBy{Dst: rec.Dst, By: by, Kind: kind, Device: rec.Device, Levels: rec.Levels})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Dst < out[j].Dst })
 	return out
@@ -373,9 +387,9 @@ func (a *App) protectLevelsMu(r *runtime, dst int, rec *protectRec) (own []int, 
 func holdText(r *runtime, hs map[int]protHold) string {
 	byKind := map[string][]int{}
 	for ui, h := range hs {
-		k := fmt.Sprintf("Protected by %d", h.dev)
+		k := fmt.Sprintf("Protected by another system (device %d)", h.dev)
 		if h.kind == swp08.KindRouterLock {
-			k = fmt.Sprintf("Router lock by %d", h.dev)
+			k = fmt.Sprintf("Router lock by another system (device %d)", h.dev)
 		}
 		byKind[k] = append(byKind[k], ui)
 	}

@@ -133,7 +133,7 @@ test('protectedText names each hold in the badge', async () => {
       ]),
     ],
   ]);
-  assert.equal(protectedText(holdsOn(prot, new Map(), 3, [1, 2], 0)), 'Protected by 9; Router lock by 12');
+  assert.equal(protectedText(holdsOn(prot, new Map(), 3, [1, 2], 0)), 'Protected by another system (device 9); Router lock by another system (device 12)');
 });
 
 test('nextTake: repeating keeps going while the boxes hold the last Next (#195)', async () => {

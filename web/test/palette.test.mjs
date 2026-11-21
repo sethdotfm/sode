@@ -179,8 +179,8 @@ test('catalogue: grey rows outside Rights or Role offer Step in or Approval', ()
   assert.equal(rowByKey(alone, 'action:stepIn'), null);
 });
 
-test('catalogue: Protect and Clear Protect need the Protect right and the device number', () => {
-  const keyed = (w) => ['action:protect', 'action:unprotect'].map((k) => rowByKey(catalogue(src({ who: who(w) })), k));
+test('catalogue: Protect needs the Protect right and the device number', () => {
+  const keyed = (w) => ['action:protect'].map((k) => rowByKey(catalogue(src({ who: who(w) })), k));
   for (const r of keyed({ rights: { protect: true }, protectDevice: 126 })) {
     assert.equal(r.access.ok, true, r.key);
     assert.equal(r.home, true, 'the picker opens on Home');
@@ -193,9 +193,10 @@ test('catalogue: Protect and Clear Protect need the Protect right and the device
   // With no users every browser is an Administrator.
   for (const r of keyed({ role: 'administrator', user: '', users: [], protectDevice: 1 })) assert.equal(r.access.ok, true);
   const ok = src({ who: who({ rights: { protect: true }, protectDevice: 126 }) });
-  // Clear Protect is a danger row: it is under Other matches, and Enter does not pick it first.
-  assert.deepEqual(keys(paletteView(catalogue(ok), { query: 'Clear Protect' })), ['# Other matches', 'action:unprotect']);
-  assert.ok(keys(paletteView(catalogue(ok), { query: 'unprotect' })).includes('action:unprotect'));
+  // One Protect row protects and clears, so a search for clearing finds it too.
+  assert.equal(rowByKey(catalogue(ok), 'action:unprotect'), null);
+  assert.ok(keys(paletteView(catalogue(ok), { query: 'unprotect' })).includes('action:protect'));
+  assert.ok(keys(paletteView(catalogue(ok), { query: 'clear protect' })).includes('action:protect'));
   assert.equal(keys(paletteView(catalogue(ok), { query: 'protect' }))[0], 'action:protect');
   // Outside the Rights the rows are grey, so a search does not list them.
   assert.ok(!keys(paletteView(catalogue(src()), { query: 'protect' })).includes('action:protect'));

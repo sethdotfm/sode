@@ -1,11 +1,12 @@
 // History rows, for the desktop list and the phone's swipe rows. Pure: wording and plans only,
 // each layout builds its own DOM from these.
 
-import { srcItem, dstItem } from './core.js';
+import { S, srcItem, dstItem } from './core.js';
 import { undoPlan, againPlan, groupUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
 import { groupPartial, groupIds } from './history.js';
 import { UNDO_TIP_ALL } from './widgets.js';
-import { protectRow, protectState } from './protects.js';
+import { protectRow, protectOfferOf } from './protects.js';
+import { protectUndoable } from './protectrules.js';
 
 const noun = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
@@ -42,11 +43,11 @@ export function rowActions(row) {
   return { undo, again: { plan: again, label: `${againWord(again)} ${src.label} to ${dst.label}` } };
 }
 
-// Undo works only on Sode's own Protect: a clear while Sode still holds it, a set while nothing holds it.
+// Undo works only on the newest Protect entry of its destination, and only when the route view would offer the
+// opposite now (protectUndoable). The layouts draw the rows again on a Protect change, so the button follows it.
 function protectActions(e) {
   const r = protectRow(e);
-  const p = protectState(e.dst);
-  const can = e.protect === 'set' ? !!p.sode : !p.levels.length;
+  const can = protectUndoable(e, S.hist, protectOfferOf(e.dst));
   return {
     undo: { plan: can ? r.undo : { verb: 'undo', items: [] }, label: r.undoLabel, text: 'Undo', tip: r.undoLabel },
     again: { plan: { verb: 'redo', items: [] }, label: '' },

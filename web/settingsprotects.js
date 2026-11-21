@@ -3,9 +3,9 @@
 // every one with Sode's device number; it is Critical, so the server asks the PIN again.
 
 import { $, el, S, on, dstItem, labelNode } from './core.js';
-import { levelText, allLevels } from './levelview.js';
-import { holdsOn, holdLabel } from './protectrules.js';
-import { protectPlan, sendProtect, clearSodeProtects } from './protects.js';
+import { levelText } from './levelview.js';
+import { holdLabel } from './protectrules.js';
+import { protectPlan, sendProtect, clearSodeProtects, holdsAt, holdBadge } from './protects.js';
 import { confirmBox } from './confirmbox.js';
 import { btn } from './formbits.js';
 
@@ -29,7 +29,7 @@ function row(n, h) {
     'sode__protects-row',
     el('strong', null, labelNode(dst)),
     el('span', 'sode__hint', `Levels ${levelText(h.levels)}`),
-    el('span', 'pb-badge pb-badge--warn', holdLabel(h)),
+    holdBadge(h),
     clear || null,
   );
   li.dataset.dst = String(n);
@@ -38,16 +38,16 @@ function row(n, h) {
 
 function render() {
   if (!S.cfg) return;
-  const device = S.cfg.protectDevice || 0;
   const dsts = [...new Set([...S.prot.keys(), ...S.protBy.keys()])].sort((a, b) => a - b);
   const rows = [];
   for (const n of dsts) {
-    const p = holdsOn(S.prot, S.protBy, n, allLevels(), device);
+    const p = holdsAt(n);
     for (const h of p.holds) rows.push(row(n, h));
     // Sode's record names levels the router does not report: Clear Sode's Protects sends the clear for them too.
     const rec = S.protBy.get(n);
     const lost = rec ? rec.levels.filter((u) => !p.levels.includes(u)) : [];
-    if (lost.length) rows.push(row(n, { sode: true, by: rec.by, device: rec.device, kind: 1, levels: lost }));
+    if (lost.length)
+      rows.push(row(n, { ...(p.sode || { sode: true, owner: 'sode', by: rec.by, client: rec.kind === 'client' }), device: rec.device, kind: 1, levels: lost }));
   }
   list.replaceChildren(...(rows.length ? rows : [el('li', 'sode__hint', 'No Protects or Router locks.')]));
 }
