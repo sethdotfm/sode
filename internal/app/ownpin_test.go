@@ -1,6 +1,8 @@
 package app
 
 import (
+	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -129,7 +131,7 @@ func TestUsersSaveRefusesOwnPin(t *testing.T) {
 	for i, v := range []string{"1357", ""} { // a new PIN, then removal (Bea keeps an Administrator)
 		key := ukey(a, "Ada", "pin")
 		f := resultFor(t, p.saveWith(10+i, p.usersVersions(20+i), map[string]any{key: v}), key)
-		if f["status"] != "refused" || !strings.Contains(f["err"].(string), "Change my PIN") {
+		if f["status"] != "refused" || f["reason"] != reasonOwnPin || !strings.Contains(f["err"].(string), "Change my PIN") {
 			t.Fatalf("own PIN %q: %v", v, f)
 		}
 	}
@@ -218,11 +220,11 @@ func TestImportKeepsImportersOwnPin(t *testing.T) {
 	}
 }
 
-func TestOwnPinChange(t *testing.T) {
-	cfg := config.Config{Users: []config.User{{ID: "u-1", Pin: "h", Len: 4}, {ID: "u-2"}}}
+// The PIN field refuses the saver's own PIN when they have one; a first PIN is not a change.
+func TestPinFieldRefusesOwnPin(t *testing.T) {
 	for _, c := range []struct {
 		key, self string
-		want      bool
+		own       bool
 	}{
 		{"user/u-1/pin", "u-1", true},
 		{"user/u-1/pin", "u-2", false},
@@ -230,8 +232,14 @@ func TestOwnPinChange(t *testing.T) {
 		{"user/u-1/role", "u-1", false},
 		{"user/u-1/pin", "", false},
 	} {
-		if got := ownPinChange(cfg, c.key, c.self); got != c.want {
-			t.Errorf("%s as %q: %v", c.key, c.self, got)
+		cfg := config.Config{MaxPinLen: 8, Users: []config.User{{ID: "u-1", Pin: "h", Len: 4, Role: config.RoleStandard}, {ID: "u-2"}}}
+		v := json.RawMessage(`"1357"`)
+		if strings.HasSuffix(c.key, "/role") {
+			v = json.RawMessage(`"` + config.RoleTrusted + `"`)
+		}
+		err := setField(&cfg, c.key, v, &saveCtx{self: c.self})
+		if errors.Is(err, errOwnPinHere) != c.own {
+			t.Errorf("%s as %q: %v", c.key, c.self, err)
 		}
 	}
 }

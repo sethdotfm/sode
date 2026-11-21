@@ -31,7 +31,7 @@ func TestChromeOneSaveOfUsersAndAPI(t *testing.T) {
 		const d = document.querySelector('.sode__users-dlg');
 		return !!d?.offsetParent && [...d.querySelectorAll('input[data-field="name"]')].some((i) => i.value === 'Ana');
 	})()`)
-	// Ana's own PIN changes only in My user, which asks for the current PIN (ownPinChange).
+	// Ana's own PIN changes only in My user, which asks for the current PIN (the PIN field refuses it).
 	if got := b.eval(`(() => {
 		const row = [...document.querySelectorAll('.sode__users-dlg .sode__users-row')].find((r) => r.querySelector('input[data-field="name"]').value === 'Ana');
 		return row.querySelector('input[data-field="pin"]').disabled && row.querySelector('input[data-flag="noPin"]').disabled;

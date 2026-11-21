@@ -56,6 +56,7 @@ const (
 	reasonConflict = "conflict"
 	reasonPrereq   = "missing prerequisite"
 	reasonInvalid  = "invalid"
+	reasonOwnPin   = "own PIN" // the saver's own PIN, which only Change my PIN changes
 )
 
 type fieldEdit struct {
@@ -211,7 +212,11 @@ func (p *savePlan) screen(key, role string, ap *config.User) bool {
 			}
 		}
 		if f.set(&one, e.Value, p.x) != nil {
-			p.refuse(key, reasonInvalid, err)
+			reason := reasonInvalid
+			if errors.Is(err, errOwnPinHere) {
+				reason = reasonOwnPin
+			}
+			p.refuse(key, reason, err)
 			return false
 		}
 	}
@@ -377,12 +382,8 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 		plan.edits = edits
 	}
 	var cands []string
-	self := c.userID() // during a step-in, the stepped-in user
+	x.self = c.userID() // during a step-in, the stepped-in user
 	for _, key := range slices.Sorted(maps.Keys(edits)) {
-		if ownPinChange(live, key, self) {
-			refuse(key, reasonInvalid, errOwnPinHere)
-			continue
-		}
 		if plan.screen(key, role, ap) {
 			cands = append(cands, key)
 		}
@@ -419,18 +420,6 @@ func (a *App) planSave(c *client, edits map[string]fieldEdit, ap *config.User, a
 	keep = plan.pruneTogether(keep)
 	plan.moves, plan.keep = a.removedUsersPanels(c, live, edits, keep, refuse)
 	return plan, nil
-}
-
-// The one Save has no field for the current PIN. So only userSetPin (setOwnPin), which checks it, changes
-// or removes your own PIN. A first PIN is not a change.
-var errOwnPinHere = errors.New("change your own PIN with Change my PIN in My user, which asks for your current PIN")
-
-func ownPinChange(live config.Config, key, self string) bool {
-	if self == "" || key != "user/"+self+"/pin" {
-		return false
-	}
-	u, ok := live.FindUserByID(self)
-	return ok && u.HasPin()
 }
 
 // validateSave: what update checks, so a field that would fail the commit is refused alone.

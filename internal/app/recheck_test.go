@@ -242,7 +242,7 @@ func TestUsersSaveCriticalFields(t *testing.T) {
 		}
 	}
 	own := ukey(a, "Ada", "pin") // only Change my PIN, which asks for the current PIN (ownpin_test.go)
-	wantRefused(t, p.saveLive(a, 99, map[string]any{own: "8642"}), own, reasonInvalid)
+	wantRefused(t, p.saveLive(a, 99, map[string]any{own: "8642"}), own, reasonOwnPin)
 }
 
 // Manage users sends the loaded API clients and Guest Rights back as they came, and Settings > API the
