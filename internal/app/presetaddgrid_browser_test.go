@@ -101,11 +101,14 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	if b.eval(gridXp(4, 7) + `.dataset.s === 'staged'`).(bool) {
 		t.Fatal("the click staged the route")
 	}
-	b.waitFor("the added route shows as in the preset, and the count goes up", gridXp(4, 7)+`.dataset.preset === '' && `+count+` === '2 rows in the preset' && /in the preset$/.test(`+gridXp(4, 7)+`.getAttribute('aria-label'))`)
-	b.waitFor("its names show that they have a row", `document.querySelector('#grid-pop .sode-gridpanel__src[data-src="4"]')?.dataset.preset === '' && document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="7"]')?.dataset.preset === ''`)
-	if b.eval(gridXp(5, 7) + `?.dataset.preset === ''`).(bool) {
+	b.waitFor("the added route shows as in the preset, and the count goes up", gridXp(4, 7)+`.dataset.mark === '' && `+count+` === '2 rows in the preset' && /in the preset$/.test(`+gridXp(4, 7)+`.getAttribute('aria-label'))`)
+	b.waitFor("its names show that they have a row", `document.querySelector('#grid-pop .sode-gridpanel__src[data-src="4"]')?.dataset.mark === '' && document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="7"]')?.dataset.mark === ''`)
+	if b.eval(gridXp(5, 7) + `?.dataset.mark === ''`).(bool) {
 		t.Fatal("a route not in the preset shows as in it")
 	}
+	// A click on a route already in the preset adds nothing and says so; the bar keeps its count.
+	b.eval(gridXp(4, 7) + `.click(); true`)
+	b.waitFor("a click on a marked route says it is there", note+` === 'Already in the preset.' && `+count+` === '2 rows in the preset' && document.querySelector('.sode__pickbar [role=status]').textContent === 'Added 2 rows'`)
 	// Enter on the cursor's crosspoint adds as a click does, and confirms nothing. A second Enter finds it there.
 	b.eval(`document.querySelector('#grid-pop .sode-gridpanel__scroll').focus(); true`)
 	realKey(b, "ArrowRight", "ArrowRight", 39)
@@ -120,7 +123,7 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	b.waitFor("the destination's name adds its current route", note+`.includes(' from ') && document.querySelector('.sode__pickbar [role=status]').textContent === 'Added 4 rows'`)
 	b.waitFor("its name says in preset, and the count is 4", `document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="5"] .sode-gridpanel__held')?.textContent === 'in preset' && `+count+` === '4 rows in the preset'`)
 	gridShow(b, 3, 5)
-	b.waitFor("its current route shows as in the preset", gridXp(3, 5)+`.dataset.preset === ''`)
+	b.waitFor("its current route shows as in the preset", gridXp(3, 5)+`.dataset.mark === ''`)
 	b.shot("popup-light")
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "dark"}}})
 	settle(b)
