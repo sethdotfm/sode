@@ -473,7 +473,7 @@ function paint() {
 }
 
 const nameValue = () => nameInput?.value ?? '';
-const who = () => listedUser(stepping() ? stepInUsers(S.users, L.user) : S.users, asksName(L) ? nameValue() : heldUser);
+const who = () => listedUser(S.users, asksName(L) ? nameValue() : heldUser);
 
 function press(k) {
   clearTimeout(timer);

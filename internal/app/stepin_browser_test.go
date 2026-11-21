@@ -259,18 +259,25 @@ func TestChromeStepInCancelKeepsPage(t *testing.T) {
 	padDigits(b, "111111")
 	b.waitFor("wrong PIN told, still Step in", `document.querySelector('.sode-lock__dots').textContent === 'Incorrect' &&
 		!!document.querySelector('.sode-lock__mode:not([hidden])') && document.getElementById('account-stepout').hidden`)
-	b.waitFor("pad faded in", `getComputedStyle(document.querySelector('.sode-lock__body:not([hidden])')).opacity === '1'`)
-	b.shot("light-desktop")
-	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "dark"}}})
-	b.shot("dark-desktop")
-	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": false})
-	b.waitFor("Cancel fits a phone's width", `(() => {
-		const r = document.querySelector('.sode-lock__cancel').getBoundingClientRect();
-		return r.width > 0 && r.left >= 0 && r.right <= innerWidth;
-	})()`)
-	b.shot("dark-narrow")
-	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "light"}}})
-	b.shot("light-narrow")
+	// A name the list leaves out still goes to the server, which tells why.
+	b.padName("Cy")
+	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click(); true`)
+	b.waitFor("the server's refusal for Cy", `document.querySelector('.sode-lock__dots').textContent === 'Cy has no PIN: only a user with a PIN can step in'`)
+	b.padName("Bo")
+
+	shots := func(width int, name string) {
+		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": width, "height": 844, "deviceScaleFactor": 1, "mobile": false})
+		for _, theme := range []string{"light", "dark"} {
+			b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": theme}}})
+			b.waitFor("pad shown", `(() => {
+				const r = document.querySelector('.sode-lock__cancel').getBoundingClientRect();
+				return getComputedStyle(document.querySelector('.sode-lock__body:not([hidden])')).opacity === '1' && r.width > 0 && r.left >= 0 && r.right <= innerWidth;
+			})()`)
+			b.shot(theme + "-" + name)
+		}
+	}
+	shots(1280, "desktop")
+	shots(390, "narrow")
 	b.call("Emulation.clearDeviceMetricsOverride", nil)
 	b.eval(`document.querySelector('.sode-lock__cancel').click(); true`)
 	b.waitFor("Cancel left the page as it was", kept)
