@@ -13,24 +13,20 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// apiT* helpers are the REST seam: a real Handler, a recorder, the fake router.
-
 const apiPeer = "192.0.2.7:4000"
 
-// apiTestApp has the API on, a client "PanelsBot" with every read scope but log, and names
-// and tally seeded through the fake router.
+// The client "PanelsBot" has every read scope but log. The fake router seeds names and tally.
 func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 	t.Helper()
 	a := userApp(t, false)
 	f := newFakeRouter(t, a)
 	cfg := a.r().cfg
-	cfg.API.Enabled = true
 	cfg.APIClients = []config.APIClient{
 		{Name: "PanelsBot", Scopes: []string{config.ScopeNames, config.ScopeTally, config.ScopeProtected, config.ScopeStatus, config.ScopePresets, config.ScopeHistory, config.ScopeLayouts}},
 		{Name: "LogBot", Scopes: []string{config.ScopeLog}},
 		{Name: "NamesBot", Scopes: []string{config.ScopeNames}},
 	}
-	cfg.Presets = []config.Preset{{Name: "Studio A", Items: []config.PresetItem{{Src: 1, Dsts: []int{2}}}}}
+	cfg.Presets = []config.Preset{{ID: "studio-a", Name: "Studio A", Items: []config.PresetItem{presetItem(1, nil, 2)}}}
 	if mut != nil {
 		mut(&cfg)
 	}
@@ -41,14 +37,18 @@ func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 	a.router.srcNames[1] = "CAM 1"
 	a.router.dstNames[2] = "MON 2"
 	a.router.tally[2] = map[int]int{1: 1}
-	a.router.protect[3] = map[int]int{1: 0}
+	a.router.protect[3] = map[int]protHold{1: {0, 1}}
 	a.mu.Unlock()
 	return a, f
 }
 
 func apiTestKey(t *testing.T, a *App, o keyOwner, name string, exp time.Time) string {
 	t.Helper()
-	secret, _, err := a.keys.createCapped(o, name, exp, 0, "")
+	fp := ""
+	if u, ok := a.r().cfg.FindUserByID(o.User); ok && o.Kind == actorUser {
+		fp = pinFP(u.Pin)
+	}
+	secret, _, err := a.keys.createCapped(o, name, exp, 0, fp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,6 @@ func apiBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 	return m
 }
 
-// apiErrCode is the machine-readable reason of an error response.
 func apiErrCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	e, _ := apiBody(t, rec)["error"].(map[string]any)
@@ -104,16 +103,6 @@ func wantErr(t *testing.T, rec *httptest.ResponseRecorder, status int, code stri
 	}
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
 		t.Errorf("content type %q", ct)
-	}
-}
-
-func TestAPIOffRefusesEverything(t *testing.T) {
-	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
-	key := botKey(t, a)
-	wantErr(t, apiDo(a, "GET", "/api/v1/names", key, nil), 503, "api_off")
-	wantErr(t, apiDo(a, "GET", "/api/v1/names", "", nil), 503, "api_off")
-	if rec := apiDo(a, "GET", "/api/health", "", nil); rec.Code == 0 || rec.Code == 403 {
-		t.Errorf("health %d", rec.Code)
 	}
 }
 
@@ -224,11 +213,11 @@ func TestAPIUserKeyActsAsUser(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		for i := range c.Users {
 			if c.Users[i].Name == "Ana" {
-				c.Users[i].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{{Src: 1, Dsts: []int{2}}}}}
+				c.Users[i].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{presetItem(1, nil, 2)}}}
 			}
 		}
 	})
-	key := apiTestKey(t, a, keyOwner{Kind: actorUser, Name: "Ana"}, "Desk", time.Time{})
+	key := apiTestKey(t, a, ownerOf(a, "Ana"), "Desk", time.Time{})
 	var got []string
 	for _, p := range apiBody(t, apiDo(a, "GET", "/api/v1/presets", key, nil))["presets"].([]any) {
 		m := p.(map[string]any)
@@ -288,12 +277,10 @@ func TestAPIRateLimitPerKeyAndPerGuestAddress(t *testing.T) {
 	if rec.Header().Get("Retry-After") == "" {
 		t.Error("no Retry-After")
 	}
-	// another key is unaffected
 	other := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: "PanelsBot"}, "Panel 44", time.Time{})
 	if rec := apiDo(a, "GET", "/api/v1/names", other, nil); rec.Code != 200 {
 		t.Errorf("other key: %d", rec.Code)
 	}
-	// keyless calls count per address
 	for range 3 {
 		apiDoFrom(a, "192.0.2.50:1", "GET", "/api/v1/names", "", nil)
 	}
@@ -313,7 +300,6 @@ func TestAPIFailedAuthThrottleAndOneRowPerMinute(t *testing.T) {
 	wantErr(t, last, 429, "rate_limited")
 	// the real key from that address waits too: the throttle is per address
 	wantErr(t, apiDo(a, "GET", "/api/v1/names", botKey(t, a), nil), 429, "rate_limited")
-	// another address is fine
 	if rec := apiDoFrom(a, "192.0.2.99:1", "GET", "/api/v1/names", botKey(t, a), nil); rec.Code != 200 {
 		t.Errorf("other address: %d", rec.Code)
 	}
@@ -407,7 +393,7 @@ func TestAPINoCORSAndUnknownRoutes(t *testing.T) {
 
 // The OpenAPI file is hand-written; this keeps it in step with the route table.
 func TestOpenAPIDocumentsEveryRoute(t *testing.T) {
-	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
+	a, _ := apiTestApp(t, nil)
 	rec := apiDo(a, "GET", "/api/v1/openapi.yaml", "", nil)
 	if rec.Code != 200 || !strings.Contains(rec.Header().Get("Content-Type"), "yaml") {
 		t.Fatalf("%d %q", rec.Code, rec.Header().Get("Content-Type"))
@@ -448,47 +434,37 @@ func TestOpenAPIDocumentsEveryRoute(t *testing.T) {
 }
 
 func TestAPISettingsMessage(t *testing.T) {
-	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
+	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
-	rule, ok := policy["apiSettings"]
-	if !ok || rule.need&needAdmin == 0 {
-		t.Fatalf("apiSettings rule %+v ok=%v", rule, ok)
+	api := func(edit func(*config.APISettings)) map[string]any {
+		s := a.r().cfg.API
+		edit(&s)
+		return map[string]any{"api": s}
 	}
-	c := &client{ip: "10.0.0.9"}
-	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(true)}); err == nil {
-		t.Fatal("saved without the Advanced Settings PIN")
-	}
-	c = adminClient(t, a)
-	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(true), RateLimit: apiPtr(50), GuestEnabled: apiPtr(true), LogReads: apiPtr(true)}); err != nil {
-		t.Fatal(err)
-	}
+	mustRefuse(t, a, &client{ip: "10.0.0.9"}, api(func(s *config.APISettings) { s.GuestEnabled = true }))
+	c := adminClient(t, a)
+	mustSave(t, a, c, api(func(s *config.APISettings) { s.RateLimit, s.GuestEnabled, s.LogReads = 50, true, true }))
 	got := a.r().cfg.API
-	if !got.Enabled || got.RateLimit != 50 || !got.GuestEnabled || !got.LogReads || got.TakeCap != config.DefaultTakeCap {
+	if got.RateLimit != 50 || !got.GuestEnabled || !got.LogReads || got.TakeCap != config.DefaultTakeCap {
 		t.Fatalf("settings %+v", got)
 	}
-	if err := a.SaveAPISettings(c, apiSettingsReq{TakeCap: apiPtr(0)}); err == nil {
-		t.Error("take cap 0 accepted")
-	}
+	mustRefuse(t, a, c, api(func(s *config.APISettings) { s.TakeCap = 0 }))
 	if a.r().cfg.API.TakeCap != config.DefaultTakeCap {
 		t.Error("refused save changed settings")
 	}
-	if err := a.SaveAPISettings(c, apiSettingsReq{Enabled: apiPtr(false)}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, c, api(func(s *config.APISettings) { s.LogReads = false }))
 	var whys []string
-	for _, e := range waitLogged(t, a, 5) {
+	for _, e := range waitLogged(t, a, 4) {
 		if e.Kind == kindAPI {
 			whys = append(whys, e.Why+":"+e.Result)
 		}
 	}
-	for _, want := range []string{"apiEnabled:on", "apiEnabled:off", "guestApi:on", "logApiReads:on"} {
+	for _, want := range []string{"guestApi:on", "logApiReads:on", "logApiReads:off"} {
 		if !apiHas(whys, want) {
 			t.Errorf("no row %q in %v", want, whys)
 		}
 	}
 }
-
-func apiPtr[T any](v T) *T { return &v }
 
 func apiHas(l []string, s string) bool {
 	for _, v := range l {

@@ -1,4 +1,3 @@
-// Recent filter language and history filtering.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseFilter, filterText, compileFilter, filterFn, entryAllows, stackAllows } from '../filter.js';
@@ -93,7 +92,7 @@ test('histRows', async () => {
   globalThis.document = node();
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
-  store.set('sode-ext', 'none'); // first beta's setting migrates
+  store.set('sode-ext', 'none'); // an old `sode-ext` value still loads
   const { histRows, S, setFilter, filterState, filterCount, FILTER_DEFAULT } = await import('./all.mjs');
   assert.deepEqual(filterState(), { ...FILTER_DEFAULT, ext: false });
   assert.equal(store.has('sode-ext'), false);
@@ -181,15 +180,13 @@ test('rapid changes to one destination stack, from any instance', async () => {
   assert.deepEqual(stackBefore({ ...stack, prev: hist[11].prev }).src, null);
   assert.equal(stackBefore({ ...stack, prev: hist[11].prev }).text, '2 sources');
 
-  // Hide Sode's takes: an External still stands, and the hidden takes around it break the row.
   setFilter({ ...FILTER_DEFAULT, sode: false });
   assert.equal(show([...hist]), '18');
-  // Hide Externals: the takes on each side of one do not join over it.
   setFilter({ ...FILTER_DEFAULT, ext: false });
   assert.equal(show([...hist]), '20 19 17<17,16 21 15 f14,13 12 11 10');
   setFilter(FILTER_DEFAULT);
 
-  // The gap is a This browser pref. The takes are 20 s apart, so 10 s and Off stack nothing.
+  // The gap is a This browser setting. The takes are 20 s apart, so 10 s and Off stack nothing.
   try {
     setPref('stackGap', '10');
     assert.equal(stackGapMs(), 10000);
@@ -210,25 +207,27 @@ test('rapid changes to one destination stack, from any instance', async () => {
 test('filter sets', async () => {
   const core = await import('./all.mjs'); // same instance as the histRows test
   const { S, setFilter, filterState, activeSet, pickSet, saveLocalSet, deleteLocalSet, allSets, FILTER_DEFAULT } = core;
-  S.cfg = { numberOffset: 1, filterSets: [{ name: 'No shader', src: '', dst: '!MON', sode: true, ext: true, hidden: false }] };
+  S.cfg = { numberOffset: 1, filterSets: [{ id: 'ns', name: 'No shader', src: '', dst: '!MON', sode: true, ext: true, hidden: false }] };
   assert.deepEqual(
     allSets().map((s) => `${s.scope}:${s.name}`),
     ['all:All', 'global:No shader'],
   );
 
-  pickSet('global', 'No shader');
+  pickSet('global', 'ns');
   assert.equal(filterState().dst, '!MON');
   assert.equal(activeSet().edited, false);
   setFilter({ ...filterState(), dst: '!MON, !PVW' });
   assert.equal(activeSet().edited, true);
-  saveLocalSet('Mine');
+  const id = saveLocalSet('Mine');
   assert.deepEqual(activeSet() && [activeSet().scope, activeSet().name, activeSet().edited], ['local', 'Mine', false]);
-  assert.equal(JSON.parse(localStorage.getItem('sode-filter-sets'))[0].f.dst, '!MON, !PVW');
-  saveLocalSet('mine');
+  const stored = JSON.parse(localStorage.getItem('sode-filter-sets'))[0];
+  assert.deepEqual([stored.id, stored.f.dst], [id, '!MON, !PVW']);
+  // The same name in other letters is the same set, with the same id.
+  assert.equal(saveLocalSet('mine'), id);
   assert.equal(allSets().filter((s) => s.scope === 'local').length, 1);
-  core.renameLocalSet('mine', 'Desk');
+  assert.equal(saveLocalSet('Desk', id), id);
   assert.deepEqual([activeSet().name, activeSet().edited], ['Desk', false]);
-  deleteLocalSet('desk');
+  deleteLocalSet(id);
   assert.equal(activeSet(), null);
   assert.equal(localStorage.getItem('sode-filter-sets'), null);
 
@@ -318,7 +317,7 @@ test('follows and merged chains', async () => {
     [2],
   );
   plan.extra.on = true;
-  sendTakes({ ...plan }); // a copy, as desktop's confirm makes
+  sendTakes({ ...plan }); // a copy, as the desktop confirm makes
   assert.deepEqual(
     sent.pop().items.map((i) => i.dst),
     [2, 40],
@@ -366,8 +365,7 @@ test('quick search', async () => {
       .join(' ');
   setFilter({ ...FILTER_DEFAULT, ext: false });
   assert.equal(ids(), '4');
-  // A search ignores the filters, finds takes by their follows, and
-  // does not merge.
+  // A search ignores the filters, finds takes by their follows and does not stack.
   setSearch({ src: '', dst: 'MON' });
   assert.equal(ids(), '3 2');
   setSearch({ src: '', dst: 'MV 28' });
@@ -410,8 +408,7 @@ test('follows whose take is hidden, and trimming after a search', async () => {
   assert.equal(rows(), '2');
   setFilter(FILTER_DEFAULT);
 
-  // A search reads far back; clearing it keeps the newest entries only,
-  // whole groups, and Load more takes it from there.
+  // A search reads far back. When it clears, only the newest entries stay, in whole Groups, and Load more continues from there.
   S.hist = Array.from({ length: 450 }, (_, i) => e({ id: 450 - i, dst: 1, src: 1, ...(i >= 198 && i < 203 ? { group: 'g', groupN: 5 } : {}) }));
   S.histMore = false;
   setSearch({ src: 'x', dst: '' });
@@ -443,7 +440,7 @@ test('history pages', async () => {
   const { S, takePage, setSearch } = await import('./all.mjs');
   const ents = (from, n) =>
     Array.from({ length: n }, (_, i) => ({ id: from - i, levels: [1], prev: [], ok: true, src: 0, dst: 0, time: new Date(0).toISOString() }));
-  // A search read far back; the next page (before #100) is on its way.
+  // A search read far back; the next page (before #100) is not here yet.
   S.hist = ents(999, 900);
   S.histMore = true;
   S.histLoading = true;
@@ -459,8 +456,7 @@ test('history pages', async () => {
   assert.equal(S.hist.at(-1).id, 790);
   assert.equal(S.histLoading, false);
   assert.equal(takePage({ before: 790, entries: ents(789, 10), more: true }), false);
-  // History cleared while a page was on its way: ignored, even once
-  // another request is out.
+  // History cleared before a page arrived: Sode ignores the page, even after another request goes out.
   S.hist = [];
   S.histLoading = true;
   assert.equal(takePage({ before: 790, entries: ents(789, 10), more: true }), false);
@@ -498,7 +494,7 @@ test('undo warns about changes since', async () => {
     ],
   ]);
   assert.deepEqual(changedSince(undoPlan(e).items[0]), []);
-  // Since then, levels 2 and 3 went to src 9 (a panel, or found at resync).
+  // After that, levels 2 and 3 went to src 9 (an External, or found at resync).
   S.tally.get(5).set(2, 9).set(3, 9);
   assert.deepEqual(changedSince(undoPlan(e).items[0]), [{ src: 9, levels: [2, 3] }]);
   assert.deepEqual(changedSince(undoPlan({ ...e, ok: false }).items[0]), []);
@@ -566,7 +562,10 @@ test('stacking sets in the store', async () => {
     FILTER_DEFAULT,
   } = core;
   const f = (o) => ({ name: '', src: '', dst: '', sode: true, ext: true, hidden: false, ...o });
-  S.cfg = { numberOffset: 1, filterSets: [f({ name: 'MV', dst: 'MV' }), f({ name: 'PGM', dst: 'PGM' }), f({ name: 'Ext', sode: false })] };
+  S.cfg = {
+    numberOffset: 1,
+    filterSets: [f({ id: 'mv', name: 'MV', dst: 'MV' }), f({ id: 'pgm', name: 'PGM', dst: 'PGM' }), f({ id: 'ext', name: 'Ext', sode: false })],
+  };
   const e = (o) => ({ levels: [1], prev: [], ok: true, src: 1, srcName: 'CAM', dst: 4, dstName: 'MV 5', ...o });
   const names = () =>
     allSets()
@@ -575,10 +574,10 @@ test('stacking sets in the store', async () => {
   assert.deepEqual(names(), ['MV', 'PGM', 'Ext']);
 
   pickSet('all', 'All');
-  toggleSet('global', 'MV');
+  toggleSet('global', 'mv');
   assert.equal(activeSet().name, 'MV');
   assert.equal(activeStack().length, 0);
-  toggleSet('global', 'PGM');
+  toggleSet('global', 'pgm');
   assert.deepEqual(
     activeStack().map((s) => s.name),
     ['MV', 'PGM'],
@@ -593,25 +592,25 @@ test('stacking sets in the store', async () => {
   assert.equal(filterAllows(e()), true);
   assert.equal(filterAllows(e({ dstName: 'DSM 1' })), false);
   setPref('setStack', 'and');
-  // Taking one off leaves the other, alone; the last off is All.
-  toggleSet('global', 'MV');
+  // One set off leaves the other alone; the last set off gives All.
+  toggleSet('global', 'mv');
   assert.deepEqual([activeSet().name, filterState().dst], ['PGM', 'PGM']);
-  toggleSet('global', 'PGM');
+  toggleSet('global', 'pgm');
   assert.equal(activeSet().scope, 'all');
-  // Adding to a single edited set drops the edit.
-  pickSet('global', 'MV');
+  // A set added to one edited set drops the edit.
+  pickSet('global', 'mv');
   setFilter({ ...filterState(), dst: 'MV, X' });
-  toggleSet('global', 'Ext');
+  toggleSet('global', 'ext');
   assert.equal(filterState().dst, 'MV');
   assert.equal(activeStack().length, 2);
   setFilter({ ...filterState(), src: 'CAM' });
   assert.deepEqual([activeStack().length, activeSet(), filterState().src], [0, null, 'CAM']);
-  pickSet('global', 'MV');
-  toggleSet('global', 'PGM');
+  pickSet('global', 'mv');
+  toggleSet('global', 'pgm');
   toggleSet('all', 'All');
   assert.deepEqual([activeStack().length, activeSet().scope, filterState()], [0, 'all', { ...FILTER_DEFAULT }]);
-  pickSet('global', 'MV');
-  toggleSet('global', 'PGM');
+  pickSet('global', 'mv');
+  toggleSet('global', 'pgm');
   const snap = snapshot();
   pickSet('all', 'All');
   restore(snap);
@@ -619,24 +618,24 @@ test('stacking sets in the store', async () => {
     activeStack().map((s) => s.name),
     ['MV', 'PGM'],
   );
-  // A local set deleted from a stack of three leaves two; of two, one.
+  // A This browser set deleted from a stack of three leaves two; from two, one.
   setFilter({ ...FILTER_DEFAULT, dst: 'LOC' });
-  saveLocalSet('Loc');
-  pickSet('global', 'MV');
-  toggleSet('global', 'PGM');
-  toggleSet('local', 'Loc');
+  const loc = saveLocalSet('Loc');
+  pickSet('global', 'mv');
+  toggleSet('global', 'pgm');
+  toggleSet('local', loc);
   assert.deepEqual(
     activeStack().map((s) => s.name),
     ['MV', 'PGM', 'Loc'],
   );
-  deleteLocalSet('Loc');
+  deleteLocalSet(loc);
   assert.deepEqual(
     activeStack().map((s) => s.name),
     ['MV', 'PGM'],
   );
   // Sets removed in Settings drop out of a stack; none left is All.
-  toggleSet('global', 'MV');
-  toggleSet('global', 'PGM');
+  toggleSet('global', 'mv');
+  toggleSet('global', 'pgm');
   S.cfg = { ...S.cfg, filterSets: S.cfg.filterSets.slice(2) };
   core.emit('helloData');
   assert.equal(activeSet().scope, 'all');

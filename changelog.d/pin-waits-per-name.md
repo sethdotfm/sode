@@ -1,0 +1,2 @@
+- **Waits after wrong PINs per user name**: wrong PINs for one name no longer slow down anyone else. A right PIN for that name stops its wait. A new switch, Settings > Access > Locks > *Wait after wrong PINs* (on by default), turns the waits off, except for Administrator names, which always wait.
+- **No permanent lock**: *Lock after wrong PINs*, the `pinMaxTries` config key and `SODE_PIN_MAX_TRIES` are gone. Wrong PINs never lock Sode until a restart.

@@ -8,25 +8,24 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// view* helpers: a client PanelsBot whose rights allow source 1 and destination 2 only,
-// hidden or read-only. The router also has source 5 and destination 7.
+// PanelsBot's rights allow source 1 and destination 2 only. The router also has source 5 and destination 7.
 
 func viewRights(vis string) config.Rights {
-	return config.Rights{Sources: &[]int{1}, Dsts: &[]int{2}, Presets: &[]string{"Studio A"}, Visibility: vis}
+	return config.Rights{Sources: nums(1), Dsts: nums(2), Presets: &[]string{"studio-a"}, Visibility: vis}
 }
 
 func viewApp(t *testing.T, vis string) (*App, string) {
 	t.Helper()
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		c.APIClients[0].Rights = viewRights(vis)
-		c.Presets = append(c.Presets, config.Preset{Name: "Secret mix", Items: []config.PresetItem{{Src: 5, Dsts: []int{7}}}})
+		c.Presets = append(c.Presets, config.Preset{Name: "Secret mix", Items: []config.PresetItem{presetItem(5, nil, 7)}})
 	})
 	a.mu.Lock()
 	a.router.srcNames[5] = "SECRET SRC"
 	a.router.dstNames[7] = "SECRET DST"
 	a.router.tally[7] = map[int]int{1: 5}
 	a.router.tally[2][2] = 5 // visible destination, hidden source
-	a.router.protect[7] = map[int]int{1: 0}
+	a.router.protect[7] = map[int]protHold{1: {0, 1}}
 	a.mu.Unlock()
 	return a, botKey(t, a)
 }
@@ -62,12 +61,12 @@ func TestHiddenRightsDropNamesTallyAndProtected(t *testing.T) {
 		t.Errorf("protected %v", got) // dst 3 and 7 are both outside the rights
 	}
 	// The value in protect is a device, not a source. Device 5 must not hide a visible
-	// destination, and the row carries only dst and level.
+	// destination. The row carries dst, level, kind and device, and no Sode user for a Protect Sode did not set.
 	a.mu.Lock()
-	a.router.protect[2] = map[int]int{1: 5}
+	a.router.protect[2] = map[int]protHold{1: {5, 1}}
 	a.mu.Unlock()
 	got := viewGet(t, a, key, "/api/v1/protected")["protected"].([]any)
-	if len(got) != 1 || len(got[0].(map[string]any)) != 2 || got[0].(map[string]any)["dst"] != float64(2) {
+	if len(got) != 1 || len(got[0].(map[string]any)) != 4 || got[0].(map[string]any)["dst"] != float64(2) {
 		t.Errorf("protected %v", got)
 	}
 
@@ -77,17 +76,15 @@ func TestHiddenRightsDropNamesTallyAndProtected(t *testing.T) {
 	}
 }
 
-// A preset the caller can see by name still names sources and destinations. One that names
-// anything hidden is not listed, so /presets teaches no hidden number.
 func TestHiddenRightsDropPresetsNamingHiddenNumbers(t *testing.T) {
 	setup := func(vis string) (*App, string) {
 		a, _ := apiTestApp(t, func(c *config.Config) {
 			r := viewRights(vis)
-			r.Presets = &[]string{"Studio A", "Mixed", "Hidden src"}
+			r.Presets = &[]string{"studio-a", "mixed", "hidden-src"}
 			c.APIClients[0].Rights = r
 			c.Presets = append(c.Presets,
-				config.Preset{Name: "Mixed", Items: []config.PresetItem{{Src: 1, Dsts: []int{2, 7}}}},
-				config.Preset{Name: "Hidden src", Items: []config.PresetItem{{Src: 5, Dsts: []int{2}}}})
+				config.Preset{ID: "mixed", Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
+				config.Preset{ID: "hidden-src", Name: "Hidden src", Items: []config.PresetItem{presetItem(5, nil, 2)}})
 		})
 		return a, botKey(t, a)
 	}
@@ -121,7 +118,6 @@ func TestHiddenRightsDropHistoryEntries(t *testing.T) {
 	ok := Entry{Src: 1, SrcName: "CAM 1", Dst: 2, DstName: "MON 2", Levels: []int{1}, Prev: [][2]int{{1, 1}}, OK: true}
 	hiddenDst := Entry{Src: 1, Dst: 7, Levels: []int{1}, Prev: [][2]int{{1, -1}}, OK: true}
 	hiddenSrc := Entry{Src: 5, SrcName: "SECRET SRC", Dst: 2, Levels: []int{1}, OK: true}
-	// Visible entry whose level 2 came from a hidden source: that level goes, level 1 stays.
 	partial := Entry{Src: 1, Dst: 2, Levels: []int{1, 2}, Prev: [][2]int{{1, 1}, {2, 5}}, Failed: []int{2}, Now: [][2]int{{2, 5}}, OK: false,
 		Preset: "Secret mix", Group: "g", GroupN: 3}
 	for _, e := range []Entry{ok, hiddenDst, hiddenSrc, partial} {
@@ -145,8 +141,6 @@ func TestHiddenRightsDropHistoryEntries(t *testing.T) {
 	}
 }
 
-// The view check that Undo, Redo and Retry planning uses. A hidden caller gets the entry as
-// it sees it, or false when it is not theirs to see.
 func TestViewEntryIsTheCheckForUndoPlans(t *testing.T) {
 	hid := apiView{viewRights(config.VisHidden)}
 	if _, ok := hid.Entry(Entry{Src: 1, Dst: 7, Levels: []int{1}}); ok {

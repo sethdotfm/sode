@@ -41,7 +41,6 @@ func TestPanelPagesAreServed(t *testing.T) {
 	}
 }
 
-// The panel gate is the Locks.Panel switch, apart from main and log.
 func TestPanelGate(t *testing.T) {
 	a := userApp(t, false)
 	cfg := a.r().cfg
@@ -62,7 +61,6 @@ func TestPanelLockEnforcedOnPanelPages(t *testing.T) {
 	cfg.Normalize()
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234")}
 	cfg.Locks = config.Locks{Panel: true}
-	cfg.SettingsPin = mkUser(t, "", "2468").Pin
 	hist, _ := OpenHistory("")
 	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
 	if err != nil {

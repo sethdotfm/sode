@@ -1,0 +1,8 @@
+- Palette: after a row runs, the focus goes back to where it was, normally Source. A dialog or a Confirm that the row opens keeps the focus while it is open, and the focus goes back when it closes.
+- Palette: a match of whole words or word starts comes first. A match of letters in order shows under "Other matches", and Enter never picks it first. When only such matches show, no row is picked.
+- Palette: an action or a page comes before a setting with the same word ("theme" is Dark or light theme). Clear History and other rows that delete or reset something come last, and Enter never picks them first.
+- Palette: each preference shows one time, in This browser. Everyone's defaults still lists its own rows. The my default buttons name their setting ("Save Theme as my default"), and a save shows a result banner. The theme and Compact view actions show one too.
+- Palette: Backspace in an empty box goes back one level and does nothing at the top. Only Esc closes the Palette.
+- Palette: with no text, Enter picks nothing (or the first category when only categories show). A category word alone ("pre", "panels") puts the category first, so Enter opens it. "settings" also offers the Settings page, and "home" finds Home on every page.
+- Palette: Tab and Shift+Tab move the cursor and keep the focus in the box. PageUp and PageDown jump one screen of rows. Ctrl+Home and Ctrl+End go to the first and the last row.
+- Palette: signed in, "sign in", "log in" and "login" find Sign out and Step in.

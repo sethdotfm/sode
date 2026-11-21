@@ -1,4 +1,3 @@
-// The 'user' (Me) scope of filter sets and presets: from the profile message, carry their user, never leak to another user.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -42,13 +41,13 @@ const reset = () => {
 
 test('user sets come from the profile and sit between Everyone and This browser', () => {
   reset();
-  m.S.cfg.filterSets = [f({ name: 'Shared', dst: 'MV' })];
+  m.S.cfg.filterSets = [f({ id: 'g1', name: 'Shared', dst: 'MV' })];
   m.saveLocalSet('Mine');
   assert.deepEqual(
     m.allSets().map((s) => `${s.scope}:${s.name}`),
     ['all:All', 'global:Shared', 'local:Mine'],
   );
-  signIn('Ana', [f({ name: 'Ana set', src: 'CAM' })]);
+  signIn('Ana', [f({ id: 'a1', name: 'Ana set', src: 'CAM' })]);
   assert.deepEqual(
     m.allSets().map((s) => `${s.scope}:${s.name}`),
     ['all:All', 'global:Shared', 'user:Ana set', 'local:Mine'],
@@ -59,32 +58,32 @@ test('user sets come from the profile and sit between Everyone and This browser'
 
 test('a name used in two scopes is two sets; picking goes by scope', () => {
   reset();
-  m.S.cfg.filterSets = [f({ name: 'Cams', src: 'GLOBAL' })];
-  signIn('Ana', [f({ name: 'cams', src: 'ANA' })]);
-  m.pickSet('user', 'Cams');
+  m.S.cfg.filterSets = [f({ id: 'gc', name: 'Cams', src: 'GLOBAL' })];
+  signIn('Ana', [f({ id: 'ac', name: 'cams', src: 'ANA' })]);
+  m.pickSet('user', 'ac');
   assert.equal(m.filterState().src, 'ANA');
   assert.equal(m.activeRef().user, 'Ana');
-  assert.equal(m.isActive('user', 'Cams'), true);
-  assert.equal(m.isActive('global', 'Cams'), false);
-  m.pickSet('global', 'Cams');
+  assert.equal(m.isActive('user', 'ac'), true);
+  assert.equal(m.isActive('global', 'gc'), false);
+  m.pickSet('global', 'gc');
   assert.equal(m.filterState().src, 'GLOBAL');
 });
 
 test("the active set carries its user: Bob never picks up Ana's same-named set", () => {
   reset();
-  signIn('Ana', [f({ name: 'Mine', src: 'ANA' })]);
-  m.pickSet('user', 'Mine');
+  signIn('Ana', [f({ id: 'm1', name: 'Mine', src: 'ANA' })]);
+  m.pickSet('user', 'm1');
   assert.equal(m.activeSet().name, 'Mine');
   assert.equal(JSON.parse(mem.get('sode-filter-active')).user, 'Ana');
-  signIn('Bob', [f({ name: 'Mine', src: 'BOB' })]);
+  signIn('Bob', [f({ id: 'm1', name: 'Mine', src: 'BOB' })]);
   assert.equal(m.activeSet().scope, 'all');
   assert.equal(m.filterState().src, '');
 });
 
 test('logging out drops a user set', () => {
   reset();
-  signIn('Ana', [f({ name: 'Mine', src: 'ANA' })]);
-  m.pickSet('user', 'Mine');
+  signIn('Ana', [f({ id: 'm1', name: 'Mine', src: 'ANA' })]);
+  m.pickSet('user', 'm1');
   signIn('');
   assert.equal(m.activeSet().scope, 'all');
   assert.equal(m.filterState().src, '');
@@ -96,10 +95,10 @@ test('logging out drops a user set', () => {
 
 test('a stack drops the sets of a user that left, keeps the rest', () => {
   reset();
-  m.S.cfg.filterSets = [f({ name: 'G', dst: 'MV' })];
-  signIn('Ana', [f({ name: 'A', src: 'ANA' })]);
-  m.toggleSet('global', 'G');
-  m.toggleSet('user', 'A');
+  m.S.cfg.filterSets = [f({ id: 'g', name: 'G', dst: 'MV' })];
+  signIn('Ana', [f({ id: 'a', name: 'A', src: 'ANA' })]);
+  m.toggleSet('global', 'g');
+  m.toggleSet('user', 'a');
   assert.equal(m.activeStack().length, 2);
   assert.deepEqual(
     JSON.parse(mem.get('sode-filter-stack')).map((r) => r.user),
@@ -112,43 +111,53 @@ test('a stack drops the sets of a user that left, keeps the rest', () => {
 
 test('a set edited on another device is followed unless this browser edited it', () => {
   reset();
-  signIn('Ana', [f({ name: 'Mine', src: 'ONE' })]);
-  m.pickSet('user', 'Mine');
-  signIn('Ana', [f({ name: 'Mine', src: 'TWO' })]);
+  signIn('Ana', [f({ id: 'm1', name: 'Mine', src: 'ONE' })]);
+  m.pickSet('user', 'm1');
+  signIn('Ana', [f({ id: 'm1', name: 'Mine', src: 'TWO' })]);
   assert.equal(m.filterState().src, 'TWO');
   m.setFilter(f({ src: 'HAND' }));
-  signIn('Ana', [f({ name: 'Mine', src: 'THREE' })]);
+  signIn('Ana', [f({ id: 'm1', name: 'Mine', src: 'THREE' })]);
   assert.equal(m.filterState().src, 'HAND');
   assert.equal(m.activeSet().edited, true);
 });
 
-test('user presets: own pinned flag, scoped after Everyone', () => {
+test('a renamed set stays active and stacked: the hidden id names it', () => {
   reset();
-  m.S.cfg.presets = [{ name: 'Show', items: [{ src: 1, dsts: [0], levels: [] }] }];
-  signIn('Ana', [], [{ name: 'Show', pinned: false, items: [{ src: 2, dsts: [1], levels: [] }] }]);
+  m.S.cfg.filterSets = [f({ id: 'g', name: 'Cams', dst: 'MV' })];
+  signIn('Ana', [f({ id: 'a', name: 'Mine', src: 'ANA' })]);
+  m.pickSet('global', 'g');
+  m.S.cfg = { ...m.S.cfg, filterSets: [f({ id: 'g', name: 'Cameras', dst: 'MV' })] };
+  m.emit('helloData');
+  assert.deepEqual([m.activeSet().name, m.activeSet().edited], ['Cameras', false]);
+  assert.equal(JSON.parse(mem.get('sode-filter-active')).id, 'g');
+  m.toggleSet('user', 'a');
+  signIn('Ana', [f({ id: 'a', name: 'Ours', src: 'ANA' })]);
+  assert.deepEqual(
+    m.activeStack().map((s) => s.name),
+    ['Cameras', 'Ours'],
+  );
+  // This browser: a save under a new name keeps the id, so the active set and bookmarks follow.
+  m.pickSet('all', 'All');
+  const id = m.saveLocalSet('Desk');
+  assert.ok(id);
+  assert.equal(m.saveLocalSet('Desk 2', id), id);
+  assert.deepEqual(
+    m.localSets().map((s) => [s.id, s.name]),
+    [[id, 'Desk 2']],
+  );
+  assert.deepEqual([m.activeSet().id, m.activeSet().name], [id, 'Desk 2']);
+});
+
+test('user presets: scoped after Everyone', () => {
+  reset();
+  m.S.cfg.presets = [{ id: 'g1', name: 'Show', items: [{ src: { router: 'r1', n: 1 }, dsts: [{ router: 'r1', n: 0 }], levels: [] }] }];
+  signIn('Ana', [], [{ id: 'u1', name: 'Show', items: [{ src: { router: 'r1', n: 2 }, dsts: [{ router: 'r1', n: 1 }], levels: [] }] }]);
   assert.deepEqual(
     m.allPresets().map((s) => `${s.scope}:${s.name}`),
     ['global:Show', 'user:Show'],
   );
   assert.equal(m.findPreset('user', 'show').items[0].src, 2);
-  // a browser override of the Everyone preset never touches the Me preset of the same name
-  m.setLocalPin(m.findPreset('global', 'Show'), false);
-  assert.deepEqual(
-    m.pinnedPresets().map((s) => s.scope),
-    [],
-  );
-  m.setLocalPin(m.findPreset('global', 'Show'), true);
-  assert.deepEqual(
-    m.pinnedPresets().map((s) => s.scope),
-    ['global'],
-  );
-  assert.equal(m.effectivePin(m.findPreset('user', 'Show')), false);
-  m.setLocalPin(m.findPreset('user', 'Show'), true); // a Me preset is saved to the profile instead: no local effect
-  assert.equal(m.effectivePin(m.findPreset('user', 'Show')), false);
-  const next = m.withUserPin('Show', true);
-  assert.equal(next.length, 1);
-  assert.equal(next[0].pinned, true);
-  assert.equal('scope' in next[0], false);
+  assert.equal(m.findPreset('user', 'show').id, 'u1');
   signIn('');
   assert.deepEqual(m.userPresets(), []);
 });
@@ -188,7 +197,7 @@ test('saveProfile: one at a time, the second built on the first; a lost socket s
   sent.length = 0;
   const a = saveProfile({ prefs: { theme: 'dark' } });
   const b = saveProfile({ prefs: { ...profile().prefs, clock: '12' } });
-  // The own copy takes each save at call time, so the second was built on the first.
+  // The own copy gets each save when the call is made, so the second save builds on the first.
   assert.deepEqual(profile().prefs, { theme: 'dark', clock: '12' });
   await new Promise((r) => setImmediate(r));
   assert.equal(sent.length, 1);
@@ -196,11 +205,10 @@ test('saveProfile: one at a time, the second built on the first; a lost socket s
   assert.equal((await a).ok, true);
   await new Promise((r) => setImmediate(r));
   assert.equal(sent.length, 2);
-  // The socket drops before the second is answered: it settles, not hangs,
-  // and the local copy goes back to what it was.
+  // The socket drops before the second answer: the save settles, and the local copy goes back.
   m.emit('wsclose');
   const r = await b;
   assert.equal(r.ok, false);
-  assert.match(r.err, /lost/i);
+  assert.match(r.err, /Server link down/);
   assert.deepEqual(profile().prefs, { theme: 'dark' });
 });

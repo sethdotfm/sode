@@ -45,7 +45,7 @@ func TestAskInstanceNameOldPanelFileReadsOn(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 1\ncells: []\nsettings:\n    mode: instant\n")
+	old := []byte("id: p-0000abcd\nname: Old wall\nowner: " + idOf(a, "Ana") + "\nacts: session\nrows: 1\ncols: 1\ncells: []\nsettings:\n    mode: instant\n")
 	if err := os.WriteFile(filepath.Join(dir, "p-0000abcd.yaml"), old, 0o644); err != nil {
 		t.Fatal(err)
 	}

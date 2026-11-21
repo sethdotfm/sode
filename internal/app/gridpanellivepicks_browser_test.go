@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// liveGridPanel makes and saves a Grid panel that holds every router item, and answers its id.
 func liveGridPanel(t *testing.T, b *tab, srvURL string) string {
 	t.Helper()
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
@@ -18,9 +17,6 @@ func liveGridPanel(t *testing.T, b *tab, srvURL string) string {
 	return regexp.MustCompile(`panel=([\w-]+)`).FindStringSubmatch(b.eval(`location.search`).(string))[1]
 }
 
-// The Live Editor: names picked on the grid (click, Shift-click, Cmd-click) are the list's selection, and the drawer's
-// Move, Pin and Artwork act on them. The Preview bar keeps its copy of those buttons hidden. The kind picked last owns
-// the selection. The panel page gets none of this.
 func TestChromeGridPanelLivePicks(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -47,14 +43,14 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 	b.eval(`document.getElementById('ed-live-lists').click(); true`)
 	b.waitFor("a second press closes it", `document.getElementById('ed-live-lists').getAttribute('aria-pressed') === 'false' && !document.getElementById('ed-live-drawer').classList.contains('pb-drawer--open')`)
 
-	b.waitFor("the bar says Panel Live Editor, and the run has no Settings link and no take note", `document.getElementById('ed-live-title').textContent === 'Panel Live Editor' && document.getElementById('ed-live-bar').getAttribute('aria-labelledby') === 'ed-live-title'
-		&& getComputedStyle(document.querySelector('#ed-live-view .sode-gridpanel__settings')).display === 'none' && !document.querySelector('.sode-live__what')`)
-	b.waitFor("the panel title is at the left of the band, not cleared for the Lock bar", `(() => {
-		const t = document.querySelector('#ed-live-view .sode-panels__title').getBoundingClientRect(), d = document.querySelector('#ed-live-view .sode-gridpanel__deck').getBoundingClientRect();
-		return t.width > 0 && t.left - d.left < 40;
+	b.waitFor("the bar says Panel Live Editor, the page header keeps its Settings link, and the run has no take note", `document.getElementById('ed-live-title').textContent === 'Panel Live Editor' && document.getElementById('ed-live-bar').getAttribute('aria-labelledby') === 'ed-live-title'
+		&& !!document.querySelector('.sode-ed > .sode-bar .sode-bar__settings')?.offsetParent && !document.querySelector('.sode-live__what')`)
+	b.waitFor("the page header is the top bar: its title clears the Lock bar, and the Preview bar is under it", `(() => {
+		const head = document.querySelector('.sode-ed > .sode-bar'), t = head.querySelector('.sode-panels__title').getBoundingClientRect(), who = document.querySelector('.sode-lock__who').getBoundingClientRect();
+		return t.width > 0 && t.left >= who.right && document.getElementById('ed-live-bar').getBoundingClientRect().top >= head.getBoundingClientRect().bottom;
 	})()`)
 	b.eval(`window.topWas = gridTop(); press(nameOf('src', 3)); press(nameOf('src', 5), { shiftKey: true }); true`)
-	b.waitFor("a click and a Shift-click on the grid select those sources in the list; the Preview bar keeps its edit buttons hidden", `document.getElementById('ed-sources-sel').textContent === '3 selected' && getComputedStyle(document.getElementById('ed-live-picked')).display === 'none' && !document.getElementById('ed-sources-sel-top').offsetParent`)
+	b.waitFor("a click and a Shift-click on the grid select those sources in the list", `document.getElementById('ed-sources-sel').textContent === '3 selected'`)
 	b.shot("picked")
 	b.waitFor("the grid does not move", `gridTop() === topWas`)
 	b.eval(`document.getElementById('ed-live-lists').click(); true`)
@@ -80,12 +76,12 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 	b.waitFor("Done closes the artwork and puts the Cell tab back", `document.getElementById('ed-live-art').hidden && document.getElementById('panel-ed-cell').contains(document.getElementById('ed-cell-kind'))`)
 
 	b.eval(`document.getElementById('ed-live-lists').click(); document.getElementById('panel-clear').click(); true`)
-	b.waitFor("Clear drops the picks", `!document.getElementById('ed-live-picked').children.length && document.getElementById('ed-destinations-sel').textContent === '0 selected'`)
+	b.waitFor("Clear drops the picks", `document.getElementById('ed-destinations-sel').textContent === '0 selected'`)
 
 	b.eval(`document.getElementById('ed-live-save').click(); true`)
 	b.waitFor("saved", `document.getElementById('ed-live-save').hidden`)
 	p := readPanel(t, a, ana, id)
-	srcs, _ := p["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, p, "sources")
 	members, _ := srcs["members"].([]any)
 	items, _ := srcs["items"].(map[string]any)
 	if len(members) < 3 || members[0] != float64(3) || members[1] != float64(5) || members[2] != float64(4) {
@@ -96,7 +92,7 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 			t.Errorf("source %s saved %v, want pinned", n, it)
 		}
 	}
-	dsts, _ := p["destinations"].(map[string]any)
+	dsts := gridEdgeNums(t, p, "destinations")
 	ditems, _ := dsts["items"].(map[string]any)
 	if it, _ := ditems["2"].(map[string]any); it["art"] != "icon:camera" {
 		t.Errorf("destination 2 saved %v, want the camera", it)

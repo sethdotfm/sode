@@ -6,83 +6,66 @@ Audit of every name that is stored or sent and still carries a word from a `_Avo
 
 Scope: config keys (`config.yaml` and the `SODE_*` env that seeds it), history and Communication Log file fields, and `localStorage` keys. The scope also has WebSocket message types and the command kinds that the server logs. Names that only look close are listed apart at the end.
 
-Calls. Keep means the name stays and `AGENTS.md` records why. Legacy means an old name that is only read, never written, so old files load (as `levelTypedBase` and the `grids:` keys do). No rename is approved, so every call below is keep or legacy.
+This list starts over for v2. v2 reads no v1 files, so it has no legacy names that are only read. On start, Sode moves a v1 install to `/data/v1/`, and the first v2 page load clears the v1 `sode-*` keys (`docs/agents/server.md`, config load).
 
-## Config keys
+Calls. Keep means the name stays for now and `AGENTS.md` records why. v2 renamed every other v1 name that carried a retired word, and the table "Names v2 renamed" lists them.
 
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `settingsPin` | Settings PIN | Keep | Holds the Advanced Settings PIN hash. A rename needs a fallback read, a fixture file, and the `-reset-pin` and import paths changed, and it buys nothing a user sees. |
-| `nameRefreshSeconds`, `SODE_NAME_REFRESH_S` | refresh | Keep | The Settings label already says re-read. Old `config.yaml` files and deploy env hold the key. |
-| `salvos` | salvo (for presets) | Legacy | Pre-1.5 key. `Normalize` moves it into `presets`. Never written. |
-| `deviceDefaults` | This device | Keep | Only the phrase "This device" is retired, and the key holds the defaults This browser falls back on. Listed because the word is close. |
+## Router references
 
-The names `fireMode` (`native`), `salvoGroup` and `SODE_SALVO_GROUP` refer to the router's own salvo, so they are correct and not part of this audit.
+Every stored source and destination is a router reference `{router, n, name}`: the router UID, Sode's number (0-based) and the router's name at save time. `shown` is never stored. Presets, Rights, panel cells, Grid edges, `fixedDests`, templates, checkpoints, Checkpoint sets and Default artwork hold one each. History and Communication Log rows hold `router` once per row, and `names/<router uid>.yaml` once per file. No store holds a bare number, and no loader reads one. A file reference with no router is refused (config.yaml) or skipped with a problem (the other stores). Only a request can send `{n}` with no router, which names the one router. Levels are UI levels 1..N; a preset item's levels belong to its source's router.
 
-## Simulator env
+## Format markers
 
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `SIM_PANEL_DST`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT` | panel (change) | Keep | Simulator settings only, set in compose files and scripts. They make an External. |
-| `SIM_FOLLOWS` | follows | Keep | Simulator setting that makes External follow cases. |
-| `SIM_NO_SALVO`, `SIM_SALVO_ANNOUNCE` | none | n/a | The router's own salvo. |
+- `format` (config key, first in `config.yaml`): the format version, now `2`. A file without it is from v1. Sode refuses a higher number.
+- `sode-format` (`localStorage` key, `2`): written by `web/prepaint.js` after it clears the `sode-*` keys of a v1 browser.
 
-## Communication Log env
+## Kept names
 
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `SODE_SENTLOG`, `SODE_SENTLOG_MB` | sent log | Keep | Process env in deployed compose files. The file it names holds Communication Log rows. |
+None. v2 removed the v1 settings secret and its names (its config key, its WebSocket messages and its `why` value) with Roles (ADR 0010).
 
-## History and Communication Log files
+These names refer to the router's own salvo, so they are correct and not part of this audit: `fireMode` (`native`), `salvoGroup`, `SODE_SALVO_GROUP`, `SIM_NO_SALVO` and `SIM_SALVO_ANNOUNCE`. The `kind` values `salvoStage`, `salvoStageExt` and `salvoGo` are also the router's.
 
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `salvo` (history entry field) | salvo (for presets) | Legacy | Old files call the preset name `salvo`. `Entry.UnmarshalJSON` loads it into `preset`. Never written. |
-| `why` values `refreshNames`, `unlock`, `userUnlock` (Communication Log event rows) | refresh, unlock | Keep | Stored in rows already written. The page shows them through the command-kind labels in `web/log.js`. |
-| `kind` values `salvoStage`, `salvoStageExt`, `salvoGo` | none | n/a | Messages to the router's own salvo. |
+## Names v2 renamed
 
-## `localStorage` keys
+v2 loads no v1 files, and a page whose build label differs from the hello's reloads itself. So these renames need no path that reads the old name.
 
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `sode-salvos`, `sode-salvo-pins` | salvo (for presets) | Legacy | `migrateLegacyKeys` in `web/presetstore.js` copies them to `sode-presets` and `sode-preset-pins` once and removes them. |
-| `sode-lock-token`, `sode-lock-never` | none | n/a | Not retired. `web/lock.js` deletes them on load, as leftovers of a removed sign-in. Listed so nobody reads the delete as a miss. |
-| `sode-device-defaults` | This device | Keep | Same reason as `deviceDefaults`. `web/prepaint.js` reads it before first paint, so a rename needs both pages changed together. |
-
-## WebSocket types and fields
-
-A browser can keep an old page open across a server upgrade, so a renamed type would break it until a reload. These keep their names.
-
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `batch` (browser to server) | batch | Keep | Carries every take of one confirm. |
-| `recent` (server to browser, and the `recent` field of `hello`) | Recent | Keep | A new History entry or an update to one. |
-| `refreshNames` (browser to server) | refresh | Keep | Asks for a router name re-read. |
-| `sent` (browser to server), `sentAdd`, `sentPage` | sent log | Keep | The Communication Log feed and its pages. |
-| `unlock`, `unlockResult` | unlock | Keep | Entering the Advanced Settings PIN. |
-| `userUnlock`, `userUnlockResult` | unlock | Keep | A user signing in from the lock screen. |
-| `protect` (server to browser, and the `protect` field of `hello`) | protect (as a noun) | Keep | The set of Protected destinations. |
-| `locked` (server to browser) | locked | Keep | Says the Advanced Settings PIN is needed. It is not about a destination, so the glossary's use of the word does not apply. |
+| v1 name | v2 name | Where |
+| --- | --- | --- |
+| `batch` | `take` | WebSocket, browser to server |
+| `recent` | `entry` | WebSocket, server to browser |
+| `recent` field of `hello` | `history` | WebSocket |
+| `refreshNames` | `rereadNames` | WebSocket, and the `why` value in Communication Log rows |
+| `sent`, `sentAdd`, `sentPage` | `log`, `logAdd`, `logPage` | WebSocket |
+| `userUnlock`, `userUnlockResult` | `userSignIn`, `userSignInResult` | WebSocket, and the `why` value in Communication Log rows |
+| `protect`, and the `protect` field of `hello` | `protected` | WebSocket |
+| `nameRefreshSeconds` | `nameRereadSeconds` | Settings message key (already the `config.yaml` key) |
+| `SODE_NAME_REFRESH_S` | `SODE_NAME_REREAD_S` | env |
+| `deviceDefaults` | `browserDefaults` | config key |
+| `SODE_SENTLOG`, `SODE_SENTLOG_MB` | `SODE_COMMLOG`, `SODE_COMMLOG_MB` | env |
+| `SIM_PANEL_DST`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT` | `SIM_EXTERNAL_DST`, `SIM_EXTERNAL_SECONDS`, `SIM_EXTERNAL_SILENT` | simulator env |
+| `SIM_FOLLOWS` | `SIM_EXTERNAL_FOLLOW` | simulator env |
+| `sode-device-defaults` | `sode-browser-defaults` | `localStorage` |
 
 ## Close names that are not retired
 
 These carry no word from an `_Avoid_` line, so nothing is owed.
 
 - `follow` and `followGroup` (history fields). The names hold no retired word. They point at the take that an External follow seems to trail, which is only ever a suspicion.
-- `levelWireOffset`. It holds the offset between a Level and the router's own number on the wire. The Settings label says level offset.
+- `levelWireOffset` (Settings message key; `levelOffset` in `config.yaml`). It holds the offset between a Level and the router's own number on the wire. The Settings label says level offset.
 - `wire` (Communication Log field). The router's own level number, kept apart from the UI Level on purpose.
 - `locks`, `autoLockMinutes`, `lockState`. The Lock and Auto-lock.
-- `signInMode` (`pin` or `username`, also in `lockState` as `mode` and in `usersListResult`), a user's `username`, and the `user` field of `userUnlock`. The Sign-in mode, the username and the name a username signs in with. New names, no retired word.
+- The `user` field of `userSignIn` and the hello's `users` ({name, len}). The name that signs in and the sign-in list. New names, no retired word.
+- A user's `id` (config, `usersListResult`, the users save's rows), `tokens.json` `user` and a user key's `owner.user` in keys.json: the hidden user id.
 - `activity` (browser to server, no fields). An open page sends it about every 30 seconds while someone uses it. It moves the session's idle clock for Auto-lock (`Activity` in `internal/app/idle.go`).
 
 ## Panel names (new in Panels, no retired word)
 
 - Directory `panels/` beside the config: `<id>.yaml` per panel (id `p-` and 8 hex digits) and `<id>.art/<art id>` for artwork (`a-` and 8 hex digits). A file with a name and id that differ is skipped.
-- Panel fields (YAML and JSON): `id`, `name`, `owner`, `acts`, `client`, `share`, `rows`, `cols`, `pages`, `settings` and `art`. `acts` is `session`, `api`, `both` or `public`. `share` has `mode` (`me`, `named` or `everyone`) and `users`. `canEdit` is output only. Fields not listed are kept as they are.
+- Panel fields (YAML and JSON): `id`, `name`, `owner`, `acts`, `client`, `share`, `rows`, `cols`, `pages`, `settings` and `art`. `acts` is `session`, `api`, `both` or `public`. `share` has `mode` (`me`, `named` or `everyone`) and `users`. `owner` is a user id in the file and the live name in JSON. `canEdit` is output only. Fields not listed are kept as they are.
 - Grid panels (ADR 0011): the panel fields `type` (`buttons` or `grid`, omitted or empty reads as `buttons`), `sources` and `destinations`. A Grid panel has no `rows`, `cols`, `cells` or `pages`. Each of `sources` and `destinations` is an edge:
-  - `members`: the string `all`, or a list of router numbers in order.
-  - `hide`: router numbers left out of an `all` edge. It is refused on a list.
-  - `items`: a map from a plain decimal router number to `pinned` (any number for an edge), `art`, `artB` and `hideText`, written as on a cell.
+  - `members`: the string `all`, or a list of router references in order.
+  - `hide`: router references left out of an `all` edge. It is refused on a list.
+  - `items`: a list of router references, each with `pinned` (any number for an edge), `art`, `artB` and `hideText`, written as on a cell.
   Checkpoint and Push layouts carry the same three fields. A layout of the other type is refused.
 - Pages (ADR 0007): `pages` is a list of 1 to 16 Pages in order. Each Page has these fields:
   - `id`: 1 to 16 letters, digits, dashes and underscores. Sode makes 8 hex digits, and a Page sent without one gets one.
@@ -95,8 +78,8 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - Cell fields inside each Page's `cells` (stored by the panel page and the editor):
   - `r` and `c` (from 1), `rs`, `cs`.
   - `kind`: `source`, `destination`, `take`, `preset`, `clear`, `undo`, `current`, `panelName`, `instanceName`, `pageName`, `info`, `goToPage`, `nextPage` or `previousPage`.
-  - `n` (the router's number).
-  - `scope` (`everyone` or `me`) and `name` on a `preset` cell.
+  - `router`, `n` and `name` on a `source` or `destination` cell: its router reference. A cell with no `n` is unassigned.
+  - `scope` (`everyone` or `me`), `id` (the preset's hidden id) and `name` on a `preset` cell.
   - `page` on a `goToPage` cell: its target Page's id. A missing Page is kept and reads as unassigned.
   - `show` on a `pageName` cell: a list of `number` and `name`; without it, `name`.
   - `show` on an `info` cell: a list of `panel`, `number`, `page` and `instance`; without it, all but `number`.
@@ -108,14 +91,14 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
   - The server refuses a save with any other `mode` (400). A missing or empty `mode` reads as `take`. A file on disk loads as written.
   - `wrapPages`: wrap between Pages, stored only as `false`.
   - `askInstanceName`: Ask for an instance name, a boolean. A file without it reads as on, and the API sends it as `true`. So the editor stores it as chosen, `true` included.
-  - `fixedDests` (Fixed destination): a list of router destination numbers in the order chosen. They are whole numbers from 0 to 65535, unique, at most 16. It is removed when empty, never stored as `[]`. A file without it loads unchanged. Push leaves each target's own list, and a template carries it only with `dests`.
+  - `fixedDests` (Fixed destination): a list of router references `{router, n, name}` in the order chosen. `n` is a whole number from 0 to 65535, unique, at most 16. A save can leave `router` out (`{n}`); Sode stores references. A bare number is refused. It is removed when empty, never stored as `[]`. A file without it loads unchanged. Push leaves each target's own list, and a template carries it only with `dests`.
 
   The editor's sidebar writes only these and the look names below. It drops a setting that equals its default (`multi`, `titleBar` and `wrapPages` are on, `guard` is none, `fontSize` is 100). Cell `levels` is removed, never stored as `[]`, for every level. The editor sends `clientRights` only when the Access tab edited it. The page sends `Idempotency-Key` values that start with `panel-`.
 - Panel field `rev` (in the file, in the API and as the page's poll signal) is the server's count of stored changes. It is omitted from the file while 0. A body's `rev` is ignored and a copy starts over.
 - A panel's API client is an `apiClients` entry in the config with a `panel` field (the panel id), named `Panel <id>`. `clientRights` is the panel's request and response field for its Rights; it is never stored in the panel file. The Manage users list sends `panelClients` per user.
-- Checkpoints: `panels/<id>.checkpoints`, a YAML list of at most 10. Each has `id` (`c-` and 8 hex digits), `at`, `by`, `why` and a `layout` of `rows`, `cols`, `pages`, `settings` and `extra`. An older one has `cells`. Checkpoint sets: `panelsets/everyone.yaml` and `panelsets/me-<hex of the lowercased user name>.yaml`. Each has `sets:` with `id` (`s-` and 8 hex digits), `name`, `scope` (`me` or `everyone`), `owner` and `entries`. Each entry has `panel`, `name` and the same layout fields. `api` row kinds `panelPush`, `panelRestore`, `panelSetCreate`, `panelSetUpdate`, `panelSetDelete` and `panelSetPush`. An Everyone set also accepts the body field `pin` (never stored), as a template does.
+- Checkpoints: `panels/<id>.checkpoints`, a YAML list of at most 10. Each has `id` (`c-` and 8 hex digits), `at`, `by`, `why` and a `layout` of `rows`, `cols`, `pages`, `settings` and `extra`. An older one has `cells`. Checkpoint sets: `panelsets/everyone.yaml` and `panelsets/me-<hex of the user id>.yaml`. Each has `sets:` with `id` (`s-` and 8 hex digits), `name`, `scope` (`me` or `everyone`), `owner` and `entries`. Each entry has `panel`, `name` and the same layout fields. `api` row kinds `panelPush`, `panelRestore`, `panelSetCreate`, `panelSetUpdate`, `panelSetDelete` and `panelSetPush`. An Everyone set also accepts the body field `pin` (never stored), as a template does.
 - A panel's own API client starts without the `history` scope; a client saved earlier keeps the scopes it has.
-- API scopes `panels` and `panelsmanage`, and API error codes `not_owner`, `user_required`, `trusted_required`, `unsupported_type` and `internal`. `api` row kinds `panelCreate`, `panelUpdate`, `panelDelete`, `panelCopy`, `panelKey`, `panelKeyRotate`, `panelKeyRevoke`, `assign` and `rename`. An Assign's request body has `from`, `instance`, `keyless`, `name`, `as` (`client` or `user`) and `pin`. A rename's body has `instance`, `name` and `pin`. A name clash answers the error code `name_taken` with `error.suggest`. The instance stream's Assign line has `t` `assign`, `panel`, `slug`, `instance`, and `key` or `signIn` (`user`). Its rename line has `t` `rename` and `instance`. Panel `instances` rows carry `stream`, `page`, `addr`, `signIn`, `user`, `trusted` and `streamSince`. The keyless announcement is `GET /panels/{id}/instances/keyless` with `instance` and `ended`. Its beat line is `{"keyless":true}`, and an Assign names one with `keyless`. A panel read's `keyless` rows carry `keyless`, `device`, `addr`, `signIn` (`none` or `ended`), `stream`, `seen` and `streamSince`. Nothing of it is stored.
+- API scopes `panels` and `panelsmanage`, and API error codes `not_owner`, `user_required`, `trusted_required`, `unsupported_type` and `internal`. `api` row kinds `panelCreate`, `panelUpdate`, `panelDelete`, `panelCopy`, `panelKey`, `panelKeyRotate`, `panelKeyRevoke`, `assign`, `rename`, `reload` and `publicBack`. An Assign's request body has `from`, `instance`, `keyless`, `name`, `as` (`client` or `user`) and `pin`. A rename's body has `instance`, `keyless`, `name` and `pin`. `POST /panels/{id}/instances/reload` takes `instance`, `keyless` or `all`, answers `panel` and `sent`, and refuses with the code `offline`. Both streams carry the reload line `t` `reload`; the keyless announcement also carries `t` `public`, which does not end it. `POST /panels/{id}/public` takes `back=1`. The `sessionStorage` key `sode-panel-back` holds the panel address segment of a page that reloads after a `public` line; it is no key. A name clash answers the error code `name_taken` with `error.suggest`. The instance stream's Assign line has `t` `assign`, `panel`, `slug`, `instance`, and `key` or `signIn` (`user`). Its rename line has `t` `rename` and `instance`. Panel `instances` rows carry `stream`, `page`, `addr`, `signIn`, `user`, `trusted` and `streamSince`. The keyless announcement is `GET /panels/{id}/instances/keyless` with `instance` and `ended`. Its beat line is `{"keyless":true}`, and an Assign names one with `keyless`. A panel read's `keyless` rows carry `keyless`, `device`, `addr`, `signIn` (`none` or `ended`), `stream`, `seen` and `streamSince`. Nothing of it is stored.
 - `networks` on an `apiClients` entry (a panel's client only, set through `PUT /api/v1/panels/{id}/networks`): a list of canonical CIDR strings, such as `192.0.2.0/24` or `2001:db8::/32`. A single host is `/32` or `/128`. Empty or absent allows any address. Panel output fields `hasKey` and `clientNetworks` are never stored. Error codes `invalid_setup` and `network_not_allowed`, and `api` row kinds `panelSetupLink`, `panelSetup` and `panelNetworks`.
 - Short name: the panel field `slug` (`panels/<id>.yaml`, JSON `slug`, omitted when empty). It has 1 to 32 lowercase letters, digits and dashes, is unique across panels, and is never `editor` or id-shaped. A file whose `slug` is invalid or already held by an earlier file loads without it and is listed in the panel problems. `/panels/<slug>` serves the panel page, and `GET /panels/<slug>` and `POST /panels/<slug>/setup` resolve it. Links: `?instance=<instance name>` on the panel page seeds the device name (never stored; `sode-panel-device` is still the stored one). A fragment `key=` or `setup=` can leave off its `sode_` or `sode_setup_` prefix. New panel keys and setup tokens are 16 random bytes (22 characters); older keys keep 43 and are read the same way.
 - A setup link is a `keys.json` record with `"setup": true`, owned by the panel's client and named for its instance. It shows in no Settings key list, only in the panel's own instance list. Older records named `Setup link` expire within the hour. Its token starts `sode_setup_`. The panel page stores the key it gets in `localStorage` as `sode-panel-key-<panel id>` and forgets it on a 401. A plain `#key=` link's key goes under the same name when the panel opens with it, and leaves the address. It persists in that browser until the instance is rotated or revoked. Opened by short name, the page keys it by what the address holds, so `sode-panel-key-<slug>`, and also forgets it on a 404.
@@ -140,7 +123,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 
 - Default artwork: `artdefaults.yaml` beside the config, with `rev`, `defaults` and `images` (`id`, `type`, `size`). Each item in `defaults` has these fields:
   - `kind` (`source`, `destination`, `preset`).
-  - `n` for a Source or Destination, `scope` for a Preset.
+  - `router` and `n` for a Source or Destination, `id` and `scope` for a Preset.
   - `name`: the preset's, or the router name when a Source or Destination default was set.
   - `art`, `artB`, `hideText`.
 
@@ -163,4 +146,4 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 `internal/app/vocabulary_test.go` keeps the lists below. Each entry names a real kept name, and `TestAllowlistsMatchSomething` fails on an entry that exempts no line.
 
 - `vocabAllow` exempts lines of docs, UI strings and web code that need a retired word. The `web/settingsindex.js` lines are search aliases, kept so that a search for the old word finds the setting.
-- `identAllow` exempts web identifiers only. Its entries are the names in the tables above (`m.recent`, the command kinds in `web/log.js`, and the `unlock` functions in `web/pin.js`).
+- `identAllow` exempts web identifiers only. Its `unlock` entries are the `adminUnlock` command kind of old rows in `web/logkinds.js` and the `unlocked` sign-in state and bus event in `web/lock.js`.

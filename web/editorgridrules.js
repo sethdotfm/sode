@@ -3,7 +3,7 @@
 // same edge when nothing changed.
 import { allowed } from './rightsrules.js';
 import { filterFn } from './filter.js';
-import { chord } from './keys.js';
+import { chord, modChord } from './keys.js';
 import { artRun } from './arttoolrules.js';
 
 const isAll = (edge) => !Array.isArray(edge?.members);
@@ -92,17 +92,21 @@ export function selectRows(s, shown, n, { shift = false, toggle = false } = {}) 
   return { selected: shift ? new Set([...s.selected, n]) : new Set([n]), anchor: n };
 }
 
-// Appends the selected items in router order, less the members the edge has. An "all" edge becomes a list first.
-export function addItems(edge, router, selected) {
+// Adds the selected items, less the members the edge has, which stay where they are. A Set adds in router order (Add
+// from the router), an array in its own order. at is an index in the members as they show (an "all" edge resolved).
+// Without it, or past the end, the items go at the end. An "all" edge becomes a list first.
+export function addItems(edge, router, selected, { at } = {}) {
   const list = membersOf(edge, router);
   const has = new Set(list);
-  const add = [...selected].filter((n) => !has.has(n)).sort((a, b) => a - b);
+  const add = [...new Set(selected)].filter((n) => !has.has(n));
+  if (selected instanceof Set) add.sort((a, b) => a - b);
   if (!add.length) return edge;
-  return { ...withoutHide(edge), members: [...list, ...add] };
+  const i = Number.isInteger(at) ? Math.max(0, Math.min(at, list.length)) : list.length;
+  return { ...withoutHide(edge), members: [...list.slice(0, i), ...add, ...list.slice(i)] };
 }
 
 // The panel's list keys, by chord (keys.js), while the list itself has focus. go moves the cursor (extend: Shift
-// selects from the anchor), move moves the selected rows. Ctrl+A is also Cmd+A, as in a text field.
+// selects from the anchor), move moves the selected rows. A mod+ row is Ctrl, or Cmd on a Mac (modChord).
 const EDGE_KEYS = {
   up: { go: 'up' },
   down: { go: 'down' },
@@ -114,21 +118,13 @@ const EDGE_KEYS = {
   'alt+down': { move: 'down' },
   'alt+home': { move: 'top' },
   'alt+end': { move: 'end' },
-  // macOS gives Ctrl+Up and Ctrl+Down to Mission Control unless that is turned off, so Ctrl+Shift and Cmd+Shift also move.
-  'ctrl+up': { move: 'up' },
-  'ctrl+down': { move: 'down' },
-  'ctrl+shift+up': { move: 'up' },
-  'ctrl+shift+down': { move: 'down' },
-  'shift+meta+up': { move: 'up' },
-  'shift+meta+down': { move: 'down' },
-  'ctrl+a': { all: true },
-  'meta+a': { all: true },
+  'mod+a': { all: true },
   ' ': { toggle: true },
   escape: { none: true },
 };
-export function edgeListKey(e) {
+export function edgeListKey(e, isMac) {
   const c = chord(e);
-  const plain = EDGE_KEYS[c];
+  const plain = EDGE_KEYS[c] ?? EDGE_KEYS[modChord(e, isMac)];
   if (plain) return plain;
   const go = c.startsWith('shift+') && EDGE_KEYS[c.slice(6)]?.go;
   return go ? { go, extend: true } : null;
@@ -145,7 +141,7 @@ const selectedShown = (edge, router, rights, kind, ns) => {
 
 // A list edge's members with the pinned ones first, in the order the list and the panel draw them. An item pinned
 // moves up with them, and stays at the top of the rest when unpinned.
-const pinsFirst = (edge, list) => [...list.filter((n) => pinnedIn(edge, n)), ...list.filter((n) => !pinnedIn(edge, n))];
+export const pinsFirst = (edge, list) => [...list.filter((n) => pinnedIn(edge, n)), ...list.filter((n) => !pinnedIn(edge, n))];
 
 // Moves the selected rows, in drawn order, to before the row before (a router number), or to the end when before is
 // null. A selected row is not a place, so the block lands before the next row that is not selected. Pinned rows stay

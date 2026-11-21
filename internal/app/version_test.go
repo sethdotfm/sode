@@ -8,12 +8,7 @@ import (
 	"testing"
 )
 
-// The version lives in version.go and is noted in README.md. A release
-// that bumps only one of them fails here. SODE_RELEASE_TAG is the tag about
-// to be pushed: v1.5.0, or a candidate v1.5.0-rc.1. With it set, a tag that
-// names a version the code does not carry also fails. A candidate and the
-// release promoted from it are the same commit, so both refuse an
-// "(unreleased)" heading.
+// SODE_RELEASE_TAG is the tag about to be pushed: v1.5.0, or a candidate v1.5.0-rc.1 (RELEASING.md).
 var releaseTag = regexp.MustCompile(`^v\d+\.\d+\.\d+(-rc\.\d+)?$`)
 
 func TestVersionNoted(t *testing.T) {
@@ -67,9 +62,7 @@ func changelogFragments(t *testing.T) []string {
 	return out
 }
 
-// Each PR with a user-visible change adds its own changelog.d fragment, so
-// parallel branches never edit the same CHANGELOG.md lines. A release folds
-// them into the new heading and removes them.
+// Fragments keep parallel branches off the same CHANGELOG.md lines (RELEASING.md).
 func TestChangelogFragments(t *testing.T) {
 	for _, f := range changelogFragments(t) {
 		name := filepath.Base(f)

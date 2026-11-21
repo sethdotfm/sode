@@ -5,11 +5,10 @@ import { createGrid, saved, sizeText } from './gridmodel.js';
 import { pagesOf, pageCells, storedPages } from './panelpages.js';
 
 // grid is Page 1 and pages the panel's Page list: a template carries every Page with its id.
-export function saveTemplateBody({ name, scope, grid, pages = pagesOf({}), settings, withSettings = false, withSources = false, withDests = false, pin = '' }) {
+export function saveTemplateBody({ name, scope, grid, pages = pagesOf({}), settings, withSettings = false, withSources = false, withDests = false }) {
   const { rows, cols, cells } = saved(grid);
   const body = { name: name.trim(), scope, sources: withSources, dests: withDests, rows, cols, pages: storedPages(pages, cells, rows, cols) };
   if (withSettings) body.settings = settings || {};
-  if (scope === 'everyone' && pin) body.pin = pin;
   return body;
 }
 
@@ -32,6 +31,3 @@ export function templateNote(t) {
   else parts.push('cells unassigned');
   return parts.join(', ');
 }
-
-// The server answers 403 trusted_required to a user who is not Trusted and sent no right PIN.
-export const pinNeeded = (status, code) => status === 403 && code === 'trusted_required';

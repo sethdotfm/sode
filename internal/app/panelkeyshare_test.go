@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-// REST seam for the rest of a panel's sharing. That is the one-time setup link of secure mode,
-// the networks a key can be used from, and the hasKey flag the Share tab reads.
-
 func setupLink(t *testing.T, a *App, owner, id string) (token string, body map[string]any) {
 	t.Helper()
 	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", owner, `{"setup":true,"instance":"Lobby"}`)
@@ -64,7 +61,6 @@ func TestSetupTokenIsNotAKey(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	token, _ := setupLink(t, a, cy, id)
 	wantErr(t, apiSend(a, "GET", "/api/v1/tally", token, ""), 401, "invalid_key")
-	// A setup record never shows in a key list either.
 	for _, k := range a.keys.list() {
 		if k.Name == "Setup link" {
 			t.Fatal("a setup link is listed as a key")
@@ -109,7 +105,7 @@ func TestSetupLinkExpires(t *testing.T) {
 
 func TestSetupTokenOfAnotherPanelFails(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
-	other := makePanel(t, a, cy, apiPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	other := makePanel(t, a, cy, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	token, _ := setupLink(t, a, cy, id)
 	wantErr(t, exchangeSetup(a, apiPeer, other, token), 401, "invalid_setup")
 	if rec := exchangeSetup(a, apiPeer, id, token); rec.Code != 201 {
@@ -286,7 +282,7 @@ func TestSetupLinkWorksOnABothPanel(t *testing.T) {
 	a, _ := clientApp(t)
 	shortTimers(a)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, `{"name":"Wall","acts":"both","clientRights":{"sources":[1,2,3],"dsts":[2,4]}}`)
+	id := makePanel(t, a, cy, `{"name":"Wall","acts":"both","clientRights":{"sources":[{"n":1},{"n":2},{"n":3}],"dsts":[{"n":2},{"n":4}]}}`)
 	token, _ := setupLink(t, a, cy, id)
 	rec := exchangeSetup(a, apiPeer, id, token)
 	if rec.Code != 201 {

@@ -10,8 +10,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Cmd+Z undoes a paste and Ctrl+Shift+Z redoes it; the redone paste is what Save stores, and Save leaves the steps
-// in place. The 100-step cap is a node test (gridundo.test.mjs).
+// The 100-step cap is a node test (gridundo.test.mjs).
 func TestChromeEditorUndoRedo(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -30,6 +29,7 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 		{"r":1,"c":2,"rs":1,"cs":1,"kind":"source","n":1}]}`)
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -46,17 +46,17 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 		window.state = () => document.getElementById('ed-state').textContent;
 		true`)
 
-	b.eval(`goTo(1, 1); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { metaKey: true })`)
+	b.eval(`goTo(1, 1); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('c', 'KeyC', { ctrlKey: true })`)
 	b.waitFor("copied", `stat() === 'Copied 2 cells.'`)
 	b.eval(`goTo(3, 1); press('v', 'KeyV', { ctrlKey: true })`)
 	b.waitFor("pasted", `stat() === 'Pasted 2 cells.' && state() === 'Unsaved changes'`)
 
-	if b.eval(`press('z', 'KeyZ', { metaKey: true })`) != true {
+	if b.eval(`press('z', 'KeyZ', { ctrlKey: true })`) != true {
 		t.Fatal("Cmd+Z on the grid was not taken by the editor")
 	}
 	b.waitFor("undone", `stat() === 'Undid paste.'`)
 	b.waitSaved("undone to the saved state")
-	b.eval(`press('z', 'KeyZ', { metaKey: true })`)
+	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
 	b.waitFor("nothing more to undo", `stat() === 'Nothing to undo.'`)
 	if b.eval(`press('Z', 'KeyZ', { ctrlKey: true, shiftKey: true })`) != true {
 		t.Fatal("Ctrl+Shift+Z on the grid was not taken by the editor")
@@ -71,7 +71,6 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 		t.Fatalf("stored cells:\n got %q\nwant %q", got, want)
 	}
 
-	// Save keeps the steps; a selection move is not one, and Delete is.
 	b.eval(`goTo(1, 1); press('Delete', 'Delete'); goTo(2, 2)`)
 	b.waitFor("deleted", `state() === 'Unsaved changes'`)
 	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
@@ -80,8 +79,7 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
 	b.waitFor("paste undone after Save", `stat() === 'Undid paste.' && state() === 'Unsaved changes'`)
 
-	// A focused text field keeps its own Cmd+Z.
-	b.eval(`{ const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'z', code: 'KeyZ', metaKey: true }); n.dispatchEvent(e); window.fieldUndo = e.defaultPrevented }`)
+	b.eval(`{ const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'z', code: 'KeyZ', ctrlKey: true }); n.dispatchEvent(e); window.fieldUndo = e.defaultPrevented }`)
 	if b.eval(`window.fieldUndo`) != false || b.eval(`stat()`) != "Undid paste." {
 		t.Fatal("Cmd+Z in the name field was taken by the grid")
 	}

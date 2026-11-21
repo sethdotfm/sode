@@ -12,7 +12,7 @@ import (
 
 const defaultIdleEvery = 10 * time.Second
 
-// idleLimit: how long u is allowed to go without activity, 0 = never.
+// idleLimit: 0 = never.
 func idleLimit(cfg config.Config, u config.User) time.Duration {
 	if cfg.AutoLockMinutes <= 0 || u.NoAutoLock {
 		return 0
@@ -20,7 +20,7 @@ func idleLimit(cfg config.Config, u config.User) time.Duration {
 	return time.Duration(cfg.AutoLockMinutes) * time.Minute
 }
 
-// touchMu records activity on c's session and its token. Caller holds mu.
+// Caller holds mu.
 func (a *App) touchMu(c *client, now time.Time) {
 	s := c.sessMu()
 	s.seen = now
@@ -34,6 +34,9 @@ func (a *App) Activity(c *client) {
 	defer a.mu.Unlock()
 	if a.userOKMu(c, a.r().cfg) {
 		a.touchMu(c, a.now())
+		if c.u.step != nil {
+			a.feedOriginalMu(c, a.now())
+		}
 	}
 }
 
@@ -44,7 +47,7 @@ func (a *App) overdueMu(c *client, cfg config.Config, now time.Time) bool {
 	if !a.userOKMu(c, cfg) {
 		return false
 	}
-	u, _ := cfg.FindUser(c.u.user.Load().Name)
+	u, _ := cfg.FindUserByID(c.u.user.Load().ID)
 	lim := idleLimit(cfg, u)
 	if lim == 0 {
 		return false
@@ -78,6 +81,17 @@ func (a *App) idleSweep() {
 	done := map[*session]bool{}
 	var jobs []heldJob
 	for cl := range a.clients {
+		if st := cl.u.step; st != nil {
+			if st.sess.token != "" {
+				open[tokenKey(st.sess.token)] = true
+			}
+			if j, ok := a.stepIdleMu(cl, cfg, now); ok {
+				jobs = append(jobs, j)
+			}
+			if cl.u.step != nil {
+				continue
+			}
+		}
 		s := cl.sessMu()
 		if s.token != "" {
 			open[tokenKey(s.token)] = true

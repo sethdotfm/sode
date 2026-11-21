@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
 <link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="palette.css">
 <link rel="stylesheet" href="panels.css">
 <!-- The Live Editor runs a Grid panel here too. Keep in step with panel.html: gridpanelphone.css hides the phone-only parts on the desktop. -->
 <link rel="stylesheet" href="gridpanel.css">
@@ -24,17 +25,16 @@
 
 <main class="sode-panels sode-ed">
   <header class="sode-panels__head">
-    <!-- Outside the h1: the brand event (panelpage.js) rewrites the title's text. -->
-    <a class="pb-btn pb-btn--ghost pb-btn--icon sode-panels__home" href="panels" id="ed-home" data-pb-tip="Panels" aria-label="Panels"><span class="sode-logo sode-panels__logo" aria-hidden="true"></span></a>
+    <!-- The links and the status join it (panelsbar.js). The brand event (panelpage.js) rewrites the title's text. -->
     <h1 class="sode-panels__title">Sode Panel Editor</h1>
     <span class="sode-panels__spacer"></span>
-    <a class="pb-btn pb-btn--outline pb-btn--sm" href="./" id="ed-back-sode">Back to Sode</a>
+    <span class="sode-inbox__slot" data-inbox></span>
   </header>
   <p class="sode__hint" id="panels-note"></p>
   <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
 
   <div class="pb-banner pb-banner--info" id="ed-banner" hidden>
-    <span>This panel is shared with you for use only. To change it, save a copy.</span>
+    <span>Shared with you: read-only.</span>
     <button class="pb-btn pb-btn--sm" id="ed-copy" type="button">Save a copy</button>
   </div>
 
@@ -48,10 +48,11 @@
       </label>
     </div>
     <span class="sode-panels__spacer"></span>
+    <!-- Copy link and Open panel keep their place before the first save, disabled, so nothing moves (editortoolbar.js). -->
     <div class="sode-ed__grp">
       <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-share" type="button" disabled>Share</button>
-      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-copylink" type="button" hidden>Copy link</button>
-      <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" hidden>Open panel</a>
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-copylink" type="button" disabled>Copy link</button>
+      <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" aria-disabled="true">Open panel</a>
       <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Runs the saved panel here, without unassigned squares. Saves first.">Live Editor</button>
     </div>
     <div class="sode-ed__grp">
@@ -69,7 +70,8 @@
       <div class="sode-ed__open" id="ed-open-pages">
         <section class="sode-ed__frame" id="ed-frame">
           <h2 class="sode-ed__frame-title" id="ed-frame-title"></h2>
-          <div class="sode-ed__grid" id="ed-grid" aria-label="Panel grid"></div>
+          <!-- The grid's room: the grid fits it by width and height (panels.css .sode-ed__fit). -->
+          <div class="sode-ed__fit"><div class="sode-ed__grid" id="ed-grid" aria-label="Panel grid"></div></div>
         </section>
       </div>
     </div>

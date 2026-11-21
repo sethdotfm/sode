@@ -1,4 +1,3 @@
-// Preset UX: pinning, the popup's search order, and the history trigger.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -51,55 +50,25 @@ const setup = async () => {
   mem.clear();
   return m;
 };
-const sv = (name, pinned) => ({ name, items: [{ src: 0, dsts: [1], levels: [] }], ...(pinned === undefined ? {} : { pinned }) });
+const sv = (name, pinned) => ({ id: name.toLowerCase(), name, items: [{ src: 0, dsts: [1], levels: [] }], ...(pinned === undefined ? {} : { pinned }) });
 const names = (l) => l.map((s) => s.name).join(',');
 
-test('pinning: global flag, local override, unknown names, default', async () => {
-  const m = await setup();
-  m.S.cfg.presets = [sv('Morning'), sv('Evening', false), sv('Late', true)];
-  assert.equal(names(m.pinnedPresets()), 'Morning,Late');
-  const g = (n) => m.globalPresets().find((s) => s.name === n);
-  m.setLocalPin(g('Evening'), true);
-  m.setLocalPin(g('Morning'), false);
-  assert.equal(names(m.pinnedPresets()), 'Evening,Late');
-  assert.deepEqual(JSON.parse(mem.get('sode-preset-pins')), { evening: true, morning: false });
-  // An override equal to the flag is dropped again.
-  m.setLocalPin(g('Morning'), true);
-  assert.deepEqual(JSON.parse(mem.get('sode-preset-pins')), { evening: true });
-  // Unknown names, junk values and a non-object are ignored.
-  mem.set('sode-preset-pins', JSON.stringify({ evening: 'yes', gone: false, late: false }));
-  assert.deepEqual(m.pinOverrides(), { late: false });
-  assert.equal(names(m.pinnedPresets()), 'Morning');
-  mem.set('sode-preset-pins', '[1]');
-  assert.deepEqual(m.pinOverrides(), {});
-  mem.set('sode-preset-pins', 'not json');
-  assert.equal(names(m.pinnedPresets()), 'Morning,Late');
-  // Pin for everyone changes the flag in the list sent; this browser then follows it.
-  assert.equal(m.withGlobalPin('Evening', true).find((s) => s.name === 'Evening').pinned, true);
-  mem.set('sode-preset-pins', JSON.stringify({ evening: false }));
-  m.clearPinOverride('Evening');
-  assert.equal(mem.has('sode-preset-pins'), false);
-});
-
-test('pinning: own presets carry their flag; the strip filters', async () => {
+test('presets carry no pinned flag: an old one is dropped on save', async () => {
   const m = await setup();
   mem.set('sode-presets', JSON.stringify([sv('A'), sv('B', false)]));
   m.S.cfg.presets = [sv('G')];
-  assert.deepEqual(
-    m.localPresets().map((s) => s.pinned),
-    [true, false],
+  assert.equal(names(m.allPresets()), 'G,A,B');
+  const next = m.replacePreset(m.localPresets(), m.normPreset(sv('C')));
+  assert.equal(
+    next.some((s) => 'pinned' in s),
+    false,
   );
-  assert.equal(names(m.pinnedPresets()), 'G,A');
-  m.setLocalPin(m.localPresets()[1], true);
-  assert.equal(names(m.pinnedPresets()), 'G,A,B');
-  const next = m.replacePreset(m.localPresets(), { ...m.normPreset(sv('C')), pinned: false });
-  assert.equal(next[2].pinned, false);
   assert.equal(m.presetsProblem(next), '');
 });
 
 test('popup search: all when empty, best name first when typed', async () => {
   const m = await setup();
-  const l = ['Morning show', 'Evening', 'Late morning', 'Mono'].map((name) => ({ scope: 'global', name, items: [], pinned: true }));
+  const l = ['Morning show', 'Evening', 'Late morning', 'Mono'].map((name) => ({ scope: 'global', name, items: [] }));
   assert.equal(m.rankPresets(l, '  ').length, 4);
   assert.deepEqual(
     m.rankPresets(l, 'morning').map((s) => s.name),
@@ -107,6 +76,19 @@ test('popup search: all when empty, best name first when typed', async () => {
   );
   assert.deepEqual(m.rankPresets(l, 'zzz'), []);
   assert.equal(m.rankPresets(l, 'mng')[0].name, 'Morning show');
+});
+
+test('a Broken part is left out though its number is still shown', async () => {
+  const m = await setup();
+  const s = { ...sv('Studio'), broken: [{ kind: 'source', ref: { router: 'r', n: 0, name: 'Cam 1' } }] };
+  s.items.push({ src: 1, dsts: [2], levels: [] });
+  const plan = m.presetPlan(m.normPreset(s), [1]);
+  assert.deepEqual(
+    plan.items.map((it) => [it.groups[0].src.n, it.dst.n]),
+    [[1, 2]],
+  );
+  assert.equal(plan.warnings.length, 0, 'the Broken banner names it, not the confirm');
+  assert.equal(m.presetPlan(m.normPreset(sv('Studio')), [1]).items.length, 1);
 });
 
 test('preset trigger: plan carries the name, history shows it, search finds it', async () => {
@@ -127,7 +109,6 @@ test('preset trigger: plan carries the name, history shows it, search finds it',
     .map((n) => (typeof n === 'string' ? n : text(n)))
     .join('');
   assert.match(title, /Preset: Morning/);
-  // Quick search by the preset name.
   const hist = [
     e({ id: 5, src: 0, dst: 1, srcName: 'Cam 1', dstName: 'Rec 2', preset: 'Morning' }),
     e({ id: 6, src: 1, dst: 2, srcName: 'Cam 2', dstName: 'Rec 3' }),

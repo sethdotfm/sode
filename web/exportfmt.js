@@ -1,27 +1,8 @@
-// Export documents, share links and import matching. Pure: no imports, no DOM, so Node tests it
-// (dialogs: transfer.js, reviewsheet.js). Export documents carry numbers with names beside them
-// so an import on another router can match by name. A share link holds ONE item as base64url
-// JSON in the URL fragment (#share=), which never reaches the server or a proxy.
+// Pure, so Node tests it. Numbers carry names so an import on another router can match by name.
 
 export const SOCKET_LIMIT = 64 * 1024;
 const PROFILE_LIMIT = 48 * 1024;
 export const NAME_MAX = 32;
-
-export const PREF_LABELS = {
-  theme: 'Theme',
-  layout: 'Layout',
-  clock: 'Clock',
-  flip: 'Destination before Source',
-  scrollTop: 'Scroll to top on focus',
-  stackGap: 'Stacked rows gap',
-  searchFilters: 'Search respects filters',
-  setStack: 'Stacked filter sets',
-  nextMode: 'Next means',
-  compact: 'Compact view',
-};
-
-const FILTER_DEFAULT = { src: '', dst: '', sode: true, ext: true, hidden: false };
-const FILTER_KEYS = Object.keys(FILTER_DEFAULT);
 
 const runes = (s) => [...String(s)].length;
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
@@ -77,72 +58,7 @@ export const itemIn = (it) => ({
   levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
 });
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
-const isNum = (v) => Number.isInteger(v) && v >= 0;
-const goodName = (v) => typeof v === 'string' && v.trim() !== '' && runes(v) <= NAME_MAX && !/[\p{Cc}]/u.test(v);
-
-// Only shape and version: the saves check the content (config.Validate).
-export function checkDoc(doc) {
-  if (!isObj(doc)) return 'Not a Sode export: the file is not a mapping.';
-  if (doc.sode == null) return 'Not a Sode export: it has no "sode" version.';
-  if (doc.sode !== 1) return `Unsupported export version ${typeof doc.sode === 'object' ? '?' : doc.sode} (this Sode reads version 1).`;
-  if (
-    doc.exported != null &&
-    (typeof doc.exported !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|[+-]\d\d:\d\d)$/.test(doc.exported) || isNaN(Date.parse(doc.exported)))
-  ) {
-    return '"exported" must be an RFC 3339 time.';
-  }
-  if (doc.prefs != null && !isObj(doc.prefs)) return '"prefs" must be a mapping.';
-  for (const k of ['filterSets', 'presets']) {
-    if (doc[k] != null && !Array.isArray(doc[k])) return `"${k}" must be a list.`;
-  }
-  for (const f of doc.filterSets || []) {
-    if (!isObj(f)) return 'Every filter set must be a mapping.';
-    if (!goodName(f.name)) return `A filter set needs a printable name of at most ${NAME_MAX} characters.`;
-  }
-  for (const p of doc.presets || []) {
-    if (!isObj(p)) return 'Every preset must be a mapping.';
-    if (!goodName(p.name)) return `A preset needs a printable name of at most ${NAME_MAX} characters.`;
-    if (!Array.isArray(p.items)) return `Preset “${p.name}” needs a list of items.`;
-    for (const it of p.items) {
-      if (!isObj(it) || !isNum(it.src)) return `Preset “${p.name}”: every item needs a source number of 0 or more.`;
-      if (!Array.isArray(it.dsts) || !it.dsts.every((d) => isObj(d) && isNum(d.n))) return `Preset “${p.name}”: every destination needs a number of 0 or more.`;
-      if (it.levels != null && !(Array.isArray(it.levels) && it.levels.every((l) => Number.isInteger(l) && l >= 1)))
-        return `Preset “${p.name}”: levels must be whole numbers from 1.`;
-    }
-  }
-  return '';
-}
-
-const clean = (s) =>
-  String(s)
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^A-Za-z0-9._-]+/g, '-')
-    .replace(/-{2,}/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
-    .slice(0, 40);
-
-const two = (n) => String(n).padStart(2, '0');
-export const dateStamp = (d) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
-
-export function defaultFileName({ now = new Date(), site = '', user = '' } = {}) {
-  const parts = [dateStamp(new Date(now)), 'Sode', 'Export', clean(site), clean(user)].filter(Boolean);
-  return parts.join('-') + '.yaml';
-}
-
-export function fileNameFor(typed, dflt) {
-  const base = clean(
-    String(typed || '')
-      .trim()
-      .replace(/\.ya?ml$/i, ''),
-  );
-  return base ? `${base}.yaml` : dflt;
-}
-
-// ---- matching an imported item against this router
-
-// Names compare ignoring case and outer spaces. Statuses, best to worst: same, byName (one live
+// Names compare without regard to case and outer spaces. Statuses, best to worst: same, byName (one live
 // item has that name: number remapped), ambiguous (several do: never the first), unmatched.
 const STATUS = ['same', 'byName', 'ambiguous', 'unmatched'];
 export const worst = (a, b) => (STATUS.indexOf(a) >= STATUS.indexOf(b) ? a : b);
@@ -208,16 +124,14 @@ export function renameFor(name, taken) {
 
 export const defaultChoice = (clash) => (clash ? 'both' : 'import');
 
-// picks[i]: { choice, as } (as: name for Keep both, else automatic). Replace swaps in place;
-// the rest append. Names stay unique whatever the case. Returns { list, added, replaced, kept,
-// skipped }.
+// Use new ('replace') swaps in place; Use current and Skip leave the item out. Names stay unique without regard to case.
 export function applyChoices(existing, incoming, picks) {
   const list = existing.map((x) => ({ ...x }));
   const out = { list, added: 0, replaced: 0, kept: 0, skipped: 0 };
   incoming.forEach((it, i) => {
     const p = picks[i] || { choice: 'import' };
     const taken = () => list.map((x) => x.name);
-    if (p.choice === 'skip') {
+    if (p.choice === 'skip' || p.choice === 'current') {
       out.skipped++;
       return;
     }
@@ -265,97 +179,6 @@ export function sizeProblem(scope, parts, what = 'import') {
   return '';
 }
 
-const b64 = (s) => {
-  const bytes = new TextEncoder().encode(s);
-  let bin = '';
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-};
-const unb64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
-
-export function presetShare(p, srcName = () => '', dstName = () => '') {
-  return { kind: 'preset', name: p.name, items: p.items.map((it) => itemOut(it, srcName, dstName)) };
-}
-export function filterShare(name, f) {
-  const out = { kind: 'filter', name: String(name || '') };
-  const n = filterOf(f);
-  for (const k of FILTER_KEYS) if (n[k] !== FILTER_DEFAULT[k]) out[k] = n[k];
-  return out;
-}
-
-export const encodeShare = (doc) => b64(JSON.stringify(doc));
-
-export const shareUrl = (base, doc) => `${base}#share=${encodeShare(doc)}`;
-
-export function decodeShare(text) {
-  let d;
-  try {
-    d = JSON.parse(unb64(String(text)));
-  } catch {
-    throw new Error('The link is damaged.');
-  }
-  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('The link is damaged.');
-  const name = String(d.name ?? '').trim();
-  if (runes(name) > NAME_MAX) throw new Error('The link is damaged.');
-  if (d.kind === 'filter') return { kind: 'filter', name, ...filterOf(d) };
-  if (d.kind === 'preset') {
-    if (!name) throw new Error('The preset in the link has no name.');
-    if (!Array.isArray(d.items) || !d.items.length || d.items.length > 100) throw new Error('The preset in the link has no takes.');
-    return { kind: 'preset', name, items: d.items.map(itemIn) };
-  }
-  throw new Error('The link is not a Sode share link.');
-}
-
-export function decodeLegacy(text) {
-  let d;
-  try {
-    d = JSON.parse(unb64(String(text)));
-  } catch {
-    throw new Error('The link is damaged.');
-  }
-  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('The link is damaged.');
-  return {
-    kind: 'filter',
-    name: String(d.name ?? '')
-      .trim()
-      .slice(0, NAME_MAX),
-    ...filterOf(d),
-  };
-}
-
-// Returns { doc, error, search, hash } (doc null and error '' when there is no link);
-// search/hash: the parts to put back with our parameters removed.
-export function readLink(search, hash) {
-  const out = { doc: null, error: '', search, hash };
-  const h = new URLSearchParams(String(hash).replace(/^#/, ''));
-  const s = new URLSearchParams(search);
-  const share = h.get('share');
-  const legacy = s.get('f');
-  if (share == null && legacy == null) return out;
-  try {
-    out.doc = share != null ? decodeShare(share) : decodeLegacy(legacy);
-  } catch (e) {
-    out.error = e.message;
-  }
-  if (share != null) {
-    h.delete('share');
-    const t = h.toString();
-    out.hash = t ? `#${t}` : '';
-  }
-  if (legacy != null) {
-    s.delete('f');
-    const t = s.toString();
-    out.search = t ? `?${t}` : '';
-  }
-  return out;
-}
-
-// The sheet opens only after the router's names are in and the lock state is known (`L` from lock.js's
-// `access`, null until then). The page must also not be covered (PIN lock, or the page's own local
-// Lock). A link waits, in the address, until then.
-export const mayOpenSheet = (L, pageLocked = false, namesLoaded = true) =>
-  !!L && namesLoaded && !(L.locked && (L.enforced || L.held)) && !(pageLocked && !L.enforced);
-
 // "Name 2", or "Name (mine)" for a copy of an Everyone item; '' with nothing to copy. At most
 // 32 characters.
 export function saveAsName(name, fromScope = '') {
@@ -368,9 +191,4 @@ export function saveAsName(name, fromScope = '') {
       .join('')
       .trimEnd() + suffix
   );
-}
-
-export function docOfShare(d) {
-  if (d.kind === 'preset') return { sode: 1, presets: [{ name: d.name, items: d.items }] };
-  return { sode: 1, filterSets: [{ name: d.name || 'Shared filter', ...filterOf(d) }] };
 }

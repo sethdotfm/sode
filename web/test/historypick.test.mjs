@@ -1,4 +1,4 @@
-// Pick mode for Recent: which rows can be picked and what they add.
+// Pick mode for History: which rows can be picked and what they add.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -68,8 +68,8 @@ test('entries that cannot be a take are left out; unknown keys are ignored', () 
 test('each mode says its own count, Add label and whether Add is on', () => {
   const taken = [{}, {}];
   const history = { picked: new Set(['a']) };
-  assert.equal(MODES.history.count(history, taken), '1 chosen, 2 takes');
-  assert.equal(MODES.history.count(history, [{}]), '1 chosen, 1 take');
+  assert.equal(MODES.history.count(history, taken), '1 chosen, 2 routes');
+  assert.equal(MODES.history.count(history, [{}]), '1 chosen, 1 route');
   assert.equal(MODES.history.addText(history, taken), 'Add 2');
   assert.equal(MODES.history.addText(history, []), 'Add');
   assert.equal(MODES.history.canAdd(history, []), false);

@@ -46,8 +46,6 @@ func rescanBody(t *testing.T, a *App, key, body string) (added []LibIcon, skippe
 	return got.Added, got.Skipped
 }
 
-// Files in the drop-in directory are imported at start. The file name is the icon name, and a clash is "Name 2". A file
-// over the artwork limits is reported and stays, and an imported file leaves the directory.
 func TestIconLibraryDropInAtStart(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
@@ -101,7 +99,6 @@ func TestIconLibraryRescan(t *testing.T) {
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
 	png := b64(t, tinyPNG)
 
-	// Nothing in the directory, or no directory at all, adds nothing.
 	if added, skipped := rescanBody(t, a, cy, ""); len(added)+len(skipped) != 0 {
 		t.Fatalf("empty rescan %v %v", added, skipped)
 	}
@@ -123,10 +120,10 @@ func TestIconLibraryRescan(t *testing.T) {
 	if len(a.icons.list()) != 0 {
 		t.Fatal("a refused rescan added icons")
 	}
-	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library/rescan", ana, `{"pin":"1111"}`), 403, "trusted_required")
 
-	added, skipped := rescanBody(t, a, ana, `{"pin":"9999"}`)
+	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library/rescan", ana, `{"pin":"9999"}`), 403, "trusted_required")
+	added, skipped := rescanBody(t, a, cy, "")
 	var names []string
 	for _, ic := range added {
 		names = append(names, ic.Name)

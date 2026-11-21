@@ -11,9 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A panel with fixed destinations draws no Destination cells: a Source press stages a route to each
-// fixed destination and Take sends them. A saved edit to the list
-// arrives through the refresh banner, and Instant mode then patches on the press.
 func TestChromePanelFixedDests(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -28,7 +25,11 @@ func TestChromePanelFixedDests(t *testing.T) {
 	ana := userKey(t, a, "Ana")
 	const other, later = 5, 7
 	body := func(mode string, dsts ...int) string {
-		list := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(dsts)), ","), "[]")
+		refs := make([]string, len(dsts))
+		for i, d := range dsts {
+			refs[i] = fmt.Sprintf(`{"n":%d}`, d)
+		}
+		list := strings.Join(refs, ",")
 		return fmt.Sprintf(`{"name":"Fixed panel","rows":4,"cols":8,"cells":[
 			{"r":1,"c":1,"kind":"destination","n":%d},
 			{"r":1,"c":2,"kind":"source","n":%d},
@@ -46,6 +47,7 @@ func TestChromePanelFixedDests(t *testing.T) {
 	}
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -79,7 +81,6 @@ func TestChromePanelFixedDests(t *testing.T) {
 	b.check()
 }
 
-// waitRouted waits for the tally to show dst taken from src.
 func waitRouted(t *testing.T, a *App, key string, dst, src int) {
 	t.Helper()
 	want := fmt.Sprintf(`"dst":%d,"level":1,"src":%d`, dst, src)

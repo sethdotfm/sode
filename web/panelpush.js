@@ -1,9 +1,7 @@
-// The Push modal on the panels page: push a panel's saved layout to other panels, keep and push
-// checkpoint sets, and restore a checkpoint. The server decides who can push to what and keeps a
-// checkpoint of every target first. Calls: POST /panels/{id}/push, /panel-sets, /panels/{id}/checkpoints.
-import { el, icon, on } from './core.js';
-import { check, opt } from './formbits.js';
-import { trapDialog } from './dialogkeys.js';
+// The Push modal on the panels page. The server decides who can push to what and keeps a checkpoint of every target first.
+import { el, icon } from './core.js';
+import { btn, check, opt } from './formbits.js';
+import { question } from './modal.js';
 import { makeTabs } from './tabs.js';
 import {
   pushCandidates,
@@ -20,18 +18,8 @@ import {
   ownerNote,
 } from './panelpushrules.js';
 
-// The Lock covers the page, so an open modal must not stay in front of it.
-let closeOpen = null;
-on('locking', () => closeOpen?.());
-
 const JSON_HEAD = { 'Content-Type': 'application/json' };
 const post = (api, path, body) => api(path, { method: 'POST', headers: JSON_HEAD, body: JSON.stringify(body ?? {}) });
-
-function button(text, ico, cls) {
-  const b = el('button', `pb-btn ${cls}`, ...(ico ? [icon(ico), ` ${text}`] : [text]));
-  b.type = 'button';
-  return b;
-}
 
 // ctx: {api, panels (every panel the page has), me, trusted, onDone(text)}.
 export function openPush(panel, ctx) {
@@ -46,29 +34,16 @@ export function openPush(panel, ctx) {
   let cps = null;
   let busy = false;
 
-  const note = el('span', 'sode__hint');
-  note.setAttribute('role', 'status');
+  const note = el('span', { class: 'sode__hint', role: 'status' });
   const say = (t) => (note.textContent = t);
-  const closeBtn = button('Close', '', 'pb-btn--outline');
 
-  // Push tab
   const targets = el('div', 'sode-ov__people');
-  const pushBtn = button('Push', 'send', 'pb-btn--ok');
-  const pushTab = el(
-    'div',
-    null,
-    el(
-      'p',
-      'sode__hint',
-      `Copies the saved layout of ${panel.name} to the panels you tick. Each keeps its own name, id and sharing. Sode keeps a checkpoint of each first. Open panels update like a saved edit.`,
-    ),
-    targets,
-    el('div', 'sode-ov__acts', pushBtn),
-  );
+  const pushBtn = btn('pb-btn--ok', [icon('send'), ' Push']);
+  const pushTab = el('div', null, targets, el('div', 'sode-ov__acts', pushBtn));
 
   function paintTargets() {
     targets.replaceChildren();
-    if (!cand.length) return targets.append(el('p', 'sode__hint', 'You have no other panels to push to.'));
+    if (!cand.length) return targets.append(el('p', 'sode__hint', 'No other panels'));
     const { groups, single } = pushGroups(cand);
     const row = (p) => {
       const c = check(p.name + ownerNote(p, ctx.me), {
@@ -97,21 +72,20 @@ export function openPush(panel, ctx) {
     for (const p of single) targets.append(row(p));
   }
 
-  // Sets tab
   const setSel = el('select', 'pb-select');
   setSel.setAttribute('aria-label', 'Checkpoint set');
-  const setPush = button('Push set', 'send', 'pb-btn--ok');
-  const setDel = button('Delete set', 'trash-2', 'pb-btn--ghost');
+  const setPush = btn('pb-btn--ok', [icon('send'), ' Push set']);
+  const setDel = btn('pb-btn--ghost', [icon('trash-2'), ' Delete set']);
   const setHint = el('p', 'sode__hint');
   const nameIn = el('input', 'pb-input');
-  nameIn.setAttribute('aria-label', 'Name for a new set');
-  nameIn.placeholder = 'Name of the set';
+  nameIn.setAttribute('aria-label', 'Set name');
+  nameIn.placeholder = 'Set name';
   nameIn.autocomplete = 'off';
   const scopeSel = el('select', 'pb-select');
   scopeSel.setAttribute('aria-label', 'Who can use the set');
   scopeSel.append(opt('me', 'Me'), ...(ctx.trusted ? [opt('everyone', 'Everyone')] : []));
   const incl = check(`Include ${panel.name}`, { checked: true });
-  const saveSet = button('Save as a set', 'copy-plus', 'pb-btn--outline');
+  const saveSet = btn('pb-btn--outline', [icon('copy-plus'), ' Save as a set']);
   const saveHint = el('p', 'sode__hint');
   const setsTab = el(
     'div',
@@ -123,13 +97,13 @@ export function openPush(panel, ctx) {
     ),
     el('div', 'sode-ov__acts', el('span', 'pb-select-wrap', setSel), setPush, setDel),
     setHint,
-    el('h2', 'sode-ov__sub', 'Save the saved layouts of the ticked panels'),
+    el('h2', 'sode-ov__sub', 'New set'),
     el('div', 'sode-ov__acts', nameIn, el('span', 'pb-select-wrap', scopeSel), incl.label, saveSet),
     saveHint,
   );
 
   function paintSets() {
-    setSel.replaceChildren(...(sets === null ? [opt('', 'Loading sets')] : sets.length ? sets.map((s) => opt(s.id, setLabel(s))) : [opt('', 'No sets yet')]));
+    setSel.replaceChildren(...(sets === null ? [opt('', 'Loading…')] : sets.length ? sets.map((s) => opt(s.id, setLabel(s))) : [opt('', 'No sets')]));
     if (sets?.some((s) => s.id === setId)) setSel.value = setId;
     else setId = setSel.value;
     const s = sets?.find((x) => x.id === setId);
@@ -141,7 +115,6 @@ export function openPush(panel, ctx) {
     sync();
   }
 
-  // Restore tab
   const restoreSel = el('select', 'pb-select');
   restoreSel.setAttribute('aria-label', 'Panel to restore');
   restoreSel.append(...everyone.map((p) => opt(p.id, p.name + ownerNote(p, ctx.me))));
@@ -156,10 +129,10 @@ export function openPush(panel, ctx) {
 
   function paintCps() {
     cpList.replaceChildren();
-    if (cps === null) return cpList.append(el('p', 'sode__hint', 'Loading checkpoints.'));
-    if (!cps.length) return cpList.append(el('p', 'sode__hint', 'This panel has no checkpoints yet.'));
+    if (cps === null) return cpList.append(el('p', 'sode__hint', 'Loading…'));
+    if (!cps.length) return cpList.append(el('p', 'sode__hint', 'No checkpoints'));
     for (const c of cps) {
-      const b = button('Restore', 'rotate-ccw', 'pb-btn--outline pb-btn--sm');
+      const b = btn('pb-btn--outline pb-btn--sm', [icon('rotate-ccw'), ' Restore']);
       b.dataset.cp = c.id;
       b.disabled = busy;
       cpList.append(el('div', 'sode-ov__cp', el('span', null, checkpointLabel(c), c.why ? el('span', 'sode__hint', ` ${c.why}`) : ''), b));
@@ -181,6 +154,7 @@ export function openPush(panel, ctx) {
 
   function sync() {
     pushBtn.disabled = busy || !selected.size;
+    pushBtn.lastChild.textContent = selected.size ? ` Push to ${selected.size} panel${selected.size === 1 ? '' : 's'}` : ' Push';
     const s = sets?.find((x) => x.id === setId);
     setPush.disabled = busy || !s;
     setDel.disabled = busy || !s || !s.canEdit;
@@ -205,12 +179,6 @@ export function openPush(panel, ctx) {
     }
   }
 
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  const dialog = el('div', 'pb-modal sode-ov__share');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'push-title');
-  dialog.tabIndex = -1;
   const items = [
     { id: 'push', text: 'Push', panel: pushTab },
     { id: 'sets', text: 'Checkpoint sets', panel: setsTab },
@@ -221,23 +189,17 @@ export function openPush(panel, ctx) {
     if (id === 'sets') paintSets();
     if (id === 'restore' && cps === null) loadCps();
   });
-  dialog.append(
-    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `Push ${panel.name}`), { id: 'push-title' })),
-    el('div', 'pb-modal__body', tabs.node, ...items.map((i) => i.panel)),
-    el('div', 'pb-modal__footer', note, closeBtn),
-  );
-  root.append(dialog);
-  document.body.append(root);
-  const dlg = trapDialog(root, dialog, close);
-
-  function close() {
-    closeOpen = null;
-    dlg.hide();
-    root.remove();
-    if (opener?.isConnected) opener.focus();
-  }
-  closeOpen = close;
-  closeBtn.addEventListener('click', close);
+  const q = question({
+    back: opener,
+    titleId: 'push-title',
+    title: `Push ${panel.name}`,
+    cls: 'sode-ov__share',
+    body: [tabs.node, ...items.map((i) => i.panel)],
+    foot: [note, btn('pb-btn--outline', 'Close', () => q.close(null))],
+  });
+  const { root } = q;
+  // A push reloads the list behind the modal, which replaces the opener.
+  q.answer.then(() => opener?.isConnected || document.querySelector('#panels-detail [data-act="push"]')?.focus());
 
   pushBtn.addEventListener('click', () =>
     run(async () => {
@@ -274,7 +236,7 @@ export function openPush(panel, ctx) {
       sets = sets.filter((s) => s.id !== setId);
       setId = '';
       paintSets();
-      say('The set was deleted.');
+      say('Set deleted.');
     });
   });
   nameIn.addEventListener('input', sync);
@@ -287,7 +249,7 @@ export function openPush(panel, ctx) {
       setId = made.id;
       nameIn.value = '';
       paintSets();
-      say(`Saved the set ${made.name}.`);
+      say(`Saved set ${made.name}.`);
     }),
   );
   restoreSel.addEventListener('change', () => {
@@ -301,7 +263,7 @@ export function openPush(panel, ctx) {
       const name = everyone.find((p) => p.id === restoreId)?.name || restoreId;
       await post(ctx.api, `api/v1/panels/${restoreId}/checkpoints/${b.dataset.cp}/restore`);
       cps = null;
-      const text = `Restored ${name} from a checkpoint. What it replaced was kept as a checkpoint.`;
+      const text = `Restored ${name}. Checkpoint kept.`;
       say(text);
       ctx.onDone(text);
       await loadCps();
@@ -312,8 +274,7 @@ export function openPush(panel, ctx) {
   paintSets();
   paintCps();
   sync();
-  dlg.show();
-  dialog.focus();
+  q.dialog.focus();
   ctx
     .api('api/v1/panel-sets')
     .then((r) => (sets = r.sets))

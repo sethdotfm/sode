@@ -35,8 +35,14 @@ The hidden identity Sode gives a router when it is added. It never changes, neve
 One source connected to one destination on a set of levels. A take sends one or more routes.
 
 **Protected**:
-Describes a destination that the router will not change because something has protected it. Sode refuses a plan that includes a protected destination before it sends anything.
-_Avoid_: protect (as a noun), locked
+Describes a destination with a Protect or a Router lock on one or more levels, so the router will not change those levels. Sode refuses a plan that includes a protected destination before it sends anything.
+_Avoid_: locked
+
+**Protect**:
+A mark on one level of a destination that stops other clients from changing it. Only the device number that set it can clear it, and the router does not check who sends that number. Sode, DashBoard and panels can set one. Sode sets and clears a Protect on every level of a destination, with its one device number for the router. It keeps its own record of which user or API client set each one. Sode refuses its own takes to a destination it Protected too. "Protect" is also the verb.
+
+**Router lock**:
+The router's second kind of mark on a level of a destination, set only from DashBoard or a panel. Sode shows it with the device that set it and never sets or clears it. Keep it apart from Sode's own Lock, the cover over the page.
 
 ### Actions
 
@@ -55,8 +61,12 @@ What Sode intends to send but has not yet sent. A plan becomes a take when a per
 _Avoid_: pending take
 
 **Preset**:
-A saved plan that can be fired in one confirm and pinned. It is Sode's own feature.
+A saved plan that can be fired in one confirm and bookmarked. It is Sode's own feature.
 _Avoid_: salvo
+
+**Bookmark**:
+A saved link that opens a Palette row or an outside web address. A Palette row can be a preset, a filter set, a page, a Settings button or a setting. The Bookmarks strip shows them, and a bookmark with Show in Palette also shows at the top of the Palette. Bookmarks are saved to Me, This browser or Everyone, and the strip shows one list: This browser's, else Me, else Everyone. A bookmark that the user cannot use shows No access, and one whose target is gone shows Missing.
+_Avoid_: pinned preset, preset pin
 
 **Salvo**:
 The router's own stored group of routes, fired by number on the router. Sode does not use this word for anything of its own, so "fire salvo 12" always means the router's.
@@ -96,11 +106,14 @@ A Result that the router confirmed after Sode had stopped waiting. Sode amends t
 One rule on Source or Destination that limits which entries History shows.
 
 **Filter set**:
-A named, savable group of filters, scoped to Me, This browser or Everyone. Several sets can be stacked, and Stacked filters behavior says whether an entry must match all of them or any one.
+A named, savable group of filters, scoped to Me, This browser or Everyone. Several sets can be stacked, and Stacked filters behavior says whether an entry must match all of them or any one. Each set has a hidden id that stays through a rename, as a preset has. So a bookmark on a set still works after a rename.
 
 **Communication Log**:
 The page that shows every command and the raw messages Sode sent to the router, plus a router uptime graph.
 _Avoid_: sent log
+
+**Log row**:
+One line in the Communication Log: a message Sode sent to the router, or an event such as a connect or a Settings save. Not an Entry, which is a History row.
 
 ### Changes Sode did not make
 
@@ -122,11 +135,8 @@ A named person who can sign in to Sode. Their name is what History shows in plac
 _Avoid_: operator, account
 
 **Sign in** / **Sign out**:
-Sign in is how a user identifies themself. Sign out ends that session. Whether a page requires sign-in is set per page type.
+Sign in is how a user identifies themself: their name, then their PIN. PINs need not be unique. Sign out ends that session. Whether a page requires sign-in is set per page type.
 _Avoid_: log in, log out, unlock (for a user's session)
-
-**Sign-in mode**:
-How a user signs in. PIN only is the default, where the PIN alone says who signs in, so every PIN is unique. Username and PIN is an optional mode for deployments that want it, where the username is separate from the name History shows.
 
 **API client**:
 A named, non-person actor that uses Sode's API with an API key, such as a button panel app. Its name is what History shows in place of a user's name. Managing API clients is an advanced setting.
@@ -141,14 +151,14 @@ What a user, API client or Guest can command: allowed sources, destinations, lev
 Set on each rights entry. Read-only, the default, shows everything and refuses commands outside the rights. Hidden also removes what is outside the rights from what that actor sees over the API. Browsers always see everything.
 
 **Shared settings**:
-The settings and saved items that every browser sees, such as the layout and clock defaults for Everyone, Everyone filter sets and Everyone presets. Saving them needs the Advanced Settings PIN or a trusted user. Personal settings, saved to This browser or Me, need neither.
+The settings and saved items that every browser sees, such as the layout and clock defaults for Everyone, Everyone filter sets and Everyone presets. Saving them needs a Trusted user or an Administrator. Personal settings, saved to This browser or Me, need neither.
 
 **Advanced settings**:
-The shared settings that change the router connection, weaken a guard, or manage users, API clients, the PIN and History. Changing them, including adding, removing and renaming users and API clients, needs the **Advanced Settings PIN**, even for a trusted user.
+The shared settings that change the router connection, weaken a guard, or manage users, API clients, the PIN and History. Changing them, including adding, removing and renaming users and API clients, needs an Administrator, even for a Trusted user.
 _Avoid_: Settings PIN, admin PIN
 
 **Trusted user**:
-A user with a flag that lets them save shared settings without the Advanced Settings PIN. It never covers advanced settings.
+A user whose Role lets them change shared settings, every Profile and every panel, the Icon library and Default artwork. It never covers advanced settings.
 
 **Lock**:
 A cover over the page that stops every key from reaching it until it is dismissed. With nobody signed in, pressing the shown letter dismisses it, which guards against mashing the keyboard and nothing more. With a user signed in, the server holds the Lock for that session. A reload or reconnect still shows it, and only that user's PIN resumes it. They can also sign out from it.
@@ -159,7 +169,7 @@ Raises the Lock after a set number of idle minutes. It never signs anyone out. A
 _Avoid_: idle timeout
 
 **Profile**:
-A user's saved personal settings, filter sets and presets, kept on the server so they follow the user to any browser. A profile is not private: trusted users and the Advanced Settings PIN can see and edit every profile.
+A user's saved personal settings, filter sets and presets, kept on the server so they follow the user to any browser. A profile is not private: Trusted users and Administrators can see and edit every profile.
 
 **Me** / **This browser** / **Everyone**:
 The three scopes a setting, filter set or preset can be saved to. This browser wins over Me, and Me wins over Everyone. The Settings section for personal choices is My user.
@@ -170,7 +180,7 @@ Someone who is not signed in. A guest sees This browser and Everyone values and 
 
 ### Access in v2
 
-These terms come with the v2 auth model (ADR 0010). When v2 ships they replace the Advanced Settings PIN, the trusted flag and Sign-in mode, and the rows above change with them.
+These terms come with the v2 auth model (ADR 0010). They replace the v1 shared PIN for advanced settings and the trusted flag.
 
 **Role**:
 The one level of control each user holds: Standard, Trusted or Administrator. Rights still limit what any role can route. API clients hold no role.
@@ -297,6 +307,9 @@ An editor setting for each edge of a Grid panel. While it is on, the edge holds 
 The editor's button and view that runs the saved panel in the editor, as its page does. Takes made there change the router. Unsaved edits are saved first.
 _Avoid_: Test it live
 
+**Smart menu**:
+The panel editor's menu that opens by itself beside what is selected, with the actions for it. In a Buttons panel it is beside the selected cells. In the Live Editor of a Grid panel it is beside the picked sources or destinations, and it edits them.
+
 **Public panel**:
 A panel that anyone with its URL can use, with no sign-in, PIN or key in the link. It acts as its own API client, with that client's Rights, which a Trusted user sets within their own. History names the client.
 _Avoid_: anonymous panel, open panel (for a Public panel; an open panel page is any panel page that is open)
@@ -399,10 +412,10 @@ The icons that come with Sode, as the Choose icon picker names them: Icon A's ve
 The Icon library's icons, as the Choose icon picker names them, under the Default icons.
 
 **Rescan**:
-Adds the SVG and PNG files in the Icon library's drop-in directory (`icons/drop-in/`), as Sode does at start. Needs a trusted user or the Advanced Settings PIN. A file it skips stays and is reported.
+Adds the SVG and PNG files in the Icon library's drop-in directory (`icons/drop-in/`), as Sode does at start. Needs a Trusted user or an Administrator. A file it skips stays and is reported.
 
 **Default artwork**:
-Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell that shows it and sets none of its own. One shared set for everyone; setting or clearing one needs a trusted user or the Advanced Settings PIN.
+Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell that shows it and sets none of its own. One shared set for everyone; setting or clearing one needs a Trusted user or an Administrator.
 
 **Push**:
 Copies a panel's saved config to other panels. Each target keeps its own name, id, sharing and fixed destinations. Sode keeps a checkpoint of each target first, so the Push can be put back.
@@ -415,6 +428,9 @@ One saved layout per panel in a group, so a single Push gives each panel in the 
 **Patch boxes**:
 The Source box, the Destination box and the Level box, where a plan is typed. What they hold is a plan until Confirm.
 
+**Grid popup**:
+A grid that opens over the main page to stage several routes and send them in one take. It shows every source and destination in the person's Rights. It is part of the main page, not a panel. Keep it apart from a Grid panel, which is a saved panel.
+
 **Last**:
 The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser and kept across reloads, and the chip is hidden until this browser has made a take.
 
@@ -422,10 +438,20 @@ The chip in a patch box that fills it with that box's value from this browser's 
 The chip in a patch box that fills it with the value after Last. That value is the number plus one or the next router name match, as the browser's Next match behavior says. Pressing it again keeps stepping. It is per browser.
 
 **Keyboard mode**:
-The state where keys act on History entries instead of the patch boxes. Esc from empty patch boxes starts it and any click ends it. Compact view has none.
+The state where keys act on History entries instead of the patch boxes. Alt+Shift+k starts and ends it. Esc with empty boxes, or on a History button, also starts it. Any click ends it. Compact view has none.
 
 **Compact view**:
 The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
+
+**Home**:
+The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page. Alt+Shift+h opens Home from every page, and on Home it closes what is open and puts the focus in the Source box.
+
+**Palette**:
+A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. To search in one category, type its name first, then a space and the search, for example "panel studio". A short form, a part of the name or one typo is also correct ("p", "pnl", "sett", "panle"). The rows of that category come first, and other matches follow under Other matches. A row outside a person's Rights or Role does not show. But a bookmark with Show in Palette stays as a grey row. When such rows match a search, one line gives their count, and Enter on it starts Sign in. Picking it tells why and offers Step in or Request approval. Picking an action or a Settings button does it. Sign in opens the sign-in, and Sign out signs out. A button that opens a dialog opens it where you are. Each action shows one time. Rows that the person uses most come first among equal matches.
+_Avoid_: command palette
+
+**Palette character**:
+The character that opens the Palette when it is the first one typed in an empty Source or Destination box. It is a setting for Everyone, Me or This browser, and no character turns it off. Type it twice to search for the character itself.
 
 **Topic**:
 A top-level group of Settings sections, with a heading band on the page and a branch in the sidebar tree. With v2, Settings has five topics: Preferences, Look and feel, Routers, Access and Server.

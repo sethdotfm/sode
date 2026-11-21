@@ -1,11 +1,11 @@
-// The signed-in user's profile (This browser prefs, filter sets, presets). Sode pushes it to every connection signed in as that
-// user (name '' clears it). The ONLY module that handles `profile` and `profileSaveResult` (onMsg allows one handler per type); others use the 'profile' bus event.
-// Never in the hello, so empty for a locked or anonymous page.
+// The signed-in user's Profile. Sode pushes it to every connection of that user (name '' clears it).
+// Only this module handles `profile` and `profileSaveResult` (onMsg allows one handler per type); others use the 'profile' bus event.
+// Never in the hello, so it is empty for a locked page or a Guest.
 
-import { on, onMsg, emit, wsSend } from './core.js';
+import { on, onMsg, emit, wsSend, LINK_DOWN } from './core.js';
 import { findByName } from './profilesrules.js';
 
-const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [], pinOrder: [] });
+const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [], bookmarks: [], palettePicks: [] });
 let cur = EMPTY;
 
 export const profile = () => cur;
@@ -18,7 +18,8 @@ export function toProfile(m) {
     prefs: m.prefs && typeof m.prefs === 'object' ? m.prefs : {},
     filterSets: Array.isArray(m.filterSets) ? m.filterSets : [],
     presets: Array.isArray(m.presets) ? m.presets : [],
-    pinOrder: Array.isArray(m.pinOrder) ? m.pinOrder.filter((k) => typeof k === 'string') : [],
+    bookmarks: Array.isArray(m.bookmarks) ? m.bookmarks : [],
+    palettePicks: Array.isArray(m.palettePicks) ? m.palettePicks.filter((k) => typeof k === 'string') : [],
   };
 }
 
@@ -40,24 +41,20 @@ onMsg('profile', (m) => {
 let seq = 0;
 const pending = new Map(); // save id -> resolve
 const reading = new Map(); // get id -> resolve
-const lost = { ok: false, err: 'Connection lost.', locked: false };
+const lost = { ok: false, err: LINK_DOWN };
 
 onMsg('profileGetResult', (m) => {
   const done = reading.get(m.id);
   if (!done) return;
   reading.delete(m.id);
-  done(
-    m.ok
-      ? { ok: true, err: '', locked: false, profile: toProfile({ ...m.profile, name: m.name }) }
-      : { ok: false, err: m.err || 'Could not read that profile.', locked: !!m.locked, profile: EMPTY },
-  );
+  done(m.ok ? { ok: true, err: '', profile: toProfile({ ...m.profile, name: m.name }) } : { ok: false, err: m.err || 'Profile not read.', profile: EMPTY });
 });
 
 onMsg('profileSaveResult', (m) => {
   const done = pending.get(m.id);
   if (!done) return;
   pending.delete(m.id);
-  done({ ok: !!m.ok, err: m.err || '', locked: !!m.locked });
+  done({ ok: !!m.ok, err: m.err || '' });
 });
 
 // A dropped socket never answers: settle everything waiting.
@@ -72,11 +69,11 @@ on('wsclose', () => {
 // save replaces whole parts.
 let chain = Promise.resolve();
 
-// Saves some parts ({prefs}, {filterSets}, {presets}, {pinOrder}); a part left out is kept, a part sent replaces the whole list/map.
-// `name` defaults to the signed-in user; a trusted user can name another. No PIN is asked here: the server decides.
+// Saves some parts ({prefs}, {filterSets}, {presets}, {bookmarks}, {palettePicks}); a part left out is kept, a part sent replaces the whole list/map.
+// `name` defaults to the signed-in user; a Trusted user can name another. The server decides, so no PIN is asked here.
 // The own profile's local copy gets the parts at once so the next save builds on them; a failed save puts it back.
 export function saveProfile(parts, name = cur.name) {
-  if (!name) return Promise.resolve({ ok: false, err: 'Not signed in.', locked: false });
+  if (!name) return Promise.resolve({ ok: false, err: 'Not signed in.' });
   // At call time, not when the queued send runs: the next caller reads it now.
   const before = cur;
   const mine = name === cur.name;
@@ -91,7 +88,7 @@ export function saveProfile(parts, name = cur.name) {
         resolve(r);
       };
       if (!wsSend({ t: 'profileSave', id, name, ...parts })) {
-        return settle({ ok: false, err: 'Not connected to Sode.', locked: false });
+        return settle({ ok: false, err: LINK_DOWN });
       }
       pending.set(id, settle);
     });
@@ -100,12 +97,12 @@ export function saveProfile(parts, name = cur.name) {
   return p;
 }
 
-// Any user's profile (trusted user or Advanced Settings PIN; others get locked: true).
+// Any user's profile (a Trusted user or higher; others get a refusal).
 export function fetchProfile(name) {
   return new Promise((resolve) => {
     const id = ++seq;
     if (!wsSend({ t: 'profileGet', id, name })) {
-      return resolve({ ok: false, err: 'Not connected to Sode.', locked: false, profile: EMPTY });
+      return resolve({ ok: false, err: LINK_DOWN, profile: EMPTY });
     }
     reading.set(id, resolve);
   });

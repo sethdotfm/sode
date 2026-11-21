@@ -1,61 +1,33 @@
-// Runs /panels/editor: the panel picker, the toolbar, the grid and the smart menu, over /api/v1/panels as
-// the signed-in user. The grid rules are gridmodel.js and the page text is editorrules.js; this file wires
-// them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
-import { $, el, on } from './core.js';
-import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
+// Runs /panels/editor as the signed-in user. runEditor returns the seams the other editor modules use (see the end).
+import { $, on, S } from './core.js';
+import { newPanelActs, actsSavedNote } from './panelsrules.js';
+import { sessionFetch, jsonCall, startSession } from './sessionkey.js';
 import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
 import { defaultsBy } from './panellook.js';
-import {
-  createGrid,
-  cellsLost,
-  resize,
-  select,
-  deselect,
-  selectAll,
-  rectOf,
-  selCells,
-  setKind,
-  clearSelection,
-  canMerge,
-  merge,
-  canUnmerge,
-  unmerge,
-  setAside,
-  putBack,
-  heldThatFit,
-  saved,
-} from './gridmodel.js';
-import {
-  editorTarget,
-  groupPanels,
-  newPanel,
-  saveBody,
-  isDirty,
-  kindChoices,
-  typeLabel,
-  menuArea,
-  saveChord,
-  signInNote,
-  openFailNote,
-} from './editorrules.js';
-import { linkFor } from './panellink.js';
-import { copyText } from './panellinkrow.js';
+import { createGrid, cellsLost, resize, select, deselect, selectAll, rectOf, clearSelection, setAside, putBack, heldThatFit, saved } from './gridmodel.js';
+import { editorTarget, newPanel, saveBody, isDirty, menuArea, saveChord, openFailNote, editorAccess } from './editorrules.js';
+import { copyText, itemLink } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
+import { editorSignIn } from './editorsignin.js';
+import { drawPicker, paintToolbar } from './editortoolbar.js';
+import { menuItems } from './editormenuitems.js';
 import { createArt } from './panelart.js';
 import { createSmartMenu } from './editormenu.js';
 import { gridCommand } from './gridchords.js';
 import { createLive } from './editorlive.js';
 import { copyBlock, blockText, readBlock, pastePlan, applyPaste, pasteNote } from './gridclip.js';
 import { writeClip, createPasteReader } from './editorclip.js';
-import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restorePages, rekeySaved } from './gridundo.js';
+import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restorePages, rekeySaved, edgeSnap, sameEdges } from './gridundo.js';
 import { edgeChoices, edgeNote } from './gridedge.js';
 import { askPasteEdge } from './editorpasteedge.js';
 import { pagesAfterSave, pagesOf, pageView, fitPages } from './panelpages.js';
-import { addPage, movePage, renamePage, enablePage, deletePage, copyPage, openClick } from './editorpagerules.js';
+import { addPage, movePage, renamePage, enablePage, deletePage, copyPage, openClick, settle } from './editorpagerules.js';
 import { createPageBar } from './editorpagebar.js';
 import { createPageView } from './editorpageview.js';
 import { askCopyTo } from './editorpagecopy.js';
 import { isGridPanel } from './gridpaneledges.js';
+import { edgesIn } from './gridedgerefs.js';
+import { panelsBar } from './panelsbar.js';
 
 const GRID_EDGE = Object.freeze({ members: 'all' });
 
@@ -65,7 +37,10 @@ const say = (id, text) => {
   n.hidden = !text;
 };
 
+const LEFT = 'Signed out. Not saved.';
+
 // One call whose failures read "<what> (status)" unless the server says why; down words a dead network.
+const RECHECK_MS = 15000;
 const edCall = (what, down) => jsonCall(sessionFetch, { failed: (s) => `${what} (${s})`, down });
 
 export async function runEditor() {
@@ -80,14 +55,13 @@ export async function runEditor() {
   let names = namesFrom({});
   let routerNames = {}; // GET /names as read, for the Grid panel's list tabs
   let discardAsked = ''; // the panel the user tried to leave unsaved; a second try discards.
-  const menuSections = []; // (grid) => items: where Find and later actions plug in.
+  let leaving = false; // the access the editor opened with is gone (leaveEditing): nothing more is saved.
+  const menuSections = []; // (grid) => items: Find adds its items here.
   const keyHooks = []; // (event) => true when a grid key was handled (Find handles typed text and Enter).
   const changeWatchers = [];
   const fieldWatchers = [];
   let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork.
   let defaults = new Map(); // Default artwork by item (defaultsBy): drawn only, never put into g.
-  let trusted = false; // only a Trusted user can make a client, so a new panel starts as Both for them and Session for the rest.
-  on('access', (a) => (trusted = !!a.trusted && !!a.user));
   let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each after its first edit.
   // The save's state for the toolbar: busy while a save runs, failed holds why the last save failed until one works.
   const saveState = { busy: false, failed: '' };
@@ -95,7 +69,7 @@ export async function runEditor() {
   const readOnly = () => !!loaded && !loaded.canEdit;
   const fields = () => ({
     settings: edits.settings ?? loaded?.settings ?? {},
-    acts: edits.acts ?? loaded?.acts ?? (trusted ? 'both' : 'session'),
+    acts: edits.acts ?? loaded?.acts ?? newPanelActs(S.cfg),
     slug: edits.slug ?? loaded?.slug ?? '',
     clientRights: edits.clientRights,
     // A Grid panel's type is chosen once, before the first save; the server keeps a stored one.
@@ -120,7 +94,7 @@ export async function runEditor() {
     held = heldThatFit(aside.grid, [...all, ...aside.held]);
     return { shown: aside.grid, dropped: all.length + aside.held.length - held.length };
   };
-  const droppedNote = (n) => (n ? `Removed ${n} Destination cell${n > 1 ? 's' : ''} set aside by Fixed destination, as other cells now fill the squares.` : '');
+  const droppedNote = (n) => (n ? `Removed ${n} Destination cell${n > 1 ? 's' : ''}: other cells fill their squares.` : '');
   const sayDropped = (n) => n && say('ed-status', droppedNote(n));
   const whole = () => putBack(g, held);
   const fi = () =>
@@ -171,31 +145,46 @@ export async function runEditor() {
     if (g !== was) changed();
     return dropped;
   };
+  // A Grid panel's list edit (editorgridlist.js): the same stack, with a snapshot of the two lists. The Panel tab and
+  // Follow the router go through setFields and make no step.
+  function editEdges(patch, what) {
+    const keys = Object.keys(patch);
+    const before = edgeSnap(fields(), keys);
+    setFields(patch);
+    if (!sameEdges(before, edgeSnap(fields(), keys))) steps = record(steps, { what, before });
+  }
+  // The Live Editor's bar shows the status line too, since the editor's own is hidden while it runs.
+  const tell = (text) => {
+    say('ed-status', text);
+    live.note(text);
+  };
+
   // Not through edit, which would record the step back. Cells go back by Page id, so Page names, order and
-  // deletions stay as they are; the focused Page stays focused while it exists.
+  // deletions stay as they are; the focused Page stays focused while it exists. A list step puts both lists back.
   function step(back) {
     const top = (back ? steps.past : steps.future).at(-1);
-    if (!top) return say('ed-status', back ? 'Nothing to undo.' : 'Nothing to redo.');
+    if (!top) return tell(back ? 'Nothing to undo.' : 'Nothing to redo.');
+    if (top.grid.edges) {
+      const s = (back ? undo : redo)(steps, edgeSnap(fields(), Object.keys(top.grid.edges)));
+      steps = s.undo;
+      setFields(s.grid.edges);
+      return tell(`${back ? 'Undid' : 'Redid'} ${s.what}.`);
+    }
     const s = (back ? undo : redo)(steps, snap(!!top.grid.list));
     steps = s.undo;
-    pages = restorePages(livePages(), s.grid);
-    if (!pages.some((p) => p.id === focus)) focus = pages[0].id;
-    open = open.filter((id) => pages.some((p) => p.id === id));
-    if (!open.includes(focus)) open = [focus];
+    ({ pages, focus, open } = settle({ pages: restorePages(livePages(), s.grid), focus, open }));
     g = createGrid({ rows: s.grid.rows, cols: s.grid.cols });
     showFocused();
     if (s.grid.focus === focus && s.grid.sel) g = { ...g, sel: s.grid.sel };
     changed();
-    say('ed-status', `${back ? 'Undid' : 'Redid'} ${s.what}.`);
+    tell(`${back ? 'Undid' : 'Redid'} ${s.what}.`);
   }
 
-  // ---- Pages (editorpagebar.js). Only Copy to is an undo step.
+  // Only Copy to is an undo step (editorpagebar.js).
 
   function focusPage(id) {
     if (id === focus) return;
-    pages = livePages();
-    focus = id;
-    if (!open.includes(id)) open = [id];
+    ({ pages, focus, open } = settle({ pages: livePages(), focus: id, open }));
     showFocused();
     menuAway = false;
   }
@@ -238,9 +227,9 @@ export async function runEditor() {
       const gone = live[i].id;
       pages = deletePage(live, i);
       if (pages === live) return say('ed-status', 'Nothing deleted: at least one Page stays on, so turn another Page on first.');
-      open = open.filter((id) => id !== gone);
-      if (focus === gone) focus = (open.length ? pages.find((p) => open.includes(p.id)) : pages[Math.min(i, pages.length - 1)]).id;
-      if (!open.length) open = [focus];
+      const left = open.filter((id) => id !== gone);
+      const next = focus !== gone ? focus : (left.length ? pages.find((p) => left.includes(p.id)) : pages[Math.min(i, pages.length - 1)]).id;
+      ({ pages, focus, open } = settle({ pages, focus: next, open: left }));
       showFocused();
       changed();
       say('ed-status', `Deleted Page ${i + 1}.`);
@@ -295,6 +284,8 @@ export async function runEditor() {
     lists: () => [$('ed-sources-col'), $('ed-destinations-col')],
     cellTab: () => cellTab,
     edgeLists: () => edgeLists,
+    leave: (href) => mayLeave(href),
+    editor: () => seams,
   });
   fieldWatchers.push(() => live.changed());
   // The menu and its flyouts keep off the sidebar when it sits beside the grid (menuArea).
@@ -308,11 +299,9 @@ export async function runEditor() {
       ),
   });
 
-  // The menu goes with the selection when a click or Tab lands outside the grid, the menu and the sidebar. The
-  // sidebar edits the selected cell, so a click there keeps the selection and only puts the menu away (it sat over
-  // the sidebar's fields). The next grid click or key brings it back. Not a blur: the menu rebuilds itself on every
-  // change and drops focus for a moment. The event path, not the target: a click on a square repaints the grid,
-  // which detaches that target.
+  // A click or Tab outside the grid, the menu and the sidebar drops the selection; a click in the sidebar only hides
+  // the menu. Not blur: the menu rebuilds on every change and drops focus. The event path, not the target: a repaint
+  // detaches the target.
   let menuAway = false;
   const leave = (e) => {
     if (!g.sel) return;
@@ -332,7 +321,7 @@ export async function runEditor() {
 
   async function copyCells() {
     const block = copyBlock(g, loaded?.id);
-    if (!block) return say('ed-status', 'Nothing copied: the selection holds no cells.');
+    if (!block) return say('ed-status', 'Nothing copied: no cells selected.');
     const n = block.cells.length;
     const ok = await writeClip(blockText(block));
     say('ed-status', ok ? `Copied ${n} cell${n > 1 ? 's' : ''}.` : 'Nothing copied: the browser did not let Sode use the clipboard.');
@@ -345,7 +334,7 @@ export async function runEditor() {
     const snap = g;
     const n = copyBlock(g, loaded?.id)?.cells.length;
     if (!(await copyCells())) return;
-    if (g !== snap) return say('ed-status', 'Copied, but the grid changed meanwhile, so nothing was removed.');
+    if (g !== snap) return say('ed-status', 'Copied. Nothing removed: the grid changed.');
     setGrid(clearSelection(g), { what: 'cut' });
     say('ed-status', `Cut ${n} cell${n > 1 ? 's' : ''}.`);
   }
@@ -355,9 +344,9 @@ export async function runEditor() {
     if (readOnly()) return;
     if (text === null) return say('ed-status', 'Nothing pasted: the browser did not let Sode read the clipboard.');
     const block = readBlock(text);
-    if (!block) return say('ed-status', 'Nothing pasted: the clipboard holds no valid Sode cells.');
+    if (!block) return say('ed-status', 'Nothing pasted: no Sode cells on the clipboard.');
     const plan = pastePlan(g, block, { panel: loaded?.id, fixed: fixedOn() });
-    if (!plan) return say('ed-status', 'Nothing pasted: first select the square to paste at.');
+    if (!plan) return say('ed-status', 'Nothing pasted: select a square first.');
     if (!plan.fits) return void pasteOverflow(plan);
     const dropped = setGrid(applyPaste(g, plan.placed), { what: 'paste' });
     say('ed-status', `${pasteNote(plan)} ${droppedNote(dropped)}`.trim());
@@ -372,7 +361,7 @@ export async function runEditor() {
     const answer = await askPasteEdge(choices, plan.outside, $('ed-grid'));
     if (!answer) return say('ed-status', 'Nothing pasted.');
     if (readOnly() || !sameCells(snap, whole()) || !samePages(pageSnap(before, g.rows, g.cols), pageSnap(livePages(), g.rows, g.cols)))
-      return say('ed-status', 'Nothing pasted: the grid changed meanwhile.');
+      return say('ed-status', 'Nothing pasted: the grid changed.');
     const choice = choices[answer];
     // A cascade onto later Pages and the paste here are one undo step, so the Page list changes inside the same edit.
     const dropped = edit('paste', () => {
@@ -433,27 +422,16 @@ export async function runEditor() {
     }
   }
 
-  function menuItems() {
-    const cells = selCells(g);
-    const items = [
-      // One item that toggles, so Ctrl+M merges a group and unmerges a merged square.
-      canUnmerge(g)
-        ? { chord: 'm', label: 'Unmerge', icon: 'split', run: () => setGrid(unmerge(g), { what: 'unmerge' }) }
-        : { chord: 'm', label: 'Merge', icon: 'combine', disabled: !canMerge(g), run: () => setGrid(merge(g), { what: 'merge' }) },
-      {
-        label: typeLabel(cells),
-        icon: 'type',
-        sub: kindChoices({ fixed: fixedOn() }).map(({ kind, label, disabled, hint }) => ({
-          label,
-          disabled,
-          hint,
-          current: kind === '' ? !cells.length : cells.length > 0 && cells.every((c) => c.kind === kind),
-          run: () => setGrid(setKind(g, kind), { what: 'type change' }),
-        })),
-      },
-    ];
-    for (const section of menuSections) items.push(...section(g));
-    return items;
+  function setFields(patch) {
+    edits = { ...edits, ...patch };
+    const { shown, dropped } = holdOrPutBack(g);
+    sayDropped(dropped);
+    if (shown !== g) {
+      g = shown;
+      for (const fn of changeWatchers) fn(g);
+    }
+    refresh();
+    fieldsChanged();
   }
 
   // A key without the panels scope, or a failed read, leaves the defaults as they were.
@@ -474,25 +452,12 @@ export async function runEditor() {
     openView.paint(live, open, focus, { rows: g.rows, cols: g.cols, names, fixed: fixedOn(), readOnly: ro, art, defaults });
     bar.paint({ pages: live, open, focus, readOnly: ro });
     const box = ro ? null : grid.selectionBox();
-    menu.show(menuAway ? null : box, menuItems());
+    menu.show(
+      menuAway ? null : box,
+      menuItems(() => g, fixedOn(), menuSections, setGrid),
+    );
     for (const fn of paintWatchers) fn(g, box);
-    nameBox.disabled = ro;
-    const saveBtn = $('ed-save');
-    const failed = !ro && !!saveState.failed;
-    saveBtn.disabled = ro || saveState.busy || (!dirty() && !failed);
-    saveBtn.textContent = failed ? 'Retry save' : 'Save';
-    saveBtn.classList.toggle('pb-btn--ok', !failed);
-    saveBtn.classList.toggle('pb-btn--danger', failed);
-    $('ed-banner').hidden = !ro;
-    // Not say(): the slot keeps its size whatever it holds, so the toolbar never re-wraps (panels.css).
-    $('ed-state').textContent = ro ? '' : saveState.busy ? 'Saving' : failed ? 'Not saved' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '';
-    const link = $('ed-open');
-    link.hidden = !loaded;
-    if (loaded) link.href = `panels/${loaded.id}`;
-    // A panel that only acts as its API client has no link without its key (Share, Link with key).
-    // A Both panel's plain link opens in Session mode, and a Public panel's opens for anyone.
-    const copy = $('ed-copylink');
-    copy.hidden = !loaded || loaded.acts === 'api';
+    paintToolbar(ro, saveState, dirty, loaded);
   }
 
   // The Panel tab's Rows and Columns call this; a bad value keeps the current size.
@@ -519,50 +484,21 @@ export async function runEditor() {
   }
   nameBox.addEventListener('input', refresh);
 
-  // ---- panels
-
-  function drawPicker() {
-    const pick = $('ed-pick');
-    const { mine, shared } = groupPanels(list);
-    const group = (label, panels) => {
-      if (!panels.length) return null;
-      const og = el('optgroup');
-      og.label = label;
-      for (const p of panels) {
-        const o = el('option', '', p.name);
-        o.value = p.id;
-        og.append(o);
-      }
-      return og;
-    };
-    const fresh = el('option', '', 'New panel');
-    fresh.value = '';
-    pick.replaceChildren(...[group('My panels', mine), group('Shared with me (use only)', shared), fresh].filter(Boolean));
-    pick.value = loaded?.id || '';
-  }
-
   async function loadList() {
-    list =
-      (
-        await edCall(
-          'The panel list could not be read',
-          'Sode did not answer, so the panel list could not be read. Check the network, then reload.',
-        )('api/v1/panels')
-      ).panels || [];
-    drawPicker();
+    list = (await edCall('The panel list could not be read', 'Sode did not answer. Reload.')('api/v1/panels')).panels || [];
+    drawPicker(list, loaded);
   }
 
   function show(panel) {
     live.stop();
-    loaded = panel;
+    loaded = edgesIn(panel);
     edits = {};
     art?.revoke();
     art = panel ? createArt(sessionFetch, panel.id) : null;
     held = [];
     steps = emptyUndo();
-    pages = pagesOf(panel || newPanel());
-    focus = pages[0].id;
-    open = [focus];
+    const first = pagesOf(panel || newPanel());
+    ({ pages, focus, open } = settle({ pages: first, focus: first[0].id, open: [] }));
     g = holdOrPutBack(createGrid(pageView(panel || newPanel()))).shown;
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
@@ -589,7 +525,7 @@ export async function runEditor() {
       if (mine !== opening) return;
       if (e.status === undefined) throw e;
       say('ed-status', openFailNote(e));
-      drawPicker();
+      drawPicker(list, loaded);
       return;
     }
     if (mine !== opening) return;
@@ -602,7 +538,7 @@ export async function runEditor() {
     if (!readOnly() && dirty() && discardAsked !== id) {
       discardAsked = id;
       e.target.value = loaded?.id || '';
-      say('ed-status', 'This panel has unsaved changes. Choose again to discard them.');
+      say('ed-status', 'Unsaved changes. Choose again to discard.');
       return;
     }
     openPanel(id, true);
@@ -613,19 +549,32 @@ export async function runEditor() {
     if (!readOnly() && dirty() && id !== (loaded?.id || '') && discardAsked !== id) {
       discardAsked = id;
       history.pushState(null, '', loaded ? `panels/editor?panel=${loaded.id}` : 'panels/editor');
-      say('ed-status', 'This panel has unsaved changes. Go back again to discard them.');
+      say('ed-status', 'Unsaved changes. Go back again to discard.');
       return;
     }
     openPanel(id, false);
   });
+  // The bar's links (Settings, Panels, Home) leave unsaved edits only on a second try, as the picker does. Then the
+  // browser's own prompt does not ask a third time.
+  let letGo = false;
+  function mayLeave(href) {
+    if (readOnly() || !dirty() || discardAsked === href) return (letGo = true);
+    discardAsked = href;
+    const text = 'Unsaved changes. Choose again to discard.';
+    say('ed-status', text);
+    live.note(text);
+    return false;
+  }
+  panelsBar(document.querySelector('.sode-ed > .sode-panels__head'), { panels: true, leave: mayLeave });
   window.addEventListener('beforeunload', (e) => {
-    if (!readOnly() && dirty()) e.preventDefault();
+    if (!leaving && !letGo && !readOnly() && dirty()) e.preventDefault();
   });
 
   // One save at a time. A second Save, Ctrl+S or Live Editor press during a save gets the same answer. So a new panel is
   // never made twice.
   let saving = null;
   function save() {
+    if (leaving) return Promise.resolve(LEFT);
     saving ??= saveNow().finally(() => {
       saving = null;
     });
@@ -641,12 +590,14 @@ export async function runEditor() {
     const sentEdits = edits;
     const sentName = nameBox.value;
     const sentPages = livePages();
-    const body = JSON.stringify(saveBody(loaded || newPanel(), sentName, firstGrid(), edits, sentPages));
+    const body = JSON.stringify(saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages));
     const send = () =>
-      edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
+      edCall('The panel was not saved', 'Sode did not answer. Not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
         method: loaded ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
+        // Signed out, a save is refused at once: waiting would send it under the next sign-in, maybe someone else's.
+        noWait: true,
       });
     let stored;
     try {
@@ -658,31 +609,36 @@ export async function runEditor() {
     } catch (e) {
       saveState.busy = false;
       saveState.failed = e.message;
-      say('ed-status', `${e.message} Your changes are still here. Press Retry save.`);
+      say('ed-status', `${e.message} Changes kept.`);
       refresh();
       return e.message;
     }
     const made = !loaded;
-    loaded = stored;
+    loaded = edgesIn(stored);
     // Pages edited during the save stay as they are now; the rest take the stored copy. The first save gives an
     // unsaved Page 1 its id.
     const after = pagesAfterSave(sentPages, livePages(), pagesOf(stored));
-    pages = after.pages;
     const rekey = (id) => after.ids[id] ?? id;
-    focus = rekey(focus);
-    if (!pages.some((p) => p.id === focus)) focus = pages[0].id;
+    ({ pages, focus, open } = settle({ pages: after.pages, focus: rekey(focus), open: open.map(rekey) }));
     steps = rekeySaved(
       steps,
       sentPages.map((p) => p.id),
       sentPages.map((p) => rekey(p.id)),
     );
-    open = open.map(rekey).filter((id) => pages.some((p) => p.id === id));
-    if (!open.includes(focus)) open = [focus];
+    // The server fills router references (internal/app/panelrefs.go). A focused Page not edited during the save takes
+    // them, or it reads as Unsaved changes.
+    if (pagesOf(stored).includes(pages[fi()])) {
+      const sel = g.sel;
+      showFocused();
+      g = { ...g, sel };
+    }
     // A field changed while the save was in flight is a newer edit: it stays, and the editor says Unsaved changes.
     edits = Object.fromEntries(Object.entries(edits).filter(([k, v]) => v !== sentEdits[k]));
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
     if (nameBox.value === sentName) nameBox.value = loaded.name;
     if (saveState.failed) say('ed-status', '');
+    // A new Public panel asks no Confirm, since it ends no keys, so its first save says who can open it.
+    if (made && loaded.acts === 'public') say('ed-status', actsSavedNote('public'));
     saveState.busy = false;
     saveState.failed = '';
     await loadList().catch(() => {});
@@ -712,16 +668,17 @@ export async function runEditor() {
   });
 
   $('ed-copylink').addEventListener('click', async () => {
-    say('ed-status', (await copyText(linkFor(loaded))) ? 'Link copied.' : 'Copy failed. Use the Link field in Share instead.');
+    say('ed-status', (await copyText(itemLink(loaded))) ? 'Link copied.' : 'Copy failed: use Share > Link.');
   });
 
   $('ed-copy').addEventListener('click', async () => {
     let copy;
     try {
-      copy = await edCall('The copy was not saved', 'Sode did not answer, so no copy was made.')(`api/v1/panels/${loaded.id}/copy`, {
+      copy = await edCall('The copy was not saved', 'Sode did not answer. No copy made.')(`api/v1/panels/${loaded.id}/copy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
+        noWait: true,
       });
     } catch (e) {
       return say('ed-status', e.message);
@@ -729,27 +686,38 @@ export async function runEditor() {
     history.pushState(null, '', `panels/editor?panel=${copy.id}`);
     await loadList().catch(() => {});
     show(copy);
-    say('ed-status', `Saved a copy. You own it and can change it. ${artLeftOut(copy.artSkipped)}`.trim());
+    say('ed-status', `Saved a copy. You own it. ${artLeftOut(copy.artSkipped)}`.trim());
   });
 
-  // ---- start
-
-  // The editor never sits blank: each way it cannot reach the panel puts a note and, where it helps, a button.
-  let signInFix = signInAgain;
-  let bootFail = ''; // why the panel list or panel did not load; a later sign-in event must not wipe it
-  let lastStep = '';
-  const note = (step, err) => {
-    lastStep = step;
-    const { text, button } = signInNote(step, err);
-    say('panels-note', text || bootFail);
-    const b = $('panels-signin');
-    b.hidden = !button;
-    b.textContent = button || 'Sign in';
-    signInFix = step === 'ended' ? () => location.reload() : signInAgain;
-  };
-  $('panels-signin').addEventListener('click', () => signInFix());
-  onSessionKey((k, step, err) => note(k ? 'ready' : step, err));
-  on('wsclose', () => note('offline'));
+  const bootFailed = editorSignIn(say);
+  // What is open belongs to the user who opened it: a sign-out, another user or another Role starts the page again.
+  // The edits go with it, so the unsaved-changes prompt must not hold the page in the editor.
+  let owner = null;
+  on('access', (a) => {
+    const next = editorAccess(owner, a);
+    owner = next.owner;
+    if (next.leave) leaveEditing();
+    else recheckEdit();
+  });
+  // A new owner keeps the user and the Role, and no message says so. So the page reads the open panel again when
+  // access or Settings change, when the tab shows again, and every RECHECK_MS. The server refuses a save in any case.
+  async function recheckEdit() {
+    if (leaving || !loaded?.id || !loaded.canEdit) return;
+    const r = await sessionFetch(`api/v1/panels/${loaded.id}`, { noWait: true }).catch(() => null);
+    if (!r || r.status === 401) return; // offline, or a sign-out, which the access rule handles
+    const now = r.ok ? await r.json().catch(() => null) : r.status === 403 || r.status === 404 ? {} : null;
+    if (now && !now.canEdit) leaveEditing();
+  }
+  on('helloCfg', recheckEdit);
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && recheckEdit());
+  setInterval(recheckEdit, RECHECK_MS);
+  function leaveEditing() {
+    if (leaving) return;
+    leaving = true;
+    live.stop();
+    document.querySelector('.sode-ed').hidden = true;
+    location.reload();
+  }
   // Names come from the REST read, which applies the user's Rights. The socket says when the router's names change,
   // so the cells and the Grid lists show a rename at once, as an open panel does.
   // Returns false when the read was refused; the names already shown stay.
@@ -760,7 +728,7 @@ export async function runEditor() {
     names = namesFrom(routerNames);
     return true;
   }
-  const namesFailed = () => say('ed-status', 'The new router names did not load. The editor shows the names it had.');
+  const namesFailed = () => say('ed-status', 'Router names did not load. Old names shown.');
   on('names', () =>
     readNames()
       .then((ok) => {
@@ -770,6 +738,8 @@ export async function runEditor() {
       })
       .catch(namesFailed),
   );
+  // A blank new panel's mode comes from the hello's config, which can come after the first paint.
+  on('helloCfg', () => !loaded && fieldsChanged());
   startSession();
   show(null);
   // Not awaited: the seams below must exist while the page still waits for a sign-in. Then the sidebar and Find
@@ -781,15 +751,12 @@ export async function runEditor() {
       await loadDefaults();
       await openPanel(editorTarget(location.search).id, false);
     } catch (err) {
-      // An ended or refused key already has its note from onSessionKey.
-      if (lastStep === 'ended' || lastStep === 'refused') return;
-      bootFail = openFailNote(err.status === undefined ? { status: 0 } : err);
-      say('panels-note', bootFail);
+      bootFailed(err);
     }
   })();
 
-  // Seams for later tickets: Find adds menu items, the sidebars and live update read and replace the grid.
-  return {
+  // Seams: Find adds menu items; the sidebars and live update read and replace the grid.
+  const seams = {
     // The focused Page's grid; Find, the grip, the art tool and the Cell tab work on it.
     grid: () => g,
     // Page 1 as stored, with any Destination cells Fixed destination set aside, for templates and the Cell tab's
@@ -803,9 +770,7 @@ export async function runEditor() {
       edit(
         'template',
         () => {
-          pages = list;
-          focus = list[0].id;
-          open = [focus];
+          ({ pages, focus, open } = settle({ pages: list, focus: list[0].id, open: [] }));
           held = [];
           g = holdOrPutBack(first).shown;
         },
@@ -835,21 +800,15 @@ export async function runEditor() {
     art: () => art,
     defaults: () => defaults,
     loadDefaults,
-    setFields(patch) {
-      edits = { ...edits, ...patch };
-      const { shown, dropped } = holdOrPutBack(g);
-      sayDropped(dropped);
-      if (shown !== g) {
-        g = shown;
-        for (const fn of changeWatchers) fn(g);
-      }
-      refresh();
-      fieldsChanged();
-    },
+    setFields,
+    // A Grid panel's list edit, one undo step named what.
+    editEdges,
+    // Editor undo (true) or redo (false), for the Grid lists and the Live Editor.
+    step,
     fixedOn,
     // A panel stored elsewhere (the Share modal): the grid and unsaved fields stay as they are.
     replaceLoaded(panel) {
-      loaded = panel;
+      loaded = edgesIn(panel);
       loadList().catch(() => {});
       refresh();
       fieldsChanged();
@@ -857,6 +816,7 @@ export async function runEditor() {
     onFields: (fn) => fieldWatchers.push(fn),
     onPaint: (fn) => paintWatchers.push(fn),
     refresh,
-    status: (text) => say('ed-status', text),
+    status: tell,
   };
+  return seams;
 }

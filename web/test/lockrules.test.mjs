@@ -8,8 +8,6 @@ import {
   idleDue,
   idleLock,
   pingDue,
-  needsPin,
-  guardedEdited,
   pageType,
   liftFrom,
   shouldFly,
@@ -40,11 +38,9 @@ import {
   lockArrived,
   signInWon,
   chipShown,
+  chipSignInShown,
   heldEnded,
   heldWho,
-  remembers,
-  prefillName,
-  focusName,
   wantsTab,
   hiToken,
   tokenHome,
@@ -137,14 +133,6 @@ test('idleLock: a user marked No auto-lock is skipped, and raising the Lock or s
   assert.equal(signedOut(user).noAutoLock, false);
 });
 
-test('needsPin: a trusted user skips the prompt', () => {
-  assert.equal(needsPin(false, false, false), false);
-  assert.equal(needsPin(true, false, false), true);
-  assert.equal(needsPin(true, true, false), false);
-  assert.equal(needsPin(true, false, true), false);
-  assert.equal(needsPin(true, true, true), false);
-});
-
 test('pageType', () => {
   assert.equal(pageType('/'), 'main');
   assert.equal(pageType('/sode/'), 'main');
@@ -220,19 +208,6 @@ test('dots', () => {
   assert.equal(dots('123').length, 3);
 });
 
-test('guardedEdited: router, trusted proxies and the PIN limit need the PIN', () => {
-  const cur = { router: 'a:1', pinMaxTries: 10, trustedProxies: ['10.0.0.2'] };
-  assert.equal(guardedEdited({ ...cur }, cur), false);
-  assert.equal(guardedEdited({ ...cur, router: 'b:1' }, cur), true);
-  assert.equal(guardedEdited({ ...cur, pinMaxTries: 0 }, cur), true);
-  assert.equal(guardedEdited({ ...cur, fireMode: 'native' }, cur), true);
-  assert.equal(guardedEdited({ ...cur, matrix: 2 }, cur), true);
-  assert.equal(guardedEdited({ ...cur, trustedProxies: ['0.0.0.0/0'] }, cur), true);
-  assert.equal(guardedEdited({ ...cur, trustedProxies: undefined }, { ...cur, trustedProxies: [] }), false);
-  assert.equal(guardedEdited({ ...cur, locks: { panel: true } }, { ...cur, locks: { panel: false } }), true);
-  assert.equal(guardedEdited({ ...cur, locks: { panel: false } }, cur), false);
-});
-
 test('wrongFeedback: Incorrect for a plain wrong PIN, server waits kept as text', () => {
   assert.deepEqual(wrongFeedback('wrong PIN'), { text: 'Incorrect', ms: WRONG_MS, note: '' });
   assert.deepEqual(wrongFeedback(''), { text: 'Incorrect', ms: WRONG_MS, note: '' });
@@ -255,7 +230,7 @@ test('churnKey: a letter, never the one before, never one that is easy to confus
     last = k;
   }
   assert.equal(seen.size, 23);
-  // Even if the dice keep landing on the last key, it moves on.
+  // A roll that gives the last key again still moves on.
   const rolls = [0, 0, 0.5];
   assert.notEqual(
     churnKey('a', () => rolls.shift()),
@@ -304,16 +279,6 @@ test('tab signedIn: tokens', () => {
   assert.equal(tokenHome({}), 'browser');
 });
 
-test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")', () => {
-  const cur = { router: 'a:1', pinMaxTries: 10, autoLockMinutes: 0, locks: { main: true, log: false } };
-  assert.equal(guardedEdited({ ...cur, locks: { main: true, log: false } }, cur), false);
-  assert.equal(guardedEdited({ ...cur, locks: { main: false, log: false } }, cur), true);
-  assert.equal(guardedEdited({ ...cur, locks: { main: true, log: true } }, cur), true);
-  assert.equal(guardedEdited({ ...cur, autoLockMinutes: 5 }, cur), true);
-  assert.equal(guardedEdited({ ...cur, requireHttps: true }, { ...cur, requireHttps: false }), true);
-  assert.equal(guardedEdited({ ...cur, locks: undefined }, { ...cur, locks: {} }), false);
-});
-
 test('Lock: Sign in as is offered with users and no lock, signed in or not', () => {
   assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);
   assert.equal(signInAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
@@ -335,7 +300,7 @@ test('lock view: transitions', () => {
   assert.equal(lockView(PAGE_VIEW, true), PAGE_VIEW);
   assert.equal(lockDismissed(lock), PAGE_VIEW);
   assert.deepEqual(startSignIn(PAGE_VIEW, false), { mode: 'signIn', back: 'page' });
-  assert.equal(startSignIn(lock, false), lock); // Settings' button never over the Lock
+  assert.equal(startSignIn(lock, false), lock); // the Settings button never shows over the Lock
   assert.deepEqual(startSignIn(lock, true), { mode: 'signIn', back: 'lock' });
   assert.equal(startSignIn(PAGE_VIEW, true), PAGE_VIEW);
   const fromLock = startSignIn(lock, true);
@@ -366,22 +331,33 @@ test('Lock: the chip shows for a logged-in user under it only', () => {
   assert.equal(chipShown({ covered: true, letter: false, user: '', heldUser: '' }), false);
 });
 
+test('Lock: the chip offers Sign in to a guest on the open page only', () => {
+  const guest = { enforced: false, user: '', lens: [4] };
+  assert.equal(chipSignInShown(guest, PAGE_VIEW, false), true);
+  assert.equal(chipSignInShown({ ...guest, user: 'Ana' }, PAGE_VIEW, false), false); // Signed in as Ana instead
+  assert.equal(chipSignInShown({ ...guest, lens: [] }, PAGE_VIEW, false), false); // no users
+  assert.equal(chipSignInShown({ ...guest, enforced: true }, PAGE_VIEW, false), false);
+  assert.equal(chipSignInShown(guest, PAGE_VIEW, true), false); // a lock from the server is up
+  assert.equal(chipSignInShown(guest, lockView(PAGE_VIEW, false), false), false);
+  assert.equal(chipSignInShown(guest, startSignIn(PAGE_VIEW, false), false), false);
+});
+
 test('Lock: Sign out offered only with a user and no PIN lock; the view stays Lock', () => {
   assert.equal(signOutOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
   assert.equal(signOutOffered({ enforced: false, user: '', lens: [4] }), false);
   assert.equal(signOutOffered({ enforced: true, user: 'Ana', lens: [4] }), false);
   const v = lockView(PAGE_VIEW, false);
-  // logging out changes no view: lockArrived(false) and signInWon leave the Lock alone
+  // Sign out changes no view: lockArrived(false) and signInWon leave the Lock alone
   assert.deepEqual(lockArrived(v, false), v);
   assert.deepEqual(signInWon(v, { enforced: false, unlocked: false, user: '' }), v);
   assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);
 });
 
 test('a signed-in Lock is held by the server: a pad with no Cancel that only a PIN ends', () => {
-  const user = { enforced: false, locked: false, held: false, user: 'Ana', trusted: true, persistent: true };
+  const user = { enforced: false, locked: false, held: false, user: 'Ana', role: 'administrator', trusted: true, persistent: true };
   assert.equal(lockCovers(user), false);
   const held = raiseLock(user);
-  assert.deepEqual(held, { enforced: false, locked: true, held: true, user: '', trusted: false, persistent: false, noAutoLock: false });
+  assert.deepEqual(held, { enforced: false, locked: true, held: true, user: '', role: '', trusted: false, persistent: false, noAutoLock: false });
   assert.equal(lockCovers(held), true);
   assert.equal(viewBody(PAGE_VIEW, lockCovers(held)), 'pad');
   assert.equal(lockCovers({ enforced: true, locked: true }), true);
@@ -390,7 +366,7 @@ test('a signed-in Lock is held by the server: a pad with no Cancel that only a P
 
 test('Sign out from the Lock clears it; an enforced lock then asks for a Sign in', () => {
   const held = { enforced: false, locked: true, held: true, user: '' };
-  assert.deepEqual(signedOut(held), { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false });
+  assert.deepEqual(signedOut(held), { enforced: false, locked: false, held: false, user: '', role: '', trusted: false, persistent: false, noAutoLock: false });
   assert.equal(lockCovers(signedOut({ ...held, enforced: true })), true);
 });
 
@@ -403,33 +379,6 @@ test('a held Lock keeps the browser session token across a reload', () => {
 
 test('a held Lock cancels the letter Lock', () => {
   assert.equal(lockArrived({ mode: MODE.LOCK, back: 'page' }, true), PAGE_VIEW);
-});
-
-test('username mode asks for a username, except when resuming a held Lock', async () => {
-  const { asksUsername, canSend, padDelay, signInMsg } = await import('../lockrules.js');
-  const pinOnly = { enforced: true, locked: true, mode: 'pin', lens: [4] };
-  const named = { enforced: true, locked: true, mode: 'username', lens: [4], held: false };
-  assert.equal(asksUsername(pinOnly), false);
-  assert.equal(asksUsername({}), false);
-  assert.equal(asksUsername(named), true);
-  assert.equal(asksUsername({ ...named, held: true, user: 'Ann' }), false);
-
-  // PIN only: the old rules and message, whatever the field holds
-  assert.equal(canSend(pinOnly, '1234', ''), true);
-  assert.equal(padDelay(pinOnly, '1234', ''), 0);
-  assert.deepEqual(signInMsg(pinOnly, { pin: '1234', id: 3, username: 'ann' }), { t: 'userUnlock', pin: '1234', id: 3, tab: false });
-
-  // Username and PIN: nothing sends, by hand or by itself, without a username
-  assert.equal(canSend(named, '1234', ''), false);
-  assert.equal(canSend(named, '1234', '  '), false);
-  assert.equal(canSend(named, '1234', 'ann'), true);
-  assert.equal(canSend(named, '123', 'ann'), false);
-  assert.equal(padDelay(named, '1234', ''), null);
-  assert.equal(padDelay(named, '1234', 'ann'), 0);
-  assert.deepEqual(signInMsg(named, { pin: '1234', id: 4, username: ' ann ' }), { t: 'userUnlock', user: 'ann', pin: '1234', id: 4, tab: false });
-  const held = { ...named, held: true, user: 'Ann' };
-  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, username: 'zed' }), { t: 'userUnlock', pin: '1234', id: 5, tab: false });
-  assert.equal(canSend(held, '1234', ''), true);
 });
 
 test('heldEnded: a held Lock that ends with nobody signed in was ended elsewhere; one that ends signed in was resumed', () => {
@@ -446,21 +395,6 @@ test('heldWho: this tab remembers whose Lock it is; a Lock that is gone forgets 
   assert.equal(heldWho('', { user: '' }, { held: true }), '');
 });
 
-test('remembers: only a sign-in without a browser-wide token keeps the username', () => {
-  assert.equal(remembers({ ok: true }), true);
-  assert.equal(remembers({ ok: true, token: 't', tab: true }), true);
-  assert.equal(remembers({ ok: true, token: 't' }), false); // Never sign out: the token already signs them in
-});
-
-test('prefillName and focusName: username mode fills the box, and then the pad takes the keys', () => {
-  assert.equal(prefillName({ mode: 'username', held: false }, 'ana'), 'ana');
-  assert.equal(prefillName({ mode: 'username', held: true }, 'ana'), '');
-  assert.equal(prefillName({ mode: 'pin', held: false }, 'ana'), '');
-  assert.equal(focusName({ mode: 'username', held: false }, 'ana'), false);
-  assert.equal(focusName({ mode: 'username', held: false }, ''), true);
-  assert.equal(focusName({ mode: 'pin', held: false }, ''), false);
-});
-
 test('byText names the user and the panel page that made a take', () => {
   const users = ['Ana'];
   const fromPanel = { client: 'Ana (Panel wall)', actor: { kind: 'user', name: 'Ana', key: 'Panel wall' }, panel: 'Lobby Wall', instance: 'Front desk' };
@@ -475,6 +409,16 @@ test('byText names the user and the panel page that made a take', () => {
   assert.equal(byText({ entries: [fromPanel, fromPanel] }, users), 'by Ana on panel Lobby Wall, instance Front desk');
   assert.equal(byText({ entries: [fromPanel, { ...fromPanel, instance: 'Studio' }] }, users), 'by Ana on panel Lobby Wall');
   assert.equal(byText({ entries: [fromPanel, { client: 'Ana' }] }, users), 'by Ana');
+});
+
+test('byText names whose browser a step-in used, and the actor alone counts as the user', () => {
+  const users = ['Ana', 'Bo'];
+  const stepped = { client: 'Bo', browserOf: 'Ana' };
+  assert.equal(byText(stepped, users), 'by Bo (browser of Ana)');
+  assert.equal(byText({ client: 'Bo', browserOf: '192.0.2.1' }, users), 'by Bo (browser of 192.0.2.1)');
+  assert.equal(actorUser(stepped.client, users), 'Bo');
+  assert.equal(groupActor([stepped], users), 'Bo');
+  assert.equal(byText({ entries: [stepped, { client: 'Bo' }] }, users), 'by Bo');
 });
 
 test('lockoutMs falls back to 500 without a cfg and caps at the server limit', async () => {

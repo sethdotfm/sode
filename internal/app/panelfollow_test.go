@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Panel owner and sharing follow the Users save, through SaveUsers and the REST seam.
+// Panel sharing follows the Users save, and the owner id stays, through the one Save and the REST seam.
 
 func followFixture(t *testing.T) (a *App, admin *client, mine, shared, other string) {
 	t.Helper()
@@ -20,35 +20,29 @@ func followFixture(t *testing.T) (a *App, admin *client, mine, shared, other str
 
 func TestPanelsFollowUserRename(t *testing.T) {
 	a, admin, mine, shared, other := followFixture(t)
-	err := a.SaveUsers(admin, usersReq{Users: []userEdit{
-		{Name: "Anna", Was: "Ana"}, {Name: "Bo"}, {Name: "Cy", Trusted: true},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "name"): "Anna"})
 	p, _ := a.panels.get(mine)
-	if p.Owner != "Anna" || strings.Join(p.Share.Users, ",") != "Bo,Cy" {
+	if p.Owner != idOf(a, "Anna") || strings.Join(p.Share.Users, ",") != "Bo,Cy" {
 		t.Fatalf("owned panel: owner %q share %v", p.Owner, p.Share.Users)
 	}
 	if p.Extra["future"] == nil || p.Settings["mode"] != "instant" {
 		t.Fatalf("unknown fields lost: %+v", p)
 	}
-	if p, _ = a.panels.get(shared); strings.Join(p.Share.Users, ",") != "Anna,Bo" || p.Owner != "Bo" {
+	if p, _ = a.panels.get(shared); strings.Join(p.Share.Users, ",") != "Anna,Bo" || p.Owner != idOf(a, "Bo") {
 		t.Fatalf("share did not follow: %+v", p)
 	}
-	if p, _ = a.panels.get(other); strings.Join(p.Share.Users, ",") != "Bo" || p.Owner != "Bo" {
+	if p, _ = a.panels.get(other); strings.Join(p.Share.Users, ",") != "Bo" || p.Owner != idOf(a, "Bo") {
 		t.Fatalf("untouched panel changed: %+v", p)
 	}
 }
 
 func TestPanelsFollowUserRemoval(t *testing.T) {
 	a, admin, mine, shared, _ := followFixture(t)
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo"}, {Name: "Cy", Trusted: true}}}); err != nil {
-		t.Fatal(err)
-	}
+	anaID, boID := idOf(a, "Ana"), idOf(a, "Bo")
+	mustSave(t, a, admin, map[string]any{"user/" + anaID + "/remove": map[string]string{"owner": boID}})
 	p, _ := a.panels.get(mine)
-	if p.Owner != "Ana" || strings.Join(p.Share.Users, ",") != "Bo,Cy" {
-		t.Fatalf("owned panel must stay with its owner: %+v", p)
+	if p.Owner != boID || strings.Join(p.Share.Users, ",") != "Bo,Cy" {
+		t.Fatalf("owned panel must go to the new owner: %+v", p)
 	}
 	if p, _ = a.panels.get(shared); strings.Join(p.Share.Users, ",") != "Bo" {
 		t.Fatalf("removed user still shared: %v", p.Share.Users)

@@ -81,9 +81,7 @@ const bandSweep = `(async () => {
 	return { added, removed, moved, back: first() === was, still: sc.scrollTop === top && sc.scrollLeft === left, steps: times.length, median: times[times.length >> 1], worst: times[times.length - 1] };
 })()`
 
-// A Grid panel on a 2500 by 750 router. The page holds a bounded number of nodes and adds or removes none while
-// it scrolls corner to corner: nodes are moved, never made again. Pinned names stay at the edge. The open time
-// and the time for each scroll step are reported, not asserted.
+// Nodes are moved, never made again. The open time and the step times are reported, not asserted.
 func TestChromeGridPanelScale(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t, "SIM_SOURCES=2500", "SIM_DESTS=750")
@@ -91,8 +89,8 @@ func TestChromeGridPanelScale(t *testing.T) {
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
 	const pinSrc, pinDst = 1200, 400
-	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Big grid","type":"grid","settings":{"mode":"take","levels":[1]},
-		"sources":{"members":"all","items":{"%d":{"pinned":true}}},"destinations":{"members":"all","items":{"%d":{"pinned":true}}}}`, pinSrc, pinDst))
+	id := makePanel(t, a, ana, gridBody(t, fmt.Sprintf(`{"name":"Big grid","type":"grid","settings":{"mode":"take","levels":[1]},
+		"sources":{"members":"all","items":{"%d":{"pinned":true}}},"destinations":{"members":"all","items":{"%d":{"pinned":true}}}}`, pinSrc, pinDst)))
 	waitNamesAndTally(t, a, ana)
 	for deadline := time.Now().Add(30 * time.Second); ; time.Sleep(100 * time.Millisecond) {
 		body := apiDo(a, "GET", "/api/v1/names", ana, nil).Body.String()
@@ -144,7 +142,6 @@ func TestChromeGridPanelScale(t *testing.T) {
 		t.Errorf("%v scroll steps showed no crosspoint mid-view", sweep["missing"])
 	}
 
-	// At the far corner: the last crosspoint is drawn with its names, and the pinned names stay at the edges.
 	b.waitFor("the last crosspoint", gridXp(2499, 749)+` !== null && document.querySelector('.sode-gridpanel__src[data-src="2499"]').textContent === 'SRC 2500' && document.querySelector('.sode-gridpanel__dst[data-dst="749"]').textContent === 'MV 737'`)
 	b.waitFor("pinned names stay at the edges", `(() => {
 		const sc = document.querySelector('.sode-gridpanel__scroll').getBoundingClientRect();
@@ -170,8 +167,6 @@ func TestChromeGridPanelScale(t *testing.T) {
 		t.Errorf("5 s idle wrote the grid %v times, want none", idle)
 	}
 
-	// Find glides across the whole Source bar to SRC 2400: nodes are moved, never made, and it ends with the match in
-	// view. The glide time and its slowest frame are reported, not asserted.
 	b.eval(`document.querySelector('.sode-gridpanel__scroll').scrollLeft = 0; true`)
 	glide, ok := b.eval(`(async () => {
 		const grid = document.getElementById('panel-grid');
@@ -215,12 +210,10 @@ func TestChromeGridPanelScale(t *testing.T) {
 	b.eval(`(() => { const sc = document.querySelector('.sode-gridpanel__scroll'); sc.scrollLeft = sc.scrollWidth; sc.scrollTop = sc.scrollHeight; return true; })()`)
 	b.waitFor("back at the far corner", gridXp(2499, 749)+` !== null`)
 
-	// A press far from the start still stages.
 	b.eval(gridXp(2499, 749) + `.click()`)
 	b.waitFor("the press stages", gridXp(2499, 749)+`.dataset.s === 'staged'`)
 
-	// A staged route pulses, and only the staged crosspoints run the animation. An inherited property animated above
-	// the grid restyles every node under it each frame. At this size that took 4.7 s of every 10 s.
+	// Only the staged crosspoints run the pulse animation. An inherited property animated above the grid restyles every node under it each frame. At this size that used 4.7 s of every 10 s.
 	b.eval(gridXp(2498, 748) + `.click(); ` + gridXp(2497, 747) + `.click(); true`)
 	b.waitFor("three staged", `document.querySelectorAll('.sode-gridpanel__xp[data-s="staged"]').length === 3`)
 	b.waitFor("the staged crosspoints pulse", `document.getAnimations().filter((a) => a.effect?.target?.dataset?.s === 'staged').length === 3`)
@@ -241,8 +234,6 @@ func TestChromeGridPanelScale(t *testing.T) {
 		t.Errorf("3 s with three staged spent %.0f ms on style recalc, want under 600", style)
 	}
 
-	// 50 pins on each edge, with no limit. The pinned bands draw only what half the room holds, and
-	// each band scrolls on its own. The grid keeps its bounds.
 	pins := func(from int) string {
 		p := make([]string, 50)
 		for i := range p {
@@ -250,8 +241,8 @@ func TestChromeGridPanelScale(t *testing.T) {
 		}
 		return strings.Join(p, ",")
 	}
-	many := makePanel(t, a, ana, `{"name":"Many pins","type":"grid","settings":{"mode":"take","levels":[1]},`+
-		`"sources":{"members":"all","items":{`+pins(100)+`}},"destinations":{"members":"all","items":{`+pins(100)+`}}}`)
+	many := makePanel(t, a, ana, gridBody(t, `{"name":"Many pins","type":"grid","settings":{"mode":"take","levels":[1]},`+
+		`"sources":{"members":"all","items":{`+pins(100)+`}},"destinations":{"members":"all","items":{`+pins(100)+`}}}`))
 	b.open(srv.URL + "/panels/" + many + "?instance=Desk")
 	b.waitFor("the 50 pinned lead", `document.querySelector('.sode-gridpanel__src[data-src="100"]')?.textContent === 'SRC 101'`)
 	b.waitFor("each pinned band holds fewer than half the view", `(() => {
@@ -270,7 +261,6 @@ func TestChromeGridPanelScale(t *testing.T) {
 	if pinSweep["added"].(float64) != 0 || pinSweep["removed"].(float64) != 0 || pinSweep["most"].(float64) > gridNodesMax || pinSweep["missing"].(float64) != 0 {
 		t.Errorf("50 pins, sweep: %v", pinSweep)
 	}
-	// A wheel over the Destination band scrolls the band alone: the grid does not move, and no node is made.
 	band, ok := b.eval(`(async () => {
 		const sc = document.querySelector('.sode-gridpanel__scroll'), grid = document.querySelector('.sode-gridpanel__field');
 		const first = () => [...document.querySelectorAll('.sode-gridpanel__corner .sode-gridpanel__dst:not([hidden])')].map((n) => Number(n.dataset.dst)).sort((x, y) => x - y)[0];
@@ -288,8 +278,6 @@ func TestChromeGridPanelScale(t *testing.T) {
 	if !ok || band["now"] == band["was"] || band["still"] != true || band["made"].(float64) != 0 || band["bar"] != true {
 		t.Errorf("a wheel over the Destination band: %v, want the band moved, the grid still, no node made and the band's bar shown", band)
 	}
-	// Each band scrolled one pin per wheel step, end to end and back. Nodes are moved, never made, and the grid's
-	// scroll stays. The step times and the work are reported, not asserted.
 	b.call("Performance.enable", nil)
 	for _, kind := range []string{"dsts", "srcs"} {
 		b0 := b.metrics()
@@ -305,7 +293,6 @@ func TestChromeGridPanelScale(t *testing.T) {
 			t.Errorf("the %s band sweep: %v, want the band moved, nodes moved and none made, and the grid still", kind, bs)
 		}
 	}
-	// A wheel of a few px moves the band by those px, as it moves the grid. The band does not wait for a whole pin.
 	smooth, ok := b.eval(`(async () => {
 		const sc = document.querySelector('.sode-gridpanel__scroll');
 		const xp = document.querySelector('.sode-gridpanel__probe-xp').getBoundingClientRect().width;
@@ -331,7 +318,6 @@ func TestChromeGridPanelScale(t *testing.T) {
 			break
 		}
 	}
-	// A key move in the body leaves the band where the wheel put it, part of a pin and all.
 	mid := b.eval(`(() => { const r = document.querySelector('.sode-gridpanel__scroll').getBoundingClientRect(); return [r.left + r.width * 0.7, r.top + r.height * 0.7].join(); })()`).(string)
 	var mx, my float64
 	fmt.Sscanf(mid, "%f,%f", &mx, &my)

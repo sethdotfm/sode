@@ -98,7 +98,7 @@ function wrapText(x, orderName, past) {
   if (x.dropped && !x.onto) rest.push(`${past ? 'dropped' : 'drops'} ${x.dropped} that ${past ? 'found' : x.dropped === 1 ? 'finds' : 'find'} no square`);
   if (x.dropped && x.onto && !past) rest.push(`cuts off ${x.dropped} that ${x.dropped === 1 ? 'does' : 'do'} not fit before the last Page`);
   const text = `${joinAnd(`Wrap ${past ? 'moved' : 'moves'} ${plural(x.moved, 'cell')} along ${orderName}`, rest)}.`;
-  return past && x.dropped && x.onto ? `${text} ${plural(x.dropped, 'cell')} ${x.dropped === 1 ? 'was' : 'were'} left over and cut off.` : text;
+  return past && x.dropped && x.onto ? `${text} Cut off ${plural(x.dropped, 'cell')}.` : text;
 }
 
 // Both choices worked out before the dialog opens, so it can name the counts. order is Find's fill order. cascade is

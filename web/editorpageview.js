@@ -15,7 +15,7 @@ export function createPageView(frame, title, on) {
   const pool = Array.from({ length: OPEN_MAX - 1 }, () => {
     const grid = el('div', 'sode-ed__grid');
     const head = el('h2', 'sode-ed__frame-title');
-    const node = el('section', 'sode-ed__frame', head, grid);
+    const node = el('section', 'sode-ed__frame', head, el('div', 'sode-ed__fit', grid));
     node.hidden = true;
     host.append(node);
     const slot = { node, head, grid, id: null };

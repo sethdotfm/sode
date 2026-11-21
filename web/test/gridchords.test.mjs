@@ -1,19 +1,19 @@
-// The editor grid's Cmd/Ctrl commands (gridchords.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GRID_CHORDS, gridCommand } from '../gridchords.js';
-import { chord } from '../keys.js';
+import { modChord } from '../keys.js';
 
 const k = (key, code, mods = {}, target = null) => ({ key, code, target, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
-test('Ctrl+A and Cmd+A both select all, on any platform', () => {
-  assert.equal(gridCommand(k('a', 'KeyA', { ctrlKey: true })), 'selectAll');
-  assert.equal(gridCommand(k('a', 'KeyA', { metaKey: true })), 'selectAll');
+test('Ctrl+A selects all on any platform, Cmd+A on a Mac only', () => {
+  for (const isMac of [true, false]) assert.equal(gridCommand(k('a', 'KeyA', { ctrlKey: true }), isMac), 'selectAll');
+  assert.equal(gridCommand(k('a', 'KeyA', { metaKey: true }), false), null, 'the Windows key');
+  assert.equal(gridCommand(k('a', 'KeyA', { metaKey: true }), true), 'selectAll');
 });
 
 test('the physical key counts, so another keyboard layout still selects all', () => {
   assert.equal(gridCommand(k('ф', 'KeyA', { ctrlKey: true })), 'selectAll');
-  assert.equal(gridCommand(k('q', 'KeyA', { metaKey: true })), 'selectAll');
+  assert.equal(gridCommand(k('q', 'KeyA', { metaKey: true }), true), 'selectAll');
 });
 
 test('an extra modifier or no modifier is not the command', () => {
@@ -25,7 +25,7 @@ test('an extra modifier or no modifier is not the command', () => {
     { metaKey: true, altKey: true },
     { ctrlKey: true, metaKey: true },
   ]) {
-    assert.equal(gridCommand(k('a', 'KeyA', mods)), null, JSON.stringify(mods));
+    for (const isMac of [true, false]) assert.equal(gridCommand(k('a', 'KeyA', mods), isMac), null, JSON.stringify(mods));
   }
   assert.equal(gridCommand(k('b', 'KeyB', { ctrlKey: true })), null);
 });
@@ -40,30 +40,29 @@ test('a focused text field keeps its own keys', () => {
   assert.equal(ctrlA({ tagName: 'DIV' }), 'selectAll');
 });
 
-test('every table key is spelled the way chord() names it', () => {
-  const mods = { ctrl: 'ctrlKey', alt: 'altKey', shift: 'shiftKey', meta: 'metaKey' };
+test('every table key is spelled the way modChord() names it', () => {
   for (const name of Object.keys(GRID_CHORDS)) {
     const parts = name.split('+');
     const letter = parts.pop();
-    const e = k(letter, `Key${letter.toUpperCase()}`, Object.fromEntries(parts.map((p) => [mods[p], true])));
-    assert.equal(chord(e), name);
+    const e = k(letter, `Key${letter.toUpperCase()}`, { ctrlKey: true, shiftKey: parts.includes('shift') });
+    assert.equal(modChord(e, false), name);
   }
 });
 
 test('Cmd or Ctrl+X is cut on the grid, and a focused text field keeps its own', () => {
   assert.equal(gridCommand(k('x', 'KeyX', { ctrlKey: true })), 'cut');
-  assert.equal(gridCommand(k('x', 'KeyX', { metaKey: true })), 'cut');
-  assert.equal(gridCommand(k('x', 'KeyX', { metaKey: true, shiftKey: true })), null);
+  assert.equal(gridCommand(k('x', 'KeyX', { metaKey: true }), true), 'cut');
+  assert.equal(gridCommand(k('x', 'KeyX', { metaKey: true, shiftKey: true }), true), null);
   assert.equal(gridCommand({ ...k('x', 'KeyX', { ctrlKey: true }), target: { tagName: 'INPUT', type: 'text' } }), null);
 });
 
 test('Cmd or Ctrl+Z undoes and Cmd or Ctrl+Shift+Z redoes; Ctrl+Y is not redo', () => {
   assert.equal(gridCommand(k('z', 'KeyZ', { ctrlKey: true })), 'undo');
-  assert.equal(gridCommand(k('z', 'KeyZ', { metaKey: true })), 'undo');
+  assert.equal(gridCommand(k('z', 'KeyZ', { metaKey: true }), true), 'undo');
   assert.equal(gridCommand(k('Z', 'KeyZ', { ctrlKey: true, shiftKey: true })), 'redo');
-  assert.equal(gridCommand(k('Z', 'KeyZ', { metaKey: true, shiftKey: true })), 'redo');
+  assert.equal(gridCommand(k('Z', 'KeyZ', { metaKey: true, shiftKey: true }), true), 'redo');
   assert.equal(gridCommand(k('y', 'KeyY', { ctrlKey: true })), null);
   assert.equal(gridCommand(k('z', 'KeyZ', { ctrlKey: true, altKey: true })), null);
-  assert.equal(gridCommand(k('z', 'KeyZ', { metaKey: true }, { tagName: 'INPUT', type: 'text' })), null);
-  assert.equal(gridCommand(k('Z', 'KeyZ', { metaKey: true, shiftKey: true }, { tagName: 'TEXTAREA' })), null);
+  assert.equal(gridCommand(k('z', 'KeyZ', { metaKey: true }, { tagName: 'INPUT', type: 'text' }), true), null);
+  assert.equal(gridCommand(k('Z', 'KeyZ', { metaKey: true, shiftKey: true }, { tagName: 'TEXTAREA' }), true), null);
 });

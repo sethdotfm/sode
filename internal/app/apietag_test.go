@@ -9,7 +9,7 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// ifNone reads path with If-None-Match set when tag is not empty. A 304 that carries a body gives -1.
+// -1 for a 304 that carries a body.
 func ifNone(a *App, path, key, tag string) (code int, etag string) {
 	var hdr map[string]string
 	if tag != "" {
@@ -35,8 +35,8 @@ func etagApp(t *testing.T) *App {
 
 const etagPanel = `{"name":"Wall","share":{"mode":"everyone"},"cells":[{"kind":"source","n":1}]}`
 
-// If-None-Match takes a list, a weak tag and *. A tag is over the caller's own body. So under narrower Rights, a
-// tag made under wider Rights gets the whole body, not 304.
+// If-None-Match accepts a list, a weak tag and *. A tag covers the caller's own body. So a tag made under wider
+// Rights gets the whole body under narrower Rights, not 304.
 func TestETagListWeakStarAndOtherRights(t *testing.T) {
 	a := etagApp(t)
 	ana := userKey(t, a, "Ana")
@@ -54,7 +54,7 @@ func TestETagListWeakStarAndOtherRights(t *testing.T) {
 	for _, p := range []string{"/api/v1/tally", "/api/v1/names"} {
 		_, wide := ifNone(a, p, bot, "")
 		cfg := a.r().cfg
-		cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]int{1}, Sources: &[]int{1}}
+		cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: nums(1), Sources: nums(1)}
 		if err := a.ApplyConfig(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -103,7 +103,7 @@ func TestPanelReadETagMovesWithRightsAndDefaultArtwork(t *testing.T) {
 	}
 
 	cfg := a.r().cfg
-	cfg.APIClients[0].Rights = config.Rights{Sources: &[]int{1}}
+	cfg.APIClients[0].Rights = config.Rights{Sources: nums(1)}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -113,8 +113,7 @@ func TestPanelReadETagMovesWithRightsAndDefaultArtwork(t *testing.T) {
 	}
 }
 
-// An editor's read lists the instances with their uptime, which is measured to now. Only a change in what the
-// page shows moves the tag: time alone does not, a lost instance does.
+// An editor's read carries uptime measured to now. Time alone must not move the tag; a lost instance must.
 func TestPanelReadAnswers304ToAnEditorWhileTimePasses(t *testing.T) {
 	a, clk := monApp(t)
 	ana := userKey(t, a, "Ana")
@@ -122,7 +121,7 @@ func TestPanelReadAnswers304ToAnEditorWhileTimePasses(t *testing.T) {
 	if code := keepalive(a, id, ana, "Desk"); code != 200 {
 		t.Fatalf("keepalive: %d", code)
 	}
-	done, _ := a.mon.openKeyless(id, "192.0.2.7", "Lobby", false, func() {})
+	done, _, _, _ := a.mon.openKeyless(id, "192.0.2.7", "Lobby", false, func() {})
 	defer done()
 	path := "/api/v1/panels/" + id
 	_, tag := ifNone(a, path, ana, "")
@@ -156,9 +155,8 @@ func TestPanelReadCarriesTheConfirmSettings(t *testing.T) {
 	}
 }
 
-// The tally body is built once per change for every caller that is not hidden. A route, a level setting and a
-// router change each move the tag, and a hidden caller still gets its own filtered body.
-// The names read is built once per change for callers that are not hidden, so each input must move the tag.
+// Sode builds the names read one time per change for callers that are not hidden, so each thing in it must move the
+// tag.
 func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 	a := etagApp(t)
 	bot := botKey(t, a)
@@ -190,7 +188,7 @@ func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 	}
 
 	cfg = a.r().cfg
-	cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]int{1}}
+	cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: nums(1)}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +198,7 @@ func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 
 	cfg = a.r().cfg
 	cfg.APIClients[0].Rights = config.Rights{}
-	cfg.Router = "192.0.2.1:8910"
+	cfg.Address = "192.0.2.1:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +239,7 @@ func TestTallyETagMovesWithRouteLevelsAndRouter(t *testing.T) {
 	}
 
 	cfg = a.r().cfg
-	cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]int{1}}
+	cfg.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: nums(1)}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +249,7 @@ func TestTallyETagMovesWithRouteLevelsAndRouter(t *testing.T) {
 
 	cfg = a.r().cfg
 	cfg.APIClients[0].Rights = config.Rights{}
-	cfg.Router = "192.0.2.1:8910"
+	cfg.Address = "192.0.2.1:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}

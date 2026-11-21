@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +21,7 @@ type Sent struct {
 	Kind    string    `json:"kind"` // swp08.Request kinds, plus keepalive and the event kinds (kindBrowser…)
 	Cmd     int       `json:"cmd"`
 	Level   int       `json:"level"` // UI level; 0 = none or not one of ours
-	Wire    int       `json:"wire"`  // wire level; -1 = none
+	Wire    int       `json:"wire"`  // level on the wire; -1 = none
 	Dst     int       `json:"dst"`   // -1 = none
 	DstName string    `json:"dstName,omitempty"`
 	Src     int       `json:"src"` // -1 = none
@@ -33,10 +34,16 @@ type Sent struct {
 	Hex     string    `json:"hex"`
 	Note    string    `json:"note,omitempty"`  // events: the detail (a count, an address)
 	AckMs   float64   `json:"ackMs,omitempty"` // how long the router took to ACK
+	// Router messages and link events only; as on Entry.
+	Router      string `json:"router,omitempty"`
+	RouterTitle string `json:"routerTitle,omitempty"`
+	// Settings saves rows only (savelog.go).
+	ID   int64         `json:"id,omitempty"`
+	Save *SettingsSave `json:"save,omitempty"`
 }
 
-// Event kinds: link events share the log (seqs, paging, live view); cmd, wire level, dst
-// and src are -1 and hex is empty.
+// Event kinds: link events share the log (seqs, paging, live view). Cmd, Wire, Dst and Src
+// are -1 and hex is empty.
 const (
 	kindBrowser = "browser" // a browser's WebSocket connected or dropped
 	kindCommand = "command" // something a browser asked for that acts
@@ -71,6 +78,7 @@ type SentLog struct {
 	cur, old *segment // old is nil until the first rotation (or a .1 on disk)
 	next     int64
 	mem      []Sent
+	torn     bool // cur can hold part of a line past cur.size
 }
 
 func rotatedPath(path string) string {
@@ -214,8 +222,17 @@ func (l *SentLog) Append(e *Sent) error {
 			log.Printf("sent log: rotating: %v", err)
 		}
 	}
+	// A failed write can leave part of a line past size; cut it before the next line, as openSegment does.
+	if l.torn {
+		if err := l.cur.f.Truncate(l.cur.size); err != nil {
+			return err
+		}
+		l.torn = false
+	}
 	if _, err := l.cur.f.WriteAt(b, l.cur.size); err != nil {
-		l.cur.f.Truncate(l.cur.size) // best effort: no partial line left behind
+		if l.cur.f.Truncate(l.cur.size) != nil {
+			l.torn = true
+		}
 		return err
 	}
 	l.next++
@@ -239,6 +256,25 @@ func (l *SentLog) rotate() error {
 	return nil
 }
 
+func (l *SentLog) Next() int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.next
+}
+
+// Next when there is none.
+func (l *SentLog) Oldest() int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	switch {
+	case l.cur == nil:
+		return l.next - int64(len(l.mem))
+	case l.old != nil:
+		return l.old.first
+	}
+	return l.cur.first
+}
+
 func (l *SentLog) Total() int64 {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -249,6 +285,69 @@ func (l *SentLog) Total() int64 {
 		return l.next - l.old.first
 	}
 	return l.next - l.cur.first
+}
+
+// Each calls fn for every entry, oldest first, up to the newest one at the call. The files are
+// opened under the lock, so a rotation after that does not cut the read. Lines are read after it.
+func (l *SentLog) Each(fn func(Sent) error) error {
+	l.mu.Lock()
+	if l.cur == nil {
+		mem := slices.Clone(l.mem)
+		l.mu.Unlock()
+		for _, e := range mem {
+			if err := fn(e); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	type part struct {
+		f    *os.File
+		size int64
+	}
+	var parts []part
+	var err error
+	open := func(path string, s *segment) {
+		if err != nil || s == nil || s.size == 0 {
+			return
+		}
+		var f *os.File
+		if f, err = os.Open(path); err == nil {
+			parts = append(parts, part{f, s.size})
+		}
+	}
+	open(rotatedPath(l.path), l.old)
+	open(l.path, l.cur)
+	l.mu.Unlock()
+	defer func() {
+		for _, p := range parts {
+			p.f.Close()
+		}
+	}()
+	if err != nil {
+		return err
+	}
+	for _, p := range parts {
+		r := bufio.NewReader(io.NewSectionReader(p.f, 0, p.size))
+		for {
+			line, rerr := r.ReadBytes('\n')
+			if len(line) > 0 {
+				var e Sent
+				if err := json.Unmarshal(line, &e); err != nil {
+					log.Printf("sent log: skipping a line: %v", err)
+				} else if err := fn(e); err != nil {
+					return err
+				}
+			}
+			if rerr == io.EOF {
+				break
+			}
+			if rerr != nil {
+				return rerr
+			}
+		}
+	}
+	return nil
 }
 
 // Page: n entries older than before (< 0 = newest), newest first. Lines are decoded after

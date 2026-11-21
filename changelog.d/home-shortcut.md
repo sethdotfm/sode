@@ -1,0 +1,1 @@
+- Alt+Shift+h (⌥⇧h on a Mac) is the Home key on every page. On another page it opens Home. On Home it closes the Palette, the Grid popup, the open dialog and Settings, and puts the focus in the Source box. The patch boxes and the staged routes stay. Unsaved changes get the usual warning first. Under the Lock, on a Kiosk panel and during setup it does nothing.

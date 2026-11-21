@@ -1,7 +1,5 @@
-// The sidebar's Access tab: who the panel acts as, the Rights limits of its own API client, and sharing.
 // The server decides who is allowed to set up a client (ADR 0006): a Trusted user, within their own Rights.
-// Sharing is the Share modal's job (panelshare.js), opened from the toolbar's Share button.
-import { $, el, on } from './core.js';
+import { $, el } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, segmented } from './formbits.js';
 import { openShare } from './panelshare.js';
@@ -12,16 +10,13 @@ import { draftOf, rightsOf } from './rightsrules.js';
 import { rightsRows } from './sidebarrules.js';
 
 const LISTS = [
-  ['sources', 'Sources', 'Router numbers, such as 1-8, 12'],
-  ['dsts', 'Destinations', 'Router numbers, such as 1-8, 12'],
-  ['levels', 'Levels', 'Level numbers, such as 1, 2'],
+  ['sources', 'Sources', '1-8, 12'],
+  ['dsts', 'Destinations', '1-8, 12'],
+  ['levels', 'Levels', '1, 2'],
   ['presets', 'Presets', 'One name per line'],
 ];
 
 const api = jsonCall(sessionFetch, { failed: (s) => `Sode answered ${s}` });
-
-let me = { user: '', trusted: false };
-on('access', (a) => (me = { user: a.user || '', trusted: !!a.trusted && !!a.user }));
 
 // offset is the router's numberOffset and levelCount how many levels exist, for typing Rights lists.
 export function createAccessTab(ed, ctx) {
@@ -70,11 +65,10 @@ export function createAccessTab(ed, ctx) {
   let asking = null; // the mode an open Confirm is for; update() shows it until the answer
   let askedFor; // the panel it was asked on: opening another panel cancels it
   const guard = confirmBox(node);
-  const actsHint = el('p', 'sode__hint');
   const actsNote = el('p', 'sode__hint');
   actsNote.setAttribute('role', 'status');
   const publicWarn = el('p', 'sode__hint', PUBLIC_WARNING);
-  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, actsHint, guard.node, actsNote, publicWarn);
+  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, guard.node, actsNote, publicWarn);
 
   const clientBox = el('div', 'sode-side__sec');
   const current = el('p', 'sode-side__rights');
@@ -90,7 +84,12 @@ export function createAccessTab(ed, ctx) {
     if (kind === 'presets') text.rows = 3;
     return { kind, only: all.input, text, node: el('div', 'sode__field', all.label, text) };
   });
-  let draft = draftOf(null, 0); // the Rights lists as typed; read back into clientRights on each change
+  let draft = draftOf(null, 0);
+  // Rights name presets by id; this list gives the names to type.
+  let presets = [];
+  api('api/v1/presets')
+    .then((r) => (presets = r?.presets || []))
+    .catch(() => {});
   const hidden = check('Hide what the client is not allowed to use', { id: 'ed-rl-hidden' });
   const limits = el('div', 'sode-side__form', ...lists.map((l) => l.node), hidden.label);
   limits.hidden = true;
@@ -107,9 +106,9 @@ export function createAccessTab(ed, ctx) {
 
   // Typing a list sends the Rights as written. A bad list keeps the last good Rights and says why.
   function sendRights() {
-    for (const l of lists) draft[l.kind] = { all: !l.only.checked, text: l.text.value };
+    for (const l of lists) draft[l.kind] = { ...draft[l.kind], all: !l.only.checked, text: l.text.value };
     draft.visibility = hidden.input.checked ? 'hidden' : 'readonly';
-    const r = rightsOf(draft, ctx.offset(), ctx.levelCount() || 99);
+    const r = rightsOf(draft, ctx.offset(), ctx.levelCount() || 99, presets);
     note.textContent = r.error || '';
     if (!r.error) ed.setFields({ clientRights: r.rights });
   }
@@ -120,7 +119,7 @@ export function createAccessTab(ed, ctx) {
   hidden.input.addEventListener('change', sendRights);
   limit.input.addEventListener('change', () => {
     if (limit.input.checked) {
-      draft = draftOf(ed.panel()?.clientRights, ctx.offset());
+      draft = draftOf(ed.panel()?.clientRights, ctx.offset(), presets);
       fill();
       sendRights();
     } else {
@@ -146,9 +145,7 @@ export function createAccessTab(ed, ctx) {
         guard.cancel();
       }
       acts.set(asking ?? f.acts);
-      // Switching to Session mode is open to the owner; setting up or widening a client needs a Trusted user (server rule).
-      acts.disable(ro || (!me.trusted && !hasClient(p)));
-      actsHint.textContent = f.acts === 'session' && !me.trusted && !ro ? 'Only a Trusted user can make it act as an API client.' : '';
+      acts.disable(ro);
       publicWarn.hidden = !isPublic(f);
       clientBox.hidden = !hasClient(f);
       if (hasClient(f)) {

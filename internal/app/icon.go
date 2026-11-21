@@ -12,13 +12,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// App icon: Lucide "route" glyph on a solid tile. Default accent on dark; with a brand
-// colour the tile takes it and the glyph goes dark. Colours are config.BrandColors (dark
-// signal tokens of web/base.css).
+// App icon: Lucide "route" glyph on a solid tile. The default is the accent on dark. A brand colour fills the tile
+// and the glyph goes dark. Colours are config.BrandColors (dark signal tokens of web/base.css) or a custom #rrggbb.
 var (
 	iconDark   = color.NRGBA{0x08, 0x08, 0x08, 0xff}
 	iconAccent = color.NRGBA{0x8b, 0x93, 0xff, 0xff}
@@ -31,6 +31,10 @@ type iconKey struct {
 }
 
 var iconCache sync.Map // iconKey → []byte
+
+const maxCustomIcons = 64
+
+var customIcons atomic.Int64
 
 // Glyph in 24-unit space, stroke 2. It mirrors Lucide "route" (M9 19h8.5a3.5 3.5 0 0 0
 // 0-7h-11a3.5 3.5 0 0 1 0-7H15 plus circles at (6,19) and (18,5), r=3). Drawn at 56% of
@@ -85,8 +89,8 @@ func iconURL(size int, brand string) string {
 
 func renderIcon(size int, brand string) []byte {
 	bg, fg := iconDark, iconAccent
-	if c, ok := config.BrandColorByName(brand); ok {
-		bg, fg = hexColor(c.Hex), iconDark
+	if h, ok := config.BrandHex(brand); ok {
+		bg, fg = hexColor(h), iconDark
 	}
 	img := image.NewNRGBA(image.Rect(0, 0, size, size))
 	scale := float64(size) * 12 / 512 // pixels per glyph unit
@@ -120,13 +124,17 @@ func serveIcon(w http.ResponseWriter, r *http.Request) {
 		size = 192
 	}
 	brand := r.URL.Query().Get("c")
-	if _, ok := config.BrandColorByName(brand); !ok {
+	if _, ok := config.BrandHex(brand); !ok {
 		brand = ""
 	}
 	k := iconKey{size, brand}
 	b, ok := iconCache.Load(k)
 	if !ok {
-		b, _ = iconCache.LoadOrStore(k, renderIcon(size, brand))
+		b = renderIcon(size, brand)
+		// Any client can ask for any custom colour, so only a bounded number of them is kept.
+		if _, named := config.BrandColorByName(brand); named || brand == "" || customIcons.Add(1) <= maxCustomIcons {
+			b, _ = iconCache.LoadOrStore(k, b)
+		}
 	}
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "public, max-age=3600")

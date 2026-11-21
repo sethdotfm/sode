@@ -37,6 +37,7 @@ func TestChromePanelLockBarLayout(t *testing.T) {
 	signIn := func(path string) {
 		b.open(srv.URL + path)
 		b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+		b.padName("Ana")
 		for _, d := range "1234" {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}

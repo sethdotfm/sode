@@ -7,9 +7,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A Session-mode panel takes through /api/v1/takes with the user's session key. The server,
-// not the page, enforces Rights and Protected, and History names the user as the actor.
-
 func sessionTaker(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter, string) {
 	t.Helper()
 	a, f := apiTestApp(t, mut)
@@ -33,7 +30,7 @@ func TestPanelTakeWithSessionKeyNamesTheUser(t *testing.T) {
 
 func TestPanelTakeIsRefusedByTheServerOutsideRights(t *testing.T) {
 	a, f, key := sessionTaker(t, func(c *config.Config) {
-		c.Users[0].Rights = config.Rights{Dsts: ints(2)}
+		c.Users[0].Rights = config.Rights{Dsts: nums(2)}
 	})
 	n := f.sends()
 	rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":5,"levels":[1]}]}`, nil)

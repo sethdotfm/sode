@@ -12,12 +12,10 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// With "Ask users to set an instance name" off, the page never asks and shows no name in the header. It still
-// beats under its address, and ?instance= or a stored name still apply. On, the question is back.
 func TestChromePanelAskInstanceNameOff(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -64,7 +62,6 @@ func TestChromePanelAskInstanceNameOff(t *testing.T) {
 	waitDevice("Studio B")
 	quiet("Studio B")
 
-	// On again: an unnamed browser is asked, as before the setting.
 	apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Wall","acts":"api","cells":[{"r":1,"c":1,"kind":"instanceName"}],"settings":{}}`)
 	b.eval(`localStorage.removeItem('sode-panel-device')`)
 	b.open(base + "?x=2" + frag)

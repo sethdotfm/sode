@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The Undo cell's route: /panels/{id}/undo steps back through the takes of the calling instance only.
-
 func undoNext(t *testing.T, a *App, id, key string, hdr map[string]string) map[string]any {
 	t.Helper()
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id+"/undo", key, hdr)
@@ -97,13 +95,11 @@ func TestPanelUndoStepsBackThisInstanceOnly(t *testing.T) {
 	}
 	wantErr(t, apiPost(a, "/api/v1/panels/"+id+"/undo", secret, ``, lobby), 422, "nothing_to_do")
 
-	// Front desk still has its own take to undo.
 	if u := undoNext(t, a, id, secret, map[string]string{"X-Sode-Instance": "Front desk"}); u == nil || !slices.Equal(undoDsts(u), []int{2}) {
 		t.Fatalf("Front desk %v", u)
 	}
 }
 
-// A user's key names the panel and instance in headers, as a Session-mode page does.
 func TestPanelUndoWithAUsersKey(t *testing.T) {
 	a, f := clientApp(t)
 	shortTimers(a)
@@ -171,7 +167,7 @@ func TestPanelUndoOutsideRights(t *testing.T) {
 	lifeCommit(t, a, func(c *config.Config) {
 		for i := range c.APIClients {
 			if c.APIClients[i].Name == p.Client {
-				c.APIClients[i].Rights.Dsts = ints(4)
+				c.APIClients[i].Rights.Dsts = nums(4)
 			}
 		}
 	})
@@ -185,7 +181,6 @@ func TestPanelUndoOutsideRights(t *testing.T) {
 	}
 }
 
-// A take of several routes is one Group, and one press undoes all of it.
 func TestPanelUndoTakesBackAWholeGroup(t *testing.T) {
 	a, f := clientApp(t)
 	shortTimers(a)
@@ -211,7 +206,6 @@ func TestPanelUndoTakesBackAWholeGroup(t *testing.T) {
 	}
 }
 
-// A refused undo restored nothing, so the same take stays the next to undo.
 func TestPanelUndoRefusedLeavesTheTake(t *testing.T) {
 	a, f := clientApp(t)
 	shortTimers(a)
@@ -224,7 +218,7 @@ func TestPanelUndoRefusedLeavesTheTake(t *testing.T) {
 	}
 	before := undoNext(t, a, id, secret, nil)
 	a.mu.Lock()
-	a.router.protect[2] = map[int]int{1: 0}
+	a.router.protect[2] = map[int]protHold{1: {0, 1}}
 	a.mu.Unlock()
 	rec := apiPost(a, "/api/v1/panels/"+id+"/undo", secret, ``, nil)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"result":"failed"`) {
@@ -236,7 +230,6 @@ func TestPanelUndoRefusedLeavesTheTake(t *testing.T) {
 	}
 }
 
-// POST with the id GET answered undoes only that take; a take made since is a conflict, not another undo.
 func TestPanelUndoNamesTheTake(t *testing.T) {
 	a, f := clientApp(t)
 	shortTimers(a)
@@ -298,7 +291,6 @@ func TestPanelUndoScanHoldsExactly(t *testing.T) {
 	}
 }
 
-// One press undoes a whole Group even where another take's entries split it across a History page.
 func TestPanelUndoGroupAcrossAPage(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")

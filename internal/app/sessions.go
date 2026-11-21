@@ -1,6 +1,12 @@
 package app
 
-import "time"
+import (
+	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
+)
 
 // Sessions: tokens issued to signed-in connections and the server-held Lock that rides them
 // (docs/adr/0001-server-held-lock.md). users.go has the access state they act on.
@@ -46,7 +52,7 @@ func (a *App) adoptMu(c *client, tok string, locked bool) {
 }
 
 // eachOnSessionMu runs fn for every connection on c's session, c last (it is possible
-// that c is not registered). The one loop over connections sharing a token. Caller holds mu.
+// that c is not registered). Caller holds mu.
 func (a *App) eachOnSessionMu(c *client, fn func(*client)) {
 	s := c.sessMu()
 	for cl := range a.clients {
@@ -61,6 +67,7 @@ func (a *App) syncSessionMu(c *client) { a.eachOnSessionMu(c, a.syncAccessMu) }
 
 // Caller holds mu.
 func (a *App) signOutMu(cl *client) {
+	cl.u.recheck = recheck{}
 	cl.u.user.Store(nil)
 	cl.u.sess = nil
 	a.syncAccessMu(cl)
@@ -77,6 +84,10 @@ func (a *App) issueToken(c *client, wantTab bool) string {
 // after the Lock ends, so only a session key rides on it (sessionkey.go).
 func (a *App) issueTokenFor(c *client, wantTab, forKey bool) string {
 	a.mu.Lock()
+	if c.u.step != nil { // a step-in is connection state only
+		a.mu.Unlock()
+		return ""
+	}
 	who := c.u.user.Load()
 	s := c.sessMu()
 	locked, page, had := s.locked, c.u.page, s.token != ""
@@ -85,7 +96,7 @@ func (a *App) issueTokenFor(c *client, wantTab, forKey bool) string {
 	if who == nil {
 		return ""
 	}
-	u, ok := cfg.FindUser(who.Name)
+	u, ok := cfg.FindUserByID(who.ID)
 	if !ok || u.Pin != who.Pin {
 		return ""
 	}
@@ -147,7 +158,7 @@ type sessionMsg struct {
 	Tab   bool   `json:"tab,omitempty"` // for this tab only
 }
 
-// Renews open connections' tokens so a never-reloading page outlasts tokenMaxAge. Off mu.
+// Renews the tokens of open connections so a page that never reloads outlasts tokenMaxAge. Off mu.
 func (a *App) touchSessions() {
 	a.mu.Lock()
 	cfg := a.r().cfg
@@ -155,6 +166,9 @@ func (a *App) touchSessions() {
 	for cl := range a.clients {
 		if tok := cl.u.tokenMu(); tok != "" && a.userSameMu(cl, cfg) {
 			held = append(held, tok)
+		}
+		if st := cl.u.step; st != nil && st.sess.token != "" {
+			held = append(held, st.sess.token)
 		}
 	}
 	a.mu.Unlock()
@@ -170,9 +184,16 @@ func (a *App) catchUpSessions() {
 	a.mu.Lock()
 	cfg := a.r().cfg
 	var todo []*client
+	promoted := a.promoted
+	a.promoted = nil
 	for cl := range a.clients {
+		if tok := cl.u.tokenMu(); promoted[tokenKey(tok)] {
+			b, _ := json.Marshal(sessionMsg{T: "session", Token: tok})
+			a.deliver(cl, b) // the page moves it from the tab to the browser
+			continue
+		}
 		if who := cl.u.user.Load(); who != nil && a.userOKMu(cl, cfg) && !a.sessionGoodMu(cl) {
-			if u, ok := cfg.FindUser(who.Name); ok && u.Persistent {
+			if u, ok := cfg.FindUserByID(who.ID); ok && u.Persistent {
 				todo = append(todo, cl)
 			}
 		}
@@ -189,6 +210,9 @@ func (a *App) catchUpSessions() {
 // rides the token (ADR 0001), so a reload comes back locked. Ending it is a resume.
 func (a *App) setHeld(c *client, on bool) {
 	a.mu.Lock()
+	if on && c.u.step != nil { // the Lock lands on the original session, in every tab
+		a.stepOutMu(c, "lock")
+	}
 	if !a.userSameMu(c, a.r().cfg) {
 		a.syncAccessMu(c)
 		a.mu.Unlock()
@@ -210,10 +234,14 @@ func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
 	tok = s.token
 	cfg := a.r().cfg
 	if who := c.u.user.Load(); !on && tok != "" && who != nil {
-		u, _ := cfg.FindUser(who.Name)
+		u, _ := cfg.FindUserByID(who.ID)
 		drop = heldOnly(u, c.u.page, cfg.Locks)
 	}
 	s.locked = on
+	if on {
+		a.eachOnSessionMu(c, func(cl *client) { cl.u.recheck = recheck{} })
+		a.stepOutsOnLockMu(s)
+	}
 	if drop {
 		// The token dies, so the connections that share it part. Each keeps its own
 		// tokenless session, and a later Lock or sign-out of one cannot reach the rest.
@@ -250,9 +278,44 @@ func (a *App) finishHold(c *client, on bool, tok string, drop bool) {
 // sharing it sign out too (ADR 0001).
 func (a *App) SignOut(c *client) {
 	a.mu.Lock()
+	if c.u.step != nil { // Sign out from a step-in never signs the original out
+		a.stepOutMu(c, "out")
+		a.mu.Unlock()
+		return
+	}
 	tok := c.u.tokenMu()
 	a.eachOnSessionMu(c, a.signOutMu)
 	a.mu.Unlock()
 	a.tokens.forget(tok)
 	a.endSessionKeys()
+}
+
+func (a *App) SignOutAll(c *client, name string) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if err := a.guardSave(c, config.RoleAdministrator); err != nil {
+		return err
+	}
+	who, ok := a.r().cfg.FindUserByName(name)
+	if !ok {
+		return errors.New("no such user")
+	}
+	a.tokens.dropUser(who.ID)
+	a.endSessionKeys()
+	a.mu.Lock()
+	for cl := range a.clients {
+		if st := cl.u.step; st != nil && st.orig != nil && st.orig.ID == who.ID {
+			st.ended = true
+		}
+		if st := cl.u.step; st != nil && cl.userID() == who.ID {
+			a.stepOutMu(cl, "signOut")
+		}
+	}
+	for cl := range a.clients {
+		if u := cl.u.user.Load(); u != nil && u.ID == who.ID {
+			a.signOutMu(cl)
+		}
+	}
+	a.mu.Unlock()
+	return nil
 }

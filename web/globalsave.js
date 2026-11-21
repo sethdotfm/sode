@@ -1,8 +1,4 @@
-// One saver flow for filter sets and presets. globalSaver: server-side setting, so with a PIN it asks first (PIN row, relock after).
-// profileSaver: the user's own profile, no PIN.
-
-import { on, onMsg, wsSend, sentence } from './core.js';
-import { unlock, relock, needsPin } from './pin.js';
+import { on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
 import { showResult } from './plans.js';
 import { profile, saveProfile } from './profile.js';
 
@@ -27,15 +23,13 @@ function onResult(resultT, fn) {
 
 // how.send returns false if the request could not go out, else calls settle(result).
 function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote = '' }) {
-  const { pin } = how;
-  let pending = null; // { run, done, sent }
+  let pending = null; // { done, sent, id }
 
   function change(payload, done) {
     const big = how.check?.(payload);
     if (big) return setNote(big, true);
-    pending = { run: () => send(payload), done, sent: false };
-    if (pin && needsPin()) return askPin();
-    pending.run();
+    pending = { done, sent: false };
+    send(payload);
   }
 
   function send(payload) {
@@ -47,7 +41,7 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
     if (how.send(p, payload, settle) === false) {
       pending = null;
       render();
-      setNote('Not connected to Sode.', true);
+      setNote(LINK_DOWN, true);
       return;
     }
     render();
@@ -56,24 +50,16 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
 
   function answer(p, r) {
     const open = isOpen();
-    if (r.locked && pin) {
-      relock();
-      if (open) {
-        pending = { run: p.run, done: p.done, sent: false };
-        return askPin('Enter the PIN again.');
-      }
-    }
     pending = null;
     if (r.ok) p.done();
     if (open) {
       render();
-      if (!r.ok) setNote(sentence(r.err) || (pin ? '' : 'Not saved.'), true);
+      if (!r.ok) setNote(sentence(r.err) || 'Not saved.', true);
       else if (okNote) setNote(okNote);
       return;
     }
-    // Closed while saving: say if it failed (and relock).
-    if (!r.ok) showResult('error', failTitle, sentence(r.err) || (pin ? 'Settings are locked.' : 'Not saved.'));
-    if (pin) relock();
+    // The dialog closed before the answer: say if the save failed.
+    if (!r.ok) showResult('error', failTitle, sentence(r.err) || 'Not saved.');
   }
 
   how.listen?.((m) => {
@@ -85,63 +71,23 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
     if (!pending?.sent) return;
     pending = null;
     render();
-    if (isOpen()) setNote('Connection lost; try again.', true);
+    if (isOpen()) setNote(LINK_DOWN, true);
   });
 
-  function askPin(err = '') {
-    pin.row.hidden = false;
-    pin.input.value = '';
-    setNote(err || 'Enter the Advanced Settings PIN.', !!err);
-    pin.input.focus();
-  }
-
   function cancel() {
-    if (pin) pin.row.hidden = true;
     pending = null;
     setNote('');
     render();
-  }
-
-  if (pin) {
-    const sendPin = async () => {
-      pin.ok.disabled = true;
-      const r = await unlock(pin.input.value);
-      if (r.superseded) return;
-      pin.ok.disabled = false;
-      if (r.stale) return;
-      if (!r.ok) {
-        setNote(r.err, true);
-        pin.input.select();
-        return;
-      }
-      pin.row.hidden = true;
-      pending?.run();
-    };
-    pin.ok.addEventListener('click', sendPin);
-    pin.input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        sendPin();
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        cancel();
-      }
-    });
   }
 
   return {
     change,
     cancel,
     busy: () => pending != null,
-    // Closing: true when a sent save is still to be answered (a PIN saver relocks after it). Else it drops anything
-    // that waits for the PIN, and relocks.
+    // Closing: true when a sent save is still to be answered.
     close() {
-      if (pin) pin.row.hidden = true;
       if (pending?.sent) return true;
       pending = null;
-      if (pin) relock();
       return false;
     },
   };
@@ -149,11 +95,10 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
 
 // t: message sent (a payload's own t wins); resultT: the answer. isOpen(): after close a failure becomes a result banner.
 // okNote: shown after a save; failTitle: banner title if a save fails after close.
-export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, ...rest }) {
+export function globalSaver({ t, resultT, ...rest }) {
   return makeSaver({
     ...rest,
     how: {
-      pin: { input: pinIn, row: pinRow, ok: pinOk },
       listen: (fn) => onResult(resultT, fn),
       send(p, payload) {
         p.id = ++seq;
@@ -170,7 +115,6 @@ export function profileSaver({ target, ...opts }) {
   return makeSaver({
     ...opts,
     how: {
-      pin: null,
       check: (parts) => profileProblem(tgt()?.profile || profile(), parts),
       send(p, parts, settle) {
         saveProfile(parts, tgt()?.user || undefined).then(settle);
@@ -183,23 +127,24 @@ export function profileSaver({ target, ...opts }) {
 // user's profile: with target() set, every scope goes to that profile's saver.
 //   key: payload key for the whole list (profile saver, and the global one unless globalKey differs).
 //   listOf(scope): the scope's current list as it is sent.
-//   same(a, b): do two names mean one item?   dropLocal(name): delete from localStorage.
-export function scopeWriter({ global, user, target, key, globalKey = key, listOf, same, dropLocal }) {
-  // The whole next list into a remote scope; done() runs after it has landed. Local scopes are written by the caller.
+//   keyOf(item): what names an item (default its name; a filter set's hidden id).
+//   same(a, b): do two keys mean one item?   dropLocal(key): delete from localStorage.
+export function scopeWriter({ global, user, target, key, globalKey = key, listOf, keyOf = (x) => x.name, same, dropLocal }) {
+  // The whole next list into a remote scope; done() runs after it lands. The caller writes local scopes.
   function saveIn(scope, list, done) {
     const t = target?.();
     const [saver, k] = t ? [t, key] : scope === 'user' ? [user, key] : [global, globalKey];
     saver.change({ [k]: list }, done);
   }
   // Without the item; local deletes immediately. done() runs after it is gone.
-  function removeIn(scope, name, done) {
+  function removeIn(scope, item, done) {
     if (scope === 'local') {
-      dropLocal(name);
+      dropLocal(item);
       return done();
     }
     saveIn(
       scope,
-      listOf(scope).filter((x) => !same(x.name, name)),
+      listOf(scope).filter((x) => !same(keyOf(x), item)),
       done,
     );
   }

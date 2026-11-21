@@ -1,15 +1,7 @@
-// A panel's state model: view, stage, arm and Take. No DOM, no clock and no network, so the
-// rules test directly (test/panelmodel.test.mjs). Every function returns a new state.
-//
-// env is what the router says right now: { levels: [UI levels], tally: Map(dst -> Map(level -> src)),
-// protectedDsts: Set(dst) }. A cell is { kind, n, levels? } with n the router number and levels a UI
-// level subset. Settings: { mode: 'take' | 'instant', multi: bool, levels: [UI levels] | null, guard: 'none' | 'hold' | 'double' }.
-// A Preset cell is { kind: 'preset', scope, name }; env.presets maps presetKey(scope, name) to the
-// preset's items [{ src, dsts, levels }], where levels [] means every level.
-// settings.fixedDests (Fixed destination) makes the list the panel's destinations for the life of the page. The
-// first one is the view, so Current Source and the Source states read it, and Clear keeps it.
-// page is the current Page's id (panelnav.js). The plan is panel-wide, so a Page change leaves the view and staged alone.
-import { presetKey, rightsAllow, fixedDestsOf } from './panelrules.js';
+// A panel's state model: view, stage, arm and Take. No DOM, no clock and no network (test/panelmodel.test.mjs). Every
+// function returns a new state. env is the router's answer: { levels, tally: Map(dst -> Map(level -> src)), protectedDsts,
+// presets, rights }. The plan is panel-wide, so a Page change leaves the view and staged alone.
+import { presetKey, presetName, rightsAllow, fixedDestsOf } from './panelrules.js';
 import { navTarget } from './panelnav.js';
 
 export const RESULT_MS = 1500;
@@ -139,13 +131,15 @@ const presetItems = (st, items) =>
 export const pressPreset = (st, cell, env, now) => overUndo(st, (s) => pressPresetOne(s, cell, env, now));
 
 function pressPresetOne(st, cell, env, now) {
-  const all = env.presets?.get(presetKey(cell.scope, cell.name));
-  if (!all?.length) return fail(st, { code: 'no-preset', name: cell.name }, now);
-  if (!rightsAllow(env.rights, 'presets', cell.name)) return fail(st, { code: 'outside-rights', what: 'preset', name: cell.name, quiet: quiet(env) }, now);
+  const name = presetName(env, cell);
+  const all = env.presets?.get(presetKey(cell.scope, name));
+  if (!all?.length) return fail(st, { code: 'no-preset', name }, now);
+  if (!rightsAllow(env.rights, 'presets', env.presetIds?.get(presetKey(cell.scope, name))))
+    return fail(st, { code: 'outside-rights', what: 'preset', name, quiet: quiet(env) }, now);
   const items = presetItems(st, all);
-  if (!items.length) return fail(st, { code: 'preset-no-fixed', name: cell.name }, now);
+  if (!items.length) return fail(st, { code: 'preset-no-fixed', name }, now);
   const dsts = new Set(items.flatMap((it) => it.dsts));
-  if (!st.fixed && !st.multi && dsts.size > 1) return fail(st, { code: 'preset-multi', name: cell.name }, now);
+  if (!st.fixed && !st.multi && dsts.size > 1) return fail(st, { code: 'preset-multi', name }, now);
   const routes = [];
   for (const it of items) {
     for (const dst of it.dsts) {
@@ -275,7 +269,7 @@ export function sourceState(st, n, env) {
 
 // pending while the plan holds every route of the preset, so the cell says it is what is staged.
 export function presetState(st, cell, env) {
-  const all = env.presets?.get(presetKey(cell.scope, cell.name));
+  const all = env.presets?.get(presetKey(cell.scope, presetName(env, cell)));
   const items = all?.length ? presetItems(st, all) : [];
   if (!items.length) return 'idle';
   return items.every((it) => it.dsts.every((d) => st.staged.some((x) => x.dst === d && x.src === it.src))) ? 'pending' : 'idle';

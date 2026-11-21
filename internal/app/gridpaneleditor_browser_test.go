@@ -6,10 +6,6 @@ import (
 	"testing"
 )
 
-// A new panel made as a Grid panel in the editor. It checks the type switch, the hidden Buttons settings, and the
-// lists beside the same tabs as a Buttons panel. A new Grid panel has no sources and no destinations. Follow the router is
-// in the Panel tab; while it is on, only Pin and artwork change a list. A pin on the Sources list is saved, the type
-// locks, and the panel page shows the pinned source first.
 func TestChromeGridPanelEditor(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -41,7 +37,7 @@ func TestChromeGridPanelEditor(t *testing.T) {
 		const row = document.querySelector('#ed-sources-list li[data-id="0"]');
 		const off = ['up', 'down', 'delete'].every((a) => row.querySelector('[data-act="' + a + '"]').disabled);
 		return off && !row.querySelector('[data-act="pin"]').disabled && document.getElementById('ed-sources-clear').disabled && document.getElementById('ed-sources-find').disabled
-			&& !document.getElementById('ed-sources-following').hidden && /Panel tab/.test(document.getElementById('ed-sources-following').textContent);
+			&& !document.getElementById('ed-lists-following').hidden && /Panel tab/.test(document.getElementById('ed-lists-following').textContent);
 	})()`)
 	b.shot("sources")
 
@@ -52,14 +48,13 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	if p["type"] != "grid" {
 		t.Fatalf("type %v", p["type"])
 	}
-	srcs, _ := p["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, p, "sources")
 	hide, _ := json.Marshal(srcs["hide"])
 	items, _ := json.Marshal(srcs["items"])
 	if srcs["members"] != "all" || string(hide) != `null` || string(items) != `{"5":{"pinned":true}}` {
 		t.Errorf("sources %v", srcs)
 	}
 
-	// Opened again from a fresh page: no unsaved changes, the type locked, and a second save is a PUT that keeps both.
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("the saved Grid panel opens in the editor", tabs+` === 'Cell,Panel,Access' && document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('ed-set-type-grid').checked && document.getElementById('ed-set-type-grid').disabled`)
 	b.waitFor("the pin loads", src+`?.querySelector('[data-act="pin"]').getAttribute('aria-pressed') === 'true'`)
@@ -67,7 +62,7 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	b.waitFor("a second pin is an unsaved change", `document.getElementById('ed-state').textContent === 'Unsaved changes'`)
 	b.eval(`document.getElementById('ed-save').click(); true`)
 	b.waitFor("saved again", `document.getElementById('ed-state').textContent === 'Saved'`)
-	srcs, _ = readPanel(t, a, ana, id)["sources"].(map[string]any)
+	srcs = gridEdgeNums(t, readPanel(t, a, ana, id), "sources")
 	hide, _ = json.Marshal(srcs["hide"])
 	items, _ = json.Marshal(srcs["items"])
 	if srcs["members"] != "all" || string(hide) != `null` || string(items) != `{"5":{"pinned":true},"7":{"pinned":true}}` {
@@ -79,12 +74,12 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	b.waitFor("a bar over it says Preview and holds Back to editing and Edit lists, with no Save while nothing is unsaved", `(() => {
 		const bar = document.getElementById('ed-live-bar');
 		return !!bar?.offsetParent && /Preview/.test(bar.textContent) && bar.contains(document.getElementById('ed-live-back')) && bar.lastElementChild === document.getElementById('ed-live-lists') && document.getElementById('ed-live-lists').previousElementSibling === document.getElementById('ed-live-back')
-			&& !document.querySelector('.sode-gridpanel__deck #ed-live-back') && !!document.getElementById('ed-live-lists').offsetParent && document.getElementById('ed-live-save').hidden;
+			&& !document.querySelector('.sode-gridpanel__headrow #ed-live-back') && !!document.getElementById('ed-live-lists').offsetParent && document.getElementById('ed-live-save').hidden;
 	})()`)
 	b.shot("live")
 	b.eval(`document.getElementById('ed-live-back').click(); true`)
 	b.waitFor("Back to editing puts the editor back, with both lists in their place", `!!document.querySelector('.sode-ed__bar').offsetParent && !document.getElementById('confirm') && !document.getElementById('panel-levels')
-		&& [...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent`)
+		&& [...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-lists-following,ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent`)
 
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the panel opens as a Grid panel", `!!document.querySelector('.sode-gridpanel__xp')`)

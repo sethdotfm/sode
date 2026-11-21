@@ -1,0 +1,1 @@
+- Re-read router names (Palette and Settings) now tells you the result. When the router answers, the banner says how many names changed and how many the router has, then closes. When the router does not answer, a warning says so.

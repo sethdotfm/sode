@@ -86,16 +86,13 @@ func (t *apiTap) len() int {
 	return len(t.rows)
 }
 
-// The user's failure: open pages kept polling with keys Sode had ended, and every call counted as a failed key.
-// So the address (every tab and the editor on that machine) was locked out. Two tabs that shared one session
-// also ended each other's key on every renewal. Now tabs keep their own keys, and an ended session key is
-// renewed one time. An ended link key stops its page, and the address is never locked.
+// Tabs keep their own keys, and an ended session key renews one time. An ended link key stops its page, and Sode never locks the address.
 func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Persistent = true // tabs share the session token, as for a wall user
-		c.Users[0].Trusted = true
+		c.Users[0].Role = config.RoleTrusted
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -140,6 +137,7 @@ func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 
 	b.open(srv.URL + "/panels/" + id + "?instance=Desk")
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -168,7 +166,6 @@ func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 	b.waitFor("the panel page runs on", `document.getElementById('panels-note')?.hidden`)
 	addressOK()
 
-	// A link with its own key, in this tab; the panels page keeps running in the other.
 	secret, _ := mintKey(t, a, ana, id)
 	b.open(srv.URL + "/panels/" + id + "?instance=Lobby#key=" + strings.TrimPrefix(secret, keyPrefix))
 	link := func(r tapRow) bool { return r.key == secret }
@@ -177,7 +174,7 @@ func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 		t.Fatalf("revoke: %d %s", rec.Code, rec.Body.String())
 	}
 	mark = tap.len()
-	b.waitFor("the page says its key ended", `/no longer works/.test(document.getElementById('panels-note')?.textContent || '')`)
+	b.waitFor("the page says its key ended", `/Key rotated or revoked/.test(document.getElementById('panels-note')?.textContent || '')`)
 	after := tap.since(mark, link)
 	// Absence needs time to show: longer than a poll, an update check and a keepalive retry.
 	time.Sleep(7 * time.Second)

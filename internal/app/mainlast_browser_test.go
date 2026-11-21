@@ -8,8 +8,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A patch made through the page is stored per browser. After a reload the Last chips show it, the
-// Next chips step from it, and Ctrl+S and Ctrl+Shift+S fill Source from them.
 func TestChromeMainLastSurvivesReload(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -27,8 +25,7 @@ func TestChromeMainLastSurvivesReload(t *testing.T) {
 	b.waitFor("Source box", `!!document.getElementById('src')`)
 	b.waitFor("no Last before any take", `document.querySelector('[data-last="src"]').childElementCount === 0`)
 
-	// Typing then Tab takes the box's best match, as a person would. The input repeats until the
-	// page has the router's names.
+	// Text then Tab selects the best match of the box, as a person does. The input repeats until the page has the router's names.
 	pick := func(id, text string) {
 		b.waitFor(id+" match list", `(() => { const t = document.getElementById('`+id+`'); t.focus(); t.value = '`+text+`'; t.dispatchEvent(new Event('input', {bubbles: true})); return !!document.getElementById('`+id+`-opt-0'); })()`)
 		b.eval(`document.getElementById('` + id + `').dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab', code: 'Tab', bubbles: true, cancelable: true})); true`)

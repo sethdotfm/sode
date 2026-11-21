@@ -1,10 +1,12 @@
-// Recent rows, shared by the desktop list and the phone's swipe rows. Pure: wording and plans only,
+// History rows, for the desktop list and the phone's swipe rows. Pure: wording and plans only,
 // each layout builds its own DOM from these.
 
-import { srcItem, dstItem } from './core.js';
+import { S, srcItem, dstItem } from './core.js';
 import { undoPlan, againPlan, groupUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
 import { groupPartial, groupIds } from './history.js';
 import { UNDO_TIP_ALL } from './widgets.js';
+import { protectRow, protectOfferOf } from './protects.js';
+import { protectUndoable } from './protectrules.js';
 
 const noun = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
@@ -18,14 +20,15 @@ export function rowActions(row) {
     return {
       undo: {
         plan: groupUndoPlan(f),
-        label: `Undo all ${f.entries.length} takes of ${groupIds(f)}`,
+        label: `Undo all ${f.entries.length} routes of ${groupIds(f)}`,
         text: groupPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all',
         tip: UNDO_TIP_ALL,
       },
-      again: { plan: again, label: `${againWord(again)} ${noun(again.items.length, 'take')} of ${groupIds(f)}` },
+      again: { plan: again, label: `${againWord(again)} ${noun(again.items.length, 'route')} of ${groupIds(f)}` },
     };
   }
   const e = row.e;
+  if (e.protect) return protectActions(e);
   const src = srcItem(e.src, e.srcName),
     dst = dstItem(e.dst, e.dstName);
   const again = againPlan({ e });
@@ -34,18 +37,33 @@ export function rowActions(row) {
         plan: undoPlan(e),
         label: `Undo ${e.chain.length} changes on ${dst.label}`,
         text: `Undo ${e.chain.length}`,
-        tip: 'Set destination to its source before these changes.',
+        tip: 'Restores the source from before these changes',
       }
     : { plan: undoPlan(e), label: `Undo ${src.label} to ${dst.label}`, text: 'Undo', tip: undefined };
   return { undo, again: { plan: again, label: `${againWord(again)} ${src.label} to ${dst.label}` } };
 }
 
-// Aria label of a folder's or followers' disclosure: "Show the 3 takes", "Hide the 2 followers".
+// Undo works only on the newest Protect entry of its destination, and only when the route view would offer the
+// opposite now (protectUndoable). The layouts draw the rows again on a Protect change, so the button follows it.
+function protectActions(e) {
+  const r = protectRow(e);
+  const can = protectUndoable(e, S.hist, protectOfferOf(e.dst));
+  return {
+    undo: { plan: can ? r.undo : { verb: 'undo', items: [] }, label: r.undoLabel, text: 'Undo', tip: r.undoLabel },
+    again: { plan: { verb: 'redo', items: [] }, label: '' },
+  };
+}
+
+// Aria label of a Group's disclosure: "Show the 3 takes", "Hide the 2 followers".
 export const disclosureAria = (open, n, what) => `${open ? 'Hide' : 'Show'} the ${n} ${what}`;
 
-// Followers header of a folder: the disclosure's count text, aria label, and the id of its kids.
+// The External follow header of a Group: the disclosure's count text, aria label, and the id of its kids.
 export function followersHead(f, open, idPrefix) {
-  return { count: `${f.followers.length}`, aria: disclosureAria(open, f.followers.length, 'followers'), kidsId: `${idPrefix}-followers-${f.group}` };
+  return {
+    count: `${f.followers.length}`,
+    aria: disclosureAria(open, f.followers.length, 'External follow entries'),
+    kidsId: `${idPrefix}-followers-${f.group}`,
+  };
 }
 
 // The Last / Next fill of one box (k: src, dst or lvl). null: nothing to fill for k; {none: true}:

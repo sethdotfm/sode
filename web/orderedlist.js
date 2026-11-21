@@ -2,19 +2,22 @@
 // are orderedlistrules.js. The caller draws each row's body and holds the list; the editor's Pages bar is one user.
 import { el, icon } from './core.js';
 import { btn } from './formbits.js';
-import { dropTo, canMove } from './orderedlistrules.js';
+import { dropTo, canMove, edgeStep } from './orderedlistrules.js';
 
-// opts: rowClass, toolsClass, move(from, to), remove(i), removeTip (the button's name, for example 'Delete Page').
-// drop(from, over, after) is opt-in: the drop goes before or after the row under it by the pointer's half, and the
-// caller places it. Without it a drop takes the place of the row under it, as the Pages bar needs.
-// grip(i) is opt-in too. A drag then starts only from a grip handle at the row's start or from the row's body. The
-// browser's drag image is a chip with the text of grip(i), not the row. dragging(i | -1) tells the caller when a drag
-// starts and ends.
-// Buttons carry data-act (the caller's act, or up, down, delete) and data-i, so a caller can put focus back after a repaint.
+// opts: rowClass, toolsClass, move(from, to), remove(i), removeTip.
+// Opt-in: drop(from, over, after) places a drop by the pointer's half.
+// Opt-in: grip(i) limits the drag to the grip and the body, and gives the drag chip's text.
+// Opt-in: dragging(i | -1).
+// Buttons carry data-act and data-i so a caller can put focus back.
 const DRAG_AT = 12; // px from the chip's top left corner to the pointer
 // Marks a drag as a row of this page's. A windowed list can drop the row that a drag started from. Then its dragend
 // does not come, and nor does a drop outside the rows. A later drag without the mark (a file) must not move a row.
 const ROW_TYPE = 'application/x-sode-row';
+// Drag scroll: the edge band in px, the most px a frame, and how long the scroll goes on after the last dragover. A
+// pointer at rest still gets a dragover about every 50 ms, so a longer gap means the drag went away.
+const EDGE_PX = 64;
+const STEP_PX = 24;
+const STALE_MS = 400;
 
 export function createOrderedList(opts) {
   let dragFrom = -1;
@@ -72,7 +75,6 @@ export function createOrderedList(opts) {
     return li;
   }
 
-  // A drop takes the place of the row under it, or with opts.drop goes to the side of it the pointer is on.
   const sideOf = (li, e) => {
     const r = li.getBoundingClientRect();
     return e.clientY > r.top + r.height / 2;
@@ -132,5 +134,38 @@ export function createOrderedList(opts) {
     setTimeout(() => chip.remove());
   }
 
-  return { row };
+  // While a row drag is near the scroller's top or bottom edge, the scroller scrolls, faster nearer the edge. It moves
+  // the real scroller, so the big scroll bar (bigscroll.js) and a windowed list's rows follow its own scroll events.
+  function scrollWhileDragging(scroller) {
+    let step = 0;
+    let last = 0;
+    let frame = 0;
+    const stop = () => {
+      step = 0;
+      cancelAnimationFrame(frame);
+      frame = 0;
+    };
+    const tick = () => {
+      frame = 0;
+      if (!step || dragFrom < 0 || performance.now() - last > STALE_MS) return stop();
+      scroller.scrollTop += step;
+      frame = requestAnimationFrame(tick);
+    };
+    scroller.addEventListener('dragover', (e) => {
+      if (!ours(e)) return stop();
+      const r = scroller.getBoundingClientRect();
+      step = edgeStep(e.clientY, r.top, r.bottom, EDGE_PX, STEP_PX);
+      last = performance.now();
+      if (step && !frame) frame = requestAnimationFrame(tick);
+    });
+    scroller.addEventListener('dragleave', (e) => {
+      if (!scroller.contains(e.relatedTarget)) stop();
+    });
+    // The row a drag started from can be gone (redrawn), so its dragend does not reach the scroller; the tick stops on
+    // dragFrom then.
+    scroller.addEventListener('drop', stop);
+    scroller.addEventListener('dragend', stop);
+  }
+
+  return { row, scrollWhileDragging };
 }

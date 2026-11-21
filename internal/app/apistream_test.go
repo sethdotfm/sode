@@ -15,7 +15,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// strm* helpers: the stream seam is a real test server, since a recorder cannot upgrade.
+// The stream seam is a real test server, since a recorder cannot upgrade.
 
 type strmConn struct {
 	t  *testing.T
@@ -49,8 +49,7 @@ func strmDialRaw(srv *httptest.Server, key, topics string) (*websocket.Conn, *ht
 	return c, resp, ctx, cancel, err
 }
 
-// strmDial reads in a goroutine: a read cut short by a context closes the connection, so
-// waiting for silence has to happen on a channel.
+// A read that a context cuts short closes the connection, so a goroutine reads and the tests wait on a channel.
 func strmDial(t *testing.T, srv *httptest.Server, key, topics string) *strmConn {
 	t.Helper()
 	c, _, ctx, cancel, err := strmDialRaw(srv, key, topics)
@@ -93,7 +92,7 @@ func (s *strmConn) next() strmMsg {
 	return strmMsg{}
 }
 
-// quiet fails if a frame other than a heartbeat arrives within d.
+// Heartbeats do not count.
 func (s *strmConn) quiet(d time.Duration) {
 	s.t.Helper()
 	select {
@@ -152,8 +151,8 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	}
 	strmWantType(t, s.next(), "snapshot", "status")
 
-	// Destination 7 is hidden, so its change never arrives. Destination 2 gets a hidden
-	// source: that row is left out, as the REST read leaves it out.
+	// Destination 7 is hidden, so its change never arrives. Destination 2 gets a hidden source, so its row is left out,
+	// as in the REST read.
 	a.mu.Lock()
 	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{7, 1, 1}, {2, 1, 5}, {2, 2, 1}}})
 	a.mu.Unlock()
@@ -222,10 +221,10 @@ func TestStreamHistoryEntriesAndLateResults(t *testing.T) {
 	late := mine
 	late.Failed, late.Late, late.OK = nil, []int{1}, true
 	a.mu.Lock()
-	a.broadcast(recentMsg{T: "recent", E: &late, Update: true})
-	a.broadcast(recentMsg{T: "recent", E: &Entry{ID: secret.ID, Src: 5, Dst: 7, Levels: []int{1}}, Update: true})
+	a.broadcast(recentMsg{T: "entry", E: &late, Update: true})
+	a.broadcast(recentMsg{T: "entry", E: &Entry{ID: secret.ID, Src: 5, Dst: 7, Levels: []int{1}}, Update: true})
 	a.mu.Unlock()
-	// The topic is the one the client chose; a client with both gets history.
+	// A client with both topics gets the update on history only.
 	for name, s := range map[string]*strmConn{"history": hist, "results": results} {
 		m := s.next()
 		strmWantType(t, m, "entryUpdate", name)
@@ -271,15 +270,6 @@ func TestStreamRefusals(t *testing.T) {
 		}
 	}
 
-	off, _ := viewApp(t, "")
-	cfg := off.r().cfg
-	cfg.API.Enabled = false
-	off.ApplyConfig(cfg)
-	_, resp, _, cancel, err := strmDialRaw(strmServer(t, off), botKey(t, off), "names")
-	cancel()
-	if err == nil || resp == nil || resp.StatusCode != 503 {
-		t.Errorf("API off: %v %v", resp, err)
-	}
 }
 
 func TestStreamConnectAndDisconnectAreLogged(t *testing.T) {

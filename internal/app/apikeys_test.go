@@ -30,7 +30,6 @@ func TestKeyStoreLifecycle(t *testing.T) {
 		t.Fatalf("rec %+v", rec)
 	}
 
-	// Disk holds the hash and never the secret.
 	raw, err := os.ReadFile(filepath.Join(dir, "keys.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +73,7 @@ func TestKeyStoreLifecycle(t *testing.T) {
 func TestKeyExpiry(t *testing.T) {
 	s := loadKeys("")
 	now := time.Now()
-	secret, rec, _ := s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, "Desk", now.Add(time.Hour), 0, "")
+	secret, rec, _ := s.createCapped(keyOwner{Kind: actorUser, User: "u-ana", Name: "Ana"}, "Desk", now.Add(time.Hour), 0, "")
 	if _, _, ok := s.find(secret, now); !ok {
 		t.Fatal("live key refused")
 	}
@@ -90,16 +89,16 @@ func TestKeyExpiry(t *testing.T) {
 func TestKeyDropOwnerAndCaps(t *testing.T) {
 	s := loadKeys("")
 	for i := range 3 {
-		s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, string(rune('a'+i)), time.Time{}, 0, "")
+		s.createCapped(keyOwner{Kind: actorUser, User: "u-ana", Name: "Ana"}, string(rune('a'+i)), time.Time{}, 0, "")
 	}
 	s.createCapped(keyOwner{Kind: actorClient, Name: "Ana"}, "x", time.Time{}, 0, "")
-	if n := keyCount(s, keyOwner{Kind: actorUser, Name: "ana"}); n != 3 {
-		t.Fatalf("count %d (owner names compare ignoring case, kinds apart)", n)
+	if n := keyCount(s, keyOwner{Kind: actorUser, User: "u-ana", Name: "ana"}); n != 3 {
+		t.Fatalf("count %d (users by id, kinds apart)", n)
 	}
-	if _, _, err := s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, "z", time.Time{}, 3, ""); err == nil {
+	if _, _, err := s.createCapped(keyOwner{Kind: actorUser, User: "u-ana", Name: "Ana"}, "z", time.Time{}, 3, ""); err == nil {
 		t.Fatal("cap not enforced")
 	}
-	ana := keyOwner{Kind: actorUser, Name: "ANA"}
+	ana := keyOwner{Kind: actorUser, User: "u-ana", Name: "ANA"}
 	if n := len(s.dropWhere(func(r keyRec) bool { return r.Owner.is(ana) })); n != 3 {
 		t.Fatalf("dropped %d", n)
 	}

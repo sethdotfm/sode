@@ -11,13 +11,9 @@ const TOKEN_KEY = 'sode-session';
 // reload stays in.
 const TAB_KEY = 'sode-tab-session';
 // Whose Lock this tab shows: this tab's sessionStorage, so a reload still names them. The
-// username box's prefill is the browser's (localStorage); no name ever comes from the server.
+// name box's prefill is the browser's (localStorage); no name ever comes from the server.
 const HELD_KEY = 'sode-held-user';
 const LAST_KEY = 'sode-last-user';
-
-// Drop keys of the removed admin-browser sign-in.
-writeStr('sode-lock-token', null);
-writeStr('sode-lock-never', null);
 
 export const heldUserKept = () => readTab(HELD_KEY) || '';
 export const keepHeldUser = (name) => writeTab(HELD_KEY, name || null);
@@ -54,7 +50,7 @@ export function forgetSignIn() {
   writeTab(HELD_KEY, null);
 }
 
-// A token sent outside an unlock (user already signed in when Never sign out was ticked, or
+// A token sent outside an `unlock` answer (user already signed in when Never sign out was ticked, or
 // changed their own PIN). signedIn: this page has a user, so the token is for it.
 export function onSessionToken(signedIn) {
   onMsg('session', (m) => {

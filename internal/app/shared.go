@@ -7,34 +7,22 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// guardSave repeats the policy check because a PIN can change before cfgMu is ours. It is
-// the only guard (the main lock does not cover settings). Caller holds cfgMu.
-func (a *App) guardSave(c *client, trusted bool) error {
+// A Role or sign-in can change between admit and this lock, so the Role is checked again. Caller holds cfgMu.
+func (a *App) guardSave(c *client, need string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	ok := a.settingsUnlockedMu(c)
-	if trusted {
-		ok = a.trustedMu(c)
-	}
-	if !ok {
-		return errLocked
-	}
-	return nil
+	return a.needRoleMu(c, need)
 }
 
-// saveShared: mutate edits a copy, then update. broadcast builds one message from the new
-// config (nil: none), not a full snapshot, so History is not reset.
-func (a *App) saveShared(c *client, mutate func(*config.Config) error, broadcast func(config.Config) any) error {
+// saveList writes a shared list (filter sets, presets) for a Trusted user. msg builds the one
+// message the new config sends, not a full hello, so History is not reset.
+func (a *App) saveList(c *client, mutate func(*config.Config) error, msg func(config.Config) any) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, true); err != nil {
+	if err := a.guardSave(c, config.RoleTrusted); err != nil {
 		return err
 	}
-	return a.commit(mutate, func(_, nr *runtime) {
-		if broadcast != nil {
-			a.broadcast(broadcast(nr.cfg))
-		}
-	})
+	return a.commit(mutate, func(_, nr *runtime) { a.broadcast(msg(nr.cfg)) })
 }
 
 // replyOp: id < 0 = the request has none; reports whether the PIN was why it failed.
@@ -56,20 +44,20 @@ func (a *App) replyOpNote(c *client, kind string, id int, note string, err error
 
 func (a *App) replyOpResult(c *client, kind, note string, res opResult, err error) {
 	a.command(c, kind, outcome(err), note, err)
-	if err != nil {
-		res.Locked = locked(err)
-	} else {
+	if err == nil {
 		log.Printf("config: %s saved by %s", kind, c.who())
 	}
 	a.reply(c, res)
 }
 
 // opResultFor: the "<kind>Result" reply without the PIN-failure flag; replyOpNote adds it,
-// and callers that log their own outcome (unlock, userSetPin) send it as is.
+// and callers that log their own outcome (userSetPin) send it as is.
 func opResultFor(kind string, id *int, err error) opResult {
 	res := opResult{T: kind + "Result", OK: err == nil, ID: id}
 	if err != nil {
 		res.Err = err.Error()
+		res.Recheck = isRecheckErr(err)
+		res.Approval = isApprovalErr(err)
 	}
 	return res
 }

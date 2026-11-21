@@ -32,8 +32,6 @@ func animatedGIF(t *testing.T) []byte {
 	return b.Bytes()
 }
 
-// The editor's upload path: a PNG over 1024 is stored at most 1024 on a side. An animated GIF is stored byte for
-// byte and still animates. An oversize GIF is refused before anything is sent.
 func TestChromeEditorArtUpload(t *testing.T) {
 	b, a, ana, id := editorTabPrep(t, `{"name":"Art","rows":2,"cols":2,"cells":[{"r":1,"c":1,"kind":"take"}]}`, nil)
 	sq := `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]')`
@@ -102,7 +100,7 @@ func TestChromeEditorArtUpload(t *testing.T) {
 	}
 
 	b.eval(fmt.Sprintf(`choose(fromB64(%q, 'image/gif'), 'wide.gif'); true`, base64.StdEncoding.EncodeToString(imgBytes("gif", 2000, 10))))
-	b.waitFor("an oversize GIF is refused with how to fix it", `/Resize it and upload again/.test(note().textContent)`)
+	b.waitFor("an oversize GIF is refused", `/GIF too large/.test(note().textContent)`)
 	if arts = stored(); len(arts) != 2 {
 		t.Fatalf("the oversize GIF was sent: %+v", arts)
 	}

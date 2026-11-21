@@ -12,10 +12,6 @@ func gridMenu(b *tab, node string) {
 	b.eval(node + `.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); true`)
 }
 
-// Jumps and Undo on a Grid panel in Take mode. Each destination starts on the source of its own number.
-// g and a right-click on a destination go to its current source. G and a right-click on a source step through
-// the destinations that have it. A right-click on a staged crosspoint unstages it. With a route staged, u asks first. Then it stages this instance's Undo in place
-// of the route. Enter and the confirm send the Undo, and the old source comes back.
 func TestChromeGridPanelUndo(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

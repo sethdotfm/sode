@@ -1,4 +1,3 @@
-// When an open panel applies a changed revision (panelupdate.js), with no DOM and no clock.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createUpdate, noticeRev, snooze, canSnooze, applyNow, updateStep, applied, bannerLine, COUNT_MS, SNOOZE_MS } from '../panelupdate.js';
@@ -101,8 +100,8 @@ test('a panel with no revision yet (an older server) never updates', () => {
 });
 
 test('the banner line says what the refresh waits for, and when staged routes go with it', () => {
-  assert.equal(bannerLine({ leftMs: 2100, wait: '', drops: false }), 'Refreshing in 3 s.');
-  assert.equal(bannerLine({ leftMs: 42000, wait: '', drops: true }), 'Refreshing in 42 s. It drops the staged routes.');
+  assert.equal(bannerLine({ leftMs: 2100, wait: '', drops: false }), 'Applies in 3 s.');
+  assert.equal(bannerLine({ leftMs: 42000, wait: '', drops: true }), 'Applies in 42 s. Drops the staged routes.');
   assert.match(bannerLine({ leftMs: 0, wait: 'busy' }), /after the take/);
   assert.match(bannerLine({ leftMs: 0, wait: 'staged' }), /take or clear/);
 });

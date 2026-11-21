@@ -1,8 +1,9 @@
-// Desktop layout: three boxes, Tab between them, churning-key confirm.
-
-import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
+import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, labelNode } from './core.js';
+import { keyLabel } from './keys.js';
+import { searchText } from './routerprefix.js';
+import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
-import { levelBar, allLevels, levelSource } from './levelview.js';
+import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
@@ -15,6 +16,7 @@ import {
   sendTakes,
   lastTake,
   nextTake,
+  nextFind,
   boxPatch,
   lastChip,
   VERBS,
@@ -32,6 +34,9 @@ import { combobox } from './widgets.js';
 import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 import { compactCentre } from './compactcentre.js';
+import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged, takeRoutes } from './gridpopup.js';
+import { takeWord } from './gridpanelphone.js';
+import { protectKey } from './protects.js';
 
 const sel = { src: null, dst: null };
 let dsts = [];
@@ -44,20 +49,41 @@ const boxes = {
 for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.cb = combobox(b.input, $(`${k}-menu`), {
-    source: (text) => search(b.list(), text, MAX_MATCHES),
+    source: (text) => matchesOf(k, text),
     onPick: (it) => select(k, it),
     add: k === 'dst' ? (it) => addDst(it) : undefined,
+    addTip: 'Add as a destination',
+    onPickAll: k === 'dst' ? (items) => addAll(items) : undefined,
     foot: $(`${k}-count`),
     onRender: () => b.all?.sync(),
     outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it.n),
   });
 }
+// A typed list ("11-13", "Rec 1-4", boxlist.js) in the Destination box shows its destinations all selected, so Enter,
+// Tab, + and Ctrl+Enter add exactly what shows. A text that starts a name is a search. The Source box takes one source:
+// a list there gets a note that points to the Grid.
+function matchesOf(k, text) {
+  const all = k === 'src' ? S.srcs : S.dsts;
+  const q = searchText(text, S.prefix, [], [S.prefix]);
+  const list = q && parseList(q);
+  if (!list || namedAs(q, all)) return search(boxes[k].list(), text, MAX_MATCHES);
+  if (k === 'src') return Object.assign([], { note: `One source only. For many routes, use the Grid (${keyLabel('ctrl+e')}).` });
+  if (list.tooMany) return Object.assign([], { note: `A list can have ${LIST_MAX} destinations or fewer.` });
+  const { found, missing } = listMatches(list, S.dsts);
+  const rows = found.filter((d) => !chosen(d));
+  const note = missingNote(missing) || (found.length && !rows.length ? 'These destinations are added.' : '');
+  return Object.assign(rows, { all: true, note });
+}
+
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onChange: () => renderTally() });
+// With the Levels box hidden, a move to Levels goes to the last box before Take, where Enter takes.
+function toLevels() {
+  focusBox(levelsShown() ? lvlInput : flipped() ? boxes.src.input : boxes.dst.input);
+}
 
-const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
-
-// ---- connection
+const active = () =>
+  layout() === 'desktop' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
 
 function renderConn() {
   const c = paintConn({
@@ -73,10 +99,9 @@ function renderConn() {
 }
 needsLink($('patch'));
 
-// ---- the boxes
-
 function select(k, it) {
   sel[k] = it;
+  if (k === 'dst') lastAdd = null;
   const b = boxes[k];
   b.input.value = it ? it.label : '';
   b.input.classList.remove('pb-input--invalid');
@@ -85,43 +110,62 @@ function select(k, it) {
   renderTally();
 }
 
-// ---- destination chips
-
 const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...dsts]);
 
-// The typed search stays after +, so the next match is one + away; while the box holds exactly
-// it, Enter/Tab/Patch go on with the chips.
-const kept = keepSearch(() => boxes.dst.input.value);
-const keptText = kept.is;
+// After an add the box is empty, so the next digits start a new search. The last add arms the next add (of a list, the
+// one with the highest router number). On the empty box, +, Ctrl+Enter and the + button add nextAdd's destination. The
+// box shows it (paintArmed). It uses the Next match behavior setting, as the Next chip does. Typing, any pick, a take and
+// Clear end it. With no add directly before, an add on the empty box does nothing.
+let lastAdd = null;
+const armed = () => (lastAdd !== null && !sel.dst && !boxes.dst.input.value ? nextAdd(lastAdd, S.dsts, chosen, nextFind(S.dsts)) : null);
 
 function addDst(pick) {
   const b = boxes.dst;
   b.input.focus();
   // A row moved to in the browse list counts though the box holds no text.
   if (!pick && b.cb.moved) pick = b.cb.current();
-  let typed = b.input.value;
-  if (pick) sel.dst = pick;
-  else if (!sel.dst) {
-    if (!typed.trim()) return;
-    if (!b.cb.open) b.cb.refresh();
-    if (!b.cb.accept()) {
-      b.input.classList.add('pb-input--invalid');
-      return;
-    }
-  } else typed = '';
-  const added = sel.dst.n;
-  if (!chosen(sel.dst)) dsts.push(sel.dst);
+  if (!pick && !sel.dst && !b.input.value.trim()) {
+    pick = armed();
+    if (!pick) return;
+  }
+  if (pick) return addAll([pick]);
+  if (sel.dst) return addAll([sel.dst]);
+  if (!b.cb.open) b.cb.refresh();
+  // A typed list adds all its destinations through onPickAll; a match comes back as sel.dst.
+  if (!b.cb.accept()) b.input.classList.add('pb-input--invalid');
+  else if (sel.dst) addAll([sel.dst]);
+}
+
+function addAll(items) {
+  const b = boxes.dst;
+  for (const d of items) if (!chosen(d)) dsts.push(d);
   sel.dst = null;
-  b.input.value = typed;
-  kept.set(true, typed);
+  b.input.value = '';
   b.input.classList.remove('pb-input--invalid');
+  b.cb.close();
+  lastAdd = items.reduce((a, d) => (!a || d.n > a.n ? d : a), null);
   renderChips();
   renderTally();
-  showList('dst', b.list().find((d) => d.n > added)?.n);
+}
+
+// The armed next add shows in the empty box as a destination chip, laid over the input (CSS hides it once there is text).
+// A placeholder cannot hold a chip, so it stays one space, which keeps :placeholder-shown; aria-description says the add.
+let armedAt = null;
+function paintArmed() {
+  const d = armed();
+  if (d === armedAt) return;
+  armedAt = d;
+  const slot = $('dst-armed');
+  slot.hidden = !d;
+  const key = keyLabel('mod+enter');
+  slot.replaceChildren(...(d ? [el('span', null, `${key} adds:`), el('span', 'sode__end sode__end--dst', labelNode(d))] : []));
+  if (d) boxes.dst.input.setAttribute('aria-description', `${key} adds ${d.label}`);
+  else boxes.dst.input.removeAttribute('aria-description');
 }
 
 // Ctrl-click on a destination elsewhere on the page: it joins the chips, with the box's own pick.
 function addEnd(it) {
+  lastAdd = null;
   const have = allDsts();
   dsts = have.some((x) => x.n === it.n) ? have : [...have, it];
   if (sel.dst) {
@@ -145,10 +189,11 @@ function renderChips() {
       x.addEventListener('mousedown', (e) => e.preventDefault());
       x.addEventListener('click', () => {
         dsts.splice(i, 1);
+        lastAdd = null;
         renderChips();
         renderTally();
       });
-      const chip = el('span', 'pb-chip pb-chip--static', d.label, x);
+      const chip = el('span', 'sode__end sode__end--dst sode__dst-chip', labelNode(d), x);
       chip.setAttribute('role', 'listitem');
       return chip;
     }),
@@ -156,8 +201,6 @@ function renderChips() {
   const n = allDsts().length;
   $('dst-label').textContent = n > 1 ? `Destinations (${n})` : 'Destination';
 }
-
-// ---- the last take's source, destinations or levels (Ctrl+S/D/F)
 
 // Last chip does what Ctrl+S/D/F do; the Next chip (Ctrl+Shift+S/D) opens over it on hover,
 // focus or Shift (data-shift). Hidden when the box has it, and for default levels.
@@ -179,9 +222,9 @@ function renderLast() {
         'pb-chip sode__last',
         el('span', 'sode__tag', 'Last'),
         el('span', 'sode__last-text', ...last[k]),
-        el('kbd', 'sode__key-note', `⌃${key}`),
+        el('kbd', 'sode__key-note', keyLabel(`ctrl+${key}`)),
       );
-      b.title = `Last take's ${what} (Ctrl+${key})`;
+      b.dataset.pbTip = `Last ${what} (${keyLabel(`ctrl+${key}`)})`;
       b.addEventListener('click', () => useLast(k));
       chips.push(b);
     }
@@ -190,13 +233,19 @@ function renderLast() {
         'button',
         'pb-chip sode__last sode__next',
         el('span', 'sode__tag', 'Next'),
-        el('kbd', 'sode__key-note sode__tag-key', `⌃⇧${key}`),
-        el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))),
+        el('kbd', 'sode__key-note sode__tag-key', keyLabel(`ctrl+shift+${key}`)),
+        el(
+          'span',
+          'sode__next-open',
+          el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', keyLabel(`ctrl+shift+${key}`))),
+        ),
       );
-      b.title = `Last take's ${what}, the next one (Ctrl+Shift+${key.toUpperCase()})`;
+      b.dataset.pbTip = `Next ${what} (${keyLabel(`ctrl+shift+${key}`)})`;
       b.addEventListener('click', () => useLast(k, true));
       // The closed chip's room stays in the slot so nothing in the row moves.
-      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', `⌃⇧${key}`)), b));
+      chips.push(
+        el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', keyLabel(`ctrl+shift+${key}`))), b),
+      );
     }
     for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';
@@ -206,20 +255,25 @@ function renderLast() {
     slot.replaceChildren(...chips);
   }
 }
-on('history', renderLast);
+// A Next match behavior change comes as history (device.js), so the next add's hint changes with it.
+on('history', () => {
+  renderLast();
+  paintArmed();
+});
 on('last', renderLast);
 
 // Fills one box from the last take, then focuses the opposite box only if empty, else Levels.
 // next: use nextTake() and remember it so a repeat goes on.
 function useLast(k, next = false) {
   const fill = lastFill(k, next, boxState());
-  if (fill?.none) return showResult('info', 'No take yet', 'There is no earlier take to reuse.');
+  if (fill?.none) return showResult('info', 'No earlier take', '');
   if (!fill) return;
   const t = fill.t;
   if (k === 'src') {
     select('src', t.src);
     const dstEmpty = !sel.dst && !dsts.length && !boxes.dst.input.value.trim();
-    focusBox(dstEmpty ? boxes.dst.input : lvlInput);
+    if (dstEmpty) focusBox(boxes.dst.input);
+    else toLevels();
   } else if (k === 'dst') {
     const have = allDsts();
     const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
@@ -228,14 +282,13 @@ function useLast(k, next = false) {
       select('dst', add[add.length - 1]);
     }
     const srcEmpty = !sel.src && !boxes.src.input.value.trim();
-    focusBox(srcEmpty ? boxes.src.input : lvlInput);
-  } else {
+    if (srcEmpty) focusBox(boxes.src.input);
+    else toLevels();
+  } else if (levelsShown()) {
     lvl.set(t.levels);
     focusBox(lvlInput);
   }
 }
-
-// ---- tally display
 
 // Both lists show at the same time, on their own row (the flip swaps them).
 function underHead(text, up) {
@@ -250,18 +303,24 @@ function sendingRow(src, d, levels) {
       dsts = have;
       select('dst', dstItem(d));
     }
-    lvlInput.focus();
+    toLevels();
   });
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
+// The route view of one destination: no source, one destination. It offers Protect and Clear Protect.
+const routeView = () => !sel.src && !boxes.src.input.value.trim() && allDsts().length === 1;
+const protectFromKeys = (set) => routeView() && protectKey(allDsts()[0], set, openConfirm);
+
 function pickSrc(n) {
   select('src', srcItem(n));
-  lvlInput.focus();
+  toLevels();
 }
 
 function renderTally() {
   renderLast();
+  paintTakes();
+  paintArmed();
   const srcUnder = $('src-under'),
     dstUnder = $('dst-under');
   if (!S.cfg) {
@@ -284,7 +343,7 @@ function renderTally() {
     const srcs = new Set(ds.flatMap((d) => bySource(d.n, allLevels()).map((r) => r.src)).filter((s) => s != null && s >= 0));
     dstUnder.replaceChildren(
       underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving', true),
-      el('div', 'sode__scroll', ...ds.flatMap((d) => currentlyNodes(d, pickSrc))),
+      el('div', 'sode__scroll', ...ds.flatMap((d) => currentlyNodes(d, pickSrc, routeView() ? openConfirm : null))),
     );
   } else dstUnder.replaceChildren();
   [srcUnder, dstUnder].forEach((u, i) => {
@@ -293,12 +352,20 @@ function renderTally() {
   });
 }
 
-// ---- history
+const historyView = desktopHistory({
+  select,
+  addEnd,
+  focusBox,
+  openConfirm,
+  focusSearch,
+  openKeys: () => keys.open(),
+  boxes,
+  active,
+  protect: (set) => protectFromKeys(set),
+});
+const { renderHistory, enterKeys, keyMode, histList, histArea, pager, useEnd } = historyView;
 
-const historyView = desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys: () => keys.open(), boxes, active });
-const { renderHistory, enterKeys, keyMode, histList, histArea, pager } = historyView;
-
-// ---- flip order (per browser; index.html applies it before first paint)
+// Per browser; index.html applies it before first paint.
 
 function showFlip() {
   const on = flipped();
@@ -310,8 +377,6 @@ $('flip').addEventListener('click', () => setFlip(!flipped()));
 on('flip', showFlip);
 showFlip();
 
-// ---- shortcut list (?)
-
 const keys = shortcutList({ keyMode, fromHistory: histArea, enterKeys, focusFirst: () => focusBox(boxes.src.input) });
 
 function focusSearch(k) {
@@ -320,8 +385,6 @@ function focusSearch(k) {
   f.focus();
   f.select();
 }
-
-// ---- confirm
 
 let confirmBack = null;
 let confirmKeys = false;
@@ -332,32 +395,68 @@ const confirm = keyConfirm({
   summary: planSummary,
   enter: () => !!S.cfg?.confirmEnter,
   spaceHint: true,
-  prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'],
+  prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, Esc to cancel.'],
   onTake: (p, viaKeys) => {
-    if (sendTakes(p) && VERBS[p.verb].resets) clearAll();
+    // A One Take of the staged routes with the boxes' route (gridpopup.js) clears the boxes as a patch does.
+    if (sendTakes(p) && (VERBS[p.verb].resets || p.resets)) clearAll();
     else focusBack(viaKeys);
   },
   onClose: (p, viaKeys) => {
-    if (p?.verb === 'patch') lvlInput.focus();
+    if (p?.verb === 'patch') toLevels();
     else focusBack(viaKeys);
   },
 });
 
 function wantsMatch(k) {
   const b = boxes[k];
-  return b.cb.moved || (!sel[k] && !!b.input.value.trim() && !(k === 'dst' && keptText()));
+  return b.cb.moved || (!sel[k] && !!b.input.value.trim());
 }
 
+const boxesEmpty = () => !sel.src && !sel.dst && !dsts.length && !boxes.src.input.value.trim() && !boxes.dst.input.value.trim();
+
+// The route the boxes hold, as tryConfirm would send it, or null. It marks nothing and moves no focus.
+function boxRoute() {
+  const ds = allDsts();
+  const dstText = !sel.dst && boxes.dst.input.value.trim();
+  const levels = lvl.levels();
+  return sel.src && ds.length && !dstText && levels ? { src: sel.src, dsts: ds, levels } : null;
+}
+
+// One Take: with staged routes, Take sends them and the boxes' route in one Confirm (gridpopup.js). Boxes with only
+// part of a route stay out of the take, because one box can find an item on the grid (Ctrl+e). An Enter that picks a
+// match only picks it, as with nothing staged. It goes on to the empty box and opens no Confirm.
 function patchNow() {
+  const picked = pickTyped();
+  if (boxPicking()) return addPatch();
+  if (stagedCount() && (!picked || boxRoute()) && takeStaged()) return;
+  tryConfirm();
+}
+
+// Typed text not yet picked takes its best match, as Enter picks it: before a Take, and before Ctrl+e finds the box on
+// the grid. True when it picked one. With no match the box keeps its text.
+function pickTyped() {
+  let picked = false;
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
     if (wantsMatch(k)) {
       if (!b.cb.open) b.cb.refresh();
-      b.cb.accept();
+      picked = !!b.cb.accept() || picked;
     }
   }
-  if (boxPicking()) return addPatch();
-  tryConfirm();
+  return picked;
+}
+
+// The one Clear (#clear-all) and Esc: the boxes and the staged routes.
+const nothingToClear = () => boxesEmpty() && lvl.empty() && !stagedCount();
+function clearEverything() {
+  dropStaged();
+  clearAll();
+}
+// Take counts what it sends when that is more than one route (One Take). A plain patch says Take.
+function paintTakes() {
+  $('clear-all').disabled = nothingToClear();
+  const word = takeWord(takeRoutes(boxRoute()));
+  if ($('patch').textContent !== word) $('patch').textContent = word;
 }
 
 function tryConfirm() {
@@ -365,7 +464,7 @@ function tryConfirm() {
   for (const k of ['src', 'dst']) {
     // Chips alone are fine, but text that matched nothing still stops the patch.
     const b = boxes[k];
-    if (!sel[k] && (k === 'src' || !dsts.length || (b.input.value.trim() && !(k === 'dst' && keptText())))) {
+    if (!sel[k] && (k === 'src' || !dsts.length || b.input.value.trim())) {
       b.input.classList.add('pb-input--invalid');
       b.input.focus();
       return;
@@ -374,7 +473,7 @@ function tryConfirm() {
   const levels = lvl.levels();
   if (!levels) {
     lvlInput.classList.add('pb-input--invalid');
-    lvlInput.focus();
+    toLevels();
     return;
   }
   openConfirm(patchPlan(sel.src, allDsts(), levels));
@@ -389,15 +488,13 @@ function openConfirm(plan) {
   confirm.open(plan, prot);
 }
 
-// Focus returns to where the confirm opened. Keyboard mode only if it was on and answered from
-// the keyboard; from Recent otherwise it goes to Source, boxes untouched (the row is redrawn).
+// Focus returns to where the confirm opened. Keyboard mode returns only if it was on and the answer came from the
+// keyboard. From History, focus goes to Source and the boxes stay (the row is redrawn).
 function focusBack(viaKeys) {
   if (confirmKeys && viaKeys) enterKeys();
   else if (!confirmFromHist && confirmBack?.isConnected) confirmBack.focus();
   else focusBox(boxes.src.input);
 }
-
-// ---- keyboard & input wiring
 
 function clearAll() {
   dsts = [];
@@ -411,6 +508,7 @@ for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.input.addEventListener('input', () => {
     sel[k] = null;
+    if (k === 'dst') lastAdd = null;
     b.input.classList.remove('pb-input--invalid');
     b.cb.refresh();
     renderTally();
@@ -429,7 +527,7 @@ function showList(k, at, keepMoved = false) {
   if (sel[k] || !b.input.value.trim()) b.cb.browse(b.list(), at, { keepMoved });
   else b.cb.refresh();
 }
-// Focusing a box scrolls to the top (Settings → This device).
+// A focus on a box scrolls to the top (Settings, This browser).
 const calm = matchMedia('(prefers-reduced-motion: reduce)');
 // From down the page, skip the browser's own jump so the scroll animates all the way.
 function focusBox(input) {
@@ -438,25 +536,49 @@ function focusBox(input) {
 for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   input.addEventListener('focus', () => {
     input.select();
-    // Not while the lock screen goes up or away: the page keeps its scroll.
+    // Not while the Lock goes up or away: the page keeps its scroll.
     if (active() && scrollTopPref() && window.scrollY > 0 && !document.documentElement.dataset.sodeLock) {
       window.scrollTo({ top: 0, behavior: calm.matches ? 'auto' : 'smooth' });
     }
   });
 }
 
-desktopKeys({ boxes, dsts: () => dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally });
+desktopKeys({
+  boxes,
+  dsts: () => dsts,
+  confirm,
+  keys,
+  historyView,
+  active,
+  select,
+  addDst,
+  useLast,
+  wantsMatch,
+  patchNow,
+  clearEverything,
+  nothingToClear,
+  grid: { shown: gridShown, toggle: toggleGrid },
+});
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
+$('dst-add').dataset.pbTip = `Add destination (+, ${keyLabel('mod+enter')})`;
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
-
-// ---- subscriptions
+$('clear-all').addEventListener('mousedown', (e) => e.preventDefault());
+$('clear-all').addEventListener('click', clearEverything);
+on('staged', paintTakes);
 
 on('hello', () => {
   pager.reset();
   lvl.reset();
+  // A Settings save sends a new hello, so an open page follows a change of levels.
+  const box = lvlInput.closest('.sode__box');
+  box.hidden = !levelsShown();
+  if (box.hidden) {
+    lvl.clear();
+    if (document.activeElement === lvlInput) toLevels();
+  }
   renderTally();
   renderHistory();
 });
@@ -469,34 +591,49 @@ on('names', () => {
   renderTally();
 });
 on('tally', renderTally);
+on('myRights', renderTally); // the route view's Protect follows the Protect right
 // Done (or Cancel) in a pick bar: a match list must not stay open over the page.
 on('pick', () => {
   if (!boxPicking()) for (const k of ['src', 'dst']) boxes[k].cb.close();
 });
 on('conn', renderConn);
-// A burst of takes sends one recent each, and a redraw rebuilds every row: one redraw per frame is enough.
+// One redraw per frame: each take in a burst sends an entry, and a redraw rebuilds every row.
 let histFrame = 0;
-on('history', () => {
+const redrawHistory = () => {
   histFrame ||= requestAnimationFrame(() => {
     histFrame = 0;
     renderHistory();
   });
-});
+};
+on('history', redrawHistory);
+// A Protect row's Undo follows the router's state, the sign-in and the Rights (historyrows.js protectActions).
+on('protectedRows', redrawHistory);
+on('myRights', redrawHistory);
+on('conn', redrawHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
 
 presetHost({
   active,
   confirm: openConfirm,
   patch: () => boxPatch(sel.src, allDsts(), lvl),
+  picks: () => ({ src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: clearAll,
   focus: () => boxes.src.input.focus(),
+  // Back from the Grid popup: the first empty box, else Levels, so the next Enter takes (owner's rule).
+  entry: () => (!sel.src ? focusBox(boxes.src.input) : !allDsts().length ? focusBox(boxes.dst.input) : toLevels()),
+  route: boxRoute,
+  // showGrid picks typed text first, so the popup opens on what the boxes show, not on the last place.
+  pickTyped,
+  // A staged route's chips (gridpopup.js), as a History row's.
+  useEnd,
+  addEnd,
   fill: (p) => {
     dsts = p.dsts.slice(0, -1);
     select('src', p.src);
     select('dst', p.dsts[p.dsts.length - 1]);
     if (p.levels.length) lvl.set(p.levels);
     else lvl.clear();
-    focusBox(lvlInput);
+    toLevels();
   },
 });
 

@@ -1,12 +1,11 @@
-// The editor's Pages bar, left of the grid: a card per Page. Its title row holds the number, name and the On switch
-// (asked for by the user, though the change still waits for Save). One row of icons below holds rename, Copy to,
-// Move up, Move down and Delete Page. Cards are dragged to reorder, and Add Page ends the list. Rules are editorpagerules.js;
-// orderedlist.js draws the rows' order controls; paneleditor.js holds the list and does each act.
+// The editor's Pages bar, left of the grid: a card per Page. Its title row holds the number, name and the On switch.
+// One row of icons below holds rename, Copy to, Move up, Move down and Delete Page. Cards are dragged to reorder, and Add
+// Page ends the list. Rules are editorpagerules.js; orderedlist.js draws the rows' order controls; paneleditor.js holds the list and does each act.
 import { el, icon } from './core.js';
 import { btn } from './formbits.js';
 import { confirmBox } from './confirmbox.js';
 import { pageLabel, PAGE_MAX, PAGE_NAME_MAX } from './panelpages.js';
-import { leadsTo } from './editorpagerules.js';
+import { leadsTo, OPEN_MAX } from './editorpagerules.js';
 import { createOrderedList } from './orderedlist.js';
 
 // act: open(id, multi), rename(i, text), enable(i, on), move(i, to), copyTo(i), remove(i), add().
@@ -69,7 +68,7 @@ export function createPageBar(host, act) {
     open.dataset.act = 'open';
     open.setAttribute('aria-pressed', String(isOpen));
     if (p.id === s.focus) open.setAttribute('aria-current', 'page');
-    open.dataset.pbTip = 'Click to edit this Page. Cmd or Ctrl-click to open up to four side by side.';
+    open.dataset.pbTip = `Cmd- or Ctrl-click: open side by side (${OPEN_MAX} at most)`;
     open.addEventListener('click', (e) => act.open(p.id, e.metaKey || e.ctrlKey));
     // On a Mac, Ctrl-click is a right click and never fires click.
     open.addEventListener('contextmenu', (e) => {
@@ -117,7 +116,7 @@ export function createPageBar(host, act) {
 
   async function remove(pages, i) {
     const n = leadsTo(pages, pages[i].id);
-    const cells = n ? ` ${n} Go to Page cell${n > 1 ? 's' : ''} lead${n > 1 ? '' : 's'} to it and will turn dashed.` : ' No Go to Page cell leads to it.';
+    const cells = n ? ` ${n} Go to Page cell${n > 1 ? 's' : ''} lead${n > 1 ? '' : 's'} to it and will turn dashed.` : '';
     if (await ask.ask(`Delete Page ${i + 1}, ${pageLabel(pages[i], i)}, and its cells? Undo cannot bring it back.${cells}`, 'Delete')) act.remove(i);
   }
 

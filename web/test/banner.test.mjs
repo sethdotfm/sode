@@ -1,10 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// core.js and the modules on it read these at load.
-const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
-globalThis.document = node();
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+import './domstub.mjs';
 
 test('dismissMs: only a success closes itself, and only with a time set', async () => {
   const { dismissMs } = await import('./all.mjs');

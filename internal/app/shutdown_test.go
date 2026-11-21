@@ -92,7 +92,7 @@ func (r *shutdownRig) send(t *testing.T, v any) {
 }
 
 func (r *shutdownRig) take(t *testing.T, id, src, dst int) {
-	r.send(t, map[string]any{"t": "batch", "items": []map[string]any{{"id": id, "src": src, "dst": dst, "levels": []int{1}}}})
+	r.send(t, map[string]any{"t": "take", "items": []map[string]any{{"id": id, "src": src, "dst": dst, "levels": []int{1}}}})
 }
 
 // sentConnect waits until the take's connect has been sent, so it is in flight.
@@ -148,7 +148,6 @@ func TestShutdownWaitsForTakeInFlight(t *testing.T) {
 	}
 }
 
-// readResult reads the socket until the takeResult for id.
 func (r *shutdownRig) readResult(t *testing.T, id int) routeResult {
 	t.Helper()
 	for {
@@ -189,7 +188,7 @@ func TestShutdownStopsAtTheLimit(t *testing.T) {
 		t.Fatalf("an unanswered take succeeded: %+v", res)
 	}
 	log.SetOutput(os.Stderr)
-	if !strings.Contains(buf.String(), "writes still running: batch 1") {
+	if !strings.Contains(buf.String(), "writes still running: take 1") {
 		t.Fatalf("log doesn't name the take left running:\n%s", buf.String())
 	}
 }

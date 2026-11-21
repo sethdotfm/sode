@@ -1,4 +1,3 @@
-// The router list on the Grid panel editor's list tabs (editorgridrules.js): Find, selection and Add. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { routerRows, findRows, selectRows, addItems } from '../editorgridrules.js';
@@ -87,4 +86,29 @@ test('Add on an "all" edge first turns it into a list', () => {
   assert.deepEqual(e.items, { 0: { art: 'x' } });
   const all = { members: 'all' };
   assert.equal(addItems(all, router, new Set([1])), all);
+});
+
+test('Add at a position inserts at the start, the middle and the end', () => {
+  const edge = { members: [2, 9, 1] };
+  assert.deepEqual(addItems(edge, router, new Set([3, 0]), { at: 0 }).members, [0, 3, 2, 9, 1]);
+  assert.deepEqual(addItems(edge, router, new Set([3, 0]), { at: 1 }).members, [2, 0, 3, 9, 1]);
+  assert.deepEqual(addItems(edge, router, new Set([3, 0]), { at: 3 }).members, [2, 9, 1, 0, 3]);
+  // Past the end, or no place, appends.
+  assert.deepEqual(addItems(edge, router, new Set([3]), { at: 99 }).members, [2, 9, 1, 3]);
+  assert.deepEqual(addItems(edge, router, new Set([3])).members, [2, 9, 1, 3]);
+});
+
+test('Add at a position keeps an array in its own order', () => {
+  assert.deepEqual(addItems({ members: [2] }, router, [3, 0, 1], { at: 0 }).members, [3, 0, 1, 2]);
+});
+
+test('Add at a position skips an item already in the list, which stays where it is', () => {
+  const edge = { members: [2, 9, 1] };
+  assert.deepEqual(addItems(edge, router, [1, 3], { at: 1 }).members, [2, 3, 9, 1]);
+  assert.equal(addItems(edge, router, [1, 2], { at: 0 }), edge);
+});
+
+test('Add at a position on an "all" edge counts in the order it shows', () => {
+  const e = addItems({ members: 'all', hide: [1, 3] }, router, new Set([3]), { at: 1 });
+  assert.deepEqual(e.members, [0, 3, 2]);
 });

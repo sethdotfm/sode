@@ -11,12 +11,10 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Both: a link with the key opens the panel as its API client with no sign-in. The plain link runs it in
-// Session mode behind the page lock's PIN pad.
 func TestChromePanelBothMode(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -40,6 +38,7 @@ func TestChromePanelBothMode(t *testing.T) {
 	b.eval(`localStorage.removeItem('sode-panel-key-` + id + `')`)
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the plain link asks for a sign-in", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

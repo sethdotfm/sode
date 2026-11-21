@@ -1,4 +1,3 @@
-// Fill cascade (gridedge.js cascadeWrap): Wrap's cells past a Page's last square go on to later Pages. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGrid, select } from '../gridmodel.js';
@@ -11,7 +10,7 @@ const size = { rows: 2, cols: 2 };
 const page = (id, cells = [], enabled = true) => ({ id, enabled, cells });
 const spots = (cells) => cells.map((c) => `${c.r},${c.c}`);
 
-// A 2 by 2 grid, pasting 7 cells at the last square of Page 1 leaves 6 for later Pages.
+// A 2 by 2 grid: 7 cells pasted at the last square of Page 1 leave 6 for later Pages.
 function setup(n = 7, pages) {
   const g = select(createGrid({ ...size, cells: [] }), 2, 2);
   const plan = pastePlan(g, block(n), { panel: 'p-1' });
@@ -55,7 +54,7 @@ test('the dialog and the status line count the Pages carried on to and the cells
   assert.equal(c.wrap.dropped, 2);
   assert.match(c.wrap.text, /carries 4 cells on to Page 2/);
   assert.match(c.wrap.text, /cuts off 2 that do not fit/);
-  assert.match(edgeNote(plan, c.wrap), /^Pasted 5 cells\..*carried 4 cells on to Page 2\. 2 cells were left over and cut off\./);
+  assert.match(edgeNote(plan, c.wrap), /^Pasted 5 cells\..*carried 4 cells on to Page 2\. Cut off 2 cells\./);
 });
 
 test('without later Pages Wrap reads as before', () => {

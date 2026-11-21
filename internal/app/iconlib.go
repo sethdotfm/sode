@@ -3,9 +3,9 @@ package app
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,8 +15,6 @@ import (
 	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
 // Icon library: one install-wide set of SVG and PNG icons, icons.yaml beside the config and the files in icons/
@@ -33,11 +31,10 @@ var (
 	// Random, not by content: two names for the same file stay two icons. Keep in step with LIB in web/panellook.js.
 	iconIDRe = regexp.MustCompile(`^[0-9a-f]{8}$`)
 
-	errIconLibCap  = errors.New("the Icon library would pass its 64 MB total; delete some icons first")
-	errIconBadName = fmt.Errorf("an icon needs a name of 1 to %d characters", iconNameMax)
+	errIconLibCap  = &panelClientFail{http.StatusConflict, "conflict", "the Icon library would pass its 64 MB total; delete some icons first"}
+	errIconBadName = &panelClientFail{http.StatusBadRequest, "bad_request", fmt.Sprintf("an icon needs a name of 1 to %d characters", iconNameMax)}
 )
 
-// LibIcon is one library icon as the index stores it and the API sends it.
 type LibIcon struct {
 	ID   string `yaml:"id" json:"id"`
 	Name string `yaml:"name" json:"name"`
@@ -63,15 +60,16 @@ type iconLib struct {
 	scanMu sync.Mutex // one rescan at a time, so two never add the same file
 	path   string     // "" = memory only
 	data   iconLibData
-	mem    map[string][]byte
+	files  blobDir // named by fileName
 }
 
 func loadIconLib(cfgPath string) *iconLib {
-	s := &iconLib{mem: map[string][]byte{}}
+	s := &iconLib{}
 	if cfgPath == "" {
 		return s
 	}
 	s.path = filepath.Join(filepath.Dir(cfgPath), iconLibFile)
+	s.files.dir = s.dir()
 	b, err := os.ReadFile(s.path)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -112,8 +110,8 @@ func iconNameOK(name string) bool {
 	return name != "" && utf8.RuneCountInString(name) <= iconNameMax && cleanText(name, iconNameMax) == name
 }
 
-// freeName is name, or name with " 2", " 3" and so on when another icon has it ignoring case. The base is cut so
-// the result still fits iconNameMax. "" with errIconBadName when name is empty or too long.
+// freeName is name, or name with " 2", " 3" and so on when another icon has it (case does not count). The base is cut
+// so the result still fits iconNameMax. "" with errIconBadName when name is empty or too long.
 func freeName(name string, icons []LibIcon) (string, error) {
 	name = strings.TrimSpace(name)
 	if !iconNameOK(name) {
@@ -141,60 +139,79 @@ func freeName(name string, icons []LibIcon) (string, error) {
 func (s *iconLib) add(name string, data []byte, typ string) (LibIcon, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	name, err := freeName(name, s.data.Icons)
+	ic := LibIcon{Name: name, Type: typ}
+	b := make([]byte, 4)
+	for ic.ID == "" || slices.ContainsFunc(s.data.Icons, func(x LibIcon) bool { return x.ID == ic.ID }) {
+		rand.Read(b)
+		ic.ID = hex.EncodeToString(b)
+	}
+	return s.putLocked(ic, data)
+}
+
+// put stores an imported icon under ic.ID and replaces an icon that has that id. freeName settles the name against
+// the others. Callers check the bytes (checkArtBytes) and the form of the id.
+func (s *iconLib) put(ic LibIcon, data []byte) (LibIcon, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.putLocked(ic, data)
+}
+
+func (s *iconLib) putLocked(ic LibIcon, data []byte) (LibIcon, error) {
+	i := slices.IndexFunc(s.data.Icons, func(x LibIcon) bool { return x.ID == ic.ID })
+	others := slices.Clone(s.data.Icons)
+	if i >= 0 {
+		others = slices.Delete(others, i, i+1)
+	}
+	name, err := freeName(ic.Name, others)
 	if err != nil {
 		return LibIcon{}, err
 	}
+	ic.Name, ic.Size = name, len(data)
 	total := len(data)
-	for _, ic := range s.data.Icons {
-		total += ic.Size
+	for _, x := range others {
+		total += x.Size
 	}
 	if total > iconLibTotal {
 		return LibIcon{}, errIconLibCap
 	}
-	b := make([]byte, 4)
-	rand.Read(b)
-	ic := LibIcon{ID: hex.EncodeToString(b), Name: name, Type: typ, Size: len(data)}
-	for slices.ContainsFunc(s.data.Icons, func(x LibIcon) bool { return x.ID == ic.ID }) {
-		rand.Read(b)
-		ic.ID = hex.EncodeToString(b)
-	}
 	next := s.data
-	next.Icons = append(slices.Clone(s.data.Icons), ic)
-	if s.path == "" {
-		s.mem[ic.ID] = data
-		return ic, s.saveLocked(next)
+	next.Icons = others
+	if i >= 0 {
+		next.Icons = slices.Insert(others, i, ic)
+	} else {
+		next.Icons = append(others, ic)
 	}
-	if err := os.MkdirAll(s.dir(), 0o700); err != nil {
+	if err := s.files.put(ic.fileName(), data); err != nil {
 		return LibIcon{}, err
 	}
-	if err := config.AtomicWrite(filepath.Join(s.dir(), ic.fileName()), data); err != nil {
-		return LibIcon{}, err
+	// The index goes first: it must never name a file that is gone.
+	oldFile := ""
+	if i >= 0 {
+		oldFile = s.data.Icons[i].fileName()
 	}
 	if err := s.saveLocked(next); err != nil {
-		os.Remove(filepath.Join(s.dir(), ic.fileName()))
+		if oldFile != ic.fileName() {
+			s.files.del(ic.fileName())
+		}
 		return LibIcon{}, err
+	}
+	if oldFile != "" && oldFile != ic.fileName() {
+		s.files.del(oldFile)
 	}
 	return ic, nil
 }
 
-// saveLocked writes next as the index; only then does memory take it.
+// saveLocked writes next as the index before memory changes.
 func (s *iconLib) saveLocked(next iconLibData) error {
 	next.Rev = s.data.Rev + 1
-	if s.path != "" {
-		out, err := yaml.Marshal(next)
-		if err == nil {
-			err = config.AtomicWrite(s.path, out)
-		}
-		if err != nil {
-			return err
-		}
+	if err := writeYAML(s.path, next); err != nil {
+		return err
 	}
 	s.data = next
 	return nil
 }
 
-// rename keeps the id, so every `lib:<id>` still names it. The name is settled by freeName against the others.
+// rename keeps the id, so every `lib:<id>` still names it. freeName settles the name against the others.
 // found is false for an id the library does not hold.
 func (s *iconLib) rename(id, name string) (ic LibIcon, found bool, err error) {
 	s.mu.Lock()
@@ -230,9 +247,7 @@ func (s *iconLib) remove(id string) (LibIcon, bool, error) {
 	if err := s.saveLocked(next); err != nil {
 		return LibIcon{}, true, err
 	}
-	if s.path == "" {
-		delete(s.mem, id)
-	} else if err := os.Remove(filepath.Join(s.dir(), ic.fileName())); err != nil && !os.IsNotExist(err) {
+	if err := s.files.del(ic.fileName()); err != nil {
 		log.Printf("icon library: %v", err) // the index no longer names it, so it is only a stray file
 	}
 	return ic, true, nil
@@ -246,10 +261,6 @@ func (s *iconLib) file(id string) ([]byte, LibIcon, bool) {
 		return nil, LibIcon{}, false
 	}
 	ic := s.data.Icons[i]
-	if s.path == "" {
-		b, ok := s.mem[id]
-		return b, ic, ok
-	}
-	b, err := os.ReadFile(filepath.Join(s.dir(), ic.fileName()))
-	return b, ic, err == nil
+	b, ok := s.files.get(ic.fileName())
+	return b, ic, ok
 }

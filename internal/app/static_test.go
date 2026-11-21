@@ -10,9 +10,27 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/sethdotfm/sode/web"
 )
+
+func TestStaticCacheKeepsOnlyFiles(t *testing.T) {
+	s := &staticFiles{fsys: fstest.MapFS{"a.js": {Data: []byte("x")}}}
+	for i := range 500 {
+		if s.get("nope"+strings.Repeat("x", i)+".js") != nil {
+			t.Fatal("missing file served")
+		}
+	}
+	if s.get("a.js") == nil {
+		t.Fatal("file not served")
+	}
+	n := 0
+	s.files.Range(func(any, any) bool { n++; return true })
+	if n != 1 {
+		t.Fatalf("cache holds %d entries, want 1", n)
+	}
+}
 
 func staticGet(t *testing.T, h http.Handler, path string, hdr map[string]string) *httptest.ResponseRecorder {
 	t.Helper()

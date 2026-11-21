@@ -8,11 +8,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// rvk* helpers: a stream must not outlive the key it was opened with.
-
 var rvkBot = keyOwner{Kind: actorClient, Name: "PanelsBot"}
 
-// rvkOpen attaches a stream with a fresh key and returns it with the key's id.
 func rvkOpen(t *testing.T, a *App, exp time.Time) (*strmConn, string) {
 	t.Helper()
 	secret, rec, err := a.keys.createCapped(rvkBot, "Panel 43", exp, 0, "")

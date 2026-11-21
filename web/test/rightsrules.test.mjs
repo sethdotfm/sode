@@ -12,7 +12,6 @@ import {
   pickValid,
   rightsTab,
   accessReq,
-  mergeAccess,
   newEntry,
 } from '../rightsrules.js';
 
@@ -50,7 +49,7 @@ test('the editor keeps All and Only these apart, so an empty list is not All', (
 
 test('rightsOf builds the wire shape and reports the first bad list', () => {
   const d = draftOf({ sources: [0, 1], levels: [1, 2], presets: ['Wall'], visibility: 'hidden' }, 1);
-  assert.deepEqual(rightsOf(d, 1, 4), { rights: { sources: [0, 1], levels: [1, 2], presets: ['Wall'], visibility: 'hidden' } });
+  assert.deepEqual(rightsOf(d, 1, 4), { rights: { sources: [{ n: 0 }, { n: 1 }], levels: [1, 2], presets: ['Wall'], visibility: 'hidden' } });
   d.levels.text = '1, 9';
   assert.match(rightsOf(d, 1, 4).error, /level/i);
   d.levels.text = '1';
@@ -68,13 +67,13 @@ test('planOutside names the first route the rights refuse, with shown numbers', 
   assert.equal(planOutside({ levels: [2] }, plan, 1), 'level 1 is outside your rights');
 });
 
-test('planOutside skips the Before source of an undo and checks a preset by name', () => {
+test('planOutside skips the Before source of an undo and checks a preset by id', () => {
   const undo = { verb: 'undo', items: [{ dst: { n: 9 }, undo: { id: 1 }, groups: [{ src: { n: 3 }, levels: [1] }] }] };
   assert.equal(planOutside({ sources: [] }, undo, 0), '');
   assert.equal(planOutside({ dsts: [] }, undo, 0), 'destination 9 is outside your rights');
-  const preset = { verb: 'preset', preset: 'Wall', items: [] };
-  assert.equal(planOutside({ presets: ['News'] }, preset, 0), 'preset "Wall" is outside your rights');
-  assert.equal(planOutside({ presets: ['Wall'] }, preset, 0), '');
+  const preset = { verb: 'preset', preset: 'Wall', presetId: 'p-wall', items: [] };
+  assert.equal(planOutside({ presets: ['p-news'] }, preset, 0), 'preset "Wall" is outside your rights');
+  assert.equal(planOutside({ presets: ['p-wall'] }, preset, 0), '');
 });
 
 test('Edit user rights jumps to the Rights tab with that row selected, even after a rename', () => {
@@ -99,7 +98,7 @@ test('accessReq sends untouched rights as they were loaded, and nothing for a ro
   const entries = new Map([
     ['user:1', ent({ dsts: [] }, { noAutoLock: true }, ['noAutoLock'])],
     ['client:5', ent({ sources: [2] })],
-    ['guest', ent({ levels: [1] }, { scopes: ['names'] }, ['scopes'])],
+    ['guest', ent({ levels: [1] })],
   ]);
   const r = accessReq({
     entries,
@@ -120,17 +119,13 @@ test('accessReq sends untouched rights as they were loaded, and nothing for a ro
     { name: 'Fresh', scopes: [], rights: {} },
   ]);
   assert.deepEqual(r.guestRights, { levels: [1] });
-  assert.deepEqual(r.guestScopes, ['names']);
+  assert.equal('guestScopes' in r, false, 'keyless scopes save with the API settings');
 });
 
-test('accessReq sends No auto-lock and Guest scopes only once edited', () => {
-  const entries = new Map([
-    ['user:1', ent({}, { noAutoLock: true })],
-    ['guest', ent({}, { scopes: ['names'] })],
-  ]);
+test('accessReq sends No auto-lock only once edited', () => {
+  const entries = new Map([['user:1', ent({}, { noAutoLock: true })]]);
   const r = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 });
   assert.deepEqual(r.users, [{ rights: {} }]);
-  assert.equal('guestScopes' in r, false);
 });
 
 test('accessReq reads an edited draft, and names the user whose rights are wrong', () => {
@@ -138,25 +133,15 @@ test('accessReq reads an edited draft, and names the user whose rights are wrong
   edited.draft.dsts = { all: false, text: '3, 5-6' };
   const entries = new Map([['user:1', edited]]);
   const ok = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 });
-  assert.deepEqual(ok.users, [{ rights: { dsts: [2, 4, 5] } }]);
+  assert.deepEqual(ok.users, [{ rights: { dsts: [{ n: 2 }, { n: 4 }, { n: 5 }] } }]);
   assert.equal('guestRights' in ok, false, 'no guest entry: the server keeps the saved one');
-  assert.equal('guestScopes' in ok, false);
   edited.draft.dsts.text = 'x';
   assert.match(accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 }).error, /^Ana: Destinations/);
 });
 
-test("mergeAccess puts each row's rights on its user and leaves clients and Guest out until they loaded", () => {
-  const req = { users: [{ name: 'Ana' }, { name: 'Bo' }], maxPinLen: 8 };
-  const acc = { users: [{ rights: { dsts: [] } }, {}], apiClients: [{ name: 'P', scopes: [], rights: {} }], guestRights: {}, guestScopes: ['names'] };
-  assert.deepEqual(mergeAccess(req, acc, true), {
-    users: [{ name: 'Ana', rights: { dsts: [] } }, { name: 'Bo' }],
-    maxPinLen: 8,
-    apiClients: acc.apiClients,
-    guestRights: {},
-    guestScopes: ['names'],
-  });
-  const early = mergeAccess(req, acc, false);
-  assert.equal('apiClients' in early, false);
-  assert.equal('guestRights' in early, false);
-  assert.deepEqual(early.users[0], { name: 'Ana', rights: { dsts: [] } });
+test('the Protect right: unset stays unset, Yes and No go back as true and false', () => {
+  assert.equal(draftOf({}, 1).protect, '');
+  assert.deepEqual(rightsOf(draftOf({ protect: true }, 1), 1, 4), { rights: { protect: true } });
+  assert.deepEqual(rightsOf(draftOf({ protect: false }, 1), 1, 4), { rights: { protect: false } });
+  assert.deepEqual(rightsOf(draftOf({}, 1), 1, 4), { rights: {} });
 });

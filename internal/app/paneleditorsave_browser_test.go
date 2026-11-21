@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-// A save keeps edits made while it runs. A cell deleted on Page 2 during a held save stays deleted, and the editor
-// says Unsaved changes. A save that fails tries once more by itself, then the Save button says Retry save until one works.
 func TestChromeEditorSaveKeepsEdits(t *testing.T) {
 	b, a, ana, id := editorTabPrep(t, `{"name":"Two","rows":1,"cols":2,"pages":[
 		{"id":"p1","enabled":true,"cells":[{"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":1}]},
@@ -32,8 +30,8 @@ func TestChromeEditorSaveKeepsEdits(t *testing.T) {
 		window.state = () => document.getElementById('ed-state').textContent;
 		window.saveBtn = () => document.getElementById('ed-save');
 		true`)
-	b.waitFor("Page 1 open, and the header has the Panels logo link and Back to Sode", `cellsOn(1) === 1 && document.getElementById('ed-home').getBoundingClientRect().width > 0
-		&& !!document.querySelector('#ed-home .sode-logo') && document.getElementById('ed-back-sode').getBoundingClientRect().width > 0 && document.querySelector('.sode-panels__title').textContent.endsWith('Panel Editor')`)
+	b.waitFor("Page 1 open, and the header has the Panels logo link and Home", `cellsOn(1) === 1 && document.querySelector('.sode-bar__panels').getBoundingClientRect().width > 0
+		&& !!document.querySelector('.sode-bar__panels .sode-logo') && document.querySelector('.sode-bar__home').getBoundingClientRect().width > 0 && document.querySelector('.sode-panels__title').textContent.endsWith('Panel Editor')`)
 	b.eval(`delAt(1); true`)
 	b.waitFor("Page 1 edited", `cellsOn(1) === 0 && state() === 'Unsaved changes'`)
 	b.eval(`window.hold = new Promise((ok) => (window.release = ok)); saveBtn().click(); true`)

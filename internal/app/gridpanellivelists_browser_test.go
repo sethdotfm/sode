@@ -6,9 +6,6 @@ import (
 	"time"
 )
 
-// The Live Editor on a Grid panel: Edit lists opens a drawer with the editor's own Sources and Destinations lists. A
-// move, a pin or a remove there shows on the live grid at once and makes Save show in the bar. Keys in the drawer
-// stay in the drawer. Save stores the lists and brings no "This panel was changed" banner. Back puts the lists back.
 func TestChromeGridPanelLiveLists(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -46,10 +43,10 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 		return d.width > 300 && sc.right <= d.left + 1 && sc.width < gridW - 300 && d.top >= deck.bottom - 1 && liveBand() === bandWas &&
 			document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2) === take;
 	})()`)
-	b.waitFor("Edit lists opens the drawer with the editor's own Sources list, and each part of it has height", `(() => {
+	b.waitFor("Edit lists opens the drawer with the editor's own Sources list, which has height, and Add from the router folds away with nothing to add", `(() => {
 		const d = document.getElementById('ed-live-drawer');
 		return d.classList.contains('pb-drawer--open') && !d.inert && document.getElementById('ed-live-lists').getAttribute('aria-pressed') === 'true' && d.contains(document.getElementById('ed-sources-col'))
-			&& document.getElementById('ed-sources-list').clientHeight > 0 && document.querySelector('#ed-sources-col .sode-rlist').clientHeight > 0
+			&& document.getElementById('ed-sources-list').clientHeight > 0 && document.querySelector('#ed-sources-col .sode-rlist').hidden
 			&& !!document.getElementById('ed-sources-list').offsetParent && !document.getElementById('ed-destinations-list').offsetParent;
 	})()`)
 	b.waitFor("the drawer has its full width", `document.getElementById('ed-live-drawer').getBoundingClientRect().width > 300`)
@@ -64,7 +61,6 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 	b.waitFor("keys in the drawer never move the grid's cursor", `cursorAt() === cursorWas`)
 	b.waitFor("Esc in a list drops its selection and keeps the drawer open", `document.getElementById('ed-sources-sel').textContent === '0 selected' && document.getElementById('ed-live-drawer').classList.contains('pb-drawer--open')`)
 
-	// The owner's case: Shift-click a run of sources, then the Artwork panel gives each a camera and a number at once.
 	b.eval(`window.shift = (n) => n.dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true, cancelable: true }));
 		row('sources', 0).querySelector('.sode-pages__name').click(); shift(row('sources', 9).querySelector('.sode-pages__name')); true`)
 	b.waitFor("Shift-click in the drawer selects the range in drawn order", `document.getElementById('ed-sources-sel').textContent === '9 selected' && !document.getElementById('ed-sources-sel-art').disabled`)
@@ -123,7 +119,7 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 	b.eval(`document.getElementById('ed-live-save').click(); true`)
 	b.waitFor("Save stores the lists, and Save goes from the bar", `document.getElementById('ed-live-save').hidden && document.getElementById('ed-live-state').textContent === ''`)
 	p := readPanel(t, a, ana, id)
-	srcs, _ := p["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, p, "sources")
 	members, _ := srcs["members"].([]any)
 	if len(members) < 2 || members[0] != float64(3) || members[1] != float64(0) {
 		t.Errorf("saved sources %v", srcs["members"])
@@ -149,7 +145,7 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 	// One panel check every 5 s: past it, the saved copy must not show as a change from somewhere else. A banner
 	// goes by itself when its countdown ends, so an observer records one that showed at any time in the wait.
 	b.eval(`(() => {
-		const u = document.querySelector('#ed-live-view .sode-panel__update');
+		const u = document.querySelector('.sode-ed .sode-panel__update');
 		window.bannerShown = !u.hidden;
 		new MutationObserver(() => { if (!u.hidden) window.bannerShown = true; }).observe(u, { attributes: true });
 		return true;
@@ -167,6 +163,6 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 		return Math.abs(r.width - gridW) < 1 && hit.some((n) => n.classList?.contains('sode-gridpanel__xp'));
 	})()`)
 	b.eval(`document.getElementById('ed-live-back').click(); true`)
-	b.waitFor("Back to editing puts both lists back, with the edits", `[...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent && document.querySelector('#ed-sources-list li').dataset.id === '3'`)
+	b.waitFor("Back to editing puts both lists back, with the edits", `[...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-lists-following,ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent && document.querySelector('#ed-sources-list li').dataset.id === '3'`)
 	b.check()
 }

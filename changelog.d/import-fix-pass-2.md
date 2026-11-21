@@ -1,0 +1,6 @@
+- Import: a file user without a PIN that Rename adds is PIN needed with the file's Role. It no longer gets the PIN of the live user with the same name.
+- Import refuses a panel whose artwork is missing from the file or is not its stated image type. Use new no longer deletes the live artwork first, and imported artwork has the same size and pixel limits as an upload.
+- Import refuses a file that unpacks to over 1 GiB, and Sode removes staging folders that a stopped import left.
+- Use new on a panel keeps its live short name when another panel now has the short name in the file.
+- A Settings key that an older file does not have keeps its live value. It no longer goes back to the default.
+- File users without an id each map to their own user.

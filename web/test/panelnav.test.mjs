@@ -1,6 +1,3 @@
-// Page rules on the panel page (panelnav.js, panelmodel.js). They cover the current Page, Go to Page, and Next Page
-// and Previous Page with and without wrap. They also cover disabled and deleted targets, the plan across Pages and
-// the fallback to the first enabled Page. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { landingPage, pageIndex, stepPage, goToState, navTarget, navText, wrapOf, targetChoices, targetWarning } from '../panelnav.js';
@@ -121,7 +118,7 @@ test('the editor lists every Page by number and name, and warns about a target t
   const three = [P('a'), P('b'), P('c', { enabled: false })];
   assert.match(targetWarning(three, go('gone'), []), /deleted/);
   assert.match(targetWarning(three, go('c'), []), /^Page 3 is disabled/);
-  assert.match(targetWarning(three, go('b'), []), /^Page 2 has no cells yet/);
+  assert.match(targetWarning(three, go('b'), []), /^Page 2 has no cells/);
   // Page 1's cells are the grid's, not the list's.
   assert.match(targetWarning(three, go('a'), []), /^Page 1 has no cells/);
   assert.equal(targetWarning(three, go('a'), [next]), '');

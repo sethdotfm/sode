@@ -1,4 +1,3 @@
-// A socket gone quiet is not sent into.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

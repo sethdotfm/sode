@@ -1,0 +1,18 @@
+routers:
+  - uid: 5f3a9c1e7b2d4a60
+    prefix: A
+    title: Studio Ultrix
+    address: 10.1.2.3:8910
+    statusLabel: name
+    matrix: 0
+    levels: 3
+    levelOffset: 0
+    levelNumbering: "1"
+    numberOffset: 1
+    defaultLevels: ""
+    nameLength: 8
+    nameRequests: both
+    nameRereadSeconds: 60
+    routeRereadSeconds: 0
+    fireMode: sequential
+    salvoGroup: 0

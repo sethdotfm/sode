@@ -5,10 +5,6 @@ import (
 	"testing"
 )
 
-// A Grid panel in Instant mode never opens the take confirm: a press, a Diagonal and a Drawn line each send at once.
-// A Diagonal across the protected Rec B (12) sends the rest, and its banner names Rec B. That banner is an error, so a
-// later result that went well does not take its place. The corner counts it, and the X clears both. A screen reader
-// gets each banner's words in one live region.
 func TestChromeGridPanelInstant(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -73,7 +69,6 @@ func TestChromeGridPanelInstant(t *testing.T) {
 	b.eval(`document.querySelector('.sode-gridpanel__msg .sode__banner:not(.sode__banner--out) .sode__banner-x').click(); true`)
 	b.waitFor("the X clears the error and the count", gridMessage+` === '' && document.querySelector('.sode-gridpanel__held').hidden`)
 
-	// A Drawn line from the keys: v, two rows down, then Space.
 	gridShow(b, 7, 0)
 	px := b.eval(`(() => { const r = ` + gridXp(7, 0) + `.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`).([]any)
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": px[0], "y": px[1]})

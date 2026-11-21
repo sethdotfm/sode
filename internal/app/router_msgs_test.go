@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
@@ -61,13 +62,13 @@ func TestProtectDumpRefusesTake(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
-	// Dsts 5-6 on wire level 1 (UI 2): 5 is protected by device 9, 6 is not.
+	// Dsts 5-6 on level 1 on the wire (UI 2): 5 is protected by device 9, 6 is not.
 	a.onRouterMsg([]byte{swp08.CmdExtProtectDump, 0x00, 0x01, 0x02, 0x00, 0x05, 0x20, 0x09, 0x00, 0x00})
 	a.mu.Lock()
 	got := maps.Clone(a.router.protect[5])
 	_, other := a.router.protect[6]
 	a.mu.Unlock()
-	if !maps.Equal(got, map[int]int{2: 9}) || other {
+	if !maps.Equal(got, map[int]protHold{2: {9, swp08.KindRouterLock}}) || other {
 		t.Fatalf("protect state %v, dst 6 protected %v", got, other)
 	}
 	n := f.sends()
@@ -85,9 +86,35 @@ func TestProtectDumpRefusesTake(t *testing.T) {
 	}
 }
 
+// One DashBoard press on a Ross Ultrix protects all 17 levels with 17 0x8D frames, one for each level. The
+// next press clears them with 17 0x8F frames. Real frames: dst 27, device 10.
+func TestDashBoardProtectAndClearAllLevels(t *testing.T) {
+	a := newTestApp(t, func(c *config.Config) { c.Levels = 17 })
+	protect := func() map[int]protHold {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		return maps.Clone(a.router.protect[27])
+	}
+	want := map[int]protHold{}
+	for ll := byte(0); ll <= 0x10; ll++ {
+		a.onRouterMsg([]byte{0x8D, 0x00, ll, 0x02, 0x00, 0x1B, 0x00, 0x0A})
+		want[int(ll)+1] = protHold{10, swp08.KindRouterLock}
+		if got := protect(); !maps.Equal(got, want) {
+			t.Fatalf("after 0x8D level %d: %v, want %v", ll, got, want)
+		}
+	}
+	for ll := byte(0); ll <= 0x10; ll++ {
+		a.onRouterMsg([]byte{0x8F, 0x00, ll, 0x00, 0x00, 0x1B, 0x00, 0x00})
+		delete(want, int(ll)+1)
+		if got := protect(); !maps.Equal(got, want) {
+			t.Fatalf("after 0x8F level %d: %v, want %v", ll, got, want)
+		}
+	}
+}
+
 func TestTallyDumpSetsCrosspoints(t *testing.T) {
 	a := newTestApp(t)
-	// Wire level 1 (UI 2), dsts 3-5; 0xFFFF is "nothing routed".
+	// Level 1 on the wire (UI 2), dsts 3-5; 0xFFFF is "nothing routed".
 	a.onRouterMsg(swp08.ExtTallyDump(0, 1, 3, []int{7, 0xFFFF, 9}))
 	// Another matrix is ignored.
 	a.onRouterMsg(swp08.ExtTallyDump(1, 1, 8, []int{4}))
@@ -117,7 +144,7 @@ func TestTallyDumpSetsCrosspoints(t *testing.T) {
 func TestTallyDumpDifferingFromKnownRouteIsFound(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
-	f.seed(3, 1, 1) // dst 3 on wire level 1 (UI 2) routed from source 1
+	f.seed(3, 1, 1) // dst 3 on level 1 on the wire (UI 2) routed from source 1
 	a.onRouterMsg(swp08.ExtTallyDump(0, 1, 3, []int{7}))
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 10)
@@ -127,14 +154,12 @@ func TestTallyDumpDifferingFromKnownRouteIsFound(t *testing.T) {
 	leftovers(t, a)
 }
 
-// recorder notes every request the App sends.
 type recorder struct {
 	mu   sync.Mutex
 	cmds []byte
 	why  []swp08.Reason
 }
 
-// reasons returns the reasons sent with cmd.
 func (r *recorder) reasons(cmd byte) []swp08.Reason {
 	r.mu.Lock()
 	defer r.mu.Unlock()

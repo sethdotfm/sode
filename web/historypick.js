@@ -1,13 +1,10 @@
-// Pick mode for History (the preset editor's "Add from History..."): rows get check boxes, a bar says what the next click does.
-// "Include external follow entries" also adds changes made right after (probably following the take).
-// Mode 'boxes' ("Add from Patch Boxes...") uses the same bar and state but keeps the patch boxes live: Add turns the patch into a row, Done ends it.
-// Each layout asks picking()/pickBox() while building rows, redraws on 'pick' and calls bindPick(list) one time.
+// Pick mode for History (the preset editor's "Add from History..."): rows get check boxes, and a bar says what Add does.
+// Mode 'boxes' ("Add from Patch Boxes...") uses the same bar and state, and the patch boxes stay live.
+// Each layout asks picking()/pickBox() while it builds rows, redraws on 'pick' and calls bindPick(list) one time.
 import { el, on, emit, S } from './core.js';
 import { histRows } from './history.js';
 
-// ---- pure
-
-// Keys: 'e<id>' (a take, follower, merged row's newest) and 'f<group>' (a folder: all its takes).
+// Keys: 'e<id>' (an entry, or a stacked row's newest) and 'f<group>' (a Group: all its entries).
 export function indexRows(rows) {
   const m = new Map();
   const one = (e) => m.set(`e${e.id}`, { entries: [e], follows: e.follows || [] });
@@ -27,7 +24,7 @@ export function indexRows(rows) {
   return m;
 }
 
-// Picked keys as takes, oldest first, each entry one time; ok(e): a real source and an existing level.
+// Picked keys as routes, oldest first, each entry one time; ok(e): a real source and an existing level.
 export function pickedEntries(index, keys, withFollows, ok = () => true) {
   const seen = new Map();
   for (const k of keys) {
@@ -42,15 +39,12 @@ export function pickedEntries(index, keys, withFollows, ok = () => true) {
     .map((e) => ({ src: e.src, dst: e.dst, levels: [...e.levels] }));
 }
 
-// ---- the two modes
-
-const plural = (n) => `${n} take${n === 1 ? '' : 's'}`;
-// count/addText/canAdd accept the state and, in History, the takes ticked now (taken), worked out one time per redraw.
+const plural = (n) => `${n} route${n === 1 ? '' : 's'}`;
+// count/addText/canAdd get the state and, in History, the routes ticked now (taken), worked out one time per redraw.
 export const MODES = {
   history: {
-    msg: (name) => `Choose takes for ${name}`,
-    sub: 'Click takes or Groups in History to select them.',
-    aria: 'Choose takes from History',
+    msg: (name) => `Choose entries for ${name}`,
+    aria: 'Choose entries from History',
     follows: true,
     cancelText: 'Cancel',
     taken: (s) => pickedNow(s),
@@ -81,8 +75,6 @@ export const MODES = {
     escCancels: (e) => !(e.target instanceof HTMLInputElement && (e.target.value || e.target.getAttribute('aria-expanded') === 'true')),
   },
 };
-
-// ---- state
 
 // { mode, label, onAdd(takes), onAddPatch(): note, onCancel(), picked: Set of keys, follows, ok, note }
 let st = null;
@@ -123,16 +115,14 @@ const cancel = () => finish((s) => s.onCancel?.());
 export const addPatch = () => st?.mode === 'boxes' && MODES.boxes.add(st);
 const add = () => st && MODES[st.mode].add(st);
 
-// ---- the bar
-
 const msg = el('strong', 'sode__pickbar-msg');
 const sub = el('span', 'sode__pickbar-sub');
 const count = el('span', 'sode__hint');
 count.setAttribute('role', 'status');
 const followsIn = el('input', 'pb-check__input');
 followsIn.type = 'checkbox';
-const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include external follow entries'));
-followsBox.title = 'Also add Externals made right after a chosen take, which probably followed it';
+const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include External follow entries'));
+followsBox.setAttribute('data-pb-tip', "Adds each chosen entry's External follow entries");
 const addBtn = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Add');
 addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
@@ -140,10 +130,10 @@ cancelBtn.type = 'button';
 const controls = el('div', 'sode__pickbar-controls', followsBox, count, addBtn, cancelBtn);
 const bar = el('div', 'sode__pickbar', el('div', 'sode__pickbar-title', msg, sub), controls);
 bar.setAttribute('role', 'region');
-bar.setAttribute('aria-label', 'Choose takes from History');
+bar.setAttribute('aria-label', 'Choose entries from History');
 bar.hidden = true;
 document.body.append(bar);
-// The phone makes the bar a row of its view (mobile.js).
+// The phone makes the bar a row of its view (mobilehistory.js).
 export const pickBar = bar;
 
 followsIn.addEventListener('change', () => {
@@ -161,7 +151,7 @@ function update() {
     const m = MODES[st.mode];
     const t = m.taken?.(st) || [];
     msg.textContent = m.msg(st.label ? `“${st.label}”` : 'the preset');
-    sub.textContent = m.sub;
+    sub.textContent = m.sub || '';
     bar.setAttribute('aria-label', m.aria);
     followsBox.hidden = !m.follows;
     cancelBtn.textContent = m.cancelText;
@@ -176,7 +166,7 @@ function update() {
 function clearChip() {
   const chip = document.querySelector('.sode-lock__who');
   const r = chip && !chip.hidden ? chip.getBoundingClientRect() : null;
-  bar.style.paddingLeft = r && r.width ? `${Math.ceil(r.right) + 16}px` : '';
+  bar.style.paddingLeft = r && r.width ? `calc(${Math.ceil(r.right)}px + var(--pb-space-7))` : '';
 }
 globalThis.addEventListener?.('resize', () => {
   if (st) clearChip();
@@ -196,8 +186,6 @@ document.addEventListener(
 on('locking', () => cancel());
 on('wsclose', () => cancel());
 
-// ---- for the layouts
-
 export function pickBox(key) {
   const i = el('input', 'pb-check__input');
   i.type = 'checkbox';
@@ -206,7 +194,7 @@ export function pickBox(key) {
   return el('label', 'pb-check sode__pickbox', i, el('span', 'pb-check__label', 'Add'));
 }
 
-// A click ticks a take or folder, whatever it hit, except the "N takes" disclosure, which still opens a folder.
+// A click ticks an entry or a Group, whatever it hit. The exception is the "N takes" disclosure, which still opens the Group.
 export function bindPick(list) {
   list.addEventListener(
     'click',

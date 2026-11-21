@@ -3,6 +3,17 @@
 (() => {
   const root = document.documentElement;
   const themeOnly = document.currentScript?.dataset.only === 'theme';
+  // v2 reads no v1 keys: the first v2 load clears every sode-* key, then stamps. First on every
+  // page, so nothing reads a v1 key before it goes. The stamp rises with config.Format only when old keys would mislead.
+  try {
+    if (localStorage.getItem('sode-format') !== '2') {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k?.startsWith('sode-')) localStorage.removeItem(k);
+      }
+      localStorage.setItem('sode-format', '2');
+    }
+  } catch {}
   let g = {};
   const get = (k) => {
     try {
@@ -12,7 +23,7 @@
     }
   };
   try {
-    g = JSON.parse(get('sode-device-defaults')) || {};
+    g = JSON.parse(get('sode-browser-defaults')) || {};
   } catch {}
   let mine = {};
   try {

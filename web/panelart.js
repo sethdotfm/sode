@@ -3,9 +3,8 @@
 // never runs.
 import { artUrlPath } from './panellook.js';
 
-// call is the page's keyed fetch. A fetch that fails gives null and is tried again on the next load of the panel.
-// revoke() frees every blob URL made (a blob URL holds its bytes until then). Call it when the panel this was made
-// for goes away, since each panel load and each live test makes its own.
+// call is the page's keyed fetch; a failed fetch gives null and is tried again on the next load. revoke() frees every blob
+// URL made: call it when the panel goes away, since each panel load and each live test makes its own.
 export function createArt(call, panelId, make = URL.createObjectURL, drop = URL.revokeObjectURL) {
   let seen = new Map(); // artwork id -> Promise<{ url, type } | null>; type is the served Content-Type
   const look = (id) => {

@@ -16,7 +16,6 @@ import (
 
 func panelClientName(id string) string { return "Panel " + id }
 
-// clientOfPanel is the panel's own API client, if it has one.
 func clientOfPanel(cfg config.Config, p Panel) (config.APIClient, bool) {
 	if p.Client == "" {
 		return config.APIClient{}, false
@@ -37,7 +36,7 @@ type panelClientNote struct {
 func (a *App) panelClientsOf(cfg config.Config, u config.User) []panelClientNote {
 	var out []panelClientNote
 	for _, p := range a.panels.list() {
-		if !strings.EqualFold(p.Owner, u.Name) {
+		if p.Owner != u.ID {
 			continue
 		}
 		if c, ok := clientOfPanel(cfg, p); ok {
@@ -55,6 +54,17 @@ type panelClientFail struct {
 
 func (f *panelClientFail) Error() string { return f.msg }
 
+// failStore answers a store's sentinel (a *panelClientFail, maybe wrapped) with its status and anything else as a
+// disk fault. Unlike failWith it keeps the wrapped detail and never answers 400 by default.
+func failStore(w http.ResponseWriter, err error, prefix string) {
+	var f *panelClientFail
+	if errors.As(err, &f) {
+		apiFail(w, f.status, f.code, err.Error())
+		return
+	}
+	apiFail(w, http.StatusInternalServerError, "internal", prefix+": "+err.Error())
+}
+
 func failWith(w http.ResponseWriter, err error) {
 	var f *panelClientFail
 	if errors.As(err, &f) {
@@ -66,23 +76,29 @@ func failWith(w http.ResponseWriter, err error) {
 
 // clientRightsFor decides the Rights a panel's client ends up with, or why not. cur is nil for
 // a new client. A request that leaves them out or repeats the stored ones changes nothing, so a
-// save never fails over Rights an administrator widened. Anything else needs a Trusted caller
-// (read live) and must be within the caller's own Rights.
+// save never fails over Rights an Administrator widened. Anything else needs the key of a user
+// who can edit the panel (any Role, ADR 0006) and must be within the caller's own Rights.
 func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Rights) (config.Rights, bool, error) {
 	if cur != nil && (want == nil || reflect.DeepEqual(clean(*want), *cur)) {
 		return *cur, false, nil
 	}
-	if !a.trusted(cl.Actor.Name) {
-		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "trusted_required", "only a Trusted user can make a panel act as an API client or change its rights"}
+	if cl.Actor.Kind != actorUser {
+		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "user_required", "a panel's API client is made with a user's key"}
 	}
 	r := cl.Rights.Clone()
 	if want != nil {
 		r = clean(*want)
 	}
 	if !r.Within(cl.Rights) {
-		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "outside_rights", "the panel's rights must not be wider than your own"}
+		return config.Rights{}, false, apiAdminOnly("rights wider than your own")
 	}
 	return r, true, nil
+}
+
+// apiAdminOnly refuses an Administrator-only change: a key never acts as an Administrator (keyRole).
+func apiAdminOnly(what string) error {
+	return &panelClientFail{http.StatusForbidden, "administrator_only",
+		what + " need an Administrator, and a key never acts as one: an Administrator makes this change in Settings"}
 }
 
 func clean(r config.Rights) config.Rights {
@@ -91,12 +107,44 @@ func clean(r config.Rights) config.Rights {
 	return r
 }
 
-// setPanelClient adds, replaces the rights of, or (rights nil) removes the client of panel id.
-// Removing it ends its keys and open streams through the config commit.
-func (a *App) setPanelClient(id string, rights *config.Rights) error {
+// putPanelClient adds, replaces the rights of, or (rights nil) removes the client of panel id. Removing it ends its
+// keys and open streams through the config commit. nets: a new client's allowed networks (Save a copy keeps its
+// source's).
+func (a *App) putPanelClient(by Actor, id string, rights *config.Rights, nets []string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
+	return a.putPanelClientLocked(by, id, rights, nets)
+}
+
+// createPanelWithClient writes p, then its API client when its acts need one; a refused client deletes the panel
+// again. A fault after the panel write answers 400 unless it carries its own status, as failWith does.
+func (a *App) createPanelWithClient(by Actor, p Panel, rights *config.Rights, nets []string) (Panel, error) {
+	made, err := a.panels.create(p)
+	if err != nil || !actsHasClient(made.Acts) {
+		return made, err
+	}
+	made.Client = panelClientName(made.ID)
+	err = a.putPanelClient(by, made.ID, rights, nets)
+	if err == nil {
+		_, err = a.panels.replace(made)
+	}
+	if err == nil {
+		return made, nil
+	}
+	a.panels.delete(made.ID)
+	a.putPanelClient(by, made.ID, nil, nil)
+	var f *panelClientFail
+	if !errors.As(err, &f) {
+		f = &panelClientFail{http.StatusBadRequest, "bad_request", err.Error()}
+	}
+	return Panel{}, f
+}
+
+// Caller holds cfgMu.
+func (a *App) putPanelClientLocked(by Actor, id string, rights *config.Rights, nets []string) error {
 	name := panelClientName(id)
+	was := a.r().cfg
+	defer func() { a.recordSave(by, "api", clientChanges(was, a.r().cfg, name), false) }()
 	return a.applyConfig(func(cur *config.Config) error {
 		cur.APIClients = slices.Clone(cur.APIClients)
 		i := slices.IndexFunc(cur.APIClients, func(c config.APIClient) bool { return strings.EqualFold(c.Name, name) })
@@ -109,7 +157,7 @@ func (a *App) setPanelClient(id string, rights *config.Rights) error {
 		case i >= 0:
 			return errors.New("an API client is already named " + name)
 		default:
-			cur.APIClients = append(cur.APIClients, config.APIClient{Name: name, Scopes: slices.Clone(config.PanelClientScopes), Rights: rights.Clone(), Panel: id})
+			cur.APIClients = append(cur.APIClients, config.APIClient{Name: name, Scopes: slices.Clone(config.PanelClientScopes), Rights: rights.Clone(), Panel: id, Networks: slices.Clone(nets)})
 		}
 		return nil
 	})
@@ -133,33 +181,4 @@ func dropOrphanPanelClients(cfg *config.Config, panels *panelStore) {
 		}
 		return !panels.skipped[c.Panel]
 	})
-}
-
-// keepPanelClients folds an administrator's client list into the config's. A panel client in
-// the request gets its Rights and Scopes but keeps its panel link and name. The Advanced Settings
-// PIN is what widens them. A panel client left out stays. Plain clients replace the old ones.
-func keepPanelClients(cur []config.APIClient, req []config.APIClient) []config.APIClient {
-	var out []config.APIClient
-	seen := map[string]bool{}
-	for _, c := range req {
-		key := strings.ToLower(strings.TrimSpace(c.Name))
-		if i := slices.IndexFunc(cur, func(o config.APIClient) bool { return o.Panel != "" && strings.EqualFold(o.Name, c.Name) }); i >= 0 {
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			o := cur[i]
-			o.Rights, o.Scopes = c.Rights.Clone(), slices.Clone(c.Scopes)
-			out = append(out, o)
-			continue
-		}
-		c.Panel, c.Rights = "", c.Rights.Clone()
-		out = append(out, c)
-	}
-	for _, o := range cur {
-		if o.Panel != "" && !seen[strings.ToLower(o.Name)] {
-			out = append(out, o)
-		}
-	}
-	return out
 }

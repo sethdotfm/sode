@@ -16,10 +16,6 @@ func gridFound(kind string) string {
 	return fmt.Sprintf(`[...document.querySelectorAll('.sode-gridpanel__%s[data-found]:not([hidden])')].map((n) => n.dataset.%s).sort((a, b) => a - b).join(',')`, attr, attr)
 }
 
-// s and d go to the bars' search boxes in the corner. Find marks matches in place and moves the cursor to the first;
-// Enter and Shift+Enter step. Ctrl+/ switches to Filter, which shows only matches. Tab goes to the other box, which
-// has the same mode. n and N on the grid step the box last typed in. Esc clears the box, keeps the mode and gives the
-// keys back to the grid with the cursor on the last match.
 func TestChromeGridPanelFind(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -53,11 +49,11 @@ func TestChromeGridPanelFind(t *testing.T) {
 		return Math.abs((r.left + r.right) / 2 - (bar.right + sc.right) / 2) <= r.width / 2;
 	})()`)
 	b.waitFor("the pulse ends", `!document.querySelector('.sode-gridpanel__src[data-hit]')`)
-	realKeyMods(b, "n", "KeyN", 78, modCtrl)
-	gridCursorOn(b, "Ctrl+N in the box steps to the next match", -1, 100)
-	realKeyMods(b, "p", "KeyP", 80, modCtrl)
-	gridCursorOn(b, "Ctrl+P steps back", -1, 99)
-	b.waitFor("Ctrl+N and Ctrl+P type nothing", gridFindBox("srcs")+`.value === 'src 1'`)
+	realKeyMods(b, "j", "KeyJ", 74, modCtrl)
+	gridCursorOn(b, "Ctrl+J in the box steps to the next match", -1, 100)
+	realKeyMods(b, "k", "KeyK", 75, modCtrl)
+	gridCursorOn(b, "Ctrl+K steps back", -1, 99)
+	b.waitFor("Ctrl+J and Ctrl+K type nothing", gridFindBox("srcs")+`.value === 'src 1'`)
 	b.eval(`document.querySelector('.sode-gridpanel__find[data-kind="srcs"] .sode-gridpanel__find-step[data-dir="1"]').click(); true`)
 	gridCursorOn(b, "the next match button steps", -1, 100)
 	b.eval(`document.querySelector('.sode-gridpanel__find[data-kind="srcs"] .sode-gridpanel__find-step[data-dir="-1"]').click(); true`)

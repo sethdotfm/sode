@@ -6,8 +6,7 @@ import (
 )
 
 // These pin the session paths (sign in, Lock, resume, sign out, sign out all, token
-// file) through the same calls the policy handlers make. So the session struct refactor
-// can move code without a change to what a page sees.
+// file) through the same calls the policy handlers make.
 
 func heldState(t *testing.T, read func() []map[string]any) bool {
 	t.Helper()
@@ -64,7 +63,7 @@ func TestSwitchingUserLeavesTheSharedSession(t *testing.T) {
 	twin := &client{ip: "10.0.0.2"}
 	register(a, twin)
 	a.Hi(twin, "main", tok)
-	if err := a.UserUnlock(c, "567890"); err != nil { // Bo takes over c
+	if err := a.UserUnlock(c, "567890"); err != nil { // Bo signs in on c
 		t.Fatal(err)
 	}
 	a.UserLock(c)
@@ -167,7 +166,7 @@ func TestSignOutAllEndsHeldSessions(t *testing.T) {
 	a.Hi(twin, "main", tok)
 	a.UserLock(c)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SignOutAll(admin, "Ana"); err != nil {
@@ -189,13 +188,10 @@ func TestHeldLockEndsWhenTheHolderChangesPin(t *testing.T) {
 	read := register(a, c)
 	a.UserLock(c)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	req := usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana", Pin: "4321", Persistent: true}, {Name: "Bo", Was: "Bo"}}}
-	if err := a.SaveUsers(admin, req); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "pin"): "4321"})
 	a.syncAccess(c)
 	st := lastLockState(t, read)
 	if st["held"] != nil || st["user"] != nil || c.who() != c.ip {

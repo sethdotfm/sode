@@ -1,5 +1,3 @@
-// prepaint.js repeats prefs.js resolve() and cachedProfile() inline because it runs before first paint.
-// This evaluates it against stubs and checks it agrees with them over a matrix of values.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -10,11 +8,11 @@ import { PREFS, resolve, cachedProfile } from '../prefs.js';
 
 const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'prepaint.js'), 'utf8');
 
-// Returns the page's dataset after the script ran: theme (unset for system), layout, and flip and compact (present when on).
+// The page's dataset: theme (not set for system), layout, flip and compact (present when on).
 function run({ own = {}, profile, global, session, tab, phoneMedia = false, only }) {
-  const store = new Map(Object.entries(own));
+  const store = new Map(Object.entries({ 'sode-format': '2', ...own }));
   if (profile !== undefined) store.set('sode-profile-prefs', JSON.stringify(profile));
-  if (global !== undefined) store.set('sode-device-defaults', JSON.stringify(global));
+  if (global !== undefined) store.set('sode-browser-defaults', JSON.stringify(global));
   if (session) store.set('sode-session', 'tok');
   const dataset = {};
   const document = { documentElement: { dataset }, currentScript: { dataset: only ? { only } : {} } };

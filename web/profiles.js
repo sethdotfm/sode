@@ -1,46 +1,41 @@
-// Profile dialog: the editor of one user's profile, opened by bus 'openProfile' {name}. Edit/Add open the Filters dialog or preset editor
-// aimed at this profile (they save through saveProfile; 'profileSaved' refreshes this dialog). The own profile reads profile.js's cache;
-// anyone else's goes through fetchProfile (trusted user or Advanced Settings PIN).
+// Profile dialog (bus 'openProfile' {name}). Edit and Add open the Filters dialog or the preset editor on this Profile; 'profileSaved' redraws.
+// A user's own Profile comes from profile.js; another's from fetchProfile (a Trusted user or higher).
 
 import { el, S, on, emit, sentence } from './core.js';
-import { trusted, unlocked } from './pin.js';
-import { reask } from './pinprompt.js';
-import { trapDialog } from './widgets.js';
+import { btn } from './formbits.js';
+import { trusted } from './trusted.js';
+import { modal } from './modal.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
 import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles, PROFILE_NOTICE } from './profilesrules.js';
 
-// ---- the dialog
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
-
-const err = el('div', 'pb-note pb-note--error');
-err.setAttribute('role', 'alert');
-err.hidden = true;
-const note = el('span', 'sode__hint');
-note.setAttribute('role', 'status');
-note.setAttribute('aria-live', 'polite');
+const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
+const note = el('span', { class: 'sode__hint', role: 'status', 'aria-live': 'polite' });
 const body = el('div', 'sode__profiles-body');
-const title = Object.assign(el('span', 'pb-modal__title', 'Profile'), { id: 'profiles-title' });
-const transferBtn = btn('pb-btn--outline', 'Import & Export…', () => transfer());
-const closeBtn = btn('pb-btn--outline', 'Close', () => closeDialog());
-transferBtn.disabled = true;
-
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal sode__filters sode__profiles-dlg');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'profiles-title');
-dialog.tabIndex = -1;
-dialog.append(el('div', 'pb-modal__header', title), el('div', 'pb-modal__body', body, err), el('div', 'pb-modal__footer', note, transferBtn, closeBtn));
-// A later "Restrictions" section (sources and destinations a trusted user hides from a user) goes in `body` after presets.
-root.append(dialog);
-document.body.append(root);
+// Own profile only. Outside body, so #account-broken stays in the page for brokencount.js between opens.
+const brokenBox = el('div', { class: 'sode__broken-count', id: 'account-broken', hidden: true });
+const swapBtn = btn('pb-btn--outline pb-btn--sm', 'Swap…', () => emit('openSwap', { mine: true }));
+swapBtn.setAttribute('aria-haspopup', 'dialog');
+const mineSec = el(
+  'section',
+  { class: 'sode__profiles-sec', hidden: true },
+  el('h3', 'sode__profiles-h', 'Broken and Name moved'),
+  brokenBox,
+  el('div', null, swapBtn),
+);
+const dlg = modal({
+  titleId: 'profiles-title',
+  title: 'Profile',
+  cls: 'sode__filters sode__profiles-dlg',
+  body: [body, mineSec, err],
+  foot: [note, btn('pb-btn--outline', 'Close', () => closeDialog())],
+  onEsc() {
+    if (removing) {
+      removing = null;
+      paint();
+    } else closeDialog();
+  },
+});
+const { title, dialog } = dlg;
 
 let isOpen = false;
 let back = null;
@@ -58,13 +53,6 @@ function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
 }
-const askAgain = () => reask("Another user's profile needs the Advanced Settings PIN.");
-
-// Export / import opens on top; Esc closes it first.
-function transfer() {
-  if (!who) return;
-  emit('openTransfer', { scope: 'user', user: who });
-}
 
 function line(kind, i, name, summary) {
   const editEv = kind === 'filterSets' ? 'openFilterEditor' : 'openPresetEditor';
@@ -74,9 +62,9 @@ function line(kind, i, name, summary) {
       'li',
       'sode__profiles-row',
       text,
-      el('span', 'pb-note pb-note--warn', `Remove "${name}" from ${who}'s profile?`),
+      el('span', 'pb-note pb-note--warn', `Remove “${name}”?`),
       btn('pb-btn--danger pb-btn--sm', 'Remove', () => doRemove(kind, i)),
-      btn('pb-btn--outline pb-btn--sm', 'Keep', () => {
+      btn('pb-btn--outline pb-btn--sm', 'Cancel', () => {
         removing = null;
         paint();
       }),
@@ -120,10 +108,10 @@ function listSection(heading, rows, empty, addText, ev) {
 }
 
 function paint() {
+  mineSec.hidden = !prof || !own();
   title.textContent = who ? `Profile: ${who}` : 'Profile';
-  transferBtn.disabled = !prof;
   if (!prof) {
-    body.replaceChildren(el('p', 'sode__hint', who ? `Reading ${who}'s profile…` : 'No user chosen.'));
+    body.replaceChildren(el('p', 'sode__hint', `Reading ${who}'s profile…`));
     return;
   }
   body.replaceChildren(
@@ -168,9 +156,7 @@ async function load(name) {
   const r = await fetchProfile(name);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked && (await askAgain())) return load(name); // the PIN was entered: read it again
-    if (mine !== token || !isOpen) return;
-    fail(r.err || 'Could not read that profile.');
+    fail(r.err || 'Profile not read.');
     return paint();
   }
   prof = r.profile;
@@ -192,15 +178,13 @@ async function doSave(parts, done) {
   });
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked && (await askAgain())) return doSave(parts, done); // the PIN was entered: save again
-    if (mine !== token || !isOpen) return;
-    fail(r.err || 'Could not save that profile.');
+    fail(r.err || 'Profile not saved.');
     if (own()) {
       prof = profile();
       return paint();
     }
     paint();
-    return load(name).then(() => fail(r.err || 'Could not save that profile.'));
+    return load(name).then(() => fail(r.err || 'Profile not saved.'));
   }
   prof = own() ? profile() : prof;
   setNote(done);
@@ -239,11 +223,8 @@ on('profileSaved', (m) => {
   }
   load(who).then(() => setNote('Saved.'));
 });
-const dlg = trapDialog(root, dialog, () => {
-  if (removing) {
-    removing = null;
-    paint();
-  } else closeDialog();
+on('swapDone', (n) => {
+  if (isOpen && own()) setNote(`Swap changed ${n} ${n === 1 ? 'item' : 'items'}.`);
 });
 on('locking', () => {
   if (isOpen) closeDialog();
@@ -254,8 +235,8 @@ on('profile', () => {
     paint();
   }
 });
-for (const ev of ['access', 'conn', 'unlockResult', 'locked', 'hello']) {
+for (const ev of ['access', 'conn', 'hello']) {
   on(ev, () => {
-    if (isOpen && !own() && (!S.userNames?.includes(who) || !canSeeProfiles(S.userNames, trusted(), unlocked()))) closeDialog();
+    if (isOpen && !own() && (!S.userNames?.includes(who) || !canSeeProfiles(S.userNames, trusted()))) closeDialog();
   });
 }

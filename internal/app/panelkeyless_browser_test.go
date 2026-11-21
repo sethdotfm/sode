@@ -12,12 +12,10 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A panel page whose key was revoked shows the ended-key note and is listed as a Keyless instance with Key ended. A
-// Trusted user assigns it from the panels page: it switches with no prompt, runs the target and opens it again.
 func TestChromeKeylessPageIsAssignedAndRuns(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -49,6 +47,7 @@ func TestChromeKeylessPageIsAssignedAndRuns(t *testing.T) {
 
 	b.open(srv.URL + "/panels")
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(`document.querySelector('.sode-lock__key[data-key="` + string(d) + `"]').click()`)
 	}
@@ -82,9 +81,8 @@ func TestChromeKeylessPageIsAssignedAndRuns(t *testing.T) {
 		t.Fatalf("address %s", addr)
 	}
 
-	// The ended-key note, seen on a second open of the old link in this tab; then the target's address again.
 	b.open(srv.URL + "/panels/" + from + "?instance=Lobby#key=" + strings.TrimPrefix(secret, keyPrefix))
-	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("This link's key no longer works")`)
+	b.waitFor("the ended-key note", `document.getElementById('panels-note')?.textContent.includes("Key rotated or revoked")`)
 	b.open(addr)
 	b.waitFor("the target opens again from its address", `document.getElementById('panel-title')?.textContent === 'Studio B' && document.getElementById('panels-note')?.hidden`)
 	// The ended key's refusal logs as a failed load; anything else is a real page error.

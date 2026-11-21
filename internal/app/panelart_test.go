@@ -73,7 +73,6 @@ func TestPanelArtworkTypesAreDecidedByContent(t *testing.T) {
 			t.Errorf("%s fetch: %d %q", name, got.Code, got.Header().Get("Content-Type"))
 		}
 	}
-	// The panel lists what it holds.
 	if n := len(apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil))["art"].([]any)); n != 4 {
 		t.Errorf("panel lists %d artwork files", n)
 	}
@@ -97,12 +96,10 @@ func TestPanelArtworkRefusals(t *testing.T) {
 			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
 		}
 	}
-	// Over 2 MB is refused whatever it is; 1 MB to 2 MB is allowed.
 	wantErr(t, apiSendRaw(a, "POST", up, ana, append(b64(t, tinyPNG), make([]byte, 2<<20)...)), 413, "too_large")
 	if rec := apiSendRaw(a, "POST", up, ana, []byte(`<svg xmlns="http://www.w3.org/2000/svg">`+strings.Repeat(" ", 1<<20+10)+`</svg>`)); rec.Code != 201 {
 		t.Errorf("1 MB svg: %d %s", rec.Code, rec.Body.String())
 	}
-	// A side over 1024 is refused for a raster image, at any aspect ratio.
 	for _, c := range []struct {
 		kind string
 		w, h int
@@ -120,7 +117,6 @@ func TestPanelArtworkRefusals(t *testing.T) {
 			t.Errorf("%s %dx%d: %d %s", c.kind, c.w, c.h, rec.Code, rec.Body.String())
 		}
 	}
-	// A user of a shared panel can fetch artwork but not add it.
 	ok := apiSendRaw(a, "POST", up, ana, b64(t, tinyPNG))
 	art := apiBody(t, ok)["id"].(string)
 	if apiDo(a, "GET", up+"/"+art, bo, nil).Code != 200 {
@@ -135,8 +131,7 @@ func TestPanelArtworkRefusals(t *testing.T) {
 	wantErr(t, apiDo(a, "GET", up+"/"+art, ana, nil), 404, "not_found")
 }
 
-// Sode serves an SVG with a script only as an image, with no sniffing, under a sandbox that
-// blocks scripts. Opening the URL directly runs nothing.
+// Sode serves an SVG with a script only as an image, with no sniffing, under a sandbox that blocks scripts.
 func TestPanelArtworkSVGWithScriptNeverRuns(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -221,7 +216,7 @@ func TestOpenAPIListsScopesAndErrorCodes(t *testing.T) {
 			t.Errorf("%s %s: scope %s is not named", r.Method, r.Path, r.Scope)
 		}
 	}
-	if !strings.Contains(raw, "Panels need the API switch") {
-		t.Error("openapi.yaml does not say panels ride the API switch")
+	if strings.Contains(raw, "api_off") || strings.Contains(raw, "API switch") {
+		t.Error("openapi.yaml still names an API switch; the API is always on")
 	}
 }

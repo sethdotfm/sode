@@ -2,15 +2,13 @@
 
 import { byText } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
-import { mac, listStep, addClick, pickOrAdd } from './keys.js';
+import { listStep, addClick, pickOrAdd, keyLabel } from './keys.js';
 import { levelBar, levelText } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
 import { fmtClock } from './device.js';
 import { windowAround, growEdge } from './listwindow.js';
 import { beforeGroups, failureGroups, stackBefore } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
-
-// ---- combobox: a list of matches under a text box
 
 const PAGE = 8;
 let boxSeq = 0;
@@ -19,7 +17,8 @@ let boxSeq = 0;
 // picks and keeps focus; 'click' stops pointerdown (keeps a phone's keyboard up) and picks on
 // click so a scroll does not pick. reverse: drawn bottom-up, ↑ moves to the next match. foot:
 // hidden element for the count line. add: + button on every row; canAdd() says whether the list
-// has them now.
+// has them now. The array from source can have a note: one line over the rows, also with no rows. With all set,
+// every row is selected, and Enter, Tab and accept give them all to onPickAll. addTip: the row +'s tip.
 export function combobox(
   input,
   menu,
@@ -35,6 +34,8 @@ export function combobox(
     foot = null,
     onRender = null,
     outside = null,
+    onPickAll = null,
+    addTip = 'Add and keep searching',
   },
 ) {
   const box = typeof input === 'function' ? input : () => input;
@@ -50,12 +51,14 @@ export function combobox(
   let browsed = false;
   let win = { lo: 0, hi: 0 };
   let rows = [];
+  let note = '';
+  let all = false;
 
   function addButton(it) {
     const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', icon('plus', false));
     b.type = 'button';
     b.tabIndex = -1;
-    b.title = 'Add and keep searching';
+    b.dataset.pbTip = addTip;
     b.setAttribute('aria-label', `Add ${it.name}`);
     // pointerdown too: the phone's rows pick on click and keep the keyboard up.
     for (const t of ['mousedown', 'pointerdown'])
@@ -76,11 +79,11 @@ export function combobox(
     foot.hidden = !long;
     if (!long) return;
     const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${mac ? '⌘j/k' : 'Ctrl+j/k'}`));
+    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${keyLabel('mod+j')}/k`));
   }
 
   function render() {
-    const open = matches.length > 0;
+    const open = matches.length > 0 || !!note;
     const input = box();
     if (last && last !== input) {
       last.setAttribute('aria-expanded', 'false');
@@ -98,9 +101,10 @@ export function combobox(
     }
     if (!browsed) win = { lo: 0, hi: matches.length };
     rows = rowsFor(win.lo, win.hi);
-    menu.replaceChildren(...rows);
+    menu.replaceChildren(...(note ? [el('li', 'sode__menu-note', note)] : []), ...rows);
+    menu.setAttribute('aria-multiselectable', String(all));
     placeFoot();
-    if (browsing) input.removeAttribute('aria-activedescendant');
+    if (browsing || all) input.removeAttribute('aria-activedescendant');
     else input.setAttribute('aria-activedescendant', pre + hi);
   }
 
@@ -109,7 +113,7 @@ export function combobox(
     const out = [];
     for (let i = from; i < to; i++) {
       const it = matches[i];
-      const on = i === hi && !browsing;
+      const on = all || (i === hi && !browsing);
       const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
       li.id = pre + i;
       li.dataset.i = String(i);
@@ -194,6 +198,10 @@ export function combobox(
   }
 
   function accept() {
+    if (all && onPickAll) {
+      onPickAll(matches);
+      return true;
+    }
     const it = matches[hi];
     if (!it || browsing) return false;
     onPick(it);
@@ -208,6 +216,8 @@ export function combobox(
   // moved through stays one that Enter can pick from.
   function show(items, at, isBrowse, keepMoved = false) {
     matches = items;
+    note = items.note || '';
+    all = !!items.all && items.length > 0;
     browsed = isBrowse && items.length > 0;
     browsing = browsed && !keepMoved;
     hi = at;
@@ -238,7 +248,7 @@ export function combobox(
     accept,
     current: () => matches[hi],
     get open() {
-      return matches.length > 0;
+      return matches.length > 0 || !!note;
     },
     get moved() {
       return browsed && !browsing;
@@ -253,6 +263,8 @@ export function combobox(
         return !!ctrlJK;
       }
       e.preventDefault();
+      // A multiselection has no one row to move to: what shows is what Enter adds.
+      if (all) return true;
       const n = matches.length;
       const fwd = (key === 'ArrowDown' || key === 'PageDown') !== reverse;
       const step = key === 'ArrowDown' || key === 'ArrowUp';
@@ -276,8 +288,8 @@ export function disclosure(open, label, controls, onToggle) {
 // The label wraps the control, so a click on the words focuses it.
 export const labeled = (text, control, cls = '') => el('label', `sode__fld ${cls}`.trim(), el('span', 'sode__label', text), control);
 
-// A click anywhere on row (not a control, nor inside skip, nor a different row) works toggle,
-// as does one that selected text not. data-no-tap (a swipe has ended) skips one click.
+// A click on the row presses toggle. Not a click on a control, inside skip, on a nested row, or one that selected text.
+// data-no-tap (a swipe ended) skips one click.
 export function clickToToggle(row, toggle, skip) {
   row.addEventListener('click', (e) => {
     if (row.dataset.noTap) {
@@ -293,8 +305,8 @@ export function clickToToggle(row, toggle, skip) {
   row.classList.add('sode--tap');
 }
 
-const UNDO_TIP = 'Set destination to its source before this change.';
-export const UNDO_TIP_ALL = 'Set destinations to their sources before these changes.';
+const UNDO_TIP = 'Restore the Before source';
+export const UNDO_TIP_ALL = 'Restore the Before sources';
 export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn pb-btn--outline pb-btn--sm', tip = UNDO_TIP } = {}) {
   const b = el('button', `${cls} pb-tip--end`, icon('undo-2'), text);
   b.type = 'button';
@@ -325,7 +337,7 @@ export function againButton(plan, label, onClick, { placeholder = true, cls = 'p
   }
   b.classList.add('pb-tip--end');
   const many = plan.items.length > 1;
-  b.dataset.pbTip = redo ? `Perform ${many ? 'these changes' : 'this change'} again.` : `Try the ${many ? 'takes' : 'take'} that failed again.`;
+  b.dataset.pbTip = redo ? `Send ${many ? 'these changes' : 'this change'} again` : `Send the Failed ${many ? 'routes' : 'route'} again`;
   needsLink(b);
   b.setAttribute('aria-label', label);
   b.addEventListener('click', () => onClick(plan));
@@ -412,11 +424,11 @@ export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst:
         c.src,
       ),
     ),
-    ...beforeGroups(e).map((g, i) => step(i === 0 ? 'before' : '', g.levels, tallyText(g.src), null, null, g.src)),
+    ...beforeGroups(e).map((g, i) => step(i === 0 ? 'Before' : '', g.levels, tallyText(g.src), null, null, g.src)),
   ];
 }
 
-// "Followed by:" with each follow's destination, levels shown where they differ. Null if none.
+// "External follow:" with each follow's destination, levels shown where they differ. Null if none.
 // onPickDst(item) makes each fill the Destination box; onAddDst(item) is the Ctrl-click that adds it.
 export function followBoxes(follows, levels, onPickDst, onAddDst) {
   if (!follows?.length) return null;
@@ -425,7 +437,7 @@ export function followBoxes(follows, levels, onPickDst, onAddDst) {
   return el(
     'span',
     'sode__follows',
-    el('span', 'sode__hist-note', 'Followed by:'),
+    el('span', 'sode__hist-note', 'External follow:'),
     ...follows.map((f) => {
       const it = dstItem(f.dst, f.dstName);
       const note = same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`);
@@ -527,7 +539,7 @@ export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty
   const chip = (d) => {
     const c = el('button', 'pb-chip', dstLabel(d));
     c.type = 'button';
-    c.title = 'Use as destination';
+    c.dataset.pbTip = 'Use as destination';
     c.addEventListener(hold, (e) => e.preventDefault());
     c.addEventListener('click', () => onPick(d));
     return c;

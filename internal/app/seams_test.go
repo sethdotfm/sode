@@ -16,7 +16,7 @@ import (
 func unwritten(t *testing.T, a *App, id, key string) string {
 	t.Helper()
 	p := panelOf(t, a, id, key)
-	return fmt.Sprint(p["rev"], p["acts"], p["settings"].(map[string]any)["fixedDests"])
+	return fmt.Sprint(p["rev"], p["acts"], wireNs(p["settings"].(map[string]any)["fixedDests"]))
 }
 
 // A panel with fixed destinations sends an instance to another one. Neither panel is written. The key the
@@ -24,13 +24,13 @@ func unwritten(t *testing.T, a *App, id, key string) string {
 func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 	a, f := apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		c.Users = append(c.Users, cy)
 	})
 	shortTimers(a)
 	cy := userKey(t, a, "Cy")
-	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[5]}}`)
-	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"api","slug":"studio-b","clientRights":{"sources":[1,4],"dsts":[2,5]},"settings":{"mode":"take","fixedDests":[2,5]}}`)
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[{"n":5}]}}`)
+	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"api","slug":"studio-b","clientRights":{"sources":[{"n":1},{"n":4}],"dsts":[{"n":2},{"n":5}]},"settings":{"mode":"take","fixedDests":[{"n":2},{"n":5}]}}`)
 	lobby := assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
 	beforeFrom, beforeTo := unwritten(t, a, from, cy), unwritten(t, a, to, cy)
 
@@ -49,7 +49,7 @@ func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 		t.Errorf("the target changed: %s -> %s", beforeTo, got)
 	}
 	// The page reads its fixed destinations from the panel it was sent to.
-	if got := fmt.Sprint(panelOf(t, a, to, key)["settings"].(map[string]any)["fixedDests"]); got != "[2 5]" {
+	if got := fmt.Sprint(wireNs(panelOf(t, a, to, key)["settings"].(map[string]any)["fixedDests"])); got != "[2 5]" {
 		t.Fatalf("fixed destinations through the new key: %s", got)
 	}
 
@@ -71,8 +71,8 @@ func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 func TestSeamKeylessAssignNeverWritesActs(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
-	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[5]}}`)
-	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"both","slug":"studio-b","settings":{"mode":"take","fixedDests":[2]}}`)
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[{"n":5}]}}`)
+	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"both","slug":"studio-b","settings":{"mode":"take","fixedDests":[{"n":2}]}}`)
 	beforeFrom, beforeTo := unwritten(t, a, from, cy), unwritten(t, a, to, cy)
 	for _, as := range []string{"client", "user"} {
 		lines, _ := keylessHold(t, a, "studio-a", "?instance=Lobby%20"+as+"&ended=1")
@@ -156,10 +156,8 @@ func TestSeamArtworkLimitsHoldAcrossPushCopyTemplateAndDefaults(t *testing.T) {
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload("Huge", big, "")), 413, "too_large")
 }
 
-// The idle Lock reaches a panel page signed in over its page socket, as an assigned-to-sign-in or keyless page is.
-// Known limit (docs/agents/users-locks.md): the Session-mode panel's session key still answers while the Lock is
-// up, since apiAuth checks only tokens.live. The page itself drops the key on the Lock (sessionkey.js).
-func TestIdleLockCoversAPanelPageSessionKeyStillAnswers(t *testing.T) {
+// The idle Lock reaches a panel page signed in over its page socket.
+func TestIdleLockCoversAPanelPageSessionKey(t *testing.T) {
 	for _, panelLock := range []bool{false, true} {
 		a := sessionKeyApp(t)
 		if panelLock {
@@ -195,8 +193,8 @@ func TestIdleLockCoversAPanelPageSessionKeyStillAnswers(t *testing.T) {
 		if r["ok"] != false {
 			t.Fatalf("panelLock=%v: a new session key under the Lock: %v", panelLock, r)
 		}
-		if got := panelsStatus(a, key); got != 200 {
-			t.Fatalf("panelLock=%v: the session key under the Lock answers %d; update the known limit", panelLock, got)
+		if got := panelsStatus(a, key); got != 401 {
+			t.Fatalf("panelLock=%v: the session key under the Lock answers %d", panelLock, got)
 		}
 
 		if err := a.UserUnlock(c, "1234"); err != nil {

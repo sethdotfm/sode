@@ -1,114 +1,109 @@
-// Settings > API: the switch and limits for Sode's API. Saved apart from the Settings form with the
-// Advanced Settings PIN (the `apiSettings` message), even for a trusted user. Require HTTPS lives under Proxy.
-// Imported by settings.js before it builds its table of contents.
+import { $, S, on, el } from './core.js';
+import { addSaveSource } from './savesources.js';
+import { diffRows, showValue } from './savereviewrules.js';
+import { apiProblem, SCOPES } from './apirules.js';
 
-import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
-import { unlocked } from './pin.js';
-import { askPin, reask } from './pinprompt.js';
-import { apiProblem, apiRepaints, apiSettingsReq } from './apirules.js';
-import { btn, check as checkbox, field } from './formbits.js';
+const guest = $('api-guest');
+const scopeBox = $('api-scopes');
+const logReads = $('api-log-reads');
+const rate = $('api-rate');
+const cap = $('api-cap');
 
-const check = (id, text, hint) => {
-  const c = checkbox(text, { id });
-  return { input: c.input, node: el('div', 'sode__field', c.label, el('span', 'sode__hint', hint)) };
-};
-const num = (id, text, hint, min, max) => {
-  const input = el('input', 'pb-input');
-  input.type = 'number';
-  input.id = id;
-  input.min = String(min);
-  input.max = String(max);
-  return { input, node: field(id, text, el('span', 'pb-number-wrap', input), hint) };
-};
+for (const s of SCOPES) {
+  const box = el('input', 'pb-check__input');
+  box.type = 'checkbox';
+  box.dataset.scope = s.id;
+  scopeBox.append(el('label', 'pb-check', box, el('span', 'pb-check__label', s.text)));
+}
+const boxes = [...scopeBox.querySelectorAll('input[data-scope]')];
+// Disabled until a usersList answer says what the scopes are, so a tick cannot replace a set the page never saw.
+for (const b of boxes) b.disabled = true;
 
-const enabled = check('api-enabled', 'API enabled', 'Off by default. While off, every API call is refused.');
-const guest = check('api-guest', 'Guest API', 'Lets a call with no key use the Guest scopes (Manage users, Rights tab, Guest). The API switch gates it too.');
-const logReads = check('api-log-reads', 'Log API reads', 'One Communication Log row for every read. Off keeps the log to commands, refusals and key events.');
-const rate = num('api-rate', 'Rate limit (requests a minute per key)', '0 means none.', 0, 100000);
-const cap = num('api-cap', 'Take cap (API takes in flight)', 'The router answers one message at a time, so a runaway client is held back here. 1-64.', 1, 64);
+// The page's scope order, so a set the server keeps in another order is no change.
+const ordered = (list) => SCOPES.map((s) => s.id).filter((id) => list.includes(id));
 
-const err = el('div', 'pb-note pb-note--error');
-err.setAttribute('role', 'alert');
-err.hidden = true;
-const note = el('span', 'sode__hint');
-note.setAttribute('role', 'status');
-note.setAttribute('aria-live', 'polite');
-const save = btn('pb-btn--outline', 'Save API settings');
-save.id = 'api-save';
-save.dataset.find = 'api-save';
-save.dataset.label = 'Save API settings';
+let base = {}; // api, and guestApiScopes after a usersList gives them
+let vers = {};
+let scopes = null; // the last usersList's {list, version}
 
-const group = el(
-  'fieldset',
-  'sode__group',
-  el('legend', null, 'API'),
-  enabled.node,
-  guest.node,
-  logReads.node,
-  rate.node,
-  cap.node,
-  el('div', 'sode__field', save, note),
-  err,
-);
-group.dataset.apart = '';
-$('users-group').after(group); // users.js is imported first
+const apiNow = () => ({ rateLimit: Number(rate.value), takeCap: Number(cap.value), guestEnabled: guest.checked, logReads: logReads.checked });
 
-let saved = { enabled: false, rateLimit: 0, takeCap: 1, guestEnabled: false, logReads: false };
-let sent = saved;
-let seq = 0;
-let painted = false;
+function now() {
+  if (!('api' in base)) return {};
+  const out = { api: apiNow() };
+  if ('guestApiScopes' in base) out.guestApiScopes = boxes.filter((b) => b.checked).map((b) => b.dataset.scope);
+  return out;
+}
+const edited = (key) => diffRows({ [key]: base[key] }, { [key]: now()[key] }).length > 0;
 
-const edited = () => ({
-  enabled: enabled.input.checked,
-  rateLimit: Number(rate.input.value),
-  takeCap: Number(cap.input.value),
-  guestEnabled: guest.input.checked,
-  logReads: logReads.input.checked,
-});
-
-function paint() {
+function fillApi() {
   const a = S.cfg?.api;
   if (!a) return;
-  const incoming = { enabled: !!a.enabled, rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads };
-  if (painted && !apiRepaints(saved, edited(), incoming)) return;
-  painted = true;
-  saved = incoming;
-  enabled.input.checked = saved.enabled;
-  guest.input.checked = saved.guestEnabled;
-  logReads.input.checked = saved.logReads;
-  rate.input.value = String(saved.rateLimit);
-  cap.input.value = String(saved.takeCap);
+  base.api = { rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads };
+  vers.api = S.versions?.api;
+  guest.checked = base.api.guestEnabled;
+  logReads.checked = base.api.logReads;
+  rate.value = String(base.api.rateLimit);
+  cap.value = String(base.api.takeCap);
 }
-on('hello', paint);
-paint();
 
-const fail = (text) => {
-  err.textContent = sentence(text);
-  err.hidden = !text;
-};
-
-async function doSave() {
-  fail('');
-  note.textContent = '';
-  const next = edited();
-  const bad = apiProblem(next);
-  if (bad) return fail(bad);
-  if (S.pinSet && !unlocked() && !(await askPin('API settings need the Advanced Settings PIN.'))) return;
-  const id = ++seq;
-  if (!wsSend({ ...apiSettingsReq(saved, next), id })) return fail('Not connected to Sode.');
-  sent = next;
-  save.disabled = true;
+function fillScopes() {
+  if (!scopes) return;
+  base.guestApiScopes = ordered(scopes.list);
+  vers.guestApiScopes = scopes.version;
+  for (const b of boxes) b.checked = base.guestApiScopes.includes(b.dataset.scope);
 }
-save.addEventListener('click', doSave);
 
-onMsg('apiSettingsResult', async (m) => {
-  if (m.id !== seq) return;
-  save.disabled = false;
-  if (m.ok) {
-    saved = sent;
-    note.textContent = 'Saved.';
-    return;
-  }
-  if (m.locked && (await reask('API settings need the Advanced Settings PIN again.'))) return doSave();
-  fail(m.err);
+// A hello or list moves only a baseline with no edits on it, so another person's save shows as a conflict.
+on('hello', () => {
+  if (!('api' in base) || !edited('api')) fillApi();
+});
+fillApi();
+
+on('usersListed', (m) => {
+  scopes = { list: m.guestScopes || [], version: m.versions?.guestApiScopes };
+  const first = boxes[0]?.disabled;
+  for (const b of boxes) b.disabled = false;
+  if (first || !edited('guestApiScopes')) fillScopes();
+});
+
+const LABELS = { rateLimit: 'api-rate', takeCap: 'api-cap', guestEnabled: 'api-guest', logReads: 'api-log-reads' };
+function label(r) {
+  if (r.key === 'guestApiScopes') return $('api-scopes-label').textContent;
+  const f = $(LABELS[r.sub]);
+  return (f.closest('.pb-check')?.querySelector('.pb-check__label') || document.querySelector(`label[for="${f.id}"]`)).textContent;
+}
+
+function show(r, v) {
+  if (r.key === 'guestApiScopes') return v.length ? v.map((id) => SCOPES.find((s) => s.id === id)?.text || id).join(', ') : 'None';
+  return showValue(v);
+}
+
+// Callers emit the change.
+export function stageKeyless({ guestEnabled, scopes }) {
+  if (guestEnabled !== undefined) guest.checked = guestEnabled;
+  if (scopes) for (const b of boxes) b.checked = scopes.includes(b.dataset.scope);
+}
+
+addSaveSource({
+  owns: (key) => key === 'api' || key === 'guestApiScopes',
+  base: () => base,
+  now,
+  version: (key) => vers[key],
+  label,
+  show,
+  problem: () => ('api' in base ? apiProblem(apiNow()) : ''),
+  saved(key, value, r) {
+    base[key] = value;
+    if (r.version) vers[key] = r.version;
+  },
+  conflict(key, r) {
+    vers[key] = r.version;
+    base[key] = key === 'guestApiScopes' ? ordered(r.value || []) : r.value;
+  },
+  reset() {
+    base = {};
+    fillApi();
+    fillScopes();
+  },
 });

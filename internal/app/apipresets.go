@@ -10,8 +10,7 @@ func init() {
 	registerAPI(apiRoute{"GET", apiBase + "/presets", config.ScopePresets, (*App).apiPresets})
 }
 
-// apiPreset: Scope is "everyone" or "me". This browser presets live only in a browser, so
-// no key sees them.
+// Scope is "everyone" or "me". A This browser preset is only in a browser, so no key sees it.
 type apiPreset struct {
 	Scope string `json:"scope"`
 	config.Preset
@@ -30,7 +29,7 @@ func (a *App) apiPresets(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	}
 	add("everyone", cfg.Presets)
 	if cl.Actor.Kind == actorUser {
-		if u, ok := cfg.FindUser(cl.Actor.Name); ok {
+		if u, ok := cfg.FindUserByID(cl.Actor.User); ok {
 			add("me", u.Profile.Presets)
 		}
 	}

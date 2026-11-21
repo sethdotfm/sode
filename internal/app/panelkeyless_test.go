@@ -13,9 +13,6 @@ import (
 	"time"
 )
 
-// Keyless instances: a panel page with no working key announces itself, is listed for Assign and gets nothing until one.
-
-// keylessHold opens the announcement with no key and hands back every line after the first.
 func keylessHold(t *testing.T, a *App, seg, query string) (<-chan map[string]any, context.CancelFunc) {
 	t.Helper()
 	srv := strmServer(t, a)
@@ -56,7 +53,6 @@ func keylessRows(t *testing.T, a *App, id, key string) []map[string]any {
 	return rows
 }
 
-// keylessRow waits for the panel to list one keyless row named device.
 func keylessRow(t *testing.T, a *App, id, key, device string) map[string]any {
 	t.Helper()
 	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
@@ -104,7 +100,7 @@ func TestKeylessRowsAreNeverStoredFromASavedRead(t *testing.T) {
 		t.Errorf("a non-editor read keyless rows")
 	}
 
-	// A file saved before the fix still holds them; loading drops them and keeps fields from a newer Sode.
+	// An old file can hold them. The load drops them and keeps the fields from a newer Sode.
 	path := filepath.Join(filepath.Dir(a.cfgPath), panelsDir, id+".yaml")
 	raw, _ := os.ReadFile(path)
 	raw = append(raw, "keyless:\n  - addr: 10.0.0.9\nrights: {}\nfuture: 7\n"...)
@@ -117,14 +113,14 @@ func TestKeylessRowsAreNeverStoredFromASavedRead(t *testing.T) {
 	}
 }
 
-// A checkpoint or set saved before the fix carries keyless in its extra; a Push or restore of it stores none.
+// An old checkpoint or set can carry keyless in its extra; a Push or restore of it stores none.
 func TestKeylessRowsInAnOldLayoutAreNotStored(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
 	id := makePanel(t, a, cy, `{"name":"Studio A"}`)
 	lay := panelLayout{Rows: 4, Cols: 8, Settings: map[string]any{},
 		Extra: map[string]any{"keyless": []any{map[string]any{"addr": "10.0.0.9"}}, "future": 7}}
-	if _, _, err := a.panels.pushLayout(id, lay, "Cy", "test"); err != nil {
+	if _, _, err := a.panels.pushLayout(id, lay, "Cy", "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := a.panels.get(id)
@@ -168,7 +164,6 @@ func TestKeylessNameFallsBackToTheAddressThenItsLastName(t *testing.T) {
 	id := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
 	keylessHold(t, a, id, "")
 	keylessRow(t, a, id, cy, "127.0.0.1")
-	// A stream from the same address that carried a name: the nameless page is shown under it.
 	monHold(t, a, id, instanceKey(t, a, id, cy, "Hall"), "Hall")
 	keylessRow(t, a, id, cy, "Hall")
 }
@@ -181,10 +176,43 @@ func TestKeylessAnswersAlikeForAPanelThatDoesNotExist(t *testing.T) {
 	}
 }
 
+// The route has no key and no rate limit, so it must not hold streams without bound or end a live one.
+func TestKeylessStreamsAreCapped(t *testing.T) {
+	a, _ := monApp(t)
+	for range 50 {
+		a.mon.openKeyless("wall", "10.0.0.1", "Lobby", false, func() {})
+	}
+	a.mon.mu.Lock()
+	n := len(a.mon.keyless[keylessKey("wall", "10.0.0.1", "lobby")].conns)
+	a.mon.mu.Unlock()
+	if n > keylessConnsMax {
+		t.Fatalf("one entry holds %d streams", n)
+	}
+	for i := range keylessPerAddr + 1 {
+		_, _, _, ok := a.mon.openKeyless("wall", "10.0.0.2", fmt.Sprint(i), false, func() {})
+		if ok != (i < keylessPerAddr) {
+			t.Fatalf("entry %d from one address: ok %v", i, ok)
+		}
+	}
+	cancelled := 0
+	for i := 0; ; i++ {
+		a.mon.mu.Lock()
+		full := len(a.mon.keyless) >= keylessMax
+		a.mon.mu.Unlock()
+		if full {
+			break
+		}
+		a.mon.openKeyless("wall", fmt.Sprintf("10.1.%d.%d", i/256, i%256), "", false, func() { cancelled++ })
+	}
+	if _, _, _, ok := a.mon.openKeyless("wall", "10.9.9.9", "", false, func() { cancelled++ }); ok || cancelled != 0 {
+		t.Fatalf("a full table took a new entry (%v) or ended %d live streams", ok, cancelled)
+	}
+}
+
 func TestKeylessEntriesAreCappedOldestFirstAndForgottenAfterADay(t *testing.T) {
 	a, clk := monApp(t)
 	for i := range keylessMax + 1 {
-		done, _ := a.mon.openKeyless("wall", fmt.Sprintf("10.0.%d.%d", i/256, i%256), "", false, func() {})
+		done, _, _, _ := a.mon.openKeyless("wall", fmt.Sprintf("10.0.%d.%d", i/256, i%256), "", false, func() {})
 		done()
 		clk.advance(time.Second)
 	}
@@ -223,7 +251,6 @@ func TestKeylessPageGetsAKeyOnlyByAnAssign(t *testing.T) {
 	r := keylessRow(t, a, from, cy, "Lobby")
 	silent(t, lines)
 
-	// A user who is not Trusted, with no PIN, sends nothing.
 	if code, _ := keylessAssign(a, to, userKey(t, a, "Ana"), r["keyless"].(string), ""); code != 403 {
 		t.Fatalf("an untrusted Assign: %d", code)
 	}
@@ -237,7 +264,7 @@ func TestKeylessPageGetsAKeyOnlyByAnAssign(t *testing.T) {
 	if msg["panel"] != to || msg["instance"] != "Lobby" || key == "" {
 		t.Fatalf("message %v", msg)
 	}
-	if got := panelOf(t, a, to, key); fmt.Sprint(got["rights"].(map[string]any)["dsts"]) != "[2]" {
+	if got := panelOf(t, a, to, key); fmt.Sprint(wireNs(got["rights"].(map[string]any)["dsts"])) != "[2]" {
 		t.Fatalf("rights %v", got["rights"])
 	}
 	if len(keylessRows(t, a, from, cy)) != 0 {
@@ -313,7 +340,7 @@ func TestKeylessPageNamedByAnIPv6AddressGetsAKey(t *testing.T) {
 	from := makePanel(t, a, cy, `{"name":"Studio A"}`)
 	to := makePanel(t, a, cy, assignTarget)
 	addr := "2001:db8:85a3:1234:5678:8a2e:370:7334%eth0"
-	done, out := a.mon.openKeyless(from, addr, "", false, func() {})
+	done, out, _, _ := a.mon.openKeyless(from, addr, "", false, func() {})
 	defer done()
 	line := make(chan []byte, 1)
 	go func() {

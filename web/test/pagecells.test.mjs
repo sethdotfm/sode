@@ -1,4 +1,3 @@
-// Page Name and Info cells (pagecells.js): what they show and their defaults.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { showOf, pageCellText, SHOW_PARTS } from '../pagecells.js';

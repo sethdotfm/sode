@@ -9,7 +9,7 @@ import (
 func saved(t *testing.T, path, name string) {
 	t.Helper()
 	c := Defaults()
-	c.Router = name
+	c.Address = name
 	if err := Save(path, c); err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func routerOf(t *testing.T, path string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return c.Router
+	return c.Address
 }
 
 func TestSaveKeepsPrev(t *testing.T) {

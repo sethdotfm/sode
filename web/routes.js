@@ -1,6 +1,7 @@
 // Routing views: who feeds a destination and what a source feeds.
 
-import { el, S, tallyText, protectedOn, protectedLabel } from './core.js';
+import { el, S, tallyText } from './core.js';
+import { protectNodes } from './protects.js';
 import { levelBar, allLevels } from './levelview.js';
 
 // src null = unknown, -1 = nothing.
@@ -44,16 +45,15 @@ export function pickEnd(side, text, title, onPick) {
   const b = el('button', `sode__end sode__end--${side} sode__end--pick`, text);
   b.type = 'button';
   b.tabIndex = -1;
-  b.title = title;
+  b.dataset.pbTip = title;
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', onPick);
   return b;
 }
 
-export function currentlyNodes(dst, onPick) {
+// confirm: the route view of one destination with no source offers Protect or Clear Protect through it.
+export function currentlyNodes(dst, onPick, confirm = null) {
   const all = allLevels();
   const rows = bySource(dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src), r.src, onPick));
-  const p = protectedOn(dst.n, all);
-  const prot = p.levels.length ? el('div', 'sode__route', levelBar(p.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(p.devices))) : null;
-  return [el('div', 'sode__label', `Currently on ${dst.label}`), ...rows, prot].filter(Boolean);
+  return [el('div', 'sode__label', `Currently on ${dst.label}`), ...rows, ...protectNodes(dst, confirm)];
 }

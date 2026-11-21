@@ -8,8 +8,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// life* helpers: an open stream follows its owner's rights, scopes and the API switches.
-
 func lifeCommit(t *testing.T, a *App, mut func(*config.Config)) {
 	t.Helper()
 	a.cfgMu.Lock()
@@ -84,14 +82,6 @@ func TestStreamEndsWhenLogScopeRemoved(t *testing.T) {
 	lifeEnded(t, a, s, "scopes changed")
 }
 
-func TestStreamEndsWhenAPIOff(t *testing.T) {
-	a, _ := apiTestApp(t, nil)
-	defer startLog(t, a)()
-	s := lifeTally(t, a, "tally")
-	lifeCommit(t, a, func(c *config.Config) { c.API.Enabled = false })
-	lifeEnded(t, a, s, "the API is off")
-}
-
 func TestStreamEndsWhenGuestOff(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		c.API.GuestEnabled = true
@@ -102,15 +92,14 @@ func TestStreamEndsWhenGuestOff(t *testing.T) {
 	s.next()
 	s.next()
 	lifeCommit(t, a, func(c *config.Config) { c.API.GuestEnabled = false })
-	lifeEnded(t, a, s, "the Guest API is off")
+	lifeEnded(t, a, s, "the keyless API is off")
 }
 
 func TestStreamSlowDropSaysWhy(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
 	s := lifeTally(t, a, "tally")
-	// The writer drains the queue without mu, so no fixed burst is sure to outrun it. Under -race
-	// it kept up with 5000. So the test sends bursts until the stream is dropped.
+	// The writer drains the queue without mu, so no fixed burst is sure to outrun it.
 	deadline := time.Now().Add(5 * time.Second * raceSlowdown)
 	for dropped := false; !dropped; {
 		if time.Now().After(deadline) {

@@ -10,11 +10,10 @@ import { artNode } from './panelview.js';
 import { prepareArt } from './artcompress.js';
 import { cellAt } from './gridmodel.js';
 import { createOrderPicker } from './editororder.js';
-import { flyoutShift } from './editorrules.js';
+import { flyoutShift, EDGE_GAP } from './editorrules.js';
 import { artToolPlan, applyArtTool, leftNote } from './arttoolrules.js';
 import { plural } from './gridclip.js';
 
-const EDGE_GAP = 8; // keep in step with GAP in editormenu.js and EDGE_GAP in editorfind.js
 const UNSAVED = 'Save the panel before uploading an image.';
 
 // What a plan does, said before (preview) or after (done) it runs.
@@ -109,7 +108,7 @@ export function initArtTool(editor, find) {
     if (x || y) panel.style.translate = `${x}px ${y}px`;
   }
 
-  // ---- preview in the grid: each square drawn as it would be, Default artwork and the Icon B badge included
+  // Each square is drawn as it would be, Default artwork and the Icon B badge included.
 
   function clearPreview() {
     for (const p of preview) {
@@ -209,8 +208,6 @@ export function initArtTool(editor, find) {
     if (j < 0 && grid === a.grid && e.key === 'ArrowUp') search.focus();
     else list[Math.max(0, Math.min(list.length - 1, j))].focus();
   });
-
-  // ---- open and close
 
   const close = () => {
     delete panel.dataset.open;

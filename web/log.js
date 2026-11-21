@@ -1,22 +1,32 @@
-// The /log page: every message Sode wrote to the router, plus browser connects, commands and
-// router link changes. It is newest first and live, with this browser's filters and the router
-// uptime graph.
-import { $, el, S, on, connect, wsSend, connState, routerTitle, setDot, item, labelNode } from './core.js';
+// The /log page: Communication Log rows, newest first and live, with this browser's filters and the uptime graph.
+import { $, el, S, on, connect, wsSend, connState, item, labelNode } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
-import { newPager } from './logpager.js';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, eventProblem, normalizeKinds, allKinds, pressKind } from './logkinds.js';
+import { newPager, rowKey, byNewest } from './logpager.js';
+import { KINDS, KIND_IDS, WHY_LABEL, kindLabel, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
+import { isEvent, problem, logPasses, sortKeys, cmpKeyed, newestFirst as newestOf, sortRows } from './logfilter.js';
+import { initDownloads } from './logdownload.js';
+import { fieldText, saveSummary } from './logsaves.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
-import './lock.js';
+import { lockState } from './lock.js';
+import { lockCovers } from './lockrules.js';
+import './inboxdialog.js';
+import { showApprovalCards } from './approvalcards.js';
+import './palette.js';
+import './homekey.js';
+import './themekey.js';
 import { bigScrollAll } from './bigscroll.js';
 import { pullToLoad } from './widgets.js';
+import { panelsBar, barTitle } from './panelsbar.js';
+
+panelsBar(document.querySelector('.sode-log__head'));
 
 on('brand', ({ text }) => {
-  document.querySelector('.sode-log__title').textContent = `${text} Communication Log`;
+  barTitle(document.querySelector('.sode-log__title'), `${text} Communication Log`);
   document.title = `${text} Communication Log`;
 });
 
@@ -26,29 +36,10 @@ on('brand', ({ text }) => {
 const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
 
-const KIND_LABEL = {
-  connect: 'Connect',
-  interrogate: 'Interrogate',
-  keepalive: 'Keepalive',
-  tallyDump: 'Tally dump',
-  protectDump: 'Protect dump',
-  srcNames: 'Source names',
-  dstNames: 'Destination names',
-  other: 'Other',
-  salvoStage: 'Router salvo stage',
-  salvoGo: 'Router salvo go',
-  browser: 'Browser',
-  command: 'Command',
-  api: 'API',
-  link: 'Router link',
-  server: 'Sode',
-};
-const isEvent = (e) => EVENT_KINDS.has(e.kind);
-
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
   return {
-    kinds: normalizeKinds(f.kinds, ['connect', 'command', 'api', 'link']),
+    kinds: Array.isArray(f.kinds) ? normalizeKinds(addNewKinds(f.kinds, f.known), []) : ['connect', 'command', 'api', 'link', 'settings'],
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
     dst: typeof f.dst === 'string' ? f.dst : '',
@@ -60,26 +51,18 @@ let srcOk = filterFn(filter.src) || anything;
 let dstOk = filterFn(filter.dst) || anything;
 
 function saveFilter() {
-  writeJSON(FILTER_KEY, filter);
+  writeJSON(FILTER_KEY, { ...filter, known: KIND_IDS });
 }
 
-const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
-const problem = (e) => (isEvent(e) ? eventProblem(e) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 // Not kept: a range far back means reading the log back to it, which should not happen on every
 // open.
 const range = { from: null, to: null };
 
-function passes(e) {
-  if (range.from != null && e.t < range.from) return false;
-  if (range.to != null && e.t > range.to) return false;
-  if (!kindOn(KINDS.some((g) => g.kinds.includes(e.kind)) ? e.kind : 'other')) return false;
-  if (filter.problems && !problem(e)) return false;
-  if (filter.src.trim() && (e.src < 0 || !srcOk(e.src + off(), e.srcName || ''))) return false;
-  if (filter.dst.trim() && (e.dst < 0 || !dstOk(e.dst + off(), e.dstName || ''))) return false;
-  return true;
-}
+// What the page shows, and what Download filtered rows keeps of the whole log.
+const pageFilter = () => ({ ...filter, from: range.from, to: range.to });
+const passes = (e) => logPasses(e, pageFilter(), off(), { src: srcOk, dst: dstOk });
 
 function initFilters() {
   const box = $('log-kinds');
@@ -180,7 +163,7 @@ let shown = [];
 
 function send(req) {
   if (!req) return;
-  if (!wsSend({ t: 'sent', ...req })) pager.unsent();
+  if (!wsSend({ t: 'log', ...req })) pager.unsent();
   renderMore();
 }
 
@@ -195,19 +178,17 @@ const rangeDone = () => range.from != null && pager.list.length > 0 && !rangeNee
 
 const fill = () => rangeNeedsMore() && send(pager.back());
 
-on('unlocked', () => {
+// A locked page's asks are refused, and each refusal writes a row; 'unlocked' loads.
+const reload = () => {
+  if (lockCovers(lockState())) return;
   send(pager.open());
   render();
   refreshUptime();
-});
+};
+on('unlocked', reload);
+on('hello', reload);
 
-on('hello', () => {
-  send(pager.open());
-  render();
-  refreshUptime();
-});
-
-on('sentPage', (m) => {
+on('logPage', (m) => {
   const r = pager.receive(m);
   if (!r) return;
   showCounts(m);
@@ -223,7 +204,7 @@ on('sentPage', (m) => {
   else renderMore();
 });
 
-on('sentAdd', (m) => {
+on('logAdd', (m) => {
   if (!pager.started) return;
   showCounts(m);
   const { fresh, dropped } = pager.live(m);
@@ -239,12 +220,11 @@ on('sentAdd', (m) => {
   renderMore();
 });
 
-// shown and tbody's rows stay in step, so an entry's row sits at its index in shown.
 function dropRows(es) {
   if (!es.length) return;
-  const gone = new Set(es.map((e) => e.seq));
+  const gone = new Set(es.map(rowKey));
   for (let i = shown.length - 1; i >= 0; i--) {
-    if (!gone.has(shown[i].seq)) continue;
+    if (!gone.has(rowKey(shown[i]))) continue;
     tbody.children[i].remove();
     shown.splice(i, 1);
   }
@@ -254,9 +234,7 @@ function showCounts(m) {
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
-  note.textContent = n
-    ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'was not' : 'were not'} saved to this log. The server log has details.`
-    : '';
+  note.textContent = n ? `${n} message${n === 1 ? '' : 's'} not saved since restart. See the server log.` : '';
 }
 
 const tbody = $('log-rows');
@@ -287,13 +265,17 @@ const EVENT_RESULT = {
   error: ['error', 'Failed'],
   start: ['ok', 'Started'],
   stop: ['idle', 'Stopped'],
+  approved: ['ok', 'Approved'],
+  denied: ['warn', 'Denied'],
+  timeout: ['warn', 'No one answered'],
+  cancelled: ['idle', 'Cancelled'],
 };
 
 function outcome(e) {
   if (isEvent(e)) {
     const [dot, text] = e.kind === 'server' && e.err ? ['warn', 'Started with a problem'] : EVENT_RESULT[e.result] || ['idle', e.result];
     const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
-    if (e.err) s.title = e.err;
+    if (e.err) s.dataset.pbTip = e.err;
     return s;
   }
   const tries = `${e.tries} ${e.tries === 1 ? 'try' : 'tries'}`;
@@ -306,7 +288,7 @@ function outcome(e) {
     unsent: ['error', 'Not sent'],
   }[e.result] || ['idle', e.result];
   const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
-  if (e.err) s.title = e.err;
+  if (e.err) s.dataset.pbTip = e.err;
   return s;
 }
 
@@ -315,10 +297,23 @@ const fmtMs = (ms) => (ms < 10 ? ms.toFixed(1) : String(Math.round(ms))) + ' ms'
 function levelCell(e) {
   const l = S.levelBy.get(e.level);
   if (l) return levelColor(el('span', 'sode__slot sode__slot--on sode-log__lvl', l.label), l);
-  return e.wire >= 0 ? el('span', 'pb-text-muted', `wire ${e.wire}`) : '';
+  return e.wire >= 0 ? el('span', 'pb-text-muted', `router level ${e.wire}`) : '';
 }
 
 const side = (n, name) => (n >= 0 ? labelNode(item(n, name || '')) : '');
+
+const saveFields = (s) =>
+  el(
+    'details',
+    'sode-log__save',
+    el('summary', null, saveSummary(s)),
+    el(
+      'ul',
+      'sode-log__save-fields',
+      ...(s.fields || []).map((f) => el('li', null, fieldText(f))),
+      ...(s.interruptions || []).map((t) => el('li', null, `Interruption: ${t}`)),
+    ),
+  );
 
 function row(e, fresh = false) {
   const why = WHY_LABEL[e.why] || e.why || '';
@@ -326,7 +321,7 @@ function row(e, fresh = false) {
     'tr',
     fresh ? 'sode--enter' : null,
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
-    el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), KIND_LABEL[e.kind] || e.kind),
+    el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), kindLabel(e)),
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),
@@ -337,6 +332,7 @@ function row(e, fresh = false) {
       e.by ? el('span', 'pb-text-muted sode-log__why-part', e.by) : '',
       e.note ? el('span', 'pb-text-muted sode-log__why-part', e.note) : '',
       e.kind === 'server' && e.err ? el('span', 'pb-text-muted sode-log__why-part', e.err) : '',
+      e.save ? saveFields(e.save) : '',
     ),
     el('td', null, outcome(e)),
     el('td', 'sode-log__hex', e.hex),
@@ -345,58 +341,26 @@ function row(e, fresh = false) {
   return tr;
 }
 
-// ---- sorting: ties keep newest first; rows without that column go last either way.
+// ---- sorting (logfilter.js): ties keep newest first. Rows without the column go last in both directions.
 
 const SORT_KEY = 'sode-log-sort';
-const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
-const SORTS = {
-  time: (e) => e.seq,
-  message: (e) => KIND_LABEL[e.kind] || e.kind,
-  level: (e) => (e.level ? e.level : e.wire >= 0 ? 1000 + e.wire : null),
-  dst: (e) => (e.dst >= 0 ? e.dst : null),
-  src: (e) => (e.src >= 0 ? e.src : null),
-  why: (e) => (e.why ? `${WHY_LABEL[e.why] || e.why} ${e.by || ''}` : null),
-  result: (e) => [resultRank(e), e.result, e.tries],
-  hex: (e) => e.hex,
-};
+const SORTS = sortKeys();
 let sort = { col: 'time', dir: 'desc' };
 {
   const saved = readJSON(SORT_KEY);
   if (SORTS[saved?.col] && ['asc', 'desc'].includes(saved.dir)) sort = saved;
 }
-const newestFirst = () => sort.col === 'time' && sort.dir === 'desc';
-
-function cmp(a, b) {
-  if (Array.isArray(a)) {
-    for (let i = 0; i < a.length; i++) {
-      const c = cmp(a[i], b[i]);
-      if (c) return c;
-    }
-    return 0;
-  }
-  if (typeof a === 'string') return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-  return a - b;
-}
-
-function cmpKeyed(x, xv, y, yv) {
-  if (xv == null || yv == null) return xv == null ? (yv == null ? y.seq - x.seq : 1) : -1;
-  return (sort.dir === 'asc' ? 1 : -1) * cmp(xv, yv) || y.seq - x.seq;
-}
+const newestFirst = () => newestOf(sort);
 
 function order(x, y) {
-  if (newestFirst()) return y.seq - x.seq;
+  if (newestFirst()) return byNewest(x, y);
   const key = SORTS[sort.col];
-  return cmpKeyed(x, key(x), y, key(y));
+  return cmpKeyed(sort, x, key(x), y, key(y));
 }
 
 function shownRows() {
   const rows = pager.list.filter(passes);
-  if (newestFirst()) return rows;
-  const key = SORTS[sort.col];
-  return rows
-    .map((e) => ({ e, v: key(e) }))
-    .sort((x, y) => cmpKeyed(x.e, x.v, y.e, y.v))
-    .map((x) => x.e);
+  return newestFirst() ? rows : sortRows(rows, sort, SORTS);
 }
 
 function appendRows(es) {
@@ -449,7 +413,6 @@ function render() {
 function renderMore() {
   const shown = tbody.childElementCount;
   $('log-count').textContent = pager.list.length ? `${shown.toLocaleString()} of ${pager.total.toLocaleString()} in log` : '';
-  $('log-csv').disabled = !shown;
   const older = $('log-older');
   const busy = pager.loading;
   const filling = busy && rangeNeedsMore();
@@ -467,50 +430,11 @@ function renderMore() {
       : 'Nothing loaded matches the filters.';
 }
 
-const CSV_COLS = [
-  ['time', (e) => e.time],
-  ['seq', (e) => e.seq],
-  ['message', (e) => KIND_LABEL[e.kind] || e.kind],
-  ['cmd', (e) => (isEvent(e) ? '' : `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`)],
-  ['level', (e) => S.levelBy.get(e.level)?.label ?? ''],
-  ['router level', (e) => (e.wire >= 0 ? e.wire : '')],
-  ['destination', (e) => (e.dst >= 0 ? e.dst + off() : '')],
-  ['destination name', (e) => e.dstName || ''],
-  ['source', (e) => (e.src >= 0 ? e.src + off() : '')],
-  ['source name', (e) => e.srcName || ''],
-  ['for', (e) => WHY_LABEL[e.why] || e.why || ''],
-  ['by', (e) => e.by || ''],
-  ['result', (e) => e.result],
-  ['tries', (e) => e.tries],
-  ['error', (e) => e.err || ''],
-  ['note', (e) => e.note || ''],
-  ['ack ms', (e) => (e.ackMs ? e.ackMs : '')],
-  ['bytes', (e) => e.hex],
-];
-
-// A leading = + - @ is defused so a spreadsheet does not run a router-supplied name as a formula.
-function csvCell(v) {
-  let s = String(v);
-  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-$('log-csv').addEventListener('click', () => {
-  const rows = shownRows();
-  const text = [CSV_COLS.map(([h]) => h), ...rows.map((e) => CSV_COLS.map(([, f]) => f(e)))].map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
-  const d = new Date();
-  const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
-  const a = el('a');
-  a.href = url;
-  a.download = `sode-sent-${stamp}.csv`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
+// The server builds both files from the whole log (logdownload.js).
+initDownloads((rows) => sortRows(rows.filter(passes), sort, SORTS));
 
 const loadOlder = () => send(pager.older(pager.list.filter(passes).length));
 $('log-older').addEventListener('click', loadOlder);
-// The home page's auto-expand: a wheel or touch pull past the end presses Load older.
 pullToLoad(window, $('log-older').parentElement, { hasMore: () => !$('log-older').hidden && !pager.loading, more: loadOlder }, () => true);
 
 const fmtDay = (t) => {
@@ -524,17 +448,12 @@ on('conn', () => {
   const c = connState();
   if (routerWas !== null && c.rt[0] !== routerWas) refreshUptime();
   routerWas = c.rt[0];
-  setDot($('log-ws-dot'), $('log-ws-text'), [c.ws[0], 'Server']);
-  setDot($('log-rt-dot'), $('log-rt-text'), [c.rt[0], 'Router']);
-  $('log-addr').textContent = routerTitle()[0];
   if (S.wsState !== 'up') {
     pager.close();
     renderMore();
   }
 });
-// ---- uptime graph. One strip whose toggles set the log's time range (From = that long ago, no To)
-// and keep rolling with the clock. With no times set, it shows the last 24 hours. Only the
-// newest reply is drawn.
+// Uptime graph: its chips set the log's time range (From = that long ago, no To) and move with the clock. No times set = the last 24 hours. Only the newest reply is drawn.
 
 let chipOn = null;
 // Slot mode: a bar was clicked and the log shows only its slot. The strip keeps its window (view)
@@ -557,7 +476,7 @@ function initUptime() {
   const chips = PRESETS.map((p) => {
     const b = el('button', 'pb-chip sode-log__chip', presetText(p));
     b.type = 'button';
-    b.title = `Show the last ${p.label} and limit the log to it. Each bar of the graph is ${slotLabel(slotFor(0, p.span))}.`;
+    b.dataset.pbTip = `Bar = ${slotLabel(slotFor(0, p.span))}`;
     b.addEventListener('click', () => {
       const from = $('log-from');
       from.value = localStamp(Date.now() - p.span);
@@ -584,7 +503,7 @@ function refreshUptime() {
   const r = slotMode ? slotMode.view : chipOn ? rangeFor(chipOn, null, null, now) : rangeFor(DEFAULT_PRESET, range.from, range.to, now);
   if (!r) {
     upBars.replaceChildren();
-    upSum.textContent = 'The From time is after the To time.';
+    upSum.textContent = 'From is after To.';
     return;
   }
   const id = ++upId;
@@ -634,7 +553,7 @@ function showSlot() {
   const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Back');
   back.type = 'button';
   back.addEventListener('click', leaveSlotBack);
-  note.replaceChildren(el('strong', null, 'One slot of the graph'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, 'newest first', back);
+  note.replaceChildren(el('strong', null, 'Slot'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, back);
 }
 
 on('uptimeResult', (m) => {
@@ -653,9 +572,10 @@ on('uptimeResult', (m) => {
   upSum.textContent = text;
 });
 
-setInterval(refreshUptime, 60_000);
+setInterval(() => lockCovers(lockState()) || refreshUptime(), 60_000);
 
 initFilters();
 initUptime();
 bigScrollAll();
+showApprovalCards();
 connect();

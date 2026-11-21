@@ -1,5 +1,4 @@
-// Find in the panel editor, pure. It holds what can be searched and which of it the signed-in user's Rights
-// allow. It also holds how results rank and how a chosen result fills the selection. The page side is editorfind.js.
+// Find in the panel editor: entries, Rights, rank and fill. Pure; the page side is editorfind.js.
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned, cellAt } from './gridmodel.js';
 
@@ -44,11 +43,10 @@ export const CATEGORY_LABEL = {
   previousPage: 'Previous Page',
   page: 'Pages',
 };
-// Not log-in and log-out: the glossary UI test refuses those words.
 export const CATEGORY_ICON = {
   source: 'arrow-right-from-line',
   destination: 'arrow-right-to-line',
-  preset: 'bookmark',
+  preset: 'layers',
   take: 'zap',
   clear: 'eraser',
   undo: 'undo-2',
@@ -92,7 +90,7 @@ export function findEntries(namesReply, presetsReply, rights, { fixed = false } 
   numbered('destination', namesReply?.destinations);
   // A preset has no number, so "onward" follows the name.
   const byName = [...(presetsReply?.presets || [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-  for (const p of byName) add({ category: 'preset', key: `preset:${p.scope}:${p.name}`, label: p.name, scope: p.scope }, p.name);
+  for (const p of byName) add({ category: 'preset', key: `preset:${p.scope}:${p.name}`, label: p.name, scope: p.scope, id: p.id }, p.id);
   // The numberless kinds are always placeable: Rights limit Sources, Destinations and Presets only.
   for (const category of NUMBERLESS) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
   return out;
@@ -138,8 +136,8 @@ export function fillRun(entries, start, picks) {
   return from < 0 ? [] : entries.slice(from).filter((e) => e.category === category && !e.off);
 }
 
-// What a fill would do, for the preview and for applyFind. Slots are fillPlan's, each with the entry it
-// takes; order is one of gridmodel's FILL_ORDERS.
+// What a fill would do, for the preview and for applyFind. Slots are fillPlan's, each with its entry.
+// order is one of gridmodel's FILL_ORDERS.
 export function findPlan(g, run, order = 'across') {
   if (!run.length) return null;
   const plan = fillPlan(g, { kind: run[0].category, items: run.map((_, i) => i), order });
@@ -190,7 +188,13 @@ export function applyFind(g, plan) {
   }
   if (plan.kind !== 'source' && plan.kind !== 'destination') {
     const preset = plan.kind === 'preset';
-    for (const s of plan.slots) out = setCell(out, s, { n: undefined, scope: preset ? s.entry.scope : undefined, name: preset ? s.entry.label : undefined });
+    for (const s of plan.slots)
+      out = setCell(out, s, {
+        n: undefined,
+        scope: preset ? s.entry.scope : undefined,
+        id: preset ? s.entry.id : undefined,
+        name: preset ? s.entry.label : undefined,
+      });
   }
   return out;
 }

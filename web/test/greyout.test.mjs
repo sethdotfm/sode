@@ -1,4 +1,3 @@
-// The signed-in user's own rights grey out what the server would refuse. The server stays the authority.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -28,7 +27,7 @@ test('a plan outside the signed-in rights is blocked before confirm, with the sa
   applyMyRights({ dsts: [8] });
   const { block } = planBlocked(plan);
   assert.equal(block.kind, 'error');
-  assert.equal(block.title, 'Outside your rights');
+  assert.equal(block.title, 'Outside your Rights');
   assert.equal(block.text, 'destination 10 is outside your rights');
   assert.equal(rightsOff('dsts', 9), true);
   assert.equal(rightsOff('dsts', 8), false);

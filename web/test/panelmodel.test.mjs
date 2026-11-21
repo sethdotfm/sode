@@ -1,4 +1,3 @@
-// The panel's state model (panelmodel.js): view, stage, arm and take, with no DOM.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

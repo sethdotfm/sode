@@ -1,32 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfiles, profileButtonOff, PROFILE_NOTICE } from '../profilesrules.js';
-
-test('prefRows: labels values, skips unknown ones', () => {
-  const r = prefRows({ theme: 'dark', flip: true, clock: 'bogus', nope: 'x' });
-  assert.deepEqual(
-    r.map((x) => [x.key, x.value]),
-    [
-      ['theme', 'Dark'],
-      ['flip', 'Yes'],
-    ],
-  );
-  assert.deepEqual(prefRows(null), []);
-});
-
-test('withoutPref leaves the others', () => {
-  assert.deepEqual(withoutPref({ theme: 'dark', clock: '12' }, 'theme'), { clock: '12' });
-});
+import { setSummary, presetSummary, without, canSeeProfiles, profileButtonOff, PROFILE_NOTICE } from '../profilesrules.js';
 
 test('setSummary', () => {
   assert.equal(setSummary({}), 'Shows everything');
-  assert.equal(setSummary({ src: 'CAM', ext: false, hidden: true }), 'sources CAM; hides changes made elsewhere; shows hidden destinations');
+  assert.equal(setSummary({ src: 'CAM', ext: false, hidden: true }), 'sources CAM; hides Externals; shows hidden destinations');
 });
 
 test('presetSummary counts takes and destinations', () => {
-  assert.equal(presetSummary({ items: [{ dsts: [1, 2] }, { dsts: [3] }] }), '2 takes, 3 destinations');
-  assert.equal(presetSummary({ items: [{ dsts: [1] }] }), '1 take, 1 destination');
-  assert.equal(presetSummary({}), '0 takes, 0 destinations');
+  assert.equal(presetSummary({ items: [{ dsts: [1, 2] }, { dsts: [3] }] }), '2 rows, 3 destinations');
+  assert.equal(presetSummary({ items: [{ dsts: [1] }] }), '1 row, 1 destination');
+  assert.equal(presetSummary({}), '0 rows, 0 destinations');
 });
 
 test('without drops one index', () => {
@@ -35,10 +19,9 @@ test('without drops one index', () => {
 });
 
 test('canSeeProfiles', () => {
-  assert.equal(canSeeProfiles([], true, true), false);
-  assert.equal(canSeeProfiles(['Ana'], false, false), false);
-  assert.equal(canSeeProfiles(['Ana'], true, false), true);
-  assert.equal(canSeeProfiles(['Ana'], false, true), true);
+  assert.equal(canSeeProfiles([], true), false);
+  assert.equal(canSeeProfiles(['Ana'], false), false);
+  assert.equal(canSeeProfiles(['Ana'], true), true);
 });
 
 test('profileButtonOff: only a saved, unrenamed user has a profile to open', () => {
@@ -53,7 +36,7 @@ import { prefFields, prefsWith, withParts, upsertEntry, filterEntry, findByName 
 
 test('prefFields: one per pref, Not set first, saved value chosen', () => {
   const f = prefFields({ theme: 'dark', flip: true, clock: 'bogus' });
-  assert.equal(f.length, 10);
+  assert.equal(f.length, 11);
   assert.equal(f.find((x) => x.key === 'compact').label, 'Compact view');
   assert.equal(f.find((x) => x.key === 'theme').value, 'dark');
   assert.equal(f.find((x) => x.key === 'flip').value, 'on');
@@ -110,8 +93,7 @@ test('filterEntry and findByName', () => {
   assert.equal(findByName(null, 'a'), undefined);
 });
 
-test('PROFILE_NOTICE says a Profile is not private and who can see it', () => {
-  assert.match(PROFILE_NOTICE, /not private/);
-  assert.match(PROFILE_NOTICE, /trusted users/i);
-  assert.match(PROFILE_NOTICE, /Advanced Settings PIN/);
+test('PROFILE_NOTICE says who can see a Profile', () => {
+  assert.match(PROFILE_NOTICE, /Trusted users and Administrators/);
+  assert.doesNotMatch(PROFILE_NOTICE, /PIN/);
 });

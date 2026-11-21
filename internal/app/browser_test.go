@@ -107,14 +107,26 @@ func startBrowser(t *testing.T) *tab {
 		}
 		c := cancel
 		stopWatch := watchChrome(cmd.Process.Pid)
-		t.Cleanup(func() { c(); _ = cmd.Wait(); stopWatch() })
+		exited := make(chan struct{})
+		go func() { _ = cmd.Wait(); close(exited) }()
+		t.Cleanup(func() { c(); <-exited; stopWatch() })
 
-		// Chrome writes the port it chose into the profile directory.
-		for deadline := time.Now().Add(6 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		// Chrome writes the port it chose into the profile directory. A first start on a fresh CI runner can last more than 6 s. Each retry is cold again, so a try stops early only when Chrome exits.
+		started := time.Now()
+		for deadline := started.Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+			select {
+			case <-exited:
+				deadline = time.Now()
+				continue
+			default:
+			}
 			if b, err := os.ReadFile(filepath.Join(dir, "DevToolsActivePort")); err == nil {
 				port = strings.SplitN(string(b), "\n", 2)[0]
 				break
 			}
+		}
+		if d := time.Since(started); d > 6*time.Second {
+			t.Logf("Chrome start try %d: %v, port %q", try+1, d.Round(time.Millisecond), port)
 		}
 		if port == "" {
 			c()
@@ -267,7 +279,7 @@ func (b *tab) open(url string) {
 	b.call("Page.navigate", map[string]any{"url": url})
 }
 
-// eval runs a JS expression in the page (promises are awaited) and returns its JSON value.
+// eval awaits a promise and returns the JSON value of the expression.
 func (b *tab) eval(expr string) any {
 	b.t.Helper()
 	v, err := b.evalTry(expr)
@@ -275,6 +287,21 @@ func (b *tab) eval(expr string) any {
 		b.t.Fatalf("eval %q: %s", expr, err)
 	}
 	return v
+}
+
+// padName types a user's name into the sign-in pad's name box, as a person would before the PIN. It
+// replaces a remembered name, and does nothing where the box is hidden (a held Lock resumes by PIN).
+func (b *tab) padName(name string) {
+	b.t.Helper()
+	q, _ := json.Marshal(name)
+	b.eval(`(() => {
+		const i = document.getElementById('lock-name');
+		if (!i || i.closest('[hidden]')) return;
+		i.focus();
+		i.value = ` + string(q) + `;
+		i.dispatchEvent(new Event('input', { bubbles: true }));
+		i.blur();
+	})()`)
 }
 
 // evalTry reports a page exception or a CDP error as a string instead of failing the test. Page.navigate answers
@@ -296,8 +323,7 @@ func (b *tab) evalTry(expr string) (any, string) {
 	return r.Result.Value, ""
 }
 
-// waitFor polls a JS expression until it is truthy. A miss fails the test, naming the check
-// and any page errors, so a missing element reads as what it is.
+// waitFor polls a JS expression until it is truthy. A miss fails the test and names the check and any page errors.
 func (b *tab) waitFor(what, expr string) {
 	b.t.Helper()
 	var last string
@@ -329,7 +355,6 @@ func (b *tab) problems() []string {
 	return append([]string(nil), b.errs...)
 }
 
-// check fails the test on any console error or exception seen so far.
 func (b *tab) check() {
 	b.t.Helper()
 	for _, e := range b.problems() {

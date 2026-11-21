@@ -27,7 +27,7 @@ func iconList(t *testing.T, a *App, key string) []any {
 	return apiBody(t, rec)["icons"].([]any)
 }
 
-func TestIconLibraryUploadNeedsTrustedOrPin(t *testing.T) {
+func TestIconLibraryUploadNeedsATrustedUser(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
 	png := b64(t, tinyPNG)
@@ -43,10 +43,11 @@ func TestIconLibraryUploadNeedsTrustedOrPin(t *testing.T) {
 		t.Fatalf("icon %v", got)
 	}
 
-	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library", ana, iconUpload("Mark", png, "1111")), 403, "trusted_required")
-	if rec := apiSend(a, "POST", "/api/v1/icon-library", ana, iconUpload("Mark", png, "9999")); rec.Code != 201 {
-		t.Fatalf("PIN upload: %d %s", rec.Code, rec.Body.String())
+	// A PIN in the body opens nothing: only a Role does.
+	wantErr(t, apiSend(a, "POST", "/api/v1/icon-library", ana, iconUpload("Mark", png, "9999")), 403, "trusted_required")
+	if rec := apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload("Mark", png, "")); rec.Code != 201 {
+		t.Fatalf("Trusted upload: %d %s", rec.Code, rec.Body.String())
 	}
 
 	// Anyone who edits panels lists and reads it.
@@ -194,22 +195,19 @@ func TestIconLibraryRename(t *testing.T) {
 			t.Fatalf("rename %q: %d %s, want %q", c[0], rec.Code, rec.Body.String(), c[1])
 		}
 	}
-	setSettingsPin(t, a, "9999")
-	if rec := rename(ana, "By PIN", "9999"); rec.Code != 200 {
-		t.Fatalf("PIN rename: %d %s", rec.Code, rec.Body.String())
-	}
+	wantErr(t, rename(ana, "By PIN", "9999"), 403, "trusted_required")
 	wantErr(t, rename(cy, "", ""), 400, "bad_request")
 	wantErr(t, apiSend(a, "PATCH", "/api/v1/icon-library/0badc0de", cy, `{"name":"X"}`), 404, "not_found")
 
 	if rec := apiDo(a, "GET", "/api/v1/icon-library/"+id, ana, nil); rec.Code != 200 || !bytes.Equal(rec.Body.Bytes(), png) {
 		t.Fatalf("file after rename: %d", rec.Code)
 	}
-	if got := loadIconLib(a.cfgPath).list(); got[0].ID != id || got[0].Name != "By PIN" {
+	if got := loadIconLib(a.cfgPath).list(); got[0].ID != id || got[0].Name != "camera 2" {
 		t.Fatalf("reloaded %+v", got)
 	}
 }
 
-// Delete needs a Trusted user or the PIN. Cells that named the icon keep `lib:<id>` and draw no Icon A, as any
+// Delete needs a Trusted user. Cells that named the icon keep `lib:<id>` and draw no Icon A, as any
 // reference the library does not hold; their Icon B stays. The use count spans every owner's panels.
 func TestIconLibraryDeleteAndUses(t *testing.T) {
 	a := panelsApp(t)
@@ -234,7 +232,6 @@ func TestIconLibraryDeleteAndUses(t *testing.T) {
 	}
 
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id, ana, ``), 403, "trusted_required")
-	setSettingsPin(t, a, "9999")
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id, ana, `{"pin":"1111"}`), 403, "trusted_required")
 	if len(a.icons.list()) != 1 {
 		t.Fatal("a refused delete removed the icon")
@@ -257,11 +254,9 @@ func TestIconLibraryDeleteAndUses(t *testing.T) {
 		t.Errorf("cell art %v, want %s kept", p.Pages[0].Cells[0]["art"], lib)
 	}
 
-	// The PIN deletes too.
+	// A PIN in the body deletes nothing.
 	id2 := apiBody(t, apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload("Mark", b64(t, tinyPNG), "")))["id"].(string)
-	if rec := apiSend(a, "DELETE", "/api/v1/icon-library/"+id2, ana, `{"pin":"9999"}`); rec.Code != 204 {
-		t.Fatalf("PIN delete: %d %s", rec.Code, rec.Body.String())
-	}
+	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id2, ana, `{"pin":"9999"}`), 403, "trusted_required")
 }
 
 // A hand-edited icons.yaml: an entry whose type is not PNG or SVG, or whose name is empty, too long or holds control

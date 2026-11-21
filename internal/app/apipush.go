@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -10,10 +9,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Push, checkpoints and checkpoint sets over REST (docs/panels-design.md). Reach follows
-// panelReach. A Push needs the right to change the panel it copies and every target. So the owner
-// pushes to their own panels, and a Trusted user to anybody's. Nothing is changed unless every
-// target is allowed.
+// Push, checkpoints and checkpoint sets over REST (docs/panels-design.md). A Push needs the right to change the source
+// panel and every target, and changes nothing unless every target is allowed.
 
 func init() {
 	const read, manage = config.ScopePanels, config.ScopePanelsManage
@@ -30,22 +27,26 @@ func init() {
 }
 
 func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	body, ok := readBody(w, r, panelBodyMax, "request")
+	return decodeBody(w, r, panelBodyMax, "request", "send JSON: ", true, v)
+}
+
+// decodeBody answers 400 with hint before the parse error. With empty, a blank body leaves v as it is.
+func decodeBody(w http.ResponseWriter, r *http.Request, limit int64, what, hint string, empty bool, v any) bool {
+	body, ok := readBody(w, r, limit, what)
 	if !ok {
 		return false
 	}
-	if len(strings.TrimSpace(string(body))) == 0 {
+	if empty && len(strings.TrimSpace(string(body))) == 0 {
 		return true
 	}
 	if err := json.Unmarshal(body, v); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send JSON: "+err.Error())
+		apiFail(w, http.StatusBadRequest, "bad_request", hint+err.Error())
 		return false
 	}
 	return true
 }
 
-// editable loads the panels ids name, refusing the whole request if any is missing, unseen
-// by cl (404) or use only (403). Duplicates are folded.
+// Refuses the whole request if any id is missing or not visible to cl (404), or use only (403). Duplicates are folded.
 func (a *App) editable(w http.ResponseWriter, cl *apiCtx, ids []string) ([]Panel, bool) {
 	var out []Panel
 	seen := map[string]bool{}
@@ -68,7 +69,7 @@ type pushedOne struct {
 	Panel      string `json:"panel"`
 	Rev        int    `json:"rev"`
 	Checkpoint string `json:"checkpoint"`
-	// ArtSkipped lists artwork ids that did not fit under the target's 64 MB total.
+	// Artwork ids that did not fit under the target's 64 MB total.
 	ArtSkipped []string `json:"artSkipped,omitempty"`
 }
 
@@ -77,23 +78,6 @@ type skippedOne struct {
 	Reason string `json:"reason"`
 }
 
-func (a *App) pushFail(w http.ResponseWriter, err error) {
-	if errors.Is(err, errNoPanel) {
-		apiFail(w, http.StatusNotFound, "not_found", err.Error())
-		return
-	}
-	if errors.Is(err, errLayoutType) {
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	}
-	if errors.Is(err, errBadLayout) {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-	a.panelStoreFail(w, err)
-}
-
-// apiPanelPush copies the source's saved layout onto each target.
 func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	src, ok := a.panelFor(w, r, cl, true)
 	if !ok {
@@ -117,7 +101,7 @@ func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ok {
 		return
 	}
-	// ADR 0011: a layout of the other type would replace the target's cells or lists with nothing.
+	// ADR 0011: a layout of the other type would replace the cells or lists of the target with nothing.
 	for _, t := range targets {
 		if t.Type != src.Type {
 			apiFail(w, http.StatusConflict, "conflict", "panel "+t.ID+" is of the other type, and a Push needs a panel of the same type")
@@ -125,12 +109,14 @@ func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		}
 	}
 	why := "Push from " + src.ID + " " + src.Name
+	refer := a.layoutRefer()
+	lay := refer(layoutOf(src), src.Owner)
 	var done []pushedOne
 	for _, t := range targets {
 		skipped := a.panels.copyArt(src, t.ID)
-		p, cp, err := a.panels.pushLayout(t.ID, layoutOf(src), cl.Actor.Name, why)
+		p, cp, err := a.panels.pushLayout(t.ID, lay, cl.Actor.Name, why, refer)
 		if err != nil {
-			a.pushFail(w, err)
+			failStore(w, err, panelSaveFail)
 			return
 		}
 		done = append(done, pushedOne{t.ID, p.Rev, cp.ID, skipped})
@@ -152,7 +138,7 @@ func checkpointOut(c panelCheckpoint) map[string]any {
 	return map[string]any{"id": c.ID, "at": c.At, "by": c.By, "why": c.Why, "rows": c.Layout.Rows, "cols": c.Layout.Cols, "cells": cells, "pages": pages}
 }
 
-// apiCheckpointList is newest first.
+// Newest first.
 func (a *App) apiCheckpointList(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, ok := a.panelFor(w, r, cl, true)
 	if !ok {
@@ -172,10 +158,10 @@ func (a *App) apiCheckpointRestore(w http.ResponseWriter, r *http.Request, cl *a
 		return
 	}
 	cp := r.PathValue("cp")
-	made, found, err := a.panels.restoreCheckpoint(p.ID, cp, cl.Actor.Name)
+	made, found, err := a.panels.restoreCheckpoint(p.ID, cp, cl.Actor.Name, a.layoutRefer())
 	switch {
 	case err != nil:
-		a.pushFail(w, err)
+		failStore(w, err, panelSaveFail)
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "no checkpoint "+cp+" on this panel")
 	default:
@@ -184,78 +170,61 @@ func (a *App) apiCheckpointRestore(w http.ResponseWriter, r *http.Request, cl *a
 	}
 }
 
-// setReach is what cl can do with set. Use is every user's for Everyone sets and the owner's
-// for Me sets. Change is the owner's, or a Trusted user's for an Everyone set.
+// Use: every user for an Everyone set, the owner for a Me set. Change: the owner, or a Trusted user for an Everyone
+// set.
 func (a *App) setReach(cl *apiCtx, set PanelSet) (use, change bool) {
 	if cl.Actor.Kind != actorUser {
 		return false, false
 	}
-	if strings.EqualFold(set.Owner, cl.Actor.Name) {
+	if cl.Actor.User != "" && set.Owner == cl.Actor.User {
 		return true, true
 	}
 	if set.Scope != panelShareAll {
 		return false, false
 	}
-	return true, a.trusted(cl.Actor.Name)
+	return true, a.trusted(cl.Actor.User)
 }
 
-func setOut(set PanelSet, change bool) map[string]any {
+func setOut(cfg config.Config, set PanelSet, change bool) map[string]any {
 	entries := make([]map[string]any, len(set.Entries))
 	for i, e := range set.Entries {
 		cells, pages := pageCellCount(e.Pages, e.LegacyCells)
 		entries[i] = map[string]any{"panel": e.Panel, "name": e.Name, "rows": e.Rows, "cols": e.Cols, "cells": cells, "pages": pages}
 	}
-	return map[string]any{"id": set.ID, "name": set.Name, "scope": set.Scope, "owner": set.Owner, "entries": entries, "canEdit": change}
+	return map[string]any{"id": set.ID, "name": set.Name, "scope": set.Scope, "owner": cfg.UserName(set.Owner), "entries": entries, "canEdit": change}
 }
 
-const setEveryoneMsg = "only a Trusted user, or the Advanced Settings PIN, can save or change a checkpoint set for Everyone"
+const setEveryoneMsg = "only a Trusted user can save or change a checkpoint set for Everyone"
 
-// mayChangeSet settles a change the caller named in pin. It allows the owner, or a Trusted user for
-// an Everyone set, as setReach says. It also allows whoever sends the Advanced Settings PIN for an
-// Everyone set.
-// Without a PIN the refusal is the plain 403 not_owner of setFor.
-func (a *App) mayChangeSet(w http.ResponseWriter, cl *apiCtx, set PanelSet, pin string) bool {
+// refuseSet answers as refuseReach does. A missing set is the zero PanelSet, which setReach gives to no one.
+func (a *App) refuseSet(w http.ResponseWriter, cl *apiCtx, id string, set PanelSet, needChange bool) bool {
 	use, change := a.setReach(cl, set)
-	if !change && set.Scope == panelShareAll && pin != "" {
-		if err := a.mayEveryone(cl, pin, setEveryoneMsg); err != nil {
-			failWith(w, err)
-			return false
-		}
-		return true
-	}
-	return !refuseReach(w, use, change, true, "no checkpoint set "+set.ID+" that this key can use",
+	return refuseReach(w, use, change, needChange, "no checkpoint set "+id+" that this key can use",
 		"this checkpoint set is use only for this key: only its owner or a Trusted user can change it")
 }
 
 func (a *App) setFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needChange bool) (PanelSet, bool) {
-	set, ok := a.panels.sets.get(r.PathValue("sid"))
-	use, change := false, false
-	if ok {
-		use, change = a.setReach(cl, set)
-	}
-	if refuseReach(w, use, change, needChange, "no checkpoint set "+r.PathValue("sid")+" that this key can use",
-		"this checkpoint set is use only for this key: only its owner or a Trusted user can change it") {
-		return PanelSet{}, false
-	}
-	return set, true
+	id := r.PathValue("sid")
+	set, _ := a.panels.sets.get(id)
+	return set, !a.refuseSet(w, cl, id, set, needChange)
 }
 
 func (a *App) apiSetList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	out := []map[string]any{}
 	if cl.Actor.Kind == actorUser {
-		for _, s := range a.panels.sets.visible(cl.Actor.Name) {
+		for _, s := range a.panels.sets.visible(cl.Actor.User) {
 			_, change := a.setReach(cl, s)
-			out = append(out, setOut(s, change))
+			out = append(out, setOut(a.r().cfg, s, change))
 		}
 	}
 	apiJSON(w, map[string]any{"sets": out})
 }
 
-// capture is each panel's saved layout as a set entry.
-func capture(ps []Panel) []PanelSetEntry {
+func (a *App) capture(ps []Panel) []PanelSetEntry {
+	refer := a.layoutRefer()
 	out := make([]PanelSetEntry, len(ps))
 	for i, p := range ps {
-		out[i] = PanelSetEntry{Panel: p.ID, Name: p.Name, panelLayout: layoutOf(p)}
+		out[i] = PanelSetEntry{Panel: p.ID, Name: p.Name, panelLayout: refer(layoutOf(p), p.Owner)}
 	}
 	return out
 }
@@ -268,15 +237,6 @@ func cleanSetName(w http.ResponseWriter, name string) (string, bool) {
 	return name, name != ""
 }
 
-func (a *App) setStoreFail(w http.ResponseWriter, err error) {
-	if errors.Is(err, errSetCap) {
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	}
-	apiFail(w, http.StatusInternalServerError, "internal", "the checkpoint set could not be saved: "+err.Error())
-}
-
-// apiSetCreate saves the listed panels' current layouts as a set.
 func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ownerOnly(w, cl) {
 		return
@@ -285,7 +245,6 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		Name   string   `json:"name"`
 		Scope  string   `json:"scope"`
 		Panels []string `json:"panels"`
-		Pin    string   `json:"pin"` // only read for Everyone, never stored
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -306,7 +265,7 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	if in.Scope == panelShareAll {
-		if err := a.mayEveryone(cl, in.Pin, setEveryoneMsg); err != nil {
+		if err := a.mayEveryone(cl, setEveryoneMsg); err != nil {
 			failWith(w, err)
 			return
 		}
@@ -315,16 +274,16 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ok {
 		return
 	}
-	made, err := a.panels.sets.create(PanelSet{Name: name, Scope: in.Scope, Owner: cl.Actor.Name, Entries: capture(ps)})
+	made, err := a.panels.sets.create(PanelSet{Name: name, Scope: in.Scope, Owner: cl.Actor.User, Entries: a.capture(ps)})
 	if err != nil {
-		a.setStoreFail(w, err)
+		failStore(w, err, "the checkpoint set could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "panelSetCreate", "ok", "set "+made.ID+" "+made.Name, nil)
-	apiCreated(w, setOut(made, true))
+	apiCreated(w, setOut(a.r().cfg, made, true))
 }
 
-// apiSetUpdate renames a set, and with panels saves their current layouts over its entries.
+// With panels in the body, their current layouts replace the set's entries.
 func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	set, ok := a.setFor(w, r, cl, false)
 	if !ok {
@@ -333,9 +292,8 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	var in struct {
 		Name   *string  `json:"name"`
 		Panels []string `json:"panels"`
-		Pin    string   `json:"pin"` // opens an Everyone set, never stored
 	}
-	if !readJSON(w, r, &in) || !a.mayChangeSet(w, cl, set, in.Pin) {
+	if !readJSON(w, r, &in) || a.refuseSet(w, cl, set.ID, set, true) {
 		return
 	}
 	if in.Name != nil {
@@ -352,37 +310,30 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		if !ok {
 			return
 		}
-		set.Entries = capture(ps)
+		set.Entries = a.capture(ps)
 	}
 	if err := a.panels.sets.replace(set); err != nil {
-		a.setStoreFail(w, err)
+		failStore(w, err, "the checkpoint set could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "panelSetUpdate", "ok", "set "+set.ID+" "+set.Name, nil)
-	apiJSON(w, setOut(set, true))
+	apiJSON(w, setOut(a.r().cfg, set, true))
 }
 
 func (a *App) apiSetDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	set, ok := a.setFor(w, r, cl, false)
+	set, ok := a.setFor(w, r, cl, true)
 	if !ok {
 		return
 	}
-	var in struct {
-		Pin string `json:"pin"` // opens an Everyone set, never stored
-	}
-	if !readJSON(w, r, &in) || !a.mayChangeSet(w, cl, set, in.Pin) {
-		return
-	}
 	if err := a.panels.sets.delete(set.ID); err != nil {
-		a.setStoreFail(w, err)
+		failStore(w, err, "the checkpoint set could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "panelSetDelete", "ok", "set "+set.ID+" "+set.Name, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// apiSetPush gives each panel in the set its own saved layout. targets narrows it to some of
-// the set's panels. A panel that is gone is skipped and reported.
+// targets narrows the Push to some of the set's panels. A panel that is gone is skipped and reported.
 func (a *App) apiSetPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	set, ok := a.setFor(w, r, cl, false)
 	if !ok {
@@ -424,16 +375,17 @@ func (a *App) apiSetPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	for _, e := range live {
 		// A panel deleted since the check above is applyLayout's to refuse, as not found.
 		if cur, ok := a.panels.get(e.Panel); ok && layoutType(e.Type) != layoutType(cur.Type) {
-			a.pushFail(w, errLayoutType)
+			failStore(w, errLayoutType, panelSaveFail)
 			return
 		}
 	}
 	why := "Checkpoint set " + set.ID + " " + set.Name
+	refer := a.layoutRefer()
 	done := []pushedOne{}
 	for _, e := range live {
-		p, cp, err := a.panels.applyLayout(e.Panel, e.panelLayout, cl.Actor.Name, why)
+		p, cp, err := a.panels.applyLayout(e.Panel, e.panelLayout, cl.Actor.Name, why, refer)
 		if err != nil {
-			a.pushFail(w, err)
+			failStore(w, err, panelSaveFail)
 			return
 		}
 		done = append(done, pushedOne{e.Panel, p.Rev, cp.ID, nil})

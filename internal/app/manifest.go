@@ -35,7 +35,7 @@ func (a *App) serveManifest(w http.ResponseWriter, r *http.Request) {
 		name = "Sode"
 	}
 	brand := cfg.BrandBorder
-	if _, ok := config.BrandColorByName(brand); !ok {
+	if _, ok := config.BrandHex(brand); !ok {
 		brand = ""
 	}
 	icon := func(size int, purpose string) manifestIcon {

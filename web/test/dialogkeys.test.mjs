@@ -78,8 +78,8 @@ test('bringToFront: moves a scrim to the end of its parent, keeps focus', () => 
 
 import { trapDialog, heldDialogs } from '../dialogkeys.js';
 
-// A modal that is built per open (Share, Templates) is removed from the page on close. The Esc stack must let go of
-// it too. If not, every open keeps a whole modal tree alive, and with it the icon sprite its <use> elements reference.
+// A modal built per open (Share, Templates) leaves the page on close. If the Esc stack keeps it, each open leaks a modal
+// tree and the icon sprite its <use> elements reference.
 test('trapDialog: hide drops the dialog from the Esc stack, show puts it back', () => {
   globalThis.document ??= { addEventListener() {} };
   const node = () => ({ hidden: false, isConnected: true, addEventListener() {}, querySelectorAll: () => [] });
@@ -91,9 +91,32 @@ test('trapDialog: hide drops the dialog from the Esc stack, show puts it back', 
   assert.equal(heldDialogs(), before + 1);
   a.show();
   assert.equal(heldDialogs(), before + 2);
-  a.show(); // shown twice holds it once
+  a.show(); // a second show adds no second entry
   assert.equal(heldDialogs(), before + 2);
   a.hide();
   b.hide();
   assert.equal(heldDialogs(), before);
+});
+
+import { closeShown } from '../dialogkeys.js';
+
+test('closeShown: a Lock runs each shown dialog Esc and hides one that stays open', () => {
+  globalThis.document ??= { addEventListener() {} };
+  const node = (hidden = false) => ({ hidden, isConnected: true, addEventListener() {}, querySelectorAll: () => [] });
+  const shut = node();
+  const steps = node();
+  const asleep = node(true);
+  const ran = [];
+  const a = trapDialog(shut, node(), () => {
+    ran.push('shut');
+    a.hide();
+    shut.hidden = true;
+  });
+  const b = trapDialog(steps, node(), () => ran.push('steps'));
+  const c = trapDialog(asleep, node(), () => ran.push('asleep'));
+  closeShown();
+  assert.deepEqual(ran, ['shut', 'steps']);
+  assert.equal(steps.hidden, true);
+  b.hide();
+  c.hide();
 });

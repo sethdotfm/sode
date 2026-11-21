@@ -12,19 +12,14 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A Public panel's plain URL opens with no sign-in and no PIN pad. This holds even with a stale key
-// in the fragment and the panel page lock on. A take inside the client's Rights works; one outside is
-// refused with the reason. The idle letter Lock still covers it, and a User or keyed API panel
-// behind the same lock still shows the PIN pad (docs/panels-design.md).
 const padShown = `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`
 
 func TestChromePublicPanel(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
-		c.Users[0].Trusted = true
+		c.Users[0].Role = config.RoleTrusted
 		c.Locks = config.Locks{Panel: true}
-		c.SettingsPin = mkUser(t, "", "2468").Pin
 		c.AutoLockMinutes = 1
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -36,7 +31,7 @@ func TestChromePublicPanel(t *testing.T) {
 
 	ana := userKey(t, a, "Ana")
 	const other = 5
-	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Lobby","acts":"public","clientRights":{"dsts":[%d]},"cells":[
+	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Lobby","acts":"public","clientRights":{"dsts":[{"n":%d}]},"cells":[
 		{"r":1,"c":1,"kind":"destination","n":%d},
 		{"r":1,"c":2,"kind":"destination","n":%d},
 		{"r":1,"c":3,"kind":"source","n":%d},
@@ -65,7 +60,7 @@ func TestChromePublicPanel(t *testing.T) {
 
 	b.eval(cell("destination", 1) + `.click()`)
 	b.eval(cell("source", 0) + `.click()`)
-	b.waitFor("refusal shown", `document.getElementById('panel-status').textContent.includes("outside this panel's rights")`)
+	b.waitFor("refusal shown", `document.getElementById('panel-status').textContent.includes("outside this panel's Rights")`)
 	b.waitFor("Take not armed", cell("take", 0)+`.disabled`)
 
 	b.eval(cell("destination", 0) + `.click()`)
@@ -107,12 +102,10 @@ func TestChromePublicPanel(t *testing.T) {
 	}
 }
 
-// Public from the editor: the Access tab saves it at once with its note and warning. The Share
-// modal mutes Link with key and shows the plain link, and that link opens with no sign-in.
 func TestChromeEditorPublic(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -124,6 +117,7 @@ func TestChromeEditorPublic(t *testing.T) {
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Foyer","acts":"session","cells":[{"r":1,"c":1,"kind":"destination","n":%d}]}`, simDst))
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -141,9 +135,9 @@ func TestChromeEditorPublic(t *testing.T) {
 	b.waitFor("Public asks for the Confirm", `!`+box+`.hidden && `+box+`.textContent.includes('anyone with the plain link') && !`+box+`.querySelector('.sode__key--locked')`)
 	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ` + box + `.querySelector('.sode__key').textContent.toLowerCase(), bubbles: true })); true`)
 	b.waitSaved("Public saves after the Confirm")
-	b.waitFor("the Public note shows", access+`.includes('Anyone with the link can use the panel')`)
+	b.waitFor("the Public note shows", access+`.includes('Public: anyone with the link can use it.')`)
 	b.waitFor("the Access tab warns about sharing", access+`.includes('Its sharing does not limit who can open it') && `+access+`.includes('Listed on the panels page for:') && !`+access+`.includes('Who can use it')`)
-	b.waitFor("the toolbar offers Copy link", `!document.getElementById('ed-copylink').hidden`)
+	b.waitFor("the toolbar offers Copy link", `!document.getElementById('ed-copylink').disabled`)
 	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"acts":"public"`) || !strings.Contains(body, `"client":"Panel `+id+`"`) {
 		t.Errorf("the saved panel is not Public with a client: %s", body)
 	}
@@ -152,7 +146,7 @@ func TestChromeEditorPublic(t *testing.T) {
 	keyTab := `[...document.querySelectorAll('.sode-ov__share .pb-tab')].find((x) => x.textContent === 'Link with key')`
 	b.waitFor("Link with key is muted", keyTab+`?.getAttribute('aria-disabled') === 'true'`)
 	b.eval(keyTab + `.click(); true`)
-	b.waitFor("the tab shows the plain link", `(document.querySelector('.sode-ov__keytab .sode-linkrow__text')?.value || '').endsWith('/panels/`+id+`')`)
+	b.waitFor("the tab shows the Item link", `/\/panels\/`+id+`#install=[0-9a-f]{16}$/.test(document.querySelector('.sode-ov__keytab .sode-linkrow__text')?.value)`)
 	link, _ := b.eval(`document.querySelector('.sode-ov__keytab .sode-linkrow__text').value`).(string)
 	b.shot("editor-public")
 	b.check()
@@ -160,7 +154,7 @@ func TestChromeEditorPublic(t *testing.T) {
 	// Storage cleared, so the page has no session to fall back on.
 	b.eval(`localStorage.clear(); sessionStorage.clear(); true`)
 	b.open(link)
-	b.waitFor("the plain link opened the panel", `document.getElementById('panel-title')?.textContent === 'Foyer' && document.querySelectorAll('.sode-panel__cell').length === 1`)
+	b.waitFor("the Item link opened the panel", `document.getElementById('panel-title')?.textContent === 'Foyer' && document.querySelectorAll('.sode-panel__cell').length === 1`)
 	b.waitFor("without a PIN pad or a sign-in", `!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent && document.getElementById('panels-signin').hidden`)
 	b.check()
 }

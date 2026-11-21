@@ -10,10 +10,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// User profiles: a user's This-device prefs, filter sets and presets, kept on config.User.
-// Never in a hello: pushed as a profile message only to connections unlocked as that user,
-// when access changes (pushAccessMu) and after a save. Who can save is in policy.go;
-// guardProfile repeats it under cfgMu.
+// User profiles: a user's This browser prefs, filter sets and presets, kept on config.User.
+// Never in a hello. The server pushes a profile message only to connections signed in as that user:
+// when access changes (pushAccessMu) and after a save. guardProfile repeats policy.go's rule under cfgMu.
 
 var errNoSuchUser = errors.New("no such user")
 
@@ -30,7 +29,9 @@ type profileReq struct {
 	Prefs      map[string]string
 	FilterSets []config.FilterSet
 	Presets    []config.Preset
-	PinOrder   []string
+	Bookmarks  []config.Bookmark
+	// PalettePicks: the Palette's last picks (config.Profile.PalettePicks).
+	PalettePicks []string
 }
 
 type profileGetResult struct {
@@ -53,10 +54,10 @@ func (a *App) signedInAsMu(c *client, name string) bool {
 func (a *App) guardProfile(c *client, name string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !a.signedInAsMu(c, name) && !a.trustedMu(c) {
-		return errLocked
+	if a.signedInAsMu(c, name) {
+		return nil
 	}
-	return nil
+	return a.needRoleMu(c, config.RoleTrusted)
 }
 
 // Caller holds mu.
@@ -65,7 +66,7 @@ func (a *App) pushProfileMu(c *client) {
 	cfg := rt.cfg
 	var b []byte
 	if a.userOKMu(c, cfg) {
-		u, _ := cfg.FindUser(c.u.user.Load().Name)
+		u, _ := cfg.FindUserByID(c.u.user.Load().ID)
 		if a.profMemoRT != rt || a.profMemo == nil {
 			a.profMemoRT, a.profMemo = rt, map[string]string{}
 		}
@@ -91,7 +92,7 @@ func (a *App) pushProfileMu(c *client) {
 }
 
 func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
-	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets) + len(req.PinOrder)
+	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets) + len(req.Bookmarks) + len(req.PalettePicks)
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if err := a.guardProfile(c, req.Name); err != nil {
@@ -105,40 +106,54 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 				continue
 			}
 			owner = u.Name
-			if req.Prefs != nil {
-				u.Profile.Prefs = config.WithUnknownPrefs(req.Prefs, u.Profile.Prefs)
-			}
-			if req.FilterSets != nil {
-				u.Profile.FilterSets = config.WithFilterSetExtras(req.FilterSets, u.Profile.FilterSets)
-			}
-			if req.Presets != nil {
-				u.Profile.Presets = config.WithPresetExtras(req.Presets, u.Profile.Presets)
-			}
-			if req.PinOrder != nil {
-				u.Profile.PinOrder = slices.Clone(req.PinOrder)
-			}
+			a.applyProfileReq(cfg, u, req)
 			return nil
 		}
 		return errNoSuchUser
-	}, func(_, _ *runtime) {
-		for cl := range a.clients {
-			if a.signedInAsMu(cl, owner) {
-				a.pushProfileMu(cl)
-			}
-		}
-	})
+	}, func(_, _ *runtime) { a.pushProfileOfMu(owner) })
 	return n, err
+}
+
+// applyProfileReq: a nil part is kept. Prefs and items this release does not know stay.
+func (a *App) applyProfileReq(cfg *config.Config, u *config.User, req profileReq) {
+	if req.Prefs != nil {
+		u.Profile.Prefs = config.WithUnknownPrefs(req.Prefs, u.Profile.Prefs)
+	}
+	if req.Bookmarks != nil {
+		u.Profile.Bookmarks = config.CloneBookmarks(req.Bookmarks)
+	}
+	if req.FilterSets != nil {
+		was := u.Profile.FilterSets
+		u.Profile.FilterSets = config.WithFilterSetExtras(req.FilterSets, u.Profile.FilterSets)
+		u.Profile.Bookmarks = config.RenamedSetBookmarks(u.Profile.Bookmarks, "user", was, u.Profile.FilterSets)
+	}
+	if req.Presets != nil {
+		was := u.Profile.Presets
+		u.Profile.Presets = a.namePresets(cfg.UID, config.WithPresetExtras(req.Presets, u.Profile.Presets))
+		u.Profile.Bookmarks = config.RenamedPresetBookmarks(u.Profile.Bookmarks, "user", was, u.Profile.Presets)
+	}
+	if req.PalettePicks != nil {
+		u.Profile.PalettePicks = slices.Clone(req.PalettePicks)
+	}
+}
+
+func (a *App) pushProfileOfMu(owner string) {
+	for cl := range a.clients {
+		if a.signedInAsMu(cl, owner) {
+			a.pushProfileMu(cl)
+		}
+	}
 }
 
 // Logs whose profile and how many things, never a value.
 func (a *App) serveProfileSave(c *client, m *inMsg) {
-	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, PinOrder: m.PinOrder})
+	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, Bookmarks: m.Bookmarks, PalettePicks: m.PalettePicks})
 	note := fmt.Sprintf("%s: %d %s", cleanPresetName(m.Name), n, plural(n, "item", "items"))
 	a.replyOpNote(c, "profileSave", m.ID, note, err)
 }
 
 func (a *App) serveProfileGet(c *client, m *inMsg) {
-	u, ok := a.r().cfg.FindUser(strings.TrimSpace(m.Name))
+	u, ok := a.r().cfg.FindUserByName(strings.TrimSpace(m.Name))
 	if !ok {
 		a.replyOp(c, "profileGet", m.ID, 0, "", errNoSuchUser)
 		return

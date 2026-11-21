@@ -16,8 +16,6 @@ func pressSquare(b *tab, r, c int, extend bool) {
 	})()`, r, c, extend))
 }
 
-// A Buttons panel with four cells selected: the Cell tab edits them all. Icon A goes on every cell, and Icon B runs one
-// glyph per cell in fill order. Hide text and levels go on every cell. Remove Icon clears them all.
 func TestChromeEditorCellMany(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -66,12 +64,11 @@ func TestChromeEditorCellMany(t *testing.T) {
 		t.Errorf("cells %v, want four, the last with Icon B 4", cells)
 	}
 
-	b.eval(`[...` + cell + `.querySelectorAll('.pb-btn')].find((x) => x.textContent === 'Remove Icon').click(); true`)
-	b.waitFor("Remove Icon clears every cell", `![1, 2, 3, 4].some((c) => document.querySelector('.sode-ed__sq[data-r="1"][data-c="' + c + '"] .sode-panel__art'))`)
+	b.eval(`[...` + cell + `.querySelectorAll('.pb-btn')].find((x) => x.textContent === 'Remove icon').click(); true`)
+	b.waitFor("Remove icon clears every cell", `![1, 2, 3, 4].some((c) => document.querySelector('.sode-ed__sq[data-r="1"][data-c="' + c + '"] .sode-panel__art'))`)
 	b.check()
 }
 
-// A rename on the router reaches the open editor at once: a Buttons cell and a Grid panel's list row both show it.
 func TestChromeEditorNamesLive(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

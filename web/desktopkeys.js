@@ -1,20 +1,40 @@
-// Desktop document key handling: Ctrl+?, Ctrl+comma, Ctrl+S/D/F fills, Ctrl+Z, box keys, Tab ring, Esc.
-
 import { $ } from './core.js';
-import { mac, chord } from './keys.js';
+import { chord, modChord, undoKey, ctrlChar, browseStep } from './keys.js';
 import { layout } from './layout.js';
 import { flipped, toggleCompact } from './device.js';
+import { levelsShown } from './levelview.js';
 
-// dsts is an accessor: desktop.js replaces the array. historyView is what desktopHistory returned.
-export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally }) {
-  const { histList, histArea, onListKey, enterKeys, undoLast, historyShown } = historyView;
+// A box with text keeps the OS text-undo chord to undo its typing.
+const typedUndo = (e, undo) => undo.own && e.target instanceof HTMLInputElement && !!e.target.value;
+// [box, Next]. Levels has no Next.
+const LAST = { 'ctrl+s': ['src', false], 'ctrl+d': ['dst', false], 'ctrl+f': ['lvl', false], 'ctrl+shift+s': ['src', true], 'ctrl+shift+d': ['dst', true] };
+
+// dsts is an accessor: desktop.js replaces the array. historyView is what desktopHistory returned. grid is the Grid
+// popup's { shown, toggle } (gridpopup.js). clearEverything is the one Clear: the boxes and the staged routes.
+export function desktopKeys({
+  boxes,
+  dsts,
+  confirm,
+  keys,
+  historyView,
+  active,
+  select,
+  addDst,
+  useLast,
+  wantsMatch,
+  patchNow,
+  clearEverything,
+  nothingToClear,
+  grid,
+}) {
+  const { histList, histArea, onListKey, enterKeys, keyMode, undoLast, historyShown } = historyView;
   // Modifier rule: docs/agents/web-layout.md (Keys). Each check excludes the other two modifiers.
   document.addEventListener('keydown', (e) => {
     if (confirm.isOpen()) return confirm.key(e);
-    if (layout() !== 'desktop') return;
+    if (layout() !== 'desktop' || document.documentElement.hasAttribute('data-sode-setup')) return;
     // Ctrl+? toggles the shortcut list anywhere, even mid-typing. Matched by character (any
     // layout) and by the / key, for browsers reporting e.key without Shift under Ctrl.
-    if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {
+    if (ctrlChar(e, '?') || (ctrlChar(e, e.key) && e.shiftKey && e.code === 'Slash')) {
       e.preventDefault();
       e.stopImmediatePropagation(); // not Settings' own keys
       if (keys.shown()) keys.close(true);
@@ -35,21 +55,49 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
       return;
     }
     if (!active()) return;
+    // Ctrl+e on every OS. Chrome and Firefox give it to the page, as Google Docs uses it.
+    if (chord(e) === 'ctrl+e' && !document.documentElement.dataset.sodeLock) {
+      e.preventDefault();
+      if (!e.repeat) grid.toggle();
+      return;
+    }
+    // The open Grid popup has its own keys (gridpanelrun.js). Of the page's, only undo and the key list reach it.
+    if (grid.shown()) {
+      const undo = undoKey(e);
+      if (undo && !typedUndo(e, undo)) {
+        e.preventDefault();
+        undoLast();
+      } else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey && !(e.target instanceof HTMLInputElement)) {
+        e.preventDefault();
+        keys.open();
+      }
+      return;
+    }
     // Compact view, also from a box: preventDefault keeps macOS Option+Shift+C from typing Ç.
     if (chord(e) === 'alt+shift+c') {
       e.preventDefault();
       if (!e.repeat) toggleCompact();
       return;
     }
-    if (e.ctrlKey && !e.metaKey && !e.altKey && e.key === ',') {
+    // Keyboard mode's own key works also from a box. Esc with nothing to clear starts it too (below). A second press goes
+    // back to Source. Compact view has no keyboard mode: History is hidden. preventDefault keeps macOS Option+Shift+K
+    // from typing a character.
+    if (chord(e) === 'alt+shift+k') {
+      e.preventDefault();
+      if (e.repeat || !historyShown()) return;
+      if (keyMode()) boxes.src.input.focus();
+      else enterKeys();
+      return;
+    }
+    if (ctrlChar(e, ',')) {
       e.preventDefault();
       $('settings-open').click();
       return;
     }
-    const last = e.ctrlKey && !e.metaKey && !e.altKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
-    if (last && (!e.shiftKey || last !== 'lvl')) {
+    const last = LAST[chord(e)];
+    if (last) {
       e.preventDefault();
-      useLast(last, e.shiftKey);
+      useLast(...last);
       return;
     }
     const id = e.target.id;
@@ -57,23 +105,21 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
     const b = k && boxes[k];
     const inBox = k || id === 'lvl';
 
-    // Ctrl+Z / ⌘Z undoes the last Sode take; the OS text-undo chord leaves a box with text to
-    // undo its typing.
-    const cmdZ = mac && e.metaKey && !e.ctrlKey;
-    if ((cmdZ || (e.ctrlKey && !e.metaKey)) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
-      if (cmdZ === mac && e.target instanceof HTMLInputElement && e.target.value) return;
+    const undo = undoKey(e);
+    if (undo) {
+      if (typedUndo(e, undo)) return;
       e.preventDefault();
       undoLast();
       return;
     }
 
-    if (b && !b.cb.open && (chord(e) === 'down' || chord(e) === 'up')) {
+    if (b && !b.cb.open && browseStep(e)) {
       e.preventDefault();
       b.all.open();
       return;
     }
     if (b && b.cb.nav(e)) return;
-    if (k === 'dst' && e.key === 'Enter' && e.ctrlKey !== e.metaKey && !e.shiftKey && !e.altKey) {
+    if (k === 'dst' && modChord(e) === 'mod+enter') {
       e.preventDefault();
       addDst();
       return;
@@ -96,7 +142,7 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
         return;
       }
       if (inBox) {
-        const ring = flipped() ? ['dst', 'src', 'lvl'] : ['src', 'dst', 'lvl'];
+        const ring = (flipped() ? ['dst', 'src', 'lvl'] : ['src', 'dst', 'lvl']).filter((x) => x !== 'lvl' || levelsShown());
         const i = ring.indexOf(id);
         if (i >= 0) {
           e.preventDefault();
@@ -110,6 +156,7 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
       if (onListKey(e)) e.preventDefault();
       return;
     }
+    // Esc on a History button starts Keyboard mode at that row.
     if (e.key === 'Escape' && e.target !== histList && histArea(e.target)) {
       e.preventDefault();
       enterKeys(e.target.closest('[data-key]')?.dataset.key);
@@ -121,20 +168,14 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
       patchNow();
       return;
     }
+    // One Esc: an open match list closes first. Then everything clears, as Clear does. Only then Keyboard mode.
     if (e.key === 'Escape') {
       if (b && b.cb.open) {
         b.cb.close();
         return;
       }
-      if (e.target.value) {
-        if (k) select(k, null);
-        else lvl.clear();
-        renderTally();
-      } else if (!dsts().length && !boxes.src.input.value && !boxes.dst.input.value && lvl.empty()) {
-        if (historyShown()) enterKeys();
-      } else {
-        clearAll();
-      }
+      if (!nothingToClear()) clearEverything();
+      else if (historyShown()) enterKeys();
     }
   });
 }

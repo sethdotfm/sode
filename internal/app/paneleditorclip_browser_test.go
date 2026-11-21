@@ -12,9 +12,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Cmd or Ctrl+C copies cells, and Cmd or Ctrl+X cuts them. Cmd or Ctrl+V pastes them elsewhere on the same panel (through
-// readText, as a synthetic key fires no paste event). It also pastes them into a second panel (through the browser's
-// paste event), where the uploaded image goes.
+// The paste on the same panel goes through readText, as a synthetic key fires no paste event.
 func TestChromeEditorCopyPaste(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -39,6 +37,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	other := makePanel(t, a, ana, `{"name":"Clip two","rows":4,"cols":8,"cells":[]}`)
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -56,14 +55,13 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 		true`)
 
 	b.eval(`goTo(1, 1); press('ArrowRight', 'ArrowRight', { shiftKey: true }); press('ArrowRight', 'ArrowRight', { shiftKey: true })`)
-	if b.eval(`press('c', 'KeyC', { metaKey: true })`) != true {
+	if b.eval(`press('c', 'KeyC', { ctrlKey: true })`) != true {
 		t.Fatal("Cmd+C on the grid was not taken by the editor")
 	}
 	b.waitFor("copied", `window.copied.includes('sode-panel-cells') && stat() === 'Copied 3 cells.'`)
 
-	// Text that is not a Sode block, and a paste past the edge, leave the grid as it is.
 	b.eval(`goTo(3, 2); pasteEvent('Cam 1')`)
-	b.waitFor("plain text is refused", `stat().includes('no valid Sode cells')`)
+	b.waitFor("plain text is refused", `stat().includes('no Sode cells')`)
 	b.waitSaved("plain text left it saved")
 	b.eval(`goTo(4, 8)`)
 	if b.eval(`press('v', 'KeyV', { ctrlKey: true })`) != false {
@@ -87,7 +85,6 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 		t.Fatalf("same panel cells:\n got %q\nwant %q", got, want)
 	}
 
-	// The second panel, through the picker, takes the same text through the browser's paste event.
 	b.eval(fmt.Sprintf(`{ const p = document.getElementById("ed-pick"); p.value = %q; p.dispatchEvent(new Event("change")) }`, other))
 	b.waitFor("second panel loaded", `document.getElementById('ed-name').value === 'Clip two'`)
 	b.eval(`goTo(2, 5); pasteEvent(window.copied)`)
@@ -100,9 +97,8 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 		t.Fatalf("second panel cells:\n got %q\nwant %q", got, want)
 	}
 
-	// Cut copies like Cmd+C and then removes the selection as one change; the clipboard still pastes it back.
 	b.eval(`goTo(2, 5); press('ArrowRight', 'ArrowRight', { shiftKey: true }); window.copied = ''`)
-	if b.eval(`press('x', 'KeyX', { metaKey: true })`) != true {
+	if b.eval(`press('x', 'KeyX', { ctrlKey: true })`) != true {
 		t.Fatal("Cmd+X on the grid was not taken by the editor")
 	}
 	b.waitFor("cut", `window.copied.includes('sode-panel-cells') && stat() === 'Cut 2 cells.' && document.getElementById('ed-state').textContent !== 'Saved'`)
@@ -115,8 +111,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	}
 	b.eval(`goTo(4, 1); press('v', 'KeyV', { ctrlKey: true })`)
 	b.waitFor("cut cells paste back", `stat().startsWith('Pasted 2 cells.')`)
-	// A focused text field keeps its own Cmd+X: the grid neither copies nor removes anything.
-	b.eval(`window.copied = ''; { const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'x', code: 'KeyX', metaKey: true }); n.dispatchEvent(e); window.fieldCut = e.defaultPrevented }`)
+	b.eval(`window.copied = ''; { const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'x', code: 'KeyX', ctrlKey: true }); n.dispatchEvent(e); window.fieldCut = e.defaultPrevented }`)
 	if b.eval(`window.fieldCut`) != false || b.eval(`window.copied`) != "" {
 		t.Fatal("Cmd+X in the name field was taken by the grid")
 	}

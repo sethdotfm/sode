@@ -10,7 +10,8 @@ import (
 
 const actorGuest = "guest" // a browser with nobody signed in
 
-// callerOf is who a take acts as. An API caller brings its own (client.api). A browser is its signed-in user (rights read live from the
+// callerOf is who a take acts as. An API caller brings its own (client.api). A browser is its signed-in user (rights
+// read live from the
 // config, so an edit applies at once). It is Guest when nobody is signed in or the Lock is on.
 func (a *App) callerOf(c *client) (Actor, config.Rights) {
 	if c.api != nil {
@@ -21,8 +22,9 @@ func (a *App) callerOf(c *client) (Actor, config.Rights) {
 	ok := a.userOKMu(c, cfg)
 	a.mu.Unlock()
 	if u := c.u.user.Load(); ok && u != nil {
-		if cur, found := cfg.FindUser(u.Name); found {
-			return Actor{Kind: actorUser, Name: cur.Name}, cur.Rights
+		if cur, found := cfg.FindUserByID(u.ID); found {
+			_, rights := cfg.ActsAs(cur)
+			return Actor{Kind: actorUser, Name: cur.Name, User: cur.ID}, rights
 		}
 	}
 	return Actor{Kind: actorGuest, Name: "Guest"}, cfg.GuestRights
@@ -41,8 +43,9 @@ func (a *App) pushRightsMu(c *client) {
 	cfg := a.r().cfg
 	var msg string
 	if a.userOKMu(c, cfg) {
-		if u, ok := cfg.FindUser(c.u.user.Load().Name); ok {
-			rt := u.Rights.Clone()
+		if u, ok := cfg.FindUserByID(c.u.user.Load().ID); ok {
+			_, rt := cfg.ActsAs(u)
+			rt = rt.Clone()
 			j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &rt})
 			msg = string(j)
 		}
@@ -58,7 +61,7 @@ func (a *App) pushRightsMu(c *client) {
 	a.deliver(c, []byte(msg))
 }
 
-// takeWhy names a batch for the log: undo and retry win over a plain take.
+// takeWhy names a take for the log: undo and retry win over a plain take.
 func takeWhy(items []routeReq) string {
 	why := "take"
 	for _, it := range items {
@@ -106,12 +109,12 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 	}
 	for _, it := range items {
 		switch {
-		case it.Preset != "" && !rt.AllowsPreset(it.Preset):
+		case (it.Preset != "" || it.PresetID != "") && !rt.AllowsPreset(it.PresetID):
 			if quiet {
 				return "preset is outside your rights"
 			}
 			return fmt.Sprintf("preset %q is outside your rights", it.Preset)
-		case !rt.AllowsDst(it.Dst):
+		case !rt.AllowsDst(config.Ref{N: it.Dst}):
 			return kind("destination", it.Dst+off)
 		}
 		for _, ui := range it.Levels {
@@ -119,16 +122,15 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 				return fmt.Sprintf("level %s is outside your rights", r.cfg.LevelLabel(ui))
 			}
 		}
-		if !rt.AllowsSource(it.Src) && !a.undoMatches(it) {
+		if !rt.AllowsSource(config.Ref{N: it.Src}) && !a.undoMatches(it) {
 			return kind("source", it.Src+off)
 		}
 	}
 	return ""
 }
 
-// rightsPass refuses the whole take, before anything is sent, if any route is outside the
-// caller's rights. Each item gets the failed result a refused route gets, with no History
-// entry (nothing happened), and one `api` row records it. Returns the refusal, or "".
+// rightsPass refuses the whole take before anything is sent. Each item gets a failed result with no History
+// entry, and one
 func (a *App) rightsPass(r *runtime, c *client, items []routeReq) string {
 	if len(items) == 0 {
 		return ""

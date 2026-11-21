@@ -8,17 +8,15 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// changeRouter applies the current settings with another router address.
 func changeRouter(t *testing.T, a *App) {
 	t.Helper()
 	cfg := a.r().cfg
-	cfg.Router = "127.0.0.1:1"
+	cfg.Address = "127.0.0.1:1"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// waitFor polls cond until it holds, failing after a few seconds.
 func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -36,7 +34,7 @@ func runTake(a *App, req routeReq) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		a.route(&client{ip: "10.0.0.1"}, req)
+		a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{req})
 	}()
 	return done
 }
@@ -57,7 +55,7 @@ func TestRouterChangeCutsTake(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true // the connects go out and nobody answers
-	done := runTake(a, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2}, NoCheck: true})
+	done := runTake(a, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2}})
 	waitFor(t, "the take to register", func() bool {
 		a.mu.Lock()
 		registered := len(a.waiters) == 1

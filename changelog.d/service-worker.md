@@ -1,0 +1,1 @@
+- A main page or panel page that a device opened once now also opens while Sode is down. It shows its Offline state and connects as soon as Sode answers, with no reload. A new Sode build reaches the page on the next load. This needs a secure origin: localhost, or HTTPS through your TLS proxy.

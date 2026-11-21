@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// The Icon library end to end. The Choose icon picker's Uploaded section opens the Icon library dialog. Upload there
-// adds a PNG, and its tile in the picker picks it for a cell. The save stores `lib:<id>`, and the panel page draws it as a picture with Icon B as its corner badge.
 func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	b, a, _, id := editorTabPrep(t, `{"name":"Lib","rows":2,"cols":2,"cells":[{"r":1,"c":1,"kind":"source","n":1,"artB":"2"}]}`, nil)
 	sq := `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]')`
@@ -18,7 +16,6 @@ func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	b.eval(`document.getElementById('ed-lib-open').click(); true`)
 	b.waitFor("the Icon library dialog opens on the name", `!document.getElementById('ed-lib-dialog').hidden && !!document.getElementById('ed-lib-upload').offsetParent && document.activeElement === document.getElementById('ed-lib-name')`)
 
-	// The name is typed; the file is a 1024 by 1024 PNG drawn on a canvas.
 	b.eval(`document.getElementById('ed-lib-name').value = 'Station logo'; true`)
 	b.eval(`(async () => { const c = document.createElement('canvas'); c.width = 1024; c.height = 1024; const x = c.getContext('2d'); x.fillStyle = '#c00'; x.fillRect(0, 0, 1024, 1024); const blob = await new Promise((r) => c.toBlob(r, 'image/png')); const dt = new DataTransfer(); dt.items.add(new File([blob], 'logo.png', { type: 'image/png' })); const f = document.querySelector('#ed-lib-dialog input[type=file]'); f.files = dt.files; f.dispatchEvent(new Event('change')); return true; })()`)
 	b.waitFor("the icon is added and its tile drawn", `(() => { const i = document.querySelector('#ed-lib-icons [data-lib] img'); return !!i && !i.hidden && i.complete && i.naturalWidth === 1024; })()`)
@@ -28,7 +25,6 @@ func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	}
 	lib := "lib:" + icons[0].ID
 
-	// The upload picks it; picking None and then the tile shows the tile does it too.
 	b.waitFor("the upload picked it for the cell", sq+`.querySelector('img.sode-panel__art-a') !== null`)
 	b.eval(`document.getElementById('ed-lib-close').click(); true`)
 	b.waitFor("Close shuts the dialog", `document.getElementById('ed-lib-dialog').hidden`)
@@ -46,6 +42,7 @@ func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	b.open(b.eval(`location.origin`).(string) + "/panels/" + id)
 	b.waitFor("the panel or its PIN pad", `!!document.querySelector('.sode-panel__cell--source') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == true {
+		b.padName("Ana")
 		for _, d := range "1234" {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}
@@ -59,9 +56,6 @@ func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	b.check()
 }
 
-// A Trusted user renames and deletes from a tile in the Icon library dialog. Delete asks the churning-letter Confirm with the use
-// count. After it, the cells that used the icon draw no Icon A, on the editor canvas and on the panel page. They keep
-// their Icon B and text.
 func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 	var ic LibIcon
 	b, a, _, id := editorTabPrep(t, `{"name":"Lib","rows":2,"cols":2}`, func(b *tab, a *App, ana, id string) {
@@ -97,7 +91,7 @@ func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 
 	b.eval(`document.querySelector('#ed-lib-manage-icons [data-lib]').click(); document.getElementById('ed-lib-delete').click(); true`)
 	// One read: a second call after the text shows can land after the 500 ms lockout under load.
-	b.waitFor("the Confirm with the count, locked out at first", `/2 cells or names on 1 panel use it/.test(document.getElementById('ed-lib-confirm')?.textContent || '') && document.getElementById('ed-lib-delete-ok').disabled`)
+	b.waitFor("the Confirm with the count, locked out at first", `/2 cells or names on 1 panel lose Icon A/.test(document.getElementById('ed-lib-confirm')?.textContent || '') && document.getElementById('ed-lib-delete-ok').disabled`)
 	b.waitFor("the lockout ends", `!document.getElementById('ed-lib-delete-ok').disabled`)
 	b.eval(`(() => { const k = /\((.)\)/.exec(document.getElementById('ed-lib-delete-ok').textContent)[1].toLowerCase(); document.getElementById('ed-lib-confirm').dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true })); return true; })()`)
 	b.waitFor("deleted", `/Deleted Station/.test(document.querySelector('#ed-lib-dialog [role=status]').textContent)`)
@@ -110,6 +104,7 @@ func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 	b.open(b.eval(`location.origin`).(string) + "/panels/" + id)
 	b.waitFor("the panel or its PIN pad", `!!document.querySelector('.sode-panel__cell--source') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == true {
+		b.padName("Ana")
 		for _, d := range "1234" {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}
@@ -128,8 +123,7 @@ func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 	}
 }
 
-// A library SVG draws as a mask in the art row's text colour. So a red and blue file shows one colour that follows the
-// theme. It is never an <img> with its own colours, and the editor's canvas and picker tile draw it the same way.
+// A library SVG draws as a mask in the text colour of the art row, never as an <img> with its own colours.
 func TestChromeIconLibrarySVGTakesTheTextColour(t *testing.T) {
 	b, _, _, id := editorTabPrep(t, `{"name":"Lib","rows":2,"cols":2}`, func(b *tab, a *App, ana, id string) {
 		svg := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="10" fill="#f00"/><rect x="5" width="5" height="10" fill="#00f"/></svg>`
@@ -155,6 +149,7 @@ func TestChromeIconLibrarySVGTakesTheTextColour(t *testing.T) {
 	b.open(b.eval(`location.origin`).(string) + "/panels/" + id)
 	b.waitFor("the panel or its PIN pad", `!!document.querySelector('.sode-panel__cell--source') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == true {
+		b.padName("Ana")
 		for _, d := range "1234" {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}

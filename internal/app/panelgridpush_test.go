@@ -6,13 +6,11 @@ import (
 	"testing"
 )
 
-// Push, checkpoints and checkpoint sets of Grid panels (ADR 0011).
-
 func gridWithEdges(t *testing.T, a *App, key, name string) string {
 	t.Helper()
 	id := makeGridPanel(t, a, key, name)
 	body := `{"name":"` + name + `","sources":{"members":"all","hide":[3],"items":{"4":{"pinned":true}}},"destinations":{"members":[9,2],"items":{"9":{"art":"icon:camera"}}}}`
-	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, key, body); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, key, gridBody(t, body)); rec.Code != 200 {
 		t.Fatalf("PUT: %d %s", rec.Code, rec.Body.String())
 	}
 	return id
@@ -90,7 +88,7 @@ func TestCheckpointSetCarriesGridEdges(t *testing.T) {
 		t.Fatalf("create set: %d %s", rec.Code, rec.Body.String())
 	}
 	sid := apiBody(t, rec)["id"].(string)
-	apiSend(a, "PUT", "/api/v1/panels/"+g, ana, `{"name":"G","sources":{"members":[1]},"destinations":{"members":"all"}}`)
+	apiSend(a, "PUT", "/api/v1/panels/"+g, ana, gridBody(t, `{"name":"G","sources":{"members":[1]},"destinations":{"members":"all"}}`))
 	if rec := apiSend(a, "POST", "/api/v1/panel-sets/"+sid+"/push", ana, `{}`); rec.Code != 200 {
 		t.Fatalf("push set: %d %s", rec.Code, rec.Body.String())
 	}
@@ -103,7 +101,6 @@ func TestCheckpointSetCarriesGridEdges(t *testing.T) {
 	}
 }
 
-// A layout of the other type is refused whatever the way in, so a Checkpoint set entry never blanks a panel.
 func TestApplyLayoutRefusesTheOtherType(t *testing.T) {
 	a := panelsApp(t)
 	b, err := a.panels.create(Panel{Name: "B", Owner: "Ana"})
@@ -114,10 +111,10 @@ func TestApplyLayoutRefusesTheOtherType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := a.panels.applyLayout(b.ID, layoutOf(g), "Ana", "t"); !errors.Is(err, errLayoutType) {
+	if _, _, err := a.panels.applyLayout(b.ID, layoutOf(g), "Ana", "t", nil); !errors.Is(err, errLayoutType) {
 		t.Errorf("grid layout on buttons panel: %v", err)
 	}
-	if _, _, err := a.panels.applyLayout(g.ID, layoutOf(b), "Ana", "t"); !errors.Is(err, errLayoutType) {
+	if _, _, err := a.panels.applyLayout(g.ID, layoutOf(b), "Ana", "t", nil); !errors.Is(err, errLayoutType) {
 		t.Errorf("buttons layout on grid panel: %v", err)
 	}
 	if cps, _ := a.panels.checkpoints(g.ID); len(cps) != 0 {
@@ -150,7 +147,7 @@ func TestOldLayoutWithNoTypeAppliesToButtonsPanel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, _, err := a.panels.applyLayout(p.ID, panelLayout{Rows: 1, Cols: 1, LegacyCells: []map[string]any{{"r": 1, "c": 1, "kind": "take"}}}, "Ana", "t")
+	q, _, err := a.panels.applyLayout(p.ID, panelLayout{Rows: 1, Cols: 1, LegacyCells: []map[string]any{{"r": 1, "c": 1, "kind": "take"}}}, "Ana", "t", nil)
 	if err != nil || q.Type != panelTypeButtons {
 		t.Fatalf("%+v %v", q, err)
 	}
@@ -161,7 +158,7 @@ func TestGridIconUsesAndDefaultsWalkItems(t *testing.T) {
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
 	id := makeGridPanel(t, a, ana, "G")
 	body := `{"name":"G","sources":{"members":[1,5],"items":{"5":{"art":"lib:i-1"}}},"destinations":{"members":"all","hide":[7]}}`
-	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, gridBody(t, body)); rec.Code != 200 {
 		t.Fatalf("PUT %d %s", rec.Code, rec.Body.String())
 	}
 	var uses map[string]int

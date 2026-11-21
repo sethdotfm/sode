@@ -1,0 +1,4 @@
+apiClients:
+  - name: Bot
+    scopes: [names, tally]
+    owner: u-0001

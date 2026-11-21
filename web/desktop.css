@@ -13,8 +13,14 @@
   align-items: start;
   display: grid;
   gap: var(--pb-space-6);
-  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto auto;
+  /* Source, Destination and Levels share the width 2 : 2 : 2.25, so they shrink together. At the widest page, 2.25
+     gives Levels the room of 17 picks and Select All. */
+  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto minmax(0, 2.25fr) auto;
   width: 100%;
+}
+/* No router has more than one level (levelview.js): no Levels column. */
+.sode__boxes:has(> .sode__box--levels[hidden]) {
+  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto;
 }
 .sode__box {
   display: flex;
@@ -36,13 +42,22 @@
 .pb-btn.sode__add {
   border-color: var(--pb-edge);
   font-size: var(--pb-text-xl);
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
   padding: 0 var(--pb-space-5);
 }
-/* Clicking flips the boxes (per browser, set before first paint). */
+/* The one Clear sits next to Take, as high as Take. */
+.sode__takes {
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.pb-btn.sode__clear-all {
+  height: var(--sode-h-field);
+  padding: 0 var(--pb-space-4);
+}
+/* A click flips the boxes. prepaint.js sets the order before first paint. */
 .pb-btn.sode__to {
   font-size: var(--pb-text-xl);
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
   padding: 0 var(--pb-space-5);
 }
 .sode__to::before {
@@ -52,7 +67,10 @@
   content: "←";
 }
 [data-flip] .sode__boxes {
-  grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) auto auto;
+  grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) minmax(0, 2.25fr) auto;
+}
+[data-flip] .sode__boxes:has(> .sode__box--levels[hidden]) {
+  grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) auto;
 }
 [data-flip] .sode__box--dst {
   order: 1;
@@ -102,6 +120,48 @@
 .sode__menu-add {
   margin-left: auto;
 }
+/* The armed next add in the empty Destination box (paintArmed in desktop.js): the key, then the destination's chip,
+   where the placeholder text goes. It shows only while the box has focus, and goes away with the first typed character. */
+.sode__armed {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-2);
+  left: calc(var(--pb-space-3) + var(--sode-side-w));
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 3em;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+.sode__armed[hidden],
+.sode__keyed > .pb-input:not(:focus) ~ .sode__armed,
+.sode__keyed > .pb-input:not(:placeholder-shown) ~ .sode__armed {
+  display: none;
+}
+.sode__armed > .sode__end {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The chosen destinations under the box: the same destination chip as History's, with patchbay's remove button. */
+:root:not([data-layout="phone"]) .sode__end.sode__dst-chip {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-2);
+  padding-right: var(--pb-space-2);
+}
+/* One line over the match rows: what a typed list skips, or why the Source box lists nothing (boxlist.js). */
+.sode__menu-note {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  list-style: none;
+  padding: var(--pb-space-2) var(--pb-space-4);
+}
 .sode__menu-count {
   background: var(--pb-surface-overlay);
   border: var(--pb-border-w) solid var(--pb-edge);
@@ -115,9 +175,9 @@
 .sode__menu-count[hidden] {
   display: none;
 }
-/* Room for the Show all button: its xs line, its padding and the gap above it. */
+/* Room for the Show all button: a compact control and the gap above it. */
 .sode__box {
-  --sode-all-h: calc(var(--pb-text-xs) * 1.5 + var(--pb-space-1) * 3);
+  --sode-all-h: calc(var(--sode-h-compact) + var(--pb-space-1));
 }
 .sode__menu-all {
   display: flex;
@@ -126,12 +186,14 @@
 .sode__menu-all[hidden] {
   display: none;
 }
-/* Destination's hangs off the input row, so its place never depends on the chips. The chips start below its row. */
+/* Show all hangs off the input row at its right, the same in Source and Destination. So its place never depends on the
+   chips, which start below its row. It is always on the page, so it stacks with the page, under every overlay: the
+   dropdown layer is over dialogs. */
 .sode__entry > .sode__menu-all {
   position: absolute;
   right: 0;
   top: 100%;
-  z-index: var(--pb-z-dropdown, 10);
+  z-index: 1;
 }
 /* Chips add nothing to the box's width (width 0, then fill), so the button's right edge stays put. */
 .sode__entry ~ .sode__chips:not([hidden]) {
@@ -142,9 +204,9 @@
 .sode__menu-all .pb-btn {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
-  height: auto;
+  height: var(--sode-h-compact);
   min-height: 0;
-  padding: var(--pb-space-1) var(--pb-space-2);
+  padding: 0 var(--pb-space-3);
 }
 .sode__menu-all .pb-btn:hover {
   color: var(--pb-text-strong);
@@ -155,15 +217,19 @@
   min-width: 4ch;
   text-align: right;
 }
-/* Head and text box add nothing to the box's width (width 0, then fill). */
+/* The column sets the box's width. Head and text box add nothing to it (width 0, then fill). */
 .sode__box--levels {
-  column-gap: var(--pb-space-3);
   display: grid;
-  grid-template-columns: auto auto;
-  justify-content: start;
+  grid-template-columns: minmax(0, 1fr);
   margin-left: var(--pb-space-8);
-  /* Always as wide as for 17 levels; fewer leave blank space, more scroll. */
+  /* The picks are the old small squares in two rows. 9 columns (17 levels) and Select All fit the box on the widest
+     page; more columns scroll sideways inside the picks, so the box never grows a tall stack of picks. */
   --sode-picker-cols: 9;
+  --sode-pick-w: calc(var(--pb-space-8) + var(--pb-space-1));
+  --sode-pick-gap: var(--pb-space-1);
+}
+.sode__box--levels[hidden] {
+  display: none;
 }
 .sode__box--levels > .sode__box-head {
   grid-column: 1 / -1;
@@ -175,20 +241,47 @@
   min-width: 100%;
   width: 0;
 }
+/* Select All is always beside the picks, in the same place. levelBox sets --sode-bar-cols to the columns of the two
+   rows. The picks show at most --sode-picker-cols columns, and in a narrow box only the whole columns that fit; the
+   others scroll (big scroll bar, SCROLLERS in bigscroll.js). The picker is a size container for that sum, so it adds
+   nothing to the column's width. Only an odd number of levels makes the first pick two rows high (base.css). */
 .sode__box--levels > .sode__picker {
-  display: contents;
+  --sode-all-w: 3.25rem;
+  column-gap: var(--pb-space-3);
+  container-type: inline-size;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 .sode__box--levels .sode__levels {
-  grid-column: 1;
-  grid-row: 3;
+  --sode-step: calc(var(--sode-pick-w) + var(--sode-pick-gap));
+  --sode-cols: min(var(--sode-bar-cols, 1), var(--sode-picker-cols));
+  --sode-fit: round(down, 100cqw - var(--sode-all-w) - var(--pb-space-3) + var(--sode-pick-gap), var(--sode-step));
+  flex: none;
+  gap: var(--sode-pick-gap);
+  grid-template-columns: repeat(var(--sode-bar-cols, 1), var(--sode-pick-w));
+  grid-template-rows: repeat(2, var(--sode-pick-w));
+  min-height: 0;
   overflow-x: auto;
-  overscroll-behavior-x: contain;
-  padding-bottom: var(--pb-space-1);
-  width: calc(var(--sode-picker-cols) * (var(--pb-space-8) + var(--pb-space-1)) + (var(--sode-picker-cols) - 1) * var(--pb-space-1));
+  overflow-y: hidden;
+  width: max(var(--sode-pick-w), min(var(--sode-cols) * var(--sode-step), var(--sode-fit)) - var(--sode-pick-gap));
 }
-.sode__box--levels .sode__all {
-  grid-column: 2;
-  grid-row: 3;
+.sode__box--levels .sode__pick {
+  font-size: var(--pb-text-xs);
+  height: var(--sode-pick-w);
+  line-height: 1;
+  min-height: 0;
+  min-width: 0;
+  width: var(--sode-pick-w);
+}
+.sode__box--levels .sode__levels--odd > .sode__pick:first-child {
+  height: auto;
+}
+.sode__box--levels .pb-btn.sode__all {
+  flex: none;
+  height: calc(2 * var(--sode-pick-w) + var(--sode-pick-gap));
+  min-height: 0;
+  padding: 0;
+  width: var(--sode-all-w);
 }
 
 .sode__under {
@@ -265,14 +358,22 @@
   padding-top: var(--pb-space-6);
   width: 100%;
 }
+/* The icon bar (Settings, Sode Panels, Grid) is a column fixed at the bottom left. The page's side gutters are never
+   narrower than the bar, so it covers no History row at any width or scroll. */
 :root:not([data-layout="phone"]) .sode__footer {
   background: var(--pb-surface-base);
   bottom: var(--pb-space-4);
+  flex-direction: column;
+  gap: var(--pb-space-2);
   left: var(--pb-space-5);
-  padding: var(--pb-space-2) var(--pb-space-3);
+  padding: var(--pb-space-2);
   position: fixed;
   width: auto;
   z-index: var(--pb-z-sticky);
+}
+:root:not([data-layout="phone"]):not([data-view="settings"]) .sode {
+  --sode-rail-w: calc(var(--pb-space-5) + var(--sode-h-action) + 2 * var(--pb-space-2) + var(--pb-space-3));
+  padding-inline: max(var(--pb-space-8), calc(var(--sode-rail-w) - max(0px, (100vw - var(--sode-page-bar) - var(--sode-main-w)) / 2)));
 }
 
 /* Compact view (pref compact, html[data-compact]): desktop only, and the usual page again while a preset picks takes from
@@ -281,10 +382,14 @@
   display: none;
 }
 /* The block sits in the middle of the viewport. The match lists are already out of flow; #result hangs below Presets
-   out of flow too, so a failed take doesn't move the boxes. */
+   out of flow too, so a failed take does not move the boxes. */
 :root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]):not([data-view="settings"]) .sode {
   display: grid;
-  grid-template-columns: minmax(0, 75rem);
+  /* The page's width plus the pad that balances Take, so the boxes keep the width they have outside Compact view and
+     17 level picks still fit. */
+  --sode-compact-w: calc(var(--sode-main-w) + var(--sode-take-w, 0px) + var(--pb-space-6));
+  grid-template-columns: minmax(0, var(--sode-compact-w));
+  max-width: var(--sode-compact-w);
   min-height: 100dvh;
   padding: calc(var(--sode-pad-bottom) + var(--sode-down-h, 0px)) var(--pb-space-8) var(--sode-pad-bottom);
   place-content: center;
@@ -330,9 +435,9 @@
   font-size: var(--pb-text-xs);
   min-height: var(--pb-control-h-sm);
 }
-/* Chrome fades out but keeps its place, its tab stop and its name; hover or focus brings it back. The server and router
-   status hides only while both links are up (sode__conn--ok, desktop.js), so a fault always shows with its words. The
-   Lock bar fades on .sode-lock__who-bar: .sode-lock__who's own transition belongs to the lock screen, which leaves it shown (is-hand). */
+/* The corner items fade out but keep their place, tab stop and name. Hover or focus shows them again. The status hides
+   only while both links are up (sode__conn--ok, desktop.js). The Lock bar fades on .sode-lock__who-bar, since
+   .sode-lock__who's own transition belongs to the Lock. */
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__footer,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"], [data-sode-lock]) .sode-lock__who:not(.is-hand) .sode-lock__who-bar {

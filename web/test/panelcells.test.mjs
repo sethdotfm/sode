@@ -1,4 +1,3 @@
-// Preset, Clear and Current Source cells, Instant mode and the Take guards (panelmodel.js, panelrules.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -238,5 +237,5 @@ test('envFrom keys the presets by scope and name', () => {
 test('error text for the new refusals', () => {
   const n = namesFrom({});
   assert.equal(errorText({ code: 'no-preset' }, n), 'That preset is not available to this panel');
-  assert.equal(errorText({ code: 'preset-multi' }, n), 'This panel stages one destination at a time, and that preset has more');
+  assert.equal(errorText({ code: 'preset-multi' }, n), 'Preset has more than one destination. This panel stages one.');
 });

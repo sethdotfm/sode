@@ -1,11 +1,11 @@
 package app
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -24,10 +24,10 @@ import (
 const panelCheckpointMax = 10 // per panel, oldest dropped first
 
 var (
-	errNoPanel   = errors.New("no such panel")
-	errBadLayout = errors.New("the layout does not fit the panel")
+	errNoPanel   = &panelClientFail{http.StatusNotFound, "not_found", "no such panel"}
+	errBadLayout = &panelClientFail{http.StatusBadRequest, "bad_request", "the layout does not fit the panel"}
 	// errLayoutType guards every way in, so a layout of the other type never blanks a panel's cells or lists.
-	errLayoutType = errors.New("the layout is of the other panel type")
+	errLayoutType = &panelClientFail{http.StatusConflict, "conflict", "the layout is of the other panel type"}
 )
 
 type panelLayout struct {
@@ -37,12 +37,11 @@ type panelLayout struct {
 	Cols  int         `yaml:"cols" json:"cols"`
 	Pages []PanelPage `yaml:"pages,omitempty" json:"pages,omitempty"`
 	// LegacyCells is a checkpoint or set entry saved before Pages; withLayout hands it to normalize.
-	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
-	Settings    map[string]any   `yaml:"settings" json:"settings"`
-	Extra       map[string]any   `yaml:"extra,omitempty" json:"extra,omitempty"`
-	// Sources and Destinations are a Grid panel's edges with their hidden items, pins and item artwork.
-	Sources      *GridEdge `yaml:"sources,omitempty" json:"sources,omitempty"`
-	Destinations *GridEdge `yaml:"destinations,omitempty" json:"destinations,omitempty"`
+	LegacyCells  []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
+	Settings     map[string]any   `yaml:"settings" json:"settings"`
+	Extra        map[string]any   `yaml:"extra,omitempty" json:"extra,omitempty"`
+	Sources      *GridEdge        `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Destinations *GridEdge        `yaml:"destinations,omitempty" json:"destinations,omitempty"`
 }
 
 func layoutOf(p Panel) panelLayout {
@@ -75,15 +74,13 @@ type panelCheckpoint struct {
 }
 
 func newShortID(prefix string) string {
-	b := make([]byte, 4)
-	rand.Read(b)
-	return prefix + hex.EncodeToString(b)
+	return prefix + config.RandomHexID(4)
 }
 
 // Checkpoints sit in panels/<id>.checkpoints, a name loadPanels does not read as a panel.
 func (s *panelStore) cpPath(id string) string { return filepath.Join(s.dir, id+".checkpoints") }
 
-// cpsLocked reads a panel's checkpoints once, then serves them from memory.
+// cpsLocked reads a panel's checkpoints from the file one time, then serves them from memory.
 func (s *panelStore) cpsLocked(id string) []panelCheckpoint {
 	if c, ok := s.cps[id]; ok {
 		return c
@@ -94,6 +91,13 @@ func (s *panelStore) cpsLocked(id string) []panelCheckpoint {
 			if yaml.Unmarshal(b, &c) != nil {
 				c = nil
 			}
+			c = slices.DeleteFunc(c, func(cp panelCheckpoint) bool {
+				err := cp.Layout.noRouterProblem()
+				if err != nil {
+					log.Printf("panels: skipped checkpoint %s of %s: %v", cp.ID, id, err)
+				}
+				return err != nil
+			})
 		}
 	}
 	if s.cps == nil {
@@ -103,7 +107,7 @@ func (s *panelStore) cpsLocked(id string) []panelCheckpoint {
 	return c
 }
 
-// checkpoints lists a panel's, oldest first. The bool is false for an unknown panel.
+// Oldest first. The bool is false for an unknown panel.
 func (s *panelStore) checkpoints(id string) ([]panelCheckpoint, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -114,8 +118,9 @@ func (s *panelStore) checkpoints(id string) ([]panelCheckpoint, bool) {
 }
 
 // applyLocked stores lay over panel id after keeping a checkpoint of what is there. A checkpoint
-// that cannot be written stops the change, so a Push is never unrecoverable.
-func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string) (Panel, panelCheckpoint, error) {
+// that cannot be written stops the change, so a Push is never unrecoverable. refer, when given, makes the
+// checkpoint's cells router references with the names the router has now.
+func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	p, ok := s.by[id]
 	if !ok {
 		return Panel{}, panelCheckpoint{}, errNoPanel
@@ -128,7 +133,11 @@ func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string) (Pa
 	if err := validatePanel(&q); err != nil {
 		return Panel{}, panelCheckpoint{}, fmt.Errorf("%w: %v", errBadLayout, err)
 	}
-	cp := panelCheckpoint{ID: newShortID("c-"), At: time.Now().UTC().Truncate(time.Second), By: by, Why: why, Layout: layoutOf(p)}
+	before := layoutOf(p)
+	if refer != nil {
+		before = refer(before, p.Owner)
+	}
+	cp := panelCheckpoint{ID: newShortID("c-"), At: time.Now().UTC().Truncate(time.Second), By: by, Why: why, Layout: before}
 	cps := append(slices.Clone(s.cpsLocked(id)), cp)
 	if len(cps) > panelCheckpointMax {
 		cps = cps[len(cps)-panelCheckpointMax:]
@@ -153,23 +162,21 @@ func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string) (Pa
 	return q, cp, nil
 }
 
-// pushLayout is a Push to one panel. The target keeps its own fixed destinations.
-func (s *panelStore) pushLayout(id string, lay panelLayout, by, why string) (Panel, panelCheckpoint, error) {
+// The target keeps its own fixed destinations.
+func (s *panelStore) pushLayout(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.applyLocked(id, keepFixedDests(lay, s.by[id]), by, why)
+	return s.applyLocked(id, keepFixedDests(lay, s.by[id]), by, why, refer)
 }
 
-// applyLayout puts a whole layout on one panel, as a Checkpoint set does.
-func (s *panelStore) applyLayout(id string, lay panelLayout, by, why string) (Panel, panelCheckpoint, error) {
+func (s *panelStore) applyLayout(id string, lay panelLayout, by, why string, refer layoutRefer) (Panel, panelCheckpoint, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.applyLocked(id, lay, by, why)
+	return s.applyLocked(id, lay, by, why, refer)
 }
 
-// restoreCheckpoint puts checkpoint cp back on panel id; ok is false for an unknown one. What
-// it replaces is itself kept as a checkpoint.
-func (s *panelStore) restoreCheckpoint(id, cp, by string) (p Panel, ok bool, err error) {
+// ok is false for an unknown checkpoint. The layout it replaces is kept as a checkpoint.
+func (s *panelStore) restoreCheckpoint(id, cp, by string, refer layoutRefer) (p Panel, ok bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, found := s.by[id]; !found {
@@ -179,7 +186,7 @@ func (s *panelStore) restoreCheckpoint(id, cp, by string) (p Panel, ok bool, err
 	if i < 0 {
 		return Panel{}, false, nil
 	}
-	p, _, err = s.applyLocked(id, s.cps[id][i].Layout, by, "before restoring "+cp)
+	p, _, err = s.applyLocked(id, s.cps[id][i].Layout, by, "before restoring "+cp, refer)
 	return p, true, err
 }
 
@@ -198,7 +205,7 @@ const (
 	panelSetMax  = 200
 )
 
-var errSetCap = errors.New("too many checkpoint sets")
+var errSetCap = &panelClientFail{http.StatusConflict, "conflict", "too many checkpoint sets"}
 
 type PanelSetEntry struct {
 	Panel       string `yaml:"panel" json:"panel"`
@@ -206,7 +213,8 @@ type PanelSetEntry struct {
 	panelLayout `yaml:",inline"`
 }
 
-// PanelSet: Scope is panelShareMe (Owner only) or panelShareAll (every user can push it).
+// PanelSet: Scope is panelShareMe (Owner only) or panelShareAll (every user can push it). Owner is
+// a user id; as sent, owner is the live name (setOut).
 type PanelSet struct {
 	ID      string          `yaml:"id" json:"id"`
 	Name    string          `yaml:"name" json:"name"`
@@ -247,7 +255,14 @@ func loadPanelSets(cfgPath string) *panelSetStore {
 		if yaml.Unmarshal(b, &f) != nil {
 			continue
 		}
+	sets:
 		for _, set := range f.Sets {
+			for _, e := range set.Entries {
+				if err := e.panelLayout.noRouterProblem(); err != nil {
+					log.Printf("panels: skipped Checkpoint set %s: %v", set.ID, err)
+					continue sets
+				}
+			}
 			if set.ID != "" {
 				s.by[set.ID] = set
 			}
@@ -260,10 +275,9 @@ func setFileName(set PanelSet) string {
 	if set.Scope == panelShareAll {
 		return "everyone.yaml"
 	}
-	return "me-" + hex.EncodeToString([]byte(strings.ToLower(set.Owner))) + ".yaml"
+	return "me-" + hex.EncodeToString([]byte(set.Owner)) + ".yaml"
 }
 
-// persistLocked rewrites the file that holds set's scope and owner.
 func (s *panelSetStore) persistLocked(set PanelSet) error {
 	if s.dir == "" {
 		return nil
@@ -293,7 +307,7 @@ func (s *panelSetStore) persistLocked(set PanelSet) error {
 	return config.AtomicWrite(path, b)
 }
 
-// putLocked stores set; a failed write leaves memory as the file is.
+// A failed write leaves memory as the file is.
 func (s *panelSetStore) putLocked(set PanelSet) error {
 	old, had := s.by[set.ID]
 	s.by[set.ID] = set
@@ -306,28 +320,6 @@ func (s *panelSetStore) putLocked(set PanelSet) error {
 		return err
 	}
 	return nil
-}
-
-// followUsers renames set owners. A Me set's file is named for its owner. So the set moves to the new
-// name's file and the old file is rewritten without it.
-func (s *panelSetStore) followUsers(renames map[string]string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, set := range s.by {
-		to, ok := renames[strings.ToLower(set.Owner)]
-		if !ok || to == set.Owner {
-			continue
-		}
-		old := set
-		set.Owner = to
-		if err := s.putLocked(set); err != nil {
-			log.Printf("panel sets: owner of %s not renamed: %v", id, err)
-			continue
-		}
-		if err := s.persistLocked(old); err != nil {
-			log.Printf("panel sets: %s left in the old owner's file: %v", id, err)
-		}
-	}
 }
 
 func (s *panelSetStore) create(set PanelSet) (PanelSet, error) {
@@ -344,9 +336,65 @@ func (s *panelSetStore) replace(set PanelSet) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.by[set.ID]; !ok {
-		return errNoPanel
+		return errors.New("no such panel") // not errNoPanel: a set lost to a race answers 500
 	}
 	return s.putLocked(set)
+}
+
+// put stores an imported set: over the one of its id, else as a new one that keeps a free id.
+func (s *panelSetStore) put(set PanelSet) (PanelSet, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old, had := s.by[set.ID]
+	if !had {
+		if len(s.by) >= panelSetMax {
+			return set, errSetCap
+		}
+		if set.ID == "" {
+			set.ID = s.newIDLocked()
+		}
+	}
+	if err := s.putLocked(set); err != nil {
+		return set, err
+	}
+	// A set that changed scope or owner leaves the file it was in.
+	if had && setFileName(old) != setFileName(set) {
+		return set, s.persistLocked(old)
+	}
+	return set, nil
+}
+
+// putCheckpoints adds imported checkpoints to panel id's, by id, keeping the newest panelCheckpointMax.
+func (s *panelStore) putCheckpoints(id string, add []panelCheckpoint) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.by[id]; !ok {
+		return errNoPanel
+	}
+	cps := slices.Clone(s.cpsLocked(id))
+	for _, cp := range add {
+		if !slices.ContainsFunc(cps, func(x panelCheckpoint) bool { return x.ID == cp.ID }) {
+			cps = append(cps, cp)
+		}
+	}
+	slices.SortStableFunc(cps, func(a, b panelCheckpoint) int { return a.At.Compare(b.At) })
+	if len(cps) > panelCheckpointMax {
+		cps = cps[len(cps)-panelCheckpointMax:]
+	}
+	if s.dir != "" {
+		b, err := yaml.Marshal(cps)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(s.dir, 0o700); err != nil {
+			return err
+		}
+		if err := config.AtomicWrite(s.cpPath(id), b); err != nil {
+			return err
+		}
+	}
+	s.cps[id] = cps
+	return nil
 }
 
 func (s *panelSetStore) delete(id string) error {
@@ -364,7 +412,7 @@ func (s *panelSetStore) delete(id string) error {
 	return nil
 }
 
-// visible is every Everyone set and the user's own Me sets, by name.
+// visible is every Everyone set and user's (an id) own Me sets, by name.
 func (s *panelSetStore) visible(user string) []PanelSet {
-	return s.sorted(func(set PanelSet) bool { return set.Scope == panelShareAll || strings.EqualFold(set.Owner, user) })
+	return s.sorted(func(set PanelSet) bool { return set.Scope == panelShareAll || user != "" && set.Owner == user })
 }

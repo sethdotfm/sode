@@ -1,0 +1,1 @@
+- The main page is wider on a desktop window wider than 1920 px. The patch boxes, the Bookmarks strip and History use about 64% of a 3840 px window. Up to 1920 px the page keeps its width of 75rem.

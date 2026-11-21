@@ -12,7 +12,7 @@ func TestGridCopyAndPushCarryItemArtwork(t *testing.T) {
 	}
 	art := apiBody(t, rec)["id"].(string)
 	body := `{"name":"Src","sources":{"members":[1],"items":{"1":{"art":"` + art + `"}}}}`
-	if rec := apiSend(a, "PUT", "/api/v1/panels/"+src, ana, body); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+src, ana, gridBody(t, body)); rec.Code != 200 {
 		t.Fatalf("PUT: %d %s", rec.Code, rec.Body.String())
 	}
 	rec = apiSend(a, "POST", "/api/v1/panels/"+src+"/copy", ana, `{}`)

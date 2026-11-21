@@ -35,7 +35,6 @@ func TestIdleLockOfPersistentUserAcrossReloadAndReconnect(t *testing.T) {
 		t.Fatalf("after idle: %v", err)
 	}
 	dropClient(a, c)
-	// A reload, then a later reconnect: each new socket says hi with the token.
 	for _, ip := range []string{"10.0.0.2", "10.0.0.3"} {
 		fresh := &client{ip: ip}
 		read := register(a, fresh)
@@ -68,7 +67,6 @@ func useFakeClock(a *App) *fakeClock {
 	return f
 }
 
-// setAutoLock sets the live minutes and, when noAuto names a user, their No auto-lock.
 func setAutoLock(t *testing.T, a *App, minutes int, noAuto string) {
 	t.Helper()
 	a.cfgMu.Lock()
@@ -94,7 +92,7 @@ func ping(t *testing.T, a *App, c *client) {
 	if err := admitMsg(a, c, m); err != nil {
 		t.Fatalf("activity refused: %v", err)
 	}
-	policy["activity"].handle(a, c, &m, nil)
+	policy["activity"].handle(a, c, &m)
 }
 
 func TestServerIdleLocksClosedPersistentSession(t *testing.T) {
@@ -164,7 +162,6 @@ func TestServerIdleLockPushesAndPingsKeepSiblings(t *testing.T) {
 	}
 }
 
-// periodic is what runs the sweep: due when idleEvery has passed since the last one.
 func TestPeriodicRunsIdleSweepWhenDue(t *testing.T) {
 	a, c, _ := persistentApp(t)
 	clk := useFakeClock(a)

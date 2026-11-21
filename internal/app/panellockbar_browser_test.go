@@ -10,12 +10,10 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Lock bar floats over the panel page on the desktop layout. With it present the page is no taller, and the grid,
-// the Panels link and the status line keep their place. The bar covers no cell or header control.
 func TestChromePanelLockBarFloats(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -35,13 +33,13 @@ func TestChromePanelLockBarFloats(t *testing.T) {
 
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the plain link asks for a sign-in", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
 	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	b.waitFor("signed in with the Lock bar", `document.documentElement.hasAttribute('data-sode-chip') && !document.querySelector('.sode-lock__who').hidden && document.querySelectorAll('.sode-panel__cell').length >= 3 && !document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	with := b.eval(geo).(string)
-	// The bar gone, as for a signed-out page or a kiosk: nothing else moves.
 	b.eval(`document.documentElement.removeAttribute('data-sode-chip'); document.querySelector('.sode-lock__who').hidden = true`)
 	if got := b.eval(geo); got != with {
 		t.Fatalf("the Lock bar moved the page: with %v, without %v", with, got)
@@ -65,6 +63,7 @@ func TestChromePanelLockBarFloats(t *testing.T) {
 	if got := b.eval(head); got != headIn {
 		t.Fatalf("signing out moved the header: signed in %v, signed out %v", headIn, got)
 	}
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}

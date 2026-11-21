@@ -1,10 +1,9 @@
-// QR codes for the one-time key display. The reader below is a second, separate implementation
-// of the format (read-only), so a placement or masking mistake in qr.js would show here.
+// The reader below is a second implementation of the format, so a placement or mask error in qr.js shows here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { qrMatrix, qrPath } from '../qr.js';
 
-// ---- GF(256), own tables
+// ---- GF(256) tables, not those of qr.js.
 const EXP = new Array(512);
 const LOG = new Array(256);
 for (let i = 0, x = 1; i < 255; i++) {
@@ -60,7 +59,6 @@ function read(m) {
   const size = m.size;
   const v = (size - 17) / 4;
   const dark = (x, y) => m.get(x, y);
-  // format info, both copies
   const bitsA = [];
   for (let i = 0; i <= 5; i++) bitsA[i] = dark(8, i);
   bitsA[6] = dark(8, 7);
@@ -81,7 +79,6 @@ function read(m) {
   const mask = (f >> 10) & 7;
   assert.equal((f >> 10) & 0x18, 0);
   assert.ok(dark(8, size - 8), 'the always-dark module');
-  // data, zigzag
   const fn = dataMap(v);
   const bits = [];
   for (let right = size - 1; right >= 1; right -= 2) {

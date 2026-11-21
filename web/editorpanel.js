@@ -14,9 +14,6 @@ import { fixedDestsOf } from './panelrules.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { followRouter, stopFollowing } from './editorgridrules.js';
 
-const GRID_MODE_HINT =
-  'Instant sends a press on one crosspoint at once and asks before more routes. Stage + Take: Take sends with no confirm box. Stage + Take + Confirm: Take opens the confirm box.';
-
 const section = (title, ...kids) => el('section', 'sode-side__sec', el('h3', 'sode-side__h', title), ...kids);
 const select = (id, options) => {
   const s = el('select', 'pb-select', ...options.map(([v, t]) => opt(v, t)));
@@ -61,8 +58,8 @@ export function createPanelTab(ed) {
         v === 'grid' ? { type: v, sources: { members: [] }, destinations: { members: [] } } : { type: v, sources: undefined, destinations: undefined },
       ),
   );
-  const typeNote = el('span', 'sode__hint');
-  const typeField = el('div', 'sode__field', el('span', 'sode__field-label', 'Panel type'), type.node, typeNote);
+  const typeLabel = el('span', 'sode__field-label', 'Panel type');
+  const typeField = el('div', 'sode__field', typeLabel, type.node);
   const identity = section('Identity', field('ed-side-name', 'Name', name), typeField, slug.node, sizes.node, linkBox);
   identity.firstChild.replaceWith(el('div', 'sode-side__head', el('h3', 'sode-side__h', 'Identity'), ident));
 
@@ -73,7 +70,6 @@ export function createPanelTab(ed) {
   size.max = String(FONT_MAX);
   size.inputMode = 'numeric';
   size.placeholder = '100';
-  size.title = `${FONT_MIN} to ${FONT_MAX}. Each cell can scale from this.`;
   const sizeNote = el('span', 'sode__hint');
   sizeNote.setAttribute('role', 'status');
   size.addEventListener('input', () => {
@@ -107,7 +103,7 @@ export function createPanelTab(ed) {
   // has no confirm box, so it shows only take and instant.
   const modeOptions = {
     buttons: [
-      ['take', 'Stage, then Take'],
+      ['take', 'Stage + Take'],
       ['instant', 'Instant'],
     ],
     grid: [
@@ -116,8 +112,6 @@ export function createPanelTab(ed) {
       ['take', 'Stage + Take + Confirm'],
     ],
   };
-  const modeHint = el('span', 'sode__hint');
-  modeHint.id = 'ed-mode-note';
   let modeType = '';
   let mode = null;
   const modeField = el('div', 'sode__field', el('span', 'sode__field-label', 'Mode'));
@@ -126,9 +120,8 @@ export function createPanelTab(ed) {
     modeType = kind;
     const next = segmented('ed-set-mode', 'Mode', modeOptions[kind], (v) => set('mode', v));
     if (mode) mode.node.replaceWith(next.node);
-    else modeField.append(next.node, modeHint);
+    else modeField.append(next.node);
     mode = next;
-    modeHint.textContent = kind === 'grid' ? GRID_MODE_HINT : '';
   };
   drawMode('buttons');
   const guard = segmented(
@@ -144,19 +137,18 @@ export function createPanelTab(ed) {
   const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', v || []) });
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node);
   const fixed = createFixedField(ed);
-  const multi = toggle('multi', 'Stage several Destinations at the same time', 'Off lets one Destination be staged at a time.');
+  const multi = toggle('multi', 'Stage several Destinations at the same time');
   const multiNote = el('span', 'sode__hint');
   multiNote.id = 'ed-multi-note';
   multi.append(multiNote);
   const guardField = el('div', 'sode__field', el('span', 'sode__field-label', 'Take button behavior'), guard.node);
   const resultText = toggle('resultText', 'Show the result as text on a Destination');
-  const wrapPages = toggle('wrapPages', 'Wrap between Pages', 'Next Page on the last Page goes to the first, and Previous Page on the first goes to the last.');
+  const wrapPages = toggle('wrapPages', 'Wrap between Pages');
   // Settings that only a Buttons panel uses; a Grid panel keeps them stored but does not show them.
   const buttonsOnly = [sizes.node, guardField, fixed.node, multi, resultText, wrapPages];
   const behavior = section('Behavior', modeField, guardField, fixed.node, multi, levelField, resultText, toggle('kiosk', 'Kiosk mode'), wrapPages);
 
-  // A Grid panel's edges: each one is the router's list, or holds its own. One section for the router, so a
-  // choice per router has a place if Sode gets more than one.
+  // A Grid panel's edges: each one is the router's list, or holds its own.
   const followSwitches = ['sources', 'destinations'].map((key) => {
     const what = key === 'sources' ? 'source' : 'destination';
     const input = el('input', 'pb-switch__input');
@@ -169,8 +161,7 @@ export function createPanelTab(ed) {
       if (next !== edge) ed.setFields({ [key]: next });
     });
     const label = el('label', 'pb-check', input, el('span', 'pb-check__label', `${what[0].toUpperCase()}${what.slice(1)}s follow the router`));
-    const hint = `On: every ${what} the router has, in router order, and the ones it adds later. Pin and artwork still apply. Off: the list keeps what it shows now.`;
-    return { key, input, node: el('div', 'sode__field', label, el('span', 'sode__hint', hint)) };
+    return { key, input, node: el('div', 'sode__field', label) };
   });
   const router = section('Router', ...followSwitches.map((f) => f.node));
 
@@ -179,15 +170,15 @@ export function createPanelTab(ed) {
   const fullscreenHint = el('span', 'sode__hint');
   fullscreenHint.id = 'ed-fullscreen-note';
   fullscreenField.append(fullscreenHint);
+  const wake = toggle('wake', 'Keep the screen awake');
+  if (!feel.wake) wake.firstChild.dataset.pbTip = 'This browser cannot keep the screen awake';
   const device = section(
     'Device and feedback',
-    toggle('wake', 'Keep the screen awake', ''),
+    wake,
     fullscreenField,
     toggle('landscape', 'Enforce landscape orientation', LANDSCAPE_HINT),
-    toggle('askInstanceName', 'Ask users to set an instance name', 'Off, the panel never asks and shows no name in its header.'),
+    toggle('askInstanceName', 'Ask users to set an instance name'),
   );
-  const deviceNote = el('p', 'sode__hint');
-  device.append(deviceNote);
 
   node.append(identity, router, appearance, behavior, device);
 
@@ -204,7 +195,8 @@ export function createPanelTab(ed) {
       const grid = isGridPanel(ed.fields());
       type.set(grid ? 'grid' : 'buttons');
       type.disable(ro || !!p);
-      typeNote.textContent = p ? 'The type stays as the panel was made.' : 'You cannot change the type after the first save.';
+      if (p) typeLabel.dataset.pbTip = 'Fixed after the first save';
+      else delete typeLabel.dataset.pbTip;
       for (const n of buttonsOnly) n.hidden = grid;
       router.hidden = !grid;
       for (const f of followSwitches) {
@@ -229,7 +221,6 @@ export function createPanelTab(ed) {
       multiNote.textContent = fixedOn ? 'No effect while Fixed destination is on: every press stages all of them together.' : '';
       fixed.update();
       fullscreenHint.textContent = fullscreenNote(s);
-      deviceNote.textContent = feel.wake ? '' : "This browser cannot keep the screen awake. It is the panel's own browser that counts.";
       if (document.activeElement !== size) size.value = String(s.fontSize || 100); // shown, so the arrows step from the default
       size.disabled = ro;
       drawMode(grid ? 'grid' : 'buttons');

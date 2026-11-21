@@ -1,0 +1,2 @@
+- On a first start, each setup wizard field that a `SODE_*` variable filled says so, for example "Filled from SODE_ROUTER.". `SODE_FIRE_MODE` and `SODE_SALVO_GROUP` now fill Multi destination and its group.
+- Without `SODE_CONFIG`, the main page shows a yellow Not saved banner with a "How to fix this" link, on a phone too. `SODE_ACCESS_PRESET` applies there with the page locks off. The first user added must be an Administrator with a PIN, and after that no save can remove every user.

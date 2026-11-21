@@ -1,0 +1,6 @@
+- Home: a click on a level pick while every level is on selects only that level, as typing it does. More clicks add or remove levels. Select All selects every level again.
+- Home: the level picks are small squares, 1.375rem. 17 levels and Select All fit in two rows with no scroll at 1440 and 1600 px. More levels, or a narrow window, scroll sideways in the Levels box with a big scroll bar. Select All stays in the same place. In Compact view the boxes keep the same width.
+- Every Confirm with a churning letter: "Take (X)", "Delete (X)" and "Confirm (X)" are as high as Home's Take. The letter has the same size and look on every page, the Lock too.
+- Take Confirm: it has a fixed place and width, so it does not move as the plan changes. A long plan scrolls in it.
+- Take Confirm with staged routes and a route in the patch boxes: it names each destination. The route from the patch boxes shows first, under "Patch boxes". Each staged route shows under "Staged routes" with a "Staged" badge.
+- Home: the chips (Last and Next, History routes, the staged list, Show all) are compact controls, 2rem high. Last and Next have an edge on all four sides, as the other chips do.

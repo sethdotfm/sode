@@ -31,18 +31,16 @@ const (
 
 var (
 	tplIDRe        = regexp.MustCompile(`^t-[0-9a-f]{8}$`)
-	errTemplateCap = errors.New("too many templates")
-	errTemplateDup = errors.New("there is already a template with that name")
+	errTemplateCap = &panelClientFail{http.StatusConflict, "conflict", "too many templates"}
+	errTemplateDup = &panelClientFail{http.StatusConflict, "conflict", "there is already a template with that name"}
 
 	// contentKeys are what fills a cell after its type is set. A template leaves them out unless
 	// asked, so a new show's Sources and Destinations are chosen afresh.
-	contentKeys = []string{"n", "scope", "name", "caption"}
+	contentKeys = []string{"n", "router", "scope", "id", "name", "caption"}
 )
 
-// Template is a file's content. Owner is the user a Me template belongs to, and for an Everyone
-// template the user who saved it. Settings is nil when the template carries none. Sources keeps
-// Source and Preset contents, Dests keeps Destination contents. Contents is the single flag from
-// before the split. A save or file that sets it means both, and it is never stored or sent back.
+// Owner is a user id; as sent it is the live name. Contents is the old single flag: a file that sets it means both,
+// and it is never stored.
 type Template struct {
 	ID       string      `yaml:"id" json:"id"`
 	Name     string      `yaml:"name" json:"name"`
@@ -57,12 +55,6 @@ type Template struct {
 	// LegacyCells is a template from before Pages; migrate makes it one Page.
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings,omitempty" json:"settings,omitempty"`
-}
-
-// templateIn is the body of a save. Pin is only read for Everyone, and never stored.
-type templateIn struct {
-	Template
-	Pin string `json:"pin"`
 }
 
 // keepsContents reports whether a cell of this kind keeps its Source, Destination or Preset and its
@@ -144,7 +136,8 @@ func (t *Template) clean() error {
 }
 
 func dropArtwork(m map[string]any, key string) {
-	if s, ok := m[key].(string); ok && artIDRe.MatchString(s) {
+	s, _ := m[key].(string)
+	if r, _ := parseArtRef(s); r.kind == artRefPanel {
 		delete(m, key)
 	}
 }
@@ -153,7 +146,7 @@ type templateStore struct {
 	yamlDir[Template]
 }
 
-// loadTemplates runs once from New. A file that does not parse, or whose id or folder
+// loadTemplates runs one time, from New. A file that does not parse, or whose id or folder
 // differs from what it holds, is logged and skipped.
 func loadTemplates(cfgPath string) *templateStore {
 	s := &templateStore{}
@@ -172,6 +165,9 @@ func loadTemplates(cfgPath string) *templateStore {
 			if err == nil {
 				err = yaml.Unmarshal(b, &t)
 			}
+			if err == nil {
+				err = panelLayout{Pages: t.Pages, LegacyCells: t.LegacyCells, Settings: t.Settings}.noRouterProblem()
+			}
 			t.migrate()
 			if err != nil || t.ID != id || !validTemplateID(id) || t.Scope != scope {
 				log.Printf("templates: skipped %s: not a template of this folder (%v)", path, err)
@@ -188,9 +184,9 @@ func loadTemplates(cfgPath string) *templateStore {
 
 func (s *templateStore) list() []Template { return s.sorted(nil) }
 
-// sameBucket: one name once per place it is listed, Everyone for all or Me for one owner.
+// sameBucket: a name is used one time in each place it is listed, Everyone for all or Me for one owner.
 func sameBucket(a, b Template) bool {
-	return a.Scope == b.Scope && (a.Scope == templateEveryone || strings.EqualFold(a.Owner, b.Owner))
+	return a.Scope == b.Scope && (a.Scope == templateEveryone || a.Owner == b.Owner)
 }
 
 func (s *templateStore) create(t Template) (Template, error) {
@@ -205,27 +201,19 @@ func (s *templateStore) create(t Template) (Template, error) {
 	return s.insert(t, templateMax, errTemplateCap, vet, func(t *Template) error { return s.writeLocked(*t) })
 }
 
-func (s *templateStore) delete(id string) (bool, error) {
-	return s.remove(id, nil)
+func (s *templateStore) put(t Template) (Template, error) {
+	s.mu.Lock()
+	_, had := s.by[t.ID]
+	if had {
+		defer s.mu.Unlock()
+		return t, s.putLocked(t)
+	}
+	s.mu.Unlock()
+	return s.insertAs(t, templateMax, errTemplateCap, nil, func(t *Template) error { return s.writeLocked(*t) })
 }
 
-// followUsers carries a Users rename to the owner of Me templates. A Me template of a removed
-// user stays on disk, owned by nobody who can sign in, like their panels.
-func (s *templateStore) followUsers(renames map[string]string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, t := range s.by {
-		to, ok := renames[strings.ToLower(t.Owner)]
-		if !ok || to == t.Owner {
-			continue
-		}
-		t.Owner = to
-		if err := s.writeLocked(t); err != nil {
-			log.Printf("templates: owner of %s not renamed: %v", id, err)
-			continue
-		}
-		s.by[id] = t
-	}
+func (s *templateStore) delete(id string) (bool, error) {
+	return s.remove(id, nil)
 }
 
 func init() {
@@ -241,8 +229,8 @@ func init() {
 // templateReach: a Me template is its owner's; an Everyone template is for every caller to
 // use, and the owner or a Trusted user change it. Trusted is read live from the config.
 func (a *App) templateReach(cl *apiCtx, t Template) (read, edit bool) {
-	trusted := cl.Actor.Kind == actorUser && a.trusted(cl.Actor.Name)
-	own := cl.Actor.Kind == actorUser && strings.EqualFold(t.Owner, cl.Actor.Name)
+	trusted := cl.Actor.Kind == actorUser && a.trusted(cl.Actor.User)
+	own := cl.Actor.Kind == actorUser && cl.Actor.User != "" && t.Owner == cl.Actor.User
 	if t.Scope == templateMe {
 		return own, own
 	}
@@ -255,7 +243,8 @@ func (a *App) templateOut(cl *apiCtx, t Template) map[string]any {
 	m := map[string]any{}
 	json.Unmarshal(b, &m)
 	m["canEdit"] = edit
-	hideNamesFromPublic(m, cl)
+	m["owner"] = a.r().cfg.UserName(t.Owner)
+	hideUserNames(m, cl)
 	return m
 }
 
@@ -289,25 +278,12 @@ func (a *App) apiTemplateRead(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	}
 }
 
-// mayEveryone is the rule of story 80, for Everyone templates and Checkpoint sets: a Trusted
-// user, or whoever holds the Advanced Settings PIN. A REST call has no connection to unlock,
-// so the PIN rides in the body. It counts as a wrong try of the same pool as the Settings
-// dialog's. msg is the refusal when no PIN is set or sent.
-func (a *App) mayEveryone(cl *apiCtx, pin, msg string) error {
-	if a.trusted(cl.Actor.Name) {
+// Everyone templates and Checkpoint sets need a Trusted user or higher. A PIN in the body opens nothing.
+func (a *App) mayEveryone(cl *apiCtx, msg string) error {
+	if a.trusted(cl.Actor.User) {
 		return nil
 	}
-	hash := a.r().cfg.SettingsPin
-	if hash == "" || pin == "" {
-		return &panelClientFail{http.StatusForbidden, "trusted_required", msg}
-	}
-	if err := a.tryPin(&a.pin, cl.IP, func() bool { return config.CheckPin(hash, pin) }); err != nil {
-		return &panelClientFail{http.StatusForbidden, "trusted_required", err.Error()}
-	}
-	if a.r().cfg.SettingsPin != hash {
-		return &panelClientFail{http.StatusForbidden, "trusted_required", msg}
-	}
-	return nil
+	return &panelClientFail{http.StatusForbidden, "trusted_required", msg}
 }
 
 func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -315,34 +291,29 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 		apiFail(w, http.StatusForbidden, "user_required", "a template is owned by a user: use a user's key to save one")
 		return
 	}
-	body, ok := readBody(w, r, panelLayoutBodyMax, "template")
-	if !ok {
+	var t Template
+	if !decodeBody(w, r, panelLayoutBodyMax, "template", "send a template as JSON: ", false, &t) {
 		return
 	}
-	var in templateIn
-	if err := json.Unmarshal(body, &in); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a template as JSON: "+err.Error())
-		return
+	t.ID, t.Owner = "", cl.Actor.User
+	err := t.clean()
+	if err == nil {
+		err = a.nameFixed(t.Settings)
 	}
-	t := in.Template
-	t.ID, t.Owner = "", cl.Actor.Name
-	if err := t.clean(); err != nil {
+	if err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+	t.Pages = a.refPages(t.Pages, cl.Actor.User)
 	if t.Scope == templateEveryone {
-		if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can save a template to Everyone"); err != nil {
+		if err := a.mayEveryone(cl, "only a Trusted user can save a template to Everyone"); err != nil {
 			failWith(w, err)
 			return
 		}
 	}
 	made, err := a.templates.create(t)
-	switch {
-	case errors.Is(err, errTemplateCap), errors.Is(err, errTemplateDup):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the template could not be saved: "+err.Error())
+	if err != nil {
+		failStore(w, err, "the template could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "templateCreate", "ok", "template "+made.ID+" "+made.Name+" ("+made.Scope+")", nil)
@@ -355,7 +326,7 @@ func (a *App) apiTemplateDelete(w http.ResponseWriter, r *http.Request, cl *apiC
 		return
 	}
 	if _, err := a.templates.delete(t.ID); err != nil {
-		apiFail(w, http.StatusInternalServerError, "internal", "the template could not be deleted: "+err.Error())
+		failStore(w, err, "the template could not be deleted")
 		return
 	}
 	a.apiEvent(cl.Actor, "templateDelete", "ok", "template "+t.ID+" "+t.Name, nil)

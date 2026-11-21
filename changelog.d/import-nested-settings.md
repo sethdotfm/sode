@@ -1,0 +1,1 @@
+- An import of an older export file keeps a live lock, API, Everyone default or new-user setting that the file lacks. Before, that setting went back to its default.

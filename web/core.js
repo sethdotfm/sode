@@ -1,36 +1,62 @@
-// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js, sprite.js and fuzzy.js: an
-// import cycle must not occur.
+// Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js and routerprefix.js, so no import cycle occurs.
 
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
+import { searchText } from './routerprefix.js';
+import { buildChanged } from './buildrules.js';
+
+// A send or a pending answer with no Server link.
+export const LINK_DOWN = 'Server link down.';
 
 export const $ = (id) => document.getElementById(id);
 
-export function el(tag, cls, ...kids) {
+// A line that hides when empty; an unchanged text is not written again (a redraw each second must not restart a
+// screen reader).
+export function showNote(n, text) {
+  if (n.textContent !== text) n.textContent = text;
+  n.hidden = !text;
+}
+
+// props is a class string or an object; a key the element has as a property is set as one, any other as an attribute.
+export function el(tag, props, ...kids) {
   const e = document.createElement(tag);
-  if (cls) e.className = cls;
+  if (typeof props === 'string') e.className = props;
+  else if (props)
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null) continue;
+      if (k === 'data-pb-tip' && !String(v).trim()) continue; // a blank tip still draws an empty bubble
+      if (k === 'class') e.className = v;
+      else if (k in e) e[k] = v;
+      else if (v !== false) e.setAttribute(k, v === true ? '' : v);
+    }
   for (const k of kids) if (k != null) e.append(k);
   return e;
 }
-
-// ---- state & events
 
 export const S = {
   cfg: null,
   configPath: '',
   version: '',
   brandColors: [],
+  routerUid: '',
+  installUid: '', // from the hello; Item links name it
+  prefix: '', // the router prefix, from the hello
+  noAdministrator: false, // users and no Administrator: the page shows the recovery banner
+  notSaved: false,
+  setup: null, // setupwizard.js
   srcs: [],
   dsts: [],
   srcBy: new Map(),
   dstBy: new Map(),
   tally: new Map(),
-  prot: new Map(),
+  prot: new Map(), // dst → Map(level → {dev, kind}), from the router
+  protBy: new Map(), // dst → {by, device, levels}: the Protects in Sode's own record
   levels: [],
   levelDefaults: [],
   levelBy: new Map(),
   namesAt: null,
+  namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
   wsState: 'connecting',
   wsLost: false,
   router: null,
@@ -45,23 +71,13 @@ export const S = {
   newId: null,
   prevNumbering: null,
   myRights: null,
+  users: [], // the hello's sign-in list, [{name, len}]; len 0 is no PIN
+  userNames: [],
 };
 
 export function toggle(set, k) {
   if (set.has(k)) set.delete(k);
   else set.add(k);
-}
-
-// is() is true while the box still holds the search left by the last + (not a destination
-// waiting to be picked).
-export function keepSearch(read) {
-  let kept = null;
-  return {
-    is: () => kept !== null && read() === kept,
-    set: (keep, text) => {
-      kept = keep && text.trim() ? text : null;
-    },
-  };
 }
 
 const listeners = {};
@@ -73,6 +89,13 @@ export const on = (ev, fn) => {
     const i = l.indexOf(fn);
     if (i >= 0) l.splice(i, 1);
   };
+};
+// The removal waits a microtask: one inside emit would skip the next listener.
+export const once = (ev, fn) => {
+  const off = on(ev, (...a) => {
+    queueMicrotask(off);
+    fn(...a);
+  });
 };
 // Runs before earlier listeners: for a module that must refresh its memo before views read it.
 export const onFirst = (ev, fn) => {
@@ -102,8 +125,6 @@ export const srcLabel = (n) => srcItem(n).label;
 export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', it.num), ...(it.name ? [' ', it.name] : []));
 export const dstLabel = (n) => dstItem(n).label;
 export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
-
-// ---- websocket
 
 let retry = 1000;
 
@@ -171,27 +192,72 @@ export function wsSend(m) {
   return true;
 }
 
+// One message and its answer of type resultT, matched by id. msg keeps its literal t at the call site: the policy
+// test reads the types from the source. With no link, or when the socket closes first, it answers { ok: false, err }.
+const waiting = new Map();
+const asked = new Set();
+let askSeq = 0;
+export function request(resultT, msg) {
+  if (!asked.has(resultT)) {
+    asked.add(resultT);
+    onMsg(resultT, (m) => {
+      const done = waiting.get(m.id);
+      waiting.delete(m.id);
+      done?.(m);
+    });
+  }
+  const id = ++askSeq;
+  return new Promise((resolve) => {
+    if (!wsSend({ ...msg, id })) return resolve({ ok: false, err: LINK_DOWN });
+    waiting.set(id, resolve);
+  });
+}
+on('wsclose', () => {
+  for (const done of waiting.values()) done({ ok: false, err: LINK_DOWN });
+  waiting.clear();
+});
+
 function handle(m) {
   switch (m.t) {
     case 'hello':
+      // This page's code is from the old build, and the new server can send messages it does not know.
+      if (buildChanged(S.version, m.version)) {
+        globalThis.location?.reload();
+        return;
+      }
+      // The prefix changed while this socket was down, so the reload message never came.
+      if (S.prefix && m.prefix && S.prefix !== m.prefix) {
+        globalThis.location?.reload();
+        return;
+      }
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
+      S.versions = m.versions || {};
       emit('helloCfg', m.cfg);
-      S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.version = m.version || '';
       S.brandColors = m.brandColors || [];
+      S.routerUid = m.routerUid || '';
+      S.installUid = m.installUid || '';
+      S.prefix = m.prefix || '';
+      S.users = m.users || [];
+      S.userNames = S.users.map((u) => u.name);
+      S.noAdministrator = !!m.noAdministrator;
+      S.notSaved = !!m.notSaved;
+      S.setup = m.setup || null;
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];
       setNames(m.srcs, m.dsts);
       S.namesAt = m.at;
+      S.namesSavedAt = m.savedAt || null;
       S.tally = new Map();
       applyTally(m.tally || []);
       S.prot = new Map();
-      applyProtect(m.protect || []);
+      applyProtect(m.protected || []);
+      applyProtectBy(m.protectBy || []);
       setStatus(m.status);
-      S.hist = m.recent || [];
+      S.hist = m.history || [];
       S.histMore = m.more;
       // A page asked for before this snapshot is for a replaced list and is ignored (takePage):
       // do not wait for it.
@@ -214,19 +280,11 @@ function handle(m) {
       emit('tallyRows', m.u);
       emit('tally');
       break;
-    case 'protect':
+    case 'protected':
       applyProtect(m.u);
+      if (m.by) applyProtectBy(m.by);
       emit('protectedRows');
       emit('tally');
-      break;
-    case 'configResult':
-      emit('configResult', m);
-      break;
-    case 'unlockResult':
-      emit('unlockResult', m);
-      break;
-    case 'locked':
-      emit('locked');
       break;
     case 'status':
       setStatus(m);
@@ -234,9 +292,12 @@ function handle(m) {
       break;
     case 'ping':
       break;
-    case 'sentPage':
+    case 'reload':
+      globalThis.location?.reload();
+      break;
+    case 'logPage':
     case 'uptimeResult':
-    case 'sentAdd':
+    case 'logAdd':
       emit(m.t, m);
       break;
     default: {
@@ -261,16 +322,22 @@ function applyTally(list) {
   }
 }
 
+// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect.
 function applyProtect(list) {
-  for (const [d, l, dev] of list) {
+  for (const [d, l, dev, kind = 1] of list) {
     let t = S.prot.get(d);
     if (dev < 0) {
       if (t) t.delete(l);
+      if (t && !t.size) S.prot.delete(d);
       continue;
     }
     if (!t) S.prot.set(d, (t = new Map()));
-    t.set(l, dev);
+    t.set(l, { dev, kind });
   }
+}
+
+function applyProtectBy(list) {
+  S.protBy = new Map(list.map((r) => [r.dst, r]));
 }
 
 function setStatus(st) {
@@ -400,17 +467,10 @@ export function setDot(dotEl, textEl, [state, text]) {
   textEl.textContent = text;
 }
 
-export const protectedLabel = (devices) => `Protected by ${devices.join(', ')}`;
-
-export function protectedOn(dst, levels) {
-  const t = S.prot.get(dst);
-  const hit = t ? levels.filter((u) => t.has(u)) : [];
-  return { levels: hit, devices: [...new Set(hit.map((u) => t.get(u)))].sort((a, b) => a - b) };
-}
-// ---- fuzzy finder (scoring in fuzzy.js)
-
+// A.23 searches 23.
 export function search(list, q, n = 8) {
-  q = q.trim().toLowerCase();
+  q = searchText(q, S.prefix, [], [S.prefix]);
+  q = q?.trim().toLowerCase();
   if (!q) return [];
   const out = [];
   for (const it of list) {

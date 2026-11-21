@@ -2,51 +2,21 @@
 // confirms. A blank Source or Destination goes to the other first (to see what is on it) and
 // comes back.
 
-import {
-  $,
-  el,
-  S,
-  on,
-  connState,
-  routerTitle,
-  linked,
-  setLinkDisabled,
-  renderDown,
-  setDot,
-  search,
-  dstItem,
-  srcItem,
-  labelNode,
-  toggle,
-  keepSearch,
-} from './core.js';
-import { defaultLevelsWord, levelBar, allLevels, levelText, levelSource } from './levelview.js';
+import { $, el, S, on, connState, routerTitle, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode } from './core.js';
+import { defaultLevelsWord, allLevels, levelText, levelSource } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { fedBy, currentlyNodes } from './routes.js';
-import { flipped, fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, groupTitle, groupLevels, stackBefore } from './history.js';
-import {
-  planVerb,
-  resultNode,
-  showResult,
-  patchPlan,
-  planBlocked,
-  rightsOff,
-  planSummary,
-  sendTakes,
-  lastTake,
-  nextTake,
-  boxPatch,
-  lastChip,
-  VERBS,
-} from './plans.js';
+import { flipped } from './device.js';
+import { resultNode, patchPlan, rightsOff, lastTake, nextTake, nextFind, boxPatch, lastChip } from './plans.js';
+import { nextAdd } from './boxlist.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
-import { emptyNote } from './searchbox.js';
 import { presetHost } from './presets.js';
-import { rowActions, disclosureAria, followersHead, lastFill } from './historyrows.js';
-import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './historypick.js';
-import { byLabel, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { lastFill } from './historyrows.js';
+import { boxPicking, addPatch } from './historypick.js';
+import { combobox, feeding } from './widgets.js';
+import { mobileHistory, closeSwipes } from './mobilehistory.js';
+import { mobileConfirm } from './mobileconfirm.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -80,9 +50,7 @@ const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), levelSource, {
   hold: 'pointerdown',
   onChange: () => renderThread(),
 });
-const active = () => layout() === 'phone' && document.documentElement.dataset.view !== 'settings';
-
-// ---- header
+const active = () => layout() === 'phone' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
 
 function renderConn() {
   const c = connState();
@@ -102,8 +70,6 @@ function renderConn() {
 function syncGo() {
   setLinkDisabled($('m-go'), M.step === 'lvl' && !linked());
 }
-
-// ---- composer
 
 function setStep(step, focus = true) {
   M.step = step;
@@ -146,7 +112,7 @@ function advance() {
   }
   if (step === 'dst') {
     if (!inputs.dst.value.trim() && !M.dsts.length && !M.sel.src) return setStep('src');
-    if ((inputs.dst.value.trim() && !keptText()) || !M.dsts.length) {
+    if (inputs.dst.value.trim() || !M.dsts.length) {
       const it = matches.current();
       if (!it) return shake(inputs.dst);
       addDst(it);
@@ -159,13 +125,14 @@ function advance() {
   if (!levels) return shake(inputs.lvl);
   inputs.lvl.blur();
   if (boxPicking()) return addPatch();
-  openSheet(patchPlan(M.sel.src, M.dsts, levels));
+  sheet.open(patchPlan(M.sel.src, M.dsts, levels));
 }
 
-// + keeps the typed search and its list (minus the bubbles), so the next match is one + away.
+// + empties the box after the add, as the desktop does, so the next digits start a new search. On the empty box, +
+// adds the next add (nextAdd, boxlist.js), which the box shows (paintArmed).
 function plus() {
   if (M.step !== 'dst') return;
-  const it = matches.current();
+  const it = matches.current() || (!inputs.dst.value.trim() && armed());
   if (!it) return shake(inputs.dst);
   addDst(it, true);
   inputs.dst.focus();
@@ -179,20 +146,28 @@ function choose(it) {
   renderThread();
 }
 
-// The search left by the last +: while the box holds exactly it, Next goes on with the bubbles.
-const kept = keepSearch(() => inputs.dst.value);
-const keptText = kept.is;
+// The last + add arms the next add on the empty box, by the Next match behavior setting as on the desktop. Typing, a
+// Next, an edit and a reset end it.
+let lastAdd = null;
+const armed = () => (lastAdd && !inputs.dst.value ? nextAdd(lastAdd, S.dsts, (d) => M.dsts.some((x) => x.n === d.n), nextFind(S.dsts)) : null);
 
-function addDst(it, keep = false) {
+function paintArmed() {
+  const d = armed();
+  const text = d ? `+ adds ${d.label}` : 'Destination';
+  if (inputs.dst.placeholder !== text) inputs.dst.placeholder = text;
+}
+
+// plus: the add came from +, so it arms the next add.
+function addDst(it, plus = false) {
   if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
-  if (!keep) inputs.dst.value = '';
-  kept.set(keep, inputs.dst.value);
+  inputs.dst.value = '';
+  lastAdd = plus ? it : null;
   renderThread();
-  if (keep) matches.refresh();
-  else matches.close();
+  matches.close();
 }
 
 function editDst(i) {
+  lastAdd = null;
   const [it] = M.dsts.splice(i, 1);
   inputs.dst.value = editText(it);
   setStep('dst');
@@ -205,11 +180,10 @@ function reset() {
   M.dsts = [];
   M.dstFirst = false;
   for (const k of ['src', 'dst']) inputs[k].value = '';
+  lastAdd = null;
   lvl.clear();
   setStep(order()[0], false);
 }
-
-// ---- the last take's source, destinations or levels
 
 // "Last:" chip as on desktop: tap fills the step from the last take. Hidden when the step has
 // it, and for default levels.
@@ -228,7 +202,7 @@ function renderLast() {
         if (!v) return null;
         const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', n || 'Last'), el('span', 'sode__last-text', ...v));
         b.type = 'button';
-        b.setAttribute('aria-label', n ? `Use the last take's ${what}, the next one` : `Use the last take's ${what}`);
+        b.setAttribute('aria-label', n ? `Next: use the ${what} after the last take's` : `Use the last take's ${what}`);
         b.addEventListener('pointerdown', (e) => e.preventDefault());
         b.addEventListener('click', () => useLast(k, !!n));
         return b;
@@ -259,8 +233,6 @@ function useLast(k, next = false) {
     lvl.set(t.levels);
   }
 }
-
-// ---- thread: recent, result, the patch summary, currently
 
 const editText = (it) => (it.label.startsWith(it.num + ' ') ? it.name : it.label);
 
@@ -325,6 +297,7 @@ function summary() {
 }
 
 function renderThread() {
+  paintArmed();
   if (!S.cfg) return;
   const end = atEnd();
   const nodes = [];
@@ -334,14 +307,9 @@ function renderThread() {
   const last = M.dsts[M.dsts.length - 1] || maybe('dst');
   const others = M.dsts.length - 1;
   if (last) {
-    nodes.push(
-      el(
-        'div',
-        'sode-m__card',
-        ...currentlyNodes(last),
-        others > 0 ? el('div', 'sode__hint', `and ${others} more destination${others === 1 ? '' : 's'}`) : null,
-      ),
-    );
+    // With no source, the route view of one destination offers Protect and Clear Protect.
+    const protect = !M.sel.src && others <= 0 ? (p) => sheetFor(p) : null;
+    nodes.push(el('div', 'sode-m__card', ...currentlyNodes(last, null, protect), others > 0 ? el('div', 'sode__hint', `+${others} more`) : null));
   } else if (M.sel.src) {
     nodes.push(
       el(
@@ -382,308 +350,12 @@ function scrollThread() {
   });
 }
 
-// ---- recent: swipe left to reveal Undo, right to reveal Redo (Retry for failed takes)
-
-const REVEAL = 96;
-const arrived = arrivals();
-
-const openGroups = new Set();
-const openFollowers = new Set();
-const openChanges = new Set();
-
 const sheetFor = (plan) => {
   closeSwipes();
-  openSheet(plan);
+  sheet.open(plan);
 };
-const undoBtn = (plan, label, text = 'Undo') => undoButton(plan, label, sheetFor, { text, cls: 'sode-m__undo' });
-const redoBtn = (plan, label) => againButton(plan, label, sheetFor, { placeholder: false, cls: 'sode-m__redo' });
-
-function historyRow(e) {
-  const src = srcItem(e.src, e.srcName),
-    dst = dstItem(e.dst, e.dstName);
-  const acts = rowActions({ e });
-  const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
-  const status = statusNode({ e });
-  const retry = redoBtn(acts.again.plan, acts.again.label);
-  const open = !!e.chain && openChanges.has(e.id);
-  const changesId = `m-changes-${e.id}`;
-  const disc =
-    e.chain &&
-    disclosure(open, 'Changes', changesId, () => {
-      toggle(openChanges, e.id);
-      renderHistory();
-    });
-  let changes = null;
-  if (open) {
-    changes = el('div', 'sode-m__changes', ...stackSteps(e, { restore: sheetFor, pickSrc }));
-    changes.id = changesId;
-  }
-  const face = el(
-    'div',
-    'sode-m__recent-face',
-    el(
-      'div',
-      'sode-m__recent-top',
-      el('span', 'sode__hist-time', fmtTime(e.time)),
-      el('span', 'sode-m__recent-status', status, ...(picking() ? [pickBox(`e${e.id}`)] : []), disc),
-    ),
-    el(
-      'div',
-      'sode-m__recent-route',
-      ...(e.chain ? [el('span', 'sode__hist-note', stackBefore(e).text), ' to '] : []),
-      el('strong', null, labelNode(src)),
-      ' → ',
-      el('strong', null, labelNode(dst)),
-      entryNote(e),
-      byLabel(e),
-    ),
-    changes,
-    e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
-    levelBar(e.levels.filter((u) => S.levelBy.has(u))),
-  );
-  if (disc) clickToToggle(face, disc, '.sode-m__changes');
-  const row = el(
-    'li',
-    'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : '') + (isPicked(`e${e.id}`) ? ' sode-m__recent-row--picked' : ''),
-    undo,
-    ...(retry ? [retry] : []),
-    face,
-  );
-  row.dataset.key = `e${e.id}`;
-  swipeable(row, face, !!retry);
-  return row;
-}
-
-// A folder: swipe to undo all; open it to swipe or retry one by one.
-function groupRows(f) {
-  const open = openGroups.has(f.group);
-  const kidsId = `m-folder-${f.group}`;
-  const acts = rowActions({ f });
-  const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
-  const retry = redoBtn(acts.again.plan, acts.again.label);
-  const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
-    toggle(openGroups, f.group);
-    renderHistory();
-  });
-  disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, 'takes'));
-
-  const face = el(
-    'div',
-    'sode-m__recent-face',
-    el(
-      'div',
-      'sode-m__recent-top',
-      el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
-      el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
-    ),
-    el('div', 'sode-m__recent-route', ...groupTitle(f), byLabel(f)),
-    levelBar(groupLevels(f)),
-  );
-  clickToToggle(face, disc);
-  const row = el(
-    'li',
-    'sode-m__recent-row' + (arrived.group(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''),
-    undo,
-    ...(retry ? [retry] : []),
-    face,
-  );
-  row.dataset.key = `f${f.group}`;
-  swipeable(row, face, !!retry);
-  if (!open) return [row];
-  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(historyRow), ...followerRows(f)));
-  kids.id = kidsId;
-  return [row, kids];
-}
-
-function followerRows(f) {
-  if (!f.followers?.length) return [];
-  const open = openFollowers.has(f.group);
-  const { count, aria, kidsId } = followersHead(f, open, 'm');
-  const disc = disclosure(open, count, kidsId, () => {
-    toggle(openFollowers, f.group);
-    renderHistory();
-  });
-  disc.setAttribute('aria-label', aria);
-  const face = el('div', 'sode-m__recent-face', el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', disc)));
-  clickToToggle(face, disc);
-  const head = el('li', 'sode-m__recent-row', face);
-  if (!open) return [head];
-  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.followers.map(historyRow)));
-  kids.id = kidsId;
-  return [head, kids];
-}
-
-const OPEN = 'sode-m__recent-row--open';
-const OPEN_R = 'sode-m__recent-row--open-r';
-function swipeable(row, face, canRedo = false) {
-  let x0 = null,
-    y0 = 0,
-    dx = 0,
-    base = 0,
-    horiz = null;
-  const set = (x) => {
-    face.style.transform = `translateX(${x}px)`;
-  };
-  const rest = () => (row.classList.contains(OPEN) ? -REVEAL : row.classList.contains(OPEN_R) ? REVEAL : 0);
-  face.addEventListener('pointerdown', (e) => {
-    if (picking()) return;
-    x0 = e.clientX;
-    y0 = e.clientY;
-    dx = 0;
-    horiz = null;
-    delete face.dataset.noTap; // a drag does not always end in a click
-    base = rest();
-  });
-  face.addEventListener('pointermove', (e) => {
-    if (x0 == null) return;
-    const mx = e.clientX - x0,
-      my = e.clientY - y0;
-    if (horiz == null && Math.abs(mx) + Math.abs(my) > 8) {
-      horiz = Math.abs(mx) > Math.abs(my);
-      if (horiz) face.setPointerCapture(e.pointerId);
-    }
-    if (!horiz) return;
-    dx = mx;
-    face.classList.add('sode-m__recent-face--drag');
-    set(Math.min(canRedo ? REVEAL * 1.3 : 0, Math.max(-REVEAL * 1.3, base + dx)));
-  });
-  const end = () => {
-    if (x0 == null) return;
-    face.classList.remove('sode-m__recent-face--drag');
-    const at = base + dx;
-    const side = !horiz ? 0 : at < -REVEAL / 2 ? -1 : canRedo && at > REVEAL / 2 ? 1 : 0;
-    if (horiz || base) face.dataset.noTap = '1';
-    if (!horiz && base) {
-      closeSwipes();
-      x0 = null;
-      return;
-    }
-    if (horiz) {
-      closeSwipes(row);
-      row.classList.toggle(OPEN, side < 0);
-      row.classList.toggle(OPEN_R, side > 0);
-    }
-    set(rest());
-    x0 = null;
-  };
-  face.addEventListener('pointerup', end);
-  face.addEventListener('pointercancel', end);
-}
-
-function closeSwipes(except) {
-  for (const r of document.querySelectorAll(`.${OPEN}, .${OPEN_R}`)) {
-    if (r === except) continue;
-    r.classList.remove(OPEN, OPEN_R);
-    r.querySelector('.sode-m__recent-face').style.transform = '';
-  }
-}
-
-const pager = historyPager(5, () => layout() === 'phone');
-pullToLoad($('m-thread'), $('m-recent-more'), pager, () => layout() === 'phone' && !$('m-recent').hidden);
-
-bindPick($('m-recent-list'));
-// The pick bar sits under the header and pushes the thread down; on other layouts it floats
-// over the page (history.css).
-function placeBar() {
-  if (layout() !== 'phone') return void (pickBar.parentNode !== document.body && document.body.append(pickBar));
-  if (pickBar.previousElementSibling !== $('m-result')) $('m-result').after(pickBar);
-}
-on('pick', () => {
-  placeBar();
-  renderHistory();
-});
-
-function renderHistory() {
-  const rows = pager.list();
-  $('m-recent-list').replaceChildren(...rows.flatMap((r) => (r.f ? groupRows(r.f) : [historyRow(r.e)])));
-  $('m-recent-more').replaceChildren(...[emptyNote(rows, pager.fetching()), pager.button()].filter(Boolean));
-}
-
-// ---- confirm sheet with slider
-
-let pending = null;
-
-function openSheet(plan) {
-  const { block, prot } = planBlocked(plan);
-  if (block) return showResult(block.kind, block.title, block.text);
-  pending?.lock.cancel(); // one replaced: its lockout must not unlock this one
-  $('m-sheet-title').textContent = `Confirm ${planVerb(plan)}`;
-  $('m-sheet-body').replaceChildren(...planSummary(plan, { prot }));
-  $('m-slide-label').textContent = `Slide to ${planVerb(plan)}`;
-  resetSlide(true);
-  $('m-sheet').hidden = false;
-  pending = { ...plan, lock: lockout(() => $('m-slide').classList.remove('sode__slide--locked')) };
-}
-
-function closeSheet() {
-  pending?.lock.cancel();
-  pending = null;
-  $('m-sheet').hidden = true;
-}
-
-function confirmSheet() {
-  const p = pending;
-  closeSheet();
-  if (sendTakes(p) && VERBS[p.verb].resets) reset();
-}
-
-const handle = $('m-slide-handle');
-const track = $('m-slide');
-let drag = null;
-
-const maxX = () => track.clientWidth - handle.offsetWidth;
-
-function setSlide(x) {
-  const pct = Math.round((x / maxX()) * 100);
-  handle.style.transform = `translateX(${x}px)`;
-  track.style.setProperty('--slide', `${x + handle.offsetWidth}px`);
-  handle.setAttribute('aria-valuenow', String(pct));
-}
-
-function resetSlide(locked) {
-  track.classList.toggle('sode__slide--locked', locked);
-  track.classList.remove('sode__slide--drag');
-  setSlide(0);
-}
-
-handle.addEventListener('pointerdown', (e) => {
-  if (!pending || !pending.lock.ready()) return;
-  drag = { x0: e.clientX };
-  handle.setPointerCapture(e.pointerId);
-  track.classList.add('sode__slide--drag');
-});
-handle.addEventListener('pointermove', (e) => {
-  if (!drag) return;
-  setSlide(Math.max(0, Math.min(maxX(), e.clientX - drag.x0)));
-});
-const release = (e) => {
-  if (!drag) return;
-  const x = Math.max(0, Math.min(maxX(), e.clientX - drag.x0));
-  drag = null;
-  track.classList.remove('sode__slide--drag');
-  if (x >= maxX() * 0.9) {
-    setSlide(maxX());
-    confirmSheet();
-  } else {
-    setSlide(0);
-  }
-};
-handle.addEventListener('pointerup', release);
-handle.addEventListener('pointercancel', release);
-handle.addEventListener('keydown', (e) => {
-  if (!pending || !pending.lock.ready()) return;
-  if (e.key === 'ArrowRight' || e.key === 'End') {
-    e.preventDefault();
-    setSlide(maxX());
-    confirmSheet();
-  }
-});
-$('m-sheet-cancel').addEventListener('click', closeSheet);
-$('m-sheet').addEventListener('click', (e) => {
-  if (e.target === $('m-sheet')) closeSheet();
-});
-
-// ---- inputs
+const hist = mobileHistory({ sheetFor, pickSrc });
+const sheet = mobileConfirm(reset);
 
 inputs.src.addEventListener('input', () => {
   M.sel.src = null;
@@ -699,6 +371,7 @@ inputs.dst.addEventListener('input', () => {
     plus();
     return;
   }
+  lastAdd = null;
   matches.refresh();
   renderThread();
 });
@@ -760,10 +433,7 @@ $('m-cancel').addEventListener('click', () => {
   document.activeElement?.blur();
 });
 
-// ---- typing: keyboard up means Recent steps aside
-
-// While a composer input has focus the keyboard is up and room is short, so Recent hides. Focus
-// moves between steps synchronously: check after the blur settles.
+// While a composer input has focus the keyboard is up and room is short, so History hides. Focus moves between steps in one task, so the check runs after the blur.
 function syncTyping() {
   const typing = STEPS.some((k) => document.activeElement === inputs[k]);
   if (view.classList.contains('sode-m--typing') === typing) return;
@@ -785,8 +455,6 @@ for (const k of STEPS) {
   inputs[k].addEventListener('blur', () => setTimeout(syncTyping, 0));
 }
 
-// ---- keyboard overlap (iOS)
-
 // iOS Safari does not shrink the layout viewport for the keyboard: size the phone view to the
 // visual viewport. Android Chrome resizes itself (interactive-widget).
 const vv = window.visualViewport;
@@ -802,27 +470,29 @@ if (vv) {
   fit();
 }
 
-// ---- subscriptions
-
 on('hello', () => {
-  pager.reset();
+  hist.pager.reset();
   lvl.reset();
   setStep(M.step, false);
-  renderHistory();
+  hist.renderHistory();
 });
-// The thread and History are hidden on the other layouts, and a tally or History message on a busy router
-// rebuilt them on every take. onLayout draws them when the phone layout comes back.
+// The thread and History are hidden on the other layouts, so only the phone layout draws them. onLayout draws them when it comes back.
 const phone = () => layout() === 'phone';
 on('names', () => {
   matches.refresh();
   if (phone()) renderThread();
 });
 on('tally', () => phone() && renderThread());
+on('myRights', () => phone() && renderThread());
 on('conn', renderConn);
+// A Protect row's Undo follows the router's state, the sign-in and the Rights (historyrows.js protectActions).
+for (const ev of ['protectedRows', 'myRights', 'conn']) on(ev, () => phone() && hist.renderHistory());
 on('history', () => {
   if (!phone()) return;
-  renderHistory();
+  hist.renderHistory();
   renderLast();
+  // A Next match behavior change comes as history (device.js).
+  paintArmed();
 });
 on('last', renderLast);
 on('result', (r) => {
@@ -835,11 +505,11 @@ on('flip', () => {
   else renderThread();
 });
 onLayout((l) => {
-  placeBar();
-  if (l !== 'phone') closeSheet();
+  hist.placeBar();
+  if (l !== 'phone') sheet.close();
   else {
     renderThread();
-    renderHistory();
+    hist.renderHistory();
     renderLast();
   }
 });
@@ -851,6 +521,7 @@ presetHost({
   active,
   confirm: sheetFor,
   patch: () => boxPatch(M.sel.src, [...M.dsts], lvl),
+  picks: () => ({ src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : lvl.levels() || [] }),
   clear: reset,
   focus: () => setStep(order()[0], false),
 });

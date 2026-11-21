@@ -22,8 +22,6 @@ const bandCounts = `((root) => {
 	].map(([k, s]) => k + '=' + n(s)).join() + ',filler=' + /Find marks the matches/.test(root.textContent);
 })`
 
-// The Live Editor draws the band's controls as the panel page does. There is one Find/Filter switch, one arrow on each
-// corner word and one box per bar. No part of the phone layout shows.
 func TestChromeGridPanelLiveBand(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

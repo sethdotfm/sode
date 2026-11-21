@@ -1,14 +1,9 @@
-// The take confirm works from a plan the caller supplies, so a Grid panel can use it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// tooltip.js touches document.body at load; the small fake below replaces it after the import.
-const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
-globalThis.document = node();
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+import './domstub.mjs';
 globalThis.WebSocket = { OPEN: 1 };
-// Modules that add document listeners at load must load while the Proxy is in place.
 await import('./all.mjs');
 
 function fake(tag) {
@@ -126,7 +121,7 @@ test('keyConfirm: Esc closes with the plan; Enter takes only when the caller all
 });
 
 test('keyConfirm: a second open cancels the first lockout', async (t) => {
-  // Fake clock: real timers slip under CPU load and made the 25ms check land after the second unlock.
+  // Fake clock: real timers slip under CPU load, and the 25 ms check can land after the second open.
   t.mock.timers.enable({ apis: ['setTimeout'] });
   // lockout.js ready() reads performance.now, so both clocks advance together.
   let now = 0;
@@ -159,7 +154,6 @@ test('keyConfirm does not import the plan module', () => {
   assert.doesNotMatch(src, /from '\.\/plans\.js'/);
 });
 
-// The main page supplies planVerb and planSummary from the plan module.
 async function mainPage(n) {
   const m = await import('./all.mjs');
   const { keyConfirm } = await import('../keyconfirm.js');
@@ -197,7 +191,7 @@ test('keyConfirm: a main-page plan of 1 route', async () => {
 
 test('keyConfirm: a main-page plan of 128 routes lists every one', async () => {
   const { c, got, plan, body } = await mainPage(128);
-  assert.match(body, /Source Cam 1 to 128 destinations\?/);
+  assert.match(body, /Source Cam 1 to 128 destinations: (Mon \d+, ){6}Mon 7 and 121 more\?/, 'the question names the first ones');
   for (const i of [1, 64, 128]) assert.ok(body.includes(`${i}/128 Mon ${i} `), `item ${i} listed`);
   c.key(key(shownKey()));
   assert.equal(got.take[0], plan);

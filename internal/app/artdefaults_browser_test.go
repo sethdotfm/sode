@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// Default artwork end to end. The editor's Cell tab sets a cell's artwork as its Source's default, and another
-// cell of that Source draws it. A default set under another router name warns. On the panel page, a changed and
-// then a cleared default arrive through the update banner with no panel save.
 func TestChromeArtDefaultEditorAndLiveUpdate(t *testing.T) {
 	const moved = 11
 	b, a, ana, id := editorTabPrep(t, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":4,"cells":[
@@ -46,6 +43,7 @@ func TestChromeArtDefaultEditorAndLiveUpdate(t *testing.T) {
 	b.open(b.eval(`location.origin`).(string) + "/panels/" + id)
 	b.waitFor("the panel or its PIN pad", `!!document.querySelector('.sode-panel__cell--source') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == true {
+		b.padName("Ana")
 		for _, d := range "1234" {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}

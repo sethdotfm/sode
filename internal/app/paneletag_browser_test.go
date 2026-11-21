@@ -63,8 +63,6 @@ func (n *notModified) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 const keepSockets = `{ const W = window.WebSocket; window.sodeSockets = [];
   window.WebSocket = class extends W { constructor(...a) { super(...a); window.sodeSockets.push(this); } }; }`
 
-// A panel page with its socket down polls. After 304 answers it still shows a route another caller changed, and still
-// applies a saved edit.
 func TestChromePanelStillUpdatesAfter304(t *testing.T) {
 	b := startBrowser(t)
 	b.call("Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": keepSockets})
@@ -97,6 +95,7 @@ func TestChromePanelStillUpdatesAfter304(t *testing.T) {
 	}
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -114,13 +113,11 @@ func TestChromePanelStillUpdatesAfter304(t *testing.T) {
 	}
 	b.waitFor("the page is still drawn", dst+`?.querySelector('small')?.textContent === 'CG1 Fill'`)
 
-	// Another caller moves the route: a new tally ETag reaches the page.
 	if rec := apiSend(a, "POST", "/api/v1/takes", ana, fmt.Sprintf(`{"routes":[{"src":%d,"dst":%d}]}`, simSrc, simDst)); rec.Code != 200 {
 		t.Fatalf("take: %d %s", rec.Code, rec.Body.String())
 	}
 	b.waitFor("the page shows the new source", dst+`?.querySelector('small')?.textContent === '`+simSrcName+`'`)
 
-	// A saved edit after the panel reads answered 304 still raises the banner and applies.
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body("After")); rec.Code != 200 {
 		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
 	}

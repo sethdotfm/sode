@@ -1,34 +1,21 @@
-// Review sheet: what an import file or share link would change, shown before anything is saved. Used by transfer.js and share links.
+// Review sheet: what an import would change, shown before anything is saved. Used, with Me as the only target,
+// by browsercopy.js.
 // A save goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
 import { el, S, on, off, sentence } from './core.js';
-import { trapDialog } from './widgets.js';
+import { btn } from './formbits.js';
+import { modal } from './modal.js';
 import { showResult } from './plans.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { profile, profileName, fetchProfile, saveProfile } from './profile.js';
-import { PREFS } from './prefs.js';
+import { PREFS, PREF_LABELS } from './prefs.js';
 import { ownPref, setPref } from './device.js';
 import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.js';
-import { presetsIn, putLocalPresets, normPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
+import { presetsIn, putLocalPresets, normPreset, storedPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
+import { toClear, moveText } from './browsercopyrules.js';
 
-// ---- the dialog
-
-const root = el('div', 'pb-modal-backdrop sode__scrim');
-root.hidden = true;
-const dialog = el('div', 'pb-modal sode__filters sode__rv');
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-labelledby', 'rv-title');
-dialog.tabIndex = -1;
-
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
 const status = (dot, text) => {
   const d = el('span', `pb-dot pb-dot--${dot}`);
   d.setAttribute('aria-hidden', 'true');
@@ -43,48 +30,28 @@ const select = (label, options, value, onChange) => {
   return el('span', 'pb-select-wrap', s);
 };
 
-const titleEl = Object.assign(el('span', 'pb-modal__title', 'Review import'), { id: 'rv-title' });
 const fromEl = el('span', 'sode__hint');
 const targetBox = el('div', 'sode__filters-set');
 const noteTop = el('span', 'sode__hint');
 const prefsBox = el('div', 'sode__rv-sec');
 const rowsBox = el('div', 'sode__rv-sec');
-const sumEl = el('span', 'sode__hint');
-sumEl.setAttribute('aria-live', 'polite');
-const noteEl = el('span', 'sode__hint');
-noteEl.setAttribute('aria-live', 'polite');
-// A PIN row per saver for everyone (filter sets and presets are two messages); one shows at a time.
-function pinControls(cancel) {
-  const pinIn = el('input', 'pb-input');
-  pinIn.type = 'password';
-  pinIn.placeholder = 'PIN';
-  pinIn.autocomplete = 'current-password';
-  pinIn.setAttribute('aria-label', 'Advanced Settings PIN');
-  const pinOk = btn('pb-btn--ok pb-btn--sm', 'Enter', () => {});
-  const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, btn('pb-btn--ghost pb-btn--sm', 'Cancel', cancel));
-  pinRow.hidden = true;
-  return { pinIn, pinOk, pinRow };
-}
-const pinA = pinControls(() => gsave.cancel());
-const pinB = pinControls(() => gsavePresets.cancel());
-const cancelBtn = btn('pb-btn--outline', 'Cancel', () => close());
-const nowBtn = btn('pb-btn--outline', 'Apply now', () => applyNowClick());
+const sumEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
+const noteEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
 const applyBtn = btn('pb-btn--ok', 'Apply', () => apply());
-
-dialog.append(
-  el('div', 'pb-modal__header', titleEl),
-  el('div', 'pb-modal__body sode__filters-body', fromEl, targetBox, pinA.pinRow, pinB.pinRow, noteTop, prefsBox, rowsBox, sumEl, noteEl),
-  el('div', 'pb-modal__footer', cancelBtn, nowBtn, applyBtn),
-);
-root.append(dialog);
-document.body.append(root);
+const dlg = modal({
+  titleId: 'rv-title',
+  title: 'Review import',
+  cls: 'sode__filters sode__rv',
+  body: el('div', 'pb-modal__body sode__filters-body', fromEl, targetBox, noteTop, prefsBox, rowsBox, sumEl, noteEl),
+  foot: [btn('pb-btn--outline', 'Cancel', () => close()), applyBtn],
+  onEsc: () => close(),
+});
+const { dialog, title: titleEl } = dlg;
 
 const setNote = (t, error = false) => {
   noteEl.textContent = t;
   noteEl.classList.toggle('sode__error-text', error);
 };
-
-// ---- state
 
 let open = false,
   back = null,
@@ -96,7 +63,6 @@ let fetched = null; // another user's profile during a review for them: { state:
 const gsave = globalSaver({
   t: 'filterSets',
   resultT: 'filterSetsResult',
-  ...pinA,
   setNote,
   isOpen: () => open,
   failTitle: 'Import not saved',
@@ -105,7 +71,6 @@ const gsave = globalSaver({
 const gsavePresets = globalSaver({
   t: 'presets',
   resultT: 'presetsResult',
-  ...pinB,
   setNote,
   isOpen: () => open,
   failTitle: 'Import not saved',
@@ -119,13 +84,13 @@ const live = () => ({ srcs: S.srcs, dsts: S.dsts, levelCount: S.levels.length })
 const scope = () => st.scope;
 
 function curSets(sc) {
-  if (sc === 'user' && forUser()) return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ name: String(s.name), f: normFilter(s) }));
-  return setsIn(sc).map((s) => ({ name: s.name, f: s.f }));
+  if (sc === 'user' && forUser())
+    return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ id: s.id || '', name: String(s.name), f: normFilter(s) }));
+  return setsIn(sc).map((s) => ({ id: s.id, name: s.name, f: s.f }));
 }
 function curPresets(sc) {
-  if (sc === 'user' && forUser())
-    return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => ({ ...normPreset(s), pinned: s.pinned !== false }));
-  return presetsIn(sc).map((s) => ({ name: s.name, items: s.items, pinned: s.pinned !== false }));
+  if (sc === 'user' && forUser()) return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => storedPreset(s));
+  return presetsIn(sc).map((s) => ({ name: s.name, items: s.items }));
 }
 const curNames = (kind, sc) => (kind === 'filter' ? curSets(sc) : curPresets(sc)).map((x) => x.name);
 const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs : profile().prefs) || {} : null);
@@ -133,19 +98,27 @@ const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs :
 // A preset row's match is made fresh each time, so names loaded after the sheet opened count.
 function makeRows(doc) {
   return [
-    ...(doc.filterSets || []).map((s) => ({ kind: 'filter', name: String(s.name), f: fmt.filterOf(s), choice: '', as: '' })),
+    ...(doc.filterSets || []).map((s) => ({
+      kind: 'filter',
+      name: String(s.name),
+      id: typeof s.id === 'string' ? s.id : '',
+      f: fmt.filterOf(s),
+      choice: '',
+      as: '',
+    })),
     ...(doc.presets || []).map((p) => ({ kind: 'preset', name: String(p.name), src: p, choice: '', as: '' })),
   ];
 }
 const matched = (r) => fmt.matchPreset(r.src, live());
 const clashOf = (r) => fmt.conflict(r.name, curNames(r.kind, scope()));
 
-// Own choice, else default (Keep both on a clash, else import; an ambiguous preset match waits as Skip).
+// Own choice, else default (Rename on a clash, else import; an ambiguous preset match waits as Skip).
 function choiceOf(r) {
   const clash = clashOf(r);
   const c = r.choice || (r.kind === 'preset' && matched(r).count.ambiguous ? 'skip' : fmt.defaultChoice(clash));
   if (c === 'skip') return 'skip';
   if (!clash) return 'import';
+  if (c === 'current') return 'current';
   return c === 'replace' ? 'replace' : 'both';
 }
 
@@ -166,10 +139,19 @@ function plan() {
     const rs = st.rows.filter((r) => r.kind === kind);
     if (!rs.length) continue;
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
-    const incoming = rs.map((r) =>
-      kind === 'filter' ? { name: r.name, f: r.f } : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: true },
-    );
     const choices = rs.map(choiceOf);
+    const meIds = st.copy ? (kind === 'filter' ? setsIn('user') : presetsIn('user')).map((s) => s.id) : [];
+    // A new Me preset or filter set keeps its This browser id, so an active set follows it (moveLocalSets).
+    const idOf = (r) => (kind === 'filter' ? r.id : r.src.id);
+    const keepId = (r, i) => st.copy && idOf(r) && choices[i] !== 'replace' && !meIds.includes(idOf(r));
+    const incoming = rs.map((r, i) =>
+      kind === 'filter'
+        ? { ...(keepId(r, i) ? { id: r.id } : {}), name: r.name, f: r.f }
+        : {
+            ...normPreset({ name: r.name, items: matched(r).saved.items }),
+            ...(keepId(r, i) ? { id: r.src.id } : {}),
+          },
+    );
     const picks = rs.map((r, i) => {
       if (choices[i] !== 'both') return { choice: choices[i] };
       const others = [...existing.map((x) => x.name), ...rs.filter((x, j) => j !== i && choices[j] !== 'skip').map((x) => x.name)];
@@ -197,7 +179,8 @@ function plan() {
       }
     }
     if (res.added + res.replaced) {
-      out.parts[kind === 'filter' ? 'filterSets' : 'presets'] = kind === 'filter' ? res.list.map((s) => ({ name: s.name, ...s.f })) : res.list.map(saved);
+      out.parts[kind === 'filter' ? 'filterSets' : 'presets'] =
+        kind === 'filter' ? res.list.map((s) => ({ ...(s.id ? { id: s.id } : {}), name: s.name, ...s.f })) : res.list.map(saved);
     }
   }
   const pl = prefList().filter((p) => p.ok && st.prefOn[p.name] !== false && p.value !== currentPref(p.name));
@@ -228,8 +211,6 @@ function currentPref(name) {
   return prefTarget() === 'user' ? curPrefs('user')[name] || '' : ownPref(name);
 }
 
-// ---- drawing
-
 const pluralize = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const dnum = (n) => String(n + off());
 
@@ -258,10 +239,7 @@ function matchLines(r) {
       lines.push(l);
     }
   }
-  if (m.count.ambiguous)
-    lines.push(
-      status('warn', 'Sode does not guess ambiguous names. It skips this preset until you change the choice. Then the preset keeps those numbers as written.'),
-    );
+  if (m.count.ambiguous) lines.push(status('warn', 'Skip by default. Import keeps the numbers as written.'));
   if (m.levelsOver.length) lines.push(status('warn', `Level ${m.levelsOver.join(', ')} is above this router’s ${S.levels.length}`));
   return lines;
 }
@@ -309,16 +287,15 @@ function rowNode(r, i, choices) {
   const curCell = el(
     'div',
     'sode__rv-cur',
-    cur
-      ? el('div', 'sode__rv-line', el('strong', null, cur.name), el('span', 'sode__hint', summaryOf(r.kind, cur)))
-      : status('idle', 'Nothing with this name yet'),
+    cur ? el('div', 'sode__rv-line', el('strong', null, cur.name), el('span', 'sode__hint', summaryOf(r.kind, cur))) : status('idle', 'New'),
   );
   const choice = choices[i];
   const opts = cur
     ? [
-        ['replace', 'Replace'],
-        ['both', 'Keep both'],
+        ['replace', 'Use new'],
+        ['current', 'Use current'],
         ['skip', 'Skip'],
+        ['both', 'Rename'],
       ]
     : [
         ['import', 'Import'],
@@ -344,22 +321,23 @@ function rowNode(r, i, choices) {
     });
     pickCell.append(as, prob);
   }
-  return el('div', `sode__rv-row${choice === 'skip' ? ' is-skip' : ''}`, inCell, curCell, pickCell);
+  return el('div', `sode__rv-row${choice === 'skip' || choice === 'current' ? ' is-skip' : ''}`, inCell, curCell, pickCell);
 }
 
 function prefsNode() {
   const list = prefList();
-  if (!list.length) return null;
+  const only = st.copy ? st.doc.browserOnly || [] : [];
+  if (!list.length && !only.length) return null;
   const sc = prefTarget();
   const opts = forUser() ? [] : [['local', 'This browser']];
   if (profileName() || forUser()) opts.push(['user', forUser() ? `${st.user}’s profile` : 'Me']);
   const rows = list.map((p) => {
-    const label = fmt.PREF_LABELS[p.name] || p.name;
+    const label = PREF_LABELS[p.name] || p.name;
     if (!p.ok) {
       return el(
         'div',
         'sode__rv-row is-skip',
-        el('div', 'sode__rv-in', el('strong', null, label), status('warn', `“${p.value}” is not a setting this Sode knows, so it is skipped`)),
+        el('div', 'sode__rv-in', el('strong', null, label), status('warn', `“${p.value}”: unknown value, skipped`)),
         el('div', 'sode__rv-cur'),
         el('div', 'sode__rv-pick'),
       );
@@ -384,54 +362,60 @@ function prefsNode() {
     return el(
       'div',
       `sode__rv-row${on ? '' : ' is-skip'}`,
-      el(
-        'div',
-        'sode__rv-in',
-        el('strong', null, label),
-        el('div', 'sode__hint', valText(p.value)),
-        same ? status('ok', 'Already set to this') : status('info', 'Changes this setting'),
-      ),
-      el(
-        'div',
-        'sode__rv-cur',
-        now ? el('div', 'sode__hint', valText(now)) : status('idle', sc === 'user' ? 'Not set in the profile' : 'Following the default'),
-      ),
+      el('div', 'sode__rv-in', el('strong', null, label), el('div', 'sode__hint', valText(p.value)), same ? status('ok', 'Same as now') : ''),
+      el('div', 'sode__rv-cur', now ? el('div', 'sode__hint', valText(now)) : status('idle', 'Not set')),
       el('div', 'sode__rv-pick', pick),
     );
   });
+  for (const p of only) {
+    const label = PREF_LABELS[p.name] || p.name;
+    rows.push(
+      el(
+        'div',
+        'sode__rv-row is-skip',
+        el('div', 'sode__rv-in', el('strong', null, label), status('idle', 'This browser only')),
+        el('div', 'sode__rv-cur'),
+        el('div', 'sode__rv-pick'),
+      ),
+    );
+  }
+  if (st.copy) return el('div', 'sode__rv-sec', el('strong', null, 'This browser settings'), ...rows);
   const to = select('Settings go to', opts, sc, (v) => {
     st.prefsTo = v;
     render();
   });
-  return el(
-    'div',
-    'sode__rv-sec',
-    el('div', 'sode__filters-set', el('strong', null, 'This browser settings'), el('span', 'sode__hint', 'go to'), to),
-    el('span', 'sode__hint', 'Everyone’s defaults are set in Settings, not here.'),
-    ...rows,
-  );
+  return el('div', 'sode__rv-sec', el('div', 'sode__filters-set', el('strong', null, 'This browser settings'), el('span', 'sode__hint', 'go to'), to), ...rows);
 }
 
+// Each draw replaces every control, so the focused one is found again by its label.
 function render() {
   if (!open || !st) return;
-  const opts = [['local', 'This browser']];
-  if (forUser()) opts.length = 0;
-  if (forUser()) opts.push(['user', `${st.user}’s profile`]);
-  else {
-    if (profileName()) opts.push(['user', 'Me']);
-    opts.push(['global', 'Everyone']);
-  }
+  const had = dialog.contains(document.activeElement) ? document.activeElement : null;
+  const label = had?.getAttribute('aria-label');
+  const at = had?.selectionStart;
+  draw();
+  const now = label && [...dialog.querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === label);
+  if (!now) return;
+  now.focus();
+  if (at != null && now.setSelectionRange) now.setSelectionRange(at, at);
+}
+
+function draw() {
+  const opts = forUser() ? [['user', `${st.user}’s profile`]] : [['local', 'This browser'], ...(profileName() ? [['user', 'Me']] : []), ['global', 'Everyone']];
   if (!opts.some((o) => o[0] === st.scope)) st.scope = opts[0][0];
   const choices = st.rows.map(choiceOf);
+  if (st.copy) st.scope = 'user';
   const head = el('div', 'sode__rv-head', el('span', 'sode__label', 'Importing'), el('span', 'sode__label', 'Current'), el('span', 'sode__label', 'Do'));
-  targetBox.replaceChildren(
-    el('span', 'sode__label', 'Save to'),
-    select('Save to', opts, st.scope, (v) => {
-      st.scope = v;
-      gsave.cancel();
-      render();
-    }),
-  );
+  if (st.copy) targetBox.replaceChildren(keepSwitch());
+  else
+    targetBox.replaceChildren(
+      el('span', 'sode__label', 'Save to'),
+      select('Save to', opts, st.scope, (v) => {
+        st.scope = v;
+        gsave.cancel();
+        render();
+      }),
+    );
   noteTop.textContent = st.rows.some((r) => r.kind === 'filter')
     ? 'Filter expressions are copied as written. It is possible that source and destination numbers in them differ on this router. Check them after the import.'
     : '';
@@ -439,9 +423,10 @@ function render() {
   prefsBox.replaceChildren(...(pn ? [pn] : []));
   prefsBox.hidden = !pn;
   rowsBox.replaceChildren(
-    ...(st.rows.length ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))] : [el('span', 'sode__hint', 'Nothing to import in this file.')]),
+    ...(st.rows.length
+      ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))]
+      : [el('span', 'sode__hint', st.copy ? 'No filter sets or presets' : 'Nothing to import')]),
   );
-  nowBtn.hidden = !(st.applyNow && st.rows.length === 1 && st.rows[0].kind === 'filter');
   refresh();
 }
 
@@ -466,15 +451,13 @@ function refresh() {
   const pn = Object.keys(p.prefs).length;
   if (pn) parts.push(`change ${pluralize(pn, 'setting')}`);
   sumEl.textContent = parts.length ? `Will ${parts.join(', ')}.` : 'Nothing will change.';
-  const nothing = !(add + rep + pn);
+  const nothing = !(add + rep + pn) && !(st.copy && !st.copy.keep && cleared(st.copy.keep));
   applyBtn.disabled = saving() || nothing || p.problems.length > 0;
   if (!saving()) {
     setNote(p.problems[0] || '', true);
     if (p.problems.length > 1) noteEl.textContent += ` (${p.problems.length - 1} more)`;
   }
 }
-
-// ---- applying
 
 function summaryText(p) {
   const bits = [];
@@ -490,7 +473,7 @@ function summaryText(p) {
 
 function finish(p) {
   if (prefTarget() === 'local') for (const [name, v] of Object.entries(p.prefs)) setPref(name, v);
-  const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope).toLowerCase();
+  const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope);
   const text = `${summaryText(p)} imported to ${where}.`;
   close();
   showResult('ok', 'Import done', text);
@@ -500,6 +483,7 @@ function apply() {
   if (saving() || applyBtn.disabled) return;
   const p = plan();
   if (p.problems.length) return;
+  if (st.copy) return copyApply(p);
   const sc = scope();
   const done = () => finish(p);
   if (!Object.keys(p.parts).length) return done();
@@ -532,7 +516,7 @@ function apply() {
         if (!open) return;
         if (r.ok) return done();
         refresh();
-        setNote(r.locked ? 'Only a trusted user or the Advanced Settings PIN can change another user’s profile.' : sentence(r.err) || 'Not saved.', true);
+        setNote(sentence(r.err) || 'Not saved.', true);
       });
       return;
     }
@@ -544,20 +528,62 @@ function apply() {
   else sendPresets();
 }
 
-function applyNowClick() {
-  const r = st?.rows[0];
-  if (!r || r.kind !== 'filter' || !st.applyNow) return;
-  const run = st.applyNow;
-  close();
-  run(r.f, r.name);
+// What reached Me: prefs with their Import or Skip, and each row's choice (browsercopyrules.js toClear).
+function moved() {
+  const choices = st.rows.map(choiceOf);
+  return {
+    prefs: prefList()
+      .filter((p) => p.ok)
+      .map((p) => ({ name: p.name, on: st.prefOn[p.name] !== false })),
+    rows: st.rows.map((r, i) => ({ kind: r.kind, name: r.name, choice: choices[i], as: choices[i] === 'both' ? r.as || r.autoAs : '' })),
+  };
+}
+const cleared = (keep) => Object.values(toClear(moved(), keep)).some((l) => l.length);
+
+let keepBox = null;
+function keepSwitch() {
+  keepBox = el('input', 'pb-switch__input');
+  keepBox.type = 'checkbox';
+  keepBox.id = 'rv-keep';
+  keepBox.setAttribute('role', 'switch');
+  keepBox.checked = st.copy.keep;
+  keepBox.addEventListener('change', () => {
+    st.copy.keep = keepBox.checked;
+    applyBtn.textContent = st.copy.keep ? 'Copy' : 'Move';
+    refresh();
+  });
+  return el('label', 'pb-check', keepBox, el('span', 'pb-check__label', 'Keep in This browser'));
 }
 
-// ---- open / close
+// The server writes the profile and one Settings saves row; the browser lets go only after that.
+function copyApply(p) {
+  const { send, clear, keep } = st.copy;
+  const m = moved();
+  const after = () => {
+    clear(m, keep);
+    const text = moveText(summaryText(p) === 'Nothing' ? 'This browser’s values' : summaryText(p), keep);
+    close();
+    showResult('ok', keep ? 'Copied' : 'Moved', text);
+  };
+  if (!Object.keys(p.parts).length) return after();
+  busy = true;
+  refresh();
+  setNote('Saving…');
+  send(p.parts).then((r) => {
+    busy = false;
+    if (!open) return;
+    if (r.ok) return after();
+    refresh();
+    setNote(sentence(r.err) || 'Not saved.', true);
+  });
+}
 
-// Options: scope, user (review for that user's profile, saved by name), applyNow (f, name) for one filter set (a link), source (where it came from).
-export function openReview({ doc, scope: sc = 'local', user = '', applyNow = null, source = '', title = 'Review import', onLocked = null }) {
+// Options: scope, user (review for that user's profile, saved by name), source (where it came from).
+// copy: { send(parts), clear(moved, keep) } for Copy this browser to My user (browsercopy.js).
+export function openReview({ doc, scope: sc = 'local', user = '', source = '', title = 'Review import', copy = null }) {
   back = document.activeElement;
-  st = { doc, scope: sc, user, applyNow, onLocked, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {} };
+  st = { doc, scope: sc, user, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {}, copy: copy && { ...copy, keep: false } };
+  applyBtn.textContent = copy ? 'Move' : 'Apply';
   fetched = null;
   open = true;
   busy = false;
@@ -565,8 +591,6 @@ export function openReview({ doc, scope: sc = 'local', user = '', applyNow = nul
   const bits = [doc.site && `From ${doc.site}`, doc.user && `profile of ${doc.user}`, doc.exported && `exported ${doc.exported.slice(0, 10)}`].filter(Boolean);
   fromEl.textContent = source || bits.join(', ');
   fromEl.hidden = !fromEl.textContent;
-  pinA.pinRow.hidden = true;
-  pinB.pinRow.hidden = true;
   setNote('');
   dlg.show();
   render();
@@ -577,9 +601,7 @@ export function openReview({ doc, scope: sc = 'local', user = '', applyNow = nul
     const mine = st;
     fetchProfile(user).then((r) => {
       if (st !== mine || !open) return;
-      fetched = r.ok
-        ? { state: 'ok', profile: r.profile }
-        : { state: 'err', err: r.locked ? 'Only a trusted user or the Advanced Settings PIN can read another user’s profile.' : sentence(r.err) };
+      fetched = r.ok ? { state: 'ok', profile: r.profile } : { state: 'err', err: sentence(r.err) };
       render();
     });
     render();
@@ -597,21 +619,6 @@ function close() {
   if (back?.isConnected) back.focus();
 }
 
-const dlg = trapDialog(root, dialog, () => {
-  if (!pinA.pinRow.hidden || !pinB.pinRow.hidden) {
-    gsave.cancel();
-    gsavePresets.cancel();
-    return;
-  }
-  close();
-});
-
-on('locking', () => {
-  if (!open) return;
-  const again = st?.onLocked;
-  close();
-  if (again) again();
-});
 on('profile', () => render());
 on('presets', () => render());
 on('filters', () => render());

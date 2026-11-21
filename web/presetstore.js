@@ -1,11 +1,9 @@
-// Presets: { name, items: [{ src, dsts: [n], levels: [ui] }] }. Global ones live in cfg.presets
-// (Advanced Settings PIN), this browser's own in localStorage. Stored as numbers only (internal numbers,
-// UI levels, [] = default levels), never names: names are re-polled from the router.
+// In memory items are numbers (UI levels, [] = default levels). The hidden id survives a rename, so bookmarks name a preset by it.
 
 import { S, on, onMsg, emit, off, search } from './core.js';
-import { readJSON, writeJSON, readStr, writeStr } from './store.js';
-import { profile, profileName, saveProfile } from './profile.js';
-import { profileProblem } from './profilesrules.js';
+import { readJSON, writeJSON } from './store.js';
+import { profile, profileName } from './profile.js';
+import { itemNums, itemPlain, itemRefs, newPresetId, storedItemNums } from './presetref.js';
 
 // Limits the server enforces too (internal/config/presets.go); test/preset_cases.json keeps the
 // two from drifting.
@@ -17,59 +15,44 @@ const MAX_NUM = 0xfffe;
 const MAX_LEVEL = 64;
 export const MAX_BYTES = 48 * 1024;
 const KEY = 'sode-presets';
-const ORDER = 'sode-preset-order';
-const PINS = 'sode-preset-pins';
 
-// Old salvo keys: move what a browser holds to the new keys one time (a new key already there wins).
-export function migrateLegacyKeys() {
-  for (const [from, to] of [
-    ['sode-salvos', KEY],
-    ['sode-salvo-pins', PINS],
-  ]) {
-    const v = readStr(from);
-    if (v == null) continue;
-    if (readStr(to) == null) writeStr(to, v);
-    writeStr(from, null);
-  }
-}
-migrateLegacyKeys();
-
-// Out-of-range values stay so presetProblem can name them rather than quietly change the preset.
-const ints = (a) =>
-  []
-    .concat(a ?? [])
-    .map(Number)
-    .filter((n) => Number.isInteger(n));
-const normItem = (it) => ({
-  src: Number.isInteger(+it?.src) ? +it.src : -1,
-  dsts: [...new Set(ints(it?.dsts))],
-  levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
-});
-export const normPreset = (s) => ({
+export const normPreset = (s, read = itemNums) => ({
+  id: typeof s?.id === 'string' ? s.id.trim() : '',
   name: String(s?.name ?? '').trim(),
-  items: [].concat(s?.items ?? []).map(normItem),
+  items: [].concat(s?.items ?? []).map(read),
+  // The server's Broken and Name moved marks, kept so a fire leaves Broken parts out (presetPlan) and lists show the
+  // status (brokenrules.js). Never sent back.
+  ...(Array.isArray(s?.broken) && s.broken.length ? { broken: s.broken } : {}),
+  ...(Array.isArray(s?.moved) && s.moved.length ? { moved: s.moved } : {}),
 });
+// A stored preset (server, profile, This browser, a file): a bare number is no reference.
+export const storedPreset = (s) => normPreset(s, storedItemNums);
 
-// A preset saved before the pinned flag existed is pinned. Stored and sent without scope.
-export const saved = ({ name, items, pinned }) => ({ name, items, pinned: pinned !== false });
+const liveName = (kind, n) => (kind === 'src' ? S.srcBy : S.dstBy)?.get(n)?.name || '';
+// Stored and sent form, without scope: references with the router's names now.
+// A new Everyone or Me preset has id ''; the server makes one.
+export const saved = ({ id, name, items }) => ({
+  id: id || '',
+  name,
+  items: items.map((it) => itemRefs(itemNums(it), S.routerUid, liveName)),
+});
+const withId = (s) => (s.id ? s : { ...s, id: newPresetId() });
 
-export const globalPresets = () =>
-  (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normPreset(s), pinned: s.pinned !== false }));
+export const globalPresets = () => (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...storedPreset(s) }));
 export const localPresets = () =>
   []
     .concat(readJSON(KEY, []))
     .filter((s) => s?.name)
-    .map((s) => ({ scope: 'local', ...normPreset(s), pinned: s.pinned !== false }));
-export const userPresets = () =>
-  (profileName() ? profile().presets : []).filter((s) => s?.name).map((s) => ({ scope: 'user', ...normPreset(s), pinned: s.pinned !== false }));
+    .map((s) => ({ scope: 'local', ...storedPreset(s) }));
+export const userPresets = () => (profileName() ? profile().presets : []).filter((s) => s?.name).map((s) => ({ scope: 'user', ...storedPreset(s) }));
 export const allPresets = () => [...globalPresets(), ...userPresets(), ...localPresets()];
 const PRESET_LISTS = { global: globalPresets, user: userPresets, local: localPresets };
 export const presetsIn = (scope) => (PRESET_LISTS[scope] || (() => []))();
 export const findPreset = (scope, name) => allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
 export function presetProblem(s) {
-  if (!s.items.length) return 'Add at least one take.';
-  if (s.items.length > MAX_ITEMS) return `At most ${MAX_ITEMS} sources.`;
+  if (!s.items.length) return 'Add at least one row.';
+  if (s.items.length > MAX_ITEMS) return `At most ${MAX_ITEMS} rows.`;
   let total = 0;
   for (const it of s.items) {
     if (it.src < 0) return 'Every row needs a source.';
@@ -82,14 +65,15 @@ export function presetProblem(s) {
     if (l != null) return `Level ${l} must be 1-${MAX_LEVEL}.`;
     total += it.dsts.length;
   }
-  if (total > MAX_TOTAL) return `A preset can hold at most ${MAX_TOTAL} destinations in total.`;
+  if (total > MAX_TOTAL) return `At most ${MAX_TOTAL} destinations in a preset.`;
   return presetConflict(s);
 }
 
 export function presetsProblem(list) {
   if (list.length > MAX_PRESETS) return `At most ${MAX_PRESETS} presets.`;
-  const bytes = JSON.stringify(list.map(saved)).length;
-  return bytes > MAX_BYTES ? `The presets are too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB).` : '';
+  // A new preset has no id until the server makes one; count it as one.
+  const bytes = JSON.stringify(list.map((s) => saved(s.id ? s : { ...s, id: 'x'.repeat(16) }))).length;
+  return bytes > MAX_BYTES ? `Presets too big: ${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB.` : '';
 }
 
 // Different sources to one destination on overlapping levels (blank = default, overlaps
@@ -109,21 +93,33 @@ function presetConflict(s) {
   return '';
 }
 
+// old: the name of the entry s replaces. A replaced entry keeps its id unless s has its own.
 export function replacePreset(list, s, old = '') {
   const next = list.map(saved);
-  const at = next.findIndex((x) => x.name.toLowerCase() === old.toLowerCase());
+  const at = old ? next.findIndex((x) => x.name.toLowerCase() === old.toLowerCase()) : -1;
   const entry = saved(s);
-  if (old && at >= 0) next[at] = entry;
+  if (at >= 0) next[at] = { ...entry, id: entry.id || next[at].id };
   else next.push(entry);
   return next;
 }
 
 export function saveLocalPreset(s, old = '') {
-  writeJSON(KEY, replacePreset(localPresets(), s, old));
+  writeJSON(KEY, replacePreset(localPresets(), s, old).map(withId));
   emit('presets');
 }
+// As the server's WithPresetExtras: an entry without an id gets the id of this browser's preset
+// of its name. That id must be free in the list. So a Replace import keeps its bookmarks.
 export function putLocalPresets(list) {
-  writeJSON(KEY, list.length ? list.map(saved) : null);
+  const was = localPresets();
+  const taken = new Set(list.map((s) => s.id).filter(Boolean));
+  const kept = list.map((s) => {
+    if (s.id) return s;
+    const old = was.find((x) => x.name.toLowerCase() === String(s.name).trim().toLowerCase());
+    if (!old?.id || taken.has(old.id)) return s;
+    taken.add(old.id);
+    return { ...s, id: old.id };
+  });
+  writeJSON(KEY, kept.length ? kept.map(saved).map(withId) : null);
   emit('presets');
 }
 export function deleteLocalPreset(name) {
@@ -134,117 +130,14 @@ export function deleteLocalPreset(name) {
   emit('presets');
 }
 
-// ---- pinning: a preset carries its own flag; a browser can override it for everyone's presets, by name.
-
-const pinKey = (name) => String(name).toLowerCase();
-// Names it still has only; an unknown name or a non-boolean value is ignored.
-export function pinOverrides(list = globalPresets()) {
-  const raw = readJSON(PINS, {});
-  const out = {};
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  for (const s of list) {
-    if (s.scope !== 'global') continue;
-    const v = raw[pinKey(s.name)];
-    if (typeof v === 'boolean') out[pinKey(s.name)] = v;
-  }
-  return out;
-}
-export function effectivePin(s, overrides = pinOverrides()) {
-  if (s.scope === 'global') {
-    const v = overrides[pinKey(s.name)];
-    if (typeof v === 'boolean') return v;
-  }
-  return s.pinned !== false;
-}
-export const presetKey = (s) => `${s.scope}:${pinKey(s.name)}`;
-export function pinOrder() {
-  const raw = profileName() ? profile().pinOrder : readJSON(ORDER, []);
-  return Array.isArray(raw) ? raw.filter((k) => typeof k === 'string') : [];
-}
-export function orderPins(list, order = pinOrder()) {
-  const at = new Map(order.map((k, i) => [k, i]));
-  const rank = (s) => at.get(presetKey(s)) ?? Infinity;
-  return list
-    .map((s, i) => [s, i])
-    .sort((a, b) => (rank(a[0]) === rank(b[0]) ? a[1] - b[1] : rank(a[0]) - rank(b[0])))
-    .map((x) => x[0]);
-}
-export function moveKey(keys, key, to) {
-  const rest = keys.filter((k) => k !== key);
-  rest.splice(Math.max(0, Math.min(to, rest.length)), 0, key);
-  return rest;
-}
-// The order shows at once; a caller whose save fails redraws from the real one (saveProfile
-// puts the old copy back).
-export function setPinOrder(keys) {
-  if (profileName()) {
-    const why = profileProblem(profile(), { pinOrder: keys });
-    if (why) return Promise.resolve({ ok: false, err: why });
-    const saved = saveProfile({ pinOrder: keys });
-    emit('presets');
-    return saved;
-  }
-  writeJSON(ORDER, keys.length ? keys : null);
-  emit('presets');
-  return Promise.resolve({ ok: true });
-}
-export function movePin(key, where) {
-  const keys = pinnedPresets().map(presetKey);
-  const i = keys.indexOf(key);
-  if (i < 0) return null;
-  let to;
-  if ('by' in where) {
-    to = i + where.by;
-    if (to < 0 || to >= keys.length) return null;
-  } else {
-    if (where.before === key) return null;
-    to = keys.filter((k) => k !== key).indexOf(where.before);
-    if (to < 0) return null;
-  }
-  return setPinOrder(moveKey(keys, key, to));
-}
-export function pinnedPresets(list = allPresets()) {
-  const o = pinOverrides(list);
-  return orderPins(list.filter((s) => effectivePin(s, o)));
-}
-// A global preset gets an override (dropped when it equals the preset's own flag). A scope
-// 'user' preset is saved to the profile instead (withUserPin).
-export function setLocalPin(s, on) {
-  if (s.scope === 'user') return;
-  if (s.scope === 'global') {
-    const raw = readJSON(PINS, {});
-    const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...raw } : {};
-    if (on === (s.pinned !== false)) delete o[pinKey(s.name)];
-    else o[pinKey(s.name)] = on;
-    writeJSON(PINS, Object.keys(o).length ? o : null);
-  } else {
-    writeJSON(
-      KEY,
-      localPresets().map((x) => saved(x.name.toLowerCase() === s.name.toLowerCase() ? { ...x, pinned: on } : x)),
-    );
-  }
-  emit('presets');
-}
-export function clearPinOverride(name) {
-  const raw = readJSON(PINS, {});
-  if (!raw || typeof raw !== 'object' || !(pinKey(name) in raw)) return;
-  const o = { ...raw };
-  delete o[pinKey(name)];
-  writeJSON(PINS, Object.keys(o).length ? o : null);
-  emit('presets');
-}
-export const withGlobalPin = (name, on) => globalPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
-
-export const withUserPin = (name, on) => userPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
-
-// ---- the popup's list: all presets, or the best matches (core.js search). Matches keep their order among equal scores.
+// Matches keep their order among equal scores.
 export function rankPresets(list, q) {
   if (!String(q).trim()) return list;
   const items = list.map((s, n) => ({ num: '', lname: s.name.toLowerCase(), n }));
   return search(items, q, list.length).map((it) => list[it.n]);
 }
 
-// ---- typed references: a bare number or range a-b is a display number (internal + off()), anything else is looked up by name with lookup(token). → { ns: [internal], bad: [tokens] }
+// A bare number or a range a-b is a display number (internal + off()); other text goes to lookup(token). Returns { ns: [internal], bad: [tokens] }.
 
 export function parseRefs(text, offset, lookup) {
   const ns = [],
@@ -273,7 +166,7 @@ export const isBlankRow = (r) => !String(r.src).trim() && !String(r.dsts).trim()
 export function presetTip(s, srcLabel, dstLabel) {
   const srcs = [...new Set(s.items.map((it) => it.src))];
   const dsts = [...new Set(s.items.flatMap((it) => it.dsts))];
-  if (!srcs.length || !dsts.length) return 'No takes';
+  if (!srcs.length || !dsts.length) return 'No rows';
   const from = srcs.length === 1 ? srcLabel(srcs[0]) : `${srcs.length} Sources`;
   const to = dsts.length === 1 ? dstLabel(dsts[0]) : `${dsts.length} Destinations`;
   return `${from} to ${to}`;
@@ -340,11 +233,12 @@ export function itemsFromEntries(entries) {
     const it = by.get(key);
     if (!it.dsts.includes(t.dst)) it.dsts.push(t.dst);
   }
-  return [...by.values()].map(normItem);
+  return [...by.values()].map(itemPlain);
 }
 
 onMsg('presets', (m) => {
-  S.cfg = { ...S.cfg, presets: m.presets };
+  // A rename changes the names of Everyone's bookmarks on the preset in the same save.
+  S.cfg = { ...S.cfg, presets: m.presets, ...(Array.isArray(m.bookmarks) ? { bookmarks: m.bookmarks } : {}) };
   emit('presets');
 });
 on('helloData', () => emit('presets'));

@@ -1,0 +1,186 @@
+/* The main page's Grid popup (gridpopup.js) and its staged list. The grid itself is gridpanel.css. Load after it. */
+
+/* The pulse that a staged crosspoint and the armed Take run (gridpanel.css). Keep in step with panels.css, which the
+   main page does not load. */
+@property --pulse {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+@keyframes sode-panel-pulse {
+  0%,
+  100% {
+    --pulse: 0;
+  }
+  50% {
+    --pulse: 1;
+  }
+}
+.sode-gridpop {
+  --panel-pulse-s: 2s;
+  background-color: var(--pb-overlay-scrim);
+  /* The popup fills the window but for a small margin, so the grid shows as much as it can. */
+  padding: var(--pb-space-9);
+  /* Under the Confirm and the other dialogs, which open over it. */
+  z-index: var(--pb-z-scrim);
+}
+.sode-gridpop > .pb-modal.sode-gridpop__box {
+  height: 100%;
+  max-height: none;
+  max-width: none;
+  min-width: 0;
+  width: 100%;
+}
+/* The page's big scroll bar draws over the scrim, so while it shows the right margin keeps clear of it. */
+:root[data-bigscroll-on] .sode-gridpop {
+  padding-right: calc(var(--pb-space-9) + var(--sode-page-bar));
+}
+/* The phone layout: the whole window. */
+:root[data-layout="phone"] .sode-gridpop {
+  padding: 0;
+}
+.sode-gridpop__box {
+  position: relative;
+}
+/* No open or close motion: with a full grid behind it, a fade and a rise looked unsteady (owner's call). */
+/* The shield over a destination name (gridpopshield.js), above the grid's sticky bands. */
+/* Small and bare, on the name's outer edge, so it hides neither the name nor a crosspoint. */
+.sode-gridpop__shield.pb-btn--icon {
+  background: transparent;
+  border-color: transparent;
+  height: var(--pb-control-h-sm);
+  position: absolute;
+  width: var(--pb-control-h-sm);
+  z-index: var(--pb-z-sticky);
+}
+.sode-gridpop__shield[hidden] {
+  display: none;
+}
+/* The band over the grid: the two search boxes side by side and the Filter switch, then the staged count and Close.
+   Its surface and the switch's look are the Grid panel deck's (gridpanel.css). */
+.sode-gridpop__band {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-3) var(--pb-space-3) var(--pb-space-3) var(--pb-space-5);
+}
+.sode-gridpop__band > .sode-panels__spacer {
+  flex: 1 1 auto;
+}
+.sode-gridpop__band > .sode-gridpanel__finds {
+  flex: 0 1 56rem;
+  margin: 0;
+  min-width: 0;
+}
+:root:not([data-layout="phone"]) .sode-gridpop__band > .sode-gridpanel__finds {
+  column-gap: var(--pb-space-2);
+  grid-template-areas: "fsrc fdst mode";
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 4.5rem;
+  height: var(--sode-h-action);
+}
+:root:not([data-layout="phone"]) .sode-gridpop__band .sode-gridpanel__find[data-kind="srcs"] {
+  grid-area: fsrc;
+}
+:root:not([data-layout="phone"]) .sode-gridpop__band .sode-gridpanel__find[data-kind="dsts"] {
+  grid-area: fdst;
+}
+:root:not([data-layout="phone"]) .sode-gridpop__band .sode-gridpanel__find-input {
+  font-size: var(--pb-text-md);
+}
+/* On the desktop layout the popup has no Levels box, Take or Clear: the main page has them. */
+:root:not([data-layout="phone"]) .sode-gridpop .sode-gridpanel__levels {
+  display: none;
+}
+:root[data-layout="phone"] .sode-gridpop .sode-gridpanel__levels {
+  margin: var(--pb-space-4) var(--pb-space-5) 0;
+}
+/* The help line fills the room between the search boxes and the "N staged" badge, which sits next to Close. */
+.sode-gridpop__band > .sode-gridpop__help {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-gridpop__band > .sode-gridpanel__count {
+  order: 1;
+}
+.sode-gridpop__band > .sode-gridpop__close {
+  order: 2;
+}
+:root[data-layout="phone"] .sode-gridpop__help {
+  visibility: hidden;
+}
+.sode-gridpop .sode-panel__status {
+  color: var(--pb-status-error);
+  font-weight: var(--pb-weight-bold);
+  margin: 0 var(--pb-space-5);
+}
+.sode-gridpop .sode-panel__status--ok {
+  color: var(--pb-status-ok);
+}
+.sode-gridpop .sode-panel__status[hidden] {
+  display: none;
+}
+
+/* The staged list under the patch boxes: about six rows, then a little scroll bar (bigscroll.js). */
+.sode__staged {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  margin-top: var(--pb-space-5);
+}
+.sode__staged[hidden] {
+  display: none;
+}
+.sode__staged-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__staged-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  max-height: calc(6 * (var(--sode-h-action) + var(--pb-space-2)));
+  overflow-y: auto;
+  padding: 0;
+}
+/* Placed by tooltip.js: a CSS tip would make the list scroll. */
+.sode__staged-list [data-pb-tip]::after {
+  display: none;
+}
+.sode__staged-row {
+  color: var(--pb-text);
+  flex-wrap: nowrap;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-3);
+}
+/* The list is read at a glance before a take, so it has the text color and size of the page, not a muted label's. */
+.sode__staged-head > .sode__label {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__staged-row .sode__end {
+  font-size: var(--pb-text-md);
+}
+.sode__staged-row .sode__arrow {
+  color: var(--pb-text);
+}
+/* The crosshair is a press target in the patch flow, so it is an action high, as the other buttons near the boxes. */
+.pb-btn.sode__staged-find {
+  background-color: var(--pb-surface-hover);
+  flex: none;
+  height: var(--sode-h-action);
+  width: var(--sode-h-action);
+}
+.pb-btn.sode__staged-find:hover {
+  border-color: var(--pb-text-muted);
+}
+.sode__staged-find > .pb-icon {
+  height: 1.5rem;
+  width: 1.5rem;
+}

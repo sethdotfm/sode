@@ -1,4 +1,3 @@
-// Presets: storage, typed references, and turning a preset into a plan.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,6 +13,7 @@ const setup = async () => {
   const m = await import('./all.mjs');
   const it = (n, name) => ({ n, name, num: String(n + 1), label: `${n + 1} ${name}` });
   m.S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [], presets: [] };
+  m.S.routerUid = '0123456789abcdef';
   m.S.levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
   m.S.levelBy = new Map(m.S.levels.map((l) => [l.ui, l]));
   m.S.srcs = [it(0, 'Cam 1'), it(1, 'Cam 2'), it(2, 'Cam 3')];
@@ -37,7 +37,7 @@ test('normPreset cleans numbers (shared cases)', async () => {
   for (const c of cases.norm) assert.deepEqual(normPreset(c.in), c.out);
 });
 
-// The cases the Go side can share: a preset as sent, and whether it can be saved.
+// preset_cases.json: the Go tests read the same cases.
 const build = (c) => {
   if (!c.gen) return c;
   const { items, perItem } = c.gen;
@@ -142,11 +142,7 @@ test('presetPlan: one item per destination, default levels, unresolved left out 
       ],
     ],
   );
-  assert.deepEqual(plan.warnings, [
-    'Source 100 does not exist on the router now',
-    'Level 9 does not exist on the router now',
-    'Destination 78 does not exist on the router now',
-  ]);
+  assert.deepEqual(plan.warnings, ['Source 100: not on the router', 'Level 9: not on the router', 'Destination 78: not on the router']);
 });
 
 test('presetPlan: the same source twice on one destination merges levels', async () => {
@@ -229,21 +225,6 @@ test('conflicts: different sources, one destination, overlapping levels', async 
   assert.equal(presetProblem(s(it(0, [1]), it(0, [1]))), '');
 });
 
-test('presets saved under the old salvo keys move to the new ones, once', async () => {
-  const m = await setup();
-  mem.set('sode-salvos', '[{"name":"Old"}]');
-  mem.set('sode-salvo-pins', '{"old":false}');
-  m.migrateLegacyKeys();
-  assert.equal(mem.get('sode-presets'), '[{"name":"Old"}]');
-  assert.equal(mem.get('sode-preset-pins'), '{"old":false}');
-  assert.equal(mem.has('sode-salvos') || mem.has('sode-salvo-pins'), false);
-  // A new key already there wins, and the old one is still cleared.
-  mem.set('sode-salvos', '[{"name":"Stale"}]');
-  m.migrateLegacyKeys();
-  assert.equal(mem.get('sode-presets'), '[{"name":"Old"}]');
-  assert.equal(mem.has('sode-salvos'), false);
-});
-
 test('presetTip: one or many sources and destinations', async () => {
   const { presetTip } = await setup();
   const s = (items) => ({ items });
@@ -273,7 +254,7 @@ test('presetTip: one or many sources and destinations', async () => {
     ),
     '2 Sources to 2 Destinations',
   );
-  assert.equal(presetTip(s([]), sl, dl), 'No takes');
+  assert.equal(presetTip(s([]), sl, dl), 'No rows');
 });
 
 test('isBlankRow: only a row with nothing typed', async () => {
@@ -283,73 +264,20 @@ test('isBlankRow: only a row with nothing typed', async () => {
   assert.equal(isBlankRow({ src: '', dsts: '', levels: '2' }), false);
 });
 
-test('orderPins: saved order first, the rest after in their own order', async () => {
-  const { orderPins, presetKey } = await setup();
-  const mk = (scope, name) => ({ scope, name });
-  const list = [mk('global', 'A'), mk('user', 'B'), mk('local', 'C'), mk('global', 'D')];
-  assert.deepEqual(
-    orderPins(list, []).map((s) => s.name),
-    ['A', 'B', 'C', 'D'],
-  );
-  const order = [presetKey(mk('local', 'c')), presetKey(mk('global', 'D')), 'global:gone'];
-  assert.deepEqual(
-    orderPins(list, order).map((s) => s.name),
-    ['C', 'D', 'A', 'B'],
-  );
-  assert.equal(presetKey(mk('user', 'Mon 1')), 'user:mon 1');
-});
-
-test('moveKey: out, then in at an index counted without it, clamped', async () => {
-  const { moveKey } = await setup();
-  assert.deepEqual(moveKey(['a', 'b', 'c', 'd'], 'a', 2), ['b', 'c', 'a', 'd']);
-  assert.deepEqual(moveKey(['a', 'b', 'c', 'd'], 'd', 0), ['d', 'a', 'b', 'c']);
-  assert.deepEqual(moveKey(['a', 'b', 'c'], 'b', 99), ['a', 'c', 'b']);
-  assert.deepEqual(moveKey(['a', 'b', 'c'], 'b', -3), ['b', 'a', 'c']);
-});
-
-test('pinOrder: a guest keeps it in this browser, setPinOrder writes it', async () => {
-  const { pinOrder, setPinOrder } = await setup();
-  assert.deepEqual(pinOrder(), []);
-  setPinOrder(['local:x', 'global:y']);
-  assert.deepEqual(pinOrder(), ['local:x', 'global:y']);
-  setPinOrder([]);
-  assert.deepEqual(pinOrder(), []);
-});
-
-test('setPinOrder answers with the save; a guest’s is already kept', async () => {
-  const { setPinOrder } = await setup();
-  assert.deepEqual(await setPinOrder(['local:x']), { ok: true });
-});
-
-test('movePin: before another pin, or by one place; null when it would not move', async () => {
-  const { movePin, pinOrder, saveLocalPreset, presetKey } = await setup();
-  for (const n of ['A', 'B', 'C']) saveLocalPreset({ name: n, items: [{ src: 0, dsts: [1], levels: [] }] }, '');
-  const k = (n) => presetKey({ scope: 'local', name: n });
-  await movePin(k('C'), { before: k('A') });
-  assert.deepEqual(pinOrder(), [k('C'), k('A'), k('B')]);
-  await movePin(k('C'), { by: 1 });
-  assert.deepEqual(pinOrder(), [k('A'), k('C'), k('B')]);
-  assert.equal(movePin(k('A'), { by: -1 }), null);
-  assert.equal(movePin(k('B'), { by: 1 }), null);
-  assert.equal(movePin(k('B'), { before: k('B') }), null);
-  assert.equal(movePin('local:gone', { by: 1 }), null);
-  assert.equal(movePin(k('A'), { before: 'local:gone' }), null);
-});
-
 test('fillFrom: the first take that still exists, with what was left out', async () => {
   const { fillFrom } = await setup();
   const has = { src: (n) => n < 3, dst: (n) => n < 3, level: (u) => u <= 3 };
   const p = (...items) => ({ name: 'P', items });
-  // Whole: one take, nothing missing; its own [] levels stay [].
+  // Whole: one route, nothing missing; its own [] levels stay [].
   let r = fillFrom(p({ src: 0, dsts: [1, 2], levels: [] }), has, [1, 2]);
   assert.deepEqual(r, { fill: { src: 0, dsts: [1, 2], levels: [] }, partial: false, many: false, missing: [] });
   // A destination gone: filled without it, and partial.
   r = fillFrom(p({ src: 0, dsts: [1, 9], levels: [2] }), has, [1, 2]);
   assert.deepEqual([r.fill, r.partial], [{ src: 0, dsts: [1], levels: [2] }, true]);
-  // Every level of the first take gone: it is skipped, not filled with defaults.
+  // Every level of the first route gone: it is skipped, not filled with defaults.
   r = fillFrom(p({ src: 0, dsts: [1], levels: [5] }, { src: 1, dsts: [2], levels: [1] }), has, [1, 2]);
   assert.deepEqual([r.fill, r.many], [{ src: 1, dsts: [2], levels: [1] }, true]);
-  // Nothing fits: no take, and what is missing is listed.
+  // Nothing fits: no route, and what is missing is listed.
   r = fillFrom(p({ src: 9, dsts: [1], levels: [] }, { src: 0, dsts: [1], levels: [7] }), has, [1, 2]);
   assert.equal(r.fill, null);
   assert.deepEqual(r.missing.map((m) => m.kind).sort(), ['level', 'source']);

@@ -2,9 +2,6 @@
 // the top and the Destination bar down the side. Pinned items sit in sticky bands at those edges.
 // A node is moved to another crosspoint or name as the grid scrolls, so nodes hold no state of their own.
 // Everything shown comes from the view that paint is given. docs/agents/panels.md has the layer plan.
-import { el, icon } from './core.js';
-import { iconHref } from './sprite.js';
-import { pieFill } from './gridpanellevels.js';
 import { bigScroll } from './bigscroll.js';
 import {
   axisSpan,
@@ -24,279 +21,34 @@ import {
   OVER,
 } from './gridpanelwindow.js';
 import { pinBars } from './gridpanelpins.js';
+import {
+  joinPulse,
+  pairNumbers,
+  setText,
+  setData,
+  pick,
+  setVar,
+  paintXp,
+  makeXp,
+  makeSrc,
+  makeDst,
+  paintArt,
+  paintDstMarks,
+  pool,
+  range,
+  cross,
+  gridFrame,
+} from './gridpanelnodes.js';
 
 const HIT_MS = 1400; // keep in step with the sode-gridpanel-hit animations in gridpanel.css (3 x 0.45s).
 const GLIDE_MAX_MS = 3000; // a glide across 2500 sources takes about 1.5 s
-
-// A node that starts the panel pulse (sode-panel-pulse) joins the others in phase. Every pulse counts from the
-// timeline's time zero. One read per task, since getAnimations brings the style up to date.
-const joining = new Set();
-export function joinPulse(node) {
-  if (!joining.size)
-    queueMicrotask(() => {
-      for (const n of joining) for (const a of n.getAnimations()) if (a.animationName === 'sode-panel-pulse') a.startTime = 0;
-      joining.clear();
-    });
-  joining.add(node);
-}
-
-// The number each name of a press preview carries, the same as its crosspoint's, so the two line up by eye. A name in
-// more than one numbered pair (a line's one source) gets '' and shows no number. key is 'src' or 'dst'.
-const pairNumbers = (pairs, key) => {
-  const m = new Map();
-  pairs.forEach((p, k) => m.set(p[key], m.has(p[key]) ? '' : String(k + 1)));
-  return m;
-};
-
-// A name node keeps one Text child, so a rename or a move is not a childList change.
-const setText = (n, t) => {
-  if (n.firstChild.data !== t) n.firstChild.data = t;
-};
-const setData = (n, k, v) => {
-  if (v === undefined) {
-    if (k in n.dataset) delete n.dataset[k];
-  } else if (n.dataset[k] !== v) n.dataset[k] = v;
-};
-const pick = (n, on) => {
-  setData(n, 'picked', on ? '' : undefined);
-  const a = on ? 'true' : 'false';
-  if (n.getAttribute('aria-selected') !== a) n.setAttribute('aria-selected', a);
-};
-const setVar = (n, k, v) => {
-  const s = String(v);
-  if (n.style.getPropertyValue(k) !== s) n.style.setProperty(k, s);
-};
-
-function paintXp(xp, s, d, view) {
-  const on = view.pie(s, d);
-  const fill = pieFill(view.levels, on);
-  const [pie, ring] = xp.children;
-  // The browser rewrites a style it reads back, so the last value set is kept on the node.
-  if (pie._fill !== fill) {
-    pie._fill = fill;
-    pie.style.background = fill;
-  }
-  // data-s staged is the attribute the panel pulse watches (panels.css). A route left out does not pulse.
-  const staged = view.staged(s, d);
-  // The staged ring is a pie of the staged levels, in the same slices as the pie.
-  const ringFill = staged.length ? pieFill(view.levels, staged) : '';
-  if (ring._fill !== ringFill) {
-    ring._fill = ringFill;
-    ring.style.background = ringFill;
-  }
-  // A picked row or column is washed in its role colour (gridpanel.css).
-  setData(xp, 'row', view.picked('dsts', d) ? '' : undefined);
-  setData(xp, 'col', view.picked('srcs', s) ? '' : undefined);
-  const out = staged.length > 0 && view.leftOut(s, d);
-  const prot = view.protected(d);
-  const st = out ? 'left-out' : staged.length ? 'staged' : undefined;
-  // A staged crosspoint runs the pulse itself (gridpanel.css).
-  const starts = st === 'staged' && xp.dataset.s !== 'staged';
-  setData(xp, 's', st);
-  if (starts) joinPulse(xp);
-  setData(xp, 'on', on.length ? on.join(',') : undefined);
-  if (xp.getAttribute('aria-disabled') !== String(prot)) xp.setAttribute('aria-disabled', String(prot));
-  const state = out ? ', staged, left out of the take' : staged.length ? ', staged. Right-click or Alt-click to unstage' : '';
-  const label = `${view.names.source(s)} to ${view.names.destination(d)}${on.length ? `, levels ${view.levelText(on)}` : ''}${prot ? ', protected' : ''}${state}`;
-  if (xp.getAttribute('aria-label') !== label) xp.setAttribute('aria-label', label);
-}
-
-const makeXp = () => {
-  const xp = el('button', 'sode-gridpanel__xp', el('span', 'sode-gridpanel__pie'), el('span', 'sode-gridpanel__stage'));
-  xp.type = 'button';
-  xp.tabIndex = -1;
-  return xp;
-};
-// No header role: the grid is not an ARIA grid, so a columnheader or rowheader here has no valid parent.
-const makeName = (cls) => () => {
-  const n = el('div', `pb-xpt ${cls}`);
-  n.append(document.createTextNode(''));
-  return n;
-};
-// The artwork beside a name: Icon A as a sprite icon, an image or a mask, then Icon B. A mask is a library SVG in
-// the text colour. All four exist from the start and a paint shows some, so a scroll changes attributes and never
-// childList. The last child of a name; it comes before the text in the layout (CSS order).
-const makeArt = () => {
-  const row = el(
-    'span',
-    'sode-gridpanel__art',
-    icon('circle', false),
-    el('img', 'sode-gridpanel__art-a'),
-    el('span', 'sode-gridpanel__art-a sode-gridpanel__art-mask'),
-    el('span', 'sode-gridpanel__art-b', document.createTextNode('')),
-  );
-  row.setAttribute('aria-hidden', 'true');
-  row.hidden = true;
-  const [svg, img, mask] = row.children;
-  svg.setAttribute('class', 'pb-icon sode-gridpanel__art-a');
-  img.hidden = mask.hidden = true;
-  svg.setAttribute('hidden', '');
-  img.alt = '';
-  return row;
-};
-const makeSrc = () => {
-  const n = makeName('pb-xpt--source sode-gridpanel__src')();
-  n.append(makeArt());
-  return n;
-};
-// After the name's Text: the protected mark (the lock never stands alone) and the staged word. Then the current
-// sources the grid does not show, then the artwork. Made once, so a paint changes only Text data and hidden.
-const makeDst = () => {
-  const n = makeName('pb-xpt--dest sode-gridpanel__dst')();
-  const prot = el('small', 'sode-gridpanel__prot', icon('lock'), document.createTextNode(''));
-  const held = el('small', 'sode-gridpanel__held', document.createTextNode(''));
-  const other = el('small', 'sode-gridpanel__other', document.createTextNode(''));
-  prot.hidden = held.hidden = other.hidden = true;
-  n.append(prot, held, other, makeArt());
-  return n;
-};
-
-// The attribute, not the property: the art row's svg has no hidden property.
-const show = (n, on) => {
-  if (n.hasAttribute('hidden') === on) n.toggleAttribute('hidden', !on);
-};
-// art is { icon, url, mask, b, hide } from view.art (a part can be missing), or null. hide marks the name, so CSS
-// hides its text and keeps it for screen readers.
-function paintArt(row, art) {
-  const [svg, img, mask, b] = row.children;
-  setText(b, art?.b || '');
-  show(b, !!art?.b);
-  show(svg, !!art?.icon);
-  if (art?.icon) {
-    const href = iconHref(art.icon);
-    const use = svg.firstChild;
-    if (use.getAttribute('href') !== href) use.setAttribute('href', href);
-  }
-  show(img, !!art?.url);
-  if (art?.url && img.getAttribute('src') !== art.url) img.setAttribute('src', art.url);
-  show(mask, !!art?.mask);
-  if (art?.mask && mask.dataset.u !== art.mask) {
-    mask.dataset.u = art.mask;
-    mask.style.maskImage = `url("${art.mask}")`;
-  }
-  const any = !!(art && (art.icon || art.url || art.mask || art.b));
-  show(row, any);
-  setData(row.parentNode, 'hideText', any && art.hide ? '' : undefined);
-}
-
-// A mark not shown is hidden and has empty text, so the node's text is the name alone.
-function paintDstMarks(n, d, view) {
-  const [, prot, held, other] = n.childNodes;
-  const p = view.protected(d);
-  n.classList.toggle('pb-xpt--protected', p);
-  if (prot.hidden === p) prot.hidden = !p;
-  if (prot.lastChild.data !== (p ? ' Protected' : '')) prot.lastChild.data = p ? ' Protected' : '';
-  // Protected wins: a protected destination has nothing staged.
-  const h = !p && view.held(d);
-  setText(held, h ? 'staged' : '');
-  if (held.hidden === h) held.hidden = !h;
-  const o = view.other(d);
-  setText(other, o.text);
-  if (other.hidden !== !o.text) other.hidden = !o.text;
-  setData(other, 'pbTip', o.tip || undefined);
-}
-
-// A pool draws the cells of one layer: a key per cell, nodes reused for cells that come into view.
-// put(node, i, j) points a node at the cell of display indices i (row) and j (column).
-function pool(host, make, put) {
-  const live = new Map();
-  const spare = [];
-  return {
-    live,
-    // cells is [[i, j], ...]; a node whose cell went is given to a new one, and only a shortfall makes nodes.
-    sync(cells) {
-      const want = new Map(cells.map(([i, j]) => [`${i},${j}`, [i, j]]));
-      for (const [k, n] of live) {
-        if (!want.has(k)) {
-          live.delete(k);
-          spare.push(n);
-        }
-      }
-      for (const [k, [i, j]] of want) {
-        if (live.has(k)) continue;
-        let n = spare.pop();
-        if (!n) host.append((n = make()));
-        n.hidden = false;
-        put(n, i, j);
-        live.set(k, n);
-      }
-      // A spare node stays in the DOM, hidden, for the next scroll.
-      for (const n of spare) if (!n.hidden) n.hidden = true;
-    },
-    // Makes nodes up to k, so a scroll never makes one. Called on a resize or new axes, never on a scroll.
-    reserve(k) {
-      for (let have = live.size + spare.length; have < k; have++) {
-        const n = make();
-        n.hidden = true;
-        host.append(n);
-        spare.push(n);
-      }
-    },
-    clear() {
-      for (const n of live.values()) spare.push(n);
-      live.clear();
-    },
-  };
-}
-
-const range = (lo, hi) => Array.from({ length: Math.max(0, hi - lo) }, (_, k) => lo + k);
-const cross = (rows, cols) => rows.flatMap((i) => cols.map((j) => [i, j]));
 
 // host is the run's grid element; axes is gridAxes plus srcPins and dstPins. onPress({ src, dst }, e) is a crosspoint
 // press. onName(kind, n, e) is a click on a name, kind 'srcs' or 'dsts'. onPoint(clientX, clientY) is each pointer
 // move over the scroller. onJump(kind, n) is a right-click: kind 'xp' with n { src, dst }, or 'srcs' or 'dsts' with a
 // router number. Returns the drawn grid (docs/agents/panels.md).
 export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump }) {
-  host.replaceChildren();
-  host.removeAttribute('style');
-  host.classList.add('sode-gridpanel');
-  const layer = (cls) => el('div', `sode-gridpanel__layer ${cls}`);
-  const body = layer('sode-gridpanel__body');
-  const overlay = layer('sode-gridpanel__overlay');
-  const top = layer('sode-gridpanel__top');
-  const side = layer('sode-gridpanel__side');
-  const corner = layer('sode-gridpanel__corner');
-  // Where the bars meet: the run puts the search boxes here (gridpanelfindbox.js).
-  // The run puts the search boxes first, so the Destinations word stays last, next to the Destination bar. The
-  // Sources word is on its side at the corner's right edge, next to the Source bar. Its label is turned 180 degrees
-  // (gridpanel.css), so arrow-left draws pointing right, along the Source bar.
-  const label = (kind, word, arrow) => el('span', `sode-gridpanel__label sode-gridpanel__label--${kind}`, el('span', null, word), icon(arrow));
-  const head = el('div', 'sode-gridpanel__head', label('src', 'Sources', 'arrow-left'), label('dst', 'Destinations', 'arrow-down'));
-  corner.append(head);
-  // A pinned band's pins sit in a box that moves by the part of a pin (bandVars). It is in a box that clips at the
-  // band's edges (gridpanel.css). So a band scroll moves one node and restyles no pin. axes is 'x', 'y' or 'xy'.
-  const bandBox = (host, axes) => {
-    const box = el('div', 'sode-gridpanel__shift');
-    host.append(el('div', `sode-gridpanel__clip sode-gridpanel__clip--${axes}`, box));
-    return box;
-  };
-  const bands = { top: bandBox(top, 'y'), side: bandBox(side, 'x'), corner: bandBox(corner, 'xy'), srcs: bandBox(corner, 'x'), dsts: bandBox(corner, 'y') };
-  // The cursor (gridpanelcursor.js) is one node, moved by transform only. It is not in the overlay: on a bar or a
-  // pinned item it must draw above the sticky bands.
-  const cursor = el('div', 'sode-gridpanel__cursor', el('span', 'sode-gridpanel__ring'));
-  cursor.setAttribute('aria-hidden', 'true');
-  // The Drawn line, in content px (gridpanelline.js has the geometry).
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.classList.add('sode-gridpanel__lines');
-  svg.setAttribute('aria-hidden', 'true');
-  const lineNode = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  lineNode.classList.add('sode-gridpanel__line');
-  svg.append(lineNode);
-  // An svg element has no hidden property: only the attribute hides it.
-  svg.setAttribute('hidden', '');
-  overlay.append(svg);
-  const field = el('div', 'sode-gridpanel__field', body, overlay, side, top, corner, cursor);
-  field.setAttribute('role', 'group');
-  field.setAttribute('aria-label', 'Crosspoints');
-  // The probe is the Destination bar width by the Source bar height, with one crosspoint inside. CSS sets the
-  // sizes in rem, and the window maths needs px.
-  const probeXp = el('div', 'sode-gridpanel__probe-xp');
-  const probe = el('div', 'sode-gridpanel__probe', probeXp);
-  const scroll = el('div', 'pb-grid-body sode-gridpanel__scroll', field, probe);
-  // Focus goes back here from a search box, so an embedded run (which needs focus in the grid) gets its keys.
-  scroll.tabIndex = -1;
-  const frameNode = el('div', 'pb-grid sode-gridpanel__frame', scroll);
-  host.append(frameNode);
+  const { body, overlay, top, side, head, bands, cursor, svg, lineNode, field, probeXp, probe, scroll, frameNode } = gridFrame(host);
   // Sode's own scroll bars on both axes (bigscroll.js). They are the scroller's siblings, so the grid's own pointer and
   // wheel listeners never see a press or a wheel on them. The field size changes with the axes, so no MutationObserver.
   const scrollBars = bigScroll(scroll, 'xy', 'big', { watch: field });
@@ -460,11 +212,11 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
   };
   const xpPools = [pools.body, pools.top, pools.side, pools.corner];
 
-  // The scroller's metrics. Each read can force a layout, so a draw reads them once (frame) and all it calls share them.
+  // The scroller's metrics. Each read can force a layout, so a draw reads them one time (frame) and all it calls share them.
   let frame = null;
   const read = () => {
     const r = scroll.getBoundingClientRect();
-    // The drawn scroll bars sit over the client box (native ones sit outside it), so their room is taken off.
+    // The drawn scroll bars sit over the client box (native ones sit outside it), so the read subtracts their room.
     const room = scrollBars ? scrollBars.room() : { right: 0, bottom: 0 };
     return {
       left: scroll.scrollLeft,
@@ -523,7 +275,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
     const w = cur.j < 0 ? px.w : px.xp;
     const h = cur.i < 0 ? px.h : px.xp;
     const inBand = ci < ra.pins || cj < ca.pins;
-    // Above the bands, a part that scrolls is hidden once it is under them, so it does not cover a name.
+    // Above the bands, a part that scrolls is hidden when it is under them, so it does not cover a name.
     const under = (k, a, at) => k >= a.pins && at + a.size <= a.offset + a.head + a.pins * a.size;
     const hide = ci === null || cj === null || (inBand && (under(ci, ra, y) || under(cj, ca, x)));
     const key = `${x},${y},${w},${h},${inBand},${hide}`;
@@ -589,8 +341,8 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
     ax = next;
     srcAt = new Map(ax.srcs.map((n, j) => [n, j]));
     dstAt = new Map(ax.dsts.map((n, i) => [n, i]));
-    // The field is in slots: a band's pins past its slots are not in the grid's scroll. The bands are read again once
-    // the scroll bars are set for the new size, since the bars take room.
+    // The field is in slots: a band's pins past its slots are not in the grid's scroll. The bands are read again after
+    // the scroll bars are set for the new size, since the bars use room.
     const size = () => {
       Object.assign(band, bandsNow());
       setVar(field, '--sode-cols', ax.srcs.length - band.srcs.pins + band.srcs.slots);
@@ -703,7 +455,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
   scroll.addEventListener('pointerdown', (e) => e.pointerType === 'touch' && setData(field, 'touch', ''), { passive: true });
   scroll.addEventListener('pointermove', onMove, { passive: true });
   // Not passive, so a wheel over the horizontal scroll bar can scroll across instead of down. Chrome makes the rest of
-  // a wheel turn async once its first event goes by.
+  // a wheel turn async after its first event goes by.
   const onWheel = (e) => {
     const m = metricsNow();
     const box = { left: m.x, top: m.y, right: m.x + m.cw, bottom: m.y + m.ch, w: px.w, h: px.h, size: px.xp, line: px.xp, page: m.ch };
@@ -885,7 +637,8 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
       for (const p of [pools.dsts, pools.dstPinned]) for (const n of p.live.values()) paintDst(n, Number(n.dataset.dst));
     },
     // The routes a press would stage, numbered, and their names outlined. pairs is [{ src, dst }] in press order, or
-    // empty; over marks a press past the cap. skipped is the protected pairs a Drawn line passes over. Only drawn nodes that carry a mark, or get one, are touched.
+    // empty. over marks a press past the cap. skipped is the protected pairs a Drawn line passes over.
+    // Only drawn nodes that have a mark, or get one, change.
     preview(pairs, over, skipped = []) {
       mark = {
         xps: new Map(pairs.map(({ src, dst }, k) => [`${src}:${dst}`, k + 1])),

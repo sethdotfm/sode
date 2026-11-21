@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -58,20 +57,16 @@ func TestRevocationIsDurable(t *testing.T) {
 			t.Fatal("record kept")
 		}
 	})
-	t.Run("rename A to B to A", func(t *testing.T) {
+	t.Run("removed and added again under the same name and PIN", func(t *testing.T) {
 		a, _, tok := persistentApp(t)
 		admin := &client{ip: "10.0.0.9"}
-		if err := a.Unlock(admin, "2468"); err != nil {
+		if err := a.UserUnlock(admin, "2468"); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana2", Was: "Ana", Persistent: true}, {Name: "Bo"}}}); err != nil {
-			t.Fatal(err)
-		}
-		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana2", Persistent: true}, {Name: "Bo"}}}); err != nil {
-			t.Fatal(err)
-		}
+		mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "remove"): true})
+		mustSave(t, a, admin, map[string]any{"user/new:0/add": newUser{Name: "Ana", Pin: "1234", Persistent: new(true)}})
 		if tokenAlive(a, tok) {
-			t.Fatal("token revived by renaming back")
+			t.Fatal("token revived by a new user of the same name")
 		}
 	})
 	t.Run("PIN changed and changed back", func(t *testing.T) {
@@ -120,8 +115,8 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes := map[string]func(*config.Config){
-		"router":          func(x *config.Config) { x.Router = "10.9.9.9:8910" },
-		"pinMaxTries":     func(x *config.Config) { x.PinMaxTries = 0 },
+		"router":          func(x *config.Config) { x.Address = "10.9.9.9:8910" },
+		"pinWaits":        func(x *config.Config) { x.PinWaits = false },
 		"trustedProxies":  func(x *config.Config) { x.TrustedProxies = []string{"0.0.0.0/0"} },
 		"matrix":          func(x *config.Config) { x.Matrix = 5 },
 		"levels":          func(x *config.Config) { x.Levels = 4 },
@@ -134,36 +129,36 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	for name, ch := range changes {
 		cfg := a.r().cfg.Clone()
 		ch(&cfg)
-		err := a.SaveSettings(c, cfg, "", false)
-		if !errors.Is(err, errLocked) || !strings.Contains(err.Error(), "Advanced Settings PIN") {
+		err := a.SaveSettings(c, cfg)
+		if !isRoleErr(err) || !strings.Contains(err.Error(), "Administrator") {
 			t.Errorf("trusted changed %s: %v", name, err)
 		}
 	}
-	if a.r().cfg.Router != before.Router || a.r().cfg.PinMaxTries != before.PinMaxTries || len(a.r().cfg.TrustedProxies) != 0 {
+	if a.r().cfg.Address != before.Address || a.r().cfg.PinWaits != before.PinWaits || len(a.r().cfg.TrustedProxies) != 0 {
 		t.Fatal("a refused save changed the config")
 	}
 	pad := a.r().cfg.Clone()
-	pad.Router = " " + pad.Router + " "
-	if err := a.SaveSettings(c, pad, "", false); err != nil {
+	pad.Address = " " + pad.Address + " "
+	if err := a.SaveSettings(c, pad); err != nil {
 		t.Fatalf("padded but unchanged router refused: %v", err)
 	}
 	cfg := a.r().cfg.Clone()
-	cfg.LevelColors = []string{"#aabbcc"}
-	if err := a.SaveSettings(c, cfg, "", false); err != nil {
+	cfg.BrandText = "Studio B"
+	if err := a.SaveSettings(c, cfg); err != nil {
 		t.Fatalf("plain trusted save: %v", err)
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	cfg = a.r().cfg.Clone()
-	cfg.PinMaxTries = 0
+	cfg.PinWaits = false
 	cfg.TrustedProxies = []string{"10.0.0.2"}
-	cfg.Router = "127.0.0.1:9999"
-	if err := a.SaveSettings(c, cfg, "", false); err != nil {
+	cfg.Address = "127.0.0.1:9999"
+	if err := a.SaveSettings(c, cfg); err != nil {
 		t.Fatalf("admin save: %v", err)
 	}
-	if got := a.r().cfg; got.PinMaxTries != 0 || got.Router != "127.0.0.1:9999" || len(got.TrustedProxies) != 1 {
-		t.Fatalf("admin changes lost: %+v", got.Router)
+	if got := a.r().cfg; got.PinWaits || got.Address != "127.0.0.1:9999" || len(got.TrustedProxies) != 1 {
+		t.Fatalf("admin changes lost: %+v", got.Address)
 	}
 }
 
@@ -174,11 +169,11 @@ func TestSignOutAll(t *testing.T) {
 	a.clients[c] = struct{}{}
 	a.mu.Unlock()
 	setFlags(t, a, "Ana", true, true) // trusted is not enough
-	if err := a.SignOutAll(c, "Ana"); !errors.Is(err, errLocked) {
+	if err := a.SignOutAll(c, "Ana"); !isRoleErr(err) {
 		t.Fatalf("trusted user signed everyone out: %v", err)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SignOutAll(admin, "Nobody"); err == nil {
@@ -193,7 +188,7 @@ func TestSignOutAll(t *testing.T) {
 	if err := a.UserUnlock(c, "1234"); err != nil || a.issueSession(c) == "" {
 		t.Fatalf("login after sign out: %v", err)
 	}
-	if err := admitMsg(a, &client{}, inMsg{T: "userSignOutAll"}); !errors.Is(err, errLocked) {
+	if err := admitMsg(a, &client{}, inMsg{T: "userSignOutAll"}); err == nil {
 		t.Fatalf("policy: %v", err)
 	}
 }
@@ -275,7 +270,7 @@ func TestNoInlineScript(t *testing.T) {
 }
 
 // Over a real WebSocket: odd key casing, a cross-origin upgrade, and a token
-// connection that then unlocks by PIN as someone else.
+// connection that then signs in by PIN as someone else.
 func TestHardeningOverWebSocket(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", true, true)
@@ -316,8 +311,8 @@ func TestHardeningOverWebSocket(t *testing.T) {
 	send, until := dial(nil)
 	send(map[string]any{"t": "hi", "page": "main"})
 	until("lockState")
-	send(map[string]any{"t": "userUnlock", "pin": "1234", "id": 1})
-	tok, _ := until("userUnlockResult")["token"].(string)
+	send(map[string]any{"t": "userSignIn", "user": "Ana", "pin": "1234", "id": 1})
+	tok, _ := until("userSignInResult")["token"].(string)
 	if tok == "" {
 		t.Fatal("no token")
 	}
@@ -327,21 +322,8 @@ func TestHardeningOverWebSocket(t *testing.T) {
 		t.Fatalf("token hi: %v", m)
 	}
 
-	cfg := a.r().cfg
-	send2(map[string]any{"t": "config", "config": cfg, "Pin": "9999"})
-	if m := until2("configResult"); m["ok"] == true || m["locked"] != true {
-		t.Fatalf("odd-case Pin accepted: %v", m)
-	}
-	send2(map[string]any{"t": "config", "config": cfg, "CLEARPIN": true})
-	if m := until2("configResult"); m["ok"] == true {
-		t.Fatalf("odd-case clearPin accepted: %v", m)
-	}
-	if a.r().cfg.SettingsPin != cfg.SettingsPin {
-		t.Fatal("the Advanced Settings PIN changed")
-	}
-
-	send2(map[string]any{"t": "userUnlock", "pin": "567890", "id": 2})
-	until2("userUnlockResult")
+	send2(map[string]any{"t": "userSignIn", "user": "Bo", "pin": "567890", "id": 2})
+	until2("userSignInResult")
 	a.mu.Lock()
 	var tokens []string
 	for cl := range a.clients {
@@ -363,8 +345,7 @@ func TestHardeningOverWebSocket(t *testing.T) {
 	}
 }
 
-// register adds a client with a buffered queue and returns a reader of the
-// lockState messages sent to it.
+// The return value reads the lockState messages sent to c.
 func register(a *App, c *client) func() []map[string]any {
 	a.mu.Lock()
 	c.send = make(chan []byte, 16)
@@ -404,7 +385,7 @@ func TestLockStateCarriesPinLengthsAfterPinChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := read()
-	if len(got) == 0 || !reflect.DeepEqual(got[len(got)-1]["lens"], []any{float64(6), float64(8)}) {
+	if len(got) == 0 || !reflect.DeepEqual(got[len(got)-1]["lens"], []any{float64(4), float64(6), float64(8)}) {
 		t.Fatalf("lens after the change: %v", got)
 	}
 }

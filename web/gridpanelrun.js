@@ -1,11 +1,11 @@
 // The Grid panel body of a panel run (panelrun.js). It reads and sends only through ctx, the run's /api/v1 adapter.
 // So another adapter can drive the same view. ctx is panelrun.js's: { ui, art, embedded, page, id, call, callJSON, post,
-// poll, ready, instance, keyed, touched }.
+// poll, ready, instance, keyed, touched }. The main page's Grid popup (gridpopup.js) is an adapter with no saved panel.
+// It gives confirm(routes, { warnings, onSent }), asking(), shown(), undo() and onStage(staged) in place of an id and post.
+// gridpanelmode.js says which parts the body then has.
 // The rules are pure modules (gridpanel*.js); this file joins them to the DOM.
 import { envFrom, namesFrom } from './panelrules.js';
 import { arrange } from './gridpanelarrange.js';
-import { nameArt } from './gridpanelart.js';
-import { defaultsBy } from './panellook.js';
 import {
   createStage,
   restage,
@@ -20,7 +20,7 @@ import {
   stageText,
 } from './gridpanelstage.js';
 import { createPicks, pickName, pickCount, dropPicks, diagonal, extendPick, dragPick, enterGrid } from './gridpanelpick.js';
-import { stageLevels, offeredLevels, boxFill, pieOn } from './gridpanellevels.js';
+import { pieOn } from './gridpanellevels.js';
 import { otherSources, otherText, stageable, skippedText, refusalText, leftOut, keepLive, leftOutText, leftOutLine } from './gridpanelrights.js';
 import { gridKeyAction, findBoxAction, clearAction } from './gridpanelkeys.js';
 import { sourceJump, holderJump, jumpText } from './gridpaneljump.js';
@@ -29,35 +29,33 @@ import { createFind, typed, currentMatch, stepMatch, switchMode, clearFind, step
 import { findBoxes } from './gridpanelfindbox.js';
 import { planOf } from './gridpanelplan.js';
 import { gridConfirm } from './gridpanelconfirm.js';
-import { buildGridPanel, joinPulse } from './gridpanelview.js';
+import { buildGridPanel } from './gridpanelview.js';
 import { pinsOf } from './gridpanelwindow.js';
 import { CORNER, MOVES, moveCursor, pointOf, cursorAt, barOf, rangeCursor, rangeKind } from './gridpanelcursor.js';
 import { isLine, linePairs, lineShown, lineStage } from './gridpanelline.js';
 import { lineGestures } from './gridpanelgesture.js';
-import { levelTextOf, parseLevelsIn } from './levels.js';
-import { levelBox } from './levelbox.js';
-import { el, icon } from './core.js';
+import { levelTextOf } from './levels.js';
+import { el, LINK_DOWN, showNote } from './core.js';
 import { editHref } from './panelsrules.js';
 import { plural } from './gridmodel.js';
 import { shortcutList } from './shortcuts.js';
-import { restPoint, takeButton, tapMods, pickNote } from './gridpanelphone.js';
-import { clearNote } from './gridpanelnote.js';
+import { restPoint, tapMods, pickNote } from './gridpanelphone.js';
 import { onLayout } from './layout.js';
 import { gridHead } from './gridpanelheadview.js';
 import { emptyText } from './gridpanelhead.js';
 import { gridPosition } from './gridpanelpos.js';
+import { gridArtwork } from './gridpanelartwork.js';
+import { gridLevelBox } from './gridpanellevelbox.js';
+import { gridEmpty } from './gridpanelempty.js';
+import { gridTake } from './gridpaneltake.js';
+import { gridParts } from './gridpanelmode.js';
 
 const NOTE_MS = 4000;
-const UNDO_MOVED = 'What Undo would undo has changed; press u again';
+const UNDO_MOVED = 'The Undo target changed. Press u again.';
 // Like the moves, these work in an embedded run only with focus in the grid.
 const FIND_KEYS = new Set(['findSrcs', 'findDsts', 'nextMatch', 'prevMatch']);
 const sameList = (a, b) => a.length === b.length && a.every((x, k) => x === b[k]);
 const sameAxes = (a, b) => sameList(a.srcs, b.srcs) && sameList(a.dsts, b.dsts);
-
-const say = (n, text) => {
-  if (n.textContent !== text) n.textContent = text;
-  n.hidden = !text;
-};
 
 // A focused field or header button keeps its own Enter; the crosspoints are the grid's, the search boxes are not.
 const inControl = (grid) => {
@@ -68,8 +66,9 @@ const inControl = (grid) => {
 
 export function gridBody(ctx, first) {
   const { ui } = ctx;
+  const parts = gridParts(ctx, first);
   let panel = first;
-  let st = createStage({ mode: panel.settings?.mode });
+  let st = createStage({ mode: parts.mode });
   let tally = null;
   let env = envFrom({}, {});
   let names = namesFrom({});
@@ -95,6 +94,7 @@ export function gridBody(ctx, first) {
   let g = null;
   let picks = createPicks();
   let toldPicks = null;
+  let toldStaged = null;
   let at = null; // the crosspoint under the cursor, whose press the preview shows
   let cur = CORNER;
   // After a pointer move a scroll moves the cursor to what is under the pointer; after a key it does not.
@@ -107,57 +107,21 @@ export function gridBody(ctx, first) {
   const count = el('span', 'pb-badge pb-badge--info sode-gridpanel__count');
   count.id = 'panel-staged';
   count.hidden = true;
-  // The panel page's header has its own boxes (gridpanelheadview.js); the editor's live test keeps its own.
-  const head = ctx.embedded || !ui.name ? null : gridHead(ui, count, { onCopy: copyPanel });
+  // The panel page's header has its own boxes (gridpanelheadview.js); the Live Editor keeps its own.
+  const head = parts.head ? gridHead(ui, count, { onCopy: copyPanel }) : null;
   head?.access(first, !ctx.keyed?.());
   if (!head) ui.head?.querySelector('.sode-panels__spacer')?.before(count);
   let note = { text: '', at: 0 }; // a result or refusal, shown for NOTE_MS
   const noteOf = (text, ok = false) => ({ text, at: Date.now(), ok });
   const phone = () => document.documentElement.dataset.layout === 'phone';
-  // The Take button (gridpanelphone.js) at the end of the Levels box, since Kiosk mode hides the header, not the box.
-  // It is the main page's red Take. An embedded run has neither.
-  const take = ctx.embedded ? null : el('button', 'pb-btn pb-btn--danger sode-panel__take sode-gridpanel__take', 'Take');
-  if (take) {
-    take.type = 'button';
-    take.id = 'panel-take';
-    take.hidden = true;
-    take.addEventListener('click', () => openConfirm());
-    ui.levels?.append(take);
-  }
-  const clearer = take?.parentNode ? clearNote(take.parentNode, take, () => clearStep(clearAction(clearCtx()))) : null;
-
-  // Artwork images load with the panel's key, so a name paints without one until its fetch lands, then paints again.
-  const images = new Map(); // artwork id -> { url, type }, or null while it loads or after it failed
+  const takeRow = gridTake(ctx, ui, { onTake: () => openConfirm(), onClear: () => clearStep(clearAction(clearCtx())) });
   let stopped = false;
-  const imageOf = (id) => {
-    if (!images.has(id)) {
-      images.set(id, null);
-      ctx.art?.look(id).then((l) => {
-        if (!l || stopped) return;
-        images.set(id, l);
-        render();
-      });
-    }
-    return images.get(id);
-  };
-  let defaultsFor = null; // the artDefaults list that defaults was made from
-  let defaults = new Map();
-  function nameArtOf(kind, n) {
-    if (defaultsFor !== panel.artDefaults) {
-      defaultsFor = panel.artDefaults;
-      defaults = defaultsBy(defaultsFor);
-    }
-    const art = kind === 'srcs' ? nameArt(panel.sources, 'source', n, defaults) : nameArt(panel.destinations, 'destination', n, defaults);
-    if (!art) return null;
-    const out = { b: art.b };
-    if (art.hide) out.hide = true;
-    if (art.a?.icon) out.icon = art.a.icon;
-    else if (art.a) {
-      const l = imageOf(art.a.id);
-      if (l) out[art.a.lib && l.type.startsWith('image/svg+xml') ? 'mask' : 'url'] = l.url;
-    }
-    return out;
-  }
+  const nameArtOf = gridArtwork(
+    ctx,
+    () => panel,
+    () => render(),
+    () => stopped,
+  );
 
   // What the last polls said, for the staged routes that no longer apply.
   const world = () => ({ env, rights: panel.rights, names: namesReply });
@@ -178,6 +142,8 @@ export function gridBody(ctx, first) {
     found: (kind, n) => find.mode === 'find' && matched[kind].has(n),
     leftOut: (s, d) => out.some((r) => r.src === s && r.dst === d),
     protected: (d) => env.protectedDsts.has(d),
+    // Who holds a protected destination, when the host knows ({ icon, text, tip, owner }); the Grid popup does.
+    hold: (d) => (env.protectedDsts.has(d) && ctx.holdOf?.(d)) || null,
     art: (kind, n) => nameArtOf(kind, n),
     other(d) {
       const o = otherSources(env, d, shownSrcs);
@@ -221,46 +187,22 @@ export function gridBody(ctx, first) {
       preview();
     }
     const n = stagedCount(st);
-    say(count, n ? `${n} staged` : '');
-    if (take) {
-      const t = takeButton({ mode: st.mode, staged: n, busy: st.busy });
-      if (take.hidden === t.shown) take.hidden = !t.shown;
-      if (take.disabled !== t.disabled) take.disabled = t.disabled;
-      const starts = t.armed && !take.classList.contains('sode-panel__take--armed');
-      take.classList.toggle('sode-panel__take--armed', t.armed);
-      if (starts) joinPulse(take);
-    }
-    paintEmpty();
-    clearer?.paint(pickNote({ srcs: picks.srcs.length, dsts: picks.dsts.length, staged: n }), !!clearAction(clearCtx()));
-    // The Live Editor only (editorlive.js): the picks are also the lists' selection. picks is replaced on every change.
+    showNote(count, n ? `${n} staged` : '');
+    takeRow.paint(
+      { mode: st.mode, staged: n, busy: st.busy },
+      pickNote({ srcs: picks.srcs.length, dsts: picks.dsts.length, staged: n }),
+      !!clearAction(clearCtx()),
+    );
+    // The Grid popup's staged list (gridpopup.js). A new array is a new stage.
+    if (ctx.onStage && st.staged !== toldStaged) ctx.onStage((toldStaged = st.staged));
+    paintEmpty(g, g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded }));
+    // The Live Editor (editorlive.js), where the picks are also the lists' selection, and the Grid popup's shield
+    // (gridpopshield.js). picks is replaced on every change.
     if (ui.onPicks && picks !== toldPicks) ui.onPicks((toldPicks = picks));
     boxes?.paint(find, countsOf());
     status();
   };
-  // A panel with no items on an axis has no crosspoints, so the grid says so (pb-empty) under the corner.
-  let empty = null;
-  function paintEmpty() {
-    const t = g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded });
-    if (!t) {
-      if (empty) empty.node.hidden = true;
-      return;
-    }
-    if (!empty) {
-      const title = el('p', 'pb-empty__title', document.createTextNode(''));
-      const msg = el('p', 'pb-empty__msg', document.createTextNode(''));
-      const edit = el('a', 'pb-btn pb-btn--outline pb-btn--sm', icon('pencil'), 'Edit panel');
-      edit.href = editHref(ctx.id);
-      const node = el('div', 'pb-empty sode-gridpanel__empty', title, msg, el('div', 'pb-empty__actions', edit));
-      node.setAttribute('role', 'status');
-      g.scroll.append(node);
-      empty = { node, title, msg, edit };
-    }
-    say(empty.title, t.title);
-    say(empty.msg, t.msg);
-    // In the Live Editor (ui.back) the editor is already open, so the note has no link.
-    empty.edit.hidden = !t.edit || !!ui.back;
-    empty.node.hidden = false;
-  }
+  const paintEmpty = gridEmpty(ctx, ui);
   // Results and errors fade on the clock, so the status line is what the tick paints each time. On the panel page's
   // desktop layout they show in the banner (gridpanelheadview.js). A note is new by its time. A state's text goes when
   // the state clears.
@@ -271,7 +213,7 @@ export function gridBody(ctx, first) {
     const ok = !st.error && !!text && note.ok;
     const behind = held && fresh && fresh !== held ? `${note.at}` : undefined;
     const banner = head?.say({ text, kind: ok ? 'ok' : 'error', key: held || `${note.at}`, held: !!held, behind });
-    say(ui.status, banner ? '' : text);
+    showNote(ui.status, banner ? '' : text);
     ui.status.classList.toggle('sode-panel__status--ok', ok);
   };
   // The page's Copy: the same copy as /panels and the editor's Save a copy, then the editor opens on it.
@@ -280,7 +222,7 @@ export function gridBody(ctx, first) {
       const made = await ctx.callJSON(`api/v1/panels/${ctx.id}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       location.assign(editHref(made.id));
     } catch (e) {
-      note = noteOf(e.status === undefined ? 'Sode did not answer, so no copy was made.' : e.message || 'The copy was not saved');
+      note = noteOf(e.status === undefined ? `${LINK_DOWN} No copy made.` : e.message || 'Copy not saved');
       render();
     }
   }
@@ -308,7 +250,7 @@ export function gridBody(ctx, first) {
       g = buildGridPanel(ui.grid, all, { onPress, onName, onPoint, onJump });
       g.onDraw(() => ptr && pointAt(ptr.x, ptr.y));
       if (head) pos = gridPosition(g, g.scroll.parentNode, phone);
-      boxes = findBoxes(head?.finds || g.head, { onText: findText, onMode: findMode, onStep: findStep });
+      boxes = findBoxes(head?.finds || ui.finds || g.head, { onText: findText, onMode: findMode, onStep: findStep });
       gest = lineGestures(g, {
         start: lineStart,
         move: lineMove,
@@ -365,7 +307,7 @@ export function gridBody(ctx, first) {
       find = clearFind(find, kind);
       rebuild();
       render();
-      // Back to the cursor. An embedded run takes its keys only with focus in the grid.
+      // Back to the cursor. An embedded run gets its keys only with focus in the grid.
       g.scroll.focus({ preventScroll: true });
     }
   }
@@ -391,18 +333,19 @@ export function gridBody(ctx, first) {
     } catch (e) {
       failed =
         e.status === undefined
-          ? `Sode did not answer, so it is possible that the ${word} was not sent`
-          : (undo && e.code === 'conflict' && UNDO_MOVED) || e.message || `The ${word} was refused`;
+          ? `No answer from Sode. Check History for the ${word}.`
+          : (undo && e.code === 'conflict' && UNDO_MOVED) || e.message || `Sode refused the ${word}`;
     }
     st = undo ? afterUndo(st, failed) : afterTake(st, failed);
     render();
     ctx.poll();
   }
 
-  // Each ask walks History, so u asks once per press. Only the newest ask's answer counts, and only while nothing
+  // Each ask walks History, so u asks one time for each press. Only the newest ask's answer counts, and only while nothing
   // else is in progress.
   let undoAsk = 0;
   async function pressUndo() {
+    if (!parts.panelUndo) return ctx.undo?.();
     if (!confirm || st.busy || !ctx.ready()) return;
     ctx.touched();
     const ask = ++undoAsk;
@@ -415,7 +358,7 @@ export function gridBody(ctx, first) {
     }
     if (ask !== undoAsk || stopped || st.busy || confirm.isOpen()) return;
     if (failed) {
-      note = noteOf(failed.status === undefined ? 'Sode did not answer' : failed.message || 'Undo is refused');
+      note = noteOf(failed.status === undefined ? 'Sode did not answer' : failed.message || 'Sode refused the Undo');
       return render();
     }
     const staged = st.undoId === null ? stagedCount(st) : 0;
@@ -432,67 +375,34 @@ export function gridBody(ctx, first) {
     if (!st.error && st.mode === 'instant') openConfirm();
   }
 
-  // The Levels box (levelbox.js). An embedded run has none, so the panel's levels setting stands in.
-  const boxNode = ui.levels;
-  let boxKey = '';
-  let filledKey = null;
-  // The numbering the box text was typed in, so a change of Level numbering relabels it (levelbox.js reset).
-  let typedIn = null;
-  const boxSource = () =>
-    tally && {
-      levels: tally.levels,
-      offered: offeredLevels(tally, panel.rights),
-      numbering: tally.levelNumbering,
-      defaultLevels: tally.defaultLevels || '',
-      prev: typedIn,
-    };
-  const lvl = boxNode
-    ? levelBox(document.getElementById('panel-lvl'), document.getElementById('panel-lvl-pick'), document.getElementById('panel-lvl-all'), boxSource, {
-        hold: 'pointerdown',
-        onChange: () => paintLevels(),
-      })
-    : null;
-  if (boxNode) boxNode.hidden = false;
-
-  // The picker is made again when the offered levels or the numbering change. The setting fills the box on load,
-  // and again only when a live update changes the setting, so typed text survives other updates.
-  function syncBox() {
-    if (!lvl || !tally) return;
-    const key = JSON.stringify([offeredLevels(tally, panel.rights).map((l) => l.level), tally.levels.length, tally.levelNumbering]);
-    if (key !== boxKey) {
-      boxKey = key;
-      lvl.reset();
-      typedIn = { mode: tally.levelNumbering, max: tally.levels.length };
-    }
-    const fk = JSON.stringify(panel.settings?.levels ?? null);
-    if (fk === filledKey) return;
-    filledKey = fk;
-    const fill = boxFill(panel.settings, tally, panel.rights);
-    if (fill) lvl.set(fill);
-  }
-
+  const box = gridLevelBox(
+    ui,
+    () => tally,
+    () => panel,
+    () => paintLevels(),
+  );
   const paintLevels = () => head?.paintLevels(levelTextOf(pressLevels(), tally?.levels || [], tally?.levelNumbering));
-  const pressLevels = () => {
-    if (lvl) return stageLevels(lvl.levels(), tally, panel.rights);
-    const src = boxSource();
-    return src ? stageLevels(boxFill(panel.settings, tally, panel.rights) || parseLevelsIn('', src) || [], tally, panel.rights) : [];
-  };
+  const pressLevels = () => box.levels();
 
-  const confirm = document.getElementById('confirm')
-    ? gridConfirm({
-        tally: () => tally,
-        settings: () => panel.confirm,
-        onTake: (plan) => (plan.replace ? takeUndo(plan.next) : send(plan)),
-        onClose: () => {
-          st = cancelConfirm(st);
-          render();
-        },
-      })
-    : null;
+  const confirm =
+    parts.ownConfirm && document.getElementById('confirm')
+      ? gridConfirm({
+          tally: () => tally,
+          settings: () => panel.confirm,
+          onTake: (plan) => (plan.replace ? takeUndo(plan.next) : send(plan)),
+          onClose: () => {
+            st = cancelConfirm(st);
+            render();
+          },
+        })
+      : null;
+  // The page's own Confirm is open (the Grid popup): that page has the keys.
+  const asking = () => !!confirm?.isOpen() || !!ctx.asking?.();
 
   // Routes that no longer apply are left out with the reason and dropped here. With the box off (st.ask false), this
   // is the Confirm and sends at once; Instant mode always asks.
   function openConfirm() {
+    if (!parts.ownConfirm) return askPage();
     if (!confirm || st.busy) return;
     const ask = st.ask || st.mode === 'instant';
     // The server sends an Undo whole, so nothing is left out of it here.
@@ -510,8 +420,28 @@ export function gridBody(ctx, first) {
     render();
   }
 
+  // With no saved panel, the page's Confirm sends the routes. They stay staged until the page sends them.
+  function askPage() {
+    if (st.busy || asking()) return;
+    const was = leftOut(st, world());
+    st = keepLive(st, world());
+    const routes = confirmRoutes(st);
+    if (routes) {
+      const sent = st.staged;
+      ctx.confirm(routes, {
+        warnings: was.map((r) => leftOutLine(r, names)),
+        onSent() {
+          if (st.staged !== sent) return;
+          st = afterTake(st, null);
+          render();
+        },
+      });
+    } else if (was.length) note = noteOf(leftOutText(was, names));
+    render();
+  }
+
   function onPress(xp, e) {
-    if (!ctx.ready() || st.busy || confirm?.isOpen()) return;
+    if (!ctx.ready() || st.busy || asking()) return;
     if (e?.altKey) return unstageAt(xp);
     ctx.touched();
     st = keepLive(leaveUndo(st), world());
@@ -545,7 +475,7 @@ export function gridBody(ctx, first) {
     render();
   }
 
-  const canStage = () => ctx.ready() && !st.busy && !confirm?.isOpen();
+  const canStage = () => ctx.ready() && !st.busy && !asking();
 
   function lineStart(a) {
     if (!canStage()) return gest.cancel();
@@ -715,9 +645,10 @@ export function gridBody(ctx, first) {
   }
 
   // The key list (shortcuts.js). An embedded run has none.
-  const keyList = document.getElementById('keys')
-    ? shortcutList({ keyMode: () => false, fromHistory: () => false, enterKeys() {}, focusFirst: () => document.activeElement?.blur() })
-    : null;
+  const keyList =
+    parts.keyList && document.getElementById('keys')
+      ? shortcutList({ keyMode: () => false, fromHistory: () => false, enterKeys() {}, focusFirst: () => document.activeElement?.blur() })
+      : null;
   // As on the main page (desktopkeys.js): Esc and ? close it, and Tab stays on Close.
   function listKey(e) {
     e.stopPropagation();
@@ -731,14 +662,19 @@ export function gridBody(ctx, first) {
   }
 
   const onKey = (e) => {
-    // The editor's list drawer beside a live test (editorlive.js) keeps every key of its own.
+    // The Grid popup stays alive while it is closed, to keep its state. Then the main page has every key.
+    if (ctx.shown && !ctx.shown()) return;
+    // The editor's list drawer beside the Live Editor (editorlive.js) keeps every key of its own.
     if (ui.aside?.contains(e.target)) return;
     if (confirm?.isOpen()) return confirm.key(e);
+    if (ctx.asking?.()) return;
     if (keyList?.shown()) return listKey(e);
     // A dialog over the run (the editor's Icon library) keeps its keys; dialogkeys.js stops them only at its root.
     if (e.target.closest?.('.pb-modal-backdrop:not([hidden])')) return;
-    // The page lock's sign-in and dialogs take their keys first.
+    // The page lock's sign-in and dialogs handle their keys first.
     if (e.defaultPrevented) return;
+    // The Live Editor's own keys (editorlivemenu.js): editor undo, the rows clipboard and the Smart menu win over the run's.
+    if (ui.editKey?.(e, { bar: barOf(cur), inControl: inControl(ui.grid), line: !!line })) return;
     // A search box's own keys come before the grid's, so Esc there clears the box and does not drop picks.
     const box = boxes?.kindOf(e.target);
     if (box) {
@@ -760,8 +696,8 @@ export function gridBody(ctx, first) {
       finding,
       line: !!line,
     });
-    // A phone has no key list.
-    if (!act || (act === 'keys' && (!keyList || phone()))) return;
+    // A phone has no key list. With no saved panel, Esc never drops the staged routes: they stay for the page's list.
+    if (!act || (act === 'keys' && (!keyList || phone())) || (act === 'drop' && !parts.panel)) return;
     const moves =
       MOVES.has(act) ||
       act === 'pick' ||
@@ -813,15 +749,33 @@ export function gridBody(ctx, first) {
   };
   // Capture, so the grid's Esc is handled before Kiosk mode's own (panelfull.js).
   document.addEventListener('keydown', onKey, true);
+  // The Live Editor moves the picks and the cursor to names after it edits its lists, and places its Smart menu at the
+  // cursor's name.
+  ui.useRun?.({
+    pick(kind, ns) {
+      const shown = ns.filter((n) => axes[kind].includes(n));
+      picks = { ...dropPicks(picks), [kind]: shown, anchor: { srcs: null, dsts: null, [kind]: shown[0] ?? null } };
+      const k = axes[kind].indexOf(shown[0]);
+      if (k >= 0 && g) {
+        ptr = null;
+        keyed = true;
+        setCursor(kind === 'srcs' ? { i: -1, j: k } : { i: k, j: -1 });
+        g.reveal(cur);
+      }
+      render();
+    },
+    cursor: () => ({ bar: barOf(cur), ...cursorAt(cur, axes) }),
+  });
   // A turned phone or a changed Layout setting shows or hides the rest-point targets.
   const offLayout = onLayout(render);
 
   return {
     render: tick,
-    data({ tally: t, prot, nm }) {
+    // version is optional. The Grid popup counts its own changes, so a version stands in for the tally and protected text.
+    data({ tally: t, prot, nm, version }) {
       if (!nm && dataOf?.[0] === t && dataOf[1] === prot) return;
       dataOf = [t, prot];
-      const sig = JSON.stringify([t, prot]);
+      const sig = version == null ? JSON.stringify([t, prot]) : `v${version}`;
       // A 304 on names gives the same object (etagfetch.js), so the 90 KB stringify runs only on a change.
       const nmSig = nm && nm !== namesReply ? JSON.stringify(nm) : namesSig;
       if (sig === dataSig && nmSig === namesSig) return;
@@ -835,7 +789,7 @@ export function gridBody(ctx, first) {
         namesReply = nm;
         names = namesFrom(nm);
       }
-      syncBox();
+      box.sync();
       // The axes come from the panel and the names, not the tally.
       if (renamed) rebuild();
     },
@@ -845,16 +799,32 @@ export function gridBody(ctx, first) {
       if (confirm?.isOpen()) confirm.close();
       panel = p;
       head?.access(p, !ctx.keyed?.());
-      st = restage(st, p);
+      st = restage(st, parts.panel ? p : {});
       drawn = null;
       // env reads the panel's Rights, so the next poll makes it again.
       dataSig = '';
       dataOf = null;
-      syncBox();
+      box.sync();
       rebuild();
       render();
     },
     renamed: render,
+    // The Grid popup's seams (gridpopup.js). aim puts the cursor on a { src, dst } and scrolls to it; a null on one
+    // axis keeps that axis. levels fills the Levels box ([] is the default levels).
+    aim({ src, dst }) {
+      const c = { i: dst == null ? -1 : axes.dsts.indexOf(dst), j: src == null ? -1 : axes.srcs.indexOf(src) };
+      if (c.i < 0 && c.j < 0) return;
+      keyed = true;
+      jumped({ c });
+    },
+    levels(list) {
+      box.fill(list);
+      render();
+    },
+    openConfirm,
+    drop() {
+      clearStep('drop');
+    },
     // From each panel read (panelrun.js), so staged routes that leave the Rights are left out at once.
     read(p) {
       const { rights: r, confirm: c } = p;
@@ -864,7 +834,7 @@ export function gridBody(ctx, first) {
       panel = { ...panel, rights: r };
       dataSig = '';
       dataOf = null;
-      syncBox();
+      box.sync();
       rebuild();
       render();
     },
@@ -876,10 +846,9 @@ export function gridBody(ctx, first) {
       g?.stop();
       count.remove();
       head?.stop();
-      take?.remove();
-      clearer?.remove();
+      takeRow.stop();
       offLayout();
-      if (boxNode) boxNode.hidden = true;
+      box.stop();
       if (confirm?.isOpen()) confirm.close();
       if (keyList?.shown()) keyList.close();
     },

@@ -1,8 +1,7 @@
 package app
 
 import (
-	"encoding/json"
-	"errors"
+	"cmp"
 	"net/http"
 	"slices"
 	"strings"
@@ -10,9 +9,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Default artwork over REST. Read needs `panels`, as a cell's own artwork does; set and clear need
-// `panelsmanage` and a Trusted user or the Advanced Settings PIN. A Hidden caller sees only the
-// defaults of items inside its Rights. Not under /panels/, whose {id} routes would conflict.
+// Default artwork over REST. A Hidden caller sees only the defaults of items inside its Rights. Not under /panels/:
+// its {id} routes would conflict.
 
 func init() {
 	const read, manage = config.ScopePanels, config.ScopePanelsManage
@@ -24,8 +22,8 @@ func init() {
 	)
 }
 
-// artDefaultIn is a set or clear. Panel names the panel an `a-` artwork id belongs to, whose image
-// is copied. Pin is read only for a user who is not Trusted, and never stored.
+// Panel names the panel that an `a-` artwork id belongs to; Sode copies its image. Pin is read only for a user who
+// is not Trusted, and never stored.
 type artDefaultIn struct {
 	ArtDefault
 	Panel string `json:"panel"`
@@ -45,17 +43,40 @@ func (a *App) artDefaultVisible(cl *apiCtx, d ArtDefault) bool {
 	}
 	// A preset's items would teach hidden numbers, so a hidden caller needs the whole preset in view.
 	// Only Everyone presets have defaults (check).
-	for _, p := range a.r().cfg.Presets {
-		if p.Name == d.Name {
-			return v.WholePreset(p)
-		}
+	if p, ok := everyonePreset(a.r().cfg, d.ID, d.Name); ok {
+		return v.WholePreset(p)
 	}
 	return false
 }
 
+func everyonePreset(cfg config.Config, id, name string) (config.Preset, bool) {
+	for _, p := range cfg.Presets {
+		if id != "" && p.ID == id || id == "" && name != "" && strings.EqualFold(p.Name, name) {
+			return p, true
+		}
+	}
+	return config.Preset{}, false
+}
+
+// A default stored with no id is found by name, so an old artdefaults.yaml still loads. A default of a deleted preset
+// keeps what it has.
+func (a *App) liveArtDefaults() []ArtDefault {
+	cfg := a.r().cfg
+	list := a.artDefaults.list()
+	for i, d := range list {
+		if d.Kind != artKindPreset {
+			continue
+		}
+		if p, ok := everyonePreset(cfg, d.ID, d.Name); ok {
+			list[i].ID, list[i].Name = p.ID, p.Name
+		}
+	}
+	return list
+}
+
 func (a *App) artDefaultsFor(cl *apiCtx, keep func(ArtDefault) bool) []ArtDefault {
 	out := []ArtDefault{}
-	for _, d := range a.artDefaults.list() {
+	for _, d := range a.liveArtDefaults() {
 		if (keep == nil || keep(d)) && a.artDefaultVisible(cl, d) {
 			out = append(out, d)
 		}
@@ -63,28 +84,36 @@ func (a *App) artDefaultsFor(cl *apiCtx, keep func(ArtDefault) bool) []ArtDefaul
 	return out
 }
 
-// panelArtDefaults are the defaults of the items p's cells show, as cl can see them. GET
-// /panels/{id} carries them, so a changed default reaches an open panel page through its update check.
+// GET /panels/{id} carries them, so a changed default reaches an open panel page through its update check.
 func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
+	cfg := a.r().cfg
 	shown := map[string]bool{}
 	for c := range allCells(p.Pages) {
 		if d, ok := cellItem(c); ok {
+			// A Preset cell with no id finds its preset by name, so an old panel file still loads.
+			if q, found := everyonePreset(cfg, d.ID, d.Name); d.Kind == artKindPreset && d.ID == "" && found {
+				d.ID = q.ID
+			}
 			shown[d.key()] = true
 		}
 	}
 	// An "all" edge follows the router, so it shows every default of its kind except the hidden ones.
 	edges := map[string]*GridEdge{artKindSource: p.Sources, artKindDst: p.Destinations}
+	uid := a.r().cfg.UID
 	return a.artDefaultsFor(cl, func(d ArtDefault) bool {
 		if shown[d.key()] {
 			return true
 		}
 		e := edges[d.Kind]
-		return e != nil && d.N != nil && e.shows(*d.N)
+		router := d.Router
+		if router == "" {
+			router = uid
+		}
+		return e != nil && d.N != nil && e.shows(router, *d.N)
 	})
 }
 
-// cellItem is the item a stored cell shows, as a default key. Numbers come as float64 from JSON
-// and int from YAML.
+// Numbers come as float64 from JSON and int from YAML.
 func cellItem(c map[string]any) (ArtDefault, bool) {
 	kind, _ := c["kind"].(string)
 	switch kind {
@@ -102,7 +131,8 @@ func cellItem(c map[string]any) (ArtDefault, bool) {
 	case artKindPreset:
 		scope, _ := c["scope"].(string)
 		name, _ := c["name"].(string)
-		return ArtDefault{Kind: kind, Scope: scope, Name: name}, name != ""
+		id, _ := c["id"].(string)
+		return ArtDefault{Kind: kind, Scope: scope, Name: name, ID: id}, name != "" || id != ""
 	}
 	return ArtDefault{}, false
 }
@@ -117,19 +147,26 @@ func (a *App) readArtDefault(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusForbidden, "user_required", "Default artwork is changed with a user's key")
 		return in, false
 	}
-	body, ok := readBody(w, r, panelBodyMax, "default")
-	if !ok {
-		return in, false
-	}
-	if err := json.Unmarshal(body, &in); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a default as JSON: "+err.Error())
+	if !decodeBody(w, r, panelBodyMax, "default", "send a default as JSON: ", false, &in) {
 		return in, false
 	}
 	if err := in.check(); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return in, false
 	}
-	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can change Default artwork"); err != nil {
+	if in.Kind == artKindPreset {
+		p, found := everyonePreset(a.r().cfg, in.ID, in.Name)
+		switch {
+		case found:
+			in.ID, in.Name = p.ID, p.Name
+		case r.Method == http.MethodPut:
+			apiFail(w, http.StatusNotFound, "not_found", "no Everyone preset "+cmp.Or(in.ID, in.Name))
+			return in, false
+		}
+	} else if in.Router == "" {
+		in.Router = a.r().cfg.UID
+	}
+	if err := a.mayEveryone(cl, "only a Trusted user can change Default artwork"); err != nil {
 		failWith(w, err)
 		return in, false
 	}
@@ -151,15 +188,19 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 		return
 	}
 	var img *artImage
-	switch {
-	case d.Art == "", artIconRe.MatchString(d.Art), artDefaultIDRe.MatchString(d.Art):
-	case strings.HasPrefix(d.Art, "lib:") && iconIDRe.MatchString(d.Art[len("lib:"):]):
+	ref, ok := parseArtRef(d.Art)
+	if !ok {
+		apiFail(w, http.StatusBadRequest, "bad_request", "art is a vendored icon (icon:<name>), an Icon library icon (lib:<id>) or an artwork id")
+		return
+	}
+	switch ref.kind {
+	case artRefLib:
 		// Kept as the reference, never copied, so a library delete reaches the default as it does a cell.
-		if !slices.ContainsFunc(a.icons.list(), func(ic LibIcon) bool { return "lib:"+ic.ID == d.Art }) {
+		if !slices.ContainsFunc(a.icons.list(), func(ic LibIcon) bool { return ic.ID == ref.id }) {
 			apiFail(w, http.StatusNotFound, "not_found", "no icon "+d.Art+" in the Icon library")
 			return
 		}
-	case artIDRe.MatchString(d.Art):
+	case artRefPanel:
 		// A panel's own image: copied, so the default outlives the panel and its artwork.
 		p, read, _ := a.reachPanel(cl, in.Panel)
 		data, _, found := a.panels.artData(p.ID, d.Art)
@@ -173,9 +214,6 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 			return
 		}
 		img = &artImage{data, typ}
-	default:
-		apiFail(w, http.StatusBadRequest, "bad_request", "art is a vendored icon (icon:<name>), an Icon library icon (lib:<id>) or an artwork id")
-		return
 	}
 	if d.Art == "" && d.ArtB == "" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "a default needs Icon A or Icon B")
@@ -194,15 +232,8 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 		a.mu.Unlock()
 	}
 	saved, err := a.artDefaults.set(d, img)
-	switch {
-	case errors.Is(err, errArtDefaultsCap):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	case errors.Is(err, errNoArtDefaultFile):
-		apiFail(w, http.StatusNotFound, "not_found", err.Error())
-		return
-	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the default could not be saved: "+err.Error())
+	if err != nil {
+		failStore(w, err, "the default could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "artDefaultSet", "ok", "Default artwork for "+saved.key(), nil)
@@ -217,7 +248,7 @@ func (a *App) apiArtDefaultClear(w http.ResponseWriter, r *http.Request, cl *api
 	found, err := a.artDefaults.clear(in.ArtDefault)
 	switch {
 	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the default could not be cleared: "+err.Error())
+		failStore(w, err, "the default could not be cleared")
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "that item has no Default artwork")
 	default:
@@ -226,7 +257,6 @@ func (a *App) apiArtDefaultClear(w http.ResponseWriter, r *http.Request, cl *api
 	}
 }
 
-// apiArtDefaultImage serves an image only while a default the caller can see names it.
 func (a *App) apiArtDefaultImage(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	id := r.PathValue("art")
 	seen := len(a.artDefaultsFor(cl, func(d ArtDefault) bool { return d.Art == id })) > 0

@@ -17,10 +17,11 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The table is the dispatch: every rule has a handler. The read loop has no switch
-// on the message type left to fall out of step with it.
+// The table is the dispatch: every rule has a handler.
 func TestPolicyCoversEveryMessage(t *testing.T) {
 	files, err := filepath.Glob("*.go")
 	if err != nil || len(files) == 0 {
@@ -50,6 +51,11 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 		if r.handle == nil {
 			t.Errorf("policy lists %q without a handler", m)
 		}
+		switch r.role {
+		case roleAnyone, config.RoleStandard, config.RoleTrusted, config.RoleAdministrator:
+		default:
+			t.Errorf("policy rule %q names no Role (%q)", m, r.role)
+		}
 	}
 	webMsgTypes(t, func(name string) {
 		if _, ok := policy[name]; !ok && webNotMessage[name] == "" {
@@ -59,10 +65,15 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 	seen := map[string]bool{}
 	webMsgTypes(t, func(name string) { seen[name] = true })
 	for m := range policy {
-		if !seen[m] {
+		if !seen[m] && noPageSends[m] == "" {
 			t.Errorf("policy rule %q is sent by no web/*.js file", m)
 		}
 	}
+}
+
+// Rules no page sends any more, with why the rule stays.
+var noPageSends = map[string]string{
+	"config": "the one Save took the form; server tests still save settings through it",
 }
 
 // Literals that look like a message type in web/*.js but never reach the socket.
@@ -128,30 +139,19 @@ func TestRefusalReplies(t *testing.T) {
 	until("lockState")
 
 	send(map[string]any{"t": "nonsense"}) // dropped, never dispatched
-	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 7, "src": 1, "dst": 1, "levels": []int{1}}}})
+	send(map[string]any{"t": "take", "items": []map[string]any{{"id": 7, "src": 1, "dst": 1, "levels": []int{1}}}})
 	if m := until("takeResult"); m["ok"] == true || m["id"] != float64(7) || m["err"] == "" {
 		t.Fatalf("refused batch: %v", m)
 	}
+	// A Guest under the page lock: refused with the lock state, and no PIN prompt.
 	send(map[string]any{"t": "presets", "id": 3})
-	if m := until("presetsResult"); m["ok"] == true || m["locked"] != true || m["id"] != float64(3) {
-		t.Fatalf("refused salvos: %v", m)
+	if m := until("presetsResult"); m["ok"] == true || m["id"] != float64(3) {
+		t.Fatalf("refused presets: %v", m)
 	}
-	send(map[string]any{"t": "users", "id": 5, "usersReq": map[string]any{}})
-	if m := until("usersResult"); m["locked"] != true || m["id"] != float64(5) {
-		t.Fatalf("refused users: %v", m)
-	}
-
-	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
-	if m := until("unlockResult"); m["ok"] != true {
-		t.Fatalf("unlock: %v", m)
-	}
-	send(map[string]any{"t": "presets", "id": 6, "presets": []any{}})
-	if m := until("presetsResult"); m["ok"] != true {
-		t.Fatalf("salvos with the Advanced Settings PIN: %v", m)
-	}
-	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 8}}})
-	if m := until("takeResult"); m["ok"] == true {
-		t.Fatalf("a take got through on the Advanced Settings PIN: %v", m)
+	until("lockState")
+	send(map[string]any{"t": "settingsSave", "id": 5, "fields": map[string]any{}})
+	if m := until("settingsSaveResult"); m["ok"] == true || m["id"] != float64(5) {
+		t.Fatalf("refused settingsSave: %v", m)
 	}
 }
 
@@ -165,10 +165,10 @@ func TestClearHistoryNeedsBoth(t *testing.T) {
 	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.admit(c, r); !errors.Is(err, errLocked) {
+	if err := a.admit(c, r); !isRoleErr(err) {
 		t.Fatalf("user only: %v", err)
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.admit(c, r); err != nil {

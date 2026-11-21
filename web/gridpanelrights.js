@@ -2,7 +2,7 @@
 // env is envFrom's (panelrules.js); names is namesFrom.
 import { rightsAllow } from './panelrules.js';
 
-// The sources dst has now that the grid does not show, in level order, each once. shown is a Set of router numbers.
+// The sources dst has now that the grid does not show, in level order, each one time. shown is a Set of router numbers.
 export function otherSources(env, dst, shown) {
   const row = env.tally.get(dst);
   if (!row) return [];
@@ -73,7 +73,7 @@ export const leftOutLine = (r, names) => `${names.source(r.src)} to ${names.dest
 
 export function leftOutText(list, names) {
   if (!list.length) return '';
-  if (list.length > 1) return `Left out of the take: ${list.length} staged routes that are protected, outside Rights or not on the router`;
+  if (list.length > 1) return `Left out of the take: ${list.length} staged routes`;
   return `Left out of the take: ${leftOutLine(list[0], names)}`;
 }
 

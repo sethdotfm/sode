@@ -1,4 +1,3 @@
-// The editor's clipboard block (gridclip.js): copy, read and paste rules. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGrid, select } from '../gridmodel.js';
@@ -8,12 +7,10 @@ import { GRID_CHORDS } from '../gridchords.js';
 const grid = (cells, size = { rows: 4, cols: 8 }) => createGrid({ ...size, cells });
 const pick = (g, r1, c1, r2 = r1, c2 = c1) => select(select(g, r1, c1), r2, c2, true);
 
-test('copy, cut and paste are in the chord table for Cmd and Ctrl', () => {
-  for (const m of ['ctrl', 'meta']) {
-    assert.equal(GRID_CHORDS[`${m}+x`], 'cut');
-    assert.equal(GRID_CHORDS[`${m}+c`], 'copy');
-    assert.equal(GRID_CHORDS[`${m}+v`], 'paste');
-  }
+test('copy, cut and paste are in the chord table', () => {
+  assert.equal(GRID_CHORDS['mod+x'], 'cut');
+  assert.equal(GRID_CHORDS['mod+c'], 'copy');
+  assert.equal(GRID_CHORDS['mod+v'], 'paste');
 });
 
 test('a copy holds the selected cells whole, relative to the selection, with every field', () => {
@@ -150,7 +147,7 @@ test('a paste past the edge does not fit and changes nothing, with the counts a 
   assert.deepEqual(plan.at, { r: 4, c: 7 });
   assert.deepEqual([plan.rows, plan.cols], [2, 3]);
   assert.equal(plan.outside, 1);
-  assert.match(pasteNote(plan), /past the edge/);
+  assert.match(pasteNote(plan), /past the grid edge/);
 });
 
 test('no selection, no paste', () => {
@@ -199,7 +196,7 @@ test('a Go to Page cell pasted into another panel arrives unassigned, with a not
   const other = pastePlan(g, b, { panel: 'p-2' });
   assert.equal(other.placed[0].page, undefined);
   assert.equal(other.lostTargets, 1);
-  assert.match(pasteNote(other), /1 Go to Page cell came in unassigned/);
+  assert.match(pasteNote(other), /1 Go to Page cell unassigned/);
   const same = pastePlan(g, b, { panel: 'p-1' });
   assert.equal(same.placed[0].page, 'aa');
   assert.equal(same.lostTargets, 0);

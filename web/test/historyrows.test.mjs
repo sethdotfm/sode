@@ -1,4 +1,4 @@
-// Recent rows: the wording and plans both layouts share.
+// History rows: the wording and plans that the two layouts share.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -35,7 +35,7 @@ test('rowActions: a stack of changes', async () => {
   const a = rowActions({ e: take({ chain: [{}, {}] }) });
   assert.equal(a.undo.text, 'Undo 2');
   assert.match(a.undo.label, /^Undo 2 changes on /);
-  assert.equal(a.undo.tip, 'Set destination to its source before these changes.');
+  assert.equal(a.undo.tip, 'Restores the source from before these changes');
 });
 
 test('rowActions: a folder', async () => {
@@ -44,19 +44,23 @@ test('rowActions: a folder', async () => {
   const es = [take({ id: 1 }), take({ id: 2 })];
   const f = { group: 'g', entries: es, shown: es };
   const a = rowActions({ f });
-  assert.match(a.undo.label, /^Undo all 2 takes of /);
+  assert.match(a.undo.label, /^Undo all 2 routes of /);
   assert.equal(a.undo.text, 'Undo all');
   assert.equal(a.undo.tip, UNDO_TIP_ALL);
-  assert.match(a.again.label, /^Redo 2 takes of /);
+  assert.match(a.again.label, /^Redo 2 routes of /);
   const one = rowActions({ f: { group: 'g', entries: [take()], shown: [] } });
-  assert.match(one.again.label, /^Redo 1 take of /);
+  assert.match(one.again.label, /^Redo 1 route of /);
 });
 
 test('disclosureAria and followersHead', async () => {
   const { disclosureAria, followersHead } = await setup();
   assert.equal(disclosureAria(true, 3, 'takes'), 'Hide the 3 takes');
-  assert.equal(disclosureAria(false, 2, 'followers'), 'Show the 2 followers');
-  assert.deepEqual(followersHead({ group: 'g', followers: [1, 2] }, false, 'm'), { count: '2', aria: 'Show the 2 followers', kidsId: 'm-followers-g' });
+  assert.equal(disclosureAria(false, 2, 'External follow entries'), 'Show the 2 External follow entries');
+  assert.deepEqual(followersHead({ group: 'g', followers: [1, 2] }, false, 'm'), {
+    count: '2',
+    aria: 'Show the 2 External follow entries',
+    kidsId: 'm-followers-g',
+  });
 });
 
 test('lastFill: nothing, empty side, and a plain fill', async () => {

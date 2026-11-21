@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-// REST seam for the held connection of a panel page: a closed page is lost after monGrace, not
-// monMiss. The clock is the fake one from panelmon_test.go; the connection is a real test server.
-
 func monHold(t *testing.T, a *App, id, key, device string) context.CancelFunc {
 	t.Helper()
 	srv := strmServer(t, a)
@@ -141,7 +138,6 @@ func TestStreamNeedsADeviceWhileThePanelAsksForAName(t *testing.T) {
 	}
 }
 
-// An unnamed instance (askInstanceName off) holds its stream under its address.
 func TestStreamWithNoDeviceHoldsUnderTheAddress(t *testing.T) {
 	a, _ := monApp(t)
 	ana := userKey(t, a, "Ana")
@@ -173,16 +169,16 @@ func TestClearAlarmHidesTheOutageUntilTheNextNotice(t *testing.T) {
 	if len(r["offline"].([]any)) != 0 {
 		t.Fatalf("badge after clear %v", r)
 	}
-	if rows := a.offlineFor("Cy"); len(rows) != 1 {
+	if rows := a.offlineFor(idOf(a, "Cy")); len(rows) != 1 {
 		t.Fatalf("clearing for Ana hid it from Cy: %v", rows)
 	}
-	if !a.mon.watching("Ana", id) {
+	if !a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("clearing stopped the watch")
 	}
-	keepalive(a, id, ana, "Lobby") // back, then lost again
+	keepalive(a, id, ana, "Lobby")
 	clk.advance(50 * time.Second)
 	a.monSweep()
-	if rows := a.offlineFor("Ana"); len(rows) != 1 {
+	if rows := a.offlineFor(idOf(a, "Ana")); len(rows) != 1 {
 		t.Fatalf("a new outage stayed cleared: %v", rows)
 	}
 }
@@ -193,19 +189,18 @@ func TestStopMonitoringEndsTheWatch(t *testing.T) {
 	id := makePanel(t, a, ana, `{"name":"Wall"}`)
 	c, next := signedIn(t, a, "10.0.0.1", "1234")
 	next()
-	// Not watching: a clear changes nothing.
 	a.serveAlarm(c, &inMsg{T: "panelAlarm", Panel: id, Action: "clear"})
 	if a.mon.clear["ana"][id] {
 		t.Fatal("cleared a panel the user does not watch")
 	}
 	watchPanel(t, a, id, ana)
 	a.serveAlarm(c, &inMsg{T: "panelAlarm", Panel: id, Action: "bogus"})
-	if !a.mon.watching("Ana", id) {
+	if !a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("an unknown action stopped the watch")
 	}
 	rl := policy["panelAlarm"].forMsg(&inMsg{T: "panelAlarm"})
-	rl.handle(a, c, &inMsg{T: "panelAlarm", Panel: id, Action: "stop"}, &connCtx{})
-	if a.mon.watching("Ana", id) {
+	rl.handle(a, c, &inMsg{T: "panelAlarm", Panel: id, Action: "stop"})
+	if a.mon.watching(idOf(a, "Ana"), id) {
 		t.Fatal("still watching after stop")
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// makeGridPanel is a Grid panel owned by the key's user, every edge "all".
 func makeGridPanel(t *testing.T, a *App, key, name string) string {
 	t.Helper()
 	return makePanel(t, a, key, `{"name":"`+name+`","type":"grid"}`)
@@ -45,14 +44,13 @@ func TestPanelWithNoTypeIsAButtonsPanel(t *testing.T) {
 	}
 }
 
-// A file saved before Grid panels has no type: it loads as a Buttons panel with its Pages as they were.
 func TestPanelFileFromBeforeGridLoadsAsButtons(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Fixture"}`)
 	old := "id: " + id + `
 name: Fixture
-owner: Ana
+owner: ` + idOf(a, "Ana") + `
 acts: session
 share:
   mode: me
@@ -62,7 +60,7 @@ pages:
   - id: aa11
     enabled: true
     cells:
-      - {r: 1, c: 1, kind: source, n: 4}
+      - {r: 1, c: 1, kind: source, router: r1, n: 4}
 settings: {}
 rev: 3
 `
@@ -78,13 +76,12 @@ rev: 3
 		t.Errorf("type %q sources %v destinations %v", p.Type, p.Sources, p.Destinations)
 	}
 	got, _ := json.Marshal(p.Pages)
-	if string(got) != `[{"id":"aa11","enabled":true,"cells":[{"c":1,"kind":"source","n":4,"r":1}]}]` {
+	if string(got) != `[{"id":"aa11","enabled":true,"cells":[{"c":1,"kind":"source","n":4,"r":1,"router":"r1"}]}]` {
 		t.Errorf("pages %s", got)
 	}
 }
 
-// settings.mode is free-form to the server (the page reads it, gridpanelstage.js createStage). Each of its three
-// values, and a Grid file saved before takeOnly with mode take, must come back as stored after a restart.
+// The server does not interpret settings.mode; the page reads it (gridpanelstage.js createStage).
 func TestGridPanelTakeModesSurviveARestart(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -99,7 +96,7 @@ func TestGridPanelTakeModesSurviveARestart(t *testing.T) {
 	old := makeGridPanel(t, a, ana, "Old grid")
 	file := "id: " + old + `
 name: Old grid
-owner: Ana
+owner: ` + idOf(a, "Ana") + `
 acts: session
 share:
   mode: me
@@ -107,7 +104,7 @@ type: grid
 sources:
   members: all
 destinations:
-  members: [3, 1]
+  members: [{router: ` + a.r().cfg.UID + `, n: 3}, {router: ` + a.r().cfg.UID + `, n: 1}]
 settings:
   mode: take
 rev: 2
@@ -204,7 +201,6 @@ func TestPanelBodyRefusesBadTypeAndEdges(t *testing.T) {
 	}
 }
 
-// A Push between a Grid panel and a Buttons panel changes neither.
 func TestPushRefusesTheOtherType(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -222,7 +218,6 @@ func TestPushRefusesTheOtherType(t *testing.T) {
 	}
 }
 
-// Copy keeps the type and the edges.
 func TestGridPanelCopyIsAGridPanel(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

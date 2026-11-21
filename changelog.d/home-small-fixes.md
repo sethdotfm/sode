@@ -1,0 +1,4 @@
+- Show all sources and Show all destinations show at all times on Home, also before you click a patch box. So a user with only a mouse has a place to start. Only an open list hides them.
+- The Clear buttons in the History search boxes are now small × icon buttons with the tip "Clear the search". So they are not confused with the Clear next to Take.
+- The Bookmarks strip button that opens the Presets popup is now named All presets, as the popup is. It was Show all, which looked like it showed all bookmarks.
+- A panel page that needs a sign-in now always shows "Sign in to open this panel." and the Sign in button. Before, a page that got the sign-in state too early showed only the PIN pad. After a Cancel, it had no way to sign in again.

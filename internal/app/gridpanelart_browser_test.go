@@ -6,9 +6,6 @@ import (
 	"testing"
 )
 
-// Artwork on a Grid panel's names: an item's own artwork (an icon with Icon B, an uploaded image), else its Default
-// artwork. Hide text works as on a cell: a Default artwork that hides text hides the name, unless the item sets false.
-// A node moved by a scroll keeps no artwork of its old item.
 func TestChromeGridPanelArt(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -24,7 +21,7 @@ func TestChromeGridPanelArt(t *testing.T) {
 	body := `{"name":"Art grid","type":"grid","settings":{"mode":"take"},
 		"sources":{"members":"all","items":{"1":{"art":"icon:camera","artB":"2"}}},
 		"destinations":{"members":"all","items":{"1":{"art":"` + img + `"},"2":{"hideText":false}}}}`
-	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, gridBody(t, body)); rec.Code != 200 {
 		t.Fatalf("PUT: %d %s", rec.Code, rec.Body.String())
 	}
 	num := func(n int) *int { return &n }
@@ -65,11 +62,9 @@ func TestChromeGridPanelArt(t *testing.T) {
 		const r = `+art("dst", 2)+`;
 		return !!r && r.lastChild.textContent === 'A' && getComputedStyle(r.firstChild).display === 'none';
 	})()`)
-	// A default's Hide text hides the name's text and keeps it for screen readers; the item's own false shows it.
 	b.waitFor("source 2's name and number are hidden under its default, its words kept", `(() => { const n = `+name("src", 2)+`; return n.hasAttribute('data-hide-text') && getComputedStyle(n).fontSize === '0px' && getComputedStyle(n, '::before').content === 'none' && n.firstChild.data.length > 0 && getComputedStyle(`+art("src", 2)+`.lastChild).fontSize !== '0px'; })()`)
 	b.waitFor("destination 2 sets false, so its name and number show", `(() => { const n = `+name("dst", 2)+`; return !n.hasAttribute('data-hide-text') && getComputedStyle(n).fontSize !== '0px' && getComputedStyle(n, '::before').content === '"' + n.dataset.num + '"' && n.firstChild.data.length > 0; })()`)
 	b.waitFor("source 1 has no Hide text", `!`+name("src", 1)+`.hasAttribute('data-hide-text')`)
-	// The editor's Cell tab sets a selected row's artwork: Icon A and Icon B on source 3, saved on the item.
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("the lock goes", `!document.documentElement.dataset.sodeLock`)
 	row := `document.querySelector('#ed-sources-list li[data-id="3"]')`
@@ -84,7 +79,7 @@ func TestChromeGridPanelArt(t *testing.T) {
 	b.waitFor("the row shows its artwork", row+`.querySelector('.sode-edge__art .sode-panel__art-b')?.textContent === '7'`)
 	b.eval(`document.getElementById('ed-save').click(); true`)
 	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
-	srcs, _ := readPanel(t, a, ana, id)["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, readPanel(t, a, ana, id), "sources")
 	items, _ := json.Marshal(srcs["items"])
 	if want := `{"1":{"art":"icon:camera","artB":"2"},"3":{"art":"icon:camera","artB":"7"}}`; string(items) != want {
 		t.Errorf("items %s, want %s", items, want)

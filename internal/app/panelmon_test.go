@@ -11,8 +11,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST seam for panel monitoring: keepalives, online state, watching and the miss and return
-// notices. A fake clock stands in for the 15 and 45 second timings.
+// A fake clock stands in for the 15 s and 45 s timings.
 
 type monClock struct{ t time.Time }
 
@@ -109,7 +108,6 @@ func TestKeepaliveNeedsADeviceAndAPanelTheCallerMayUse(t *testing.T) {
 	if c := keepalive(a, id, bo, "Desk"); c != 200 {
 		t.Errorf("shared reader: %d", c)
 	}
-	// Only an editor sees the device names.
 	if _, shown := panelOf(t, a, id, bo)["instances"]; shown {
 		t.Error("instances shown to a use-only reader")
 	}
@@ -139,7 +137,6 @@ func TestWatchIsForOwnedPanelsAndAnyForTrusted(t *testing.T) {
 	if panelOf(t, a, id, ana)["watching"] != false {
 		t.Error("still watching")
 	}
-	// The list carries the same fields for the panels page.
 	rec := apiSend(a, "GET", "/api/v1/panels", cy, "")
 	if p := apiBody(t, rec)["panels"].([]any)[0].(map[string]any); p["watching"] != true {
 		t.Errorf("list %v", p)
@@ -235,7 +232,7 @@ func TestWatcherWhoLostTheirRightIsNotTold(t *testing.T) {
 	cfg := a.r().cfg
 	for i := range cfg.Users {
 		if cfg.Users[i].Name == "Cy" {
-			cfg.Users[i].Trusted = false
+			cfg.Users[i].Role = config.RoleStandard
 		}
 	}
 	if err := a.ApplyConfig(cfg); err != nil {
@@ -278,11 +275,11 @@ func TestWatchesSurviveARestartAndFollowTheirPanel(t *testing.T) {
 	if err != nil || !strings.Contains(string(raw), id) {
 		t.Fatalf("file: %v %s", err, raw)
 	}
-	if !loadPanelMon(a.cfgPath).watching("Ana", id) {
+	if !loadPanelMon(a.cfgPath).watching(idOf(a, "Ana"), id) {
 		t.Fatal("not reloaded")
 	}
 	apiSend(a, "DELETE", "/api/v1/panels/"+id, ana, "")
-	if loadPanelMon(a.cfgPath).watching("Ana", id) {
+	if loadPanelMon(a.cfgPath).watching(idOf(a, "Ana"), id) {
 		t.Fatal("watch outlived its panel")
 	}
 }
@@ -337,7 +334,6 @@ func TestManyInstancesShareOnePanelKey(t *testing.T) {
 			t.Fatalf("poll %d: %d %s", i, rec.Code, rec.Body.String())
 		}
 	}
-	// An ordinary key keeps the plain limit.
 	plain := botKey(t, a)
 	limited := false
 	for i := 0; i < 40; i++ {
@@ -364,7 +360,6 @@ func TestManyStreamsOnOnePanelKey(t *testing.T) {
 		}
 		t.Cleanup(func() { c.CloseNow(); cancel() })
 	}
-	// A key that is not a panel's keeps the cap.
 	plain := botKey(t, a)
 	refused := false
 	for i := 0; i < apiStreamMaxPerKey+2; i++ {
@@ -383,7 +378,7 @@ func TestManyStreamsOnOnePanelKey(t *testing.T) {
 func TestPanelClientActorNamesTheOwner(t *testing.T) {
 	a, f, _ := takerApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		c.Users = append(c.Users, cy)
 	})
 	f.seed(2, 1, 0)

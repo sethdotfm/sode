@@ -12,13 +12,11 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The editor's sidebar: it opens on Panel, and a selected square switches it to Cell. What is set in the
-// three tabs is what the panel stores.
 func TestChromeEditorSidebar(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -30,6 +28,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	id := makePanel(t, a, ana, `{"name":"Side panel","rows":2,"cols":2,"cells":[{"r":1,"c":1,"rs":1,"cs":1,"kind":"take"}]}`)
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -53,8 +52,6 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`document.querySelector('.sode-side__icons[aria-label="Icon A"] button[aria-label="tv"]').click(); true`)
 	b.waitFor("Hide text appears with an icon", `[...document.querySelectorAll('#panel-ed-cell .pb-btn')].some((x) => x.textContent === 'Hide text' && !x.hidden)`)
 	b.waitFor("the square shows Icon A", `!!document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a')`)
-	// Icon B: the glyph column beside Icon A's, both shown at once, each with its own None; the square shows "[tv] 2".
-	// Under "Default icons" the two lists start level; "Uploaded icons" comes under both.
 	b.waitFor("the Icon A and Icon B lists start at one height, under Default icons, with Uploaded icons below both", `(() => {
 		const a = document.querySelector('.sode-side__icons[aria-label="Icon A"]').getBoundingClientRect(), b = document.querySelector('.sode-side__icons[aria-label="Icon B"]').getBoundingClientRect();
 		const hs = [...document.querySelectorAll('#panel-ed-cell .sode-side__picker-h')], up = document.getElementById('ed-lib-open').getBoundingClientRect();
@@ -91,7 +88,6 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`document.getElementById('ed-set-guard-hold').click(); true`)
 	b.eval(`document.getElementById('tab-ed-access').click(); true`)
 	b.waitFor("Access says who it acts as", `document.getElementById('panel-ed-access').textContent.includes('Authentication mode') && !document.getElementById('ed-acts-api').disabled`)
-	// Making the client asks for the Confirm first, and Cancel puts the old mode back without a save.
 	box := `document.querySelector('#panel-ed-access .sode-ov__keyconfirm')`
 	b.eval(`document.getElementById('ed-acts-api').click(); true`)
 	b.waitFor("the switch warns what it does to keys and asks for the Confirm", `!`+box+`.hidden && `+box+`.textContent.includes('makes the panel its own API client, with no keys yet') && !!`+box+`.querySelector('.sode__key--locked')`)
@@ -104,7 +100,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.waitFor("the letter is live after the lockout", `!`+box+`.hidden && !`+box+`.querySelector('.sode__key--locked')`)
 	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ` + box + `.querySelector('.sode__key').textContent.toLowerCase(), bubbles: true })); true`)
 	b.waitSaved("the Confirm saves at once")
-	b.waitFor("the Confirm applies the switch", `document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
+	b.waitFor("the Confirm applies the switch", `document.getElementById('panel-ed-access').textContent.includes('Make links: Share > Link with key')`)
 	b.shot("access")
 
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)
@@ -119,15 +115,12 @@ func TestChromeEditorSidebar(t *testing.T) {
 	}
 	b.waitFor("Access names the client", `document.getElementById('panel-ed-access').textContent.includes('Client Panel `+id+`')`)
 
-	// API to Both keeps the client and its keys: no Confirm, but the note says what the switch did.
 	b.eval(`document.getElementById('ed-acts-both').click(); true`)
 	b.waitFor("API to Both says it keeps the client and keys", `document.getElementById('panel-ed-access').textContent.includes("Both keeps the panel's API client and every instance key") && `+box+`.hidden`)
 	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"acts":"both"`) || !strings.Contains(body, `"client":"Panel `+id+`"`) {
 		t.Errorf("API to Both did not save Both with the same client: %s", body)
 	}
 
-	// A short window: the sidebar is never wider than its column and scrolls inside itself. It fits the window whole
-	// after the page is scrolled to it, whatever height the toolbar above it takes.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1600, "height": 600, "deviceScaleFactor": 1, "mobile": false})
 	b.waitFor("the sidebar is beside the grid", `document.getElementById('ed-side').getBoundingClientRect().left >= document.getElementById('ed-grid').getBoundingClientRect().right`)
 	side := `document.getElementById('ed-side')`
