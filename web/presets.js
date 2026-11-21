@@ -6,6 +6,7 @@ import { btn } from './formbits.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan, canRedo } from './plans.js';
 import { startPick, endPick } from './historypick.js';
+import { presetAdd } from './presetadd.js';
 import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
 import { browserPresets, profilePresets } from './editortargets.js';
@@ -38,9 +39,12 @@ import {
 } from './presetstore.js';
 
 const hosts = [];
-// host: { active(), confirm(plan), patch(), picks(), clear(), focus(), fill?(take) }. patch() gives {
-// src: item, dsts: [item], levels: [ui] } (levels [] = default), or null while the boxes hold
-// no patch. picks() gives the same with src null while Source has no pick. fill(take) is desktop only.
+// host: { active(), confirm(plan), patch(), picks(), clear(), focus(), take(), clearAll(), takeState(), fill?(take) }.
+// patch() gives { src: item, dsts: [item], levels: [ui] } (levels [] = default), or null while the boxes hold no patch.
+// picks() gives the same with src null while Source has no pick. take() is the page's Take; it moves no focus and,
+// while a preset adds patches (presetadd.js), returns { ok, text }. clearAll() is the page's Clear with no focus move.
+// takeState() is { word, ok, disabled } for every Take button: ok is the add colour, disabled is "nothing to send".
+// fill(take) is desktop only.
 export const presetHost = (host) => {
   hosts.push(host);
 };
@@ -257,7 +261,6 @@ const touch = () => {
   dirty = true;
   discard = false;
   paintSave();
-  emit('presetRows');
 };
 const SRC_EXAMPLE = '12 or Cam 1';
 const DST_EXAMPLE = '12, 20-24, Monitor 1';
@@ -402,7 +405,7 @@ scopeIn.addEventListener('change', () => {
   setNote(cur.scope === cur.from ? scopeLabel(cur.from) : `Save moves it from ${scopeLabel(cur.from)} to ${scopeLabel(cur.scope)}.`);
 });
 
-// The editor hides while the patch boxes stay live (historypick.js).
+// The editor hides while the patch boxes stay live (presetadd.js).
 let added = 0;
 const addedText = () => `Added ${added} row${added === 1 ? '' : 's'}`;
 // The rows the editor holds that read as a whole route, as preset items. Blank and unread rows are left out.
@@ -411,40 +414,32 @@ const rowItems = () =>
     .map(parseRow)
     .filter((p) => !p.error && p.item.src >= 0 && p.item.dsts.length)
     .map((p) => p.item);
+// The one add of the session, for the boxes' Take and the Grid popup. Rows already there go, and a problem the new rows
+// would make at Save is refused now (itemsToAdd). text is the row count so far, or why nothing was added.
+function addToPreset(items) {
+  const r = itemsToAdd(rowItems(), items);
+  const text = r.err || (r.items.length ? '' : 'Already in the preset.');
+  if (text) return { ok: false, rows: 0, text };
+  addRows(r.items, '');
+  added += r.items.length;
+  return { ok: true, rows: r.items.length, text: addedText() };
+}
 function addFromBoxes() {
   if (!shown()) return setNote('The patch boxes are not showing.', true);
   picking = true;
   added = 0;
   dlg.hide();
-  startPick({
-    mode: 'boxes',
+  presetAdd.start({
     label: cur.name,
-    onCancel: () => {
+    rows: rowItems,
+    add: addToPreset,
+    onDone: () => {
       picking = false;
       if (!open) return;
       dlg.show();
       dialog.focus();
-      if (added) setNote(`Added ${added} row${added === 1 ? '' : 's'} from the patch boxes.`);
+      if (added) setNote(`${addedText()} from the patch boxes.`);
     },
-    onAddPatch: () => {
-      const host = shown();
-      const p = host?.patch();
-      if (!p) return 'Pick a Source and a Destination first.';
-      addRows([{ src: p.src.n, dsts: p.dsts.map((d) => d.n), levels: p.levels }], '');
-      host.clear();
-      added++;
-      return addedText();
-    },
-    // From the Grid popup (gridpopup.js): the routes a click picked, as preset items.
-    onAddItems: (items) => {
-      const r = itemsToAdd(rowItems(), items);
-      if (r.err) return { ok: false, text: r.err, count: added ? addedText() : '' };
-      if (!r.items.length) return { ok: false, text: 'Already in the preset.', count: added ? addedText() : '' };
-      addRows(r.items, '');
-      added += r.items.length;
-      return { ok: true, rows: r.items.length, count: addedText() };
-    },
-    rows: rowItems,
   });
   shown().focus();
 }
@@ -650,6 +645,7 @@ on('locking', () => {
   if (picking) {
     picking = false;
     endPick();
+    presetAdd.end();
   }
   if (!open) return;
   discard = true;

@@ -69,11 +69,11 @@ export function paintXp(xp, s, d, view) {
   setData(xp, 's', st);
   if (starts) joinPulse(xp);
   setData(xp, 'on', on.length ? on.join(',') : undefined);
-  const kept = !!view.inPreset?.(s, d);
-  setData(xp, 'preset', kept ? '' : undefined);
+  const marked = !!view.marks?.xps.has(`${s},${d}`);
+  setData(xp, 'mark', marked ? '' : undefined);
   if (xp.getAttribute('aria-disabled') !== String(prot)) xp.setAttribute('aria-disabled', String(prot));
   const state = out ? ', staged, left out of the take' : staged.length ? ', staged. Right-click or Alt-click to unstage' : '';
-  const label = `${view.names.source(s)} to ${view.names.destination(d)}${on.length ? `, levels ${view.levelText(on)}` : ''}${prot ? ', protected' : ''}${state}${kept ? ', in the preset' : ''}`;
+  const label = `${view.names.source(s)} to ${view.names.destination(d)}${on.length ? `, levels ${view.levelText(on)}` : ''}${prot ? ', protected' : ''}${state}${marked ? view.marks.words.route : ''}`;
   if (xp.getAttribute('aria-label') !== label) xp.setAttribute('aria-label', label);
 }
 
@@ -169,11 +169,12 @@ export function paintDstMarks(n, d, view) {
   if (use.getAttribute('href') !== href) use.setAttribute('href', href);
   setData(prot, 'owner', hold?.owner);
   setData(prot, 'pbTip', hold?.tip);
-  // Protected wins: a protected destination has nothing staged. In the Grid popup's add mode, rows in the preset.
-  const mark = p ? '' : view.held(d) ? 'staged' : view.presetName?.('dsts', d) ? 'in preset' : '';
-  const h = !!mark;
-  setText(held, mark);
-  setData(held, 'preset', mark === 'in preset' ? '' : undefined);
+  // Protected wins: a protected destination has nothing staged. Then a press policy's mark (gridpaneladd.js).
+  const marked = !p && !view.held(d) && !!view.marks?.dsts.has(d);
+  const heldText = p ? '' : marked ? view.marks.words.name : view.held(d) ? 'staged' : '';
+  const h = !!heldText;
+  setText(held, heldText);
+  setData(held, 'mark', marked ? '' : undefined);
   if (held.hidden === h) held.hidden = !h;
   const o = view.other(d);
   setText(other, o.text);

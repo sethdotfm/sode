@@ -26,7 +26,7 @@ test('topDialog: one hidden by someone else is skipped', () => {
   assert.equal(topDialog([a, b]), b);
 });
 
-import { backdropClose, bringToFront } from '../dialogkeys.js';
+import { backdropClose, bringToFront, onBackdropPress } from '../dialogkeys.js';
 
 test('backdropClose: only when mousedown and mouseup were both on the backdrop', () => {
   const root = {},
@@ -37,6 +37,27 @@ test('backdropClose: only when mousedown and mouseup were both on the backdrop',
   assert.equal(backdropClose(inner, inner, root), false);
   assert.equal(backdropClose(null, root, root), false);
   assert.equal(backdropClose(root, null, root), false);
+});
+
+test('onBackdropPress: a press and release on the backdrop calls fn, a drag out of the box does not', () => {
+  const on = {};
+  const root = { addEventListener: (k, f) => (on[k] = f) };
+  const inner = {};
+  let n = 0;
+  onBackdropPress(root, () => n++);
+  const press = (down, up, click) => {
+    on.mousedown({ target: down });
+    on.mouseup({ target: up });
+    on.click({ target: click });
+  };
+  press(root, root, root);
+  assert.equal(n, 1);
+  press(inner, root, root);
+  press(root, inner, root);
+  assert.equal(n, 1);
+  // A click with no press of its own (a key on a button) is not a backdrop press.
+  on.click({ target: root });
+  assert.equal(n, 1);
 });
 
 test('bringToFront: moves a scrim to the end of its parent, keeps focus', () => {

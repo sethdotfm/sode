@@ -1007,10 +1007,6 @@ html[data-alt] .sode__chip-key {
   opacity: 0.35;
   pointer-events: none;
 }
-/* The Grid popup's shield sets Protect on the router; adding to a preset sends nothing. */
-[data-sode-pick="boxes"] .sode-gridpop__shield.pb-btn--icon {
-  display: none;
-}
 [data-sode-pick=""] .sode__hist-row,
 [data-sode-pick=""] .sode-m__recent-face {
   cursor: pointer;

@@ -39,12 +39,16 @@
 :root[data-layout="phone"] .sode-gridpop {
   padding: 0;
 }
+/* No open or close motion: with a full grid behind it, a fade and a rise looked unsteady (owner's call). */
 .sode-gridpop__box {
   position: relative;
 }
-/* No open or close motion: with a full grid behind it, a fade and a rise looked unsteady (owner's call). */
-/* The shield over a destination name (gridpopshield.js), above the grid's sticky bands. */
-/* Small and bare, on the name's outer edge, so it hides neither the name nor a crosspoint. */
+/* The popup's parts that JS hides (gridpopup.js, gridpopshield.js, the body's count): their own display rules lose. */
+.sode-gridpop :is(.sode-gridpop__shield, .sode-gridpop__note > .sode-panel__status, .sode-gridpanel__count, .sode-gridpop__act, .sode-gridpop__adding)[hidden] {
+  display: none;
+}
+/* The shield over a destination name (gridpopshield.js), above the grid's sticky bands. It is small and bare, on the
+   name's outer edge, so it hides neither the name nor a crosspoint. */
 .sode-gridpop__shield.pb-btn--icon {
   background: transparent;
   border-color: transparent;
@@ -52,9 +56,6 @@
   position: absolute;
   width: var(--pb-control-h-sm);
   z-index: var(--pb-z-sticky);
-}
-.sode-gridpop__shield[hidden] {
-  display: none;
 }
 /* The band over the grid: the two search boxes side by side and the Filter switch, then the staged count and Close.
    Its surface and the switch's look are the Grid panel deck's (gridpanel.css). */
@@ -95,8 +96,8 @@
   margin: var(--pb-space-4) var(--pb-space-5) 0;
 }
 /* The spacer between the search boxes and the "N staged" badge holds a refusal or result, cut to one line (tooltip.js
-   shows it in full), so the grid never moves. */
-/* Room for a short refusal in full: the search boxes give way first. */
+   shows it in full), so the grid never moves. It has room for a short refusal in full: the search boxes give way
+   first. */
 .sode-gridpop__band > .sode-gridpop__note {
   display: flex;
   flex: 1 1 16rem;
@@ -113,9 +114,6 @@
 }
 .sode-gridpop .sode-gridpop__note > .sode-panel__status--ok {
   color: var(--pb-status-ok);
-}
-.sode-gridpop .sode-gridpop__note > .sode-panel__status[hidden] {
-  display: none;
 }
 /* Then the badge, Clear, Take and Close. */
 .sode-gridpop__band > :is(.sode-gridpanel__count, .sode-gridpop__act) {
@@ -136,14 +134,8 @@
 .sode-gridpop__band > :is(.sode-gridpanel__count, .sode-gridpop__rows)::before {
   display: none;
 }
-.sode-gridpop__band > .sode-gridpanel__count[hidden] {
-  display: none;
-}
 .sode-gridpop__band > .sode-gridpop__act {
   height: var(--sode-h-action);
-}
-.sode-gridpop__band > .sode-gridpop__act[hidden] {
-  display: none;
 }
 /* Adding to a preset (gridpopup.js paintMode): the page's accent bar over the band, and an accent edge round the box,
    so the popup never reads as the take grid. */
@@ -158,9 +150,6 @@
   flex-direction: column;
   padding: var(--pb-space-3) var(--pb-space-5);
 }
-.sode-gridpop__adding[hidden] {
-  display: none;
-}
 .sode-gridpop__adding-msg {
   font-size: var(--pb-text-lg);
 }
@@ -174,22 +163,24 @@
 :root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act:is(.sode-gridpop__done, .sode-gridpop__rows):not([hidden]) {
   display: inline-flex;
 }
-/* Routes already in the preset (gridpanelnodes.js data-preset): a square accent box with a wash, apart from the
-   round pulsing staged ring and the round cursor. Names with a row get the accent wash and bar, as Find's amber. */
-.sode-gridpanel__xp[data-preset] {
+/* Routes already in the preset (the press policy's data-mark, gridpanelnodes.js): a square accent box with a wash,
+   apart from the round pulsing staged ring and the round cursor. Names with a row get the accent wash and bar, as
+   Find's amber. */
+.sode-gridpanel__xp[data-mark] {
   background-color: var(--pb-accent-wash);
   outline: calc(var(--pb-border-w) * 3) solid var(--pb-accent);
   outline-offset: calc(var(--pb-space-2) * -1);
 }
-.sode-gridpanel__held[data-preset] {
+.sode-gridpanel__held[data-mark] {
   color: var(--pb-accent);
 }
-.sode-gridpanel__src[data-preset]:not([data-picked]) {
+:is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-mark]:not([data-picked]) {
   background-color: color-mix(in oklab, var(--pb-accent-wash), var(--pb-surface-raised));
+}
+.sode-gridpanel__src[data-mark]:not([data-picked]) {
   box-shadow: inset 0 calc(var(--pb-border-w) * -4) 0 var(--pb-accent);
 }
-.sode-gridpanel__dst[data-preset]:not([data-picked]) {
-  background-color: color-mix(in oklab, var(--pb-accent-wash), var(--pb-surface-raised));
+.sode-gridpanel__dst[data-mark]:not([data-picked]) {
   box-shadow: inset calc(var(--pb-border-w) * 4) 0 0 var(--pb-accent);
 }
 /* The phone band has no room for Done and the note side by side, so the note gets its own row under them. */

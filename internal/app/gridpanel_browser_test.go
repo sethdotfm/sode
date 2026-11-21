@@ -366,7 +366,7 @@ func TestChromeGridPanelProtected(t *testing.T) {
 		return dst(n) + `.classList.contains('pb-xpt--protected') && !` + dst(n) + `.querySelector('.sode-gridpanel__prot').hidden && ` + dst(n) + `.textContent.includes('Protected')`
 	}
 	gridShow(b, 1, 12)
-	b.waitFor("Rec B shows the lock and Protected", protShown(12)+` && !!`+dst(12)+`.querySelector('use[href$="lock"]')`)
+	b.waitFor("Rec B shows the shield and Protected", protShown(12)+` && !!`+dst(12)+`.querySelector('use[href$="shield"]')`)
 	gridShow(b, 1, 25)
 	b.waitFor("another source is named on the Destination bar", dst(25)+`.querySelector('.sode-gridpanel__other')?.textContent === '`+src25+`'`)
 

@@ -73,9 +73,35 @@ test('each mode says its own count, Add label and whether Add is on', () => {
   assert.equal(MODES.history.addText(history, taken), 'Add 2');
   assert.equal(MODES.history.addText(history, []), 'Add');
   assert.equal(MODES.history.canAdd(history, []), false);
-  const boxes = { note: 'Added 1' };
-  assert.equal(MODES.boxes.count(boxes, []), 'Added 1');
-  assert.equal(MODES.boxes.addText(boxes, []), 'Add');
-  assert.equal(MODES.boxes.canAdd(boxes, []), true);
+  assert.equal(MODES.history.msg({ label: 'Show' }), 'Choose entries for “Show”');
   assert.equal(MODES.history.cancelText + MODES.boxes.cancelText, 'CancelDone');
+});
+
+test('the boxes mode reads the Add from Patch Boxes session and has no Add of its own', async () => {
+  const { presetAdd } = await import('../presetadd.js');
+  let rows = [];
+  const add = (items) => {
+    const fresh = items.filter((it) => !rows.some((r) => r.src === it.src));
+    if (!fresh.length) return { ok: false, rows: 0, text: 'Already in the preset.' };
+    rows = [...rows, ...fresh];
+    return { ok: true, rows: fresh.length, text: `Added ${rows.length}` };
+  };
+  let done = 0;
+  presetAdd.start({ label: 'Show', rows: () => rows, add, onDone: () => done++ });
+  assert.equal(MODES.boxes.msg(), 'Add patches to “Show”');
+  assert.equal(MODES.boxes.addShown, false);
+  const patch = { src: { n: 3 }, dsts: [{ n: 5 }], levels: [] };
+  assert.equal(presetAdd.addPatch(patch).ok, true);
+  assert.equal(MODES.boxes.count(), 'Added 1');
+  // A failed grid add keeps the bar's count; a failed Take of the boxes says why.
+  assert.equal(presetAdd.add([{ src: 3, dsts: [5], levels: [] }]).text, 'Already in the preset.');
+  assert.equal(MODES.boxes.count(), 'Added 1');
+  presetAdd.addPatch(null);
+  assert.equal(MODES.boxes.count(), 'Pick a Source and a Destination first.');
+  presetAdd.addPatch(patch);
+  assert.equal(MODES.boxes.count(), 'Already in the preset.');
+  presetAdd.done();
+  assert.equal(done, 1);
+  assert.equal(presetAdd.active(), false);
+  assert.equal(presetAdd.label(), 'the preset');
 });

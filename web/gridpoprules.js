@@ -100,17 +100,8 @@ export function noRouteLine(r, { src, dst }) {
   return r.outside ? `${dst(r.n)} gets its source from outside your Rights.` : `${dst(r.n)} has no source on these levels.`;
 }
 
-// The rows of a preset as marks: each route's "src,dst", and the sources and destinations that have a row.
-export function presetMarks(items) {
-  const m = { rows: items.length, xps: new Set(), srcs: new Set(), dsts: new Set() };
-  for (const it of items) {
-    m.srcs.add(it.src);
-    for (const d of it.dsts) {
-      m.dsts.add(d);
-      m.xps.add(`${it.src},${d}`);
-    }
-  }
-  return m;
-}
+// The preset items a press adds. A crosspoint stores what the boxes' Add stores: no levels (the default levels) while
+// the main Levels box is empty (boxLevels []). A name stores the levels its routes have now.
+export const storedItems = (r, boxLevels) => (r.kind === 'xp' && !boxLevels.length ? [{ ...r.items[0], levels: [] }] : r.items);
 
 export const rowsWord = (n) => `${many(n, 'row')} in the preset`;

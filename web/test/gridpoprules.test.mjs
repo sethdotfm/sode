@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from '../gridpoprules.js';
+import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount, storedItems } from '../gridpoprules.js';
 import { envFrom, namesFrom } from '../panelrules.js';
 import { gridAxes } from '../gridpaneledges.js';
 
@@ -137,4 +137,12 @@ test('the main Take counts the staged routes and the boxes route as one take sen
   assert.equal(takeCount(staged, { src: 9, dsts: [6], levels: [1] }), 2);
   // The same route as a staged one stays one route.
   assert.equal(takeCount(staged, { src: 2, dsts: [6], levels: [2] }), 2);
+});
+
+test('a crosspoint add stores no levels while the Levels box is empty, as the boxes Add does; a name keeps its levels', () => {
+  const xp = { kind: 'xp', items: [{ src: 3, dsts: [5], levels: [1, 2] }] };
+  assert.deepEqual(storedItems(xp, []), [{ src: 3, dsts: [5], levels: [] }]);
+  assert.deepEqual(storedItems(xp, [2]), xp.items);
+  const name = { kind: 'dsts', items: [{ src: 3, dsts: [5], levels: [1, 2] }] };
+  assert.deepEqual(storedItems(name, []), name.items);
 });

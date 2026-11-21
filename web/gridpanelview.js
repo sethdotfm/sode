@@ -145,7 +145,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
       setData(n, 'num', String(s + (view.names.off || 0)));
       pick(n, view.picked('srcs', s));
       setData(n, 'found', view.found('srcs', s) ? '' : undefined);
-      setData(n, 'preset', view.presetName?.('srcs', s) ? '' : undefined);
+      setData(n, 'mark', view.marks?.srcs.has(s) ? '' : undefined);
       paintArt(n.lastChild, view.art('srcs', s));
     }
     markName(n, mark.srcs.get(s));
@@ -158,7 +158,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
       setData(n, 'num', String(d + (view.names.off || 0)));
       pick(n, view.picked('dsts', d));
       setData(n, 'found', view.found('dsts', d) ? '' : undefined);
-      setData(n, 'preset', view.presetName?.('dsts', d) ? '' : undefined);
+      setData(n, 'mark', view.marks?.dsts.has(d) ? '' : undefined);
       paintDstMarks(n, d, view);
       paintArt(n.lastChild, view.art('dsts', d));
     }

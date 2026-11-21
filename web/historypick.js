@@ -1,8 +1,9 @@
 // Pick mode for History (the preset editor's "Add from History..."): rows get check boxes, and a bar says what Add does.
-// Mode 'boxes' ("Add from Patch Boxes...") uses the same bar and state, and the patch boxes stay live.
+// Mode 'boxes' is the same bar for the Add from Patch Boxes session (presetadd.js); the patch boxes stay live.
 // Each layout asks picking()/pickBox() while it builds rows, redraws on 'pick' and calls bindPick(list) one time.
 import { el, on, emit, S, icon } from './core.js';
 import { histRows } from './history.js';
+import { presetAdd } from './presetadd.js';
 
 // Keys: 'e<id>' (an entry, or a stacked row's newest) and 'f<group>' (a Group: all its entries).
 export function indexRows(rows) {
@@ -43,7 +44,7 @@ const plural = (n) => `${n} route${n === 1 ? '' : 's'}`;
 // count/addText/canAdd get the state and, in History, the routes ticked now (taken), worked out one time per redraw.
 export const MODES = {
   history: {
-    msg: (name) => `Choose entries for ${name}`,
+    msg: (s) => `Choose entries for ${s.label ? `“${s.label}”` : 'the preset'}`,
     aria: 'Choose entries from History',
     follows: true,
     cancelText: 'Cancel',
@@ -58,39 +59,24 @@ export const MODES = {
     // Esc always cancels.
     escCancels: () => true,
   },
+  // The preset editor's Add from Patch Boxes (presetadd.js): the bar shows while the session is active.
   boxes: {
-    msg: (name) => `Add patches to ${name}`,
+    msg: () => `Add patches to ${presetAdd.label()}`,
     sub: 'Fill Source, Destination and Levels in the boxes, then Add (Enter).',
     aria: 'Add patches from the patch boxes',
     follows: false,
     cancelText: 'Done',
     // The patch boxes' Take reads Add in this mode (desktop.js, mobile.js), so the bar has no Add of its own.
     addShown: false,
-    count: (s) => s.note,
-    addText: () => 'Add',
-    canAdd: () => true,
-    add(s) {
-      s.note = s.onAddPatch();
-      // onAddPatch says "Added N rows" or why it added nothing.
-      s.ok = /^Added /.test(s.note);
-      update();
-    },
+    count: () => presetAdd.note(),
     // Esc still clears a box or closes its list first.
     escCancels: (e) => !(e.target instanceof HTMLInputElement && (e.target.value || e.target.getAttribute('aria-expanded') === 'true')),
-    // From the Grid popup (gridpopup.js): items are preset items, the routes a click picked.
-    addItems(s, items) {
-      const r = s.onAddItems(items);
-      s.note = r.count;
-      update();
-      return r;
-    },
   },
 };
 
-// { mode, label, onAdd(takes), onAddPatch(): note, onCancel(), picked: Set of keys, follows, ok, note }
+// { mode, label, ok(e), onAdd(takes), onCancel(), picked: Set of keys, follows }
 let st = null;
 export const picking = () => st?.mode === 'history';
-export const boxPicking = () => st?.mode === 'boxes';
 export const isPicked = (key) => !!st?.picked.has(key);
 
 const pickedNow = (s) => pickedEntries(indexRows(histRows(S.hist)), s.picked, s.follows, s.ok);
@@ -102,10 +88,7 @@ export function togglePick(key) {
   update();
 }
 
-// opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() }.
-// Mode 'boxes' has { label, onAddPatch(), onAddItems(items), rows(), onCancel() }. onAddPatch adds the boxes' patch
-// and returns a line to show. onAddItems answers { ok, rows, text, count }. rows gives the preset's rows as items.
-// onCancel is Done.
+// opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() }. Mode 'boxes' starts from the session.
 export function startPick(opts) {
   if (st) return;
   st = { mode: 'history', ...opts, picked: new Set(), follows: false, note: '' };
@@ -125,16 +108,13 @@ function finish(fn) {
   fn?.(s);
 }
 export const endPick = () => finish(null);
-const cancel = () => finish((s) => s.onCancel?.());
-export const addPatch = () => st?.mode === 'boxes' && MODES.boxes.add(st);
-// The Grid popup's seams: its clicks add here, its Done ends the mode, and its header names the preset.
-export const addItems = (items) => (st?.mode === 'boxes' ? MODES.boxes.addItems(st, items) : { ok: false, text: '' });
-export const donePick = () => cancel();
-// The rows of the preset being edited, as preset items ([] when not adding from the boxes).
-export const pickRows = () => (st?.mode === 'boxes' ? st.rows?.() || [] : []);
-// The bar's last line after an Add of the boxes' patch, and whether it added: { text, ok }.
-export const pickNote = () => ({ text: st?.note || '', ok: !!st?.ok });
-export const pickLabel = () => (st?.label ? `“${st.label}”` : 'the preset');
+// Done in the boxes mode ends the session, and the session's event ends the bar.
+const cancel = () => (st?.mode === 'boxes' ? presetAdd.done() : finish((s) => s.onCancel?.()));
+on('presetAdd', () => {
+  if (presetAdd.active() && !st) startPick({ mode: 'boxes' });
+  else if (!presetAdd.active() && st?.mode === 'boxes') finish(null);
+  else if (st?.mode === 'boxes') update();
+});
 const add = () => st && MODES[st.mode].add(st);
 
 const msg = el('strong', 'sode__pickbar-msg');
@@ -177,16 +157,18 @@ function update() {
   if (st) {
     const m = MODES[st.mode];
     const t = m.taken?.(st) || [];
-    msg.textContent = m.msg(pickLabel());
+    msg.textContent = m.msg(st);
     sub.textContent = m.sub || '';
     bar.setAttribute('aria-label', m.aria);
     followsBox.hidden = !m.follows;
     cancelBtn.textContent = m.cancelText;
     clearChip();
     count.textContent = m.count(st, t);
-    addBtn.textContent = m.addText(st, t);
-    addBtn.disabled = !m.canAdd(st, t);
     addBtn.hidden = m.addShown === false;
+    if (!addBtn.hidden) {
+      addBtn.textContent = m.addText(st, t);
+      addBtn.disabled = !m.canAdd(st, t);
+    }
     gridBtn.hidden = st.mode !== 'boxes';
   }
   emit('pick');
@@ -215,8 +197,8 @@ document.addEventListener(
   'keydown',
   (e) => {
     if (!st || e.key !== 'Escape') return;
-    // While the Grid popup shows, Esc closes the popup only (gridpopup.js).
-    if (document.getElementById('grid-pop')?.hidden === false || !MODES[st.mode].escCancels(e)) return;
+    // While the Grid popup covers the bar, Esc closes the popup only (gridpopup.js).
+    if (presetAdd.covered() || !MODES[st.mode].escCancels(e)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     cancel();

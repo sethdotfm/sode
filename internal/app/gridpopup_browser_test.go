@@ -442,5 +442,17 @@ func TestChromeMainGridPopupTakeClear(t *testing.T) {
 	gridConfirm(b)
 	tallyHas(t, a, ana, 5, 1)
 	b.waitFor("the staged list empties", `document.getElementById('grid-staged').hidden && `+take+`.disabled`)
+
+	// With nothing staged, the popup's Take is on while the patch boxes hold a route, as the page's Take is.
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("Esc closes the popup", `document.getElementById('grid-pop').hidden`)
+	popTyped(b, "src", "8")
+	popTyped(b, "dst", "10")
+	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	b.waitFor("the popup again", shown)
+	b.waitFor("Take is on for the boxes' route and reads Take", `!`+take+`.disabled && `+take+`.textContent === 'Take' && `+clear+`.disabled`)
+	realClick(b, "#grid-pop .sode-gridpop__take")
+	gridConfirm(b)
+	tallyHas(t, a, ana, 9, 7)
 	b.check()
 }
