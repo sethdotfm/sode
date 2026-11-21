@@ -28,7 +28,7 @@ type Entry struct {
 	Dst         int      `json:"dst"`
 	DstName     string   `json:"dstName"`
 	Levels      []int    `json:"levels"`
-	Prev        [][2]int `json:"prev"` // [UI level, src] before the take; src -1 = nothing routed
+	Prev        [][2]int `json:"prev"` // [UI level, src] before the take, or on dst for a Protect entry; src -1 = nothing routed
 	OK          bool     `json:"ok"`
 	Err         string   `json:"err,omitempty"`
 	Undo        *int     `json:"undo,omitempty"`

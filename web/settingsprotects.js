@@ -1,5 +1,5 @@
 // Settings > Routers > Protects (Administrator): every Protect and Router lock the router reports, with the device
-// that set it, and Sode's own with the Sode user. Clear is offered only on Sode's own. Clear Sode's Protects clears
+// that set it, and Sode's own with the Sode user. Free is offered only on Sode's own. Free Sode's Protects frees
 // every one with Sode's device number; it is Critical, so the server asks the PIN again.
 
 import { $, el, S, on, dstItem, labelNode } from './core.js';
@@ -20,10 +20,10 @@ function row(n, h) {
   const dst = dstItem(n);
   const clear =
     h.sode &&
-    btn('pb-btn--outline pb-btn--sm', 'Clear', async () => {
-      if (await confirm.ask(`Clear the Protect on ${dst.label}, every level? ${holdLabel(h)}.`, 'Clear')) sendProtect(protectPlan(dst, false));
+    btn('pb-btn--outline pb-btn--sm', 'Free', async () => {
+      if (await confirm.ask(`Free the Protect on ${dst.label}, every level? ${holdLabel(h)}.`, 'Free')) sendProtect(protectPlan(dst, false));
     });
-  if (clear) clear.setAttribute('aria-label', `Clear the Protect on ${dst.label}`);
+  if (clear) clear.setAttribute('aria-label', `Free the Protect on ${dst.label}`);
   const li = el(
     'li',
     'sode__protects-row',
@@ -43,7 +43,7 @@ function render() {
   for (const n of dsts) {
     const p = holdsAt(n);
     for (const h of p.holds) rows.push(row(n, h));
-    // Sode's record names levels the router does not report: Clear Sode's Protects sends the clear for them too.
+    // Sode's record names levels the router does not report: Free Sode's Protects sends the Free Protect for them too.
     const rec = S.protBy.get(n);
     const lost = rec ? rec.levels.filter((u) => !p.levels.includes(u)) : [];
     if (lost.length)
@@ -62,10 +62,10 @@ const later = () => {
 for (const ev of ['hello', 'tally', 'names']) on(ev, later);
 
 $('protects-clear-all').addEventListener('click', async () => {
-  const ok = await confirm.ask("Clear every Protect with Sode's device number? Destinations other users hold go free.", "Clear Sode's Protects");
+  const ok = await confirm.ask("Free every Protect with Sode's device number? Destinations other users hold go free.", "Free Sode's Protects");
   if (!ok) return;
-  status.textContent = 'Clearing…';
+  status.textContent = 'Freeing…';
   clearSodeProtects((done, text) => {
-    status.textContent = done ? `Sode's Protects cleared: ${text}.` : `Not cleared: ${text}.`;
+    status.textContent = done ? `Sode's Protects freed: ${text}.` : `Not freed: ${text}.`;
   });
 });

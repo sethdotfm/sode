@@ -62,7 +62,7 @@ export const ACTIONS = Object.freeze([
     icon: 'shield',
     home: true,
     protect: true,
-    words: ['protect destinations', 'shield', 'clear protect', 'clear protects', 'unprotect'],
+    words: ['protect destinations', 'shield', 'free protect', 'free protects', 'clear protect', 'unprotect'],
   },
   { id: 'compact', label: 'Compact view on or off', icon: 'minimize-2', home: true, desktop: true, words: ['compact', 'hide history'] },
   { id: 'theme', label: 'Dark or light theme', icon: 'moon', words: ['theme', 'dark', 'light', 'colour', 'color'] },
