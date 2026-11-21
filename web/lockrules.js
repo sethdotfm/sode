@@ -190,11 +190,14 @@ export const signInAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
 // One value {mode, back}. mode is one of MODE. PAGE: a lock from the server can still cover it
 // (see viewBody). LOCK: the Lock with nobody signed in. SIGN_IN: a pad by request, dismissable.
+// STEP_IN: the same pad sends a stepIn (stepin.js), dismissable, and the page under it stays as it is.
 // back: where Cancel / Esc of a sign-in returns to ('page' or 'lock'). Pure; lock.js does the DOM.
-export const MODE = Object.freeze({ PAGE: 'page', LOCK: 'lock', SIGN_IN: 'signIn' });
+export const MODE = Object.freeze({ PAGE: 'page', LOCK: 'lock', SIGN_IN: 'signIn', STEP_IN: 'stepIn' });
 export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
 
-export const viewBody = (v, covered) => (v.mode === MODE.LOCK ? 'letter' : covered || v.mode === MODE.SIGN_IN ? 'pad' : '');
+export const padAsked = (v) => v.mode === MODE.SIGN_IN || v.mode === MODE.STEP_IN;
+
+export const viewBody = (v, covered) => (v.mode === MODE.LOCK ? 'letter' : covered || padAsked(v) ? 'pad' : '');
 
 export const lockCovers = (s) => !!s.locked && !!(s.enforced || s.held);
 
@@ -219,10 +222,16 @@ export const startSignIn = (v, fromLock) =>
 // The view stays LOCK so the page stays covered; "Sign in as…" remains when users exist.
 export const signOutOffered = (s) => !s.enforced && !!s.user;
 
-export const signInCancelled = (v) => (v.mode === MODE.SIGN_IN ? PAGE_VIEW : v);
+export const signInCancelled = (v) => (padAsked(v) ? PAGE_VIEW : v);
 
-// covered: a lock from the server is up (lockCovers).
-export const lockArrived = (v, covered) => (covered && v.mode === MODE.LOCK ? PAGE_VIEW : v);
+// covered: a lock from the server is up (lockCovers). Its pad replaces a Step in.
+export const lockArrived = (v, covered) => (covered && (v.mode === MODE.LOCK || v.mode === MODE.STEP_IN) ? PAGE_VIEW : v);
+
+export const startStepIn = (v) => (v.mode === MODE.PAGE ? { mode: MODE.STEP_IN, back: 'page' } : v);
+
+// The Step in pad closes once the step-in is in, or when Step in is no longer offered (stepInOffered). Any other
+// lockState, such as one after a Settings save, keeps a half-typed PIN.
+export const stepInKept = (v, offered) => (v.mode === MODE.STEP_IN && !offered ? PAGE_VIEW : v);
 
 // A sign-in ends only with an enforced lock or a real unlock. Any other state (someone else saved
 // settings, a token catch-up) says nothing about the pad.
