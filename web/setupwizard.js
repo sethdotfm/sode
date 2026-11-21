@@ -1,6 +1,6 @@
 // The setup wizard (docs/agents/server.md, setup.go): a config file with no users opens it in
 // place of the patch page. Nothing is sent but the Router step's address until Finish.
-import { $, S, el, on, onMsg, wsSend, icon, LINK_DOWN } from './core.js';
+import { $, S, el, on, emit, onMsg, wsSend, icon, LINK_DOWN } from './core.js';
 import { showBrand } from './brand.js';
 import { statusText } from './statustext.js';
 import { keepSignInToken } from './signin.js';
@@ -388,7 +388,7 @@ $('setup-body').addEventListener('click', (e) => {
   if (next) {
     e.preventDefault();
     openSode();
-    $('settings-open').click();
+    emit('settingsOpen');
     document.querySelector(`fieldset[data-section="${next.dataset.section}"]`)?.scrollIntoView({ block: 'start' });
     return;
   }

@@ -64,7 +64,8 @@ func (a *App) actingMu(c *client, n need) acting {
 		}
 	}
 	role, rt := cfg.GuestActs()
-	if !open || a.heldMu(c, cfg) {
+	// With no users nobody can pass a page lock, so it does not apply (GuestActs: every browser is an Administrator).
+	if (!open && len(cfg.Users) > 0) || a.heldMu(c, cfg) {
 		role = ""
 	}
 	return acting{Actor{Kind: actorGuest, Name: "Guest"}, role, rt}

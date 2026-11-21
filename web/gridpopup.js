@@ -397,16 +397,5 @@ export function takeStaged() {
 // The main page's Clear and Esc (desktop.js).
 export const dropStaged = () => body?.drop();
 
-for (const [id, fn] of [
-  ['grid-open', () => showGrid()],
-  ['m-grid', () => showGrid()],
-]) {
-  const b = $(id);
-  if (!b) continue;
-  // The patch boxes keep focus, as for Take.
-  if (id === 'grid-open') {
-    b.addEventListener('mousedown', (e) => e.preventDefault());
-    b.dataset.pbTip = `Grid popup (${keyLabel('ctrl+e')})`;
-  }
-  b.addEventListener('click', fn);
-}
+// The phone's Grid button; the desktop one is in the page header (homebar.js).
+$('m-grid')?.addEventListener('click', () => showGrid());

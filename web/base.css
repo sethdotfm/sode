@@ -76,12 +76,14 @@ html {
   border: var(--pb-border-w) solid var(--pb-edge);
 }
 /* The owner wants no colored square in a badge or a status. The word gives the status, with a badge's text, edge and
-   fill color. The Server and Router status has no dot either: it shows a state glyph (.sode__state, bar.css). */
+   fill color. The Server and Router status shows a state glyph (.sode__state, bar.css). */
 .pb-badge::before {
   content: none;
 }
-.pb-dot {
-  display: none;
+/* Pull to load (widgets.js pullToLoad): the Load more button fills as the pull goes on. A tint of the accent, since
+   Sode's outline button fill is the hover grey. */
+:is(.sode__hist-more, .sode-m__recent-more, .sode-log__more) > .pb-btn {
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--pb-accent) 35%, transparent) calc(var(--sode-pull, 0) * 100%), transparent 0);
 }
 /* Patchbay's control sizes on the desktop layout: plain and small controls are compact, large ones are actions, and an
    icon button is square. A page part used live lifts its controls to the action height (below). The phone keeps

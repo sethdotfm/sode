@@ -380,7 +380,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       return true;
     }
     if (k === ',') {
-      $('settings-open').click();
+      emit('settingsOpen');
       return true;
     }
     if (k === '/') {
