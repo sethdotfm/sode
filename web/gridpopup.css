@@ -94,31 +94,55 @@
 :root[data-layout="phone"] .sode-gridpop .sode-gridpanel__levels {
   margin: var(--pb-space-4) var(--pb-space-5) 0;
 }
-/* The help line fills the room between the search boxes and the "N staged" badge, which sits next to Close. */
-.sode-gridpop__band > .sode-gridpop__help {
+/* The spacer between the search boxes and the "N staged" badge holds a refusal or result, cut to one line (tooltip.js
+   shows it in full), so the grid never moves. */
+/* Room for a short refusal in full: the search boxes give way first. */
+.sode-gridpop__band > .sode-gridpop__note {
+  display: flex;
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
+.sode-gridpop .sode-gridpop__note > .sode-panel__status {
+  color: var(--pb-status-error);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sode-gridpop__band > .sode-gridpanel__count {
+.sode-gridpop .sode-gridpop__note > .sode-panel__status--ok {
+  color: var(--pb-status-ok);
+}
+.sode-gridpop .sode-gridpop__note > .sode-panel__status[hidden] {
+  display: none;
+}
+/* Then the badge, Clear, Take and Close. */
+.sode-gridpop__band > :is(.sode-gridpanel__count, .sode-gridpop__act) {
+  flex: none;
   order: 1;
 }
 .sode-gridpop__band > .sode-gridpop__close {
   order: 2;
 }
-:root[data-layout="phone"] .sode-gridpop__help {
-  visibility: hidden;
-}
-.sode-gridpop .sode-panel__status {
-  color: var(--pb-status-error);
+/* The badge is read from a distance, so it is near a button's height, with no status square: its text says it. */
+.sode-gridpop__band > .sode-gridpanel__count {
+  font-size: var(--pb-text-md);
   font-weight: var(--pb-weight-bold);
-  margin: 0 var(--pb-space-5);
+  height: var(--sode-h-action);
+  padding: 0 var(--pb-space-5);
 }
-.sode-gridpop .sode-panel__status--ok {
-  color: var(--pb-status-ok);
+.sode-gridpop__band > .sode-gridpanel__count::before {
+  display: none;
 }
-.sode-gridpop .sode-panel__status[hidden] {
+.sode-gridpop__band > .sode-gridpanel__count[hidden] {
+  display: none;
+}
+.sode-gridpop__band > .sode-gridpop__act {
+  height: var(--sode-h-action);
+}
+/* The phone has the popup's own Take and Clear under the grid. */
+:root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act {
   display: none;
 }
 
