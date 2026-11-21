@@ -443,7 +443,7 @@ func TestRequestApprovalClearsAnotherUsersProtect(t *testing.T) {
 	}
 	asked(t, bo.ask("approvalAsk", 50, map[string]any{"for": map[string]any{"t": "protectClear", "id": 4, "protect": map[string]any{"dst": 4}}}))
 	card := ada.until("approvalCard")
-	if card["what"] != "Clearing another user's Protect" || card["from"] != "Bo" {
+	if card["what"] != "Freeing another user's Protect on 5 MON 4" || card["from"] != "Bo" {
 		t.Fatalf("card %v", card)
 	}
 	if r := ada.answer(card["request"], true, "2468"); r["ok"] != true {

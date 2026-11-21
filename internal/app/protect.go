@@ -725,7 +725,7 @@ func (a *App) serveProtect(c *client, m *inMsg, set bool) {
 			o = a.protectClear(c, p.Dst, p.Undo, m.approver)
 		}
 		if o.Err != nil {
-			a.command(c, why, outcome(o.Err), approvedNote(m.approver, fmt.Sprintf("destination %d", p.Dst+a.r().cfg.NumberOffset)), o.Err)
+			a.command(c, why, outcome(o.Err), approvedNote(m.approver, "destination "+a.dstLabels(p.Dst)[0]), o.Err)
 		}
 		a.reply(c, protectResultOf(m.T, m.ID, o))
 	}()

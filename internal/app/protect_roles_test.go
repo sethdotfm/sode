@@ -189,3 +189,19 @@ func TestProtectGuestsShareOneOwner(t *testing.T) {
 		t.Fatalf("free: %s", got)
 	}
 }
+
+// The approver reads which destinations a Free Protect frees; past freeShown, a count of the others.
+func TestFreeWhatNamesTheDestinations(t *testing.T) {
+	for _, r := range []struct {
+		in   []string
+		want string
+	}{
+		{[]string{"4 DSM2"}, "Freeing another user's Protect on 4 DSM2"},
+		{[]string{"4 DSM2", "7"}, "Freeing other users' Protects on 2 destinations: 4 DSM2, 7"},
+		{[]string{"1", "2", "3", "4", "5", "6", "7"}, "Freeing other users' Protects on 7 destinations: 1, 2, 3, 4, 5 and 2 more"},
+	} {
+		if got := freeWhat(r.in); got != r.want {
+			t.Errorf("got %q, want %q", got, r.want)
+		}
+	}
+}

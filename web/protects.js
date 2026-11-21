@@ -158,7 +158,7 @@ function sendMany(plan) {
 
 function manyResult(many, dst, m) {
   if (m.ok) many.done.push(dst);
-  else many.failed.push(`${dst.label}: ${m.admin ? 'another user set it, so an Administrator must clear it' : m.err || 'refused'}`);
+  else many.failed.push(`${dst.label}: ${m.admin ? 'another user set it, so an Administrator must free it' : m.err || 'refused'}`);
   if (--many.left > 0) return;
   const n = many.done.length;
   const head = many.on ? `${n} Protected` : `${n} Protects cleared`;
@@ -198,7 +198,7 @@ function onResult(m) {
   if (m.admin && !p.answer && role && role !== 'administrator') {
     const send = (ap, ans) => sendProtect(p.plan, ap, ans);
     import('./approval.js').then(({ askApproval }) =>
-      askApproval("Clearing another user's Protect", 'an Administrator', send, {
+      askApproval(`Freeing another user's Protect on ${dst.label}`, 'an Administrator', send, {
         action: () => ({ t: 'protectClear', id: m.id, protect: { dst: dst.n } }),
       }),
     );
