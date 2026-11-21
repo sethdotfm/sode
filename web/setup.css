@@ -1,4 +1,5 @@
-[data-sode-setup] .sode > :not(#setup, #conn) {
+[data-sode-setup] .sode > :not(#setup, #home-bar),
+[data-sode-setup] .sode-home-bar > :not(.sode__conn) {
   display: none !important;
 }
 [data-sode-setup] .sode {

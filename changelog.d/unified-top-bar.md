@@ -1,0 +1,1 @@
+- The main page and Settings show the same page header as /panels, the panel editor and /log. It has the site name, links, Inbox and the status. The phone layout keeps its own header.

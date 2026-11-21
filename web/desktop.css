@@ -476,3 +476,33 @@
   right: calc(var(--sode-apron) * -2);
   top: calc(var(--pb-space-4) * -1 - var(--sode-down-h, 0px));
 }
+
+/* The main page's page header (homebar.js): the bar of /panels and /log at their top and edges (base.css .sode-bar,
+   --sode-head-x and --sode-head-max), over both views. The phone keeps its own header (mobile.css). */
+.sode > .sode-home-bar {
+  --sode-head-edge: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x));
+  left: var(--sode-head-edge);
+  position: absolute;
+  right: calc(var(--sode-head-edge) + var(--sode-page-bar));
+  top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
+  z-index: var(--pb-z-sticky);
+}
+.sode-home-bar > .sode-panels__title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-home-bar > .sode-panels__spacer {
+  flex: 1 1 auto;
+}
+/* Positioned, so the Compact view's apron (above) stays on the status. */
+.sode-home-bar > .sode__conn {
+  position: relative;
+}
+[data-layout="phone"] .sode-home-bar {
+  display: none;
+}
+/* The page starts below the bar and its line. */
+:root[data-layout="desktop"] .sode {
+  padding-top: calc(max(10vh, var(--pb-space-4) + var(--sode-h-action) + var(--pb-space-8)) + var(--sode-down-h, 0px));
+}

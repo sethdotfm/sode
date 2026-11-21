@@ -1,5 +1,5 @@
-// The one page header of every page but the main page and a panel page: /panels, the panel editor (its Live Editor
-// too) and /log. The Lock bar floats at its left (lock.css). Then come the site name, a group of icon links, a gap,
+// The one page header of every page but a panel page: the main page (homebar.js), /panels, the panel editor (its
+// Live Editor too) and /log. The Lock bar floats at its left (lock.css). Then come the site name, a group of icon links, a gap,
 // Inbox and the status. base.css lays it out. Panel pages keep their own.
 import { el, icon, on } from './core.js';
 import { connBox, paintConn } from './connview.js';
@@ -73,6 +73,7 @@ export function barTitle(title, text) {
 }
 
 // Makes head (a header with its .sode-panels__title) the bar: the links go after the title and the status goes last.
+// A head that already holds its status (the main page's #conn) keeps it, and its page paints it.
 export function panelsBar(head, opts = {}) {
   const title = head.querySelector('.sode-panels__title');
   // The ellipsis goes on an inner span, since the title's own overflow would cut its tip.
@@ -81,10 +82,11 @@ export function panelsBar(head, opts = {}) {
   barTitle(title, text);
   const tools = el('div', 'sode-bar__tools', ...barLinks(opts));
   title.after(tools);
+  head.classList.add('sode-bar');
+  if (head.querySelector(':scope > .sode__conn')) return tools;
   const conn = connBox();
   conns.add(conn);
   paintConn(conn);
-  head.classList.add('sode-bar');
   head.append(conn.root);
   return tools;
 }

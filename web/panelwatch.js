@@ -86,7 +86,7 @@ let menuOpen = false;
 
 function mountBanners() {
   if (banners.length || !document.getElementById('conn')) return;
-  for (const next of [document.getElementById('conn'), document.getElementById('m-result')]) {
+  for (const next of [document.getElementById('home-bar'), document.getElementById('m-result')]) {
     if (!next) continue;
     const box = el('div', 'sode__outage');
     box.dataset.panelOutage = '';
