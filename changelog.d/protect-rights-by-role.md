@@ -1,4 +1,4 @@
-- An Administrator can clear another user's Protect in the page when their Rights take away the Protect right. The route view, the Grid popup and History's Undo now offer it. The Protect picker still needs the Protect right.
+- An Administrator can free another user's Protect in the page when their Rights take away the Protect right. The route view, the Grid popup and History's Undo now offer it. The Protect picker still needs the Protect right.
 - With no users, Protect works from the route view. Before, the button showed and Sode refused it with "Protect is outside your Rights".
 - A guest under Guest role Trusted user has the Protect right, as a Trusted user has, unless Guest Rights set Protect to No. The Palette, the route view and the Grid popup offer Protect to that guest, and any guest can free a Protect that a guest set. Guest Rights now offer Protect: No.
 - The Approval for freeing another user's Protect names the destination, for example "Freeing another user's Protect on 4 DSM2". The approver's card, the waiting note, the Approval popup and the Log rows show it.
