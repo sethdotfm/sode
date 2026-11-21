@@ -492,6 +492,10 @@
   font-size: var(--pb-text-xl);
   font-weight: var(--pb-weight-bold);
 }
+/* Home's big heading already shows the site name. */
+:root:not([data-view="settings"]) .sode-home-bar > .sode-panels__title {
+  display: none;
+}
 .sode-home-bar > .sode-panels__spacer {
   flex: 1 1 auto;
 }
