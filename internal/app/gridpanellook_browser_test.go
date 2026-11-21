@@ -50,9 +50,9 @@ func TestChromeGridPanelLook(t *testing.T) {
 	b.waitFor("the header row has the main page's status at its right end and no other details", `(() => {
 		const t = (s) => [...document.querySelectorAll(s)].map((n) => n.textContent.trim()).join('|');
 		const conn = document.querySelector('.sode-gridpanel__headrow > .sode__conn');
-		const dots = [...conn.querySelectorAll('.pb-dot')];
+		const dots = [...conn.querySelectorAll('.sode__state')];
 		const row = conn.parentNode.getBoundingClientRect(), c = conn.getBoundingClientRect();
-		return t('.sode-gridpanel__headrow > .sode__conn .pb-status') === 'Server|Router' && dots.length === 2 && dots.every((d) => d.classList.contains('pb-dot--ok')) &&
+		return t('.sode-gridpanel__headrow > .sode__conn .pb-status') === 'Server|Router' && dots.length === 2 && dots.every((d) => d.dataset.state === 'ok') &&
 			!document.querySelector('.sode-gridpanel__meta, .sode-gridpanel__stat') && t('#panel-instance') === 'Desk' &&
 			getComputedStyle(conn).position === 'static' && conn.parentNode.lastElementChild === conn && row.right - c.right < 2;
 	})()`)

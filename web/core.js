@@ -462,14 +462,13 @@ on('conn', () => {
   for (const b of document.querySelectorAll('[data-needs-link]')) setLinkDisabled(b, !linked());
 });
 
-// The Server and Router status: a state glyph, not patchbay's square. The glyph's shape tells the state apart in
-// greyscale; pb-dot-- stays as the class tests and the phone layout look up.
+// The Server and Router status: a state glyph (.sode__state, bar.css), not patchbay's square. The glyph's shape tells
+// the state apart in greyscale. data-state is one of STATE_GLYPH's keys; the HTML leaves it out until the first paint.
 const STATE_GLYPH = { ok: 'circle-check', warn: 'loader-circle', error: 'circle-x', idle: 'circle-minus', info: 'circle-dot' };
 export function setDot(dotEl, textEl, [state, text]) {
-  dotEl.className = `pb-dot sode__state pb-dot--${state}`;
-  if (dotEl.dataset.glyph !== state) {
-    dotEl.dataset.glyph = state;
-    dotEl.replaceChildren(icon(STATE_GLYPH[state] || 'circle'));
+  if (dotEl.dataset.state !== state) {
+    dotEl.dataset.state = state;
+    dotEl.replaceChildren(icon(STATE_GLYPH[state]));
   }
   textEl.textContent = text;
 }

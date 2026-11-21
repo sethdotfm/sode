@@ -14,15 +14,17 @@
   column-gap: var(--pb-space-6);
   display: grid;
   /* Three groups of one width: Source, Destination with +, and Levels with Take and Clear. The arrow is between the
-     first two. The empty track keeps the old space-8 more between the last two. The last group is never narrower than
-     its controls, so on a narrow window (below about 1100 px) it is wider than the other two. */
+     first two. An empty track makes the space between the last two space-8; a margin would make Levels narrower. The
+     last group is never narrower than its controls, so on a narrow window (below about 1100 px) it is wider than the
+     other two. */
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) calc(var(--pb-space-8) - var(--pb-space-6)) minmax(min-content, 1fr);
   /* No row gap, so an empty row of routes under the boxes adds no height (.sode__under has the gap). */
   row-gap: 0;
   width: 100%;
 }
-/* No router has more than one level (levelview.js): Take and Clear are the last group, only as wide as they are. */
-.sode__boxes:has(.sode__box--levels[hidden]) {
+/* No router has more than one level (levelview.js sets data-levels): Take and Clear are the last group, only as wide
+   as they are. */
+.sode__boxes[data-levels="off"] {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
 }
 .sode__boxes > .sode__box--src {
@@ -79,10 +81,10 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   grid-column: 2;
   grid-row: 1;
 }
-.sode__group--levels:has(> .sode__box--levels[hidden]) {
+.sode__boxes[data-levels="off"] > .sode__group--levels {
   grid-template-columns: auto;
 }
-.sode__group--levels:has(> .sode__box--levels[hidden]) > .sode__box--take {
+.sode__boxes[data-levels="off"] > .sode__group--levels > .sode__box--take {
   grid-column: 1;
 }
 .sode__box {
@@ -267,7 +269,8 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin-left: var(--pb-space-8);
-  /* The picks are the old small squares in two rows. 9 columns (17 levels) and Select All fit under the Levels group; more columns scroll sideways inside the picks, so the box never grows a tall stack of picks. */
+  /* The picks are small squares in two rows. 9 columns (17 levels) and Select All fit under the Levels group; more
+     columns scroll sideways inside the picks, so the box never grows a tall stack of picks. */
   --sode-picker-cols: 9;
   --sode-pick-w: calc(var(--pb-space-8) + var(--pb-space-1));
   --sode-pick-gap: var(--pb-space-1);
@@ -390,31 +393,6 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   gap: var(--pb-space-2);
 }
 
-.sode__footer {
-  display: flex;
-  gap: var(--pb-space-4);
-  justify-content: center;
-  padding-top: var(--pb-space-6);
-  width: 100%;
-}
-/* The icon bar (Settings, Sode Panels, Grid) is a column fixed at the bottom left. The page's side gutters are never
-   narrower than the bar, so it covers no History row at any width or scroll. */
-:root:not([data-layout="phone"]) .sode__footer {
-  background: var(--pb-surface-base);
-  bottom: var(--pb-space-4);
-  flex-direction: column;
-  gap: var(--pb-space-2);
-  left: var(--pb-space-5);
-  padding: var(--pb-space-2);
-  position: fixed;
-  width: auto;
-  z-index: var(--pb-z-sticky);
-}
-:root:not([data-layout="phone"]):not([data-view="settings"]) .sode {
-  --sode-rail-w: calc(var(--pb-space-5) + var(--sode-h-action) + 2 * var(--pb-space-2) + var(--pb-space-3));
-  padding-inline: max(var(--pb-space-8), calc(var(--sode-rail-w) - max(0px, (100vw - var(--sode-page-bar) - var(--sode-main-w)) / 2)));
-}
-
 /* Compact view (pref compact, html[data-compact]): desktop only, and the usual page again while a preset picks takes from
    History (historypick.js sets data-sode-pick=""). Keep in step with historyShown() in desktophistory.js. */
 :root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]) #patch-view > .sode__history {
@@ -436,7 +414,7 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   position: relative;
 }
 /* compactcentre.js sets the nudge that puts the boxes, not the whole block, at the viewport's centre. Relative offsets,
-   not a transform, so the fixed footer inside keeps the viewport as its containing block. */
+   not a transform, so a fixed part inside keeps the viewport as its containing block. */
 :root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]):not([data-view="settings"]) #patch-view {
   left: var(--sode-centre-x, 0px);
   top: var(--sode-centre-y, 0px);
@@ -472,13 +450,11 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
 /* The corner items fade out but keep their place, tab stop and name. Hover or focus shows them again. The status hides
    only while both links are up (sode__conn--ok, desktop.js). The Lock bar fades on .sode-lock__who-bar, since
    .sode-lock__who's own transition belongs to the Lock. */
-:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__footer,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"], [data-sode-lock]) .sode-lock__who:not(.is-hand) .sode-lock__who-bar {
   opacity: 0;
   transition: opacity var(--sode-motion-reveal) var(--pb-ease);
 }
-:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__footer:is(:hover, :focus-within),
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok:hover,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"], [data-sode-lock])
   .sode-lock__who:not(.is-hand):is(:hover, :focus-within)
@@ -487,18 +463,13 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
 }
 /* A transparent apron reaches from each faded corner item toward the middle and out to the viewport edges, so a pointer
    anywhere near the corner brings it back. Kept short of the centred block at 1280x720; TestChromeMainCompact checks it. */
-:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) :is(.sode__footer, .sode__conn--ok)::before,
+:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok::before,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"], [data-sode-lock]) .sode-lock__who:not(.is-hand)::before {
   --sode-apron: 6rem;
   content: "";
   inset: calc(var(--sode-apron) * -1);
   position: absolute;
   z-index: -1;
-}
-:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__footer::before {
-  bottom: calc(var(--pb-space-4) * -1);
-  left: calc(var(--pb-space-5) * -1);
-  right: calc(var(--sode-apron) * -2);
 }
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok::before {
   left: calc(var(--sode-apron) * -2);
@@ -511,47 +482,14 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   top: calc(var(--pb-space-4) * -1 - var(--sode-down-h, 0px));
 }
 
-/* The main page's page header (homebar.js): the bar of /panels and /log at their top and edges (base.css .sode-bar,
-   --sode-head-x and --sode-head-max), over both views. The phone keeps its own header (mobile.css). */
-.sode > .sode-home-bar {
-  --sode-head-edge: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x));
-  left: var(--sode-head-edge);
-  position: absolute;
-  right: var(--sode-head-edge);
-  top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
-  z-index: var(--pb-z-sticky);
-}
-.sode-home-bar > .sode-panels__title {
-  color: var(--pb-text-strong);
-  font-size: var(--pb-text-xl);
-  font-weight: var(--pb-weight-bold);
-}
-/* Home's big heading already shows the site name. */
-:root:not([data-view="settings"]) .sode-home-bar > .sode-panels__title {
-  display: none;
-}
-.sode-home-bar > .sode-panels__spacer {
-  flex: 1 1 auto;
-}
-/* The bar's edges are the page content's. */
-:root:has(.sode-home-bar) {
+/* Home's bar (bar.css) has the page content's edges. */
+:root {
   --sode-head-max: var(--sode-main-w);
 }
 /* Positioned, so the Compact view's apron (above) stays on the status; inset drops .sode__conn's own corner offsets. */
 .sode-home-bar > .sode__conn {
   inset: auto;
   position: relative;
-}
-/* The bar has the footer's buttons. They stay for the code that clicks them (settings.js, desktopkeys.js). */
-:root[data-layout="desktop"] .sode__footer {
-  display: none;
-}
-/* With no Lock bar and no site name on Home, nothing is left of the start rule. */
-:root:not([data-sode-chip], [data-view="settings"]) .sode-home-bar > .sode-bar__rule--start {
-  display: none;
-}
-[data-layout="phone"] .sode-home-bar {
-  display: none;
 }
 /* The page starts below the bar and its line. */
 :root[data-layout="desktop"] .sode {

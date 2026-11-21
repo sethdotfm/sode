@@ -222,7 +222,7 @@ func TestChromeMainGridPopup(t *testing.T) {
 	b.call("Emulation.setTouchEmulationEnabled", map[string]any{"enabled": true, "maxTouchPoints": 5})
 	b.open(srv.URL + "/")
 	b.waitFor("the phone layout", `document.documentElement.dataset.pbLayout === 'phone' && !!document.getElementById('m-grid').offsetParent`)
-	b.waitFor("names", `document.getElementById('m-ws-dot').classList.contains('pb-dot--ok')`)
+	b.waitFor("names", `document.getElementById('m-ws-dot').dataset.state === 'ok'`)
 	b.eval(`document.getElementById('m-grid').click(); true`)
 	b.waitFor("the button opens the popup full screen", shown+` && (() => { const r = document.querySelector('.sode-gridpop__box').getBoundingClientRect(), v = visualViewport; return r.left <= 0 && r.top <= 0 && r.width >= v.width && r.height >= v.height; })()`)
 	b.check()

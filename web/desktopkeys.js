@@ -1,4 +1,4 @@
-import { $ } from './core.js';
+import { $, emit } from './core.js';
 import { chord, modChord, undoKey, ctrlChar, browseStep } from './keys.js';
 import { layout } from './layout.js';
 import { flipped, toggleCompact } from './device.js';
@@ -91,7 +91,7 @@ export function desktopKeys({
     }
     if (ctrlChar(e, ',')) {
       e.preventDefault();
-      $('settings-open').click();
+      emit('settingsOpen');
       return;
     }
     const last = LAST[chord(e)];

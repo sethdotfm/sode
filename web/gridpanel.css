@@ -709,17 +709,9 @@ html:has(.sode-gridpanel) {
   grid-row: 3;
   min-height: 0;
 }
-/* Patchbay's knob offset suits a 1px edge; Sode's edge is wider, so the gap is worked out to centre the knob. */
+/* A wider track; base.css centres the knob. */
 .sode-gridpanel__find-mode > .pb-switch__input {
-  --sode-knob-gap: calc((1.125rem - 2 * var(--pb-border-w) - 0.75rem) / 2);
-  width: 2.5rem;
-}
-.sode-gridpanel__find-mode > .pb-switch__input::after {
-  left: var(--sode-knob-gap);
-  top: var(--sode-knob-gap);
-}
-.sode-gridpanel__find-mode > .pb-switch__input:checked::after {
-  transform: translateX(calc(2.5rem - 2 * var(--pb-border-w) - 0.75rem - 2 * var(--sode-knob-gap)));
+  --sode-switch-w: 2.5rem;
 }
 .sode-gridpanel__find-side {
   color: var(--pb-text-muted);
@@ -1476,7 +1468,7 @@ html:has(.sode-gridpanel) {
 }
 /* Below 1152 px the status shows only its dots and the router: the main page's words do not fit beside the title. */
 @media (max-width: 71.9rem) {
-  :root:not([data-layout="phone"]) .sode-gridpanel__headrow > .sode__conn .pb-status > :not(.pb-dot) {
+  :root:not([data-layout="phone"]) .sode-gridpanel__headrow > .sode__conn .pb-status > :not(.sode__state) {
     display: none;
   }
 }

@@ -45,6 +45,19 @@ html {
   --pb-border-w: 2px;
   --pb-accent-bar-w: 4px;
 }
+/* Patchbay's switch knob offset suits a 1px edge, so the knob sits off centre on Sode's wider edge. These numbers keep
+   in step with patchbay's track (1.125rem high) and knob (0.75rem). A wider track sets only --sode-switch-w. */
+.pb-switch__input {
+  --sode-knob-gap: calc((1.125rem - 2 * var(--pb-border-w) - 0.75rem) / 2);
+  width: var(--sode-switch-w, 2rem);
+}
+.pb-switch__input::after {
+  left: var(--sode-knob-gap);
+  top: var(--sode-knob-gap);
+}
+.pb-switch__input:checked::after {
+  transform: translateX(calc(var(--sode-switch-w, 2rem) - 2 * var(--pb-border-w) - 0.75rem - 2 * var(--sode-knob-gap)));
+}
 /* A field is a sunken well with a bright edge. A button is a filled control (an outline button too) whose edge shows
    on hover. Text has no edge and no fill. Only the resting edge changes: focus, invalid and disabled keep patchbay's. */
 :is(.pb-input, .pb-select, .pb-textarea, .pb-chip-input) {
@@ -63,11 +76,11 @@ html {
   border: var(--pb-border-w) solid var(--pb-edge);
 }
 /* The owner wants no colored square in a badge or a status. The word gives the status, with a badge's text, edge and
-   fill color. Only the Server and Router status (.sode__conn, the phone's .sode-m__head, .sode__state) keeps its dot. */
+   fill color. The Server and Router status has no dot either: it shows a state glyph (.sode__state, bar.css). */
 .pb-badge::before {
   content: none;
 }
-.pb-dot:not(.sode__state, .sode__conn .pb-dot, .sode-m__head .pb-dot) {
+.pb-dot {
   display: none;
 }
 /* Patchbay's control sizes on the desktop layout: plain and small controls are compact, large ones are actions, and an
@@ -1190,10 +1203,6 @@ html {
   display: inline-flex;
   gap: var(--pb-space-1);
 }
-/* A Protect or Router lock chip (protectChip in protects.js): its icon is the mark, so patchbay's status square goes. */
-.sode__hold-chip::before {
-  content: none;
-}
 .sode__notsaved .pb-chip {
   background: color-mix(in srgb, var(--pb-status-warn-fill) 70%, black);
   border-color: transparent;
@@ -1849,130 +1858,4 @@ button.sode-up__bar:not(:disabled):hover,
   right: var(--pb-space-1);
   top: 50%;
   transform: translateY(-50%);
-}
-
-/* The one page header (panelsbar.js) of /panels, the panel editor and its Live Editor, and /log: one row on the Lock
-   bar's line and inside the page's edges. The Lock bar floats at its left (lock.css), then come the site name, the
-   links, a gap, Inbox and the Server and Router status. The main page and a panel page have their own. */
-.sode-bar {
-  align-items: center;
-  display: flex;
-  flex-wrap: nowrap;
-  gap: var(--pb-space-4);
-  min-height: var(--sode-h-action);
-  position: relative;
-}
-/* The line sits in the gap under the bar, as wide as the page's content. */
-.sode-bar::after {
-  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
-  bottom: calc(-1 * var(--pb-space-2));
-  content: "";
-  left: 0;
-  position: absolute;
-  right: 0;
-}
-/* A long site name is cut with an ellipsis (its tip gives it in full), so it never pushes the rest of the row. */
-.sode-bar > .sode-panels__title {
-  display: flex;
-  flex: 0 1 auto;
-  margin: 0;
-  min-width: 0;
-}
-.sode-bar__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sode-bar__tools {
-  align-items: center;
-  display: flex;
-  flex: none;
-  gap: var(--pb-space-2);
-}
-/* Rules after the site name and before the status. The end rule goes with Inbox, which shows only when signed in. */
-.sode-bar__rule {
-  align-self: center;
-  background: var(--pb-edge-soft);
-  flex: none;
-  height: 1.5rem;
-  width: var(--pb-border-w);
-}
-.sode-bar > .sode-inbox__slot:not(:has(> :not([hidden]))) + .sode-bar__rule--end {
-  display: none;
-}
-.sode-bar__panels .sode-panels__logo {
-  margin: 0;
-}
-.sode-bar > .sode-inbox__slot {
-  flex: none;
-}
-/* The Server and Router state glyph (core.js setDot) in place of patchbay's square: the glyph takes the status colour. */
-.pb-dot.sode__state {
-  background: none;
-  display: inline-flex;
-  height: auto;
-  width: auto;
-}
-.sode__state > .pb-icon {
-  height: var(--pb-icon-size-sm);
-  width: var(--pb-icon-size-sm);
-}
-.sode__state.pb-dot--ok {
-  color: var(--pb-status-ok);
-}
-.sode__state.pb-dot--warn {
-  color: var(--pb-status-warn);
-}
-.sode__state.pb-dot--error {
-  color: var(--pb-status-error);
-}
-.sode__state.pb-dot--idle {
-  color: var(--pb-status-idle);
-}
-.sode__state.pb-dot--info {
-  color: var(--pb-status-info);
-}
-/* The start pad matches an icon button's room around its icon, so the rule has the same space on both sides. */
-.sode-bar > .sode__conn {
-  background: none;
-  flex: none;
-  padding: 0;
-  padding-inline-start: calc((var(--pb-icon-btn-w) - var(--pb-icon-size)) / 2);
-  position: static;
-}
-/* The header's left edge is the page content's (.sode-panels and .sode-log: 100rem at most, padded by space-8).
-   Keep in step with them. A Grid panel's Live Editor runs edge to edge, and its header has the deck's edges. */
-:root {
-  --sode-head-x: var(--pb-space-8);
-  --sode-head-max: 100rem;
-}
-:root:has(.sode-ed > #ed-live-view .sode-gridpanel) {
-  --sode-head-x: var(--pb-space-5);
-  --sode-head-max: 100vw;
-}
-/* The Lock bar stays at its own top, and the header starts there too; the lock button lines up with the content's
-   left edge. :where() keeps this under the Lock's own moves (lock.css [data-sode-lock-on]). */
-:where(:root:not([data-layout="phone"], [data-sode-kiosk]):has(.sode-bar)) div.sode-lock__who {
-  left: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x) - var(--pb-space-3));
-}
-[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-bar {
-  padding-inline-start: calc(var(--sode-who-w, 0px) - var(--pb-space-3) + var(--pb-space-4));
-}
-/* The phone keeps one row: the status shows its dots only. */
-[data-layout="phone"]:not([data-conn="down"]) .sode-bar > .sode__conn {
-  display: flex;
-}
-[data-layout="phone"] .sode-bar > .sode__conn :is(.pb-status > :not(.pb-dot), .sode__conn-addr) {
-  display: none;
-}
-/* A narrow mouse window keeps the desktop layout and the Lock bar beside the bar, so the bar wraps and the status
-   shows its dots only. */
-@media (max-width: 47.9rem) {
-  :root:not([data-layout="phone"]) .sode-bar {
-    flex-wrap: wrap;
-  }
-  .sode-bar > .sode__conn :is(.pb-status > :not(.pb-dot), .sode__conn-addr) {
-    display: none;
-  }
 }

@@ -172,7 +172,10 @@ on('wsclose', () => {
   clearing = 0;
 });
 
-for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
+// Bus 'settingsOpen': Home's Settings button (homebar.js), Ctrl+, and the Palette. A bus event, so none of them imports
+// this module and its load order stays as main.js has it.
+on('settingsOpen', openSettings);
+$('m-settings').addEventListener('click', openSettings);
 $('settings-exit').addEventListener('click', exitSettings);
 $('settings-back').addEventListener('click', () => {
   if (!toc.back()) exitSettings();

@@ -140,9 +140,9 @@ func TestChromeStepInBorderAndLabel(t *testing.T) {
 		return true;
 	})()`
 	b.waitFor("step-in border, not the Branding colour", frame)
-	// A real pointer at rest away from the faded chrome, as in TestChromeMainCompact: the footer fades, the label does not.
+	// A real pointer at rest away from the faded chrome, as in TestChromeMainCompact: the status fades, the label does not.
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 640, "y": 400})
-	b.waitFor("Compact view faded the footer", `getComputedStyle(document.querySelector('#patch-view .sode__footer')).opacity === '0'`)
+	b.waitFor("Compact view faded the status", `document.getElementById('conn').classList.contains('sode__conn--ok') && getComputedStyle(document.getElementById('conn')).opacity === '0'`)
 	b.waitFor("label shows in Compact view", label)
 	b.shot("compact")
 	if got := b.eval(`document.getElementById('src').value`); got != "cam" {
