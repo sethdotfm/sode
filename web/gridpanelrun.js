@@ -70,6 +70,9 @@ const inControl = (grid) => {
 export function gridBody(ctx, first) {
   const { ui } = ctx;
   const parts = gridParts(ctx, first);
+  // The Grid popup while the preset editor adds patches (gridpopup.js ctx.adding and ctx.add): a press adds to the
+  // preset and stages and sends nothing.
+  const adding = () => !!ctx.adding?.();
   let panel = first;
   let st = createStage({ mode: parts.mode });
   let tally = null;
@@ -98,7 +101,9 @@ export function gridBody(ctx, first) {
   let picks = createPicks();
   let toldPicks = null;
   let toldStaged = null;
-  let at = null; // the crosspoint under the cursor, whose press the preview shows
+  let at = null; // the crosspoint under the cursor, whose press the preview shows.
+  // { xps, srcs, dsts } of the preset the Grid popup adds to, as of the last render.
+  let kept = null;
   let cur = CORNER;
   // After a pointer move a scroll moves the cursor to what is under the pointer; after a key it does not.
   let ptr = null; // { x, y } in client px while the pointer leads, else null.
@@ -140,6 +145,9 @@ export function gridBody(ctx, first) {
     pie: (s, d) => pieOn(env, s, d),
     staged,
     held: (d) => st.staged.some((x) => x.dst === d),
+    // The Grid popup's add mode (ctx.preset): the routes already in the preset, and the names that have rows there.
+    inPreset: (s, d) => !!kept?.xps.has(`${s},${d}`),
+    presetName: (kind, n) => !!kept?.[kind].has(n),
     picked: (kind, n) => picks[kind].includes(n),
     // Filter shows only matches, so only Find marks them.
     found: (kind, n) => find.mode === 'find' && matched[kind].has(n),
@@ -186,6 +194,7 @@ export function gridBody(ctx, first) {
   };
 
   const render = () => {
+    kept = adding() ? ctx.preset?.() || null : null;
     paintLevels();
     dirty = false;
     out = leftOut(st, world());
@@ -448,9 +457,6 @@ export function gridBody(ctx, first) {
     render();
   }
 
-  // The Grid popup while the preset editor adds patches (gridpopup.js ctx.adding and ctx.add): a press adds to the
-  // preset and stages and sends nothing.
-  const adding = () => !!ctx.adding?.();
   function addNow(kind, n) {
     const levels = pressLevels();
     const r =
@@ -851,6 +857,8 @@ export function gridBody(ctx, first) {
       render();
     },
     openConfirm,
+    // A full paint: the host's own state changed (the Grid popup's preset rows).
+    repaint: () => render(),
     // A note from the host, as a press's own (the Grid popup's Add).
     say(text, ok) {
       note = noteOf(text, ok);

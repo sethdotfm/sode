@@ -62,6 +62,7 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 		const p = document.getElementById('patch');
 		return p.textContent === 'Add' && p.classList.contains('pb-btn--ok') && !p.classList.contains('pb-btn--danger') && !!p.offsetParent && Math.abs(p.getBoundingClientRect().width - `+fmt.Sprint(takeW)+`) < 1;
 	})()`)
+	settle(b)
 	b.shot("bar-light")
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "dark"}}})
 	settle(b)
@@ -75,8 +76,13 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	b.eval(`document.getElementById('patch').click(); true`)
 	b.waitFor("Add adds a row", `document.querySelector('.sode__pickbar [role=status]').textContent === 'Added 1 row' && document.getElementById('src').value === ''`)
 
-	// The Grid popup says it adds to the preset; its Take is Add and Done ends the mode.
-	realKeyMods(b, "e", "KeyE", 69, modCtrl)
+	// The bar covers the page's Grid button, so it has its own: Switch to grid view opens the popup. It says it adds to
+	// the preset; its Take is Add and Done ends the mode.
+	b.waitFor("Switch to grid view on the bar, before Done", `(() => {
+		const g = document.querySelector('.sode__pickbar .sode__pickbar-grid'), d = [...document.querySelectorAll('.sode__pickbar .pb-btn')].find((x) => x.textContent === 'Done');
+		return !!g?.offsetParent && g.textContent === 'Switch to grid view' && !!g.querySelector('use[href$="grid-3x3"]') && g.getBoundingClientRect().right <= d.getBoundingClientRect().left;
+	})()`)
+	b.eval(`document.querySelector('.sode__pickbar .sode__pickbar-grid').click(); true`)
 	b.waitFor("the popup", `!document.getElementById('grid-pop').hidden && !!document.querySelector('#grid-pop .sode-gridpanel__xp:not([hidden])')`)
 	b.waitFor("the popup says it adds, Take reads Add, Clear goes and Done shows", `(() => {
 		const q = (s) => document.querySelector('#grid-pop ' + s);
@@ -84,12 +90,8 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 			q('.sode-gridpop__take').textContent === 'Add' && q('.sode-gridpop__take').classList.contains('pb-btn--ok') &&
 			!q('.sode-gridpop__clear').offsetParent && !!q('.sode-gridpop__done').offsetParent && !q('.sode-gridpop__shield:not([hidden])')?.offsetParent;
 	})()`)
-	b.shot("popup-light")
-	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "dark"}}})
-	settle(b)
-	b.shot("popup-dark")
-	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{}})
-	settle(b)
+	count := `(document.querySelector('#grid-pop .sode-gridpop__rows')?.textContent ?? '')`
+	b.waitFor("the band counts the preset's rows", count+` === '1 row in the preset' && !!document.querySelector('#grid-pop .sode-gridpop__rows').offsetParent`)
 
 	note := `(document.querySelector('#grid-pop .sode-panel__status')?.textContent ?? '')`
 	// A crosspoint adds its route and stages nothing.
@@ -98,6 +100,11 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	b.waitFor("the crosspoint adds its route", note+`.startsWith('Added ') && document.querySelector('.sode__pickbar [role=status]').textContent === 'Added 2 rows'`)
 	if b.eval(gridXp(4, 7) + `.dataset.s === 'staged'`).(bool) {
 		t.Fatal("the click staged the route")
+	}
+	b.waitFor("the added route shows as in the preset, and the count goes up", gridXp(4, 7)+`.dataset.preset === '' && `+count+` === '2 rows in the preset' && /in the preset$/.test(`+gridXp(4, 7)+`.getAttribute('aria-label'))`)
+	b.waitFor("its names show that they have a row", `document.querySelector('#grid-pop .sode-gridpanel__src[data-src="4"]')?.dataset.preset === '' && document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="7"]')?.dataset.preset === ''`)
+	if b.eval(gridXp(5, 7) + `?.dataset.preset === ''`).(bool) {
+		t.Fatal("a route not in the preset shows as in it")
 	}
 	// Enter on the cursor's crosspoint adds as a click does, and confirms nothing. A second Enter finds it there.
 	b.eval(`document.querySelector('#grid-pop .sode-gridpanel__scroll').focus(); true`)
@@ -111,6 +118,15 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	// The name of destination 5 adds the source it has now.
 	b.eval(`document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="5"]').click(); true`)
 	b.waitFor("the destination's name adds its current route", note+`.includes(' from ') && document.querySelector('.sode__pickbar [role=status]').textContent === 'Added 4 rows'`)
+	b.waitFor("its name says in preset, and the count is 4", `document.querySelector('#grid-pop .sode-gridpanel__dst[data-dst="5"] .sode-gridpanel__held')?.textContent === 'in preset' && `+count+` === '4 rows in the preset'`)
+	gridShow(b, 3, 5)
+	b.waitFor("its current route shows as in the preset", gridXp(3, 5)+`.dataset.preset === ''`)
+	b.shot("popup-light")
+	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "dark"}}})
+	settle(b)
+	b.shot("popup-dark")
+	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{}})
+	settle(b)
 
 	// Esc closes the popup only; the add mode stays.
 	realKey(b, "Escape", "Escape", 27)

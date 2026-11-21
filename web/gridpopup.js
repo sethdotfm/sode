@@ -18,8 +18,8 @@ import { gridHold } from './protects.js';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from './gridpoprules.js';
 import { gridPlan, patchPlan } from './plans.js';
 import { backdropClose } from './dialogkeys.js';
-import { boxPicking, addItems, donePick, pickLabel, pickNote } from './historypick.js';
-import { addedLine, noRouteLine } from './gridpoprules.js';
+import { boxPicking, addItems, donePick, pickLabel, pickNote, pickRows } from './historypick.js';
+import { addedLine, noRouteLine, presetMarks, rowsWord } from './gridpoprules.js';
 
 // The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
 const PANEL = { id: '', name: 'Grid', type: 'grid', sources: { members: 'all' }, destinations: { members: 'all' }, pages: [], settings: {} };
@@ -112,6 +112,8 @@ function actions() {
     });
     return b;
   };
+  // The rows of the preset while adding, read from a distance as the staged badge is.
+  const rows = el('span', { class: 'pb-badge pb-badge--info sode-gridpop__act sode-gridpop__rows', role: 'status', hidden: true });
   const done = el('button', { class: 'pb-btn pb-btn--outline sode-gridpop__act sode-gridpop__done', type: 'button', hidden: true }, 'Done');
   done.dataset.pbTip = 'Stop adding and go back to the preset';
   done.addEventListener('click', () => {
@@ -119,6 +121,7 @@ function actions() {
     donePick();
   });
   return [
+    rows,
     act('pb-btn--outline sode-gridpop__clear', 'Clear', 'Clear the staged routes and the patch boxes', 'clear-all'),
     needsLink(act('pb-btn--danger sode-gridpop__take', 'Take', 'Take the staged routes', 'patch')),
     done,
@@ -135,6 +138,7 @@ function paintMode() {
   pop.root.toggleAttribute('data-adding', on);
   q('.sode-gridpop__clear').hidden = on;
   q('.sode-gridpop__done').hidden = !on;
+  paintRows();
   const take = q('.sode-gridpop__take');
   take.classList.toggle('pb-btn--danger', !on);
   take.classList.toggle('pb-btn--ok', on);
@@ -148,6 +152,21 @@ function paintMode() {
   paintActs();
 }
 on('pick', paintMode);
+
+// The preset's rows as marks on the grid and a count in the band. kept is presetMarks of pickRows, made again on a
+// change of the rows, so the body's paint only reads it.
+let kept = null;
+function paintRows() {
+  kept = boxPicking() ? presetMarks(pickRows()) : null;
+  const badge = pop?.ui.head.querySelector('.sode-gridpop__rows');
+  if (!badge) return;
+  badge.hidden = !kept;
+  const word = kept ? rowsWord(kept.rows) : '';
+  if (badge.textContent !== word) badge.textContent = word;
+  if (shown) body?.repaint();
+}
+on('presetRows', paintRows);
+on('gridOpen', () => showGrid());
 
 // After the grid's own keys (a capture listener on document), so its search boxes, line and picks take Esc first.
 function popKey(e) {
@@ -238,6 +257,7 @@ const adapter = () => ({
   shown: () => shown,
   undo: () => emit('undoLast'),
   adding: boxPicking,
+  preset: () => kept,
   // A crosspoint stores what the boxes' Add stores: no levels (the default levels) while the Levels box is empty.
   add(r) {
     const labels = { src: (n) => srcItem(n).label, dst: (n) => dstItem(n).label };

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { dstNow, srcNow } from '../gridpanelnow.js';
-import { addedLine, noRouteLine } from '../gridpoprules.js';
+import { addedLine, noRouteLine, presetMarks, rowsWord } from '../gridpoprules.js';
 import { gridKeyAction } from '../gridpanelkeys.js';
 
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
@@ -117,4 +117,17 @@ test('new rows: a clash or a cap they would make is said at once', () => {
 test('in the boxes mode the bar has no Add of its own: Take is Add', () => {
   assert.equal(MODES.boxes.addShown, false);
   assert.notEqual(MODES.history.addShown, false);
+});
+
+test('the preset rows as grid marks and a count', () => {
+  const m = presetMarks([
+    { src: 3, dsts: [5, 8], levels: [1] },
+    { src: 7, dsts: [5], levels: [2] },
+  ]);
+  assert.equal(m.rows, 2);
+  assert.deepEqual([...m.xps], ['3,5', '3,8', '7,5']);
+  assert.deepEqual([...m.srcs], [3, 7]);
+  assert.deepEqual([...m.dsts], [5, 8]);
+  assert.equal(rowsWord(1), '1 row in the preset');
+  assert.equal(rowsWord(12), '12 rows in the preset');
 });

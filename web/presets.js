@@ -257,6 +257,7 @@ const touch = () => {
   dirty = true;
   discard = false;
   paintSave();
+  emit('presetRows');
 };
 const SRC_EXAMPLE = '12 or Cam 1';
 const DST_EXAMPLE = '12, 20-24, Monitor 1';
@@ -404,6 +405,12 @@ scopeIn.addEventListener('change', () => {
 // The editor hides while the patch boxes stay live (historypick.js).
 let added = 0;
 const addedText = () => `Added ${added} row${added === 1 ? '' : 's'}`;
+// The rows the editor holds that read as a whole route, as preset items. Blank and unread rows are left out.
+const rowItems = () =>
+  cur.items
+    .map(parseRow)
+    .filter((p) => !p.error && p.item.src >= 0 && p.item.dsts.length)
+    .map((p) => p.item);
 function addFromBoxes() {
   if (!shown()) return setNote('The patch boxes are not showing.', true);
   picking = true;
@@ -430,17 +437,14 @@ function addFromBoxes() {
     },
     // From the Grid popup (gridpopup.js): the routes a click picked, as preset items.
     onAddItems: (items) => {
-      const have = cur.items.map(parseRow).filter((p) => !p.error && p.item.src >= 0 && p.item.dsts.length);
-      const r = itemsToAdd(
-        have.map((p) => p.item),
-        items,
-      );
+      const r = itemsToAdd(rowItems(), items);
       if (r.err) return { ok: false, text: r.err, count: added ? addedText() : '' };
       if (!r.items.length) return { ok: false, text: 'Already in the preset.', count: added ? addedText() : '' };
       addRows(r.items, '');
       added += r.items.length;
       return { ok: true, rows: r.items.length, count: addedText() };
     },
+    rows: rowItems,
   });
   shown().focus();
 }

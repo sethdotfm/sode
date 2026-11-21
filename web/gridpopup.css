@@ -125,14 +125,15 @@
 .sode-gridpop__band > .sode-gridpop__close {
   order: 2;
 }
-/* The badge is read from a distance, so it is near a button's height, with no status square: its text says it. */
-.sode-gridpop__band > .sode-gridpanel__count {
+/* The badge is read from a distance, so it is near a button's height, with no status square: its text says it. The
+   preset's row count while adding is the same. */
+.sode-gridpop__band > :is(.sode-gridpanel__count, .sode-gridpop__rows) {
   font-size: var(--pb-text-md);
   font-weight: var(--pb-weight-bold);
   height: var(--sode-h-action);
   padding: 0 var(--pb-space-5);
 }
-.sode-gridpop__band > .sode-gridpanel__count::before {
+.sode-gridpop__band > :is(.sode-gridpanel__count, .sode-gridpop__rows)::before {
   display: none;
 }
 .sode-gridpop__band > .sode-gridpanel__count[hidden] {
@@ -170,8 +171,26 @@
 :root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act {
   display: none;
 }
-:root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act.sode-gridpop__done:not([hidden]) {
+:root[data-layout="phone"] .sode-gridpop__band > .sode-gridpop__act:is(.sode-gridpop__done, .sode-gridpop__rows):not([hidden]) {
   display: inline-flex;
+}
+/* Routes already in the preset (gridpanelnodes.js data-preset): a square accent box with a wash, apart from the
+   round pulsing staged ring and the round cursor. Names with a row get the accent wash and bar, as Find's amber. */
+.sode-gridpanel__xp[data-preset] {
+  background-color: var(--pb-accent-wash);
+  outline: calc(var(--pb-border-w) * 3) solid var(--pb-accent);
+  outline-offset: calc(var(--pb-space-2) * -1);
+}
+.sode-gridpanel__held[data-preset] {
+  color: var(--pb-accent);
+}
+.sode-gridpanel__src[data-preset]:not([data-picked]) {
+  background-color: color-mix(in oklab, var(--pb-accent-wash), var(--pb-surface-raised));
+  box-shadow: inset 0 calc(var(--pb-border-w) * -4) 0 var(--pb-accent);
+}
+.sode-gridpanel__dst[data-preset]:not([data-picked]) {
+  background-color: color-mix(in oklab, var(--pb-accent-wash), var(--pb-surface-raised));
+  box-shadow: inset calc(var(--pb-border-w) * 4) 0 0 var(--pb-accent);
 }
 /* The phone band has no room for Done and the note side by side, so the note gets its own row under them. */
 :root[data-layout="phone"] .sode-gridpop[data-adding] .sode-gridpop__band {
