@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
 globalThis.document = node();
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const store = new Map();
+globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
 
 const setup = async () => {
   const m = await import('./all.mjs');
@@ -132,4 +133,50 @@ test('disclosureAria and followersHead', async () => {
 test('lastFill: nothing, empty side, and a plain fill', async () => {
   const { lastFill } = await setup();
   assert.deepEqual(lastFill('src', false, null), { none: true });
+});
+
+// Stacked and folded rows (docs/agents/history.md): a row's key is its entry ids, a stack as newest<chain.
+const rowKey = (r) => (r.f ? `f${r.f.entries.map((x) => x.id)}` : `${r.e.id}${r.e.chain ? '<' + r.e.chain.map((c) => c.id).join(',') : ''}`);
+const shown = (m, list) => {
+  m.emit('history');
+  return m.histRows(list).map(rowKey).join(' ');
+};
+
+test('histRows: a stack runs on through rows of other destinations', async () => {
+  const m = await setup();
+  const t = (id, dst, s, src) => take({ id, dst, src, time: new Date(Date.UTC(2026, 0, 1, 0, 0, s)).toISOString() });
+  assert.equal(shown(m, [t(3, 5, 20, 7), t(2, 4, 10, 7), t(1, 5, 0, 6)]), '3<3,1 2');
+});
+
+test('histRows: Protect rows fold at exactly the gap, not past it, and never with the gap off', async () => {
+  const m = await setup();
+  assert.equal(shown(m, [prot(2, 2, 30), prot(1, 1, 0)]), 'f2,1');
+  assert.equal(shown(m, [prot(2, 2, 31), prot(1, 1, 0)]), '2 1');
+  try {
+    m.setPref('stackGap', '0');
+    assert.equal(shown(m, [prot(2, 2, 1), prot(1, 1, 0)]), '2 1');
+  } finally {
+    m.setPref('stackGap', '');
+  }
+});
+
+test('histRows: only the same direction folds; a Group of both directions stays apart', async () => {
+  const m = await setup();
+  assert.equal(shown(m, [prot(3, 3, 2, { protect: 'clear' }), prot(2, 2, 1), prot(1, 1, 0)]), '3 f2,1');
+  const mixed = [prot(3, 3, 1, { group: 'pM', groupN: 2 }), prot(2, 2, 1, { group: 'pM', groupN: 2, protect: 'clear' })];
+  assert.equal(shown(m, [prot(4, 4, 2), ...mixed, prot(1, 1, 0)]), '4 f3,2 1');
+});
+
+test('histRows: a folded row keeps its id when a new action joins it, so an open row stays open', async () => {
+  const m = await setup();
+  const old = [prot(2, 2, 10), prot(1, 1, 0)];
+  m.emit('history');
+  const before = m.histRows(old)[0].f.group;
+  m.emit('history');
+  assert.equal(m.histRows([prot(3, 3, 20), ...old])[0].f.group, before);
+  const g = [prot(2, 2, 0, { group: 'pA', groupN: 2 }), prot(1, 1, 0, { group: 'pA', groupN: 2 })];
+  m.emit('history');
+  assert.equal(m.histRows(g)[0].f.group, 'pA');
+  m.emit('history');
+  assert.equal(m.histRows([prot(3, 3, 5), ...g])[0].f.group, 'pA');
 });
