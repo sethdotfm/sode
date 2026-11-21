@@ -39,6 +39,17 @@ func TestChromeMainStackedRow(t *testing.T) {
 	if got := b.eval(`(() => { const r = ` + row + `; const ends = [...r.querySelectorAll('.sode__hist-route > .sode__end')]; return ends.length === 3 && ends[0].classList.contains('sode__end--before') && ends[1].classList.contains('sode__end--src') && ends[2].classList.contains('sode__end--dst') && r.querySelector('.sode__hist-id').textContent.includes('–'); })()`); got != true {
 		t.Fatalf("stacked row does not show before, after and destination: %v", got)
 	}
+	// The status word has no colored square beside it; only the Server and Router status keeps its dot.
+	if got := b.eval(`(() => {
+		const s = ` + row + `.querySelector(':scope > .pb-status');
+		const badge = document.body.appendChild(Object.assign(document.createElement('span'), { className: 'pb-badge pb-badge--ok' }));
+		const sq = getComputedStyle(badge, '::before').content;
+		badge.remove();
+		const shown = (n) => !!n && n.getClientRects().length > 0;
+		return (!shown(s.querySelector('.pb-dot')) && s.textContent.trim() === 'ok' && sq === 'none' && shown(document.getElementById('conn-srv-dot'))) || [s.textContent, sq].join('|');
+	})()`); got != true {
+		t.Fatalf("status squares: %v, want no square in the row's status or a badge and the Server dot kept", got)
+	}
 
 	b.eval(row + `.querySelector('[aria-controls]').click(); true`)
 	b.waitFor("three changes and the before step", `document.querySelectorAll('#history .sode__hist-before .sode__step').length === 4`)
