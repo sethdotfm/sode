@@ -454,12 +454,13 @@ html {
   font-size: var(--pb-text-md);
   gap: var(--pb-space-4);
 }
-/* Every text box with a role color edge: the main page's Source and Destination boxes, the phone's one box and a
+/* Every text box with a role color edge: the main page's Source, Destination and Levels boxes, the phone's one box and a
    Grid panel's search boxes. The edge is a background strip inside the border, so the border and the focus ring run
    all the way round. Not patchbay's pb-rolebar, whose edge replaces the left border. */
 .sode__box--src .sode__input,
 .sode__box--dst .sode__input,
-.sode-m__bar:is([data-step="src"], [data-step="dst"]) .sode-m__input,
+.sode__box--levels .sode__input,
+.sode-m__bar:is([data-step="src"], [data-step="dst"], [data-step="lvl"]) .sode-m__input,
 .sode-gridpanel__find-input {
   background-repeat: no-repeat;
   background-size: var(--sode-side-w) 100%;
@@ -474,6 +475,10 @@ html {
 .sode-m__bar[data-step="dst"] .sode-m__input,
 .sode-gridpanel__find[data-kind="dsts"] .sode-gridpanel__find-input {
   background-image: linear-gradient(var(--pb-dest), var(--pb-dest));
+}
+.sode__box--levels .sode__input,
+.sode-m__bar[data-step="lvl"] .sode-m__input {
+  background-image: linear-gradient(var(--pb-level), var(--pb-level));
 }
 /* One size for every source and destination chip, buttons (sode__end--pick) included: the height of
    patchbay's .pb-chip under the Destination box, whose edge is 2px as --pb-border-w is. The edge goes all the way round,

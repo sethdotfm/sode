@@ -1,0 +1,1 @@
+- The Levels box has a lilac edge on its text box, as the Source box has sage and the Destination box has khaki. This is the same on the main page, a Grid panel and the phone.

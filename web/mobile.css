@@ -130,6 +130,9 @@
 .sode-m__sum-row--dst .sode-m__sum-key {
   background: var(--pb-dest);
 }
+.sode-m__sum-row--lvl .sode-m__sum-key {
+  background: var(--pb-level);
+}
 .sode-m__sum-vals {
   align-items: center;
   display: flex;
@@ -345,6 +348,9 @@
 }
 .sode-m__bar[data-step="dst"] .sode-m__step {
   background: var(--pb-dest);
+}
+.sode-m__bar[data-step="lvl"] .sode-m__step {
+  background: var(--pb-level);
 }
 .sode-m__bar-head {
   align-items: center;

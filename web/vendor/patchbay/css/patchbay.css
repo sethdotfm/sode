@@ -1724,6 +1724,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-xpt--source:hover { background-color: var(--pb-source-hover); }
 .pb-xpt--dest { background-color: var(--pb-dest); }
 .pb-xpt--dest:hover { background-color: var(--pb-dest-hover); }
+.pb-xpt--level { background-color: var(--pb-level); }
+.pb-xpt--level:hover { background-color: var(--pb-level-hover); }
 .pb-xpt--tieline { background-color: var(--pb-tieline); }
 .pb-xpt--tieline:hover { background-color: var(--pb-tieline-hover); }
 
@@ -2045,9 +2047,10 @@ textarea::-webkit-scrollbar-thumb:hover {
 /* 24  ROLE BARS ========================================================== */
 
 /* A coloured bar down the left edge that says what a row or box is for:
-   a source, a destination, a tie-line, or a failure. */
+   a source, a destination, a level, a tie-line, or a failure. */
 .pb-rolebar--source  { border-left: var(--pb-rolebar-w) solid var(--pb-source); }
 .pb-rolebar--dest    { border-left: var(--pb-rolebar-w) solid var(--pb-dest); }
+.pb-rolebar--level   { border-left: var(--pb-rolebar-w) solid var(--pb-level); }
 .pb-rolebar--tieline { border-left: var(--pb-rolebar-w) solid var(--pb-tieline); }
 .pb-rolebar--error   { border-left: var(--pb-rolebar-w) solid var(--pb-status-error); }
 
