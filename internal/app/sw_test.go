@@ -57,7 +57,7 @@ func TestServiceWorkerIsFilledIn(t *testing.T) {
 	if err := json.Unmarshal([]byte(s[1]), &shell); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"main.js", "panelpage.js", "core.js", "base.css", "bar.css", "lock.css", "vendor/patchbay/css/patchbay.css", "vendor/fonts/plex.css", "vendor/patchbay/icons/lucide.svg", "panels-logo.svg"} {
+	for _, want := range []string{"main.js", "panelpage.js", "core.js", "base.css", "bar.css", "lock.css", "vendor/patchbay/css/patchbay.css", "vendor/fonts/plex.css", "vendor/patchbay/icons/lucide.svg", "panels-logo.svg", "sodeicons.svg"} {
 		if !slices.Contains(shell, want) {
 			t.Errorf("SHELL has no %s", want)
 		}

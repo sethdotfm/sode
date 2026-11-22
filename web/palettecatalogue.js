@@ -246,7 +246,7 @@ export function catalogue(src) {
       cat: 'panels',
       label: p.name,
       hint: p.type === 'grid' ? 'Grid panel' : 'Buttons panel',
-      icon: p.type === 'grid' ? 'grid-3x3' : 'layout-grid',
+      icon: p.type === 'grid' ? 'sode-grid' : 'layout-grid',
       words: ['panel'],
       target: { href: `panels/${encodeURIComponent(p.id)}`, id: p.id },
       access: pageLock(who, 'panel'),

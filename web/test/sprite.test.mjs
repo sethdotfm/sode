@@ -31,3 +31,14 @@ test('no page or module points a <use> at the external sprite', () => {
     .filter((f) => /lucide\.svg#/.test(readFileSync(join(web, f), 'utf8')));
   assert.deepEqual(bad, []);
 });
+
+test('Sode-owned icons are in sodeicons.svg, never in the vendored sprite', () => {
+  const own = readFileSync(join(web, 'sodeicons.svg'), 'utf8');
+  const names = [...own.matchAll(/<symbol id="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(names.includes('sode-grid'));
+  for (const n of names) {
+    assert.ok(n.startsWith('sode-'), n);
+    assert.match(symbolMarkup(own, n), new RegExp(`^<symbol id="pb-i-${n}"`));
+    assert.equal(symbolMarkup(sprite, n), '');
+  }
+});

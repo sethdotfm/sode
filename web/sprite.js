@@ -1,8 +1,11 @@
 // Icons draw from symbols copied into the page, never from a <use> of the external sprite. For every <use> made against
 // it, Chrome loads and lays out its own copy of lucide.svg (370 KB, about 16,700 nodes). It frees that copy only at a
 // major GC. So a panel that redrew a tick each second climbed past 4 GB (TestChromeRunPageHoldsNoMemory). Imports nothing.
+// A `sode-` name comes from sodeicons.svg, the owner-approved Sode-owned icons (AGENTS.md); all others from Lucide.
 
 const SPRITE = 'vendor/patchbay/icons/lucide.svg';
+const OWN_SPRITE = 'sodeicons.svg';
+const OWN = 'sode-';
 const NS = 'http://www.w3.org/2000/svg';
 const PREFIX = 'pb-i-'; // the page's own ids never collide with an icon name
 
@@ -16,7 +19,8 @@ export function symbolMarkup(sprite, name) {
   return m ? `<symbol id="${PREFIX}${name}"${m[1]}` : '';
 }
 
-let text = null; // Promise<string> of the sprite, read one time
+const texts = new Map(); // sprite URL to the Promise<string> of its file, read one time
+const spriteOf = (name) => (name.startsWith(OWN) ? OWN_SPRITE : SPRITE);
 let defs = null;
 const asked = new Set();
 
@@ -24,8 +28,9 @@ const asked = new Set();
 export function iconHref(name, doc = document) {
   if (!asked.has(name)) {
     asked.add(name);
-    text ??= fetch(SPRITE).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
-    text.then(
+    const url = spriteOf(name);
+    if (!texts.has(url)) texts.set(url, fetch(url).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status))))));
+    texts.get(url).then(
       (t) => {
         const m = symbolMarkup(t, name);
         if (!m) return;
@@ -42,7 +47,7 @@ export function iconHref(name, doc = document) {
       },
       () => {
         // Not read: the next icon asks again.
-        text = null;
+        texts.delete(url);
         asked.delete(name);
       },
     );

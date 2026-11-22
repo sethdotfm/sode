@@ -130,7 +130,7 @@ addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
 cancelBtn.type = 'button';
 // The bar covers the page's top bar and its Grid button, so it has its own (gridpopup.js opens on 'gridOpen').
-const gridBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__pickbar-grid', icon('grid-3x3'), 'Switch to grid view');
+const gridBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__pickbar-grid', icon('sode-grid'), 'Switch to grid view');
 gridBtn.type = 'button';
 gridBtn.addEventListener('mousedown', (e) => e.preventDefault());
 gridBtn.addEventListener('click', () => emit('gridOpen'));
