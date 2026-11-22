@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -104,6 +105,39 @@ func TestChromeBookmarks(t *testing.T) {
 	b.waitFor("This browser's list wins over Me", `document.getElementById('bm-dialog').closest('[hidden]') !== null && `+bookmarkChips+`.length === 1 && `+bookmarkChips+`[0].textContent.startsWith('Example')`)
 	if got := b.eval(`JSON.parse(localStorage.getItem('sode-bookmarks'))[0].url`); got != "https://example.com/x" {
 		t.Errorf("sode-bookmarks holds %v", got)
+	}
+	b.check()
+}
+
+// The editor's count shows only from 25 bookmarks. At 30 the add controls are off and a visible line says why.
+func TestChromeBookmarksCount(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	srv := seamServer(t, simApp(t, sim))
+	seed := func(n int) {
+		b.eval(`localStorage.setItem('sode-bookmarks', JSON.stringify(Array.from({ length: ` + strconv.Itoa(n) + ` }, (_, i) => ({ url: 'https://example.com/' + i, label: 'Link ' + (i + 1) })))); location.reload(); true`)
+		b.waitFor("the strip", bookmarkChips+`.length === `+strconv.Itoa(n))
+		b.eval(`document.querySelector('#patch-view [data-presets] .sode__chipbtn').click(); true`)
+		b.waitFor("the editor", `!!document.getElementById('bm-dialog')?.offsetParent`)
+	}
+	const count = `document.getElementById('bm-count')`
+	b.open(srv.URL + "/")
+	b.waitFor("the page stamped its storage", `localStorage.getItem('sode-format') === '2'`)
+	seed(24)
+	b.waitFor("no count below 25", `document.querySelectorAll('#bm-list [data-i]').length === 24 && `+count+`.hidden && !`+count+`.offsetParent`)
+	b.eval(`document.getElementById('bm-url').value = 'https://example.com/new'; document.getElementById('bm-add-url').click(); true`)
+	b.waitFor("the count at 25", `!!`+count+`.offsetParent && `+count+`.textContent === '25 of 30 bookmarks in this list'`)
+	if b.eval(`document.getElementById('bm-add-url').disabled || !!document.getElementById('bm-full').offsetParent`) != false {
+		t.Error("the add controls are off below 30")
+	}
+
+	seed(30)
+	b.waitFor("the count at 30", count+`.textContent === '30 of 30 bookmarks in this list'`)
+	if b.eval(`['bm-add-row', 'bm-url', 'bm-url-name', 'bm-add-url'].every((id) => document.getElementById(id).disabled)`) != true {
+		t.Error("the add controls are on at 30")
+	}
+	if b.eval(`!!document.getElementById('bm-full').offsetParent && document.getElementById('bm-add-url').getAttribute('aria-describedby') === 'bm-full'`) != true {
+		t.Error("nothing says why the add controls are off")
 	}
 	b.check()
 }

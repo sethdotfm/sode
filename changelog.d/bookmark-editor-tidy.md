@@ -1,0 +1,1 @@
+- Edit Bookmarks is wider, and no row wraps at 1280 px. Adding has two labelled rows, From the Palette and Web address. The options and buttons of each bookmark line up from row to row. The count shows only from 25 bookmarks ("28 of 30 bookmarks in this list"), and a full list says why the add controls are off.

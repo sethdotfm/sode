@@ -1055,20 +1055,73 @@ html[data-alt] .sode__chip-key {
 .sode__set .sode__status-badge {
   margin-inline-start: var(--pb-space-1);
 }
-.sode-bm__list {
+/* Wide enough that no add row or bookmark row wraps at 1280 px. Only .sode-bm: the Filters dialog keeps 40rem. */
+@media (min-width: 600px) {
+  .sode__scrim > .sode-bm {
+    width: min(52rem, 100%);
+  }
+}
+.sode-bm__add {
   display: flex;
   flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-bm__add-row {
+  align-items: flex-end;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-bm__add[hidden],
+.sode-bm__add-row[hidden],
+.sode-bm__count[hidden] {
+  display: none;
+}
+.sode-bm__add-row > .sode-bm__url {
+  flex: 2 1 16em;
+}
+.sode-bm__add-row > .sode-bm__scope {
+  flex: 0 1 20em;
+}
+.sode-bm__add > .sode__hint {
+  margin: 0;
+}
+.sode-bm__pick {
+  align-items: flex-start;
+  flex: none;
+}
+.sode-bm__count {
+  align-self: center;
+  margin-inline-start: auto;
+}
+/* One grid for all rows (subgrid), so the ticks and buttons line up from row to row. */
+.sode-bm__list {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  column-gap: var(--pb-space-3);
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) max-content max-content auto auto auto;
   list-style: none;
-  margin: var(--pb-space-3) 0 0;
-  padding: 0;
+  margin: 0;
+  padding: var(--pb-space-2) 0 0;
 }
 .sode-bm__row {
   align-items: center;
   border-left: var(--sode-side-w) solid transparent;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-2);
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  min-height: var(--pb-control-h);
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+.sode-bm__row + .sode-bm__row {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+}
+.sode-bm__empty {
+  grid-column: 1 / -1;
   padding: var(--pb-space-2);
+}
+.sode-bm__opts,
+.sode-bm__tools {
+  display: contents;
 }
 .sode-bm__row:focus-visible {
   border-left-color: var(--pb-accent);
@@ -1090,15 +1143,55 @@ html[data-alt] .sode__chip-key {
 .sode-bm__main {
   align-items: center;
   display: flex;
-  flex: 1 1 14rem;
   flex-wrap: wrap;
-  gap: var(--pb-space-2);
+  gap: var(--pb-space-1) var(--pb-space-2);
   min-width: 0;
 }
 .sode-bm__name {
   overflow-wrap: anywhere;
 }
+.sode-bm__name.pb-input {
+  flex: 1 1 12em;
+  min-width: 0;
+}
 .sode-bm__what {
   flex-basis: 100%;
   overflow-wrap: anywhere;
+}
+@media (max-width: 599.98px) {
+  .sode-bm__add-row {
+    flex-wrap: wrap;
+  }
+  .sode-bm__list {
+    display: flex;
+    flex-direction: column;
+  }
+  .sode-bm__row {
+    column-gap: var(--pb-space-2);
+    grid-template-areas: "grip key main tools" ". . opts opts";
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    row-gap: var(--pb-space-1);
+  }
+  .sode-bm__grip {
+    grid-area: grip;
+  }
+  .sode-bm__row > .sode__preset-key {
+    grid-area: key;
+  }
+  .sode-bm__main {
+    grid-area: main;
+  }
+  .sode-bm__opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--pb-space-2) var(--pb-space-4);
+    grid-area: opts;
+  }
+  .sode-bm__opts > :empty {
+    display: none;
+  }
+  .sode-bm__tools {
+    display: flex;
+    grid-area: tools;
+  }
 }
