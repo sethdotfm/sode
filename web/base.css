@@ -1017,8 +1017,28 @@ html {
 }
 .sode__colorpick {
   block-size: calc(var(--pb-space-10) + var(--pb-space-5));
+  display: grid;
   inline-size: calc(var(--pb-space-10) + var(--pb-space-5));
+  place-items: center;
+  position: relative;
+}
+.sode__colorpick[hidden] {
+  display: none;
+}
+.sode__colorpick > * {
+  grid-area: 1 / 1;
+}
+.sode__colorpick input {
+  block-size: 100%;
+  cursor: pointer;
+  inline-size: 100%;
   padding: 0;
+}
+/* The swatch color is free, so the brush gets an outline in both directions. */
+.sode__colorpick .pb-icon {
+  color: #fff;
+  filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+  pointer-events: none;
 }
 .sode__hint {
   color: var(--pb-text-muted);
