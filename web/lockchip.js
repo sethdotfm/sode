@@ -91,11 +91,13 @@ export function buildChip(api) {
     open(true);
     if (e.key === 'ArrowUp') items().at(-1)?.focus();
   });
-  // Stopped here so Home's keys and keyboard mode do not act on the menu's keys.
-  menu.addEventListener('keydown', (e) => {
+  // Stopped here so Home's keys and keyboard mode do not act on the menu's keys. On the name too: a pointer opens the
+  // menu with the focus left there.
+  who.addEventListener('keydown', (e) => {
+    if (!isOpen()) return;
     const list = items();
     const i = list.indexOf(document.activeElement);
-    const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: list.length - 1 }[e.key];
+    const to = i < 0 ? undefined : { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: list.length - 1 }[e.key];
     if (e.key === 'Escape') close(true);
     else if (e.key === 'Tab') return close(false);
     else if (to !== undefined) list[(to + list.length) % list.length]?.focus();
@@ -115,13 +117,15 @@ export function buildChip(api) {
     // Under the Lock the name is status only: a span's role, with no menu.
     nameBtn.inert = !!pageLocked;
     nameBtn.hidden = !whoName;
-    name.textContent = whoName ? `Signed in as ${whoName}` : '';
-    if (!chip || pageLocked || !L.user) close(false);
+    const text = whoName ? `Signed in as ${whoName}` : '';
+    // A new user (Step in, Step out) makes the open menu's items stale.
+    if (!chip || pageLocked || !L.user || name.textContent !== text) close(false);
+    name.textContent = text;
     signInBtn.hidden = !api.home || !signIn;
   }
   // Swaps the icon when the overlay's border starts to move.
   function setLocked(locked) {
     lockBtn.replaceChildren(icon(locked ? 'lock' : 'lock-open'));
   }
-  return { root, update, setLocked };
+  return { root, update, setLocked, closeMenu: () => close(false) };
 }

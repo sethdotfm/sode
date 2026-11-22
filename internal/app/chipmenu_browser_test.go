@@ -79,6 +79,7 @@ func TestChromeChipMenu(t *testing.T) {
 	realClick(b, "#lock-chip-name")
 	b.waitFor("Step out first, no Step in…", menuOpen+` && document.getElementById('lock-chip-signout').textContent.startsWith('Step out') && !document.getElementById('lock-chip-stepin').offsetParent`)
 	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("Esc on the clicked name closes the menu", `document.getElementById('lock-chip-menu').hidden`)
 
 	ctrlShiftL(b)
 	answerSignOutAsk(b, "Step out")

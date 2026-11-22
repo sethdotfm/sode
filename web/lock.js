@@ -751,6 +751,7 @@ document.addEventListener(
     if (chord(e) === 'ctrl+shift+l' && !e.repeat && L.user && !document.documentElement.hasAttribute('data-sode-kiosk')) {
       e.preventDefault();
       e.stopPropagation();
+      chip?.closeMenu();
       askSignOut({ user: L.user, stepped: steppedIn() }, endSignIn);
       return;
     }
