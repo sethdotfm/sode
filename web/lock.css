@@ -329,6 +329,43 @@
   font-size: var(--pb-text-sm);
   font-weight: var(--pb-weight-medium);
 }
+/* "Signed in as" is the menu's button. Under the Lock (is-hand) it is status only: its edge and chevron fade with the
+   lock button, and the name holds still. */
+.sode-lock__who-menu {
+  display: flex;
+  position: relative;
+}
+.sode-lock__who-btn {
+  gap: var(--pb-space-2);
+  transition:
+    background-color var(--sode-lock-out) var(--pb-ease),
+    border-color var(--sode-lock-out) var(--pb-ease);
+}
+.sode-lock__who-btn[hidden],
+.sode-lock__menu[hidden] {
+  display: none;
+}
+.sode-lock__who-chev {
+  display: inline-flex;
+  transition: opacity var(--sode-lock-out) var(--pb-ease);
+}
+[data-sode-lock-on] .sode-lock__who-btn,
+[data-sode-lock-on] .sode-lock__who-chev {
+  transition-duration: var(--sode-lock-motion);
+}
+.sode-lock__who.is-hand .sode-lock__who-btn {
+  background-color: transparent;
+  border-color: transparent;
+}
+.sode-lock__who.is-hand .sode-lock__who-chev {
+  opacity: 0;
+}
+.sode-lock__menu {
+  left: 0;
+  list-style: none;
+  position: absolute;
+  top: calc(100% + var(--pb-space-2));
+}
 .sode-lock__pin[hidden] {
   display: none;
 }

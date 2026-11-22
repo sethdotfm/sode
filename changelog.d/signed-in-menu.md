@@ -1,0 +1,2 @@
+- "Signed in as" in the Lock bar is now a menu: Sign out, Step in… (Home only) and Change PIN. While you are stepped in, its first item is Step out. The guest's Sign in button on Home has the same look.
+- Ctrl+Shift+L signs out after a Confirm with the churning letter. While you are stepped in, it steps out. The key list and Settings search show it.

@@ -56,11 +56,12 @@ import { lockout } from './lockout.js';
 import { closeShown } from './dialogkeys.js';
 import { chord } from './keys.js';
 import { dialogAttrs } from './modal.js';
-import { stepLock, noteStepState, steppedIn, sendStepIn } from './stepin.js';
+import { stepLock, noteStepState, steppedIn, sendStepIn, stepOut } from './stepin.js';
 import { stepActive, stepInOffered } from './stepinrules.js';
 import { createOwed } from './owed.js';
 import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
+import { askSignOut } from './signoutask.js';
 import { layout, onLayout } from './layout.js';
 import { namePicker } from './namepick.js';
 import { listedUser } from './namepickrules.js';
@@ -227,7 +228,16 @@ function build() {
   sayOffline();
   new MutationObserver(sayOffline).observe(document.documentElement, { attributes: true, attributeFilter: ['data-conn'] });
 
-  chip = buildChip({ lock: localLock, signIn: () => emit('login'), home: page === 'main' });
+  chip = buildChip({
+    lock: localLock,
+    signIn: () => emit('login'),
+    signOut: endSignIn,
+    stepIn: () => emit('stepInOpen'),
+    changePin: () => emit('changePin'),
+    home: page === 'main',
+    stepped: steppedIn,
+    stepOffered: stepOpen,
+  });
   document.body.append(chip.root);
 }
 
@@ -692,6 +702,13 @@ function signOutNow() {
   emit('access', { ...L });
 }
 
+// Stepped in, Sign out steps out, as the server's userSignOut does; signOutNow would show the tab signed out until the
+// lockState came.
+function endSignIn() {
+  if (steppedIn()) stepOut();
+  else signOutNow();
+}
+
 // Capture phase so nothing underneath sees it. Only where it does something.
 document.addEventListener(
   'keydown',
@@ -728,6 +745,13 @@ document.addEventListener(
         e.stopPropagation();
         press(k);
       }
+      return;
+    }
+    // A kiosk hides the Lock bar, so its sign-out key is off too.
+    if (chord(e) === 'ctrl+shift+l' && !e.repeat && L.user && !document.documentElement.hasAttribute('data-sode-kiosk')) {
+      e.preventDefault();
+      e.stopPropagation();
+      askSignOut({ user: L.user, stepped: steppedIn() }, endSignIn);
       return;
     }
     if (chord(e) === 'ctrl+l' && !e.repeat) {
