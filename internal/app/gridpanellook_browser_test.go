@@ -54,7 +54,7 @@ func TestChromeGridPanelLook(t *testing.T) {
 		const row = conn.parentNode.getBoundingClientRect(), c = conn.getBoundingClientRect();
 		return t('.sode-gridpanel__headrow > .sode__conn .pb-status') === 'Server|Router' && dots.length === 2 && dots.every((d) => d.dataset.state === 'ok') &&
 			!document.querySelector('.sode-gridpanel__meta, .sode-gridpanel__stat') && t('#panel-instance') === 'Desk' &&
-			getComputedStyle(conn).position === 'static' && conn.parentNode.lastElementChild === conn && row.right - c.right < 2;
+			getComputedStyle(conn).position === 'relative' && conn.parentNode.lastElementChild === conn && row.right - c.right < 2;
 	})()`)
 	b.waitFor("Settings, the Panels link, Edit, a rule and Full screen follow the title and instance name at the left", `(() => {
 		const tools = document.querySelector('.sode-gridpanel__tools'), title = document.getElementById('panel-title').getBoundingClientRect();

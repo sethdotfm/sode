@@ -1,0 +1,1 @@
+- Point at or focus the Server and Router status to see its details. They show the Server run time, the Router link, its address and the last error. With Log rights they also show how long the Router link has been up and an uptime strip of the last 24 hours. Escape closes them. The phone keeps the old text.
