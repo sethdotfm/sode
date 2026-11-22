@@ -216,6 +216,7 @@ html {
   background: transparent;
   border-color: currentColor;
   color: inherit;
+  overflow-wrap: anywhere;
 }
 .sode__down-map {
   align-items: center;
@@ -228,14 +229,17 @@ html {
   align-items: center;
   display: inline-flex;
   gap: var(--pb-space-3);
+  min-width: 0;
 }
+/* Wraps inside itself, so a long router name or address stays in a phone-wide banner. */
 .sode__down-node {
   align-items: center;
   display: inline-flex;
+  flex-wrap: wrap;
   gap: var(--pb-space-3);
   border: var(--pb-border-w) solid currentColor;
+  min-width: 0;
   padding: var(--pb-space-2) var(--pb-space-4);
-  white-space: nowrap;
 }
 /* The node past the break: the banner's colors swap, so it reads first. */
 .sode__down-node--down {
