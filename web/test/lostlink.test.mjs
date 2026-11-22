@@ -22,6 +22,13 @@ test('a router that is down with the server up is the Router link', () => {
   assert.deepEqual(links, [true, false]);
 });
 
+test('a lost link names no next try', () => {
+  Object.assign(S, { wsLost: true, wsState: 'down', router: 'up' });
+  assert.equal(connState().down.text, undefined);
+  Object.assign(S, { wsLost: false, wsState: 'up', router: 'down', routerAddr: '10.0.0.1:8910' });
+  assert.equal(connState().down.text, undefined);
+});
+
 test('no banner while both links are up', () => {
   Object.assign(S, { wsLost: false, wsState: 'up', router: 'up' });
   assert.equal(connState().down, null);

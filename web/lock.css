@@ -53,17 +53,9 @@
 }
 
 /* Offline wins over the Lock's colors, in either order (html[data-conn="down"], set by desktop.js and panelrun.js).
-   The border is the offline red and pulses as .pb-state-offline does. lock.js shows "Offline, locked". */
+   The border is the offline red and stays still, as the main page's outline does. lock.js shows "Offline, locked". */
 [data-conn="down"] .sode-lock {
   border-color: var(--pb-status-error);
-}
-[data-conn="down"] .sode-lock.is-on {
-  animation: pb-offline 1.6s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-conn="down"] .sode-lock.is-on {
-    animation: none;
-  }
 }
 .sode-lock__offline {
   color: var(--pb-status-error);

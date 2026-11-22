@@ -53,6 +53,13 @@
 .sode-m__down .sode__down-title {
   font-size: var(--pb-text-md);
 }
+/* Shorter wires, so a phone fits a node, a wire and the next node on one line. */
+.sode-m__down .sode__down-link {
+  min-width: 2.5rem;
+}
+.sode-m__down .sode__down-link--lost {
+  min-width: 4rem;
+}
 .sode-m__result {
   flex: 0 0 auto;
   padding: var(--pb-space-3) var(--pb-space-5) 0;
