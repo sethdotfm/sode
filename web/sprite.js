@@ -29,7 +29,11 @@ export function iconHref(name, doc = document) {
   if (!asked.has(name)) {
     asked.add(name);
     const url = spriteOf(name);
-    if (!texts.has(url)) texts.set(url, fetch(url).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status))))));
+    if (!texts.has(url))
+      texts.set(
+        url,
+        fetch(url).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status))))),
+      );
     texts.get(url).then(
       (t) => {
         const m = symbolMarkup(t, name);
