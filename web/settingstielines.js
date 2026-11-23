@@ -3,11 +3,15 @@
 
 import { $, el, S, on, onMsg, emit, request, routerData } from './core.js';
 import { btn, opt } from './formbits.js';
+import { readJSON, writeJSON } from './store.js';
+import { suggest, acceptName } from './tielinesuggest.js';
 import { listProblem, fillName, upsert, without, wireNumber, otherRouter } from './tielinerules.js';
 
 const list = $('tielines-list');
 const form = $('tielines-form');
 const status = $('tielines-status');
+const suggestBox = $('tielines-suggest');
+const suggestList = $('tielines-suggest-list');
 const fromRouter = $('tieline-from-router');
 const toRouter = $('tieline-to-router');
 const fromNum = $('tieline-from');
@@ -48,6 +52,32 @@ function row(t) {
     remove,
   );
   li.dataset.id = t.id;
+  return li;
+}
+
+// Dismissed suggestions stay in this browser, by their two ends. A dismissal is no setting of the server.
+const DISMISS_KEY = 'sode-tieline-dismissed';
+const dismissed = () => new Set(Array.isArray(readJSON(DISMISS_KEY, [])) ? readJSON(DISMISS_KEY, []) : []);
+
+function suggestions() {
+  const names = (m) => [...m].map(([n, v]) => [n, v?.name || '']);
+  const routers = S.routers.map((r) => ({ uid: r.uid, dst: names(routerData(r.uid).dstBy), src: names(routerData(r.uid).srcBy) }));
+  return suggest(routers, tieLines(), dismissed());
+}
+
+function suggestRow(s) {
+  const accept = btn('sode-btn--primary pb-btn--sm', 'Accept', async () => {
+    const name = acceptName(s.name, tieLines());
+    await save(upsert(tieLines(), { id: '', name, from: s.from, to: s.to }), `Added ${name}.`);
+  });
+  accept.setAttribute('aria-label', `Accept ${s.name}`);
+  const dismiss = btn('pb-btn--outline pb-btn--sm', 'Dismiss', () => {
+    writeJSON(DISMISS_KEY, [...dismissed(), s.key]);
+    render();
+  });
+  dismiss.setAttribute('aria-label', `Dismiss ${s.name}`);
+  const li = el('li', 'sode__tielines-row', el('strong', null, s.name), el('span', 'sode__hint', `${endText(s.from, 'dst')} feeds ${endText(s.to, 'src')}`), accept, dismiss);
+  li.dataset.ends = s.key;
   return li;
 }
 
@@ -125,6 +155,9 @@ function render() {
   const rows = tieLines().map(row);
   if (!rows.length) rows.push(el('li', 'sode__hint', two ? 'No tie lines.' : 'Tie lines need two or more routers.'));
   list.replaceChildren(...rows);
+  const found = two ? suggestions() : [];
+  suggestBox.hidden = !found.length;
+  suggestList.replaceChildren(...found.map(suggestRow));
   if (!two) return;
   if (editing && !tieLines().some((t) => t.id === editing)) resetForm();
   else if (!editing) {
