@@ -8,15 +8,20 @@ import (
 
 // A TieLine (GLOSSARY.md, Tie line) is a one-way cable from a destination on one router (From) to a source on another
 // router (To). An Administrator enters it in Settings > Routers > Tie lines. Sode trusts the pair, since it cannot see
-// the signal. Each end keeps the router name it had at save time, for the Name moved check (docs/tielines-design.md).
+// the signal. Each end keeps the router name that it had when the tie line was added or that end changed. The Name
+// moved check uses it (docs/tielines-design.md, Tie lines rule 8).
 type TieLine struct {
 	// ID is hidden and stays through a rename, as a preset's does. Presets and panels store it.
 	ID string `yaml:"id" json:"id"`
 	// Name is the Tie line name, unique on the server and apart from the router names of the two ends.
 	Name string `yaml:"name" json:"name"`
 	// From is the upstream end: a destination. To is the downstream end: a source on another router.
-	From  Ref            `yaml:"from" json:"from"`
-	To    Ref            `yaml:"to" json:"to"`
+	From Ref `yaml:"from" json:"from"`
+	To   Ref `yaml:"to" json:"to"`
+	// Moved: the Name moved mark of each end whose name on the router is not its stored name. Ref is the end as
+	// stored and Now the name at its number now ("" when the number has no name). The tie line works on. Only the
+	// Broken check and a save of that end change it.
+	Moved []Missing      `yaml:"moved,omitempty" json:"moved,omitempty"`
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
@@ -29,7 +34,13 @@ const (
 // MaxTieLines keeps the tieLines message well under the 64 KiB read limit.
 const MaxTieLines = 200
 
-func CloneTieLines(in []TieLine) []TieLine { return slices.Clone(in) }
+func CloneTieLines(in []TieLine) []TieLine {
+	out := slices.Clone(in)
+	for i := range out {
+		out[i].Moved = slices.Clone(out[i].Moved)
+	}
+	return out
+}
 
 // Blank or repeated ids get a new one. A blank name takes the name of the downstream source.
 func normalizeTieLines(in []TieLine) []TieLine {

@@ -18,6 +18,10 @@ export function groupByOwner(items, onlyBroken) {
   return (by.has(EVERYONE) ? [EVERYONE, ...names] : names).map((owner) => ({ owner, items: by.get(owner) }));
 }
 
+// The ids ticked when a list comes. A tie line is a cable, so Sode never moves its end by itself: the Administrator
+// ticks it (docs/tielines-design.md, Other stores).
+export const firstTicked = (items) => items.filter((it) => it.kind !== 'tieLine').map((it) => it.id);
+
 // The ids that are ticked and shown. null when none is, so nothing is staged or sent.
 export function swapValue({ router, side, from, to }, items, ticked, onlyBroken) {
   const ids = items.filter((it) => ticked.has(it.id) && (!onlyBroken || it.broken)).map((it) => it.id);

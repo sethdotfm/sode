@@ -56,18 +56,30 @@ const KINDS = [
   ['preset', 'preset', 'presets'],
   ['filterSet', 'filter set', 'filter sets'],
   ['panel', 'panel', 'panels'],
+  ['tieLine', 'tie line', 'tie lines'],
 ];
 
 const joinAnd = (l) => (l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} and ${l.at(-1)}`);
 
-// usesNote: what a Remove router breaks, from the routerUses answer. head is one sentence, lines name each item.
+const countOf = (items, kinds) =>
+  KINDS.filter(([kind]) => kinds.includes(kind))
+    .map(([kind, one, many]) => {
+      const n = items.filter((it) => it.kind === kind).length;
+      return n ? `${n} ${n === 1 ? one : many}` : '';
+    })
+    .filter(Boolean);
+
+// usesNote: what a Remove router breaks, from the routerUses answer. head is one sentence, lines name each item. Presets,
+// filter sets and panels become Broken; a tie line with an end on the router goes.
 export function usesNote(prefix, items) {
-  if (!items.length) return { head: `Router ${prefix} is in no preset, filter set or panel.`, lines: [] };
-  const counts = KINDS.map(([kind, one, many]) => {
-    const n = items.filter((it) => it.kind === kind).length;
-    return n ? `${n} ${n === 1 ? one : many}` : '';
-  }).filter(Boolean);
+  if (!items.length) return { head: `Router ${prefix} is in no preset, filter set, panel or tie line.`, lines: [] };
+  const broken = countOf(items, ['preset', 'filterSet', 'panel']);
+  const ties = countOf(items, ['tieLine']);
   const name = (kind) => KINDS.find((k) => k[0] === kind)?.[1] || kind;
-  const lines = items.map((it) => `${name(it.kind).replace(/^./, (c) => c.toUpperCase())} ${it.name} (${it.owner || 'Everyone'})`);
-  return { head: `Remove router ${prefix} makes ${joinAnd(counts)} Broken:`, lines };
+  const lines = items.map((it) => {
+    const what = `${name(it.kind).replace(/^./, (c) => c.toUpperCase())} ${it.name}`;
+    return it.kind === 'tieLine' ? what : `${what} (${it.owner || 'Everyone'})`;
+  });
+  const parts = [broken.length ? `makes ${joinAnd(broken)} Broken` : '', ties.length ? `removes ${ties[0]}` : ''].filter(Boolean);
+  return { head: `Remove router ${prefix} ${parts.join(' and ')}:`, lines };
 }
