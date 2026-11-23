@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -22,9 +23,11 @@ func paletteValues() []string {
 	return append(out, PaletteOff)
 }
 
-// MaxPalettePicks caps Profile.PalettePicks; MaxPaletteKey caps one key, in runes.
+// MaxPalettePicks caps Profile.PalettePicks; MaxPalettePins caps Profile.PalettePins (PINS_MAX in web/pinrules.js);
+// MaxPaletteKey caps one key, in runes.
 const (
 	MaxPalettePicks = 5
+	MaxPalettePins  = 24
 	MaxPaletteKey   = 120
 )
 
@@ -41,4 +44,33 @@ func normalizePalettePicks(in []string) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// Palette pins (GLOSSARY.md, Palette pin) are Palette row keys in the person's own order. Only the spaces around a key
+// go; a bad key or a repeat is refused (PalettePinsProblem), not dropped.
+func normalizePalettePins(in []string) []string {
+	out := make([]string, len(in))
+	for i, k := range in {
+		out[i] = strings.TrimSpace(k)
+	}
+	return out
+}
+
+// PalettePinsProblem says why Sode refuses a pin list, or "". The page shows the same words (web/pinrules.js
+// pinsProblem); web/test/pin_cases.json holds the cases that both read.
+func PalettePinsProblem(list []string) string {
+	if len(list) > MaxPalettePins {
+		return fmt.Sprintf("a list holds at most %d Palette pins", MaxPalettePins)
+	}
+	seen := map[string]bool{}
+	for _, k := range list {
+		if !RowKeyOK(k) {
+			return "a Palette pin names a Palette row that Sode does not know"
+		}
+		if seen[k] {
+			return "a Palette row is pinned only one time"
+		}
+		seen[k] = true
+	}
+	return ""
 }

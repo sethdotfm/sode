@@ -130,8 +130,8 @@ test('a my default button names its setting', () => {
 
 test('the empty Palette: Enter picks nothing but a category', () => {
   const log = catalogue(src({ page: 'log' }));
-  const marks = [rowByKey(log, 'preset:global:p1')];
-  assert.equal(enterRow(paletteView(log, { marks }), true), '', 'not the bookmarked preset');
+  const pins = [rowByKey(log, 'preset:global:p1')];
+  assert.equal(enterRow(paletteView(log, { pins }), true), '', 'not the pinned preset');
   assert.equal(enterRow(paletteView(log, { last: ['preset:global:p2'] }), true), '', 'not a last pick');
   assert.equal(enterRow(paletteView(rows), true), '> actions', 'only categories: the first one');
   assert.equal(enterRow(paletteView(rows, { path: ['presets'] }), true), '', 'inside Presets with no text: no preset');

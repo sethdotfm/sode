@@ -1,0 +1,122 @@
+{
+  "comment": "Palette pin lists that Sode keeps or refuses. web/test/pinrules.test.mjs and internal/config/palette_test.go read the same cases, so the page and the server say the same.",
+  "cases": [
+    {
+      "pins": [],
+      "problem": ""
+    },
+    {
+      "pins": [
+        "preset:global:a1b2",
+        "page:log",
+        "setting:this-browser/cfg-theme",
+        "filterSet:user:f-1",
+        "panel:wall",
+        "action:lock"
+      ],
+      "problem": ""
+    },
+    {
+      "pins": [
+        "preset:global:p0",
+        "preset:global:p1",
+        "preset:global:p2",
+        "preset:global:p3",
+        "preset:global:p4",
+        "preset:global:p5",
+        "preset:global:p6",
+        "preset:global:p7",
+        "preset:global:p8",
+        "preset:global:p9",
+        "preset:global:p10",
+        "preset:global:p11",
+        "preset:global:p12",
+        "preset:global:p13",
+        "preset:global:p14",
+        "preset:global:p15",
+        "preset:global:p16",
+        "preset:global:p17",
+        "preset:global:p18",
+        "preset:global:p19",
+        "preset:global:p20",
+        "preset:global:p21",
+        "preset:global:p22",
+        "preset:global:p23"
+      ],
+      "problem": ""
+    },
+    {
+      "pins": [
+        "preset:global:p0",
+        "preset:global:p1",
+        "preset:global:p2",
+        "preset:global:p3",
+        "preset:global:p4",
+        "preset:global:p5",
+        "preset:global:p6",
+        "preset:global:p7",
+        "preset:global:p8",
+        "preset:global:p9",
+        "preset:global:p10",
+        "preset:global:p11",
+        "preset:global:p12",
+        "preset:global:p13",
+        "preset:global:p14",
+        "preset:global:p15",
+        "preset:global:p16",
+        "preset:global:p17",
+        "preset:global:p18",
+        "preset:global:p19",
+        "preset:global:p20",
+        "preset:global:p21",
+        "preset:global:p22",
+        "preset:global:p23",
+        "page:log"
+      ],
+      "problem": "a list holds at most 24 Palette pins"
+    },
+    {
+      "pins": [
+        "page:log",
+        "page:log"
+      ],
+      "problem": "a Palette row is pinned only one time"
+    },
+    {
+      "pins": [
+        "secret:x"
+      ],
+      "problem": "a Palette pin names a Palette row that Sode does not know"
+    },
+    {
+      "pins": [
+        "log"
+      ],
+      "problem": "a Palette pin names a Palette row that Sode does not know"
+    },
+    {
+      "pins": [
+        ""
+      ],
+      "problem": "a Palette pin names a Palette row that Sode does not know"
+    },
+    {
+      "pins": [
+        "https://example.com/"
+      ],
+      "problem": "a Palette pin names a Palette row that Sode does not know"
+    },
+    {
+      "pins": [
+        "page:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      ],
+      "problem": ""
+    },
+    {
+      "pins": [
+        "page:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      ],
+      "problem": "a Palette pin names a Palette row that Sode does not know"
+    }
+  ]
+}

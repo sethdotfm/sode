@@ -10,11 +10,11 @@ import (
 func TestSaveBookmarksEveryone(t *testing.T) {
 	a := userApp(t, false)
 	ada := adminClient(t, a)
-	list := []config.Bookmark{{Key: "page:log", Label: "Log", InPalette: true}, {URL: "https://example.com/", Label: "Rundown", NewTab: true}}
+	list := []config.Bookmark{{Key: "page:log", Label: "Log"}, {URL: "https://example.com/", Label: "Rundown", NewTab: true}}
 	if err := a.SaveBookmarks(ada, list); err != nil {
 		t.Fatal(err)
 	}
-	if got := a.r().cfg.Bookmarks; len(got) != 2 || got[1].URL != "https://example.com/" || !got[0].InPalette {
+	if got := a.r().cfg.Bookmarks; len(got) != 2 || got[1].URL != "https://example.com/" || got[0].Key != "page:log" {
 		t.Fatalf("Everyone's bookmarks %+v", got)
 	}
 	ana := watched(t, a, "10.0.0.1", "1234") // Standard
@@ -48,8 +48,8 @@ func TestSaveBookmarksRefusesUnsafe(t *testing.T) {
 	for i := range many {
 		many[i] = config.Bookmark{Key: "page:log", Label: "Log"}
 	}
-	if err := a.SaveBookmarks(ada, many); err == nil || !strings.Contains(err.Error(), "at most 30") {
-		t.Fatalf("31 bookmarks: %v", err)
+	if err := a.SaveBookmarks(ada, many); err == nil || !strings.Contains(err.Error(), "at most 24") {
+		t.Fatalf("25 bookmarks: %v", err)
 	}
 	if len(a.r().cfg.Bookmarks) != 0 {
 		t.Fatalf("a refused save wrote %+v", a.r().cfg.Bookmarks)
@@ -132,7 +132,7 @@ func TestProfileSaveBookmarks(t *testing.T) {
 		Presets:    []config.Preset{p},
 		Bookmarks: []config.Bookmark{
 			{Key: "filterSet:user:mine1", Label: "Mine"},
-			{Key: "preset:user:" + p.ID, Label: "Desk", InPalette: true},
+			{Key: "preset:user:" + p.ID, Label: "Desk"},
 		}}); err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestProfileSaveBookmarks(t *testing.T) {
 	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := anasProfile(t, a).Bookmarks; len(got) != 2 || !got[1].InPalette {
+	if got := anasProfile(t, a).Bookmarks; len(got) != 2 || got[1].Label != "Desk" {
 		t.Fatalf("bookmarks lost: %+v", got)
 	}
 	p.Name = "Desk 2"

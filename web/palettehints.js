@@ -15,12 +15,12 @@ const words = (q) =>
 const namesPanels = (query, sc) => sc?.cat === 'panels' || words(query).some((w) => (w.length >= 3 && 'panels'.startsWith(w)) || w.startsWith('panel'));
 
 // The matches that the Palette hides, per category id. Grey rows (outside the Rights or Role) do not show, except a
-// bookmark (marks). panels is the count of panels that the server did not list (palettePanels hidden). Their names do
+// Palette pin (pins). panels is the count of panels that the server did not list (palettePanels hidden). Their names do
 // not come to the browser, so they count only when the query names panels.
-export function hiddenCounts(rows, query, { marks = [], panels = 0 } = {}) {
+export function hiddenCounts(rows, query, { pins = [], panels = 0 } = {}) {
   const q = String(query || '').trim();
   if (!q) return {};
-  const grey = rows.filter((r) => r.access?.ok === false && !r.alias && !marks.includes(r));
+  const grey = rows.filter((r) => r.access?.ok === false && !r.alias && !pins.includes(r));
   const sc = paletteScope(q, rows);
   let found;
   if (sc) {
@@ -70,7 +70,8 @@ export function shiftEnterDoes(row) {
 
 // The key hint for the item under the cursor: only the keys that do something there. item is a paletteView item, a
 // hidden line ({ type: 'hidden', act }) or undefined. pick: the Bookmarks editor's Add. why: a grey row's reason shows.
-export function footKeys(item, { query = '', path = [], pick = false, why = false } = {}) {
+// pinned and bookmarked: the row is in the person's own pin or bookmark list, so Alt+P and Alt+B take it out.
+export function footKeys(item, { query = '', path = [], pick = false, why = false, pinned = false, bookmarked = false } = {}) {
   const keys = [['↑↓', 'move']];
   if (why) return [['Esc', 'back']];
   if (item?.type === 'cat') keys.push(['Enter', 'open']);
@@ -78,12 +79,16 @@ export function footKeys(item, { query = '', path = [], pick = false, why = fals
   else if (item?.type === 'row') {
     const row = item.row;
     if (pick) keys.push(['Enter', 'add']);
-    else if (row.access?.ok === false) keys.push(['Enter', 'why']);
     else {
-      keys.push(['Enter', row.kind === 'action' || row.kind === 'settingsButton' ? 'do' : 'open']);
-      const shift = shiftEnterDoes(row);
-      if (shift) keys.push(['⇧Enter', shift]);
-      if (row.kind !== 'url') keys.push([keyLabel('alt+b'), 'bookmark']);
+      if (row.access?.ok === false) keys.push(['Enter', 'why']);
+      else {
+        keys.push(['Enter', row.kind === 'action' || row.kind === 'settingsButton' ? 'do' : 'open']);
+        const shift = shiftEnterDoes(row);
+        if (shift) keys.push(['⇧Enter', shift]);
+      }
+      keys.push([keyLabel('alt+p'), pinned ? 'unpin' : 'pin']);
+      if (!row.missing || bookmarked) keys.push([keyLabel('alt+b'), bookmarked ? 'remove bookmark' : 'bookmark']);
+      if (item.pinned && !query) keys.push([`${keyLabel('alt+up')}↓`, 'move']);
     }
   }
   keys.push(['Esc', query ? 'clear' : path.length ? 'back' : 'close']);

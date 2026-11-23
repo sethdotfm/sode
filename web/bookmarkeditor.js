@@ -128,7 +128,7 @@ function rowNode(b, i) {
     el('span', 'sode-bm__grip', icon('grip-vertical')),
     el('span', 'sode__preset-key', i < 9 ? keyLabel(`alt+${i + 1}`) : ''),
     el('span', 'sode-bm__main', name, state, what),
-    el('span', 'sode-bm__opts', tick('Open in a new tab', 'newTab', canNewTab(b, v.row)), tick('Show in Palette', 'inPalette', true)),
+    el('span', 'sode-bm__opts', tick('Open in a new tab', 'newTab', canNewTab(b, v.row))),
     el(
       'span',
       'sode-bm__tools',

@@ -101,7 +101,7 @@ test('catalogue: an action and its Settings button show as one row', () => {
   const rows = catalogue(src());
   const alias = rowByKey(rows, 'setting:my-user/account-logout');
   assert.deepEqual([alias.kind, alias.target.id, alias.alias, alias.home], ['action', 'signOut', true, false]);
-  assert.ok(keys(paletteView(rows, { query: 'sign out', marks: [alias] })).includes(alias.key), 'a bookmark with Show in Palette still shows');
+  assert.ok(keys(paletteView(rows, { query: 'sign out', pins: [alias] })).includes(alias.key), 'a Palette pin still shows');
   // Signed out, the Settings Sign out is not there, as in Settings.
   assert.equal(rowByKey(catalogue(src({ who: who({ user: '' }) })), 'setting:my-user/account-logout'), null);
   assert.equal(Object.keys(BUTTON_ACTIONS).length, 5);
