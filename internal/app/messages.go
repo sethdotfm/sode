@@ -198,6 +198,7 @@ type sentPageMsg struct {
 type uptimeMsg struct {
 	T      string        `json:"t"` // "uptimeResult"
 	ID     int           `json:"id"`
+	Router string        `json:"router,omitempty"` // the router UID of the range
 	From   int64         `json:"from"`
 	To     int64         `json:"to"`
 	Slot   int64         `json:"slot"`

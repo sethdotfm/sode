@@ -471,7 +471,7 @@ The chip in a patch box that fills it with the value after Last. That value is t
 The state where keys act on History entries instead of the patch boxes. Alt+Shift+k starts and ends it. Esc with empty boxes, or on a History button, also starts it. Any click ends it. Compact view has none.
 
 **Compact view**:
-The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
+The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever a link is not up. While Sode is Degraded, only the icon of each Router that is down shows, until the Lost link banner shows. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
 
 **Home**:
 The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page. Alt+Shift+h opens Home from every page, and on Home it closes what is open and puts the focus in the Source box.

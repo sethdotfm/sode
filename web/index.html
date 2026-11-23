@@ -43,6 +43,8 @@
     </div>
   </header>
   <div class="sode__down" id="conn-down" role="alert" hidden></div>
+  <!-- Degraded: the routers that are down and their destinations (degradedview.js). The phone view has its own copy. -->
+  <div class="pb-note pb-note--warn sode__degraded" id="conn-degraded" role="status" hidden></div>
   <!-- The command keeps in step with recoverCommand in internal/app/roles.go. -->
   <div class="pb-alert pb-alert--error sode__noadmin" id="no-admin" role="alert" hidden>
     <div class="sode__lock-help">
@@ -707,6 +709,7 @@
     </header>
 
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
+    <div class="pb-note pb-note--warn sode__degraded" id="m-degraded" role="status" hidden></div>
     <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
       <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
       <span class="pb-grow">Not saved: SODE_CONFIG is not set. Settings and users are lost on restart.</span>
