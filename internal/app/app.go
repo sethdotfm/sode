@@ -27,25 +27,30 @@ type runtime struct {
 	byWire  map[int]config.Level
 	byUI    map[int]config.Level
 	lv      map[string]*routerLevels
-	lenCode byte
 	proxies []netip.Prefix
 }
 
-// routerLevels is the level map of one router (docs/tielines-design.md, Levels).
+// routerLevels is the level map of one router (docs/tielines-design.md, Levels), with its settings and the length
+// code of its name requests.
 type routerLevels struct {
-	rc     config.Router
-	levels []config.Level
-	byWire map[int]config.Level
-	byUI   map[int]config.Level
+	rc      config.Router
+	levels  []config.Level
+	byWire  map[int]config.Level
+	byUI    map[int]config.Level
+	lenCode byte
 }
 
-func newRouterLevels(c config.Config, rc config.Router) *routerLevels {
-	l := &routerLevels{rc: rc, levels: c.LevelMapOf(rc), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}}
+func newRouterLevels(c config.Config, rc config.Router) (*routerLevels, error) {
+	code, err := swp08.NameLenCode(rc.NameLength)
+	if err != nil {
+		return nil, err
+	}
+	l := &routerLevels{rc: rc, levels: c.LevelMapOf(rc), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}, lenCode: code}
 	for _, x := range l.levels {
 		l.byWire[x.Wire] = x
 		l.byUI[x.UI] = x
 	}
-	return l
+	return l, nil
 }
 
 // levelsOf gives the levels of the router with this UID. Blank, or a UID the settings do not have, is the first router.
@@ -81,17 +86,15 @@ func (l *routerLevels) typed(uis []int) ([]int, error) {
 }
 
 func newRuntime(c config.Config) (*runtime, error) {
-	code, err := swp08.NameLenCode(c.NameLength)
-	if err != nil {
-		return nil, err
-	}
 	proxies, err := c.Proxies()
 	if err != nil {
 		return nil, err
 	}
-	r := &runtime{cfg: c, lv: map[string]*routerLevels{}, lenCode: code, proxies: proxies}
+	r := &runtime{cfg: c, lv: map[string]*routerLevels{}, proxies: proxies}
 	for _, rc := range c.Routers() {
-		r.lv[rc.UID] = newRouterLevels(c, rc)
+		if r.lv[rc.UID], err = newRouterLevels(c, rc); err != nil {
+			return nil, err
+		}
 	}
 	first := r.levelsOf(c.UID)
 	r.levels, r.byWire, r.byUI = first.levels, first.byWire, first.byUI
@@ -449,9 +452,10 @@ func (a *App) requestDumps(u *routerUnit) {
 	a.mu.Lock()
 	u.dumpAt = time.Now()
 	a.mu.Unlock()
-	for _, l := range r.levelsOf(u.uid).levels {
-		u.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
-		u.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
+	lv := r.levelsOf(u.uid)
+	for _, l := range lv.levels {
+		u.send(swp08.ExtTallyDumpReq(lv.rc.Matrix, l.Wire), swp08.ReasonResync)
+		u.send(swp08.ExtProtectDumpReq(lv.rc.Matrix, l.Wire, 0), swp08.ReasonResync)
 	}
 }
 
@@ -539,10 +543,11 @@ func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 
 // Caller holds mu.
 func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
-	if xp.Matrix != r.cfg.Matrix {
+	lv := r.levelsOf(u.uid)
+	if xp.Matrix != lv.rc.Matrix {
 		return
 	}
-	l, ok := r.levelsOf(u.uid).byWire[xp.Level]
+	l, ok := lv.byWire[xp.Level]
 	if !ok {
 		return
 	}
@@ -589,10 +594,11 @@ func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 
 // announced: a 0x8D or 0x8F, not an answer to a re-read. Caller holds mu.
 func (a *App) applyProtect(u *routerUnit, r *runtime, p swp08.Protect, announced bool) {
-	if p.Matrix != r.cfg.Matrix {
+	lv := r.levelsOf(u.uid)
+	if p.Matrix != lv.rc.Matrix {
 		return
 	}
-	l, ok := r.levelsOf(u.uid).byWire[p.Level]
+	l, ok := lv.byWire[p.Level]
 	if !ok {
 		return
 	}
@@ -814,14 +820,12 @@ func (a *App) reply(c *client, v any) {
 
 // record writes e. A take's entry names its router in Router; any other entry gets the first router.
 func (a *App) record(e *Entry) {
-	r := a.r()
-	cfg := r.cfg
-	rc := r.routerOf(e.Router)
+	rc := a.r().routerOf(e.Router)
 	e.Router, e.RouterTitle = rc.UID, rc.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	log.Print(e.logLine(cfg.NumberOffset))
+	log.Print(e.logLine(rc.NumberOffset))
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "entry", E: e})
 	a.mu.Unlock()
