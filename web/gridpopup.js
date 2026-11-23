@@ -283,13 +283,11 @@ export function showGrid() {
   clearInterval(tick);
   // Results and refusals fade on the clock, as on a panel page.
   tick = setInterval(() => body.render(), 1000);
+  // Focus now, not in a frame. The first paint of a large grid can be slow, and an Esc before it must close the popup.
+  scroller()?.focus({ preventScroll: true });
   // The view measures itself in the first frame after it shows (its ResizeObserver). The aim waits one frame more. While
   // the popup was hidden the view measured a crosspoint as 0 px, and an aim with that size scrolls nowhere.
-  requestAnimationFrame(() => {
-    if (!shown) return;
-    scroller()?.focus({ preventScroll: true });
-    requestAnimationFrame(() => shown && aim && (aim.src != null || aim.dst != null) && body.aim(aim));
-  });
+  requestAnimationFrame(() => shown && requestAnimationFrame(() => shown && aim && (aim.src != null || aim.dst != null) && body.aim(aim)));
 }
 
 export function hideGrid(refocus = true) {
