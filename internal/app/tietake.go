@@ -24,8 +24,8 @@ import (
 // tielock.go locks the tie lines and runs the stale check before the first wave. Then it plans the take again
 // (tieTake.again). Then refuseHeld runs the Protect check
 // on every step before any step goes. Every step is an ordinary connect, also in fireMode native. The Result of a
-// route comes from all its hops (routeWord). Put back is in tieputback.go, a Late hop and Retry in tieretry.go. Not
-// here yet: One-off tie lines and the Tie line picker. The API is the only caller.
+// route comes from all its hops (routeWord). Put back is in tieputback.go, a Late hop and Retry in tieretry.go,
+// One-off tie lines in tieoneoff.go. The API and the Tie line picker (tiepage.go) call it.
 
 // TieEnd is a router reference with the name that Sode had for it.
 type TieEnd struct {
@@ -49,6 +49,8 @@ type TieHop struct {
 	Result  string   `json:"result"`
 	Prev    [][2]int `json:"prev"`
 	Late    bool     `json:"late,omitempty"`
+	// OneOff: the tie line is a One-off tie line. It keeps the two stated ends and who stated them.
+	OneOff *TieOneOff `json:"oneOff,omitempty"`
 }
 
 // ViaLevel is the Via chain of one typed level of the destination asked for.
@@ -119,16 +121,14 @@ func (t *tieTake) reqs() []routeReq {
 // planTieTake makes the steps of a take with a route across routers. routes holds every route of the request, in
 // order. ties holds the tie line ids of each route across routers, by its place in the request.
 func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[int][]string) (*tieTake, *apiProblem) {
-	t := &tieTake{tieName: map[string]string{}}
-	for _, tl := range rt.cfg.TieLines {
-		t.tieName[tl.ID] = tl.Name
-	}
+	t := &tieTake{}
 	var cross []tieRoute
 	down := false
 	if prob := func() *apiProblem {
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		in := a.tieInput(rt)
+		_, t.tieName = a.tieLinesNow(rt)
+		in := withOneOffs(a.tieInput(rt), t.tieName, routes)
 		shared := map[hopKey]*tieStep{}
 		carries := map[string]tieplan.End{} // tie line id → the source that this take puts on it
 		for _, r := range routes {
@@ -169,7 +169,8 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 					return problem(http.StatusConflict, "conflict", "route %d: %s carries another source in this take", r.index, t.name(h.Tie))
 				}
 				carries[h.Tie] = r.src
-				m.hops = append(m.hops, TieHop{Router: h.Router, Src: h.Src, Dst: h.Dst, Levels: h.Levels, Tie: h.Tie, TieName: t.tieName[h.Tie], Result: "already", Prev: [][2]int{}})
+				m.hops = append(m.hops, TieHop{Router: h.Router, Src: h.Src, Dst: h.Dst, Levels: h.Levels, Tie: h.Tie, TieName: t.tieName[h.Tie], Result: "already", Prev: [][2]int{},
+					OneOff: a.hopOneOff(r, h.Tie)})
 				var s *tieStep
 				if h.Sends {
 					k := hopKey{h.Router, h.Src, h.Dst}

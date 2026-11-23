@@ -114,7 +114,7 @@ func TestAPITieTakeRefusesMovedTieLine(t *testing.T) {
 	for _, expect := range []string{`{"router":"` + uidA + `","n":6}`, `null`} {
 		body := strings.Replace(tieRoutes(uidA, [2]int{4, 2}), `{"router":"`+uidA+`","n":3}}`, expect+"}", 1)
 		b := tieChangedBody(t, apiPost(a, "/api/v1/takes", key, body, nil))
-		if len(b.Routes) != 1 || len(b.Routes[0].Changed) != 1 || b.Routes[0].Changed[0] != (apiTieRef{"t1", "TIE 3"}) {
+		if len(b.Routes) != 1 || len(b.Routes[0].Changed) != 1 || b.Routes[0].Changed[0] != (apiTieRef{ID: "t1", Name: "TIE 3"}) {
 			t.Fatalf("expect %s: routes %+v", expect, b.Routes)
 		}
 		r := b.Routes[0]

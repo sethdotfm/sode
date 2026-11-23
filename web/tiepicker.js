@@ -14,6 +14,10 @@
 //
 // No path: the picker opens with each reason by name (The Tie line picker, rule 10), and Take stays off. A route that
 // comes back on the live update makes the choices show.
+//
+// One-off tie line: a person types a destination on the router of the source and a source on the router of the
+// destination. The plan then has a path through that One-off tie line, and the picker chooses it. Its form stays out
+// of the painted plan, so a live update keeps what the person typed.
 
 import { el, on, request, srcItem, dstItem, labelNode, routerData, tallyText } from './core.js';
 import { chord, keyLabel } from './keys.js';
@@ -23,11 +27,13 @@ import { fmtClock } from './device.js';
 import { showResult } from './banner.js';
 import { levelsPhrase } from './levelview.js';
 import { chosen, choices, choose, keyStep, ready, changedText, stepsOf, countUp, refresh, tieMarked, hitMarked, pathUsable } from './tiepickrules.js';
+import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff } from './tiepickrules.js';
 import { reasonText } from './tietakerules.js';
 
-let ui = null; // { root, dialog, head, body, clear, take, trap }
-// { st, o, lock, unlocked, timer, wait, asking, again }. o: the options of pickRoute. wait: the timer of the next plan;
-// asking: a plan is on its way; again: a change came while it was.
+let ui = null; // { root, dialog, head, body, plan, one, clear, take, trap }
+// { st, o, oneOffs, lock, unlocked, timer, wait, asking, again }. o: the options of pickRoute. oneOffs: the One-off
+// tie lines that the person stated ({from, to}). wait: the timer of the next plan; asking: a plan is on its way;
+// again: a change came while it was.
 let cur = null;
 
 // REPLAN_MS joins the changes of one burst (a take moves many crosspoints) into one plan.
@@ -52,7 +58,9 @@ function build() {
   title.id = 'tiepick-title';
   title.textContent = 'Tie line picker';
   const head = el('span', 'sode-tiepick__count');
-  const body = el('div', 'pb-modal__body sode-tiepick__body');
+  const plan = el('div', 'sode-tiepick__plan');
+  const one = oneOffForm();
+  const body = el('div', 'pb-modal__body sode-tiepick__body', plan, one.node);
   const clear = el('button', 'pb-btn pb-btn--outline');
   clear.type = 'button';
   clear.id = 'tiepick-clear';
@@ -85,7 +93,93 @@ function build() {
   cancel.addEventListener('click', () => close());
   take.addEventListener('click', () => send());
   clear.addEventListener('click', () => clearRoute());
-  ui = { root, dialog, head, body, clear, take, trap };
+  ui = { root, dialog, head, body, plan, one, clear, take, trap };
+}
+
+// oneOffForm: the One-off tie line button and its form. The labels name the routers when the picker opens.
+function oneOffForm() {
+  const toggle = el('button', 'pb-btn pb-btn--outline pb-btn--sm');
+  toggle.type = 'button';
+  toggle.id = 'tiepick-oneoff';
+  toggle.textContent = 'One-off tie line';
+  toggle.dataset.pbTip = 'Use a cable that is not a tie line in Sode, for this take only';
+  const field = (id) => {
+    const label = el('label');
+    label.htmlFor = id;
+    const input = el('input', 'pb-input');
+    Object.assign(input, { id, type: 'number', min: '0' });
+    return { label, input, node: el('div', 'sode__field', label, el('span', 'pb-number-wrap', input)) };
+  };
+  const from = field('tiepick-oneoff-from');
+  const to = field('tiepick-oneoff-to');
+  const use = el('button', 'pb-btn pb-btn--outline pb-btn--sm');
+  use.type = 'button';
+  use.id = 'tiepick-oneoff-use';
+  use.textContent = 'Use';
+  const why = el('p', 'sode__hint');
+  why.id = 'tiepick-oneoff-why';
+  why.setAttribute('role', 'status');
+  const form = el(
+    'div',
+    'sode-tiepick__oneoff-form',
+    el('p', 'sode__hint', 'Sode does not know what this cable feeds on the far router, so the Affected destinations there show as unknown.'),
+    el('div', 'sode__fields', from.node, to.node),
+    use,
+    why,
+  );
+  form.id = 'tiepick-oneoff-form';
+  form.hidden = true;
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-controls', form.id);
+  toggle.addEventListener('click', () => showOneOff(form.hidden));
+  use.addEventListener('click', () => useOneOff());
+  return { node: el('div', 'sode-tiepick__oneoff', toggle, form), toggle, form, from, to, why };
+}
+
+function showOneOff(show) {
+  const { one } = ui;
+  one.form.hidden = !show;
+  one.toggle.setAttribute('aria-expanded', String(show));
+  if (show) one.from.input.focus();
+  else ui.dialog.focus({ preventScroll: true });
+}
+
+// resetOneOff clears the form for the route of a new picker.
+function resetOneOff(route) {
+  const { one } = ui;
+  one.from.label.textContent = `Destination on router ${prefix(route.src.router)}`;
+  one.to.label.textContent = `Source on router ${prefix(route.dst.router)}`;
+  one.from.input.value = '';
+  one.to.input.value = '';
+  one.why.textContent = '';
+  one.form.hidden = true;
+  one.toggle.setAttribute('aria-expanded', 'false');
+}
+
+// useOneOff asks for the plan with the typed One-off tie line and chooses the path through it.
+async function useOneOff() {
+  const c = cur;
+  if (!c) return;
+  const { one } = ui;
+  const r = oneOffEnds(c.st.route, one.from.input.value, one.to.input.value, (uid) => routerData(uid).off);
+  if (r.why) {
+    one.why.textContent = `${r.why}.`;
+    return;
+  }
+  one.why.textContent = 'Asking the server…';
+  const list = addOneOff(c.oneOffs, r.ends);
+  const { route, m } = await askPlan(withOneOffs(c.o.routes(), list));
+  if (cur !== c) return;
+  if (!route) {
+    one.why.textContent = m.body?.error?.message || m.err || 'The server refused the One-off tie line.';
+    return;
+  }
+  c.oneOffs = list;
+  c.st = chooseOneOff(refresh(c.st, route).st, r.ends);
+  one.why.textContent = '';
+  startLock();
+  paint();
+  showOneOff(false);
 }
 
 function keyHints() {
@@ -95,6 +189,15 @@ function keyHints() {
 
 function onKey(e) {
   if (!cur) return;
+  // In the One-off tie line form, the keys type. Enter uses the cable.
+  if (e.target.closest?.('.sode-tiepick__oneoff-form')) {
+    if (chord(e) === 'enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      useOneOff();
+    }
+    return;
+  }
   const c = chord(e);
   const { st, act } = keyStep(cur.st, c);
   if (st === cur.st && !act) return;
@@ -112,8 +215,9 @@ function onKey(e) {
 //   head: the place of the route in the take ("Route 1 of 2"), or ''.
 //   final: Take sends the take; else it goes on to the next step of the take ("Next").
 //   onPick(st): the person chose a path. clear(): Clear this route, or null for none. onClose(): a cancel.
+//   oneOffs: the One-off tie lines that the person stated before ({from, to}), or none.
 export async function pickRoute(o) {
-  const { route, m } = await askPlan(o.routes());
+  const { route, m } = await askPlan(withOneOffs(o.routes(), o.oneOffs));
   if (route) return open(o, o.state(route));
   showResult('error', 'Not sent', m.body?.error?.message || m.err || 'The server refused the route.');
   o.onClose?.();
@@ -140,7 +244,7 @@ function replan() {
       return;
     }
     c.asking = true;
-    const { route } = await askPlan(c.o.routes());
+    const { route } = await askPlan(withOneOffs(c.o.routes(), c.oneOffs));
     c.asking = false;
     if (cur !== c) return;
     if (route) {
@@ -173,7 +277,8 @@ function startLock() {
 function open(o, st) {
   if (!ui) build();
   stop();
-  cur = { st, o, unlocked: false, timer: countUp(tick) };
+  cur = { st, o, oneOffs: o.oneOffs || [], unlocked: false, timer: countUp(tick) };
+  resetOneOff(st.route);
   ui.head.textContent = o.head || '';
   ui.clear.hidden = !o.clear;
   ui.take.textContent = `${o.final ? 'Take' : 'Next'} (${keyLabel('enter')})`;
@@ -224,7 +329,7 @@ function paint() {
   const dst = dstOf(route.dst);
   const steps = [];
   for (let s = 0; s < stepsOf(p); s++) steps.push(stepNode(s, src));
-  ui.body.replaceChildren(
+  ui.plan.replaceChildren(
     el('div', 'sode-tiepick__route', 'Take ', labelNode(src), ' to ', labelNode(dst), `, ${levelsPhrase(route.levels, dst.router || '')}`),
     ...reasonsNode(route),
     el(

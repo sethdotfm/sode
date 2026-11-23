@@ -11,7 +11,7 @@ import { emit, request, routerData, routerOfItem } from './core.js';
 import { showResult } from './banner.js';
 import { noteLast } from './plans.js';
 import { pickRoute } from './tiepicker.js';
-import { pickState, reopenState, takeRoute, chosen } from './tiepickrules.js';
+import { pickState, reopenState, takeRoute, chosen, pathKey, oneOffsOf } from './tiepickrules.js';
 import { tieIndexes, nextTie, finalAt, planRequest, takeRequest, keptItems, changedAt, resetFrom, failedText } from './tietakerules.js';
 
 const ref = (it) => ({ router: routerData(routerOfItem(it)).uid, n: it.n });
@@ -38,7 +38,8 @@ export function tieTake(plan, prot, opts) {
   step(f, nextTie(routes, f.picks, 0), pickState);
 }
 
-function step(f, k, state) {
+// oneOffs: the One-off tie lines that the picker of route k offers again (a reopen).
+function step(f, k, state, oneOffs = []) {
   if (k < 0) return finish(f);
   const ties = tieIndexes(f.routes);
   const many = ties.length > 1 || f.routes.some((r) => !r.tie);
@@ -47,6 +48,7 @@ function step(f, k, state) {
   pickRoute({
     routes: () => planRequest(f.routes, f.picks, k),
     state,
+    oneOffs,
     head: many ? `Route ${ties.indexOf(k) + 1} of ${ties.length} across routers` : '',
     final,
     clear: many
@@ -59,7 +61,8 @@ function step(f, k, state) {
       const names = chosen(st)
         .hops.slice(0, -1)
         .map((h) => h.tie.name || h.tie.id);
-      f.picks[k] = { take: takeRoute(st), names };
+      // ids name the chosen path (pathKey): a One-off tie line goes to the server as its ends, not its id.
+      f.picks[k] = { take: takeRoute(st), names, ids: pathKey(chosen(st)).split(' ') };
       if (final) return send(f, true);
       on();
     },
@@ -132,8 +135,9 @@ function reopen(f, body, at) {
   const what = names.length ? `${names.join(', ')} changed` : fresh.length ? 'The Affected destinations changed' : 'A tie line changed';
   showResult('error', 'Tie line changed', `${what}. Sode sent nothing. Choose again.`);
   if (k < 0) return;
-  const ids = f.picks[k].take.ties.map((t) => t.id);
+  const { ids } = f.picks[k];
+  const oneOffs = oneOffsOf(f.picks[k].take);
   const changed = (r?.changed || []).map((t) => t.id);
   f.picks = resetFrom(f.picks, k);
-  step(f, k, (route) => reopenState(route, ids, changed, fresh));
+  step(f, k, (route) => reopenState(route, ids, changed, fresh), oneOffs);
 }
