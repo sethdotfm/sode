@@ -4,10 +4,12 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"maps"
 	"net/netip"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -17,13 +19,64 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
+// levels, byWire and byUI are the first router's levels; lv holds every router's, by router UID (levelsOf).
 type runtime struct {
 	cfg     config.Config
 	levels  []config.Level
 	byWire  map[int]config.Level
 	byUI    map[int]config.Level
+	lv      map[string]*routerLevels
 	lenCode byte
 	proxies []netip.Prefix
+}
+
+// routerLevels is the level map of one router (docs/tielines-design.md, Levels).
+type routerLevels struct {
+	rc     config.Router
+	levels []config.Level
+	byWire map[int]config.Level
+	byUI   map[int]config.Level
+}
+
+func newRouterLevels(c config.Config, rc config.Router) *routerLevels {
+	l := &routerLevels{rc: rc, levels: c.LevelMapOf(rc), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}}
+	for _, x := range l.levels {
+		l.byWire[x.Wire] = x
+		l.byUI[x.UI] = x
+	}
+	return l
+}
+
+// levelsOf gives the levels of the router with this UID. Blank, or a UID the settings do not have, is the first router.
+func (r *runtime) levelsOf(uid string) *routerLevels {
+	if l, ok := r.lv[uid]; ok {
+		return l
+	}
+	return r.lv[r.cfg.UID]
+}
+
+// label is the level's label in the router's Level numbering.
+func (l *routerLevels) label(ui int) string { return l.rc.LevelLabel(ui) }
+
+// typed maps the levels typed for a route to this router's levels. A router with one level cannot break away: any
+// typed level means its one level, the whole signal. A router with more levels refuses a level past its count.
+func (l *routerLevels) typed(uis []int) ([]int, error) {
+	var out []int
+	for _, ui := range uis {
+		if ui < 1 {
+			return nil, errors.New("unknown level " + l.label(ui))
+		}
+		if len(l.levels) == 1 {
+			ui = 1
+		}
+		if _, ok := l.byUI[ui]; !ok {
+			return nil, errors.New("unknown level " + l.label(ui))
+		}
+		if !slices.Contains(out, ui) {
+			out = append(out, ui)
+		}
+	}
+	return out, nil
 }
 
 func newRuntime(c config.Config) (*runtime, error) {
@@ -35,11 +88,12 @@ func newRuntime(c config.Config) (*runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &runtime{cfg: c, levels: c.LevelMap(), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}, lenCode: code, proxies: proxies}
-	for _, l := range r.levels {
-		r.byWire[l.Wire] = l
-		r.byUI[l.UI] = l
+	r := &runtime{cfg: c, lv: map[string]*routerLevels{}, lenCode: code, proxies: proxies}
+	for _, rc := range c.Routers() {
+		r.lv[rc.UID] = newRouterLevels(c, rc)
 	}
+	first := r.levelsOf(c.UID)
+	r.levels, r.byWire, r.byUI = first.levels, first.byWire, first.byUI
 	return r, nil
 }
 
@@ -369,7 +423,7 @@ func (a *App) requestDumps(u *routerUnit) {
 	a.mu.Lock()
 	u.dumpAt = time.Now()
 	a.mu.Unlock()
-	for _, l := range r.levels {
+	for _, l := range r.levelsOf(u.uid).levels {
 		u.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
 		u.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
 	}
@@ -453,7 +507,7 @@ func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 	if xp.Matrix != r.cfg.Matrix {
 		return
 	}
-	l, ok := r.byWire[xp.Level]
+	l, ok := r.levelsOf(u.uid).byWire[xp.Level]
 	if !ok {
 		return
 	}
@@ -499,7 +553,7 @@ func (a *App) applyProtect(u *routerUnit, r *runtime, p swp08.Protect, announced
 	if p.Matrix != r.cfg.Matrix {
 		return
 	}
-	l, ok := r.byWire[p.Level]
+	l, ok := r.levelsOf(u.uid).byWire[p.Level]
 	if !ok {
 		return
 	}
@@ -649,12 +703,12 @@ func (a *App) hello(p helloPage) []byte {
 func (a *App) helloRouters(r *runtime) []helloRouter {
 	var out []helloRouter
 	for _, u := range a.unitsInOrder(r) {
-		rc := r.routerOf(u.uid)
-		c := r.cfg
-		c.Router = rc
+		lv := r.levelsOf(u.uid)
+		rc := lv.rc
 		n := u.namesMsg()
 		out = append(out, helloRouter{
-			UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, NumberOffset: rc.NumberOffset, Levels: c.LevelMap(),
+			UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, NumberOffset: rc.NumberOffset, Levels: lv.levels,
+			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
 			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, Tally: routeTriples(u.router.tally), Status: u.statusOut(),
 		})
 	}

@@ -63,7 +63,7 @@ func markStages(r *runtime, items []routeReq) int {
 	for _, it := range items {
 		seen := map[int]bool{}
 		for _, ui := range it.Levels {
-			if l, ok := r.byUI[ui]; ok && !seen[l.Wire] {
+			if l, ok := r.levelsOf(it.Router).byUI[ui]; ok && !seen[l.Wire] {
 				seen[l.Wire] = true
 				uses[dl{it.Dst, l.Wire}]++
 			}
@@ -74,7 +74,7 @@ func markStages(r *runtime, items []routeReq) int {
 		it := &items[i]
 		it.Stage = nil
 		for _, ui := range it.Levels {
-			l, ok := r.byUI[ui]
+			l, ok := r.levelsOf(it.Router).byUI[ui]
 			if !ok || !swp08.ExtSalvoFits(r.cfg.Matrix, l.Wire, it.Dst, it.Src) || uses[dl{it.Dst, l.Wire}] != 1 {
 				continue
 			}

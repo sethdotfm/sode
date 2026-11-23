@@ -148,11 +148,12 @@ const (
 	defaultRouteGrace = time.Second
 )
 
-func levelList(r *runtime, ls []int) string {
+// levelList names levels ls of a router in its Level numbering.
+func levelList(lv *routerLevels, ls []int) string {
 	sort.Ints(ls)
 	parts := make([]string, len(ls))
 	for i, l := range ls {
-		parts[i] = r.cfg.LevelLabel(l)
+		parts[i] = lv.label(l)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -288,7 +289,7 @@ func (a *App) prepare(r *runtime, u *routerUnit, c *client, req routeReq, ext *e
 		l.native = req.Stage[l.wire]
 	}
 	if protected := a.guardPhase(w, e); len(protected) > 0 {
-		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
+		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r.levelsOf(u.uid), protected)))
 		return nil
 	}
 	a.registerPhase(w, e)
@@ -369,7 +370,7 @@ func entryErr(r *runtime, names map[int]string, e *Entry) string {
 		if slices.Contains(e.Unsent, ui) {
 			continue
 		}
-		label := "level " + r.cfg.LevelLabel(ui)
+		label := "level " + r.levelsOf(e.Router).label(ui)
 		switch n, seen := now[ui]; {
 		case e.Cut:
 			parts = append(parts, label+" no answer before the router changed")
@@ -386,7 +387,7 @@ func entryErr(r *runtime, names map[int]string, e *Entry) string {
 		out = append(out, "no confirmation from router: "+strings.Join(parts, "; "))
 	}
 	if e.SendErr != "" {
-		out = append(out, fmt.Sprintf("levels %s not sent: %s", levelList(r, slices.Clone(e.Unsent)), e.SendErr))
+		out = append(out, fmt.Sprintf("levels %s not sent: %s", levelList(r.levelsOf(e.Router), slices.Clone(e.Unsent)), e.SendErr))
 	}
 	return strings.Join(out, "; ")
 }
@@ -396,14 +397,14 @@ func planRoute(r *runtime, u *routerUnit, req routeReq) (*waiter, error) {
 		return nil, errors.New("bad request")
 	}
 	w := &waiter{u: u, dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1, group: req.Group}}
-	for _, ui := range req.Levels {
-		l, ok := r.byUI[ui]
-		if !ok {
-			return nil, errors.New("unknown level " + r.cfg.LevelLabel(ui))
-		}
-		if slices.ContainsFunc(w.levels, func(x *routeLevel) bool { return x.ui == ui }) {
-			continue
-		}
+	// The typed levels are levels of the destination's router.
+	lv := r.levelsOf(u.uid)
+	uis, err := lv.typed(req.Levels)
+	if err != nil {
+		return nil, err
+	}
+	for _, ui := range uis {
+		l := lv.byUI[ui]
 		w.levels = append(w.levels, &routeLevel{ui: ui, wire: l.Wire, connect: swp08.ExtConnect(r.cfg.Matrix, l.Wire, req.Dst, req.Src)})
 	}
 	return w, nil

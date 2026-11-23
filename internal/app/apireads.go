@@ -159,12 +159,13 @@ type apiLevel struct {
 // Caller holds mu.
 func (a *App) tallySnapshot(u *routerUnit, v apiView) map[string]any {
 	levels := []apiLevel{}
-	for _, l := range a.r().levels {
+	r := a.r()
+	for _, l := range r.levelsOf(u.uid).levels {
 		levels = append(levels, apiLevel{l.UI, l.Label, l.Swatch, l.Color})
 	}
-	cfg := a.r().cfg
+	rc := r.routerOf(u.uid)
 	return map[string]any{
-		"levels": levels, "levelNumbering": cfg.LevelNumbering, "defaultLevels": cfg.DefaultLevels,
+		"levels": levels, "levelNumbering": rc.LevelNumbering, "defaultLevels": rc.DefaultLevels,
 		"routes": routeRows(u.router.tally, v),
 	}
 }

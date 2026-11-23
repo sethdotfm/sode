@@ -74,7 +74,7 @@ func (a *App) checkRoutes(r *runtime, u *routerUnit, c *client, items []routeReq
 	if len(unread) > 0 {
 		parts := make([]string, len(unread))
 		for i, lr := range unread {
-			parts[i] = fmt.Sprintf("level %s (%d %s)", r.cfg.LevelLabel(lr.ui), len(lr.dsts), plural(len(lr.dsts), "destination", "destinations"))
+			parts[i] = fmt.Sprintf("level %s (%d %s)", r.levelsOf(u.uid).label(lr.ui), len(lr.dsts), plural(len(lr.dsts), "destination", "destinations"))
 		}
 		log.Printf("take of %d %s: not read from the router: %s; using cached routes", len(items), plural(len(items), "route", "routes"), strings.Join(parts, ", "))
 	}

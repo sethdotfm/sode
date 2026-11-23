@@ -19,6 +19,7 @@ import './mykeys.js';
 import './myclients.js';
 import './users.js';
 import './apisettings.js';
+import './settingsrouterlevels.js';
 import './accesspreset.js';
 import './setupagain.js';
 import './profiles.js';
