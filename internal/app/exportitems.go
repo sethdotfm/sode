@@ -124,6 +124,11 @@ func (a *App) exportList() (exportList, error) {
 	}
 	item(routers, r.UID, title, "", &exportRouters{Routers: []config.Router{r}}, names)
 
+	ties := cat(catTieLines)
+	for _, t := range cfg.TieLines {
+		item(ties, t.ID, t.Name, "", &exportTieLines{TieLines: []config.TieLine{t}})
+	}
+
 	users := cat(catUsers)
 	for _, u := range cfg.Users {
 		item(users, u.ID, u.Name, "", &exportUsers{Users: []config.User{u}}).Detail = u.Role

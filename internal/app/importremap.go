@@ -261,6 +261,7 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 		}
 		rr.Candidates = []remapCand{{UID: live.UID, Title: info.Targets[0].Title, Found: found, Total: total}}
 		byRouter[r.UID] = rr
+		p.routerTo[r.UID] = target
 		info.Routers = append(info.Routers, *rr)
 	}
 

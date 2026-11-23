@@ -112,9 +112,10 @@ func slicesSorted(m map[string]string) []string {
 	return out
 }
 
-var everyCategory = []string{catSettings, catRouters, catUsers, catPresets, catFilterSets, catBookmarks, catPanels, catArtwork, catAPIClients, catBrowser}
+var everyCategory = []string{catSettings, catRouters, catTieLines, catUsers, catPresets, catFilterSets, catBookmarks, catPanels, catArtwork, catAPIClients, catBrowser}
 
-// seedEverything puts one item in every category. Each item names the router where it can.
+// seedEverything puts one item in every category. Each item names the router where it can. Tie lines need two routers,
+// so their category stays empty here (exporttielines_test.go).
 func seedEverything(t *testing.T, a *App) {
 	t.Helper()
 	cfg := a.r().cfg
