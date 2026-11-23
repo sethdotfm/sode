@@ -19,8 +19,11 @@ info:
     the server's Default levels setting. `GET /tally` reports it as `defaultLevels`, but send `levels` anyway.
 
     Routers. Any call can carry the query parameter `router`, a router UID from `GET /routers`.
-    It is optional while Sode has one router. A value that is not a router UID is 404
-    `unknown_router`. The router prefix is for people and can change, so Sode does not accept it here.
+    It is optional while Sode has one router. With two or more routers, a read about one router
+    without it is 400 `router_needed`. These reads are `/names`, `/tally`, `/status` and the
+    stream topics names, tally and status. A value that is not a router UID is 404 `unknown_router`. The router
+    prefix is for people and can change, so Sode does not accept it here. In a take body, each end
+    of a route is a router reference `{router, n}`, or a bare number while Sode has one router.
 
     `X-Sode-Via`. Any request can carry `X-Sode-Via`, free text (32 printable characters at most).
     Sode records it beside the key name in the Communication Log, marked unverified. The key name is
@@ -140,6 +143,7 @@ paths:
                 destinations: [{ n: 0, name: MON A }]
                 namesAt: "2026-11-08T09:30:00Z"
         "304": { $ref: "#/components/responses/NotModified" }
+        "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -182,6 +186,7 @@ paths:
                 defaultLevels: "1-17"
                 routes: [{ dst: 0, level: 1, src: 3 }]
         "304": { $ref: "#/components/responses/NotModified" }
+        "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -364,6 +369,7 @@ paths:
                   err: { type: string, description: Only with the scope `log` }
                   version: { type: string }
                   uptimeSeconds: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -456,7 +462,9 @@ paths:
       summary: Take by routes
       description: |
         Scope `take`. Synchronous, see Writes above. Always 200 after the take ran, even when a
-        route failed: read each result. Refusals before anything is sent are errors.
+        route failed: read each result. Refusals before anything is sent are errors. Both ends of a
+        route must be on one router: Sode has no tie lines yet, so ends on two routers are 409
+        `no_path`. With two or more routers, a bare number is 400 `router_needed`.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -477,8 +485,8 @@ paths:
                     required: [src, dst]
                     additionalProperties: false
                     properties:
-                      src: { type: integer, description: "The router's number, 0-based" }
-                      dst: { type: integer, description: "The router's number, 0-based" }
+                      src: { $ref: "#/components/schemas/RouteEnd" }
+                      dst: { $ref: "#/components/schemas/RouteEnd" }
                       levels: { type: array, items: { type: integer }, description: "UI levels from 1; omitted or empty means the server's Default levels, so send them" }
             example:
               routes: [{ src: 1, dst: 0, levels: [1] }]
@@ -488,6 +496,8 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "413": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
@@ -2384,6 +2394,8 @@ components:
                 - idempotency_mismatch
                 - not_found
                 - unknown_router
+                - router_needed
+                - no_path
                 - method_not_allowed
                 - not_owner
                 - user_required
@@ -2407,8 +2419,10 @@ components:
                 bad_request. 413 too_large (body over 64 KiB for a take, 4 MB for a panel or
                 template, 2 MB for artwork). 415 unsupported_type (artwork that is not a JPEG, PNG,
                 GIF or SVG). 404 not_found (no such path, entry, visible preset, or a panel or
-                artwork the caller is not allowed to use). 404 unknown_router (the `router` parameter
-                names no router UID). 405 method_not_allowed (see `Allow`).
+                artwork the caller is not allowed to use). 404 unknown_router (the `router` parameter,
+                or the router of a route end, names no router UID). 400 router_needed (Sode has two or
+                more routers, and a read about one router or a route end names none). 409 no_path (the
+                ends of a route are on two routers; Sode has no tie lines yet). 405 method_not_allowed (see `Allow`).
                 409 conflict (Redo of a failed entry, Retry of a successful one, or a full panel or
                 artwork limit). 409 conflict also for a Protect that Sode has already or cannot set
                 yet. 409 protected (a
@@ -2834,6 +2848,18 @@ components:
       properties:
         n: { type: integer }
         name: { type: string }
+    RouteEnd:
+      description: |
+        One end of a route: a router reference, or a bare number while Sode has one router.
+        `n` is the router's number, 0-based.
+      oneOf:
+        - { type: integer }
+        - type: object
+          required: [router, n]
+          additionalProperties: false
+          properties:
+            router: { type: string, description: "A router UID from GET /routers" }
+            n: { type: integer }
     Route:
       type: object
       required: [dst, level, src]

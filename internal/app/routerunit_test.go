@@ -31,8 +31,8 @@ func threeRouters(t *testing.T) (*App, []*fakeRouter) {
 	t.Helper()
 	a := newTestApp(t, func(c *config.Config) {
 		c.MoreRouters = []config.Router{
-			{Address: "10.0.0.8:8910", Levels: 3, Prefix: "B", Title: "Second"},
-			{Address: "10.0.0.9:8910", Levels: 3, Prefix: "C", Title: "Third"},
+			moreRouter("B", "Second", "10.0.0.8:8910", 3),
+			moreRouter("C", "Third", "10.0.0.9:8910", 3),
 		}
 	})
 	fs := []*fakeRouter{newFakeRouter(t, a)}

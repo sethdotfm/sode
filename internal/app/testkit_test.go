@@ -122,6 +122,13 @@ func withAdministrator(cfg *config.Config) {
 	cfg.Users = append(cfg.Users, config.User{Name: "Ada", Pin: h, Len: 4, Role: config.RoleAdministrator})
 }
 
+// moreRouter is a router to add to the settings: the defaults with this prefix, title, address and level count.
+func moreRouter(prefix, title, addr string, levels int) config.Router {
+	r := config.Defaults().Router
+	r.UID, r.Prefix, r.Title, r.Address, r.Levels, r.DefaultLevels = "", prefix, title, addr, levels, ""
+	return r
+}
+
 // shortTimers keeps tests that wait on an unanswered router fast, on every router of a.
 func shortTimers(a *App) {
 	for _, u := range a.routers {

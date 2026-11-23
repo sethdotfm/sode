@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"net/http"
 	"slices"
 	"sync"
@@ -69,7 +70,8 @@ func newRouterUnit(r config.Router) *routerUnit {
 
 // link makes the unit's Router link. Its callbacks name the unit, so a message changes only this router's state.
 func (a *App) link(u *routerUnit, r *runtime, debug bool) {
-	u.sw = swp08.NewClient(r.cfg.Address, r.probe())
+	rc := r.routerOf(u.uid)
+	u.sw = swp08.NewClient(rc.Address, probe(rc))
 	u.sw.Debug = debug
 	u.sw.OnUp = func() { a.onUnitUp(u) }
 	u.sw.OnMsg = func(m []byte) { a.onUnitMsg(u, m) }
@@ -120,9 +122,29 @@ func (a *App) unitOrFirst(uid string) *routerUnit {
 	return a.first
 }
 
+// knownRouter: uid is blank, the first router's UID in the settings, or the UID of a router unit.
+func (a *App) knownRouter(uid string) bool {
+	_, ok := a.unit(uid)
+	return ok || uid == a.r().cfg.UID
+}
+
 // apiUnit gives the unit of the router parameter of an API read; routerOK has refused an unknown one. Blank, or the
 // UID of the first router in the settings, is the first router.
 func (a *App) apiUnit(r *http.Request) *routerUnit { return a.unitOrFirst(r.URL.Query().Get("router")) }
+
+// apiReadUnit is apiUnit for a read about one router. With two or more routers, a read with no router parameter
+// gets 400 router_needed. Thus a client made for one router never reads the wrong one.
+func (a *App) apiReadUnit(w http.ResponseWriter, r *http.Request) (*routerUnit, bool) {
+	if r.URL.Query().Get("router") == "" && len(a.routers) > 1 {
+		apiFail(w, http.StatusBadRequest, "router_needed", routerNeeded(len(a.routers)))
+		return nil, false
+	}
+	return a.apiUnit(r), true
+}
+
+func routerNeeded(n int) string {
+	return fmt.Sprintf("Sode has %d routers: add ?router= with a uid from GET %s/routers", n, apiBase)
+}
 
 // statusOut is the unit's link status as it goes to browsers and API streams. Caller holds mu.
 func (u *routerUnit) statusOut() statusMsg {

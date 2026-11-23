@@ -18,7 +18,9 @@ func twoRouterFiles(t *testing.T) (a *App, first, second *fakeRouter, u *routerU
 	t.Helper()
 	cfg := config.Defaults()
 	cfg.Levels, cfg.NameRefreshSeconds, cfg.TallyResyncSeconds = 3, 60, 60
-	cfg.MoreRouters = []config.Router{{Address: "10.0.0.9:8910", Levels: 3, Prefix: "B", Title: "Second", NameRefreshSeconds: 60, TallyResyncSeconds: 60}}
+	b := moreRouter("B", "Second", "10.0.0.9:8910", 3)
+	b.NameRefreshSeconds, b.TallyResyncSeconds = 60, 60
+	cfg.MoreRouters = []config.Router{b}
 	withAdministrator(&cfg)
 	cfg.Normalize()
 	h, _ := OpenHistory("")

@@ -43,8 +43,9 @@ func newRuntime(c config.Config) (*runtime, error) {
 	return r, nil
 }
 
-func (r *runtime) probe() []byte {
-	return swp08.ExtInterrogate(r.cfg.Matrix, r.levels[0].Wire, 0)
+// probe is the keepalive message of router rc: an interrogate of its first level.
+func probe(rc config.Router) []byte {
+	return swp08.ExtInterrogate(rc.Matrix, 1+rc.LevelWireOffset, 0)
 }
 
 // App is all server state. A router change (applyConfig with reconnect) starts that router's unit again
@@ -197,10 +198,10 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	if sent == nil {
 		sent, _ = OpenSentLog("", 0)
 	}
-	u := newRouterUnit(cfg.Router)
+	first := newRouterUnit(cfg.Router)
 	a := &App{
-		first:      u,
-		routers:    map[string]*routerUnit{u.uid: u},
+		first:      first,
+		routers:    map[string]*routerUnit{first.uid: first},
 		hist:       hist,
 		sent:       sent,
 		txq:        make(chan swp08.TxEvent, 1024),
@@ -225,6 +226,10 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.protects = loadProtects(cfgPath)
+	for _, rc := range cfg.MoreRouters {
+		u := newRouterUnit(rc)
+		a.routers[u.uid] = u
+	}
 	a.names = newNamesStore(cfgPath)
 	a.sweepStages()
 	for _, u := range a.routers {
@@ -240,7 +245,9 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	}
 	a.saves, _ = OpenSaveLog("")
 	a.rt.Store(r)
-	a.link(u, r, debug)
+	for _, u := range a.routers {
+		a.link(u, r, debug)
+	}
 	return a, nil
 }
 

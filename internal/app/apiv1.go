@@ -184,7 +184,7 @@ func (a *App) mountAPI(mux *http.ServeMux) {
 // The router parameter is the router UID, never a prefix, since a prefix can change.
 func (a *App) routerOK(w http.ResponseWriter, r *http.Request) bool {
 	uid := r.URL.Query().Get("router")
-	if uid == "" || uid == a.r().cfg.UID {
+	if a.knownRouter(uid) {
 		return true
 	}
 	apiFail(w, http.StatusNotFound, "unknown_router", fmt.Sprintf("no router with UID %q; GET %s/routers lists them", uid, apiBase))

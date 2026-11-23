@@ -29,8 +29,11 @@ type apiRouter struct {
 }
 
 func (a *App) apiRouters(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
-	c := a.r().cfg
-	apiJSONTagged(w, r, map[string][]apiRouter{"routers": {{c.UID, c.Prefix, c.Title}}})
+	out := []apiRouter{}
+	for _, rc := range a.r().cfg.Routers() {
+		out = append(out, apiRouter{rc.UID, rc.Prefix, rc.Title})
+	}
+	apiJSONTagged(w, r, map[string][]apiRouter{"routers": out})
 }
 
 type apiName struct {
@@ -78,7 +81,10 @@ type namesBody struct {
 
 func (a *App) apiNames(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	v := cl.view()
-	u := a.apiUnit(r)
+	u, ok := a.apiReadUnit(w, r)
+	if !ok {
+		return
+	}
 	if v.Hidden() {
 		a.mu.Lock()
 		res := a.namesSnapshot(u, v)
@@ -175,7 +181,10 @@ type tallyBody struct {
 
 func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	v := cl.view()
-	u := a.apiUnit(r)
+	u, ok := a.apiReadUnit(w, r)
+	if !ok {
+		return
+	}
 	if v.Hidden() {
 		a.mu.Lock()
 		res := a.tallySnapshot(u, v)
@@ -250,7 +259,10 @@ func linkStatus(s statusMsg, withDetail bool) map[string]any {
 }
 
 func (a *App) apiStatus(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	u := a.apiUnit(r)
+	u, ok := a.apiReadUnit(w, r)
+	if !ok {
+		return
+	}
 	a.mu.Lock()
 	st := u.status
 	a.mu.Unlock()

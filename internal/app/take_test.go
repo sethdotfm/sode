@@ -82,12 +82,17 @@ type sentWhy struct {
 // newFakeRouter puts a fake router on the first router's link.
 func newFakeRouter(t *testing.T, a *App) *fakeRouter { return bindFakeRouter(t, a, a.first) }
 
-// addFakeUnit adds a unit for router rc to a, with short timers and a fake router on its link.
+// addFakeUnit puts a fake router on the unit of router rc, with short timers. New made the unit when the settings
+// name rc; else addFakeUnit adds one.
 func addFakeUnit(t *testing.T, a *App, rc config.Router) (*fakeRouter, *routerUnit) {
 	t.Helper()
-	u := newRouterUnit(rc)
+	u, ok := a.routers[rc.UID]
+	if !ok {
+		u = newRouterUnit(rc)
+		a.routers[u.uid] = u
+		a.link(u, a.r(), false) // never run; a settings change still sets its target
+	}
 	shortUnitTimers(u)
-	a.routers[u.uid] = u
 	f := bindFakeRouter(t, a, u)
 	f.prot = fakeProtect{holds: map[[2]int]protHold{}, deafSet: map[int]bool{}, deafClear: map[int]bool{}}
 	return f, u
