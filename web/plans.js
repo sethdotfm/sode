@@ -12,6 +12,7 @@ import { writeJSON, writeStr } from './store.js';
 import { onMyRights } from './editorrights.js';
 import { nextAfter } from './boxlist.js';
 import { strong, destPart, takeQuestion, planItemHead } from './confirmtext.js';
+import { noteSent, noteOwn } from './stepback.js';
 export { showResult, resultNode } from './banner.js';
 export { nameStem } from './boxlist.js';
 
@@ -200,6 +201,7 @@ function takeResult(m) {
   const b = takes.get(m.id);
   if (!b) return;
   takes.delete(m.id);
+  noteOwn([m.entry], S.hist);
   b.results.push({ ...b.byId.get(m.id), ok: m.ok, err: m.err, entry: m.entry, already: m.already || [] });
   if (b.results.length < b.byId.size) return;
   const undo = b.verb === 'undo';
@@ -634,9 +636,17 @@ export function noteLast(p) {
 }
 
 export function sendTakes(p) {
-  if (p.protect) return sendProtect(p);
+  if (p.protect) {
+    const sent = sendProtect(p);
+    if (sent) noteSent(p);
+    return sent;
+  }
   // A take with tie routes sends itself (tieflow.js).
-  if (p.send) return p.send();
+  if (p.send) {
+    const sent = p.send();
+    if (sent) noteSent(p);
+    return sent;
+  }
   const take = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
   for (const it of [...p.items, ...(p.extra?.on ? p.extra.items : [])]) {
@@ -658,6 +668,7 @@ export function sendTakes(p) {
     return false;
   }
   for (const id of take.byId.keys()) takes.set(id, take);
+  noteSent(p);
   // The Grid popup drops its staged routes only once they went out.
   p.onSent?.();
   noteLast(p);

@@ -95,13 +95,12 @@ func TestChromeProtectGroupInHistory(t *testing.T) {
 	}
 	b.waitFor("one Free Protect row for the undo", `(() => { const r = `+topRow+`; return r.chip === 'Free Protect' && r.dst === '34 destinations' && r.note.includes('undo'); })()`)
 
-	// Ctrl+Z (Cmd+Z on a Mac) undoes that whole Free Protect Group.
+	// Ctrl+Z (Cmd+Z on a Mac) passes over that Free Protect Group, since it is an undo, and over the Protects. So this
+	// tab has nothing left to undo (stepback.js).
 	b.eval(`(() => { const mac = /Mac/.test(navigator.platform); document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: !mac, metaKey: mac, bubbles: true, cancelable: true})); return true; })()`)
-	b.waitFor("the Confirm protects all 34", `!document.getElementById('confirm').hidden && document.getElementById('confirm').textContent.includes('Undo the Free Protects: Protect these 34 destinations')`)
-	confirm("Confirm protect")
-	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('34 Protected')`)
-	if n := sodeRows(); n != 34*17 {
-		t.Fatalf("after Ctrl+Z, Sode's Protect on %d levels, want 34 × 17", n)
+	b.waitFor("nothing to undo", `document.getElementById('result')?.textContent.includes('Nothing to undo') && document.getElementById('confirm').hidden`)
+	if n := sodeRows(); n != 0 {
+		t.Fatalf("after Ctrl+Z, Sode's Protect on %d levels, want 0", n)
 	}
 	b.check()
 }

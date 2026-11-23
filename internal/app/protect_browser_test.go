@@ -14,7 +14,7 @@ import (
 // The route view of one destination with no source offers Protect. It goes through the Confirm, the simulator
 // holds it on every level, and the view then says "Protected by you", with the badge's owner mark. Shift+x in
 // Keyboard mode frees it. History then offers Undo only on the newest Protect entry, and follows a later change.
-// Ctrl+Z undoes the newest Free Protect.
+// Ctrl+Z undoes this tab's newest Free Protect.
 // Ana is an Administrator here, for Free Sode's Protects.
 func TestChromeProtectFromRouteView(t *testing.T) {
 	b := startBrowser(t)
@@ -85,7 +85,18 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	// finds nothing to undo.
 	b.waitFor("Free Protect row", `(() => { const r = document.querySelector('#history .sode__hist-route'); return r?.querySelector(':scope > .pb-badge')?.textContent === 'Free Protect' && !r.querySelector('.sode__end--src, .sode__arrow') && r.querySelector('.sode__end--dst')?.textContent.includes('DSM1'); })()`)
 
-	// Ctrl+Z (Cmd+Z on a Mac) undoes the Free Protect: the Confirm sets the Protect again.
+	// Ctrl+Z steps back only through this tab's takes, and the API's Free Protect is newer than this tab's. So this tab
+	// protects and frees DSM1 once more with the route view's shield.
+	for _, step := range []struct{ offer, title string }{{"set", "Confirm protect"}, {"clear", "Confirm free protect"}} {
+		b.waitFor("the shield offers "+step.offer, `!!document.querySelector('#dst-under [data-protect="`+step.offer+`"]')`)
+		b.eval(`document.querySelector('#dst-under [data-protect="` + step.offer + `"]').click(); true`)
+		b.waitFor(step.title, `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === '`+step.title+`' && !document.getElementById('confirm-ok').disabled`)
+		b.eval(`document.getElementById('confirm-ok').click(); true`)
+		b.waitFor(step.title+" closes", `document.getElementById('confirm').hidden`)
+	}
+	b.waitFor("the shield after the Free Protect", `!!document.querySelector('#dst-under [data-protect="set"]')`)
+	b.waitFor("four Protect entries from this tab", `JSON.parse(sessionStorage.getItem('sode-own-takes') || '[]').length === 4`)
+	// Ctrl+Z (Cmd+Z on a Mac) undoes this tab's Free Protect: the Confirm sets the Protect again.
 	b.eval(`(() => { const mac = /Mac/.test(navigator.platform); document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: !mac, metaKey: mac, bubbles: true, cancelable: true})); return true; })()`)
 	b.waitFor("Confirm protect for the undo", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm protect' && document.getElementById('confirm').textContent.includes('Undo the Free Protect')`)
 	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
