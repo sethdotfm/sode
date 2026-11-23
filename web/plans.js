@@ -58,12 +58,26 @@ function undoItem(e) {
 // A failed take is a retry (linked to its entry); any other is a redo, sent as a plain new
 // take. Needs a real source and a level that still exists.
 export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
+// Redo of the destination entry of a tie take opens the Tie line picker (docs/tielines-design.md, Redo and Retry). The
+// route goes from the typed source (origin) with the tie lines of the take. The picker chooses them first only if they
+// cost no more now than the cheapest path. It marks them "Used last time" (tiepickrules.js lastState).
+const tieAgainItem = (e) =>
+  routeItem(dstItem(e.dst, e.dstName, e.router), [
+    {
+      src: srcItem(e.origin.n, e.origin.name || '', e.origin.router),
+      levels: [...e.levels].sort((a, b) => a - b),
+      ties: (e.hops || []).map((h) => h.tie),
+      last: true,
+    },
+  ]);
 const againItem = (e) =>
-  routeItem(
-    dstItem(e.dst, e.dstName, e.router),
-    [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
-    e.ok ? null : e,
-  );
+  e.origin && e.ok
+    ? tieAgainItem(e)
+    : routeItem(
+        dstItem(e.dst, e.dstName, e.router),
+        [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
+        e.ok ? null : e,
+      );
 
 // The Grid popup's staged routes (routesOf, gridpanelstage.js) as one take: one item for each destination, one group
 // for each source on it. Route ends are router numbers. A route with box set is the patch boxes' route (One Take,
@@ -145,19 +159,21 @@ export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
 // A take's plans; a Protect row's Undo is its own (protects.js PROTECT_ENTRY, PROTECT_GROUP). The Group of a tie take
 // can hold a Protect entry (tieprotect.go): its routes undo, and its Protect stays.
+// The Undo of a tie take puts back the destinations asked for, never a tie line, so hop entries (tie) are out.
 export const groupUndoPlan = (f) =>
   withFollows(
-    { verb: 'undo', items: f.entries.filter((e) => !e.protect).map(undoItem) },
+    { verb: 'undo', items: f.entries.filter((e) => !e.protect && !(e.tie && !e.ext)).map(undoItem) },
     f.entries.flatMap((e) => e.follows || []),
   );
 // A group with failed takes retries only those; otherwise it redoes every redoable take. Empty
 // items = nothing to offer. ofUndo marks a redo of an undo row, which leaves Last alone.
 // Tie takes: the Retry of the destination entry (origin) runs the hops again on the server. Thus a hop entry (tie)
-// gets no Retry of its own. Redo of a tie take opens the picker, which this plan cannot do, so it has no tie entries.
+// gets no Retry of its own. Redo of a tie take is a route from the typed source with its tie lines (tieAgainItem), so
+// the confirm opens the picker on it.
 export function againPlan(row) {
   const es = (row.f ? row.f.entries : [row.e]).filter((e) => e && !e.tie && !e.protect);
   const failed = es.filter((e) => !e.ok);
-  const use = (failed.length ? failed : es.filter((e) => !e.origin)).filter(canRedo);
+  const use = (failed.length ? failed : es).filter((e) => (e.origin && e.ok ? e.levels.length > 0 : canRedo(e)));
   const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
   return use.some((e) => e.undo) ? { ...plan, ofUndo: true } : plan;
 }
@@ -478,22 +494,15 @@ function extraBox(plan, spaceHint) {
   if (!x) return null;
   const n = x.items.length;
   const names = x.items.map((i) => i.dst.label);
+  // label: the put-back offer of a tie take's Undo (tieundorules.js), else the External follow entries.
+  const text = x.label || `Also undo ${n} External follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}`;
   const c = el('input', 'pb-check__input');
   c.type = 'checkbox';
   c.checked = x.on;
   c.addEventListener('change', () => {
     x.on = c.checked;
   });
-  return el(
-    'label',
-    'pb-check sode__plan-extra',
-    c,
-    el(
-      'span',
-      'pb-check__label',
-      `Also undo ${n} External follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
-    ),
-  );
+  return el('label', 'pb-check sode__plan-extra', c, el('span', 'pb-check__label', `${text}${spaceHint ? ' (Space)' : ''}`));
 }
 
 // This browser's last patch as numbers, so names stay current. Null until it makes one: History

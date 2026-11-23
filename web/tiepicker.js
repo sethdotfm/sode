@@ -52,6 +52,7 @@ import {
   protectable,
   protectOn,
   toggleProtect,
+  usedLast,
 } from './tiepickrules.js';
 import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText } from './tiepickrules.js';
 import { mayProtect } from './protects.js';
@@ -495,6 +496,7 @@ function choiceNode(s, c, on, src) {
     ...(held ? [el('span', 'sode-tiepick__held', held)] : []),
     ...(on && protectOn(cur.st, c.tie) && protectable(h) ? [el('span', 'sode-tiepick__protect', icon('shield'), 'Protect after the take')] : []),
     ...(c.gone ? [el('span', 'sode-tiepick__held', 'Not in the plan now')] : []),
+    ...(usedLast(cur.st, s, c.tie) ? [el('span', 'pb-badge sode-tiepick__last', 'Used last time')] : []),
     ...(on && tieMarked(cur.st, c.tie) ? [changedMark()] : []),
   );
   b.type = 'button';

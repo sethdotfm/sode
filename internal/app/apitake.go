@@ -329,6 +329,11 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 		}
 		rt := a.r()
 		if verb == "undo" {
+			if raw, _ := a.hist.Get(id); raw.Origin != nil {
+				if p := a.tieUndoProblem(rt, raw); p != nil {
+					return nil, p
+				}
+			}
 			p := planUndo(rt, a.view(cl), e)
 			if len(p.Items) == 0 {
 				return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "entry %d has nothing to restore: no level had a route before it", id)

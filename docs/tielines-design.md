@@ -229,7 +229,8 @@ Rights checks compare the router and the number of each reference. A right for s
 3. The chain can differ only because this take switched a tie line that still carries what the take set. Then the Undo confirm offers "Put TIE 3 back to CAM 9" with its Affected destinations.
 4. If the chain differs for any other reason, Undo sends nothing. It says "TIE 5 now carries CAM 2, not CAM 9" and offers to open the picker for CAM 9.
 5. Ctrl+Z on a tie row opens the Undo confirm. It never sends without it.
-6. The panel Undo cell uses the same rules.
+6. The panel Undo cell uses the same rules. It has no confirm that can offer a put-back or the picker, so it refuses such an Undo and says why. `POST /history/{id}/undo` does the same, with 409 `tie_line_changed` (agent decision).
+7. The put-back that the Undo confirm offers is off until the person ticks it. An undone tie row says "tie lines left as they are" (agent decision).
 
 ### Redo and Retry
 

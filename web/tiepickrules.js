@@ -124,6 +124,20 @@ export function storedState(route, ids) {
   return { ...st, stored: ids.join(' '), storedFound: route.paths.some((p) => pathKey(p) === ids.join(' ')) };
 }
 
+// lastState opens the picker for a Redo (docs/tielines-design.md, Redo and Retry). ids are the tie lines that the take
+// used last time. It chooses their path only if it is usable and costs no more now than the cheapest. Else it keeps
+// the cheapest. last keeps the ids, so each step marks its choice "Used last time" (usedLast).
+export function lastState(route, ids) {
+  const st = pickState(route);
+  const i = route.paths.findIndex((p) => pathKey(p) === ids.join(' '));
+  const cheap = route.paths[st.path];
+  const keep = i >= 0 && pathUsable(route.paths[i]) && (!pathUsable(cheap) || route.paths[i].cost <= cheap.cost);
+  return { ...st, path: keep ? i : st.path, last: [...ids] };
+}
+
+// usedLast: the tie line id is the one that the take used last time at step s.
+export const usedLast = (st, s, id) => !!st.last && st.last[s] === id;
+
 // storedText is what the tie confirm page says about the stored tie lines: { text, warn }. Empty text for a picker
 // that is not on stored tie lines. warn: the person must look again, so the page shows a caution.
 export function storedText(st) {

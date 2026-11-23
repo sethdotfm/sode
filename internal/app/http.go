@@ -359,6 +359,7 @@ type inMsg struct {
 	ID           int                `json:"id"`   // echoed by save replies
 	Items        []routeReq         `json:"items"`
 	Routes       json.RawMessage    `json:"routes"`   // tieTake: the routes of POST /takes
+	Entries      []int              `json:"entries"`  // tieUndo: the History ids whose Undo the page checks
 	Preset       string             `json:"preset"`   // take: the preset that was fired, if any
 	PresetID     string             `json:"presetId"` // ...and its hidden id
 	Sets         []config.FilterSet `json:"sets"`

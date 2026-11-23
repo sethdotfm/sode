@@ -138,7 +138,7 @@ test('histRows: a tie take of two destinations is one Group with a row for each 
   assert.equal(m.rowView(r).route(r.f).notes.length, 0);
 });
 
-test('histRows: a failed tie row of one destination offers Put back and Retry, and no Redo when it worked', async () => {
+test('histRows: a failed tie row of one destination offers Put back and Retry; Redo of one that worked opens the picker', async () => {
   const m = await setup();
   const [last, hop] = tieTake({ id: 1, ok: false });
   const [r] = rows(m, [last, hop]);
@@ -153,8 +153,41 @@ test('histRows: a failed tie row of one destination offers Put back and Retry, a
     [41],
   );
   const [ok] = rows(m, tieTake({ id: 1 }));
-  assert.equal(m.rowActions(ok).again.plan.items.length, 0);
+  // Redo is a route from the typed source A.8 with the tie lines of the take, so the confirm opens the picker on it.
+  const redo = m.rowActions(ok).again.plan;
+  assert.equal(redo.verb, 'redo');
+  assert.equal(redo.items.length, 1);
+  const [g] = redo.items[0].groups;
+  assert.deepEqual([redo.items[0].dst.n, g.src.n, g.ties, g.last], [41, 7, ['t3'], true]);
   assert.equal(m.rowActions(ok).putBack.length, 0);
+});
+
+test('Undone: an undone tie row says its tie lines are left as they are; hops do not count in a Group', async () => {
+  const m = await setup();
+  const [last, hop] = tieTake({ id: 1 });
+  const undo = { id: 3, time: at(5), router: 'rB', src: 5, dst: 41, dstName: 'B MON', levels: [1], prev: [[1, 30]], ok: true, undo: 2 };
+  const [, r] = rows(m, [undo, last, hop]);
+  assert.equal(r.e.undone.text, 'Undone');
+  // entryNote then adds "tie lines left as they are".
+  assert.equal(r.e.tiesKept, true);
+  // A put-back of the hop too: the tie line went back, so the note leaves that out.
+  const put = { ...undo, id: 4, router: 'rA', dst: 20, prev: [[1, 7]], undo: 1, putBack: true };
+  const [, , r2] = rows(m, [put, undo, last, hop]);
+  assert.equal(r2.e.undone.text, 'Undone');
+  assert.equal(r2.e.tiesKept, false);
+  // A Group of two destinations through one hop: the hop is not a route, so one of two is undone.
+  const two = [
+    { ...last, id: 3, dst: 42, groupN: 3 },
+    { ...last, groupN: 3 },
+    { ...hop, groupN: 3 },
+  ];
+  const [, g] = rows(m, [{ ...undo, id: 4 }, ...two]);
+  assert.equal(g.f.undone.text, '1 of 2 undone');
+  // Undo all puts back the destinations only.
+  assert.deepEqual(
+    m.rowActions(g).undo.plan.items.map((i) => i.dst.n),
+    [42, 41],
+  );
 });
 
 test('filters match the typed source and destination, never the hops', async () => {

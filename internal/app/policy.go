@@ -116,6 +116,8 @@ var policy = map[string]rule{
 	"tiePlan": {crit: critNever, role: config.RoleStandard, need: needMain,
 		handle:   func(a *App, c *client, m *inMsg) { a.serveTiePlan(c, m) },
 		onRefuse: func(a *App, c *client, m *inMsg, err error) { a.pageTakesRefused(c, m, "tiePlanResult", err) }},
+	// The check of an Undo of a tie take before its confirm opens (tieundo.go). Not a write: it changes nothing.
+	"tieUndo": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, m *inMsg) { go a.serveTieUndo(c, m) }},
 	"rereadNames": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg) {
 		a.command(c, "rereadNames", "sent", "", nil)
 		go a.RefreshNames()
