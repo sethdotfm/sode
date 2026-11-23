@@ -13,7 +13,9 @@ func protectTwoRouters(t *testing.T) (a *App, first, second *fakeRouter, u *rout
 	t.Helper()
 	a, first = protectApp(t)
 	cfg := a.r().cfg.Clone()
-	cfg.MoreRouters = []config.Router{{Address: "10.0.0.9:8910", Levels: 3, Prefix: "B", Title: "Second", ProtectDevice: 127}}
+	b := moreRouter("B", "Second", "10.0.0.9:8910", 3)
+	b.ProtectDevice = 127
+	cfg.MoreRouters = []config.Router{b}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}

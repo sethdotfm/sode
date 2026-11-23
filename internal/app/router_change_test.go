@@ -60,7 +60,7 @@ func TestRouterChangeCutsTake(t *testing.T) {
 		a.mu.Lock()
 		registered := len(a.first.waiters) == 1
 		a.mu.Unlock()
-		return registered && f.sends() >= 2 // both connects are out
+		return registered && f.cmds(swp08.CmdExtConnect) >= 2 // both connects are out, not only the reads
 	})
 	sent := f.sends()
 	changeRouter(t, a)

@@ -13,7 +13,7 @@ import (
 func secondRouter(t *testing.T) (a *App, first, second *fakeRouter, u *routerUnit) {
 	t.Helper()
 	a = newTestApp(t, func(c *config.Config) {
-		c.MoreRouters = []config.Router{{Address: "10.0.0.9:8910", Levels: 3, Prefix: "B", Title: "Second"}}
+		c.MoreRouters = []config.Router{moreRouter("B", "Second", "10.0.0.9:8910", 3)}
 	})
 	first = newFakeRouter(t, a)
 	a.first.checkTimeout, a.first.routeTimeout, a.first.routeGrace = defaultCheckTimeout, defaultRouteTimeout, defaultRouteGrace

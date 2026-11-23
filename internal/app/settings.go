@@ -203,32 +203,34 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 
 func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) error {
 	page := a.readHello() // history read stays outside mu
-	var reconnect bool
-	var c config.Config
-	var applied *runtime
+	type target struct {
+		u  *routerUnit
+		rc config.Router
+	}
+	var moved []target
 	err := a.commitWith(mutate, func(oldRt, nr *runtime) {
-		old := oldRt.cfg
-		c = nr.cfg
-		reconnect = config.ReconnectChanged(old, c)
-		// The reconnect fields are the first router's (config.ReconnectChanged).
-		if reconnect {
-			a.reconnectMu(a.firstUnit(), c.Address)
+		// Each router that changed starts again; takes in flight on the others go on.
+		for _, u := range a.unitsInOrder(nr) {
+			rc := nr.routerOf(u.uid)
+			if config.RouterReconnectChanged(oldRt.routerOf(u.uid), rc) {
+				a.reconnectMu(u, rc.Address)
+				moved = append(moved, target{u, rc})
+			}
 		}
 		hello := a.hello(page)
 		for cl := range a.clients {
 			a.deliver(cl, hello)
 		}
 		a.syncAccessAllMu() // it is possible that locks or users changed
-		applied = nr
 	}, save)
 	if err != nil {
 		return err
 	}
 	a.catchUpSessions() // it is possible that this save ticked Never sign out
-	if reconnect {
-		a.firstUnit().sw.SetTarget(c.Address, applied.probe())
+	for _, m := range moved {
+		m.u.sw.SetTarget(m.rc.Address, probe(m.rc))
 	}
-	log.Printf("config: applied (reconnect=%v)", reconnect)
+	log.Printf("config: applied (reconnect=%v)", len(moved) > 0)
 	return nil
 }
 

@@ -127,10 +127,70 @@ func TestLoadKeepsAMadeUID(t *testing.T) {
 	}
 }
 
-func TestOneRouterOnly(t *testing.T) {
-	_, err := Parse([]byte("format: 2\nrouters:\n  - uid: a1\n  - uid: b2\n"))
-	if err == nil || !strings.Contains(err.Error(), "one router") {
-		t.Errorf("two routers: %v", err)
+// A file can hold several routers. Each one is read over the defaults, and a save writes them all back in order.
+func TestSeveralRouters(t *testing.T) {
+	c, err := Parse([]byte("format: 2\nrouters:\n  - uid: a1\n    address: 10.0.0.8:8910\n  - uid: b2\n    prefix: b\n    levels: 2\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.UID != "a1" || c.Address != "10.0.0.8:8910" || len(c.MoreRouters) != 1 {
+		t.Fatalf("routers %+v", c.Routers())
+	}
+	b := c.MoreRouters[0]
+	if b.UID != "b2" || b.Prefix != "B" || b.Levels != 2 || b.Address != "" || b.NameLength != Defaults().NameLength || b.DefaultLevels != "1-2" {
+		t.Errorf("second router %+v", b)
+	}
+	if err := c.Validate(); err != nil {
+		t.Errorf("valid routers: %v", err)
+	}
+	out, err := yaml.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := Parse(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rs := back.Routers(); len(rs) != 2 || rs[0].UID != "a1" || rs[1].UID != "b2" || rs[1].Levels != 2 {
+		t.Errorf("after a save: %+v", rs)
+	}
+}
+
+// Two routers cannot share a UID or a prefix. A problem of a router after the first names its prefix.
+func TestValidateRouters(t *testing.T) {
+	c := Defaults()
+	c.MoreRouters = []Router{{Levels: 0, Prefix: "B"}, {Levels: 1, Prefix: "A"}}
+	c.Normalize()
+	c.MoreRouters[1].UID = c.UID
+	err := c.Validate()
+	for _, want := range []string{"router B: levels must be 1-256", "router A: two routers have the UID", "router A: two routers have the prefix A"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("want %q in %v", want, err)
+		}
+	}
+}
+
+// A change to the link fields of a router after the first is a reconnect; so is a router that comes or goes.
+func TestReconnectChangedSeesEveryRouter(t *testing.T) {
+	a := Defaults()
+	a.MoreRouters = []Router{{Address: "10.0.0.9:8910", Levels: 1, Prefix: "B"}}
+	a.Normalize()
+	b := a.Clone()
+	b.MoreRouters[0].Title = "Second"
+	if ReconnectChanged(a, b) {
+		t.Error("a title change reconnects")
+	}
+	b.MoreRouters[0].Address = "10.0.0.10:8910"
+	if !ReconnectChanged(a, b) || !RouterReconnectChanged(a.MoreRouters[0], b.MoreRouters[0]) {
+		t.Error("an address change on the second router does not reconnect")
+	}
+	if RouterReconnectChanged(a.Router, b.Router) {
+		t.Error("the first router changed")
+	}
+	b = a.Clone()
+	b.MoreRouters = nil
+	if !ReconnectChanged(a, b) {
+		t.Error("a router that went does not reconnect")
 	}
 }
 

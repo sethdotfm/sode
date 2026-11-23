@@ -153,13 +153,19 @@ func (c *Config) UnmarshalYAML(n *yaml.Node) error {
 		if list.Kind != yaml.SequenceNode {
 			return fmt.Errorf("routers must be a list")
 		}
-		if len(list.Content) > 1 {
-			return fmt.Errorf("routers holds %d routers; this release drives one router", len(list.Content))
-		}
-		// Decoded over the defaults, so a missing key keeps its default as top-level keys do.
-		if len(list.Content) == 1 {
-			if err := list.Content[0].Decode(&c.Router); err != nil {
+		// Each one is decoded over the defaults (c.Router before the first), so a missing key keeps its default as
+		// top-level keys do.
+		base := c.Router
+		c.MoreRouters = nil
+		for j, rn := range list.Content {
+			r := base
+			if err := rn.Decode(&r); err != nil {
 				return err
+			}
+			if j == 0 {
+				c.Router = r
+			} else {
+				c.MoreRouters = append(c.MoreRouters, r)
 			}
 		}
 	}

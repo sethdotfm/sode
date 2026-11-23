@@ -98,6 +98,12 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return
 		}
 	}
+	// names, tally and status are about one router; history and results cover every router.
+	if slices.ContainsFunc(topics, func(t string) bool { return t == "names" || t == "tally" || t == "status" }) {
+		if _, ok := a.apiReadUnit(w, r); !ok {
+			return
+		}
+	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	st := &apiStream{unit: a.apiUnit(r), view: cl.view(), detail: cl.has(config.ScopeLog), topics: map[string]bool{}, send: make(chan []byte, 256), cancel: cancel, ip: cl.IP}

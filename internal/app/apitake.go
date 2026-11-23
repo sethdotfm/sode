@@ -72,9 +72,58 @@ func (a *App) takeDeadline(n int) time.Duration {
 }
 
 type apiRouteIn struct {
-	Src    int   `json:"src"`
-	Dst    int   `json:"dst"`
-	Levels []int `json:"levels"`
+	Src    apiEnd `json:"src"`
+	Dst    apiEnd `json:"dst"`
+	Levels []int  `json:"levels"`
+}
+
+// apiEnd is one end of a route: a router reference {router, n}, or a bare number, which is enough while Sode has one
+// router.
+type apiEnd struct {
+	Router string
+	N      int
+}
+
+func (e *apiEnd) UnmarshalJSON(b []byte) error {
+	if len(b) > 0 && b[0] != '{' {
+		*e = apiEnd{}
+		return json.Unmarshal(b, &e.N)
+	}
+	var ref struct {
+		Router string `json:"router"`
+		N      *int   `json:"n"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&ref); err != nil {
+		return err
+	}
+	if ref.Router == "" || ref.N == nil {
+		return errors.New(`a router reference needs "router" and "n"`)
+	}
+	*e = apiEnd{ref.Router, *ref.N}
+	return nil
+}
+
+// routeUnit gives the router unit of a route from its two ends. A bare end is the one router; with two or more
+// routers it is 400 router_needed. Ends on two routers need tie lines, which Sode does not have yet: 409 no_path.
+func (a *App) routeUnit(ro apiRouteIn) (*routerUnit, *apiProblem) {
+	var us [2]*routerUnit
+	for i, e := range []apiEnd{ro.Src, ro.Dst} {
+		switch {
+		case e.Router == "" && len(a.routers) > 1:
+			return nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.routers), apiBase)
+		case !a.knownRouter(e.Router):
+			return nil, problem(http.StatusNotFound, "unknown_router", "no router with UID %q; GET %s/routers lists them", e.Router, apiBase)
+		}
+		us[i] = a.unitOrFirst(e.Router)
+	}
+	if us[0] != us[1] {
+		rt := a.r()
+		return nil, problem(http.StatusConflict, "no_path", "no tie line joins router %s and router %s: a route across routers needs one",
+			rt.routerOf(us[0].uid).Prefix, rt.routerOf(us[1].uid).Prefix)
+	}
+	return us[1], nil
 }
 
 type apiTakeIn struct {
@@ -93,14 +142,18 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			return nil, problem(http.StatusBadRequest, "bad_request", "routes must hold 1 to %d routes", apiTakeRoutes)
 		}
 		rt := a.r()
-		defaults, _ := config.ParseLevels(rt.cfg.DefaultLevels, rt.cfg.Levels)
 		p := &takePlan{}
 		for _, ro := range in.Routes {
+			u, prob := a.routeUnit(ro)
+			if prob != nil {
+				return nil, prob
+			}
 			ls := ro.Levels
 			if len(ls) == 0 {
-				ls = slices.Clone(defaults)
+				rc := rt.routerOf(u.uid)
+				ls, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
 			}
-			p.Items = append(p.Items, routeReq{Src: ro.Src, Dst: ro.Dst, Levels: ls})
+			p.Items = append(p.Items, routeReq{Src: ro.Src.N, Dst: ro.Dst.N, Levels: ls, Router: u.uid})
 		}
 		return p, nil
 	})
