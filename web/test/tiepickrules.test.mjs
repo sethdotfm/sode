@@ -492,3 +492,13 @@ test('hidden visibility: a null hop source matches nothing, and a hidden origin 
     'a.3 Via TIE 1',
   );
 });
+
+test('a path that comes into a picker with no path turns Take on, and the lockout starts again', () => {
+  const route = apiRoute(byName('mesh: the cheapest'));
+  const none = pickState({ ...structuredClone(route), paths: [], reasons: [{ reason: 'no_tie_line' }] });
+  assert.ok(!ready(none));
+  const r = refresh(none, structuredClone(route));
+  assert.ok(ready(r.st));
+  assert.ok(r.changed, 'Take went from off to on');
+  assert.ok(!refresh(r.st, structuredClone(route)).changed);
+});

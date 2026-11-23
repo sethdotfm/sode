@@ -102,7 +102,7 @@ export function pathChanges(was, now) {
 // refresh puts a new plan of the route into the open picker (docs/tielines-design.md, The Tie line picker, rule 7).
 // The selection stays on the path with the same tie lines; it never moves by itself. When the new plan has no such
 // path, the old one stays as a gone path. changed: the cost, the Protect state or a link of the chosen path changed,
-// so the lockout starts again. The marks then name the changed rows.
+// or Take went from off to on, so the lockout starts again. The marks then name the changed rows.
 export function refresh(st, route) {
   const was = chosen(st);
   let paths = route.paths;
@@ -113,7 +113,8 @@ export function refresh(st, route) {
   }
   const next = { ...st, route: { ...route, paths }, path: Math.max(i, 0) };
   const ch = was && pathChanges(was, paths[next.path]);
-  if (!ch) return { st: next, changed: false };
+  // A path that comes into a picker with none turns Take on: that is a change too (rule 7), with no row to mark.
+  if (!ch) return { st: next, changed: !ready(st) && ready(next) };
   const now = paths[next.path];
   const m = st.marks || noMarks();
   const steps = stepsOf(now);
