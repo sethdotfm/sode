@@ -4,9 +4,11 @@ import { makePlaces, mergeNames } from './routerids.js';
 
 // get(path) answers the parsed JSON, or null when the read was refused. was is the places of an earlier read. It stays
 // while the router list is the same, so item numbers do not change under the page. Answers { places, first, names },
-// first being the first router's own answer, or null when a read was refused.
+// first being the first router's own answer, or null when a read was refused. A refused read of the router list is
+// null too: an empty list would put the items of every router on the first one.
 export async function readRouterNames(get, was = null) {
-  const routers = (await get('api/v1/routers'))?.routers || [];
+  const routers = (await get('api/v1/routers'))?.routers;
+  if (!Array.isArray(routers)) return null;
   const same = was && was.routers.length === routers.length && was.routers.every((r, i) => r.uid === routers[i].uid && r.prefix === routers[i].prefix);
   const places = same ? was : makePlaces(routers);
   if (!places.many) {

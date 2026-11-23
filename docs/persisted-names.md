@@ -59,7 +59,7 @@ The hello's `routers` list carries the names, tally, levels and link of every ro
 | `prefix` | `prefix` of each router |
 | `routerUid` | `uid` of each router: its UID in the settings |
 
-The first router's Protects stay in `protected` and `protectBy`: the page keeps no Protect state of the other routers.
+The first router's Protects stay in `protected` and `protectBy`. Each router after the first in `routers` has its own `protected`, `protectBy` and `protectDevice`.
 
 ## Close names that are not retired
 

@@ -26,7 +26,7 @@ import { createPageBar } from './editorpagebar.js';
 import { createPageView } from './editorpageview.js';
 import { askCopyTo } from './editorpagecopy.js';
 import { isGridPanel } from './gridpaneledges.js';
-import { edgesIn } from './gridedgerefs.js';
+import { edgesIn, UNKNOWN_ROUTER } from './gridedgerefs.js';
 import { makePlaces } from './routerids.js';
 import { readRouterNames } from './routernames.js';
 import { panelsBar } from './panelsbar.js';
@@ -40,6 +40,8 @@ const say = (id, text) => {
 };
 
 const LEFT = 'Signed out. Not saved.';
+const ROUTERS_UNKNOWN = 'Sode did not give its router list. The panel is not open. Sode tries again in 5 seconds.';
+const ROUTERS_RETRY_MS = 5000;
 
 // One call whose failures read "<what> (status)" unless the server says why; down words a dead network.
 const RECHECK_MS = 15000;
@@ -519,6 +521,15 @@ export async function runEditor() {
   let opening = 0;
   async function openPanel(id, push) {
     const mine = ++opening;
+    // Without the router list, the items of another router would read as the first router's (gridedgerefs.js).
+    if (!(await routersKnown())) {
+      if (mine !== opening) return;
+      say('ed-status', ROUTERS_UNKNOWN);
+      setTimeout(() => mine === opening && openPanel(id, push), ROUTERS_RETRY_MS);
+      return;
+    }
+    if (mine !== opening) return;
+    if ($('ed-status').textContent === ROUTERS_UNKNOWN) say('ed-status', '');
     if (!id) {
       if (push) history.pushState(null, '', 'panels/editor?new');
       return show(null);
@@ -595,9 +606,7 @@ export async function runEditor() {
     const sentEdits = edits;
     const sentName = nameBox.value;
     const sentPages = livePages();
-    const body = JSON.stringify(
-      saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages, places.many ? places : routerData('').uid),
-    );
+    let body;
     const send = () =>
       edCall('The panel was not saved', 'Sode did not answer. Not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
         method: loaded ? 'PUT' : 'POST',
@@ -608,6 +617,10 @@ export async function runEditor() {
       });
     let stored;
     try {
+      if (!(await routersKnown())) throw new Error(UNKNOWN_ROUTER);
+      body = JSON.stringify(
+        saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages, places.many ? places : routerData('').uid),
+      );
       stored = await send().catch(async (e) => {
         if (!loaded || (e.status !== 0 && !(e.status >= 500))) throw e;
         await new Promise((ok) => setTimeout(ok, RETRY_MS));
@@ -739,6 +752,12 @@ export async function runEditor() {
     return true;
   }
   const namesFailed = () => say('ed-status', 'Router names did not load. Old names shown.');
+  // routersKnown is false while GET /routers has not answered and Sode has other than one router (the hello's list),
+  // after one more read. Then the editor neither opens nor saves a panel.
+  async function routersKnown() {
+    const known = () => places.routers.length > 0 || S.routers.length === 1;
+    return known() || ((await readNames().catch(() => false)) && known());
+  }
   on('names', () =>
     readNames()
       .then((ok) => {

@@ -54,7 +54,7 @@ import {
   toggleProtect,
   usedLast,
 } from './tiepickrules.js';
-import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText } from './tiepickrules.js';
+import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText, chainWords, feedingHop } from './tiepickrules.js';
 import { mayProtect } from './protects.js';
 import { reasonText } from './tietakerules.js';
 
@@ -72,14 +72,7 @@ const dstOf = (e) => dstItem(e.n, e.name || '', e.router);
 const prefix = (uid) => routerData(uid).prefix;
 
 // chainText says what a tie line carries now (Via, docs/tielines-design.md).
-function chainText(c) {
-  if (!c) return 'unknown';
-  if (c.loop) return '∞';
-  if (c.unknown) return `unknown (router ${prefix(c.unknown)} down)`;
-  if (c.nothing || !c.origin) return 'nothing';
-  const via = c.via?.length ? ` Via ${c.via.map((v) => v.name || v.id).join(', ')}` : '';
-  return `${srcOf(c.origin).label}${via}${c.mixed ? ' (mixed)' : ''}`;
-}
+const chainText = (c) => chainWords(c, (o) => srcOf(o).label, prefix);
 
 function build() {
   const title = el('span', 'pb-modal__title');
@@ -531,11 +524,8 @@ function choiceNode(s, c, on, src) {
 function nowShows(e, p) {
   const t = routerData(e.router).tally.get(e.n);
   const s = t ? [...t.values()][0] : null;
-  for (let i = 0; i + 1 < p.hops.length; i++) {
-    const down = p.hops[i + 1];
-    if (down.router === e.router && down.src.n === s) return chainText(p.hops[i].now);
-  }
-  return tallyText(s, e.router);
+  const i = feedingHop(p, e.router, s);
+  return i >= 0 ? chainText(p.hops[i].now) : tallyText(s, e.router);
 }
 
 function affectedNode(p, src) {

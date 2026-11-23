@@ -50,8 +50,8 @@ const csvBlob = (text) => new Blob([text], { type: 'text/csv;charset=utf-8' });
 // The router column's words: the Router prefix, with two or more routers only. A router that is gone shows its UID.
 const routerWord = () => (S.routers.length > 1 ? (uid) => S.routers.find((r) => r.uid === uid)?.prefix || uid : null);
 
-// Numbers and level names as the page shows them.
-const words = () => ({ off: S.cfg ? S.cfg.numberOffset : 0, level: (ui) => routerData('').levelBy.get(ui)?.label, router: routerWord() });
+// Numbers and level names as the page shows them. Each row's level name is that of its router.
+const words = () => ({ off: S.cfg ? S.cfg.numberOffset : 0, level: (ui, uid) => routerData(uid).levelBy.get(ui)?.label, router: routerWord() });
 
 async function fullLog() {
   const data = await read(['log', 'uptimeStates', 'uptimeMinutes'], 'full');

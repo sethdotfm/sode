@@ -125,6 +125,8 @@ func TestChromeTieUndoRedoKeys(t *testing.T) {
 	b.eval(`(() => { const t = document.getElementById('lvl'); t.value = '1'; t.dispatchEvent(new Event('input', {bubbles: true})); document.getElementById('patch').click(); return true; })()`)
 	takeInPicker("the take of Cam Three", true)
 	routerTallyHas(t, a, ana, uids[0], 5, 3)
+	// The answer of the take makes it this tab's newest take.
+	b.waitFor("the take of Cam Three is this tab's", own+`.length === 4`)
 	press(false)
 	b.waitFor("the Undo confirm offers to put TIE 1 back", `(() => { const c = document.getElementById('confirm'); const x = c.querySelector('.sode__plan-extra');
 		return !c.hidden && !!x && x.textContent.includes('Also put TIE 1 back to Zoom 1') && !x.querySelector('input').checked && !document.getElementById('confirm-ok').disabled; })()`)

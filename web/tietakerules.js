@@ -93,3 +93,7 @@ export function reasonText(x, prefix) {
   }
   return x.why;
 }
+
+// takeRan tells if the server ran the take of answer m (tieTakeResult): it has results, which can be failed. A refusal
+// before the take, as tie_line_changed, sent nothing.
+export const takeRan = (m) => m?.status === 200 && Array.isArray(m.body?.results);

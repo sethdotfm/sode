@@ -4,7 +4,7 @@
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
-import { searchText, prefixOf, typedPrefix } from './routerprefix.js';
+import { searchText, prefixOf, typedPrefix, labelPrefix } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
 import { routerLinks, wholeState, lost } from './routerlinkrules.js';
 
@@ -45,7 +45,7 @@ export const S = {
   noAdministrator: false, // users and no Administrator: the page shows the recovery banner
   notSaved: false,
   setup: null, // setupwizard.js
-  // The first router's Protects; the page keeps no Protect state of the other routers.
+  // The first router's Protects. Each router after the first keeps its own in its routerData (protectsOf).
   prot: new Map(), // dst → Map(level → {dev, kind}), from the router
   protBy: new Map(), // dst → {by, device, levels}: the Protects in Sode's own record
   levelDefaults: [],
@@ -124,7 +124,11 @@ function newRouter(r, first = false) {
     tally: new Map(),
     via: new Map(),
     namesAt: null,
-    namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
+    namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read.
+    // A router after the first keeps its Protects here (protectsOf).
+    prot: new Map(),
+    protBy: new Map(), // Sode's record of them.
+    protectDevice: r.protectDevice || 0, // Sode's device number on the router.
     link: null,
     addr: '',
     err: '',
@@ -156,6 +160,18 @@ function fillRouter(st, r) {
   applyTally(r.tally || [], st.tally);
   st.via = viaMap(r.via);
   setRouterStatus(st, r.status || {});
+  if (!st.first) {
+    applyProtect(r.protected || [], st.prot);
+    st.protBy = byDst(r.protectBy);
+  }
+}
+
+// protectsOf gives the Protects of one router (a routerData UID; blank is the first). prot is dst → Map(level →
+// {dev, kind}). by is Sode's record, dst → {by, device, levels}. device is Sode's device number on the router.
+export function protectsOf(uid = '') {
+  const rt = otherRouter(uid);
+  if (!rt) return { prot: S.prot, by: S.protBy, device: S.cfg?.protectDevice || 0 };
+  return { prot: rt.prot, by: rt.protBy, device: rt.protectDevice };
 }
 
 // err is the last error, kept while the link connects again. A new address or an up link clears it.
@@ -393,10 +409,15 @@ function handle(m) {
       emit('tally');
       break;
     }
-    case 'protected':
-      // A router after the first: the page keeps no Protect state of it. An open Tie line picker plans again.
-      if (otherRouter(m.routerUid)) {
+    case 'protected': {
+      // A router after the first keeps its own. An open Tie line picker plans again (protectedOther).
+      const rt = otherRouter(m.routerUid);
+      if (rt) {
+        applyProtect(m.u, rt.prot);
+        if (m.by) rt.protBy = byDst(m.by);
         emit('protectedOther');
+        emit('protectedRows');
+        emit('tally');
         break;
       }
       applyProtect(m.u);
@@ -404,6 +425,7 @@ function handle(m) {
       emit('protectedRows');
       emit('tally');
       break;
+    }
     case 'status': {
       setRouterStatus(routerData(m.routerUid), m);
       emit('conn');
@@ -453,22 +475,24 @@ function applyTally(list, tally) {
   }
 }
 
-// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect.
-function applyProtect(list) {
+// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect. prot is the first router's when none.
+function applyProtect(list, prot = S.prot) {
   for (const [d, l, dev, kind = 1] of list) {
-    let t = S.prot.get(d);
+    let t = prot.get(d);
     if (dev < 0) {
       if (t) t.delete(l);
-      if (t && !t.size) S.prot.delete(d);
+      if (t && !t.size) prot.delete(d);
       continue;
     }
-    if (!t) S.prot.set(d, (t = new Map()));
+    if (!t) prot.set(d, (t = new Map()));
     t.set(l, { dev, kind });
   }
 }
 
+const byDst = (list) => new Map((list || []).map((r) => [r.dst, r]));
+
 function applyProtectBy(list) {
-  S.protBy = new Map(list.map((r) => [r.dst, r]));
+  S.protBy = byDst(list);
 }
 
 export function connState() {
@@ -659,13 +683,15 @@ export function search(list, q, n = 8) {
 // (B.42, B42) searches that router's numbers, and those matches always come first. Without the dot, the name matches
 // of the whole text come after them, so "B42 MON" still shows. A bare number searches def, the default router of the
 // box (a routerData UID). Other text searches the names of every router; on a tie, def comes first. keep drops items.
+// An edited label of a pick ("A.23 cam", from "A.23 Cam 1") searches its router for the number and the rest ("23 cam").
 export function boxSearch(kind, text, { def = '', n = 8, keep = () => true } = {}) {
   const q = text.trim().toLowerCase();
   if (!q) return [];
   const listOf = (rt) => (kind === 'src' ? rt.srcs : rt.dsts).filter(keep);
-  const p = prefixOf(text);
-  if (typedPrefix(text, prefixes())) {
-    const uid = routerNamed(text);
+  const lp = labelPrefix(text, prefixes());
+  const p = lp ? { ...lp, text: lp.text.toLowerCase() } : prefixOf(text);
+  if (lp || typedPrefix(text, prefixes())) {
+    const uid = routerNamed(lp ? `${lp.prefix}.${lp.num}` : text);
     if (uid == null) return Object.assign([], { total: 0 });
     const first = scored(listOf(routerData(uid)), p.text, 0, 10000);
     if (p.dot) return best(first, n);

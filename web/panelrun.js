@@ -33,6 +33,9 @@ import { initName } from './panelname.js';
 // The small reads are polled while the WebSocket carries the tally. The poll finds a revoked key or a lost Sode API,
 // which the socket does not show.
 const POLL_MS = 2000;
+// A panel opens only after GET /routers answers (d.open).
+const ROUTERS_UNKNOWN = 'Sode did not give its router list. The panel is not open. Sode tries again in 5 seconds.';
+const ROUTERS_RETRY_MS = 5000;
 const NAMES_MS = 30000;
 // Frames that come close together (a Group or a Preset) are drawn as one.
 const FRAME_MS = 30;
@@ -152,9 +155,19 @@ function makeDoor(seg, ui, embedded, given, run) {
           const r = await d.callJSON('api/v1/routers').catch(() => null);
           if (r?.routers) [d.places, placesRead] = [makePlaces(r.routers), true];
         }
-        const panel = panelIn(await d.callJSON(`api/v1/panels/${seg}`), d.places);
-        // Back to editing came before the panel did: nothing after this is allowed to start a timer or a watch.
+        const read = await d.callJSON(`api/v1/panels/${seg}`);
         if (d.ended) return null;
+        // Without the router list, an item of another router would read and take as the first router's. The panel
+        // read comes first, so a refused key still gets its own note.
+        if (!placesRead) {
+          showNote(ui.note, ROUTERS_UNKNOWN);
+          await new Promise((ok) => setTimeout(ok, ROUTERS_RETRY_MS));
+          if (d.ended) return null;
+          continue;
+        }
+        if (ui.note.textContent === ROUTERS_UNKNOWN) showNote(ui.note, '');
+        const panel = panelIn(read, d.places);
+        // Back to editing came before the panel did: nothing after this is allowed to start a timer or a watch.
         // Kept only after it worked, so a mistyped or ended key never replaces a stored one.
         if (d.linked) d.stored = keepLinkKey(seg, d.key);
         if (panel.acts === 'api' && !d.key && !embedded) {

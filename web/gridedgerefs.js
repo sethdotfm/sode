@@ -6,6 +6,8 @@ import { makePlaces, placeOf, routerN } from './routerids.js';
 
 const REF_KEYS = new Set(['router', 'n', 'shown', 'name']);
 
+export const UNKNOWN_ROUTER = 'Sode did not give its router list. Not saved.';
+
 // Safe on an edge already in number form, since the Live Editor hands the run the editor's own edges.
 export function edgeIn(edge, places = makePlaces()) {
   if (!edge || typeof edge !== 'object') return edge;
@@ -23,13 +25,14 @@ export function edgeIn(edge, places = makePlaces()) {
   return out;
 }
 
-// own is places, or the first router's UID. With no UID for the router of an item, the reference goes as {n}, and
-// the server puts it on the first router.
+// own is places, or the first router's UID. An item of the first router with no UID goes as {n}, which names the one
+// router. An item of another router with no UID throws: the server would put it on the first router.
 export function edgeOut(edge, own = '') {
   if (!edge || typeof edge !== 'object') return edge;
   const places = own && typeof own === 'object' ? own : null;
   const ref = (id) => {
     const router = places ? places.uid(placeOf(id)) : placeOf(id) === 0 ? own : '';
+    if (!router && placeOf(id) !== 0) throw new Error(UNKNOWN_ROUTER);
     return router ? { router, n: routerN(id) } : { n: routerN(id) };
   };
   const out = { ...edge };

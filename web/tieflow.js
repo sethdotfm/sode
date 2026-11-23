@@ -13,7 +13,7 @@ import { noteLast } from './plans.js';
 import { noteSent, noteOwn } from './stepback.js';
 import { pickRoute } from './tiepicker.js';
 import { pickState, reopenState, storedState, lastState, takeRoute, chosen, oneOffsOf } from './tiepickrules.js';
-import { tieIndexes, nextTie, finalAt, planRequest, takeRequest, keptItems, changedAt, resetFrom, failedText } from './tietakerules.js';
+import { tieIndexes, nextTie, finalAt, planRequest, takeRequest, keptItems, changedAt, resetFrom, failedText, takeRan } from './tietakerules.js';
 
 const ref = (it) => ({ router: routerData(routerOfItem(it)).uid, n: it.n });
 
@@ -34,7 +34,7 @@ function routesOf(plan) {
 }
 
 // tieTake runs the pickers and the confirm of plan (planBlocked gave tie). prot: the Protects of its plain routes.
-// opts: onSent(plan) after the last picker sent the take, onClose() after a cancel, confirm(plan, prot) opens the
+// opts: onSent(plan) after the server ran the take, onClose() after a cancel, confirm(plan, prot) opens the
 // churning-letter confirm (its plan sends with send).
 export function tieTake(plan, prot, opts) {
   const routes = routesOf(plan);
@@ -74,7 +74,7 @@ function step(f, k, state, oneOffs = []) {
       const prot = take.ties.flatMap((t, i) => (t.protect ? [names[i]] : []));
       // ids name the chosen path (pathKey): a One-off tie line goes to the server as its ends, not its id.
       f.picks[k] = { take, names, prot, ids: hops.map((h) => h.tie.id) };
-      if (final) return send(f, true);
+      if (final) return send(f);
       on();
     },
     onClose: () => f.opts.onClose?.(),
@@ -92,9 +92,10 @@ function finish(f) {
     {
       ...f.plan,
       items,
+      // false: sendTakes neither notes the step nor clears the boxes. send does both once the server accepts.
       send: () => {
-        send(f, false);
-        return true;
+        send(f);
+        return false;
       },
     },
     f.prot,
@@ -113,24 +114,26 @@ function textOf(f, at) {
     .join('; ');
 }
 
-async function send(f, direct) {
+async function send(f) {
   const { routes, at } = takeRequest(f.routes, f.picks);
   const text = textOf(f, at);
   showResult('info', 'Taking', text);
   // A preset's take names it, for History and the preset right (tiepage.go).
   const preset = f.plan.verb === 'preset' ? { preset: f.plan.preset, presetId: f.plan.presetId || '' } : {};
-  const m = request('tieTakeResult', { t: 'tieTake', routes, ...preset });
-  if (direct) {
-    // The picker sent the take, not sendTakes: the Redo list changes here (Step back, stepback.js).
+  const m = await request('tieTakeResult', { t: 'tieTake', routes, ...preset });
+  answer(f, m, text, at);
+  // The take is sent here, not by sendTakes: the Redo list changes here (Step back, stepback.js). Only a take that the
+  // server ran counts, one time. A refusal (tie_line_changed) opens the picker again, and its send is the same step.
+  // The patch boxes stay until then too.
+  if (takeRan(m)) {
     noteSent(f.plan);
     f.opts.onSent?.(f.plan);
   }
-  answer(f, await m, text, at);
 }
 
 function answer(f, m, text, at) {
   const rs = m.body?.results;
-  if (m.status === 200 && rs) {
+  if (takeRan(m)) {
     // The destination entries are this tab's takes, for Ctrl+Z. The server sends each entry before this answer.
     noteOwn(
       rs.map((r) => r.entry).filter((id) => id != null),

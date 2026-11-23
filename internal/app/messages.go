@@ -105,6 +105,12 @@ type helloRouter struct {
 	// Via: the rows of the tally whose source a tie line feeds, with their Via (pagevia.go). A `viaRows` message
 	// replaces them.
 	Via []apiRouteRow `json:"via"`
+	// Protected and ProtectBy are the holds and Sode's record of a router after the first (protectRows,
+	// protectByListOf). The first router's are the hello's own protected and protectBy.
+	Protected json.RawMessage `json:"protected,omitempty"`
+	ProtectBy []protectBy     `json:"protectBy,omitempty"`
+	// ProtectDevice is Sode's device number on this router (0: Protect is off), so the page offers Protect there.
+	ProtectDevice int `json:"protectDevice"`
 }
 
 type helloUser struct {

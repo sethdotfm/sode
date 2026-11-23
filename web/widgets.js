@@ -414,18 +414,19 @@ export function stackFrom(e, onPickSrc) {
 // button. addDst(item) is the Ctrl-click on a followed destination.
 
 export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst: onPickDst, addDst: onAddDst }) {
-  const lv = (ls) => ls.filter((u) => routerData('').levelBy.has(u));
+  const uid = e.router || '';
+  const lv = (ls) => ls.filter((u) => routerData(uid).levelBy.has(u));
   const step = (time, levels, text, btn, follows = null, src = null) =>
     el(
       'div',
       'sode__route sode__step',
       el('span', 'sode__step-time', time),
-      levelBar(levels),
+      levelBar(levels, uid),
       el('span', 'sode__step-what', srcEnd(src, text, onPickSrc), follows),
       btn,
     );
   const restore = (then, at) => {
-    const label = srcItem(at.src, at.srcName).label;
+    const label = srcItem(at.src, at.srcName, uid).label;
     const plan = restorePlan(then, at);
     const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Restore');
     b.type = 'button';
@@ -440,34 +441,36 @@ export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst:
       step(
         fmtClock(c.time),
         lv(c.levels),
-        srcItem(c.src, c.srcName).label,
+        srcItem(c.src, c.srcName, uid).label,
         i === 0 ? null : restore(e.chain[i - 1], c),
         followBoxes(
           (e.follows || []).filter((f) => f.follow === c.id),
           c.levels,
           onPickDst,
           onAddDst,
+          uid,
         ),
         c.src,
       ),
     ),
-    ...beforeGroups(e).map((g, i) => step(i === 0 ? 'Before' : '', g.levels, tallyText(g.src), null, null, g.src)),
+    ...beforeGroups(e).map((g, i) => step(i === 0 ? 'Before' : '', g.levels, tallyText(g.src, uid), null, null, g.src)),
   ];
 }
 
 // "External follow:" with each follow's destination, levels shown where they differ. Null if none.
-// onPickDst(item) makes each fill the Destination box; onAddDst(item) is the Ctrl-click that adds it.
-export function followBoxes(follows, levels, onPickDst, onAddDst) {
+// onPickDst(item) makes each fill the Destination box; onAddDst(item) is the Ctrl-click that adds it. uid is the router
+// of the entry, which its follows share.
+export function followBoxes(follows, levels, onPickDst, onAddDst, uid = '') {
   if (!follows?.length) return null;
-  const lv = (ls) => ls.filter((u) => routerData('').levelBy.has(u));
+  const lv = (ls) => ls.filter((u) => routerData(uid).levelBy.has(u));
   const same = (ls) => lv(ls).join() === lv(levels).join();
   return el(
     'span',
     'sode__follows',
     el('span', 'sode__hist-note', 'External follow:'),
     ...follows.map((f) => {
-      const it = dstItem(f.dst, f.dstName);
-      const note = same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`);
+      const it = dstItem(f.dst, f.dstName, uid);
+      const note = same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels), uid)})`);
       if (!onPickDst) return el('span', 'sode__end sode__end--dst sode__end--follow', it.label, note);
       const b = el('button', 'sode__end sode__end--dst sode__end--follow sode__end--pick', it.label, note);
       b.type = 'button';

@@ -131,6 +131,13 @@ func TestChromeMainPatchesTwoRouters(t *testing.T) {
 	// Each take went to its own router only: router A's destination 3 and router B's destination 2 keep their sources.
 	routerTallyHas(t, a, ana, uids[0], 3, 3)
 	routerTallyHas(t, a, ana, uids[1], simDst, simDst)
+	// A pick on router B lists router B in Show all, though the Source box's default router is A. An edit of the
+	// picked label ("B.12 Stage") searches router B for "12 stage".
+	pick("src", "B12", "B.12 Stage Cam")
+	b.eval(`document.getElementById('src-all').click(); true`)
+	b.waitFor("Show all on a pick of B lists router B", `(() => { const o = [...document.querySelectorAll('#src-menu [id^="src-opt-"]')];
+		return o.length > 0 && o.every((x) => x.textContent.trim().startsWith('B.')); })()`)
+	pick("src", "B.12 Stage", "B.12 Stage Cam")
 	b.open(srv.URL + "/")
 	b.waitFor("the default router stays after a reload", `document.getElementById('dst-router')?.textContent === 'Router B' && document.getElementById('src-router').textContent === 'Router A'`)
 	b.check()

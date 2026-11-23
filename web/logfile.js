@@ -60,7 +60,7 @@ function noteText(e) {
   return out.join('\n');
 }
 
-// opts: off is the numberOffset; level(ui) gives a level's label.
+// opts: off is the numberOffset; level(ui, uid) gives a level's label on the row's router.
 function logCells(e, { off = 0, level = () => '' }) {
   const num = (n) => (n >= 0 ? n + off : '');
   const event = EVENT_KINDS.has(e.kind);
@@ -69,7 +69,7 @@ function logCells(e, { off = 0, level = () => '' }) {
     e.seq,
     kindLabel(e),
     event ? '' : `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`,
-    e.level ? level(e.level) || '' : '',
+    e.level ? level(e.level, e.router || '') || '' : '',
     e.wire >= 0 ? e.wire : '',
     num(e.dst),
     e.dstName,

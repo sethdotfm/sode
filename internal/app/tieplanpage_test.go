@@ -93,7 +93,7 @@ func TestAPITakePlanOnly(t *testing.T) {
 }
 
 // A Protect on a router after the first reaches the page in a protected message that names that router, so an open
-// picker plans again. The first router's message keeps Sode's record.
+// picker plans again. It has Sode's record of that router.
 func TestProtectOfAnotherRouterReachesThePage(t *testing.T) {
 	a, _, _, _ := tieApp(t, nil)
 	c := tiePageClient(a)
@@ -115,7 +115,7 @@ func TestProtectOfAnotherRouterReachesThePage(t *testing.T) {
 			if json.Unmarshal(raw, &m) != nil || m.T != "protected" {
 				continue
 			}
-			if m.RouterUID != "b2b2b2b2" || len(m.U) != 1 || m.U[0][0] != 20 || m.By != nil {
+			if m.RouterUID != "b2b2b2b2" || len(m.U) != 1 || m.U[0][0] != 20 || m.By == nil {
 				t.Fatalf("protected %s", raw)
 			}
 			return

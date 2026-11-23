@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tieIndexes, nextTie, finalAt, planRequest, takeRequest, keptItems, changedAt, resetFrom, failedText, reasonText } from '../tietakerules.js';
+import { tieIndexes, nextTie, finalAt, planRequest, takeRequest, keptItems, changedAt, resetFrom, failedText, reasonText, takeRan } from '../tietakerules.js';
 
 const end = (router, n) => ({ router, n });
 // A take from A.1 to A.3 (plain), B.4 and B.5 (tie routes), as a patch with three destinations.
@@ -76,4 +76,10 @@ test('each no-path reason has a name', () => {
   assert.equal(reasonText({ why: 'protected', tie: 't1', tieName: 'TIE 1', by: 'Sode' }, prefix), 'TIE 1 is protected by Sode');
   assert.equal(reasonText({ why: 'taken', tie: 't1', tieName: 'TIE 1' }, prefix), 'TIE 1 carries another source in this take');
   assert.equal(reasonText({ why: 'taken', tie: 't1' }, prefix), 't1 carries another source in this take');
+});
+
+test('a take counts as sent only when the server ran it', () => {
+  assert.equal(takeRan({ status: 200, body: { ok: false, results: [{ result: 'failed' }] } }), true);
+  assert.equal(takeRan({ status: 409, body: { error: { code: 'tie_line_changed' }, routes: [] } }), false);
+  assert.equal(takeRan({ status: 0, err: 'Not sent' }), false);
 });

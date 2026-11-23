@@ -583,7 +583,7 @@ func (a *App) protectDone(rec protectRec, e *Entry) {
 		log.Printf("protects: %v", err)
 	}
 	a.mu.Lock()
-	a.broadcastProtectsMu()
+	a.broadcastProtectsMu(rec.Router)
 	a.mu.Unlock()
 	a.record(e)
 }

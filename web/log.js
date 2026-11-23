@@ -330,7 +330,7 @@ function outcome(e) {
 const fmtMs = (ms) => (ms < 10 ? ms.toFixed(1) : String(Math.round(ms))) + ' ms';
 
 function levelCell(e) {
-  const l = routerData('').levelBy.get(e.level);
+  const l = routerData(e.router).levelBy.get(e.level);
   if (l) return levelColor(el('span', 'sode__slot sode__slot--on sode-log__lvl', l.label), l);
   return e.wire >= 0 ? el('span', 'pb-text-muted', `router level ${e.wire}`) : '';
 }

@@ -358,7 +358,7 @@ export function beforeGroups(e) {
   const prev = new Map(e.prev);
   const groups = new Map();
   for (const u of [...e.levels].sort((a, b) => a - b)) {
-    if (!routerData('').levelBy.has(u)) continue;
+    if (!routerData(e.router).levelBy.has(u)) continue;
     const s = prev.has(u) ? prev.get(u) : null;
     if (!groups.has(s)) groups.set(s, []);
     groups.get(s).push(u);
@@ -370,7 +370,7 @@ export function beforeGroups(e) {
 // several sources, and text then counts them.
 export function stackBefore(e) {
   const g = beforeGroups(e);
-  return g.length === 1 ? { src: g[0].src, text: tallyText(g[0].src) } : { src: null, text: `${g.length} sources` };
+  return g.length === 1 ? { src: g[0].src, text: tallyText(g[0].src, e.router) } : { src: null, text: `${g.length} sources` };
 }
 
 // [{levels, text}]: "still on X" (it ignored the take), "on X" (another route got there) or "no
@@ -382,8 +382,8 @@ export function failureGroups(e) {
     prev = new Map(e.prev);
   const groups = new Map();
   for (const u of [...e.failed].sort((a, b) => a - b)) {
-    if (!routerData('').levelBy.has(u)) continue;
-    const text = !now.has(u) ? 'no answer' : `${prev.get(u) === now.get(u) ? 'still on' : 'on'} ${tallyText(now.get(u))}`;
+    if (!routerData(e.router).levelBy.has(u)) continue;
+    const text = !now.has(u) ? 'no answer' : `${prev.get(u) === now.get(u) ? 'still on' : 'on'} ${tallyText(now.get(u), e.router)}`;
     if (!groups.has(text)) groups.set(text, []);
     groups.get(text).push(u);
   }

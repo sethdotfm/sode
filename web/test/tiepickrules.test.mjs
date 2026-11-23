@@ -466,3 +466,39 @@ test('a preset opens the picker on its stored tie lines and says what it found',
   assert.equal(storedText(pickState(route)).text, '', 'a picker that is not a preset says nothing');
   assert.ok(!oneOffPicked(st));
 });
+
+test('hidden visibility: a null hop source matches nothing, and a hidden origin says so', async () => {
+  const { chainWords, feedingHop, HIDDEN } = await import('../tiepickrules.js');
+  const p = {
+    hops: [
+      { router: 'a', src: null, dst: null, now: { nothing: false } },
+      { router: 'b', src: null, dst: { router: 'b', n: 42 } },
+    ],
+  };
+  assert.equal(feedingHop(p, 'b', 5), -1);
+  p.hops[1].src = { router: 'b', n: 5 };
+  assert.equal(feedingHop(p, 'b', 5), 0);
+  const label = (o) => `${o.router}.${o.n}`;
+  assert.equal(
+    chainWords(p.hops[0].now, label, (u) => u),
+    HIDDEN,
+  );
+  assert.equal(
+    chainWords({ nothing: true }, label, (u) => u),
+    'nothing',
+  );
+  assert.equal(
+    chainWords({ origin: { router: 'a', n: 3 }, via: [{ name: 'TIE 1' }] }, label, (u) => u),
+    'a.3 Via TIE 1',
+  );
+});
+
+test('a path that comes into a picker with no path turns Take on, and the lockout starts again', () => {
+  const route = apiRoute(byName('mesh: the cheapest'));
+  const none = pickState({ ...structuredClone(route), paths: [], reasons: [{ reason: 'no_tie_line' }] });
+  assert.ok(!ready(none));
+  const r = refresh(none, structuredClone(route));
+  assert.ok(ready(r.st));
+  assert.ok(r.changed, 'Take went from off to on');
+  assert.ok(!refresh(r.st, structuredClone(route)).changed);
+});
