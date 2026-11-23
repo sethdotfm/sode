@@ -89,6 +89,11 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 			e.ViaPrev[i].Origin = nil
 		}
 	}
+	for i := range e.Also {
+		if !v.on(e.Also[i].Router).Destination(e.Also[i].N) {
+			e.Also[i].Name = ""
+		}
+	}
 	var gone []int
 	for _, p := range e.Prev {
 		if p[1] >= 0 && !rv.Source(p[1]) {

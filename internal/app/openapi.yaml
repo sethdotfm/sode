@@ -3097,11 +3097,37 @@ components:
             n: { type: integer }
     Route:
       type: object
+      description: |
+        One level of a destination. `src` is the real crosspoint on the router of the destination. When a tie line
+        feeds `src`, the row also has the Via chain of this level: `via` and, when known, `origin`. `origin` is
+        absent when `nothing`, `unknown` or `loop` is set, or when the caller's hidden visibility does not show it.
+        A row with no tie line has none of these fields.
       required: [dst, level, src]
       properties:
         dst: { type: integer }
         level: { type: integer, description: UI level }
         src: { type: integer, description: -1 = nothing routed }
+        via: { type: array, items: { $ref: "#/components/schemas/TieRef" }, description: "Tie lines, upstream first" }
+        origin:
+          type: object
+          description: "The router and source at the start of the chain"
+          required: [router, n]
+          properties:
+            router: { type: string, description: "A router UID" }
+            n: { type: integer }
+        mixed: { type: boolean, description: "The levels upstream of a tie line have different sources. `origin` is then the source of the lowest level" }
+        nothing: { type: boolean, description: "Nothing is routed upstream" }
+        unknown: { type: string, description: "The UID of a router upstream that is down or has no state" }
+        loop: { type: boolean, description: "The chain upstream comes back to itself" }
+        levels:
+          type: array
+          description: "Only when mixed: the origin of each level upstream of the nearest tie line, from level 1, for the level pie. Null for nothing, unknown or hidden"
+          items:
+            nullable: true
+            type: object
+            properties:
+              router: { type: string }
+              n: { type: integer }
     ProtectedRow:
       type: object
       required: [dst, level, kind, device]
@@ -3237,6 +3263,17 @@ components:
               nothing: { type: boolean }
               unknown: { type: string }
               loop: { type: boolean }
+        also:
+          type: array
+          description: "An External on the upstream end of a tie line: each destination downstream that it also changes, worked out when Sode wrote the entry. `name` is blank when the caller's hidden visibility does not show it"
+          items:
+            type: object
+            required: [router, n, via]
+            properties:
+              router: { type: string }
+              n: { type: integer }
+              name: { type: string }
+              via: { type: array, items: { $ref: "#/components/schemas/TieRef" }, description: "Tie lines, upstream first" }
     EntryHop:
       type: object
       description: "One hop before the last of a tie take. `entry` is the hop's own History entry; there is none when the tie line already carried the source. `prev` is what the tie line carried before, from that entry"

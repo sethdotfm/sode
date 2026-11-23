@@ -38,7 +38,9 @@ func (a *App) flushExt() {
 		if !ok {
 			continue
 		}
-		es = append(es, u.extEntries(burst, first)...)
+		ue := u.extEntries(burst, first)
+		a.noteAlso(u, ue)
+		es = append(es, ue...)
 	}
 	a.mu.Unlock()
 	for _, e := range es {

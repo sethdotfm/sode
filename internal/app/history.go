@@ -74,6 +74,9 @@ type Entry struct {
 	Origin  *TieEnd    `json:"origin,omitempty"`
 	Hops    []TieHop   `json:"hops,omitempty"`
 	ViaPrev []ViaLevel `json:"viaPrev,omitempty"`
+	// Also: an External on the upstream end of a tie line. The destinations downstream that it also changes, as
+	// Sode worked them out when it wrote the entry (tievia.go).
+	Also []TieAlso `json:"also,omitempty"`
 }
 
 // logLine: off turns 0-based numbers into the router's display numbers.
@@ -293,6 +296,7 @@ func cloneEntry(e Entry) Entry {
 	e.Unsent = slices.Clone(e.Unsent)
 	e.Hops = slices.Clone(e.Hops)
 	e.ViaPrev = slices.Clone(e.ViaPrev)
+	e.Also = slices.Clone(e.Also)
 	return e
 }
 
