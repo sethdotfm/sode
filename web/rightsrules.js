@@ -1,5 +1,5 @@
 // Rights rules, pure (only pure imports) so Node tests them. Rights on the wire: {sources, dsts, levels, presets, protect,
-// visibility}.
+// tieLines, visibility}.
 // A missing list means all and [] means none. Sources and dsts are router references {router, n, name}.
 // n is the router's own number, with no numberOffset, as in plan items' .n. The editor sends {n}, never a bare
 // number; the server fills the router and the name.
@@ -86,7 +86,12 @@ const NUMBERED = [
 export function draftOf(rights, off, presets = [], router = '') {
   const r = rights || {};
   // protect: '' leaves the Protect right unset (a user's Role decides; off for an API client and Guest).
-  const d = { visibility: r.visibility === 'hidden' ? 'hidden' : 'readonly', protect: r.protect === true ? 'yes' : r.protect === false ? 'no' : '' };
+  // tieLines: the Use tie lines right. Unset is on, so only off goes on the wire.
+  const d = {
+    visibility: r.visibility === 'hidden' ? 'hidden' : 'readonly',
+    protect: r.protect === true ? 'yes' : r.protect === false ? 'no' : '',
+    tieLines: r.tieLines !== false,
+  };
   for (const [kind, , shifted] of NUMBERED) {
     const list = kind === 'levels' ? levelsOn(r.levels, router) : r[kind];
     d[kind] = { all: !Array.isArray(list), text: Array.isArray(list) ? listText(list, shifted ? off : 0) : '' };
@@ -135,6 +140,7 @@ export function rightsOf(d, off, levels, presets = []) {
   }
   if (d.visibility === 'hidden') rights.visibility = 'hidden';
   if (d.protect) rights.protect = d.protect === 'yes';
+  if (!d.tieLines) rights.tieLines = false;
   return { rights };
 }
 

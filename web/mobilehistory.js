@@ -7,7 +7,7 @@ import { layout } from './layout.js';
 import { emptyNote } from './searchbox.js';
 import { rowView, disclosureAria, followersHead } from './historyrows.js';
 import { picking, isPicked, pickBox, bindPick, pickBar } from './historypick.js';
-import { byLabel, disclosure, undoButton, againButton, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { byLabel, disclosure, undoButton, againButton, putBackButtons, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const REVEAL = 96;
 const OPEN = 'sode-m__recent-row--open';
@@ -117,6 +117,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
       ),
       el('div', 'sode-m__recent-route', ...title, byLabel(f)),
+      ...(picking() ? [] : putBackButtons(acts.putBack, sheetFor)),
       levelBar(groupLevels(f), groupRouter(f)),
     );
     clickToToggle(face, disc);

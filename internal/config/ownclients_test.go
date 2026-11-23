@@ -14,6 +14,7 @@ func rightsJSON(r Rights) string {
 func TestRightsIntersect(t *testing.T) {
 	lv := func(l ...int) RouterLevels { return RouterLevels{"u": l} }
 	ps := func(l ...string) *[]string { return &l }
+	yes, no := true, false
 	for _, c := range []struct {
 		name string
 		a, b Rights
@@ -28,6 +29,8 @@ func TestRightsIntersect(t *testing.T) {
 		{"levels and presets", Rights{Levels: lv(1, 2), Presets: ps("a", "b")}, Rights{Levels: lv(2), Presets: ps("b", "c")}, `{"levels":{"u":[2]},"presets":["b"]}`},
 		{"hidden wins", Rights{}, Rights{Visibility: VisHidden}, `{"visibility":"hidden"}`},
 		{"read-only stays", Rights{Visibility: VisReadOnly}, Rights{}, `{"visibility":"readonly"}`},
+		{"tie lines off wins", Rights{TieLines: &yes}, Rights{TieLines: &no}, `{"tieLines":false}`},
+		{"tie lines unset and on", Rights{}, Rights{TieLines: &yes}, `{"tieLines":true}`},
 	} {
 		got := c.a.Intersect(c.b)
 		if s := rightsJSON(got); s != c.want {

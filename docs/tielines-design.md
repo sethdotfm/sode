@@ -66,7 +66,7 @@ Rights checks compare the router and the number of each reference. A right for s
 
 1. A Tie line is a one-way cable from a destination on one router to a source on another router. A two-way tie is two tie lines.
 2. A tie line carries all levels, since it is SDI or SMPTE 2110. Sode does not map levels across a tie line.
-3. A tie line has a hidden id, as presets and filter sets have. Presets and panels store the id.
+3. A tie line has a hidden id, as presets and filter sets have. Presets and panels store the id. `config.yaml` keeps the list under `tieLines`: `id`, `name`, `from` (the destination) and `to` (the source), each end a router reference. `GET /tielines` uses the same names.
 4. A tie line has a Tie line name, unique on the server. When an Administrator accepts or adds a tie line, Sode fills the name from the name of the downstream source. The Administrator can change it.
 5. An Administrator adds, edits and removes tie lines in Settings > Routers > Tie lines.
 6. Sode suggests a tie line when a destination on one router has the same name as a source on another router. Sode trims the names and ignores case. An Administrator accepts each suggestion. Sode does not use a suggestion that nobody accepted.
@@ -103,7 +103,7 @@ Rights checks compare the router and the number of each reference. A right for s
 3. If the downstream chain comes back to a tie line that it already passed, Sode stops there and shows a loop mark (∞).
 4. If a router downstream is down, or Sode has no state for it, that part shows as "unknown (router C down)".
 5. The picker opens at once and uses the tally that Sode has. The bridges announce changes, so the tally is current. A count is marked stale only when its router connected again after the last full read.
-6. The cost of a path is the number of Affected destinations plus one for each hop. The weight of a hop is a setting. A path that sends nothing upstream, because its tie lines already carry the wanted source, has cost 0.
+6. The cost of a path is the number of Affected destinations plus one for each hop. The weight of a hop is a setting (`tieHopWeight`, Settings > Routers > Tie lines, default 1). It counts each hop that sends upstream. A path that sends nothing upstream, because its tie lines already carry the wanted source, has cost 0.
 7. Sode sorts whole paths, not single tie lines, by these keys in order:
    1. A path with no unknown part comes before a path with an unknown part.
    2. A path where no tie line is Protected or Reserved by a panel comes before one where a tie line is.
@@ -114,7 +114,7 @@ Rights checks compare the router and the number of each reference. A right for s
 
 ### Last change of a tie line
 
-1. Sode stores the time of the last change of each tie line on disk, next to the saved names table, so it survives a restart.
+1. Sode stores the time of the last change of each tie line on disk, next to the saved names table, so it survives a restart. The file is `names/tielines.changes.yaml`. Any crosspoint change on the upstream destination, on any level, by Sode or an External, stamps it. The first read of a level is a baseline and stamps nothing.
 2. If Sode was down after that time, the picker shows "before HH:MM". Sode never claims more than it knows.
 3. A found entry gives the time when Sode found the change, also as "before HH:MM".
 
@@ -173,6 +173,12 @@ Rights checks compare the router and the number of each reference. A right for s
 3. A plain Sode take to the upstream destination of a tie line takes the same lock.
 4. After the pre-take check and before the first connect, the server compares each tie line with what the picker showed.
 5. A tie line can move, or gain Affected destinations that the user did not see. Then the server refuses the whole take before it sends anything. The page shows "TIE 3 changed", and the picker opens again. The server never sends the old choice.
+6. The compare uses these rules:
+   - Sode compares every level of a tie line. A move on any level is a change. A mixed tie line never matches one expected source (Via, rule 4).
+   - The expected source is one source for all levels, or nothing. For a mixed tie line, it is a list with the source of each level, or nothing. The design names no form for the mixed state, so the API adds this list (agent decision).
+   - A null expected source and an expected source that is not there both mean nothing routed.
+   - An API caller that sends no Affected destinations gets no compare of them.
+   - Sode compares only the Affected destinations that the caller can see. The caller cannot name the others.
 
 ### Order and failures
 
@@ -181,9 +187,9 @@ Rights checks compare the router and the number of each reference. A right for s
 3. Tie routes always use ordinary connects. In `fireMode` native, Sode still sends tie routes this way.
 4. Before Sode sends anything, it runs the Protect check on every hop, Router locks too. If one hop fails the check, Sode refuses that route. The other routes of the take go, as today.
 5. The Result of a tie route comes from all its hops. If the last hop is Already and an upstream hop changed, the route is a normal success.
-6. If a hop that is not the last fails, the History row says "TIE 3 changed, B.42 not". The row offers "Put TIE 3 back to CAM 9". That works only while the tie line still carries what this take set.
+6. If a hop that is not the last fails, the History row says "TIE 3 changed, B.42 not". The row offers "Put TIE 3 back to CAM 9". That works only while the tie line still carries what this take set. Put back is the Undo of the entry of the hop that changed TIE 3, on the levels that the hop changed. The API has `POST /history/{id}/putback` for it (agent decision).
 7. A Late answer on a hop that is not the last never starts the later hops. The row says "TIE 3 changed late" and offers the same put-back action.
-8. Retry sends only the failed hops, if the earlier hops still hold. Otherwise Retry opens the picker, and the late tie line has cost 0.
+8. Retry sends only the failed hops, if the earlier hops still hold. Otherwise Retry opens the picker, and the late tie line has cost 0. The API answers 409 `tie_line_changed` for the picker. A hop that failed is not compared, since Sode sends it again (agent decision).
 9. If the link of one router drops during a take, the take fails at the hop on that router, with the same put-back action.
 
 ### Protect in a tie take
@@ -252,8 +258,8 @@ Rights checks compare the router and the number of each reference. A right for s
 
 ## API
 
-1. `POST /takes` accepts an optional `ties` list, one tie line for each hop, with the source that the caller expects on each. A One-off tie line is `{from, to}`.
-2. Without `ties`, Sode refuses a route across routers with 409 `tie_line_needed`. The reply lists the cheapest path.
+1. Each route of `POST /takes` accepts an optional `ties` list: one tie line for each hop before the last, upstream first. Each has the source that the caller expects on it (`{id, expect}`). A One-off tie line is `{from, to}`.
+2. Without `ties`, Sode refuses a route across routers with 409 `tie_line_needed`. The reply lists the ranked paths, cheapest first.
 3. A preset fire with tie lines answers 409 `tie_confirm_needed` with the state of each tie line. A request that names each tie line and its expected source goes through.
 4. If a tie line moved, Sode answers 409 `tie_line_changed` with the state of each tie line now.
 5. A panel at Off, or a caller without the "Use tie lines" right, gets 403 `tie_lines_off`.

@@ -55,12 +55,17 @@ const (
 //
 // Protect is the Protect right: set and free Sode's Protects on the destinations the lists allow. Unset means the
 // Role decides (ProtectFor): on for a Trusted user and an Administrator, off for everyone else.
+//
+// TieLines is the "Use tie lines" right: send a route across routers (docs/tielines-design.md, Rights). Unset is on,
+// as an unset list is everything, so a file from before the right changes nothing. An Access preset writes it for
+// the Guest.
 type Rights struct {
 	Sources    *[]Ref         `yaml:"sources,omitempty" json:"sources,omitempty"`
 	Dsts       *[]Ref         `yaml:"dsts,omitempty" json:"dsts,omitempty"`
 	Levels     RouterLevels   `yaml:"levels,omitempty" json:"levels,omitempty"` // UI levels, by router
 	Presets    *[]string      `yaml:"presets,omitempty" json:"presets,omitempty"`
 	Protect    *bool          `yaml:"protect,omitempty" json:"protect,omitempty"`
+	TieLines   *bool          `yaml:"tieLines,omitempty" json:"tieLines,omitempty"`
 	Visibility string         `yaml:"visibility,omitempty" json:"visibility,omitempty"`
 	Extra      map[string]any `yaml:",inline" json:"-"`
 }
@@ -87,6 +92,9 @@ func (r Rights) Hidden() bool                        { return r.Visibility == Vi
 // AllowsProtect: an unset right is off, so an API client needs it ticked. ActsAs and GuestActs set it from the Role.
 func (r Rights) AllowsProtect() bool { return r.Protect != nil && *r.Protect }
 
+// AllowsTieLines: the "Use tie lines" right. Unset is on.
+func (r Rights) AllowsTieLines() bool { return r.TieLines == nil || *r.TieLines }
+
 // ProtectFor fills an unset Protect right from the Role: on for a Trusted user and an Administrator.
 func (r Rights) ProtectFor(role string) Rights {
 	if r.Protect == nil {
@@ -99,6 +107,15 @@ func (r Rights) ProtectFor(role string) Rights {
 // protectWithin: only a right that is on needs it on in o. Unset is off for an API client, and ActsAs and GuestActs
 // set it from the Role.
 func protectWithin(r, o *bool) bool { return r == nil || !*r || o == nil || *o }
+
+// tieLinesBoth: off when either is off; unset only when both are unset.
+func tieLinesBoth(r, o Rights) *bool {
+	if r.TieLines == nil && o.TieLines == nil {
+		return nil
+	}
+	on := r.AllowsTieLines() && o.AllowsTieLines()
+	return &on
+}
 
 // protectBoth: off when either is off; unset only when both are.
 func protectBoth(r, o *bool) *bool {
@@ -143,7 +160,8 @@ func subsetBy[T any](l, of *[]T, same func(a, b T) bool) bool {
 // shows less than read-only, so it is within both, and read-only is not within hidden.
 func (r Rights) Within(o Rights) bool {
 	return subsetBy(r.Sources, o.Sources, sameRef) && subsetBy(r.Dsts, o.Dsts, sameRef) && r.Levels.within(o.Levels) &&
-		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden()) && protectWithin(r.Protect, o.Protect)
+		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden()) && protectWithin(r.Protect, o.Protect) &&
+		(!r.AllowsTieLines() || o.AllowsTieLines())
 }
 
 func intersectBy[T any](l, o *[]T, same func(a, b T) bool) *[]T {
@@ -168,7 +186,7 @@ func eq[T comparable](a, b T) bool { return a == b }
 func (r Rights) Intersect(o Rights) Rights {
 	out := Rights{Sources: intersectBy(r.Sources, o.Sources, sameRef), Dsts: intersectBy(r.Dsts, o.Dsts, sameRef),
 		Levels: r.Levels.intersect(o.Levels), Presets: intersectBy(r.Presets, o.Presets, eq[string]),
-		Protect: protectBoth(r.Protect, o.Protect), Visibility: r.Visibility, Extra: r.Extra}
+		Protect: protectBoth(r.Protect, o.Protect), TieLines: tieLinesBoth(r, o), Visibility: r.Visibility, Extra: r.Extra}
 	if o.Hidden() {
 		out.Visibility = VisHidden
 	}
@@ -188,7 +206,7 @@ func cloneList[T any](l *[]T) *[]T {
 
 func (r Rights) Clone() Rights {
 	r.Sources, r.Dsts, r.Levels, r.Presets = cloneList(r.Sources), cloneList(r.Dsts), r.Levels.Clone(), cloneList(r.Presets)
-	r.Protect = cloneBool(r.Protect)
+	r.Protect, r.TieLines = cloneBool(r.Protect), cloneBool(r.TieLines)
 	return r
 }
 

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
 // REST writes. Each request returns after the router answered or timed out every route. Late Results reach the stream
@@ -75,6 +76,37 @@ type apiRouteIn struct {
 	Src    apiEnd `json:"src"`
 	Dst    apiEnd `json:"dst"`
 	Levels []int  `json:"levels"`
+	// Ties: a route across routers names one tie line for each hop before the last, upstream first (tietake.go).
+	Ties []apiTieIn `json:"ties"`
+	// Affected: the Affected destinations that the caller saw for the route. Absent: Sode does not compare them.
+	Affected []apiEnd `json:"affected"`
+}
+
+// apiTieIn is one tie line of a route. Expect is what the caller saw on it. The stale check compares it (tielock.go).
+type apiTieIn struct {
+	ID     string    `json:"id"`
+	Expect apiExpect `json:"expect"`
+}
+
+// apiExpect is one of three forms. A router reference is that source on every level. Null or omitted is nothing on
+// every level. A list is a mixed tie line: one router reference or null for each level of the upstream router.
+type apiExpect struct {
+	One      *apiEnd
+	Levels   []*apiEnd
+	PerLevel bool
+}
+
+func (x *apiExpect) UnmarshalJSON(b []byte) error {
+	*x = apiExpect{}
+	switch t := bytes.TrimSpace(b); {
+	case bytes.Equal(t, []byte("null")):
+		return nil
+	case len(t) > 0 && t[0] == '[':
+		x.PerLevel = true
+		return json.Unmarshal(t, &x.Levels)
+	}
+	x.One = &apiEnd{}
+	return json.Unmarshal(b, x.One)
 }
 
 // apiEnd is one end of a route: a router reference {router, n}, or a bare number, which is enough while Sode has one
@@ -105,25 +137,20 @@ func (e *apiEnd) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// routeUnit gives the router unit of a route from its two ends. A bare end is the one router; with two or more
-// routers it is 400 router_needed. Ends on two routers need tie lines, which Sode does not have yet: 409 no_path.
-func (a *App) routeUnit(ro apiRouteIn) (*routerUnit, *apiProblem) {
+// routeUnits gives the router units of the two ends of a route. A bare end is the one router; with two or more
+// routers it is 400 router_needed. Ends on two routers give two units: the route needs tie lines (tieroutes.go).
+func (a *App) routeUnits(ro apiRouteIn) (src, dst *routerUnit, _ *apiProblem) {
 	var us [2]*routerUnit
 	for i, e := range []apiEnd{ro.Src, ro.Dst} {
 		switch {
 		case e.Router == "" && len(a.units()) > 1:
-			return nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.units()), apiBase)
+			return nil, nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.units()), apiBase)
 		case !a.knownRouter(e.Router):
-			return nil, problem(http.StatusNotFound, "unknown_router", "no router with UID %q; GET %s/routers lists them", e.Router, apiBase)
+			return nil, nil, problem(http.StatusNotFound, "unknown_router", "no router with UID %q; GET %s/routers lists them", e.Router, apiBase)
 		}
 		us[i] = a.unitOrFirst(e.Router)
 	}
-	if us[0] != us[1] {
-		rt := a.r()
-		return nil, problem(http.StatusConflict, "no_path", "no tie line joins router %s and router %s: a route across routers needs one",
-			rt.routerOf(us[0].uid).Prefix, rt.routerOf(us[1].uid).Prefix)
-	}
-	return us[1], nil
+	return us[0], us[1], nil
 }
 
 type apiTakeIn struct {
@@ -143,8 +170,10 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		}
 		rt := a.r()
 		p := &takePlan{}
-		for _, ro := range in.Routes {
-			u, prob := a.routeUnit(ro)
+		var all, bare []tieRoute
+		ties := map[int][]string{}
+		for i, ro := range in.Routes {
+			su, u, prob := a.routeUnits(ro)
 			if prob != nil {
 				return nil, prob
 			}
@@ -153,9 +182,51 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 				rc := rt.routerOf(u.uid)
 				ls, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
 			}
+			r := tieRoute{index: i, src: tieplan.End{Router: su.uid, N: ro.Src.N}, dst: tieplan.End{Router: u.uid, N: ro.Dst.N}, levels: ls}
+			switch {
+			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil):
+				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties and affected are only for a route across routers", i)
+			case su != u && len(ro.Ties) == 0:
+				bare = append(bare, r)
+			case su != u:
+				r.expect = map[string]tieWant{}
+				for _, t := range ro.Ties {
+					ties[i] = append(ties[i], t.ID)
+					w, prob := a.tieWantOf(t.Expect)
+					if prob != nil {
+						return nil, prob
+					}
+					r.expect[t.ID] = w
+				}
+				if ro.Affected != nil {
+					r.seen = []tieplan.End{}
+				}
+				for _, ae := range ro.Affected {
+					e, prob := a.tieEnd(ae)
+					if prob != nil {
+						return nil, prob
+					}
+					r.seen = append(r.seen, e)
+				}
+			}
+			all = append(all, r)
 			p.Items = append(p.Items, routeReq{Src: ro.Src.N, Dst: ro.Dst.N, Levels: ls, Router: u.uid})
 		}
-		return p, nil
+		if len(ties) == 0 && len(bare) == 0 {
+			return p, nil
+		}
+		// Rights cover the typed ends only, and come first, so a caller learns no path for ends that it must not patch.
+		if prob := a.tieRouteRights(rt, cl.Rights, all); prob != nil {
+			return nil, prob
+		}
+		if len(bare) > 0 {
+			return nil, a.apiTieProblem(rt, a.view(cl), bare)
+		}
+		tt, prob := a.planTieTake(rt, a.view(cl), all, ties)
+		if prob != nil {
+			return nil, prob
+		}
+		return &takePlan{Ties: tt}, nil
 	})
 }
 
@@ -212,6 +283,12 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 			}
 			return p, nil
 		}
+		switch {
+		case verb == "retry" && e.Tie != "":
+			return nil, problem(http.StatusConflict, "conflict", "entry %d is a hop of a tie take; retry its destination entry, or put the tie line back", id)
+		case verb == "retry" && e.Origin != nil:
+			return a.planTieRetry(rt, cl, e)
+		}
 		return planAgain(rt, a.view(cl), e, verb == "retry")
 	})
 }
@@ -226,6 +303,8 @@ type apiRouteOut struct {
 	Already []int  `json:"already,omitempty"`
 	Error   string `json:"error,omitempty"`
 	Entry   *int   `json:"entry,omitempty"`
+	// Hops: a route across routers, each hop before the last, upstream first.
+	Hops []TieHop `json:"hops,omitempty"`
 }
 
 type apiTakeOut struct {
@@ -242,6 +321,13 @@ type apiTakeOut struct {
 type sinkResults struct {
 	mu sync.Mutex
 	by map[int]routeResult
+}
+
+func (s *sinkResults) get(id int) (routeResult, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rr, ok := s.by[id]
+	return rr, ok
 }
 
 func (s *sinkResults) put(b []byte) {
@@ -318,7 +404,10 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		plan.Items[i].ID = i + 1
 		plan.Items[i].Preset, plan.Items[i].PresetID = plan.Preset, plan.PresetID
 	}
-	n := len(plan.Items)
+	n, why := len(plan.Items), takeWhy(plan.Items)
+	if plan.Ties != nil {
+		n, why = len(plan.Ties.routes), takeWhy(plan.Ties.reqs())
+	}
 	sink := &sinkResults{by: map[int]routeResult{}}
 	cl.sink = sink.put
 	c := cl.client()
@@ -327,7 +416,7 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		return problem(http.StatusForbidden, "outside_rights", "%s", msg).answer(), true
 	}
 	if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
-		a.apiEvent(cl.Actor, takeWhy(plan.Items), "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
+		a.apiEvent(cl.Actor, why, "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
 		return problem(http.StatusTooManyRequests, "take_cap",
 			"%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap).answer(), false
 	}
@@ -336,7 +425,20 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	if plan.Preset != "" {
 		note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
 	}
-	a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
+	if t := plan.Ties; t != nil {
+		// The tie locks and the stale check come before the sent row, so a refused take logs refused.
+		unlock, p := a.tieTakeBegin(rt, a.view(cl), c, t)
+		if p != nil {
+			a.apiEvent(cl.Actor, why, "refused", p.Code, fmt.Errorf("%s", p.Msg))
+			return p.answer(), false
+		}
+		defer unlock()
+	}
+	a.apiEvent(cl.Actor, why, "sent", note, nil)
+	if t := plan.Ties; t != nil {
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(t.deadline(a)))
+		return jsonAnswer(http.StatusOK, t.out(a.runTieTake(c, t, sink.get))), true
+	}
 	// The recorder in tests has no write deadline.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))
 	unread := a.takeAllowed(c, plan.Items)
@@ -346,19 +448,12 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	defer sink.mu.Unlock()
 	for i, it := range plan.Items {
 		rr, ok := sink.by[it.ID]
-		o := apiRouteOut{ID: it.ID, Src: it.Src, Dst: it.Dst, Levels: it.Levels, OK: rr.OK, Already: rr.Already, Error: rr.Err, Entry: rr.Entry}
-		switch {
-		case !ok:
+		o := apiRouteOut{ID: it.ID, Src: it.Src, Dst: it.Dst, Levels: it.Levels, OK: rr.OK, Already: rr.Already, Error: rr.Err, Entry: rr.Entry,
+			Result: resultWord(rr, ok, it.Levels)}
+		if !ok {
 			o.Error = "no result"
-			fallthrough
-		case !rr.OK:
-			o.Result = "failed"
-			out.OK = false
-		case len(rr.Already) > 0 && len(rr.Already) >= len(distinct(it.Levels)):
-			o.Result = "already"
-		default:
-			o.Result = "connected"
 		}
+		out.OK = out.OK && o.Result != "failed"
 		out.Results[i] = o
 	}
 	return jsonAnswer(http.StatusOK, out), true

@@ -75,7 +75,7 @@ type apiErr struct {
 }
 
 func apiFail(w http.ResponseWriter, status int, code, msg string) {
-	(&apiProblem{status, code, msg}).write(w)
+	(&apiProblem{Status: status, Code: code, Msg: msg}).write(w)
 }
 
 func apiJSON(w http.ResponseWriter, v any) {

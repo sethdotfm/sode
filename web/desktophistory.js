@@ -17,6 +17,7 @@ import {
   disclosure,
   undoButton,
   againButton,
+  putBackButtons,
   stackSteps,
   stackFrom,
   followBoxes,
@@ -155,7 +156,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-route sode__hist-route--boxes', ...routeNodes(view.route(f)), byLabel(f)),
       statusNode({ f }),
       disc,
-      el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [retry, undo])),
+      el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [...putBackButtons(acts.putBack, openConfirm), retry, undo])),
     );
     row.dataset.key = `f${f.group}`;
     row.classList.toggle('sode__hist-row--picked', isPicked(`f${f.group}`));

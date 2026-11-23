@@ -322,6 +322,19 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
   return b;
 }
 
+// Put back (historyrows.js putBacks): one button for each tie line that a failed tie take changed.
+export function putBackButtons(list, onClick, cls = 'pb-btn pb-btn--outline pb-btn--sm') {
+  return (list || []).map((p) => {
+    const b = el('button', `${cls} pb-tip--end`, icon('undo-2'), p.text);
+    b.type = 'button';
+    b.dataset.pbTip = 'Send what the tie line carried before, if it still carries what the take set';
+    b.setAttribute('aria-label', p.label);
+    needsLink(b);
+    b.addEventListener('click', () => onClick(p.plan));
+    return b;
+  });
+}
+
 // Retry (failed) or Redo (other) by plan.verb: one button, one slot. With nothing to offer an
 // invisible placeholder keeps columns lined up (null with placeholder false).
 export function againButton(plan, label, onClick, { placeholder = true, cls = 'pb-btn pb-btn--outline pb-btn--sm' } = {}) {

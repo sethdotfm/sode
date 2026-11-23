@@ -22,8 +22,9 @@ var sectionNames = map[string]string{
 	"level-colors":      "Level colors",
 	"confirm":           "Confirm and results",
 	"routers":           "Routers",
-	"router-matrix":     "Router & matrix",
+	"tie-lines":         "Tie lines",
 	"router-levels":     "Router levels",
+	"router-matrix":     "Router & matrix",
 	"router-names":      "Router names",
 	"takes":             "Takes",
 	"protects":          "Protects",
@@ -40,7 +41,7 @@ func topicOf(section string) string {
 	switch section {
 	case "this-browser", "my-user":
 		return "Preferences"
-	case "routers", "router-levels", "router-matrix", "router-names", "takes", "protects":
+	case "routers", "tie-lines", "router-levels", "router-matrix", "router-names", "takes", "protects":
 		return "Routers"
 	case "locks", "users", "api", "panels":
 		return "Access"

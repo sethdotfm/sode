@@ -26,6 +26,8 @@ type AccessValues struct {
 	KeylessScopes   []string
 	NewPanelActs    string
 	NewUserDefaults NewUserDefaults
+	// GuestTieLines: the Guest's "Use tie lines" right. Apply writes only that part of Guest Rights.
+	GuestTieLines bool
 }
 
 // Name: the full name, since bare Standard is the Role. Nothing records which preset was applied.
@@ -42,6 +44,7 @@ var AccessPresets = []AccessPreset{
 		KeylessScopes:   []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeTake},
 		NewPanelActs:    "public",
 		NewUserDefaults: NewUserDefaults{Persistent: true, NoAutoLock: true},
+		GuestTieLines:   true,
 	}},
 	{"standard", "Standard access", AccessValues{
 		GuestRole:       RoleStandard,
@@ -61,8 +64,12 @@ var AccessPresets = []AccessPreset{
 	}},
 }
 
+// Apply writes every preset field. Of Guest Rights it writes only the "Use tie lines" right.
 func (p AccessPreset) Apply(c *Config) {
 	v := p.Values
+	c.GuestRights = c.GuestRights.Clone()
+	on := v.GuestTieLines
+	c.GuestRights.TieLines = &on
 	c.Locks = v.Locks
 	c.AutoLockMinutes = v.AutoLockMinutes
 	c.GuestRole = v.GuestRole

@@ -35,6 +35,7 @@ var sectionRoles = map[string]sectionTag{
 	"level-colors":      {config.RoleAdministrator, true},
 	"confirm":           {config.RoleAdministrator, true},
 	"routers":           {config.RoleAdministrator, true},
+	"tie-lines":         {config.RoleAdministrator, false},
 	"router-matrix":     {config.RoleAdministrator, true},
 	"router-names":      {config.RoleAdministrator, true},
 	"takes":             {config.RoleAdministrator, true},

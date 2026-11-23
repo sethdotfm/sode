@@ -34,6 +34,7 @@ func setupRows(v config.AccessValues) map[string]bool {
 		"appsRead":       v.KeylessAPI && slices.Contains(v.KeylessScopes, config.ScopeNames),
 		"appsTake":       v.KeylessAPI && slices.Contains(v.KeylessScopes, config.ScopeTake),
 		"pinWaits":       v.PinWaits,
+		"tieNoSignIn":    !v.Locks.Main && v.GuestTieLines,
 	}
 }
 

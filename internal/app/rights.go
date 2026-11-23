@@ -96,6 +96,9 @@ func (a *App) undoMatches(it routeReq) bool {
 func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) string {
 	quiet := rt.Hidden()
 	for _, it := range items {
+		if a.putBackMatches(it) {
+			continue // a hop needs no Rights (tieputback.go)
+		}
 		uid := a.rightsUID(r, a.itemRouter(it))
 		off := r.routerOf(uid).NumberOffset
 		kind := func(what string, n int) string {
