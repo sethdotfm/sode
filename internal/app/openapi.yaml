@@ -417,6 +417,7 @@ paths:
         The router names of the two ends are not in the answer; read them with `GET /names`.
         A caller with hidden visibility gets null for an end that it cannot see, and `changed` null
         when it cannot see `from`. A change to the ends of a tie line removes its `changed`.
+        `reserve` names the panel that Reserves the tie line, if one does.
       parameters:
         - { $ref: "#/components/parameters/IfNoneMatch" }
       responses:
@@ -436,6 +437,13 @@ paths:
                       properties:
                         id: { type: string }
                         name: { type: string }
+                        reserve:
+                          type: object
+                          required: [id, name]
+                          description: The panel that Reserves the tie line. Left out when no panel does.
+                          properties:
+                            id: { type: string, description: The panel id }
+                            name: { type: string, description: The panel name }
                         changed:
                           type: string
                           format: date-time
@@ -524,6 +532,14 @@ paths:
         route with no usable path gets 409 `no_path` with each reason. Nothing is sent to a router
         then. Rights cover the typed ends first (403 `outside_rights`); hops need no Rights. A
         caller without the Use tie lines right (`tieLines` false) then gets 403 `tie_lines_off`.
+
+        A panel caller is its own API client, or a page that names it in `X-Sode-Panel`. For it, the
+        tie line setting of the panel applies (`tieLines` on the panel). At Off, a route across
+        routers gets 403 `tie_lines_off`. At Reserved, the paths of a route with no `ties` use only
+        the Reserved tie lines of the panel. They are not Reserved for it. With no such path, the
+        answer is 409 `no_path`, and its message says why. A link can have no Reserved tie line, or
+        one take can need two sources through one Reserved tie line. Or someone else Protected it.
+        `ties` through a tie line that the panel does not Reserve is 409 `conflict`.
 
         With `ties`, Sode sends the hops upstream first. Each hop before the last switches all levels
         of its router; the last hop switches the typed levels. A hop that several routes of the take
@@ -2458,7 +2474,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
-      description: "`scope`: the key lacks the scope. `outside_rights`: a route or preset is outside the rights, and nothing was sent. `https_required`. `not_owner`: a panel the caller is allowed only to use. `user_required`: a panel needs a user's key to own it. `trusted_required`: only a Trusted user can make a panel act as an API client or change its rights. `tie_lines_off`: a route across routers, and the caller does not have the Use tie lines right; nothing was sent. A user who is not Trusted also gets it when they save a template to Everyone without the Advanced Settings PIN"
+      description: "`scope`: the key lacks the scope. `outside_rights`: a route or preset is outside the rights, and nothing was sent. `https_required`. `not_owner`: a panel the caller is allowed only to use. `user_required`: a panel needs a user's key to own it. `trusted_required`: only a Trusted user can make a panel act as an API client or change its rights. `tie_lines_off`: a route across routers, and the caller has no Use tie lines right or is a panel at Off; nothing was sent. A user who is not Trusted also gets it when they save a template to Everyone without the Advanced Settings PIN"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -2619,7 +2635,8 @@ components:
                 more routers, and a read about one router or a route end names none). 409 tie_line_needed
                 (a route across routers and no tie lines given; `routes` has the paths). 409 no_path
                 (a route across routers has no usable path; `routes` has the reasons). 403 tie_lines_off
-                (a route across routers, and the caller does not have the Use tie lines right). 405 method_not_allowed (see `Allow`).
+                (a route across routers, and the caller does not have the Use tie lines right, or is a panel at
+                tie lines Off). 405 method_not_allowed (see `Allow`).
                 409 conflict (Redo of a failed entry, Retry of a successful one, or a full panel or
                 artwork limit). 409 conflict also for a Protect that Sode has already or cannot set
                 yet. 409 protected (a
@@ -2796,6 +2813,20 @@ components:
                 Sode stores and returns router references. Absent or empty means off, and an empty
                 list is not stored. A non-integer, a negative number, a repeated destination, another
                 router or more than 16 is 400 `bad_request`.
+        tieLines:
+          type: object
+          required: [mode]
+          description: |
+            The tie line setting of the panel. Sode applies it to each take of the panel across routers.
+            `off` (or no setting) refuses every route across routers. `reserved` names one tie line for
+            each one-way link between two routers in `reserved`, and the panel always uses it. Sode
+            checks it on each save: an unknown `mode`, or two tie lines on one link, is 400
+            `bad_request`. A tie line that another panel Reserves is 409 `conflict`. An id that is no
+            tie line goes. Off is not stored. It is not part of the layout: Push, templates, Save a
+            copy, checkpoints and Checkpoint sets leave it out.
+          properties:
+            mode: { type: string, enum: [off, reserved] }
+            reserved: { type: array, items: { type: string, description: "A tie line id from GET /tielines" } }
         clientRights:
           type: object
           description: |

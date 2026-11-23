@@ -73,6 +73,9 @@ export function buttonsBody(ctx, first) {
   // The take this instance's Undo cell would undo (GET /panels/<id>/undo), asked for only while a Page has the cell.
   let undoNext;
   let undoCells = hasUndo(panel);
+  // A take across routers that waits for its second Take (askTies): the staged routes it was asked for, and its plan.
+  let tieAsk = null; // { key, plan }
+  const tieKey = (s) => JSON.stringify(s.staged);
 
   const render = () => {
     const now = Date.now();
@@ -114,9 +117,7 @@ export function buttonsBody(ctx, first) {
 
   // A take across routers in Take mode: the first Take asks the plan of the Reserved tie lines (paneltierules.js). The
   // status shows what they also change. A second Take with the same routes sends that plan. Instant mode sends with no
-  // confirm.
-  let tieAsk = null; // { key, plan }
-  const tieKey = (s) => JSON.stringify(s.staged);
+  // confirm. tieAsk is declared before the first render.
   async function askTies(started) {
     const key = tieKey(st);
     let tiePlan;
