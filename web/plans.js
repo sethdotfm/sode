@@ -242,7 +242,7 @@ function takeResult(m) {
 function outcomeText(e, err) {
   const why = e ? failureGroups(e) : [];
   if (why.length) {
-    const shown = why.slice(0, 2).map((g) => `level${g.levels.length === 1 ? '' : 's'} ${levelText(g.levels)} ${g.text}`);
+    const shown = why.slice(0, 2).map((g) => `level${g.levels.length === 1 ? '' : 's'} ${levelText(g.levels, e.router)} ${g.text}`);
     return shown.join('; ') + (why.length > 2 ? '; …' : '');
   }
   const t = e?.err || err || 'failed';
@@ -402,6 +402,16 @@ export function alreadyThere(item) {
   return !!t && item.groups.length > 0 && item.groups.every((g) => g.levels.length > 0 && g.levels.every((u) => t.get(u) === g.src.n));
 }
 
+// The Undo confirm's notes on levels it leaves as they are, in the levels of the destination's router.
+export function undoNotes(item) {
+  const uid = routerOfItem(item.dst);
+  const lv = (l) => `Level${l.length === 1 ? '' : 's'} ${levelText(l, uid)}`;
+  return [
+    item.untouched?.length ? `${lv(item.untouched)}: the take did not change ${item.untouched.length === 1 ? 'it' : 'them'}, left as is.` : '',
+    item.skipped?.length ? `${lv(item.skipped)}: nothing was routed before, left as is.` : '',
+  ].filter(Boolean);
+}
+
 function itemSummary(item, boxed, prot, since) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
   const uid = routerOfItem(item.dst);
@@ -419,17 +429,8 @@ function itemSummary(item, boxed, prot, since) {
       ),
     ),
     alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge', 'Already there')) : null,
-    prot ? el('div', 'sode__route', levelBar(prot.levels), ...prot.holds.map(holdBadge), 'will be refused') : null,
-    item.untouched?.length
-      ? el(
-          'div',
-          'sode__hist-note',
-          `Level${item.untouched.length === 1 ? '' : 's'} ${levelText(item.untouched)}: the take did not change ${item.untouched.length === 1 ? 'it' : 'them'}, left as is.`,
-        )
-      : null,
-    item.skipped.length
-      ? el('div', 'sode__hist-note', `Level${item.skipped.length === 1 ? '' : 's'} ${levelText(item.skipped)}: nothing was routed before, left as is.`)
-      : null,
+    prot ? el('div', 'sode__route', levelBar(prot.levels, uid), ...prot.holds.map(holdBadge), 'will be refused') : null,
+    ...undoNotes(item).map((t) => el('div', 'sode__hist-note', t)),
     ...(!before.length
       ? []
       : boxed
@@ -634,10 +635,12 @@ const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]
 // false when the box already has it. For levels, also false when they are the default.
 export function lastChip(t, state) {
   if (!t) return { src: false, dst: false, lvl: false };
+  // Levels are those of the destinations' router (lastTake).
+  const uid = routerOfItem(t.dsts[0]);
   return {
     src: t.src && !(state.src && state.src.n === t.src.n) && [labelNode(t.src)],
     dst: !t.dsts.every((d) => state.dsts.some((x) => x.n === d.n)) && [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
-    lvl: t.levels.length > 0 && !sameList(state.levels, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],
+    lvl: t.levels.length > 0 && !sameList(state.levels, t.levels) && !sameList(t.levels, parseLevels('', false, uid) || []) && [levelText(t.levels, uid)],
   };
 }
 

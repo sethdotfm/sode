@@ -88,7 +88,7 @@ func (a *App) protectNotSet(rt *runtime, c *client, router string, dst int, why 
 	if !ok {
 		return nil
 	}
-	e := a.protectEntry(u, c, true, dst, uiLevels(rt.levelsOf(u.uid)), nil)
+	e := a.protectEntry(u, c, true, dst, uiLevels(rt.levelsOf(u.uid())), nil)
 	g.mark(e)
 	e.Err = why
 	e.Failed = slices.Clone(e.Levels)

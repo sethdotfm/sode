@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -17,7 +18,9 @@ import (
 // App.first is the first router's unit; every caller names the unit it acts on. The fields from router down are
 // guarded by App.mu.
 type routerUnit struct {
-	uid string
+	// id is the router's UID. Only the first router's unit changes it, when a commit changes the first router's UID
+	// (renameFirstMu). Link callbacks read it off mu, so it is atomic.
+	id atomic.Pointer[string]
 
 	sw      *swp08.Client
 	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
@@ -55,9 +58,8 @@ type routerUnit struct {
 // The uptime is in memory until SetUptime gives the file.
 func newRouterUnit(r config.Router) *routerUnit {
 	up, _ := openUptime("", time.Now)
-	return &routerUnit{
+	u := &routerUnit{
 		up:           up,
-		uid:          r.UID,
 		router:       newRouterState(),
 		ext:          newExtTracker(),
 		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: r.Address},
@@ -69,11 +71,16 @@ func newRouterUnit(r config.Router) *routerUnit {
 		queueMax:     defaultQueueMax,
 		protWaits:    map[*protWait]struct{}{},
 	}
+	u.id.Store(&r.UID)
+	return u
 }
+
+// uid gives the router UID of the unit.
+func (u *routerUnit) uid() string { return *u.id.Load() }
 
 // link makes the unit's Router link. Its callbacks name the unit, so a message changes only this router's state.
 func (a *App) link(u *routerUnit, r *runtime, debug bool) {
-	rc := r.routerOf(u.uid)
+	rc := r.routerOf(u.uid())
 	u.sw = swp08.NewClient(rc.Address, probe(rc))
 	u.sw.Debug = debug
 	u.sw.OnUp = func() { a.onUnitUp(u) }
@@ -81,11 +88,11 @@ func (a *App) link(u *routerUnit, r *runtime, debug bool) {
 	u.sw.OnState = func(s swp08.State, err error) { a.onUnitState(u, s, err) }
 	// Every row the link logs names this router.
 	u.sw.OnTx = func(e swp08.TxEvent) {
-		e.Why.Router = u.uid
+		e.Why.Router = u.uid()
 		a.onTx(e)
 	}
 	u.sendMsg = func(m []byte, why swp08.Why) error {
-		why.Router = u.uid
+		why.Router = u.uid()
 		err := u.sw.Send(m, why)
 		// Only a take's refusals are logged; refused re-reads while down would flood the log.
 		if err != nil && !background[why.Reason] {
@@ -95,8 +102,8 @@ func (a *App) link(u *routerUnit, r *runtime, debug bool) {
 	}
 }
 
-// routerOf gives the settings of the router with this UID. Blank, or a UID that the settings do not have (a unit
-// made before an import changed the UID), gives the first router.
+// routerOf gives the settings of the router with this UID. Blank, or a UID that the settings do not have (one that a
+// page sent before a restore changed the UID), gives the first router.
 func (r *runtime) routerOf(uid string) config.Router {
 	if rc, ok := r.cfg.RouterByUID(uid); ok {
 		return rc
@@ -127,7 +134,15 @@ func (a *App) startUnitMu(u *routerUnit) {
 // The caller ends the gone units' links (endUnit) after it releases mu. Caller holds mu.
 func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
 	old := a.units()
-	next := map[string]*routerUnit{a.first.uid: a.first}
+	if uid := r.cfg.UID; uid != "" && uid != a.first.uid() {
+		// A unit after the first that has the new UID leaves; a router of the settings with that UID gets a new unit.
+		if u, ok := old[uid]; ok {
+			u.cutRoutes()
+			gone = append(gone, u)
+		}
+		old = a.renameFirstMu(old, uid)
+	}
+	next := map[string]*routerUnit{a.first.uid(): a.first}
 	for _, rc := range r.cfg.MoreRouters {
 		if u, ok := old[rc.UID]; ok {
 			next[rc.UID] = u
@@ -138,7 +153,7 @@ func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
 		if a.linkCtx != nil {
 			a.startUnitMu(u)
 		}
-		next[u.uid] = u
+		next[u.uid()] = u
 		added = append(added, u)
 	}
 	for uid, u := range old {
@@ -153,6 +168,23 @@ func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
 	return added, gone
 }
 
+// renameFirstMu gives the first router's unit the settings UID of the first router (a setup restore puts the file's
+// UID there). Thus the hello, the uptime, the Communication Log rows and the units map all name one UID, and no unit
+// carries an older UID. It gives old with the unit under its new key only; a router after the first that has the old
+// UID gets a new unit. Caller holds mu.
+func (a *App) renameFirstMu(old map[string]*routerUnit, uid string) map[string]*routerUnit {
+	m := make(map[string]*routerUnit, len(old))
+	for k, u := range old {
+		if u != a.first && k != uid {
+			m[k] = u
+		}
+	}
+	a.first.id.Store(&uid)
+	m[uid] = a.first
+	a.routers.Store(&m)
+	return m
+}
+
 // endUnit stops the link and the uptime of a unit that syncUnitsMu took out.
 func endUnit(u *routerUnit) {
 	if u.stop != nil {
@@ -163,7 +195,7 @@ func endUnit(u *routerUnit) {
 
 // gone: u is no longer a router of Sode, so its link's late callbacks change nothing.
 func (a *App) gone(u *routerUnit) bool {
-	_, ok := a.units()[u.uid]
+	_, ok := a.units()[u.uid()]
 	return !ok
 }
 
@@ -173,8 +205,8 @@ func (a *App) units() map[string]*routerUnit { return *a.routers.Load() }
 // firstUnit gives the first router's unit. The flat hello fields, the protected message and the uptime file name it.
 func (a *App) firstUnit() *routerUnit { return a.first }
 
-// unitOrFirst gives the unit for a router UID. Blank, or a UID with no unit (the settings UID after an import changed
-// it), gives the first router.
+// unitOrFirst gives the unit for a router UID. Blank, or a UID with no unit (one that a page sent before a restore
+// changed the UID), gives the first router.
 func (a *App) unitOrFirst(uid string) *routerUnit {
 	if u, ok := a.unit(uid); ok {
 		return u
@@ -182,7 +214,8 @@ func (a *App) unitOrFirst(uid string) *routerUnit {
 	return a.first
 }
 
-// unitOfRouter gives the unit of a router in cfg. The first router's unit can carry an older UID (an import changed it).
+// unitOfRouter gives the unit of a router in cfg. The first router of cfg is the first unit, also while a commit has
+// not yet given that unit a new UID (renameFirstMu).
 func (a *App) unitOfRouter(cfg config.Config, uid string) (*routerUnit, bool) {
 	if uid == cfg.UID {
 		return a.first, a.first != nil
@@ -217,7 +250,7 @@ func routerNeeded(n int) string {
 // statusOut is the unit's link status as it goes to browsers and API streams. Caller holds mu.
 func (u *routerUnit) statusOut() statusMsg {
 	s := u.status
-	s.from, s.RouterUID = u, u.uid
+	s.from, s.RouterUID = u, u.uid()
 	return s
 }
 

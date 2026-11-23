@@ -26,8 +26,8 @@ func tieImportApp(t *testing.T) (*App, *client, string, *routerUnit) {
 	tok := a.issueSessionTab(c, true)
 	lifeCommit(t, a, func(cfg *config.Config) {
 		cfg.TieLines = []config.TieLine{
-			{ID: "aaaaaaaaaaaaaaa3", Name: "TIE 3", From: config.Ref{Router: cfg.UID, N: 2, Name: "TO STAGE 2"}, To: config.Ref{Router: u.uid, N: 1, Name: "FROM STAGE 1"}},
-			{ID: "aaaaaaaaaaaaaaa9", Name: "TIE 9", From: config.Ref{Router: u.uid, N: 2, Name: "TO STAGE 1"}, To: config.Ref{Router: cfg.UID, N: 1, Name: "FROM STAGE 2"}},
+			{ID: "aaaaaaaaaaaaaaa3", Name: "TIE 3", From: config.Ref{Router: cfg.UID, N: 2, Name: "TO STAGE 2"}, To: config.Ref{Router: u.uid(), N: 1, Name: "FROM STAGE 1"}},
+			{ID: "aaaaaaaaaaaaaaa9", Name: "TIE 9", From: config.Ref{Router: u.uid(), N: 2, Name: "TO STAGE 1"}, To: config.Ref{Router: cfg.UID, N: 1, Name: "FROM STAGE 2"}},
 		}
 	})
 	return a, c, tok, u
@@ -135,8 +135,8 @@ func TestImportTieLineClashes(t *testing.T) {
 	file := foreign(t, exported(t, a, tok, exportReq{Categories: []string{catTieLines}}))
 	lifeCommit(t, a, func(cfg *config.Config) {
 		cfg.TieLines = []config.TieLine{
-			{Name: "TIE 3", From: config.Ref{Router: cfg.UID, N: 1}, To: config.Ref{Router: u.uid, N: 0}},
-			{Name: "B TO A", From: config.Ref{Router: u.uid, N: 2}, To: config.Ref{Router: cfg.UID, N: 1}},
+			{Name: "TIE 3", From: config.Ref{Router: cfg.UID, N: 1}, To: config.Ref{Router: u.uid(), N: 0}},
+			{Name: "B TO A", From: config.Ref{Router: u.uid(), N: 2}, To: config.Ref{Router: cfg.UID, N: 1}},
 		}
 	})
 	req := importReq{Mode: importAdd, Choices: map[string]map[string]string{catTieLines: {"aaaaaaaaaaaaaaa9": useCurrent}}}
@@ -161,7 +161,7 @@ func TestReplaceImportTieLines(t *testing.T) {
 	a, c, tok, u := tieImportApp(t)
 	file := exported(t, a, tok, exportReq{Categories: []string{catTieLines}, Pick: map[string][]string{catTieLines: {"aaaaaaaaaaaaaaa3"}}})
 	lifeCommit(t, a, func(cfg *config.Config) {
-		cfg.TieLines = append(cfg.TieLines, config.TieLine{Name: "EXTRA", From: config.Ref{Router: cfg.UID, N: 0}, To: config.Ref{Router: u.uid, N: 0}})
+		cfg.TieLines = append(cfg.TieLines, config.TieLine{Name: "EXTRA", From: config.Ref{Router: cfg.UID, N: 0}, To: config.Ref{Router: u.uid(), N: 0}})
 	})
 	grantRecheck(a, c)
 	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importReplace, Categories: []string{catTieLines}}))

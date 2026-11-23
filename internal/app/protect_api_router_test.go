@@ -21,7 +21,7 @@ func TestAPIProtectUsesItsRouter(t *testing.T) {
 	if rec := apiSend(a, "POST", "/api/v1/protected/5", holder, ""); rec.Code != 400 || apiErrCode(t, rec) != "router_needed" {
 		t.Fatalf("no router: %d %s", rec.Code, rec.Body.String())
 	}
-	if rec := apiSend(a, "POST", "/api/v1/protected/5?router="+u.uid, holder, ""); rec.Code != 200 || apiBody(t, rec)["ok"] != true {
+	if rec := apiSend(a, "POST", "/api/v1/protected/5?router="+u.uid(), holder, ""); rec.Code != 200 || apiBody(t, rec)["ok"] != true {
 		t.Fatalf("set on B: %d %s", rec.Code, rec.Body.String())
 	}
 	if n, hs := first.sends(), second.holdsOn(5); n != 0 || len(hs) != 3 || hs[1].dev != 127 {
@@ -30,7 +30,7 @@ func TestAPIProtectUsesItsRouter(t *testing.T) {
 	if rec := apiSend(a, "DELETE", "/api/v1/protected/5", holder, ""); rec.Code != 400 || apiErrCode(t, rec) != "router_needed" {
 		t.Fatalf("free with no router: %d %s", rec.Code, rec.Body.String())
 	}
-	if rec := apiSend(a, "DELETE", "/api/v1/protected/5?router="+u.uid, holder, ""); rec.Code != 200 || apiBody(t, rec)["ok"] != true {
+	if rec := apiSend(a, "DELETE", "/api/v1/protected/5?router="+u.uid(), holder, ""); rec.Code != 200 || apiBody(t, rec)["ok"] != true {
 		t.Fatalf("free on B: %d %s", rec.Code, rec.Body.String())
 	}
 	if n, hs := first.sends(), second.holdsOn(5); n != 0 || len(hs) != 0 {
@@ -47,14 +47,14 @@ func TestPageProtectUsesItsRouter(t *testing.T) {
 	a, first, second, u := protectTwoRouters(t)
 	p := dialPeer(t, a)
 	p.signIn("Ana", "1234")
-	r := p.ask("protectSet", 3, map[string]any{"protect": map[string]any{"dsts": []map[string]any{{"dst": 5, "router": u.uid}, {"dst": 5}}}})
+	r := p.ask("protectSet", 3, map[string]any{"protect": map[string]any{"dsts": []map[string]any{{"dst": 5, "router": u.uid()}, {"dst": 5}}}})
 	if r["ok"] != true {
 		t.Fatalf("result %v", r)
 	}
 	if hs, ha := second.holdsOn(5), first.holdsOn(5); len(hs) != 3 || hs[1].dev != 127 || len(ha) != 3 || ha[1].dev != 126 {
 		t.Fatalf("holds on B %+v, on A %+v", hs, ha)
 	}
-	r = p.ask("protectClear", 4, map[string]any{"protect": map[string]any{"dsts": []map[string]any{{"dst": 5, "router": u.uid}}}})
+	r = p.ask("protectClear", 4, map[string]any{"protect": map[string]any{"dsts": []map[string]any{{"dst": 5, "router": u.uid()}}}})
 	if r["ok"] != true || len(second.holdsOn(5)) != 0 || len(first.holdsOn(5)) != 3 {
 		t.Fatalf("free on B: %v, holds on B %+v, on A %+v", r, second.holdsOn(5), first.holdsOn(5))
 	}

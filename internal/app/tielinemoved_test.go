@@ -20,7 +20,7 @@ func tieMovedApp(t *testing.T) (*App, *routerUnit, *client) {
 	readUnitNames(a, a.first, movedASrcs, movedADsts)
 	readUnitNames(a, u, movedBSrcs, movedBDsts)
 	ada := adminClient(t, a)
-	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.first.uid, N: 1}, To: config.Ref{Router: u.uid, N: 1}}
+	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.first.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 1}}
 	if err := a.SaveTieLines(ada, []config.TieLine{tie}); err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestTieLineNameMoved(t *testing.T) {
 	}
 	readUnitNames(a, u, renamed, movedBDsts)
 	got := onlyTie(t, a, "TIE 3")
-	if len(got.Moved) != 1 || got.Moved[0].Kind != config.MissingSource || got.Moved[0].Ref.Router != u.uid || got.Moved[0].Ref.N != 1 ||
+	if len(got.Moved) != 1 || got.Moved[0].Kind != config.MissingSource || got.Moved[0].Ref.Router != u.uid() || got.Moved[0].Ref.N != 1 ||
 		got.Moved[0].Ref.Name != "FROM STAGE 1" || got.Moved[0].Now != "FROM STAGE ONE" {
 		t.Fatalf("Name moved marks %+v", got.Moved)
 	}
@@ -97,8 +97,8 @@ func TestTieLineSaveNamesOnlyChangedEnds(t *testing.T) {
 	sent := tie3
 	sent.Moved = nil
 	sent.To.Name = "SOMETHING ELSE" // a stale name from the page changes nothing
-	added := config.TieLine{Name: "TIE 10", From: config.Ref{Router: a.first.uid, N: 2}, To: config.Ref{Router: u.uid, N: 2},
-		Moved: []config.Missing{{Kind: config.MissingSource, Ref: config.Ref{Router: u.uid, N: 2}}}}
+	added := config.TieLine{Name: "TIE 10", From: config.Ref{Router: a.first.uid(), N: 2}, To: config.Ref{Router: u.uid(), N: 2},
+		Moved: []config.Missing{{Kind: config.MissingSource, Ref: config.Ref{Router: u.uid(), N: 2}}}}
 	if err := a.SaveTieLines(ada, []config.TieLine{sent, added}); err != nil {
 		t.Fatal(err)
 	}

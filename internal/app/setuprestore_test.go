@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/internal/swp08"
 	"gopkg.in/yaml.v3"
 )
 
@@ -188,4 +190,58 @@ func slicesSortedKeys(m map[string][]byte) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// The file's first router has another UID than the one Sode started with. The first router's unit takes the file's
+// UID at the restore. So the hello, the uptime reply and the Communication Log rows name one UID, and the /log router
+// chips and the status popup match them.
+func TestRestoreFirstRouterUIDReachesItsUnit(t *testing.T) {
+	_, file := backupOf(t, true)
+	b := setupApp(t)
+	was := b.first.uid()
+	_, key := restoreKey(t, b)
+	restored(t, postRestore(t, b, key, file, ""))
+	uid := b.r().cfg.UID
+	if uid == was {
+		t.Fatalf("the file's first router has the start-up UID %s: the test checks nothing", uid)
+	}
+	b.mu.Lock()
+	raw := b.hello(helloPage{})
+	b.mu.Unlock()
+	var h struct {
+		Routers []struct {
+			UID string `json:"uid"`
+		} `json:"routers"`
+	}
+	if err := json.Unmarshal(raw, &h); err != nil || len(h.Routers) == 0 || h.Routers[0].UID != uid {
+		t.Fatalf("hello routers %+v (%v), want the first with %s", h.Routers, err, uid)
+	}
+	if u, ok := b.unit(uid); !ok || u != b.first {
+		t.Fatalf("no unit for the file's UID %s (first unit %s)", uid, b.first.uid())
+	}
+	if _, ok := b.unit(was); ok {
+		t.Fatalf("the start-up UID %s still has a unit", was)
+	}
+	b.mu.Lock()
+	b.first.up.State(true)
+	b.mu.Unlock()
+	if m := b.uptimeReply(1, uid, 0, 0, 60_000); m.Router != uid || len(m.Trans) == 0 || m.Trans[len(m.Trans)-1].S != "up" {
+		t.Fatalf("uptime of %s: %+v", uid, m)
+	}
+	for len(b.evq) > 0 {
+		<-b.evq
+	}
+	b.mu.Lock()
+	b.logLink(b.first, swp08.StateDown, errors.New("refused"))
+	b.mu.Unlock()
+	if e := <-b.evq; e.Router != uid {
+		t.Fatalf("link row names router %s, want %s", e.Router, uid)
+	}
+	for len(b.txq) > 0 {
+		<-b.txq
+	}
+	b.first.sw.OnTx(swp08.TxEvent{})
+	if e := <-b.txq; e.Why.Router != uid {
+		t.Fatalf("sent row names router %s, want %s", e.Why.Router, uid)
+	}
 }

@@ -268,7 +268,7 @@ func (a *App) fireLocked(r *runtime, u *routerUnit, staged []*routeRun) (sent bo
 	fs := &fireState{acks: make(chan swp08.SalvoAck, n+16)}
 	a.setFire(u, fs)
 	defer a.setFire(u, nil)
-	rc := r.routerOf(u.uid)
+	rc := r.routerOf(u.uid())
 	mx, g := rc.Matrix, rc.SalvoGroup
 	ext := staged[0].w.ext
 	why := staged[0].w.why
@@ -384,7 +384,7 @@ func (a *App) clearSalvo(u *routerUnit, ext *extTracker, fs *fireState, g int, w
 
 // clearStaleSalvo: staged crosspoints outlive a dropped link of router u. Native mode only.
 func (a *App) clearStaleSalvo(u *routerUnit) {
-	rc := a.r().routerOf(u.uid)
+	rc := a.r().routerOf(u.uid())
 	if rc.FireMode != "native" {
 		return
 	}

@@ -80,10 +80,10 @@ type helloMsg struct {
 	Routers []helloRouter `json:"routers"`
 }
 
-// helloRouter is one router of the hello. UID is the router's UID in the settings. Browsers write it into This
-// browser presets and filter sets. The tally, names and status messages and a take's route name it too. Only the
-// unit of the first router can carry an older UID (an import changed it). A page takes an unknown UID as the first
-// router.
+// helloRouter is one router of the hello. UID is the router's UID in the settings, which is also its unit's UID
+// (renameFirstMu). Browsers write it into This browser presets and filter sets. The tally, names and status messages,
+// the uptime reply, the Communication Log rows and a take's route name it too. A page takes an unknown UID as the
+// first router.
 type helloRouter struct {
 	UID    string `json:"uid"`
 	Prefix string `json:"prefix"`

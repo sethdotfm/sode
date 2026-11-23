@@ -68,10 +68,10 @@ func (a *App) sodesProtChange(r *runtime, u *routerUnit, dst int, h protHold, se
 		return false
 	}
 	recDev := 0
-	if rec, ok := a.protects.get(r.routerOf(u.uid).UID, dst); ok {
+	if rec, ok := a.protects.get(r.routerOf(u.uid()).UID, dst); ok {
 		recDev = rec.Device
 	}
-	return sodesHold(h, r.routerOf(u.uid).ProtectDevice, recDev)
+	return sodesHold(h, r.routerOf(u.uid()).ProtectDevice, recDev)
 }
 
 // flushProtExt writes the burst of each router when it is quiet for extQuiet or has gone on for extMax.
@@ -97,7 +97,7 @@ func protExtEntriesMu(u *routerUnit, now time.Time) []*Entry {
 	var es []*Entry
 	for k, b := range rs.protExt {
 		e := &Entry{Src: -1, Dst: k.dst, DstName: rs.dstNames[k.dst], Prev: [][2]int{}, OK: true, Ext: true, Found: k.found,
-			Protect: "clear", HoldKind: holdKindWord(k.kind), Device: k.dev, Time: b.first, Router: u.uid}
+			Protect: "clear", HoldKind: holdKindWord(k.kind), Device: k.dev, Time: b.first, Router: u.uid()}
 		if k.set {
 			e.Protect = "set"
 		}

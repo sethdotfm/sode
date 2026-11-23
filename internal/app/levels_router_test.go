@@ -50,7 +50,7 @@ func takeReplies(t *testing.T, a *App, items []routeReq) []string {
 // one connect on the wire level of that router. The History entry has level 1, which is all its levels.
 func TestOneLevelRouterTakesAnyTypedLevels(t *testing.T) {
 	a, first, second, u := levelRouters(t)
-	if lv := a.r().levelsOf(u.uid); len(lv.levels) != 1 || lv.levels[0].Wire != 5 || lv.levels[0].Label != "V" {
+	if lv := a.r().levelsOf(u.uid()); len(lv.levels) != 1 || lv.levels[0].Wire != 5 || lv.levels[0].Label != "V" {
 		t.Fatalf("router B levels %+v", lv.levels)
 	}
 	if n := len(a.r().levelsOf("").levels); n != 17 {
@@ -60,7 +60,7 @@ func TestOneLevelRouterTakesAnyTypedLevels(t *testing.T) {
 	for i := range typed {
 		typed[i] = i + 1
 	}
-	if errs := takeReplies(t, a, []routeReq{{ID: 1, Src: 4, Dst: 2, Levels: typed, Router: u.uid}}); len(errs) != 1 || errs[0] != "" {
+	if errs := takeReplies(t, a, []routeReq{{ID: 1, Src: 4, Dst: 2, Levels: typed, Router: u.uid()}}); len(errs) != 1 || errs[0] != "" {
 		t.Fatalf("take results %q", errs)
 	}
 	if n := first.sends(); n != 0 {
@@ -80,7 +80,7 @@ func TestOneLevelRouterTakesAnyTypedLevels(t *testing.T) {
 		t.Errorf("router B route cache %v", u.router.tally)
 	}
 	es, _ := a.hist.Page(-1, 1)
-	if len(es) != 1 || !es[0].OK || es[0].Router != u.uid || len(es[0].Levels) != 1 || es[0].Levels[0] != 1 {
+	if len(es) != 1 || !es[0].OK || es[0].Router != u.uid() || len(es[0].Levels) != 1 || es[0].Levels[0] != 1 {
 		t.Fatalf("entry %+v", es)
 	}
 }
@@ -114,7 +114,7 @@ func TestHelloRoutersCarryTheirLevels(t *testing.T) {
 		t.Fatalf("routers %+v", m.Routers)
 	}
 	one, many := m.Routers[1], m.Routers[0]
-	if one.UID != u.uid || len(one.Levels) != 1 || one.Levels[0].Wire != 5 || one.LevelNumbering != "va" || one.DefaultLevels != "1-1" {
+	if one.UID != u.uid() || len(one.Levels) != 1 || one.Levels[0].Wire != 5 || one.LevelNumbering != "va" || one.DefaultLevels != "1-1" {
 		t.Errorf("router B %+v", one)
 	}
 	if len(many.Levels) != 17 || many.LevelNumbering != "1" || many.DefaultLevels != "1-17" {

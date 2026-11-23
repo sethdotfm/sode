@@ -112,7 +112,7 @@ func (a *App) dstLabelsOn(uid string, dsts ...int) []string {
 	if u == nil {
 		u = a.firstUnit()
 	}
-	rc := r.routerOf(u.uid)
+	rc := r.routerOf(u.uid())
 	pre := ""
 	if u != a.firstUnit() {
 		pre = rc.Prefix + "."

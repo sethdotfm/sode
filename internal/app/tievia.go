@@ -72,12 +72,12 @@ func (x *viaTrace) fill(rv routerView, row *apiRouteRow) {
 func (a *App) tieFrom(u *routerUnit, rt *runtime, dst int) bool {
 	for _, t := range rt.cfg.TieLines {
 		if t.From.N == dst {
-			if uid, ok := a.unitUID(rt, t.From.Router); ok && uid == u.uid {
+			if uid, ok := a.unitUID(rt, t.From.Router); ok && uid == u.uid() {
 				return true
 			}
 		}
 	}
-	return slices.Contains(a.oneOffs.froms(), tieplan.End{Router: u.uid, N: dst})
+	return slices.Contains(a.oneOffs.froms(), tieplan.End{Router: u.uid(), N: dst})
 }
 
 // viaTouch notes a change on destination dst of unit u. Any level counts, the first read too: the Via downstream
@@ -93,7 +93,7 @@ func (a *App) viaTouchAt(u *routerUnit, dst int) {
 	if a.viaPend == nil {
 		a.viaPend = map[tieplan.End]bool{}
 	}
-	a.viaPend[tieplan.End{Router: u.uid, N: dst}] = true
+	a.viaPend[tieplan.End{Router: u.uid(), N: dst}] = true
 	a.viaGen++
 }
 
@@ -101,12 +101,12 @@ func (a *App) viaTouchAt(u *routerUnit, dst int) {
 // Caller holds mu.
 func (a *App) viaTouchRouter(u *routerUnit, rt *runtime) {
 	for _, t := range rt.cfg.TieLines {
-		if uid, ok := a.unitUID(rt, t.From.Router); ok && uid == u.uid {
+		if uid, ok := a.unitUID(rt, t.From.Router); ok && uid == u.uid() {
 			a.viaTouchAt(u, t.From.N)
 		}
 	}
 	for _, e := range a.oneOffs.froms() {
-		if e.Router == u.uid {
+		if e.Router == u.uid() {
 			a.viaTouchAt(u, e.N)
 		}
 	}
@@ -145,12 +145,12 @@ func (a *App) flushVia() {
 			if !st.topics["tally"] || st.unit != u {
 				continue
 			}
-			rv := st.view.on(u.uid)
+			rv := st.view.on(u.uid())
 			rows := []apiRouteRow{}
 			for _, d := range slices.Sorted(maps.Keys(dsts)) {
 				for _, l := range slices.Sorted(maps.Keys(u.router.tally[d])) {
 					s := u.router.tally[d][l]
-					if !rv.Route(d, l, s) || !x.tr.Fed(tieplan.End{Router: u.uid, N: s}) {
+					if !rv.Route(d, l, s) || !x.tr.Fed(tieplan.End{Router: u.uid(), N: s}) {
 						continue
 					}
 					row := apiRouteRow{Dst: d, Level: l, Src: s}
@@ -186,7 +186,7 @@ func (a *App) noteAlso(u *routerUnit, es []*Entry) {
 		if x == nil {
 			x = a.newViaTrace(rt)
 		}
-		for _, r := range tieplan.Downstream(x.in, tieplan.End{Router: u.uid, N: e.Dst}) {
+		for _, r := range tieplan.Downstream(x.in, tieplan.End{Router: u.uid(), N: e.Dst}) {
 			al := TieAlso{Router: r.At.Router, N: r.At.N, Via: []apiTieRef{}}
 			if du, ok := a.unit(r.At.Router); ok {
 				al.Name = du.router.dstNames[r.At.N]

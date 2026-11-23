@@ -63,9 +63,9 @@ func (a *App) apiProtect(w http.ResponseWriter, r *http.Request, cl *apiCtx, set
 	if !set {
 		why = "protectClear"
 	}
-	o := a.protectMany(c, []protectDst{{Dst: dst, Router: u.uid}}, set, nil)[0]
+	o := a.protectMany(c, []protectDst{{Dst: dst, Router: u.uid()}}, set, nil)[0]
 	rt := a.r()
-	rc := rt.routerOf(u.uid)
+	rc := rt.routerOf(u.uid())
 	num := fmt.Sprint(dst + rc.NumberOffset)
 	if len(rt.cfg.RouterUIDs()) > 1 {
 		num = rc.Prefix + "." + num

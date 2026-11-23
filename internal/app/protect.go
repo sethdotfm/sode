@@ -99,7 +99,7 @@ func (a *App) protectSend(r *runtime, u *routerUnit, dst int, devOf func(ui int)
 	}()
 	var last <-chan struct{}
 	unsent := map[int]bool{}
-	lv := r.levelsOf(u.uid)
+	lv := r.levelsOf(u.uid())
 	for _, ui := range levels {
 		l, found := lv.byUI[ui]
 		if !found {
@@ -142,7 +142,7 @@ func (a *App) protectSend(r *runtime, u *routerUnit, dst int, devOf func(ui int)
 // splits them. Caller holds protMu. It takes mu itself after it reads the record, since the lock order is protMu,
 // then mu.
 func (a *App) sodeHoldsProtLocked(r *runtime, u *routerUnit, dst int) (rec *protectRec, own []int, others map[int]protHold) {
-	if got, ok := a.protects.get(r.routerOf(u.uid).UID, dst); ok {
+	if got, ok := a.protects.get(r.routerOf(u.uid()).UID, dst); ok {
 		rec = &got
 	}
 	a.mu.Lock()
@@ -159,8 +159,8 @@ func protectLevelsMu(r *runtime, u *routerUnit, dst int, rec *protectRec) (own [
 	if rec != nil {
 		recDev = rec.Device
 	}
-	dev := r.routerOf(u.uid).ProtectDevice
-	for _, l := range r.levelsOf(u.uid).levels {
+	dev := r.routerOf(u.uid()).ProtectDevice
+	for _, l := range r.levelsOf(u.uid()).levels {
 		h, held := u.router.protect[dst][l.UI]
 		switch {
 		case !held:
@@ -229,7 +229,7 @@ func (a *App) protectReady(r *runtime, u *routerUnit, dst int) error {
 	_, named := u.router.dstNames[dst]
 	a.mu.Unlock()
 	switch {
-	case r.routerOf(u.uid).ProtectDevice <= 0:
+	case r.routerOf(u.uid()).ProtectDevice <= 0:
 		return refusal(409, "conflict", "set Sode's device number in Settings > Routers > Protects first")
 	case dst < 0 || (!named && dst > 0xFFFF):
 		return refusal(400, "bad_request", "no such destination")
@@ -241,7 +241,7 @@ func (a *App) protectReady(r *runtime, u *routerUnit, dst int) error {
 
 func (a *App) protectEntry(u *routerUnit, c *client, set bool, dst int, levels []int, undo *int) *Entry {
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: -1, Dst: dst, Levels: levels, Prev: [][2]int{}, Undo: undo,
-		Protect: "clear", Router: u.uid}
+		Protect: "clear", Router: u.uid()}
 	if set {
 		e.Protect = "set"
 	}
@@ -354,11 +354,11 @@ func (a *App) protectManyIn(c *client, reqs []protectDst, set bool, approver *co
 			outs[i].Err = refusal(403, "outside_rights", "Protect is outside your Rights")
 			continue
 		}
-		if err := protectRights(r, act.rights, a.rightsUID(r, u.uid), q.Dst); err != nil && !admin && !o.hop {
+		if err := protectRights(r, act.rights, a.rightsUID(r, u.uid()), q.Dst); err != nil && !admin && !o.hop {
 			outs[i].Err = err
 			continue
 		}
-		outs[i].Err = a.undoOf(q.Undo, r.routerOf(u.uid).UID, q.Dst, want)
+		outs[i].Err = a.undoOf(q.Undo, r.routerOf(u.uid()).UID, q.Dst, want)
 	}
 	a.protMu.Lock()
 	defer a.protMu.Unlock()
@@ -372,7 +372,7 @@ func (a *App) protectManyIn(c *client, reqs []protectDst, set bool, approver *co
 		var err error
 		var todo []int
 		if set {
-			todo, err = setCheck(r.levelsOf(u.uid), rec, own, others)
+			todo, err = setCheck(r.levelsOf(u.uid()), rec, own, others)
 		} else {
 			err = clearCheck(r, act.Actor, rec, own, admin)
 		}
@@ -442,9 +442,9 @@ func (a *App) setOne(r *runtime, u *routerUnit, c *client, act Actor, dst int, r
 	if undo != nil {
 		reason = "protectUndo"
 	}
-	dev := r.routerOf(u.uid).ProtectDevice
+	dev := r.routerOf(u.uid()).ProtectDevice
 	devOf := func(int) int { return dev }
-	e := a.protectEntry(u, c, true, dst, uiLevels(r.levelsOf(u.uid)), undo)
+	e := a.protectEntry(u, c, true, dst, uiLevels(r.levelsOf(u.uid())), undo)
 	g.mark(e)
 	user, client := recOwner(r.cfg, act)
 	setOK, failed := a.protectSend(r, u, dst, devOf, true, todo, swp08.Why{Reason: reason, By: c.who()})
@@ -456,13 +456,13 @@ func (a *App) setOne(r *runtime, u *routerUnit, c *client, act Actor, dst int, r
 		e.Still = slices.Clone(held)
 		sort.Ints(e.Still)
 		if len(e.Still) == 0 {
-			e.Err = fmt.Sprintf("the router did not confirm levels %s; Sode freed the other levels again", levelList(r.levelsOf(u.uid), failed))
+			e.Err = fmt.Sprintf("the router did not confirm levels %s; Sode freed the other levels again", levelList(r.levelsOf(u.uid()), failed))
 		} else {
-			e.Err = fmt.Sprintf("the router did not confirm levels %s, and levels %s are still Protected", levelList(r.levelsOf(u.uid), failed), levelList(r.levelsOf(u.uid), e.Still))
+			e.Err = fmt.Sprintf("the router did not confirm levels %s, and levels %s are still Protected", levelList(r.levelsOf(u.uid()), failed), levelList(r.levelsOf(u.uid()), e.Still))
 		}
 	}
 	e.OK = len(failed) == 0
-	next := protectRec{Router: r.routerOf(u.uid).UID, Dst: dst, DstName: e.DstName, Device: dev, Levels: held, By: c.who(), User: user, Client: client, At: e.Time}
+	next := protectRec{Router: r.routerOf(u.uid()).UID, Dst: dst, DstName: e.DstName, Device: dev, Levels: held, By: c.who(), User: user, Client: client, At: e.Time}
 	if rec != nil && len(failed) > 0 {
 		next.By, next.User, next.Client, next.At = rec.By, rec.User, rec.Client, rec.At
 	}
@@ -502,15 +502,15 @@ func (a *App) clearOne(r *runtime, u *routerUnit, c *client, dst int, rec *prote
 	}
 	why := swp08.Why{Reason: reason, By: c.who()}
 	why.Note = approvedNote(approver, "")
-	e := a.protectEntry(u, c, false, dst, uiLevels(r.levelsOf(u.uid)), undo)
+	e := a.protectEntry(u, c, false, dst, uiLevels(r.levelsOf(u.uid())), undo)
 	g.mark(e)
 	_, failed := a.protectSend(r, u, dst, func(ui int) int { return devs[ui] }, false, levels, why)
 	e.OK = len(failed) == 0
 	if !e.OK {
 		e.Failed, e.Still = failed, failed
-		e.Err = fmt.Sprintf("the router did not confirm levels %s; they are still Protected", levelList(r.levelsOf(u.uid), failed))
+		e.Err = fmt.Sprintf("the router did not confirm levels %s; they are still Protected", levelList(r.levelsOf(u.uid()), failed))
 	}
-	next := protectRec{Router: r.routerOf(u.uid).UID, Dst: dst, DstName: e.DstName, Device: r.routerOf(u.uid).ProtectDevice, By: c.who(), At: e.Time}
+	next := protectRec{Router: r.routerOf(u.uid()).UID, Dst: dst, DstName: e.DstName, Device: r.routerOf(u.uid()).ProtectDevice, By: c.who(), At: e.Time}
 	if rec != nil {
 		next = *rec
 	}
@@ -545,9 +545,9 @@ func (a *App) clearSodeProtects(c *client) (cleared int, still []int, err error)
 	}
 	var order []routerDst
 	for _, u := range ups {
-		dev := r.routerOf(u.uid).ProtectDevice
+		dev := r.routerOf(u.uid()).ProtectDevice
 		dsts := map[int]bool{}
-		for _, rec := range a.protects.list(r.routerOf(u.uid).UID) {
+		for _, rec := range a.protects.list(r.routerOf(u.uid()).UID) {
 			dsts[rec.Dst] = true
 		}
 		a.mu.Lock()

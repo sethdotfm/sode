@@ -111,7 +111,7 @@ func probe(rc config.Router) []byte {
 // stays; clients get a new hello.
 // Fields from mu down to sessionsAt are guarded by mu, as are the fields of each router unit.
 type App struct {
-	// first: the first router's unit (routerunit.go), fixed after New. routers: every router unit by router UID. A
+	// first: the first router's unit (routerunit.go), fixed after New; it takes a new first router UID (renameFirstMu). routers: every router unit by router UID. A
 	// save that adds or removes a router swaps in a new map (syncUnitsMu), so a reader needs no lock.
 	first   *routerUnit
 	routers atomic.Pointer[map[string]*routerUnit]
@@ -302,17 +302,17 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.protects = loadProtects(cfgPath)
-	units := map[string]*routerUnit{first.uid: first}
+	units := map[string]*routerUnit{first.uid(): first}
 	for _, rc := range cfg.MoreRouters {
 		u := newRouterUnit(rc)
-		units[u.uid] = u
+		units[u.uid()] = u
 	}
 	a.routers.Store(&units)
 	a.names = newNamesStore(cfgPath)
 	a.tieChanges = loadTieChanges(cfgPath)
 	a.sweepStages()
 	for _, u := range a.units() {
-		if t, ok := a.names.load(u.uid); ok {
+		if t, ok := a.names.load(u.uid()); ok {
 			rs := u.router
 			rs.srcNames, rs.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
 			rs.savedAt = t.At
@@ -400,7 +400,7 @@ func (a *App) periodic() {
 		if u.status.Router != string(swp08.StateUp) {
 			continue
 		}
-		rc := r.routerOf(u.uid)
+		rc := r.routerOf(u.uid())
 		if rc.NameRefreshSeconds > 0 && time.Since(u.nameReqAt) > time.Duration(rc.NameRefreshSeconds)*time.Second {
 			names = append(names, u)
 		}
@@ -452,7 +452,7 @@ func (a *App) requestDumps(u *routerUnit) {
 	a.mu.Lock()
 	u.dumpAt = time.Now()
 	a.mu.Unlock()
-	lv := r.levelsOf(u.uid)
+	lv := r.levelsOf(u.uid())
 	for _, l := range lv.levels {
 		u.send(swp08.ExtTallyDumpReq(lv.rc.Matrix, l.Wire), swp08.ReasonResync)
 		u.send(swp08.ExtProtectDumpReq(lv.rc.Matrix, l.Wire, 0), swp08.ReasonResync)
@@ -486,7 +486,7 @@ func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 		a.viaTouchRouter(u, a.r())
 	}
 	u.status.Router = string(s)
-	u.status.Addr = a.r().routerOf(u.uid).Address
+	u.status.Addr = a.r().routerOf(u.uid()).Address
 	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
 	if s != swp08.StateConnecting {
 		u.status.Err = ""
@@ -512,7 +512,7 @@ func (a *App) logLink(u *routerUnit, s swp08.State, err error) {
 		return
 	}
 	e := event(kindLink, "", "", u.linkSeen)
-	e.Err, e.Note, e.Router = u.linkErr, a.r().routerOf(u.uid).Address, u.uid
+	e.Err, e.Note, e.Router = u.linkErr, a.r().routerOf(u.uid()).Address, u.uid()
 	a.logEvent(e)
 }
 
@@ -543,7 +543,7 @@ func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 
 // Caller holds mu.
 func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
-	lv := r.levelsOf(u.uid)
+	lv := r.levelsOf(u.uid())
 	if xp.Matrix != lv.rc.Matrix {
 		return
 	}
@@ -594,7 +594,7 @@ func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 
 // announced: a 0x8D or 0x8F, not an answer to a re-read. Caller holds mu.
 func (a *App) applyProtect(u *routerUnit, r *runtime, p swp08.Protect, announced bool) {
-	lv := r.levelsOf(u.uid)
+	lv := r.levelsOf(u.uid())
 	if p.Matrix != lv.rc.Matrix {
 		return
 	}
@@ -665,7 +665,7 @@ func (a *App) flush() {
 	tallied := false
 	for _, u := range a.unitsInOrder(a.r()) {
 		if len(u.router.pend) > 0 {
-			a.broadcast(deltaMsg{T: "tally", U: u.router.pend, RouterUID: u.uid, from: u})
+			a.broadcast(deltaMsg{T: "tally", U: u.router.pend, RouterUID: u.uid(), from: u})
 			u.router.pend = nil
 			tallied = true
 		}
@@ -758,11 +758,11 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 	var out []helloRouter
 	x := a.newViaTrace(r)
 	for _, u := range a.unitsInOrder(r) {
-		lv := r.levelsOf(u.uid)
+		lv := r.levelsOf(u.uid())
 		rc := lv.rc
 		n := u.namesMsg()
 		out = append(out, helloRouter{
-			UID: rc.UID, Prefix: rc.Prefix, Title: rc.Title, Address: rc.Address, Matrix: rc.Matrix,
+			UID: u.uid(), Prefix: rc.Prefix, Title: rc.Title, Address: rc.Address, Matrix: rc.Matrix,
 			NumberOffset: rc.NumberOffset, Levels: lv.levels,
 			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
 			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: u.router.savedAt, Tally: routeTriples(u.router.tally),

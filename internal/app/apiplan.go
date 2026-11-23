@@ -190,7 +190,7 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 			return end{}, false
 		}
 		_, named := sideNames(kind, u.router.srcNames, u.router.dstNames)[f.N]
-		return end{uid, u.uid, f.N}, named
+		return end{uid, u.uid(), f.N}, named
 	}
 	for _, it := range p.Items {
 		src, ok := has(it.Src, config.MissingSource)

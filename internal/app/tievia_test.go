@@ -229,7 +229,7 @@ func TestExternalOnTieLineNotesAlso(t *testing.T) {
 	}
 
 	v := apiView{rights: config.Rights{Visibility: config.VisHidden, Sources: &[]config.Ref{{Router: a.r().cfg.UID, N: 3}, {Router: a.r().cfg.UID, N: 4}},
-		Dsts: &[]config.Ref{{Router: a.r().cfg.UID, N: 10}, {Router: uidB, N: 20}}}, first: a.r().cfg.UID, firstUnit: a.first.uid}
+		Dsts: &[]config.Ref{{Router: a.r().cfg.UID, N: 10}, {Router: uidB, N: 20}}}, first: a.r().cfg.UID, firstUnit: a.first.uid()}
 	e, ok := v.Entry(es[0])
 	// As the Affected destinations of a 409 body: a destination that the caller cannot see goes, and others counts it.
 	if !ok || len(e.Also) != 1 || e.Also[0].Name != "B MON 20" || e.Also[0].N != 20 || e.AlsoOthers != 3 || len(es[0].Also) != 4 || es[0].AlsoOthers != 0 {

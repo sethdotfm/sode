@@ -54,7 +54,7 @@ func TestAPITakeOnEachRouter(t *testing.T) {
 	uidA := a.r().cfg.UID
 	wire := a.r().byUI[1].Wire
 
-	rec := apiPost(a, "/api/v1/takes", key, ends(b.uid, b.uid, 4, 2), nil)
+	rec := apiPost(a, "/api/v1/takes", key, ends(b.uid(), b.uid(), 4, 2), nil)
 	if rec.Code != http.StatusOK || apiBody(t, rec)["ok"] != true {
 		t.Fatalf("take on B: %d %s", rec.Code, rec.Body)
 	}
@@ -67,7 +67,7 @@ func TestAPITakeOnEachRouter(t *testing.T) {
 	if got != 4 {
 		t.Errorf("router B dst 2 = %d, want 4", got)
 	}
-	if es, _ := a.hist.Page(-1, 1); len(es) != 1 || es[0].Router != b.uid {
+	if es, _ := a.hist.Page(-1, 1); len(es) != 1 || es[0].Router != b.uid() {
 		t.Fatalf("entry %+v", es)
 	}
 
@@ -84,7 +84,7 @@ func TestAPITakeOnEachRouter(t *testing.T) {
 	es, _ := a.hist.Page(-1, 2)
 	var onB Entry
 	for _, e := range es {
-		if e.Router == b.uid {
+		if e.Router == b.uid() {
 			onB = e
 		}
 	}
@@ -99,7 +99,7 @@ func TestAPITakeOnEachRouter(t *testing.T) {
 	fb.mu.Lock()
 	got = fb.tally[[2]int{2, wire}]
 	fb.mu.Unlock()
-	if es, _ := a.hist.Page(-1, 1); len(es) != 1 || es[0].Router != b.uid || es[0].Undo == nil || got != 7 {
+	if es, _ := a.hist.Page(-1, 1); len(es) != 1 || es[0].Router != b.uid() || es[0].Undo == nil || got != 7 {
 		t.Errorf("undo: B dst 2 = %d, entry %+v", got, es)
 	}
 }
@@ -114,11 +114,11 @@ func TestAPITakeEndsRefused(t *testing.T) {
 		status     int
 		code       string
 	}{
-		{"ends on two routers", ends(uidA, b.uid, 4, 2), http.StatusConflict, "no_path"},
+		{"ends on two routers", ends(uidA, b.uid(), 4, 2), http.StatusConflict, "no_path"},
 		{"bare numbers", `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, http.StatusBadRequest, "router_needed"},
-		{"one bare end", fmt.Sprintf(`{"routes":[{"src":4,"dst":{"router":%q,"n":2}}]}`, b.uid), http.StatusBadRequest, "router_needed"},
+		{"one bare end", fmt.Sprintf(`{"routes":[{"src":4,"dst":{"router":%q,"n":2}}]}`, b.uid()), http.StatusBadRequest, "router_needed"},
 		{"unknown router", ends("b0b0b0b0", "b0b0b0b0", 4, 2), http.StatusNotFound, "unknown_router"},
-		{"no n", fmt.Sprintf(`{"routes":[{"src":{"router":%q},"dst":{"router":%q,"n":2}}]}`, b.uid, b.uid), http.StatusBadRequest, "bad_request"},
+		{"no n", fmt.Sprintf(`{"routes":[{"src":{"router":%q},"dst":{"router":%q,"n":2}}]}`, b.uid(), b.uid()), http.StatusBadRequest, "bad_request"},
 		{"a prefix", `{"routes":[{"src":{"router":"B","n":4},"dst":{"router":"B","n":2}}]}`, http.StatusNotFound, "unknown_router"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -154,7 +154,7 @@ func TestAPIReadsNeedARouter(t *testing.T) {
 	for _, path := range []string{"/api/v1/names", "/api/v1/tally", "/api/v1/stream?topics=tally"} {
 		wantErr(t, apiDo(a, "GET", path, key, nil), http.StatusBadRequest, "router_needed")
 	}
-	rec := apiDo(a, "GET", "/api/v1/names?router="+b.uid, key, nil)
+	rec := apiDo(a, "GET", "/api/v1/names?router="+b.uid(), key, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("names of B: %d %s", rec.Code, rec.Body)
 	}
@@ -167,7 +167,7 @@ func TestAPIReadsNeedARouter(t *testing.T) {
 	}
 	rec = apiDo(a, "GET", "/api/v1/routers", key, nil)
 	list, _ := apiBody(t, rec)["routers"].([]any)
-	if len(list) != 2 || list[1].(map[string]any)["uid"] != b.uid || list[1].(map[string]any)["prefix"] != "B" {
+	if len(list) != 2 || list[1].(map[string]any)["uid"] != b.uid() || list[1].(map[string]any)["prefix"] != "B" {
 		t.Errorf("routers %s", rec.Body)
 	}
 }
@@ -181,7 +181,7 @@ func TestAPIProtectedOfEachRouter(t *testing.T) {
 	a.mu.Unlock()
 	wantErr(t, apiDo(a, "GET", "/api/v1/protected", key, nil), http.StatusBadRequest, "router_needed")
 	rowB, rowA := `{"dst":2,"level":1,"kind":"protect","device":7}`, `{"dst":5,"level":1,"kind":"protect","device":9}`
-	for _, c := range []struct{ uid, want, not string }{{b.uid, `"protected":[` + rowB + `]`, rowA}, {a.r().cfg.UID, rowA, rowB}} {
+	for _, c := range []struct{ uid, want, not string }{{b.uid(), `"protected":[` + rowB + `]`, rowA}, {a.r().cfg.UID, rowA, rowB}} {
 		rec := apiDo(a, "GET", "/api/v1/protected?router="+c.uid, key, nil)
 		if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.Contains(body, c.want) || strings.Contains(body, c.not) {
 			t.Errorf("protected of %s: %d %s", c.uid, rec.Code, rec.Body)
@@ -196,7 +196,7 @@ func TestRouterChangeCutsOnlyItsTakes(t *testing.T) {
 	fa.hold, fb.hold = 300*time.Millisecond, 300*time.Millisecond
 	var wg sync.WaitGroup
 	recs := make([]map[string]any, 2)
-	for i, body := range []string{ends(uidA, uidA, 4, 2), ends(b.uid, b.uid, 4, 2)} {
+	for i, body := range []string{ends(uidA, uidA, 4, 2), ends(b.uid(), b.uid(), 4, 2)} {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

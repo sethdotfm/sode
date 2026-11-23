@@ -76,13 +76,13 @@ func TestPageViaMessages(t *testing.T) {
 	fa.msg(swp08.ExtConnected(0, a.r().byUI[2].Wire, 10, 4))
 	a.flush()
 	got := viaFrames(c)
-	if r, ok := rowAt(got[uidB].Rows, 20, 1); !ok || !r.Mixed || len(r.Levels) == 0 || r.LevelsRouter != a.first.uid {
+	if r, ok := rowAt(got[uidB].Rows, 20, 1); !ok || !r.Mixed || len(r.Levels) == 0 || r.LevelsRouter != a.first.uid() {
 		t.Errorf("B after the upstream change %+v", got[uidB])
 	}
 	if r, ok := rowAt(got[uidC].Rows, 1, 1); !ok || !r.Mixed || r.LevelsRouter != uidB {
 		t.Errorf("C after the upstream change %+v", got[uidC])
 	}
-	if _, ok := got[a.first.uid]; ok {
+	if _, ok := got[a.first.uid()]; ok {
 		t.Error("router A has no Via, yet a viaRows message came for it")
 	}
 

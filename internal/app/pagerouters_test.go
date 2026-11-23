@@ -62,10 +62,10 @@ func TestHelloListsEveryRouter(t *testing.T) {
 	if f.UID != a.r().cfg.UID || f.Prefix != "A" || len(f.Srcs) != 1 || f.Srcs[0][1] != "A CAM 1" {
 		t.Errorf("first router: %+v", f)
 	}
-	if b.UID != u.uid || b.Prefix != "B" || b.Title != "Second" || len(b.Levels) != 3 || b.Dsts[0][1] != "B MON 1" {
+	if b.UID != u.uid() || b.Prefix != "B" || b.Title != "Second" || len(b.Levels) != 3 || b.Dsts[0][1] != "B MON 1" {
 		t.Errorf("second router: %+v", b)
 	}
-	if len(b.Tally) != 1 || b.Tally[0] != [3]int{0, 1, 0} || b.Status["router"] != "up" || b.Status["routerUid"] != u.uid {
+	if len(b.Tally) != 1 || b.Tally[0] != [3]int{0, 1, 0} || b.Status["router"] != "up" || b.Status["routerUid"] != u.uid() {
 		t.Errorf("second router tally %v, status %v", b.Tally, b.Status)
 	}
 }
@@ -89,13 +89,13 @@ func TestPageMessagesNameTheirRouter(t *testing.T) {
 	for _, m := range got["tally"] {
 		byRouter[m["routerUid"].(string)] = strings.TrimSpace(string(mustJSON(t, m["u"])))
 	}
-	if byRouter[a.first.uid] != "[[2,1,4]]" || byRouter[u.uid] != "[[3,1,5]]" {
+	if byRouter[a.first.uid()] != "[[2,1,4]]" || byRouter[u.uid()] != "[[3,1,5]]" {
 		t.Errorf("tally messages: %v", byRouter)
 	}
-	if n := got["names"]; len(n) != 1 || n[0]["routerUid"] != u.uid {
+	if n := got["names"]; len(n) != 1 || n[0]["routerUid"] != u.uid() {
 		t.Errorf("names messages: %v", n)
 	}
-	if s := got["status"]; len(s) == 0 || s[len(s)-1]["routerUid"] != u.uid || s[len(s)-1]["router"] != "up" {
+	if s := got["status"]; len(s) == 0 || s[len(s)-1]["routerUid"] != u.uid() || s[len(s)-1]["router"] != "up" {
 		t.Errorf("status messages: %v", s)
 	}
 }
@@ -113,7 +113,7 @@ func mustJSON(t *testing.T, v any) []byte {
 func TestPageTakeNamesItsRouter(t *testing.T) {
 	a, first, second, u := twoRouterFiles(t)
 	var m inMsg
-	body := `{"t":"take","items":[{"id":1,"src":4,"dst":2,"levels":[1],"router":"` + u.uid + `"},{"id":2,"src":5,"dst":3,"levels":[1]}]}`
+	body := `{"t":"take","items":[{"id":1,"src":4,"dst":2,"levels":[1],"router":"` + u.uid() + `"},{"id":2,"src":5,"dst":3,"levels":[1]}]}`
 	if err := json.Unmarshal([]byte(body), &m); err != nil {
 		t.Fatal(err)
 	}

@@ -91,7 +91,7 @@ func (x *extTracker) entries(name func(dst bool, n int) string, changes map[int]
 func (u *routerUnit) extEntries(changes map[int]map[int]*extLevel, at time.Time) []*Entry {
 	es := u.ext.entries(u.router.name, changes, at)
 	for _, e := range es {
-		e.Router = u.uid
+		e.Router = u.uid()
 	}
 	return es
 }

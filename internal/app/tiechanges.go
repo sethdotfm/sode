@@ -147,7 +147,7 @@ func (a *App) stampTieLines(u *routerUnit, r *runtime, dst int, found bool) {
 		if t.From.N != dst {
 			continue
 		}
-		if uid, ok := a.unitUID(r, t.From.Router); ok && uid == u.uid {
+		if uid, ok := a.unitUID(r, t.From.Router); ok && uid == u.uid() {
 			a.tieChanges.set(t.ID, a.now(), found)
 		}
 	}

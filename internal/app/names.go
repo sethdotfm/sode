@@ -22,7 +22,7 @@ func (a *App) refreshNames(u *routerUnit) {
 	u.router.newSrc, u.router.newDst = map[int]string{}, map[int]string{}
 	u.nameReqAt = time.Now()
 	a.mu.Unlock()
-	lv := r.levelsOf(u.uid)
+	lv := r.levelsOf(u.uid())
 	ext := lv.rc.NameRequests == "ext"
 	for _, dest := range []bool{false, true} {
 		u.send(swp08.NamesReq(dest, ext, lv.rc.Matrix, 0, lv.lenCode), swp08.ReasonNames)
@@ -76,7 +76,7 @@ func refreshed(old, got map[int]string) map[int]string {
 }
 
 func (u *routerUnit) namesMsg() namesMsg {
-	return namesMsg{T: "names", Srcs: sorted(u.router.srcNames), Dsts: sorted(u.router.dstNames), At: u.router.namesAt, RouterUID: u.uid, from: u}
+	return namesMsg{T: "names", Srcs: sorted(u.router.srcNames), Dsts: sorted(u.router.dstNames), At: u.router.namesAt, RouterUID: u.uid(), from: u}
 }
 
 func sorted(m map[int]string) [][2]any {
@@ -138,14 +138,14 @@ func (a *App) unitNamesTickMu(r *runtime, u *routerUnit) (save, check func()) {
 				log.Printf("names: %d sources, %d destinations", len(rs.srcNames), len(rs.dstNames))
 				u.namesDirt = true
 			} else {
-				a.broadcast(namesCheckedMsg{T: "namesChecked", At: rs.namesAt, RouterUID: u.uid})
+				a.broadcast(namesCheckedMsg{T: "namesChecked", At: rs.namesAt, RouterUID: u.uid()})
 			}
 		}
 	}
 	if u.namesDirt && time.Since(u.nameRxAt) > namesQuiet {
 		u.namesDirt = false
 		a.broadcast(u.namesMsg())
-		uid, src, dst := r.routerOf(u.uid).UID, maps.Clone(rs.srcNames), maps.Clone(rs.dstNames)
+		uid, src, dst := r.routerOf(u.uid()).UID, maps.Clone(rs.srcNames), maps.Clone(rs.dstNames)
 		if !a.setupPending() { // nothing on disk before Finish, which saves them
 			save = func() { a.names.save(uid, time.Now(), src, dst) }
 		}

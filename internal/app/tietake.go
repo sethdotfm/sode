@@ -359,7 +359,7 @@ func (a *App) heldLevels(rt *runtime, req routeReq) []int {
 	if !ok {
 		return nil
 	}
-	uis, _ := rt.levelsOf(u.uid).typed(req.Levels)
+	uis, _ := rt.levelsOf(u.uid()).typed(req.Levels)
 	var held []int
 	for _, l := range uis {
 		if _, ok := u.router.protect[req.Dst][l]; ok {

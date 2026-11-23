@@ -27,7 +27,7 @@ func (a *App) pageViaRows(u *routerUnit, x *viaTrace) []apiRouteRow {
 	if x == nil {
 		return rows
 	}
-	rv := a.viewOf(config.Rights{}).on(u.uid)
+	rv := a.viewOf(config.Rights{}).on(u.uid())
 	for d, t := range u.router.tally {
 		for l, s := range t {
 			row := apiRouteRow{Dst: d, Level: l, Src: s}
@@ -63,12 +63,12 @@ func (a *App) flushPageVia(tallied bool) {
 	for _, u := range a.unitsInOrder(rt) {
 		rows := a.pageViaRows(u, x)
 		b, _ := json.Marshal(rows)
-		was, ok := st.sent[u.uid]
+		was, ok := st.sent[u.uid()]
 		if (!ok && len(rows) == 0) || (ok && bytes.Equal(was, b)) {
 			continue
 		}
-		st.sent[u.uid] = b
-		a.broadcastPage(viaMsg{T: "viaRows", RouterUID: u.uid, Rows: rows})
+		st.sent[u.uid()] = b
+		a.broadcastPage(viaMsg{T: "viaRows", RouterUID: u.uid(), Rows: rows})
 	}
 }
 

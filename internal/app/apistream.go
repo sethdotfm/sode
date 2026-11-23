@@ -149,7 +149,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	a.streams[st] = struct{}{}
 	a.streamQueue(st, streamMsg{T: "hello", Data: map[string]any{
-		"v": apiStreamVersion, "topics": topics, "numberOffset": a.r().routerOf(st.unit.uid).NumberOffset}})
+		"v": apiStreamVersion, "topics": topics, "numberOffset": a.r().routerOf(st.unit.uid()).NumberOffset}})
 	for _, t := range streamOrder {
 		if !st.topics[t] {
 			continue
@@ -349,14 +349,14 @@ func (a *App) streamFan(v any) {
 				x = a.newViaTrace(a.r())
 			}
 			for _, c := range m.U {
-				if !st.view.on(st.unit.uid).Destination(c.Dst) {
+				if !st.view.on(st.unit.uid()).Destination(c.Dst) {
 					continue
 				}
-				if !st.view.on(st.unit.uid).Route(c.Dst, c.Level, c.Src) {
+				if !st.view.on(st.unit.uid()).Route(c.Dst, c.Level, c.Src) {
 					continue
 				}
 				row := apiRouteRow{Dst: c.Dst, Level: c.Level, Src: c.Src}
-				x.fill(st.view.on(st.unit.uid), &row)
+				x.fill(st.view.on(st.unit.uid()), &row)
 				rows = append(rows, row)
 			}
 			if len(rows) > 0 {

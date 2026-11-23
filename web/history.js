@@ -409,11 +409,15 @@ export function putEntry(e, hist = S, update = false) {
 // The Undone mark's badge (words, not color alone); null for no mark. m is a row's mark or a Group's.
 export const undoneBadge = (m) => (m ? el('span', 'pb-badge sode__status-badge', m.text) : null);
 
-const undoneNote = (m) => {
+// uid: the router of the entry, whose levels the mark names.
+export const undoneNote = (m, uid) => {
   if (!m.by) return '';
   const by = `undone by ${m.by.map((id) => `#${id}`).join(', ')}`;
-  return m.state === 'partly' ? `level${m.levels.length === 1 ? '' : 's'} ${levelText(m.levels)} ${by}` : by;
+  return m.state === 'partly' ? `level${m.levels.length === 1 ? '' : 's'} ${levelText(m.levels, uid)} ${by}` : by;
 };
+
+// The phone's line under a take with External follow entries: each destination of the take's router, once.
+export const followNames = (e) => `External follow: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName, e.router).label))].join(', ')}`;
 
 export function entryNote(e) {
   const parts = [];
@@ -424,7 +428,7 @@ export function entryNote(e) {
   if (e.followGroup) parts.push('External follow of this take');
   if (e.protect && e.ext) parts.push(`device ${e.device ?? 0}`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
-  if (e.undone) parts.push(undoneNote(e.undone));
+  if (e.undone) parts.push(undoneNote(e.undone, e.router));
   if (e.undone && e.tiesKept) parts.push('tie lines left as they are');
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${oneLevel(e.router) ? 'all levels' : levelText(e.already, e.router)} already`);

@@ -63,9 +63,9 @@ func namesOf(m map[int]string, ok func(int) bool) []apiName {
 // Caller holds mu.
 func (a *App) namesSnapshot(u *routerUnit, v apiView) apiNames {
 	return apiNames{
-		NumberOffset: a.r().routerOf(u.uid).NumberOffset,
-		Sources:      namesOf(u.router.srcNames, v.on(u.uid).Source),
-		Destinations: namesOf(u.router.dstNames, v.on(u.uid).Destination),
+		NumberOffset: a.r().routerOf(u.uid()).NumberOffset,
+		Sources:      namesOf(u.router.srcNames, v.on(u.uid()).Source),
+		Destinations: namesOf(u.router.dstNames, v.on(u.uid()).Destination),
 		NamesAt:      u.router.namesAt,
 	}
 }
@@ -175,15 +175,15 @@ type apiLevel struct {
 func (a *App) tallySnapshot(u *routerUnit, v apiView) map[string]any {
 	levels := []apiLevel{}
 	r := a.r()
-	for _, l := range r.levelsOf(u.uid).levels {
+	for _, l := range r.levelsOf(u.uid()).levels {
 		levels = append(levels, apiLevel{l.UI, l.Label, l.Swatch, l.Color})
 	}
-	rc := r.routerOf(u.uid)
+	rc := r.routerOf(u.uid())
 	// router: the UID that Rights levels and the level subset of a panel name these levels by.
 	return map[string]any{
-		"router": a.rightsUID(r, u.uid),
+		"router": a.rightsUID(r, u.uid()),
 		"levels": levels, "levelNumbering": rc.LevelNumbering, "defaultLevels": rc.DefaultLevels,
-		"routes": routeRows(u.router.tally, v.on(u.uid), a.newViaTrace(r)),
+		"routes": routeRows(u.router.tally, v.on(u.uid()), a.newViaTrace(r)),
 	}
 }
 
@@ -241,7 +241,7 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	rt := a.r()
-	rc := rt.routerOf(u.uid)
+	rc := rt.routerOf(u.uid())
 	by := map[int]protectBy{}
 	for _, b := range a.protectByListOf(rt, rc.UID) {
 		by[b.Dst] = b
@@ -250,7 +250,7 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	v := a.view(cl)
 	rows := []apiProtectedRow{}
 	for d, t := range u.router.protect {
-		if !v.on(u.uid).Destination(d) {
+		if !v.on(u.uid()).Destination(d) {
 			continue
 		}
 		for l, h := range t {
