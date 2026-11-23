@@ -1,0 +1,1 @@
+- The Server and Router status in the top bar shows a server icon and a video router icon, in the colour of the link's state. A small badge on each icon shows the state by its shape too (a check, a turning circle, an X or a dash). The Lost link banner uses the same router icon. The status details give a Router link row for each router.
