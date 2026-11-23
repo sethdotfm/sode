@@ -77,6 +77,12 @@ export function buildChip(api) {
   // Cleared when the focus or the mouse leaves the group.
   let quiet = false;
   let user = false;
+  // Hover opened it: the click a person makes a moment later on the chevron must not shut it again.
+  let byHover = false;
+  // The focus came by Tab. Other focus on the lock button (a click, or a dialog giving it back) must not open it.
+  let tabbed = false;
+  document.addEventListener('keydown', (e) => (tabbed = e.key === 'Tab'), true);
+  document.addEventListener('pointerdown', () => (tabbed = false), true);
   const later = (fn, ms) => {
     clearTimeout(timer);
     timer = setTimeout(fn, ms);
@@ -101,6 +107,7 @@ export function buildChip(api) {
   }
   function close(refocus) {
     clearTimeout(timer);
+    byHover = false;
     if (!isOpen()) return;
     const inside = group.contains(document.activeElement);
     menu.hidden = true;
@@ -119,7 +126,11 @@ export function buildChip(api) {
   group.addEventListener('pointerenter', (e) => {
     if (e.pointerType !== 'mouse') return;
     if (isOpen()) clearTimeout(timer);
-    else if (!quiet) later(() => open(false), OPEN_MS);
+    else if (!quiet)
+      later(() => {
+        open(false);
+        byHover = isOpen();
+      }, OPEN_MS);
   });
   group.addEventListener('pointerleave', (e) => {
     if (e.pointerType !== 'mouse') return;
@@ -128,9 +139,8 @@ export function buildChip(api) {
     if (group.contains(document.activeElement) && document.activeElement.matches(':focus-visible')) clearTimeout(timer);
     else later(() => close(false), CLOSE_MS);
   });
-  // Opens on keyboard focus only: a click on the lock button focuses it too, and that click is the Lock.
   group.addEventListener('focusin', (e) => {
-    if (!quiet && e.target === lockBtn && lockBtn.matches(':focus-visible')) open(false);
+    if (!quiet && tabbed && e.target === lockBtn) open(false);
   });
   group.addEventListener('focusout', (e) => {
     if (group.contains(e.relatedTarget)) return;
@@ -139,7 +149,8 @@ export function buildChip(api) {
   });
   more.addEventListener('click', (e) => {
     quiet = false;
-    if (isOpen()) close(false);
+    if (isOpen() && byHover && e.pointerType === 'mouse') byHover = false;
+    else if (isOpen()) close(false);
     // detail 0: Enter or Space, which moves the focus into the drop-down as a menu button does.
     else open(e.detail === 0);
   });

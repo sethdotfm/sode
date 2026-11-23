@@ -114,10 +114,14 @@ func TestChromeChipMenu(t *testing.T) {
 	}
 	darkShot(b, "chip")
 
-	// Keyboard: a key press first, so the focus that follows is keyboard focus (:focus-visible).
-	realKeyMods(b, "Shift", "ShiftLeft", 16, modShift)
-	b.eval(`document.querySelector('` + chipLock + `').focus(); true`)
-	b.waitFor("open on keyboard focus, the focus kept on Lock", chipOpen+` && document.activeElement === document.querySelector('`+chipLock+`')`)
+	// Keyboard: a focus given by script does not open it; Shift+Tab onto the lock button does.
+	b.eval(`document.getElementById('lock-chip-more').focus(); true`)
+	time.Sleep(300 * time.Millisecond)
+	if b.eval(chipShut) != true {
+		t.Fatal("a focus that did not come by Tab opened the drop-down")
+	}
+	realKeyMods(b, "Tab", "Tab", 9, modShift)
+	b.waitFor("open on Tab focus, the focus kept on Lock", chipOpen+` && document.activeElement === document.querySelector('`+chipLock+`')`)
 	b.waitFor("Sign out and Step in…", chipItems+` === 'Sign out,Step in…'`)
 	realKey(b, "ArrowDown", "ArrowDown", 40)
 	b.waitFor("Sign out first", `document.activeElement?.id === 'lock-chip-signout'`)
@@ -146,6 +150,19 @@ func TestChromeChipMenu(t *testing.T) {
 	darkShot(b, "menu")
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 640, "y": 500})
 	b.waitFor("closed when the mouse leaves", chipShut)
+	// A person points at the chevron, it opens on hover, and the click that follows keeps it open.
+	mouseTo(b, "#lock-chip-more")
+	b.waitFor("open on hover over the chevron", chipOpen)
+	x, y := touchAt(b, `document.getElementById('lock-chip-more')`)
+	for _, ty := range []string{"mousePressed", "mouseReleased"} {
+		b.call("Input.dispatchMouseEvent", map[string]any{"type": ty, "x": x, "y": y, "button": "left", "clickCount": 1})
+	}
+	time.Sleep(300 * time.Millisecond)
+	if b.eval(chipOpen) != true {
+		t.Fatal("a click on the chevron shut the drop-down that hover opened")
+	}
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 640, "y": 500})
+	b.waitFor("closed when the mouse leaves", chipShut)
 
 	// Touch: a tap on the chevron opens it with no Lock; a tap on Step in… opens the pad.
 	tap(b, `document.getElementById('lock-chip-more')`)
@@ -166,11 +183,16 @@ func TestChromeChipMenu(t *testing.T) {
 	b.waitFor("Sign out Confirm", `!!document.getElementById('signout-ask-ok')?.offsetParent`)
 	realKey(b, "Escape", "Escape", 27)
 	b.waitFor("Esc keeps Ana", `!document.getElementById('signout-ask-ok')?.offsetParent && `+chipName+` === 'Signed in as Ana'`)
+	time.Sleep(300 * time.Millisecond)
+	if b.eval(chipShut) != true {
+		t.Fatal("the focus given back after the Confirm opened the drop-down")
+	}
 
 	// Under the Lock the drop-down does not open, and its chevron fades with the lock button but keeps its place.
 	nameX := b.eval(`document.querySelector('.sode-lock__who-name').getBoundingClientRect().left - document.querySelector('.sode-lock__who-bar').getBoundingClientRect().left`)
-	realKeyMods(b, "l", "KeyL", 76, modCtrl)
-	b.waitFor("the Lock, the chevron inert", `document.querySelector('.sode-lock__who').classList.contains('is-hand') && document.getElementById('lock-chip-more').inert && `+chipShut)
+	// Lock stays one tap on a touch screen.
+	tap(b, `document.querySelector('`+chipLock+`')`)
+	b.waitFor("the Lock in one tap, the chevron inert", `document.querySelector('.sode-lock__who').classList.contains('is-hand') && document.getElementById('lock-chip-more').inert && `+chipShut)
 	b.waitFor("the name holds its place in the bar", `Math.abs(document.querySelector('.sode-lock__who-name').getBoundingClientRect().left - document.querySelector('.sode-lock__who-bar').getBoundingClientRect().left - `+fmt.Sprint(nameX)+`) < 1.5`)
 	darkShot(b, "locked")
 	mouseTo(b, ".sode-lock__who-slot")
