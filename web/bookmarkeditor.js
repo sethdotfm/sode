@@ -1,6 +1,6 @@
 // The Bookmarks editor (the strip's Edit): one list at a time, This browser, Me or Everyone. The edits are a draft until
 // Save. Order is by drag or Alt+arrows on a row. Add from the Palette… picks a row there; a web address is typed here.
-// Everyone's list needs a Trusted user or an Administrator, and the server checks that again.
+// The count shows only near the cap, since a short list needs no number. Everyone's list needs a Trusted user or an Administrator, and the server checks that again.
 
 import { el, S, on, icon, sentence } from './core.js';
 import { chord, keyLabel } from './keys.js';
@@ -28,7 +28,8 @@ import {
 } from './bookmarkrules.js';
 
 const scopeIn = el('select', { class: 'pb-select', id: 'bm-scope', 'aria-label': 'List' });
-const countEl = el('span', { class: 'sode__hint', id: 'bm-count' });
+const COUNT_FROM = BOOKMARKS_MAX - 5;
+const countEl = el('span', { class: 'sode__hint sode-bm__count', id: 'bm-count', hidden: true });
 const listEl = el('ol', { class: 'sode-bm__list', id: 'bm-list', 'aria-label': 'Bookmarks' });
 const noteEl = el('span', { class: 'sode__hint', 'aria-live': 'polite', id: 'bm-note' });
 const urlIn = el('input', { class: 'pb-input', id: 'bm-url', type: 'url', placeholder: 'https://', autocomplete: 'off', spellcheck: false });
@@ -38,7 +39,16 @@ const addUrlBtn = btn('pb-btn--outline', 'Add', () => addUrl(), 'bm-add-url');
 const saveBtn = btn('pb-btn--commit', 'Save', () => save(), 'bm-save');
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => close());
 const roNote = el('p', { class: 'sode__hint', id: 'bm-readonly', hidden: true }, 'Only a Trusted user or an Administrator can change Everyone’s bookmarks.');
-const addBox = el('div', 'sode__filters-set', addRowBtn, labeled('Web address', urlIn), labeled('Name', urlName), addUrlBtn);
+const fullNote = el('p', { class: 'sode__hint', id: 'bm-full', hidden: true }, 'This list is full. Remove a bookmark to add one.');
+const addCtl = [addRowBtn, urlIn, urlName, addUrlBtn];
+for (const c of addCtl) c.setAttribute('aria-describedby', 'bm-full');
+const addBox = el(
+  'div',
+  'sode-bm__add',
+  el('div', 'sode-bm__add-row', el('div', 'sode__fld sode-bm__pick', el('span', 'sode__label', 'From the Palette'), addRowBtn)),
+  el('div', 'sode-bm__add-row', labeled('Web address', urlIn, 'sode-bm__url'), labeled('Name', urlName), addUrlBtn),
+  fullNote,
+);
 
 const dlg = modal({
   titleId: 'bm-title',
@@ -48,7 +58,7 @@ const dlg = modal({
   body: el(
     'div',
     'pb-modal__body sode__filters-body',
-    el('div', 'sode__filters-set', labeled('List', el('span', 'pb-select-wrap', scopeIn)), countEl),
+    el('div', 'sode-bm__add-row', labeled('List', el('span', 'pb-select-wrap', scopeIn), 'sode-bm__scope'), countEl),
     roNote,
     addBox,
     listEl,
@@ -98,7 +108,8 @@ function rowNode(b, i) {
       draft[i] = { ...draft[i], [key]: input.checked };
       touch();
     });
-    return on ? el('label', 'pb-check', input, el('span', 'pb-check__label', text)) : null;
+    // An empty cell keeps the columns lined up from row to row.
+    return on ? el('label', 'pb-check', input, el('span', 'pb-check__label', text)) : el('span');
   };
   const state = v.state !== 'ok' ? el('span', 'pb-badge sode__status-badge', STATE_TEXT[v.state]) : null;
   const what = el('span', 'sode__hint sode-bm__what', b.url || v.row?.hint || (v.row ? '' : 'Palette row'));
@@ -117,14 +128,17 @@ function rowNode(b, i) {
     el('span', 'sode-bm__grip', icon('grip-vertical')),
     el('span', 'sode__preset-key', i < 9 ? keyLabel(`alt+${i + 1}`) : ''),
     el('span', 'sode-bm__main', name, state, what),
-    tick('Open in a new tab', 'newTab', canNewTab(b, v.row)),
-    tick('Show in Palette', 'inPalette', true),
-    tool('arrow-up', `Move up (${keyLabel('alt+up')})`, () => move(i, { by: -1 }), i === 0),
-    tool('arrow-down', `Move down (${keyLabel('alt+down')})`, () => move(i, { by: 1 }), i === draft.length - 1),
-    tool('trash-2', 'Remove', () => {
-      draft.splice(i, 1);
-      touch();
-    }),
+    el('span', 'sode-bm__opts', tick('Open in a new tab', 'newTab', canNewTab(b, v.row)), tick('Show in Palette', 'inPalette', true)),
+    el(
+      'span',
+      'sode-bm__tools',
+      tool('arrow-up', `Move up (${keyLabel('alt+up')})`, () => move(i, { by: -1 }), i === 0),
+      tool('arrow-down', `Move down (${keyLabel('alt+down')})`, () => move(i, { by: 1 }), i === draft.length - 1),
+      tool('trash-2', 'Remove', () => {
+        draft.splice(i, 1);
+        touch();
+      }),
+    ),
   );
   li.addEventListener('dragstart', (e) => {
     e.dataTransfer.effectAllowed = 'move';
@@ -155,11 +169,15 @@ function draw() {
   const f = document.activeElement;
   const at = listEl.contains(f) ? f.closest('[data-i]')?.dataset.i : null;
   listEl.replaceChildren(...draft.map(rowNode));
-  if (!draft.length) listEl.append(el('li', 'sode__hint', 'No bookmarks in this list.'));
-  countEl.textContent = `${draft.length} of ${BOOKMARKS_MAX}`;
+  if (!draft.length) listEl.append(el('li', 'sode__hint sode-bm__empty', 'No bookmarks in this list.'));
+  const full = draft.length >= BOOKMARKS_MAX;
+  countEl.hidden = draft.length < COUNT_FROM;
+  countEl.textContent = `${draft.length} of ${BOOKMARKS_MAX} bookmarks in this list`;
   const ro = !editable();
   roNote.hidden = !ro;
   addBox.hidden = ro;
+  for (const c of addCtl) c.disabled = full;
+  fullNote.hidden = !full;
   saveBtn.disabled = ro || busy;
   saveBtn.classList.toggle('pb-btn--ok', dirty && !ro);
   saveBtn.classList.toggle('pb-btn--commit', !dirty || ro);
