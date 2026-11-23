@@ -5,7 +5,8 @@ package config
 type Missing struct {
 	Kind string `yaml:"kind" json:"kind"` // a Missing* kind
 	Ref  Ref    `yaml:"ref" json:"ref"`
-	// Now: filter-set exact terms only. The name the router put at Ref's number, for the Replace term offer.
+	// Now: the name the router put at Ref's number. A filter set's exact term has it for the Replace term offer, and a
+	// tie line's Name moved mark to show the name now.
 	Now   string         `yaml:"now,omitempty" json:"now,omitempty"`
 	Extra map[string]any `yaml:",inline" json:"-"`
 }

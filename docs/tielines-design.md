@@ -71,7 +71,7 @@ Rights checks compare the router and the number of each reference. A right for s
 5. An Administrator adds, edits and removes tie lines in Settings > Routers > Tie lines.
 6. Sode suggests a tie line when a destination on one router has the same name as a source on another router. Sode trims the names and ignores case. An Administrator accepts each suggestion. Sode does not use a suggestion that nobody accepted.
 7. An Administrator can also pair any destination with any source by hand. Sode cannot see the signal, so it trusts each pair.
-8. Sode stores a tie line by router reference and number. If the name of either end changes, Sode marks the tie line Name moved, and it continues to work. The Tie line name does not change.
+8. Sode stores a tie line by router reference and number. If the name of either end changes, Sode marks the tie line Name moved, and it continues to work. The Tie line name does not change. The mark goes when the old name comes back. It also goes when an Administrator saves that tie line again in its edit form, which stores the names now. A save of a different tie line does not change the mark (agent decision).
 9. The ends of a tie line stay ordinary sources and destinations. The UI and the API can patch them directly.
 10. A change of a tie line is any crosspoint change on its upstream destination, on any level. Sode or an External can make it.
 
@@ -271,9 +271,9 @@ Rights checks compare the router and the number of each reference. A right for s
 
 ## Other stores
 
-1. Swap does not move a tie line end by itself, since a tie line is a cable. The Swap review row lists each tie line that uses a swapped number, and the Administrator chooses.
+1. Swap does not move a tie line end by itself, since a tie line is a cable. The Swap review row lists each tie line that uses a swapped number, and the Administrator chooses. Each tie line starts not ticked. A ticked tie line moves its end to the new number. A user's own Swap never lists a tie line (agent decision).
 2. Tie lines are their own export category. On import, Sode drops a tie line with a note when one of its two routers is not mapped.
-3. Before the Critical confirm, a router delete lists every tie line, panel and preset that it will break.
+3. Before the Critical confirm, a router delete lists every tie line, panel and preset that it will break. The delete also deletes each tie line with an end on that router. Validate refuses a tie line with a router that Sode does not have.
 4. A router delete marks each preset, filter set, panel cell and Grid member that names the router Broken. Rights and a panel's level subset lose that router, since a Rights entry cannot name a router that Sode does not have. The first router cannot be deleted. An Administrator changes its address in its own block.
 
 ## Open items

@@ -421,6 +421,9 @@ func (k *pollCheck) config(c *config.Config) bool {
 			*s.Profile, changed = pr, true
 		}
 	}
+	if ties, ch := k.tieLines(c.TieLines); ch {
+		c.TieLines, changed = ties, true
+	}
 	rights := config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref {
 		if !k.quiet(kind == config.MissingDestination, &r) {
 			return nil
@@ -432,6 +435,59 @@ func (k *pollCheck) config(c *config.Config) bool {
 		rights.Rights(r)
 	}
 	return changed
+}
+
+// tieLines marks Name moved on each end on this router whose name is not its stored name (docs/tielines-design.md,
+// Tie lines rule 8). That is a rename, the name at another number, or no name. The number, the stored name and the Tie
+// line name stay, and the tie line works on. The mark goes when the stored name comes back. An end stored with no
+// name takes the name now. The list is a copy when something changed.
+func (k *pollCheck) tieLines(in []config.TieLine) ([]config.TieLine, bool) {
+	out, changed := config.CloneTieLines(in), false
+	for i := range out {
+		t := &out[i]
+		var moved []config.Missing
+		fresh := false
+		config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref {
+			old, had := markOf(t.Moved, kind, r)
+			if r.Router != k.uid {
+				moved = appendMark(moved, old, had)
+				return nil
+			}
+			v, now := k.verdict(kind == config.MissingDestination, r)
+			switch {
+			case v == refWait:
+				moved = appendMark(moved, old, had)
+			case strings.TrimSpace(r.Name) == "":
+				if now != "" {
+					r.Name, fresh = now, true
+					return []config.Ref{r}
+				}
+			case !sameName(r.Name, now):
+				moved = appendMark(moved, config.Missing{Kind: kind, Ref: config.Ref{Router: r.Router, N: r.N, Name: r.Name}, Now: now}, true)
+			}
+			return nil
+		}}.TieLine(t)
+		if !fresh && tieMarksEqual(moved, t.Moved) {
+			continue
+		}
+		if len(moved) > len(t.Moved) {
+			k.moved = append(k.moved, fmt.Sprintf("tie line %q", t.Name))
+		}
+		t.Moved, changed = moved, true
+	}
+	return out, changed
+}
+
+func appendMark(l []config.Missing, m config.Missing, ok bool) []config.Missing {
+	if !ok {
+		return l
+	}
+	return append(l, m)
+}
+
+// Now counts here: a mark shows the name at the number now.
+func tieMarksEqual(a, b []config.Missing) bool {
+	return missingEqual(a, b) && slices.EqualFunc(a, b, func(x, y config.Missing) bool { return x.Now == y.Now })
 }
 
 // Cells and members carry Broken marks; hidden items, item settings and fixed destinations rename quietly.

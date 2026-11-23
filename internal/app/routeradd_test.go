@@ -103,6 +103,7 @@ func TestRemoveRouterInSettings(t *testing.T) {
 			{ID: "p2", Name: "Home", Items: []config.PresetItem{{Src: onA, Dsts: []config.Ref{onA}}}},
 		}
 		c.FilterSets = []config.FilterSet{{ID: "f1", Name: "B cams", Src: "4", Router: uid, Sode: true}}
+		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: onA, To: onB}}
 		i := userIndex(c, ana)
 		c.Users[i].Rights = config.Rights{Sources: &[]config.Ref{onA, onB}, Levels: config.RouterLevels{first: {1}, uid: {2}}}
 		c.Users[i].Profile.Presets = []config.Preset{{ID: "p3", Name: "Mine", Items: []config.PresetItem{{Src: onA, Dsts: []config.Ref{onA}}, {Src: onB, Dsts: []config.Ref{onB}}}}}
@@ -137,7 +138,7 @@ func TestRemoveRouterInSettings(t *testing.T) {
 		m := it.(map[string]any)
 		names = append(names, m["kind"].(string)+" "+m["name"].(string))
 	}
-	if want := []string{"filterSet B cams", "panel Desk", "preset Stage", "preset Mine"}; !slices.Equal(names, want) {
+	if want := []string{"filterSet B cams", "panel Desk", "preset Stage", "preset Mine", "tieLine TIE 3"}; !slices.Equal(names, want) {
 		t.Fatalf("routerUses %v, want %v", names, want)
 	}
 
@@ -149,6 +150,9 @@ func TestRemoveRouterInSettings(t *testing.T) {
 	cfg := a.r().cfg
 	if len(cfg.MoreRouters) != 0 {
 		t.Fatalf("routers left %+v", cfg.MoreRouters)
+	}
+	if len(cfg.TieLines) != 0 {
+		t.Errorf("tie lines left %+v", cfg.TieLines)
 	}
 	if _, ok := a.unit(uid); ok || len(a.units()) != 1 {
 		t.Errorf("the unit of the removed router stays")
@@ -183,6 +187,30 @@ func TestRemoveRouterInSettings(t *testing.T) {
 	// The first router stays.
 	k := "router/" + first + "/remove"
 	wantRefused(t, p.saveFields(4, map[string]any{k: true}), k, "invalid")
+}
+
+// A router delete removes only the tie lines with an end on that router.
+func TestDropRouterRemovesItsTieLines(t *testing.T) {
+	c := config.Defaults()
+	c.MoreRouters = []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1), moreRouter("C", "C", "10.0.0.9:8910", 1)}
+	c.Normalize()
+	a, b, cc := c.UID, c.MoreRouters[0].UID, c.MoreRouters[1].UID
+	c.TieLines = []config.TieLine{
+		{ID: "ab", Name: "AB", From: config.Ref{Router: a, N: 1}, To: config.Ref{Router: b, N: 1}},
+		{ID: "ca", Name: "CA", From: config.Ref{Router: cc, N: 1}, To: config.Ref{Router: a, N: 2}},
+		{ID: "bc", Name: "BC", From: config.Ref{Router: b, N: 2}, To: config.Ref{Router: cc, N: 2}},
+	}
+	saved := config.CloneTieLines(c.TieLines)
+	dropRouter(&c, b)
+	if len(c.TieLines) != 1 || c.TieLines[0].ID != "ca" {
+		t.Fatalf("tie lines %+v", c.TieLines)
+	}
+	if len(saved) != 3 || saved[0].ID != "ab" {
+		t.Errorf("the drop changed the list it was given")
+	}
+	if err := c.Validate(); err != nil {
+		t.Errorf("Validate: %v", err)
+	}
 }
 
 // With two routers, a name read of one router keeps the marks of references on the other router. A reference on a

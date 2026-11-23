@@ -123,8 +123,8 @@ func removeKeyRouter(key string) (string, bool) {
 }
 
 // dropRouter removes router uid from c. Presets and filter sets that name it become Broken (kind router), so their
-// owners see what to fix. Rights lose the references and levels of that router. Validate refuses a router that Sode
-// does not have, and Sode never uses a router UID again.
+// owners see what to fix. Rights lose the references and levels of that router, and each tie line with an end on it
+// goes. Validate refuses a router that Sode does not have, and Sode never uses a router UID again.
 func dropRouter(c *config.Config, uid string) {
 	i := moreRouterIndex(c, uid)
 	if i < 0 {
@@ -166,9 +166,14 @@ func dropRouter(c *config.Config, uid string) {
 			r.Levels = nil
 		}
 	}
+	c.TieLines = slices.DeleteFunc(config.CloneTieLines(c.TieLines), func(t config.TieLine) bool { return tieNamesRouter(t, uid) })
 	if c.HiddenDstsRouter == uid {
 		c.HiddenDstsRouter = ""
 	}
+}
+
+func tieNamesRouter(t config.TieLine, uid string) bool {
+	return t.From.Router == uid || t.To.Router == uid
 }
 
 // withRouterMark adds the Broken mark of a router that is gone, one time.
@@ -249,9 +254,9 @@ func (a *App) routersGoneStores(uids []string) {
 // routerUse: one item that a router delete breaks. ID is the swapItem id.
 type routerUse struct {
 	ID    string `json:"id"`
-	Kind  string `json:"kind"` // preset, filterSet or panel
+	Kind  string `json:"kind"` // preset, filterSet, panel or tieLine
 	Name  string `json:"name"`
-	Owner string `json:"owner"` // the user's name, "" for Everyone
+	Owner string `json:"owner"` // the user's name, "" for Everyone and a tie line
 }
 
 type routerUsesResult struct {
@@ -260,10 +265,15 @@ type routerUsesResult struct {
 	Items  []routerUse `json:"items"`
 }
 
-// routerUses lists every preset, filter set and panel that names router uid, for the Remove router note. Tie lines
-// come with the tie line store.
+// routerUses lists every preset, filter set and panel that names router uid, and every tie line that the removal
+// deletes, for the Remove router note.
 func routerUses(cfg config.Config, panels []Panel, uid string) []routerUse {
 	out := []routerUse{}
+	for _, t := range cfg.TieLines {
+		if tieNamesRouter(t, uid) {
+			out = append(out, routerUse{"tieLine/" + t.ID, "tieLine", t.Name, ""})
+		}
+	}
 	for _, s := range itemScopes(&cfg, "") {
 		for _, p := range *s.Presets {
 			if presetNamesRouter(p, uid) {

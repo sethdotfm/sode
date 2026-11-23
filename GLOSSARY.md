@@ -261,7 +261,7 @@ _Avoid_: reset import, merge import
 Describes a preset, filter set or panel that refers to something that is not there. Examples are a user, a preset, artwork, or a source, destination, level or router that is gone from the router. A router name change alone never makes an item Broken. Sode shows the word Broken beside it.
 
 **Name moved**:
-Describes a preset, filter set or panel whose stored source or destination name now sits at a different number on the router. The item still fires on its stored number. Sode shows the words Name moved beside it.
+Describes a preset, filter set or panel whose stored source or destination name now sits at a different number on the router. The item still fires on its stored number. Sode shows the words Name moved beside it. A tie line is Name moved when the name of either end changes on the router. It still works on its stored numbers.
 
 **Swap**:
 To replace one source or one destination with another in every preset, filter set and panel that uses it, in one Settings save. Swap source and Swap destination are the two actions. The name keeps it apart from Replace import.

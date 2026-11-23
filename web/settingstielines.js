@@ -5,7 +5,7 @@ import { $, el, S, on, onMsg, emit, request, routerData } from './core.js';
 import { btn, opt } from './formbits.js';
 import { readJSON, writeJSON } from './store.js';
 import { suggest, acceptName } from './tielinesuggest.js';
-import { listProblem, fillName, upsert, without, wireNumber, otherRouter } from './tielinerules.js';
+import { listProblem, fillName, upsert, without, wireNumber, otherRouter, movedLines } from './tielinerules.js';
 
 const list = $('tielines-list');
 const form = $('tielines-form');
@@ -43,11 +43,17 @@ function row(t) {
   edit.setAttribute('aria-label', `Edit ${t.name}`);
   const remove = btn('pb-btn--outline pb-btn--sm', 'Remove', () => save(without(tieLines(), t.id), `Removed ${now().name}.`));
   remove.setAttribute('aria-label', `Remove ${t.name}`);
+  // Name moved: the tie line works on. Edit and Save tie line store the names now.
+  const moved = movedLines(t, (r) => `${routerData(r.router).prefix}.${shownNum(r.router, r.n)}`);
+  const marks = moved.length
+    ? [el('span', 'pb-badge pb-badge--warn', 'Name moved'), el('span', 'sode__hint', `${moved.join('; ')}. Edit and save to keep the names now.`)]
+    : [];
   const li = el(
     'li',
     'sode__tielines-row',
     el('strong', null, t.name),
     el('span', 'sode__hint', `${endText(t.from, 'dst')} feeds ${endText(t.to, 'src')}`),
+    ...marks,
     edit,
     remove,
   );

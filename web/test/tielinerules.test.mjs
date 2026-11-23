@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { tieLineProblem, listProblem, fillName, upsert, without, wireNumber, otherRouter } from '../tielinerules.js';
+import { tieLineProblem, listProblem, fillName, upsert, without, wireNumber, otherRouter, movedLines } from '../tielinerules.js';
 
 const shared = JSON.parse(readFileSync(new URL('./tieline_cases.json', import.meta.url), 'utf8'));
 
@@ -65,4 +65,17 @@ test('otherRouter offers the first router that is not the upstream one', () => {
   assert.equal(otherRouter(['a1', 'b2', 'c3'], 'a1'), 'b2');
   assert.equal(otherRouter(['a1', 'b2'], 'b2'), 'a1');
   assert.equal(otherRouter(['a1'], 'a1'), '');
+});
+
+test('movedLines: each Name moved end, with the stored name and the name now', () => {
+  const shown = (r) => `${r.router}.${r.n + 1}`;
+  assert.deepEqual(movedLines({ moved: [] }, shown), []);
+  assert.deepEqual(movedLines({}, shown), []);
+  const t = {
+    moved: [
+      { kind: 'destination', ref: { router: 'A', n: 1, name: 'TO STAGE 2' }, now: '' },
+      { kind: 'source', ref: { router: 'B', n: 0, name: 'FROM STAGE 1' }, now: 'FROM STAGE ONE' },
+    ],
+  };
+  assert.deepEqual(movedLines(t, shown), ['A.2 was TO STAGE 2, now no name', 'B.1 was FROM STAGE 1, now FROM STAGE ONE']);
 });
