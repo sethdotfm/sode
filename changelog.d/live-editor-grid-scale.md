@@ -1,0 +1,1 @@
+- The Live Editor of a Grid panel starts at the Grid panel page's text size. Before, the size changed when the grid came, so the Edit lists drawer moved under the pointer.

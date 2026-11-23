@@ -80,8 +80,10 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	if rec := apiSend(a, "DELETE", "/api/v1/protected/2", key, ""); rec.Code != 200 {
 		t.Fatalf("API Free Protect: %d %s", rec.Code, rec.Body.String())
 	}
-	// The newest Free Protect row has the badge where the source box is, with no box and no arrow.
-	b.waitFor("Free Protect row", `(() => { const r = [...document.querySelectorAll('#history .sode__hist-route')].find((n) => n.querySelector(':scope > .pb-badge')?.textContent === 'Free Protect'); return !!r && !r.querySelector('.sode__end--src, .sode__arrow') && r.querySelector('.sode__end--dst')?.textContent.includes('DSM1'); })()`)
+	// The newest Free Protect row has the badge where the source box is, with no box and no arrow. It must be the
+	// top row, the API's. The tab's own older Free Protect row also names DSM1. Ctrl+Z before the API's entry comes
+	// finds nothing to undo.
+	b.waitFor("Free Protect row", `(() => { const r = document.querySelector('#history .sode__hist-route'); return r?.querySelector(':scope > .pb-badge')?.textContent === 'Free Protect' && !r.querySelector('.sode__end--src, .sode__arrow') && r.querySelector('.sode__end--dst')?.textContent.includes('DSM1'); })()`)
 
 	// Ctrl+Z (Cmd+Z on a Mac) undoes the Free Protect: the Confirm sets the Protect again.
 	b.eval(`(() => { const mac = /Mac/.test(navigator.platform); document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: !mac, metaKey: mac, bubbles: true, cancelable: true})); return true; })()`)
