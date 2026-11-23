@@ -140,6 +140,17 @@ test('rowView: every kind gives the whole route the layouts draw', async () => {
   }
 });
 
+test('rowView: a tie take names the source asked for and leaves out its hop entries', async () => {
+  const { rowView } = await setup();
+  const hop = take({ id: 1, src: 3, srcName: 'CAM 4', dst: 9, dstName: 'TO B', tie: 't1' });
+  const last = take({ id: 2, src: 4, srcName: 'FROM A', origin: { router: '', n: 7, name: 'CAM 8' }, hops: [{ tie: 't1' }] });
+  const f = { group: 'g', n: 2, entries: [hop, last], shown: [hop, last] };
+  const g = rowView({ f }).route(f);
+  assert.deepEqual([g.src.label, g.dst.label, g.many], ['CAM 8', 'MON 6', null]);
+  assert.equal(rowView({ e: last }).route(last).src.label, 'CAM 8');
+  assert.match(rowView({ e: last }).actions(last).undo.label, /^Undo CAM 8 to /);
+});
+
 test('disclosureAria and followersHead', async () => {
   const { disclosureAria, followersHead } = await setup();
   assert.equal(disclosureAria(true, 3, 'takes'), 'Hide the 3 takes');

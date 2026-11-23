@@ -19,6 +19,8 @@ type takePlan struct {
 	LeftOut   []string // preset parts the router does not have
 	Skipped   []int    // undo: levels with nothing routed before, left as is
 	Untouched []int    // undo: levels a failed take never changed, left as is
+	// Ties: a take with a route across routers runs as steps (tietake.go); Items is then empty.
+	Ties *tieTake
 }
 
 // The code is one listed in openapi.yaml.

@@ -11,6 +11,10 @@ import { protectGroup } from './protectrules.js';
 const noun = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
 
+// The source a row names. The entry of a tie take is the last hop, so its src is the end of the tie line. origin
+// is the source asked for.
+const srcOf = (e) => (e.origin ? srcItem(e.origin.n, e.origin.name, e.origin.router) : srcItem(e.src, e.srcName, e.router));
+
 // A take entry. Each descriptor has, for an entry ({e}) or a Group ({f}):
 // - route(x): {lead, src, dst, many, notes}. lead: a node that stands where the source is (a Protect chip), else null.
 //   src and dst: an item, or words for many ("3 sources"). many: a Group's destinations, else null. notes: a Group's
@@ -22,11 +26,11 @@ const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
 //   wording (the buttons then use their default).
 // - empty(x): what Undo says when there is nothing to undo.
 const TAKE = {
-  route: (e) => ({ lead: null, src: srcItem(e.src, e.srcName, e.router), dst: dstItem(e.dst, e.dstName, e.router), many: null, notes: [] }),
+  route: (e) => ({ lead: null, src: srcOf(e), dst: dstItem(e.dst, e.dstName, e.router), many: null, notes: [] }),
   disc: () => 'Before',
   detail: (e, dst) => `Before #${e.id}, on ${dst.label}`,
   actions(e) {
-    const src = srcItem(e.src, e.srcName, e.router),
+    const src = srcOf(e),
       dst = dstItem(e.dst, e.dstName, e.router);
     const again = againPlan({ e });
     const undo = e.chain
@@ -45,11 +49,11 @@ const TAKE = {
 // A Group of takes: a take that sent several routes.
 const GROUP = {
   route(f) {
-    const one = (k, item) => {
-      const ns = new Set(f.entries.map((e) => e[k]));
-      return ns.size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : `${ns.size} ${k === 'src' ? 'sources' : 'destinations'}`;
-    };
-    const dsts = new Map(f.entries.map((e) => [e.dst, e.dstName]));
+    // The hop entries of a tie take (tie) are part of the routes asked for, so the row names only those routes.
+    const asked = f.entries.filter((e) => !e.tie);
+    const es = asked.length ? asked : f.entries;
+    const srcs = new Set(es.map((e) => (e.origin ? `${e.origin.router} ${e.origin.n}` : e.src)));
+    const dsts = new Map(es.map((e) => [e.dst, e.dstName]));
     const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
     const nFollow = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
     const preset = f.entries.find((e) => e.preset)?.preset;
@@ -61,8 +65,8 @@ const GROUP = {
     ];
     return {
       lead: null,
-      src: one('src', srcItem),
-      dst: one('dst', dstItem),
+      src: srcs.size === 1 ? srcOf(es[0]) : `${srcs.size} sources`,
+      dst: dsts.size === 1 ? dstItem(es[0].dst, es[0].dstName) : `${dsts.size} destinations`,
       many: dsts.size > 1 ? [...dsts].map(([n, name]) => dstItem(n, name)) : null,
       notes: notes.filter(Boolean),
     };
