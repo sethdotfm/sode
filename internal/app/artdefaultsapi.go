@@ -221,10 +221,11 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 	}
 	if d.Kind != artKindPreset {
 		// The router's name now, so the editor can tell when the number later names another item.
+		first := a.firstUnit()
 		a.mu.Lock()
-		names := a.router.srcNames
+		names := first.router.srcNames
 		if d.Kind == artKindDst {
-			names = a.router.dstNames
+			names = first.router.dstNames
 		}
 		if n := names[*d.N]; n != "" {
 			d.Name = n

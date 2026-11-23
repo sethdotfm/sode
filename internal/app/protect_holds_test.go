@@ -68,7 +68,7 @@ func TestAPIProtectedUsesSodesHoldRule(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	a.status.Router = string(swp08.StateUp)
+	a.first.status.Router = string(swp08.StateUp)
 	a.mu.Unlock()
 	uid := a.r().cfg.UID
 	// dst 3: on Sode's device (126) with no record. dst 5: on 126, the record has an earlier device (120).
@@ -83,7 +83,7 @@ func TestAPIProtectedUsesSodesHoldRule(t *testing.T) {
 	}
 	for dst, dev := range map[int]int{3: 126, 5: 126, 6: 120, 7: 112} {
 		for wire := range 3 {
-			a.onRouterMsg(swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, wire, swp08.KindProtect, dst, dev))
+			a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, wire, swp08.KindProtect, dst, dev))
 		}
 	}
 	a.flush()
@@ -108,7 +108,7 @@ func TestAPIProtectedUsesSodesHoldRule(t *testing.T) {
 
 	// The hold on Sode's device with no record is still Sode's own for a clear.
 	a.protMu.Lock()
-	rec, own, others := a.sodeHoldsProtLocked(a.r(), a.routerUnit, 3)
+	rec, own, others := a.sodeHoldsProtLocked(a.r(), a.first, 3)
 	a.protMu.Unlock()
 	if rec != nil || len(own) != 3 || len(others) != 0 {
 		t.Fatalf("dst 3: rec %v, own %v, others %v", rec, own, others)

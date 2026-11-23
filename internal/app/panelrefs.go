@@ -16,8 +16,9 @@ type refNames struct {
 
 func (a *App) refNames() refNames {
 	n := refNames{cfg: a.r().cfg}
+	first := a.firstUnit()
 	a.mu.Lock()
-	n.src, n.dst = maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
+	n.src, n.dst = maps.Clone(first.router.srcNames), maps.Clone(first.router.dstNames)
 	a.mu.Unlock()
 	return n
 }

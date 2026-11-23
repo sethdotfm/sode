@@ -166,18 +166,35 @@ func (a *App) syncAccessAllMu() {
 	}
 }
 
-// cutRoutes: waits stop at once, each take fails as cut. Their sends are already refused
-// (a.ext changed). Caller holds mu.
-func (a *App) cutRoutes() {
-	for w := range a.waiters {
+// cutRoutes: the router's waits stop at once, each take fails as cut. Their sends are already refused
+// (u.ext changed). Caller holds mu.
+func (u *routerUnit) cutRoutes() {
+	for w := range u.waiters {
 		w.cut = true
 		w.finish()
 	}
-	clear(a.waiters)
-	for c := range a.checks {
+	clear(u.waiters)
+	for c := range u.checks {
 		c.finish()
 	}
-	clear(a.checks)
+	clear(u.checks)
+}
+
+// reconnectMu starts the unit again for a router change to addr: new state and External tracking, takes cut, status
+// "connecting". SetTarget does not report down, so this tells the link log and uptime; the next up is logged again.
+// Caller holds mu.
+func (a *App) reconnectMu(u *routerUnit, addr string) {
+	u.router = newRouterState()
+	u.ext = newExtTracker()
+	u.cutRoutes()
+	u.status.Router = string(swp08.StateConnecting)
+	u.status.Addr = addr
+	u.status.Err = ""
+	u.up.State(false)
+	u.linkSeen, u.linkErr = "", ""
+	ch := event(kindLink, "", "", "changed")
+	ch.Note = addr
+	a.logEvent(ch)
 }
 
 func (a *App) applyConfig(mutate func(*config.Config) error) error {
@@ -193,20 +210,9 @@ func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) erro
 		old := oldRt.cfg
 		c = nr.cfg
 		reconnect = config.ReconnectChanged(old, c)
+		// The reconnect fields are the first router's (config.ReconnectChanged).
 		if reconnect {
-			a.router = newRouterState()
-			a.ext = newExtTracker()
-			a.cutRoutes()
-			a.status.Router = string(swp08.StateConnecting)
-			a.status.Addr = c.Address
-			a.status.Err = ""
-			// SetTarget does not report down, so this tells the link log and uptime. The next up is
-			// logged again.
-			a.up.State(false)
-			a.linkSeen, a.linkErr = "", ""
-			ch := event(kindLink, "", "", "changed")
-			ch.Note = c.Address
-			a.logEvent(ch)
+			a.reconnectMu(a.firstUnit(), c.Address)
 		}
 		hello := a.hello(page)
 		for cl := range a.clients {
@@ -220,7 +226,7 @@ func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) erro
 	}
 	a.catchUpSessions() // it is possible that this save ticked Never sign out
 	if reconnect {
-		a.sw.SetTarget(c.Address, applied.probe())
+		a.firstUnit().sw.SetTarget(c.Address, applied.probe())
 	}
 	log.Printf("config: applied (reconnect=%v)", reconnect)
 	return nil

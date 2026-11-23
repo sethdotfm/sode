@@ -22,21 +22,21 @@ func asMap(t *testing.T, b []byte) map[string]any {
 // legacyHello builds the hello from a map[string]any, the reference shape for the typed one.
 func legacyHello(a *App, p helloPage) []byte {
 	r := a.r()
-	n := a.namesMsg()
+	n := a.first.namesMsg()
 	m := map[string]any{"t": "hello", "srcs": n.Srcs, "dsts": n.Dsts, "at": n.At}
-	if !a.router.savedAt.IsZero() {
-		m["savedAt"] = a.router.savedAt
+	if !a.first.router.savedAt.IsZero() {
+		m["savedAt"] = a.first.router.savedAt
 	}
-	m["tally"] = legacyTriples(a.router.tally)
+	m["tally"] = legacyTriples(a.first.router.tally)
 	prot := [][4]int{}
-	for d, t := range a.router.protect {
+	for d, t := range a.first.router.protect {
 		for l, h := range t {
 			prot = append(prot, [4]int{d, l, h.dev, h.kind})
 		}
 	}
 	m["protected"] = prot
 	m["protectBy"] = []any{}
-	m["status"] = a.status
+	m["status"] = a.first.status
 	m["history"] = p.recent
 	m["more"] = p.more
 	m["levels"] = r.levels
@@ -105,7 +105,7 @@ func TestRouteChangeWire(t *testing.T) {
 		t.Fatalf("hello tally/protected: %v %v", h["tally"], h["protected"])
 	}
 	a.mu.Lock()
-	a.router.tally, a.router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
+	a.first.router.tally, a.first.router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
 	h = asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
 	if !reflect.DeepEqual(h["tally"], []any{}) || !reflect.DeepEqual(h["protected"], []any{}) {

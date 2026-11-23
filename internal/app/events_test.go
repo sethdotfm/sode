@@ -101,7 +101,7 @@ func TestLinkLoggedOncePerOutage(t *testing.T) {
 		{swp08.StateDown, boom}, {swp08.StateConnecting, nil}, {swp08.StateDown, errors.New("timeout")},
 		{swp08.StateConnecting, nil}, {swp08.StateUp, nil},
 	} {
-		a.onRouterState(s.s, s.e)
+		a.onUnitState(a.first, s.s, s.e)
 	}
 	rows := waitLogged(t, a, 3)
 	if got := results(rows, kindLink); got != "down,down,up" {
@@ -116,7 +116,7 @@ func TestLinkLoggedOncePerOutage(t *testing.T) {
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	a.onRouterState(swp08.StateUp, nil)
+	a.onUnitState(a.first, swp08.StateUp, nil)
 	rows = waitLogged(t, a, 5)
 	if got := results(rows, kindLink); got != "down,down,up,changed,up" {
 		t.Fatalf("after the change: %s", got)
@@ -125,7 +125,7 @@ func TestLinkLoggedOncePerOutage(t *testing.T) {
 		t.Fatalf("changed row = %+v", rows[3])
 	}
 	var s []string
-	for _, tr := range a.up.trans {
+	for _, tr := range a.first.up.trans {
 		s = append(s, tr.S)
 	}
 	if got := strings.Join(s, ","); got != "down,up,down,up" {
@@ -179,10 +179,10 @@ func TestUptimeCountsEvenIfNotSaved(t *testing.T) {
 	a.onTx(swp08.TxEvent{Msg: []byte{0x81}, At: time.Now(), Tries: 1, Result: "ack", Ack: 400 * time.Millisecond})
 	waitLogged(t, a, 1)
 	stop()
-	a.up.mu.Lock()
-	defer a.up.mu.Unlock()
-	if a.up.cur.Slow != 1 && (len(a.up.mins) == 0 || a.up.mins[0].Slow != 1) {
-		t.Fatalf("slow ACK not counted: cur=%+v mins=%+v", a.up.cur, a.up.mins)
+	a.first.up.mu.Lock()
+	defer a.first.up.mu.Unlock()
+	if a.first.up.cur.Slow != 1 && (len(a.first.up.mins) == 0 || a.first.up.mins[0].Slow != 1) {
+		t.Fatalf("slow ACK not counted: cur=%+v mins=%+v", a.first.up.cur, a.first.up.mins)
 	}
 }
 

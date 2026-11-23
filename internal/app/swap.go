@@ -224,8 +224,9 @@ func (a *App) newSwapper(cfg config.Config, req swapReq) (*swapper, error) {
 		return nil, fmt.Errorf("swap: numbers run from %d to %d", cfg.NumberOffset, dstNumberMax+cfg.NumberOffset)
 	}
 	sw := &swapper{uid: cfg.UID, dst: req.Side == config.MissingDestination, from: req.From, to: req.To, off: cfg.NumberOffset}
+	first := a.firstUnit()
 	a.mu.Lock()
-	names := sideNames(req.Side, a.router.srcNames, a.router.dstNames)
+	names := sideNames(req.Side, first.router.srcNames, first.router.dstNames)
 	sw.toName = strings.TrimSpace(names[req.To])
 	sw.fromNames = []string{names[req.From]}
 	a.mu.Unlock()

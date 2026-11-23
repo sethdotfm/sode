@@ -47,13 +47,13 @@ func (r *runtime) probe() []byte {
 	return swp08.ExtInterrogate(r.cfg.Matrix, r.levels[0].Wire, 0)
 }
 
-// App is all server state. A router change (applyConfig with reconnect) replaces router and ext, fails waiters and
-// checks (cutRoutes) and sets status to "connecting". All other state stays; clients get a new hello.
+// App is all server state. A router change (applyConfig with reconnect) starts that router's unit again
+// (reconnectMu): new router and ext, waiters and checks fail (cutRoutes), status "connecting". All other state
+// stays; clients get a new hello.
 // Fields from mu down to sessionsAt are guarded by mu, as are the fields of each router unit.
 type App struct {
-	// The first router (routerunit.go). Its fields are the old single-router App fields.
-	*routerUnit
-	// routers: every router unit by router UID. One entry today, the embedded one. Fixed after New.
+	// first: the first router's unit (routerunit.go). routers: every router unit by router UID. Fixed after New.
+	first   *routerUnit
 	routers map[string]*routerUnit
 
 	// profMemo: the marshalled profile per user for one config snapshot. Guarded by mu.
@@ -199,7 +199,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	}
 	u := newRouterUnit(cfg.Router)
 	a := &App{
-		routerUnit: u,
+		first:      u,
 		routers:    map[string]*routerUnit{u.uid: u},
 		hist:       hist,
 		sent:       sent,
@@ -438,9 +438,6 @@ func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 		u.onSalvoAck(*ev.Salvo)
 	}
 }
-
-// Caller holds mu.
-func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) { a.applyUnitTally(a.routerUnit, r, xp) }
 
 // Caller holds mu.
 func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {

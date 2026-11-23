@@ -139,14 +139,15 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 // Parts the router lacks are left out and listed.
 func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	defaults, _ := config.ParseLevels(r.cfg.DefaultLevels, r.cfg.Levels)
+	first := a.firstUnit()
 	a.mu.Lock()
 	// A reference to another router, or one the Broken check marked, is left out like a gone number.
 	has := func(f config.Ref, kind string, names map[int]string) bool {
 		_, ok := names[f.N]
 		return ok && f.Router == r.cfg.UID && !hasMissing(p.Broken, kind, f)
 	}
-	hasSrc := func(f config.Ref) bool { return has(f, config.MissingSource, a.router.srcNames) }
-	hasDst := func(f config.Ref) bool { return has(f, config.MissingDestination, a.router.dstNames) }
+	hasSrc := func(f config.Ref) bool { return has(f, config.MissingSource, first.router.srcNames) }
+	hasDst := func(f config.Ref) bool { return has(f, config.MissingDestination, first.router.dstNames) }
 	type key struct{ dst, src int }
 	var order []key
 	levels := map[key][]int{}
