@@ -1,7 +1,7 @@
 // Presets in the page: firing, filling the boxes and the editor dialog. The strip above History is the Bookmarks
 // strip (bookmarks.js). Storage and pure parts are presetstore.js, the plan is plans.js.
 
-import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem } from './core.js';
+import { el, S, on, emit, search, srcItem, dstItem, nameProblem, routerData, routerOfItem, numText } from './core.js';
 import { btn } from './formbits.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan, canRedo } from './plans.js';
@@ -32,11 +32,14 @@ import {
   saveLocalPreset,
   deleteLocalPreset,
   saved,
-  parseRefs,
   itemsFromEntries,
   isBlankRow,
   fillFrom,
+  readSide,
 } from './presetstore.js';
+import { across } from './presetref.js';
+import { pickRoute } from './tiepicker.js';
+import { pickState, storedState, tieIdsOf, oneOffPicked } from './tiepickrules.js';
 
 const hosts = [];
 // host: { active(), confirm(plan), patch(), picks(), clear(), focus(), take(), clearAll(), takeState(), fill?(take) }.
@@ -80,9 +83,18 @@ export function fillBoxes(scope, name) {
   if (!s || !host) return;
   if (!host.fill) return showResult('info', `Preset ${s.name}`, 'Fill needs the desktop layout.');
   if (!S.srcBy.size) return showResult('warn', 'Preset not filled', 'Router names not read yet.');
-  const r = fillFrom(s, { src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u) }, parseLevels('') || []);
+  const r = fillFrom(
+    s,
+    { src: (n, u) => routerData(u).srcBy.has(n), dst: (n, u) => routerData(u).dstBy.has(n), level: (l, u) => routerData(u).levelBy.has(l) },
+    parseLevels('') || [],
+  );
   if (!r.fill) return showResult('error', `Preset ${s.name} not filled`, 'Nothing in it exists on the router now.');
-  host.fill({ src: srcItem(r.fill.src), dsts: r.fill.dsts.map((n) => dstItem(n)), levels: r.fill.levels });
+  const at = (u) => routerOfItem({ router: u });
+  host.fill({
+    src: srcItem(r.fill.src, '', at(r.fill.router)),
+    dsts: r.fill.dsts.map((n) => dstItem(n, '', at(r.fill.dstRouter || r.fill.router))),
+    levels: r.fill.levels,
+  });
   const notes = [];
   if (r.many) notes.push(`Filled 1 of ${s.items.length} rows.`);
   if (r.partial) notes.push('Left out: destinations or levels that are not on the router.');
@@ -266,9 +278,20 @@ const SRC_EXAMPLE = '12 or Cam 1';
 const DST_EXAMPLE = '12, 20-24, Monitor 1';
 const blankRow = () => ({ src: '', dsts: '', levels: '' });
 
-const display = (n) => String(n + off());
+// A row keeps the routers of its item, so a bare number stays on them. A row across routers also keeps its tie lines
+// and the two routers that they join (tieFor). A change of either router drops them.
+const at = (u) => routerOfItem({ router: u });
 function rowFromItem(it) {
-  return { src: display(it.src), dsts: it.dsts.map(display).join(', '), levels: it.levels.length ? levelInput(it.levels) : '' };
+  const dr = it.dstRouter || it.router;
+  return {
+    src: numText(srcItem(it.src, '', at(it.router))),
+    dsts: it.dsts.map((n) => numText(dstItem(n, '', at(dr)))).join(', '),
+    levels: it.levels.length ? levelInput(it.levels) : '',
+    router: it.router || '',
+    dstRouter: dr || '',
+    ties: across(it) ? [...(it.ties || [])] : [],
+    tieFor: across(it) ? `${it.router} ${dr}` : '',
+  };
 }
 function load(s) {
   linkUI.box.hidden = true;
@@ -282,37 +305,73 @@ function load(s) {
   renderEditor();
 }
 
-const lookup = (list) => (t) => search(list, t, 1)[0]?.n ?? null;
+// The routers a row can name, the first one first: { uid, prefix, off }.
+const rowRouters = () =>
+  (S.routers.length ? S.routers : [{ uid: routerData('').uid, prefix: S.prefix }]).map((r) => ({
+    uid: r.uid,
+    prefix: r.prefix || '',
+    off: routerData(r.uid).off,
+  }));
+const lookup = (side) => (t, uid) => search(routerData(uid)[side], t, 1)[0]?.n ?? null;
+const tieName = (id) => (S.cfg?.tieLines || []).find((t) => t.id === id)?.name || 'a tie line that Sode no longer has';
 function parseRow(r) {
-  const s = parseRefs(r.src, off(), lookup(S.srcs));
-  const d = parseRefs(r.dsts, off(), lookup(S.dsts));
+  const routers = rowRouters();
+  const s = readSide(r.src, { routers, at: r.router || routers[0].uid, lookup: lookup('srcs') });
+  const d = readSide(r.dsts, { routers, at: r.dstRouter || s.router, lookup: lookup('dsts') });
   let levels = [],
     badLevels = false;
   if (r.levels.trim()) {
-    const l = parseLevels(r.levels);
+    const l = parseLevels(r.levels, false, at(d.router));
     if (l) levels = l;
     else badLevels = true;
   }
   const bad = [...s.bad.map((t) => `source “${t}”`), ...d.bad.map((t) => `destination “${t}”`), ...(badLevels ? ['levels'] : [])];
   if (s.ns.length > 1) bad.push('more than one source');
-  const item = { src: s.ns.length === 1 ? s.ns[0] : -1, dsts: d.ns, levels };
-  const known = S.srcBy.has(item.src) && item.dsts.every((n) => S.dstBy.has(n));
+  if (d.mixed) bad.push('destinations on two routers');
+  const crossing = s.router !== d.router;
+  const ties = crossing && r.tieFor === `${s.router} ${d.router}` ? r.ties || [] : [];
+  const item = { src: s.ns.length === 1 ? s.ns[0] : -1, dsts: d.ns, levels, router: s.router, ...(crossing ? { dstRouter: d.router, ties } : {}) };
+  const known = routerData(at(s.router)).srcBy.has(item.src) && item.dsts.every((n) => routerData(at(d.router)).dstBy.has(n));
+  const via = !crossing ? '' : ties.length ? `, Via ${ties.map(tieName).join(', ')}` : ', choose the tie lines';
   const text = bad.length
     ? `Not understood: ${bad.join(', ')}`
     : !item.dsts.length && item.src < 0
       ? ''
-      : `${item.src >= 0 ? srcItem(item.src).label : '?'} → ${item.dsts.map((n) => dstItem(n).label).join(', ') || '?'}${known ? '' : ' (not on the router now)'}`;
+      : `${item.src >= 0 ? srcItem(item.src, '', at(s.router)).label : '?'} → ${item.dsts.map((n) => dstItem(n, '', at(d.router)).label).join(', ') || '?'}${via}${known ? '' : ' (not on the router now)'}`;
   return { item, text, error: bad.length > 0, known };
+}
+
+// chooseTies opens the Tie line picker for item, a route across routers, on its tie lines if it has them. done(ties)
+// gets the chosen tie line ids. A preset stores saved tie lines only, so a One-off tie line is refused.
+function chooseTies(item, done, onClose = () => {}) {
+  const ref = (u, n) => ({ router: u, n });
+  pickRoute({
+    routes: () => [{ src: ref(item.router, item.src), dst: ref(item.dstRouter, item.dsts[0]), levels: item.levels }],
+    state: item.ties?.length ? (route) => storedState(route, item.ties) : pickState,
+    head: 'Tie lines for the preset',
+    final: true,
+    use: 'Use',
+    onPick: (st) => {
+      if (oneOffPicked(st)) {
+        setNote('A preset stores saved tie lines only. Choose a saved tie line, or save the One-off tie line in Settings first.', true);
+        return onClose();
+      }
+      done(tieIdsOf(st));
+    },
+    onClose,
+  });
 }
 
 function renderRows() {
   rowsBox.replaceChildren(
     ...cur.items.map((r, i) => {
       const hint = el('span', 'sode__hint sode__preset-hint');
+      let ties = null;
       const upd = () => {
         const p = parseRow(r);
         hint.textContent = p.text;
         hint.classList.toggle('sode__error-text', p.error || (!p.known && !!p.text));
+        if (ties) ties.hidden = !across(p.item);
       };
       const field = (key, ph, label, text) => {
         const inp = el('input', 'pb-input');
@@ -330,12 +389,35 @@ function renderRows() {
         return labeled(text, inp);
       };
       upd();
+      // A route across routers stores its tie lines: the button opens the picker on them (docs/tielines-design.md,
+      // Presets). It shows only while the row crosses routers.
+      ties = btn('pb-btn--outline sode__preset-ties', 'Tie lines…', () => {
+        const p = parseRow(r);
+        if (p.error || p.item.src < 0 || !p.item.dsts.length) return setNote('Type the source and the destinations of the row first.', true);
+        chooseTies(
+          p.item,
+          (ids) => {
+            r.ties = ids;
+            r.router = p.item.router;
+            r.dstRouter = p.item.dstRouter;
+            r.tieFor = `${p.item.router} ${p.item.dstRouter}`;
+            touch();
+            upd();
+            setNote('');
+            ties.focus();
+          },
+          () => ties.isConnected && ties.focus(),
+        );
+      });
+      ties.dataset.pbTip = 'Choose the tie lines of this route across routers';
+      upd();
       return el(
         'div',
         `sode__preset-row${i ? ' sode__preset-row--bare' : ''}`,
         field('src', SRC_EXAMPLE, `Row ${i + 1} source`, 'Source'),
         field('dsts', DST_EXAMPLE, `Row ${i + 1} destinations`, 'Destinations'),
         field('levels', S.levels.length ? `${S.levels[0].label}-${S.levels[S.levels.length - 1].label}` : '', `Row ${i + 1} levels`, 'Levels'),
+        ties,
         btn('pb-btn--ghost', 'Remove', () => {
           cur.items.splice(i, 1);
           touch();
@@ -416,13 +498,33 @@ const rowItems = () =>
     .map((p) => p.item);
 // The one add of the session, for the boxes' Take and the Grid popup. Rows already there go, and a problem the new rows
 // would make at Save is refused now (itemsToAdd). text is the row count so far, or why nothing was added.
+// A route across routers with no tie lines opens the picker first (docs/tielines-design.md, Presets, rule 1), one
+// route after the other. Each is added after its pick.
 function addToPreset(items) {
+  const ask = items.filter((it) => across(it) && !it.ties?.length);
+  const now = items.filter((it) => !ask.includes(it));
+  const r = now.length ? addNow(now) : null;
+  if (!ask.length) return r;
+  if (r && !r.ok) return r;
+  pickEach(ask);
+  return { ok: true, rows: r?.rows || 0, text: 'Choose the tie lines of the route across routers.' };
+}
+function addNow(items) {
   const r = itemsToAdd(rowItems(), items);
   const text = r.err || (r.items.length ? '' : 'Already in the preset.');
   if (text) return { ok: false, rows: 0, text };
   addRows(r.items, '');
   added += r.items.length;
   return { ok: true, rows: r.items.length, text: addedText() };
+}
+function pickEach(list) {
+  const [it, ...rest] = list;
+  if (!it) return;
+  chooseTies(it, (ties) => {
+    const r = addNow([{ ...it, ties }]);
+    presetAdd.say(r.ok ? addedText() : r.text);
+    pickEach(rest);
+  });
 }
 function addFromBoxes() {
   if (!shown()) return setNote('The patch boxes are not showing.', true);

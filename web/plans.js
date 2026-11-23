@@ -1,4 +1,4 @@
-import { el, S, search, on, onMsg, emit, wsSend, off, srcItem, dstItem, labelNode, tallyText, routerData, routerOfItem, LINK_DOWN } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, srcItem, dstItem, numText, labelNode, tallyText, routerData, routerOfItem, LINK_DOWN } from './core.js';
 import { protectedText } from './protectrules.js';
 import { protectSummary, sendProtect, holdsAt, holdBadge } from './protects.js';
 import { levelText, oneLevel, levelBar, parseLevels, levelLabel } from './levelview.js';
@@ -12,6 +12,7 @@ import { writeJSON, writeStr } from './store.js';
 import { onMyRights } from './editorrights.js';
 import { nextAfter } from './boxlist.js';
 import { strong, destPart, takeQuestion, planItemHead } from './confirmtext.js';
+import { noteSent, noteOwn } from './stepback.js';
 export { showResult, resultNode } from './banner.js';
 export { nameStem } from './boxlist.js';
 
@@ -88,24 +89,36 @@ export const patchPlan = (src, dsts, levels) => ({
 // The patch the boxes hold, as preset saving wants it: null until Source and a destination are set.
 export const boxPatch = (src, dsts, lvl) => (src && dsts.length ? { src, dsts, levels: lvl.empty() ? [] : lvl.levels() || [] } : null);
 
-// What the router does not have is left out and listed in warnings. Validated at save
-// (presetProblem), not here.
+// What the routers do not have is left out and listed in warnings. Validated at save
+// (presetProblem), not here. defaults: the first router's default levels; another router's come from its own
+// settings. A route across routers keeps its stored tie lines (ties on its group), so the tie confirm page opens on
+// them (tieflow.js).
 export function presetPlan(preset, defaults) {
-  // The shown names keep a gone number's old name, so the server's Broken mark decides.
-  const marked = (kind, n) => (preset.broken || []).some((m) => m?.kind === kind && m?.ref?.n === n);
+  // The shown names keep a gone number's old name, so the server's Broken mark decides. A mark of a router names it.
+  const uidOf = (router) => routerData(router).uid;
+  const marked = (kind, n, router = '') =>
+    (preset.broken || []).some(
+      (m) => m?.kind === kind && (kind === 'tie' ? m?.tie === n : m?.ref?.n === n && (!m?.ref?.router || !router || m.ref.router === uidOf(router))),
+    );
+  const tieIds = new Set((S.cfg?.tieLines || []).map((t) => t.id));
   const r = resolvePreset(
     preset,
     {
-      src: (n) => S.srcBy.has(n) && !marked('source', n),
-      dst: (n) => S.dstBy.has(n) && !marked('destination', n),
-      level: (u) => S.levelBy.has(u),
+      src: (n, router) => routerData(router).srcBy.has(n) && !marked('source', n, router),
+      dst: (n, router) => routerData(router).dstBy.has(n) && !marked('destination', n, router),
+      level: (u, router) => routerData(router).levelBy.has(u),
+      tie: (id) => tieIds.has(id) && !marked('tie', id),
     },
-    defaults,
+    (router) => (routerData(router).first ? defaults : parseLevels('', false, router) || []),
   );
   // The Broken banner (brokenbanner.js) names a marked part.
-  const warnings = r.missing
-    .filter((m) => !marked(m.kind, m.n))
-    .map((m) => `${m.kind === 'level' ? `Level ${m.n}` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()}`}: not on the router`);
+  const what = (m) => {
+    if (m.kind === 'level') return `Level ${m.n}`;
+    if (m.kind === 'tie') return 'A route across routers: its tie line';
+    const it = m.kind === 'source' ? srcItem(m.n, '', m.router) : dstItem(m.n, '', m.router);
+    return `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${numText(it)}`;
+  };
+  const warnings = r.missing.filter((m) => !marked(m.kind, m.n, m.router)).map((m) => `${what(m)}: not on the router`);
   return {
     verb: 'preset',
     preset: preset.name,
@@ -114,8 +127,8 @@ export function presetPlan(preset, defaults) {
     warnings,
     items: r.routes.map((t) =>
       routeItem(
-        dstItem(t.dst),
-        t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })),
+        dstItem(t.dst, '', routerOfItem({ router: t.dstRouter })),
+        t.groups.map((g) => ({ src: srcItem(g.src, '', routerOfItem({ router: g.router })), levels: g.levels, ...(g.ties ? { ties: g.ties } : {}) })),
       ),
     ),
   };
@@ -188,6 +201,7 @@ function takeResult(m) {
   const b = takes.get(m.id);
   if (!b) return;
   takes.delete(m.id);
+  noteOwn([m.entry], S.hist);
   b.results.push({ ...b.byId.get(m.id), ok: m.ok, err: m.err, entry: m.entry, already: m.already || [] });
   if (b.results.length < b.byId.size) return;
   const undo = b.verb === 'undo';
@@ -622,9 +636,17 @@ export function noteLast(p) {
 }
 
 export function sendTakes(p) {
-  if (p.protect) return sendProtect(p);
+  if (p.protect) {
+    const sent = sendProtect(p);
+    if (sent) noteSent(p);
+    return sent;
+  }
   // A take with tie routes sends itself (tieflow.js).
-  if (p.send) return p.send();
+  if (p.send) {
+    const sent = p.send();
+    if (sent) noteSent(p);
+    return sent;
+  }
   const take = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
   for (const it of [...p.items, ...(p.extra?.on ? p.extra.items : [])]) {
@@ -646,6 +668,7 @@ export function sendTakes(p) {
     return false;
   }
   for (const id of take.byId.keys()) takes.set(id, take);
+  noteSent(p);
   // The Grid popup drops its staged routes only once they went out.
   p.onSent?.();
   noteLast(p);

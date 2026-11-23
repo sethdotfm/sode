@@ -270,17 +270,21 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		if prob := tieProtectAllowed(cl, protect); prob != nil {
 			return nil, prob
 		}
+		// A page's preset fire with tie lines (web/tieflow.js) names its preset, for History and the preset right.
+		if (cl.preset != "" || cl.presetID != "") && !cl.Rights.AllowsPreset(cl.presetID) {
+			return nil, problem(http.StatusForbidden, "outside_rights", "preset %q is outside your rights", cl.preset)
+		}
 		tt, prob := a.planTieTake(rt, a.view(cl), all, ties)
 		if prob != nil {
 			return nil, prob
 		}
-		return &takePlan{Ties: tt}, nil
+		return &takePlan{Ties: tt, Preset: cl.preset, PresetID: cl.presetID}, nil
 	})
 }
 
 func (a *App) apiTakePreset(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	scope, name := r.PathValue("scope"), r.PathValue("name")
-	a.apiTakeRun(w, r, cl, func([]byte) (*takePlan, *apiProblem) {
+	a.apiTakeRun(w, r, cl, func(body []byte) (*takePlan, *apiProblem) {
 		cfg := a.r().cfg
 		var list []config.Preset
 		switch {
@@ -297,7 +301,7 @@ func (a *App) apiTakePreset(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		if i < 0 || !a.view(cl).WholePreset(list[i]) {
 			return nil, problem(http.StatusNotFound, "not_found", "no preset %q in %s", name, scope)
 		}
-		return planPreset(a, a.r(), list[i])
+		return a.presetTake(a.r(), cl, body, list[i])
 	})
 }
 
@@ -494,6 +498,9 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 			return p.answer(), false
 		}
 		defer unlock()
+		for _, s := range t.steps {
+			s.req.Preset, s.req.PresetID = plan.Preset, plan.PresetID
+		}
 		plan.Ties = t
 	}
 	a.takeEvent(cl, why, "sent", note, nil)
@@ -503,6 +510,7 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		for i := range out.Results {
 			out.Results[i].Hops = a.view(cl).hops(out.Results[i].Hops)
 		}
+		out.LeftOut = plan.LeftOut
 		return jsonAnswer(http.StatusOK, out), true
 	}
 	// The recorder in tests has no write deadline.

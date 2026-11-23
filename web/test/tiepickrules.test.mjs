@@ -34,6 +34,10 @@ import {
   oneOffId,
   chooseOneOff,
   oneOffsOf,
+  storedState,
+  storedText,
+  tieIdsOf,
+  oneOffPicked,
 } from '../tiepickrules.js';
 
 // The shared plan fixture (internal/tieplan, web/test/tieplan.test.mjs). The page reads the 409 body of POST /takes;
@@ -440,4 +444,25 @@ test('a One-off tie line with an unknown upstream destination goes with no expec
   };
   assert.equal('expect' in takeRoute(unknown).ties[0], false);
   assert.equal('expect' in takeRoute(st).ties[0], true);
+});
+
+// A preset's tie confirm page opens on the stored tie lines, even when they are not the cheapest or are Protected. Take
+// stays off on a Protected one until the person chooses again or clears the route (docs/tielines-design.md, Presets).
+test('a preset opens the picker on its stored tie lines and says what it found', () => {
+  const route = apiRoute(byName('mesh: the cheapest'));
+  const st = storedState(route, ['t3', 't4']);
+  assert.deepEqual(ties(st), ['t3', 't4']);
+  assert.deepEqual(tieIdsOf(st), ['t3', 't4']);
+  assert.deepEqual(storedText(st), { text: 'This preset stores these tie lines.', warn: false });
+  assert.match(storedText(keys(st, 'k', 'k')).text, /other tie lines than the preset stores/);
+  const gone = storedState(route, ['zz']);
+  assert.deepEqual(ties(gone), ['t2']);
+  assert.ok(storedText(gone).warn);
+  const held = storedState(apiRoute(byName('Protect: t1 costs less')), ['t1']);
+  assert.deepEqual(ties(held), ['t1']);
+  assert.ok(!ready(held), 'Take stays off');
+  assert.match(storedText(held).text, /Protected/);
+  assert.ok(ready(choose(held, 0, 't2')), 'another tie line can go');
+  assert.equal(storedText(pickState(route)).text, '', 'a picker that is not a preset says nothing');
+  assert.ok(!oneOffPicked(st));
 });

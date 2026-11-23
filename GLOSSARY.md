@@ -129,6 +129,9 @@ A Result where the router did not confirm the change, or refused it. Retry prepa
 **Late**:
 A Result that the router confirmed after Sode had stopped waiting. Sode amends the Entry when the Result arrives.
 
+**Undone**:
+An Entry that a later undo put back. Undone means that the router confirmed the undo on every level. Partly undone means that it confirmed the undo on some levels only. It is a record of what happened. It does not show what the destination has now.
+
 **Filter**:
 One rule on Source or Destination that limits which entries History shows.
 
