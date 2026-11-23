@@ -44,6 +44,14 @@
   };
   const theme = pick('sode-theme', 'theme', ['system', 'light', 'dark'], 'system');
   if (theme !== 'system') root.dataset.theme = theme;
+  // The accent from the last page border color, as brand.js left it (ACCENT_TOKENS in accent.js); the hello corrects it.
+  try {
+    const a = JSON.parse(get('sode-accent'));
+    for (const k of ['--pb-accent', '--pb-accent-hover', '--pb-accent-wash']) {
+      const v = a?.[k];
+      if (typeof v === 'string' && /^light-dark\([#0-9a-f(),. rgba]+\)$/.test(v)) root.style.setProperty(k, v);
+    }
+  } catch {}
   if (themeOnly) return;
   let layout = pick('sode-layout', 'layout', ['auto', 'phone', 'desktop'], 'auto');
   if (layout === 'auto') layout = matchMedia('(max-width: 700px) and (pointer: coarse)').matches ? 'phone' : 'desktop';

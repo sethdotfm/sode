@@ -216,3 +216,25 @@ func TestNameRereadFromEnv(t *testing.T) {
 		t.Fatalf("json: %s", b)
 	}
 }
+
+// Retired page border colors still load and draw, but are not offered.
+func TestRetiredBrandColorsStillLoad(t *testing.T) {
+	for _, name := range []string{"green", "amber", "pink"} {
+		c := Defaults()
+		c.Address = "10.0.0.5:8910"
+		c.BrandBorder = name
+		c.Normalize()
+		if err := c.Validate(); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+		if _, ok := BrandHex(name); !ok {
+			t.Errorf("%s: no hex", name)
+		}
+		if slices.Contains(BrandNames(), name) {
+			t.Errorf("%s is offered", name)
+		}
+	}
+	if got := strings.Join(BrandNames(), " "); got != "blue teal sky slate violet" {
+		t.Errorf("offered %q", got)
+	}
+}

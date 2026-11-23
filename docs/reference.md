@@ -128,7 +128,7 @@ routers:
 Settings-only keys (no seed var):
 
 - `brandText`: replaces "Sode" in the header and page title, up to 24 characters.
-- `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`, or a custom `#rrggbb`): a border round the window, off by default.
+- `brandBorder` (`blue`, `teal`, `sky`, `slate`, `violet`, or a custom `#rrggbb`): a border round the window, off by default. Sode makes the accent from it (docs/color-roles.md). `green`, `amber` and `pink` are retired: Settings does not offer them, but a config that has one still loads, with a caution note in Settings.
 - `title` (router): the router title, up to 32 characters.
 - `statusLabel` (router: `address`, `name` or `none`): what the Router status shows.
 - `levelColors`
