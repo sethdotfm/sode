@@ -189,6 +189,8 @@ type App struct {
 	// it and keys App.tallyCache, as a tally body carries the Via of other routers. Guarded by App.mu.
 	viaPend map[tieplan.End]bool
 	viaGen  int
+	// pageVia: the Via rows last sent to the pages (pagevia.go). Guarded by App.mu.
+	pageVia pageViaState
 
 	inbox *inboxStore // inbox.go
 
@@ -653,13 +655,16 @@ func (a *App) flush() {
 	}()
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	tallied := false
 	for _, u := range a.unitsInOrder(a.r()) {
 		if len(u.router.pend) > 0 {
 			a.broadcast(deltaMsg{T: "tally", U: u.router.pend, RouterUID: u.uid, from: u})
 			u.router.pend = nil
+			tallied = true
 		}
 	}
 	a.flushVia()
+	a.flushPageVia(tallied)
 	// The protected message of the first router has Sode's record; the message of each other router has its UID.
 	first := a.firstUnit()
 	for _, u := range a.unitsInOrder(a.r()) {
@@ -750,6 +755,7 @@ func (a *App) hello(p helloPage) []byte {
 // helloRouters gives each router of the hello, in the order of the settings. Caller holds mu.
 func (a *App) helloRouters(r *runtime) []helloRouter {
 	var out []helloRouter
+	x := a.newViaTrace(r)
 	for _, u := range a.unitsInOrder(r) {
 		lv := r.levelsOf(u.uid)
 		rc := lv.rc
@@ -759,6 +765,7 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 			NumberOffset: rc.NumberOffset, Levels: lv.levels,
 			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
 			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, Tally: routeTriples(u.router.tally), Status: u.statusOut(),
+			Via: a.pageViaRows(u, x),
 		})
 	}
 	return out

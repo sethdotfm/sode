@@ -81,9 +81,14 @@ export const rightsAllow = (rights, list, v, router) => {
 
 export function envFrom(tally, protectedReply, presetsReply = {}, rights = null) {
   const rows = new Map();
+  const via = new Map();
   for (const r of tally.routes || []) {
     if (!rows.has(r.dst)) rows.set(r.dst, new Map());
     rows.get(r.dst).set(r.level, r.src);
+    if (r.via) {
+      if (!via.has(r.dst)) via.set(r.dst, new Map());
+      via.get(r.dst).set(r.level, r);
+    }
   }
   return {
     // router: the UID Rights levels and the panel's level subset name these levels by.
@@ -92,6 +97,8 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
     // With two or more routers, each router's { router, levels } by place (mergeTally); envAt reads it.
     places: (tally.byPlace || []).map((t) => t && { router: t.router, levels: (t.levels || []).map((l) => l.level) }),
     tally: rows,
+    // dst → Map(level → Via row): the routes that a tie line feeds (viarules.js).
+    via,
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),
     rights: rights || null,
     presets: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), (p.items || []).map(itemPlain)])),

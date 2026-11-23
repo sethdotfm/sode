@@ -22,6 +22,7 @@ import {
 } from './gridpanelstage.js';
 import { createPicks, pickName, pickCount, dropPicks, diagonal, extendPick, dragPick, enterGrid } from './gridpanelpick.js';
 import { pieOn, otherRouterLevels } from './gridpanellevels.js';
+import { viaOn, viaText } from './viarules.js';
 import { otherSources, otherText, stageable, skippedText, refusalText, leftOut, keepLive, leftOutText, leftOutLine } from './gridpanelrights.js';
 import { gridKeyAction, findBoxAction, clearAction } from './gridpanelkeys.js';
 import { sourceJump, holderJump, jumpText } from './gridpaneljump.js';
@@ -140,6 +141,9 @@ export function gridBody(ctx, first) {
     },
     levelText: (list) => levelTextOf(list, tally?.levels || [], tally?.levelNumbering),
     pie: (s, d) => pieOn(env, s, d),
+    // The Via row of a crosspoint that a tie line feeds, and its words for the tip (viarules.js).
+    via: (s, d) => viaOn(env, s, d),
+    viaText: (row) => viaText(row, (o) => ctx.viaLabel?.(o) ?? names.source(ctx.places ? ctx.places().id(o.router, o.n) : o.n)),
     staged,
     held: (d) => st.staged.some((x) => x.dst === d),
     marks: null, // the press policy's marks and words (gridpaneladd.js) as of the last render

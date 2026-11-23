@@ -23,7 +23,7 @@ import {
 import { defaultLevelsWord, allLevels, levelText, levelSource, oneLevel } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { levelRouterOf } from './levels.js';
-import { fedBy, currentlyNodes } from './routes.js';
+import { fedBy, currentlyNodes, fedThroughTies } from './routes.js';
 import { flipped } from './device.js';
 import { paintRouters } from './connview.js';
 import { routerLinks, routerMarks } from './routerlinkrules.js';
@@ -68,6 +68,14 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
 });
 // Typed levels are levels of the router of the route's destination, as on the desktop. The picks follow it
 // (followLevels).
+// What source src feeds: on its own router on every level, and through tie lines.
+const feedList = (src) => {
+  const uid = routerOfItem(src);
+  return [
+    ...fedBy(src.n, allLevels(uid), uid).map((d) => dstItem(d, '', uid)),
+    ...fedThroughTies(src).map((f) => ({ ...dstItem(f.dst, '', f.router), via: f.row })),
+  ];
+};
 const lvlRouter = () => levelRouterOf({ dsts: M.dsts, src: M.sel.src }, routerOfItem);
 let lvlAt = '';
 const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), () => levelSource(lvlRouter()), {
@@ -365,14 +373,14 @@ function renderThread() {
       el(
         'div',
         'sode-m__card',
-        feeding(fedBy(M.sel.src.n, allLevels()), {
+        feeding(feedList(M.sel.src), {
           open: M.feedOpen,
           onToggle: () => {
             M.feedOpen = !M.feedOpen;
             renderThread();
           },
           onPick: (d) => {
-            addDst(dstItem(d));
+            addDst(dstItem(d.n, '', d.router || ''));
             setStep('lvl');
           },
           hold: 'pointerdown',

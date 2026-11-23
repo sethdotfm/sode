@@ -344,6 +344,11 @@ function tallyFeed({ door, body, ui, rights, used, showOffline, onFail }) {
       poll();
     }),
     on('wsclose', () => (feed = F.socketClosed(feed))),
+    on('viaRows', () => {
+      if (door.ended) return;
+      feed = F.viaCame(feed);
+      poll();
+    }),
     on('protectedRows', () => poll()),
     on('names', () => {
       namesAt = 0;

@@ -6,7 +6,9 @@ export function withRoutes(t, u) {
   const at = new Map(routes.map((r, i) => [`${r.dst} ${r.level}`, i]));
   for (const [dst, level, src] of u) {
     const k = `${dst} ${level}`;
-    const row = { dst, level, src };
+    // A row with the same source keeps its Via. A new source waits for the read that a `viaRows` message asks for.
+    const was = at.has(k) ? routes[at.get(k)] : null;
+    const row = was?.via && was.src === src ? was : { dst, level, src };
     if (at.has(k)) routes[at.get(k)] = row;
     else at.set(k, routes.push(row) - 1);
   }
@@ -61,6 +63,9 @@ export function drawRows(f) {
   if (!f.shown || !f.rows.length) return { feed: { ...f, rows: [] }, changed: false };
   return { feed: { ...f, shown: withRoutes(f.shown, f.rows), rows: [] }, changed: true };
 }
+
+// The Via of some row changed (the page's `viaRows` message). Frames carry no Via, so the next poll reads.
+export const viaCame = (f) => ({ ...f, stale: true });
 
 export const helloCame = (f) => ({ ...f, live: true, trusted: true, stale: true, hellos: f.hellos + 1 });
 

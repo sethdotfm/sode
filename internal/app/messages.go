@@ -110,6 +110,9 @@ type helloRouter struct {
 	At             time.Time       `json:"at"`
 	Tally          json.RawMessage `json:"tally"` // routeTriples
 	Status         statusMsg       `json:"status"`
+	// Via: the rows of the tally whose source a tie line feeds, with their Via (pagevia.go). A `viaRows` message
+	// replaces them.
+	Via []apiRouteRow `json:"via"`
 }
 
 type helloUser struct {

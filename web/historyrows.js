@@ -1,7 +1,8 @@
 // History rows, for the desktop list and the phone's swipe rows. Pure: wording and plans only,
 // each layout builds its own DOM from these.
 
-import { S, srcItem, dstItem } from './core.js';
+import { S, srcItem, dstItem, routerOfItem } from './core.js';
+import { hopsVia, alsoNote } from './viarules.js';
 import { undoPlan, againPlan, groupUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
 import { groupPartial, groupIds } from './history.js';
 import { UNDO_TIP_ALL } from './widgets.js';
@@ -19,6 +20,9 @@ const srcOf = (e) => (e.origin ? srcItem(e.origin.n, e.origin.name, e.origin.rou
 // changed, B.42 not". The hops in e.hops with result connected changed their tie lines. A hop with late changed its
 // tie line after the take gave up, so the hops after it were not sent: "TIE 3 changed late".
 const changedHops = (e) => (!e.ok && e.hops ? e.hops.filter((h) => (h.result === 'connected' || h.late) && h.entry != null) : []);
+// The words of an External on the upstream end of a tie line: what it also changes.
+const alsoOf = (e) => alsoNote(e, (a) => dstItem(a.n, a.name || '', routerOfItem(a)).label);
+
 const tieNames = (hs) => hs.map((h) => h.tieName || h.tie).join(', ');
 function partialNote(e) {
   const hs = changedHops(e);
@@ -54,7 +58,8 @@ export function putBacks(entries, hist = S.hist) {
 }
 
 // A take entry. Each descriptor has, for an entry ({e}) or a Group ({f}):
-// - route(x): {lead, src, dst, many, notes}. lead: a node that stands where the source is (a Protect chip), else null.
+// - route(x): `{lead, src, via, dst, many, notes}`. lead: a node that stands where the source is (a Protect chip), else
+//   null. `via`: the Via of a tie take ("Via TIE 3"), else ''.
 //   src and dst: an item, or words for many ("3 sources"). many: a Group's destinations, else null. notes: a Group's
 //   words in brackets.
 // - disc(e, before) and detail(e, dst, before) (entries): the closed disclosure's word and the open detail's heading;
@@ -64,7 +69,14 @@ export function putBacks(entries, hist = S.hist) {
 //   wording (the buttons then use their default).
 // - empty(x): what Undo says when there is nothing to undo.
 const TAKE = {
-  route: (e) => ({ lead: null, src: srcOf(e), dst: dstItem(e.dst, e.dstName, e.router), many: null, notes: [partialNote(e)].filter(Boolean) }),
+  route: (e) => ({
+    lead: null,
+    src: srcOf(e),
+    via: hopsVia(e),
+    dst: dstItem(e.dst, e.dstName, e.router),
+    many: null,
+    notes: [partialNote(e), alsoOf(e)].filter(Boolean),
+  }),
   disc: () => 'Before',
   detail: (e, dst) => `Before #${e.id}, on ${dst.label}`,
   actions(e) {
@@ -101,10 +113,13 @@ const GROUP = {
       groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
       nFollow && `+${nFollow} External follow ${nFollow === 1 ? 'entry' : 'entries'}`,
       ...asked.map(partialNote),
+      ...asked.map(alsoOf),
     ];
+    const vias = new Set(es.map(hopsVia));
     return {
       lead: null,
       src: srcs.size === 1 ? srcOf(es[0]) : `${srcs.size} sources`,
+      via: srcs.size === 1 && vias.size === 1 ? [...vias][0] : '',
       dst: dsts.size === 1 ? dstItem(es[0].dst, es[0].dstName) : `${dsts.size} destinations`,
       many: dsts.size > 1 ? [...dsts].map(([n, name]) => dstItem(n, name)) : null,
       notes: notes.filter(Boolean),

@@ -3,9 +3,15 @@
 // keeps the tally, the protected list and the names, so these build the same answers from that state.
 
 // GET /tally. levels are the hello's ({ ui, label, swatch, color }); tally is dst -> (level -> src).
-export function tallyReplyOf({ router, levels, levelNumbering, defaultLevels, tally }) {
+// `via`: the router's Via rows (core.js `routerData(uid).via`). A route that a tie line feeds carries its row's fields
+// while the row is for the same source. A tally change comes before its `viaRows` message.
+export function tallyReplyOf({ router, levels, levelNumbering, defaultLevels, tally, via = null }) {
   const routes = [];
-  for (const [dst, t] of tally) for (const [level, src] of t) routes.push({ dst, level, src });
+  for (const [dst, t] of tally)
+    for (const [level, src] of t) {
+      const v = via?.get(dst)?.get(level);
+      routes.push(v && v.src === src ? v : { dst, level, src });
+    }
   return {
     router: router || '',
     levels: levels.map((l) =>

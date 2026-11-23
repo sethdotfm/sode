@@ -4,6 +4,7 @@ import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem, routerData }
 import { listStep, pickOrAdd } from './keys.js';
 import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
+import { viaWordMark } from './viaview.js';
 import { timeNodes, compactOn } from './device.js';
 import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupLevels, groupRouter, groupIds, routeNote } from './history.js';
 import { planEmpty, showResult } from './plans.js';
@@ -93,7 +94,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   // r: rowView's route. A lead (a Protect chip) stands where the source box is, with no arrow.
   const words = (x) => (typeof x === 'string' ? document.createTextNode(x) : x);
   const routeNodes = (r) => [
-    ...(r.lead ? [r.lead] : [routeBox('src', words(r.src)), el('span', 'sode__arrow', '→')]),
+    ...(r.lead ? [r.lead] : [routeBox('src', words(r.src)), ...(r.via ? [viaWordMark(r.via)] : []), el('span', 'sode__arrow', '→')]),
     routeBox('dst', words(r.dst), r.many),
     routeNote(r.notes),
   ];
