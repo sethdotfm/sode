@@ -372,12 +372,16 @@ type Level struct {
 	Color  string `json:"color,omitempty"` // overrides Swatch
 }
 
+// LevelMap gives the first router's levels.
+func (c Config) LevelMap() []Level { return c.LevelMapOf(c.Router) }
+
+// LevelMapOf gives the levels of router rc: its count, wire offset and numbering, with the level colors of the config.
 // UI 1 gets the video swatch, the rest the 16 audio swatches.
-func (c Config) LevelMap() []Level {
-	out := make([]Level, c.Levels)
+func (c Config) LevelMapOf(rc Router) []Level {
+	out := make([]Level, rc.Levels)
 	for i := range out {
 		ui := i + 1
-		l := Level{UI: ui, Wire: ui + c.LevelWireOffset, Label: c.LevelLabel(ui), Swatch: "video"}
+		l := Level{UI: ui, Wire: ui + rc.LevelWireOffset, Label: rc.LevelLabel(ui), Swatch: "video"}
 		if ui > 1 {
 			l.Swatch = fmt.Sprintf("%02d", (ui-2)%16+1)
 		}
@@ -391,8 +395,9 @@ func (c Config) LevelMap() []Level {
 	return out
 }
 
-func (c Config) LevelLabel(ui int) string {
-	switch c.LevelNumbering {
+// LevelLabel follows the router's Level numbering.
+func (r Router) LevelLabel(ui int) string {
+	switch r.LevelNumbering {
 	case "0":
 		return strconv.Itoa(ui - 1)
 	case "va":

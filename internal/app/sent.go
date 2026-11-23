@@ -150,7 +150,7 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 		q.Level, q.Dst = -1, -1
 		e.Wire, e.Dst = -1, -1
 	}
-	if l, ok := r.byWire[q.Level]; ok && q.Level >= 0 {
+	if l, ok := r.levelsOf(ev.Why.Router).byWire[q.Level]; ok && q.Level >= 0 {
 		e.Level = l.UI
 	}
 	a.mu.Lock()

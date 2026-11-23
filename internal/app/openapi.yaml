@@ -178,7 +178,7 @@ paths:
                         swatch: { type: string, description: "Name of the theme color: `video` or `01` to `16`" }
                         color: { type: string, description: "A #rrggbb color. When present it replaces the swatch" }
                   levelNumbering: { type: string, enum: ["1", "0", "va"], description: "Level numbering: `1` is 1 to 17, `0` is 0 to 16, `va` is V, then 1 to 16" }
-                  defaultLevels: { type: string, description: "The Default levels setting, typed in the Level numbering" }
+                  defaultLevels: { type: string, description: "The Default levels setting of the router, typed in its Level numbering" }
                   routes: { type: array, items: { $ref: "#/components/schemas/Route" } }
               example:
                 levels: [{ level: 1, label: "1", swatch: video, color: "#7ae85a" }]

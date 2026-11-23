@@ -119,7 +119,7 @@ func (a *App) lateConfirm(u *routerUnit, id int, uis []int) {
 		return
 	}
 	log.Printf("LATE #%d src=%d %q dst=%d %q level %s confirmed after the take gave up (ok=%t)",
-		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, levelList(r, done), e.OK)
+		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, levelList(r.levelsOf(e.Router), done), e.OK)
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "entry", E: &e, Update: true})
 	a.mu.Unlock()

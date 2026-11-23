@@ -94,16 +94,19 @@ type helloMsg struct {
 // helloRouter is one router of the hello. UID is the router unit's UID, which the tally, names and status messages
 // and a take's route name.
 type helloRouter struct {
-	UID          string          `json:"uid"`
-	Prefix       string          `json:"prefix"`
-	Title        string          `json:"title"`
-	NumberOffset int             `json:"numberOffset"`
-	Levels       []config.Level  `json:"levels"`
-	Srcs         [][2]any        `json:"srcs"`
-	Dsts         [][2]any        `json:"dsts"`
-	At           time.Time       `json:"at"`
-	Tally        json.RawMessage `json:"tally"` // routeTriples
-	Status       statusMsg       `json:"status"`
+	UID          string         `json:"uid"`
+	Prefix       string         `json:"prefix"`
+	Title        string         `json:"title"`
+	NumberOffset int            `json:"numberOffset"`
+	Levels       []config.Level `json:"levels"`
+	// LevelNumbering and DefaultLevels are this router's: typed levels of a route are levels of its router.
+	LevelNumbering string          `json:"levelNumbering"`
+	DefaultLevels  string          `json:"defaultLevels"`
+	Srcs           [][2]any        `json:"srcs"`
+	Dsts           [][2]any        `json:"dsts"`
+	At             time.Time       `json:"at"`
+	Tally          json.RawMessage `json:"tally"` // routeTriples
+	Status         statusMsg       `json:"status"`
 }
 
 type helloUser struct {
