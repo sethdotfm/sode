@@ -16,7 +16,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 
 1. A Router is one SW-P-08 matrix at one address. Two matrices at one address are two routers. A backup address for the same matrix is a setting of one router.
 2. Every router speaks SW-P-08. Bridge apps convert other protocols, and Sode does not.
-3. The owner reports that the bridge apps act as an Ultrix does: extended commands, announced changes, Protect and names all work. One fact is not known: does a bridge send a Connected message for a connect that changes nothing? Sode depends on the Ultrix not sending it (docs/agents/router-verified.md). Add a swp08sim mode for each answer, and test both before the spec is final.
+3. The owner reports that the bridge apps act as an Ultrix does: extended commands, announced changes, Protect and names all work. Sode depends on a router that sends no Connected message for a connect that changes nothing (docs/agents/router-verified.md). On 2026-11-22 the Videohub bridge sent only an ACK for such a connect, as the Ultrix does. Nobody has tested the openGear bridge yet.
 4. Each router has its own state, link, timers and External tracking. A change to the settings of one router cuts takes in flight only on that router. An External follow never crosses routers.
 
 ### Health and status
@@ -272,6 +272,6 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 
 ## Open items
 
-1. Does each bridge send a Connected message for a connect that changes nothing? (Routers, item 3.)
+1. Test the openGear bridge for a Connected message on a connect that changes nothing. (Routers, item 3.)
 2. A GLOSSARY.md term for the degraded state.
 3. How to split the work into issues. The owner expects one large spec with many issues.
