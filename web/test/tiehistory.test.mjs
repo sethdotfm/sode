@@ -267,3 +267,57 @@ test('stacking: a tie row stacks with a tie row through the same tie line, never
   // A failed tie take stays apart for its Retry.
   assert.equal(shown(m, [...tieTake({ id: 3, s: 10, ok: false }), ...tieTake({ id: 1, s: 0 })]), '4 2');
 });
+
+// Seams of the Undone mark and the Ctrl+Z step back (stepback.js) with tie takes.
+test('Undone: a Group whose destinations are all undone is Undone, though its hop entry was never undone', async () => {
+  const m = await setup();
+  const [last, hop] = tieTake({ id: 1 });
+  const two = [
+    { ...last, id: 3, dst: 42, groupN: 3 },
+    { ...last, groupN: 3 },
+    { ...hop, groupN: 3 },
+  ];
+  const undo = (id, of, dst) => ({ id, time: at(5), router: 'rB', src: 5, dst, dstName: 'B MON', levels: [1], prev: [[1, 30]], ok: true, undo: of });
+  const [, , g] = rows(m, [undo(5, 3, 42), undo(4, 2, 41), ...two]);
+  assert.equal(g.f.undone.text, 'Undone');
+  // The hop entry has no mark: the tie line is left as it is.
+  assert.equal(g.f.entries.find((e) => e.id === 1).undone, undefined);
+});
+
+test('Ctrl+Z steps back over a tie take; Ctrl+Shift+Z gives the old tie lines to the picker', async () => {
+  const m = await setup();
+  const { backStep, forwardStep, entryKey } = await import('../stepback.js');
+  const plain = { id: 1, time: at(0), router: 'rB', src: 9, srcName: 'X', dst: 41, dstName: 'B MON', levels: [1], prev: [[1, 0]], ok: true };
+  const [last, hop] = tieTake({ id: 2, s: 10 });
+  let hist = [last, hop, plain];
+  const own = hist.map(entryKey);
+  // The step is the destination entry alone: the hop is part of the route asked for.
+  const first = backStep(hist, own);
+  assert.deepEqual(
+    first.entries.map((x) => x.id),
+    [3],
+  );
+  // Its Undo puts back the destination only, never the tie line.
+  assert.deepEqual(
+    m.rowActions({ e: first.entries[0] }).undo.plan.items.map((i) => [i.undo.id, i.dst.n]),
+    [[3, 41]],
+  );
+  // After the undo, the next Ctrl+Z is the plain take. The hop entry is never a step of its own.
+  const undo = { id: 4, time: at(20), router: 'rB', src: 5, dst: 41, dstName: 'B MON', levels: [1], prev: [[1, 30]], ok: true, undo: 3 };
+  hist = [undo, ...hist];
+  assert.deepEqual(
+    backStep(hist, [...own, entryKey(undo)], [first.entries.map(entryKey)]).entries.map((x) => x.id),
+    [1],
+  );
+  // Ctrl+Shift+Z: the Redo of the tie row is a route from the typed source with the tie lines of the take. They are
+  // marked as used last time, so the picker opens with them chosen.
+  const fwd = forwardStep(hist, [first.entries.map(entryKey)]);
+  assert.deepEqual(
+    fwd.entries.map((x) => x.id),
+    [3],
+  );
+  const redo = m.rowActions({ e: fwd.entries[0] }).again.plan;
+  assert.equal(redo.verb, 'redo');
+  const [g] = redo.items[0].groups;
+  assert.deepEqual([redo.items[0].dst.n, g.src.n, g.ties, g.last], [41, 7, ['t3'], true]);
+});
