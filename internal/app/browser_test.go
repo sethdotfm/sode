@@ -279,6 +279,14 @@ func (b *tab) open(url string) {
 	b.call("Page.navigate", map[string]any{"url": url})
 }
 
+// reload reloads the page and waits for the new document. The old document stays until the navigation starts,
+// so a wait right after location.reload() can pass on it. The next step then runs on a half-parsed page.
+func (b *tab) reload() {
+	b.t.Helper()
+	b.eval(`window.sodeBeforeReload = true; location.reload(); true`)
+	b.waitFor("the page reloads", `!window.sodeBeforeReload && document.readyState !== 'loading'`)
+}
+
 // eval awaits a promise and returns the JSON value of the expression.
 func (b *tab) eval(expr string) any {
 	b.t.Helper()
@@ -314,10 +322,17 @@ func (b *tab) evalTry(expr string) (any, string) {
 	}
 	var r struct {
 		Result           struct{ Value any }
-		ExceptionDetails *struct{ Text string }
+		ExceptionDetails *struct {
+			Text      string
+			Exception struct{ Description string }
+		}
 	}
 	_ = json.Unmarshal(raw, &r)
 	if r.ExceptionDetails != nil {
+		// Text is only "Uncaught"; the description carries the message and the stack.
+		if d := r.ExceptionDetails.Exception.Description; d != "" {
+			return nil, r.ExceptionDetails.Text + " " + d
+		}
 		return nil, r.ExceptionDetails.Text
 	}
 	return r.Result.Value, ""

@@ -88,7 +88,7 @@ func TestChromePalettePins(t *testing.T) {
 	b.waitFor("the cursor on the last pin", `document.querySelector('#palette-list [aria-selected="true"]')?.dataset.key === 'page:log'`)
 	b.eval(`document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("Alt+Up moves the pin", pinned+` === 'page:log,preset:global:p-in' && document.querySelector('#palette-list [aria-selected="true"]')?.dataset.key === 'page:log'`)
-	b.eval(`location.reload(); true`)
+	b.reload()
 	b.waitFor("names again", `(() => { const t = document.getElementById('src'); t.value = 'Zoom'; t.dispatchEvent(new Event('input', { bubbles: true })); return !!document.getElementById('src-opt-0'); })()`)
 	b.eval(`(() => { const t = document.getElementById('src'); t.value = ''; t.dispatchEvent(new Event('input', { bubbles: true })); t.blur(); return true; })()`)
 	open()
