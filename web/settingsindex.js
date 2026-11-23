@@ -300,7 +300,7 @@ export const DICT = {
   'account-login': ['log in', 'login', 'sign in', 'signin', 'user', 'pin', 'account', 'session', 'tab', 'name'],
   'account-stepin': ['step in', 'stepin', 'sign in', 'other user', 'another user', 'my pin', 'borrow', 'visit', 'account'],
   'account-stepout': ['step out', 'stepout', 'sign out', 'return', 'back', 'account'],
-  'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave'],
+  'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave', 'ctrl+shift+l'],
 
   // ---- Names
   'names-refresh': ['refresh', 'reload', 'update', 're-read', 're read', 'reread', 'poll', 'names', 'now', 'fetch'],
