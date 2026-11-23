@@ -23,7 +23,7 @@ import (
 //
 // tielock.go locks the tie lines and runs the stale check before the first wave. Then refuseHeld runs the Protect check
 // on every step before any step goes. Every step is an ordinary connect, also in fireMode native. The Result of a
-// route comes from all its hops (routeWord). Not here yet: put-back, One-off tie lines and the Tie line picker. The
+// route comes from all its hops (routeWord). Put back is in tieputback.go. Not here yet: One-off tie lines and the Tie line picker. The
 // API is the only caller.
 
 // TieEnd is a router reference with the name that Sode had for it.

@@ -150,6 +150,8 @@ export function againPlan(row) {
 export const VERBS = {
   patch: { word: 'take', ask: 'take', busy: 'Taking…', resets: true },
   undo: { word: 'undo', ask: 'undo', busy: 'Undoing…', resets: false },
+  // Put a tie line back: the Undo of a hop entry (historyrows.js putBacks).
+  putback: { word: 'put back', ask: 'put back', busy: 'Putting back…', resets: false },
   retry: { word: 'retry', ask: 'retry the take of', busy: 'Retrying…', resets: false },
   redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
   preset: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
@@ -189,7 +191,7 @@ function takeResult(m) {
   const failed = b.results.filter((r) => !r.ok);
   if (!failed.length) {
     const many = dsts > 1 ? ` ${dsts} destinations` : '';
-    const title = undo ? `Undone${many && ' on' + many}` : `Success${many && ':' + many}`;
+    const title = undo ? `Undone${many && ' on' + many}` : b.verb === 'putback' ? 'Put back' : `Success${many && ':' + many}`;
     showResult('ok', title, capped(b.results.map((r) => routeText(r, r.already))));
     return;
   }
@@ -601,6 +603,7 @@ export function sendTakes(p) {
       const msg = { id, src: g.src.n, dst: it.dst.n, levels: g.levels };
       if (routerOfItem(it.dst)) msg.router = routerOfItem(it.dst);
       if (it.undo) msg.undo = it.undo.id;
+      if (it.putBack) msg.putBack = true;
       if (it.retry) msg.retry = it.retry.id;
       items.push(msg);
       take.byId.set(id, { dst: it.dst, g });

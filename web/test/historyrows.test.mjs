@@ -151,6 +151,30 @@ test('rowView: a tie take names the source asked for and leaves out its hop entr
   assert.match(rowView({ e: last }).actions(last).undo.label, /^Undo CAM 8 to /);
 });
 
+test('rowView: a tie take that failed after its hop changed TIE 3 offers Put back', async () => {
+  const { rowView, rowActions, S } = await setup();
+  const hop = take({ id: 1, src: 3, srcName: 'CAM 4', dst: 9, dstName: 'TO B', tie: 't1', prev: [[1, 7]] });
+  const hops = [{ tie: 't1', tieName: 'TIE 3', result: 'connected', entry: 1 }];
+  const last = take({ id: 2, ok: false, src: 4, origin: { router: '', n: 3, name: 'CAM 4' }, hops });
+  const f = { group: 'g', n: 2, entries: [hop, last], shown: [hop, last] };
+  assert.ok(rowView({ f }).route(f).notes.includes('TIE 3 changed, MON 6 not'));
+  assert.deepEqual(rowView({ e: last }).route(last).notes, ['TIE 3 changed, MON 6 not']);
+  const pb = rowActions({ f }).putBack;
+  assert.equal(pb.length, 1);
+  assert.equal(pb[0].label, 'Put TIE 3 back to CAM 8');
+  assert.equal(pb[0].text, 'Put TIE 3 back');
+  assert.equal(pb[0].plan.verb, 'putback');
+  const it = pb[0].plan.items[0];
+  assert.deepEqual([it.putBack, it.undo.id, it.dst.n, it.groups[0].src.n], [true, 1, 9, 7]);
+
+  // A route that went through, or a hop already put back, offers none.
+  const okLast = { ...last, ok: true };
+  assert.equal(rowActions({ f: { ...f, entries: [hop, okLast] } }).putBack.length, 0);
+  S.hist = [take({ id: 3, undo: 1, dst: 9 })];
+  assert.equal(rowActions({ f }).putBack.length, 0);
+  S.hist = [];
+});
+
 test('disclosureAria and followersHead', async () => {
   const { disclosureAria, followersHead } = await setup();
   assert.equal(disclosureAria(true, 3, 'takes'), 'Hide the 3 takes');

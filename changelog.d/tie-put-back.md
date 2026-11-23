@@ -1,0 +1,1 @@
+- A tie take that fails after a hop changed a tie line says so in History, for example "TIE 3 changed, B MON 2 not". The row has a Put back button. It sends what the tie line carried before, but only while the tie line still carries what the take set. The API has `POST /history/{id}/putback` for the same action.
