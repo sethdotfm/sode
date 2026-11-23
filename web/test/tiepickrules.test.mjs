@@ -1,7 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { pickState, chosen, choices, choose, keyStep, moveStep, ready, takeRoute, expectOf, stepsOf, ago, changedText, countUp, TICK_MS } from '../tiepickrules.js';
+import {
+  pickState,
+  chosen,
+  choices,
+  choose,
+  keyStep,
+  moveStep,
+  ready,
+  takeRoute,
+  expectOf,
+  stepsOf,
+  ago,
+  changedText,
+  countUp,
+  TICK_MS,
+} from '../tiepickrules.js';
 
 // The shared plan fixture (internal/tieplan, web/test/tieplan.test.mjs). The page reads the 409 body of POST /takes;
 // apiRoute makes that shape from a case, as tieroutes.go apiTieRoute does.
