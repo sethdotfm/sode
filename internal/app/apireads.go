@@ -261,16 +261,11 @@ func linkStatus(s statusMsg, withDetail bool) map[string]any {
 	return m
 }
 
-func (a *App) apiStatus(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	u, ok := a.apiReadUnit(w, r)
-	if !ok {
-		return
-	}
+// apiStatus is about every router, so it needs no router parameter.
+func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	a.mu.Lock()
-	st := u.status
+	m := a.statusBody(cl.has(config.ScopeLog))
 	a.mu.Unlock()
-	m := linkStatus(st, cl.has(config.ScopeLog))
-	m["server"], m["version"], m["uptimeSeconds"] = "up", VersionLabel(), int64(time.Since(a.started).Seconds())
 	apiJSON(w, m)
 }
 

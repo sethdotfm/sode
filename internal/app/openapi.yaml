@@ -20,8 +20,8 @@ info:
 
     Routers. Any call can carry the query parameter `router`, a router UID from `GET /routers`.
     It is optional while Sode has one router. With two or more routers, a read about one router
-    without it is 400 `router_needed`. These reads are `/names`, `/tally`, `/status` and the
-    stream topics names, tally and status. A value that is not a router UID is 404 `unknown_router`. The router
+    without it is 400 `router_needed`. These reads are `/names`, `/tally` and the stream topics
+    names and tally. `/status` and the stream topic status are about every router. A value that is not a router UID is 404 `unknown_router`. The router
     prefix is for people and can change, so Sode does not accept it here. In a take body, each end
     of a route is a router reference `{router, n}`, or a bare number while Sode has one router.
 
@@ -349,28 +349,22 @@ paths:
     get:
       operationId: getStatus
       tags: [reads]
-      summary: Server link and Router link
+      summary: Server link, the state of Sode and the Router link of each router
       description: |
-        Scope `status`. The same facts as `/api/health`, which stays open without a key. The
-        router address and the error text name the router. So only a caller that also has
-        the scope `log` gets `address` and `err`. Every other caller gets the `error` flag.
+        Scope `status`. The same facts as `/api/health`, which stays open without a key. It is
+        about every router, so it needs no `router` parameter. `state` is `healthy` when every
+        router is up and `down` when every router is down. It is `degraded` when one or more
+        routers are down and one or more are up. A router that is connecting counts as down. `routers`
+        has one element for each router, in the order of Settings. The flat link fields are
+        those of the first router. The router address and the error text name the router. So
+        only a caller that also has the scope `log` gets `address` and `err`. Every other
+        caller gets the `error` flag.
       responses:
         "200":
           description: Link state
           content:
             application/json:
-              schema:
-                type: object
-                required: [server, router, routerUp, error, version, uptimeSeconds]
-                properties:
-                  server: { type: string, enum: [up] }
-                  router: { type: string, enum: [up, connecting, down] }
-                  routerUp: { type: boolean }
-                  error: { type: boolean, description: The router link has a problem }
-                  address: { type: string, description: Only with the scope `log` }
-                  err: { type: string, description: Only with the scope `log` }
-                  version: { type: string }
-                  uptimeSeconds: { type: integer }
+              schema: { $ref: "#/components/schemas/Status" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -2220,8 +2214,8 @@ paths:
           `history`: read `GET /history` first and bridge by id.
         - `names` (topic `names`): the full names again, after a refresh.
         - `tally` (topic `tally`): `data.routes`, only the routes that changed.
-        - `status` (topic `status`): `data` has `router`, `routerUp` and `error`, plus `address` and `err` for a
-          caller with the scope `log`.
+        - `status` (topic `status`): `data` has the shape of `GET /status`, sent when the link of any router
+          changes. `address` and `err` come only for a caller with the scope `log`.
         - `entry`: a new History entry (topic `history`). `data` is an Entry.
         - `entryUpdate`: an entry changed after it was sent, for example a Late Result (a route
           confirmed after the take gave up). `data` is the whole Entry. Sent one time for a
@@ -2343,6 +2337,38 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    RouterLink:
+      type: object
+      required: [router, routerUp, error]
+      properties:
+        router: { type: string, enum: [up, connecting, down] }
+        routerUp: { type: boolean }
+        error: { type: boolean, description: The router link has a problem }
+        address: { type: string, description: Only with the scope `log` }
+        err: { type: string, description: Only with the scope `log` }
+    Status:
+      description: The flat link fields are those of the first router.
+      allOf:
+        - { $ref: "#/components/schemas/RouterLink" }
+        - type: object
+          required: [server, state, routers, version, uptimeSeconds]
+          properties:
+            server: { type: string, enum: [up] }
+            state: { type: string, enum: [healthy, degraded, down], description: The state of Sode as a whole }
+            routers:
+              type: array
+              description: One element for each router, in the order of Settings
+              items:
+                allOf:
+                  - { $ref: "#/components/schemas/RouterLink" }
+                  - type: object
+                    required: [uid, prefix, title]
+                    properties:
+                      uid: { type: string }
+                      prefix: { type: string }
+                      title: { type: string }
+            version: { type: string }
+            uptimeSeconds: { type: integer }
     TakeResult:
       type: object
       required: [ok, checkSkipped, results]

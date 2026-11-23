@@ -35,7 +35,7 @@ func TestHealthRouterUp(t *testing.T) {
 	if rec.Header().Get("Cache-Control") != "no-store" {
 		t.Errorf("cache-control %q", rec.Header().Get("Cache-Control"))
 	}
-	if b["server"] != "up" || b["router"] != "up" || b["targetAddress"] != "10.0.0.1:8910" || b["version"] != VersionLabel() {
+	if b["server"] != "up" || b["router"] != "up" || b["targetAddress"] != "10.0.0.1:8910" || b["version"] != VersionLabel() || b["state"] != "healthy" {
 		t.Errorf("body %v", b)
 	}
 	if _, ok := b["err"]; ok {
@@ -59,7 +59,7 @@ func TestHealthRouterNotUp(t *testing.T) {
 		if rec.Code != http.StatusServiceUnavailable {
 			t.Errorf("%s: code %d", st, rec.Code)
 		}
-		if b["router"] != st || b["server"] != "up" || b["err"] != "connection refused" {
+		if b["router"] != st || b["server"] != "up" || b["err"] != "connection refused" || b["state"] != "down" {
 			t.Errorf("%s: body %v", st, b)
 		}
 	}

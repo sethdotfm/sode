@@ -17,7 +17,6 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/sethdotfm/sode/internal/config"
-	"github.com/sethdotfm/sode/internal/swp08"
 )
 
 type client struct {
@@ -123,36 +122,6 @@ func secureHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 		next.ServeHTTP(w, r)
 	})
-}
-
-type healthMsg struct {
-	Server        string `json:"server"`
-	Router        string `json:"router"`
-	Addr          string `json:"targetAddress"`
-	Err           string `json:"err,omitempty"`
-	Version       string `json:"version"`
-	UptimeSeconds int64  `json:"uptimeSeconds"`
-	Browsers      int    `json:"browsers"`
-}
-
-func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		w.Header().Set("Allow", "GET, HEAD")
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	a.mu.Lock()
-	st := a.firstUnit().status
-	browsers := len(a.clients)
-	a.mu.Unlock()
-	code := http.StatusOK
-	if st.Router != string(swp08.StateUp) {
-		code = http.StatusServiceUnavailable
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(healthMsg{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
 }
 
 // clientIP: a hop that is not an address ends the search at the peer. Sode does not trust what lies beyond it.

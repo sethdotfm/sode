@@ -1,0 +1,1 @@
+- `/api/health`, `GET /api/v1/status` and the status topic of the API stream give the state of Sode as a whole: `healthy`, `degraded` or `down`. They also give one element for each router. `/api/health` answers 200 only when every router is up. A monitor that reads JSON can use `state` with the value `healthy`.

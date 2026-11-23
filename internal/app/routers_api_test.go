@@ -146,10 +146,11 @@ func TestAPITakeOneRouterTakesEither(t *testing.T) {
 	}
 }
 
-// With two routers, a read about one router needs the router parameter; GET /routers lists every router.
+// With two routers, a read about one router needs the router parameter; GET /routers lists every router. GET /status
+// is about every router (health_router_test.go).
 func TestAPIReadsNeedARouter(t *testing.T) {
 	a, _, _, b, key := apiTwoRouters(t)
-	for _, path := range []string{"/api/v1/names", "/api/v1/tally", "/api/v1/status", "/api/v1/stream?topics=tally"} {
+	for _, path := range []string{"/api/v1/names", "/api/v1/tally", "/api/v1/stream?topics=tally"} {
 		wantErr(t, apiDo(a, "GET", path, key, nil), http.StatusBadRequest, "router_needed")
 	}
 	rec := apiDo(a, "GET", "/api/v1/names?router="+b.uid, key, nil)
