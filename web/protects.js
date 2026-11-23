@@ -46,7 +46,9 @@ export const holdsAt = (n, levels = allLevels()) => holdsOn(S.prot, S.protBy, n,
 export const protectState = (n) => holdsAt(n);
 
 // The one chip of a Protect or Router lock, in every view and in History: icon and words, with no status square.
-export const protectChip = (look, text) => el('span', `pb-badge pb-badge--${look.status} sode__status-badge sode__hold-chip`, icon(look.icon), text);
+// An 'info' status (your own hold) is neutral: blue has no state job (docs/color-roles.md).
+const CHIP = { warn: 'pb-badge pb-badge--warn', error: 'pb-badge pb-badge--error' };
+export const protectChip = (look, text) => el('span', `${CHIP[look.status] || 'pb-badge'} sode__status-badge sode__hold-chip`, icon(look.icon), text);
 
 // The chip of one hold: its icon and color (holdLook), and the words (holdLabel).
 export function holdBadge(h) {
@@ -276,7 +278,7 @@ const ADMIN_WHY = 'another user set it, so an Administrator must free it';
 function onResult(m) {
   const p = pending.get(m.id);
   // A request the server ran after an Approval answers with the frozen id, which this page no longer holds.
-  if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('ok', 'Protect freed', 'Approved.'));
+  if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('done', 'Protect freed', 'Approved.'));
   pending.delete(m.id);
   const { dsts, on } = p.plan.protect;
   const rows = m.results || [];
@@ -298,9 +300,9 @@ function onResult(m) {
     });
   const n = rest.length - failed.length;
   if (dsts.length === 1)
-    return failed.length ? showResult('error', fail, failed[0]) : showResult('ok', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
+    return failed.length ? showResult('error', fail, failed[0]) : showResult('done', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
   const head = on ? `${n} Protected` : `${n} Protects freed`;
-  if (!failed.length) return showResult('ok', head, 'Every level.');
+  if (!failed.length) return showResult('done', head, 'Every level.');
   showResult(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, failed.join(' '));
 }
 

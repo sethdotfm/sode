@@ -36,7 +36,7 @@ const urlIn = el('input', { class: 'pb-input', id: 'bm-url', type: 'url', placeh
 const urlName = el('input', { class: 'pb-input', id: 'bm-url-name', maxLength: LABEL_MAX, autocomplete: 'off' });
 const addRowBtn = btn('pb-btn--outline', [icon('bookmark-plus'), 'Add from the Palette…'], () => addFromPalette(), 'bm-add-row');
 const addUrlBtn = btn('pb-btn--outline', 'Add', () => addUrl(), 'bm-add-url');
-const saveBtn = btn('pb-btn--commit', 'Save', () => save(), 'bm-save');
+const saveBtn = btn('sode-btn--primary', 'Save', () => save(), 'bm-save');
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => close());
 const roNote = el('p', { class: 'sode__hint', id: 'bm-readonly', hidden: true }, 'Only a Trusted user or an Administrator can change Everyone’s bookmarks.');
 const fullNote = el('p', { class: 'sode__hint', id: 'bm-full', hidden: true }, 'This list is full. Remove a bookmark to add one.');
@@ -179,8 +179,8 @@ function draw() {
   for (const c of addCtl) c.disabled = full;
   fullNote.hidden = !full;
   saveBtn.disabled = ro || busy;
-  saveBtn.classList.toggle('sode-btn--primary', dirty && !ro);
-  saveBtn.classList.toggle('pb-btn--commit', !dirty || ro);
+  saveBtn.classList.toggle('pb-btn--commit', dirty && !ro);
+  saveBtn.classList.toggle('sode-btn--primary', !dirty && !ro);
   if (at != null) listEl.querySelector(`[data-i="${at}"]`)?.focus();
 }
 

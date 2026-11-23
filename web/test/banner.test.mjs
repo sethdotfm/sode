@@ -7,6 +7,7 @@ test('dismissMs: only a success closes itself, and only with a time set', async 
   const { dismissMs } = await import('./all.mjs');
   assert.equal(dismissMs('ok', 8), 8000);
   assert.equal(dismissMs('ok', 0), 0);
+  assert.equal(dismissMs('done', 8), 8000);
   assert.equal(dismissMs('error', 8), 0);
   assert.equal(dismissMs('warn', 8), 0);
   assert.equal(dismissMs('info', 8), 0);
