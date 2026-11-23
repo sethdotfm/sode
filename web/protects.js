@@ -40,6 +40,9 @@ const device = () => S.cfg?.protectDevice || 0;
 // The signed-in Rights carry the Protect right set from the Role (protectRight).
 const right = () => protectRight(S.myRights, role, S.users);
 
+// mayProtect: this page can set a Protect. The Tie line picker shows its shield only then (tiepicker.js).
+export const mayProtect = () => right();
+
 // The holds on dst n over levels (every level when none), with the owner of each seen from this browser's sign-in.
 export const holdsAt = (n, levels = allLevels()) => holdsOn(S.prot, S.protBy, n, levels, device(), me);
 

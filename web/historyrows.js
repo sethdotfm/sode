@@ -99,8 +99,9 @@ const TAKE = {
 // A Group of takes: a take that sent several routes.
 const GROUP = {
   route(f) {
-    // The hop entries of a tie take (tie) are part of the routes asked for, so the row names only those routes.
-    const asked = f.entries.filter((e) => !e.tie);
+    // The hop entries of a tie take (tie) are part of the routes asked for, so the row names only those routes. The
+    // Protect of a tie line after the take (tieprotect.go) is no route either.
+    const asked = f.entries.filter((e) => !e.tie && !e.protect);
     const es = asked.length ? asked : f.entries;
     const srcs = new Set(es.map((e) => (e.origin ? `${e.origin.router} ${e.origin.n}` : e.src)));
     const dsts = new Map(es.map((e) => [e.dst, e.dstName]));

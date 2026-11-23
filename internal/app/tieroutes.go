@@ -29,6 +29,8 @@ type tieRoute struct {
 	expect map[string]tieWant
 	seen   []tieplan.End
 	ties   []string // the tie line ids that the caller gave, upstream first
+	// protect: the tie lines of ties whose upstream destination Sode protects after the take (tieprotect.go).
+	protect []string
 }
 
 // unitUID gives the UID of the router unit that a router UID from the settings names.
@@ -55,9 +57,13 @@ func (a *App) tieInput(rt *runtime) tieplan.Input {
 		}
 		in.Routers = append(in.Routers, r)
 		dev := rt.routerOf(u.uid).ProtectDevice
+		recs := map[int]protectRec{}
+		for _, rec := range a.protects.list(rt.routerOf(u.uid).UID) {
+			recs[rec.Dst] = rec
+		}
 		for _, dst := range slices.Sorted(maps.Keys(u.router.protect)) {
 			for _, l := range slices.Sorted(maps.Keys(u.router.protect[dst])) {
-				in.Protects = append(in.Protects, tieplan.Hold{At: tieplan.End{Router: u.uid, N: dst}, By: holderText(u.router.protect[dst][l], dev)})
+				in.Protects = append(in.Protects, holdOf(rt, tieplan.End{Router: u.uid, N: dst}, u.router.protect[dst][l], dev, recs))
 				break
 			}
 		}
@@ -74,6 +80,20 @@ func (a *App) tieInput(rt *runtime) tieplan.Input {
 		}
 	}
 	return in
+}
+
+// holdOf is one Protect for the planner. Sode's own Protect names who set it and when, from Sode's record
+// (docs/tielines-design.md, Protect in a tie take, rule 4). Sode knows no time for a hold of another system.
+func holdOf(rt *runtime, at tieplan.End, h protHold, dev int, recs map[int]protectRec) tieplan.Hold {
+	hold := tieplan.Hold{At: at, By: holderText(h, dev)}
+	if rec, ok := recs[at.N]; ok && sodesHold(h, dev, rec.Device) {
+		if who := recName(rt.cfg, rec); who != "" {
+			hold.By = who
+		}
+		since := rec.At
+		hold.Since = &since
+	}
+	return hold
 }
 
 func holderText(h protHold, dev int) string {
@@ -197,9 +217,11 @@ type apiTieHop struct {
 	Now     *apiTieChain  `json:"now,omitempty"`
 	Protect string        `json:"protect,omitempty"`
 	Reserve string        `json:"reserve,omitempty"`
-	// Changed and Before are left out when the caller cannot see Dst, the upstream destination of the tie line.
-	Changed *time.Time `json:"changed,omitempty"`
-	Before  bool       `json:"before,omitempty"`
+	// Changed, Before and ProtectSince are left out when the caller cannot see Dst, the upstream destination of the
+	// tie line. ProtectSince is when Sode set the Protect.
+	ProtectSince *time.Time `json:"protectSince,omitempty"`
+	Changed      *time.Time `json:"changed,omitempty"`
+	Before       bool       `json:"before,omitempty"`
 }
 
 type apiTiePath struct {
@@ -266,7 +288,7 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 			}
 			if v.on(h.Router).Destination(h.Dst) {
 				e := end(tieplan.End{Router: h.Router, N: h.Dst}, true)
-				ah.Dst, ah.Changed, ah.Before = &e, h.Changed, h.Before
+				ah.Dst, ah.Changed, ah.Before, ah.ProtectSince = &e, h.Changed, h.Before, h.ProtectSince
 			} else if h.Changed != nil {
 				// Newest would give the change time of this hidden end.
 				ap.Newest = nil

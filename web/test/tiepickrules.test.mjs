@@ -21,6 +21,10 @@ import {
   pathKey,
   tieMarked,
   hitMarked,
+  toggleProtect,
+  protectable,
+  protectOn,
+  heldText,
 } from '../tiepickrules.js';
 
 // The shared plan fixture (internal/tieplan, web/test/tieplan.test.mjs). The page reads the 409 body of POST /takes;
@@ -294,4 +298,56 @@ test('after tie_line_changed the picker opens again on the same tie lines, with 
   assert.ok(hitMarked(st, { router: 'b', n: 7 }));
   // Without that path, it opens on the best path.
   assert.deepEqual(ties(reopenState(route, ['zz'])), ['t2']);
+});
+
+test('P asks for a Protect on the tie line of the step with focus, only with the Protect right', () => {
+  const st = pickState(apiRoute(byName('chain: two tie lines')));
+  assert.deepEqual(keyStep(st, 'p'), { st, act: null });
+  const one = keyStep(st, 'p', true).st;
+  assert.deepEqual(one.protect, ['t1']);
+  assert.deepEqual(
+    takeRoute(one).ties.map((t) => [t.id, !!t.protect]),
+    [
+      ['t1', true],
+      ['t2', false],
+    ],
+  );
+  const two = keys(one, 'l');
+  assert.deepEqual(keyStep(two, 'p', true).st.protect, ['t1', 't2']);
+  // A second P stops asking.
+  assert.deepEqual(keyStep(one, 'p', true).st.protect, []);
+  assert.ok(protectOn(one, 't1') && !protectOn(one, 't2'));
+  // The shield of a step acts on that step.
+  assert.deepEqual(toggleProtect(st, 1).protect, ['t2']);
+  assert.equal(toggleProtect(st, 5), st);
+});
+
+test('a tie line that has a Protect cannot get a second one; it stays usable when it carries the source', () => {
+  const st = pickState(apiRoute(byName('Protect: a Protected tie line that carries the source')));
+  const hop = chosen(st).hops[0];
+  assert.ok(!protectable(hop));
+  assert.ok(ready(st));
+  assert.equal(keyStep(st, 'p', true).st, st);
+  // A Protect that someone set while the picker was open drops the ask from the take.
+  const line = pickState(apiRoute(byName('line: one tie line')));
+  const asked = toggleProtect(line, 0);
+  const held = {
+    ...asked,
+    route: { ...asked.route, paths: [{ ...chosen(asked), hops: [{ ...chosen(asked).hops[0], protect: 'Ana' }, chosen(asked).hops[1]] }] },
+  };
+  assert.equal(takeRoute(held).ties[0].protect, undefined);
+});
+
+test('a Protected tie line says who set it and when; a Reserved one names the panel', () => {
+  const clock = (t) => t;
+  assert.equal(heldText({ protect: 'Ana', protectSince: '10:42' }, clock), 'Protected by Ana at 10:42');
+  assert.equal(heldText({ protect: 'device 12' }, clock), 'Protected by device 12');
+  assert.equal(heldText({ reserve: 'Desk 2' }, clock), 'Reserved by panel Desk 2');
+  assert.equal(heldText({}, clock), '');
+});
+
+test('after tie_line_changed the picker keeps the Protects that the person asked for', () => {
+  const route = apiRoute(byName('line: one tie line'));
+  assert.deepEqual(reopenState(route, ['t1'], [], [], ['t1']).protect, ['t1']);
+  assert.deepEqual(reopenState(route, ['t1']).protect, []);
 });
