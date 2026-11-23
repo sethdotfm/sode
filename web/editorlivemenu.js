@@ -12,7 +12,7 @@ import { MOVE_KEYS } from './editorgridlist.js';
 import { edgeListKey } from './editorgridrules.js';
 import { pickAfterRemove } from './edgeclip.js';
 import { placeMenu, placeAbove, menuArea } from './editorrules.js';
-import { myRights } from './editorrights.js';
+import { myItemRights } from './editorrights.js';
 import { plural } from './gridmodel.js';
 
 const KEY = { srcs: 'sources', dsts: 'destinations' };
@@ -59,8 +59,8 @@ export function createLiveMenu(ed, lists, { kind, openArt, drawer }) {
       kind: RIGHTS[k],
       edge: () => ed.fields()[key],
       router: () => ed.routerNames()?.[key] || [],
-      rights: myRights,
-      off: () => ed.routerNames()?.numberOffset || 0,
+      rights: () => myItemRights(ed.places()),
+      names: () => ed.routerNames() || {},
       readOnly: ed.readOnly,
       fixed: () => '',
       set: (next) => ed.editEdges({ [key]: next }, 'insert'),

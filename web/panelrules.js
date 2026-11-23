@@ -8,6 +8,7 @@ import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
 import { itemPlain } from './presetref.js';
 import { levelsOn } from './routerlevels.js';
+import { numText, routerN } from './routerids.js';
 
 export const KINDS = [
   'source',
@@ -98,13 +99,16 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
   };
 }
 
+// reply is GET /names, or the answers of several routers on item numbers (mergeNames in routerids.js). num is the
+// number a person reads, with the router prefix when the answer has prefixes.
 export function namesFrom(reply) {
   const off = reply.numberOffset || 0;
+  const num = numText(reply);
   const by = (list) => new Map((list || []).map((x) => [x.n, x.name]));
   const src = by(reply.sources);
   const dst = by(reply.destinations);
-  const source = (n) => src.get(n) || `Source ${n + off}`;
-  const destination = (n) => dst.get(n) || `Destination ${n + off}`;
+  const source = (n) => src.get(n) || `Source ${num(n)}`;
+  const destination = (n) => dst.get(n) || `Destination ${num(n)}`;
   const plain = {
     clear: 'Clear',
     undo: 'Undo',
@@ -126,7 +130,7 @@ export function namesFrom(reply) {
     return typeof p === 'function' ? p(cell) : p || '';
   };
   const routerName = (kind, n) => (kind === 'source' ? src : kind === 'destination' ? dst : new Map()).get(n) || '';
-  return { source, destination, of, off, routerName };
+  return { source, destination, of, off, num, routerName };
 }
 
 // Where two cells overlap the first one stays.
@@ -153,11 +157,12 @@ export function cellsIn(panel, i = 0) {
 // [] when the setting is off. A list the server would refuse (fixedList in internal/app/panelfixed.go) reads as off too.
 export const FIXED_MAX = 16; // keep in step with panelFixedMax in internal/app/panelfixed.go.
 const DST_MAX = 0xffff; // keep in step with dstNumberMax in internal/app/panelfixed.go.
-// The server stores router references {router, n, name}, and the editor writes {n}; tests pass plain numbers.
+// The server stores router references {router, n, name}, and the editor writes {n}; tests pass plain numbers. A panel
+// page has item numbers (panelitems.js), so the check limits the router number part.
 export function fixedDestsOf(panel) {
   const raw = panel?.settings?.fixedDests;
   const list = Array.isArray(raw) ? raw.map((x) => (x && typeof x === 'object' ? x.n : x)) : null;
-  const ok = list && list.length <= FIXED_MAX && list.every((n, i) => Number.isInteger(n) && n >= 0 && n <= DST_MAX && list.indexOf(n) === i);
+  const ok = list && list.length <= FIXED_MAX && list.every((n, i) => Number.isInteger(n) && n >= 0 && routerN(n) <= DST_MAX && list.indexOf(n) === i);
   return ok ? list : [];
 }
 
@@ -175,6 +180,9 @@ export function errorText(err, names) {
       return 'Select a destination first';
     case 'protected':
       return `${names.destination(err.dst)} is protected`;
+    // Keep in step with acrossText in gridpanelrights.js.
+    case 'across-routers':
+      return `${names.source(err.src)} and ${names.destination(err.dst)} are on two routers. Sode has no tie lines yet.`;
     case 'no-common-levels':
       return `${names.source(err.src)} and ${names.destination(err.dst)} have no level in common`;
     case 'outside-rights': {

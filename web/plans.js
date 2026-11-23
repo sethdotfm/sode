@@ -67,15 +67,16 @@ const againItem = (e) =>
 // The Grid popup's staged routes (routesOf, gridpanelstage.js) as one take: one item for each destination, one group
 // for each source on it. Route ends are router numbers. A route with box set is the patch boxes' route (One Take,
 // gridpopup.js). Then the plan is mixed and each group says if it is staged, so the Confirm keeps the two apart.
-export function gridPlan(routes, warnings) {
+// ends gives the items of the route numbers: the Grid popup's are item numbers (routerids.js).
+export function gridPlan(routes, warnings, ends = { src: (n) => srcItem(n), dst: (n) => dstItem(n) }) {
   const mixed = routes.some((r) => r.box);
   const by = new Map();
   for (const r of routes) {
     if (!by.has(r.dst)) by.set(r.dst, []);
-    const g = { src: srcItem(r.src), levels: r.levels };
+    const g = { src: ends.src(r.src), levels: r.levels };
     by.get(r.dst).push(mixed ? { ...g, staged: !r.box } : g);
   }
-  const plan = { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(dstItem(dst), groups)) };
+  const plan = { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(ends.dst(dst), groups)) };
   return mixed ? { ...plan, mixed } : plan;
 }
 

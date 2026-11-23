@@ -34,4 +34,4 @@ export function currentlyOf(item, tally, names) {
 
 // The number as shown and the Router name: an empty name when the router has given none, so only the number shows.
 // kind is 'source' or 'destination'.
-export const labelOf = (names, kind, n) => ({ num: String(n + (names.off || 0)), name: names.routerName(kind, n) });
+export const labelOf = (names, kind, n) => ({ num: names.num(n), name: names.routerName(kind, n) });

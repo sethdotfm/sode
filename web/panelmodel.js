@@ -4,6 +4,7 @@
 import { presetKey, presetName, rightsAllow, fixedDestsOf } from './panelrules.js';
 import { navTarget } from './panelnav.js';
 import { levelsOn } from './routerlevels.js';
+import { acrossRouters } from './routerids.js';
 
 export const RESULT_MS = 1500;
 export const ERROR_MS = 4000;
@@ -103,6 +104,7 @@ function pressSourceFixed(st, cell, env, now) {
   const routes = [];
   for (const dst of st.fixed) {
     if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
+    if (acrossRouters(cell.n, dst)) return fail(st, { code: 'across-routers', src: cell.n, dst }, now);
     const denied = outsideRights(env, cell.n, dst);
     if (denied) return fail(st, denied, now);
     const levels = shared(st, env, cell.levels, null);
@@ -120,6 +122,7 @@ function pressSourceOne(st, cell, env, now) {
   if (!st.view) return fail(st, { code: 'no-destination' }, now);
   const dst = st.view.dst;
   if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
+  if (acrossRouters(cell.n, dst)) return fail(st, { code: 'across-routers', src: cell.n, dst }, now);
   const denied = outsideRights(env, cell.n, dst);
   if (denied) return fail(st, denied, now);
   const levels = shared(st, env, cell.levels, st.view.levels);

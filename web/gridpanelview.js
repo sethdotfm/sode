@@ -142,7 +142,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
   const paintSrc = (n, s) => {
     if (view) {
       setText(n, view.names.source(s));
-      setData(n, 'num', String(s + (view.names.off || 0)));
+      setData(n, 'num', view.names.num(s));
       pick(n, view.picked('srcs', s));
       setData(n, 'found', view.found('srcs', s) ? '' : undefined);
       setData(n, 'mark', view.marks?.srcs.has(s) ? '' : undefined);
@@ -155,7 +155,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
   const paintDst = (n, d) => {
     if (view) {
       setText(n, view.names.destination(d));
-      setData(n, 'num', String(d + (view.names.off || 0)));
+      setData(n, 'num', view.names.num(d));
       pick(n, view.picked('dsts', d));
       setData(n, 'found', view.found('dsts', d) ? '' : undefined);
       setData(n, 'mark', view.marks?.dsts.has(d) ? '' : undefined);

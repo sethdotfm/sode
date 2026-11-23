@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nameArt, nameArtKey } from '../gridpanelart.js';
 import { defaultsBy } from '../panellook.js';
+import { SPAN } from '../routerids.js';
 
 const edge = { members: 'all', items: { 1: { art: 'icon:camera', artB: '2' }, 2: { artB: 'A' } } };
 const defaults = defaultsBy([
@@ -58,5 +59,6 @@ test('a name read with a router shows the Default artwork of that router', () =>
     'ra',
   );
   assert.equal(nameArt({ members: 'all' }, 'source', 6, two).b, 'A');
-  assert.equal(nameArt({ members: [6], routers: { 6: 'rb' } }, 'source', 6, two).b, 'B');
+  // Router B's source 6 is item number SPAN + 6 (routerids.js).
+  assert.equal(nameArt({ members: [SPAN + 6] }, 'source', SPAN + 6, two, () => 'rb').b, 'B');
 });

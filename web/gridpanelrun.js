@@ -50,6 +50,7 @@ import { gridLevelBox } from './gridpanellevelbox.js';
 import { gridEmpty } from './gridpanelempty.js';
 import { gridTake } from './gridpaneltake.js';
 import { gridParts } from './gridpanelmode.js';
+import { placeOf } from './routerids.js';
 
 const NOTE_MS = 4000;
 const UNDO_MOVED = 'The Undo target changed. Press u again.';
@@ -124,6 +125,7 @@ export function gridBody(ctx, first) {
     () => render(),
     () => stopped,
     () => tally?.router || '',
+    (n) => ctx.places?.().uid(placeOf(n)) || '',
   );
 
   // What the last polls said, for the staged routes that no longer apply.

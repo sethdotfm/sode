@@ -10,13 +10,14 @@ import { btn } from './formbits.js';
 import { createOrderedList } from './orderedlist.js';
 import { createRouterList } from './editorrouterlist.js';
 import { isGridPanel } from './gridpaneledges.js';
-import { myRights, onMyRights } from './editorrights.js';
+import { myItemRights, onMyRights } from './editorrights.js';
 import { artNode } from './panelview.js';
 import { plural } from './gridclip.js';
 import { defaultFor } from './panellook.js';
 import { keyLabel } from './keys.js';
 import { gridCommand } from './gridchords.js';
 import { createPasteReader } from './editorclip.js';
+import { numText } from './routerids.js';
 import {
   edgeRows,
   clearEdge,
@@ -39,6 +40,7 @@ export const MOVE_KEYS = { top: keyLabel('alt+home'), up: keyLabel('alt+up'), do
 // word, side the edge of the grid it is drawn on. onPick(list) runs when the selection changes.
 export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, clip }) {
   const edge = () => ed.fields()[key];
+  const myRights = () => myItemRights(ed.places());
   const router = () => ed.routerNames()?.[key] || [];
   // what names the step on the status line ("Undid move.").
   const set = (next, step) => next !== edge() && ed.editEdges({ [key]: next }, step);
@@ -83,7 +85,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     edge,
     router,
     rights: myRights,
-    off: () => ed.routerNames()?.numberOffset || 0,
+    names: () => ed.routerNames() || {},
     readOnly: () => ed.readOnly(),
     fixed: () => fixed && FOLLOWING,
     set: (next) => set(next, 'add'),
@@ -165,7 +167,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     },
     grip: (i) => {
       const ns = dragSet(i);
-      return ns.size > 1 ? plural(ns.size, what) : shown[i].name || `${what} ${shown[i].n + shownOff}`;
+      return ns.size > 1 ? plural(ns.size, what) : shown[i].name || `${what} ${shownNum(shown[i].n)}`;
     },
     dragging: (i) => {
       dragged = i < 0 ? null : dragSet(i);
@@ -238,7 +240,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     // Another panel starts with nothing selected.
     if (now[5] !== drawn[5]) sel = NONE();
     drawn = now;
-    const off = ed.routerNames()?.numberOffset || 0;
+    const num = numText(ed.routerNames() || {});
     const v = edgeRows(edge(), router(), myRights(), rights);
     const all = drawnOrder(v.rows);
     const pinned = all.filter((r) => r.pinned).length;
@@ -264,7 +266,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     empty.hidden = !!n;
     clear.disabled = ro || fixed || !n;
     clear.dataset.pbTip = fixed ? FOLLOWING : `Removes every ${what} from the panel`;
-    shownOff = off;
+    shownNum = num;
     shownRo = ro;
     made = new Map();
     drawRows();
@@ -273,20 +275,20 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
 
   // Only the rows in view have nodes, as in the router list. An edge can hold thousands, and each row has about 20
   // elements and 10 listeners. Rows are one height, so margins stand in for the rows not drawn.
-  let shownOff = 0;
+  let shownNum = String;
   let shownRo = false;
   let fixed = false; // Follow the router is on.
   let made = new Map(); // row index -> its li, for the rows of the last paint
   let pitch = 0; // px from the top of one row to the next
   let span = { lo: 0, hi: 0 };
   function makeRow(r, i) {
-    const off = shownOff;
+    const num = shownNum;
     const own = edge()?.items?.[r.n];
     const art = own?.art || own?.artB ? artNode({ art: own.art, artB: own.artB }, ed.art()) : null;
     const body = [
-      el('span', 'sode-pages__num', String(r.n + off)),
+      el('span', 'sode-pages__num', num(r.n)),
       ...(art ? [el('span', 'sode-edge__art', art)] : []),
-      el('span', 'sode-pages__name', r.name || `${what} ${r.n + off}`),
+      el('span', 'sode-pages__name', r.name || `${what} ${num(r.n)}`),
     ];
     if (r.gone) body.push(el('span', 'sode__hint', 'Not on the router'));
     // A Move across the line between pinned and unpinned rows does nothing (moveRows), so it is off.

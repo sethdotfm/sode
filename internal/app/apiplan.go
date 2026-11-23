@@ -102,7 +102,7 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 	for _, s := range srcs {
 		ls := groups[s]
 		sort.Ints(ls)
-		p.Items = append(p.Items, routeReq{Src: s, Dst: e.Dst, Levels: ls, Undo: &id})
+		p.Items = append(p.Items, routeReq{Src: s, Dst: e.Dst, Levels: ls, Undo: &id, Router: e.Router})
 	}
 	return p
 }

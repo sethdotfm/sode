@@ -9,10 +9,9 @@ import { followCursor } from './gridpanelcursor.js';
 // Filter hides. matches are best first (findMatches). The search is kept as it is; a gone current match falls to the first (currentMatch).
 export function arrange(panel, namesReply, was) {
   const full = gridAxes(panel, namesReply);
-  const off = namesReply.numberOffset || 0;
   const matches = {
-    srcs: findMatches(full.srcs, namesReply.sources, was.find.srcs.text, off),
-    dsts: findMatches(full.dsts, namesReply.destinations, was.find.dsts.text, off),
+    srcs: findMatches(full.srcs, namesReply.sources, was.find.srcs.text, namesReply),
+    dsts: findMatches(full.dsts, namesReply.destinations, was.find.dsts.text, namesReply),
   };
   const axes = {
     srcs: shownOrder(full.srcs, pinsOf(panel.sources, full.srcs), was.find, 'srcs', matches.srcs),

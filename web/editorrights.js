@@ -1,6 +1,7 @@
 // The signed-in user's own Rights for the panel editor (`myRights`, never in the hello). They can arrive before the
 // editor has loaded, so they are caught at import time; Find and the Fixed destination picker read them here.
 import { onMsg, on } from './core.js';
+import { itemRights } from './routerplaces.js';
 
 let rights = null;
 const watchers = [];
@@ -16,3 +17,6 @@ on('wsclose', () => {
 
 export const myRights = () => rights;
 export const onMyRights = (fn) => watchers.push(fn);
+
+// myRights on item numbers (routerids.js) of places, for the Grid panel lists, which hold items of every router.
+export const myItemRights = (places) => itemRights(rights, places);
