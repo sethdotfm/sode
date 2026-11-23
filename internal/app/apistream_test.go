@@ -174,7 +174,8 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	}
 
 	a.mu.Lock()
-	a.broadcast(statusMsg{T: "status", Router: "down", Addr: "r:1"})
+	a.first.status = statusMsg{T: "status", Router: "down", Addr: "r:1"}
+	a.broadcast(a.first.statusOut())
 	a.mu.Unlock()
 	m = s.next()
 	strmWantType(t, m, "status", "status")
