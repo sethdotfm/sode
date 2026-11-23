@@ -36,6 +36,7 @@ export const SAVE_FIELDS = Object.freeze({
   newUserDefaults: 'users',
   publicPanels: 'panels',
   newPanelActs: 'panels',
+  tieHopWeight: 'tie-lines',
   trustedProxies: 'proxy',
   requireHttps: 'proxy',
   maxPinLen: 'users',

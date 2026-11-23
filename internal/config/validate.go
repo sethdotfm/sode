@@ -24,6 +24,9 @@ func (c Config) Validate() error {
 	if c.ResultDismissSeconds < 0 || c.ResultDismissSeconds > 3600 {
 		bad("result dismiss must be 0 (never) or 1-3600 seconds")
 	}
+	if c.TieHopWeight < 0 || c.TieHopWeight > MaxTieHopWeight {
+		bad("the hop weight must be 0-%d", MaxTieHopWeight)
+	}
 	if n := len([]rune(c.BrandText)); n > 24 {
 		bad("logo text must be at most 24 characters")
 	}

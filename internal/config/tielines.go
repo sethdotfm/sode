@@ -20,6 +20,12 @@ type TieLine struct {
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
+// DefaultTieHopWeight: one hop costs as much as one Affected destination.
+const (
+	DefaultTieHopWeight = 1
+	MaxTieHopWeight     = 100
+)
+
 // MaxTieLines keeps the tieLines message well under the 64 KiB read limit.
 const MaxTieLines = 200
 

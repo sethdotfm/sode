@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
 // REST writes. Each request returns after the router answered or timed out every route. Late Results reach the stream
@@ -105,25 +106,20 @@ func (e *apiEnd) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// routeUnit gives the router unit of a route from its two ends. A bare end is the one router; with two or more
-// routers it is 400 router_needed. Ends on two routers need tie lines, which Sode does not have yet: 409 no_path.
-func (a *App) routeUnit(ro apiRouteIn) (*routerUnit, *apiProblem) {
+// routeUnits gives the router units of the two ends of a route. A bare end is the one router; with two or more
+// routers it is 400 router_needed. Ends on two routers give two units: the route needs tie lines (tieroutes.go).
+func (a *App) routeUnits(ro apiRouteIn) (src, dst *routerUnit, _ *apiProblem) {
 	var us [2]*routerUnit
 	for i, e := range []apiEnd{ro.Src, ro.Dst} {
 		switch {
 		case e.Router == "" && len(a.routers) > 1:
-			return nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.routers), apiBase)
+			return nil, nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.routers), apiBase)
 		case !a.knownRouter(e.Router):
-			return nil, problem(http.StatusNotFound, "unknown_router", "no router with UID %q; GET %s/routers lists them", e.Router, apiBase)
+			return nil, nil, problem(http.StatusNotFound, "unknown_router", "no router with UID %q; GET %s/routers lists them", e.Router, apiBase)
 		}
 		us[i] = a.unitOrFirst(e.Router)
 	}
-	if us[0] != us[1] {
-		rt := a.r()
-		return nil, problem(http.StatusConflict, "no_path", "no tie line joins router %s and router %s: a route across routers needs one",
-			rt.routerOf(us[0].uid).Prefix, rt.routerOf(us[1].uid).Prefix)
-	}
-	return us[1], nil
+	return us[0], us[1], nil
 }
 
 type apiTakeIn struct {
@@ -143,8 +139,9 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		}
 		rt := a.r()
 		p := &takePlan{}
-		for _, ro := range in.Routes {
-			u, prob := a.routeUnit(ro)
+		var ties []tieRoute
+		for i, ro := range in.Routes {
+			su, u, prob := a.routeUnits(ro)
 			if prob != nil {
 				return nil, prob
 			}
@@ -153,7 +150,18 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 				rc := rt.routerOf(u.uid)
 				ls, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
 			}
+			if su != u {
+				ties = append(ties, tieRoute{index: i, src: tieplan.End{Router: su.uid, N: ro.Src.N}, dst: tieplan.End{Router: u.uid, N: ro.Dst.N}, levels: ls})
+				continue
+			}
 			p.Items = append(p.Items, routeReq{Src: ro.Src.N, Dst: ro.Dst.N, Levels: ls, Router: u.uid})
+		}
+		if len(ties) > 0 {
+			// Rights first, so a caller learns no path for ends that it must not patch.
+			if prob := a.tieRouteRights(rt, cl.Rights, ties); prob != nil {
+				return nil, prob
+			}
+			return nil, a.apiTieProblem(rt, cl.view(), ties)
 		}
 		return p, nil
 	})

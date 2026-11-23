@@ -399,11 +399,15 @@
       <ul class="sode__routers" id="routers-list" aria-label="Routers"></ul>
     </fieldset>
 
-    <fieldset class="sode__group" data-apart data-section="tie-lines" data-topic="routers">
+    <fieldset class="sode__group" data-section="tie-lines" data-topic="routers">
       <legend>Tie lines</legend>
       <p class="sode__hint" id="tielines-note">A tie line is a one-way cable from a destination on one router to a source on another router. It carries all levels.</p>
+      <div class="sode__field sode__field--half">
+        <label for="cfg-tie-hop-weight" data-pb-tip="The cost of each hop that changes a tie line, added to the number of Affected destinations. Sode offers the path with the lowest cost first">Hop weight</label>
+        <span class="pb-number-wrap"><input type="number" id="cfg-tie-hop-weight" class="pb-input" data-key="tieHopWeight" data-type="int" min="0" max="100"></span>
+      </div>
       <ul class="sode__tielines" id="tielines-list" aria-label="Tie lines"></ul>
-      <div id="tielines-form">
+      <div id="tielines-form" data-apart>
         <div class="sode__fields">
           <div class="sode__field">
             <label for="tieline-from-router">From router</label>

@@ -118,6 +118,7 @@ routers:
 | `SODE_NUM_OFFSET` | `numberOffset` (router) | `1` | Added to router numbers for display (Ultrix shows 1-based) |
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | How long the confirm key is ignored after the dialog opens |
 | `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 keeps it open). Failures always stay until closed |
+| `SODE_TIE_HOP_WEIGHT` | `tieHopWeight` | `1` | The cost of each hop that changes a tie line, added to the number of Affected destinations (0-100). Settings > Routers > Tie lines |
 | `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
 | `SODE_NAME_REREAD_S` | `nameRereadSeconds` (router) | `60` | Re-read names this often (0 turns it off) |
 | `SODE_TALLY_RESYNC_S` | `routeRereadSeconds` (router) | `300` | Re-read all routes and which destinations are protected this often (0 turns it off) |

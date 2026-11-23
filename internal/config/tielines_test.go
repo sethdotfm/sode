@@ -117,6 +117,26 @@ func TestTieLinesSurviveARestart(t *testing.T) {
 	}
 }
 
+// The hop weight is a setting from 0 to MaxTieHopWeight. The default is one.
+func TestTieHopWeight(t *testing.T) {
+	c := Defaults()
+	if c.TieHopWeight != DefaultTieHopWeight {
+		t.Errorf("default %d", c.TieHopWeight)
+	}
+	for _, w := range []int{0, MaxTieHopWeight} {
+		c.TieHopWeight = w
+		if err := c.Validate(); err != nil && strings.Contains(err.Error(), "hop weight") {
+			t.Errorf("weight %d: %v", w, err)
+		}
+	}
+	for _, w := range []int{-1, MaxTieHopWeight + 1} {
+		c.TieHopWeight = w
+		if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "hop weight") {
+			t.Errorf("weight %d: %v", w, err)
+		}
+	}
+}
+
 // A browser can neither drop nor add the unknown keys of a tie line.
 func TestWithTieLineExtras(t *testing.T) {
 	saved := []TieLine{{ID: "t1", Name: "A", Extra: map[string]any{"later": 1}}}

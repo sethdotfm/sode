@@ -103,7 +103,7 @@ func TestAPITakeOnEachRouter(t *testing.T) {
 	}
 }
 
-// A route with its ends on two routers needs a tie line, which Sode does not have yet. With two routers, a bare
+// With no tie line, a route with its ends on two routers has no path. With two routers, a bare
 // number does not say which router it means.
 func TestAPITakeEndsRefused(t *testing.T) {
 	a, fa, fb, b, key := apiTwoRouters(t)
