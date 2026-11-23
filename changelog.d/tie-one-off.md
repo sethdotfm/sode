@@ -1,0 +1,3 @@
+- The Tie line picker offers a One-off tie line for this take only. Type a destination on the router of the source and a source on the router of the destination. You need no Rights on that destination, but a Protect on it still refuses the route. The picker shows what it feeds as unknown.
+- Sode keeps a One-off tie line in memory while its source is routed to a destination. Via, Undo and Redo then work as for a saved tie line. Sode never saves or exports it unless an Administrator presses Save as tie line in Settings > Routers > Tie lines.
+- `POST /takes` takes a One-off tie line in `ties` as `{from, to}` in place of an id. A route with no ties can give `oneOffs` to get the paths through them. The History entry keeps both ends and who stated them.

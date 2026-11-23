@@ -259,18 +259,71 @@ export function expectOf(now) {
 }
 
 // takeRoute is the route that POST /takes gets for the chosen path. It has the tie line of each step with what the
-// picker showed on it. It also has the Affected destinations that the person saw.
+// picker showed on it. It also has the Affected destinations that the person saw. A One-off tie line goes as its two
+// ends ({from, to}). It has an expect only when the picker knew what its upstream destination carries.
 export function takeRoute(st) {
   const { route } = st;
   const p = chosen(st);
+  const tie = (h) => {
+    const o = (route.oneOffs || []).find((x) => x.id === h.tie.id);
+    if (!o) return { id: h.tie.id, expect: expectOf(h.now) };
+    const known = h.now && !h.now.unknown && !h.now.loop;
+    return { from: ref(o.from), to: ref(o.to), ...(known ? { expect: expectOf(h.now) } : {}) };
+  };
   return {
     src: ref(route.src),
     dst: ref(route.dst),
     levels: route.levels,
-    ties: p.hops.slice(0, -1).map((h) => ({ id: h.tie.id, expect: expectOf(h.now), ...(protectOn(st, h.tie.id) && protectable(h) ? { protect: true } : {}) })),
+    ties: p.hops.slice(0, -1).map((h) => ({ ...tie(h), ...(protectOn(st, h.tie.id) && protectable(h) ? { protect: true } : {}) })),
     affected: p.affected.map(ref),
   };
 }
+
+// One-off tie lines (docs/tielines-design.md, One-off tie lines). A person states that a destination on the router of
+// the source feeds a source on the router of the destination, for this take only. The plan request then names it
+// (oneOffs on the route with no ties), and the server gives a path through it with its id (route.oneOffs).
+
+// withOneOffs adds list, the stated One-off tie lines ({from, to}), to the route that the plan is for. That is the
+// route across routers with no ties.
+export function withOneOffs(routes, list) {
+  if (!list?.length) return routes;
+  return routes.map((r) => (r.src.router !== r.dst.router && !r.ties ? { ...r, oneOffs: list } : r));
+}
+
+// oneOffEnds reads the two numbers that a person typed, as the routers show them. From is a destination on the router
+// of the source. To is a source on the router of the destination. off(uid) is the number offset of a router. Gives
+// { ends } or { why }.
+export function oneOffEnds(route, fromText, toText, off) {
+  const read = (text, uid) => {
+    const t = String(text ?? '').trim();
+    if (!/^\d+$/.test(t)) return -1;
+    return Number(t) - off(uid);
+  };
+  const from = { router: route.src.router, n: read(fromText, route.src.router) };
+  const to = { router: route.dst.router, n: read(toText, route.dst.router) };
+  if (from.n < 0) return { why: 'Type the number of a destination on the router of the source' };
+  if (to.n < 0) return { why: 'Type the number of a source on the router of the destination' };
+  return { ends: { from, to } };
+}
+
+const sameRef = (a, b) => a.router === b.router && a.n === b.n;
+
+// addOneOff adds ends to list once.
+export const addOneOff = (list, ends) =>
+  (list || []).some((o) => sameRef(o.from, ends.from) && sameRef(o.to, ends.to)) ? list || [] : [...(list || []), ends];
+
+// oneOffId gives the id that the plan gave to ends, or ''.
+export const oneOffId = (route, ends) => (route.oneOffs || []).find((o) => sameRef(o.from, ends.from) && sameRef(o.to, ends.to))?.id || '';
+
+// chooseOneOff puts the One-off tie line ends on the first step, when the plan has a path through it.
+export function chooseOneOff(st, ends) {
+  const id = oneOffId(st.route, ends);
+  return id ? choose({ ...st, step: 0 }, 0, id) : st;
+}
+
+// oneOffsOf gives the One-off tie lines of a take route, as the plan request names them again (a reopen after 409
+// tie_line_changed).
+export const oneOffsOf = (take) => (take?.ties || []).filter((t) => t.from).map((t) => ({ from: t.from, to: t.to }));
 
 // ago gives a count-up time: "45 s", "3 min 05 s", "2 h 07 min".
 export function ago(ms) {

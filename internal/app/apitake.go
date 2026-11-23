@@ -80,14 +80,26 @@ type apiRouteIn struct {
 	Ties []apiTieIn `json:"ties"`
 	// Affected: the Affected destinations that the caller saw for the route. Absent: Sode does not compare them.
 	Affected []apiEnd `json:"affected"`
+	// OneOffs: One-off tie lines for the plan of a route with no ties (tieoneoff.go). The 409 body then has paths
+	// through them too.
+	OneOffs []apiOneOffIn `json:"oneOffs"`
 }
 
-// apiTieIn is one tie line of a route. Expect is what the caller saw on it. The stale check compares it (tielock.go).
-// Protect: Sode protects the upstream destination of the tie line after the take (tieprotect.go).
+// apiTieIn is one tie line of a route: a saved tie line by id, or a One-off tie line by its two ends. From is a
+// destination, and To a source on the next router. Expect is what the caller saw on it. The stale check compares it
+// (tielock.go). A One-off tie line with no expect is not compared. Protect: Sode protects the upstream destination of
+// the tie line after the take (tieprotect.go).
 type apiTieIn struct {
 	ID      string    `json:"id"`
+	From    *apiEnd   `json:"from"`
+	To      *apiEnd   `json:"to"`
 	Expect  apiExpect `json:"expect"`
 	Protect bool      `json:"protect,omitempty"`
+}
+
+type apiOneOffIn struct {
+	From apiEnd `json:"from"`
+	To   apiEnd `json:"to"`
 }
 
 // apiExpect is one of three forms. A router reference is that source on every level. Null or omitted is nothing on
@@ -96,10 +108,11 @@ type apiExpect struct {
 	One      *apiEnd
 	Levels   []*apiEnd
 	PerLevel bool
+	Given    bool // the request has expect, null too
 }
 
 func (x *apiExpect) UnmarshalJSON(b []byte) error {
-	*x = apiExpect{}
+	*x = apiExpect{Given: true}
 	switch t := bytes.TrimSpace(b); {
 	case bytes.Equal(t, []byte("null")):
 		return nil
@@ -190,24 +203,40 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			}
 			r := tieRoute{index: i, src: tieplan.End{Router: su.uid, N: ro.Src.N}, dst: tieplan.End{Router: u.uid, N: ro.Dst.N}, levels: ls}
 			switch {
-			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil):
-				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties and affected are only for a route across routers", i)
+			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil || len(ro.OneOffs) > 0):
+				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties, oneOffs and affected are only for a route across routers", i)
+			case len(ro.Ties) > 0 && len(ro.OneOffs) > 0:
+				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: oneOffs is only for a route with no ties. Give a One-off tie line in ties as {from, to}", i)
 			case su != u && len(ro.Ties) == 0:
 				bare = true
+				for _, o := range ro.OneOffs {
+					if _, oo, prob := a.statedTie(rt, o.From, o.To); prob != nil {
+						return nil, prob
+					} else if oo != nil {
+						r.oneOffs = append(r.oneOffs, *oo)
+					}
+				}
 			case su != u:
 				r.expect = map[string]tieWant{}
 				for _, t := range ro.Ties {
-					ties[i] = append(ties[i], t.ID)
-					r.ties = append(r.ties, t.ID)
+					id, prob := a.tieInID(rt, t, &r)
+					if prob != nil {
+						return nil, prob
+					}
+					ties[i] = append(ties[i], id)
+					r.ties = append(r.ties, id)
 					if t.Protect {
-						r.protect = append(r.protect, t.ID)
+						r.protect = append(r.protect, id)
 						protect = true
 					}
 					w, prob := a.tieWantOf(t.Expect)
 					if prob != nil {
 						return nil, prob
 					}
-					r.expect[t.ID] = w
+					if isOneOff(id) && !t.Expect.Given {
+						w = tieWant{anything: true}
+					}
+					r.expect[id] = w
 				}
 				if ro.Affected != nil {
 					r.seen = []tieplan.End{}
