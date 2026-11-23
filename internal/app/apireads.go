@@ -8,6 +8,7 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
+	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
 func init() {
@@ -119,6 +120,16 @@ type apiRouteRow struct {
 	Dst   int `json:"dst"`
 	Level int `json:"level"` // UI level
 	Src   int `json:"src"`   // -1 = nothing routed
+	// The Via chain of this level, only when a tie line feeds Src (tievia.go). Origin is nil when Nothing, Unknown or
+	// Loop is set, or when the caller's hidden visibility does not show it. Levels: only when Mixed, the origin of
+	// each level upstream of the nearest tie line, from level 1.
+	Via     []apiTieRef    `json:"via,omitempty"`
+	Origin  *tieplan.End   `json:"origin,omitempty"`
+	Mixed   bool           `json:"mixed,omitempty"`
+	Nothing bool           `json:"nothing,omitempty"`
+	Unknown string         `json:"unknown,omitempty"`
+	Loop    bool           `json:"loop,omitempty"`
+	Levels  []*tieplan.End `json:"levels,omitempty"`
 }
 
 // router.protect maps dst and level to a device, not a source. So visibility asks about dst only.
@@ -131,12 +142,14 @@ type apiProtectedRow struct {
 }
 
 // Stable order.
-func routeRows(m map[int]map[int]int, v routerView) []apiRouteRow {
+func routeRows(m map[int]map[int]int, v routerView, x *viaTrace) []apiRouteRow {
 	out := []apiRouteRow{}
 	for d, t := range m {
 		for l, s := range t {
 			if v.Route(d, l, s) {
-				out = append(out, apiRouteRow{d, l, s})
+				row := apiRouteRow{Dst: d, Level: l, Src: s}
+				x.fill(v, &row)
+				out = append(out, row)
 			}
 		}
 	}
@@ -166,7 +179,7 @@ func (a *App) tallySnapshot(u *routerUnit, v apiView) map[string]any {
 	rc := r.routerOf(u.uid)
 	return map[string]any{
 		"levels": levels, "levelNumbering": rc.LevelNumbering, "defaultLevels": rc.DefaultLevels,
-		"routes": routeRows(u.router.tally, v.on(u.uid)),
+		"routes": routeRows(u.router.tally, v.on(u.uid), a.newViaTrace(r)),
 	}
 }
 
@@ -176,6 +189,7 @@ type tallyBody struct {
 	rs   *routerState // a router change replaces it
 	rt   *runtime     // levels and level numbering
 	gen  int
+	via  int // App.viaGen
 	body []byte
 	tag  string
 }
@@ -194,8 +208,8 @@ func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	a.mu.Lock()
-	key := tallyBody{rs: u.router, rt: a.r(), gen: u.router.tallyGen}
-	if c := u.tallyCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.body != nil {
+	key := tallyBody{rs: u.router, rt: a.r(), gen: u.router.tallyGen, via: a.viaGen}
+	if c := u.tallyCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.via == key.via && c.body != nil {
 		a.mu.Unlock()
 		apiWriteTagged(w, r, c.body, c.tag)
 		return
@@ -209,7 +223,7 @@ func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	key.body, key.tag = body, etagOf(body)
 	a.mu.Lock()
-	if u.router == key.rs && a.r() == key.rt && u.router.tallyGen == key.gen {
+	if u.router == key.rs && a.r() == key.rt && u.router.tallyGen == key.gen && a.viaGen == key.via {
 		u.tallyCache = key
 	}
 	a.mu.Unlock()
