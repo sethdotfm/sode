@@ -72,8 +72,13 @@ func (a *App) link(u *routerUnit, r *runtime, debug bool) {
 	u.sw.OnUp = func() { a.onUnitUp(u) }
 	u.sw.OnMsg = func(m []byte) { a.onUnitMsg(u, m) }
 	u.sw.OnState = func(s swp08.State, err error) { a.onUnitState(u, s, err) }
-	u.sw.OnTx = a.onTx
+	// Every row the link logs names this router.
+	u.sw.OnTx = func(e swp08.TxEvent) {
+		e.Why.Router = u.uid
+		a.onTx(e)
+	}
 	u.sendMsg = func(m []byte, why swp08.Why) error {
+		why.Router = u.uid
 		err := u.sw.Send(m, why)
 		// Only a take's refusals are logged; refused re-reads while down would flood the log.
 		if err != nil && !background[why.Reason] {
@@ -81,6 +86,15 @@ func (a *App) link(u *routerUnit, r *runtime, debug bool) {
 		}
 		return err
 	}
+}
+
+// routerOf gives the settings of the router with this UID. Blank, or a UID that the settings do not have (a unit
+// made before an import changed the UID), gives the first router.
+func (r *runtime) routerOf(uid string) config.Router {
+	if rc, ok := r.cfg.RouterByUID(uid); ok {
+		return rc
+	}
+	return r.cfg.Router
 }
 
 // unit gives the router unit for a router UID; blank is the first router.

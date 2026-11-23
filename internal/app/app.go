@@ -340,7 +340,7 @@ func (a *App) periodic() {
 func (a *App) onUnitUp(u *routerUnit) {
 	a.RefreshNames()
 	a.requestDumps()
-	go a.clearStaleSalvo()
+	go a.clearStaleSalvo(u)
 }
 
 func (a *App) requestDumps() {
@@ -421,7 +421,7 @@ func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 		a.applyNames(nb)
 	}
 	if ev.Salvo != nil {
-		a.onSalvoAck(*ev.Salvo)
+		u.onSalvoAck(*ev.Salvo)
 	}
 }
 
@@ -452,17 +452,17 @@ func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 		u.router.pend = append(u.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
 		// A dump or an interrogate shows a route change that the router did not announce. Sode notes it too, unless
 		// it is Sode's own.
-		switch a.classify(xp, l.UI, known) {
+		switch u.classify(xp, l.UI, known) {
 		case verdictExt:
 			u.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
 		case verdictOurs:
-			a.sawOwn(xp)
+			u.sawOwn(xp)
 		}
 	} else if xp.Changed() && u.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
 		// A tally already cached Sode's own route: the Connected of a native salvo came after the interrogate answer
 		// (fire.go).
 		// This uses up its key.
-		a.sawOwn(xp)
+		u.sawOwn(xp)
 	}
 	for w := range u.waiters {
 		if w.see(xp) && xp.Changed() {
@@ -657,9 +657,12 @@ func (a *App) reply(c *client, v any) {
 	a.mu.Unlock()
 }
 
+// record writes e. A take's entry names its router in Router; any other entry gets the first router.
 func (a *App) record(e *Entry) {
-	cfg := a.r().cfg
-	e.Router, e.RouterTitle = cfg.UID, cfg.Title
+	r := a.r()
+	cfg := r.cfg
+	rc := r.routerOf(e.Router)
+	e.Router, e.RouterTitle = rc.UID, rc.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}

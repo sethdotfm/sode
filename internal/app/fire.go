@@ -22,19 +22,19 @@ const salvoAnnounceFor = 2 * time.Second
 // stageChunk: caps queued stage messages so a big salvo does not fill the send queue.
 const stageChunk = 64
 
-// fireState collects acknowledges for the fire in progress (a.fire, guarded by mu); others
+// fireState collects acknowledges for the fire in progress on a router (routerUnit.fire, guarded by mu); others
 // are dropped.
 type fireState struct {
 	acks chan swp08.SalvoAck
 }
 
-// Caller holds mu.
-func (a *App) onSalvoAck(x swp08.SalvoAck) {
-	if a.fire == nil {
+// onSalvoAck gives an acknowledge from router u to the fire in progress there. Caller holds mu.
+func (u *routerUnit) onSalvoAck(x swp08.SalvoAck) {
+	if u.fire == nil {
 		return
 	}
 	select {
-	case a.fire.acks <- x:
+	case u.fire.acks <- x:
 	default:
 		log.Printf("salvo: acknowledge dropped, collector full (cmd %d)", x.Cmd)
 	}
@@ -90,10 +90,11 @@ func markStages(r *runtime, items []routeReq) int {
 	return n
 }
 
-// takeNative runs a take whose routes stage levels in a native group salvo. takeAllowed read the routes first.
-func (a *App) takeNative(r *runtime, c *client, items []routeReq, ext *extTracker) {
+// takeNative runs a take whose routes on router u stage levels in a native group salvo. takeOnRouter read the routes
+// first.
+func (a *App) takeNative(r *runtime, u *routerUnit, c *client, items []routeReq, ext *extTracker) {
 	runs := make([]*routeRun, len(items))
-	runLimited(routeLimit, len(items), func(i int) { runs[i] = a.prepare(r, c, items[i], ext) })
+	runLimited(routeLimit, len(items), func(i int) { runs[i] = a.prepare(r, u, c, items[i], ext) })
 	var live, staged []*routeRun
 	for _, t := range runs {
 		if t == nil {
@@ -105,7 +106,7 @@ func (a *App) takeNative(r *runtime, c *client, items []routeReq, ext *extTracke
 		}
 	}
 	if len(staged) >= 2 {
-		got, sent, err := a.fireSalvo(r, c, staged)
+		got, sent, err := a.fireSalvo(r, u, c, staged)
 		n := 0
 		for _, t := range staged {
 			n += len(t.w.filter(func(l *routeLevel) bool { return l.native }))
@@ -193,8 +194,8 @@ func (a *App) unNative(w *waiter) {
 	for _, l := range w.levels {
 		l.native = false
 	}
-	if a.ext == w.ext && !w.cut {
-		w.ownKeys(a)
+	if w.u.ext == w.ext && !w.cut {
+		w.ownKeys()
 	}
 }
 
@@ -204,11 +205,11 @@ var (
 	errNoGo    = errors.New("the router did not acknowledge the Go (no 123)")
 )
 
-// fireSalvo: sent reports whether the Go was sent. If not, the takes can go as connects. err
+// fireSalvo fires on router u. sent reports whether the Go was sent. If not, the takes can go as connects. err
 // with sent means that the Go's acknowledge was missing or odd. got is when the fire got fireMu.
 // A salvo command row by c marks when the fire gets fireMu and when it lets go, so a wait for another fire shows.
-func (a *App) fireSalvo(r *runtime, c *client, staged []*routeRun) (got time.Time, sent bool, err error) {
-	waited, holder := a.lockFire("a fire by " + c.who())
+func (a *App) fireSalvo(r *runtime, u *routerUnit, c *client, staged []*routeRun) (got time.Time, sent bool, err error) {
+	waited, holder := a.lockFire(u, "a fire by "+c.who())
 	got = time.Now()
 	note := "fire lock: no wait"
 	if holder != "" {
@@ -218,64 +219,65 @@ func (a *App) fireSalvo(r *runtime, c *client, staged []*routeRun) (got time.Tim
 	// Deferred first, so it runs after the last Go-clear.
 	defer func() {
 		a.command(c, "salvo", "release", fmt.Sprintf("fire lock: held %d ms", time.Since(got).Milliseconds()), nil)
-		a.unlockFire()
+		a.unlockFire(u)
 	}()
-	sent, err = a.fireLocked(r, staged)
+	sent, err = a.fireLocked(r, u, staged)
 	return got, sent, err
 }
 
-// lockFire takes fireMu for what. When it had to wait, holder names what held the lock then.
-func (a *App) lockFire(what string) (waited time.Duration, holder string) {
-	if !a.fireMu.TryLock() {
+// lockFire takes the fireMu of router u for what. When it had to wait, holder names what held the lock then.
+func (a *App) lockFire(u *routerUnit, what string) (waited time.Duration, holder string) {
+	if !u.fireMu.TryLock() {
 		a.mu.Lock()
-		holder = a.fireHolder
+		holder = u.fireHolder
 		a.mu.Unlock()
 		if holder == "" {
 			holder = "another fire" // it let go between the two reads
 		}
 		start := time.Now()
-		a.fireMu.Lock()
+		u.fireMu.Lock()
 		waited = time.Since(start)
 	}
 	a.mu.Lock()
-	a.fireHolder = what
+	u.fireHolder = what
 	a.mu.Unlock()
 	return waited, holder
 }
 
-func (a *App) unlockFire() {
+func (a *App) unlockFire(u *routerUnit) {
 	a.mu.Lock()
-	a.fireHolder = ""
+	u.fireHolder = ""
 	a.mu.Unlock()
-	a.fireMu.Unlock()
+	u.fireMu.Unlock()
 }
 
-// fireLocked is the fire itself. Caller holds fireMu.
-func (a *App) fireLocked(r *runtime, staged []*routeRun) (sent bool, err error) {
+// setFire makes fs the fire in progress on router u, or none for nil.
+func (a *App) setFire(u *routerUnit, fs *fireState) {
+	a.mu.Lock()
+	u.fire = fs
+	a.mu.Unlock()
+}
+
+// fireLocked is the fire itself, on router u. Caller holds u.fireMu.
+func (a *App) fireLocked(r *runtime, u *routerUnit, staged []*routeRun) (sent bool, err error) {
 	n := 0
 	for _, t := range staged {
 		n += len(t.w.levels)
 	}
 	fs := &fireState{acks: make(chan swp08.SalvoAck, n+16)}
-	a.mu.Lock()
-	a.fire = fs
-	a.mu.Unlock()
-	defer func() {
-		a.mu.Lock()
-		a.fire = nil
-		a.mu.Unlock()
-	}()
+	a.setFire(u, fs)
+	defer a.setFire(u, nil)
 	mx, g := r.cfg.Matrix, r.cfg.SalvoGroup
 	ext := staged[0].w.ext
 	why := staged[0].w.why
 
 	// Clear anything staged that is not ours; this also proves group salvos work.
-	if err := a.clearSalvo(ext, fs, g, why); err != nil {
+	if err := a.clearSalvo(u, ext, fs, g, why); err != nil {
 		return false, err
 	}
 	// Cleared after every fire; on failure, it is possible that the router still holds some of ours.
 	defer func() {
-		if err := a.clearSalvo(ext, fs, g, why); err != nil {
+		if err := a.clearSalvo(u, ext, fs, g, why); err != nil {
 			log.Printf("salvo: clearing group %d after the fire: %v", g, err)
 		}
 	}()
@@ -293,7 +295,7 @@ func (a *App) fireLocked(r *runtime, staged []*routeRun) (sent bool, err error) 
 			if !swp08.SalvoFits(mx, l.wire, t.w.dst, t.w.src) {
 				m = swp08.ExtConnectOnGo(mx, l.wire, t.w.dst, t.w.src, g)
 			}
-			done, err := a.sendTracked(ext, m, t.w.why)
+			done, err := a.sendTracked(u, ext, m, t.w.why)
 			if err != nil {
 				return false, fmt.Errorf("staging: %w", err)
 			}
@@ -302,11 +304,11 @@ func (a *App) fireLocked(r *runtime, staged []*routeRun) (sent bool, err error) 
 			missing++
 			last = done
 			if queued++; queued%stageChunk == 0 {
-				a.leftQueue(last)
+				u.leftQueue(last)
 			}
 		}
 	}
-	a.leftQueue(last)
+	u.leftQueue(last)
 	// Every crosspoint must be staged before the Go.
 	if missing > 0 {
 		if _, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool {
@@ -321,12 +323,12 @@ func (a *App) fireLocked(r *runtime, staged []*routeRun) (sent bool, err error) 
 		}
 	}
 
-	done, err := a.sendTracked(ext, swp08.GoSalvo(false, g), why)
+	done, err := a.sendTracked(u, ext, swp08.GoSalvo(false, g), why)
 	if err != nil {
 		return false, fmt.Errorf("go: %w", err)
 	}
 	// From here, it is possible that the routes changed: never again as connects.
-	a.leftQueue(done)
+	u.leftQueue(done)
 	wrote := time.Now() // the Go is written and ACKed
 	x, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool { return x.Cmd == swp08.CmdGoDoneAck && x.Group == g })
 	at := time.Now()
@@ -358,8 +360,8 @@ func (a *App) fireLocked(r *runtime, staged []*routeRun) (sent bool, err error) 
 	return true, nil
 }
 
-// Caller holds fireMu, with fs as a.fire.
-func (a *App) clearSalvo(ext *extTracker, fs *fireState, g int, why swp08.Why) error {
+// Caller holds u.fireMu, with fs as u.fire.
+func (a *App) clearSalvo(u *routerUnit, ext *extTracker, fs *fireState, g int, why swp08.Why) error {
 	for drained := false; !drained; {
 		select {
 		case <-fs.acks:
@@ -367,45 +369,41 @@ func (a *App) clearSalvo(ext *extTracker, fs *fireState, g int, why swp08.Why) e
 			drained = true
 		}
 	}
-	done, err := a.sendTracked(ext, swp08.GoSalvo(true, g), why)
+	done, err := a.sendTracked(u, ext, swp08.GoSalvo(true, g), why)
 	if err != nil {
 		return fmt.Errorf("clear: %w", err)
 	}
-	a.leftQueue(done)
+	u.leftQueue(done)
 	if _, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool { return x.Cmd == swp08.CmdGoDoneAck && x.Group == g }); !ok {
 		return errNoClear
 	}
 	return nil
 }
 
-// clearStaleSalvo: staged crosspoints outlive a dropped link. Native mode only.
-func (a *App) clearStaleSalvo() {
+// clearStaleSalvo: staged crosspoints outlive a dropped link of router u. Native mode only.
+func (a *App) clearStaleSalvo(u *routerUnit) {
 	r := a.r()
 	if r.cfg.FireMode != "native" {
 		return
 	}
-	a.lockFire("the salvo clear after a connect")
-	defer a.unlockFire()
+	a.lockFire(u, "the salvo clear after a connect")
+	defer a.unlockFire(u)
 	fs := &fireState{acks: make(chan swp08.SalvoAck, 16)}
 	a.mu.Lock()
-	a.fire = fs
-	ext := a.ext
+	u.fire = fs
+	ext := u.ext
 	a.mu.Unlock()
-	defer func() {
-		a.mu.Lock()
-		a.fire = nil
-		a.mu.Unlock()
-	}()
-	if err := a.clearSalvo(ext, fs, r.cfg.SalvoGroup, swp08.Why{Reason: swp08.ReasonResync}); err != nil {
+	defer a.setFire(u, nil)
+	if err := a.clearSalvo(u, ext, fs, r.cfg.SalvoGroup, swp08.Why{Reason: swp08.ReasonResync}); err != nil {
 		log.Printf("salvo: clearing group %d on connect: %v", r.cfg.SalvoGroup, err)
 	}
 }
 
 // sawOwn: a native salvo's Connecteds arrive after the Go, sometimes after the take
-// finished; the latest take of the route gets it. Caller holds mu.
-func (a *App) sawOwn(xp swp08.Crosspoint) {
-	for i := len(a.ext.causes) - 1; i >= 0; i-- {
-		if c := a.ext.causes[i]; c.src == xp.Src && c.dst == xp.Dst {
+// finished; the latest take of the route on router u gets it. Caller holds mu.
+func (u *routerUnit) sawOwn(xp swp08.Crosspoint) {
+	for i := len(u.ext.causes) - 1; i >= 0; i-- {
+		if c := u.ext.causes[i]; c.src == xp.Src && c.dst == xp.Dst {
 			c.saw(time.Now())
 			return
 		}

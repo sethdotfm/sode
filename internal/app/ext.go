@@ -55,22 +55,23 @@ const (
 	verdictExt                   // a change made elsewhere
 )
 
-// classify uses up the own key, so the same route made elsewhere later still counts as External. Caller holds mu.
-func (a *App) classify(xp swp08.Crosspoint, ui int, known bool) verdict {
+// classify sorts a tally of router u. It uses up the own key, so the same route made elsewhere later still counts
+// as External. Caller holds mu.
+func (u *routerUnit) classify(xp swp08.Crosspoint, ui int, known bool) verdict {
 	k := ownKey{xp.Dst, xp.Level, xp.Src}
 	if xp.Changed() {
-		if a.ext.ownAnswer(k, time.Now()) {
+		if u.ext.ownAnswer(k, time.Now()) {
 			return verdictOurs
 		}
-		if a.claimLate(k, ui) {
+		if u.claimLate(k, ui) {
 			return verdictLate
 		}
 		return verdictExt
 	}
-	if a.claimLate(k, ui) {
+	if u.claimLate(k, ui) {
 		return verdictLate
 	}
-	if known && !a.awaited(xp) {
+	if known && !u.awaited(xp) {
 		return verdictExt
 	}
 	return verdictIgnore
@@ -86,22 +87,23 @@ func (x *extTracker) entries(name func(dst bool, n int) string, changes map[int]
 	return x.burst.entries(name, changes, at, x.follows.followed)
 }
 
-// flushFound writes found changes ahead of the rest of the burst, so they precede the take
-// whose check found them.
-func (a *App) flushFound(dst int) {
+// flushFound writes found changes on router u ahead of the rest of the burst, so they precede the take whose check
+// found them.
+func (a *App) flushFound(u *routerUnit, dst int) {
 	a.mu.Lock()
+	x := u.ext
 	found := map[int]*extLevel{}
-	for ui, l := range a.ext.pending[dst] {
+	for ui, l := range x.pending[dst] {
 		if l.found {
 			found[ui] = l
-			delete(a.ext.pending[dst], ui)
+			delete(x.pending[dst], ui)
 		}
 	}
-	if len(a.ext.pending[dst]) == 0 {
-		delete(a.ext.pending, dst)
+	if len(x.pending[dst]) == 0 {
+		delete(x.pending, dst)
 	}
 	// Grouped by now; the rest of the burst, written later, gets that group.
-	es := a.ext.entries(a.router.name, map[int]map[int]*extLevel{dst: found}, time.Now())
+	es := x.entries(u.router.name, map[int]map[int]*extLevel{dst: found}, time.Now())
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)

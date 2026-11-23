@@ -62,8 +62,12 @@ func (x apiAnswer) write(w http.ResponseWriter, replay bool) {
 
 // The worst case of n routes: each wave of routeLimit routes adds check, queue wait, route and grace (about 35 s by
 // default). It is this request's write deadline. Never set a server-wide WriteTimeout: it would cut /ws and the stream.
+// The routers of a take run side by side, so the slowest router's timers count.
 func (a *App) takeDeadline(n int) time.Duration {
-	one := a.checkTimeout + a.queueMax + a.routeTimeout + a.routeGrace
+	var one time.Duration
+	for _, u := range a.routers {
+		one = max(one, u.checkTimeout+u.queueMax+u.routeTimeout+u.routeGrace)
+	}
 	return one*time.Duration((n+routeLimit-1)/routeLimit) + takeMargin
 }
 
