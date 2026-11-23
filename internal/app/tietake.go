@@ -121,6 +121,11 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 				continue
 			}
 			cross = append(cross, r)
+			// Typed levels are levels of the destination's router (docs/tielines-design.md, Levels). Refuse a bad
+			// one here, before any hop goes out.
+			if _, err := rt.levelsOf(r.dst.Router).typed(r.levels); err != nil {
+				return problem(http.StatusBadRequest, "bad_request", "route %d: %v", r.index, err)
+			}
 			path, why := tieplan.Through(in, tieplan.Route{Src: r.src, Dst: r.dst, Levels: r.levels}, ties[r.index])
 			if why != nil {
 				if why.Why == "router_down" {
