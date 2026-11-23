@@ -154,11 +154,13 @@ type apiTieChangedBody struct {
 }
 
 // tieWant is what the caller saw on a tie line. Without perLevel, one is the source on every level. With perLevel,
-// levels has the source of each level of the upstream router, from level 1. A nil source is nothing.
+// levels has the source of each level of the upstream router, from level 1. A nil source is nothing. anything: Sode
+// does not compare the tie line (Retry of a hop that failed, tieretry.go).
 type tieWant struct {
 	one      *tieplan.End
 	levels   []*tieplan.End
 	perLevel bool
+	anything bool
 }
 
 func (a *App) tieWantOf(x apiExpect) (tieWant, *apiProblem) {
@@ -187,6 +189,9 @@ func (a *App) tieWantOf(x apiExpect) (tieWant, *apiProblem) {
 // carries: the tie line with upstream destination from carries w on each level. The stale check compares every
 // level, so a move on any level is a change. A level whose Via chain is mixed, unknown or a loop never matches.
 func carries(in tieplan.Input, from tieplan.End, levels []int, w tieWant) bool {
+	if w.anything {
+		return true
+	}
 	if w.perLevel && len(w.levels) != len(levels) {
 		return false
 	}

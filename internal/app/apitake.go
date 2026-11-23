@@ -283,6 +283,12 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 			}
 			return p, nil
 		}
+		switch {
+		case verb == "retry" && e.Tie != "":
+			return nil, problem(http.StatusConflict, "conflict", "entry %d is a hop of a tie take; retry its destination entry, or put the tie line back", id)
+		case verb == "retry" && e.Origin != nil:
+			return a.planTieRetry(rt, cl, e)
+		}
 		return planAgain(rt, a.view(cl), e, verb == "retry")
 	})
 }
@@ -398,9 +404,9 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		plan.Items[i].ID = i + 1
 		plan.Items[i].Preset, plan.Items[i].PresetID = plan.Preset, plan.PresetID
 	}
-	n := len(plan.Items)
+	n, why := len(plan.Items), takeWhy(plan.Items)
 	if plan.Ties != nil {
-		n = len(plan.Ties.routes)
+		n, why = len(plan.Ties.routes), takeWhy(plan.Ties.reqs())
 	}
 	sink := &sinkResults{by: map[int]routeResult{}}
 	cl.sink = sink.put
@@ -410,7 +416,7 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		return problem(http.StatusForbidden, "outside_rights", "%s", msg).answer(), true
 	}
 	if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
-		a.apiEvent(cl.Actor, takeWhy(plan.Items), "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
+		a.apiEvent(cl.Actor, why, "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
 		return problem(http.StatusTooManyRequests, "take_cap",
 			"%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap).answer(), false
 	}
@@ -423,12 +429,12 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		// The tie locks and the stale check come before the sent row, so a refused take logs refused.
 		unlock, p := a.tieTakeBegin(rt, a.view(cl), c, t)
 		if p != nil {
-			a.apiEvent(cl.Actor, takeWhy(plan.Items), "refused", p.Code, fmt.Errorf("%s", p.Msg))
+			a.apiEvent(cl.Actor, why, "refused", p.Code, fmt.Errorf("%s", p.Msg))
 			return p.answer(), false
 		}
 		defer unlock()
 	}
-	a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
+	a.apiEvent(cl.Actor, why, "sent", note, nil)
 	if t := plan.Ties; t != nil {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(t.deadline(a)))
 		return jsonAnswer(http.StatusOK, t.out(a.runTieTake(c, t, sink.get))), true
