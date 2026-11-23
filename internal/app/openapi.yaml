@@ -3046,8 +3046,14 @@ components:
       required: [router, src, dst, levels, tie, sends]
       properties:
         router: { type: string }
-        src: { $ref: "#/components/schemas/TieEnd" }
-        dst: { $ref: "#/components/schemas/TieEnd" }
+        src:
+          nullable: true
+          description: "Null when the caller's hidden visibility does not show it"
+          allOf: [{ $ref: "#/components/schemas/TieEnd" }]
+        dst:
+          nullable: true
+          description: "Null when the caller's hidden visibility does not show it"
+          allOf: [{ $ref: "#/components/schemas/TieEnd" }]
         levels: { type: array, items: { type: integer } }
         tie:
           nullable: true
@@ -3057,7 +3063,7 @@ components:
         now: { $ref: "#/components/schemas/TieChain" }
         protect: { type: string, description: "Who holds a Protect on the upstream end of the tie line" }
         reserve: { type: string, description: "The panel that Reserved the tie line" }
-        changed: { type: string, format: date-time, description: "The last change of the tie line" }
+        changed: { type: string, format: date-time, description: "The last change of the tie line. Absent when `dst` is null" }
         before: { type: boolean, description: "Sode started after `changed`, so the tie line can have changed again" }
     TiePath:
       type: object
@@ -3081,7 +3087,7 @@ components:
         protected: { type: boolean, description: "A tie line that the path changes is Protected. The path is not usable" }
         reserved: { type: boolean, description: "A tie line that the path changes is Reserved by a panel" }
         changedLately: { type: boolean, description: "A tie line of the path changed in the last 5 minutes" }
-        newest: { type: string, format: date-time }
+        newest: { type: string, format: date-time, description: "The newest change of a tie line of the path. Absent when a hop with a change has a null `dst`" }
     TieRoutePlan:
       type: object
       required: [route, src, dst, levels, paths, more, reasons]

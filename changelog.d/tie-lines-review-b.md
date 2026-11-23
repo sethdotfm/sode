@@ -3,3 +3,4 @@
 - The `also` list of an External entry leaves out each destination that a caller with hidden visibility cannot see. `alsoOthers` counts them.
 - A change to the ends of a tie line removes its last change time, so Sode does not show the time of the old cable.
 - Settings > Routers > Tie lines shows at most 20 suggestions, and a count of the others.
+- In a 409 body with tie line paths, a caller with hidden visibility gets null for a hop end that it cannot see. That hop has no change time.

@@ -264,7 +264,7 @@ Rights checks compare the router and the number of each reference. A right for s
 4. If a tie line moved, Sode answers 409 `tie_line_changed` with the state of each tie line now.
 5. A panel at Off, or a caller without the "Use tie lines" right, gets 403 `tie_lines_off`.
 6. If no path is usable, Sode answers 409 `no_path` with each reason.
-7. Every such reply blanks the names that a caller with hidden visibility cannot see.
+7. Every such reply blanks the names that a caller with hidden visibility cannot see. A hop end that the caller cannot see is null, with no change time, as in `GET /tielines`. The origin of what a tie line carries stays, since the caller sends it back as `expect`.
 8. An Idempotency-Key replay returns the first answer, as for any take.
 9. `GET /tielines` lists each tie line with its name, what it carries, the last change, and any Protect or Reserve.
 10. openapi.yaml gains every new route and error code in the same issue.
