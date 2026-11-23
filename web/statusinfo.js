@@ -6,6 +6,7 @@ import { layout, onLayout } from './layout.js';
 import { slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import { logReadable, spanText, routerUpSince } from './statusinforules.js';
+import { routerLinks, linkLabel } from './routerlinkrules.js';
 
 const DAY = 86_400_000;
 // Above log.js's ids, which count up from 1, so the two uptimeResult readers on /log never take each other's reply.
@@ -90,12 +91,15 @@ function makeBox(root) {
     const srv = S.wsState === 'up' ? 'Connected' : S.wsState === 'connecting' ? 'Connecting' : 'Disconnected';
     const run = health ? spanText(health.secs + (Date.now() - health.at) / 1000) : S.wsState === 'up' ? 'Loading…' : 'Not known';
     const rows = [row('Server link', srv), row('Server run time', run)];
-    const rt = S.wsState !== 'up' || !S.router ? 'Not known' : { up: 'Connected', connecting: 'Connecting', down: 'Down' }[S.router] || S.router;
-    rows.push(row('Router link', rt));
-    if (S.routerAddr) rows.push(row('Address', el('span', 'sode-statusinfo__num', S.routerAddr)));
-    if (S.router !== 'up' && S.routerLastErr) rows.push(row('Error', S.routerLastErr));
+    const list = routerLinks(S);
+    for (const r of list) {
+      rows.push(row(linkLabel(r, list.length), r.link ? { up: 'Connected', connecting: 'Connecting', down: 'Down' }[r.link] || r.link : 'Not known'));
+      if (r.addr) rows.push(row('Address', el('span', 'sode-statusinfo__num', r.addr)));
+      if (r.err) rows.push(row('Error', r.err));
+    }
     const parts = [el('div', 'sode-statusinfo__rows', ...rows)];
-    if (up && S.wsState === 'up') parts.push(strip(up));
+    // Uptime rows name no router yet, so the strip shows only while there is one.
+    if (up && S.wsState === 'up' && list.length === 1) parts.push(strip(up));
     pop.replaceChildren(...parts);
   }
 

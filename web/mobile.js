@@ -7,6 +7,8 @@ import { defaultLevelsWord, allLevels, levelText, levelSource } from './levelvie
 import { levelBox } from './levelbox.js';
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped } from './device.js';
+import { paintRouters } from './connview.js';
+import { routerLinks, routerMarks } from './routerlinkrules.js';
 import { resultNode, patchPlan, rightsOff, lastTake, nextTake, nextFind, boxPatch, lastChip } from './plans.js';
 import { nextAdd } from './boxlist.js';
 import { layout, onLayout } from './layout.js';
@@ -54,11 +56,11 @@ const active = () => layout() === 'phone' && document.documentElement.dataset.vi
 
 function renderConn() {
   const c = connState();
-  setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Server']);
+  setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Server'], { base: 'server', label: c.ws[1] });
   $('m-ws-text').parentElement.title = c.ws[1];
-  setDot($('m-rt-dot'), $('m-rt-text'), [c.rt[0], 'Router']);
-  $('m-rt-text').parentElement.title = c.rt[1];
-  const [label, isName] = routerTitle();
+  const list = routerLinks(S);
+  paintRouters($('m-routers'), routerMarks(list), true);
+  const [label, isName] = list.length === 1 ? routerTitle() : ['', false];
   $('m-rt-addr').textContent = label;
   $('m-rt-addr').title = label;
   $('m-rt-addr').classList.toggle('sode__conn-addr--name', isName);

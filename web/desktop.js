@@ -90,8 +90,7 @@ function renderConn() {
     root: $('conn'),
     srvDot: $('conn-srv-dot'),
     srvText: $('conn-srv-text'),
-    rtDot: $('conn-rt-dot'),
-    rtText: $('conn-rt-text'),
+    routers: $('conn-routers'),
     addr: $('conn-addr'),
   });
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';

@@ -375,8 +375,9 @@ export function routerTitle() {
   return [S.routerAddr || '', false];
 }
 
-// Placeholder for a Sode-owned video router icon: Lucide's `router` is a Wi-Fi router, which the SW-P-08 matrix is not.
-const ROUTER_ICON = 'box';
+// The video router's icon in the status and the Lost link banner. Lucide's `router` is a Wi-Fi router, which the
+// SW-P-08 matrix is not. `server-nas` is copied from lucide-static 1.56.0 into the vendored sprite (owner's pick).
+export const routerIcon = () => 'server-nas';
 
 // The page starts below a fixed banner (the desktop one; the phone's has its own column):
 // publish the fixed, showing banner's height as --sode-down-h.
@@ -426,7 +427,7 @@ export function renderDown(box, c) {
             'span',
             'sode__down-hop',
             wire(links[1]),
-            node(ROUTER_ICON, links[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
+            node(routerIcon(), links[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
           ),
         ),
       text && el('div', null, text),
@@ -470,14 +471,25 @@ on('conn', () => {
   for (const b of document.querySelectorAll('[data-needs-link]')) setLinkDisabled(b, !linked());
 });
 
-// The Server and Router status: a state glyph (.sode__state, bar.css), not patchbay's square. The glyph's shape tells
-// the state apart in greyscale. data-state is one of STATE_GLYPH's keys; the HTML leaves it out until the first paint.
+// The Server and Router status (.sode__state, bar.css), not patchbay's square. The link's icon (base) has the state's
+// colour. A corner badge tells the state apart by its shape, also in greyscale. data-state is one of STATE_GLYPH's keys;
+// the HTML leaves it out until the first paint. label is the spoken name with the state; count shows inside the icon,
+// so it stays where the words hide. The icons are made only on a change: panel pages repaint often.
 const STATE_GLYPH = { ok: 'circle-check', warn: 'loader-circle', error: 'circle-x', idle: 'circle-minus', info: 'circle-dot' };
-export function setDot(dotEl, textEl, [state, text]) {
+export function setDot(dotEl, textEl, [state, text], { base, label = text, count = '' } = {}) {
+  if (dotEl.dataset.base !== base) {
+    dotEl.dataset.base = base;
+    delete dotEl.dataset.state;
+    dotEl.replaceChildren(icon(base, false), el('span', 'sode__state-badge'), el('span', 'sode__state-count'));
+    dotEl.removeAttribute('aria-hidden');
+    dotEl.setAttribute('role', 'img');
+  }
   if (dotEl.dataset.state !== state) {
     dotEl.dataset.state = state;
-    dotEl.replaceChildren(icon(STATE_GLYPH[state]));
+    dotEl.children[1].replaceChildren(icon(STATE_GLYPH[state]));
   }
+  if (dotEl.children[2].textContent !== count) dotEl.children[2].textContent = count;
+  if (dotEl.getAttribute('aria-label') !== label) dotEl.setAttribute('aria-label', label);
   textEl.textContent = text;
 }
 

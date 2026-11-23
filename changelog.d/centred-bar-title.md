@@ -1,0 +1,2 @@
+- On /panels, the panel editor and /log, the page header's title is in the middle of the bar. It shows the site name in bold, a space and the page name, for example **Sode v2 Dev** Panels. A button that shows or goes does not move it, and a long title is cut with an ellipsis before it touches a button. In a narrow window the title stays at the left. The browser tab's title has the same space. Home does not change.
+- The Lock's site name flies from the site name in the title. On /log it fades as before.
