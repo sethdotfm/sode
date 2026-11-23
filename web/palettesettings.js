@@ -25,13 +25,24 @@ export function settingsEntries(doc, live) {
 
 let fetched = null;
 
+// True when the last settingsRows call read the entries. A failed read gives [] and is not kept, so the next call asks
+// again; the Palette shows no pin as Missing until a read worked.
+export let settingsRead = false;
+
 // Resolves to the entries; [] when the copy cannot be read.
 export function settingsRows() {
   const form = document.getElementById('settings-view');
-  if (form) return Promise.resolve(settingsEntries(document, true));
-  fetched ||= fetch(new URL('./', document.baseURI))
+  if (form) {
+    settingsRead = true;
+    return Promise.resolve(settingsEntries(document, true));
+  }
+  const p = (fetched ||= fetch(new URL('./', document.baseURI))
     .then((r) => (r.ok ? r.text() : ''))
-    .then((html) => (html ? settingsEntries(new DOMParser().parseFromString(html, 'text/html'), false) : []))
-    .catch(() => []);
-  return fetched;
+    .then((html) => (html ? settingsEntries(new DOMParser().parseFromString(html, 'text/html'), false) : null))
+    .catch(() => null));
+  return p.then((entries) => {
+    settingsRead = !!entries;
+    if (!entries && fetched === p) fetched = null;
+    return entries || [];
+  });
 }

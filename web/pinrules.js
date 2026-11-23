@@ -10,11 +10,15 @@ import { keyLabel } from './keys.js';
 // Keep in step with MaxPalettePins in internal/config/palette.go.
 export const PINS_MAX = 24;
 
+// Home is first in the empty Palette on every page but Home, so it is never a pin. Keep in step with palette.go.
+export const HOME_KEY = 'page:home';
+
 // Why Sode refuses this pin list, or ''. The same words as the server.
 export function pinsProblem(list) {
   if (list.length > PINS_MAX) return `a list holds at most ${PINS_MAX} Palette pins`;
   const seen = new Set();
   for (const k of list) {
+    if (k === HOME_KEY) return 'Home is always first in the Palette, so it is not pinned';
     if (!rowKeyOK(k)) return 'a Palette pin names a Palette row that Sode does not know';
     if (seen.has(k)) return 'a Palette row is pinned only one time';
     seen.add(k);
@@ -28,7 +32,7 @@ export function cleanPins(v) {
   const out = [];
   for (const k of v) {
     const key = typeof k === 'string' ? k.trim() : '';
-    if (rowKeyOK(key) && !out.includes(key)) out.push(key);
+    if (rowKeyOK(key) && key !== HOME_KEY && !out.includes(key)) out.push(key);
   }
   return out.slice(0, PINS_MAX);
 }

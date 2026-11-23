@@ -29,7 +29,7 @@ import { allPresets } from './presetstore.js';
 import { allSets } from './filterstore.js';
 import { layout } from './layout.js';
 import { steppedIn, stepOut } from './stepin.js';
-import { settingsRows } from './palettesettings.js';
+import { settingsRows, settingsRead } from './palettesettings.js';
 import { catalogue, pageOf } from './palettecatalogue.js';
 import { showResult } from './banner.js';
 import {
@@ -77,7 +77,8 @@ export const setHomeRunner = (fn) => {
   homeRunner = fn;
 };
 
-// The settings and the panels were read. Until then a pin with no row is not Missing.
+// The settings and the panels were read, once. Until then a pin with no row is not Missing. This is also true when a
+// read failed (link down, no settings copy). An older good read stays.
 let ready = false;
 const SCOPE_NAME = { user: 'Me', local: 'This browser' };
 
@@ -635,11 +636,12 @@ list.addEventListener('dragend', () => {
 // The panels the browser's own sign-in reaches; asked on each open, since a sign-in or a share changes them.
 async function readPanels() {
   const r = await request('palettePanelsResult', { t: 'palettePanels' });
-  if (r.err === LINK_DOWN) return;
+  if (r.err === LINK_DOWN) return false;
   panels = r.ok && Array.isArray(r.panels) ? r.panels : [];
   panelsHidden = r.ok && Number.isInteger(r.hidden) ? r.hidden : 0;
   if (dlg.shown()) draw(true);
   emit('paletteRows');
+  return true;
 }
 
 // The box grows into the Palette. --pb-motion-normal is 0 under reduced motion, so it opens at once there.
@@ -676,9 +678,9 @@ export function openPalette({ from = null, pick = null, cancel = null } = {}) {
   draw();
   if (from) grow(from);
   input.focus();
-  Promise.all([readPanels(), settingsRows()]).then(([, s]) => {
+  Promise.all([readPanels(), settingsRows()]).then(([panelsOk, s]) => {
     settings = s;
-    ready = true;
+    ready = ready || (panelsOk && settingsRead);
     if (dlg.shown()) draw(true);
   });
 }

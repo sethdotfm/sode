@@ -2,6 +2,10 @@
   "comment": "Palette pin lists that Sode keeps or refuses. web/test/pinrules.test.mjs and internal/config/palette_test.go read the same cases, so the page and the server say the same.",
   "cases": [
     {
+      "pins": ["page:log", "page:home"],
+      "problem": "Home is always first in the Palette, so it is not pinned"
+    },
+    {
       "pins": [],
       "problem": ""
     },
