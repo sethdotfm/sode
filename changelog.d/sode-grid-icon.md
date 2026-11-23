@@ -1,0 +1,1 @@
+- Grid panels and the Grid popup button have their own icon, a pie beside a staged ring over two wires. Buttons panels keep the layout icon.

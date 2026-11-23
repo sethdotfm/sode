@@ -80,7 +80,7 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	// the preset; its Take is Add and Done ends the mode.
 	b.waitFor("Switch to grid view on the bar, before Done", `(() => {
 		const g = document.querySelector('.sode__pickbar .sode__pickbar-grid'), d = [...document.querySelectorAll('.sode__pickbar .pb-btn')].find((x) => x.textContent === 'Done');
-		return !!g?.offsetParent && g.textContent === 'Switch to grid view' && !!g.querySelector('use[href$="grid-3x3"]') && g.getBoundingClientRect().right <= d.getBoundingClientRect().left;
+		return !!g?.offsetParent && g.textContent === 'Switch to grid view' && !!g.querySelector('use[href$="sode-grid"]') && g.getBoundingClientRect().right <= d.getBoundingClientRect().left;
 	})()`)
 	b.eval(`document.querySelector('.sode__pickbar .sode__pickbar-grid').click(); true`)
 	b.waitFor("the popup", `!document.getElementById('grid-pop').hidden && !!document.querySelector('#grid-pop .sode-gridpanel__xp:not([hidden])')`)

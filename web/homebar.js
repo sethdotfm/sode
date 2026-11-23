@@ -17,7 +17,7 @@ function iconButton(cls, id, name, label) {
 }
 
 function gridButton() {
-  const n = iconButton('sode-bar__grid', 'grid-open', 'grid-3x3', 'Grid popup');
+  const n = iconButton('sode-bar__grid', 'grid-open', 'sode-grid', 'Grid popup');
   n.setAttribute('aria-keyshortcuts', 'Control+E');
   n.dataset.pbTip = `Grid popup (${keyLabel('ctrl+e')})`;
   // The patch boxes keep focus, as for Take.
