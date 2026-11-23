@@ -23,7 +23,7 @@ export function openShare(panel, ctx) {
   let busy = false;
 
   const note = el('span', { class: 'sode__hint', role: 'status' });
-  const saveBtn = btn('pb-btn--ok', 'Save');
+  const saveBtn = btn('sode-btn--primary', 'Save');
   const modes = el('div', { class: 'pb-btn-group', role: 'radiogroup', 'aria-label': 'Who can use this panel' });
   const picker = el('div', 'sode-ov__people');
   const peopleTab = el('div', 'sode-ov__sharebody', modes, picker, linkRow(panel));

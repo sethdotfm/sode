@@ -106,7 +106,7 @@ export function gridBody(ctx, first) {
   let gest = null;
   let pos = null; // the phone's position strips (gridpanelpos.js)
   // "N staged" in the header: staged routes can be scrolled out of view.
-  const count = el('span', 'pb-badge pb-badge--info sode-gridpanel__count');
+  const count = el('span', 'pb-badge sode-gridpanel__count');
   count.id = 'panel-staged';
   count.hidden = true;
   // The panel page's header has its own boxes (gridpanelheadview.js); the Live Editor keeps its own.

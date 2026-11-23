@@ -76,7 +76,7 @@
         <button type="button" class="pb-btn pb-btn--outline" id="setup-restore">Restore from a backup</button>
         <span class="pb-grow"></span>
         <span class="sode-setup__err" id="setup-err" role="alert"></span>
-        <button type="button" class="pb-btn pb-btn--ok" id="setup-next">Next</button>
+        <button type="button" class="pb-btn sode-btn--primary" id="setup-next">Next</button>
       </div>
     </div>
   </div>
@@ -137,7 +137,7 @@
           <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
           <!-- The one Take and the one Clear: both act on the boxes and the staged routes (desktop.js). -->
           <div class="sode__takes">
-            <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
+            <button type="button" class="pb-btn pb-btn--commit sode__patch" id="patch" tabindex="-1">Take</button>
             <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__clear-all" id="clear-all" tabindex="-1" data-pb-tip="Clear the boxes and the staged routes (Esc)" disabled>Clear</button>
           </div>
         </div>
@@ -363,7 +363,7 @@
         <div class="sode__names" id="clear-step2" hidden>
           <span>
             <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Cancel</button>
-            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
+            <button type="button" class="pb-btn pb-btn--outline" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
           </span>
         </div>
       </div>
@@ -625,7 +625,7 @@
       <div class="sode__savebar-row">
         <button type="button" class="pb-btn pb-btn--outline" id="settings-exit">Exit</button>
         <span class="sode__hint" id="settings-path"></span>
-        <button type="submit" class="pb-btn pb-btn--ok" id="settings-save">Save</button>
+        <button type="submit" class="pb-btn sode-btn--primary" id="settings-save">Save</button>
       </div>
       <div class="sode__foot" id="settings-foot"><span aria-hidden="true"></span></div>
     </div>
@@ -716,7 +716,7 @@
     <div class="pb-modal__body sode__confirm" id="confirm-body"></div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="confirm-cancel">Cancel</button>
-      <button type="button" class="pb-btn pb-btn--danger sode__confirm-ok" id="confirm-ok">Take</button>
+      <button type="button" class="pb-btn pb-btn--commit sode__confirm-ok" id="confirm-ok">Take</button>
     </div>
   </div>
 </div>

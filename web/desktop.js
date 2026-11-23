@@ -470,8 +470,8 @@ function paintTakes() {
   $('clear-all').disabled = nothingToClear();
   const t = takeState();
   if ($('patch').textContent !== t.word) $('patch').textContent = t.word;
-  $('patch').classList.toggle('pb-btn--danger', !t.ok);
-  $('patch').classList.toggle('pb-btn--ok', t.ok);
+  $('patch').classList.toggle('pb-btn--commit', !t.ok);
+  $('patch').classList.toggle('sode-btn--primary', t.ok);
   paintTake();
 }
 
