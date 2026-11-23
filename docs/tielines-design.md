@@ -21,8 +21,8 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 
 ### Health and status
 
-1. Sode as a whole is healthy, degraded or offline. Healthy means that every router is up. Degraded means that one or more routers are down and one or more are up. Offline means that every router is down.
-2. `/api/health` answers 200 only when Sode is healthy. It answers 503 when Sode is degraded or offline.
+1. Sode as a whole is Healthy, Degraded or Down. Healthy means that every router is up. Degraded means that one or more routers are down and one or more are up. Down means that every router is down.
+2. `/api/health` answers 200 only when Sode is Healthy. It answers 503 when Sode is Degraded or Down.
 3. The body of `/api/health` gives the state of Sode as a whole and has one element for each router, with its own state.
 4. The status topic of the API stream and `GET /status` use the same shape: the state as a whole and one element for each router.
 
@@ -47,10 +47,9 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 ### Link state on the page
 
 1. The top bar shows the link and the uptime of every router, not of one router.
-2. When Sode is degraded, the full red banner does not show. The icon of the down router turns red, and the page shows which destinations cannot be patched now.
-3. The banner shows only when the Server link is down or Sode is offline.
+2. When Sode is Degraded, the full red banner does not show. The icon of the down router turns red, and the page shows which destinations cannot be patched now.
+3. The banner shows only when the Server link is down or Sode is Down.
 4. In Focus mode, only the icon of a down router shows. The full status shows again only when the banner would show.
-5. GLOSSARY.md needs a term for the degraded state, and the Reconnecting banner row must name more than one Router link.
 
 ### Rights matching
 
@@ -273,5 +272,4 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 ## Open items
 
 1. Test the openGear bridge for a Connected message on a connect that changes nothing. (Routers, item 3.)
-2. A GLOSSARY.md name for "every router down". Offline is taken: it is the page state when the Sode server cannot be reached.
-3. How to split the work into issues. The owner expects one large spec with many issues.
+2. How to split the work into issues. The owner expects one large spec with many issues.
