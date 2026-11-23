@@ -175,6 +175,26 @@ test('rowView: a tie take that failed after its hop changed TIE 3 offers Put bac
   S.hist = [];
 });
 
+test('rowView: a hop that the router confirmed late says TIE 3 changed late and offers Put back', async () => {
+  const { rowView, rowActions } = await setup();
+  const hop = take({ id: 1, src: 3, srcName: 'CAM 4', dst: 9, dstName: 'TO B', tie: 't1', prev: [[1, 7]], late: [1] });
+  const hops = [{ tie: 't1', tieName: 'TIE 3', result: 'connected', late: true, entry: 1 }];
+  const last = take({ id: 2, ok: false, src: 4, origin: { router: '', n: 3, name: 'CAM 4' }, hops });
+  const f = { group: 'g', n: 2, entries: [hop, last], shown: [hop, last] };
+  assert.deepEqual(rowView({ e: last }).route(last).notes, ['TIE 3 changed late']);
+  assert.ok(rowView({ f }).route(f).notes.includes('TIE 3 changed late'));
+  assert.equal(rowActions({ f }).putBack[0].label, 'Put TIE 3 back to CAM 8');
+
+  // A hop that the router confirmed late on some levels only still offers Put back for what it changed.
+  const part = { ...last, hops: [{ ...hops[0], result: 'failed' }] };
+  assert.deepEqual(rowView({ e: part }).route(part).notes, ['TIE 3 changed late']);
+  assert.equal(rowActions({ f: { ...f, entries: [hop, part] } }).putBack.length, 1);
+
+  // One hop in time and one late.
+  const two = { ...last, hops: [{ tie: 't2', tieName: 'TIE 2', result: 'connected', entry: 5 }, hops[0]] };
+  assert.deepEqual(rowView({ e: two }).route(two).notes, ['TIE 2 changed, TIE 3 changed late, MON 6 not']);
+});
+
 test('disclosureAria and followersHead', async () => {
   const { disclosureAria, followersHead } = await setup();
   assert.equal(disclosureAria(true, 3, 'takes'), 'Hide the 3 takes');

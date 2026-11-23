@@ -657,7 +657,13 @@ paths:
       operationId: retryEntry
       tags: [writes]
       summary: Retry a failed History entry
-      description: "Scopes `take` and `history`. Like redo, but linked to the failed entry. 409 `conflict` for an entry that succeeded."
+      description: |
+        Scopes `take` and `history`. Like redo, but linked to the failed entry. 409 `conflict` for an
+        entry that succeeded, or for the entry of a hop (`tie`). For the entry of a tie take's
+        destination (`origin`), Sode uses the same tie lines again. Each hop that did not fail must
+        still carry the source; a hop that failed is not compared. Sode sends only the failed hops,
+        the hops after them and the last hop. If a hop no longer holds, the answer is 409
+        `tie_line_changed` with the tie lines as they are now, and nothing is sent.
       parameters:
         - { $ref: "#/components/parameters/EntryId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -3288,6 +3294,7 @@ components:
         entry: { type: integer }
         result: { type: string, enum: [connected, already, failed] }
         prev: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 } }
+        late: { type: boolean, description: "The router confirmed the hop after the take gave up. Sode did not send the hops after it. `result` follows the hop's entry" }
     LogRow:
       type: object
       description: One Communication Log row, a router message or an event such as an `api` row.

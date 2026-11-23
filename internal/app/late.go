@@ -123,4 +123,7 @@ func (a *App) lateConfirm(u *routerUnit, id int, uis []int) {
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "entry", E: &e, Update: true})
 	a.mu.Unlock()
+	if e.Tie != "" {
+		a.lateTieHop(e)
+	}
 }

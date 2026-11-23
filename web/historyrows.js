@@ -16,12 +16,17 @@ const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
 const srcOf = (e) => (e.origin ? srcItem(e.origin.n, e.origin.name, e.origin.router) : srcItem(e.src, e.srcName, e.router));
 
 // A tie take that failed after a hop changed its tie line (docs/tielines-design.md, "Order and failures"): "TIE 3
-// changed, B.42 not". The hops in e.hops with result connected changed their tie lines.
-const changedHops = (e) => (!e.ok && e.hops ? e.hops.filter((h) => h.result === 'connected' && h.entry != null) : []);
+// changed, B.42 not". The hops in e.hops with result connected changed their tie lines. A hop with late changed its
+// tie line after the take gave up, so the hops after it were not sent: "TIE 3 changed late".
+const changedHops = (e) => (!e.ok && e.hops ? e.hops.filter((h) => (h.result === 'connected' || h.late) && h.entry != null) : []);
+const tieNames = (hs) => hs.map((h) => h.tieName || h.tie).join(', ');
 function partialNote(e) {
   const hs = changedHops(e);
   if (!hs.length) return null;
-  return `${hs.map((h) => h.tieName || h.tie).join(', ')} changed, ${dstItem(e.dst, e.dstName, e.router).label} not`;
+  const inTime = hs.filter((h) => !h.late);
+  const late = hs.filter((h) => h.late);
+  const parts = [inTime.length && `${tieNames(inTime)} changed`, late.length && `${tieNames(late)} changed late`].filter(Boolean);
+  return inTime.length ? `${parts.join(', ')}, ${dstItem(e.dst, e.dstName, e.router).label} not` : parts[0];
 }
 
 // Put back: one for each hop entry of the Group that changed a tie line for a route that failed. Each is

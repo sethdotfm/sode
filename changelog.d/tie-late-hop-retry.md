@@ -1,0 +1,1 @@
+- A hop of a tie take that the router confirms late does not start the hops after it. Its History row says "TIE 3 changed late" and offers Put back. Retry of a tie take through the API sends only the failed hops while the earlier hops still carry the source; if one moved, Sode sends nothing and answers that the tie line changed.
