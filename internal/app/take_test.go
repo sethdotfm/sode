@@ -91,7 +91,7 @@ func addFakeUnit(t *testing.T, a *App, rc config.Router) (*fakeRouter, *routerUn
 	if !ok {
 		u = newRouterUnit(rc)
 		m := maps.Clone(a.units())
-		m[u.uid] = u
+		m[u.uid()] = u
 		a.routers.Store(&m)
 		a.link(u, a.r(), false) // never run; a settings change still sets its target
 	}

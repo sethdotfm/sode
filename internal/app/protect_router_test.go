@@ -37,8 +37,8 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	a, first, second, u := protectTwoRouters(t)
 	ana := signedClient(t, a, "Ana", "1234")
 
-	onB := protEntry(t, a.protectMany(ana, []protectDst{{Dst: 4, Router: u.uid}}, true, nil)[0])
-	if !onB.OK || onB.Router != u.uid || onB.RouterTitle != "Second" || onB.DstName != "B MON 4" {
+	onB := protEntry(t, a.protectMany(ana, []protectDst{{Dst: 4, Router: u.uid()}}, true, nil)[0])
+	if !onB.OK || onB.Router != u.uid() || onB.RouterTitle != "Second" || onB.DstName != "B MON 4" {
 		t.Fatalf("entry on B %+v", onB)
 	}
 	if n := first.sends(); n != 0 {
@@ -60,14 +60,14 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	for _, rec := range readProtects(t, a) {
 		byRouter[rec.Router] = rec
 	}
-	if rec := byRouter[u.uid]; rec.Dst != 4 || rec.Device != 127 || len(rec.Levels) != 3 || rec.By != "Ana" {
+	if rec := byRouter[u.uid()]; rec.Dst != 4 || rec.Device != 127 || len(rec.Levels) != 3 || rec.By != "Ana" {
 		t.Fatalf("record of B %+v", rec)
 	}
 	if rec := byRouter[a.r().cfg.UID]; rec.Dst != 4 || rec.Device != 126 {
 		t.Fatalf("record of A %+v", rec)
 	}
 	loaded := loadProtects(a.cfgPath)
-	if rec, ok := loaded.get(u.uid, 4); !ok || rec.Router != u.uid || rec.Device != 127 {
+	if rec, ok := loaded.get(u.uid(), 4); !ok || rec.Router != u.uid() || rec.Device != 127 {
 		t.Fatalf("loaded record of B %+v %v", rec, ok)
 	}
 
@@ -84,12 +84,12 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	}
 
 	// An Undo names the router of its entry.
-	protRefused(t, a.protectMany(ana, []protectDst{{Dst: 4, Router: u.uid, Undo: &onA.ID}}, false, nil)[0], "bad_request", "not a Protect to undo")
-	free := protEntry(t, a.protectMany(ana, []protectDst{{Dst: 4, Router: u.uid, Undo: &onB.ID}}, false, nil)[0])
-	if !free.OK || free.Router != u.uid || len(second.holdsOn(4)) != 0 || len(first.holdsOn(4)) != 3 {
+	protRefused(t, a.protectMany(ana, []protectDst{{Dst: 4, Router: u.uid(), Undo: &onA.ID}}, false, nil)[0], "bad_request", "not a Protect to undo")
+	free := protEntry(t, a.protectMany(ana, []protectDst{{Dst: 4, Router: u.uid(), Undo: &onB.ID}}, false, nil)[0])
+	if !free.OK || free.Router != u.uid() || len(second.holdsOn(4)) != 0 || len(first.holdsOn(4)) != 3 {
 		t.Fatalf("free on B %+v, B holds %v, A holds %v", free, second.holdsOn(4), first.holdsOn(4))
 	}
-	if _, ok := a.protects.get(u.uid, 4); ok {
+	if _, ok := a.protects.get(u.uid(), 4); ok {
 		t.Error("the record of B stays")
 	}
 	if _, ok := a.protects.get(a.r().cfg.UID, 4); !ok {
@@ -106,8 +106,8 @@ func TestProtectRollbackOnItsRouter(t *testing.T) {
 	second.mu.Lock()
 	second.prot.deafSet[a.r().byUI[2].Wire] = true
 	second.mu.Unlock()
-	e := protEntry(t, a.protectMany(ana, []protectDst{{Dst: 5, Router: u.uid}}, true, nil)[0])
-	if e.OK || len(e.Failed) != 1 || e.Failed[0] != 2 || len(e.Still) != 0 || e.Router != u.uid {
+	e := protEntry(t, a.protectMany(ana, []protectDst{{Dst: 5, Router: u.uid()}}, true, nil)[0])
+	if e.OK || len(e.Failed) != 1 || e.Failed[0] != 2 || len(e.Still) != 0 || e.Router != u.uid() {
 		t.Fatalf("entry %+v", e)
 	}
 	if len(second.holdsOn(5)) != 0 || first.sends() != 0 {
@@ -120,7 +120,7 @@ func TestClearSodeProtectsOnEveryRouter(t *testing.T) {
 	a, first, second, u := protectTwoRouters(t)
 	ana := signedClient(t, a, "Ana", "1234")
 	protEntry(t, a.protectSet(ana, 1, nil))
-	protEntry(t, a.protectMany(ana, []protectDst{{Dst: 2, Router: u.uid}}, true, nil)[0])
+	protEntry(t, a.protectMany(ana, []protectDst{{Dst: 2, Router: u.uid()}}, true, nil)[0])
 	if n, still, err := a.clearSodeProtects(adminClient(t, a)); n != 2 || still != nil || err != nil {
 		t.Fatalf("cleared %d, still %v, err %v", n, still, err)
 	}
@@ -134,7 +134,7 @@ func TestClearSodeProtectsOnEveryRouter(t *testing.T) {
 
 	// With router B down, it frees what it can on A and leaves B.
 	protEntry(t, a.protectSet(ana, 1, nil))
-	protEntry(t, a.protectMany(ana, []protectDst{{Dst: 2, Router: u.uid}}, true, nil)[0])
+	protEntry(t, a.protectMany(ana, []protectDst{{Dst: 2, Router: u.uid()}}, true, nil)[0])
 	a.mu.Lock()
 	u.status.Router = string(swp08.StateDown)
 	a.mu.Unlock()
@@ -158,7 +158,7 @@ func TestProtExtUsesItsRouter(t *testing.T) {
 	}
 	a.flushProtExt()
 	es, _ := a.hist.Page(-1, 5)
-	if len(es) != 1 || !es[0].Ext || es[0].Router != u.uid || es[0].Device != 112 || es[0].DstName != "B MON 3" {
+	if len(es) != 1 || !es[0].Ext || es[0].Router != u.uid() || es[0].Device != 112 || es[0].DstName != "B MON 3" {
 		t.Fatalf("entries %+v", es)
 	}
 }
@@ -186,7 +186,7 @@ func TestExtUsesItsRouter(t *testing.T) {
 	}
 	a.flushExt()
 	es, _ := a.hist.Page(-1, 5)
-	if len(es) != 1 || es[0].Router != u.uid || es[0].RouterTitle != "Second" || es[0].DstName != "B MON 9" || es[0].Follow != nil {
+	if len(es) != 1 || es[0].Router != u.uid() || es[0].RouterTitle != "Second" || es[0].DstName != "B MON 9" || es[0].Follow != nil {
 		t.Fatalf("entries %+v", es)
 	}
 

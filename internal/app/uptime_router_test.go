@@ -31,10 +31,10 @@ func TestUptimeReplyPerRouter(t *testing.T) {
 		}
 		return m.Trans[len(m.Trans)-1].S
 	}
-	if m := a.uptimeReply(1, "", 0, 0, 60_000); m.Router != a.first.uid || last(m) != "up" {
+	if m := a.uptimeReply(1, "", 0, 0, 60_000); m.Router != a.first.uid() || last(m) != "up" {
 		t.Fatalf("first router: %+v", m)
 	}
-	if m := a.uptimeReply(2, b.uid, 0, 0, 60_000); m.Router != b.uid || m.ID != 2 || last(m) != "down" || len(m.Counts) != 1 {
+	if m := a.uptimeReply(2, b.uid(), 0, 0, 60_000); m.Router != b.uid() || m.ID != 2 || last(m) != "down" || len(m.Counts) != 1 {
 		t.Fatalf("router B: %+v", m)
 	}
 	if m := a.uptimeReply(3, "gone", 0, 0, 60_000); m.Router != "gone" || m.Start != "" || len(m.Trans) != 0 || m.Trans == nil {
@@ -71,10 +71,10 @@ func TestLogDownloadUptimePerRouter(t *testing.T) {
 		}
 		order = append(order, s.Router+":"+s.S)
 	}
-	if want := a.first.uid + ":up " + b.uid + ":down"; strings.Join(order, " ") != want {
+	if want := a.first.uid() + ":up " + b.uid() + ":down"; strings.Join(order, " ") != want {
 		t.Fatalf("states %v, want %s", order, want)
 	}
-	if len(got.Minutes) != 1 || got.Minutes[0].Router != b.uid || got.Minutes[0].Bad != 1 {
+	if len(got.Minutes) != 1 || got.Minutes[0].Router != b.uid() || got.Minutes[0].Bad != 1 {
 		t.Fatalf("minutes %+v", got.Minutes)
 	}
 }

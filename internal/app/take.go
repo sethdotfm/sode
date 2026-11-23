@@ -112,7 +112,7 @@ func (a *App) byRouter(c *client, items []routeReq) []routerPart {
 			a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: "unknown router"})
 			continue
 		}
-		it.Router = u.uid
+		it.Router = u.uid()
 		i := slices.IndexFunc(parts, func(p routerPart) bool { return p.u == u })
 		if i < 0 {
 			parts = append(parts, routerPart{u: u})
@@ -127,7 +127,7 @@ func (a *App) byRouter(c *client, items []routeReq) []routerPart {
 // finish for some route, so its Prev came from the cache.
 func (a *App) takeOnRouter(r *runtime, c *client, u *routerUnit, items []routeReq, stage bool) (read bool) {
 	ext, read := a.checkRoutes(r, u, c, items)
-	if stage && r.routerOf(u.uid).FireMode == "native" && len(items) > 1 {
+	if stage && r.routerOf(u.uid()).FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
 			a.takeNative(r, u, c, items, ext)
 			return read
@@ -213,7 +213,7 @@ func (a *App) planPhase(r *runtime, u *routerUnit, c *client, req routeReq) (*wa
 		w.why.Reason = swp08.ReasonRetry
 	}
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, PresetID: req.PresetID, Prev: [][2]int{}}
-	e.Router = u.uid
+	e.Router = u.uid()
 	if m := req.Tie; m != nil {
 		e.Tie, e.Origin, e.Hops, e.ViaPrev = m.tie, m.origin, m.hops, m.viaPrev
 	}
@@ -312,7 +312,7 @@ func (a *App) prepare(r *runtime, u *routerUnit, c *client, req routeReq, ext *e
 		l.native = req.Stage[l.wire]
 	}
 	if protected := a.guardPhase(w, e); len(protected) > 0 {
-		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r.levelsOf(u.uid), protected)))
+		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r.levelsOf(u.uid()), protected)))
 		return nil
 	}
 	if req.PutBack {
@@ -429,7 +429,7 @@ func planRoute(r *runtime, u *routerUnit, req routeReq) (*waiter, error) {
 	}
 	w := &waiter{u: u, dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1, group: req.Group}}
 	// The typed levels are levels of the destination's router.
-	lv := r.levelsOf(u.uid)
+	lv := r.levelsOf(u.uid())
 	uis, err := lv.typed(req.Levels)
 	if err != nil {
 		return nil, err
@@ -515,7 +515,7 @@ func (a *App) interrogate(r *runtime, w *waiter, ls []*routeLevel, reason swp08.
 	why := swp08.Why{Reason: reason, By: w.why.By, Note: w.why.Note}
 	var last <-chan struct{}
 	for _, l := range ls {
-		done, err := a.sendTracked(w.u, w.ext, swp08.ExtInterrogate(r.routerOf(w.u.uid).Matrix, l.wire, w.dst), why)
+		done, err := a.sendTracked(w.u, w.ext, swp08.ExtInterrogate(r.routerOf(w.u.uid()).Matrix, l.wire, w.dst), why)
 		if err != nil {
 			return last, err
 		}

@@ -81,7 +81,7 @@ func (a *App) putBackHeld(r *runtime, w *waiter, e *Entry, req routeReq) string 
 		case rs.srcNames[n] != "":
 			return rs.srcNames[n]
 		}
-		return fmt.Sprintf("source %d", n+r.routerOf(w.u.uid).NumberOffset)
+		return fmt.Sprintf("source %d", n+r.routerOf(w.u.uid()).NumberOffset)
 	}
 	now := "other sources"
 	if len(moved) == 1 {
@@ -89,7 +89,7 @@ func (a *App) putBackHeld(r *runtime, w *waiter, e *Entry, req routeReq) string 
 			now = srcName(s)
 		}
 	}
-	return fmt.Sprintf("not sent: %s now carries %s, not %s, on levels %s", name, now, srcName(hop.Src), levelList(r.levelsOf(w.u.uid), levels))
+	return fmt.Sprintf("not sent: %s now carries %s, not %s, on levels %s", name, now, srcName(hop.Src), levelList(r.levelsOf(w.u.uid()), levels))
 }
 
 // putBackLevels keeps, in each put-back item of a page, only the levels that its hop changed, as planPutBack does

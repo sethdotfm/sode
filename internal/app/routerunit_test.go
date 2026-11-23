@@ -13,7 +13,7 @@ import (
 func TestAppHoldsOneRouterUnitByUID(t *testing.T) {
 	a := newTestApp(t)
 	uid := a.r().cfg.UID
-	if len(a.units()) != 1 || a.units()[uid] != a.first || a.first.uid != uid {
+	if len(a.units()) != 1 || a.units()[uid] != a.first || a.first.uid() != uid {
 		t.Fatalf("routers %v, first %p, uid %q", a.units(), a.first, uid)
 	}
 	for _, k := range []string{"", uid} {

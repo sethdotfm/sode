@@ -132,7 +132,7 @@ func (b *logBuild) writeUptimeStates(w io.Writer) error {
 		for _, u := range b.a.unitsInOrder(b.a.r()) {
 			trans, _ := u.up.Record()
 			for _, t := range trans {
-				if err := fn(uptimeState{t, u.uid}); err != nil {
+				if err := fn(uptimeState{t, u.uid()}); err != nil {
 					return err
 				}
 			}
@@ -154,7 +154,7 @@ func (b *logBuild) writeUptimeMinutes(w io.Writer) error {
 		for _, u := range b.a.unitsInOrder(b.a.r()) {
 			_, mins := u.up.Record()
 			for _, m := range mins {
-				if err := fn(uptimeMinute{M: m.M, Bad: m.Bad, Slow: m.Slow, Router: u.uid}); err != nil {
+				if err := fn(uptimeMinute{M: m.M, Bad: m.Bad, Slow: m.Slow, Router: u.uid()}); err != nil {
 					return err
 				}
 			}

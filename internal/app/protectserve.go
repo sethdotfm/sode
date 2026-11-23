@@ -218,7 +218,7 @@ func (a *App) protectMsgOf(u *routerUnit, ch []protChange) protectMsg {
 	if u == a.firstUnit() {
 		return protectMsg{T: "protected", U: ch, By: a.protectByList(r)}
 	}
-	return protectMsg{T: "protected", U: ch, By: a.protectByListOf(r, r.routerOf(u.uid).UID), RouterUID: u.uid}
+	return protectMsg{T: "protected", U: ch, By: a.protectByListOf(r, r.routerOf(u.uid()).UID), RouterUID: u.uid()}
 }
 
 func (a *App) serveProtect(c *client, m *inMsg, set bool) {

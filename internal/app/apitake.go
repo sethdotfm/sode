@@ -207,10 +207,10 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			}
 			ls := ro.Levels
 			if len(ls) == 0 {
-				rc := rt.routerOf(u.uid)
+				rc := rt.routerOf(u.uid())
 				ls, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
 			}
-			r := tieRoute{index: i, src: tieplan.End{Router: su.uid, N: ro.Src.N}, dst: tieplan.End{Router: u.uid, N: ro.Dst.N}, levels: ls}
+			r := tieRoute{index: i, src: tieplan.End{Router: su.uid(), N: ro.Src.N}, dst: tieplan.End{Router: u.uid(), N: ro.Dst.N}, levels: ls}
 			switch {
 			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil || len(ro.OneOffs) > 0):
 				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties, oneOffs and affected are only for a route across routers", i)
@@ -259,7 +259,7 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 				}
 			}
 			all = append(all, r)
-			p.Items = append(p.Items, routeReq{Src: ro.Src.N, Dst: ro.Dst.N, Levels: ls, Router: u.uid})
+			p.Items = append(p.Items, routeReq{Src: ro.Src.N, Dst: ro.Dst.N, Levels: ls, Router: u.uid()})
 		}
 		if len(ties) == 0 && !bare {
 			return p, nil

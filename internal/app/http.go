@@ -426,7 +426,7 @@ func (a *App) uptimeReply(id int, router string, from, to, slot int64) uptimeMsg
 	u, ok := a.unit(router)
 	if ok {
 		r = u.up.Range(from, to, slot)
-		router = u.uid
+		router = u.uid()
 	}
 	m := uptimeMsg{T: "uptimeResult", ID: id, Router: router, From: from, To: to, Slot: max(slot, 60_000), Now: now, Start: r.Start, Trans: r.Trans, Counts: r.Counts}
 	if m.Trans == nil {

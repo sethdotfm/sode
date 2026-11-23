@@ -62,9 +62,9 @@ func TestNamesUseTheirRouter(t *testing.T) {
 	}
 
 	readUnitNames(a, u, []string{"B CAM 1"}, []string{"B MON 1"})
-	bPath, aPath := unitTablePath(a, u.uid), unitTablePath(a, a.r().cfg.UID)
+	bPath, aPath := unitTablePath(a, u.uid()), unitTablePath(a, a.r().cfg.UID)
 	b, err := os.ReadFile(bPath)
-	if err != nil || !strings.Contains(string(b), "router: "+u.uid) || !strings.Contains(string(b), "B CAM 1") {
+	if err != nil || !strings.Contains(string(b), "router: "+u.uid()) || !strings.Contains(string(b), "B CAM 1") {
 		t.Fatalf("second router's names table: %v\n%s", err, b)
 	}
 	if _, err := os.Stat(aPath); !errors.Is(err, os.ErrNotExist) {
@@ -107,7 +107,7 @@ func TestNamesUseTheirRouter(t *testing.T) {
 func TestAPIReadsUseTheirRouter(t *testing.T) {
 	a, _, _, u := twoRouterFiles(t)
 	readUnitNames(a, u, []string{"B CAM 1"}, []string{"B MON 1"})
-	if got := a.apiUnit(httptest.NewRequest("GET", apiBase+"/names?router="+u.uid, nil)); got != u {
+	if got := a.apiUnit(httptest.NewRequest("GET", apiBase+"/names?router="+u.uid(), nil)); got != u {
 		t.Fatalf("router parameter gave the wrong unit")
 	}
 	if got := a.apiUnit(httptest.NewRequest("GET", apiBase+"/names", nil)); got != a.firstUnit() {
@@ -145,7 +145,7 @@ func TestLinkUsesItsRouter(t *testing.T) {
 			row = &e
 		}
 	}
-	if row == nil || row.Router != u.uid || row.Note != "10.0.0.9:8910" {
+	if row == nil || row.Router != u.uid() || row.Note != "10.0.0.9:8910" {
 		t.Fatalf("link row %+v", row)
 	}
 }

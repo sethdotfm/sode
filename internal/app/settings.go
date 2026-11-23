@@ -230,8 +230,8 @@ func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) erro
 			if slices.Contains(added, u) {
 				continue
 			}
-			rc := nr.routerOf(u.uid)
-			if config.RouterReconnectChanged(oldRt.routerOf(u.uid), rc) {
+			rc := nr.routerOf(u.uid())
+			if config.RouterReconnectChanged(oldRt.routerOf(u.uid()), rc) {
 				a.reconnectMu(u, rc.Address)
 				moved = append(moved, target{u, rc})
 			}

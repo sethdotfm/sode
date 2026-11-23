@@ -537,7 +537,7 @@ func itemScopes(c *config.Config, mine string) []itemScope {
 
 // No Settings saves row: the Router names row says what changed.
 func (a *App) recheckRefs(u *routerUnit, prev, cur namePoll, hints [2]map[string]string) {
-	rc := a.r().routerOf(u.uid)
+	rc := a.r().routerOf(u.uid())
 	k := &pollCheck{uid: rc.UID, routers: a.r().cfg.RouterUIDs(), first: a.r().cfg.UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
 	a.cfgMu.Lock()
 	if !a.setupPending() {

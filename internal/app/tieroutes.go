@@ -39,10 +39,10 @@ type tieRoute struct {
 // unitUID gives the UID of the router unit that a router UID from the settings names.
 func (a *App) unitUID(rt *runtime, uid string) (string, bool) {
 	if u, ok := a.unit(uid); ok && uid != "" {
-		return u.uid, true
+		return u.uid(), true
 	}
 	if uid == rt.cfg.UID && a.first != nil {
-		return a.first.uid, true
+		return a.first.uid(), true
 	}
 	return "", false
 }
@@ -54,20 +54,20 @@ func (a *App) unitUID(rt *runtime, uid string) (string, bool) {
 func (a *App) tieInput(rt *runtime) tieplan.Input {
 	in := tieplan.Input{Now: time.Now(), Started: a.started, HopWeight: rt.cfg.TieHopWeight}
 	for _, u := range a.unitsInOrder(rt) {
-		r := tieplan.Router{UID: u.uid, Levels: rt.routerOf(u.uid).Levels, Up: u.status.Router == string(swp08.StateUp)}
+		r := tieplan.Router{UID: u.uid(), Levels: rt.routerOf(u.uid()).Levels, Up: u.status.Router == string(swp08.StateUp)}
 		// No route at all is a router that Sode has not read yet.
 		if len(u.router.tally) > 0 {
 			r.Tally = u.router.tally
 		}
 		in.Routers = append(in.Routers, r)
-		dev := rt.routerOf(u.uid).ProtectDevice
+		dev := rt.routerOf(u.uid()).ProtectDevice
 		recs := map[int]protectRec{}
-		for _, rec := range a.protects.list(rt.routerOf(u.uid).UID) {
+		for _, rec := range a.protects.list(rt.routerOf(u.uid()).UID) {
 			recs[rec.Dst] = rec
 		}
 		for _, dst := range slices.Sorted(maps.Keys(u.router.protect)) {
 			for _, l := range slices.Sorted(maps.Keys(u.router.protect[dst])) {
-				in.Protects = append(in.Protects, holdOf(rt, tieplan.End{Router: u.uid, N: dst}, u.router.protect[dst][l], dev, recs))
+				in.Protects = append(in.Protects, holdOf(rt, tieplan.End{Router: u.uid(), N: dst}, u.router.protect[dst][l], dev, recs))
 				break
 			}
 		}
@@ -287,7 +287,7 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 		if !ok {
 			return out
 		}
-		if (dst && v.on(u.uid).Destination(e.N)) || (!dst && v.on(u.uid).Source(e.N)) {
+		if (dst && v.on(u.uid()).Destination(e.N)) || (!dst && v.on(u.uid()).Source(e.N)) {
 			out.Name = u.router.name(dst, e.N)
 		}
 		return out

@@ -62,7 +62,7 @@ func onlyMatrix(t *testing.T, what string, rs []swp08.Request) {
 func TestRouterUsesItsMatrix(t *testing.T) {
 	a, first, _, u, sent := matrixTwoRouters(t)
 
-	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{{ID: 1, Src: 4, Dst: 2, Levels: []int{1}, Router: u.uid}})
+	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{{ID: 1, Src: 4, Dst: 2, Levels: []int{1}, Router: u.uid()}})
 	onlyMatrix(t, "take", sent())
 	if es, _ := a.hist.Page(-1, 1); len(es) != 1 || !es[0].OK {
 		t.Fatalf("take on B: %+v", es)
@@ -73,8 +73,8 @@ func TestRouterUsesItsMatrix(t *testing.T) {
 
 	// Native fire on B, in B's group; the first router stays sequential.
 	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{
-		{ID: 2, Src: 5, Dst: 3, Levels: []int{1}, Router: u.uid},
-		{ID: 3, Src: 5, Dst: 4, Levels: []int{1}, Router: u.uid},
+		{ID: 2, Src: 5, Dst: 3, Levels: []int{1}, Router: u.uid()},
+		{ID: 3, Src: 5, Dst: 4, Levels: []int{1}, Router: u.uid()},
 	})
 	rs := sent()
 	onlyMatrix(t, "native take", rs)
@@ -125,7 +125,7 @@ func TestRouterUsesItsMatrix(t *testing.T) {
 func TestProtectUsesItsMatrix(t *testing.T) {
 	a, _, second, u, sent := matrixTwoRouters(t)
 	ana := signedClient(t, a, "Ana", "1234")
-	e := protEntry(t, a.protectMany(ana, []protectDst{{Dst: 4, Router: u.uid}}, true, nil)[0])
+	e := protEntry(t, a.protectMany(ana, []protectDst{{Dst: 4, Router: u.uid()}}, true, nil)[0])
 	onlyMatrix(t, "protect", sent())
 	if !e.OK || len(second.holdsOn(4)) != 3 {
 		t.Fatalf("entry %+v, holds %+v", e, second.holdsOn(4))

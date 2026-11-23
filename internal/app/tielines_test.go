@@ -18,7 +18,7 @@ func TestSaveTieLines(t *testing.T) {
 	a.mu.Lock()
 	a.clients[ada] = struct{}{}
 	a.mu.Unlock()
-	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.first.uid, N: 1}, To: config.Ref{Router: u.uid, N: 1}}
+	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.first.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 1}}
 	if err := a.SaveTieLines(ada, []config.TieLine{tie}); err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestSaveTieLines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(back.TieLines) != 1 || back.TieLines[0].ID != got[0].ID || back.TieLines[0].To.Router != u.uid {
+	if len(back.TieLines) != 1 || back.TieLines[0].ID != got[0].ID || back.TieLines[0].To.Router != u.uid() {
 		t.Fatalf("after a restart %+v", back.TieLines)
 	}
 	// An edit keeps the id; a blank name takes the downstream source name.
@@ -77,10 +77,10 @@ func TestSaveTieLinesRefusesBad(t *testing.T) {
 		list []config.TieLine
 		want string
 	}{
-		{[]config.TieLine{{Name: "X", From: config.Ref{Router: u.uid, N: 1}, To: config.Ref{Router: u.uid, N: 2}}}, "different router"},
+		{[]config.TieLine{{Name: "X", From: config.Ref{Router: u.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 2}}}, "different router"},
 		{[]config.TieLine{
-			{Name: "TIE", From: config.Ref{Router: a.first.uid, N: 1}, To: config.Ref{Router: u.uid, N: 2}},
-			{Name: "tie", From: config.Ref{Router: a.first.uid, N: 2}, To: config.Ref{Router: u.uid, N: 3}},
+			{Name: "TIE", From: config.Ref{Router: a.first.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 2}},
+			{Name: "tie", From: config.Ref{Router: a.first.uid(), N: 2}, To: config.Ref{Router: u.uid(), N: 3}},
 		}, "two tie lines are named"},
 	} {
 		if err := a.SaveTieLines(ada, tc.list); err == nil || !strings.Contains(err.Error(), tc.want) {

@@ -21,7 +21,7 @@ func (a *App) view(c *apiCtx) apiView { return a.viewOf(c.Rights) }
 func (a *App) viewOf(rt config.Rights) apiView {
 	v := apiView{rights: rt, first: a.r().cfg.UID}
 	if a.first != nil {
-		v.firstUnit = a.first.uid
+		v.firstUnit = a.first.uid()
 	}
 	return v
 }

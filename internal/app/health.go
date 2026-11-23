@@ -45,8 +45,8 @@ func (a *App) routerLinks() []routerLink {
 	r := a.r()
 	var out []routerLink
 	for _, u := range a.unitsInOrder(r) {
-		rc := r.routerOf(u.uid)
-		out = append(out, routerLink{UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, Status: u.status})
+		rc := r.routerOf(u.uid())
+		out = append(out, routerLink{UID: u.uid(), Prefix: rc.Prefix, Title: rc.Title, Status: u.status})
 	}
 	return out
 }

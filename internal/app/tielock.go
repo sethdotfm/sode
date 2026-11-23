@@ -62,7 +62,7 @@ func (a *App) upstreamTies(rt *runtime, items []routeReq) []string {
 	at := map[tieplan.End]bool{}
 	for _, it := range items {
 		if u, ok := a.unit(a.itemRouter(it)); ok {
-			at[tieplan.End{Router: u.uid, N: it.Dst}] = true
+			at[tieplan.End{Router: u.uid(), N: it.Dst}] = true
 		}
 	}
 	a.mu.Lock()
@@ -86,7 +86,7 @@ func (a *App) tieEnd(e apiEnd) (tieplan.End, *apiProblem) {
 	case !a.knownRouter(e.Router):
 		return tieplan.End{}, problem(http.StatusNotFound, "unknown_router", "no router with UID %q; GET %s/routers lists them", e.Router, apiBase)
 	}
-	return tieplan.End{Router: a.unitOrFirst(e.Router).uid, N: e.N}, nil
+	return tieplan.End{Router: a.unitOrFirst(e.Router).uid(), N: e.N}, nil
 }
 
 // tieTakeBegin locks the tie lines of t and reads the upstream destination of each from its router. Then it
@@ -156,16 +156,16 @@ func (a *App) readTieLines(rt *runtime, c *client, t *tieTake) {
 		}
 		for _, h := range r.mark.hops {
 			u, ok := a.unit(h.Router)
-			if !ok || seen[at{u.uid, h.Dst}] {
+			if !ok || seen[at{u.uid(), h.Dst}] {
 				continue
 			}
-			seen[at{u.uid, h.Dst}] = true
+			seen[at{u.uid(), h.Dst}] = true
 			i := slices.IndexFunc(parts, func(p routerPart) bool { return p.u == u })
 			if i < 0 {
 				parts = append(parts, routerPart{u: u})
 				i = len(parts) - 1
 			}
-			parts[i].items = append(parts[i].items, routeReq{Src: h.Src, Dst: h.Dst, Levels: h.Levels, Router: u.uid})
+			parts[i].items = append(parts[i].items, routeReq{Src: h.Src, Dst: h.Dst, Levels: h.Levels, Router: u.uid()})
 		}
 	}
 	// What the read finds that Sode did not know is logged as for any check: a hop's entry logs it first.

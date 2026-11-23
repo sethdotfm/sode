@@ -25,7 +25,7 @@ func secondRouter(t *testing.T) (a *App, first, second *fakeRouter, u *routerUni
 func TestTakeUsesItsRouter(t *testing.T) {
 	a, first, second, u := secondRouter(t)
 	wire := a.r().byUI[1].Wire
-	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{{ID: 1, Src: 4, Dst: 2, Levels: []int{1}, Router: u.uid}})
+	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{{ID: 1, Src: 4, Dst: 2, Levels: []int{1}, Router: u.uid()}})
 	if n := first.sends(); n != 0 {
 		t.Fatalf("the first router got %d messages", n)
 	}
@@ -36,7 +36,7 @@ func TestTakeUsesItsRouter(t *testing.T) {
 		t.Fatalf("second router tally %v", second.tally)
 	}
 	es, _ := a.hist.Page(-1, 1)
-	if len(es) != 1 || !es[0].OK || es[0].Router != u.uid || es[0].RouterTitle != "Second" {
+	if len(es) != 1 || !es[0].OK || es[0].Router != u.uid() || es[0].RouterTitle != "Second" {
 		t.Fatalf("entry %+v", es)
 	}
 	a.mu.Lock()
@@ -53,7 +53,7 @@ func TestTakeUsesItsRouter(t *testing.T) {
 	second.ignore[3] = true
 	second.mu.Unlock()
 	start := time.Now()
-	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{{ID: 2, Src: 4, Dst: 3, Levels: []int{1}, Router: u.uid}})
+	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{{ID: 2, Src: 4, Dst: 3, Levels: []int{1}, Router: u.uid()}})
 	if d := time.Since(start); d > time.Second {
 		t.Errorf("the take waited %v: not the second router's timers", d)
 	}
@@ -84,8 +84,8 @@ func TestLogRowUsesItsRouter(t *testing.T) {
 	u.router.dstNames[2] = "B MON 2"
 	a.first.router.dstNames[2] = "A MON 2"
 	a.mu.Unlock()
-	e := a.describe(swp08.TxEvent{Msg: swp08.ExtConnect(0, 0, 2, 4), Why: swp08.Why{Reason: swp08.ReasonTake, Router: u.uid}})
-	if e.Router != u.uid || e.DstName != "B MON 2" {
+	e := a.describe(swp08.TxEvent{Msg: swp08.ExtConnect(0, 0, 2, 4), Why: swp08.Why{Reason: swp08.ReasonTake, Router: u.uid()}})
+	if e.Router != u.uid() || e.DstName != "B MON 2" {
 		t.Errorf("row router %q dst name %q", e.Router, e.DstName)
 	}
 }

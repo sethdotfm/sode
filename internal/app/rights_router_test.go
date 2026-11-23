@@ -132,7 +132,7 @@ func TestHiddenRightsMatchRouterAndNumber(t *testing.T) {
 
 	for _, e := range []Entry{
 		{Src: 5, Dst: 5, Levels: []int{1}, OK: true, Router: rightsUIDA},
-		{Src: 5, Dst: 5, Levels: []int{1}, OK: true, Router: b.uid},
+		{Src: 5, Dst: 5, Levels: []int{1}, OK: true, Router: b.uid()},
 	} {
 		a.record(&e)
 	}
