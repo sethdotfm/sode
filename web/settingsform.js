@@ -34,7 +34,7 @@ const brandValue = () => ($('cfg-brandborder').value === 'custom' ? $('cfg-brand
 // Previewed before save: window border and the app icon the server draws (icon.go).
 function renderBrandPreview() {
   const c = brandValue();
-  $('cfg-brandcustom').hidden = $('cfg-brandborder').value !== 'custom';
+  $('cfg-brandcustom-wrap').hidden = $('cfg-brandborder').value !== 'custom';
   setBrand($('brand-swatch'), c);
   $('brand-icon').src = iconURL(180, c);
 }
@@ -52,13 +52,10 @@ $('cfg-brandborder').addEventListener('change', () => {
   const was = rgbHex(getComputedStyle($('brand-swatch')).borderTopColor);
   if (custom && /^#[0-9a-f]{6}$/.test(was)) $('cfg-brandcustom').value = was;
   renderBrandPreview();
-  if (!custom) return;
-  try {
-    $('cfg-brandcustom').showPicker();
-  } catch {
-    $('cfg-brandcustom').focus();
-  }
 });
+// The swatch is a real color input under its label, so a click opens the picker at the swatch. showPicker() from the
+// select's change handler opens it at the select instead.
+$('cfg-brandcustom-wrap').append(icon('paintbrush', false));
 $('cfg-brandcustom').addEventListener('input', renderBrandPreview);
 
 export function fillForm() {

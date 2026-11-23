@@ -339,7 +339,9 @@
           <label for="cfg-brandborder">Page border color</label>
           <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"></select></span>
           <span class="sode__brand-preview" id="brand-preview">
-            <input type="color" id="cfg-brandcustom" class="sode__colorpick" aria-label="Custom page border color" hidden>
+            <label class="sode__colorpick" id="cfg-brandcustom-wrap" data-pb-tip="Pick a custom color" hidden>
+              <input type="color" id="cfg-brandcustom" aria-label="Custom page border color">
+            </label>
             <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
             <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
           </span>
