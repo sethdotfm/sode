@@ -59,6 +59,7 @@ export const S = {
   namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
   wsState: 'connecting',
   wsLost: false,
+  wsErr: '',
   router: null,
   routerAddr: '',
   routerErr: '',
@@ -144,7 +145,7 @@ function drop(ws) {
   } catch {
     /* already closed */
   }
-  lost?.();
+  lost?.({ stale: true });
 }
 
 export function connect() {
@@ -164,8 +165,10 @@ export function connect() {
     S.wsLost = false;
     emit('conn');
   };
-  ws.onclose = () => {
+  ws.onclose = (e) => {
     clearInterval(watch);
+    // The why for the Lost link banner. A browser gives no more than the close code: 1006 is a drop with no close frame.
+    S.wsErr = `${location.host}: ` + (e?.stale ? `no data for ${STALE_MS / 1000} s` : `connection closed (code ${e?.code}${e?.reason ? `, ${e.reason}` : ''})`);
     S.ws = null;
     S.wsState = 'down';
     S.wsLost = true;
@@ -355,20 +358,11 @@ export function connState() {
   const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
   let down = null;
   if (S.wsLost) {
-    down = {
-      title: 'Lost link: Server link down',
-      text: 'Reconnecting…',
-      links: [false, null],
-    };
+    down = { title: 'Lost link: Server link down', err: S.wsErr, links: [false, null] };
   } else if (S.wsState === 'up' && S.router === 'down' && !S.routerAddr) {
     down = { title: 'No router set', text: 'Set the router address in Settings.' };
   } else if (S.wsState === 'up' && (S.router === 'down' || (S.router === 'connecting' && S.routerLastErr))) {
-    down = {
-      title: 'Lost link: Router link down',
-      text: `Reconnecting to ${S.routerAddr}…`,
-      err: S.routerLastErr,
-      links: [true, false],
-    };
+    down = { title: 'Lost link: Router link down', err: S.routerLastErr, links: [true, false] };
   }
   // ok: both links up, the only state that Compact view is allowed to hide the status for.
   return { ws, rt: [dot, `Router ${word}`], down, ok: ws[0] === 'ok' && dot === 'ok' && !down };
@@ -380,6 +374,9 @@ export function routerTitle() {
   if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];
   return [S.routerAddr || '', false];
 }
+
+// Placeholder for a Sode-owned video router icon: Lucide's `router` is a Wi-Fi router, which the SW-P-08 matrix is not.
+const ROUTER_ICON = 'box';
 
 // The page starts below a fixed banner (the desktop one; the phone's has its own column):
 // publish the fixed, showing banner's height as --sode-down-h.
@@ -408,21 +405,32 @@ export function renderDown(box, c) {
   box.dataset.key = key;
   if (!c.down) return box.replaceChildren();
   const { title, text, err, links } = c.down;
-  const link = (ok) => el('span', 'sode__down-link' + (ok === false ? ' sode__down-link--lost' : ''), ok === true ? 'ok' : ok === false ? '✕ lost' : '?');
+  // links[k] is the wire into node k + 1: true ok, false lost, null unknown (past a lost link).
+  const wire = (ok) => {
+    const [tone, word] = ok === true ? ['ok', 'ok'] : ok === false ? ['error', 'lost'] : ['idle', 'unknown'];
+    return el('span', `sode__down-link sode__down-link--${tone}`, el('span', 'sode__down-word', icon(STATE_GLYPH[tone], false), word));
+  };
+  const node = (glyph, ok, ...label) =>
+    el('span', 'sode__down-node' + (ok === false ? ' sode__down-node--down' : ok === null ? ' sode__down-node--unknown' : ''), icon(glyph, false), ...label);
   box.replaceChildren(
     ...[
-      el('div', 'sode__down-title', title),
+      el('div', 'sode__down-title', icon('unplug', false), title),
       links &&
         el(
           'div',
           'sode__down-map',
-          el('span', 'sode__down-node', 'This browser'),
-          link(links[0]),
-          el('span', 'sode__down-node', 'Sode server'),
-          link(links[1]),
-          el('span', 'sode__down-node', 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
+          node('monitor', true, 'This browser'),
+          // A wire and the node it leads to wrap as one, so a line never starts with a loose wire.
+          el('span', 'sode__down-hop', wire(links[0]), node('server', links[0], 'Sode server')),
+          el(
+            'span',
+            'sode__down-hop',
+            wire(links[1]),
+            node(ROUTER_ICON, links[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
+          ),
         ),
-      el('div', null, text, err ? el('div', null, el('code', null, err)) : null),
+      text && el('div', null, text),
+      err && el('div', 'sode__down-why', el('span', null, 'Reason'), el('code', null, err)),
     ].filter(Boolean),
   );
 }

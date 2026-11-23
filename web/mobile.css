@@ -39,9 +39,9 @@
 }
 .sode-m__down {
   flex: 0 0 auto;
-  font-size: var(--pb-text-sm);
+  font-size: var(--pb-text-xs);
   gap: var(--pb-space-3);
-  padding: var(--pb-space-5);
+  padding: var(--pb-space-3) var(--pb-space-4) var(--pb-space-4);
   position: static;
 }
 /* The Lock covers the page, so the banner leaves the flow to stay on top of it. */
@@ -50,8 +50,43 @@
   position: fixed;
   top: 0;
 }
+/* Smaller on a phone, so the banner does not take the screen. */
 .sode-m__down .sode__down-title {
-  font-size: var(--pb-text-md);
+  font-size: var(--pb-text-sm);
+}
+.sode-m__down .sode__down-map {
+  gap: var(--pb-space-3) 0;
+}
+.sode-m__down .sode__down-node {
+  gap: var(--pb-space-2);
+  padding: var(--pb-space-1) var(--pb-space-3);
+}
+.sode-m__down .sode__down-node > .pb-icon {
+  height: var(--pb-icon-size-sm);
+  width: var(--pb-icon-size-sm);
+}
+.sode-m__down .sode__down-link {
+  flex-basis: 5rem;
+  gap: var(--pb-space-2);
+  padding-inline: var(--pb-space-2);
+}
+.sode-m__down .sode__down-link::before,
+.sode-m__down .sode__down-link::after {
+  min-width: var(--pb-space-3);
+}
+.sode-m__down .sode__down-link--error {
+  gap: var(--pb-space-3);
+}
+.sode-m__down .sode__down-word,
+.sode-m__down .sode__down-link--error .sode__down-word {
+  font-size: var(--pb-text-2xs);
+}
+.sode-m__down .sode__down-why {
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-3);
+}
+.sode-m__down .sode__down-why > span {
+  font-size: var(--pb-text-2xs);
 }
 .sode-m__result {
   flex: 0 0 auto;

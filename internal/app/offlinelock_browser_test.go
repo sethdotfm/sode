@@ -29,7 +29,7 @@ func TestChromeOfflineLocked(t *testing.T) {
 	waitNamesAndTally(t, a, ana)
 	id := makePanel(t, a, ana, `{"name":"Wall","rows":1,"cols":2,"cells":[{"r":1,"c":1,"kind":"take"}]}`)
 
-	// Reduced motion stops the pulse and the Lock's transitions, so a color reads the same at any time.
+	// Reduced motion stops the Lock's transitions, so a color reads the same at any time.
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-reduced-motion", "value": "reduce"}}})
 	const red = `(() => { const d = document.createElement('div'); d.style.color = 'var(--pb-status-error)'; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; })()`
 	const lockColor = `(() => { const s = getComputedStyle(document.querySelector('.sode-lock')); return s.borderTopWidth !== '0px' && s.borderTopColor; })()`

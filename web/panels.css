@@ -294,8 +294,10 @@ body {
   filter: grayscale(1);
   opacity: 0.5;
 }
+/* No pb-state-offline pulse: the offline red stays still on every page, as the Lost link banner's break does. */
 .sode-panel__offline {
   align-items: center;
+  animation-name: none;
   background-color: color-mix(in oklab, var(--pb-surface-base) 55%, transparent);
   display: flex;
   flex-direction: column;
