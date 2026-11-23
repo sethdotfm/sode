@@ -47,7 +47,7 @@ func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 func TestEverySettingsSectionSaves(t *testing.T) {
 	order, keys := settingsSections(t)
 	// Saved apart from the form: their own messages, or nothing to save yet.
-	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "api": true, "export-import": true, "run-setup-again": true}
+	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "tie-lines": true, "api": true, "export-import": true, "run-setup-again": true}
 	values := map[string]any{
 		"browserDefaults":      config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "12", SetStack: "or", NextMode: "fuzzy", StackGap: "30", PaletteChar: "~"},
 		"brandText":            "Stage B",

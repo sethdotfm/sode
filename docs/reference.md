@@ -133,6 +133,7 @@ Settings-only keys (no seed var):
 - `statusLabel` (router: `address`, `name` or `none`): what the Router status shows.
 - `levelColors`
 - `filterSets`
+- `tieLines`: the tie lines of Settings > Routers > Tie lines (Administrator). Each has a hidden `id` and a `name`, the Tie line name (unique, up to 32 characters). `from` is a destination, `{router, n}`, and `to` is a source on another router. Each end also keeps its router `name` from the save. Sode fills a blank `name` from the source name. The section saves each change at once, apart from the Save button, and needs two or more routers.
 - `hiddenDsts`
 - `browserDefaults`: what a browser uses until it chooses its own under Settings > This browser. It holds theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`), stackGap and compact. The stackGap field is a number of seconds written as text: `0` (off), `10`, `30` (the default), `60`, `120` or `300`. The compact field is Compact view, off by default (see Compact view above). The paletteChar field is the Palette character: one of `>~!/;:=#@$%^&*|?<_()[]{}§°¬£€¤`, or `off` for no character. The default is `>`.
 

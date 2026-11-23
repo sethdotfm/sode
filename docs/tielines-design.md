@@ -66,7 +66,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 
 1. A Tie line is a one-way cable from a destination on one router to a source on another router. A two-way tie is two tie lines.
 2. A tie line carries all levels, since it is SDI or SMPTE 2110. Sode does not map levels across a tie line.
-3. A tie line has a hidden id, as presets and filter sets have. Presets and panels store the id.
+3. A tie line has a hidden id, as presets and filter sets have. Presets and panels store the id. `config.yaml` keeps the list under `tieLines`: `id`, `name`, `from` (the destination) and `to` (the source), each end a router reference. `GET /tielines` uses the same names.
 4. A tie line has a Tie line name, unique on the server. When an Administrator accepts or adds a tie line, Sode fills the name from the name of the downstream source. The Administrator can change it.
 5. An Administrator adds, edits and removes tie lines in Settings > Routers > Tie lines.
 6. Sode suggests a tie line when a destination on one router has the same name as a source on another router. Sode trims the names and ignores case. An Administrator accepts each suggestion. Sode does not use a suggestion that nobody accepted.

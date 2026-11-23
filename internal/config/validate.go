@@ -46,6 +46,7 @@ func (c Config) Validate() error {
 	errs = append(errs, validateFilterSets(c.FilterSets)...)
 	errs = append(errs, c.validatePresets()...)
 	errs = append(errs, validateBookmarks(c.Bookmarks)...)
+	errs = append(errs, c.validateTieLines()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}

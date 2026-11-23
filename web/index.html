@@ -399,6 +399,45 @@
       <ul class="sode__routers" id="routers-list" aria-label="Routers"></ul>
     </fieldset>
 
+    <fieldset class="sode__group" data-apart data-section="tie-lines" data-topic="routers">
+      <legend>Tie lines</legend>
+      <p class="sode__hint" id="tielines-note">A tie line is a one-way cable from a destination on one router to a source on another router. It carries all levels.</p>
+      <ul class="sode__tielines" id="tielines-list" aria-label="Tie lines"></ul>
+      <div id="tielines-form">
+        <div class="sode__fields">
+          <div class="sode__field">
+            <label for="tieline-from-router">From router</label>
+            <span class="pb-select-wrap"><select id="tieline-from-router" class="pb-select"></select></span>
+          </div>
+          <div class="sode__field">
+            <label for="tieline-from">Destination</label>
+            <span class="pb-number-wrap"><input type="number" id="tieline-from" class="pb-input" min="0"></span>
+            <span class="sode__hint" id="tieline-from-name"></span>
+          </div>
+        </div>
+        <div class="sode__fields">
+          <div class="sode__field">
+            <label for="tieline-to-router">To router</label>
+            <span class="pb-select-wrap"><select id="tieline-to-router" class="pb-select"></select></span>
+          </div>
+          <div class="sode__field">
+            <label for="tieline-to">Source</label>
+            <span class="pb-number-wrap"><input type="number" id="tieline-to" class="pb-input" min="0"></span>
+            <span class="sode__hint" id="tieline-to-name"></span>
+          </div>
+        </div>
+        <div class="sode__field sode__field--half">
+          <label for="tieline-name" data-pb-tip="Sode fills it from the source name. You can change it">Tie line name</label>
+          <input id="tieline-name" class="pb-input" maxlength="32" spellcheck="false">
+        </div>
+        <div class="sode__tielines-acts">
+          <button type="button" class="pb-btn sode-btn--primary" id="tieline-add">Add tie line</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="tieline-cancel" hidden>Cancel</button>
+        </div>
+      </div>
+      <p class="sode__hint" id="tielines-status" role="status"></p>
+    </fieldset>
+
     <h4 class="sode__router" data-router="1" id="router-1"><span class="sode__router-title" id="router-1-title">Router</span></h4>
     <fieldset class="sode__group" data-section="router-matrix" data-topic="routers" data-router="1">
       <legend>Router & matrix</legend>

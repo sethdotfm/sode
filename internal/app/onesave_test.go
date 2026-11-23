@@ -188,7 +188,7 @@ func TestOneSaveUnderLockIsRefused(t *testing.T) {
 }
 
 // savedApart: Config JSON keys with their own messages, never the one Save's.
-var savedApart = map[string]bool{"filterSets": true, "presets": true, "users": true, "bookmarks": true}
+var savedApart = map[string]bool{"filterSets": true, "presets": true, "users": true, "bookmarks": true, "tieLines": true}
 
 func TestEveryFormFieldHasSection(t *testing.T) {
 	for _, f := range config.Fields() {

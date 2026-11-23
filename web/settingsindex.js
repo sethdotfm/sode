@@ -69,6 +69,7 @@ export const DICT = {
   protects: ['protect', 'protects', 'protected', 'router lock', 'device number', 'device', 'panel id', 'clear', 'hold'],
   confirm: ['confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'delay', 'safety', 'result', 'success', 'banner', 'dismiss'],
   routers: ['router', 'routers', 'router list', 'ultrix', 'matrix', 'block'],
+  'tie-lines': ['tie line', 'tie lines', 'tie', 'ties', 'cable', 'link', 'between routers', 'stage'],
   panels: [
     'panel',
     'panels',

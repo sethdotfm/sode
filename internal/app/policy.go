@@ -165,6 +165,13 @@ var policy = map[string]rule{
 			a.replyOp(c, "bookmarks", id, len(list), "bookmark", a.SaveBookmarks(c, list))
 		}(m.Bookmarks, m.ID)
 	}},
+	// Settings > Routers > Tie lines (tielines.go): the whole list, Administrator only.
+	"tieLines": {crit: critNever, role: config.RoleAdministrator, op: "tieLines", write: true, handle: func(a *App, c *client, m *inMsg) {
+		go func(list []config.TieLine, id int) {
+			defer m.finish()
+			a.replyOp(c, "tieLines", id, len(list), "tie line", a.SaveTieLines(c, list))
+		}(m.TieLines, m.ID)
+	}},
 	"presets": {crit: critNever, role: config.RoleTrusted, op: "presets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(presets []config.Preset, id int) {
 			defer m.finish()

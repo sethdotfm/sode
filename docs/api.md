@@ -76,7 +76,7 @@ Sources and destinations are the router's own numbers, 0-based. `/names` carries
 
 Any call can carry the query parameter `router`, a router UID from `GET /routers`, for example `GET /api/v1/names?router=3f9c...`. It is optional while Sode has one router. With two or more routers, a read about one router without it is 400 `router_needed`. These reads are `/names`, `/tally`, `/status` and the stream topics `names`, `tally` and `status`. A value that is not a router UID is 404 `unknown_router`. Send the UID, never the router prefix: an administrator can change the prefix, and the UID never changes.
 
-In a take body, each end of a route is a router reference, `{"router": uid, "n": number}`: `{"routes":[{"src":{"router":"3f9c...","n":1},"dst":{"router":"3f9c...","n":0},"levels":[1]}]}`. While Sode has one router, a bare number is the same as a reference to that router. With two or more routers, a bare number is 400 `router_needed`. Both ends must be on one router. A route across routers needs a tie line. Sode has no tie lines yet, so such a route is 409 `no_path`. A route with no `levels` gets the Default levels of its router. A `router` field on a route, beside `src` and `dst`, is 400 `bad_request`.
+In a take body, each end of a route is a router reference, `{"router": uid, "n": number}`: `{"routes":[{"src":{"router":"3f9c...","n":1},"dst":{"router":"3f9c...","n":0},"levels":[1]}]}`. While Sode has one router, a bare number is the same as a reference to that router. With two or more routers, a bare number is 400 `router_needed`. Both ends must be on one router. A route across routers needs a tie line. Sode does not send takes through tie lines yet, so such a route is 409 `no_path`. A route with no `levels` gets the Default levels of its router. A `router` field on a route, beside `src` and `dst`, is 400 `bad_request`.
 
 ## Endpoints
 
@@ -90,6 +90,7 @@ All paths are under `/api/v1`.
 | `GET /history/groups/last` | `history` | The latest Group with its entries, oldest first |
 | `GET /layouts` | `layouts` | Panel layouts, empty until the panel page exists |
 | `GET /routers` | any | `{"routers":[{"uid","prefix","title"}]}`: each router's router UID, router prefix (A to Z) and router title. See Routers |
+| `GET /tielines` | any | `{"tieLines":[{"id","name","from":{"router","n"},"to":{"router","n"}}]}`: each tie line, with its hidden id, its Tie line name, the destination it starts at (`from`) and the source it feeds on another router (`to`). Numbers are 0-based. The router names of the two ends are not in it |
 | `GET /log?before=&n=` | `log` | The Communication Log, 100 per page by default, 500 at most. Settings saves rows (`kind` `settings`) are merged in; a key never sees the values of Access or Server fields |
 | `POST /takes` | `take` | A take by routes: `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, 1 to 200 routes. Each end can be a router reference `{"router","n"}` (see Routers) |
 | `POST /presets/{scope}/{name}` | `take` | Fire a preset, scope `everyone` or `me` |
@@ -215,7 +216,7 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 | 404 | `unknown_router` | The `router` parameter, or the `router` of a route end, is not a router UID | Send a `uid` from `GET /routers`, or leave `router` out |
 | 405 | `method_not_allowed` | The path does not take this method | Use a method in `Allow` |
 | 409 | `conflict` | Redo of a failed entry, or Retry of one that succeeded; a panel over its limits; a short name another panel has; a key for a panel that does not act as an API client; a panel already at 20 instances | Use the other verb, switch the panel to `api`, or revoke an instance |
-| 409 | `no_path` | The two ends of a route are on different routers; Sode has no tie lines yet | Send each route on one router |
+| 409 | `no_path` | The two ends of a route are on different routers; Sode does not send takes through tie lines yet | Send each route on one router |
 | 409 | `name_taken` | An Assign whose target, or a rename whose panel, already has an instance of that name; `error.suggest` is a free one | Send again with that name, or another, as `name` |
 | 422 | `nothing_to_do` | The plan has no route left to run: nothing to undo, a Redo of a route with no source, or a preset whose parts are all gone from the router | Nothing to do |
 | 422 | `idempotency_mismatch` | The Idempotency-Key was used for a different request | Use a new key |

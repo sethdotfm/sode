@@ -26,6 +26,7 @@ import './exportdialog.js';
 import './ownexport.js';
 import './swap.js';
 import './settingsprotects.js';
+import './settingstielines.js';
 import { askBrokenCounts } from './brokencount.js';
 
 const root = document.documentElement;

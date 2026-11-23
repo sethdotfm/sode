@@ -22,7 +22,7 @@ test('the tags are the agreed table', () => {
     'anyone shown': ['this-browser', 'my-user'],
     'trusted shown': ['everyone-defaults', 'branding', 'history'],
     'administrator shown': ['level-colors', 'confirm', 'routers', 'router-matrix', 'router-names', 'takes'],
-    'administrator hidden': ['protects', 'locks', 'users', 'api', 'panels', 'proxy', 'export-import', 'run-setup-again'],
+    'administrator hidden': ['tie-lines', 'protects', 'locks', 'users', 'api', 'panels', 'proxy', 'export-import', 'run-setup-again'],
   });
 });
 
@@ -46,14 +46,14 @@ test('a Standard user sees Shown sections read-only and does not see Access or S
     'router-names',
     'takes',
   ]);
-  assert.deepEqual(pick(v, 'hidden'), ['protects', 'locks', 'users', 'api', 'panels', 'proxy', 'export-import', 'run-setup-again']);
+  assert.deepEqual(pick(v, 'hidden'), ['tie-lines', 'protects', 'locks', 'users', 'api', 'panels', 'proxy', 'export-import', 'run-setup-again']);
 });
 
 test('a Trusted user edits Everyone’s defaults, Branding and History, and reads the Administrator Shown sections', () => {
   const v = views('trusted');
   assert.deepEqual(pick(v, 'edit'), ['this-browser', 'my-user', 'everyone-defaults', 'branding', 'history']);
   assert.deepEqual(pick(v, 'read'), ['level-colors', 'confirm', 'routers', 'router-matrix', 'router-names', 'takes']);
-  assert.deepEqual(pick(v, 'hidden'), ['protects', 'locks', 'users', 'api', 'panels', 'proxy', 'export-import', 'run-setup-again']);
+  assert.deepEqual(pick(v, 'hidden'), ['tie-lines', 'protects', 'locks', 'users', 'api', 'panels', 'proxy', 'export-import', 'run-setup-again']);
 });
 
 test('an Administrator edits every section', () => {
