@@ -1,7 +1,7 @@
 // Widgets both layouts build the same way; each layout passes its own elements.
 
 import { byText } from './lockrules.js';
-import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
+import { el, S, needsLink, numText, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
 import { listStep, addClick, pickOrAdd, keyLabel } from './keys.js';
 import { levelBar, levelText } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
@@ -114,7 +114,7 @@ export function combobox(
     for (let i = from; i < to; i++) {
       const it = matches[i];
       const on = all || (i === hi && !browsing);
-      const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
+      const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', numText(it)), it.name);
       li.id = pre + i;
       li.dataset.i = String(i);
       li.setAttribute('role', 'option');
@@ -320,6 +320,19 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
   b.setAttribute('aria-label', label);
   b.addEventListener('click', () => onClick(plan));
   return b;
+}
+
+// Put back (historyrows.js putBacks): one button for each tie line that a failed tie take changed.
+export function putBackButtons(list, onClick, cls = 'pb-btn pb-btn--outline pb-btn--sm') {
+  return (list || []).map((p) => {
+    const b = el('button', `${cls} pb-tip--end`, icon('undo-2'), p.text);
+    b.type = 'button';
+    b.dataset.pbTip = 'Send what the tie line carried before, if it still carries what the take set';
+    b.setAttribute('aria-label', p.label);
+    needsLink(b);
+    b.addEventListener('click', () => onClick(p.plan));
+    return b;
+  });
 }
 
 // Retry (failed) or Redo (other) by plan.verb: one button, one slot. With nothing to offer an

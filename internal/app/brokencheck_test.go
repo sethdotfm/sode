@@ -83,11 +83,11 @@ func TestCountedPollIsACopy(t *testing.T) {
 		cur.src[i], cur.dst[i] = checkSrcs[i], checkDsts[i]
 	}
 	a.mu.Lock()
-	if _, fault := a.countPollMu(cur); fault {
+	if _, fault := a.countPollMu(a.firstUnit(), cur); fault {
 		t.Fatal("read taken for a fault")
 	}
 	cur.src[0] = "changed"
-	got := a.router.lastPoll.src[0]
+	got := a.first.router.lastPoll.src[0]
 	a.mu.Unlock()
 	if got != "CAM 1" {
 		t.Fatalf("counted read changed to %q", got)
@@ -110,7 +110,7 @@ func TestFaultReadKeepsNamesAndTable(t *testing.T) {
 	a := brokenApp(t)
 	readNames(a, []string{"", "", "", ""}, with(checkDsts, 1, ""))
 	a.mu.Lock()
-	src := a.router.srcNames[2]
+	src := a.first.router.srcNames[2]
 	a.mu.Unlock()
 	b, _ := os.ReadFile(namesTablePath(a))
 	if src != "CAM 3" || !strings.Contains(string(b), "CAM 3") {
@@ -392,7 +392,7 @@ func TestBrokenWithSimulator(t *testing.T) {
 	lastPoll := func() *namePoll {
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		return a.router.lastPoll
+		return a.first.router.lastPoll
 	}
 	// poll reads the names one time and waits until the Broken check has counted the read and run.
 	poll := func() {

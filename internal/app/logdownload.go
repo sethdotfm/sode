@@ -121,7 +121,7 @@ func (b *logBuild) writeLog(w io.Writer) error {
 }
 
 func (b *logBuild) writeUptimeStates(w io.Writer) error {
-	trans, _ := b.a.up.Record()
+	trans, _ := b.a.firstUnit().up.Record()
 	return writeJSONList(w, func(fn func(UptimeTrans) error) error {
 		for _, t := range trans {
 			if err := fn(t); err != nil {
@@ -140,7 +140,7 @@ type uptimeMinute struct {
 }
 
 func (b *logBuild) writeUptimeMinutes(w io.Writer) error {
-	_, mins := b.a.up.Record()
+	_, mins := b.a.firstUnit().up.Record()
 	return writeJSONList(w, func(fn func(uptimeMinute) error) error {
 		for _, m := range mins {
 			if err := fn(uptimeMinute(m)); err != nil {

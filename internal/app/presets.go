@@ -22,10 +22,11 @@ func (a *App) SavePresets(c *client, presets []config.Preset) error {
 // The file keeps the save-time name for import and Broken checks; a number with no router name keeps its stored name.
 // Normalize fills a blank router.
 func (a *App) namePresets(uid string, ps []config.Preset) []config.Preset {
+	u := a.unitOrFirst(uid)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	w := config.RefWalk{Fn: func(kind string, f config.Ref) []config.Ref {
-		n := sideNames(kind, a.router.srcNames, a.router.dstNames)[f.N]
+		n := sideNames(kind, u.router.srcNames, u.router.dstNames)[f.N]
 		if f.Router != "" && f.Router != uid || strings.TrimSpace(n) == "" {
 			return nil
 		}

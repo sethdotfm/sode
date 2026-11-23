@@ -13,7 +13,7 @@ import { reloadButton, reloadAllButton, offlineNote } from './panelsopen.js';
 // No push channel to /panels, so this is how fast the online mark follows.
 export const MON_POLL_MS = 2000;
 
-const badge = (online) => el('span', `pb-badge${online ? ' pb-badge--ok' : ''}`, online ? 'Online' : 'Offline');
+const badge = (online) => el('span', 'pb-badge', online ? 'Online' : 'Offline');
 
 // A list row's status is plain words, not a badge, so it does not read as a button. It has no colored square.
 const rowBadge = (p) => {

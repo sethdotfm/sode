@@ -19,6 +19,7 @@ import './mykeys.js';
 import './myclients.js';
 import './users.js';
 import './apisettings.js';
+import './settingsrouterlevels.js';
 import './accesspreset.js';
 import './setupagain.js';
 import './profiles.js';
@@ -26,6 +27,7 @@ import './exportdialog.js';
 import './ownexport.js';
 import './swap.js';
 import './settingsprotects.js';
+import './settingstielines.js';
 import { askBrokenCounts } from './brokencount.js';
 
 const root = document.documentElement;
@@ -142,7 +144,7 @@ on('historyCleared', () => {
   clearing = 0;
   clearAnswer?.done();
   clearAnswer = null;
-  showResult('ok', 'History cleared for everyone', '');
+  showResult('done', 'History cleared for everyone', '');
 });
 // A refusal asks a PIN recheck and sends the clear again; below an Administrator it asks an Approval.
 onMsg('clearHistoryResult', (m) => {

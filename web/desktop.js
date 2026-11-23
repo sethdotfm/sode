@@ -1,10 +1,11 @@
-import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, labelNode } from './core.js';
+import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, labelNode, routerData, routerOfItem, routerOfText, sameEnd } from './core.js';
 import { keyLabel } from './keys.js';
-import { searchText } from './routerprefix.js';
+import { searchText, prefixOf } from './routerprefix.js';
 import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
+import { levelRouterOf } from './levels.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
 import {
@@ -40,12 +41,15 @@ import { protectKey } from './protects.js';
 
 const sel = { src: null, dst: null };
 let dsts = [];
-const chosen = (d) => dsts.some((x) => x.n === d.n);
+const chosen = (d) => dsts.some((x) => sameEnd(x, d));
 const MAX_MATCHES = 100;
+// list(rt) is the box's list on router rt (routerData); with none, the router that the box's text names.
 const boxes = {
-  src: { input: $('src'), list: () => S.srcs },
-  dst: { input: $('dst'), list: () => (dsts.length ? S.dsts.filter((d) => !chosen(d)) : S.dsts) },
+  src: { input: $('src'), list: (rt = textRouter('src')) => rt.srcs },
+  dst: { input: $('dst'), list: (rt = textRouter('dst')) => (dsts.length ? rt.dsts.filter((d) => !chosen(d)) : rt.dsts) },
 };
+// A box searches the router whose prefix its text starts with (B.12), else the first router.
+const textRouter = (k) => routerData(routerOfText(boxes[k].input.value));
 for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.cb = combobox(b.input, $(`${k}-menu`), {
@@ -56,27 +60,38 @@ for (const k of ['src', 'dst']) {
     onPickAll: k === 'dst' ? (items) => addAll(items) : undefined,
     foot: $(`${k}-count`),
     onRender: () => b.all?.sync(),
-    outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it.n),
+    outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it),
   });
 }
 // A typed list ("11-13", "Rec 1-4", boxlist.js) in the Destination box shows its destinations all selected, so Enter,
 // Tab, + and Ctrl+Enter add exactly what shows. A text that starts a name is a search. The Source box takes one source:
 // a list there gets a note that points to the Grid.
 function matchesOf(k, text) {
-  const all = k === 'src' ? S.srcs : S.dsts;
-  const q = searchText(text, S.prefix, [], [S.prefix]);
+  const rt = routerData(routerOfText(text));
+  const all = k === 'src' ? rt.srcs : rt.dsts;
+  // A router after the first: its own list, searched with the text after the prefix.
+  const q = rt.first ? searchText(text, S.prefix, [], [S.prefix]) : prefixOf(text).text;
   const list = q && parseList(q);
-  if (!list || namedAs(q, all)) return search(boxes[k].list(), text, MAX_MATCHES);
+  if (!list || namedAs(q, all)) return search(boxes[k].list(rt), rt.first ? text : q, MAX_MATCHES);
   if (k === 'src') return Object.assign([], { note: `One source only. For many routes, use the Grid (${keyLabel('ctrl+e')}).` });
   if (list.tooMany) return Object.assign([], { note: `A list can have ${LIST_MAX} destinations or fewer.` });
-  const { found, missing } = listMatches(list, S.dsts);
+  const { found, missing } = listMatches(list, rt.dsts);
   const rows = found.filter((d) => !chosen(d));
   const note = missingNote(missing) || (found.length && !rows.length ? 'These destinations are added.' : '');
   return Object.assign(rows, { all: true, note });
 }
 
+// Typed levels are levels of the router of the route's destination. That is the router of a chosen destination, else
+// the router that the Destination box's text names, else the router of the source. The picker follows it (followLevels).
+const lvlRouter = () => levelRouterOf({ dsts: sel.dst ? [sel.dst, ...dsts] : dsts, dstText: boxes.dst.input.value, src: sel.src }, routerOfItem, routerOfText);
+let lvlAt = '';
 const lvlInput = $('lvl');
-const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onChange: () => renderTally() });
+const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), () => levelSource(lvlRouter()), { onChange: () => renderTally() });
+function followLevels() {
+  if (lvlRouter() === lvlAt) return;
+  lvlAt = lvlRouter();
+  lvl.repick();
+}
 // With the Levels box hidden, a move to Levels goes to the last box before Take, where Enter takes.
 function toLevels() {
   focusBox(levelsShown() ? lvlInput : flipped() ? boxes.src.input : boxes.dst.input);
@@ -116,7 +131,11 @@ const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...ds
 // box shows it (paintArmed). It uses the Next match behavior setting, as the Next chip does. Typing, any pick, a take and
 // Clear end it. With no add directly before, an add on the empty box does nothing.
 let lastAdd = null;
-const armed = () => (lastAdd !== null && !sel.dst && !boxes.dst.input.value ? nextAdd(lastAdd, S.dsts, chosen, nextFind(S.dsts)) : null);
+const armed = () => {
+  if (lastAdd === null || sel.dst || boxes.dst.input.value) return null;
+  const all = routerData(lastAdd.router).dsts;
+  return nextAdd(lastAdd, all, chosen, nextFind(all));
+};
 
 function addDst(pick) {
   const b = boxes.dst;
@@ -166,7 +185,7 @@ function paintArmed() {
 function addEnd(it) {
   lastAdd = null;
   const have = allDsts();
-  dsts = have.some((x) => x.n === it.n) ? have : [...have, it];
+  dsts = have.some((x) => sameEnd(x, it)) ? have : [...have, it];
   if (sel.dst) {
     sel.dst = null;
     boxes.dst.input.value = '';
@@ -275,7 +294,7 @@ function useLast(k, next = false) {
     else toLevels();
   } else if (k === 'dst') {
     const have = allDsts();
-    const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
+    const add = t.dsts.filter((d) => !have.some((x) => sameEnd(x, d)));
     if (add.length) {
       dsts = [...have, ...add.slice(0, -1)];
       select('dst', add[add.length - 1]);
@@ -294,29 +313,39 @@ function underHead(text, up) {
   return el('div', 'sode__under-head', el('span', up ? 'sode__down-arrow sode__down-arrow--up' : 'sode__down-arrow'), el('span', 'sode__label', text));
 }
 
-function sendingRow(src, d, levels) {
-  const t = S.tally.get(d);
-  const pick = pickEnd('dst', dstLabel(d), 'Add as a destination', () => {
+function sendingRow(src, d, levels, uid) {
+  const t = routerData(uid).tally.get(d);
+  const pick = pickEnd('dst', dstLabel(d, uid), 'Add as a destination', () => {
     const have = allDsts();
-    if (!have.some((x) => x.n === d)) {
+    const it = dstItem(d, '', uid);
+    if (!have.some((x) => sameEnd(x, it))) {
       dsts = have;
-      select('dst', dstItem(d));
+      select('dst', it);
     }
     toLevels();
   });
-  return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
+  return el(
+    'div',
+    'sode__route',
+    levelBar(
+      levels.filter((u) => t.get(u) === src),
+      uid,
+    ),
+    pick,
+  );
 }
 
 // The route view of one destination: no source, one destination. It offers Protect and Free Protect.
 const routeView = () => !sel.src && !boxes.src.input.value.trim() && allDsts().length === 1;
 const protectFromKeys = (set) => routeView() && protectKey(allDsts()[0], set, openConfirm);
 
-function pickSrc(n) {
-  select('src', srcItem(n));
+function pickSrc(n, uid = '') {
+  select('src', srcItem(n, '', uid));
   toLevels();
 }
 
 function renderTally() {
+  followLevels();
   renderLast();
   paintTakes();
   paintArmed();
@@ -328,18 +357,26 @@ function renderTally() {
   }
   const scrolled = [srcUnder, dstUnder].map((u) => u.querySelector('.sode__scroll')?.scrollTop || 0);
   if (sel.src) {
-    const levels = lvl.levels() || allLevels();
-    const fed = fedBy(sel.src.n, levels);
+    const uid = sel.src.router || '';
+    const levels = lvl.levels() || allLevels(uid);
+    const fed = fedBy(sel.src.n, levels, uid);
     srcUnder.replaceChildren(
       underHead(fed.length ? `Sending to ${fed.length}` : 'Sending'),
       fed.length
-        ? el('div', 'sode__scroll', ...fed.map((d) => sendingRow(sel.src.n, d, levels)))
+        ? el('div', 'sode__scroll', ...fed.map((d) => sendingRow(sel.src.n, d, levels, uid)))
         : el('div', 'sode__hint', 'Not sending to any destination on these levels'),
     );
   } else srcUnder.replaceChildren();
   const ds = allDsts();
   if (ds.length) {
-    const srcs = new Set(ds.flatMap((d) => bySource(d.n, allLevels()).map((r) => r.src)).filter((s) => s != null && s >= 0));
+    // One source number on two routers is two sources.
+    const srcs = new Set(
+      ds.flatMap((d) =>
+        bySource(d.n, allLevels(), d.router)
+          .filter((r) => r.src != null && r.src >= 0)
+          .map((r) => `${d.router || ''}.${r.src}`),
+      ),
+    );
     dstUnder.replaceChildren(
       underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving', true),
       el('div', 'sode__scroll', ...ds.flatMap((d) => currentlyNodes(d, pickSrc, routeView() ? openConfirm : null))),
@@ -470,8 +507,8 @@ function paintTakes() {
   $('clear-all').disabled = nothingToClear();
   const t = takeState();
   if ($('patch').textContent !== t.word) $('patch').textContent = t.word;
-  $('patch').classList.toggle('pb-btn--danger', !t.ok);
-  $('patch').classList.toggle('pb-btn--ok', t.ok);
+  $('patch').classList.toggle('pb-btn--commit', !t.ok);
+  $('patch').classList.toggle('sode-btn--primary', t.ok);
   paintTake();
 }
 
@@ -588,6 +625,7 @@ on('presetAdd', paintTakes);
 
 on('hello', () => {
   pager.reset();
+  lvlAt = lvlRouter();
   lvl.reset();
   // A Settings save sends a new hello, so an open page follows a change of levels.
   const box = lvlInput.closest('.sode__box');

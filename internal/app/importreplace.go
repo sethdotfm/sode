@@ -148,6 +148,14 @@ func (p *importPlanner) emptyRest(cat string, cand *config.Config, c *importCat)
 			}
 			return !keep[x.ID]
 		})
+	case catTieLines:
+		keep := p.keptIDs(p.ties)
+		cand.TieLines = slices.DeleteFunc(cand.TieLines, func(x config.TieLine) bool {
+			if !keep[x.ID] {
+				removeItem(c, x.ID, x.Name, "")
+			}
+			return !keep[x.ID]
+		})
 	case catBookmarks:
 		if len(c.Items) == 0 && len(cand.Bookmarks) > 0 {
 			cand.Bookmarks = nil

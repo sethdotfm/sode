@@ -31,7 +31,7 @@ export function createLive(host, body, button, ed) {
       ui = liveUi(host, () => api.stop(), grid, grid?.bar || liveBar());
       host.hidden = false;
       body.hidden = true;
-      editor.dataset.live = '';
+      editor.dataset.live = isGrid ? 'grid' : '';
       run = runPanel(id, { ui, call: sessionFetch, page });
       grid?.started(run);
       ui.back.focus();
@@ -65,7 +65,7 @@ export function createLive(host, body, button, ed) {
 function liveBar(...end) {
   const title = el('h2', 'sode-live__title', 'Panel Live Editor');
   title.id = 'ed-live-title';
-  const bar = el('div', 'pb-banner pb-banner--info sode-live__bar', title, el('span', 'pb-badge pb-badge--info', 'Preview'), ...end);
+  const bar = el('div', 'pb-banner sode-live__bar', title, el('span', 'pb-badge', 'Preview'), ...end);
   bar.id = 'ed-live-bar';
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-labelledby', title.id);
@@ -80,7 +80,7 @@ function gridParts(ed) {
   const state = el('span', 'sode-live__state');
   state.id = 'ed-live-state';
   state.setAttribute('role', 'status');
-  const save = btn('pb-btn--ok pb-btn--sm', 'Save', async () => {
+  const save = btn('sode-btn--primary pb-btn--sm', 'Save', async () => {
     save.disabled = true;
     const err = await ed.save();
     save.disabled = false;

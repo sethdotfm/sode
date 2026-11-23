@@ -31,13 +31,14 @@ func (a *App) nameRights(c *config.Config, old config.Config) {
 	for _, r := range everyRights(&old) {
 		note.Rights(r)
 	}
+	first := a.firstUnit()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	fill := config.RefWalk{Fn: func(kind string, f config.Ref) []config.Ref {
 		if f.Name != "" || f.Router != "" && f.Router != c.UID {
 			return nil
 		}
-		if f.Name = sideNames(kind, a.router.srcNames, a.router.dstNames)[f.N]; strings.TrimSpace(f.Name) == "" {
+		if f.Name = sideNames(kind, first.router.srcNames, first.router.dstNames)[f.N]; strings.TrimSpace(f.Name) == "" {
 			f.Name = was[kind+strconv.Itoa(f.N)]
 		}
 		return []config.Ref{f}

@@ -1,11 +1,11 @@
 // Desktop History list: rows, Groups, External follows, the pager and keyboard mode (single keys on the list).
 
-import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem } from './core.js';
+import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem, routerData } from './core.js';
 import { listStep, pickOrAdd } from './keys.js';
 import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
-import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupLevels, groupIds, routeNote } from './history.js';
+import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupLevels, groupRouter, groupIds, routeNote } from './history.js';
 import { planEmpty, showResult } from './plans.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
@@ -17,6 +17,7 @@ import {
   disclosure,
   undoButton,
   againButton,
+  putBackButtons,
   stackSteps,
   stackFrom,
   followBoxes,
@@ -39,7 +40,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     const view = rowView({ e });
     const r = view.route(e);
     const dst = r.dst;
-    const known = e.levels.filter((u) => S.levelBy.has(u));
+    const known = e.levels.filter((u) => routerData(e.router).levelBy.has(u));
 
     const acts = view.actions(e);
     const btn = undoButton(acts.undo.plan, acts.undo.label, openConfirm, { text: acts.undo.text, tip: acts.undo.tip });
@@ -59,7 +60,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       'pb-input sode__hist-row' + (arrived.entry(e) ? ' sode--enter' : '') + curClass(`e${e.id}`),
       el('span', 'sode__hist-id', e.chain ? `#${e.chain[e.chain.length - 1].id}–#${e.id}` : `#${e.id}`),
       histTime(e.time),
-      levelBar(known),
+      levelBar(known, e.router),
       el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...routeNodes(r), entryNote(e), byLabel(e)),
       statusNode({ e }),
       disc,
@@ -82,7 +83,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
         ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst, addEnd))] : []),
       );
       // Below 1000px the row's level bar moves in here (see history.css).
-      detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
+      detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known, e.router)));
       detail.id = detailId;
       row.append(detail);
     }
@@ -151,11 +152,11 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       'pb-input sode__hist-row' + (arrived.group(f, open) ? ' sode--enter' : '') + curClass(`f${f.group}`),
       el('span', 'sode__hist-id', groupIds(f)),
       histTime(f.entries[0].time),
-      levelBar(groupLevels(f)),
+      levelBar(groupLevels(f), groupRouter(f)),
       el('span', 'sode__hist-route sode__hist-route--boxes', ...routeNodes(view.route(f)), byLabel(f)),
       statusNode({ f }),
       disc,
-      el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [retry, undo])),
+      el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [...putBackButtons(acts.putBack, openConfirm), retry, undo])),
     );
     row.dataset.key = `f${f.group}`;
     row.classList.toggle('sode__hist-row--picked', isPicked(`f${f.group}`));

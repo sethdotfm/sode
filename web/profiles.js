@@ -63,7 +63,7 @@ function line(kind, i, name, summary) {
       'sode__profiles-row',
       text,
       el('span', 'pb-note pb-note--warn', `Remove “${name}”?`),
-      btn('pb-btn--danger pb-btn--sm', 'Remove', () => doRemove(kind, i)),
+      btn('pb-btn--outline pb-btn--sm', 'Remove', () => doRemove(kind, i)),
       btn('pb-btn--outline pb-btn--sm', 'Cancel', () => {
         removing = null;
         paint();

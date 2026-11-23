@@ -17,8 +17,11 @@ type Config struct {
 	Format int `yaml:"format" json:"-"`
 	// Never changes: Item links and import identify this install by it.
 	InstallUID string `yaml:"installUid" json:"-"`
-	// The file holds it as the only entry of routers (router.go).
+	// The first router: the file holds it as the first entry of routers (router.go). Its fields are the old
+	// single-router fields.
 	Router `yaml:"-"`
+	// MoreRouters: the routers after the first, in file order. Routers gives the whole list.
+	MoreRouters []Router `yaml:"-" json:"-"`
 	// Brand fields are display only.
 	BrandText            string   `yaml:"brandText,omitempty" json:"brandText"`
 	BrandBorder          string   `yaml:"brandBorder,omitempty" json:"brandBorder"`
@@ -35,6 +38,10 @@ type Config struct {
 	Presets          []Preset    `yaml:"presets,omitempty" json:"presets"`
 	// Bookmarks is Everyone's list (GLOSSARY.md, Bookmark).
 	Bookmarks []Bookmark `yaml:"bookmarks,omitempty" json:"bookmarks"`
+	// TieLines: Settings > Routers > Tie lines (tielines.go). An Administrator saves the list apart from the form.
+	TieLines []TieLine `yaml:"tieLines,omitempty" json:"tieLines"`
+	// TieHopWeight is the cost of each hop that a route through tie lines sends upstream (internal/tieplan).
+	TieHopWeight int `yaml:"tieHopWeight" json:"tieHopWeight"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
 	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
@@ -73,21 +80,26 @@ var PanelActs = []string{"session", "api", "both", "public"}
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
 const MaxFilterSetsBytes = 48 << 10
 
-// Hex is the dark-mode value of the signal token web/base.css maps the name to; the server draws the app icon with it.
+// Hex is the dark-mode value web/base.css maps the name to. The server draws the app icon with it, and the page makes
+// the accent from it (web/accent.js). A Retired color is not offered, but a config that has it still loads and draws.
 type BrandColor struct {
-	Name  string `json:"name"`
-	Label string `json:"label"`
-	Hex   string `json:"-"`
+	Name    string `json:"name"`
+	Label   string `json:"label"`
+	Hex     string `json:"hex"`
+	Retired bool   `json:"retired,omitempty"`
 }
 
-// Never red: that is the lost-link outline.
+// Never red: that is the lost-link outline. The offered hues stay clear of the state colors (docs/color-roles.md).
+// Green, amber and pink are retired: their hues are routed, caution and protected.
 var BrandColors = []BrandColor{
-	{"blue", "Blue", "#5fb2e8"},
-	{"teal", "Teal", "#5ccfc9"},
-	{"green", "Green", "#5fd09a"},
-	{"amber", "Amber", "#e8a35e"},
-	{"violet", "Violet", "#a67ef0"},
-	{"pink", "Pink", "#e87bb3"},
+	{"blue", "Blue", "#5fb2e8", false},
+	{"teal", "Teal", "#5ccfc9", false},
+	{"sky", "Sky", "#4dc3dd", false},
+	{"slate", "Slate", "#a3b4d4", false},
+	{"violet", "Violet", "#a67ef0", false},
+	{"green", "Green", "#5fd09a", true},
+	{"amber", "Amber", "#e8a35e", true},
+	{"pink", "Pink", "#e87bb3", true},
 }
 
 func BrandColorByName(name string) (BrandColor, bool) {
@@ -112,10 +124,13 @@ func BrandHex(v string) (string, bool) {
 	return "", false
 }
 
+// BrandNames are the offered names, without the retired ones.
 func BrandNames() []string {
-	out := make([]string, len(BrandColors))
-	for i, c := range BrandColors {
-		out[i] = c.Name
+	var out []string
+	for _, c := range BrandColors {
+		if !c.Retired {
+			out = append(out, c.Name)
+		}
 	}
 	return out
 }
@@ -186,6 +201,7 @@ func Defaults() Config {
 		},
 		ConfirmLockoutMs:     500,
 		ResultDismissSeconds: 8,
+		TieHopWeight:         DefaultTieHopWeight,
 		TrustedProxies:       []string{},
 		LevelColors:          []string{},
 		PinWaits:             true,
@@ -228,6 +244,7 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_NUM_OFFSET", &c.NumberOffset)
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
 	num("SODE_RESULT_DISMISS_S", &c.ResultDismissSeconds)
+	num("SODE_TIE_HOP_WEIGHT", &c.TieHopWeight)
 	num("SODE_NAME_REREAD_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
@@ -270,11 +287,13 @@ func WizardEnv() map[string]string {
 
 // Clone shares no slices, so Normalize cannot touch a config others read.
 func (c Config) Clone() Config {
+	c.MoreRouters = slices.Clone(c.MoreRouters)
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Presets = ClonePresets(c.Presets)
 	c.Bookmarks = CloneBookmarks(c.Bookmarks)
+	c.TieLines = CloneTieLines(c.TieLines)
 	c.Users = slices.Clone(c.Users)
 	for i := range c.Users {
 		c.Users[i].Profile = c.Users[i].Profile.Clone()
@@ -291,18 +310,13 @@ func (c Config) Clone() Config {
 }
 
 func (c *Config) Normalize() {
-	c.Address = strings.TrimSpace(c.Address)
-	c.Title = strings.TrimSpace(c.Title)
-	if c.UID == "" {
-		c.UID = newRouterUID()
+	c.Router.normalize()
+	for i := range c.MoreRouters {
+		c.MoreRouters[i].normalize()
 	}
 	c.InstallUID = strings.TrimSpace(c.InstallUID)
 	if c.InstallUID == "" {
 		c.InstallUID = newRouterUID()
-	}
-	c.Prefix = strings.ToUpper(strings.TrimSpace(c.Prefix))
-	if c.Prefix == "" {
-		c.Prefix = "A"
 	}
 	c.BrandText = strings.TrimSpace(c.BrandText)
 	if c.NewPanelActs = strings.ToLower(strings.TrimSpace(c.NewPanelActs)); c.NewPanelActs == "" {
@@ -312,22 +326,6 @@ func (c *Config) Normalize() {
 	c.normalizeAPI()
 	c.dropRetiredKeys()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
-	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
-	if c.RouterShow == "" {
-		c.RouterShow = "address"
-	}
-	c.DefaultLevels = strings.TrimSpace(c.DefaultLevels)
-	c.FireMode = strings.ToLower(strings.TrimSpace(c.FireMode))
-	if c.FireMode == "" {
-		c.FireMode = "sequential"
-	}
-	c.LevelNumbering = strings.ToLower(strings.TrimSpace(c.LevelNumbering))
-	if c.LevelNumbering == "" {
-		c.LevelNumbering = "1"
-	}
-	if c.DefaultLevels == "" && c.Levels > 0 {
-		c.DefaultLevels = fmt.Sprintf("1-%d", c.Levels)
-	}
 	if c.TrustedProxies == nil {
 		c.TrustedProxies = []string{}
 	}
@@ -345,6 +343,7 @@ func (c *Config) Normalize() {
 	c.FilterSets = normalizeFilterSets(c.FilterSets)
 	c.normalizePresets()
 	c.Bookmarks = normalizeBookmarks(c.Bookmarks)
+	c.TieLines = normalizeTieLines(c.TieLines)
 	c.normalizeProfiles()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
@@ -381,12 +380,16 @@ type Level struct {
 	Color  string `json:"color,omitempty"` // overrides Swatch
 }
 
+// LevelMap gives the first router's levels.
+func (c Config) LevelMap() []Level { return c.LevelMapOf(c.Router) }
+
+// LevelMapOf gives the levels of router rc: its count, wire offset and numbering, with the level colors of the config.
 // UI 1 gets the video swatch, the rest the 16 audio swatches.
-func (c Config) LevelMap() []Level {
-	out := make([]Level, c.Levels)
+func (c Config) LevelMapOf(rc Router) []Level {
+	out := make([]Level, rc.Levels)
 	for i := range out {
 		ui := i + 1
-		l := Level{UI: ui, Wire: ui + c.LevelWireOffset, Label: c.LevelLabel(ui), Swatch: "video"}
+		l := Level{UI: ui, Wire: ui + rc.LevelWireOffset, Label: rc.LevelLabel(ui), Swatch: "video"}
 		if ui > 1 {
 			l.Swatch = fmt.Sprintf("%02d", (ui-2)%16+1)
 		}
@@ -400,8 +403,9 @@ func (c Config) LevelMap() []Level {
 	return out
 }
 
-func (c Config) LevelLabel(ui int) string {
-	switch c.LevelNumbering {
+// LevelLabel follows the router's Level numbering.
+func (r Router) LevelLabel(ui int) string {
+	switch r.LevelNumbering {
 	case "0":
 		return strconv.Itoa(ui - 1)
 	case "va":

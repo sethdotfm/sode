@@ -31,15 +31,15 @@ type artDefaultIn struct {
 }
 
 func (a *App) artDefaultVisible(cl *apiCtx, d ArtDefault) bool {
-	v := cl.view()
+	v := a.view(cl)
 	if !v.Hidden() {
 		return true
 	}
 	switch d.Kind {
 	case artKindSource:
-		return d.N != nil && v.Source(*d.N)
+		return d.N != nil && v.source(config.Ref{Router: d.Router, N: *d.N})
 	case artKindDst:
-		return d.N != nil && v.Destination(*d.N)
+		return d.N != nil && v.destination(config.Ref{Router: d.Router, N: *d.N})
 	}
 	// A preset's items would teach hidden numbers, so a hidden caller needs the whole preset in view.
 	// Only Everyone presets have defaults (check).
@@ -221,10 +221,11 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 	}
 	if d.Kind != artKindPreset {
 		// The router's name now, so the editor can tell when the number later names another item.
+		first := a.firstUnit()
 		a.mu.Lock()
-		names := a.router.srcNames
+		names := first.router.srcNames
 		if d.Kind == artKindDst {
-			names = a.router.dstNames
+			names = first.router.dstNames
 		}
 		if n := names[*d.N]; n != "" {
 			d.Name = n

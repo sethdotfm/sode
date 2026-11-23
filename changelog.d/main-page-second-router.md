@@ -1,0 +1,1 @@
+- The main page keeps the names, routes and link of each router. With two or more routers, type the router prefix (`B.12`) in the Source or Destination box to find and patch an item on that router. Its label shows the prefix. A route with its source and destination on two routers is refused until tie lines exist.

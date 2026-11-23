@@ -47,7 +47,7 @@ func (a *App) panelUndoTarget(cl *apiCtx, panelID string) *undoTarget {
 	if cl.Actor.panel != panelID || instance == "" {
 		return nil
 	}
-	v := cl.view()
+	v := a.view(cl)
 	rt := a.r()
 	undone := map[int]bool{}
 	skip := "" // a Group already judged, so its other entries are passed over

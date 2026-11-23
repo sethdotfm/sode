@@ -218,7 +218,7 @@ func TestPanelUndoRefusedLeavesTheTake(t *testing.T) {
 	}
 	before := undoNext(t, a, id, secret, nil)
 	a.mu.Lock()
-	a.router.protect[2] = map[int]protHold{1: {0, 1}}
+	a.first.router.protect[2] = map[int]protHold{1: {0, 1}}
 	a.mu.Unlock()
 	rec := apiPost(a, "/api/v1/panels/"+id+"/undo", secret, ``, nil)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"result":"failed"`) {

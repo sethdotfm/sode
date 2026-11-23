@@ -4,10 +4,12 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"maps"
 	"net/netip"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -15,15 +17,67 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
+	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
+// levels, byWire and byUI are the first router's levels; lv holds every router's, by router UID (levelsOf).
 type runtime struct {
 	cfg     config.Config
 	levels  []config.Level
 	byWire  map[int]config.Level
 	byUI    map[int]config.Level
+	lv      map[string]*routerLevels
 	lenCode byte
 	proxies []netip.Prefix
+}
+
+// routerLevels is the level map of one router (docs/tielines-design.md, Levels).
+type routerLevels struct {
+	rc     config.Router
+	levels []config.Level
+	byWire map[int]config.Level
+	byUI   map[int]config.Level
+}
+
+func newRouterLevels(c config.Config, rc config.Router) *routerLevels {
+	l := &routerLevels{rc: rc, levels: c.LevelMapOf(rc), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}}
+	for _, x := range l.levels {
+		l.byWire[x.Wire] = x
+		l.byUI[x.UI] = x
+	}
+	return l
+}
+
+// levelsOf gives the levels of the router with this UID. Blank, or a UID the settings do not have, is the first router.
+func (r *runtime) levelsOf(uid string) *routerLevels {
+	if l, ok := r.lv[uid]; ok {
+		return l
+	}
+	return r.lv[r.cfg.UID]
+}
+
+// label is the level's label in the router's Level numbering.
+func (l *routerLevels) label(ui int) string { return l.rc.LevelLabel(ui) }
+
+// typed maps the levels typed for a route to this router's levels. A router with one level cannot break away: any
+// typed level means its one level, the whole signal. A router with more levels refuses a level past its count.
+func (l *routerLevels) typed(uis []int) ([]int, error) {
+	var out []int
+	for _, ui := range uis {
+		if ui < 1 {
+			return nil, errors.New("unknown level " + l.label(ui))
+		}
+		if len(l.levels) == 1 {
+			ui = 1
+		}
+		if _, ok := l.byUI[ui]; !ok {
+			return nil, errors.New("unknown level " + l.label(ui))
+		}
+		if !slices.Contains(out, ui) {
+			out = append(out, ui)
+		}
+	}
+	return out, nil
 }
 
 func newRuntime(c config.Config) (*runtime, error) {
@@ -35,58 +89,52 @@ func newRuntime(c config.Config) (*runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &runtime{cfg: c, levels: c.LevelMap(), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}, lenCode: code, proxies: proxies}
-	for _, l := range r.levels {
-		r.byWire[l.Wire] = l
-		r.byUI[l.UI] = l
+	r := &runtime{cfg: c, lv: map[string]*routerLevels{}, lenCode: code, proxies: proxies}
+	for _, rc := range c.Routers() {
+		r.lv[rc.UID] = newRouterLevels(c, rc)
 	}
+	first := r.levelsOf(c.UID)
+	r.levels, r.byWire, r.byUI = first.levels, first.byWire, first.byUI
 	return r, nil
 }
 
-func (r *runtime) probe() []byte {
-	return swp08.ExtInterrogate(r.cfg.Matrix, r.levels[0].Wire, 0)
+// probe is the keepalive message of router rc: an interrogate of its first level.
+func probe(rc config.Router) []byte {
+	return swp08.ExtInterrogate(rc.Matrix, 1+rc.LevelWireOffset, 0)
 }
 
-// App is all server state. A router change (applyConfig with reconnect) replaces router and ext, fails waiters and
-// checks (cutRoutes) and sets status to "connecting". All other state stays; clients get a new hello.
-// Fields from mu down to dumpAt are guarded by mu.
+// App is all server state. A router change (applyConfig with reconnect) starts that router's unit again
+// (reconnectMu): new router and ext, waiters and checks fail (cutRoutes), status "connecting". All other state
+// stays; clients get a new hello.
+// Fields from mu down to sessionsAt are guarded by mu, as are the fields of each router unit.
 type App struct {
+	// first: the first router's unit (routerunit.go). routers: every router unit by router UID. Fixed after New.
+	first   *routerUnit
+	routers map[string]*routerUnit
+
 	// profMemo: the marshalled profile per user for one config snapshot. Guarded by mu.
 	profMemoRT *runtime
 	profMemo   map[string]string
-
-	sw      *swp08.Client
-	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
 
 	hist    *History
 	sent    *SentLog
 	txq     chan swp08.TxEvent
 	evq     chan Sent
 	txLost  atomic.Int64 // events dropped because txq or evq was full, or not saved
-	up      *Uptime
 	saves   *SaveLog
 	cfgPath string
 	rt      atomic.Pointer[runtime]
 
 	mu       sync.Mutex
-	router   *routerState
-	ext      *extTracker
-	status   statusMsg
 	started  time.Time
 	clients  map[*client]struct{}
-	waiters  map[*waiter]struct{}
-	checks   map[*tallyCheck]struct{}
 	pendSent []Sent
-	linkSeen string
-	linkErr  string
-	fire     *fireState
-
-	// Take timers; only tests shorten them (shortTimers).
-	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration
 
 	// Run waits up to drainLimit for them (shutdown.go).
 	writes     inflight
 	checkMu    sync.Mutex // one Broken check at a time
+	tieLocks   tieLocks   // tielock.go
+	stepTaps   stepTaps   // tieretry.go
 	drainLimit time.Duration
 
 	// idle.go; tests change both (lock_idle_test.go).
@@ -96,11 +144,7 @@ type App struct {
 
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests). Set by Run before the router link starts, then fixed.
 
-	nameReqAt  time.Time
 	sessionsAt time.Time
-	nameRxAt   time.Time
-	namesDirt  bool
-	dumpAt     time.Time
 
 	userPins map[string]*pinPool // by user id; "" for names that match no user
 	// pinFirstWait: the first wait after wrong user PINs; tests shorten it.
@@ -126,26 +170,24 @@ type App struct {
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
-	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
-	// fireHolder: what holds fireMu now, for the wait in the next fire's lock row. Guarded by mu.
-	fireHolder string
-
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 
 	apiS apiState // apiauth.go
 
 	streams map[*apiStream]struct{} // apistream.go, guarded by mu
 
-	tallyCache tallyBody // apireads.go, guarded by mu
-	namesCache namesBody // apireads.go, guarded by mu
-
 	names *namesStore // namestable.go
+	// tieChanges: the last change of each tie line (tiechanges.go).
+	tieChanges *tieChanges
+	// viaPend: upstream ends of tie lines whose Via changed since the last flush (tievia.go). viaGen is bumped with
+	// it and keys App.tallyCache, as a tally body carries the Via of other routers. Guarded by App.mu.
+	viaPend map[tieplan.End]bool
+	viaGen  int
 
 	inbox *inboxStore // inbox.go
 
-	protects  *protectStore          // protect.go: Sode's record of the Protects it set
-	protWaits map[*protWait]struct{} // guarded by mu
-	protMu    sync.Mutex             // one Protect set or clear at a time
+	protects *protectStore // protect.go: Sode's record of the Protects it set
+	protMu   sync.Mutex    // one Protect set or clear at a time
 	// inboxTTL: how long a card waits before it expires; tests shorten it. inboxAt: the last sweep.
 	inboxTTL time.Duration
 	inboxAt  time.Time
@@ -200,9 +242,12 @@ func newRouterState() *routerState {
 
 type statusMsg struct {
 	T      string `json:"t"`
-	Router string `json:"router"`
+	Router string `json:"router"` // the link state
 	Addr   string `json:"addr"`
 	Err    string `json:"err,omitempty"`
+	// RouterUID: as on deltaMsg; statusOut sets it.
+	RouterUID string      `json:"routerUid,omitempty"`
+	from      *routerUnit // as on deltaMsg; statusOut sets it
 }
 
 func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug bool) (*App, error) {
@@ -218,26 +263,20 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	if sent == nil {
 		sent, _ = OpenSentLog("", 0)
 	}
+	first := newRouterUnit(cfg.Router)
 	a := &App{
-		hist:         hist,
-		sent:         sent,
-		txq:          make(chan swp08.TxEvent, 1024),
-		evq:          make(chan Sent, 256),
-		cfgPath:      cfgPath,
-		router:       newRouterState(),
-		ext:          newExtTracker(),
-		clients:      map[*client]struct{}{},
-		started:      time.Now(),
-		waiters:      map[*waiter]struct{}{},
-		checks:       map[*tallyCheck]struct{}{},
-		checkTimeout: defaultCheckTimeout,
-		routeTimeout: defaultRouteTimeout,
-		routeGrace:   defaultRouteGrace,
-		queueMax:     defaultQueueMax,
-		drainLimit:   defaultDrainLimit,
-		now:          time.Now,
-		idleEvery:    defaultIdleEvery,
-		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Address},
+		first:      first,
+		routers:    map[string]*routerUnit{first.uid: first},
+		hist:       hist,
+		sent:       sent,
+		txq:        make(chan swp08.TxEvent, 1024),
+		evq:        make(chan Sent, 256),
+		cfgPath:    cfgPath,
+		clients:    map[*client]struct{}{},
+		started:    time.Now(),
+		drainLimit: defaultDrainLimit,
+		now:        time.Now,
+		idleEvery:  defaultIdleEvery,
 	}
 	a.userPins, a.pinFirstWait, a.recheckFor = map[string]*pinPool{}, pinFirstWait, recheckFor
 	a.asks, a.approvalWait = map[*client]*approvalRequest{}, defaultApprovalWait
@@ -251,33 +290,29 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
-	a.protects, a.protWaits = loadProtects(cfgPath), map[*protWait]struct{}{}
+	a.protects = loadProtects(cfgPath)
+	for _, rc := range cfg.MoreRouters {
+		u := newRouterUnit(rc)
+		a.routers[u.uid] = u
+	}
 	a.names = newNamesStore(cfgPath)
+	a.tieChanges = loadTieChanges(cfgPath)
 	a.sweepStages()
-	if t, ok := a.names.load(cfg.UID); ok {
-		a.router.srcNames, a.router.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
-		a.router.savedAt = t.At
-		a.router.lastPoll = &namePoll{maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)}
+	for _, u := range a.routers {
+		if t, ok := a.names.load(u.uid); ok {
+			rs := u.router
+			rs.srcNames, rs.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
+			rs.savedAt = t.At
+			rs.lastPoll = &namePoll{maps.Clone(rs.srcNames), maps.Clone(rs.dstNames)}
+		}
 	}
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
 	}
-	a.up, _ = openUptime("", time.Now)
 	a.saves, _ = OpenSaveLog("")
 	a.rt.Store(r)
-	a.sw = swp08.NewClient(cfg.Address, r.probe())
-	a.sw.Debug = debug
-	a.sw.OnUp = a.onRouterUp
-	a.sw.OnMsg = a.onRouterMsg
-	a.sw.OnState = a.onRouterState
-	a.sw.OnTx = a.onTx
-	a.sendMsg = func(m []byte, why swp08.Why) error {
-		err := a.sw.Send(m, why)
-		// Only a take's refusals are logged; refused re-reads while down would flood the log.
-		if err != nil && !background[why.Reason] {
-			a.onTx(swp08.TxEvent{Msg: m, Why: why, At: time.Now(), Result: "unsent", Err: err.Error()})
-		}
-		return err
+	for _, u := range a.routers {
+		a.link(u, r, debug)
 	}
 	return a, nil
 }
@@ -293,12 +328,21 @@ func (a *App) Run(ctx context.Context) {
 	a.logEvent(start)
 	link, cut := context.WithCancel(context.WithoutCancel(ctx))
 	a.lateQ = make(chan lateJob, 64)
-	go a.sw.Run(link)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	for _, u := range a.routers {
+		go u.sw.Run(link)
+		wg.Add(1)
+		go func() { defer wg.Done(); u.up.Run(link) }()
+	}
+	wg.Add(1)
 	go func() { defer wg.Done(); a.logSent(link) }()
-	go func() { defer wg.Done(); a.up.Run(link) }()
-	defer func() { cut(); wg.Wait(); a.up.Stop() }()
+	defer func() {
+		cut()
+		wg.Wait()
+		for _, u := range a.routers {
+			u.up.Stop()
+		}
+	}()
 	go a.lateWorker(link)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
@@ -334,9 +378,20 @@ func (a *App) periodic() {
 	if sessions {
 		a.sessionsAt = time.Now()
 	}
-	up := a.status.Router == string(swp08.StateUp)
-	names := r.cfg.NameRefreshSeconds > 0 && time.Since(a.nameReqAt) > time.Duration(r.cfg.NameRefreshSeconds)*time.Second
-	dump := r.cfg.TallyResyncSeconds > 0 && time.Since(a.dumpAt) > time.Duration(r.cfg.TallyResyncSeconds)*time.Second
+	// The re-reads that are due, for each router that is up.
+	var names, dumps []*routerUnit
+	for _, u := range a.unitsInOrder(r) {
+		if u.status.Router != string(swp08.StateUp) {
+			continue
+		}
+		rc := r.routerOf(u.uid)
+		if rc.NameRefreshSeconds > 0 && time.Since(u.nameReqAt) > time.Duration(rc.NameRefreshSeconds)*time.Second {
+			names = append(names, u)
+		}
+		if rc.TallyResyncSeconds > 0 && time.Since(u.dumpAt) > time.Duration(rc.TallyResyncSeconds)*time.Second {
+			dumps = append(dumps, u)
+		}
+	}
 	idle := a.now().Sub(a.idleAt) >= a.idleEvery
 	if idle {
 		a.idleAt = a.now()
@@ -359,84 +414,86 @@ func (a *App) periodic() {
 	a.monSweep()
 	a.flushAuthFails(time.Now())
 	a.apiS.idemSweep(time.Now())
-	if !up {
-		return
+	for _, u := range names {
+		a.refreshNames(u)
 	}
-	if names {
-		a.RefreshNames()
-	}
-	if dump {
-		a.requestDumps()
+	for _, u := range dumps {
+		a.requestDumps(u)
 	}
 }
 
-func (a *App) onRouterUp() {
-	a.RefreshNames()
-	a.requestDumps()
-	go a.clearStaleSalvo()
+func (a *App) onUnitUp(u *routerUnit) {
+	a.refreshNames(u)
+	a.requestDumps(u)
+	go a.clearStaleSalvo(u)
 }
 
-func (a *App) requestDumps() {
+func (a *App) requestDumps(u *routerUnit) {
 	r := a.r()
 	a.mu.Lock()
-	a.dumpAt = time.Now()
+	u.dumpAt = time.Now()
 	a.mu.Unlock()
-	for _, l := range r.levels {
-		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
-		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
+	for _, l := range r.levelsOf(u.uid).levels {
+		u.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
+		u.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
 	}
 }
 
-func (a *App) send(m []byte, reason swp08.Reason) {
-	if err := a.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
+// send is for the background reads: a refusal is only logged.
+func (u *routerUnit) send(m []byte, reason swp08.Reason) {
+	if err := u.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
 		log.Printf("send cmd 0x%02X: %v", m[0], err)
 	}
 }
 
-func (a *App) SetUptime(u *Uptime) { a.up = u }
+// SetUptime gives the first router its uptime file.
+func (a *App) SetUptime(up *Uptime) { a.firstUnit().up = up }
 
 func (a *App) SetSettingsSaves(l *SaveLog) {
 	l.Reanchor(a.sent.Next(), a.sent.Oldest())
 	a.saves = l
 }
 
-func (a *App) onRouterState(s swp08.State, err error) {
+func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.up.State(s == swp08.StateUp)
-	a.logLink(s, err)
-	a.status.Router = string(s)
-	a.status.Addr = a.r().cfg.Address
+	u.up.State(s == swp08.StateUp)
+	a.logLink(u, s, err)
+	if (s == swp08.StateUp) != (u.status.Router == string(swp08.StateUp)) {
+		a.viaTouchRouter(u, a.r())
+	}
+	u.status.Router = string(s)
+	u.status.Addr = a.r().routerOf(u.uid).Address
 	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
 	if s != swp08.StateConnecting {
-		a.status.Err = ""
+		u.status.Err = ""
 	}
 	if err != nil {
-		a.status.Err = err.Error()
+		u.status.Err = err.Error()
 	}
-	a.broadcast(a.status)
+	a.broadcast(u.statusOut())
 }
 
 // A retry is logged only when the error changes. Caller holds mu.
-func (a *App) logLink(s swp08.State, err error) {
+func (a *App) logLink(u *routerUnit, s swp08.State, err error) {
 	why := ""
 	if err != nil {
 		why = err.Error()
 	}
 	switch {
-	case s == swp08.StateUp && a.linkSeen != upUp:
-		a.linkSeen, a.linkErr = upUp, ""
-	case s == swp08.StateDown && (a.linkSeen != upDown || a.linkErr != why):
-		a.linkSeen, a.linkErr = upDown, why
+	case s == swp08.StateUp && u.linkSeen != upUp:
+		u.linkSeen, u.linkErr = upUp, ""
+	case s == swp08.StateDown && (u.linkSeen != upDown || u.linkErr != why):
+		u.linkSeen, u.linkErr = upDown, why
 	default:
 		return
 	}
-	e := event(kindLink, "", "", a.linkSeen)
-	e.Err, e.Note = a.linkErr, a.r().cfg.Address
+	e := event(kindLink, "", "", u.linkSeen)
+	e.Err, e.Note, e.Router = u.linkErr, a.r().routerOf(u.uid).Address, u.uid
 	a.logEvent(e)
 }
 
-func (a *App) onRouterMsg(msg []byte) {
+func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 	ev, err := swp08.Parse(msg)
 	if err != nil {
 		log.Printf("parse: %v (% X)", err, msg)
@@ -445,123 +502,129 @@ func (a *App) onRouterMsg(msg []byte) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, xp := range ev.Crosspoints {
-		a.applyTally(r, xp)
+		a.applyUnitTally(u, r, xp)
 	}
 	for _, p := range ev.Protects {
-		a.applyProtect(r, p, ev.Cmd != swp08.CmdExtProtectTally && ev.Cmd != swp08.CmdExtProtectDump)
+		a.applyProtect(u, r, p, ev.Cmd != swp08.CmdExtProtectTally && ev.Cmd != swp08.CmdExtProtectDump)
 	}
 	if nb := ev.Names; nb != nil {
-		a.applyNames(nb)
+		u.applyNames(nb)
 	}
 	if ev.Salvo != nil {
-		a.onSalvoAck(*ev.Salvo)
+		u.onSalvoAck(*ev.Salvo)
 	}
 }
 
 // Caller holds mu.
-func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
+func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 	if xp.Matrix != r.cfg.Matrix {
 		return
 	}
-	l, ok := r.byWire[xp.Level]
+	l, ok := r.levelsOf(u.uid).byWire[xp.Level]
 	if !ok {
 		return
 	}
 	if xp.Src == 0xFFFF { // router's "nothing routed"
 		xp.Src = -1
 	}
-	a.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
-	t := a.router.tally[xp.Dst]
+	u.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
+	t := u.router.tally[xp.Dst]
 	if t == nil {
 		t = map[int]int{}
-		a.router.tally[xp.Dst] = t
+		u.router.tally[xp.Dst] = t
 	}
 	if old, known := t[l.UI]; !known || old != xp.Src {
 		t[l.UI] = xp.Src
-		a.router.tallyGen++
-		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
+		u.router.tallyGen++
+		u.router.pend = append(u.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
+		a.viaTouch(u, r, xp.Dst)
+		if known { // the first read of a level is a baseline, not a change
+			a.stampTieLines(u, r, xp.Dst, !xp.Changed())
+		}
 		// A dump or an interrogate shows a route change that the router did not announce. Sode notes it too, unless
 		// it is Sode's own.
-		switch a.classify(xp, l.UI, known) {
+		switch u.classify(xp, l.UI, known) {
 		case verdictExt:
-			a.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
+			u.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
 		case verdictOurs:
-			a.sawOwn(xp)
+			u.sawOwn(xp)
 		}
-	} else if xp.Changed() && a.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
+	} else if xp.Changed() && u.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
 		// A tally already cached Sode's own route: the Connected of a native salvo came after the interrogate answer
 		// (fire.go).
 		// This uses up its key.
-		a.sawOwn(xp)
+		u.sawOwn(xp)
 	}
-	for w := range a.waiters {
+	for w := range u.waiters {
 		if w.see(xp) && xp.Changed() {
 			w.cause.saw(time.Now())
 		}
 	}
-	for c := range a.checks {
+	for c := range u.checks {
 		c.see(xp)
 	}
 }
 
 // announced: a 0x8D or 0x8F, not an answer to a re-read. Caller holds mu.
-func (a *App) applyProtect(r *runtime, p swp08.Protect, announced bool) {
+func (a *App) applyProtect(u *routerUnit, r *runtime, p swp08.Protect, announced bool) {
 	if p.Matrix != r.cfg.Matrix {
 		return
 	}
-	l, ok := r.byWire[p.Level]
+	l, ok := r.levelsOf(u.uid).byWire[p.Level]
 	if !ok {
 		return
 	}
 	h := protHold{dev: p.Device, kind: p.Kind}
-	for w := range a.protWaits {
+	for w := range u.protWaits {
 		if w.dst == p.Dst {
 			w.see(l.UI, h, p.Protected)
 		}
 	}
-	t := a.router.protect[p.Dst]
+	t := u.router.protect[p.Dst]
 	old, had := t[l.UI]
 	k := [2]int{p.Dst, l.UI}
-	known := a.router.protSeen[k]
-	a.router.protSeen[k] = true
+	known := u.router.protSeen[k]
+	u.router.protSeen[k] = true
 	if !p.Protected {
 		if !had {
 			return
 		}
 		delete(t, l.UI)
-		a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, -1, 0})
-		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
+		u.router.pendProt = append(u.router.pendProt, protChange{p.Dst, l.UI, -1, 0})
+		a.noteProtect(r, u, p.Dst, l.UI, old, false, known, announced)
 		return
 	}
 	if had && old == h {
 		return
 	}
 	if had {
-		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
+		a.noteProtect(r, u, p.Dst, l.UI, old, false, known, announced)
 	}
-	a.noteProtect(r, p.Dst, l.UI, h, true, known, announced)
+	a.noteProtect(r, u, p.Dst, l.UI, h, true, known, announced)
 	if t == nil {
 		t = map[int]protHold{}
-		a.router.protect[p.Dst] = t
+		u.router.protect[p.Dst] = t
 	}
 	t[l.UI] = h
-	a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, h.dev, h.kind})
+	u.router.pendProt = append(u.router.pendProt, protChange{p.Dst, l.UI, h.dev, h.kind})
 }
 
 func (a *App) flush() {
-	var save, check func()
+	var save, check []func()
 	defer func() { // runs after mu is released: no disk work under mu
-		if save != nil {
-			save()
+		for _, s := range save {
+			s()
 		}
-		if check == nil {
+		if len(check) == 0 {
 			return
 		}
 		// Off the tick: the check waits for cfgMu, which a save holds across a PBKDF2 hash.
 		run := func() {
 			a.checkMu.Lock()
 			defer a.checkMu.Unlock()
-			check()
+			for _, c := range check {
+				c()
+			}
 		}
 		if done, ok := a.writes.start("brokenCheck"); ok {
 			go func() { defer done(); run() }()
@@ -571,19 +634,26 @@ func (a *App) flush() {
 	}()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.router.pend) > 0 {
-		a.broadcast(deltaMsg{T: "tally", U: a.router.pend})
-		a.router.pend = nil
+	for _, u := range a.unitsInOrder(a.r()) {
+		if len(u.router.pend) > 0 {
+			a.broadcast(deltaMsg{T: "tally", U: u.router.pend, RouterUID: u.uid, from: u})
+			u.router.pend = nil
+		}
 	}
-	if len(a.router.pendProt) > 0 {
-		a.broadcast(protectMsg{T: "protected", U: a.router.pendProt, By: a.protectByList(a.r())})
-		a.router.pendProt = nil
+	a.flushVia()
+	// The protected message carries only the first router.
+	if first := a.firstUnit(); len(first.router.pendProt) > 0 {
+		a.broadcast(protectMsg{T: "protected", U: first.router.pendProt, By: a.protectByList(a.r())})
+		first.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
 		a.broadcastSent(a.pendSent)
 		a.pendSent = nil
 	}
 	save, check = a.namesTickMu()
+	if ties := a.r().cfg.TieLines; a.tieChanges.dirtyNow() {
+		save = append(save, func() { a.tieChanges.write(ties) })
+	}
 }
 
 // [[dst, level, value], ...]. A hello on a 2500 by 750 router holds 12750 of them.
@@ -621,10 +691,11 @@ func (a *App) readHello() helloPage {
 	return helloPage{recent, morePages(recent)}
 }
 
-// Caller holds mu.
+// The hello's flat fields carry the first router, and routers carries every router. Caller holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
-	n := a.namesMsg()
+	first := a.firstUnit()
+	n := first.namesMsg()
 	// A hello reaches pages under a lock: no users in it (AGENTS.md).
 	cfg := r.cfg
 	users := make([]helloUser, 0, len(cfg.Users))
@@ -633,20 +704,36 @@ func (a *App) hello(p helloPage) []byte {
 	}
 	cfg.Users = nil
 	m := helloMsg{
-		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: a.router.savedAt,
-		Tally: routeTriples(a.router.tally), Protect: protectRows(a.router.protect), ProtectBy: a.protectByList(r),
-		Status: a.status, Recent: p.recent, More: p.more,
+		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: first.router.savedAt,
+		Tally: routeTriples(first.router.tally), Protect: protectRows(first.router.protect), ProtectBy: a.protectByList(r),
+		Status: first.status, Recent: p.recent, More: p.more,
 		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
 		ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
 		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),
-		NotSaved: a.cfgPath == "", Setup: a.setupHelloFor(r.cfg),
+		NotSaved: a.cfgPath == "", Setup: a.setupHelloFor(r.cfg), Routers: a.helloRouters(r),
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
 		log.Printf("marshal hello: %v", err)
 	}
 	return b
+}
+
+// helloRouters gives each router of the hello, in the order of the settings. Caller holds mu.
+func (a *App) helloRouters(r *runtime) []helloRouter {
+	var out []helloRouter
+	for _, u := range a.unitsInOrder(r) {
+		lv := r.levelsOf(u.uid)
+		rc := lv.rc
+		n := u.namesMsg()
+		out = append(out, helloRouter{
+			UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, NumberOffset: rc.NumberOffset, Levels: lv.levels,
+			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
+			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, Tally: routeTriples(u.router.tally), Status: u.statusOut(),
+		})
+	}
+	return out
 }
 
 // Caller holds mu.
@@ -681,15 +768,21 @@ func (a *App) deliver(c *client, b []byte) {
 }
 
 func (a *App) reply(c *client, v any) {
+	if rr, ok := v.(*routeResult); ok && a.stepTaps.take(c, rr) {
+		return
+	}
 	b, _ := json.Marshal(v)
 	a.mu.Lock()
 	a.deliver(c, b)
 	a.mu.Unlock()
 }
 
+// record writes e. A take's entry names its router in Router; any other entry gets the first router.
 func (a *App) record(e *Entry) {
-	cfg := a.r().cfg
-	e.Router, e.RouterTitle = cfg.UID, cfg.Title
+	r := a.r()
+	cfg := r.cfg
+	rc := r.routerOf(e.Router)
+	e.Router, e.RouterTitle = rc.UID, rc.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
@@ -708,7 +801,9 @@ func (a *App) ClearHistory(who string) {
 	}
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
-	a.ext.lateRoute, a.ext.lateHits = map[ownKey][]lateRoute{}, nil // their entries are gone
+	for _, u := range a.routers {
+		u.ext.lateRoute, u.ext.lateHits = map[ownKey][]lateRoute{}, nil // their entries are gone
+	}
 	a.broadcast(simpleMsg{T: "historyCleared"})
 	a.mu.Unlock()
 }

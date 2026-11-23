@@ -16,7 +16,7 @@ export function askCopyTo(pages, from, back) {
   // The question about cells it replaces stands until the pick changes.
   let asked = -1;
   const go = btn(
-    'pb-btn--ok',
+    'sode-btn--primary',
     'Copy',
     () => {
       const to = Number(pick.value);

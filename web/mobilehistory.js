@@ -1,13 +1,13 @@
 // The phone's History rows: swipe left to show Undo, right to show Redo (Retry for failed takes).
-import { $, el, S, on, dstItem, labelNode, toggle } from './core.js';
+import { $, el, on, dstItem, labelNode, toggle, routerData } from './core.js';
 import { levelBar } from './levelview.js';
 import { fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, groupLevels, stackBefore, routeNote } from './history.js';
+import { entryNote, historyPager, statusNode, groupLevels, groupRouter, stackBefore, routeNote } from './history.js';
 import { layout } from './layout.js';
 import { emptyNote } from './searchbox.js';
 import { rowView, disclosureAria, followersHead } from './historyrows.js';
 import { picking, isPicked, pickBox, bindPick, pickBar } from './historypick.js';
-import { byLabel, disclosure, undoButton, againButton, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { byLabel, disclosure, undoButton, againButton, putBackButtons, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const REVEAL = 96;
 const OPEN = 'sode-m__recent-row--open';
@@ -74,7 +74,10 @@ export function mobileHistory({ sheetFor, pickSrc }) {
       ),
       changes,
       e.follows && !open ? el('div', 'sode__hint', `External follow: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
-      levelBar(e.levels.filter((u) => S.levelBy.has(u))),
+      levelBar(
+        e.levels.filter((u) => routerData(e.router).levelBy.has(u)),
+        e.router,
+      ),
     );
     if (disc) clickToToggle(face, disc, '.sode-m__changes');
     const row = el(
@@ -114,7 +117,8 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
       ),
       el('div', 'sode-m__recent-route', ...title, byLabel(f)),
-      levelBar(groupLevels(f)),
+      ...(picking() ? [] : putBackButtons(acts.putBack, sheetFor)),
+      levelBar(groupLevels(f), groupRouter(f)),
     );
     clickToToggle(face, disc);
     const row = el(

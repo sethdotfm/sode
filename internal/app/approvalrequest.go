@@ -103,12 +103,13 @@ const freeShown = 5
 // dstLabels: "4 DSM2" for each destination, the number as the page shows it and the router's name.
 func (a *App) dstLabels(dsts ...int) []string {
 	off := a.r().cfg.NumberOffset
+	first := a.firstUnit()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	out := make([]string, 0, len(dsts))
 	for _, d := range dsts {
 		l := strconv.Itoa(d + off)
-		if n := a.router.dstNames[d]; n != "" {
+		if n := first.router.dstNames[d]; n != "" {
 			l += " " + n
 		}
 		out = append(out, l)

@@ -14,59 +14,9 @@ func (c Config) Validate() error {
 	var errs []error
 	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
 
-	if c.Address != "" {
-		host, port, err := net.SplitHostPort(c.Address)
-		if p, perr := strconv.Atoi(port); err != nil || host == "" || perr != nil || p < 1 || p > 65535 {
-			bad("router must be host:port, for example 10.0.0.50:8910")
-		}
-	}
+	errs = append(errs, c.validateRouters()...)
 	if !slices.Contains(PanelActs, c.NewPanelActs) {
 		bad("the new-panel Authentication mode is session, api, both or public")
-	}
-	switch c.NameRequests {
-	case "std":
-		// Standard messages carry the matrix in a 4-bit field.
-		if c.Matrix < 0 || c.Matrix > 15 {
-			bad("matrix must be 0-15 with standard name requests")
-		}
-	case "ext":
-		if c.Matrix < 0 || c.Matrix > 255 {
-			bad("matrix must be 0-255")
-		}
-	default:
-		bad("name requests must be std or ext")
-	}
-	switch c.FireMode {
-	case "sequential":
-	case "native":
-		// Group salvos carry the matrix in a 4-bit field.
-		if c.Matrix < 0 || c.Matrix > 15 {
-			bad("native salvos need matrix 0-15")
-		}
-	default:
-		bad("fire mode must be sequential or native")
-	}
-	if c.SalvoGroup < 0 || c.SalvoGroup > 127 {
-		bad("salvo group must be 0-127")
-	}
-	// The dump packs the device in 12 bits. Not proved on the router: whether other messages split at 128 or 256.
-	if c.ProtectDevice < 0 || c.ProtectDevice > MaxProtectDevice {
-		bad("Protect device number must be 0 (off) to %d", MaxProtectDevice)
-	}
-	if c.Levels < 1 || c.Levels > 256 {
-		bad("levels must be 1-256")
-	} else if lo, hi := 1+c.LevelWireOffset, c.Levels+c.LevelWireOffset; lo < 0 || hi > 255 {
-		bad("level wire offset puts levels at wire %d-%d; they must fall within 0-255", lo, hi)
-	} else if _, err := ParseLevels(c.DefaultLevels, c.Levels); err != nil {
-		bad("default levels: %v", err)
-	}
-	switch c.NameLength {
-	case 4, 8, 12, 16:
-	default:
-		bad("name length must be 4, 8, 12 or 16")
-	}
-	if c.NumberOffset < 0 || c.NumberOffset > 1 {
-		bad("number offset must be 0 or 1")
 	}
 	if c.ConfirmLockoutMs < 0 || c.ConfirmLockoutMs > 10000 {
 		bad("confirm lockout must be 0-10000 ms")
@@ -74,27 +24,8 @@ func (c Config) Validate() error {
 	if c.ResultDismissSeconds < 0 || c.ResultDismissSeconds > 3600 {
 		bad("result dismiss must be 0 (never) or 1-3600 seconds")
 	}
-	if s := c.NameRefreshSeconds; s != 0 && (s < 10 || s > 86400) {
-		bad("name refresh must be 0 (off) or 10-86400 seconds")
-	}
-	if s := c.TallyResyncSeconds; s != 0 && (s < 30 || s > 86400) {
-		bad("tally resync must be 0 (off) or 30-86400 seconds")
-	}
-	switch c.LevelNumbering {
-	case "0", "1", "va":
-	default:
-		bad("level numbering must be 0, 1 or va")
-	}
-	switch c.RouterShow {
-	case "address", "name", "none":
-	default:
-		bad("router status must show address, name or none")
-	}
-	if len(c.Prefix) != 1 || c.Prefix[0] < 'A' || c.Prefix[0] > 'Z' {
-		bad("router prefix must be one letter, A to Z")
-	}
-	if n := len([]rune(c.Title)); n > 32 {
-		bad("router name must be at most 32 characters")
+	if c.TieHopWeight < 0 || c.TieHopWeight > MaxTieHopWeight {
+		bad("the hop weight must be 0-%d", MaxTieHopWeight)
 	}
 	if n := len([]rune(c.BrandText)); n > 24 {
 		bad("logo text must be at most 24 characters")
@@ -118,6 +49,7 @@ func (c Config) Validate() error {
 	errs = append(errs, validateFilterSets(c.FilterSets)...)
 	errs = append(errs, c.validatePresets()...)
 	errs = append(errs, validateBookmarks(c.Bookmarks)...)
+	errs = append(errs, c.validateTieLines()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}
@@ -174,4 +106,107 @@ func ParseLevels(s string, max int) ([]int, error) {
 		return nil, errors.New("no levels")
 	}
 	return out, nil
+}
+
+// validateRouters checks each router and that no two share a UID or a prefix. A problem of a router after the first
+// names its prefix.
+func (c Config) validateRouters() []error {
+	var errs []error
+	uids, prefixes := map[string]bool{}, map[string]bool{}
+	for i, r := range c.Routers() {
+		name := ""
+		if i > 0 {
+			name = fmt.Sprintf("router %s: ", r.Prefix)
+		}
+		for _, err := range r.problems() {
+			errs = append(errs, fmt.Errorf("%s%w", name, err))
+		}
+		if r.UID != "" && uids[r.UID] {
+			errs = append(errs, fmt.Errorf("%stwo routers have the UID %s", name, r.UID))
+		}
+		if prefixes[r.Prefix] {
+			errs = append(errs, fmt.Errorf("%stwo routers have the prefix %s", name, r.Prefix))
+		}
+		uids[r.UID], prefixes[r.Prefix] = true, true
+	}
+	return errs
+}
+
+func (r Router) problems() []error {
+	var errs []error
+	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
+	if r.Address != "" {
+		host, port, err := net.SplitHostPort(r.Address)
+		if p, perr := strconv.Atoi(port); err != nil || host == "" || perr != nil || p < 1 || p > 65535 {
+			bad("router must be host:port, for example 10.0.0.50:8910")
+		}
+	}
+	switch r.NameRequests {
+	case "std":
+		// Standard messages carry the matrix in a 4-bit field.
+		if r.Matrix < 0 || r.Matrix > 15 {
+			bad("matrix must be 0-15 with standard name requests")
+		}
+	case "ext":
+		if r.Matrix < 0 || r.Matrix > 255 {
+			bad("matrix must be 0-255")
+		}
+	default:
+		bad("name requests must be std or ext")
+	}
+	switch r.FireMode {
+	case "sequential":
+	case "native":
+		// Group salvos carry the matrix in a 4-bit field.
+		if r.Matrix < 0 || r.Matrix > 15 {
+			bad("native salvos need matrix 0-15")
+		}
+	default:
+		bad("fire mode must be sequential or native")
+	}
+	if r.SalvoGroup < 0 || r.SalvoGroup > 127 {
+		bad("salvo group must be 0-127")
+	}
+	// The dump packs the device in 12 bits. Not proved on the router: whether other messages split at 128 or 256.
+	if r.ProtectDevice < 0 || r.ProtectDevice > MaxProtectDevice {
+		bad("Protect device number must be 0 (off) to %d", MaxProtectDevice)
+	}
+	if r.Levels < 1 || r.Levels > 256 {
+		bad("levels must be 1-256")
+	} else if lo, hi := 1+r.LevelWireOffset, r.Levels+r.LevelWireOffset; lo < 0 || hi > 255 {
+		bad("level wire offset puts levels at wire %d-%d; they must fall within 0-255", lo, hi)
+	} else if _, err := ParseLevels(r.DefaultLevels, r.Levels); err != nil {
+		bad("default levels: %v", err)
+	}
+	switch r.NameLength {
+	case 4, 8, 12, 16:
+	default:
+		bad("name length must be 4, 8, 12 or 16")
+	}
+	if r.NumberOffset < 0 || r.NumberOffset > 1 {
+		bad("number offset must be 0 or 1")
+	}
+	if s := r.NameRefreshSeconds; s != 0 && (s < 10 || s > 86400) {
+		bad("name refresh must be 0 (off) or 10-86400 seconds")
+	}
+	if s := r.TallyResyncSeconds; s != 0 && (s < 30 || s > 86400) {
+		bad("tally resync must be 0 (off) or 30-86400 seconds")
+	}
+	switch r.LevelNumbering {
+	case "0", "1", "va":
+	default:
+		bad("level numbering must be 0, 1 or va")
+	}
+	switch r.RouterShow {
+	case "address", "name", "none":
+	default:
+		bad("router status must show address, name or none")
+	}
+	if len(r.Prefix) != 1 || r.Prefix[0] < 'A' || r.Prefix[0] > 'Z' {
+		bad("router prefix must be one letter, A to Z")
+	}
+	if n := len([]rune(r.Title)); n > 32 {
+		bad("router name must be at most 32 characters")
+	}
+	return errs
 }

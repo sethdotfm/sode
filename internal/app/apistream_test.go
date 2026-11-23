@@ -146,7 +146,7 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	strmWantType(t, m, "snapshot", "tally")
 	var ty strmTally
 	json.Unmarshal(m.Data, &ty)
-	if len(ty.Routes) != 1 || ty.Routes[0] != (apiRouteRow{2, 1, 1}) {
+	if len(ty.Routes) != 1 || !plainRow(ty.Routes[0], 2, 1, 1) {
 		t.Errorf("tally snapshot %s", m.Data)
 	}
 	strmWantType(t, s.next(), "snapshot", "status")
@@ -159,13 +159,13 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	m = s.next()
 	strmWantType(t, m, "tally", "tally")
 	json.Unmarshal(m.Data, &ty)
-	if len(ty.Routes) != 1 || ty.Routes[0] != (apiRouteRow{2, 2, 1}) {
+	if len(ty.Routes) != 1 || !plainRow(ty.Routes[0], 2, 2, 1) {
 		t.Errorf("tally delta %s", m.Data)
 	}
 
 	a.mu.Lock()
-	a.router.srcNames[6] = "ANOTHER SECRET"
-	a.broadcast(a.namesMsg())
+	a.first.router.srcNames[6] = "ANOTHER SECRET"
+	a.broadcast(a.first.namesMsg())
 	a.mu.Unlock()
 	m = s.next()
 	strmWantType(t, m, "names", "names")
@@ -190,7 +190,7 @@ func TestStreamSendsOnlyChosenTopics(t *testing.T) {
 	strmWantType(t, s.next(), "snapshot", "status")
 	a.mu.Lock()
 	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
-	a.broadcast(a.namesMsg())
+	a.broadcast(a.first.namesMsg())
 	a.mu.Unlock()
 	s.quiet(300 * time.Millisecond)
 }

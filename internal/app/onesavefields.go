@@ -11,9 +11,10 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Some keys of the one Save are not plain Config JSON keys. They are the json:"-" Guest fields,
-// and one key per attribute of each user and API client (docs/agents/settings-saves.md). Keep
-// the prefixes in step with ITEM_SECTIONS in web/savereviewrules.js.
+// Some keys of the one Save are not plain Config JSON keys. They are the json:"-" Guest fields and
+// one key per attribute of each user and API client. Each router after the first also has one key
+// per level setting (docs/agents/settings-saves.md). Keep the prefixes in step with ITEM_SECTIONS in
+// web/savereviewrules.js.
 
 // fieldSpec reads and writes one key. get's JSON is the value compared, versioned and sent back
 // on a conflict.
@@ -113,7 +114,75 @@ func lookupField(key string) (fieldSpec, bool) {
 		}
 		return clientSpec(rest[:i], rest[i+1:])
 	}
+	if rest, ok := strings.CutPrefix(key, "router/"); ok {
+		uid, attr, ok := strings.Cut(rest, "/")
+		if !ok {
+			return fieldSpec{}, false
+		}
+		return routerSpec(uid, attr)
+	}
 	return fieldSpec{}, false
+}
+
+// routerLevelsSection: Settings > Routers > Router levels, the level settings of each router after the first. The
+// first router's are the plain keys of its own block (levels, levelWireOffset, levelNumbering, defaultLevels).
+const routerLevelsSection = "router-levels"
+
+// routerAttrs: the `router/<uid>/<attribute>` keys, by the JSON key of the config.Router field.
+var routerAttrs = []string{"levels", "levelWireOffset", "levelNumbering", "defaultLevels"}
+
+// routerField gives the field of r that a routerAttrs key names.
+func routerField(r *config.Router, attr string) any {
+	switch attr {
+	case "levels":
+		return &r.Levels
+	case "levelWireOffset":
+		return &r.LevelWireOffset
+	case "levelNumbering":
+		return &r.LevelNumbering
+	case "defaultLevels":
+		return &r.DefaultLevels
+	}
+	return nil
+}
+
+func moreRouterIndex(c *config.Config, uid string) int {
+	return slices.IndexFunc(c.MoreRouters, func(r config.Router) bool { return r.UID == uid })
+}
+
+// routerSpec: one level setting of a router after the first. The fields of one router validate together, so a new
+// level count and new default levels save as one.
+func routerSpec(uid, attr string) (fieldSpec, bool) {
+	if routerField(&config.Router{}, attr) == nil {
+		return fieldSpec{}, false
+	}
+	s := fieldSpec{section: routerLevelsSection, item: "router/" + uid}
+	s.get = func(c config.Config) any {
+		i := moreRouterIndex(&c, uid)
+		if i < 0 {
+			return nil
+		}
+		return routerField(&c.MoreRouters[i], attr)
+	}
+	s.set = func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
+		i := moreRouterIndex(c, uid)
+		if i < 0 {
+			return errors.New("this router was removed meanwhile: reload the page")
+		}
+		c.MoreRouters = slices.Clone(c.MoreRouters)
+		return json.Unmarshal(v, routerField(&c.MoreRouters[i], attr))
+	}
+	return s, true
+}
+
+// routerVersions: the versions of the router keys, which every hello carries.
+func routerVersions(cfg config.Config, out map[string]string) {
+	for _, r := range cfg.MoreRouters {
+		for _, at := range routerAttrs {
+			k := "router/" + r.UID + "/" + at
+			out[k] = fieldVersion(cfg, k)
+		}
+	}
 }
 
 const usersSection = "users"

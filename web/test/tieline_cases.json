@@ -1,0 +1,13 @@
+{
+  "routers": ["a1", "b2"],
+  "cases": [
+    { "t": { "from": { "router": "a1", "n": 0 }, "to": { "router": "b2", "n": 3 } }, "problem": "" },
+    { "t": { "from": { "router": "b2", "n": 65535 }, "to": { "router": "a1", "n": 0 } }, "problem": "" },
+    { "t": { "from": { "router": "", "n": 1 }, "to": { "router": "b2", "n": 3 } }, "problem": "a tie line needs the router of its destination" },
+    { "t": { "from": { "router": "a1", "n": 1 }, "to": { "router": "", "n": 3 } }, "problem": "a tie line needs the router of its source" },
+    { "t": { "from": { "router": "a1", "n": 1 }, "to": { "router": "zz", "n": 3 } }, "problem": "a tie line names a router that Sode does not have (zz)" },
+    { "t": { "from": { "router": "a1", "n": -1 }, "to": { "router": "b2", "n": 3 } }, "problem": "a tie line needs a destination number from the router" },
+    { "t": { "from": { "router": "a1", "n": 1 }, "to": { "router": "b2", "n": 65536 } }, "problem": "a tie line needs a source number from the router" },
+    { "t": { "from": { "router": "a1", "n": 1 }, "to": { "router": "a1", "n": 2 } }, "problem": "a tie line goes from one router to a different router" }
+  ]
+}

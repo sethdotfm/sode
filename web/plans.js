@@ -1,7 +1,7 @@
-import { el, S, search, on, onMsg, emit, wsSend, off, linked, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, srcItem, dstItem, labelNode, tallyText, routerData, routerOfItem, LINK_DOWN } from './core.js';
 import { protectedText } from './protectrules.js';
 import { protectSummary, sendProtect, holdsAt, holdBadge } from './protects.js';
-import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
+import { levelText, oneLevel, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
@@ -45,8 +45,8 @@ function undoItem(e) {
   const known = new Set(e.prev.map(([u]) => u));
   for (const u of e.levels) if (!known.has(u) && !untouched.has(u)) skipped.push(u);
   return {
-    dst: dstItem(e.dst, e.dstName),
-    groups: [...groups].map(([s, levels]) => ({ src: srcItem(s), levels: levels.sort((a, b) => a - b) })),
+    dst: dstItem(e.dst, e.dstName, e.router),
+    groups: [...groups].map(([s, levels]) => ({ src: srcItem(s, '', e.router), levels: levels.sort((a, b) => a - b) })),
     skipped: skipped.sort((a, b) => a - b),
     untouched: [...untouched].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b),
     undo: e,
@@ -59,8 +59,8 @@ function undoItem(e) {
 export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
 const againItem = (e) =>
   routeItem(
-    dstItem(e.dst, e.dstName),
-    [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
+    dstItem(e.dst, e.dstName, e.router),
+    [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
     e.ok ? null : e,
   );
 
@@ -137,10 +137,12 @@ export const groupUndoPlan = (f) =>
   );
 // A group with failed takes retries only those; otherwise it redoes every redoable take. Empty
 // items = nothing to offer. ofUndo marks a redo of an undo row, which leaves Last alone.
+// Tie takes: the Retry of the destination entry (origin) runs the hops again on the server. Thus a hop entry (tie)
+// gets no Retry of its own. Redo of a tie take opens the picker, which this plan cannot do, so it has no tie entries.
 export function againPlan(row) {
-  const es = row.f ? row.f.entries : [row.e];
+  const es = (row.f ? row.f.entries : [row.e]).filter((e) => e && !e.tie);
   const failed = es.filter((e) => !e.ok);
-  const use = (failed.length ? failed : es).filter(canRedo);
+  const use = (failed.length ? failed : es.filter((e) => !e.origin)).filter(canRedo);
   const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
   return use.some((e) => e.undo) ? { ...plan, ofUndo: true } : plan;
 }
@@ -150,6 +152,8 @@ export function againPlan(row) {
 export const VERBS = {
   patch: { word: 'take', ask: 'take', busy: 'Taking…', resets: true },
   undo: { word: 'undo', ask: 'undo', busy: 'Undoing…', resets: false },
+  // Put a tie line back: the Undo of a hop entry (historyrows.js putBacks).
+  putback: { word: 'put back', ask: 'put back', busy: 'Putting back…', resets: false },
   retry: { word: 'retry', ask: 'retry the take of', busy: 'Retrying…', resets: false },
   redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
   preset: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
@@ -162,10 +166,14 @@ export const VERBS = {
 export const planVerb = (plan) => VERBS[plan.verb].word;
 export const planEmpty = (plan) => !plan.protect && !plan.items.some((i) => i.groups.length);
 
+// "levels 1–4" of a route, or "all levels" on a router with one level.
+const routeLevels = (list, uid) => (oneLevel(uid) ? 'all levels' : `levels ${levelText(list, uid)}`);
+
 function routeText(t, already = []) {
+  const uid = routerOfItem(t.dst);
   return (
-    `${t.g.src.label} → ${t.dst.label} (levels ${levelText(t.g.levels)}` +
-    (already.length ? `; ${levelText(already)} ${already.length === 1 ? 'was' : 'were'} already on ${t.g.src.label}` : '') +
+    `${t.g.src.label} → ${t.dst.label} (${routeLevels(t.g.levels, uid)}` +
+    (already.length ? `; ${levelText(already, uid)} ${already.length === 1 ? 'was' : 'were'} already on ${t.g.src.label}` : '') +
     ')'
   );
 }
@@ -185,7 +193,7 @@ function takeResult(m) {
   const failed = b.results.filter((r) => !r.ok);
   if (!failed.length) {
     const many = dsts > 1 ? ` ${dsts} destinations` : '';
-    const title = undo ? `Undone${many && ' on' + many}` : `Success${many && ':' + many}`;
+    const title = undo ? `Undone${many && ' on' + many}` : b.verb === 'putback' ? 'Put back' : `Success${many && ':' + many}`;
     showResult('ok', title, capped(b.results.map((r) => routeText(r, r.already))));
     return;
   }
@@ -254,14 +262,23 @@ on('history', refreshResult);
 // and the rest go.
 export function planBlocked(plan) {
   const prot = new Map();
-  if (!linked()) {
-    return { block: { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' }, prot };
+  const down = notLinked(plan);
+  if (down != null) {
+    const text = down ? `Sode is not connected to router ${routerData(down).prefix}.` : 'Sode is not connected to the router.';
+    return { block: { kind: 'error', title: 'Not connected', text }, prot };
   }
   if (plan.protect) return { block: null, prot };
-  const outside = planOutside(S.myRights, plan, off(), levelLabel);
+  const outside = planOutside(S.myRights, plan, off(), levelLabel, rightsRouter);
   if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
+  // A take sends each route to the router of its destination, with the source number of that router.
+  const across = live.find((i) => i.groups.some((g) => routerOfItem(g.src) !== routerOfItem(i.dst)));
+  if (across) {
+    return { block: { kind: 'error', title: 'Route across routers', text: `${across.dst.label}: a route across routers needs a tie line.` }, prot };
+  }
   for (const i of live) {
+    // The page has the Protects of the first router only; the server refuses a protected destination on any router.
+    if (routerOfItem(i.dst)) continue;
     const p = holdsAt(
       i.dst.n,
       i.groups.flatMap((g) => g.levels),
@@ -286,6 +303,14 @@ export function planBlocked(plan) {
     block: { kind: 'error', title: 'Destinations protected', text: `All ${hit.length} destinations are protected: ${hit.map((i) => i.dst.label).join(', ')}.` },
     prot,
   };
+}
+
+// notLinked gives the router of the plan that has no link ('' for the first router), or null when every one has.
+function notLinked(plan) {
+  if (!S.ws || S.wsState !== 'up') return '';
+  const uids = plan.items.length ? new Set(plan.items.map((i) => routerOfItem(i.dst))) : new Set(['']);
+  for (const uid of uids) if (routerData(uid).link !== 'up') return uid;
+  return null;
 }
 
 function planQuestion(plan) {
@@ -319,12 +344,14 @@ function planQuestion(plan) {
 export function changedSince(item) {
   const e = item.undo;
   if (!e || (!e.ok && !e.failed?.length)) return [];
-  const t = S.tally.get(e.dst);
+  const uid = routerOfItem(item.dst);
+  const t = routerData(uid).tally.get(e.dst);
   const failed = new Set(e.ok ? [] : e.failed);
   const levels = item.groups.flatMap((g) => g.levels).filter((u) => !failed.has(u) && t?.has(u) && t.get(u) !== e.src);
   return bySource(
     e.dst,
     levels.sort((a, b) => a - b),
+    uid,
   );
 }
 
@@ -332,19 +359,26 @@ export function changedSince(item) {
 // sends no reply).
 export function alreadyThere(item) {
   if (item.undo) return false;
-  const t = S.tally.get(item.dst.n);
+  const t = routerData(routerOfItem(item.dst)).tally.get(item.dst.n);
   return !!t && item.groups.length > 0 && item.groups.every((g) => g.levels.length > 0 && g.levels.every((u) => t.get(u) === g.src.n));
 }
 
 function itemSummary(item, boxed, prot, since) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
-  const before = bySource(item.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
+  const uid = routerOfItem(item.dst);
+  const before = bySource(item.dst.n, all, uid).map((r) => srcRow(r.levels, tallyText(r.src, uid), null, null, uid));
   return [
-    ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
+    ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst), uid)),
     ...(since ? changedSince(item) : []).map((r) =>
-      el('div', 'sode__route', levelBar(r.levels), el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`),
+      el(
+        'div',
+        'sode__route',
+        levelBar(r.levels, uid),
+        el('span', 'pb-badge pb-badge--warn', 'Changed since'),
+        `now ${tallyText(r.src, uid)}; undo will replace it`,
+      ),
     ),
-    alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there')) : null,
+    alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge', 'Already there')) : null,
     prot ? el('div', 'sode__route', levelBar(prot.levels), ...prot.holds.map(holdBadge), 'will be refused') : null,
     item.untouched?.length
       ? el(
@@ -454,7 +488,14 @@ globalThis.addEventListener?.('storage', (e) => {
 const isNum = (v) => Number.isInteger(v) && v >= 0;
 const isPair = (v) => Array.isArray(v) && isNum(v[0]) && typeof v[1] === 'string';
 const validLast = (t) =>
-  !!t && isPair(t.src) && Array.isArray(t.dsts) && t.dsts.length > 0 && t.dsts.every(isPair) && Array.isArray(t.levels) && t.levels.every(isNum);
+  !!t &&
+  isPair(t.src) &&
+  Array.isArray(t.dsts) &&
+  t.dsts.length > 0 &&
+  t.dsts.every(isPair) &&
+  Array.isArray(t.levels) &&
+  t.levels.every(isNum) &&
+  (t.router === undefined || typeof t.router === 'string');
 
 // A redo counts when all its routes share one source and one set of levels; Retry, Preset and
 // undo never set Last. Null means leave Last as it is. lastOf is the patch inside a larger take that
@@ -468,7 +509,10 @@ export function lastFromPlan(p) {
   const sorted = (l) => [...l].sort((x, y) => x - y);
   const lv = sorted(levels);
   if (p.verb === 'redo' && !gs.every(({ g }) => g.src.n === src.n && sameList(sorted(g.levels), lv))) return null;
-  return { src: [src.n, src.name], dsts: gs.map(({ dst }) => [dst.n, dst.name]), levels: lv };
+  const last = { src: [src.n, src.name], dsts: gs.map(({ dst }) => [dst.n, dst.name]), levels: lv };
+  // A take on a router after the first names it.
+  const uid = routerOfItem(src);
+  return uid ? { ...last, router: uid } : last;
 }
 
 // A stored value that fails to parse is no Last, not a cue to fall back to memory.
@@ -490,8 +534,16 @@ function readLast() {
 
 export function lastTake() {
   const t = readLast();
-  if (!t || !S.srcBy.has(t.src[0]) || !t.dsts.every(([n]) => S.dstBy.has(n))) return null;
-  return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
+  const uid = t?.router || '';
+  // A router that this page no longer has gives no Last.
+  if (!t || routerOfItem({ router: uid }) !== uid) return null;
+  const rt = routerData(uid);
+  if (!rt.srcBy.has(t.src[0]) || !t.dsts.every(([n]) => rt.dstBy.has(n))) return null;
+  return {
+    src: srcItem(...t.src, uid),
+    dsts: t.dsts.map(([n, name]) => dstItem(n, name, uid)),
+    levels: t.levels.filter((u) => S.levelBy.has(u)),
+  };
 }
 
 // Last take with source and every destination one number higher (Cam 1 → Rec 1 + Rec 5 then Cam
@@ -505,8 +557,9 @@ export function nextTake(state) {
   if (!t) return null;
   const src = run.src && state?.src?.n === run.src.n ? run.src : t.src;
   const base = run.dsts && state && run.dsts.every((d) => state.dsts.some((x) => x.n === d.n)) ? run.dsts : t.dsts;
-  const dsts = base.map((d) => nextOf(d, S.dstBy));
-  return { src: nextOf(src, S.srcBy), dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
+  const rt = routerData(routerOfItem(t.src));
+  const dsts = base.map((d) => nextOf(d, rt.dstBy));
+  return { src: nextOf(src, rt.srcBy), dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
 }
 
 export function usedNext(k, t) {
@@ -550,7 +603,9 @@ export function sendTakes(p) {
     for (const g of it.groups) {
       const id = ++takeSeq;
       const msg = { id, src: g.src.n, dst: it.dst.n, levels: g.levels };
+      if (routerOfItem(it.dst)) msg.router = routerOfItem(it.dst);
       if (it.undo) msg.undo = it.undo.id;
+      if (it.putBack) msg.putBack = true;
       if (it.retry) msg.retry = it.retry.id;
       items.push(msg);
       take.byId.set(id, { dst: it.dst, g });
@@ -576,7 +631,7 @@ export function sendTakes(p) {
   const dsts = new Set(list.map((t) => t.dst.n)).size;
   const text =
     dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
-      ? `${list[0].g.src.label} → ${dsts} destinations (levels ${levelText(list[0].g.levels)})`
+      ? `${list[0].g.src.label} → ${dsts} destinations (${routeLevels(list[0].g.levels, routerOfItem(list[0].dst))})`
       : capped(list.map((t) => routeText(t)));
   showResult('info', VERBS[p.verb].busy, text);
   return true;
@@ -588,7 +643,9 @@ export const applyMyRights = (r) => {
   S.myRights = r || null;
   emit('myRights');
 };
-export const rightsOff = (kind, n) => !allowed(S.myRights, kind, n);
+// rightsRouter: the UID that a Rights check compares for a route end; Rights store the first router's UID too.
+export const rightsRouter = (end) => routerData(routerOfItem(end)).uid;
+export const rightsOff = (kind, end) => !allowed(S.myRights, kind, end.n, rightsRouter(end));
 // editorrights.js owns the message on every page, so the Palette reads the same Rights.
 onMyRights(applyMyRights);
 

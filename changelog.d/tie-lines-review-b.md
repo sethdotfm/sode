@@ -1,0 +1,6 @@
+- Run setup again and Apply an access preset now include the Guest's Use tie lines right. A Guest that keeps the right under Standard access values matches no preset, so a pick of Standard access turns the right off.
+- For a caller with hidden visibility, `GET /tielines` gives null for a tie line end that it cannot see. It gives no last change when the caller cannot see the upstream destination.
+- The `also` list of an External entry leaves out each destination that a caller with hidden visibility cannot see. `alsoOthers` counts them.
+- A change to the ends of a tie line removes its last change time, so Sode does not show the time of the old cable.
+- Settings > Routers > Tie lines shows at most 20 suggestions, and a count of the others.
+- In a 409 body with tie line paths, a caller with hidden visibility gets null for a hop end that it cannot see. That hop has no change time.

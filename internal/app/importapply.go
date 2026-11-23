@@ -60,9 +60,10 @@ func (a *App) tokenRechecked(tok string) bool {
 }
 
 func (a *App) liveNames() (src, dst map[int]string) {
+	first := a.firstUnit()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
+	return maps.Clone(first.router.srcNames), maps.Clone(first.router.dstNames)
 }
 
 func (a *App) readImportParts(w http.ResponseWriter, r *http.Request) (importReq, *exportBundle, func(), bool) {

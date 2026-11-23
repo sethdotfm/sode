@@ -174,7 +174,7 @@ function addRow(u = { name: '', len: 0 }) {
   const disarm = () => {
     rm.dataset.armed = '';
     rm.textContent = 'Remove';
-    rm.classList.replace('pb-btn--danger', 'pb-btn--ghost');
+    rm.classList.replace('pb-btn--outline', 'pb-btn--ghost');
   };
   const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {
     if (!row.dataset.was) {
@@ -185,7 +185,7 @@ function addRow(u = { name: '', len: 0 }) {
     if (!rm.dataset.armed) {
       rm.dataset.armed = '1';
       rm.textContent = 'Confirm remove';
-      rm.classList.replace('pb-btn--ghost', 'pb-btn--danger');
+      rm.classList.replace('pb-btn--ghost', 'pb-btn--outline');
       setNote(`Remove "${row.dataset.was}": Save deletes their PIN and Profile.`);
       return;
     }
@@ -430,6 +430,12 @@ export function stageUserFlags(id, { persistent, noAutoLock }) {
   if (!row) return;
   row.querySelector('input[data-flag="persistent"]').checked = persistent;
   rightsPanel.setNoAutoLock(Number(row.dataset.rid), noAutoLock);
+  touched();
+}
+
+// The Guest's Use tie lines right of an Access preset (accesspreset.js), staged as a hand edit would.
+export function stageGuestTieLines(on) {
+  rightsPanel.setGuestTieLines(!!on);
   touched();
 }
 

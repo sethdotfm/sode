@@ -26,16 +26,22 @@ func (o *ownership) ownAnswer(k ownKey, now time.Time) bool {
 	return false
 }
 
+// flushExt writes the External burst of each router that is quiet or has gone on too long. Each router has its own
+// burst, own keys and causes, so an External follow never crosses routers.
 func (a *App) flushExt() {
 	a.flushLate()
+	var es []*Entry
 	a.mu.Lock()
 	now := time.Now()
-	burst, first, ok := a.ext.flush(now)
-	if !ok {
-		a.mu.Unlock()
-		return
+	for _, u := range a.routers {
+		burst, first, ok := u.ext.flush(now)
+		if !ok {
+			continue
+		}
+		ue := u.extEntries(burst, first)
+		a.noteAlso(u, ue)
+		es = append(es, ue...)
 	}
-	es := a.ext.entries(a.router.name, burst, first)
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)

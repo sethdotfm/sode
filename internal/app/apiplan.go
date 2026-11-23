@@ -19,19 +19,26 @@ type takePlan struct {
 	LeftOut   []string // preset parts the router does not have
 	Skipped   []int    // undo: levels with nothing routed before, left as is
 	Untouched []int    // undo: levels a failed take never changed, left as is
+	// Ties: a take with a route across routers runs as steps (tietake.go); Items is then empty.
+	Ties *tieTake
 }
 
 // The code is one listed in openapi.yaml.
 type apiProblem struct {
 	Status    int
 	Code, Msg string
+	// body replaces the plain error body; it carries its own error object (the 409 bodies of tieroutes.go).
+	body any
 }
 
 func problem(status int, code, format string, args ...any) *apiProblem {
-	return &apiProblem{status, code, fmt.Sprintf(format, args...)}
+	return &apiProblem{Status: status, Code: code, Msg: fmt.Sprintf(format, args...)}
 }
 
 func (p *apiProblem) answer() apiAnswer {
+	if p.body != nil {
+		return jsonAnswer(p.Status, p.body)
+	}
 	return jsonAnswer(p.Status, apiErrBody{apiErr{Code: p.Code, Message: p.Msg}})
 }
 
@@ -62,20 +69,21 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 			}
 		}
 	}
+	lv := r.levelsOf(e.Router)
 	p := &takePlan{}
 	groups := map[int][]int{}
 	known := map[int]bool{}
 	for _, pv := range e.Prev {
 		u, s := pv[0], pv[1]
 		known[u] = true
-		if _, ok := r.byUI[u]; !ok || untouched[u] {
+		if _, ok := lv.byUI[u]; !ok || untouched[u] {
 			continue
 		}
 		if s < 0 {
 			p.Skipped = append(p.Skipped, u)
 			continue
 		}
-		if !v.Route(e.Dst, u, s) {
+		if !v.on(e.Router).Route(e.Dst, u, s) {
 			continue
 		}
 		groups[s] = append(groups[s], u)
@@ -86,7 +94,7 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 		}
 	}
 	for u := range untouched {
-		if _, ok := r.byUI[u]; ok {
+		if _, ok := lv.byUI[u]; ok {
 			p.Untouched = append(p.Untouched, u)
 		}
 	}
@@ -107,7 +115,7 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 }
 
 // A Retry is linked to the failed entry; a Redo is a plain new take. Both need a real source and a level that still
-// exists.
+// exists, and both go to the router of the entry.
 func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProblem) {
 	switch {
 	case retry && e.OK:
@@ -117,9 +125,10 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 	case e.Src < 0:
 		return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "entry %d has no source to repeat", e.ID)
 	}
+	lv := r.levelsOf(e.Router)
 	var ls []int
 	for _, u := range e.Levels {
-		if _, ok := r.byUI[u]; ok && v.Route(e.Dst, u, e.Src) {
+		if _, ok := lv.byUI[u]; ok && v.on(e.Router).Route(e.Dst, u, e.Src) {
 			ls = append(ls, u)
 		}
 	}
@@ -127,7 +136,7 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 		return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "none of entry %d's levels exist or are visible to you", e.ID)
 	}
 	sort.Ints(ls)
-	req := routeReq{Src: e.Src, Dst: e.Dst, Levels: ls}
+	req := routeReq{Src: e.Src, Dst: e.Dst, Levels: ls, Router: e.Router}
 	if retry {
 		id := e.ID
 		req.Retry = &id
@@ -139,14 +148,15 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 // Parts the router lacks are left out and listed.
 func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	defaults, _ := config.ParseLevels(r.cfg.DefaultLevels, r.cfg.Levels)
+	first := a.firstUnit()
 	a.mu.Lock()
 	// A reference to another router, or one the Broken check marked, is left out like a gone number.
 	has := func(f config.Ref, kind string, names map[int]string) bool {
 		_, ok := names[f.N]
 		return ok && f.Router == r.cfg.UID && !hasMissing(p.Broken, kind, f)
 	}
-	hasSrc := func(f config.Ref) bool { return has(f, config.MissingSource, a.router.srcNames) }
-	hasDst := func(f config.Ref) bool { return has(f, config.MissingDestination, a.router.dstNames) }
+	hasSrc := func(f config.Ref) bool { return has(f, config.MissingSource, first.router.srcNames) }
+	hasDst := func(f config.Ref) bool { return has(f, config.MissingDestination, first.router.dstNames) }
 	type key struct{ dst, src int }
 	var order []key
 	levels := map[key][]int{}
