@@ -31,6 +31,8 @@ type undoRoute struct {
 	Src    int   `json:"src"`
 	Dst    int   `json:"dst"`
 	Levels []int `json:"levels"`
+	// Router: the settings UID of the router of the take (GET /routers), so a page with two routers knows the route.
+	Router string `json:"router,omitempty"`
 }
 
 // undoTarget is the take to undo, as the caller sees its entries, and the plan that restores it. ID is the
@@ -144,12 +146,13 @@ func (a *App) apiPanelUndoNext(w http.ResponseWriter, r *http.Request, cl *apiCt
 		apiJSON(w, map[string]any{"undo": nil})
 		return
 	}
+	rt := a.r()
 	routes := make([]undoRoute, len(u.Plan.Items))
 	for i, it := range u.Plan.Items {
-		routes[i] = undoRoute{it.Src, it.Dst, it.Levels}
+		routes[i] = undoRoute{it.Src, it.Dst, it.Levels, a.rightsUID(rt, it.Router)}
 	}
 	_, rights := a.callerOf(cl.client())
-	reason := a.outsideRights(a.r(), rights, u.Plan.Items)
+	reason := a.outsideRights(rt, rights, u.Plan.Items)
 	apiJSON(w, map[string]any{"undo": map[string]any{"id": u.ID, "entries": u.Entries, "routes": routes, "allowed": reason == "", "reason": reason}})
 }
 

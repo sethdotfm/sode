@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/internal/swp08"
 )
 
 // New makes a unit and a Router link for each router in the settings, each with its own address.
@@ -168,6 +169,23 @@ func TestAPIReadsNeedARouter(t *testing.T) {
 	list, _ := apiBody(t, rec)["routers"].([]any)
 	if len(list) != 2 || list[1].(map[string]any)["uid"] != b.uid || list[1].(map[string]any)["prefix"] != "B" {
 		t.Errorf("routers %s", rec.Body)
+	}
+}
+
+// GET /protected answers for the router of its router parameter, as /tally does.
+func TestAPIProtectedOfEachRouter(t *testing.T) {
+	a, _, _, b, key := apiTwoRouters(t)
+	a.mu.Lock()
+	a.first.router.protect[5] = map[int]protHold{1: {dev: 9, kind: swp08.KindProtect}}
+	b.router.protect[2] = map[int]protHold{1: {dev: 7, kind: swp08.KindProtect}}
+	a.mu.Unlock()
+	wantErr(t, apiDo(a, "GET", "/api/v1/protected", key, nil), http.StatusBadRequest, "router_needed")
+	rowB, rowA := `{"dst":2,"level":1,"kind":"protect","device":7}`, `{"dst":5,"level":1,"kind":"protect","device":9}`
+	for _, c := range []struct{ uid, want, not string }{{b.uid, `"protected":[` + rowB + `]`, rowA}, {a.r().cfg.UID, rowA, rowB}} {
+		rec := apiDo(a, "GET", "/api/v1/protected?router="+c.uid, key, nil)
+		if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.Contains(body, c.want) || strings.Contains(body, c.not) {
+			t.Errorf("protected of %s: %d %s", c.uid, rec.Code, rec.Body)
+		}
 	}
 }
 

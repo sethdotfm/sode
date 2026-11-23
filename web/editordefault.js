@@ -60,7 +60,7 @@ export function createDefaultRow({ ed, patch, done }) {
       if (!item) return;
       const d = defaultFor(c, ed.defaults());
       const own = !!artOf(c) || !!artBOf(c);
-      const n = defaultNote(d, own, ed.names().routerName(c.kind, c.n));
+      const n = defaultNote(d, own, ed.names().routerName(c.kind, c.n, c.router));
       text.textContent = n.text || 'No Default artwork for this item yet.';
       warn.textContent = n.warn;
       warn.hidden = !n.warn;

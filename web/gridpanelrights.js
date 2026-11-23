@@ -1,6 +1,7 @@
 // Rights, protection and other sources on a Grid panel. Pure: no DOM, no clock, no network.
 // env is envFrom's (panelrules.js); names is namesFrom.
-import { rightsAllow } from './panelrules.js';
+import { rightsAllow, envAt } from './panelrules.js';
+import { acrossRouters, placeOf } from './routerids.js';
 
 // The sources dst has now that the grid does not show, in level order, each one time. shown is a Set of router numbers.
 export function otherSources(env, dst, shown) {
@@ -13,8 +14,10 @@ export function otherSources(env, dst, shown) {
   return out;
 }
 
-// Any protected level protects the whole destination, as on a Buttons panel. null when the press can stage.
-export const pressRefusal = ({ dst }, env) => (env.protectedDsts.has(dst) ? { code: 'protected', dst } : null);
+// Any protected level protects the whole destination, as on a Buttons panel. A source and a destination on two routers
+// need a tie line, which Sode does not have yet. null when the press can stage.
+export const pressRefusal = ({ src, dst }, env) =>
+  env.protectedDsts.has(dst) ? { code: 'protected', dst } : acrossRouters(src, dst) ? { code: 'across-routers', src, dst } : null;
 
 // The pairs a press can stage: a Diagonal skips protected rows. err only when every target is protected.
 export function stageable(pairs, env) {
@@ -22,20 +25,31 @@ export function stageable(pairs, env) {
   return { pairs: kept, err: pairs.length && !kept.length ? pressRefusal(pairs[0], env) : null };
 }
 
-// The banner words for the protected rows a press or a line skipped: up to three names, then "+N". '' when none.
+// The banner words for the rows a press or a line skipped: protected rows with up to three names, then "+N", and
+// routes across routers. '' when none.
 export function skippedText(pairs, names) {
-  const dsts = [...new Set(pairs.map((x) => x.dst))];
-  if (!dsts.length) return '';
-  const shown = dsts.slice(0, 3).map((d) => names.destination(d));
-  const more = dsts.length > 3 ? ` +${dsts.length - 3}` : '';
-  return `Skipped ${dsts.length === 1 ? 'a protected destination' : 'protected destinations'}: ${shown.join(', ')}${more}`;
+  const across = pairs.filter((x) => acrossRouters(x.src, x.dst)).length;
+  const dsts = [...new Set(pairs.filter((x) => !acrossRouters(x.src, x.dst)).map((x) => x.dst))];
+  const out = [];
+  if (dsts.length) {
+    const shown = dsts.slice(0, 3).map((d) => names.destination(d));
+    const more = dsts.length > 3 ? ` +${dsts.length - 3}` : '';
+    out.push(`Skipped ${dsts.length === 1 ? 'a protected destination' : 'protected destinations'}: ${shown.join(', ')}${more}`);
+  }
+  if (across) out.push(`Skipped ${across === 1 ? 'a route' : `${across} routes`} across routers: Sode has no tie lines yet`);
+  return out.join('. ');
 }
 
-export const refusalText = (err, names) => (err?.code === 'protected' ? `${names.destination(err.dst)} is protected` : '');
+export const refusalText = (err, names) =>
+  err?.code === 'protected' ? `${names.destination(err.dst)} is protected` : err?.code === 'across-routers' ? acrossText(err, names) : '';
+
+// Keep in step with errorText in panelrules.js.
+export const acrossText = (err, names) => `${names.source(err.src)} and ${names.destination(err.dst)} are on two routers. Sode has no tie lines yet.`;
 
 // Why a staged entry { dst, level, src } no longer applies, or ''. world is { env, rights, names (GET /names) }.
 // A read that has not come yet leaves nothing out, so a slow first poll never drops staged work.
-function whyOut(x, { env, rights, names }) {
+function whyOut(x, { env: all, rights, names }) {
+  const env = envAt(all, placeOf(x.dst));
   if (!rightsAllow(rights, 'dsts', x.dst) || !rightsAllow(rights, 'sources', x.src) || !rightsAllow(rights, 'levels', x.level, env?.router)) return 'rights';
   const has = (list, n) => !Array.isArray(list) || list.some((y) => y.n === n);
   if (!has(names?.sources, x.src) || !has(names?.destinations, x.dst)) return 'gone';

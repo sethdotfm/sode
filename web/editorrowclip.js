@@ -3,7 +3,7 @@
 import { writeClip } from './editorclip.js';
 import { copyRows, rowsText, readRows, pasteRows, pasteRowsNote } from './edgeclip.js';
 import { removeItems } from './editorgridrules.js';
-import { myRights } from './editorrights.js';
+import { myItemRights } from './editorrights.js';
 import { plural } from './gridmodel.js';
 
 const RIGHTS = { sources: 'sources', destinations: 'dsts' };
@@ -60,7 +60,7 @@ export function createRowClip(ed, lists) {
     const edge = ed.fields()[into];
     const r = pasteRows(edge, ed.routerNames()?.[into] || [], block, {
       axis: into,
-      rights: myRights(),
+      rights: myItemRights(ed.places()),
       kind: RIGHTS[into],
       panel: ed.panel()?.id || '',
       after: key ? list.after() : after(into),

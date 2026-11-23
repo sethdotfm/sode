@@ -1,13 +1,14 @@
 // Which sources and destinations a Grid panel shows, in display order (ADR 0011). Pure.
 // An edge is { members: 'all' | [n, ...], hide: [n], items: { n: { pinned, art } } }; a missing edge is 'all'.
 // edgesIn (gridedgerefs.js) makes this form from the stored references.
-// 'all' is every router item in router order, less hide. Display order puts pinned members first, then the rest.
+// 'all' is every item of every router in router order, less hide. Numbers are item numbers (routerids.js). Display order puts pinned members first, then the rest.
 import { rightsAllow } from './panelrules.js';
 
 export const PANEL_TYPE_GRID = 'grid'; // keep in step with panelTypeGrid in internal/app/panelgrid.go
 
 export const isGridPanel = (panel) => panel?.type === PANEL_TYPE_GRID;
 
+// With two or more routers names holds the items of every router on item numbers, so 'all' goes router by router.
 const routerOrder = (list) => (list || []).map((x) => x.n).sort((a, b) => a - b);
 
 const membersOf = (edge, list) => {

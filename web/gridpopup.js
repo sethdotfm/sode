@@ -4,7 +4,9 @@
 // until they are sent or cleared. The popup state and the list are page memory only: a reload or the Lock drops them.
 // One Take: a confirm of the staged routes also holds the route in the patch boxes, when they hold one. The rules are in
 // gridpoprules.js.
-import { $, el, icon, S, on, emit, off, linked, needsLink, srcItem, dstItem, labelNode } from './core.js';
+import { $, el, icon, S, on, emit, off, linked, needsLink, srcItem, dstItem, labelNode, routerData } from './core.js';
+import { pagePlaces, itemRights } from './routerplaces.js';
+import { placeOf, routerN, mergeTally, mergeProtected, mergeNames } from './routerids.js';
 import { pickOrAdd, keyLabel } from './keys.js';
 import { gridBody } from './gridpanelrun.js';
 import { levelsBox } from './panelmount.js';
@@ -21,8 +23,22 @@ import { onBackdropPress } from './dialogkeys.js';
 import { presetAdd } from './presetadd.js';
 import { addPolicy } from './gridpaneladd.js';
 
-// The panel the body runs: every item, Take mode, the person's own Rights. It is never saved and has no id.
-const PANEL = { id: '', name: 'Grid', type: 'grid', sources: { members: 'all' }, destinations: { members: 'all' }, pages: [], settings: {} };
+// The panel the body runs: every item of every router, Take mode, the person's own Rights. It is never saved and has
+// no id. The body works on item numbers (routerids.js); srcOf and dstOf give the main page's items for them.
+const PANEL = {
+  id: '',
+  name: 'Grid',
+  type: 'grid',
+  sources: { members: 'all' },
+  destinations: { members: 'all' },
+  pages: [],
+  settings: {},
+};
+const uidOf = (id) => (placeOf(id) ? pagePlaces().uid(placeOf(id)) : '');
+const srcOf = (id) => srcItem(routerN(id), '', uidOf(id));
+const dstOf = (id) => dstItem(routerN(id), '', uidOf(id));
+const idOf = (it) => (it ? pagePlaces().id(it.router || '', it.n) : null);
+const panelOf = () => ({ ...PANEL, rights: itemRights(S.myRights) });
 const FOCUSABLE = 'button:not([disabled]):not([hidden]), input:not([hidden]), [tabindex]:not([tabindex="-1"])';
 
 let pop = null; // { root, shield, adding, acts, ui }, made on the first open
@@ -127,8 +143,11 @@ const adds = addPolicy({
   rows: () => presetAdd.rows(),
   words: { name: 'in preset', route: ', in the preset' },
   add(r) {
-    const labels = { src: (n) => srcItem(n).label, dst: (n) => dstItem(n).label };
+    const labels = { src: (n) => srcOf(n).label, dst: (n) => dstOf(n).label };
     if (!r.items.length) return { ok: false, text: noRouteLine(r, labels) };
+    // A preset adds routes of the first router only from here.
+    if (r.items.some((it) => placeOf(it.src) || it.dsts.some(placeOf)))
+      return { ok: false, text: 'Nothing added: only routes on the first router go into a preset from the grid.' };
     const a = presetAdd.add(storedItems(r, boxHost()?.picks().levels || []));
     return a.ok ? { ok: true, text: addedLine(r, a.rows, labels) } : a;
   },
@@ -179,10 +198,19 @@ function popKey(e) {
   }
 }
 
-// The main page's state as the /api/v1 answers that the body reads.
+// The main page's state as the /api/v1 answers that the body reads. The routers after the first join on item numbers;
+// the main page holds the Protects of the first router only.
 function push() {
   if (!body || !S.cfg) return;
-  const nm = namesNew ? namesReplyOf({ srcs: S.srcs, dsts: S.dsts, numberOffset: off() }) : null;
+  const places = pagePlaces();
+  const more = places.routers.slice(1).map((r, i) => ({ place: i + 1, rt: routerData(r.uid) }));
+  const nm = namesNew
+    ? mergeNames(
+        namesReplyOf({ srcs: S.srcs, dsts: S.dsts, numberOffset: off() }),
+        more.map(({ place, rt }) => ({ place, reply: namesReplyOf({ srcs: rt.srcs, dsts: rt.dsts, numberOffset: rt.off }) })),
+        places,
+      )
+    : null;
   namesNew = false;
   const tally = tallyReplyOf({
     router: S.routerUid,
@@ -191,7 +219,12 @@ function push() {
     defaultLevels: S.cfg.defaultLevels,
     tally: S.tally,
   });
-  body.data({ tally, prot: protectedReplyOf(S.prot), nm, version });
+  // Each router's own levels go with its tally, so a route on it takes its levels (gridpanellevels.js otherRouterLevels).
+  const others = more.map(({ place, rt }) => ({
+    place,
+    reply: tallyReplyOf({ router: rt.uid, levels: rt.levels, levelNumbering: rt.numbering, defaultLevels: rt.defaultLevels, tally: rt.tally }),
+  }));
+  body.data({ tally: mergeTally(tally, others), prot: mergeProtected(protectedReplyOf(S.prot), []), nm, version });
   body.render();
 }
 // A large router sends many rows at once, so the popup reads them once a frame, and only while it shows.
@@ -213,7 +246,7 @@ on('hello', () => {
   namesNew = true;
   later();
 });
-on('myRights', () => body?.read({ ...PANEL, rights: S.myRights }));
+on('myRights', () => body?.read(panelOf()));
 on('lockcover', ({ on: covers }) => {
   if (!covers) return;
   hideGrid(false);
@@ -231,15 +264,15 @@ function confirmRoutes(routes, { warnings, onSent }) {
   if (!host) return;
   asked = true;
   const box = host.route?.();
-  if (!box) return host.confirm({ ...gridPlan(routes, warnings), onSent });
+  if (!box) return host.confirm({ ...gridPlan(routes, warnings, { src: srcOf, dst: dstOf }), onSent });
   const b = boxNumbers(box);
   // A route from the boxes' source to a box destination is the boxes' route, and a same staged route joins it. The
   // Confirm shows it apart from the staged ones.
   const all = withBoxRoute(routes, b).map((r) => ({ ...r, box: r.src === b.src && b.dsts.includes(r.dst) }));
-  host.confirm({ ...gridPlan(all, warnings), onSent, resets: true, lastOf: patchPlan(box.src, box.dsts, box.levels) });
+  host.confirm({ ...gridPlan(all, warnings, { src: srcOf, dst: dstOf }), onSent, resets: true, lastOf: patchPlan(box.src, box.dsts, box.levels) });
 }
 
-const boxNumbers = (box) => ({ src: box.src.n, dsts: box.dsts.map((d) => d.n), levels: box.levels });
+const boxNumbers = (box) => ({ src: idOf(box.src), dsts: box.dsts.map(idOf), levels: box.levels });
 
 const adapter = () => ({
   ui: pop.ui,
@@ -256,7 +289,8 @@ const adapter = () => ({
   shown: () => shown,
   undo: () => emit('undoLast'),
   pressMode: () => (presetAdd.active() ? adds : null),
-  holdOf: gridHold,
+  // The main page holds the Protects of the first router only.
+  holdOf: (d) => (placeOf(d) ? null : gridHold(d)),
   onStage(list) {
     staged = list;
     paintList();
@@ -274,11 +308,11 @@ export function showGrid() {
   // Ctrl+e and the Grid button alike: typed text that is not picked takes its best match first (desktop only).
   if (!shown) host.pickTyped?.();
   const p = host.picks();
-  const aim = aimOf({ src: p.src?.n ?? null, dst: p.dsts[0]?.n ?? null, first: !opened });
+  const aim = aimOf({ src: idOf(p.src), dst: idOf(p.dsts[0]), first: !opened });
   if (!shown) back = document.activeElement;
   pop.root.hidden = false;
   shown = true;
-  body ||= gridBody(adapter(), { ...PANEL, rights: S.myRights });
+  body ||= gridBody(adapter(), panelOf());
   push();
   paintMode();
   // The desktop popup has no Levels box of its own: a press stages at the main page's levels.
@@ -364,8 +398,8 @@ function stagedRow(row) {
   find.addEventListener('mousedown', (e) => e.preventDefault());
   find.addEventListener('click', () => fillRow(row));
   const host = () => boxHost();
-  const src = srcItem(row.src);
-  const dsts = row.dsts.map((d) => dstItem(d));
+  const src = srcOf(row.src);
+  const dsts = row.dsts.map(dstOf);
   const addAll = () => dsts.forEach((d) => host()?.addEnd?.(d));
   const to =
     dsts.length === 1
@@ -384,7 +418,7 @@ function stagedRow(row) {
 
 // Fills the patch boxes from the row. It stages, sends and opens nothing: Ctrl+e then finds the boxes on the grid.
 function fillRow(row) {
-  boxHost()?.fill?.({ src: srcItem(row.src), dsts: row.dsts.map((d) => dstItem(d)), levels: row.levels });
+  boxHost()?.fill?.({ src: srcOf(row.src), dsts: row.dsts.map(dstOf), levels: row.levels });
 }
 
 // The main page's Take with staged routes (desktop.js). False when no confirm opened: no staged route applies now.
