@@ -47,12 +47,6 @@ const max = () => pinMax(S.cfg || {});
 const hint = (key, ...more) => [...more, envHint(filled, key)].filter(Boolean).join(' ');
 
 // h: el with attributes; a false or null attribute is left out.
-function iconWith(name, cls) {
-  const svg = icon(name);
-  if (cls) svg.classList.add(cls);
-  return svg;
-}
-
 function field(id, label, value, attrs = {}, hint = '', tip = '') {
   const input = el('input', { id, class: 'pb-input', autocomplete: 'off', ...attrs });
   input.value = value;
@@ -150,9 +144,7 @@ function sheet() {
   for (const [key, text] of PRESET_ROWS) {
     const row = el('tr', null, el('th', { scope: 'row' }, text));
     for (const p of presets()) {
-      const mark = p.rows[key]
-        ? el('span', { class: 'sode-setup__yes' }, iconWith('check', 'pb-icon--ok'), 'Yes')
-        : el('span', { class: 'sode-setup__no' }, icon('x'), 'No');
+      const mark = p.rows[key] ? el('span', { class: 'sode-setup__yes' }, icon('check'), 'Yes') : el('span', { class: 'sode-setup__no' }, icon('x'), 'No');
       row.append(el('td', { 'data-preset': p.key, class: picked(p) }, mark));
     }
     body.append(row);

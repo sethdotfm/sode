@@ -9,8 +9,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The accent is the page border color (docs/color-roles.md, web/accent.js) on the main page, /log and /panels, in both
-// themes. A reload shows it before the hello. Settings offers no retired color, keeps a saved one, and shows the
+// The accent is the page border color (docs/color-roles.md, web/accent.js) on the main page, /log, /panels, a panel
+// page and the panel editor, in both themes. A reload shows it before the hello. Settings offers no retired color, keeps a saved one, and shows the
 // caution note for a color in the reserved zone.
 func TestChromeBrandAccent(t *testing.T) {
 	b := startBrowser(t)
@@ -25,6 +25,7 @@ func TestChromeBrandAccent(t *testing.T) {
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
 	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+	id := makePanel(t, a, userKey(t, a, "Ana"), `{"name":"Desk grid","type":"grid","settings":{"mode":"take","levels":[1]}}`)
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": false})
 
 	// Each page keeps the accent it showed when the first socket message came, before any page handler ran.
@@ -78,6 +79,9 @@ func TestChromeBrandAccent(t *testing.T) {
 	}
 	check("/log", `document.querySelectorAll('.sode-log tbody tr, .sode-log__row').length > 0`)
 	check("/panels", `!!document.getElementById('panels-new')`)
+	// The hello comes before a sign-in, so the panel pages show the accent behind the lock screen too.
+	check("/panels/"+id, `!!document.getElementById('panel-title')`)
+	check("/panels/editor?panel="+id, `!!document.getElementById('ed-save')`)
 	check("/", `document.documentElement.dataset.conn === 'up'`)
 
 	// A saved retired color still loads and draws, and Settings keeps it with the caution note.

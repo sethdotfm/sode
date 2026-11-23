@@ -45,8 +45,12 @@ Healthy states are neutral:
 - The panel status when ok, and the toast timer ring.
 - Online on /panels.
 - Approval cards that wait, are approved or are cancelled.
+- A result that is not a Take, for example "Theme changed", "History cleared for everyone", "Import done", "Protected" or "Router names updated". Its banner has the kind `done` in `web/banner.js`: neutral, and it closes itself as a Take's does. The banner's countdown bar is the accent.
+- The "Yes" marks in the setup wizard's presets table.
 
-Info is neutral: info badges and notes are a plain `pb-badge` or text, with the badge's square. Blue has no state job.
+Info is neutral: info badges and notes are a plain `pb-badge` or text, with the badge's square. Your own Protect's chip is a plain `pb-badge` with its shield. A plain `pb-alert` or `pb-toast` is neutral too. Examples are a result banner of kind `info`, "Imported.", the Inbox toast and a panel back online. Patchbay makes them blue, so `web/base.css` sets `--pb-text-muted` and `--pb-surface-raised` for them. Blue has no state job.
+
+Write each status class (`pb-btn--commit`, `pb-alert--warn`, `pb-badge--error`) in full, never from a template such as `` `pb-alert--${kind}` ``. Map a kind to a class with a table, so `web/test/colorroles.test.mjs` sees every color.
 
 A Tie line picker shows a Protected or a Reserved tie line in grey (`--pb-text-disabled`). Its words say who set it and when, or which panel reserves it. A person cannot pick it.
 
@@ -81,7 +85,7 @@ Branding offers Blue, Teal, Sky (hue about 215), Slate (hue about 263, low chrom
 ### Buttons
 
 - The main action of a form or dialog is `sode-btn--primary` (`web/base.css`): a `pb-btn` filled with `--pb-accent`, with `--pb-text-on-accent` text. It is meant to move into patchbay. `pb-btn--ok` is not used.
-- A Save that switches to `pb-btn--commit` while changes are unsaved keeps doing that.
+- A Save that switches to `pb-btn--commit` while changes are unsaved keeps doing that. With no unsaved changes it is `sode-btn--primary` (the Presets and Bookmarks editors). A failed or refused save shows in red in the note, not on the button.
 - A button that only deletes or discards is `pb-btn--outline`. The Confirm (churning letter and lockout) guards it.
 - A button that only opens something and saves nothing is a plain `pb-btn` (New panel on /panels).
 - `pb-btn--danger` is left in one place, since it shows a failure: the panel editor's **Retry save** (`web/editortoolbar.js`), after a save failed twice.

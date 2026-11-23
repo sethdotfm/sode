@@ -56,3 +56,31 @@ test('every state row in docs/color-roles.md names a non-color cue', () => {
     assert.ok(cells[4]?.length > 5, `no cue in: ${r}`);
   }
 });
+
+// A status modifier built from a template ("pb-btn--${s}") hides its color from the checks above, so each one is a literal.
+test('status modifier classes are literals, never built from a template', () => {
+  assert.deepEqual(using(/pb-(btn|alert|toast|icon|badge|note|progress__bar)--(\$\{|['"`]\s*\+)/), []);
+});
+
+test('green is routed only: no green or blue status modifier outside a Take result', () => {
+  assert.deepEqual(using(/pb-(icon|badge|toast|note)--ok\b|pb-progress__bar--ok\b|pb-(icon|alert|note)--info\b/), []);
+  // The green result banner is for a Take (plans.js). Other results are neutral ('done' or 'info').
+  assert.deepEqual(using(/pb-alert--ok\b/), ['banner.js']);
+  assert.deepEqual(using(/(showResult|setResult)\(\s*\{?\s*(kind:\s*)?'ok'|kind: 'ok', title/), ['plans.js']);
+});
+
+test('a neutral alert and toast have no blue: base.css overrides patchbay with tokens', () => {
+  const css = src.get('base.css');
+  assert.match(css, /\.pb-alert:not\(\[class\*="pb-alert--"\]\) \{[^}]*border-left-color: var\(--pb-[a-z-]+\)/);
+  assert.match(css, /\.pb-toast:not\(\[class\*="pb-toast--"\]\) \{[^}]*--pb-toast-role: var\(--pb-[a-z-]+\)/);
+});
+
+test('unsaved work is amber, never red, and a clean Save has no state color', () => {
+  assert.match(src.get('index.html'), /class="pb-note pb-note--warn" id="settings-unsaved"/);
+  assert.match(src.get('bookmarkeditor.js'), /toggle\('pb-btn--commit', dirty && !ro\)/);
+  assert.match(src.get('presets.js'), /toggle\('pb-btn--commit', dirty\)/);
+});
+
+test('no modifier class whose CSS is gone', () => {
+  assert.deepEqual(using(/sode__role-badge/), []);
+});

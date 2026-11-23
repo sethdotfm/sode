@@ -57,7 +57,8 @@ function table(groups, { label, show, notes, by }) {
   return el('table', 'pb-table pb-table--compact', el('thead', null, head), tbody);
 }
 
-const badge = (kind, text) => el('span', kind === 'info' ? 'pb-badge' : `pb-badge pb-badge--${kind}`, text);
+const BADGE = { warn: 'pb-badge pb-badge--warn', error: 'pb-badge pb-badge--error' };
+const badge = (kind, text) => el('span', BADGE[kind] || 'pb-badge', text);
 
 // list: the server's Interruptions, or null when it did not answer.
 function interruptionsBlock(list) {
