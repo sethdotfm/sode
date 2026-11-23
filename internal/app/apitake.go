@@ -83,9 +83,11 @@ type apiRouteIn struct {
 }
 
 // apiTieIn is one tie line of a route. Expect is what the caller saw on it. The stale check compares it (tielock.go).
+// Protect: Sode protects the upstream destination of the tie line after the take (tieprotect.go).
 type apiTieIn struct {
-	ID     string    `json:"id"`
-	Expect apiExpect `json:"expect"`
+	ID      string    `json:"id"`
+	Expect  apiExpect `json:"expect"`
+	Protect bool      `json:"protect,omitempty"`
 }
 
 // apiExpect is one of three forms. A router reference is that source on every level. Null or omitted is nothing on
@@ -175,6 +177,7 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		var all []tieRoute
 		bare := false
 		ties := map[int][]string{}
+		protect := false
 		for i, ro := range in.Routes {
 			su, u, prob := a.routeUnits(ro)
 			if prob != nil {
@@ -196,6 +199,10 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 				for _, t := range ro.Ties {
 					ties[i] = append(ties[i], t.ID)
 					r.ties = append(r.ties, t.ID)
+					if t.Protect {
+						r.protect = append(r.protect, t.ID)
+						protect = true
+					}
 					w, prob := a.tieWantOf(t.Expect)
 					if prob != nil {
 						return nil, prob
@@ -225,6 +232,9 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		}
 		if bare {
 			return nil, a.apiTieProblem(rt, a.view(cl), all)
+		}
+		if prob := tieProtectAllowed(cl, protect); prob != nil {
+			return nil, prob
 		}
 		tt, prob := a.planTieTake(rt, a.view(cl), all, ties)
 		if prob != nil {
@@ -320,8 +330,10 @@ type apiTakeOut struct {
 	CheckSkipped bool          `json:"checkSkipped"`
 	Results      []apiRouteOut `json:"results"`
 	LeftOut      []string      `json:"leftOut,omitempty"`
-	Skipped      []int         `json:"skippedLevels,omitempty"`
-	Untouched    []int         `json:"untouchedLevels,omitempty"`
+	// Protects: each tie line that the take protects after its hops (tieprotect.go).
+	Protects  []apiTieProtectOut `json:"protects,omitempty"`
+	Skipped   []int              `json:"skippedLevels,omitempty"`
+	Untouched []int              `json:"untouchedLevels,omitempty"`
 }
 
 type sinkResults struct {

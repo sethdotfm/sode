@@ -254,7 +254,8 @@ func (a *App) protectEntry(u *routerUnit, c *client, set bool, dst int, levels [
 	}
 	a.mu.Unlock()
 	e.BrowserOf = a.browserOf(c)
-	if c.api != nil {
+	// The Protect of a page's tie take (tiepage.go) is the page's, as its take is.
+	if c.apiCaller() {
 		e.setActor(c.api.Actor)
 		// No PanelID: a panel's Undo cell undoes takes only (panelundo.go).
 		e.Panel, e.Instance = a.panelNames(c.api.Actor)
@@ -316,6 +317,18 @@ type protRun struct {
 // the router that its Router names. It checks them all under protMu before it sends anything, so the ones that run
 // share one Group of the right size.
 func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *config.User) []protectOutcome {
+	return a.protectManyIn(c, reqs, set, approver, protOpts{})
+}
+
+// protOpts changes protectMany for the Protect of a tie take (tieprotect.go). group: the History Group of the take,
+// in place of a Group of its own. hop: the destination is the upstream destination of a tie line. Hops need no
+// Rights (docs/tielines-design.md, Rights), so only the Protect right counts.
+type protOpts struct {
+	group *protGroup
+	hop   bool
+}
+
+func (a *App) protectManyIn(c *client, reqs []protectDst, set bool, approver *config.User, o protOpts) []protectOutcome {
 	r := a.r()
 	outs := make([]protectOutcome, len(reqs))
 	units := make([]*routerUnit, len(reqs))
@@ -336,7 +349,11 @@ func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *conf
 			outs[i].Err = err
 			continue
 		}
-		if err := protectRights(r, act.rights, a.rightsUID(r, u.uid), q.Dst); err != nil && !admin {
+		if o.hop && !act.rights.AllowsProtect() {
+			outs[i].Err = refusal(403, "outside_rights", "Protect is outside your Rights")
+			continue
+		}
+		if err := protectRights(r, act.rights, a.rightsUID(r, u.uid), q.Dst); err != nil && !admin && !o.hop {
 			outs[i].Err = err
 			continue
 		}
@@ -365,6 +382,9 @@ func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *conf
 		runs = append(runs, protRun{i: i, u: u, rec: rec, own: own, todo: todo})
 	}
 	g := newProtGroup(len(runs))
+	if o.group != nil {
+		g = *o.group
+	}
 	for _, p := range runs {
 		q := reqs[p.i]
 		if set {

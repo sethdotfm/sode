@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // The page messages of Protects and their replies (wire fields in docs/agents/server.md); protect.go runs them.
@@ -168,18 +170,30 @@ func (a *App) protectByList(r *runtime) []protectBy { return a.protectByListOf(r
 func (a *App) protectByListOf(r *runtime, uid string) []protectBy {
 	out := []protectBy{}
 	for _, rec := range a.protects.list(uid) {
-		by, kind := rec.By, byGuest
-		if u, ok := r.cfg.FindUserByID(rec.User); ok && rec.Client == "" {
-			by, kind = u.Name, byUser
-		} else if rec.Client != "" {
-			kind = byClient
-		} else if rec.User != "" {
-			kind = byGone
-		}
+		by, kind := recWho(r.cfg, rec)
 		out = append(out, protectBy{Dst: rec.Dst, By: by, Kind: kind, Device: rec.Device, Levels: rec.Levels})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Dst < out[j].Dst })
 	return out
+}
+
+// recWho: who set the Protect of rec, by the live name of a user, and the kind.
+func recWho(cfg config.Config, rec protectRec) (by, kind string) {
+	switch u, ok := cfg.FindUserByID(rec.User); {
+	case ok && rec.Client == "":
+		return u.Name, byUser
+	case rec.Client != "":
+		return rec.By, byClient
+	case rec.User != "":
+		return rec.By, byGone
+	}
+	return rec.By, byGuest
+}
+
+// recName is the name of recWho.
+func recName(cfg config.Config, rec protectRec) string {
+	by, _ := recWho(cfg, rec)
+	return by
 }
 
 // It sends the router's pending hold changes too, so the page has the state with the entry and History's Undo

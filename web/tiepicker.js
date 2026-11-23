@@ -12,20 +12,42 @@
 // path starts the lockout again and marks the changed rows (refresh). The selection never moves by itself. The server
 // keeps nothing for an open picker.
 //
+// Protect (docs/tielines-design.md, Protect in a tie take): a person with the Protect right presses P or the shield
+// of a step. The take then asks Sode to protect the upstream destination of that step's tie line after every hop
+// (tieprotect.go). Without the right, the shield and the key hint are hidden and P does nothing.
+//
 // No path: the picker opens with each reason by name (The Tie line picker, rule 10), and Take stays off. A route that
 // comes back on the live update makes the choices show.
 
-import { el, on, request, srcItem, dstItem, labelNode, routerData, tallyText } from './core.js';
+import { el, on, icon, request, srcItem, dstItem, labelNode, routerData, tallyText } from './core.js';
 import { chord, keyLabel } from './keys.js';
 import { trapDialog } from './dialogkeys.js';
 import { lockout } from './lockout.js';
 import { fmtClock } from './device.js';
 import { showResult } from './banner.js';
 import { levelsPhrase } from './levelview.js';
-import { chosen, choices, choose, keyStep, ready, changedText, stepsOf, countUp, refresh, tieMarked, hitMarked, pathUsable } from './tiepickrules.js';
+import {
+  chosen,
+  choices,
+  choose,
+  keyStep,
+  ready,
+  changedText,
+  stepsOf,
+  countUp,
+  refresh,
+  tieMarked,
+  hitMarked,
+  pathUsable,
+  heldText,
+  protectable,
+  protectOn,
+  toggleProtect,
+} from './tiepickrules.js';
+import { mayProtect } from './protects.js';
 import { reasonText } from './tietakerules.js';
 
-let ui = null; // { root, dialog, head, body, clear, take, trap }
+let ui = null; // { root, dialog, head, body, clear, take, trap, pKey }
 // { st, o, lock, unlocked, timer, wait, asking, again }. o: the options of pickRoute. wait: the timer of the next plan;
 // asking: a plan is on its way; again: a change came while it was.
 let cur = null;
@@ -61,6 +83,7 @@ function build() {
   cancel.type = 'button';
   cancel.id = 'tiepick-cancel';
   cancel.textContent = 'Cancel';
+  const pKey = el('span', null, ', ', el('kbd', null, keyLabel('p')), ' protect');
   const take = el('button', 'pb-btn pb-btn--commit sode-tiepick__take');
   take.type = 'button';
   take.id = 'tiepick-take';
@@ -69,7 +92,7 @@ function build() {
     'pb-modal sode-tiepick',
     el('div', 'pb-modal__header', title, head),
     body,
-    el('div', 'pb-modal__footer', keyHints(), clear, cancel, take),
+    el('div', 'pb-modal__footer', keyHints(pKey), clear, cancel, take),
   );
   Object.assign(dialog, { id: 'tiepick-dialog', tabIndex: -1 });
   dialog.setAttribute('role', 'dialog');
@@ -85,18 +108,19 @@ function build() {
   cancel.addEventListener('click', () => close());
   take.addEventListener('click', () => send());
   clear.addEventListener('click', () => clearRoute());
-  ui = { root, dialog, head, body, clear, take, trap };
+  ui = { root, dialog, head, body, clear, take, trap, pKey };
 }
 
-function keyHints() {
+// pKey: the hint of P, which shows only with the Protect right.
+function keyHints(pKey) {
   const k = (spec) => el('kbd', null, keyLabel(spec));
-  return el('span', 'sode-tiepick__keys', k('j'), ' ', k('k'), ' choose, ', k('h'), ' ', k('l'), ' step, ', k('escape'), ' cancel');
+  return el('span', 'sode-tiepick__keys', k('j'), ' ', k('k'), ' choose, ', k('h'), ' ', k('l'), ' step', pKey, ', ', k('escape'), ' cancel');
 }
 
 function onKey(e) {
   if (!cur) return;
   const c = chord(e);
-  const { st, act } = keyStep(cur.st, c);
+  const { st, act } = keyStep(cur.st, c, mayProtect());
   if (st === cur.st && !act) return;
   e.preventDefault();
   e.stopPropagation();
@@ -236,6 +260,7 @@ function paint() {
     ),
     ...(p ? [affectedNode(p, src)] : []),
   );
+  ui.pKey.hidden = !mayProtect();
   paintTake();
 }
 
@@ -273,17 +298,51 @@ function stepNode(s, src) {
   const node = el(
     'div',
     'sode-tiepick__step',
-    el('span', 'sode-tiepick__word', `Step ${s + 1}: router ${prefix(hop.router)} to router ${prefix(next.router)}`),
+    el(
+      'div',
+      'sode-tiepick__stephead',
+      el('span', 'sode-tiepick__word', `Step ${s + 1}: router ${prefix(hop.router)} to router ${prefix(next.router)}`),
+      ...(mayProtect() ? [shieldNode(s, hop)] : []),
+    ),
     list,
   );
   node.classList.toggle('sode-tiepick__step--focus', s === st.step);
   return node;
 }
 
+// shieldNode is the Protect button of step s. It acts on the chosen tie line of the step. A tie line that has a
+// Protect already cannot get one, so its button is off.
+function shieldNode(s, hop) {
+  const id = hop.tie.id;
+  const name = hop.tie.name || id;
+  const pressed = protectOn(cur.st, id) && protectable(hop);
+  const b = el(
+    'button',
+    'pb-btn pb-btn--outline pb-btn--sm sode-tiepick__shield',
+    icon(pressed ? 'shield-check' : 'shield'),
+    pressed ? `Protect ${name}: on` : `Protect ${name}`,
+  );
+  b.type = 'button';
+  b.dataset.tie = id;
+  b.disabled = !protectable(hop);
+  b.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  b.dataset.pbTip = `Protect the upstream destination of ${name} after the take (${keyLabel('p')})`;
+  b.classList.add('pb-tip--end');
+  b.tabIndex = -1;
+  b.addEventListener('pointerdown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    if (!cur) return;
+    cur.st = toggleProtect({ ...cur.st, step: s }, s);
+    paint();
+    ui.dialog.focus({ preventScroll: true });
+  });
+  return b;
+}
+
 function choiceNode(s, c, on, src) {
   const h = c.hop;
   const will = h.sends ? `Will carry ${src.label}` : 'Carries the source now';
-  const held = h.protect ? `Protected by ${h.protect}` : h.reserve ? `Reserved by panel ${h.reserve}` : '';
+  const held = heldText(h, fmtClock);
   const changed = el('span', 'sode-tiepick__ago', changedText(h, Date.now(), fmtClock));
   if (h.changed) {
     changed.dataset.changed = h.changed;
@@ -297,7 +356,8 @@ function choiceNode(s, c, on, src) {
     el('span', 'sode-tiepick__now', `Now ${chainText(h.now)}`),
     el('span', 'sode-tiepick__will', will),
     changed,
-    ...(held && h.sends ? [el('span', 'sode-tiepick__held', held)] : []),
+    ...(held ? [el('span', 'sode-tiepick__held', held)] : []),
+    ...(on && protectOn(cur.st, c.tie) && protectable(h) ? [el('span', 'sode-tiepick__protect', icon('shield'), 'Protect after the take')] : []),
     ...(c.gone ? [el('span', 'sode-tiepick__held', 'Not in the plan now')] : []),
     ...(on && tieMarked(cur.st, c.tie) ? [changedMark()] : []),
   );

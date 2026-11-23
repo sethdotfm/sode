@@ -37,10 +37,11 @@ type Tie struct {
 	OneOff bool   `json:"oneOff,omitempty"`
 }
 
-// Hold is a Protect on a destination, on any level. By says who holds it.
+// Hold is a Protect on a destination, on any level. By says who holds it. Since is when it was set, if Sode knows.
 type Hold struct {
-	At End    `json:"at"`
-	By string `json:"by"`
+	At    End        `json:"at"`
+	By    string     `json:"by"`
+	Since *time.Time `json:"since,omitempty"`
 }
 
 // Input is everything the planner reads.
@@ -123,10 +124,12 @@ type Hop struct {
 	// Sends is false when the tie line already carries the wanted source, or the last hop is already routed.
 	Sends bool `json:"sends"`
 	// Now is what the tie line carries now. Blank on the last hop.
-	Now     *Chain     `json:"now"`
-	Protect string     `json:"protect"`
-	Reserve string     `json:"reserve"`
-	Changed *time.Time `json:"changed"`
+	Now     *Chain `json:"now"`
+	Protect string `json:"protect"`
+	// ProtectSince: when the Protect was set, if Sode knows (a Protect that Sode set).
+	ProtectSince *time.Time `json:"protectSince,omitempty"`
+	Reserve      string     `json:"reserve"`
+	Changed      *time.Time `json:"changed"`
 	// Before: Sode started after Changed, or found the change at a re-read. Thus it is possible that the tie line changed again while Sode was down.
 	Before bool `json:"before"`
 }
@@ -180,12 +183,12 @@ type planner struct {
 	routers map[string]*Router
 	byTo    map[End][]int // source → the ties that feed it
 	byFrom  map[End][]int // destination → the ties it feeds
-	holds   map[End]string
+	holds   map[End]Hold
 	wholes  map[End]Chain // whole, as a loop upstream is a loop from every end on it
 }
 
 func newPlanner(in Input) *planner {
-	p := &planner{in: in, routers: map[string]*Router{}, byTo: map[End][]int{}, byFrom: map[End][]int{}, holds: map[End]string{}, wholes: map[End]Chain{}}
+	p := &planner{in: in, routers: map[string]*Router{}, byTo: map[End][]int{}, byFrom: map[End][]int{}, holds: map[End]Hold{}, wholes: map[End]Chain{}}
 	for i := range in.Routers {
 		p.routers[in.Routers[i].UID] = &in.Routers[i]
 	}
@@ -195,7 +198,7 @@ func newPlanner(in Input) *planner {
 	}
 	for _, h := range in.Protects {
 		if _, ok := p.holds[h.At]; !ok {
-			p.holds[h.At] = h.By
+			p.holds[h.At] = h
 		}
 	}
 	return p
@@ -414,7 +417,7 @@ func (p *planner) path(rt Route, ties []int) Path {
 		t := p.in.Ties[ti]
 		now := nows[i]
 		h := Hop{Router: t.From.Router, Src: src, Dst: t.From.N, Levels: allLevels(p.routers[t.From.Router]), Tie: t.ID,
-			Sends: i > carried, Now: &now, Protect: p.holds[t.From], Reserve: p.in.Reserves[t.ID]}
+			Sends: i > carried, Now: &now, Protect: p.holds[t.From].By, ProtectSince: p.holds[t.From].Since, Reserve: p.in.Reserves[t.ID]}
 		if at, ok := p.in.Changes[t.ID]; ok {
 			h.Changed = &at
 			h.Before = at.Before(p.in.Started) || p.in.Found[t.ID]
