@@ -173,7 +173,12 @@ Rights checks compare the router and the number of each reference. A right for s
 3. A plain Sode take to the upstream destination of a tie line takes the same lock.
 4. After the pre-take check and before the first connect, the server compares each tie line with what the picker showed.
 5. A tie line can move, or gain Affected destinations that the user did not see. Then the server refuses the whole take before it sends anything. The page shows "TIE 3 changed", and the picker opens again. The server never sends the old choice.
-6. An API caller that sends no Affected destinations gets no compare of them. Sode compares only the Affected destinations that the caller can see. A tie line with mixed levels carries the source of its lowest level.
+6. The compare uses these rules:
+   - Sode compares every level of a tie line. A move on any level is a change. A mixed tie line never matches one expected source (Via, rule 4).
+   - The expected source is one source for all levels, or nothing. For a mixed tie line, it is a list with the source of each level, or nothing. The design names no form for the mixed state, so the API adds this list (agent decision).
+   - A null expected source and an expected source that is not there both mean nothing routed.
+   - An API caller that sends no Affected destinations gets no compare of them.
+   - Sode compares only the Affected destinations that the caller can see. The caller cannot name the others.
 
 ### Order and failures
 

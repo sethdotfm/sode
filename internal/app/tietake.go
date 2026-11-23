@@ -141,6 +141,9 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 			}
 			last := len(path.Hops) - 1
 			for _, h := range path.Hops[:last] {
+				if w := r.expect[h.Tie]; w.perLevel && len(w.levels) != len(h.Levels) {
+					return problem(http.StatusBadRequest, "bad_request", "route %d: expect on %s needs one entry for each of its %d levels", r.index, t.name(h.Tie), len(h.Levels))
+				}
 				if s, ok := carries[h.Tie]; ok && s != r.src {
 					return problem(http.StatusConflict, "conflict", "route %d: %s carries another source in this take", r.index, t.name(h.Tie))
 				}

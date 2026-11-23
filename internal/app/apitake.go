@@ -82,11 +82,31 @@ type apiRouteIn struct {
 	Affected []apiEnd `json:"affected"`
 }
 
-// apiTieIn is one tie line of a route. Expect is the source that the caller saw on it (null: nothing routed). The
-// stale check compares it (tielock.go).
+// apiTieIn is one tie line of a route. Expect is what the caller saw on it. The stale check compares it (tielock.go).
 type apiTieIn struct {
-	ID     string  `json:"id"`
-	Expect *apiEnd `json:"expect"`
+	ID     string    `json:"id"`
+	Expect apiExpect `json:"expect"`
+}
+
+// apiExpect is one of three forms. A router reference is that source on every level. Null or omitted is nothing on
+// every level. A list is a mixed tie line: one router reference or null for each level of the upstream router.
+type apiExpect struct {
+	One      *apiEnd
+	Levels   []*apiEnd
+	PerLevel bool
+}
+
+func (x *apiExpect) UnmarshalJSON(b []byte) error {
+	*x = apiExpect{}
+	switch t := bytes.TrimSpace(b); {
+	case bytes.Equal(t, []byte("null")):
+		return nil
+	case len(t) > 0 && t[0] == '[':
+		x.PerLevel = true
+		return json.Unmarshal(t, &x.Levels)
+	}
+	x.One = &apiEnd{}
+	return json.Unmarshal(b, x.One)
 }
 
 // apiEnd is one end of a route: a router reference {router, n}, or a bare number, which is enough while Sode has one
@@ -169,16 +189,14 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			case su != u && len(ro.Ties) == 0:
 				bare = append(bare, r)
 			case su != u:
-				r.expect = map[string]*tieplan.End{}
+				r.expect = map[string]tieWant{}
 				for _, t := range ro.Ties {
 					ties[i] = append(ties[i], t.ID)
-					if t.Expect != nil {
-						e, prob := a.tieEnd(*t.Expect)
-						if prob != nil {
-							return nil, prob
-						}
-						r.expect[t.ID] = &e
+					w, prob := a.tieWantOf(t.Expect)
+					if prob != nil {
+						return nil, prob
 					}
+					r.expect[t.ID] = w
 				}
 				if ro.Affected != nil {
 					r.seen = []tieplan.End{}

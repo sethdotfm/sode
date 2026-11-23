@@ -68,6 +68,43 @@ func wait[T any](t *testing.T, what string, ch <-chan T) T {
 	panic("unreachable")
 }
 
+// seedAll routes src to dst on every level of the first router.
+func seedAll(a *App, f *fakeRouter, dst, src int) {
+	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+		f.seed(dst, src, a.r().byUI[l].Wire)
+	}
+}
+
+// The stale check compares every level of a tie line. A has two levels. A move on level 2 only is a change, and
+// a mixed tie line never matches one source. A caller that saw the mixed state sends one source for each level.
+func TestAPITieTakeComparesEveryLevel(t *testing.T) {
+	a, fa, fb, key := tieApp(t, func(c *config.Config) { c.Levels, c.DefaultLevels = 2, "1-2" })
+	uidA := a.r().cfg.UID
+	log := connectLog(fa, fb)
+	fa.seed(10, 6, a.r().byUI[2].Wire) // level 2 moves to A.6; level 1 stays on A.3
+	b := tieChangedBody(t, apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}), nil))
+	now := b.Routes[0].Paths[0].Hops[0].Now
+	if len(b.Routes[0].Changed) != 1 || !now.Mixed || len(now.Levels) != 2 || now.Levels[0].N != 3 || now.Levels[1].N != 6 {
+		t.Fatalf("route %+v, now %+v", b.Routes[0], now)
+	}
+	if got := log(); len(got) != 0 {
+		t.Errorf("connects %v", got)
+	}
+	mixed := func(l1, l2 string) string {
+		return strings.Replace(tieRoutes(uidA, [2]int{4, 2}), `"expect":{"router":"`+uidA+`","n":3}`, `"expect":[`+l1+`,`+l2+`]`, 1)
+	}
+	ref := func(n int) string { return fmt.Sprintf(`{"router":%q,"n":%d}`, uidA, n) }
+	// One entry for each level of A, or 400.
+	wantErr(t, apiPost(a, "/api/v1/takes", key, strings.Replace(mixed(ref(3), ref(6)), `,{"router"`, `,null,{"router"`, 1), nil), http.StatusBadRequest, "bad_request")
+	wantErr(t, apiPost(a, "/api/v1/takes", key, mixed(ref(3), "null"), nil), http.StatusConflict, "tie_line_changed")
+	if rec := apiPost(a, "/api/v1/takes", key, mixed(ref(3), ref(6)), nil); rec.Code != http.StatusOK {
+		t.Fatalf("mixed as seen: %d %s", rec.Code, rec.Body)
+	}
+	if got := log(); len(got) != 3 || got[0] != "A 4>10" || got[1] != "A 4>10" || got[2] != "B 5>2" {
+		t.Errorf("connects %v", got)
+	}
+}
+
 // A tie line that does not carry the source that the caller expects refuses the whole take before anything is
 // sent. The answer gives the tie line as it is now.
 func TestAPITieTakeRefusesMovedTieLine(t *testing.T) {
@@ -93,7 +130,7 @@ func TestAPITieTakeRefusesMovedTieLine(t *testing.T) {
 	}
 
 	// Nothing routed on the tie line, and the caller expects nothing: the take goes.
-	fa.seed(10, 0xFFFF, a.r().byUI[1].Wire)
+	seedAll(a, fa, 10, 0xFFFF)
 	body := strings.Replace(tieRoutes(uidA, [2]int{4, 2}), `{"router":"`+uidA+`","n":3}}`, "null}", 1)
 	if rec := apiPost(a, "/api/v1/takes", key, body, nil); rec.Code != http.StatusOK {
 		t.Errorf("expect null on an empty tie line: %d %s", rec.Code, rec.Body)
@@ -188,7 +225,7 @@ func TestAPITieTakesDoNotDeadlock(t *testing.T) {
 	})
 	fa.u.routeTimeout = 5 * time.Second
 	uidA := a.r().cfg.UID
-	fa.seed(11, 3, a.r().byUI[1].Wire)
+	seedAll(a, fa, 11, 3)
 	route := func(tie string, dst int) string {
 		return fmt.Sprintf(`{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":%d},"levels":[1],"ties":[{"id":%q,"expect":{"router":%q,"n":3}}]}`, uidA, dst, tie, uidA)
 	}

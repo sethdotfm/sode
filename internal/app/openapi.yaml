@@ -567,7 +567,7 @@ paths:
                             expect:
                               nullable: true
                               allOf: [{ $ref: "#/components/schemas/RouteEnd" }]
-                              description: "The source that the caller saw on the tie line; null or omitted for nothing. A tie line that carries another source gets 409 `tie_line_changed`. A tie line with mixed levels carries the source of its lowest level"
+                              description: "What the caller saw on the tie line. A router reference is that source on every level of the upstream router. Null or omitted is nothing on every level. A list holds one router reference or null for each level, from level 1, for a mixed tie line. Sode compares every level: a difference on any level gets 409 `tie_line_changed`. A mixed tie line never matches one source"
                       affected:
                         type: array
                         items: { $ref: "#/components/schemas/RouteEnd" }
@@ -2980,6 +2980,10 @@ components:
         nothing: { type: boolean, description: "Nothing is routed upstream" }
         unknown: { type: string, description: "The UID of a router that is down or has no state" }
         loop: { type: boolean }
+        levels:
+          type: array
+          items: { nullable: true, allOf: [{ $ref: "#/components/schemas/TieEnd" }] }
+          description: "Only when mixed. The origin of each level of the upstream router, from level 1; null for nothing or unknown. Send it back as expect"
     TieHop:
       type: object
       description: |

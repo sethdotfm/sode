@@ -153,16 +153,59 @@ type apiTieChangedBody struct {
 	Routes []apiTieChangedRoute `json:"routes"`
 }
 
-// sameSource: chain c carries expect (nil: nothing routed). Mixed levels count as the source of the lowest level,
-// which is the origin that Sode shows.
-func sameSource(c *tieplan.Chain, expect *tieplan.End) bool {
-	if c == nil {
+// tieWant is what the caller saw on a tie line. Without perLevel, one is the source on every level. With perLevel,
+// levels has the source of each level of the upstream router, from level 1. A nil source is nothing.
+type tieWant struct {
+	one      *tieplan.End
+	levels   []*tieplan.End
+	perLevel bool
+}
+
+func (a *App) tieWantOf(x apiExpect) (tieWant, *apiProblem) {
+	w := tieWant{perLevel: x.PerLevel}
+	end := func(e *apiEnd) (*tieplan.End, *apiProblem) {
+		if e == nil {
+			return nil, nil
+		}
+		te, p := a.tieEnd(*e)
+		return &te, p
+	}
+	var p *apiProblem
+	if w.one, p = end(x.One); p != nil {
+		return w, p
+	}
+	for _, e := range x.Levels {
+		te, p := end(e)
+		if p != nil {
+			return w, p
+		}
+		w.levels = append(w.levels, te)
+	}
+	return w, nil
+}
+
+// carries: the tie line with upstream destination from carries w on each level. The stale check compares every
+// level, so a move on any level is a change. A level whose Via chain is mixed, unknown or a loop never matches.
+func carries(in tieplan.Input, from tieplan.End, levels []int, w tieWant) bool {
+	if w.perLevel && len(w.levels) != len(levels) {
 		return false
 	}
-	if expect == nil {
-		return c.Nothing
+	for i, l := range levels {
+		want := w.one
+		if w.perLevel {
+			want = w.levels[i]
+		}
+		c := tieplan.Via(in, from, l)
+		switch {
+		case c.Mixed || c.Unknown != "" || c.Loop:
+			return false
+		case want == nil && !c.Nothing:
+			return false
+		case want != nil && (c.Origin == nil || *c.Origin != *want):
+			return false
+		}
 	}
-	return c.Origin != nil && *c.Origin == *expect
+	return true
 }
 
 // tieChanged is the stale check. Each tie line of t must carry the source that the caller expects. The path must
@@ -197,7 +240,7 @@ func (a *App) tieChanged(rt *runtime, v apiView, t *tieTake) *apiProblem {
 				if h.Sends {
 					in.Taken[h.Tie] = r.in.src
 				}
-				if !sameSource(h.Now, r.in.expect[h.Tie]) {
+				if !carries(in, tieplan.End{Router: h.Router, N: h.Dst}, h.Levels, r.in.expect[h.Tie]) {
 					out.Changed = append(out.Changed, apiTieRef{h.Tie, t.tieName[h.Tie]})
 				}
 			}
