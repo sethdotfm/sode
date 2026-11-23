@@ -1,0 +1,1 @@
+- Export & Import has a Tie lines category. Import drops a tie line, with a note, when the import maps one of its two routers to no router here.

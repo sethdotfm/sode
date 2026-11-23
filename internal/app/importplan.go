@@ -59,6 +59,8 @@ type importItem struct {
 	Broken []config.Missing `json:"broken,omitempty"`
 	Note   string           `json:"note,omitempty"`
 	Kind   string           `json:"kind,omitempty"` // panels: panel, template, checkpointSet; artwork: icon, default
+	// NoRename: this clash has no Rename, as a tie line with the same two ends as its twin.
+	NoRename bool `json:"noRename,omitempty"`
 	// Refused: why this item alone is not imported; the others of its category are.
 	Refused string `json:"refused,omitempty"`
 	// Remove: a live item that Replace import removes, since the file does not hold it.
@@ -239,6 +241,7 @@ type importPlanner struct {
 	sets       map[string]string // file filter set id → live id, "" when skipped
 	icons      map[string]string // file icon id → live id, "" when skipped
 	panelIDs   map[string]string // file panel id → live id; a new panel's is added when it is stored
+	ties       map[string]string // file tie line id → live id, "" when skipped
 	panels     []plannedPanel
 	// movedDefaults: Default artwork index → where the remap step moves its reference.
 	movedDefaults map[int]config.Ref
@@ -263,7 +266,7 @@ func planImport(live config.Config, names liveNameSet, lv importLive, b *exportB
 		planBase: newPlanBase(live, names, req, b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID),
 		b:        b, actor: actor, secure: secure,
 		liveNames: names, livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{}, sets: map[string]string{},
-		icons: map[string]string{}, panelIDs: map[string]string{},
+		icons: map[string]string{}, panelIDs: map[string]string{}, ties: map[string]string{},
 		liveTemplates: lv.Templates, liveSets: lv.Sets, liveIcons: lv.Icons, liveDefaults: lv.Defaults, liveIconFile: lv.IconFile,
 	}
 	p.replace = req.Mode == importReplace
@@ -282,7 +285,8 @@ func planImport(live config.Config, names liveNameSet, lv importLive, b *exportB
 	}{
 		{catSettings, nil, p.planSettings},
 		{catRouters, nil, p.planRouters},
-		{catPresets, []string{"presets"}, p.planPresets}, // before Users and API clients, whose Rights map preset ids
+		{catTieLines, []string{"tieLines"}, p.planTieLines}, // after Routers, so a tie line checks against them
+		{catPresets, []string{"presets"}, p.planPresets},    // before Users and API clients, whose Rights map preset ids
 		{catUsers, []string{"users"}, p.planUsers},
 		{catFilterSets, []string{"filterSets"}, p.planFilterSets},
 		{catBookmarks, []string{"bookmarks"}, p.planBookmarks}, // after Presets, whose ids its keys can hold
@@ -358,6 +362,8 @@ func (p *importPlanner) refused(cat string) {
 		p.removed.users = map[string]bool{}
 	case catPresets:
 		p.presets = map[string]string{}
+	case catTieLines:
+		p.ties = map[string]string{}
 	case catFilterSets:
 		p.sets = map[string]string{}
 	case catArtwork:

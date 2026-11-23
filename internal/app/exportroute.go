@@ -165,6 +165,7 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 			catBookmarks: len(bundle.Bookmarks), catPanels: len(bundle.Panels.Panels), "templates": len(bundle.Panels.Templates),
 			"checkpointSets": len(bundle.Panels.CheckpointSets), catAPIClients: len(bundle.APIClients),
 			"artDefaults": len(bundle.Artwork.Defaults), "icons": len(bundle.Artwork.Icons), catRouters: len(bundle.Routers),
+			catTieLines: len(bundle.TieLines),
 		},
 	})
 }
@@ -191,6 +192,9 @@ func sizeImport(plan *importPlan, b *exportBundle) {
 	}
 	for _, r := range b.Routers {
 		put(catRouters, r.UID, r, 0)
+	}
+	for _, t := range b.TieLines {
+		put(catTieLines, t.ID, t, 0)
 	}
 	for _, u := range b.Users {
 		put(catUsers, cmp.Or(u.ID, u.Name), u, 0)
