@@ -408,12 +408,7 @@ export function renderDown(box, c) {
   // links[k] is the wire into node k + 1: true ok, false lost, null unknown (past a lost link).
   const wire = (ok) => {
     const [tone, word] = ok === true ? ['ok', 'ok'] : ok === false ? ['error', 'lost'] : ['idle', 'unknown'];
-    return el(
-      'span',
-      `sode__down-link sode__down-link--${tone}`,
-      el('span', 'sode__down-word', icon(STATE_GLYPH[tone], false), word),
-      el('span', 'sode__down-wire'),
-    );
+    return el('span', `sode__down-link sode__down-link--${tone}`, el('span', 'sode__down-word', icon(STATE_GLYPH[tone], false), word));
   };
   const node = (glyph, ok, ...label) =>
     el('span', 'sode__down-node' + (ok === false ? ' sode__down-node--down' : ok === null ? ' sode__down-node--unknown' : ''), icon(glyph, false), ...label);

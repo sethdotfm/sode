@@ -34,7 +34,7 @@ func TestChromeLostLinkBanner(t *testing.T) {
 		const box = document.getElementById('conn-down');
 		const nodes = [...box.querySelectorAll('.sode__down-node')].map((n) => n.className.replace('sode__down-node', '').trim() || 'ok');
 		const wires = [...box.querySelectorAll('.sode__down-link')].map((w) => {
-			const flow = getComputedStyle(w.querySelector('.sode__down-wire')).animationName;
+			const flow = getComputedStyle(w, '::before').animationName;
 			const glyph = w.querySelector('.sode__down-word use')?.getAttribute('href') || '';
 			return w.querySelector('.sode__down-word').textContent + ':' + glyph + ':' + flow;
 		});

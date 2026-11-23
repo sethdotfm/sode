@@ -53,11 +53,9 @@
 /* Smaller on a phone, so the banner does not take the screen. */
 .sode-m__down .sode__down-title {
   font-size: var(--pb-text-sm);
-  gap: var(--pb-space-3);
 }
 .sode-m__down .sode__down-map {
-  gap: var(--pb-space-6) 0;
-  padding-top: var(--pb-space-4);
+  gap: var(--pb-space-3) 0;
 }
 .sode-m__down .sode__down-node {
   gap: var(--pb-space-2);
@@ -68,9 +66,16 @@
   width: var(--pb-icon-size-sm);
 }
 .sode-m__down .sode__down-link {
-  flex-basis: 3rem;
-  min-width: 3.25rem;
+  flex-basis: 5rem;
+  gap: var(--pb-space-2);
   padding-inline: var(--pb-space-2);
+}
+.sode-m__down .sode__down-link::before,
+.sode-m__down .sode__down-link::after {
+  min-width: var(--pb-space-3);
+}
+.sode-m__down .sode__down-link--error {
+  gap: var(--pb-space-3);
 }
 .sode-m__down .sode__down-word,
 .sode-m__down .sode__down-link--error .sode__down-word {
@@ -78,6 +83,7 @@
 }
 .sode-m__down .sode__down-why {
   font-size: var(--pb-text-xs);
+  gap: var(--pb-space-3);
 }
 .sode-m__down .sode__down-why > span {
   font-size: var(--pb-text-2xs);
