@@ -31,6 +31,14 @@ type apiCtx struct {
 
 	// sink gets every reply of this request's take, not a.clients: a REST request must not see broadcasts.
 	sink func([]byte)
+	// page: the browser connection that a main page tieTake runs for (tiepage.go). Its take is recorded as a take of
+	// that page, not of an API caller.
+	page *client
+	// planOnly: the page's Tie line picker (tiePlan) or an API caller (POST /takes/plan) asks for the plan. Sode
+	// answers the 409 of the plan and never takes or writes a Communication Log row.
+	planOnly bool
+	// preset and presetID: the preset that a page's tieTake fires (presetties.go), for History and the preset right.
+	preset, presetID string
 }
 
 func (c *apiCtx) has(scope string) bool { return slices.Contains(c.Scopes, scope) }
@@ -46,7 +54,7 @@ func (c *apiCtx) missing(scopes string) string {
 }
 
 // The take path's view of this caller (rights.go). It has no send channel: deliver answers through sink.
-func (c *apiCtx) client() *client { return &client{ip: c.IP, api: c} }
+func (c *apiCtx) client() *client { return &client{ip: c.IP, api: c, forPage: c.page} }
 
 type apiHandler func(a *App, w http.ResponseWriter, r *http.Request, cl *apiCtx)
 
@@ -75,7 +83,7 @@ type apiErr struct {
 }
 
 func apiFail(w http.ResponseWriter, status int, code, msg string) {
-	(&apiProblem{status, code, msg}).write(w)
+	(&apiProblem{Status: status, Code: code, Msg: msg}).write(w)
 }
 
 func apiJSON(w http.ResponseWriter, v any) {
@@ -184,7 +192,7 @@ func (a *App) mountAPI(mux *http.ServeMux) {
 // The router parameter is the router UID, never a prefix, since a prefix can change.
 func (a *App) routerOK(w http.ResponseWriter, r *http.Request) bool {
 	uid := r.URL.Query().Get("router")
-	if uid == "" || uid == a.r().cfg.UID {
+	if a.knownRouter(uid) {
 		return true
 	}
 	apiFail(w, http.StatusNotFound, "unknown_router", fmt.Sprintf("no router with UID %q; GET %s/routers lists them", uid, apiBase))

@@ -8,9 +8,10 @@ import (
 )
 
 // Stored layouts (panels, templates, checkpoints, Checkpoint sets) never read a bare router number. A request can
-// leave the router out while there is one router. refPages, refEdges and nameFixed fill it before the store writes.
+// leave the router out while there is one router. refPages, refEdges, nameFixed and levelsByRouter fill it before the
+// store writes.
 // A file that leaves it out is skipped with a problem, not filled from the one router.
-var errNoRouter = errors.New("a source or destination has no router")
+var errNoRouter = errors.New("a source, destination or level list has no router")
 
 func (l panelLayout) noRouterProblem() error {
 	switch list := l.Settings[panelFixedKey].(type) {
@@ -31,8 +32,14 @@ func (l panelLayout) noRouterProblem() error {
 	}
 	bare := false
 	l.readRefs(func(_ refSlot, _ string, r config.Ref) { bare = bare || r.Router == "" })
-	if bare {
+	if bare || levelsNoRouter(l.Settings) {
 		return errNoRouter
+	}
+	// A cell's levels are levels of its router.
+	for c := range allCells(l.Pages) {
+		if r, _ := c["router"].(string); r == "" && c[panelLevelsKey] != nil {
+			return errNoRouter
+		}
 	}
 	return nil
 }

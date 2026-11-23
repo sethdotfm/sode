@@ -31,35 +31,36 @@ type protExtLevels struct {
 	first  time.Time
 }
 
-// noteProtect: h appeared (set) or went (!set) on UI level ui of dst. known: the router reported this level before.
-// Caller holds mu.
-func (a *App) noteProtect(r *runtime, dst, ui int, h protHold, set, known, announced bool) {
+// noteProtect: h appeared (set) or went (!set) on UI level ui of dst on router u. known: the router reported this
+// level before. Caller holds mu.
+func (a *App) noteProtect(r *runtime, u *routerUnit, dst, ui int, h protHold, set, known, announced bool) {
 	if !known && !announced {
 		return
 	}
-	if a.sodesProtChange(r, dst, h, set) {
+	if a.sodesProtChange(r, u, dst, h, set) {
 		return
 	}
 	now := time.Now()
+	rs := u.router
 	k := protExtKey{dst: dst, dev: h.dev, kind: h.kind, set: set, found: !announced}
-	b := a.router.protExt[k]
+	b := rs.protExt[k]
 	if b == nil {
 		b = &protExtLevels{levels: map[int]bool{}, first: now}
-		a.router.protExt[k] = b
+		rs.protExt[k] = b
 	}
 	b.levels[ui] = true
-	if a.router.protAt[0].IsZero() {
-		a.router.protAt[0] = now
+	if rs.protAt[0].IsZero() {
+		rs.protAt[0] = now
 	}
-	a.router.protAt[1] = now
+	rs.protAt[1] = now
 }
 
 // sodesProtChange: Sode made this change, so its own Protect or Free Protect entry has it already. A Protect with
 // Sode's device number appearing is Sode's. One going is Sode's only while Sode frees it; another system that frees
-// Sode's Protect gets an entry. Caller holds mu.
-func (a *App) sodesProtChange(r *runtime, dst int, h protHold, set bool) bool {
+// Sode's Protect gets an entry. All of it is for router u. Caller holds mu.
+func (a *App) sodesProtChange(r *runtime, u *routerUnit, dst int, h protHold, set bool) bool {
 	if !set {
-		for w := range a.protWaits {
+		for w := range u.protWaits {
 			if w.dst == dst && !w.set && w.dev == h.dev {
 				return true
 			}
@@ -67,32 +68,36 @@ func (a *App) sodesProtChange(r *runtime, dst int, h protHold, set bool) bool {
 		return false
 	}
 	recDev := 0
-	if rec, ok := a.protects.get(r.cfg.UID, dst); ok {
+	if rec, ok := a.protects.get(r.routerOf(u.uid).UID, dst); ok {
 		recDev = rec.Device
 	}
-	return sodesHold(h, r.cfg.ProtectDevice, recDev)
+	return sodesHold(h, r.routerOf(u.uid).ProtectDevice, recDev)
 }
 
-// flushProtExt writes the burst when it is quiet for extQuiet or has gone on for extMax.
+// flushProtExt writes the burst of each router when it is quiet for extQuiet or has gone on for extMax.
 func (a *App) flushProtExt() {
+	var es []*Entry
 	a.mu.Lock()
-	es := a.protExtEntriesMu(time.Now())
+	now := time.Now()
+	for _, u := range a.units() {
+		es = append(es, protExtEntriesMu(u, now)...)
+	}
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)
 	}
 }
 
-// Caller holds mu.
-func (a *App) protExtEntriesMu(now time.Time) []*Entry {
-	rs := a.router
+// The entries name router u. Caller holds mu.
+func protExtEntriesMu(u *routerUnit, now time.Time) []*Entry {
+	rs := u.router
 	if len(rs.protExt) == 0 || (now.Sub(rs.protAt[1]) < extQuiet && now.Sub(rs.protAt[0]) < extMax) {
 		return nil
 	}
 	var es []*Entry
 	for k, b := range rs.protExt {
 		e := &Entry{Src: -1, Dst: k.dst, DstName: rs.dstNames[k.dst], Prev: [][2]int{}, OK: true, Ext: true, Found: k.found,
-			Protect: "clear", HoldKind: holdKindWord(k.kind), Device: k.dev, Time: b.first}
+			Protect: "clear", HoldKind: holdKindWord(k.kind), Device: k.dev, Time: b.first, Router: u.uid}
 		if k.set {
 			e.Protect = "set"
 		}

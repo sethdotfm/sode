@@ -1,13 +1,14 @@
 // The phone's History rows: swipe left to show Undo, right to show Redo (Retry for failed takes).
-import { $, el, S, on, dstItem, labelNode, toggle } from './core.js';
+import { $, el, on, dstItem, labelNode, toggle, routerData } from './core.js';
 import { levelBar } from './levelview.js';
+import { viaWordMark } from './viaview.js';
 import { fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, groupLevels, stackBefore, routeNote } from './history.js';
+import { entryNote, undoneBadge, historyPager, statusNode, groupLevels, groupRouter, stackBefore, routeNote } from './history.js';
 import { layout } from './layout.js';
 import { emptyNote } from './searchbox.js';
 import { rowView, disclosureAria, followersHead } from './historyrows.js';
 import { picking, isPicked, pickBox, bindPick, pickBar } from './historypick.js';
-import { byLabel, disclosure, undoButton, againButton, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { byLabel, disclosure, undoButton, againButton, putBackButtons, hopRows, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const REVEAL = 96;
 const OPEN = 'sode-m__recent-row--open';
@@ -23,7 +24,11 @@ export function closeSwipes(except) {
 
 // r: rowView's route. A lead (a Protect chip) stands where the source is, with no arrow.
 const strong = (x) => el('strong', null, typeof x === 'string' ? x : labelNode(x));
-const routeNodes = (r) => [...(r.lead ? [r.lead, ' '] : [strong(r.src), ' → ']), strong(r.dst), routeNote(r.notes)];
+const routeNodes = (r) => [
+  ...(r.lead ? [r.lead, ' '] : [strong(r.src), ...(r.via ? [' ', viaWordMark(r.via)] : []), ' → ']),
+  strong(r.dst),
+  routeNote(r.notes),
+];
 
 // sheetFor(plan) opens the Confirm sheet; pickSrc(n) puts a source in the composer.
 export function mobileHistory({ sheetFor, pickSrc }) {
@@ -42,17 +47,19 @@ export function mobileHistory({ sheetFor, pickSrc }) {
     const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
     const status = statusNode({ e });
     const retry = redoBtn(acts.again.plan, acts.again.label);
-    const open = !!e.chain && openChanges.has(e.id);
+    // A stacked row opens to its changes; a tie take opens to its hops (what each tie line carried before).
+    const hops = !e.chain && e.hops?.length;
+    const open = (!!e.chain || !!hops) && openChanges.has(e.id);
     const changesId = `m-changes-${e.id}`;
     const disc =
-      e.chain &&
-      disclosure(open, 'Changes', changesId, () => {
+      (e.chain || hops) &&
+      disclosure(open, e.chain ? 'Changes' : 'Hops', changesId, () => {
         toggle(openChanges, e.id);
         renderHistory();
       });
     let changes = null;
     if (open) {
-      changes = el('div', 'sode-m__changes', ...stackSteps(e, { restore: sheetFor, pickSrc }));
+      changes = el('div', 'sode-m__changes', ...(e.chain ? stackSteps(e, { restore: sheetFor, pickSrc }) : hopRows(e)));
       changes.id = changesId;
     }
     const face = el(
@@ -70,11 +77,16 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         ...(e.chain ? [el('span', 'sode__hist-note', stackBefore(e).text), ' to '] : []),
         ...routeNodes(view.route(e)),
         entryNote(e),
+        undoneBadge(e.undone),
         byLabel(e),
       ),
       changes,
+      ...(picking() ? [] : putBackButtons(acts.putBack, sheetFor)),
       e.follows && !open ? el('div', 'sode__hint', `External follow: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
-      levelBar(e.levels.filter((u) => S.levelBy.has(u))),
+      levelBar(
+        e.levels.filter((u) => routerData(e.router).levelBy.has(u)),
+        e.router,
+      ),
     );
     if (disc) clickToToggle(face, disc, '.sode-m__changes');
     const row = el(
@@ -113,8 +125,9 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
         el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
       ),
-      el('div', 'sode-m__recent-route', ...title, byLabel(f)),
-      levelBar(groupLevels(f)),
+      el('div', 'sode-m__recent-route', ...title, undoneBadge(f.undone), byLabel(f)),
+      ...(picking() ? [] : putBackButtons(acts.putBack, sheetFor)),
+      levelBar(groupLevels(f), groupRouter(f)),
     );
     clickToToggle(face, disc);
     const row = el(

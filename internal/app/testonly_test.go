@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"os"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -25,18 +24,4 @@ func fixedNs(v any) []int {
 		out[i] = f.N
 	}
 	return out
-}
-
-func (s *namesStore) remove(uid string) error {
-	path := s.path(uid)
-	if path == "" {
-		return nil
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.src, s.dst = nil, nil
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
 }

@@ -34,13 +34,8 @@ func TestKeylessScopesSaveFromAPISettingsWithRecheck(t *testing.T) {
 		t.Fatalf("keyless scopes %v", got)
 	}
 	wantRefused(t, p.saveLive(a, 3, map[string]any{"guestApiScopes": []string{"everything"}}), "guestApiScopes", reasonInvalid)
-	var whys []string
-	for _, e := range waitLogged(t, a, 1) {
-		whys = append(whys, e.Why)
-	}
-	if !slices.Contains(whys, "keylessScopes") {
-		t.Errorf("no keylessScopes row in %v", whys)
-	}
+	// logSent writes rows on its own goroutine, so wait for this row, not for a count.
+	waitLoggedWhy(t, a, "keylessScopes")
 }
 
 func TestKeylessCallsAreBoundByGuestRightsAndScopes(t *testing.T) {

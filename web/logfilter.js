@@ -12,11 +12,14 @@ const anything = () => true;
 // Source and destination matchers for f. Text that does not parse matches everything, as on the page.
 export const logMatch = (f) => ({ src: filterFn(f.src) || anything, dst: filterFn(f.dst) || anything });
 
-// f: { kinds, problems, src, dst, from, to }. from and to are in ms or null; to counts to its own end. off: numberOffset.
+// f: { kinds, problems, src, dst, from, to, routers }. from and to are in ms or null; to counts to its own end. off:
+// numberOffset. routers: the router UIDs to show, empty for every router. A row that names no router (a server, browser
+// or API row) always passes it.
 export function logPasses(e, f, off = 0, m = logMatch(f)) {
   const t = e.t ?? Date.parse(e.time);
   if (f.from != null && t < f.from) return false;
   if (f.to != null && t > f.to) return false;
+  if (f.routers?.length && e.router && !f.routers.includes(e.router)) return false;
   const kind = KINDS.some((g) => g.kinds.includes(e.kind)) ? e.kind : 'other';
   const kinds = KINDS.some((g) => f.kinds?.includes(g.id)) ? f.kinds : KINDS.map((g) => g.id);
   if (!KINDS.some((g) => g.kinds.includes(kind) && kinds.includes(g.id))) return false;
@@ -25,6 +28,25 @@ export function logPasses(e, f, off = 0, m = logMatch(f)) {
   if (f.dst?.trim() && (e.dst < 0 || !m.dst(e.dst + off, e.dstName || ''))) return false;
   return true;
 }
+
+// The Routers chips, as the Show chips: from every router, a press shows only that router. Then a press adds or takes
+// away one router. Every router picked, or none, is [] (every router). uids: every router UID, in config order.
+export function pressRouter(picked, uid, uids) {
+  const now = picked.filter((u) => uids.includes(u));
+  const next = !now.length ? [uid] : uids.filter((u) => (u === uid ? !now.includes(u) : now.includes(u)));
+  return next.length === uids.length ? [] : next;
+}
+
+// A router's name in /log: "Router B" with two or more routers, else "Router". routers: S.routers. A router that is
+// gone keeps the plain word.
+export function routerWord(routers, uid) {
+  if (routers.length < 2) return 'Router';
+  const r = routers.find((x) => x.uid === uid);
+  return r ? `Router ${r.prefix}` : 'Router';
+}
+
+// The result words of a link row (up, down, changed) name its router: "Router B down".
+export const linkResult = (text, e, routers) => (e.kind === 'link' && text.startsWith('Router ') ? routerWord(routers, e.router) + text.slice(6) : text);
 
 // Sorting: ties keep newest first. Rows without the column go last in both directions.
 const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);

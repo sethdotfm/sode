@@ -3,7 +3,7 @@
 // only offers what it would allow. The Approval and PIN recheck popups load when a refusal needs them, so plans.js
 // stays free of their page setup.
 
-import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_DOWN } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, icon, dstItem, labelNode, routerOfItem, routerData, protectsOf, LINK_DOWN } from './core.js';
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
@@ -21,6 +21,7 @@ import {
   foldedNote,
 } from './protectrules.js';
 import { groupIds, groupPartial } from './history.js';
+import { noteOwn } from './stepback.js';
 
 let seq = 0;
 const pending = new Map(); // id → { plan, answer }
@@ -35,18 +36,30 @@ on('access', (a) => {
   emit('protectedRows');
 });
 
-const device = () => S.cfg?.protectDevice || 0;
+// Sode's device number on router uid (blank: the first).
+const device = (uid = '') => protectsOf(uid).device;
 
 // The signed-in Rights carry the Protect right set from the Role (protectRight).
 const right = () => protectRight(S.myRights, role, S.users);
 
-// The holds on dst n over levels (every level when none), with the owner of each seen from this browser's sign-in.
-export const holdsAt = (n, levels = allLevels()) => holdsOn(S.prot, S.protBy, n, levels, device(), me);
+// mayProtect: this page can set a Protect. The Tie line picker shows its shield only then (tiepicker.js).
+export const mayProtect = () => right();
 
-export const protectState = (n) => holdsAt(n);
+// The holds on dst n of router uid (blank: the first) over levels (every level when none). The owner of each is as
+// this browser's sign-in sees it.
+export function holdsAt(n, levels = null, uid = '') {
+  const p = protectsOf(uid);
+  return holdsOn(p.prot, p.by, n, levels || allLevels(uid), p.device, me);
+}
+
+export const protectState = (n, uid = '') => holdsAt(n, null, uid);
+// The holds on a destination item, on its own router.
+const stateOf = (dst) => protectState(dst.n, routerOfItem(dst));
 
 // The one chip of a Protect or Router lock, in every view and in History: icon and words, with no status square.
-export const protectChip = (look, text) => el('span', `pb-badge pb-badge--${look.status} sode__status-badge sode__hold-chip`, icon(look.icon), text);
+// An 'info' status (your own hold) is neutral: blue has no state job (docs/color-roles.md).
+const CHIP = { warn: 'pb-badge pb-badge--warn', error: 'pb-badge pb-badge--error' };
+export const protectChip = (look, text) => el('span', `${CHIP[look.status] || 'pb-badge'} sode__status-badge sode__hold-chip`, icon(look.icon), text);
 
 // The chip of one hold: its icon and color (holdLook), and the words (holdLabel).
 export function holdBadge(h) {
@@ -80,18 +93,24 @@ export const protectPlan = (dst, on, undo = null) => protectManyPlan([dst], on, 
 
 // The newest ok Protect entry of each destination in S.hist, once for each History draw. takePage adds to S.hist in
 // place, so the length is part of the key, as in histRows.
+// Each router has its own map, by the routerData UID of its entries.
 let newestCache = null;
-function newest() {
+function newest(uid) {
   const h = S.hist;
   const c = newestCache;
-  if (c && c.list === h && c.len === h.length && c.first === h[0]) return c.map;
-  newestCache = { list: h, len: h.length, first: h[0], map: newestProtects(h) };
-  return newestCache.map;
+  if (!(c && c.list === h && c.len === h.length && c.first === h[0])) newestCache = { list: h, len: h.length, first: h[0], maps: new Map() };
+  const maps = newestCache.maps;
+  if (!maps.has(uid)) maps.set(uid, newestProtects(h.filter((e) => entryRouter(e) === uid)));
+  return maps.get(uid);
 }
+
+// The routerData UID of an entry's router: blank for the first.
+const entryRouter = (e) => routerOfItem({ router: e.router });
+const entryDst = (e) => dstItem(e.dst, e.dstName, e.router || '');
 
 // Undo works only on the newest Protect entry of its destination, and only when the route view would offer the
 // opposite now (protectUndoable). The layouts draw the rows again on a Protect change, so the button follows it.
-const undoable = (e) => protectUndoable(e, newest(), protectOfferOf(e.dst));
+const undoable = (e) => protectUndoable(e, newest(entryRouter(e)), protectOfferOf(e.dst, entryRouter(e)));
 const NO_UNDO = { verb: 'undo', items: [] };
 const NO_REDO = { plan: { verb: 'redo', items: [] }, label: '' };
 
@@ -101,7 +120,7 @@ function groupUndo(f) {
   const can = f.entries.filter(undoable);
   if (!can.length) return NO_UNDO;
   const set = can[0].protect === 'set';
-  const dsts = can.map((e) => dstItem(e.dst, e.dstName));
+  const dsts = can.map(entryDst);
   return protectManyPlan(dsts, !set, { undos: can, skipped: f.entries.length - can.length });
 }
 
@@ -114,25 +133,25 @@ const sourceWord = (groups) => (groups.length > 1 ? 'Sources' : 'Source');
 // History's descriptor of a Protect entry (historyrows.js rowView has the fields). It has no source, so its chip
 // stands where the source is, and its detail lists the sources on the destination when it ran (prev).
 export const PROTECT_ENTRY = {
-  route: (e) => ({ lead: chipOf(e), src: null, dst: dstItem(e.dst, e.dstName), many: null, notes: [] }),
+  route: (e) => ({ lead: chipOf(e), src: null, dst: entryDst(e), many: null, notes: [] }),
   disc: (e, groups) => sourceWord(groups),
   detail: (e, dst, groups) => `${sourceWord(groups)} on ${dst.label}`,
   actions(e) {
-    const dst = dstItem(e.dst, e.dstName);
+    const dst = entryDst(e);
     const set = e.protect === 'set';
     const label = e.ext ? 'Another system made this change; Sode cannot undo it' : set ? `Free the Protect on ${dst.label}` : `Protect ${dst.label} again`;
     const plan = !e.ext && undoable(e) ? protectPlan(dst, !set, e) : NO_UNDO;
     return { undo: { plan, label, text: 'Undo', tip: label }, again: NO_REDO };
   },
-  empty: (e) => (e.ext ? `#${e.id}: another system made this change.` : `#${e.id}: the Protect on ${dstItem(e.dst, e.dstName).label} changed after it.`),
+  empty: (e) => (e.ext ? `#${e.id}: another system made this change.` : `#${e.id}: the Protect on ${entryDst(e).label} changed after it.`),
 };
 
 // A Group of Protect entries, all of one kind: one action on many destinations, or folded actions. Undo all undoes
 // each entry that PROTECT_ENTRY would. A Protect has no Redo.
 export const PROTECT_GROUP = {
   route(f) {
-    const seen = new Map(f.entries.map((e) => [e.dst, e.dstName]));
-    const dsts = [...seen].map(([n, name]) => dstItem(n, name));
+    const seen = new Map(f.entries.map((e) => [`${entryRouter(e)}.${e.dst}`, entryDst(e)]));
+    const dsts = [...seen.values()];
     const notes = [foldedNote(f), f.entries.every((e) => e.undo != null) && 'undo', groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`];
     return {
       lead: chipOf(f.entries[0]),
@@ -160,13 +179,13 @@ const skippedNote = (plan) =>
 
 function manySummary(dsts, on) {
   const rows = dsts.map((d) => {
-    const p = protectState(d.n);
+    const p = stateOf(d);
     const hold = !on && p.sode ? [holdBadge(p.sode)] : [];
     return el('div', 'sode__route', el('strong', null, labelNode(d)), ...hold);
   });
   return [
     el('div', null, on ? `Protect these ${dsts.length} destinations on every level?` : `Free the Protect on these ${dsts.length} destinations?`),
-    ...(on ? [el('div', 'sode__route', levelBar(allLevels()), newHold())] : []),
+    ...(on ? [el('div', 'sode__route', levelBar(allLevels(routerOfItem(dsts[0])), routerOfItem(dsts[0])), newHold())] : []),
     el('div', 'sode-protpick__plan', ...rows),
   ];
 }
@@ -190,33 +209,34 @@ function oneSummary(plan) {
     return nodes;
   }
   const { dst } = dsts[0];
+  const uid = routerOfItem(dst);
   const strong = el('strong', null, labelNode(dst));
-  const all = allLevels();
+  const all = allLevels(uid);
   if (on) {
     return [
       el('div', null, undo ? 'Undo the Free Protect: Protect ' : 'Protect ', strong, ' on every level?'),
-      el('div', 'sode__route', levelBar(all), newHold()),
+      el('div', 'sode__route', levelBar(all, uid), newHold()),
     ];
   }
-  const p = protectState(dst.n);
+  const p = stateOf(dst);
   return [
     el('div', null, undo ? 'Undo the Protect: free it on ' : 'Free the Protect on ', strong, '?'),
-    ...(p.sode ? [el('div', 'sode__route', levelBar(p.sode.levels), holdBadge(p.sode))] : []),
+    ...(p.sode ? [el('div', 'sode__route', levelBar(p.sode.levels, uid), holdBadge(p.sode))] : []),
   ];
 }
 
 // The badge row of each hold on dst, then the button the route view offers. confirm opens the Confirm with a plan;
 // none means badges only.
 export function protectNodes(dst, confirm = null) {
-  const p = protectState(dst.n);
-  const rows = p.holds.map((h) => el('div', 'sode__route', levelBar(h.levels), holdBadge(h)));
+  const p = stateOf(dst);
+  const rows = p.holds.map((h) => el('div', 'sode__route', levelBar(h.levels, routerOfItem(dst)), holdBadge(h)));
   const b = confirm && protectButton(dst, confirm);
   if (b) rows.push(el('div', 'sode__route sode__protect', b));
   return rows;
 }
 
 function protectButton(dst, confirm) {
-  const offer = protectOfferOf(dst.n);
+  const offer = protectOfferOf(dst.n, routerOfItem(dst));
   if (!offer) return null;
   const set = offer === 'set';
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon(set ? 'shield' : 'shield-off'));
@@ -230,25 +250,33 @@ function protectButton(dst, confirm) {
   return b;
 }
 
-// What the route view would offer on destination n: 'set', 'clear' or ''. The Grid popup's shield uses it.
-export const protectOfferOf = (n) =>
-  protectOffer(protectState(n), {
+// What the route view would offer on destination n of router uid (blank: the first): 'set', 'clear' or ''. The Grid
+// popup's shield uses it.
+export const protectOfferOf = (n, uid = '') =>
+  protectOffer(protectState(n, uid), {
     right: right(),
     admin: role === 'administrator',
-    device: device(),
-    linked: linked(),
+    device: device(uid),
+    linked: !!S.ws && S.wsState === 'up' && routerData(uid).link === 'up',
   });
 
 // The keyboard mode key: x sets, Shift+x frees, when the route view offers it. false when it does not.
 export function protectKey(dst, set, confirm) {
   if (!dst) return false;
   const want = set ? 'set' : 'clear';
-  if (protectOfferOf(dst.n) !== want) return false;
+  if (protectOfferOf(dst.n, routerOfItem(dst)) !== want) return false;
   confirm(protectPlan(dst, set));
   return true;
 }
 
-const wireDsts = (dsts) => dsts.map(({ dst, undo }) => (undo ? { dst: dst.n, undo: undo.id } : { dst: dst.n }));
+// Each destination names its router (blank for the first), so the server acts on the router of the destination.
+const wireDsts = (dsts) =>
+  dsts.map(({ dst, undo }) => {
+    const w = { dst: dst.n };
+    if (routerOfItem(dst)) w.router = dst.router;
+    if (undo) w.undo = undo.id;
+    return w;
+  });
 const where = (dsts) => (dsts.length === 1 ? dsts[0].dst.label : `${dsts.length} destinations`);
 
 // One message for any number of destinations, so the server writes one History Group. ap: an Approval in person;
@@ -276,10 +304,14 @@ const ADMIN_WHY = 'another user set it, so an Administrator must free it';
 function onResult(m) {
   const p = pending.get(m.id);
   // A request the server ran after an Approval answers with the frozen id, which this page no longer holds.
-  if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('ok', 'Protect freed', 'Approved.'));
+  if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('done', 'Protect freed', 'Approved.'));
   pending.delete(m.id);
   const { dsts, on } = p.plan.protect;
   const rows = m.results || [];
+  noteOwn(
+    rows.map((r) => r.entry),
+    S.hist,
+  );
   const refused = rows.find((r) => r.approval);
   if (p.answer && refused) return void p.answer.fail(refused.err || m.err);
   p.answer?.done();
@@ -298,9 +330,9 @@ function onResult(m) {
     });
   const n = rest.length - failed.length;
   if (dsts.length === 1)
-    return failed.length ? showResult('error', fail, failed[0]) : showResult('ok', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
+    return failed.length ? showResult('error', fail, failed[0]) : showResult('done', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
   const head = on ? `${n} Protected` : `${n} Protects freed`;
-  if (!failed.length) return showResult('ok', head, 'Every level.');
+  if (!failed.length) return showResult('done', head, 'Every level.');
   showResult(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, failed.join(' '));
 }
 

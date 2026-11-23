@@ -6,43 +6,52 @@ globalThis.document = node();
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 globalThis.WebSocket = { OPEN: 1 };
 
-const { S, connState } = await import('../core.js');
+const { S, connState, routerData } = await import('../core.js');
+// set: the Server link fields of S, and link, addr and err of the first router (routerData).
+function set(o) {
+  const { link, addr, err, ...ws } = o;
+  Object.assign(S, ws);
+  const first = routerData('');
+  if ('link' in o) first.link = link;
+  if ('addr' in o) first.addr = addr;
+  if ('err' in o) first.err = err;
+}
 
 test('a lost browser connection is the Server link', () => {
-  Object.assign(S, { wsLost: true, wsState: 'down', router: 'up' });
+  set({ wsLost: true, wsState: 'down', link: 'up' });
   const { title, links } = connState().down;
   assert.match(title, /^Lost link: Server link/);
   assert.deepEqual(links, [false, null]);
 });
 
 test('a router that is down with the server up is the Router link', () => {
-  Object.assign(S, { wsLost: false, wsState: 'up', router: 'down', routerAddr: '10.0.0.1:8910' });
+  set({ wsLost: false, wsState: 'up', link: 'down', addr: '10.0.0.1:8910' });
   const { title, links } = connState().down;
   assert.match(title, /^Lost link: Router link/);
   assert.deepEqual(links, [true, false]);
 });
 
 test('a lost link names no next try', () => {
-  Object.assign(S, { wsLost: true, wsState: 'down', router: 'up' });
+  set({ wsLost: true, wsState: 'down', link: 'up' });
   assert.equal(connState().down.text, undefined);
-  Object.assign(S, { wsLost: false, wsState: 'up', router: 'down', routerAddr: '10.0.0.1:8910' });
+  set({ wsLost: false, wsState: 'up', link: 'down', addr: '10.0.0.1:8910' });
   assert.equal(connState().down.text, undefined);
 });
 
 test('no banner while both links are up', () => {
-  Object.assign(S, { wsLost: false, wsState: 'up', router: 'up' });
+  set({ wsLost: false, wsState: 'up', link: 'up' });
   assert.equal(connState().down, null);
 });
 
 test('ok only while both links are up', () => {
-  Object.assign(S, { wsLost: false, wsState: 'up', router: 'up' });
+  set({ wsLost: false, wsState: 'up', link: 'up' });
   assert.equal(connState().ok, true);
-  for (const router of ['connecting', 'down', '', undefined]) {
-    Object.assign(S, { router, routerLastErr: '' });
-    assert.equal(connState().ok, false, `router ${router}`);
+  for (const link of ['connecting', 'down', '', undefined]) {
+    set({ link, err: '' });
+    assert.equal(connState().ok, false, `router ${link}`);
   }
-  Object.assign(S, { wsState: 'connecting', router: 'up' });
+  set({ wsState: 'connecting', link: 'up' });
   assert.equal(connState().ok, false);
-  Object.assign(S, { wsLost: true, wsState: 'down', router: 'up' });
+  set({ wsLost: true, wsState: 'down', link: 'up' });
   assert.equal(connState().ok, false);
 });

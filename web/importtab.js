@@ -30,14 +30,14 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   fileInput.accept = '.zip,application/zip';
   fileInput.id = `${ids}-file`;
   fileInput.hidden = true;
-  const chooseBtn = btn('pb-btn--ok', 'Choose a file…', () => fileInput.click());
+  const chooseBtn = btn('sode-btn--primary', 'Choose a file…', () => fileInput.click());
   chooseBtn.id = `${ids}-choose`;
   const brokenBadge = el('span', 'pb-badge pb-badge--error');
-  const reviewBtn = btn('pb-btn--ok', 'Review…', () => review());
+  const reviewBtn = btn('sode-btn--primary', 'Review…', () => review());
   reviewBtn.id = `${ids}-review`;
   const backBtn = btn('pb-btn--outline', 'Back', () => back());
   backBtn.id = `${ids}-back`;
-  const importBtn = btn('pb-btn--ok', 'Import', () => apply());
+  const importBtn = btn('sode-btn--primary', 'Import', () => apply());
   importBtn.id = `${ids}-import`;
   const anotherBtn = btn('pb-btn--outline', 'Import another', () => reset());
   const acts = el('span', 'sode__xi-acts', brokenBadge, chooseBtn, reviewBtn, backBtn, importBtn, anotherBtn);
@@ -167,11 +167,12 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   }
 
   function routerNames() {
-    // An own import plans no Routers category and no remap, so the check names the live router.
+    // An own import plans no Routers category and no remap, so the check names the live routers.
     if (own) {
       const lines = (check.routers || []).map((r) => {
         const name = r.Title || r.Prefix;
-        return el('li', null, r.UID === check.router ? `${name}: this router` : `${name}: another router. Items that use it arrive Broken.`);
+        const here = (check.liveRouters || [check.router]).includes(r.UID);
+        return el('li', null, here ? `${name}: a router here` : `${name}: another router. Items that use it arrive Broken.`);
       });
       return lines.length ? [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list', ...lines)] : [];
     }
@@ -360,7 +361,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   function doneView() {
     const counts = R.reviewCounts(planned);
     return [
-      el('div', 'pb-alert pb-alert--ok', failed ? `Imported. ${failed} items were not written.` : 'Imported.'),
+      el('div', `pb-alert${failed ? ' pb-alert--warn' : ''}`, failed ? `Imported. ${failed} items were not written.` : 'Imported.'),
       el(
         'table',
         'pb-table pb-table--compact sode__xi-counts',

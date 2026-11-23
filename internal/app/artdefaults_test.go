@@ -155,7 +155,7 @@ images:
 	for _, d := range s.list() {
 		keys = append(keys, d.key())
 	}
-	if got := strings.Join(keys, ","); got != "source/1,destination/1,destination/2" {
+	if got := strings.Join(keys, ","); got != "source/r1/1,destination/r1/1,destination/r1/2" {
 		t.Fatalf("defaults %s", got)
 	}
 	if len(s.data.Images) != 1 || s.data.Images[0].ID != "d-0000000a" {
@@ -193,7 +193,7 @@ func TestArtDefaultHiddenFromHiddenKey(t *testing.T) {
 		}
 
 		dst := 7
-		if _, err := a.artDefaults.set(ArtDefault{Kind: artKindDst, N: &dst, Name: "SECRET DST"}, &artImage{b64(t, tinyPNG), "image/png"}); err != nil {
+		if _, err := a.artDefaults.set(ArtDefault{Kind: artKindDst, Router: cfg.UID, N: &dst, Name: "SECRET DST"}, &artImage{b64(t, tinyPNG), "image/png"}); err != nil {
 			t.Fatal(err)
 		}
 		img := a.artDefaults.list()[2].Art
@@ -263,5 +263,32 @@ func TestArtDefaultNotFrozenByPushOrTemplate(t *testing.T) {
 	tc := page1Cells(apiBody(t, rec))
 	if tc[0].(map[string]any)["art"] != nil || tc[1].(map[string]any)["art"] != "icon:mic" {
 		t.Fatalf("template cells %v", tc)
+	}
+}
+
+// A Source default on router A and one for the same number on router B are two defaults. The key with no router (a
+// one-router Sode's key) names the first router's.
+func TestArtDefaultKeyNamesTheRouter(t *testing.T) {
+	s := &artDefaultStore{}
+	n := 5
+	a := ArtDefault{Kind: artKindSource, Router: "ra", N: &n, Name: "CAM 5", Art: "icon:camera"}
+	b := ArtDefault{Kind: artKindSource, Router: "rb", N: &n, Name: "B CAM", Art: "icon:tv"}
+	for _, d := range []ArtDefault{a, b} {
+		if _, err := s.set(d, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := s.list(); len(got) != 2 || got[0].key() != "source/ra/5" || got[1].key() != "source/rb/5" {
+		t.Fatalf("defaults %+v", got)
+	}
+	if ok, err := s.clear(b); !ok || err != nil || len(s.list()) != 1 || s.list()[0].Router != "ra" {
+		t.Fatalf("clear B: %v %v, left %+v", ok, err, s.list())
+	}
+	if !a.keyed("source/5", "ra") || b.keyed("source/5", "ra") || !b.keyed("source/rb/5", "ra") {
+		t.Error("the old key names only the first router's default")
+	}
+	pick := map[string][]string{catArtwork: {"source/5"}}
+	if !pickedDefault(pick, a, "ra") || pickedDefault(pick, b, "ra") {
+		t.Error("an export pick by the old key takes only the first router's default")
 	}
 }

@@ -27,7 +27,7 @@ export function confirmBox(root) {
     const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
     const c = { key, ready: false, lock: 0, done: null };
     const answer = new Promise((res) => (c.done = res));
-    const ok = btn('pb-btn--ok sode__confirm-ok', `${verb} (${key.toUpperCase()})`, () => c.ready && close(c, true));
+    const ok = btn('sode-btn--primary sode__confirm-ok', `${verb} (${key.toUpperCase()})`, () => c.ready && close(c, true));
     ok.disabled = true;
     const cancel = btn('pb-btn--outline', 'Cancel', () => close(c, false));
     c.go = () => c.ready && close(c, true);

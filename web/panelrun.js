@@ -1,6 +1,6 @@
 // Runs one panel: the page /panels/<id>, or embedded in the Live Editor with its own ui and call (no keepalive, no
 // instance). The key is the user's session key, the link's key, or a Public panel's short-lived key (panelpublic.go).
-import { emit, on, S, showNote } from './core.js';
+import { emit, on, S, showNote, routerData } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
 import { paintOffline, waitForSode } from './panelwait.js';
@@ -15,7 +15,9 @@ import { showStopped } from './panelstopped.js';
 import { buttonsBody } from './panelbuttons.js';
 import { gridBody } from './gridpanelrun.js';
 import { isGridPanel } from './gridpaneledges.js';
-import { edgesIn } from './gridedgerefs.js';
+import { panelIn, placesUsed } from './panelitems.js';
+import { makePlaces, mergeTally, mergeProtected, mergeNames, wireRoutes, undoIn, presetsIn } from './routerids.js';
+import { crossing, planOf as tiePlanOf, withTies, storedClash, bare } from './paneltierules.js';
 import { lookOf } from './panellook.js';
 import { pref } from './device.js';
 import { createArt } from './panelart.js';
@@ -31,6 +33,9 @@ import { initName } from './panelname.js';
 // The small reads are polled while the WebSocket carries the tally. The poll finds a revoked key or a lost Sode API,
 // which the socket does not show.
 const POLL_MS = 2000;
+// A panel opens only after GET /routers answers (d.open).
+const ROUTERS_UNKNOWN = 'Sode did not give its router list. The panel is not open. Sode tries again in 5 seconds.';
+const ROUTERS_RETRY_MS = 5000;
 const NAMES_MS = 30000;
 // Frames that come close together (a Group or a Preset) are drawn as one.
 const FRAME_MS = 30;
@@ -61,6 +66,9 @@ export function runPanel(seg, opts = {}) {
 // never sent anything else.
 function makeDoor(seg, ui, embedded, given, run) {
   const d = { ended: false, id: seg, instance: '', key: null, keyIsPublic: false, stored: false, linked: false, keyless: null, backTimer: 0 };
+  // The routers in the order of GET /routers, for item numbers (routerids.js). Read one time, before the panel.
+  d.places = makePlaces();
+  let placesRead = false;
   // lock.js drops the page lock's PIN pad for a Public panel, never for the editor's live test.
   d.tellLock = (on) => embedded || emit('publicPanel', { on });
   d.unannounce = () => {
@@ -126,7 +134,7 @@ function makeDoor(seg, ui, embedded, given, run) {
     d.call = given || (key ? (path, init = {}) => keyed(path, init) : (path, init = {}) => sessionFetch(path, tag(init)));
     // Only the reads that carry an ETag are kept and sent with If-None-Match; a 304 gives the same body again. The
     // tally, protected and names replies are only read, so a 304 gives the same object too.
-    d.callJSON = jsonCall(withEtag(d.call, (p) => p === 'api/v1/tally' || p === 'api/v1/protected' || p === 'api/v1/names'));
+    d.callJSON = jsonCall(withEtag(d.call, (p) => /^api\/v1\/(tally|protected|names)(\?|$)/.test(p)));
 
     if (!key && !embedded) {
       ui.signin.addEventListener('click', signInAgain);
@@ -143,9 +151,23 @@ function makeDoor(seg, ui, embedded, given, run) {
 
     for (;;) {
       try {
-        const panel = edgesIn(await d.callJSON(`api/v1/panels/${seg}`));
-        // Back to editing came before the panel did: nothing after this is allowed to start a timer or a watch.
+        if (!placesRead) {
+          const r = await d.callJSON('api/v1/routers').catch(() => null);
+          if (r?.routers) [d.places, placesRead] = [makePlaces(r.routers), true];
+        }
+        const read = await d.callJSON(`api/v1/panels/${seg}`);
         if (d.ended) return null;
+        // Without the router list, an item of another router would read and take as the first router's. The panel
+        // read comes first, so a refused key still gets its own note.
+        if (!placesRead) {
+          showNote(ui.note, ROUTERS_UNKNOWN);
+          await new Promise((ok) => setTimeout(ok, ROUTERS_RETRY_MS));
+          if (d.ended) return null;
+          continue;
+        }
+        if (ui.note.textContent === ROUTERS_UNKNOWN) showNote(ui.note, '');
+        const panel = panelIn(read, d.places);
+        // Back to editing came before the panel did: nothing after this is allowed to start a timer or a watch.
         // Kept only after it worked, so a mistyped or ended key never replaces a stored one.
         if (d.linked) d.stored = keepLinkKey(seg, d.key);
         if (panel.acts === 'api' && !d.key && !embedded) {
@@ -210,8 +232,10 @@ function lookApplier(ui, embedded) {
 }
 
 // The tally, protected list, names and router link, kept current by the poll and the WebSocket's frames (the feed
-// rules are paneltally.js). onFail(e) handles a failed poll; it returns true when the page stops.
-function tallyFeed({ door, body, ui, rights, showOffline, onFail }) {
+// rules are paneltally.js). onFail(e) handles a failed poll; it returns true when the page stops. The frames carry the
+// first router only, so the feed keeps the first router's tally. With two or more routers, each poll also reads the
+// other routers the panel uses (used(), places). The body gets one answer of each kind on item numbers.
+function tallyFeed({ door, body, ui, rights, used, showOffline, onFail }) {
   let feed = F.newFeed(S.wsState === 'up' && !!S.cfg, rights);
   let namesAt = 0;
   let polling = false;
@@ -221,6 +245,32 @@ function tallyFeed({ door, body, ui, rights, showOffline, onFail }) {
   let prot = null;
   let link = null;
   let rowsTimer = 0;
+  // The other routers' last answers: place -> { tally, prot, names }.
+  let more = new Map();
+  let firstNames = null;
+  const q = (place) => (door.places.many ? `?router=${encodeURIComponent(door.places.uid(place))}` : '');
+  const others = () => (door.places.many ? used().filter((p) => p > 0) : []);
+  const parts = (k) => others().flatMap((place) => (more.get(place)?.[k] ? [{ place, reply: more.get(place)[k] }] : []));
+  // The same answers give the same objects, so an unchanged poll skips the body's work (withEtag gives the same
+  // objects on a 304).
+  const memo = (fn) => {
+    let was = [];
+    let out = null;
+    return (...args) => {
+      const key = args.flatMap((a) => (Array.isArray(a) ? a.map((x) => x.reply) : [a]));
+      if (key.length !== was.length || key.some((x, i) => x !== was[i])) [was, out] = [key, fn(...args)];
+      return out;
+    };
+  };
+  const tallyOf = memo(mergeTally);
+  const protOf = memo(mergeProtected);
+  const namesOf = memo((first, list) => mergeNames(first, list, door.places));
+  // A router of the panel is up. Without the routers list (a Sode from before it), the first router's link counts.
+  const anyUp = (l) => {
+    if (!l?.routers?.length || !door.places.many) return l ? l.routerUp : true;
+    return used().some((p) => l.routers.find((r) => r.uid === door.places.uid(p))?.routerUp);
+  };
+  const shownData = (nm) => ({ tally: tallyOf(feed.shown, parts('tally')), prot: protOf(prot, parts('prot')), nm });
   async function poll() {
     if (door.ended) return;
     if (polling) {
@@ -234,24 +284,46 @@ function tallyFeed({ door, body, ui, rights, showOffline, onFail }) {
     const hellos = feed.hellos;
     try {
       const wantNames = Date.now() - namesAt > NAMES_MS;
-      const [tally, p, nm, pr, l] = await Promise.all([
-        readTally ? door.callJSON('api/v1/tally') : null,
-        door.callJSON('api/v1/protected'),
-        wantNames ? door.callJSON('api/v1/names') : null,
+      const rest = others();
+      const [tally, p, nm, pr, l, read] = await Promise.all([
+        readTally ? door.callJSON(`api/v1/tally${q(0)}`) : null,
+        door.callJSON(`api/v1/protected${q(0)}`),
+        wantNames ? door.callJSON(`api/v1/names${q(0)}`) : null,
         // A key without the presets scope gets 403: its Preset cells then show as unavailable.
-        wantNames ? door.callJSON('api/v1/presets').catch(() => ({})) : null,
+        wantNames
+          ? door
+              .callJSON('api/v1/presets')
+              .then((r) => presetsIn(r, door.places))
+              .catch(() => ({}))
+          : null,
         // A key without the status scope gets 403: the router link is then unknown, not down.
         door.callJSON('api/v1/status').catch((e) => {
           if (e.status === undefined || e.status >= 500) throw e;
           return null;
         }),
+        Promise.all(
+          rest.map((place) =>
+            Promise.all([
+              door.callJSON(`api/v1/tally${q(place)}`),
+              door.callJSON(`api/v1/protected${q(place)}`),
+              wantNames || !more.get(place)?.names ? door.callJSON(`api/v1/names${q(place)}`) : null,
+            ]),
+          ),
+        ),
       ]);
-      if (nm) namesAt = Date.now();
+      const next = new Map();
+      rest.forEach((place, i) => {
+        const [t, pt, n] = read[i];
+        next.set(place, { tally: t, prot: pt, names: n || more.get(place)?.names });
+      });
+      const renamed = !!nm || read.some((x) => !!x[2]);
+      more = next;
+      if (nm) [namesAt, firstNames] = [Date.now(), nm];
       [prot, link] = [p, l];
       if (tally) feed = F.readCame(feed, tally, hellos, Date.now());
-      const off = offlineOf({ failed: false, routerUp: link ? link.routerUp : true });
+      const off = offlineOf({ failed: false, routerUp: anyUp(link) });
       showOffline(off);
-      body.data({ tally: feed.shown, prot, nm, pr, link, first: !ready && !off });
+      body.data({ ...shownData(renamed && firstNames ? namesOf(firstNames, parts('names')) : null), pr, link, first: !ready && !off });
       ready = !off;
       showNote(ui.note, door.feature);
     } catch (e) {
@@ -268,10 +340,10 @@ function tallyFeed({ door, body, ui, rights, showOffline, onFail }) {
     const d = F.drawRows(feed);
     feed = d.feed;
     if (door.ended || !d.changed) return;
-    body.data({ tally: feed.shown, prot, nm: null, pr: null, link, first: false });
+    body.data({ ...shownData(null), pr: null, link, first: false });
     body.render();
   };
-  let router = S.router;
+  let router = routerData('').link;
   const offs = [
     on('tallyRows', (u) => {
       if (door.ended) return;
@@ -286,14 +358,19 @@ function tallyFeed({ door, body, ui, rights, showOffline, onFail }) {
       poll();
     }),
     on('wsclose', () => (feed = F.socketClosed(feed))),
+    on('viaRows', () => {
+      if (door.ended) return;
+      feed = F.viaCame(feed);
+      poll();
+    }),
     on('protectedRows', () => poll()),
     on('names', () => {
       namesAt = 0;
       poll();
     }),
     on('conn', () => {
-      if (S.router === router) return;
-      router = S.router;
+      if (routerData('').link === router) return;
+      router = routerData('').link;
       if (feed.live) poll();
     }),
   ];
@@ -339,7 +416,41 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
   if (!embedded) await waitForSode(ui, () => door.ended);
   let panel = await door.open();
   if (!panel) return;
-  const { call, callJSON, id } = door;
+  const { call, id } = door;
+  const places = door.places;
+  // The bodies work on item numbers (routerids.js). The Undo cell's answer comes in on them. A take goes out as router
+  // references, and its results come back on the item numbers it was sent with.
+  const callJSON = async (path, init) => {
+    const r = await door.callJSON(path, init);
+    return (init?.method || 'GET') === 'GET' && /^api\/v1\/panels\/[^/]+\/undo$/.test(path) && r ? { ...r, undo: undoIn(r.undo, places) } : r;
+  };
+  // A route across routers goes on the panel's Reserved tie lines (paneltierules.js). The plan is a POST /takes/plan.
+  // The server sends nothing and writes no log row. It answers 409 tie_line_needed with the path, or refuses.
+  // A Preset cell's route keeps the preset's tie lines: a plan through other tie lines refuses the take (storedClash).
+  const tiePlan = async (routes) => {
+    let plan = null;
+    try {
+      await callJSON('api/v1/takes/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routes: wireRoutes(bare(routes), places) }),
+      });
+    } catch (e) {
+      plan = e.status === 409 && e.code === 'tie_line_needed' ? tiePlanOf(e.body) : null;
+      if (!plan) throw e;
+    }
+    const clash = storedClash(routes, plan);
+    if (clash) throw Object.assign(new Error(clash), { status: 409, code: 'conflict' });
+    return plan;
+  };
+  // sent.plan is the plan that the confirm showed; without one (Instant mode, no confirm), the take asks it first.
+  const postTake = async (path, { plan, ...sent }, init) => {
+    if (path !== 'api/v1/takes' || !Array.isArray(sent.routes)) return callJSON(path, { ...init, body: JSON.stringify(sent) });
+    const ties = plan || (crossing(sent.routes) ? await tiePlan(sent.routes) : null);
+    const r = await callJSON(path, { ...init, body: JSON.stringify({ ...sent, routes: withTies(wireRoutes(bare(sent.routes), places), ties) }) });
+    if (!Array.isArray(r?.results)) return r;
+    return { ...r, results: r.results.map((x, i) => (sent.routes[i] ? { ...x, src: sent.routes[i].src, dst: sent.routes[i].dst } : x)) };
+  };
   door.tellLock(isPublic(panel));
   art = createArt(call, id);
   const applyLook = lookApplier(ui, embedded);
@@ -364,14 +475,16 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     id,
     call,
     callJSON,
+    places: () => places,
     // Each confirm sends one POST with one Idempotency-Key.
     post: (path, sent) =>
-      callJSON(path, {
+      postTake(path, sent, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': takeKey() },
-        body: JSON.stringify(sent),
         noWait: true,
       }),
+    // The plan of a take with a route across routers, for the confirm (affectedLines); null when it has none.
+    tiePlan: (routes) => (crossing(routes) ? tiePlan(routes) : Promise.resolve(null)),
     poll: () => feed?.poll(),
     ready: () => !!feed?.ready(),
     instance: () => door.instance,
@@ -388,6 +501,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     body,
     ui,
     rights: panel.rights,
+    used: () => placesUsed(panel, places),
     showOffline: (o) => paintOffline(ui, o),
     onFail(e) {
       const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!door.key && !door.keyIsPublic, door.keyIsPublic);
@@ -424,7 +538,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     // Every read carries the caller's Rights and the confirm settings, which a layout update waiting on staged
     // routes must not hold back.
     get: async (path) => {
-      const p = edgesIn(await callJSON(path));
+      const p = panelIn(await callJSON(path), places);
       if (p) feed.rights(p.rights);
       if (p) body.read?.(p);
       return p;
@@ -441,7 +555,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
   stopWatch = watch;
   run.show = (patch) => {
     if (door.ended) return;
-    panel = { ...panel, ...patch };
+    panel = panelIn({ ...panel, ...patch }, places);
     body.apply(panel);
     if (patch.rev !== undefined) watch.seen(panel);
   };

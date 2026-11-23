@@ -86,7 +86,7 @@ Commas separate terms. A name matches if it fits any plain term and no `!` term.
 
 Open Settings with the **Settings** button at the bottom of the page. Sode stores them in `/data/config.yaml`. A save applies immediately. Changes to the router, matrix, levels or name options reconnect and re-read names and routes. When there is no config file yet, Sode opens the setup wizard, and these variables fill its fields. The wizard's Finish writes the file, and after that the file wins.
 
-The router's keys sit under `routers`, a list that holds one router. Each router also has a `uid`, which Sode makes when it adds the router and never changes, not even with the address. It has a `prefix`, one letter A to Z (`A` for the first router), hidden while there is one router. Rows marked "router" below are keys of that router. The others are top-level keys. The first key is `format: 2`. The top-level `installUid` names this install. Sode makes it on first start and never changes it, not even with a config import; Item links carry it. A file without `format` is from v1, and on start Sode moves the v1 files into `/data/v1/` and starts as a fresh install:
+The router's keys sit under `routers`, a list that holds one router. Each router also has a `uid`, which Sode makes when it adds the router and never changes, not even with the address. It has a `prefix`, one or two letters A to Z (`A` for the first router), hidden while there is one router. Rows marked "router" below are keys of that router. The others are top-level keys. The first key is `format: 2`. The top-level `installUid` names this install. Sode makes it on first start and never changes it, not even with a config import; Item links carry it. A file without `format` is from v1, and on start Sode moves the v1 files into `/data/v1/` and starts as a fresh install:
 
 ```yaml
 format: 2
@@ -118,6 +118,7 @@ routers:
 | `SODE_NUM_OFFSET` | `numberOffset` (router) | `1` | Added to router numbers for display (Ultrix shows 1-based) |
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | How long the confirm key is ignored after the dialog opens |
 | `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 keeps it open). Failures always stay until closed |
+| `SODE_TIE_HOP_WEIGHT` | `tieHopWeight` | `1` | The cost of each hop that changes a tie line, added to the number of Affected destinations (0-100). Settings > Routers > Tie lines |
 | `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
 | `SODE_NAME_REREAD_S` | `nameRereadSeconds` (router) | `60` | Re-read names this often (0 turns it off) |
 | `SODE_TALLY_RESYNC_S` | `routeRereadSeconds` (router) | `300` | Re-read all routes and which destinations are protected this often (0 turns it off) |
@@ -128,11 +129,12 @@ routers:
 Settings-only keys (no seed var):
 
 - `brandText`: replaces "Sode" in the header and page title, up to 24 characters.
-- `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`, or a custom `#rrggbb`): a border round the window, off by default.
+- `brandBorder` (`blue`, `teal`, `sky`, `slate`, `violet`, or a custom `#rrggbb`): a border round the window, off by default. Sode makes the accent from it (docs/color-roles.md). `green`, `amber` and `pink` are retired: Settings does not offer them, but a config that has one still loads, with a caution note in Settings.
 - `title` (router): the router title, up to 32 characters.
 - `statusLabel` (router: `address`, `name` or `none`): what the Router status shows.
 - `levelColors`
 - `filterSets`
+- `tieLines`: the tie lines of Settings > Routers > Tie lines (Administrator). Each has a hidden `id` and a `name`, the Tie line name (unique, up to 32 characters). `from` is a destination, `{router, n}`, and `to` is a source on another router. Each end also keeps its router `name` from the save. Sode fills a blank `name` from the source name. The section saves each change at once, apart from the Save button, and needs two or more routers.
 - `hiddenDsts`
 - `browserDefaults`: what a browser uses until it chooses its own under Settings > This browser. It holds theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`), stackGap and compact. The stackGap field is a number of seconds written as text: `0` (off), `10`, `30` (the default), `60`, `120` or `300`. The compact field is Compact view, off by default (see Compact view above). The paletteChar field is the Palette character: one of `>~!/;:=#@$%^&*|?<_()[]{}§°¬£€¤`, or `off` for no character. The default is `>`.
 
@@ -206,13 +208,13 @@ Sode checks each file as it checks an upload. It must be PNG or SVG, at most 2 M
 
 ## Monitoring (Uptime Kuma)
 
-`GET /api/health` reports the server and the router separately. It needs no PIN and shows no settings:
+`GET /api/health` reports the server, the state of Sode as a whole and each router. It needs no PIN and shows no settings:
 
 ```json
-{"server":"up","router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
+{"server":"up","state":"degraded","routers":[{"uid":"3f9c...","prefix":"A","title":"Main","router":"up","targetAddress":"10.0.0.1:8910"},{"uid":"7d21...","prefix":"B","title":"Stage 2","router":"down","targetAddress":"10.0.0.2:8910","err":"connection refused"}],"router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
 ```
 
-`router` is `up`, `connecting` or `down`. `err` appears when the router link has a problem. The status code is 200 only while the router is up and 503 otherwise, so a plain HTTP(s) monitor alerts when the router is lost. A dead server shows as no answer. Uptime Kuma counts a 503 as down even for a JSON Query monitor. To watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `router` as the key and `up` as the expected value. `/healthz` is unchanged.
+`state` is `healthy` when every router is up and `down` when every router is down. It is `degraded` when one or more routers are down and one or more are up. A router that is connecting counts as down. `routers` has one element for each router, in the order of Settings. Its `router` is `up`, `connecting` or `down`, and `err` appears when that router link has a problem. The flat `router`, `targetAddress` and `err` are those of the first router. The status code is 200 only while Sode is Healthy and 503 otherwise, so a plain HTTP(s) monitor alerts when any router is lost. A dead server shows as no answer. Uptime Kuma counts a 503 as down even for a JSON Query monitor. To watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `state` as the key and `healthy` as the expected value. `/healthz` is unchanged.
 
 ## Communication log
 
@@ -231,7 +233,7 @@ ACKed messages also show how long the router needed.
 
 The **Router uptime** graph at the top of the log is one strip with toggles for 1 hour, 24 hours, 7 days and 30 days. The default view is 24 hours. Each toggle shows its bar length, for example "24 hours (15 min)". A toggle also sets the log's From time to that long ago, so the table shows the same period, and Clear times undoes it. Setting From or To by hand shows that range instead. Click a bar to see only that slot. The log's times become the bar's, the table is sorted newest first, and a banner says so. **Back** restores the times and sort you had.
 
-Each bar is a slot: a minute for an hour, 15 minutes for a day and an hour for a week. Hover a bar for the details. A bar is green when the router link was up the whole slot. It is yellow when the link was down for part of the slot. It is also yellow when messages failed, needed a retry or needed more than 300 ms to ACK. It is red when the link was down or Sode was not running, and grey with nothing recorded. Sode keeps the record for 365 days in `SODE_UPTIME`, and at most 5 MB of it. Sode finds the times when it was not running from a stamp that it rewrites every minute. As a result, a crash shows as down from the last minute that Sode was alive.
+Each bar is a slot: a minute for an hour, 15 minutes for a day and an hour for a week. Hover a bar for the details. A bar is grey when the router link was up the whole slot. A healthy state shows no color (docs/color-roles.md). It is yellow when the link was down for part of the slot. It is also yellow when messages failed, needed a retry or needed more than 300 ms to ACK. It is red when the link was down or Sode was not running, and the color of an empty control with nothing recorded. Sode keeps the record for 365 days in `SODE_UPTIME`, and at most 5 MB of it. Sode finds the times when it was not running from a stamp that it rewrites every minute. As a result, a crash shows as down from the last minute that Sode was alive.
 
 ## Protocol notes
 

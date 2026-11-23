@@ -84,3 +84,16 @@ test('numbers stage as numbers', () => {
   const d = { ...againAnswers(now(), presets), levels: '8', numberOffset: '1', levelNumbering: '1' };
   assert.deepEqual(againStage(d, now()).fields, { levels: 8, numberOffset: 1, levelNumbering: '1' });
 });
+
+test("a Guest whose Use tie lines right differs from the preset's matches no preset, so a pick stages it", () => {
+  const ps = [
+    { ...standard, guestTieLines: false },
+    { ...secured, guestTieLines: false },
+  ];
+  const n = { ...now(), guestRights: {} }; // unset is on
+  const d = againAnswers(n, ps);
+  assert.equal(d.was, '');
+  assert.equal(d.preset, '');
+  assert.equal(againStage({ ...d, preset: 'standard' }, n, ps).preset, ps[0]);
+  assert.equal(againAnswers({ ...now(), guestRights: { tieLines: false } }, ps).preset, 'standard');
+});

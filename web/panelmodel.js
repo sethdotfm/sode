@@ -1,8 +1,10 @@
 // A panel's state model: view, stage, arm and Take. No DOM, no clock and no network (test/panelmodel.test.mjs). Every
 // function returns a new state. env is the router's answer: { levels, tally: Map(dst -> Map(level -> src)), protectedDsts,
 // presets, rights }. The plan is panel-wide, so a Page change leaves the view and staged alone.
-import { presetKey, presetName, rightsAllow, fixedDestsOf } from './panelrules.js';
+import { presetKey, presetName, rightsAllow, fixedDestsOf, envAt } from './panelrules.js';
 import { navTarget } from './panelnav.js';
+import { levelsOn } from './routerlevels.js';
+import { acrossRouters, placeOf } from './routerids.js';
 
 export const RESULT_MS = 1500;
 export const ERROR_MS = 4000;
@@ -43,9 +45,16 @@ export function pressPage(st, cell, pages, wrap) {
 
 const inSet = (levels, set) => (set ? levels.filter((l) => set.includes(l)) : levels);
 
-// A take sends the levels the panel, the Source cell and the Destination cell all allow.
-function shared(st, env, srcLevels, dstLevels) {
-  return inSet(inSet(inSet(inSet(env.levels, env.rights?.levels), st.levels), srcLevels), dstLevels);
+// The panel's level subset on the router of env. An empty list means every level.
+const panelLevels = (st, env) => {
+  const l = levelsOn(st.levels, env.router);
+  return l?.length ? l : null;
+};
+
+// A take sends the levels the panel, the Source cell and the Destination cell all allow, on the router of dst.
+function shared(st, all, srcLevels, dstLevels, dst) {
+  const env = envAt(all, placeOf(dst));
+  return inSet(inSet(inSet(inSet(env.levels, levelsOn(env.rights?.levels, env.router)), panelLevels(st, env)), srcLevels), dstLevels);
 }
 
 const quiet = (env) => env.rights?.visibility === 'hidden';
@@ -57,9 +66,10 @@ function outsideRights(env, src, dst) {
 }
 
 // The one source on every routed level the panel and the cell send, or -1 when there is none or the levels differ.
-export function currentOfDestination(st, env, cell) {
+export function currentOfDestination(st, all, cell) {
+  const env = envAt(all, placeOf(cell.n));
   const row = env.tally.get(cell.n);
-  const srcs = inSet(inSet(env.levels, st.levels), cell.levels)
+  const srcs = inSet(inSet(env.levels, panelLevels(st, env)), cell.levels)
     .map((l) => row?.get(l) ?? -1)
     .filter((s) => s >= 0);
   return srcs.length && srcs.every((s) => s === srcs[0]) ? srcs[0] : -1;
@@ -96,9 +106,10 @@ function pressSourceFixed(st, cell, env, now) {
   const routes = [];
   for (const dst of st.fixed) {
     if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
+    if (acrossRouters(cell.n, dst) && !env.ties) return fail(st, { code: 'across-routers', src: cell.n, dst }, now);
     const denied = outsideRights(env, cell.n, dst);
     if (denied) return fail(st, denied, now);
-    const levels = shared(st, env, cell.levels, null);
+    const levels = shared(st, env, cell.levels, null, dst);
     if (!levels.length) return fail(st, { code: 'no-common-levels', src: cell.n, dst }, now);
     const route = { dst, src: cell.n, levels };
     if (!routed(env, route)) routes.push(route);
@@ -113,9 +124,10 @@ function pressSourceOne(st, cell, env, now) {
   if (!st.view) return fail(st, { code: 'no-destination' }, now);
   const dst = st.view.dst;
   if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
+  if (acrossRouters(cell.n, dst) && !env.ties) return fail(st, { code: 'across-routers', src: cell.n, dst }, now);
   const denied = outsideRights(env, cell.n, dst);
   if (denied) return fail(st, denied, now);
-  const levels = shared(st, env, cell.levels, st.view.levels);
+  const levels = shared(st, env, cell.levels, st.view.levels, dst);
   if (!levels.length) return fail(st, { code: 'no-common-levels', src: cell.n, dst }, now);
   // Instant mode sends the take on the press, so only a failed route can still be staged: a new press replaces it.
   const others = st.multi && st.mode === 'take' ? st.staged.filter((x) => x.dst !== dst) : [];
@@ -146,9 +158,12 @@ function pressPresetOne(st, cell, env, now) {
       if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
       const denied = outsideRights(env, it.src, dst);
       if (denied) return fail(st, denied, now);
-      const levels = shared(st, env, inSet(env.levels, it.levels?.length ? it.levels : null), cell.levels);
+      if (acrossRouters(it.src, dst) && !env.ties) return fail(st, { code: 'across-routers', src: it.src, dst }, now);
+      const levels = shared(st, env, inSet(envAt(env, placeOf(dst)).levels, it.levels?.length ? it.levels : null), cell.levels, dst);
       if (!levels.length) return fail(st, { code: 'no-common-levels', src: it.src, dst }, now);
-      routes.push({ dst, src: it.src, levels });
+      // A route across routers keeps the preset's tie lines: the panel sends them under its Reserved rule
+      // (paneltierules.js storedClash).
+      routes.push({ dst, src: it.src, levels, ...(it.ties?.length && acrossRouters(it.src, dst) ? { ties: it.ties } : {}) });
     }
   }
   const last = new Map(routes.map((x) => [x.dst, x]));

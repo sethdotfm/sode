@@ -30,7 +30,7 @@ func backupOf(t *testing.T, pins bool) (*App, []byte) {
 	seedPanelExtras(t, a)
 	lifeCommit(t, a, func(c *config.Config) { c.BrandText, c.Title, c.Prefix = "Truck A", "Main", "B" })
 	a.mu.Lock()
-	a.router.namesAt = time.Date(2026, 11, 18, 9, 30, 0, 0, time.UTC)
+	a.first.router.namesAt = time.Date(2026, 11, 18, 9, 30, 0, 0, time.UTC)
 	a.mu.Unlock()
 	return a, exported(t, a, tok, backupReq(pins))
 }

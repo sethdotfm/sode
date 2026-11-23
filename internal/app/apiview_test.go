@@ -21,11 +21,11 @@ func viewApp(t *testing.T, vis string) (*App, string) {
 		c.Presets = append(c.Presets, config.Preset{Name: "Secret mix", Items: []config.PresetItem{presetItem(5, nil, 7)}})
 	})
 	a.mu.Lock()
-	a.router.srcNames[5] = "SECRET SRC"
-	a.router.dstNames[7] = "SECRET DST"
-	a.router.tally[7] = map[int]int{1: 5}
-	a.router.tally[2][2] = 5 // visible destination, hidden source
-	a.router.protect[7] = map[int]protHold{1: {0, 1}}
+	a.first.router.srcNames[5] = "SECRET SRC"
+	a.first.router.dstNames[7] = "SECRET DST"
+	a.first.router.tally[7] = map[int]int{1: 5}
+	a.first.router.tally[2][2] = 5 // visible destination, hidden source
+	a.first.router.protect[7] = map[int]protHold{1: {0, 1}}
 	a.mu.Unlock()
 	return a, botKey(t, a)
 }
@@ -63,7 +63,7 @@ func TestHiddenRightsDropNamesTallyAndProtected(t *testing.T) {
 	// The value in protect is a device, not a source. Device 5 must not hide a visible
 	// destination. The row carries dst, level, kind and device, and no Sode user for a Protect Sode did not set.
 	a.mu.Lock()
-	a.router.protect[2] = map[int]protHold{1: {5, 1}}
+	a.first.router.protect[2] = map[int]protHold{1: {5, 1}}
 	a.mu.Unlock()
 	got := viewGet(t, a, key, "/api/v1/protected")["protected"].([]any)
 	if len(got) != 1 || len(got[0].(map[string]any)) != 4 || got[0].(map[string]any)["dst"] != float64(2) {
@@ -142,11 +142,11 @@ func TestHiddenRightsDropHistoryEntries(t *testing.T) {
 }
 
 func TestViewEntryIsTheCheckForUndoPlans(t *testing.T) {
-	hid := apiView{viewRights(config.VisHidden)}
+	hid := apiView{rights: viewRights(config.VisHidden)}
 	if _, ok := hid.Entry(Entry{Src: 1, Dst: 7, Levels: []int{1}}); ok {
 		t.Error("hidden destination entry is visible")
 	}
-	open := apiView{viewRights("")}
+	open := apiView{rights: viewRights("")}
 	e, ok := open.Entry(Entry{Src: 5, Dst: 7, Levels: []int{1}})
 	if !ok || e.Dst != 7 {
 		t.Error("read-only rights hide an entry")

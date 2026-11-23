@@ -1,6 +1,8 @@
-// v2.0 drives one router; the list and block stay, so a second router only adds rows and blocks.
+// Settings > Routers: the first router's row of the Routers list. settingsrouterlist.js adds the rows of the other
+// routers, Add router and Remove router.
 
 import { $, S, el, emit, on } from './core.js';
+import { showRouterList } from './settingsrouterlist.js';
 
 let admin = false;
 on('access', (a) => {
@@ -32,5 +34,5 @@ export function fillRouters(onPick) {
   const broken = el('div', 'sode__broken-count');
   broken.id = 'router-1-broken';
   broken.hidden = !admin;
-  $('routers-list').replaceChildren(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), swap, broken));
+  showRouterList(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), swap, broken));
 }

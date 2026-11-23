@@ -1,4 +1,4 @@
-// The Grid panel's Take button (the main page's red Take) and Clear note. They are at the end of the Levels box,
+// The Grid panel's Take button (the main page's amber Take) and Clear note. They are at the end of the Levels box,
 // since Kiosk mode hides the header, not the box. An embedded run has neither.
 import { el } from './core.js';
 import { takeButton } from './gridpanelphone.js';
@@ -6,7 +6,7 @@ import { clearNote } from './gridpanelnote.js';
 import { joinPulse } from './gridpanelnodes.js';
 
 export function gridTake(ctx, ui, { onTake, onClear }) {
-  const take = ctx.embedded ? null : el('button', 'pb-btn pb-btn--danger sode-panel__take sode-gridpanel__take', 'Take');
+  const take = ctx.embedded ? null : el('button', 'pb-btn pb-btn--commit sode-panel__take sode-gridpanel__take', 'Take');
   if (take) {
     take.type = 'button';
     take.id = 'panel-take';

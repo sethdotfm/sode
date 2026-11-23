@@ -29,6 +29,7 @@ const browser = Object.fromEntries(
     'Request',
     'Response',
     'AbortController',
+    'AbortSignal',
     'Event',
     'CustomEvent',
     'KeyboardEvent',
@@ -119,8 +120,8 @@ export default [
         {
           patterns: [
             {
-              regex: '^(?!\\./(tooltip|sprite|fuzzy|buildrules|routerprefix)\\.js$)',
-              message: 'core.js imports only ./tooltip.js, ./sprite.js, ./fuzzy.js, ./buildrules.js and ./routerprefix.js.',
+              regex: '^(?!\\./(tooltip|sprite|fuzzy|buildrules|routerprefix|routerlinkrules)\\.js$)',
+              message: 'core.js imports only ./tooltip.js, ./sprite.js, ./fuzzy.js, ./buildrules.js, ./routerprefix.js and ./routerlinkrules.js.',
             },
           ],
         },

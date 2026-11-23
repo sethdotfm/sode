@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nameArt, nameArtKey } from '../gridpanelart.js';
 import { defaultsBy } from '../panellook.js';
+import { SPAN } from '../routerids.js';
 
 const edge = { members: 'all', items: { 1: { art: 'icon:camera', artB: '2' }, 2: { artB: 'A' } } };
 const defaults = defaultsBy([
@@ -47,4 +48,17 @@ test('the key changes with the artwork and only then', () => {
   assert.equal(k, nameArtKey(nameArt(edge, 'source', 1, defaults)));
   assert.notEqual(k, nameArtKey(nameArt(edge, 'source', 3, defaults)));
   assert.equal(nameArtKey(null), '');
+});
+
+test('a name read with a router shows the Default artwork of that router', () => {
+  const two = defaultsBy(
+    [
+      { kind: 'source', router: 'ra', n: 6, artB: 'A' },
+      { kind: 'source', router: 'rb', n: 6, artB: 'B' },
+    ],
+    'ra',
+  );
+  assert.equal(nameArt({ members: 'all' }, 'source', 6, two).b, 'A');
+  // Router B's source 6 is item number SPAN + 6 (routerids.js).
+  assert.equal(nameArt({ members: [SPAN + 6] }, 'source', SPAN + 6, two, () => 'rb').b, 'B');
 });

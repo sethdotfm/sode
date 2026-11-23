@@ -1,0 +1,2 @@
+- With two or more routers, one router that is down makes Sode Degraded. Only that router's icon turns red. A note names the destinations that you cannot patch now, and Take stays on for the other routers. The Lost link banner shows only when the Server link is down or every router is down, and then it shows each router. Compact view shows only the red icon while Degraded.
+- The status details show a 24-hour uptime strip for each router. /log has an uptime line and Routers chips for each router. Link rows name their router, and the downloads get a router column.

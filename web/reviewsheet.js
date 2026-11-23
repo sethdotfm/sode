@@ -2,7 +2,7 @@
 // by browsercopy.js.
 // A save goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
-import { el, S, on, off, sentence } from './core.js';
+import { el, on, off, sentence, routerData } from './core.js';
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
 import { showResult } from './plans.js';
@@ -33,7 +33,7 @@ const prefsBox = el('div', 'sode__rv-sec');
 const rowsBox = el('div', 'sode__rv-sec');
 const sumEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
 const noteEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
-const applyBtn = btn('pb-btn--ok', 'Apply', () => apply());
+const applyBtn = btn('sode-btn--primary', 'Apply', () => apply());
 const dlg = modal({
   titleId: 'rv-title',
   title: 'Review import',
@@ -76,7 +76,7 @@ const psave = profileSaver({ setNote, isOpen: () => open, failTitle: 'Import not
 const saving = () => busy || gsave.busy() || gsavePresets.busy() || psave.busy();
 
 const forUser = () => st?.user && st.user !== profileName();
-const live = () => ({ srcs: S.srcs, dsts: S.dsts, levelCount: S.levels.length });
+const live = () => ({ srcs: routerData('').srcs, dsts: routerData('').dsts, levelCount: routerData('').levels.length });
 const scope = () => st.scope;
 
 function curSets(sc) {
@@ -236,7 +236,7 @@ function matchLines(r) {
     }
   }
   if (m.count.ambiguous) lines.push(status('warn', 'Skip by default. Import keeps the numbers as written.'));
-  if (m.levelsOver.length) lines.push(status('warn', `Level ${m.levelsOver.join(', ')} is above this router’s ${S.levels.length}`));
+  if (m.levelsOver.length) lines.push(status('warn', `Level ${m.levelsOver.join(', ')} is above this router’s ${routerData('').levels.length}`));
   return lines;
 }
 
@@ -472,7 +472,7 @@ function finish(p) {
   const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope);
   const text = `${summaryText(p)} imported to ${where}.`;
   close();
-  showResult('ok', 'Import done', text);
+  showResult('done', 'Import done', text);
 }
 
 function apply() {
@@ -559,7 +559,7 @@ function copyApply(p) {
     clear(m, keep);
     const text = moveText(summaryText(p) === 'Nothing' ? 'This browser’s values' : summaryText(p), keep);
     close();
-    showResult('ok', keep ? 'Copied' : 'Moved', text);
+    showResult('done', keep ? 'Copied' : 'Moved', text);
   };
   if (!Object.keys(p.parts).length) return after();
   busy = true;

@@ -56,19 +56,29 @@ export function artUrlPath(panelId, artId) {
 }
 
 // The item a cell shows, keyed as Default artwork is (cellItem and ArtDefault.key in artdefaults.go); '' for none.
+// A Source or Destination keys by router and number. One with no router has the old key, kind/n, which is the first
+// router's.
 export function itemKey(cell) {
-  if ((cell?.kind === 'source' || cell?.kind === 'destination') && Number.isInteger(cell.n)) return `${cell.kind}/${cell.n}`;
+  if ((cell?.kind === 'source' || cell?.kind === 'destination') && Number.isInteger(cell.n)) {
+    return cell.router ? `${cell.kind}/${cell.router}/${cell.n}` : `${cell.kind}/${cell.n}`;
+  }
   if (cell?.kind === 'preset' && cell.id) return `preset/${cell.id}`;
   if (cell?.kind === 'preset' && cell.name) return `preset/${cell.scope}/${cell.name}`;
   return '';
 }
 
-// A preset's default is also kept under the preset's name, for a Preset cell that has no id yet.
-export function defaultsBy(list) {
+// first is the first router's UID. Its defaults are also kept under the old key, for an item with no router. Examples
+// are a Grid name on an edge with Follow the router on, and an old cell. With first not known yet, the first default of each number
+// gets the old key. A preset's default is also kept under the preset's name, for a Preset cell that has no id yet.
+export function defaultsBy(list, first = '') {
   const out = new Map();
   for (const d of Array.isArray(list) ? list : []) {
     out.set(itemKey(d), d);
     if (d.kind === 'preset' && d.id && d.name) out.set(itemKey({ ...d, id: '' }), d);
+    if (d.kind === 'preset' || !Number.isInteger(d.n)) continue;
+    const old = itemKey({ kind: d.kind, n: d.n });
+    if (d.router && (d.router === first || (!first && !out.has(old)))) out.set(old, d);
+    if (!d.router && first) out.set(itemKey({ ...d, router: first }), d);
   }
   return out;
 }

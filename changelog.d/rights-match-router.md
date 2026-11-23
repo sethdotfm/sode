@@ -1,0 +1,1 @@
+- Rights compare the router and the number of each source and destination. A right for source 5 on one router does not allow source 5 on another router, for takes, presets, Undo, Protects and hidden Rights. The main page greys out and blocks the same routes.

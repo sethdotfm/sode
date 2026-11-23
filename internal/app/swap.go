@@ -30,10 +30,11 @@ type swapReq struct {
 	Mine   bool     `json:"mine"` // swapList: only the asking user's items
 }
 
-// swapItem: one preset, filter set or panel that uses From. Owner is the user's name, "" for Everyone.
+// swapItem: one preset, filter set, panel or tie line that uses From. Owner is the user's name, "" for Everyone and a
+// tie line.
 type swapItem struct {
 	ID     string `json:"id"`
-	Kind   string `json:"kind"` // preset, filterSet or panel
+	Kind   string `json:"kind"` // preset, filterSet, panel or tieLine
 	Name   string `json:"name"`
 	Owner  string `json:"owner"`
 	Broken bool   `json:"broken"` // From is a Broken reference of the item
@@ -170,6 +171,21 @@ func (sw *swapper) panel(p *Panel) bool {
 	return true
 }
 
+// tieLine moves the end of t on From to To, with the name at To, and drops the Name moved mark of that end. A tie line
+// is a cable, so Sode moves an end only when an Administrator ticks it (docs/tielines-design.md, Other stores).
+func (sw *swapper) tieLine(t *config.TieLine) bool {
+	changed := false
+	config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref {
+		out := sw.answer(kind, r)
+		changed = changed || out != nil
+		return out
+	}}.TieLine(t)
+	if changed {
+		t.Moved = slices.DeleteFunc(slices.Clone(t.Moved), func(m config.Missing) bool { return m.Kind == sw.kind() })
+	}
+	return changed
+}
+
 // For a list, an item the Swap would change. Broken is from before the Swap.
 type swapHit func(it swapItem)
 
@@ -191,6 +207,17 @@ func (sw *swapper) config(c *config.Config, mine string, pick func(id string) bo
 		}
 		*s.Presets, *s.FilterSets = ps, fs
 	}
+	if mine != "" {
+		return
+	}
+	ties := config.CloneTieLines(c.TieLines)
+	for i := range ties {
+		id := "tieLine/" + ties[i].ID
+		if pick(id) && sw.tieLine(&ties[i]) {
+			hit(swapItem{ID: id, Kind: "tieLine", Name: ties[i].Name})
+		}
+	}
+	c.TieLines = ties
 }
 
 func (sw *swapper) onPanel(p *Panel, cfg config.Config, mine string, pick func(id string) bool, hit swapHit) bool {
@@ -224,8 +251,9 @@ func (a *App) newSwapper(cfg config.Config, req swapReq) (*swapper, error) {
 		return nil, fmt.Errorf("swap: numbers run from %d to %d", cfg.NumberOffset, dstNumberMax+cfg.NumberOffset)
 	}
 	sw := &swapper{uid: cfg.UID, dst: req.Side == config.MissingDestination, from: req.From, to: req.To, off: cfg.NumberOffset}
+	first := a.firstUnit()
 	a.mu.Lock()
-	names := sideNames(req.Side, a.router.srcNames, a.router.dstNames)
+	names := sideNames(req.Side, first.router.srcNames, first.router.dstNames)
 	sw.toName = strings.TrimSpace(names[req.To])
 	sw.fromNames = []string{names[req.From]}
 	a.mu.Unlock()

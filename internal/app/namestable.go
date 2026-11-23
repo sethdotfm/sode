@@ -53,15 +53,16 @@ func tableMap(l []namedItem) map[int]string {
 // A hand-edited config can hold any UID; only these go into a file name.
 var routerUIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
-// namesStore writes a router's names table when its names change. dir "" means memory only.
+// namesStore writes each router's names table, one file for each router UID, when its names change. dir "" means
+// memory only.
 type namesStore struct {
-	mu       sync.Mutex
-	dir      string
-	src, dst map[int]string // what the file holds; a read that matches it writes nothing
+	mu   sync.Mutex
+	dir  string
+	held map[string]namePoll // by router UID: what the file holds; a read that matches it writes nothing
 }
 
 func newNamesStore(cfgPath string) *namesStore {
-	s := &namesStore{}
+	s := &namesStore{held: map[string]namePoll{}}
 	if cfgPath != "" {
 		s.dir = filepath.Join(filepath.Dir(cfgPath), namesDir)
 	}
@@ -97,7 +98,7 @@ func (s *namesStore) load(uid string) (namesTable, bool) {
 		return namesTable{}, false
 	}
 	s.mu.Lock()
-	s.src, s.dst = tableMap(t.Sources), tableMap(t.Destinations)
+	s.held[uid] = namePoll{tableMap(t.Sources), tableMap(t.Destinations)}
 	s.mu.Unlock()
 	return t, true
 }
@@ -109,7 +110,7 @@ func (s *namesStore) save(uid string, at time.Time, src, dst map[int]string) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.src != nil && maps.Equal(s.src, src) && maps.Equal(s.dst, dst) {
+	if h, ok := s.held[uid]; ok && maps.Equal(h.src, src) && maps.Equal(h.dst, dst) {
 		return
 	}
 	b, err := yaml.Marshal(namesTable{Router: uid, At: at.UTC(), Sources: tableList(src), Destinations: tableList(dst)})
@@ -122,5 +123,20 @@ func (s *namesStore) save(uid string, at time.Time, src, dst map[int]string) {
 		log.Printf("names table: %v", err)
 		return
 	}
-	s.src, s.dst = src, dst
+	s.held[uid] = namePoll{src, dst}
+}
+
+// remove deletes the saved names table of a router that a save removed.
+func (s *namesStore) remove(uid string) error {
+	path := s.path(uid)
+	if path == "" {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.held, uid)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }

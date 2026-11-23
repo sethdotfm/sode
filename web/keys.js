@@ -31,6 +31,13 @@ export function undoKey(e, isMac = mac) {
   return { own: !!e.metaKey === isMac };
 }
 
+// Redo: Ctrl+Shift+Z, or Cmd+Shift+Z on a Mac, read as undoKey reads its key. own is true for the OS's own text-redo
+// chord, which a box with text keeps.
+export function redoKey(e, isMac = mac) {
+  if (!primary(e, isMac) || !e.shiftKey || e.altKey || (e.key || '').toLowerCase() !== 'z') return null;
+  return { own: !!e.metaKey === isMac };
+}
+
 // Keep in step with the combobox and Settings search: both get their Ctrl/Cmd+J/K from here.
 export function listStep(e, isMac = mac) {
   return (primary(e, isMac) && !e.altKey && !e.shiftKey && { KeyJ: 1, KeyK: -1 }[e.code]) || 0;

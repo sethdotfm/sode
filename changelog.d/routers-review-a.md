@@ -1,0 +1,5 @@
+- Each router uses its own Matrix, name length, name requests, fire mode, salvo group and number offset. Before, a router after the first used the first router's Matrix, so its takes went to the wrong matrix.
+- `POST` and `DELETE /api/v1/protected/{dst}` act on the router of `?router=`. With two or more routers, a call without it gets 400 `router_needed`. A Protect from the main page goes to the router of its destination.
+- `POST /api/v1/takes/plan` gives the paths of a route across routers and takes nothing. A panel uses it, so its plan no longer writes a refused row in the Communication Log.
+- The Undo of a tie take from the page is checked again when it is sent. If a tie line moved while the confirm was open, the Undo sends nothing and says why.
+- Remove router drops the number terms of the hidden destinations of that router, so Sode does not hide more destinations. An import with no target for a router does the same. An import that puts two file routers on one router gets a refusal.

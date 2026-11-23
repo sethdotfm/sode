@@ -114,6 +114,20 @@
   color: var(--pb-text-strong);
   font-size: var(--pb-text-sm);
 }
+/* With two or more routers: one line for each router, its name and its summary, over its bars (log.js). */
+.sode-log__up-router {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+.sode-log__up-router[hidden],
+.sode-log__up-sum[hidden] {
+  display: none;
+}
+.sode-log__up-more {
+  display: contents;
+}
 .sode-log__slot {
   align-items: center;
   display: flex;

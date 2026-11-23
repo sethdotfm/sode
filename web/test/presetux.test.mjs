@@ -41,12 +41,12 @@ const setup = async () => {
   const m = await import('./all.mjs');
   const it = (n, name) => ({ n, name, num: String(n + 1), label: `${n + 1} ${name}` });
   m.S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [], presets: [] };
-  m.S.levels = [{ ui: 1 }, { ui: 2 }];
-  m.S.levelBy = new Map(m.S.levels.map((l) => [l.ui, l]));
-  m.S.srcs = [it(0, 'Cam 1'), it(1, 'Cam 2')];
-  m.S.dsts = [it(0, 'Rec 1'), it(1, 'Rec 2'), it(2, 'Rec 3')];
-  m.S.srcBy = new Map(m.S.srcs.map((x) => [x.n, x]));
-  m.S.dstBy = new Map(m.S.dsts.map((x) => [x.n, x]));
+  m.routerData('').levels = [{ ui: 1 }, { ui: 2 }];
+  m.routerData('').levelBy = new Map(m.routerData('').levels.map((l) => [l.ui, l]));
+  m.routerData('').srcs = [it(0, 'Cam 1'), it(1, 'Cam 2')];
+  m.routerData('').dsts = [it(0, 'Rec 1'), it(1, 'Rec 2'), it(2, 'Rec 3')];
+  m.routerData('').srcBy = new Map(m.routerData('').srcs.map((x) => [x.n, x]));
+  m.routerData('').dstBy = new Map(m.routerData('').dsts.map((x) => [x.n, x]));
   mem.clear();
   return m;
 };

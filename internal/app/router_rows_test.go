@@ -52,7 +52,7 @@ func TestLogRowsNameTheirRouter(t *testing.T) {
 	stop := startLog(t, a)
 	defer stop()
 	a.onTx(swp08.TxEvent{Msg: swp08.ExtConnect(0, 0, 2, 4), Why: swp08.Why{Reason: swp08.ReasonTake}, At: time.Now(), Tries: 1, Result: "ack"})
-	a.onRouterState(swp08.StateUp, nil)
+	a.onUnitState(a.first, swp08.StateUp, nil)
 	a.logEvent(event(kindBrowser, "connect", "10.1.1.1", "connected"))
 	rows := waitLogged(t, a, 3)
 	uid := a.r().cfg.UID

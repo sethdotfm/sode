@@ -8,6 +8,7 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
+	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
 func init() {
@@ -29,8 +30,11 @@ type apiRouter struct {
 }
 
 func (a *App) apiRouters(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
-	c := a.r().cfg
-	apiJSONTagged(w, r, map[string][]apiRouter{"routers": {{c.UID, c.Prefix, c.Title}}})
+	out := []apiRouter{}
+	for _, rc := range a.r().cfg.Routers() {
+		out = append(out, apiRouter{rc.UID, rc.Prefix, rc.Title})
+	}
+	apiJSONTagged(w, r, map[string][]apiRouter{"routers": out})
 }
 
 type apiName struct {
@@ -57,12 +61,12 @@ func namesOf(m map[int]string, ok func(int) bool) []apiName {
 }
 
 // Caller holds mu.
-func (a *App) namesSnapshot(v apiView) apiNames {
+func (a *App) namesSnapshot(u *routerUnit, v apiView) apiNames {
 	return apiNames{
-		NumberOffset: a.r().cfg.NumberOffset,
-		Sources:      namesOf(a.router.srcNames, v.Source),
-		Destinations: namesOf(a.router.dstNames, v.Destination),
-		NamesAt:      a.router.namesAt,
+		NumberOffset: a.r().routerOf(u.uid).NumberOffset,
+		Sources:      namesOf(u.router.srcNames, v.on(u.uid).Source),
+		Destinations: namesOf(u.router.dstNames, v.on(u.uid).Destination),
+		NamesAt:      u.router.namesAt,
 	}
 }
 
@@ -77,22 +81,26 @@ type namesBody struct {
 }
 
 func (a *App) apiNames(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	v := cl.view()
+	v := a.view(cl)
+	u, ok := a.apiReadUnit(w, r)
+	if !ok {
+		return
+	}
 	if v.Hidden() {
 		a.mu.Lock()
-		res := a.namesSnapshot(v)
+		res := a.namesSnapshot(u, v)
 		a.mu.Unlock()
 		apiJSONTagged(w, r, res)
 		return
 	}
 	a.mu.Lock()
-	key := namesBody{rs: a.router, rt: a.r(), gen: a.router.namesGen}
-	if c := a.namesCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.body != nil {
+	key := namesBody{rs: u.router, rt: a.r(), gen: u.router.namesGen}
+	if c := u.namesCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.body != nil {
 		a.mu.Unlock()
 		apiWriteTagged(w, r, c.body, c.tag)
 		return
 	}
-	res := a.namesSnapshot(v)
+	res := a.namesSnapshot(u, v)
 	a.mu.Unlock()
 	body, err := json.Marshal(res)
 	if err != nil {
@@ -101,8 +109,8 @@ func (a *App) apiNames(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	key.body, key.tag = body, etagOf(body)
 	a.mu.Lock()
-	if a.router == key.rs && a.r() == key.rt && a.router.namesGen == key.gen {
-		a.namesCache = key
+	if u.router == key.rs && a.r() == key.rt && u.router.namesGen == key.gen {
+		u.namesCache = key
 	}
 	a.mu.Unlock()
 	apiWriteTagged(w, r, key.body, key.tag)
@@ -112,6 +120,18 @@ type apiRouteRow struct {
 	Dst   int `json:"dst"`
 	Level int `json:"level"` // UI level
 	Src   int `json:"src"`   // -1 = nothing routed
+	// The Via chain of this level, only when a tie line feeds Src (tievia.go). Origin is nil when Nothing, Unknown or
+	// Loop is set, or when the caller's hidden visibility does not show it. Levels: only when Mixed, the origin of
+	// each level upstream of the nearest tie line, from level 1.
+	Via     []apiTieRef    `json:"via,omitempty"`
+	Origin  *tieplan.End   `json:"origin,omitempty"`
+	Mixed   bool           `json:"mixed,omitempty"`
+	Nothing bool           `json:"nothing,omitempty"`
+	Unknown string         `json:"unknown,omitempty"`
+	Loop    bool           `json:"loop,omitempty"`
+	Levels  []*tieplan.End `json:"levels,omitempty"`
+	// LevelsRouter: only when Mixed, the router unit UID upstream of the nearest tie line, whose levels Levels counts.
+	LevelsRouter string `json:"levelsRouter,omitempty"`
 }
 
 // router.protect maps dst and level to a device, not a source. So visibility asks about dst only.
@@ -124,12 +144,14 @@ type apiProtectedRow struct {
 }
 
 // Stable order.
-func routeRows(m map[int]map[int]int, v apiView) []apiRouteRow {
+func routeRows(m map[int]map[int]int, v routerView, x *viaTrace) []apiRouteRow {
 	out := []apiRouteRow{}
 	for d, t := range m {
 		for l, s := range t {
 			if v.Route(d, l, s) {
-				out = append(out, apiRouteRow{d, l, s})
+				row := apiRouteRow{Dst: d, Level: l, Src: s}
+				x.fill(v, &row)
+				out = append(out, row)
 			}
 		}
 	}
@@ -150,15 +172,18 @@ type apiLevel struct {
 }
 
 // Caller holds mu.
-func (a *App) tallySnapshot(v apiView) map[string]any {
+func (a *App) tallySnapshot(u *routerUnit, v apiView) map[string]any {
 	levels := []apiLevel{}
-	for _, l := range a.r().levels {
+	r := a.r()
+	for _, l := range r.levelsOf(u.uid).levels {
 		levels = append(levels, apiLevel{l.UI, l.Label, l.Swatch, l.Color})
 	}
-	cfg := a.r().cfg
+	rc := r.routerOf(u.uid)
+	// router: the UID that Rights levels and the level subset of a panel name these levels by.
 	return map[string]any{
-		"levels": levels, "levelNumbering": cfg.LevelNumbering, "defaultLevels": cfg.DefaultLevels,
-		"routes": routeRows(a.router.tally, v),
+		"router": a.rightsUID(r, u.uid),
+		"levels": levels, "levelNumbering": rc.LevelNumbering, "defaultLevels": rc.DefaultLevels,
+		"routes": routeRows(u.router.tally, v.on(u.uid), a.newViaTrace(r)),
 	}
 }
 
@@ -168,27 +193,32 @@ type tallyBody struct {
 	rs   *routerState // a router change replaces it
 	rt   *runtime     // levels and level numbering
 	gen  int
+	via  int // App.viaGen
 	body []byte
 	tag  string
 }
 
 func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	v := cl.view()
+	v := a.view(cl)
+	u, ok := a.apiReadUnit(w, r)
+	if !ok {
+		return
+	}
 	if v.Hidden() {
 		a.mu.Lock()
-		res := a.tallySnapshot(v)
+		res := a.tallySnapshot(u, v)
 		a.mu.Unlock()
 		apiJSONTagged(w, r, res)
 		return
 	}
 	a.mu.Lock()
-	key := tallyBody{rs: a.router, rt: a.r(), gen: a.router.tallyGen}
-	if c := a.tallyCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.body != nil {
+	key := tallyBody{rs: u.router, rt: a.r(), gen: u.router.tallyGen, via: a.viaGen}
+	if c := u.tallyCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.via == key.via && c.body != nil {
 		a.mu.Unlock()
 		apiWriteTagged(w, r, c.body, c.tag)
 		return
 	}
-	res := a.tallySnapshot(v)
+	res := a.tallySnapshot(u, v)
 	a.mu.Unlock()
 	body, err := json.Marshal(res)
 	if err != nil {
@@ -197,30 +227,36 @@ func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	key.body, key.tag = body, etagOf(body)
 	a.mu.Lock()
-	if a.router == key.rs && a.r() == key.rt && a.router.tallyGen == key.gen {
-		a.tallyCache = key
+	if u.router == key.rs && a.r() == key.rt && u.router.tallyGen == key.gen && a.viaGen == key.via {
+		u.tallyCache = key
 	}
 	a.mu.Unlock()
 	apiWriteTagged(w, r, key.body, key.tag)
 }
 
+// apiProtected answers for the router of the router parameter, as /tally does.
 func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	u, ok := a.apiReadUnit(w, r)
+	if !ok {
+		return
+	}
 	rt := a.r()
+	rc := rt.routerOf(u.uid)
 	by := map[int]protectBy{}
-	for _, b := range a.protectByList(rt) {
+	for _, b := range a.protectByListOf(rt, rc.UID) {
 		by[b.Dst] = b
 	}
 	a.mu.Lock()
-	v := cl.view()
+	v := a.view(cl)
 	rows := []apiProtectedRow{}
-	for d, t := range a.router.protect {
-		if !v.Destination(d) {
+	for d, t := range u.router.protect {
+		if !v.on(u.uid).Destination(d) {
 			continue
 		}
 		for l, h := range t {
 			row := apiProtectedRow{Dst: d, Level: l, Kind: holdKindWord(h.kind), Device: h.dev}
 			// The rule of protectLevelsMu. A Sode hold with no record has no name, so sodeUser stays empty.
-			if b, ok := by[d]; ok && sodesHold(h, rt.cfg.ProtectDevice, b.Device) {
+			if b, ok := by[d]; ok && sodesHold(h, rc.ProtectDevice, b.Device) {
 				row.SodeUser = b.By
 			}
 			rows = append(rows, row)
@@ -246,12 +282,11 @@ func linkStatus(s statusMsg, withDetail bool) map[string]any {
 	return m
 }
 
+// apiStatus is about every router, so it needs no router parameter.
 func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	a.mu.Lock()
-	st := a.status
+	m := a.statusBody(cl.has(config.ScopeLog))
 	a.mu.Unlock()
-	m := linkStatus(st, cl.has(config.ScopeLog))
-	m["server"], m["version"], m["uptimeSeconds"] = "up", VersionLabel(), int64(time.Since(a.started).Seconds())
 	apiJSON(w, m)
 }
 

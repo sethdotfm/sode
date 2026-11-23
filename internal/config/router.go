@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,7 +15,7 @@ import (
 type Router struct {
 	// Normalize makes UID one time. It never changes, not even with the address. Never shown.
 	UID string `yaml:"uid" json:"-"`
-	// Prefix is A-Z, hidden while there is one router.
+	// Prefix is one or two letters A to Z, hidden while there is one router.
 	Prefix  string `yaml:"prefix" json:"-"`
 	Title   string `yaml:"title" json:"routerName"`
 	Address string `yaml:"address" json:"router" reconnect:"true"`
@@ -42,6 +43,61 @@ type Router struct {
 	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
+func (r *Router) normalize() {
+	r.Address = strings.TrimSpace(r.Address)
+	r.Title = strings.TrimSpace(r.Title)
+	if r.UID == "" {
+		r.UID = newRouterUID()
+	}
+	r.Prefix = strings.ToUpper(strings.TrimSpace(r.Prefix))
+	if r.Prefix == "" {
+		r.Prefix = "A"
+	}
+	r.RouterShow = strings.ToLower(strings.TrimSpace(r.RouterShow))
+	if r.RouterShow == "" {
+		r.RouterShow = "address"
+	}
+	r.DefaultLevels = strings.TrimSpace(r.DefaultLevels)
+	r.FireMode = strings.ToLower(strings.TrimSpace(r.FireMode))
+	if r.FireMode == "" {
+		r.FireMode = "sequential"
+	}
+	r.LevelNumbering = strings.ToLower(strings.TrimSpace(r.LevelNumbering))
+	if r.LevelNumbering == "" {
+		r.LevelNumbering = "1"
+	}
+	if r.DefaultLevels == "" && r.Levels > 0 {
+		r.DefaultLevels = fmt.Sprintf("1-%d", r.Levels)
+	}
+}
+
+// Routers is every router, the first one first.
+func (c Config) Routers() []Router {
+	return append([]Router{c.Router}, c.MoreRouters...)
+}
+
+// RouterUIDs gives the UID of every router, the first router first.
+func (c Config) RouterUIDs() []string {
+	out := make([]string, 0, 1+len(c.MoreRouters))
+	for _, r := range c.Routers() {
+		out = append(out, r.UID)
+	}
+	return out
+}
+
+// RouterByUID gives the router with this UID. Blank is the first router.
+func (c Config) RouterByUID(uid string) (Router, bool) {
+	if uid == "" {
+		return c.Router, true
+	}
+	for _, r := range c.Routers() {
+		if r.UID == uid {
+			return r, true
+		}
+	}
+	return Router{}, false
+}
+
 // N: sources and destinations 0-based, levels 1..N. Import ignores Shown. Only a request leaves Router blank
 // (noRouterProblem).
 type Ref struct {
@@ -61,6 +117,32 @@ func (c Config) DestinationRef(n int, name string) Ref { return c.SourceRef(n, n
 
 func newRouterUID() string { return RandomHexID(8) }
 
+// NewRouterUID is the UID of a router that Add router makes.
+func NewRouterUID() string { return newRouterUID() }
+
+// FreePrefix gives the first router prefix that no router has: A to Z, then AA to ZZ.
+func (c Config) FreePrefix() string {
+	used := map[string]bool{}
+	for _, r := range c.Routers() {
+		used[r.Prefix] = true
+	}
+	var try []string
+	for a := 'A'; a <= 'Z'; a++ {
+		try = append(try, string(a))
+	}
+	for a := 'A'; a <= 'Z'; a++ {
+		for b := 'A'; b <= 'Z'; b++ {
+			try = append(try, string(a)+string(b))
+		}
+	}
+	for _, p := range try {
+		if !used[p] {
+			return p
+		}
+	}
+	return ""
+}
+
 // RandomHexID is n random bytes in hex. The first digit is a to f.
 // YAML then never reads the id as a number, and never quotes it.
 func RandomHexID(n int) string {
@@ -79,7 +161,7 @@ func (c Config) MarshalYAML() (any, error) {
 	if err := top.Encode(configFile(c)); err != nil {
 		return nil, err
 	}
-	if err := routers.Encode([]Router{c.Router}); err != nil {
+	if err := routers.Encode(c.Routers()); err != nil {
 		return nil, err
 	}
 	// After format (Config's first field), so the marker stays the file's first key.
@@ -106,13 +188,19 @@ func (c *Config) UnmarshalYAML(n *yaml.Node) error {
 		if list.Kind != yaml.SequenceNode {
 			return fmt.Errorf("routers must be a list")
 		}
-		if len(list.Content) > 1 {
-			return fmt.Errorf("routers holds %d routers; this release drives one router", len(list.Content))
-		}
-		// Decoded over the defaults, so a missing key keeps its default as top-level keys do.
-		if len(list.Content) == 1 {
-			if err := list.Content[0].Decode(&c.Router); err != nil {
+		// Each one is decoded over the defaults (c.Router before the first), so a missing key keeps its default as
+		// top-level keys do.
+		base := c.Router
+		c.MoreRouters = nil
+		for j, rn := range list.Content {
+			r := base
+			if err := rn.Decode(&r); err != nil {
 				return err
+			}
+			if j == 0 {
+				c.Router = r
+			} else {
+				c.MoreRouters = append(c.MoreRouters, r)
 			}
 		}
 	}

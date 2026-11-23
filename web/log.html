@@ -32,7 +32,11 @@
       <fieldset class="sode-log__kinds" id="log-uptime-presets" aria-label="Time range"></fieldset>
       <span class="sode-log__up-sum" id="log-uptime-sum" aria-live="polite"></span>
     </div>
+    <!-- With two or more routers each router has its own line and bars (logrouters.js): the first router here, the
+         others in #log-uptime-more. -->
+    <div class="sode-log__up-router" id="log-uptime-first" hidden></div>
     <div class="sode-up__bars" id="log-uptime-bars" role="group" aria-label="Router uptime: loading"></div>
+    <div class="sode-log__up-more" id="log-uptime-more"></div>
     <p class="sode__hint sode-log__legend">
       <span><i class="sode-up__key sode-up__bar--ok"></i>Up</span>
       <span data-pb-tip="Down for part of the slot, or messages failed or were slow"><i class="sode-up__key sode-up__bar--warn"></i>Partial</span>
@@ -45,6 +49,11 @@
     <div class="sode-log__line">
       <fieldset class="sode-log__kinds" id="log-kinds">
         <legend class="sode__label">Show</legend>
+      </fieldset>
+    </div>
+    <div class="sode-log__line" id="log-routers-line" hidden>
+      <fieldset class="sode-log__kinds" id="log-routers">
+        <legend class="sode__label">Routers</legend>
       </fieldset>
     </div>
     <div class="sode-log__line">

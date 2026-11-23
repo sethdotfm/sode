@@ -9,37 +9,45 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
+// RefreshNames reads the names of every router again.
 func (a *App) RefreshNames() {
+	for _, u := range a.unitsInOrder(a.r()) {
+		a.refreshNames(u)
+	}
+}
+
+func (a *App) refreshNames(u *routerUnit) {
 	r := a.r()
 	a.mu.Lock()
-	a.router.newSrc, a.router.newDst = map[int]string{}, map[int]string{}
-	a.nameReqAt = time.Now()
+	u.router.newSrc, u.router.newDst = map[int]string{}, map[int]string{}
+	u.nameReqAt = time.Now()
 	a.mu.Unlock()
-	ext := r.cfg.NameRequests == "ext"
+	lv := r.levelsOf(u.uid)
+	ext := lv.rc.NameRequests == "ext"
 	for _, dest := range []bool{false, true} {
-		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode), swp08.ReasonNames)
+		u.send(swp08.NamesReq(dest, ext, lv.rc.Matrix, 0, lv.lenCode), swp08.ReasonNames)
 	}
 }
 
 // Caller holds mu.
-func (a *App) applyNames(nb *swp08.NameBlock) {
-	m := a.router.srcNames
-	if a.router.newSrc != nil {
-		m = a.router.newSrc
+func (u *routerUnit) applyNames(nb *swp08.NameBlock) {
+	m := u.router.srcNames
+	if u.router.newSrc != nil {
+		m = u.router.newSrc
 	}
 	if nb.Dest {
-		m = a.router.dstNames
-		if a.router.newDst != nil {
-			m = a.router.newDst
+		m = u.router.dstNames
+		if u.router.newDst != nil {
+			m = u.router.newDst
 		}
 	}
 	for i, n := range nb.Names {
 		m[nb.First+i] = n
 	}
-	a.router.namesGen++
-	a.nameRxAt = time.Now()
-	if a.router.newSrc == nil {
-		a.namesDirt = true
+	u.router.namesGen++
+	u.nameRxAt = time.Now()
+	if u.router.newSrc == nil {
+		u.namesDirt = true
 	}
 }
 
@@ -67,8 +75,8 @@ func refreshed(old, got map[int]string) map[int]string {
 	return got
 }
 
-func (a *App) namesMsg() namesMsg {
-	return namesMsg{T: "names", Srcs: sorted(a.router.srcNames), Dsts: sorted(a.router.dstNames), At: a.router.namesAt}
+func (u *routerUnit) namesMsg() namesMsg {
+	return namesMsg{T: "names", Srcs: sorted(u.router.srcNames), Dsts: sorted(u.router.dstNames), At: u.router.namesAt, RouterUID: u.uid, from: u}
 }
 
 func sorted(m map[int]string) [][2]any {
@@ -84,44 +92,60 @@ func sorted(m map[int]string) [][2]any {
 	return out
 }
 
-// namesTickMu ends a name read when it is quiet or timed out, and sends the names when they settle.
-// save and check run after the caller releases mu. Caller holds mu.
-func (a *App) namesTickMu() (save, check func()) {
-	if a.router.newSrc != nil {
-		got := a.nameRxAt.After(a.nameReqAt)
-		quiet := got && time.Since(a.nameRxAt) > namesQuiet
-		if quiet || time.Since(a.nameReqAt) > namesTimeout {
+// namesTickMu ends a name read when it is quiet or timed out, and sends the names when they settle. It does this for
+// each router. save and check run after the caller releases mu. Caller holds mu.
+func (a *App) namesTickMu() (save, check []func()) {
+	r := a.r()
+	for _, u := range a.unitsInOrder(r) {
+		s, c := a.unitNamesTickMu(r, u)
+		if s != nil {
+			save = append(save, s)
+		}
+		if c != nil {
+			check = append(check, c)
+		}
+	}
+	return save, check
+}
+
+// Caller holds mu.
+func (a *App) unitNamesTickMu(r *runtime, u *routerUnit) (save, check func()) {
+	rs := u.router
+	if rs.newSrc != nil {
+		got := u.nameRxAt.After(u.nameReqAt)
+		quiet := got && time.Since(u.nameRxAt) > namesQuiet
+		if quiet || time.Since(u.nameReqAt) > namesTimeout {
 			// A read that the timeout cut short, or with a side that never answered, is not a full poll.
 			fault := false
-			if quiet && len(a.router.newSrc) > 0 && len(a.router.newDst) > 0 {
-				check, fault = a.countPollMu(namePoll{a.router.newSrc, a.router.newDst})
+			if quiet && len(rs.newSrc) > 0 && len(rs.newDst) > 0 {
+				check, fault = a.countPollMu(u, namePoll{rs.newSrc, rs.newDst})
 			}
 			changed := false
 			// A side with no replies keeps its old names.
-			if next := refreshed(a.router.srcNames, a.router.newSrc); next != nil && !fault {
-				a.router.srcNames, changed = next, true
+			if next := refreshed(rs.srcNames, rs.newSrc); next != nil && !fault {
+				rs.srcNames, changed = next, true
 			}
-			if next := refreshed(a.router.dstNames, a.router.newDst); next != nil && !fault {
-				a.router.dstNames, changed = next, true
+			if next := refreshed(rs.dstNames, rs.newDst); next != nil && !fault {
+				rs.dstNames, changed = next, true
 			}
-			a.router.newSrc, a.router.newDst = nil, nil
+			rs.newSrc, rs.newDst = nil, nil
 			if got && !fault {
-				a.router.namesAt = time.Now()
-				a.router.savedAt = time.Time{}
+				rs.namesAt = time.Now()
+				rs.savedAt = time.Time{}
 			}
-			a.router.namesGen++
+			rs.namesGen++
 			if changed {
-				log.Printf("names: %d sources, %d destinations", len(a.router.srcNames), len(a.router.dstNames))
-				a.namesDirt = true
+				log.Printf("names: %d sources, %d destinations", len(rs.srcNames), len(rs.dstNames))
+				u.namesDirt = true
 			} else {
-				a.broadcast(namesCheckedMsg{T: "namesChecked", At: a.router.namesAt})
+				a.broadcast(namesCheckedMsg{T: "namesChecked", At: rs.namesAt, RouterUID: u.uid})
 			}
 		}
 	}
-	if a.namesDirt && time.Since(a.nameRxAt) > namesQuiet {
-		a.namesDirt = false
-		a.broadcast(a.namesMsg())
-		uid, src, dst := a.r().cfg.UID, maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
+	if u.namesDirt && time.Since(u.nameRxAt) > namesQuiet {
+		u.namesDirt = false
+		a.broadcast(u.namesMsg())
+		uid, src, dst := r.routerOf(u.uid).UID, maps.Clone(rs.srcNames), maps.Clone(rs.dstNames)
 		if !a.setupPending() { // nothing on disk before Finish, which saves them
 			save = func() { a.names.save(uid, time.Now(), src, dst) }
 		}

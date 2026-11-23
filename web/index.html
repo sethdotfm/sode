@@ -26,6 +26,7 @@
 <link rel="stylesheet" href="gridpanel.css">
 <link rel="stylesheet" href="gridpanelphone.css">
 <link rel="stylesheet" href="gridpopup.css">
+<link rel="stylesheet" href="tiepicker.css">
 </head>
 <body>
 
@@ -42,6 +43,8 @@
     </div>
   </header>
   <div class="sode__down" id="conn-down" role="alert" hidden></div>
+  <!-- Degraded: the routers that are down and their destinations (degradedview.js). The phone view has its own copy. -->
+  <div class="pb-note pb-note--warn sode__degraded" id="conn-degraded" role="status" hidden></div>
   <!-- The command keeps in step with recoverCommand in internal/app/roles.go. -->
   <div class="pb-alert pb-alert--error sode__noadmin" id="no-admin" role="alert" hidden>
     <div class="sode__lock-help">
@@ -76,7 +79,7 @@
         <button type="button" class="pb-btn pb-btn--outline" id="setup-restore">Restore from a backup</button>
         <span class="pb-grow"></span>
         <span class="sode-setup__err" id="setup-err" role="alert"></span>
-        <button type="button" class="pb-btn pb-btn--ok" id="setup-next">Next</button>
+        <button type="button" class="pb-btn sode-btn--primary" id="setup-next">Next</button>
       </div>
     </div>
   </div>
@@ -86,7 +89,7 @@
 
     <form class="sode__boxes" autocomplete="off">
       <div class="sode__box sode__box--src">
-        <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
+        <div class="sode__box-head"><label class="sode__label" for="src">Source</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="src-router" tabindex="-1" hidden></button><span data-last="src"></span></div>
         <div class="sode__entry">
           <span class="sode__keyed">
             <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
@@ -103,7 +106,7 @@
       <!-- The three groups (Source, Destination with +, Levels with Take and Clear) share one width (desktop.css). -->
       <div class="sode__group sode__group--dst">
         <div class="sode__box sode__box--dst">
-          <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
+          <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="dst-router" tabindex="-1" hidden></button><span data-last="dst"></span></div>
           <div class="sode__entry">
             <span class="sode__keyed">
               <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
@@ -137,7 +140,7 @@
           <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
           <!-- The one Take and the one Clear: both act on the boxes and the staged routes (desktop.js). -->
           <div class="sode__takes">
-            <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
+            <button type="button" class="pb-btn pb-btn--commit sode__patch" id="patch" tabindex="-1">Take</button>
             <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__clear-all" id="clear-all" tabindex="-1" data-pb-tip="Clear the boxes and the staged routes (Esc)" disabled>Clear</button>
           </div>
         </div>
@@ -345,6 +348,7 @@
             <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
             <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
           </span>
+          <p class="pb-note pb-note--warn sode__brand-caution" id="brand-caution" role="status" hidden></p>
         </div>
       </div>
     </fieldset>
@@ -363,7 +367,7 @@
         <div class="sode__names" id="clear-step2" hidden>
           <span>
             <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Cancel</button>
-            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
+            <button type="button" class="pb-btn pb-btn--outline" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
           </span>
         </div>
       </div>
@@ -396,6 +400,67 @@
     <fieldset class="sode__group" data-apart data-section="routers" data-topic="routers">
       <legend>Routers</legend>
       <ul class="sode__routers" id="routers-list" aria-label="Routers"></ul>
+      <button type="button" class="pb-btn pb-btn--sm sode__routers-add" id="router-add" data-find data-label="Add router" hidden>Add router</button>
+    </fieldset>
+
+    <fieldset class="sode__group" data-section="tie-lines" data-topic="routers">
+      <legend>Tie lines</legend>
+      <p class="sode__hint" id="tielines-note">A tie line is a one-way cable from a destination on one router to a source on another router. It carries all levels.</p>
+      <div class="sode__field sode__field--half">
+        <label for="cfg-tie-hop-weight" data-pb-tip="The cost of each hop that changes a tie line, added to the number of Affected destinations. Sode offers the path with the lowest cost first">Hop weight</label>
+        <span class="pb-number-wrap"><input type="number" id="cfg-tie-hop-weight" class="pb-input" data-key="tieHopWeight" data-type="int" min="0" max="100"></span>
+      </div>
+      <ul class="sode__tielines" id="tielines-list" aria-label="Tie lines"></ul>
+      <div id="tielines-suggest" hidden>
+        <p><strong>Suggested tie lines</strong></p>
+        <p class="sode__hint">A destination and a source on different routers have the same name. Sode uses a suggestion only after you accept it.</p>
+        <ul class="sode__tielines" id="tielines-suggest-list" aria-label="Suggested tie lines"></ul>
+        <p class="sode__hint" id="tielines-suggest-more" hidden></p>
+      </div>
+      <div id="tielines-oneoffs" hidden>
+        <p><strong>One-off tie lines in use</strong></p>
+        <p class="sode__hint">A person stated each one in the Tie line picker for one take. Sode keeps it only while its source is routed to a destination. Save it to keep it.</p>
+        <ul class="sode__tielines" id="tielines-oneoffs-list" aria-label="One-off tie lines in use"></ul>
+      </div>
+      <div id="tielines-form" data-apart>
+        <div class="sode__fields">
+          <div class="sode__field">
+            <label for="tieline-from-router">From router</label>
+            <span class="pb-select-wrap"><select id="tieline-from-router" class="pb-select"></select></span>
+          </div>
+          <div class="sode__field">
+            <label for="tieline-from">Destination</label>
+            <span class="pb-number-wrap"><input type="number" id="tieline-from" class="pb-input" min="0"></span>
+            <span class="sode__hint" id="tieline-from-name"></span>
+          </div>
+        </div>
+        <div class="sode__fields">
+          <div class="sode__field">
+            <label for="tieline-to-router">To router</label>
+            <span class="pb-select-wrap"><select id="tieline-to-router" class="pb-select"></select></span>
+          </div>
+          <div class="sode__field">
+            <label for="tieline-to">Source</label>
+            <span class="pb-number-wrap"><input type="number" id="tieline-to" class="pb-input" min="0"></span>
+            <span class="sode__hint" id="tieline-to-name"></span>
+          </div>
+        </div>
+        <div class="sode__field sode__field--half">
+          <label for="tieline-name" data-pb-tip="Sode fills it from the source name. You can change it">Tie line name</label>
+          <input id="tieline-name" class="pb-input" maxlength="32" spellcheck="false">
+        </div>
+        <div class="sode__tielines-acts">
+          <button type="button" class="pb-btn sode-btn--primary" id="tieline-add">Add tie line</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="tieline-cancel" hidden>Cancel</button>
+        </div>
+      </div>
+      <p class="sode__hint" id="tielines-status" role="status"></p>
+    </fieldset>
+
+    <fieldset class="sode__group" data-section="router-levels" data-topic="routers" id="router-levels-group">
+      <legend>Router levels</legend>
+      <p class="sode__hint" id="router-levels-note"></p>
+      <div class="sode__router-levels" id="router-levels-list"></div>
     </fieldset>
 
     <h4 class="sode__router" data-router="1" id="router-1"><span class="sode__router-title" id="router-1-title">Router</span></h4>
@@ -621,11 +686,11 @@
 
     <div class="sode__savebar">
       <div class="pb-note pb-note--error" id="settings-err" role="alert" hidden></div>
-      <div class="pb-note pb-note--error" id="settings-unsaved" role="alert" hidden>Unsaved changes</div>
+      <div class="pb-note pb-note--warn" id="settings-unsaved" role="alert" hidden>Unsaved changes</div>
       <div class="sode__savebar-row">
         <button type="button" class="pb-btn pb-btn--outline" id="settings-exit">Exit</button>
         <span class="sode__hint" id="settings-path"></span>
-        <button type="submit" class="pb-btn pb-btn--ok" id="settings-save">Save</button>
+        <button type="submit" class="pb-btn sode-btn--primary" id="settings-save">Save</button>
       </div>
       <div class="sode__foot" id="settings-foot"><span aria-hidden="true"></span></div>
     </div>
@@ -644,6 +709,7 @@
     </header>
 
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
+    <div class="pb-note pb-note--warn sode__degraded" id="m-degraded" role="status" hidden></div>
     <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
       <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
       <span class="pb-grow">Not saved: SODE_CONFIG is not set. Settings and users are lost on restart.</span>
@@ -716,7 +782,7 @@
     <div class="pb-modal__body sode__confirm" id="confirm-body"></div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="confirm-cancel">Cancel</button>
-      <button type="button" class="pb-btn pb-btn--danger sode__confirm-ok" id="confirm-ok">Take</button>
+      <button type="button" class="pb-btn pb-btn--commit sode__confirm-ok" id="confirm-ok">Take</button>
     </div>
   </div>
 </div>
@@ -780,7 +846,8 @@
         <dt><kbd data-key="ctrl+s">Ctrl+s</kbd> <kbd data-key="ctrl+d">Ctrl+d</kbd> <kbd data-key="ctrl+f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
         <dt><kbd data-key="ctrl+shift+s">Ctrl+Shift+s</kbd> <kbd data-key="ctrl+shift+d">Ctrl+Shift+d</kbd></dt><dd>Next source, destination</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take: the staged routes and the route in the boxes, in one Confirm</dd>
-        <dt><kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take or Free Protect</dd>
+        <dt><kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last take or Free Protect from this browser. Each press goes one take further back</dd>
+        <dt><kbd data-key="mod+shift+z">Ctrl+Shift+z</kbd></dt><dd>Redo the last take that the undo key undid. Each press goes one take further forward</dd>
         <dt><kbd data-key="ctrl+e">Ctrl+e</kbd></dt><dd>Grid popup, open or close. It finds what the Source box or the Destination box holds</dd>
         <dt><kbd>Esc</kbd></dt><dd>Close the match list. Then clear the boxes and the staged routes. Then Keyboard mode</dd>
       </dl>
@@ -791,7 +858,8 @@
         <dt><kbd>v</kbd></dt><dd>Draw a line from the cursor: move to stretch it, Space stages it</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take: the staged routes and the route in the boxes, in one Confirm</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source search, Destination search, Levels box</dd>
-        <dt><kbd>u</kbd> <kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take or Free Protect</dd>
+        <dt><kbd>u</kbd> <kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last take or Free Protect from this browser</dd>
+        <dt><kbd data-key="mod+shift+z">Ctrl+Shift+z</kbd></dt><dd>Redo the last take that the undo key undid</dd>
         <dt><kbd>Esc</kbd></dt><dd>Remove the line, then the picks, then close. The staged routes stay</dd>
       </dl>
       <div class="sode__label">Match lists (Source, Destination)</div>

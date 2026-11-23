@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -20,6 +21,9 @@ func (a *App) callerOf(c *client) (Actor, config.Rights) {
 
 // caller: callerOf with the Role; an API caller has none.
 func (a *App) caller(c *client) acting {
+	if c.forPage != nil {
+		return a.caller(c.forPage)
+	}
 	if c.api != nil {
 		return acting{Actor: c.api.Actor, rights: c.api.Rights}
 	}
@@ -76,7 +80,7 @@ func (a *App) undoMatches(it routeReq) bool {
 		return false
 	}
 	e, ok := a.hist.Get(*it.Undo)
-	if !ok || e.Dst != it.Dst || len(it.Levels) == 0 {
+	if !ok || e.Dst != it.Dst || it.Router != "" && it.Router != e.Router || len(it.Levels) == 0 {
 		return false
 	}
 	for _, ui := range it.Levels {
@@ -91,35 +95,67 @@ func (a *App) undoMatches(it routeReq) bool {
 // outsideRights returns why the first route that rights do not allow is refused, or "".
 // A matching undo skips the Before source (undoMatches). With hidden visibility a refusal
 // names the kind but never the number or preset, so it cannot teach a caller what exists.
+// Each end is matched with the router of its route (itemRouter), so a right on one router allows nothing on another.
 func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) string {
-	off := r.cfg.NumberOffset
 	quiet := rt.Hidden()
-	kind := func(what string, n int) string {
-		if quiet {
-			return what + " is outside your rights"
-		}
-		return fmt.Sprintf("%s %d is outside your rights", what, n)
-	}
 	for _, it := range items {
+		if a.putBackMatches(it) {
+			continue // a hop needs no Rights (tieputback.go)
+		}
+		uid := a.rightsUID(r, a.itemRouter(it))
+		off := r.routerOf(uid).NumberOffset
+		kind := func(what string, n int) string {
+			if quiet {
+				return what + " is outside your rights"
+			}
+			return fmt.Sprintf("%s %d is outside your rights", what, n+off)
+		}
 		switch {
 		case (it.Preset != "" || it.PresetID != "") && !rt.AllowsPreset(it.PresetID):
 			if quiet {
 				return "preset is outside your rights"
 			}
 			return fmt.Sprintf("preset %q is outside your rights", it.Preset)
-		case !rt.AllowsDst(config.Ref{N: it.Dst}):
-			return kind("destination", it.Dst+off)
+		case !rt.AllowsDst(config.Ref{Router: uid, N: it.Dst}):
+			return kind("destination", it.Dst)
 		}
-		for _, ui := range it.Levels {
-			if !rt.AllowsLevel(ui) {
-				return fmt.Sprintf("level %s is outside your rights", r.cfg.LevelLabel(ui))
+		// Levels are matched on the route's router, as planRoute reads them. A limit on one router does not limit
+		// another. On a router with one level, any typed level is that level.
+		lv := r.levelsOf(uid)
+		uis := it.Levels
+		if t, err := lv.typed(uis); err == nil {
+			uis = t
+		}
+		for _, ui := range uis {
+			if !rt.AllowsLevel(uid, ui) {
+				return fmt.Sprintf("level %s is outside your rights", lv.label(ui))
 			}
 		}
-		if !rt.AllowsSource(config.Ref{N: it.Src}) && !a.undoMatches(it) {
-			return kind("source", it.Src+off)
+		if !rt.AllowsSource(config.Ref{Router: uid, N: it.Src}) && !a.undoMatches(it) {
+			return kind("source", it.Src)
 		}
 	}
 	return ""
+}
+
+// itemRouter is the UID of the router a route is on: its own, else for an Undo or a Retry the router of its entry.
+// Blank is the first router.
+func (a *App) itemRouter(it routeReq) string {
+	if id := cmp.Or(it.Undo, it.Retry); it.Router == "" && id != nil {
+		if e, ok := a.hist.Get(*id); ok {
+			return e.Router
+		}
+	}
+	return it.Router
+}
+
+// rightsUID is the router UID that a Rights check asks about. Rights store the settings UID. So blank and the first
+// router's unit are the first router of the settings, also after a settings change gave it another UID.
+func (a *App) rightsUID(r *runtime, uid string) string {
+	if uid == "" || a.first != nil && uid == a.first.uid {
+		return r.cfg.UID
+	}
+	return uid
 }
 
 // rightsPass refuses the whole take before anything is sent. Each item gets a failed result with no History

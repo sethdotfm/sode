@@ -22,24 +22,17 @@ func asMap(t *testing.T, b []byte) map[string]any {
 // legacyHello builds the hello from a map[string]any, the reference shape for the typed one.
 func legacyHello(a *App, p helloPage) []byte {
 	r := a.r()
-	n := a.namesMsg()
-	m := map[string]any{"t": "hello", "srcs": n.Srcs, "dsts": n.Dsts, "at": n.At}
-	if !a.router.savedAt.IsZero() {
-		m["savedAt"] = a.router.savedAt
-	}
-	m["tally"] = legacyTriples(a.router.tally)
+	m := map[string]any{"t": "hello"}
 	prot := [][4]int{}
-	for d, t := range a.router.protect {
+	for d, t := range a.first.router.protect {
 		for l, h := range t {
 			prot = append(prot, [4]int{d, l, h.dev, h.kind})
 		}
 	}
 	m["protected"] = prot
 	m["protectBy"] = []any{}
-	m["status"] = a.status
 	m["history"] = p.recent
 	m["more"] = p.more
-	m["levels"] = r.levels
 	m["levelDefaults"] = config.DefaultLevelColors
 	m["cfg"] = r.cfg
 	m["versions"] = fieldVersions(r.cfg)
@@ -48,22 +41,21 @@ func legacyHello(a *App, p helloPage) []byte {
 	m["notSaved"] = a.cfgPath == ""
 	m["version"] = VersionLabel()
 	m["brandColors"] = config.BrandColors
-	m["routerUid"] = r.cfg.UID
 	m["installUid"] = r.cfg.InstallUID
-	m["prefix"] = r.cfg.Prefix
+	m["routers"] = a.helloRouters(r) // TestHelloListsEveryRouter checks it
 	b, _ := json.Marshal(m)
 	return b
 }
 
-// legacyTriples: the bare [dst, level, value] arrays of a hello.
-func legacyTriples(m map[int]map[int]int) [][3]int {
-	out := [][3]int{}
-	for d, t := range m {
-		for l, v := range t {
-			out = append(out, [3]int{d, l, v})
-		}
+// firstHelloRouter is the first element of a decoded hello's routers list.
+func firstHelloRouter(t *testing.T, h map[string]any) map[string]any {
+	t.Helper()
+	list, _ := h["routers"].([]any)
+	if len(list) == 0 {
+		t.Fatalf("hello has no routers: %v", h["routers"])
 	}
-	return out
+	r, _ := list[0].(map[string]any)
+	return r
 }
 
 func TestHelloMatchesLegacy(t *testing.T) {
@@ -101,15 +93,15 @@ func TestRouteChangeWire(t *testing.T) {
 	a.mu.Lock()
 	h := asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
-	if !reflect.DeepEqual(h["tally"], []any{[]any{5.0, 1.0, 7.0}}) || !reflect.DeepEqual(h["protected"], []any{[]any{5.0, 1.0, 9.0, 1.0}}) {
-		t.Fatalf("hello tally/protected: %v %v", h["tally"], h["protected"])
+	if tally := firstHelloRouter(t, h)["tally"]; !reflect.DeepEqual(tally, []any{[]any{5.0, 1.0, 7.0}}) || !reflect.DeepEqual(h["protected"], []any{[]any{5.0, 1.0, 9.0, 1.0}}) {
+		t.Fatalf("hello tally/protected: %v %v", tally, h["protected"])
 	}
 	a.mu.Lock()
-	a.router.tally, a.router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
+	a.first.router.tally, a.first.router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
 	h = asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
-	if !reflect.DeepEqual(h["tally"], []any{}) || !reflect.DeepEqual(h["protected"], []any{}) {
-		t.Fatalf("empty tally/protected must be [], got %v %v", h["tally"], h["protected"])
+	if tally := firstHelloRouter(t, h)["tally"]; !reflect.DeepEqual(tally, []any{}) || !reflect.DeepEqual(h["protected"], []any{}) {
+		t.Fatalf("empty tally/protected must be [], got %v %v", tally, h["protected"])
 	}
 }
 

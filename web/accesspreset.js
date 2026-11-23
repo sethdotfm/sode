@@ -5,7 +5,7 @@ import { modal } from './modal.js';
 import { btn, check, segmented } from './formbits.js';
 import { form } from './settingsform.js';
 import { markPreset } from './settingssave.js';
-import { stageUserFlags } from './users.js';
+import { stageUserFlags, stageGuestTieLines } from './users.js';
 import { stageKeyless } from './apisettings.js';
 import { presetTarget } from './accesspresetrules.js';
 
@@ -22,7 +22,7 @@ const tickAll = btn('pb-btn--outline pb-btn--sm', 'Tick all', () => {
   for (const b of rows.querySelectorAll('input')) b.checked = true;
 });
 userBox.append(tickAll, rows);
-const applyBtn = btn('pb-btn--ok', 'Stage changes', apply);
+const applyBtn = btn('sode-btn--primary', 'Stage changes', apply);
 const dlg = modal({
   titleId: 'preset-apply-title',
   title: 'Apply an access preset',
@@ -52,7 +52,7 @@ function fillUsers() {
     ...users.map((u) => {
       const c = check(u.name);
       c.input.dataset.uid = u.id;
-      if (u.id === me) c.label.append(el('span', 'pb-badge pb-badge--info', 'You'));
+      if (u.id === me) c.label.append(el('span', 'pb-badge', 'You'));
       return c.label;
     }),
   );
@@ -101,6 +101,7 @@ export function stagePreset(p, ticked) {
   setCheck('cfg-new-no-auto-lock', f.newUserDefaults.noAutoLock);
   stageKeyless({ guestEnabled: f.api.guestEnabled, scopes: f.guestApiScopes });
   for (const id of ticked) stageUserFlags(id, p.users);
+  stageGuestTieLines(p.guestTieLines);
   form.dispatchEvent(new Event('change'));
   emit('saveSourceChanged');
   markPreset(p.name, presetTarget(p, ticked));

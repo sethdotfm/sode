@@ -1,7 +1,7 @@
 // The Palette's rows that run on Home (main.js only): presets, filter sets, settings, Settings buttons and Home's own
 // actions. Another page sends its row here (palette.js takeHandoff); Home runs it once the hello, the names and the
 // sign-in are known.
-import { $, S, on, emit } from './core.js';
+import { $, S, on, emit, routerData } from './core.js';
 import { setHomeRunner, takeHandoff, paletteRowsReady, openPalette } from './palette.js';
 import { fire, fillBoxes } from './presets.js';
 import { allPresets } from './presetstore.js';
@@ -19,11 +19,12 @@ function openSettingsAt(t) {
 
 function runAction(id) {
   if (id === 'undo') emit('undoLast');
+  else if (id === 'redo') emit('redoLast');
   else if (id === 'presets') emit('presetPopup');
   else if (id === 'filters') openFilters();
   else if (id === 'compact') {
     toggleCompact();
-    showResult('ok', 'Compact view changed', `Compact view is ${compactOn() ? 'on' : 'off'} now.`);
+    showResult('done', 'Compact view changed', `Compact view is ${compactOn() ? 'on' : 'off'} now.`);
   } else if (id === 'shortcuts') emit('openShortcuts');
   else if (id === 'stepIn') $('account-stepin').click();
   else if (id === 'protect') openProtectPick();
@@ -38,7 +39,7 @@ let myDefaultPressed = '';
 on('myDefaultDone', (d) => {
   if (d.id !== myDefaultPressed) return;
   myDefaultPressed = '';
-  showResult('ok', 'My default changed', d.text);
+  showResult('done', 'My default changed', d.text);
   // The pressed button can hide after the save, which drops the focus to body. The setting keeps it.
   if (!document.activeElement || document.activeElement === document.body) $(d.field)?.focus({ preventScroll: true });
 });
@@ -77,7 +78,7 @@ let seen = false;
 let pending = takeHandoff();
 async function runPending() {
   // A preset needs the router's names to make its plan.
-  if (!pending || !S.cfg || !seen || (pending.key.startsWith('preset:') && !S.srcBy.size)) return;
+  if (!pending || !S.cfg || !seen || (pending.key.startsWith('preset:') && !routerData('').srcBy.size)) return;
   const h = pending;
   pending = null;
   const row = rowByKey(await paletteRowsReady(), h.key);

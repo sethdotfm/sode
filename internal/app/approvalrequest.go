@@ -100,15 +100,29 @@ func freeWhat(labels []string) string {
 
 const freeShown = 5
 
-// dstLabels: "4 DSM2" for each destination, the number as the page shows it and the router's name.
-func (a *App) dstLabels(dsts ...int) []string {
-	off := a.r().cfg.NumberOffset
+// dstLabels: "4 DSM2" for each destination of the first router, the number as the page shows it and the router's
+// name.
+func (a *App) dstLabels(dsts ...int) []string { return a.dstLabelsOn("", dsts...) }
+
+// dstLabelsOn is dstLabels for the router with this UID. A router after the first puts its prefix on the number
+// ("B.4 DSM2").
+func (a *App) dstLabelsOn(uid string, dsts ...int) []string {
+	r := a.r()
+	u, _ := a.unitOfRouter(r.cfg, uid)
+	if u == nil {
+		u = a.firstUnit()
+	}
+	rc := r.routerOf(u.uid)
+	pre := ""
+	if u != a.firstUnit() {
+		pre = rc.Prefix + "."
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	out := make([]string, 0, len(dsts))
 	for _, d := range dsts {
-		l := strconv.Itoa(d + off)
-		if n := a.router.dstNames[d]; n != "" {
+		l := pre + strconv.Itoa(d+rc.NumberOffset)
+		if n := u.router.dstNames[d]; n != "" {
 			l += " " + n
 		}
 		out = append(out, l)

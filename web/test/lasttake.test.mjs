@@ -14,19 +14,19 @@ const it = (n) => ({ n, num: n + 1, name: `X${n}`, label: `X${n}` });
 
 async function setup() {
   const m = await import('./all.mjs');
-  const { S } = m;
+  const { S, routerData } = m;
   S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [] };
-  S.levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
-  S.levelBy = new Map([1, 2, 3].map((u) => [u, {}]));
-  S.srcBy = new Map([1, 2, 3, 4].map((n) => [n, it(n)]));
-  S.dstBy = new Map([5, 6, 7, 8].map((n) => [n, it(n)]));
+  routerData('').levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
+  routerData('').levelBy = new Map([1, 2, 3].map((u) => [u, {}]));
+  routerData('').srcBy = new Map([1, 2, 3, 4].map((n) => [n, it(n)]));
+  routerData('').dstBy = new Map([5, 6, 7, 8].map((n) => [n, it(n)]));
   S.ws = { readyState: 1, lastRx: Date.now(), send() {} };
   return m;
 }
 
 // Runs before any take in this process, so only the stored value can answer: a reload.
 test('lastTake: a stored Last loads after a reload, with current names', async () => {
-  const { S, lastTake } = await setup();
+  const { lastTake, routerData } = await setup();
   store.set(
     KEY,
     JSON.stringify({
@@ -38,7 +38,7 @@ test('lastTake: a stored Last loads after a reload, with current names', async (
       levels: [1, 3, 9],
     }),
   );
-  S.srcBy.get(2).name = 'Cam 2';
+  routerData('').srcBy.get(2).name = 'Cam 2';
   const t = lastTake();
   assert.equal(t.src.name, 'Cam 2');
   assert.deepEqual(
@@ -46,7 +46,7 @@ test('lastTake: a stored Last loads after a reload, with current names', async (
     [5, 6],
   );
   assert.deepEqual(t.levels, [1, 3], 'a level the router no longer has is dropped');
-  S.srcBy.get(2).name = 'X2';
+  routerData('').srcBy.get(2).name = 'X2';
 });
 
 test('lastTake: corrupt or unmatched stored values are no Last', async () => {

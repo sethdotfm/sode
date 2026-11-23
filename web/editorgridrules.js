@@ -5,12 +5,14 @@ import { allowed } from './rightsrules.js';
 import { filterFn } from './filter.js';
 import { chord, modChord } from './keys.js';
 import { artRun } from './arttoolrules.js';
+import { placeOf, routerN, typedPlace } from './routerids.js';
 
 const isAll = (edge) => !Array.isArray(edge?.members);
 const pinnedIn = (edge, n) => edge?.items?.[n]?.pinned === true;
 const pinCount = (edge) => Object.values(edge?.items || {}).filter((it) => it?.pinned === true).length;
 
-// The members in panel order: an "all" edge is the router in router order, less hide.
+// The members in panel order: an "all" edge is every router in router order, less hide. router holds the items of
+// every router, on item numbers (routerids.js).
 function membersOf(edge, router) {
   if (!isAll(edge)) return edge.members;
   const hide = new Set(edge?.hide || []);
@@ -56,7 +58,11 @@ export function clearEdge(edge, rights, kind) {
 export const followRouter = (edge) => ({ ...withoutHide(edge), members: 'all' });
 
 // Follow the router switched off: the edge keeps what it shows now, in the same order, as a list.
-export const stopFollowing = (edge, router) => (isAll(edge) ? { ...withoutHide(edge), members: membersOf(edge, router) } : edge);
+export const stopFollowing = (edge, router) => {
+  if (!isAll(edge)) return edge;
+  const members = membersOf(edge, router);
+  return { ...withoutHide(edge), members };
+};
 
 // Add from the router: the router's items the panel does not have, in router order, within the Rights.
 export function routerRows(router, edge, rights, kind) {
@@ -67,11 +73,16 @@ export function routerRows(router, edge, rights, kind) {
     .map((x) => ({ n: x.n, name: x.name ?? '' }));
 }
 
-// Find uses the main page's filter language on the numbers as shown (off is numberOffset). Text it cannot read
-// matches nothing.
-export function findRows(rows, text, off) {
-  const f = filterFn(text, { fuzzy: true });
-  return f ? rows.filter((r) => f(r.n + off, r.name)) : [];
+// Find uses the main page's filter language on the numbers as shown. names is the GET /names answer the rows come
+// from (merged on item numbers with two or more routers, routerids.js), or its numberOffset. A typed router prefix
+// (B.12, B12) finds only that router's rows. Text it cannot read matches nothing.
+export function findRows(rows, text, names) {
+  const reply = typeof names === 'number' ? { numberOffset: names } : names || {};
+  const typedAt = typedPlace(reply, text);
+  const f = filterFn(typedAt.text, { fuzzy: true });
+  if (!f) return [];
+  const offOf = (n) => (reply.prefixes ? reply.prefixes[placeOf(n)]?.numberOffset || 0 : reply.numberOffset || 0);
+  return rows.filter((r) => (typedAt.place === null || placeOf(r.n) === typedAt.place) && f(routerN(r.n) + offOf(r.n), r.name));
 }
 
 // s is { selected: Set of router numbers, anchor }. They are router numbers, so they stay through moves and edits. Shift adds

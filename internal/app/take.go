@@ -20,6 +20,12 @@ type routeReq struct {
 	Levels []int `json:"levels"`
 	Undo   *int  `json:"undo"`  // history ID of the take to undo
 	Retry  *int  `json:"retry"` // history ID of the failed take to retry
+	// PutBack: with Undo of a hop entry, put the tie line back (tieputback.go). Sode sends it only while the tie line
+	// still carries what the take set.
+	PutBack bool `json:"putBack"`
+	// Router: the UID of the router that the route is on, from the hello's routers list; blank is the first router.
+	// takeAllowed fills it.
+	Router string `json:"router"`
 
 	Group  string `json:"-"` // set by take for confirms of more than one route
 	GroupN int    `json:"-"`
@@ -28,6 +34,8 @@ type routeReq struct {
 	PresetID string `json:"-"`
 	// Stage: levels, by wire number, that go in a native group salvo (fire.go); other levels go as ordinary connects.
 	Stage map[int]bool `json:"-"`
+	// Tie: this route is a hop of a tie take (tietake.go), with what its entry keeps.
+	Tie *tieMark `json:"-"`
 }
 
 // routeLimit: one take runs this many routes at one time; the link sends one message per ACK, so more would time out.
@@ -37,14 +45,26 @@ const routeLimit = 8
 // (takecheck.go). Under it, the check interrogates each destination level.
 const bigTake = 6
 
-// take is the one entry point for every confirmed take (browser plan, Undo, Redo, Retry, presets, API).
-// Results go to c.send, or to c.api.sink for an API caller. It returns the refusal when the rights of
-// the caller do not cover every route; nothing ran then.
+// take is the one entry point for every take from a page (browser plan, Undo, Redo, Retry, presets). Results go
+// to c.send. It returns the refusal when the rights of the caller do not cover every route; nothing ran then. A
+// Retry of a tie take runs as the API Retry does (pageTieRetry), and a put-back keeps only the levels that its hop
+// changed (putBackLevels). The Undo of a tie take is judged again at send (tieUndoesHold).
 func (a *App) take(c *client, items []routeReq) (refused string) {
+	items, ties := a.tieRetries(items)
+	items = a.putBackLevels(c, items)
 	if msg := a.rightsPass(a.r(), c, items); msg != "" {
+		for _, it := range ties {
+			a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: msg})
+		}
 		return msg
 	}
-	a.takeAllowed(c, items)
+	items = a.tieUndoesHold(c, items)
+	for _, it := range ties {
+		a.pageTieRetry(c, it)
+	}
+	if len(items) > 0 {
+		a.takeAllowed(c, items)
+	}
 	return ""
 }
 
@@ -53,26 +73,72 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 // some route, so its Prev came from the cache.
 func (a *App) takeAllowed(c *client, items []routeReq) (unread bool) {
 	r := a.r()
-	ext, read := a.checkRoutes(r, c, items)
-	unread = !read
+	// A take to the upstream destination of a tie line waits for a tie take that holds it (tielock.go).
+	defer a.tieLocks.lock(a.upstreamTies(r, items))()
 	if len(items) > 1 {
 		g := strconv.FormatInt(time.Now().UnixNano(), 36)
 		for i := range items {
 			items[i].Group, items[i].GroupN = g, len(items)
 		}
 	}
-	if r.cfg.FireMode == "native" && len(items) > 1 {
+	return a.runParts(r, c, items, true)
+}
+
+// runParts runs items, which already have their Group, on their routers side by side. Without stage, fireMode native
+// stages nothing: a tie take sends ordinary connects (docs/tielines-design.md, "Order and failures").
+func (a *App) runParts(r *runtime, c *client, items []routeReq, stage bool) (unread bool) {
+	parts := a.byRouter(c, items)
+	reads := make([]bool, len(parts))
+	// Each router has its own link and send queue, so the parts run side by side.
+	runLimited(len(parts), len(parts), func(i int) { reads[i] = a.takeOnRouter(r, c, parts[i].u, parts[i].items, stage) })
+	return slices.Contains(reads, false)
+}
+
+// routerPart is the routes of a take that are on one router.
+type routerPart struct {
+	u     *routerUnit
+	items []routeReq
+}
+
+// byRouter puts each route with its router, in the order of the first route on each router. It fills Router. A
+// route on a router that Sode does not have gets its refusal here.
+func (a *App) byRouter(c *client, items []routeReq) []routerPart {
+	var parts []routerPart
+	for _, it := range items {
+		// An Undo or a Retry goes to the router of its entry.
+		it.Router = a.itemRouter(it)
+		u, ok := a.unit(it.Router)
+		if !ok {
+			a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: "unknown router"})
+			continue
+		}
+		it.Router = u.uid
+		i := slices.IndexFunc(parts, func(p routerPart) bool { return p.u == u })
+		if i < 0 {
+			parts = append(parts, routerPart{u: u})
+			i = len(parts) - 1
+		}
+		parts[i].items = append(parts[i].items, it)
+	}
+	return parts
+}
+
+// takeOnRouter runs the routes of a take that are on router u. read is false when the check before take did not
+// finish for some route, so its Prev came from the cache.
+func (a *App) takeOnRouter(r *runtime, c *client, u *routerUnit, items []routeReq, stage bool) (read bool) {
+	ext, read := a.checkRoutes(r, u, c, items)
+	if stage && r.routerOf(u.uid).FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
-			a.takeNative(r, c, items, ext)
-			return unread
+			a.takeNative(r, u, c, items, ext)
+			return read
 		}
 		// A lone staged take would wait for a Go that never comes.
 		for i := range items {
 			items[i].Stage = nil
 		}
 	}
-	runLimited(routeLimit, len(items), func(i int) { a.route(c, items[i], ext) })
-	return unread
+	runLimited(routeLimit, len(items), func(i int) { a.route(u, c, items[i], ext) })
+	return read
 }
 
 func runLimited(limit, n int, fn func(i int)) {
@@ -92,7 +158,7 @@ func runLimited(limit, n int, fn func(i int)) {
 const (
 	defaultCheckTimeout = time.Second
 	checkFresh          = 15 * time.Second
-	// defaultQueueMax: default for App.queueMax, the cap on waiting in the send queue (one message per ACK, shared
+	// defaultQueueMax: default for routerUnit.queueMax, the cap on waiting in the send queue (one message per ACK, shared
 	// by all takes); then timeouts start anyway.
 	defaultQueueMax = 30 * time.Second
 	// A tally of a route a take gave up on stays its own this long.
@@ -102,11 +168,12 @@ const (
 	defaultRouteGrace = time.Second
 )
 
-func levelList(r *runtime, ls []int) string {
+// levelList names levels ls of a router in its Level numbering.
+func levelList(lv *routerLevels, ls []int) string {
 	sort.Ints(ls)
 	parts := make([]string, len(ls))
 	for i, l := range ls {
-		parts[i] = r.cfg.LevelLabel(l)
+		parts[i] = lv.label(l)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -121,23 +188,23 @@ func uis(ls []*routeLevel) []int {
 
 // cachePrev fills e.Prev (what undo restores) from the cache and sets each level's same
 // (already on src: no own key, tally-confirmed). Caller holds mu.
-func (a *App) cachePrev(w *waiter, e *Entry) {
+func cachePrev(w *waiter, e *Entry) {
 	e.Prev = e.Prev[:0]
 	for _, l := range w.levels {
-		if p, ok := a.router.tally[w.dst][l.ui]; ok {
+		if p, ok := w.u.router.tally[w.dst][l.ui]; ok {
 			e.Prev = append(e.Prev, [2]int{l.ui, p})
 			l.same = p == w.src
 		}
 	}
 }
 
-func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, error) {
-	w, err := planRoute(r, req)
+func (a *App) planPhase(r *runtime, u *routerUnit, c *client, req routeReq) (*waiter, *Entry, error) {
+	w, err := planRoute(r, u, req)
 	if err != nil {
 		return nil, nil, err
 	}
 	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.who()}
-	if c.api != nil {
+	if c.apiCaller() {
 		w.why.Note = a.panelNote(c.api.Actor)
 	}
 	if req.Undo != nil {
@@ -146,8 +213,12 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 		w.why.Reason = swp08.ReasonRetry
 	}
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, PresetID: req.PresetID, Prev: [][2]int{}}
+	e.Router = u.uid
+	if m := req.Tie; m != nil {
+		e.Tie, e.Origin, e.Hops, e.ViaPrev = m.tie, m.origin, m.hops, m.viaPrev
+	}
 	e.BrowserOf = a.browserOf(c)
-	if c.api != nil {
+	if c.apiCaller() {
 		e.setActor(c.api.Actor)
 		e.Panel, e.Instance = a.panelNames(c.api.Actor)
 		e.PanelID = c.api.Actor.panel
@@ -159,14 +230,15 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	e.SrcName, e.DstName = a.router.srcNames[w.src], a.router.dstNames[w.dst]
+	rs := w.u.router
+	e.SrcName, e.DstName = rs.srcNames[w.src], rs.dstNames[w.dst]
 	for _, l := range w.levels {
-		if _, ok := a.router.protect[w.dst][l.ui]; ok {
+		if _, ok := rs.protect[w.dst][l.ui]; ok {
 			protected = append(protected, l.ui)
 		}
 	}
 	if len(protected) > 0 {
-		a.cachePrev(w, e)
+		cachePrev(w, e)
 	}
 	return protected
 }
@@ -174,12 +246,12 @@ func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 // registerPhase takes Prev from the cache, which the check before take (takeAllowed) read from the router.
 // The check's answers that differ from the cache are logged as found first.
 func (a *App) registerPhase(w *waiter, e *Entry) {
-	a.flushFound(w.dst)
+	a.flushFound(w.u, w.dst)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	e.Time = time.Now()
-	a.cachePrev(w, e)
-	w.register(a)
+	cachePrev(w, e)
+	w.register()
 }
 
 func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*routeLevel, sendErr error) error {
@@ -198,7 +270,7 @@ func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*routeLeve
 	if sendErr != nil {
 		e.SendErr = sendErr.Error()
 	}
-	names := a.nowNames(e)
+	names := nowNames(w.u, e)
 	a.mu.Unlock()
 	sort.Ints(e.Already)
 	if msg := entryErr(r, names, e); msg != "" {
@@ -207,10 +279,11 @@ func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*routeLeve
 	return nil
 }
 
-// route runs one route on ext. It does not read the router first: takeAllowed does that for the whole take.
-func (a *App) route(c *client, req routeReq, ext *extTracker) {
+// route runs one route on router u and its tracker ext. It does not read the router first: takeOnRouter does that
+// for the whole take.
+func (a *App) route(u *routerUnit, c *client, req routeReq, ext *extTracker) {
 	r := a.r()
-	t := a.prepare(r, c, req, ext)
+	t := a.prepare(r, u, c, req, ext)
 	if t == nil {
 		return
 	}
@@ -225,10 +298,10 @@ type routeRun struct {
 }
 
 // prepare returns nil when the route is over (bad request or protected dst), already
-// answered and recorded. ext is the tracker that the take's check started on (checkRoutes).
-func (a *App) prepare(r *runtime, c *client, req routeReq, ext *extTracker) *routeRun {
+// answered and recorded. ext is the tracker of router u that the take's check started on (checkRoutes).
+func (a *App) prepare(r *runtime, u *routerUnit, c *client, req routeReq, ext *extTracker) *routeRun {
 	res := &routeResult{T: "takeResult", ID: req.ID}
-	w, e, err := a.planPhase(r, c, req)
+	w, e, err := a.planPhase(r, u, c, req)
 	if err != nil {
 		res.Err = err.Error()
 		a.reply(c, res)
@@ -239,8 +312,16 @@ func (a *App) prepare(r *runtime, c *client, req routeReq, ext *extTracker) *rou
 		l.native = req.Stage[l.wire]
 	}
 	if protected := a.guardPhase(w, e); len(protected) > 0 {
-		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
+		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r.levelsOf(u.uid), protected)))
 		return nil
+	}
+	if req.PutBack {
+		if why := a.putBackHeld(r, w, e, req); why != "" {
+			e.Failed = slices.Sorted(slices.Values(e.Levels))
+			e.Unsent = slices.Clone(e.Failed)
+			a.finish(c, res, e, errors.New(why))
+			return nil
+		}
 	}
 	a.registerPhase(w, e)
 	return &routeRun{c: c, res: res, w: w, e: e}
@@ -260,7 +341,7 @@ func (a *App) complete(r *runtime, t *routeRun, sendErr error) {
 	if a.gapHook != nil {
 		a.gapHook()
 	}
-	w.unregister(a, e.ID)
+	w.unregister(&a.mu, e.ID)
 	a.gapPhase(w, e)
 }
 
@@ -269,7 +350,7 @@ func (a *App) gapPhase(w *waiter, e *Entry) {
 	gap := w.filter(func(l *routeLevel) bool { return l.confirmed() && slices.Contains(e.Failed, l.ui) })
 	a.mu.Unlock()
 	if len(gap) > 0 {
-		a.lateConfirm(e.ID, uis(gap))
+		a.lateConfirm(w.u, e.ID, uis(gap))
 	}
 }
 
@@ -287,13 +368,13 @@ func (a *App) whyMissing(e *Entry, missing []*routeLevel) {
 
 // nowNames copies only the names entryErr can read: the sources in e.Now. A whole copy of a large
 // router's names on every take makes too much garbage. Caller holds mu.
-func (a *App) nowNames(e *Entry) map[int]string {
+func nowNames(u *routerUnit, e *Entry) map[int]string {
 	if len(e.Now) == 0 {
 		return nil
 	}
 	names := make(map[int]string, len(e.Now))
 	for _, p := range e.Now {
-		if n, ok := a.router.srcNames[p[1]]; ok {
+		if n, ok := u.router.srcNames[p[1]]; ok {
 			names[p[1]] = n
 		}
 	}
@@ -309,7 +390,7 @@ func entryErr(r *runtime, names map[int]string, e *Entry) string {
 		case names[n] != "":
 			return names[n]
 		}
-		return fmt.Sprintf("source %d", n+r.cfg.NumberOffset)
+		return fmt.Sprintf("source %d", n+r.routerOf(e.Router).NumberOffset)
 	}
 	now := map[int]int{}
 	for _, p := range e.Now {
@@ -320,7 +401,7 @@ func entryErr(r *runtime, names map[int]string, e *Entry) string {
 		if slices.Contains(e.Unsent, ui) {
 			continue
 		}
-		label := "level " + r.cfg.LevelLabel(ui)
+		label := "level " + r.levelsOf(e.Router).label(ui)
 		switch n, seen := now[ui]; {
 		case e.Cut:
 			parts = append(parts, label+" no answer before the router changed")
@@ -337,25 +418,25 @@ func entryErr(r *runtime, names map[int]string, e *Entry) string {
 		out = append(out, "no confirmation from router: "+strings.Join(parts, "; "))
 	}
 	if e.SendErr != "" {
-		out = append(out, fmt.Sprintf("levels %s not sent: %s", levelList(r, slices.Clone(e.Unsent)), e.SendErr))
+		out = append(out, fmt.Sprintf("levels %s not sent: %s", levelList(r.levelsOf(e.Router), slices.Clone(e.Unsent)), e.SendErr))
 	}
 	return strings.Join(out, "; ")
 }
 
-func planRoute(r *runtime, req routeReq) (*waiter, error) {
+func planRoute(r *runtime, u *routerUnit, req routeReq) (*waiter, error) {
 	if req.Src < 0 || req.Src > 0xFFFE || req.Dst < 0 || req.Dst > 0xFFFE || len(req.Levels) == 0 {
 		return nil, errors.New("bad request")
 	}
-	w := &waiter{dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1, group: req.Group}}
-	for _, ui := range req.Levels {
-		l, ok := r.byUI[ui]
-		if !ok {
-			return nil, errors.New("unknown level " + r.cfg.LevelLabel(ui))
-		}
-		if slices.ContainsFunc(w.levels, func(x *routeLevel) bool { return x.ui == ui }) {
-			continue
-		}
-		w.levels = append(w.levels, &routeLevel{ui: ui, wire: l.Wire, connect: swp08.ExtConnect(r.cfg.Matrix, l.Wire, req.Dst, req.Src)})
+	w := &waiter{u: u, dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1, group: req.Group}}
+	// The typed levels are levels of the destination's router.
+	lv := r.levelsOf(u.uid)
+	uis, err := lv.typed(req.Levels)
+	if err != nil {
+		return nil, err
+	}
+	for _, ui := range uis {
+		l := lv.byUI[ui]
+		w.levels = append(w.levels, &routeLevel{ui: ui, wire: l.Wire, connect: swp08.ExtConnect(lv.rc.Matrix, l.Wire, req.Dst, req.Src)})
 	}
 	return w, nil
 }
@@ -368,7 +449,7 @@ func (a *App) sendRoute(r *runtime, w *waiter) error {
 	var last <-chan struct{}
 	connects := w.filter(func(l *routeLevel) bool { return !l.native })
 	for i, l := range connects {
-		done, err := a.sendTracked(w.ext, l.connect, w.why)
+		done, err := a.sendTracked(w.u, w.ext, l.connect, w.why)
 		if err != nil {
 			sendErr = err
 			a.mu.Lock()
@@ -387,15 +468,15 @@ func (a *App) sendRoute(r *runtime, w *waiter) error {
 		last = done
 	}
 	// Confirm wait and own keys start after our messages have gone out.
-	a.leftQueue(last)
+	w.u.leftQueue(last)
 	a.mu.Lock()
 	w.cause.sent = time.Now()
 	until := w.cause.sent.Add(ownFor)
-	if a.ext == w.ext { // else the keys were never made in this tracker
+	if w.u.ext == w.ext { // else the keys were never made in this tracker
 		for _, l := range w.levels {
 			k := ownKey{w.dst, l.wire, w.src}
-			if _, ok := a.ext.own[k]; ok {
-				a.ext.own[k] = until
+			if _, ok := w.ext.own[k]; ok {
+				w.ext.own[k] = until
 			}
 		}
 	}
@@ -403,29 +484,30 @@ func (a *App) sendRoute(r *runtime, w *waiter) error {
 	return sendErr
 }
 
-// sendTracked refuses after the router changed: applyConfig swaps a.ext under mu before
-// retargeting, so an earlier send would land in the old session's queue. Holding mu across
-// Send is fine (Send and onTx never block or lock it).
-func (a *App) sendTracked(ext *extTracker, m []byte, why swp08.Why) (<-chan struct{}, error) {
+// sendTracked sends on router u. It refuses after the router changed: applyConfig swaps u.ext under mu before
+// retargeting, so an earlier send would land in the old session's queue. Holding mu across Send is fine (Send and
+// onTx never block or lock it).
+func (a *App) sendTracked(u *routerUnit, ext *extTracker, m []byte, why swp08.Why) (<-chan struct{}, error) {
 	why.Done = make(chan struct{})
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.ext != ext {
+	if u.ext != ext {
 		return nil, errRouterChanged
 	}
-	if err := a.sendMsg(m, why); err != nil {
+	if err := u.sendMsg(m, why); err != nil {
 		return nil, err
 	}
 	return why.Done, nil
 }
 
-func (a *App) leftQueue(done <-chan struct{}) {
+// leftQueue waits until done closes, or for the queueMax of router u.
+func (u *routerUnit) leftQueue(done <-chan struct{}) {
 	if done == nil {
 		return
 	}
 	select {
 	case <-done:
-	case <-time.After(a.queueMax):
+	case <-time.After(u.queueMax):
 	}
 }
 
@@ -433,7 +515,7 @@ func (a *App) interrogate(r *runtime, w *waiter, ls []*routeLevel, reason swp08.
 	why := swp08.Why{Reason: reason, By: w.why.By, Note: w.why.Note}
 	var last <-chan struct{}
 	for _, l := range ls {
-		done, err := a.sendTracked(w.ext, swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why)
+		done, err := a.sendTracked(w.u, w.ext, swp08.ExtInterrogate(r.routerOf(w.u.uid).Matrix, l.wire, w.dst), why)
 		if err != nil {
 			return last, err
 		}
@@ -454,7 +536,7 @@ func (a *App) awaitRoute(r *runtime, w *waiter) []*routeLevel {
 	select {
 	case <-w.done: // all confirmed, or the take was cut and these are the unanswered
 		return outstanding()
-	case <-time.After(a.routeTimeout):
+	case <-time.After(w.u.routeTimeout):
 	}
 	// Last chance: interrogate what is still unconfirmed (stale cache, lost Connected);
 	// not for a cut take.
@@ -463,11 +545,11 @@ func (a *App) awaitRoute(r *runtime, w *waiter) []*routeLevel {
 	a.mu.Unlock()
 	if !cut {
 		done, _ := a.interrogate(r, w, outstanding(), swp08.ReasonConfirm)
-		a.leftQueue(done)
+		w.u.leftQueue(done)
 	}
 	select {
 	case <-w.done:
-	case <-time.After(a.routeGrace):
+	case <-time.After(w.u.routeGrace):
 	}
 	return outstanding()
 }

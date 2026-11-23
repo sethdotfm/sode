@@ -34,6 +34,7 @@ var settingFields = []settingField{
 	{"guestApiScopes", "api", "Keyless API scopes", "api", true},
 	{"publicPanels", "panels", "Public panels allowed", "panels", false},
 	{"newPanelActs", "panels", "New-panel Authentication mode", "panels", false},
+	{"tieHopWeight", "tie-lines", "Hop weight", "tie-lines", false},
 	{"trustedProxies", "proxy", "Trusted proxies", "proxy", false},
 	{"requireHttps", "proxy", "Require HTTPS", "proxy", false},
 	{"router", "router-matrix", "Address", "", false},
