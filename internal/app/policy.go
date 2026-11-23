@@ -214,6 +214,8 @@ var policy = map[string]rule{
 	// user's own items, so it is never Critical.
 	"swapList": {crit: critNever, role: config.RoleStandard, op: "swapList", handle: func(a *App, c *client, m *inMsg) { go a.serveSwapList(c, m) }},
 	"swapMine": {crit: critNever, role: config.RoleStandard, op: "swapMine", write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSwapMine(c, m) }},
+	// Remove router (routeradd.go): the items a router delete breaks, everyone's, so Administrator only.
+	"routerUses": {crit: critNever, role: config.RoleAdministrator, op: "routerUses", handle: func(a *App, c *client, m *inMsg) { go a.serveRouterUses(c, m) }},
 	// Broken and Name moved counts (brokencount.go): everyone's is Administrator only, checked in the handler.
 	"brokenCount": {crit: critNever, role: config.RoleStandard, handle: func(a *App, c *client, m *inMsg) { go a.serveBrokenCount(c, m) }},
 	// The Palette's Panels rows (palette.go): the reach of the browser's own sign-in, never a panel key.

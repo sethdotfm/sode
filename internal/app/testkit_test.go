@@ -131,7 +131,7 @@ func moreRouter(prefix, title, addr string, levels int) config.Router {
 
 // shortTimers keeps tests that wait on an unanswered router fast, on every router of a.
 func shortTimers(a *App) {
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		shortUnitTimers(u)
 	}
 	a.drainLimit = 2 * time.Second

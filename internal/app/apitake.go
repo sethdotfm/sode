@@ -65,7 +65,7 @@ func (x apiAnswer) write(w http.ResponseWriter, replay bool) {
 // The routers of a take run side by side, so the slowest router's timers count.
 func (a *App) takeDeadline(n int) time.Duration {
 	var one time.Duration
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		one = max(one, u.checkTimeout+u.queueMax+u.routeTimeout+u.routeGrace)
 	}
 	return one*time.Duration((n+routeLimit-1)/routeLimit) + takeMargin
@@ -111,8 +111,8 @@ func (a *App) routeUnit(ro apiRouteIn) (*routerUnit, *apiProblem) {
 	var us [2]*routerUnit
 	for i, e := range []apiEnd{ro.Src, ro.Dst} {
 		switch {
-		case e.Router == "" && len(a.routers) > 1:
-			return nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.routers), apiBase)
+		case e.Router == "" && len(a.units()) > 1:
+			return nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.units()), apiBase)
 		case !a.knownRouter(e.Router):
 			return nil, problem(http.StatusNotFound, "unknown_router", "no router with UID %q; GET %s/routers lists them", e.Router, apiBase)
 		}

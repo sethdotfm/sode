@@ -79,7 +79,7 @@ func (a *App) flushProtExt() {
 	var es []*Entry
 	a.mu.Lock()
 	now := time.Now()
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		es = append(es, protExtEntriesMu(u, now)...)
 	}
 	a.mu.Unlock()
