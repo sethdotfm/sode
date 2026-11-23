@@ -383,7 +383,7 @@ paths:
       summary: The routers
       description: |
         Any key or Guest call. `uid` is fixed for the life of the router; send it as `router`.
-        `prefix` (A to Z) is how a person names the router in typing, and an administrator can
+        `prefix` (one or two letters, A to Z) is how a person names the router in typing, and an administrator can
         change it. `title` is the router title from Settings.
       parameters:
         - { $ref: "#/components/parameters/IfNoneMatch" }
@@ -403,7 +403,7 @@ paths:
                       required: [uid, prefix, title]
                       properties:
                         uid: { type: string }
-                        prefix: { type: string, pattern: "^[A-Z]$" }
+                        prefix: { type: string, pattern: "^[A-Z]{1,2}$" }
                         title: { type: string }
         "304": { description: Not modified }
         "401": { $ref: "#/components/responses/Unauthorized" }

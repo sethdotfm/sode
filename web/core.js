@@ -3,7 +3,7 @@
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
-import { searchText, prefixOf } from './routerprefix.js';
+import { searchText, prefixOf, typedPrefix } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
 
 // A send or a pending answer with no Server link.
@@ -145,11 +145,20 @@ export const routerOfItem = (it) => (otherRouter(it?.router) ? it.router : '');
 // sameEnd: the same number on the same router.
 export const sameEnd = (a, b) => !!a && !!b && a.n === b.n && routerOfItem(a) === routerOfItem(b);
 
-// The router whose prefix the text starts with (A.23), as a routerData UID: blank for none or the first router.
-export function routerOfText(q) {
-  const p = prefixOf(q).prefix;
-  return (p && [...more.values()].find((r) => r.prefix === p)?.uid) || '';
+// The prefixes of every router, the first one first.
+const prefixes = () => (S.routers.length ? S.routers.map((r) => r.prefix) : [S.prefix]);
+const many = () => S.routers.length > 1;
+
+// routerNamed is the router whose prefix the text starts with (A.23, A23, BA.23), as a routerData UID. It is blank for
+// the first router, and null when the text names no router (typedPrefix).
+export function routerNamed(q) {
+  const p = typedPrefix(q, prefixes());
+  if (!p) return null;
+  if (p === (S.routers[0]?.prefix ?? S.prefix)) return '';
+  return [...more.values()].find((r) => r.prefix === p)?.uid ?? null;
 }
+// The router whose prefix the text starts with, as a routerData UID: blank for none or the first router.
+export const routerOfText = (q) => routerNamed(q) || '';
 
 function newRouter(r) {
   return {
@@ -235,17 +244,21 @@ export const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 // An item of a router after the first has router (its UID) and prefix, and its label shows the prefix (B.23). num stays
 // the number alone, so a search of that router's list matches it.
+// With two or more routers, an item of the first router has prefix too (A.23), and no router.
 export function item(n, name, uid = '') {
   const rt = otherRouter(uid);
   const num = String(n + (rt ? rt.off : off()));
-  const shown = rt ? `${rt.prefix}.${num}` : num;
+  const prefix = rt ? rt.prefix : many() ? S.routers[0].prefix : '';
+  const shown = prefix ? `${prefix}.${num}` : num;
   const it = { n, name, num, lname: name.toLowerCase(), label: name ? `${shown} ${name}` : shown };
-  return rt ? Object.assign(it, { router: rt.uid, prefix: rt.prefix }) : it;
+  if (rt) it.router = rt.uid;
+  if (prefix) it.prefix = prefix;
+  return it;
 }
 export const srcItem = (n, name = '', uid = '') => routerData(uid).srcBy.get(n) || item(n, name, uid);
 export const dstItem = (n, name = '', uid = '') => routerData(uid).dstBy.get(n) || item(n, name, uid);
 export const srcLabel = (n, uid = '') => srcItem(n, '', uid).label;
-// The number as shown: with its router prefix on a router after the first (B.23).
+// The number as shown: with its router prefix when there are two or more routers (B.23).
 export const numText = (it) => (it.prefix ? `${it.prefix}.${it.num}` : it.num);
 // Number is muted and fixed-width so it cannot run into a name starting with a digit.
 export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', numText(it)), ...(it.name ? [' ', it.name] : []));
@@ -377,12 +390,13 @@ function handle(m) {
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];
+      // Before the first router's names: with two or more routers, its items show its prefix too.
+      setRouters(m.routers || []);
       setNames(m.srcs, m.dsts);
       S.namesAt = m.at;
       S.namesSavedAt = m.savedAt || null;
       S.tally = new Map();
       applyTally(m.tally || []);
-      setRouters(m.routers || []);
       S.prot = new Map();
       applyProtect(m.protected || []);
       applyProtectBy(m.protectBy || []);
@@ -635,20 +649,54 @@ export function setDot(dotEl, textEl, [state, text], { base, label = text, count
   textEl.textContent = text;
 }
 
+// [score, item, rank] for each item of list that matches q (trimmed, lower case).
+function scored(list, q, rank = 0, bonus = 0) {
+  const out = [];
+  for (const it of list) {
+    const s = fuzzyScore(it, q);
+    if (s >= 0) out.push([s + bonus, it, rank]);
+  }
+  return out;
+}
+function best(out, n) {
+  out.sort((a, b) => b[0] - a[0] || a[2] - b[2] || a[1].n - b[1].n);
+  const top = out.slice(0, n).map((x) => x[1]);
+  top.total = out.length; // how many matched before the cut
+  return top;
+}
+
 // A.23 searches 23.
 export function search(list, q, n = 8) {
   q = searchText(q, S.prefix, [], [S.prefix]);
   q = q?.trim().toLowerCase();
   if (!q) return [];
-  const out = [];
-  for (const it of list) {
-    const s = fuzzyScore(it, q);
-    if (s >= 0) out.push([s, it]);
+  return best(scored(list, q), n);
+}
+
+// boxSearch gives the matches of a patch box (kind 'src' or 'dst') across the routers. A router prefix with digits
+// (B.42, B42) searches that router's numbers, and those matches always come first. Without the dot, the name matches
+// of the whole text come after them, so "B42 MON" still shows. A bare number searches def, the default router of the
+// box (a routerData UID). Other text searches the names of every router; on a tie, def comes first. keep drops items.
+export function boxSearch(kind, text, { def = '', n = 8, keep = () => true } = {}) {
+  const q = text.trim().toLowerCase();
+  if (!q) return [];
+  const listOf = (rt) => (kind === 'src' ? rt.srcs : rt.dsts).filter(keep);
+  const p = prefixOf(text);
+  if (typedPrefix(text, prefixes())) {
+    const uid = routerNamed(text);
+    if (uid == null) return Object.assign([], { total: 0 });
+    const first = scored(listOf(routerData(uid)), p.text, 0, 10000);
+    if (p.dot) return best(first, n);
+    const seen = new Set(first.map((x) => x[1]));
+    return best([...first, ...everyRouter(listOf, q, def).filter((x) => !seen.has(x[1]))], n);
   }
-  out.sort((a, b) => b[0] - a[0] || a[1].n - b[1].n);
-  const best = out.slice(0, n).map((x) => x[1]);
-  best.total = out.length; // how many matched before the cut
-  return best;
+  if (/^\d+$/.test(q) || !many()) return search(listOf(routerData(def)), text, n);
+  return best(everyRouter(listOf, q, def), n);
+}
+// The matches of q on every router; def ranks first on a tie.
+function everyRouter(listOf, q, def) {
+  const home = routerData(def);
+  return [FIRST, ...more.values()].flatMap((rt) => scored(listOf(rt), q, rt === home ? 0 : 1));
 }
 export function icon(name, sm = true) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
