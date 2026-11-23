@@ -213,8 +213,8 @@ func TestRemapDefaults(t *testing.T) {
 	}
 }
 
-// Setup restore with two routers: both come back with their UIDs and names, a tie line to router B comes back, and
-// a second backup is the same.
+// Setup restore with two routers: both come back with their UIDs and names, and a second backup is the same. A tie
+// line to router B also comes back.
 func TestRestoreTwoRoutersRoundTrip(t *testing.T) {
 	a, tok := exportApp(t)
 	seedEverything(t, a)
