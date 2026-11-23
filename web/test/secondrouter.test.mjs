@@ -21,7 +21,7 @@ globalThis.WebSocket = class {
 };
 globalThis.setInterval = () => 0;
 
-const { connect, srcItem, dstItem, boxSearch } = await import('../core.js');
+const { connect, srcItem, dstItem, boxSearch, protectsOf } = await import('../core.js');
 const { undoPlan, canRedo, againPlan, patchPlan, noteLast, lastTake, planBlocked, armedAdd } = await import('../plans.js');
 const { beforeGroups, stackBefore, failureGroups } = await import('../history.js');
 
@@ -64,6 +64,10 @@ const hello = {
       ],
       tally: [],
       status: { router: 'up' },
+      // B.7 has a Router lock from another device on level 2.
+      protected: [[6, 2, 9, 2]],
+      protectBy: [],
+      protectDevice: 3,
     },
   ],
 };
@@ -148,4 +152,14 @@ test('an edited picked label searches the router and number it names', () => {
   );
   assert.equal(boxSearch('src', 'B.23 cam').length, 0, 'router B has no 23');
   assert.equal(boxSearch('src', 'C.23 cam').length, 0, 'no router C');
+});
+
+test('the page keeps the Protects of router B, and a take to a protected destination there is blocked', () => {
+  assert.deepEqual([protectsOf('bbb').prot.get(6)?.get(2), protectsOf('bbb').device], [{ dev: 9, kind: 2 }, 3]);
+  assert.equal(protectsOf('').prot.has(6), false);
+  const plan = patchPlan(srcItem(5, '', 'bbb'), [dstItem(6, '', 'bbb')], [2]);
+  assert.equal(planBlocked(plan).block?.title, 'Destination protected');
+  // A protected message of router B frees it.
+  sock.onmessage({ data: JSON.stringify({ t: 'protected', u: [[6, 2, -1, 2]], by: [], routerUid: 'bbb' }) });
+  assert.equal(planBlocked(plan).block, null);
 });

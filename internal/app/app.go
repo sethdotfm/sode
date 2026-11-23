@@ -672,17 +672,13 @@ func (a *App) flush() {
 	}
 	a.flushVia()
 	a.flushPageVia(tallied)
-	// The protected message of the first router has Sode's record; the message of each other router has its UID.
-	first := a.firstUnit()
+	// Each router's protected message has Sode's record of that router; the message of a router after the first has
+	// its UID.
 	for _, u := range a.unitsInOrder(a.r()) {
 		if len(u.router.pendProt) == 0 {
 			continue
 		}
-		if u == first {
-			a.broadcast(protectMsg{T: "protected", U: u.router.pendProt, By: a.protectByList(a.r())})
-		} else {
-			a.broadcast(protectMsg{T: "protected", U: u.router.pendProt, RouterUID: u.uid})
-		}
+		a.broadcast(a.protectMsgOf(u, u.router.pendProt))
 		u.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
@@ -771,8 +767,12 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
 			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: u.router.savedAt, Tally: routeTriples(u.router.tally),
 			Status: u.statusOut(),
-			Via:    a.pageViaRows(u, x),
+			Via:    a.pageViaRows(u, x), ProtectDevice: rc.ProtectDevice,
 		})
+		if u != a.firstUnit() {
+			out[len(out)-1].Protected = protectRows(u.router.protect)
+			out[len(out)-1].ProtectBy = a.protectByListOf(r, rc.UID)
+		}
 	}
 	return out
 }

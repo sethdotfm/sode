@@ -316,11 +316,10 @@ export function planBlocked(plan) {
   }
   for (const i of live) {
     if (tie && crosses(i)) continue;
-    // The page has the Protects of the first router only; the server refuses a protected destination on any router.
-    if (routerOfItem(i.dst)) continue;
     const p = holdsAt(
       i.dst.n,
       i.groups.flatMap((g) => g.levels),
+      routerOfItem(i.dst),
     );
     if (p.levels.length) prot.set(i, p);
   }

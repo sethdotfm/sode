@@ -141,9 +141,8 @@ const (
 type protectMsg struct {
 	T  string       `json:"t"`  // "protected"
 	U  []protChange `json:"u"`  // [dst, level, device, kind]; device -1 when freed
-	By []protectBy  `json:"by"` // every Protect in Sode's record
-	// RouterUID names a router after the first. Its message carries no by. The page reads it only to plan an open Tie
-	// line picker again.
+	By []protectBy  `json:"by"` // every Protect in Sode's record of this router
+	// RouterUID names a router after the first.
 	RouterUID string `json:"routerUid,omitempty"`
 }
 
@@ -202,14 +201,24 @@ func recName(cfg config.Config, rec protectRec) string {
 
 // It sends the router's pending hold changes too, so the page has the state with the entry and History's Undo
 // follows at once. Caller holds mu.
-func (a *App) broadcastProtectsMu() {
-	first := a.firstUnit()
-	u := first.router.pendProt
-	if u == nil {
-		u = []protChange{}
+// uid names the router (blank: the first).
+func (a *App) broadcastProtectsMu(uid string) {
+	u := a.unitOrFirst(uid)
+	ch := u.router.pendProt
+	if ch == nil {
+		ch = []protChange{}
 	}
-	first.router.pendProt = nil
-	a.broadcast(protectMsg{T: "protected", U: u, By: a.protectByList(a.r())})
+	u.router.pendProt = nil
+	a.broadcast(a.protectMsgOf(u, ch))
+}
+
+// protectMsgOf is the protected message of router u with the hold changes ch. Caller holds mu.
+func (a *App) protectMsgOf(u *routerUnit, ch []protChange) protectMsg {
+	r := a.r()
+	if u == a.firstUnit() {
+		return protectMsg{T: "protected", U: ch, By: a.protectByList(r)}
+	}
+	return protectMsg{T: "protected", U: ch, By: a.protectByListOf(r, r.routerOf(u.uid).UID), RouterUID: u.uid}
 }
 
 func (a *App) serveProtect(c *client, m *inMsg, set bool) {

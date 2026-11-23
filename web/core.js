@@ -45,7 +45,7 @@ export const S = {
   noAdministrator: false, // users and no Administrator: the page shows the recovery banner
   notSaved: false,
   setup: null, // setupwizard.js
-  // The first router's Protects; the page keeps no Protect state of the other routers.
+  // The first router's Protects. Each router after the first keeps its own in its routerData (protectsOf).
   prot: new Map(), // dst → Map(level → {dev, kind}), from the router
   protBy: new Map(), // dst → {by, device, levels}: the Protects in Sode's own record
   levelDefaults: [],
@@ -125,6 +125,10 @@ function newRouter(r, first = false) {
     via: new Map(),
     namesAt: null,
     namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
+    // A router after the first: its Protects and Sode's record of them (protectsOf), and Sode's device number.
+    prot: new Map(),
+    protBy: new Map(),
+    protectDevice: r.protectDevice || 0,
     link: null,
     addr: '',
     err: '',
@@ -156,6 +160,18 @@ function fillRouter(st, r) {
   applyTally(r.tally || [], st.tally);
   st.via = viaMap(r.via);
   setRouterStatus(st, r.status || {});
+  if (!st.first) {
+    applyProtect(r.protected || [], st.prot);
+    st.protBy = byDst(r.protectBy);
+  }
+}
+
+// protectsOf gives the Protects of one router (a routerData UID; blank is the first): prot, dst → Map(level → {dev,
+// kind}); by, Sode's record, dst → {by, device, levels}; and device, Sode's device number on it.
+export function protectsOf(uid = '') {
+  const rt = otherRouter(uid);
+  if (!rt) return { prot: S.prot, by: S.protBy, device: S.cfg?.protectDevice || 0 };
+  return { prot: rt.prot, by: rt.protBy, device: rt.protectDevice };
 }
 
 // err is the last error, kept while the link connects again. A new address or an up link clears it.
@@ -393,10 +409,15 @@ function handle(m) {
       emit('tally');
       break;
     }
-    case 'protected':
-      // A router after the first: the page keeps no Protect state of it. An open Tie line picker plans again.
-      if (otherRouter(m.routerUid)) {
+    case 'protected': {
+      // A router after the first keeps its own. An open Tie line picker plans again (protectedOther).
+      const rt = otherRouter(m.routerUid);
+      if (rt) {
+        applyProtect(m.u, rt.prot);
+        if (m.by) rt.protBy = byDst(m.by);
         emit('protectedOther');
+        emit('protectedRows');
+        emit('tally');
         break;
       }
       applyProtect(m.u);
@@ -404,6 +425,7 @@ function handle(m) {
       emit('protectedRows');
       emit('tally');
       break;
+    }
     case 'status': {
       setRouterStatus(routerData(m.routerUid), m);
       emit('conn');
@@ -453,22 +475,24 @@ function applyTally(list, tally) {
   }
 }
 
-// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect.
-function applyProtect(list) {
+// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect. prot is the first router's when none.
+function applyProtect(list, prot = S.prot) {
   for (const [d, l, dev, kind = 1] of list) {
-    let t = S.prot.get(d);
+    let t = prot.get(d);
     if (dev < 0) {
       if (t) t.delete(l);
-      if (t && !t.size) S.prot.delete(d);
+      if (t && !t.size) prot.delete(d);
       continue;
     }
-    if (!t) S.prot.set(d, (t = new Map()));
+    if (!t) prot.set(d, (t = new Map()));
     t.set(l, { dev, kind });
   }
 }
 
+const byDst = (list) => new Map((list || []).map((r) => [r.dst, r]));
+
 function applyProtectBy(list) {
-  S.protBy = new Map(list.map((r) => [r.dst, r]));
+  S.protBy = byDst(list);
 }
 
 export function connState() {
