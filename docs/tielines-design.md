@@ -85,6 +85,8 @@ Rights checks compare the router and the number of each reference. A right for s
 6. Sode keeps the one-off tie line in memory while its downstream source is routed to a destination. While it does, Via, Undo and Redo work as for a saved tie line.
 7. An Administrator can press "Save as tie line" to keep it.
 8. The API takes `{from, to}` in place of a tie line id.
+9. The picker offers a One-off tie line between the router of the source and the router of the destination, as one step. Its name is "One-off" and its upstream destination, such as "One-off A.12". Without `expect`, Sode does not compare it, since Sode can have no state for that destination. Ends of a saved tie line are that tie line (agent decisions).
+10. An Administrator presses "Save as tie line" in Settings > Routers > Tie lines, which lists the One-off tie lines that Sode keeps now. Sode fills the name from the name of the downstream source (agent decision).
 
 ## Routes through tie lines
 

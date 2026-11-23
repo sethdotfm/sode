@@ -156,3 +156,23 @@
   margin: var(--pb-space-2) 0 0;
   padding-inline-start: var(--pb-space-6);
 }
+/* The painted plan keeps the gap of the body; the One-off tie line form sits under it and is never painted again. */
+.sode-tiepick__plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-6);
+}
+.sode-tiepick__oneoff {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-tiepick__oneoff-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-tiepick__oneoff-form[hidden] {
+  display: none;
+}

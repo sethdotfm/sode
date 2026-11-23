@@ -544,6 +544,14 @@ paths:
         route across routers as it is now, with `changed` and `newAffected`. After the locks, Sode
         plans the take again from what it read. Thus a tie line that changed during the wait
         cannot make Sode skip a hop.
+
+        A One-off tie line is an entry of `ties` with `from` (a destination) and `to` (a source on
+        the next router) in place of `id`. The caller needs no Rights on `from`; the Protect check
+        still covers it. Ends of a saved tie line are that tie line. Sode keeps a One-off tie line
+        in memory while its downstream source is routed to a destination. Via, Undo and Redo then
+        work as for a saved tie line. It is never in GET /tielines. The paths show what it feeds as
+        unknown (`one_off`). A route with no ties can give `oneOffs`: its 409 body then has paths
+        through them too, and `oneOffs` with the id of each.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -572,15 +580,27 @@ paths:
                         description: "Only for a route with its ends on two routers. One tie line for each hop before the last, upstream first. A path of 409 `tie_line_needed` gives them"
                         items:
                           type: object
-                          required: [id]
                           additionalProperties: false
+                          description: "A saved tie line by `id`, or a One-off tie line by `from` and `to`"
                           properties:
                             id: { type: string, description: "The tie line id from GET /tielines" }
+                            from: { allOf: [{ $ref: "#/components/schemas/RouteEnd" }], description: "A One-off tie line: its upstream destination, on the router where the chain is" }
+                            to: { allOf: [{ $ref: "#/components/schemas/RouteEnd" }], description: "A One-off tie line: its downstream source, on the next router" }
                             expect:
                               nullable: true
                               allOf: [{ $ref: "#/components/schemas/RouteEnd" }]
-                              description: "What the caller saw on the tie line. A router reference is that source on every level of the upstream router. Null or omitted is nothing on every level. A list holds one router reference or null for each level, from level 1, for a mixed tie line. Sode compares every level: a difference on any level gets 409 `tie_line_changed`. A mixed tie line never matches one source. A tie line downstream of a mixed tie line is mixed too: send the `levels` of its `now`"
+                              description: "What the caller saw on the tie line. A router reference is that source on every level of the upstream router. Null or omitted is nothing on every level. A list holds one router reference or null for each level, from level 1, for a mixed tie line. Sode compares every level: a difference on any level gets 409 `tie_line_changed`. A mixed tie line never matches one source. A tie line downstream of a mixed tie line is mixed too: send the `levels` of its `now`. On a One-off tie line, omitted means Sode does not compare it"
                             protect: { type: boolean, description: "Protect the upstream destination of the tie line after every hop of the take. It needs the `protect` scope and the Protect right (403 `scope` or `outside_rights` before anything goes to a router). The answer has it in `protects`" }
+                      oneOffs:
+                        type: array
+                        description: "Only for a route across routers with no ties. One-off tie lines for its plan: the 409 body has paths through them too"
+                        items:
+                          type: object
+                          required: [from, to]
+                          additionalProperties: false
+                          properties:
+                            from: { $ref: "#/components/schemas/RouteEnd" }
+                            to: { $ref: "#/components/schemas/RouteEnd" }
                       affected:
                         type: array
                         items: { $ref: "#/components/schemas/RouteEnd" }
@@ -3074,8 +3094,9 @@ components:
       type: object
       required: [id, name]
       properties:
-        id: { type: string, description: "The tie line id from GET /tielines" }
-        name: { type: string, description: "The Tie line name" }
+        id: { type: string, description: "The tie line id from GET /tielines, or the id of a One-off tie line" }
+        name: { type: string, description: "The Tie line name. A One-off tie line has \"One-off\" and its upstream destination" }
+        oneOff: { type: boolean, description: "A One-off tie line, which Sode keeps only while it is in use" }
     TieChain:
       type: object
       description: |
@@ -3169,6 +3190,17 @@ components:
               tie: { type: string, description: "The tie line id" }
               tieName: { type: string }
               by: { type: string, description: "protected: who holds the Protect" }
+        oneOffs:
+          type: array
+          description: "The One-off tie lines that the request states for this route, with the id that its paths use"
+          items:
+            type: object
+            required: [id, name, from, to]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              from: { type: object, properties: { router: { type: string }, n: { type: integer } } }
+              to: { type: object, properties: { router: { type: string }, n: { type: integer } } }
         changed: { type: array, items: { $ref: "#/components/schemas/TieRef" }, description: "409 tie_line_changed only: each tie line that does not carry the source in expect" }
         newAffected: { type: array, items: { $ref: "#/components/schemas/TieEnd" }, description: "409 tie_line_changed only: each Affected destination that is not in affected" }
     RouteEnd:
@@ -3390,6 +3422,13 @@ components:
         result: { type: string, enum: [connected, already, failed] }
         prev: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 } }
         late: { type: boolean, description: "The router confirmed the hop after the take gave up. Sode did not send the hops after it. `result` follows the hop's entry" }
+        oneOff:
+          type: object
+          description: "The tie line is a One-off tie line: the two stated ends, with their names then, and who stated them"
+          properties:
+            from: { type: object, properties: { router: { type: string }, n: { type: integer }, name: { type: string } } }
+            to: { type: object, properties: { router: { type: string }, n: { type: integer }, name: { type: string } } }
+            by: { type: string }
     LogRow:
       type: object
       description: One Communication Log row, a router message or an event such as an `api` row.

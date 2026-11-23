@@ -25,6 +25,12 @@ import {
   protectable,
   protectOn,
   heldText,
+  withOneOffs,
+  oneOffEnds,
+  addOneOff,
+  oneOffId,
+  chooseOneOff,
+  oneOffsOf,
 } from '../tiepickrules.js';
 
 // The shared plan fixture (internal/tieplan, web/test/tieplan.test.mjs). The page reads the 409 body of POST /takes;
@@ -350,4 +356,64 @@ test('after tie_line_changed the picker keeps the Protects that the person asked
   const route = apiRoute(byName('line: one tie line'));
   assert.deepEqual(reopenState(route, ['t1'], [], [], ['t1']).protect, ['t1']);
   assert.deepEqual(reopenState(route, ['t1']).protect, []);
+});
+
+// The One-off tie line case of the fixture: a path through t1 and a path through the One-off tie line "oneoff". The
+// plan echoes its id and ends (route.oneOffs, tieroutes.go).
+const oneOffCase = () => {
+  const c = byName('One-off tie line');
+  const ends = { from: { router: c.route.src.router, n: 30 }, to: { router: c.route.dst.router, n: 31 } };
+  return { route: { ...apiRoute(c), oneOffs: [{ id: 'oneoff', name: 'One-off', ...ends }] }, ends };
+};
+
+test('a One-off tie line goes to the plan on the route with no ties only', () => {
+  const ends = { from: { router: 'a', n: 30 }, to: { router: 'b', n: 31 } };
+  const routes = [
+    { src: { router: 'a', n: 1 }, dst: { router: 'a', n: 2 }, levels: [1] },
+    { src: { router: 'a', n: 1 }, dst: { router: 'b', n: 3 }, levels: [1], ties: [{ id: 't1' }] },
+    { src: { router: 'a', n: 1 }, dst: { router: 'b', n: 4 }, levels: [1] },
+  ];
+  const out = withOneOffs(routes, [ends]);
+  assert.deepEqual(
+    out.map((r) => r.oneOffs || null),
+    [null, null, [ends]],
+  );
+  assert.equal(withOneOffs(routes, []), routes);
+  assert.deepEqual(addOneOff(addOneOff([], ends), { ...ends }), [ends]);
+});
+
+test('the typed numbers of a One-off tie line are numbers as the routers show them', () => {
+  const route = { src: { router: 'a', n: 1 }, dst: { router: 'b', n: 2 } };
+  const off = (uid) => (uid === 'a' ? 1 : 0);
+  assert.deepEqual(oneOffEnds(route, '12', ' 6 ', off), { ends: { from: { router: 'a', n: 11 }, to: { router: 'b', n: 6 } } });
+  assert.match(oneOffEnds(route, '', '6', off).why, /destination/);
+  assert.match(oneOffEnds(route, '0', '6', off).why, /destination/);
+  assert.match(oneOffEnds(route, '3', 'x', off).why, /source/);
+});
+
+test('the picker chooses the path through the One-off tie line, and the take sends its ends', () => {
+  const { route, ends } = oneOffCase();
+  assert.equal(oneOffId(route, ends), 'oneoff');
+  const st = chooseOneOff(pickState(route), ends);
+  assert.deepEqual(ties(st), ['oneoff']);
+  assert.equal(ready(st), true);
+  const t = takeRoute(st);
+  assert.deepEqual(t.ties[0].from, ends.from);
+  assert.deepEqual(t.ties[0].to, ends.to);
+  assert.equal(t.ties[0].id, undefined);
+  assert.deepEqual(oneOffsOf(t), [ends]);
+  // A plan that does not have it changes nothing.
+  assert.equal(chooseOneOff(pickState(apiRoute(byName('line: one tie line'))), ends).path, 0);
+});
+
+test('a One-off tie line with an unknown upstream destination goes with no expect', () => {
+  const { route, ends } = oneOffCase();
+  const st = chooseOneOff(pickState(route), ends);
+  const p = chosen(st);
+  const unknown = {
+    ...st,
+    route: { ...st.route, paths: st.route.paths.map((x) => (x === p ? { ...p, hops: [{ ...p.hops[0], now: { unknown: 'a' } }, p.hops[1]] } : x)) },
+  };
+  assert.equal('expect' in takeRoute(unknown).ties[0], false);
+  assert.equal('expect' in takeRoute(st).ties[0], true);
 });

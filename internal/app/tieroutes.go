@@ -29,6 +29,9 @@ type tieRoute struct {
 	expect map[string]tieWant
 	seen   []tieplan.End
 	ties   []string // the tie line ids that the caller gave, upstream first
+	// oneOffs: the One-off tie lines that the caller states (tieoneoff.go). On a route with ties, those of ties. On a
+	// route with no ties, the plan gives paths through them too.
+	oneOffs []oneOffTie
 	// protect: the tie lines of ties whose upstream destination Sode protects after the take (tieprotect.go).
 	protect []string
 }
@@ -44,7 +47,8 @@ func (a *App) unitUID(rt *runtime, uid string) (string, bool) {
 	return "", false
 }
 
-// tieInput is the planner's input: every router, saved tie line and Protect as Sode has them now. The maps are
+// tieInput is the planner's input: every router, tie line and Protect as Sode has them now. The tie lines are the
+// saved ones and the One-off tie lines that Sode keeps (tieLinesNow). The maps are
 // the live ones, so the caller holds mu while it plans. Reserves come with the ticket that adds them; until then
 // nothing is Reserved. The last change times are the stamps of tiechanges.go.
 func (a *App) tieInput(rt *runtime) tieplan.Input {
@@ -72,13 +76,7 @@ func (a *App) tieInput(rt *runtime) tieplan.Input {
 	for id, st := range a.tieChanges.snapshot(rt.cfg.TieLines) {
 		in.Changes[id], in.Found[id] = st.At, st.Found
 	}
-	for _, t := range rt.cfg.TieLines {
-		fr, ok1 := a.unitUID(rt, t.From.Router)
-		to, ok2 := a.unitUID(rt, t.To.Router)
-		if ok1 && ok2 {
-			in.Ties = append(in.Ties, tieplan.Tie{ID: t.ID, From: tieplan.End{Router: fr, N: t.From.N}, To: tieplan.End{Router: to, N: t.To.N}})
-		}
-	}
+	in.Ties, _ = a.tieLinesNow(rt)
 	return in
 }
 
@@ -114,7 +112,7 @@ func holderText(h protHold, dev int) string {
 // fight it (planTieTake gives 409 conflict). Its mark has no real source (N -1), so it never matches one.
 // The result of a route with ties or on one router is empty. Caller holds mu.
 func (a *App) planTieRoutes(rt *runtime, routes []tieRoute) []tieplan.Result {
-	in := a.tieInput(rt)
+	in := withOneOffs(a.tieInput(rt), nil, routes)
 	in.Taken = map[string]tieplan.End{}
 	for _, r := range routes {
 		if r.src.Router != r.dst.Router {
@@ -192,6 +190,8 @@ type apiTieEndOut struct {
 type apiTieRef struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// OneOff: a One-off tie line (tieoneoff.go), which Sode keeps only while it is in use.
+	OneOff bool `json:"oneOff,omitempty"`
 }
 
 type apiTieChain struct {
@@ -250,6 +250,8 @@ type apiTieRouteOut struct {
 	Paths   []apiTiePath   `json:"paths"`
 	More    int            `json:"more"` // paths past the first apiTiePaths
 	Reasons []apiTieReason `json:"reasons"`
+	// OneOffs: the One-off tie lines that the request states for this route, with the id that its paths use.
+	OneOffs []apiOneOffOut `json:"oneOffs,omitempty"`
 }
 
 // Names follow apiView, which matches numbers only until Rights name routers (docs/tielines-design.md, Rights
@@ -266,13 +268,14 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 		}
 		return out
 	}
-	tieName := map[string]string{}
-	for _, t := range rt.cfg.TieLines {
-		tieName[t.ID] = t.Name
-	}
-	ref := func(id string) apiTieRef { return apiTieRef{id, tieName[id]} }
+	_, tieName := a.tieLinesNow(rt)
+	withOneOffs(tieplan.Input{}, tieName, []tieRoute{r})
+	ref := func(id string) apiTieRef { return tieRef(id, tieName) }
 	var in *tieplan.Input // read when a tie line is mixed
 	out := apiTieRouteOut{Route: r.index, Src: end(r.src, false), Dst: end(r.dst, true), Levels: r.levels, Paths: []apiTiePath{}, Reasons: []apiTieReason{}}
+	for _, o := range r.oneOffs {
+		out.OneOffs = append(out.OneOffs, apiOneOffOut{ID: o.tie.ID, Name: o.name, From: apiTieEnd{o.tie.From.Router, o.tie.From.N}, To: apiTieEnd{o.tie.To.Router, o.tie.To.N}})
+	}
 	for i, p := range res.Paths {
 		if i == apiTiePaths {
 			out.More = len(res.Paths) - i
@@ -308,7 +311,7 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 				}
 				if c.Mixed {
 					if in == nil {
-						x := a.tieInput(rt)
+						x := withOneOffs(a.tieInput(rt), nil, []tieRoute{r})
 						in = &x
 					}
 					for _, l := range h.Levels {
@@ -340,7 +343,8 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 }
 
 // tieRouteRights: rights cover the typed source and destination only (docs/tielines-design.md, Rights). Hops
-// through saved tie lines need none.
+// through saved tie lines need none. The upstream destination of a One-off tie line needs none either (owner
+// decision); the Protect check still covers it.
 func (a *App) tieRouteRights(rt *runtime, rights config.Rights, routes []tieRoute) *apiProblem {
 	// Each typed end is matched with its own router: a route across routers has its source on another router.
 	out := func(what string, e tieplan.End) *apiProblem {
