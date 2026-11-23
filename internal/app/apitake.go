@@ -175,7 +175,7 @@ func (a *App) apiTakePreset(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			return nil, problem(http.StatusNotFound, "not_found", `no preset scope %q; use "everyone", or "me" with a user's key`, scope)
 		}
 		i := slices.IndexFunc(list, func(p config.Preset) bool { return cleanPresetName(p.Name) == cleanPresetName(name) })
-		if i < 0 || !cl.view().WholePreset(list[i]) {
+		if i < 0 || !a.view(cl).WholePreset(list[i]) {
 			return nil, problem(http.StatusNotFound, "not_found", "no preset %q in %s", name, scope)
 		}
 		return planPreset(a, a.r(), list[i])
@@ -196,7 +196,7 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 		}
 		e, ok := a.hist.Get(id)
 		if ok {
-			e, ok = cl.view().Entry(e)
+			e, ok = a.view(cl).Entry(e)
 		}
 		if !ok {
 			return nil, problem(http.StatusNotFound, "not_found", "no History entry %d", id)
@@ -206,13 +206,13 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 		}
 		rt := a.r()
 		if verb == "undo" {
-			p := planUndo(rt, cl.view(), e)
+			p := planUndo(rt, a.view(cl), e)
 			if len(p.Items) == 0 {
 				return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "entry %d has nothing to restore: no level had a route before it", id)
 			}
 			return p, nil
 		}
-		return planAgain(rt, cl.view(), e, verb == "retry")
+		return planAgain(rt, a.view(cl), e, verb == "retry")
 	})
 }
 

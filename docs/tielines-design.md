@@ -53,7 +53,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 
 ### Rights matching
 
-`Rights.Allows*` and `refN` compare numbers only. With two routers, a right for source 5 would also allow source 5 on the other router. Fix this before the Add router button exists, not with tie lines. docs/agents/server.md lists the other open items under "Room for a second router".
+Rights checks compare the router and the number of each reference. A right for source 5 on router A does not allow source 5 on router B. Hidden Rights use the same match. docs/agents/server.md lists the other open items under "Room for a second router".
 
 ## Wire and API shape
 

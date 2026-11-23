@@ -19,7 +19,7 @@ globalThis.setInterval = () => 0;
 
 const { S, connect, routerData, routerOfText, routerOfItem, srcItem, dstItem, sameEnd } = await import('../core.js');
 const { bySource, fedBy } = await import('../routes.js');
-const { planBlocked, patchPlan } = await import('../plans.js');
+const { planBlocked, patchPlan, applyMyRights, rightsOff } = await import('../plans.js');
 
 const level = (ui) => ({ ui, wire: ui - 1, label: String(ui) });
 const hello = {
@@ -113,4 +113,16 @@ test('a take on the second router needs its link; a route across routers is refu
   assert.equal(planBlocked(patchPlan(srcItem(0), [dstItem(2)], [1])).block, null, 'the first router is still up');
   send({ t: 'status', router: 'up', addr: '10.0.0.2:8910', routerUid: 'bbb' });
   assert.equal(planBlocked(patchPlan(srcItem(0), [bDst], [1])).block?.title, 'Route across routers');
+});
+
+test('a right for A.5 allows A.5 and refuses B.5, greyed and blocked', () => {
+  applyMyRights({ sources: [{ router: 'aaa', n: 0 }], dsts: [{ router: 'aaa', n: 2 }] });
+  assert.equal(rightsOff('sources', srcItem(0)), false);
+  assert.equal(rightsOff('sources', srcItem(0, '', 'bbb')), true);
+  assert.equal(rightsOff('dsts', dstItem(2, '', 'bbb')), true);
+  assert.equal(planBlocked(patchPlan(srcItem(0), [dstItem(2)], [1])).block, null);
+  const bSrc = srcItem(0, '', 'bbb'),
+    bDst = dstItem(2, '', 'bbb');
+  assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block?.title, 'Outside your Rights');
+  applyMyRights(null);
 });

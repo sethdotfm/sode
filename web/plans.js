@@ -264,7 +264,7 @@ export function planBlocked(plan) {
     return { block: { kind: 'error', title: 'Not connected', text }, prot };
   }
   if (plan.protect) return { block: null, prot };
-  const outside = planOutside(S.myRights, plan, off(), levelLabel);
+  const outside = planOutside(S.myRights, plan, off(), levelLabel, rightsRouter);
   if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   // A take sends each route to the router of its destination, with the source number of that router.
@@ -638,7 +638,9 @@ export const applyMyRights = (r) => {
   S.myRights = r || null;
   emit('myRights');
 };
-export const rightsOff = (kind, n) => !allowed(S.myRights, kind, n);
+// rightsRouter: the UID that a Rights check compares for a route end; Rights store the first router's UID too.
+export const rightsRouter = (end) => routerData(routerOfItem(end)).uid;
+export const rightsOff = (kind, end) => !allowed(S.myRights, kind, end.n, rightsRouter(end));
 // editorrights.js owns the message on every page, so the Palette reads the same Rights.
 onMyRights(applyMyRights);
 
