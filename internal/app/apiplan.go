@@ -25,13 +25,18 @@ type takePlan struct {
 type apiProblem struct {
 	Status    int
 	Code, Msg string
+	// body replaces the plain error body; it carries its own error object (the 409 bodies of tieroutes.go).
+	body any
 }
 
 func problem(status int, code, format string, args ...any) *apiProblem {
-	return &apiProblem{status, code, fmt.Sprintf(format, args...)}
+	return &apiProblem{Status: status, Code: code, Msg: fmt.Sprintf(format, args...)}
 }
 
 func (p *apiProblem) answer() apiAnswer {
+	if p.body != nil {
+		return jsonAnswer(p.Status, p.body)
+	}
 	return jsonAnswer(p.Status, apiErrBody{apiErr{Code: p.Code, Message: p.Msg}})
 }
 

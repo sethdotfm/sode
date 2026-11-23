@@ -103,7 +103,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 3. If the downstream chain comes back to a tie line that it already passed, Sode stops there and shows a loop mark (∞).
 4. If a router downstream is down, or Sode has no state for it, that part shows as "unknown (router C down)".
 5. The picker opens at once and uses the tally that Sode has. The bridges announce changes, so the tally is current. A count is marked stale only when its router connected again after the last full read.
-6. The cost of a path is the number of Affected destinations plus one for each hop. The weight of a hop is a setting. A path that sends nothing upstream, because its tie lines already carry the wanted source, has cost 0.
+6. The cost of a path is the number of Affected destinations plus one for each hop. The weight of a hop is a setting (`tieHopWeight`, Settings > Routers > Tie lines, default 1). It counts each hop that sends upstream. A path that sends nothing upstream, because its tie lines already carry the wanted source, has cost 0.
 7. Sode sorts whole paths, not single tie lines, by these keys in order:
    1. A path with no unknown part comes before a path with an unknown part.
    2. A path where no tie line is Protected or Reserved by a panel comes before one where a tie line is.
@@ -253,7 +253,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 ## API
 
 1. `POST /takes` accepts an optional `ties` list, one tie line for each hop, with the source that the caller expects on each. A One-off tie line is `{from, to}`.
-2. Without `ties`, Sode refuses a route across routers with 409 `tie_line_needed`. The reply lists the cheapest path.
+2. Without `ties`, Sode refuses a route across routers with 409 `tie_line_needed`. The reply lists the ranked paths, cheapest first.
 3. A preset fire with tie lines answers 409 `tie_confirm_needed` with the state of each tie line. A request that names each tie line and its expected source goes through.
 4. If a tie line moved, Sode answers 409 `tie_line_changed` with the state of each tie line now.
 5. A panel at Off, or a caller without the "Use tie lines" right, gets 403 `tie_lines_off`.
