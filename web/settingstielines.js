@@ -76,7 +76,14 @@ function suggestRow(s) {
     render();
   });
   dismiss.setAttribute('aria-label', `Dismiss ${s.name}`);
-  const li = el('li', 'sode__tielines-row', el('strong', null, s.name), el('span', 'sode__hint', `${endText(s.from, 'dst')} feeds ${endText(s.to, 'src')}`), accept, dismiss);
+  const li = el(
+    'li',
+    'sode__tielines-row',
+    el('strong', null, s.name),
+    el('span', 'sode__hint', `${endText(s.from, 'dst')} feeds ${endText(s.to, 'src')}`),
+    accept,
+    dismiss,
+  );
   li.dataset.ends = s.key;
   return li;
 }
