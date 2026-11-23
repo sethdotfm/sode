@@ -51,6 +51,7 @@ func legacyHello(a *App, p helloPage) []byte {
 	m["routerUid"] = r.cfg.UID
 	m["installUid"] = r.cfg.InstallUID
 	m["prefix"] = r.cfg.Prefix
+	m["routers"] = a.helloRouters(r) // TestHelloListsEveryRouter checks it
 	b, _ := json.Marshal(m)
 	return b
 }

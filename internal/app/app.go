@@ -178,11 +178,13 @@ func newRouterState() *routerState {
 }
 
 type statusMsg struct {
-	T      string      `json:"t"`
-	Router string      `json:"router"`
-	Addr   string      `json:"addr"`
-	Err    string      `json:"err,omitempty"`
-	from   *routerUnit // as on deltaMsg; statusOut sets it
+	T      string `json:"t"`
+	Router string `json:"router"` // the link state
+	Addr   string `json:"addr"`
+	Err    string `json:"err,omitempty"`
+	// RouterUID: as on deltaMsg; statusOut sets it.
+	RouterUID string      `json:"routerUid,omitempty"`
+	from      *routerUnit // as on deltaMsg; statusOut sets it
 }
 
 func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug bool) (*App, error) {
@@ -563,7 +565,7 @@ func (a *App) flush() {
 	defer a.mu.Unlock()
 	for _, u := range a.unitsInOrder(a.r()) {
 		if len(u.router.pend) > 0 {
-			a.broadcast(deltaMsg{T: "tally", U: u.router.pend, from: u})
+			a.broadcast(deltaMsg{T: "tally", U: u.router.pend, RouterUID: u.uid, from: u})
 			u.router.pend = nil
 		}
 	}
@@ -614,7 +616,7 @@ func (a *App) readHello() helloPage {
 	return helloPage{recent, morePages(recent)}
 }
 
-// The hello carries the first router. Caller holds mu.
+// The hello's flat fields carry the first router, and routers carries every router. Caller holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	first := a.firstUnit()
@@ -634,13 +636,29 @@ func (a *App) hello(p helloPage) []byte {
 		ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
 		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),
-		NotSaved: a.cfgPath == "", Setup: a.setupHelloFor(r.cfg),
+		NotSaved: a.cfgPath == "", Setup: a.setupHelloFor(r.cfg), Routers: a.helloRouters(r),
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
 		log.Printf("marshal hello: %v", err)
 	}
 	return b
+}
+
+// helloRouters gives each router of the hello, in the order of the settings. Caller holds mu.
+func (a *App) helloRouters(r *runtime) []helloRouter {
+	var out []helloRouter
+	for _, u := range a.unitsInOrder(r) {
+		rc := r.routerOf(u.uid)
+		c := r.cfg
+		c.Router = rc
+		n := u.namesMsg()
+		out = append(out, helloRouter{
+			UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, NumberOffset: rc.NumberOffset, Levels: c.LevelMap(),
+			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, Tally: routeTriples(u.router.tally), Status: u.statusOut(),
+		})
+	}
+	return out
 }
 
 // Caller holds mu.

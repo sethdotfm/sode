@@ -22,12 +22,12 @@ const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
 //   wording (the buttons then use their default).
 // - empty(x): what Undo says when there is nothing to undo.
 const TAKE = {
-  route: (e) => ({ lead: null, src: srcItem(e.src, e.srcName), dst: dstItem(e.dst, e.dstName), many: null, notes: [] }),
+  route: (e) => ({ lead: null, src: srcItem(e.src, e.srcName, e.router), dst: dstItem(e.dst, e.dstName, e.router), many: null, notes: [] }),
   disc: () => 'Before',
   detail: (e, dst) => `Before #${e.id}, on ${dst.label}`,
   actions(e) {
-    const src = srcItem(e.src, e.srcName),
-      dst = dstItem(e.dst, e.dstName);
+    const src = srcItem(e.src, e.srcName, e.router),
+      dst = dstItem(e.dst, e.dstName, e.router);
     const again = againPlan({ e });
     const undo = e.chain
       ? {
