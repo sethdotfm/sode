@@ -455,7 +455,7 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   opacity: 0;
   transition: opacity var(--sode-motion-reveal) var(--pb-ease);
 }
-:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok:hover,
+:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok:is(:hover, :focus-within),
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"], [data-sode-lock])
   .sode-lock__who:not(.is-hand):is(:hover, :focus-within)
   .sode-lock__who-bar {

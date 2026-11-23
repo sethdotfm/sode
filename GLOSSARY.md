@@ -474,5 +474,9 @@ The connection between a browser and the Sode server.
 **Router link**:
 The connection between the Sode server and the router.
 
+**Server run time**:
+How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The status details show it beside the Router link's uptime.
+_Avoid_: server uptime
+
 **Lost link**:
 The banner a browser shows when the Server link or the Router link is down, naming which one.

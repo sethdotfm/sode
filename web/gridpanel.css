@@ -1005,8 +1005,9 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__headrow > .sode__conn {
   background: none;
   flex: none;
+  inset: auto;
   padding: 0;
-  position: static;
+  position: relative;
 }
 .sode-panels__head[hidden] ~ .sode__conn {
   display: none;

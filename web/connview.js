@@ -1,6 +1,7 @@
 // The Server and Router status with the router's address. The main page's top right (index.html #conn, desktop.js)
 // and the Grid panel's header (gridpanelheadview.js) draw this one block.
 import { el, S, connState, setDot, routerTitle } from './core.js';
+import { statusInfo } from './statusinfo.js';
 
 // n is { root, srvDot, srvText, rtDot, rtText, addr }. Returns connState(), so a caller can act on a lost link.
 export function paintConn(n) {
@@ -11,7 +12,8 @@ export function paintConn(n) {
   n.addr.textContent = label;
   n.addr.classList.toggle('sode__conn-addr--name', isName);
   n.root.classList.toggle('sode__conn--ok', c.ok);
-  n.root.title = [c.ws[1], `${c.rt[1]} ${S.routerAddr}`, S.router !== 'up' && S.routerLastErr].filter(Boolean).join('\n');
+  // The phone shows these words as the native title; elsewhere the details show them (statusinfo.js).
+  statusInfo(n.root).paint([c.ws[1], `${c.rt[1]} ${S.routerAddr}`, S.router !== 'up' && S.routerLastErr].filter(Boolean).join('\n'));
   return c;
 }
 
