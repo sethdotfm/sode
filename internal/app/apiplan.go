@@ -115,7 +115,7 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 }
 
 // A Retry is linked to the failed entry; a Redo is a plain new take. Both need a real source and a level that still
-// exists.
+// exists, and both go to the router of the entry.
 func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProblem) {
 	switch {
 	case retry && e.OK:
@@ -136,7 +136,7 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 		return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "none of entry %d's levels exist or are visible to you", e.ID)
 	}
 	sort.Ints(ls)
-	req := routeReq{Src: e.Src, Dst: e.Dst, Levels: ls}
+	req := routeReq{Src: e.Src, Dst: e.Dst, Levels: ls, Router: e.Router}
 	if retry {
 		id := e.ID
 		req.Retry = &id
