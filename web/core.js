@@ -435,6 +435,11 @@ function handle(m) {
       break;
     }
     case 'protected':
+      // A router after the first: the page keeps no Protect state of it. An open Tie line picker plans again.
+      if (otherRouter(m.routerUid)) {
+        emit('protectedOther');
+        break;
+      }
       applyProtect(m.u);
       if (m.by) applyProtectBy(m.by);
       emit('protectedRows');

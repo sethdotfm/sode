@@ -53,7 +53,7 @@ var policyExpect = map[string][nStates]error{
 	// the handlers refuse after setup; while setup is pending see TestSetupWizardAdmitsOnlySetupMessages
 	"setupClaim": openRule, "setupRouter": openRule, "setupRestoreKey": openRule, "setupFinish": openRule,
 
-	"take": mainRule, "tieTake": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
+	"take": mainRule, "tieTake": mainRule, "tiePlan": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
 	// the Protect right and the owner of the Protect are checked in the handlers (protect_test.go)
 	"protectSet": mainRule, "protectClear": mainRule,
 

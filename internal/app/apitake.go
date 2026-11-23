@@ -399,6 +399,12 @@ func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, bui
 // kept.
 func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build func([]byte) (*takePlan, *apiProblem)) (ans apiAnswer, keep bool) {
 	plan, p := build(body)
+	if cl.planOnly {
+		if p == nil {
+			p = problem(http.StatusBadRequest, "bad_request", "a plan is for routes across routers with no ties")
+		}
+		return p.answer(), false
+	}
 	if p != nil {
 		a.takeEvent(cl, "refused", "refused", p.Code, fmt.Errorf("%s", p.Msg))
 		return p.answer(), false
