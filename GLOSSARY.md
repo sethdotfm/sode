@@ -33,6 +33,12 @@ One router's part of a route that goes through tie lines. A route from A.1 to B.
 **Affected destination**:
 A destination, other than the one asked for, whose picture changes because a take switches a tie line. Sode counts affected destinations on every router the change reaches.
 
+**Via**:
+The word for a source that reaches a destination through tie lines. B.42 shows "A.1 CAM 1 via TIE 3". Sode uses "via" for nothing else.
+
+**Reserved tie line**:
+A tie line that a panel always uses to cross between two routers, even when another path affects fewer destinations. It is not Protected. Anyone else who takes it confirms once more.
+
 **Tie line picker**:
 The view that opens before a take with a route that crosses routers. It shows each hop and lets a person choose the tie line for it, with the Affected destinations of each choice.
 
