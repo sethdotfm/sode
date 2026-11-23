@@ -24,6 +24,7 @@ import (
 func init() {
 	registerAPI(
 		apiRoute{"POST", apiBase + "/takes", config.ScopeTake, (*App).apiTakeRoutes},
+		apiRoute{"POST", apiBase + "/takes/plan", config.ScopeTake, (*App).apiTakePlan},
 		apiRoute{"POST", apiBase + "/presets/{scope}/{name}", config.ScopeTake, (*App).apiTakePreset},
 		apiRoute{"POST", apiBase + "/history/{id}/undo", config.ScopeTake + " " + config.ScopeHistory, historyVerb("undo")},
 		apiRoute{"POST", apiBase + "/history/{id}/redo", config.ScopeTake + " " + config.ScopeHistory, historyVerb("redo")},
@@ -66,7 +67,7 @@ func (x apiAnswer) write(w http.ResponseWriter, replay bool) {
 // The routers of a take run side by side, so the slowest router's timers count.
 func (a *App) takeDeadline(n int) time.Duration {
 	var one time.Duration
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		one = max(one, u.checkTimeout+u.queueMax+u.routeTimeout+u.routeGrace)
 	}
 	return one*time.Duration((n+routeLimit-1)/routeLimit) + takeMargin
@@ -80,12 +81,26 @@ type apiRouteIn struct {
 	Ties []apiTieIn `json:"ties"`
 	// Affected: the Affected destinations that the caller saw for the route. Absent: Sode does not compare them.
 	Affected []apiEnd `json:"affected"`
+	// OneOffs: One-off tie lines for the plan of a route with no ties (tieoneoff.go). The 409 body then has paths
+	// through them too.
+	OneOffs []apiOneOffIn `json:"oneOffs"`
 }
 
-// apiTieIn is one tie line of a route. Expect is what the caller saw on it. The stale check compares it (tielock.go).
+// apiTieIn is one tie line of a route: a saved tie line by id, or a One-off tie line by its two ends. From is a
+// destination, and To a source on the next router. Expect is what the caller saw on it. The stale check compares it
+// (tielock.go). A One-off tie line with no expect is not compared. Protect: Sode protects the upstream destination of
+// the tie line after the take (tieprotect.go).
 type apiTieIn struct {
-	ID     string    `json:"id"`
-	Expect apiExpect `json:"expect"`
+	ID      string    `json:"id"`
+	From    *apiEnd   `json:"from"`
+	To      *apiEnd   `json:"to"`
+	Expect  apiExpect `json:"expect"`
+	Protect bool      `json:"protect,omitempty"`
+}
+
+type apiOneOffIn struct {
+	From apiEnd `json:"from"`
+	To   apiEnd `json:"to"`
 }
 
 // apiExpect is one of three forms. A router reference is that source on every level. Null or omitted is nothing on
@@ -94,10 +109,11 @@ type apiExpect struct {
 	One      *apiEnd
 	Levels   []*apiEnd
 	PerLevel bool
+	Given    bool // the request has expect, null too
 }
 
 func (x *apiExpect) UnmarshalJSON(b []byte) error {
-	*x = apiExpect{}
+	*x = apiExpect{Given: true}
 	switch t := bytes.TrimSpace(b); {
 	case bytes.Equal(t, []byte("null")):
 		return nil
@@ -145,8 +161,8 @@ func (a *App) routeUnits(ro apiRouteIn) (src, dst *routerUnit, _ *apiProblem) {
 	var us [2]*routerUnit
 	for i, e := range []apiEnd{ro.Src, ro.Dst} {
 		switch {
-		case e.Router == "" && len(a.routers) > 1:
-			return nil, nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.routers), apiBase)
+		case e.Router == "" && len(a.units()) > 1:
+			return nil, nil, problem(http.StatusBadRequest, "router_needed", `Sode has %d routers: give each end as {"router": uid, "n": number}, with a uid from GET %s/routers`, len(a.units()), apiBase)
 		case !a.knownRouter(e.Router):
 			return nil, nil, problem(http.StatusNotFound, "unknown_router", "no router with UID %q; GET %s/routers lists them", e.Router, apiBase)
 		}
@@ -157,6 +173,14 @@ func (a *App) routeUnits(ro apiRouteIn) (src, dst *routerUnit, _ *apiProblem) {
 
 type apiTakeIn struct {
 	Routes []apiRouteIn `json:"routes"`
+}
+
+// apiTakePlan is POST /takes with planOnly, as the page's tiePlan: the answer of the plan, 409 tie_line_needed with
+// the paths. It never takes, holds no tie line and writes no Communication Log row. A panel plans a route across
+// routers with it before the take.
+func (a *App) apiTakePlan(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	cl.planOnly = true
+	a.apiTakeRoutes(w, r, cl)
 }
 
 func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -172,8 +196,10 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		}
 		rt := a.r()
 		p := &takePlan{}
-		var all, bare []tieRoute
+		var all []tieRoute
+		bare := false
 		ties := map[int][]string{}
+		protect := false
 		for i, ro := range in.Routes {
 			su, u, prob := a.routeUnits(ro)
 			if prob != nil {
@@ -186,19 +212,40 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			}
 			r := tieRoute{index: i, src: tieplan.End{Router: su.uid, N: ro.Src.N}, dst: tieplan.End{Router: u.uid, N: ro.Dst.N}, levels: ls}
 			switch {
-			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil):
-				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties and affected are only for a route across routers", i)
+			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil || len(ro.OneOffs) > 0):
+				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties, oneOffs and affected are only for a route across routers", i)
+			case len(ro.Ties) > 0 && len(ro.OneOffs) > 0:
+				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: oneOffs is only for a route with no ties. Give a One-off tie line in ties as {from, to}", i)
 			case su != u && len(ro.Ties) == 0:
-				bare = append(bare, r)
+				bare = true
+				for _, o := range ro.OneOffs {
+					if _, oo, prob := a.statedTie(rt, o.From, o.To); prob != nil {
+						return nil, prob
+					} else if oo != nil {
+						r.oneOffs = append(r.oneOffs, *oo)
+					}
+				}
 			case su != u:
 				r.expect = map[string]tieWant{}
 				for _, t := range ro.Ties {
-					ties[i] = append(ties[i], t.ID)
+					id, prob := a.tieInID(rt, t, &r)
+					if prob != nil {
+						return nil, prob
+					}
+					ties[i] = append(ties[i], id)
+					r.ties = append(r.ties, id)
+					if t.Protect {
+						r.protect = append(r.protect, id)
+						protect = true
+					}
 					w, prob := a.tieWantOf(t.Expect)
 					if prob != nil {
 						return nil, prob
 					}
-					r.expect[t.ID] = w
+					if isOneOff(id) && !t.Expect.Given {
+						w = tieWant{anything: true}
+					}
+					r.expect[id] = w
 				}
 				if ro.Affected != nil {
 					r.seen = []tieplan.End{}
@@ -214,27 +261,39 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			all = append(all, r)
 			p.Items = append(p.Items, routeReq{Src: ro.Src.N, Dst: ro.Dst.N, Levels: ls, Router: u.uid})
 		}
-		if len(ties) == 0 && len(bare) == 0 {
+		if len(ties) == 0 && !bare {
 			return p, nil
 		}
 		// Rights cover the typed ends only, and come first, so a caller learns no path for ends that it must not patch.
 		if prob := a.tieRouteRights(rt, cl.Rights, all); prob != nil {
 			return nil, prob
 		}
-		if len(bare) > 0 {
-			return nil, a.apiTieProblem(rt, a.view(cl), bare)
+		// A panel's tie line setting comes after the Use tie lines right (docs/tielines-design.md, Panels).
+		pt, prob := a.panelTieRule(rt, cl, all)
+		if prob != nil {
+			return nil, prob
+		}
+		if bare {
+			return nil, a.apiTieProblemFor(rt, a.view(cl), all, pt)
+		}
+		if prob := tieProtectAllowed(cl, protect); prob != nil {
+			return nil, prob
+		}
+		// A page's preset fire with tie lines (web/tieflow.js) names its preset, for History and the preset right.
+		if (cl.preset != "" || cl.presetID != "") && !cl.Rights.AllowsPreset(cl.presetID) {
+			return nil, problem(http.StatusForbidden, "outside_rights", "preset %q is outside your rights", cl.preset)
 		}
 		tt, prob := a.planTieTake(rt, a.view(cl), all, ties)
 		if prob != nil {
 			return nil, prob
 		}
-		return &takePlan{Ties: tt}, nil
+		return &takePlan{Ties: tt, Preset: cl.preset, PresetID: cl.presetID}, nil
 	})
 }
 
 func (a *App) apiTakePreset(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	scope, name := r.PathValue("scope"), r.PathValue("name")
-	a.apiTakeRun(w, r, cl, func([]byte) (*takePlan, *apiProblem) {
+	a.apiTakeRun(w, r, cl, func(body []byte) (*takePlan, *apiProblem) {
 		cfg := a.r().cfg
 		var list []config.Preset
 		switch {
@@ -251,7 +310,7 @@ func (a *App) apiTakePreset(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		if i < 0 || !a.view(cl).WholePreset(list[i]) {
 			return nil, problem(http.StatusNotFound, "not_found", "no preset %q in %s", name, scope)
 		}
-		return planPreset(a, a.r(), list[i])
+		return a.presetTake(a.r(), cl, body, list[i])
 	})
 }
 
@@ -279,6 +338,11 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 		}
 		rt := a.r()
 		if verb == "undo" {
+			if raw, _ := a.hist.Get(id); raw.Origin != nil {
+				if p := a.tieUndoProblem(rt, raw); p != nil {
+					return nil, p
+				}
+			}
 			p := planUndo(rt, a.view(cl), e)
 			if len(p.Items) == 0 {
 				return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "entry %d has nothing to restore: no level had a route before it", id)
@@ -318,8 +382,10 @@ type apiTakeOut struct {
 	CheckSkipped bool          `json:"checkSkipped"`
 	Results      []apiRouteOut `json:"results"`
 	LeftOut      []string      `json:"leftOut,omitempty"`
-	Skipped      []int         `json:"skippedLevels,omitempty"`
-	Untouched    []int         `json:"untouchedLevels,omitempty"`
+	// Protects: each tie line that the take protects after its hops (tieprotect.go).
+	Protects  []apiTieProtectOut `json:"protects,omitempty"`
+	Skipped   []int              `json:"skippedLevels,omitempty"`
+	Untouched []int              `json:"untouchedLevels,omitempty"`
 }
 
 type sinkResults struct {
@@ -399,8 +465,14 @@ func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, bui
 // kept.
 func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build func([]byte) (*takePlan, *apiProblem)) (ans apiAnswer, keep bool) {
 	plan, p := build(body)
+	if cl.planOnly {
+		if p == nil {
+			p = problem(http.StatusBadRequest, "bad_request", "a plan is for routes across routers with no ties")
+		}
+		return p.answer(), false
+	}
 	if p != nil {
-		a.apiEvent(cl.Actor, "refused", "refused", p.Code, fmt.Errorf("%s", p.Msg))
+		a.takeEvent(cl, "refused", "refused", p.Code, fmt.Errorf("%s", p.Msg))
 		return p.answer(), false
 	}
 	rt := a.r()
@@ -419,12 +491,15 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	if msg := a.rightsPass(rt, c, plan.Items); msg != "" {
 		return problem(http.StatusForbidden, "outside_rights", "%s", msg).answer(), true
 	}
-	if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
-		a.apiEvent(cl.Actor, why, "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
-		return problem(http.StatusTooManyRequests, "take_cap",
-			"%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap).answer(), false
+	// A page's tieTake is a page take: the take cap is for API callers.
+	if cl.page == nil {
+		if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
+			a.apiEvent(cl.Actor, why, "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
+			return problem(http.StatusTooManyRequests, "take_cap",
+				"%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap).answer(), false
+		}
+		defer a.apiS.takeEnd()
 	}
-	defer a.apiS.takeEnd()
 	note := fmt.Sprintf("%d %s", n, plural(n, "route", "routes"))
 	if plan.Preset != "" {
 		note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
@@ -433,16 +508,24 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		// The tie locks and the stale check come before the sent row, so a refused take logs refused.
 		t, unlock, p := a.tieTakeBegin(rt, a.view(cl), c, plan.Ties)
 		if p != nil {
-			a.apiEvent(cl.Actor, why, "refused", p.Code, fmt.Errorf("%s", p.Msg))
+			a.takeEvent(cl, why, "refused", p.Code, fmt.Errorf("%s", p.Msg))
 			return p.answer(), false
 		}
 		defer unlock()
+		for _, s := range t.steps {
+			s.req.Preset, s.req.PresetID = plan.Preset, plan.PresetID
+		}
 		plan.Ties = t
 	}
-	a.apiEvent(cl.Actor, why, "sent", note, nil)
+	a.takeEvent(cl, why, "sent", note, nil)
 	if t := plan.Ties; t != nil {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(t.deadline(a)))
-		return jsonAnswer(http.StatusOK, t.out(a.runTieTake(c, t, sink.get))), true
+		out := t.out(a.runTieTake(c, t, sink.get))
+		for i := range out.Results {
+			out.Results[i].Hops = a.view(cl).hops(out.Results[i].Hops)
+		}
+		out.LeftOut = plan.LeftOut
+		return jsonAnswer(http.StatusOK, out), true
 	}
 	// The recorder in tests has no write deadline.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))

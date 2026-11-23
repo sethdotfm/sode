@@ -253,10 +253,12 @@ test('a stored list the server would refuse turns the setting off, so the panel 
   const { fixedDestsOf } = await import('../panelrules.js');
   const of = (fixedDests) => fixedDestsOf({ settings: { fixedDests } });
   assert.deepEqual(of([12, 0, 65535]), [12, 0, 65535]);
-  for (const bad of [[1.5], ['3'], [-1], [4, 4], [65536], [null], Array.from({ length: 17 }, (_, i) => i), 7]) {
+  for (const bad of [[1.5], ['3'], [-1], [4, 4], [null], Array.from({ length: 17 }, (_, i) => i), 7]) {
     assert.deepEqual(of(bad), [], JSON.stringify(bad));
   }
   assert.deepEqual(of(Array.from({ length: 16 }, (_, i) => i)).length, 16);
+  // A panel page has item numbers (routerids.js): 65536 is destination 0 of the second router.
+  assert.deepEqual(of([65536]), [65536]);
   assert.deepEqual(createState({ fixedDests: [2, 2] }).fixed, null);
 });
 

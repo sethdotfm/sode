@@ -39,7 +39,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 ### Levels
 
 1. Levels belong to a router. Each router has its own level count, level names and default levels.
-2. Rights `levels`, the level subset of a panel and level names say which router they mean.
+2. Rights `levels`, the level subset of a panel and level names say which router they mean. Rights `levels` and a panel's `settings.levels` are lists of levels under the router UID. A router that they do not name is not limited, so a limit on router A does not limit router B. A cell's levels are levels of the router of the cell.
 3. On a route, the typed levels are levels of the router of the destination.
 4. A router with `levels: 1` cannot break away. On that router, any typed levels mean its one level, which is the whole signal. Sode does not refuse "1-17" to such a destination. History says "all levels".
 5. A router with more than one level keeps the rule of today: Sode refuses a level past the count.
@@ -71,7 +71,7 @@ Rights checks compare the router and the number of each reference. A right for s
 5. An Administrator adds, edits and removes tie lines in Settings > Routers > Tie lines.
 6. Sode suggests a tie line when a destination on one router has the same name as a source on another router. Sode trims the names and ignores case. An Administrator accepts each suggestion. Sode does not use a suggestion that nobody accepted.
 7. An Administrator can also pair any destination with any source by hand. Sode cannot see the signal, so it trusts each pair.
-8. Sode stores a tie line by router reference and number. If the name of either end changes, Sode marks the tie line Name moved, and it continues to work. The Tie line name does not change.
+8. Sode stores a tie line by router reference and number. If the name of either end changes, Sode marks the tie line Name moved, and it continues to work. The Tie line name does not change. The mark goes when the old name comes back. It also goes when an Administrator saves that tie line again in its edit form, which stores the names now. A save of a different tie line does not change the mark (agent decision).
 9. The ends of a tie line stay ordinary sources and destinations. The UI and the API can patch them directly.
 10. A change of a tie line is any crosspoint change on its upstream destination, on any level. Sode or an External can make it.
 
@@ -85,6 +85,8 @@ Rights checks compare the router and the number of each reference. A right for s
 6. Sode keeps the one-off tie line in memory while its downstream source is routed to a destination. While it does, Via, Undo and Redo work as for a saved tie line.
 7. An Administrator can press "Save as tie line" to keep it.
 8. The API takes `{from, to}` in place of a tie line id.
+9. The picker offers a One-off tie line between the router of the source and the router of the destination, as one step. Its name is "One-off" and its upstream destination, such as "One-off A.12". Without `expect`, Sode does not compare it, since Sode can have no state for that destination. Ends of a saved tie line are that tie line (agent decisions).
+10. An Administrator presses "Save as tie line" in Settings > Routers > Tie lines, which lists the One-off tie lines that Sode keeps now. Sode fills the name from the name of the downstream source (agent decision).
 
 ## Routes through tie lines
 
@@ -200,6 +202,8 @@ Rights checks compare the router and the number of each reference. A right for s
 4. A Protected tie line shows who set it and when. It is grey and a user cannot choose it.
 5. A Protected tie line that already carries the wanted source stays available for the downstream hop, since Sode sends nothing upstream.
 6. A user frees the Protect with Free Protect, as for any destination.
+7. If a route that asked for the Protect fails, Sode does not send the Protect. Its entry says so, so the Group keeps its size (agent decision).
+8. P and the shield act on the chosen tie line of their step. A second press stops the Protect. A tie line that has a Protect cannot get a second one (agent decision).
 
 ## Rights
 
@@ -225,11 +229,12 @@ Rights checks compare the router and the number of each reference. A right for s
 3. The chain can differ only because this take switched a tie line that still carries what the take set. Then the Undo confirm offers "Put TIE 3 back to CAM 9" with its Affected destinations.
 4. If the chain differs for any other reason, Undo sends nothing. It says "TIE 5 now carries CAM 2, not CAM 9" and offers to open the picker for CAM 9.
 5. Ctrl+Z on a tie row opens the Undo confirm. It never sends without it.
-6. The panel Undo cell uses the same rules.
+6. The panel Undo cell uses the same rules. It has no confirm that can offer a put-back or the picker, so it refuses such an Undo and says why. `POST /history/{id}/undo` does the same, with 409 `tie_line_changed` (agent decision).
+7. The put-back that the Undo confirm offers is off until the person ticks it. An undone tie row says "tie lines left as they are" (agent decision).
 
 ### Redo and Retry
 
-1. Redo opens the picker. It chooses the old tie line first only if that tie line costs no more now than the cheapest. Otherwise it chooses the cheapest and marks the old one "used last time".
+1. Redo opens the picker. It chooses the old tie lines while they are usable, also when they cost more now than the cheapest. It marks them "used last time". If an old tie line is gone or not usable, the picker keeps the choice of the planner for that step and says why. Ctrl+Shift+Z on a tie row does the same. The lockout and the confirm stay (agent decision, from the plan of #808; it replaces "the cheapest first").
 2. For Retry, see "Order and failures" above.
 
 ## Panels
@@ -246,6 +251,8 @@ Rights checks compare the router and the number of each reference. A right for s
 10. If one press needs two sources through one Reserved tie line, the panel refuses the whole press and says why. Fixed destination refusals work the same way.
 11. A panel in Take mode shows the Affected destinations in its confirm. A panel in Instant mode sends on its Reserved tie line with no confirm.
 12. A choice of tie line for each button press is out of scope.
+13. The setting is `tieLines` on the panel (`mode` `off` or `reserved`, and the `reserved` ids), beside the layout and not in `settings`. Thus rule 7 holds by itself. Save a copy and an Inbox card drop it. An import drops each tie line that another panel Reserves (agent decision).
+14. A panel asks the plan of its Reserved tie lines with `POST /takes/plan`, which answers 409 `tie_line_needed`. It takes nothing and writes no Communication Log row. It then sends the ties of that plan with what it showed. A Buttons panel has no confirm box, so in Take mode the first Take shows the Affected destinations and a second Take sends (agent decision).
 
 ## Presets
 
@@ -255,6 +262,9 @@ Rights checks compare the router and the number of each reference. A right for s
 4. If a stored tie line is now Protected, or Reserved by a panel, the page marks it. Enter stays off until each such route is confirmed or cleared.
 5. A deleted tie line makes the preset Broken, with a new `tie` kind. `RefWalk` and `TestWalkRefsSeesEverySlot` gain the slot.
 6. A panel Preset cell sends the stored tie lines with the take, under the Reserved rule if the panel has one.
+7. A preset item stores the tie line ids in `ties`, upstream first. The destinations of one item share one router. An item across routers needs `ties`, and an item on one router has none. A Broken mark of kind `tie` names the id in `tie`. Sode sets and clears these marks from the tie lines each time it saves the settings (agent decision).
+8. The tie confirm page is the Tie line picker, opened on the stored path. The person can choose other tie lines for that fire only. The preset does not change. Take stays off on a Protected stored tie line, and a Reserved one asks one more time (Panels, rule 8). The preset editor opens the picker from the Tie lines… button of a row. It also opens it when an add from the patch boxes or the Grid popup crosses routers. There it chooses only saved tie lines (agent decision).
+9. Under the Reserved rule, the stored tie lines of a Preset cell must be the path of the Reserved tie lines of the panel. If they are not, Sode refuses the press and sends nothing. The panel never sends on other tie lines (agent decision).
 
 ## API
 
@@ -271,9 +281,10 @@ Rights checks compare the router and the number of each reference. A right for s
 
 ## Other stores
 
-1. Swap does not move a tie line end by itself, since a tie line is a cable. The Swap review row lists each tie line that uses a swapped number, and the Administrator chooses.
+1. Swap does not move a tie line end by itself, since a tie line is a cable. The Swap review row lists each tie line that uses a swapped number, and the Administrator chooses. Each tie line starts not ticked. A ticked tie line moves its end to the new number. A user's own Swap never lists a tie line (agent decision).
 2. Tie lines are their own export category. On import, Sode drops a tie line with a note when one of its two routers is not mapped.
-3. Before the Critical confirm, a router delete lists every tie line, panel and preset that it will break.
+3. Before the Critical confirm, a router delete lists every tie line, panel and preset that it will break. The delete also deletes each tie line with an end on that router. Validate refuses a tie line with a router that Sode does not have.
+4. A router delete marks each preset, filter set, panel cell and Grid member that names the router Broken. Rights and a panel's level subset lose that router, since a Rights entry cannot name a router that Sode does not have. The first router cannot be deleted. An Administrator changes its address in its own block.
 
 ## Open items
 

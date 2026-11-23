@@ -130,6 +130,8 @@ type apiRouteRow struct {
 	Unknown string         `json:"unknown,omitempty"`
 	Loop    bool           `json:"loop,omitempty"`
 	Levels  []*tieplan.End `json:"levels,omitempty"`
+	// LevelsRouter: only when Mixed, the router unit UID upstream of the nearest tie line, whose levels Levels counts.
+	LevelsRouter string `json:"levelsRouter,omitempty"`
 }
 
 // router.protect maps dst and level to a device, not a source. So visibility asks about dst only.
@@ -177,7 +179,9 @@ func (a *App) tallySnapshot(u *routerUnit, v apiView) map[string]any {
 		levels = append(levels, apiLevel{l.UI, l.Label, l.Swatch, l.Color})
 	}
 	rc := r.routerOf(u.uid)
+	// router: the UID that Rights levels and the level subset of a panel name these levels by.
 	return map[string]any{
+		"router": a.rightsUID(r, u.uid),
 		"levels": levels, "levelNumbering": rc.LevelNumbering, "defaultLevels": rc.DefaultLevels,
 		"routes": routeRows(u.router.tally, v.on(u.uid), a.newViaTrace(r)),
 	}
@@ -230,24 +234,29 @@ func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	apiWriteTagged(w, r, key.body, key.tag)
 }
 
+// apiProtected answers for the router of the router parameter, as /tally does.
 func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	u, ok := a.apiReadUnit(w, r)
+	if !ok {
+		return
+	}
 	rt := a.r()
+	rc := rt.routerOf(u.uid)
 	by := map[int]protectBy{}
-	for _, b := range a.protectByList(rt) {
+	for _, b := range a.protectByListOf(rt, rc.UID) {
 		by[b.Dst] = b
 	}
 	a.mu.Lock()
 	v := a.view(cl)
 	rows := []apiProtectedRow{}
-	// Only the first router, as in the protected message.
-	for d, t := range a.firstUnit().router.protect {
-		if !v.on(a.firstUnit().uid).Destination(d) {
+	for d, t := range u.router.protect {
+		if !v.on(u.uid).Destination(d) {
 			continue
 		}
 		for l, h := range t {
 			row := apiProtectedRow{Dst: d, Level: l, Kind: holdKindWord(h.kind), Device: h.dev}
 			// The rule of protectLevelsMu. A Sode hold with no record has no name, so sodeUser stays empty.
-			if b, ok := by[d]; ok && sodesHold(h, rt.cfg.ProtectDevice, b.Device) {
+			if b, ok := by[d]; ok && sodesHold(h, rc.ProtectDevice, b.Device) {
 				row.SodeUser = b.By
 			}
 			rows = append(rows, row)
@@ -273,16 +282,11 @@ func linkStatus(s statusMsg, withDetail bool) map[string]any {
 	return m
 }
 
-func (a *App) apiStatus(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	u, ok := a.apiReadUnit(w, r)
-	if !ok {
-		return
-	}
+// apiStatus is about every router, so it needs no router parameter.
+func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	a.mu.Lock()
-	st := u.status
+	m := a.statusBody(cl.has(config.ScopeLog))
 	a.mu.Unlock()
-	m := linkStatus(st, cl.has(config.ScopeLog))
-	m["server"], m["version"], m["uptimeSeconds"] = "up", VersionLabel(), int64(time.Since(a.started).Seconds())
 	apiJSON(w, m)
 }
 

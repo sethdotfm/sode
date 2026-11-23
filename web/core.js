@@ -1,10 +1,12 @@
-// Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js and routerprefix.js, so no import cycle occurs.
+// Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js, routerprefix.js and routerlinkrules.js, so no import
+// cycle occurs.
 
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
-import { searchText, prefixOf } from './routerprefix.js';
+import { searchText, prefixOf, typedPrefix, labelPrefix } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
+import { routerLinks, wholeState, lost } from './routerlinkrules.js';
 
 // A send or a pending answer with no Server link.
 export const LINK_DOWN = 'Server link down.';
@@ -39,31 +41,17 @@ export const S = {
   configPath: '',
   version: '',
   brandColors: [],
-  routerUid: '',
   installUid: '', // from the hello; Item links name it
-  prefix: '', // the router prefix, from the hello
   noAdministrator: false, // users and no Administrator: the page shows the recovery banner
   notSaved: false,
   setup: null, // setupwizard.js
-  srcs: [],
-  dsts: [],
-  srcBy: new Map(),
-  dstBy: new Map(),
-  tally: new Map(),
+  // The first router's Protects. Each router after the first keeps its own in its routerData (protectsOf).
   prot: new Map(), // dst → Map(level → {dev, kind}), from the router
   protBy: new Map(), // dst → {by, device, levels}: the Protects in Sode's own record
-  levels: [],
   levelDefaults: [],
-  levelBy: new Map(),
-  namesAt: null,
-  namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
   wsState: 'connecting',
   wsLost: false,
   wsErr: '',
-  router: null,
-  routerAddr: '',
-  routerErr: '',
-  routerLastErr: '',
   ws: null,
   hist: [],
   histMore: false,
@@ -74,8 +62,8 @@ export const S = {
   myRights: null,
   users: [], // the hello's sign-in list, [{name, len}]; len 0 is no PIN
   userNames: [],
-  // Every router, the first one first: [{uid, prefix, title}]. The flat fields above (srcs, tally, levels, router and
-  // more) are the first router's. Read one router's state with routerData.
+  // Every router, the first one first: [{uid, prefix, title, address, matrix}]. Read one router's names, tally, levels
+  // and link with routerData.
   routers: [],
 };
 
@@ -85,76 +73,43 @@ const more = new Map();
 // list is the first router, as a blank one is.
 const otherRouter = (uid) => (uid && more.get(uid)) || null;
 
-// The first router's state, read from the flat fields of S, so code and tests that set S.tally or S.srcs still work.
-const FIRST = Object.freeze({
-  first: true,
-  get uid() {
-    return S.routers[0]?.uid || S.routerUid;
-  },
-  get prefix() {
-    return S.prefix;
-  },
-  get title() {
-    return S.cfg?.routerName || '';
-  },
-  get off() {
-    return off();
-  },
-  get levels() {
-    return S.levels;
-  },
-  get levelBy() {
-    return S.levelBy;
-  },
-  get numbering() {
-    return S.cfg?.levelNumbering || '1';
-  },
-  get defaultLevels() {
-    return S.cfg?.defaultLevels || '';
-  },
-  get srcs() {
-    return S.srcs;
-  },
-  get dsts() {
-    return S.dsts;
-  },
-  get srcBy() {
-    return S.srcBy;
-  },
-  get dstBy() {
-    return S.dstBy;
-  },
-  get tally() {
-    return S.tally;
-  },
-  get namesAt() {
-    return S.namesAt;
-  },
-  get link() {
-    return S.router;
-  },
-});
+// The first router's state. A hello fills it in place, so a reference to it stays good. Its number offset is the
+// settings' (off), so tests that set S.cfg still number its items.
+const FIRST = Object.defineProperty(newRouter({}, true), 'off', { get: () => off(), enumerable: true });
 
-// routerData is the one accessor for the names, tally, levels (with numbering and default levels) and link of one router.
-// Blank is the first router.
+// routerData is the one accessor for the names, tally, Via rows, levels (with numbering and default levels) and link
+// of one router. Blank is the first router. Tests set the fields of routerData('') to give the first router names.
 export const routerData = (uid) => otherRouter(uid) || FIRST;
 
 // The UID that a take sends for an item's router: blank for the first router.
 export const routerOfItem = (it) => (otherRouter(it?.router) ? it.router : '');
 
+// Each router's Via rows, the first router first, as `[[uid, via]]` (viarules.js fedThrough). uid is the router's own
+// UID.
+export const viaByRouter = () => [FIRST, ...more.values()].map((r) => [r.uid, r.via]);
+
 // sameEnd: the same number on the same router.
 export const sameEnd = (a, b) => !!a && !!b && a.n === b.n && routerOfItem(a) === routerOfItem(b);
 
-// The router whose prefix the text starts with (A.23), as a routerData UID: blank for none or the first router.
-export function routerOfText(q) {
-  const p = prefixOf(q).prefix;
-  return (p && [...more.values()].find((r) => r.prefix === p)?.uid) || '';
-}
+// The prefixes of every router, the first one first.
+const prefixes = () => (S.routers.length ? S.routers.map((r) => r.prefix) : [FIRST.prefix]);
+const many = () => S.routers.length > 1;
 
-function newRouter(r) {
+// routerNamed is the router whose prefix the text starts with (A.23, A23, BA.23), as a routerData UID. It is blank for
+// the first router, and null when the text names no router (typedPrefix).
+export function routerNamed(q) {
+  const p = typedPrefix(q, prefixes());
+  if (!p) return null;
+  if (p === FIRST.prefix) return '';
+  return [...more.values()].find((r) => r.prefix === p)?.uid ?? null;
+}
+// The router whose prefix the text starts with, as a routerData UID: blank for none or the first router.
+export const routerOfText = (q) => routerNamed(q) || '';
+
+function newRouter(r, first = false) {
   return {
-    first: false,
-    uid: r.uid,
+    first,
+    uid: r.uid || '',
     prefix: r.prefix || '',
     title: r.title || '',
     off: r.numberOffset ?? 0,
@@ -167,31 +122,65 @@ function newRouter(r) {
     srcBy: new Map(),
     dstBy: new Map(),
     tally: new Map(),
+    via: new Map(),
     namesAt: null,
+    namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read.
+    // A router after the first keeps its Protects here (protectsOf).
+    prot: new Map(),
+    protBy: new Map(), // Sode's record of them.
+    protectDevice: r.protectDevice || 0, // Sode's device number on the router.
     link: null,
     addr: '',
     err: '',
   };
 }
 
-// The hello's routers list: the first router goes to the flat fields (the hello also has them), each other one to more.
+// The hello's routers list: the first router goes to FIRST, each other one to more. S.routers comes first: with two
+// or more routers, the items of the first router show its prefix too.
 function setRouters(list) {
-  S.routers = list.map((r) => ({ uid: r.uid, prefix: r.prefix || '', title: r.title || '' }));
+  S.routers = list.map((r) => ({ uid: r.uid, prefix: r.prefix || '', title: r.title || '', address: r.address || '', matrix: r.matrix || 0 }));
   more.clear();
+  const { link, addr, err } = FIRST;
+  const fresh = newRouter(list[0] || {}, true);
+  delete fresh.off; // the offset of the first router comes from the settings (off)
+  // The link fields stay. So the hello's status keeps the last error of an unchanged address, as a status message does.
+  Object.assign(FIRST, fresh, { link, addr, err });
+  fillRouter(FIRST, list[0] || {});
   for (const r of list.slice(1)) {
     const st = newRouter(r);
     more.set(st.uid, st);
-    setNames(r.srcs || [], r.dsts || [], st);
-    st.namesAt = r.at;
-    applyTally(r.tally || [], st.tally);
-    setRouterStatus(st, r.status || {});
+    fillRouter(st, r);
   }
 }
 
+function fillRouter(st, r) {
+  setNames(r.srcs || [], r.dsts || [], st);
+  st.namesAt = r.at ?? null;
+  st.namesSavedAt = r.savedAt || null;
+  applyTally(r.tally || [], st.tally);
+  st.via = viaMap(r.via);
+  setRouterStatus(st, r.status || {});
+  if (!st.first) {
+    applyProtect(r.protected || [], st.prot);
+    st.protBy = byDst(r.protectBy);
+  }
+}
+
+// protectsOf gives the Protects of one router (a routerData UID; blank is the first). prot is dst → Map(level →
+// {dev, kind}). by is Sode's record, dst → {by, device, levels}. device is Sode's device number on the router.
+export function protectsOf(uid = '') {
+  const rt = otherRouter(uid);
+  if (!rt) return { prot: S.prot, by: S.protBy, device: S.cfg?.protectDevice || 0 };
+  return { prot: rt.prot, by: rt.protBy, device: rt.protectDevice };
+}
+
+// err is the last error, kept while the link connects again. A new address or an up link clears it.
 function setRouterStatus(st, m) {
+  if ((m.addr || '') !== st.addr) st.err = '';
   st.link = m.router || null;
   st.addr = m.addr || '';
-  st.err = m.err || '';
+  if (m.err) st.err = m.err;
+  else if (st.link === 'up') st.err = '';
 }
 
 export function toggle(set, k) {
@@ -235,21 +224,27 @@ export const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 // An item of a router after the first has router (its UID) and prefix, and its label shows the prefix (B.23). num stays
 // the number alone, so a search of that router's list matches it.
+// With two or more routers, an item of the first router has prefix too (A.23), and no router.
 export function item(n, name, uid = '') {
   const rt = otherRouter(uid);
   const num = String(n + (rt ? rt.off : off()));
-  const shown = rt ? `${rt.prefix}.${num}` : num;
+  const prefix = rt ? rt.prefix : many() ? S.routers[0].prefix : '';
+  const shown = prefix ? `${prefix}.${num}` : num;
   const it = { n, name, num, lname: name.toLowerCase(), label: name ? `${shown} ${name}` : shown };
-  return rt ? Object.assign(it, { router: rt.uid, prefix: rt.prefix }) : it;
+  if (rt) it.router = rt.uid;
+  if (prefix) it.prefix = prefix;
+  return it;
 }
 export const srcItem = (n, name = '', uid = '') => routerData(uid).srcBy.get(n) || item(n, name, uid);
 export const dstItem = (n, name = '', uid = '') => routerData(uid).dstBy.get(n) || item(n, name, uid);
 export const srcLabel = (n, uid = '') => srcItem(n, '', uid).label;
-// The number as shown: with its router prefix on a router after the first (B.23).
+// The number as shown: with its router prefix when there are two or more routers (B.23).
 export const numText = (it) => (it.prefix ? `${it.prefix}.${it.num}` : it.num);
 // Number is muted and fixed-width so it cannot run into a name starting with a digit.
 export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', numText(it)), ...(it.name ? [' ', it.name] : []));
 export const dstLabel = (n, uid = '') => dstItem(n, '', uid).label;
+// endSrcLabel: the label of a source end { router, n } of any router, as a Via row's origin names it.
+export const endSrcLabel = (e) => srcLabel(e.n, routerOfItem(e));
 export const tallyText = (s, uid = '') => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s, uid));
 
 let retry = 1000;
@@ -354,11 +349,11 @@ function handle(m) {
         return;
       }
       // The prefix changed while this socket was down, so the reload message never came.
-      if (S.prefix && m.prefix && S.prefix !== m.prefix) {
+      if (FIRST.prefix && m.routers?.[0]?.prefix && FIRST.prefix !== m.routers[0].prefix) {
         globalThis.location?.reload();
         return;
       }
-      S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
+      S.prevNumbering = S.cfg && { mode: FIRST.numbering, max: FIRST.levels.length };
       S.cfg = m.cfg;
       S.versions = m.versions || {};
       // Before helloCfg: brand.js makes the accent from a named color's hex.
@@ -366,27 +361,17 @@ function handle(m) {
       emit('helloCfg', m.cfg);
       S.configPath = m.configPath;
       S.version = m.version || '';
-      S.routerUid = m.routerUid || '';
       S.installUid = m.installUid || '';
-      S.prefix = m.prefix || '';
       S.users = m.users || [];
       S.userNames = S.users.map((u) => u.name);
       S.noAdministrator = !!m.noAdministrator;
       S.notSaved = !!m.notSaved;
       S.setup = m.setup || null;
-      S.levels = m.levels;
-      S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];
-      setNames(m.srcs, m.dsts);
-      S.namesAt = m.at;
-      S.namesSavedAt = m.savedAt || null;
-      S.tally = new Map();
-      applyTally(m.tally || []);
       setRouters(m.routers || []);
       S.prot = new Map();
       applyProtect(m.protected || []);
       applyProtectBy(m.protectBy || []);
-      setStatus(m.status);
       S.hist = m.history || [];
       S.histMore = m.more;
       // A page asked for before this snapshot is for a replaced list and is ignored (takePage):
@@ -398,38 +383,51 @@ function handle(m) {
       break;
     // tally, names and status name their router; one with no routerUid is from a server with one router.
     case 'names': {
-      const rt = otherRouter(m.routerUid);
-      setNames(m.srcs, m.dsts, rt || undefined);
-      if (rt) rt.namesAt = m.at;
-      else S.namesAt = m.at;
+      const rt = routerData(m.routerUid);
+      setNames(m.srcs, m.dsts, rt);
+      rt.namesAt = m.at;
       emit('names');
       break;
     }
     case 'namesChecked': {
-      const rt = otherRouter(m.routerUid);
-      if (rt) rt.namesAt = m.at;
-      else S.namesAt = m.at;
+      routerData(m.routerUid).namesAt = m.at;
       emit('namesChecked');
       break;
     }
     case 'tally': {
       const rt = otherRouter(m.routerUid);
-      applyTally(m.u, rt ? rt.tally : S.tally);
+      applyTally(m.u, (rt || FIRST).tally);
       // tallyRows is for the first router: panel pages show only it.
       if (!rt) emit('tallyRows', m.u);
       emit('tally');
       break;
     }
-    case 'protected':
+    case 'viaRows': {
+      // The whole set of one router (internal/app/pagevia.go).
+      routerData(m.routerUid).via = viaMap(m.rows);
+      emit('viaRows');
+      emit('tally');
+      break;
+    }
+    case 'protected': {
+      // A router after the first keeps its own. An open Tie line picker plans again (protectedOther).
+      const rt = otherRouter(m.routerUid);
+      if (rt) {
+        applyProtect(m.u, rt.prot);
+        if (m.by) rt.protBy = byDst(m.by);
+        emit('protectedOther');
+        emit('protectedRows');
+        emit('tally');
+        break;
+      }
       applyProtect(m.u);
       if (m.by) applyProtectBy(m.by);
       emit('protectedRows');
       emit('tally');
       break;
+    }
     case 'status': {
-      const rt = otherRouter(m.routerUid);
-      if (rt) setRouterStatus(rt, m);
-      else setStatus(m);
+      setRouterStatus(routerData(m.routerUid), m);
       emit('conn');
       break;
     }
@@ -450,16 +448,26 @@ function handle(m) {
   }
 }
 
-// to: the state of a router after the first; S (the first router) by default.
-function setNames(srcs, dsts, to = S) {
-  const uid = to === S ? '' : to.uid;
+// to: the state of one router (routerData).
+function setNames(srcs, dsts, to) {
+  const uid = to.first ? '' : to.uid;
   to.srcs = srcs.map(([n, name]) => item(n, name, uid));
   to.dsts = dsts.map(([n, name]) => item(n, name, uid));
   to.srcBy = new Map(to.srcs.map((i) => [i.n, i]));
   to.dstBy = new Map(to.dsts.map((i) => [i.n, i]));
 }
 
-function applyTally(list, tally = S.tally) {
+// The Via rows of one router by dst and level.
+function viaMap(rows = []) {
+  const out = new Map();
+  for (const r of rows || []) {
+    if (!out.has(r.dst)) out.set(r.dst, new Map());
+    out.get(r.dst).set(r.level, r);
+  }
+  return out;
+}
+
+function applyTally(list, tally) {
   for (const [d, l, s] of list) {
     let t = tally.get(d);
     if (!t) tally.set(d, (t = new Map()));
@@ -467,54 +475,63 @@ function applyTally(list, tally = S.tally) {
   }
 }
 
-// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect.
-function applyProtect(list) {
+// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect. prot is the first router's when none.
+function applyProtect(list, prot = S.prot) {
   for (const [d, l, dev, kind = 1] of list) {
-    let t = S.prot.get(d);
+    let t = prot.get(d);
     if (dev < 0) {
       if (t) t.delete(l);
-      if (t && !t.size) S.prot.delete(d);
+      if (t && !t.size) prot.delete(d);
       continue;
     }
-    if (!t) S.prot.set(d, (t = new Map()));
+    if (!t) prot.set(d, (t = new Map()));
     t.set(l, { dev, kind });
   }
 }
 
-function applyProtectBy(list) {
-  S.protBy = new Map(list.map((r) => [r.dst, r]));
-}
+const byDst = (list) => new Map((list || []).map((r) => [r.dst, r]));
 
-function setStatus(st) {
-  if (st.addr !== S.routerAddr) S.routerLastErr = '';
-  S.router = st.router;
-  S.routerAddr = st.addr;
-  S.routerErr = st.err || '';
-  if (S.routerErr) S.routerLastErr = S.routerErr;
-  else if (S.router === 'up') S.routerLastErr = '';
+function applyProtectBy(list) {
+  S.protBy = byDst(list);
 }
 
 export function connState() {
   const ws = { up: ['ok', 'Server connected'], connecting: ['warn', 'Server connecting'], down: ['error', 'Server disconnected'] }[S.wsState];
-  const map = { up: ['ok', 'connected'], connecting: ['warn', 'connecting'], down: ['error', 'down'] };
-  const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
+  const list = linkList();
+  // rt: the first router's link.
+  const { state: dot, word } = list[0];
+  const whole = S.wsState === 'up' ? wholeState(list) : '';
   let down = null;
   if (S.wsLost) {
     down = { title: 'Lost link: Server link down', err: S.wsErr, links: [false, null] };
-  } else if (S.wsState === 'up' && S.router === 'down' && !S.routerAddr) {
+  } else if (list.length === 1 && S.wsState === 'up' && FIRST.link === 'down' && !FIRST.addr) {
     down = { title: 'No router set', text: 'Set the router address in Settings.' };
-  } else if (S.wsState === 'up' && (S.router === 'down' || (S.router === 'connecting' && S.routerLastErr))) {
-    down = { title: 'Lost link: Router link down', err: S.routerLastErr, links: [true, false] };
+  } else if (list.length === 1 && whole === 'down') {
+    down = { title: 'Lost link: Router link down', err: FIRST.err, links: [true, false] };
+  } else if (whole === 'down') {
+    // Sode is Down: one hop for each router.
+    const err = list.map((r) => (r.err ? `Router ${r.prefix}: ${r.err}` : '')).filter(Boolean);
+    down = { title: 'Lost link: every Router link down', err: err.join('\n'), links: [true, false], routers: list };
   }
-  // ok: both links up, the only state that Compact view is allowed to hide the status for.
-  return { ws, rt: [dot, `Router ${word}`], down, ok: ws[0] === 'ok' && dot === 'ok' && !down };
+  // ok: every link up, the only state that Compact view is allowed to hide the status for. degraded: the lost routers
+  // while Sode is Degraded, with no banner.
+  return {
+    ws,
+    rt: [dot, `Router ${word}`],
+    down,
+    degraded: !down && whole === 'degraded' ? list.filter(lost) : [],
+    ok: ws[0] === 'ok' && !down && list.every((r) => r.state === 'ok'),
+  };
 }
+
+// The Router link of every router, in config order (routerlinkrules.js).
+export const linkList = () => routerLinks(S, routerData);
 
 export function routerTitle() {
   const show = S.cfg?.routerShow || 'address';
   if (show === 'none') return ['', false];
   if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];
-  return [S.routerAddr || '', false];
+  return [FIRST.addr, false];
 }
 
 // The video router's icon in the status and the Lost link banner. Lucide's `router` is a Wi-Fi router, which the
@@ -543,11 +560,11 @@ export function renderDown(box, c) {
     downObs.observe(box);
   }
   if (downObs) publishDownHeight();
-  const key = c.down ? JSON.stringify([c.down, S.routerAddr, S.cfg?.routerName]) : '';
+  const key = c.down ? JSON.stringify([c.down, FIRST.addr, S.cfg?.routerName]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   if (!c.down) return box.replaceChildren();
-  const { title, text, err, links } = c.down;
+  const { title, text, err, links, routers } = c.down;
   // links[k] is the wire into node k + 1: true ok, false lost, null unknown (past a lost link).
   const wire = (ok) => {
     const [tone, word] = ok === true ? ['ok', 'ok'] : ok === false ? ['error', 'lost'] : ['idle', 'unknown'];
@@ -555,6 +572,10 @@ export function renderDown(box, c) {
   };
   const node = (glyph, ok, ...label) =>
     el('span', 'sode__down-node' + (ok === false ? ' sode__down-node--down' : ok === null ? ' sode__down-node--unknown' : ''), icon(glyph, false), ...label);
+  // With more than one router, the last wire leads to a node for each router.
+  const routerNodes = routers
+    ? routers.map((r) => node(routerIcon(), links[1], `Router ${r.prefix} `, r.title ? `${r.title} ` : '', el('code', null, r.addr || '?')))
+    : [node(routerIcon(), links?.[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, FIRST.addr || '?'))];
   box.replaceChildren(
     ...[
       el('div', 'sode__down-title', icon('unplug', false), title),
@@ -565,12 +586,7 @@ export function renderDown(box, c) {
           node('monitor', true, 'This browser'),
           // A wire and the node it leads to wrap as one, so a line never starts with a loose wire.
           el('span', 'sode__down-hop', wire(links[0]), node('server', links[0], 'Sode server')),
-          el(
-            'span',
-            'sode__down-hop',
-            wire(links[1]),
-            node(routerIcon(), links[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
-          ),
+          el('span', 'sode__down-hop', wire(links[1]), ...routerNodes),
         ),
       text && el('div', null, text),
       err && el('div', 'sode__down-why', el('span', null, 'Reason'), el('code', null, err)),
@@ -596,7 +612,11 @@ export function nameProblem(name, names, { noun = 'item', old = '', max = 32, re
   return '';
 }
 
-export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
+// linked: the Server link and one or more Router links are up. While Sode is Degraded a take can still go to a router
+// that is up; planBlocked refuses a route to a router with no link. firstLinked is for the Protects, which the page
+// keeps on the first router only.
+export const linked = () => !!S.ws && S.wsState === 'up' && linkList().some((r) => r.link === 'up');
+export const firstLinked = () => !!S.ws && S.wsState === 'up' && FIRST.link === 'up';
 
 // needsLink buttons look disabled through a class and aria-disabled, not the disabled attribute, so a
 // focused button keeps focus; a press still goes through planBlocked.
@@ -635,20 +655,56 @@ export function setDot(dotEl, textEl, [state, text], { base, label = text, count
   textEl.textContent = text;
 }
 
-// A.23 searches 23.
-export function search(list, q, n = 8) {
-  q = searchText(q, S.prefix, [], [S.prefix]);
-  q = q?.trim().toLowerCase();
-  if (!q) return [];
+// [score, item, rank] for each item of list that matches q (trimmed, lower case).
+function scored(list, q, rank = 0, bonus = 0) {
   const out = [];
   for (const it of list) {
     const s = fuzzyScore(it, q);
-    if (s >= 0) out.push([s, it]);
+    if (s >= 0) out.push([s + bonus, it, rank]);
   }
-  out.sort((a, b) => b[0] - a[0] || a[1].n - b[1].n);
-  const best = out.slice(0, n).map((x) => x[1]);
-  best.total = out.length; // how many matched before the cut
-  return best;
+  return out;
+}
+function best(out, n) {
+  out.sort((a, b) => b[0] - a[0] || a[2] - b[2] || a[1].n - b[1].n);
+  const top = out.slice(0, n).map((x) => x[1]);
+  top.total = out.length; // how many matched before the cut
+  return top;
+}
+
+// A.23 searches 23.
+export function search(list, q, n = 8) {
+  q = searchText(q, FIRST.prefix, [], [FIRST.prefix]);
+  q = q?.trim().toLowerCase();
+  if (!q) return [];
+  return best(scored(list, q), n);
+}
+
+// boxSearch gives the matches of a patch box (kind 'src' or 'dst') across the routers. A router prefix with digits
+// (B.42, B42) searches that router's numbers, and those matches always come first. Without the dot, the name matches
+// of the whole text come after them, so "B42 MON" still shows. A bare number searches def, the default router of the
+// box (a routerData UID). Other text searches the names of every router; on a tie, def comes first. keep drops items.
+// An edited label of a pick ("A.23 cam", from "A.23 Cam 1") searches its router for the number and the rest ("23 cam").
+export function boxSearch(kind, text, { def = '', n = 8, keep = () => true } = {}) {
+  const q = text.trim().toLowerCase();
+  if (!q) return [];
+  const listOf = (rt) => (kind === 'src' ? rt.srcs : rt.dsts).filter(keep);
+  const lp = labelPrefix(text, prefixes());
+  const p = lp ? { ...lp, text: lp.text.toLowerCase() } : prefixOf(text);
+  if (lp || typedPrefix(text, prefixes())) {
+    const uid = routerNamed(lp ? `${lp.prefix}.${lp.num}` : text);
+    if (uid == null) return Object.assign([], { total: 0 });
+    const first = scored(listOf(routerData(uid)), p.text, 0, 10000);
+    if (p.dot) return best(first, n);
+    const seen = new Set(first.map((x) => x[1]));
+    return best([...first, ...everyRouter(listOf, q, def).filter((x) => !seen.has(x[1]))], n);
+  }
+  if (/^\d+$/.test(q) || !many()) return search(listOf(routerData(def)), text, n);
+  return best(everyRouter(listOf, q, def), n);
+}
+// The matches of q on every router; def ranks first on a tie.
+function everyRouter(listOf, q, def) {
+  const home = routerData(def);
+  return [FIRST, ...more.values()].flatMap((rt) => scored(listOf(rt), q, rt === home ? 0 : 1));
 }
 export function icon(name, sm = true) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

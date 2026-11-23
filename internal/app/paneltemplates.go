@@ -110,8 +110,13 @@ func (t *Template) clean() error {
 		for _, c := range g.Cells {
 			c = maps.Clone(c)
 			if !t.keepsContents(c["kind"]) {
+				// The cell's levels are levels of its router, so the router stays with them.
+				router, kept := c["router"]
 				for _, k := range contentKeys {
 					delete(c, k)
+				}
+				if _, lv := c[panelLevelsKey]; lv && kept {
+					c["router"] = router
 				}
 			}
 			dropArtwork(c, "art")
@@ -297,6 +302,9 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 	}
 	t.ID, t.Owner = "", cl.Actor.User
 	err := t.clean()
+	if err == nil {
+		t.Settings, err = levelsByRouter(t.Settings, a.r().cfg.UID)
+	}
 	if err == nil {
 		err = a.nameFixed(t.Settings)
 	}

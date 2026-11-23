@@ -33,7 +33,7 @@ func (a *App) flushExt() {
 	var es []*Entry
 	a.mu.Lock()
 	now := time.Now()
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		burst, first, ok := u.ext.flush(now)
 		if !ok {
 			continue

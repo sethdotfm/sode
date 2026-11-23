@@ -62,7 +62,7 @@ const (
 type Rights struct {
 	Sources    *[]Ref         `yaml:"sources,omitempty" json:"sources,omitempty"`
 	Dsts       *[]Ref         `yaml:"dsts,omitempty" json:"dsts,omitempty"`
-	Levels     *[]int         `yaml:"levels,omitempty" json:"levels,omitempty"` // UI levels
+	Levels     RouterLevels   `yaml:"levels,omitempty" json:"levels,omitempty"` // UI levels, by router
 	Presets    *[]string      `yaml:"presets,omitempty" json:"presets,omitempty"`
 	Protect    *bool          `yaml:"protect,omitempty" json:"protect,omitempty"`
 	TieLines   *bool          `yaml:"tieLines,omitempty" json:"tieLines,omitempty"`
@@ -83,11 +83,11 @@ func inRefs(l *[]Ref, x Ref) bool {
 }
 
 // x names its router: a right for source 5 on one router does not allow source 5 on another.
-func (r Rights) AllowsSource(x Ref) bool    { return inRefs(r.Sources, x) }
-func (r Rights) AllowsDst(x Ref) bool       { return inRefs(r.Dsts, x) }
-func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
-func (r Rights) AllowsPreset(n string) bool { return in(r.Presets, n) }
-func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
+func (r Rights) AllowsSource(x Ref) bool             { return inRefs(r.Sources, x) }
+func (r Rights) AllowsDst(x Ref) bool                { return inRefs(r.Dsts, x) }
+func (r Rights) AllowsLevel(uid string, ui int) bool { return r.Levels.Allows(uid, ui) }
+func (r Rights) AllowsPreset(n string) bool          { return in(r.Presets, n) }
+func (r Rights) Hidden() bool                        { return r.Visibility == VisHidden }
 
 // AllowsProtect: an unset right is off, so an API client needs it ticked. ActsAs and GuestActs set it from the Role.
 func (r Rights) AllowsProtect() bool { return r.Protect != nil && *r.Protect }
@@ -159,7 +159,7 @@ func subsetBy[T any](l, of *[]T, same func(a, b T) bool) bool {
 // Within: r grants nothing o does not (ADR 0006's cap). An unset list is everything. Hidden
 // shows less than read-only, so it is within both, and read-only is not within hidden.
 func (r Rights) Within(o Rights) bool {
-	return subsetBy(r.Sources, o.Sources, sameRef) && subsetBy(r.Dsts, o.Dsts, sameRef) && subset(r.Levels, o.Levels) &&
+	return subsetBy(r.Sources, o.Sources, sameRef) && subsetBy(r.Dsts, o.Dsts, sameRef) && r.Levels.within(o.Levels) &&
 		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden()) && protectWithin(r.Protect, o.Protect) &&
 		(!r.AllowsTieLines() || o.AllowsTieLines())
 }
@@ -185,7 +185,7 @@ func eq[T comparable](a, b T) bool { return a == b }
 // Hidden on either side is hidden; r's Extra is kept.
 func (r Rights) Intersect(o Rights) Rights {
 	out := Rights{Sources: intersectBy(r.Sources, o.Sources, sameRef), Dsts: intersectBy(r.Dsts, o.Dsts, sameRef),
-		Levels: intersectBy(r.Levels, o.Levels, eq[int]), Presets: intersectBy(r.Presets, o.Presets, eq[string]),
+		Levels: r.Levels.intersect(o.Levels), Presets: intersectBy(r.Presets, o.Presets, eq[string]),
 		Protect: protectBoth(r.Protect, o.Protect), TieLines: tieLinesBoth(r, o), Visibility: r.Visibility, Extra: r.Extra}
 	if o.Hidden() {
 		out.Visibility = VisHidden
@@ -205,7 +205,7 @@ func cloneList[T any](l *[]T) *[]T {
 }
 
 func (r Rights) Clone() Rights {
-	r.Sources, r.Dsts, r.Levels, r.Presets = cloneList(r.Sources), cloneList(r.Dsts), cloneList(r.Levels), cloneList(r.Presets)
+	r.Sources, r.Dsts, r.Levels, r.Presets = cloneList(r.Sources), cloneList(r.Dsts), r.Levels.Clone(), cloneList(r.Presets)
 	r.Protect, r.TieLines = cloneBool(r.Protect), cloneBool(r.TieLines)
 	return r
 }
@@ -254,6 +254,13 @@ func (c Config) FindAPIClient(name string) (APIClient, bool) {
 	return APIClient{}, false
 }
 
+// WithRouter is a copy of r whose references and levels with no router name the router uid, as Normalize fills them.
+func (r Rights) WithRouter(uid string) Rights {
+	r = r.Clone()
+	r.fillRouter(uid)
+	return r
+}
+
 func (r *Rights) fillRouter(uid string) {
 	RefWalk{Fn: func(_ string, x Ref) []Ref {
 		if x.Router != "" {
@@ -262,6 +269,7 @@ func (r *Rights) fillRouter(uid string) {
 		x.Router = uid
 		return []Ref{x}
 	}}.Rights(r)
+	r.Levels = r.Levels.withRouter(uid)
 }
 
 func (c *Config) normalizeAPI() {
@@ -285,8 +293,12 @@ func (c *Config) normalizeAPI() {
 	}
 }
 
-// uids: the UIDs of every router of the settings.
-func (r Rights) validate(who string, levels int, uids []string, bad func(string, ...any)) {
+// routers: every router of the settings.
+func (r Rights) validate(who string, routers []Router, bad func(string, ...any)) {
+	uids := make([]string, len(routers))
+	for i, rc := range routers {
+		uids[i] = rc.UID
+	}
 	if r.Visibility != "" && r.Visibility != VisReadOnly && r.Visibility != VisHidden {
 		bad("%s: visibility must be %q or %q", who, VisReadOnly, VisHidden)
 	}
@@ -298,8 +310,18 @@ func (r Rights) validate(who string, levels int, uids []string, bad func(string,
 			bad("%s: a source or destination names a router Sode does not have", who)
 		}
 	}
-	if r.Levels != nil && slices.ContainsFunc(*r.Levels, func(n int) bool { return n < 1 || n > levels }) {
-		bad("%s: levels must be 1-%d", who, levels)
+	for uid, l := range r.Levels {
+		i := slices.Index(uids, uid)
+		if uid == "" {
+			i = 0
+		}
+		if i < 0 {
+			bad("%s: levels name a router Sode does not have", who)
+			continue
+		}
+		if n := routers[i].Levels; slices.ContainsFunc(l, func(ui int) bool { return ui < 1 || ui > n }) {
+			bad("%s: levels must be 1-%d", who, n)
+		}
 	}
 }
 
@@ -324,11 +346,11 @@ func (c Config) validateAPI() []error {
 	if c.RequireHTTPS && len(c.TrustedProxies) == 0 {
 		bad("Require HTTPS needs at least one trusted proxy: only a trusted proxy can say a request was secure")
 	}
-	uids := c.RouterUIDs()
-	c.GuestRights.validate("Guest rights", c.Levels, uids, bad)
+	routers := c.Routers()
+	c.GuestRights.validate("Guest rights", routers, bad)
 	checkScopes("keyless scopes", c.GuestAPIScopes, bad)
 	for _, u := range c.Users {
-		u.Rights.validate("rights of "+u.Name, c.Levels, uids, bad)
+		u.Rights.validate("rights of "+u.Name, routers, bad)
 	}
 	own := 0
 	ofUser := map[string]int{}
@@ -367,7 +389,7 @@ func (c Config) validateAPI() []error {
 			bad("API client %q has the name of a user; History would not tell them apart", cl.Name)
 		}
 		seen[key] = true
-		cl.Rights.validate("rights of API client "+cl.Name, c.Levels, uids, bad)
+		cl.Rights.validate("rights of API client "+cl.Name, routers, bad)
 		checkScopes("API client "+cl.Name, cl.Scopes, bad)
 	}
 	return errs

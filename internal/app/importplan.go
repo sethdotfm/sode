@@ -126,11 +126,10 @@ type planBase struct {
 	plan  importPlan
 }
 
-// src, dst are the live router's names.
-func newPlanBase(live config.Config, src, dst map[int]string, req importReq, same bool) planBase {
-	return planBase{live: live, next: live.Clone(), req: req, same: same,
-		check: &refCheck{uid: live.UID, levels: live.Levels, src: src, dst: dst, unknown: len(src) == 0 && len(dst) == 0},
-		plan:  importPlan{SameInstall: same, Categories: map[string]*importCat{}}}
+// names: every live router's names.
+func newPlanBase(live config.Config, names liveNameSet, req importReq, same bool) planBase {
+	return planBase{live: live, next: live.Clone(), req: req, same: same, check: newRefCheck(live, names),
+		plan: importPlan{SameInstall: same, Categories: map[string]*importCat{}}}
 }
 
 // step plans one category on a copy of next and keeps the copy unless the category is refused. inConfig: its items
@@ -230,7 +229,13 @@ type importPlanner struct {
 	noAdmin    bool   // the Users step would leave no Administrator with a PIN: the whole import is refused
 	actor      string // the importing user's id; "" with no users
 	secure     bool
-	names      namesState
+	liveNames  liveNameSet
+	// routers: file router UID → its target here, "" for none (importrouters.go). drops: item → the titles of the
+	// routers with no target that it names.
+	routers routerMap
+	// clash: the final map puts two file routers on one target (planRemap). The check and the apply refuse it.
+	clash      error
+	drops      map[string][]string
 	livePanels []Panel
 	removed    importRemovals
 	users      map[string]string // file user id → live id, "" when skipped
@@ -239,9 +244,7 @@ type importPlanner struct {
 	icons      map[string]string // file icon id → live id, "" when skipped
 	panelIDs   map[string]string // file panel id → live id; a new panel's is added when it is stored
 	ties       map[string]string // file tie line id → live id, "" when skipped
-	// routerTo: file router UID in the manifest → the remap step's target, "" for none (tieRouterHere).
-	routerTo map[string]string
-	panels   []plannedPanel
+	panels     []plannedPanel
 	// movedDefaults: Default artwork index → where the remap step moves its reference.
 	movedDefaults map[int]config.Ref
 
@@ -260,12 +263,12 @@ type importPlanner struct {
 	overwrites []string // the names of the items Use new writes over: they make the import Critical
 }
 
-func planImport(live config.Config, src, dst map[int]string, lv importLive, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
+func planImport(live config.Config, names liveNameSet, lv importLive, b *exportBundle, req importReq, actor string, secure bool) *importPlanner {
 	p := &importPlanner{
-		planBase: newPlanBase(live, src, dst, req, b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID),
+		planBase: newPlanBase(live, names, req, b.Manifest.Install != "" && b.Manifest.Install == live.InstallUID),
 		b:        b, actor: actor, secure: secure,
-		names: lv.Names, livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{}, sets: map[string]string{},
-		icons: map[string]string{}, panelIDs: map[string]string{}, ties: map[string]string{}, routerTo: map[string]string{},
+		liveNames: names, livePanels: lv.Panels, users: map[string]string{}, presets: map[string]string{}, sets: map[string]string{},
+		icons: map[string]string{}, panelIDs: map[string]string{}, ties: map[string]string{},
 		liveTemplates: lv.Templates, liveSets: lv.Sets, liveIcons: lv.Icons, liveDefaults: lv.Defaults, liveIconFile: lv.IconFile,
 	}
 	p.replace = req.Mode == importReplace
@@ -275,10 +278,8 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 	if p.liveIconFile == nil {
 		p.liveIconFile = func(string) ([]byte, LibIcon, bool) { return nil, LibIcon{}, false }
 	}
-	p.planRemap(src, dst)
-	if p.check.unknown {
-		p.waits = p.itemsWithRefs()
-	}
+	p.planRemap()
+	p.waits = p.itemsWithRefs()
 	steps := []struct {
 		cat  string
 		keys []string
@@ -325,7 +326,7 @@ func planImport(live config.Config, src, dst map[int]string, lv importLive, b *e
 				cat.Items = append(cat.Items, it)
 			}
 		}
-		p.check.levels = p.next.Levels
+		p.check.setLevels(p.next)
 		if s.cat == catUsers {
 			p.actor = p.adminFor(p.next)
 		}
@@ -401,10 +402,11 @@ func (p *importPlanner) idHere(m map[string]string, id string) string {
 
 const waitsForNames = "it holds router references; import it after Sode reads the router names"
 
+// itemsWithRefs: the items with a reference on a live router that has no names at all.
 func (p *importPlanner) itemsWithRefs() map[string]map[string]string {
 	held := map[string]bool{}
-	refWalk(p.b, func(_ string, _ config.Ref, _ refUse, item string) []config.Ref {
-		held[item] = true
+	refWalk(p.b, func(_ string, r config.Ref, _ refUse, item string) []config.Ref {
+		held[item] = held[item] || p.check.unknown(r.Router)
 		return nil
 	})
 	out := map[string]map[string]string{catUsers: {}, catPresets: {}, catPanels: {}}
@@ -504,30 +506,37 @@ func (p *importPlanner) planSettings(cand *config.Config, cat *importCat) error 
 	return nil
 }
 
-// planRouters: Sode drives one router, so only the file's router with the live UID applies. Another
-// router is for the remap step.
+// planRouters: each file router goes over its target and keeps the target's UID. An import does not add or remove
+// routers, so a file router with no target writes nothing.
 func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
-	for i, r := range p.b.Routers {
+	for _, r := range p.b.Routers {
 		it := importItem{Key: r.UID, Name: cmp.Or(r.Title, r.Prefix)}
-		// Replace import writes over the one router in place: Sode does not add or delete routers.
-		if p.replace && i == 0 {
-			r.UID = p.live.UID
-		}
-		if r.UID != p.live.UID {
-			it.Choice, it.Note = useSkip, "another router: Sode does not add routers"
+		to, ok := p.routers.to(r.UID)
+		i := slices.Index(cand.RouterUIDs(), to)
+		if !ok || i < 0 {
+			it.Choice, it.Note = useSkip, "no target here: an import does not add routers"
 			cat.Items = append(cat.Items, it)
 			continue
 		}
-		r.Extra = p.live.Router.Extra
-		it.Clash = cmp.Or(p.live.Title, p.live.Prefix)
-		if sameYAML(r, p.live.Router) {
+		lr := cand.Routers()[i]
+		r.UID, r.Extra = lr.UID, lr.Extra
+		it.Clash = cmp.Or(lr.Title, lr.Prefix)
+		if sameYAML(r, lr) {
 			it.Same = true
 		} else {
-			it.Choice = p.choice(catRouters, r.UID, false)
+			it.Choice = p.choice(catRouters, it.Key, false)
 		}
 		cat.Items = append(cat.Items, it)
-		if !it.Same && it.Choice == useNew {
+		if it.Same || it.Choice != useNew {
+			continue
+		}
+		if i == 0 {
 			cand.Router = r
+		} else {
+			cand.MoreRouters = slices.Clone(cand.MoreRouters)
+			cand.MoreRouters[i-1] = r
+		}
+		if !slices.Contains(p.pending, "router") {
 			p.pending = append(p.pending, "router")
 		}
 	}
@@ -543,6 +552,8 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			continue
 		}
 		u.Rights = p.mapRightsPresets(u.Rights)
+		drops := p.rightsNote("user/" + key)
+		u.Profile, drops = p.dropMine(u.ID, u.Profile, drops)
 		u.Profile.Presets = p.check.checked(u.Profile.Presets)
 		for i := range u.Profile.FilterSets {
 			u.Profile.FilterSets[i].Broken = p.check.filterSetBroken(u.Profile.FilterSets[i])
@@ -587,6 +598,7 @@ func (p *importPlanner) planUsers(cand *config.Config, cat *importCat) error {
 			cand.Users = append(cand.Users, u)
 			p.users[key] = u.ID
 		}
+		it.Note = joinNotes(it.Note, drops)
 		cat.Items = append(cat.Items, it)
 	}
 	return nil
@@ -615,6 +627,11 @@ func (p *importPlanner) planPresets(cand *config.Config, cat *importCat) error {
 	for _, s := range p.check.checked(picked) {
 		fileID := s.ID
 		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
+		if it.Refused = p.dropNote("/" + fileID); it.Refused != "" {
+			it.Broken, p.presets[fileID] = nil, ""
+			cat.Items = append(cat.Items, it)
+			continue
+		}
 		out := addItem
 		if i := matchPreset(p.same, cand.Presets, s); i >= 0 {
 			lp := cand.Presets[i]
@@ -647,6 +664,11 @@ func (p *importPlanner) planFilterSets(cand *config.Config, cat *importCat) erro
 		fileID := s.ID
 		s.Broken = p.check.filterSetBroken(s)
 		it := importItem{Key: s.ID, Name: s.Name, Broken: s.Broken}
+		if it.Refused = p.dropNote("filterSet//" + fileID); it.Refused != "" {
+			it.Broken, p.sets[fileID] = nil, ""
+			cat.Items = append(cat.Items, it)
+			continue
+		}
 		out := addItem
 		if i := matchSet(p.same, cand.FilterSets, s); i >= 0 {
 			lf := cand.FilterSets[i]
@@ -705,7 +727,7 @@ func (p *importPlanner) planAPIClients(cand *config.Config, cat *importCat) erro
 			c.Owner = p.ownerFor(*cand, c.Owner, true)
 		}
 		c.Rights = p.mapRightsPresets(c.Rights)
-		it := importItem{Key: c.Name, Name: c.Name}
+		it := importItem{Key: c.Name, Name: c.Name, Note: p.rightsNote("client/" + c.Name)}
 		out := addItem
 		if i := matchIdx(false, cand.APIClients, "", c.Name, nil, func(x config.APIClient) string { return x.Name }); i >= 0 {
 			lc := cand.APIClients[i]

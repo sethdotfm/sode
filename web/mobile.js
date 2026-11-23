@@ -13,21 +13,23 @@ import {
   setLinkDisabled,
   renderDown,
   setDot,
-  search,
+  boxSearch,
+  sameEnd,
   dstItem,
   srcItem,
   labelNode,
   routerOfItem,
+  linkList,
 } from './core.js';
 import { defaultLevelsWord, allLevels, levelText, levelSource, oneLevel } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { levelRouterOf } from './levels.js';
-import { fedBy, currentlyNodes } from './routes.js';
+import { fedBy, currentlyNodes, fedThroughTies } from './routes.js';
 import { flipped } from './device.js';
 import { paintRouters } from './connview.js';
-import { routerLinks, routerMarks } from './routerlinkrules.js';
-import { resultNode, patchPlan, rightsOff, lastTake, nextTake, nextFind, boxPatch, lastChip } from './plans.js';
-import { nextAdd } from './boxlist.js';
+import { routerMarks } from './routerlinkrules.js';
+import { renderDegraded } from './degradedview.js';
+import { resultNode, patchPlan, rightsOff, lastTake, nextTake, armedAdd, boxPatch, lastChip } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { presetHost } from './presets.js';
@@ -52,7 +54,7 @@ const M = {
 // The best match sits nearest the input (column-reverse list), so ↑ moves to the next-best.
 const matches = combobox(() => inputs[M.step], $('m-matches'), {
   source: (text) =>
-    M.step === 'lvl' || M.sel[M.step] ? [] : search(M.step === 'src' ? S.srcs : S.dsts.filter((d) => !M.dsts.some((x) => x.n === d.n)), text, 50),
+    M.step === 'lvl' || M.sel[M.step] ? [] : boxSearch(M.step, text, { n: 50, keep: M.step === 'dst' ? (d) => !M.dsts.some((x) => sameEnd(x, d)) : undefined }),
   onPick: () => advance(),
   add: (it) => {
     addDst(it, true);
@@ -67,6 +69,14 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
 });
 // Typed levels are levels of the router of the route's destination, as on the desktop. The picks follow it
 // (followLevels).
+// What source src feeds: on its own router on every level, and through tie lines.
+const feedList = (src) => {
+  const uid = routerOfItem(src);
+  return [
+    ...fedBy(src.n, allLevels(uid), uid).map((d) => dstItem(d, '', uid)),
+    ...fedThroughTies(src).map((f) => ({ ...dstItem(f.dst, '', f.router), via: f.row })),
+  ];
+};
 const lvlRouter = () => levelRouterOf({ dsts: M.dsts, src: M.sel.src }, routerOfItem);
 let lvlAt = '';
 const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), () => levelSource(lvlRouter()), {
@@ -84,13 +94,14 @@ function renderConn() {
   const c = connState();
   setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Server'], { base: 'server', label: c.ws[1] });
   $('m-ws-text').parentElement.title = c.ws[1];
-  const list = routerLinks(S);
+  const list = linkList();
   paintRouters($('m-routers'), routerMarks(list), true);
   const [label, isName] = list.length === 1 ? routerTitle() : ['', false];
   $('m-rt-addr').textContent = label;
   $('m-rt-addr').title = label;
   $('m-rt-addr').classList.toggle('sode__conn-addr--name', isName);
   renderDown($('m-down'), c);
+  renderDegraded($('m-degraded'), c);
   syncGo();
 }
 
@@ -195,7 +206,7 @@ function choose(it) {
 // The last + add arms the next add on the empty box, by the Next match behavior setting as on the desktop. Typing, a
 // Next, an edit and a reset end it.
 let lastAdd = null;
-const armed = () => (lastAdd && !inputs.dst.value ? nextAdd(lastAdd, S.dsts, (d) => M.dsts.some((x) => x.n === d.n), nextFind(S.dsts)) : null);
+const armed = () => (lastAdd && !inputs.dst.value ? armedAdd(lastAdd, (d) => M.dsts.some((x) => sameEnd(x, d))) : null);
 
 function paintArmed() {
   const d = armed();
@@ -205,7 +216,7 @@ function paintArmed() {
 
 // plus: the add came from +, so it arms the next add.
 function addDst(it, plus = false) {
-  if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
+  if (!M.dsts.some((d) => sameEnd(d, it))) M.dsts.push(it);
   inputs.dst.value = '';
   lastAdd = plus ? it : null;
   renderThread();
@@ -271,7 +282,7 @@ function useLast(k, next = false) {
     choose(t.src);
     setStep(M.dsts.length ? 'lvl' : 'dst');
   } else if (k === 'dst') {
-    for (const d of t.dsts) if (!M.dsts.some((x) => x.n === d.n)) M.dsts.push(d);
+    for (const d of t.dsts) if (!M.dsts.some((x) => sameEnd(x, d))) M.dsts.push(d);
     inputs.dst.value = '';
     matches.close();
     setStep(M.sel.src ? 'lvl' : 'src');
@@ -364,14 +375,14 @@ function renderThread() {
       el(
         'div',
         'sode-m__card',
-        feeding(fedBy(M.sel.src.n, allLevels()), {
+        feeding(feedList(M.sel.src), {
           open: M.feedOpen,
           onToggle: () => {
             M.feedOpen = !M.feedOpen;
             renderThread();
           },
           onPick: (d) => {
-            addDst(dstItem(d));
+            addDst(dstItem(d.n, '', d.router || ''));
             setStep('lvl');
           },
           hold: 'pointerdown',

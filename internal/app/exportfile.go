@@ -56,6 +56,12 @@ func picked(pick map[string][]string, cat, id string) bool {
 	return !some || slices.Contains(ids, id)
 }
 
+// pickedDefault: a pick can name a first router's default by its old key (ArtDefault.oldKey).
+func pickedDefault(pick map[string][]string, d ArtDefault, first string) bool {
+	ids, some := pick[catArtwork]
+	return !some || slices.ContainsFunc(ids, func(id string) bool { return d.keyed(id, first) })
+}
+
 func categoryFile(cat string) string {
 	for _, c := range exportCategories {
 		if c.Name == cat {
@@ -160,7 +166,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		}
 	}
 	want := func(c string) bool { return slices.Contains(req.Categories, c) }
-	routers := []config.Router{cfg.Router}
+	routers := cfg.Routers()
 	prefix := map[string]string{}
 	for _, r := range routers {
 		prefix[r.UID] = r.Prefix
@@ -284,7 +290,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		var out exportArtwork
 		images := map[string]bool{}
 		for _, d := range a.artDefaults.list() {
-			if !want(catArtwork) || !picked(req.Pick, catArtwork, d.key()) {
+			if !want(catArtwork) || !pickedDefault(req.Pick, d, a.r().cfg.UID) {
 				continue
 			}
 			for _, id := range d.libIcons() {
@@ -343,7 +349,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	man := exportManifest{Format: exportFormat, Sode: BuildLabel(), Install: cfg.InstallUID, Made: exportNow().UTC().Truncate(time.Second)}
 	var withRouters []config.Router
 	for _, r := range routers {
-		if want(catRouters) || used[r.UID] {
+		if want(catRouters) && picked(req.Pick, catRouters, r.UID) || used[r.UID] {
 			withRouters = append(withRouters, r)
 		}
 	}

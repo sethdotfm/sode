@@ -1,12 +1,12 @@
 // The details of the Server and Router status, shown on hover or focus. With Log rights they add the Router link's
 // last 24 hours. Patchbay tips hold text only, so this is its own element. It sits inside the status, so the pointer
 // can move onto it. The phone keeps the native title.
-import { el, S, on, wsSend } from './core.js';
+import { el, S, on, wsSend, linkList } from './core.js';
 import { layout, onLayout } from './layout.js';
 import { slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import { logReadable, spanText, routerUpSince } from './statusinforules.js';
-import { routerLinks, linkLabel } from './routerlinkrules.js';
+import { linkLabel } from './routerlinkrules.js';
 
 const DAY = 86_400_000;
 // Above log.js's ids, which count up from 1, so the two uptimeResult readers on /log never take each other's reply.
@@ -62,8 +62,9 @@ function makeBox(root) {
   let leaveTimer = 0;
   let tick = 0;
   let health = null;
-  let up = null;
-  let want = 0;
+  // The uptime of each router by its UID, and the router of each uptime request by its id.
+  const ups = new Map();
+  const wants = new Map();
 
   const phone = () => layout() === 'phone';
   const hovered = () => root.matches(':hover');
@@ -91,48 +92,57 @@ function makeBox(root) {
     const srv = S.wsState === 'up' ? 'Connected' : S.wsState === 'connecting' ? 'Connecting' : 'Disconnected';
     const run = health ? spanText(health.secs + (Date.now() - health.at) / 1000) : S.wsState === 'up' ? 'Loading…' : 'Not known';
     const rows = [row('Server link', srv), row('Server run time', run)];
-    const list = routerLinks(S);
-    for (const r of list) {
-      rows.push(row(linkLabel(r, list.length), r.link ? { up: 'Connected', connecting: 'Connecting', down: 'Down' }[r.link] || r.link : 'Not known'));
-      if (r.addr) rows.push(row('Address', el('span', 'sode-statusinfo__num', r.addr)));
-      if (r.err) rows.push(row('Error', r.err));
-    }
+    const list = linkList();
     const parts = [el('div', 'sode-statusinfo__rows', ...rows)];
-    // Uptime rows name no router yet, so the strip shows only while there is one.
-    if (up && S.wsState === 'up' && list.length === 1) parts.push(strip(up));
+    // Each router: its link rows, then its 24-hour strip.
+    for (const r of list) {
+      const own = [row(linkLabel(r, list.length), r.link ? { up: 'Connected', connecting: 'Connecting', down: 'Down' }[r.link] || r.link : 'Not known')];
+      if (r.addr) own.push(row('Address', el('span', 'sode-statusinfo__num', r.addr)));
+      if (r.err) own.push(row('Error', r.err));
+      parts.push(el('div', 'sode-statusinfo__rows', ...own));
+      const data = ups.get(r.uid);
+      if (data && S.wsState === 'up') parts.push(strip(data, r, list.length));
+    }
     pop.replaceChildren(...parts);
   }
 
-  function strip(data) {
+  function strip(data, r, n) {
     const nodes = [];
-    const since = S.router === 'up' ? routerUpSince(data) : null;
+    const name = n === 1 ? 'Router' : `Router ${r.prefix}`;
+    const since = r.link === 'up' ? routerUpSince(data) : null;
     if (since)
       nodes.push(
         el(
           'div',
           'sode-statusinfo__since',
-          since.over ? 'Router link up for more than 24 hours' : `Router link up for ${spanText((data.now - since.since) / 1000)}`,
+          since.over ? `${name} link up for more than 24 hours` : `${name} link up for ${spanText((data.now - since.since) / 1000)}`,
         ),
       );
     const text = summary(data);
     const bars = el('div', 'sode-up__bars sode-up__bars--sm', ...uptimeBars(data, { fmt: fmtTime }));
+    bars.dataset.router = r.uid;
     bars.setAttribute('role', 'img');
-    bars.setAttribute('aria-label', `Router uptime, last 24 hours: ${text}`);
+    bars.setAttribute('aria-label', `${name} uptime, last 24 hours: ${text}`);
     nodes.push(bars, el('div', 'sode-statusinfo__sum', `Last 24 hours: ${text}`));
     return el('div', 'sode-statusinfo__strip', ...nodes);
   }
 
+  // One uptime request for each router. The reply echoes the id, and wants gives its router.
   function ask() {
     health = null;
-    up = null;
+    ups.clear();
+    wants.clear();
     askHealth().then((h) => {
       health = h;
       if (open) render();
     });
     if (!logReadable(access, S.cfg?.locks)) return;
     const now = Date.now();
-    want = ++nextId;
-    wsSend({ t: 'uptime', id: want, from: now - DAY, to: now, slot: slotFor(now - DAY, now) });
+    for (const r of linkList()) {
+      const id = ++nextId;
+      wants.set(id, r.uid);
+      wsSend({ t: 'uptime', id, router: r.uid, from: now - DAY, to: now, slot: slotFor(now - DAY, now) });
+    }
   }
 
   function show() {
@@ -152,7 +162,7 @@ function makeBox(root) {
     clearTimeout(leaveTimer);
     clearInterval(tick);
     open = false;
-    want = 0;
+    wants.clear();
     pop.hidden = true;
   }
 
@@ -186,12 +196,12 @@ function makeBox(root) {
   });
 
   on('uptimeResult', (m) => {
-    if (!open || m.id !== want) return;
-    up = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
+    if (!open || !wants.has(m.id)) return;
+    ups.set(wants.get(m.id), { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now });
     render();
   });
   on('conn', () => open && render());
-  on('access', () => open && !logReadable(access, S.cfg?.locks) && ((up = null), render()));
+  on('access', () => open && !logReadable(access, S.cfg?.locks) && (ups.clear(), render()));
   onLayout(sync);
 
   return {

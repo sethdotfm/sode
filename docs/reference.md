@@ -86,7 +86,7 @@ Commas separate terms. A name matches if it fits any plain term and no `!` term.
 
 Open Settings with the **Settings** button at the bottom of the page. Sode stores them in `/data/config.yaml`. A save applies immediately. Changes to the router, matrix, levels or name options reconnect and re-read names and routes. When there is no config file yet, Sode opens the setup wizard, and these variables fill its fields. The wizard's Finish writes the file, and after that the file wins.
 
-The router's keys sit under `routers`, a list that holds one router. Each router also has a `uid`, which Sode makes when it adds the router and never changes, not even with the address. It has a `prefix`, one letter A to Z (`A` for the first router), hidden while there is one router. Rows marked "router" below are keys of that router. The others are top-level keys. The first key is `format: 2`. The top-level `installUid` names this install. Sode makes it on first start and never changes it, not even with a config import; Item links carry it. A file without `format` is from v1, and on start Sode moves the v1 files into `/data/v1/` and starts as a fresh install:
+The router's keys sit under `routers`, a list that holds one router. Each router also has a `uid`, which Sode makes when it adds the router and never changes, not even with the address. It has a `prefix`, one or two letters A to Z (`A` for the first router), hidden while there is one router. Rows marked "router" below are keys of that router. The others are top-level keys. The first key is `format: 2`. The top-level `installUid` names this install. Sode makes it on first start and never changes it, not even with a config import; Item links carry it. A file without `format` is from v1, and on start Sode moves the v1 files into `/data/v1/` and starts as a fresh install:
 
 ```yaml
 format: 2
@@ -208,13 +208,13 @@ Sode checks each file as it checks an upload. It must be PNG or SVG, at most 2 M
 
 ## Monitoring (Uptime Kuma)
 
-`GET /api/health` reports the server and the router separately. It needs no PIN and shows no settings:
+`GET /api/health` reports the server, the state of Sode as a whole and each router. It needs no PIN and shows no settings:
 
 ```json
-{"server":"up","router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
+{"server":"up","state":"degraded","routers":[{"uid":"3f9c...","prefix":"A","title":"Main","router":"up","targetAddress":"10.0.0.1:8910"},{"uid":"7d21...","prefix":"B","title":"Stage 2","router":"down","targetAddress":"10.0.0.2:8910","err":"connection refused"}],"router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
 ```
 
-`router` is `up`, `connecting` or `down`. `err` appears when the router link has a problem. The status code is 200 only while the router is up and 503 otherwise, so a plain HTTP(s) monitor alerts when the router is lost. A dead server shows as no answer. Uptime Kuma counts a 503 as down even for a JSON Query monitor. To watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `router` as the key and `up` as the expected value. `/healthz` is unchanged.
+`state` is `healthy` when every router is up and `down` when every router is down. It is `degraded` when one or more routers are down and one or more are up. A router that is connecting counts as down. `routers` has one element for each router, in the order of Settings. Its `router` is `up`, `connecting` or `down`, and `err` appears when that router link has a problem. The flat `router`, `targetAddress` and `err` are those of the first router. The status code is 200 only while Sode is Healthy and 503 otherwise, so a plain HTTP(s) monitor alerts when any router is lost. A dead server shows as no answer. Uptime Kuma counts a 503 as down even for a JSON Query monitor. To watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `state` as the key and `healthy` as the expected value. `/healthz` is unchanged.
 
 ## Communication log
 

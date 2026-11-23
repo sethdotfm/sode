@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { withRoutes, framesApply, sameRoutes } from '../paneltally.js';
+import { withRoutes, framesApply, sameRoutes, viaCame } from '../paneltally.js';
 
 test('a frame changes, adds and keeps routes, and leaves the read answer as it was', () => {
   const t = Object.freeze({
@@ -138,4 +138,25 @@ test('feed: drawing the rows puts them into shown', () => {
   assert.deepEqual(d.feed.rows, []);
   assert.equal(d.feed.shown.routes.length, 2);
   assert.equal(drawRows(d.feed).changed, false);
+});
+
+test('a frame keeps the Via of a row with the same source; a via message asks for a read', () => {
+  const via = [{ id: 't1', name: 'TIE 3' }];
+  const t = {
+    routes: [
+      { dst: 0, level: 1, src: 4, via },
+      { dst: 1, level: 1, src: 4, via },
+    ],
+  };
+  const got = withRoutes(t, [
+    [0, 1, 4],
+    [1, 1, 5],
+  ]);
+  assert.deepEqual(got.routes, [
+    { dst: 0, level: 1, src: 4, via },
+    { dst: 1, level: 1, src: 5 },
+  ]);
+  const f = { ...newFeed(true, null), shown: t, checkedAt: Date.now() };
+  assert.equal(wantsRead(f, Date.now()), false);
+  assert.equal(wantsRead(viaCame(f), Date.now()), true);
 });

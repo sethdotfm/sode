@@ -1,6 +1,6 @@
 // Settings' warning under the Palette character (This browser and Everyone's defaults): the router names that start
 // with it. Settings saves the character all the same; such a name is found with the character typed twice.
-import { $, el, S, on } from './core.js';
+import { $, el, on, routerData } from './core.js';
 import { pref } from './device.js';
 import { paletteCharOf, namesStartingWith, startsNamesText } from './paletterules.js';
 
@@ -23,7 +23,7 @@ function paint() {
     if (!sel) continue;
     // An empty This browser choice follows the default, so the warning names the character in force.
     const ch = paletteCharOf(own && !sel.value ? pref('paletteChar') : sel.value);
-    const text = startsNamesText(ch, namesStartingWith(ch, S.srcs, S.dsts));
+    const text = startsNamesText(ch, namesStartingWith(ch, routerData('').srcs, routerData('').dsts));
     const n = note(sel);
     n.textContent = text;
     n.hidden = !text;

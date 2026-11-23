@@ -1,11 +1,13 @@
 // Settings > Routers > Tie lines (Administrator): add, edit and remove tie lines. The list is cfg.tieLines and saves whole
 // with the `tieLines` message, apart from the one Save. Rules are in tielinerules.js; the server checks them again.
+// One-off tie lines in use come from the `oneOffTieLines` message (internal/app/tieoneoff.go). Save as tie line adds
+// one to the list.
 
 import { $, el, S, on, onMsg, emit, request, routerData } from './core.js';
 import { btn, opt } from './formbits.js';
 import { readJSON, writeJSON } from './store.js';
 import { suggest, suggestSig, acceptName } from './tielinesuggest.js';
-import { listProblem, fillName, upsert, without, wireNumber, otherRouter } from './tielinerules.js';
+import { listProblem, fillName, upsert, without, wireNumber, otherRouter, movedLines } from './tielinerules.js';
 
 const list = $('tielines-list');
 const form = $('tielines-form');
@@ -20,6 +22,8 @@ const toNum = $('tieline-to');
 const nameBox = $('tieline-name');
 const addBtn = $('tieline-add');
 const cancelBtn = $('tieline-cancel');
+const oneOffBox = $('tielines-oneoffs');
+const oneOffList = $('tielines-oneoffs-list');
 
 // editing: the id of the tie line in the form, or '' for a new one. auto: the name that Sode filled last.
 let editing = '';
@@ -44,11 +48,17 @@ function row(t) {
   edit.setAttribute('aria-label', `Edit ${t.name}`);
   const remove = btn('pb-btn--outline pb-btn--sm', 'Remove', () => save(without(tieLines(), t.id), `Removed ${now().name}.`));
   remove.setAttribute('aria-label', `Remove ${t.name}`);
+  // Name moved: the tie line works on. Edit and Save tie line store the names now.
+  const moved = movedLines(t, (r) => `${routerData(r.router).prefix}.${shownNum(r.router, r.n)}`);
+  const marks = moved.length
+    ? [el('span', 'pb-badge pb-badge--warn', 'Name moved'), el('span', 'sode__hint', `${moved.join('; ')}. Edit and save to keep the names now.`)]
+    : [];
   const li = el(
     'li',
     'sode__tielines-row',
     el('strong', null, t.name),
     el('span', 'sode__hint', `${endText(t.from, 'dst')} feeds ${endText(t.to, 'src')}`),
+    ...marks,
     edit,
     remove,
   );
@@ -88,6 +98,56 @@ function suggestRow(s) {
   li.dataset.ends = s.key;
   return li;
 }
+
+// One-off tie lines in use: the server keeps each one while its downstream source is routed. Save as tie line fills
+// the Tie line name from the name of the downstream source, as Accept does.
+let admin = false;
+let oneOffs = [];
+
+function oneOffRow(o) {
+  const save1 = btn('sode-btn--primary pb-btn--sm', 'Save as tie line', async () => {
+    const name = acceptName(o.to.name || o.name, tieLines());
+    await save(upsert(tieLines(), { id: '', name, from: { router: o.from.router, n: o.from.n }, to: { router: o.to.router, n: o.to.n } }), `Added ${name}.`);
+    askOneOffs();
+  });
+  save1.setAttribute('aria-label', `Save ${o.name} as tie line`);
+  const li = el(
+    'li',
+    'sode__tielines-row',
+    el('strong', null, o.name),
+    el('span', 'sode__hint', `${endText(o.from, 'dst')} feeds ${endText(o.to, 'src')}${o.by ? `, stated by ${o.by}` : ''}`),
+    save1,
+  );
+  li.dataset.oneoff = o.id;
+  return li;
+}
+
+function showOneOffs() {
+  oneOffBox.hidden = !admin || !oneOffs.length;
+  oneOffList.replaceChildren(...oneOffs.map(oneOffRow));
+}
+
+let asking = 0;
+async function askOneOffs() {
+  if (!admin) return;
+  const seq = ++asking;
+  const m = await request('oneOffTieLines', { t: 'oneOffTieLines' });
+  if (seq !== asking) return;
+  const next = Array.isArray(m.oneOffs) ? m.oneOffs : [];
+  if (JSON.stringify(next) === JSON.stringify(oneOffs)) return;
+  oneOffs = next;
+  showOneOffs();
+}
+
+// A take moves many crosspoints: one ask after the burst.
+let oneOffWait = 0;
+const askLater = () => {
+  if (!admin || oneOffWait) return;
+  oneOffWait = setTimeout(() => {
+    oneOffWait = 0;
+    askOneOffs();
+  }, 300);
+};
 
 // A names or hello event that changes no suggestion keeps the rows, and the focus on them.
 let shownSig = '';
@@ -215,3 +275,10 @@ const later = () => {
   });
 };
 for (const ev of ['hello', 'names', 'tieLines']) on(ev, later);
+for (const ev of ['hello', 'tally', 'tieLines']) on(ev, askLater);
+on('access', (a) => {
+  admin = a.role === 'administrator';
+  if (!admin) oneOffs = [];
+  showOneOffs();
+  askLater();
+});

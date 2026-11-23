@@ -1,12 +1,31 @@
-import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, labelNode, routerData, routerOfItem, routerOfText, sameEnd } from './core.js';
+import {
+  $,
+  el,
+  S,
+  on,
+  needsLink,
+  renderDown,
+  boxSearch,
+  dstLabel,
+  dstItem,
+  srcItem,
+  labelNode,
+  routerData,
+  routerOfItem,
+  routerNamed,
+  sameEnd,
+} from './core.js';
 import { keyLabel } from './keys.js';
-import { searchText, prefixOf } from './routerprefix.js';
-import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
+import { prefixOf } from './routerprefix.js';
+import { boxRouter, wireBoxRouter } from './boxrouter.js';
+import { parseList, namedAs, listMatches, missingNote, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
+import { renderDegraded } from './degradedview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { levelRouterOf } from './levels.js';
-import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
+import { fedBy, bySource, currentlyNodes, pickEnd, fedThroughTies } from './routes.js';
+import { viaMark } from './viaview.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
 import {
   resultNode,
@@ -17,7 +36,7 @@ import {
   sendTakes,
   lastTake,
   nextTake,
-  nextFind,
+  armedAdd,
   boxPatch,
   lastChip,
   VERBS,
@@ -38,18 +57,22 @@ import { compactCentre } from './compactcentre.js';
 import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged, takeRoutes, paintTake } from './gridpopup.js';
 import { takeWord } from './gridpanelphone.js';
 import { protectKey } from './protects.js';
+import { tieTake } from './tieflow.js';
+import { guardTieUndo } from './tieundo.js';
 
 const sel = { src: null, dst: null };
 let dsts = [];
 const chosen = (d) => dsts.some((x) => sameEnd(x, d));
 const MAX_MATCHES = 100;
-// list(rt) is the box's list on router rt (routerData); with none, the router that the box's text names.
+// list(rt) is the box's list on router rt (routerData); with none, the router of the box's text (routerOfBox).
 const boxes = {
   src: { input: $('src'), list: (rt = textRouter('src')) => rt.srcs },
   dst: { input: $('dst'), list: (rt = textRouter('dst')) => (dsts.length ? rt.dsts.filter((d) => !chosen(d)) : rt.dsts) },
 };
-// A box searches the router whose prefix its text starts with (B.12), else the first router.
-const textRouter = (k) => routerData(routerOfText(boxes[k].input.value));
+// A box's router is the one whose prefix its text starts with (B.12, B12), else its default router (boxrouter.js).
+const routerOfBox = (k, text) => routerNamed(text) ?? boxRouter(k);
+// A pick's list is that of its own router: its label (B.23 Cam 1) names no router the way typed text does.
+const textRouter = (k) => routerData(sel[k] ? routerOfItem(sel[k]) : routerOfBox(k, boxes[k].input.value));
 for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.cb = combobox(b.input, $(`${k}-menu`), {
@@ -62,17 +85,21 @@ for (const k of ['src', 'dst']) {
     onRender: () => b.all?.sync(),
     outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it),
   });
+  wireBoxRouter(k, $(`${k}-router`), () => {
+    if (b.input.value && document.activeElement === b.input) b.cb.refresh();
+    followLevels();
+  });
 }
 // A typed list ("11-13", "Rec 1-4", boxlist.js) in the Destination box shows its destinations all selected, so Enter,
 // Tab, + and Ctrl+Enter add exactly what shows. A text that starts a name is a search. The Source box takes one source:
 // a list there gets a note that points to the Grid.
 function matchesOf(k, text) {
-  const rt = routerData(routerOfText(text));
+  const rt = routerData(routerOfBox(k, text));
   const all = k === 'src' ? rt.srcs : rt.dsts;
-  // A router after the first: its own list, searched with the text after the prefix.
-  const q = rt.first ? searchText(text, S.prefix, [], [S.prefix]) : prefixOf(text).text;
+  const q = routerNamed(text) == null ? text : prefixOf(text).text;
   const list = q && parseList(q);
-  if (!list || namedAs(q, all)) return search(boxes[k].list(rt), rt.first ? text : q, MAX_MATCHES);
+  if (!list || namedAs(q, all))
+    return boxSearch(k, text, { def: boxRouter(k), n: MAX_MATCHES, keep: k === 'dst' && dsts.length ? (d) => !chosen(d) : undefined });
   if (k === 'src') return Object.assign([], { note: `One source only. For many routes, use the Grid (${keyLabel('ctrl+e')}).` });
   if (list.tooMany) return Object.assign([], { note: `A list can have ${LIST_MAX} destinations or fewer.` });
   const { found, missing } = listMatches(list, rt.dsts);
@@ -83,7 +110,8 @@ function matchesOf(k, text) {
 
 // Typed levels are levels of the router of the route's destination. That is the router of a chosen destination, else
 // the router that the Destination box's text names, else the router of the source. The picker follows it (followLevels).
-const lvlRouter = () => levelRouterOf({ dsts: sel.dst ? [sel.dst, ...dsts] : dsts, dstText: boxes.dst.input.value, src: sel.src }, routerOfItem, routerOfText);
+const typedRouter = (t) => (t.trim() ? routerOfBox('dst', t) : '');
+const lvlRouter = () => levelRouterOf({ dsts: sel.dst ? [sel.dst, ...dsts] : dsts, dstText: boxes.dst.input.value, src: sel.src }, routerOfItem, typedRouter);
 let lvlAt = '';
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), () => levelSource(lvlRouter()), { onChange: () => renderTally() });
@@ -110,6 +138,7 @@ function renderConn() {
   });
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';
   renderDown($('conn-down'), c);
+  renderDegraded($('conn-degraded'), c);
 }
 needsLink($('patch'));
 
@@ -133,8 +162,7 @@ const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...ds
 let lastAdd = null;
 const armed = () => {
   if (lastAdd === null || sel.dst || boxes.dst.input.value) return null;
-  const all = routerData(lastAdd.router).dsts;
-  return nextAdd(lastAdd, all, chosen, nextFind(all));
+  return armedAdd(lastAdd, chosen);
 };
 
 function addDst(pick) {
@@ -313,8 +341,8 @@ function underHead(text, up) {
   return el('div', 'sode__under-head', el('span', up ? 'sode__down-arrow sode__down-arrow--up' : 'sode__down-arrow'), el('span', 'sode__label', text));
 }
 
-function sendingRow(src, d, levels, uid) {
-  const t = routerData(uid).tally.get(d);
+// on: the levels of d that have the source. `via`: the Via row of a destination that a tie line feeds.
+function sendingRow(d, on, uid, via = null) {
   const pick = pickEnd('dst', dstLabel(d, uid), 'Add as a destination', () => {
     const have = allDsts();
     const it = dstItem(d, '', uid);
@@ -324,15 +352,7 @@ function sendingRow(src, d, levels, uid) {
     }
     toLevels();
   });
-  return el(
-    'div',
-    'sode__route',
-    levelBar(
-      levels.filter((u) => t.get(u) === src),
-      uid,
-    ),
-    pick,
-  );
+  return el('div', 'sode__route', levelBar(on, uid), pick, ...(via ? [viaMark(via)] : []));
 }
 
 // The route view of one destination: no source, one destination. It offers Protect and Free Protect.
@@ -359,12 +379,20 @@ function renderTally() {
   if (sel.src) {
     const uid = sel.src.router || '';
     const levels = lvl.levels() || allLevels(uid);
-    const fed = fedBy(sel.src.n, levels, uid);
+    const t = routerData(uid).tally;
+    const fed = fedBy(sel.src.n, levels, uid).map((d) =>
+      sendingRow(
+        d,
+        levels.filter((u) => t.get(d).get(u) === sel.src.n),
+        uid,
+      ),
+    );
+    // Through tie lines too, on every level of the router downstream (docs/tielines-design.md, Via).
+    const through = fedThroughTies(sel.src).map((f) => sendingRow(f.dst, f.levels, f.router, f.row));
+    const n = fed.length + through.length;
     srcUnder.replaceChildren(
-      underHead(fed.length ? `Sending to ${fed.length}` : 'Sending'),
-      fed.length
-        ? el('div', 'sode__scroll', ...fed.map((d) => sendingRow(sel.src.n, d, levels, uid)))
-        : el('div', 'sode__hint', 'Not sending to any destination on these levels'),
+      underHead(n ? `Sending to ${n}` : 'Sending'),
+      n ? el('div', 'sode__scroll', ...fed, ...through) : el('div', 'sode__hint', 'Not sending to any destination on these levels'),
     );
   } else srcUnder.replaceChildren();
   const ds = allDsts();
@@ -373,8 +401,8 @@ function renderTally() {
     const srcs = new Set(
       ds.flatMap((d) =>
         bySource(d.n, allLevels(), d.router)
-          .filter((r) => r.src != null && r.src >= 0)
-          .map((r) => `${d.router || ''}.${r.src}`),
+          .filter((r) => (r.via ? r.via.origin : r.src != null && r.src >= 0))
+          .map((r) => (r.via ? `${routerOfItem(r.via.origin)}.${r.via.origin.n}` : `${d.router || ''}.${r.src}`)),
       ),
     );
     dstUnder.replaceChildren(
@@ -533,9 +561,25 @@ function tryConfirm() {
 }
 
 function openConfirm(plan) {
-  const { block, prot } = planBlocked(plan);
+  // The Undo of a tie take asks the server first (tieundo.js); it comes back here with the plan to confirm.
+  if (guardTieUndo(plan, openConfirm)) return;
+  const { block, prot, tie } = planBlocked(plan);
   if (block) return showResult(block.kind, block.title, block.text);
-  confirmBack = document.activeElement;
+  if (tie) {
+    const back = document.activeElement;
+    // The pickers come first. In a take of tie routes only, the last picker sends: a send clears the boxes as a patch
+    // does. A take with a plain route then opens the confirm.
+    return tieTake(plan, prot, {
+      onSent: (p) => (VERBS[p.verb].resets ? clearAll() : back?.isConnected && back.focus()),
+      onClose: () => (plan.verb === 'patch' ? toLevels() : back?.isConnected && back.focus()),
+      confirm: (p, pr) => showConfirm(p, pr, back),
+    });
+  }
+  showConfirm(plan, prot, document.activeElement);
+}
+
+function showConfirm(plan, prot, back) {
+  confirmBack = back;
   confirmKeys = keyMode();
   confirmFromHist = confirmBack === histList || histArea(confirmBack);
   confirm.open(plan, prot);

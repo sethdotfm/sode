@@ -26,6 +26,7 @@
 <link rel="stylesheet" href="gridpanel.css">
 <link rel="stylesheet" href="gridpanelphone.css">
 <link rel="stylesheet" href="gridpopup.css">
+<link rel="stylesheet" href="tiepicker.css">
 </head>
 <body>
 
@@ -42,6 +43,8 @@
     </div>
   </header>
   <div class="sode__down" id="conn-down" role="alert" hidden></div>
+  <!-- Degraded: the routers that are down and their destinations (degradedview.js). The phone view has its own copy. -->
+  <div class="pb-note pb-note--warn sode__degraded" id="conn-degraded" role="status" hidden></div>
   <!-- The command keeps in step with recoverCommand in internal/app/roles.go. -->
   <div class="pb-alert pb-alert--error sode__noadmin" id="no-admin" role="alert" hidden>
     <div class="sode__lock-help">
@@ -86,7 +89,7 @@
 
     <form class="sode__boxes" autocomplete="off">
       <div class="sode__box sode__box--src">
-        <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
+        <div class="sode__box-head"><label class="sode__label" for="src">Source</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="src-router" tabindex="-1" hidden></button><span data-last="src"></span></div>
         <div class="sode__entry">
           <span class="sode__keyed">
             <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
@@ -103,7 +106,7 @@
       <!-- The three groups (Source, Destination with +, Levels with Take and Clear) share one width (desktop.css). -->
       <div class="sode__group sode__group--dst">
         <div class="sode__box sode__box--dst">
-          <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
+          <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="dst-router" tabindex="-1" hidden></button><span data-last="dst"></span></div>
           <div class="sode__entry">
             <span class="sode__keyed">
               <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
@@ -397,6 +400,7 @@
     <fieldset class="sode__group" data-apart data-section="routers" data-topic="routers">
       <legend>Routers</legend>
       <ul class="sode__routers" id="routers-list" aria-label="Routers"></ul>
+      <button type="button" class="pb-btn pb-btn--sm sode__routers-add" id="router-add" data-find data-label="Add router" hidden>Add router</button>
     </fieldset>
 
     <fieldset class="sode__group" data-section="tie-lines" data-topic="routers">
@@ -412,6 +416,11 @@
         <p class="sode__hint">A destination and a source on different routers have the same name. Sode uses a suggestion only after you accept it.</p>
         <ul class="sode__tielines" id="tielines-suggest-list" aria-label="Suggested tie lines"></ul>
         <p class="sode__hint" id="tielines-suggest-more" hidden></p>
+      </div>
+      <div id="tielines-oneoffs" hidden>
+        <p><strong>One-off tie lines in use</strong></p>
+        <p class="sode__hint">A person stated each one in the Tie line picker for one take. Sode keeps it only while its source is routed to a destination. Save it to keep it.</p>
+        <ul class="sode__tielines" id="tielines-oneoffs-list" aria-label="One-off tie lines in use"></ul>
       </div>
       <div id="tielines-form" data-apart>
         <div class="sode__fields">
@@ -700,6 +709,7 @@
     </header>
 
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
+    <div class="pb-note pb-note--warn sode__degraded" id="m-degraded" role="status" hidden></div>
     <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
       <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
       <span class="pb-grow">Not saved: SODE_CONFIG is not set. Settings and users are lost on restart.</span>

@@ -8,6 +8,7 @@ import { findEntries, fixedPick, offTag } from './findrules.js';
 import { addFixed, dropFixed, FIXED_MAX } from './sidebarrules.js';
 import { fixedDestsOf } from './panelrules.js';
 import { myRights, onMyRights } from './editorrights.js';
+import { readRouterNames } from './routernames.js';
 
 const SHOWN = 50; // rows drawn; typing narrows the rest
 const STALE_MS = 5000;
@@ -46,7 +47,9 @@ export function createFixedField(ed) {
   async function load() {
     if (data.loading || Date.now() - data.at < STALE_MS) return;
     data.loading = true;
-    const names = await jsonCall(sessionFetch)('api/v1/names').catch(() => null);
+    // Fixed destinations are of the first router: the names read is the first router's.
+    const get = (path) => jsonCall(sessionFetch)(path).catch(() => null);
+    const names = (await readRouterNames(get).catch(() => null))?.first || null;
     data = { names, at: Date.now(), loading: false };
     draw();
   }

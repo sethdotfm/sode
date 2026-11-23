@@ -124,7 +124,7 @@ func TestPutBackSkipsRights(t *testing.T) {
 	e, _ := a.hist.Get(hop)
 	src := e.Prev[0][1]
 	it := routeReq{Src: src, Dst: e.Dst, Levels: []int{1}, Undo: &hop, Router: e.Router}
-	none := config.Rights{Sources: &[]config.Ref{}, Dsts: &[]config.Ref{}, Levels: &[]int{}}
+	none := config.Rights{Sources: &[]config.Ref{}, Dsts: &[]config.Ref{}, Levels: config.RouterLevels{a.rightsUID(rt, e.Router): {}}}
 	if msg := a.outsideRights(rt, none, []routeReq{it}); msg == "" {
 		t.Fatal("a plain Undo of the hop passed empty Rights")
 	}

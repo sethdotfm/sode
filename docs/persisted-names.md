@@ -12,7 +12,7 @@ Calls. Keep means the name stays for now and `AGENTS.md` records why. v2 renamed
 
 ## Router references
 
-Every stored source and destination is a router reference `{router, n, name}`: the router UID, Sode's number (0-based) and the router's name at save time. `shown` is never stored. Presets, Rights, panel cells, Grid edges, `fixedDests`, templates, checkpoints, Checkpoint sets and Default artwork hold one each. History and Communication Log rows hold `router` once per row, and `names/<router uid>.yaml` once per file. No store holds a bare number, and no loader reads one. A file reference with no router is refused (config.yaml) or skipped with a problem (the other stores). Only a request can send `{n}` with no router, which names the one router. Levels are UI levels 1..N; a preset item's levels belong to its source's router.
+Every stored source and destination is a router reference `{router, n, name}`: the router UID, Sode's number (0-based) and the router's name at save time. `shown` is never stored. Presets, Rights, panel cells, Grid edges, `fixedDests`, templates, checkpoints, Checkpoint sets and Default artwork hold one each. History and Communication Log rows hold `router` once per row, and `names/<router uid>.yaml` once per file. No store holds a bare number, and no loader reads one. A file reference with no router is refused (config.yaml) or skipped with a problem (the other stores). Only a request can send `{n}` with no router, which names the one router. Levels are UI levels 1..N; a preset item's levels belong to its source's router. Rights `levels` and a panel's `settings.levels` are lists under the router UID (`{"<uid>": [1, 2]}`), and a cell's `levels` belong to the cell's `router`. A file with a plain level list there is refused or skipped as a reference with no router is.
 
 ## Format markers
 
@@ -45,6 +45,21 @@ v2 loads no v1 files, and a page whose build label differs from the hello's relo
 | `SIM_PANEL_DST`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT` | `SIM_EXTERNAL_DST`, `SIM_EXTERNAL_SECONDS`, `SIM_EXTERNAL_SILENT` | simulator env |
 | `SIM_FOLLOWS` | `SIM_EXTERNAL_FOLLOW` | simulator env |
 | `sode-device-defaults` | `sode-browser-defaults` | `localStorage` |
+
+## Hello fields v2 removed
+
+The hello's `routers` list carries the names, tally, levels and link of every router. So these fields of the first router left the hello (#812). The page reads them from the first element of `routers`.
+
+| Removed field of `hello` | Where it is now |
+| --- | --- |
+| `srcs`, `dsts`, `at`, `savedAt` | `srcs`, `dsts`, `at`, `savedAt` of each router |
+| `tally` | `tally` of each router |
+| `status` | `status` of each router |
+| `levels` | `levels` of each router |
+| `prefix` | `prefix` of each router |
+| `routerUid` | `uid` of each router: its UID in the settings |
+
+The first router's Protects stay in `protected` and `protectBy`. Each router after the first in `routers` has its own `protected`, `protectBy` and `protectDevice`.
 
 ## Close names that are not retired
 

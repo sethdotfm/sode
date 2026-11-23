@@ -40,13 +40,17 @@ func TestWalkRefsSeesEverySlot(t *testing.T) {
 		t.Fatalf("visited %v, want %v", got, want)
 	}
 
-	p := config.Preset{Items: []config.PresetItem{{Src: config.Ref{N: 1}, Dsts: []config.Ref{{N: 2}}, Levels: []int{3}}}}
+	p := config.Preset{Items: []config.PresetItem{{Src: config.Ref{N: 1}, Dsts: []config.Ref{{N: 2}}, Levels: []int{3}, Ties: []string{"t8"}}}}
 	r := config.Rights{Sources: &[]config.Ref{{N: 4}}, Dsts: &[]config.Ref{{N: 5}}}
+	tie := config.TieLine{From: config.Ref{N: 6}, To: config.Ref{N: 7}}
 	got = nil
-	w := config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref { got = append(got, fmt.Sprint(kind, r.N)); return nil }}
+	w := config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref { got = append(got, fmt.Sprint(kind, r.N)); return nil },
+		Tie: func(id string) []string { got = append(got, config.MissingTie+" "+id); return nil }}
 	w.Preset(&p)
 	w.Rights(&r)
-	want = []string{config.MissingSource + "1", config.MissingDestination + "2", config.MissingSource + "4", config.MissingDestination + "5"}
+	w.TieLine(&tie)
+	want = []string{config.MissingSource + "1", config.MissingDestination + "2", config.MissingTie + " t8", config.MissingSource + "4", config.MissingDestination + "5",
+		config.MissingDestination + "6", config.MissingSource + "7"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("visited %v, want %v", got, want)
 	}

@@ -144,7 +144,7 @@ func TestTieLineChangeRanksPaths(t *testing.T) {
 	order := func(a *App) []string {
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		res := a.planTieRoutes(a.r(), []tieRoute{{src: tieplan.End{Router: uidA, N: 4}, dst: tieplan.End{Router: "b2b2b2b2", N: 2}, levels: []int{1}}})
+		res := a.planTieRoutes(a.r(), []tieRoute{{src: tieplan.End{Router: uidA, N: 4}, dst: tieplan.End{Router: "b2b2b2b2", N: 2}, levels: []int{1}}}, tiePlanOpts{})
 		var ids []string
 		for _, p := range res[0].Paths {
 			ids = append(ids, p.Hops[0].Tie)

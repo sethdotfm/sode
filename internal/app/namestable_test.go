@@ -77,16 +77,19 @@ type savedHello struct {
 	SavedAt time.Time `json:"savedAt"`
 }
 
+// helloOf gives the first router of the hello.
 func helloOf(t *testing.T, a *App) savedHello {
 	t.Helper()
 	a.mu.Lock()
 	b := a.hello(helloPage{})
 	a.mu.Unlock()
-	var h savedHello
-	if err := json.Unmarshal(b, &h); err != nil {
-		t.Fatal(err)
+	var h struct {
+		Routers []savedHello `json:"routers"`
 	}
-	return h
+	if err := json.Unmarshal(b, &h); err != nil || len(h.Routers) == 0 {
+		t.Fatalf("%v: %s", err, b)
+	}
+	return h.Routers[0]
 }
 
 func TestSavedNamesShowUntilFirstRead(t *testing.T) {

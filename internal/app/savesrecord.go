@@ -59,6 +59,7 @@ var attrLabels = map[string]string{
 // routerAttrLabels: the labels of the router keys, as the first router's fields name them.
 var routerAttrLabels = map[string]string{
 	"levels": "Levels", "levelWireOffset": "Level offset", "levelNumbering": "Level numbering", "defaultLevels": "Default levels",
+	"prefix": "Prefix", "title": "Title", "address": "Address", "matrix": "Matrix", "remove": "Remove",
 }
 
 // itemLabel: "User Ana: Role", "API client Bot: Scopes" or "Router B: Levels". The name is the one before the save,
@@ -185,6 +186,14 @@ func (a *App) savedFields(was, now config.Config, keys []string, x *saveCtx) []S
 
 // A new user's PIN is its own field.
 func (a *App) addedFields(base SavedField, key string, now config.Config, x *saveCtx) []SavedField {
+	if id, ok := x.made[key]; ok && strings.HasPrefix(key, "router/") {
+		r, _ := now.RouterByUID(id)
+		base.Key = "router/" + id + "/add"
+		base.Label = "New router " + r.Prefix
+		base.New, _ = json.Marshal(map[string]any{"prefix": r.Prefix, "title": r.Title, "address": r.Address,
+			"matrix": r.Matrix, "levels": r.Levels})
+		return []SavedField{base}
+	}
 	if id, ok := x.made[key]; ok {
 		u, _ := now.FindUserByID(id)
 		base.Key = "user/" + id + "/add"

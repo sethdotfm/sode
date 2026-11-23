@@ -447,6 +447,19 @@ html:has(.sode-gridpanel) {
     var(--pb-border-w) 100%,
     100% var(--pb-border-w);
 }
+/* A source that tie lines feed: the short Via mark in the corner, with the chain in the tip (gridpanelnodes.js). Tie
+   lines use --pb-tieline only (docs/color-roles.md). A press preview's number and the Skip word take the place while
+   they show. */
+.sode-gridpanel__xp[data-tie-via]:not([data-n], [data-skip])::after {
+  border: var(--pb-border-w) solid var(--pb-tieline);
+  color: var(--pb-text-strong);
+  content: "Via";
+  font-size: var(--pb-text-xs);
+  inset: auto var(--pb-space-1) var(--pb-space-1) auto;
+  line-height: 1;
+  padding: 0 var(--pb-space-1);
+  position: absolute;
+}
 /* 48 px in a 72 px crosspoint. */
 .sode-gridpanel__pie {
   clip-path: circle(50%);

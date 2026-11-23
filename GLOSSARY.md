@@ -264,7 +264,7 @@ _Avoid_: reset import, merge import
 Describes a preset, filter set or panel that refers to something that is not there. Examples are a user, a preset, artwork, or a source, destination, level or router that is gone from the router. A router name change alone never makes an item Broken. Sode shows the word Broken beside it.
 
 **Name moved**:
-Describes a preset, filter set or panel whose stored source or destination name now sits at a different number on the router. The item still fires on its stored number. Sode shows the words Name moved beside it.
+Describes a preset, filter set or panel whose stored source or destination name now sits at a different number on the router. The item still fires on its stored number. Sode shows the words Name moved beside it. A tie line is Name moved when the name of either end changes on the router. It still works on its stored numbers.
 
 **Swap**:
 To replace one source or one destination with another in every preset, filter set and panel that uses it, in one Settings save. Swap source and Swap destination are the two actions. The name keeps it apart from Replace import.
@@ -471,7 +471,7 @@ The chip in a patch box that fills it with the value after Last. That value is t
 The state where keys act on History entries instead of the patch boxes. Alt+Shift+k starts and ends it. Esc with empty boxes, or on a History button, also starts it. Any click ends it. Compact view has none.
 
 **Compact view**:
-The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
+The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever a link is not up. While Sode is Degraded, only the icon of each Router that is down shows, until the Lost link banner shows. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
 
 **Home**:
 The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page. Alt+Shift+h opens Home from every page, and on Home it closes what is open and puts the focus in the Source box.

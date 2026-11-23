@@ -100,7 +100,7 @@ export function stillBroken(broken, rowsBy, targets, choices) {
 
 // The target picker for one file router. A target another file router holds is taken.
 export function routerOptions(router, targets) {
-  const out = [{ value: '', text: 'None: its items arrive Broken', disabled: false }];
+  const out = [{ value: '', text: 'None: its items are not imported', disabled: false }];
   for (const c of router.candidates || []) {
     const taken = Object.entries(targets).some(([uid, t]) => uid !== router.uid && t === c.uid);
     out.push({ value: c.uid, text: `${c.title} (${c.found} of ${c.total} names found)`, disabled: taken });

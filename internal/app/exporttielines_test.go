@@ -105,7 +105,7 @@ func TestImportDropsTieLineWithUnmappedRouter(t *testing.T) {
 		t.Fatalf("plan: %+v", c)
 	}
 	for _, it := range c.Items {
-		if !strings.Contains(it.Refused, "is not mapped to a router here") || it.writes() {
+		if !strings.Contains(it.Refused, ", which has no target here") || it.writes() {
 			t.Errorf("%s: %+v", it.Name, it)
 		}
 	}
@@ -117,7 +117,7 @@ func TestImportDropsTieLineWithUnmappedRouter(t *testing.T) {
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.TieLines = nil })
 	fileUID := a.r().cfg.UID
 	res = applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Routers: map[string]string{fileUID: ""}}))
-	if it := planItem(t, res.Plan, catTieLines, "TIE 9"); !strings.Contains(it.Refused, "not mapped") {
+	if it := planItem(t, res.Plan, catTieLines, "TIE 9"); !strings.Contains(it.Refused, "which has no target here") {
 		t.Fatalf("TIE 9: %+v", it)
 	}
 	if got := a.r().cfg.TieLines; len(got) != 0 {

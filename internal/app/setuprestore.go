@@ -9,8 +9,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Setup restore (docs/agents/server.md). Unlike Replace import it uses the file's router UID and install UID, so
-// later backups from here match as this install's own.
+// Setup restore (docs/agents/server.md). Unlike Replace import it uses every file router with its UID, and the
+// install UID, so later backups from here match as this install's own.
 
 const setupKeyHeader = "X-Sode-Setup"
 
@@ -140,19 +140,25 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 		}
 		admin.Pin, admin.Len, admin.PinNeeded = hash, len(req.Pin), false
 	}
-	// The file's router and install go in before the plan, so the remap keeps every reference and the file's names
-	// table checks them.
-	fr := b.Routers[0]
-	fr.Extra = live.Router.Extra
-	live.Router = fr
+	// The file's routers and install go in before the plan, so the remap keeps every reference and the file's names
+	// tables check them.
+	live.Router, live.MoreRouters = b.Routers[0], nil
+	live.Router.Extra = was.Router.Extra
+	for _, r := range b.Routers[1:] {
+		r.Extra = nil
+		live.MoreRouters = append(live.MoreRouters, r)
+	}
 	if b.Manifest.Install != "" {
 		live.InstallUID = b.Manifest.Install
 	}
-	table := b.Names[fr.UID]
-	src, dst := tableMap(table.Sources), tableMap(table.Destinations)
+	names := liveNameSet{}
+	for _, r := range live.Routers() {
+		t := b.Names[r.UID]
+		names[r.UID] = routerNames{src: tableMap(t.Sources), dst: tableMap(t.Destinations)}
+	}
 	off := false
 	ireq := importReq{Mode: importReplace, Categories: b.Manifest.Categories, KeepAdmins: &off}
-	p := planImport(live, src, dst, a.importLive(), b, ireq, "", secureRequest(r, a.r().proxies))
+	p := planImport(live, names, a.importLive(), b, ireq, "", secureRequest(r, a.r().proxies))
 	for name, c := range p.plan.Categories {
 		if c.Refused != "" {
 			apiFail(w, http.StatusConflict, "refused", name+": "+c.Refused)
@@ -161,23 +167,30 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	act := Actor{Kind: actorUser, Name: "Administrator"}
 	res, err := a.writeImport(p, act, importReplace, was, func(cur *config.Config) {
-		cur.Router, cur.InstallUID = live.Router, live.InstallUID
+		cur.Router, cur.MoreRouters, cur.InstallUID = live.Router, live.MoreRouters, live.InstallUID
 	})
 	if err != nil {
 		apiFail(w, http.StatusConflict, "refused", err.Error())
 		return
 	}
 	a.setup = setupHold{}
-	a.names.save(fr.UID, table.At, src, dst)
-	a.mu.Lock()
-	fu := a.firstUnit()
-	rs := fu.router
-	rs.srcNames, rs.dstNames = src, dst
-	rs.savedAt = table.At
-	rs.lastPoll = &namePoll{maps.Clone(src), maps.Clone(dst)}
-	rs.namesGen++
-	a.broadcast(fu.namesMsg())
-	a.mu.Unlock()
+	// Each router's table becomes its saved names table and its live names, as at start, until the router answers.
+	cfg := a.r().cfg
+	for _, rc := range cfg.Routers() {
+		table := b.Names[rc.UID]
+		src, dst := names[rc.UID].src, names[rc.UID].dst
+		a.names.save(rc.UID, table.At, src, dst)
+		a.mu.Lock()
+		if u, ok := a.unitOfRouter(cfg, rc.UID); ok {
+			rs := u.router
+			rs.srcNames, rs.dstNames = maps.Clone(src), maps.Clone(dst)
+			rs.savedAt = table.At
+			rs.lastPoll = &namePoll{maps.Clone(src), maps.Clone(dst)}
+			rs.namesGen++
+			a.broadcast(u.namesMsg())
+		}
+		a.mu.Unlock()
+	}
 	log.Printf("setup: restored from a backup (%d users)", len(a.r().cfg.Users))
 	apiJSON(w, restoreResult{importResult: res, Browser: b.Browser})
 }

@@ -29,11 +29,20 @@ const DEFAULTS = {
 
 export function setSetting(settings, key, value) {
   const out = { ...settings };
-  // settings.levels is a UI level subset, where none chosen and every level both mean all.
-  const dflt = key === 'levels' ? !value || !value.length : value === DEFAULTS[key];
-  if (dflt) delete out[key];
-  else out[key] = key === 'levels' ? [...value].sort((a, b) => a - b) : value;
+  const v = key === 'levels' ? levelSubset(value) : value;
+  if (key === 'levels' ? !v : v === DEFAULTS[key]) delete out[key];
+  else out[key] = v;
   return out;
+}
+
+// settings.levels is a UI level subset by router UID (routerlevels.js), where none chosen and every level both mean
+// all. A plain list is the request form for the one router. Lists are sorted; empty ones go.
+function levelSubset(value) {
+  const sorted = (l) => (Array.isArray(l) && l.length ? [...l].sort((a, b) => a - b) : null);
+  if (!value || Array.isArray(value)) return sorted(value);
+  const out = {};
+  for (const [router, l] of Object.entries(value)) if (sorted(l)) out[router] = sorted(l);
+  return Object.keys(out).length ? out : null;
 }
 
 // Fixed destination (settings.fixedDests). The order is kept: the first one is what the Current Source cell reads.
@@ -155,6 +164,8 @@ const MORE_ICONS = [
 export const ART_ICONS = [...new Set([...Object.values(CATEGORY_ICON), ...MORE_ICONS])];
 
 const amount = (list) => (!Array.isArray(list) ? 'All' : list.length ? String(list.length) : 'None');
+// Rights levels by router UID count every router's list.
+const levelAmount = (l) => amount(l && typeof l === 'object' && !Array.isArray(l) ? Object.values(l).flat() : l);
 
 // The Rights table of a client: one [name, value] row per list, then Visibility. No Rights means everything.
 export function rightsRows(rights) {
@@ -162,7 +173,7 @@ export function rightsRows(rights) {
   return [
     ['Sources', amount(r.sources)],
     ['Destinations', amount(r.dsts)],
-    ['Levels', amount(r.levels)],
+    ['Levels', levelAmount(r.levels)],
     ['Presets', amount(r.presets)],
     ['Visibility', r.visibility === 'hidden' ? 'Hidden' : 'Read-only'],
   ];

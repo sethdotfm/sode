@@ -21,17 +21,15 @@ type viaTrace struct {
 	names map[string]string // tie line id → Tie line name
 }
 
-// newViaTrace is nil when there are no tie lines, so a router with none pays nothing. Caller holds mu.
+// newViaTrace is nil when there are no tie lines, so a router with none pays nothing. One-off tie lines that Sode
+// keeps count (tieoneoff.go). Caller holds mu.
 func (a *App) newViaTrace(rt *runtime) *viaTrace {
-	if len(rt.cfg.TieLines) == 0 {
+	if len(rt.cfg.TieLines) == 0 && len(a.liveOneOffs(rt)) == 0 {
 		return nil
 	}
 	in := a.tieInput(rt)
-	x := &viaTrace{in: in, tr: tieplan.NewTracer(in), names: map[string]string{}}
-	for _, t := range rt.cfg.TieLines {
-		x.names[t.ID] = t.Name
-	}
-	return x
+	_, names := a.tieLinesNow(rt)
+	return &viaTrace{in: in, tr: tieplan.NewTracer(in), names: names}
 }
 
 // fill adds the Via chain to a row of router rv.uid when a tie line feeds its source. Hidden visibility blanks an
@@ -53,17 +51,24 @@ func (x *viaTrace) fill(rv routerView, row *apiRouteRow) {
 	}
 	row.Origin, row.Mixed, row.Nothing, row.Unknown, row.Loop = seen(c.Origin), c.Mixed, c.Nothing, c.Unknown, c.Loop
 	for _, id := range c.Via {
-		row.Via = append(row.Via, apiTieRef{id, x.names[id]})
+		row.Via = append(row.Via, tieRef(id, x.names))
 	}
 	if c.Mixed {
 		// The level pie of the nearest tie line: what each level of its upstream end carries.
-		for _, o := range x.tr.UpLevels(c.Via[len(c.Via)-1]) {
+		near := c.Via[len(c.Via)-1]
+		for _, o := range x.tr.UpLevels(near) {
 			row.Levels = append(row.Levels, seen(o))
+		}
+		for _, t := range x.in.Ties {
+			if t.ID == near {
+				row.LevelsRouter = t.From.Router
+			}
 		}
 	}
 }
 
-// tieFrom: destination dst of unit u is the upstream end of a tie line.
+// tieFrom: destination dst of unit u is the upstream end of a tie line, a kept One-off tie line too. Caller holds mu.
+// It runs for each crosspoint change, so it reads the One-off tie lines without letting any go.
 func (a *App) tieFrom(u *routerUnit, rt *runtime, dst int) bool {
 	for _, t := range rt.cfg.TieLines {
 		if t.From.N == dst {
@@ -72,15 +77,19 @@ func (a *App) tieFrom(u *routerUnit, rt *runtime, dst int) bool {
 			}
 		}
 	}
-	return false
+	return slices.Contains(a.oneOffs.froms(), tieplan.End{Router: u.uid, N: dst})
 }
 
 // viaTouch notes a change on destination dst of unit u. Any level counts, the first read too: the Via downstream
 // goes from unknown to known. Caller holds mu.
 func (a *App) viaTouch(u *routerUnit, rt *runtime, dst int) {
-	if !a.tieFrom(u, rt, dst) {
-		return
+	if a.tieFrom(u, rt, dst) {
+		a.viaTouchAt(u, dst)
 	}
+}
+
+// viaTouchAt notes a change of the Via downstream of destination dst of unit u. Caller holds mu.
+func (a *App) viaTouchAt(u *routerUnit, dst int) {
 	if a.viaPend == nil {
 		a.viaPend = map[tieplan.End]bool{}
 	}
@@ -93,7 +102,12 @@ func (a *App) viaTouch(u *routerUnit, rt *runtime, dst int) {
 func (a *App) viaTouchRouter(u *routerUnit, rt *runtime) {
 	for _, t := range rt.cfg.TieLines {
 		if uid, ok := a.unitUID(rt, t.From.Router); ok && uid == u.uid {
-			a.viaTouch(u, rt, t.From.N)
+			a.viaTouchAt(u, t.From.N)
+		}
+	}
+	for _, e := range a.oneOffs.froms() {
+		if e.Router == u.uid {
+			a.viaTouchAt(u, e.N)
 		}
 	}
 }
@@ -178,7 +192,7 @@ func (a *App) noteAlso(u *routerUnit, es []*Entry) {
 				al.Name = du.router.dstNames[r.At.N]
 			}
 			for _, id := range r.Via {
-				al.Via = append(al.Via, apiTieRef{id, x.names[id]})
+				al.Via = append(al.Via, tieRef(id, x.names))
 			}
 			e.Also = append(e.Also, al)
 		}

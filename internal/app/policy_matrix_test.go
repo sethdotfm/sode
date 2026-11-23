@@ -53,7 +53,7 @@ var policyExpect = map[string][nStates]error{
 	// the handlers refuse after setup; while setup is pending see TestSetupWizardAdmitsOnlySetupMessages
 	"setupClaim": openRule, "setupRouter": openRule, "setupRestoreKey": openRule, "setupFinish": openRule,
 
-	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
+	"take": mainRule, "tieTake": mainRule, "tiePlan": mainRule, "tieUndo": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
 	// the Protect right and the owner of the Protect are checked in the handlers (protect_test.go)
 	"protectSet": mainRule, "protectClear": mainRule,
 
@@ -62,6 +62,7 @@ var policyExpect = map[string][nStates]error{
 	"swapList": standardRule, "swapMine": standardRule,
 	// everyone's count needs an Administrator, checked in the handler (brokencount_test.go)
 	"brokenCount": standardRule,
+	"routerUses":  adminRule,
 	// the handler lists by the panel page lock and the reach of the sign-in (palette_test.go)
 	"palettePanels": openRule,
 
@@ -69,7 +70,7 @@ var policyExpect = map[string][nStates]error{
 	"profileGet": trustedRule, "profileSave": selfRule,
 
 	"clearHistory": adminRule, "protectClearAll": adminRule,
-	"userSignOutAll": adminRule, "usersList": adminRule,
+	"userSignOutAll": adminRule, "usersList": adminRule, "oneOffTieLines": adminRule,
 	"keyListAll": adminRule, "keyCreateFor": adminRule,
 	"keyRevokeAny": adminRule, "keyRevokeAll": adminRule,
 	"tieLines": adminRule,

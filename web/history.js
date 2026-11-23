@@ -10,6 +10,7 @@ import { entryChip, protectFoldOpts } from './protectrules.js';
 import { mergeRuns } from './historyruns.js';
 import { undoIndex, markFor, groupMark, takeMark, takeLevels } from './undone.js';
 import { statusText } from './statustext.js';
+import { isHop, typedEnds, soloTies, hopEntriesOf, stackVia } from './tiehistoryrules.js';
 import { forgetSteps } from './stepback.js';
 
 // Quick search above History. It reads back through the whole log. It ignores the filters unless this browser's setting says otherwise. Not kept.
@@ -50,12 +51,17 @@ function trimHist() {
 }
 
 // Names are the router's now and the ones logged with the entry, which differ when names
-// changed (or another router is connected).
+// changed (or another router is connected). A tie take matches by its typed ends, and a hop entry never matches.
 function found(e) {
   const either = (fn, n, now, then) => fn(n + off(), now) || (!!then && then !== now && fn(n + off(), then));
-  // A Protect entry has no source: the Source search matches its chip words (Protect, Router lock) instead.
-  const srcHit = (x) => (x.protect ? searchSrc(-1, entryChip(x).text) : either(searchSrc, x.src, srcItem(x.src, x.srcName).name, x.srcName));
-  const hit = (x) => srcHit(x) && either(searchDst, x.dst, dstItem(x.dst, x.dstName).name, x.dstName);
+  const hit = (x) => {
+    const ends = typedEnds(x);
+    if (!ends) return false;
+    const { src, dst } = ends;
+    // A Protect entry has no source: the Source search matches its chip words (Protect, Router lock) instead.
+    const srcHit = x.protect ? searchSrc(-1, entryChip(x).text) : either(searchSrc, src.n, srcItem(src.n, src.name, src.router).name, src.name);
+    return srcHit && either(searchDst, dst.n, dstItem(dst.n, dst.name, dst.router).name, dst.name);
+  };
   const byPreset = !!e.preset && searchActive() && (!query.src.trim() || searchSrc(-1, e.preset)) && (!query.dst.trim() || searchDst(-1, e.preset));
   return hit(e) || byPreset || !!e.follows?.some(hit);
 }
@@ -76,7 +82,10 @@ export const stackGapMs = () => Number(pref('stackGap')) * 1000;
 // A change that can join a stacked row: one route on its own, from any browser, panel or the
 // router itself. A failed take stays apart for its Retry; a follow belongs to its take. An undo
 // (also a Restore) stays apart, or it would join the row that it undid.
-const stacks = (e) => (!e.group || e.groupN < 2) && e.ok && e.follow == null && !e.followGroup && e.undo == null && !e.protect;
+const stacks = (e) => alone(e) && e.ok && e.follow == null && !e.followGroup && e.undo == null && !e.protect;
+
+// An entry with a row of its own: no Group, or the one destination of a tie take (tieSolo, soloTies).
+const alone = (e) => !e.group || e.groupN < 2 || !!e.tieSolo;
 
 // { e } for an entry on its own, { f } for a Group (a take that sent several routes), placed where its newest entry is.
 // Rapid changes to one destination merge into one { e }: the newest, with the oldest's prev, and merged = count.
@@ -101,6 +110,18 @@ function buildRows(list) {
   // External follow entries go with the take they probably followed (e.follows) when it is loaded and shown. One whose take is
   // hidden stands alone if it passes the filters itself.
   const byId = new Map(list.map((e) => [e.id, e]));
+  // Tie takes: the hop entries go in the row of their destination entry (hopEntries). A tie take of one destination
+  // is that row alone (soloTies), so it can stack. A take on its way can have no destination entry loaded yet. Until
+  // that entry comes, its Group shows its hops, judged by their own ends.
+  const solos = soloTies(list);
+  const groupOf = new Map();
+  for (const e of list) {
+    if (!e.group || e.ext) continue;
+    if (!groupOf.has(e.group)) groupOf.set(e.group, []);
+    groupOf.get(e.group).push(e);
+  }
+  const asked = new Set(list.filter((e) => e.group && !e.ext && !isHop(e)).map((e) => e.group));
+  const entryShows = (e) => (!isHop(e) ? passes(e) : !asked.has(e.group) && passes({ ...e, tie: '' }));
   const followsOf = new Map();
   for (const e of list) {
     if (e.follow == null || !byId.has(e.follow)) continue;
@@ -113,8 +134,8 @@ function buildRows(list) {
   const attached = new Set([...followsOf.values()].flat());
   // External follow entries of a Group go in f.followers (the server does not say which entry they followed).
   // That occurs only when the Group is loaded and will show; otherwise they stand alone.
-  const groups = new Set(list.filter((e) => e.group && !e.ext).map((e) => e.group));
-  const shows = new Set(list.filter((e) => e.group && !e.ext && passes(e)).map((e) => e.group));
+  const groups = new Set(list.filter((e) => e.group && !e.ext && !solos.has(e.group)).map((e) => e.group));
+  const shows = new Set(list.filter((e) => e.group && !e.ext && entryShows(e)).map((e) => e.group));
   const followers = new Map();
   for (const e of list) {
     if (!e.ext || !e.followGroup || !groups.has(e.followGroup)) continue;
@@ -125,20 +146,28 @@ function buildRows(list) {
   }
   // Each entry first stands alone, because a hidden entry, a Group's entry and an attached follow end a stack. Then it
   // goes to its Group or its take.
+  for (const e of list) if (isHop(e) && solos.has(e.group)) attached.add(e);
   // The Undone mark reads every loaded entry, so a hidden undo row still marks its take (undone.js).
   const undone = undoIndex(list);
   const items = list.map((orig) => {
     const mark = orig.protect ? null : takeMark(orig, undone);
-    const e =
+    let e =
       followsOf.has(orig.id) || mark
         ? { ...orig, ...(followsOf.has(orig.id) ? { follows: followsOf.get(orig.id) } : {}), ...(mark ? { undone: mark } : {}) }
         : orig;
+    if (orig.origin && groupOf.has(orig.group)) {
+      const hopEntries = hopEntriesOf(orig, groupOf.get(orig.group));
+      // An undone tie take: its Undo left the tie lines as they were, unless a put-back undid a hop too.
+      e = { ...e, hopEntries, ...(mark ? { tiesKept: !hopEntries.some((h) => undone.has(h.id)) } : {}) };
+    }
+    if (solos.get(orig.group) === orig.id) e = { ...e, tieSolo: true };
     const t = Date.parse(e.time);
-    return { e, orig, span: [t, t], attached: attached.has(orig), shows: !attached.has(orig) && passes(e) };
+    return { e, orig, span: [t, t], attached: attached.has(orig), shows: !attached.has(orig) && entryShows(e) };
   });
   const stacked = mergeRuns(items, {
     lane: (r) => r.e.dst,
-    key: (r) => (stacks(r.e) ? `${r.e.levels.join(',')}${r.e.found ? ' found' : ''}` : ''), // found and announced do not mix
+    // Found and announced do not mix; a tie row stacks only with a row through the same tie lines.
+    key: (r) => (stacks(r.e) ? `${r.e.levels.join(',')}${r.e.found ? ' found' : ''}${stackVia(r.e)}` : ''),
     gapMs: gap,
     span: (r) => r.span,
     join: (run) => stackRow(run, undone),
@@ -147,7 +176,7 @@ function buildRows(list) {
   const byGroup = new Map();
   for (const r of stacked) {
     if (r.attached) continue;
-    if (!r.e.group || r.e.groupN < 2) {
+    if (alone(r.e)) {
       rows.push({ e: r.e, shows: r.shows });
       continue;
     }
@@ -165,11 +194,12 @@ function buildRows(list) {
     if (!f) continue;
     const shown = fs.filter(passes);
     if (shown.length) f.followers = shown;
-    if (shown.length && searchActive() && !f.shown.length) f.shown = f.entries;
+    if (shown.length && searchActive() && !f.shown.length) f.shown = groupRowEntries(f);
   }
   for (const row of byGroup.values()) {
     row.shows = row.f.shown.length > 0;
-    const mark = groupMark(row.f.entries);
+    // Hop entries and the Protect of a tie take are no routes asked for, as External follows: they do not count.
+    const mark = groupMark(row.f.entries.filter((e) => !isHop(e) && !e.protect));
     if (mark) row.f.undone = mark;
   }
   return mergeRuns(rows, protectFoldOpts(gap)).filter((r) => r.shows);
@@ -234,7 +264,12 @@ export function statusNode(row) {
 // The words in brackets after a row's route (rowView's route notes); null for none.
 export const routeNote = (notes) => (notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null);
 
-export const groupPartial = (f) => !!f.shown && f.shown.length < f.entries.length;
+// The entries a Group can show as rows: hop entries go in the row of their destination entry.
+export const groupRowEntries = (f) => {
+  const es = f.entries.filter((e) => !isHop(e));
+  return es.length ? es : f.entries;
+};
+export const groupPartial = (f) => !!f.shown && f.shown.length < groupRowEntries(f).length;
 
 // The router of a Group whose entries are all on one router, else blank (the first router).
 export const groupRouter = (f) => {
@@ -323,7 +358,7 @@ export function beforeGroups(e) {
   const prev = new Map(e.prev);
   const groups = new Map();
   for (const u of [...e.levels].sort((a, b) => a - b)) {
-    if (!S.levelBy.has(u)) continue;
+    if (!routerData(e.router).levelBy.has(u)) continue;
     const s = prev.has(u) ? prev.get(u) : null;
     if (!groups.has(s)) groups.set(s, []);
     groups.get(s).push(u);
@@ -335,7 +370,7 @@ export function beforeGroups(e) {
 // several sources, and text then counts them.
 export function stackBefore(e) {
   const g = beforeGroups(e);
-  return g.length === 1 ? { src: g[0].src, text: tallyText(g[0].src) } : { src: null, text: `${g.length} sources` };
+  return g.length === 1 ? { src: g[0].src, text: tallyText(g[0].src, e.router) } : { src: null, text: `${g.length} sources` };
 }
 
 // [{levels, text}]: "still on X" (it ignored the take), "on X" (another route got there) or "no
@@ -347,8 +382,8 @@ export function failureGroups(e) {
     prev = new Map(e.prev);
   const groups = new Map();
   for (const u of [...e.failed].sort((a, b) => a - b)) {
-    if (!S.levelBy.has(u)) continue;
-    const text = !now.has(u) ? 'no answer' : `${prev.get(u) === now.get(u) ? 'still on' : 'on'} ${tallyText(now.get(u))}`;
+    if (!routerData(e.router).levelBy.has(u)) continue;
+    const text = !now.has(u) ? 'no answer' : `${prev.get(u) === now.get(u) ? 'still on' : 'on'} ${tallyText(now.get(u), e.router)}`;
     if (!groups.has(text)) groups.set(text, []);
     groups.get(text).push(u);
   }
@@ -390,6 +425,7 @@ export function entryNote(e) {
   if (e.protect && e.ext) parts.push(`device ${e.device ?? 0}`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.undone) parts.push(undoneNote(e.undone));
+  if (e.undone && e.tiesKept) parts.push('tie lines left as they are');
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${oneLevel(e.router) ? 'all levels' : levelText(e.already, e.router)} already`);
   if (e.late?.length) parts.push(`${levelsPhrase(e.late, e.router)} confirmed late`);

@@ -54,8 +54,9 @@ func (l *tieLocks) lock(ids []string) (unlock func()) {
 }
 
 // upstreamTies gives the ids of the tie lines whose upstream destination is the destination of an item.
+// A kept One-off tie line counts too. Caller does not hold mu.
 func (a *App) upstreamTies(rt *runtime, items []routeReq) []string {
-	if len(rt.cfg.TieLines) == 0 {
+	if len(rt.cfg.TieLines) == 0 && len(a.oneOffs.froms()) == 0 {
 		return nil
 	}
 	at := map[tieplan.End]bool{}
@@ -64,9 +65,12 @@ func (a *App) upstreamTies(rt *runtime, items []routeReq) []string {
 			at[tieplan.End{Router: u.uid, N: it.Dst}] = true
 		}
 	}
+	a.mu.Lock()
+	ties, _ := a.tieLinesNow(rt)
+	a.mu.Unlock()
 	var ids []string
-	for _, t := range rt.cfg.TieLines {
-		if uid, ok := a.unitUID(rt, t.From.Router); ok && at[tieplan.End{Router: uid, N: t.From.N}] {
+	for _, t := range ties {
+		if at[t.From] {
 			ids = append(ids, t.ID)
 		}
 	}
@@ -115,6 +119,24 @@ func (a *App) tieTakeBegin(rt *runtime, v apiView, c *client, t *tieTake) (_ *ti
 			return nil, nil, p
 		}
 		t = now
+	}
+	// Sode keeps each One-off tie line of the take while the take runs, and after it while its downstream source is
+	// routed (tieoneoff.go). Each hop records who stated it.
+	by := c.who()
+	for _, r := range t.routes {
+		if r.mark != nil {
+			for i := range r.mark.hops {
+				if o := r.mark.hops[i].OneOff; o != nil {
+					o.By = by
+				}
+			}
+		}
+	}
+	release := a.holdOneOffs(t.oneOffs(), by)
+	tieLocks := unlock
+	unlock = func() {
+		release()
+		tieLocks()
 	}
 	return t, unlock, nil
 }
@@ -232,7 +254,11 @@ func carries(in tieplan.Input, from tieplan.End, levels []int, w tieWant) bool {
 func (a *App) tieChanged(rt *runtime, v apiView, t *tieTake) *apiProblem {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	in := a.tieInput(rt)
+	var routes []tieRoute
+	for _, r := range t.routes {
+		routes = append(routes, r.in)
+	}
+	in := withOneOffs(a.tieInput(rt), nil, routes)
 	in.Taken = map[string]tieplan.End{}
 	body := apiTieChangedBody{Routes: []apiTieChangedRoute{}}
 	changed := false
@@ -258,7 +284,7 @@ func (a *App) tieChanged(rt *runtime, v apiView, t *tieTake) *apiProblem {
 					in.Taken[h.Tie] = r.in.src
 				}
 				if !carries(in, tieplan.End{Router: h.Router, N: h.Dst}, h.Levels, r.in.expect[h.Tie]) {
-					out.Changed = append(out.Changed, apiTieRef{h.Tie, t.tieName[h.Tie]})
+					out.Changed = append(out.Changed, tieRef(h.Tie, t.tieName))
 				}
 			}
 			for _, e := range path.Affected {

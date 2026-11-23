@@ -1,13 +1,14 @@
 // The /log page: Communication Log rows, newest first and live, with this browser's filters and the uptime graph.
-import { $, el, S, on, connect, wsSend, connState, item, labelNode } from './core.js';
+import { $, el, S, on, connect, wsSend, item, labelNode, linkList, routerData } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
 import { newPager, rowKey, byNewest } from './logpager.js';
 import { KINDS, KIND_IDS, WHY_LABEL, kindLabel, normalizeKinds, allKinds, pressKind, addNewKinds } from './logkinds.js';
-import { isEvent, problem, logPasses, sortKeys, cmpKeyed, newestFirst as newestOf, sortRows } from './logfilter.js';
+import { isEvent, problem, logPasses, sortKeys, cmpKeyed, newestFirst as newestOf, sortRows, pressRouter, linkResult } from './logfilter.js';
 import { initDownloads } from './logdownload.js';
+import { routerName } from './routerlinkrules.js';
 import { fieldText, saveSummary } from './logsaves.js';
 import { statusText } from './statustext.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
@@ -45,6 +46,7 @@ function loadFilter() {
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
     dst: typeof f.dst === 'string' ? f.dst : '',
+    routers: Array.isArray(f.routers) ? f.routers.filter((u) => typeof u === 'string') : [],
   };
 }
 let filter = loadFilter();
@@ -63,7 +65,9 @@ const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 const range = { from: null, to: null };
 
 // What the page shows, and what Download filtered rows keeps of the whole log.
-const pageFilter = () => ({ ...filter, from: range.from, to: range.to });
+// The Routers chips count only with two or more routers, and only for routers that are still there.
+const pickedRouters = () => (S.routers.length > 1 ? filter.routers.filter((u) => S.routers.some((r) => r.uid === u)) : []);
+const pageFilter = () => ({ ...filter, routers: pickedRouters(), from: range.from, to: range.to });
 const passes = (e) => logPasses(e, pageFilter(), off(), { src: srcOk, dst: dstOk });
 
 function initFilters() {
@@ -158,6 +162,35 @@ function initFilters() {
     });
   }
 }
+
+// The Routers chips (pressRouter in logfilter.js), with two or more routers only. The hello gives the routers.
+function routerChips() {
+  const line = $('log-routers-line');
+  const box = $('log-routers');
+  const legend = box.querySelector('legend');
+  line.hidden = S.routers.length < 2;
+  if (line.hidden) return box.replaceChildren(legend);
+  const uids = S.routers.map((r) => r.uid);
+  const chip = (label, press, on) => {
+    const b = el('button', 'pb-chip sode-log__chip', label);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(on));
+    b.addEventListener('click', () => {
+      filter.routers = press();
+      saveFilter();
+      routerChips();
+      render();
+    });
+    return b;
+  };
+  const picked = pickedRouters();
+  box.replaceChildren(
+    legend,
+    chip('All', () => [], !picked.length),
+    ...S.routers.map((r) => chip(routerName(r), () => pressRouter(picked, r.uid, uids), picked.includes(r.uid))),
+  );
+}
+on('hello', routerChips);
 
 const pager = newPager();
 // Kept in step with tbody's rows so new ones go in place instead of redrawing everything.
@@ -276,7 +309,7 @@ const EVENT_RESULT = {
 function outcome(e) {
   if (isEvent(e)) {
     const [tone, text] = e.kind === 'server' && e.err ? ['warn', 'Started with a problem'] : EVENT_RESULT[e.result] || ['idle', e.result];
-    const s = statusText(tone, text);
+    const s = statusText(tone, linkResult(text, e, S.routers));
     if (e.err) s.dataset.pbTip = e.err;
     return s;
   }
@@ -297,12 +330,13 @@ function outcome(e) {
 const fmtMs = (ms) => (ms < 10 ? ms.toFixed(1) : String(Math.round(ms))) + ' ms';
 
 function levelCell(e) {
-  const l = S.levelBy.get(e.level);
+  const l = routerData(e.router).levelBy.get(e.level);
   if (l) return levelColor(el('span', 'sode__slot sode__slot--on sode-log__lvl', l.label), l);
   return e.wire >= 0 ? el('span', 'pb-text-muted', `router level ${e.wire}`) : '';
 }
 
-const side = (n, name) => (n >= 0 ? labelNode(item(n, name || '')) : '');
+// A router message's ends show its router prefix with two or more routers (B.12).
+const side = (n, name, uid) => (n >= 0 ? labelNode(item(n, name || '', uid || '')) : '');
 
 const saveFields = (s) =>
   el(
@@ -325,8 +359,8 @@ function row(e, fresh = false) {
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
     el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), kindLabel(e)),
     el('td', null, levelCell(e)),
-    el('td', 'sode-log__name', side(e.dst, e.dstName)),
-    el('td', 'sode-log__name', side(e.src, e.srcName)),
+    el('td', 'sode-log__name', side(e.dst, e.dstName, e.router)),
+    el('td', 'sode-log__name', side(e.src, e.srcName, e.router)),
     el(
       'td',
       null,
@@ -445,11 +479,14 @@ const fmtDay = (t) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
+// A change of any router's link state asks the uptime again.
 let routerWas = null;
 on('conn', () => {
-  const c = connState();
-  if (routerWas !== null && c.rt[0] !== routerWas) refreshUptime();
-  routerWas = c.rt[0];
+  const now = linkList()
+    .map((r) => `${r.uid}:${r.state}`)
+    .join(' ');
+  if (routerWas !== null && now !== routerWas) refreshUptime();
+  routerWas = now;
   if (S.wsState !== 'up') {
     pager.close();
     renderMore();
@@ -462,10 +499,43 @@ let chipOn = null;
 // so neighbouring bars stay clickable; what was set before (prev) comes back with Back.
 let slotMode = null;
 let upLast = null;
+// The router of each uptime request of the newest refresh, by its id.
+const upWant = new Map();
 let upId = 0;
 const upBars = $('log-uptime-bars');
 const upSum = $('log-uptime-sum');
 const customTimes = () => range.from != null || range.to != null;
+
+// One uptime line for each router: { head, bars, sum, name }. The key is the router UID that the request sends, blank
+// for the first router. The first router uses #log-uptime-bars. With one router it has no head, and its summary is
+// #log-uptime-sum. With two or more, each line has a head with the router's name and its own summary.
+const upLines = new Map([['', { head: $('log-uptime-first'), bars: upBars, sum: el('span', 'sode-log__up-sum'), name: 'Router' }]]);
+function syncUpLines() {
+  const list = linkList();
+  const many = list.length > 1;
+  const keys = list.map((r, i) => (i ? r.uid : ''));
+  for (const [key, l] of upLines) {
+    if (!key || keys.includes(key)) continue;
+    l.head.remove();
+    l.bars.remove();
+    upLines.delete(key);
+  }
+  list.forEach((r, i) => {
+    let l = upLines.get(keys[i]);
+    if (!l) {
+      const bars = el('div', 'sode-up__bars');
+      bars.setAttribute('role', 'group');
+      l = { head: el('div', 'sode-log__up-router'), bars, sum: el('span', 'sode-log__up-sum') };
+      $('log-uptime-more').append(l.head, l.bars);
+      upLines.set(keys[i], l);
+    }
+    l.bars.dataset.router = r.uid;
+    l.name = many ? routerName(r) : 'Router';
+    l.head.hidden = !many;
+    l.head.replaceChildren(el('span', 'sode__label', l.name), l.sum);
+  });
+  upSum.hidden = many;
+}
 
 function localStamp(t) {
   const d = new Date(t),
@@ -503,14 +573,21 @@ function refreshUptime() {
   syncPresets();
   const now = Date.now();
   const r = slotMode ? slotMode.view : chipOn ? rangeFor(chipOn, null, null, now) : rangeFor(DEFAULT_PRESET, range.from, range.to, now);
+  syncUpLines();
   if (!r) {
-    upBars.replaceChildren();
+    for (const l of upLines.values()) l.bars.replaceChildren();
+    upSum.hidden = false;
     upSum.textContent = 'From is after To.';
     return;
   }
-  const id = ++upId;
-  if (!wsSend({ t: 'uptime', id, from: r.from, to: r.to, slot: slotFor(r.from, r.to) })) return;
-  if (!upBars.childElementCount) upSum.textContent = 'Loading…';
+  // One request for each router; only the replies of the newest refresh are drawn.
+  upWant.clear();
+  for (const [key, l] of upLines) {
+    const id = ++upId;
+    upWant.set(id, key);
+    if (!wsSend({ t: 'uptime', id, router: key, from: r.from, to: r.to, slot: slotFor(r.from, r.to) })) return;
+    if (!l.bars.childElementCount) (upSum.hidden ? l.sum : upSum).textContent = 'Loading…';
+  }
 }
 
 function enterSlot(s) {
@@ -559,19 +636,20 @@ function showSlot() {
 }
 
 on('uptimeResult', (m) => {
-  if (m.id !== upId) return;
+  const l = upWant.has(m.id) && upLines.get(upWant.get(m.id));
+  if (!l) return;
   const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
   const text = summary(data);
   upLast = { from: m.from, to: m.to };
-  upBars.replaceChildren(...uptimeBars(data, { fmt: fmtDay, pick: enterSlot, sel: slotMode?.from }));
+  l.bars.replaceChildren(...uptimeBars(data, { fmt: fmtDay, pick: enterSlot, sel: slotMode?.from }));
   const label =
     slotMode || chipOn || !customTimes()
       ? slotMode
         ? `${fmtDay(m.from)} to ${fmtDay(m.to)}`
         : PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label
       : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
-  upBars.setAttribute('aria-label', `Router uptime, ${label}: ${text}`);
-  upSum.textContent = text;
+  l.bars.setAttribute('aria-label', `${l.name} uptime, ${label}: ${text}`);
+  (upSum.hidden ? l.sum : upSum).textContent = text;
 });
 
 setInterval(() => lockCovers(lockState()) || refreshUptime(), 60_000);

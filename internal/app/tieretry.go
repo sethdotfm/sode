@@ -64,6 +64,9 @@ func (a *App) lateTieHop(hop Entry) {
 // they are now, as for a route with no ties. The hops of e name the tie lines that it used last time.
 func (a *App) tieRedoProblem(rt *runtime, rights config.Rights, v apiView, e Entry) *apiProblem {
 	r := tieRoute{src: tieplan.End{Router: e.Origin.Router, N: e.Origin.N}, dst: tieplan.End{Router: e.Router, N: e.Dst}, levels: distinct(e.Levels)}
+	for _, h := range e.Hops {
+		a.hopOneOffAgain(rt, h, &r)
+	}
 	if prob := a.tieRouteRights(rt, rights, []tieRoute{r}); prob != nil {
 		return prob
 	}
@@ -86,12 +89,13 @@ func (a *App) planTieRetry(rt *runtime, rights config.Rights, v apiView, e Entry
 	r := tieRoute{src: src, dst: tieplan.End{Router: e.Router, N: e.Dst}, levels: distinct(e.Levels), expect: map[string]tieWant{}}
 	var ids []string
 	for _, h := range e.Hops {
-		ids = append(ids, h.Tie)
+		id := a.hopOneOffAgain(rt, h, &r)
+		ids = append(ids, id)
 		w := tieWant{one: &src}
 		if h.Result == "failed" {
 			w = tieWant{anything: true}
 		}
-		r.expect[h.Tie] = w
+		r.expect[id] = w
 	}
 	if prob := a.tieRouteRights(rt, rights, []tieRoute{r}); prob != nil {
 		return nil, prob
@@ -110,7 +114,7 @@ func (a *App) planTieRetry(rt *runtime, rights config.Rights, v apiView, e Entry
 				id := e.ID
 				s.req.Retry = &id
 			default:
-				if i := slices.IndexFunc(e.Hops, func(h TieHop) bool { return h.Tie == m.tie && h.Entry != nil }); i >= 0 {
+				if i := slices.IndexFunc(ids, func(id string) bool { return id == m.tie }); i >= 0 && e.Hops[i].Entry != nil {
 					s.req.Retry = e.Hops[i].Entry
 				}
 			}

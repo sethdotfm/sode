@@ -69,11 +69,17 @@ export function paintXp(xp, s, d, view) {
   setData(xp, 's', st);
   if (starts) joinPulse(xp);
   setData(xp, 'on', on.length ? on.join(',') : undefined);
+  // A source that tie lines feed: the short Via mark (gridpanel.css) and the full chain in the tip.
+  const via = view.via?.(s, d);
+  const viaWords = via ? view.viaText(via) : '';
+  const viaPart = viaWords && `, ${viaWords}`;
+  setData(xp, 'tieVia', via ? '' : undefined);
+  setData(xp, 'pbTip', via ? viaWords : undefined);
   const marked = !!view.marks?.xps.has(`${s},${d}`);
   setData(xp, 'mark', marked ? '' : undefined);
   if (xp.getAttribute('aria-disabled') !== String(prot)) xp.setAttribute('aria-disabled', String(prot));
   const state = out ? ', staged, left out of the take' : staged.length ? ', staged. Right-click or Alt-click to unstage' : '';
-  const label = `${view.names.source(s)} to ${view.names.destination(d)}${on.length ? `, levels ${view.levelText(on)}` : ''}${prot ? ', protected' : ''}${state}${marked ? view.marks.words.route : ''}`;
+  const label = `${view.names.source(s)} to ${view.names.destination(d)}${on.length ? `, levels ${view.levelText(on)}` : ''}${viaPart}${prot ? ', protected' : ''}${state}${marked ? view.marks.words.route : ''}`;
   if (xp.getAttribute('aria-label') !== label) xp.setAttribute('aria-label', label);
 }
 

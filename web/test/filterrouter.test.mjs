@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterFn, entryAllows, routerTermsProblem } from '../filter.js';
+import { filterFn, entryAllows, routerTermsProblem, filterProblem } from '../filter.js';
 
 test('a set with a router matches number and range terms on that router only', () => {
   const f = filterFn('5, 10-12, CAM', { router: 'r1' });
@@ -39,4 +39,13 @@ test('with a second router, a set with no router allows only name, exact and reg
   assert.equal(routerTermsProblem('5', '', 1), '');
   // The parser reports text that does not parse; this check skips it.
   assert.equal(routerTermsProblem('"open', '', 2), '');
+});
+
+test('the filter editor refuses number terms on a filter with no router once there is a second router', () => {
+  assert.equal(filterProblem('CAM, 5', '', 1), null);
+  assert.equal(filterProblem('CAM, 5', '', 2), 'Number terms need a router.');
+  assert.equal(filterProblem('CAM, 5', 'r1', 2), null);
+  assert.equal(filterProblem('', '', 2), null);
+  // A parse error comes first and says where it is.
+  assert.match(filterProblem('5, "open', '', 2), /at “"open”/);
 });

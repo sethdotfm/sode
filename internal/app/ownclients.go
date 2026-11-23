@@ -111,7 +111,7 @@ func (a *App) SaveOwnClient(c *client, req myClientReq) error {
 		if i >= 0 {
 			stored = &cur.APIClients[i].Rights
 		}
-		rights, err := ownClientRights(u, req.Rights, stored)
+		rights, err := ownClientRights(u, req.Rights, stored, cur.UID)
 		if err != nil {
 			return err
 		}
@@ -130,16 +130,17 @@ func (a *App) SaveOwnClient(c *client, req myClientReq) error {
 
 // ownClientRights is clientRightsFor for a user's own client. Unchanged Rights stay, so a save
 // never fails over Rights an Administrator widened. New ones must be within the user's.
-func ownClientRights(u config.User, want, stored *config.Rights) (config.Rights, error) {
+// uid: the router a request's references and levels with no router name.
+func ownClientRights(u config.User, want, stored *config.Rights, uid string) (config.Rights, error) {
 	switch {
 	case want == nil && stored != nil:
 		return *stored, nil
 	case want == nil:
 		return u.Rights.Clone(), nil
-	case stored != nil && reflect.DeepEqual(clean(*want), *stored):
+	case stored != nil && reflect.DeepEqual(clean(*want, uid), *stored):
 		return *stored, nil
 	}
-	r := clean(*want)
+	r := clean(*want, uid)
 	if !r.Within(u.Rights) {
 		return config.Rights{}, errors.New("an API client's Rights must not be wider than yours")
 	}

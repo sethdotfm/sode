@@ -228,7 +228,7 @@ export function remapReview(st, goTo) {
   for (const r of st.info.routers) {
     const to = st.info.targets.find((x) => x.uid === st.targets[r.uid]);
     if (!to) {
-      out.push(el('li', null, `${r.title || r.uid}: no router. Its items arrive Broken.`));
+      out.push(el('li', null, `${r.title || r.uid}: no router. Its items are not imported, and Rights lose it.`));
       continue;
     }
     const rows = st.rowsBy[r.uid] || [];

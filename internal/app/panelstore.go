@@ -110,13 +110,15 @@ type Panel struct {
 	// Broken and Moved as on config.Preset; brokencheck.go keeps them.
 	Broken []config.Missing `yaml:"broken,omitempty" json:"broken,omitempty"`
 	Moved  []config.Missing `yaml:"moved,omitempty" json:"moved,omitempty"`
+	// TieLines is the tie line setting (panelties.go). It is not part of the layout.
+	TieLines *PanelTies `yaml:"tieLines,omitempty" json:"tieLines,omitempty"`
 
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // panelKnown are the JSON names the struct owns plus every output-only field a read adds (panelOut, monFields,
 // apiPanelRead). So a client that echoes a read back does not plant one in Extra. Keep in step with those.
-var panelKnown = []string{"id", "name", "type", "sources", "destinations", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "broken", "moved", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped", "confirm"}
+var panelKnown = []string{"id", "name", "type", "sources", "destinations", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "broken", "moved", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped", "confirm", "tieLines"}
 
 // extraOwnFields is extra without panelKnown names: old files, checkpoints and sets can hold one.
 // A copy, since a stored panel can share extra.
@@ -398,7 +400,7 @@ func (s *panelStore) vetNewLocked(p Panel) error {
 	if s.slugTakenLocked(p.Slug, "") {
 		return errSlugTaken
 	}
-	return nil
+	return s.tieClashErrLocked(p)
 }
 
 func (s *panelStore) writeNewLocked(p *Panel) error {
@@ -444,6 +446,9 @@ func (s *panelStore) replaceLocked(p Panel) (bool, error) {
 	}
 	if s.slugTakenLocked(p.Slug, p.ID) {
 		return true, errSlugTaken
+	}
+	if err := s.tieClashErrLocked(p); err != nil {
+		return true, err
 	}
 	if err := s.writeLocked(&p); err != nil {
 		return true, err

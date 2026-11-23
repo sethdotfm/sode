@@ -2,7 +2,8 @@ package config
 
 import "testing"
 
-func ints(v ...int) *[]int { return &v }
+// ints: levels of router "u".
+func ints(v ...int) RouterLevels { return RouterLevels{"u": v} }
 
 func strs(v ...string) *[]string { return &v }
 

@@ -51,7 +51,7 @@ type streamMsg struct {
 
 // Guarded by App.mu.
 type apiStream struct {
-	unit   *routerUnit // the router of the stream; names, tally and status frames come only from it
+	unit   *routerUnit // the router of the stream; names and tally frames come only from it
 	view   apiView
 	topics map[string]bool
 	send   chan []byte
@@ -98,8 +98,8 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return
 		}
 	}
-	// names, tally and status are about one router; history and results cover every router.
-	if slices.ContainsFunc(topics, func(t string) bool { return t == "names" || t == "tally" || t == "status" }) {
+	// names and tally are about one router; status, history and results cover every router.
+	if slices.ContainsFunc(topics, func(t string) bool { return t == "names" || t == "tally" }) {
 		if _, ok := a.apiReadUnit(w, r); !ok {
 			return
 		}
@@ -149,7 +149,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	a.streams[st] = struct{}{}
 	a.streamQueue(st, streamMsg{T: "hello", Data: map[string]any{
-		"v": apiStreamVersion, "topics": topics, "numberOffset": a.r().cfg.NumberOffset}})
+		"v": apiStreamVersion, "topics": topics, "numberOffset": a.r().routerOf(st.unit.uid).NumberOffset}})
 	for _, t := range streamOrder {
 		if !st.topics[t] {
 			continue
@@ -160,7 +160,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		case "tally":
 			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: a.tallySnapshot(st.unit, st.view)})
 		case "status":
-			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: linkStatus(st.unit.status, st.detail)})
+			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: a.statusBody(st.detail)})
 		}
 	}
 	a.mu.Unlock()
@@ -367,8 +367,8 @@ func (a *App) streamFan(v any) {
 				a.streamQueue(st, streamMsg{T: "names", Topic: "names", Data: a.namesSnapshot(st.unit, st.view)})
 			}
 		case statusMsg:
-			if st.topics["status"] && st.hears(m.from) {
-				a.streamQueue(st, streamMsg{T: "status", Topic: "status", Data: linkStatus(m, st.detail)})
+			if st.topics["status"] {
+				a.streamQueue(st, streamMsg{T: "status", Topic: "status", Data: a.statusBody(st.detail)})
 			}
 		case recentMsg:
 			if m.E == nil {

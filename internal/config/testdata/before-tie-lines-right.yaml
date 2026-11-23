@@ -75,7 +75,8 @@ apiClients:
           - take
       rights:
           levels:
-              - 1
+              r-fixture:
+                  - 1
 guestRights:
     sources:
         - router: r-fixture

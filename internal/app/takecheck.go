@@ -63,7 +63,7 @@ type levelRead struct {
 // started on. Then a router change during the check refuses the routes too.
 func (a *App) checkRoutes(r *runtime, u *routerUnit, c *client, items []routeReq) (ext *extTracker, read bool) {
 	why := swp08.Why{Reason: swp08.ReasonCheck, By: c.who()}
-	if c.api != nil {
+	if c.apiCaller() {
 		why.Note = a.panelNote(c.api.Actor)
 	}
 	a.mu.Lock()
@@ -169,19 +169,20 @@ func (a *App) runCheck(r *runtime, u *routerUnit, ext *extTracker, why swp08.Why
 		a.mu.Unlock()
 	}()
 	answers := 0
+	mx := r.routerOf(u.uid).Matrix
 	var last <-chan struct{}
 	var err error
 send:
 	for _, lr := range reads {
 		if lr.dumpAnswers > 0 {
-			if last, err = a.sendTracked(u, ext, swp08.ExtTallyDumpReq(r.cfg.Matrix, lr.wire), why); err != nil {
+			if last, err = a.sendTracked(u, ext, swp08.ExtTallyDumpReq(mx, lr.wire), why); err != nil {
 				break
 			}
 			answers += lr.dumpAnswers
 			continue
 		}
 		for _, d := range lr.dsts {
-			if last, err = a.sendTracked(u, ext, swp08.ExtInterrogate(r.cfg.Matrix, lr.wire, d), why); err != nil {
+			if last, err = a.sendTracked(u, ext, swp08.ExtInterrogate(mx, lr.wire, d), why); err != nil {
 				break send
 			}
 		}

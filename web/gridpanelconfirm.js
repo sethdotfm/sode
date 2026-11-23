@@ -1,7 +1,7 @@
 // A Grid panel's take confirm. It is the main page's churning-letter confirm (keyconfirm.js) over the #confirm markup
 // in panel.html. Its summary reads and looks as Home's Confirm (planSummary in plans.js): the same question and item
 // heads (confirmtext.js), numbered ends and Replacing. Levels and labels come from the adapter's GET /tally,
-// since the panel page has no S.levels. Its lockout and Enter come from the panel read. The socket's hello fills
+// since the panel page reads no levels from the hello. Its lockout and Enter come from the panel read. The socket's hello fills
 // S.cfg late, or never when the socket is blocked.
 import { el, S, labelNode } from './core.js';
 import { strong, takeQuestion, planItemHead } from './confirmtext.js';
@@ -82,6 +82,8 @@ export function gridSummary(plan, tally) {
       ]
     : [];
   if (plan.verb === 'undo') left.push(el('div', null, "Undo of this instance's last take."));
+  // A take across routers names its Reserved tie lines and the Affected destinations (docs/tielines-design.md, Panels).
+  if (plan.also?.length) left.push(el('div', 'sode__plan-also', el('div', 'sode__label', 'Tie lines'), ...plan.also.map((l) => el('div', null, l))));
   if (n === 1) return [...left, question, ...plan.items[0].groups.map((g) => routeRow(tally, g, plan.items[0])), ...nowRows(tally, plan.items[0], false)];
   return [
     ...left,

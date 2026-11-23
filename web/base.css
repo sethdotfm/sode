@@ -617,6 +617,21 @@ html {
   padding-top: 0;
   vertical-align: middle;
 }
+/* The Via mark (viaview.js): the tie lines after a source that tie lines feed. Tie lines use --pb-tieline only
+   (docs/color-roles.md), and the word Via is the cue that is not color. */
+.sode-via {
+  border: var(--pb-border-w) solid var(--pb-tieline);
+  color: var(--pb-text-strong);
+  display: inline-block;
+  font-size: var(--pb-text-sm);
+  padding: 0 var(--pb-space-3);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+/* The level pie of a mixed chain: one row for each origin upstream, set in under its Via row. */
+.sode-via__pie {
+  padding-left: var(--pb-space-8);
+}
 .sode__arrow {
   color: var(--pb-text-muted);
 }
@@ -807,8 +822,23 @@ html {
 }
 [data-layout="phone"] #patch-view,
 [data-layout="phone"] .sode__conn,
-[data-layout="phone"]:not([data-view="settings"]) #conn-down {
+[data-layout="phone"]:not([data-view="settings"]) #conn-down,
+[data-layout="phone"]:not([data-view="settings"]) #conn-degraded {
   display: none;
+}
+/* The Degraded note (degradedview.js): a caution, with no red. Red is only the down router's icon. */
+.sode__degraded {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--pb-space-3);
+  margin: 0;
+}
+.sode__degraded[hidden] {
+  display: none;
+}
+.sode__degraded > .pb-icon {
+  flex: none;
+  margin-top: var(--pb-space-1);
 }
 /* The page's sticky copy would sit over the fixed phone view's header; the phone view draws its own under it. */
 [data-layout="phone"]:not([data-view="settings"]) body > .sode__notsaved {
@@ -1014,7 +1044,41 @@ html {
 .sode__routers-row {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--pb-space-4);
+}
+/* The rows of the routers after the first, and of the routers to add (settingsrouterlist.js). */
+.sode__routers-item {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding-top: var(--pb-space-4);
+}
+.sode__routers-item--removed .sode__fields {
+  opacity: 0.6;
+}
+.sode__routers-head,
+.sode__routers-acts {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+.sode__routers-first-prefix {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--pb-space-3);
+}
+.sode__routers-prefix {
+  max-width: 5rem;
+}
+.sode__routers-uses {
+  margin: var(--pb-space-2) 0;
+}
+.sode__routers-add {
+  align-self: flex-start;
+  margin-top: var(--pb-space-4);
 }
 /* Router levels: one block for each router after the first. */
 .sode__router-levels {
@@ -1441,6 +1505,13 @@ html {
   justify-content: space-between;
   min-height: var(--pb-control-h-sm);
   min-width: 0;
+}
+/* The default router of a patch box (boxrouter.js), only with two or more routers. */
+.sode__box-router {
+  flex: none;
+}
+.sode__box-router[hidden] {
+  display: none;
 }
 .sode__box-head > [data-last] {
   display: flex;

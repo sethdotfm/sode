@@ -1,4 +1,4 @@
-import { el, S, search, on, onMsg, emit, wsSend, off, srcItem, dstItem, labelNode, tallyText, routerData, routerOfItem, LINK_DOWN } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, srcItem, dstItem, numText, labelNode, tallyText, routerData, routerOfItem, LINK_DOWN } from './core.js';
 import { protectedText } from './protectrules.js';
 import { protectSummary, sendProtect, holdsAt, holdBadge } from './protects.js';
 import { levelText, oneLevel, levelBar, parseLevels, levelLabel } from './levelview.js';
@@ -10,7 +10,7 @@ import { resolvePreset } from './presetstore.js';
 import { showResult, setResult } from './banner.js';
 import { writeJSON, writeStr } from './store.js';
 import { onMyRights } from './editorrights.js';
-import { nextAfter } from './boxlist.js';
+import { nextAfter, nextAdd } from './boxlist.js';
 import { strong, destPart, takeQuestion, planItemHead } from './confirmtext.js';
 import { noteSent, noteOwn } from './stepback.js';
 export { showResult, resultNode } from './banner.js';
@@ -35,7 +35,7 @@ function undoItem(e) {
   const skipped = [];
   const untouched = untouchedLevels(e);
   for (const [u, s] of e.prev) {
-    if (!S.levelBy.has(u) || untouched.has(u)) continue;
+    if (!routerData(e.router).levelBy.has(u) || untouched.has(u)) continue;
     if (s < 0) {
       skipped.push(u);
       continue;
@@ -49,7 +49,7 @@ function undoItem(e) {
     dst: dstItem(e.dst, e.dstName, e.router),
     groups: [...groups].map(([s, levels]) => ({ src: srcItem(s, '', e.router), levels: levels.sort((a, b) => a - b) })),
     skipped: skipped.sort((a, b) => a - b),
-    untouched: [...untouched].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b),
+    untouched: [...untouched].filter((u) => routerData(e.router).levelBy.has(u)).sort((a, b) => a - b),
     undo: e,
     retry: null,
   };
@@ -57,26 +57,41 @@ function undoItem(e) {
 
 // A failed take is a retry (linked to its entry); any other is a redo, sent as a plain new
 // take. Needs a real source and a level that still exists.
-export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
+export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => routerData(e.router).levelBy.has(u));
+// Redo of the destination entry of a tie take opens the Tie line picker (docs/tielines-design.md, Redo and Retry). The
+// route goes from the typed source (origin) with the tie lines of the take. The picker chooses them while they are
+// usable, and marks them "Used last time" (tiepickrules.js lastState).
+const tieAgainItem = (e) =>
+  routeItem(dstItem(e.dst, e.dstName, e.router), [
+    {
+      src: srcItem(e.origin.n, e.origin.name || '', e.origin.router),
+      levels: [...e.levels].sort((a, b) => a - b),
+      ties: (e.hops || []).map((h) => h.tie),
+      last: true,
+    },
+  ]);
 const againItem = (e) =>
-  routeItem(
-    dstItem(e.dst, e.dstName, e.router),
-    [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
-    e.ok ? null : e,
-  );
+  e.origin && e.ok
+    ? tieAgainItem(e)
+    : routeItem(
+        dstItem(e.dst, e.dstName, e.router),
+        [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => routerData(e.router).levelBy.has(u)).sort((a, b) => a - b) }],
+        e.ok ? null : e,
+      );
 
 // The Grid popup's staged routes (routesOf, gridpanelstage.js) as one take: one item for each destination, one group
 // for each source on it. Route ends are router numbers. A route with box set is the patch boxes' route (One Take,
 // gridpopup.js). Then the plan is mixed and each group says if it is staged, so the Confirm keeps the two apart.
-export function gridPlan(routes, warnings) {
+// ends gives the items of the route numbers: the Grid popup's are item numbers (routerids.js).
+export function gridPlan(routes, warnings, ends = { src: (n) => srcItem(n), dst: (n) => dstItem(n) }) {
   const mixed = routes.some((r) => r.box);
   const by = new Map();
   for (const r of routes) {
     if (!by.has(r.dst)) by.set(r.dst, []);
-    const g = { src: srcItem(r.src), levels: r.levels };
+    const g = { src: ends.src(r.src), levels: r.levels };
     by.get(r.dst).push(mixed ? { ...g, staged: !r.box } : g);
   }
-  const plan = { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(dstItem(dst), groups)) };
+  const plan = { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(ends.dst(dst), groups)) };
   return mixed ? { ...plan, mixed } : plan;
 }
 
@@ -88,24 +103,36 @@ export const patchPlan = (src, dsts, levels) => ({
 // The patch the boxes hold, as preset saving wants it: null until Source and a destination are set.
 export const boxPatch = (src, dsts, lvl) => (src && dsts.length ? { src, dsts, levels: lvl.empty() ? [] : lvl.levels() || [] } : null);
 
-// What the router does not have is left out and listed in warnings. Validated at save
-// (presetProblem), not here.
+// What the routers do not have is left out and listed in warnings. Validated at save
+// (presetProblem), not here. defaults: the first router's default levels; another router's come from its own
+// settings. A route across routers keeps its stored tie lines (ties on its group), so the tie confirm page opens on
+// them (tieflow.js).
 export function presetPlan(preset, defaults) {
-  // The shown names keep a gone number's old name, so the server's Broken mark decides.
-  const marked = (kind, n) => (preset.broken || []).some((m) => m?.kind === kind && m?.ref?.n === n);
+  // The shown names keep a gone number's old name, so the server's Broken mark decides. A mark of a router names it.
+  const uidOf = (router) => routerData(router).uid;
+  const marked = (kind, n, router = '') =>
+    (preset.broken || []).some(
+      (m) => m?.kind === kind && (kind === 'tie' ? m?.tie === n : m?.ref?.n === n && (!m?.ref?.router || !router || m.ref.router === uidOf(router))),
+    );
+  const tieIds = new Set((S.cfg?.tieLines || []).map((t) => t.id));
   const r = resolvePreset(
     preset,
     {
-      src: (n) => S.srcBy.has(n) && !marked('source', n),
-      dst: (n) => S.dstBy.has(n) && !marked('destination', n),
-      level: (u) => S.levelBy.has(u),
+      src: (n, router) => routerData(router).srcBy.has(n) && !marked('source', n, router),
+      dst: (n, router) => routerData(router).dstBy.has(n) && !marked('destination', n, router),
+      level: (u, router) => routerData(router).levelBy.has(u),
+      tie: (id) => tieIds.has(id) && !marked('tie', id),
     },
-    defaults,
+    (router) => (routerData(router).first ? defaults : parseLevels('', false, router) || []),
   );
   // The Broken banner (brokenbanner.js) names a marked part.
-  const warnings = r.missing
-    .filter((m) => !marked(m.kind, m.n))
-    .map((m) => `${m.kind === 'level' ? `Level ${m.n}` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()}`}: not on the router`);
+  const what = (m) => {
+    if (m.kind === 'level') return `Level ${m.n}`;
+    if (m.kind === 'tie') return 'A route across routers: its tie line';
+    const it = m.kind === 'source' ? srcItem(m.n, '', m.router) : dstItem(m.n, '', m.router);
+    return `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${numText(it)}`;
+  };
+  const warnings = r.missing.filter((m) => !marked(m.kind, m.n, m.router)).map((m) => `${what(m)}: not on the router`);
   return {
     verb: 'preset',
     preset: preset.name,
@@ -114,8 +141,8 @@ export function presetPlan(preset, defaults) {
     warnings,
     items: r.routes.map((t) =>
       routeItem(
-        dstItem(t.dst),
-        t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })),
+        dstItem(t.dst, '', routerOfItem({ router: t.dstRouter })),
+        t.groups.map((g) => ({ src: srcItem(g.src, '', routerOfItem({ router: g.router })), levels: g.levels, ...(g.ties ? { ties: g.ties } : {}) })),
       ),
     ),
   };
@@ -130,20 +157,23 @@ function withFollows(plan, follows) {
 }
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
-// A take's plans; a Protect row's Undo is its own (protects.js PROTECT_ENTRY, PROTECT_GROUP).
+// A take's plans; a Protect row's Undo is its own (protects.js PROTECT_ENTRY, PROTECT_GROUP). The Group of a tie take
+// can hold a Protect entry (tieprotect.go): its routes undo, and its Protect stays.
+// The Undo of a tie take puts back the destinations asked for, never a tie line, so hop entries (tie) are out.
 export const groupUndoPlan = (f) =>
   withFollows(
-    { verb: 'undo', items: f.entries.map(undoItem) },
+    { verb: 'undo', items: f.entries.filter((e) => !e.protect && !(e.tie && !e.ext)).map(undoItem) },
     f.entries.flatMap((e) => e.follows || []),
   );
 // A group with failed takes retries only those; otherwise it redoes every redoable take. Empty
 // items = nothing to offer. ofUndo marks a redo of an undo row, which leaves Last alone.
 // Tie takes: the Retry of the destination entry (origin) runs the hops again on the server. Thus a hop entry (tie)
-// gets no Retry of its own. Redo of a tie take opens the picker, which this plan cannot do, so it has no tie entries.
+// gets no Retry of its own. Redo of a tie take is a route from the typed source with its tie lines (tieAgainItem), so
+// the confirm opens the picker on it.
 export function againPlan(row) {
-  const es = (row.f ? row.f.entries : [row.e]).filter((e) => e && !e.tie);
+  const es = (row.f ? row.f.entries : [row.e]).filter((e) => e && !e.tie && !e.protect);
   const failed = es.filter((e) => !e.ok);
-  const use = (failed.length ? failed : es.filter((e) => !e.origin)).filter(canRedo);
+  const use = (failed.length ? failed : es).filter((e) => (e.origin && e.ok ? e.levels.length > 0 : canRedo(e)));
   const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
   return use.some((e) => e.undo) ? { ...plan, ofUndo: true } : plan;
 }
@@ -266,7 +296,9 @@ export function planBlocked(plan) {
   const prot = new Map();
   const down = notLinked(plan);
   if (down != null) {
-    const text = down ? `Sode is not connected to router ${routerData(down).prefix}.` : 'Sode is not connected to the router.';
+    // With two or more routers the text names the router, the first one too.
+    const named = down || (S.routers.length > 1 && S.ws && S.wsState === 'up');
+    const text = named ? `Sode is not connected to router ${routerData(down).prefix}.` : 'Sode is not connected to the router.';
     return { block: { kind: 'error', title: 'Not connected', text }, prot };
   }
   if (plan.protect) return { block: null, prot };
@@ -274,20 +306,25 @@ export function planBlocked(plan) {
   if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   // A take sends each route to the router of its destination, with the source number of that router.
-  const across = live.find((i) => i.groups.some((g) => routerOfItem(g.src) !== routerOfItem(i.dst)));
-  if (across) {
+  const crosses = (i) => i.groups.some((g) => routerOfItem(g.src) !== routerOfItem(i.dst));
+  const across = live.find(crosses);
+  // Routes across routers open the Tie line picker for each (tieflow.js). A take with plain routes too then opens the
+  // confirm. An item across routers has one route; undo, retry and put-back items go another way.
+  const tie = !!across && !plan.extra?.on && live.every((i) => !i.undo && !i.retry && !i.putBack) && live.filter(crosses).every((i) => i.groups.length === 1);
+  if (across && !tie) {
     return { block: { kind: 'error', title: 'Route across routers', text: `${across.dst.label}: a route across routers needs a tie line.` }, prot };
   }
   for (const i of live) {
-    // The page has the Protects of the first router only; the server refuses a protected destination on any router.
-    if (routerOfItem(i.dst)) continue;
+    if (tie && crosses(i)) continue;
     const p = holdsAt(
       i.dst.n,
       i.groups.flatMap((g) => g.levels),
+      routerOfItem(i.dst),
     );
     if (p.levels.length) prot.set(i, p);
   }
   const hit = live.filter((i) => prot.has(i));
+  if (tie) return { block: null, prot, tie };
   if (!hit.length || hit.length < live.length) return { block: null, prot };
   if (hit.length === 1) {
     const [i] = hit;
@@ -371,6 +408,7 @@ function itemSummary(item, boxed, prot, since) {
   const before = bySource(item.dst.n, all, uid).map((r) => srcRow(r.levels, tallyText(r.src, uid), null, null, uid));
   return [
     ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst), uid)),
+    item.via ? el('div', 'sode__route', el('span', 'pb-badge', `Via ${item.via}`)) : null,
     ...(since ? changedSince(item) : []).map((r) =>
       el(
         'div',
@@ -457,22 +495,15 @@ function extraBox(plan, spaceHint) {
   if (!x) return null;
   const n = x.items.length;
   const names = x.items.map((i) => i.dst.label);
+  // label: the put-back offer of a tie take's Undo (tieundorules.js), else the External follow entries.
+  const text = x.label || `Also undo ${n} External follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}`;
   const c = el('input', 'pb-check__input');
   c.type = 'checkbox';
   c.checked = x.on;
   c.addEventListener('change', () => {
     x.on = c.checked;
   });
-  return el(
-    'label',
-    'pb-check sode__plan-extra',
-    c,
-    el(
-      'span',
-      'pb-check__label',
-      `Also undo ${n} External follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
-    ),
-  );
+  return el('label', 'pb-check sode__plan-extra', c, el('span', 'pb-check__label', `${text}${spaceHint ? ' (Space)' : ''}`));
 }
 
 // This browser's last patch as numbers, so names stay current. Null until it makes one: History
@@ -497,7 +528,8 @@ const validLast = (t) =>
   t.dsts.every(isPair) &&
   Array.isArray(t.levels) &&
   t.levels.every(isNum) &&
-  (t.router === undefined || typeof t.router === 'string');
+  (t.router === undefined || typeof t.router === 'string') &&
+  (t.dstRouter === undefined || typeof t.dstRouter === 'string');
 
 // A redo counts when all its routes share one source and one set of levels; Retry, Preset and
 // undo never set Last. Null means leave Last as it is. lastOf is the patch inside a larger take that
@@ -507,14 +539,18 @@ export function lastFromPlan(p) {
   if ((p.verb !== 'patch' && p.verb !== 'redo') || p.ofUndo) return null;
   const gs = p.items.flatMap((i) => i.groups.map((g) => ({ dst: i.dst, g })));
   if (!gs.length) return null;
+  // Last names one router for its destinations.
+  if (new Set(gs.map(({ dst }) => routerOfItem(dst))).size > 1) return null;
   const { src, levels } = gs[0].g;
   const sorted = (l) => [...l].sort((x, y) => x - y);
   const lv = sorted(levels);
   if (p.verb === 'redo' && !gs.every(({ g }) => g.src.n === src.n && sameList(sorted(g.levels), lv))) return null;
   const last = { src: [src.n, src.name], dsts: gs.map(({ dst }) => [dst.n, dst.name]), levels: lv };
-  // A take on a router after the first names it.
+  // A take on a router after the first names it. A route across routers (Tie line picker) also names the router of
+  // its destinations; Last keeps the typed ends, not the hops.
   const uid = routerOfItem(src);
-  return uid ? { ...last, router: uid } : last;
+  const dstUid = routerOfItem(gs[0].dst);
+  return { ...last, ...(uid ? { router: uid } : {}), ...(dstUid !== uid ? { dstRouter: dstUid } : {}) };
 }
 
 // A stored value that fails to parse is no Last, not a cue to fall back to memory.
@@ -537,14 +573,15 @@ function readLast() {
 export function lastTake() {
   const t = readLast();
   const uid = t?.router || '';
+  const dstUid = t?.dstRouter ?? uid;
   // A router that this page no longer has gives no Last.
-  if (!t || routerOfItem({ router: uid }) !== uid) return null;
-  const rt = routerData(uid);
-  if (!rt.srcBy.has(t.src[0]) || !t.dsts.every(([n]) => rt.dstBy.has(n))) return null;
+  if (!t || routerOfItem({ router: uid }) !== uid || routerOfItem({ router: dstUid }) !== dstUid) return null;
+  if (!routerData(uid).srcBy.has(t.src[0]) || !t.dsts.every(([n]) => routerData(dstUid).dstBy.has(n))) return null;
   return {
     src: srcItem(...t.src, uid),
-    dsts: t.dsts.map(([n, name]) => dstItem(n, name, uid)),
-    levels: t.levels.filter((u) => S.levelBy.has(u)),
+    dsts: t.dsts.map(([n, name]) => dstItem(n, name, dstUid)),
+    // Levels are those of the destinations' router.
+    levels: t.levels.filter((u) => routerData(dstUid).levelBy.has(u)),
   };
 }
 
@@ -579,6 +616,13 @@ export function nextFind(items) {
   return pref('nextMode') === 'fuzzy' ? (q) => search(items, q, items.length) : null;
 }
 
+// armedAdd is the destination that the next add on an empty Destination box adds after the add of last. It is on the
+// router of last, and skips those that the box has (chosen). The desktop and the phone both use it.
+export function armedAdd(last, chosen) {
+  const all = routerData(routerOfItem(last)).dsts;
+  return nextAdd(last, all, chosen, nextFind(all));
+}
+
 // The next number, or with Next match of the name the next router-order match on the name's text.
 function nextOf(it, by) {
   const all = [...by.values()];
@@ -597,9 +641,27 @@ export function lastChip(t, state) {
   };
 }
 
+// noteLast makes plan p this browser's Last, when lastFromPlan gives one. The Tie line picker calls it after a take
+// succeeded, then emits 'last' so the chips show it.
+export function noteLast(p) {
+  const last = lastFromPlan(p);
+  if (!last) return false;
+  lastPatch = last;
+  // A full storage keeps the older value, which would outrank memory.
+  lastWriteFailed = !writeJSON(LAST_KEY, last);
+  if (lastWriteFailed) writeStr(LAST_KEY, null);
+  return true;
+}
+
 export function sendTakes(p) {
   if (p.protect) {
     const sent = sendProtect(p);
+    if (sent) noteSent(p);
+    return sent;
+  }
+  // A take with tie routes sends itself (tieflow.js).
+  if (p.send) {
+    const sent = p.send();
     if (sent) noteSent(p);
     return sent;
   }
@@ -627,13 +689,7 @@ export function sendTakes(p) {
   noteSent(p);
   // The Grid popup drops its staged routes only once they went out.
   p.onSent?.();
-  const last = lastFromPlan(p);
-  if (last) {
-    lastPatch = last;
-    // A full storage keeps the older value, which would outrank memory.
-    lastWriteFailed = !writeJSON(LAST_KEY, last);
-    if (lastWriteFailed) writeStr(LAST_KEY, null);
-  }
+  noteLast(p);
   const list = [...take.byId.values()];
   const dsts = new Set(list.map((t) => t.dst.n)).size;
   const text =

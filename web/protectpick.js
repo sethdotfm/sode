@@ -28,7 +28,7 @@ export function openProtectPick() {
   if (!host) return showResult('warn', 'Not open', 'Go to Home, then try again.');
   let filter = 'all';
   const rows = () =>
-    pickRows(S.dsts, filter, {
+    pickRows(routerData('').dsts, filter, {
       inRights: (n) => allowed(S.myRights, 'dsts', n, routerData('').uid), // the first router's Protects
       held: (n) => protectState(n).levels.length > 0,
       offerOf: protectOfferOf,
@@ -168,7 +168,7 @@ export function openProtectPick() {
     const want = set ?? s.first === 'set';
     const ns = want ? s.protect : s.clear;
     if (!ns.length) return paint();
-    const byN = new Map(S.dsts.map((d) => [d.n, d]));
+    const byN = new Map(routerData('').dsts.map((d) => [d.n, d]));
     q.close(true);
     host.confirm(
       protectManyPlan(

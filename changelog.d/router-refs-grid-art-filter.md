@@ -1,0 +1,1 @@
+- The Grid panel editor saves each source and destination on its router, so a member on another router stays after a save. A Default artwork for a source or destination is keyed by its router. A default on one router does not show on the same number of another router. With a second router, the Filters editor says "Number terms need a router." for a filter with no router.

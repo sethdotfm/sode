@@ -15,7 +15,7 @@ import (
 type Router struct {
 	// Normalize makes UID one time. It never changes, not even with the address. Never shown.
 	UID string `yaml:"uid" json:"-"`
-	// Prefix is A-Z, hidden while there is one router.
+	// Prefix is one or two letters A to Z, hidden while there is one router.
 	Prefix  string `yaml:"prefix" json:"-"`
 	Title   string `yaml:"title" json:"routerName"`
 	Address string `yaml:"address" json:"router" reconnect:"true"`
@@ -116,6 +116,32 @@ func (c Config) SourceRef(n int, name string) Ref {
 func (c Config) DestinationRef(n int, name string) Ref { return c.SourceRef(n, name) }
 
 func newRouterUID() string { return RandomHexID(8) }
+
+// NewRouterUID is the UID of a router that Add router makes.
+func NewRouterUID() string { return newRouterUID() }
+
+// FreePrefix gives the first router prefix that no router has: A to Z, then AA to ZZ.
+func (c Config) FreePrefix() string {
+	used := map[string]bool{}
+	for _, r := range c.Routers() {
+		used[r.Prefix] = true
+	}
+	var try []string
+	for a := 'A'; a <= 'Z'; a++ {
+		try = append(try, string(a))
+	}
+	for a := 'A'; a <= 'Z'; a++ {
+		for b := 'A'; b <= 'Z'; b++ {
+			try = append(try, string(a)+string(b))
+		}
+	}
+	for _, p := range try {
+		if !used[p] {
+			return p
+		}
+	}
+	return ""
+}
 
 // RandomHexID is n random bytes in hex. The first digit is a to f.
 // YAML then never reads the id as a number, and never quotes it.

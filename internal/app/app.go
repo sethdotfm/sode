@@ -27,25 +27,30 @@ type runtime struct {
 	byWire  map[int]config.Level
 	byUI    map[int]config.Level
 	lv      map[string]*routerLevels
-	lenCode byte
 	proxies []netip.Prefix
 }
 
-// routerLevels is the level map of one router (docs/tielines-design.md, Levels).
+// routerLevels is the level map of one router (docs/tielines-design.md, Levels), with its settings and the length
+// code of its name requests.
 type routerLevels struct {
-	rc     config.Router
-	levels []config.Level
-	byWire map[int]config.Level
-	byUI   map[int]config.Level
+	rc      config.Router
+	levels  []config.Level
+	byWire  map[int]config.Level
+	byUI    map[int]config.Level
+	lenCode byte
 }
 
-func newRouterLevels(c config.Config, rc config.Router) *routerLevels {
-	l := &routerLevels{rc: rc, levels: c.LevelMapOf(rc), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}}
+func newRouterLevels(c config.Config, rc config.Router) (*routerLevels, error) {
+	code, err := swp08.NameLenCode(rc.NameLength)
+	if err != nil {
+		return nil, err
+	}
+	l := &routerLevels{rc: rc, levels: c.LevelMapOf(rc), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}, lenCode: code}
 	for _, x := range l.levels {
 		l.byWire[x.Wire] = x
 		l.byUI[x.UI] = x
 	}
-	return l
+	return l, nil
 }
 
 // levelsOf gives the levels of the router with this UID. Blank, or a UID the settings do not have, is the first router.
@@ -81,17 +86,15 @@ func (l *routerLevels) typed(uis []int) ([]int, error) {
 }
 
 func newRuntime(c config.Config) (*runtime, error) {
-	code, err := swp08.NameLenCode(c.NameLength)
-	if err != nil {
-		return nil, err
-	}
 	proxies, err := c.Proxies()
 	if err != nil {
 		return nil, err
 	}
-	r := &runtime{cfg: c, lv: map[string]*routerLevels{}, lenCode: code, proxies: proxies}
+	r := &runtime{cfg: c, lv: map[string]*routerLevels{}, proxies: proxies}
 	for _, rc := range c.Routers() {
-		r.lv[rc.UID] = newRouterLevels(c, rc)
+		if r.lv[rc.UID], err = newRouterLevels(c, rc); err != nil {
+			return nil, err
+		}
 	}
 	first := r.levelsOf(c.UID)
 	r.levels, r.byWire, r.byUI = first.levels, first.byWire, first.byUI
@@ -108,9 +111,15 @@ func probe(rc config.Router) []byte {
 // stays; clients get a new hello.
 // Fields from mu down to sessionsAt are guarded by mu, as are the fields of each router unit.
 type App struct {
-	// first: the first router's unit (routerunit.go). routers: every router unit by router UID. Fixed after New.
+	// first: the first router's unit (routerunit.go), fixed after New. routers: every router unit by router UID. A
+	// save that adds or removes a router swaps in a new map (syncUnitsMu), so a reader needs no lock.
 	first   *routerUnit
-	routers map[string]*routerUnit
+	routers atomic.Pointer[map[string]*routerUnit]
+	// linkCtx: the context of the router links while Run runs, so a router added later starts its link on it.
+	// Guarded by mu. unitRuns counts the uptime loops of the units, which Run waits for at the end.
+	linkCtx  context.Context
+	unitRuns sync.WaitGroup
+	debug    bool // SODE_DEBUG, for the link of a router added later
 
 	// profMemo: the marshalled profile per user for one config snapshot. Guarded by mu.
 	profMemoRT *runtime
@@ -132,9 +141,10 @@ type App struct {
 
 	// Run waits up to drainLimit for them (shutdown.go).
 	writes     inflight
-	checkMu    sync.Mutex // one Broken check at a time
-	tieLocks   tieLocks   // tielock.go
-	stepTaps   stepTaps   // tieretry.go
+	checkMu    sync.Mutex  // one Broken check at a time
+	tieLocks   tieLocks    // tielock.go
+	oneOffs    oneOffStore // tieoneoff.go
+	stepTaps   stepTaps    // tieretry.go
 	drainLimit time.Duration
 
 	// idle.go; tests change both (lock_idle_test.go).
@@ -183,6 +193,8 @@ type App struct {
 	// it and keys App.tallyCache, as a tally body carries the Via of other routers. Guarded by App.mu.
 	viaPend map[tieplan.End]bool
 	viaGen  int
+	// pageVia: the Via rows last sent to the pages (pagevia.go). Guarded by App.mu.
+	pageVia pageViaState
 
 	inbox *inboxStore // inbox.go
 
@@ -266,7 +278,6 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	first := newRouterUnit(cfg.Router)
 	a := &App{
 		first:      first,
-		routers:    map[string]*routerUnit{first.uid: first},
 		hist:       hist,
 		sent:       sent,
 		txq:        make(chan swp08.TxEvent, 1024),
@@ -291,14 +302,16 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.protects = loadProtects(cfgPath)
+	units := map[string]*routerUnit{first.uid: first}
 	for _, rc := range cfg.MoreRouters {
 		u := newRouterUnit(rc)
-		a.routers[u.uid] = u
+		units[u.uid] = u
 	}
+	a.routers.Store(&units)
 	a.names = newNamesStore(cfgPath)
 	a.tieChanges = loadTieChanges(cfgPath)
 	a.sweepStages()
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		if t, ok := a.names.load(u.uid); ok {
 			rs := u.router
 			rs.srcNames, rs.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
@@ -311,7 +324,8 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	}
 	a.saves, _ = OpenSaveLog("")
 	a.rt.Store(r)
-	for _, u := range a.routers {
+	a.debug = debug
+	for _, u := range a.units() {
 		a.link(u, r, debug)
 	}
 	return a, nil
@@ -329,17 +343,19 @@ func (a *App) Run(ctx context.Context) {
 	link, cut := context.WithCancel(context.WithoutCancel(ctx))
 	a.lateQ = make(chan lateJob, 64)
 	var wg sync.WaitGroup
-	for _, u := range a.routers {
-		go u.sw.Run(link)
-		wg.Add(1)
-		go func() { defer wg.Done(); u.up.Run(link) }()
+	a.mu.Lock()
+	a.linkCtx = link
+	for _, u := range a.units() {
+		a.startUnitMu(u)
 	}
+	a.mu.Unlock()
 	wg.Add(1)
 	go func() { defer wg.Done(); a.logSent(link) }()
 	defer func() {
 		cut()
 		wg.Wait()
-		for _, u := range a.routers {
+		a.unitRuns.Wait()
+		for _, u := range a.units() {
 			u.up.Stop()
 		}
 	}()
@@ -423,6 +439,9 @@ func (a *App) periodic() {
 }
 
 func (a *App) onUnitUp(u *routerUnit) {
+	if a.gone(u) {
+		return
+	}
 	a.refreshNames(u)
 	a.requestDumps(u)
 	go a.clearStaleSalvo(u)
@@ -433,9 +452,10 @@ func (a *App) requestDumps(u *routerUnit) {
 	a.mu.Lock()
 	u.dumpAt = time.Now()
 	a.mu.Unlock()
-	for _, l := range r.levelsOf(u.uid).levels {
-		u.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
-		u.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
+	lv := r.levelsOf(u.uid)
+	for _, l := range lv.levels {
+		u.send(swp08.ExtTallyDumpReq(lv.rc.Matrix, l.Wire), swp08.ReasonResync)
+		u.send(swp08.ExtProtectDumpReq(lv.rc.Matrix, l.Wire, 0), swp08.ReasonResync)
 	}
 }
 
@@ -457,6 +477,9 @@ func (a *App) SetSettingsSaves(l *SaveLog) {
 func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.gone(u) {
+		return
+	}
 	u.up.State(s == swp08.StateUp)
 	a.logLink(u, s, err)
 	if (s == swp08.StateUp) != (u.status.Router == string(swp08.StateUp)) {
@@ -501,6 +524,9 @@ func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 	r := a.r()
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.gone(u) {
+		return
+	}
 	for _, xp := range ev.Crosspoints {
 		a.applyUnitTally(u, r, xp)
 	}
@@ -517,10 +543,11 @@ func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 
 // Caller holds mu.
 func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
-	if xp.Matrix != r.cfg.Matrix {
+	lv := r.levelsOf(u.uid)
+	if xp.Matrix != lv.rc.Matrix {
 		return
 	}
-	l, ok := r.levelsOf(u.uid).byWire[xp.Level]
+	l, ok := lv.byWire[xp.Level]
 	if !ok {
 		return
 	}
@@ -567,10 +594,11 @@ func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 
 // announced: a 0x8D or 0x8F, not an answer to a re-read. Caller holds mu.
 func (a *App) applyProtect(u *routerUnit, r *runtime, p swp08.Protect, announced bool) {
-	if p.Matrix != r.cfg.Matrix {
+	lv := r.levelsOf(u.uid)
+	if p.Matrix != lv.rc.Matrix {
 		return
 	}
-	l, ok := r.levelsOf(u.uid).byWire[p.Level]
+	l, ok := lv.byWire[p.Level]
 	if !ok {
 		return
 	}
@@ -634,17 +662,24 @@ func (a *App) flush() {
 	}()
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	tallied := false
 	for _, u := range a.unitsInOrder(a.r()) {
 		if len(u.router.pend) > 0 {
 			a.broadcast(deltaMsg{T: "tally", U: u.router.pend, RouterUID: u.uid, from: u})
 			u.router.pend = nil
+			tallied = true
 		}
 	}
 	a.flushVia()
-	// The protected message carries only the first router.
-	if first := a.firstUnit(); len(first.router.pendProt) > 0 {
-		a.broadcast(protectMsg{T: "protected", U: first.router.pendProt, By: a.protectByList(a.r())})
-		first.router.pendProt = nil
+	a.flushPageVia(tallied)
+	// Each router's protected message has Sode's record of that router; the message of a router after the first has
+	// its UID.
+	for _, u := range a.unitsInOrder(a.r()) {
+		if len(u.router.pendProt) == 0 {
+			continue
+		}
+		a.broadcast(a.protectMsgOf(u, u.router.pendProt))
+		u.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
 		a.broadcastSent(a.pendSent)
@@ -691,11 +726,11 @@ func (a *App) readHello() helloPage {
 	return helloPage{recent, morePages(recent)}
 }
 
-// The hello's flat fields carry the first router, and routers carries every router. Caller holds mu.
+// The hello's routers list carries the names, tally, levels and link of every router. Protects are the first
+// router's. Caller holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	first := a.firstUnit()
-	n := first.namesMsg()
 	// A hello reaches pages under a lock: no users in it (AGENTS.md).
 	cfg := r.cfg
 	users := make([]helloUser, 0, len(cfg.Users))
@@ -704,12 +739,10 @@ func (a *App) hello(p helloPage) []byte {
 	}
 	cfg.Users = nil
 	m := helloMsg{
-		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: first.router.savedAt,
-		Tally: routeTriples(first.router.tally), Protect: protectRows(first.router.protect), ProtectBy: a.protectByList(r),
-		Status: first.status, Recent: p.recent, More: p.more,
-		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
-		ConfigPath: a.cfgPath, Version: BuildLabel(),
-		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
+		T: "hello", Protect: protectRows(first.router.protect), ProtectBy: a.protectByList(r),
+		Recent: p.recent, More: p.more,
+		LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
+		ConfigPath: a.cfgPath, Version: BuildLabel(), BrandColors: config.BrandColors,
 		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),
 		NotSaved: a.cfgPath == "", Setup: a.setupHelloFor(r.cfg), Routers: a.helloRouters(r),
 	}
@@ -723,15 +756,23 @@ func (a *App) hello(p helloPage) []byte {
 // helloRouters gives each router of the hello, in the order of the settings. Caller holds mu.
 func (a *App) helloRouters(r *runtime) []helloRouter {
 	var out []helloRouter
+	x := a.newViaTrace(r)
 	for _, u := range a.unitsInOrder(r) {
 		lv := r.levelsOf(u.uid)
 		rc := lv.rc
 		n := u.namesMsg()
 		out = append(out, helloRouter{
-			UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, NumberOffset: rc.NumberOffset, Levels: lv.levels,
+			UID: rc.UID, Prefix: rc.Prefix, Title: rc.Title, Address: rc.Address, Matrix: rc.Matrix,
+			NumberOffset: rc.NumberOffset, Levels: lv.levels,
 			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
-			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, Tally: routeTriples(u.router.tally), Status: u.statusOut(),
+			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: u.router.savedAt, Tally: routeTriples(u.router.tally),
+			Status: u.statusOut(),
+			Via:    a.pageViaRows(u, x), ProtectDevice: rc.ProtectDevice,
 		})
+		if u != a.firstUnit() {
+			out[len(out)-1].Protected = protectRows(u.router.protect)
+			out[len(out)-1].ProtectBy = a.protectByListOf(r, rc.UID)
+		}
 	}
 	return out
 }
@@ -779,14 +820,12 @@ func (a *App) reply(c *client, v any) {
 
 // record writes e. A take's entry names its router in Router; any other entry gets the first router.
 func (a *App) record(e *Entry) {
-	r := a.r()
-	cfg := r.cfg
-	rc := r.routerOf(e.Router)
+	rc := a.r().routerOf(e.Router)
 	e.Router, e.RouterTitle = rc.UID, rc.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	log.Print(e.logLine(cfg.NumberOffset))
+	log.Print(e.logLine(rc.NumberOffset))
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "entry", E: e})
 	a.mu.Unlock()
@@ -801,7 +840,7 @@ func (a *App) ClearHistory(who string) {
 	}
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		u.ext.lateRoute, u.ext.lateHits = map[ownKey][]lateRoute{}, nil // their entries are gone
 	}
 	a.broadcast(simpleMsg{T: "historyCleared"})

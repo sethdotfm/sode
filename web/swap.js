@@ -1,13 +1,13 @@
 // The Swap dialog (GLOSSARY.md, Swap). An Administrator opens it from Settings > Routers and stages one Swap into
 // the one Save (savesources.js). A user opens it from their own Profile dialog, and it saves their own items at once. Rules in
 // swaprules.js.
-import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN } from './core.js';
+import { el, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN, routerData } from './core.js';
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
 import { addSaveSource } from './savesources.js';
-import { groupByOwner, parseShown, swapLabel, swapShow, swapValue } from './swaprules.js';
+import { firstTicked, groupByOwner, parseShown, swapLabel, swapShow, swapValue } from './swaprules.js';
 
-const KINDS = { preset: 'Preset', filterSet: 'Filter set', panel: 'Panel' };
+const KINDS = { preset: 'Preset', filterSet: 'Filter set', panel: 'Panel', tieLine: 'Tie line' };
 
 let ui = null;
 let mine = false;
@@ -71,7 +71,7 @@ function fail(text) {
 function current() {
   const f = fields();
   if (!asked || f.side !== asked.side || f.from !== asked.from || f.to == null || f.to === f.from) return null;
-  return swapValue({ router: S.routerUid, side: f.side, from: f.from, to: f.to }, items, ticked, ui.broken.checked);
+  return swapValue({ router: routerData('').uid, side: f.side, from: f.from, to: f.to }, items, ticked, ui.broken.checked);
 }
 
 function paintList() {
@@ -92,6 +92,7 @@ function paintList() {
       const label = el('label', 'pb-check', box, el('span', 'pb-check__label', `${KINDS[it.kind] || it.kind}: ${it.name}`));
       const li = el('li', null, label);
       if (it.broken) li.append(el('span', 'pb-badge pb-badge--warn', 'Broken'));
+      if (it.kind === 'tieLine') li.append(el('span', 'sode__hint', 'A tie line is a cable. Tick it only if the cable moved.'));
       ul.append(li);
     }
     kids.push(ul);
@@ -106,7 +107,7 @@ function find() {
   if (f.from == null) return fail('Enter the old number.');
   fail('');
   waiting = ++seq;
-  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: S.routerUid, side: f.side, from: f.from, mine } })) fail(LINK_DOWN);
+  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: routerData('').uid, side: f.side, from: f.from, mine } })) fail(LINK_DOWN);
 }
 
 onMsg('swapListResult', (m) => {
@@ -116,7 +117,7 @@ onMsg('swapListResult', (m) => {
   const f = fields();
   asked = { side: f.side, from: f.from };
   items = m.items || [];
-  ticked = new Set(items.map((it) => it.id));
+  ticked = new Set(firstTicked(items));
   paintList();
 });
 

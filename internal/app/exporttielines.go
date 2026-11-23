@@ -2,7 +2,6 @@ package app
 
 import (
 	"cmp"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -16,43 +15,25 @@ type exportTieLines struct {
 	TieLines []config.TieLine `yaml:"tieLines"`
 }
 
-// exportTieLinesYAML writes each end's router as its prefix, also with one router, since a tie line names two. An end
-// on a router that the file does not hold keeps the raw UID (toPrefixes).
+// exportTieLinesYAML writes each end's router as its prefix, as other items do, also with one router, since a tie
+// line names two. used brings each router an end names into the file (toPrefixes). Name moved marks stay out: the
+// Broken check of the install that imports the file judges the names again.
 func exportTieLinesYAML(cfg config.Config, pick map[string][]string, prefix map[string]string, used map[string]bool) ([]byte, error) {
 	var out exportTieLines
 	for _, t := range cfg.TieLines {
 		if picked(pick, catTieLines, t.ID) {
+			t.Moved = nil
 			out.TieLines = append(out.TieLines, t)
 		}
 	}
 	return exportYAML(&out, prefix, false, used)
 }
 
-// tieRouterHere gives the router here for the router UID of a file tie line end. It gives false when the import maps
-// that router to no router. It is the one seam for the router mapping. A file router in the manifest goes where the
-// remap step sends it (routerTo). A raw UID names a router here only when this server has it. When the import maps
-// every file router (several routers), that mapping replaces this body.
+// tieRouterHere gives the router here for the router UID of a file tie line end, through the import's one router map
+// (routerMap, filled by planRemap). It gives false for a file router with no target. A UID that is not a file router
+// stays as it is, and TieLineProblem refuses it when Sode does not have it.
 func (p *importPlanner) tieRouterHere(uid string) (string, bool) {
-	if to, inFile := p.routerTo[uid]; inFile {
-		return to, to != ""
-	}
-	_, ok := p.live.RouterByUID(uid)
-	return uid, ok
-}
-
-// tieRouterTitle names a file router for a note: its manifest title, else its UID.
-func (p *importPlanner) tieRouterTitle(uid string) string {
-	for _, r := range p.b.Manifest.Routers {
-		if r.UID == uid {
-			return cmp.Or(r.Title, r.Prefix, uid)
-		}
-	}
-	return uid
-}
-
-// tieUnmapped is the note on a tie line that the import drops, since a router of an end is not mapped here.
-func tieUnmapped(router string) string {
-	return fmt.Sprintf("router %s is not mapped to a router here, so the tie line is not imported", router)
+	return p.routers.to(uid)
 }
 
 func sameTieLine(a, b config.TieLine) bool {
@@ -82,17 +63,18 @@ func (p *importPlanner) planTieLines(cand *config.Config, cat *importCat) error 
 			continue
 		}
 		fileID := t.ID
+		t.Moved = nil // the names of another install: the Broken check here judges them
 		it := importItem{Key: t.ID, Name: t.Name}
 		var unmapped []string
 		for _, end := range []*config.Ref{&t.From, &t.To} {
 			to, ok := p.tieRouterHere(end.Router)
 			if !ok {
-				unmapped = append(unmapped, p.tieRouterTitle(end.Router))
+				unmapped = append(unmapped, p.fileRouterTitle(end.Router))
 			}
 			end.Router = to
 		}
 		if len(unmapped) > 0 {
-			it.Refused = tieUnmapped(strings.Join(slices.Compact(unmapped), ", "))
+			it.Refused = "it uses router " + strings.Join(slices.Compact(unmapped), ", ") + ", which has no target here"
 			cat.Items = append(cat.Items, it)
 			continue
 		}

@@ -6,8 +6,11 @@ import "slices"
 // from a list, and a slot for one reference takes the first. Dedupe drops a later entry for the same number from a
 // list where Fn answered.
 // What changes is a copy, since stored items share their lists.
+// Tie visits the tie line ids of a preset item: nil keeps the id, an empty list drops it, else the list takes its
+// place. A walk with no Tie leaves the ids as they are.
 type RefWalk struct {
 	Fn     func(kind string, r Ref) []Ref
+	Tie    func(id string) []string
 	Dedupe bool
 }
 
@@ -66,6 +69,23 @@ func (w RefWalk) Preset(p *Preset) {
 
 func (w RefWalk) Item(it *PresetItem) {
 	it.Src, it.Dsts = w.One(MissingSource, it.Src), w.List(MissingDestination, it.Dsts)
+	if w.Tie == nil || it.Ties == nil {
+		return
+	}
+	out := make([]string, 0, len(it.Ties))
+	for _, id := range it.Ties {
+		if got := w.Tie(id); got != nil {
+			out = append(out, got...)
+		} else {
+			out = append(out, id)
+		}
+	}
+	it.Ties = out
+}
+
+// TieLine visits the upstream end (a destination), then the downstream end (a source).
+func (w RefWalk) TieLine(t *TieLine) {
+	t.From, t.To = w.One(MissingDestination, t.From), w.One(MissingSource, t.To)
 }
 
 func (w RefWalk) Rights(r *Rights) {

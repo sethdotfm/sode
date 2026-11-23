@@ -364,3 +364,48 @@ func TestSwapMineRefusedPastProfileCap(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Swap lists each tie line with an end on From, and moves an end only when it is ticked. A user's own Swap never
+// lists one.
+func TestSwapTieLines(t *testing.T) {
+	ref := func(router string, n int, name string) config.Ref {
+		return config.Ref{Router: router, N: n, Name: name}
+	}
+	c := config.Config{TieLines: []config.TieLine{
+		{ID: "t3", Name: "TIE 3", From: ref("r", 22, "MON 23"), To: ref("s", 1, "FROM A"), Moved: []config.Missing{
+			{Kind: config.MissingDestination, Ref: ref("r", 22, "MON 23"), Now: "MON 23 OLD"},
+			{Kind: config.MissingSource, Ref: ref("s", 1, "FROM A"), Now: "FROM A NEW"},
+		}},
+		{ID: "t4", Name: "TIE 4", From: ref("r", 22, "MON 23"), To: ref("s", 2, "FROM A 2")},
+		{ID: "t5", Name: "TIE 5", From: ref("s", 22, "B MON"), To: ref("r", 22, "CAM 23")},
+	}}
+	sw := swapper{uid: "r", dst: true, from: 22, to: 39, toName: "MON 40"}
+	var got []string
+	listed := c.Clone()
+	sw.config(&listed, "", everyItem, func(it swapItem) { got = append(got, it.ID+" "+it.Kind+" "+it.Name) })
+	if want := []string{"tieLine/t3 tieLine TIE 3", "tieLine/t4 tieLine TIE 4"}; !slices.Equal(got, want) {
+		t.Fatalf("listed %v, want %v", got, want)
+	}
+	got = nil
+	mine := c.Clone()
+	sw.config(&mine, "u1", everyItem, func(it swapItem) { got = append(got, it.ID) })
+	if len(got) != 0 || !reflect.DeepEqual(mine.TieLines, c.TieLines) {
+		t.Fatalf("a user's own Swap listed or moved tie lines: %v", got)
+	}
+
+	saved := c.Clone()
+	sw.config(&saved, "", pickOf([]string{"tieLine/t3"}), func(swapItem) {})
+	t3, t4 := saved.TieLines[0], saved.TieLines[1]
+	if t3.From.N != 39 || t3.From.Name != "MON 40" || t3.Name != "TIE 3" || t3.To.N != 1 {
+		t.Errorf("TIE 3 %+v", t3)
+	}
+	if len(t3.Moved) != 1 || t3.Moved[0].Kind != config.MissingSource {
+		t.Errorf("TIE 3 marks %+v, want only the source end's", t3.Moved)
+	}
+	if t4.From.N != 22 || saved.TieLines[2].To.N != 22 {
+		t.Errorf("an unticked tie line moved: %+v %+v", t4, saved.TieLines[2])
+	}
+	if c.TieLines[0].From.N != 22 || len(c.TieLines[0].Moved) != 2 {
+		t.Errorf("the Swap changed the list it was given: %+v", c.TieLines[0])
+	}
+}

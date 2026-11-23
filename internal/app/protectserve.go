@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // The page messages of Protects and their replies (wire fields in docs/agents/server.md); protect.go runs them.
@@ -21,8 +23,8 @@ type protectReq struct {
 type protectDst struct {
 	Dst  int  `json:"dst"`
 	Undo *int `json:"undo"`
-	// Router: the UID of the router of Dst; blank is the first router. It is not on the wire yet.
-	Router string `json:"-"`
+	// Router: the UID of the router of Dst, from the hello's routers list; blank is the first router.
+	Router string `json:"router,omitempty"`
 }
 
 // reqs: the destinations to act on, in the page's order. Two rows for one destination would both pass the checks
@@ -40,12 +42,16 @@ func (p *protectReq) reqs() ([]protectDst, error) {
 	case len(p.Dsts) > protectManyMax:
 		return nil, refusal(400, "bad_request", "more than %d destinations", protectManyMax)
 	}
-	seen := make(map[int]bool, len(p.Dsts))
+	type key struct {
+		router string
+		dst    int
+	}
+	seen := make(map[key]bool, len(p.Dsts))
 	for _, q := range p.Dsts {
-		if seen[q.Dst] {
+		if seen[key{q.Router, q.Dst}] {
 			return nil, refusal(400, "bad_request", "destination %d is in the list two times", q.Dst)
 		}
-		seen[q.Dst] = true
+		seen[key{q.Router, q.Dst}] = true
 	}
 	return p.Dsts, nil
 }
@@ -135,7 +141,9 @@ const (
 type protectMsg struct {
 	T  string       `json:"t"`  // "protected"
 	U  []protChange `json:"u"`  // [dst, level, device, kind]; device -1 when freed
-	By []protectBy  `json:"by"` // every Protect in Sode's record
+	By []protectBy  `json:"by"` // every Protect in Sode's record of this router
+	// RouterUID names a router after the first.
+	RouterUID string `json:"routerUid,omitempty"`
 }
 
 type protChange struct {
@@ -159,33 +167,58 @@ func protectRows(m map[int]map[int]protHold) json.RawMessage {
 }
 
 // protectByList: the live name of a user who set one, else the name when set.
-func (a *App) protectByList(r *runtime) []protectBy {
+func (a *App) protectByList(r *runtime) []protectBy { return a.protectByListOf(r, r.cfg.UID) }
+
+// protectByListOf is protectByList for the router with this settings UID.
+func (a *App) protectByListOf(r *runtime, uid string) []protectBy {
 	out := []protectBy{}
-	for _, rec := range a.protects.list(r.cfg.UID) {
-		by, kind := rec.By, byGuest
-		if u, ok := r.cfg.FindUserByID(rec.User); ok && rec.Client == "" {
-			by, kind = u.Name, byUser
-		} else if rec.Client != "" {
-			kind = byClient
-		} else if rec.User != "" {
-			kind = byGone
-		}
+	for _, rec := range a.protects.list(uid) {
+		by, kind := recWho(r.cfg, rec)
 		out = append(out, protectBy{Dst: rec.Dst, By: by, Kind: kind, Device: rec.Device, Levels: rec.Levels})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Dst < out[j].Dst })
 	return out
 }
 
+// recWho: who set the Protect of rec, by the live name of a user, and the kind.
+func recWho(cfg config.Config, rec protectRec) (by, kind string) {
+	switch u, ok := cfg.FindUserByID(rec.User); {
+	case ok && rec.Client == "":
+		return u.Name, byUser
+	case rec.Client != "":
+		return rec.By, byClient
+	case rec.User != "":
+		return rec.By, byGone
+	}
+	return rec.By, byGuest
+}
+
+// recName is the name of recWho.
+func recName(cfg config.Config, rec protectRec) string {
+	by, _ := recWho(cfg, rec)
+	return by
+}
+
 // It sends the router's pending hold changes too, so the page has the state with the entry and History's Undo
 // follows at once. Caller holds mu.
-func (a *App) broadcastProtectsMu() {
-	first := a.firstUnit()
-	u := first.router.pendProt
-	if u == nil {
-		u = []protChange{}
+// uid names the router (blank: the first).
+func (a *App) broadcastProtectsMu(uid string) {
+	u := a.unitOrFirst(uid)
+	ch := u.router.pendProt
+	if ch == nil {
+		ch = []protChange{}
 	}
-	first.router.pendProt = nil
-	a.broadcast(protectMsg{T: "protected", U: u, By: a.protectByList(a.r())})
+	u.router.pendProt = nil
+	a.broadcast(a.protectMsgOf(u, ch))
+}
+
+// protectMsgOf is the protected message of router u with the hold changes ch. Caller holds mu.
+func (a *App) protectMsgOf(u *routerUnit, ch []protChange) protectMsg {
+	r := a.r()
+	if u == a.firstUnit() {
+		return protectMsg{T: "protected", U: ch, By: a.protectByList(r)}
+	}
+	return protectMsg{T: "protected", U: ch, By: a.protectByListOf(r, r.routerOf(u.uid).UID), RouterUID: u.uid}
 }
 
 func (a *App) serveProtect(c *client, m *inMsg, set bool) {
@@ -203,7 +236,7 @@ func (a *App) serveProtect(c *client, m *inMsg, set bool) {
 		outs := a.protectMany(c, reqs, set, m.approver)
 		for i, o := range outs {
 			if o.Err != nil {
-				a.command(c, why, outcome(o.Err), approvedNote(m.approver, "destination "+a.dstLabels(reqs[i].Dst)[0]), o.Err)
+				a.command(c, why, outcome(o.Err), approvedNote(m.approver, "destination "+a.dstLabelsOn(reqs[i].Router, reqs[i].Dst)[0]), o.Err)
 			}
 		}
 		a.reply(c, protectResult(m.T, m.ID, reqs, outs))

@@ -24,8 +24,8 @@ import (
 // tielock.go locks the tie lines and runs the stale check before the first wave. Then it plans the take again
 // (tieTake.again). Then refuseHeld runs the Protect check
 // on every step before any step goes. Every step is an ordinary connect, also in fireMode native. The Result of a
-// route comes from all its hops (routeWord). Put back is in tieputback.go, a Late hop and Retry in tieretry.go. Not
-// here yet: One-off tie lines and the Tie line picker. The API is the only caller.
+// route comes from all its hops (routeWord). Put back is in tieputback.go, a Late hop and Retry in tieretry.go,
+// One-off tie lines in tieoneoff.go. The Protect that a take sets after its hops is in tieprotect.go.
 
 // TieEnd is a router reference with the name that Sode had for it.
 type TieEnd struct {
@@ -49,6 +49,10 @@ type TieHop struct {
 	Result  string   `json:"result"`
 	Prev    [][2]int `json:"prev"`
 	Late    bool     `json:"late,omitempty"`
+	// OneOff: the tie line is a One-off tie line. It keeps the two stated ends and who stated them.
+	OneOff *TieOneOff `json:"oneOff,omitempty"`
+	// hide: what a caller with hidden visibility cannot see (tiehopview.go). Set only on a copy for that caller.
+	hide *hopHide
 }
 
 // ViaLevel is the Via chain of one typed level of the destination asked for.
@@ -91,6 +95,8 @@ type tieTake struct {
 	steps   []*tieStep
 	waves   [][]*tieStep
 	tieName map[string]string
+	// protects: the tie lines that the take protects after its hops, one for each tie line (tieprotect.go).
+	protects []*tieProtect
 	// again plans the same take from what Sode knows now. tieTakeBegin calls it after the locks and the stale check.
 	// A tie line can change during the wait for a lock, so a hop that had nothing to send can have something now.
 	again func() (*tieTake, *apiProblem)
@@ -119,16 +125,14 @@ func (t *tieTake) reqs() []routeReq {
 // planTieTake makes the steps of a take with a route across routers. routes holds every route of the request, in
 // order. ties holds the tie line ids of each route across routers, by its place in the request.
 func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[int][]string) (*tieTake, *apiProblem) {
-	t := &tieTake{tieName: map[string]string{}}
-	for _, tl := range rt.cfg.TieLines {
-		t.tieName[tl.ID] = tl.Name
-	}
+	t := &tieTake{}
 	var cross []tieRoute
 	down := false
 	if prob := func() *apiProblem {
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		in := a.tieInput(rt)
+		_, t.tieName = a.tieLinesNow(rt)
+		in := withOneOffs(a.tieInput(rt), t.tieName, routes)
 		shared := map[hopKey]*tieStep{}
 		carries := map[string]tieplan.End{} // tie line id → the source that this take puts on it
 		for _, r := range routes {
@@ -138,7 +142,10 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 				tr.steps = []*tieStep{t.step(routeReq{Src: r.src.N, Dst: r.dst.N, Levels: r.levels, Router: r.dst.Router})}
 				continue
 			}
-			cross = append(cross, r)
+			// A route down answers with the paths that remain, as for a route with no ties.
+			bare := r
+			bare.ties = nil
+			cross = append(cross, bare)
 			// Typed levels are levels of the destination's router (docs/tielines-design.md, Levels). Refuse a bad
 			// one here, before any hop goes out.
 			if _, err := rt.levelsOf(r.dst.Router).typed(r.levels); err != nil {
@@ -166,7 +173,11 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 					return problem(http.StatusConflict, "conflict", "route %d: %s carries another source in this take", r.index, t.name(h.Tie))
 				}
 				carries[h.Tie] = r.src
-				m.hops = append(m.hops, TieHop{Router: h.Router, Src: h.Src, Dst: h.Dst, Levels: h.Levels, Tie: h.Tie, TieName: t.tieName[h.Tie], Result: "already", Prev: [][2]int{}})
+				if slices.Contains(r.protect, h.Tie) {
+					t.protectHop(h, tr)
+				}
+				m.hops = append(m.hops, TieHop{Router: h.Router, Src: h.Src, Dst: h.Dst, Levels: h.Levels, Tie: h.Tie, TieName: t.tieName[h.Tie], Result: "already", Prev: [][2]int{},
+					OneOff: a.hopOneOff(r, h.Tie)})
 				var s *tieStep
 				if h.Sends {
 					k := hopKey{h.Router, h.Src, h.Dst}
@@ -267,10 +278,12 @@ func (t *tieTake) deadline(a *App) time.Duration {
 // did not finish for some step.
 func (a *App) runTieTake(c *client, t *tieTake, got func(id int) (routeResult, bool)) (unread bool) {
 	r := a.r()
-	if len(t.steps) > 1 {
-		g := strconv.FormatInt(time.Now().UnixNano(), 36)
+	// The Protects of the take are entries of its Group too.
+	var g protGroup
+	if n := len(t.steps) + len(t.protects); n > 1 {
+		g = protGroup{id: strconv.FormatInt(time.Now().UnixNano(), 36), n: n}
 		for _, s := range t.steps {
-			s.req.Group, s.req.GroupN = g, len(t.steps)
+			s.req.Group, s.req.GroupN = g.id, g.n
 		}
 	}
 	t.refuseHeld(a, r)
@@ -297,6 +310,7 @@ func (a *App) runTieTake(c *client, t *tieTake, got func(id int) (routeResult, b
 			s.res, s.got = got(s.req.ID)
 		}
 	}
+	t.protectHops(a, r, c, g)
 	return unread
 }
 
@@ -432,6 +446,7 @@ func (t *tieTake) out(unread bool) apiTakeOut {
 		out.OK = out.OK && o.OK
 		out.Results[i] = o
 	}
+	out.Protects = t.protectsOut()
 	return out
 }
 

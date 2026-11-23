@@ -220,8 +220,9 @@ func TestRoutersListsTheFirstRouterFirst(t *testing.T) {
 	}
 }
 
+// A router prefix is one or two letters A to Z.
 func TestPrefixRules(t *testing.T) {
-	for _, p := range []string{"a", " B "} {
+	for _, p := range []string{"a", " B ", "ba", "ZZ"} {
 		c := Defaults()
 		c.Prefix = p
 		c.Normalize()
@@ -229,7 +230,7 @@ func TestPrefixRules(t *testing.T) {
 			t.Errorf("prefix %q: %q %v", p, c.Prefix, err)
 		}
 	}
-	for _, p := range []string{"AB", "1", "Ä"} {
+	for _, p := range []string{"ABC", "1", "A1", "Ä"} {
 		c := Defaults()
 		c.Prefix = p
 		c.Normalize()

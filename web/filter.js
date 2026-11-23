@@ -192,17 +192,26 @@ export function routerTermsProblem(text, router, routers) {
   return 'Number terms need a router.';
 }
 
+// The filter editor's error for one side: a parse error with where it is, else routerTermsProblem. routers is the number
+// of routers. null when the text is good.
+export function filterProblem(text, router, routers) {
+  const t = text || '';
+  const p = parseFilter(t);
+  if (p.error) return `${p.error}${p.at != null ? ` at “${t.slice(p.at, p.at + 12)}”` : ''}`;
+  return routerTermsProblem(t, router, routers) || null;
+}
+
 export function filterFn(text, opts) {
   const p = parseFilter(text || '');
   return p.rules ? compileFilter(p.rules, opts) : null;
 }
 
 // Filter sets: x = ext (made elsewhere); sn/sname/dn/dname = source/destination number+name; router = the entry's router UID;
-// hiddenDst = Settings hides that destination.
+// hiddenDst = Settings hides that destination. srcRouter: the router of the typed source of a tie take, when it differs.
 export function entryAllows(f, { srcOk, dstOk }, x) {
   if (x.ext ? !f.ext : !f.sode) return false;
   if (x.ext && !f.hidden && x.hiddenDst) return false;
-  return srcOk(x.sn, x.sname, x.router) && dstOk(x.dn, x.dname, x.router);
+  return srcOk(x.sn, x.sname, x.srcRouter || x.router) && dstOk(x.dn, x.dname, x.router);
 }
 
 // 'or': any set allows it; else every set must. Excludes and kinds count only within their set.

@@ -1,5 +1,5 @@
 // The Panel and Cell tabs' level picker, in the main page's look. No stored subset lights every level.
-import { el, S } from './core.js';
+import { el, routerData } from './core.js';
 import { bigScroll } from './bigscroll.js';
 import { pickButtons } from './levelview.js';
 import { levelsToggle, levelsShown, levelLocked, levelsPatch } from './sidebarrules.js';
@@ -14,7 +14,7 @@ export function createLevelBoxes({ ed, onPatch }) {
   const node = el('div', 'sode__picker', grid, allBtn);
   let shown = '';
   let stored;
-  const nums = () => S.levels.map((l) => l.ui);
+  const nums = () => routerData('').levels.map((l) => l.ui);
   allBtn.addEventListener('click', () => onPatch(levelsPatch(nums(), nums())));
   return {
     node,
@@ -24,7 +24,9 @@ export function createLevelBoxes({ ed, onPatch }) {
       bigScroll(grid, 'x', 'little'); // waits until the picker is in the page
       const all = nums();
       const on = levelsShown(all, stored);
-      const key = `${all.join(',')}|${S.levels.map((l) => l.label).join(',')}|${on.join(',')}|${ed.readOnly()}`;
+      const key = `${all.join(',')}|${routerData('')
+        .levels.map((l) => l.label)
+        .join(',')}|${on.join(',')}|${ed.readOnly()}`;
       if (key === shown) return;
       shown = key;
       const odd = all.length % 2;

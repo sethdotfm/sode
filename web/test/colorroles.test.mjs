@@ -64,9 +64,10 @@ test('status modifier classes are literals, never built from a template', () => 
 
 test('green is routed only: no green or blue status modifier outside a Take result', () => {
   assert.deepEqual(using(/pb-(icon|badge|toast|note)--ok\b|pb-progress__bar--ok\b|pb-(icon|alert|note)--info\b/), []);
-  // The green result banner is for a Take (plans.js). Other results are neutral ('done' or 'info').
+  // The green result banner is for a Take (plans.js, and a take with tie routes, tieflow.js). Other results are neutral
+  // ('done' or 'info').
   assert.deepEqual(using(/pb-alert--ok\b/), ['banner.js']);
-  assert.deepEqual(using(/(showResult|setResult)\(\s*\{?\s*(kind:\s*)?'ok'|kind: 'ok', title/), ['plans.js']);
+  assert.deepEqual(using(/(showResult|setResult)\(\s*\{?\s*(kind:\s*)?'ok'|kind: 'ok', title/), ['plans.js', 'tieflow.js']);
 });
 
 test('a neutral alert and toast have no blue: base.css overrides patchbay with tokens', () => {

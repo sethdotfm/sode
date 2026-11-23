@@ -1,9 +1,10 @@
 // In memory items are numbers (UI levels, [] = default levels). The hidden id survives a rename, so bookmarks name a preset by it.
 
-import { S, on, onMsg, emit, off, search } from './core.js';
+import { S, on, onMsg, emit, off, search, routerData } from './core.js';
 import { readJSON, writeJSON } from './store.js';
 import { profile, profileName } from './profile.js';
-import { itemNums, itemPlain, itemRefs, newPresetId, storedItemNums } from './presetref.js';
+import { itemNums, itemPlain, itemRefs, newPresetId, storedItemNums, across } from './presetref.js';
+import { typedPrefix, prefixOf } from './routerprefix.js';
 
 // Limits the server enforces too (internal/config/presets.go); test/preset_cases.json keeps the
 // two from drifting.
@@ -13,6 +14,7 @@ const MAX_DSTS = 100;
 const MAX_TOTAL = 200;
 const MAX_NUM = 0xfffe;
 const MAX_LEVEL = 64;
+const MAX_TIES = 8;
 export const MAX_BYTES = 48 * 1024;
 const KEY = 'sode-presets';
 
@@ -28,13 +30,16 @@ export const normPreset = (s, read = itemNums) => ({
 // A stored preset (server, profile, This browser, a file): a bare number is no reference.
 export const storedPreset = (s) => normPreset(s, storedItemNums);
 
-const liveName = (kind, n) => (kind === 'src' ? S.srcBy : S.dstBy)?.get(n)?.name || '';
+const liveName = (kind, n, router) => {
+  const rt = routerData(router);
+  return (kind === 'src' ? rt.srcBy : rt.dstBy)?.get(n)?.name || '';
+};
 // Stored and sent form, without scope: references with the router's names now.
 // A new Everyone or Me preset has id ''; the server makes one.
 export const saved = ({ id, name, items }) => ({
   id: id || '',
   name,
-  items: items.map((it) => itemRefs(itemNums(it), S.routerUid, liveName)),
+  items: items.map((it) => itemRefs(itemNums(it), routerData('').uid, liveName)),
 });
 const withId = (s) => (s.id ? s : { ...s, id: newPresetId() });
 
@@ -63,6 +68,10 @@ export function presetProblem(s) {
     if (d != null) return `Destination ${d + off()} is out of range.`;
     const l = it.levels.find((u) => u < 1 || u > MAX_LEVEL);
     if (l != null) return `Level ${l} must be 1-${MAX_LEVEL}.`;
+    const ties = it.ties || [];
+    if (across(it) && !ties.length) return 'A route across routers needs its tie lines. Choose them with Tie lines on its row.';
+    if (!across(it) && ties.length) return 'Tie lines are only for a route across routers.';
+    if (ties.length > MAX_TIES) return `At most ${MAX_TIES} tie lines on one route.`;
     total += it.dsts.length;
   }
   if (total > MAX_TOTAL) return `At most ${MAX_TOTAL} destinations in a preset.`;
@@ -72,7 +81,8 @@ export function presetProblem(s) {
 // Preset items to add to the rows the editor holds now (have, the rows it can read). Items already there go, and a
 // problem the new ones would make at Save is said now: { items, err }. Empty have is fine.
 export function itemsToAdd(have, items) {
-  const key = (it) => `${it.src}|${[...it.dsts].sort((a, b) => a - b)}|${[...it.levels].sort((a, b) => a - b)}`;
+  const key = (it) =>
+    `${it.router || ''}|${it.src}|${it.dstRouter || ''}|${[...it.dsts].sort((a, b) => a - b)}|${[...it.levels].sort((a, b) => a - b)}|${(it.ties || []).join(' ')}`;
   const seen = new Set(have.map(key));
   const fresh = items.filter((it) => !seen.has(key(it)) && seen.add(key(it)));
   if (!fresh.length) return { items: [], err: '' };
@@ -89,13 +99,15 @@ export function presetsProblem(list) {
 }
 
 // Different sources to one destination on overlapping levels (blank = default, overlaps
-// everything) would race. The same source twice merges, so is fine.
+// everything) would race. The same source twice merges, so is fine. A source and a destination are the same only on
+// the same router.
 function presetConflict(s) {
   const clash = (a, b) => !a.length || !b.length || a.some((l) => b.includes(l));
+  const dstAt = (it) => it.dstRouter || it.router || '';
   for (let i = 0; i < s.items.length; i++) {
     for (const b of s.items.slice(i + 1)) {
       const a = s.items[i];
-      if (a.src === b.src || !clash(a.levels, b.levels)) continue;
+      if ((a.src === b.src && (a.router || '') === (b.router || '')) || !clash(a.levels, b.levels) || dstAt(a) !== dstAt(b)) continue;
       const d = a.dsts.find((x) => b.dsts.includes(x));
       if (d != null) {
         return `Destination ${d + off()} gets both source ${a.src + off()} and source ${b.src + off()} on the same levels.`;
@@ -173,6 +185,44 @@ export function parseRefs(text, offset, lookup) {
   return { ns, bad };
 }
 
+// readSide reads one side of an editor row: a source, or a list of destinations. A token can name its router by
+// prefix (A.12, routerprefix.js); a bare token is on the router of the token before it, else on ctx.at. ctx: {
+// routers: [{ uid, prefix, off }], at: a router UID, lookup(text, uid) -> n or null }. Returns { router, ns, bad, mixed }:
+// router is the router of the first token (ctx.at for none), and mixed says that the tokens name two routers.
+export function readSide(text, ctx) {
+  const prefixes = ctx.routers.map((r) => r.prefix);
+  let at = ctx.at;
+  let router = '';
+  const ns = [];
+  const bad = [];
+  let mixed = false;
+  for (const raw of String(text).split(',')) {
+    const t = raw.trim();
+    if (!t) continue;
+    const pre = ctx.routers.length > 1 || /\./.test(t) ? typedPrefix(t, prefixes) : '';
+    let body = t;
+    if (pre) {
+      const rt = ctx.routers.find((r) => r.prefix === pre);
+      if (!rt) {
+        bad.push(t);
+        continue;
+      }
+      at = rt.uid;
+      body = prefixOf(t).text;
+    }
+    const off = ctx.routers.find((r) => r.uid === at)?.off ?? 0;
+    const got = parseRefs(body, off, (x) => ctx.lookup(x, at));
+    if (got.bad.length) {
+      bad.push(t);
+      continue;
+    }
+    if (!router) router = at;
+    else if (router !== at) mixed = true;
+    for (const n of got.ns) if (!ns.includes(n)) ns.push(n);
+  }
+  return { router: router || ctx.at, ns, bad, mixed };
+}
+
 export const isBlankRow = (r) => !String(r.src).trim() && !String(r.dsts).trim() && !String(r.levels).trim();
 
 export function presetTip(s, srcLabel, dstLabel) {
@@ -184,36 +234,48 @@ export function presetTip(s, srcLabel, dstLabel) {
   return `${from} to ${to}`;
 }
 
-// has: { src(n), dst(n), level(u) }; defaults: default levels (UI). Returns takes grouped per
-// destination plus missing = [{ kind: 'source' | 'destination' | 'level', n }].
+// has: { src(n, router), dst(n, router), level(u, router), tie?(id) }; defaults: default levels (UI), or a function of
+// the destination's router that gives them. Returns takes grouped per destination plus missing = [{ kind: 'source' |
+// 'destination' | 'level' | 'tie', n, router }]. A route has dst and dstRouter, and each group src, router and, across
+// routers, ties. Levels are levels of the destination's router. An item across routers whose tie line is gone (has.tie
+// false) is left out with its tie.
 export function resolvePreset(preset, has, defaults) {
   const byDst = new Map();
   const missing = [];
-  const miss = (kind, n) => {
-    if (!missing.some((m) => m.kind === kind && m.n === n)) missing.push({ kind, n });
+  const miss = (kind, n, router = '') => {
+    if (!missing.some((m) => m.kind === kind && m.n === n && (m.router || '') === router)) missing.push(router ? { kind, n, router } : { kind, n });
   };
+  const defaultsOf = typeof defaults === 'function' ? defaults : () => defaults;
   for (const it of preset.items) {
-    if (!has.src(it.src)) {
-      miss('source', it.src);
+    const router = it.router || '';
+    const at = it.dstRouter || router;
+    if (!has.src(it.src, router)) {
+      miss('source', it.src, router);
       continue;
     }
-    const want = it.levels.length ? it.levels : defaults;
-    const levels = want.filter((u) => has.level(u));
-    for (const u of want) if (!has.level(u)) miss('level', u);
+    const gone = across(it) ? (it.ties || []).find((id) => has.tie && !has.tie(id)) : undefined;
+    if (gone !== undefined) {
+      miss('tie', gone);
+      continue;
+    }
+    const want = it.levels.length ? it.levels : defaultsOf(at);
+    const levels = want.filter((u) => has.level(u, at));
+    for (const u of want) if (!has.level(u, at)) miss('level', u, at);
     if (!levels.length) continue;
     for (const d of it.dsts) {
-      if (!has.dst(d)) {
-        miss('destination', d);
+      if (!has.dst(d, at)) {
+        miss('destination', d, at);
         continue;
       }
-      if (!byDst.has(d)) byDst.set(d, []);
-      const groups = byDst.get(d);
-      const g = groups.find((x) => x.src === it.src);
+      const k = `${at} ${d}`;
+      if (!byDst.has(k)) byDst.set(k, { dst: d, dstRouter: at, groups: [] });
+      const { groups } = byDst.get(k);
+      const g = groups.find((x) => x.src === it.src && x.router === router);
       if (g) g.levels = [...new Set([...g.levels, ...levels])].sort((a, b) => a - b);
-      else groups.push({ src: it.src, levels: [...levels] });
+      else groups.push({ src: it.src, router, levels: [...levels], ...(across(it) ? { ties: [...(it.ties || [])] } : {}) });
     }
   }
-  return { routes: [...byDst].map(([dst, groups]) => ({ dst, groups })), missing };
+  return { routes: [...byDst.values()], missing };
 }
 
 // What Shift-click fills: the first take that still exists, built on resolvePreset so the rules
@@ -226,7 +288,13 @@ export function fillFrom(preset, has, defaults) {
     const r = resolvePreset({ items: [it] }, has, defaults);
     if (r.routes.length) {
       return {
-        fill: { src: it.src, dsts: r.routes.map((t) => t.dst), levels: it.levels.length ? r.routes[0].groups[0].levels : [] },
+        fill: {
+          src: it.src,
+          dsts: r.routes.map((t) => t.dst),
+          levels: it.levels.length ? r.routes[0].groups[0].levels : [],
+          ...(it.router ? { router: it.router } : {}),
+          ...(it.dstRouter ? { dstRouter: it.dstRouter } : {}),
+        },
         partial: r.missing.length > 0,
         many: preset.items.length > 1,
         missing: [],

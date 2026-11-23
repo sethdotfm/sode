@@ -7,16 +7,16 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 
 const setup = async () => {
   const m = await import('./all.mjs');
-  const { S } = m;
+  const { S, routerData } = m;
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([
+  routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
     [3, {}],
   ]);
-  S.srcBy = new Map([[7, { n: 7, num: 8, name: 'CAM 8', label: 'CAM 8' }]]);
-  S.dstBy = new Map([[5, { n: 5, num: 6, name: 'MON 6', label: 'MON 6' }]]);
-  S.tally = new Map();
+  routerData('').srcBy = new Map([[7, { n: 7, num: 8, name: 'CAM 8', label: 'CAM 8' }]]);
+  routerData('').dstBy = new Map([[5, { n: 5, num: 6, name: 'MON 6', label: 'MON 6' }]]);
+  routerData('').tally = new Map();
   return m;
 };
 const take = (o = {}) => ({
@@ -87,7 +87,7 @@ test('againPlan: folders', async () => {
   );
 });
 
-test('againPlan: a tie take retries its destination entry only, and has no Redo', async () => {
+test('againPlan: a tie take retries its destination entry only; its Redo goes from the typed source with its tie lines', async () => {
   const { againPlan } = await setup();
   const origin = { router: 'a1', n: 4 };
   const failed = { entries: [take({ id: 1, tie: 't1' }), take({ id: 2, ok: false, origin })] };
@@ -97,16 +97,21 @@ test('againPlan: a tie take retries its destination entry only, and has no Redo'
     r.items.map((i) => i.retry.id),
     [2],
   );
-  const ok = { entries: [take({ id: 1, tie: 't1' }), take({ id: 2, origin })] };
-  assert.equal(againPlan({ f: ok }).items.length, 0);
-  assert.equal(againPlan({ e: take({ origin }) }).items.length, 0);
+  const hops = [{ tie: 't1' }];
+  const ok = { entries: [take({ id: 1, tie: 't1' }), take({ id: 2, origin, hops })] };
+  const redo = againPlan({ f: ok });
+  assert.equal(redo.verb, 'redo');
+  assert.deepEqual(
+    redo.items.map((i) => [i.groups[0].src.n, i.groups[0].ties, i.groups[0].last, i.retry]),
+    [[4, ['t1'], true, null]],
+  );
 });
 
 test('alreadyThere: any non-undo item whose dst has the source everywhere', async () => {
-  const { S, againPlan, undoPlan, alreadyThere } = await setup();
+  const { againPlan, undoPlan, alreadyThere, routerData } = await setup();
   const item = (o) => againPlan({ e: take(o) }).items[0];
   assert.equal(alreadyThere(item()), false);
-  S.tally = new Map([
+  routerData('').tally = new Map([
     [
       5,
       new Map([
@@ -119,7 +124,7 @@ test('alreadyThere: any non-undo item whose dst has the source everywhere', asyn
   assert.equal(alreadyThere(item()), true);
   assert.equal(alreadyThere(item({ ok: false })), true);
   assert.equal(alreadyThere(undoPlan(take()).items[0]), false);
-  S.tally = new Map([
+  routerData('').tally = new Map([
     [
       5,
       new Map([

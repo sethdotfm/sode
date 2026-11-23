@@ -21,7 +21,8 @@ import {
   stageText,
 } from './gridpanelstage.js';
 import { createPicks, pickName, pickCount, dropPicks, diagonal, extendPick, dragPick, enterGrid } from './gridpanelpick.js';
-import { pieOn } from './gridpanellevels.js';
+import { pieOn, otherRouterLevels } from './gridpanellevels.js';
+import { viaOn, viaText } from './viarules.js';
 import { otherSources, otherText, stageable, skippedText, refusalText, leftOut, keepLive, leftOutText, leftOutLine } from './gridpanelrights.js';
 import { gridKeyAction, findBoxAction, clearAction } from './gridpanelkeys.js';
 import { sourceJump, holderJump, jumpText } from './gridpaneljump.js';
@@ -43,6 +44,7 @@ import { shortcutList } from './shortcuts.js';
 import { restPoint, tapMods, pickNote } from './gridpanelphone.js';
 import { onLayout } from './layout.js';
 import { gridHead } from './gridpanelheadview.js';
+import { tiesOn, crossing, affectedLines } from './paneltierules.js';
 import { emptyText } from './gridpanelhead.js';
 import { gridPosition } from './gridpanelpos.js';
 import { gridArtwork } from './gridpanelartwork.js';
@@ -50,6 +52,7 @@ import { gridLevelBox } from './gridpanellevelbox.js';
 import { gridEmpty } from './gridpanelempty.js';
 import { gridTake } from './gridpaneltake.js';
 import { gridParts } from './gridpanelmode.js';
+import { placeOf, tallyAt } from './routerids.js';
 
 const NOTE_MS = 4000;
 const UNDO_MOVED = 'The Undo target changed. Press u again.';
@@ -123,6 +126,8 @@ export function gridBody(ctx, first) {
     () => panel,
     () => render(),
     () => stopped,
+    () => tally?.router || '',
+    (n) => ctx.places?.().uid(placeOf(n)) || '',
   );
 
   // What the last polls said, for the staged routes that no longer apply.
@@ -137,6 +142,9 @@ export function gridBody(ctx, first) {
     },
     levelText: (list) => levelTextOf(list, tally?.levels || [], tally?.levelNumbering),
     pie: (s, d) => pieOn(env, s, d),
+    // The Via row of a crosspoint that a tie line feeds, and its words for the tip (viarules.js).
+    via: (s, d) => viaOn(env, s, d),
+    viaText: (row) => viaText(row, (o) => ctx.viaLabel?.(o) ?? names.source(ctx.places ? ctx.places().id(o.router, o.n) : o.n)),
     staged,
     held: (d) => st.staged.some((x) => x.dst === d),
     marks: null, // the press policy's marks and words (gridpaneladd.js) as of the last render
@@ -162,7 +170,7 @@ export function gridBody(ctx, first) {
   // What release would do: the routes numbered, protected rows skipped, red past the cap.
   const lineDry = () => {
     const pairs = isLine(line.a, line.b) ? linePairs(picks, line.a, line.b, axes, full) : [];
-    const r = lineStage(st, pairs, env, pressLevels());
+    const r = lineStage(st, pairs, env, pairLevels);
     const skip = new Set(r.skipped);
     return { pairs, kept: pairs.filter((x) => !skip.has(x)), r };
   };
@@ -178,7 +186,7 @@ export function gridBody(ctx, first) {
     g.line(null);
     const from = at || (phone() && restPoint(picks, axes, cur));
     const pairs = from && pickCount(picks) && !pressMode() ? pairsAt(from) : [];
-    g.preview(pairs, pairs.length > 1 && stageRoutes(st, pairs, pressLevels()).st.error?.code === 'cap');
+    g.preview(pairs, pairs.length > 1 && stageRoutes(st, pairs, pairLevels).st.error?.code === 'cap');
   };
 
   const render = () => {
@@ -328,7 +336,7 @@ export function gridBody(ctx, first) {
     render();
     let failed = null;
     try {
-      const reply = await (undo ? ctx.post(`api/v1/panels/${ctx.id}/undo`, { id: undoId }) : ctx.post('api/v1/takes', { routes }));
+      const reply = await (undo ? ctx.post(`api/v1/panels/${ctx.id}/undo`, { id: undoId }) : ctx.post('api/v1/takes', { routes, plan: plan.tie }));
       const bad = (reply?.results || []).filter((r) => !r.ok);
       const n = (reply?.results || routes).length;
       note = bad.length
@@ -387,6 +395,11 @@ export function gridBody(ctx, first) {
   );
   const paintLevels = () => head?.paintLevels(levelTextOf(pressLevels(), tally?.levels || [], tally?.levelNumbering));
   const pressLevels = () => box.levels();
+  // A route takes the levels of the router of its destination (gridpanellevels.js otherRouterLevels).
+  const pairLevels = ({ dst }) => {
+    const place = placeOf(dst);
+    return place ? otherRouterLevels(pressLevels(), box.empty(), tallyAt(tally, place), panel.rights, panel.settings) : pressLevels();
+  };
 
   const confirm =
     parts.ownConfirm && document.getElementById('confirm')
@@ -419,8 +432,25 @@ export function gridBody(ctx, first) {
     st = keepLive(st, world());
     const routes = confirmRoutes(st);
     if (routes && !ask) return send({ routes, left: leftOutText(was, names) });
-    if (routes) confirm.open({ ...planOf(routes, names, tally), routes, warnings: was.map((r) => leftOutLine(r, names)) });
+    if (routes) openTake({ ...planOf(routes, names, tally), routes, warnings: was.map((r) => leftOutLine(r, names)) });
     else if (was.length) note = noteOf(leftOutText(was, names));
+    render();
+  }
+
+  // A take across routers asks the plan of its Reserved tie lines first, so the confirm shows what they also change
+  // (paneltierules.js). A press while the plan is on its way drops it.
+  async function openTake(plan) {
+    if (!crossing(plan.routes) || !ctx.tiePlan) return confirm.open(plan);
+    const was = st.staged;
+    let tie;
+    try {
+      tie = await ctx.tiePlan(plan.routes);
+    } catch (e) {
+      note = noteOf(e.status === undefined ? 'Sode did not answer' : e.message || 'Sode refused the take');
+      return render();
+    }
+    if (stopped || st.staged !== was || st.busy || confirm.isOpen()) return;
+    confirm.open({ ...plan, tie, also: affectedLines(tie) });
     render();
   }
 
@@ -468,7 +498,7 @@ export function gridBody(ctx, first) {
       st = { ...st, error: err };
       return render();
     }
-    const r = stageRoutes(st, pairs, pressLevels());
+    const r = stageRoutes(st, pairs, pairLevels);
     st = r.st;
     const keep = new Set(pairs);
     const skipped = all.filter((x) => !keep.has(x));
@@ -802,7 +832,7 @@ export function gridBody(ctx, first) {
       dirty = true;
       dataSig = sig;
       tally = t;
-      env = envFrom(t, prot, {}, panel.rights);
+      env = envFrom(t, prot, {}, panel.rights, tiesOn(panel));
       const renamed = nmSig !== namesSig;
       if (renamed) {
         namesSig = nmSig;

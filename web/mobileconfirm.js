@@ -2,14 +2,23 @@
 import { $ } from './core.js';
 import { planVerb, showResult, planBlocked, planSummary, sendTakes, VERBS } from './plans.js';
 import { lockout } from './widgets.js';
+import { tieTake } from './tieflow.js';
+import { guardTieUndo } from './tieundo.js';
 
 // reset() clears the composer after a send whose verb resets the boxes.
 export function mobileConfirm(reset) {
   let pending = null;
 
   function openSheet(plan) {
-    const { block, prot } = planBlocked(plan);
+    if (guardTieUndo(plan, openSheet)) return;
+    const { block, prot, tie } = planBlocked(plan);
     if (block) return showResult(block.kind, block.title, block.text);
+    if (tie) return tieTake(plan, prot, { onSent: (p) => VERBS[p.verb].resets && reset(), confirm: showSheet });
+    showSheet(plan, prot);
+  }
+
+  // showSheet opens the sheet on plan. A take with tie routes opens it after its pickers (tieflow.js).
+  function showSheet(plan, prot) {
     pending?.lock.cancel(); // one replaced: its lockout must not unlock this one
     $('m-sheet-title').textContent = `Confirm ${planVerb(plan)}`;
     $('m-sheet-body').replaceChildren(...planSummary(plan, { prot }));

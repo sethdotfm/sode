@@ -18,9 +18,9 @@ Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, b
 - Presets fire a saved set of takes in one confirm, sequentially or as a native fire mode group send.
 - Filters and named filter sets limit what History shows, and you can share them with everyone or as a link.
 - Optional users, PIN locks and per-user profiles cover shared wall panels and several users.
-- A Communication Log at `/log` shows every message sent to the router and a router uptime graph.
+- A Communication Log at `/log` shows every message sent to each router and an uptime graph for each router.
 - An optional authenticated API (`/api/v1`, off by default) with keys, rights and a live stream lets other apps read state and fire takes. See [docs/api.md](docs/api.md).
-- `/api/health` reports the server and the router separately for monitors such as Uptime Kuma.
+- `/api/health` reports the server and each router separately for monitors such as Uptime Kuma.
 
 ## Quickstart
 

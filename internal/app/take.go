@@ -48,7 +48,7 @@ const bigTake = 6
 // take is the one entry point for every take from a page (browser plan, Undo, Redo, Retry, presets). Results go
 // to c.send. It returns the refusal when the rights of the caller do not cover every route; nothing ran then. A
 // Retry of a tie take runs as the API Retry does (pageTieRetry), and a put-back keeps only the levels that its hop
-// changed (putBackLevels).
+// changed (putBackLevels). The Undo of a tie take is judged again at send (tieUndoesHold).
 func (a *App) take(c *client, items []routeReq) (refused string) {
 	items, ties := a.tieRetries(items)
 	items = a.putBackLevels(c, items)
@@ -58,6 +58,7 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 		}
 		return msg
 	}
+	items = a.tieUndoesHold(c, items)
 	for _, it := range ties {
 		a.pageTieRetry(c, it)
 	}
@@ -126,7 +127,7 @@ func (a *App) byRouter(c *client, items []routeReq) []routerPart {
 // finish for some route, so its Prev came from the cache.
 func (a *App) takeOnRouter(r *runtime, c *client, u *routerUnit, items []routeReq, stage bool) (read bool) {
 	ext, read := a.checkRoutes(r, u, c, items)
-	if stage && r.cfg.FireMode == "native" && len(items) > 1 {
+	if stage && r.routerOf(u.uid).FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
 			a.takeNative(r, u, c, items, ext)
 			return read
@@ -203,7 +204,7 @@ func (a *App) planPhase(r *runtime, u *routerUnit, c *client, req routeReq) (*wa
 		return nil, nil, err
 	}
 	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.who()}
-	if c.api != nil {
+	if c.apiCaller() {
 		w.why.Note = a.panelNote(c.api.Actor)
 	}
 	if req.Undo != nil {
@@ -217,7 +218,7 @@ func (a *App) planPhase(r *runtime, u *routerUnit, c *client, req routeReq) (*wa
 		e.Tie, e.Origin, e.Hops, e.ViaPrev = m.tie, m.origin, m.hops, m.viaPrev
 	}
 	e.BrowserOf = a.browserOf(c)
-	if c.api != nil {
+	if c.apiCaller() {
 		e.setActor(c.api.Actor)
 		e.Panel, e.Instance = a.panelNames(c.api.Actor)
 		e.PanelID = c.api.Actor.panel
@@ -389,7 +390,7 @@ func entryErr(r *runtime, names map[int]string, e *Entry) string {
 		case names[n] != "":
 			return names[n]
 		}
-		return fmt.Sprintf("source %d", n+r.cfg.NumberOffset)
+		return fmt.Sprintf("source %d", n+r.routerOf(e.Router).NumberOffset)
 	}
 	now := map[int]int{}
 	for _, p := range e.Now {
@@ -435,7 +436,7 @@ func planRoute(r *runtime, u *routerUnit, req routeReq) (*waiter, error) {
 	}
 	for _, ui := range uis {
 		l := lv.byUI[ui]
-		w.levels = append(w.levels, &routeLevel{ui: ui, wire: l.Wire, connect: swp08.ExtConnect(r.cfg.Matrix, l.Wire, req.Dst, req.Src)})
+		w.levels = append(w.levels, &routeLevel{ui: ui, wire: l.Wire, connect: swp08.ExtConnect(lv.rc.Matrix, l.Wire, req.Dst, req.Src)})
 	}
 	return w, nil
 }
@@ -514,7 +515,7 @@ func (a *App) interrogate(r *runtime, w *waiter, ls []*routeLevel, reason swp08.
 	why := swp08.Why{Reason: reason, By: w.why.By, Note: w.why.Note}
 	var last <-chan struct{}
 	for _, l := range ls {
-		done, err := a.sendTracked(w.u, w.ext, swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why)
+		done, err := a.sendTracked(w.u, w.ext, swp08.ExtInterrogate(r.routerOf(w.u.uid).Matrix, l.wire, w.dst), why)
 		if err != nil {
 			return last, err
 		}

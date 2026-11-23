@@ -108,7 +108,8 @@ const (
 
 type pollCheck struct {
 	uid       string
-	first     string // the first router's UID: a filter set with no router is that router's
+	routers   []string // every router UID of the settings: a mark of another router stays as it is
+	first     string   // the first router's UID: a filter set with no router is that router's
 	levels    int
 	off       int // numberOffset, for the row
 	prev, cur namePoll
@@ -214,7 +215,15 @@ func hasMissing(l []config.Missing, kind string, r config.Ref) bool {
 func (c *itemCheck) ref(dst bool, r *config.Ref) {
 	kind := refKind(dst)
 	if r.Router != c.k.uid {
-		c.broken.add(config.Missing{Kind: config.MissingRouter, Ref: config.Ref{Router: r.Router}}, true)
+		if !slices.Contains(c.k.routers, r.Router) {
+			c.broken.add(config.Missing{Kind: config.MissingRouter, Ref: config.Ref{Router: r.Router}}, true)
+			return
+		}
+		// That router's own check judges it.
+		b, isB := markOf(c.oldBroken, kind, *r)
+		c.broken.add(b, isB)
+		m, isM := markOf(c.oldMoved, kind, *r)
+		c.moved.add(m, isM)
 		return
 	}
 	broken, isBroken := markOf(c.oldBroken, kind, *r)
@@ -254,6 +263,8 @@ func (c *itemCheck) ref(dst bool, r *config.Ref) {
 
 func (c *itemCheck) level(router string, ui int) {
 	if router != c.k.uid {
+		m, ok := markOf(c.oldBroken, config.MissingLevel, config.Ref{Router: router, N: ui})
+		c.broken.add(m, ok)
 		return
 	}
 	c.broken.add(config.Missing{Kind: config.MissingLevel, Ref: config.Ref{Router: router, N: ui}}, ui < 1 || ui > c.k.levels)
@@ -410,6 +421,9 @@ func (k *pollCheck) config(c *config.Config) bool {
 			*s.Profile, changed = pr, true
 		}
 	}
+	if ties, ch := k.tieLines(c.TieLines); ch {
+		c.TieLines, changed = ties, true
+	}
 	rights := config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref {
 		if !k.quiet(kind == config.MissingDestination, &r) {
 			return nil
@@ -421,6 +435,59 @@ func (k *pollCheck) config(c *config.Config) bool {
 		rights.Rights(r)
 	}
 	return changed
+}
+
+// tieLines marks Name moved on each end on this router whose name is not its stored name (docs/tielines-design.md,
+// Tie lines rule 8). That is a rename, the name at another number, or no name. The number, the stored name and the Tie
+// line name stay, and the tie line works on. The mark goes when the stored name comes back. An end stored with no
+// name takes the name now. The list is a copy when something changed.
+func (k *pollCheck) tieLines(in []config.TieLine) ([]config.TieLine, bool) {
+	out, changed := config.CloneTieLines(in), false
+	for i := range out {
+		t := &out[i]
+		var moved []config.Missing
+		fresh := false
+		config.RefWalk{Fn: func(kind string, r config.Ref) []config.Ref {
+			old, had := markOf(t.Moved, kind, r)
+			if r.Router != k.uid {
+				moved = appendMark(moved, old, had)
+				return nil
+			}
+			v, now := k.verdict(kind == config.MissingDestination, r)
+			switch {
+			case v == refWait:
+				moved = appendMark(moved, old, had)
+			case strings.TrimSpace(r.Name) == "":
+				if now != "" {
+					r.Name, fresh = now, true
+					return []config.Ref{r}
+				}
+			case !sameName(r.Name, now):
+				moved = appendMark(moved, config.Missing{Kind: kind, Ref: config.Ref{Router: r.Router, N: r.N, Name: r.Name}, Now: now}, true)
+			}
+			return nil
+		}}.TieLine(t)
+		if !fresh && tieMarksEqual(moved, t.Moved) {
+			continue
+		}
+		if len(moved) > len(t.Moved) {
+			k.moved = append(k.moved, fmt.Sprintf("tie line %q", t.Name))
+		}
+		t.Moved, changed = moved, true
+	}
+	return out, changed
+}
+
+func appendMark(l []config.Missing, m config.Missing, ok bool) []config.Missing {
+	if !ok {
+		return l
+	}
+	return append(l, m)
+}
+
+// Now counts here: a mark shows the name at the number now.
+func tieMarksEqual(a, b []config.Missing) bool {
+	return missingEqual(a, b) && slices.EqualFunc(a, b, func(x, y config.Missing) bool { return x.Now == y.Now })
 }
 
 // Cells and members carry Broken marks; hidden items, item settings and fixed destinations rename quietly.
@@ -471,7 +538,7 @@ func itemScopes(c *config.Config, mine string) []itemScope {
 // No Settings saves row: the Router names row says what changed.
 func (a *App) recheckRefs(u *routerUnit, prev, cur namePoll, hints [2]map[string]string) {
 	rc := a.r().routerOf(u.uid)
-	k := &pollCheck{uid: rc.UID, first: a.r().cfg.UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
+	k := &pollCheck{uid: rc.UID, routers: a.r().cfg.RouterUIDs(), first: a.r().cfg.UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
 	a.cfgMu.Lock()
 	if !a.setupPending() {
 		err := a.applyConfigWith(func(c *config.Config) error {

@@ -1,0 +1,3 @@
+- A tie line whose end gets a new name on the router shows Name moved in Settings > Routers > Tie lines. It works on, and its Tie line name stays. Save the tie line again in its edit form to keep the new names. A save of a different tie line no longer changes the stored names of the others.
+- Swap lists each tie line that uses the old number. Sode does not tick it: tick it only if the cable moved, and Sode then moves that end to the new number.
+- Remove router lists the tie lines with an end on that router, and the save deletes them.

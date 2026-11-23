@@ -1,7 +1,7 @@
 // read() gives the filter in the editor, write(next) stores it. filters.js decides where they point (the browser's own filter or a profile draft).
 
-import { $, el, S, off } from './core.js';
-import { parseFilter, filterText, compileFilter } from './filter.js';
+import { $, el, S, off, routerData } from './core.js';
+import { parseFilter, filterText, compileFilter, filterProblem } from './filter.js';
 
 const KINDS = [
   ['name', 'Name contains'],
@@ -35,8 +35,8 @@ export function editor(key, { read, write, mode }) {
   const store = () => !ed.error && ed.text !== read()[key] && write({ ...read(), [key]: ed.text });
 
   function changed(now = false) {
-    const p = parseFilter(ed.text);
-    ed.error = p.error ? `${p.error}${p.at != null ? ` at “${ed.text.slice(p.at, p.at + 12)}”` : ''}` : null;
+    // With a second router, a filter with no router cannot keep number terms (routerTermsProblem).
+    ed.error = filterProblem(ed.text, read().router, S.routers.length);
     clearTimeout(timer);
     const go = () => {
       store();
@@ -54,7 +54,7 @@ export function editor(key, { read, write, mode }) {
     input?.classList.toggle('pb-input--invalid', !!ed.error);
     err.hidden = !ed.error;
     err.textContent = ed.error ? `${ed.error}` : '';
-    const list = key === 'src' ? S.srcs : S.dsts;
+    const list = key === 'src' ? routerData('').srcs : routerData('').dsts;
     const p = parseFilter(ed.text);
     if (p.error) return;
     if (!p.rules.length) {

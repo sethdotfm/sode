@@ -70,3 +70,10 @@ export function wireNumber(text, offset) {
 
 // The other router to offer as the downstream end: the first one that is not from.
 export const otherRouter = (uids, from) => uids.find((u) => u !== from) || '';
+
+// The Name moved text of t, one line for each marked end, or [] (docs/tielines-design.md, Tie lines rule 8). A mark
+// is {kind, ref: the end as stored, now: the name at its number now}. shown(ref) gives the end as "B.2".
+export function movedLines(t, shown) {
+  const marks = Array.isArray(t?.moved) ? t.moved : [];
+  return marks.map((m) => `${shown(m.ref || {})} was ${m.ref?.name || 'no name'}, now ${m.now || 'no name'}`);
+}

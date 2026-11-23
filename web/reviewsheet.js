@@ -2,7 +2,7 @@
 // by browsercopy.js.
 // A save goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
-import { el, S, on, off, sentence } from './core.js';
+import { el, on, off, sentence, routerData } from './core.js';
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
 import { showResult } from './plans.js';
@@ -76,7 +76,7 @@ const psave = profileSaver({ setNote, isOpen: () => open, failTitle: 'Import not
 const saving = () => busy || gsave.busy() || gsavePresets.busy() || psave.busy();
 
 const forUser = () => st?.user && st.user !== profileName();
-const live = () => ({ srcs: S.srcs, dsts: S.dsts, levelCount: S.levels.length });
+const live = () => ({ srcs: routerData('').srcs, dsts: routerData('').dsts, levelCount: routerData('').levels.length });
 const scope = () => st.scope;
 
 function curSets(sc) {
@@ -236,7 +236,7 @@ function matchLines(r) {
     }
   }
   if (m.count.ambiguous) lines.push(status('warn', 'Skip by default. Import keeps the numbers as written.'));
-  if (m.levelsOver.length) lines.push(status('warn', `Level ${m.levelsOver.join(', ')} is above this router’s ${S.levels.length}`));
+  if (m.levelsOver.length) lines.push(status('warn', `Level ${m.levelsOver.join(', ')} is above this router’s ${routerData('').levels.length}`));
   return lines;
 }
 

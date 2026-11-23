@@ -1,8 +1,8 @@
 // Runs /panels/editor as the signed-in user. runEditor returns the seams the other editor modules use (see the end).
-import { $, on, S } from './core.js';
+import { $, on, S, routerData } from './core.js';
 import { newPanelActs, actsSavedNote } from './panelsrules.js';
 import { sessionFetch, jsonCall, startSession } from './sessionkey.js';
-import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
+import { namesFrom, cellNamesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
 import { defaultsBy } from './panellook.js';
 import { createGrid, cellsLost, resize, select, deselect, selectAll, rectOf, clearSelection, setAside, putBack, heldThatFit, saved } from './gridmodel.js';
 import { editorTarget, newPanel, saveBody, isDirty, menuArea, saveChord, openFailNote, editorAccess } from './editorrules.js';
@@ -26,7 +26,9 @@ import { createPageBar } from './editorpagebar.js';
 import { createPageView } from './editorpageview.js';
 import { askCopyTo } from './editorpagecopy.js';
 import { isGridPanel } from './gridpaneledges.js';
-import { edgesIn } from './gridedgerefs.js';
+import { edgesIn, UNKNOWN_ROUTER } from './gridedgerefs.js';
+import { makePlaces } from './routerids.js';
+import { readRouterNames } from './routernames.js';
 import { panelsBar } from './panelsbar.js';
 
 const GRID_EDGE = Object.freeze({ members: 'all' });
@@ -38,6 +40,8 @@ const say = (id, text) => {
 };
 
 const LEFT = 'Signed out. Not saved.';
+const ROUTERS_UNKNOWN = 'Sode did not give its router list. The panel is not open. Sode tries again in 5 seconds.';
+const ROUTERS_RETRY_MS = 5000;
 
 // One call whose failures read "<what> (status)" unless the server says why; down words a dead network.
 const RECHECK_MS = 15000;
@@ -54,6 +58,7 @@ export async function runEditor() {
   let list = [];
   let names = namesFrom({});
   let routerNames = {}; // GET /names as read, for the Grid panel's list tabs
+  let places = makePlaces(); // the routers of item numbers (routerids.js), from GET /routers.
   let discardAsked = ''; // the panel the user tried to leave unsaved; a second try discards.
   let leaving = false; // the access the editor opened with is gone (leaveEditing): nothing more is saved.
   const menuSections = []; // (grid) => items: Find adds its items here.
@@ -76,6 +81,8 @@ export async function runEditor() {
     type: edits.type ?? loaded?.type ?? 'buttons',
     sources: edits.sources ?? loaded?.sources ?? GRID_EDGE,
     destinations: edits.destinations ?? loaded?.destinations ?? GRID_EDGE,
+    // The tie line setting (editorties.js): beside the layout, so Push and templates leave it out.
+    tieLines: edits.tieLines ?? loaded?.tieLines,
   });
   const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());
 
@@ -439,7 +446,7 @@ export async function runEditor() {
     const r = await sessionFetch('api/v1/default-artwork').catch(() => null);
     const got = r?.ok ? await r.json().catch(() => null) : null;
     if (!got) return;
-    defaults = defaultsBy(got.defaults);
+    defaults = defaultsBy(got.defaults, routerData('').uid);
     refresh();
   }
 
@@ -491,7 +498,7 @@ export async function runEditor() {
 
   function show(panel) {
     live.stop();
-    loaded = edgesIn(panel);
+    loaded = edgesIn(panel, places);
     edits = {};
     art?.revoke();
     art = panel ? createArt(sessionFetch, panel.id) : null;
@@ -514,6 +521,15 @@ export async function runEditor() {
   let opening = 0;
   async function openPanel(id, push) {
     const mine = ++opening;
+    // Without the router list, the items of another router would read as the first router's (gridedgerefs.js).
+    if (!(await routersKnown())) {
+      if (mine !== opening) return;
+      say('ed-status', ROUTERS_UNKNOWN);
+      setTimeout(() => mine === opening && openPanel(id, push), ROUTERS_RETRY_MS);
+      return;
+    }
+    if (mine !== opening) return;
+    if ($('ed-status').textContent === ROUTERS_UNKNOWN) say('ed-status', '');
     if (!id) {
       if (push) history.pushState(null, '', 'panels/editor?new');
       return show(null);
@@ -590,7 +606,7 @@ export async function runEditor() {
     const sentEdits = edits;
     const sentName = nameBox.value;
     const sentPages = livePages();
-    const body = JSON.stringify(saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages));
+    let body;
     const send = () =>
       edCall('The panel was not saved', 'Sode did not answer. Not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
         method: loaded ? 'PUT' : 'POST',
@@ -601,6 +617,10 @@ export async function runEditor() {
       });
     let stored;
     try {
+      if (!(await routersKnown())) throw new Error(UNKNOWN_ROUTER);
+      body = JSON.stringify(
+        saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages, places.many ? places : routerData('').uid),
+      );
       stored = await send().catch(async (e) => {
         if (!loaded || (e.status !== 0 && !(e.status >= 500))) throw e;
         await new Promise((ok) => setTimeout(ok, RETRY_MS));
@@ -614,7 +634,7 @@ export async function runEditor() {
       return e.message;
     }
     const made = !loaded;
-    loaded = edgesIn(stored);
+    loaded = edgesIn(stored, places);
     // Pages edited during the save stay as they are now; the rest take the stored copy. The first save gives an
     // unsaved Page 1 its id.
     const after = pagesAfterSave(sentPages, livePages(), pagesOf(stored));
@@ -721,14 +741,23 @@ export async function runEditor() {
   // Names come from the REST read, which applies the user's Rights. The socket says when the router's names change,
   // so the cells and the Grid lists show a rename at once, as an open panel does.
   // Returns false when the read was refused; the names already shown stay.
+  // With two or more routers, routerNames holds the items of every router on item numbers (routerids.js). names reads
+  // a cell on its own router (cellNamesFrom).
   async function readNames() {
-    const next = await sessionFetch('api/v1/names').then((r) => (r.ok ? r.json() : null));
+    const next = await readRouterNames((path) => sessionFetch(path).then((r) => (r.ok ? r.json() : null)), places);
     if (!next) return false;
-    routerNames = next;
-    names = namesFrom(routerNames);
+    places = next.places;
+    routerNames = next.names;
+    names = cellNamesFrom(next.names, next.places);
     return true;
   }
   const namesFailed = () => say('ed-status', 'Router names did not load. Old names shown.');
+  // routersKnown is false while GET /routers has not answered and Sode has other than one router (the hello's list),
+  // after one more read. Then the editor neither opens nor saves a panel.
+  async function routersKnown() {
+    const known = () => places.routers.length > 0 || S.routers.length === 1;
+    return known() || ((await readNames().catch(() => false)) && known());
+  }
   on('names', () =>
     readNames()
       .then((ok) => {
@@ -785,6 +814,8 @@ export async function runEditor() {
     save,
     names: () => names,
     routerNames: () => routerNames,
+    // The routers of the Grid lists' item numbers.
+    places: () => places,
     addMenuSection: (fn) => menuSections.push(fn),
     addKeyHook: (fn) => keyHooks.push(fn),
     // Find's fill order, which Wrap follows.
@@ -808,7 +839,7 @@ export async function runEditor() {
     fixedOn,
     // A panel stored elsewhere (the Share modal): the grid and unsaved fields stay as they are.
     replaceLoaded(panel) {
-      loaded = edgesIn(panel);
+      loaded = edgesIn(panel, places);
       loadList().catch(() => {});
       refresh();
       fieldsChanged();

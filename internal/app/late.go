@@ -53,7 +53,7 @@ type lateJob struct {
 func (a *App) flushLate() {
 	var jobs []lateJob
 	a.mu.Lock()
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		for _, h := range u.ext.lateHits {
 			i := slices.IndexFunc(jobs, func(j lateJob) bool { return j.u == u && j.id == h.id })
 			if i < 0 {
@@ -118,8 +118,9 @@ func (a *App) lateConfirm(u *routerUnit, id int, uis []int) {
 	if !ok || len(done) == 0 {
 		return
 	}
+	off := r.routerOf(e.Router).NumberOffset
 	log.Printf("LATE #%d src=%d %q dst=%d %q level %s confirmed after the take gave up (ok=%t)",
-		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, levelList(r.levelsOf(e.Router), done), e.OK)
+		e.ID, e.Src+off, e.SrcName, e.Dst+off, e.DstName, levelList(r.levelsOf(e.Router), done), e.OK)
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "entry", E: &e, Update: true})
 	a.mu.Unlock()

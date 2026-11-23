@@ -12,6 +12,8 @@ const (
 	MaxPresetItems    = 100
 	MaxPresetDsts     = 100
 	MaxPresetLevelNum = 64
+	// MaxPresetTies: the tie lines of one route across routers, upstream first.
+	MaxPresetTies = 8
 	// MaxPresetTotal keeps one take well under the 64 KiB read limit.
 	MaxPresetTotal = 200
 	// MaxPresetsBytes keeps a presets message under the 64 KiB read limit.
@@ -30,13 +32,19 @@ type Preset struct {
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
-// One item is one route on one router: Src and every Dsts entry share Router.
+// One item is one source and its destinations. The destinations share one router. When that is not the router of
+// the source, the item is a route across routers (docs/tielines-design.md, Presets). Then Ties holds the ids of the
+// tie lines that the user chose when the item was added, upstream first.
 type PresetItem struct {
 	Src    Ref            `yaml:"src" json:"src"`
 	Dsts   []Ref          `yaml:"dsts" json:"dsts"`
 	Levels []int          `yaml:"levels,omitempty" json:"levels"`
+	Ties   []string       `yaml:"ties,omitempty" json:"ties,omitempty"`
 	Extra  map[string]any `yaml:",inline" json:"-"`
 }
+
+// Across: the destinations are on another router than the source, so the item goes through tie lines.
+func (it PresetItem) Across() bool { return len(it.Dsts) > 0 && it.Dsts[0].Router != it.Src.Router }
 
 func ClonePresets(in []Preset) []Preset {
 	if in == nil {
@@ -46,7 +54,7 @@ func ClonePresets(in []Preset) []Preset {
 	for i, s := range in {
 		out[i] = Preset{ID: s.ID, Name: s.Name, Items: make([]PresetItem, len(s.Items)), Broken: slices.Clone(s.Broken), Moved: slices.Clone(s.Moved), Extra: s.Extra}
 		for j, it := range s.Items {
-			out[i].Items[j] = PresetItem{Src: it.Src, Dsts: slices.Clone(it.Dsts), Levels: slices.Clone(it.Levels), Extra: it.Extra}
+			out[i].Items[j] = PresetItem{Src: it.Src, Dsts: slices.Clone(it.Dsts), Levels: slices.Clone(it.Levels), Ties: slices.Clone(it.Ties), Extra: it.Extra}
 		}
 	}
 	return out
@@ -94,9 +102,56 @@ func normalizePresets(ps []Preset, router string) []Preset {
 			if it.Levels == nil {
 				it.Levels = []int{}
 			}
+			var ties []string
+			for _, id := range it.Ties {
+				if id = strings.TrimSpace(id); id != "" {
+					ties = append(ties, id)
+				}
+			}
+			it.Ties = ties
 		}
 	}
 	return ps
+}
+
+// markPresetTies gives each preset a MissingTie mark for each tie line id that ties does not hold. It drops the marks
+// of tie lines that ties holds again. A mark keeps the name that it had. ps is edited in place.
+func markPresetTies(ps []Preset, ties []TieLine) {
+	have := map[string]bool{}
+	for _, t := range ties {
+		have[t.ID] = true
+	}
+	for i := range ps {
+		p := &ps[i]
+		var gone []string
+		w := RefWalk{Fn: func(string, Ref) []Ref { return nil }, Tie: func(id string) []string {
+			if !have[id] && !slices.Contains(gone, id) {
+				gone = append(gone, id)
+			}
+			return nil
+		}}
+		for j := range p.Items {
+			it := p.Items[j]
+			w.Item(&it)
+		}
+		was := p.Broken
+		marked := func(m Missing) bool { return m.Kind == MissingTie }
+		if !slices.ContainsFunc(was, marked) && len(gone) == 0 {
+			continue
+		}
+		keep := slices.DeleteFunc(slices.Clone(was), marked)
+		for _, id := range gone {
+			m := Missing{Kind: MissingTie, Tie: id}
+			if k := slices.IndexFunc(was, func(o Missing) bool { return o.Kind == MissingTie && o.Tie == id }); k >= 0 {
+				m = was[k]
+			}
+			keep = append(keep, m)
+		}
+		if len(keep) == 0 {
+			keep = nil
+		}
+		p.Broken = keep
+	}
 }
 
 // Shown goes stale when numbering changes, so a stored preset keeps {router, n, name} only.
@@ -138,9 +193,18 @@ func (c Config) validatePresets() []error {
 			if it.Src.N < 0 || it.Src.N > 0xFFFE {
 				bad("preset %q: source %d is out of range", s.Name, it.Src.N)
 			}
-			// An unknown router is not refused here: Load runs Validate, and such an item is Broken.
-			if slices.ContainsFunc(it.Dsts, func(d Ref) bool { return d.Router != it.Src.Router }) {
-				bad("preset %q: a source and its destinations must be on one router", s.Name)
+			// An unknown router is not refused here: Load runs Validate, and such an item is Broken. So is a tie line
+			// id that Sode does not have (MissingTie).
+			if len(it.Dsts) > 0 && slices.ContainsFunc(it.Dsts, func(d Ref) bool { return d.Router != it.Dsts[0].Router }) {
+				bad("preset %q: the destinations of a source must be on one router", s.Name)
+			}
+			switch {
+			case it.Across() && len(it.Ties) == 0:
+				bad("preset %q: a route across routers needs its tie lines", s.Name)
+			case !it.Across() && len(it.Ties) > 0:
+				bad("preset %q: tie lines are only for a route across routers", s.Name)
+			case len(it.Ties) > MaxPresetTies:
+				bad("preset %q: at most %d tie lines on one route", s.Name, MaxPresetTies)
 			}
 			if len(it.Dsts) == 0 {
 				bad("preset %q: a source has no destinations", s.Name)
@@ -171,11 +235,11 @@ func (c Config) validatePresets() []error {
 func presetConflict(s Preset) error {
 	for i, a := range s.Items {
 		for _, b := range s.Items[i+1:] {
-			if a.Src.Router != b.Src.Router || a.Src.N == b.Src.N || !levelsOverlap(a.Levels, b.Levels) {
+			if a.Src.Router == b.Src.Router && a.Src.N == b.Src.N || !levelsOverlap(a.Levels, b.Levels) {
 				continue
 			}
 			for _, d := range a.Dsts {
-				if slices.ContainsFunc(b.Dsts, func(x Ref) bool { return x.N == d.N }) {
+				if slices.ContainsFunc(b.Dsts, func(x Ref) bool { return x.Router == d.Router && x.N == d.N }) {
 					return fmt.Errorf("preset %q: destination %d gets both source %d and source %d on the same levels", s.Name, d.N, a.Src.N, b.Src.N)
 				}
 			}
