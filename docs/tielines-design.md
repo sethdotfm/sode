@@ -202,6 +202,8 @@ Rights checks compare the router and the number of each reference. A right for s
 4. A Protected tie line shows who set it and when. It is grey and a user cannot choose it.
 5. A Protected tie line that already carries the wanted source stays available for the downstream hop, since Sode sends nothing upstream.
 6. A user frees the Protect with Free Protect, as for any destination.
+7. If a route that asked for the Protect fails, Sode does not send the Protect. Its entry says so, so the Group keeps its size (agent decision).
+8. P and the shield act on the chosen tie line of their step. A second press stops the Protect. A tie line that has a Protect cannot get a second one (agent decision).
 
 ## Rights
 

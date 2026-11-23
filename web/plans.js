@@ -130,10 +130,11 @@ function withFollows(plan, follows) {
 }
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
-// A take's plans; a Protect row's Undo is its own (protects.js PROTECT_ENTRY, PROTECT_GROUP).
+// A take's plans; a Protect row's Undo is its own (protects.js PROTECT_ENTRY, PROTECT_GROUP). The Group of a tie take
+// can hold a Protect entry (tieprotect.go): its routes undo, and its Protect stays.
 export const groupUndoPlan = (f) =>
   withFollows(
-    { verb: 'undo', items: f.entries.map(undoItem) },
+    { verb: 'undo', items: f.entries.filter((e) => !e.protect).map(undoItem) },
     f.entries.flatMap((e) => e.follows || []),
   );
 // A group with failed takes retries only those; otherwise it redoes every redoable take. Empty
@@ -141,7 +142,7 @@ export const groupUndoPlan = (f) =>
 // Tie takes: the Retry of the destination entry (origin) runs the hops again on the server. Thus a hop entry (tie)
 // gets no Retry of its own. Redo of a tie take opens the picker, which this plan cannot do, so it has no tie entries.
 export function againPlan(row) {
-  const es = (row.f ? row.f.entries : [row.e]).filter((e) => e && !e.tie);
+  const es = (row.f ? row.f.entries : [row.e]).filter((e) => e && !e.tie && !e.protect);
   const failed = es.filter((e) => !e.ok);
   const use = (failed.length ? failed : es.filter((e) => !e.origin)).filter(canRedo);
   const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };

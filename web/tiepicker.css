@@ -40,6 +40,21 @@
 .sode-tiepick__step {
   flex: 1 1 20rem;
 }
+/* The head of a step: its words, and the shield of a person with the Protect right. */
+.sode-tiepick__stephead {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
+/* The chosen tie line that the take protects: the shield and the words. */
+.sode-tiepick__protect {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-2);
+}
 .sode-tiepick__step--focus {
   outline: var(--pb-border-w) solid var(--pb-accent);
 }

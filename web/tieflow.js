@@ -11,7 +11,7 @@ import { emit, request, routerData, routerOfItem } from './core.js';
 import { showResult } from './banner.js';
 import { noteLast } from './plans.js';
 import { pickRoute } from './tiepicker.js';
-import { pickState, reopenState, takeRoute, chosen, pathKey, oneOffsOf } from './tiepickrules.js';
+import { pickState, reopenState, takeRoute, chosen, oneOffsOf } from './tiepickrules.js';
 import { tieIndexes, nextTie, finalAt, planRequest, takeRequest, keptItems, changedAt, resetFrom, failedText } from './tietakerules.js';
 
 const ref = (it) => ({ router: routerData(routerOfItem(it)).uid, n: it.n });
@@ -58,11 +58,12 @@ function step(f, k, state, oneOffs = []) {
         }
       : null,
     onPick: (st) => {
-      const names = chosen(st)
-        .hops.slice(0, -1)
-        .map((h) => h.tie.name || h.tie.id);
+      const hops = chosen(st).hops.slice(0, -1);
+      const names = hops.map((h) => h.tie.name || h.tie.id);
+      const take = takeRoute(st);
+      const prot = take.ties.flatMap((t, i) => (t.protect ? [names[i]] : []));
       // ids name the chosen path (pathKey): a One-off tie line goes to the server as its ends, not its id.
-      f.picks[k] = { take: takeRoute(st), names, ids: pathKey(chosen(st)).split(' ') };
+      f.picks[k] = { take, names, prot, ids: hops.map((h) => h.tie.id) };
       if (final) return send(f, true);
       on();
     },
@@ -95,7 +96,9 @@ function textOf(f, at) {
   return at
     .map((i) => {
       const r = f.routes[i];
-      return r.tie ? `${r.label} Via ${f.picks[i].names.join(', ')}` : r.label;
+      if (!r.tie) return r.label;
+      const { names, prot } = f.picks[i];
+      return `${r.label} Via ${names.join(', ')}${prot.length ? `, then Protect ${prot.join(', ')}` : ''}`;
     })
     .join('; ');
 }
@@ -115,6 +118,9 @@ function answer(f, m, text, at) {
     if (m.body.ok) {
       // Last holds the typed source and destination, not the hops, as after a plain take.
       if (noteLast({ ...f.plan, items: keptItems(f.plan.items, f.routes, f.picks) })) emit('last');
+      // A Protect that failed leaves the take a success (docs/tielines-design.md, Protect in a tie take).
+      const bad = protectFailures(m.body.protects);
+      if (bad) return showResult('warn', 'Success, Protect failed', `${text}. ${bad}`);
       return showResult('ok', 'Success', text);
     }
     const bad = rs.flatMap((r, i) => (r.result === 'failed' ? [`${f.routes[at[i]].label}: ${failedText(r)}`] : []));
@@ -123,6 +129,13 @@ function answer(f, m, text, at) {
   if (m.body?.error?.code === 'tie_line_changed') return reopen(f, m.body, at);
   showResult('error', 'Not sent', m.body?.error?.message || m.err || 'The server refused the take.');
 }
+
+// protectFailures names each Protect of the take that failed, or ''.
+const protectFailures = (ps = []) =>
+  ps
+    .filter((p) => !p.ok)
+    .map((p) => `${p.tieName || p.tie}: ${p.error || 'failed'}`)
+    .join('; ');
 
 // reopen: the server refused the take with 409 tie_line_changed and sent nothing (docs/tielines-design.md, The stale
 // check, rule 5). The page says which tie line changed and opens the picker again on the first route that it names.
@@ -135,9 +148,10 @@ function reopen(f, body, at) {
   const what = names.length ? `${names.join(', ')} changed` : fresh.length ? 'The Affected destinations changed' : 'A tie line changed';
   showResult('error', 'Tie line changed', `${what}. Sode sent nothing. Choose again.`);
   if (k < 0) return;
-  const { ids } = f.picks[k];
-  const oneOffs = oneOffsOf(f.picks[k].take);
+  const { ids, take } = f.picks[k];
+  const oneOffs = oneOffsOf(take);
+  const prot = ids.filter((id, i) => take.ties[i]?.protect);
   const changed = (r?.changed || []).map((t) => t.id);
   f.picks = resetFrom(f.picks, k);
-  step(f, k, (route) => reopenState(route, ids, changed, fresh), oneOffs);
+  step(f, k, (route) => reopenState(route, ids, changed, fresh, prot), oneOffs);
 }

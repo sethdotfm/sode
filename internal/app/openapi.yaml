@@ -590,6 +590,7 @@ paths:
                               nullable: true
                               allOf: [{ $ref: "#/components/schemas/RouteEnd" }]
                               description: "What the caller saw on the tie line. A router reference is that source on every level of the upstream router. Null or omitted is nothing on every level. A list holds one router reference or null for each level, from level 1, for a mixed tie line. Sode compares every level: a difference on any level gets 409 `tie_line_changed`. A mixed tie line never matches one source. A tie line downstream of a mixed tie line is mixed too: send the `levels` of its `now`. On a One-off tie line, omitted means Sode does not compare it"
+                            protect: { type: boolean, description: "Protect the upstream destination of the tie line after every hop of the take. It needs the `protect` scope and the Protect right (403 `scope` or `outside_rights` before anything goes to a router). The answer has it in `protects`" }
                       oneOffs:
                         type: array
                         description: "Only for a route across routers with no ties. One-off tie lines for its plan: the 409 body has paths through them too"
@@ -2560,6 +2561,21 @@ components:
               entry: { type: integer, description: The History entry id; follow it for a late result }
               hops: { type: array, items: { $ref: "#/components/schemas/EntryHop" }, description: "A route across routers: each hop before the last, upstream first" }
         leftOut: { type: array, items: { type: string }, description: 'Preset parts the router no longer has, as the stored name and the number, for example "CAM 3 (source 13)"' }
+        protects:
+          type: array
+          description: "A take with `protect` on a tie line: each Protect that Sode set after the hops. A Protect that fails leaves the take a success. Sode does not send it when a route that asked for it failed"
+          items:
+            type: object
+            required: [tie, tieName, router, dst, ok]
+            properties:
+              tie: { type: string, description: "The tie line id" }
+              tieName: { type: string }
+              router: { type: string, description: "The UID of the router of the upstream destination" }
+              dst: { type: integer, description: "The upstream destination of the tie line" }
+              ok: { type: boolean }
+              error: { type: string }
+              entry: { type: integer, description: "The History entry of the Protect, in the Group of the take" }
+              still: { type: array, items: { type: integer }, description: "After a failure, the levels that Sode still holds" }
         skippedLevels: { type: array, items: { type: integer }, description: Undo only }
         untouchedLevels: { type: array, items: { type: integer }, description: Undo only }
     Error:
@@ -3123,7 +3139,8 @@ components:
           allOf: [{ $ref: "#/components/schemas/TieRef" }]
         sends: { type: boolean, description: "false when the tie line already carries the source, or the last hop is already routed" }
         now: { $ref: "#/components/schemas/TieChain" }
-        protect: { type: string, description: "Who holds a Protect on the upstream end of the tie line" }
+        protect: { type: string, description: "Who holds a Protect on the upstream end of the tie line: the Sode user or API client that set it, or the device of another system" }
+        protectSince: { type: string, format: date-time, description: "When Sode set that Protect. Absent for another system's Protect, and when `dst` is null" }
         reserve: { type: string, description: "The panel that Reserved the tie line" }
         changed: { type: string, format: date-time, description: "The last change of the tie line. Absent when `dst` is null" }
         before: { type: boolean, description: "Sode started after `changed`, so the tie line can have changed again" }

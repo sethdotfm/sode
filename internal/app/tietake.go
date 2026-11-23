@@ -25,7 +25,7 @@ import (
 // (tieTake.again). Then refuseHeld runs the Protect check
 // on every step before any step goes. Every step is an ordinary connect, also in fireMode native. The Result of a
 // route comes from all its hops (routeWord). Put back is in tieputback.go, a Late hop and Retry in tieretry.go,
-// One-off tie lines in tieoneoff.go. The API and the Tie line picker (tiepage.go) call it.
+// One-off tie lines in tieoneoff.go. The Protect that a take sets after its hops is in tieprotect.go.
 
 // TieEnd is a router reference with the name that Sode had for it.
 type TieEnd struct {
@@ -93,6 +93,8 @@ type tieTake struct {
 	steps   []*tieStep
 	waves   [][]*tieStep
 	tieName map[string]string
+	// protects: the tie lines that the take protects after its hops, one for each tie line (tieprotect.go).
+	protects []*tieProtect
 	// again plans the same take from what Sode knows now. tieTakeBegin calls it after the locks and the stale check.
 	// A tie line can change during the wait for a lock, so a hop that had nothing to send can have something now.
 	again func() (*tieTake, *apiProblem)
@@ -169,6 +171,9 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 					return problem(http.StatusConflict, "conflict", "route %d: %s carries another source in this take", r.index, t.name(h.Tie))
 				}
 				carries[h.Tie] = r.src
+				if slices.Contains(r.protect, h.Tie) {
+					t.protectHop(h, tr)
+				}
 				m.hops = append(m.hops, TieHop{Router: h.Router, Src: h.Src, Dst: h.Dst, Levels: h.Levels, Tie: h.Tie, TieName: t.tieName[h.Tie], Result: "already", Prev: [][2]int{},
 					OneOff: a.hopOneOff(r, h.Tie)})
 				var s *tieStep
@@ -271,10 +276,12 @@ func (t *tieTake) deadline(a *App) time.Duration {
 // did not finish for some step.
 func (a *App) runTieTake(c *client, t *tieTake, got func(id int) (routeResult, bool)) (unread bool) {
 	r := a.r()
-	if len(t.steps) > 1 {
-		g := strconv.FormatInt(time.Now().UnixNano(), 36)
+	// The Protects of the take are entries of its Group too.
+	var g protGroup
+	if n := len(t.steps) + len(t.protects); n > 1 {
+		g = protGroup{id: strconv.FormatInt(time.Now().UnixNano(), 36), n: n}
 		for _, s := range t.steps {
-			s.req.Group, s.req.GroupN = g, len(t.steps)
+			s.req.Group, s.req.GroupN = g.id, g.n
 		}
 	}
 	t.refuseHeld(a, r)
@@ -301,6 +308,7 @@ func (a *App) runTieTake(c *client, t *tieTake, got func(id int) (routeResult, b
 			s.res, s.got = got(s.req.ID)
 		}
 	}
+	t.protectHops(a, r, c, g)
 	return unread
 }
 
@@ -436,6 +444,7 @@ func (t *tieTake) out(unread bool) apiTakeOut {
 		out.OK = out.OK && o.OK
 		out.Results[i] = o
 	}
+	out.Protects = t.protectsOut()
 	return out
 }
 

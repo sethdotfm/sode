@@ -4,9 +4,9 @@
 // routes: each route of the take, in plan order: { src, dst, levels, tie, item }. src and dst are router references
 // ({ router, n }); tie: the ends are on two routers; item: the plan item of the route.
 //
-// picks: one entry for each tie route, by its place in routes. After the person chose a path, it is { take, names }:
-// take is the route that POST /takes gets, and names are the tie line names. After Clear this route, it is
-// { cleared: true }. Else it is empty.
+// picks: one entry for each tie route, by its place in routes. After the person chose a path, it is { take, names, prot }.
+// take is the route that POST /takes gets. names are the tie line names, and prot the names that it protects. After
+// Clear this route, it is { cleared: true }. Else it is empty.
 
 const bare = (r) => ({ src: r.src, dst: r.dst, levels: r.levels });
 

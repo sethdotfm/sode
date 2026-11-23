@@ -87,12 +87,14 @@ type apiRouteIn struct {
 
 // apiTieIn is one tie line of a route: a saved tie line by id, or a One-off tie line by its two ends. From is a
 // destination, and To a source on the next router. Expect is what the caller saw on it. The stale check compares it
-// (tielock.go). A One-off tie line with no expect is not compared.
+// (tielock.go). A One-off tie line with no expect is not compared. Protect: Sode protects the upstream destination of
+// the tie line after the take (tieprotect.go).
 type apiTieIn struct {
-	ID     string    `json:"id"`
-	From   *apiEnd   `json:"from"`
-	To     *apiEnd   `json:"to"`
-	Expect apiExpect `json:"expect"`
+	ID      string    `json:"id"`
+	From    *apiEnd   `json:"from"`
+	To      *apiEnd   `json:"to"`
+	Expect  apiExpect `json:"expect"`
+	Protect bool      `json:"protect,omitempty"`
 }
 
 type apiOneOffIn struct {
@@ -188,6 +190,7 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		var all []tieRoute
 		bare := false
 		ties := map[int][]string{}
+		protect := false
 		for i, ro := range in.Routes {
 			su, u, prob := a.routeUnits(ro)
 			if prob != nil {
@@ -222,6 +225,10 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 					}
 					ties[i] = append(ties[i], id)
 					r.ties = append(r.ties, id)
+					if t.Protect {
+						r.protect = append(r.protect, id)
+						protect = true
+					}
 					w, prob := a.tieWantOf(t.Expect)
 					if prob != nil {
 						return nil, prob
@@ -254,6 +261,9 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		}
 		if bare {
 			return nil, a.apiTieProblem(rt, a.view(cl), all)
+		}
+		if prob := tieProtectAllowed(cl, protect); prob != nil {
+			return nil, prob
 		}
 		tt, prob := a.planTieTake(rt, a.view(cl), all, ties)
 		if prob != nil {
@@ -349,8 +359,10 @@ type apiTakeOut struct {
 	CheckSkipped bool          `json:"checkSkipped"`
 	Results      []apiRouteOut `json:"results"`
 	LeftOut      []string      `json:"leftOut,omitempty"`
-	Skipped      []int         `json:"skippedLevels,omitempty"`
-	Untouched    []int         `json:"untouchedLevels,omitempty"`
+	// Protects: each tie line that the take protects after its hops (tieprotect.go).
+	Protects  []apiTieProtectOut `json:"protects,omitempty"`
+	Skipped   []int              `json:"skippedLevels,omitempty"`
+	Untouched []int              `json:"untouchedLevels,omitempty"`
 }
 
 type sinkResults struct {

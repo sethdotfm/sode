@@ -8,8 +8,9 @@
 // usable one in rank order, else the first one. So a change on one step takes the best path through it, which
 // calculates the later steps again.
 //
-// State: { route, path, step, marks }. path is the index of the chosen path in route.paths; step is the step with
-// focus. marks are the changes that the live update found on the chosen path (refresh).
+// State: { route, path, step, marks, protect }. path is the index of the chosen path in route.paths; step is the step
+// with focus. marks are the changes that the live update found on the chosen path (refresh). protect holds the ids of
+// the tie lines that the person wants Protected after the take (docs/tielines-design.md, Protect in a tie take).
 
 // tieOf is the tie line id that hop h of path p feeds, or '' for the last hop.
 const tieOf = (p, h) => p.hops[h]?.tie?.id || '';
@@ -38,7 +39,7 @@ const prefixOf = (p, n) => p.hops.slice(0, n).map((h) => h.tie?.id || '');
 
 // pickState opens the picker on the best path of route.
 export function pickState(route) {
-  return { route, path: Math.max(0, best(route.paths, [])), step: 0, marks: noMarks() };
+  return { route, path: Math.max(0, best(route.paths, [])), step: 0, marks: noMarks(), protect: [] };
 }
 
 // marks: ties are the tie lines whose row changed. end is the destination's hop. hits are the new Affected
@@ -57,7 +58,7 @@ const chainSign = (c) =>
   c ? JSON.stringify([endKey(c.origin), (c.via || []).map((v) => v.id), !!c.mixed, !!c.nothing, c.unknown || '', !!c.loop, (c.levels || []).map(endKey)]) : '';
 // The parts of a hop that a person sees and that the take depends on. The last change time is not one: a change of
 // the tie line changes what it carries.
-const hopSign = (h) => JSON.stringify([h.router, h.tie?.id || '', !!h.sends, h.protect || '', h.reserve || '', chainSign(h.now)]);
+const hopSign = (h) => JSON.stringify([h.router, h.tie?.id || '', !!h.sends, h.protect || '', h.protectSince || '', h.reserve || '', chainSign(h.now)]);
 
 // pathChanges compares two plans of one path: null when nothing changed. Else hops gives the index of each hop that
 // changed, and affected tells if its Affected destinations or its cost changed.
@@ -105,10 +106,11 @@ export function refresh(st, route) {
 // reopenState opens the picker again after a take got 409 tie_line_changed. It chooses the path through ids, the tie
 // lines of that take, when the plan still has it. changed are the tie lines that moved; fresh are the Affected
 // destinations that the person did not see.
-export function reopenState(route, ids, changed = [], fresh = []) {
+// protect: the tie lines that the person wanted Protected; the picker keeps them.
+export function reopenState(route, ids, changed = [], fresh = [], protect = []) {
   const st = pickState(route);
   const i = route.paths.findIndex((p) => pathKey(p) === ids.join(' '));
-  return { ...st, path: i < 0 ? st.path : i, marks: { ties: [...changed], end: false, hits: fresh.map(endKey), affected: false } };
+  return { ...st, path: i < 0 ? st.path : i, marks: { ties: [...changed], end: false, hits: fresh.map(endKey), affected: false }, protect: [...protect] };
 }
 
 // marked: the mark of the open picker for a tie line id, an Affected destination or the destination's hop.
@@ -172,14 +174,18 @@ const KEYS = {
   tab: 'next',
   h: 'prev',
   'shift+tab': 'prev',
+  p: 'protect',
   enter: 'send',
   escape: 'cancel',
 };
 export const pickKey = (chord) => KEYS[chord] || null;
 
-// keyStep applies one key to the state: { st, act }. act is 'send', 'cancel' or null.
-export function keyStep(st, chord) {
+// keyStep applies one key to the state: { st, act }. act is 'send', 'cancel' or null. canProtect: the person has the
+// Protect right, so P protects; else P does nothing.
+export function keyStep(st, chord, canProtect = false) {
   switch (pickKey(chord)) {
+    case 'protect':
+      return { st: canProtect ? toggleProtect(st, st.step) : st, act: null };
     case 'down':
       return { st: moveChoice(st, 1), act: null };
     case 'up':
@@ -194,6 +200,30 @@ export function keyStep(st, chord) {
       return { st, act: 'cancel' };
   }
   return { st, act: null };
+}
+
+// protectable: a person can ask for a Protect on the tie line of hop h. A tie line that has a Protect already cannot
+// get a second one.
+export const protectable = (h) => !!h?.tie && !h.protect;
+
+// protectOn: the person wants the tie line id Protected after the take.
+export const protectOn = (st, id) => !!st.protect?.includes(id);
+
+// toggleProtect asks for a Protect on the tie line of step s, or stops asking for it.
+export function toggleProtect(st, s) {
+  const p = chosen(st);
+  if (!p || s >= stepsOf(p) || !protectable(p.hops[s])) return st;
+  const id = p.hops[s].tie.id;
+  const list = st.protect || [];
+  return { ...st, protect: list.includes(id) ? list.filter((x) => x !== id) : [...list, id] };
+}
+
+// heldText says why a hop's tie line is held: who Protected it and when, or the panel that Reserved it. clock formats a
+// time as HH:MM. '' when it is free.
+export function heldText(h, clock) {
+  if (h.protect) return `Protected by ${h.protect}${h.protectSince ? ` at ${clock(h.protectSince)}` : ''}`;
+  if (h.reserve) return `Reserved by panel ${h.reserve}`;
+  return '';
 }
 
 // ready: the chosen path can go.
@@ -225,7 +255,7 @@ export function takeRoute(st) {
     src: ref(route.src),
     dst: ref(route.dst),
     levels: route.levels,
-    ties: p.hops.slice(0, -1).map(tie),
+    ties: p.hops.slice(0, -1).map((h) => ({ ...tie(h), ...(protectOn(st, h.tie.id) && protectable(h) ? { protect: true } : {}) })),
     affected: p.affected.map(ref),
   };
 }
