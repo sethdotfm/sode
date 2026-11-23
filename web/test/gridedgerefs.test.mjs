@@ -128,6 +128,12 @@ test('a router that GET /routers does not list gets its own place', () => {
   ]);
 });
 
+test('an item of another router with no known UID is never sent as a first-router number', () => {
+  assert.throws(() => edgeOut({ members: [3, SPAN + 4] }, R), /router list/);
+  assert.throws(() => edgeOut({ members: 'all', hide: [SPAN + 4] }), /router list/);
+  assert.deepEqual(edgeOut({ members: [3] }, R), { members: [{ router: R, n: 3 }] });
+});
+
 test('a Buttons panel is not changed', () => {
   const p = { name: 'B', pages: [] };
   assert.equal(edgesIn(p), p);
