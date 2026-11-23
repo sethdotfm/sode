@@ -59,8 +59,8 @@ function undoItem(e) {
 // take. Needs a real source and a level that still exists.
 export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
 // Redo of the destination entry of a tie take opens the Tie line picker (docs/tielines-design.md, Redo and Retry). The
-// route goes from the typed source (origin) with the tie lines of the take. The picker chooses them first only if they
-// cost no more now than the cheapest path. It marks them "Used last time" (tiepickrules.js lastState).
+// route goes from the typed source (origin) with the tie lines of the take. The picker chooses them while they are
+// usable, and marks them "Used last time" (tiepickrules.js lastState).
 const tieAgainItem = (e) =>
   routeItem(dstItem(e.dst, e.dstName, e.router), [
     {

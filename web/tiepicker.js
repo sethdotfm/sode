@@ -378,6 +378,7 @@ function paint() {
     ...(p ? [affectedNode(p, src)] : []),
     ...reserveNode(st),
     ...storedNode(st),
+    ...lastNode(st),
   );
   ui.pKey.hidden = !mayShield();
   paintTake();
@@ -397,6 +398,14 @@ function storedNode(st) {
   const { text, warn } = storedText(st);
   if (!text) return [];
   const n = warn ? el('div', 'pb-alert pb-alert--warn sode-tiepick__stored', text) : el('p', 'sode__hint sode-tiepick__stored', text);
+  n.setAttribute('role', 'status');
+  return [n];
+}
+
+// lastNode says why a Redo could not keep a tie line that the take used last time (lastState). A caution, with text.
+function lastNode(st) {
+  if (!st.lastWhy) return [];
+  const n = el('div', 'pb-alert pb-alert--warn sode-tiepick__stored', st.lastWhy);
   n.setAttribute('role', 'status');
   return [n];
 }

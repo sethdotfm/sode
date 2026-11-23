@@ -85,19 +85,32 @@ test('putBackText: many tie lines and many Affected destinations', () => {
 // Paths of one route, cheapest first, as the 409 body gives them.
 const path = (tie, cost, o = {}) => ({ hops: [{ tie: { id: tie }, sends: true }, { tie: null }], cost, affected: [], ...o });
 
-test('lastState: Redo keeps the old tie line only if it costs no more than the cheapest', () => {
+test('lastState: Redo keeps the old tie lines while they are usable, also when they cost more', () => {
   const route = { paths: [path('t1', 2), path('t3', 2), path('t9', 5)] };
   let st = lastState(route, ['t3']);
-  assert.equal(chosen(st).hops[0].tie.id, 't3', 'the same cost as the cheapest');
+  assert.equal(chosen(st).hops[0].tie.id, 't3');
   assert.equal(usedLast(st, 0, 't3'), true);
   assert.equal(usedLast(st, 0, 't1'), false);
   st = lastState(route, ['t9']);
-  assert.equal(chosen(st).hops[0].tie.id, 't1', 'it costs more now: the cheapest, with t9 marked');
+  assert.equal(chosen(st).hops[0].tie.id, 't9', 'it costs more than the cheapest, and stays chosen');
   assert.equal(usedLast(st, 0, 't9'), true);
+  assert.equal(st.lastWhy, '');
   st = lastState({ paths: [path('t1', 2), path('t3', 1, { protected: true })] }, ['t3']);
   assert.equal(chosen(st).hops[0].tie.id, 't1', 'a Protected path is never chosen');
+  assert.match(st.lastWhy, /^t3, used last time, is not usable now\./);
   st = lastState(route, ['gone']);
   assert.equal(chosen(st).hops[0].tie.id, 't1');
+  assert.match(st.lastWhy, /^gone, used last time, makes no path now\./);
+  // Two steps: the first old tie line stays, and the planner chooses the second one.
+  const two = (a, b, cost, o = {}) => ({ hops: [{ tie: { id: a } }, { tie: { id: b, name: b.toUpperCase() }, ...o }, { tie: null }], cost, affected: [] });
+  st = lastState({ paths: [two('t1', 'u1', 1), two('t3', 'u2', 3), two('t3', 'u9', 4, { sends: true, protect: 'Ana' })] }, ['t3', 'u9']);
+  assert.deepEqual(
+    chosen(st)
+      .hops.slice(0, 2)
+      .map((h) => h.tie.id),
+    ['t3', 'u2'],
+  );
+  assert.match(st.lastWhy, /^U9, used last time, is not usable now\./);
 });
 
 test('Ctrl+Z: the step of a tie take is its destination entry, never a hop entry', () => {

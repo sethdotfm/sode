@@ -234,7 +234,7 @@ Rights checks compare the router and the number of each reference. A right for s
 
 ### Redo and Retry
 
-1. Redo opens the picker. It chooses the old tie line first only if that tie line costs no more now than the cheapest. Otherwise it chooses the cheapest and marks the old one "used last time".
+1. Redo opens the picker. It chooses the old tie lines while they are usable, also when they cost more now than the cheapest. It marks them "used last time". If an old tie line is gone or not usable, the picker keeps the choice of the planner for that step and says why. Ctrl+Shift+Z on a tie row does the same. The lockout and the confirm stay (agent decision, from the plan of #808; it replaces "the cheapest first").
 2. For Retry, see "Order and failures" above.
 
 ## Panels

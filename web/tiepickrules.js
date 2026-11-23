@@ -125,14 +125,22 @@ export function storedState(route, ids) {
 }
 
 // lastState opens the picker for a Redo (docs/tielines-design.md, Redo and Retry). ids are the tie lines that the take
-// used last time. It chooses their path only if it is usable and costs no more now than the cheapest. Else it keeps
-// the cheapest. last keeps the ids, so each step marks its choice "Used last time" (usedLast).
+// used last time. It chooses their path while it is usable, also when it costs more than the cheapest. Else it keeps
+// the old tie lines of the steps before the first one that is gone or not usable. From that step on, the planner's
+// choice stays (best). lastWhy then says why. last keeps the ids, so each step marks its choice "Used last time".
 export function lastState(route, ids) {
-  const st = pickState(route);
+  const st = { ...pickState(route), last: [...ids], lastWhy: '' };
   const i = route.paths.findIndex((p) => pathKey(p) === ids.join(' '));
-  const cheap = route.paths[st.path];
-  const keep = i >= 0 && pathUsable(route.paths[i]) && (!pathUsable(cheap) || route.paths[i].cost <= cheap.cost);
-  return { ...st, path: keep ? i : st.path, last: [...ids] };
+  if (i >= 0 && pathUsable(route.paths[i])) return { ...st, path: i };
+  // s: the first step whose old tie line has no usable path with the old tie lines of the steps before it.
+  const through = (p, n) => ids.slice(0, n).every((id, h) => tieOf(p, h) === id);
+  let s = 0;
+  while (s < ids.length && route.paths.some((p) => pathUsable(p) && through(p, s + 1))) s++;
+  const keep = best(route.paths, ids.slice(0, s));
+  const id = ids[Math.min(s, ids.length - 1)];
+  const name = route.paths.flatMap((p) => p.hops).find((h) => h.tie?.id === id)?.tie?.name || id;
+  const why = route.paths.some((p) => through(p, s + 1)) ? 'is not usable now' : 'makes no path now';
+  return { ...st, path: keep < 0 ? st.path : keep, lastWhy: `${name}, used last time, ${why}. The picker chose another tie line for that step.` };
 }
 
 // usedLast: the tie line id is the one that the take used last time at step s.
