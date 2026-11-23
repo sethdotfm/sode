@@ -131,3 +131,13 @@
   height: var(--sode-h-action);
   min-width: 8rem;
 }
+/* The place of the route in a take with more than one route across routers (tieflow.js). */
+.sode-tiepick__count {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin-inline-start: auto;
+}
+.sode-tiepick__why {
+  margin: var(--pb-space-2) 0 0;
+  padding-inline-start: var(--pb-space-6);
+}

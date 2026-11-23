@@ -105,7 +105,7 @@ test('items know their router, and a typed prefix picks the router', () => {
   assert.deepEqual([routerOfText('B.4'), routerOfText('A.4'), routerOfText('4'), routerOfText('C.4')], ['bbb', '', '', '']);
 });
 
-test('a take on the second router needs its link; one route across routers opens the Tie line picker', () => {
+test('a take on the second router needs its link; routes across routers open the Tie line picker', () => {
   const bSrc = srcItem(4, '', 'bbb'),
     bDst = dstItem(2, '', 'bbb');
   assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block, null);
@@ -115,11 +115,15 @@ test('a take on the second router needs its link; one route across routers opens
   send({ t: 'status', router: 'up', addr: '10.0.0.2:8910', routerUid: 'bbb' });
   const one = planBlocked(patchPlan(srcItem(0), [bDst], [1]));
   assert.equal(one.block, null);
-  assert.equal(one.tie?.dst, bDst);
-  // A take with a plain route too waits for the mixed picker.
+  assert.equal(one.tie, true);
+  // A take with a plain route too opens the pickers, then the confirm.
   const two = planBlocked(patchPlan(srcItem(0), [bDst, dstItem(3)], [1]));
-  assert.equal(two.block?.title, 'Route across routers');
-  assert.equal(two.tie, undefined);
+  assert.equal(two.block, null);
+  assert.equal(two.tie, true);
+  // An undo goes another way.
+  const undo = patchPlan(srcItem(0), [bDst], [1]);
+  undo.items[0].undo = { id: 1 };
+  assert.equal(planBlocked(undo).block?.title, 'Route across routers');
 });
 
 test('a right for A.5 allows A.5 and refuses B.5, greyed and blocked', () => {
@@ -143,6 +147,8 @@ test('a take across routers is Last with its typed ends: the source on A, the de
   const t = lastTake();
   assert.equal(routerOfItem(t.src), '');
   assert.ok(sameEnd(t.dsts[0], bDst));
+  // Last names one router for its destinations: a take with destinations on A and B is no Last.
+  assert.equal(lastFromPlan(patchPlan(srcItem(0), [bDst, dstItem(2)], [1])), null);
   // A take on one router keeps the old form.
   assert.deepEqual(lastFromPlan(patchPlan(srcItem(0), [dstItem(2)], [1])), { src: [0, 'CAM 1'], dsts: [[2, 'MON 3']], levels: [1] });
 });

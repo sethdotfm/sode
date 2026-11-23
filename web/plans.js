@@ -273,15 +273,16 @@ export function planBlocked(plan) {
   if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   // A take sends each route to the router of its destination, with the source number of that router.
-  const across = live.find((i) => i.groups.some((g) => routerOfItem(g.src) !== routerOfItem(i.dst)));
-  // One route across routers opens the Tie line picker (tiepicker.js), which is its only confirm. Mixed takes come later.
-  if (across && live.length === 1 && across.groups.length === 1 && !plan.extra?.on && !across.undo && !across.retry) {
-    return { block: null, prot, tie: across };
-  }
-  if (across) {
+  const crosses = (i) => i.groups.some((g) => routerOfItem(g.src) !== routerOfItem(i.dst));
+  const across = live.find(crosses);
+  // Routes across routers open the Tie line picker for each (tieflow.js). A take with plain routes too then opens the
+  // confirm. An item across routers has one route; undo, retry and put-back items go another way.
+  const tie = !!across && !plan.extra?.on && live.every((i) => !i.undo && !i.retry && !i.putBack) && live.filter(crosses).every((i) => i.groups.length === 1);
+  if (across && !tie) {
     return { block: { kind: 'error', title: 'Route across routers', text: `${across.dst.label}: a route across routers needs a tie line.` }, prot };
   }
   for (const i of live) {
+    if (tie && crosses(i)) continue;
     // The page has the Protects of the first router only; the server refuses a protected destination on any router.
     if (routerOfItem(i.dst)) continue;
     const p = holdsAt(
@@ -291,6 +292,7 @@ export function planBlocked(plan) {
     if (p.levels.length) prot.set(i, p);
   }
   const hit = live.filter((i) => prot.has(i));
+  if (tie) return { block: null, prot, tie };
   if (!hit.length || hit.length < live.length) return { block: null, prot };
   if (hit.length === 1) {
     const [i] = hit;
@@ -374,6 +376,7 @@ function itemSummary(item, boxed, prot, since) {
   const before = bySource(item.dst.n, all, uid).map((r) => srcRow(r.levels, tallyText(r.src, uid), null, null, uid));
   return [
     ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst), uid)),
+    item.via ? el('div', 'sode__route', el('span', 'pb-badge', `Via ${item.via}`)) : null,
     ...(since ? changedSince(item) : []).map((r) =>
       el(
         'div',
@@ -511,6 +514,8 @@ export function lastFromPlan(p) {
   if ((p.verb !== 'patch' && p.verb !== 'redo') || p.ofUndo) return null;
   const gs = p.items.flatMap((i) => i.groups.map((g) => ({ dst: i.dst, g })));
   if (!gs.length) return null;
+  // Last names one router for its destinations.
+  if (new Set(gs.map(({ dst }) => routerOfItem(dst))).size > 1) return null;
   const { src, levels } = gs[0].g;
   const sorted = (l) => [...l].sort((x, y) => x - y);
   const lv = sorted(levels);
@@ -617,6 +622,8 @@ export function noteLast(p) {
 
 export function sendTakes(p) {
   if (p.protect) return sendProtect(p);
+  // A take with tie routes sends itself (tieflow.js).
+  if (p.send) return p.send();
   const take = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
   for (const it of [...p.items, ...(p.extra?.on ? p.extra.items : [])]) {

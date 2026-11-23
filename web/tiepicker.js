@@ -1,6 +1,7 @@
-// The Tie line picker (docs/tielines-design.md, The Tie line picker; GLOSSARY.md). It opens before a take of one route
-// across routers, and it is the only confirm of that take. The server gives the ranked paths (tiepage.go, the message
-// tieTake): the page never computes paths. The keys and the selection are in tiepickrules.js.
+// The Tie line picker (docs/tielines-design.md, The Tie line picker; GLOSSARY.md). It opens for each route across
+// routers of a take, one after the other (tieflow.js). The server gives the ranked paths (tiepage.go, the message
+// tiePlan): the page never computes paths. The keys and the selection are in tiepickrules.js. The picker only
+// chooses: tieflow.js sends the take.
 //
 // Look: the source on the left, then one step for each tie line, then the destination. Each step lists its choices.
 // A choice has a wire: the chosen one is lit with --pb-tieline (docs/color-roles.md). A Protected or Reserved choice is
@@ -9,36 +10,24 @@
 // Live update: the server pushes each change that can change the plan (a tally, a Protect, a router status, the tie
 // lines). While the picker is open, each one makes the page ask for the plan again with tiePlan. A change on the chosen
 // path starts the lockout again and marks the changed rows (refresh). The selection never moves by itself. The server
-// keeps nothing for an open picker. A take that gets 409 tie_line_changed opens the picker again on the new plan.
+// keeps nothing for an open picker.
+//
+// No path: the picker opens with each reason by name (The Tie line picker, rule 10), and Take stays off. A route that
+// comes back on the live update makes the choices show.
 
-import { el, on, emit, request, srcItem, dstItem, labelNode, routerData, tallyText } from './core.js';
+import { el, on, request, srcItem, dstItem, labelNode, routerData, tallyText } from './core.js';
 import { chord, keyLabel } from './keys.js';
 import { trapDialog } from './dialogkeys.js';
 import { lockout } from './lockout.js';
 import { fmtClock } from './device.js';
 import { showResult } from './banner.js';
-import { noteLast } from './plans.js';
 import { levelsPhrase } from './levelview.js';
-import {
-  pickState,
-  chosen,
-  choices,
-  choose,
-  keyStep,
-  ready,
-  takeRoute,
-  changedText,
-  stepsOf,
-  countUp,
-  refresh,
-  reopenState,
-  tieMarked,
-  hitMarked,
-} from './tiepickrules.js';
+import { chosen, choices, choose, keyStep, ready, changedText, stepsOf, countUp, refresh, tieMarked, hitMarked, pathUsable } from './tiepickrules.js';
+import { reasonText } from './tietakerules.js';
 
-let ui = null; // { root, dialog, body, take, trap }
-// { st, plan, item, opts, lock, unlocked, timer, wait, asking, again }. wait: the timer of the next plan; asking: a
-// plan is on its way; again: a change came while it was.
+let ui = null; // { root, dialog, head, body, clear, take, trap }
+// { st, o, lock, unlocked, timer, wait, asking, again }. o: the options of pickRoute. wait: the timer of the next plan;
+// asking: a plan is on its way; again: a change came while it was.
 let cur = null;
 
 // REPLAN_MS joins the changes of one burst (a take moves many crosspoints) into one plan.
@@ -46,7 +35,6 @@ const REPLAN_MS = 150;
 
 const srcOf = (e) => srcItem(e.n, e.name || '', e.router);
 const dstOf = (e) => dstItem(e.n, e.name || '', e.router);
-const ref = (it) => ({ router: routerData(it.router || '').uid, n: it.n });
 const prefix = (uid) => routerData(uid).prefix;
 
 // chainText says what a tie line carries now (Via, docs/tielines-design.md).
@@ -63,7 +51,12 @@ function build() {
   const title = el('span', 'pb-modal__title');
   title.id = 'tiepick-title';
   title.textContent = 'Tie line picker';
+  const head = el('span', 'sode-tiepick__count');
   const body = el('div', 'pb-modal__body sode-tiepick__body');
+  const clear = el('button', 'pb-btn pb-btn--outline');
+  clear.type = 'button';
+  clear.id = 'tiepick-clear';
+  clear.textContent = 'Clear this route';
   const cancel = el('button', 'pb-btn pb-btn--outline');
   cancel.type = 'button';
   cancel.id = 'tiepick-cancel';
@@ -71,8 +64,13 @@ function build() {
   const take = el('button', 'pb-btn pb-btn--commit sode-tiepick__take');
   take.type = 'button';
   take.id = 'tiepick-take';
-  take.textContent = `Take (${keyLabel('enter')})`;
-  const dialog = el('div', 'pb-modal sode-tiepick', el('div', 'pb-modal__header', title), body, el('div', 'pb-modal__footer', keyHints(), cancel, take));
+  const dialog = el(
+    'div',
+    'pb-modal sode-tiepick',
+    el('div', 'pb-modal__header', title, head),
+    body,
+    el('div', 'pb-modal__footer', keyHints(), clear, cancel, take),
+  );
   Object.assign(dialog, { id: 'tiepick-dialog', tabIndex: -1 });
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
@@ -86,7 +84,8 @@ function build() {
   const trap = trapDialog(root, dialog, () => close());
   cancel.addEventListener('click', () => close());
   take.addEventListener('click', () => send());
-  ui = { root, dialog, body, take, trap };
+  clear.addEventListener('click', () => clearRoute());
+  ui = { root, dialog, head, body, clear, take, trap };
 }
 
 function keyHints() {
@@ -107,28 +106,26 @@ function onKey(e) {
   paint();
 }
 
-// tiePick asks the server for the paths of the one route across routers of plan and opens the picker on them. item is
-// that route's plan item. opts.onSent runs after the take went out; opts.onClose after a cancel.
-export function tiePick(plan, item, opts = {}) {
-  return pickWith(plan, item, opts, pickState);
-}
-
-// askPlan asks the server for the plan of item's route, with no take. It gives { route } with the route of the 409
-// body. When the server gave no plan, it gives { m } with the answer.
-async function askPlan(item) {
-  const g = item.groups[0];
-  const m = await request('tiePlanResult', { t: 'tiePlan', routes: [{ src: ref(g.src), dst: ref(item.dst), levels: g.levels }] });
-  const code = m.body?.error?.code;
-  if (m.status === 409 && (code === 'tie_line_needed' || code === 'no_path') && m.body.routes?.length === 1) return { route: m.body.routes[0], code };
-  return { m };
-}
-
-// pickWith opens the picker on a new plan. state makes the picker's state from the route.
-async function pickWith(plan, item, opts, state) {
-  const { route, code, m } = await askPlan(item);
-  if (code === 'tie_line_needed') return open(plan, item, opts, state(route));
-  if (code === 'no_path') return showResult('error', 'No tie line path', reasonsText(route));
+// pickRoute asks the server for the plan of one route and opens the picker on it. o:
+//   routes(): the routes of the plan request (tietakerules.js, planRequest); one of them has no ties.
+//   state(route): the picker's state from the route of the 409 body (pickState or reopenState).
+//   head: the place of the route in the take ("Route 1 of 2"), or ''.
+//   final: Take sends the take; else it goes on to the next step of the take ("Next").
+//   onPick(st): the person chose a path. clear(): Clear this route, or null for none. onClose(): a cancel.
+export async function pickRoute(o) {
+  const { route, m } = await askPlan(o.routes());
+  if (route) return open(o, o.state(route));
   showResult('error', 'Not sent', m.body?.error?.message || m.err || 'The server refused the route.');
+  o.onClose?.();
+}
+
+// askPlan asks the server for the plan of routes, with no take. It gives { route } with the one route of the 409
+// body. When the server gave no plan, it gives { m } with the answer.
+async function askPlan(routes) {
+  const m = await request('tiePlanResult', { t: 'tiePlan', routes });
+  const code = m.body?.error?.code;
+  if (m.status === 409 && (code === 'tie_line_needed' || code === 'no_path') && m.body.routes?.length === 1) return { route: m.body.routes[0] };
+  return { m };
 }
 
 // replan asks for the plan again while the picker is open. A change that comes while a plan is on its way asks again
@@ -143,7 +140,7 @@ function replan() {
       return;
     }
     c.asking = true;
-    const { route } = await askPlan(c.item);
+    const { route } = await askPlan(c.o.routes());
     c.asking = false;
     if (cur !== c) return;
     if (route) {
@@ -173,22 +170,13 @@ function startLock() {
   });
 }
 
-function reasonsText(r) {
-  const why = (x) =>
-    ({
-      no_tie_line: `no tie line from router ${prefix(x.from)} to router ${prefix(x.to)}`,
-      router_down: `router ${prefix(x.router)} is down`,
-      protected: `${x.tieName || x.tie} is protected by ${x.by}`,
-      taken: `${x.tieName || x.tie} carries another source in this take`,
-    })[x.why] || x.why;
-  const list = (r?.reasons || []).map(why);
-  return list.length ? `${list.join('; ')}.` : 'No tie line path is usable.';
-}
-
-function open(plan, item, opts, st) {
+function open(o, st) {
   if (!ui) build();
   stop();
-  cur = { st, plan, item, opts, unlocked: false, timer: countUp(tick) };
+  cur = { st, o, unlocked: false, timer: countUp(tick) };
+  ui.head.textContent = o.head || '';
+  ui.clear.hidden = !o.clear;
+  ui.take.textContent = `${o.final ? 'Take' : 'Next'} (${keyLabel('enter')})`;
   startLock();
   paint();
   ui.trap.show();
@@ -210,7 +198,7 @@ function close(sent = false) {
   stop();
   cur = null;
   ui.trap.hide();
-  if (!sent) c.opts.onClose?.();
+  if (!sent) c.o.onClose?.();
 }
 
 // tiePickShown: the picker is open (the page leaves its keys to it).
@@ -238,6 +226,7 @@ function paint() {
   for (let s = 0; s < stepsOf(p); s++) steps.push(stepNode(s, src));
   ui.body.replaceChildren(
     el('div', 'sode-tiepick__route', 'Take ', labelNode(src), ' to ', labelNode(dst), `, ${levelsPhrase(route.levels, dst.router || '')}`),
+    ...reasonsNode(route),
     el(
       'div',
       'sode-tiepick__map',
@@ -245,9 +234,23 @@ function paint() {
       ...steps,
       endNode('Destination', dst, 'sode-tiepick__end--dst', st.marks?.end),
     ),
-    affectedNode(p, src),
+    ...(p ? [affectedNode(p, src)] : []),
   );
   paintTake();
+}
+
+// reasonsNode names each reason when no path is usable (The Tie line picker, rule 10). An error alert, with text.
+function reasonsNode(route) {
+  if (route.paths.some(pathUsable)) return [];
+  const list = route.reasons?.length ? route.reasons.map((x) => reasonText(x, prefix)) : ['No tie line path is usable'];
+  return [
+    el(
+      'div',
+      'pb-alert pb-alert--error sode-tiepick__reasons',
+      el('div', 'pb-alert__title', 'No usable path'),
+      el('ul', 'sode-tiepick__why', ...list.map((t) => el('li', null, t))),
+    ),
+  ];
 }
 
 function endNode(word, it, cls, marked = false) {
@@ -352,48 +355,19 @@ function affectedNode(p, src) {
   return el('div', 'sode-tiepick__affected', el('div', 'sode-tiepick__head', head, ...mark), el('ul', 'sode-tiepick__hits', ...rows, ...extra));
 }
 
-async function send() {
+// send: the person chose the path. tieflow.js sends the take.
+function send() {
   if (!cur?.unlocked || !ready(cur.st)) return;
-  const { st, plan, item, opts } = cur;
-  const route = takeRoute(st);
-  const via = chosen(st)
-    .hops.slice(0, -1)
-    .map((h) => h.tie.name || h.tie.id)
-    .join(', ');
-  const text = `${srcOf(st.route.src).label} to ${dstOf(st.route.dst).label} Via ${via}`;
+  const { st, o } = cur;
   close(true);
-  showResult('info', 'Taking', text);
-  const m = request('tieTakeResult', { t: 'tieTake', routes: [route] });
-  opts.onSent?.(plan);
-  answer(await m, text, { plan, item, opts, ids: route.ties.map((t) => t.id) });
+  o.onPick(st);
 }
 
-function answer(m, text, { plan, item, opts, ids }) {
-  const r = m.body?.results?.[0];
-  if (m.status === 200 && r) {
-    if (m.body.ok) {
-      // Last holds the typed source and destination, not the hops, as after a plain take.
-      if (noteLast(plan)) emit('last');
-      return showResult('ok', 'Success', text);
-    }
-    const bad = (r.hops || []).find((h) => h.result === 'failed');
-    const why = bad ? `the hop to ${bad.tieName} failed` : r.error || 'failed';
-    return showResult('error', 'Take failed', `${text}: ${why}`);
-  }
-  if (m.body?.error?.code === 'tie_line_changed') return reopen(m.body.routes?.[0], { plan, item, opts, ids });
-  showResult('error', 'Not sent', m.body?.error?.message || m.err || 'The server refused the take.');
-}
-
-// reopen: the server refused the take with 409 tie_line_changed and sent nothing (docs/tielines-design.md, The stale
-// check, rule 5). The page says which tie line changed and opens the picker again on the new plan. It chooses the
-// same tie lines when they still make a path. r is the route of the 409 body.
-function reopen(r, { plan, item, opts, ids }) {
-  const changed = (r?.changed || []).map((t) => t.id);
-  const names = (r?.changed || []).map((t) => t.name || t.id);
-  const fresh = r?.newAffected || [];
-  const what = names.length ? `${names.join(', ')} changed` : fresh.length ? 'The Affected destinations changed' : 'A tie line changed';
-  showResult('error', 'Tie line changed', `${what}. Sode sent nothing. Choose again.`);
-  return pickWith(plan, item, opts, (route) => reopenState(route, ids, changed, fresh));
+function clearRoute() {
+  const o = cur?.o;
+  if (!o?.clear) return;
+  close(true);
+  o.clear();
 }
 
 // A Lock closes the picker, as it closes the take Confirm.

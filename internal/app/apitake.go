@@ -172,7 +172,8 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		}
 		rt := a.r()
 		p := &takePlan{}
-		var all, bare []tieRoute
+		var all []tieRoute
+		bare := false
 		ties := map[int][]string{}
 		for i, ro := range in.Routes {
 			su, u, prob := a.routeUnits(ro)
@@ -189,11 +190,12 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil):
 				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties and affected are only for a route across routers", i)
 			case su != u && len(ro.Ties) == 0:
-				bare = append(bare, r)
+				bare = true
 			case su != u:
 				r.expect = map[string]tieWant{}
 				for _, t := range ro.Ties {
 					ties[i] = append(ties[i], t.ID)
+					r.ties = append(r.ties, t.ID)
 					w, prob := a.tieWantOf(t.Expect)
 					if prob != nil {
 						return nil, prob
@@ -214,15 +216,15 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			all = append(all, r)
 			p.Items = append(p.Items, routeReq{Src: ro.Src.N, Dst: ro.Dst.N, Levels: ls, Router: u.uid})
 		}
-		if len(ties) == 0 && len(bare) == 0 {
+		if len(ties) == 0 && !bare {
 			return p, nil
 		}
 		// Rights cover the typed ends only, and come first, so a caller learns no path for ends that it must not patch.
 		if prob := a.tieRouteRights(rt, cl.Rights, all); prob != nil {
 			return nil, prob
 		}
-		if len(bare) > 0 {
-			return nil, a.apiTieProblem(rt, a.view(cl), bare)
+		if bare {
+			return nil, a.apiTieProblem(rt, a.view(cl), all)
 		}
 		tt, prob := a.planTieTake(rt, a.view(cl), all, ties)
 		if prob != nil {
