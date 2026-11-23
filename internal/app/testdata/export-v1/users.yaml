@@ -7,6 +7,7 @@ users:
     shoeSize: 42
     profile:
       prefs: {theme: dark}
+      palettePins: [page:log, preset:user:pr-me1]
       presets:
         - id: pr-me1
           name: Mine

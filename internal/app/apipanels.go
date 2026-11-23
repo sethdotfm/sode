@@ -158,10 +158,16 @@ const panelSaveFail = "the panel could not be saved"
 func (a *App) checkPanel(w http.ResponseWriter, p *Panel) bool {
 	err := validatePanel(p)
 	if err == nil {
+		p.Settings, err = levelsByRouter(p.Settings, a.r().cfg.UID)
+	}
+	if err == nil {
 		err = a.nameFixed(p.Settings)
 	}
+	if err == nil {
+		err = a.checkPanelTies(p)
+	}
 	if err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+		failWith(w, err)
 	}
 	return err == nil
 }
@@ -457,7 +463,8 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
-	c.Art, c.Rev, c.Slug = nil, 0, ""
+	// The copy is no Reserve: one tie line is Reserved by one panel only.
+	c.Art, c.Rev, c.Slug, c.TieLines = nil, 0, "", nil
 	if !a.checkPanel(w, &c) {
 		return
 	}

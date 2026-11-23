@@ -7,9 +7,9 @@ globalThis.document = node();
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 
 test('the main page search accepts A.23 for the router with prefix A, and refuses a prefix no router has', async () => {
-  const { S, search, item } = await import('./all.mjs');
+  const { S, search, item, routerData } = await import('./all.mjs');
   S.cfg = { numberOffset: 1 };
-  S.prefix = 'A';
+  routerData('').prefix = 'A';
   const list = [item(21, 'CAM 22'), item(22, 'VTR'), item(229, 'GFX')];
   assert.deepEqual(
     search(list, 'A.23').map((it) => it.num),

@@ -52,8 +52,8 @@ func signInAs(b *tab, name, pin string) {
 }
 
 // The Palette on Home. It checks the Palette character, the doubled character and Ctrl+Shift+P. It checks a preset
-// through the Confirm and into the boxes, grey rows only as bookmarks with their offers, a category word and a
-// setting. It checks the last picks of a Guest and of a user. It checks Sign in and Sign out from the Palette, and no
+// through the Confirm and into the boxes, and grey rows only as Palette pins with their offers. It checks a category
+// word and a setting. It checks the last picks of a Guest and of a user. It checks Sign in and Sign out from the Palette, and no
 // Palette under the Lock.
 func TestChromePaletteMain(t *testing.T) {
 	b := startBrowser(t)
@@ -117,8 +117,8 @@ func TestChromePaletteMain(t *testing.T) {
 	if b.eval(`!!document.querySelector('#palette-list [data-key="preset:global:p-out"]')`) == true {
 		t.Error("the Palette lists a preset outside Bo's Rights")
 	}
-	// A bookmark with Show in Palette keeps its grey row, with the reason and the offers.
-	b.eval(`localStorage.setItem('sode-bookmarks', JSON.stringify([{ key: 'preset:global:p-out', label: 'Studio Out', newTab: false, inPalette: true }])); import('./core.js').then((m) => { m.emit('bookmarks'); return true })`)
+	// A Palette pin keeps its grey row, with the reason and the offers. Bo is signed in, so his pins are in Me.
+	b.eval(`import('./pinstore.js').then((m) => m.savePins(['preset:global:p-out'])).then((r) => r.ok)`)
 	paletteFind(b, "Studio Out", "preset:global:p-out")
 	b.waitFor("a bookmarked preset outside Bo's Rights is grey", `document.querySelector('#palette-list [data-key="preset:global:p-out"]').matches('.sode-palette__row--off') && document.querySelector('#palette-list [data-key="preset:global:p-out"]').textContent.includes('Outside your Rights')`)
 	paletteKey(b, "Enter", false)
@@ -127,11 +127,12 @@ func TestChromePaletteMain(t *testing.T) {
 		t.Error("a grey preset opened the Confirm")
 	}
 	b.eval(`document.querySelector('.sode-palette__q').focus(); document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); true`)
-	b.eval(`localStorage.setItem('sode-bookmarks', JSON.stringify([{ key: 'setting:branding/cfg-brandtext', label: 'Logo text', newTab: false, inPalette: true }])); import('./core.js').then((m) => { m.emit('bookmarks'); return true })`)
+	b.eval(`import('./pinstore.js').then((m) => m.savePins(['setting:branding/cfg-brandtext'])).then((r) => r.ok)`)
 	paletteFind(b, "Logo text", "setting:branding/cfg-brandtext")
 	paletteKey(b, "Enter", false)
 	b.waitFor("a bookmarked setting outside Bo's Role offers the Approval flow", `document.querySelector('.sode-palette__why').textContent.includes('Approval')`)
-	b.eval(`document.querySelector('.sode-palette__q').focus(); document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); localStorage.removeItem('sode-bookmarks'); true`)
+	b.eval(`document.querySelector('.sode-palette__q').focus(); document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); true`)
+	b.eval(`import('./pinstore.js').then((m) => m.savePins([])).then((r) => r.ok)`)
 
 	// The first word picks a category: its rows come first, the other matches follow.
 	paletteFind(b, "set theme", "setting:this-browser/cfg-theme")
@@ -271,10 +272,10 @@ func TestChromePaletteFocus(t *testing.T) {
 		b.waitFor("the Palette opens", paletteShown+` && document.activeElement.matches('.sode-palette__q')`)
 	}
 
-	// A bookmarked preset with Show in Palette is first in the empty list, but Enter does not fire it.
-	b.eval(`localStorage.setItem('sode-bookmarks', JSON.stringify([{ key: 'preset:global:p-in', label: 'Studio In', newTab: false, inPalette: true }])); import('./core.js').then((m) => { m.emit('bookmarks'); return true })`)
+	// A pinned preset is first in the empty list, but Enter does not fire it.
+	b.eval(`import('./pinstore.js').then((m) => m.savePins(['preset:global:p-in'])).then((r) => r.ok)`)
 	open()
-	b.waitFor("the bookmark shows", `!!document.querySelector('#palette-list [data-key="preset:global:p-in"]')`)
+	b.waitFor("the pin shows", `!!document.querySelector('#palette-list [data-key="preset:global:p-in"]')`)
 	if b.eval(`!!document.querySelector('#palette-list [aria-selected="true"]')`) == true {
 		t.Error("the empty Palette has a row that Enter picks")
 	}

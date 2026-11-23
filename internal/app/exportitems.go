@@ -30,7 +30,9 @@ type exportListItem struct {
 	Kind   string `json:"kind,omitempty"`   // panels: panel, template, checkpointSet; artwork: default, icon
 	Detail string `json:"detail,omitempty"` // users: the Role
 	Size   int    `json:"size"`
-	Router bool   `json:"router,omitempty"` // names the router, so the router goes with it
+	Router bool   `json:"router,omitempty"` // names a router, so that router goes with it
+	// Routers: the UID of each router it names.
+	Routers []string `json:"routers,omitempty"`
 	// Icons: the Icon library icons it uses, which go with it.
 	Icons []string `json:"icons,omitempty"`
 }
@@ -71,7 +73,12 @@ func (d ArtDefault) libIcons() []string {
 
 func (a *App) exportList() (exportList, error) {
 	cfg := a.r().cfg
-	prefix := map[string]string{cfg.UID: cfg.Prefix}
+	routers := cfg.Routers()
+	prefix := map[string]string{}
+	for _, r := range routers {
+		prefix[r.UID] = r.Prefix
+	}
+	one := len(routers) == 1
 	var out exportList
 	cat := func(name string) *exportListCat {
 		out.Categories = append(out.Categories, exportListCat{Name: name})
@@ -81,7 +88,7 @@ func (a *App) exportList() (exportList, error) {
 	var err error
 	item := func(c *exportListCat, id, name, kind string, v any, images ...[]byte) *exportListItem {
 		used := map[string]bool{}
-		b, e := exportYAML(v, prefix, true, used)
+		b, e := exportYAML(v, prefix, one, used)
 		if e != nil {
 			err = e
 		}
@@ -89,7 +96,13 @@ func (a *App) exportList() (exportList, error) {
 		for _, img := range images {
 			n += len(img)
 		}
-		c.Items = append(c.Items, exportListItem{ID: id, Name: name, Kind: kind, Size: n, Router: used[cfg.UID]})
+		var names []string
+		for _, r := range routers {
+			if used[r.UID] {
+				names = append(names, r.UID)
+			}
+		}
+		c.Items = append(c.Items, exportListItem{ID: id, Name: name, Kind: kind, Size: n, Router: len(names) > 0, Routers: names})
 		c.Size += n
 		return &c.Items[len(c.Items)-1]
 	}
@@ -100,7 +113,7 @@ func (a *App) exportList() (exportList, error) {
 		if e != nil {
 			return out, e
 		}
-		b, e := exportYAML(node, prefix, true, map[string]bool{})
+		b, e := exportYAML(node, prefix, one, map[string]bool{})
 		if e != nil {
 			return out, e
 		}
@@ -108,21 +121,27 @@ func (a *App) exportList() (exportList, error) {
 		settings.Size += len(b)
 	}
 
-	routers := cat(catRouters)
-	r := cfg.Router
-	r.Extra = nil
-	names, e := yaml.Marshal(a.liveNamesTable(r.UID))
-	if e != nil {
-		return out, e
+	routerCat := cat(catRouters)
+	for _, r := range routers {
+		r.Extra = nil
+		names, e := yaml.Marshal(a.liveNamesTable(r.UID))
+		if e != nil {
+			return out, e
+		}
+		title := r.Title
+		if title == "" {
+			title = r.Address
+		}
+		if title == "" {
+			title = "Router " + r.Prefix
+		}
+		item(routerCat, r.UID, title, "", &exportRouters{Routers: []config.Router{r}}, names)
 	}
-	title := r.Title
-	if title == "" {
-		title = r.Address
+
+	ties := cat(catTieLines)
+	for _, t := range cfg.TieLines {
+		item(ties, t.ID, t.Name, "", &exportTieLines{TieLines: []config.TieLine{t}})
 	}
-	if title == "" {
-		title = "Router " + r.Prefix
-	}
-	item(routers, r.UID, title, "", &exportRouters{Routers: []config.Router{r}}, names)
 
 	users := cat(catUsers)
 	for _, u := range cfg.Users {

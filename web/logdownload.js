@@ -1,7 +1,7 @@
 // /log downloads. The server sends every Log row for this reader, with the values the reader's Role cannot see taken
 // out (internal/app/logdownload.go). The page makes the file with its own filter, sort and words (logfile.js), so
 // those rules exist only here. A request names parts, so a new part needs no new route.
-import { $, el, S, request } from './core.js';
+import { $, el, S, request, routerData } from './core.js';
 import { logCSV, statesCSV, minutesCSV } from './logfile.js';
 import { zipFiles } from './zipfile.js';
 
@@ -47,15 +47,18 @@ function save(blob, ext) {
 
 const csvBlob = (text) => new Blob([text], { type: 'text/csv;charset=utf-8' });
 
-// Numbers and level names as the page shows them.
-const words = () => ({ off: S.cfg ? S.cfg.numberOffset : 0, level: (ui) => S.levelBy.get(ui)?.label });
+// The router column's words: the Router prefix, with two or more routers only. A router that is gone shows its UID.
+const routerWord = () => (S.routers.length > 1 ? (uid) => S.routers.find((r) => r.uid === uid)?.prefix || uid : null);
+
+// Numbers and level names as the page shows them. Each row's level name is that of its router.
+const words = () => ({ off: S.cfg ? S.cfg.numberOffset : 0, level: (ui, uid) => routerData(uid).levelBy.get(ui)?.label, router: routerWord() });
 
 async function fullLog() {
   const data = await read(['log', 'uptimeStates', 'uptimeMinutes'], 'full');
   const files = [
     { name: 'log.csv', text: logCSV(data.log, words()) },
-    { name: 'uptime-states.csv', text: statesCSV(data.uptimeStates) },
-    { name: 'uptime-minutes.csv', text: minutesCSV(data.uptimeMinutes) },
+    { name: 'uptime-states.csv', text: statesCSV(data.uptimeStates, routerWord()) },
+    { name: 'uptime-minutes.csv', text: minutesCSV(data.uptimeMinutes, routerWord()) },
   ];
   save(await zipFiles(files), 'zip');
 }

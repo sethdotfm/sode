@@ -10,7 +10,7 @@ function badges(s) {
   if (!ROLE_BADGE[edit]) return null;
   const approval = el('span', 'pb-badge pb-badge--warn', 'Approval');
   approval.dataset.pbTip = `Save needs Approval from ${ROLE_WHO[edit]}`;
-  s.querySelector(':scope > legend').append(' ', el('span', `pb-badge sode__role-badge sode__role-badge--${edit}`, ROLE_BADGE[edit]), ' ', approval);
+  s.querySelector(':scope > legend').append(' ', el('span', 'pb-badge', ROLE_BADGE[edit]), ' ', approval);
   return approval;
 }
 

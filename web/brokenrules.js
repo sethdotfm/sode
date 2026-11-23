@@ -22,6 +22,8 @@ function holds(it, m) {
       return it.levels.includes(n);
     case 'router':
       return (it.router || '') === (m.ref.router || '');
+    case 'tie':
+      return (it.ties || []).includes(m.tie);
     default:
       return true;
   }
@@ -31,7 +33,7 @@ const list = (x) => (Array.isArray(x) ? x.filter((m) => m && typeof m === 'objec
 
 // {broken, moved}: the preset's marks that still apply. Kinds the page cannot place (an import's skipped preset) stay.
 export function presetMarks(p) {
-  const keep = (m) => (['source', 'destination', 'level', 'router'].includes(m.kind) ? (p.items || []).some((it) => holds(it, m)) : true);
+  const keep = (m) => (['source', 'destination', 'level', 'router', 'tie'].includes(m.kind) ? (p.items || []).some((it) => holds(it, m)) : true);
   return { broken: list(p.broken).filter(keep), moved: list(p.moved).filter(keep) };
 }
 
@@ -108,6 +110,9 @@ export function leftOutLines(marks, offset) {
         return `Level ${r.n}: not on the router now`;
       case 'preset':
         return name ? `Preset "${name}": not in Sode` : 'A preset: not in Sode';
+      case 'tie':
+        // A preset's route across routers names a tie line that an Administrator deleted (docs/tielines-design.md).
+        return 'A tie line of a route across routers: not in Sode';
       case 'source':
       case 'destination':
         return r.n >= 0
@@ -123,7 +128,7 @@ export function leftOutLines(marks, offset) {
 
 const sig = (marks) =>
   marks
-    .map((m) => `${m.kind}:${m.ref.router || ''}:${m.ref.n}:${m.ref.name || ''}`)
+    .map((m) => `${m.kind}:${m.ref.router || ''}:${m.ref.n}:${m.ref.name || ''}:${m.tie || ''}`)
     .sort()
     .join('|');
 

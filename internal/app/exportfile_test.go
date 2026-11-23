@@ -112,16 +112,17 @@ func slicesSorted(m map[string]string) []string {
 	return out
 }
 
-var everyCategory = []string{catSettings, catRouters, catUsers, catPresets, catFilterSets, catBookmarks, catPanels, catArtwork, catAPIClients, catBrowser}
+var everyCategory = []string{catSettings, catRouters, catTieLines, catUsers, catPresets, catFilterSets, catBookmarks, catPanels, catArtwork, catAPIClients, catBrowser}
 
-// seedEverything puts one item in every category. Each item names the router where it can.
+// seedEverything puts one item in every category. Each item names the router where it can. Tie lines need two routers,
+// so their category stays empty here (exporttielines_test.go).
 func seedEverything(t *testing.T, a *App) {
 	t.Helper()
 	cfg := a.r().cfg
 	uid, ana := cfg.UID, userID(t, a, "Ana")
 	a.mu.Lock()
-	a.router.srcNames[2] = "CAM 2"
-	a.router.dstNames[4] = "MON 4"
+	a.first.router.srcNames[2] = "CAM 2"
+	a.first.router.dstNames[4] = "MON 4"
 	a.mu.Unlock()
 	lifeCommit(t, a, func(c *config.Config) {
 		c.Presets = []config.Preset{{ID: "pr-1", Name: "Show", Items: []config.PresetItem{{Src: c.SourceRef(2, "CAM 2"), Dsts: []config.Ref{c.DestinationRef(4, "MON 4")}}}}}
@@ -382,7 +383,7 @@ func TestStartRemovesImportStaging(t *testing.T) {
 // Every top-level config key is in one Settings section, or in exportNotSettings, so a new setting cannot
 // miss the export. The sections are the page's own.
 func TestExportSectionsCoverTheConfig(t *testing.T) {
-	exportNotSettings := []string{"format", "installUid", "users", "presets", "filterSets", "apiClients", "bookmarks"}
+	exportNotSettings := []string{"format", "installUid", "users", "presets", "filterSets", "apiClients", "bookmarks", "tieLines"}
 	where := map[string][]string{}
 	for _, s := range exportSections {
 		for _, k := range s.Keys {

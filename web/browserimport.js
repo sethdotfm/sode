@@ -2,6 +2,7 @@
 
 import { PREFS } from './prefs.js';
 import { cleanBookmarks } from './bookmarkrules.js';
+import { cleanPins } from './pinrules.js';
 
 export function browserPrefs(file) {
   const out = {};
@@ -26,5 +27,12 @@ export function mergeByName(local, file, replace) {
 export function browserBookmarks(file, replace) {
   if (!Array.isArray(file?.bookmarks)) return null;
   const list = cleanBookmarks(file.bookmarks);
+  return list.length || replace ? list : null;
+}
+
+// This browser's Palette pins, the same way: one list in the person's own order.
+export function browserPins(file, replace) {
+  if (!Array.isArray(file?.palettePins)) return null;
+  const list = cleanPins(file.palettePins);
   return list.length || replace ? list : null;
 }

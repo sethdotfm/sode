@@ -7,15 +7,15 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 
 const setup = async () => {
   const m = await import('./all.mjs');
-  const { S } = m;
+  const { S, routerData } = m;
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.srcBy = new Map([1, 2, 3].map((n) => [n, { n, num: n + 1, name: `SRC ${n + 1}`, label: `SRC ${n + 1}` }]));
-  S.dstBy = new Map([10, 11].map((n) => [n, { n, num: n + 1, name: `DST ${n + 1}`, label: `DST ${n + 1}` }]));
+  routerData('').srcBy = new Map([1, 2, 3].map((n) => [n, { n, num: n + 1, name: `SRC ${n + 1}`, label: `SRC ${n + 1}` }]));
+  routerData('').dstBy = new Map([10, 11].map((n) => [n, { n, num: n + 1, name: `DST ${n + 1}`, label: `DST ${n + 1}` }]));
   return m;
 };
 
 test('gridPlan: one item for each destination, a breakaway as two groups', async () => {
-  const { gridPlan, S } = await setup();
+  const { gridPlan, routerData } = await setup();
   const plan = gridPlan(
     [
       { src: 1, dst: 10, levels: [1] },
@@ -26,13 +26,13 @@ test('gridPlan: one item for each destination, a breakaway as two groups', async
   );
   assert.equal(plan.verb, 'grid');
   assert.deepEqual(plan.warnings, ['a warning']);
-  const item = (dst, groups) => ({ dst: S.dstBy.get(dst), groups, skipped: [], untouched: [], undo: null, retry: null });
+  const item = (dst, groups) => ({ dst: routerData('').dstBy.get(dst), groups, skipped: [], untouched: [], undo: null, retry: null });
   assert.deepEqual(plan.items, [
     item(10, [
-      { src: S.srcBy.get(1), levels: [1] },
-      { src: S.srcBy.get(2), levels: [2] },
+      { src: routerData('').srcBy.get(1), levels: [1] },
+      { src: routerData('').srcBy.get(2), levels: [2] },
     ]),
-    item(11, [{ src: S.srcBy.get(3), levels: [1, 2] }]),
+    item(11, [{ src: routerData('').srcBy.get(3), levels: [1, 2] }]),
   ]);
 });
 

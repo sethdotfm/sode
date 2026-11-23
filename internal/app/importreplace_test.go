@@ -369,8 +369,8 @@ func TestReplaceImportKeepsTwinsOfRefusedItems(t *testing.T) {
 	files["artwork.yaml"] = strings.Replace(files["artwork.yaml"], "art: lib:", "art: bad:", 1)
 	files["art/icons/"+ic.fileName()] = "not an image"
 	a.mu.Lock()
-	clear(a.router.srcNames)
-	clear(a.router.dstNames)
+	clear(a.first.router.srcNames)
+	clear(a.first.router.dstNames)
 	a.mu.Unlock()
 	res := applied(t, postApply(t, a, tok, zipOf(t, files), replaceReq(cats...)))
 	if len(res.Failed) != 0 {

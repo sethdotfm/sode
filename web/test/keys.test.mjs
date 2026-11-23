@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chord, mac, listStep, resultStep, addClick, browseStep, primary, modChord, undoKey, ctrlChar, keyLabel, ariaKeys } from '../keys.js';
+import { chord, mac, listStep, resultStep, addClick, browseStep, primary, modChord, undoKey, redoKey, ctrlChar, keyLabel, ariaKeys } from '../keys.js';
 
 const k = (key, code, mods = {}) => ({ key, code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
@@ -127,6 +127,16 @@ test("undo goes by the typed z, and only the OS text-undo chord is a text box's 
   assert.equal(undoKey(k('y', 'KeyZ', { ctrlKey: true }), false), null);
   assert.equal(undoKey(k('Z', 'KeyZ', { ctrlKey: true, shiftKey: true }), false), null);
   assert.equal(undoKey(k('z', 'KeyZ'), true), null);
+});
+
+test("redo is Ctrl+Shift+Z, Cmd+Shift+Z on a Mac, and only the OS text-redo chord is a text box's own", () => {
+  assert.deepEqual(redoKey(k('Z', 'KeyZ', { ctrlKey: true, shiftKey: true }), false), { own: true });
+  assert.deepEqual(redoKey(k('z', 'KeyZ', { metaKey: true, shiftKey: true }), true), { own: true });
+  assert.deepEqual(redoKey(k('Z', 'KeyZ', { ctrlKey: true, shiftKey: true }), true), { own: false });
+  assert.equal(redoKey(k('z', 'KeyZ', { ctrlKey: true }), false), null, 'no Shift is undo');
+  assert.equal(redoKey(k('Z', 'KeyZ', { ctrlKey: true, shiftKey: true, altKey: true }), false), null);
+  assert.equal(redoKey(k('Z', 'KeyZ', { metaKey: true, shiftKey: true }), false), null, 'the Windows key');
+  assert.deepEqual(redoKey(k('Z', 'KeyY', { ctrlKey: true, shiftKey: true }), false), { own: true }, 'QWERTZ');
 });
 
 test('Ctrl+? and Ctrl+, go by the typed character, so AZERTY (both on KeyM) keeps them', () => {

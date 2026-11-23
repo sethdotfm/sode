@@ -17,7 +17,6 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/sethdotfm/sode/internal/config"
-	"github.com/sethdotfm/sode/internal/swp08"
 )
 
 type client struct {
@@ -33,6 +32,9 @@ type client struct {
 	// api: set for a caller that is not a browser session; its Actor and Rights replace
 	// the lookup callerOf does for a browser.
 	api *apiCtx
+	// forPage: the page connection that this in-process caller stands for (apiCtx.page). Who and the Rights are its own,
+	// and its entries carry no API actor.
+	forPage *client
 
 	u connUser // page type, signed-in user, session token (users.go)
 }
@@ -87,7 +89,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("/ws", a.serveWS)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
-		st := a.status
+		st := a.firstUnit().status
 		a.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(st)
@@ -123,36 +125,6 @@ func secureHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 		next.ServeHTTP(w, r)
 	})
-}
-
-type healthMsg struct {
-	Server        string `json:"server"`
-	Router        string `json:"router"`
-	Addr          string `json:"targetAddress"`
-	Err           string `json:"err,omitempty"`
-	Version       string `json:"version"`
-	UptimeSeconds int64  `json:"uptimeSeconds"`
-	Browsers      int    `json:"browsers"`
-}
-
-func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		w.Header().Set("Allow", "GET, HEAD")
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	a.mu.Lock()
-	st := a.status
-	browsers := len(a.clients)
-	a.mu.Unlock()
-	code := http.StatusOK
-	if st.Router != string(swp08.StateUp) {
-		code = http.StatusServiceUnavailable
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(healthMsg{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
 }
 
 // clientIP: a hop that is not an address ends the search at the peer. Sode does not trust what lies beyond it.
@@ -386,6 +358,8 @@ type inMsg struct {
 	User         string             `json:"user"` // userSignIn: the user's name (name and PIN mode)
 	ID           int                `json:"id"`   // echoed by save replies
 	Items        []routeReq         `json:"items"`
+	Routes       json.RawMessage    `json:"routes"`   // tieTake: the routes of POST /takes
+	Entries      []int              `json:"entries"`  // tieUndo: the History ids whose Undo the page checks
 	Preset       string             `json:"preset"`   // take: the preset that was fired, if any
 	PresetID     string             `json:"presetId"` // ...and its hidden id
 	Sets         []config.FilterSet `json:"sets"`
@@ -393,7 +367,9 @@ type inMsg struct {
 	FilterSets   []config.FilterSet `json:"filterSets"`
 	Presets      []config.Preset    `json:"presets"`
 	Bookmarks    []config.Bookmark  `json:"bookmarks"`    // bookmarks (Everyone), profileSave (Me)
+	TieLines     []config.TieLine   `json:"tieLines"`     // tieLines: the whole list
 	PalettePicks []string           `json:"palettePicks"` // profileSave: the Palette's last picks
+	PalettePins  []string           `json:"palettePins"`  // profileSave: the Palette pins in Me
 	Page         string             `json:"page"`         // hi: main | log
 	Token        string             `json:"token"`        // hi: session token of a persistent user or a tab sign-in
 	Tab          bool               `json:"tab"`          // userSignIn: no lock on, wants a tab session token
@@ -411,7 +387,7 @@ type inMsg struct {
 	MyClient     *myClientReq       `json:"client"`   // myClientSave
 	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
 	approver     *config.User       // approve sets it after it checks the Approval's PIN
-	Router       string             `json:"router"`  // setupRouter: the address typed
+	Router       string             `json:"router"`  // setupRouter: the address typed; routerUses and uptime: the router UID
 	Setup        *setupReq          `json:"setup"`   // setupFinish
 	TakeOver     bool               `json:"take"`    // setupClaim: Take control from the browser that runs setup
 	For          *inMsg             `json:"for"`     // approvalAsk: the action to approve
@@ -432,8 +408,9 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-// A range with no end runs to now; no start, a week back.
-func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
+// A range with no end runs to now; no start, a week back. router is the router UID; blank is the first router. A UID
+// with no router gets a range with nothing recorded, and the reply echoes it.
+func (a *App) uptimeReply(id int, router string, from, to, slot int64) uptimeMsg {
 	now := time.Now().UnixMilli()
 	if to <= 0 || to > now {
 		to = now
@@ -445,8 +422,13 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	if oldest := time.UnixMilli(now).Add(-uptimeKeep).UnixMilli(); from < oldest {
 		from = oldest
 	}
-	r := a.up.Range(from, to, slot)
-	m := uptimeMsg{T: "uptimeResult", ID: id, From: from, To: to, Slot: max(slot, 60_000), Now: now, Start: r.Start, Trans: r.Trans, Counts: r.Counts}
+	var r UptimeRange
+	u, ok := a.unit(router)
+	if ok {
+		r = u.up.Range(from, to, slot)
+		router = u.uid()
+	}
+	m := uptimeMsg{T: "uptimeResult", ID: id, Router: router, From: from, To: to, Slot: max(slot, 60_000), Now: now, Start: r.Start, Trans: r.Trans, Counts: r.Counts}
 	if m.Trans == nil {
 		m.Trans = []UptimeTrans{}
 	}

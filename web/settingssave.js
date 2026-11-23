@@ -168,7 +168,7 @@ function paintPresetMarks() {
     const at = name && (src.node ? src.node(r.key)?.closest('.sode__field, .pb-check') : fieldset(r.key));
     if (!at || done.has(at)) continue;
     done.add(at);
-    const mark = el('span', 'pb-badge pb-badge--info sode__preset-mark', name);
+    const mark = el('span', 'pb-badge sode__preset-mark', name);
     if (src.node) at.after(mark);
     else at.append(mark);
   }
@@ -201,7 +201,6 @@ export function warnUnsaved() {
   $('settings-unsaved').textContent = unsavedText();
   $('settings-unsaved').hidden = false;
   $('settings-exit').textContent = 'Discard and exit';
-  $('settings-exit').classList.replace('pb-btn--outline', 'pb-btn--danger');
   renderSaveState();
   return true;
 }
@@ -209,7 +208,6 @@ export function warnUnsaved() {
 export function unwarn() {
   $('settings-unsaved').hidden = true;
   $('settings-exit').textContent = 'Exit';
-  $('settings-exit').classList.replace('pb-btn--danger', 'pb-btn--outline');
   renderSaveState();
 }
 

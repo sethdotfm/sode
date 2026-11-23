@@ -18,6 +18,27 @@ test('the item a cell shows is its default key, and an unassigned cell shows non
   assert.equal(itemKey({ kind: 'source' }), '');
   assert.equal(itemKey({ kind: 'take' }), '');
   assert.equal(defaultFor({ kind: 'source', n: 4 }, defs), null);
+  assert.equal(itemKey({ kind: 'source', router: 'rb', n: 3 }), 'source/rb/3');
+});
+
+test('a Source default names its router, and the old key with no router finds the first router', () => {
+  const [A, B] = ['ra', 'rb'];
+  const both = [
+    { kind: 'source', router: B, n: 5, name: 'B CAM', artB: 'B' },
+    { kind: 'source', router: A, n: 5, name: 'CAM 5', artB: 'A' },
+  ];
+  const m = defaultsBy(both, A);
+  assert.equal(defaultFor({ kind: 'source', router: A, n: 5 }, m).artB, 'A');
+  assert.equal(defaultFor({ kind: 'source', router: B, n: 5 }, m).artB, 'B');
+  // A Grid name that follows the router, or an old cell, has no router: it is the first router's.
+  assert.equal(defaultFor({ kind: 'source', n: 5 }, m).artB, 'A');
+  // A default on router B only never shows on the first router's item.
+  assert.equal(defaultFor({ kind: 'source', n: 5 }, defaultsBy([both[0]], A)), null);
+  assert.equal(defaultFor({ kind: 'source', router: A, n: 5 }, defaultsBy([both[0]], A)), null);
+  // A default with no router (a one-router file) is the first router's.
+  assert.equal(defaultFor({ kind: 'source', router: A, n: 3 }, defaultsBy([{ kind: 'source', n: 3, artB: '3' }], A)).artB, '3');
+  // With the first router not known yet, the first default of a number gets the old key.
+  assert.equal(defaultFor({ kind: 'source', n: 5 }, defaultsBy([both[1], both[0]])).artB, 'A');
 });
 
 test('a cell with no artwork of its own takes the default, Hide text included', () => {

@@ -25,6 +25,7 @@ const exportFormat = 1
 const (
 	catSettings   = "settings"
 	catRouters    = "routers"
+	catTieLines   = "tieLines" // picked by tie line id (exporttielines.go)
 	catUsers      = "users"
 	catPresets    = "presets"
 	catFilterSets = "filterSets"
@@ -38,6 +39,7 @@ const (
 var exportCategories = []struct{ Name, File string }{
 	{catSettings, "settings.yaml"},
 	{catRouters, "routers.yaml"},
+	{catTieLines, "tielines.yaml"},
 	{catUsers, "users.yaml"},
 	{catPresets, "presets.yaml"},
 	{catFilterSets, "filtersets.yaml"},
@@ -52,6 +54,12 @@ var exportCategories = []struct{ Name, File string }{
 func picked(pick map[string][]string, cat, id string) bool {
 	ids, some := pick[cat]
 	return !some || slices.Contains(ids, id)
+}
+
+// pickedDefault: a pick can name a first router's default by its old key (ArtDefault.oldKey).
+func pickedDefault(pick map[string][]string, d ArtDefault, first string) bool {
+	ids, some := pick[catArtwork]
+	return !some || slices.ContainsFunc(ids, func(id string) bool { return d.keyed(id, first) })
 }
 
 func categoryFile(cat string) string {
@@ -126,7 +134,7 @@ type exportArtwork struct {
 
 // exportReq is the export route's body. A category in Pick exports only the ids listed. A category not in
 // Pick exports whole. Users and presets are picked by hidden id, filter sets and API clients by name.
-// Everyone bookmarks is one item, picked by its category name. Panels are picked by panel, template or Checkpoint set id. Artwork is picked by icon id or Default artwork key.
+// Everyone bookmarks is one item, picked by its category name. Tie lines are picked by id. Panels are picked by panel, template or Checkpoint set id. Artwork is picked by icon id or Default artwork key.
 type exportReq struct {
 	Categories  []string            `json:"categories"`
 	Pick        map[string][]string `json:"pick"`
@@ -158,7 +166,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		}
 	}
 	want := func(c string) bool { return slices.Contains(req.Categories, c) }
-	routers := []config.Router{cfg.Router}
+	routers := cfg.Routers()
 	prefix := map[string]string{}
 	for _, r := range routers {
 		prefix[r.UID] = r.Prefix
@@ -182,6 +190,13 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		if err := add(catSettings, node); err != nil {
 			return nil, err
 		}
+	}
+	if want(catTieLines) {
+		b, err := exportTieLinesYAML(cfg, req.Pick, prefix, used)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, zipFile{categoryFile(catTieLines), b})
 	}
 	if want(catUsers) {
 		var out exportUsers
@@ -275,7 +290,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		var out exportArtwork
 		images := map[string]bool{}
 		for _, d := range a.artDefaults.list() {
-			if !want(catArtwork) || !picked(req.Pick, catArtwork, d.key()) {
+			if !want(catArtwork) || !pickedDefault(req.Pick, d, a.r().cfg.UID) {
 				continue
 			}
 			for _, id := range d.libIcons() {
@@ -334,7 +349,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	man := exportManifest{Format: exportFormat, Sode: BuildLabel(), Install: cfg.InstallUID, Made: exportNow().UTC().Truncate(time.Second)}
 	var withRouters []config.Router
 	for _, r := range routers {
-		if want(catRouters) || used[r.UID] {
+		if want(catRouters) && picked(req.Pick, catRouters, r.UID) || used[r.UID] {
 			withRouters = append(withRouters, r)
 		}
 	}
@@ -486,9 +501,10 @@ func toPrefixes(n *yaml.Node, prefix map[string]string, one bool, used map[strin
 // liveNamesTable is the router's names as Sode has them now: read from the router, or the saved table
 // until the first read.
 func (a *App) liveNamesTable(uid string) namesTable {
+	u := a.unitOrFirst(uid)
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	rs := a.router
+	rs := u.router
 	at := rs.namesAt
 	if at.IsZero() {
 		at = rs.savedAt

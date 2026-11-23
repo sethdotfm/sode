@@ -9,7 +9,7 @@ const setText = (n, t) => {
 
 // host is the Levels box; before is the node they go in front of (the Take button). onClear runs on a press.
 export function clearNote(host, before, onClear) {
-  const chip = el('span', 'pb-badge pb-badge--info sode-gridpanel__chip', document.createTextNode(''));
+  const chip = el('span', 'pb-badge sode-gridpanel__chip', document.createTextNode(''));
   const note = el('div', 'sode-gridpanel__note', chip);
   note.setAttribute('role', 'status');
   const clear = el('button', 'pb-btn sode-gridpanel__clear', 'Clear');

@@ -199,7 +199,7 @@ function build() {
   padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, digits);
 
   letterKey = el('kbd', 'sode__key sode__key--locked');
-  letterBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
+  letterBtn = el('button', 'pb-btn sode-btn--primary', 'Dismiss');
   letterBtn.type = 'button';
   letterBtn.addEventListener('click', dismissLocalLock);
   letterNote = el('p', 'sode-lock__msg');
@@ -676,14 +676,16 @@ on('localLock', localLock);
 // until this user's PIN resumes it. The token stays for that.
 function lockNow() {
   if (!L.user || stepLock()) return;
-  owed.owe();
   pin = '';
   clearTimeout(timer);
   heldUser = L.user;
   keepHeldUser(heldUser);
   Object.assign(L, raiseLock(L));
   render();
+  // The access event first: it drops the page's session key and stops its reads on the way (sessionkey.js). Sent
+  // after, the Lock can reach Sode before such a read, which then ends in a 401.
   emit('access', { ...L });
+  owed.owe();
 }
 
 // Sign out ends the session: the server ends the sign-in and revokes the token, so a reload cannot undo it.

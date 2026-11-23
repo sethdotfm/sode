@@ -35,9 +35,11 @@ var sectionRoles = map[string]sectionTag{
 	"level-colors":      {config.RoleAdministrator, true},
 	"confirm":           {config.RoleAdministrator, true},
 	"routers":           {config.RoleAdministrator, true},
+	"tie-lines":         {config.RoleAdministrator, false},
 	"router-matrix":     {config.RoleAdministrator, true},
 	"router-names":      {config.RoleAdministrator, true},
 	"takes":             {config.RoleAdministrator, true},
+	"router-levels":     {config.RoleAdministrator, true},
 	"protects":          {config.RoleAdministrator, false},
 	"locks":             {config.RoleAdministrator, false},
 	"users":             {config.RoleAdministrator, false},
@@ -121,6 +123,7 @@ func fieldVersions(cfg config.Config) map[string]string {
 			out[k] = fieldVersion(cfg, k)
 		}
 	}
+	routerVersions(cfg, out)
 	return out
 }
 
@@ -181,7 +184,7 @@ func (p *savePlan) next() config.Config { return p.build(p.keep) }
 
 func (p *savePlan) build(keys []string) config.Config {
 	n := p.live.Clone()
-	for _, key := range keys {
+	for _, key := range removesLast(keys) {
 		_ = setField(&n, key, p.edits[key].Value, p.x)
 	}
 	n.Normalize()
@@ -298,7 +301,7 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 	}
 	stops := a.interruptions(live, plan.next())
 	err = a.applyConfig(func(cur *config.Config) error {
-		for _, key := range keep {
+		for _, key := range removesLast(keep) {
 			if err := setField(cur, key, edits[key].Value, x); err != nil {
 				return err
 			}
@@ -329,6 +332,13 @@ func (a *App) saveSettingsFields(c *client, edits map[string]fieldEdit, ap *conf
 	if slices.Contains(keep, swapKey) {
 		saved = append(saved, a.swapPanelsField(x, edits, now, true))
 	}
+	var goneRouters []string
+	for _, key := range keep {
+		if uid, ok := removeKeyRouter(key); ok {
+			goneRouters = append(goneRouters, uid)
+		}
+	}
+	a.routersGoneStores(goneRouters)
 	a.recordSaveApproved(by, "save", saved, len(criticalEdits(live, now, actor)) > 0, ap, interruptionTexts(stops),
 		presetOfSave(preset, keep))
 	a.auditAPISettings(by, live, now)
@@ -472,6 +482,23 @@ func (a *App) removedUsersPanels(c *client, live config.Config, edits map[string
 		out = append(out, key)
 	}
 	return moves, out
+}
+
+// removesLast: a Remove router goes after the other fields, so an edit of that router in the same save still finds it.
+func removesLast(keys []string) []string {
+	out := slices.Clone(keys)
+	slices.SortStableFunc(out, func(a, b string) int {
+		_, ra := removeKeyRouter(a)
+		_, rb := removeKeyRouter(b)
+		switch {
+		case ra == rb:
+			return 0
+		case ra:
+			return 1
+		}
+		return -1
+	})
+	return out
 }
 
 func removeKeyUser(key string) (string, bool) {

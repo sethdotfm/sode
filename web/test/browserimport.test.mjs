@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { browserBookmarks, browserPrefs, mergeByName } from '../browserimport.js';
+import { browserBookmarks, browserPins, browserPrefs, mergeByName } from '../browserimport.js';
 import { choicesFor } from '../importrules.js';
 
 test('only known preferences with known values come from a file', () => {
@@ -24,14 +24,22 @@ test('This browser bookmarks are one list: Add takes a list, Replace takes even 
     ],
   };
   const want = [
-    { url: 'https://example.com/rota', label: 'Rota', newTab: true, inPalette: true },
-    { key: 'preset:local:p-1', label: 'Show', newTab: false, inPalette: false },
+    { url: 'https://example.com/rota', label: 'Rota', newTab: true },
+    { key: 'preset:local:p-1', label: 'Show', newTab: false },
   ];
   assert.deepEqual(browserBookmarks(file, false), want);
   assert.deepEqual(browserBookmarks(file, true), want);
   assert.equal(browserBookmarks({ bookmarks: [] }, false), null);
   assert.deepEqual(browserBookmarks({ bookmarks: [] }, true), []);
   assert.equal(browserBookmarks({ theme: 'dark' }, true), null);
+});
+
+test('This browser Palette pins are one list, as its bookmarks: bad keys and repeats drop', () => {
+  const file = { palettePins: ['page:log', 'https://example.com/', 'page:log', 'preset:local:p-1', 7] };
+  assert.deepEqual(browserPins(file, false), ['page:log', 'preset:local:p-1']);
+  assert.equal(browserPins({ palettePins: [] }, false), null);
+  assert.deepEqual(browserPins({ palettePins: [] }, true), []);
+  assert.equal(browserPins({ theme: 'dark' }, true), null);
 });
 
 test('Everyone bookmarks is one list, so it has no Rename', () => {

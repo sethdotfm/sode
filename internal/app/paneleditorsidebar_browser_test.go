@@ -2,9 +2,9 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -105,8 +105,17 @@ func TestChromeEditorSidebar(t *testing.T) {
 
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)
 	body := rec.Body.String()
-	if !regexp.MustCompile(`"settings":\{[^}]*"levels":\[2,`).MatchString(body) {
-		t.Errorf("the saved panel lacks the level subset without level 1: %s", body)
+	// settings.levels lists the levels under the router UID.
+	var saved struct {
+		Settings struct {
+			Levels map[string][]int `json:"levels"`
+		} `json:"settings"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &saved); err != nil {
+		t.Fatal(err)
+	}
+	if lv := saved.Settings.Levels[a.r().cfg.UID]; len(lv) == 0 || lv[0] != 2 {
+		t.Errorf("the saved panel lacks the level subset without level 1 on its router: %s", body)
 	}
 	for _, want := range []string{`"caption":"Go live"`, `"fontSize":150`, `"titleBar":false`, `"guard":"hold"`, `"fullscreen":true`, `"askInstanceName":false`, `"hideText":true`, `"art":"icon:tv"`, `"artB":"2"`, `"rows":3`, `"cols":3`, `"acts":"api"`, `"client":"Panel ` + id + `"`} {
 		if !strings.Contains(body, want) {

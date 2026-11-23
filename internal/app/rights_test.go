@@ -9,7 +9,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-func ints(v ...int) *[]int { return &v }
+// ints: Rights levels of the one router; Normalize fills the router.
+func ints(v ...int) config.RouterLevels { return config.RouterLevels{"": v} }
 
 // rightsApp is userApp with Ana's rights set and a fake router.
 func rightsApp(t *testing.T, r config.Rights) (*App, *fakeRouter, *client) {

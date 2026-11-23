@@ -2,14 +2,14 @@
 // "All" or "Only these", plus Visibility. Keeps its own drafts; users.js reads them on save through
 // rightsrules.accessReq. A factory that gets hooks, so nothing imports users.js back.
 
-import { el, S } from './core.js';
+import { el, S, routerData } from './core.js';
 import { entryKeys, newEntry, pickValid } from './rightsrules.js';
 import { check, field, opt } from './formbits.js';
 
 const LISTS = [
   { kind: 'sources', title: 'Sources', example: () => '1-8, 12' },
   { kind: 'dsts', title: 'Destinations', example: () => '1-8, 12' },
-  { kind: 'levels', title: 'Levels', example: () => `1-${S.levels.length || 8}` },
+  { kind: 'levels', title: 'Levels', example: () => `1-${routerData('').levels.length || 8}` },
   { kind: 'presets', title: 'Presets', hint: "One name per line (Everyone or the user's Me presets)", area: true },
 ];
 const off = () => S.cfg?.numberOffset ?? 0;
@@ -33,7 +33,8 @@ export function makeRightsTab({ users, clients, touched }) {
   const node = el('div', null, el('div', 'sode__rights-pick', selectField('rights-pick', 'Rights for', pickSel)), body);
 
   const entryOf = (key) => {
-    if (!entries.has(key)) entries.set(key, newEntry(undefined, off(), key.startsWith('user:') ? { noAutoLock: !!S.cfg?.newUserDefaults?.noAutoLock } : {}));
+    if (!entries.has(key))
+      entries.set(key, newEntry(undefined, off(), key.startsWith('user:') ? { noAutoLock: !!S.cfg?.newUserDefaults?.noAutoLock } : {}, [], routerData('').uid));
     return entries.get(key);
   };
   const keys = () => entryKeys(users(), clients());
@@ -110,6 +111,13 @@ export function makeRightsTab({ users, clients, touched }) {
       dirty('rights');
     });
     parts.push(selectField('rights-protect', 'Protect', prot, "Set and free Sode's Protects"));
+    const ties = select('rights-tie-lines', [opt('yes', 'Yes'), opt('no', 'No')]);
+    ties.value = e.draft.tieLines ? 'yes' : 'no';
+    ties.addEventListener('change', () => {
+      e.draft.tieLines = ties.value === 'yes';
+      dirty('rights');
+    });
+    parts.push(selectField('rights-tie-lines', 'Use tie lines', ties, 'Send routes across routers'));
     if (kind === 'user') parts.push(flagBox(e, dirty));
     body.replaceChildren(el('h3', 'sode__profiles-h', titleOf(pick)), ...parts);
   }
@@ -153,14 +161,22 @@ export function makeRightsTab({ users, clients, touched }) {
       e.dirty.add('noAutoLock');
       if (pick === `user:${rid}`) draw();
     },
+    // Apply an Access preset writes the Guest's Use tie lines right. Only into Guest Rights that loaded, so the lists stay.
+    setGuestTieLines(v) {
+      const e = entries.get('guest');
+      if (!e) return;
+      e.draft.tieLines = v;
+      e.dirty.add('rights');
+      if (pick === 'guest') draw();
+    },
     adoptUser(rid, u) {
-      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, [...presets(), ...(u.presets || [])]));
+      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, [...presets(), ...(u.presets || [])], routerData('').uid));
     },
     adoptClient(rid, c) {
-      entries.set(`client:${rid}`, newEntry(c.rights || {}, off(), {}, presets()));
+      entries.set(`client:${rid}`, newEntry(c.rights || {}, off(), {}, presets(), routerData('').uid));
     },
     adoptGuest(rights) {
-      entries.set('guest', newEntry(rights || {}, off(), {}, presets()));
+      entries.set('guest', newEntry(rights || {}, off(), {}, presets(), routerData('').uid));
     },
     read: () => entries,
   };

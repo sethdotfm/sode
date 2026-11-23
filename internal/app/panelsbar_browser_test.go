@@ -153,10 +153,11 @@ func TestChromeBarTitleCentred(t *testing.T) {
 			return t.textContent === site + ' ' + page && t.dataset.pbTip === site + ' ' + page && s.textContent === site && p.textContent === page && w(s) >= 600 && w(p) < 600;
 		};
 		window.frames = null;
-		window.watchBrand = () => {
+		// from (a selector) is measured as the Lock measures it: the header can still move after the page shows.
+		window.watchBrand = (from) => {
 			const brand = document.querySelector('.sode-lock__brand'), run = brand.animate;
 			window.frames = null;
-			brand.animate = function (f, o) { if (!window.frames) window.frames = { f, at: r(brand) }; return run.call(this, f, o); };
+			brand.animate = function (f, o) { if (!window.frames) window.frames = { f, at: r(brand), from: from && r(document.querySelector(from)) }; return run.call(this, f, o); };
 			return true;
 		};
 		window.lockNow = () => import('./core.js').then((m) => { m.emit('localLock'); return true; });
@@ -170,14 +171,15 @@ func TestChromeBarTitleCentred(t *testing.T) {
 		b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]')?.offsetParent && document.querySelector('.sode-lock__key[data-key="enter"]').click(); true`)
 		b.waitFor(what+": the Lock ends", `!document.documentElement.dataset.sodeLock && !document.querySelector('.sode-lock.is-on')`)
 	}
-	// The Lock's way in starts at from (a selector): at its centre and its scale.
+	// The Lock's way in starts at from (a selector): at its centre and its scale. On a panel page the Lock bar and the
+	// fonts move the title for a moment after its name shows. So the check reads from when the flight starts.
 	fliesFrom := func(what, from string) {
 		t.Helper()
-		b.eval(`window.from = r(document.querySelector('` + from + `')); watchBrand()`)
+		b.eval(`watchBrand('` + from + `')`)
 		b.eval(`lockNow()`)
 		b.waitFor(what+": the Lock flies its site name from "+from, `(() => {
 			if (!frames) return false;
-			const m = /translate\(([-\d.e]+)px, ([-\d.e]+)px\) scale\(([-\d.e]+)\)/.exec(frames.f[0].transform || ''), at = frames.at;
+			const m = /translate\(([-\d.e]+)px, ([-\d.e]+)px\) scale\(([-\d.e]+)\)/.exec(frames.f[0].transform || ''), at = frames.at, from = frames.from;
 			return !!m && Math.abs(+m[1] - (from.left + from.width / 2 - (at.left + at.width / 2))) < 2 && Math.abs(+m[3] - from.width / at.width) < 0.02;
 		})()`)
 		unlock(what)

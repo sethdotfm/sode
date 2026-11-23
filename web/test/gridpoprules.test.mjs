@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount, storedItems } from '../gridpoprules.js';
 import { envFrom, namesFrom } from '../panelrules.js';
 import { gridAxes } from '../gridpaneledges.js';
+import { viaOn } from '../viarules.js';
 
 const levels = [
   { ui: 1, wire: 0, label: 'V', swatch: 'video' },
@@ -145,4 +146,40 @@ test('a crosspoint add stores no levels while the Levels box is empty, as the bo
   assert.deepEqual(storedItems(xp, [2]), xp.items);
   const name = { kind: 'dsts', items: [{ src: 3, dsts: [5], levels: [1, 2] }] };
   assert.deepEqual(storedItems(name, []), name.items);
+});
+
+test('a route that a tie line feeds carries its Via row, while the row is for the same source', () => {
+  const row = { dst: 0, level: 1, src: 4, via: [{ id: 't1', name: 'TIE 3' }], origin: { router: 'a', n: 1 } };
+  const stale = { dst: 3, level: 1, src: 6, via: [{ id: 't1', name: 'TIE 3' }], origin: { router: 'a', n: 1 } };
+  const via = new Map([
+    [0, new Map([[1, row]])],
+    [3, new Map([[1, stale]])],
+  ]);
+  const t = tallyReplyOf({ levels, levelNumbering: '1', defaultLevels: '1-2', tally, via });
+  const env = envFrom(t, protectedReplyOf(new Map()));
+  assert.equal(env.via.get(0).get(1), row);
+  assert.equal(env.via.has(3), false);
+  assert.equal(viaOn(env, 4, 0), row);
+  assert.equal(viaOn(env, 5, 0), null);
+  assert.equal(viaOn(env, 7, 3), null);
+});
+
+// The Grid popup adds routes of every router to a preset. A route across routers keeps the router of its destinations,
+// so the editor asks for its tie lines (presets.js addToPreset).
+test('grid items become preset items with routers, and back', async () => {
+  const { presetItemsOf, itemsOnGrid } = await import('../gridpoprules.js');
+  const { makePlaces, SPAN } = await import('../routerids.js');
+  const places = makePlaces([
+    { uid: 'a', prefix: 'A' },
+    { uid: 'b', prefix: 'B' },
+  ]);
+  const it = { src: 4, dsts: [2, SPAN + 3, SPAN + 5], levels: [1] };
+  const rows = presetItemsOf(it, places);
+  assert.deepEqual(rows, [
+    { src: 4, dsts: [2], levels: [1], router: 'a' },
+    { src: 4, dsts: [3, 5], levels: [1], router: 'a', dstRouter: 'b' },
+  ]);
+  assert.deepEqual(itemsOnGrid(rows[1], places), { ...rows[1], src: 4, dsts: [SPAN + 3, SPAN + 5] });
+  // A router that the page does not list is the first router.
+  assert.deepEqual(itemsOnGrid({ src: 1, dsts: [2], levels: [], router: 'zz' }, places).dsts, [2]);
 });

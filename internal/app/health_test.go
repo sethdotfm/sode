@@ -25,8 +25,8 @@ func getHealth(t *testing.T, a *App, method string) (*httptest.ResponseRecorder,
 func TestHealthRouterUp(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
-	a.status.Router = "up"
-	a.status.Addr = "10.0.0.1:8910"
+	a.first.status.Router = "up"
+	a.first.status.Addr = "10.0.0.1:8910"
 	a.mu.Unlock()
 	rec, b := getHealth(t, a, http.MethodGet)
 	if rec.Code != 200 {
@@ -35,7 +35,7 @@ func TestHealthRouterUp(t *testing.T) {
 	if rec.Header().Get("Cache-Control") != "no-store" {
 		t.Errorf("cache-control %q", rec.Header().Get("Cache-Control"))
 	}
-	if b["server"] != "up" || b["router"] != "up" || b["targetAddress"] != "10.0.0.1:8910" || b["version"] != VersionLabel() {
+	if b["server"] != "up" || b["router"] != "up" || b["targetAddress"] != "10.0.0.1:8910" || b["version"] != VersionLabel() || b["state"] != "healthy" {
 		t.Errorf("body %v", b)
 	}
 	if _, ok := b["err"]; ok {
@@ -52,14 +52,14 @@ func TestHealthRouterNotUp(t *testing.T) {
 	for _, st := range []string{"connecting", "down"} {
 		a := newTestApp(t)
 		a.mu.Lock()
-		a.status.Router = st
-		a.status.Err = "connection refused"
+		a.first.status.Router = st
+		a.first.status.Err = "connection refused"
 		a.mu.Unlock()
 		rec, b := getHealth(t, a, http.MethodGet)
 		if rec.Code != http.StatusServiceUnavailable {
 			t.Errorf("%s: code %d", st, rec.Code)
 		}
-		if b["router"] != st || b["server"] != "up" || b["err"] != "connection refused" {
+		if b["router"] != st || b["server"] != "up" || b["err"] != "connection refused" || b["state"] != "down" {
 			t.Errorf("%s: body %v", st, b)
 		}
 	}

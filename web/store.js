@@ -43,9 +43,12 @@ export const readTab = (k) => {
   }
 };
 export const writeTab = (k, v) => {
-  if (held(k)) return;
+  if (held(k)) return false;
   try {
     if (v == null) sessionStorage.removeItem(k);
     else sessionStorage.setItem(k, v);
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 };

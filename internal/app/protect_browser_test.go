@@ -14,7 +14,7 @@ import (
 // The route view of one destination with no source offers Protect. It goes through the Confirm, the simulator
 // holds it on every level, and the view then says "Protected by you", with the badge's owner mark. Shift+x in
 // Keyboard mode frees it. History then offers Undo only on the newest Protect entry, and follows a later change.
-// Ctrl+Z undoes the newest Free Protect.
+// Ctrl+Z undoes this tab's newest Free Protect.
 // Ana is an Administrator here, for Free Sode's Protects.
 func TestChromeProtectFromRouteView(t *testing.T) {
 	b := startBrowser(t)
@@ -80,10 +80,23 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	if rec := apiSend(a, "DELETE", "/api/v1/protected/2", key, ""); rec.Code != 200 {
 		t.Fatalf("API Free Protect: %d %s", rec.Code, rec.Body.String())
 	}
-	// The newest Free Protect row has the badge where the source box is, with no box and no arrow.
-	b.waitFor("Free Protect row", `(() => { const r = [...document.querySelectorAll('#history .sode__hist-route')].find((n) => n.querySelector(':scope > .pb-badge')?.textContent === 'Free Protect'); return !!r && !r.querySelector('.sode__end--src, .sode__arrow') && r.querySelector('.sode__end--dst')?.textContent.includes('DSM1'); })()`)
+	// The newest Free Protect row has the badge where the source box is, with no box and no arrow. It must be the
+	// top row, the API's. The tab's own older Free Protect row also names DSM1. Ctrl+Z before the API's entry comes
+	// finds nothing to undo.
+	b.waitFor("Free Protect row", `(() => { const r = document.querySelector('#history .sode__hist-route'); return r?.querySelector(':scope > .pb-badge')?.textContent === 'Free Protect' && !r.querySelector('.sode__end--src, .sode__arrow') && r.querySelector('.sode__end--dst')?.textContent.includes('DSM1'); })()`)
 
-	// Ctrl+Z (Cmd+Z on a Mac) undoes the Free Protect: the Confirm sets the Protect again.
+	// Ctrl+Z steps back only through this tab's takes, and the API's Free Protect is newer than this tab's. So this tab
+	// protects and frees DSM1 once more with the route view's shield.
+	for _, step := range []struct{ offer, title string }{{"set", "Confirm protect"}, {"clear", "Confirm free protect"}} {
+		b.waitFor("the shield offers "+step.offer, `!!document.querySelector('#dst-under [data-protect="`+step.offer+`"]')`)
+		b.eval(`document.querySelector('#dst-under [data-protect="` + step.offer + `"]').click(); true`)
+		b.waitFor(step.title, `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === '`+step.title+`' && !document.getElementById('confirm-ok').disabled`)
+		b.eval(`document.getElementById('confirm-ok').click(); true`)
+		b.waitFor(step.title+" closes", `document.getElementById('confirm').hidden`)
+	}
+	b.waitFor("the shield after the Free Protect", `!!document.querySelector('#dst-under [data-protect="set"]')`)
+	b.waitFor("four Protect entries from this tab", `JSON.parse(sessionStorage.getItem('sode-own-takes') || '[]').length === 4`)
+	// Ctrl+Z (Cmd+Z on a Mac) undoes this tab's Free Protect: the Confirm sets the Protect again.
 	b.eval(`(() => { const mac = /Mac/.test(navigator.platform); document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: !mac, metaKey: mac, bubbles: true, cancelable: true})); return true; })()`)
 	b.waitFor("Confirm protect for the undo", `!document.getElementById('confirm').hidden && document.getElementById('confirm-title').textContent === 'Confirm protect' && document.getElementById('confirm').textContent.includes('Undo the Free Protect')`)
 	b.waitFor("Confirm unlocks", `!document.getElementById('confirm-ok').disabled`)
@@ -100,8 +113,8 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	b.eval(`document.getElementById('settings-open').click(); true`)
 	b.waitFor("the Protects list", `[...document.querySelectorAll('#protects-list li')].some((n) => n.textContent.includes('DSM2') && n.textContent.includes('Protected by you'))`)
 	b.eval(`document.getElementById('protects-clear-all').click(); true`)
-	b.waitFor("the Confirm unlocks", `!!document.querySelector('#protects-confirm .pb-btn--ok:not(:disabled)')`)
-	b.eval(`document.querySelector('#protects-confirm .pb-btn--ok').click(); true`)
+	b.waitFor("the Confirm unlocks", `!!document.querySelector('#protects-confirm .sode-btn--primary:not(:disabled)')`)
+	b.eval(`document.querySelector('#protects-confirm .sode-btn--primary').click(); true`)
 	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
 	b.waitFor("cleared", `!!document.querySelector('#protects-confirm + .sode__hint')?.textContent.startsWith("Sode's Protects freed")`)
@@ -158,7 +171,7 @@ func TestChromePaletteProtectPick(t *testing.T) {
 	b.eval(`(() => { const i = document.getElementById('protpick-find'); i.value = 'DSM'; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	b.waitFor("the find narrows the list", `[...document.querySelectorAll('#protpick-list [role=option]')].every((r) => r.textContent.includes('DSM'))`)
 	b.eval(`document.querySelector('#protpick-list [data-dst="2"]').click(); true`)
-	b.waitFor("one picked, in the blue chip", `document.getElementById('protpick-go').textContent === 'Protect 1' && document.getElementById('protpick-count').textContent === '1 picked' && document.getElementById('protpick-count').classList.contains('pb-badge--info')`)
+	b.waitFor("one picked, in the neutral chip", `document.getElementById('protpick-go').textContent === 'Protect 1' && document.getElementById('protpick-count').textContent === '1 picked' && document.getElementById('protpick-count').classList.contains('pb-badge') && !document.getElementById('protpick-count').matches('[class*="pb-badge--"]')`)
 	// After typing, Space types and Cmd+Space does nothing; Ctrl+J outlines the next row, and Ctrl+Space picks it.
 	findKey := func(key, code string, ctrl, meta bool) {
 		b.eval(fmt.Sprintf(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: %q, code: %q, ctrlKey: %v, metaKey: %v, bubbles: true, cancelable: true })); true`, key, code, ctrl, meta))

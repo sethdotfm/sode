@@ -92,7 +92,7 @@ A saved plan that can be fired in one confirm and bookmarked. It is Sode's own f
 _Avoid_: salvo
 
 **Bookmark**:
-A saved link that opens a Palette row or an outside web address. A Palette row can be a preset, a filter set, a page, a Settings button or a setting. The Bookmarks strip shows them, and a bookmark with Show in Palette also shows at the top of the Palette. Bookmarks are saved to Me, This browser or Everyone, and the strip shows one list: This browser's, else Me, else Everyone. A bookmark that the user cannot use shows No access, and one whose target is gone shows Missing.
+A saved link that opens a Palette row or an outside web address. A Palette row can be a preset, a filter set, a page, a Settings button or a setting. The Bookmarks strip shows them. Bookmarks are saved to Me, This browser or Everyone, and the strip shows one list: This browser's, else Me, else Everyone. A bookmark that the user cannot use shows No access, and one whose target is gone shows Missing.
 _Avoid_: pinned preset, preset pin
 
 **Salvo**:
@@ -128,6 +128,9 @@ A Result where the router did not confirm the change, or refused it. Retry prepa
 
 **Late**:
 A Result that the router confirmed after Sode had stopped waiting. Sode amends the Entry when the Result arrives.
+
+**Undone**:
+An Entry that a later undo put back. Undone means that the router confirmed the undo on every level. Partly undone means that it confirmed the undo on some levels only. It is a record of what happened. It does not show what the destination has now.
 
 **Filter**:
 One rule on Source or Destination that limits which entries History shows.
@@ -261,7 +264,7 @@ _Avoid_: reset import, merge import
 Describes a preset, filter set or panel that refers to something that is not there. Examples are a user, a preset, artwork, or a source, destination, level or router that is gone from the router. A router name change alone never makes an item Broken. Sode shows the word Broken beside it.
 
 **Name moved**:
-Describes a preset, filter set or panel whose stored source or destination name now sits at a different number on the router. The item still fires on its stored number. Sode shows the words Name moved beside it.
+Describes a preset, filter set or panel whose stored source or destination name now sits at a different number on the router. The item still fires on its stored number. Sode shows the words Name moved beside it. A tie line is Name moved when the name of either end changes on the router. It still works on its stored numbers.
 
 **Swap**:
 To replace one source or one destination with another in every preset, filter set and panel that uses it, in one Settings save. Swap source and Swap destination are the two actions. The name keeps it apart from Replace import.
@@ -468,14 +471,17 @@ The chip in a patch box that fills it with the value after Last. That value is t
 The state where keys act on History entries instead of the patch boxes. Alt+Shift+k starts and ends it. Esc with empty boxes, or on a History button, also starts it. Any click ends it. Compact view has none.
 
 **Compact view**:
-The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever either link is not up. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
+The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever a link is not up. While Sode is Degraded, only the icon of each Router that is down shows, until the Lost link banner shows. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
 
 **Home**:
 The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page. Alt+Shift+h opens Home from every page, and on Home it closes what is open and puts the focus in the Source box.
 
 **Palette**:
-A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. To search in one category, type its name first, then a space and the search, for example "panel studio". A short form, a part of the name or one typo is also correct ("p", "pnl", "sett", "panle"). The rows of that category come first, and other matches follow under Other matches. A row outside a person's Rights or Role does not show. But a bookmark with Show in Palette stays as a grey row. When such rows match a search, one line gives their count, and Enter on it starts Sign in. Picking it tells why and offers Step in or Request approval. Picking an action or a Settings button does it. Sign in opens the sign-in, and Sign out signs out. A button that opens a dialog opens it where you are. Each action shows one time. Rows that the person uses most come first among equal matches.
+A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. To search in one category, type its name first, then a space and the search, for example "panel studio". A short form, a part of the name or one typo is also correct ("p", "pnl", "sett", "panle"). The rows of that category come first, and other matches follow under Other matches. A row outside a person's Rights or Role does not show. But a Palette pin stays as a grey row. When such rows match a search, one line gives their count, and Enter on it starts Sign in. Picking it tells why and offers Step in or Request approval. Picking an action or a Settings button does it. Sign in opens the sign-in, and Sign out signs out. A button that opens a dialog opens it where you are. Each action shows one time. Rows that the person uses most come first among equal matches.
 _Avoid_: command palette
+
+**Palette pin**:
+A Palette row that a person pins to show first, in their own order, when the Palette opens with nothing typed. Pins are kept in Me for a signed-in user, else in This browser. They are apart from Bookmarks.
 
 **Palette character**:
 The character that opens the Palette when it is the first one typed in an empty Source or Destination box. It is a setting for Everyone, Me or This browser, and no character turns it off. Type it twice to search for the character itself.

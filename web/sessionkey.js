@@ -2,7 +2,7 @@
 // the socket and sends it as a Bearer header to /api/v1. The server ends the key with the session.
 // Held in memory only: a reload asks again and a sign-out drops it. lock.js owns the PIN pad.
 import { on, emit, onMsg, wsSend } from './core.js';
-import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey, guardFetch } from './sessionkeyrules.js';
+import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey, guardFetch, resendable } from './sessionkeyrules.js';
 
 export { jsonCall } from './sessionkeyrules.js';
 
@@ -15,6 +15,7 @@ let seq = 0;
 let keyName = '';
 let waiting = [];
 const watchers = [];
+const reads = new Set(); // AbortControllers of the reads on the way, stopped when the key drops (resendable)
 
 export const sessionKey = () => key;
 export const onSessionKey = (fn) => watchers.push(fn);
@@ -29,7 +30,7 @@ function setKey(k) {
   if (k) {
     for (const r of waiting) r(k);
     waiting = [];
-  }
+  } else for (const c of reads) c.abort();
   for (const fn of watchers) fn(k);
 }
 
@@ -103,6 +104,22 @@ function renew(k) {
   wsSend(sessionKeyReq(++seq, keyName));
 }
 
+// send, but a read stops when the key drops and gives null. The caller's own signal still stops it with an AbortError.
+async function sendRead(path, init) {
+  if (!resendable(init)) return send(path, init);
+  const ctl = new AbortController();
+  const signal = init.signal ? AbortSignal.any([init.signal, ctl.signal]) : ctl.signal;
+  reads.add(ctl);
+  try {
+    return await send(path, { ...init, signal });
+  } catch (e) {
+    if (ctl.signal.aborted && !init.signal?.aborted) return null;
+    throw e;
+  } finally {
+    reads.delete(ctl);
+  }
+}
+
 // fetch with the session key. A refused key is renewed one time. A fresh key that is refused before it ever
 // worked ends the page's calls for good. So a page never loops on a key Sode keeps ending.
 // init.noWait: with no key now, answer 401 `signed_out` instead of waiting. A take must not wait for the next sign-in
@@ -110,12 +127,13 @@ function renew(k) {
 export async function sessionFetch(path, init = {}) {
   const { noWait, ...rest } = init;
   init = rest;
-  for (let tries = 0; ; tries++) {
+  for (let tries = 0; ; ) {
     if (ended) return ended.clone();
     if (noWait && !key) return signedOut();
     const k = await keyReady();
     if (ended) return ended.clone();
-    const res = await send(path, withKey(init, k));
+    const res = await sendRead(path, withKey(init, k));
+    if (!res) continue; // the key dropped on the way: wait for the next one and send again
     if (res.status !== 401) {
       if (res.ok) worked = k;
       return res;
@@ -134,5 +152,6 @@ export async function sessionFetch(path, init = {}) {
       return res;
     }
     renew(k);
+    tries++;
   }
 }

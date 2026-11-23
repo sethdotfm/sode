@@ -94,11 +94,11 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 		b.eval(`[...document.querySelectorAll('.sode-ov__share #panel-key button')].find(x => x.textContent.trim() === ` + strconv.Quote(label) + `).click()`)
 	}
 	confirm := func(viaKey bool) {
-		b.waitFor("Confirm ready", `!!document.querySelector('.sode-ov__keyconfirm:not([hidden]) .pb-btn--ok:not([disabled])')`)
+		b.waitFor("Confirm ready", `!!document.querySelector('.sode-ov__keyconfirm:not([hidden]) .sode-btn--primary:not([disabled])')`)
 		if viaKey {
 			b.eval(`(() => { const k = document.querySelector('.sode-ov__keyconfirm kbd'); k.dispatchEvent(new KeyboardEvent('keydown', {key: k.textContent.toLowerCase(), bubbles: true})); })()`)
 		} else {
-			b.eval(`document.querySelector('.sode-ov__keyconfirm .pb-btn--ok').click()`)
+			b.eval(`document.querySelector('.sode-ov__keyconfirm .sode-btn--primary').click()`)
 		}
 	}
 	input := `document.querySelector('.sode-ov__keylink input.pb-input')`

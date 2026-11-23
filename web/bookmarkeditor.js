@@ -36,7 +36,7 @@ const urlIn = el('input', { class: 'pb-input', id: 'bm-url', type: 'url', placeh
 const urlName = el('input', { class: 'pb-input', id: 'bm-url-name', maxLength: LABEL_MAX, autocomplete: 'off' });
 const addRowBtn = btn('pb-btn--outline', [icon('bookmark-plus'), 'Add from the Palette…'], () => addFromPalette(), 'bm-add-row');
 const addUrlBtn = btn('pb-btn--outline', 'Add', () => addUrl(), 'bm-add-url');
-const saveBtn = btn('pb-btn--commit', 'Save', () => save(), 'bm-save');
+const saveBtn = btn('sode-btn--primary', 'Save', () => save(), 'bm-save');
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => close());
 const roNote = el('p', { class: 'sode__hint', id: 'bm-readonly', hidden: true }, 'Only a Trusted user or an Administrator can change Everyone’s bookmarks.');
 const fullNote = el('p', { class: 'sode__hint', id: 'bm-full', hidden: true }, 'This list is full. Remove a bookmark to add one.');
@@ -128,7 +128,7 @@ function rowNode(b, i) {
     el('span', 'sode-bm__grip', icon('grip-vertical')),
     el('span', 'sode__preset-key', i < 9 ? keyLabel(`alt+${i + 1}`) : ''),
     el('span', 'sode-bm__main', name, state, what),
-    el('span', 'sode-bm__opts', tick('Open in a new tab', 'newTab', canNewTab(b, v.row)), tick('Show in Palette', 'inPalette', true)),
+    el('span', 'sode-bm__opts', tick('Open in a new tab', 'newTab', canNewTab(b, v.row))),
     el(
       'span',
       'sode-bm__tools',
@@ -179,8 +179,8 @@ function draw() {
   for (const c of addCtl) c.disabled = full;
   fullNote.hidden = !full;
   saveBtn.disabled = ro || busy;
-  saveBtn.classList.toggle('pb-btn--ok', dirty && !ro);
-  saveBtn.classList.toggle('pb-btn--commit', !dirty || ro);
+  saveBtn.classList.toggle('pb-btn--commit', dirty && !ro);
+  saveBtn.classList.toggle('sode-btn--primary', !dirty && !ro);
   if (at != null) listEl.querySelector(`[data-i="${at}"]`)?.focus();
 }
 

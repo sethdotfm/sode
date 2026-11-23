@@ -36,6 +36,7 @@ export const SAVE_FIELDS = Object.freeze({
   newUserDefaults: 'users',
   publicPanels: 'panels',
   newPanelActs: 'panels',
+  tieHopWeight: 'tie-lines',
   trustedProxies: 'proxy',
   requireHttps: 'proxy',
   maxPinLen: 'users',
@@ -44,14 +45,20 @@ export const SAVE_FIELDS = Object.freeze({
   guestApiScopes: 'api',
 });
 
-// Item keys, `user/<id>/<attribute>` and `client/<name>/<attribute>`, by their first part. Keep in step with
-// internal/app/onesavefields.go.
-const ITEM_SECTIONS = Object.freeze({ user: 'users', client: 'users', swap: 'routers' });
-export const sectionOfKey = (key) => SAVE_FIELDS[key] || ITEM_SECTIONS[key.split('/')[0]];
+// Item keys, `user/<id>/<attribute>`, `client/<name>/<attribute>` and `router/<uid>/<attribute>`, by their first part.
+// Keep in step with internal/app/onesavefields.go.
+const ITEM_SECTIONS = Object.freeze({ user: 'users', client: 'users', swap: 'routers', router: 'router-levels' });
+// The Routers list keys of a router (routerlistrules.js) are in section routers, its level keys in router-levels.
+const ROUTER_LIST = /^router\/[^/]+\/(prefix|title|address|matrix|add|remove)$/;
+export const sectionOfKey = (key) => SAVE_FIELDS[key] || (ROUTER_LIST.test(key) ? 'routers' : ITEM_SECTIONS[key.split('/')[0]]);
 
 // The router connection fields (reconnect:"true" in internal/config/router.go). A change reconnects the router.
 const RECONNECT = new Set(['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests']);
-export const reconnects = (key) => RECONNECT.has(key);
+// The same fields of a router after the first (router/<uid>/<attribute>).
+const ROUTER_RECONNECT = /^router\/[^/]+\/(levels|levelWireOffset|address|matrix)$/;
+// Add router and Remove router change the router connections too.
+const ROUTER_COUNT = /^router\/[^/]+\/(add|remove)$/;
+export const reconnects = (key) => RECONNECT.has(key) || ROUTER_RECONNECT.test(key);
 
 // Critical fields of the form (criticalEdits in internal/app/recheck.go). The page asks the PIN recheck before it
 // sends them; a server refusal still asks if this list falls behind.
@@ -68,7 +75,7 @@ const CRITICAL = new Set([
 ]);
 // Rights are Critical only when wider than the saver's own, which the server decides.
 const CRITICAL_ATTRS = /^user\/.+\/(role|pin|persistent|noAutoLock|remove|add)$/;
-export const critical = (key) => CRITICAL.has(key) || CRITICAL_ATTRS.test(key);
+export const critical = (key) => CRITICAL.has(key) || CRITICAL_ATTRS.test(key) || ROUTER_RECONNECT.test(key) || ROUTER_COUNT.test(key);
 
 // Lists that read as one row per item.
 const INDEXED = new Set(['levelColors']);

@@ -110,6 +110,7 @@ const LISTS = [
 
 export function rightsText(r) {
   const parts = LISTS.filter(([k]) => Array.isArray(r?.[k])).map(([k, word]) => (r[k].length ? `${r[k].length} ${word}` : `no ${word}`));
+  if (r?.tieLines === false) parts.push('no tie lines');
   return parts.length ? parts.join(', ') : 'All';
 }
 

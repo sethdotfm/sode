@@ -108,6 +108,16 @@ var policy = map[string]rule{
 				a.reply(c, routeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
 			}
 		}},
+	// A route across routers from the main page: POST /takes for the page's caller (tiepage.go).
+	"tieTake": {crit: critNever, role: config.RoleStandard, need: needMain, why: "take", write: true,
+		handle:   func(a *App, c *client, m *inMsg) { a.serveTieTake(c, m) },
+		onRefuse: func(a *App, c *client, m *inMsg, err error) { a.tieTakeRefused(c, m, err) }},
+	// The plan of the Tie line picker, with no take (tiepage.go). Not a write: it changes nothing.
+	"tiePlan": {crit: critNever, role: config.RoleStandard, need: needMain,
+		handle:   func(a *App, c *client, m *inMsg) { a.serveTiePlan(c, m) },
+		onRefuse: func(a *App, c *client, m *inMsg, err error) { a.pageTakesRefused(c, m, "tiePlanResult", err) }},
+	// The check of an Undo of a tie take before its confirm opens (tieundo.go). Not a write: it changes nothing.
+	"tieUndo": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, m *inMsg) { go a.serveTieUndo(c, m) }},
 	"rereadNames": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg) {
 		a.command(c, "rereadNames", "sent", "", nil)
 		go a.RefreshNames()
@@ -142,7 +152,7 @@ var policy = map[string]rule{
 	"log": {crit: critNever, role: config.RoleStandard, need: needLog, admitted: func(c *client) { c.sent = true },
 		handle: func(a *App, c *client, m *inMsg) { go a.sentHistory(c, int64(m.Before), m.N) }},
 	"uptime": {crit: critNever, role: config.RoleStandard, need: needLog, handle: func(a *App, c *client, m *inMsg) {
-		a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
+		a.reply(c, a.uptimeReply(m.ID, m.Router, m.From, m.To, m.Slot))
 	}},
 
 	"config": {crit: critByFields, role: config.RoleTrusted, op: "config", noID: true, write: true,
@@ -164,6 +174,13 @@ var policy = map[string]rule{
 			defer m.finish()
 			a.replyOp(c, "bookmarks", id, len(list), "bookmark", a.SaveBookmarks(c, list))
 		}(m.Bookmarks, m.ID)
+	}},
+	// Settings > Routers > Tie lines (tielines.go): the whole list, Administrator only.
+	"tieLines": {crit: critNever, role: config.RoleAdministrator, op: "tieLines", write: true, handle: func(a *App, c *client, m *inMsg) {
+		go func(list []config.TieLine, id int) {
+			defer m.finish()
+			a.replyOp(c, "tieLines", id, len(list), "tie line", a.SaveTieLines(c, list))
+		}(m.TieLines, m.ID)
 	}},
 	"presets": {crit: critNever, role: config.RoleTrusted, op: "presets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(presets []config.Preset, id int) {
@@ -214,10 +231,15 @@ var policy = map[string]rule{
 	// user's own items, so it is never Critical.
 	"swapList": {crit: critNever, role: config.RoleStandard, op: "swapList", handle: func(a *App, c *client, m *inMsg) { go a.serveSwapList(c, m) }},
 	"swapMine": {crit: critNever, role: config.RoleStandard, op: "swapMine", write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSwapMine(c, m) }},
+	// Remove router (routeradd.go): the items a router delete breaks, everyone's, so Administrator only.
+	"routerUses": {crit: critNever, role: config.RoleAdministrator, op: "routerUses", handle: func(a *App, c *client, m *inMsg) { go a.serveRouterUses(c, m) }},
 	// Broken and Name moved counts (brokencount.go): everyone's is Administrator only, checked in the handler.
 	"brokenCount": {crit: critNever, role: config.RoleStandard, handle: func(a *App, c *client, m *inMsg) { go a.serveBrokenCount(c, m) }},
 	// The Palette's Panels rows (palette.go): the reach of the browser's own sign-in, never a panel key.
 	"palettePanels": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.servePalettePanels(c, m) }},
+	// Settings > Routers > Tie lines: the One-off tie lines that Sode keeps now (tieoneoff.go), Administrator only.
+	"oneOffTieLines": {crit: critNever, role: config.RoleAdministrator, op: "oneOffTieLines",
+		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.oneOffList(m.ID)) }},
 	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
 }

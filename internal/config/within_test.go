@@ -2,11 +2,13 @@ package config
 
 import "testing"
 
-func ints(v ...int) *[]int { return &v }
+// ints: levels of router "u".
+func ints(v ...int) RouterLevels { return RouterLevels{"u": v} }
 
 func strs(v ...string) *[]string { return &v }
 
 func TestRightsWithin(t *testing.T) {
+	on, off := true, false
 	cases := []struct {
 		name  string
 		r, of Rights
@@ -31,6 +33,9 @@ func TestRightsWithin(t *testing.T) {
 		{"hidden within hidden", Rights{Visibility: VisHidden}, Rights{Visibility: VisHidden}, true},
 		{"read-only is wider than hidden", Rights{}, Rights{Visibility: VisHidden}, false},
 		{"explicit read-only is wider than hidden", Rights{Visibility: VisReadOnly}, Rights{Visibility: VisHidden}, false},
+		{"tie lines unset is on", Rights{}, Rights{TieLines: &on}, true},
+		{"tie lines on is wider than off", Rights{}, Rights{TieLines: &off}, false},
+		{"tie lines off within on", Rights{TieLines: &off}, Rights{}, true},
 	}
 	for _, c := range cases {
 		if got := c.r.Within(c.of); got != c.want {

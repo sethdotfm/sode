@@ -157,11 +157,11 @@ test('keyConfirm does not import the plan module', () => {
 async function mainPage(n) {
   const m = await import('./all.mjs');
   const { keyConfirm } = await import('../keyconfirm.js');
-  const { S } = m;
+  const { S, routerData } = m;
   const got = setup(S);
-  S.levels = [{ ui: 1 }, { ui: 2 }];
-  S.levelBy = new Map([1, 2].map((u) => [u, {}]));
-  S.tally = new Map();
+  routerData('').levels = [{ ui: 1 }, { ui: 2 }];
+  routerData('').levelBy = new Map([1, 2].map((u) => [u, {}]));
+  routerData('').tally = new Map();
   const it = (k, x) => ({ n: x, num: x + 1, name: `${k}${x + 1}`, label: `${k}${x + 1}` });
   const plan = m.patchPlan(
     it('Cam ', 0),

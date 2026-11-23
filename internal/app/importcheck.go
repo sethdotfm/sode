@@ -10,30 +10,58 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// refCheck checks references against the live router's names. With no names read yet a source or
-// destination cannot be checked, so the item waits (waited) and its category is not imported.
+// refCheck checks references against the names of each live router. A router can have no names read yet. Then a
+// source or destination on it cannot be checked, so the item waits (waited) and its category is not imported.
 type refCheck struct {
-	uid      string
+	routers map[string]*routerCheck // by router UID
+	waited  bool
+}
+
+type routerCheck struct {
 	levels   int
 	src, dst map[int]string
-	unknown  bool
-	waited   bool
+	unknown  bool // no names at all
+}
+
+func newRefCheck(live config.Config, names liveNameSet) *refCheck {
+	k := &refCheck{routers: map[string]*routerCheck{}}
+	for _, r := range live.Routers() {
+		n := names[r.UID]
+		k.routers[r.UID] = &routerCheck{levels: r.Levels, src: n.src, dst: n.dst, unknown: len(n.src) == 0 && len(n.dst) == 0}
+	}
+	return k
+}
+
+// setLevels takes the level counts of c, after a category that can change a router.
+func (k *refCheck) setLevels(c config.Config) {
+	for _, r := range c.Routers() {
+		if rc := k.routers[r.UID]; rc != nil {
+			rc.levels = r.Levels
+		}
+	}
+}
+
+// unknown: router uid is live and has no names at all.
+func (k *refCheck) unknown(uid string) bool {
+	rc := k.routers[uid]
+	return rc != nil && rc.unknown
 }
 
 func (k *refCheck) missing(kind string, r config.Ref) (config.Missing, bool) {
-	if r.Router != k.uid {
+	rc := k.routers[r.Router]
+	if rc == nil {
 		return config.Missing{Kind: config.MissingRouter, Ref: r}, true
 	}
 	if kind == config.MissingLevel {
-		return config.Missing{Kind: kind, Ref: r}, r.N < 1 || r.N > k.levels
+		return config.Missing{Kind: kind, Ref: r}, r.N < 1 || r.N > rc.levels
 	}
-	if k.unknown {
+	if rc.unknown {
 		k.waited = true
 		return config.Missing{}, false
 	}
-	names := k.src
+	names := rc.src
 	if kind == config.MissingDestination {
-		names = k.dst
+		names = rc.dst
 	}
 	return config.Missing{Kind: kind, Ref: r}, !sameName(names[r.N], r.Name)
 }
@@ -108,7 +136,7 @@ func (k *refCheck) panelBroken(fp *Panel, cfg config.Config, presetTo func(id st
 
 // filterSetBroken: only the router is checked here; terms break on router changes, not on import.
 func (k *refCheck) filterSetBroken(s config.FilterSet) []config.Missing {
-	if s.Router == "" || s.Router == k.uid {
+	if s.Router == "" || k.routers[s.Router] != nil {
 		return nil
 	}
 	return []config.Missing{{Kind: config.MissingRouter, Ref: config.Ref{Router: s.Router}}}

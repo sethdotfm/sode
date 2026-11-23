@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -135,11 +136,12 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 	a.endDeadHeldMu()
 	a.renameSignedInMu()
 	a.refreshStreams(nr.cfg)
+	a.forgetMovedTieLines(old, nr)
 	if after != nil {
 		after(old, nr)
 	}
 	// Open pages hold typed text and stored items with the old prefix, so each one starts again.
-	if old.cfg.Prefix != nr.cfg.Prefix {
+	if prefixMoved(old.cfg, nr.cfg) {
 		reload, _ := json.Marshal(simpleMsg{T: "reload"})
 		for cl := range a.clients {
 			a.deliver(cl, reload)
@@ -159,6 +161,16 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 	return nil
 }
 
+// prefixMoved: a router that both settings have has a new prefix.
+func prefixMoved(old, next config.Config) bool {
+	for _, r := range old.Routers() {
+		if n, ok := next.RouterByUID(r.UID); ok && n.Prefix != r.Prefix {
+			return true
+		}
+	}
+	return old.Prefix != next.Prefix
+}
+
 // syncAccessAllMu: every connection gets its lock state again. Caller holds mu.
 func (a *App) syncAccessAllMu() {
 	for cl := range a.clients {
@@ -166,18 +178,36 @@ func (a *App) syncAccessAllMu() {
 	}
 }
 
-// cutRoutes: waits stop at once, each take fails as cut. Their sends are already refused
-// (a.ext changed). Caller holds mu.
-func (a *App) cutRoutes() {
-	for w := range a.waiters {
+// cutRoutes: the router's waits stop at once, each take fails as cut. Their sends are already refused
+// (u.ext changed). Caller holds mu.
+func (u *routerUnit) cutRoutes() {
+	for w := range u.waiters {
 		w.cut = true
 		w.finish()
 	}
-	clear(a.waiters)
-	for c := range a.checks {
+	clear(u.waiters)
+	for c := range u.checks {
 		c.finish()
 	}
-	clear(a.checks)
+	clear(u.checks)
+}
+
+// reconnectMu starts the unit again for a router change to addr: new state and External tracking, takes cut, status
+// "connecting". SetTarget does not report down, so this tells the link log and uptime; the next up is logged again.
+// Caller holds mu.
+func (a *App) reconnectMu(u *routerUnit, addr string) {
+	u.router = newRouterState()
+	u.ext = newExtTracker()
+	u.cutRoutes()
+	u.status.Router = string(swp08.StateConnecting)
+	u.status.Addr = addr
+	a.viaTouchRouter(u, a.r())
+	u.status.Err = ""
+	u.up.State(false)
+	u.linkSeen, u.linkErr = "", ""
+	ch := event(kindLink, "", "", "changed")
+	ch.Note = addr
+	a.logEvent(ch)
 }
 
 func (a *App) applyConfig(mutate func(*config.Config) error) error {
@@ -186,43 +216,43 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 
 func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) error {
 	page := a.readHello() // history read stays outside mu
-	var reconnect bool
-	var c config.Config
-	var applied *runtime
+	type target struct {
+		u  *routerUnit
+		rc config.Router
+	}
+	var moved []target
+	var gone []*routerUnit
 	err := a.commitWith(mutate, func(oldRt, nr *runtime) {
-		old := oldRt.cfg
-		c = nr.cfg
-		reconnect = config.ReconnectChanged(old, c)
-		if reconnect {
-			a.router = newRouterState()
-			a.ext = newExtTracker()
-			a.cutRoutes()
-			a.status.Router = string(swp08.StateConnecting)
-			a.status.Addr = c.Address
-			a.status.Err = ""
-			// SetTarget does not report down, so this tells the link log and uptime. The next up is
-			// logged again.
-			a.up.State(false)
-			a.linkSeen, a.linkErr = "", ""
-			ch := event(kindLink, "", "", "changed")
-			ch.Note = c.Address
-			a.logEvent(ch)
+		var added []*routerUnit
+		added, gone = a.syncUnitsMu(nr)
+		// Each router that changed starts again; takes in flight on the others go on.
+		for _, u := range a.unitsInOrder(nr) {
+			if slices.Contains(added, u) {
+				continue
+			}
+			rc := nr.routerOf(u.uid())
+			if config.RouterReconnectChanged(oldRt.routerOf(u.uid()), rc) {
+				a.reconnectMu(u, rc.Address)
+				moved = append(moved, target{u, rc})
+			}
 		}
 		hello := a.hello(page)
 		for cl := range a.clients {
 			a.deliver(cl, hello)
 		}
 		a.syncAccessAllMu() // it is possible that locks or users changed
-		applied = nr
 	}, save)
 	if err != nil {
 		return err
 	}
 	a.catchUpSessions() // it is possible that this save ticked Never sign out
-	if reconnect {
-		a.sw.SetTarget(c.Address, applied.probe())
+	for _, u := range gone {
+		endUnit(u)
 	}
-	log.Printf("config: applied (reconnect=%v)", reconnect)
+	for _, m := range moved {
+		m.u.sw.SetTarget(m.rc.Address, probe(m.rc))
+	}
+	log.Printf("config: applied (reconnect=%v)", len(moved) > 0)
 	return nil
 }
 

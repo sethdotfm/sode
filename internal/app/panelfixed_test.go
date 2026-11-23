@@ -68,7 +68,7 @@ func TestFixedDestsOldPanelFileLoadsUnchanged(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "panels"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, router: r1, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, router: r1, n: 4}\nsettings:\n    mode: instant\n    levels: [1, 2]\n")
+	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, router: r1, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, router: r1, n: 4}\nsettings:\n    mode: instant\n    levels: {r1: [1, 2]}\n")
 	path := filepath.Join(dir, "panels", "p-0000abcd.yaml")
 	if err := os.WriteFile(path, old, 0o644); err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func TestFixedDestsOldPanelFileLoadsUnchanged(t *testing.T) {
 	if !ok || len(s.problems()) != 0 {
 		t.Fatalf("not loaded: ok=%v problems %v", ok, s.problems())
 	}
-	if _, has := p.Settings[panelFixedKey]; has || fmt.Sprint(p.Settings) != "map[levels:[1 2] mode:instant]" {
+	if _, has := p.Settings[panelFixedKey]; has || fmt.Sprint(p.Settings) != "map[levels:map[r1:[1 2]] mode:instant]" {
 		t.Fatalf("settings %v", p.Settings)
 	}
 	if got := fmt.Sprint(p.Pages[0].Cells); got != "[map[c:1 cs:1 kind:destination n:7 r:1 router:r1 rs:1] map[c:2 cs:1 kind:source n:4 r:1 router:r1 rs:1]]" {

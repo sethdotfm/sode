@@ -1,0 +1,1 @@
+- Settings > Routers > Tie lines: Sode suggests a tie line where a destination on one router has the same name as a source on another router. An Administrator accepts each suggestion or dismisses it. Sode does not use a suggestion that nobody accepted.

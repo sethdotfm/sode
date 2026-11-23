@@ -1,11 +1,12 @@
 // History's filter, per browser (filters.js edits it), and the named filter sets. hidden: show Externals on the destinations that Settings hides.
 
-import { S, on, onMsg, emit, off, srcItem, dstItem } from './core.js';
+import { S, on, onMsg, emit, off, srcItem, dstItem, routerData } from './core.js';
 import { filterFn, entryAllows, stackAllows } from './filter.js';
 import { pref } from './device.js';
 import { profile, profileName } from './profile.js';
 import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 import { newPresetId } from './presetref.js';
+import { typedEnds } from './tiehistoryrules.js';
 
 const FILTER_KEY = 'sode-filter';
 export const FILTER_DEFAULT = Object.freeze({ src: '', dst: '', sode: true, ext: true, hidden: false });
@@ -291,12 +292,25 @@ function globallyHidden(num, name, at) {
 
 // Quick search is history.js's. With a stack, each set's saved filter judges it and pref
 // setStack says whether all must allow, or one is enough.
+// A tie take matches by its typed ends, each on its own router, and a hop entry never matches (tiehistoryrules.js).
 export function filterAllows(e) {
-  const s = srcItem(e.src, e.srcName),
-    d = dstItem(e.dst, e.dstName);
-  const dn = e.dst + off();
-  const router = e.router || S.routerUid;
-  const x = { ext: !!e.ext, sn: e.src + off(), sname: s.name, dn, dname: d.name, router, hiddenDst: !!e.ext && globallyHidden(dn, d.name, router) };
+  const ends = typedEnds(e);
+  if (!ends) return false;
+  const s = srcItem(ends.src.n, ends.src.name, ends.src.router),
+    d = dstItem(ends.dst.n, ends.dst.name, ends.dst.router);
+  const dn = ends.dst.n + off();
+  const router = ends.dst.router || routerData('').uid;
+  const srcRouter = ends.src.router || routerData('').uid;
+  const x = {
+    ext: !!e.ext,
+    sn: ends.src.n + off(),
+    sname: s.name,
+    srcRouter,
+    dn,
+    dname: d.name,
+    router,
+    hiddenDst: !!e.ext && globallyHidden(dn, d.name, router),
+  };
   const st = stackMatchers();
   return st ? stackAllows(pref('setStack'), st, x) : entryAllows(filter, { srcOk, dstOk }, x);
 }

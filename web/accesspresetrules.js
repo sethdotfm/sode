@@ -5,8 +5,10 @@ const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const norm = (v) => (Array.isArray(v) ? [...v].sort() : (v ?? null));
 const same = (a, b) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 
+// The Guest's Use tie lines right is part of Guest Rights (a whole field), so a preset target holds it as its own leaf.
 export function presetTarget(preset, ticked) {
   const out = structuredClone(preset.fields);
+  if (preset.guestTieLines !== undefined) out.guestRights = { tieLines: !!preset.guestTieLines };
   for (const id of ticked) {
     out[`user/${id}/persistent`] = !!preset.users.persistent;
     out[`user/${id}/noAutoLock`] = !!preset.users.noAutoLock;
@@ -38,10 +40,16 @@ export function presetMarks(marks, rows, name, target) {
   return out;
 }
 
+// Unset is on (config.Rights.TieLines). Guest Rights that did not load give undefined, which is no gap.
+const liveLeaf = (live, l) => {
+  if (l.key === 'guestRights' && l.sub === 'tieLines') return live.guestRights && live.guestRights.tieLines !== false;
+  return l.sub === null ? live[l.key] : live[l.key]?.[l.sub];
+};
+
 export function presetGaps(target, live) {
   const out = [];
   for (const l of leaves(target)) {
-    const v = l.sub === null ? live[l.key] : live[l.key]?.[l.sub];
+    const v = liveLeaf(live, l);
     if (v !== undefined && !same(v, l.want)) out.push({ ...l, live: v });
   }
   return out;
@@ -69,6 +77,8 @@ export function gapText(g) {
       return `Keyless API: ${v ? 'on' : 'off'}`;
     case 'guestApiScopes':
       return `Keyless takes: ${v.includes('take') ? 'on' : 'off'}`;
+    case 'guestRights':
+      return `Guest Use tie lines: ${v ? 'on' : 'off'}`;
     case 'newUserDefaults':
       return `New user defaults: ${g.sub === 'persistent' ? 'Never sign out' : 'No auto-lock'} ${v ? 'on' : 'off'}`;
   }

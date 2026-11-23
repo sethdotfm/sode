@@ -1,12 +1,13 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
 // previews beside the fields. settingssave.js wraps the form as formSource, a save source of the one Save.
 
-import { $, el, S, icon } from './core.js';
+import { $, el, S, icon, routerData } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
 import { fmtTime } from './device.js';
 import { parseLevelsAs } from './levels.js';
 import { resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
+import { brandCaution, pickerColors, CAUTION_NOTE } from './accent.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { intProblem, namesTimeText } from './settingsrules.js';
 import { rereadNames } from './rereadnames.js';
@@ -37,11 +38,12 @@ function renderBrandPreview() {
   $('cfg-brandcustom-wrap').hidden = $('cfg-brandborder').value !== 'custom';
   setBrand($('brand-swatch'), c);
   $('brand-icon').src = iconURL(180, c);
+  $('brand-caution').hidden = !brandCaution(c, S.brandColors);
 }
 function fillBrandColors(v) {
   const sel = $('cfg-brandborder');
   const opt = (value, text) => Object.assign(el('option', null, text), { value });
-  sel.replaceChildren(opt('', 'Off'), ...S.brandColors.map((c) => opt(c.name, c.label)), opt('custom', 'Custom…'));
+  sel.replaceChildren(opt('', 'Off'), ...pickerColors(S.brandColors, v).map((c) => opt(c.name, c.label)), opt('custom', 'Custom…'));
   const custom = (v || '').startsWith('#');
   sel.value = custom ? 'custom' : v || '';
   if (custom) $('cfg-brandcustom').value = v;
@@ -57,6 +59,7 @@ $('cfg-brandborder').addEventListener('change', () => {
 // select's change handler opens it at the select instead.
 $('cfg-brandcustom-wrap').append(icon('paintbrush', false));
 $('cfg-brandcustom').addEventListener('input', renderBrandPreview);
+$('brand-caution').append(icon('triangle-alert'), el('span', null, CAUTION_NOTE));
 
 export function fillForm() {
   for (const f of fields()) {
@@ -227,18 +230,18 @@ export function renderHiddenNote() {
   if (p.error) text = `${p.error}.`;
   else if (p.rules.length) {
     const fn = compileFilter(p.rules);
-    const n = S.dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
-    text = `${n} of ${S.dsts.length} destinations`;
+    const n = routerData('').dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
+    text = `${n} of ${routerData('').dsts.length} destinations`;
   }
   $('cfg-hidden-note').textContent = text;
 }
 
 export function renderNamesStatus() {
   if (!isOpen()) return;
-  $('names-at').textContent = namesTimeText({ at: S.namesAt, savedAt: S.namesSavedAt }, fmtTime);
-  $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations`;
+  $('names-at').textContent = namesTimeText({ at: routerData('').namesAt, savedAt: routerData('').namesSavedAt }, fmtTime);
+  $('names-status').textContent = `${routerData('').srcs.length} sources, ${routerData('').dsts.length} destinations`;
   const btn = $('names-refresh');
-  btn.disabled = S.router !== 'up';
+  btn.disabled = routerData('').link !== 'up';
   btn.textContent = 'Re-read now';
 }
 

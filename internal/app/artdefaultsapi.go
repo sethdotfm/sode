@@ -31,15 +31,15 @@ type artDefaultIn struct {
 }
 
 func (a *App) artDefaultVisible(cl *apiCtx, d ArtDefault) bool {
-	v := cl.view()
+	v := a.view(cl)
 	if !v.Hidden() {
 		return true
 	}
 	switch d.Kind {
 	case artKindSource:
-		return d.N != nil && v.Source(*d.N)
+		return d.N != nil && v.source(config.Ref{Router: d.Router, N: *d.N})
 	case artKindDst:
-		return d.N != nil && v.Destination(*d.N)
+		return d.N != nil && v.destination(config.Ref{Router: d.Router, N: *d.N})
 	}
 	// A preset's items would teach hidden numbers, so a hidden caller needs the whole preset in view.
 	// Only Everyone presets have defaults (check).
@@ -88,8 +88,17 @@ func (a *App) artDefaultsFor(cl *apiCtx, keep func(ArtDefault) bool) []ArtDefaul
 func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
 	cfg := a.r().cfg
 	shown := map[string]bool{}
+	uid := cfg.UID
+	// A cell or default with no router names the first router.
+	onRouter := func(d ArtDefault) ArtDefault {
+		if d.Kind != artKindPreset {
+			d.Router = cmp.Or(d.Router, uid)
+		}
+		return d
+	}
 	for c := range allCells(p.Pages) {
 		if d, ok := cellItem(c); ok {
+			d = onRouter(d)
 			// A Preset cell with no id finds its preset by name, so an old panel file still loads.
 			if q, found := everyonePreset(cfg, d.ID, d.Name); d.Kind == artKindPreset && d.ID == "" && found {
 				d.ID = q.ID
@@ -99,17 +108,13 @@ func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
 	}
 	// An "all" edge follows the router, so it shows every default of its kind except the hidden ones.
 	edges := map[string]*GridEdge{artKindSource: p.Sources, artKindDst: p.Destinations}
-	uid := a.r().cfg.UID
 	return a.artDefaultsFor(cl, func(d ArtDefault) bool {
+		d = onRouter(d)
 		if shown[d.key()] {
 			return true
 		}
 		e := edges[d.Kind]
-		router := d.Router
-		if router == "" {
-			router = uid
-		}
-		return e != nil && d.N != nil && e.shows(router, *d.N)
+		return e != nil && d.N != nil && e.shows(d.Router, *d.N)
 	})
 }
 
@@ -127,7 +132,8 @@ func cellItem(c map[string]any) (ArtDefault, bool) {
 		default:
 			return ArtDefault{}, false
 		}
-		return ArtDefault{Kind: kind, N: &n}, true
+		router, _ := c["router"].(string)
+		return ArtDefault{Kind: kind, Router: router, N: &n}, true
 	case artKindPreset:
 		scope, _ := c["scope"].(string)
 		name, _ := c["name"].(string)
@@ -221,10 +227,11 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 	}
 	if d.Kind != artKindPreset {
 		// The router's name now, so the editor can tell when the number later names another item.
+		first := a.firstUnit()
 		a.mu.Lock()
-		names := a.router.srcNames
+		names := first.router.srcNames
 		if d.Kind == artKindDst {
-			names = a.router.dstNames
+			names = first.router.dstNames
 		}
 		if n := names[*d.N]; n != "" {
 			d.Name = n

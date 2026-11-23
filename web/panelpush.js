@@ -38,7 +38,7 @@ export function openPush(panel, ctx) {
   const say = (t) => (note.textContent = t);
 
   const targets = el('div', 'sode-ov__people');
-  const pushBtn = btn('pb-btn--ok', [icon('send'), ' Push']);
+  const pushBtn = btn('sode-btn--primary', [icon('send'), ' Push']);
   const pushTab = el('div', null, targets, el('div', 'sode-ov__acts', pushBtn));
 
   function paintTargets() {
@@ -74,7 +74,7 @@ export function openPush(panel, ctx) {
 
   const setSel = el('select', 'pb-select');
   setSel.setAttribute('aria-label', 'Checkpoint set');
-  const setPush = btn('pb-btn--ok', [icon('send'), ' Push set']);
+  const setPush = btn('sode-btn--primary', [icon('send'), ' Push set']);
   const setDel = btn('pb-btn--ghost', [icon('trash-2'), ' Delete set']);
   const setHint = el('p', 'sode__hint');
   const nameIn = el('input', 'pb-input');

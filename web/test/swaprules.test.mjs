@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupByOwner, parseShown, swapLabel, swapShow, swapValue } from '../swaprules.js';
+import { firstTicked, groupByOwner, parseShown, swapLabel, swapShow, swapValue } from '../swaprules.js';
 import { diffRows, sectionOfKey } from '../savereviewrules.js';
 
 const items = [
@@ -52,4 +52,13 @@ test('the review row names the Swap and counts items per owner', () => {
   const rows = diffRows({}, { swap: v });
   assert.equal(rows.length, 1);
   assert.equal(sectionOfKey('swap'), 'routers');
+});
+
+test('a found list ticks every item but tie lines', () => {
+  const items = [
+    { id: 'preset/everyone/p1', kind: 'preset' },
+    { id: 'tieLine/t3', kind: 'tieLine' },
+    { id: 'panel/x', kind: 'panel' },
+  ];
+  assert.deepEqual(firstTicked(items), ['preset/everyone/p1', 'panel/x']);
 });

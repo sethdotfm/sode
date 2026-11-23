@@ -12,7 +12,7 @@ import (
 
 func everyoneBookmarks(presetID string) []config.Bookmark {
 	return []config.Bookmark{
-		{Key: "preset:global:" + presetID, Label: "Show", InPalette: true},
+		{Key: "preset:global:" + presetID, Label: "Show"},
 		{URL: "https://example.com/run", Label: "Run sheet", NewTab: true},
 	}
 }

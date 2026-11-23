@@ -8,16 +8,55 @@ import (
 
 // The one place a caller's visibility applies (ADR 0004). Read-only rights show everything. Hidden rights drop
 // sources, destinations and presets outside the rights, and what names them. Levels are not hidden: a rights list
-// of levels only refuses commands.
-type apiView struct{ rights config.Rights }
+// of levels only refuses commands. A number is visible on its own router only (on), as a Rights check matches it.
+type apiView struct {
+	rights config.Rights
+	// first is the settings UID of the first router, for a blank router and for firstUnit (rightsUID).
+	first, firstUnit string
+}
 
-func (c *apiCtx) view() apiView { return apiView{c.Rights} }
+func (a *App) view(c *apiCtx) apiView { return a.viewOf(c.Rights) }
+
+// viewOf is the view of a caller with rights rt: an API caller, or a page (pageTieRetry).
+func (a *App) viewOf(rt config.Rights) apiView {
+	v := apiView{rights: rt, first: a.r().cfg.UID}
+	if a.first != nil {
+		v.firstUnit = a.first.uid()
+	}
+	return v
+}
 
 func (v apiView) Hidden() bool { return v.rights.Hidden() }
 
-func (v apiView) Source(n int) bool      { return !v.Hidden() || v.rights.AllowsSource(config.Ref{N: n}) }
-func (v apiView) Destination(n int) bool { return !v.Hidden() || v.rights.AllowsDst(config.Ref{N: n}) }
-func (v apiView) Preset(id string) bool  { return !v.Hidden() || v.rights.AllowsPreset(id) }
+func (v apiView) ref(f config.Ref) config.Ref {
+	if f.Router == "" || f.Router == v.firstUnit {
+		f.Router = v.first
+	}
+	return config.Ref{Router: f.Router, N: f.N}
+}
+
+func (v apiView) source(f config.Ref) bool      { return !v.Hidden() || v.rights.AllowsSource(v.ref(f)) }
+func (v apiView) destination(f config.Ref) bool { return !v.Hidden() || v.rights.AllowsDst(v.ref(f)) }
+func (v apiView) Preset(id string) bool         { return !v.Hidden() || v.rights.AllowsPreset(id) }
+
+// routerView is an apiView for the numbers of one router.
+type routerView struct {
+	v   apiView
+	uid string
+}
+
+// on gives the view of router uid; blank is the first router.
+func (v apiView) on(uid string) routerView { return routerView{v, uid} }
+
+func (rv routerView) Source(n int) bool { return rv.v.source(config.Ref{Router: rv.uid, N: n}) }
+func (rv routerView) Destination(n int) bool {
+	return rv.v.destination(config.Ref{Router: rv.uid, N: n})
+}
+
+// Route: src < 0 means nothing routed, which is always visible.
+func (rv routerView) Route(dst, level, src int) bool {
+	return rv.Destination(dst) && (src < 0 || rv.Source(src))
+}
 
 // The items of a preset would teach a hidden number, so every source and destination it names must be visible.
 func (v apiView) WholePreset(p config.Preset) bool {
@@ -25,16 +64,11 @@ func (v apiView) WholePreset(p config.Preset) bool {
 		return false
 	}
 	for _, it := range p.Items {
-		if !v.Source(it.Src.N) || slices.ContainsFunc(it.Dsts, func(d config.Ref) bool { return !v.Destination(d.N) }) {
+		if !v.source(it.Src) || slices.ContainsFunc(it.Dsts, func(d config.Ref) bool { return !v.destination(d) }) {
 			return false
 		}
 	}
 	return true
-}
-
-// Route: src < 0 means nothing routed, which is always visible.
-func (v apiView) Route(dst, level, src int) bool {
-	return v.Destination(dst) && (src < 0 || v.Source(src))
 }
 
 // false drops the entry. A level whose Before source (Prev) is hidden goes, so no Undo built from the result names it.
@@ -43,13 +77,34 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 	if !v.Hidden() {
 		return e, true
 	}
-	if !v.Destination(e.Dst) || (e.Src >= 0 && !v.Source(e.Src)) {
+	// A tie take's entry is seen by its typed source (Origin), as Rights cover the typed ends only.
+	rv := v.on(e.Router)
+	srcRV, src := rv, e.Src
+	if e.Origin != nil {
+		srcRV, src = v.on(e.Origin.Router), e.Origin.N
+	}
+	if !rv.Destination(e.Dst) || (src >= 0 && !srcRV.Source(src)) {
 		return e, false
 	}
 	e = cloneEntry(e)
+	e.Hops = v.hops(e.Hops)
+	for i := range e.ViaPrev {
+		if o := e.ViaPrev[i].Origin; o != nil && !v.on(o.Router).Source(o.N) {
+			e.ViaPrev[i].Origin = nil
+		}
+	}
+	// As the Affected destinations of a 409 body: a destination that the caller cannot see goes, with its number,
+	// and AlsoOthers counts it.
+	e.Also = slices.DeleteFunc(e.Also, func(al TieAlso) bool {
+		if v.on(al.Router).Destination(al.N) {
+			return false
+		}
+		e.AlsoOthers++
+		return true
+	})
 	var gone []int
 	for _, p := range e.Prev {
-		if p[1] >= 0 && !v.Source(p[1]) {
+		if p[1] >= 0 && !rv.Source(p[1]) {
 			gone = append(gone, p[0])
 		}
 	}
@@ -68,7 +123,7 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 		}
 	}
 	// Now names the router's own answer, which can be any source.
-	e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[1] >= 0 && !v.Source(p[1]) })
+	e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[1] >= 0 && !rv.Source(p[1]) })
 	if e.Preset != "" && !v.Preset(e.PresetID) {
 		e.Preset, e.PresetID = "", ""
 	}

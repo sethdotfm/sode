@@ -20,6 +20,9 @@ import {
 } from '../editorrules.js';
 import { createGrid, merge, select } from '../gridmodel.js';
 import { pageView } from '../panelpages.js';
+import { edgesIn } from '../gridedgerefs.js';
+import { addItems, removeItems, stopFollowing } from '../editorgridrules.js';
+import { makePlaces, SPAN } from '../routerids.js';
 
 test('the editor opens the panel in ?panel=, and anything else starts a new one', () => {
   assert.deepEqual(editorTarget('?panel=p-1a2b'), { id: 'p-1a2b' });
@@ -103,6 +106,41 @@ test('a Grid panel saves its type and edges with no size and no Pages, whatever 
   const loaded = { ...newPanel('grid'), id: 'p-1', name: 'Wall', canEdit: true, rows: 0, cols: 0, future: 1 };
   const b = saveBody(loaded, 'Wall', g, { destinations: { members: [2] } });
   assert.deepEqual([b.type, b.sources, b.destinations, b.pages, b.future], ['grid', { members: [] }, { members: [{ n: 2 }] }, [], 1]);
+});
+
+test('a Grid panel member on another router survives an edit and a save', () => {
+  const [A, B] = ['a1a1a1a1a1a1a1a1', 'b2b2b2b2b2b2b2b2'];
+  const stored = {
+    ...newPanel('grid'),
+    id: 'p-1',
+    name: 'Wall',
+    canEdit: true,
+    destinations: {
+      members: [
+        { router: A, n: 0, name: 'MON A' },
+        { router: B, n: 4, name: 'B MON' },
+        { router: A, n: 2, name: 'MON C' },
+      ],
+    },
+  };
+  const places = makePlaces([{ uid: A }, { uid: B }]);
+  const loaded = edgesIn(stored, places);
+  assert.deepEqual(loaded.destinations.members, [0, SPAN + 4, 2]);
+  // The router lists hold the items of both routers on item numbers.
+  const router = [0, 1, 2, 3, SPAN + 1].map((n) => ({ n, name: `MON ${n}` }));
+  // Remove MON C, add 1 and router B's 1 from the router list.
+  const destinations = addItems(removeItems(loaded.destinations, new Set([2])), router, new Set([1, SPAN + 1]));
+  const b = saveBody(loaded, 'Wall', createGrid(), { destinations }, undefined, places);
+  assert.deepEqual(b.destinations, {
+    members: [
+      { router: A, n: 0 },
+      { router: B, n: 4 },
+      { router: A, n: 1 },
+      { router: B, n: 1 },
+    ],
+  });
+  // Follow the router covers every router, router by router.
+  assert.deepEqual(stopFollowing({ members: 'all' }, router).members, [0, 1, 2, 3, SPAN + 1]);
 });
 
 test('a Grid panel is dirty on a type or edge change, and not on an empty items or hide left by an undone edit', () => {

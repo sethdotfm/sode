@@ -1,6 +1,6 @@
 // The sidebar's Panel tab: identity and size, appearance, behavior, device and feedback. Every control writes
 // one key of the panel's settings through setSetting (sidebarrules.js), so the stored file only holds choices.
-import { el, $, S } from './core.js';
+import { el, $, routerData } from './core.js';
 import { field, check, opt, segmented } from './formbits.js';
 import { THEMES } from './panellook.js';
 import { featureSupport, fullscreenNote, LANDSCAPE_HINT } from './panelfeel.js';
@@ -8,8 +8,10 @@ import { setSetting, fontPercent, FONT_MAX, FONT_MIN } from './sidebarrules.js';
 import { createSlugField } from './editorslug.js';
 import { linkRow } from './panellinkrow.js';
 import { createLevelBoxes } from './editorlevels.js';
+import { levelsOn, putLevels } from './routerlevels.js';
 import { createSizeFields } from './editorsize.js';
 import { createFixedField } from './editorfixed.js';
+import { createTieField } from './editorties.js';
 import { fixedDestsOf } from './panelrules.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { followRouter, stopFollowing } from './editorgridrules.js';
@@ -134,7 +136,8 @@ export function createPanelTab(ed) {
     ],
     (v) => set('guard', v),
   );
-  const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', v || []) });
+  // The boxes edit the first router's subset; the subsets of other routers stay.
+  const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', putLevels(ed.fields().settings?.levels, routerData('').uid, v?.length ? v : null)) });
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node);
   const fixed = createFixedField(ed);
   const multi = toggle('multi', 'Stage several Destinations at the same time');
@@ -146,7 +149,9 @@ export function createPanelTab(ed) {
   const wrapPages = toggle('wrapPages', 'Wrap between Pages');
   // Settings that only a Buttons panel uses; a Grid panel keeps them stored but does not show them.
   const buttonsOnly = [sizes.node, guardField, fixed.node, multi, resultText, wrapPages];
-  const behavior = section('Behavior', modeField, guardField, fixed.node, multi, levelField, resultText, toggle('kiosk', 'Kiosk mode'), wrapPages);
+  const ties = createTieField(ed);
+  let tiesFor = null; // the panel id the tie line list was read for
+  const behavior = section('Behavior', modeField, guardField, fixed.node, multi, levelField, ties.node, resultText, toggle('kiosk', 'Kiosk mode'), wrapPages);
 
   // A Grid panel's edges: each one is the router's list, or holds its own.
   const followSwitches = ['sources', 'destinations'].map((key) => {
@@ -220,6 +225,11 @@ export function createPanelTab(ed) {
       toggles.find((x) => x.key === 'multi').input.disabled = ro || fixedOn;
       multiNote.textContent = fixedOn ? 'No effect while Fixed destination is on: every press stages all of them together.' : '';
       fixed.update();
+      if ((p?.id || '') !== tiesFor) {
+        tiesFor = p?.id || '';
+        ties.read();
+      }
+      ties.update();
       fullscreenHint.textContent = fullscreenNote(s);
       if (document.activeElement !== size) size.value = String(s.fontSize || 100); // shown, so the arrows step from the default
       size.disabled = ro;
@@ -228,8 +238,8 @@ export function createPanelTab(ed) {
       mode.disable(ro);
       guard.set(s.guard === 'hold' || s.guard === 'double' ? s.guard : 'none');
       guard.disable(ro);
-      levelField.hidden = !S.levels.length;
-      levelBoxes.draw(s.levels);
+      levelField.hidden = !routerData('').levels.length;
+      levelBoxes.draw(levelsOn(s.levels, routerData('').uid));
       sizes.update();
       theme.select.value = THEMES.includes(s.theme) ? s.theme : 'auto';
       theme.select.disabled = ro;

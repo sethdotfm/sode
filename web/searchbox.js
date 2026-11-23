@@ -1,6 +1,6 @@
 // History's quick search boxes (kept in step across layouts) and the note under an empty list.
 
-import { el, S, on, search, item, labelNode } from './core.js';
+import { el, S, on, search, item, labelNode, routerData } from './core.js';
 import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
 import { parseFilter } from './filter.js';
 import { pickSet, activeStack } from './filterstore.js';
@@ -32,7 +32,7 @@ const MENU = 50;
 // Built once per names/history change.
 const candCache = { src: null, dst: null };
 function candidates(k) {
-  const live = k === 'src' ? S.srcs : S.dsts;
+  const live = k === 'src' ? routerData('').srcs : routerData('').dsts;
   const stamp = [live, S.hist, S.hist.length];
   const c = candCache[k];
   if (c && c.stamp.every((x, i) => x === stamp[i])) return c.list;
@@ -41,7 +41,7 @@ function candidates(k) {
   return list;
 }
 function buildCandidates(k, live) {
-  const by = k === 'src' ? S.srcBy : S.dstBy;
+  const by = k === 'src' ? routerData('').srcBy : routerData('').dstBy;
   const seen = new Set(live.map((i) => `${i.n}\u0000${i.name}`));
   const extra = [];
   for (const e of S.hist) {

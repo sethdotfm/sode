@@ -138,3 +138,13 @@ test('counts are asked only by a Role the server answers', () => {
   assert.deepEqual(countAsks('standard', 'ana'), { all: false, mine: true });
   assert.deepEqual(countAsks('administrator', 'ana'), { all: true, mine: true });
 });
+
+// A deleted tie line makes a preset Broken with the tie kind (docs/tielines-design.md, Presets, rule 5). The mark counts
+// while an item still stores that tie line.
+test('a tie mark counts while a route stores that tie line', () => {
+  const tie = { kind: 'tie', ref: { router: '', n: 0 }, tie: 't1' };
+  const far = { src: 0, dsts: [3], levels: [], router: 'R', dstRouter: 'B', ties: ['t1'], srcName: '', dstNames: {} };
+  assert.deepEqual(presetMarks(preset({ items: [far], broken: [tie] })).broken, [tie]);
+  assert.deepEqual(presetMarks(preset({ broken: [tie] })).broken, [], 'no route stores t1');
+  assert.deepEqual(leftOutLines([tie], 1), ['A tie line of a route across routers: not in Sode']);
+});

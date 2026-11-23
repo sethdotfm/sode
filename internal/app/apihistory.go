@@ -54,7 +54,7 @@ func (a *App) apiHistory(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if err != nil {
 		log.Printf("api history: %v", err)
 	}
-	v := cl.view()
+	v := a.view(cl)
 	out := make([]Entry, 0, len(page))
 	for _, e := range page {
 		if e, ok := v.Entry(e); ok {
@@ -67,7 +67,7 @@ func (a *App) apiHistory(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 // Entries are in take order (oldest id first). Externals and Protects are not takes, so their groups do not count.
 // A Group with no route the caller can see is skipped for an older one.
 func (a *App) apiLastGroup(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
-	v := cl.view()
+	v := a.view(cl)
 	before := -1
 	for {
 		page, err := a.hist.Page(before, apiHistoryDefault)

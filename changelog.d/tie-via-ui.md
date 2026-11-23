@@ -1,0 +1,1 @@
+- Via in the UI: the Destination box, History, the Grid popup and Grid panels show a source that tie lines feed as "A.1 CAM 1 Via TIE 3". A mixed chain shows its level pie. Marks show unknown, nothing and a loop. The Source box lists what a source feeds through tie lines. History notes what an External on a tie line also changes.

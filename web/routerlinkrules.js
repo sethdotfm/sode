@@ -4,19 +4,30 @@
 // Up to this many routers get one icon each; more share one icon with a count.
 export const ROUTER_ICONS_MAX = 3;
 
-// Keep in step with core.js connState's router state; test/routerlink.test.mjs compares them.
+// connState's router state (core.js) is the first entry's.
 const STATE = { up: 'ok', connecting: 'warn', down: 'error' };
 const WORD = { up: 'connected', connecting: 'connecting', down: 'down' };
 const RANK = { error: 3, warn: 2, idle: 1, ok: 0 };
 
-// One entry per router, in config order. The hello names one router today (routerUid, prefix and the scalar router
-// fields), so the list holds one entry. link is the server's own word (up, connecting, down); state is a setDot state.
-export function routerLinks(s) {
-  return [routerLink(s, s.routerUid, s.prefix, s.cfg?.routerName, s.routerAddr, s.router, s.routerLastErr)];
+// One entry per router of s.routers, in config order; before the hello, one entry for the first router. of(uid) gives
+// the router's { uid, prefix, title, link, addr, err }: routerData in core.js, where blank is the first router. A
+// router after the first with no link address yet shows its address from the settings. link is the server's own word
+// (up, connecting, down); state is a setDot state.
+export function routerLinks(s, of) {
+  const first = of('');
+  const list = [routerLink(s, first.uid, first.prefix, first.title, first.addr, first.link, first.err)];
+  for (const r of (s.routers || []).slice(1)) {
+    const d = of(r.uid);
+    list.push(routerLink(s, r.uid, r.prefix, r.title, d.addr || r.address, d.link, d.err));
+  }
+  return list;
 }
 
 export function routerLink(s, uid, prefix, title, addr, link, err) {
   const known = s.wsState === 'up' && !!link;
+  // A link that connects again after a failure is lost: its icon is red, as a down one is (docs/color-roles.md).
+  if (known && link === 'connecting' && err)
+    return { uid: uid || '', prefix: prefix || '', title: title || '', addr: addr || '', link, state: 'error', word: 'down', err };
   return {
     uid: uid || '',
     prefix: prefix || '',
@@ -49,3 +60,34 @@ export function routerMarks(list, max = ROUTER_ICONS_MAX) {
 
 // The status details' label for one router's link: the prefix and title follow only when there is more than one.
 export const linkLabel = (r, n) => (n === 1 ? 'Router link' : ['Router link', r.prefix, r.title].filter(Boolean).join(' '));
+
+// lost: the link of r is down, or connecting again after a failure. A router that connects for the first time is not
+// lost. With no server link nothing is known, so nothing is lost.
+export const lost = (r) => r.link === 'down' || (r.link === 'connecting' && !!r.err);
+
+// The state of Sode as the page sees it (GLOSSARY.md: Healthy, Degraded, Down). down: every router is lost, so the
+// Lost link banner shows. degraded: one or more are lost and one or more are not. The page then names them and their
+// destinations, with no banner. healthy: every link is up. '' while a router connects for the first time.
+export function wholeState(list) {
+  const n = list.filter(lost).length;
+  if (n && n === list.length) return 'down';
+  if (n) return 'degraded';
+  return allUp(list) ? 'healthy' : '';
+}
+
+// Up to this many destination names show in the Degraded note. More show as a range.
+export const DEGRADED_NAMES_MAX = 8;
+
+// A router's full name: Router, its prefix and its title. A title that only repeats the prefix ("Router B") is not
+// said twice.
+export const routerName = (r) => ['Router', r.prefix, r.title !== `Router ${r.prefix}` && r.title].filter(Boolean).join(' ');
+
+// The Degraded note's line for one lost router. dsts: its destinations as the page shows them ({ label }), in number
+// order.
+export function degradedLine(r, dsts) {
+  const name = routerName(r);
+  if (!dsts.length) return `${name} is down. You cannot patch its destinations now.`;
+  if (dsts.length === 1) return `${name} is down. You cannot patch ${dsts[0].label} now.`;
+  const which = dsts.length <= DEGRADED_NAMES_MAX ? dsts.map((d) => d.label).join(', ') : `${dsts[0].label} to ${dsts[dsts.length - 1].label}`;
+  return `${name} is down. You cannot patch its ${dsts.length} destinations now: ${which}.`;
+}

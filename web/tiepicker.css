@@ -1,0 +1,180 @@
+/* The Tie line picker (tiepicker.js). It fills a large part of the screen. Tie lines use --pb-tieline only
+   (docs/color-roles.md): the lit wire of each chosen tie line. A Protected or Reserved choice is grey. */
+#tiepick > .pb-modal {
+  height: min(80vh, 60rem);
+  width: min(90vw, 90rem);
+}
+.sode-tiepick__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-6);
+}
+.sode-tiepick__map {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-5);
+}
+.sode-tiepick__word {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+.sode-tiepick__end,
+.sode-tiepick__step {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4) var(--pb-space-5);
+}
+.sode-tiepick__end {
+  border-left: var(--sode-side-w) solid var(--pb-source);
+  min-width: 12rem;
+}
+.sode-tiepick__end--dst {
+  border-left-color: var(--pb-dest);
+}
+.sode-tiepick__step {
+  flex: 1 1 20rem;
+}
+/* The head of a step: its words, and the shield of a person with the Protect right. */
+.sode-tiepick__stephead {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
+/* The chosen tie line that the take protects: the shield and the words. */
+.sode-tiepick__protect {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-2);
+}
+.sode-tiepick__step--focus {
+  outline: var(--pb-border-w) solid var(--pb-accent);
+}
+.sode-tiepick__choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-tiepick__choice {
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  color: var(--pb-text);
+  cursor: pointer;
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-4);
+  grid-template-columns: 3rem 1fr;
+  min-height: var(--sode-h-action);
+  padding: var(--pb-space-3) var(--pb-space-4);
+  text-align: start;
+}
+.sode-tiepick__choice:hover {
+  background: var(--pb-surface-hover);
+}
+.sode-tiepick__choice > :not(.sode-tiepick__wire) {
+  grid-column: 2;
+}
+/* The wire: a tap on it chooses the tie line, as a tap anywhere on the choice does. */
+.sode-tiepick__wire {
+  align-self: center;
+  background: var(--pb-edge);
+  grid-column: 1;
+  grid-row: 1 / span 5;
+  height: 0.375rem;
+}
+.sode-tiepick__choice--on {
+  border-color: var(--pb-tieline);
+}
+.sode-tiepick__choice--on .sode-tiepick__wire {
+  background: var(--pb-tieline);
+  height: 0.75rem;
+}
+.sode-tiepick__tie {
+  font-weight: 600;
+}
+.sode-tiepick__now,
+.sode-tiepick__will,
+.sode-tiepick__ago,
+.sode-tiepick__held {
+  font-size: var(--pb-text-sm);
+}
+.sode-tiepick__ago {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+}
+.sode-tiepick__choice--held,
+.sode-tiepick__choice--held .sode-tiepick__ago {
+  color: var(--pb-text-disabled);
+}
+.sode-tiepick__affected {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-tiepick__head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+/* A row that changed while the picker was open, or that a refused take found changed (tiepicker.js changedMark). The
+   tie line that a Redo's take used last time (usedLast) has a neutral badge. */
+.sode-tiepick__mark,
+.sode-tiepick__last {
+  justify-self: start;
+}
+.sode-tiepick__hits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  margin: 0;
+  padding-inline-start: var(--pb-space-6);
+}
+.sode-tiepick__keys {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin-inline-end: auto;
+}
+#tiepick .pb-modal__footer {
+  align-items: center;
+}
+.pb-btn.sode-tiepick__take {
+  height: var(--sode-h-action);
+  min-width: 8rem;
+}
+/* The place of the route in a take with more than one route across routers (tieflow.js). */
+.sode-tiepick__count {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin-inline-start: auto;
+}
+.sode-tiepick__why {
+  margin: var(--pb-space-2) 0 0;
+  padding-inline-start: var(--pb-space-6);
+}
+/* The painted plan keeps the gap of the body; the One-off tie line form sits under it and is never painted again. */
+.sode-tiepick__plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-6);
+}
+.sode-tiepick__oneoff {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-tiepick__oneoff-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-tiepick__oneoff-form[hidden] {
+  display: none;
+}

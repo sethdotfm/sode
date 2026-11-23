@@ -130,6 +130,9 @@ var presetFields = []struct {
 	{"New user defaults", func(a, b config.Config) bool {
 		return a.NewUserDefaults.Persistent != b.NewUserDefaults.Persistent || a.NewUserDefaults.NoAutoLock != b.NewUserDefaults.NoAutoLock
 	}},
+	{"the Guest Use tie lines right", func(a, b config.Config) bool {
+		return a.GuestRights.AllowsTieLines() != b.GuestRights.AllowsTieLines()
+	}},
 }
 
 // sameSet: pages send scopes in their own order.

@@ -17,31 +17,33 @@ type lateRoute struct {
 
 type lateHit struct{ id, ui int }
 
-// claimLate queues amendments for every take that gave up on k, retries too (history I/O
-// stays out of mu). Claims are used up. Caller holds mu.
-func (a *App) claimLate(k ownKey, ui int) bool {
-	lts, ok := a.ext.lateRoute[k]
+// claimLate queues amendments for every take on router u that gave up on k, retries too (history I/O stays out of
+// mu). Claims are used up. Caller holds mu.
+func (u *routerUnit) claimLate(k ownKey, ui int) bool {
+	x := u.ext
+	lts, ok := x.lateRoute[k]
 	if !ok {
 		return false
 	}
-	delete(a.ext.lateRoute, k)
+	delete(x.lateRoute, k)
 	claimed := false
 	for _, lt := range lts {
 		if !time.Now().Before(lt.until) {
 			continue
 		}
 		claimed = true
-		a.ext.lateHits = append(a.ext.lateHits, lateHit{lt.id, ui})
+		x.lateHits = append(x.lateHits, lateHit{lt.id, ui})
 		// Followers of this destination change with it now; it is possible that the cause was dropped.
 		lt.cause.saw(time.Now())
-		if !slices.Contains(a.ext.causes, lt.cause) {
-			a.ext.causes = append(a.ext.causes, lt.cause)
+		if !slices.Contains(x.causes, lt.cause) {
+			x.causes = append(x.causes, lt.cause)
 		}
 	}
 	return claimed
 }
 
 type lateJob struct {
+	u   *routerUnit // the router of the take
 	id  int
 	uis []int
 }
@@ -49,22 +51,23 @@ type lateJob struct {
 // flushLate hands late entries to the worker so the 100ms tick does not wait on a history
 // rewrite; without a worker (tests) it runs inline.
 func (a *App) flushLate() {
-	a.mu.Lock()
-	hits := a.ext.lateHits
-	a.ext.lateHits = nil
-	a.mu.Unlock()
 	var jobs []lateJob
-	for _, h := range hits {
-		i := slices.IndexFunc(jobs, func(j lateJob) bool { return j.id == h.id })
-		if i < 0 {
-			jobs = append(jobs, lateJob{id: h.id})
-			i = len(jobs) - 1
+	a.mu.Lock()
+	for _, u := range a.units() {
+		for _, h := range u.ext.lateHits {
+			i := slices.IndexFunc(jobs, func(j lateJob) bool { return j.u == u && j.id == h.id })
+			if i < 0 {
+				jobs = append(jobs, lateJob{u: u, id: h.id})
+				i = len(jobs) - 1
+			}
+			jobs[i].uis = append(jobs[i].uis, h.ui)
 		}
-		jobs[i].uis = append(jobs[i].uis, h.ui)
+		u.ext.lateHits = nil
 	}
+	a.mu.Unlock()
 	for _, j := range jobs {
 		if a.lateQ == nil {
-			a.lateConfirm(j.id, j.uis)
+			a.lateConfirm(j.u, j.id, j.uis)
 			continue
 		}
 		a.lateQ <- j // buffered; if the worker is far behind this waits rather than lose the amendment
@@ -77,18 +80,18 @@ func (a *App) lateWorker(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case j := <-a.lateQ:
-			a.lateConfirm(j.id, j.uis)
+			a.lateConfirm(j.u, j.id, j.uis)
 		}
 	}
 }
 
-// lateConfirm: levels uis confirmed after the give-up leave Failed/Now, join Late; entry
-// turns OK when nothing fails. Caller does not hold mu. Source names are copied first
-// because the update runs under the history lock and must not lock mu.
-func (a *App) lateConfirm(id int, uis []int) {
+// lateConfirm: levels uis of a take on router u, confirmed after the give-up, leave Failed/Now and join Late; the
+// entry turns OK when nothing fails. Caller does not hold mu. Source names are copied first because the update runs
+// under the history lock and must not lock mu.
+func (a *App) lateConfirm(u *routerUnit, id int, uis []int) {
 	r := a.r()
 	a.mu.Lock()
-	names := maps.Clone(a.router.srcNames)
+	names := maps.Clone(u.router.srcNames)
 	a.mu.Unlock()
 	var done []int
 	e, ok := a.hist.Update(id, func(e *Entry) {
@@ -115,9 +118,13 @@ func (a *App) lateConfirm(id int, uis []int) {
 	if !ok || len(done) == 0 {
 		return
 	}
+	off := r.routerOf(e.Router).NumberOffset
 	log.Printf("LATE #%d src=%d %q dst=%d %q level %s confirmed after the take gave up (ok=%t)",
-		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, levelList(r, done), e.OK)
+		e.ID, e.Src+off, e.SrcName, e.Dst+off, e.DstName, levelList(r.levelsOf(e.Router), done), e.OK)
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "entry", E: &e, Update: true})
 	a.mu.Unlock()
+	if e.Tie != "" {
+		a.lateTieHop(e)
+	}
 }

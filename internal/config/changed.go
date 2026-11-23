@@ -2,18 +2,31 @@ package config
 
 import "reflect"
 
-// Embedded Router fields count as Config's own; empty slices equal nil ones.
+// ReconnectChanged: a field that needs a new link changed on some router, or a router came or went. Routers match
+// by UID; the first router matches the first router.
 func ReconnectChanged(a, b Config) bool {
+	ra, rb := a.Routers(), b.Routers()
+	if len(ra) != len(rb) || RouterReconnectChanged(a.Router, b.Router) {
+		return true
+	}
+	for _, r := range ra[1:] {
+		o, ok := b.RouterByUID(r.UID)
+		if !ok || RouterReconnectChanged(r, o) {
+			return true
+		}
+	}
+	return false
+}
+
+// RouterReconnectChanged: a field of the router that needs a new link (tag reconnect) changed.
+func RouterReconnectChanged(a, b Router) bool {
 	va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
-	for _, f := range Fields() {
-		if f.Tag.Get("reconnect") != "true" {
+	t := va.Type()
+	for i := range t.NumField() {
+		if t.Field(i).Tag.Get("reconnect") != "true" {
 			continue
 		}
-		fa, fb := va.FieldByIndex(f.Index), vb.FieldByIndex(f.Index)
-		if fa.Kind() == reflect.Slice && fa.Len() == 0 && fb.Len() == 0 {
-			continue
-		}
-		if !reflect.DeepEqual(fa.Interface(), fb.Interface()) {
+		if !reflect.DeepEqual(va.Field(i).Interface(), vb.Field(i).Interface()) {
 			return true
 		}
 	}

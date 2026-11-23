@@ -115,3 +115,34 @@ func nums(ns ...int) *[]Ref {
 	}
 	return &out
 }
+
+// A right names its router: a right for A.5 allows A.5 and refuses B.5. Rights can name any router of the settings.
+func TestRightsMatchRouterAndNumber(t *testing.T) {
+	c := Defaults()
+	c.Address = "127.0.0.1:1"
+	b := c.Router
+	b.UID, b.Prefix, b.Address = "b2b2b2b2", "B", "127.0.0.1:2"
+	c.MoreRouters = []Router{b}
+	c.Normalize()
+	a5, b5 := Ref{Router: c.UID, N: 5}, Ref{Router: b.UID, N: 5}
+	r := Rights{Sources: &[]Ref{a5}, Dsts: &[]Ref{a5}}
+	if !r.AllowsSource(a5) || !r.AllowsDst(a5) {
+		t.Error("a right for A.5 refuses A.5")
+	}
+	if r.AllowsSource(b5) || r.AllowsDst(b5) {
+		t.Error("a right for A.5 allows B.5")
+	}
+	onB := Rights{Sources: &[]Ref{b5}}
+	if onB.Within(r) || len(*onB.Intersect(r).Sources) != 0 {
+		t.Error("Within or Intersect match B.5 with A.5")
+	}
+
+	c.GuestRights = Rights{Sources: &[]Ref{b5}}
+	if err := c.Validate(); err != nil {
+		t.Errorf("a right on the second router: %v", err)
+	}
+	c.GuestRights = Rights{Sources: &[]Ref{{Router: "c3c3c3c3", N: 5}}}
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "names a router Sode does not have") {
+		t.Errorf("a right on an unknown router: %v", err)
+	}
+}

@@ -1,0 +1,2 @@
+- Sode connects to every router in `config.yaml` (written by hand for now), with its own Router link. A change to the settings of one router cuts takes in flight only on that router.
+- `POST /api/v1/takes` takes a router reference `{"router", "n"}` at each end of a route. A route with its ends on two routers is 409 `no_path` until tie lines exist. With two or more routers, a bare number, or a read of names, tally or status without `router`, is 400 `router_needed`. `GET /api/v1/routers` lists every router.

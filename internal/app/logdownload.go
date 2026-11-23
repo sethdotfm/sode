@@ -120,31 +120,43 @@ func (b *logBuild) writeLog(w io.Writer) error {
 	})
 }
 
+// uptimeState: one state change of one router's link. Router is the router UID.
+type uptimeState struct {
+	UptimeTrans
+	Router string `json:"router"`
+}
+
+// The uptime parts hold every router, in the order of the settings: all of the first router's items, then the next.
 func (b *logBuild) writeUptimeStates(w io.Writer) error {
-	trans, _ := b.a.up.Record()
-	return writeJSONList(w, func(fn func(UptimeTrans) error) error {
-		for _, t := range trans {
-			if err := fn(t); err != nil {
-				return err
+	return writeJSONList(w, func(fn func(uptimeState) error) error {
+		for _, u := range b.a.unitsInOrder(b.a.r()) {
+			trans, _ := u.up.Record()
+			for _, t := range trans {
+				if err := fn(uptimeState{t, u.uid()}); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
 	})
 }
 
-// uptimeMinute: one minute with a count, m in minutes since 1970.
+// uptimeMinute: one minute with a count of one router, m in minutes since 1970.
 type uptimeMinute struct {
-	M    int64 `json:"m"`
-	Bad  int64 `json:"bad"`
-	Slow int64 `json:"slow"`
+	M      int64  `json:"m"`
+	Bad    int64  `json:"bad"`
+	Slow   int64  `json:"slow"`
+	Router string `json:"router"`
 }
 
 func (b *logBuild) writeUptimeMinutes(w io.Writer) error {
-	_, mins := b.a.up.Record()
 	return writeJSONList(w, func(fn func(uptimeMinute) error) error {
-		for _, m := range mins {
-			if err := fn(uptimeMinute(m)); err != nil {
-				return err
+		for _, u := range b.a.unitsInOrder(b.a.r()) {
+			_, mins := u.up.Record()
+			for _, m := range mins {
+				if err := fn(uptimeMinute{M: m.M, Bad: m.Bad, Slow: m.Slow, Router: u.uid()}); err != nil {
+					return err
+				}
 			}
 		}
 		return nil

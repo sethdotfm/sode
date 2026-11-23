@@ -1,7 +1,8 @@
 // Widgets both layouts build the same way; each layout passes its own elements.
 
 import { byText } from './lockrules.js';
-import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
+import { el, S, needsLink, numText, srcItem, dstItem, tallyText, chevron, icon, routerData } from './core.js';
+import { viaMark } from './viaview.js';
 import { listStep, addClick, pickOrAdd, keyLabel } from './keys.js';
 import { levelBar, levelText } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
@@ -9,6 +10,7 @@ import { fmtClock } from './device.js';
 import { windowAround, growEdge } from './listwindow.js';
 import { beforeGroups, failureGroups, stackBefore } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
+import { hopsBefore } from './tiehistoryrules.js';
 
 const PAGE = 8;
 let boxSeq = 0;
@@ -114,7 +116,7 @@ export function combobox(
     for (let i = from; i < to; i++) {
       const it = matches[i];
       const on = all || (i === hi && !browsing);
-      const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
+      const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', numText(it)), it.name);
       li.id = pre + i;
       li.dataset.i = String(i);
       li.setAttribute('role', 'option');
@@ -322,6 +324,31 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
   return b;
 }
 
+// The open row of a tie take: what each tie line carried before, upstream first (hopsBefore). The heading matches a
+// take's "Before #12, on MON 6".
+export const hopRows = (e) =>
+  hopsBefore(e).flatMap((h) =>
+    h.entry == null
+      ? [el('div', 'sode__label', `${h.name} already carried the source`)]
+      : [
+          el('div', 'sode__label', `Before #${h.entry}, on ${h.name}`),
+          ...h.groups.map((g) => srcRow(g.levels, tallyText(g.src, h.router), null, null, h.router)),
+        ],
+  );
+
+// Put back (historyrows.js putBacks): one button for each tie line that a failed tie take changed.
+export function putBackButtons(list, onClick, cls = 'pb-btn pb-btn--outline pb-btn--sm') {
+  return (list || []).map((p) => {
+    const b = el('button', `${cls} pb-tip--end`, icon('undo-2'), p.text);
+    b.type = 'button';
+    b.dataset.pbTip = 'Send what the tie line carried before, if it still carries what the take set';
+    b.setAttribute('aria-label', p.label);
+    needsLink(b);
+    b.addEventListener('click', () => onClick(p.plan));
+    return b;
+  });
+}
+
 // Retry (failed) or Redo (other) by plan.verb: one button, one slot. With nothing to offer an
 // invisible placeholder keeps columns lined up (null with placeholder false).
 export function againButton(plan, label, onClick, { placeholder = true, cls = 'pb-btn pb-btn--outline pb-btn--sm' } = {}) {
@@ -387,18 +414,19 @@ export function stackFrom(e, onPickSrc) {
 // button. addDst(item) is the Ctrl-click on a followed destination.
 
 export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst: onPickDst, addDst: onAddDst }) {
-  const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
+  const uid = e.router || '';
+  const lv = (ls) => ls.filter((u) => routerData(uid).levelBy.has(u));
   const step = (time, levels, text, btn, follows = null, src = null) =>
     el(
       'div',
       'sode__route sode__step',
       el('span', 'sode__step-time', time),
-      levelBar(levels),
+      levelBar(levels, uid),
       el('span', 'sode__step-what', srcEnd(src, text, onPickSrc), follows),
       btn,
     );
   const restore = (then, at) => {
-    const label = srcItem(at.src, at.srcName).label;
+    const label = srcItem(at.src, at.srcName, uid).label;
     const plan = restorePlan(then, at);
     const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Restore');
     b.type = 'button';
@@ -413,34 +441,36 @@ export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst:
       step(
         fmtClock(c.time),
         lv(c.levels),
-        srcItem(c.src, c.srcName).label,
+        srcItem(c.src, c.srcName, uid).label,
         i === 0 ? null : restore(e.chain[i - 1], c),
         followBoxes(
           (e.follows || []).filter((f) => f.follow === c.id),
           c.levels,
           onPickDst,
           onAddDst,
+          uid,
         ),
         c.src,
       ),
     ),
-    ...beforeGroups(e).map((g, i) => step(i === 0 ? 'Before' : '', g.levels, tallyText(g.src), null, null, g.src)),
+    ...beforeGroups(e).map((g, i) => step(i === 0 ? 'Before' : '', g.levels, tallyText(g.src, uid), null, null, g.src)),
   ];
 }
 
 // "External follow:" with each follow's destination, levels shown where they differ. Null if none.
-// onPickDst(item) makes each fill the Destination box; onAddDst(item) is the Ctrl-click that adds it.
-export function followBoxes(follows, levels, onPickDst, onAddDst) {
+// onPickDst(item) makes each fill the Destination box; onAddDst(item) is the Ctrl-click that adds it. uid is the router
+// of the entry, which its follows share.
+export function followBoxes(follows, levels, onPickDst, onAddDst, uid = '') {
   if (!follows?.length) return null;
-  const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
+  const lv = (ls) => ls.filter((u) => routerData(uid).levelBy.has(u));
   const same = (ls) => lv(ls).join() === lv(levels).join();
   return el(
     'span',
     'sode__follows',
     el('span', 'sode__hist-note', 'External follow:'),
     ...follows.map((f) => {
-      const it = dstItem(f.dst, f.dstName);
-      const note = same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`);
+      const it = dstItem(f.dst, f.dstName, uid);
+      const note = same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels), uid)})`);
       if (!onPickDst) return el('span', 'sode__end sode__end--dst sode__end--follow', it.label, note);
       const b = el('button', 'sode__end sode__end--dst sode__end--follow sode__end--pick', it.label, note);
       b.type = 'button';
@@ -534,10 +564,11 @@ export function pullToLoad(scroller, box, pager, when) {
 }
 
 // First two as chips, all when open, toggle for the rest. onPick(d) uses one as the destination.
+// fed: destination items. One that a tie line feeds has `via` (its Via row) and shows the Via mark.
 export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty = 'Not feeding any destination' }) {
   if (!fed.length) return el('div', 'sode__hint', empty);
   const chip = (d) => {
-    const c = el('button', 'pb-chip', dstLabel(d));
+    const c = el('button', 'pb-chip', d.label, ...(d.via ? [' ', viaMark(d.via)] : []));
     c.type = 'button';
     c.dataset.pbTip = 'Use as destination';
     c.addEventListener(hold, (e) => e.preventDefault());

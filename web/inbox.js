@@ -38,7 +38,7 @@ function toast(c) {
   close.style.setProperty('--toast-ms', `${TOAST_MS}ms`);
   const node = el(
     'div',
-    'pb-toast pb-toast--info',
+    'pb-toast',
     el('span', 'pb-toast__icon', icon('inbox')),
     el('div', 'pb-toast__body', el('div', 'pb-toast__title', 'New copy in your Inbox'), el('div', 'pb-toast__msg', toastText(c)), title),
     close,

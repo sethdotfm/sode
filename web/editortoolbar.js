@@ -29,7 +29,7 @@ export function paintToolbar(ro, saveState, dirty, loaded) {
   const failed = !ro && !!saveState.failed;
   saveBtn.disabled = ro || saveState.busy || (!dirty() && !failed);
   saveBtn.textContent = failed ? 'Retry save' : 'Save';
-  saveBtn.classList.toggle('pb-btn--ok', !failed);
+  saveBtn.classList.toggle('sode-btn--primary', !failed);
   saveBtn.classList.toggle('pb-btn--danger', failed);
   $('ed-banner').hidden = !ro;
   // Not say(): the slot keeps its size whatever it holds, so the toolbar never re-wraps (panels.css).

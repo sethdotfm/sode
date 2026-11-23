@@ -42,8 +42,13 @@ func (a *App) apiProtect(w http.ResponseWriter, r *http.Request, cl *apiCtx, set
 		apiFail(w, http.StatusBadRequest, "bad_request", "the destination must be the router's number, 0-based")
 		return
 	}
+	// The destination is on the router of the router parameter. With two or more routers, it must be there.
+	u, ok := a.apiReadUnit(w, r)
+	if !ok {
+		return
+	}
 	// The hidden view gets the same answer for a destination it cannot see as for one that is not there.
-	if !cl.view().Destination(dst) {
+	if !a.view(cl).on(r.URL.Query().Get("router")).Destination(dst) {
 		apiFail(w, http.StatusNotFound, "not_found", "no such destination")
 		return
 	}
@@ -55,14 +60,17 @@ func (a *App) apiProtect(w http.ResponseWriter, r *http.Request, cl *apiCtx, set
 	defer done()
 	c := cl.client()
 	why := "protect"
-	var o protectOutcome
-	if set {
-		o = a.protectSet(c, dst, nil)
-	} else {
+	if !set {
 		why = "protectClear"
-		o = a.protectClear(c, dst, nil, nil)
 	}
-	note := fmt.Sprintf("destination %d", dst+a.r().cfg.NumberOffset)
+	o := a.protectMany(c, []protectDst{{Dst: dst, Router: u.uid()}}, set, nil)[0]
+	rt := a.r()
+	rc := rt.routerOf(u.uid())
+	num := fmt.Sprint(dst + rc.NumberOffset)
+	if len(rt.cfg.RouterUIDs()) > 1 {
+		num = rc.Prefix + "." + num
+	}
+	note := "destination " + num
 	if o.Err != nil {
 		a.apiEvent(cl.Actor, why, outcome(o.Err), note, o.Err)
 		var pe protectErr

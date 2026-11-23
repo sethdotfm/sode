@@ -25,13 +25,6 @@ var refKeys = map[string]bool{
 	"members": true, "hide": true, "fixedDests": true, "levels": true,
 }
 
-// levelsNoRouter are the level lists with no router yet. Rights levels and the level subset of a panel or cell
-// are UI levels 1..N of the one router. A second router needs them made references (docs/agents/server.md).
-func levelsNoRouter(path string) bool {
-	return strings.HasSuffix(path, "rights.levels") || strings.HasSuffix(path, "guestRights.levels") ||
-		strings.HasSuffix(path, "settings.levels") || strings.Contains(path, ".cells[") && strings.HasSuffix(path, ".levels")
-}
-
 // -1 is the Communication Log's "none" for a row about no source or destination.
 func hasNumber(v any) bool {
 	switch x := v.(type) {
@@ -60,7 +53,7 @@ func bareNumbers(v any, path string, routed bool) []string {
 		itemRouted := src != nil && src["router"] != nil && src["router"] != ""
 		for k, e := range x {
 			p := path + "." + k
-			if refKeys[k] && hasNumber(e) && !routed && !(k == "levels" && (itemRouted || levelsNoRouter(p))) {
+			if refKeys[k] && hasNumber(e) && !routed && !(k == "levels" && itemRouted) {
 				out = append(out, p)
 			}
 			out = append(out, bareNumbers(e, p, routed)...)
@@ -155,22 +148,23 @@ func TestStoresHoldNoBareNumbers(t *testing.T) {
 	cfg.APIClients = []config.APIClient{{Name: "PanelsBot", Scopes: []string{config.ScopeTake, config.ScopePresets, config.ScopeLayouts},
 		Rights: config.Rights{Dsts: nums(2)}}}
 	cfg.Presets = []config.Preset{{ID: "studio-a", Name: "Studio A", Items: []config.PresetItem{presetItem(1, []int{1}, 2)}}}
-	cfg.GuestRights = config.Rights{Sources: nums(1), Levels: &[]int{1}}
-	cfg.Users[1].Rights = config.Rights{Sources: nums(1), Dsts: nums(2), Levels: &[]int{1}}
+	cfg.GuestRights = config.Rights{Sources: nums(1), Levels: config.RouterLevels{"": {1}}}
+	cfg.Users[1].Rights = config.Rights{Sources: nums(1), Dsts: nums(2), Levels: config.RouterLevels{"": {1}}}
 	cfg.Users[1].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{presetItem(1, nil, 2)}}}
 	cfg.FilterSets = []config.FilterSet{{Name: "Cams", Src: "1-4"}}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	a.router.srcNames[1], a.router.srcNames[3] = "CAM 1", "CAM 3"
-	a.router.dstNames[2] = "MON 2"
+	a.first.router.srcNames[1], a.first.router.srcNames[3] = "CAM 1", "CAM 3"
+	a.first.router.dstNames[2] = "MON 2"
 	a.mu.Unlock()
 	a.names.save(a.r().cfg.UID, time.Now(), map[int]string{1: "CAM 1"}, map[int]string{2: "MON 2"})
 
 	ana := userKey(t, a, "Ana")
 	cells := `[{"r":1,"c":1,"kind":"source","n":1},{"r":1,"c":2,"kind":"destination","n":2,"levels":[1]},` +
-		`{"r":1,"c":3,"kind":"preset","scope":"everyone","name":"Studio A"},{"r":1,"c":4,"kind":"take"}]`
+		`{"r":1,"c":3,"kind":"preset","scope":"everyone","name":"Studio A"},{"r":1,"c":4,"kind":"take"},` +
+		`{"r":2,"c":1,"kind":"destination","levels":[2]}]`
 	from := makePanel(t, a, ana, `{"name":"From","settings":{"fixedDests":[{"n":2}],"levels":[1]},"cells":`+cells+`}`)
 	to := makePanel(t, a, ana, `{"name":"To","cells":`+cells+`}`)
 	makePanel(t, a, ana, `{"name":"Grid","type":"grid","sources":{"members":[{"n":1},{"n":3}],"items":[{"n":1,"pinned":true}]},`+
@@ -207,10 +201,11 @@ func TestStoresHoldNoBareNumbers(t *testing.T) {
 
 func TestBareNumbersFindsNumbersWithNoRouter(t *testing.T) {
 	var v any
-	json.Unmarshal([]byte(`{"items":[{"src":4,"dsts":[{"n":1}]}],"rights":{"sources":[{"router":"u","n":1}],"levels":[1]},
-		"history":{"router":"u","src":1,"dst":2,"levels":[1]},"cell":{"kind":"source","n":3}}`), &v)
+	json.Unmarshal([]byte(`{"items":[{"src":4,"dsts":[{"n":1}]}],"rights":{"sources":[{"router":"u","n":1}],"levels":{"u":[1]}},
+		"history":{"router":"u","src":1,"dst":2,"levels":[1]},"cell":{"kind":"source","n":3},
+		"guestRights":{"levels":[1]},"settings":{"levels":[2]},"cells":[{"kind":"take","levels":[1]}]}`), &v)
 	got := strings.Join(bareNumbers(v, "", false), " ")
-	for _, want := range []string{".items[0].src", ".items[0].dsts[0].n", ".cell.n"} {
+	for _, want := range []string{".items[0].src", ".items[0].dsts[0].n", ".cell.n", ".guestRights.levels", ".settings.levels", ".cells[0].levels"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missed %s in %s", want, got)
 		}

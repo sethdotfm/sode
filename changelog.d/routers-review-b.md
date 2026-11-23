@@ -1,0 +1,9 @@
+- Undo, Redo, Last and the History rows of a take on a router after the first use the levels and names of that router. Before, they used the first router's levels, so an Undo on router B with more levels than router A put back too few levels.
+- On the phone, the next add after + stays on the router of the last destination added.
+- An edited pick in a patch box ("A.23 cam") searches the router and number that it names. Show all on a pick lists the router of that pick.
+- The main page offers Protect and Free Protect on a destination of any router, and blocks a take to a protected destination on any router.
+- The panel editor and a panel page wait for the router list. Before, a failed read of the router list could save the Grid items of router B as items of router A.
+- The Tie line picker opens for a user with hidden visibility. A tie line source that the user cannot see shows "not visible to you".
+- In the Tie line picker, a path that comes into a picker with no path starts the lockout again.
+- A tie take that the server refuses with "tie line changed" keeps the patch boxes, and Ctrl+Shift+Z keeps the next Redo step.
+- The Communication Log and its download show the level name of the router of each row.

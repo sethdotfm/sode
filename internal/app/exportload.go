@@ -29,7 +29,7 @@ var (
 // exportEntryRe is every entry name a file can hold: the fixed names and the art and names directories, built on
 // the stores' own id forms. Anything else, such as "..", a backslash or an absolute path, is refused.
 var exportEntryRe = regexp.MustCompile(`^(?:manifest\.yaml` +
-	`|(?:settings|routers|users|presets|filtersets|bookmarks|panels|artwork|apiclients|browser)\.yaml` +
+	`|(?:settings|routers|tielines|users|presets|filtersets|bookmarks|panels|artwork|apiclients|browser)\.yaml` +
 	`|names/[A-Za-z0-9_-]{1,64}\.yaml` +
 	`|art/panels/p-[0-9a-f]{8}/a-[0-9a-f]{8}\.(?:png|jpg|gif|svg)` +
 	`|art/defaults/d-[0-9a-f]{8}\.(?:png|jpg|gif|svg)` +
@@ -59,6 +59,7 @@ type exportBundle struct {
 	// export leaves it out when empty.
 	SettingKeys map[string]bool
 	Routers     []config.Router
+	TieLines    []config.TieLine      // ends name router UIDs, raw for a router the file does not hold
 	Names       map[string]namesTable // by router UID
 	Users       []config.User
 	Presets     []config.Preset
@@ -309,8 +310,10 @@ func loadExportV1(dir string) (*exportBundle, error) {
 	var bookmarks exportBookmarks
 	var clients exportAPIClients
 	var routers exportRouters
+	var ties exportTieLines
 	entries := []entry{
 		{"routers.yaml", pruneAs(reflect.TypeFor[exportRouters]()), &routers},
+		{"tielines.yaml", pruneAs(reflect.TypeFor[exportTieLines]()), &ties},
 		{"users.yaml", pruneAs(reflect.TypeFor[exportUsers]()), &users},
 		{"presets.yaml", pruneAs(reflect.TypeFor[exportPresets]()), &presets},
 		{"filtersets.yaml", pruneAs(reflect.TypeFor[exportFilterSets]()), &sets},
@@ -332,7 +335,7 @@ func loadExportV1(dir string) (*exportBundle, error) {
 		}
 	}
 	out.Routers, out.Users, out.Presets, out.FilterSets, out.APIClients = routers.Routers, users.Users, presets.Presets, sets.FilterSets, clients.APIClients
-	out.Bookmarks = bookmarks.Bookmarks
+	out.Bookmarks, out.TieLines = bookmarks.Bookmarks, ties.TieLines
 	seen := map[string]bool{}
 	for _, r := range out.Routers {
 		switch {

@@ -375,9 +375,10 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__other[hidden] {
   display: none;
 }
-/* The word under a destination with a staged route, in the Buttons panel's staged color. A pick's wash keeps it. */
+/* The word under a destination with a staged route. A staged route is a change that waits for Take, so it is caution
+   (amber, as Take), with the word. A pick's wash keeps it. */
 .sode-gridpanel__held {
-  color: var(--pb-view);
+  color: var(--pb-status-warn);
   font-size: var(--pb-text-xs);
 }
 .sode-gridpanel__dst[data-picked] > .sode-gridpanel__held {
@@ -445,6 +446,19 @@ html:has(.sode-gridpanel) {
   background-size:
     var(--pb-border-w) 100%,
     100% var(--pb-border-w);
+}
+/* A source that tie lines feed: the short Via mark in the corner, with the chain in the tip (gridpanelnodes.js). Tie
+   lines use --pb-tieline only (docs/color-roles.md). A press preview's number and the Skip word take the place while
+   they show. */
+.sode-gridpanel__xp[data-tie-via]:not([data-n], [data-skip])::after {
+  border: var(--pb-border-w) solid var(--pb-tieline);
+  color: var(--pb-text-strong);
+  content: "Via";
+  font-size: var(--pb-text-xs);
+  inset: auto var(--pb-space-1) var(--pb-space-1) auto;
+  line-height: 1;
+  padding: 0 var(--pb-space-1);
+  position: absolute;
 }
 /* 48 px in a 72 px crosspoint. */
 .sode-gridpanel__pie {
@@ -947,7 +961,7 @@ html:has(.sode-gridpanel) {
 /* Outside the grid, so it runs the pulse itself, in step with the staged crosspoints (gridpaneltake.js). */
 .sode-gridpanel__take.sode-panel__take--armed {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
-  background-color: color-mix(in oklab, var(--pb-danger-hover) calc(var(--pulse) * 100%), var(--pb-status-error));
+  background-color: color-mix(in oklab, var(--pb-commit-hover) calc(var(--pulse) * 100%), var(--pb-commit));
   box-shadow: none;
   color: var(--pb-text-on-accent);
 }
