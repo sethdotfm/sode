@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -14,22 +15,30 @@ func twoLevelRouterB(c *config.Config) {
 	c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 2, ""
 }
 
-// lastTakeLevels gives the levels of the newest History entry, which must be on router uid.
+// lastTakeLevels gives the levels of the newest History entry, which must be on router uid. The router's tally can
+// arrive before the take is done: a take writes its entry only after every level is confirmed (finish in take.go).
+// So the helper waits for the entry.
 func lastTakeLevels(t *testing.T, a *App, key, uid string) []int {
 	t.Helper()
-	var hist struct {
-		Entries []struct {
-			Router string `json:"router"`
-			Levels []int  `json:"levels"`
-		} `json:"entries"`
+	var body string
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		var hist struct {
+			Entries []struct {
+				Router string `json:"router"`
+				Levels []int  `json:"levels"`
+			} `json:"entries"`
+		}
+		body = apiDo(a, "GET", "/api/v1/history", key, nil).Body.String()
+		if err := json.Unmarshal([]byte(body), &hist); err == nil && len(hist.Entries) > 0 {
+			if e := hist.Entries[0]; e.Router != uid {
+				t.Errorf("the newest entry is on router %q, want %q", e.Router, uid)
+			}
+			return hist.Entries[0].Levels
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("History had no entry 10 seconds after the take: %.400s", body)
+		}
 	}
-	if err := json.Unmarshal(apiDo(a, "GET", "/api/v1/history", key, nil).Body.Bytes(), &hist); err != nil || len(hist.Entries) == 0 {
-		t.Fatalf("history: %v %+v", err, hist)
-	}
-	if e := hist.Entries[0]; e.Router != uid {
-		t.Errorf("the newest entry is on router %q, want %q", e.Router, uid)
-	}
-	return hist.Entries[0].Levels
 }
 
 // itemSpan is SPAN in web/routerids.js: an item number of router B is itemSpan plus its router number.
