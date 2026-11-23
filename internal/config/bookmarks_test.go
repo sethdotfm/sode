@@ -37,11 +37,11 @@ func TestBookmarksCapAndValidate(t *testing.T) {
 	c.Bookmarks = list[:MaxBookmarks]
 	c.Normalize()
 	if err := c.Validate(); err != nil {
-		t.Fatalf("30 bookmarks refused: %v", err)
+		t.Fatalf("24 bookmarks refused: %v", err)
 	}
 	c.Bookmarks = list
-	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "at most 30 bookmarks") {
-		t.Fatalf("31st bookmark: %v", err)
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "at most 24 bookmarks") {
+		t.Fatalf("25th bookmark: %v", err)
 	}
 	c.Bookmarks = []Bookmark{{URL: "javascript:alert(1)", Label: "X"}}
 	if err := c.Validate(); err == nil {

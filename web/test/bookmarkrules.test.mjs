@@ -13,7 +13,7 @@ import {
   fromUrl,
   canNewTab,
   bookmarkView,
-  paletteMarks,
+  rowKeyOK,
   relabel,
   moveBookmark,
 } from '../bookmarkrules.js';
@@ -50,27 +50,28 @@ test('ownScope and canEditEveryone', () => {
 test('addBookmark: the cap, the same target and unsafe addresses', () => {
   let list = [];
   for (let i = 0; i < BOOKMARKS_MAX; i++) list = addBookmark(list, { key: `preset:global:p${i}`, label: `P${i}` }).list;
-  assert.equal(list.length, 30);
-  assert.match(addBookmark(list, { key: 'page:log', label: 'Log' }).err, /at most 30/);
+  assert.equal(list.length, 24);
+  assert.match(addBookmark(list, { key: 'page:log', label: 'Log' }).err, /at most 24/);
   assert.match(addBookmark([{ key: 'page:log', label: 'Log' }], { key: 'page:log', label: 'Log' }).err, /already/);
   assert.equal(addBookmark([], fromUrl('javascript:alert(1)', 'X')).err, 'use a web address that starts with http:// or https://');
   assert.equal(addBookmark([], fromUrl('https://sode.local/panels/a#key=1', 'A')).err, 'a bookmark cannot hold a panel key');
 });
 
 test('fromRow and fromUrl: the defaults', () => {
-  assert.deepEqual(fromRow({ key: 'page:log', label: 'Communication Log' }), { key: 'page:log', label: 'Communication Log', newTab: false, inPalette: true });
-  assert.deepEqual(fromUrl('https://example.com/run'), { url: 'https://example.com/run', label: 'example.com', newTab: true, inPalette: true });
+  assert.deepEqual(fromRow({ key: 'page:log', label: 'Communication Log' }), { key: 'page:log', label: 'Communication Log', newTab: false });
+  assert.deepEqual(fromUrl('https://example.com/run'), { url: 'https://example.com/run', label: 'example.com', newTab: true });
   assert.equal(fromUrl('https://example.com/', 'Rundown').label, 'Rundown');
 });
 
-test('cleanBookmarks drops bad entries and keeps 30', () => {
+test('cleanBookmarks drops bad entries and keeps 24', () => {
   const raw = [{ key: 'page:log', label: 'Log' }, { url: 'javascript:x', label: 'Bad' }, 'junk', { key: 'page:panels', label: 'P', inPalette: false }];
+  // inPalette (Show in Palette) is gone: the field is dropped, never turned into a pin.
   assert.deepEqual(cleanBookmarks(raw), [
-    { key: 'page:log', label: 'Log', newTab: false, inPalette: true },
-    { key: 'page:panels', label: 'P', newTab: false, inPalette: false },
+    { key: 'page:log', label: 'Log', newTab: false },
+    { key: 'page:panels', label: 'P', newTab: false },
   ]);
   assert.deepEqual(cleanBookmarks('x'), []);
-  assert.equal(cleanBookmarks(Array.from({ length: 40 }, (_, i) => ({ key: `page:p${i}`, label: 'X' }))).length, 30);
+  assert.equal(cleanBookmarks(Array.from({ length: 40 }, (_, i) => ({ key: `page:p${i}`, label: 'X' }))).length, 24);
 });
 
 const OK = { ok: true, lock: false, why: '', offer: [] };
@@ -105,20 +106,13 @@ test('canNewTab: a page that runs on Home has no new tab, whatever its key', () 
   assert.equal(canNewTab({ key: page.key }, { ...page, home: false }), true);
 });
 
-test('paletteMarks: ticked bookmarks as rows, in list order, Missing ones left out', () => {
-  const list = [
-    { url: 'https://x.test/', label: 'X', newTab: true, inPalette: true },
-    { key: 'preset:global:a1', label: 'Morning', inPalette: true },
-    { key: 'page:log', label: 'Log', inPalette: false },
-    { key: 'preset:global:gone', label: 'Gone', inPalette: true },
-  ];
-  const m = paletteMarks(list, rows);
-  assert.deepEqual(
-    m.map((r) => r.key),
-    ['url:https://x.test/', 'preset:global:a1'],
-  );
-  assert.equal(m[0].kind, 'url');
-  assert.deepEqual(m[0].target, { url: 'https://x.test/', newTab: true });
+test('rowKeyOK: a known kind, a colon and at most 120 characters', () => {
+  assert.equal(rowKeyOK('page:log'), true);
+  assert.equal(rowKeyOK('log'), false);
+  assert.equal(rowKeyOK('secret:x'), false);
+  assert.equal(rowKeyOK(`page:${'x'.repeat(115)}`), true);
+  assert.equal(rowKeyOK(`page:${'x'.repeat(116)}`), false);
+  assert.equal(rowKeyOK(7), false);
 });
 
 test('relabel: a rename keeps the key (the hidden id) and changes only that label', () => {

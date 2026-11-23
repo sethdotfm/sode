@@ -2,12 +2,12 @@
 // palettecatalogue.js builds it) or an outside web address. The server checks the same things (internal/config/
 // bookmarks.go); web/test/bookmark_cases.json holds the cases that both read.
 //
-// The stored shape: { key } or { url }, plus label, newTab and inPalette (Show in Palette).
+// The stored shape: { key } or { url }, plus label and newTab. Palette pins are a list of their own (pinrules.js).
 
 import { rowByKey } from './palettecatalogue.js';
 
 // Keep in step with MaxBookmarks and MaxBookmarkLabel in internal/config/bookmarks.go.
-export const BOOKMARKS_MAX = 30;
+export const BOOKMARKS_MAX = 24;
 export const LABEL_MAX = 40;
 const URL_MAX = 2000;
 const KEY_MAX = 120; // MaxPaletteKey
@@ -40,6 +40,9 @@ export function urlProblem(raw) {
   return '';
 }
 
+// A key that can name a Palette row: a known kind, a colon, at most KEY_MAX characters. As config.RowKeyOK.
+export const rowKeyOK = (key) => typeof key === 'string' && key.includes(':') && KINDS.includes(key.split(':')[0]) && [...key].length <= KEY_MAX;
+
 // Why Sode refuses this bookmark, or ''. The same words as the server.
 export function bookmarkProblem(b) {
   const label = String(b?.label ?? '').trim();
@@ -50,8 +53,7 @@ export function bookmarkProblem(b) {
   // As Go's unicode.IsPrint on the server: no control or format characters, and no space but U+0020.
   if (/[\p{C}\p{Z}]/u.test(label.replaceAll(' ', ''))) return 'a bookmark name has only characters you can see';
   if (key && url) return 'a bookmark opens a Palette row or a web address, not both';
-  if (key)
-    return KINDS.includes(key.split(':')[0]) && key.includes(':') && [...key].length <= KEY_MAX ? '' : 'a bookmark names a Palette row that Sode does not know';
+  if (key) return rowKeyOK(key) ? '' : 'a bookmark names a Palette row that Sode does not know';
   if (url) return urlProblem(url);
   return 'a bookmark needs a Palette row or a web address';
 }
@@ -65,7 +67,6 @@ export function cleanBookmarks(v) {
       ...(b.key ? { key: String(b.key).trim() } : { url: String(b.url).trim() }),
       label: String(b.label).trim(),
       newTab: !!b.newTab,
-      inPalette: b.inPalette !== false,
     }))
     .slice(0, BOOKMARKS_MAX);
 }
@@ -77,7 +78,8 @@ export function shownList({ local = [], user = [], global = [], signedIn = false
   return { scope: 'global', list: global };
 }
 
-// Where a Palette row's Bookmark action adds: Me for a signed-in user, else This browser.
+// The person's own list, where the Palette's Bookmark and Pin toggles read and write: Me for a signed-in user, else
+// This browser. The Palette never changes Everyone's list.
 export const ownScope = (signedIn) => (signedIn ? 'user' : 'local');
 
 // Everyone's list needs a Trusted user or an Administrator. With no users, every browser acts as an Administrator.
@@ -94,8 +96,8 @@ export function addBookmark(list, b) {
   return { list: [...list, b] };
 }
 
-// A Palette row as a new bookmark: Show in Palette is on, a new tab is off.
-export const fromRow = (row) => ({ key: row.key, label: String(row.label).slice(0, LABEL_MAX), newTab: false, inPalette: true });
+// A Palette row as a new bookmark: a new tab is off.
+export const fromRow = (row) => ({ key: row.key, label: String(row.label).slice(0, LABEL_MAX), newTab: false });
 
 // A web address as a new bookmark: it opens in a new tab unless the person turns that off.
 export function fromUrl(url, label = '') {
@@ -108,7 +110,7 @@ export function fromUrl(url, label = '') {
       name = u;
     }
   }
-  return { url: u, label: name.slice(0, LABEL_MAX), newTab: true, inPalette: true };
+  return { url: u, label: name.slice(0, LABEL_MAX), newTab: true };
 }
 
 // "Open in a new tab" is for pages, panels and web addresses. A page that runs on Home (Settings) has no new tab.
@@ -128,32 +130,6 @@ export function bookmarkView(b, rows) {
 }
 
 export const STATE_TEXT = { missing: 'Missing', noAccess: 'No access', signIn: 'Sign in' };
-
-// The bookmarks that show first in the Palette's empty query, as rows. A web address becomes a row of kind 'url'.
-export function paletteMarks(list, rows) {
-  const out = [];
-  for (const b of list) {
-    if (!b.inPalette) continue;
-    if (b.url) {
-      out.push({
-        key: `url:${b.url}`,
-        kind: 'url',
-        cat: '',
-        label: b.label,
-        hint: 'Web address',
-        icon: 'external-link',
-        words: [],
-        home: false,
-        target: { url: b.url, newTab: b.newTab },
-        access: { ok: true, lock: false, why: '', offer: [] },
-      });
-      continue;
-    }
-    const row = rowByKey(rows, b.key);
-    if (row) out.push(row);
-  }
-  return out;
-}
 
 // A rename in the same scope. A preset and a filter set keep their hidden id, so the key stays. Only the stored
 // label follows.

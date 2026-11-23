@@ -235,19 +235,25 @@ test('paletteView: empty query lists last picks, then the categories', () => {
   assert.equal(v.find((x) => x.id === 'presets').count, 2);
 });
 
-test('paletteView: ticked bookmarks come first, then the last picks without them', () => {
+test('paletteView: Home, Pinned in the saved order, the last picks without the pins, Categories', () => {
   const rows = catalogue(src({ page: 'log' }));
-  const marks = [rowByKey(rows, 'page:panels'), rowByKey(rows, 'preset:global:p1')];
-  const v = paletteView(rows, { last: ['preset:global:p1', 'page:log'], marks });
+  const pins = [rowByKey(rows, 'preset:global:p1'), rowByKey(rows, 'page:panels')];
+  const v = paletteView(rows, { last: ['preset:global:p1', 'page:log'], pins });
   assert.deepEqual(
     v.slice(0, 7).map((x) => x.row?.key || x.label),
-    ['page:home', 'Bookmarks', 'page:panels', 'preset:global:p1', 'Last picks', 'page:log', 'Categories'],
+    ['page:home', 'Pinned', 'preset:global:p1', 'page:panels', 'Last picks', 'page:log', 'Categories'],
   );
-  // A query searches every row; the bookmarks have no heading of their own there.
+  assert.deepEqual(
+    v.filter((x) => x.pinned).map((x) => x.row.key),
+    ['preset:global:p1', 'page:panels'],
+  );
+  // A query searches every row; the pins have no heading of their own there, and rank as any row.
   assert.equal(
-    paletteView(rows, { query: 'log', marks }).some((x) => x.type === 'head'),
+    paletteView(rows, { query: 'log', pins }).some((x) => x.type === 'head'),
     false,
   );
+  assert.deepEqual(keys(paletteView(rows, { query: 'p', pins })), keys(paletteView(rows, { query: 'p' })));
+  assert.ok(!paletteView(rows, { query: 'studio', pins }).some((x) => x.pinned));
 });
 
 test('paletteView: a category, Settings sections, and a search inside a level', () => {
@@ -413,7 +419,7 @@ test('search: user rows beat settings, and a scope lists its category first', ()
   assert.equal(v('theme')[1], 'setting:this-browser/cfg-theme');
 });
 
-test('search: grey rows show only as bookmarks with Show in Palette', () => {
+test('search: grey rows show only as Palette pins', () => {
   const rows = catalogue(src({ who: who({ rights: { presets: ['p2'] } }) }));
   const studio = rowByKey(rows, 'preset:global:p1');
   assert.equal(studio.access.ok, false);
@@ -421,8 +427,8 @@ test('search: grey rows show only as bookmarks with Show in Palette', () => {
   assert.ok(!keys(paletteView(rows, { path: ['presets'] })).includes(studio.key));
   assert.equal(paletteView(rows).find((x) => x.id === 'presets').count, 1);
   assert.ok(!keys(paletteView(rows, { last: [studio.key] })).includes(studio.key), 'a grey last pick is gone');
-  assert.ok(keys(paletteView(rows, { marks: [studio] })).includes(studio.key));
-  assert.equal(keys(paletteView(rows, { query: 'studio', marks: [studio] }))[0], studio.key);
+  assert.ok(keys(paletteView(rows, { pins: [studio] })).includes(studio.key));
+  assert.equal(keys(paletteView(rows, { query: 'studio', pins: [studio] }))[0], studio.key);
   assert.deepEqual(
     paletteView(rows, { path: ['settings'] }).map((x) => x.id),
     ['this-browser'],

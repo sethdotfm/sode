@@ -1,0 +1,1 @@
+- A pin no longer shows as Missing when the Palette could not read the panels or Settings. Home cannot be pinned, because it is always first in the Palette.
