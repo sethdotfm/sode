@@ -21,6 +21,8 @@ type protectReq struct {
 type protectDst struct {
 	Dst  int  `json:"dst"`
 	Undo *int `json:"undo"`
+	// Router: the UID of the router of Dst; blank is the first router. It is not on the wire yet.
+	Router string `json:"-"`
 }
 
 // reqs: the destinations to act on, in the page's order. Two rows for one destination would both pass the checks

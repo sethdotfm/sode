@@ -108,7 +108,7 @@ func TestAPIProtectedUsesSodesHoldRule(t *testing.T) {
 
 	// The hold on Sode's device with no record is still Sode's own for a clear.
 	a.protMu.Lock()
-	rec, own, others := a.sodeHoldsProtLocked(a.r(), 3)
+	rec, own, others := a.sodeHoldsProtLocked(a.r(), a.routerUnit, 3)
 	a.protMu.Unlock()
 	if rec != nil || len(own) != 3 || len(others) != 0 {
 		t.Fatalf("dst 3: rec %v, own %v, others %v", rec, own, others)

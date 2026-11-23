@@ -87,6 +87,15 @@ func (x *extTracker) entries(name func(dst bool, n int) string, changes map[int]
 	return x.burst.entries(name, changes, at, x.follows.followed)
 }
 
+// extEntries: the entries of changes on router u, with u's names, each naming u. Caller holds mu.
+func (u *routerUnit) extEntries(changes map[int]map[int]*extLevel, at time.Time) []*Entry {
+	es := u.ext.entries(u.router.name, changes, at)
+	for _, e := range es {
+		e.Router = u.uid
+	}
+	return es
+}
+
 // flushFound writes found changes on router u ahead of the rest of the burst, so they precede the take whose check
 // found them.
 func (a *App) flushFound(u *routerUnit, dst int) {
@@ -103,7 +112,7 @@ func (a *App) flushFound(u *routerUnit, dst int) {
 		delete(x.pending, dst)
 	}
 	// Grouped by now; the rest of the burst, written later, gets that group.
-	es := x.entries(u.router.name, map[int]map[int]*extLevel{dst: found}, time.Now())
+	es := u.extEntries(map[int]map[int]*extLevel{dst: found}, time.Now())
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)

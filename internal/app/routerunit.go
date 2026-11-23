@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -104,6 +105,22 @@ func (a *App) unit(uid string) (*routerUnit, bool) {
 	}
 	u, ok := a.routers[uid]
 	return u, ok
+}
+
+// unitsInOrder gives the unit of each router in the order of the settings. The first router comes first, also when
+// the settings no longer name its unit's UID.
+func (a *App) unitsInOrder(r *runtime) []*routerUnit {
+	var out []*routerUnit
+	add := func(u *routerUnit, ok bool) {
+		if ok && !slices.Contains(out, u) {
+			out = append(out, u)
+		}
+	}
+	add(a.unit(""))
+	for _, rc := range r.cfg.Routers() {
+		add(a.unit(rc.UID))
+	}
+	return out
 }
 
 // The old router callbacks: each one acts on the first router.
