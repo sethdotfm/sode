@@ -435,3 +435,7 @@ test('search: grey rows show only as Palette pins', () => {
     'a Settings section with only grey rows is gone',
   );
 });
+
+test('the Undo and Redo rows say they act on the takes of this tab only (stepback.js)', () => {
+  for (const id of ['undo', 'redo']) assert.match(ACTIONS.find((a) => a.id === id).label, /from this tab$/, id);
+});

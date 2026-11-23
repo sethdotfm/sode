@@ -5,8 +5,9 @@ import { listStep, pickOrAdd } from './keys.js';
 import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
-import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupLevels, groupIds, routeNote } from './history.js';
+import { historyPager, beforeGroups, attachFollows, entryNote, undoneBadge, statusNode, groupLevels, groupIds, routeNote } from './history.js';
 import { planEmpty, showResult } from './plans.js';
+import { backStep, forwardStep, ownTakes, redoSteps, keepRedo, entryKey } from './stepback.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
 import { emptyNote } from './searchbox.js';
@@ -60,7 +61,15 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', e.chain ? `#${e.chain[e.chain.length - 1].id}–#${e.id}` : `#${e.id}`),
       histTime(e.time),
       levelBar(known),
-      el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...routeNodes(r), entryNote(e), byLabel(e)),
+      el(
+        'span',
+        'sode__hist-route sode__hist-route--boxes',
+        ...(e.chain ? stackFrom(e, useRowSrc) : []),
+        ...routeNodes(r),
+        entryNote(e),
+        undoneBadge(e.undone),
+        byLabel(e),
+      ),
       statusNode({ e }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`e${e.id}`)] : [retry, btn])),
@@ -152,7 +161,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', groupIds(f)),
       histTime(f.entries[0].time),
       levelBar(groupLevels(f)),
-      el('span', 'sode__hist-route sode__hist-route--boxes', ...routeNodes(view.route(f)), byLabel(f)),
+      el('span', 'sode__hist-route sode__hist-route--boxes', ...routeNodes(view.route(f)), undoneBadge(f.undone), byLabel(f)),
       statusNode({ f }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [retry, undo])),
@@ -438,15 +447,34 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     else act();
     return true;
   }
-  // Undo the newest take made in Sode (a whole Group). Externals are skipped, whatever the filters show.
+  // Ctrl+Z: undo the newest take this tab sent that nothing has put back yet (a whole Group), one further back each press
+  // (backStep in stepback.js). Externals and other browsers' takes are never a step, whatever the filters show.
+  // A take whose Undo has nothing to send is passed over, as the panel Undo cell does.
   function undoLast() {
-    // A Free Protect counts (its Undo sets the Protect again); a Protect does not, since its Undo frees one.
-    const last = S.hist.find((x) => !x.ext && x.protect !== 'set');
-    if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
-    const e = attachFollows(last);
-    const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group).map(attachFollows);
-    undoRow(takes ? { f: { group: e.group, n: e.groupN, entries: takes, shown: takes } } : { e });
+    const step = backStep(S.hist, ownTakes(), redoSteps(), (entries) => planEmpty(planOf(rowOf(entries), 'undo')));
+    if (!step) return showResult('info', 'Nothing to undo', 'No take from this browser is left to undo.');
+    openConfirm({ ...planOf(rowOf(step.entries), 'undo'), step: 'back', stepIds: step.entries.map(entryKey) });
   }
+
+  // Ctrl+Shift+Z: redo the newest take that Ctrl+Z undid in this tab, as the row's Redo does.
+  function redoLast() {
+    const { entries, keep } = forwardStep(S.hist, redoSteps());
+    keepRedo(keep);
+    if (!entries) return showResult('info', 'Nothing to redo', 'No take from this browser is left to redo.');
+    const row = rowOf(entries);
+    const plan = planOf(row, 'again');
+    if (planEmpty(plan)) return showResult('warn', 'Nothing to redo', rowView(row).empty(row.f || row.e));
+    openConfirm({ ...plan, step: 'forward' });
+  }
+
+  // One entry is a row of its own; more are its Group.
+  function rowOf(entries) {
+    const takes = entries.map(attachFollows);
+    const e = takes[0];
+    return takes.length > 1 ? { f: { group: e.group, n: e.groupN, entries: takes, shown: takes } } : { e };
+  }
+
+  const planOf = (row, act) => rowActions(row)[act].plan;
 
   function undoRow(row) {
     const view = rowView(row);
@@ -456,12 +484,13 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     openConfirm(plan);
   }
 
-  // The Palette's Undo row.
+  // The Palette's Undo and Redo rows, and the Grid popup.
   on('undoLast', undoLast);
+  on('redoLast', redoLast);
 
   function histArea(n) {
     return !!n && (histList.contains(n) || $('history-more').contains(n));
   }
 
-  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, pager, useEnd };
+  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, redoLast, pager, useEnd };
 }

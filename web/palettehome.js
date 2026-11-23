@@ -19,6 +19,7 @@ function openSettingsAt(t) {
 
 function runAction(id) {
   if (id === 'undo') emit('undoLast');
+  else if (id === 'redo') emit('redoLast');
   else if (id === 'presets') emit('presetPopup');
   else if (id === 'filters') openFilters();
   else if (id === 'compact') {

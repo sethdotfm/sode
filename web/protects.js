@@ -21,6 +21,7 @@ import {
   foldedNote,
 } from './protectrules.js';
 import { groupIds, groupPartial } from './history.js';
+import { noteOwn } from './stepback.js';
 
 let seq = 0;
 const pending = new Map(); // id → { plan, answer }
@@ -282,6 +283,10 @@ function onResult(m) {
   pending.delete(m.id);
   const { dsts, on } = p.plan.protect;
   const rows = m.results || [];
+  noteOwn(
+    rows.map((r) => r.entry),
+    S.hist,
+  );
   const refused = rows.find((r) => r.approval);
   if (p.answer && refused) return void p.answer.fail(refused.err || m.err);
   p.answer?.done();

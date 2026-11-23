@@ -225,6 +225,12 @@
 .sode__hist-note {
   color: var(--pb-text-muted);
 }
+.sode__hist-route--boxes > .pb-badge {
+  flex: none;
+}
+.sode-m__recent-route > .pb-badge {
+  margin-inline-start: var(--pb-space-2);
+}
 .sode__presets-dlg .pb-modal__footer > .sode__hint {
   flex: 1;
   text-align: right;
