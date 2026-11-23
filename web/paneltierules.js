@@ -2,7 +2,7 @@
 //
 // A panel's tie line setting is Off or Reserved (`tieLines` on the panel read). At Off a press refuses a route across
 // routers. At Reserved the panel sends it on its Reserved tie lines, and the server always uses those. The page asks
-// the plan first: POST /takes with no ties answers 409 tie_line_needed with the one path through the Reserved tie
+// the plan first: POST /takes/plan answers 409 tie_line_needed with the one path through the Reserved tie
 // lines. The take then sends the ties of that path, with what each tie line carries now and the Affected destinations.
 // Thus the stale check of the server compares what the confirm showed. A panel never shows the Tie line picker.
 import { acrossRouters } from './routerids.js';

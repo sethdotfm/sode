@@ -23,8 +23,8 @@ type protectReq struct {
 type protectDst struct {
 	Dst  int  `json:"dst"`
 	Undo *int `json:"undo"`
-	// Router: the UID of the router of Dst; blank is the first router. It is not on the wire yet.
-	Router string `json:"-"`
+	// Router: the UID of the router of Dst, from the hello's routers list; blank is the first router.
+	Router string `json:"router,omitempty"`
 }
 
 // reqs: the destinations to act on, in the page's order. Two rows for one destination would both pass the checks
@@ -42,12 +42,16 @@ func (p *protectReq) reqs() ([]protectDst, error) {
 	case len(p.Dsts) > protectManyMax:
 		return nil, refusal(400, "bad_request", "more than %d destinations", protectManyMax)
 	}
-	seen := make(map[int]bool, len(p.Dsts))
+	type key struct {
+		router string
+		dst    int
+	}
+	seen := make(map[key]bool, len(p.Dsts))
 	for _, q := range p.Dsts {
-		if seen[q.Dst] {
+		if seen[key{q.Router, q.Dst}] {
 			return nil, refusal(400, "bad_request", "destination %d is in the list two times", q.Dst)
 		}
-		seen[q.Dst] = true
+		seen[key{q.Router, q.Dst}] = true
 	}
 	return p.Dsts, nil
 }
@@ -223,7 +227,7 @@ func (a *App) serveProtect(c *client, m *inMsg, set bool) {
 		outs := a.protectMany(c, reqs, set, m.approver)
 		for i, o := range outs {
 			if o.Err != nil {
-				a.command(c, why, outcome(o.Err), approvedNote(m.approver, "destination "+a.dstLabels(reqs[i].Dst)[0]), o.Err)
+				a.command(c, why, outcome(o.Err), approvedNote(m.approver, "destination "+a.dstLabelsOn(reqs[i].Router, reqs[i].Dst)[0]), o.Err)
 			}
 		}
 		a.reply(c, protectResult(m.T, m.ID, reqs, outs))

@@ -21,7 +21,7 @@ info:
     Routers. Any call can carry the query parameter `router`, a router UID from `GET /routers`.
     It is optional while Sode has one router. With two or more routers, a read about one router
     without it is 400 `router_needed`. These reads are `/names`, `/tally`, `/protected` and the stream topics
-    names and tally. `/status` and the stream topic status are about every router. A value that is not a router UID is 404 `unknown_router`. The router
+    names and tally. `POST` and `DELETE /protected/{dst}` need it too. `/status` and the stream topic status are about every router. A value that is not a router UID is 404 `unknown_router`. The router
     prefix is for people and can change, so Sode does not accept it here. In a take body, each end
     of a route is a router reference `{router, n}`, or a bare number while Sode has one router.
 
@@ -231,8 +231,9 @@ paths:
       summary: Set a Protect
       description: |
         Scope `protect`, and the Protect right in the caller's Rights with the destination and every
-        level. Sode sets a Protect on every level with its device number for the router, and the
-        call is its own Confirm. A level the router does not confirm rolls back the others; read
+        level. The destination is on the router of the `router` parameter. With two or more
+        routers, a call without it is 400 `router_needed`. Sode sets a Protect on every level with
+        its device number for the router, and the call is its own Confirm. A level the router does not confirm rolls back the others; read
         `ok` and `still`. Sode then refuses takes to the destination, also its own. The body is
         ignored.
       responses:
@@ -633,6 +634,35 @@ paths:
         "409": { $ref: "#/components/responses/TiePaths" }
         "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /takes/plan:
+    post:
+      operationId: planTake
+      tags: [writes]
+      summary: Get the paths of routes across routers, with no take
+      description: |
+        Scope `take`. The body is the body of `POST /takes`, with no `ties`. Sode plans it as `POST /takes`
+        does, and gives the answer of that call before it sends. This is 409 `tie_line_needed` with the
+        paths, 409 `no_path` or a refusal. It never
+        takes, holds no tie line and writes no Communication Log row. A body with `ties`, or with no
+        route across routers, is 400 `bad_request`. Send the take after it with `POST /takes` and the
+        `ties` of the path that you chose.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [routes]
+              description: "As for POST /takes, with no `ties`"
+              properties:
+                routes: { type: array, minItems: 1, maxItems: 200, items: { type: object } }
+      responses:
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/TiePaths" }
         default: { $ref: "#/components/responses/Error" }
   /presets/{scope}/{name}:
     post:

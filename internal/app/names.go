@@ -22,9 +22,10 @@ func (a *App) refreshNames(u *routerUnit) {
 	u.router.newSrc, u.router.newDst = map[int]string{}, map[int]string{}
 	u.nameReqAt = time.Now()
 	a.mu.Unlock()
-	ext := r.routerOf(u.uid).NameRequests == "ext"
+	lv := r.levelsOf(u.uid)
+	ext := lv.rc.NameRequests == "ext"
 	for _, dest := range []bool{false, true} {
-		u.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode), swp08.ReasonNames)
+		u.send(swp08.NamesReq(dest, ext, lv.rc.Matrix, 0, lv.lenCode), swp08.ReasonNames)
 	}
 }
 

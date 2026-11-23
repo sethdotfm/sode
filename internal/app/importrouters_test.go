@@ -311,3 +311,21 @@ func TestImportTieLineUnmappedRouterDropped(t *testing.T) {
 		t.Fatalf("tie lines arrived: %+v", got)
 	}
 }
+
+// A map that sends one file router to a target that another file router gets by default puts two file routers on
+// one target. The import refuses it and changes nothing.
+func TestImportRefusesTwoFileRoutersOnOneTarget(t *testing.T) {
+	file := twoRouterFile(t)
+	a, tok := twoRouterLive(t)
+	before := len(a.r().cfg.Presets)
+	req := importReq{Mode: importAdd, Routers: map[string]string{fileRouterB: a.r().cfg.UID}}
+	if rec := ownMultipart(t, a, tok, "/api/import", file, req); rec.Code != 400 || !strings.Contains(rec.Body.String(), "one router") {
+		t.Fatalf("check: %d %s", rec.Code, rec.Body)
+	}
+	if rec := postApply(t, a, tok, file, req); rec.Code != 400 || !strings.Contains(rec.Body.String(), "one router") {
+		t.Fatalf("apply: %d %s", rec.Code, rec.Body)
+	}
+	if n := len(a.r().cfg.Presets); n != before {
+		t.Errorf("presets %d, want %d", n, before)
+	}
+}

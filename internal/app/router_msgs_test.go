@@ -16,7 +16,7 @@ func namePages(a *App, dest bool, names []string) {
 	r := a.r()
 	for first := 0; first < len(names); first += 2 {
 		end := min(first+2, len(names))
-		a.onUnitMsg(a.first, swp08.NamesResp(dest, r.cfg.NameRequests == "ext", r.cfg.Matrix, 0, r.lenCode, first, names[first:end]))
+		a.onUnitMsg(a.first, swp08.NamesResp(dest, r.cfg.NameRequests == "ext", r.cfg.Matrix, 0, r.levelsOf("").lenCode, first, names[first:end]))
 	}
 }
 

@@ -64,6 +64,34 @@ func TestPageTiePlanHoldsNothing(t *testing.T) {
 	}
 }
 
+// An API caller (a panel) asks for the plan with POST /takes/plan and gets the 409 of the plan. Sode takes nothing,
+// holds no tie line and writes no Communication Log row.
+func TestAPITakePlanOnly(t *testing.T) {
+	a, fa, fb, key := tieApp(t, nil)
+	defer startLog(t, a)()
+	uidA := a.r().cfg.UID
+	log := connectLog(fa, fb)
+	route := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1]}]}`, uidA)
+	rec := apiPost(a, "/api/v1/takes/plan", key, route, nil)
+	wantErr(t, rec, http.StatusConflict, "tie_line_needed")
+	if b := tieBody(t, rec.Body); len(b.Routes) != 1 || len(b.Routes[0].Paths) != 1 {
+		t.Fatalf("plan %s", rec.Body)
+	}
+	withTies := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"ties":[{"id":"t1","expect":{"router":%q,"n":3}}]}]}`, uidA, uidA)
+	wantErr(t, apiPost(a, "/api/v1/takes/plan", key, withTies, nil), http.StatusBadRequest, "bad_request")
+	if len(log()) != 0 {
+		t.Fatalf("a plan sent %v", log())
+	}
+	if rec := apiPost(a, "/api/v1/takes", key, withTies, nil); rec.Code != http.StatusOK {
+		t.Fatalf("take: %d %s", rec.Code, rec.Body)
+	}
+	for _, r := range waitLogged(t, a, 1) {
+		if r.Result == "refused" {
+			t.Errorf("a plan wrote %+v", r)
+		}
+	}
+}
+
 // A Protect on a router after the first reaches the page in a protected message that names that router, so an open
 // picker plans again. The first router's message keeps Sode's record.
 func TestProtectOfAnotherRouterReachesThePage(t *testing.T) {

@@ -149,7 +149,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	a.streams[st] = struct{}{}
 	a.streamQueue(st, streamMsg{T: "hello", Data: map[string]any{
-		"v": apiStreamVersion, "topics": topics, "numberOffset": a.r().cfg.NumberOffset}})
+		"v": apiStreamVersion, "topics": topics, "numberOffset": a.r().routerOf(st.unit.uid).NumberOffset}})
 	for _, t := range streamOrder {
 		if !st.topics[t] {
 			continue

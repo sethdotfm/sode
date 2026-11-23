@@ -91,13 +91,16 @@ function newest() {
   const h = S.hist;
   const c = newestCache;
   if (c && c.list === h && c.len === h.length && c.first === h[0]) return c.map;
-  newestCache = { list: h, len: h.length, first: h[0], map: newestProtects(h) };
+  newestCache = { list: h, len: h.length, first: h[0], map: newestProtects(h.filter((e) => !onOther(e))) };
   return newestCache.map;
 }
 
+// An entry of a router after the first. The page has the Protects of the first router only, so it offers no Undo of it.
+const onOther = (e) => !!routerOfItem({ router: e.router });
+
 // Undo works only on the newest Protect entry of its destination, and only when the route view would offer the
 // opposite now (protectUndoable). The layouts draw the rows again on a Protect change, so the button follows it.
-const undoable = (e) => protectUndoable(e, newest(), protectOfferOf(e.dst));
+const undoable = (e) => !onOther(e) && protectUndoable(e, newest(), protectOfferOf(e.dst));
 const NO_UNDO = { verb: 'undo', items: [] };
 const NO_REDO = { plan: { verb: 'redo', items: [] }, label: '' };
 
@@ -249,14 +252,22 @@ export const protectOfferOf = (n) =>
 
 // The keyboard mode key: x sets, Shift+x frees, when the route view offers it. false when it does not.
 export function protectKey(dst, set, confirm) {
-  if (!dst) return false;
+  // The page has the Protects of the first router only (protectNodes).
+  if (!dst || routerOfItem(dst)) return false;
   const want = set ? 'set' : 'clear';
   if (protectOfferOf(dst.n) !== want) return false;
   confirm(protectPlan(dst, set));
   return true;
 }
 
-const wireDsts = (dsts) => dsts.map(({ dst, undo }) => (undo ? { dst: dst.n, undo: undo.id } : { dst: dst.n }));
+// Each destination names its router (blank for the first), so the server acts on the router of the destination.
+const wireDsts = (dsts) =>
+  dsts.map(({ dst, undo }) => {
+    const w = { dst: dst.n };
+    if (routerOfItem(dst)) w.router = dst.router;
+    if (undo) w.undo = undo.id;
+    return w;
+  });
 const where = (dsts) => (dsts.length === 1 ? dsts[0].dst.label : `${dsts.length} destinations`);
 
 // One message for any number of destinations, so the server writes one History Group. ap: an Approval in person;

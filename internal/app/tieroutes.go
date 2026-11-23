@@ -381,9 +381,17 @@ func (a *App) tieRouteRights(rt *runtime, rights config.Rights, routes []tieRout
 		if !rights.AllowsDst(config.Ref{Router: a.rightsUID(rt, r.dst.Router), N: r.dst.N}) {
 			return out("destination", r.dst)
 		}
-		for _, ui := range r.levels {
-			if !rights.AllowsLevel(a.rightsUID(rt, r.dst.Router), ui) {
-				return problem(http.StatusForbidden, "outside_rights", "level %s is outside your rights", rt.cfg.LevelLabel(ui))
+		// Levels are matched on the destination's router, as outsideRights matches them. On a router with one level,
+		// any typed level is that level.
+		uid := a.rightsUID(rt, r.dst.Router)
+		lv := rt.levelsOf(uid)
+		uis := r.levels
+		if t, err := lv.typed(uis); err == nil {
+			uis = t
+		}
+		for _, ui := range uis {
+			if !rights.AllowsLevel(uid, ui) {
+				return problem(http.StatusForbidden, "outside_rights", "level %s is outside your rights", lv.label(ui))
 			}
 		}
 		if !rights.AllowsSource(config.Ref{Router: a.rightsUID(rt, r.src.Router), N: r.src.N}) {

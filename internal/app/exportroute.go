@@ -155,7 +155,12 @@ func (a *App) serveImportCheck(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	m := bundle.Manifest
-	plan := planImport(a.r().cfg, a.liveNameSet(), a.importLive(), bundle, req, a.importActor(r).User, secureRequest(r, a.r().proxies)).plan
+	p := planImport(a.r().cfg, a.liveNameSet(), a.importLive(), bundle, req, a.importActor(r).User, secureRequest(r, a.r().proxies))
+	if p.clash != nil {
+		apiFail(w, http.StatusBadRequest, "bad_request", p.clash.Error())
+		return
+	}
+	plan := p.plan
 	sizeImport(&plan, bundle)
 	apiJSON(w, importCheck{Plan: plan, Browser: bundle.Browser,
 		Format: m.Format, Sode: m.Sode, SameInstall: m.Install != "" && m.Install == a.r().cfg.InstallUID,

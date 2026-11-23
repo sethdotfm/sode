@@ -168,8 +168,37 @@ func dropRouter(c *config.Config, uid string) {
 	}
 	c.TieLines = slices.DeleteFunc(config.CloneTieLines(c.TieLines), func(t config.TieLine) bool { return tieNamesRouter(t, uid) })
 	if c.HiddenDstsRouter == uid {
-		c.HiddenDstsRouter = ""
+		c.HiddenDsts, c.HiddenDstsRouter = withoutNumberTerms(c.HiddenDsts), ""
 	}
+}
+
+// withoutNumberTerms drops the number and range terms of a filter text whose router is gone. With a blank router,
+// web/filter.js matches those terms on every router, so the text would match more. Name terms stay. A text that
+// had a term that matches but keeps none, or that does not parse, becomes blank: it then matches nothing.
+func withoutNumberTerms(text string) string {
+	terms, ok := filterTerms(text)
+	if !ok {
+		return ""
+	}
+	r := []rune(text)
+	var kept []string
+	dropped, matches := false, false
+	for _, t := range terms {
+		if t.Kind == "num" || t.Kind == "range" {
+			dropped = dropped || !t.Not
+			continue
+		}
+		matches = matches || !t.Not
+		s := string(r[t.at:t.end])
+		if t.Not {
+			s = "!" + s
+		}
+		kept = append(kept, s)
+	}
+	if dropped && !matches {
+		return ""
+	}
+	return strings.Join(kept, ", ")
 }
 
 func tieNamesRouter(t config.TieLine, uid string) bool {
