@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"slices"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
 // The server-side planner. Keep the rules in step with web/plans.js (undoItem, againItem, resolvePreset).
@@ -21,6 +23,9 @@ type takePlan struct {
 	Untouched []int    // undo: levels a failed take never changed, left as is
 	// Ties: a take with a route across routers runs as steps (tietake.go); Items is then empty.
 	Ties *tieTake
+	// TieRoutes: planPreset's routes across routers, each with its stored tie lines. presetTieTake makes Ties of
+	// them.
+	TieRoutes []tieRoute
 }
 
 // The code is one listed in openapi.yaml.
@@ -145,65 +150,93 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 }
 
 // Keep in step with resolvePreset: one route per source and destination with levels merged, in the preset's order.
-// Parts the router lacks are left out and listed.
+// Parts the routers lack are left out and listed. A route across routers goes to TieRoutes with its stored tie lines
+// (presetties.go). A tie line that Sode no longer has (a tie mark) leaves its route out.
 func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
-	defaults, _ := config.ParseLevels(r.cfg.DefaultLevels, r.cfg.Levels)
-	first := a.firstUnit()
-	a.mu.Lock()
-	// A reference to another router, or one the Broken check marked, is left out like a gone number.
-	has := func(f config.Ref, kind string, names map[int]string) bool {
-		_, ok := names[f.N]
-		return ok && f.Router == r.cfg.UID && !hasMissing(p.Broken, kind, f)
+	type end struct {
+		cfg, unit string // the router UID in the settings, and the UID of its unit
+		n         int
 	}
-	hasSrc := func(f config.Ref) bool { return has(f, config.MissingSource, first.router.srcNames) }
-	hasDst := func(f config.Ref) bool { return has(f, config.MissingDestination, first.router.dstNames) }
-	type key struct{ dst, src int }
+	type key struct{ src, dst end }
 	var order []key
 	levels := map[key][]int{}
+	ties := map[key][]string{}
 	var left []string
 	miss := func(s string) {
 		if !slices.Contains(left, s) {
 			left = append(left, s)
 		}
 	}
-	off := r.cfg.NumberOffset
-	// "CAM 3 (source 13)": the stored name says what was meant, the number says which one is gone.
+	// "CAM 3 (source 13)": the stored name says what was meant, the number says which one is gone. With two or more
+	// routers the number has its prefix.
 	gone := func(side string, f config.Ref) string {
-		if name := strings.TrimSpace(f.Name); name != "" {
-			return fmt.Sprintf("%s (%s %d)", name, side, f.N+off)
+		rc := r.routerOf(f.Router)
+		num := fmt.Sprint(f.N + rc.NumberOffset)
+		if len(r.cfg.RouterUIDs()) > 1 && rc.Prefix != "" {
+			num = rc.Prefix + "." + num
 		}
-		return fmt.Sprintf("%s %d", side, f.N+off)
+		if name := strings.TrimSpace(f.Name); name != "" {
+			return fmt.Sprintf("%s (%s %s)", name, side, num)
+		}
+		return fmt.Sprintf("%s %s", side, num)
+	}
+	a.mu.Lock()
+	_, tieName := a.tieLinesNow(r)
+	// A reference to a router that Sode does not have, or one the Broken check marked, is left out like a gone number.
+	has := func(f config.Ref, kind string) (end, bool) {
+		uid := cmp.Or(f.Router, r.cfg.UID)
+		u, ok := a.unitOfRouter(r.cfg, uid)
+		if !ok || hasMissing(p.Broken, kind, f) {
+			return end{}, false
+		}
+		_, named := sideNames(kind, u.router.srcNames, u.router.dstNames)[f.N]
+		return end{uid, u.uid, f.N}, named
 	}
 	for _, it := range p.Items {
-		if !hasSrc(it.Src) {
+		src, ok := has(it.Src, config.MissingSource)
+		if !ok {
 			miss(gone("source", it.Src))
 			continue
 		}
-		want := it.Levels
-		if len(want) == 0 {
-			want = defaults
-		}
-		var have []int
-		for _, u := range want {
-			if _, ok := r.byUI[u]; ok {
-				have = append(have, u)
-			} else {
-				miss("level " + r.cfg.LevelLabel(u))
-			}
-		}
-		if len(have) == 0 {
+		lost := slices.ContainsFunc(it.Ties, func(id string) bool {
+			_, ok := tieName[id]
+			return !ok || slices.ContainsFunc(p.Broken, func(m config.Missing) bool { return m.Kind == config.MissingTie && m.Tie == id })
+		})
+		if lost {
+			miss(fmt.Sprintf("the route from %s: a tie line that Sode no longer has", gone("source", it.Src)))
 			continue
 		}
 		for _, d := range it.Dsts {
-			if !hasDst(d) {
+			dst, ok := has(d, config.MissingDestination)
+			if !ok {
 				miss(gone("destination", d))
 				continue
 			}
-			k := key{d.N, it.Src.N}
+			rc := r.routerOf(dst.cfg)
+			want := it.Levels
+			if len(want) == 0 {
+				want, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
+			}
+			lv := r.levelsOf(dst.cfg)
+			var have []int
+			for _, u := range want {
+				if _, ok := lv.byUI[u]; ok {
+					have = append(have, u)
+				} else {
+					miss("level " + lv.label(u))
+				}
+			}
+			if len(have) == 0 {
+				continue
+			}
+			k := key{src, dst}
 			if _, ok := levels[k]; !ok {
 				order = append(order, k)
 			}
 			levels[k] = append(levels[k], have...)
+			if src.unit != dst.unit {
+				ties[k] = it.Ties
+			}
 		}
 	}
 	a.mu.Unlock()
@@ -211,10 +244,16 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	for _, k := range order {
 		ls := levels[k]
 		sort.Ints(ls)
-		plan.Items = append(plan.Items, routeReq{Src: k.src, Dst: k.dst, Levels: slices.Compact(ls)})
+		ls = slices.Compact(ls)
+		if k.src.unit != k.dst.unit {
+			plan.TieRoutes = append(plan.TieRoutes, tieRoute{src: tieplan.End{Router: k.src.unit, N: k.src.n}, dst: tieplan.End{Router: k.dst.unit, N: k.dst.n},
+				levels: ls, ties: slices.Clone(ties[k])})
+			continue
+		}
+		plan.Items = append(plan.Items, routeReq{Src: k.src.n, Dst: k.dst.n, Levels: ls, Router: k.dst.unit})
 	}
-	if len(plan.Items) == 0 {
-		return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "nothing in preset %q exists on the router now: %s", p.Name, strings.Join(left, ", "))
+	if len(plan.Items) == 0 && len(plan.TieRoutes) == 0 {
+		return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "nothing in preset %q exists on the routers now: %s", p.Name, strings.Join(left, ", "))
 	}
 	return plan, nil
 }

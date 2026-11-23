@@ -1,5 +1,7 @@
 // Stored preset items hold router references { router, n, name } (internal/config/presets.go).
-// Pages work on numbers: an item in memory is { src, dsts, levels, router, srcName, dstNames }.
+// Pages work on numbers: an item in memory is { src, dsts, levels, router, srcName, dstNames }. router is the router of
+// the source. An item across routers (docs/tielines-design.md, Presets) also has dstRouter, the router of its
+// destinations, and ties, the ids of its tie lines, upstream first. Other items have neither.
 // Pure, no imports: panel pages read /api/v1/presets through it too.
 
 const num = (x) => (x && typeof x === 'object' ? Number(x.n) : Number(x));
@@ -13,6 +15,12 @@ const ints = (a) =>
     .map(num)
     .filter((n) => Number.isInteger(n));
 
+const strings = (a) =>
+  []
+    .concat(a ?? [])
+    .filter((x) => typeof x === 'string' && x.trim() !== '')
+    .map((x) => x.trim());
+
 // Reads an item in memory (plain numbers) or a reference. A stored item goes through storedItemNums. Names follow
 // the first reference to a number.
 export function itemNums(it) {
@@ -22,38 +30,51 @@ export function itemNums(it) {
     if (Number.isInteger(n) && nameOf(d) && !dstNames[n]) dstNames[n] = nameOf(d);
   }
   const src = num(it?.src);
+  const router = routerOf(it?.src) || (typeof it?.router === 'string' ? it.router : '');
+  const first = [].concat(it?.dsts ?? [])[0];
+  const dstRouter = routerOf(first) || (typeof it?.dstRouter === 'string' ? it.dstRouter : '');
+  const ties = strings(it?.ties);
+  const across = !!dstRouter && dstRouter !== router;
   return {
     src: Number.isInteger(src) ? src : -1,
     dsts: [...new Set(ints(it?.dsts))],
     levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
-    router: routerOf(it?.src) || (typeof it?.router === 'string' ? it.router : ''),
+    router,
     srcName: nameOf(it?.src) || (typeof it?.srcName === 'string' ? it.srcName : ''),
     dstNames,
+    ...(across ? { dstRouter } : {}),
+    ...(across || ties.length ? { ties } : {}),
   };
 }
+
+// across: the item's destinations are on another router than its source, so it goes through tie lines.
+export const across = (it) => !!it?.dstRouter && it.dstRouter !== it.router;
 
 // A stored item: only references count, so a bare number reads as no source and is left out of the destinations.
 const refsOnly = (a) => [].concat(a ?? []).filter((x) => x && typeof x === 'object');
 export const storedItemNums = (it) => itemNums({ ...it, src: it?.src && typeof it.src === 'object' ? it.src : undefined, dsts: refsOnly(it?.dsts) });
 
-// Plain numbers only, for code that never stores (panels, plans).
+// Plain numbers only, for code that never stores (panels, plans). ties stays, so a panel Preset cell sends the stored
+// tie lines.
 export const itemPlain = (it) => {
-  const { src, dsts, levels } = itemNums(it);
-  return { src, dsts, levels };
+  const { src, dsts, levels, ties } = itemNums(it);
+  return ties?.length ? { src, dsts, levels, ties } : { src, dsts, levels };
 };
 
-// The stored form. router: the item's own, else this install's router. live(kind, n) is the
+// The stored form. router: the item's own, else this install's router. live(kind, n, router) is the
 // router's name now, else the name the item came with.
 export function itemRefs(it, router, live = () => '') {
   const r = it.router || router || '';
-  const ref = (n, kept, kind) => {
-    const name = live(kind, n) || kept || '';
-    return name ? { router: r, n, name } : { router: r, n };
+  const d = it.dstRouter || r;
+  const ref = (n, kept, kind, at) => {
+    const name = live(kind, n, at) || kept || '';
+    return name ? { router: at, n, name } : { router: at, n };
   };
   return {
-    src: ref(it.src, it.srcName, 'src'),
-    dsts: it.dsts.map((n) => ref(n, it.dstNames?.[n], 'dst')),
+    src: ref(it.src, it.srcName, 'src', r),
+    dsts: it.dsts.map((n) => ref(n, it.dstNames?.[n], 'dst', d)),
     levels: it.levels,
+    ...(d !== r ? { ties: [...(it.ties || [])] } : {}),
   };
 }
 

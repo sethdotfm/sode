@@ -37,6 +37,8 @@ type apiCtx struct {
 	// planOnly: the page's Tie line picker asks for the plan (tiePlan). Sode answers the 409 of the plan and never
 	// takes or writes a Communication Log row.
 	planOnly bool
+	// preset and presetID: the preset that a page's tieTake fires (presetties.go), for History and the preset right.
+	preset, presetID string
 }
 
 func (c *apiCtx) has(scope string) bool { return slices.Contains(c.Scopes, scope) }

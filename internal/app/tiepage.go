@@ -67,6 +67,9 @@ func (a *App) serveTiePlan(c *client, m *inMsg) { a.servePageTakes(c, m, true) }
 func (a *App) servePageTakes(c *client, m *inMsg, planOnly bool) {
 	act := a.caller(c)
 	cl := &apiCtx{Actor: act.Actor, Rights: act.rights, IP: c.ip, page: c, planOnly: planOnly}
+	if !planOnly {
+		cl.preset, cl.presetID = cleanPresetName(m.Preset), m.PresetID
+	}
 	body := append(append([]byte(`{"routes":`), m.Routes...), '}')
 	if len(m.Routes) == 0 {
 		body = []byte(`{"routes":[]}`)

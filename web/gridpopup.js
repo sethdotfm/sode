@@ -17,7 +17,7 @@ import { routesOf } from './gridpanelstage.js';
 import { gridShield } from './gridpopshield.js';
 import { gridHold } from './protects.js';
 import { tallyReplyOf, protectedReplyOf, namesReplyOf, aimOf, stagedRows, routesWord, withBoxRoute, takeCount } from './gridpoprules.js';
-import { addedLine, noRouteLine, rowsWord, storedItems } from './gridpoprules.js';
+import { addedLine, noRouteLine, rowsWord, storedItems, presetItemsOf, itemsOnGrid } from './gridpoprules.js';
 import { gridPlan, patchPlan } from './plans.js';
 import { onBackdropPress } from './dialogkeys.js';
 import { presetAdd } from './presetadd.js';
@@ -140,15 +140,15 @@ function actions() {
 
 // The press policy while a preset adds patches (presetadd.js): a press adds to the preset and nothing is sent.
 const adds = addPolicy({
-  rows: () => presetAdd.rows(),
+  // The grid works on item numbers (routerids.js); the preset's rows hold router numbers with their routers.
+  rows: () => presetAdd.rows().map((it) => itemsOnGrid(it, pagePlaces())),
   words: { name: 'in preset', route: ', in the preset' },
   add(r) {
     const labels = { src: (n) => srcOf(n).label, dst: (n) => dstOf(n).label };
     if (!r.items.length) return { ok: false, text: noRouteLine(r, labels) };
-    // A preset adds routes of the first router only from here.
-    if (r.items.some((it) => placeOf(it.src) || it.dsts.some(placeOf)))
-      return { ok: false, text: 'Nothing added: only routes on the first router go into a preset from the grid.' };
-    const a = presetAdd.add(storedItems(r, boxHost()?.picks().levels || []));
+    // A route across routers asks for its tie lines first (presets.js addToPreset).
+    const places = pagePlaces();
+    const a = presetAdd.add(storedItems(r, boxHost()?.picks().levels || []).flatMap((it) => presetItemsOf(it, places)));
     return a.ok ? { ok: true, text: addedLine(r, a.rows, labels) } : a;
   },
 });

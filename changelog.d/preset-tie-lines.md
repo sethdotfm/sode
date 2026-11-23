@@ -1,0 +1,5 @@
+- A preset can hold a route across routers. It stores the tie lines that you chose when you added the route. The Tie lines… button of the preset editor opens the Tie line picker to change them. An add from the patch boxes or the Grid popup that crosses routers asks for the tie lines first. The Grid popup now adds routes of every router to a preset.
+- A fire of such a preset always opens the Tie line picker on the stored tie lines. It shows what each one carries now and its Affected destinations. No confirm setting skips it. On a stored tie line that is Protected, Take stays off until you choose another one or clear the route. A tie line Reserved by a panel asks one more time.
+- A deleted tie line makes the preset Broken. A fire leaves that route out.
+- API: `POST /presets/{scope}/{name}` for a preset with tie lines answers 409 `tie_confirm_needed` with the state of each stored tie line. Send it again with `{"ties":[{"id", "expect"}]}`.
+- A panel Preset cell sends the stored tie lines under the Reserved rule of the panel. It refuses a preset whose tie lines the panel does not Reserve.

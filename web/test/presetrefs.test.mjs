@@ -43,7 +43,7 @@ test('This browser presets store {router, n, name} and an id', async () => {
 test('a stored preset resolves to the same routes as its numbers', async () => {
   const m = await setup();
   const has = { src: (n) => n < 2, dst: (n) => n < 2, level: (u) => u <= 2 };
-  const nums = { name: 'P', items: [{ src: 1, dsts: [0, 1], levels: [2] }] };
+  const nums = { name: 'P', items: [{ src: 1, dsts: [0, 1], levels: [2], router: UID }] };
   const stored = {
     id: 'p1',
     name: 'P',
@@ -60,9 +60,34 @@ test('a stored preset resolves to the same routes as its numbers', async () => {
   };
   assert.deepEqual(m.resolvePreset(m.normPreset(stored), has, [1]), m.resolvePreset(m.normPreset(nums), has, [1]));
   assert.deepEqual(m.resolvePreset(m.normPreset(stored), has, [1]).routes, [
-    { dst: 0, groups: [{ src: 1, levels: [2] }] },
-    { dst: 1, groups: [{ src: 1, levels: [2] }] },
+    { dst: 0, dstRouter: UID, groups: [{ src: 1, router: UID, levels: [2] }] },
+    { dst: 1, dstRouter: UID, groups: [{ src: 1, router: UID, levels: [2] }] },
   ]);
+});
+
+// An item across routers (docs/tielines-design.md, Presets) keeps the router of its destinations and its tie lines.
+// They go through the stored form and back, and resolvePreset hands them to the route.
+test('an item across routers keeps its tie lines', async () => {
+  const m = await setup();
+  const B = 'b2b2b2b2b2b2b2b2';
+  const stored = {
+    id: 'p2',
+    name: 'Far',
+    items: [{ src: { router: UID, n: 1, name: 'CAM 2' }, dsts: [{ router: B, n: 3 }], levels: [1], ties: ['t1'] }],
+  };
+  const p = m.normPreset(stored);
+  assert.deepEqual(p.items[0], { src: 1, dsts: [3], levels: [1], router: UID, srcName: 'CAM 2', dstNames: {}, dstRouter: B, ties: ['t1'] });
+  assert.deepEqual(m.saved(p).items[0], stored.items[0]);
+  assert.equal(m.presetProblem(p), '');
+  assert.match(m.presetProblem({ items: [{ ...p.items[0], ties: [] }] }), /needs its tie lines/);
+  assert.match(m.presetProblem({ items: [{ ...p.items[0], dstRouter: undefined }] }), /only for a route across routers/);
+  const has = { src: () => true, dst: () => true, level: () => true, tie: (id) => id === 't1' };
+  assert.deepEqual(m.resolvePreset(p, has, [1]).routes, [{ dst: 3, dstRouter: B, groups: [{ src: 1, router: UID, levels: [1], ties: ['t1'] }] }]);
+  const gone = m.resolvePreset(p, { ...has, tie: () => false }, [1]);
+  assert.deepEqual(gone, { routes: [], missing: [{ kind: 'tie', n: 't1' }] });
+  // A panel reads the tie lines through itemPlain.
+  const { itemPlain } = await import('../presetref.js');
+  assert.deepEqual(itemPlain(stored.items[0]), { src: 1, dsts: [3], levels: [1], ties: ['t1'] });
 });
 
 test('a rename keeps the id, so a bookmark key still finds the preset', async () => {
@@ -116,4 +141,20 @@ test('a stored preset reads no bare number as a reference', async () => {
   assert.ok(m.presetProblem(s), 'the preset needs a fix; it fires nothing');
   m.S.cfg.presets = [{ id: 'g1', name: 'Wall', items: [{ src: { router: UID, n: 0 }, dsts: [2], levels: [] }] }];
   assert.deepEqual(m.globalPresets()[0].items[0].dsts, []);
+});
+
+// An editor row names a router by prefix; a bare number is on the router of the number before it.
+test('readSide reads router prefixes in an editor row', async () => {
+  const m = await setup();
+  const routers = [
+    { uid: 'a', prefix: 'A', off: 1 },
+    { uid: 'b', prefix: 'B', off: 1 },
+  ];
+  const lookup = (t, uid) => (t === 'cam' ? (uid === 'b' ? 40 : 4) : null);
+  assert.deepEqual(m.readSide('B.3, 5, A.2', { routers, at: 'a', lookup }), { router: 'b', ns: [2, 4, 1], bad: [], mixed: true });
+  assert.deepEqual(m.readSide('B3, cam', { routers, at: 'a', lookup }), { router: 'b', ns: [2, 40], bad: [], mixed: false });
+  assert.deepEqual(m.readSide('7', { routers, at: 'b', lookup }), { router: 'b', ns: [6], bad: [], mixed: false });
+  assert.deepEqual(m.readSide('C.1, nope', { routers, at: 'a', lookup }), { router: 'a', ns: [], bad: ['C.1', 'nope'], mixed: false });
+  // With one router a bare A12 is a name, as in the patch boxes.
+  assert.deepEqual(m.readSide('A12', { routers: [routers[0]], at: 'a', lookup }).bad, ['A12']);
 });

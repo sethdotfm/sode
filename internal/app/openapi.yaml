@@ -641,19 +641,55 @@ paths:
       summary: Take a preset
       description: |
         Scope `take`. `scope` is `everyone`, or `me` with a user's key. The preset fires only if
-        every route is within the key's rights. Parts the router no longer has are left out and
+        every route is within the key's rights. Parts the routers no longer have are left out and
         listed in `leftOut`. A caller with hidden visibility gets 404 `not_found` for a preset
-        that `GET /presets` does not list. The body is ignored.
+        that `GET /presets` does not list.
+
+        A preset with a route across routers stores the tie lines of that route (`ties` of the
+        item in `GET /presets`). Its fire never chooses other tie lines. A fire with no body, or
+        with a body that does not name each stored tie line, sends nothing and gets 409
+        `tie_confirm_needed`. Its `routes` gives each route across routers with the path through
+        its stored tie lines as Sode has it now. Each hop gives what its tie line carries (`now`)
+        and whether the take changes it (`sends`). It also gives the last change and a Protect or a
+        Reserve. The path gives the Affected destinations. A route whose stored tie lines make no
+        path now has no path and the reason. Send the preset again with `ties`, one `{id, expect}`
+        for each stored tie line. The take then goes as a take with `ties` of POST /takes. It has
+        the same stale check and 409 `tie_line_changed`. A tie line that the preset does not store
+        is 400 `bad_request`. A stored tie line that Sode no longer has makes the preset Broken
+        (`broken` kind `tie`). A fire leaves that route out and lists it in `leftOut`.
       parameters:
         - { name: scope, in: path, required: true, schema: { type: string, enum: [everyone, me] } }
         - { name: name, in: path, required: true, schema: { type: string }, description: "The preset name, URL-encoded" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                ties:
+                  type: array
+                  description: "One entry for each tie line that the preset stores, with the source that the caller saw on it in the 409 `tie_confirm_needed` body"
+                  items:
+                    type: object
+                    required: [id, expect]
+                    additionalProperties: false
+                    properties:
+                      id: { type: string }
+                      expect:
+                        description: "As `expect` of a tie line in POST /takes: a router reference, null for nothing, or a list for a mixed tie line"
+                        nullable: true
+            example:
+              ties: [{ id: "t1", expect: { router: "a1", n: 3 } }]
       responses:
         "200": { $ref: "#/components/responses/TakeResult" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/TiePaths" }
         "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
@@ -2518,6 +2554,8 @@ components:
         takes each tie line that it sends to. A route on one router takes each tie line whose upstream
         destination it routes. A taken tie line is `taken` for another source. For 409 `tie_line_changed`, `routes` gives each route across routers
         with the path through its tie lines as it is now. If there is no path, it gives the reason.
+        For 409 `tie_confirm_needed` (a preset fire), `routes` gives each route across routers of
+        the preset. Each has the path through its stored tie lines, in the same way.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/TiePaths" }
@@ -2626,6 +2664,7 @@ components:
                 - router_needed
                 - no_path
                 - tie_line_needed
+                - tie_confirm_needed
                 - tie_lines_off
                 - method_not_allowed
                 - not_owner
@@ -2653,7 +2692,9 @@ components:
                 artwork the caller is not allowed to use). 404 unknown_router (the `router` parameter,
                 or the router of a route end, names no router UID). 400 router_needed (Sode has two or
                 more routers, and a read about one router or a route end names none). 409 tie_line_needed
-                (a route across routers and no tie lines given; `routes` has the paths). 409 no_path
+                (a route across routers and no tie lines given; `routes` has the paths). 409
+                tie_confirm_needed (a preset fire with stored tie lines that the request does not name;
+                `routes` has the state of each). 409 no_path
                 (a route across routers has no usable path; `routes` has the reasons). 403 tie_lines_off
                 (a route across routers, and the caller does not have the Use tie lines right, or is a panel at
                 tie lines Off). 405 method_not_allowed (see `Allow`).
@@ -3310,13 +3351,17 @@ components:
         name: { type: string }
         items:
           type: array
-          description: Each item is one route on one router
+          description: Each item is one source and its destinations, which share one router
           items:
             type: object
             properties:
               src: { $ref: "#/components/schemas/RouterRef" }
               dsts: { type: array, items: { $ref: "#/components/schemas/RouterRef" } }
               levels: { type: array, items: { type: integer }, description: Empty means the default levels }
+              ties:
+                type: array
+                items: { type: string }
+                description: "Only when the destinations are on another router than the source: the ids of the tie lines that the route goes through, upstream first"
     RouterRef:
       type: object
       description: One source or destination on one router

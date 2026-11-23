@@ -53,7 +53,7 @@ import {
   protectOn,
   toggleProtect,
 } from './tiepickrules.js';
-import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff } from './tiepickrules.js';
+import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText } from './tiepickrules.js';
 import { mayProtect } from './protects.js';
 import { reasonText } from './tietakerules.js';
 
@@ -216,6 +216,9 @@ function keyHints(pKey) {
   return el('span', 'sode-tiepick__keys', k('j'), ' ', k('k'), ' choose, ', k('h'), ' ', k('l'), ' step', pKey, ', ', k('escape'), ' cancel');
 }
 
+// mayShield: the person has the Protect right, and the picker can send a Protect (not the preset editor's).
+const mayShield = () => mayProtect() && !cur?.o.use;
+
 function onKey(e) {
   if (!cur) return;
   // In the One-off tie line form, the keys type. Enter uses the cable.
@@ -228,7 +231,7 @@ function onKey(e) {
     return;
   }
   const c = chord(e);
-  const { st, act } = keyStep(cur.st, c, mayProtect());
+  const { st, act } = keyStep(cur.st, c, mayShield());
   if (st === cur.st && !act) return;
   e.preventDefault();
   e.stopPropagation();
@@ -245,6 +248,8 @@ function onKey(e) {
 //   final: Take sends the take; else it goes on to the next step of the take ("Next").
 //   onPick(st): the person chose a path. clear(): Clear this route, or null for none. onClose(): a cancel.
 //   oneOffs: the One-off tie lines that the person stated before ({from, to}), or none.
+//   use: the word of the button that chooses the path, in place of Take or Next. The preset editor uses it: the picker
+//   then only chooses saved tie lines, so it has no One-off tie line form and no Protect.
 export async function pickRoute(o) {
   const { route, m } = await askPlan(withOneOffs(o.routes(), o.oneOffs));
   if (route) return open(o, o.state(route));
@@ -310,7 +315,8 @@ function open(o, st) {
   resetOneOff(st.route);
   ui.head.textContent = o.head || '';
   ui.clear.hidden = !o.clear;
-  ui.take.textContent = `${o.final ? 'Take' : 'Next'} (${keyLabel('enter')})`;
+  ui.take.textContent = `${o.use || (o.final ? 'Take' : 'Next')} (${keyLabel('enter')})`;
+  ui.one.node.hidden = !!o.use;
   startLock();
   paint();
   ui.trap.show();
@@ -370,8 +376,9 @@ function paint() {
     ),
     ...(p ? [affectedNode(p, src)] : []),
     ...reserveNode(st),
+    ...storedNode(st),
   );
-  ui.pKey.hidden = !mayProtect();
+  ui.pKey.hidden = !mayShield();
   paintTake();
 }
 
@@ -380,6 +387,16 @@ function reserveNode(st) {
   if (!reservedHops(st).length || st.reserveOk !== pathKey(chosen(st))) return [];
   const n = el('div', 'pb-alert pb-alert--warn sode-tiepick__reserve', reserveText(st));
   n.setAttribute('role', 'alert');
+  return [n];
+}
+
+// storedNode says what the tie confirm page of a preset found on its stored tie lines. A caution when the person
+// must choose again, with text.
+function storedNode(st) {
+  const { text, warn } = storedText(st);
+  if (!text) return [];
+  const n = warn ? el('div', 'pb-alert pb-alert--warn sode-tiepick__stored', text) : el('p', 'sode__hint sode-tiepick__stored', text);
+  n.setAttribute('role', 'status');
   return [n];
 }
 
@@ -421,7 +438,7 @@ function stepNode(s, src) {
       'div',
       'sode-tiepick__stephead',
       el('span', 'sode-tiepick__word', `Step ${s + 1}: router ${prefix(hop.router)} to router ${prefix(next.router)}`),
-      ...(mayProtect() ? [shieldNode(s, hop)] : []),
+      ...(mayShield() ? [shieldNode(s, hop)] : []),
     ),
     list,
   );
