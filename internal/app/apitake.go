@@ -24,6 +24,7 @@ import (
 func init() {
 	registerAPI(
 		apiRoute{"POST", apiBase + "/takes", config.ScopeTake, (*App).apiTakeRoutes},
+		apiRoute{"POST", apiBase + "/takes/plan", config.ScopeTake, (*App).apiTakePlan},
 		apiRoute{"POST", apiBase + "/presets/{scope}/{name}", config.ScopeTake, (*App).apiTakePreset},
 		apiRoute{"POST", apiBase + "/history/{id}/undo", config.ScopeTake + " " + config.ScopeHistory, historyVerb("undo")},
 		apiRoute{"POST", apiBase + "/history/{id}/redo", config.ScopeTake + " " + config.ScopeHistory, historyVerb("redo")},
@@ -172,6 +173,14 @@ func (a *App) routeUnits(ro apiRouteIn) (src, dst *routerUnit, _ *apiProblem) {
 
 type apiTakeIn struct {
 	Routes []apiRouteIn `json:"routes"`
+}
+
+// apiTakePlan is POST /takes with planOnly, as the page's tiePlan: the answer of the plan, 409 tie_line_needed with
+// the paths. It never takes, holds no tie line and writes no Communication Log row. A panel plans a route across
+// routers with it before the take.
+func (a *App) apiTakePlan(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	cl.planOnly = true
+	a.apiTakeRoutes(w, r, cl)
 }
 
 func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) {

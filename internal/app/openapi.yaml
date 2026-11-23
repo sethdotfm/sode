@@ -635,6 +635,35 @@ paths:
         "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /takes/plan:
+    post:
+      operationId: planTake
+      tags: [writes]
+      summary: Get the paths of routes across routers, with no take
+      description: |
+        Scope `take`. The body is the body of `POST /takes`, with no `ties`. Sode plans it as `POST /takes`
+        does, and gives the answer of that call before it sends. This is 409 `tie_line_needed` with the
+        paths, 409 `no_path` or a refusal. It never
+        takes, holds no tie line and writes no Communication Log row. A body with `ties`, or with no
+        route across routers, is 400 `bad_request`. Send the take after it with `POST /takes` and the
+        `ties` of the path that you chose.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [routes]
+              description: "As for POST /takes, with no `ties`"
+              properties:
+                routes: { type: array, minItems: 1, maxItems: 200, items: { type: object } }
+      responses:
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/TiePaths" }
+        default: { $ref: "#/components/responses/Error" }
   /presets/{scope}/{name}:
     post:
       operationId: postPreset

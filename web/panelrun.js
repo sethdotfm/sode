@@ -411,13 +411,13 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     const r = await door.callJSON(path, init);
     return (init?.method || 'GET') === 'GET' && /^api\/v1\/panels\/[^/]+\/undo$/.test(path) && r ? { ...r, undo: undoIn(r.undo, places) } : r;
   };
-  // A route across routers goes on the panel's Reserved tie lines (paneltierules.js). The plan is a POST /takes with
-  // no ties: the server sends nothing and answers 409 tie_line_needed with the path, or refuses with its reason.
+  // A route across routers goes on the panel's Reserved tie lines (paneltierules.js). The plan is a POST /takes/plan.
+  // The server sends nothing and writes no log row. It answers 409 tie_line_needed with the path, or refuses.
   // A Preset cell's route keeps the preset's tie lines: a plan through other tie lines refuses the take (storedClash).
   const tiePlan = async (routes) => {
     let plan = null;
     try {
-      await callJSON('api/v1/takes', {
+      await callJSON('api/v1/takes/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ routes: wireRoutes(bare(routes), places) }),

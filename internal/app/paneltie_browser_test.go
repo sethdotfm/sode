@@ -99,10 +99,10 @@ func TestChromePanelTieLinesReserved(t *testing.T) {
 		const two = s && [...s.options].find((o) => o.value === %q);
 		return document.getElementById('ed-set-ties-reserved')?.checked && s.value === %q && two?.disabled && two.textContent.includes('Reserved by panel Wall');
 	})()`, uids[0], uids[1], tie2, tie1))
-	// A panel asks the plan as a POST /takes with no ties, which answers 409 tie_line_needed (paneltierules.js). Each
-	// take of a panel gives one such load. Anything else is a real error.
+	// A panel asks the plan with POST /takes/plan, which answers 409 tie_line_needed (paneltierules.js). Each take of
+	// a panel gives one such load. Anything else is a real error.
 	for _, e := range b.problems() {
-		if !strings.Contains(e, "status of 409") || !strings.HasSuffix(e, "/api/v1/takes") {
+		if !strings.Contains(e, "status of 409") || !strings.HasSuffix(e, "/api/v1/takes/plan") {
 			t.Errorf("page error: %s", e)
 		}
 	}

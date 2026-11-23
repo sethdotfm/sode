@@ -34,8 +34,8 @@ type apiCtx struct {
 	// page: the browser connection that a main page tieTake runs for (tiepage.go). Its take is recorded as a take of
 	// that page, not of an API caller.
 	page *client
-	// planOnly: the page's Tie line picker asks for the plan (tiePlan). Sode answers the 409 of the plan and never
-	// takes or writes a Communication Log row.
+	// planOnly: the page's Tie line picker (tiePlan) or an API caller (POST /takes/plan) asks for the plan. Sode
+	// answers the 409 of the plan and never takes or writes a Communication Log row.
 	planOnly bool
 	// preset and presetID: the preset that a page's tieTake fires (presetties.go), for History and the preset right.
 	preset, presetID string
