@@ -29,8 +29,8 @@ test('a plan outside the signed-in rights is blocked before confirm, with the sa
   assert.equal(block.kind, 'error');
   assert.equal(block.title, 'Outside your Rights');
   assert.equal(block.text, 'destination 10 is outside your rights');
-  assert.equal(rightsOff('dsts', 9), true);
-  assert.equal(rightsOff('dsts', 8), false);
+  assert.equal(rightsOff('dsts', { n: 9 }), true);
+  assert.equal(rightsOff('dsts', { n: 8 }), false);
   applyMyRights(null);
   assert.equal(planBlocked(plan).block, null, 'rights are forgotten on sign out');
   assert.equal(S.myRights, null);
@@ -39,9 +39,9 @@ test('a plan outside the signed-in rights is blocked before confirm, with the sa
 test('rightsOff greys a source or destination row only when its list excludes it', async () => {
   const { rightsOff, applyMyRights } = await setup();
   applyMyRights({ sources: [1, 2] });
-  assert.equal(rightsOff('sources', 1), false);
-  assert.equal(rightsOff('sources', 5), true);
-  assert.equal(rightsOff('dsts', 5), false);
+  assert.equal(rightsOff('sources', { n: 1 }), false);
+  assert.equal(rightsOff('sources', { n: 5 }), true);
+  assert.equal(rightsOff('dsts', { n: 5 }), false);
   applyMyRights({ sources: [] });
-  assert.equal(rightsOff('sources', 1), true);
+  assert.equal(rightsOff('sources', { n: 1 }), true);
 });

@@ -15,7 +15,7 @@ func TestChromeGridPanelLine(t *testing.T) {
 	id := makePanel(t, a, ana, `{"name":"Line grid","type":"grid","settings":{"mode":"take","levels":[1]}}`)
 	waitNamesAndTally(t, a, ana)
 	a.mu.Lock()
-	a.router.protect[3] = map[int]protHold{1: {9, 1}}
+	a.first.router.protect[3] = map[int]protHold{1: {9, 1}}
 	a.mu.Unlock()
 
 	// Tall enough that destination 4 is clear of the edge zone, where a drag scrolls the grid.

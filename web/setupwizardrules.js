@@ -17,6 +17,7 @@ export const PRESET_ROWS = [
   ['panelLinks', 'Public panels open without signing in'],
   ['appsRead', 'Other apps can read names and tally without a key'],
   ['appsTake', 'Other apps can take without a key'],
+  ['tieNoSignIn', 'Change routes across routers without signing in'],
 ];
 
 const NAME_MAX = 24;

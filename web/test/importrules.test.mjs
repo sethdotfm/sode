@@ -43,6 +43,12 @@ test('Rename is offered only where the server can rename', () => {
     choicesFor('routers').map(([v]) => v),
     ['new', 'current', 'skip'],
   );
+  // A tie line with the same two ends as its twin is the same cable, so a renamed copy is no new tie line.
+  assert.deepEqual(
+    choicesFor('tieLines', { noRename: true }).map(([v]) => v),
+    ['new', 'current', 'skip'],
+  );
+  assert.equal(choicesFor('tieLines', {}).length, 4);
 });
 
 test('only a live clash in a category that imports asks for a choice', () => {

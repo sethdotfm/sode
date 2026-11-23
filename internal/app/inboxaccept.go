@@ -80,9 +80,11 @@ func (p *cardPlanner) profile(cfg *config.Config) *config.Profile {
 	return &cfg.Users[i].Profile
 }
 
-// outside: the route is on this router and the recipient's Rights do not reach it.
+// outside: the route is on a router of Sode and the recipient's Rights do not reach it on that router. Rights levels
+// are of the first router.
 func (p *cardPlanner) outside(kind string, r config.Ref) bool {
-	if r.Router != "" && r.Router != p.live.UID {
+	r.Router = cmp.Or(r.Router, p.live.UID)
+	if _, ok := p.live.RouterByUID(r.Router); !ok {
 		return false
 	}
 	switch kind {
@@ -91,7 +93,7 @@ func (p *cardPlanner) outside(kind string, r config.Ref) bool {
 	case config.MissingDestination:
 		return !p.rights.AllowsDst(r)
 	}
-	return !p.rights.AllowsLevel(r.N)
+	return r.Router == p.live.UID && !p.rights.AllowsLevel(r.N)
 }
 
 func (p *cardPlanner) presetOutside(s config.Preset) bool {

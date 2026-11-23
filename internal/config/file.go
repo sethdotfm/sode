@@ -36,13 +36,14 @@ func Load(path string) (c Config, exists bool, err error) {
 	}
 	if !bytes.Contains(b, []byte(c.UID)) || !bytes.Contains(b, []byte(c.InstallUID)) || c.idsFilled || !hasPresetIDs(b, c) {
 		if err := Save(path, c); err != nil {
-			return c, true, fmt.Errorf("%s: keeping the new install UID, router UID, user ids, preset ids or filter set ids: %w", path, err)
+			return c, true, fmt.Errorf("%s: keeping the new install UID, router UID, user ids, preset ids, filter set ids or tie line ids: %w", path, err)
 		}
 	}
 	return c, true, nil
 }
 
-// Pins, bookmarks and other items name a preset or a filter set by its id, so Load writes back any id it made.
+// Pins, bookmarks and other items name a preset, a filter set or a tie line by its id. So Load writes back each id that
+// it made.
 func hasPresetIDs(b []byte, c Config) bool {
 	var ids []string
 	add := func(ps []Preset, fs []FilterSet) {
@@ -54,6 +55,9 @@ func hasPresetIDs(b []byte, c Config) bool {
 		}
 	}
 	add(c.Presets, c.FilterSets)
+	for _, t := range c.TieLines {
+		ids = append(ids, t.ID)
+	}
 	for _, u := range c.Users {
 		add(u.Profile.Presets, u.Profile.FilterSets)
 	}

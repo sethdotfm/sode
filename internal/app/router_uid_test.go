@@ -55,7 +55,7 @@ func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 }
 
 // The hello carries the prefix for typing (A.23). The UID goes only as routerUid, for the
-// references This browser presets store; no page shows it.
+// references This browser presets store, and in the routers list; no page shows it.
 func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
@@ -69,7 +69,9 @@ func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	if m["routerUid"] != a.r().cfg.UID {
 		t.Errorf("hello routerUid %v", m["routerUid"])
 	}
-	if strings.Count(string(b), a.r().cfg.UID) != 1 {
+	// The routers list names each router by UID too (TestHelloListsEveryRouter).
+	delete(m, "routers")
+	if b, _ := json.Marshal(m); strings.Count(string(b), a.r().cfg.UID) != 1 {
 		t.Error("hello holds the router UID outside routerUid")
 	}
 }

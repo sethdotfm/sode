@@ -27,7 +27,7 @@ func TestChromeExportDialog(t *testing.T) {
 	signInSettings(b)
 	b.waitFor("Export & Import button shown", `!!document.getElementById('xi-open')?.offsetParent`)
 	b.eval(`document.getElementById('xi-open').click(); true`)
-	b.waitFor("ten categories listed", `document.querySelectorAll('.sode__xi-head').length === 10`)
+	b.waitFor("eleven categories listed", `document.querySelectorAll('.sode__xi-head').length === 11`)
 
 	var got struct {
 		Width, Rem     float64
@@ -72,7 +72,7 @@ func TestChromeExportDialog(t *testing.T) {
 	if strings.Join(got.Cats, ",") != strings.Join(exportCategoryNames(), ",") {
 		t.Errorf("categories %v", got.Cats)
 	}
-	if got.Sizes[2] == "0 B" || got.Sizes[0] == "0 B" {
+	if got.Sizes[3] == "0 B" || got.Sizes[0] == "0 B" {
 		t.Errorf("Settings and Users have no size: %v", got.Sizes)
 	}
 	if got.Old {

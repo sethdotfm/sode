@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -30,13 +31,14 @@ type routeLevel struct {
 }
 
 type waiter struct {
+	u        *routerUnit // the router of the route
 	dst, src int
 	why      swp08.Why // the connects' reason and browser, for the Communication Log
 	levels   []*routeLevel
 	done     chan struct{}
 	closed   bool
 	cause    *cause // for changes that follow this take
-	// ext: tracker of the router the take started on; a different a.ext means stale.
+	// ext: tracker of the router the take started on; a different u.ext means stale.
 	ext  *extTracker
 	cut  bool      // the router changed under the take
 	goAt time.Time // when a native salvo's Go set its staged levels (fire.go); zero if none
@@ -85,13 +87,13 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 	return false
 }
 
-// awaited: a take in flight (or recently given up) asked for xp, so its tally is ours without
-// a Connected. Caller holds mu.
-func (a *App) awaited(xp swp08.Crosspoint) bool {
-	if until, ok := a.ext.late[ownKey{xp.Dst, xp.Level, xp.Src}]; ok && time.Now().Before(until) {
+// awaited: a take in flight (or recently given up) on router u asked for xp, so its tally is ours without a
+// Connected. Caller holds mu.
+func (u *routerUnit) awaited(xp swp08.Crosspoint) bool {
+	if until, ok := u.ext.late[ownKey{xp.Dst, xp.Level, xp.Src}]; ok && time.Now().Before(until) {
 		return true
 	}
-	for w := range a.waiters {
+	for w := range u.waiters {
 		if w.dst == xp.Dst && w.src == xp.Src && slices.ContainsFunc(w.levels, func(l *routeLevel) bool { return l.wire == xp.Level }) {
 			return true
 		}
@@ -116,54 +118,56 @@ func (w *waiter) finish() {
 // register: own keys keep the take's answers out of changes made elsewhere. Only levels
 // answered with a Connected get one (a level already on src would swallow a real change
 // back to it). Staged levels get one too, as the Ultrix sometimes announces a Go's
-// crosspoints (fire.go). Nothing for a replaced router. Caller holds mu.
-func (w *waiter) register(a *App) {
-	if a.ext != w.ext {
+// crosspoints (fire.go). Nothing for a replaced router. All of it goes in the unit of the route's router. Caller
+// holds mu.
+func (w *waiter) register() {
+	if w.u.ext != w.ext {
 		return
 	}
-	a.waiters[w] = struct{}{}
-	a.ext.causes = append(a.ext.causes, w.cause)
-	// Connects can queue up to a.queueMax; sendRoute shortens the keys to ownFor after they are sent.
-	w.ownKeys(a)
+	w.u.waiters[w] = struct{}{}
+	w.ext.causes = append(w.ext.causes, w.cause)
+	// Connects can queue up to queueMax; sendRoute shortens the keys to ownFor after they are sent.
+	w.ownKeys()
 }
 
-// Caller holds mu and has checked a.ext == w.ext.
-func (w *waiter) ownKeys(a *App) {
-	until := time.Now().Add(a.queueMax + ownFor)
+// Caller holds mu and has checked w.u.ext == w.ext.
+func (w *waiter) ownKeys() {
+	until := time.Now().Add(w.u.queueMax + ownFor)
 	for _, l := range w.levels {
 		if !l.same {
-			a.ext.own[ownKey{w.dst, l.wire, w.src}] = until
+			w.ext.own[ownKey{w.dst, l.wire, w.src}] = until
 		}
 	}
 }
 
 // unregister: unconfirmed, unsent and tally-confirmed levels lose their own keys, which
-// would swallow a real change to src.
-func (w *waiter) unregister(a *App, id int) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+// would swallow a real change to src. mu is App.mu.
+func (w *waiter) unregister(mu *sync.Mutex, id int) {
+	mu.Lock()
+	defer mu.Unlock()
 	w.cause.id, w.cause.done = id, true
-	delete(a.waiters, w)
-	if w.ext != a.ext {
+	delete(w.u.waiters, w)
+	if w.ext != w.u.ext {
 		return // the router changed: its keys have no place in the new one's tracker
 	}
+	x := w.ext
 	for _, l := range w.levels {
 		k := ownKey{w.dst, l.wire, w.src}
 		if !l.confirmed() || l.unsent || l.already() {
-			delete(a.ext.own, k)
-		} else if until, ok := a.ext.own[k]; ok && l.native && l.tallied() && !w.goAt.IsZero() && w.goAt.Add(salvoAnnounceFor).Before(until) {
+			delete(x.own, k)
+		} else if until, ok := x.own[k]; ok && l.native && l.tallied() && !w.goAt.IsZero() && w.goAt.Add(salvoAnnounceFor).Before(until) {
 			// Set by a Go and confirmed by a tally. It is possible that a Connected follows up to
 			// about 340 ms later, or never, so the key waits salvoAnnounceFor.
-			a.ext.own[k] = w.goAt.Add(salvoAnnounceFor)
+			x.own[k] = w.goAt.Add(salvoAnnounceFor)
 		}
 		// A late interrogate answer or slow Connected is still ours; the entry gets amended.
 		if !l.confirmed() && !l.unsent {
 			until := time.Now().Add(lateFor)
-			a.ext.late[k] = until
+			x.late[k] = until
 			// Only a level the router said nothing about can be answered late; retries of
 			// one route each wait for the answer.
 			if !l.seen {
-				a.ext.lateRoute[k] = append(a.ext.lateRoute[k], lateRoute{id: id, until: until, cause: w.cause})
+				x.lateRoute[k] = append(x.lateRoute[k], lateRoute{id: id, until: until, cause: w.cause})
 			}
 		}
 	}

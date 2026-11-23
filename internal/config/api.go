@@ -55,19 +55,25 @@ const (
 //
 // Protect is the Protect right: set and free Sode's Protects on the destinations the lists allow. Unset means the
 // Role decides (ProtectFor): on for a Trusted user and an Administrator, off for everyone else.
+//
+// TieLines is the "Use tie lines" right: send a route across routers (docs/tielines-design.md, Rights). Unset is on,
+// as an unset list is everything, so a file from before the right changes nothing. An Access preset writes it for
+// the Guest.
 type Rights struct {
 	Sources    *[]Ref         `yaml:"sources,omitempty" json:"sources,omitempty"`
 	Dsts       *[]Ref         `yaml:"dsts,omitempty" json:"dsts,omitempty"`
 	Levels     *[]int         `yaml:"levels,omitempty" json:"levels,omitempty"` // UI levels
 	Presets    *[]string      `yaml:"presets,omitempty" json:"presets,omitempty"`
 	Protect    *bool          `yaml:"protect,omitempty" json:"protect,omitempty"`
+	TieLines   *bool          `yaml:"tieLines,omitempty" json:"tieLines,omitempty"`
 	Visibility string         `yaml:"visibility,omitempty" json:"visibility,omitempty"`
 	Extra      map[string]any `yaml:",inline" json:"-"`
 }
 
 func in[T comparable](l *[]T, v T) bool { return l == nil || slices.Contains(*l, v) }
 
-// sameRef: the name never decides, and a blank router is the one router.
+// sameRef: the router and the number decide, never the name. A blank router matches any router. Only a request
+// leaves it blank: Normalize fills a stored one, and every check in internal/app fills the one it asks about.
 func sameRef(a, b Ref) bool {
 	return a.N == b.N && (a.Router == "" || b.Router == "" || a.Router == b.Router)
 }
@@ -76,7 +82,7 @@ func inRefs(l *[]Ref, x Ref) bool {
 	return l == nil || slices.ContainsFunc(*l, func(r Ref) bool { return sameRef(r, x) })
 }
 
-// A blank router in x is the one router.
+// x names its router: a right for source 5 on one router does not allow source 5 on another.
 func (r Rights) AllowsSource(x Ref) bool    { return inRefs(r.Sources, x) }
 func (r Rights) AllowsDst(x Ref) bool       { return inRefs(r.Dsts, x) }
 func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
@@ -85,6 +91,9 @@ func (r Rights) Hidden() bool               { return r.Visibility == VisHidden }
 
 // AllowsProtect: an unset right is off, so an API client needs it ticked. ActsAs and GuestActs set it from the Role.
 func (r Rights) AllowsProtect() bool { return r.Protect != nil && *r.Protect }
+
+// AllowsTieLines: the "Use tie lines" right. Unset is on.
+func (r Rights) AllowsTieLines() bool { return r.TieLines == nil || *r.TieLines }
 
 // ProtectFor fills an unset Protect right from the Role: on for a Trusted user and an Administrator.
 func (r Rights) ProtectFor(role string) Rights {
@@ -98,6 +107,15 @@ func (r Rights) ProtectFor(role string) Rights {
 // protectWithin: only a right that is on needs it on in o. Unset is off for an API client, and ActsAs and GuestActs
 // set it from the Role.
 func protectWithin(r, o *bool) bool { return r == nil || !*r || o == nil || *o }
+
+// tieLinesBoth: off when either is off; unset only when both are unset.
+func tieLinesBoth(r, o Rights) *bool {
+	if r.TieLines == nil && o.TieLines == nil {
+		return nil
+	}
+	on := r.AllowsTieLines() && o.AllowsTieLines()
+	return &on
+}
 
 // protectBoth: off when either is off; unset only when both are.
 func protectBoth(r, o *bool) *bool {
@@ -142,7 +160,8 @@ func subsetBy[T any](l, of *[]T, same func(a, b T) bool) bool {
 // shows less than read-only, so it is within both, and read-only is not within hidden.
 func (r Rights) Within(o Rights) bool {
 	return subsetBy(r.Sources, o.Sources, sameRef) && subsetBy(r.Dsts, o.Dsts, sameRef) && subset(r.Levels, o.Levels) &&
-		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden()) && protectWithin(r.Protect, o.Protect)
+		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden()) && protectWithin(r.Protect, o.Protect) &&
+		(!r.AllowsTieLines() || o.AllowsTieLines())
 }
 
 func intersectBy[T any](l, o *[]T, same func(a, b T) bool) *[]T {
@@ -167,7 +186,7 @@ func eq[T comparable](a, b T) bool { return a == b }
 func (r Rights) Intersect(o Rights) Rights {
 	out := Rights{Sources: intersectBy(r.Sources, o.Sources, sameRef), Dsts: intersectBy(r.Dsts, o.Dsts, sameRef),
 		Levels: intersectBy(r.Levels, o.Levels, eq[int]), Presets: intersectBy(r.Presets, o.Presets, eq[string]),
-		Protect: protectBoth(r.Protect, o.Protect), Visibility: r.Visibility, Extra: r.Extra}
+		Protect: protectBoth(r.Protect, o.Protect), TieLines: tieLinesBoth(r, o), Visibility: r.Visibility, Extra: r.Extra}
 	if o.Hidden() {
 		out.Visibility = VisHidden
 	}
@@ -187,7 +206,7 @@ func cloneList[T any](l *[]T) *[]T {
 
 func (r Rights) Clone() Rights {
 	r.Sources, r.Dsts, r.Levels, r.Presets = cloneList(r.Sources), cloneList(r.Dsts), cloneList(r.Levels), cloneList(r.Presets)
-	r.Protect = cloneBool(r.Protect)
+	r.Protect, r.TieLines = cloneBool(r.Protect), cloneBool(r.TieLines)
 	return r
 }
 
@@ -266,7 +285,8 @@ func (c *Config) normalizeAPI() {
 	}
 }
 
-func (r Rights) validate(who string, levels int, uid string, bad func(string, ...any)) {
+// uids: the UIDs of every router of the settings.
+func (r Rights) validate(who string, levels int, uids []string, bad func(string, ...any)) {
 	if r.Visibility != "" && r.Visibility != VisReadOnly && r.Visibility != VisHidden {
 		bad("%s: visibility must be %q or %q", who, VisReadOnly, VisHidden)
 	}
@@ -274,7 +294,7 @@ func (r Rights) validate(who string, levels int, uid string, bad func(string, ..
 		if l != nil && slices.ContainsFunc(*l, func(f Ref) bool { return f.N < 0 }) {
 			bad("%s: sources and destinations cannot be negative", who)
 		}
-		if l != nil && slices.ContainsFunc(*l, func(f Ref) bool { return f.Router != "" && f.Router != uid }) {
+		if l != nil && slices.ContainsFunc(*l, func(f Ref) bool { return f.Router != "" && !slices.Contains(uids, f.Router) }) {
 			bad("%s: a source or destination names a router Sode does not have", who)
 		}
 	}
@@ -304,10 +324,11 @@ func (c Config) validateAPI() []error {
 	if c.RequireHTTPS && len(c.TrustedProxies) == 0 {
 		bad("Require HTTPS needs at least one trusted proxy: only a trusted proxy can say a request was secure")
 	}
-	c.GuestRights.validate("Guest rights", c.Levels, c.UID, bad)
+	uids := c.RouterUIDs()
+	c.GuestRights.validate("Guest rights", c.Levels, uids, bad)
 	checkScopes("keyless scopes", c.GuestAPIScopes, bad)
 	for _, u := range c.Users {
-		u.Rights.validate("rights of "+u.Name, c.Levels, c.UID, bad)
+		u.Rights.validate("rights of "+u.Name, c.Levels, uids, bad)
 	}
 	own := 0
 	ofUser := map[string]int{}
@@ -346,7 +367,7 @@ func (c Config) validateAPI() []error {
 			bad("API client %q has the name of a user; History would not tell them apart", cl.Name)
 		}
 		seen[key] = true
-		cl.Rights.validate("rights of API client "+cl.Name, c.Levels, c.UID, bad)
+		cl.Rights.validate("rights of API client "+cl.Name, c.Levels, uids, bad)
 		checkScopes("API client "+cl.Name, cl.Scopes, bad)
 	}
 	return errs

@@ -183,7 +183,7 @@ func TestExportItemsRoundTripThroughPick(t *testing.T) {
 				t.Errorf("%s %q: names the router %v, routers.yaml went %v", c.Name, it.Name, it.Router, named)
 			}
 		}
-		if c.Name != catBrowser && (c.Size != sum || sum == 0) {
+		if c.Name != catBrowser && (c.Size != sum || sum == 0 && c.Name != catTieLines) {
 			t.Errorf("%s: size %d, items add up to %d", c.Name, c.Size, sum)
 		}
 	}
@@ -216,19 +216,20 @@ func countItems(t *testing.T, cat string, files map[string][]byte) int {
 		Defaults       []any `yaml:"defaults"`
 		Icons          []any `yaml:"icons"`
 		Bookmarks      []any `yaml:"bookmarks"` // one item: the whole list
+		TieLines       []any `yaml:"tieLines"`
 	}
 	if err := yaml.Unmarshal(files[categoryFile(cat)], &v); err != nil {
 		t.Fatal(err)
 	}
 	return len(v.Users) + len(v.Presets) + len(v.FilterSets) + len(v.APIClients) + len(v.Panels) + len(v.Templates) +
-		len(v.CheckpointSets) + len(v.Defaults) + len(v.Icons) + min(len(v.Bookmarks), 1)
+		len(v.CheckpointSets) + len(v.Defaults) + len(v.Icons) + min(len(v.Bookmarks), 1) + len(v.TieLines)
 }
 
 // Keep in step with backupBody in web/exportrules.js: every category, with PINs.
 func TestExportBackUpEverything(t *testing.T) {
 	a, tok := exportApp(t)
 	seedEverything(t, a)
-	body := json.RawMessage(`{"categories":["settings","routers","users","presets","filterSets","bookmarks","panels","artwork","apiClients","browser"],` +
+	body := json.RawMessage(`{"categories":["settings","routers","tieLines","users","presets","filterSets","bookmarks","panels","artwork","apiClients","browser"],` +
 		`"includePins":true,"browser":{"theme":"dark","filterSets":[],"presets":[],"bookmarks":[]}}`)
 	rec := postExport(t, a, tok, body)
 	if rec.Code != 200 {

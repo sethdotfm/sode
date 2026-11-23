@@ -2,9 +2,26 @@
 // confirms. A blank Source or Destination goes to the other first (to see what is on it) and
 // comes back.
 
-import { $, el, S, on, connState, routerTitle, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode } from './core.js';
-import { defaultLevelsWord, allLevels, levelText, levelSource } from './levelview.js';
+import {
+  $,
+  el,
+  S,
+  on,
+  connState,
+  routerTitle,
+  linked,
+  setLinkDisabled,
+  renderDown,
+  setDot,
+  search,
+  dstItem,
+  srcItem,
+  labelNode,
+  routerOfItem,
+} from './core.js';
+import { defaultLevelsWord, allLevels, levelText, levelSource, oneLevel } from './levelview.js';
 import { levelBox } from './levelbox.js';
+import { levelRouterOf } from './levels.js';
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped } from './device.js';
 import { paintRouters } from './connview.js';
@@ -42,16 +59,25 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
     inputs.dst.focus();
   },
   canAdd: () => M.step === 'dst',
-  outside: (it) => rightsOff(M.step === 'src' ? 'sources' : 'dsts', it.n),
+  outside: (it) => rightsOff(M.step === 'src' ? 'sources' : 'dsts', it),
   press: 'click',
   cls: 'sode-m__match',
   hiCls: 'sode-m__match--hi',
   reverse: true,
 });
-const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), levelSource, {
+// Typed levels are levels of the router of the route's destination, as on the desktop. The picks follow it
+// (followLevels).
+const lvlRouter = () => levelRouterOf({ dsts: M.dsts, src: M.sel.src }, routerOfItem);
+let lvlAt = '';
+const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), () => levelSource(lvlRouter()), {
   hold: 'pointerdown',
   onChange: () => renderThread(),
 });
+function followLevels() {
+  if (lvlRouter() === lvlAt) return;
+  lvlAt = lvlRouter();
+  lvl.repick();
+}
 const active = () => layout() === 'phone' && document.documentElement.dataset.view !== 'settings' && !document.documentElement.hasAttribute('data-sode-setup');
 
 function renderConn() {
@@ -309,14 +335,17 @@ function summary() {
     lvl: () =>
       sumRow(
         'lvl',
-        levels ? el('span', 'sode-m__sum-lvls', levelText(levels)) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
-        levels && lvl.empty() ? sumNone(`(${defaultLevelsWord()})`) : null,
+        levels
+          ? el('span', 'sode-m__sum-lvls', oneLevel(lvlRouter()) ? 'All levels' : levelText(levels, lvlRouter()))
+          : el('span', 'pb-badge pb-badge--error', 'Not valid'),
+        levels && lvl.empty() && !oneLevel(lvlRouter()) ? sumNone(`(${defaultLevelsWord(lvlRouter())})`) : null,
       ),
   };
   return el('div', 'sode-m__sum', ...order().map((k) => rows[k]()));
 }
 
 function renderThread() {
+  followLevels();
   paintArmed();
   if (!S.cfg) return;
   const end = atEnd();
@@ -492,6 +521,7 @@ if (vv) {
 
 on('hello', () => {
   hist.pager.reset();
+  lvlAt = lvlRouter();
   lvl.reset();
   setStep(M.step, false);
   hist.renderHistory();

@@ -41,6 +41,11 @@ func (c *routeChange) UnmarshalJSON(b []byte) error {
 type deltaMsg struct {
 	T string        `json:"t"`
 	U []routeChange `json:"u"`
+	// RouterUID: the router of the change, so the page keeps the tally of each router apart.
+	RouterUID string `json:"routerUid,omitempty"`
+	// from: the router unit of a tally change. The API stream sends it only to the streams of that router. nil is
+	// every stream.
+	from *routerUnit
 }
 
 // helloMsg: every key always sent (none omitempty).
@@ -81,6 +86,27 @@ type helloMsg struct {
 	NotSaved bool `json:"notSaved,omitempty"`
 	// Setup opens the setup wizard (setup.go): only while setup is pending.
 	Setup *setupHello `json:"setup,omitempty"`
+	// Routers: every router, the first one first. The flat fields above repeat the first router until the page reads
+	// only this list.
+	Routers []helloRouter `json:"routers"`
+}
+
+// helloRouter is one router of the hello. UID is the router unit's UID, which the tally, names and status messages
+// and a take's route name.
+type helloRouter struct {
+	UID          string         `json:"uid"`
+	Prefix       string         `json:"prefix"`
+	Title        string         `json:"title"`
+	NumberOffset int            `json:"numberOffset"`
+	Levels       []config.Level `json:"levels"`
+	// LevelNumbering and DefaultLevels are this router's: typed levels of a route are levels of its router.
+	LevelNumbering string          `json:"levelNumbering"`
+	DefaultLevels  string          `json:"defaultLevels"`
+	Srcs           [][2]any        `json:"srcs"`
+	Dsts           [][2]any        `json:"dsts"`
+	At             time.Time       `json:"at"`
+	Tally          json.RawMessage `json:"tally"` // routeTriples
+	Status         statusMsg       `json:"status"`
 }
 
 type helloUser struct {
@@ -89,15 +115,18 @@ type helloUser struct {
 }
 
 type namesCheckedMsg struct {
-	T  string    `json:"t"` // "namesChecked"
-	At time.Time `json:"at"`
+	T         string    `json:"t"` // "namesChecked"
+	At        time.Time `json:"at"`
+	RouterUID string    `json:"routerUid,omitempty"` // as on deltaMsg
 }
 
 type namesMsg struct {
-	T    string    `json:"t"` // "names"
-	Srcs [][2]any  `json:"srcs"`
-	Dsts [][2]any  `json:"dsts"`
-	At   time.Time `json:"at"`
+	T         string      `json:"t"` // "names"
+	Srcs      [][2]any    `json:"srcs"`
+	Dsts      [][2]any    `json:"dsts"`
+	At        time.Time   `json:"at"`
+	RouterUID string      `json:"routerUid,omitempty"` // as on deltaMsg
+	from      *routerUnit // as on deltaMsg
 }
 
 type filterSetsMsg struct {

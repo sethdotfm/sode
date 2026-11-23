@@ -19,6 +19,7 @@ import './mykeys.js';
 import './myclients.js';
 import './users.js';
 import './apisettings.js';
+import './settingsrouterlevels.js';
 import './accesspreset.js';
 import './setupagain.js';
 import './profiles.js';
@@ -26,6 +27,7 @@ import './exportdialog.js';
 import './ownexport.js';
 import './swap.js';
 import './settingsprotects.js';
+import './settingstielines.js';
 import { askBrokenCounts } from './brokencount.js';
 
 const root = document.documentElement;

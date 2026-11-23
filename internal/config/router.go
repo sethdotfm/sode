@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -40,6 +41,61 @@ type Router struct {
 	// number space and the router checks no sender, so pick one no panel uses.
 	ProtectDevice int            `yaml:"protectDevice" json:"protectDevice"`
 	Extra         map[string]any `yaml:",inline" json:"-"`
+}
+
+func (r *Router) normalize() {
+	r.Address = strings.TrimSpace(r.Address)
+	r.Title = strings.TrimSpace(r.Title)
+	if r.UID == "" {
+		r.UID = newRouterUID()
+	}
+	r.Prefix = strings.ToUpper(strings.TrimSpace(r.Prefix))
+	if r.Prefix == "" {
+		r.Prefix = "A"
+	}
+	r.RouterShow = strings.ToLower(strings.TrimSpace(r.RouterShow))
+	if r.RouterShow == "" {
+		r.RouterShow = "address"
+	}
+	r.DefaultLevels = strings.TrimSpace(r.DefaultLevels)
+	r.FireMode = strings.ToLower(strings.TrimSpace(r.FireMode))
+	if r.FireMode == "" {
+		r.FireMode = "sequential"
+	}
+	r.LevelNumbering = strings.ToLower(strings.TrimSpace(r.LevelNumbering))
+	if r.LevelNumbering == "" {
+		r.LevelNumbering = "1"
+	}
+	if r.DefaultLevels == "" && r.Levels > 0 {
+		r.DefaultLevels = fmt.Sprintf("1-%d", r.Levels)
+	}
+}
+
+// Routers is every router, the first one first.
+func (c Config) Routers() []Router {
+	return append([]Router{c.Router}, c.MoreRouters...)
+}
+
+// RouterUIDs gives the UID of every router, the first router first.
+func (c Config) RouterUIDs() []string {
+	out := make([]string, 0, 1+len(c.MoreRouters))
+	for _, r := range c.Routers() {
+		out = append(out, r.UID)
+	}
+	return out
+}
+
+// RouterByUID gives the router with this UID. Blank is the first router.
+func (c Config) RouterByUID(uid string) (Router, bool) {
+	if uid == "" {
+		return c.Router, true
+	}
+	for _, r := range c.Routers() {
+		if r.UID == uid {
+			return r, true
+		}
+	}
+	return Router{}, false
 }
 
 // N: sources and destinations 0-based, levels 1..N. Import ignores Shown. Only a request leaves Router blank
@@ -79,7 +135,7 @@ func (c Config) MarshalYAML() (any, error) {
 	if err := top.Encode(configFile(c)); err != nil {
 		return nil, err
 	}
-	if err := routers.Encode([]Router{c.Router}); err != nil {
+	if err := routers.Encode(c.Routers()); err != nil {
 		return nil, err
 	}
 	// After format (Config's first field), so the marker stays the file's first key.
@@ -106,13 +162,19 @@ func (c *Config) UnmarshalYAML(n *yaml.Node) error {
 		if list.Kind != yaml.SequenceNode {
 			return fmt.Errorf("routers must be a list")
 		}
-		if len(list.Content) > 1 {
-			return fmt.Errorf("routers holds %d routers; this release drives one router", len(list.Content))
-		}
-		// Decoded over the defaults, so a missing key keeps its default as top-level keys do.
-		if len(list.Content) == 1 {
-			if err := list.Content[0].Decode(&c.Router); err != nil {
+		// Each one is decoded over the defaults (c.Router before the first), so a missing key keeps its default as
+		// top-level keys do.
+		base := c.Router
+		c.MoreRouters = nil
+		for j, rn := range list.Content {
+			r := base
+			if err := rn.Decode(&r); err != nil {
 				return err
+			}
+			if j == 0 {
+				c.Router = r
+			} else {
+				c.MoreRouters = append(c.MoreRouters, r)
 			}
 		}
 	}

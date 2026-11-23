@@ -19,6 +19,10 @@ func TestPresetSaveFieldsMatchApply(t *testing.T) {
 				t.Fatalf("%s: %s: %v", p.Name, k, err)
 			}
 		}
+		// The page stages the Guest's Use tie lines right in the Guest Rights it has (stageGuestTieLines).
+		if err := setField(&got, "guestRights", guestWithTieLines(t, got.GuestRights, accessPresetViewOf(t, p.Key).GuestTieLines), &saveCtx{}); err != nil {
+			t.Fatalf("%s: guestRights: %v", p.Name, err)
+		}
 		if g, w := valuesOf(got), valuesOf(want); !reflect.DeepEqual(g, w) {
 			t.Errorf("%s: staged %+v\nApply %+v", p.Name, g, w)
 		}
@@ -31,7 +35,31 @@ func TestPresetSaveFieldsMatchApply(t *testing.T) {
 func valuesOf(c config.Config) config.AccessValues {
 	return config.AccessValues{Locks: c.Locks, AutoLockMinutes: c.AutoLockMinutes, GuestRole: c.GuestRole, PinWaits: c.PinWaits,
 		PublicPanels: c.PublicPanels, KeylessAPI: c.API.GuestEnabled, KeylessScopes: c.GuestAPIScopes, NewPanelActs: c.NewPanelActs,
-		NewUserDefaults: config.NewUserDefaults{Persistent: c.NewUserDefaults.Persistent, NoAutoLock: c.NewUserDefaults.NoAutoLock}}
+		NewUserDefaults: config.NewUserDefaults{Persistent: c.NewUserDefaults.Persistent, NoAutoLock: c.NewUserDefaults.NoAutoLock},
+		GuestTieLines:   c.GuestRights.AllowsTieLines()}
+}
+
+func accessPresetViewOf(t *testing.T, key string) accessPresetView {
+	t.Helper()
+	for _, v := range accessPresetViews() {
+		if v.Key == key {
+			return v
+		}
+	}
+	t.Fatalf("no %s preset", key)
+	return accessPresetView{}
+}
+
+// guestWithTieLines is the guestRights value the page sends: the Guest Rights it has, with the right set.
+func guestWithTieLines(t *testing.T, g config.Rights, on bool) json.RawMessage {
+	t.Helper()
+	g = g.Clone()
+	g.TieLines = &on
+	b, err := json.Marshal(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
 
 // applyPreset sends what the page stages: the preset's fields from usersList, and both flags for each ticked user.
@@ -63,6 +91,12 @@ func (p *wsPeer) applyPreset(id int, key string, ticked ...string) map[string]an
 	for k, v := range view.Fields {
 		fields[k] = map[string]any{"value": v, "version": vers[k]}
 	}
+	var guest config.Rights
+	b, _ = json.Marshal(list["guestRights"])
+	if err := json.Unmarshal(b, &guest); err != nil {
+		p.t.Fatal(err)
+	}
+	fields["guestRights"] = map[string]any{"value": guestWithTieLines(p.t, guest, view.GuestTieLines), "version": vers["guestRights"]}
 	for _, u := range ticked {
 		for attr, v := range map[string]bool{"persistent": view.Users.Persistent, "noAutoLock": view.Users.NoAutoLock} {
 			k := "user/" + u + "/" + attr

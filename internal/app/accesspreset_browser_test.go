@@ -17,6 +17,7 @@ func TestChromeApplyAccessPreset(t *testing.T) {
 		bo := mkUser(t, "Bo", "5678")
 		bo.Persistent = true
 		c.Users = append(c.Users, bo)
+		c.GuestRights = config.Rights{Levels: &[]int{1}}
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -64,6 +65,10 @@ func TestChromeApplyAccessPreset(t *testing.T) {
 	bo, _ := cfg.FindUserByName("Bo")
 	if !cfg.Locks.Main || cfg.PublicPanels || cfg.API.GuestEnabled || ana.Persistent || !bo.Persistent {
 		t.Fatalf("locks %+v, public panels %v, keyless %v, Ana persistent %v, Bo persistent %v", cfg.Locks, cfg.PublicPanels, cfg.API.GuestEnabled, ana.Persistent, bo.Persistent)
+	}
+	// The preset turns the Guest's Use tie lines right off and keeps the Guest lists.
+	if g := cfg.GuestRights; g.AllowsTieLines() || g.Levels == nil || len(*g.Levels) != 1 {
+		t.Fatalf("Guest Rights %+v", g)
 	}
 	rows := waitSaves(t, a, 1)
 	if got := rows[len(rows)-1].Save.Preset; got != "Secured access" {

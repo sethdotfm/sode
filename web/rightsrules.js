@@ -1,26 +1,31 @@
 // Rights rules, pure (no imports) so Node tests them. Rights on the wire: {sources, dsts, levels, presets, protect,
-// visibility}.
+// tieLines, visibility}.
 // A missing list means all and [] means none. Sources and dsts are router references {router, n, name}.
 // n is the router's own number, with no numberOffset, as in plan items' .n. The editor sends {n}, never a bare
 // number; the server fills the router and the name.
 // Levels are UI levels 1..N. Presets are preset ids. Keep in step with config.Rights.
 
-// refN: a list entry's router number; the router is not compared. Tests and plans pass plain numbers.
+// refN: a list entry's router number. Tests and plans pass plain numbers.
 export const refN = (x) => (x && typeof x === 'object' ? x.n : x);
 
-export const allowed = (rights, kind, v) => !rights || !Array.isArray(rights[kind]) || rights[kind].some((x) => refN(x) === v);
+// router is the UID of v's router: a right for source 5 on one router does not allow source 5 on another. Without
+// it, or for an entry with no router, only the number counts (levels, presets, and the Grid panel lists).
+const sameRouter = (x, router) => !router || !x || typeof x !== 'object' || !x.router || x.router === router;
+
+export const allowed = (rights, kind, v, router) => !rights || !Array.isArray(rights[kind]) || rights[kind].some((x) => refN(x) === v && sameRouter(x, router));
 
 // The reason the server would refuse the plan whole, or ''. Same order and words as outsideRights in
-// internal/app/rights.go. Undo restores what the router had, so it skips the Before source.
-export function planOutside(rights, plan, off, levelName = String) {
+// internal/app/rights.go. Undo restores what the router had, so it skips the Before source. routerOf gives the UID of a
+// route end's router.
+export function planOutside(rights, plan, off, levelName = String, routerOf = () => undefined) {
   if (!rights) return '';
   if ((plan.preset || plan.presetId) && !allowed(rights, 'presets', plan.presetId)) return `preset "${plan.preset}" is outside your rights`;
   for (const it of plan.items) {
     if (!it.groups.length) continue;
-    if (!allowed(rights, 'dsts', it.dst.n)) return `destination ${it.dst.n + off} is outside your rights`;
+    if (!allowed(rights, 'dsts', it.dst.n, routerOf(it.dst))) return `destination ${it.dst.n + off} is outside your rights`;
     for (const g of it.groups) {
       for (const u of g.levels) if (!allowed(rights, 'levels', u)) return `level ${levelName(u)} is outside your rights`;
-      if (!it.undo && !allowed(rights, 'sources', g.src.n)) return `source ${g.src.n + off} is outside your rights`;
+      if (!it.undo && !allowed(rights, 'sources', g.src.n, routerOf(g.src))) return `source ${g.src.n + off} is outside your rights`;
     }
   }
   return '';
@@ -74,7 +79,12 @@ const NUMBERED = [
 export function draftOf(rights, off, presets = []) {
   const r = rights || {};
   // protect: '' leaves the Protect right unset (a user's Role decides; off for an API client and Guest).
-  const d = { visibility: r.visibility === 'hidden' ? 'hidden' : 'readonly', protect: r.protect === true ? 'yes' : r.protect === false ? 'no' : '' };
+  // tieLines: the Use tie lines right. Unset is on, so only off goes on the wire.
+  const d = {
+    visibility: r.visibility === 'hidden' ? 'hidden' : 'readonly',
+    protect: r.protect === true ? 'yes' : r.protect === false ? 'no' : '',
+    tieLines: r.tieLines !== false,
+  };
   for (const [kind, , shifted] of NUMBERED)
     d[kind] = { all: !Array.isArray(r[kind]), text: Array.isArray(r[kind]) ? listText(r[kind], shifted ? off : 0) : '' };
   const ids = Array.isArray(r.presets) ? r.presets : [];
@@ -118,6 +128,7 @@ export function rightsOf(d, off, levels, presets = []) {
   }
   if (d.visibility === 'hidden') rights.visibility = 'hidden';
   if (d.protect) rights.protect = d.protect === 'yes';
+  if (!d.tieLines) rights.tieLines = false;
   return { rights };
 }
 

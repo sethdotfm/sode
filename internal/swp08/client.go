@@ -49,6 +49,9 @@ type Why struct {
 	By     string
 	// Note goes in the Communication Log row's Note, after any of its own (a panel page's tag).
 	Note string
+	// Router: the UID of the router that the message went to, for the Communication Log row. The app sets it; the
+	// client does not read it.
+	Router string
 	// Done, if set, closes when the fate of the message is known. Callers count timeouts from when the router could
 	// have seen it.
 	Done chan struct{}

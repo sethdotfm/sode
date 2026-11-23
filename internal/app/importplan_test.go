@@ -63,7 +63,7 @@ func TestAddImportMissingReferenceIsBroken(t *testing.T) {
 	file := exported(t, a, tok, exportReq{Categories: []string{catPresets}})
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = nil })
 	a.mu.Lock()
-	a.router.dstNames[4] = "MON 9"
+	a.first.router.dstNames[4] = "MON 9"
 	a.mu.Unlock()
 
 	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))

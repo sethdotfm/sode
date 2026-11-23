@@ -779,6 +779,13 @@ html {
 .sode__bar > .sode__slot:not(.sode__slot--on) {
   color: var(--pb-text-muted);
 }
+/* A router with one level: its routes are on all levels, so the row is words. */
+.sode__bar--all {
+  align-items: center;
+  font-size: var(--pb-text-2xs);
+  min-height: var(--pb-space-7);
+  white-space: nowrap;
+}
 
 .sode__view {
   align-items: center;
@@ -1009,6 +1016,12 @@ html {
   display: flex;
   gap: var(--pb-space-4);
 }
+/* Router levels: one block for each router after the first. */
+.sode__router-levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
 .sode__swap-list {
   margin-top: var(--pb-space-4);
 }
@@ -1029,6 +1042,26 @@ html {
 }
 .sode__protects-acts {
   margin-top: var(--pb-space-4);
+}
+/* Settings > Routers > Tie lines (settingstielines.js). */
+.sode__tielines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0 0 var(--pb-space-4);
+  padding: 0;
+}
+.sode__tielines-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+.sode__tielines-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
 }
 /* The churning-letter Confirm (confirmbox.js), as panels.css draws it for the panel editor. */
 #protects-confirm > .sode-ov__keyconfirm {
