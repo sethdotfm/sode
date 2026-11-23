@@ -124,11 +124,11 @@ function newRouter(r, first = false) {
     tally: new Map(),
     via: new Map(),
     namesAt: null,
-    namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
-    // A router after the first: its Protects and Sode's record of them (protectsOf), and Sode's device number.
+    namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read.
+    // A router after the first keeps its Protects here (protectsOf).
     prot: new Map(),
-    protBy: new Map(),
-    protectDevice: r.protectDevice || 0,
+    protBy: new Map(), // Sode's record of them.
+    protectDevice: r.protectDevice || 0, // Sode's device number on the router.
     link: null,
     addr: '',
     err: '',
@@ -166,8 +166,8 @@ function fillRouter(st, r) {
   }
 }
 
-// protectsOf gives the Protects of one router (a routerData UID; blank is the first): prot, dst → Map(level → {dev,
-// kind}); by, Sode's record, dst → {by, device, levels}; and device, Sode's device number on it.
+// protectsOf gives the Protects of one router (a routerData UID; blank is the first). prot is dst → Map(level →
+// {dev, kind}). by is Sode's record, dst → {by, device, levels}. device is Sode's device number on the router.
 export function protectsOf(uid = '') {
   const rt = otherRouter(uid);
   if (!rt) return { prot: S.prot, by: S.protBy, device: S.cfg?.protectDevice || 0 };

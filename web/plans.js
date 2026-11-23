@@ -616,8 +616,8 @@ export function nextFind(items) {
   return pref('nextMode') === 'fuzzy' ? (q) => search(items, q, items.length) : null;
 }
 
-// armedAdd is the destination the next add on an empty Destination box adds after the add of last: on the router of
-// last, skipping those the box has (chosen). The desktop and the phone both use it.
+// armedAdd is the destination that the next add on an empty Destination box adds after the add of last. It is on the
+// router of last, and skips those that the box has (chosen). The desktop and the phone both use it.
 export function armedAdd(last, chosen) {
   const all = routerData(routerOfItem(last)).dsts;
   return nextAdd(last, all, chosen, nextFind(all));

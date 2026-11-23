@@ -45,8 +45,8 @@ const right = () => protectRight(S.myRights, role, S.users);
 // mayProtect: this page can set a Protect. The Tie line picker shows its shield only then (tiepicker.js).
 export const mayProtect = () => right();
 
-// The holds on dst n of router uid (blank: the first) over levels (every level when none), with the owner of each
-// seen from this browser's sign-in.
+// The holds on dst n of router uid (blank: the first) over levels (every level when none). The owner of each is as
+// this browser's sign-in sees it.
 export function holdsAt(n, levels = null, uid = '') {
   const p = protectsOf(uid);
   return holdsOn(p.prot, p.by, n, levels || allLevels(uid), p.device, me);

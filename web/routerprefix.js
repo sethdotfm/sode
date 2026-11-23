@@ -26,8 +26,8 @@ export function typedPrefix(q, routers) {
 const LABELED = /^\s*([a-z]{1,2})(\.?)(\d+)\s+(\S.*)$/i;
 
 // labelPrefix splits an edited label ("A.23 cam") into its router prefix, dot, and the number with the rest of the
-// text ("23 cam"). It is null when q does not start with a prefix and a number, or when the prefix has no dot and is
-// not one of routers (with two or more), as for typedPrefix.
+// text ("23 cam"). It is null when q does not start with a prefix and a number. As for typedPrefix, a prefix with no
+// dot counts only when it is one of routers, with two or more routers.
 export function labelPrefix(q, routers) {
   const m = LABELED.exec(q);
   if (!m) return null;

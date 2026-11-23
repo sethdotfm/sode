@@ -135,7 +135,10 @@ test('with two routers, a take on a first router that is down names it', () => {
 test('the armed next add stays on the router of the last add', () => {
   const next = armedAdd(dstItem(2, '', 'bbb'), () => false);
   assert.deepEqual([next.n, next.router], [6, 'bbb']);
-  assert.equal(armedAdd(dstItem(2, '', 'bbb'), (d) => d.n === 6 && d.router === 'bbb'), null);
+  assert.equal(
+    armedAdd(dstItem(2, '', 'bbb'), (d) => d.n === 6 && d.router === 'bbb'),
+    null,
+  );
   assert.equal(armedAdd(dstItem(2), () => false).n, 3);
 });
 

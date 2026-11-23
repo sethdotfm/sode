@@ -58,7 +58,7 @@ const endKey = (e) => (e ? `${e.router} ${e.n}` : '');
 const chainSign = (c) =>
   c ? JSON.stringify([endKey(c.origin), (c.via || []).map((v) => v.id), !!c.mixed, !!c.nothing, c.unknown || '', !!c.loop, (c.levels || []).map(endKey)]) : '';
 // HIDDEN stands for a source that the user's hidden visibility leaves out (docs/tielines-design.md, rule 7 of the
-// replies): the plan gives no origin, or a null hop end.
+// replies). The plan then gives no origin, or a null hop end.
 export const HIDDEN = 'not visible to you';
 
 // chainWords says what a tie line carries now (Via). label(ref) names a router reference, prefix(uid) a router.
@@ -101,8 +101,8 @@ export function pathChanges(was, now) {
 
 // refresh puts a new plan of the route into the open picker (docs/tielines-design.md, The Tie line picker, rule 7).
 // The selection stays on the path with the same tie lines; it never moves by itself. When the new plan has no such
-// path, the old one stays as a gone path. changed: the cost, the Protect state or a link of the chosen path changed,
-// or Take went from off to on, so the lockout starts again. The marks then name the changed rows.
+// path, the old one stays as a gone path. changed is true when the cost, the Protect state or a link of the chosen
+// path changed, or when Take went from off to on. Then the lockout starts again. The marks then name the changed rows.
 export function refresh(st, route) {
   const was = chosen(st);
   let paths = route.paths;
