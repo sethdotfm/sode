@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
-	"github.com/sethdotfm/sode/internal/swp08"
 )
 
 // The import steps for the stores outside config.yaml. Artwork is the Icon library and Default artwork. Panels
@@ -54,16 +53,11 @@ type importLive struct {
 	Icons     []LibIcon
 	Defaults  []ArtDefault
 	IconFile  func(id string) ([]byte, LibIcon, bool)
-	Names     namesState
 }
 
 func (a *App) importLive() importLive {
-	first := a.firstUnit()
-	a.mu.Lock()
-	ns := namesState{Offline: first.status.Router != string(swp08.StateUp), SavedAt: first.router.savedAt, NamesAt: first.router.namesAt}
-	a.mu.Unlock()
 	return importLive{Panels: a.panels.list(), Templates: a.templates.list(), Sets: a.panels.sets.sorted(nil),
-		Icons: a.icons.list(), Defaults: a.artDefaults.list(), IconFile: a.icons.file, Names: ns}
+		Icons: a.icons.list(), Defaults: a.artDefaults.list(), IconFile: a.icons.file}
 }
 
 // libTo is the Icon A or B value s with the icon id mapped as this import moves it. "" drops it: the
@@ -231,11 +225,13 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 			}
 			d.ID = to
 		default:
-			if x, ok := p.movedDefaults[i]; ok {
+			if p.routers.unmapped(d.Router) {
+				it.Refused = "it uses router " + p.fileRouterTitle(d.Router) + ", which has no target here"
+			} else if x, ok := p.movedDefaults[i]; ok {
 				n := x.N
 				d.Router, d.N, d.Name = x.Router, &n, cmp.Or(x.Name, d.Name)
 			}
-			if d.Router != p.live.UID {
+			if it.Refused == "" && p.check.routers[d.Router] == nil {
 				it.Refused = "it is for another router"
 			}
 		}
@@ -319,6 +315,8 @@ func (p *importPlanner) planTemplates(cand *config.Config, cat *importCat) error
 		}
 		if err != nil {
 			it.Refused = err.Error()
+		}
+		if it.Refused = cmp.Or(p.dropNote("template/"+fileID), it.Refused); it.Refused != "" {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
@@ -377,6 +375,8 @@ func (p *importPlanner) planSets(cand *config.Config, cat *importCat) error {
 		}
 		if s.Scope != panelShareAll && s.Scope != panelShareMe || strings.TrimSpace(s.Name) == "" {
 			it.Refused = "it is not valid"
+		}
+		if it.Refused = cmp.Or(p.dropNote("set/"+fileID), it.Refused); it.Refused != "" {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
@@ -472,7 +472,9 @@ func (p *importPlanner) planPanels(cand *config.Config, cat *importCat) error {
 		it := importItem{Key: fileID, Name: fp.Name, Broken: fp.Broken, Kind: kindPanel}
 		cps := p.planCheckpoints(fileID)
 		i := p.keepLivePanel(fp)
-		if err := validatePanel(&fp); err != nil {
+		if note := p.dropNote("panel/" + fileID); note != "" {
+			it.Refused, it.Broken = note, nil
+		} else if err := validatePanel(&fp); err != nil {
 			it.Refused = err.Error()
 		} else if fp.Acts == panelActsPublic && !cand.PublicPanels {
 			it.Refused = errPublicOff.Error()

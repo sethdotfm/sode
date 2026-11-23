@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/internal/swp08"
 )
 
 // POST /api/import/apply: multipart with a "plan" part (importReq JSON) and a "file" part (the zip). The
@@ -59,6 +60,35 @@ func (a *App) tokenRechecked(tok string) bool {
 	return false
 }
 
+// routerNames: one live router's names, and how fresh they are, for an import's check and remap step.
+type routerNames struct {
+	src, dst map[int]string
+	state    namesState
+}
+
+// liveNameSet is by router UID.
+type liveNameSet map[string]routerNames
+
+// liveNameSet gives the names of every router in the settings.
+func (a *App) liveNameSet() liveNameSet {
+	cfg := a.r().cfg
+	out := liveNameSet{}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, rc := range cfg.Routers() {
+		u, ok := a.unitOfRouter(cfg, rc.UID)
+		if !ok {
+			out[rc.UID] = routerNames{}
+			continue
+		}
+		rs := u.router
+		out[rc.UID] = routerNames{src: maps.Clone(rs.srcNames), dst: maps.Clone(rs.dstNames),
+			state: namesState{Offline: u.status.Router != string(swp08.StateUp), SavedAt: rs.savedAt, NamesAt: rs.namesAt}}
+	}
+	return out
+}
+
+// liveNames gives the first router's names.
 func (a *App) liveNames() (src, dst map[int]string) {
 	first := a.firstUnit()
 	a.mu.Lock()
@@ -132,8 +162,7 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	live := a.r().cfg
-	src, dst := a.liveNames()
-	p := planImport(live, src, dst, a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies))
+	p := planImport(live, a.liveNameSet(), a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies))
 	if p.noAdmin {
 		apiFail(w, http.StatusConflict, "refused", errNoAdministrator.Error())
 		return
@@ -157,8 +186,8 @@ func (a *App) writeImport(p *importPlanner, act Actor, mode string, live config.
 		fields := configFieldsByYAML()
 		err := a.applyConfig(func(cur *config.Config) error {
 			for _, k := range p.written {
-				if k == "router" {
-					cur.Router = p.next.Router
+				if k == "router" { // every router: Router and MoreRouters
+					cur.Router, cur.MoreRouters = p.next.Router, p.next.MoreRouters
 				} else if idx, ok := fields[k]; ok {
 					copyConfigKey(cur, &p.next, idx)
 				}

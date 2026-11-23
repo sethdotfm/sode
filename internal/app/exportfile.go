@@ -164,7 +164,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		}
 	}
 	want := func(c string) bool { return slices.Contains(req.Categories, c) }
-	routers := []config.Router{cfg.Router}
+	routers := cfg.Routers()
 	prefix := map[string]string{}
 	for _, r := range routers {
 		prefix[r.UID] = r.Prefix
@@ -340,7 +340,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 	man := exportManifest{Format: exportFormat, Sode: BuildLabel(), Install: cfg.InstallUID, Made: exportNow().UTC().Truncate(time.Second)}
 	var withRouters []config.Router
 	for _, r := range routers {
-		if want(catRouters) || used[r.UID] {
+		if want(catRouters) && picked(req.Pick, catRouters, r.UID) || used[r.UID] {
 			withRouters = append(withRouters, r)
 		}
 	}

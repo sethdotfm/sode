@@ -102,7 +102,7 @@ test('router options show names found, and a target another file router holds is
   ];
   const opts = routerOptions(rs[1], { a: 'live', b: '' });
   assert.deepEqual(opts, [
-    { value: '', text: 'None: its items arrive Broken', disabled: false },
+    { value: '', text: 'None: its items are not imported', disabled: false },
     { value: 'live', text: 'Studio A (3 of 50 names found)', disabled: true },
   ]);
   assert.equal(routerOptions(rs[0], { a: 'live', b: '' })[1].disabled, false);
