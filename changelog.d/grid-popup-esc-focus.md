@@ -1,0 +1,1 @@
+- Grid popup: Esc right after Ctrl+e or the Grid button closes the popup. Before, an Esc that came before the popup's first paint went to the patch box behind it, and the popup stayed open.

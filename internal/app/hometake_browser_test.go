@@ -56,6 +56,23 @@ func TestChromeMainOneTake(t *testing.T) {
 	}
 	width := b.eval(takeWidth).(float64)
 
+	// An Esc before the popup's first frame closes it: the popup has focus as it opens, so the key does not go to the box.
+	// One eval runs both keys in one task, with no frame between them.
+	for _, open := range []string{
+		`document.getElementById('grid-open').click()`,
+		`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', code: 'KeyE', ctrlKey: true, bubbles: true, cancelable: true }))`,
+	} {
+		b.eval(`document.getElementById('src').focus(); true`)
+		if got := b.eval(`(() => {
+			` + open + `;
+			const shown = !document.getElementById('grid-pop').hidden;
+			document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+			return shown + ',' + document.getElementById('grid-pop').hidden;
+		})()`).(string); got != "true,true" {
+			t.Fatalf("%s then an Esc in the same frame: shown and hidden after are %s, want true,true", open, got)
+		}
+	}
+
 	// Only the Source box: Ctrl+e opens the popup on that source, far to the right.
 	popTyped(b, "src", "SRC 150")
 	b.waitFor("Source holds it", `document.getElementById('src').value.endsWith('SRC 150')`)
