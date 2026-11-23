@@ -778,6 +778,13 @@ html {
 .sode__bar > .sode__slot:not(.sode__slot--on) {
   color: var(--pb-text-muted);
 }
+/* A router with one level: its routes are on all levels, so the row is words. */
+.sode__bar--all {
+  align-items: center;
+  font-size: var(--pb-text-2xs);
+  min-height: var(--pb-space-7);
+  white-space: nowrap;
+}
 
 .sode__view {
   align-items: center;

@@ -32,6 +32,18 @@ test('parseLevelsIn: blank means the default levels, typed in 1 numbering', () =
   assert.equal(parseLevelsIn('18', { ...ctx, numbering: '1' }), null);
 });
 
+test('parseLevelsIn: on a router with one level, any typed levels mean its one level', () => {
+  const one = { levels: apiLevels(1, 'va'), numbering: 'va', defaultLevels: '1-1' };
+  assert.deepEqual(parseLevelsIn('1-17', { ...one, numbering: '1' }), [1]);
+  assert.deepEqual(parseLevelsIn('a3', one), [1]);
+  assert.deepEqual(parseLevelsIn('v', one), [1]);
+  assert.deepEqual(parseLevelsIn('', one), [1]);
+  assert.equal(parseLevelsIn('', one, true), null);
+  assert.equal(parseLevelsIn('abc', one), null);
+  // A router with more levels still refuses a level past its count.
+  assert.equal(parseLevelsIn('1-18', { levels: apiLevels(17), numbering: '1', defaultLevels: '1-17' }), null);
+});
+
 test('levelInputOf and levelTextOf follow the numbering', () => {
   assert.equal(levelInputOf([1, 2, 3, 5], apiLevels(17, 'va'), 'va'), 'V-2,4');
   assert.equal(levelInputOf([1, 2], apiLevels(17, 'va'), 'va', '1'), '1-2');

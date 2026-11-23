@@ -1,0 +1,1 @@
+- Each router has its own level count, level numbering and default levels. The typed levels of a route are levels of the router of its destination. On a router with one level, any typed levels mean that one level (the whole signal), and History says "All levels". A router with more levels still refuses a level past its count.

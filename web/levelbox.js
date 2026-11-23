@@ -92,6 +92,19 @@ export function levelBox(input, picker, allBtn, source, { hold = 'mousedown', on
     picking = true;
   }
 
+  // repick draws the picker again for the levels source() gives now, for example after the box moved to the levels of
+  // another router. The typed text stays as it is.
+  function repick() {
+    const src = source();
+    if (!src) return;
+    const picks = shown(src);
+    picker.replaceChildren(...levelPicks(picks, toggle));
+    const odd = picks.length % 2;
+    picker.classList.toggle('sode__levels--odd', !!odd);
+    picker.style.setProperty('--sode-bar-cols', Math.floor(picks.length / 2) + odd);
+    render();
+  }
+
   input.addEventListener('input', () => {
     none = false;
     picking = false;
@@ -121,12 +134,8 @@ export function levelBox(input, picker, allBtn, source, { hold = 'mousedown', on
       const src = source();
       if (!src) return;
       input.value = relabelLevelsFor(input.value, src.levels, src.numbering, src.prev);
-      const picks = shown(src);
-      picker.replaceChildren(...levelPicks(picks, toggle));
-      const odd = picks.length % 2;
-      picker.classList.toggle('sode__levels--odd', !!odd);
-      picker.style.setProperty('--sode-bar-cols', Math.floor(picks.length / 2) + odd);
-      render();
+      repick();
     },
+    repick,
   };
 }

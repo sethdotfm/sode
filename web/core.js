@@ -106,6 +106,12 @@ const FIRST = Object.freeze({
   get levelBy() {
     return S.levelBy;
   },
+  get numbering() {
+    return S.cfg?.levelNumbering || '1';
+  },
+  get defaultLevels() {
+    return S.cfg?.defaultLevels || '';
+  },
   get srcs() {
     return S.srcs;
   },
@@ -129,7 +135,8 @@ const FIRST = Object.freeze({
   },
 });
 
-// routerData is the one accessor for the names, tally, levels and link of one router. Blank is the first router.
+// routerData is the one accessor for the names, tally, levels (with numbering and default levels) and link of one router.
+// Blank is the first router.
 export const routerData = (uid) => otherRouter(uid) || FIRST;
 
 // The UID that a take sends for an item's router: blank for the first router.
@@ -153,6 +160,8 @@ function newRouter(r) {
     off: r.numberOffset ?? 0,
     levels: r.levels || [],
     levelBy: new Map((r.levels || []).map((l) => [l.ui, l])),
+    numbering: r.levelNumbering || '1',
+    defaultLevels: r.defaultLevels || '',
     srcs: [],
     dsts: [],
     srcBy: new Map(),
