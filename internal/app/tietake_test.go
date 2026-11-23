@@ -171,16 +171,16 @@ func TestAPITieTakeCarriedTieLine(t *testing.T) {
 func TestAPITieTakeStopsAtFailedHop(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	uidA := a.r().cfg.UID
-	a.mu.Lock()
-	a.first.router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
-	a.mu.Unlock()
+	fa.mu.Lock()
+	fa.deaf[[2]int{10, a.r().byUI[1].Wire}] = true // A ignores the hop's connect on level 1
+	fa.mu.Unlock()
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}), nil)
 	b := tieTakeAnswer(t, rec.Body)
 	if rec.Code != http.StatusOK || b.OK {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
-	if got := log(); len(got) != 0 {
+	if got := log(); slices.ContainsFunc(got, func(s string) bool { return strings.HasPrefix(s, "B ") }) {
 		t.Errorf("connects %v", got)
 	}
 	r := b.Results[0]

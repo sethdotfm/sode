@@ -21,9 +21,10 @@ import (
 // steps after it are not sent; each one records a failed entry, so the Group keeps its size. A hop whose tie line
 // already carries the source (tieplan: Sends false) is not sent and has no entry.
 //
-// tielock.go locks the tie lines and runs the stale check before the first wave. Not here yet: the Protect check on
-// every hop before sending. Also the Result
-// across hops, put-back, One-off tie lines and the Tie line picker. The API is the only caller.
+// tielock.go locks the tie lines and runs the stale check before the first wave. Then refuseHeld runs the Protect check
+// on every step before any step goes. Every step is an ordinary connect, also in fireMode native. The Result of a
+// route comes from all its hops (routeWord). Not here yet: put-back, One-off tie lines and the Tie line picker. The
+// API is the only caller.
 
 // TieEnd is a router reference with the name that Sode had for it.
 type TieEnd struct {
@@ -67,6 +68,9 @@ type tieStep struct {
 	after []*tieStep // the steps that must succeed first
 	res   routeResult
 	got   bool // res holds the step's answer
+	// refused: the Protect check before sending refused every route that needs this step. It is not sent, and its
+	// entry has this error.
+	refused string
 }
 
 func (s *tieStep) ok() bool { return s.got && s.res.OK }
@@ -242,11 +246,16 @@ func (a *App) runTieTake(c *client, t *tieTake, got func(id int) (routeResult, b
 			s.req.Group, s.req.GroupN = g, len(t.steps)
 		}
 	}
+	t.refuseHeld(a, r)
 	for _, wave := range t.waves {
 		var items []routeReq
 		for _, s := range wave {
 			if s.req.Tie != nil && s.req.Tie.origin != nil {
 				t.fillHops(a, s)
+			}
+			if s.refused != "" {
+				a.notSent(r, c, s.req, s.refused)
+				continue
 			}
 			if i := slices.IndexFunc(s.after, func(x *tieStep) bool { return !x.ok() }); i >= 0 {
 				a.notSent(r, c, s.req, "not sent: the hop to "+t.name(s.after[i].req.Tie.tie)+" failed")
@@ -254,7 +263,7 @@ func (a *App) runTieTake(c *client, t *tieTake, got func(id int) (routeResult, b
 			}
 			items = append(items, s.req)
 		}
-		if len(items) > 0 && a.runParts(r, c, items) {
+		if len(items) > 0 && a.runParts(r, c, items, false) {
 			unread = true
 		}
 		for _, s := range wave {
@@ -262,6 +271,61 @@ func (a *App) runTieTake(c *client, t *tieTake, got func(id int) (routeResult, b
 		}
 	}
 	return unread
+}
+
+// refuseHeld is the Protect check on every hop of each route across routers, before Sode sends anything
+// (docs/tielines-design.md, "Order and failures"). A step whose destination is Protected, or has a Router lock, on a
+// level that the step switches refuses its route. The steps of a refused route are not sent, except a step that a
+// route that is not refused needs too. A hop whose tie line already carries the source is no step, so its Protect
+// does not count. A route on one router gets the usual guard when its step runs.
+func (t *tieTake) refuseHeld(a *App, rt *runtime) {
+	why := make([]string, len(t.routes))
+	a.mu.Lock()
+	for i, r := range t.routes {
+		if r.mark == nil {
+			continue
+		}
+		for _, s := range r.steps {
+			if held := a.heldLevels(rt, s.req); len(held) > 0 {
+				what := "the destination"
+				if s.req.Tie.tie != "" {
+					what = t.name(s.req.Tie.tie)
+				}
+				why[i] = fmt.Sprintf("not sent: %s is protected on levels %s", what, levelList(rt.levelsOf(s.req.Router), held))
+				break
+			}
+		}
+	}
+	a.mu.Unlock()
+	goes := map[*tieStep]bool{}
+	for i, r := range t.routes {
+		for _, s := range r.steps {
+			goes[s] = goes[s] || why[i] == ""
+		}
+	}
+	for i, r := range t.routes {
+		for _, s := range r.steps {
+			if why[i] != "" && !goes[s] && s.refused == "" {
+				s.refused = why[i]
+			}
+		}
+	}
+}
+
+// heldLevels gives the levels of req that a Protect or a Router lock holds on its destination. Caller holds mu.
+func (a *App) heldLevels(rt *runtime, req routeReq) []int {
+	u, ok := a.unit(req.Router)
+	if !ok {
+		return nil
+	}
+	uis, _ := rt.levelsOf(u.uid).typed(req.Levels)
+	var held []int
+	for _, l := range uis {
+		if _, ok := u.router.protect[req.Dst][l]; ok {
+			held = append(held, l)
+		}
+	}
+	return held
 }
 
 // fillHops writes the answer of each hop before the last into the mark of the destination step s, before s runs.
@@ -318,6 +382,9 @@ func (t *tieTake) out(unread bool) apiTakeOut {
 		}
 		if r.mark != nil {
 			o.Hops = r.mark.hops
+			if o.Result = routeWord(o.Result, o.Hops); o.Result == "connected" {
+				o.Already = nil
+			}
 		}
 		out.OK = out.OK && o.OK
 		out.Results[i] = o
@@ -334,4 +401,13 @@ func resultWord(rr routeResult, got bool, levels []int) string {
 		return "already"
 	}
 	return "connected"
+}
+
+// routeWord is the Result of a route across routers, from the Result of its last hop and of each hop before it. A
+// last hop that is already after a hop that changed is a normal success: connected.
+func routeWord(last string, hops []TieHop) string {
+	if last == "already" && slices.ContainsFunc(hops, func(h TieHop) bool { return h.Result == "connected" }) {
+		return "connected"
+	}
+	return last
 }
