@@ -78,10 +78,12 @@ type apiRouteIn struct {
 	Levels []int  `json:"levels"`
 	// Ties: a route across routers names one tie line for each hop before the last, upstream first (tietake.go).
 	Ties []apiTieIn `json:"ties"`
+	// Affected: the Affected destinations that the caller saw for the route. Absent: Sode does not compare them.
+	Affected []apiEnd `json:"affected"`
 }
 
-// apiTieIn is one tie line of a route. Expect is the source that the caller saw on it (null: nothing routed). Sode
-// does not compare it yet.
+// apiTieIn is one tie line of a route. Expect is the source that the caller saw on it (null: nothing routed). The
+// stale check compares it (tielock.go).
 type apiTieIn struct {
 	ID     string  `json:"id"`
 	Expect *apiEnd `json:"expect"`
@@ -161,17 +163,35 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 				ls, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
 			}
 			r := tieRoute{index: i, src: tieplan.End{Router: su.uid, N: ro.Src.N}, dst: tieplan.End{Router: u.uid, N: ro.Dst.N}, levels: ls}
-			all = append(all, r)
 			switch {
-			case su == u && len(ro.Ties) > 0:
-				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties is only for a route across routers", i)
+			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil):
+				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties and affected are only for a route across routers", i)
 			case su != u && len(ro.Ties) == 0:
 				bare = append(bare, r)
 			case su != u:
+				r.expect = map[string]*tieplan.End{}
 				for _, t := range ro.Ties {
 					ties[i] = append(ties[i], t.ID)
+					if t.Expect != nil {
+						e, prob := a.tieEnd(*t.Expect)
+						if prob != nil {
+							return nil, prob
+						}
+						r.expect[t.ID] = &e
+					}
+				}
+				if ro.Affected != nil {
+					r.seen = []tieplan.End{}
+				}
+				for _, ae := range ro.Affected {
+					e, prob := a.tieEnd(ae)
+					if prob != nil {
+						return nil, prob
+					}
+					r.seen = append(r.seen, e)
 				}
 			}
+			all = append(all, r)
 			p.Items = append(p.Items, routeReq{Src: ro.Src.N, Dst: ro.Dst.N, Levels: ls, Router: u.uid})
 		}
 		if len(ties) == 0 && len(bare) == 0 {
@@ -380,6 +400,15 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	note := fmt.Sprintf("%d %s", n, plural(n, "route", "routes"))
 	if plan.Preset != "" {
 		note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
+	}
+	if t := plan.Ties; t != nil {
+		// The tie locks and the stale check come before the sent row, so a refused take logs refused.
+		unlock, p := a.tieTakeBegin(rt, a.view(cl), c, t)
+		if p != nil {
+			a.apiEvent(cl.Actor, takeWhy(plan.Items), "refused", p.Code, fmt.Errorf("%s", p.Msg))
+			return p.answer(), false
+		}
+		defer unlock()
 	}
 	a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
 	if t := plan.Ties; t != nil {

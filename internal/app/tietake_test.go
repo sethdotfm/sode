@@ -149,7 +149,8 @@ func TestAPITieTakeCarriedTieLine(t *testing.T) {
 		fa.seed(10, 4, a.r().byUI[l].Wire)
 	}
 	log := connectLog(fa, fb)
-	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}), nil)
+	body := strings.Replace(tieRoutes(uidA, [2]int{4, 2}), `"n":3}`, `"n":4}`, 1) // the caller saw CAM 4 on TIE 3
+	rec := apiPost(a, "/api/v1/takes", key, body, nil)
 	b := tieTakeAnswer(t, rec.Body)
 	if rec.Code != http.StatusOK || !b.OK {
 		t.Fatalf("%d %s", rec.Code, rec.Body)

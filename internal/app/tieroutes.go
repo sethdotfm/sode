@@ -24,6 +24,10 @@ type tieRoute struct {
 	index    int // place in the request
 	src, dst tieplan.End
 	levels   []int // UI levels of the router of dst
+	// expect: tie line id → the source that the caller saw on it (nil: nothing routed). seen: the Affected
+	// destinations that the caller saw; nil when it sent none, and then the stale check does not compare them.
+	expect map[string]*tieplan.End
+	seen   []tieplan.End
 }
 
 // unitUID gives the UID of the router unit that a router UID from the settings names.

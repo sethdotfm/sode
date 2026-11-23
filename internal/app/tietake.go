@@ -21,7 +21,8 @@ import (
 // steps after it are not sent; each one records a failed entry, so the Group keeps its size. A hop whose tie line
 // already carries the source (tieplan: Sends false) is not sent and has no entry.
 //
-// Not here yet: the stale check and tie locks, and the Protect check on every hop before sending. Also the Result
+// tielock.go locks the tie lines and runs the stale check before the first wave. Not here yet: the Protect check on
+// every hop before sending. Also the Result
 // across hops, put-back, One-off tie lines and the Tie line picker. The API is the only caller.
 
 // TieEnd is a router reference with the name that Sode had for it.
