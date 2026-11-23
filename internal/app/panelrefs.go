@@ -74,6 +74,11 @@ func (n refNames) pages(pages []PanelPage, userID string) []PanelPage {
 	for _, g := range out {
 		for j, c := range g.Cells {
 			g.Cells[j] = maps.Clone(c)
+			// A cell's levels are levels of its router. A request can leave it out on a cell with no source or
+			// destination, which names the one router.
+			if r, _ := c["router"].(string); r == "" && c[panelLevelsKey] != nil {
+				g.Cells[j]["router"] = n.cfg.UID
+			}
 			if c["kind"] != "preset" {
 				continue
 			}

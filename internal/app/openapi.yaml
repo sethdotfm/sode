@@ -165,8 +165,9 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [levels, levelNumbering, defaultLevels, routes]
+                required: [router, levels, levelNumbering, defaultLevels, routes]
                 properties:
+                  router: { type: string, description: "The UID of the router. Rights `levels` and the level subset of a panel name these levels by it" }
                   levels:
                     type: array
                     items:
@@ -181,6 +182,7 @@ paths:
                   defaultLevels: { type: string, description: "The Default levels setting of the router, typed in its Level numbering" }
                   routes: { type: array, items: { $ref: "#/components/schemas/Route" } }
               example:
+                router: "3f9c0a7d"
                 levels: [{ level: 1, label: "1", swatch: video, color: "#7ae85a" }]
                 levelNumbering: "1"
                 defaultLevels: "1-17"
@@ -2568,8 +2570,17 @@ components:
         settings:
           type: object
           additionalProperties: true
-          description: Free-form settings for the panel page and editor. Sode checks only `fixedDests`, `askInstanceName` and `mode` (`take`, `takeOnly` or `instant`).
+          description: Free-form settings for the panel page and editor. Sode checks only `fixedDests`, `levels`, `askInstanceName` and `mode` (`take`, `takeOnly` or `instant`).
           properties:
+            levels:
+              description: |
+                The level subset of the panel: UI levels under the UID of their router. A router it does not
+                name, or an empty list, means every level. A request can send a plain list, which names the one
+                router. Sode stores and returns the object. Anything else is 400 `bad_request`.
+              oneOf:
+                - type: object
+                  additionalProperties: { type: array, items: { type: integer, minimum: 1 } }
+                - { type: array, items: { type: integer, minimum: 1 } }
             askInstanceName:
               type: boolean
               default: true
@@ -2598,7 +2609,7 @@ components:
           properties:
             sources: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
             dsts: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
-            levels: { type: array, items: { type: integer }, description: UI levels }
+            levels: { $ref: "#/components/schemas/RightsLevels" }
             presets: { type: array, items: { type: string }, description: Preset ids }
             visibility: { type: string, enum: [readonly, hidden] }
     PanelTemplateIn:
@@ -2780,7 +2791,7 @@ components:
               properties:
                 sources: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
                 dsts: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
-                levels: { type: array, items: { type: integer }, description: UI levels }
+                levels: { $ref: "#/components/schemas/RightsLevels" }
                 presets: { type: array, items: { type: string }, description: Preset ids }
                 visibility: { type: string, enum: [readonly, hidden] }
     PushResult:
@@ -2911,6 +2922,16 @@ components:
         router: { type: string, description: The router UID }
         n: { type: integer, description: "Sode's number, 0-based" }
         name: { type: string, description: The router's name for it when the item was saved }
+    RightsLevels:
+      description: |
+        Rights levels: UI levels from 1, under the UID of their router. A router the object does not name is not
+        limited, so a limit on one router does not limit another. An empty list allows no level on its router.
+        Sode returns the object. A request can send a plain list of levels, which names the one router.
+      oneOf:
+        - type: object
+          additionalProperties: { type: array, items: { type: integer, minimum: 1 } }
+        - { type: array, items: { type: integer, minimum: 1 } }
+      example: { "3f9c0a7d": [1, 2] }
     RightsRef:
       type: object
       description: |

@@ -3,6 +3,7 @@
 // presets, rights }. The plan is panel-wide, so a Page change leaves the view and staged alone.
 import { presetKey, presetName, rightsAllow, fixedDestsOf } from './panelrules.js';
 import { navTarget } from './panelnav.js';
+import { levelsOn } from './routerlevels.js';
 
 export const RESULT_MS = 1500;
 export const ERROR_MS = 4000;
@@ -43,9 +44,15 @@ export function pressPage(st, cell, pages, wrap) {
 
 const inSet = (levels, set) => (set ? levels.filter((l) => set.includes(l)) : levels);
 
+// The panel's level subset on the router of env. An empty list means every level.
+const panelLevels = (st, env) => {
+  const l = levelsOn(st.levels, env.router);
+  return l?.length ? l : null;
+};
+
 // A take sends the levels the panel, the Source cell and the Destination cell all allow.
 function shared(st, env, srcLevels, dstLevels) {
-  return inSet(inSet(inSet(inSet(env.levels, env.rights?.levels), st.levels), srcLevels), dstLevels);
+  return inSet(inSet(inSet(inSet(env.levels, levelsOn(env.rights?.levels, env.router)), panelLevels(st, env)), srcLevels), dstLevels);
 }
 
 const quiet = (env) => env.rights?.visibility === 'hidden';
@@ -59,7 +66,7 @@ function outsideRights(env, src, dst) {
 // The one source on every routed level the panel and the cell send, or -1 when there is none or the levels differ.
 export function currentOfDestination(st, env, cell) {
   const row = env.tally.get(cell.n);
-  const srcs = inSet(inSet(env.levels, st.levels), cell.levels)
+  const srcs = inSet(inSet(env.levels, panelLevels(st, env)), cell.levels)
     .map((l) => row?.get(l) ?? -1)
     .filter((s) => s >= 0);
   return srcs.length && srcs.every((s) => s === srcs[0]) ? srcs[0] : -1;

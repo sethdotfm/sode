@@ -212,9 +212,10 @@ func protectRights(r *runtime, rt config.Rights, uid string, dst int) error {
 		}
 		return refusal(403, "outside_rights", "destination %d is outside your rights", dst+off)
 	}
-	for _, l := range r.levels {
-		if !rt.AllowsLevel(l.UI) {
-			return refusal(403, "outside_rights", "a Protect covers every level, and level %s is outside your rights", r.cfg.LevelLabel(l.UI))
+	lv := r.levelsOf(uid)
+	for _, l := range lv.levels {
+		if !rt.AllowsLevel(uid, l.UI) {
+			return refusal(403, "outside_rights", "a Protect covers every level, and level %s is outside your rights", lv.label(l.UI))
 		}
 	}
 	return nil

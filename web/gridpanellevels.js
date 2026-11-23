@@ -1,9 +1,11 @@
 // Levels on a Grid panel. Pure; levels and numbering come only from the adapter's GET /tally answer, never from S.
 import { levelStyle } from './levels.js';
+import { levelsOn } from './routerlevels.js';
 
 // The router's levels the Rights allow; the Levels box offers these only.
+// Rights levels name their router: tally.router.
 export function offeredLevels(tally, rights) {
-  const allowed = Array.isArray(rights?.levels) ? rights.levels : null;
+  const allowed = levelsOn(rights?.levels, tally?.router);
   return (tally?.levels || []).filter((l) => !allowed || allowed.includes(l.level));
 }
 
@@ -16,8 +18,9 @@ export function stageLevels(list, tally, rights) {
 
 // The panel's levels setting as the box's first content, or null to leave the box empty (the Default levels).
 export function boxFill(settings, tally, rights) {
-  if (!Array.isArray(settings?.levels) || !settings.levels.length) return null;
-  const list = stageLevels(settings.levels, tally, rights);
+  const want = levelsOn(settings?.levels, tally?.router);
+  if (!want?.length) return null;
+  const list = stageLevels(want, tally, rights);
   return list.length ? list : null;
 }
 

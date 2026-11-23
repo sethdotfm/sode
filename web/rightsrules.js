@@ -1,18 +1,23 @@
-// Rights rules, pure (no imports) so Node tests them. Rights on the wire: {sources, dsts, levels, presets, protect,
+// Rights rules, pure (only pure imports) so Node tests them. Rights on the wire: {sources, dsts, levels, presets, protect,
 // visibility}.
 // A missing list means all and [] means none. Sources and dsts are router references {router, n, name}.
 // n is the router's own number, with no numberOffset, as in plan items' .n. The editor sends {n}, never a bare
 // number; the server fills the router and the name.
-// Levels are UI levels 1..N. Presets are preset ids. Keep in step with config.Rights.
+// Levels are UI levels 1..N by router UID (routerlevels.js). Presets are preset ids. Keep in step with config.Rights.
+import { levelsOn, putLevels } from './routerlevels.js';
 
 // refN: a list entry's router number. Tests and plans pass plain numbers.
 export const refN = (x) => (x && typeof x === 'object' ? x.n : x);
 
 // router is the UID of v's router: a right for source 5 on one router does not allow source 5 on another. Without
-// it, or for an entry with no router, only the number counts (levels, presets, and the Grid panel lists).
+// it, or for an entry with no router, only the number counts (presets, and the Grid panel lists). Levels are the list
+// of router; a router the levels do not name is not limited.
 const sameRouter = (x, router) => !router || !x || typeof x !== 'object' || !x.router || x.router === router;
 
-export const allowed = (rights, kind, v, router) => !rights || !Array.isArray(rights[kind]) || rights[kind].some((x) => refN(x) === v && sameRouter(x, router));
+export const allowed = (rights, kind, v, router) => {
+  const list = kind === 'levels' ? levelsOn(rights?.levels, router) : rights?.[kind];
+  return !rights || !Array.isArray(list) || list.some((x) => refN(x) === v && sameRouter(x, router));
+};
 
 // The reason the server would refuse the plan whole, or ''. Same order and words as outsideRights in
 // internal/app/rights.go. Undo restores what the router had, so it skips the Before source. routerOf gives the UID of a
@@ -24,7 +29,7 @@ export function planOutside(rights, plan, off, levelName = String, routerOf = ()
     if (!it.groups.length) continue;
     if (!allowed(rights, 'dsts', it.dst.n, routerOf(it.dst))) return `destination ${it.dst.n + off} is outside your rights`;
     for (const g of it.groups) {
-      for (const u of g.levels) if (!allowed(rights, 'levels', u)) return `level ${levelName(u)} is outside your rights`;
+      for (const u of g.levels) if (!allowed(rights, 'levels', u, routerOf(it.dst))) return `level ${levelName(u)} is outside your rights`;
       if (!it.undo && !allowed(rights, 'sources', g.src.n, routerOf(g.src))) return `source ${g.src.n + off} is outside your rights`;
     }
   }
@@ -76,12 +81,17 @@ const NUMBERED = [
 
 // presets: [{id, name}] the editor can name. The draft shows names. An id it cannot name stays in keep
 // and goes back on save: a deleted preset, or one it does not list.
-export function draftOf(rights, off, presets = []) {
+// router: the UID of the router whose levels the Levels list edits (the first router). The levels of other routers
+// stay in d.levels.kept and go back on save.
+export function draftOf(rights, off, presets = [], router = '') {
   const r = rights || {};
   // protect: '' leaves the Protect right unset (a user's Role decides; off for an API client and Guest).
   const d = { visibility: r.visibility === 'hidden' ? 'hidden' : 'readonly', protect: r.protect === true ? 'yes' : r.protect === false ? 'no' : '' };
-  for (const [kind, , shifted] of NUMBERED)
-    d[kind] = { all: !Array.isArray(r[kind]), text: Array.isArray(r[kind]) ? listText(r[kind], shifted ? off : 0) : '' };
+  for (const [kind, , shifted] of NUMBERED) {
+    const list = kind === 'levels' ? levelsOn(r.levels, router) : r[kind];
+    d[kind] = { all: !Array.isArray(list), text: Array.isArray(list) ? listText(list, shifted ? off : 0) : '' };
+  }
+  Object.assign(d.levels, { router, kept: r.levels ?? null });
   const ids = Array.isArray(r.presets) ? r.presets : [];
   const nameOf = new Map(presets.map((p) => [p.id, p.name]));
   d.presets = {
@@ -114,8 +124,10 @@ export function rightsOf(d, off, levels, presets = []) {
     const p = parseList(d[kind].text, shifted ? off : 0);
     if (p.error) return { error: `${name}: ${p.error}` };
     if (kind === 'levels' && p.list.some((u) => u < 1 || u > levels)) return { error: `Levels: use 1-${levels}` };
-    rights[kind] = shifted ? p.list.map((n) => ({ n })) : p.list;
+    if (kind !== 'levels') rights[kind] = shifted ? p.list.map((n) => ({ n })) : p.list;
   }
+  const lv = d.levels.all ? putLevels(d.levels.kept, d.levels.router, null) : putLevels(d.levels.kept, d.levels.router, parseList(d.levels.text, 0).list);
+  if (lv) rights.levels = lv;
   if (!d.presets.all) {
     const p = presetIds(d.presets.text, d.presets.keep, presets);
     if (p.error) return p;
@@ -139,9 +151,10 @@ export const rightsTab = (id) => ({ tab: 'rights', pick: `user:${id}` });
 // orig.rights is undefined for a row that never loaded. Untouched fields go back as loaded, so a save
 // never rewrites rights through the editor's text (and a number offset change cannot shift them).
 // presets: the [{id, name}] this entry can name, kept for the save.
-export const newEntry = (rights, off, extra = {}, presets = []) => ({
+// router: as in draftOf.
+export const newEntry = (rights, off, extra = {}, presets = [], router = '') => ({
   orig: { rights, ...extra },
-  draft: { ...draftOf(rights, off, presets), ...extra },
+  draft: { ...draftOf(rights, off, presets, router), ...extra },
   dirty: new Set(),
   presets,
 });

@@ -3,10 +3,11 @@
 // keeps the tally, the protected list and the names, so these build the same answers from that state.
 
 // GET /tally. levels are the hello's ({ ui, label, swatch, color }); tally is dst -> (level -> src).
-export function tallyReplyOf({ levels, levelNumbering, defaultLevels, tally }) {
+export function tallyReplyOf({ router, levels, levelNumbering, defaultLevels, tally }) {
   const routes = [];
   for (const [dst, t] of tally) for (const [level, src] of t) routes.push({ dst, level, src });
   return {
+    router: router || '',
     levels: levels.map((l) =>
       l.color ? { level: l.ui, label: l.label, swatch: l.swatch, color: l.color } : { level: l.ui, label: l.label, swatch: l.swatch },
     ),

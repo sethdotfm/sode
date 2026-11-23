@@ -39,7 +39,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 ### Levels
 
 1. Levels belong to a router. Each router has its own level count, level names and default levels.
-2. Rights `levels`, the level subset of a panel and level names say which router they mean.
+2. Rights `levels`, the level subset of a panel and level names say which router they mean. Rights `levels` and a panel's `settings.levels` are lists of levels under the router UID. A router that they do not name is not limited, so a limit on router A does not limit router B. A cell's levels are levels of the router of the cell.
 3. On a route, the typed levels are levels of the router of the destination.
 4. A router with `levels: 1` cannot break away. On that router, any typed levels mean its one level, which is the whole signal. Sode does not refuse "1-17" to such a destination. History says "all levels".
 5. A router with more than one level keeps the rule of today: Sode refuses a level past the count.

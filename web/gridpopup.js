@@ -184,7 +184,13 @@ function push() {
   if (!body || !S.cfg) return;
   const nm = namesNew ? namesReplyOf({ srcs: S.srcs, dsts: S.dsts, numberOffset: off() }) : null;
   namesNew = false;
-  const tally = tallyReplyOf({ levels: S.levels, levelNumbering: S.cfg.levelNumbering, defaultLevels: S.cfg.defaultLevels, tally: S.tally });
+  const tally = tallyReplyOf({
+    router: S.routerUid,
+    levels: S.levels,
+    levelNumbering: S.cfg.levelNumbering,
+    defaultLevels: S.cfg.defaultLevels,
+    tally: S.tally,
+  });
   body.data({ tally, prot: protectedReplyOf(S.prot), nm, version });
   body.render();
 }
