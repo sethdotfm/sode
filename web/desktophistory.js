@@ -7,7 +7,7 @@ import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
 import { historyPager, beforeGroups, attachFollows, entryNote, undoneBadge, statusNode, groupLevels, groupIds, routeNote } from './history.js';
 import { planEmpty, showResult } from './plans.js';
-import { backStep, forwardStep, ownTakes, redoSteps, keepRedo } from './stepback.js';
+import { backStep, forwardStep, ownTakes, redoSteps, keepRedo, entryKey } from './stepback.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
 import { emptyNote } from './searchbox.js';
@@ -449,10 +449,11 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
   // Ctrl+Z: undo the newest take this tab sent that nothing has put back yet (a whole Group), one further back each press
   // (backStep in stepback.js). Externals and other browsers' takes are never a step, whatever the filters show.
+  // A take whose Undo has nothing to send is passed over, as the panel Undo cell does.
   function undoLast() {
-    const step = backStep(S.hist, ownTakes(), redoSteps());
+    const step = backStep(S.hist, ownTakes(), redoSteps(), (entries) => planEmpty(planOf(rowOf(entries), 'undo')));
     if (!step) return showResult('info', 'Nothing to undo', 'No take from this browser is left to undo.');
-    stepRow(rowOf(step.entries), 'undo', { step: 'back', stepIds: step.entries.map((x) => x.id) });
+    openConfirm({ ...planOf(rowOf(step.entries), 'undo'), step: 'back', stepIds: step.entries.map(entryKey) });
   }
 
   // Ctrl+Shift+Z: redo the newest take that Ctrl+Z undid in this tab, as the row's Redo does.
@@ -460,7 +461,10 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     const { entries, keep } = forwardStep(S.hist, redoSteps());
     keepRedo(keep);
     if (!entries) return showResult('info', 'Nothing to redo', 'No take from this browser is left to redo.');
-    stepRow(rowOf(entries), 'again', { step: 'forward' });
+    const row = rowOf(entries);
+    const plan = planOf(row, 'again');
+    if (planEmpty(plan)) return showResult('warn', 'Nothing to redo', rowView(row).empty(row.f || row.e));
+    openConfirm({ ...plan, step: 'forward' });
   }
 
   // One entry is a row of its own; more are its Group.
@@ -470,13 +474,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     return takes.length > 1 ? { f: { group: e.group, n: e.groupN, entries: takes, shown: takes } } : { e };
   }
 
-  function stepRow(row, act, mark) {
-    const view = rowView(row);
-    const x = row.f || row.e;
-    const plan = view.actions(x)[act].plan;
-    if (planEmpty(plan)) return showResult('warn', act === 'undo' ? 'Nothing to undo' : 'Nothing to redo', view.empty(x));
-    openConfirm({ ...plan, ...mark });
-  }
+  const planOf = (row, act) => rowActions(row)[act].plan;
 
   function undoRow(row) {
     const view = rowView(row);

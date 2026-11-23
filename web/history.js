@@ -8,8 +8,9 @@ import { filterAllows } from './filterstore.js';
 import { pref } from './device.js';
 import { entryChip, protectFoldOpts } from './protectrules.js';
 import { mergeRuns } from './historyruns.js';
-import { undoIndex, markFor, groupMark } from './undone.js';
+import { undoIndex, markFor, groupMark, takeMark, takeLevels } from './undone.js';
 import { statusText } from './statustext.js';
+import { forgetSteps } from './stepback.js';
 
 // Quick search above History. It reads back through the whole log. It ignores the filters unless this browser's setting says otherwise. Not kept.
 
@@ -127,7 +128,7 @@ function buildRows(list) {
   // The Undone mark reads every loaded entry, so a hidden undo row still marks its take (undone.js).
   const undone = undoIndex(list);
   const items = list.map((orig) => {
-    const mark = orig.protect ? null : markFor([orig.id], orig.levels, undone);
+    const mark = orig.protect ? null : takeMark(orig, undone);
     const e =
       followsOf.has(orig.id) || mark
         ? { ...orig, ...(followsOf.has(orig.id) ? { follows: followsOf.get(orig.id) } : {}), ...(mark ? { undone: mark } : {}) }
@@ -180,7 +181,7 @@ function stackRow(run, undone) {
   const follows = run.flatMap((r) => r.e.follows || []);
   const mark = markFor(
     run.map((r) => r.orig.id),
-    top.e.levels,
+    takeLevels(top.e),
     undone,
   );
   const e = { ...top.e, prev: run[run.length - 1].e.prev, merged: run.length, chain: run.map((r) => r.orig), ...(follows.length ? { follows } : {}) };
@@ -400,6 +401,7 @@ export function liveEntry(m) {
 }
 onMsg('entry', liveEntry);
 onMsg('historyCleared', () => {
+  forgetSteps();
   S.hist = [];
   S.histMore = false;
   S.histLoading = false;

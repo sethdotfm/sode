@@ -1,7 +1,7 @@
 // The Undone mark of History rows (undone.js, and how histRows and entryNote use it).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { undoIndex, markFor, groupMark } from '../undone.js';
+import { undoIndex, markFor, groupMark, takeMark, takeLevels } from '../undone.js';
 
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
 globalThis.document = node();
@@ -130,4 +130,17 @@ test('histRows marks each route of a Group and the header', async () => {
   S.hist = [u(13, 11), g(12), g(11)].map((e) => (e.id === 13 ? { ...e, groupN: 1 } : e));
   const half = histRows(S.hist).find((r) => r.f).f;
   assert.equal(half.undone.text, '1 of 2 undone');
+});
+
+test('an undo of a partly failed take that puts back every confirmed level marks it Undone', () => {
+  // Level 2 failed and the router answered for it, so the undo (untouchedLevels in plans.js) leaves it out.
+  const list = [take(2, { undo: 1, levels: [1] }), take(1, { ok: false, failed: [2], now: [[2, 4]] })];
+  assert.equal(takeMark(list[1], undoIndex(list)).state, 'undone');
+  assert.deepEqual(takeLevels(take(1, { ok: false, failed: [1, 2] })), [1, 2], 'a take that confirmed nothing keeps its levels');
+});
+
+test('histRows marks a partly failed take Undone when its undo put back the levels it confirmed', async () => {
+  const { histRows, S } = await setup();
+  S.hist = [take(2, { undo: 1, levels: [1] }), take(1, { ok: false, failed: [2], now: [[2, 4]] })];
+  assert.equal(histRows(S.hist)[1].e.undone.text, 'Undone');
 });
