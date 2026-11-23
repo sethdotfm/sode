@@ -17,20 +17,28 @@ func secondRouter(t *testing.T) (a *App, first, second *fakeRouter, u *routerUni
 	})
 	first = newFakeRouter(t, a)
 	a.checkTimeout, a.routeTimeout, a.routeGrace = defaultCheckTimeout, defaultRouteTimeout, defaultRouteGrace
-	u = newRouterUnit(a.r().cfg.MoreRouters[0])
+	second, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	return a, first, second, u
+}
+
+// addFakeUnit adds a unit for router rc to a, with short timers and a fake router on its link.
+func addFakeUnit(t *testing.T, a *App, rc config.Router) (*fakeRouter, *routerUnit) {
+	t.Helper()
+	u := newRouterUnit(rc)
 	u.checkTimeout, u.routeTimeout, u.routeGrace, u.queueMax = 40*time.Millisecond, 40*time.Millisecond, 40*time.Millisecond, 500*time.Millisecond
 	a.routers[u.uid] = u
-	second = &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, deaf: map[[2]int]bool{}, lose: map[int]bool{}, mute: map[int]bool{}, out: make(chan []byte, 256)}
+	f := &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, deaf: map[[2]int]bool{}, lose: map[int]bool{}, mute: map[int]bool{}, out: make(chan []byte, 256)}
+	f.prot = fakeProtect{holds: map[[2]int]protHold{}, deafSet: map[int]bool{}, deafClear: map[int]bool{}}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for m := range second.out {
+		for m := range f.out {
 			a.onUnitMsg(u, m)
 		}
 	}()
-	t.Cleanup(func() { close(second.out); <-done })
-	u.sendMsg = second.send
-	return a, first, second, u
+	t.Cleanup(func() { close(f.out); <-done })
+	u.sendMsg = f.send
+	return f, u
 }
 
 // A take names its router: the check, the connects, the waiter, the own keys and the timers are that router's.

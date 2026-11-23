@@ -500,16 +500,16 @@ func (a *App) applyProtect(u *routerUnit, r *runtime, p swp08.Protect, announced
 		}
 		delete(t, l.UI)
 		u.router.pendProt = append(u.router.pendProt, protChange{p.Dst, l.UI, -1, 0})
-		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
+		a.noteProtect(r, u, p.Dst, l.UI, old, false, known, announced)
 		return
 	}
 	if had && old == h {
 		return
 	}
 	if had {
-		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
+		a.noteProtect(r, u, p.Dst, l.UI, old, false, known, announced)
 	}
-	a.noteProtect(r, p.Dst, l.UI, h, true, known, announced)
+	a.noteProtect(r, u, p.Dst, l.UI, h, true, known, announced)
 	if t == nil {
 		t = map[int]protHold{}
 		u.router.protect[p.Dst] = t
@@ -681,7 +681,9 @@ func (a *App) ClearHistory(who string) {
 	}
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
-	a.ext.lateRoute, a.ext.lateHits = map[ownKey][]lateRoute{}, nil // their entries are gone
+	for _, u := range a.routers {
+		u.ext.lateRoute, u.ext.lateHits = map[ownKey][]lateRoute{}, nil // their entries are gone
+	}
 	a.broadcast(simpleMsg{T: "historyCleared"})
 	a.mu.Unlock()
 }
