@@ -75,6 +75,21 @@ func (s *tieChanges) set(id string, at time.Time, found bool) {
 	s.mu.Unlock()
 }
 
+// forget drops the stamps of ids. The next write takes them out of the file.
+func (s *tieChanges) forget(ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, id := range ids {
+		if _, ok := s.stamp[id]; ok {
+			delete(s.stamp, id)
+			s.dirty = true
+		}
+	}
+}
+
 func (s *tieChanges) dirtyNow() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -136,4 +151,32 @@ func (a *App) stampTieLines(u *routerUnit, r *runtime, dst int, found bool) {
 			a.tieChanges.set(t.ID, a.now(), found)
 		}
 	}
+}
+
+// forgetMovedTieLines drops the stamp of each tie line whose ends a config change moved: Settings, an import or any
+// other commit. The stamp is the last change of the old upstream destination, and Sode never claims more than it
+// knows. A rename keeps it. Caller holds mu.
+func (a *App) forgetMovedTieLines(old, nr *runtime) {
+	type at struct {
+		router string
+		n      int
+	}
+	end := func(rt *runtime, r config.Ref) at {
+		if uid, ok := a.unitUID(rt, r.Router); ok {
+			return at{uid, r.N}
+		}
+		return at{r.Router, r.N}
+	}
+	was := make(map[string]config.TieLine, len(old.cfg.TieLines))
+	for _, t := range old.cfg.TieLines {
+		was[t.ID] = t
+	}
+	var moved []string
+	for _, t := range nr.cfg.TieLines {
+		w, ok := was[t.ID]
+		if ok && (end(old, w.From) != end(nr, t.From) || end(old, w.To) != end(nr, t.To)) {
+			moved = append(moved, t.ID)
+		}
+	}
+	a.tieChanges.forget(moved)
 }

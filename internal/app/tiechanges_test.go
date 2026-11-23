@@ -177,3 +177,68 @@ func TestTieLineChangeRanksPaths(t *testing.T) {
 		t.Errorf("t2 after the restart %+v %v", st, ok)
 	}
 }
+
+// A hidden caller gets no end that its Rights do not show, and no change time of an upstream destination that it
+// cannot see. It keeps the id and the Tie line name, which a take names.
+func TestTieLinesHiddenView(t *testing.T) {
+	a, _, _, key := tieApp(t, func(c *config.Config) {
+		c.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]config.Ref{{Router: c.UID, N: 10}}, Sources: &[]config.Ref{{Router: c.UID, N: 3}}}
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: "b2b2b2b2", N: 40}, To: config.Ref{Router: c.UID, N: 6}})
+	})
+	at := time.Now().UTC().Truncate(time.Second)
+	a.tieChanges.set("t1", at, false)
+	a.tieChanges.set("t2", at, false)
+	rec := apiDo(a, "GET", "/api/v1/tielines", key, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	rows := map[string]map[string]any{}
+	for _, x := range apiBody(t, rec)["tieLines"].([]any) {
+		m := x.(map[string]any)
+		rows[m["id"].(string)] = m
+	}
+	t1, t2 := rows["t1"], rows["t2"]
+	if t1 == nil || t1["name"] != "TIE 3" || t1["from"] == nil || t1["to"] != nil || t1["changed"] != at.Format(time.RFC3339) {
+		t.Errorf("t1 %v", t1)
+	}
+	if t2 == nil || t2["name"] != "TIE 4" || t2["from"] != nil || t2["to"] != nil || t2["changed"] != nil || t2["before"] != false {
+		t.Errorf("t2 %v", t2)
+	}
+}
+
+// A tie line whose ends change is another cable, so the last change of the old upstream destination goes. A save
+// that keeps the ends keeps the stamp.
+func TestTieLineEditDropsStamp(t *testing.T) {
+	a, fa, _, _ := tieApp(t, nil)
+	fa.msg(swp08.ExtConnected(0, a.r().byUI[1].Wire, 10, 4))
+	if _, ok := tieStampOf(a, "t1"); !ok {
+		t.Fatal("no stamp")
+	}
+	ada := adminClient(t, a)
+	tie := a.r().cfg.TieLines[0]
+	tie.Name = "TIE 33"
+	if err := a.SaveTieLines(ada, []config.TieLine{tie}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := tieStampOf(a, "t1"); !ok {
+		t.Fatal("a rename dropped the stamp")
+	}
+	tie.From.N = 11
+	if err := a.SaveTieLines(ada, []config.TieLine{tie}); err != nil {
+		t.Fatal(err)
+	}
+	if st, ok := tieStampOf(a, "t1"); ok {
+		t.Errorf("stamp kept after the upstream end moved: %+v", st)
+	}
+	if row := apiTieLineRow(t, a, "t1"); row["changed"] != nil {
+		t.Errorf("GET /tielines %v", row)
+	}
+	a.tieChanges.set("t1", time.Now(), false)
+	tie.To.N = 6
+	if err := a.SaveTieLines(ada, []config.TieLine{tie}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := tieStampOf(a, "t1"); ok {
+		t.Error("stamp kept after the downstream end moved")
+	}
+}

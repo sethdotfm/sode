@@ -92,11 +92,15 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 			e.ViaPrev[i].Origin = nil
 		}
 	}
-	for i := range e.Also {
-		if !v.on(e.Also[i].Router).Destination(e.Also[i].N) {
-			e.Also[i].Name = ""
+	// As the Affected destinations of a 409 body: a destination that the caller cannot see goes, with its number,
+	// and AlsoOthers counts it.
+	e.Also = slices.DeleteFunc(e.Also, func(al TieAlso) bool {
+		if v.on(al.Router).Destination(al.N) {
+			return false
 		}
-	}
+		e.AlsoOthers++
+		return true
+	})
 	var gone []int
 	for _, p := range e.Prev {
 		if p[1] >= 0 && !rv.Source(p[1]) {

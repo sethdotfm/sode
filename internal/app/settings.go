@@ -135,6 +135,7 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 	a.endDeadHeldMu()
 	a.renameSignedInMu()
 	a.refreshStreams(nr.cfg)
+	a.forgetMovedTieLines(old, nr)
 	if after != nil {
 		after(old, nr)
 	}

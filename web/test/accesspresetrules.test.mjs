@@ -109,3 +109,20 @@ test('nothing differs after a whole save', () => {
   const t = presetTarget(secured, ['u1']);
   assert.deepEqual(presetGaps(t, staged(t)), []);
 });
+
+test("the Guest's Use tie lines right is part of a preset: a Guest that still has it is a gap", () => {
+  const t = presetTarget({ ...secured, guestTieLines: false }, []);
+  const saved = staged(presetTarget(secured, []));
+  // Unset Guest Rights is on (config.Rights.TieLines).
+  for (const guestRights of [{}, { tieLines: true }]) {
+    const gaps = presetGaps(t, { ...saved, guestRights });
+    assert.deepEqual(
+      gaps.map((g) => [g.key, g.sub, g.live]),
+      [['guestRights', 'tieLines', true]],
+    );
+    assert.equal(gapText(gaps[0]), 'Guest Use tie lines: on');
+  }
+  assert.deepEqual(presetGaps(t, { ...saved, guestRights: { tieLines: false } }), []);
+  // Guest Rights that did not load are not known, so they are no gap.
+  assert.deepEqual(presetGaps(t, saved), []);
+});

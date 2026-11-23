@@ -3,8 +3,10 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -127,6 +129,7 @@ func TestAPITakeAcrossRoutersHidden(t *testing.T) {
 			Sources: &[]config.Ref{{Router: c.UID, N: 4}},
 			Dsts:    &[]config.Ref{{Router: "b2b2b2b2", N: 2}, {Router: "b2b2b2b2", N: 20}}}
 	})
+	a.tieChanges.set("t1", time.Now().Add(-time.Hour), false)
 	for _, code := range []string{"tie_line_needed", "no_path"} {
 		if code == "no_path" {
 			a.mu.Lock()
@@ -140,12 +143,41 @@ func TestAPITakeAcrossRoutersHidden(t *testing.T) {
 		if b.Routes[0].Src.Name != "CAM 4" || b.Routes[0].Dst.Name != "B MON 2" {
 			t.Errorf("%s: typed ends %+v", code, b.Routes[0])
 		}
-		if p.Hops[0].Dst.Name != "" || p.Hops[1].Src.Name != "" || p.Hops[0].Tie.Name != "TIE 3" {
+		if p.Hops[0].Tie.Name != "TIE 3" || p.Hops[0].Src.N != 4 || p.Hops[1].Dst.N != 2 {
 			t.Errorf("%s: hops %+v", code, p.Hops)
+		}
+		// As GET /tielines: null for an end that the caller cannot see, and no change time of a hidden upstream end.
+		path := apiBody(t, rec)["routes"].([]any)[0].(map[string]any)["paths"].([]any)[0].(map[string]any)
+		if path["newest"] != nil {
+			t.Errorf("%s: newest %v gives the change time of a hidden end", code, path["newest"])
+		}
+		hops := path["hops"].([]any)
+		h0, h1 := hops[0].(map[string]any), hops[1].(map[string]any)
+		if h0["dst"] != nil || h1["src"] != nil || h0["changed"] != nil || h0["before"] != nil || h0["now"] == nil {
+			t.Errorf("%s: hidden hop ends %v %v", code, h0, h1)
 		}
 		if len(p.Affected) != 1 || p.Affected[0].N != 20 || p.Others != 1 {
 			t.Errorf("%s: affected %+v, others %d", code, p.Affected, p.Others)
 		}
+	}
+	a.mu.Lock()
+	delete(a.first.router.protect, 10)
+	a.mu.Unlock()
+	// tie_line_changed hides the same ends. The origin that the 409 body gives still goes back as expect.
+	take := func(src int) string {
+		return fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"ties":[{"id":"t1","expect":{"router":%q,"n":%d}}]}]}`,
+			a.r().cfg.UID, a.r().cfg.UID, src)
+	}
+	rec := apiPost(a, "/api/v1/takes", key, take(9), nil)
+	wantErr(t, rec, http.StatusConflict, "tie_line_changed")
+	hops := apiBody(t, rec)["routes"].([]any)[0].(map[string]any)["paths"].([]any)[0].(map[string]any)["hops"].([]any)
+	h0 := hops[0].(map[string]any)
+	if h0["dst"] != nil || hops[1].(map[string]any)["src"] != nil || h0["changed"] != nil {
+		t.Errorf("tie_line_changed: hidden hop ends %v", hops)
+	}
+	o := h0["now"].(map[string]any)["origin"].(map[string]any)
+	if rec := apiPost(a, "/api/v1/takes", key, take(int(o["n"].(float64))), nil); rec.Code != http.StatusOK {
+		t.Errorf("take with the expect of the 409 body: %d %s", rec.Code, rec.Body)
 	}
 }
 

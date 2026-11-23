@@ -231,8 +231,9 @@ func TestExternalOnTieLineNotesAlso(t *testing.T) {
 	v := apiView{rights: config.Rights{Visibility: config.VisHidden, Sources: &[]config.Ref{{Router: a.r().cfg.UID, N: 3}, {Router: a.r().cfg.UID, N: 4}},
 		Dsts: &[]config.Ref{{Router: a.r().cfg.UID, N: 10}, {Router: uidB, N: 20}}}, first: a.r().cfg.UID, firstUnit: a.first.uid}
 	e, ok := v.Entry(es[0])
-	if !ok || e.Also[0].Name != "B MON 20" || e.Also[1].Name != "" || e.Also[3].Name != "" || es[0].Also[1].Name != "B MON 21" {
-		t.Errorf("hidden %+v", e.Also)
+	// As the Affected destinations of a 409 body: a destination that the caller cannot see goes, and others counts it.
+	if !ok || len(e.Also) != 1 || e.Also[0].Name != "B MON 20" || e.Also[0].N != 20 || e.AlsoOthers != 3 || len(es[0].Also) != 4 || es[0].AlsoOthers != 0 {
+		t.Errorf("hidden %+v others %d", e.Also, e.AlsoOthers)
 	}
 
 	// A change on a destination that feeds no tie line notes nothing.
