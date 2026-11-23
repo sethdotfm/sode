@@ -20,6 +20,9 @@ type routeReq struct {
 	Levels []int `json:"levels"`
 	Undo   *int  `json:"undo"`  // history ID of the take to undo
 	Retry  *int  `json:"retry"` // history ID of the failed take to retry
+	// PutBack: with Undo of a hop entry, put the tie line back (tieputback.go). Sode sends it only while the tie line
+	// still carries what the take set.
+	PutBack bool `json:"putBack"`
 	// Router: the UID of the router that the route is on, from the hello's routers list; blank is the first router.
 	// takeAllowed fills it.
 	Router string `json:"router"`
@@ -299,6 +302,14 @@ func (a *App) prepare(r *runtime, u *routerUnit, c *client, req routeReq, ext *e
 	if protected := a.guardPhase(w, e); len(protected) > 0 {
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r.levelsOf(u.uid), protected)))
 		return nil
+	}
+	if req.PutBack {
+		if why := a.putBackHeld(r, w, e, req); why != "" {
+			e.Failed = slices.Sorted(slices.Values(e.Levels))
+			e.Unsent = slices.Clone(e.Failed)
+			a.finish(c, res, e, errors.New(why))
+			return nil
+		}
 	}
 	a.registerPhase(w, e)
 	return &routeRun{c: c, res: res, w: w, e: e}

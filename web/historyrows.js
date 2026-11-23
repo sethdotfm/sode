@@ -1,7 +1,7 @@
 // History rows, for the desktop list and the phone's swipe rows. Pure: wording and plans only,
 // each layout builds its own DOM from these.
 
-import { srcItem, dstItem } from './core.js';
+import { S, srcItem, dstItem } from './core.js';
 import { undoPlan, againPlan, groupUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
 import { groupPartial, groupIds } from './history.js';
 import { UNDO_TIP_ALL } from './widgets.js';
@@ -15,6 +15,39 @@ const againWord = (again) => (again.verb === 'retry' ? 'Retry' : 'Redo');
 // is the source asked for.
 const srcOf = (e) => (e.origin ? srcItem(e.origin.n, e.origin.name, e.origin.router) : srcItem(e.src, e.srcName, e.router));
 
+// A tie take that failed after a hop changed its tie line (docs/tielines-design.md, "Order and failures"): "TIE 3
+// changed, B.42 not". The hops in e.hops with result connected changed their tie lines.
+const changedHops = (e) => (!e.ok && e.hops ? e.hops.filter((h) => h.result === 'connected' && h.entry != null) : []);
+function partialNote(e) {
+  const hs = changedHops(e);
+  if (!hs.length) return null;
+  return `${hs.map((h) => h.tieName || h.tie).join(', ')} changed, ${dstItem(e.dst, e.dstName, e.router).label} not`;
+}
+
+// Put back: one for each hop entry of the Group that changed a tie line for a route that failed. Each is
+// {plan, label, text}. The plan is the Undo of the hop entry, tagged putBack. The server sends it only while the tie
+// line still carries what the take set. A hop that an Undo already put back offers none.
+export function putBacks(entries, hist = S.hist) {
+  const ids = new Set(entries.flatMap((e) => changedHops(e).map((h) => h.entry)));
+  const done = new Set(hist.filter((x) => x.ok && x.undo != null).map((x) => x.undo));
+  const out = [];
+  for (const hop of entries) {
+    if (!hop.tie || !ids.has(hop.id) || done.has(hop.id)) continue;
+    const name = entries.flatMap((e) => e.hops || []).find((h) => h.entry === hop.id)?.tieName || hop.tie;
+    const srcs = new Set(hop.prev.filter(([u]) => hop.levels.includes(u)).map(([, s]) => s));
+    if (srcs.has(-1) && srcs.size === 1) continue;
+    const to = srcs.size === 1 ? ` to ${srcItem([...srcs][0], '', hop.router).label}` : '';
+    const plan = undoPlan(hop);
+    const label = `Put ${name} back${to}`;
+    out.push({
+      plan: { ...plan, verb: 'putback', title: label, items: plan.items.map((i) => ({ ...i, putBack: true })) },
+      label,
+      text: `Put ${name} back`,
+    });
+  }
+  return out;
+}
+
 // A take entry. Each descriptor has, for an entry ({e}) or a Group ({f}):
 // - route(x): {lead, src, dst, many, notes}. lead: a node that stands where the source is (a Protect chip), else null.
 //   src and dst: an item, or words for many ("3 sources"). many: a Group's destinations, else null. notes: a Group's
@@ -22,11 +55,11 @@ const srcOf = (e) => (e.origin ? srcItem(e.origin.n, e.origin.name, e.origin.rou
 // - disc(e, before) and detail(e, dst, before) (entries): the closed disclosure's word and the open detail's heading;
 //   before is beforeGroups(e).
 // - noun (Groups): what the disclosure counts.
-// - actions(x): undo {plan, label, text, tip} and again {plan, label}. tip is undefined unless the row has its own
+// - actions(x): undo {plan, label, text, tip}, again {plan, label} and putBack (a list, see putBacks). tip is undefined unless the row has its own
 //   wording (the buttons then use their default).
 // - empty(x): what Undo says when there is nothing to undo.
 const TAKE = {
-  route: (e) => ({ lead: null, src: srcOf(e), dst: dstItem(e.dst, e.dstName, e.router), many: null, notes: [] }),
+  route: (e) => ({ lead: null, src: srcOf(e), dst: dstItem(e.dst, e.dstName, e.router), many: null, notes: [partialNote(e)].filter(Boolean) }),
   disc: () => 'Before',
   detail: (e, dst) => `Before #${e.id}, on ${dst.label}`,
   actions(e) {
@@ -41,7 +74,7 @@ const TAKE = {
           tip: 'Restores the source from before these changes',
         }
       : { plan: undoPlan(e), label: `Undo ${src.label} to ${dst.label}`, text: 'Undo', tip: undefined };
-    return { undo, again: { plan: again, label: `${againWord(again)} ${src.label} to ${dst.label}` } };
+    return { undo, again: { plan: again, label: `${againWord(again)} ${src.label} to ${dst.label}` }, putBack: [] };
   },
   empty: (e) => `Nothing was routed before #${e.id}.`,
 };
@@ -62,6 +95,7 @@ const GROUP = {
       kind,
       groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
       nFollow && `+${nFollow} External follow ${nFollow === 1 ? 'entry' : 'entries'}`,
+      ...asked.map(partialNote),
     ];
     return {
       lead: null,
@@ -82,6 +116,7 @@ const GROUP = {
         tip: UNDO_TIP_ALL,
       },
       again: { plan: again, label: `${againWord(again)} ${noun(again.items.length, 'route')} of ${groupIds(f)}` },
+      putBack: putBacks(f.entries),
     };
   },
   empty: (f) => `Nothing was routed before ${groupIds(f)}.`,
