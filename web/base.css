@@ -1,10 +1,11 @@
 /* The root font size scales the whole UI (AGENTS.md, Frontend): 100%, and 90% on a Grid panel's page and its Live
    Editor so more of the grid shows. The phone stays at 100% on every page. Only a grid in a panel page's main counts:
-   the Grid popup's grid on the main page must not resize the page behind it. */
+   the Grid popup's grid on the main page must not resize the page behind it. The Live Editor of a Grid panel counts
+   from its start (data-live="grid", editorlive.js): its grid comes after a fetch, and the drawer must not move then. */
 html {
   font-size: 100%;
 }
-:root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) {
+:root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel, .sode-ed[data-live="grid"]) {
   font-size: 90%;
 }
 /* A desktop window wider than 2400 px is a big screen with no OS scale, so the root grows by 1px for each 360 px over
@@ -14,7 +15,7 @@ html {
   html:not([data-layout="phone"]) {
     font-size: min(125%, 100% + (100vw - 2400px) / 360);
   }
-  :root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) {
+  :root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel, .sode-ed[data-live="grid"]) {
     font-size: min(112.5%, 90% + (100vw - 2400px) / 400);
   }
 }
