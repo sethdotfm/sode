@@ -433,6 +433,12 @@ export function stageUserFlags(id, { persistent, noAutoLock }) {
   touched();
 }
 
+// The Guest's Use tie lines right of an Access preset (accesspreset.js), staged as a hand edit would.
+export function stageGuestTieLines(on) {
+  rightsPanel.setGuestTieLines(!!on);
+  touched();
+}
+
 // Edits wait in the dialog until Settings saves them or opens again.
 const staged = () => {
   const src = stage.source;
