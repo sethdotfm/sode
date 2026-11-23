@@ -1,6 +1,6 @@
 # Sode
 
-Sode is a keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It exists to make patching about 1000 times faster and simpler for the people who do it. Today it drives one router. Multiple routers and tie lines are plausible later, after the core product is excellent.
+Sode is a keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It exists to make patching about 1000 times faster and simpler for the people who do it. Today it drives one router. Several routers joined by tie lines are planned.
 
 ## Language
 
@@ -18,8 +18,23 @@ _Avoid_: output
 One of the parallel signal types (such as video or audio) that a source can be connected to a destination on. Levels are numbered 1..N in Sode whatever the router uses on the wire.
 _Avoid_: wire level, layer
 
+**Router**:
+One SW-P-08 matrix that Sode drives, at one address. Two matrices at one address are two routers. A backup address for the same matrix does not make a second router.
+
 **Tie line**:
-A link between two routers that carries signal from one to the other. Sode does not support tie lines yet, and nothing in the interface uses one. Its color is `--pb-tieline`.
+A one-way cable from a destination on one router to a source on another. It carries all levels. Sode knows a tie line only because a person entered it, and it trusts that entry. Its color is `--pb-tieline`.
+
+**One-off tie line**:
+A tie line that a person states in the Tie line picker for one take only. Sode does not keep it unless the person saves it as a tie line.
+
+**Hop**:
+One router's part of a route that goes through tie lines. A route from A.1 to B.42 through one tie line has two hops.
+
+**Affected destination**:
+A destination, other than the one asked for, whose picture changes because a take switches a tie line. Sode counts affected destinations on every router the change reaches.
+
+**Tie line picker**:
+The view that opens before a take with a route that crosses routers. It shows each hop and lets a person choose the tie line for it, with the Affected destinations of each choice.
 
 **Router name**:
 The name the router gives a source or destination. Sode cannot change it, and re-reads names from the router on a timer. Keep it apart from a user's name, a preset's name, a filter set's name and the router title.
@@ -29,7 +44,7 @@ _Avoid_: label, refresh (for the re-read)
 The name a person gives a router in Sode, such as "Studio Ultrix". It is the router's own name, not the name of one of its sources or destinations.
 
 **Router prefix**:
-The one letter, A to Z, that names a router when you type or read a source or destination. B.69 is number 69 on router B. Each router on a server has its own. Sode hides it while there is only one router.
+The one or two letters that name a router when you type or read a source or destination. B.69 is number 69 on router B, and BA.69 is number 69 on router BA. Each router on a server has its own. Sode hides it while there is only one router.
 
 **Router UID**:
 The hidden identity Sode gives a router when it is added. It never changes, never shows in the UI, and is what stored items and export files use to say which router they mean.
