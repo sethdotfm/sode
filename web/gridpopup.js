@@ -104,7 +104,7 @@ function actions() {
     return b;
   };
   // The rows of the preset while adding, read from a distance as the staged badge is.
-  const rows = el('span', { class: 'pb-badge pb-badge--info sode-gridpop__act sode-gridpop__rows', role: 'status', hidden: true });
+  const rows = el('span', { class: 'pb-badge sode-gridpop__act sode-gridpop__rows', role: 'status', hidden: true });
   const done = act('pb-btn--outline sode-gridpop__done', 'Done', 'Stop adding and go back to the preset', () => {
     hideGrid(false);
     presetAdd.done();
@@ -114,7 +114,7 @@ function actions() {
   const clear = act('pb-btn--outline sode-gridpop__clear', 'Clear', 'Clear the staged routes and the patch boxes', () => boxHost()?.clearAll());
   // The page's Add answers in the bar under the popup, so the popup says it too.
   const take = needsLink(
-    act('pb-btn--danger sode-gridpop__take', 'Take', 'Take the staged routes', () => {
+    act('pb-btn--commit sode-gridpop__take', 'Take', 'Take the staged routes', () => {
       const r = boxHost()?.take();
       if (r?.text) body?.say(r);
     }),
@@ -330,8 +330,8 @@ export function paintTake() {
   const t = boxHost()?.takeState() || { word: 'Take', ok: false, disabled: true };
   if (take.textContent !== t.word) take.textContent = t.word;
   take.disabled = t.disabled;
-  take.classList.toggle('pb-btn--danger', !t.ok);
-  take.classList.toggle('pb-btn--ok', t.ok);
+  take.classList.toggle('pb-btn--commit', !t.ok);
+  take.classList.toggle('sode-btn--primary', t.ok);
   take.dataset.pbTip = t.ok ? "Add the patch boxes' route to the preset" : 'Take the staged routes';
   clear.disabled = !stagedCount();
 }

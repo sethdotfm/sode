@@ -211,7 +211,7 @@
   color: var(--pb-text-muted);
   font-size: var(--pb-text-sm);
 }
-/* The "N picked" chip: the Home grid's staged count chip (pb-badge--info), at the foot's start. */
+/* The "N picked" chip: the Home grid's staged count chip (a plain pb-badge), at the foot's start. */
 .sode-protpick__count {
   margin-right: auto;
 }

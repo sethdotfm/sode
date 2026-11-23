@@ -134,7 +134,7 @@
   color: var(--pb-status-error);
 }
 .sode-lock__dots.is-ok {
-  color: var(--pb-status-ok);
+  color: var(--pb-text-strong);
 }
 
 .sode-lock__namefield {

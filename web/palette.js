@@ -472,7 +472,7 @@ function runHere(row) {
   else if (id === 'theme') {
     const dark = isDark();
     flipTheme();
-    showResult('ok', 'Theme changed', `The theme is ${dark ? 'light' : 'dark'} now.`);
+    showResult('done', 'Theme changed', `The theme is ${dark ? 'light' : 'dark'} now.`);
   }
 }
 

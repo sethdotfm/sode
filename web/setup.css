@@ -153,8 +153,18 @@
   flex-wrap: wrap;
 }
 .sode-setup__swatch {
-  position: relative;
+  display: flex;
   flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pb-space-1);
+  min-width: 2.25rem;
+  font-size: var(--pb-text-sm);
+  color: var(--pb-text-muted);
+  cursor: pointer;
+}
+.sode-setup__chip {
+  position: relative;
   box-sizing: border-box;
   display: grid;
   place-items: center;
@@ -162,7 +172,6 @@
   height: 2.25rem;
   border: var(--pb-border-w) solid var(--pb-edge);
   background: var(--brand-color, transparent);
-  cursor: pointer;
 }
 .sode-setup__swatch input {
   position: absolute;
@@ -171,6 +180,10 @@
 }
 .sode-setup__swatch:has(input:checked),
 .sode-setup__swatch.is-picked {
+  color: var(--pb-text);
+}
+.sode-setup__swatch:has(input:checked) .sode-setup__chip,
+.sode-setup__swatch.is-picked .sode-setup__chip {
   outline: 2px solid var(--pb-text-strong);
   outline-offset: 2px;
 }
@@ -186,7 +199,7 @@
   background: none;
   cursor: pointer;
 }
-.sode-setup__swatch:has(input:focus-visible) {
+.sode-setup__swatch:has(input:focus-visible) .sode-setup__chip {
   outline: 2px solid var(--pb-accent);
   outline-offset: 2px;
 }

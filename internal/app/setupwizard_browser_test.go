@@ -37,8 +37,12 @@ func TestChromeSetupWizard(t *testing.T) {
 
 	type_("setup-brandText", "Studio B")
 	b.waitFor("the name shows live", `document.querySelector('#setup .sode__mark').textContent === 'Studio B'`)
+	b.waitFor("each color has its name, and no retired color shows", `[...document.querySelectorAll('.sode-setup__swatch-name')].map((n) => n.offsetParent && n.textContent).join(' ') === 'Off Blue Teal Sky Slate Violet Custom'`)
+	b.eval(`(() => { const c = document.querySelector('input[name="brandBorder"][type="color"]'); c.value = '#e05050'; c.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
+	b.waitFor("a custom color near a state color shows the caution note", `!!document.getElementById('setup-brand-caution')?.offsetParent`)
 	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)
 	b.waitFor("the border shows live", `document.querySelector('.sode__brandframe').dataset.brand === 'teal'`)
+	b.waitFor("Teal shows no note", `!document.getElementById('setup-brand-caution').offsetParent`)
 	type_("setup-name", "Ada")
 	type_("setup-pin", "2468")
 	type_("setup-pin2", "2469")

@@ -404,6 +404,14 @@ html {
 [data-brand="teal"] {
   --brand-color: var(--pb-signal-06);
 }
+/* Sky sits between teal and blue (OKLCH hue 215); patchbay has no signal token there. */
+[data-brand="sky"] {
+  --brand-color: light-dark(#008ca4, #4dc3dd);
+}
+[data-brand="slate"] {
+  --brand-color: var(--pb-signal-14);
+}
+/* Retired (config.BrandColors): not offered, but a saved config still draws them. */
 [data-brand="green"] {
   --brand-color: var(--pb-signal-05);
 }
@@ -430,6 +438,16 @@ html {
   display: block;
   height: 3rem;
   width: 3rem;
+}
+/* The caution under the page border picker, in Settings and the setup wizard (CAUTION_NOTE in accent.js). */
+.sode__brand-caution {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--pb-space-2);
+  max-width: 32rem;
+}
+.sode__brand-caution[hidden] {
+  display: none;
 }
 /* tooltip.js moves a tip that would be cut off by the window or a box that clips: sideways by --sode-tip-x, and to the
    other side with data-sode-tip-flip. It measures the tip's text in .sode__tip-measure, so that copy has the tip's font
@@ -636,6 +654,34 @@ html {
 #confirm .pb-modal__footer {
   align-items: center;
 }
+/* The main action of a form or dialog: a pb-btn filled with the accent, as patchbay's selected button, so its text
+   passes contrast. Green is for routed only (docs/color-roles.md). Meant to move into patchbay. */
+.pb-btn.sode-btn--primary {
+  background-color: var(--pb-accent);
+  color: var(--pb-text-on-accent);
+}
+.pb-btn.sode-btn--primary:hover {
+  background-color: var(--pb-accent-hover);
+}
+.pb-btn.sode-btn--primary:disabled,
+.pb-btn.sode-btn--primary.disabled {
+  background-color: var(--pb-surface-control);
+  color: var(--pb-text-disabled);
+}
+.pb-btn.sode-btn--primary.pb-btn--loading {
+  --pb-loading-ink: var(--pb-text-on-accent);
+  color: transparent;
+}
+/* Info and a healthy result are neutral: patchbay's plain alert and toast are blue (its info status), and blue has no
+   state job (docs/color-roles.md). A status modifier keeps its color. Keep in step with patchbay.css .pb-alert and
+   .pb-toast. */
+.pb-alert:not([class*="pb-alert--"]) {
+  background: var(--pb-surface-raised);
+  border-left-color: var(--pb-text-muted);
+}
+.pb-toast:not([class*="pb-toast--"]) {
+  --pb-toast-role: var(--pb-text-muted);
+}
 /* Every churning-letter Confirm button ("Take (X)", "Delete (X)", "Confirm (X)") has one size on every page, so the
    letter reads the same everywhere. It is higher than an action button, so it stays the clear target, but lower than
    the patch boxes, so a Confirm in Settings or a panel does not tower over its form. */
@@ -809,13 +855,13 @@ html {
 }
 .sode__is-found {
   animation: sode-found var(--sode-motion-found) var(--pb-ease) 3;
-  background: color-mix(in srgb, var(--pb-status-info) 14%, transparent);
-  outline: var(--pb-accent-bar-w) solid var(--pb-status-info);
+  background: color-mix(in srgb, var(--pb-accent) 14%, transparent);
+  outline: var(--pb-accent-bar-w) solid var(--pb-accent);
   outline-offset: var(--pb-space-1);
 }
 @keyframes sode-found {
   50% {
-    background: color-mix(in srgb, var(--pb-status-info) 34%, transparent);
+    background: color-mix(in srgb, var(--pb-accent) 34%, transparent);
     outline-offset: var(--pb-space-3);
   }
 }
@@ -1046,13 +1092,6 @@ html {
 .sode__settings > :is(.sode__group, .sode__topic, .sode__router)[hidden] {
   display: none;
 }
-/* One hue per Role tier; Approval keeps warn. */
-.sode__role-badge--trusted {
-  --pb-badge-c: var(--pb-signal-07);
-}
-.sode__role-badge--administrator {
-  --pb-badge-c: var(--pb-signal-09);
-}
 .sode__group > legend > .pb-badge[hidden] {
   display: none;
 }
@@ -1225,7 +1264,7 @@ html {
   user-select: none;
 }
 .sode__slide::before {
-  background: color-mix(in srgb, var(--pb-status-error) 30%, transparent);
+  background: color-mix(in srgb, var(--pb-commit) 30%, transparent);
   bottom: 0;
   content: "";
   left: 0;
@@ -1243,7 +1282,7 @@ html {
 }
 .sode__slide-handle {
   align-items: center;
-  background: var(--pb-status-error);
+  background: var(--pb-commit);
   bottom: 0;
   color: var(--pb-text-on-accent);
   cursor: grab;
@@ -1724,7 +1763,7 @@ html:has(.sode__scrim:not([hidden])) > body {
 }
 .sode__toast-timed::after {
   animation: sode-toast-ring var(--toast-ms) linear forwards;
-  background: conic-gradient(var(--pb-status-ok) var(--toast-left), transparent 0);
+  background: conic-gradient(var(--pb-text-muted) var(--toast-left), transparent 0);
   content: "";
   inset: 0;
   mask:
@@ -1784,7 +1823,7 @@ button.sode-up__bar:not(:disabled):hover,
   box-shadow: inset 0 0 0 calc(var(--pb-border-w) * 3) var(--pb-text-strong);
 }
 .sode-up__bar--ok {
-  background: var(--pb-status-ok);
+  background: var(--pb-text-muted);
 }
 .sode-up__bar--warn {
   background: var(--pb-status-warn-fill);

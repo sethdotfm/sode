@@ -1,0 +1,2 @@
+- The accent (selection, focus and the main action) is now the page border color, on the main page, /log and the panel pages. Sode adjusts its lightness so text stays clear. A reload shows it before the page connects.
+- Page border colors: Sky and Slate are new, and the picker shows each color's name. Green, amber and pink are no longer offered, since they look like state colors; a saved one still works. A custom color near a state color shows a caution note in Settings and the setup wizard.

@@ -121,7 +121,7 @@ export function keyTab({ panel, api }) {
     );
     const c = check1();
     const act = makeAction(mode, c.held);
-    const make = btn(c.held && mode === 'key' ? 'pb-btn--outline' : 'pb-btn--ok', act.label, () =>
+    const make = btn(c.held && mode === 'key' ? 'pb-btn--outline' : 'sode-btn--primary', act.label, () =>
       act.confirm ? ask(confirmKind(mode, 'make'), () => makeLink(c.name, mode === 'setup')) : makeLink(c.name, mode === 'setup'),
     );
     make.disabled = busy || !!c.error;
@@ -199,7 +199,7 @@ export function keyTab({ panel, api }) {
 
   // Removed on close, so the secret lives no longer than the modal; a Lock closes it too.
   function showKey(name, secret) {
-    const done = btn('pb-btn--ok', 'Done', () => q.close(null));
+    const done = btn('sode-btn--primary', 'Done', () => q.close(null));
     const q = question({
       back: document.activeElement,
       titleId: 'key-show-title',
