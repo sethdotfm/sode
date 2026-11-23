@@ -57,6 +57,31 @@ export const pathKey = (p) =>
 const endKey = (e) => (e ? `${e.router} ${e.n}` : '');
 const chainSign = (c) =>
   c ? JSON.stringify([endKey(c.origin), (c.via || []).map((v) => v.id), !!c.mixed, !!c.nothing, c.unknown || '', !!c.loop, (c.levels || []).map(endKey)]) : '';
+// HIDDEN stands for a source that the user's hidden visibility leaves out (docs/tielines-design.md, rule 7 of the
+// replies): the plan gives no origin, or a null hop end.
+export const HIDDEN = 'not visible to you';
+
+// chainWords says what a tie line carries now (Via). label(ref) names a router reference, prefix(uid) a router.
+export function chainWords(c, label, prefix) {
+  if (!c) return 'unknown';
+  if (c.loop) return '∞';
+  if (c.unknown) return `unknown (router ${prefix(c.unknown)} down)`;
+  if (c.nothing) return 'nothing';
+  if (!c.origin) return HIDDEN;
+  const via = c.via?.length ? ` Via ${c.via.map((v) => v.name || v.id).join(', ')}` : '';
+  return `${label(c.origin)}${via}${c.mixed ? ' (mixed)' : ''}`;
+}
+
+// feedingHop gives the index of the hop whose tie line feeds source s on router uid of path p, or -1. A hop source
+// that the hidden visibility leaves out is null, and matches nothing.
+export function feedingHop(p, uid, s) {
+  for (let i = 0; i + 1 < p.hops.length; i++) {
+    const down = p.hops[i + 1];
+    if (down.router === uid && down.src && down.src.n === s) return i;
+  }
+  return -1;
+}
+
 // The parts of a hop that a person sees and that the take depends on. The last change time is not one: a change of
 // the tie line changes what it carries.
 const hopSign = (h) => JSON.stringify([h.router, h.tie?.id || '', !!h.sends, h.protect || '', h.protectSince || '', h.reserve || '', chainSign(h.now)]);
