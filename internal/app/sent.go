@@ -85,7 +85,11 @@ func (a *App) logSent(ctx context.Context) {
 	// Counted before the append so a failing disk does not lose the graph's data.
 	tx := func(ev swp08.TxEvent) {
 		e := a.describe(ev)
-		a.up.Note(e)
+		u, ok := a.unit(ev.Why.Router)
+		if !ok {
+			u = a.firstUnit()
+		}
+		u.up.Note(e)
 		write(e)
 	}
 	for {

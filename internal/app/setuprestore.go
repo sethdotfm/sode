@@ -170,11 +170,13 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	a.setup = setupHold{}
 	a.names.save(fr.UID, table.At, src, dst)
 	a.mu.Lock()
-	a.router.srcNames, a.router.dstNames = src, dst
-	a.router.savedAt = table.At
-	a.router.lastPoll = &namePoll{maps.Clone(src), maps.Clone(dst)}
-	a.router.namesGen++
-	a.broadcast(a.namesMsg())
+	fu := a.firstUnit()
+	rs := fu.router
+	rs.srcNames, rs.dstNames = src, dst
+	rs.savedAt = table.At
+	rs.lastPoll = &namePoll{maps.Clone(src), maps.Clone(dst)}
+	rs.namesGen++
+	a.broadcast(fu.namesMsg())
 	a.mu.Unlock()
 	log.Printf("setup: restored from a backup (%d users)", len(a.r().cfg.Users))
 	apiJSON(w, restoreResult{importResult: res, Browser: b.Browser})

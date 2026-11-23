@@ -51,6 +51,7 @@ type streamMsg struct {
 
 // Guarded by App.mu.
 type apiStream struct {
+	unit   *routerUnit // the router of the stream; names, tally and status frames come only from it
 	view   apiView
 	topics map[string]bool
 	send   chan []byte
@@ -99,7 +100,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	st := &apiStream{view: cl.view(), detail: cl.has(config.ScopeLog), topics: map[string]bool{}, send: make(chan []byte, 256), cancel: cancel, ip: cl.IP}
+	st := &apiStream{unit: a.apiUnit(r), view: cl.view(), detail: cl.has(config.ScopeLog), topics: map[string]bool{}, send: make(chan []byte, 256), cancel: cancel, ip: cl.IP}
 	if cl.Key != nil {
 		st.keyID = cl.Key.ID
 		st.owner = cl.Key.Owner
@@ -149,11 +150,11 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		}
 		switch t {
 		case "names":
-			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: a.namesSnapshot(st.view)})
+			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: a.namesSnapshot(st.unit, st.view)})
 		case "tally":
-			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: a.tallySnapshot(st.view)})
+			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: a.tallySnapshot(st.unit, st.view)})
 		case "status":
-			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: linkStatus(a.status, st.detail)})
+			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: linkStatus(st.unit.status, st.detail)})
 		}
 	}
 	a.mu.Unlock()
@@ -322,6 +323,9 @@ func (a *App) streamQueue(st *apiStream, m streamMsg) {
 	}
 }
 
+// hears: a message from this router unit goes to the stream. nil is from no one router.
+func (st *apiStream) hears(from *routerUnit) bool { return from == nil || from == st.unit }
+
 // Caller holds mu.
 func (a *App) streamFan(v any) {
 	if len(a.streams) == 0 {
@@ -330,7 +334,7 @@ func (a *App) streamFan(v any) {
 	for st := range a.streams {
 		switch m := v.(type) {
 		case deltaMsg:
-			if m.T != "tally" || !st.topics["tally"] {
+			if m.T != "tally" || !st.topics["tally"] || !st.hears(m.from) {
 				continue
 			}
 			rows := []apiRouteRow{}
@@ -347,11 +351,11 @@ func (a *App) streamFan(v any) {
 				a.streamQueue(st, streamMsg{T: "tally", Topic: "tally", Data: map[string]any{"routes": rows}})
 			}
 		case namesMsg:
-			if st.topics["names"] {
-				a.streamQueue(st, streamMsg{T: "names", Topic: "names", Data: a.namesSnapshot(st.view)})
+			if st.topics["names"] && st.hears(m.from) {
+				a.streamQueue(st, streamMsg{T: "names", Topic: "names", Data: a.namesSnapshot(st.unit, st.view)})
 			}
 		case statusMsg:
-			if st.topics["status"] {
+			if st.topics["status"] && st.hears(m.from) {
 				a.streamQueue(st, streamMsg{T: "status", Topic: "status", Data: linkStatus(m, st.detail)})
 			}
 		case recentMsg:

@@ -177,10 +177,11 @@ func newRouterState() *routerState {
 }
 
 type statusMsg struct {
-	T      string `json:"t"`
-	Router string `json:"router"`
-	Addr   string `json:"addr"`
-	Err    string `json:"err,omitempty"`
+	T      string      `json:"t"`
+	Router string      `json:"router"`
+	Addr   string      `json:"addr"`
+	Err    string      `json:"err,omitempty"`
+	from   *routerUnit // as on deltaMsg; statusOut sets it
 }
 
 func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug bool) (*App, error) {
@@ -226,10 +227,13 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.protects = loadProtects(cfgPath)
 	a.names = newNamesStore(cfgPath)
 	a.sweepStages()
-	if t, ok := a.names.load(cfg.UID); ok {
-		a.router.srcNames, a.router.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
-		a.router.savedAt = t.At
-		a.router.lastPoll = &namePoll{maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)}
+	for _, u := range a.routers {
+		if t, ok := a.names.load(u.uid); ok {
+			rs := u.router
+			rs.srcNames, rs.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
+			rs.savedAt = t.At
+			rs.lastPoll = &namePoll{maps.Clone(rs.srcNames), maps.Clone(rs.dstNames)}
+		}
 	}
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
@@ -301,9 +305,20 @@ func (a *App) periodic() {
 	if sessions {
 		a.sessionsAt = time.Now()
 	}
-	up := a.status.Router == string(swp08.StateUp)
-	names := r.cfg.NameRefreshSeconds > 0 && time.Since(a.nameReqAt) > time.Duration(r.cfg.NameRefreshSeconds)*time.Second
-	dump := r.cfg.TallyResyncSeconds > 0 && time.Since(a.dumpAt) > time.Duration(r.cfg.TallyResyncSeconds)*time.Second
+	// The re-reads that are due, for each router that is up.
+	var names, dumps []*routerUnit
+	for _, u := range a.unitsInOrder(r) {
+		if u.status.Router != string(swp08.StateUp) {
+			continue
+		}
+		rc := r.routerOf(u.uid)
+		if rc.NameRefreshSeconds > 0 && time.Since(u.nameReqAt) > time.Duration(rc.NameRefreshSeconds)*time.Second {
+			names = append(names, u)
+		}
+		if rc.TallyResyncSeconds > 0 && time.Since(u.dumpAt) > time.Duration(rc.TallyResyncSeconds)*time.Second {
+			dumps = append(dumps, u)
+		}
+	}
 	idle := a.now().Sub(a.idleAt) >= a.idleEvery
 	if idle {
 		a.idleAt = a.now()
@@ -326,41 +341,40 @@ func (a *App) periodic() {
 	a.monSweep()
 	a.flushAuthFails(time.Now())
 	a.apiS.idemSweep(time.Now())
-	if !up {
-		return
+	for _, u := range names {
+		a.refreshNames(u)
 	}
-	if names {
-		a.RefreshNames()
-	}
-	if dump {
-		a.requestDumps()
+	for _, u := range dumps {
+		a.requestDumps(u)
 	}
 }
 
 func (a *App) onUnitUp(u *routerUnit) {
-	a.RefreshNames()
-	a.requestDumps()
+	a.refreshNames(u)
+	a.requestDumps(u)
 	go a.clearStaleSalvo(u)
 }
 
-func (a *App) requestDumps() {
+func (a *App) requestDumps(u *routerUnit) {
 	r := a.r()
 	a.mu.Lock()
-	a.dumpAt = time.Now()
+	u.dumpAt = time.Now()
 	a.mu.Unlock()
 	for _, l := range r.levels {
-		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
-		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
+		u.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
+		u.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
 	}
 }
 
-func (a *App) send(m []byte, reason swp08.Reason) {
-	if err := a.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
+// send is for the background reads: a refusal is only logged.
+func (u *routerUnit) send(m []byte, reason swp08.Reason) {
+	if err := u.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
 		log.Printf("send cmd 0x%02X: %v", m[0], err)
 	}
 }
 
-func (a *App) SetUptime(u *Uptime) { a.up = u }
+// SetUptime gives the first router its uptime file.
+func (a *App) SetUptime(up *Uptime) { a.firstUnit().up = up }
 
 func (a *App) SetSettingsSaves(l *SaveLog) {
 	l.Reanchor(a.sent.Next(), a.sent.Oldest())
@@ -373,7 +387,7 @@ func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	u.up.State(s == swp08.StateUp)
 	a.logLink(u, s, err)
 	u.status.Router = string(s)
-	u.status.Addr = a.r().cfg.Address
+	u.status.Addr = a.r().routerOf(u.uid).Address
 	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
 	if s != swp08.StateConnecting {
 		u.status.Err = ""
@@ -381,7 +395,7 @@ func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	if err != nil {
 		u.status.Err = err.Error()
 	}
-	a.broadcast(u.status)
+	a.broadcast(u.statusOut())
 }
 
 // A retry is logged only when the error changes. Caller holds mu.
@@ -399,7 +413,7 @@ func (a *App) logLink(u *routerUnit, s swp08.State, err error) {
 		return
 	}
 	e := event(kindLink, "", "", u.linkSeen)
-	e.Err, e.Note = u.linkErr, a.r().cfg.Address
+	e.Err, e.Note, e.Router = u.linkErr, a.r().routerOf(u.uid).Address, u.uid
 	a.logEvent(e)
 }
 
@@ -418,7 +432,7 @@ func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 		a.applyProtect(u, r, p, ev.Cmd != swp08.CmdExtProtectTally && ev.Cmd != swp08.CmdExtProtectDump)
 	}
 	if nb := ev.Names; nb != nil {
-		a.applyNames(nb)
+		u.applyNames(nb)
 	}
 	if ev.Salvo != nil {
 		u.onSalvoAck(*ev.Salvo)
@@ -519,19 +533,21 @@ func (a *App) applyProtect(u *routerUnit, r *runtime, p swp08.Protect, announced
 }
 
 func (a *App) flush() {
-	var save, check func()
+	var save, check []func()
 	defer func() { // runs after mu is released: no disk work under mu
-		if save != nil {
-			save()
+		for _, s := range save {
+			s()
 		}
-		if check == nil {
+		if len(check) == 0 {
 			return
 		}
 		// Off the tick: the check waits for cfgMu, which a save holds across a PBKDF2 hash.
 		run := func() {
 			a.checkMu.Lock()
 			defer a.checkMu.Unlock()
-			check()
+			for _, c := range check {
+				c()
+			}
 		}
 		if done, ok := a.writes.start("brokenCheck"); ok {
 			go func() { defer done(); run() }()
@@ -541,13 +557,16 @@ func (a *App) flush() {
 	}()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.router.pend) > 0 {
-		a.broadcast(deltaMsg{T: "tally", U: a.router.pend})
-		a.router.pend = nil
+	for _, u := range a.unitsInOrder(a.r()) {
+		if len(u.router.pend) > 0 {
+			a.broadcast(deltaMsg{T: "tally", U: u.router.pend, from: u})
+			u.router.pend = nil
+		}
 	}
-	if len(a.router.pendProt) > 0 {
-		a.broadcast(protectMsg{T: "protected", U: a.router.pendProt, By: a.protectByList(a.r())})
-		a.router.pendProt = nil
+	// The protected message carries only the first router.
+	if first := a.firstUnit(); len(first.router.pendProt) > 0 {
+		a.broadcast(protectMsg{T: "protected", U: first.router.pendProt, By: a.protectByList(a.r())})
+		first.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
 		a.broadcastSent(a.pendSent)
@@ -591,10 +610,11 @@ func (a *App) readHello() helloPage {
 	return helloPage{recent, morePages(recent)}
 }
 
-// Caller holds mu.
+// The hello carries the first router. Caller holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
-	n := a.namesMsg()
+	first := a.firstUnit()
+	n := first.namesMsg()
 	// A hello reaches pages under a lock: no users in it (AGENTS.md).
 	cfg := r.cfg
 	users := make([]helloUser, 0, len(cfg.Users))
@@ -603,9 +623,9 @@ func (a *App) hello(p helloPage) []byte {
 	}
 	cfg.Users = nil
 	m := helloMsg{
-		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: a.router.savedAt,
-		Tally: routeTriples(a.router.tally), Protect: protectRows(a.router.protect), ProtectBy: a.protectByList(r),
-		Status: a.status, Recent: p.recent, More: p.more,
+		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: first.router.savedAt,
+		Tally: routeTriples(first.router.tally), Protect: protectRows(first.router.protect), ProtectBy: a.protectByList(r),
+		Status: first.status, Recent: p.recent, More: p.more,
 		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
 		ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,

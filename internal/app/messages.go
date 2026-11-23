@@ -41,6 +41,9 @@ func (c *routeChange) UnmarshalJSON(b []byte) error {
 type deltaMsg struct {
 	T string        `json:"t"`
 	U []routeChange `json:"u"`
+	// from: the router unit of a tally change. The API stream sends it only to the streams of that router. nil is
+	// every stream.
+	from *routerUnit
 }
 
 // helloMsg: every key always sent (none omitempty).
@@ -94,10 +97,11 @@ type namesCheckedMsg struct {
 }
 
 type namesMsg struct {
-	T    string    `json:"t"` // "names"
-	Srcs [][2]any  `json:"srcs"`
-	Dsts [][2]any  `json:"dsts"`
-	At   time.Time `json:"at"`
+	T    string      `json:"t"` // "names"
+	Srcs [][2]any    `json:"srcs"`
+	Dsts [][2]any    `json:"dsts"`
+	At   time.Time   `json:"at"`
+	from *routerUnit // as on deltaMsg
 }
 
 type filterSetsMsg struct {

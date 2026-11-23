@@ -46,27 +46,28 @@ func routerFault(base, cur namePoll) bool {
 
 // countPollMu returns the check to run after the caller releases mu, or nil. A fault read is not shown or saved.
 // Caller holds mu.
-func (a *App) countPollMu(cur namePoll) (check func(), fault bool) {
-	base := a.router.lastPoll
+func (a *App) countPollMu(u *routerUnit, cur namePoll) (check func(), fault bool) {
+	rs := u.router
+	base := rs.lastPoll
 	if base == nil {
-		base = &namePoll{a.router.srcNames, a.router.dstNames}
+		base = &namePoll{rs.srcNames, rs.dstNames}
 	}
 	if routerFault(*base, cur) {
-		if !a.router.faultSeen {
+		if !rs.faultSeen {
 			log.Printf("names: more than half the names went blank; read ignored")
 		}
-		a.router.faultSeen = true
+		rs.faultSeen = true
 		return nil, true
 	}
-	a.router.faultSeen = false
-	noteRenamed(&a.router.renamedTo, *base, cur)
-	prev := a.router.lastPoll
-	a.router.lastPoll = &namePoll{maps.Clone(cur.src), maps.Clone(cur.dst)} // flush can hand cur on as the live names
+	rs.faultSeen = false
+	noteRenamed(&rs.renamedTo, *base, cur)
+	prev := rs.lastPoll
+	rs.lastPoll = &namePoll{maps.Clone(cur.src), maps.Clone(cur.dst)} // flush can hand cur on as the live names
 	if prev == nil || a.setupPending() {
 		return nil, false
 	}
-	hints := [2]map[string]string{maps.Clone(a.router.renamedTo[0]), maps.Clone(a.router.renamedTo[1])}
-	return func() { a.recheckRefs(*prev, cur, hints) }, false
+	hints := [2]map[string]string{maps.Clone(rs.renamedTo[0]), maps.Clone(rs.renamedTo[1])}
+	return func() { a.recheckRefs(u, *prev, cur, hints) }, false
 }
 
 func sideIndex(dst bool) int {
@@ -467,13 +468,14 @@ func itemScopes(c *config.Config, mine string) []itemScope {
 }
 
 // No Settings saves row: the Router names row says what changed.
-func (a *App) recheckRefs(prev, cur namePoll, hints [2]map[string]string) {
-	r := a.r()
-	k := &pollCheck{uid: r.cfg.UID, levels: r.cfg.Levels, off: r.cfg.NumberOffset, prev: prev, cur: cur, hints: hints}
+func (a *App) recheckRefs(u *routerUnit, prev, cur namePoll, hints [2]map[string]string) {
+	rc := a.r().routerOf(u.uid)
+	k := &pollCheck{uid: rc.UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
 	a.cfgMu.Lock()
 	if !a.setupPending() {
 		err := a.applyConfigWith(func(c *config.Config) error {
-			if c.UID != k.uid || !k.config(c) {
+			// The router is gone, or an import gave it a new UID, since the read.
+			if _, ok := c.RouterByUID(k.uid); !ok || !k.config(c) {
 				return errNoCheckChange
 			}
 			return nil
@@ -510,6 +512,6 @@ func (k *pollCheck) logRow(a *App) {
 		return
 	}
 	e := event(kindLink, "routerNames", "Sode", result)
-	e.Note = strings.Join(parts, "; ")
+	e.Note, e.Router = strings.Join(parts, "; "), k.uid
 	a.logEvent(e)
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -105,6 +106,25 @@ func (a *App) unit(uid string) (*routerUnit, bool) {
 	}
 	u, ok := a.routers[uid]
 	return u, ok
+}
+
+// firstUnit gives the first router's unit. The flat hello fields, the protected message and the uptime file name it.
+func (a *App) firstUnit() *routerUnit { return a.routerUnit }
+
+// apiUnit gives the unit of the router parameter of an API read; routerOK has refused an unknown one. Blank, or the
+// UID of the first router in the settings, is the first router.
+func (a *App) apiUnit(r *http.Request) *routerUnit {
+	if u, ok := a.unit(r.URL.Query().Get("router")); ok {
+		return u
+	}
+	return a.firstUnit()
+}
+
+// statusOut is the unit's link status as it goes to browsers and API streams. Caller holds mu.
+func (u *routerUnit) statusOut() statusMsg {
+	s := u.status
+	s.from = u
+	return s
 }
 
 // unitsInOrder gives the unit of each router in the order of the settings. The first router comes first, also when

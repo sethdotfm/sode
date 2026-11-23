@@ -87,7 +87,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("/ws", a.serveWS)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
-		st := a.status
+		st := a.firstUnit().status
 		a.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(st)
@@ -142,7 +142,7 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.mu.Lock()
-	st := a.status
+	st := a.firstUnit().status
 	browsers := len(a.clients)
 	a.mu.Unlock()
 	code := http.StatusOK
@@ -432,7 +432,7 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-// A range with no end runs to now; no start, a week back.
+// A range with no end runs to now; no start, a week back. The graph shows the first router.
 func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	now := time.Now().UnixMilli()
 	if to <= 0 || to > now {
@@ -445,7 +445,7 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	if oldest := time.UnixMilli(now).Add(-uptimeKeep).UnixMilli(); from < oldest {
 		from = oldest
 	}
-	r := a.up.Range(from, to, slot)
+	r := a.firstUnit().up.Range(from, to, slot)
 	m := uptimeMsg{T: "uptimeResult", ID: id, From: from, To: to, Slot: max(slot, 60_000), Now: now, Start: r.Start, Trans: r.Trans, Counts: r.Counts}
 	if m.Trans == nil {
 		m.Trans = []UptimeTrans{}

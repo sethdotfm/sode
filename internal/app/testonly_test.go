@@ -34,7 +34,7 @@ func (s *namesStore) remove(uid string) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.src, s.dst = nil, nil
+	delete(s.held, uid)
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}

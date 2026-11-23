@@ -57,12 +57,12 @@ func namesOf(m map[int]string, ok func(int) bool) []apiName {
 }
 
 // Caller holds mu.
-func (a *App) namesSnapshot(v apiView) apiNames {
+func (a *App) namesSnapshot(u *routerUnit, v apiView) apiNames {
 	return apiNames{
-		NumberOffset: a.r().cfg.NumberOffset,
-		Sources:      namesOf(a.router.srcNames, v.Source),
-		Destinations: namesOf(a.router.dstNames, v.Destination),
-		NamesAt:      a.router.namesAt,
+		NumberOffset: a.r().routerOf(u.uid).NumberOffset,
+		Sources:      namesOf(u.router.srcNames, v.Source),
+		Destinations: namesOf(u.router.dstNames, v.Destination),
+		NamesAt:      u.router.namesAt,
 	}
 }
 
@@ -78,21 +78,22 @@ type namesBody struct {
 
 func (a *App) apiNames(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	v := cl.view()
+	u := a.apiUnit(r)
 	if v.Hidden() {
 		a.mu.Lock()
-		res := a.namesSnapshot(v)
+		res := a.namesSnapshot(u, v)
 		a.mu.Unlock()
 		apiJSONTagged(w, r, res)
 		return
 	}
 	a.mu.Lock()
-	key := namesBody{rs: a.router, rt: a.r(), gen: a.router.namesGen}
-	if c := a.namesCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.body != nil {
+	key := namesBody{rs: u.router, rt: a.r(), gen: u.router.namesGen}
+	if c := u.namesCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.body != nil {
 		a.mu.Unlock()
 		apiWriteTagged(w, r, c.body, c.tag)
 		return
 	}
-	res := a.namesSnapshot(v)
+	res := a.namesSnapshot(u, v)
 	a.mu.Unlock()
 	body, err := json.Marshal(res)
 	if err != nil {
@@ -101,8 +102,8 @@ func (a *App) apiNames(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	key.body, key.tag = body, etagOf(body)
 	a.mu.Lock()
-	if a.router == key.rs && a.r() == key.rt && a.router.namesGen == key.gen {
-		a.namesCache = key
+	if u.router == key.rs && a.r() == key.rt && u.router.namesGen == key.gen {
+		u.namesCache = key
 	}
 	a.mu.Unlock()
 	apiWriteTagged(w, r, key.body, key.tag)
@@ -150,7 +151,7 @@ type apiLevel struct {
 }
 
 // Caller holds mu.
-func (a *App) tallySnapshot(v apiView) map[string]any {
+func (a *App) tallySnapshot(u *routerUnit, v apiView) map[string]any {
 	levels := []apiLevel{}
 	for _, l := range a.r().levels {
 		levels = append(levels, apiLevel{l.UI, l.Label, l.Swatch, l.Color})
@@ -158,7 +159,7 @@ func (a *App) tallySnapshot(v apiView) map[string]any {
 	cfg := a.r().cfg
 	return map[string]any{
 		"levels": levels, "levelNumbering": cfg.LevelNumbering, "defaultLevels": cfg.DefaultLevels,
-		"routes": routeRows(a.router.tally, v),
+		"routes": routeRows(u.router.tally, v),
 	}
 }
 
@@ -174,21 +175,22 @@ type tallyBody struct {
 
 func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	v := cl.view()
+	u := a.apiUnit(r)
 	if v.Hidden() {
 		a.mu.Lock()
-		res := a.tallySnapshot(v)
+		res := a.tallySnapshot(u, v)
 		a.mu.Unlock()
 		apiJSONTagged(w, r, res)
 		return
 	}
 	a.mu.Lock()
-	key := tallyBody{rs: a.router, rt: a.r(), gen: a.router.tallyGen}
-	if c := a.tallyCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.body != nil {
+	key := tallyBody{rs: u.router, rt: a.r(), gen: u.router.tallyGen}
+	if c := u.tallyCache; c.rs == key.rs && c.rt == key.rt && c.gen == key.gen && c.body != nil {
 		a.mu.Unlock()
 		apiWriteTagged(w, r, c.body, c.tag)
 		return
 	}
-	res := a.tallySnapshot(v)
+	res := a.tallySnapshot(u, v)
 	a.mu.Unlock()
 	body, err := json.Marshal(res)
 	if err != nil {
@@ -197,8 +199,8 @@ func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	key.body, key.tag = body, etagOf(body)
 	a.mu.Lock()
-	if a.router == key.rs && a.r() == key.rt && a.router.tallyGen == key.gen {
-		a.tallyCache = key
+	if u.router == key.rs && a.r() == key.rt && u.router.tallyGen == key.gen {
+		u.tallyCache = key
 	}
 	a.mu.Unlock()
 	apiWriteTagged(w, r, key.body, key.tag)
@@ -213,7 +215,8 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	a.mu.Lock()
 	v := cl.view()
 	rows := []apiProtectedRow{}
-	for d, t := range a.router.protect {
+	// Only the first router, as in the protected message.
+	for d, t := range a.firstUnit().router.protect {
 		if !v.Destination(d) {
 			continue
 		}
@@ -246,9 +249,10 @@ func linkStatus(s statusMsg, withDetail bool) map[string]any {
 	return m
 }
 
-func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
+func (a *App) apiStatus(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	u := a.apiUnit(r)
 	a.mu.Lock()
-	st := a.status
+	st := u.status
 	a.mu.Unlock()
 	m := linkStatus(st, cl.has(config.ScopeLog))
 	m["server"], m["version"], m["uptimeSeconds"] = "up", VersionLabel(), int64(time.Since(a.started).Seconds())
