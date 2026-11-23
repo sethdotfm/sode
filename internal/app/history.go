@@ -77,6 +77,9 @@ type Entry struct {
 	// Also: an External on the upstream end of a tie line. The destinations downstream that it also changes, as
 	// Sode worked them out when it wrote the entry (tievia.go).
 	Also []TieAlso `json:"also,omitempty"`
+	// AlsoOthers counts the destinations of Also that the hidden visibility of a caller leaves out (apiView.Entry), as
+	// `others` in a 409 body. Sode sets it only on the copy that a hidden caller gets.
+	AlsoOthers int `json:"alsoOthers,omitempty"`
 }
 
 // logLine: off turns 0-based numbers into the router's display numbers.

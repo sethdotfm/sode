@@ -21,7 +21,8 @@ import (
 // steps after it are not sent; each one records a failed entry, so the Group keeps its size. A hop whose tie line
 // already carries the source (tieplan: Sends false) is not sent and has no entry.
 //
-// tielock.go locks the tie lines and runs the stale check before the first wave. Then refuseHeld runs the Protect check
+// tielock.go locks the tie lines and runs the stale check before the first wave. Then it plans the take again
+// (tieTake.again). Then refuseHeld runs the Protect check
 // on every step before any step goes. Every step is an ordinary connect, also in fireMode native. The Result of a
 // route comes from all its hops (routeWord). Put back is in tieputback.go, a Late hop and Retry in tieretry.go. Not
 // here yet: One-off tie lines and the Tie line picker. The API is the only caller.
@@ -90,6 +91,9 @@ type tieTake struct {
 	steps   []*tieStep
 	waves   [][]*tieStep
 	tieName map[string]string
+	// again plans the same take from what Sode knows now. tieTakeBegin calls it after the locks and the stale check.
+	// A tie line can change during the wait for a lock, so a hop that had nothing to send can have something now.
+	again func() (*tieTake, *apiProblem)
 }
 
 type hopKey struct {
@@ -178,6 +182,18 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 			tr.mark = m
 			tr.steps = append(tr.steps, t.step(routeReq{Src: h.Src, Dst: h.Dst, Levels: h.Levels, Router: h.Router, Tie: m}))
 		}
+		// A plain route to the upstream destination of a tie line that a hop of this take uses would fight the hop.
+		// The waves would send both, and the tie line could end with either source.
+		for _, tr := range t.routes {
+			if tr.mark != nil {
+				continue
+			}
+			for _, tl := range in.Ties {
+				if _, ok := carries[tl.ID]; ok && tl.From == tr.in.dst {
+					return problem(http.StatusConflict, "conflict", "route %d routes to the upstream destination of %s, which another route of this take goes through", tr.in.index, t.name(tl.ID))
+				}
+			}
+		}
 		return nil
 	}(); prob != nil {
 		return nil, prob
@@ -187,6 +203,7 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 		return nil, a.apiTieProblem(rt, v, cross)
 	}
 	t.order()
+	t.again = func() (*tieTake, *apiProblem) { return a.planTieTake(rt, v, routes, ties) }
 	return t, nil
 }
 

@@ -138,10 +138,12 @@ export const groupUndoPlan = (f) =>
   );
 // A group with failed takes retries only those; otherwise it redoes every redoable take. Empty
 // items = nothing to offer. ofUndo marks a redo of an undo row, which leaves Last alone.
+// Tie takes: the Retry of the destination entry (origin) runs the hops again on the server. Thus a hop entry (tie)
+// gets no Retry of its own. Redo of a tie take opens the picker, which this plan cannot do, so it has no tie entries.
 export function againPlan(row) {
-  const es = row.f ? row.f.entries : [row.e];
+  const es = (row.f ? row.f.entries : [row.e]).filter((e) => e && !e.tie);
   const failed = es.filter((e) => !e.ok);
-  const use = (failed.length ? failed : es).filter(canRedo);
+  const use = (failed.length ? failed : es.filter((e) => !e.origin)).filter(canRedo);
   const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
   return use.some((e) => e.undo) ? { ...plan, ofUndo: true } : plan;
 }

@@ -45,14 +45,25 @@ const routeLimit = 8
 // (takecheck.go). Under it, the check interrogates each destination level.
 const bigTake = 6
 
-// take is the one entry point for every confirmed take (browser plan, Undo, Redo, Retry, presets, API).
-// Results go to c.send, or to c.api.sink for an API caller. It returns the refusal when the rights of
-// the caller do not cover every route; nothing ran then.
+// take is the one entry point for every take from a page (browser plan, Undo, Redo, Retry, presets). Results go
+// to c.send. It returns the refusal when the rights of the caller do not cover every route; nothing ran then. A
+// Retry of a tie take runs as the API Retry does (pageTieRetry), and a put-back keeps only the levels that its hop
+// changed (putBackLevels).
 func (a *App) take(c *client, items []routeReq) (refused string) {
+	items, ties := a.tieRetries(items)
+	items = a.putBackLevels(c, items)
 	if msg := a.rightsPass(a.r(), c, items); msg != "" {
+		for _, it := range ties {
+			a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: msg})
+		}
 		return msg
 	}
-	a.takeAllowed(c, items)
+	for _, it := range ties {
+		a.pageTieRetry(c, it)
+	}
+	if len(items) > 0 {
+		a.takeAllowed(c, items)
+	}
 	return ""
 }
 

@@ -98,25 +98,35 @@ type apiTieEnd struct {
 }
 
 type apiTieLine struct {
-	ID   string    `json:"id"`
-	Name string    `json:"name"`
-	From apiTieEnd `json:"from"`
-	To   apiTieEnd `json:"to"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// From and To are null for a caller with hidden visibility that cannot see that end.
+	From *apiTieEnd `json:"from"`
+	To   *apiTieEnd `json:"to"`
 	// Changed is the last change of the upstream destination, or null when Sode has seen none. Before: Sode was down
 	// after that time, or found the change at a re-read, so it is possible that the tie line changed again.
 	Changed *time.Time `json:"changed"`
 	Before  bool       `json:"before"`
 }
 
-// The router names of the two ends stay out. Thus a caller with hidden visibility sees no name that it cannot see. The
-// Tie line name is not a router name, so it stays.
-func (a *App) apiTieLines(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
+// The router names of the two ends stay out. A caller with hidden visibility gets null for an end that it cannot see.
+// It gets no change time when it cannot see the upstream destination, as GET /tally and History hide them. It keeps
+// the id and the Tie line name, which a take with `ties` names and a 409 body shows.
+func (a *App) apiTieLines(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	out := []apiTieLine{}
 	rt := a.r()
+	v := a.view(cl)
 	stamps := a.tieChanges.snapshot(rt.cfg.TieLines)
 	for _, t := range rt.cfg.TieLines {
-		l := apiTieLine{ID: t.ID, Name: t.Name, From: apiTieEnd{t.From.Router, t.From.N}, To: apiTieEnd{t.To.Router, t.To.N}}
-		if st, ok := stamps[t.ID]; ok {
+		l := apiTieLine{ID: t.ID, Name: t.Name}
+		from := v.on(t.From.Router).Destination(t.From.N)
+		if from {
+			l.From = &apiTieEnd{t.From.Router, t.From.N}
+		}
+		if v.on(t.To.Router).Source(t.To.N) {
+			l.To = &apiTieEnd{t.To.Router, t.To.N}
+		}
+		if st, ok := stamps[t.ID]; ok && from {
 			at := st.At.UTC()
 			l.Changed, l.Before = &at, st.Found || st.At.Before(a.started)
 		}

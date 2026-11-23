@@ -114,7 +114,7 @@ Rights checks compare the router and the number of each reference. A right for s
 
 ### Last change of a tie line
 
-1. Sode stores the time of the last change of each tie line on disk, next to the saved names table, so it survives a restart. The file is `names/tielines.changes.yaml`. Any crosspoint change on the upstream destination, on any level, by Sode or an External, stamps it. The first read of a level is a baseline and stamps nothing.
+1. Sode stores the time of the last change of each tie line on disk, next to the saved names table, so it survives a restart. The file is `names/tielines.changes.yaml`. Any crosspoint change on the upstream destination, on any level, by Sode or an External, stamps it. The first read of a level is a baseline and stamps nothing. A change to the ends of a tie line removes its stamp, since the stamp is about the old cable.
 2. If Sode was down after that time, the picker shows "before HH:MM". Sode never claims more than it knows.
 3. A found entry gives the time when Sode found the change, also as "before HH:MM".
 
@@ -216,7 +216,7 @@ Rights checks compare the router and the number of each reference. A right for s
 3. Each entry keeps the router of the destination, the router of the source and the list of hops. Each hop has its own Result and Prev.
 4. Filters match the typed source and destination, never the hops.
 5. A tie row never stacks with a row that used a different tie line.
-6. History records only real changes on a router. If someone else changes TIE 3 on router A, that is an External on A.42. The entry notes "also changes B.42, B.50 via TIE 3", worked out at that time. For a caller with hidden visibility, `view().Entry` blanks the names in that note that the caller cannot see.
+6. History records only real changes on a router. If someone else changes TIE 3 on router A, that is an External on A.42. The entry notes "also changes B.42, B.50 via TIE 3", worked out at that time. For a caller with hidden visibility, `view().Entry` removes each destination in that note that the caller cannot see. `alsoOthers` counts them, as `others` in a 409 body.
 
 ### Undo
 
@@ -264,7 +264,7 @@ Rights checks compare the router and the number of each reference. A right for s
 4. If a tie line moved, Sode answers 409 `tie_line_changed` with the state of each tie line now.
 5. A panel at Off, or a caller without the "Use tie lines" right, gets 403 `tie_lines_off`.
 6. If no path is usable, Sode answers 409 `no_path` with each reason.
-7. Every such reply blanks the names that a caller with hidden visibility cannot see.
+7. Every such reply blanks the names that a caller with hidden visibility cannot see. A hop end that the caller cannot see is null, with no change time, as in `GET /tielines`. The origin of what a tie line carries stays, since the caller sends it back as `expect`.
 8. An Idempotency-Key replay returns the first answer, as for any take.
 9. `GET /tielines` lists each tie line with its name, what it carries, the last change, and any Protect or Reserve.
 10. openapi.yaml gains every new route and error code in the same issue.

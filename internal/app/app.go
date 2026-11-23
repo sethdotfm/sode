@@ -140,6 +140,7 @@ type App struct {
 	writes     inflight
 	checkMu    sync.Mutex // one Broken check at a time
 	tieLocks   tieLocks   // tielock.go
+	stepTaps   stepTaps   // tieretry.go
 	drainLimit time.Duration
 
 	// idle.go; tests change both (lock_idle_test.go).
@@ -787,6 +788,9 @@ func (a *App) deliver(c *client, b []byte) {
 }
 
 func (a *App) reply(c *client, v any) {
+	if rr, ok := v.(*routeResult); ok && a.stepTaps.take(c, rr) {
+		return
+	}
 	b, _ := json.Marshal(v)
 	a.mu.Lock()
 	a.deliver(c, b)

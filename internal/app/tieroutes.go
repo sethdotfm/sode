@@ -153,17 +153,19 @@ type apiTieChain struct {
 }
 
 type apiTieHop struct {
-	Router  string       `json:"router"`
-	Src     apiTieEndOut `json:"src"`
-	Dst     apiTieEndOut `json:"dst"`
-	Levels  []int        `json:"levels"`
-	Tie     *apiTieRef   `json:"tie"`
-	Sends   bool         `json:"sends"`
-	Now     *apiTieChain `json:"now,omitempty"`
-	Protect string       `json:"protect,omitempty"`
-	Reserve string       `json:"reserve,omitempty"`
-	Changed *time.Time   `json:"changed,omitempty"`
-	Before  bool         `json:"before,omitempty"`
+	Router string `json:"router"`
+	// Src and Dst are null for a caller with hidden visibility that cannot see that end, as in GET /tielines.
+	Src     *apiTieEndOut `json:"src"`
+	Dst     *apiTieEndOut `json:"dst"`
+	Levels  []int         `json:"levels"`
+	Tie     *apiTieRef    `json:"tie"`
+	Sends   bool          `json:"sends"`
+	Now     *apiTieChain  `json:"now,omitempty"`
+	Protect string        `json:"protect,omitempty"`
+	Reserve string        `json:"reserve,omitempty"`
+	// Changed and Before are left out when the caller cannot see Dst, the upstream destination of the tie line.
+	Changed *time.Time `json:"changed,omitempty"`
+	Before  bool       `json:"before,omitempty"`
 }
 
 type apiTiePath struct {
@@ -223,8 +225,18 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 		ap := apiTiePath{Cost: p.Cost, Affected: []apiTieEndOut{}, Unknown: p.Unknown, Loop: p.Loop, Protected: p.Protected,
 			Reserved: p.Reserved, ChangedLately: p.ChangedLately, Newest: p.Newest}
 		for _, h := range p.Hops {
-			ah := apiTieHop{Router: h.Router, Src: end(tieplan.End{Router: h.Router, N: h.Src}, false), Dst: end(tieplan.End{Router: h.Router, N: h.Dst}, true),
-				Levels: h.Levels, Sends: h.Sends, Protect: h.Protect, Reserve: h.Reserve, Changed: h.Changed, Before: h.Before}
+			ah := apiTieHop{Router: h.Router, Levels: h.Levels, Sends: h.Sends, Protect: h.Protect, Reserve: h.Reserve}
+			if v.on(h.Router).Source(h.Src) {
+				e := end(tieplan.End{Router: h.Router, N: h.Src}, false)
+				ah.Src = &e
+			}
+			if v.on(h.Router).Destination(h.Dst) {
+				e := end(tieplan.End{Router: h.Router, N: h.Dst}, true)
+				ah.Dst, ah.Changed, ah.Before = &e, h.Changed, h.Before
+			} else if h.Changed != nil {
+				// Newest would give the change time of this hidden end.
+				ap.Newest = nil
+			}
 			if h.Tie != "" {
 				t := ref(h.Tie)
 				ah.Tie = &t

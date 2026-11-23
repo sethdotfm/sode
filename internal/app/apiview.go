@@ -15,8 +15,11 @@ type apiView struct {
 	first, firstUnit string
 }
 
-func (a *App) view(c *apiCtx) apiView {
-	v := apiView{rights: c.Rights, first: a.r().cfg.UID}
+func (a *App) view(c *apiCtx) apiView { return a.viewOf(c.Rights) }
+
+// viewOf is the view of a caller with rights rt: an API caller, or a page (pageTieRetry).
+func (a *App) viewOf(rt config.Rights) apiView {
+	v := apiView{rights: rt, first: a.r().cfg.UID}
 	if a.first != nil {
 		v.firstUnit = a.first.uid
 	}
@@ -89,11 +92,15 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 			e.ViaPrev[i].Origin = nil
 		}
 	}
-	for i := range e.Also {
-		if !v.on(e.Also[i].Router).Destination(e.Also[i].N) {
-			e.Also[i].Name = ""
+	// As the Affected destinations of a 409 body: a destination that the caller cannot see goes, with its number,
+	// and AlsoOthers counts it.
+	e.Also = slices.DeleteFunc(e.Also, func(al TieAlso) bool {
+		if v.on(al.Router).Destination(al.N) {
+			return false
 		}
-	}
+		e.AlsoOthers++
+		return true
+	})
 	var gone []int
 	for _, p := range e.Prev {
 		if p[1] >= 0 && !rv.Source(p[1]) {

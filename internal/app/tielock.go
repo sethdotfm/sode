@@ -86,8 +86,10 @@ func (a *App) tieEnd(e apiEnd) (tieplan.End, *apiProblem) {
 }
 
 // tieTakeBegin locks the tie lines of t and reads the upstream destination of each from its router. Then it
-// compares each tie line with what the caller saw. On a refusal it holds no lock and nothing went to a router.
-func (a *App) tieTakeBegin(rt *runtime, v apiView, c *client, t *tieTake) (unlock func(), _ *apiProblem) {
+// compares each tie line with what the caller saw. Sode planned t before the locks, so tieTakeBegin plans the take
+// again and gives the new plan. The old plan can leave out a hop whose tie line carried the source. If the tie line
+// changed during the wait, that hop must go. The new plan names the same tie lines, so the locks cover it. On a refusal it holds no lock and nothing went to a router.
+func (a *App) tieTakeBegin(rt *runtime, v apiView, c *client, t *tieTake) (_ *tieTake, unlock func(), _ *apiProblem) {
 	var ids []string
 	reqs := make([]routeReq, 0, len(t.steps))
 	for _, s := range t.steps {
@@ -104,9 +106,17 @@ func (a *App) tieTakeBegin(rt *runtime, v apiView, c *client, t *tieTake) (unloc
 	a.readTieLines(rt, c, t)
 	if p := a.tieChanged(rt, v, t); p != nil {
 		unlock()
-		return nil, p
+		return nil, nil, p
 	}
-	return unlock, nil
+	if t.again != nil {
+		now, p := t.again()
+		if p != nil {
+			unlock()
+			return nil, nil, p
+		}
+		t = now
+	}
+	return t, unlock, nil
 }
 
 // readTieLines is the check before take on the upstream destination of each tie line of t, on all levels, before
@@ -187,7 +197,9 @@ func (a *App) tieWantOf(x apiExpect) (tieWant, *apiProblem) {
 }
 
 // carries: the tie line with upstream destination from carries w on each level. The stale check compares every
-// level, so a move on any level is a change. A level whose Via chain is mixed, unknown or a loop never matches.
+// level, so a move on any level is a change. A level whose Via chain is unknown or a loop never matches. A mixed
+// chain never matches one source. A tie line downstream of a mixed tie line has a mixed chain too. For each level,
+// the 409 body gives the origin of that chain (apiTieChain.Levels). A per-level w compares that origin.
 func carries(in tieplan.Input, from tieplan.End, levels []int, w tieWant) bool {
 	if w.anything {
 		return true
@@ -202,7 +214,7 @@ func carries(in tieplan.Input, from tieplan.End, levels []int, w tieWant) bool {
 		}
 		c := tieplan.Via(in, from, l)
 		switch {
-		case c.Mixed || c.Unknown != "" || c.Loop:
+		case c.Unknown != "" || c.Loop || c.Mixed && !w.perLevel:
 			return false
 		case want == nil && !c.Nothing:
 			return false

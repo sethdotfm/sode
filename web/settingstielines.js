@@ -4,7 +4,7 @@
 import { $, el, S, on, onMsg, emit, request, routerData } from './core.js';
 import { btn, opt } from './formbits.js';
 import { readJSON, writeJSON } from './store.js';
-import { suggest, acceptName } from './tielinesuggest.js';
+import { suggest, suggestSig, acceptName } from './tielinesuggest.js';
 import { listProblem, fillName, upsert, without, wireNumber, otherRouter, movedLines } from './tielinerules.js';
 
 const list = $('tielines-list');
@@ -12,6 +12,7 @@ const form = $('tielines-form');
 const status = $('tielines-status');
 const suggestBox = $('tielines-suggest');
 const suggestList = $('tielines-suggest-list');
+const suggestMore = $('tielines-suggest-more');
 const fromRouter = $('tieline-from-router');
 const toRouter = $('tieline-to-router');
 const fromNum = $('tieline-from');
@@ -94,6 +95,18 @@ function suggestRow(s) {
   return li;
 }
 
+// A names or hello event that changes no suggestion keeps the rows, and the focus on them.
+let shownSig = '';
+function showSuggestions(found) {
+  const sig = suggestSig(found, (s) => `${endText(s.from, 'dst')}|${endText(s.to, 'src')}`);
+  if (sig === shownSig) return;
+  shownSig = sig;
+  suggestBox.hidden = !found.shown.length;
+  suggestList.replaceChildren(...found.shown.map(suggestRow));
+  suggestMore.hidden = !found.more;
+  suggestMore.textContent = `${found.more} more ${found.more === 1 ? 'suggestion' : 'suggestions'}. Accept or dismiss a suggestion to show the next one.`;
+}
+
 function fillRouterSelect(sel, want) {
   sel.replaceChildren(...S.routers.map((r) => opt(r.uid, `${r.prefix} ${r.title}`.trim())));
   sel.value = uids().includes(want) ? want : sel.options[0]?.value || '';
@@ -168,9 +181,7 @@ function render() {
   const rows = tieLines().map(row);
   if (!rows.length) rows.push(el('li', 'sode__hint', two ? 'No tie lines.' : 'Tie lines need two or more routers.'));
   list.replaceChildren(...rows);
-  const found = two ? suggestions() : [];
-  suggestBox.hidden = !found.length;
-  suggestList.replaceChildren(...found.map(suggestRow));
+  showSuggestions(two ? suggestions() : { shown: [], more: 0 });
   if (!two) return;
   if (editing && !tieLines().some((t) => t.id === editing)) resetForm();
   else if (!editing) {

@@ -30,7 +30,7 @@ func pageTieTake(t *testing.T, a *App, c *client, id int, routes string) tieTake
 	}
 }
 
-func pageClient(a *App) *client {
+func tiePageClient(a *App) *client {
 	c := &client{ip: "10.0.0.9", send: make(chan []byte, 4096)}
 	a.mu.Lock()
 	a.clients[c] = struct{}{}
@@ -43,7 +43,7 @@ func pageClient(a *App) *client {
 func TestPageTieTakeAsksThenSends(t *testing.T) {
 	a, fa, fb, _ := tieApp(t, nil)
 	uidA := a.r().cfg.UID
-	c := pageClient(a)
+	c := tiePageClient(a)
 	log := connectLog(fa, fb)
 
 	route := fmt.Sprintf(`[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1]}]`, uidA)
@@ -90,7 +90,7 @@ func TestPageTieTakeAsksThenSends(t *testing.T) {
 func TestPageTieTakeStale(t *testing.T) {
 	a, fa, fb, _ := tieApp(t, nil)
 	uidA := a.r().cfg.UID
-	c := pageClient(a)
+	c := tiePageClient(a)
 	log := connectLog(fa, fb)
 	route := fmt.Sprintf(`[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"ties":[{"id":"t1","expect":{"router":%q,"n":9}}]}]`, uidA, uidA)
 	got := pageTieTake(t, a, c, 3, route)
@@ -111,7 +111,7 @@ func TestPageTieTakeActsAsThePage(t *testing.T) {
 			a, _, _, _ := tieApp(t, nil)
 			defer startLog(t, a)()
 			uidA := a.r().cfg.UID
-			c := pageClient(a)
+			c := tiePageClient(a)
 			want := c.ip
 			if user {
 				if err := a.UserUnlockAs(c, "Ada", "2468"); err != nil {
