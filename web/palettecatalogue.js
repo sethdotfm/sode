@@ -52,6 +52,7 @@ export function pageOf(rel) {
 export const ACTIONS = Object.freeze([
   { id: 'reread', label: 'Re-read router names', icon: 'refresh-cw', words: ['refresh', 'names', 'reload'] },
   { id: 'undo', label: 'Undo the last Sode take', icon: 'undo-2', home: true, desktop: true, words: ['undo', 'back'] },
+  { id: 'redo', label: 'Redo the last undone Sode take', icon: 'redo-2', home: true, desktop: true, words: ['redo', 'forward'] },
   { id: 'presets', label: 'All presets', icon: 'list', home: true, words: ['presets popup', 'fire'] },
   { id: 'filters', label: 'Filters', icon: 'filter', home: true, words: ['history', 'filter sets'] },
   // The Protect picker (protectpick.js): pick destinations to protect or clear, then the Confirm. protect: needs the

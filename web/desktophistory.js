@@ -7,6 +7,7 @@ import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
 import { historyPager, beforeGroups, attachFollows, entryNote, undoneBadge, statusNode, groupLevels, groupIds, routeNote } from './history.js';
 import { planEmpty, showResult } from './plans.js';
+import { backStep, forwardStep, ownTakes, redoSteps, keepRedo } from './stepback.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
 import { emptyNote } from './searchbox.js';
@@ -446,14 +447,35 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     else act();
     return true;
   }
-  // Undo the newest take made in Sode (a whole Group). Externals are skipped, whatever the filters show.
+  // Ctrl+Z: undo the newest take this tab sent that nothing has put back yet (a whole Group), one further back each press
+  // (backStep in stepback.js). Externals and other browsers' takes are never a step, whatever the filters show.
   function undoLast() {
-    // A Free Protect counts (its Undo sets the Protect again); a Protect does not, since its Undo frees one.
-    const last = S.hist.find((x) => !x.ext && x.protect !== 'set');
-    if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
-    const e = attachFollows(last);
-    const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group).map(attachFollows);
-    undoRow(takes ? { f: { group: e.group, n: e.groupN, entries: takes, shown: takes } } : { e });
+    const step = backStep(S.hist, ownTakes(), redoSteps());
+    if (!step) return showResult('info', 'Nothing to undo', 'No take from this browser is left to undo.');
+    stepRow(rowOf(step.entries), 'undo', { step: 'back', stepIds: step.entries.map((x) => x.id) });
+  }
+
+  // Ctrl+Shift+Z: redo the newest take that Ctrl+Z undid in this tab, as the row's Redo does.
+  function redoLast() {
+    const { entries, keep } = forwardStep(S.hist, redoSteps());
+    keepRedo(keep);
+    if (!entries) return showResult('info', 'Nothing to redo', 'No take from this browser is left to redo.');
+    stepRow(rowOf(entries), 'again', { step: 'forward' });
+  }
+
+  // One entry is a row of its own; more are its Group.
+  function rowOf(entries) {
+    const takes = entries.map(attachFollows);
+    const e = takes[0];
+    return takes.length > 1 ? { f: { group: e.group, n: e.groupN, entries: takes, shown: takes } } : { e };
+  }
+
+  function stepRow(row, act, mark) {
+    const view = rowView(row);
+    const x = row.f || row.e;
+    const plan = view.actions(x)[act].plan;
+    if (planEmpty(plan)) return showResult('warn', act === 'undo' ? 'Nothing to undo' : 'Nothing to redo', view.empty(x));
+    openConfirm({ ...plan, ...mark });
   }
 
   function undoRow(row) {
@@ -464,12 +486,13 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     openConfirm(plan);
   }
 
-  // The Palette's Undo row.
+  // The Palette's Undo and Redo rows, and the Grid popup.
   on('undoLast', undoLast);
+  on('redoLast', redoLast);
 
   function histArea(n) {
     return !!n && (histList.contains(n) || $('history-more').contains(n));
   }
 
-  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, pager, useEnd };
+  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, redoLast, pager, useEnd };
 }
