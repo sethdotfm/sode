@@ -86,13 +86,23 @@ function logCells(e, { off = 0, level = () => '' }) {
   ];
 }
 
+// With two or more routers each file gets a last column, router: the Router prefix of the row's router. It is blank
+// for a row that names no router. opts.router(uid) gives the prefix; with no opts.router the files keep their old columns.
+const withRouter = (cells, router, uid) => (router ? [...cells, uid ? router(uid) : ''] : cells);
+const routerCols = (cols, router) => (router ? [...cols, 'router'] : cols);
+
 // rows in the order they go in the file.
-export const logCSV = (rows, opts) => csvLine(LOG_COLS) + rows.map((e) => csvLine(logCells(e, opts))).join('');
+export const logCSV = (rows, opts) =>
+  csvLine(routerCols(LOG_COLS, opts.router)) + rows.map((e) => csvLine(withRouter(logCells(e, opts), opts.router, e.router))).join('');
 
 const stamp = (ms) => new Date(ms).toISOString();
 const STATE_NOTE = { up: 'Router link up', down: 'Router link down or connecting', off: 'Sode not running' };
 
-export const statesCSV = (states) => csvLine(['time', 'state', 'note']) + states.map((x) => csvLine([stamp(x.t), x.s, STATE_NOTE[x.s] || ''])).join('');
+export const statesCSV = (states, router = null) =>
+  csvLine(routerCols(['time', 'state', 'note'], router)) +
+  states.map((x) => csvLine(withRouter([stamp(x.t), x.s, STATE_NOTE[x.s] || ''], router, x.router))).join('');
 
 // Only minutes with a count. m is in minutes since 1970.
-export const minutesCSV = (mins) => csvLine(['minute', 'bad', 'slow']) + mins.map((x) => csvLine([stamp(x.m * 60_000), x.bad, x.slow])).join('');
+export const minutesCSV = (mins, router = null) =>
+  csvLine(routerCols(['minute', 'bad', 'slow'], router)) +
+  mins.map((x) => csvLine(withRouter([stamp(x.m * 60_000), x.bad, x.slow], router, x.router))).join('');

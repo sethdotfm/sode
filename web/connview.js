@@ -1,25 +1,25 @@
 // The Server and Router status with the router's address. The main page's top right (index.html #conn, desktop.js)
 // and the Grid panel's header (gridpanelheadview.js) draw this one block.
-import { el, S, connState, setDot, routerTitle, routerIcon } from './core.js';
+import { el, connState, setDot, routerTitle, routerIcon, linkList } from './core.js';
 import { statusInfo } from './statusinfo.js';
-import { routerLinks, routerMarks, allUp } from './routerlinkrules.js';
+import { routerMarks } from './routerlinkrules.js';
 
-// n is { root, srvDot, srvText, routers, addr }. Returns connState() with ok for every router, so a caller can act on a
-// lost link.
+// n is { root, srvDot, srvText, routers, addr }. Returns connState(), so a caller can act on a lost link.
 export function paintConn(n) {
   const c = connState();
-  const list = routerLinks(S);
+  const list = linkList();
   setDot(n.srvDot, n.srvText, [c.ws[0], 'Server'], { base: 'server', label: c.ws[1] });
   paintRouters(n.routers, routerMarks(list));
   // With more than one router each mark names its prefix and the details give the addresses.
   const [label, isName] = list.length === 1 ? routerTitle() : ['', false];
   n.addr.textContent = label;
   n.addr.classList.toggle('sode__conn-addr--name', isName);
-  const ok = c.ok && allUp(list);
-  n.root.classList.toggle('sode__conn--ok', ok);
+  n.root.classList.toggle('sode__conn--ok', c.ok);
+  // Degraded: Compact view shows only the red icon of each lost router (bar.css).
+  n.root.classList.toggle('sode__conn--degraded', c.degraded.length > 0);
   // The phone shows these words as the native title; elsewhere the details show them (statusinfo.js).
   statusInfo(n.root).paint(connTitle(c, list));
-  return { ...c, ok };
+  return c;
 }
 
 const connTitle = (c, list) =>

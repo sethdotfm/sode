@@ -3,7 +3,7 @@
 // only offers what it would allow. The Approval and PIN recheck popups load when a refusal needs them, so plans.js
 // stays free of their page setup.
 
-import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, routerOfItem, LINK_DOWN } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, icon, firstLinked, dstItem, labelNode, routerOfItem, LINK_DOWN } from './core.js';
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
@@ -244,7 +244,7 @@ export const protectOfferOf = (n) =>
     right: right(),
     admin: role === 'administrator',
     device: device(),
-    linked: linked(),
+    linked: firstLinked(),
   });
 
 // The keyboard mode key: x sets, Shift+x frees, when the route view offers it. false when it does not.

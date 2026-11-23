@@ -19,6 +19,7 @@ import {
   srcItem,
   labelNode,
   routerOfItem,
+  linkList,
 } from './core.js';
 import { defaultLevelsWord, allLevels, levelText, levelSource, oneLevel } from './levelview.js';
 import { levelBox } from './levelbox.js';
@@ -26,7 +27,8 @@ import { levelRouterOf } from './levels.js';
 import { fedBy, currentlyNodes, fedThroughTies } from './routes.js';
 import { flipped } from './device.js';
 import { paintRouters } from './connview.js';
-import { routerLinks, routerMarks } from './routerlinkrules.js';
+import { routerMarks } from './routerlinkrules.js';
+import { renderDegraded } from './degradedview.js';
 import { resultNode, patchPlan, rightsOff, lastTake, nextTake, nextFind, boxPatch, lastChip } from './plans.js';
 import { nextAdd } from './boxlist.js';
 import { layout, onLayout } from './layout.js';
@@ -93,13 +95,14 @@ function renderConn() {
   const c = connState();
   setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Server'], { base: 'server', label: c.ws[1] });
   $('m-ws-text').parentElement.title = c.ws[1];
-  const list = routerLinks(S);
+  const list = linkList();
   paintRouters($('m-routers'), routerMarks(list), true);
   const [label, isName] = list.length === 1 ? routerTitle() : ['', false];
   $('m-rt-addr').textContent = label;
   $('m-rt-addr').title = label;
   $('m-rt-addr').classList.toggle('sode__conn-addr--name', isName);
   renderDown($('m-down'), c);
+  renderDegraded($('m-degraded'), c);
   syncGo();
 }
 

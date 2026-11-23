@@ -20,6 +20,7 @@ import { prefixOf } from './routerprefix.js';
 import { boxRouter, wireBoxRouter } from './boxrouter.js';
 import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
+import { renderDegraded } from './degradedview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { levelRouterOf } from './levels.js';
@@ -136,6 +137,7 @@ function renderConn() {
   });
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';
   renderDown($('conn-down'), c);
+  renderDegraded($('conn-degraded'), c);
 }
 needsLink($('patch'));
 

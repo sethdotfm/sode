@@ -1,10 +1,12 @@
-// Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js and routerprefix.js, so no import cycle occurs.
+// Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js, routerprefix.js and routerlinkrules.js, so no import
+// cycle occurs.
 
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
 import { searchText, prefixOf, typedPrefix } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
+import { routerLinks, wholeState, lost } from './routerlinkrules.js';
 
 // A send or a pending answer with no Server link.
 export const LINK_DOWN = 'Server link down.';
@@ -139,6 +141,12 @@ const FIRST = Object.freeze({
   get link() {
     return S.router;
   },
+  get addr() {
+    return S.routerAddr;
+  },
+  get err() {
+    return S.routerLastErr;
+  },
 });
 
 // routerData is the one accessor for the names, tally, levels (with numbering and default levels) and link of one router.
@@ -209,10 +217,13 @@ function setRouters(list) {
   }
 }
 
+// err is the last error, kept while the link connects again, as setStatus keeps routerLastErr for the first router.
 function setRouterStatus(st, m) {
+  if ((m.addr || '') !== st.addr) st.err = '';
   st.link = m.router || null;
   st.addr = m.addr || '';
-  st.err = m.err || '';
+  if (m.err) st.err = m.err;
+  else if (st.link === 'up') st.err = '';
 }
 
 export function toggle(set, k) {
@@ -549,19 +560,35 @@ function setStatus(st) {
 
 export function connState() {
   const ws = { up: ['ok', 'Server connected'], connecting: ['warn', 'Server connecting'], down: ['error', 'Server disconnected'] }[S.wsState];
-  const map = { up: ['ok', 'connected'], connecting: ['warn', 'connecting'], down: ['error', 'down'] };
-  const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
+  const list = linkList();
+  // rt: the first router's link.
+  const { state: dot, word } = list[0];
+  const whole = S.wsState === 'up' ? wholeState(list) : '';
   let down = null;
   if (S.wsLost) {
     down = { title: 'Lost link: Server link down', err: S.wsErr, links: [false, null] };
-  } else if (S.wsState === 'up' && S.router === 'down' && !S.routerAddr) {
+  } else if (list.length === 1 && S.wsState === 'up' && S.router === 'down' && !S.routerAddr) {
     down = { title: 'No router set', text: 'Set the router address in Settings.' };
-  } else if (S.wsState === 'up' && (S.router === 'down' || (S.router === 'connecting' && S.routerLastErr))) {
+  } else if (list.length === 1 && whole === 'down') {
     down = { title: 'Lost link: Router link down', err: S.routerLastErr, links: [true, false] };
+  } else if (whole === 'down') {
+    // Sode is Down: one hop for each router.
+    const err = list.map((r) => (r.err ? `Router ${r.prefix}: ${r.err}` : '')).filter(Boolean);
+    down = { title: 'Lost link: every Router link down', err: err.join('\n'), links: [true, false], routers: list };
   }
-  // ok: both links up, the only state that Compact view is allowed to hide the status for.
-  return { ws, rt: [dot, `Router ${word}`], down, ok: ws[0] === 'ok' && dot === 'ok' && !down };
+  // ok: every link up, the only state that Compact view is allowed to hide the status for. degraded: the lost routers
+  // while Sode is Degraded, with no banner.
+  return {
+    ws,
+    rt: [dot, `Router ${word}`],
+    down,
+    degraded: !down && whole === 'degraded' ? list.filter(lost) : [],
+    ok: ws[0] === 'ok' && !down && list.every((r) => r.state === 'ok'),
+  };
 }
+
+// The Router link of every router, in config order (routerlinkrules.js).
+export const linkList = () => routerLinks(S, routerData);
 
 export function routerTitle() {
   const show = S.cfg?.routerShow || 'address';
@@ -600,7 +627,7 @@ export function renderDown(box, c) {
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   if (!c.down) return box.replaceChildren();
-  const { title, text, err, links } = c.down;
+  const { title, text, err, links, routers } = c.down;
   // links[k] is the wire into node k + 1: true ok, false lost, null unknown (past a lost link).
   const wire = (ok) => {
     const [tone, word] = ok === true ? ['ok', 'ok'] : ok === false ? ['error', 'lost'] : ['idle', 'unknown'];
@@ -608,6 +635,10 @@ export function renderDown(box, c) {
   };
   const node = (glyph, ok, ...label) =>
     el('span', 'sode__down-node' + (ok === false ? ' sode__down-node--down' : ok === null ? ' sode__down-node--unknown' : ''), icon(glyph, false), ...label);
+  // With more than one router, the last wire leads to a node for each router.
+  const routerNodes = routers
+    ? routers.map((r) => node(routerIcon(), links[1], `Router ${r.prefix} `, r.title ? `${r.title} ` : '', el('code', null, r.addr || '?')))
+    : [node(routerIcon(), links?.[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?'))];
   box.replaceChildren(
     ...[
       el('div', 'sode__down-title', icon('unplug', false), title),
@@ -618,12 +649,7 @@ export function renderDown(box, c) {
           node('monitor', true, 'This browser'),
           // A wire and the node it leads to wrap as one, so a line never starts with a loose wire.
           el('span', 'sode__down-hop', wire(links[0]), node('server', links[0], 'Sode server')),
-          el(
-            'span',
-            'sode__down-hop',
-            wire(links[1]),
-            node(routerIcon(), links[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
-          ),
+          el('span', 'sode__down-hop', wire(links[1]), ...routerNodes),
         ),
       text && el('div', null, text),
       err && el('div', 'sode__down-why', el('span', null, 'Reason'), el('code', null, err)),
@@ -649,7 +675,11 @@ export function nameProblem(name, names, { noun = 'item', old = '', max = 32, re
   return '';
 }
 
-export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
+// linked: the Server link and one or more Router links are up. While Sode is Degraded a take can still go to a router
+// that is up; planBlocked refuses a route to a router with no link. firstLinked is for the Protects, which the page
+// keeps on the first router only.
+export const linked = () => !!S.ws && S.wsState === 'up' && linkList().some((r) => r.link === 'up');
+export const firstLinked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
 
 // needsLink buttons look disabled through a class and aria-disabled, not the disabled attribute, so a
 // focused button keeps focus; a press still goes through planBlocked.
