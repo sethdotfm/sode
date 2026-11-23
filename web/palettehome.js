@@ -23,7 +23,7 @@ function runAction(id) {
   else if (id === 'filters') openFilters();
   else if (id === 'compact') {
     toggleCompact();
-    showResult('ok', 'Compact view changed', `Compact view is ${compactOn() ? 'on' : 'off'} now.`);
+    showResult('done', 'Compact view changed', `Compact view is ${compactOn() ? 'on' : 'off'} now.`);
   } else if (id === 'shortcuts') emit('openShortcuts');
   else if (id === 'stepIn') $('account-stepin').click();
   else if (id === 'protect') openProtectPick();
@@ -38,7 +38,7 @@ let myDefaultPressed = '';
 on('myDefaultDone', (d) => {
   if (d.id !== myDefaultPressed) return;
   myDefaultPressed = '';
-  showResult('ok', 'My default changed', d.text);
+  showResult('done', 'My default changed', d.text);
   // The pressed button can hide after the save, which drops the focus to body. The setting keeps it.
   if (!document.activeElement || document.activeElement === document.body) $(d.field)?.focus({ preventScroll: true });
 });

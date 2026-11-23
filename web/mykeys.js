@@ -17,7 +17,7 @@ pinIn.inputMode = 'numeric';
 const list = el('div', 'sode__key-list');
 const shown = el('div');
 const note = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
-const makeBtn = btn('pb-btn--ok', 'Make key');
+const makeBtn = btn('sode-btn--primary', 'Make key');
 
 const dlg = modal({
   titleId: 'mykeys-title',

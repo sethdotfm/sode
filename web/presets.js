@@ -128,7 +128,7 @@ const rowsBox = el('div', 'sode__preset-rows');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
 const delBtn = btn('pb-btn--outline', 'Delete', () => deleteClick());
-const saveBtn = btn('pb-btn--commit', 'Save', () => save());
+const saveBtn = btn('sode-btn--primary', 'Save', () => save());
 const linkUI = itemLinkBox();
 const saveAsBtn = btn('pb-btn--outline', 'Save as…', () => askSaveAs());
 const asName = el('input', 'pb-input');
@@ -197,12 +197,12 @@ function setNote(text, error = false) {
   paintSave();
 }
 
+// Unsaved work is amber; a clean Save is the main action. A failure shows in red in the note, not on the button
+// (docs/color-roles.md).
 function paintSave() {
   if (!cur) return;
-  let state = 'commit';
-  if (noteEl.classList.contains('sode__error-text')) state = 'danger';
-  else if (dirty) state = built(!!cur.old && !!cur.from && cur.scope !== cur.from).err ? 'danger' : 'ok';
-  for (const s of ['commit', 'danger', 'ok']) saveBtn.classList.toggle(`pb-btn--${s}`, s === state);
+  saveBtn.classList.toggle('pb-btn--commit', dirty);
+  saveBtn.classList.toggle('sode-btn--primary', !dirty);
 }
 
 const saver = globalSaver({

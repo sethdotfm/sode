@@ -60,7 +60,7 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	})()`)
 	b.waitFor("Take reads Add at the same width, in the add colour", `(() => {
 		const p = document.getElementById('patch');
-		return p.textContent === 'Add' && p.classList.contains('pb-btn--ok') && !p.classList.contains('pb-btn--danger') && !!p.offsetParent && Math.abs(p.getBoundingClientRect().width - `+fmt.Sprint(takeW)+`) < 1;
+		return p.textContent === 'Add' && p.classList.contains('sode-btn--primary') && !p.classList.contains('pb-btn--commit') && !!p.offsetParent && Math.abs(p.getBoundingClientRect().width - `+fmt.Sprint(takeW)+`) < 1;
 	})()`)
 	settle(b)
 	b.shot("bar-light")
@@ -87,7 +87,7 @@ func TestChromePresetAddFromGrid(t *testing.T) {
 	b.waitFor("the popup says it adds, Take reads Add, Clear goes and Done shows", `(() => {
 		const q = (s) => document.querySelector('#grid-pop ' + s);
 		return q('.sode-gridpop__adding')?.offsetParent && /^Add patches to /.test(q('.sode-gridpop__adding-msg').textContent) &&
-			q('.sode-gridpop__take').textContent === 'Add' && q('.sode-gridpop__take').classList.contains('pb-btn--ok') &&
+			q('.sode-gridpop__take').textContent === 'Add' && q('.sode-gridpop__take').classList.contains('sode-btn--primary') &&
 			!q('.sode-gridpop__clear').offsetParent && !!q('.sode-gridpop__done').offsetParent && !q('.sode-gridpop__shield:not([hidden])')?.offsetParent;
 	})()`)
 	count := `(document.querySelector('#grid-pop .sode-gridpop__rows')?.textContent ?? '')`

@@ -19,7 +19,7 @@ for (const s of OWN_SCOPES) {
   box.dataset.scope = s.id;
   scopeBox.append(el('label', 'pb-check', box, el('span', 'pb-check__label', s.text)));
 }
-const addBtn = btn('pb-btn--ok', 'Make API client');
+const addBtn = btn('sode-btn--primary', 'Make API client');
 
 const who = el('select', 'pb-select');
 who.id = 'myclient-key-for';

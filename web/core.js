@@ -236,10 +236,11 @@ function handle(m) {
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
       S.versions = m.versions || {};
+      // Before helloCfg: brand.js makes the accent from a named color's hex.
+      S.brandColors = m.brandColors || [];
       emit('helloCfg', m.cfg);
       S.configPath = m.configPath;
       S.version = m.version || '';
-      S.brandColors = m.brandColors || [];
       S.routerUid = m.routerUid || '';
       S.installUid = m.installUid || '';
       S.prefix = m.prefix || '';

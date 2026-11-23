@@ -80,8 +80,8 @@ function paintGo() {
   const last = M.step === 'lvl';
   const t = takeState();
   $('m-go').textContent = last ? t.word : 'Next';
-  $('m-go').classList.toggle('pb-btn--danger', last && !t.ok);
-  $('m-go').classList.toggle('pb-btn--ok', last && t.ok);
+  $('m-go').classList.toggle('pb-btn--commit', last && !t.ok);
+  $('m-go').classList.toggle('sode-btn--primary', last && t.ok);
   syncGo();
 }
 on('presetAdd', paintGo);

@@ -73,21 +73,26 @@ var PanelActs = []string{"session", "api", "both", "public"}
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
 const MaxFilterSetsBytes = 48 << 10
 
-// Hex is the dark-mode value of the signal token web/base.css maps the name to; the server draws the app icon with it.
+// Hex is the dark-mode value web/base.css maps the name to. The server draws the app icon with it, and the page makes
+// the accent from it (web/accent.js). A Retired color is not offered, but a config that has it still loads and draws.
 type BrandColor struct {
-	Name  string `json:"name"`
-	Label string `json:"label"`
-	Hex   string `json:"-"`
+	Name    string `json:"name"`
+	Label   string `json:"label"`
+	Hex     string `json:"hex"`
+	Retired bool   `json:"retired,omitempty"`
 }
 
-// Never red: that is the lost-link outline.
+// Never red: that is the lost-link outline. The offered hues stay clear of the state colors (docs/color-roles.md).
+// Green, amber and pink are retired: their hues are routed, caution and protected.
 var BrandColors = []BrandColor{
-	{"blue", "Blue", "#5fb2e8"},
-	{"teal", "Teal", "#5ccfc9"},
-	{"green", "Green", "#5fd09a"},
-	{"amber", "Amber", "#e8a35e"},
-	{"violet", "Violet", "#a67ef0"},
-	{"pink", "Pink", "#e87bb3"},
+	{"blue", "Blue", "#5fb2e8", false},
+	{"teal", "Teal", "#5ccfc9", false},
+	{"sky", "Sky", "#4dc3dd", false},
+	{"slate", "Slate", "#a3b4d4", false},
+	{"violet", "Violet", "#a67ef0", false},
+	{"green", "Green", "#5fd09a", true},
+	{"amber", "Amber", "#e8a35e", true},
+	{"pink", "Pink", "#e87bb3", true},
 }
 
 func BrandColorByName(name string) (BrandColor, bool) {
@@ -112,10 +117,13 @@ func BrandHex(v string) (string, bool) {
 	return "", false
 }
 
+// BrandNames are the offered names, without the retired ones.
 func BrandNames() []string {
-	out := make([]string, len(BrandColors))
-	for i, c := range BrandColors {
-		out[i] = c.Name
+	var out []string
+	for _, c := range BrandColors {
+		if !c.Retired {
+			out = append(out, c.Name)
+		}
 	}
 	return out
 }

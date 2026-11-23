@@ -3,6 +3,8 @@ import { el, icon, onMsg, wsSend } from './core.js';
 import { noticeText, badgeText, bannerText, clearNote, shouldNotify, lostText } from './panelwatchrules.js';
 
 const TOAST_MS = 20000;
+// A panel that came back is healthy, so its toast has no color (docs/color-roles.md).
+const TOAST = { warn: 'pb-toast pb-toast--warn', error: 'pb-toast pb-toast--error' };
 let stack = null;
 let badge = null;
 
@@ -34,7 +36,7 @@ function toast(n) {
   close.setAttribute('aria-label', 'Dismiss');
   const node = el(
     'div',
-    `pb-toast pb-toast--${t.kind === 'ok' ? 'ok' : t.kind}`,
+    TOAST[t.kind] || 'pb-toast',
     el('span', 'pb-toast__icon', icon(t.kind === 'ok' ? 'wifi' : 'wifi-off')),
     el('div', 'pb-toast__body', el('div', 'pb-toast__title', title), msg),
     close,

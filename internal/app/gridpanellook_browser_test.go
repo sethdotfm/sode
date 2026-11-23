@@ -190,13 +190,13 @@ func TestChromeGridPanelLook(t *testing.T) {
 		const r = v.getBoundingClientRect(), p = two.getBoundingClientRect();
 		return Math.abs(r.width - p.width) < 2 && r.height > 2 * p.height && v.getAttribute('aria-pressed') === 'true' && getComputedStyle(v).backgroundColor !== 'rgba(0, 0, 0, 0)';
 	})()`)
-	b.waitFor("an armed Take is the main page's red Take, between --pb-status-error and --pb-danger-hover, with its words", `(() => {
+	b.waitFor("an armed Take is the main page's amber Take, between --pb-commit and --pb-commit-hover, with its words", `(() => {
 		const t = document.getElementById('panel-take');
-		if (!t.classList.contains('pb-btn--danger')) return false;
+		if (!t.classList.contains('pb-btn--commit') || t.classList.contains('pb-btn--danger')) return false;
 		// Canvas turns any colour form (oklab from color-mix) into RGB; a probe reads the tokens in this theme.
 		const rgb = (c) => { const x = document.createElement('canvas').getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 1, 1); return [...x.getImageData(0, 0, 1, 1).data]; };
 		const token = (v) => { const p = document.createElement('i'); p.style.color = 'var(' + v + ')'; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return rgb(c); };
-		const bg = rgb(getComputedStyle(t).backgroundColor), lo = token('--pb-status-error'), hi = token('--pb-danger-hover');
+		const bg = rgb(getComputedStyle(t).backgroundColor), lo = token('--pb-commit'), hi = token('--pb-commit-hover');
 		const ink = rgb(getComputedStyle(t).color), want = token('--pb-text-on-accent');
 		const near = (a, b) => a.slice(0, 3).every((v, k) => Math.abs(v - b[k]) <= 3);
 		return t.classList.contains('sode-panel__take--armed') && bg.slice(0, 3).every((v, k) => v >= Math.min(lo[k], hi[k]) - 3 && v <= Math.max(lo[k], hi[k]) + 3) && near(ink, want);

@@ -66,7 +66,7 @@ export function openProtectPick() {
   });
   const filters = el('div', { class: 'sode-protpick__filters', role: 'group', 'aria-label': 'Show' }, ...chips);
   const list = el('div', { class: 'sode-protpick__list', id: 'protpick-list', role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': 'Destinations' });
-  const count = el('span', { class: 'pb-badge pb-badge--info sode-protpick__count', id: 'protpick-count', 'aria-live': 'polite' });
+  const count = el('span', { class: 'pb-badge sode-protpick__count', id: 'protpick-count', 'aria-live': 'polite' });
   const alt = el('button', { class: 'pb-btn pb-btn--outline', type: 'button', id: 'protpick-alt' });
   const go = el('button', { class: 'pb-btn', type: 'button', id: 'protpick-go' });
   const cancel = el('button', { class: 'pb-btn pb-btn--ghost', type: 'button' }, 'Cancel');
@@ -114,7 +114,7 @@ export function openProtectPick() {
     count.hidden = !picked.size;
     const s = pickSplit([...picked], protectOfferOf);
     const main = s.first === 'clear' ? 'clear' : 'set';
-    go.className = `pb-btn ${main === 'set' ? 'pb-btn--primary' : 'pb-btn--danger'}`;
+    go.className = 'pb-btn sode-btn--primary';
     go.textContent = main === 'set' ? (s.protect.length ? `Protect ${s.protect.length}` : 'Protect') : `Free ${s.clear.length}`;
     go.disabled = !s.first;
     // With a mix, Free is the second button: Enter and the main button protect.

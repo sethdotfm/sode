@@ -128,7 +128,7 @@ routers:
 Settings-only keys (no seed var):
 
 - `brandText`: replaces "Sode" in the header and page title, up to 24 characters.
-- `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`, or a custom `#rrggbb`): a border round the window, off by default.
+- `brandBorder` (`blue`, `teal`, `sky`, `slate`, `violet`, or a custom `#rrggbb`): a border round the window, off by default. Sode makes the accent from it (docs/color-roles.md). `green`, `amber` and `pink` are retired: Settings does not offer them, but a config that has one still loads, with a caution note in Settings.
 - `title` (router): the router title, up to 32 characters.
 - `statusLabel` (router: `address`, `name` or `none`): what the Router status shows.
 - `levelColors`
@@ -231,7 +231,7 @@ ACKed messages also show how long the router needed.
 
 The **Router uptime** graph at the top of the log is one strip with toggles for 1 hour, 24 hours, 7 days and 30 days. The default view is 24 hours. Each toggle shows its bar length, for example "24 hours (15 min)". A toggle also sets the log's From time to that long ago, so the table shows the same period, and Clear times undoes it. Setting From or To by hand shows that range instead. Click a bar to see only that slot. The log's times become the bar's, the table is sorted newest first, and a banner says so. **Back** restores the times and sort you had.
 
-Each bar is a slot: a minute for an hour, 15 minutes for a day and an hour for a week. Hover a bar for the details. A bar is green when the router link was up the whole slot. It is yellow when the link was down for part of the slot. It is also yellow when messages failed, needed a retry or needed more than 300 ms to ACK. It is red when the link was down or Sode was not running, and grey with nothing recorded. Sode keeps the record for 365 days in `SODE_UPTIME`, and at most 5 MB of it. Sode finds the times when it was not running from a stamp that it rewrites every minute. As a result, a crash shows as down from the last minute that Sode was alive.
+Each bar is a slot: a minute for an hour, 15 minutes for a day and an hour for a week. Hover a bar for the details. A bar is grey when the router link was up the whole slot. A healthy state shows no color (docs/color-roles.md). It is yellow when the link was down for part of the slot. It is also yellow when messages failed, needed a retry or needed more than 300 ms to ACK. It is red when the link was down or Sode was not running, and the color of an empty control with nothing recorded. Sode keeps the record for 365 days in `SODE_UPTIME`, and at most 5 MB of it. Sode finds the times when it was not running from a stamp that it rewrites every minute. As a result, a crash shows as down from the last minute that Sode was alive.
 
 ## Protocol notes
 

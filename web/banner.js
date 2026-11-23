@@ -4,7 +4,8 @@ import { el, S, icon, emit } from './core.js';
 
 let seq = 0;
 
-// r: { kind, title, text, track }; text is a string or a function building nodes.
+// r: { kind, title, text, track }; text is a string or a function building nodes. Kind 'ok' is green, so it is for a Take
+// that succeeded only (docs/color-roles.md). 'done' is any other success: neutral, and it goes away like 'ok'. 'info' is neutral.
 export function setResult(r) {
   const res = (S.result = { ...r, id: ++seq });
   const ms = dismissMs(res.kind, S.cfg?.resultDismissSeconds || 0);
@@ -14,7 +15,9 @@ export function setResult(r) {
 
 export const showResult = (kind, title, text, track = null) => setResult({ kind, title, text, track });
 
-export const dismissMs = (kind, secs) => (kind === 'ok' && secs > 0 ? secs * 1000 : 0);
+export const dismissMs = (kind, secs) => ((kind === 'ok' || kind === 'done') && secs > 0 ? secs * 1000 : 0);
+
+const ALERT = { ok: 'pb-alert pb-alert--ok', warn: 'pb-alert pb-alert--warn', error: 'pb-alert pb-alert--error' };
 
 // Also the Grid panel page's banner (gridpanelheadview.js), for a result whose cause has cleared.
 export function dismissResult(r) {
@@ -46,7 +49,7 @@ export function resultNode(r) {
     'sode__banner-in',
     el(
       'div',
-      `pb-alert pb-alert--${r.kind}`,
+      ALERT[r.kind] || 'pb-alert',
       el('div', 'sode__banner-body', el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text),
       close,
     ),
@@ -54,7 +57,7 @@ export function resultNode(r) {
   wrap.append(inner);
   const ms = dismissMs(r.kind, S.cfg?.resultDismissSeconds || 0);
   if (ms) {
-    const bar = el('div', 'pb-progress__bar pb-progress__bar--ok sode__banner-bar');
+    const bar = el('div', 'pb-progress__bar sode__banner-bar');
     bar.style.animationDuration = `${ms}ms`;
     inner.append(el('div', 'pb-progress sode__banner-time', bar));
   }

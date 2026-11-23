@@ -62,7 +62,7 @@ func TestChromeEditorSaveKeepsEdits(t *testing.T) {
 	b.waitFor("two failures (the save and its one retry): the button says Retry save", `window.puts === 2 && saveBtn().textContent === 'Retry save' && saveBtn().classList.contains('pb-btn--danger') && state() === 'Not saved' && !saveBtn().disabled && !document.getElementById('ed-status').hidden && cellsOn(2) === 0`)
 	b.shot("save-failed")
 	b.eval(`saveBtn().click(); true`)
-	b.waitFor("Retry save works", `state() === 'Saved' && saveBtn().textContent === 'Save' && saveBtn().classList.contains('pb-btn--ok') && document.getElementById('ed-status').hidden`)
+	b.waitFor("Retry save works", `state() === 'Saved' && saveBtn().textContent === 'Save' && saveBtn().classList.contains('sode-btn--primary') && document.getElementById('ed-status').hidden`)
 	if n1, n2 := stored(); n1 != 0 || n2 != 0 {
 		t.Errorf("after the retry the pages hold %d and %d cells, want 0 and 0", n1, n2)
 	}
