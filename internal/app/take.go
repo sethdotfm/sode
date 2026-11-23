@@ -66,15 +66,16 @@ func (a *App) takeAllowed(c *client, items []routeReq) (unread bool) {
 			items[i].Group, items[i].GroupN = g, len(items)
 		}
 	}
-	return a.runParts(r, c, items)
+	return a.runParts(r, c, items, true)
 }
 
-// runParts runs items, which already have their Group, on their routers side by side.
-func (a *App) runParts(r *runtime, c *client, items []routeReq) (unread bool) {
+// runParts runs items, which already have their Group, on their routers side by side. Without stage, fireMode native
+// stages nothing: a tie take sends ordinary connects (docs/tielines-design.md, "Order and failures").
+func (a *App) runParts(r *runtime, c *client, items []routeReq, stage bool) (unread bool) {
 	parts := a.byRouter(c, items)
 	reads := make([]bool, len(parts))
 	// Each router has its own link and send queue, so the parts run side by side.
-	runLimited(len(parts), len(parts), func(i int) { reads[i] = a.takeOnRouter(r, c, parts[i].u, parts[i].items) })
+	runLimited(len(parts), len(parts), func(i int) { reads[i] = a.takeOnRouter(r, c, parts[i].u, parts[i].items, stage) })
 	return slices.Contains(reads, false)
 }
 
@@ -109,9 +110,9 @@ func (a *App) byRouter(c *client, items []routeReq) []routerPart {
 
 // takeOnRouter runs the routes of a take that are on router u. read is false when the check before take did not
 // finish for some route, so its Prev came from the cache.
-func (a *App) takeOnRouter(r *runtime, c *client, u *routerUnit, items []routeReq) (read bool) {
+func (a *App) takeOnRouter(r *runtime, c *client, u *routerUnit, items []routeReq, stage bool) (read bool) {
 	ext, read := a.checkRoutes(r, u, c, items)
-	if r.cfg.FireMode == "native" && len(items) > 1 {
+	if stage && r.cfg.FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
 			a.takeNative(r, u, c, items, ext)
 			return read

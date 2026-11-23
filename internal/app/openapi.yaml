@@ -2456,9 +2456,9 @@ components:
               src: { type: integer }
               dst: { type: integer }
               levels: { type: array, items: { type: integer } }
-              result: { type: string, enum: [connected, already, failed] }
+              result: { type: string, enum: [connected, already, failed], description: "A route across routers: connected when any hop changed, already when no hop changed" }
               ok: { type: boolean }
-              already: { type: array, items: { type: integer }, description: Levels already on the source }
+              already: { type: array, items: { type: integer }, description: "Levels already on the source. Empty on a route across routers that is connected" }
               error: { type: string }
               entry: { type: integer, description: The History entry id; follow it for a late result }
               hops: { type: array, items: { $ref: "#/components/schemas/EntryHop" }, description: "A route across routers: each hop before the last, upstream first" }
