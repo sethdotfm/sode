@@ -232,7 +232,9 @@ type importPlanner struct {
 	liveNames  liveNameSet
 	// routers: file router UID → its target here, "" for none (importrouters.go). drops: item → the titles of the
 	// routers with no target that it names.
-	routers    routerMap
+	routers routerMap
+	// clash: the final map puts two file routers on one target (planRemap). The check and the apply refuse it.
+	clash      error
 	drops      map[string][]string
 	livePanels []Panel
 	removed    importRemovals

@@ -290,6 +290,9 @@ func (p *importPlanner) planRemap() {
 		byRouter[r.UID] = rr
 		info.Routers = append(info.Routers, *rr)
 	}
+	// A request that names some file routers keeps the defaults of the others, so a default can take a target
+	// that the request gives too. checkRouterTargets sees only the request.
+	p.clash = checkRouterTargets(importReq{Routers: p.routers}, p.live)
 
 	idx := map[string]int{}
 	counted := map[string]bool{}

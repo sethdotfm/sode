@@ -70,7 +70,8 @@ func routerKeys(b *exportBundle, fn func(item, uid string) (string, bool)) {
 		if uid := b.Settings.HiddenDstsRouter; uid != "" {
 			to, keep := fn("settings", uid)
 			if !keep {
-				to = ""
+				// A router with no target: its numbers match nothing here, as for Remove router.
+				to, b.Settings.HiddenDsts = "", withoutNumberTerms(b.Settings.HiddenDsts)
 			}
 			b.Settings.HiddenDstsRouter = to
 		}
