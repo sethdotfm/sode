@@ -30,11 +30,11 @@ export function rereadNames() {
 on('names', () => {
   if (!pending) return;
   const total = { srcs: S.srcs.length, dsts: S.dsts.length };
-  finish('ok', 'Router names updated', changeText(namesChange(pending.before, { srcs: S.srcs, dsts: S.dsts }), total));
+  finish('done', 'Router names updated', changeText(namesChange(pending.before, { srcs: S.srcs, dsts: S.dsts }), total));
 });
 
 on('namesChecked', () => {
   if (!pending) return;
   if (S.namesAt === pending.at) return noAnswer();
-  finish('ok', 'Router names re-read', changeText({ srcs: 0, dsts: 0 }, { srcs: S.srcs.length, dsts: S.dsts.length }));
+  finish('done', 'Router names re-read', changeText({ srcs: 0, dsts: 0 }, { srcs: S.srcs.length, dsts: S.dsts.length }));
 });

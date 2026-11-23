@@ -472,7 +472,7 @@ function finish(p) {
   const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope);
   const text = `${summaryText(p)} imported to ${where}.`;
   close();
-  showResult('ok', 'Import done', text);
+  showResult('done', 'Import done', text);
 }
 
 function apply() {
@@ -559,7 +559,7 @@ function copyApply(p) {
     clear(m, keep);
     const text = moveText(summaryText(p) === 'Nothing' ? 'This browser’s values' : summaryText(p), keep);
     close();
-    showResult('ok', keep ? 'Copied' : 'Moved', text);
+    showResult('done', keep ? 'Copied' : 'Moved', text);
   };
   if (!Object.keys(p.parts).length) return after();
   busy = true;

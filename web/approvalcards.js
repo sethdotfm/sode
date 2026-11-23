@@ -35,7 +35,8 @@ function stackEl() {
 }
 
 // Waiting, approved and cancelled are not attention states, so their card has no color (docs/color-roles.md).
-const toastClass = (kind) => `pb-toast${kind === 'warn' || kind === 'error' ? ` pb-toast--${kind}` : ''} sode-approvals__card`;
+const TOAST = { warn: 'pb-toast pb-toast--warn', error: 'pb-toast pb-toast--error' };
+const toastClass = (kind) => `${TOAST[kind] || 'pb-toast'} sode-approvals__card`;
 
 function toast(kind, title, ...body) {
   const head = el('div', 'pb-toast__title', title);

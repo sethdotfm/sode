@@ -671,6 +671,16 @@ html {
   --pb-loading-ink: var(--pb-text-on-accent);
   color: transparent;
 }
+/* Info and a healthy result are neutral: patchbay's plain alert and toast are blue (its info status), and blue has no
+   state job (docs/color-roles.md). A status modifier keeps its color. Keep in step with patchbay.css .pb-alert and
+   .pb-toast. */
+.pb-alert:not([class*="pb-alert--"]) {
+  background: var(--pb-surface-raised);
+  border-left-color: var(--pb-text-muted);
+}
+.pb-toast:not([class*="pb-toast--"]) {
+  --pb-toast-role: var(--pb-text-muted);
+}
 /* Every churning-letter Confirm button ("Take (X)", "Delete (X)", "Confirm (X)") has one size on every page, so the
    letter reads the same everywhere. It is higher than an action button, so it stays the clear target, but lower than
    the patch boxes, so a Confirm in Settings or a panel does not tower over its form. */
