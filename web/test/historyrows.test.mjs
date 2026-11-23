@@ -9,12 +9,12 @@ globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v
 
 const setup = async () => {
   const m = await import('./all.mjs');
-  const { S } = m;
+  const { S, routerData } = m;
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([[1, {}]]);
-  S.srcBy = new Map([[7, { n: 7, num: 8, name: 'CAM 8', label: 'CAM 8' }]]);
-  S.dstBy = new Map([[5, { n: 5, num: 6, name: 'MON 6', label: 'MON 6' }]]);
-  S.tally = new Map();
+  routerData('').levelBy = new Map([[1, {}]]);
+  routerData('').srcBy = new Map([[7, { n: 7, num: 8, name: 'CAM 8', label: 'CAM 8' }]]);
+  routerData('').dstBy = new Map([[5, { n: 5, num: 6, name: 'MON 6', label: 'MON 6' }]]);
+  routerData('').tally = new Map();
   S.hist = [];
   return m;
 };
@@ -92,14 +92,14 @@ test('histRows: one Protect action on many destinations is one Group, and quick 
 });
 
 test('rowActions: a Group of Protect entries offers Undo all of what it can, and no Redo', async () => {
-  const { rowActions, S } = await setup();
+  const { rowActions, S, routerData } = await setup();
   S.ws = {};
   S.wsState = 'up';
-  S.router = 'up';
+  routerData('').link = 'up';
   S.cfg.protectDevice = 126;
   S.myRights = { protect: true };
-  S.levels = [{ ui: 1 }];
-  S.dstBy = new Map([1, 2, 3].map((n) => [n, { n, num: n + 1, name: `MON ${n + 1}`, label: `MON ${n + 1}` }]));
+  routerData('').levels = [{ ui: 1 }];
+  routerData('').dstBy = new Map([1, 2, 3].map((n) => [n, { n, num: n + 1, name: `MON ${n + 1}`, label: `MON ${n + 1}` }]));
   S.protBy = new Map();
   // 1 and 2 still hold Sode's Protect; 3 was freed since.
   S.prot = new Map([1, 2].map((d) => [d, new Map([[1, { dev: 126, kind: 1 }]])]));

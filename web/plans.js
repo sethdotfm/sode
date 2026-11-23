@@ -35,7 +35,7 @@ function undoItem(e) {
   const skipped = [];
   const untouched = untouchedLevels(e);
   for (const [u, s] of e.prev) {
-    if (!S.levelBy.has(u) || untouched.has(u)) continue;
+    if (!routerData('').levelBy.has(u) || untouched.has(u)) continue;
     if (s < 0) {
       skipped.push(u);
       continue;
@@ -49,7 +49,7 @@ function undoItem(e) {
     dst: dstItem(e.dst, e.dstName, e.router),
     groups: [...groups].map(([s, levels]) => ({ src: srcItem(s, '', e.router), levels: levels.sort((a, b) => a - b) })),
     skipped: skipped.sort((a, b) => a - b),
-    untouched: [...untouched].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b),
+    untouched: [...untouched].filter((u) => routerData('').levelBy.has(u)).sort((a, b) => a - b),
     undo: e,
     retry: null,
   };
@@ -57,7 +57,7 @@ function undoItem(e) {
 
 // A failed take is a retry (linked to its entry); any other is a redo, sent as a plain new
 // take. Needs a real source and a level that still exists.
-export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
+export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => routerData('').levelBy.has(u));
 // Redo of the destination entry of a tie take opens the Tie line picker (docs/tielines-design.md, Redo and Retry). The
 // route goes from the typed source (origin) with the tie lines of the take. The picker chooses them while they are
 // usable, and marks them "Used last time" (tiepickrules.js lastState).
@@ -75,7 +75,7 @@ const againItem = (e) =>
     ? tieAgainItem(e)
     : routeItem(
         dstItem(e.dst, e.dstName, e.router),
-        [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
+        [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => routerData('').levelBy.has(u)).sort((a, b) => a - b) }],
         e.ok ? null : e,
       );
 
@@ -579,7 +579,7 @@ export function lastTake() {
   return {
     src: srcItem(...t.src, uid),
     dsts: t.dsts.map(([n, name]) => dstItem(n, name, dstUid)),
-    levels: t.levels.filter((u) => S.levelBy.has(u)),
+    levels: t.levels.filter((u) => routerData('').levelBy.has(u)),
   };
 }
 

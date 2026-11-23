@@ -27,15 +27,15 @@ async function patched(src, dsts, levels = [1], srcName = `X${src}`) {
 }
 
 test('lastTake: no Last until this browser has made a take, then that take and not History', async () => {
-  const { S, lastTake, lastChip } = await import('./all.mjs');
+  const { S, lastTake, lastChip, routerData } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [] };
-  S.levels = [{ ui: 1 }, { ui: 2 }];
-  S.levelBy = new Map([
+  routerData('').levels = [{ ui: 1 }, { ui: 2 }];
+  routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
   ]);
-  S.srcBy = new Map([3, 4].map((n) => [n, { n, num: n + 1, name: `X${n}` }]));
-  S.dstBy = new Map([7, 8].map((n) => [n, { n, num: n + 1, name: `X${n}` }]));
+  routerData('').srcBy = new Map([3, 4].map((n) => [n, { n, num: n + 1, name: `X${n}` }]));
+  routerData('').dstBy = new Map([7, 8].map((n) => [n, { n, num: n + 1, name: `X${n}` }]));
   S.hist = [{ id: 1, src: 3, srcName: 'X3', dst: 7, dstName: 'X7', levels: [1], ok: true }];
   const empty = { src: null, dsts: [], levels: [] };
   assert.equal(lastTake(), null);
@@ -51,9 +51,9 @@ test('lastTake: no Last until this browser has made a take, then that take and n
 });
 
 test('lastChip: hides what the box already has', async () => {
-  const { S, lastChip } = await import('./all.mjs');
+  const { S, lastChip, routerData } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [] };
-  S.levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
+  routerData('').levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
   const it = (n) => ({ n, num: n + 1, name: `X${n}` });
   const t = { src: it(1), dsts: [it(5), it(6)], levels: [1, 3] };
   const empty = { src: null, dsts: [], levels: [] };
@@ -69,10 +69,10 @@ test('lastChip: hides what the box already has', async () => {
 });
 
 test('nextTake: last take one number higher, per side', async () => {
-  const { S, nextTake } = await import('./all.mjs');
+  const { nextTake, routerData } = await import('./all.mjs');
   const it = (n) => ({ n, num: n + 1, name: `X${n}` });
-  S.srcBy = new Map([1, 2].map((n) => [n, it(n)]));
-  S.dstBy = new Map([5, 6, 7].map((n) => [n, it(n)]));
+  routerData('').srcBy = new Map([1, 2].map((n) => [n, it(n)]));
+  routerData('').dstBy = new Map([5, 6, 7].map((n) => [n, it(n)]));
   await patched(1, [5]);
   let t = nextTake();
   assert.equal(t.src.n, 2);
@@ -89,11 +89,11 @@ test('nextTake: last take one number higher, per side', async () => {
 test('nextTake: fuzzy takes the next match of the name text, in router order', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
-  const { S, nextTake, setPref } = await import('./all.mjs');
+  const { nextTake, setPref, routerData } = await import('./all.mjs');
   const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
   const srcs = [it(1, 'Cam 1'), it(2, 'Bars'), it(7, 'Cam 2'), it(9, 'Cam 3')];
-  S.srcBy = new Map(srcs.map((s) => [s.n, s]));
-  S.dstBy = new Map([[5, it(5, 'Rec 1')]]);
+  routerData('').srcBy = new Map(srcs.map((s) => [s.n, s]));
+  routerData('').dstBy = new Map([[5, it(5, 'Rec 1')]]);
   await patched(1, [5], [1], 'Cam 1');
   setPref('nextMode', 'number');
   assert.equal(nextTake().src.name, 'Bars');
@@ -105,7 +105,7 @@ test('nextTake: fuzzy takes the next match of the name text, in router order', a
 test('nextTake: fuzzy steps through letters too (#149)', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
-  const { S, nextTake, setPref, nameStem } = await import('./all.mjs');
+  const { nextTake, setPref, nameStem, routerData } = await import('./all.mjs');
   assert.equal(nameStem('Prmpt A'), 'Prmpt');
   assert.equal(nameStem('Cam 3'), 'Cam');
   assert.equal(nameStem('Cam3'), 'Cam');
@@ -114,8 +114,8 @@ test('nextTake: fuzzy steps through letters too (#149)', async () => {
   assert.equal(nameStem('A'), 'A');
   const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
   const srcs = [it(1, 'Prmpt A'), it(2, 'Bars'), it(7, 'Prmpt B'), it(9, 'Prmpt C')];
-  S.srcBy = new Map(srcs.map((s) => [s.n, s]));
-  S.dstBy = new Map([[5, it(5, 'Rec 1')]]);
+  routerData('').srcBy = new Map(srcs.map((s) => [s.n, s]));
+  routerData('').dstBy = new Map([[5, it(5, 'Rec 1')]]);
   await patched(1, [5], [1], 'Prmpt A');
   setPref('nextMode', 'fuzzy');
   assert.equal(nextTake().src.name, 'Prmpt B');
@@ -137,11 +137,11 @@ test('protectedText names each hold in the badge', async () => {
 });
 
 test('nextTake: repeating keeps going while the boxes hold the last Next (#195)', async () => {
-  const { S, nextTake, usedNext, resetNext } = await import('./all.mjs');
+  const { nextTake, usedNext, resetNext, routerData } = await import('./all.mjs');
   resetNext();
   const it = (n) => ({ n, num: n + 1, name: `X${n}` });
-  S.srcBy = new Map([1, 2, 3, 4].map((n) => [n, it(n)]));
-  S.dstBy = new Map([5, 6, 7, 8, 9].map((n) => [n, it(n)]));
+  routerData('').srcBy = new Map([1, 2, 3, 4].map((n) => [n, it(n)]));
+  routerData('').dstBy = new Map([5, 6, 7, 8, 9].map((n) => [n, it(n)]));
   await patched(1, [5, 6]);
   const empty = { src: null, dsts: [] };
   let t = nextTake(empty);
@@ -170,11 +170,11 @@ test('nextTake: repeating keeps going while the boxes hold the last Next (#195)'
 test('nextTake: fuzzy falls back to the next number when the name runs out (#196)', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
-  const { S, nextTake, setPref, resetNext } = await import('./all.mjs');
+  const { nextTake, setPref, resetNext, routerData } = await import('./all.mjs');
   resetNext();
   const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
-  S.srcBy = new Map([it(1, 'Cam 1'), it(2, 'Cam 2'), it(3, 'Bars')].map((s) => [s.n, s]));
-  S.dstBy = new Map([[5, it(5, 'Rec 1')]]);
+  routerData('').srcBy = new Map([it(1, 'Cam 1'), it(2, 'Cam 2'), it(3, 'Bars')].map((s) => [s.n, s]));
+  routerData('').dstBy = new Map([[5, it(5, 'Rec 1')]]);
   await patched(2, [5], [1], 'Cam 2');
   setPref('nextMode', 'fuzzy');
   assert.equal(nextTake().src.name, 'Bars');

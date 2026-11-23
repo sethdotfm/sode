@@ -103,7 +103,7 @@ function load() {
     for (const attr of Object.keys(ATTRS)) vers[routerKey(b.uid, attr)] = S.versions?.[routerKey(b.uid, attr)];
   }
   list.replaceChildren(...blocks.map((b) => b.node));
-  const first = S.routers[0]?.prefix || S.prefix || 'A';
+  const first = routerData('').prefix || 'A';
   note.textContent = more.length ? `The levels of router ${first} are in its own block below.` : 'Sode has one router. Its levels are in its own block below.';
 }
 

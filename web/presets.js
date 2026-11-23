@@ -60,7 +60,7 @@ export function fire(scope, name) {
   const s = findPreset(scope, name);
   const host = shown();
   if (!s || !host) return;
-  if (!S.srcBy.size) return showResult('warn', 'Preset not sent', 'Router names not read yet.');
+  if (!routerData('').srcBy.size) return showResult('warn', 'Preset not sent', 'Router names not read yet.');
   const plan = presetPlan(s, parseLevels('') || []);
   emit('itemUsed', { kind: 'preset', scope: s.scope, id: s.id, name: s.name });
   if (!plan.items.length) {
@@ -82,7 +82,7 @@ export function fillBoxes(scope, name) {
   const host = shown();
   if (!s || !host) return;
   if (!host.fill) return showResult('info', `Preset ${s.name}`, 'Fill needs the desktop layout.');
-  if (!S.srcBy.size) return showResult('warn', 'Preset not filled', 'Router names not read yet.');
+  if (!routerData('').srcBy.size) return showResult('warn', 'Preset not filled', 'Router names not read yet.');
   const r = fillFrom(
     s,
     { src: (n, u) => routerData(u).srcBy.has(n), dst: (n, u) => routerData(u).dstBy.has(n), level: (l, u) => routerData(u).levelBy.has(l) },
@@ -305,9 +305,12 @@ function load(s) {
   renderEditor();
 }
 
+// The levels example of a row: the first router's levels, first to last.
+const levelRange = (ls) => (ls.length ? `${ls[0].label}-${ls[ls.length - 1].label}` : '');
+
 // The routers a row can name, the first one first: { uid, prefix, off }.
 const rowRouters = () =>
-  (S.routers.length ? S.routers : [{ uid: routerData('').uid, prefix: S.prefix }]).map((r) => ({
+  (S.routers.length ? S.routers : [routerData('')]).map((r) => ({
     uid: r.uid,
     prefix: r.prefix || '',
     off: routerData(r.uid).off,
@@ -416,7 +419,7 @@ function renderRows() {
         `sode__preset-row${i ? ' sode__preset-row--bare' : ''}`,
         field('src', SRC_EXAMPLE, `Row ${i + 1} source`, 'Source'),
         field('dsts', DST_EXAMPLE, `Row ${i + 1} destinations`, 'Destinations'),
-        field('levels', S.levels.length ? `${S.levels[0].label}-${S.levels[S.levels.length - 1].label}` : '', `Row ${i + 1} levels`, 'Levels'),
+        field('levels', levelRange(routerData('').levels), `Row ${i + 1} levels`, 'Levels'),
         ties,
         btn('pb-btn--ghost', 'Remove', () => {
           cur.items.splice(i, 1);

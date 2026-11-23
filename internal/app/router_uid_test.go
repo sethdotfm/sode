@@ -54,8 +54,8 @@ func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 	}
 }
 
-// The hello carries the prefix for typing (A.23). The UID goes only as routerUid, for the
-// references This browser presets store, and in the routers list; no page shows it.
+// The hello's routers list carries the prefix for typing (A.23) and the UID, for the references This browser presets
+// store; no page shows the UID. The UID is nowhere else in the hello.
 func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
@@ -63,16 +63,12 @@ func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	a.mu.Unlock()
 	var m map[string]any
 	json.Unmarshal(b, &m)
-	if m["prefix"] != "A" {
-		t.Errorf("hello prefix %v", m["prefix"])
+	if first := firstHelloRouter(t, m); first["prefix"] != "A" || first["uid"] != a.r().cfg.UID {
+		t.Errorf("hello first router prefix %v, uid %v", first["prefix"], first["uid"])
 	}
-	if m["routerUid"] != a.r().cfg.UID {
-		t.Errorf("hello routerUid %v", m["routerUid"])
-	}
-	// The routers list names each router by UID too (TestHelloListsEveryRouter).
 	delete(m, "routers")
-	if b, _ := json.Marshal(m); strings.Count(string(b), a.r().cfg.UID) != 1 {
-		t.Error("hello holds the router UID outside routerUid")
+	if b, _ := json.Marshal(m); strings.Contains(string(b), a.r().cfg.UID) {
+		t.Error("hello holds the router UID outside the routers list")
 	}
 }
 

@@ -39,7 +39,7 @@ const liveName = (kind, n, router) => {
 export const saved = ({ id, name, items }) => ({
   id: id || '',
   name,
-  items: items.map((it) => itemRefs(itemNums(it), S.routerUid, liveName)),
+  items: items.map((it) => itemRefs(itemNums(it), routerData('').uid, liveName)),
 });
 const withId = (s) => (s.id ? s : { ...s, id: newPresetId() });
 

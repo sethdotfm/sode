@@ -46,6 +46,21 @@ v2 loads no v1 files, and a page whose build label differs from the hello's relo
 | `SIM_FOLLOWS` | `SIM_EXTERNAL_FOLLOW` | simulator env |
 | `sode-device-defaults` | `sode-browser-defaults` | `localStorage` |
 
+## Hello fields v2 removed
+
+The hello's `routers` list carries the names, tally, levels and link of every router. So these fields of the first router left the hello (#812). The page reads them from the first element of `routers`.
+
+| Removed field of `hello` | Where it is now |
+| --- | --- |
+| `srcs`, `dsts`, `at`, `savedAt` | `srcs`, `dsts`, `at`, `savedAt` of each router |
+| `tally` | `tally` of each router |
+| `status` | `status` of each router |
+| `levels` | `levels` of each router |
+| `prefix` | `prefix` of each router |
+| `routerUid` | `uid` of each router: its UID in the settings |
+
+The first router's Protects stay in `protected` and `protectBy`: the page keeps no Protect state of the other routers.
+
 ## Close names that are not retired
 
 These carry no word from an `_Avoid_` line, so nothing is owed.

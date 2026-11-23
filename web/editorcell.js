@@ -1,6 +1,6 @@
 // The sidebar's Cell tab: the selected cells' settings, or on a Grid panel the selected rows' artwork. Fields are built
 // one time and updated in place, so typing a caption keeps the caret.
-import { el, S } from './core.js';
+import { el, routerData } from './core.js';
 import { field } from './formbits.js';
 import { single, setCells, selCells } from './gridmodel.js';
 import { kindLabel } from './editorrules.js';
@@ -190,7 +190,7 @@ export function createCellTab(ed, { picked }) {
     put(caption, same(cs, 'caption'), fresh);
     put(size, String(same(cs, 'fontSize') || 100), fresh); // shown, so the arrows step from the default
     const levelCells = cs.filter((x) => LEVEL_KINDS.includes(x.kind));
-    levelField.hidden = !levelCells.length || !S.levels.length;
+    levelField.hidden = !levelCells.length || !routerData('').levels.length;
     const mixed = new Set(levelCells.map((x) => JSON.stringify(x.levels ?? null))).size > 1;
     levelNote.textContent = mixed ? 'The cells have different levels. A change sets these on all of them.' : '';
     levelBoxes.draw(levelCells[0]?.levels);

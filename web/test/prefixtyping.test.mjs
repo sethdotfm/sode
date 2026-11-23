@@ -41,14 +41,7 @@ const aSrcs = [
 const hello = (routers) => ({
   t: 'hello',
   version: '',
-  prefix: 'A',
-  routerUid: 'aaa',
   cfg: { numberOffset: 1, routerName: 'Main', filterSets: [], presets: [], bookmarks: [] },
-  levels: [level(1)],
-  srcs: aSrcs,
-  dsts: [[0, 'A MON']],
-  tally: [],
-  status: { t: 'status', router: 'up' },
   routers,
 });
 const send = (m) => sock.onmessage({ data: JSON.stringify(m) });

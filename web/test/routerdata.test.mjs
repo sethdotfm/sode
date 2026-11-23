@@ -26,16 +26,19 @@ const level = (ui) => ({ ui, wire: ui - 1, label: String(ui) });
 const hello = {
   t: 'hello',
   version: '',
-  prefix: 'A',
-  routerUid: 'aaa',
   cfg: { numberOffset: 1, routerName: 'Main', filterSets: [], presets: [], bookmarks: [] },
-  levels: [level(1), level(2)],
-  srcs: [[0, 'CAM 1']],
-  dsts: [[2, 'MON 3']],
-  tally: [[2, 1, 0]],
-  status: { t: 'status', router: 'up', addr: '10.0.0.1:8910' },
   routers: [
-    { uid: 'aaa', prefix: 'A', title: 'Main', numberOffset: 1, levels: [level(1), level(2)], srcs: [[0, 'CAM 1']], dsts: [[2, 'MON 3']], tally: [[2, 1, 0]] },
+    {
+      uid: 'aaa',
+      prefix: 'A',
+      title: 'Main',
+      numberOffset: 1,
+      levels: [level(1), level(2)],
+      srcs: [[0, 'CAM 1']],
+      dsts: [[2, 'MON 3']],
+      tally: [[2, 1, 0]],
+      status: { router: 'up', addr: '10.0.0.1:8910' },
+    },
     {
       uid: 'bbb',
       prefix: 'B',
@@ -63,7 +66,7 @@ test('the hello gives each router its own names, tally, levels and link through 
     b = routerData('bbb');
   assert.equal(routerData('aaa'), a, 'the first router by its UID');
   assert.equal(a.first, true);
-  assert.equal(a.srcs, S.srcs, 'the first router reads the flat fields');
+  assert.deepEqual([a.uid, a.prefix, a.title, a.levels.length, a.link], ['aaa', 'A', 'Main', 2, 'up'], 'the first router comes from the list');
   assert.deepEqual([a.dstBy.get(2).label, b.dstBy.get(2).label], ['A.3 MON 3', 'B.2 B MON'], 'with two routers, the first router shows its prefix too');
   assert.deepEqual([a.tally.get(2).get(1), b.tally.get(2).get(1)], [0, 4]);
   assert.deepEqual([b.levels.length, b.link, b.err], [1, 'down', 'refused']);
@@ -82,17 +85,17 @@ test('tally, names and status messages go to the router they name', () => {
   send({ t: 'tally', u: [[2, 2, 5]], routerUid: 'aaa' });
   send({ t: 'tally', u: [[3, 1, 1]] });
   assert.equal(routerData('bbb').tally.get(2).get(1), 7);
-  assert.equal(S.tally.get(2).get(1), 0, 'the first router keeps its own');
-  assert.deepEqual([S.tally.get(2).get(2), S.tally.get(3).get(1)], [5, 1]);
+  assert.equal(routerData('').tally.get(2).get(1), 0, 'the first router keeps its own');
+  assert.deepEqual([routerData('').tally.get(2).get(2), routerData('').tally.get(3).get(1)], [5, 1]);
   assert.equal(routerData('bbb').tally.has(3), false);
 
   send({ t: 'names', srcs: [[4, 'B CAM 2']], dsts: [], at: 't', routerUid: 'bbb' });
   assert.equal(routerData('bbb').srcBy.get(4).name, 'B CAM 2');
-  assert.equal(S.srcBy.get(0).name, 'CAM 1');
+  assert.equal(routerData('').srcBy.get(0).name, 'CAM 1');
 
   send({ t: 'status', router: 'up', addr: '10.0.0.2:8910', routerUid: 'bbb' });
   assert.equal(routerData('bbb').link, 'up');
-  assert.equal(S.router, 'up');
+  assert.equal(routerData('').link, 'up');
 });
 
 test('items know their router, and a typed prefix picks the router', () => {

@@ -1,7 +1,7 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
 // previews beside the fields. settingssave.js wraps the form as formSource, a save source of the one Save.
 
-import { $, el, S, icon } from './core.js';
+import { $, el, S, icon, routerData } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
 import { fmtTime } from './device.js';
 import { parseLevelsAs } from './levels.js';
@@ -230,18 +230,18 @@ export function renderHiddenNote() {
   if (p.error) text = `${p.error}.`;
   else if (p.rules.length) {
     const fn = compileFilter(p.rules);
-    const n = S.dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
-    text = `${n} of ${S.dsts.length} destinations`;
+    const n = routerData('').dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
+    text = `${n} of ${routerData('').dsts.length} destinations`;
   }
   $('cfg-hidden-note').textContent = text;
 }
 
 export function renderNamesStatus() {
   if (!isOpen()) return;
-  $('names-at').textContent = namesTimeText({ at: S.namesAt, savedAt: S.namesSavedAt }, fmtTime);
-  $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations`;
+  $('names-at').textContent = namesTimeText({ at: routerData('').namesAt, savedAt: routerData('').namesSavedAt }, fmtTime);
+  $('names-status').textContent = `${routerData('').srcs.length} sources, ${routerData('').dsts.length} destinations`;
   const btn = $('names-refresh');
-  btn.disabled = S.router !== 'up';
+  btn.disabled = routerData('').link !== 'up';
   btn.textContent = 'Re-read now';
 }
 

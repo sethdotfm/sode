@@ -1,6 +1,6 @@
 // The sidebar's Panel tab: identity and size, appearance, behavior, device and feedback. Every control writes
 // one key of the panel's settings through setSetting (sidebarrules.js), so the stored file only holds choices.
-import { el, $, S } from './core.js';
+import { el, $, routerData } from './core.js';
 import { field, check, opt, segmented } from './formbits.js';
 import { THEMES } from './panellook.js';
 import { featureSupport, fullscreenNote, LANDSCAPE_HINT } from './panelfeel.js';
@@ -137,7 +137,7 @@ export function createPanelTab(ed) {
     (v) => set('guard', v),
   );
   // The boxes edit the first router's subset; the subsets of other routers stay.
-  const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', putLevels(ed.fields().settings?.levels, S.routerUid, v?.length ? v : null)) });
+  const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', putLevels(ed.fields().settings?.levels, routerData('').uid, v?.length ? v : null)) });
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node);
   const fixed = createFixedField(ed);
   const multi = toggle('multi', 'Stage several Destinations at the same time');
@@ -238,8 +238,8 @@ export function createPanelTab(ed) {
       mode.disable(ro);
       guard.set(s.guard === 'hold' || s.guard === 'double' ? s.guard : 'none');
       guard.disable(ro);
-      levelField.hidden = !S.levels.length;
-      levelBoxes.draw(levelsOn(s.levels, S.routerUid));
+      levelField.hidden = !routerData('').levels.length;
+      levelBoxes.draw(levelsOn(s.levels, routerData('').uid));
       sizes.update();
       theme.select.value = THEMES.includes(s.theme) ? s.theme : 'auto';
       theme.select.disabled = ro;

@@ -60,10 +60,13 @@ func TestPresetSavedAsReferencesFiresSameRoutes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var h struct{ T, RouterUID string }
+		var h struct {
+			T       string
+			Routers []struct{ UID string }
+		}
 		if json.Unmarshal(b, &h) == nil && h.T == "hello" {
-			if h.RouterUID != uid {
-				t.Fatalf("hello routerUid %q, want %q", h.RouterUID, uid)
+			if len(h.Routers) == 0 || h.Routers[0].UID != uid {
+				t.Fatalf("hello routers %+v, want the first UID %q", h.Routers, uid)
 			}
 			break
 		}

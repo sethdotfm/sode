@@ -18,7 +18,7 @@ export const allLevels = (uid = '') => routerData(uid).levels.map((l) => l.ui);
 export const oneLevel = (uid = '') => routerData(uid).levels.length === 1;
 
 // The desktop main page's Levels box: hidden while no router has more than one level. Focus paths into it check this.
-const levelCounts = () => (S.routers.length ? S.routers.map((r) => routerData(r.uid).levels.length) : [S.levels.length]);
+const levelCounts = () => (S.routers.length ? S.routers.map((r) => routerData(r.uid).levels.length) : [routerData('').levels.length]);
 export const levelsShown = () => levelsBoxShown(S.cfg ? levelCounts() : []);
 
 // The patch row's columns follow it (desktop.css .sode__boxes[data-levels]).
@@ -35,12 +35,12 @@ const parseCtx = (uid) => {
 };
 
 // No mode: the server's Level.Label; a mode previews an unsaved numbering.
-export const levelLabel = (ui, mode) => levelLabelOf(S.levels, numbering(), ui, mode);
+export const levelLabel = (ui, mode) => levelLabelOf(routerData('').levels, numbering(), ui, mode);
 export const parseLevels = (text, none = false, uid = '') => parseLevelsIn(text, parseCtx(uid), none);
 export const levelText = (list, uid = '') => levelTextOf(list, routerData(uid).levels, routerData(uid).numbering);
 // "levels 1–4", or "all levels" on a router with one level.
 export const levelsPhrase = (list, uid = '') => (oneLevel(uid) ? 'all levels' : `level${list.length === 1 ? '' : 's'} ${levelText(list, uid)}`);
-export const levelInput = (list, mode) => levelInputOf(list, S.levels, numbering(), mode);
+export const levelInput = (list, mode) => levelInputOf(list, routerData('').levels, numbering(), mode);
 
 export const defaultLevelsWord = (uid = '') => ((parseLevels('', false, uid) || []).length === routerData(uid).levels.length ? 'All' : 'default');
 
@@ -73,4 +73,4 @@ export function levelBar(on, uid = '') {
   return row;
 }
 
-export const pickButtons = (onToggle) => levelPicks(S.levels, onToggle);
+export const pickButtons = (onToggle) => levelPicks(routerData('').levels, onToggle);

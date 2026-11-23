@@ -138,8 +138,8 @@ function setRouters(list) {
   more.clear();
   const { link, addr, err } = FIRST;
   const fresh = newRouter(list[0] || {}, true);
-  delete fresh.off; // the first router's offset reads the settings
-  // The link fields stay, so the hello's status keeps the last error of an unchanged address, as a status message does.
+  delete fresh.off; // the offset of the first router comes from the settings (off)
+  // The link fields stay. So the hello's status keeps the last error of an unchanged address, as a status message does.
   Object.assign(FIRST, fresh, { link, addr, err });
   fillRouter(FIRST, list[0] || {});
   for (const r of list.slice(1)) {

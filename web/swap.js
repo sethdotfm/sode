@@ -1,7 +1,7 @@
 // The Swap dialog (GLOSSARY.md, Swap). An Administrator opens it from Settings > Routers and stages one Swap into
 // the one Save (savesources.js). A user opens it from their own Profile dialog, and it saves their own items at once. Rules in
 // swaprules.js.
-import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN } from './core.js';
+import { el, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN, routerData } from './core.js';
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
 import { addSaveSource } from './savesources.js';
@@ -71,7 +71,7 @@ function fail(text) {
 function current() {
   const f = fields();
   if (!asked || f.side !== asked.side || f.from !== asked.from || f.to == null || f.to === f.from) return null;
-  return swapValue({ router: S.routerUid, side: f.side, from: f.from, to: f.to }, items, ticked, ui.broken.checked);
+  return swapValue({ router: routerData('').uid, side: f.side, from: f.from, to: f.to }, items, ticked, ui.broken.checked);
 }
 
 function paintList() {
@@ -107,7 +107,7 @@ function find() {
   if (f.from == null) return fail('Enter the old number.');
   fail('');
   waiting = ++seq;
-  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: S.routerUid, side: f.side, from: f.from, mine } })) fail(LINK_DOWN);
+  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: routerData('').uid, side: f.side, from: f.from, mine } })) fail(LINK_DOWN);
 }
 
 onMsg('swapListResult', (m) => {

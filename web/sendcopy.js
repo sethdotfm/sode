@@ -1,7 +1,7 @@
 // The Send dialog (Send a copy, GLOSSARY.md): presets, filter sets and panels go to one or more named users as one card
 // each. The server reads Me and Everyone items itself; This browser items go whole (inboxrules.js sendBody).
 
-import { el, S } from './core.js';
+import { el, S, routerData } from './core.js';
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
 import { layout } from './layout.js';
@@ -37,7 +37,7 @@ async function send() {
   if (busy || !to.length) return;
   busy = sendBtn.disabled = true;
   setNote('Sending…');
-  const r = await ask({ t: 'inboxSend', inbox: sendBody(S.routerUid, to, items) });
+  const r = await ask({ t: 'inboxSend', inbox: sendBody(routerData('').uid, to, items) });
   busy = false;
   sendBtn.disabled = !picked().length;
   if (!r.ok) return setNote(r.err, true);

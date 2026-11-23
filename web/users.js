@@ -2,7 +2,7 @@
 // it closes and save with Settings' one Save (usersstage.js).
 // Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a Trusted user. The server holds every rule.
 
-import { $, el, S, on, onMsg, emit, wsSend, sentence, LINK_DOWN } from './core.js';
+import { $, el, S, on, onMsg, emit, wsSend, sentence, LINK_DOWN, routerData } from './core.js';
 import { diffRows } from './savereviewrules.js';
 import { makeUsersSource } from './usersstage.js';
 import { trusted } from './trusted.js';
@@ -378,7 +378,7 @@ function state() {
     users: users.map((u) => ({ rid: u.rid, name: u.name.trim() })),
     clients: clientsTab.read(),
     off: S.cfg?.numberOffset ?? 0,
-    levels: S.levels.length,
+    levels: routerData('').levels.length,
   });
   if (acc.error) return { error: `Manage users: ${acc.error}` };
   const listedOf = (id) => listed.find((u) => u.id === id);

@@ -358,7 +358,7 @@ export function beforeGroups(e) {
   const prev = new Map(e.prev);
   const groups = new Map();
   for (const u of [...e.levels].sort((a, b) => a - b)) {
-    if (!S.levelBy.has(u)) continue;
+    if (!routerData('').levelBy.has(u)) continue;
     const s = prev.has(u) ? prev.get(u) : null;
     if (!groups.has(s)) groups.set(s, []);
     groups.get(s).push(u);
@@ -382,7 +382,7 @@ export function failureGroups(e) {
     prev = new Map(e.prev);
   const groups = new Map();
   for (const u of [...e.failed].sort((a, b) => a - b)) {
-    if (!S.levelBy.has(u)) continue;
+    if (!routerData('').levelBy.has(u)) continue;
     const text = !now.has(u) ? 'no answer' : `${prev.get(u) === now.get(u) ? 'still on' : 'on'} ${tallyText(now.get(u))}`;
     if (!groups.has(text)) groups.set(text, []);
     groups.get(text).push(u);

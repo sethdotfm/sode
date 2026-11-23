@@ -7,12 +7,12 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 
 const setup = async () => {
   const mod = await import('./all.mjs');
-  const { S } = mod;
+  const { S, routerData } = mod;
   S.cfg = { numberOffset: 1, filterSets: [] };
   S.ws = {};
   S.wsState = 'up';
-  S.router = 'up';
-  S.levelBy = new Map([
+  routerData('').link = 'up';
+  routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
   ]);
