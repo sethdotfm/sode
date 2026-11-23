@@ -1,7 +1,7 @@
 // Levels and numbering come in as arguments: a panel page has no socket.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelLabelOf, levelStyle, parseLevelsIn, levelInputOf, levelTextOf, relabelLevelsFor } from '../levels.js';
+import { levelLabelOf, levelStyle, parseLevelsIn, levelInputOf, levelTextOf, relabelLevelsFor, levelRouterOf } from '../levels.js';
 
 const apiLevels = (n, mode = '1') => Array.from({ length: n }, (_, i) => ({ level: i + 1, label: levelLabelOf([], mode, i + 1), swatch: 'x' }));
 
@@ -55,4 +55,23 @@ test('relabelLevelsFor: text keeps its levels when the numbering changes', () =>
   assert.equal(relabelLevelsFor('1-3', apiLevels(17, 'va'), 'va', { mode: '1', max: 17 }), 'V-2');
   assert.equal(relabelLevelsFor('1-3', lv, '1', { mode: '1', max: 17 }), '1-3');
   assert.equal(relabelLevelsFor('1-3', lv, 'va', null), '1-3');
+});
+
+test('levelRouterOf: typed levels follow the router of the destination, else the typed prefix, else the source', () => {
+  const routerOf = (it) => it.router || '';
+  const routerOfText = (t) => (t.startsWith('B.') ? 'b1' : '');
+  const a = { n: 1 };
+  const b = { n: 2, router: 'b1' };
+  assert.equal(levelRouterOf({ dsts: [b, a], src: a }, routerOf), 'b1');
+  assert.equal(levelRouterOf({ dsts: [a, b], src: b }, routerOf), '');
+  assert.equal(levelRouterOf({ dsts: [], dstText: 'B.4', src: a }, routerOf, routerOfText), 'b1');
+  assert.equal(levelRouterOf({ dsts: [], src: b }, routerOf), 'b1');
+  assert.equal(levelRouterOf({}, routerOf), '');
+  // The phone and the desktop parse with that router: typed 1-17 on a router with one level is its one level.
+  const ctx = { b1: { levels: apiLevels(1), numbering: '1', defaultLevels: '1' }, '': { levels: apiLevels(17), numbering: '1', defaultLevels: '1-17' } };
+  assert.deepEqual(parseLevelsIn('1-17', ctx[levelRouterOf({ dsts: [b] }, routerOf)]), [1]);
+  assert.deepEqual(
+    parseLevelsIn('1-17', ctx[levelRouterOf({ dsts: [a] }, routerOf)]),
+    apiLevels(17).map((l) => l.level),
+  );
 });

@@ -42,7 +42,7 @@ export const levelText = (list, uid = '') => levelTextOf(list, routerData(uid).l
 export const levelsPhrase = (list, uid = '') => (oneLevel(uid) ? 'all levels' : `level${list.length === 1 ? '' : 's'} ${levelText(list, uid)}`);
 export const levelInput = (list, mode) => levelInputOf(list, S.levels, numbering(), mode);
 
-export const defaultLevelsWord = () => ((parseLevels('') || []).length === S.levels.length ? 'All' : 'default');
+export const defaultLevelsWord = (uid = '') => ((parseLevels('', false, uid) || []).length === routerData(uid).levels.length ? 'All' : 'default');
 
 // Fixed row of slots, filled when on, so rows line up and color is never the only signal. A router with one level shows
 // "All levels" in place of the row.

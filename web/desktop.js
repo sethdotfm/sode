@@ -5,6 +5,7 @@ import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from 
 import { paintConn } from './connview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
+import { levelRouterOf } from './levels.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
 import {
@@ -82,7 +83,7 @@ function matchesOf(k, text) {
 
 // Typed levels are levels of the router of the route's destination. That is the router of a chosen destination, else
 // the router that the Destination box's text names, else the router of the source. The picker follows it (followLevels).
-const lvlRouter = () => routerOfItem(sel.dst || dsts[0]) || routerOfText(boxes.dst.input.value) || routerOfItem(sel.src);
+const lvlRouter = () => levelRouterOf({ dsts: sel.dst ? [sel.dst, ...dsts] : dsts, dstText: boxes.dst.input.value, src: sel.src }, routerOfItem, routerOfText);
 let lvlAt = '';
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), () => levelSource(lvlRouter()), { onChange: () => renderTally() });

@@ -69,6 +69,7 @@ export const DICT = {
   protects: ['protect', 'protects', 'protected', 'router lock', 'device number', 'device', 'panel id', 'clear', 'hold'],
   confirm: ['confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'delay', 'safety', 'result', 'success', 'banner', 'dismiss'],
   routers: ['router', 'routers', 'router list', 'ultrix', 'matrix', 'block'],
+  'router-levels': ['levels', 'level count', 'level offset', 'level numbering', 'default levels', 'router levels', 'other routers'],
   panels: [
     'panel',
     'panels',

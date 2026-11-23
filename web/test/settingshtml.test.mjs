@@ -45,7 +45,7 @@ test('each topic holds its sections in order', () => {
   assert.deepEqual(byTopic, {
     preferences: ['this-browser', 'my-user'],
     'look-and-feel': ['everyone-defaults', 'branding', 'history', 'level-colors', 'confirm'],
-    routers: ['routers', 'router-matrix', 'router-names', 'takes', 'protects'],
+    routers: ['routers', 'router-levels', 'router-matrix', 'router-names', 'takes', 'protects'],
     access: ['locks', 'users', 'api', 'panels'],
     server: ['proxy', 'export-import', 'run-setup-again'],
   });

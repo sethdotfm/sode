@@ -111,6 +111,14 @@ export function levelStyle(l) {
   return { color: `var(--pb-signal-${l.swatch})`, ink: null };
 }
 
+// The router of a route's typed levels. That is the router of its first destination, else the router that the
+// destination text names with its prefix, else the router of its source. routerOf gives an item's router ('' for the
+// first router); routerOfText the router a text names ('' for none).
+export function levelRouterOf({ dsts = [], dstText = '', src = null }, routerOf, routerOfText = () => '') {
+  if (dsts.length) return routerOf(dsts[0]);
+  return routerOfText(dstText) || (src && routerOf(src)) || '';
+}
+
 // The desktop main page shows its Levels box only when some router has more than one level. counts: each router's
 // levels setting. With no counts yet (before the hello), the box shows, as it did before this rule.
 export const levelsBoxShown = (counts) => !counts.length || counts.some((n) => n > 1);
