@@ -32,6 +32,9 @@ type client struct {
 	// api: set for a caller that is not a browser session; its Actor and Rights replace
 	// the lookup callerOf does for a browser.
 	api *apiCtx
+	// forPage: the page connection that this in-process caller stands for (apiCtx.page). Who and the Rights are its own,
+	// and its entries carry no API actor.
+	forPage *client
 
 	u connUser // page type, signed-in user, session token (users.go)
 }

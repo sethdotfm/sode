@@ -498,7 +498,8 @@ const validLast = (t) =>
   t.dsts.every(isPair) &&
   Array.isArray(t.levels) &&
   t.levels.every(isNum) &&
-  (t.router === undefined || typeof t.router === 'string');
+  (t.router === undefined || typeof t.router === 'string') &&
+  (t.dstRouter === undefined || typeof t.dstRouter === 'string');
 
 // A redo counts when all its routes share one source and one set of levels; Retry, Preset and
 // undo never set Last. Null means leave Last as it is. lastOf is the patch inside a larger take that
@@ -513,9 +514,11 @@ export function lastFromPlan(p) {
   const lv = sorted(levels);
   if (p.verb === 'redo' && !gs.every(({ g }) => g.src.n === src.n && sameList(sorted(g.levels), lv))) return null;
   const last = { src: [src.n, src.name], dsts: gs.map(({ dst }) => [dst.n, dst.name]), levels: lv };
-  // A take on a router after the first names it.
+  // A take on a router after the first names it. A route across routers (Tie line picker) also names the router of
+  // its destinations; Last keeps the typed ends, not the hops.
   const uid = routerOfItem(src);
-  return uid ? { ...last, router: uid } : last;
+  const dstUid = routerOfItem(gs[0].dst);
+  return { ...last, ...(uid ? { router: uid } : {}), ...(dstUid !== uid ? { dstRouter: dstUid } : {}) };
 }
 
 // A stored value that fails to parse is no Last, not a cue to fall back to memory.
@@ -538,13 +541,13 @@ function readLast() {
 export function lastTake() {
   const t = readLast();
   const uid = t?.router || '';
+  const dstUid = t?.dstRouter ?? uid;
   // A router that this page no longer has gives no Last.
-  if (!t || routerOfItem({ router: uid }) !== uid) return null;
-  const rt = routerData(uid);
-  if (!rt.srcBy.has(t.src[0]) || !t.dsts.every(([n]) => rt.dstBy.has(n))) return null;
+  if (!t || routerOfItem({ router: uid }) !== uid || routerOfItem({ router: dstUid }) !== dstUid) return null;
+  if (!routerData(uid).srcBy.has(t.src[0]) || !t.dsts.every(([n]) => routerData(dstUid).dstBy.has(n))) return null;
   return {
     src: srcItem(...t.src, uid),
-    dsts: t.dsts.map(([n, name]) => dstItem(n, name, uid)),
+    dsts: t.dsts.map(([n, name]) => dstItem(n, name, dstUid)),
     levels: t.levels.filter((u) => S.levelBy.has(u)),
   };
 }
@@ -598,6 +601,18 @@ export function lastChip(t, state) {
   };
 }
 
+// noteLast makes plan p this browser's Last, when lastFromPlan gives one. The Tie line picker calls it after a take
+// succeeded, then emits 'last' so the chips show it.
+export function noteLast(p) {
+  const last = lastFromPlan(p);
+  if (!last) return false;
+  lastPatch = last;
+  // A full storage keeps the older value, which would outrank memory.
+  lastWriteFailed = !writeJSON(LAST_KEY, last);
+  if (lastWriteFailed) writeStr(LAST_KEY, null);
+  return true;
+}
+
 export function sendTakes(p) {
   if (p.protect) return sendProtect(p);
   const take = { verb: p.verb, byId: new Map(), results: [] };
@@ -623,13 +638,7 @@ export function sendTakes(p) {
   for (const id of take.byId.keys()) takes.set(id, take);
   // The Grid popup drops its staged routes only once they went out.
   p.onSent?.();
-  const last = lastFromPlan(p);
-  if (last) {
-    lastPatch = last;
-    // A full storage keeps the older value, which would outrank memory.
-    lastWriteFailed = !writeJSON(LAST_KEY, last);
-    if (lastWriteFailed) writeStr(LAST_KEY, null);
-  }
+  noteLast(p);
   const list = [...take.byId.values()];
   const dsts = new Set(list.map((t) => t.dst.n)).size;
   const text =

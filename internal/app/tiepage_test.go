@@ -102,3 +102,64 @@ func TestPageTieTakeStale(t *testing.T) {
 		t.Fatalf("sent %v", log())
 	}
 }
+
+// A page's tie take is recorded as a plain take from the page. It has the same History name and no API actor. Its
+// Communication Log rows are command rows. This holds for a signed-in user and for a Guest.
+func TestPageTieTakeActsAsThePage(t *testing.T) {
+	for _, user := range []bool{true, false} {
+		t.Run(fmt.Sprintf("user=%v", user), func(t *testing.T) {
+			a, _, _, _ := tieApp(t, nil)
+			defer startLog(t, a)()
+			uidA := a.r().cfg.UID
+			c := pageClient(a)
+			want := c.ip
+			if user {
+				if err := a.UserUnlockAs(c, "Ada", "2468"); err != nil {
+					t.Fatal(err)
+				}
+				want = "Ada"
+			}
+			a.serveTake(c, &inMsg{T: "take", Items: []routeReq{{ID: 1, Src: 4, Dst: 21, Levels: []int{1}, Router: "b2b2b2b2"}}})
+			for deadline := time.After(10 * time.Second); ; {
+				var m routeResult
+				select {
+				case b := <-c.send:
+					json.Unmarshal(b, &m)
+				case <-deadline:
+					t.Fatal("no takeResult")
+				}
+				if m.T == "takeResult" {
+					break
+				}
+			}
+			route := fmt.Sprintf(`[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"ties":[{"id":"t1","expect":{"router":%q,"n":3}}]}]`, uidA, uidA)
+			if got := pageTieTake(t, a, c, 9, route); got.Status != http.StatusOK {
+				t.Fatalf("%d %s", got.Status, got.Body)
+			}
+			es, _ := a.hist.Page(-1, 10)
+			if len(es) != 3 {
+				t.Fatalf("entries %+v", es)
+			}
+			for _, e := range es {
+				if e.Client != want || e.Actor != nil || e.BrowserOf != "" {
+					t.Errorf("entry %d: client %q actor %+v browserOf %q, want %q as a plain take", e.ID, e.Client, e.Actor, e.BrowserOf, want)
+				}
+			}
+			sent := 0
+			for _, r := range waitLogged(t, a, 2) {
+				if r.Kind == kindAPI {
+					t.Errorf("api row %+v", r)
+				}
+				if r.Kind == kindCommand && r.Why == "take" && r.Result == "sent" {
+					sent++
+					if r.By != want {
+						t.Errorf("row by %q, want %q", r.By, want)
+					}
+				}
+			}
+			if sent != 2 {
+				t.Errorf("%d sent take rows, want one for each take", sent)
+			}
+		})
+	}
+}

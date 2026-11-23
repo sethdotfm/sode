@@ -6,16 +6,15 @@
 // A choice has a wire: the chosen one is lit with --pb-tieline (docs/color-roles.md). A Protected or Reserved choice is
 // grey and says why. Under the steps are the Affected destinations of the chosen path.
 
-import { el, on, request, srcItem, dstItem, labelNode, routerData, tallyText } from './core.js';
+import { el, on, emit, request, srcItem, dstItem, labelNode, routerData, tallyText } from './core.js';
 import { chord, keyLabel } from './keys.js';
 import { trapDialog } from './dialogkeys.js';
 import { lockout } from './lockout.js';
 import { fmtClock } from './device.js';
 import { showResult } from './banner.js';
+import { noteLast } from './plans.js';
 import { levelsPhrase } from './levelview.js';
-import { pickState, chosen, choices, choose, keyStep, ready, takeRoute, changedText, stepsOf } from './tiepickrules.js';
-
-const TICK_MS = 1000;
+import { pickState, chosen, choices, choose, keyStep, ready, takeRoute, changedText, stepsOf, countUp } from './tiepickrules.js';
 
 let ui = null; // { root, dialog, body, take, trap }
 let cur = null; // { st, plan, opts, lock, unlocked, timer }
@@ -110,7 +109,7 @@ function reasonsText(r) {
 function open(plan, route, opts) {
   if (!ui) build();
   stop();
-  cur = { st: pickState(route), plan, opts, unlocked: false, timer: setInterval(tick, TICK_MS) };
+  cur = { st: pickState(route), plan, opts, unlocked: false, timer: countUp(tick) };
   cur.lock = lockout(() => {
     if (!cur) return;
     cur.unlocked = true;
@@ -125,7 +124,7 @@ function open(plan, route, opts) {
 function stop() {
   if (!cur) return;
   cur.lock?.cancel();
-  clearInterval(cur.timer);
+  cur.timer.stop();
 }
 
 function close(sent = false) {
@@ -268,13 +267,17 @@ async function send() {
   showResult('info', 'Taking', text);
   const m = request('tieTakeResult', { t: 'tieTake', routes: [route] });
   opts.onSent?.(plan);
-  answer(await m, text);
+  answer(await m, text, plan);
 }
 
-function answer(m, text) {
+function answer(m, text, plan) {
   const r = m.body?.results?.[0];
   if (m.status === 200 && r) {
-    if (m.body.ok) return showResult('ok', 'Success', text);
+    if (m.body.ok) {
+      // Last holds the typed source and destination, not the hops, as after a plain take.
+      if (noteLast(plan)) emit('last');
+      return showResult('ok', 'Success', text);
+    }
     const bad = (r.hops || []).find((h) => h.result === 'failed');
     const why = bad ? `the hop to ${bad.tieName} failed` : r.error || 'failed';
     return showResult('error', 'Take failed', `${text}: ${why}`);

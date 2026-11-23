@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
 const doc = node();
 globalThis.document = new Proxy(doc, { get: (t, k) => (k === 'baseURI' ? 'http://sode.test/' : doc[k]) });
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const store = new Map();
+globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
 let sock = null;
 globalThis.WebSocket = class {
   static OPEN = 1;
@@ -19,7 +20,7 @@ globalThis.setInterval = () => 0;
 
 const { S, connect, routerData, routerOfText, routerOfItem, srcItem, dstItem, sameEnd } = await import('../core.js');
 const { bySource, fedBy } = await import('../routes.js');
-const { planBlocked, patchPlan, applyMyRights, rightsOff } = await import('../plans.js');
+const { planBlocked, patchPlan, applyMyRights, rightsOff, lastFromPlan, noteLast, lastTake } = await import('../plans.js');
 
 const level = (ui) => ({ ui, wire: ui - 1, label: String(ui) });
 const hello = {
@@ -131,4 +132,17 @@ test('a right for A.5 allows A.5 and refuses B.5, greyed and blocked', () => {
     bDst = dstItem(2, '', 'bbb');
   assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block?.title, 'Outside your Rights');
   applyMyRights(null);
+});
+
+test('a take across routers is Last with its typed ends: the source on A, the destination on B', () => {
+  send({ t: 'names', srcs: [[4, 'B CAM 2']], dsts: [[2, 'B MON']], at: 't', routerUid: 'bbb' });
+  const bDst = dstItem(2, '', 'bbb');
+  const plan = patchPlan(srcItem(0), [bDst], [1]);
+  assert.deepEqual(lastFromPlan(plan), { src: [0, 'CAM 1'], dsts: [[2, 'B MON']], levels: [1], dstRouter: 'bbb' });
+  assert.ok(noteLast(plan));
+  const t = lastTake();
+  assert.equal(routerOfItem(t.src), '');
+  assert.ok(sameEnd(t.dsts[0], bDst));
+  // A take on one router keeps the old form.
+  assert.deepEqual(lastFromPlan(patchPlan(srcItem(0), [dstItem(2)], [1])), { src: [0, 'CAM 1'], dsts: [[2, 'MON 3']], levels: [1] });
 });

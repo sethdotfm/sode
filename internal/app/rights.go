@@ -21,6 +21,9 @@ func (a *App) callerOf(c *client) (Actor, config.Rights) {
 
 // caller: callerOf with the Role; an API caller has none.
 func (a *App) caller(c *client) acting {
+	if c.forPage != nil {
+		return a.caller(c.forPage)
+	}
 	if c.api != nil {
 		return acting{Actor: c.api.Actor, rights: c.api.Rights}
 	}

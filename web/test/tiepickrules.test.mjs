@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { pickState, chosen, choices, choose, keyStep, moveStep, ready, takeRoute, expectOf, stepsOf, ago, changedText } from '../tiepickrules.js';
+import { pickState, chosen, choices, choose, keyStep, moveStep, ready, takeRoute, expectOf, stepsOf, ago, changedText, countUp, TICK_MS } from '../tiepickrules.js';
 
 // The shared plan fixture (internal/tieplan, web/test/tieplan.test.mjs). The page reads the 409 body of POST /takes;
 // apiRoute makes that shape from a case, as tieroutes.go apiTieRoute does.
@@ -156,4 +156,24 @@ test('the last change counts up, and says before when Sode cannot know', () => {
     changedText({ changed: null }, now, () => 'x'),
     'No change known',
   );
+});
+
+test('the timer ticks each second and stops on close', () => {
+  const live = new Map();
+  let seq = 0;
+  const timers = {
+    setInterval: (fn, ms) => (live.set(++seq, { fn, ms }), seq),
+    clearInterval: (id) => live.delete(id),
+  };
+  let ticks = 0;
+  const t = countUp(() => ticks++, timers);
+  assert.equal(live.size, 1);
+  assert.equal([...live.values()][0].ms, TICK_MS);
+  [...live.values()][0].fn();
+  assert.equal(ticks, 1);
+  assert.ok(t.running());
+  t.stop();
+  t.stop();
+  assert.equal(live.size, 0, 'no timer stays after the picker closes');
+  assert.ok(!t.running());
 });

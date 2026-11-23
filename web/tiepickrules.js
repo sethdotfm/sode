@@ -163,3 +163,19 @@ export function changedText(hop, now, clock) {
   if (hop.before) return `Changed before ${clock(hop.changed)}`;
   return `Changed ${ago(now - Date.parse(hop.changed))} ago`;
 }
+
+export const TICK_MS = 1000;
+
+// countUp runs tick each second until stop: the last change timers of an open picker. timers gives setInterval and
+// clearInterval, so a test can see that a close stops it.
+export function countUp(tick, timers = globalThis) {
+  let id = timers.setInterval(tick, TICK_MS);
+  return {
+    running: () => id != null,
+    stop() {
+      if (id == null) return;
+      timers.clearInterval(id);
+      id = null;
+    },
+  };
+}

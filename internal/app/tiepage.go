@@ -12,7 +12,22 @@ import (
 // and body as tieTakeResult. Thus the page gets the plan (409 tie_line_needed or no_path) of an API client. It also
 // gets the same refusals, the same stale check and the same take. The page never computes paths.
 //
-// A Guest's entries keep the address as their name, as a plain take from the page does.
+// The take is a take of the page, not of an API caller. apiCtx.page names the connection, so the in-process caller
+// (client.forPage) has its who, its Rights and its step-in. Its entries carry no API actor, and its Communication Log rows
+// are command rows (takeEvent), as for a plain take from the page.
+
+// takeEvent writes the Communication Log row of an in-process take: a command row of the page for a page's tieTake,
+// else an api row. A refusal before the plan is a refused take, as a page take's refusal is.
+func (a *App) takeEvent(cl *apiCtx, why, result, note string, err error) {
+	if cl.page == nil {
+		a.apiEvent(cl.Actor, why, result, note, err)
+		return
+	}
+	if why == "refused" {
+		why = "take"
+	}
+	a.command(cl.page, why, result, note, err)
+}
 
 type tieTakeMsg struct {
 	T      string          `json:"t"` // tieTakeResult
@@ -43,10 +58,7 @@ func (w *answerWriter) Write(b []byte) (int, error) {
 
 func (a *App) serveTieTake(c *client, m *inMsg) {
 	act := a.caller(c)
-	if act.Kind == actorGuest {
-		act.Name = c.who()
-	}
-	cl := &apiCtx{Actor: act.Actor, Rights: act.rights, IP: c.ip}
+	cl := &apiCtx{Actor: act.Actor, Rights: act.rights, IP: c.ip, page: c}
 	body := append(append([]byte(`{"routes":`), m.Routes...), '}')
 	if len(m.Routes) == 0 {
 		body = []byte(`{"routes":[]}`)
