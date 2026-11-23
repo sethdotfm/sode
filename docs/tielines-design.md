@@ -187,7 +187,7 @@ Rights checks compare the router and the number of each reference. A right for s
 3. Tie routes always use ordinary connects. In `fireMode` native, Sode still sends tie routes this way.
 4. Before Sode sends anything, it runs the Protect check on every hop, Router locks too. If one hop fails the check, Sode refuses that route. The other routes of the take go, as today.
 5. The Result of a tie route comes from all its hops. If the last hop is Already and an upstream hop changed, the route is a normal success.
-6. If a hop that is not the last fails, the History row says "TIE 3 changed, B.42 not". The row offers "Put TIE 3 back to CAM 9". That works only while the tie line still carries what this take set.
+6. If a hop that is not the last fails, the History row says "TIE 3 changed, B.42 not". The row offers "Put TIE 3 back to CAM 9". That works only while the tie line still carries what this take set. Put back is the Undo of the entry of the hop that changed TIE 3, on the levels that the hop changed. The API has `POST /history/{id}/putback` for it (agent decision).
 7. A Late answer on a hop that is not the last never starts the later hops. The row says "TIE 3 changed late" and offers the same put-back action.
 8. Retry sends only the failed hops, if the earlier hops still hold. Otherwise Retry opens the picker, and the late tie line has cost 0.
 9. If the link of one router drops during a take, the take fails at the hop on that router, with the same put-back action.

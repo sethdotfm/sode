@@ -669,6 +669,30 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /history/{id}/putback:
+    post:
+      operationId: putBackEntry
+      tags: [writes]
+      summary: Put a tie line back
+      description: |
+        Scopes `take` and `history`. The id is the entry of a hop of a tie take (an entry with `tie`).
+        Sode sends the source that the tie line carried before the hop, on each level that the hop
+        changed. It locks the tie line and reads it first. The tie line must still carry what the
+        take set on each such level. Else nothing is sent, and the route fails with "not sent: TIE 3
+        now carries ...". A hop needs no Rights. 409 `conflict` for an entry that is not a hop, 422
+        `nothing_to_do` when the hop changed no level that had a source before it.
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels:
     get:
       operationId: listPanels
