@@ -24,6 +24,9 @@ One SW-P-08 matrix that Sode drives, at one address. Two matrices at one address
 **Tie line**:
 A one-way cable from a destination on one router to a source on another. It carries all levels. Sode knows a tie line only because a person entered it, and it trusts that entry. Its color is `--pb-tieline`.
 
+**Tie line name**:
+The name a person gives a tie line in Sode, such as "TIE 3". Keep it apart from the router names of the two ends.
+
 **One-off tie line**:
 A tie line that a person states in the Tie line picker for one take only. Sode does not keep it unless the person saves it as a tie line.
 
