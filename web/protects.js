@@ -53,6 +53,26 @@ export function holdsAt(n, levels = null, uid = '') {
 }
 
 export const protectState = (n, uid = '') => holdsAt(n, null, uid);
+
+// Every hold of every router: { n, hold, uid }, where uid is a routerData UID (blank is the first). The first router
+// comes first, and each router is in destination order. Sode's record can name levels the router does not report.
+// Free Sode's Protects sends the Free Protect for them too, so they are a hold of their own.
+export function everyHold() {
+  const uids = S.routers.length ? S.routers.map((r, i) => (i ? r.uid : '')) : [''];
+  return uids.flatMap((uid) => {
+    const { prot, by } = protectsOf(uid);
+    const out = [];
+    for (const n of [...new Set([...prot.keys(), ...by.keys()])].sort((a, b) => a - b)) {
+      const p = holdsAt(n, null, uid);
+      for (const hold of p.holds) out.push({ n, hold, uid });
+      const rec = by.get(n);
+      const lost = rec ? rec.levels.filter((u) => !p.levels.includes(u)) : [];
+      const own = p.sode || { sode: true, owner: 'sode', by: rec?.by, client: rec?.kind === 'client' };
+      if (lost.length) out.push({ n, hold: { ...own, device: rec.device, kind: 1, levels: lost }, uid });
+    }
+    return out;
+  });
+}
 // The holds on a destination item, on its own router.
 const stateOf = (dst) => protectState(dst.n, routerOfItem(dst));
 
@@ -321,12 +341,17 @@ function onResult(m) {
   if (asks.length) askAdmin(p.plan, asks, m.id);
   const rest = rows.filter((r) => !asks.includes(r));
   if (!rest.length) return;
-  const label = new Map(dsts.map((d) => [d.dst.n, d.dst.label]));
+  // A row is for the destination sent in its place; two routers can have one number.
+  const dstOf = (r) => {
+    const d = dsts[rows.indexOf(r)]?.dst;
+    return d?.n === r.dst ? d : dsts.find((x) => x.dst.n === r.dst)?.dst;
+  };
   const failed = rest
     .filter((r) => !r.ok)
     .map((r) => {
-      const still = r.still?.length ? ` Still Protected on levels ${levelText(r.still)}.` : '';
-      return `${label.get(r.dst) ?? r.dst}: ${r.admin ? ADMIN_WHY : r.err || 'refused'}.${still}`;
+      const d = dstOf(r);
+      const still = r.still?.length ? ` Still Protected on levels ${levelText(r.still, routerOfItem(d))}.` : '';
+      return `${d?.label ?? r.dst}: ${r.admin ? ADMIN_WHY : r.err || 'refused'}.${still}`;
     });
   const n = rest.length - failed.length;
   if (dsts.length === 1)

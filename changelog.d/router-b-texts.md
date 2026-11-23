@@ -1,0 +1,3 @@
+- Texts about a router after the first use the levels and Level numbering of that router. These are the partly Undone note, the failure banner, the Undo confirm notes, the Last levels chip and the Protect result. The phone's External follow line names the destination on the router of its entry.
+- Settings > Routers > Protects shows the Protects and Router locks of every router.
+- After a setup restore, the uptime in the status popup and the router chips in the Communication Log show the first router again.
