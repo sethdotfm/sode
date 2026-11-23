@@ -4,6 +4,7 @@
 export const CATEGORIES = [
   ['settings', 'Settings'],
   ['routers', 'Routers'],
+  ['tieLines', 'Tie lines'],
   ['users', 'Users'],
   ['presets', 'Presets'],
   ['filterSets', 'Filter sets'],
@@ -25,6 +26,7 @@ export const OWN_CATEGORIES = [
 export const ADMIN_ONLY = [
   ['settings', 'Settings'],
   ['routers', 'Routers'],
+  ['tieLines', 'Tie lines'],
   ['users', 'Users'],
   ['presets', 'Everyone presets'],
   ['filterSets', 'Everyone filter sets'],
@@ -61,8 +63,8 @@ export function ownBody(pick) {
   return body;
 }
 
-// Everyone bookmarks has one item, the whole list, with the id 'bookmarks'.
-export const ITEM_CATS = ['users', 'presets', 'filterSets', 'bookmarks', 'panels', 'artwork', 'apiClients'];
+// Everyone bookmarks has one item, the whole list, with the id 'bookmarks'. Tie lines are picked by id.
+export const ITEM_CATS = ['tieLines', 'users', 'presets', 'filterSets', 'bookmarks', 'panels', 'artwork', 'apiClients'];
 
 export const KIND_LABEL = { panel: 'Panel', template: 'Template', checkpointSet: 'Checkpoint set', default: 'Default artwork', icon: 'Icon' };
 

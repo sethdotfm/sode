@@ -213,7 +213,8 @@ func TestRemapDefaults(t *testing.T) {
 	}
 }
 
-// Setup restore with two routers: both come back with their UIDs and names, and a second backup is the same.
+// Setup restore with two routers: both come back with their UIDs and names, a tie line to router B comes back, and
+// a second backup is the same.
 func TestRestoreTwoRoutersRoundTrip(t *testing.T) {
 	a, tok := exportApp(t)
 	seedEverything(t, a)
@@ -222,6 +223,8 @@ func TestRestoreTwoRoutersRoundTrip(t *testing.T) {
 	lifeCommit(t, a, func(c *config.Config) {
 		c.Presets = append(c.Presets, config.Preset{ID: "pr-b", Name: "On B", Items: []config.PresetItem{{
 			Src: config.Ref{Router: fileRouterB, N: 7, Name: "VT 7"}, Dsts: []config.Ref{{Router: fileRouterB, N: 8, Name: "REC 8"}}}}})
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "tie-ab", Name: "A TO B", From: c.DestinationRef(4, "MON 4"),
+			To: config.Ref{Router: fileRouterB, N: 7, Name: "VT 7"}})
 	})
 	file := exported(t, a, tok, backupReq(true))
 	b := setupApp(t)
@@ -235,6 +238,10 @@ func TestRestoreTwoRoutersRoundTrip(t *testing.T) {
 	}
 	if p, ok := presetNamed(t, b, "On B"); !ok || len(p.Broken) != 0 {
 		t.Errorf("preset On B: %+v", p)
+	}
+	if i := slices.IndexFunc(cfg.TieLines, func(x config.TieLine) bool { return x.ID == "tie-ab" }); i < 0 ||
+		cfg.TieLines[i].From.Router != cfg.UID || cfg.TieLines[i].To.Router != fileRouterB {
+		t.Errorf("tie line to router B: %+v", cfg.TieLines)
 	}
 	u, ok := b.unit(fileRouterB)
 	if !ok {
@@ -255,5 +262,52 @@ func TestRestoreTwoRoutersRoundTrip(t *testing.T) {
 	}
 	if len(got) != len(want) {
 		t.Errorf("files: %v, want %v", slicesSortedKeys(got), slicesSortedKeys(want))
+	}
+}
+
+// twoRouterTieFile: an install with routers A and B exports one tie line A.4 → B.7.
+func twoRouterTieFile(t *testing.T) []byte {
+	t.Helper()
+	a, _, tok := importApp(t)
+	addRouter(t, a, fileRouterB, "B", map[int]string{7: "VT 7"}, map[int]string{8: "REC 8"})
+	lifeCommit(t, a, func(c *config.Config) {
+		c.TieLines = []config.TieLine{{ID: "tie-ab", Name: "A TO B", From: c.DestinationRef(4, "MON 4"), To: config.Ref{Router: fileRouterB, N: 7, Name: "VT 7"}}}
+	})
+	return foreign(t, exported(t, a, tok, exportReq{Categories: []string{catTieLines}}))
+}
+
+// A tie line to the second router names it by prefix as other items do, and the file holds that router. Import into
+// another install with two routers maps both ends.
+func TestImportTieLineTwoRoutersRoundTrip(t *testing.T) {
+	file := twoRouterTieFile(t)
+	files := unzipAll(t, file)
+	var man exportManifest
+	if err := yaml.Unmarshal(files["manifest.yaml"], &man); err != nil || len(man.Routers) != 2 {
+		t.Fatalf("manifest routers: %v %+v", err, man.Routers)
+	}
+	if ties := string(files["tielines.yaml"]); strings.Contains(ties, fileRouterB) || !strings.Contains(ties, "router: B\n") {
+		t.Fatalf("tielines.yaml does not name router B by prefix:\n%s", ties)
+	}
+	a, tok := twoRouterLive(t)
+	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
+	if it := planItem(t, res.Plan, catTieLines, "A TO B"); it.Refused != "" || !it.writes() {
+		t.Fatalf("A TO B: %+v", it)
+	}
+	cfg := a.r().cfg
+	if len(cfg.TieLines) != 1 || cfg.TieLines[0].From.Router != cfg.UID || cfg.TieLines[0].To.Router != liveRouterB || cfg.TieLines[0].To.N != 7 {
+		t.Fatalf("tie lines: %+v", cfg.TieLines)
+	}
+}
+
+// A tie line to a file router with no target is dropped with the same note as other items.
+func TestImportTieLineUnmappedRouterDropped(t *testing.T) {
+	file := twoRouterTieFile(t)
+	a, tok := twoRouterLive(t)
+	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Routers: map[string]string{fileRouterB: ""}}))
+	if it := planItem(t, res.Plan, catTieLines, "A TO B"); it.Refused != "it uses router Router B, which has no target here" || it.writes() {
+		t.Fatalf("A TO B: %+v", it)
+	}
+	if got := a.r().cfg.TieLines; len(got) != 0 {
+		t.Fatalf("tie lines arrived: %+v", got)
 	}
 }
