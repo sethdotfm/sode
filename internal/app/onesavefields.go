@@ -13,7 +13,7 @@ import (
 
 // Some keys of the one Save are not plain Config JSON keys. They are the json:"-" Guest fields and
 // one key per attribute of each user and API client. Each router after the first also has one key
-// per level setting (docs/agents/settings-saves.md). Keep the prefixes in step with ITEM_SECTIONS in
+// per level setting, and the Routers list has the keys of routeradd.go (docs/agents/settings-saves.md). Keep the prefixes in step with ITEM_SECTIONS in
 // web/savereviewrules.js.
 
 // fieldSpec reads and writes one key. get's JSON is the value compared, versioned and sent back
@@ -116,8 +116,18 @@ func lookupField(key string) (fieldSpec, bool) {
 	}
 	if rest, ok := strings.CutPrefix(key, "router/"); ok {
 		uid, attr, ok := strings.Cut(rest, "/")
-		if !ok {
+		switch {
+		case !ok:
 			return fieldSpec{}, false
+		case strings.HasPrefix(uid, "new:"):
+			if attr != "add" {
+				return fieldSpec{}, false
+			}
+			return addRouterSpec(key), true
+		case attr == "remove":
+			return removeRouterSpec(uid), true
+		case routerListField(&config.Router{}, attr) != nil:
+			return routerListSpec(uid, attr)
 		}
 		return routerSpec(uid, attr)
 	}
@@ -177,8 +187,13 @@ func routerSpec(uid, attr string) (fieldSpec, bool) {
 
 // routerVersions: the versions of the router keys, which every hello carries.
 func routerVersions(cfg config.Config, out map[string]string) {
+	// The first router's prefix shows only with two or more routers.
+	if len(cfg.MoreRouters) > 0 {
+		k := "router/" + cfg.UID + "/prefix"
+		out[k] = fieldVersion(cfg, k)
+	}
 	for _, r := range cfg.MoreRouters {
-		for _, at := range routerAttrs {
+		for _, at := range append(slices.Concat(routerAttrs, routerListAttrs), "remove") {
 			k := "router/" + r.UID + "/" + at
 			out[k] = fieldVersion(cfg, k)
 		}
@@ -454,8 +469,12 @@ func addedResult(cfg config.Config, key string, x *saveCtx) json.RawMessage {
 	vers := map[string]string{}
 	if id, ok := x.made[key]; ok {
 		out["id"] = id
-		for _, at := range userAttrs {
-			k := "user/" + id + "/" + at
+		kind, attrs := "user/", userAttrs
+		if strings.HasPrefix(key, "router/") {
+			kind, attrs = "router/", append(slices.Concat(routerAttrs, routerListAttrs), "remove")
+		}
+		for _, at := range attrs {
+			k := kind + id + "/" + at
 			vers[k] = fieldVersion(cfg, k)
 		}
 	} else if rest, ok := strings.CutPrefix(key, "client/"); ok {

@@ -319,3 +319,16 @@ func (s *artDefaultStore) rename(k *pollCheck) error {
 	}
 	return s.writeLocked(next)
 }
+
+// dropRouter clears every Source and Destination default of a router that a save removed.
+func (s *artDefaultStore) dropRouter(uid string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := slices.DeleteFunc(slices.Clone(s.data.Defaults), func(d ArtDefault) bool { return d.Kind != artKindPreset && d.Router == uid })
+	if len(kept) == len(s.data.Defaults) {
+		return nil
+	}
+	next := s.data
+	next.Defaults = kept
+	return s.writeLocked(next)
+}

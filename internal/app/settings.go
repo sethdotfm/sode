@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -139,7 +140,7 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 		after(old, nr)
 	}
 	// Open pages hold typed text and stored items with the old prefix, so each one starts again.
-	if old.cfg.Prefix != nr.cfg.Prefix {
+	if prefixMoved(old.cfg, nr.cfg) {
 		reload, _ := json.Marshal(simpleMsg{T: "reload"})
 		for cl := range a.clients {
 			a.deliver(cl, reload)
@@ -157,6 +158,16 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 		a.endNoPinSessionKeys()
 	}
 	return nil
+}
+
+// prefixMoved: a router that both settings have has a new prefix.
+func prefixMoved(old, next config.Config) bool {
+	for _, r := range old.Routers() {
+		if n, ok := next.RouterByUID(r.UID); ok && n.Prefix != r.Prefix {
+			return true
+		}
+	}
+	return old.Prefix != next.Prefix
 }
 
 // syncAccessAllMu: every connection gets its lock state again. Caller holds mu.
@@ -208,9 +219,15 @@ func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) erro
 		rc config.Router
 	}
 	var moved []target
+	var gone []*routerUnit
 	err := a.commitWith(mutate, func(oldRt, nr *runtime) {
+		var added []*routerUnit
+		added, gone = a.syncUnitsMu(nr)
 		// Each router that changed starts again; takes in flight on the others go on.
 		for _, u := range a.unitsInOrder(nr) {
+			if slices.Contains(added, u) {
+				continue
+			}
 			rc := nr.routerOf(u.uid)
 			if config.RouterReconnectChanged(oldRt.routerOf(u.uid), rc) {
 				a.reconnectMu(u, rc.Address)
@@ -227,6 +244,9 @@ func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) erro
 		return err
 	}
 	a.catchUpSessions() // it is possible that this save ticked Never sign out
+	for _, u := range gone {
+		endUnit(u)
+	}
 	for _, m := range moved {
 		m.u.sw.SetTarget(m.rc.Address, probe(m.rc))
 	}

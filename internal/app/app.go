@@ -107,9 +107,15 @@ func probe(rc config.Router) []byte {
 // stays; clients get a new hello.
 // Fields from mu down to sessionsAt are guarded by mu, as are the fields of each router unit.
 type App struct {
-	// first: the first router's unit (routerunit.go). routers: every router unit by router UID. Fixed after New.
+	// first: the first router's unit (routerunit.go), fixed after New. routers: every router unit by router UID. A
+	// save that adds or removes a router swaps in a new map (syncUnitsMu), so a reader needs no lock.
 	first   *routerUnit
-	routers map[string]*routerUnit
+	routers atomic.Pointer[map[string]*routerUnit]
+	// linkCtx: the context of the router links while Run runs, so a router added later starts its link on it.
+	// Guarded by mu. unitRuns counts the uptime loops of the units, which Run waits for at the end.
+	linkCtx  context.Context
+	unitRuns sync.WaitGroup
+	debug    bool // SODE_DEBUG, for the link of a router added later
 
 	// profMemo: the marshalled profile per user for one config snapshot. Guarded by mu.
 	profMemoRT *runtime
@@ -257,7 +263,6 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	first := newRouterUnit(cfg.Router)
 	a := &App{
 		first:      first,
-		routers:    map[string]*routerUnit{first.uid: first},
 		hist:       hist,
 		sent:       sent,
 		txq:        make(chan swp08.TxEvent, 1024),
@@ -282,13 +287,15 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.protects = loadProtects(cfgPath)
+	units := map[string]*routerUnit{first.uid: first}
 	for _, rc := range cfg.MoreRouters {
 		u := newRouterUnit(rc)
-		a.routers[u.uid] = u
+		units[u.uid] = u
 	}
+	a.routers.Store(&units)
 	a.names = newNamesStore(cfgPath)
 	a.sweepStages()
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		if t, ok := a.names.load(u.uid); ok {
 			rs := u.router
 			rs.srcNames, rs.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
@@ -301,7 +308,8 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	}
 	a.saves, _ = OpenSaveLog("")
 	a.rt.Store(r)
-	for _, u := range a.routers {
+	a.debug = debug
+	for _, u := range a.units() {
 		a.link(u, r, debug)
 	}
 	return a, nil
@@ -319,17 +327,19 @@ func (a *App) Run(ctx context.Context) {
 	link, cut := context.WithCancel(context.WithoutCancel(ctx))
 	a.lateQ = make(chan lateJob, 64)
 	var wg sync.WaitGroup
-	for _, u := range a.routers {
-		go u.sw.Run(link)
-		wg.Add(1)
-		go func() { defer wg.Done(); u.up.Run(link) }()
+	a.mu.Lock()
+	a.linkCtx = link
+	for _, u := range a.units() {
+		a.startUnitMu(u)
 	}
+	a.mu.Unlock()
 	wg.Add(1)
 	go func() { defer wg.Done(); a.logSent(link) }()
 	defer func() {
 		cut()
 		wg.Wait()
-		for _, u := range a.routers {
+		a.unitRuns.Wait()
+		for _, u := range a.units() {
 			u.up.Stop()
 		}
 	}()
@@ -413,6 +423,9 @@ func (a *App) periodic() {
 }
 
 func (a *App) onUnitUp(u *routerUnit) {
+	if a.gone(u) {
+		return
+	}
 	a.refreshNames(u)
 	a.requestDumps(u)
 	go a.clearStaleSalvo(u)
@@ -447,6 +460,9 @@ func (a *App) SetSettingsSaves(l *SaveLog) {
 func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.gone(u) {
+		return
+	}
 	u.up.State(s == swp08.StateUp)
 	a.logLink(u, s, err)
 	u.status.Router = string(s)
@@ -488,6 +504,9 @@ func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 	r := a.r()
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.gone(u) {
+		return
+	}
 	for _, xp := range ev.Crosspoints {
 		a.applyUnitTally(u, r, xp)
 	}
@@ -707,7 +726,8 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 		rc := lv.rc
 		n := u.namesMsg()
 		out = append(out, helloRouter{
-			UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, NumberOffset: rc.NumberOffset, Levels: lv.levels,
+			UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, Address: rc.Address, Matrix: rc.Matrix,
+			NumberOffset: rc.NumberOffset, Levels: lv.levels,
 			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
 			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, Tally: routeTriples(u.router.tally), Status: u.statusOut(),
 		})
@@ -777,7 +797,7 @@ func (a *App) ClearHistory(who string) {
 	}
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		u.ext.lateRoute, u.ext.lateHits = map[ownKey][]lateRoute{}, nil // their entries are gone
 	}
 	a.broadcast(simpleMsg{T: "historyCleared"})

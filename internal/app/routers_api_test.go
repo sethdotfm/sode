@@ -18,8 +18,8 @@ func TestNewLinksEveryRouter(t *testing.T) {
 	})
 	b := a.r().cfg.MoreRouters[0]
 	u, ok := a.unit(b.UID)
-	if len(a.routers) != 2 || !ok || u == a.first {
-		t.Fatalf("units %v", a.routers)
+	if len(a.units()) != 2 || !ok || u == a.first {
+		t.Fatalf("units %v", a.units())
 	}
 	if u.sw == nil || a.first.sw == nil || u.status.Addr != "10.0.0.9:8910" || a.first.status.Addr == u.status.Addr {
 		t.Errorf("second link %v at %q, first at %q", u.sw, u.status.Addr, a.first.status.Addr)

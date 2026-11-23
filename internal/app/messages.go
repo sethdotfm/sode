@@ -94,9 +94,12 @@ type helloMsg struct {
 // helloRouter is one router of the hello. UID is the router unit's UID, which the tally, names and status messages
 // and a take's route name.
 type helloRouter struct {
-	UID          string         `json:"uid"`
-	Prefix       string         `json:"prefix"`
-	Title        string         `json:"title"`
+	UID    string `json:"uid"`
+	Prefix string `json:"prefix"`
+	Title  string `json:"title"`
+	// Address and Matrix fill the router's row in Settings > Routers.
+	Address      string         `json:"address"`
+	Matrix       int            `json:"matrix"`
 	NumberOffset int            `json:"numberOffset"`
 	Levels       []config.Level `json:"levels"`
 	// LevelNumbering and DefaultLevels are this router's: typed levels of a route are levels of its router.

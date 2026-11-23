@@ -268,6 +268,7 @@ Rights checks compare the router and the number of each reference. A right for s
 1. Swap does not move a tie line end by itself, since a tie line is a cable. The Swap review row lists each tie line that uses a swapped number, and the Administrator chooses.
 2. Tie lines are their own export category. On import, Sode drops a tie line with a note when one of its two routers is not mapped.
 3. Before the Critical confirm, a router delete lists every tie line, panel and preset that it will break.
+4. A router delete marks each preset, filter set, panel cell and Grid member that names the router Broken. Rights and a panel's level subset lose that router, since a Rights entry cannot name a router that Sode does not have. The first router cannot be deleted. An Administrator changes its address in its own block.
 
 ## Open items
 

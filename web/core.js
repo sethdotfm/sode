@@ -185,7 +185,7 @@ function newRouter(r) {
 
 // The hello's routers list: the first router goes to the flat fields (the hello also has them), each other one to more.
 function setRouters(list) {
-  S.routers = list.map((r) => ({ uid: r.uid, prefix: r.prefix || '', title: r.title || '' }));
+  S.routers = list.map((r) => ({ uid: r.uid, prefix: r.prefix || '', title: r.title || '', address: r.address || '', matrix: r.matrix || 0 }));
   more.clear();
   for (const r of list.slice(1)) {
     const st = newRouter(r);

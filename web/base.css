@@ -1014,7 +1014,41 @@ html {
 .sode__routers-row {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--pb-space-4);
+}
+/* The rows of the routers after the first, and of the routers to add (settingsrouterlist.js). */
+.sode__routers-item {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding-top: var(--pb-space-4);
+}
+.sode__routers-item--removed .sode__fields {
+  opacity: 0.6;
+}
+.sode__routers-head,
+.sode__routers-acts {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+.sode__routers-first-prefix {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--pb-space-3);
+}
+.sode__routers-prefix {
+  max-width: 5rem;
+}
+.sode__routers-uses {
+  margin: var(--pb-space-2) 0;
+}
+.sode__routers-add {
+  align-self: flex-start;
+  margin-top: var(--pb-space-4);
 }
 /* Router levels: one block for each router after the first. */
 .sode__router-levels {
