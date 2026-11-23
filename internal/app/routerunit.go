@@ -149,7 +149,7 @@ func routerNeeded(n int) string {
 // statusOut is the unit's link status as it goes to browsers and API streams. Caller holds mu.
 func (u *routerUnit) statusOut() statusMsg {
 	s := u.status
-	s.from = u
+	s.from, s.RouterUID = u, u.uid
 	return s
 }
 

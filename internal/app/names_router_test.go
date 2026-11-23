@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http/httptest"
 	"os"
@@ -71,9 +72,13 @@ func TestNamesUseTheirRouter(t *testing.T) {
 	}
 	a.mu.Lock()
 	firstNames := len(a.firstUnit().router.srcNames)
-	h := string(a.hello(helloPage{}))
+	var hm struct {
+		Srcs json.RawMessage `json:"srcs"`
+	}
+	json.Unmarshal(a.hello(helloPage{}), &hm)
 	a.mu.Unlock()
-	if firstNames != 0 || strings.Contains(h, "B CAM 1") {
+	// The hello's routers list has them under the second router; its flat fields are the first router's.
+	if h := string(hm.Srcs); firstNames != 0 || strings.Contains(h, "B CAM 1") {
 		t.Fatalf("the second router's names reached the first router: %d names, hello %s", firstNames, h)
 	}
 

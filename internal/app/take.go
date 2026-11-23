@@ -21,8 +21,9 @@ type routeReq struct {
 	Levels []int `json:"levels"`
 	Undo   *int  `json:"undo"`  // history ID of the take to undo
 	Retry  *int  `json:"retry"` // history ID of the failed take to retry
-	// Router: the UID of the router that the route is on; blank is the first router. takeAllowed fills it.
-	Router string `json:"-"`
+	// Router: the UID of the router that the route is on, from the hello's routers list; blank is the first router.
+	// takeAllowed fills it.
+	Router string `json:"router"`
 
 	Group  string `json:"-"` // set by take for confirms of more than one route
 	GroupN int    `json:"-"`

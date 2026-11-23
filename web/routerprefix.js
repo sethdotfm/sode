@@ -7,6 +7,9 @@ const split = (q) => {
   return m ? { prefix: m[1].toUpperCase(), text: m[2] } : { prefix: '', text: q };
 };
 
+// prefixOf splits q into the router prefix it starts with ('' for none) and the text after it.
+export const prefixOf = (q) => split(q);
+
 // searchText is what to search router `own`'s list with, or null when the field cannot match it. others are the
 // texts of the route's other fields: the first prefix of a known router there pins the whole route to that router.
 // routers lists the prefixes this page knows.

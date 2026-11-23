@@ -3,7 +3,7 @@
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
-import { searchText } from './routerprefix.js';
+import { searchText, prefixOf } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
 
 // A send or a pending answer with no Server link.
@@ -74,7 +74,116 @@ export const S = {
   myRights: null,
   users: [], // the hello's sign-in list, [{name, len}]; len 0 is no PIN
   userNames: [],
+  // Every router, the first one first: [{uid, prefix, title}]. The flat fields above (srcs, tally, levels, router and
+  // more) are the first router's. Read one router's state with routerData.
+  routers: [],
 };
+
+// The state of each router after the first, by the UID of the hello's routers list.
+const more = new Map();
+// otherRouter gives the state of a router after the first, or null for the first router. A UID that the hello did not
+// list is the first router, as a blank one is.
+const otherRouter = (uid) => (uid && more.get(uid)) || null;
+
+// The first router's state, read from the flat fields of S, so code and tests that set S.tally or S.srcs still work.
+const FIRST = Object.freeze({
+  first: true,
+  get uid() {
+    return S.routers[0]?.uid || S.routerUid;
+  },
+  get prefix() {
+    return S.prefix;
+  },
+  get title() {
+    return S.cfg?.routerName || '';
+  },
+  get off() {
+    return off();
+  },
+  get levels() {
+    return S.levels;
+  },
+  get levelBy() {
+    return S.levelBy;
+  },
+  get srcs() {
+    return S.srcs;
+  },
+  get dsts() {
+    return S.dsts;
+  },
+  get srcBy() {
+    return S.srcBy;
+  },
+  get dstBy() {
+    return S.dstBy;
+  },
+  get tally() {
+    return S.tally;
+  },
+  get namesAt() {
+    return S.namesAt;
+  },
+  get link() {
+    return S.router;
+  },
+});
+
+// routerData is the one accessor for the names, tally, levels and link of one router. Blank is the first router.
+export const routerData = (uid) => otherRouter(uid) || FIRST;
+
+// The UID that a take sends for an item's router: blank for the first router.
+export const routerOfItem = (it) => (otherRouter(it?.router) ? it.router : '');
+
+// sameEnd: the same number on the same router.
+export const sameEnd = (a, b) => !!a && !!b && a.n === b.n && routerOfItem(a) === routerOfItem(b);
+
+// The router whose prefix the text starts with (A.23), as a routerData UID: blank for none or the first router.
+export function routerOfText(q) {
+  const p = prefixOf(q).prefix;
+  return (p && [...more.values()].find((r) => r.prefix === p)?.uid) || '';
+}
+
+function newRouter(r) {
+  return {
+    first: false,
+    uid: r.uid,
+    prefix: r.prefix || '',
+    title: r.title || '',
+    off: r.numberOffset ?? 0,
+    levels: r.levels || [],
+    levelBy: new Map((r.levels || []).map((l) => [l.ui, l])),
+    srcs: [],
+    dsts: [],
+    srcBy: new Map(),
+    dstBy: new Map(),
+    tally: new Map(),
+    namesAt: null,
+    link: null,
+    addr: '',
+    err: '',
+  };
+}
+
+// The hello's routers list: the first router goes to the flat fields (the hello also has them), each other one to more.
+function setRouters(list) {
+  S.routers = list.map((r) => ({ uid: r.uid, prefix: r.prefix || '', title: r.title || '' }));
+  more.clear();
+  for (const r of list.slice(1)) {
+    const st = newRouter(r);
+    more.set(st.uid, st);
+    setNames(r.srcs || [], r.dsts || [], st);
+    st.namesAt = r.at;
+    applyTally(r.tally || [], st.tally);
+    setRouterStatus(st, r.status || {});
+  }
+}
+
+function setRouterStatus(st, m) {
+  st.link = m.router || null;
+  st.addr = m.addr || '';
+  st.err = m.err || '';
+}
 
 export function toggle(set, k) {
   if (set.has(k)) set.delete(k);
@@ -115,17 +224,24 @@ export const onMsg = (t, fn) => {
 
 export const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
-export function item(n, name) {
-  const num = String(n + off());
-  return { n, name, num, lname: name.toLowerCase(), label: name ? `${num} ${name}` : num };
+// An item of a router after the first has router (its UID) and prefix, and its label shows the prefix (B.23). num stays
+// the number alone, so a search of that router's list matches it.
+export function item(n, name, uid = '') {
+  const rt = otherRouter(uid);
+  const num = String(n + (rt ? rt.off : off()));
+  const shown = rt ? `${rt.prefix}.${num}` : num;
+  const it = { n, name, num, lname: name.toLowerCase(), label: name ? `${shown} ${name}` : shown };
+  return rt ? Object.assign(it, { router: rt.uid, prefix: rt.prefix }) : it;
 }
-export const srcItem = (n, name = '') => S.srcBy.get(n) || item(n, name);
-export const dstItem = (n, name = '') => S.dstBy.get(n) || item(n, name);
-export const srcLabel = (n) => srcItem(n).label;
+export const srcItem = (n, name = '', uid = '') => routerData(uid).srcBy.get(n) || item(n, name, uid);
+export const dstItem = (n, name = '', uid = '') => routerData(uid).dstBy.get(n) || item(n, name, uid);
+export const srcLabel = (n, uid = '') => srcItem(n, '', uid).label;
+// The number as shown: with its router prefix on a router after the first (B.23).
+export const numText = (it) => (it.prefix ? `${it.prefix}.${it.num}` : it.num);
 // Number is muted and fixed-width so it cannot run into a name starting with a digit.
-export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', it.num), ...(it.name ? [' ', it.name] : []));
-export const dstLabel = (n) => dstItem(n).label;
-export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
+export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', numText(it)), ...(it.name ? [' ', it.name] : []));
+export const dstLabel = (n, uid = '') => dstItem(n, '', uid).label;
+export const tallyText = (s, uid = '') => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s, uid));
 
 let retry = 1000;
 
@@ -257,6 +373,7 @@ function handle(m) {
       S.namesSavedAt = m.savedAt || null;
       S.tally = new Map();
       applyTally(m.tally || []);
+      setRouters(m.routers || []);
       S.prot = new Map();
       applyProtect(m.protected || []);
       applyProtectBy(m.protectBy || []);
@@ -270,30 +387,43 @@ function handle(m) {
       emit('hello');
       emit('conn');
       break;
-    case 'names':
-      setNames(m.srcs, m.dsts);
-      S.namesAt = m.at;
+    // tally, names and status name their router; one with no routerUid is from a server with one router.
+    case 'names': {
+      const rt = otherRouter(m.routerUid);
+      setNames(m.srcs, m.dsts, rt || undefined);
+      if (rt) rt.namesAt = m.at;
+      else S.namesAt = m.at;
       emit('names');
       break;
-    case 'namesChecked':
-      S.namesAt = m.at;
+    }
+    case 'namesChecked': {
+      const rt = otherRouter(m.routerUid);
+      if (rt) rt.namesAt = m.at;
+      else S.namesAt = m.at;
       emit('namesChecked');
       break;
-    case 'tally':
-      applyTally(m.u);
-      emit('tallyRows', m.u);
+    }
+    case 'tally': {
+      const rt = otherRouter(m.routerUid);
+      applyTally(m.u, rt ? rt.tally : S.tally);
+      // tallyRows is for the first router: panel pages show only it.
+      if (!rt) emit('tallyRows', m.u);
       emit('tally');
       break;
+    }
     case 'protected':
       applyProtect(m.u);
       if (m.by) applyProtectBy(m.by);
       emit('protectedRows');
       emit('tally');
       break;
-    case 'status':
-      setStatus(m);
+    case 'status': {
+      const rt = otherRouter(m.routerUid);
+      if (rt) setRouterStatus(rt, m);
+      else setStatus(m);
       emit('conn');
       break;
+    }
     case 'ping':
       break;
     case 'reload':
@@ -311,17 +441,19 @@ function handle(m) {
   }
 }
 
-function setNames(srcs, dsts) {
-  S.srcs = srcs.map(([n, name]) => item(n, name));
-  S.dsts = dsts.map(([n, name]) => item(n, name));
-  S.srcBy = new Map(S.srcs.map((i) => [i.n, i]));
-  S.dstBy = new Map(S.dsts.map((i) => [i.n, i]));
+// to: the state of a router after the first; S (the first router) by default.
+function setNames(srcs, dsts, to = S) {
+  const uid = to === S ? '' : to.uid;
+  to.srcs = srcs.map(([n, name]) => item(n, name, uid));
+  to.dsts = dsts.map(([n, name]) => item(n, name, uid));
+  to.srcBy = new Map(to.srcs.map((i) => [i.n, i]));
+  to.dstBy = new Map(to.dsts.map((i) => [i.n, i]));
 }
 
-function applyTally(list) {
+function applyTally(list, tally = S.tally) {
   for (const [d, l, s] of list) {
-    let t = S.tally.get(d);
-    if (!t) S.tally.set(d, (t = new Map()));
+    let t = tally.get(d);
+    if (!t) tally.set(d, (t = new Map()));
     t.set(l, s);
   }
 }

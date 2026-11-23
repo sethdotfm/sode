@@ -1,7 +1,7 @@
 // Widgets both layouts build the same way; each layout passes its own elements.
 
 import { byText } from './lockrules.js';
-import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
+import { el, S, needsLink, numText, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
 import { listStep, addClick, pickOrAdd, keyLabel } from './keys.js';
 import { levelBar, levelText } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
@@ -114,7 +114,7 @@ export function combobox(
     for (let i = from; i < to; i++) {
       const it = matches[i];
       const on = all || (i === hi && !browsing);
-      const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
+      const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', numText(it)), it.name);
       li.id = pre + i;
       li.dataset.i = String(i);
       li.setAttribute('role', 'option');

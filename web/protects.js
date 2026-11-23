@@ -3,7 +3,7 @@
 // only offers what it would allow. The Approval and PIN recheck popups load when a refusal needs them, so plans.js
 // stays free of their page setup.
 
-import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, LINK_DOWN } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, icon, linked, dstItem, labelNode, routerOfItem, LINK_DOWN } from './core.js';
 import { keyLabel } from './keys.js';
 import { levelBar, levelText, allLevels } from './levelview.js';
 import { showResult } from './banner.js';
@@ -210,6 +210,8 @@ function oneSummary(plan) {
 // The badge row of each hold on dst, then the button the route view offers. confirm opens the Confirm with a plan;
 // none means badges only.
 export function protectNodes(dst, confirm = null) {
+  // The page has the Protects of the first router only.
+  if (routerOfItem(dst)) return [];
   const p = protectState(dst.n);
   const rows = p.holds.map((h) => el('div', 'sode__route', levelBar(h.levels), holdBadge(h)));
   const b = confirm && protectButton(dst, confirm);

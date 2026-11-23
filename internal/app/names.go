@@ -75,7 +75,7 @@ func refreshed(old, got map[int]string) map[int]string {
 }
 
 func (u *routerUnit) namesMsg() namesMsg {
-	return namesMsg{T: "names", Srcs: sorted(u.router.srcNames), Dsts: sorted(u.router.dstNames), At: u.router.namesAt, from: u}
+	return namesMsg{T: "names", Srcs: sorted(u.router.srcNames), Dsts: sorted(u.router.dstNames), At: u.router.namesAt, RouterUID: u.uid, from: u}
 }
 
 func sorted(m map[int]string) [][2]any {
@@ -137,7 +137,7 @@ func (a *App) unitNamesTickMu(r *runtime, u *routerUnit) (save, check func()) {
 				log.Printf("names: %d sources, %d destinations", len(rs.srcNames), len(rs.dstNames))
 				u.namesDirt = true
 			} else {
-				a.broadcast(namesCheckedMsg{T: "namesChecked", At: rs.namesAt})
+				a.broadcast(namesCheckedMsg{T: "namesChecked", At: rs.namesAt, RouterUID: u.uid})
 			}
 		}
 	}
