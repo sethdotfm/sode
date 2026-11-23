@@ -1,11 +1,12 @@
 // Run setup again (Settings > Server; docs/agents/settings-saves.md). Pure, Node-tested. now: the Settings values
 // with unsaved edits (readSettings plus each save source); presets: usersListResult.accessPresets.
-import { presetGaps } from './accesspresetrules.js';
+import { presetGaps, presetTarget } from './accesspresetrules.js';
 
 const GROUP_KEY = 'salvoGroup'; // the router's own salvo group, a Config JSON key
 
-// Nothing records which preset was applied, so the pick is the one the values match, else none.
-const matching = (now, presets) => presets.find((p) => !presetGaps(p.fields, now).length)?.key || '';
+// Nothing records which preset was applied, so the pick is the one the values match, else none. The Guest's Use tie
+// lines right counts too. Else a pick equal to the match stages nothing, and the Guest keeps a right the preset sets off.
+const matching = (now, presets) => presets.find((p) => !presetGaps(presetTarget(p, []), now).length)?.key || '';
 
 export function againAnswers(now, presets) {
   const was = matching(now, presets);
