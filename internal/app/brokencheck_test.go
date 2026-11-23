@@ -83,7 +83,7 @@ func TestCountedPollIsACopy(t *testing.T) {
 		cur.src[i], cur.dst[i] = checkSrcs[i], checkDsts[i]
 	}
 	a.mu.Lock()
-	if _, fault := a.countPollMu(cur); fault {
+	if _, fault := a.countPollMu(a.firstUnit(), cur); fault {
 		t.Fatal("read taken for a fault")
 	}
 	cur.src[0] = "changed"
