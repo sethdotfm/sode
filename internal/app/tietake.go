@@ -138,7 +138,10 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 				tr.steps = []*tieStep{t.step(routeReq{Src: r.src.N, Dst: r.dst.N, Levels: r.levels, Router: r.dst.Router})}
 				continue
 			}
-			cross = append(cross, r)
+			// A route down answers with the paths that remain, as for a route with no ties.
+			bare := r
+			bare.ties = nil
+			cross = append(cross, bare)
 			// Typed levels are levels of the destination's router (docs/tielines-design.md, Levels). Refuse a bad
 			// one here, before any hop goes out.
 			if _, err := rt.levelsOf(r.dst.Router).typed(r.levels); err != nil {

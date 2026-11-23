@@ -2476,8 +2476,10 @@ components:
     TiePaths:
       description: |
         An error, with the reason in `error.code`. For 409 `tie_line_needed` and 409 `no_path`,
-        `routes` gives each route across routers with its paths, cheapest first, and the reasons why
-        paths were left out. For 409 `tie_line_changed`, `routes` gives each route across routers
+        `routes` gives each route across routers without `ties`. It has its paths, cheapest first, and
+        the reasons why paths were left out. The other routes of the take count. A route with `ties`
+        takes each tie line that it sends to. A route on one router takes each tie line whose upstream
+        destination it routes. A taken tie line is `taken` for another source. For 409 `tie_line_changed`, `routes` gives each route across routers
         with the path through its tie lines as it is now. If there is no path, it gives the reason.
       content:
         application/json:

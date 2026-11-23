@@ -28,6 +28,7 @@ type tieRoute struct {
 	// when it sent none, and then the stale check does not compare them.
 	expect map[string]tieWant
 	seen   []tieplan.End
+	ties   []string // the tie line ids that the caller gave, upstream first
 }
 
 // unitUID gives the UID of the router unit that a router UID from the settings names.
@@ -85,36 +86,69 @@ func holderText(h protHold, dev int) string {
 	return fmt.Sprintf("device %d", h.dev)
 }
 
-// planTieRoutes plans each route in order. A tie line that an earlier route changes is Taken for the later ones.
-// Thus two destinations that want one source share it. No route gets a tie line that carries another source. Caller
-// holds mu.
+// planTieRoutes plans each route across routers with no ties, in order. A tie line that an earlier route changes is
+// Taken for the later ones. Thus two destinations that want one source share it. No route gets a tie line that
+// carries another source. The other routes of the take count too (docs/tielines-design.md, Takes with plain routes
+// and tie routes). A route with ties takes the tie lines that it sends to, as the stale check sees them (tieChanged).
+// A plain route to the upstream destination of a tie line takes that tie line for every route. A hop there would
+// fight it (planTieTake gives 409 conflict). Its mark has no real source (N -1), so it never matches one.
+// The result of a route with ties or on one router is empty. Caller holds mu.
 func (a *App) planTieRoutes(rt *runtime, routes []tieRoute) []tieplan.Result {
 	in := a.tieInput(rt)
 	in.Taken = map[string]tieplan.End{}
+	for _, r := range routes {
+		if r.src.Router != r.dst.Router {
+			continue
+		}
+		for _, t := range in.Ties {
+			if t.From == r.dst {
+				in.Taken[t.ID] = tieplan.End{Router: r.src.Router, N: -1}
+			}
+		}
+	}
+	take := func(src tieplan.End, hops []tieplan.Hop) {
+		for _, h := range hops {
+			if _, ok := in.Taken[h.Tie]; h.Tie != "" && h.Sends && !ok {
+				in.Taken[h.Tie] = src
+			}
+		}
+	}
 	out := make([]tieplan.Result, len(routes))
 	for i, r := range routes {
-		out[i] = tieplan.Plan(in, tieplan.Route{Src: r.src, Dst: r.dst, Levels: r.levels})
-		if p := out[i].Usable(); p != nil {
-			for _, h := range p.Hops {
-				if h.Tie != "" && h.Sends {
-					in.Taken[h.Tie] = r.src
-				}
+		rr := tieplan.Route{Src: r.src, Dst: r.dst, Levels: r.levels}
+		switch {
+		case r.src.Router == r.dst.Router:
+		case len(r.ties) > 0:
+			if p, why := tieplan.Through(in, rr, r.ties); why == nil {
+				take(r.src, p.Hops)
+			}
+		default:
+			out[i] = tieplan.Plan(in, rr)
+			if p := out[i].Usable(); p != nil {
+				take(r.src, p.Hops)
 			}
 		}
 	}
 	return out
 }
 
+// planned: the route gets a plan in a 409 body, as a route across routers with no ties.
+func (r tieRoute) planned() bool { return r.src.Router != r.dst.Router && len(r.ties) == 0 }
+
 // apiTieProblem answers routes across routers: 409 no_path when a route has no usable path, else 409
-// tie_line_needed with the ranked paths of each.
+// tie_line_needed with the ranked paths of each. The body lists only the routes that get a plan (planned); routes
+// gives the whole take, so the other routes count (planTieRoutes).
 func (a *App) apiTieProblem(rt *runtime, v apiView, routes []tieRoute) *apiProblem {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	plans := a.planTieRoutes(rt, routes)
-	body := apiTieBody{Routes: make([]apiTieRouteOut, len(routes))}
+	body := apiTieBody{Routes: []apiTieRouteOut{}}
 	code, msg := "tie_line_needed", "a route across routers needs a tie line for each hop: send the route again with ties. The paths are in routes, cheapest first"
 	for i, r := range routes {
-		body.Routes[i] = a.apiTieRoute(rt, v, r, plans[i])
+		if !r.planned() {
+			continue
+		}
+		body.Routes = append(body.Routes, a.apiTieRoute(rt, v, r, plans[i]))
 		if plans[i].Usable() == nil {
 			code, msg = "no_path", "no tie line path is usable for a route across routers; reasons gives each reason"
 		}

@@ -55,7 +55,7 @@ import { compactCentre } from './compactcentre.js';
 import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged, takeRoutes, paintTake } from './gridpopup.js';
 import { takeWord } from './gridpanelphone.js';
 import { protectKey } from './protects.js';
-import { tiePick } from './tiepicker.js';
+import { tieTake } from './tieflow.js';
 
 const sel = { src: null, dst: null };
 let dsts = [];
@@ -561,13 +561,19 @@ function openConfirm(plan) {
   if (block) return showResult(block.kind, block.title, block.text);
   if (tie) {
     const back = document.activeElement;
-    // The picker is the only confirm of a take of one tie route: a send clears the boxes as a patch does.
-    return tiePick(plan, tie, {
+    // The pickers come first. In a take of tie routes only, the last picker sends: a send clears the boxes as a patch
+    // does. A take with a plain route then opens the confirm.
+    return tieTake(plan, prot, {
       onSent: (p) => (VERBS[p.verb].resets ? clearAll() : back?.isConnected && back.focus()),
       onClose: () => (plan.verb === 'patch' ? toLevels() : back?.isConnected && back.focus()),
+      confirm: (p, pr) => showConfirm(p, pr, back),
     });
   }
-  confirmBack = document.activeElement;
+  showConfirm(plan, prot, document.activeElement);
+}
+
+function showConfirm(plan, prot, back) {
+  confirmBack = back;
   confirmKeys = keyMode();
   confirmFromHist = confirmBack === histList || histArea(confirmBack);
   confirm.open(plan, prot);
